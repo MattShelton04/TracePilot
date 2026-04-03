@@ -1,0 +1,1966 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Preset Manager</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/design-system-c.css">
+  <style>
+    /* =============================================================
+       TracePilot v2 — Preset Manager
+       Manage reusable AI agent task templates.
+       Aesthetic: Linear/Raycast — dark-first, crisp.
+       ============================================================= */
+
+    /* --- Ambient Background Gradients --- */
+    .main-content::before {
+      content: '';
+      position: fixed;
+      top: -40%;
+      right: -20%;
+      width: 80vw;
+      height: 80vh;
+      background: radial-gradient(ellipse at center, rgba(99,102,241,0.04) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .main-content::after {
+      content: '';
+      position: fixed;
+      bottom: -30%;
+      left: -10%;
+      width: 60vw;
+      height: 60vh;
+      background: radial-gradient(ellipse at center, rgba(167,139,250,0.025) 0%, transparent 55%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .page-content { position: relative; z-index: 1; }
+
+    /* --- Page Header --- */
+    .page-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+    .page-header-left { display: flex; flex-direction: column; gap: 6px; }
+    .page-header-title {
+      font-size: 1.375rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .page-header-title .title-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: var(--radius-md);
+      background: var(--gradient-accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 17px;
+      color: #fff;
+      box-shadow: 0 2px 12px rgba(99,102,241,0.35);
+      flex-shrink: 0;
+    }
+    .page-header-subtitle {
+      font-size: 0.8125rem;
+      color: var(--text-tertiary);
+      padding-left: 46px;
+    }
+    .page-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    /* --- Filter Bar --- */
+    .filter-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .filter-bar .search-container { max-width: 280px; }
+    .category-pills {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+    .category-pill {
+      padding: 5px 12px;
+      border-radius: var(--radius-full);
+      font-size: 0.75rem;
+      font-weight: 500;
+      background: transparent;
+      border: 1px solid var(--border-default);
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      white-space: nowrap;
+    }
+    .category-pill:hover {
+      background: var(--neutral-subtle);
+      color: var(--text-primary);
+    }
+    .category-pill.active {
+      background: var(--accent-muted);
+      color: var(--accent-fg);
+      border-color: var(--accent-emphasis);
+    }
+    .filter-spacer { flex: 1; }
+    .view-toggle {
+      display: flex;
+      gap: 0;
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+    .view-toggle-btn {
+      padding: 5px 8px;
+      background: transparent;
+      border: none;
+      color: var(--text-tertiary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .view-toggle-btn:hover { color: var(--text-primary); background: var(--neutral-subtle); }
+    .view-toggle-btn.active { color: var(--accent-fg); background: var(--accent-subtle); }
+    .view-toggle-btn + .view-toggle-btn { border-left: 1px solid var(--border-default); }
+
+    /* --- Preset Grid --- */
+    .preset-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+    @media (max-width: 1280px) { .preset-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 900px) {
+      .preset-grid { grid-template-columns: 1fr; }
+      .filter-bar .search-container { max-width: 100%; flex: 1; }
+    }
+    @media (max-width: 768px) {
+      .sidebar { display: none !important; }
+      .detail-panel { width: 100% !important; }
+    }
+
+    /* --- Preset Card --- */
+    .preset-card {
+      background: var(--canvas-subtle);
+      background-image: var(--gradient-card);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      cursor: pointer;
+      transition: all var(--transition-normal);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      position: relative;
+      overflow: hidden;
+      opacity: 0;
+      transform: translateY(8px);
+      animation: cardStagger 0.35s ease forwards;
+    }
+    .preset-card:nth-child(1) { animation-delay: 0.04s; }
+    .preset-card:nth-child(2) { animation-delay: 0.08s; }
+    .preset-card:nth-child(3) { animation-delay: 0.12s; }
+    .preset-card:nth-child(4) { animation-delay: 0.16s; }
+    .preset-card:nth-child(5) { animation-delay: 0.20s; }
+    .preset-card:nth-child(6) { animation-delay: 0.24s; }
+    @keyframes cardStagger {
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .preset-card:hover {
+      border-color: var(--border-accent);
+      box-shadow: var(--shadow-md), 0 0 0 1px var(--border-glow);
+      transform: translateY(-2px);
+    }
+    .preset-card.disabled {
+      opacity: 0.5;
+    }
+    .preset-card.disabled:hover { opacity: 0.65; }
+    .preset-card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .preset-card-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1;
+      min-width: 0;
+    }
+    .preset-card-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+      background: var(--accent-muted);
+    }
+    .preset-card-icon.review { background: var(--warning-muted); }
+    .preset-card-icon.report { background: var(--done-muted); }
+    .preset-card-icon.tracking { background: var(--success-muted); }
+    .preset-card-icon.custom { background: var(--neutral-muted); }
+    .preset-card-icon.health { background: var(--danger-muted); }
+    .preset-card-name-group {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+    .preset-card-name {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: color var(--transition-fast);
+    }
+    .preset-card:hover .preset-card-name { color: var(--accent-fg); }
+    .preset-card-badges {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .badge-version {
+      background: var(--accent-muted);
+      color: var(--accent-fg);
+      font-size: 0.625rem;
+      padding: 1px 6px;
+      border-radius: var(--radius-sm);
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+    .badge-builtin {
+      background: var(--done-muted);
+      color: var(--done-fg);
+      font-size: 0.625rem;
+      padding: 1px 6px;
+      border-radius: var(--radius-sm);
+      font-weight: 500;
+    }
+    .preset-card-toggle {
+      flex-shrink: 0;
+    }
+
+    /* Toggle switch */
+    .toggle-switch {
+      position: relative;
+      width: 32px;
+      height: 18px;
+      cursor: pointer;
+    }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-track {
+      position: absolute;
+      inset: 0;
+      background: var(--neutral-muted);
+      border-radius: var(--radius-full);
+      border: 1px solid var(--border-default);
+      transition: all var(--transition-fast);
+    }
+    .toggle-track::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--text-tertiary);
+      transition: all var(--transition-fast);
+    }
+    .toggle-switch input:checked + .toggle-track {
+      background: var(--accent-muted);
+      border-color: var(--accent-emphasis);
+    }
+    .toggle-switch input:checked + .toggle-track::after {
+      transform: translateX(14px);
+      background: var(--accent-fg);
+    }
+
+    .preset-card-desc {
+      font-size: 0.75rem;
+      color: var(--text-tertiary);
+      line-height: 1.5;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .preset-card-tags {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+    .tag-pill {
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+      font-size: 0.625rem;
+      font-weight: 500;
+      background: var(--neutral-subtle);
+      color: var(--text-tertiary);
+      border: 1px solid var(--border-subtle);
+    }
+    .preset-card-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 0.6875rem;
+      color: var(--text-placeholder);
+      border-top: 1px solid var(--border-subtle);
+      padding-top: 10px;
+      margin-top: auto;
+    }
+    .meta-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .meta-item svg { opacity: 0.5; }
+    .preset-card-footer {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .preset-card-footer .btn { flex: 1; justify-content: center; }
+    .btn-icon {
+      padding: 5px 7px;
+      flex: none;
+    }
+
+    /* More menu */
+    .more-menu-wrap { position: relative; }
+    .more-menu {
+      position: absolute;
+      right: 0;
+      bottom: calc(100% + 4px);
+      background: var(--canvas-overlay);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-lg);
+      min-width: 160px;
+      padding: 4px;
+      z-index: var(--z-overlay);
+      opacity: 0;
+      transform: translateY(4px);
+      pointer-events: none;
+      transition: all var(--transition-fast);
+    }
+    .more-menu.open {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+    .more-menu-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      border: none;
+      background: none;
+      width: 100%;
+      text-align: left;
+    }
+    .more-menu-item:hover { background: var(--neutral-subtle); color: var(--text-primary); }
+    .more-menu-item.danger { color: var(--danger-fg); }
+    .more-menu-item.danger:hover { background: var(--danger-subtle); }
+    .more-menu-sep { height: 1px; background: var(--border-subtle); margin: 4px 0; }
+
+    /* --- List View --- */
+    .preset-list { display: none; }
+    .preset-list.active { display: block; }
+    .preset-grid.active { display: grid; }
+    .preset-list-row {
+      display: grid;
+      grid-template-columns: 36px 1.5fr 2fr 1fr 0.8fr 0.6fr 0.7fr 100px;
+      gap: 10px;
+      align-items: center;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 0.8125rem;
+      transition: background var(--transition-fast);
+      cursor: pointer;
+    }
+    .preset-list-row:hover { background: var(--neutral-subtle); }
+    .preset-list-row.disabled { opacity: 0.45; }
+    .preset-list-header {
+      display: grid;
+      grid-template-columns: 36px 1.5fr 2fr 1fr 0.8fr 0.6fr 0.7fr 100px;
+      gap: 10px;
+      padding: 8px 14px;
+      font-size: 0.6875rem;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      border-bottom: 1px solid var(--border-default);
+      position: sticky;
+      top: 0;
+      background: var(--canvas-default);
+      z-index: 2;
+    }
+    .list-name-cell {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+    .list-name-cell .preset-card-icon { width: 26px; height: 26px; font-size: 13px; }
+    .list-name-text { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .list-desc-cell { color: var(--text-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .list-tags-cell { display: flex; gap: 3px; flex-wrap: nowrap; overflow: hidden; }
+    .list-actions-cell { display: flex; gap: 4px; justify-content: flex-end; }
+
+    /* --- Slide-over Detail Panel --- */
+    .detail-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: calc(var(--z-overlay) - 1);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+    .detail-backdrop.open { opacity: 1; pointer-events: auto; }
+    .detail-panel {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: 420px;
+      height: 100vh;
+      background: var(--canvas-subtle);
+      border-left: 1px solid var(--border-default);
+      z-index: var(--z-overlay);
+      transform: translateX(100%);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .detail-panel.open { transform: translateX(0); }
+    .detail-panel-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border-default);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    .detail-header-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .detail-header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .detail-close-btn {
+      background: none;
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-sm);
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-tertiary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .detail-close-btn:hover { background: var(--neutral-subtle); color: var(--text-primary); }
+    .detail-header-name {
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .detail-header-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .detail-panel-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0;
+    }
+    .detail-section {
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .detail-section:last-child { border-bottom: none; }
+    .detail-section-trigger {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 20px;
+      cursor: pointer;
+      transition: background var(--transition-fast);
+      user-select: none;
+    }
+    .detail-section-trigger:hover { background: var(--neutral-subtle); }
+    .detail-section-title {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-tertiary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .detail-section-chevron {
+      transition: transform var(--transition-fast);
+      color: var(--text-placeholder);
+    }
+    .detail-section-trigger.expanded .detail-section-chevron {
+      transform: rotate(90deg);
+    }
+    .detail-section-body {
+      padding: 0 20px 16px;
+      display: none;
+    }
+    .detail-section-body.open { display: block; }
+
+    /* Detail content styles */
+    .prompt-block {
+      background: var(--canvas-default);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.6875rem;
+      line-height: 1.7;
+      color: var(--text-secondary);
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 180px;
+      overflow-y: auto;
+      margin-bottom: 10px;
+    }
+    .prompt-block .var-highlight {
+      color: var(--accent-fg);
+      font-weight: 600;
+      background: var(--accent-subtle);
+      padding: 0 3px;
+      border-radius: 3px;
+    }
+    .prompt-label {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .var-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.75rem;
+      margin-top: 10px;
+    }
+    .var-table th {
+      text-align: left;
+      padding: 6px 8px;
+      font-size: 0.625rem;
+      font-weight: 500;
+      color: var(--text-placeholder);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      border-bottom: 1px solid var(--border-default);
+    }
+    .var-table td {
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+    }
+    .var-table .var-name {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.6875rem;
+      color: var(--accent-fg);
+      font-weight: 500;
+    }
+    .var-type-badge {
+      font-size: 0.5625rem;
+      padding: 1px 5px;
+      border-radius: var(--radius-sm);
+      background: var(--neutral-subtle);
+      color: var(--text-tertiary);
+      font-family: "JetBrains Mono", monospace;
+    }
+    .required-dot {
+      display: inline-block;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--danger-fg);
+      margin-left: 4px;
+    }
+
+    .source-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      background: var(--canvas-default);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      margin-bottom: 6px;
+    }
+    .source-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+    .source-info { flex: 1; min-width: 0; }
+    .source-type {
+      font-size: 0.75rem;
+      font-weight: 500;
+      font-family: "JetBrains Mono", monospace;
+      color: var(--text-primary);
+    }
+    .source-label { font-size: 0.6875rem; color: var(--text-tertiary); }
+
+    .budget-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      background: var(--canvas-default);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      margin-top: 8px;
+    }
+    .budget-label { font-size: 0.6875rem; color: var(--text-tertiary); }
+    .budget-value {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-primary);
+    }
+
+    .exec-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .exec-item {
+      padding: 10px 12px;
+      background: var(--canvas-default);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+    }
+    .exec-item-label {
+      font-size: 0.625rem;
+      font-weight: 500;
+      color: var(--text-placeholder);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-bottom: 4px;
+    }
+    .exec-item-value {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .schema-block {
+      background: var(--canvas-default);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.6875rem;
+      line-height: 1.6;
+      color: var(--text-secondary);
+      max-height: 200px;
+      overflow-y: auto;
+      white-space: pre;
+    }
+
+    .detail-panel-footer {
+      padding: 14px 20px;
+      border-top: 1px solid var(--border-default);
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .detail-panel-footer .btn { flex: 1; justify-content: center; }
+
+    /* --- Create/Edit Modal --- */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: var(--z-modal);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-backdrop.open { opacity: 1; pointer-events: auto; }
+    .modal {
+      width: 720px;
+      max-width: 95vw;
+      max-height: 85vh;
+      background: var(--canvas-overlay);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-lg);
+      display: flex;
+      flex-direction: column;
+      transform: scale(0.96) translateY(8px);
+      transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .modal-backdrop.open .modal {
+      transform: scale(1) translateY(0);
+    }
+    .modal-header {
+      padding: 18px 24px 14px;
+      border-bottom: 1px solid var(--border-default);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .modal-title {
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .modal-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .modal-footer {
+      padding: 14px 24px;
+      border-top: 1px solid var(--border-default);
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+    .form-input {
+      padding: 8px 12px;
+      background: var(--canvas-default);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      color: var(--text-primary);
+      font-size: 0.8125rem;
+      outline: none;
+      transition: all var(--transition-fast);
+      font-family: inherit;
+    }
+    .form-input:focus {
+      border-color: var(--accent-emphasis);
+      box-shadow: var(--shadow-glow-accent);
+    }
+    .form-input::placeholder { color: var(--text-placeholder); }
+    textarea.form-input {
+      resize: vertical;
+      min-height: 80px;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.75rem;
+      line-height: 1.6;
+    }
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    .form-row-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 14px;
+    }
+    .form-select {
+      padding: 8px 28px 8px 12px;
+      background: var(--canvas-default);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      color: var(--text-primary);
+      font-size: 0.8125rem;
+      outline: none;
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='%2371717a'%3E%3Cpath d='M5 7L0.5 2.5h9z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      transition: all var(--transition-fast);
+    }
+    .form-select:focus {
+      border-color: var(--accent-emphasis);
+      box-shadow: var(--shadow-glow-accent);
+    }
+    .form-hint {
+      font-size: 0.6875rem;
+      color: var(--text-placeholder);
+    }
+
+    /* Variable rows in modal */
+    .var-rows { display: flex; flex-direction: column; gap: 6px; }
+    .var-row {
+      display: grid;
+      grid-template-columns: 1fr 0.8fr 0.8fr auto auto;
+      gap: 6px;
+      align-items: center;
+    }
+    .var-row .form-input,
+    .var-row .form-select { padding: 5px 8px; font-size: 0.75rem; }
+    .var-remove-btn {
+      background: none;
+      border: none;
+      color: var(--text-placeholder);
+      cursor: pointer;
+      padding: 2px;
+      transition: color var(--transition-fast);
+      display: flex;
+      align-items: center;
+    }
+    .var-remove-btn:hover { color: var(--danger-fg); }
+    .add-var-btn {
+      font-size: 0.75rem;
+      color: var(--accent-fg);
+      background: none;
+      border: 1px dashed var(--border-default);
+      border-radius: var(--radius-md);
+      padding: 7px;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      text-align: center;
+    }
+    .add-var-btn:hover { background: var(--accent-subtle); border-color: var(--accent-emphasis); }
+
+    /* --- Toast Notifications --- */
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: calc(var(--z-modal) + 10);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .toast {
+      background: var(--canvas-overlay);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      padding: 10px 16px;
+      font-size: 0.8125rem;
+      color: var(--text-primary);
+      box-shadow: var(--shadow-lg);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      animation: toastIn 0.3s ease, toastOut 0.3s ease 2.7s forwards;
+      min-width: 240px;
+    }
+    .toast.success { border-left: 3px solid var(--success-fg); }
+    .toast.danger { border-left: 3px solid var(--danger-fg); }
+    .toast.info { border-left: 3px solid var(--accent-fg); }
+    @keyframes toastIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes toastOut { to { opacity: 0; transform: translateY(-10px); } }
+
+    /* Section label for form */
+    .form-section-label {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: var(--text-placeholder);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    /* Checkbox inline */
+    .checkbox-inline {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
+    .checkbox-inline input[type="checkbox"] {
+      accent-color: var(--accent-emphasis);
+      width: 14px;
+      height: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="app-sidebar"></aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <div class="page-content">
+        <div class="page-content-inner">
+
+          <!-- Page Header -->
+          <div class="page-header">
+            <div class="page-header-left">
+              <div class="page-header-title">
+                <div class="title-icon">🧩</div>
+                Task Presets
+              </div>
+              <div class="page-header-subtitle">Reusable templates for AI agent tasks</div>
+            </div>
+            <div class="page-header-actions">
+              <button class="btn" onclick="openModal('import')">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 2v8M3 6l4-4 4 4"/><path d="M2 12h10"/></svg>
+                Import
+              </button>
+              <button class="btn btn-primary" onclick="openModal('create')">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="7" y1="3" x2="7" y2="11"/><line x1="3" y1="7" x2="11" y2="7"/></svg>
+                New Preset
+              </button>
+            </div>
+          </div>
+
+          <!-- Filter Bar -->
+          <div class="filter-bar">
+            <div class="search-container">
+              <svg class="search-icon" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="4.5"/><line x1="10.5" y1="10.5" x2="14" y2="14"/></svg>
+              <input type="text" class="search-input" id="presetSearch" placeholder="Search presets…" oninput="filterPresets()">
+              <span class="search-shortcut">⌘K</span>
+            </div>
+            <div class="category-pills" id="categoryPills">
+              <button class="category-pill active" data-category="all" onclick="setCategory(this)">All</button>
+              <button class="category-pill" data-category="analysis" onclick="setCategory(this)">Analysis</button>
+              <button class="category-pill" data-category="review" onclick="setCategory(this)">Review</button>
+              <button class="category-pill" data-category="reporting" onclick="setCategory(this)">Reporting</button>
+              <button class="category-pill" data-category="tracking" onclick="setCategory(this)">Tracking</button>
+              <button class="category-pill" data-category="custom" onclick="setCategory(this)">Custom</button>
+            </div>
+            <div class="filter-spacer"></div>
+            <select class="filter-select" id="sortSelect" onchange="filterPresets()">
+              <option value="name">Sort: Name</option>
+              <option value="updated">Sort: Recently Updated</option>
+            </select>
+            <div class="view-toggle">
+              <button class="view-toggle-btn active" id="gridViewBtn" onclick="setView('grid')" title="Grid view">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="4.5" height="4.5" rx="1"/><rect x="8.5" y="1" width="4.5" height="4.5" rx="1"/><rect x="1" y="8.5" width="4.5" height="4.5" rx="1"/><rect x="8.5" y="8.5" width="4.5" height="4.5" rx="1"/></svg>
+              </button>
+              <button class="view-toggle-btn" id="listViewBtn" onclick="setView('list')" title="List view">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="1" y1="3" x2="13" y2="3"/><line x1="1" y1="7" x2="13" y2="7"/><line x1="1" y1="11" x2="13" y2="11"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Tab Bar -->
+          <div class="tab-nav" id="presetTabs">
+            <button class="tab-nav-item active" data-tab="all" onclick="setTab(this)">All Presets <span class="tab-count" id="tabCountAll">6</span></button>
+            <button class="tab-nav-item" data-tab="builtin" onclick="setTab(this)">Built-in <span class="tab-count" id="tabCountBuiltin">3</span></button>
+            <button class="tab-nav-item" data-tab="user" onclick="setTab(this)">User Created <span class="tab-count" id="tabCountUser">3</span></button>
+          </div>
+
+          <!-- Grid View -->
+          <div class="preset-grid active" id="presetGrid"></div>
+
+          <!-- List View -->
+          <div class="preset-list" id="presetList">
+            <div class="section-panel">
+              <div class="preset-list-header">
+                <div></div>
+                <div>Name</div>
+                <div>Description</div>
+                <div>Tags</div>
+                <div>Sources</div>
+                <div>Format</div>
+                <div>Model</div>
+                <div style="text-align:right">Actions</div>
+              </div>
+              <div id="presetListBody"></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Detail Slide-over Panel -->
+  <div class="detail-backdrop" id="detailBackdrop" onclick="closeDetail()"></div>
+  <div class="detail-panel" id="detailPanel">
+    <div class="detail-panel-header">
+      <div class="detail-header-top">
+        <div class="detail-header-left">
+          <button class="detail-close-btn" onclick="closeDetail()" title="Close">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="3" x2="11" y2="11"/><line x1="11" y1="3" x2="3" y2="11"/></svg>
+          </button>
+          <span class="detail-header-name" id="detailName"></span>
+        </div>
+        <div id="detailToggle"></div>
+      </div>
+      <div class="detail-header-meta" id="detailMeta"></div>
+    </div>
+    <div class="detail-panel-body" id="detailBody"></div>
+    <div class="detail-panel-footer" id="detailFooter"></div>
+  </div>
+
+  <!-- Create/Edit Modal -->
+  <div class="modal-backdrop" id="modalBackdrop" onclick="closeModal()">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <span class="modal-title" id="modalTitle">New Preset</span>
+        <button class="detail-close-btn" onclick="closeModal()">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="3" x2="11" y2="11"/><line x1="11" y1="3" x2="3" y2="11"/></svg>
+        </button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="savePreset()">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="3,7 6,10 11,4"/></svg>
+          Save Preset
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="../../shared/shared.js"></script>
+  <script>
+    // =====================================================
+    // SIDEBAR
+    // =====================================================
+    (function() {
+      const sidebar = document.getElementById('app-sidebar');
+      let html = generateSidebar('tasks');
+      const agentSection = `
+        <div class="sidebar-section-title" style="margin-top: 4px;">AI Agents</div>
+        <a class="sidebar-nav-item" href="task-dashboard.html" style="position:relative;">
+          <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="5" r="3"/><path d="M3 14c0-3 2-5 5-5s5 2 5 5"/><circle cx="12" cy="4" r="1.5" fill="currentColor" stroke="none" opacity="0.4"/></svg></span>
+          <span>Tasks</span>
+          <span class="sidebar-nav-badge" style="background: var(--accent-muted); color: var(--accent-fg); padding: 1px 7px; border-radius: 9999px;">47</span>
+        </a>
+        <a class="sidebar-nav-item active" href="#" style="position:relative;">
+          <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M6 6h4M6 8.5h4M6 11h2"/></svg></span>
+          <span>Presets</span>
+          <span class="sidebar-nav-badge" style="background: var(--done-muted); color: var(--done-fg); padding: 1px 7px; border-radius: 9999px;">6</span>
+        </a>
+      `;
+      html = html.replace('</nav>', agentSection + '</nav>');
+      sidebar.innerHTML = html;
+    })();
+
+    // =====================================================
+    // MOCK PRESET DATA
+    // =====================================================
+    const PRESETS = [
+      {
+        id: 'session-summary',
+        name: 'Session Summary',
+        description: 'Generate a comprehensive summary of an AI coding session, including key decisions, tool usage patterns, and code changes made.',
+        version: 3,
+        icon: '📊',
+        iconClass: '',
+        prompt: {
+          system: 'You are a session analysis expert. Your role is to analyze AI coding sessions and produce clear, structured summaries that highlight key patterns, decisions, and outcomes. Focus on actionable insights.',
+          user: 'Analyze session {{sessionId}} and produce a structured summary.\n\nFocus areas: {{focusAreas}}\nMax length: {{maxLength}} words.',
+          variables: [
+            { name: 'sessionId', type: 'session_ref', required: true, description: 'The session to analyze', default: null },
+            { name: 'focusAreas', type: 'string', required: false, description: 'Comma-separated areas to focus on', default: null },
+            { name: 'maxLength', type: 'number', required: false, description: 'Maximum word count for the summary', default: '500' }
+          ]
+        },
+        context: {
+          sources: [
+            { id: 'src-1', type: 'session_export', label: 'Full Session Export', required: true, config: {} },
+            { id: 'src-2', type: 'session_analytics', label: 'Session Analytics', required: false, config: {} }
+          ],
+          maxChars: 50000,
+          format: 'markdown'
+        },
+        output: {
+          schema: { type: 'object', properties: { summary: { type: 'string' }, keyDecisions: { type: 'array' }, toolUsage: { type: 'object' }, codeChanges: { type: 'object' }, recommendations: { type: 'array' } } },
+          format: 'json',
+          validation: 'strict'
+        },
+        execution: { modelOverride: null, timeoutSeconds: 120, maxRetries: 2, priority: 'normal' },
+        tags: ['analysis', 'summary'],
+        enabled: true,
+        builtin: true,
+        createdAt: '2026-01-15T10:00:00.000Z',
+        updatedAt: '2026-03-10T14:30:00.000Z'
+      },
+      {
+        id: 'health-report',
+        name: 'Health Report',
+        description: 'Analyze session health metrics and generate a diagnostic report with scores, warnings, and improvement suggestions.',
+        version: 2,
+        icon: '🩺',
+        iconClass: 'health',
+        prompt: {
+          system: 'You are a session health diagnostician. Analyze health metrics, identify anomalies, and provide actionable improvement suggestions.',
+          user: 'Generate a health report for {{sessionId}}.\nInclude comparison with baseline: {{includeBaseline}}.',
+          variables: [
+            { name: 'sessionId', type: 'session_ref', required: true, description: 'Session to analyze health for', default: null },
+            { name: 'includeBaseline', type: 'boolean', required: false, description: 'Compare against baseline metrics', default: 'true' }
+          ]
+        },
+        context: {
+          sources: [
+            { id: 'src-3', type: 'session_health', label: 'Health Metrics', required: true, config: {} },
+            { id: 'src-4', type: 'recent_sessions', label: 'Recent Sessions (baseline)', required: false, config: { limit: 10 } }
+          ],
+          maxChars: 40000,
+          format: 'json'
+        },
+        output: {
+          schema: { type: 'object', properties: { overallScore: { type: 'number' }, categories: { type: 'array' }, warnings: { type: 'array' }, suggestions: { type: 'array' } } },
+          format: 'json',
+          validation: 'warn'
+        },
+        execution: { modelOverride: null, timeoutSeconds: 90, maxRetries: 2, priority: 'normal' },
+        tags: ['analysis', 'health'],
+        enabled: true,
+        builtin: true,
+        createdAt: '2026-01-20T08:00:00.000Z',
+        updatedAt: '2026-03-08T11:15:00.000Z'
+      },
+      {
+        id: 'code-review',
+        name: 'Code Review',
+        description: 'Perform an automated code review on session changes, checking for bugs, security vulnerabilities, performance issues, and best practices.',
+        version: 1,
+        icon: '🔍',
+        iconClass: 'review',
+        prompt: {
+          system: 'You are a senior code reviewer with expertise in security, performance, and clean architecture. Be thorough but concise. Flag only real issues.',
+          user: 'Review the code changes from session {{sessionId}}.\nSeverity filter: {{minSeverity}}.',
+          variables: [
+            { name: 'sessionId', type: 'session_ref', required: true, description: 'Session with code changes to review', default: null },
+            { name: 'minSeverity', type: 'string', required: false, description: 'Minimum severity to report (info|warning|error|critical)', default: 'warning' }
+          ]
+        },
+        context: {
+          sources: [
+            { id: 'src-5', type: 'session_export', label: 'Session Export', required: true, config: {} },
+            { id: 'src-6', type: 'session_analytics', label: 'Code Analytics', required: false, config: {} }
+          ],
+          maxChars: 60000,
+          format: 'markdown'
+        },
+        output: {
+          schema: { type: 'object', properties: { findings: { type: 'array' }, score: { type: 'number' }, summary: { type: 'string' } } },
+          format: 'json',
+          validation: 'strict'
+        },
+        execution: { modelOverride: 'claude-sonnet-4.6', timeoutSeconds: 180, maxRetries: 3, priority: 'high' },
+        tags: ['review', 'code', 'security'],
+        enabled: true,
+        builtin: false,
+        createdAt: '2026-02-10T16:00:00.000Z',
+        updatedAt: '2026-03-12T09:45:00.000Z'
+      },
+      {
+        id: 'sprint-report',
+        name: 'Sprint Report',
+        description: 'Generate a sprint summary report from multiple sessions, aggregating productivity metrics, code changes, and team patterns.',
+        version: 1,
+        icon: '📋',
+        iconClass: 'report',
+        prompt: {
+          system: 'You are a project manager producing sprint reports. Aggregate data across sessions to identify trends, blockers, and achievements.',
+          user: 'Generate a sprint report for sessions: {{sessionList}}.\nSprint name: {{sprintName}}.',
+          variables: [
+            { name: 'sessionList', type: 'session_list', required: true, description: 'List of session IDs to include', default: null },
+            { name: 'sprintName', type: 'string', required: false, description: 'Name for this sprint', default: null }
+          ]
+        },
+        context: {
+          sources: [
+            { id: 'src-7', type: 'session_export', label: 'Session Exports (batch)', required: true, config: { batch: true } },
+            { id: 'src-8', type: 'session_analytics', label: 'Aggregated Analytics', required: true, config: {} }
+          ],
+          maxChars: 100000,
+          format: 'markdown'
+        },
+        output: { schema: null, format: 'markdown', validation: 'none' },
+        execution: { modelOverride: null, timeoutSeconds: 300, maxRetries: 1, priority: 'normal' },
+        tags: ['reporting', 'batch', 'team'],
+        enabled: true,
+        builtin: false,
+        createdAt: '2026-02-25T12:00:00.000Z',
+        updatedAt: '2026-03-14T08:20:00.000Z'
+      },
+      {
+        id: 'todo-tracker',
+        name: 'TODO Tracker',
+        description: 'Extract and track TODO items from sessions, monitoring completion status and identifying stale or blocked items.',
+        version: 1,
+        icon: '✅',
+        iconClass: 'tracking',
+        prompt: {
+          system: 'You are a task tracker. Extract TODO items from sessions, categorize them, and track their completion status.',
+          user: 'Extract and analyze TODOs from session {{sessionId}}.\nInclude completed: {{includeCompleted}}.',
+          variables: [
+            { name: 'sessionId', type: 'session_ref', required: true, description: 'Session to extract TODOs from', default: null },
+            { name: 'includeCompleted', type: 'boolean', required: false, description: 'Include already completed TODOs', default: 'false' }
+          ]
+        },
+        context: {
+          sources: [
+            { id: 'src-9', type: 'session_todos', label: 'Session TODOs', required: true, config: {} }
+          ],
+          maxChars: 30000,
+          format: 'json'
+        },
+        output: {
+          schema: { type: 'object', properties: { todos: { type: 'array' }, stats: { type: 'object' } } },
+          format: 'json',
+          validation: 'warn'
+        },
+        execution: { modelOverride: null, timeoutSeconds: 60, maxRetries: 2, priority: 'low' },
+        tags: ['tracking', 'productivity'],
+        enabled: true,
+        builtin: true,
+        createdAt: '2026-01-28T09:00:00.000Z',
+        updatedAt: '2026-03-05T10:00:00.000Z'
+      },
+      {
+        id: 'custom-analysis',
+        name: 'Custom Analysis',
+        description: 'A user-defined analysis template with custom prompts and flexible output. Currently disabled pending configuration.',
+        version: 1,
+        icon: '⚗️',
+        iconClass: 'custom',
+        prompt: {
+          system: 'You are an AI assistant. Follow the user instructions precisely.',
+          user: 'Analyze {{target}} using approach {{approach}}.',
+          variables: [
+            { name: 'target', type: 'string', required: true, description: 'What to analyze', default: null },
+            { name: 'approach', type: 'string', required: false, description: 'Analysis methodology', default: 'general' }
+          ]
+        },
+        context: {
+          sources: [
+            { id: 'src-10', type: 'session_export', label: 'Session Data', required: true, config: {} }
+          ],
+          maxChars: 50000,
+          format: 'markdown'
+        },
+        output: { schema: null, format: 'text', validation: 'none' },
+        execution: { modelOverride: null, timeoutSeconds: 120, maxRetries: 1, priority: 'normal' },
+        tags: ['custom', 'advanced'],
+        enabled: false,
+        builtin: false,
+        createdAt: '2026-03-01T14:00:00.000Z',
+        updatedAt: '2026-03-01T14:00:00.000Z'
+      }
+    ];
+
+    // =====================================================
+    // STATE
+    // =====================================================
+    let currentView = 'grid';
+    let currentTab = 'all';
+    let currentCategory = 'all';
+    let currentSearch = '';
+    let currentSort = 'name';
+    let openMenuId = null;
+
+    // =====================================================
+    // RENDERING
+    // =====================================================
+    function getFilteredPresets() {
+      let list = [...PRESETS];
+
+      // Tab filter
+      if (currentTab === 'builtin') list = list.filter(p => p.builtin);
+      else if (currentTab === 'user') list = list.filter(p => !p.builtin);
+
+      // Category filter
+      if (currentCategory !== 'all') {
+        list = list.filter(p => p.tags.some(t => t === currentCategory));
+      }
+
+      // Search
+      if (currentSearch) {
+        const q = currentSearch.toLowerCase();
+        list = list.filter(p =>
+          p.name.toLowerCase().includes(q) ||
+          p.description.toLowerCase().includes(q) ||
+          p.tags.some(t => t.includes(q))
+        );
+      }
+
+      // Sort
+      if (currentSort === 'updated') {
+        list.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+      } else {
+        list.sort((a, b) => a.name.localeCompare(b.name));
+      }
+
+      return list;
+    }
+
+    function highlightVars(text) {
+      return text.replace(/\{\{(\w+)\}\}/g, '<span class="var-highlight">{{$1}}</span>');
+    }
+
+    function formatChars(n) {
+      if (n >= 1000) return (n / 1000).toFixed(0) + 'K';
+      return n.toString();
+    }
+
+    function renderGrid() {
+      const list = getFilteredPresets();
+      const grid = document.getElementById('presetGrid');
+      if (!list.length) {
+        grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-state-icon">🔍</div><div class="empty-state-title">No presets found</div><div class="empty-state-desc">Try adjusting your filters or search query.</div></div>`;
+        return;
+      }
+      grid.innerHTML = list.map(p => `
+        <div class="preset-card ${p.enabled ? '' : 'disabled'}" onclick="openDetail('${p.id}')" data-id="${p.id}">
+          <div class="preset-card-header">
+            <div class="preset-card-left">
+              <div class="preset-card-icon ${p.iconClass}">${p.icon}</div>
+              <div class="preset-card-name-group">
+                <div class="preset-card-name">${p.name}</div>
+                <div class="preset-card-badges">
+                  <span class="badge-version">v${p.version}</span>
+                  ${p.builtin ? '<span class="badge-builtin">built-in</span>' : ''}
+                  ${!p.enabled ? '<span class="badge badge-danger" style="font-size:0.6rem;padding:1px 5px">disabled</span>' : ''}
+                </div>
+              </div>
+            </div>
+            <div class="preset-card-toggle" onclick="event.stopPropagation()">
+              <label class="toggle-switch">
+                <input type="checkbox" ${p.enabled ? 'checked' : ''} onchange="togglePreset('${p.id}', this.checked)">
+                <span class="toggle-track"></span>
+              </label>
+            </div>
+          </div>
+          <div class="preset-card-desc">${p.description}</div>
+          <div class="preset-card-tags">
+            ${p.tags.map(t => `<span class="tag-pill">${t}</span>`).join('')}
+          </div>
+          <div class="preset-card-meta">
+            <span class="meta-item">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="6" r="4"/><path d="M6 4v2l1.5 1"/></svg>
+              ${p.context.sources.length} source${p.context.sources.length !== 1 ? 's' : ''}
+            </span>
+            <span class="meta-item">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="8" height="8" rx="1"/><path d="M4 5h4M4 7h2"/></svg>
+              ${p.output.format}
+            </span>
+            ${p.execution.modelOverride ? `<span class="meta-item" style="color:var(--warning-fg)"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 1l5 10H1z"/></svg>${p.execution.modelOverride.split('-').slice(0,2).join('-')}</span>` : ''}
+            ${p.execution.priority !== 'normal' ? `<span class="meta-item" style="color:${p.execution.priority === 'high' ? 'var(--danger-fg)' : 'var(--text-placeholder)'}">● ${p.execution.priority}</span>` : ''}
+          </div>
+          <div class="preset-card-footer" onclick="event.stopPropagation()">
+            <button class="btn btn-sm btn-primary" onclick="showToast('Task started from \\'${p.name}\\'', 'success')" ${!p.enabled ? 'disabled style="opacity:0.4;pointer-events:none"' : ''}>
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="4,2 10,6 4,10" fill="currentColor" stroke="none"/></svg>
+              Run Task
+            </button>
+            <button class="btn btn-sm" onclick="openModal('edit', '${p.id}')">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8.5 1.5l2 2-6 6H2.5v-2z"/></svg>
+              Edit
+            </button>
+            <div class="more-menu-wrap">
+              <button class="btn btn-sm btn-icon" onclick="toggleMenu('${p.id}')">⋯</button>
+              <div class="more-menu" id="menu-${p.id}">
+                <button class="more-menu-item" onclick="duplicatePreset('${p.id}')">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="4" width="8" height="8" rx="1.5"/><path d="M4 10H3a1.5 1.5 0 01-1.5-1.5V3A1.5 1.5 0 013 1.5h5.5A1.5 1.5 0 0110 3v1"/></svg>
+                  Duplicate
+                </button>
+                <button class="more-menu-item" onclick="exportPreset('${p.id}')">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 2v8M4 6l3-4 3 4M2 12h10"/></svg>
+                  Export JSON
+                </button>
+                ${!p.builtin ? `<div class="more-menu-sep"></div><button class="more-menu-item danger" onclick="deletePreset('${p.id}')"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h10M5 4V2.5h4V4M3 4l.7 8a1 1 0 001 .9h4.6a1 1 0 001-.9L11 4"/></svg>Delete</button>` : ''}
+              </div>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderList() {
+      const list = getFilteredPresets();
+      const body = document.getElementById('presetListBody');
+      if (!list.length) {
+        body.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🔍</div><div class="empty-state-title">No presets found</div></div>`;
+        return;
+      }
+      body.innerHTML = list.map(p => `
+        <div class="preset-list-row ${p.enabled ? '' : 'disabled'}" onclick="openDetail('${p.id}')">
+          <div onclick="event.stopPropagation()">
+            <label class="toggle-switch">
+              <input type="checkbox" ${p.enabled ? 'checked' : ''} onchange="togglePreset('${p.id}', this.checked)">
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+          <div class="list-name-cell">
+            <div class="preset-card-icon ${p.iconClass}" style="width:26px;height:26px;font-size:13px">${p.icon}</div>
+            <span class="list-name-text">${p.name}</span>
+            ${p.builtin ? '<span class="badge-builtin">built-in</span>' : ''}
+          </div>
+          <div class="list-desc-cell">${p.description}</div>
+          <div class="list-tags-cell">${p.tags.slice(0, 3).map(t => `<span class="tag-pill">${t}</span>`).join('')}</div>
+          <div style="font-size:0.75rem;color:var(--text-tertiary)">${p.context.sources.length} source${p.context.sources.length !== 1 ? 's' : ''}</div>
+          <div><span class="badge badge-neutral">${p.output.format}</span></div>
+          <div style="font-size:0.75rem;color:${p.execution.modelOverride ? 'var(--warning-fg)' : 'var(--text-tertiary)'}">${p.execution.modelOverride || 'default'}</div>
+          <div class="list-actions-cell" onclick="event.stopPropagation()">
+            <button class="btn btn-sm" onclick="showToast('Task started', 'success')" ${!p.enabled ? 'disabled style="opacity:0.3"' : ''} title="Run">▶</button>
+            <button class="btn btn-sm" onclick="openModal('edit', '${p.id}')" title="Edit">✏️</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function updateTabCounts() {
+      const all = PRESETS.length;
+      const builtin = PRESETS.filter(p => p.builtin).length;
+      const user = PRESETS.filter(p => !p.builtin).length;
+      document.getElementById('tabCountAll').textContent = all;
+      document.getElementById('tabCountBuiltin').textContent = builtin;
+      document.getElementById('tabCountUser').textContent = user;
+    }
+
+    function renderAll() {
+      renderGrid();
+      renderList();
+      updateTabCounts();
+    }
+
+    // =====================================================
+    // INTERACTIONS
+    // =====================================================
+    function setView(view) {
+      currentView = view;
+      document.getElementById('gridViewBtn').classList.toggle('active', view === 'grid');
+      document.getElementById('listViewBtn').classList.toggle('active', view === 'list');
+      const grid = document.getElementById('presetGrid');
+      const list = document.getElementById('presetList');
+      if (view === 'grid') {
+        grid.classList.add('active');
+        grid.style.display = '';
+        list.classList.remove('active');
+        list.style.display = 'none';
+      } else {
+        grid.classList.remove('active');
+        grid.style.display = 'none';
+        list.classList.add('active');
+        list.style.display = '';
+      }
+    }
+
+    function setTab(el) {
+      document.querySelectorAll('#presetTabs .tab-nav-item').forEach(t => t.classList.remove('active'));
+      el.classList.add('active');
+      currentTab = el.dataset.tab;
+      renderAll();
+    }
+
+    function setCategory(el) {
+      document.querySelectorAll('.category-pill').forEach(p => p.classList.remove('active'));
+      el.classList.add('active');
+      currentCategory = el.dataset.category;
+      renderAll();
+    }
+
+    function filterPresets() {
+      currentSearch = document.getElementById('presetSearch').value;
+      currentSort = document.getElementById('sortSelect').value;
+      renderAll();
+    }
+
+    function togglePreset(id, enabled) {
+      const p = PRESETS.find(x => x.id === id);
+      if (p) {
+        p.enabled = enabled;
+        renderAll();
+        showToast(`${p.name} ${enabled ? 'enabled' : 'disabled'}`, enabled ? 'success' : 'info');
+      }
+    }
+
+    function toggleMenu(id) {
+      if (openMenuId && openMenuId !== id) {
+        const old = document.getElementById('menu-' + openMenuId);
+        if (old) old.classList.remove('open');
+      }
+      const menu = document.getElementById('menu-' + id);
+      if (menu) {
+        menu.classList.toggle('open');
+        openMenuId = menu.classList.contains('open') ? id : null;
+      }
+    }
+
+    document.addEventListener('click', (e) => {
+      if (openMenuId && !e.target.closest('.more-menu-wrap')) {
+        const menu = document.getElementById('menu-' + openMenuId);
+        if (menu) menu.classList.remove('open');
+        openMenuId = null;
+      }
+    });
+
+    function duplicatePreset(id) {
+      const p = PRESETS.find(x => x.id === id);
+      if (p) {
+        showToast(`Duplicated '${p.name}'`, 'success');
+        toggleMenu(id);
+      }
+    }
+
+    function exportPreset(id) {
+      const p = PRESETS.find(x => x.id === id);
+      if (p) {
+        showToast(`Exported '${p.name}' as JSON`, 'info');
+        toggleMenu(id);
+      }
+    }
+
+    function deletePreset(id) {
+      const p = PRESETS.find(x => x.id === id);
+      if (p && confirm(`Delete preset "${p.name}"? This cannot be undone.`)) {
+        const idx = PRESETS.findIndex(x => x.id === id);
+        if (idx >= 0) PRESETS.splice(idx, 1);
+        renderAll();
+        showToast(`Deleted '${p.name}'`, 'danger');
+        closeDetail();
+      }
+      toggleMenu(id);
+    }
+
+    // =====================================================
+    // DETAIL PANEL
+    // =====================================================
+    function openDetail(id) {
+      const p = PRESETS.find(x => x.id === id);
+      if (!p) return;
+
+      document.getElementById('detailName').textContent = p.name;
+      document.getElementById('detailMeta').innerHTML = `
+        <span class="badge-version">v${p.version}</span>
+        ${p.builtin ? '<span class="badge-builtin">built-in</span>' : '<span class="badge badge-neutral" style="font-size:0.625rem;padding:1px 5px">user</span>'}
+        ${p.tags.map(t => `<span class="tag-pill">${t}</span>`).join('')}
+      `;
+      document.getElementById('detailToggle').innerHTML = `
+        <label class="toggle-switch">
+          <input type="checkbox" ${p.enabled ? 'checked' : ''} onchange="togglePreset('${p.id}', this.checked)">
+          <span class="toggle-track"></span>
+        </label>
+      `;
+
+      const sourceIcons = {
+        session_export: '📦',
+        session_analytics: '📊',
+        session_health: '🩺',
+        session_todos: '✅',
+        recent_sessions: '🕐'
+      };
+      const sourceColors = {
+        session_export: 'var(--accent-muted)',
+        session_analytics: 'var(--done-muted)',
+        session_health: 'var(--danger-muted)',
+        session_todos: 'var(--success-muted)',
+        recent_sessions: 'var(--warning-muted)'
+      };
+
+      document.getElementById('detailBody').innerHTML = `
+        <!-- Prompt Section -->
+        <div class="detail-section">
+          <div class="detail-section-trigger expanded" onclick="toggleSection(this)">
+            <span class="detail-section-title">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="10" height="10" rx="1.5"/><path d="M5 5h4M5 7h4M5 9h2"/></svg>
+              Prompt
+            </span>
+            <span class="detail-section-chevron" style="transform:rotate(90deg)"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="4,2 8,6 4,10"/></svg></span>
+          </div>
+          <div class="detail-section-body open">
+            <div class="prompt-label">System Prompt</div>
+            <div class="prompt-block">${p.prompt.system}</div>
+            <div class="prompt-label" style="margin-top:12px">User Prompt</div>
+            <div class="prompt-block">${highlightVars(p.prompt.user)}</div>
+            <div class="prompt-label" style="margin-top:12px">Variables</div>
+            <table class="var-table">
+              <thead><tr><th>Name</th><th>Type</th><th>Required</th><th>Default</th></tr></thead>
+              <tbody>
+                ${p.prompt.variables.map(v => `
+                  <tr>
+                    <td class="var-name">${v.name}${v.required ? '<span class="required-dot"></span>' : ''}</td>
+                    <td><span class="var-type-badge">${v.type}</span></td>
+                    <td>${v.required ? '<span style="color:var(--danger-fg)">yes</span>' : '<span style="color:var(--text-placeholder)">no</span>'}</td>
+                    <td style="font-family:JetBrains Mono,monospace;font-size:0.6875rem;color:var(--text-tertiary)">${v.default !== null ? v.default : '—'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Context Section -->
+        <div class="detail-section">
+          <div class="detail-section-trigger expanded" onclick="toggleSection(this)">
+            <span class="detail-section-title">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="5.5"/><path d="M7 4v3l2 1.5"/></svg>
+              Context
+            </span>
+            <span class="detail-section-chevron" style="transform:rotate(90deg)"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="4,2 8,6 4,10"/></svg></span>
+          </div>
+          <div class="detail-section-body open">
+            ${p.context.sources.map(s => `
+              <div class="source-card">
+                <div class="source-icon" style="background:${sourceColors[s.type] || 'var(--neutral-muted)'}">${sourceIcons[s.type] || '📄'}</div>
+                <div class="source-info">
+                  <div class="source-type">${s.type}</div>
+                  <div class="source-label">${s.label || '—'}</div>
+                </div>
+                ${s.required ? '<span class="badge badge-danger" style="font-size:0.5625rem;padding:1px 5px">required</span>' : '<span class="badge badge-neutral" style="font-size:0.5625rem;padding:1px 5px">optional</span>'}
+              </div>
+            `).join('')}
+            <div class="budget-bar">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="4" width="12" height="6" rx="1.5"/><path d="M4 4V3a3 3 0 016 0v1"/></svg>
+              <div style="flex:1">
+                <div class="budget-label">Context Budget</div>
+                <div class="budget-value">${p.context.maxChars.toLocaleString()} chars</div>
+              </div>
+              <span class="badge badge-neutral">${p.context.format}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Output Section -->
+        <div class="detail-section">
+          <div class="detail-section-trigger" onclick="toggleSection(this)">
+            <span class="detail-section-title">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="10" height="10" rx="1.5"/><polyline points="5,7 6.5,9 9,5"/></svg>
+              Output
+            </span>
+            <span class="detail-section-chevron"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="4,2 8,6 4,10"/></svg></span>
+          </div>
+          <div class="detail-section-body">
+            <div style="display:flex;gap:6px;margin-bottom:10px">
+              <span class="badge ${p.output.format === 'json' ? 'badge-accent' : p.output.format === 'markdown' ? 'badge-done' : 'badge-neutral'}">${p.output.format}</span>
+              <span class="badge ${p.output.validation === 'strict' ? 'badge-danger' : p.output.validation === 'warn' ? 'badge-warning' : 'badge-neutral'}">${p.output.validation}</span>
+            </div>
+            ${p.output.schema ? `
+              <div class="prompt-label">Output Schema</div>
+              <div class="schema-block">${JSON.stringify(p.output.schema, null, 2)}</div>
+            ` : '<div class="empty-state" style="padding:16px"><div class="empty-state-desc">No output schema defined</div></div>'}
+          </div>
+        </div>
+
+        <!-- Execution Section -->
+        <div class="detail-section">
+          <div class="detail-section-trigger" onclick="toggleSection(this)">
+            <span class="detail-section-title">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="4,2 12,7 4,12" fill="currentColor" stroke="none" opacity="0.5"/></svg>
+              Execution
+            </span>
+            <span class="detail-section-chevron"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="4,2 8,6 4,10"/></svg></span>
+          </div>
+          <div class="detail-section-body">
+            <div class="exec-grid">
+              <div class="exec-item">
+                <div class="exec-item-label">Model</div>
+                <div class="exec-item-value" style="${p.execution.modelOverride ? 'color:var(--warning-fg)' : ''}">${p.execution.modelOverride || 'Default'}</div>
+              </div>
+              <div class="exec-item">
+                <div class="exec-item-label">Timeout</div>
+                <div class="exec-item-value">${p.execution.timeoutSeconds}s</div>
+              </div>
+              <div class="exec-item">
+                <div class="exec-item-label">Max Retries</div>
+                <div class="exec-item-value">${p.execution.maxRetries}</div>
+              </div>
+              <div class="exec-item">
+                <div class="exec-item-label">Priority</div>
+                <div class="exec-item-value" style="color:${p.execution.priority === 'high' ? 'var(--danger-fg)' : p.execution.priority === 'low' ? 'var(--text-placeholder)' : 'var(--text-primary)'}; text-transform:capitalize">${p.execution.priority}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Footer actions
+      document.getElementById('detailFooter').innerHTML = `
+        <button class="btn btn-primary" onclick="showToast('Task started from \\'${p.name}\\'', 'success')" ${!p.enabled ? 'disabled style="opacity:0.4"' : ''}>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="4,2 12,7 4,12" fill="currentColor" stroke="none"/></svg>
+          Run Task
+        </button>
+        <button class="btn" onclick="duplicatePreset('${p.id}'); closeDetail()">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="4" width="8" height="8" rx="1.5"/><path d="M4 10H3a1.5 1.5 0 01-1.5-1.5V3A1.5 1.5 0 013 1.5h5.5A1.5 1.5 0 0110 3v1"/></svg>
+          Duplicate
+        </button>
+        ${!p.builtin ? `
+          <button class="btn" onclick="openModal('edit', '${p.id}'); closeDetail()">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 2l2 2-7 7H3V9z"/></svg>
+            Edit
+          </button>
+          <button class="btn" style="color:var(--danger-fg)" onclick="deletePreset('${p.id}')">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h10M5 4V2.5h4V4M3 4l.7 8a1 1 0 001 .9h4.6a1 1 0 001-.9L11 4"/></svg>
+            Delete
+          </button>
+        ` : ''}
+      `;
+
+      document.getElementById('detailBackdrop').classList.add('open');
+      document.getElementById('detailPanel').classList.add('open');
+    }
+
+    function closeDetail() {
+      document.getElementById('detailBackdrop').classList.remove('open');
+      document.getElementById('detailPanel').classList.remove('open');
+    }
+
+    function toggleSection(trigger) {
+      const body = trigger.nextElementSibling;
+      const chevron = trigger.querySelector('.detail-section-chevron');
+      const isOpen = body.classList.contains('open');
+      body.classList.toggle('open');
+      trigger.classList.toggle('expanded', !isOpen);
+      if (chevron) chevron.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(90deg)';
+    }
+
+    // =====================================================
+    // MODAL
+    // =====================================================
+    function openModal(mode, id) {
+      const isEdit = mode === 'edit' && id;
+      const p = isEdit ? PRESETS.find(x => x.id === id) : null;
+
+      document.getElementById('modalTitle').textContent = isEdit ? `Edit: ${p.name}` : (mode === 'import' ? 'Import Preset' : 'New Preset');
+
+      if (mode === 'import') {
+        document.getElementById('modalBody').innerHTML = `
+          <div class="form-group">
+            <label class="form-label">Paste JSON</label>
+            <textarea class="form-input" rows="12" placeholder='{"id": "...", "name": "...", ...}'></textarea>
+            <span class="form-hint">Paste a preset JSON exported from another TracePilot instance.</span>
+          </div>
+        `;
+      } else {
+        document.getElementById('modalBody').innerHTML = `
+          <div class="form-section-label">Basic Information</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Name</label>
+              <input type="text" class="form-input" placeholder="e.g. Session Summary" value="${isEdit ? p.name : ''}">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Tags</label>
+              <input type="text" class="form-input" placeholder="analysis, summary" value="${isEdit ? p.tags.join(', ') : ''}">
+              <span class="form-hint">Comma-separated</span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Description</label>
+            <input type="text" class="form-input" placeholder="Brief description of what this preset does" value="${isEdit ? p.description : ''}">
+          </div>
+
+          <div class="form-section-label" style="margin-top:4px">Prompts</div>
+          <div class="form-group">
+            <label class="form-label">System Prompt</label>
+            <textarea class="form-input" rows="3" placeholder="You are a...">${isEdit ? p.prompt.system : ''}</textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">User Prompt</label>
+            <textarea class="form-input" rows="3" placeholder="Analyze {{sessionId}}...">${isEdit ? p.prompt.user : ''}</textarea>
+            <span class="form-hint">Use {{variableName}} for template variables</span>
+          </div>
+
+          <div class="form-section-label" style="margin-top:4px">Variables</div>
+          <div class="var-rows" id="varRows">
+            ${(isEdit ? p.prompt.variables : [{ name: '', type: 'string', required: true, description: '', default: null }]).map((v, i) => `
+              <div class="var-row">
+                <input type="text" class="form-input" placeholder="name" value="${v.name}">
+                <select class="form-select" style="padding:5px 24px 5px 8px;font-size:0.75rem">
+                  <option ${v.type === 'string' ? 'selected' : ''}>string</option>
+                  <option ${v.type === 'number' ? 'selected' : ''}>number</option>
+                  <option ${v.type === 'boolean' ? 'selected' : ''}>boolean</option>
+                  <option ${v.type === 'session_ref' ? 'selected' : ''}>session_ref</option>
+                  <option ${v.type === 'session_list' ? 'selected' : ''}>session_list</option>
+                </select>
+                <input type="text" class="form-input" placeholder="default" value="${v.default || ''}">
+                <label class="checkbox-inline"><input type="checkbox" ${v.required ? 'checked' : ''}> Req</label>
+                <button class="var-remove-btn" onclick="this.closest('.var-row').remove()">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="3" x2="11" y2="11"/><line x1="11" y1="3" x2="3" y2="11"/></svg>
+                </button>
+              </div>
+            `).join('')}
+          </div>
+          <button class="add-var-btn" onclick="addVariableRow()">+ Add Variable</button>
+
+          <div class="form-section-label" style="margin-top:4px">Context Sources</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Max Context Chars</label>
+              <input type="number" class="form-input" placeholder="50000" value="${isEdit ? p.context.maxChars : '50000'}">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Context Format</label>
+              <select class="form-select">
+                <option ${(isEdit && p.context.format === 'markdown') ? 'selected' : ''}>markdown</option>
+                <option ${(isEdit && p.context.format === 'json') ? 'selected' : ''}>json</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-section-label" style="margin-top:4px">Output</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Output Format</label>
+              <select class="form-select">
+                <option ${(isEdit && p.output.format === 'json') ? 'selected' : ''}>json</option>
+                <option ${(isEdit && p.output.format === 'markdown') ? 'selected' : ''}>markdown</option>
+                <option ${(isEdit && p.output.format === 'text') ? 'selected' : ''}>text</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Validation</label>
+              <select class="form-select">
+                <option ${(isEdit && p.output.validation === 'strict') ? 'selected' : ''}>strict</option>
+                <option ${(isEdit && p.output.validation === 'warn') ? 'selected' : ''}>warn</option>
+                <option ${(isEdit && p.output.validation === 'none') ? 'selected' : ''}>none</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-section-label" style="margin-top:4px">Execution</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Model Override</label>
+              <select class="form-select">
+                <option value="" ${!(isEdit && p.execution.modelOverride) ? 'selected' : ''}>Default (no override)</option>
+                <option value="claude-opus-4.6" ${(isEdit && p.execution.modelOverride === 'claude-opus-4.6') ? 'selected' : ''}>claude-opus-4.6</option>
+                <option value="claude-sonnet-4.6" ${(isEdit && p.execution.modelOverride === 'claude-sonnet-4.6') ? 'selected' : ''}>claude-sonnet-4.6</option>
+                <option value="claude-haiku-4.5" ${(isEdit && p.execution.modelOverride === 'claude-haiku-4.5') ? 'selected' : ''}>claude-haiku-4.5</option>
+                <option value="gpt-5.4" ${(isEdit && p.execution.modelOverride === 'gpt-5.4') ? 'selected' : ''}>gpt-5.4</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Priority</label>
+              <select class="form-select">
+                <option ${(isEdit && p.execution.priority === 'low') ? 'selected' : ''}>low</option>
+                <option ${(!isEdit || p.execution.priority === 'normal') ? 'selected' : ''}>normal</option>
+                <option ${(isEdit && p.execution.priority === 'high') ? 'selected' : ''}>high</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Timeout (seconds)</label>
+              <input type="number" class="form-input" placeholder="120" value="${isEdit ? p.execution.timeoutSeconds : '120'}">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Max Retries</label>
+              <input type="number" class="form-input" placeholder="2" value="${isEdit ? p.execution.maxRetries : '2'}">
+            </div>
+          </div>
+        `;
+      }
+
+      document.getElementById('modalBackdrop').classList.add('open');
+    }
+
+    function closeModal() {
+      document.getElementById('modalBackdrop').classList.remove('open');
+    }
+
+    function savePreset() {
+      closeModal();
+      showToast('Preset saved successfully', 'success');
+    }
+
+    function addVariableRow() {
+      const rows = document.getElementById('varRows');
+      const row = document.createElement('div');
+      row.className = 'var-row';
+      row.innerHTML = `
+        <input type="text" class="form-input" placeholder="name">
+        <select class="form-select" style="padding:5px 24px 5px 8px;font-size:0.75rem">
+          <option>string</option><option>number</option><option>boolean</option><option>session_ref</option><option>session_list</option>
+        </select>
+        <input type="text" class="form-input" placeholder="default">
+        <label class="checkbox-inline"><input type="checkbox"> Req</label>
+        <button class="var-remove-btn" onclick="this.closest('.var-row').remove()">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="3" x2="11" y2="11"/><line x1="11" y1="3" x2="3" y2="11"/></svg>
+        </button>
+      `;
+      rows.appendChild(row);
+    }
+
+    // =====================================================
+    // TOASTS
+    // =====================================================
+    function showToast(message, type) {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `toast ${type || 'info'}`;
+      const icons = { success: '✓', danger: '✕', info: 'ℹ' };
+      toast.innerHTML = `<span style="font-weight:600">${icons[type] || 'ℹ'}</span> ${message}`;
+      container.appendChild(toast);
+      setTimeout(() => toast.remove(), 3200);
+    }
+
+    // =====================================================
+    // KEYBOARD
+    // =====================================================
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeDetail();
+        closeModal();
+      }
+    });
+
+    // =====================================================
+    // INIT
+    // =====================================================
+    renderAll();
+    // Initialize list view as hidden
+    document.getElementById('presetList').style.display = 'none';
+  </script>
+</body>
+</html>
