@@ -340,7 +340,16 @@ fn build_plan(
             available.push(SectionId::Plan);
             Some(content)
         }
-        _ => None,
+        Ok(_) => None,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
+        Err(e) => {
+            tracing::warn!(
+                path = %plan_path.display(),
+                error = %e,
+                "Failed to read plan file, skipping section"
+            );
+            None
+        }
     }
 }
 
@@ -357,7 +366,7 @@ fn build_checkpoints(
         Ok(None) => return None,
         Err(e) => {
             tracing::warn!(
-                path = %session_dir.display(),
+                path = %session_dir.join("checkpoints").join("index.md").display(),
                 error = %e,
                 "Failed to parse checkpoints, skipping section"
             );
@@ -394,7 +403,7 @@ fn build_rewind_snapshots(
         Ok(None) => return None,
         Err(e) => {
             tracing::warn!(
-                path = %session_dir.display(),
+                path = %session_dir.join("rewind-snapshots").join("index.json").display(),
                 error = %e,
                 "Failed to parse rewind snapshots, skipping section"
             );
