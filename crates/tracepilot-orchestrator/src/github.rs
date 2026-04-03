@@ -111,7 +111,7 @@ pub fn gh_check_auth() -> Result<()> {
 pub fn gh_get_file(owner: &str, repo: &str, path: &str, ref_: &str) -> Result<String> {
     let bytes = gh_get_file_bytes(owner, repo, path, ref_)?;
     String::from_utf8(bytes)
-        .map_err(|e| OrchestratorError::Launch(format!("File content is not valid UTF-8: {e}")))
+        .map_err(|e| OrchestratorError::launch_ctx("File content is not valid UTF-8", e))
 }
 
 /// Fetch the contents of a single file from a GitHub repository as raw bytes.
@@ -199,7 +199,7 @@ pub fn gh_get_files_batch(
         )?;
 
         let json: serde_json::Value = serde_json::from_str(&output)
-            .map_err(|e| OrchestratorError::Launch(format!("GraphQL parse error: {e}")))?;
+            .map_err(|e| OrchestratorError::launch_ctx("GraphQL parse error", e))?;
 
         if let Some(repo_data) = json.get("data").and_then(|d| d.get("repository")) {
             for (i, path) in chunk.iter().enumerate() {

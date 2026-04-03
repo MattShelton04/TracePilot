@@ -44,7 +44,7 @@ fn spawn_captured_child(mut cmd: Command, program: &str) -> Result<Child> {
         .stderr(std::process::Stdio::piped());
 
     cmd.spawn()
-        .map_err(|e| OrchestratorError::Launch(format!("Failed to spawn {program}: {e}")))
+        .map_err(|e| OrchestratorError::launch_ctx(format!("Failed to spawn {program}"), e))
 }
 
 fn read_pipe_to_end<R>(mut reader: R, label: &'static str) -> mpsc::Receiver<Result<Vec<u8>>>
@@ -57,7 +57,7 @@ where
         let result = reader
             .read_to_end(&mut buf)
             .map(|_| buf)
-            .map_err(|e| OrchestratorError::Launch(format!("Failed to read {label}: {e}")));
+            .map_err(|e| OrchestratorError::launch_ctx(format!("Failed to read {label}"), e));
         let _ = tx.send(result);
     });
     rx
@@ -92,7 +92,7 @@ fn run_with_timeout(
             .map_err(|_| OrchestratorError::Launch("mutex poisoned".into()))
             .and_then(|mut c| {
                 c.wait()
-                    .map_err(|e| OrchestratorError::Launch(format!("wait failed: {e}")))
+                    .map_err(|e| OrchestratorError::launch_ctx("wait failed", e))
             })
             .and_then(|status| {
                 let stdout = stdout_rx
@@ -280,7 +280,7 @@ pub fn run_hidden_stdout_timeout(
             .map_err(|_| OrchestratorError::Launch("mutex poisoned".into()))
             .and_then(|mut c| {
                 c.wait()
-                    .map_err(|e| OrchestratorError::Launch(format!("wait failed: {e}")))
+                    .map_err(|e| OrchestratorError::launch_ctx("wait failed", e))
             })
             .and_then(|status| {
                 let stdout = stdout_rx
@@ -412,7 +412,7 @@ fn spawn_outside_job_win(
         .args(["-NoProfile", "-NonInteractive", "-Command", &wmi_script])
         .creation_flags(CREATE_NO_WINDOW)
         .output()
-        .map_err(|e| OrchestratorError::Launch(format!("WMI fallback failed: {e}")))?;
+        .map_err(|e| OrchestratorError::launch_ctx("WMI fallback failed", e))?;
 
     if output.status.success() {
         let pid = String::from_utf8_lossy(&output.stdout)
@@ -433,7 +433,7 @@ fn spawn_outside_job_win(
         .current_dir(work_dir)
         .creation_flags(CREATE_NEW_CONSOLE)
         .spawn()
-        .map_err(|e| OrchestratorError::Launch(format!("Failed to spawn terminal: {e}")))?;
+        .map_err(|e| OrchestratorError::launch_ctx("Failed to spawn terminal", e))?;
     Ok(child.id())
 }
 
@@ -481,7 +481,7 @@ fn spawn_terminal_macos(
     let child = Command::new("osascript")
         .args(["-e", &script])
         .spawn()
-        .map_err(|e| OrchestratorError::Launch(format!("Failed to open terminal: {e}")))?;
+        .map_err(|e| OrchestratorError::launch_ctx("Failed to open terminal", e))?;
     Ok(child.id())
 }
 
