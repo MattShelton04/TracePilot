@@ -17,16 +17,14 @@ mod session_reader;
 pub(crate) mod session_writer;
 mod types;
 
-use crate::{Result, error::IndexerError};
+use crate::{error::IndexerError, Result};
 use rusqlite::{Connection, OpenFlags};
 use std::path::Path;
 
 // Re-export public types used by callers (lib.rs, tauri-bindings)
-pub use search_reader::{
-    ContextSnippet, FtsHealthInfo, SearchFacets, SearchFilters, SearchResult, SearchStats,
-};
-pub use search_writer::CURRENT_EXTRACTOR_VERSION;
 pub use types::{IndexedIncident, IndexedSession, SessionIndexInfo};
+pub use search_reader::{ContextSnippet, FtsHealthInfo, SearchFacets, SearchFilters, SearchResult, SearchStats};
+pub use search_writer::CURRENT_EXTRACTOR_VERSION;
 
 use migrations::run_migrations;
 
@@ -41,8 +39,8 @@ impl IndexDb {
             std::fs::create_dir_all(parent)?;
         }
 
-        let mut conn =
-            Connection::open(path).map_err(|e| IndexerError::database_open(path.display(), e))?;
+        let mut conn = Connection::open(path)
+            .map_err(|e| IndexerError::database_open(path.display(), e))?;
 
         // Performance and correctness pragmas
         conn.execute_batch(
@@ -171,11 +169,9 @@ updated_at: "2026-03-10T07:15:00Z"
         let db1 = IndexDb::open_or_create(&db_path).unwrap();
         let v1: i64 = db1
             .conn
-            .query_row(
-                "SELECT COALESCE(MAX(version), 0) FROM schema_version",
-                [],
-                |r| r.get(0),
-            )
+            .query_row("SELECT COALESCE(MAX(version), 0) FROM schema_version", [], |r| {
+                r.get(0)
+            })
             .unwrap();
         let count1: i64 = db1
             .conn
@@ -282,18 +278,13 @@ updated_at: "2026-03-11T07:15:00Z"
         db.upsert_session(&s1).unwrap();
         db.upsert_session(&s2).unwrap();
 
-        let repo_filtered = db
-            .list_sessions(None, Some("org/repo-a"), None, false)
-            .unwrap();
+        let repo_filtered = db.list_sessions(None, Some("org/repo-a"), None, false).unwrap();
         assert_eq!(repo_filtered.len(), 1);
         assert_eq!(repo_filtered[0].id, "33333333-3333-3333-3333-333333333333");
 
         let branch_filtered = db.list_sessions(None, None, Some("dev"), false).unwrap();
         assert_eq!(branch_filtered.len(), 1);
-        assert_eq!(
-            branch_filtered[0].id,
-            "44444444-4444-4444-4444-444444444444"
-        );
+        assert_eq!(branch_filtered[0].id, "44444444-4444-4444-4444-444444444444");
 
         let limited = db.list_sessions(Some(1), None, None, false).unwrap();
         assert_eq!(limited.len(), 1);
@@ -454,9 +445,7 @@ updated_at: "{updated_at}"
         db.upsert_session(&s1).unwrap();
         db.upsert_session(&s2).unwrap();
 
-        let filtered = db
-            .query_analytics(None, None, Some("org/repo-a"), false)
-            .unwrap();
+        let filtered = db.query_analytics(None, None, Some("org/repo-a"), false).unwrap();
         assert_eq!(filtered.total_sessions, 1);
 
         let all = db.query_analytics(None, None, None, false).unwrap();
@@ -478,10 +467,7 @@ updated_at: "{updated_at}"
 
         let result = db.query_tool_analysis(None, None, None, false).unwrap();
         assert_eq!(result.total_calls, 2, "should count 2 tool calls");
-        assert!(
-            result.tools.len() >= 2,
-            "should have read_file and edit_file entries"
-        );
+        assert!(result.tools.len() >= 2, "should have read_file and edit_file entries");
 
         let read = result.tools.iter().find(|t| t.name == "read_file");
         assert!(read.is_some(), "should have read_file entry");
@@ -511,8 +497,12 @@ updated_at: "{updated_at}"
         let tmp = tempfile::tempdir().unwrap();
         let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
         let session_id = "f6666666-6666-6666-6666-666666666666";
-        let session_dir =
-            write_session_with_tools(tmp.path(), session_id, "org/repo", "2026-03-10T07:15:00Z");
+        let session_dir = write_session_with_tools(
+            tmp.path(),
+            session_id,
+            "org/repo",
+            "2026-03-10T07:15:00Z",
+        );
 
         db.upsert_session(&session_dir).unwrap();
         assert!(!db.needs_reindex(session_id, &session_dir));
@@ -527,10 +517,7 @@ updated_at: "{updated_at}"
         events.push('\n');
         fs::write(&events_path, events).unwrap();
 
-        assert!(
-            db.needs_reindex(session_id, &session_dir),
-            "should detect events.jsonl change"
-        );
+        assert!(db.needs_reindex(session_id, &session_dir), "should detect events.jsonl change");
     }
 
     #[test]
@@ -608,21 +595,15 @@ updated_at: "{updated_at}"
         db.upsert_session(&s2).unwrap();
 
         // Only sessions from/after March 15
-        let after = db
-            .query_analytics(Some("2026-03-15"), None, None, false)
-            .unwrap();
+        let after = db.query_analytics(Some("2026-03-15"), None, None, false).unwrap();
         assert_eq!(after.total_sessions, 1);
 
         // Only sessions before March 15
-        let before = db
-            .query_analytics(None, Some("2026-03-15"), None, false)
-            .unwrap();
+        let before = db.query_analytics(None, Some("2026-03-15"), None, false).unwrap();
         assert_eq!(before.total_sessions, 1);
 
         // All sessions in range
-        let all = db
-            .query_analytics(Some("2026-03-01"), Some("2026-03-31"), None, false)
-            .unwrap();
+        let all = db.query_analytics(Some("2026-03-01"), Some("2026-03-31"), None, false).unwrap();
         assert_eq!(all.total_sessions, 2);
     }
 
@@ -656,19 +637,20 @@ updated_at: "{updated_at}"
         let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
 
         let session_id = "cascade-1111-1111-1111-111111111111";
-        let session_dir =
-            write_session_with_tools(tmp.path(), session_id, "org/repo", "2026-03-10T07:15:00Z");
+        let session_dir = write_session_with_tools(
+            tmp.path(),
+            session_id,
+            "org/repo",
+            "2026-03-10T07:15:00Z",
+        );
         db.upsert_session(&session_dir).unwrap();
 
         // Verify child rows exist
-        let tool_count: i64 = db
-            .conn
-            .query_row(
-                "SELECT COUNT(*) FROM session_tool_calls WHERE session_id = ?1",
-                [session_id],
-                |row| row.get(0),
-            )
-            .unwrap();
+        let tool_count: i64 = db.conn.query_row(
+            "SELECT COUNT(*) FROM session_tool_calls WHERE session_id = ?1",
+            [session_id],
+            |row| row.get(0),
+        ).unwrap();
         assert!(tool_count > 0, "should have tool call rows after upsert");
 
         // Prune the session
@@ -676,14 +658,11 @@ updated_at: "{updated_at}"
         db.prune_deleted(&live_ids).unwrap();
 
         // Verify cascade deleted child rows
-        let tool_count_after: i64 = db
-            .conn
-            .query_row(
-                "SELECT COUNT(*) FROM session_tool_calls WHERE session_id = ?1",
-                [session_id],
-                |row| row.get(0),
-            )
-            .unwrap();
+        let tool_count_after: i64 = db.conn.query_row(
+            "SELECT COUNT(*) FROM session_tool_calls WHERE session_id = ?1",
+            [session_id],
+            |row| row.get(0),
+        ).unwrap();
         assert_eq!(tool_count_after, 0, "child rows should cascade delete");
     }
 
@@ -725,8 +704,10 @@ updated_at: "2026-03-10T07:15:00Z"
     fn test_incident_indexing_and_retrieval() {
         let tmp = tempfile::tempdir().unwrap();
         let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
-        let session_dir =
-            write_session_with_incidents(tmp.path(), "aaaa1111-1111-1111-1111-111111111111");
+        let session_dir = write_session_with_incidents(
+            tmp.path(),
+            "aaaa1111-1111-1111-1111-111111111111",
+        );
 
         db.upsert_session(&session_dir).unwrap();
 
@@ -757,10 +738,7 @@ updated_at: "2026-03-10T07:15:00Z"
 
         // Third incident: compaction
         assert_eq!(incidents[2].event_type, "compaction");
-        assert_eq!(
-            incidents[2].source_event_type,
-            "session.compaction_complete"
-        );
+        assert_eq!(incidents[2].source_event_type, "session.compaction_complete");
         assert_eq!(incidents[2].severity, "info"); // successful compaction
         assert!(incidents[2].summary.contains("succeeded"));
 
@@ -837,10 +815,7 @@ updated_at: "2026-03-10T07:15:00Z"
             .unwrap()
             .collect::<std::result::Result<_, _>>()
             .unwrap();
-        assert!(
-            hits.contains(&session_id.to_string()),
-            "FTS should find 'quantum'"
-        );
+        assert!(hits.contains(&session_id.to_string()), "FTS should find 'quantum'");
 
         // Verify triggers restored — incremental upsert should work after bulk
         let extra_row = vec![SearchContentRow {

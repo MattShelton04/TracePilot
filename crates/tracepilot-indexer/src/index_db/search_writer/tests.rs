@@ -3,8 +3,8 @@
 //! These tests validate turn numbering, session error assignment, and
 //! cross-module behavior of `extract_search_content`.
 
-use super::SearchContentRow;
 use super::content_extraction::extract_search_content;
+use super::SearchContentRow;
 use tracepilot_core::utils::truncate_utf8;
 
 // ── truncate_utf8 tests ─────────────────────────────────────
@@ -38,13 +38,17 @@ fn test_truncate_utf8_unicode() {
 // matching the ConversationTurn.turn_index from reconstruct_turns.
 
 use tracepilot_core::models::event_types::{
-    AbortData, AssistantMessageData, AssistantReasoningData, SessionErrorData, SessionEventType,
-    ToolExecCompleteData, ToolExecStartData, TurnEndData, TurnStartData, UserMessageData,
+    AbortData, AssistantMessageData, AssistantReasoningData, SessionErrorData,
+    SessionEventType, ToolExecCompleteData, ToolExecStartData, TurnEndData, TurnStartData,
+    UserMessageData,
 };
 use tracepilot_core::parsing::events::{RawEvent, TypedEvent, TypedEventData};
 
 /// Helper: build a TypedEvent from its components.
-fn evt(event_type: SessionEventType, typed_data: TypedEventData) -> TypedEvent {
+fn evt(
+    event_type: SessionEventType,
+    typed_data: TypedEventData,
+) -> TypedEvent {
     TypedEvent {
         raw: RawEvent {
             event_type: String::new(),
@@ -188,11 +192,7 @@ fn turn_numbers_single_user_message_turn() {
     let rows = extract_search_content("s1", &events);
     assert!(!rows.is_empty());
     for row in &rows {
-        assert_eq!(
-            row.turn_number,
-            Some(0),
-            "all rows in single turn should be turn 0"
-        );
+        assert_eq!(row.turn_number, Some(0), "all rows in single turn should be turn 0");
     }
 }
 
@@ -204,7 +204,7 @@ fn turn_numbers_multiple_assistant_cycles() {
     // Actually: turn 0 starts at UserMessage, TurnEnd closes it,
     // next TurnStart opens turn 1.
     let events = vec![
-        user_message("Do a task"),                 // turn 0 opens
+        user_message("Do a task"),                // turn 0 opens
         assistant_turn_start(),                    // noop (turn 0 already open)
         assistant_message("Let me look..."),       // turn 0
         tool_exec_start("view", "tc-1"),           // turn 0
@@ -250,21 +250,21 @@ fn turn_numbers_synthetic_turn_before_user_message() {
     let map = turn_map(&rows);
 
     assert_eq!(map[0], (Some(0), "assistant_message")); // synthetic turn 0
-    assert_eq!(map[1], (Some(1), "user_message")); // user turn 1
-    assert_eq!(map[2], (Some(1), "assistant_message")); // same turn 1
+    assert_eq!(map[1], (Some(1), "user_message"));      // user turn 1
+    assert_eq!(map[2], (Some(1), "assistant_message"));  // same turn 1
 }
 
 #[test]
 fn turn_numbers_abort_closes_turn() {
     // Abort should close the current turn, next events open a new one.
     let events = vec![
-        user_message("Start"),           // turn 0
-        assistant_turn_start(),          // noop
-        assistant_message("Working..."), // turn 0
-        abort(),                         // closes turn 0
-        assistant_turn_start(),          // turn 1 opens
-        assistant_message("Recovered"),  // turn 1
-        assistant_turn_end(),            // turn 1 closes
+        user_message("Start"),              // turn 0
+        assistant_turn_start(),             // noop
+        assistant_message("Working..."),    // turn 0
+        abort(),                            // closes turn 0
+        assistant_turn_start(),             // turn 1 opens
+        assistant_message("Recovered"),     // turn 1
+        assistant_turn_end(),               // turn 1 closes
     ];
     let rows = extract_search_content("s1", &events);
     let map = turn_map(&rows);
@@ -278,14 +278,14 @@ fn turn_numbers_abort_closes_turn() {
 fn turn_numbers_user_message_after_turn_end() {
     // TurnEnd → UserMessage: user message opens a new turn
     let events = vec![
-        user_message("First"), // turn 0
+        user_message("First"),                    // turn 0
         assistant_turn_start(),
-        assistant_message("Response 1"), // turn 0
-        assistant_turn_end(),            // closes turn 0
-        user_message("Second"),          // turn 1
+        assistant_message("Response 1"),           // turn 0
+        assistant_turn_end(),                      // closes turn 0
+        user_message("Second"),                    // turn 1
         assistant_turn_start(),
-        assistant_message("Response 2"), // turn 1
-        assistant_turn_end(),            // closes turn 1
+        assistant_message("Response 2"),           // turn 1
+        assistant_turn_end(),                      // closes turn 1
     ];
     let rows = extract_search_content("s1", &events);
     let map = turn_map(&rows);
@@ -329,10 +329,7 @@ fn turn_numbers_many_cycles_produces_high_turn_numbers() {
 
     // Verify we have high turn numbers (the whole point of the fix)
     let max_turn = rows.iter().filter_map(|r| r.turn_number).max().unwrap();
-    assert_eq!(
-        max_turn, 49,
-        "50 cycles should produce turn numbers up to 49"
-    );
+    assert_eq!(max_turn, 49, "50 cycles should produce turn numbers up to 49");
 }
 
 #[test]
@@ -422,13 +419,13 @@ fn turn_numbers_tool_complete_uses_start_turn() {
     // ToolExecutionComplete should use the turn from its matching
     // ToolExecutionStart, not the ambient current_turn.
     let events = vec![
-        user_message("Do it"),                       // turn 0
-        assistant_turn_start(),                      // noop
-        tool_exec_start("view", "tc-1"),             // turn 0
-        assistant_turn_end(),                        // closes turn 0
-        assistant_turn_start(),                      // turn 1 opens
+        user_message("Do it"),                   // turn 0
+        assistant_turn_start(),                   // noop
+        tool_exec_start("view", "tc-1"),          // turn 0
+        assistant_turn_end(),                     // closes turn 0
+        assistant_turn_start(),                   // turn 1 opens
         tool_exec_complete("tc-1", "file contents"), // should be turn 0
-        assistant_message("Done"),                   // turn 1
+        assistant_message("Done"),                // turn 1
         assistant_turn_end(),
     ];
     let rows = extract_search_content("s1", &events);
@@ -446,13 +443,13 @@ fn session_error_between_turns_assigned_to_next_turn() {
     // Session errors between turns should be buffered and assigned to
     // the next turn that opens (mirroring reconstructor's pending_session_events).
     let events = vec![
-        user_message("Start"), // turn 0
+        user_message("Start"),                  // turn 0
         assistant_turn_start(),
-        assistant_message("Working..."),  // turn 0
-        assistant_turn_end(),             // closes turn 0
-        session_error("rate limit hit"),  // between turns → pending
-        assistant_turn_start(),           // turn 1 opens → flush pending
-        assistant_message("Retrying..."), // turn 1
+        assistant_message("Working..."),         // turn 0
+        assistant_turn_end(),                    // closes turn 0
+        session_error("rate limit hit"),         // between turns → pending
+        assistant_turn_start(),                  // turn 1 opens → flush pending
+        assistant_message("Retrying..."),        // turn 1
         assistant_turn_end(),
     ];
     let rows = extract_search_content("s1", &events);
@@ -471,7 +468,7 @@ fn session_error_within_turn_assigned_to_current_turn() {
     let events = vec![
         user_message("Start"),
         assistant_turn_start(),
-        session_error("transient error"), // within turn 0
+        session_error("transient error"),       // within turn 0
         assistant_message("Continuing..."),
         assistant_turn_end(),
     ];
@@ -488,8 +485,8 @@ fn session_error_before_any_turn_gets_none() {
     // Session errors before any turn has opened should have turn_number: None
     // until a turn opens.
     let events = vec![
-        session_error("early error"), // no turn yet → pending
-        user_message("Start"),        // turn 0 → flushes pending
+        session_error("early error"),           // no turn yet → pending
+        user_message("Start"),                  // turn 0 → flushes pending
         assistant_turn_start(),
         assistant_message("OK"),
         assistant_turn_end(),
@@ -512,7 +509,7 @@ fn trailing_session_error_after_last_turn_gets_none() {
         assistant_turn_start(),
         assistant_message("Done"),
         assistant_turn_end(),
-        session_error("final error"), // after last turn, no more turns
+        session_error("final error"),           // after last turn, no more turns
     ];
     let rows = extract_search_content("s1", &events);
 
