@@ -19,7 +19,7 @@ mod validators;
 use std::num::NonZeroUsize;
 use std::sync::{Arc, Mutex};
 use tauri::Manager;
-use types::{SearchSemaphore, SharedTaskDb, TurnCache};
+use types::{SearchSemaphore, SharedOrchestratorState, SharedTaskDb, TurnCache};
 
 /// Build the Tauri plugin that registers all IPC commands.
 pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
@@ -38,6 +38,10 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             // Task DB: lazily initialized (None until first use via config path).
             let task_db: SharedTaskDb = Arc::new(Mutex::new(None));
             app.manage(task_db);
+
+            // Orchestrator state: tracks the active orchestrator handle.
+            let orch_state: SharedOrchestratorState = Arc::new(Mutex::new(None));
+            app.manage(orch_state);
 
             Ok(())
         })
@@ -187,6 +191,9 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::tasks::task_save_preset,
             commands::tasks::task_delete_preset,
             commands::tasks::task_orchestrator_health,
+            commands::tasks::task_orchestrator_start,
+            commands::tasks::task_orchestrator_stop,
+            commands::tasks::task_ingest_results,
             commands::tasks::task_attribution,
         ])
         .build()

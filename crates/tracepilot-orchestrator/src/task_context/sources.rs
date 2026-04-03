@@ -124,6 +124,7 @@ fn assemble_session_health(
 ) -> Result<String> {
     let session_id = params
         .get("session_id")
+        .or_else(|| params.get("session_export"))
         .and_then(|v| v.as_str())
         .unwrap_or("unknown");
 
@@ -183,12 +184,17 @@ fn assemble_recent_sessions(
 }
 
 /// Extract required session_id from params.
+/// Checks both `session_id` and `session_export` keys for compatibility
+/// with different preset variable naming conventions.
 fn require_session_id(params: &serde_json::Value) -> Result<&str> {
     params
         .get("session_id")
+        .or_else(|| params.get("session_export"))
         .and_then(|v| v.as_str())
         .ok_or_else(|| {
-            crate::error::OrchestratorError::Task("session_id required in input_params".into())
+            crate::error::OrchestratorError::Task(
+                "session_id or session_export required in input_params".into(),
+            )
         })
 }
 

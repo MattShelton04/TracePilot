@@ -137,14 +137,23 @@ pub fn launch_orchestrator(
     manifest::write_manifest(&task_manifest, &manifest_path)?;
 
     // 4. Render prompt
+    let manifest_str = manifest_path.to_string_lossy().to_string();
+    let heartbeat_str = jobs_dir.join("heartbeat.json").to_string_lossy().to_string();
     let prompt_config = prompt::OrchestratorPromptConfig {
-        manifest_path: manifest_path.to_string_lossy().to_string(),
+        manifest_path: manifest_str,
+        heartbeat_path: heartbeat_str,
         poll_interval: config.poll_interval,
         max_parallel: config.max_parallel,
         max_empty_polls: config.max_empty_polls,
         max_cycles: config.max_cycles,
     };
     let prompt_text = prompt::render_orchestrator_prompt(&prompt_config);
+
+    // 4b. Write prompt to file (avoids shell escaping issues with long prompts)
+    let prompt_path = jobs_dir.join("orchestrator-prompt.md");
+    std::fs::write(&prompt_path, &prompt_text).map_err(|e| {
+        OrchestratorError::Task(format!("Failed to write orchestrator prompt: {}", e))
+    })?;
 
     // 5. Launch via spawn_detached_terminal (reuse existing launcher infra)
     let cli = &config.cli_command;
@@ -163,18 +172,25 @@ pub fn launch_orchestrator(
         cli, config.orchestrator_model
     );
 
+    // Build a short bootstrap prompt that tells copilot to read the full instructions
+    // from the file. This avoids all shell escaping issues with the long prompt.
+    let bootstrap_prompt = format!(
+        "Read and follow ALL instructions in the file at: {}",
+        prompt_path.display()
+    );
+
     #[cfg(windows)]
     let pid = {
         let escaped_dir = jobs_dir.display().to_string().replace('\'', "''");
-        let escaped_prompt = prompt_text.replace('\'', "''");
+        let escaped_bootstrap = bootstrap_prompt.replace('\'', "''");
         let ps_cmd = format!(
             "$host.UI.RawUI.WindowTitle = 'TracePilot Orchestrator'; \
              Set-Location -LiteralPath '{}'; \
              Write-Host 'TracePilot Task Orchestrator starting...' -ForegroundColor Cyan; \
              Write-Host '  Jobs dir: {}' -ForegroundColor White; \
              Write-Host '' ; \
-             {} --interactive '{}'",
-            escaped_dir, escaped_dir, copilot_cmd, escaped_prompt
+             {} -i '{}'",
+            escaped_dir, escaped_dir, copilot_cmd, escaped_bootstrap
         );
         let encoded = crate::process::encode_powershell_command(&ps_cmd);
         crate::process::spawn_detached_terminal(
@@ -187,15 +203,15 @@ pub fn launch_orchestrator(
 
     #[cfg(target_os = "macos")]
     let pid = {
-        let escaped_prompt = prompt_text.replace('\'', "'\\''");
-        let full_cmd = format!("{} --interactive '{}'", copilot_cmd, escaped_prompt);
+        let escaped_bootstrap = bootstrap_prompt.replace('\'', "'\\''");
+        let full_cmd = format!("{} -i '{}'", copilot_cmd, escaped_bootstrap);
         crate::process::spawn_detached_terminal(&full_cmd, &[], jobs_dir, None)?
     };
 
     #[cfg(target_os = "linux")]
     let pid = {
-        let escaped_prompt = prompt_text.replace('\'', "'\\''");
-        let full_cmd = format!("{} --interactive '{}'", copilot_cmd, escaped_prompt);
+        let escaped_bootstrap = bootstrap_prompt.replace('\'', "'\\''");
+        let full_cmd = format!("{} -i '{}'", copilot_cmd, escaped_bootstrap);
         crate::process::spawn_detached_terminal(&full_cmd, &[], jobs_dir, None)?
     };
 

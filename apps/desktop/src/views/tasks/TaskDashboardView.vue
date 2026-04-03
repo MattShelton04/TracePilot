@@ -3,14 +3,20 @@ import { ErrorState, formatDate, LoadingSpinner, SearchInput, StatCard } from "@
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import TaskCard from "@/components/tasks/TaskCard.vue";
+import { useOrchestratorStore } from "@/stores/orchestrator";
+import { usePresetsStore } from "@/stores/presets";
 import { useTasksStore } from "@/stores/tasks";
 
 const store = useTasksStore();
+const orchestrator = useOrchestratorStore();
+const presets = usePresetsStore();
 const router = useRouter();
 const refreshing = ref(false);
 
 onMounted(() => {
   store.fetchTasks();
+  orchestrator.checkHealth();
+  presets.loadPresets();
 });
 
 async function handleRefresh() {
@@ -148,6 +154,89 @@ const hasActiveFilters = computed(
           color="danger"
           mini
         />
+      </div>
+
+      <!-- Orchestrator Status Card + Quick Presets -->
+      <div class="dashboard-cards">
+        <!-- Orchestrator Card -->
+        <div class="orch-card">
+          <div class="orch-card-header">
+            <div class="orch-card-title">
+              <span class="orch-dot" :class="orchestrator.isRunning ? 'dot-green' : 'dot-gray'" />
+              Orchestrator
+            </div>
+            <button
+              v-if="orchestrator.isStopped"
+              class="orch-action-btn orch-start"
+              :disabled="orchestrator.starting"
+              @click="orchestrator.startOrchestrator('gpt-5-mini')"
+            >
+              {{ orchestrator.starting ? "Starting…" : "Start" }}
+            </button>
+            <button
+              v-else
+              class="orch-action-btn orch-stop"
+              :disabled="orchestrator.stopping"
+              @click="orchestrator.stopOrchestrator()"
+            >
+              {{ orchestrator.stopping ? "Stopping…" : "Stop" }}
+            </button>
+          </div>
+          <div class="orch-card-stats">
+            <div class="orch-stat">
+              <span class="orch-stat-value">{{ orchestrator.health?.lastCycle ?? "—" }}</span>
+              <span class="orch-stat-label">Cycles</span>
+            </div>
+            <div class="orch-stat">
+              <span class="orch-stat-value">{{ orchestrator.health?.activeTasks?.length ?? 0 }}</span>
+              <span class="orch-stat-label">Active</span>
+            </div>
+            <div class="orch-stat">
+              <span
+                class="orch-stat-value"
+                :class="{ 'stale-text': orchestrator.isStale }"
+              >
+                {{ orchestrator.health?.heartbeatAgeSecs != null ? `${orchestrator.health.heartbeatAgeSecs}s` : "—" }}
+              </span>
+              <span class="orch-stat-label">Heartbeat</span>
+            </div>
+          </div>
+          <div v-if="orchestrator.error" class="orch-error">{{ orchestrator.error }}</div>
+          <button class="orch-monitor-link" @click="router.push('/monitor')">
+            Open Monitor →
+          </button>
+        </div>
+
+        <!-- Quick Presets Card -->
+        <div class="quick-presets-card">
+          <div class="quick-presets-header">
+            <span class="quick-presets-title">Quick Presets</span>
+            <button class="orch-monitor-link" @click="router.push('/presets')">
+              Manage →
+            </button>
+          </div>
+          <div v-if="presets.enabledPresets.length === 0" class="quick-presets-empty">
+            No enabled presets
+          </div>
+          <div v-else class="quick-preset-list">
+            <div
+              v-for="preset in presets.enabledPresets.slice(0, 4)"
+              :key="preset.id"
+              class="quick-preset-item"
+            >
+              <div class="quick-preset-info">
+                <span class="quick-preset-name">{{ preset.name }}</span>
+                <span class="quick-preset-type">{{ preset.taskType }}</span>
+              </div>
+              <button
+                class="quick-preset-run"
+                @click="router.push({ path: '/tasks/new', query: { presetId: preset.id } })"
+              >
+                Run
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Filter Row -->
@@ -360,6 +449,216 @@ const hasActiveFilters = computed(
   gap: 10px;
   padding: 14px 0 4px;
   flex-wrap: wrap;
+}
+
+/* ── Dashboard Cards (Orchestrator + Quick Presets) ──────────── */
+.dashboard-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.orch-card,
+.quick-presets-card {
+  background: var(--canvas-subtle);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+}
+
+.orch-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.orch-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.orch-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dot-green {
+  background: #34d399;
+  box-shadow: 0 0 6px rgba(52, 211, 153, 0.5);
+}
+
+.dot-gray {
+  background: #71717a;
+}
+
+.orch-action-btn {
+  padding: 4px 14px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.orch-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.orch-start {
+  background: #34d399;
+  color: #09090b;
+}
+
+.orch-start:hover:not(:disabled) {
+  background: #2dd890;
+}
+
+.orch-stop {
+  background: #f87171;
+  color: #09090b;
+}
+
+.orch-stop:hover:not(:disabled) {
+  background: #f55858;
+}
+
+.orch-card-stats {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 12px;
+}
+
+.orch-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.orch-stat-value {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.stale-text {
+  color: #fbbf24;
+}
+
+.orch-stat-label {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.orch-error {
+  font-size: 0.75rem;
+  color: #f87171;
+  margin-bottom: 8px;
+}
+
+.orch-monitor-link {
+  background: none;
+  border: none;
+  color: var(--accent-fg);
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.orch-monitor-link:hover {
+  opacity: 0.8;
+}
+
+/* Quick Presets */
+.quick-presets-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.quick-presets-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.quick-presets-empty {
+  font-size: 0.8125rem;
+  color: var(--text-placeholder);
+  text-align: center;
+  padding: 20px 0;
+}
+
+.quick-preset-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.quick-preset-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--canvas-default);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  transition: border-color var(--transition-fast);
+}
+
+.quick-preset-item:hover {
+  border-color: var(--accent-fg);
+}
+
+.quick-preset-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.quick-preset-name {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.quick-preset-type {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+}
+
+.quick-preset-run {
+  padding: 4px 14px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  background: var(--accent-muted);
+  color: var(--accent-fg);
+  border: 1px solid var(--accent-fg);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.quick-preset-run:hover {
+  background: var(--accent-fg);
+  color: #09090b;
 }
 
 /* ── Filter Row ──────────────────────────────────────────── */

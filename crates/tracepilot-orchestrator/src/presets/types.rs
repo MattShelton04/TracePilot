@@ -11,6 +11,8 @@ use serde::{Deserialize, Serialize};
 pub struct TaskPreset {
     pub id: String,
     pub name: String,
+    #[serde(default)]
+    pub task_type: String,
     pub description: String,
     pub version: u32,
     pub prompt: PresetPrompt,

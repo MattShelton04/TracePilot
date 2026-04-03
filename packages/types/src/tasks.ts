@@ -106,6 +106,7 @@ export interface TaskResult {
 export interface TaskPreset {
   id: string;
   name: string;
+  taskType: string;
   description: string;
   version: number;
   prompt: PresetPrompt;

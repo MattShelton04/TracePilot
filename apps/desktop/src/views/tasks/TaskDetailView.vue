@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { isTerminalStatus } from "@tracepilot/types";
 import {
   ErrorState,
   formatDate,
@@ -224,10 +223,8 @@ watch(taskId, (newId) => {
             </div>
             <div v-if="task.jobId" class="meta-row">
               <span class="meta-label">Job ID</span>
-              <span class="meta-value">
-                <router-link class="meta-link" :to="`/tasks?jobId=${task.jobId}`">
-                  {{ task.jobId }}
-                </router-link>
+              <span class="meta-value mono">
+                {{ task.jobId }}
               </span>
             </div>
             <div v-if="task.orchestratorSessionId" class="meta-row">

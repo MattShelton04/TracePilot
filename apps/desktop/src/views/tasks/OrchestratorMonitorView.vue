@@ -1,23 +1,14 @@
 <script setup lang="ts">
-import { ErrorState, formatDate, LoadingSpinner, SectionPanel, StatCard } from "@tracepilot/ui";
-import { computed, onMounted, ref } from "vue";
+import { ErrorState, LoadingSpinner, SectionPanel, StatCard } from "@tracepilot/ui";
+import { computed, onMounted, onUnmounted } from "vue";
 import TaskStatusBadge from "@/components/tasks/TaskStatusBadge.vue";
-import { useAutoRefresh } from "@/composables/useAutoRefresh";
 import { useOrchestratorStore } from "@/stores/orchestrator";
 
 const orchestrator = useOrchestratorStore();
 
-// ── Auto-refresh ────────────────────────────────────────────
-const autoRefreshEnabled = ref(true);
-const autoRefreshInterval = ref(10);
-const { refresh, refreshing } = useAutoRefresh({
-  onRefresh: () => orchestrator.checkHealth(),
-  enabled: autoRefreshEnabled,
-  intervalSeconds: autoRefreshInterval,
-});
-
 // ── Derived state ───────────────────────────────────────────
 const stateLabel = computed(() => {
+  if (orchestrator.starting) return "Starting…";
   switch (orchestrator.health?.health) {
     case "healthy":
       return "Running";
@@ -25,8 +16,10 @@ const stateLabel = computed(() => {
       return "Stale";
     case "stopped":
       return "Stopped";
+    case "unknown":
+      return orchestrator.handle ? "Starting…" : "Unknown";
     default:
-      return "Unknown";
+      return orchestrator.handle ? "Starting…" : "Idle";
   }
 });
 
@@ -39,7 +32,7 @@ const stateColor = computed(() => {
     case "stopped":
       return "#71717a";
     default:
-      return "#f87171";
+      return orchestrator.handle ? "#818cf8" : "#71717a";
   }
 });
 
@@ -59,21 +52,20 @@ const heartbeatColor = computed<"success" | "warning" | "danger">(() => {
 });
 
 const activeTaskCount = computed(() => orchestrator.health?.activeTasks?.length ?? 0);
-const eventsScanned = computed(() => orchestrator.attribution?.eventsScanned ?? 0);
 const lastCycle = computed(() => orchestrator.health?.lastCycle ?? null);
 
 function truncateId(id: string, len = 12): string {
   return id.length > len ? `${id.slice(0, len)}…` : id;
 }
 
-function truncateError(err: string | null, len = 60): string {
-  if (!err) return "";
-  return err.length > len ? `${err.slice(0, len)}…` : err;
-}
-
 // ── Lifecycle ───────────────────────────────────────────────
 onMounted(() => {
   orchestrator.refresh();
+  orchestrator.startPolling();
+});
+
+onUnmounted(() => {
+  orchestrator.stopPolling();
 });
 </script>
 
@@ -84,18 +76,36 @@ onMounted(() => {
       <div class="page-header fade-section" style="--stagger: 0">
         <h1 class="page-title">Orchestrator Monitor</h1>
         <div class="header-actions">
-          <label class="auto-refresh-toggle">
-            <input v-model="autoRefreshEnabled" type="checkbox" class="toggle-checkbox" />
-            <span class="toggle-label">Auto-refresh</span>
-          </label>
+          <button
+            v-if="orchestrator.isStopped"
+            class="action-btn start-btn"
+            :disabled="orchestrator.starting"
+            @click="orchestrator.startOrchestrator('gpt-5-mini')"
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M4 2l10 6-10 6z" />
+            </svg>
+            {{ orchestrator.starting ? "Starting…" : "Start" }}
+          </button>
+          <button
+            v-else
+            class="action-btn stop-btn"
+            :disabled="orchestrator.stopping"
+            @click="orchestrator.stopOrchestrator()"
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+              <rect x="3" y="3" width="10" height="10" rx="1" />
+            </svg>
+            {{ orchestrator.stopping ? "Stopping…" : "Stop" }}
+          </button>
           <button
             class="refresh-btn"
-            :disabled="refreshing"
-            @click="refresh"
+            :disabled="orchestrator.loading"
+            @click="orchestrator.refresh()"
           >
             <svg
               class="refresh-icon"
-              :class="{ spinning: refreshing }"
+              :class="{ spinning: orchestrator.loading }"
               width="14"
               height="14"
               viewBox="0 0 16 16"
@@ -106,7 +116,7 @@ onMounted(() => {
               />
               <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966a.25.25 0 0 1 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z" />
             </svg>
-            {{ refreshing ? "Refreshing…" : "Refresh" }}
+            {{ orchestrator.loading ? "Refreshing…" : "Refresh" }}
           </button>
         </div>
       </div>
@@ -197,18 +207,18 @@ onMounted(() => {
             color="accent"
           />
           <StatCard
-            :value="eventsScanned"
-            label="Events Scanned"
+            :value="orchestrator.lastIngestedCount"
+            label="Last Ingested"
             color="done"
           />
         </div>
 
-        <!-- Active Subagents -->
-        <SectionPanel title="Active Subagents" class="fade-section" style="--stagger: 3">
+        <!-- Active Tasks (from heartbeat) -->
+        <SectionPanel title="Active Tasks" class="fade-section" style="--stagger: 3">
           <template #actions>
-            <span class="subagent-count-badge">{{ orchestrator.activeSubagents.length }}</span>
+            <span class="subagent-count-badge">{{ activeTaskCount }}</span>
           </template>
-          <div v-if="orchestrator.activeSubagents.length === 0" class="empty-state">
+          <div v-if="activeTaskCount === 0" class="empty-state">
             <svg
               class="empty-icon"
               width="32"
@@ -223,90 +233,17 @@ onMounted(() => {
               <circle cx="12" cy="12" r="10" />
               <line x1="8" y1="12" x2="16" y2="12" />
             </svg>
-            <span>No active subagents</span>
+            <span>No active tasks</span>
           </div>
-          <div v-else class="table-wrapper">
-            <table class="data-table" aria-label="Active subagents">
-              <thead>
-                <tr>
-                  <th>Task ID</th>
-                  <th>Agent Name</th>
-                  <th>Status</th>
-                  <th>Started At</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="agent in orchestrator.activeSubagents" :key="agent.taskId">
-                  <td class="cell-mono">{{ truncateId(agent.taskId) }}</td>
-                  <td class="cell-name">{{ agent.agentName }}</td>
-                  <td>
-                    <span class="subagent-badge" :class="`subagent-${agent.status}`">
-                      <span class="subagent-badge-dot" />
-                      {{ agent.status }}
-                    </span>
-                  </td>
-                  <td class="cell-date">{{ agent.startedAt ? formatDate(agent.startedAt) : "—" }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </SectionPanel>
-
-        <!-- Completed Subagents -->
-        <SectionPanel title="Completed Subagents" class="fade-section" style="--stagger: 4">
-          <template #actions>
-            <span class="subagent-count-badge">{{ orchestrator.completedSubagents.length }}</span>
-          </template>
-          <div v-if="orchestrator.completedSubagents.length === 0" class="empty-state">
-            <svg
-              class="empty-icon"
-              width="32"
-              height="32"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-linecap="round"
-              stroke-linejoin="round"
+          <div v-else class="task-id-list">
+            <div
+              v-for="taskId in orchestrator.health?.activeTasks ?? []"
+              :key="taskId"
+              class="task-id-chip"
             >
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-              <polyline points="22 4 12 14.01 9 11.01" />
-            </svg>
-            <span>No completed subagents yet</span>
-          </div>
-          <div v-else class="table-wrapper">
-            <table class="data-table" aria-label="Completed subagents">
-              <thead>
-                <tr>
-                  <th>Task ID</th>
-                  <th>Agent Name</th>
-                  <th>Status</th>
-                  <th>Completed At</th>
-                  <th>Error</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="agent in orchestrator.completedSubagents" :key="agent.taskId">
-                  <td class="cell-mono">{{ truncateId(agent.taskId) }}</td>
-                  <td class="cell-name">{{ agent.agentName }}</td>
-                  <td>
-                    <span class="subagent-badge" :class="`subagent-${agent.status}`">
-                      <span class="subagent-badge-dot" />
-                      {{ agent.status }}
-                    </span>
-                  </td>
-                  <td class="cell-date">
-                    {{ agent.completedAt ? formatDate(agent.completedAt) : "—" }}
-                  </td>
-                  <td class="cell-error">
-                    <span v-if="agent.error" class="error-text" :title="agent.error">
-                      {{ truncateError(agent.error) }}
-                    </span>
-                    <span v-else class="no-error">—</span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+              <TaskStatusBadge status="in_progress" />
+              <span class="cell-mono">{{ truncateId(taskId, 20) }}</span>
+            </div>
           </div>
         </SectionPanel>
       </template>
@@ -351,6 +288,45 @@ onMounted(() => {
   animation-delay: calc(var(--stagger, 0) * 0.08s);
 }
 
+/* ── Action Buttons ──────────────────────────────────────────── */
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition:
+    background var(--transition-fast),
+    opacity var(--transition-fast);
+}
+
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.start-btn {
+  background: #34d399;
+  color: #09090b;
+}
+
+.start-btn:hover:not(:disabled) {
+  background: #2dd890;
+}
+
+.stop-btn {
+  background: #f87171;
+  color: #09090b;
+}
+
+.stop-btn:hover:not(:disabled) {
+  background: #f55858;
+}
+
 /* ── Header ──────────────────────────────────────────────────── */
 .page-header {
   display: flex;
@@ -370,27 +346,6 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 14px;
-}
-
-.auto-refresh-toggle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-  font-size: 0.75rem;
-  color: var(--text-tertiary);
-  user-select: none;
-}
-
-.toggle-checkbox {
-  width: 14px;
-  height: 14px;
-  accent-color: #34d399;
-  cursor: pointer;
-}
-
-.toggle-label {
-  white-space: nowrap;
 }
 
 .refresh-btn {
@@ -543,134 +498,23 @@ onMounted(() => {
   opacity: 0.4;
 }
 
-/* ── Table ───────────────────────────────────────────────────── */
-.table-wrapper {
-  overflow-x: auto;
+/* ── Task ID List ────────────────────────────────────────────── */
+.task-id-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px 0;
 }
 
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.8125rem;
-}
-
-.data-table th {
-  text-align: left;
-  font-size: 0.6875rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-tertiary);
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border-default);
-  white-space: nowrap;
-}
-
-.data-table td {
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--border-subtle);
-  color: var(--text-primary);
-  vertical-align: middle;
-}
-
-.data-table tbody tr {
-  transition: background var(--transition-fast);
-}
-
-.data-table tbody tr:hover {
-  background: var(--canvas-subtle);
-}
-
-.data-table tbody tr:last-child td {
-  border-bottom: none;
-}
-
-.cell-mono {
-  font-family: var(--font-mono, "JetBrains Mono", "Fira Code", monospace);
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-}
-
-.cell-name {
-  font-weight: 500;
-}
-
-.cell-date {
-  font-size: 0.75rem;
-  color: var(--text-tertiary);
-  white-space: nowrap;
-}
-
-.cell-error {
-  max-width: 240px;
-}
-
-.error-text {
-  font-size: 0.75rem;
-  color: #f87171;
-  cursor: help;
-}
-
-.no-error {
-  color: var(--text-placeholder);
-}
-
-/* ── Subagent Status Badges ──────────────────────────────────── */
-.subagent-badge {
+.task-id-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 2px 10px;
-  border-radius: 999px;
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  white-space: nowrap;
-}
-
-.subagent-badge-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.subagent-spawning {
-  background: rgba(96, 165, 250, 0.12);
-  color: #60a5fa;
-}
-
-.subagent-spawning .subagent-badge-dot {
-  background: #60a5fa;
-  animation: pulse 1.5s ease-in-out infinite;
-}
-
-.subagent-running {
-  background: rgba(52, 211, 153, 0.12);
-  color: #34d399;
-}
-
-.subagent-running .subagent-badge-dot {
-  background: #34d399;
-  animation: pulse 1.5s ease-in-out infinite;
-}
-
-.subagent-completed {
-  background: rgba(52, 211, 153, 0.12);
-  color: #34d399;
-}
-
-.subagent-completed .subagent-badge-dot {
-  background: #34d399;
-}
-
-.subagent-failed {
-  background: rgba(248, 113, 113, 0.12);
-  color: #f87171;
-}
-
-.subagent-failed .subagent-badge-dot {
-  background: #f87171;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--canvas-subtle);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  font-size: 0.8125rem;
 }
 
 /* ── Responsive ──────────────────────────────────────────────── */

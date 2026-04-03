@@ -195,6 +195,7 @@ mod tests {
         TaskPreset {
             id: "test-preset".to_string(),
             name: "Test Preset".to_string(),
+            task_type: "test".to_string(),
             description: "A test preset".to_string(),
             version: 1,
             prompt: PresetPrompt {

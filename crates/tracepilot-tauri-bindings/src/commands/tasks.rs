@@ -243,13 +243,250 @@ pub async fn task_delete_preset(
 #[tauri::command]
 pub async fn task_orchestrator_health(
     config: tauri::State<'_, SharedConfig>,
+    orch_state: tauri::State<'_, crate::types::SharedOrchestratorState>,
 ) -> CmdResult<tracepilot_orchestrator::task_recovery::HealthCheckResult> {
     let cfg = read_config(&config);
     let jobs_dir = cfg.jobs_dir();
+    let handle = orch_state
+        .lock()
+        .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?
+        .clone();
+    let stale_secs = (cfg.tasks.poll_interval_seconds * cfg.tasks.heartbeat_stale_multiplier) as u64;
     tokio::task::spawn_blocking(move || {
-        let result =
-            tracepilot_orchestrator::task_recovery::check_orchestrator_health(&jobs_dir, None, None);
+        let result = tracepilot_orchestrator::task_recovery::check_orchestrator_health(
+            &jobs_dir,
+            handle.as_ref(),
+            Some(stale_secs),
+        );
         Ok(result)
+    })
+    .await?
+}
+
+#[tauri::command]
+pub async fn task_orchestrator_start(
+    config: tauri::State<'_, SharedConfig>,
+    task_db: tauri::State<'_, SharedTaskDb>,
+    orch_state: tauri::State<'_, crate::types::SharedOrchestratorState>,
+    model: Option<String>,
+) -> CmdResult<tracepilot_orchestrator::task_orchestrator::OrchestratorHandle> {
+    // Check if already running
+    {
+        let guard = orch_state
+            .lock()
+            .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
+        if guard.is_some() {
+            return Err(BindingsError::Validation(
+                "Orchestrator is already running. Stop it first.".into(),
+            ));
+        }
+    }
+
+    let cfg = read_config(&config);
+    let db = get_or_init_task_db(&task_db)?;
+    let orch_state_clone = std::sync::Arc::clone(&*orch_state);
+
+    let orchestrator_model = model.unwrap_or_else(|| cfg.tasks.orchestrator_model.clone());
+    let default_subagent_model = cfg.tasks.default_subagent_model.clone();
+    let jobs_dir = cfg.jobs_dir();
+    let presets_dir = cfg.presets_dir();
+    let session_state_dir = cfg.session_state_dir();
+    let cli_command = cfg.general.cli_command.clone();
+    let poll_interval = cfg.tasks.poll_interval_seconds;
+    let max_concurrent = cfg.tasks.max_concurrent_tasks;
+
+    tokio::task::spawn_blocking(move || {
+        // Get pending tasks from DB, then release the lock
+        let (pending_tasks, resolved_models, context_contents) = {
+            let db_guard = db
+                .lock()
+                .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
+            let task_db = db_guard
+                .as_ref()
+                .ok_or_else(|| BindingsError::Validation("TaskDb not init".into()))?;
+
+            let filter = tracepilot_orchestrator::task_db::types::TaskFilter {
+                status: Some(tracepilot_orchestrator::task_db::types::TaskStatus::Pending),
+                ..Default::default()
+            };
+            let tasks =
+                tracepilot_orchestrator::task_db::operations::list_tasks(task_db.conn(), &filter)
+                    .map_err(BindingsError::Orchestrator)?;
+
+            if tasks.is_empty() {
+                return Err(BindingsError::Validation(
+                    "No pending tasks to process. Create tasks first.".into(),
+                ));
+            }
+
+            let models: Vec<String> = tasks
+                .iter()
+                .map(|_| default_subagent_model.clone())
+                .collect();
+
+            // Assemble rich context for each task using the preset + context assembler
+            let contexts: Vec<(String, String)> = tasks
+                .iter()
+                .map(|task| {
+                    let task_dir = jobs_dir.join(&task.id);
+                    let result_file = task_dir.join("result.json");
+                    let result_path = result_file.to_string_lossy().to_string();
+
+                    // Try to load the preset for rich context assembly
+                    let content = match tracepilot_orchestrator::presets::io::get_preset(
+                        &presets_dir,
+                        &task.preset_id,
+                    ) {
+                        Ok(preset) => {
+                            match tracepilot_orchestrator::task_context::assemble_task_context(
+                                &preset,
+                                &task.input_params,
+                                &session_state_dir,
+                                preset.context.max_chars,
+                                &result_path,
+                            ) {
+                                Ok(assembled) => assembled.content,
+                                Err(e) => {
+                                    tracing::warn!(
+                                        task_id = %task.id,
+                                        error = %e,
+                                        "Context assembly failed, using fallback"
+                                    );
+                                    fallback_context(task, &result_path)
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            tracing::warn!(
+                                task_id = %task.id,
+                                preset_id = %task.preset_id,
+                                error = %e,
+                                "Preset not found, using fallback context"
+                            );
+                            fallback_context(task, &result_path)
+                        }
+                    };
+
+                    (task.id.clone(), content)
+                })
+                .collect();
+
+            (tasks, models, contexts)
+        }; // db_guard dropped here
+
+        let launch_config = tracepilot_orchestrator::task_orchestrator::OrchestratorLaunchConfig {
+            poll_interval,
+            max_parallel: max_concurrent,
+            max_empty_polls: 10,
+            max_cycles: 100,
+            orchestrator_model,
+            cli_command,
+            jobs_dir,
+        };
+
+        let handle =
+            tracepilot_orchestrator::task_orchestrator::launch_orchestrator(
+                &pending_tasks,
+                &resolved_models,
+                &context_contents,
+                &launch_config,
+            )
+            .map_err(BindingsError::Orchestrator)?;
+
+        // Store handle
+        let mut guard = orch_state_clone
+            .lock()
+            .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
+        *guard = Some(handle.clone());
+
+        Ok(handle)
+    })
+    .await?
+}
+
+#[tauri::command]
+pub async fn task_orchestrator_stop(
+    orch_state: tauri::State<'_, crate::types::SharedOrchestratorState>,
+) -> CmdResult<()> {
+    let orch_state_clone = std::sync::Arc::clone(&*orch_state);
+
+    tokio::task::spawn_blocking(move || {
+        let mut guard = orch_state_clone
+            .lock()
+            .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
+        let handle = guard
+            .take()
+            .ok_or_else(|| BindingsError::Validation("Orchestrator is not running.".into()))?;
+
+        let manifest_path = std::path::PathBuf::from(&handle.manifest_path);
+        tracepilot_orchestrator::task_orchestrator::manifest::update_manifest_shutdown(
+            &manifest_path,
+        )
+        .map_err(BindingsError::Orchestrator)?;
+
+        Ok(())
+    })
+    .await?
+}
+
+// ─── Ingestion ──────────────────────────────────────────────────────
+
+/// Scan the jobs directory for completed task results and ingest them into the DB.
+/// Returns the number of tasks that were successfully ingested.
+#[tauri::command]
+pub async fn task_ingest_results(
+    config: tauri::State<'_, SharedConfig>,
+    task_db: tauri::State<'_, SharedTaskDb>,
+) -> CmdResult<u32> {
+    let cfg = read_config(&config);
+    let jobs_dir = cfg.jobs_dir();
+    let db = get_or_init_task_db(&task_db)?;
+
+    tokio::task::spawn_blocking(move || {
+        let db_guard = db
+            .lock()
+            .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
+        let task_db = db_guard
+            .as_ref()
+            .ok_or_else(|| BindingsError::Validation("TaskDb not init".into()))?;
+
+        // Get all non-terminal tasks (pending + in_progress) — these are candidates for ingestion
+        let pending_filter = tracepilot_orchestrator::task_db::types::TaskFilter {
+            status: Some(tracepilot_orchestrator::task_db::types::TaskStatus::Pending),
+            ..Default::default()
+        };
+        let in_progress_filter = tracepilot_orchestrator::task_db::types::TaskFilter {
+            status: Some(tracepilot_orchestrator::task_db::types::TaskStatus::InProgress),
+            ..Default::default()
+        };
+
+        let mut task_ids: Vec<String> = Vec::new();
+        if let Ok(tasks) = tracepilot_orchestrator::task_db::operations::list_tasks(
+            task_db.conn(),
+            &pending_filter,
+        ) {
+            task_ids.extend(tasks.into_iter().map(|t| t.id));
+        }
+        if let Ok(tasks) = tracepilot_orchestrator::task_db::operations::list_tasks(
+            task_db.conn(),
+            &in_progress_filter,
+        ) {
+            task_ids.extend(tasks.into_iter().map(|t| t.id));
+        }
+
+        if task_ids.is_empty() {
+            return Ok(0);
+        }
+
+        let results = tracepilot_orchestrator::task_ipc::ingest_results(
+            task_db.conn(),
+            &jobs_dir,
+            &task_ids,
+        )
+        .map_err(BindingsError::Orchestrator)?;
+
+        let ingested_count = results.iter().filter(|r| r.ingested).count() as u32;
+        Ok(ingested_count)
     })
     .await?
 }
@@ -266,4 +503,24 @@ pub async fn task_attribution(
             .map_err(BindingsError::Orchestrator)
     })
     .await?
+}
+
+// ─── Helpers ────────────────────────────────────────────────────────
+
+/// Build minimal context when preset loading or full assembly fails.
+fn fallback_context(
+    task: &tracepilot_orchestrator::task_db::Task,
+    result_path: &str,
+) -> String {
+    format!(
+        "# Task: {}\n\n**Type:** {}\n**Preset:** {}\n\n\
+         ## Input Parameters\n\n```json\n{}\n```\n\n\
+         ## Output Format\n\nWrite your result as valid JSON to: `{}`\n\
+         Use atomic write: write to `.tmp` then rename.\n",
+        task.id,
+        task.task_type,
+        task.preset_id,
+        serde_json::to_string_pretty(&task.input_params).unwrap_or_default(),
+        result_path,
+    )
 }

@@ -296,7 +296,7 @@ const routes: RouteRecordRaw[] = [
     component: () => import("@/views/tasks/OrchestratorMonitorView.vue"),
     meta: {
       title: "Orchestrator Monitor",
-      sidebarId: "ai-tasks",
+      sidebarId: "ai-monitor",
       featureFlag: "aiTasks",
     },
   },
@@ -306,7 +306,7 @@ const routes: RouteRecordRaw[] = [
     component: () => import("@/views/tasks/PresetManagerView.vue"),
     meta: {
       title: "Task Presets",
-      sidebarId: "ai-tasks",
+      sidebarId: "ai-presets",
       featureFlag: "aiTasks",
     },
   },

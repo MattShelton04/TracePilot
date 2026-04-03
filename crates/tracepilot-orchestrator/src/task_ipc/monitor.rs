@@ -51,7 +51,7 @@ pub fn scan_completed_tasks(
         };
 
         let task_status = match status_file.status.as_str() {
-            "done" => TaskStatus::Done,
+            "done" | "completed" => TaskStatus::Done,
             "failed" => TaskStatus::Failed,
             _ => TaskStatus::Failed,
         };
@@ -109,7 +109,7 @@ pub fn ingest_results(
         let result_file = protocol::read_result_file(jobs_dir, task_id).ok().flatten();
 
         let task_status = match status_file.status.as_str() {
-            "done" => TaskStatus::Done,
+            "done" | "completed" => TaskStatus::Done,
             "failed" => TaskStatus::Failed,
             _ => TaskStatus::Failed,
         };

@@ -19,7 +19,7 @@ import { logError, logWarn } from "@/utils/logger";
 export type TaskSortOption = "newest" | "oldest" | "priority" | "status";
 
 /** Deduplicate concurrent fetch calls. */
-let fetchPromise: Promise<void> | null = null;
+// Module-level dedup handled inside store setup
 
 export const useTasksStore = defineStore("tasks", () => {
   // ─── State ────────────────────────────────────────────────────────
@@ -89,12 +89,15 @@ export const useTasksStore = defineStore("tasks", () => {
 
   // ─── Actions ──────────────────────────────────────────────────────
 
+  let fetchTasksPromise: Promise<void> | null = null;
+  let refreshTasksPromise: Promise<void> | null = null;
+
   async function fetchTasks(filter?: TaskFilter) {
-    if (fetchPromise) return fetchPromise;
+    if (fetchTasksPromise) return fetchTasksPromise;
     const token = loadGuard.start();
     loading.value = true;
     error.value = null;
-    fetchPromise = (async () => {
+    fetchTasksPromise = (async () => {
       try {
         const [taskResult, statsResult, jobsResult] = await Promise.all([
           taskList(filter),
@@ -109,17 +112,17 @@ export const useTasksStore = defineStore("tasks", () => {
         if (!loadGuard.isValid(token)) return;
         error.value = toErrorMessage(e);
       } finally {
-        fetchPromise = null;
+        fetchTasksPromise = null;
         if (loadGuard.isValid(token)) loading.value = false;
       }
     })();
-    return fetchPromise;
+    return fetchTasksPromise;
   }
 
   /** Silent refresh — no loading state change. */
   async function refreshTasks() {
-    if (fetchPromise) return fetchPromise;
-    fetchPromise = (async () => {
+    if (refreshTasksPromise) return refreshTasksPromise;
+    refreshTasksPromise = (async () => {
       try {
         const [taskResult, statsResult] = await Promise.all([taskList(), taskStats()]);
         tasks.value = taskResult;
@@ -127,10 +130,10 @@ export const useTasksStore = defineStore("tasks", () => {
       } catch (e) {
         logWarn("[tasks] Silent refresh failed:", e);
       } finally {
-        fetchPromise = null;
+        refreshTasksPromise = null;
       }
     })();
-    return fetchPromise;
+    return refreshTasksPromise;
   }
 
   async function getTask(id: string): Promise<Task | null> {

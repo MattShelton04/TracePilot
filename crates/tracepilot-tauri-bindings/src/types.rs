@@ -9,6 +9,12 @@ use std::sync::{Arc, Mutex};
 /// Lazily initialized on first use (config must be available for the path).
 pub type SharedTaskDb = Arc<Mutex<Option<tracepilot_orchestrator::task_db::TaskDb>>>;
 
+// ── Shared Orchestrator State ──────────────────────────────────────
+
+/// Thread-safe shared state for the active orchestrator session.
+pub type SharedOrchestratorState =
+    Arc<Mutex<Option<tracepilot_orchestrator::task_orchestrator::OrchestratorHandle>>>;
+
 // ── LRU Turn Cache ──────────────────────────────────────────────────
 
 /// Cached turns for a single session, keyed by session ID in the LRU.

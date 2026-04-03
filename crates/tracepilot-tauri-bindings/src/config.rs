@@ -176,6 +176,8 @@ pub struct FeaturesConfig {
     pub mcp_servers: bool,
     #[serde(default = "default_true")]
     pub skills: bool,
+    #[serde(default)]
+    pub ai_tasks: bool,
 }
 
 impl Default for FeaturesConfig {
@@ -187,6 +189,7 @@ impl Default for FeaturesConfig {
             render_markdown: true,
             mcp_servers: true,
             skills: true,
+            ai_tasks: false,
         }
     }
 }

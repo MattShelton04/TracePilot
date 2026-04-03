@@ -241,11 +241,11 @@ pub fn get_task_stats(conn: &Connection) -> Result<TaskStats> {
     let stats = conn.query_row(
         "SELECT
             COUNT(*) as total,
-            SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
-            SUM(CASE WHEN status IN ('claimed', 'in_progress') THEN 1 ELSE 0 END) as in_progress,
-            SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) as done,
-            SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed,
-            SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled
+            COALESCE(SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END), 0) as pending,
+            COALESCE(SUM(CASE WHEN status IN ('claimed', 'in_progress') THEN 1 ELSE 0 END), 0) as in_progress,
+            COALESCE(SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END), 0) as done,
+            COALESCE(SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END), 0) as failed,
+            COALESCE(SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END), 0) as cancelled
          FROM tasks",
         [],
         |row| {

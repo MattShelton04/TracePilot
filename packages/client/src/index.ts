@@ -17,6 +17,7 @@ import type {
   ImportResult,
   Job,
   NewTask,
+  OrchestratorHandle,
   SearchFacetsResponse,
   SearchFilters,
   SearchResultsResponse,
@@ -307,6 +308,7 @@ async function getMockData<T>(cmd: string, args?: Record<string, unknown>): Prom
     task_get_preset: {
       id: "mock-preset",
       name: "Mock Preset",
+      taskType: "mock_task",
       version: 1,
       description: "A mock preset",
       prompt: { system: "", user: "", variables: [] },
@@ -328,6 +330,15 @@ async function getMockData<T>(cmd: string, args?: Record<string, unknown>): Prom
       activeTasks: [],
       needsRestart: false,
     } as HealthCheckResult,
+    task_orchestrator_start: {
+      pid: 0,
+      sessionUuid: null,
+      manifestPath: "",
+      jobsDir: "",
+      launchedAt: new Date().toISOString(),
+    } as OrchestratorHandle,
+    task_orchestrator_stop: undefined,
+    task_ingest_results: 0,
     task_attribution: {
       subagents: [],
       eventsScanned: 0,
@@ -833,13 +844,28 @@ export async function taskOrchestratorHealth(): Promise<HealthCheckResult> {
   return invoke<HealthCheckResult>("task_orchestrator_health");
 }
 
+/** Start the orchestrator. Optionally override the model. */
+export async function taskOrchestratorStart(model?: string): Promise<OrchestratorHandle> {
+  return invoke<OrchestratorHandle>("task_orchestrator_start", { model: model ?? null });
+}
+
+/** Stop the running orchestrator gracefully via manifest shutdown flag. */
+export async function taskOrchestratorStop(): Promise<void> {
+  return invoke<void>("task_orchestrator_stop");
+}
+
+/** Scan jobs directory and ingest completed task results into the DB. Returns count ingested. */
+export async function taskIngestResults(): Promise<number> {
+  return invoke<number>("task_ingest_results");
+}
+
 /** Get subagent attribution for an orchestrator session. */
 export async function taskAttribution(sessionPath: string): Promise<AttributionSnapshot> {
   return invoke<AttributionSnapshot>("task_attribution", { sessionPath });
 }
 
+export * from "./mcp.js";
 // Re-export orchestration module
 export * from "./orchestration.js";
-export * from "./mcp.js";
 export * from "./skills.js";
 export type { SessionHealth };

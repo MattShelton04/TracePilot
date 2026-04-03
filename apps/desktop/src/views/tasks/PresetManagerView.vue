@@ -8,8 +8,11 @@ const store = usePresetsStore();
 
 const showNewPresetModal = ref(false);
 const showDeleteConfirm = ref(false);
+const showEditModal = ref(false);
 const presetToDelete = ref<TaskPreset | null>(null);
+const editingPreset = ref<TaskPreset | null>(null);
 const creating = ref(false);
+const saving = ref(false);
 
 // New preset form
 const newPresetName = ref("");
@@ -52,9 +55,11 @@ function confirmDelete(preset: TaskPreset) {
 
 async function handleDelete() {
   if (!presetToDelete.value) return;
-  await store.deletePreset(presetToDelete.value.id);
-  showDeleteConfirm.value = false;
-  presetToDelete.value = null;
+  const ok = await store.deletePreset(presetToDelete.value.id);
+  if (ok) {
+    showDeleteConfirm.value = false;
+    presetToDelete.value = null;
+  }
 }
 
 function cancelDelete() {
@@ -64,6 +69,14 @@ function cancelDelete() {
 
 async function handleCreatePreset() {
   if (!newPresetName.value.trim() || !presetId.value) return;
+
+  // Guard against overwriting existing presets
+  const existing = store.presets.find((p) => p.id === presetId.value);
+  if (existing) {
+    store.error = `A preset with ID "${presetId.value}" already exists.`;
+    return;
+  }
+
   creating.value = true;
 
   const now = new Date().toISOString();
@@ -75,6 +88,7 @@ async function handleCreatePreset() {
   const preset: TaskPreset = {
     id: presetId.value,
     name: newPresetName.value.trim(),
+    taskType: presetId.value,
     description: newPresetDesc.value.trim(),
     version: 1,
     prompt: { system: "", user: "", variables: [] },
@@ -106,6 +120,26 @@ async function handleCreatePreset() {
 function openNewPresetModal() {
   store.error = null;
   showNewPresetModal.value = true;
+}
+
+function openEditModal(preset: TaskPreset) {
+  store.error = null;
+  editingPreset.value = JSON.parse(JSON.stringify(preset));
+  showEditModal.value = true;
+}
+
+function closeEditModal() {
+  showEditModal.value = false;
+  editingPreset.value = null;
+}
+
+async function handleSaveEdit() {
+  if (!editingPreset.value) return;
+  saving.value = true;
+  editingPreset.value.updatedAt = new Date().toISOString();
+  const ok = await store.savePreset(editingPreset.value);
+  saving.value = false;
+  if (ok) closeEditModal();
 }
 </script>
 
@@ -191,11 +225,12 @@ function openNewPresetModal() {
             class="search-input"
             type="text"
             placeholder="Search presets…"
+            aria-label="Search presets"
           />
         </div>
 
         <div class="tag-filter">
-          <select v-model="store.filterTag" class="tag-select">
+          <select v-model="store.filterTag" class="tag-select" aria-label="Filter by tag">
             <option value="all">All Tags</option>
             <option v-for="tag in store.allTags" :key="tag" :value="tag">
               {{ tag }}
@@ -287,6 +322,25 @@ function openNewPresetModal() {
           <div class="preset-card__actions">
             <button
               class="btn btn--ghost btn--sm"
+              title="Edit preset"
+              @click="openEditModal(preset)"
+            >
+              <svg
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                width="13"
+                height="13"
+              >
+                <path d="M11.5 1.5l3 3L5 14H2v-3z" />
+              </svg>
+              Edit
+            </button>
+            <button
+              class="btn btn--ghost btn--sm"
               :disabled="preset.builtin"
               :title="preset.builtin ? 'Builtin presets cannot be deleted' : 'Delete preset'"
               @click="confirmDelete(preset)"
@@ -332,7 +386,11 @@ function openNewPresetModal() {
       <div
         v-if="showDeleteConfirm"
         class="modal-overlay"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Delete preset confirmation"
         @click.self="cancelDelete"
+        @keydown.escape="cancelDelete"
       >
         <div class="modal">
           <div class="modal__header">
@@ -361,7 +419,11 @@ function openNewPresetModal() {
       <div
         v-if="showNewPresetModal"
         class="modal-overlay"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Create new preset"
         @click.self="showNewPresetModal = false"
+        @keydown.escape="showNewPresetModal = false"
       >
         <div class="modal">
           <div class="modal__header">
@@ -437,6 +499,184 @@ function openNewPresetModal() {
               @click="handleCreatePreset"
             >
               {{ creating ? "Creating…" : "Create" }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Edit Preset Modal -->
+      <div
+        v-if="showEditModal && editingPreset"
+        class="modal-overlay"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Edit preset"
+        @click.self="closeEditModal"
+        @keydown.escape="closeEditModal"
+      >
+        <div class="modal modal--wide">
+          <div class="modal__header">
+            <h3 class="modal__title">Edit: {{ editingPreset.name }}</h3>
+            <button class="modal__close" @click="closeEditModal">✕</button>
+          </div>
+          <div class="modal__body edit-body">
+            <!-- Basic Info -->
+            <div class="edit-section">
+              <div class="edit-section__header">
+                <span class="edit-section__icon">📋</span>
+                <h4 class="edit-section__title">Basic Info</h4>
+              </div>
+              <div class="edit-section__divider" />
+              <div class="edit-grid edit-grid--2col">
+                <div class="edit-field">
+                  <label class="modal__label">Name</label>
+                  <input v-model="editingPreset.name" class="modal__input" type="text" />
+                </div>
+                <div class="edit-field">
+                  <label class="modal__label">Task Type</label>
+                  <input
+                    v-model="editingPreset.taskType"
+                    class="modal__input"
+                    type="text"
+                  />
+                </div>
+              </div>
+              <div class="edit-field">
+                <label class="modal__label">Description</label>
+                <textarea
+                  v-model="editingPreset.description"
+                  class="modal__textarea"
+                  rows="2"
+                />
+              </div>
+              <div class="edit-field">
+                <label class="modal__label">Tags (comma-separated)</label>
+                <input
+                  :value="editingPreset.tags.join(', ')"
+                  class="modal__input"
+                  type="text"
+                  @input="editingPreset!.tags = ($event.target as HTMLInputElement).value.split(',').map(t => t.trim()).filter(Boolean)"
+                />
+              </div>
+            </div>
+
+            <!-- Prompt -->
+            <div class="edit-section">
+              <div class="edit-section__header">
+                <span class="edit-section__icon">💬</span>
+                <h4 class="edit-section__title">Prompt</h4>
+              </div>
+              <div class="edit-section__divider" />
+              <div class="edit-field">
+                <label class="modal__label">System Prompt</label>
+                <textarea
+                  v-model="editingPreset.prompt.system"
+                  class="modal__textarea modal__textarea--code"
+                  rows="6"
+                />
+              </div>
+              <div class="edit-field">
+                <label class="modal__label">User Prompt</label>
+                <textarea
+                  v-model="editingPreset.prompt.user"
+                  class="modal__textarea modal__textarea--code"
+                  rows="6"
+                />
+              </div>
+            </div>
+
+            <!-- Context -->
+            <div class="edit-section">
+              <div class="edit-section__header">
+                <span class="edit-section__icon">📄</span>
+                <h4 class="edit-section__title">Context</h4>
+              </div>
+              <div class="edit-section__divider" />
+              <div class="edit-grid edit-grid--2col">
+                <div class="edit-field">
+                  <label class="modal__label">Max Characters</label>
+                  <input
+                    v-model.number="editingPreset.context.maxChars"
+                    class="modal__input"
+                    type="number"
+                    min="0"
+                  />
+                </div>
+                <div class="edit-field">
+                  <label class="modal__label">Format</label>
+                  <select
+                    v-model="editingPreset.context.format"
+                    class="modal__input"
+                  >
+                    <option value="markdown">Markdown</option>
+                    <option value="json">JSON</option>
+                    <option value="text">Plain Text</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- Execution -->
+            <div class="edit-section">
+              <div class="edit-section__header">
+                <span class="edit-section__icon">⚡</span>
+                <h4 class="edit-section__title">Execution</h4>
+              </div>
+              <div class="edit-section__divider" />
+              <div class="edit-field">
+                <label class="modal__label">Model Override</label>
+                <input
+                  :value="editingPreset.execution.modelOverride ?? ''"
+                  class="modal__input"
+                  type="text"
+                  placeholder="Leave blank for default"
+                  @input="editingPreset!.execution.modelOverride = ($event.target as HTMLInputElement).value || null"
+                />
+              </div>
+              <div class="edit-row">
+                <div class="edit-field">
+                  <label class="modal__label">Timeout (s)</label>
+                  <input
+                    v-model.number="editingPreset.execution.timeoutSeconds"
+                    class="modal__input"
+                    type="number"
+                    min="0"
+                  />
+                </div>
+                <div class="edit-field">
+                  <label class="modal__label">Max Retries</label>
+                  <input
+                    v-model.number="editingPreset.execution.maxRetries"
+                    class="modal__input"
+                    type="number"
+                    min="0"
+                  />
+                </div>
+                <div class="edit-field">
+                  <label class="modal__label">Priority</label>
+                  <select
+                    v-model="editingPreset.execution.priority"
+                    class="modal__input"
+                  >
+                    <option value="low">Low</option>
+                    <option value="normal">Normal</option>
+                    <option value="high">High</option>
+                    <option value="critical">Critical</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="modal__footer">
+            <button class="btn btn--secondary" @click="closeEditModal">
+              Cancel
+            </button>
+            <button
+              class="btn btn--primary"
+              :disabled="saving"
+              @click="handleSaveEdit"
+            >
+              {{ saving ? "Saving…" : "Save Changes" }}
             </button>
           </div>
         </div>
@@ -1069,5 +1309,86 @@ function openNewPresetModal() {
   gap: 8px;
   padding: 12px 20px;
   border-top: 1px solid var(--border-muted);
+}
+
+/* ── Edit Modal Additions ────────────────────────────────── */
+.modal--wide {
+  width: 720px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal--wide .modal__body {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.edit-body {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.edit-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.edit-section__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.edit-section__icon {
+  font-size: 0.8125rem;
+  line-height: 1;
+}
+
+.edit-section__title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--accent-fg);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0;
+}
+
+.edit-section__divider {
+  height: 1px;
+  background: var(--border-default);
+  margin: -4px 0 4px;
+}
+
+.edit-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.edit-grid--2col {
+  grid-template-columns: 1fr 1fr;
+}
+
+.edit-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+}
+
+.edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.modal__textarea--code {
+  font-family: var(--font-mono, "JetBrains Mono", "Fira Code", monospace);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  tab-size: 2;
+  background: var(--canvas-default);
+  border-color: var(--border-muted);
 }
 </style>

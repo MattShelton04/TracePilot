@@ -102,7 +102,7 @@ async function handleSubmit() {
   const inputParams: Record<string, unknown> = { ...formValues };
   try {
     const task = await tasksStore.createTask(
-      selectedPreset.value.id,
+      selectedPreset.value.taskType || selectedPreset.value.id,
       selectedPreset.value.id,
       inputParams,
       priority.value,

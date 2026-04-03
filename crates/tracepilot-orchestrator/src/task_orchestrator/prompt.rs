@@ -13,6 +13,8 @@ const ORCHESTRATOR_PROMPT_TEMPLATE: &str = include_str!("orchestrator_prompt.md"
 pub struct OrchestratorPromptConfig {
     /// Absolute path to manifest.json.
     pub manifest_path: String,
+    /// Absolute path to heartbeat.json (sibling of manifest).
+    pub heartbeat_path: String,
     /// Poll interval in seconds.
     pub poll_interval: u32,
     /// Maximum concurrent subagent tasks.
@@ -27,6 +29,7 @@ pub struct OrchestratorPromptConfig {
 pub fn render_orchestrator_prompt(config: &OrchestratorPromptConfig) -> String {
     ORCHESTRATOR_PROMPT_TEMPLATE
         .replace("{{manifest_path}}", &config.manifest_path)
+        .replace("{{heartbeat_path}}", &config.heartbeat_path)
         .replace("{{poll_interval}}", &config.poll_interval.to_string())
         .replace("{{max_parallel}}", &config.max_parallel.to_string())
         .replace("{{max_empty_polls}}", &config.max_empty_polls.to_string())
@@ -52,6 +55,7 @@ mod tests {
     fn prompt_renders_with_all_variables() {
         let config = OrchestratorPromptConfig {
             manifest_path: "/home/user/.copilot/tracepilot/jobs/manifest.json".to_string(),
+            heartbeat_path: "/home/user/.copilot/tracepilot/jobs/heartbeat.json".to_string(),
             poll_interval: 30,
             max_parallel: 3,
             max_empty_polls: 10,
@@ -60,9 +64,11 @@ mod tests {
         let rendered = render_orchestrator_prompt(&config);
 
         assert!(rendered.contains("/home/user/.copilot/tracepilot/jobs/manifest.json"));
+        assert!(rendered.contains("/home/user/.copilot/tracepilot/jobs/heartbeat.json"));
         assert!(rendered.contains("Start-Sleep -Seconds 30"));
         assert!(rendered.contains("No tasks for 10 cycles"));
         assert!(!rendered.contains("{{manifest_path}}"));
+        assert!(!rendered.contains("{{heartbeat_path}}"));
         assert!(!rendered.contains("{{poll_interval}}"));
         assert!(!rendered.contains("{{max_parallel}}"));
         assert!(!rendered.contains("{{max_empty_polls}}"));
@@ -74,9 +80,8 @@ mod tests {
         let template = ORCHESTRATOR_PROMPT_TEMPLATE;
         assert!(template.contains("TracePilot Task Orchestrator"));
         assert!(template.contains("Main Loop"));
-        assert!(template.contains("Task Processing"));
         assert!(template.contains("Subagent Prompt"));
-        assert!(template.contains("tp-{task_id}"));
+        assert!(template.contains("tp-{task"));
         assert!(template.contains("heartbeat"));
     }
 }

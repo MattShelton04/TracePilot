@@ -21,6 +21,7 @@ pub struct BudgetSection {
 
 /// Result of applying the budget.
 #[derive(Debug)]
+#[allow(dead_code)] // Fields used by future context assembly wiring
 pub struct BudgetResult {
     pub sections: Vec<BudgetSection>,
     pub truncated: bool,
