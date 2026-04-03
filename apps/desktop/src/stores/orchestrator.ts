@@ -55,18 +55,11 @@ export const useOrchestratorStore = defineStore("orchestrator", () => {
   const isStale = computed(() => health.value?.health === "stale");
   const needsRestart = computed(() => health.value?.needsRestart === true);
 
-  /** Session UUID of the orchestrator (discovered via PID lock file). */
-  const sessionUuid = computed(() => handle.value?.sessionUuid ?? null);
+  /** Session UUID of the orchestrator (discovered via health check). */
+  const sessionUuid = computed(() => health.value?.sessionUuid ?? null);
 
-  /** Session path for attribution lookups. */
-  const sessionPath = computed(() => {
-    const uuid = sessionUuid.value;
-    if (!uuid) return null;
-    // Standard Copilot CLI session state path
-    const home = typeof process !== "undefined" ? process.env.USERPROFILE : undefined;
-    if (!home) return null;
-    return `${home}\\.copilot\\session-state\\${uuid}`;
-  });
+  /** Session path resolved by the backend (platform-agnostic). */
+  const sessionPath = computed(() => health.value?.sessionPath ?? null);
 
   const activeSubagents = computed(() =>
     (attribution.value?.subagents ?? []).filter(
@@ -86,8 +79,6 @@ export const useOrchestratorStore = defineStore("orchestrator", () => {
     try {
       const result = await taskOrchestratorHealth();
       health.value = result;
-      // Health check also discovers session UUID — update handle if found
-      // The backend updates the shared state, so re-read will get it next cycle
     } catch (e) {
       logWarn("[orchestrator] Health check failed:", e);
     }

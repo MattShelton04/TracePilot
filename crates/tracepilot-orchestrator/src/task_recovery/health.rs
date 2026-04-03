@@ -32,6 +32,10 @@ pub struct HealthCheckResult {
     pub last_cycle: Option<u32>,
     pub active_tasks: Vec<String>,
     pub needs_restart: bool,
+    /// Session UUID of the orchestrator (discovered after launch).
+    pub session_uuid: Option<String>,
+    /// Full path to the orchestrator's session directory.
+    pub session_path: Option<String>,
 }
 
 /// Check the health of the orchestrator.
@@ -61,6 +65,8 @@ pub fn check_orchestrator_health(
             last_cycle: heartbeat.as_ref().map(|h| h.cycle),
             active_tasks: vec![],
             needs_restart: false,
+            session_uuid: None,
+            session_path: None,
         };
     }
 
@@ -75,6 +81,8 @@ pub fn check_orchestrator_health(
                     .map(|h| h.active_tasks)
                     .unwrap_or_default(),
                 needs_restart: false,
+                session_uuid: None,
+                session_path: None,
             }
         }
         Some(age) => {
@@ -85,6 +93,8 @@ pub fn check_orchestrator_health(
                 last_cycle: heartbeat.as_ref().map(|h| h.cycle),
                 active_tasks: vec![],
                 needs_restart: true,
+                session_uuid: None,
+                session_path: None,
             }
         }
         None => {
@@ -95,6 +105,8 @@ pub fn check_orchestrator_health(
                 last_cycle: None,
                 active_tasks: vec![],
                 needs_restart: true,
+                session_uuid: None,
+                session_path: None,
             }
         }
     }
@@ -197,6 +209,8 @@ mod tests {
             last_cycle: Some(10),
             active_tasks: vec![],
             needs_restart: true,
+            session_uuid: None,
+            session_path: None,
         };
         assert!(should_restart(&health, true));
         assert!(!should_restart(&health, false));

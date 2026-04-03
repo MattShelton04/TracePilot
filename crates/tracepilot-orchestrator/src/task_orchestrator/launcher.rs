@@ -166,8 +166,11 @@ pub fn launch_orchestrator(
         "completedTasks": []
     });
     let tmp_heartbeat = heartbeat_path.with_extension("json.tmp");
-    std::fs::write(&tmp_heartbeat, initial_heartbeat.to_string()).ok();
-    std::fs::rename(&tmp_heartbeat, &heartbeat_path).ok();
+    if let Err(e) = std::fs::write(&tmp_heartbeat, initial_heartbeat.to_string()) {
+        tracing::warn!(error = %e, "Failed to write initial heartbeat file");
+    } else if let Err(e) = std::fs::rename(&tmp_heartbeat, &heartbeat_path) {
+        tracing::warn!(error = %e, "Failed to rename initial heartbeat file");
+    }
 
     // 5. Launch via spawn_detached_terminal (reuse existing launcher infra)
     let cli = &config.cli_command;
@@ -248,32 +251,69 @@ pub fn launch_orchestrator(
 }
 
 /// Discover the orchestrator's Copilot CLI session UUID by scanning for
-/// `inuse.{pid}.lock` files in the session state directory.
+/// session directories that were created after the orchestrator launch time
+/// and have an active `inuse.*.lock` file.
 ///
-/// The Copilot CLI creates `~/.copilot/session-state/{UUID}/inuse.{PID}.lock`
-/// when a session is active. We scan all session directories for a lock file
-/// matching our orchestrator PID.
-pub fn discover_session_uuid(session_state_dir: &Path, pid: u32) -> Option<String> {
-    let entries = match std::fs::read_dir(session_state_dir) {
-        Ok(e) => e,
-        Err(_) => return None,
-    };
-    let lock_name = format!("inuse.{}.lock", pid);
+/// We use a time-based approach rather than PID matching because the handle
+/// stores the terminal wrapper PID, not the Copilot CLI session PID.
+pub fn discover_session_uuid(
+    session_state_dir: &Path,
+    _pid: u32,
+    launched_at: &str,
+) -> Option<String> {
+    let launch_time = chrono::DateTime::parse_from_rfc3339(launched_at).ok()?;
+    let launch_system_time = std::time::SystemTime::from(launch_time);
+
+    let entries = std::fs::read_dir(session_state_dir).ok()?;
+
+    let mut candidates: Vec<(String, std::time::SystemTime)> = Vec::new();
+
     for entry in entries.flatten() {
         let path = entry.path();
         if !path.is_dir() {
             continue;
         }
-        if path.join(&lock_name).exists() {
+
+        // Check if directory was created after orchestrator launch
+        let created = std::fs::metadata(&path)
+            .ok()
+            .and_then(|m| m.created().ok().or_else(|| m.modified().ok()));
+        let Some(dir_time) = created else {
+            continue;
+        };
+        if dir_time < launch_system_time {
+            continue;
+        }
+
+        // Check for any active inuse.*.lock file
+        let has_lock = std::fs::read_dir(&path)
+            .ok()
+            .map(|entries| {
+                entries.flatten().any(|e| {
+                    let name = e.file_name();
+                    let name = name.to_string_lossy();
+                    name.starts_with("inuse.") && name.ends_with(".lock")
+                })
+            })
+            .unwrap_or(false);
+
+        if has_lock {
             if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                tracing::info!(
-                    session_uuid = %name,
-                    pid = pid,
-                    "Discovered orchestrator session"
-                );
-                return Some(name.to_string());
+                candidates.push((name.to_string(), dir_time));
             }
         }
     }
+
+    // Pick the newest candidate (most recently created after launch)
+    candidates.sort_by(|a, b| b.1.cmp(&a.1));
+
+    if let Some((uuid, _)) = candidates.into_iter().next() {
+        tracing::info!(
+            session_uuid = %uuid,
+            "Discovered orchestrator session via time-based scan"
+        );
+        return Some(uuid);
+    }
+
     None
 }

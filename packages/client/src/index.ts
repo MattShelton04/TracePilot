@@ -329,6 +329,8 @@ async function getMockData<T>(cmd: string, args?: Record<string, unknown>): Prom
       lastCycle: null,
       activeTasks: [],
       needsRestart: false,
+      sessionUuid: null,
+      sessionPath: null,
     } as HealthCheckResult,
     task_orchestrator_start: {
       pid: 0,

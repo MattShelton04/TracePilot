@@ -261,6 +261,7 @@ pub async fn task_orchestrator_health(
                 if let Some(uuid) = tracepilot_orchestrator::task_orchestrator::discover_session_uuid(
                     &session_state_dir,
                     h.pid,
+                    &h.launched_at,
                 ) {
                     let mut guard = orch_state_clone
                         .lock()
@@ -272,11 +273,27 @@ pub async fn task_orchestrator_health(
             }
         }
 
-        let result = tracepilot_orchestrator::task_recovery::check_orchestrator_health(
+        // Read the (possibly just-updated) handle for session UUID + path
+        let current_handle = orch_state_clone
+            .lock()
+            .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?
+            .clone();
+
+        let mut result = tracepilot_orchestrator::task_recovery::check_orchestrator_health(
             &jobs_dir,
             handle.as_ref(),
             Some(stale_secs),
         );
+
+        // Populate session UUID and path from shared state
+        if let Some(ref h) = current_handle {
+            result.session_uuid = h.session_uuid.clone();
+            if let Some(ref uuid) = h.session_uuid {
+                let path = session_state_dir.join(uuid);
+                result.session_path = Some(path.to_string_lossy().into_owned());
+            }
+        }
+
         Ok(result)
     })
     .await?

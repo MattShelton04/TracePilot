@@ -251,6 +251,10 @@ export interface HealthCheckResult {
   lastCycle: number | null;
   activeTasks: string[];
   needsRestart: boolean;
+  /** Session UUID of the orchestrator (discovered after launch). */
+  sessionUuid: string | null;
+  /** Full path to the orchestrator's session directory. */
+  sessionPath: string | null;
 }
 
 // ─── Attribution ──────────────────────────────────────────────────
