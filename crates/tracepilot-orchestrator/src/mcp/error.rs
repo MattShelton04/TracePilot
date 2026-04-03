@@ -52,21 +52,6 @@ impl McpError {
     pub fn import_ctx(context: impl std::fmt::Display, source: impl std::fmt::Display) -> Self {
         McpError::Import(format!("{context}: {source}"))
     }
-
-    /// Construct a Config error with context and source error.
-    pub fn config_ctx(context: impl std::fmt::Display, source: impl std::fmt::Display) -> Self {
-        McpError::Config(format!("{context}: {source}"))
-    }
-
-    /// Construct a Json error with context and source error.
-    pub fn json_ctx(context: impl std::fmt::Display, source: impl std::fmt::Display) -> Self {
-        McpError::Json(format!("{context}: {source}"))
-    }
-
-    /// Construct a Network error with context and source error.
-    pub fn network_ctx(context: impl std::fmt::Display, source: impl std::fmt::Display) -> Self {
-        McpError::Network(format!("{context}: {source}"))
-    }
 }
 
 #[cfg(test)]
@@ -154,32 +139,5 @@ mod tests {
         assert!(msg.contains("import error"));
         assert!(msg.contains("Failed to read"));
         assert!(msg.contains("permission denied"));
-    }
-
-    #[test]
-    fn config_ctx_creates_formatted_error() {
-        let err = McpError::config_ctx("Invalid config", "missing field");
-        let msg = err.to_string();
-        assert!(msg.contains("config error"));
-        assert!(msg.contains("Invalid config"));
-        assert!(msg.contains("missing field"));
-    }
-
-    #[test]
-    fn json_ctx_creates_formatted_error() {
-        let err = McpError::json_ctx("Parse failed", "unexpected EOF");
-        let msg = err.to_string();
-        assert!(msg.contains("JSON error"));
-        assert!(msg.contains("Parse failed"));
-        assert!(msg.contains("unexpected EOF"));
-    }
-
-    #[test]
-    fn network_ctx_creates_formatted_error() {
-        let err = McpError::network_ctx("Connection failed", "timeout");
-        let msg = err.to_string();
-        assert!(msg.contains("network error"));
-        assert!(msg.contains("Connection failed"));
-        assert!(msg.contains("timeout"));
     }
 }

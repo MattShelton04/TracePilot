@@ -56,26 +56,6 @@ impl SkillsError {
     pub fn github_ctx(context: impl std::fmt::Display, source: impl std::fmt::Display) -> Self {
         SkillsError::GitHub(format!("{context}: {source}"))
     }
-
-    /// Construct an Import error with context and source error.
-    pub fn import_ctx(context: impl std::fmt::Display, source: impl std::fmt::Display) -> Self {
-        SkillsError::Import(format!("{context}: {source}"))
-    }
-
-    /// Construct an Io error with context and source error.
-    pub fn io_ctx(context: impl std::fmt::Display, source: impl std::fmt::Display) -> Self {
-        SkillsError::Io(format!("{context}: {source}"))
-    }
-
-    /// Construct an Asset error with context and source error.
-    pub fn asset_ctx(context: impl std::fmt::Display, source: impl std::fmt::Display) -> Self {
-        SkillsError::Asset(format!("{context}: {source}"))
-    }
-
-    /// Construct a Yaml error with context and source error.
-    pub fn yaml_ctx(context: impl std::fmt::Display, source: impl std::fmt::Display) -> Self {
-        SkillsError::Yaml(format!("{context}: {source}"))
-    }
 }
 
 #[cfg(test)]
@@ -176,41 +156,5 @@ mod tests {
         assert!(msg.contains("GitHub error"));
         assert!(msg.contains("Failed to fetch SKILL.md"));
         assert!(msg.contains("404 not found"));
-    }
-
-    #[test]
-    fn import_ctx_creates_formatted_error() {
-        let err = SkillsError::import_ctx("Failed to read", "file not found");
-        let msg = err.to_string();
-        assert!(msg.contains("import error"));
-        assert!(msg.contains("Failed to read"));
-        assert!(msg.contains("file not found"));
-    }
-
-    #[test]
-    fn io_ctx_creates_formatted_error() {
-        let err = SkillsError::io_ctx("Failed to write", "disk full");
-        let msg = err.to_string();
-        assert!(msg.contains("I/O error"));
-        assert!(msg.contains("Failed to write"));
-        assert!(msg.contains("disk full"));
-    }
-
-    #[test]
-    fn asset_ctx_creates_formatted_error() {
-        let err = SkillsError::asset_ctx("Failed to load asset", "too large");
-        let msg = err.to_string();
-        assert!(msg.contains("asset error"));
-        assert!(msg.contains("Failed to load asset"));
-        assert!(msg.contains("too large"));
-    }
-
-    #[test]
-    fn yaml_ctx_creates_formatted_error() {
-        let err = SkillsError::yaml_ctx("Parse error", "invalid indent");
-        let msg = err.to_string();
-        assert!(msg.contains("YAML error"));
-        assert!(msg.contains("Parse error"));
-        assert!(msg.contains("invalid indent"));
     }
 }
