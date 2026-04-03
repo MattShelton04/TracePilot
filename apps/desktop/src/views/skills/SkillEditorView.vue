@@ -7,7 +7,9 @@ import SkillAssetsTree from "@/components/skills/SkillAssetsTree.vue";
 import SkillScopeBadge from "@/components/skills/SkillScopeBadge.vue";
 import { browseForFile } from "@/composables/useBrowseDirectory";
 import { useSkillsStore } from "@/stores/skills";
+import { logWarn } from "@/utils/logger";
 import { openExternal } from "@/utils/openExternal";
+import { parseSkillContent, serializeSkillContent } from "@/utils/skillFrontmatter";
 
 const route = useRoute();
 const router = useRouter();
@@ -99,109 +101,17 @@ async function loadSkill() {
 }
 
 function parseContent(content: string) {
-  // Simple frontmatter parser for preview — handles unknown fields gracefully.
-  // Supports LF, CRLF, and CR line endings. Handles YAML multiline scalars (>, |).
-  const trimmed = content.replace(/^\uFEFF/, "").trimStart();
-  // Match opening --- then newline, lazy body, then newline + closing ---, optional newline, rest
-  const fmMatch = trimmed.match(/^---(?:\r\n|\r|\n)([\s\S]*?)(?:\r\n|\r|\n)---(?:\r\n|\r|\n)?([\s\S]*)$/);
-  if (fmMatch) {
-    const fmBlock = fmMatch[1];
-    previewBody.value = fmMatch[2];
+  const parsed = parseSkillContent(content);
+  previewBody.value = parsed.body;
+  previewFrontmatter.value = parsed.frontmatter;
 
-    const fm: SkillFrontmatter = { name: "", description: "" };
-    let currentKey = "";
-    let multilineValue = "";
-    let inMultiline = false;
-    let inGlobs = false;
-
-    const lines = fmBlock.split(/\r\n|\r|\n/);
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trimEnd();
-
-      // Check if this is a new top-level key (not indented)
-      const kv = line.match(/^([\w][\w._-]*):\s*(.*)$/);
-      if (kv) {
-        // Flush any accumulated multiline value
-        if (inMultiline && currentKey) {
-          assignFmKey(fm, currentKey, multilineValue.trim());
-          inMultiline = false;
-          multilineValue = "";
-        }
-        inGlobs = false;
-        currentKey = kv[1].trim();
-        const val = kv[2].trim();
-
-        // YAML block scalar indicators (> or |) — start multiline collection
-        if (val === ">" || val === "|" || val === ">-" || val === "|-") {
-          inMultiline = true;
-          multilineValue = "";
-        } else {
-          // Strip surrounding quotes (single or double)
-          const unquoted = val.replace(/^["']([\s\S]*?)["']$/, "$1");
-          if (currentKey === "resource_globs") {
-            inGlobs = true;
-            fm.resource_globs = [];
-          } else {
-            assignFmKey(fm, currentKey, unquoted);
-          }
-        }
-      } else if (inMultiline && (line.startsWith("  ") || line === "")) {
-        // Continuation of a multiline block scalar
-        multilineValue += (multilineValue ? " " : "") + line.trim();
-      } else if (line.match(/^\s+-\s+/) && inGlobs) {
-        const glob = line.replace(/^\s+-\s+/, "").trim().replace(/^["']([\s\S]*?)["']$/, "$1");
-        if (!fm.resource_globs) fm.resource_globs = [];
-        fm.resource_globs.push(glob);
-      } else {
-        // End multiline if the line doesn't match continuation
-        if (inMultiline && currentKey) {
-          assignFmKey(fm, currentKey, multilineValue.trim());
-          inMultiline = false;
-          multilineValue = "";
-        }
-        inGlobs = false;
-      }
-    }
-
-    // Flush any trailing multiline value
-    if (inMultiline && currentKey) {
-      assignFmKey(fm, currentKey, multilineValue.trim());
-    }
-
-    previewFrontmatter.value = fm;
-  } else {
-    console.warn("[SkillEditor] Failed to parse frontmatter:", content.substring(0, 100));
-    previewBody.value = content;
-    previewFrontmatter.value = null;
+  if (parsed.status !== "parsed") {
+    logWarn("[SkillEditor] Failed to parse frontmatter:", content.substring(0, 100));
   }
-}
-
-function assignFmKey(fm: SkillFrontmatter, key: string, val: string) {
-  if (key === "name") fm.name = val;
-  else if (key === "description") fm.description = val;
-  else if (key === "auto_attach") fm.auto_attach = val === "true";
 }
 
 function rebuildRawContent() {
-  const fm = previewFrontmatter.value;
-  if (!fm) {
-    rawContent.value = previewBody.value;
-    editorDirty.value = true;
-    return;
-  }
-  let newContent = "---\n";
-  newContent += `name: ${fm.name}\n`;
-  newContent += `description: ${fm.description}\n`;
-  if (fm.auto_attach) newContent += `auto_attach: true\n`;
-  if (fm.resource_globs && fm.resource_globs.length > 0) {
-    newContent += "resource_globs:\n";
-    for (const g of fm.resource_globs) {
-      newContent += `  - ${g}\n`;
-    }
-  }
-  newContent += "---\n";
-  newContent += previewBody.value;
-  rawContent.value = newContent;
+  rawContent.value = serializeSkillContent(previewFrontmatter.value, previewBody.value);
   editorDirty.value = true;
 }
 
@@ -296,7 +206,7 @@ async function handleViewAsset(asset: SkillAsset) {
 
 /** Open a relative path referenced in the markdown preview as an asset popup. */
 async function handlePreviewLinkClick(href: string) {
-  // Normalize: strip leading ./ 
+  // Normalize: strip leading ./
   const normalized = href.replace(/^\.\//, "");
 
   // Find matching asset in the loaded assets list
@@ -364,13 +274,27 @@ function insertMarkdown(prefix: string, suffix = "") {
   });
 }
 
-function insertBold() { insertMarkdown("**", "**"); }
-function insertItalic() { insertMarkdown("*", "*"); }
-function insertH1() { insertMarkdown("\n# "); }
-function insertH2() { insertMarkdown("\n## "); }
-function insertBulletList() { insertMarkdown("\n- "); }
-function insertCode() { insertMarkdown("`", "`"); }
-function insertLink() { insertMarkdown("[", "](url)"); }
+function insertBold() {
+  insertMarkdown("**", "**");
+}
+function insertItalic() {
+  insertMarkdown("*", "*");
+}
+function insertH1() {
+  insertMarkdown("\n# ");
+}
+function insertH2() {
+  insertMarkdown("\n## ");
+}
+function insertBulletList() {
+  insertMarkdown("\n- ");
+}
+function insertCode() {
+  insertMarkdown("`", "`");
+}
+function insertLink() {
+  insertMarkdown("[", "](url)");
+}
 
 // ─── Utilities ────────────────────────────────────────────
 function formatSize(bytes: number): string {
