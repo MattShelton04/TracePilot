@@ -223,14 +223,14 @@ mod tests {
 
     #[test]
     fn test_expiration() {
-        let cache = TtlCache::new(Duration::from_millis(50));
+        let cache = TtlCache::new(Duration::from_millis(100));
         cache.insert("temp", "expires-soon");
 
         // Should be available immediately
         assert_eq!(cache.get(&"temp"), Some("expires-soon"));
 
-        // Wait for expiration
-        thread::sleep(Duration::from_millis(100));
+        // Wait for expiration with safety margin
+        thread::sleep(Duration::from_millis(200));
 
         // Should be expired now
         assert_eq!(cache.get(&"temp"), None);
@@ -238,14 +238,15 @@ mod tests {
 
     #[test]
     fn test_update_refreshes_timestamp() {
-        let cache = TtlCache::new(Duration::from_millis(100));
+        let cache = TtlCache::new(Duration::from_millis(150));
         cache.insert("key", "value1");
 
-        thread::sleep(Duration::from_millis(60));
+        thread::sleep(Duration::from_millis(100));
         cache.insert("key", "value2"); // Refresh timestamp
 
-        thread::sleep(Duration::from_millis(60));
-        // Should still be valid because we refreshed at 60ms
+        thread::sleep(Duration::from_millis(100));
+        // Should still be valid because we refreshed at 100ms
+        // Total elapsed: 200ms from initial insert, but only 100ms from refresh
         assert_eq!(cache.get(&"key"), Some("value2"));
     }
 
@@ -335,5 +336,26 @@ mod tests {
         let cache3 = TtlCache::new(Duration::from_secs(60));
         cache3.insert(("a", 1), true);
         assert_eq!(cache3.get(&("a", 1)), Some(true));
+    }
+
+    #[test]
+    fn test_lazy_eviction_behavior() {
+        let cache = TtlCache::new(Duration::from_millis(100));
+        cache.insert("a", 1);
+        cache.insert("b", 2);
+
+        // Wait for expiration
+        thread::sleep(Duration::from_millis(200));
+
+        // Entries are expired but still in the underlying map (lazy eviction)
+        assert_eq!(cache.len(), 2);
+        assert!(!cache.is_empty());
+
+        // Accessing returns None because they're expired
+        assert_eq!(cache.get(&"a"), None);
+        assert_eq!(cache.get(&"b"), None);
+
+        // But len still shows 2 (expired entries not physically removed)
+        assert_eq!(cache.len(), 2);
     }
 }
