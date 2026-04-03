@@ -5,7 +5,7 @@
     "rootDir": "src",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "types": ["node", "vitest/globals"]
+    "types": ["node"]
   },
   "include": ["src"]
 }

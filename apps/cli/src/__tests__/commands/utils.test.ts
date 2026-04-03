@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
+import { join } from "node:path";
 
 const mocked = vi.hoisted(() => ({
   homedir: vi.fn(),
@@ -61,11 +62,13 @@ describe("commands/utils", () => {
   });
 
   it("builds session state dir from homedir", () => {
-    expect(getSessionStateDir()).toBe("/tmp/home/.copilot/session-state");
+    expect(getSessionStateDir()).toBe(join("/tmp/home", ".copilot", "session-state"));
   });
 
   it("requireSessionStateDir returns path when directory exists", async () => {
-    await expect(requireSessionStateDir()).resolves.toBe("/tmp/home/.copilot/session-state");
+    await expect(requireSessionStateDir()).resolves.toBe(
+      join("/tmp/home", ".copilot", "session-state"),
+    );
   });
 
   it("requireSessionStateDir throws a user-friendly message on ENOENT", async () => {
