@@ -444,7 +444,7 @@ pub async fn get_search_facets(
             total_matches: facets.total_matches,
             session_count: facets.session_count,
         })
-    })?;
+    });
 
     // Cache the result.
     if let Ok(ref response) = result {
