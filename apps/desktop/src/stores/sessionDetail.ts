@@ -260,9 +260,16 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
   const SESSION_CACHE_SIZE = 10;
   const sessionCache = new Map<string, CachedSession>();
 
-  function saveToCache(id: string) {
-    if (!detail.value) return;
-    sessionCache.set(id, {
+  function setSessionCache(id: string, cached: CachedSession) {
+    sessionCache.set(id, cached);
+    if (sessionCache.size > SESSION_CACHE_SIZE) {
+      const oldest = sessionCache.keys().next().value;
+      if (oldest) sessionCache.delete(oldest);
+    }
+  }
+
+  function buildCachedSessionSnapshot(): CachedSession {
+    return {
       detail: detail.value,
       turns: turns.value,
       eventsFileSize: lastEventsFileSize,
@@ -271,11 +278,39 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       shutdownMetrics: shutdownMetrics.value,
       incidents: incidents.value,
       loadedSections: new Set(loaded.value),
-    });
-    if (sessionCache.size > SESSION_CACHE_SIZE) {
-      const oldest = sessionCache.keys().next().value;
-      if (oldest) sessionCache.delete(oldest);
-    }
+    } satisfies CachedSession;
+  }
+
+  function buildPrefetchedCachedSession(
+    detailResult: SessionDetail,
+    turnsResult: Awaited<ReturnType<typeof getSessionTurns>>,
+  ): CachedSession {
+    return {
+      detail: detailResult,
+      turns: turnsResult.turns,
+      eventsFileSize: turnsResult.eventsFileSize,
+      checkpoints: [],
+      plan: null,
+      shutdownMetrics: null,
+      incidents: [],
+      loadedSections: new Set(["detail", "turns"]),
+    } satisfies CachedSession;
+  }
+
+  function restoreFromCachedSession(cached: CachedSession) {
+    detail.value = cached.detail;
+    replaceTurns(cached.turns);
+    lastEventsFileSize = cached.eventsFileSize;
+    checkpoints.value = cached.checkpoints;
+    plan.value = cached.plan;
+    shutdownMetrics.value = cached.shutdownMetrics;
+    incidents.value = cached.incidents;
+    loaded.value = new Set(cached.loadedSections);
+  }
+
+  function saveToCache(id: string) {
+    if (!detail.value) return;
+    setSessionCache(id, buildCachedSessionSnapshot());
   }
 
   // Guard against stale async responses when user switches sessions quickly
@@ -351,9 +386,9 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
   //   turns  — has lastEventsFileSize side-effect + freshness check
   //   events — uses eventsGuard + pagination args
   //
-  // NOTE: Cache save/restore paths (saveToCache, loadDetail cache-hit,
-  // prefetchSession) still enumerate fields manually because CachedSession
-  // has a different shape. Update those when adding a new cached section.
+  // NOTE: CachedSession field mapping is centralized via:
+  // buildCachedSessionSnapshot(), restoreFromCachedSession(), and
+  // buildPrefetchedCachedSession().
   function defineSection<T>(config: {
     key: string;
     errorRef: Ref<string | null>;
@@ -484,14 +519,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     const cached = sessionCache.get(id);
     if (cached) {
       // Restore ALL sections immediately — zero IPC, zero spinner
-      detail.value = cached.detail;
-      replaceTurns(cached.turns);
-      lastEventsFileSize = cached.eventsFileSize;
-      checkpoints.value = cached.checkpoints;
-      plan.value = cached.plan;
-      shutdownMetrics.value = cached.shutdownMetrics;
-      incidents.value = cached.incidents;
-      loaded.value = new Set(cached.loadedSections);
+      restoreFromCachedSession(cached);
       loading.value = false;
       // Events & todos intentionally NOT cached (paginated / rarely viewed).
       // Remove from loaded so they are fetched fresh on-demand rather than
@@ -660,22 +688,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       // Don't overwrite if user navigated to this session while we were fetching
       if (sessionCache.has(id) || sessionId.value === id) return;
 
-      sessionCache.set(id, {
-        detail: detailResult,
-        turns: turnsResult.turns,
-        eventsFileSize: turnsResult.eventsFileSize,
-        checkpoints: [],
-        plan: null,
-        shutdownMetrics: null,
-        incidents: [],
-        loadedSections: new Set(["detail", "turns"]),
-      });
-
-      // Evict oldest if over capacity
-      if (sessionCache.size > SESSION_CACHE_SIZE) {
-        const oldest = sessionCache.keys().next().value;
-        if (oldest) sessionCache.delete(oldest);
-      }
+      setSessionCache(id, buildPrefetchedCachedSession(detailResult, turnsResult));
     } catch {
       // Silent — prefetch is best-effort optimization
     }
