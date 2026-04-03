@@ -563,6 +563,34 @@ describe("useImportFlow", () => {
       expect(flow.skippedCount.value).toBe(1);
       expect(flow.importErrors.value).toEqual(["Session sess-2 already exists"]);
     });
+
+    it("discards stale import completion after reset", async () => {
+      const flow = await setupForImport();
+      const importDeferred = createDeferred<ImportResult>();
+      mockImportSessions.mockReturnValue(importDeferred.promise);
+
+      const importPromise = flow.executeImport();
+      expect(flow.step.value).toBe("importing");
+
+      flow.reset();
+      expect(flow.step.value).toBe("select");
+
+      importDeferred.resolve(
+        makeImportResult({
+          importedCount: 99,
+          skippedCount: 1,
+          warnings: ["stale warning"],
+        }),
+      );
+      await importPromise;
+
+      expect(flow.step.value).toBe("select");
+      expect(flow.importedCount.value).toBe(0);
+      expect(flow.skippedCount.value).toBe(0);
+      expect(flow.importErrors.value).toEqual([]);
+      expect(flow.error.value).toBeNull();
+      expect(flow.importProgress.value).toBe(0);
+    });
   });
 
   // ── browseFile ─────────────────────────────────────────────
@@ -701,6 +729,55 @@ describe("useImportFlow", () => {
       expect(flowRef.preview.value).toBeNull();
       expect(flowRef.step.value).toBe("validating");
       vi.useFakeTimers(); // Restore for afterEach
+    });
+
+    it("discards stale import completion when the component unmounts", async () => {
+      vi.useRealTimers();
+      const { mount, flushPromises } = await import("@vue/test-utils");
+
+      let flowRef!: ReturnType<typeof useImportFlow>;
+
+      const Wrapper = {
+        setup() {
+          flowRef = useImportFlow();
+          return {};
+        },
+        template: "<div />",
+      };
+
+      const wrapper = mount(Wrapper);
+
+      flowRef.step.value = "review";
+      flowRef.filePath.value = "/file.json";
+      flowRef.selectedSessions.value = ["sess-1"];
+
+      const importDeferred = createDeferred<ImportResult>();
+      mockImportSessions.mockReturnValue(importDeferred.promise);
+
+      const importPromise = flowRef.executeImport();
+      await flushPromises();
+
+      expect(flowRef.step.value).toBe("importing");
+
+      wrapper.unmount();
+
+      importDeferred.resolve(
+        makeImportResult({
+          importedCount: 7,
+          skippedCount: 2,
+          warnings: ["stale warning"],
+        }),
+      );
+      await importPromise;
+      await flushPromises();
+
+      expect(flowRef.step.value).toBe("importing");
+      expect(flowRef.importedCount.value).toBe(0);
+      expect(flowRef.skippedCount.value).toBe(0);
+      expect(flowRef.importErrors.value).toEqual([]);
+      expect(flowRef.error.value).toBeNull();
+      expect(flowRef.importProgress.value).toBe(0);
+      vi.useFakeTimers();
     });
   });
 });
