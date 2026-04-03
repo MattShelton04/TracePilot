@@ -296,20 +296,20 @@ pub fn open_in_explorer(path: &str) -> Result<()> {
         Command::new("explorer")
             .arg(&win_path)
             .spawn()
-            .map_err(|e| OrchestratorError::Launch(format!("Failed to open explorer: {e}")))?;
+            .map_err(|e| OrchestratorError::launch_ctx("Failed to open explorer", e))?;
     }
 
     #[cfg(target_os = "macos")]
     Command::new("open")
         .arg(path)
         .spawn()
-        .map_err(|e| OrchestratorError::Launch(format!("Failed to open Finder: {e}")))?;
+        .map_err(|e| OrchestratorError::launch_ctx("Failed to open Finder", e))?;
 
     #[cfg(target_os = "linux")]
     Command::new("xdg-open")
         .arg(path)
         .spawn()
-        .map_err(|e| OrchestratorError::Launch(format!("Failed to open file manager: {e}")))?;
+        .map_err(|e| OrchestratorError::launch_ctx("Failed to open file manager", e))?;
 
     Ok(())
 }

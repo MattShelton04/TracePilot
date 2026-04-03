@@ -465,7 +465,7 @@ fn spawn_and_initialize(
     });
 
     let msg = serde_json::to_string(&init_req)
-        .map_err(|e| McpError::HealthCheck(format!("JSON error: {e}")))?;
+        .map_err(|e| McpError::health_ctx("JSON error", e))?;
     writeln!(stdin, "{msg}").map_err(|e| {
         McpError::HealthCheck(format!("Failed to write to stdin: {e}"))
     })?;

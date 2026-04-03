@@ -42,6 +42,33 @@ impl From<std::io::Error> for McpError {
     }
 }
 
+impl McpError {
+    /// Construct a HealthCheck error with context and source error.
+    pub fn health_ctx(context: impl std::fmt::Display, source: impl std::fmt::Display) -> Self {
+        McpError::HealthCheck(format!("{context}: {source}"))
+    }
+
+    /// Construct an Import error with context and source error.
+    pub fn import_ctx(context: impl std::fmt::Display, source: impl std::fmt::Display) -> Self {
+        McpError::Import(format!("{context}: {source}"))
+    }
+
+    /// Construct a Config error with context and source error.
+    pub fn config_ctx(context: impl std::fmt::Display, source: impl std::fmt::Display) -> Self {
+        McpError::Config(format!("{context}: {source}"))
+    }
+
+    /// Construct a Json error with context and source error.
+    pub fn json_ctx(context: impl std::fmt::Display, source: impl std::fmt::Display) -> Self {
+        McpError::Json(format!("{context}: {source}"))
+    }
+
+    /// Construct a Network error with context and source error.
+    pub fn network_ctx(context: impl std::fmt::Display, source: impl std::fmt::Display) -> Self {
+        McpError::Network(format!("{context}: {source}"))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -109,5 +136,50 @@ mod tests {
         let mcp_err: McpError = io_err.into();
         assert!(matches!(mcp_err, McpError::Config(_)));
         assert!(mcp_err.to_string().contains("file missing"));
+    }
+
+    #[test]
+    fn health_ctx_creates_formatted_error() {
+        let err = McpError::health_ctx("JSON error", "unexpected token");
+        let msg = err.to_string();
+        assert!(msg.contains("health check failed"));
+        assert!(msg.contains("JSON error"));
+        assert!(msg.contains("unexpected token"));
+    }
+
+    #[test]
+    fn import_ctx_creates_formatted_error() {
+        let err = McpError::import_ctx("Failed to read", "permission denied");
+        let msg = err.to_string();
+        assert!(msg.contains("import error"));
+        assert!(msg.contains("Failed to read"));
+        assert!(msg.contains("permission denied"));
+    }
+
+    #[test]
+    fn config_ctx_creates_formatted_error() {
+        let err = McpError::config_ctx("Invalid config", "missing field");
+        let msg = err.to_string();
+        assert!(msg.contains("config error"));
+        assert!(msg.contains("Invalid config"));
+        assert!(msg.contains("missing field"));
+    }
+
+    #[test]
+    fn json_ctx_creates_formatted_error() {
+        let err = McpError::json_ctx("Parse failed", "unexpected EOF");
+        let msg = err.to_string();
+        assert!(msg.contains("JSON error"));
+        assert!(msg.contains("Parse failed"));
+        assert!(msg.contains("unexpected EOF"));
+    }
+
+    #[test]
+    fn network_ctx_creates_formatted_error() {
+        let err = McpError::network_ctx("Connection failed", "timeout");
+        let msg = err.to_string();
+        assert!(msg.contains("network error"));
+        assert!(msg.contains("Connection failed"));
+        assert!(msg.contains("timeout"));
     }
 }
