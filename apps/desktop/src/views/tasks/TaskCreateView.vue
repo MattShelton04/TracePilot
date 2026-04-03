@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import type { PromptVariable, TaskPreset } from "@tracepilot/types";
+import { searchSessions } from "@tracepilot/client";
+import type { PromptVariable, SessionListItem, TaskPreset } from "@tracepilot/types";
 import { ErrorState, LoadingSpinner, SectionPanel, useToast } from "@tracepilot/ui";
 import { computed, onMounted, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
@@ -16,6 +17,12 @@ const currentStep = ref(1);
 const selectedPreset = ref<TaskPreset | null>(null);
 const searchQuery = ref("");
 const submitting = ref(false);
+const highestStep = ref(1);
+const categoryFilter = ref<"all" | "builtin" | "custom">("all");
+const sessionSearchQuery = reactive<Record<string, string>>({});
+const sessionSearchResults = reactive<Record<string, SessionListItem[]>>({});
+const sessionSearchLoading = reactive<Record<string, boolean>>({});
+const promptTemplateExpanded = ref(false);
 
 // Step 2 form state
 const formValues = reactive<Record<string, string | number | boolean | null>>({});
@@ -24,9 +31,15 @@ const maxRetries = ref(3);
 
 // ── Computed ──────────────────────────────────────────────────────────
 const filteredPresets = computed(() => {
+  let list = presetsStore.enabledPresets;
+  if (categoryFilter.value === "builtin") {
+    list = list.filter((p) => p.builtin);
+  } else if (categoryFilter.value === "custom") {
+    list = list.filter((p) => !p.builtin);
+  }
   const q = searchQuery.value.toLowerCase().trim();
-  if (!q) return presetsStore.enabledPresets;
-  return presetsStore.enabledPresets.filter(
+  if (!q) return list;
+  return list.filter(
     (p) =>
       p.name.toLowerCase().includes(q) ||
       p.description.toLowerCase().includes(q) ||
@@ -50,6 +63,30 @@ const allRequiredFilled = computed(() => {
 });
 
 const canAdvanceStep2 = computed(() => allRequiredFilled.value);
+const canAdvanceStep1 = computed(() => !!selectedPreset.value);
+
+const contextSummary = computed(() => {
+  if (!selectedPreset.value) return "";
+  const sources = selectedPreset.value.context.sources;
+  const count = sources.length;
+  if (count === 0) return "No context sources configured.";
+  const types = [...new Set(sources.map((s) => s.type))].join(", ");
+  return `This task will use ${count} context source${count !== 1 ? "s" : ""} (${types}).`;
+});
+
+const estimatedTokenBudget = computed(() => {
+  if (!selectedPreset.value) return null;
+  const maxChars = selectedPreset.value.context.maxChars;
+  if (!maxChars || maxChars <= 0) return null;
+  return Math.round(maxChars / 4);
+});
+
+const priorityOptions = [
+  { value: "low", label: "Low" },
+  { value: "normal", label: "Normal" },
+  { value: "high", label: "High" },
+  { value: "critical", label: "Critical" },
+] as const;
 
 const steps = [
   { number: 1, label: "Select Preset" },
@@ -77,8 +114,6 @@ function selectPreset(preset: TaskPreset) {
 
   priority.value = preset.execution.priority || "normal";
   maxRetries.value = preset.execution.maxRetries ?? 3;
-
-  currentStep.value = 2;
 }
 
 function goBack() {
@@ -90,12 +125,22 @@ function goBack() {
 }
 
 function goNext() {
-  if (currentStep.value === 2 && canAdvanceStep2.value) {
+  if (currentStep.value === 1 && selectedPreset.value) {
+    currentStep.value = 2;
+    highestStep.value = Math.max(highestStep.value, 2);
+  } else if (currentStep.value === 2 && canAdvanceStep2.value) {
     currentStep.value = 3;
+    highestStep.value = Math.max(highestStep.value, 3);
   }
 }
 
-async function handleSubmit() {
+function goToStep(step: number) {
+  if (step <= highestStep.value && step < currentStep.value) {
+    currentStep.value = step;
+  }
+}
+
+async function handleSubmit(navigateToDetail = false) {
   if (!selectedPreset.value || submitting.value) return;
   submitting.value = true;
 
@@ -111,7 +156,7 @@ async function handleSubmit() {
 
     if (task) {
       toastSuccess("Task created successfully", { duration: 3000 });
-      router.push(`/tasks/${task.id}`);
+      router.push(navigateToDetail ? `/tasks/${task.id}` : "/tasks");
     } else {
       toastError(tasksStore.error ?? "Failed to create task", { duration: 5000 });
     }
@@ -131,6 +176,38 @@ function displayValue(variable: PromptVariable): string {
   if (val === undefined || val === null || val === "") return "—";
   if (variable.type === "boolean") return val ? "Yes" : "No";
   return String(val);
+}
+
+function isSessionVariable(variable: PromptVariable): boolean {
+  return variable.type === "session_ref" || variable.name === "session_id";
+}
+
+let sessionSearchTimer: ReturnType<typeof setTimeout> | null = null;
+
+function handleSessionSearch(variableName: string, query: string) {
+  sessionSearchQuery[variableName] = query;
+  if (sessionSearchTimer) clearTimeout(sessionSearchTimer);
+  if (!query.trim()) {
+    sessionSearchResults[variableName] = [];
+    return;
+  }
+  sessionSearchLoading[variableName] = true;
+  sessionSearchTimer = setTimeout(async () => {
+    try {
+      const results = await searchSessions(query);
+      sessionSearchResults[variableName] = results;
+    } catch {
+      sessionSearchResults[variableName] = [];
+    } finally {
+      sessionSearchLoading[variableName] = false;
+    }
+  }, 300);
+}
+
+function selectSession(variableName: string, session: SessionListItem) {
+  formValues[variableName] = session.id;
+  sessionSearchResults[variableName] = [];
+  sessionSearchQuery[variableName] = session.summary ?? session.id;
 }
 
 // ── Lifecycle ─────────────────────────────────────────────────────────
@@ -160,14 +237,17 @@ onMounted(() => {
       <!-- Step indicator -->
       <div class="step-indicator">
         <template v-for="(step, idx) in steps" :key="step.number">
-          <div
+          <button
             :class="[
               'step-dot-group',
               {
                 active: currentStep === step.number,
                 completed: currentStep > step.number,
+                clickable: step.number < currentStep && step.number <= highestStep,
               },
             ]"
+            :disabled="step.number >= currentStep || step.number > highestStep"
+            @click="goToStep(step.number)"
           >
             <div class="step-dot">
               <svg
@@ -187,7 +267,7 @@ onMounted(() => {
               <span v-else>{{ step.number }}</span>
             </div>
             <span class="step-label">{{ step.label }}</span>
-          </div>
+          </button>
           <div
             v-if="idx < steps.length - 1"
             :class="['step-connector', { filled: currentStep > step.number }]"
@@ -236,6 +316,17 @@ onMounted(() => {
               />
             </div>
 
+            <div class="category-pills">
+              <button
+                v-for="cat in (['all', 'builtin', 'custom'] as const)"
+                :key="cat"
+                :class="['category-pill', { active: categoryFilter === cat }]"
+                @click="categoryFilter = cat"
+              >
+                {{ cat === "all" ? "All" : cat === "builtin" ? "Built-in" : "Custom" }}
+              </button>
+            </div>
+
             <div v-if="filteredPresets.length === 0" class="empty-state">
               <span class="empty-icon">📋</span>
               <span class="empty-text">
@@ -247,7 +338,10 @@ onMounted(() => {
               <button
                 v-for="preset in filteredPresets"
                 :key="preset.id"
-                class="preset-card"
+                :class="[
+                  'preset-card',
+                  { 'preset-card--selected': selectedPreset?.id === preset.id },
+                ]"
                 @click="selectPreset(preset)"
               >
                 <div class="preset-card-header">
@@ -275,6 +369,20 @@ onMounted(() => {
                 </div>
               </button>
             </div>
+
+            <!-- Step 1 navigation -->
+            <div class="wizard-nav">
+              <button class="nav-btn nav-btn--secondary" @click="router.push('/tasks')">
+                Cancel
+              </button>
+              <button
+                class="nav-btn nav-btn--primary"
+                :disabled="!canAdvanceStep1"
+                @click="goNext"
+              >
+                Next →
+              </button>
+            </div>
           </div>
         </Transition>
 
@@ -287,6 +395,9 @@ onMounted(() => {
                   Fill in the required parameters for this task.
                 </span>
               </template>
+
+              <!-- Task Parameters -->
+              <h3 class="section-heading">Task Parameters</h3>
 
               <div v-if="variables.length === 0" class="empty-variables">
                 <span class="empty-text">This preset has no configurable variables.</span>
@@ -339,49 +450,102 @@ onMounted(() => {
                     @input="formValues[variable.name] = ($event.target as HTMLTextAreaElement).value"
                   />
 
-                  <!-- String / session_ref text input -->
+                  <!-- Session picker -->
+                  <div v-else-if="isSessionVariable(variable)" class="session-picker">
+                    <div class="session-search-wrapper">
+                      <input
+                        :id="`var-${variable.name}`"
+                        :value="
+                          sessionSearchQuery[variable.name] ??
+                          String(formValues[variable.name] ?? '')
+                        "
+                        type="text"
+                        class="form-input"
+                        placeholder="Search sessions…"
+                        @input="
+                          handleSessionSearch(
+                            variable.name,
+                            ($event.target as HTMLInputElement).value,
+                          )
+                        "
+                      />
+                      <LoadingSpinner
+                        v-if="sessionSearchLoading[variable.name]"
+                        size="sm"
+                        class="session-search-spinner"
+                      />
+                    </div>
+                    <div
+                      v-if="sessionSearchResults[variable.name]?.length"
+                      class="session-results"
+                    >
+                      <button
+                        v-for="session in sessionSearchResults[variable.name]"
+                        :key="session.id"
+                        class="session-result-item"
+                        @click="selectSession(variable.name, session)"
+                      >
+                        <span class="session-result-id">
+                          {{ session.id.slice(0, 8) }}…
+                        </span>
+                        <span class="session-result-title">
+                          {{ session.summary ?? "Untitled session" }}
+                        </span>
+                      </button>
+                    </div>
+                    <p v-if="formValues[variable.name]" class="session-selected">
+                      Selected: <code>{{ formValues[variable.name] }}</code>
+                    </p>
+                  </div>
+
+                  <!-- String text input -->
                   <input
                     v-else
                     :id="`var-${variable.name}`"
                     v-model="formValues[variable.name]"
                     type="text"
                     class="form-input"
-                    :placeholder="
-                      variable.type === 'session_ref'
-                        ? 'Enter session ID…'
-                        : variable.description
-                    "
+                    :placeholder="variable.description"
                   />
 
                   <p class="form-help">{{ variable.description }}</p>
                 </div>
               </div>
 
-              <!-- Execution settings -->
+              <!-- Execution Options -->
               <div class="execution-divider" />
+              <h3 class="section-heading">Execution Options</h3>
 
-              <div class="form-grid-2col">
-                <div class="form-group">
-                  <label for="task-priority" class="form-label">Priority</label>
-                  <select id="task-priority" v-model="priority" class="form-input form-select">
-                    <option value="low">Low</option>
-                    <option value="normal">Normal</option>
-                    <option value="high">High</option>
-                    <option value="critical">Critical</option>
-                  </select>
+              <div class="form-group">
+                <label class="form-label">Priority</label>
+                <div class="priority-pills">
+                  <button
+                    v-for="opt in priorityOptions"
+                    :key="opt.value"
+                    :class="[
+                      'priority-pill',
+                      `priority-pill--${opt.value}`,
+                      { active: priority === opt.value },
+                    ]"
+                    type="button"
+                    @click="priority = opt.value"
+                  >
+                    {{ opt.label }}
+                  </button>
                 </div>
+              </div>
 
-                <div class="form-group">
-                  <label for="task-retries" class="form-label">Max Retries</label>
-                  <input
-                    id="task-retries"
-                    v-model.number="maxRetries"
-                    type="number"
-                    class="form-input"
-                    min="0"
-                    max="10"
-                  />
-                </div>
+              <div class="form-group">
+                <label for="task-retries" class="form-label">Max Retries</label>
+                <input
+                  id="task-retries"
+                  v-model.number="maxRetries"
+                  type="number"
+                  class="form-input"
+                  style="max-width: 120px"
+                  min="0"
+                  max="10"
+                />
               </div>
             </SectionPanel>
 
@@ -415,6 +579,20 @@ onMounted(() => {
                   <span class="review-label">Description</span>
                   <span class="review-value review-value--muted">
                     {{ selectedPreset?.description }}
+                  </span>
+                </div>
+              </div>
+
+              <div class="review-section">
+                <h3 class="review-heading">Context</h3>
+                <div class="review-row">
+                  <span class="review-label">Sources</span>
+                  <span class="review-value">{{ contextSummary }}</span>
+                </div>
+                <div v-if="estimatedTokenBudget" class="review-row">
+                  <span class="review-label">Token Budget</span>
+                  <span class="review-value">
+                    ~{{ estimatedTokenBudget.toLocaleString() }} tokens
                   </span>
                 </div>
               </div>
@@ -459,6 +637,21 @@ onMounted(() => {
                   </span>
                 </div>
               </div>
+
+              <div class="review-section">
+                <button
+                  class="review-heading review-heading--toggle"
+                  @click="promptTemplateExpanded = !promptTemplateExpanded"
+                >
+                  Prompt Template
+                  <span class="toggle-chevron">
+                    {{ promptTemplateExpanded ? "▾" : "▸" }}
+                  </span>
+                </button>
+                <pre v-if="promptTemplateExpanded" class="prompt-template">{{
+                  selectedPreset?.prompt.user
+                }}</pre>
+              </div>
             </SectionPanel>
 
             <!-- Step 3 navigation -->
@@ -466,15 +659,24 @@ onMounted(() => {
               <button class="nav-btn nav-btn--secondary" @click="goBack">
                 ← Back
               </button>
-              <button
-                class="nav-btn nav-btn--primary nav-btn--submit"
-                :disabled="submitting"
-                @click="handleSubmit"
-              >
-                <LoadingSpinner v-if="submitting" size="sm" color="#fff" />
-                <span v-else>🚀</span>
-                {{ submitting ? "Creating…" : "Create Task" }}
-              </button>
+              <div class="wizard-nav-actions">
+                <button
+                  class="nav-btn nav-btn--secondary"
+                  :disabled="submitting"
+                  @click="handleSubmit(true)"
+                >
+                  {{ submitting ? "Creating…" : "Create & View" }}
+                </button>
+                <button
+                  class="nav-btn nav-btn--primary nav-btn--submit"
+                  :disabled="submitting"
+                  @click="handleSubmit(false)"
+                >
+                  <LoadingSpinner v-if="submitting" size="sm" color="#fff" />
+                  <span v-else>🚀</span>
+                  {{ submitting ? "Creating…" : "Create Task" }}
+                </button>
+              </div>
             </div>
           </div>
         </Transition>
@@ -701,6 +903,7 @@ onMounted(() => {
   color: var(--text-primary);
   font-family: inherit;
   font-size: inherit;
+  position: relative;
 }
 
 .preset-card:hover {
@@ -1045,6 +1248,253 @@ onMounted(() => {
 
 .nav-btn--submit {
   padding: 8px 24px;
+}
+
+/* ── Category pills ──────────────────────────────────────────────────── */
+.category-pills {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.category-pill {
+  padding: 5px 14px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: 1px solid var(--border-default);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.category-pill:hover {
+  border-color: var(--border-accent);
+  color: var(--text-primary);
+}
+
+.category-pill.active {
+  background: var(--accent-subtle);
+  border-color: var(--accent-fg);
+  color: var(--accent-fg);
+}
+
+/* ── Preset card selected ────────────────────────────────────────────── */
+.preset-card--selected {
+  border-color: var(--accent-fg);
+  box-shadow: 0 0 0 1px var(--accent-subtle), var(--shadow-md);
+}
+
+.preset-card--selected::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent-fg);
+  border-radius: 10px 10px 0 0;
+}
+
+/* ── Clickable step indicator ────────────────────────────────────────── */
+.step-dot-group {
+  border: none;
+  background: none;
+  padding: 0;
+  font-family: inherit;
+}
+
+.step-dot-group:disabled {
+  cursor: default;
+}
+
+.step-dot-group.clickable {
+  cursor: pointer;
+}
+
+.step-dot-group.clickable:hover .step-dot {
+  border-color: var(--accent-fg);
+  box-shadow: 0 0 0 2px var(--accent-subtle);
+}
+
+/* ── Section heading ─────────────────────────────────────────────────── */
+.section-heading {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--text-placeholder);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 14px;
+}
+
+/* ── Priority pills ──────────────────────────────────────────────────── */
+.priority-pills {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.priority-pill {
+  padding: 5px 14px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: 1px solid var(--border-default);
+  background: transparent;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  font-family: inherit;
+  color: var(--text-secondary);
+}
+
+.priority-pill:hover {
+  border-color: var(--border-accent);
+}
+
+.priority-pill--low.active {
+  background: rgba(113, 113, 122, 0.15);
+  border-color: #71717a;
+  color: #a1a1aa;
+}
+
+.priority-pill--normal.active {
+  background: rgba(96, 165, 250, 0.15);
+  border-color: #60a5fa;
+  color: #60a5fa;
+}
+
+.priority-pill--high.active {
+  background: rgba(251, 191, 36, 0.15);
+  border-color: #fbbf24;
+  color: #fbbf24;
+}
+
+.priority-pill--critical.active {
+  background: rgba(248, 113, 113, 0.15);
+  border-color: #f87171;
+  color: #f87171;
+}
+
+/* ── Session picker ──────────────────────────────────────────────────── */
+.session-picker {
+  position: relative;
+}
+
+.session-search-wrapper {
+  position: relative;
+}
+
+.session-search-spinner {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.session-results {
+  position: absolute;
+  z-index: 10;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 180px;
+  overflow-y: auto;
+  background: var(--canvas-overlay);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  margin-top: 4px;
+  box-shadow: var(--shadow-lg);
+}
+
+.session-result-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: none;
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: background var(--transition-fast);
+}
+
+.session-result-item:hover {
+  background: var(--neutral-subtle);
+}
+
+.session-result-id {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.75rem;
+  color: var(--accent-fg);
+  flex-shrink: 0;
+}
+
+.session-result-title {
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-selected {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  margin: 6px 0 0;
+}
+
+.session-selected code {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.6875rem;
+  color: var(--accent-fg);
+  background: var(--accent-subtle);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+/* ── Review prompt template ──────────────────────────────────────────── */
+.review-heading--toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.toggle-chevron {
+  font-size: 0.75rem;
+  color: var(--text-placeholder);
+}
+
+.prompt-template {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  background: var(--canvas-default);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin: 10px 0 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+/* ── Wizard nav actions ──────────────────────────────────────────────── */
+.wizard-nav-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
 /* ── Responsive ──────────────────────────────────────────────────────── */
