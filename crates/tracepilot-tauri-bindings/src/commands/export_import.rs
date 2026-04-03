@@ -7,6 +7,7 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
+use crate::blocking_cmd;
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
 use crate::helpers::{read_config, with_session_path};
@@ -75,7 +76,7 @@ pub async fn export_sessions(
     let export_format = parse_format(&format)?;
     let section_set = parse_sections(&sections)?;
 
-    tokio::task::spawn_blocking(move || {
+    blocking_cmd!({
         let (content_detail, redaction) = build_export_detail_options(
             include_subagent_internals,
             include_tool_details,
@@ -145,7 +146,6 @@ pub async fn export_sessions(
             exported_at: now.to_rfc3339(),
         })
     })
-    .await?
 }
 
 /// Generate a preview of the export output (for the live preview panel).
@@ -269,7 +269,7 @@ pub async fn preview_import(
     let cfg = read_config(&state);
     let session_state_dir = cfg.session_state_dir();
 
-    tokio::task::spawn_blocking(move || {
+    blocking_cmd!({
         let path = PathBuf::from(&file_path);
 
         let preview = tracepilot_export::import::preview_import(&path, Some(&session_state_dir))?;
@@ -312,7 +312,6 @@ pub async fn preview_import(
             needs_migration,
         })
     })
-    .await?
 }
 
 /// Import sessions from a `.tpx.json` file.
@@ -337,7 +336,7 @@ pub async fn import_sessions(
         _ => tracepilot_export::import::ConflictStrategy::Skip,
     };
 
-    tokio::task::spawn_blocking(move || {
+    blocking_cmd!({
         let path = PathBuf::from(&file_path);
 
         let options = tracepilot_export::import::ImportOptions {
@@ -355,7 +354,6 @@ pub async fn import_sessions(
             warnings: result.warnings,
         })
     })
-    .await?
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────
