@@ -437,13 +437,13 @@ pub async fn get_search_facets(
         let query_opt = query.as_deref().filter(|q| !q.trim().is_empty());
         let facets = db.facets(query_opt, &filters)?;
 
-        SearchFacetsResponse {
+        Ok(SearchFacetsResponse {
             by_content_type: facets.by_content_type,
             by_repository: facets.by_repository,
             by_tool_name: facets.by_tool_name,
             total_matches: facets.total_matches,
             session_count: facets.session_count,
-        }
+        })
     });
 
     // Cache the result.
