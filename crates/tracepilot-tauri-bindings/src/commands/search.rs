@@ -586,7 +586,7 @@ pub async fn fts_health(
     let cfg = read_config(&state);
     blocking_cmd!({
         let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&cfg.index_db_path())?;
-        db.fts_health()?
+        Ok(db.fts_health()?)
     })
 }
 
@@ -603,6 +603,6 @@ pub async fn get_result_context(
     let cfg = read_config(&state);
     blocking_cmd!({
         let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&cfg.index_db_path())?;
-        db.get_result_context(result_id, radius.unwrap_or(2))?
+        Ok(db.get_result_context(result_id, radius.unwrap_or(2))?)
     })
 }
