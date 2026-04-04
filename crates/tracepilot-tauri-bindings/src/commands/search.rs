@@ -94,7 +94,7 @@ pub async fn search_sessions(
                 .then_with(|| a.id.cmp(&b.id))
         });
 
-        Ok(sessions)
+        Ok::<_, crate::error::BindingsError>(sessions)
     })
 }
 
@@ -437,7 +437,7 @@ pub async fn get_search_facets(
         let query_opt = query.as_deref().filter(|q| !q.trim().is_empty());
         let facets = db.facets(query_opt, &filters)?;
 
-        Ok(SearchFacetsResponse {
+        Ok::<_, crate::error::BindingsError>(SearchFacetsResponse {
             by_content_type: facets.by_content_type,
             by_repository: facets.by_repository,
             by_tool_name: facets.by_tool_name,
@@ -467,7 +467,7 @@ pub async fn get_search_stats(
 
         let stats = db.search_stats()?;
 
-        Ok(SearchStatsResponse {
+        Ok::<_, crate::error::BindingsError>(SearchStatsResponse {
             total_rows: stats.total_rows,
             indexed_sessions: stats.indexed_sessions,
             total_sessions: stats.total_sessions,
