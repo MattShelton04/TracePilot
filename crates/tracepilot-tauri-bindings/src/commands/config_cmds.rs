@@ -294,15 +294,15 @@ pub async fn save_session_template(
 
 #[tauri::command]
 pub async fn delete_session_template(id: String) -> CmdResult<()> {
-    blocking_cmd!(tracepilot_orchestrator::templates::delete_template(&id)?)
+    blocking_cmd!(tracepilot_orchestrator::templates::delete_template(&id))
 }
 
 #[tauri::command]
 pub async fn restore_default_templates() -> CmdResult<()> {
-    blocking_cmd!(tracepilot_orchestrator::templates::restore_all_default_templates()?)
+    blocking_cmd!(tracepilot_orchestrator::templates::restore_all_default_templates())
 }
 
 #[tauri::command]
 pub async fn increment_template_usage(id: String) -> CmdResult<()> {
-    blocking_cmd!(tracepilot_orchestrator::templates::increment_usage(&id)?)
+    blocking_cmd!(tracepilot_orchestrator::templates::increment_usage(&id))
 }

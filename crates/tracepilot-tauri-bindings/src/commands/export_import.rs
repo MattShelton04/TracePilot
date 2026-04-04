@@ -304,7 +304,7 @@ pub async fn preview_import(
             })
             .collect();
 
-        Ok(ImportPreviewResult {
+        Ok::<_, crate::error::BindingsError>(ImportPreviewResult {
             valid: preview.can_import,
             issues,
             sessions,
@@ -348,7 +348,7 @@ pub async fn import_sessions(
         let result =
             tracepilot_export::import::import_sessions(&path, &session_state_dir, &options)?;
 
-        Ok(ImportSessionsResult {
+        Ok::<_, crate::error::BindingsError>(ImportSessionsResult {
             imported_count: result.imported.len(),
             skipped_count: result.skipped.len(),
             warnings: result.warnings,
