@@ -173,10 +173,10 @@ pub async fn restore_config_backup(backup_path: String, restore_to: String) -> C
         let validated_backup = validate_path_within(&backup_path, &backup_dir)?;
         let home = copilot_home()?;
         let validated_restore = validate_write_path_within(&restore_to, &home)?;
-        tracepilot_orchestrator::config_injector::restore_backup(
+        Ok::<_, crate::error::BindingsError>(tracepilot_orchestrator::config_injector::restore_backup(
             &validated_backup,
             &validated_restore,
-        )?
+        )?)
     })
 }
 
@@ -185,9 +185,9 @@ pub async fn delete_config_backup(backup_path: String) -> CmdResult<()> {
     blocking_cmd!({
         let backup_dir = tracepilot_orchestrator::config_injector::backup_dir()?;
         let validated = validate_path_within(&backup_path, &backup_dir)?;
-        tracepilot_orchestrator::config_injector::delete_backup(
+        Ok::<_, crate::error::BindingsError>(tracepilot_orchestrator::config_injector::delete_backup(
             &validated,
-        )?
+        )?)
     })
 }
 
