@@ -236,7 +236,7 @@ pub fn seed_builtin_presets(dir: &Path) -> Result<()> {
             name: "Daily Digest".to_string(),
             task_type: "digest".to_string(),
             description: "Summarise all Copilot CLI sessions from the last 24 hours — activity, repositories, models used, and key outcomes.".to_string(),
-            version: 1,
+            version: 2,
             prompt: PresetPrompt {
                 system: "You are an expert technical analyst summarising daily developer activity from GitHub Copilot CLI sessions.".to_string(),
                 user: "Produce a daily digest of the Copilot CLI sessions from the last 24 hours. The session data is provided in the context section below. Include:\n1. **Overview** — total sessions, turns, and repositories touched\n2. **Highlights** — most significant sessions and what they accomplished\n3. **Patterns** — recurring themes, tools, or workflows\n4. **Issues** — any failures, incidents, or areas of concern\n5. **Recommendations** — suggested improvements or follow-ups".to_string(),
@@ -288,7 +288,7 @@ pub fn seed_builtin_presets(dir: &Path) -> Result<()> {
             name: "Weekly Digest".to_string(),
             task_type: "digest".to_string(),
             description: "Summarise all Copilot CLI sessions from the last 7 days — trends, productivity patterns, and cross-session insights.".to_string(),
-            version: 1,
+            version: 2,
             prompt: PresetPrompt {
                 system: "You are an expert technical analyst producing a weekly summary of developer activity from GitHub Copilot CLI sessions.".to_string(),
                 user: "Produce a weekly digest of the Copilot CLI sessions from the last 7 days. The session data is provided in the context section below. Include:\n1. **Week Overview** — total sessions, turns, repositories, and models used\n2. **Day-by-Day Summary** — brief highlights for each active day\n3. **Top Sessions** — the 3-5 most impactful sessions with outcomes\n4. **Trends** — how activity, tool usage, or patterns changed over the week\n5. **Issues & Incidents** — failures, rate limits, or recurring problems\n6. **Recommendations** — productivity tips based on observed patterns".to_string(),
@@ -339,9 +339,25 @@ pub fn seed_builtin_presets(dir: &Path) -> Result<()> {
     ];
 
     for preset in &builtins {
-        if !preset_exists(dir, &preset.id) {
+        let path = preset_path(dir, &preset.id);
+        if !path.exists() {
             save_preset(dir, preset)?;
             tracing::info!(id = %preset.id, "Seeded built-in preset");
+        } else {
+            // Upgrade stale built-in presets when the code version is newer
+            if let Ok(existing) = crate::json_io::atomic_json_read_opt::<TaskPreset>(&path) {
+                if let Some(existing) = existing {
+                    if existing.builtin && existing.version < preset.version {
+                        save_preset(dir, preset)?;
+                        tracing::info!(
+                            id = %preset.id,
+                            from_version = existing.version,
+                            to_version = preset.version,
+                            "Upgraded built-in preset"
+                        );
+                    }
+                }
+            }
         }
     }
 
