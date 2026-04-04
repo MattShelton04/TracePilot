@@ -230,9 +230,9 @@ pub async fn discover_copilot_versions() -> CmdResult<Vec<tracepilot_orchestrato
 {
     blocking_cmd!({
         let home = copilot_home()?;
-        tracepilot_orchestrator::version_manager::discover_versions(
+        Ok::<_, crate::error::BindingsError>(tracepilot_orchestrator::version_manager::discover_versions(
             &home,
-        )?
+        )?)
     })
 }
 
