@@ -202,10 +202,10 @@ pub async fn preview_backup_restore(
         let home = copilot_home()?;
         let validated_source = validate_write_path_within(&source_path, &home)?;
 
-        tracepilot_orchestrator::config_injector::preview_backup_restore(
+        Ok::<_, crate::error::BindingsError>(tracepilot_orchestrator::config_injector::preview_backup_restore(
             &validated_backup,
             &validated_source,
-        )?
+        )?)
     })
 }
 
@@ -218,10 +218,10 @@ pub async fn diff_config_files(
         let home = copilot_home()?;
         let validated_old = validate_write_path_within(&old_path, &home)?;
         let validated_new = validate_write_path_within(&new_path, &home)?;
-        tracepilot_orchestrator::config_injector::diff_files(
+        Ok::<_, crate::error::BindingsError>(tracepilot_orchestrator::config_injector::diff_files(
             &validated_old,
             &validated_new,
-        )?
+        )?)
     })
 }
 
