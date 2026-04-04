@@ -652,10 +652,48 @@ describe("useSessionDetailStore", () => {
       expect(store.loading).toBe(false);
       // Cached data should be present immediately
       expect(store.detail).toBeTruthy();
+      expect(store.turns).toEqual(FIXTURE_TURNS.turns);
       expect(store.checkpoints).toEqual(FIXTURE_CHECKPOINTS);
       expect(store.plan).toEqual(FIXTURE_PLAN);
       expect(store.shutdownMetrics).toEqual(FIXTURE_METRICS);
       expect(store.incidents).toEqual(FIXTURE_INCIDENTS);
+    });
+  });
+
+  describe("prefetchSession", () => {
+    it("prefetches detail/turns and restores from cache with section defaults", async () => {
+      const store = useSessionDetailStore();
+      const PREFETCH_ID = "prefetch-999";
+      const prefetchedDetail = { ...FIXTURE_DETAIL, id: PREFETCH_ID, repository: "prefetch-repo" };
+      const prefetchedTurns = {
+        turns: [{ turnIndex: 0, userMessage: "prefetched", assistantMessages: [], toolCalls: [] }],
+        eventsFileSize: 777,
+      };
+
+      mockGetSessionDetail.mockResolvedValue(prefetchedDetail);
+      mockGetSessionTurns.mockResolvedValue(prefetchedTurns);
+      await store.prefetchSession(PREFETCH_ID);
+
+      vi.clearAllMocks();
+      mockGetSessionDetail.mockResolvedValue(prefetchedDetail);
+      mockGetSessionTurns.mockResolvedValue(prefetchedTurns);
+      mockCheckSessionFreshness.mockResolvedValue({
+        eventsFileSize: prefetchedTurns.eventsFileSize,
+      });
+
+      await store.loadDetail(PREFETCH_ID);
+
+      expect(store.loading).toBe(false);
+      expect(store.detail).toEqual(prefetchedDetail);
+      expect(store.turns).toEqual(prefetchedTurns.turns);
+      expect(store.checkpoints).toEqual([]);
+      expect(store.plan).toBeNull();
+      expect(store.shutdownMetrics).toBeNull();
+      expect(store.incidents).toEqual([]);
+      expect(store.loaded.has("detail")).toBe(true);
+      expect(store.loaded.has("turns")).toBe(true);
+      expect(store.loaded.has("events")).toBe(false);
+      expect(store.loaded.has("todos")).toBe(false);
     });
   });
 });
