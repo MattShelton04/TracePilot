@@ -410,14 +410,16 @@ mod tests {
     #[test]
     fn build_export_detail_options_uses_defaults_when_all_none() {
         let (content, redaction) = build_export_detail_options(None, None, None, None, None, None);
+        let default_content = ContentDetailOptions::default();
+        let default_redaction = RedactionOptions::default();
 
-        assert_eq!(content.include_subagent_internals, true);
-        assert_eq!(content.include_tool_details, true);
-        assert_eq!(content.include_full_tool_results, false);
+        assert_eq!(content.include_subagent_internals, default_content.include_subagent_internals);
+        assert_eq!(content.include_tool_details, default_content.include_tool_details);
+        assert_eq!(content.include_full_tool_results, default_content.include_full_tool_results);
 
-        assert_eq!(redaction.anonymize_paths, false);
-        assert_eq!(redaction.strip_secrets, false);
-        assert_eq!(redaction.strip_pii, false);
+        assert_eq!(redaction.anonymize_paths, default_redaction.anonymize_paths);
+        assert_eq!(redaction.strip_secrets, default_redaction.strip_secrets);
+        assert_eq!(redaction.strip_pii, default_redaction.strip_pii);
     }
 
     #[test]
