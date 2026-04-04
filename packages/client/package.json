@@ -17,6 +17,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "clean": "rimraf dist"
   },
   "dependencies": {
@@ -24,6 +25,8 @@
     "@tracepilot/types": "workspace:*"
   },
   "devDependencies": {
-    "typescript": "^5.8.0"
+    "@types/node": "^22.0.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.2.4"
   }
 }

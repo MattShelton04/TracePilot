@@ -21,9 +21,10 @@ import type {
   WorktreeInfo,
 } from "@tracepilot/types";
 
+import { type CommandName } from "./commands.js";
 import { invokePlugin, isTauri } from "./invoke.js";
 
-async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+async function invoke<T>(cmd: CommandName, args?: Record<string, unknown>): Promise<T> {
   if (isTauri()) {
     return invokePlugin<T>(cmd, args);
   }
