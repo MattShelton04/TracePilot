@@ -8,7 +8,7 @@ use crate::types::ValidateSessionDirResult;
 
 #[tauri::command]
 pub async fn check_config_exists() -> CmdResult<bool> {
-    blocking_cmd!(Ok(config::config_file_path().is_some_and(|p| p.exists())))
+    blocking_cmd!(config::config_file_path().is_some_and(|p| p.exists()))
 }
 
 #[tauri::command]
@@ -36,30 +36,30 @@ pub async fn validate_session_dir(path: String) -> CmdResult<ValidateSessionDirR
     blocking_cmd!({
         let dir = std::path::PathBuf::from(&path);
         if !dir.exists() {
-            return Ok(ValidateSessionDirResult {
+            return ValidateSessionDirResult {
                 valid: false,
                 session_count: 0,
                 error: Some(format!("Directory does not exist: {path}")),
-            });
+            };
         }
         if !dir.is_dir() {
-            return Ok(ValidateSessionDirResult {
+            return ValidateSessionDirResult {
                 valid: false,
                 session_count: 0,
                 error: Some(format!("Path is not a directory: {path}")),
-            });
+            };
         }
         match tracepilot_core::session::discovery::discover_sessions(&dir) {
-            Ok(sessions) => Ok(ValidateSessionDirResult {
+            Ok(sessions) => ValidateSessionDirResult {
                 valid: true,
                 session_count: sessions.len(),
                 error: None,
-            }),
-            Err(e) => Ok(ValidateSessionDirResult {
+            },
+            Err(e) => ValidateSessionDirResult {
                 valid: false,
                 session_count: 0,
                 error: Some(e.to_string()),
-            }),
+            },
         }
     })
 }
@@ -85,7 +85,7 @@ pub async fn factory_reset(state: tauri::State<'_, SharedConfig>) -> CmdResult<(
                 }
             }
         }
-        Ok::<(), BindingsError>(())
+        ()
     })?;
 
     let mut guard = state
@@ -107,7 +107,7 @@ pub async fn get_agent_definitions(
             let active = tracepilot_orchestrator::version_manager::active_version(&home)?;
             std::path::PathBuf::from(&active.path)
         };
-        Ok(tracepilot_orchestrator::config_injector::read_agent_definitions(&version_dir)?)
+        tracepilot_orchestrator::config_injector::read_agent_definitions(&version_dir)?
     })
 }
 
@@ -116,12 +116,10 @@ pub async fn save_agent_definition(file_path: String, yaml_content: String) -> C
     blocking_cmd!({
         let home = copilot_home()?;
         let validated = validate_write_path_within(&file_path, &home)?;
-        Ok(
-            tracepilot_orchestrator::config_injector::write_agent_definition(
-                &validated,
-                &yaml_content,
-            )?,
-        )
+        tracepilot_orchestrator::config_injector::write_agent_definition(
+            &validated,
+            &yaml_content,
+        )?
     })
 }
 
@@ -129,7 +127,7 @@ pub async fn save_agent_definition(file_path: String, yaml_content: String) -> C
 pub async fn get_copilot_config() -> CmdResult<tracepilot_orchestrator::CopilotConfig> {
     blocking_cmd!({
         let home = copilot_home()?;
-        Ok(tracepilot_orchestrator::config_injector::read_copilot_config(&home)?)
+        tracepilot_orchestrator::config_injector::read_copilot_config(&home)?
     })
 }
 
@@ -137,7 +135,7 @@ pub async fn get_copilot_config() -> CmdResult<tracepilot_orchestrator::CopilotC
 pub async fn save_copilot_config(config: serde_json::Value) -> CmdResult<()> {
     blocking_cmd!({
         let home = copilot_home()?;
-        Ok(tracepilot_orchestrator::config_injector::write_copilot_config(&home, &config)?)
+        tracepilot_orchestrator::config_injector::write_copilot_config(&home, &config)?
     })
 }
 
@@ -150,11 +148,11 @@ pub async fn create_config_backup(
         let home = copilot_home()?;
         let validated = validate_path_within(&file_path, &home)?;
         let backup_dir = tracepilot_orchestrator::config_injector::backup_dir()?;
-        Ok(tracepilot_orchestrator::config_injector::create_backup(
+        tracepilot_orchestrator::config_injector::create_backup(
             &validated,
             &backup_dir,
             &label,
-        )?)
+        )?
     })
 }
 
@@ -162,9 +160,9 @@ pub async fn create_config_backup(
 pub async fn list_config_backups() -> CmdResult<Vec<tracepilot_orchestrator::BackupEntry>> {
     blocking_cmd!({
         let backup_dir = tracepilot_orchestrator::config_injector::backup_dir()?;
-        Ok(tracepilot_orchestrator::config_injector::list_backups(
+        tracepilot_orchestrator::config_injector::list_backups(
             &backup_dir,
-        )?)
+        )?
     })
 }
 
@@ -175,10 +173,10 @@ pub async fn restore_config_backup(backup_path: String, restore_to: String) -> C
         let validated_backup = validate_path_within(&backup_path, &backup_dir)?;
         let home = copilot_home()?;
         let validated_restore = validate_write_path_within(&restore_to, &home)?;
-        Ok(tracepilot_orchestrator::config_injector::restore_backup(
+        tracepilot_orchestrator::config_injector::restore_backup(
             &validated_backup,
             &validated_restore,
-        )?)
+        )?
     })
 }
 
@@ -187,9 +185,9 @@ pub async fn delete_config_backup(backup_path: String) -> CmdResult<()> {
     blocking_cmd!({
         let backup_dir = tracepilot_orchestrator::config_injector::backup_dir()?;
         let validated = validate_path_within(&backup_path, &backup_dir)?;
-        Ok(tracepilot_orchestrator::config_injector::delete_backup(
+        tracepilot_orchestrator::config_injector::delete_backup(
             &validated,
-        )?)
+        )?
     })
 }
 
@@ -204,12 +202,10 @@ pub async fn preview_backup_restore(
         let home = copilot_home()?;
         let validated_source = validate_write_path_within(&source_path, &home)?;
 
-        Ok(
-            tracepilot_orchestrator::config_injector::preview_backup_restore(
-                &validated_backup,
-                &validated_source,
-            )?,
-        )
+        tracepilot_orchestrator::config_injector::preview_backup_restore(
+            &validated_backup,
+            &validated_source,
+        )?
     })
 }
 
@@ -222,10 +218,10 @@ pub async fn diff_config_files(
         let home = copilot_home()?;
         let validated_old = validate_write_path_within(&old_path, &home)?;
         let validated_new = validate_write_path_within(&new_path, &home)?;
-        Ok(tracepilot_orchestrator::config_injector::diff_files(
+        tracepilot_orchestrator::config_injector::diff_files(
             &validated_old,
             &validated_new,
-        )?)
+        )?
     })
 }
 
@@ -234,9 +230,9 @@ pub async fn discover_copilot_versions() -> CmdResult<Vec<tracepilot_orchestrato
 {
     blocking_cmd!({
         let home = copilot_home()?;
-        Ok(tracepilot_orchestrator::version_manager::discover_versions(
+        tracepilot_orchestrator::version_manager::discover_versions(
             &home,
-        )?)
+        )?
     })
 }
 
@@ -244,9 +240,9 @@ pub async fn discover_copilot_versions() -> CmdResult<Vec<tracepilot_orchestrato
 pub async fn get_active_copilot_version() -> CmdResult<tracepilot_orchestrator::CopilotVersion> {
     blocking_cmd!({
         let home = copilot_home()?;
-        Ok(tracepilot_orchestrator::version_manager::active_version(
+        tracepilot_orchestrator::version_manager::active_version(
             &home,
-        )?)
+        )?
     })
 }
 
@@ -257,11 +253,11 @@ pub async fn get_migration_diffs(
 ) -> CmdResult<Vec<tracepilot_orchestrator::MigrationDiff>> {
     blocking_cmd!({
         let home = copilot_home()?;
-        Ok(tracepilot_orchestrator::version_manager::migration_diffs(
+        tracepilot_orchestrator::version_manager::migration_diffs(
             &home,
             &from_version,
             &to_version,
-        )?)
+        )?
     })
 }
 
@@ -273,40 +269,40 @@ pub async fn migrate_agent_definition(
 ) -> CmdResult<()> {
     blocking_cmd!({
         let home = copilot_home()?;
-        Ok(tracepilot_orchestrator::version_manager::migrate_agent(
+        tracepilot_orchestrator::version_manager::migrate_agent(
             &home,
             &file_name,
             &from_version,
             &to_version,
-        )?)
+        )?
     })
 }
 
 #[tauri::command]
 pub async fn list_session_templates() -> CmdResult<Vec<tracepilot_orchestrator::SessionTemplate>> {
-    blocking_cmd!(Ok(tracepilot_orchestrator::templates::all_templates()?))
+    blocking_cmd!(tracepilot_orchestrator::templates::all_templates()?)
 }
 
 #[tauri::command]
 pub async fn save_session_template(
     template: tracepilot_orchestrator::SessionTemplate,
 ) -> CmdResult<()> {
-    blocking_cmd!(Ok(tracepilot_orchestrator::templates::save_template(
+    blocking_cmd!(tracepilot_orchestrator::templates::save_template(
         &template,
-    )?))
+    )?)
 }
 
 #[tauri::command]
 pub async fn delete_session_template(id: String) -> CmdResult<()> {
-    blocking_cmd!(Ok(tracepilot_orchestrator::templates::delete_template(&id)?))
+    blocking_cmd!(tracepilot_orchestrator::templates::delete_template(&id)?)
 }
 
 #[tauri::command]
 pub async fn restore_default_templates() -> CmdResult<()> {
-    blocking_cmd!(Ok(tracepilot_orchestrator::templates::restore_all_default_templates()?))
+    blocking_cmd!(tracepilot_orchestrator::templates::restore_all_default_templates()?)
 }
 
 #[tauri::command]
 pub async fn increment_template_usage(id: String) -> CmdResult<()> {
-    blocking_cmd!(Ok(tracepilot_orchestrator::templates::increment_usage(&id)?))
+    blocking_cmd!(tracepilot_orchestrator::templates::increment_usage(&id)?)
 }

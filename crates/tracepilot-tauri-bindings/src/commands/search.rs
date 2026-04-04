@@ -64,7 +64,7 @@ pub async fn search_sessions(
 
     blocking_cmd!({
         if !index_path.exists() {
-            return Ok(Vec::new());
+            return Vec::new();
         }
 
         let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
@@ -467,12 +467,12 @@ pub async fn get_search_stats(
 
         let stats = db.search_stats()?;
 
-        Ok(SearchStatsResponse {
+        SearchStatsResponse {
             total_rows: stats.total_rows,
             indexed_sessions: stats.indexed_sessions,
             total_sessions: stats.total_sessions,
             content_type_counts: stats.content_type_counts,
-        })
+        }
     })
 }
 
@@ -486,7 +486,7 @@ pub async fn get_search_repositories(
 
     blocking_cmd!({
         let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
-        Ok(db.search_repositories()?)
+        db.search_repositories()?
     })
 }
 
@@ -500,7 +500,7 @@ pub async fn get_search_tool_names(
 
     blocking_cmd!({
         let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
-        Ok(db.search_tool_names()?)
+        db.search_tool_names()?
     })
 }
 
@@ -564,7 +564,7 @@ pub async fn fts_integrity_check(state: tauri::State<'_, SharedConfig>) -> CmdRe
     let cfg = read_config(&state);
     blocking_cmd!({
         let db = tracepilot_indexer::index_db::IndexDb::open_or_create(&cfg.index_db_path())?;
-        Ok(db.fts_integrity_check()?)
+        db.fts_integrity_check()?
     })
 }
 
@@ -574,7 +574,7 @@ pub async fn fts_optimize(state: tauri::State<'_, SharedConfig>) -> CmdResult<St
     let cfg = read_config(&state);
     blocking_cmd!({
         let db = tracepilot_indexer::index_db::IndexDb::open_or_create(&cfg.index_db_path())?;
-        Ok(db.fts_optimize()?)
+        db.fts_optimize()?
     })
 }
 
@@ -586,7 +586,7 @@ pub async fn fts_health(
     let cfg = read_config(&state);
     blocking_cmd!({
         let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&cfg.index_db_path())?;
-        Ok(db.fts_health()?)
+        db.fts_health()?
     })
 }
 
@@ -603,6 +603,6 @@ pub async fn get_result_context(
     let cfg = read_config(&state);
     blocking_cmd!({
         let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&cfg.index_db_path())?;
-        Ok(db.get_result_context(result_id, radius.unwrap_or(2))?)
+        db.get_result_context(result_id, radius.unwrap_or(2))?
     })
 }

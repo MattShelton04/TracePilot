@@ -304,13 +304,13 @@ pub async fn preview_import(
             })
             .collect();
 
-        Ok(ImportPreviewResult {
+        ImportPreviewResult {
             valid: preview.can_import,
             issues,
             sessions,
             schema_version: preview.schema_version.to_string(),
             needs_migration,
-        })
+        }
     })
 }
 
@@ -348,11 +348,11 @@ pub async fn import_sessions(
         let result =
             tracepilot_export::import::import_sessions(&path, &session_state_dir, &options)?;
 
-        Ok(ImportSessionsResult {
+        ImportSessionsResult {
             imported_count: result.imported.len(),
             skipped_count: result.skipped.len(),
             warnings: result.warnings,
-        })
+        }
     })
 }
 
