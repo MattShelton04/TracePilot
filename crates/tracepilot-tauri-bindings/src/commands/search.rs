@@ -64,7 +64,7 @@ pub async fn search_sessions(
 
     blocking_cmd!({
         if !index_path.exists() {
-            return Vec::new();
+            return Ok(Vec::new());
         }
 
         let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
@@ -437,13 +437,13 @@ pub async fn get_search_facets(
         let query_opt = query.as_deref().filter(|q| !q.trim().is_empty());
         let facets = db.facets(query_opt, &filters)?;
 
-        Ok(SearchFacetsResponse {
+        SearchFacetsResponse {
             by_content_type: facets.by_content_type,
             by_repository: facets.by_repository,
             by_tool_name: facets.by_tool_name,
             total_matches: facets.total_matches,
             session_count: facets.session_count,
-        })
+        }
     });
 
     // Cache the result.
@@ -467,12 +467,12 @@ pub async fn get_search_stats(
 
         let stats = db.search_stats()?;
 
-        SearchStatsResponse {
+        Ok(SearchStatsResponse {
             total_rows: stats.total_rows,
             indexed_sessions: stats.indexed_sessions,
             total_sessions: stats.total_sessions,
             content_type_counts: stats.content_type_counts,
-        }
+        })
     })
 }
 
