@@ -56,7 +56,10 @@ describe("skillFrontmatter", () => {
       const parsed = parseSkillContent(
         ["---", "name: test", 'description: "tab\\there"', "---", "Body"].join("\n"),
       );
-      expect(parsed.frontmatter.description).toBe("tab\\there");
+      expect(parsed.frontmatter).toEqual({
+        name: "test",
+        description: "tab\\there",
+      });
     });
 
     it("parses multiline descriptions, resource globs, auto_attach, and trailing multiline flush", () => {
