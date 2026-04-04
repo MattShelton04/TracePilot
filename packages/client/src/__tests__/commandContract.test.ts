@@ -24,7 +24,7 @@ describe("IPC command contract", () => {
     expect(missingInBuild).toEqual([]);
   });
 
-  it("ensures all registered plugin commands have client wrappers", () => {
+  it("ensures all registered plugin commands are declared in IPC_COMMANDS", () => {
     const missingInClient = Array.from(buildCommands).filter((cmd) => !clientCommands.has(cmd));
     expect(missingInClient).toEqual([]);
   });

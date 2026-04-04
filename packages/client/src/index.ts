@@ -638,4 +638,5 @@ export async function exportLogs(destination: string): Promise<string> {
 export * from "./orchestration.js";
 export * from "./mcp.js";
 export * from "./skills.js";
+export { IPC_COMMANDS, type CommandName } from "./commands.js";
 export type { SessionHealth };
