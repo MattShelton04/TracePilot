@@ -175,7 +175,10 @@ function decodeDoubleQuotedScalar(value: string): string {
     if (next === "n") decoded += "\n";
     else if (next === '"') decoded += '"';
     else if (next === "\\") decoded += "\\";
-    else decoded += next;
+    else {
+      decoded += "\\";
+      decoded += next;
+    }
     i++;
   }
 

@@ -52,6 +52,13 @@ describe("skillFrontmatter", () => {
       });
     });
 
+    it("preserves unknown escape sequences in double-quoted scalars", () => {
+      const parsed = parseSkillContent(
+        ["---", "name: test", 'description: "tab\\there"', "---", "Body"].join("\n"),
+      );
+      expect(parsed.frontmatter.description).toBe("tab\\there");
+    });
+
     it("parses multiline descriptions, resource globs, auto_attach, and trailing multiline flush", () => {
       const parsed = parseSkillContent(
         [
