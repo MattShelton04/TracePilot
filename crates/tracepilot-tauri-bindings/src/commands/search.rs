@@ -1,5 +1,6 @@
 //! Search and indexing Tauri commands (9 commands).
 
+use crate::blocking_cmd;
 use crate::cache::TtlCache;
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
@@ -61,7 +62,7 @@ pub async fn search_sessions(
     let index_path = cfg.index_db_path();
     let session_state_dir = cfg.session_state_dir();
 
-    tokio::task::spawn_blocking(move || {
+    blocking_cmd!({
         if !index_path.exists() {
             return Ok(Vec::new());
         }
@@ -93,9 +94,8 @@ pub async fn search_sessions(
                 .then_with(|| a.id.cmp(&b.id))
         });
 
-        Ok(sessions)
+        Ok::<_, crate::error::BindingsError>(sessions)
     })
-    .await?
 }
 
 /// Returns (updated, total) session counts.
@@ -326,7 +326,7 @@ pub async fn search_content(
     let index_path = cfg.index_db_path();
     let query_for_closure = query.clone();
 
-    tokio::task::spawn_blocking(move || {
+    blocking_cmd!({
         let start = std::time::Instant::now();
         let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
 
@@ -383,7 +383,6 @@ pub async fn search_content(
             latency_ms,
         })
     })
-    .await?
 }
 
 /// Get facet counts (with 60-second TTL cache).
@@ -421,7 +420,7 @@ pub async fn get_search_facets(
     let cfg = read_config(&state);
     let index_path = cfg.index_db_path();
 
-    let result = tokio::task::spawn_blocking(move || {
+    let result = blocking_cmd!({
         let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
 
         let filters = tracepilot_indexer::SearchFilters {
@@ -438,15 +437,14 @@ pub async fn get_search_facets(
         let query_opt = query.as_deref().filter(|q| !q.trim().is_empty());
         let facets = db.facets(query_opt, &filters)?;
 
-        Ok(SearchFacetsResponse {
+        Ok::<_, crate::error::BindingsError>(SearchFacetsResponse {
             by_content_type: facets.by_content_type,
             by_repository: facets.by_repository,
             by_tool_name: facets.by_tool_name,
             total_matches: facets.total_matches,
             session_count: facets.session_count,
         })
-    })
-    .await?;
+    });
 
     // Cache the result.
     if let Ok(ref response) = result {
@@ -464,19 +462,18 @@ pub async fn get_search_stats(
     let cfg = read_config(&state);
     let index_path = cfg.index_db_path();
 
-    tokio::task::spawn_blocking(move || {
+    blocking_cmd!({
         let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
 
         let stats = db.search_stats()?;
 
-        Ok(SearchStatsResponse {
+        Ok::<_, crate::error::BindingsError>(SearchStatsResponse {
             total_rows: stats.total_rows,
             indexed_sessions: stats.indexed_sessions,
             total_sessions: stats.total_sessions,
             content_type_counts: stats.content_type_counts,
         })
     })
-    .await?
 }
 
 /// Get distinct repositories for search filter dropdown.
@@ -487,11 +484,10 @@ pub async fn get_search_repositories(
     let cfg = read_config(&state);
     let index_path = cfg.index_db_path();
 
-    tokio::task::spawn_blocking(move || {
+    blocking_cmd!({
         let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
-        Ok(db.search_repositories()?)
+        db.search_repositories()
     })
-    .await?
 }
 
 /// Get distinct tool names for search filter dropdown.
@@ -502,11 +498,10 @@ pub async fn get_search_tool_names(
     let cfg = read_config(&state);
     let index_path = cfg.index_db_path();
 
-    tokio::task::spawn_blocking(move || {
+    blocking_cmd!({
         let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
-        Ok(db.search_tool_names()?)
+        db.search_tool_names()
     })
-    .await?
 }
 
 /// Rebuild the search index from scratch.
@@ -567,22 +562,20 @@ pub async fn rebuild_search_index(
 #[tauri::command]
 pub async fn fts_integrity_check(state: tauri::State<'_, SharedConfig>) -> CmdResult<String> {
     let cfg = read_config(&state);
-    tokio::task::spawn_blocking(move || {
+    blocking_cmd!({
         let db = tracepilot_indexer::index_db::IndexDb::open_or_create(&cfg.index_db_path())?;
-        Ok(db.fts_integrity_check()?)
+        db.fts_integrity_check()
     })
-    .await?
 }
 
 /// Optimize the FTS index.
 #[tauri::command]
 pub async fn fts_optimize(state: tauri::State<'_, SharedConfig>) -> CmdResult<String> {
     let cfg = read_config(&state);
-    tokio::task::spawn_blocking(move || {
+    blocking_cmd!({
         let db = tracepilot_indexer::index_db::IndexDb::open_or_create(&cfg.index_db_path())?;
-        Ok(db.fts_optimize()?)
+        db.fts_optimize()
     })
-    .await?
 }
 
 /// Get detailed FTS health information.
@@ -591,11 +584,10 @@ pub async fn fts_health(
     state: tauri::State<'_, SharedConfig>,
 ) -> CmdResult<tracepilot_indexer::index_db::search_reader::FtsHealthInfo> {
     let cfg = read_config(&state);
-    tokio::task::spawn_blocking(move || {
+    blocking_cmd!({
         let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&cfg.index_db_path())?;
-        Ok(db.fts_health()?)
+        db.fts_health()
     })
-    .await?
 }
 
 /// Get surrounding context for a search result.
@@ -609,9 +601,8 @@ pub async fn get_result_context(
     Vec<tracepilot_indexer::index_db::ContextSnippet>,
 )> {
     let cfg = read_config(&state);
-    tokio::task::spawn_blocking(move || {
+    blocking_cmd!({
         let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&cfg.index_db_path())?;
-        Ok(db.get_result_context(result_id, radius.unwrap_or(2))?)
+        db.get_result_context(result_id, radius.unwrap_or(2))
     })
-    .await?
 }
