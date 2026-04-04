@@ -253,11 +253,11 @@ pub async fn get_migration_diffs(
 ) -> CmdResult<Vec<tracepilot_orchestrator::MigrationDiff>> {
     blocking_cmd!({
         let home = copilot_home()?;
-        tracepilot_orchestrator::version_manager::migration_diffs(
+        Ok::<_, crate::error::BindingsError>(tracepilot_orchestrator::version_manager::migration_diffs(
             &home,
             &from_version,
             &to_version,
-        )?
+        )?)
     })
 }
 
@@ -269,18 +269,18 @@ pub async fn migrate_agent_definition(
 ) -> CmdResult<()> {
     blocking_cmd!({
         let home = copilot_home()?;
-        tracepilot_orchestrator::version_manager::migrate_agent(
+        Ok::<_, crate::error::BindingsError>(tracepilot_orchestrator::version_manager::migrate_agent(
             &home,
             &file_name,
             &from_version,
             &to_version,
-        )?
+        )?)
     })
 }
 
 #[tauri::command]
 pub async fn list_session_templates() -> CmdResult<Vec<tracepilot_orchestrator::SessionTemplate>> {
-    blocking_cmd!(tracepilot_orchestrator::templates::all_templates()?)
+    blocking_cmd!(tracepilot_orchestrator::templates::all_templates())
 }
 
 #[tauri::command]
