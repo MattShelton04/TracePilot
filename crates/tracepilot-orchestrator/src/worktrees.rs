@@ -2,14 +2,23 @@
 
 use crate::error::{OrchestratorError, Result};
 use crate::types::{CreateWorktreeRequest, PruneResult, WorktreeDetails, WorktreeInfo, WorktreeStatus};
-use dashmap::DashMap;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 // ---------------------------------------------------------------------------
 // Disk-usage TTL cache (P0 perf fix)
 // ---------------------------------------------------------------------------
+
+// Note: This cache is defined here in tracepilot-orchestrator, while the facets
+// and system deps caches live in tracepilot-tauri-bindings. We can't use the
+// TtlCache from tauri-bindings here because orchestrator is a lower-level crate
+// that doesn't depend on tauri-bindings. To avoid this duplication, we'd need to
+// extract TtlCache into a shared utility crate, but that's beyond the scope of
+// this refactoring. For now, we use a simpler inline implementation.
+
+use dashmap::DashMap;
+use std::time::Instant;
 
 static DISK_USAGE_CACHE: LazyLock<DashMap<String, (u64, Instant)>> =
     LazyLock::new(DashMap::new);
