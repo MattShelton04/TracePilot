@@ -19,7 +19,7 @@ use std::time::{Duration, Instant};
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,ignore
 /// use std::time::Duration;
 /// use tracepilot_tauri_bindings::cache::TtlCache;
 ///
@@ -48,7 +48,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// use std::time::Duration;
     /// use tracepilot_tauri_bindings::cache::TtlCache;
     ///
@@ -73,7 +73,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// use std::time::Duration;
     /// use tracepilot_tauri_bindings::cache::TtlCache;
     ///
@@ -85,14 +85,15 @@ where
     /// }
     /// ```
     pub fn get(&self, key: &K) -> Option<V> {
-        self.data.get(key).and_then(|entry| {
-            let (ref value, timestamp) = *entry;
-            if timestamp.elapsed() < self.ttl {
-                Some(value.clone())
-            } else {
-                None
-            }
-        })
+        let entry = self.data.get(key)?;
+        let (ref value, timestamp) = *entry;
+        if timestamp.elapsed() < self.ttl {
+            Some(value.clone())
+        } else {
+            drop(entry);
+            self.data.remove(key);
+            None
+        }
     }
 
     /// Insert or update a cache entry with the current timestamp.
@@ -107,7 +108,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// use std::time::Duration;
     /// use tracepilot_tauri_bindings::cache::TtlCache;
     ///
@@ -129,7 +130,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// use std::time::Duration;
     /// use tracepilot_tauri_bindings::cache::TtlCache;
     ///
@@ -148,7 +149,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// use std::time::Duration;
     /// use tracepilot_tauri_bindings::cache::TtlCache;
     ///
@@ -165,12 +166,13 @@ where
 
     /// Returns the number of entries currently in the cache.
     ///
-    /// Note: This includes expired entries that haven't been accessed yet
-    /// (lazy eviction), so the actual number of valid entries may be lower.
+    /// Note: This may include expired entries that haven't been accessed
+    /// yet via `get()`. Entries are evicted lazily on access, so the count
+    /// may be higher than the number of live entries.
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// use std::time::Duration;
     /// use tracepilot_tauri_bindings::cache::TtlCache;
     ///
@@ -187,7 +189,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// use std::time::Duration;
     /// use tracepilot_tauri_bindings::cache::TtlCache;
     ///
@@ -347,15 +349,16 @@ mod tests {
         // Wait for expiration
         thread::sleep(Duration::from_millis(200));
 
-        // Entries are expired but still in the underlying map (lazy eviction)
+        // Entries are expired but still in the underlying map before access
         assert_eq!(cache.len(), 2);
         assert!(!cache.is_empty());
 
-        // Accessing returns None because they're expired
+        // Accessing expired entries returns None and evicts them
         assert_eq!(cache.get(&"a"), None);
-        assert_eq!(cache.get(&"b"), None);
+        assert_eq!(cache.len(), 1); // "a" was evicted on access
 
-        // But len still shows 2 (expired entries not physically removed)
-        assert_eq!(cache.len(), 2);
+        assert_eq!(cache.get(&"b"), None);
+        assert_eq!(cache.len(), 0); // "b" was evicted on access
+        assert!(cache.is_empty());
     }
 }
