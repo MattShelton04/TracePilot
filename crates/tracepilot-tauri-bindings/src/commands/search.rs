@@ -486,7 +486,7 @@ pub async fn get_search_repositories(
 
     blocking_cmd!({
         let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
-        db.search_repositories()?
+        db.search_repositories()
     })
 }
 
@@ -500,7 +500,7 @@ pub async fn get_search_tool_names(
 
     blocking_cmd!({
         let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
-        Ok(db.search_tool_names()?)
+        db.search_tool_names()
     })
 }
 
