@@ -289,7 +289,7 @@ pub async fn save_session_template(
 ) -> CmdResult<()> {
     blocking_cmd!(tracepilot_orchestrator::templates::save_template(
         &template,
-    )?)
+    ))
 }
 
 #[tauri::command]
