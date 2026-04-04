@@ -564,7 +564,7 @@ pub async fn fts_integrity_check(state: tauri::State<'_, SharedConfig>) -> CmdRe
     let cfg = read_config(&state);
     blocking_cmd!({
         let db = tracepilot_indexer::index_db::IndexDb::open_or_create(&cfg.index_db_path())?;
-        db.fts_integrity_check()?
+        Ok(db.fts_integrity_check()?)
     })
 }
 
@@ -574,7 +574,7 @@ pub async fn fts_optimize(state: tauri::State<'_, SharedConfig>) -> CmdResult<St
     let cfg = read_config(&state);
     blocking_cmd!({
         let db = tracepilot_indexer::index_db::IndexDb::open_or_create(&cfg.index_db_path())?;
-        db.fts_optimize()?
+        Ok(db.fts_optimize()?)
     })
 }
 
