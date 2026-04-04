@@ -306,6 +306,11 @@ pub async fn task_orchestrator_start(
     orch_state: tauri::State<'_, crate::types::SharedOrchestratorState>,
     model: Option<String>,
 ) -> CmdResult<tracepilot_orchestrator::task_orchestrator::OrchestratorHandle> {
+    // Atomic launch guard — prevents TOCTOU race where two concurrent starts
+    // both pass the "is running?" check before either stores a handle.
+    static LAUNCH_IN_PROGRESS: std::sync::atomic::AtomicBool =
+        std::sync::atomic::AtomicBool::new(false);
+
     // Check if already running
     {
         let guard = orch_state
@@ -316,6 +321,13 @@ pub async fn task_orchestrator_start(
                 "Orchestrator is already running. Stop it first.".into(),
             ));
         }
+    }
+
+    // Claim the launch slot atomically
+    if LAUNCH_IN_PROGRESS.swap(true, std::sync::atomic::Ordering::SeqCst) {
+        return Err(BindingsError::Validation(
+            "Orchestrator launch already in progress.".into(),
+        ));
     }
 
     let cfg = read_config(&config);
@@ -332,6 +344,15 @@ pub async fn task_orchestrator_start(
     let max_concurrent = cfg.tasks.max_concurrent_tasks;
 
     tokio::task::spawn_blocking(move || {
+        // Release the launch guard when we exit this closure (success or error)
+        struct LaunchGuard;
+        impl Drop for LaunchGuard {
+            fn drop(&mut self) {
+                LAUNCH_IN_PROGRESS.store(false, std::sync::atomic::Ordering::SeqCst);
+            }
+        }
+        let _launch_guard = LaunchGuard;
+
         // Get pending tasks from DB, then release the lock
         let (pending_tasks, resolved_models, context_contents) = {
             let db_guard = db

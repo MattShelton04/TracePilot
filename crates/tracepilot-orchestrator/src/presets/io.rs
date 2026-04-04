@@ -239,16 +239,8 @@ pub fn seed_builtin_presets(dir: &Path) -> Result<()> {
             version: 1,
             prompt: PresetPrompt {
                 system: "You are an expert technical analyst summarising daily developer activity from GitHub Copilot CLI sessions.".to_string(),
-                user: "Produce a daily digest of the Copilot CLI sessions from the last 24 hours. Include:\n1. **Overview** — total sessions, turns, and repositories touched\n2. **Highlights** — most significant sessions and what they accomplished\n3. **Patterns** — recurring themes, tools, or workflows\n4. **Issues** — any failures, incidents, or areas of concern\n5. **Recommendations** — suggested improvements or follow-ups\n\nSession data:\n{{digest_data}}".to_string(),
-                variables: vec![
-                    PromptVariable {
-                        name: "digest_data".to_string(),
-                        var_type: VariableType::String,
-                        required: true,
-                        description: "Aggregated session data for the last 24 hours".to_string(),
-                        default: None,
-                    },
-                ],
+                user: "Produce a daily digest of the Copilot CLI sessions from the last 24 hours. The session data is provided in the context section below. Include:\n1. **Overview** — total sessions, turns, and repositories touched\n2. **Highlights** — most significant sessions and what they accomplished\n3. **Patterns** — recurring themes, tools, or workflows\n4. **Issues** — any failures, incidents, or areas of concern\n5. **Recommendations** — suggested improvements or follow-ups".to_string(),
+                variables: vec![],
             },
             context: PresetContext {
                 sources: vec![ContextSource {
@@ -299,16 +291,8 @@ pub fn seed_builtin_presets(dir: &Path) -> Result<()> {
             version: 1,
             prompt: PresetPrompt {
                 system: "You are an expert technical analyst producing a weekly summary of developer activity from GitHub Copilot CLI sessions.".to_string(),
-                user: "Produce a weekly digest of the Copilot CLI sessions from the last 7 days. Include:\n1. **Week Overview** — total sessions, turns, repositories, and models used\n2. **Day-by-Day Summary** — brief highlights for each active day\n3. **Top Sessions** — the 3-5 most impactful sessions with outcomes\n4. **Trends** — how activity, tool usage, or patterns changed over the week\n5. **Issues & Incidents** — failures, rate limits, or recurring problems\n6. **Recommendations** — productivity tips based on observed patterns\n\nSession data:\n{{digest_data}}".to_string(),
-                variables: vec![
-                    PromptVariable {
-                        name: "digest_data".to_string(),
-                        var_type: VariableType::String,
-                        required: true,
-                        description: "Aggregated session data for the last 7 days".to_string(),
-                        default: None,
-                    },
-                ],
+                user: "Produce a weekly digest of the Copilot CLI sessions from the last 7 days. The session data is provided in the context section below. Include:\n1. **Week Overview** — total sessions, turns, repositories, and models used\n2. **Day-by-Day Summary** — brief highlights for each active day\n3. **Top Sessions** — the 3-5 most impactful sessions with outcomes\n4. **Trends** — how activity, tool usage, or patterns changed over the week\n5. **Issues & Incidents** — failures, rate limits, or recurring problems\n6. **Recommendations** — productivity tips based on observed patterns".to_string(),
+                variables: vec![],
             },
             context: PresetContext {
                 sources: vec![ContextSource {

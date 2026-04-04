@@ -105,12 +105,18 @@ pub fn apply_budget(mut sections: Vec<BudgetSection>, max_chars: usize) -> Budge
     }
 }
 
-/// Truncate content to at most `max_chars`, cutting at the last newline boundary.
+/// Truncate content to at most `max_chars` bytes, cutting at the last newline
+/// boundary that falls on a valid UTF-8 char boundary.
 fn truncate_at_line_boundary(content: &str, max_chars: usize) -> String {
     if content.len() <= max_chars {
         return content.to_string();
     }
-    let slice = &content[..max_chars];
+    // Find the last valid char boundary at or before max_chars
+    let safe_end = (0..=max_chars)
+        .rev()
+        .find(|&i| content.is_char_boundary(i))
+        .unwrap_or(0);
+    let slice = &content[..safe_end];
     match slice.rfind('\n') {
         Some(pos) => slice[..pos].to_string(),
         None => slice.to_string(),

@@ -1572,6 +1572,7 @@ async function handleSaveEdit() {
   gap: 8px;
   min-width: 0;
   flex: 1;
+  flex-wrap: wrap;
 }
 
 .preset-card__name {
@@ -1579,9 +1580,6 @@ async function handleSaveEdit() {
   font-weight: 600;
   color: var(--text-primary);
   margin: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .preset-card__desc {

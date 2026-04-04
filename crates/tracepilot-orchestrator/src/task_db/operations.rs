@@ -141,7 +141,7 @@ pub fn store_task_result(conn: &Connection, result: &TaskResult) -> Result<()> {
         .map(|v| serde_json::to_string(v))
         .transpose()?;
 
-    conn.execute(
+    let rows = conn.execute(
         "UPDATE tasks SET
             status = ?1,
             result_summary = ?2,
@@ -160,6 +160,13 @@ pub fn store_task_result(conn: &Connection, result: &TaskResult) -> Result<()> {
             result.task_id,
         ],
     )?;
+
+    if rows == 0 {
+        return Err(OrchestratorError::NotFound(format!(
+            "Task not found: {}",
+            result.task_id
+        )));
+    }
 
     // Update parent job counters if applicable.
     update_job_counters(conn, &result.task_id)?;
