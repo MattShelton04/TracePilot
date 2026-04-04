@@ -696,6 +696,8 @@ function jobProgressColor(status: string) {
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
   padding: 16px 20px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .orch-card-header {
@@ -891,8 +893,8 @@ function jobProgressColor(status: string) {
 }
 
 .quick-preset-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
 }
 

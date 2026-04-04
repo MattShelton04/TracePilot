@@ -231,6 +231,127 @@ pub fn seed_builtin_presets(dir: &Path) -> Result<()> {
             created_at: "2025-01-01T00:00:00Z".to_string(),
             updated_at: "2025-01-01T00:00:00Z".to_string(),
         },
+        TaskPreset {
+            id: "daily-digest".to_string(),
+            name: "Daily Digest".to_string(),
+            task_type: "digest".to_string(),
+            description: "Summarise all Copilot CLI sessions from the last 24 hours — activity, repositories, models used, and key outcomes.".to_string(),
+            version: 1,
+            prompt: PresetPrompt {
+                system: "You are an expert technical analyst summarising daily developer activity from GitHub Copilot CLI sessions.".to_string(),
+                user: "Produce a daily digest of the Copilot CLI sessions from the last 24 hours. Include:\n1. **Overview** — total sessions, turns, and repositories touched\n2. **Highlights** — most significant sessions and what they accomplished\n3. **Patterns** — recurring themes, tools, or workflows\n4. **Issues** — any failures, incidents, or areas of concern\n5. **Recommendations** — suggested improvements or follow-ups\n\nSession data:\n{{digest_data}}".to_string(),
+                variables: vec![
+                    PromptVariable {
+                        name: "digest_data".to_string(),
+                        var_type: VariableType::String,
+                        required: true,
+                        description: "Aggregated session data for the last 24 hours".to_string(),
+                        default: None,
+                    },
+                ],
+            },
+            context: PresetContext {
+                sources: vec![ContextSource {
+                    id: "daily-sessions".to_string(),
+                    source_type: ContextSourceType::MultiSessionDigest,
+                    label: Some("Last 24 Hours".to_string()),
+                    required: true,
+                    config: serde_json::json!({
+                        "window_hours": 24,
+                        "max_sessions": 50,
+                        "include_exports": true
+                    }),
+                }],
+                max_chars: 120_000,
+                format: ContextFormat::Markdown,
+            },
+            output: PresetOutput {
+                schema: serde_json::json!({
+                    "type": "object",
+                    "properties": {
+                        "overview": { "type": "string" },
+                        "highlights": { "type": "array", "items": { "type": "string" } },
+                        "patterns": { "type": "string" },
+                        "issues": { "type": "string" },
+                        "recommendations": { "type": "array", "items": { "type": "string" } }
+                    }
+                }),
+                format: OutputFormat::Markdown,
+                validation: ValidationMode::Warn,
+            },
+            execution: PresetExecution {
+                model_override: None,
+                timeout_seconds: 180,
+                max_retries: 2,
+                priority: "normal".to_string(),
+            },
+            tags: vec!["digest".to_string(), "daily".to_string(), "builtin".to_string()],
+            enabled: true,
+            builtin: true,
+            created_at: "2025-01-01T00:00:00Z".to_string(),
+            updated_at: "2025-01-01T00:00:00Z".to_string(),
+        },
+        TaskPreset {
+            id: "weekly-digest".to_string(),
+            name: "Weekly Digest".to_string(),
+            task_type: "digest".to_string(),
+            description: "Summarise all Copilot CLI sessions from the last 7 days — trends, productivity patterns, and cross-session insights.".to_string(),
+            version: 1,
+            prompt: PresetPrompt {
+                system: "You are an expert technical analyst producing a weekly summary of developer activity from GitHub Copilot CLI sessions.".to_string(),
+                user: "Produce a weekly digest of the Copilot CLI sessions from the last 7 days. Include:\n1. **Week Overview** — total sessions, turns, repositories, and models used\n2. **Day-by-Day Summary** — brief highlights for each active day\n3. **Top Sessions** — the 3-5 most impactful sessions with outcomes\n4. **Trends** — how activity, tool usage, or patterns changed over the week\n5. **Issues & Incidents** — failures, rate limits, or recurring problems\n6. **Recommendations** — productivity tips based on observed patterns\n\nSession data:\n{{digest_data}}".to_string(),
+                variables: vec![
+                    PromptVariable {
+                        name: "digest_data".to_string(),
+                        var_type: VariableType::String,
+                        required: true,
+                        description: "Aggregated session data for the last 7 days".to_string(),
+                        default: None,
+                    },
+                ],
+            },
+            context: PresetContext {
+                sources: vec![ContextSource {
+                    id: "weekly-sessions".to_string(),
+                    source_type: ContextSourceType::MultiSessionDigest,
+                    label: Some("Last 7 Days".to_string()),
+                    required: true,
+                    config: serde_json::json!({
+                        "window_hours": 168,
+                        "max_sessions": 100,
+                        "include_exports": false
+                    }),
+                }],
+                max_chars: 150_000,
+                format: ContextFormat::Markdown,
+            },
+            output: PresetOutput {
+                schema: serde_json::json!({
+                    "type": "object",
+                    "properties": {
+                        "weekOverview": { "type": "string" },
+                        "dayByDay": { "type": "array" },
+                        "topSessions": { "type": "array" },
+                        "trends": { "type": "string" },
+                        "issues": { "type": "string" },
+                        "recommendations": { "type": "array", "items": { "type": "string" } }
+                    }
+                }),
+                format: OutputFormat::Markdown,
+                validation: ValidationMode::Warn,
+            },
+            execution: PresetExecution {
+                model_override: None,
+                timeout_seconds: 240,
+                max_retries: 2,
+                priority: "normal".to_string(),
+            },
+            tags: vec!["digest".to_string(), "weekly".to_string(), "builtin".to_string()],
+            enabled: true,
+            builtin: true,
+            created_at: "2025-01-01T00:00:00Z".to_string(),
+            updated_at: "2025-01-01T00:00:00Z".to_string(),
+        },
     ];
 
     for preset in &builtins {
@@ -309,15 +430,15 @@ mod tests {
         assert_eq!(loaded.name, "Test Preset test-preset");
 
         let all = list_presets(&presets_path).unwrap();
-        // 1 test preset + 2 seeded built-in presets
-        assert_eq!(all.len(), 3);
+        // 1 test preset + 4 seeded built-in presets
+        assert_eq!(all.len(), 5);
 
         delete_preset(&presets_path, "test-preset").unwrap();
         assert!(!preset_exists(&presets_path, "test-preset"));
 
         // Built-ins remain
         let remaining = list_presets(&presets_path).unwrap();
-        assert_eq!(remaining.len(), 2);
+        assert_eq!(remaining.len(), 4);
     }
 
     #[test]

@@ -155,7 +155,8 @@ export type ContextSourceType =
   | "session_analytics"
   | "session_health"
   | "session_todos"
-  | "recent_sessions";
+  | "recent_sessions"
+  | "multi_session_digest";
 
 export type ContextFormat = "markdown" | "json";
 

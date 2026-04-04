@@ -1528,8 +1528,8 @@ async function handleSaveEdit() {
 /* ── Preset Grid ─────────────────────────────────────────── */
 .preset-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
 }
 
 /* ── Preset Card ─────────────────────────────────────────── */
@@ -1537,7 +1537,7 @@ async function handleSaveEdit() {
   background: #111113;
   border: 1px solid var(--border-default);
   border-radius: 10px;
-  padding: 16px;
+  padding: 18px 20px;
   display: flex;
   flex-direction: column;
   gap: 10px;

@@ -23,6 +23,9 @@ pub fn assemble_source(
         ContextSourceType::SessionHealth => assemble_session_health(params),
         ContextSourceType::SessionTodos => assemble_session_todos(params, data_dir),
         ContextSourceType::RecentSessions => assemble_recent_sessions(source, data_dir),
+        ContextSourceType::MultiSessionDigest => {
+            assemble_multi_session_digest(source, params, data_dir)
+        }
     }
 }
 
@@ -268,6 +271,196 @@ fn assemble_recent_sessions(
                 ));
             }
             Err(_) => continue,
+        }
+    }
+
+    Ok(lines.join("\n"))
+}
+
+/// Multi-session digest: discovers sessions within a time window and produces
+/// a combined summary of all matching sessions.
+///
+/// Configurable via `source.config`:
+/// - `window_hours` — how many hours back to look (default: 24)
+/// - `max_sessions` — cap on how many sessions to include (default: 50)
+/// - `include_exports` — if true, include a brief conversation export per session
+///   (expensive, default: false)
+///
+/// The `params` object may optionally contain:
+/// - `window_hours` — runtime override for the config value
+fn assemble_multi_session_digest(
+    source: &ContextSource,
+    params: &serde_json::Value,
+    data_dir: &Path,
+) -> Result<String> {
+    let window_hours = params
+        .get("window_hours")
+        .and_then(|v| v.as_u64())
+        .or_else(|| {
+            source
+                .config
+                .get("window_hours")
+                .and_then(|v| v.as_u64())
+        })
+        .unwrap_or(24);
+
+    let max_sessions = source
+        .config
+        .get("max_sessions")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(50) as usize;
+
+    let include_exports = source
+        .config
+        .get("include_exports")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
+    let cutoff = chrono::Utc::now() - chrono::Duration::hours(window_hours as i64);
+    let discovered = tracepilot_core::session::discovery::discover_sessions(data_dir)?;
+
+    // Load summaries and filter by time window
+    let mut sessions_in_window: Vec<tracepilot_core::models::session_summary::SessionSummary> =
+        Vec::new();
+    for disc in &discovered {
+        match tracepilot_core::summary::load_session_summary(&disc.path) {
+            Ok(summary) => {
+                let session_time = summary.updated_at.or(summary.created_at);
+                if let Some(ts) = session_time {
+                    if ts >= cutoff {
+                        sessions_in_window.push(summary);
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::debug!(
+                    session = %disc.id,
+                    error = %e,
+                    "Skipping session in digest (failed to load summary)"
+                );
+            }
+        }
+    }
+
+    // Sort newest first
+    sessions_in_window
+        .sort_by(|a, b| b.updated_at.cmp(&a.updated_at).then(b.created_at.cmp(&a.created_at)));
+    sessions_in_window.truncate(max_sessions);
+
+    let total_found = sessions_in_window.len();
+
+    let mut lines = Vec::new();
+    let period_label = if window_hours <= 24 {
+        "Daily"
+    } else if window_hours <= 168 {
+        "Weekly"
+    } else {
+        "Custom"
+    };
+    lines.push(format!(
+        "### {} Digest — {} sessions in last {}h\n",
+        period_label, total_found, window_hours
+    ));
+
+    // Aggregate statistics
+    let mut total_turns: usize = 0;
+    let mut total_events: usize = 0;
+    let mut repos: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let mut models: std::collections::HashSet<String> = std::collections::HashSet::new();
+
+    for summary in &sessions_in_window {
+        total_turns += summary.turn_count.unwrap_or(0);
+        total_events += summary.event_count.unwrap_or(0);
+        if let Some(repo) = &summary.repository {
+            repos.insert(repo.clone());
+        }
+        if let Some(metrics) = &summary.shutdown_metrics {
+            if let Some(model) = &metrics.current_model {
+                models.insert(model.clone());
+            }
+        }
+    }
+
+    lines.push("**Aggregate Stats**".to_string());
+    lines.push(format!("- Sessions: {}", total_found));
+    lines.push(format!("- Total turns: {}", total_turns));
+    lines.push(format!("- Total events: {}", total_events));
+    if !repos.is_empty() {
+        let mut sorted_repos: Vec<_> = repos.into_iter().collect();
+        sorted_repos.sort();
+        lines.push(format!("- Repositories: {}", sorted_repos.join(", ")));
+    }
+    if !models.is_empty() {
+        let mut sorted_models: Vec<_> = models.into_iter().collect();
+        sorted_models.sort();
+        lines.push(format!("- Models used: {}", sorted_models.join(", ")));
+    }
+    lines.push(String::new());
+
+    // Per-session summaries
+    lines.push("**Sessions**".to_string());
+    for summary in &sessions_in_window {
+        let repo = summary.repository.as_deref().unwrap_or("unknown");
+        let turns = summary.turn_count.unwrap_or(0);
+        let events = summary.event_count.unwrap_or(0);
+        let started = summary
+            .created_at
+            .map(|d| d.format("%Y-%m-%d %H:%M").to_string())
+            .unwrap_or_default();
+        let model = summary
+            .shutdown_metrics
+            .as_ref()
+            .and_then(|m| m.current_model.as_deref())
+            .unwrap_or("unknown");
+
+        lines.push(format!("\n#### {} ({})", summary.id, started));
+        lines.push(format!(
+            "- repo: {} | turns: {} | events: {} | model: {}",
+            repo, turns, events, model
+        ));
+
+        if let Some(session_summary) = &summary.summary {
+            lines.push(format!("- Summary: {}", truncate(session_summary, 500)));
+        }
+    }
+
+    // Optional: include brief exports for each session
+    if include_exports && !sessions_in_window.is_empty() {
+        lines.push(String::new());
+        lines.push("---".to_string());
+        lines.push("**Session Exports (brief)**".to_string());
+
+        let per_session_budget = 5000_usize; // ~5k chars per session
+        let sections: HashSet<tracepilot_export::SectionId> = [
+            tracepilot_export::SectionId::Conversation,
+            tracepilot_export::SectionId::Metrics,
+        ]
+        .into_iter()
+        .collect();
+
+        let options = tracepilot_export::ExportOptions {
+            format: tracepilot_export::ExportFormat::Markdown,
+            sections,
+            output: tracepilot_export::OutputTarget::String,
+            content_detail: tracepilot_export::ContentDetailOptions::default(),
+            redaction: tracepilot_export::RedactionOptions::default(),
+        };
+
+        for summary in sessions_in_window.iter().take(10) {
+            let session_path = data_dir.join(&summary.id);
+            if session_path.exists() {
+                match tracepilot_export::preview_export(
+                    &session_path,
+                    &options,
+                    Some(per_session_budget),
+                ) {
+                    Ok(content) if !content.is_empty() => {
+                        lines.push(format!("\n##### {}", summary.id));
+                        lines.push(content);
+                    }
+                    _ => {}
+                }
+            }
         }
     }
 

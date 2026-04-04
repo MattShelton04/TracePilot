@@ -107,6 +107,9 @@ pub enum ContextSourceType {
     SessionHealth,
     SessionTodos,
     RecentSessions,
+    /// Multi-session digest: aggregates summaries from sessions within a
+    /// configurable time window (e.g. last 24h, last 7d).
+    MultiSessionDigest,
 }
 
 /// Context output format.
