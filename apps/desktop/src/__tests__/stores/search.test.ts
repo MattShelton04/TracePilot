@@ -162,6 +162,9 @@ describe("useSearchStore browse presets", () => {
     setupDefaultMocks();
   });
 
+  // Comprehensive test for applyBrowsePreset mechanism using toolCalls as the example.
+  // Verifies that presets: clear all filters, set content types, use newest sort, reset page.
+  // The parameterized tests below verify each preset's specific content types.
   it("clears filters and uses newest sort when browsing tool calls", async () => {
     const store = useSearchStore();
     store.query = "error in repo";

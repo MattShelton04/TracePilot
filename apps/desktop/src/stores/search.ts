@@ -335,6 +335,11 @@ export const useSearchStore = defineStore("search", () => {
   });
 
   // ── Quick browse presets ─────────────────────────────────────
+  /**
+   * Apply a browse preset, clearing all filters and setting content types.
+   * Resets query, pagination, and all filter fields, then triggers a search.
+   * @param types - Array of content types to filter by (use BROWSE_PRESETS constants)
+   */
   function applyBrowsePreset(types: readonly SearchContentType[]) {
     hydrating = true;
     page.value = 1;
