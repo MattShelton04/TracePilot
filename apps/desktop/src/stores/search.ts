@@ -388,6 +388,8 @@ export const useSearchStore = defineStore("search", () => {
   }
 
   // ── Facets & stats ───────────────────────────────────────────
+  // Guards prevent stale async responses when filters/search change rapidly
+  // or when concurrent indexing/rebuild operations trigger parallel fetches
   const facetGuard = useAsyncGuard();
   const statsGuard = useAsyncGuard();
   const filterOptionsGuard = useAsyncGuard();
