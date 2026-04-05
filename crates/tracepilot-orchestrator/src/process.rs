@@ -115,11 +115,10 @@ fn run_with_timeout(
         Ok(Err(e)) => Err(e),
         Err(_) => {
             // Timeout occurred - attempt to kill the process
-            if let Ok(mut child) = child_shared.lock() {
-                if let Err(e) = child.kill() {
+            if let Ok(mut child) = child_shared.lock()
+                && let Err(e) = child.kill() {
                     tracing::warn!("Failed to kill timed-out process: {}", e);
                 }
-            }
             let cmd_display = if args.is_empty() {
                 program.to_string()
             } else {

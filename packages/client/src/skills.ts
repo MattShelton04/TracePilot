@@ -11,7 +11,7 @@ import type {
   SkillImportResult,
   SkillSummary,
 } from "@tracepilot/types";
-import { type CommandName } from "./commands.js";
+import type { CommandName } from "./commands.js";
 import { invokePlugin, isTauri } from "./invoke.js";
 
 async function invoke<T>(cmd: CommandName, args?: Record<string, unknown>): Promise<T> {
@@ -24,9 +24,7 @@ async function invoke<T>(cmd: CommandName, args?: Record<string, unknown>): Prom
 
 // -- Discovery --
 
-export async function skillsListAll(
-  repoRoot?: string,
-): Promise<SkillSummary[]> {
+export async function skillsListAll(repoRoot?: string): Promise<SkillSummary[]> {
   return invoke<SkillSummary[]>("skills_list_all", {
     repoRoot: repoRoot ?? null,
   });
@@ -54,10 +52,7 @@ export async function skillsUpdate(
   return invoke<void>("skills_update", { skillDir, frontmatter, body });
 }
 
-export async function skillsUpdateRaw(
-  skillDir: string,
-  rawContent: string,
-): Promise<void> {
+export async function skillsUpdateRaw(skillDir: string, rawContent: string): Promise<void> {
   return invoke<void>("skills_update_raw", { skillDir, rawContent });
 }
 
@@ -65,25 +60,17 @@ export async function skillsDelete(skillDir: string): Promise<void> {
   return invoke<void>("skills_delete", { skillDir });
 }
 
-export async function skillsRename(
-  skillDir: string,
-  newName: string,
-): Promise<string> {
+export async function skillsRename(skillDir: string, newName: string): Promise<string> {
   return invoke<string>("skills_rename", { skillDir, newName });
 }
 
-export async function skillsDuplicate(
-  skillDir: string,
-  newName: string,
-): Promise<string> {
+export async function skillsDuplicate(skillDir: string, newName: string): Promise<string> {
   return invoke<string>("skills_duplicate", { skillDir, newName });
 }
 
 // -- Assets --
 
-export async function skillsListAssets(
-  skillDir: string,
-): Promise<SkillAsset[]> {
+export async function skillsListAssets(skillDir: string): Promise<SkillAsset[]> {
   return invoke<SkillAsset[]>("skills_list_assets", { skillDir });
 }
 
@@ -107,17 +94,11 @@ export async function skillsCopyAssetFrom(
   });
 }
 
-export async function skillsRemoveAsset(
-  skillDir: string,
-  assetName: string,
-): Promise<void> {
+export async function skillsRemoveAsset(skillDir: string, assetName: string): Promise<void> {
   return invoke<void>("skills_remove_asset", { skillDir, assetName });
 }
 
-export async function skillsReadAsset(
-  skillDir: string,
-  assetName: string,
-): Promise<string> {
+export async function skillsReadAsset(skillDir: string, assetName: string): Promise<string> {
   return invoke<string>("skills_read_asset", { skillDir, assetName });
 }
 
@@ -209,8 +190,6 @@ export async function skillsDiscoverLocal(dir: string): Promise<LocalSkillPrevie
   return invoke<LocalSkillPreview[]>("skills_discover_local", { dir });
 }
 
-export async function skillsDiscoverRepos(
-  repos: [string, string][],
-): Promise<RepoSkillsResult[]> {
+export async function skillsDiscoverRepos(repos: [string, string][]): Promise<RepoSkillsResult[]> {
   return invoke<RepoSkillsResult[]>("skills_discover_repos", { repos });
 }

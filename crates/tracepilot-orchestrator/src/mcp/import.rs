@@ -93,8 +93,8 @@ fn parse_mcp_config(value: &Value, source_label: &str) -> Result<McpImportResult
     }
 
     // Try VS Code format: { mcp: { servers: { ... } } }
-    if let Some(mcp) = value.get("mcp").and_then(|v| v.as_object()) {
-        if let Some(servers) = mcp.get("servers").and_then(|v| v.as_object()) {
+    if let Some(mcp) = value.get("mcp").and_then(|v| v.as_object())
+        && let Some(servers) = mcp.get("servers").and_then(|v| v.as_object()) {
             let parsed = parse_server_map(servers, &mut warnings);
             return Ok(McpImportResult {
                 servers: parsed,
@@ -102,7 +102,6 @@ fn parse_mcp_config(value: &Value, source_label: &str) -> Result<McpImportResult
                 source_label: format!("{source_label} (VS Code format)"),
             });
         }
-    }
 
     // Try flat format: treat the entire object as a server map
     if let Some(obj) = value.as_object() {

@@ -74,9 +74,7 @@ const treeStructure = computed(() => {
   return { rootFiles, folders };
 });
 
-const fileCount = computed(() =>
-  props.assets.filter((a) => !a.isDirectory).length,
-);
+const fileCount = computed(() => props.assets.filter((a) => !a.isDirectory).length);
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;

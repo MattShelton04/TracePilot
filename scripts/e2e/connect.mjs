@@ -12,13 +12,13 @@
  *   const telemetry = await collectTelemetry(page);
  */
 
-import { chromium } from 'playwright-core';
-import { readFileSync, existsSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { chromium } from "playwright-core";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const PORT_FILE = resolve(__dirname, '.tracepilot-cdp.port');
+const PORT_FILE = resolve(__dirname, ".tracepilot-cdp.port");
 
 // ─── Port Discovery ──────────────────────────────────────────────────────────
 
@@ -33,8 +33,8 @@ export async function discoverPort(explicitPort) {
 
   // Check port file
   if (existsSync(PORT_FILE)) {
-    const port = parseInt(readFileSync(PORT_FILE, 'utf-8').trim(), 10);
-    if (port && await isPortActive(port)) return port;
+    const port = parseInt(readFileSync(PORT_FILE, "utf-8").trim(), 10);
+    if (port && (await isPortActive(port))) return port;
   }
 
   // Scan range
@@ -43,8 +43,8 @@ export async function discoverPort(explicitPort) {
   }
 
   throw new Error(
-    'No active TracePilot CDP endpoint found.\n' +
-    'Start the app with: .\\scripts\\e2e\\launch.ps1'
+    "No active TracePilot CDP endpoint found.\n" +
+      "Start the app with: .\\scripts\\e2e\\launch.ps1",
   );
 }
 
@@ -78,21 +78,20 @@ export async function connect(options = {}) {
   const page = context.pages()[0];
 
   if (!page) {
-    throw new Error('No page found in the connected browser context.');
+    throw new Error("No page found in the connected browser context.");
   }
 
   console.log(`[connect] Connected. Waiting for app readiness...`);
   await waitForReady(page, options.readyTimeout ?? 30000);
 
   // Validate this is actually TracePilot (not another Chromium CDP target)
-  const isTracePilot = await page.evaluate(() =>
-    document.title === 'TracePilot' || '__TRACEPILOT_PERF__' in window
+  const isTracePilot = await page.evaluate(
+    () => document.title === "TracePilot" || "__TRACEPILOT_PERF__" in window,
   );
   if (!isTracePilot) {
     await browser.close();
     throw new Error(
-      'Connected CDP target is not TracePilot. ' +
-      'Another Chromium app may be using this port.'
+      "Connected CDP target is not TracePilot. " + "Another Chromium app may be using this port.",
     );
   }
 
@@ -117,9 +116,9 @@ async function waitForReady(page, timeout) {
   while (Date.now() - start < timeout) {
     try {
       const status = await page.evaluate(() => ({
-        vueMount: !!document.querySelector('#root')?.children?.length,
-        perfMonitor: typeof window.__TRACEPILOT_PERF__ !== 'undefined',
-        tauriInternals: '__TAURI_INTERNALS__' in window,
+        vueMount: !!document.querySelector("#root")?.children?.length,
+        perfMonitor: typeof window.__TRACEPILOT_PERF__ !== "undefined",
+        tauriInternals: "__TAURI_INTERNALS__" in window,
         appReady: window.__TRACEPILOT_READY__ === true,
       }));
 
@@ -136,12 +135,10 @@ async function waitForReady(page, timeout) {
       // page.evaluate may fail during navigation
     }
 
-    await new Promise(r => setTimeout(r, 500));
+    await new Promise((r) => setTimeout(r, 500));
   }
 
-  throw new Error(
-    `App not ready within ${timeout}ms. Status: ${JSON.stringify(checks)}`
-  );
+  throw new Error(`App not ready within ${timeout}ms. Status: ${JSON.stringify(checks)}`);
 }
 
 // ─── Telemetry Collection ────────────────────────────────────────────────────
@@ -179,7 +176,7 @@ export async function collectTelemetry(page, context) {
 
   // Performance API measures
   telemetry.perf.measures = await page.evaluate(() => {
-    return performance.getEntriesByType('measure').map(m => ({
+    return performance.getEntriesByType("measure").map((m) => ({
       name: m.name,
       duration: m.duration,
       startTime: m.startTime,
@@ -191,8 +188,8 @@ export async function collectTelemetry(page, context) {
     let cdpSession;
     try {
       cdpSession = await context.newCDPSession(page);
-      await cdpSession.send('Performance.enable');
-      const metrics = await cdpSession.send('Performance.getMetrics');
+      await cdpSession.send("Performance.enable");
+      const metrics = await cdpSession.send("Performance.getMetrics");
       telemetry.cdp.metrics = {};
       for (const m of metrics.metrics) {
         telemetry.cdp.metrics[m.name] = m.value;
@@ -224,11 +221,11 @@ export function startConsoleCapture(page) {
     });
   };
 
-  page.on('console', handler);
+  page.on("console", handler);
 
   return {
     getLogs: () => [...logs],
-    stop: () => page.off('console', handler),
+    stop: () => page.off("console", handler),
   };
 }
 
@@ -242,9 +239,9 @@ export function startConsoleCapture(page) {
 export function validateBudgets(telemetry, budgetPath) {
   let budgets;
   try {
-    budgets = JSON.parse(readFileSync(budgetPath, 'utf-8'));
+    budgets = JSON.parse(readFileSync(budgetPath, "utf-8"));
   } catch {
-    return { passed: false, violations: [{ type: 'config', error: 'Could not read budget file' }] };
+    return { passed: false, violations: [{ type: "config", error: "Could not read budget file" }] };
   }
 
   const violations = [];
@@ -256,11 +253,11 @@ export function validateBudgets(telemetry, budgetPath) {
       const budgetKey = `${camelCase(entry.cmd)}Ms`;
       if (ipcBudgets[budgetKey] && entry.duration > ipcBudgets[budgetKey]) {
         violations.push({
-          type: 'ipc',
+          type: "ipc",
           command: entry.cmd,
           actual: Math.round(entry.duration),
           budget: ipcBudgets[budgetKey],
-          unit: 'ms',
+          unit: "ms",
         });
       }
     }
@@ -272,11 +269,11 @@ export function validateBudgets(telemetry, budgetPath) {
     const heap = telemetry.cdp.metrics.JSHeapUsedSize;
     if (heap && heap > heapBudgetMb * 1024 * 1024) {
       violations.push({
-        type: 'memory',
-        metric: 'JSHeapUsedSize',
+        type: "memory",
+        metric: "JSHeapUsedSize",
         actual: Math.round(heap / 1024 / 1024),
         budget: heapBudgetMb,
-        unit: 'MB',
+        unit: "MB",
       });
     }
   }
@@ -296,7 +293,9 @@ function camelCase(str) {
  * @param {string} route - e.g. '/', '/search', '/analytics', '/session/:id/overview'
  */
 export async function navigateTo(page, route) {
-  await page.evaluate((r) => { window.location.hash = `#${r}`; }, route);
+  await page.evaluate((r) => {
+    window.location.hash = `#${r}`;
+  }, route);
   await page.waitForTimeout(1000);
 }
 
@@ -310,19 +309,19 @@ export async function navigateTo(page, route) {
  * @param {number} [port] - CDP port to stop (reads from port file if omitted)
  */
 export async function shutdown(browser, port) {
-  console.log('[shutdown] Disconnecting Playwright...');
+  console.log("[shutdown] Disconnecting Playwright...");
   await browser.close().catch(() => {});
 
-  console.log('[shutdown] Stopping TracePilot process...');
-  const { execSync } = await import('node:child_process');
-  const stopScript = resolve(__dirname, 'stop.ps1');
-  const portArg = port ? `-Port ${port}` : '';
+  console.log("[shutdown] Stopping TracePilot process...");
+  const { execSync } = await import("node:child_process");
+  const stopScript = resolve(__dirname, "stop.ps1");
+  const portArg = port ? `-Port ${port}` : "";
   try {
     execSync(`powershell -ExecutionPolicy Bypass -File "${stopScript}" ${portArg}`, {
-      stdio: 'inherit',
+      stdio: "inherit",
       timeout: 15000,
     });
   } catch {
-    console.warn('[shutdown] stop.ps1 failed — process may need manual cleanup.');
+    console.warn("[shutdown] stop.ps1 failed — process may need manual cleanup.");
   }
 }

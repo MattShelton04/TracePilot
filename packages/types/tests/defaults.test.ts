@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   CONFIG_VERSION,
+  createDefaultConfig,
   DEFAULT_AUTO_REFRESH_INTERVAL_SECONDS,
   DEFAULT_CLI_COMMAND,
   DEFAULT_CONTENT_MAX_WIDTH,
   DEFAULT_COST_PER_PREMIUM_REQUEST,
   DEFAULT_UI_SCALE,
-  createDefaultConfig,
 } from "../src/defaults.js";
 import { DEFAULT_FAVOURITE_MODELS } from "../src/models.js";
 

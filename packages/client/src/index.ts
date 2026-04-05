@@ -33,7 +33,7 @@ import type {
 } from "@tracepilot/types";
 import { createDefaultConfig } from "@tracepilot/types";
 
-import { type CommandName } from "./commands.js";
+import type { CommandName } from "./commands.js";
 import { invokePlugin, isTauri } from "./invoke.js";
 
 // Re-export IPC performance instrumentation utilities
@@ -634,9 +634,9 @@ export async function exportLogs(destination: string): Promise<string> {
   return invoke<string>("export_logs", { destination });
 }
 
+export { type CommandName, IPC_COMMANDS } from "./commands.js";
+export * from "./mcp.js";
 // Re-export orchestration module
 export * from "./orchestration.js";
-export * from "./mcp.js";
 export * from "./skills.js";
-export { IPC_COMMANDS, type CommandName } from "./commands.js";
 export type { SessionHealth };

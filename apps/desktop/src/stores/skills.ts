@@ -53,13 +53,9 @@ export const useSkillsStore = defineStore("skills", () => {
     [...skills.value].sort((a, b) => a.name.localeCompare(b.name)),
   );
 
-  const globalSkills = computed(() =>
-    skills.value.filter((s) => s.scope === "global"),
-  );
+  const globalSkills = computed(() => skills.value.filter((s) => s.scope === "global"));
 
-  const repoSkills = computed(() =>
-    skills.value.filter((s) => s.scope === "repository"),
-  );
+  const repoSkills = computed(() => skills.value.filter((s) => s.scope === "repository"));
 
   const filteredSkills = computed(() => {
     let list = sortedSkills.value;
@@ -71,9 +67,7 @@ export const useSkillsStore = defineStore("skills", () => {
     if (searchQuery.value.trim()) {
       const q = searchQuery.value.toLowerCase();
       list = list.filter(
-        (s) =>
-          s.name.toLowerCase().includes(q) ||
-          s.description.toLowerCase().includes(q),
+        (s) => s.name.toLowerCase().includes(q) || s.description.toLowerCase().includes(q),
       );
     }
 
@@ -121,11 +115,7 @@ export const useSkillsStore = defineStore("skills", () => {
     }
   }
 
-  async function createSkill(
-    name: string,
-    desc: string,
-    body: string,
-  ): Promise<string | null> {
+  async function createSkill(name: string, desc: string, body: string): Promise<string | null> {
     error.value = null;
     try {
       const dir = await skillsCreate(name, desc, body);
@@ -137,11 +127,7 @@ export const useSkillsStore = defineStore("skills", () => {
     }
   }
 
-  async function updateSkill(
-    dir: string,
-    fm: SkillFrontmatter,
-    body: string,
-  ): Promise<boolean> {
+  async function updateSkill(dir: string, fm: SkillFrontmatter, body: string): Promise<boolean> {
     error.value = null;
     try {
       await skillsUpdate(dir, fm, body);
@@ -215,11 +201,7 @@ export const useSkillsStore = defineStore("skills", () => {
     }
   }
 
-  async function addAsset(
-    dir: string,
-    name: string,
-    content: number[],
-  ): Promise<boolean> {
+  async function addAsset(dir: string, name: string, content: number[]): Promise<boolean> {
     error.value = null;
     try {
       await skillsAddAsset(dir, name, content);
@@ -230,11 +212,7 @@ export const useSkillsStore = defineStore("skills", () => {
     }
   }
 
-  async function copyAssetFrom(
-    dir: string,
-    name: string,
-    sourcePath: string,
-  ): Promise<boolean> {
+  async function copyAssetFrom(dir: string, name: string, sourcePath: string): Promise<boolean> {
     error.value = null;
     try {
       await skillsCopyAssetFrom(dir, name, sourcePath);
@@ -267,7 +245,11 @@ export const useSkillsStore = defineStore("skills", () => {
 
   // ─── Import Actions ───────────────────────────────────────────────
 
-  async function importLocal(sourceDir: string, scope?: string, repoRoot?: string): Promise<SkillImportResult | null> {
+  async function importLocal(
+    sourceDir: string,
+    scope?: string,
+    repoRoot?: string,
+  ): Promise<SkillImportResult | null> {
     error.value = null;
     try {
       const result = await skillsImportLocal(sourceDir, scope, repoRoot);
@@ -279,7 +261,11 @@ export const useSkillsStore = defineStore("skills", () => {
     }
   }
 
-  async function importFile(path: string, scope?: string, repoRoot?: string): Promise<SkillImportResult | null> {
+  async function importFile(
+    path: string,
+    scope?: string,
+    repoRoot?: string,
+  ): Promise<SkillImportResult | null> {
     error.value = null;
     try {
       const result = await skillsImportFile(path, scope, repoRoot);
@@ -352,9 +338,7 @@ export const useSkillsStore = defineStore("skills", () => {
     }
   }
 
-  async function discoverRepos(
-    repos: [string, string][],
-  ): Promise<RepoSkillsResult[]> {
+  async function discoverRepos(repos: [string, string][]): Promise<RepoSkillsResult[]> {
     try {
       return await skillsDiscoverRepos(repos);
     } catch (e) {

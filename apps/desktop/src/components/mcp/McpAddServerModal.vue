@@ -27,7 +27,11 @@ const form = reactive({
 const transportOptions: { value: McpTransport; label: string; tooltip: string }[] = [
   { value: "stdio", label: "Stdio", tooltip: "Local subprocess — communicates via stdin/stdout" },
   { value: "sse", label: "SSE", tooltip: "Server-Sent Events — legacy remote transport" },
-  { value: "http", label: "HTTP", tooltip: "Streamable HTTP — modern remote transport (MCP 2025 spec)" },
+  {
+    value: "http",
+    label: "HTTP",
+    tooltip: "Streamable HTTP — modern remote transport (MCP 2025 spec)",
+  },
 ];
 
 const jsonPreview = computed(() => {
@@ -79,7 +83,12 @@ function validate(): boolean {
     return false;
   }
 
-  if ((form.transport === "sse" || form.transport === "http" || form.transport === "streamable-http") && !form.url.trim()) {
+  if (
+    (form.transport === "sse" ||
+      form.transport === "http" ||
+      form.transport === "streamable-http") &&
+    !form.url.trim()
+  ) {
     validationError.value = "URL is required for SSE/HTTP transport.";
     return false;
   }

@@ -9,8 +9,8 @@ import type { CopilotVersion, RegisteredRepo, SystemDependencies } from "@tracep
 import { toErrorMessage } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
-import { useWorktreesStore } from "@/stores/worktrees";
 import { type AsyncGuardToken, useAsyncGuard } from "@/composables/useAsyncGuard";
+import { useWorktreesStore } from "@/stores/worktrees";
 import { logWarn } from "@/utils/logger";
 import { aggregateSettledErrors } from "@/utils/settleErrors";
 
