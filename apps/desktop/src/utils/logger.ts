@@ -8,7 +8,7 @@ async function ensureLog() {
   return tauriLog;
 }
 
-const detach: (() => void) | null = null;
+let detach: (() => void) | null = null;
 
 /**
  * Initialize logging — call once from main.ts AFTER mount.
@@ -101,26 +101,65 @@ function buildLogMessage(msg: string, extra: unknown[]): string {
   return extra.length ? `${msg} ${extra.map(stringifyExtra).join(" ")}` : msg;
 }
 
+let backendLogFailure = false;
+
+type LogLevel = "debug" | "info" | "warn" | "error";
+
+/** Internal helper to safely dispatch logs to the Tauri backend. */
+function dispatchBackendLog(level: LogLevel, msg: string, extra: unknown[]) {
+  if (!isTauri) return;
+
+  const message = buildLogMessage(msg, extra);
+  let promise: Promise<void>;
+
+  switch (level) {
+    case "debug":
+      promise = debug(message);
+      break;
+    case "info":
+      promise = info(message);
+      break;
+    case "warn":
+      promise = warn(message);
+      break;
+    case "error":
+      promise = error(message);
+      break;
+  }
+
+  promise
+    .then(() => {
+      // Reset failure flag on first success after a streak of failures
+      if (backendLogFailure) backendLogFailure = false;
+    })
+    .catch((e) => {
+      // To avoid spamming the console, only show the warning once per
+      // failure streak. Use raw console methods to avoid recursion.
+      if (backendLogFailure) return;
+      backendLogFailure = true;
+      console.warn(
+        "[TracePilot] Failed to write frontend log to backend. Further backend log errors will be suppressed until a write succeeds.",
+        { originalLevel: level, originalMessage: message, error: e },
+      );
+    });
+}
+
 export function logDebug(msg: string, ...extra: unknown[]): void {
   console.debug(msg, ...extra);
-  if (!isTauri) return;
-  void debug(buildLogMessage(msg, extra)).catch(() => {});
+  dispatchBackendLog("debug", msg, extra);
 }
 
 export function logInfo(msg: string, ...extra: unknown[]): void {
   console.info(msg, ...extra);
-  if (!isTauri) return;
-  void info(buildLogMessage(msg, extra)).catch(() => {});
+  dispatchBackendLog("info", msg, extra);
 }
 
 export function logWarn(msg: string, ...extra: unknown[]): void {
   console.warn(msg, ...extra);
-  if (!isTauri) return;
-  void warn(buildLogMessage(msg, extra)).catch(() => {});
+  dispatchBackendLog("warn", msg, extra);
 }
 
 export function logError(msg: string, ...extra: unknown[]): void {
   console.error(msg, ...extra);
-  if (!isTauri) return;
-  void error(buildLogMessage(msg, extra)).catch(() => {});
+  dispatchBackendLog("error", msg, extra);
 }

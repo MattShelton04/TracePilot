@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock @tauri-apps/plugin-log BEFORE importing the logger
 const mockDebug = vi.fn().mockResolvedValue(undefined);
@@ -152,5 +152,108 @@ describe("facade function signatures", () => {
 
     const logFn2: (msg: string, ...extra: unknown[]) => void = logWarn;
     expect(typeof logFn2).toBe("function");
+  });
+});
+
+// ── Tauri-specific tests ───────────────────────────────────────────
+// By defining __TAURI_INTERNALS__, we can test the code paths that
+// are only active in the Tauri environment.
+
+describe("logging facades (Tauri mode)", () => {
+  beforeEach(() => {
+    // @ts-expect-error - testing Tauri-specific global
+    window.__TAURI_INTERNALS__ = {};
+    vi.resetModules(); // Force re-import of logger module
+    vi.restoreAllMocks();
+  });
+
+  afterEach(() => {
+    // @ts-expect-error - cleanup global
+    delete window.__TAURI_INTERNALS__;
+    vi.resetModules();
+  });
+
+  it("logInfo calls console.info and dispatches to backend", async () => {
+    const { logInfo } = await import("@/utils/logger");
+    const consoleSpy = vi.spyOn(console, "info").mockImplementation(() => {});
+
+    logInfo("hello", { world: true });
+
+    expect(consoleSpy).toHaveBeenCalledWith("hello", { world: true });
+    // Wait for async dispatch to settle
+    await vi.waitFor(() => {
+      expect(mockInfo).toHaveBeenCalledWith('hello {"world":true}');
+    });
+  });
+
+  it("logError calls console.error and dispatches to backend", async () => {
+    const { logError } = await import("@/utils/logger");
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    logError("critical failure", new Error("boom"));
+
+    expect(consoleSpy).toHaveBeenCalled();
+    await vi.waitFor(() => {
+      expect(mockError).toHaveBeenCalledWith(expect.stringContaining("critical failure Error: boom"));
+    });
+  });
+
+  it("reports backend failure once per streak", async () => {
+    const { logWarn } = await import("@/utils/logger");
+    const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    mockWarn.mockRejectedValueOnce(new Error("write failed"));
+
+    // First call fails, should log to console
+    logWarn("first message");
+    await vi.waitFor(() => {
+      expect(consoleWarnSpy).toHaveBeenCalledTimes(2); // Original call + fallback
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        "[TracePilot] Failed to write frontend log to backend. Further backend log errors will be suppressed until a write succeeds.",
+        expect.any(Object),
+      );
+    });
+
+    // Second call fails, should be suppressed
+    mockWarn.mockRejectedValueOnce(new Error("write failed again"));
+    logWarn("second message");
+    await vi.runAllTimersAsync();
+
+    // Should not have logged another warning
+    expect(consoleWarnSpy).toHaveBeenCalledTimes(3); // Original call only
+  });
+
+  it("resets failure suppression after a successful write", async () => {
+    const { logWarn } = await import("@/utils/logger");
+    const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    // Fail, then succeed, then fail again
+    mockWarn.mockRejectedValueOnce(new Error("first fail"));
+    mockWarn.mockResolvedValueOnce(undefined);
+    mockWarn.mockRejectedValueOnce(new Error("second fail"));
+
+    // First failure
+    logWarn("message 1");
+    await vi.waitFor(() => {
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Failed to write frontend log"),
+        expect.any(Object),
+      );
+    });
+    expect(consoleWarnSpy).toHaveBeenCalledTimes(2);
+
+    // Successful write
+    logWarn("message 2");
+    await vi.runAllTimersAsync();
+    expect(consoleWarnSpy).toHaveBeenCalledTimes(3); // Just the "message 2" call
+
+    // Third failure should log again
+    logWarn("message 3");
+    await vi.waitFor(() => {
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Failed to write frontend log"),
+        expect.any(Object),
+      );
+    });
+    expect(consoleWarnSpy).toHaveBeenCalledTimes(5);
   });
 });
