@@ -909,5 +909,38 @@ describe("useMcpStore", () => {
         "healthy",
       );
     });
+
+    it("sortedServers updates after toggleServer() modifying a nested config property", async () => {
+      mockMcpToggleServer.mockResolvedValue(false);
+      const store = useMcpStore();
+      seedStore(store);
+
+      expect(store.sortedServers.find((s) => s.name === "filesystem")?.config.enabled).toBe(true);
+
+      await store.toggleServer("filesystem");
+
+      expect(store.sortedServers.find((s) => s.name === "filesystem")?.config.enabled).toBe(false);
+      // Other server is unaffected
+      expect(store.sortedServers.find((s) => s.name === "github")?.config.enabled).toBe(false);
+    });
+
+    it("serverList updates for all servers after checkHealth() bulk-updates via loop", async () => {
+      const multiHealthResults: Record<string, McpHealthResultCached> = {
+        filesystem: FIXTURE_CACHED,
+        github: { result: { ...FIXTURE_HEALTH, serverName: "github", status: "unhealthy" }, tools: [] },
+      };
+      mockMcpCheckHealth.mockResolvedValue(multiHealthResults);
+      const store = useMcpStore();
+      // Seed without health data
+      store.servers.set("filesystem", { name: "filesystem", config: FIXTURE_CONFIG, tools: [], totalTokens: 0 });
+      store.servers.set("github", { name: "github", config: FIXTURE_CONFIG_B, tools: [], totalTokens: 0 });
+
+      await store.checkHealth();
+
+      // Both servers should have health data after the loop-based bulk update
+      expect(store.serverList.find((s) => s.name === "filesystem")?.health?.status).toBe("healthy");
+      expect(store.serverList.find((s) => s.name === "github")?.health?.status).toBe("unhealthy");
+      expect(store.summary.healthyServers).toBe(1);
+    });
   });
 });
