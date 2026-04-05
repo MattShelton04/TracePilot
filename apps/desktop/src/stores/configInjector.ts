@@ -22,6 +22,7 @@ import type {
 import { toErrorMessage } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
+import { useAsyncGuard } from "@/composables/useAsyncGuard";
 import { useToastStore } from "@/stores/toast";
 import { aggregateSettledErrors } from "@/utils/settleErrors";
 
@@ -42,11 +43,14 @@ export const useConfigInjectorStore = defineStore("configInjector", () => {
   const loading = ref(false);
   const saving = ref(false);
   const error = ref<string | null>(null);
+  const initGuard = useAsyncGuard();
+  const migrationGuard = useAsyncGuard();
 
   const hasCustomizations = computed(() => versions.value.some((v) => v.hasCustomizations));
   const activeVersionStr = computed(() => activeVersion.value?.version ?? "unknown");
 
   async function initialize() {
+    const token = initGuard.start();
     loading.value = true;
     error.value = null;
     try {
@@ -57,6 +61,8 @@ export const useConfigInjectorStore = defineStore("configInjector", () => {
         getActiveCopilotVersion(),
         listConfigBackups(),
       ]);
+      if (!initGuard.isValid(token)) return;
+
       if (agentsRes.status === "fulfilled") agents.value = agentsRes.value;
       if (configRes.status === "fulfilled") copilotConfig.value = configRes.value;
       if (versionsRes.status === "fulfilled") versions.value = versionsRes.value;
@@ -71,9 +77,12 @@ export const useConfigInjectorStore = defineStore("configInjector", () => {
         backupsRes,
       ]);
     } catch (e) {
+      if (!initGuard.isValid(token)) return;
       error.value = toErrorMessage(e);
     } finally {
-      loading.value = false;
+      if (initGuard.isValid(token)) {
+        loading.value = false;
+      }
     }
   }
 
@@ -155,9 +164,14 @@ export const useConfigInjectorStore = defineStore("configInjector", () => {
   }
 
   async function loadMigrationDiffs(from: string, to: string) {
+    const token = migrationGuard.start();
+    error.value = null;
     try {
-      migrationDiffs.value = await getMigrationDiffs(from, to);
+      const diffs = await getMigrationDiffs(from, to);
+      if (!migrationGuard.isValid(token)) return;
+      migrationDiffs.value = diffs;
     } catch (e) {
+      if (!migrationGuard.isValid(token)) return;
       error.value = toErrorMessage(e);
     }
   }
