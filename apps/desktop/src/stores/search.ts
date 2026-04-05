@@ -389,6 +389,8 @@ export const useSearchStore = defineStore("search", () => {
 
   // ── Facets & stats ───────────────────────────────────────────
   const facetGuard = useAsyncGuard();
+  const statsGuard = useAsyncGuard();
+  const filterOptionsGuard = useAsyncGuard();
 
   async function fetchFacets(forQuery?: string, overrides?: FacetOverrides) {
     const token = facetGuard.start();
@@ -422,22 +424,29 @@ export const useSearchStore = defineStore("search", () => {
   }
 
   async function fetchStats() {
+    const token = statsGuard.start();
     statsLoading.value = true;
     try {
-      stats.value = await getSearchStats();
+      const result = await getSearchStats();
+      if (!statsGuard.isValid(token)) return;
+      stats.value = result;
     } catch (e) {
+      if (!statsGuard.isValid(token)) return;
       logWarn("[search] Failed to fetch search stats:", e);
     } finally {
-      statsLoading.value = false;
+      if (statsGuard.isValid(token)) statsLoading.value = false;
     }
   }
 
   async function fetchFilterOptions() {
+    const token = filterOptionsGuard.start();
     try {
       const [repos, tools] = await Promise.all([getSearchRepositories(), getSearchToolNames()]);
+      if (!filterOptionsGuard.isValid(token)) return;
       availableRepositories.value = repos;
       availableToolNames.value = tools;
     } catch (e) {
+      if (!filterOptionsGuard.isValid(token)) return;
       // Non-fatal - filter options are supplementary UI info
       logWarn("[search] Failed to fetch filter options", e);
     }
