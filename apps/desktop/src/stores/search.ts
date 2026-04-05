@@ -353,25 +353,6 @@ export const useSearchStore = defineStore("search", () => {
     });
   }
 
-  // Thin wrappers kept for backward compatibility with existing consumers and tests.
-  function browseErrors() {
-    applyBrowsePreset(BROWSE_PRESETS.errors);
-  }
-  function browseUserMessages() {
-    applyBrowsePreset(BROWSE_PRESETS.userMessages);
-  }
-  function browseToolCalls() {
-    applyBrowsePreset(BROWSE_PRESETS.toolCalls);
-  }
-  function browseReasoning() {
-    applyBrowsePreset(BROWSE_PRESETS.reasoning);
-  }
-  function browseToolResults() {
-    applyBrowsePreset(BROWSE_PRESETS.toolResults);
-  }
-  function browseSubagents() {
-    applyBrowsePreset(BROWSE_PRESETS.subagents);
-  }
 
   // ── Recent search helpers (store-level orchestration) ──────
   function applyRecentSearch(q: string) {
@@ -585,12 +566,6 @@ export const useSearchStore = defineStore("search", () => {
     prevPage,
     initEventListeners,
     applyBrowsePreset,
-    browseErrors,
-    browseUserMessages,
-    browseToolCalls,
-    browseReasoning,
-    browseToolResults,
-    browseSubagents,
     applyRecentSearch,
     removeRecentSearch,
     clearRecentSearches,

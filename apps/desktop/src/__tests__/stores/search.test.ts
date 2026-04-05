@@ -1,7 +1,7 @@
 import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
-import { useSearchStore } from "../../stores/search";
+import { BROWSE_PRESETS, useSearchStore } from "../../stores/search";
 
 const mockSearchContent = vi.fn();
 const mockGetSearchFacets = vi.fn();
@@ -172,7 +172,7 @@ describe("useSearchStore browse presets", () => {
     store.sortBy = "oldest";
     store.page = 3;
 
-    store.browseToolCalls();
+    store.applyBrowsePreset(BROWSE_PRESETS.toolCalls);
     await flushSearchQueue();
 
     expect(store.query).toBe("");
@@ -192,30 +192,15 @@ describe("useSearchStore browse presets", () => {
     expect(options.sortBy).toBe("newest");
   });
 
-  const _presetMethods = {
-    browseErrors: (s: ReturnType<typeof useSearchStore>) => s.browseErrors(),
-    browseUserMessages: (s: ReturnType<typeof useSearchStore>) => s.browseUserMessages(),
-    browseReasoning: (s: ReturnType<typeof useSearchStore>) => s.browseReasoning(),
-    browseToolResults: (s: ReturnType<typeof useSearchStore>) => s.browseToolResults(),
-    browseSubagents: (s: ReturnType<typeof useSearchStore>) => s.browseSubagents(),
-  } as const;
-
   it.each([
-    ["browseErrors", ["error", "tool_error"]],
-    ["browseUserMessages", ["user_message"]],
-    ["browseReasoning", ["reasoning"]],
-    ["browseToolResults", ["tool_result"]],
-    ["browseSubagents", ["subagent"]],
-  ] as const)("applies expected content types for %s", async (method, expectedTypes) => {
+    ["errors", ["error", "tool_error"]],
+    ["userMessages", ["user_message"]],
+    ["reasoning", ["reasoning"]],
+    ["toolResults", ["tool_result"]],
+    ["subagents", ["subagent"]],
+  ] as const)("applies expected content types for %s preset", async (presetKey, expectedTypes) => {
     const store = useSearchStore();
-    const presetMethods: Record<string, () => void> = {
-      browseErrors: () => store.browseErrors(),
-      browseUserMessages: () => store.browseUserMessages(),
-      browseReasoning: () => store.browseReasoning(),
-      browseToolResults: () => store.browseToolResults(),
-      browseSubagents: () => store.browseSubagents(),
-    };
-    presetMethods[method]();
+    store.applyBrowsePreset(BROWSE_PRESETS[presetKey]);
     await flushSearchQueue();
 
     expect(store.contentTypes).toEqual(expectedTypes);
