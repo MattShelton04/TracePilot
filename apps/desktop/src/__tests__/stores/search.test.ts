@@ -227,3 +227,85 @@ describe("useSearchStore browse presets", () => {
     expect(options.sortBy).toBe("newest");
   });
 });
+
+describe("useSearchStore FTS maintenance", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    resetAllMocks();
+    setupDefaultMocks();
+  });
+
+  // ── runIntegrityCheck ──────────────────────────────────────────
+
+  it("runIntegrityCheck sets maintenanceMessage on success", async () => {
+    mockFtsIntegrityCheck.mockResolvedValue("integrity_check: 1 row(s) ok");
+    const store = useSearchStore();
+    await store.runIntegrityCheck();
+    expect(store.maintenanceMessage).toBe("integrity_check: 1 row(s) ok");
+  });
+
+  it("runIntegrityCheck clears maintenanceMessage before running", async () => {
+    const store = useSearchStore();
+    store.maintenanceMessage = "previous message";
+    mockFtsIntegrityCheck.mockResolvedValue("ok");
+    await store.runIntegrityCheck();
+    expect(store.maintenanceMessage).toBe("ok");
+  });
+
+  it("runIntegrityCheck sets Error-prefixed message using toErrorMessage on failure", async () => {
+    mockFtsIntegrityCheck.mockRejectedValue(new Error("index corrupted"));
+    const store = useSearchStore();
+    await store.runIntegrityCheck();
+    // toErrorMessage(new Error("index corrupted")) = "index corrupted"
+    expect(store.maintenanceMessage).toBe("Error: index corrupted");
+  });
+
+  it("runIntegrityCheck handles non-Error thrown values without [object Object]", async () => {
+    mockFtsIntegrityCheck.mockRejectedValue({ message: "constraint violation" });
+    const store = useSearchStore();
+    await store.runIntegrityCheck();
+    // toErrorMessage extracts the .message property from thrown objects
+    expect(store.maintenanceMessage).toBe("Error: constraint violation");
+    expect(store.maintenanceMessage).not.toContain("[object Object]");
+  });
+
+  // ── runOptimize ────────────────────────────────────────────────
+
+  it("runOptimize sets maintenanceMessage on success", async () => {
+    mockFtsOptimize.mockResolvedValue("optimize complete");
+    const store = useSearchStore();
+    await store.runOptimize();
+    expect(store.maintenanceMessage).toBe("optimize complete");
+  });
+
+  it("runOptimize refreshes health info after a successful run", async () => {
+    mockFtsOptimize.mockResolvedValue("done");
+    mockFtsHealth.mockResolvedValue({ inSync: true, indexedSessions: 5, totalSessions: 5, totalContentRows: 100, pendingSessions: 0, dbSizeBytes: 1024 });
+    const store = useSearchStore();
+    await store.runOptimize();
+    expect(mockFtsHealth).toHaveBeenCalledTimes(1);
+  });
+
+  it("runOptimize sets Error-prefixed message using toErrorMessage on failure", async () => {
+    mockFtsOptimize.mockRejectedValue(new Error("write lock held"));
+    const store = useSearchStore();
+    await store.runOptimize();
+    // toErrorMessage(new Error("write lock held")) = "write lock held"
+    expect(store.maintenanceMessage).toBe("Error: write lock held");
+  });
+
+  it("runOptimize does not refresh health when optimize fails", async () => {
+    mockFtsOptimize.mockRejectedValue(new Error("failed"));
+    const store = useSearchStore();
+    await store.runOptimize();
+    expect(mockFtsHealth).not.toHaveBeenCalled();
+  });
+
+  it("runOptimize handles non-Error thrown values without [object Object]", async () => {
+    mockFtsOptimize.mockRejectedValue({ message: "database busy" });
+    const store = useSearchStore();
+    await store.runOptimize();
+    expect(store.maintenanceMessage).toBe("Error: database busy");
+    expect(store.maintenanceMessage).not.toContain("[object Object]");
+  });
+});
