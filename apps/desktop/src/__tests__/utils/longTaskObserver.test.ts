@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { startLongTaskObserver, stopLongTaskObserver } from "@/utils/longTaskObserver";
 import * as logger from "@/utils/logger";
+import { startLongTaskObserver, stopLongTaskObserver } from "@/utils/longTaskObserver";
 
 vi.mock("@/utils/logger", () => ({
   logWarn: vi.fn(),

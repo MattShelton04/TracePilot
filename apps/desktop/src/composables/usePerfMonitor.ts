@@ -1,5 +1,5 @@
-import { logInfo, logWarn } from "@/utils/logger";
 import { getCurrentInstance, onMounted } from "vue";
+import { logInfo, logWarn } from "@/utils/logger";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -123,8 +123,19 @@ export function dumpPerfSummary(): void {
     min: +Math.min(...durations).toFixed(1),
   }));
 
-  console.table(summary.sort((a, b) => b.avg - a.avg));
-  logInfo("[perf] Performance summary", summary);
+  const sortedSummary = summary.sort((a, b) => b.avg - a.avg);
+  console.table(sortedSummary);
+
+  // Keep console.table for rich devtools inspection while also mirroring a
+  // compact structured summary through the logger facade for Tauri log files.
+  if (import.meta.env.DEV) {
+    const preview = sortedSummary.slice(0, 20);
+    logInfo("[perf] Performance summary", {
+      totalGroups: sortedSummary.length,
+      shownGroups: preview.length,
+      entries: preview,
+    });
+  }
 }
 
 // Expose on window for easy console access during development
