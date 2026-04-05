@@ -1,12 +1,22 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { clearPerfLog, dumpPerfSummary, getPerfLog, getSlowEntries } from "../usePerfMonitor";
+import * as logger from "@/utils/logger";
 
 // usePerfMonitor itself requires a Vue component lifecycle context (getCurrentInstance),
 // so we test the exported utility functions directly.
 
+vi.mock("@/utils/logger", () => ({
+  logInfo: vi.fn(),
+  logWarn: vi.fn(),
+}));
+
 describe("usePerfMonitor utilities", () => {
   beforeEach(() => {
     clearPerfLog();
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
   });
 
   it("clearPerfLog empties the log", () => {
@@ -25,10 +35,16 @@ describe("usePerfMonitor utilities", () => {
     spy.mockRestore();
   });
 
-  it("dumpPerfSummary calls console.table", () => {
-    const spy = vi.spyOn(console, "table").mockImplementation(() => {});
+  it("dumpPerfSummary calls console.table and logger", () => {
+    const consoleSpy = vi.spyOn(console, "table").mockImplementation(() => {});
+    const loggerSpy = vi.spyOn(logger, "logInfo");
+
     dumpPerfSummary();
-    expect(spy).toHaveBeenCalledOnce();
-    spy.mockRestore();
+
+    expect(consoleSpy).toHaveBeenCalledOnce();
+    expect(loggerSpy).toHaveBeenCalledOnce();
+    expect(loggerSpy).toHaveBeenCalledWith("[perf] Performance summary", []);
+
+    consoleSpy.mockRestore();
   });
 });

@@ -1,3 +1,5 @@
+import { logWarn } from "@/utils/logger";
+
 /**
  * Long Task Observer — detects >50ms main-thread blocks in development.
  *
@@ -17,7 +19,7 @@ export function startLongTaskObserver(): void {
     observer = new PerformanceObserver((list) => {
       for (const entry of list.getEntries()) {
         if (entry.duration > 50) {
-          console.warn(
+          logWarn(
             `[perf] Long task: ${entry.duration.toFixed(1)}ms ` +
               `(${entry.name}, at ${entry.startTime.toFixed(0)}ms)`,
           );

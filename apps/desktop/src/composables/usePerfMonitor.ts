@@ -1,3 +1,4 @@
+import { logInfo, logWarn } from "@/utils/logger";
 import { getCurrentInstance, onMounted } from "vue";
 
 // ---------------------------------------------------------------------------
@@ -49,7 +50,7 @@ export function usePerfMonitor(label?: string) {
     record(`${componentName}:mount`, duration);
 
     if (import.meta.env.DEV && duration > SLOW_MOUNT_THRESHOLD_MS) {
-      console.warn(`[perf] Slow mount: ${componentName} took ${duration.toFixed(1)}ms`);
+      logWarn(`[perf] Slow mount: ${componentName} took ${duration.toFixed(1)}ms`);
     }
   });
 
@@ -123,6 +124,7 @@ export function dumpPerfSummary(): void {
   }));
 
   console.table(summary.sort((a, b) => b.avg - a.avg));
+  logInfo("[perf] Performance summary", summary);
 }
 
 // Expose on window for easy console access during development
