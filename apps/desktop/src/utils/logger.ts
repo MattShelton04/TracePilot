@@ -10,6 +10,10 @@ async function ensureLog() {
 
 let detach: (() => void) | null = null;
 
+export interface LoggingOptions {
+  attachConsole?: boolean;
+}
+
 /**
  * Initialize logging — call once from main.ts AFTER mount.
  *
@@ -25,14 +29,15 @@ let detach: (() => void) | null = null;
  * in the browser console during development, temporarily uncomment the
  * `attachConsole` call below.
  */
-export async function initLogging(): Promise<void> {
+export async function initLogging(options: LoggingOptions = {}): Promise<void> {
   // Eagerly resolve the Tauri log module so facade calls don't pay the
   // first-import penalty.
   try {
-    await ensureLog();
-    // To also see Rust-originated logs in the browser console, uncomment:
-    // const log = await ensureLog();
-    // if (log) detach = await log.attachConsole();
+    const log = await ensureLog();
+    if (options.attachConsole && log) {
+      detach?.();
+      detach = await log.attachConsole();
+    }
   } catch (e) {
     console.warn("[TracePilot] Failed to initialize logging:", e);
   }
@@ -40,6 +45,7 @@ export async function initLogging(): Promise<void> {
 
 export function teardownLogging(): void {
   detach?.();
+  detach = null;
 }
 
 // Browser-safe re-exports: no-op in browser, write to backend log file in Tauri
@@ -105,6 +111,13 @@ let backendLogFailure = false;
 
 type LogLevel = "debug" | "info" | "warn" | "error";
 
+function reportBackendLogFailure(level: LogLevel, message: string, error: unknown) {
+  console.warn(
+    "[TracePilot] Failed to write frontend log to backend. Further backend log errors will be suppressed until a write succeeds.",
+    { originalLevel: level, originalMessage: message, error },
+  );
+}
+
 /** Internal helper to safely dispatch logs to the Tauri backend. */
 function dispatchBackendLog(level: LogLevel, msg: string, extra: unknown[]) {
   if (!isTauri) return;
@@ -134,13 +147,11 @@ function dispatchBackendLog(level: LogLevel, msg: string, extra: unknown[]) {
     })
     .catch((e) => {
       // To avoid spamming the console, only show the warning once per
-      // failure streak. Use raw console methods to avoid recursion.
+      // failure streak. Concurrent failures can still race and emit twice,
+      // but that only affects duplicate diagnostics, not app behavior.
       if (backendLogFailure) return;
       backendLogFailure = true;
-      console.warn(
-        "[TracePilot] Failed to write frontend log to backend. Further backend log errors will be suppressed until a write succeeds.",
-        { originalLevel: level, originalMessage: message, error: e },
-      );
+      reportBackendLogFailure(level, message, e);
     });
 }
 
