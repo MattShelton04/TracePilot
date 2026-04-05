@@ -60,6 +60,13 @@ jobs:
       - name: Frontend build
         run: pnpm build
 
+      # ── Lint (fast-fail before slower tests) ────────────────
+      - name: Rust lint
+        run: cargo clippy --workspace --exclude tracepilot-desktop -- -D warnings
+
+      - name: Frontend lint
+        run: pnpm lint
+
       # ── Tests ───────────────────────────────────────────────
       - name: Rust tests
         run: cargo test --workspace --exclude tracepilot-desktop
@@ -68,13 +75,7 @@ jobs:
         run: pnpm test
 
       # ── Security ────────────────────────────────────────────
-      # - name: Security audit
-      #   uses: rustsec/audit-check@v2
-      #   with:
-      #     token: ${{ secrets.GITHUB_TOKEN }}
-
-      # Temporarily disabled lint steps.
-      # - name: Rust lint
-      #   run: cargo clippy --workspace --exclude tracepilot-desktop -- -D warnings
-      # - name: Frontend lint
-      #   run: pnpm lint
+      - name: Security audit
+        uses: rustsec/audit-check@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
