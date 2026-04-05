@@ -320,7 +320,7 @@ updated_at: "2026-03-11T07:15:00Z"
 
         // Only s1 is "live" — s2 should be pruned
         let mut live_ids = HashSet::new();
-        live_ids.insert("55555555-5555-5555-5555-555555555555".to_string());
+        live_ids.insert("55555555-5555-5555-5555-555555555555");
 
         let pruned = db.prune_deleted(&live_ids).unwrap();
         assert_eq!(pruned, 1);
@@ -352,7 +352,7 @@ updated_at: "2026-03-11T07:15:00Z"
         db.upsert_session(&s1).unwrap();
 
         let mut live_ids = HashSet::new();
-        live_ids.insert("77777777-7777-7777-7777-777777777777".to_string());
+        live_ids.insert("77777777-7777-7777-7777-777777777777");
 
         let pruned = db.prune_deleted(&live_ids).unwrap();
         assert_eq!(pruned, 0);
@@ -422,7 +422,7 @@ updated_at: "{updated_at}"
 
         let result = db.query_analytics(None, None, None, false).unwrap();
         assert_eq!(result.total_sessions, 2);
-        assert!(result.activity_per_day.len() >= 1);
+        assert!(!result.activity_per_day.is_empty());
     }
 
     #[test]
