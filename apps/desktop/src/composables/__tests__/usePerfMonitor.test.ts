@@ -47,18 +47,44 @@ describe("usePerfMonitor utilities", () => {
     dumpPerfSummary();
 
     expect(consoleSpy).toHaveBeenCalledOnce();
-    if (import.meta.env.DEV) {
-      expect(loggerSpy).toHaveBeenCalledOnce();
-      expect(loggerSpy).toHaveBeenCalledWith("[perf] Performance summary", {
-        totalGroups: 0,
-        shownGroups: 0,
-        entries: [],
-      });
-    } else {
-      expect(loggerSpy).not.toHaveBeenCalled();
-    }
+    expect(loggerSpy).toHaveBeenCalledOnce();
+    expect(loggerSpy).toHaveBeenCalledWith("[perf] Performance summary", {
+      totalGroups: 0,
+      shownGroups: 0,
+      entries: [],
+    });
 
     consoleSpy.mockRestore();
+  });
+
+  it("caps serialized summary entries at 20 groups", () => {
+    const loggerSpy = vi.spyOn(logger, "logInfo");
+    const perfLog = getPerfLog() as unknown as Array<{
+      name: string;
+      duration: number;
+      timestamp: number;
+    }>;
+    for (let i = 0; i < 25; i++) {
+      perfLog.push({
+        name: `Comp${i}:mount`,
+        duration: 50 + i,
+        timestamp: i,
+      });
+    }
+
+    dumpPerfSummary();
+
+    expect(loggerSpy).toHaveBeenCalledOnce();
+    expect(loggerSpy).toHaveBeenCalledWith(
+      "[perf] Performance summary",
+      expect.objectContaining({
+        totalGroups: 25,
+        shownGroups: 20,
+        entries: expect.any(Array),
+      }),
+    );
+    const payload = loggerSpy.mock.calls[0]?.[1] as { entries: unknown[] };
+    expect(payload.entries).toHaveLength(20);
   });
 
   it("logs slow mount warnings through logger facade", async () => {
@@ -80,14 +106,10 @@ describe("usePerfMonitor utilities", () => {
     mount(TestComponent);
     await nextTick();
 
-    if (import.meta.env.DEV) {
-      expect(loggerSpy).toHaveBeenCalledOnce();
-      expect(loggerSpy.mock.calls[0]?.[0]).toMatch(
-        /^\[perf\] Slow mount: SlowComponent took \d+\.\dms$/,
-      );
-    } else {
-      expect(loggerSpy).not.toHaveBeenCalled();
-    }
+    expect(loggerSpy).toHaveBeenCalledOnce();
+    expect(loggerSpy.mock.calls[0]?.[0]).toMatch(
+      /^\[perf\] Slow mount: SlowComponent took \d+\.\dms$/,
+    );
 
     perfNowSpy.mockRestore();
   });

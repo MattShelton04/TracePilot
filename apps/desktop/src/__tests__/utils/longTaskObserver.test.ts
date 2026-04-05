@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as logger from "@/utils/logger";
 import { startLongTaskObserver, stopLongTaskObserver } from "@/utils/longTaskObserver";
 
@@ -27,6 +27,10 @@ describe("longTaskObserver", () => {
 
   afterEach(() => {
     stopLongTaskObserver();
+  });
+
+  afterAll(() => {
+    vi.unstubAllGlobals();
   });
 
   it("should not start if PerformanceObserver is not defined", () => {
