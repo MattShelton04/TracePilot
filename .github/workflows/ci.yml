@@ -57,15 +57,15 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
-      - name: Frontend build
-        run: pnpm build
-
-      # ── Lint (fast-fail before slower tests) ────────────────
+      # ── Lint (fast-fail before slower build/tests) ───────────
       - name: Rust lint
         run: cargo clippy --workspace --exclude tracepilot-desktop -- -D warnings
 
       - name: Frontend lint
         run: pnpm lint
+
+      - name: Frontend build
+        run: pnpm build
 
       # ── Tests ───────────────────────────────────────────────
       - name: Rust tests
