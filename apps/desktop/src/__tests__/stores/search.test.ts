@@ -308,4 +308,20 @@ describe("useSearchStore FTS maintenance", () => {
     expect(store.maintenanceMessage).toBe("Error: database busy");
     expect(store.maintenanceMessage).not.toContain("[object Object]");
   });
+
+  it("runIntegrityCheck handles null rejection with fallback message", async () => {
+    mockFtsIntegrityCheck.mockRejectedValue(null);
+    const store = useSearchStore();
+    await store.runIntegrityCheck();
+    // toErrorMessage(null) = "Unknown error"
+    expect(store.maintenanceMessage).toBe("Error: Unknown error");
+  });
+
+  it("runOptimize handles thrown string values", async () => {
+    mockFtsOptimize.mockRejectedValue("permission denied");
+    const store = useSearchStore();
+    await store.runOptimize();
+    // toErrorMessage("permission denied") = "permission denied" (String fallback)
+    expect(store.maintenanceMessage).toBe("Error: permission denied");
+  });
 });
