@@ -58,6 +58,12 @@ export interface FacetOverrides {
   session?: string | null;
 }
 
+interface ParsedDateRange {
+  dateFromUnix?: number;
+  dateToUnix?: number;
+  error?: string;
+}
+
 export const useSearchStore = defineStore("search", () => {
   // ── Query state ──────────────────────────────────────────────
   const query = ref("");
@@ -256,13 +262,14 @@ export const useSearchStore = defineStore("search", () => {
     error.value = null;
 
     try {
-      let dateFromUnix: number | undefined;
-      let dateToUnix: number | undefined;
-      if (dateFrom.value) {
-        dateFromUnix = Math.floor(new Date(dateFrom.value).getTime() / 1000);
-      }
-      if (dateTo.value) {
-        dateToUnix = Math.floor(new Date(dateTo.value).getTime() / 1000);
+      const { dateFromUnix, dateToUnix, error: dateError } = parseDateRange();
+      if (dateError) {
+        error.value = dateError;
+        results.value = [];
+        totalCount.value = 0;
+        hasMore.value = false;
+        latencyMs.value = 0;
+        return;
       }
 
       const response = await searchContent(searchQuery, {
@@ -378,13 +385,43 @@ export const useSearchStore = defineStore("search", () => {
   const statsGuard = useAsyncGuard();
   const filterOptionsGuard = useAsyncGuard();
 
+  function parseDateInputToUnix(value: string | null, label: "From" | "To"): number | undefined {
+    if (value == null) return undefined;
+    const trimmed = value.trim();
+    if (!trimmed) return undefined;
+
+    const timestampMs = new Date(trimmed).getTime();
+    if (!Number.isFinite(timestampMs)) {
+      throw new Error(`Invalid date filter: ${label} date is not a valid date.`);
+    }
+
+    return Math.floor(timestampMs / 1000);
+  }
+
+  function parseDateRange(): ParsedDateRange {
+    try {
+      const dateFromUnix = parseDateInputToUnix(dateFrom.value, "From");
+      const dateToUnix = parseDateInputToUnix(dateTo.value, "To");
+
+      if (dateFromUnix != null && dateToUnix != null && dateFromUnix > dateToUnix) {
+        return { error: "Invalid date filter: From date must be before or equal to To date." };
+      }
+
+      return { dateFromUnix, dateToUnix };
+    } catch (e) {
+      return { error: toErrorMessage(e) };
+    }
+  }
+
   async function fetchFacets(forQuery?: string, overrides?: FacetOverrides) {
     const token = facetGuard.start();
     try {
-      let dateFromUnix: number | undefined;
-      let dateToUnix: number | undefined;
-      if (dateFrom.value) dateFromUnix = Math.floor(new Date(dateFrom.value).getTime() / 1000);
-      if (dateTo.value) dateToUnix = Math.floor(new Date(dateTo.value).getTime() / 1000);
+      const { dateFromUnix, dateToUnix, error: dateError } = parseDateRange();
+      if (dateError) {
+        if (!facetGuard.isValid(token)) return;
+        logWarn("[search] Skipping search facets fetch due to invalid date filter:", dateError);
+        return;
+      }
 
       const ct = overrides?.contentTypes ?? contentTypes.value;
       const repo = overrides?.repo ?? repository.value;

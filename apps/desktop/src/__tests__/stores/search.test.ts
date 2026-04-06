@@ -12,6 +12,7 @@ const mockRebuildSearchIndex = vi.fn();
 const mockFtsIntegrityCheck = vi.fn();
 const mockFtsOptimize = vi.fn();
 const mockFtsHealth = vi.fn();
+const mockLogWarn = vi.fn();
 
 vi.mock("@tracepilot/client", async () => {
   const { createClientMock } = await import("../mocks/client");
@@ -30,6 +31,10 @@ vi.mock("@tracepilot/client", async () => {
 
 vi.mock("@/utils/tauriEvents", () => ({
   safeListen: vi.fn().mockResolvedValue(() => {}),
+}));
+
+vi.mock("@/utils/logger", () => ({
+  logWarn: (...args: unknown[]) => mockLogWarn(...args),
 }));
 
 const emptySearchResponse = {
@@ -57,6 +62,7 @@ function resetAllMocks() {
   mockFtsIntegrityCheck.mockReset();
   mockFtsOptimize.mockReset();
   mockFtsHealth.mockReset();
+  mockLogWarn.mockReset();
 }
 
 function setupDefaultMocks() {
@@ -152,6 +158,84 @@ describe("useSearchStore – scheduling", () => {
     expect(mockSearchContent).toHaveBeenCalledTimes(1);
     const [_query, options] = mockSearchContent.mock.calls[0];
     expect(options?.offset).toBe(50); // (page 2 - 1) * 50
+  });
+
+  it("prevents search when From date is invalid", async () => {
+    const store = useSearchStore();
+    store.dateFrom = "not-a-date";
+    store.query = "hello";
+
+    await vi.runAllTimersAsync();
+    await nextTick();
+    await Promise.resolve();
+
+    expect(mockSearchContent).not.toHaveBeenCalled();
+    expect(store.error).toBe("Invalid date filter: From date is not a valid date.");
+    expect(store.results).toEqual([]);
+    expect(store.totalCount).toBe(0);
+    expect(store.hasMore).toBe(false);
+    expect(store.latencyMs).toBe(0);
+  });
+
+  it("prevents search when From date is after To date", async () => {
+    const store = useSearchStore();
+    store.dateFrom = "2025-01-02T00:00:00.000Z";
+    store.dateTo = "2025-01-01T00:00:00.000Z";
+    store.query = "hello";
+
+    await vi.runAllTimersAsync();
+    await nextTick();
+    await Promise.resolve();
+
+    expect(mockSearchContent).not.toHaveBeenCalled();
+    expect(store.error).toBe("Invalid date filter: From date must be before or equal to To date.");
+  });
+
+  it("passes unix timestamps for valid date range", async () => {
+    const store = useSearchStore();
+    store.dateFrom = "2025-01-01T00:00:00.000Z";
+    store.dateTo = "2025-01-02T00:00:00.000Z";
+    store.query = "hello";
+
+    await vi.runAllTimersAsync();
+    await nextTick();
+    await Promise.resolve();
+
+    expect(mockSearchContent).toHaveBeenCalled();
+    const latestCall = mockSearchContent.mock.calls[mockSearchContent.mock.calls.length - 1];
+    const [, options] = latestCall;
+    expect(options?.dateFromUnix).toBe(1735689600);
+    expect(options?.dateToUnix).toBe(1735776000);
+  });
+
+  it("treats whitespace date filters as unset", async () => {
+    const store = useSearchStore();
+    store.dateFrom = "   ";
+    store.dateTo = "\n\t";
+    store.query = "hello";
+
+    await vi.runAllTimersAsync();
+    await nextTick();
+    await Promise.resolve();
+
+    expect(mockSearchContent).toHaveBeenCalled();
+    const latestCall = mockSearchContent.mock.calls[mockSearchContent.mock.calls.length - 1];
+    const [, options] = latestCall;
+    expect(options?.dateFromUnix).toBeUndefined();
+    expect(options?.dateToUnix).toBeUndefined();
+  });
+
+  it("skips facets fetch and logs warning when date filters are invalid", async () => {
+    const store = useSearchStore();
+    store.dateTo = "invalid-date";
+
+    await store.fetchFacets("hello");
+
+    expect(mockGetSearchFacets).not.toHaveBeenCalled();
+    expect(mockLogWarn).toHaveBeenCalledWith(
+      "[search] Skipping search facets fetch due to invalid date filter:",
+      "Invalid date filter: To date is not a valid date.",
+    );
   });
 });
 
