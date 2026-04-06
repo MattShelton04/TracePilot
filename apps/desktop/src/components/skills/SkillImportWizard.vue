@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import type { GitHubSkillPreview, LocalSkillPreview, SkillImportResult } from "@tracepilot/types";
-import { computed, onMounted, ref } from "vue";
-import { browseForDirectory, browseForFile } from "@/composables/useBrowseDirectory";
-import { usePreferencesStore } from "@/stores/preferences";
+import { toErrorMessage } from "@tracepilot/ui";
+import { ref, computed, onMounted } from "vue";
 import { useSkillsStore } from "@/stores/skills";
+import { browseForFile, browseForDirectory } from "@/composables/useBrowseDirectory";
 import { useWorktreesStore } from "@/stores/worktrees";
+import { usePreferencesStore } from "@/stores/preferences";
 
 const emit = defineEmits<{
   close: [];
@@ -180,7 +181,7 @@ async function scanGitHub() {
     }
   } catch (e) {
     if (!controller.cancelled) {
-      importError.value = String(e);
+      importError.value = toErrorMessage(e);
     }
   } finally {
     clearTimeout(msgTimer);
@@ -323,7 +324,7 @@ async function doImport() {
       importError.value = store.error ?? "Import failed";
     }
   } catch (e) {
-    importError.value = String(e);
+    importError.value = toErrorMessage(e);
   } finally {
     importing.value = false;
     importStatusMessage.value = "";

@@ -1,5 +1,6 @@
 //! Session-related Tauri commands (12 commands).
 
+use crate::blocking_cmd;
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
 use crate::helpers::{
@@ -24,7 +25,7 @@ pub async fn list_sessions(
     let index_path = cfg.index_db_path();
     let session_state_dir = cfg.session_state_dir();
 
-    tokio::task::spawn_blocking(move || {
+    blocking_cmd!({
         // Fast path: query the index DB (single SQLite read, no per-session I/O)
         if index_path.exists() {
             let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
@@ -109,9 +110,8 @@ pub async fn list_sessions(
             items.truncate(limit as usize);
         }
 
-        Ok(items)
+        Ok::<_, BindingsError>(items)
     })
-    .await?
 }
 
 #[tauri::command]
@@ -136,11 +136,11 @@ pub async fn get_session_incidents(
     let cfg = read_config(&state);
     let index_path = cfg.index_db_path();
 
-    tokio::task::spawn_blocking(move || {
+    blocking_cmd!({
         let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
         let incidents = db
             .get_session_incidents(&session_id)?;
-        Ok(incidents
+        Ok::<_, BindingsError>(incidents
             .into_iter()
             .map(|i| SessionIncidentItem {
                 event_type: i.event_type,
@@ -154,7 +154,6 @@ pub async fn get_session_incidents(
             })
             .collect())
     })
-    .await?
 }
 
 #[tauri::command]
@@ -169,7 +168,7 @@ pub async fn get_session_turns(
     let session_state_dir = read_config(&state).session_state_dir();
     let cache = cache.inner().clone();
 
-    tokio::task::spawn_blocking(move || {
+    blocking_cmd!({
         let path = tracepilot_core::session::discovery::resolve_session_path_in(
             &session_id,
             &session_state_dir,
@@ -227,12 +226,11 @@ pub async fn get_session_turns(
 
         let mut ipc_turns = turns;
         tracepilot_core::turns::prepare_turns_for_ipc(&mut ipc_turns);
-        Ok(TurnsResponse {
+        Ok::<_, BindingsError>(TurnsResponse {
             turns: ipc_turns,
             events_file_size: file_size,
         })
     })
-    .await?
 }
 
 /// Lightweight freshness probe— returns just the events.jsonl file size.

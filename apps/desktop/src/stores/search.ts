@@ -42,16 +42,14 @@ export interface SessionGroup {
 }
 
 /** Content-type presets for the browse-mode quick filters. */
-export const BROWSE_PRESETS: Record<string, readonly SearchContentType[]> = {
+export const BROWSE_PRESETS = {
   errors: ["error", "tool_error"],
   userMessages: ["user_message"],
   toolCalls: ["tool_call"],
   reasoning: ["reasoning"],
   toolResults: ["tool_result"],
   subagents: ["subagent"],
-} as const;
-
-export type BrowsePresetKey = keyof typeof BROWSE_PRESETS;
+} as const satisfies Record<string, readonly SearchContentType[]>;
 
 export interface FacetOverrides {
   contentTypes?: string[];
@@ -335,6 +333,11 @@ export const useSearchStore = defineStore("search", () => {
   });
 
   // ── Quick browse presets ─────────────────────────────────────
+  /**
+   * Apply a browse preset, clearing all filters and setting content types.
+   * Resets query, pagination, and all filter fields, then triggers a search.
+   * @param types - Array of content types to filter by (use BROWSE_PRESETS constants)
+   */
   function applyBrowsePreset(types: readonly SearchContentType[]) {
     hydrating = true;
     page.value = 1;
@@ -353,25 +356,6 @@ export const useSearchStore = defineStore("search", () => {
     });
   }
 
-  // Thin wrappers kept for backward compatibility with existing consumers and tests.
-  function browseErrors() {
-    applyBrowsePreset(BROWSE_PRESETS.errors);
-  }
-  function browseUserMessages() {
-    applyBrowsePreset(BROWSE_PRESETS.userMessages);
-  }
-  function browseToolCalls() {
-    applyBrowsePreset(BROWSE_PRESETS.toolCalls);
-  }
-  function browseReasoning() {
-    applyBrowsePreset(BROWSE_PRESETS.reasoning);
-  }
-  function browseToolResults() {
-    applyBrowsePreset(BROWSE_PRESETS.toolResults);
-  }
-  function browseSubagents() {
-    applyBrowsePreset(BROWSE_PRESETS.subagents);
-  }
 
   // ── Recent search helpers (store-level orchestration) ──────
   function applyRecentSearch(q: string) {
@@ -388,7 +372,11 @@ export const useSearchStore = defineStore("search", () => {
   }
 
   // ── Facets & stats ───────────────────────────────────────────
+  // Guards prevent stale async responses when filters/search change rapidly
+  // or when concurrent indexing/rebuild operations trigger parallel fetches
   const facetGuard = useAsyncGuard();
+  const statsGuard = useAsyncGuard();
+  const filterOptionsGuard = useAsyncGuard();
 
   async function fetchFacets(forQuery?: string, overrides?: FacetOverrides) {
     const token = facetGuard.start();
@@ -422,22 +410,29 @@ export const useSearchStore = defineStore("search", () => {
   }
 
   async function fetchStats() {
+    const token = statsGuard.start();
     statsLoading.value = true;
     try {
-      stats.value = await getSearchStats();
+      const result = await getSearchStats();
+      if (!statsGuard.isValid(token)) return;
+      stats.value = result;
     } catch (e) {
+      if (!statsGuard.isValid(token)) return;
       logWarn("[search] Failed to fetch search stats:", e);
     } finally {
-      statsLoading.value = false;
+      if (statsGuard.isValid(token)) statsLoading.value = false;
     }
   }
 
   async function fetchFilterOptions() {
+    const token = filterOptionsGuard.start();
     try {
       const [repos, tools] = await Promise.all([getSearchRepositories(), getSearchToolNames()]);
+      if (!filterOptionsGuard.isValid(token)) return;
       availableRepositories.value = repos;
       availableToolNames.value = tools;
     } catch (e) {
+      if (!filterOptionsGuard.isValid(token)) return;
       // Non-fatal - filter options are supplementary UI info
       logWarn("[search] Failed to fetch filter options", e);
     }
@@ -478,7 +473,7 @@ export const useSearchStore = defineStore("search", () => {
     try {
       maintenanceMessage.value = await ftsIntegrityCheck();
     } catch (e) {
-      maintenanceMessage.value = `Error: ${String(e)}`;
+      maintenanceMessage.value = `Error: ${toErrorMessage(e)}`;
     }
   }
 
@@ -488,7 +483,7 @@ export const useSearchStore = defineStore("search", () => {
       maintenanceMessage.value = await ftsOptimize();
       await fetchHealth(); // refresh health after optimize
     } catch (e) {
-      maintenanceMessage.value = `Error: ${String(e)}`;
+      maintenanceMessage.value = `Error: ${toErrorMessage(e)}`;
     }
   }
 
@@ -585,12 +580,6 @@ export const useSearchStore = defineStore("search", () => {
     prevPage,
     initEventListeners,
     applyBrowsePreset,
-    browseErrors,
-    browseUserMessages,
-    browseToolCalls,
-    browseReasoning,
-    browseToolResults,
-    browseSubagents,
     applyRecentSearch,
     removeRecentSearch,
     clearRecentSearches,

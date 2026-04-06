@@ -387,11 +387,11 @@ impl IndexDb {
     ///
     /// Uses a batch DELETE with temp table to avoid exceeding SQLITE_MAX_VARIABLE_NUMBER.
     /// Child tables cascade via foreign keys.
-    pub fn prune_deleted(&self, live_ids: &HashSet<String>) -> Result<usize> {
+    pub fn prune_deleted(&self, live_ids: &HashSet<&str>) -> Result<usize> {
         let indexed_ids = self.all_indexed_ids()?;
         let stale: Vec<&String> = indexed_ids
             .iter()
-            .filter(|id| !live_ids.contains(*id))
+            .filter(|id| !live_ids.contains(id.as_str()))
             .collect();
         let count = stale.len();
         if count == 0 {

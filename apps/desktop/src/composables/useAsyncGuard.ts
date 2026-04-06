@@ -143,7 +143,7 @@ export interface AsyncGuard {
  *   state.value = data;
  * } catch (e) {
  *   if (!guard.isValid(token)) return; // Don't show stale errors
- *   error.value = String(e);
+ *   error.value = toErrorMessage(e);
  * }
  * ```
  *

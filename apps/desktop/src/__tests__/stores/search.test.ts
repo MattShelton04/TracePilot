@@ -1,7 +1,7 @@
 import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
-import { useSearchStore } from "../../stores/search";
+import { BROWSE_PRESETS, useSearchStore } from "../../stores/search";
 
 const mockSearchContent = vi.fn();
 const mockGetSearchFacets = vi.fn();
@@ -162,6 +162,9 @@ describe("useSearchStore browse presets", () => {
     setupDefaultMocks();
   });
 
+  // Comprehensive test for applyBrowsePreset mechanism using toolCalls as the example.
+  // Verifies that presets: clear all filters, set content types, use newest sort, reset page.
+  // The parameterized tests below verify each preset's specific content types.
   it("clears filters and uses newest sort when browsing tool calls", async () => {
     const store = useSearchStore();
     store.query = "error in repo";
@@ -172,7 +175,7 @@ describe("useSearchStore browse presets", () => {
     store.sortBy = "oldest";
     store.page = 3;
 
-    store.browseToolCalls();
+    store.applyBrowsePreset(BROWSE_PRESETS.toolCalls);
     await flushSearchQueue();
 
     expect(store.query).toBe("");
@@ -192,30 +195,15 @@ describe("useSearchStore browse presets", () => {
     expect(options.sortBy).toBe("newest");
   });
 
-  const _presetMethods = {
-    browseErrors: (s: ReturnType<typeof useSearchStore>) => s.browseErrors(),
-    browseUserMessages: (s: ReturnType<typeof useSearchStore>) => s.browseUserMessages(),
-    browseReasoning: (s: ReturnType<typeof useSearchStore>) => s.browseReasoning(),
-    browseToolResults: (s: ReturnType<typeof useSearchStore>) => s.browseToolResults(),
-    browseSubagents: (s: ReturnType<typeof useSearchStore>) => s.browseSubagents(),
-  } as const;
-
   it.each([
-    ["browseErrors", ["error", "tool_error"]],
-    ["browseUserMessages", ["user_message"]],
-    ["browseReasoning", ["reasoning"]],
-    ["browseToolResults", ["tool_result"]],
-    ["browseSubagents", ["subagent"]],
-  ] as const)("applies expected content types for %s", async (method, expectedTypes) => {
+    ["errors", ["error", "tool_error"]],
+    ["userMessages", ["user_message"]],
+    ["reasoning", ["reasoning"]],
+    ["toolResults", ["tool_result"]],
+    ["subagents", ["subagent"]],
+  ] as const)("applies expected content types for %s preset", async (presetKey, expectedTypes) => {
     const store = useSearchStore();
-    const presetMethods: Record<string, () => void> = {
-      browseErrors: () => store.browseErrors(),
-      browseUserMessages: () => store.browseUserMessages(),
-      browseReasoning: () => store.browseReasoning(),
-      browseToolResults: () => store.browseToolResults(),
-      browseSubagents: () => store.browseSubagents(),
-    };
-    presetMethods[method]();
+    store.applyBrowsePreset(BROWSE_PRESETS[presetKey]);
     await flushSearchQueue();
 
     expect(store.contentTypes).toEqual(expectedTypes);
@@ -225,5 +213,103 @@ describe("useSearchStore browse presets", () => {
     const [, options] = mockSearchContent.mock.calls[0];
     expect(options.contentTypes).toEqual(expectedTypes);
     expect(options.sortBy).toBe("newest");
+  });
+});
+
+describe("useSearchStore FTS maintenance", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    resetAllMocks();
+    setupDefaultMocks();
+  });
+
+  // ── runIntegrityCheck ──────────────────────────────────────────
+
+  it("runIntegrityCheck sets maintenanceMessage on success", async () => {
+    mockFtsIntegrityCheck.mockResolvedValue("integrity_check: 1 row(s) ok");
+    const store = useSearchStore();
+    await store.runIntegrityCheck();
+    expect(store.maintenanceMessage).toBe("integrity_check: 1 row(s) ok");
+  });
+
+  it("runIntegrityCheck clears maintenanceMessage before running", async () => {
+    const store = useSearchStore();
+    store.maintenanceMessage = "previous message";
+    mockFtsIntegrityCheck.mockResolvedValue("ok");
+    await store.runIntegrityCheck();
+    expect(store.maintenanceMessage).toBe("ok");
+  });
+
+  it("runIntegrityCheck sets Error-prefixed message using toErrorMessage on failure", async () => {
+    mockFtsIntegrityCheck.mockRejectedValue(new Error("index corrupted"));
+    const store = useSearchStore();
+    await store.runIntegrityCheck();
+    // toErrorMessage(new Error("index corrupted")) = "index corrupted"
+    expect(store.maintenanceMessage).toBe("Error: index corrupted");
+  });
+
+  it("runIntegrityCheck handles non-Error thrown values without [object Object]", async () => {
+    mockFtsIntegrityCheck.mockRejectedValue({ message: "constraint violation" });
+    const store = useSearchStore();
+    await store.runIntegrityCheck();
+    // toErrorMessage extracts the .message property from thrown objects
+    expect(store.maintenanceMessage).toBe("Error: constraint violation");
+    expect(store.maintenanceMessage).not.toContain("[object Object]");
+  });
+
+  // ── runOptimize ────────────────────────────────────────────────
+
+  it("runOptimize sets maintenanceMessage on success", async () => {
+    mockFtsOptimize.mockResolvedValue("optimize complete");
+    const store = useSearchStore();
+    await store.runOptimize();
+    expect(store.maintenanceMessage).toBe("optimize complete");
+  });
+
+  it("runOptimize refreshes health info after a successful run", async () => {
+    mockFtsOptimize.mockResolvedValue("done");
+    mockFtsHealth.mockResolvedValue({ inSync: true, indexedSessions: 5, totalSessions: 5, totalContentRows: 100, pendingSessions: 0, dbSizeBytes: 1024 });
+    const store = useSearchStore();
+    await store.runOptimize();
+    expect(mockFtsHealth).toHaveBeenCalledTimes(1);
+  });
+
+  it("runOptimize sets Error-prefixed message using toErrorMessage on failure", async () => {
+    mockFtsOptimize.mockRejectedValue(new Error("write lock held"));
+    const store = useSearchStore();
+    await store.runOptimize();
+    // toErrorMessage(new Error("write lock held")) = "write lock held"
+    expect(store.maintenanceMessage).toBe("Error: write lock held");
+  });
+
+  it("runOptimize does not refresh health when optimize fails", async () => {
+    mockFtsOptimize.mockRejectedValue(new Error("failed"));
+    const store = useSearchStore();
+    await store.runOptimize();
+    expect(mockFtsHealth).not.toHaveBeenCalled();
+  });
+
+  it("runOptimize handles non-Error thrown values without [object Object]", async () => {
+    mockFtsOptimize.mockRejectedValue({ message: "database busy" });
+    const store = useSearchStore();
+    await store.runOptimize();
+    expect(store.maintenanceMessage).toBe("Error: database busy");
+    expect(store.maintenanceMessage).not.toContain("[object Object]");
+  });
+
+  it("runIntegrityCheck handles null rejection with fallback message", async () => {
+    mockFtsIntegrityCheck.mockRejectedValue(null);
+    const store = useSearchStore();
+    await store.runIntegrityCheck();
+    // toErrorMessage(null) = "Unknown error"
+    expect(store.maintenanceMessage).toBe("Error: Unknown error");
+  });
+
+  it("runOptimize handles thrown string values", async () => {
+    mockFtsOptimize.mockRejectedValue("permission denied");
+    const store = useSearchStore();
+    await store.runOptimize();
+    // toErrorMessage("permission denied") = "permission denied" (String fallback)
+    expect(store.maintenanceMessage).toBe("Error: permission denied");
   });
 });

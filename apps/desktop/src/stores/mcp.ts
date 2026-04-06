@@ -132,8 +132,6 @@ export const useMcpStore = defineStore("mcp", () => {
         tools: [],
         totalTokens: 0,
       });
-      // Trigger a shallow re-assignment so Vue detects the change
-      servers.value = new Map(servers.value);
       return true;
     } catch (e) {
       error.value = toErrorMessage(e);
@@ -153,7 +151,6 @@ export const useMcpStore = defineStore("mcp", () => {
         tools: existing?.tools ?? [],
         totalTokens: existing?.totalTokens ?? 0,
       });
-      servers.value = new Map(servers.value);
       return true;
     } catch (e) {
       error.value = toErrorMessage(e);
@@ -167,7 +164,6 @@ export const useMcpStore = defineStore("mcp", () => {
       await mcpRemoveServer(name);
       servers.value.delete(name);
       healthResults.value.delete(name);
-      servers.value = new Map(servers.value);
       if (selectedServer.value === name) {
         selectedServer.value = null;
       }
@@ -188,7 +184,6 @@ export const useMcpStore = defineStore("mcp", () => {
           ...existing,
           config: { ...existing.config, enabled: newEnabled },
         });
-        servers.value = new Map(servers.value);
       }
       return newEnabled;
     } catch (e) {
@@ -213,8 +208,6 @@ export const useMcpStore = defineStore("mcp", () => {
           });
         }
       }
-      healthResults.value = new Map(healthResults.value);
-      servers.value = new Map(servers.value);
     } catch (e) {
       error.value = toErrorMessage(e);
     }
@@ -233,9 +226,7 @@ export const useMcpStore = defineStore("mcp", () => {
           tools: cached.tools,
           totalTokens: cached.tools.reduce((sum, t) => sum + t.estimatedTokens, 0),
         });
-        servers.value = new Map(servers.value);
       }
-      healthResults.value = new Map(healthResults.value);
       return cached;
     } catch (e) {
       error.value = toErrorMessage(e);
