@@ -170,13 +170,14 @@ export const useSearchStore = defineStore("search", () => {
   const isBrowseMode = computed(() => !hasQuery.value);
   const totalPages = computed(() => Math.ceil(totalCount.value / pageSize.value));
   const hasActiveFilters = computed(() => {
+    const hasMeaningfulDateValue = (value: string | null) => value != null && value.trim().length > 0;
     return (
       contentTypes.value.length > 0 ||
       excludeContentTypes.value.length > 0 ||
       repository.value !== null ||
       toolName.value !== null ||
-      dateFrom.value !== null ||
-      dateTo.value !== null ||
+      hasMeaningfulDateValue(dateFrom.value) ||
+      hasMeaningfulDateValue(dateTo.value) ||
       sessionId.value !== null
     );
   });
@@ -266,6 +267,7 @@ export const useSearchStore = defineStore("search", () => {
       if (dateError) {
         error.value = dateError;
         results.value = [];
+        facets.value = null;
         totalCount.value = 0;
         hasMore.value = false;
         latencyMs.value = 0;
@@ -419,6 +421,7 @@ export const useSearchStore = defineStore("search", () => {
       const { dateFromUnix, dateToUnix, error: dateError } = parseDateRange();
       if (dateError) {
         if (!facetGuard.isValid(token)) return;
+        facets.value = null;
         logWarn("[search] Skipping search facets fetch due to invalid date filter:", dateError);
         return;
       }

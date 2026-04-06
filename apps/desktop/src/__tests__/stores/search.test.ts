@@ -191,6 +191,20 @@ describe("useSearchStore – scheduling", () => {
     expect(store.error).toBe("Invalid date filter: From date must be before or equal to To date.");
   });
 
+  it("prevents search when To date is invalid", async () => {
+    const store = useSearchStore();
+    store.dateTo = "not-a-date";
+    store.query = "hello";
+
+    await vi.runAllTimersAsync();
+    await nextTick();
+    await Promise.resolve();
+
+    expect(mockSearchContent).not.toHaveBeenCalled();
+    expect(store.error).toBe("Invalid date filter: To date is not a valid date.");
+    expect(store.loading).toBe(false);
+  });
+
   it("passes unix timestamps for valid date range", async () => {
     const store = useSearchStore();
     store.dateFrom = "2025-01-01T00:00:00.000Z";
@@ -227,11 +241,13 @@ describe("useSearchStore – scheduling", () => {
 
   it("skips facets fetch and logs warning when date filters are invalid", async () => {
     const store = useSearchStore();
+    store.facets = emptyFacets;
     store.dateTo = "invalid-date";
 
     await store.fetchFacets("hello");
 
     expect(mockGetSearchFacets).not.toHaveBeenCalled();
+    expect(store.facets).toBeNull();
     expect(mockLogWarn).toHaveBeenCalledWith(
       "[search] Skipping search facets fetch due to invalid date filter:",
       "Invalid date filter: To date is not a valid date.",

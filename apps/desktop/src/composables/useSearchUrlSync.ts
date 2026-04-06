@@ -18,6 +18,12 @@ export function useSearchUrlSync() {
   let writeTimer: ReturnType<typeof setTimeout> | null = null;
   const WRITE_DEBOUNCE_MS = 300;
 
+  const normalizeDateValue = (value: string | null) => {
+    if (value == null) return null;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  };
+
   /** Read URL query params into store state. Missing params reset to defaults. */
   function readUrlIntoStore() {
     const q = route.query;
@@ -64,8 +70,8 @@ export function useSearchUrlSync() {
     store.repository = typeof q.repo === "string" && q.repo ? q.repo : null;
     store.toolName = typeof q.tool === "string" && q.tool ? q.tool : null;
     store.sessionId = typeof q.session === "string" && q.session ? q.session : null;
-    store.dateFrom = typeof q.from === "string" && q.from ? q.from : null;
-    store.dateTo = typeof q.to === "string" && q.to ? q.to : null;
+    store.dateFrom = normalizeDateValue(typeof q.from === "string" ? q.from : null);
+    store.dateTo = normalizeDateValue(typeof q.to === "string" ? q.to : null);
 
     // Check if search-relevant state actually changed
     const arraysEqual = (a: unknown[], b: unknown[]) =>
@@ -118,8 +124,10 @@ export function useSearchUrlSync() {
     if (store.repository) query.repo = store.repository;
     if (store.toolName) query.tool = store.toolName;
     if (store.sessionId) query.session = store.sessionId;
-    if (store.dateFrom) query.from = store.dateFrom;
-    if (store.dateTo) query.to = store.dateTo;
+    const normalizedDateFrom = normalizeDateValue(store.dateFrom);
+    const normalizedDateTo = normalizeDateValue(store.dateTo);
+    if (normalizedDateFrom) query.from = normalizedDateFrom;
+    if (normalizedDateTo) query.to = normalizedDateTo;
 
     // Only update if query actually changed
     const current = { ...route.query } as Record<string, string>;

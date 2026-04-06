@@ -132,10 +132,11 @@ const contentTypeConfig = CONTENT_TYPE_CONFIG;
 
 // ── Computed helpers ─────────────────────────────────────────
 const activeFilterCount = computed(() => {
+  const hasMeaningfulDateValue = (value: string | null) => value != null && value.trim().length > 0;
   let count = 0;
   if (store.contentTypes.length > 0 || store.excludeContentTypes.length > 0) count++;
   if (store.repository) count++;
-  if (store.dateFrom || store.dateTo) count++;
+  if (hasMeaningfulDateValue(store.dateFrom) || hasMeaningfulDateValue(store.dateTo)) count++;
   if (store.sessionId) count++;
   return count;
 });
