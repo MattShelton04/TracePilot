@@ -1,4 +1,5 @@
 import { getCurrentInstance, onMounted } from "vue";
+import { logInfo, logWarn } from "@/utils/logger";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -15,6 +16,7 @@ interface PerfEntry {
 // ---------------------------------------------------------------------------
 
 const MAX_LOG_SIZE = 1000;
+const MAX_SUMMARY_ENTRIES = 20;
 const SLOW_MOUNT_THRESHOLD_MS = 50;
 const perfLog: PerfEntry[] = [];
 
@@ -49,7 +51,7 @@ export function usePerfMonitor(label?: string) {
     record(`${componentName}:mount`, duration);
 
     if (import.meta.env.DEV && duration > SLOW_MOUNT_THRESHOLD_MS) {
-      console.warn(`[perf] Slow mount: ${componentName} took ${duration.toFixed(1)}ms`);
+      logWarn(`[perf] Slow mount: ${componentName} took ${duration.toFixed(1)}ms`);
     }
   });
 
@@ -122,7 +124,19 @@ export function dumpPerfSummary(): void {
     min: +Math.min(...durations).toFixed(1),
   }));
 
-  console.table(summary.sort((a, b) => b.avg - a.avg));
+  const sortedSummary = summary.sort((a, b) => b.avg - a.avg);
+  console.table(sortedSummary);
+
+  // Keep console.table for rich devtools inspection while also mirroring a
+  // compact structured summary through the logger facade for Tauri log files.
+  if (import.meta.env.DEV) {
+    const preview = sortedSummary.slice(0, MAX_SUMMARY_ENTRIES);
+    logInfo("[perf] Performance summary", {
+      totalGroups: sortedSummary.length,
+      shownGroups: preview.length,
+      entries: preview,
+    });
+  }
 }
 
 // Expose on window for easy console access during development
