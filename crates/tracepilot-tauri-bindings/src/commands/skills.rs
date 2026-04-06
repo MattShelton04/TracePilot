@@ -200,7 +200,8 @@ pub async fn skills_import_local(
     repo_root: Option<String>,
 ) -> CmdResult<tracepilot_orchestrator::skills::types::SkillImportResult> {
     let scope = scope.unwrap_or_else(|| "global".to_string());
-    let dest = blocking_cmd!(resolve_skills_dest(&scope, repo_root.as_deref()))?;
+    let dest = tokio::task::spawn_blocking(move || resolve_skills_dest(&scope, repo_root.as_deref()))
+        .await??;
 
     blocking_cmd!(sk(tracepilot_orchestrator::skills::import::import_from_local(
         std::path::Path::new(&source_dir),
@@ -215,7 +216,8 @@ pub async fn skills_import_file(
     repo_root: Option<String>,
 ) -> CmdResult<tracepilot_orchestrator::skills::types::SkillImportResult> {
     let scope = scope.unwrap_or_else(|| "global".to_string());
-    let dest = blocking_cmd!(resolve_skills_dest(&scope, repo_root.as_deref()))?;
+    let dest = tokio::task::spawn_blocking(move || resolve_skills_dest(&scope, repo_root.as_deref()))
+        .await??;
 
     blocking_cmd!(sk(tracepilot_orchestrator::skills::import::import_from_file(
         std::path::Path::new(&file_path),
@@ -233,7 +235,8 @@ pub async fn skills_import_github(
     repo_root: Option<String>,
 ) -> CmdResult<tracepilot_orchestrator::skills::types::SkillImportResult> {
     let scope = scope.unwrap_or_else(|| "global".to_string());
-    let dest = blocking_cmd!(resolve_skills_dest(&scope, repo_root.as_deref()))?;
+    let dest = tokio::task::spawn_blocking(move || resolve_skills_dest(&scope, repo_root.as_deref()))
+        .await??;
 
     blocking_cmd!(sk(tracepilot_orchestrator::skills::import::import_from_github(
         &owner,
@@ -290,7 +293,8 @@ pub async fn skills_import_github_skill(
     repo_root: Option<String>,
 ) -> CmdResult<tracepilot_orchestrator::skills::types::SkillImportResult> {
     let scope = scope.unwrap_or_else(|| "global".to_string());
-    let dest = blocking_cmd!(resolve_skills_dest(&scope, repo_root.as_deref()))?;
+    let dest = tokio::task::spawn_blocking(move || resolve_skills_dest(&scope, repo_root.as_deref()))
+        .await??;
 
     blocking_cmd!(sk(tracepilot_orchestrator::skills::import::import_github_skill(
         &owner,
@@ -307,8 +311,9 @@ pub async fn skills_import_github_skill(
 pub async fn skills_discover_repos(
     repos: Vec<(String, String)>,
 ) -> CmdResult<Vec<tracepilot_orchestrator::skills::types::RepoSkillsResult>> {
-    blocking_cmd!({
+    Ok(tokio::task::spawn_blocking(move || {
         let refs: Vec<(&str, &str)> = repos.iter().map(|(p, n)| (p.as_str(), n.as_str())).collect();
-        Ok::<_, crate::error::BindingsError>(tracepilot_orchestrator::skills::import::discover_repo_skills(&refs))
+        tracepilot_orchestrator::skills::import::discover_repo_skills(&refs)
     })
+    .await?)
 }
