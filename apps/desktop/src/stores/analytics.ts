@@ -141,9 +141,6 @@ export const useAnalyticsStore = defineStore("analytics", () => {
     () => prefs.hideEmptySessions,
     () => {
       for (const f of allFetchers) f.clearCache();
-      // After clearing the cache, re-fetch the data to update views.
-      // Use `force: false` to respect existing cached data for other params.
-      refreshAll();
     },
   );
 
