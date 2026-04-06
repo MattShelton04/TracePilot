@@ -11,10 +11,10 @@ use tracepilot_core::utils::cache::TtlCache;
 // Disk-usage TTL cache (P0 perf fix)
 // ---------------------------------------------------------------------------
 
+const DISK_USAGE_TTL: Duration = Duration::from_secs(60);
+
 static DISK_USAGE_CACHE: LazyLock<TtlCache<String, u64>> =
     LazyLock::new(|| TtlCache::new(DISK_USAGE_TTL));
-
-const DISK_USAGE_TTL: Duration = Duration::from_secs(60);
 
 fn disk_usage_cache_key(path: &Path) -> String {
     std::fs::canonicalize(path)
