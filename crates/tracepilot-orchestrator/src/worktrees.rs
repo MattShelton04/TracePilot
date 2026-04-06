@@ -5,23 +5,14 @@ use crate::types::{CreateWorktreeRequest, PruneResult, WorktreeDetails, Worktree
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 use std::time::Duration;
+use tracepilot_core::utils::cache::TtlCache;
 
 // ---------------------------------------------------------------------------
 // Disk-usage TTL cache (P0 perf fix)
 // ---------------------------------------------------------------------------
 
-// Note: This cache is defined here in tracepilot-orchestrator, while the facets
-// and system deps caches live in tracepilot-tauri-bindings. We can't use the
-// TtlCache from tauri-bindings here because orchestrator is a lower-level crate
-// that doesn't depend on tauri-bindings. To avoid this duplication, we'd need to
-// extract TtlCache into a shared utility crate, but that's beyond the scope of
-// this refactoring. For now, we use a simpler inline implementation.
-
-use dashmap::DashMap;
-use std::time::Instant;
-
-static DISK_USAGE_CACHE: LazyLock<DashMap<String, (u64, Instant)>> =
-    LazyLock::new(DashMap::new);
+static DISK_USAGE_CACHE: LazyLock<TtlCache<String, u64>> =
+    LazyLock::new(|| TtlCache::new(DISK_USAGE_TTL));
 
 const DISK_USAGE_TTL: Duration = Duration::from_secs(60);
 
@@ -329,15 +320,10 @@ pub fn get_worktree_details(worktree_path: &Path) -> Result<WorktreeDetails> {
 pub fn disk_usage_bytes(path: &Path) -> Result<u64> {
     let key = disk_usage_cache_key(path);
 
-    // Return cached value if still fresh.
-    if let Some(entry) = DISK_USAGE_CACHE.get(&key) {
-        let (bytes, ts) = *entry;
-        if ts.elapsed() < DISK_USAGE_TTL {
-            return Ok(bytes);
-        }
+    if let Some(bytes) = DISK_USAGE_CACHE.get(&key) {
+        return Ok(bytes);
     }
 
-    // Cache miss or stale — walk the directory tree.
     let mut total: u64 = 0;
     if path.is_dir() {
         for entry in walkdir::WalkDir::new(path)
@@ -350,7 +336,7 @@ pub fn disk_usage_bytes(path: &Path) -> Result<u64> {
         }
     }
 
-    DISK_USAGE_CACHE.insert(key, (total, Instant::now()));
+    DISK_USAGE_CACHE.insert(key, total);
     Ok(total)
 }
 
@@ -496,6 +482,8 @@ fn paths_equal(a: &str, b: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
+    use tempfile::tempdir;
 
     #[test]
     fn test_sanitize_branch_name() {
@@ -601,5 +589,27 @@ locked in use by CI
             assert!(paths_equal("/home/user/repo", "/home/user/repo"));
             assert!(!paths_equal("/home/user/Repo", "/home/user/repo"));
         }
+    }
+
+    #[test]
+    fn test_disk_usage_cache_requires_invalidation_to_refresh() {
+        let dir = tempdir().unwrap();
+        let path = dir.path();
+        let file = path.join("trace.log");
+
+        fs::write(&file, vec![0_u8; 4]).unwrap();
+        invalidate_disk_usage_cache(path);
+
+        let first = disk_usage_bytes(path).unwrap();
+        assert_eq!(first, 4);
+
+        fs::write(&file, vec![0_u8; 9]).unwrap();
+
+        let cached = disk_usage_bytes(path).unwrap();
+        assert_eq!(cached, 4);
+
+        invalidate_disk_usage_cache(path);
+        let refreshed = disk_usage_bytes(path).unwrap();
+        assert_eq!(refreshed, 9);
     }
 }

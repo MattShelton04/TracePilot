@@ -20,7 +20,6 @@ reqwest = { workspace = true }
 
 similar = "2"
 walkdir = "2"
-dashmap = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
