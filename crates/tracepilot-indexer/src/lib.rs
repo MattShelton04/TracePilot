@@ -81,8 +81,11 @@ impl ProgressTracker {
     fn accumulate(&mut self, info: &SessionIndexInfo) {
         self.running_tokens += info.total_tokens;
         self.running_events += info.event_count as u64;
-        if let Some(ref repo) = info.repository {
-            self.seen_repos.insert(repo.clone());
+        if let Some(repo) = &info.repository {
+            // Use get_or_insert pattern to avoid cloning if repo already seen
+            if !self.seen_repos.contains(repo.as_str()) {
+                self.seen_repos.insert(repo.clone());
+            }
         }
     }
 
@@ -191,8 +194,8 @@ pub fn reindex_all_with_rich_progress(
     let sessions = tracepilot_core::session::discovery::discover_sessions(session_state_dir)?;
     let db = index_db::IndexDb::open_or_create(index_db_path)?;
 
-    let live_ids: std::collections::HashSet<String> =
-        sessions.iter().map(|s| s.id.clone()).collect();
+    let live_ids: std::collections::HashSet<&str> =
+        sessions.iter().map(|s| s.id.as_str()).collect();
 
     let total = sessions.len();
     let mut tracker = ProgressTracker::new(total);
@@ -295,8 +298,8 @@ pub fn reindex_incremental_with_rich_progress(
     let sessions = tracepilot_core::session::discovery::discover_sessions(session_state_dir)?;
     let db = index_db::IndexDb::open_or_create(index_db_path)?;
 
-    let live_ids: std::collections::HashSet<String> =
-        sessions.iter().map(|s| s.id.clone()).collect();
+    let live_ids: std::collections::HashSet<&str> =
+        sessions.iter().map(|s| s.id.as_str()).collect();
 
     let total = sessions.len();
     let mut tracker = ProgressTracker::new(total);

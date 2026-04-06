@@ -303,7 +303,8 @@ mod tests {
     /// accidental mismatches when the function is modified in the future.
     #[test]
     fn test_build_date_repo_filter_placeholder_count_matches_values() {
-        let cases: Vec<(Option<&str>, Option<&str>, Option<&str>, bool, usize)> = vec![
+        type TestCase = (Option<&'static str>, Option<&'static str>, Option<&'static str>, bool, usize);
+        let cases: Vec<TestCase> = vec![
             (None, None, None, false, 0),
             (None, None, None, true, 0),
             (Some("2026-01-01"), None, None, false, 1),
