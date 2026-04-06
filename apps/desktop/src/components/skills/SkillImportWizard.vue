@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { GitHubSkillPreview, LocalSkillPreview, SkillImportResult } from "@tracepilot/types";
+import { toErrorMessage } from "@tracepilot/ui";
 import { ref, computed, onMounted } from "vue";
 import { useSkillsStore } from "@/stores/skills";
 import { browseForFile, browseForDirectory } from "@/composables/useBrowseDirectory";
@@ -176,7 +177,7 @@ async function scanGitHub() {
     }
   } catch (e) {
     if (!controller.cancelled) {
-      importError.value = String(e);
+      importError.value = toErrorMessage(e);
     }
   } finally {
     clearTimeout(msgTimer);
@@ -319,7 +320,7 @@ async function doImport() {
       importError.value = store.error ?? "Import failed";
     }
   } catch (e) {
-    importError.value = String(e);
+    importError.value = toErrorMessage(e);
   } finally {
     importing.value = false;
     importStatusMessage.value = "";

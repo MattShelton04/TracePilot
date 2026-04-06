@@ -478,7 +478,7 @@ export const useSearchStore = defineStore("search", () => {
     try {
       maintenanceMessage.value = await ftsIntegrityCheck();
     } catch (e) {
-      maintenanceMessage.value = `Error: ${String(e)}`;
+      maintenanceMessage.value = `Error: ${toErrorMessage(e)}`;
     }
   }
 
@@ -488,7 +488,7 @@ export const useSearchStore = defineStore("search", () => {
       maintenanceMessage.value = await ftsOptimize();
       await fetchHealth(); // refresh health after optimize
     } catch (e) {
-      maintenanceMessage.value = `Error: ${String(e)}`;
+      maintenanceMessage.value = `Error: ${toErrorMessage(e)}`;
     }
   }
 
