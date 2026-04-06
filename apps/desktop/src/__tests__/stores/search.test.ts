@@ -188,7 +188,7 @@ describe("useSearchStore – scheduling", () => {
     await Promise.resolve();
 
     expect(mockSearchContent).not.toHaveBeenCalled();
-    expect(store.error).toBe("Invalid date filter: From date must be before or equal to To date.");
+    expect(store.error).toBe("Invalid date filter: From date cannot be after To date.");
   });
 
   it("prevents search when To date is invalid", async () => {

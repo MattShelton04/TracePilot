@@ -266,11 +266,8 @@ export const useSearchStore = defineStore("search", () => {
       const { dateFromUnix, dateToUnix, error: dateError } = parseDateRange();
       if (dateError) {
         error.value = dateError;
-        results.value = [];
+        clearSearchResults();
         facets.value = null;
-        totalCount.value = 0;
-        hasMore.value = false;
-        latencyMs.value = 0;
         return;
       }
 
@@ -313,10 +310,7 @@ export const useSearchStore = defineStore("search", () => {
     } catch (e) {
       if (!searchGuard.isValid(token)) return;
       error.value = toErrorMessage(e);
-      results.value = [];
-      totalCount.value = 0;
-      hasMore.value = false;
-      latencyMs.value = 0;
+      clearSearchResults();
     } finally {
       if (searchGuard.isValid(token)) loading.value = false;
     }
@@ -387,14 +381,14 @@ export const useSearchStore = defineStore("search", () => {
   const statsGuard = useAsyncGuard();
   const filterOptionsGuard = useAsyncGuard();
 
-  function parseDateInputToUnix(value: string | null, label: "From" | "To"): number | undefined {
+  function parseDateInputToUnix(value: string | null, fieldName: "From" | "To"): number | undefined {
     if (value == null) return undefined;
     const trimmed = value.trim();
     if (!trimmed) return undefined;
 
     const timestampMs = new Date(trimmed).getTime();
     if (!Number.isFinite(timestampMs)) {
-      throw new Error(`Invalid date filter: ${label} date is not a valid date.`);
+      throw new Error(`Invalid date filter: ${fieldName} date is not a valid date.`);
     }
 
     return Math.floor(timestampMs / 1000);
@@ -406,7 +400,7 @@ export const useSearchStore = defineStore("search", () => {
       const dateToUnix = parseDateInputToUnix(dateTo.value, "To");
 
       if (dateFromUnix != null && dateToUnix != null && dateFromUnix > dateToUnix) {
-        return { error: "Invalid date filter: From date must be before or equal to To date." };
+        return { error: "Invalid date filter: From date cannot be after To date." };
       }
 
       return { dateFromUnix, dateToUnix };
@@ -528,6 +522,13 @@ export const useSearchStore = defineStore("search", () => {
   }
 
   // ── Helpers ──────────────────────────────────────────────────
+  function clearSearchResults() {
+    results.value = [];
+    totalCount.value = 0;
+    hasMore.value = false;
+    latencyMs.value = 0;
+  }
+
   function clearFilters() {
     contentTypes.value = [];
     excludeContentTypes.value = [];
@@ -545,10 +546,7 @@ export const useSearchStore = defineStore("search", () => {
     hydrating = true;
     query.value = "";
     clearFilters();
-    results.value = [];
-    totalCount.value = 0;
-    hasMore.value = false;
-    latencyMs.value = 0;
+    clearSearchResults();
     error.value = null;
     nextTick(() => {
       hydrating = false;
