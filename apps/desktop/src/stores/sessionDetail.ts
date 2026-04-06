@@ -49,7 +49,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
 
   function createAsyncSection<T>(initialData: T): AsyncSectionState<T> {
     return {
-      data: ref<T>(initialData),
+      data: ref<T>(initialData) as Ref<T>,
       error: ref<string | null>(null),
       isLoaded: ref<boolean>(false),
     };
