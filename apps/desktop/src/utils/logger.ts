@@ -36,6 +36,7 @@ export async function initLogging(options: LoggingOptions = {}): Promise<void> {
     const log = await ensureLog();
     if (options.attachConsole && log) {
       detach?.();
+      detach = null;
       detach = await log.attachConsole();
     }
   } catch (e) {
@@ -46,6 +47,7 @@ export async function initLogging(options: LoggingOptions = {}): Promise<void> {
 export function teardownLogging(): void {
   detach?.();
   detach = null;
+  backendLogFailure = false;
 }
 
 // Browser-safe re-exports: no-op in browser, write to backend log file in Tauri
