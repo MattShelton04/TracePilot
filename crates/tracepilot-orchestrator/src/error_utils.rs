@@ -56,4 +56,34 @@ mod tests {
         assert!(result.contains(": "));
         assert!(!result.contains(" : ")); // No extra spaces
     }
+
+    #[test]
+    fn handles_empty_strings() {
+        // Edge case: empty context produces ": source"
+        let result = format_error_with_context("", "error occurred");
+        assert_eq!(result, ": error occurred");
+
+        // Edge case: empty source produces "context: "
+        let result = format_error_with_context("Context", "");
+        assert_eq!(result, "Context: ");
+
+        // Edge case: both empty produces ": "
+        let result = format_error_with_context("", "");
+        assert_eq!(result, ": ");
+    }
+
+    #[test]
+    fn handles_multiline_sources() {
+        // Error messages with newlines are preserved as-is
+        let result = format_error_with_context("Failed to parse", "line 1\nline 2");
+        assert_eq!(result, "Failed to parse: line 1\nline 2");
+        assert!(result.contains('\n'));
+    }
+
+    #[test]
+    fn handles_unicode() {
+        // Unicode characters are handled correctly
+        let result = format_error_with_context("Échec de l'opération", "файл не найден");
+        assert_eq!(result, "Échec de l'opération: файл не найден");
+    }
 }
