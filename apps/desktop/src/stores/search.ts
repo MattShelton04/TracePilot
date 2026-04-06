@@ -42,16 +42,14 @@ export interface SessionGroup {
 }
 
 /** Content-type presets for the browse-mode quick filters. */
-export const BROWSE_PRESETS: Record<string, readonly SearchContentType[]> = {
+export const BROWSE_PRESETS = {
   errors: ["error", "tool_error"],
   userMessages: ["user_message"],
   toolCalls: ["tool_call"],
   reasoning: ["reasoning"],
   toolResults: ["tool_result"],
   subagents: ["subagent"],
-} as const;
-
-export type BrowsePresetKey = keyof typeof BROWSE_PRESETS;
+} as const satisfies Record<string, readonly SearchContentType[]>;
 
 export interface FacetOverrides {
   contentTypes?: string[];
@@ -335,6 +333,11 @@ export const useSearchStore = defineStore("search", () => {
   });
 
   // ── Quick browse presets ─────────────────────────────────────
+  /**
+   * Apply a browse preset, clearing all filters and setting content types.
+   * Resets query, pagination, and all filter fields, then triggers a search.
+   * @param types - Array of content types to filter by (use BROWSE_PRESETS constants)
+   */
   function applyBrowsePreset(types: readonly SearchContentType[]) {
     hydrating = true;
     page.value = 1;
@@ -353,25 +356,6 @@ export const useSearchStore = defineStore("search", () => {
     });
   }
 
-  // Thin wrappers kept for backward compatibility with existing consumers and tests.
-  function browseErrors() {
-    applyBrowsePreset(BROWSE_PRESETS.errors);
-  }
-  function browseUserMessages() {
-    applyBrowsePreset(BROWSE_PRESETS.userMessages);
-  }
-  function browseToolCalls() {
-    applyBrowsePreset(BROWSE_PRESETS.toolCalls);
-  }
-  function browseReasoning() {
-    applyBrowsePreset(BROWSE_PRESETS.reasoning);
-  }
-  function browseToolResults() {
-    applyBrowsePreset(BROWSE_PRESETS.toolResults);
-  }
-  function browseSubagents() {
-    applyBrowsePreset(BROWSE_PRESETS.subagents);
-  }
 
   // ── Recent search helpers (store-level orchestration) ──────
   function applyRecentSearch(q: string) {
@@ -596,12 +580,6 @@ export const useSearchStore = defineStore("search", () => {
     prevPage,
     initEventListeners,
     applyBrowsePreset,
-    browseErrors,
-    browseUserMessages,
-    browseToolCalls,
-    browseReasoning,
-    browseToolResults,
-    browseSubagents,
     applyRecentSearch,
     removeRecentSearch,
     clearRecentSearches,
