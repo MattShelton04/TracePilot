@@ -321,6 +321,7 @@ pub async fn search_content(
     sort_by: Option<String>,
 ) -> CmdResult<SearchResultsResponse> {
     crate::validators::validate_optional_session_id(&session_id)?;
+    crate::validators::validate_unix_date_range(date_from_unix, date_to_unix)?;
 
     let cfg = read_config(&state);
     let index_path = cfg.index_db_path();
@@ -400,6 +401,7 @@ pub async fn get_search_facets(
     date_to_unix: Option<i64>,
 ) -> CmdResult<SearchFacetsResponse> {
     crate::validators::validate_optional_session_id(&session_id)?;
+    crate::validators::validate_unix_date_range(date_from_unix, date_to_unix)?;
 
     let key = facets_cache_key(
         &query,
