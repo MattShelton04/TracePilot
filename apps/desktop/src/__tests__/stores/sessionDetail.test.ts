@@ -746,7 +746,7 @@ describe("useSessionDetailStore", () => {
       return wasLoading;
     }
 
-    it("evicts the oldest (insertion-order LRU) entry when cache overflows", async () => {
+    it("evicts the least-recently-used entry when cache overflows", async () => {
       const store = useSessionDetailStore();
 
       // Load s-0 … s-9 sequentially.
@@ -830,9 +830,7 @@ describe("useSessionDetailStore", () => {
 
       // Attempt to prefetch s-1 — guard returns early via .has() (already cached).
       // Unlike getFromSessionCache, the .has() check does NOT promote s-1 to MRU.
-      mockGetSessionDetail.mockResolvedValue({ ...FIXTURE_DETAIL, id: "s-1" });
-      mockGetSessionTurns.mockResolvedValue(FIXTURE_TURNS);
-      await store.prefetchSession("s-1"); // no-op
+      await store.prefetchSession("s-1"); // no-op: already cached, guard returns early
 
       // Navigate to s-10 (cache miss). saveToCache(s-0) keeps s-0 at MRU.
       mockGetSessionDetail.mockResolvedValue({ ...FIXTURE_DETAIL, id: "s-10" });
