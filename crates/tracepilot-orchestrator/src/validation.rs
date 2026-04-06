@@ -68,7 +68,7 @@ pub const SKILL_NAME_RULES: ValidationRules = ValidationRules {
 /// - Rejects strings containing `..`
 /// - Rejects strings starting with `/` or `\`
 /// - Rejects absolute paths (as determined by `Path::is_absolute()`)
-pub(crate) fn validate_identifier(
+pub fn validate_identifier(
     value: &str,
     rules: ValidationRules,
     context: &str,

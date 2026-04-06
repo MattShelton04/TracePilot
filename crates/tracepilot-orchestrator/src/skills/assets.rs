@@ -2,6 +2,7 @@
 
 use crate::skills::error::SkillsError;
 use crate::skills::types::SkillAsset;
+use crate::validation::{validate_identifier, SKILL_NAME_RULES};
 use std::path::Path;
 
 /// List all assets (non-SKILL.md files) in a skill directory.
@@ -62,12 +63,10 @@ fn collect_assets(
 }
 
 /// Validate an asset name against path traversal and absolute paths.
+///
+/// Uses centralized validation from the validation module, plus a domain-specific
+/// check to prevent operations on SKILL.md via the asset API.
 fn validate_asset_name(asset_name: &str) -> Result<(), SkillsError> {
-    // Check empty
-    if asset_name.is_empty() {
-        return Err(SkillsError::Asset("Asset name cannot be empty".into()));
-    }
-
     // Special case: SKILL.md cannot be operated on via asset API
     if asset_name == "SKILL.md" {
         return Err(SkillsError::Asset(
@@ -75,19 +74,9 @@ fn validate_asset_name(asset_name: &str) -> Result<(), SkillsError> {
         ));
     }
 
-    // Path traversal check
-    if asset_name.contains("..") {
-        return Err(SkillsError::Asset("Asset name cannot contain '..' (path traversal)".into()));
-    }
-
-    // Absolute path checks
-    if asset_name.starts_with('/') || asset_name.starts_with('\\') {
-        return Err(SkillsError::Asset("Asset name cannot start with path separator".into()));
-    }
-
-    if Path::new(asset_name).is_absolute() {
-        return Err(SkillsError::Asset("Asset name cannot be an absolute path".into()));
-    }
+    // Use centralized validation for security checks (empty, path traversal, etc.)
+    validate_identifier(asset_name, SKILL_NAME_RULES, "Asset name")
+        .map_err(SkillsError::Asset)?;
 
     Ok(())
 }

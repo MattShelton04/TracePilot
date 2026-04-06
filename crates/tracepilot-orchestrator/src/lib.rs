@@ -15,9 +15,10 @@ pub mod skills;
 pub mod templates;
 pub mod tokens;
 pub mod types;
-pub(crate) mod validation;
+pub mod validation;
 pub mod version_manager;
 pub mod worktrees;
 
 pub use error::{OrchestratorError, Result};
 pub use types::*;
+pub use validation::{validate_identifier, ValidationRules, SKILL_NAME_RULES, ENV_VAR_RULES, TEMPLATE_ID_RULES};
