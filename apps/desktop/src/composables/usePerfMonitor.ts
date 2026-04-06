@@ -16,6 +16,7 @@ interface PerfEntry {
 // ---------------------------------------------------------------------------
 
 const MAX_LOG_SIZE = 1000;
+const MAX_SUMMARY_ENTRIES = 20;
 const SLOW_MOUNT_THRESHOLD_MS = 50;
 const perfLog: PerfEntry[] = [];
 
@@ -129,7 +130,7 @@ export function dumpPerfSummary(): void {
   // Keep console.table for rich devtools inspection while also mirroring a
   // compact structured summary through the logger facade for Tauri log files.
   if (import.meta.env.DEV) {
-    const preview = sortedSummary.slice(0, 20);
+    const preview = sortedSummary.slice(0, MAX_SUMMARY_ENTRIES);
     logInfo("[perf] Performance summary", {
       totalGroups: sortedSummary.length,
       shownGroups: preview.length,
