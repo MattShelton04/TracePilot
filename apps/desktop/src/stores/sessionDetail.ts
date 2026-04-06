@@ -244,9 +244,14 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     }
   }
 
-  // ── Frontend session cache (last 10 sessions) ───────────────────────
+  // ── Frontend session cache (last 10 sessions, LRU eviction) ────────────
   // Caches all loaded section data so switching between recently viewed
   // sessions restores the UI instantly without any IPC roundtrip.
+  //
+  // Eviction policy: Least Recently Used (LRU). Both reads and writes
+  // promote the entry to the most-recently-used position so that
+  // frequently accessed sessions survive longer in the cache than sessions
+  // that were only visited once a long time ago.
   interface CachedSession {
     detail: SessionDetail;
     turns: ConversationTurn[];
@@ -260,12 +265,36 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
   const SESSION_CACHE_SIZE = 10;
   const sessionCache = new Map<string, CachedSession>();
 
+  /**
+   * Write a session snapshot to the cache, promoting it to the most-recently-used
+   * position. Evicts the least-recently-used entry when the cache is full.
+   *
+   * Uses delete-then-reinsert to update insertion order: JS Map preserves
+   * insertion order and Map.set() on an existing key does NOT move the key,
+   * so we must delete first to achieve LRU semantics.
+   */
   function setSessionCache(id: string, cached: CachedSession) {
+    // LRU: delete existing entry before reinserting to move it to MRU position
+    sessionCache.delete(id);
     sessionCache.set(id, cached);
     if (sessionCache.size > SESSION_CACHE_SIZE) {
       const oldest = sessionCache.keys().next().value;
-      if (oldest) sessionCache.delete(oldest);
+      if (oldest !== undefined) sessionCache.delete(oldest);
     }
+  }
+
+  /**
+   * Read a session snapshot from the cache, promoting it to the most-recently-used
+   * position (LRU read-touch). Returns undefined on a cache miss.
+   */
+  function getFromSessionCache(id: string): CachedSession | undefined {
+    const entry = sessionCache.get(id);
+    if (entry !== undefined) {
+      // LRU: move to MRU position by delete-then-reinsert
+      sessionCache.delete(id);
+      sessionCache.set(id, entry);
+    }
+    return entry;
   }
 
   function buildCachedSessionSnapshot(currentDetail: SessionDetail): CachedSession {
@@ -516,8 +545,8 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     error.value = null;
     clearSectionErrors();
 
-    // Check frontend cache for instant restore
-    const cached = sessionCache.get(id);
+    // Check frontend cache for instant restore — promotes session to MRU position
+    const cached = getFromSessionCache(id);
     if (cached) {
       // Restore ALL sections immediately — zero IPC, zero spinner
       restoreFromCachedSession(cached);
