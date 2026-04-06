@@ -5,6 +5,7 @@
 
 pub mod config_injector;
 pub mod error;
+pub mod error_utils;
 pub mod github;
 pub mod json_io;
 pub mod launcher;

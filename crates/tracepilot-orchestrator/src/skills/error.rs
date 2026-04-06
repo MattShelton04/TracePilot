@@ -1,5 +1,6 @@
 //! Skills-specific error types.
 
+use crate::error_utils::format_error_with_context;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -54,7 +55,7 @@ impl From<serde_yml::Error> for SkillsError {
 impl SkillsError {
     /// Construct a GitHub error with context and source error.
     pub fn github_ctx(context: impl std::fmt::Display, source: impl std::fmt::Display) -> Self {
-        SkillsError::GitHub(format!("{context}: {source}"))
+        SkillsError::GitHub(format_error_with_context(context, source))
     }
 }
 

@@ -1,5 +1,7 @@
 //! Orchestrator error types.
 
+use crate::error_utils::format_error_with_context;
+
 #[derive(Debug, thiserror::Error)]
 pub enum OrchestratorError {
     #[error("Git error: {0}")]
@@ -37,12 +39,12 @@ pub type Result<T> = std::result::Result<T, OrchestratorError>;
 impl OrchestratorError {
     /// Construct a Launch error with context and source error.
     pub fn launch_ctx(context: impl std::fmt::Display, source: impl std::fmt::Display) -> Self {
-        OrchestratorError::Launch(format!("{context}: {source}"))
+        OrchestratorError::Launch(format_error_with_context(context, source))
     }
 
     /// Construct a Config error with context and source error.
     pub fn config_ctx(context: impl std::fmt::Display, source: impl std::fmt::Display) -> Self {
-        OrchestratorError::Config(format!("{context}: {source}"))
+        OrchestratorError::Config(format_error_with_context(context, source))
     }
 }
 

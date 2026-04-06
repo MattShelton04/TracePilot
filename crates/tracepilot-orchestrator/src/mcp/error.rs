@@ -1,5 +1,6 @@
 //! MCP-specific error types.
 
+use crate::error_utils::format_error_with_context;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -45,12 +46,12 @@ impl From<std::io::Error> for McpError {
 impl McpError {
     /// Construct a HealthCheck error with context and source error.
     pub fn health_ctx(context: impl std::fmt::Display, source: impl std::fmt::Display) -> Self {
-        McpError::HealthCheck(format!("{context}: {source}"))
+        McpError::HealthCheck(format_error_with_context(context, source))
     }
 
     /// Construct an Import error with context and source error.
     pub fn import_ctx(context: impl std::fmt::Display, source: impl std::fmt::Display) -> Self {
-        McpError::Import(format!("{context}: {source}"))
+        McpError::Import(format_error_with_context(context, source))
     }
 }
 
