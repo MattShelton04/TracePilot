@@ -22,6 +22,8 @@ use std::sync::{Arc, Mutex};
 use tauri::Manager;
 use types::{EventCache, SearchSemaphore, TurnCache};
 
+const SESSION_CACHE_CAPACITY: usize = 10;
+
 /// Build the Tauri plugin that registers all 78 IPC commands.
 pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
     tauri::plugin::Builder::new("tracepilot")
@@ -31,13 +33,13 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
                 tokio::sync::Semaphore::new(1),
             )));
             let turn_cache: TurnCache = Arc::new(Mutex::new(lru::LruCache::new(
-                // SAFETY: 10 is non-zero
-                NonZeroUsize::new(10).expect("cache capacity is non-zero"),
+                // SAFETY: cache capacity is non-zero
+                NonZeroUsize::new(SESSION_CACHE_CAPACITY).expect("cache capacity is non-zero"),
             )));
             app.manage(turn_cache);
             let event_cache: EventCache = Arc::new(Mutex::new(lru::LruCache::new(
-                // SAFETY: 10 is non-zero
-                NonZeroUsize::new(10).expect("cache capacity is non-zero"),
+                // SAFETY: cache capacity is non-zero
+                NonZeroUsize::new(SESSION_CACHE_CAPACITY).expect("cache capacity is non-zero"),
             )));
             app.manage(event_cache);
             Ok(())

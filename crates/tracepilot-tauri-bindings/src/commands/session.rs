@@ -217,32 +217,34 @@ pub async fn get_session_turns(
         )?;
         let events_path = path.join("events.jsonl");
 
-        let file_size = std::fs::metadata(&events_path)
-            .map(|m| m.len())
-            .unwrap_or(0);
-
         // Check LRU cache — return if file size unchanged (append-only).
         // Clone cache data and release lock before running prepare_turns_for_ipc
         // to minimise Mutex hold time on concurrent IPC requests.
         let cached_turns = {
+            let file_size = std::fs::metadata(&events_path)
+                .map(|m| m.len())
+                .unwrap_or(0);
             let Ok(mut lru) = cache.lock() else {
                 tracing::warn!("Turn cache Mutex poisoned — skipping cache read");
-                let (events, _) =
+                let (events, events_file_size) =
                     load_cached_typed_events(&event_cache, &session_id, &events_path)?;
                 let turns = tracepilot_core::turns::reconstruct_turns(events.as_ref());
                 let mut ipc_turns = turns;
                 tracepilot_core::turns::prepare_turns_for_ipc(&mut ipc_turns);
                 return Ok(TurnsResponse {
                     turns: ipc_turns,
-                    events_file_size: file_size,
+                    events_file_size,
                 });
             };
-            lru.get(&session_id)
-                .filter(|cached| cached.events_file_size == file_size)
-                .map(|cached| cached.turns.clone())
+            (
+                lru.get(&session_id)
+                    .filter(|cached| cached.events_file_size == file_size)
+                    .map(|cached| cached.turns.clone()),
+                file_size,
+            )
         };
 
-        if let Some(mut turns) = cached_turns {
+        if let (Some(mut turns), file_size) = cached_turns {
             tracepilot_core::turns::prepare_turns_for_ipc(&mut turns);
             return Ok(TurnsResponse {
                 turns,
@@ -251,7 +253,8 @@ pub async fn get_session_turns(
         }
 
         // Cache miss or stale — parse from disk
-        let (events, _) = load_cached_typed_events(&event_cache, &session_id, &events_path)?;
+        let (events, events_file_size) =
+            load_cached_typed_events(&event_cache, &session_id, &events_path)?;
         let turns = tracepilot_core::turns::reconstruct_turns(events.as_ref());
 
         // Store full (untrimmed) turns in LRU
@@ -260,7 +263,7 @@ pub async fn get_session_turns(
                 session_id.clone(),
                 CachedTurns {
                     turns: turns.clone(),
-                    events_file_size: file_size,
+                    events_file_size,
                 },
             );
         }
@@ -269,7 +272,7 @@ pub async fn get_session_turns(
         tracepilot_core::turns::prepare_turns_for_ipc(&mut ipc_turns);
         Ok::<_, BindingsError>(TurnsResponse {
             turns: ipc_turns,
-            events_file_size: file_size,
+            events_file_size,
         })
     })
 }
