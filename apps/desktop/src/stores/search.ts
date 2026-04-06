@@ -42,16 +42,14 @@ export interface SessionGroup {
 }
 
 /** Content-type presets for the browse-mode quick filters. */
-export const BROWSE_PRESETS: Record<string, readonly SearchContentType[]> = {
+export const BROWSE_PRESETS = {
   errors: ["error", "tool_error"],
   userMessages: ["user_message"],
   toolCalls: ["tool_call"],
   reasoning: ["reasoning"],
   toolResults: ["tool_result"],
   subagents: ["subagent"],
-} as const;
-
-export type BrowsePresetKey = keyof typeof BROWSE_PRESETS;
+} as const satisfies Record<string, readonly SearchContentType[]>;
 
 export interface FacetOverrides {
   contentTypes?: string[];
