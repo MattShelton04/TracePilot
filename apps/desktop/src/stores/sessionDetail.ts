@@ -49,9 +49,9 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
 
   function createAsyncSection<T>(initialData: T): AsyncSectionState<T> {
     return {
-      data: ref(initialData) as Ref<T>,
+      data: ref<T>(initialData),
       error: ref<string | null>(null),
-      isLoaded: ref(false),
+      isLoaded: ref<boolean>(false),
     };
   }
 
@@ -319,6 +319,15 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     planSection.data.value = cached.plan;
     metricsSection.data.value = cached.shutdownMetrics;
     incidentsSection.data.value = cached.incidents;
+
+    // Synchronize section.isLoaded with cached.loadedSections
+    checkpointsSection.isLoaded.value = cached.loadedSections.has("checkpoints");
+    planSection.isLoaded.value = cached.loadedSections.has("plan");
+    metricsSection.isLoaded.value = cached.loadedSections.has("metrics");
+    incidentsSection.isLoaded.value = cached.loadedSections.has("incidents");
+    // Note: todos is intentionally excluded per line 545-546 (fetched fresh on demand)
+    todosSection.isLoaded.value = false;
+
     loaded.value = new Set(cached.loadedSections);
   }
 
