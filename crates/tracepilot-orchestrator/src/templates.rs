@@ -7,12 +7,8 @@ use std::path::PathBuf;
 /// Maximum size for a single template JSON file (1 MB).
 const MAX_TEMPLATE_SIZE: u64 = 1_048_576;
 
-/// Validate a template ID to prevent path traversal attacks.
-/// IDs must be non-empty and contain only alphanumeric characters, hyphens, and underscores.
-fn validate_template_id(id: &str) -> Result<()> {
-    crate::validation::validate_identifier(id, crate::validation::TEMPLATE_ID_RULES, "Template ID")
-        .map_err(OrchestratorError::NotFound)
-}
+// NOTE: Template ID validation now uses validation::validate_identifier directly
+// with validation::TEMPLATE_ID_RULES. See validation.rs for the centralized logic.
 
 /// Default templates storage path.
 pub fn templates_dir() -> Result<PathBuf> {
@@ -174,7 +170,8 @@ pub fn list_templates() -> Result<Vec<SessionTemplate>> {
 
 /// Save a new template.
 pub fn save_template(template: &SessionTemplate) -> Result<()> {
-    validate_template_id(&template.id)?;
+    crate::validation::validate_identifier(&template.id, crate::validation::TEMPLATE_ID_RULES, "Template ID")
+        .map_err(OrchestratorError::NotFound)?;
 
     // Prevent collision with internal metadata file
     if template.id == "dismissed_defaults" {
@@ -195,7 +192,8 @@ pub fn save_template(template: &SessionTemplate) -> Result<()> {
 
 /// Delete a template by ID. For default templates, this dismisses them instead.
 pub fn delete_template(id: &str) -> Result<()> {
-    validate_template_id(id)?;
+    crate::validation::validate_identifier(id, crate::validation::TEMPLATE_ID_RULES, "Template ID")
+        .map_err(OrchestratorError::NotFound)?;
 
     // Prevent accidental deletion of internal metadata file
     if id == "dismissed_defaults" {
@@ -232,7 +230,8 @@ pub fn delete_template(id: &str) -> Result<()> {
 /// Increment usage count for a template.
 /// For default templates that haven't been saved yet, creates a user override.
 pub fn increment_usage(id: &str) -> Result<()> {
-    validate_template_id(id)?;
+    crate::validation::validate_identifier(id, crate::validation::TEMPLATE_ID_RULES, "Template ID")
+        .map_err(OrchestratorError::NotFound)?;
 
     let dir = templates_dir()?;
     let path = dir.join(format!("{id}.json"));

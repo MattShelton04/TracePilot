@@ -205,7 +205,8 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
 
         // Validate env var names and inject into the PowerShell script so they survive WMI spawning
         for k in envs.keys() {
-            crate::process::validate_env_var_name(k)?;
+            crate::validation::validate_identifier(k, crate::validation::ENV_VAR_RULES, "Environment variable name")
+                .map_err(OrchestratorError::Launch)?;
         }
         let env_setup: String = envs
             .iter()

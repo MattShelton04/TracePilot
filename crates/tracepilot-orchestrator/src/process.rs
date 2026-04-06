@@ -448,7 +448,8 @@ fn spawn_terminal_macos(
 
     if let Some(e) = envs {
         for (k, v) in e {
-            validate_env_var_name(k)?;
+            crate::validation::validate_identifier(k, crate::validation::ENV_VAR_RULES, "Environment variable name")
+                .map_err(OrchestratorError::Launch)?;
             parts.push(format!("export {}={}", k, shell_quote(v)));
         }
     }
@@ -505,7 +506,8 @@ fn spawn_terminal_linux(
         command.current_dir(work_dir);
         if let Some(e) = envs {
             for k in e.keys() {
-                validate_env_var_name(k)?;
+                crate::validation::validate_identifier(k, crate::validation::ENV_VAR_RULES, "Environment variable name")
+                    .map_err(OrchestratorError::Launch)?;
             }
             command.envs(e.iter().map(|(k, v)| (k.as_str(), v.as_str())));
         }
@@ -618,13 +620,9 @@ impl<W: std::io::Write> std::io::Write for Base64Encoder<W> {
 }
 
 // ─── Environment variable name validation ───────────────────────────
-
-/// Validate that an environment variable name contains only safe characters.
-/// Prevents shell injection via env var names in constructed commands.
-pub(crate) fn validate_env_var_name(name: &str) -> Result<()> {
-    crate::validation::validate_identifier(name, crate::validation::ENV_VAR_RULES, "Environment variable name")
-        .map_err(OrchestratorError::Launch)
-}
+// NOTE: Environment variable validation now uses validation::validate_identifier
+// directly with validation::ENV_VAR_RULES. See validation.rs for the centralized
+// validation logic.
 
 // ─── Shell quoting ──────────────────────────────────────────────────
 
@@ -844,18 +842,18 @@ mod tests {
 
     #[test]
     fn test_validate_env_var_name_valid() {
-        assert!(validate_env_var_name("PATH").is_ok());
-        assert!(validate_env_var_name("MY_VAR").is_ok());
-        assert!(validate_env_var_name("_private").is_ok());
-        assert!(validate_env_var_name("VAR123").is_ok());
+        assert!(crate::validation::validate_identifier("PATH", crate::validation::ENV_VAR_RULES, "Environment variable name").is_ok());
+        assert!(crate::validation::validate_identifier("MY_VAR", crate::validation::ENV_VAR_RULES, "Environment variable name").is_ok());
+        assert!(crate::validation::validate_identifier("_private", crate::validation::ENV_VAR_RULES, "Environment variable name").is_ok());
+        assert!(crate::validation::validate_identifier("VAR123", crate::validation::ENV_VAR_RULES, "Environment variable name").is_ok());
     }
 
     #[test]
     fn test_validate_env_var_name_invalid() {
-        assert!(validate_env_var_name("").is_err());
-        assert!(validate_env_var_name("FOO;rm -rf").is_err());
-        assert!(validate_env_var_name("1BAD").is_err());
-        assert!(validate_env_var_name("HAS SPACE").is_err());
-        assert!(validate_env_var_name("A=B").is_err());
+        assert!(crate::validation::validate_identifier("", crate::validation::ENV_VAR_RULES, "Environment variable name").is_err());
+        assert!(crate::validation::validate_identifier("FOO;rm -rf", crate::validation::ENV_VAR_RULES, "Environment variable name").is_err());
+        assert!(crate::validation::validate_identifier("1BAD", crate::validation::ENV_VAR_RULES, "Environment variable name").is_err());
+        assert!(crate::validation::validate_identifier("HAS SPACE", crate::validation::ENV_VAR_RULES, "Environment variable name").is_err());
+        assert!(crate::validation::validate_identifier("A=B", crate::validation::ENV_VAR_RULES, "Environment variable name").is_err());
     }
 }

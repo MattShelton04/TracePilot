@@ -52,7 +52,8 @@ pub fn create_skill(
     description: &str,
     body: &str,
 ) -> Result<PathBuf, SkillsError> {
-    validate_skill_name(name)?;
+    crate::validation::validate_identifier(name, crate::validation::SKILL_NAME_RULES, "Skill name")
+        .map_err(SkillsError::FrontmatterValidation)?;
     let dir = global_skills_dir().map_err(|e| SkillsError::Io(e.to_string()))?;
     let skill_dir = dir.join(name);
 
@@ -114,15 +115,13 @@ pub fn delete_skill(skill_dir: &Path) -> Result<(), SkillsError> {
     Ok(())
 }
 
-/// Validate a skill name for safe filesystem use.
-fn validate_skill_name(name: &str) -> Result<(), SkillsError> {
-    crate::validation::validate_identifier(name, crate::validation::SKILL_NAME_RULES, "Skill name")
-        .map_err(SkillsError::FrontmatterValidation)
-}
+// NOTE: Skill name validation now uses validation::validate_identifier directly
+// with validation::SKILL_NAME_RULES. See validation.rs for the centralized logic.
 
 /// Rename a skill (updates both directory name and frontmatter name).
 pub fn rename_skill(skill_dir: &Path, new_name: &str) -> Result<PathBuf, SkillsError> {
-    validate_skill_name(new_name)?;
+    crate::validation::validate_identifier(new_name, crate::validation::SKILL_NAME_RULES, "Skill name")
+        .map_err(SkillsError::FrontmatterValidation)?;
 
     let skill_path = skill_dir.join("SKILL.md");
     if !skill_path.exists() {
@@ -162,7 +161,8 @@ pub fn rename_skill(skill_dir: &Path, new_name: &str) -> Result<PathBuf, SkillsE
 
 /// Duplicate a skill with a new name.
 pub fn duplicate_skill(skill_dir: &Path, new_name: &str) -> Result<PathBuf, SkillsError> {
-    validate_skill_name(new_name)?;
+    crate::validation::validate_identifier(new_name, crate::validation::SKILL_NAME_RULES, "Skill name")
+        .map_err(SkillsError::FrontmatterValidation)?;
 
     let skill = load_skill(&skill_dir.join("SKILL.md"), SkillScope::Global)?;
 
