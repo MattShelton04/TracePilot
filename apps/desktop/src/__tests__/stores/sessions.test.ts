@@ -90,7 +90,7 @@ describe("useSessionsStore", () => {
     mockListSessions.mockRejectedValue(new Error("network error"));
     const store = useSessionsStore();
 
-    await store.fetchSessions();
+    await expect(store.fetchSessions()).rejects.toThrow("network error");
     expect(store.loading).toBe(false);
     expect(store.error).toContain("network error");
     expect(store.sessions).toEqual([]);
@@ -115,7 +115,7 @@ describe("useSessionsStore", () => {
     mockReindexSessions.mockRejectedValue(new Error("index failed"));
     const store = useSessionsStore();
 
-    await store.reindex();
+    await expect(store.reindex()).rejects.toThrow("index failed");
     expect(store.indexing).toBe(false);
     expect(store.error).toContain("index failed");
   });
@@ -191,7 +191,7 @@ describe("useSessionsStore", () => {
     mockReindexSessions.mockRejectedValue(new Error("silent failure"));
     const store = useSessionsStore();
 
-    await store.ensureIndex();
+    await expect(store.ensureIndex()).rejects.toThrow("silent failure");
     // Should not set error state — this is a background optimization
     expect(store.error).toBeNull();
     expect(store.indexing).toBe(false);
