@@ -424,8 +424,10 @@ mod tests {
 
     #[test]
     fn migrate_v1_to_v3() {
-        let mut config = TracePilotConfig::default();
-        config.version = 1;
+        let mut config = TracePilotConfig {
+            version: 1,
+            ..TracePilotConfig::default()
+        };
         assert!(config.migrate());
         assert_eq!(config.version, 3);
     }
@@ -439,16 +441,20 @@ mod tests {
 
     #[test]
     fn migrate_future_version_is_noop() {
-        let mut config = TracePilotConfig::default();
-        config.version = 999;
+        let mut config = TracePilotConfig {
+            version: 999,
+            ..TracePilotConfig::default()
+        };
         assert!(!config.migrate());
         assert_eq!(config.version, 999);
     }
 
     #[test]
     fn migrate_v0_bumps_through_all_versions() {
-        let mut config = TracePilotConfig::default();
-        config.version = 0;
+        let mut config = TracePilotConfig {
+            version: 0,
+            ..TracePilotConfig::default()
+        };
         assert!(config.migrate());
         assert_eq!(config.version, TracePilotConfig::CURRENT_VERSION);
     }

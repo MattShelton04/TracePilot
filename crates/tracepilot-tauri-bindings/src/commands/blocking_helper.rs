@@ -6,10 +6,12 @@
 
 /// Execute a blocking `Result`-returning expression in `spawn_blocking`.
 ///
-/// Expands to `Ok(tokio::task::spawn_blocking(move || expr).await??)`.
+/// Expands to `spawn_blocking(move || expr).await?.map_err(Into::into)`.
+///
+/// The `$expr` must return `Result<T, E>` where `E: Into<BindingsError>`.
 #[macro_export]
 macro_rules! blocking_cmd {
     ($expr:expr) => {
-        Ok(tokio::task::spawn_blocking(move || $expr).await??)
+        tokio::task::spawn_blocking(move || $expr).await?.map_err(Into::into)
     };
 }

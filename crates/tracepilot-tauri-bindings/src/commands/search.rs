@@ -25,6 +25,7 @@ use tokio::sync::Semaphore;
 static FACETS_CACHE: LazyLock<TtlCache<u64, SearchFacetsResponse>> =
     LazyLock::new(|| TtlCache::new(Duration::from_secs(60)));
 
+#[allow(clippy::too_many_arguments)]
 fn facets_cache_key(
     query: &Option<String>,
     content_types: &Option<Vec<String>>,

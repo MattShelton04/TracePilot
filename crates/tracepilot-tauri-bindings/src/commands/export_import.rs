@@ -431,13 +431,13 @@ mod tests {
             Some(true),
         );
 
-        assert_eq!(content.include_subagent_internals, false);
-        assert_eq!(content.include_tool_details, false);
-        assert_eq!(content.include_full_tool_results, true);
+        assert!(!content.include_subagent_internals);
+        assert!(!content.include_tool_details);
+        assert!(content.include_full_tool_results);
 
-        assert_eq!(redaction.anonymize_paths, true);
-        assert_eq!(redaction.strip_secrets, true);
-        assert_eq!(redaction.strip_pii, true);
+        assert!(redaction.anonymize_paths);
+        assert!(redaction.strip_secrets);
+        assert!(redaction.strip_pii);
     }
 
     #[test]
@@ -451,13 +451,13 @@ mod tests {
             None,
         );
 
-        assert_eq!(content.include_subagent_internals, false); // overridden
-        assert_eq!(content.include_tool_details, true); // default
-        assert_eq!(content.include_full_tool_results, false); // default
+        assert!(!content.include_subagent_internals); // overridden
+        assert!(content.include_tool_details); // default
+        assert!(!content.include_full_tool_results); // default
 
-        assert_eq!(redaction.anonymize_paths, false); // default
-        assert_eq!(redaction.strip_secrets, true); // overridden
-        assert_eq!(redaction.strip_pii, false); // default
+        assert!(!redaction.anonymize_paths); // default
+        assert!(redaction.strip_secrets); // overridden
+        assert!(!redaction.strip_pii); // default
     }
 
     #[test]

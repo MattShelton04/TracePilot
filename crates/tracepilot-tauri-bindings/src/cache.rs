@@ -35,6 +35,7 @@ pub struct TtlCache<K, V> {
     ttl: Duration,
 }
 
+#[allow(dead_code)]
 impl<K, V> TtlCache<K, V>
 where
     K: Hash + Eq,
