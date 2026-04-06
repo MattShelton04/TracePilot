@@ -280,6 +280,54 @@ describe("useConfigInjectorStore", () => {
       await store.initialize();
       expect(store.error).toBeNull();
     });
+
+    it("ignores stale initialize responses when a newer call finishes first", async () => {
+      const slowAgents = createDeferred<AgentDefinition[]>();
+
+      mockGetAgentDefinitions
+        .mockReturnValueOnce(slowAgents.promise)
+        .mockResolvedValueOnce([{ ...FIXTURE_AGENT, name: "fresh-agent" }]);
+
+      const freshConfig: CopilotConfig = { ...FIXTURE_CONFIG, model: "fresh-model" };
+      const freshVersions: CopilotVersion[] = [
+        { ...FIXTURE_ACTIVE_VERSION, version: "2.0.0", hasCustomizations: true },
+      ];
+      const freshActive: CopilotVersion = { ...freshVersions[0] };
+      const freshBackups: BackupEntry[] = [{ ...FIXTURE_BACKUPS[0], id: "fresh-backup" }];
+
+      mockGetCopilotConfig.mockResolvedValueOnce(FIXTURE_CONFIG).mockResolvedValueOnce(freshConfig);
+      mockDiscoverCopilotVersions
+        .mockResolvedValueOnce(FIXTURE_VERSIONS)
+        .mockResolvedValueOnce(freshVersions);
+      mockGetActiveCopilotVersion
+        .mockResolvedValueOnce(FIXTURE_ACTIVE_VERSION)
+        .mockResolvedValueOnce(freshActive);
+      mockListConfigBackups.mockResolvedValueOnce(FIXTURE_BACKUPS).mockResolvedValueOnce(freshBackups);
+
+      const store = useConfigInjectorStore();
+      const first = store.initialize();
+      const second = store.initialize();
+
+      await second;
+
+      expect(store.agents).toEqual([{ ...FIXTURE_AGENT, name: "fresh-agent" }]);
+      expect(store.copilotConfig).toEqual(freshConfig);
+      expect(store.versions).toEqual(freshVersions);
+      expect(store.activeVersion).toEqual(freshActive);
+      expect(store.backups).toEqual(freshBackups);
+      expect(store.error).toBeNull();
+
+      slowAgents.resolve(FIXTURE_AGENTS);
+      await first;
+
+      expect(store.agents).toEqual([{ ...FIXTURE_AGENT, name: "fresh-agent" }]);
+      expect(store.copilotConfig).toEqual(freshConfig);
+      expect(store.versions).toEqual(freshVersions);
+      expect(store.activeVersion).toEqual(freshActive);
+      expect(store.backups).toEqual(freshBackups);
+      expect(store.loading).toBe(false);
+      expect(store.error).toBeNull();
+    });
   });
 
   describe("selectAgent", () => {
@@ -565,6 +613,46 @@ describe("useConfigInjectorStore", () => {
       await store.loadMigrationDiffs("1.0.8", "1.0.9");
 
       expect(store.error).toContain("Diff failed");
+    });
+
+    it("ignores stale migrationDiffs responses when a newer request finishes first", async () => {
+      const slowDiffs = createDeferred<MigrationDiff[]>();
+      const freshDiffs: MigrationDiff[] = [
+        {
+          fileName: "new-agent.yaml",
+          agentName: "new-agent",
+          fromVersion: "1.1.0",
+          toVersion: "1.2.0",
+          diff: "+model: fresh",
+          hasConflicts: false,
+        },
+      ];
+      const staleDiffs: MigrationDiff[] = [
+        {
+          fileName: "stale-agent.yaml",
+          agentName: "stale-agent",
+          fromVersion: "1.0.0",
+          toVersion: "1.0.1",
+          diff: "-old",
+          hasConflicts: true,
+        },
+      ];
+
+      mockGetMigrationDiffs.mockReturnValueOnce(slowDiffs.promise).mockResolvedValueOnce(freshDiffs);
+
+      const store = useConfigInjectorStore();
+      const first = store.loadMigrationDiffs("1.0.0", "1.0.1");
+      const second = store.loadMigrationDiffs("1.1.0", "1.2.0");
+
+      await second;
+
+      expect(store.migrationDiffs).toEqual(freshDiffs);
+      expect(store.error).toBeNull();
+
+      slowDiffs.resolve(staleDiffs);
+      await first;
+
+      expect(store.migrationDiffs).toEqual(freshDiffs);
     });
   });
 
