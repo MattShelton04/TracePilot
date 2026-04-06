@@ -26,11 +26,11 @@ pub fn discover_all(repo_root: Option<&Path>) -> Result<Vec<SkillSummary>, Skill
     let mut summaries = Vec::new();
 
     // Global skills
-    if let Ok(global_dir) = global_skills_dir()
-        && global_dir.exists()
-    {
-        let global = discover_in_directory(&global_dir, SkillScope::Global)?;
-        summaries.extend(global);
+    if let Ok(global_dir) = global_skills_dir() {
+        if global_dir.exists() {
+            let global = discover_in_directory(&global_dir, SkillScope::Global)?;
+            summaries.extend(global);
+        }
     }
 
     // Repository skills
@@ -129,7 +129,7 @@ pub fn load_skill(skill_md_path: &Path, scope: SkillScope) -> Result<Skill, Skil
     let modified_at = std::fs::metadata(skill_md_path)
         .ok()
         .and_then(|m| m.modified().ok())
-        .map(chrono::DateTime::from);
+        .map(|t| chrono::DateTime::from(t));
 
     Ok(Skill {
         frontmatter: fm,

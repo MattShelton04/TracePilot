@@ -14,6 +14,8 @@ pub enum OrchestratorError {
     Config(String),
     #[error("Launch error: {0}")]
     Launch(String),
+    #[error("Process timed out after {secs}s")]
+    Timeout { secs: u64 },
     #[error("Version error: {0}")]
     Version(String),
     #[error("Template error: {0}")]

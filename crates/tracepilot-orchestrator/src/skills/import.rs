@@ -577,11 +577,11 @@ pub fn discover_local_skills(base_dir: &Path) -> Result<Vec<LocalSkillPreview>, 
 
     // 1. Check if the directory itself is a skill
     let root_skill_md = base_dir.join("SKILL.md");
-    if root_skill_md.exists()
-        && let Ok(preview) = skill_preview_from_dir(base_dir)
-    {
-        previews.push(preview);
-        return Ok(previews);
+    if root_skill_md.exists() {
+        if let Ok(preview) = skill_preview_from_dir(base_dir) {
+            previews.push(preview);
+            return Ok(previews);
+        }
     }
 
     // 2–5. Search well-known sub-directory patterns
@@ -603,10 +603,10 @@ pub fn discover_local_skills(base_dir: &Path) -> Result<Vec<LocalSkillPreview>, 
             if !skill_dir.is_dir() {
                 continue;
             }
-            if skill_dir.join("SKILL.md").exists()
-                && let Ok(preview) = skill_preview_from_dir(&skill_dir)
-            {
-                previews.push(preview);
+            if skill_dir.join("SKILL.md").exists() {
+                if let Ok(preview) = skill_preview_from_dir(&skill_dir) {
+                    previews.push(preview);
+                }
             }
         }
     }

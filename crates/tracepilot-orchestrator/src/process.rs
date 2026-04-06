@@ -117,14 +117,12 @@ fn execute_with_timeout(
         Ok(result) => result,
         Err(_) => {
             // Timeout occurred - attempt to kill the process
-            if let Ok(mut child) = child_shared.lock()
-                && let Err(e) = child.kill()
-            {
-                tracing::warn!("Failed to kill timed-out process: {}", e);
+            if let Ok(mut child) = child_shared.lock() {
+                if let Err(e) = child.kill() {
+                    tracing::warn!("Failed to kill timed-out process: {}", e);
+                }
             }
-            Err(OrchestratorError::Launch(format!(
-                "Process timed out after {timeout_secs}s"
-            )))
+            Err(OrchestratorError::Timeout { secs: timeout_secs })
         }
     }
 }
@@ -145,14 +143,14 @@ fn run_with_timeout(
         }),
         Err(e) => {
             // Enhance timeout error with command context
-            if e.to_string().contains("timed out") {
+            if let OrchestratorError::Timeout { secs } = &e {
                 let cmd_display = if args.is_empty() {
                     program.to_string()
                 } else {
                     format!("{} {}", program, args.join(" "))
                 };
                 Err(OrchestratorError::Launch(format!(
-                    "Command timed out after {timeout_secs}s: {cmd_display}. \
+                    "Command timed out after {secs}s: {cmd_display}. \
                      Check system resources and try again."
                 )))
             } else {
@@ -302,9 +300,9 @@ pub fn run_hidden_stdout_timeout(
         }
         Err(e) => {
             // Enhance timeout error with user-friendly context
-            if e.to_string().contains("timed out") {
+            if let OrchestratorError::Timeout { secs } = &e {
                 Err(OrchestratorError::Launch(format!(
-                    "GitHub API call timed out after {timeout_secs}s. \
+                    "GitHub API call timed out after {secs}s. \
                      Check your internet connection and try again."
                 )))
             } else {
