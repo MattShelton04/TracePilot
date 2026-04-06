@@ -81,13 +81,14 @@ pub fn compute_health(
 
     // Large session check
     if let Some(count) = event_count
-        && count > LARGE_SESSION_THRESHOLD {
-            flags.push(HealthFlag {
-                severity: HealthSeverity::Warning,
-                category: "size".to_string(),
-                message: format!("Large session with {} events", count),
-            });
-        }
+        && count > LARGE_SESSION_THRESHOLD
+    {
+        flags.push(HealthFlag {
+            severity: HealthSeverity::Warning,
+            category: "size".to_string(),
+            message: format!("Large session with {} events", count),
+        });
+    }
 
     // Missing shutdown — session may have crashed or is still active
     if shutdown_metrics.is_none() {

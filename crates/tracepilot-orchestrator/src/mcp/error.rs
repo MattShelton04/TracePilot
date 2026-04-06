@@ -108,8 +108,7 @@ mod tests {
 
     #[test]
     fn from_serde_json_error() {
-        let json_err: serde_json::Error =
-            serde_json::from_str::<String>("invalid").unwrap_err();
+        let json_err: serde_json::Error = serde_json::from_str::<String>("invalid").unwrap_err();
         let mcp_err: McpError = json_err.into();
         assert!(matches!(mcp_err, McpError::Json(_)));
         assert!(!mcp_err.to_string().is_empty());

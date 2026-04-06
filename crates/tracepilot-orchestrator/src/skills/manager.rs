@@ -13,7 +13,9 @@ use std::path::{Path, PathBuf};
 /// This prevents IPC callers from passing arbitrary paths that could lead to
 /// reads/writes/deletes of unrelated directories.
 pub fn validate_skill_dir(skill_dir: &Path) -> Result<(), SkillsError> {
-    let canonical = skill_dir.canonicalize().unwrap_or_else(|_| skill_dir.to_path_buf());
+    let canonical = skill_dir
+        .canonicalize()
+        .unwrap_or_else(|_| skill_dir.to_path_buf());
 
     // Check global skills root
     if let Ok(global) = global_skills_dir() {
@@ -47,11 +49,7 @@ pub fn validate_skill_dir(skill_dir: &Path) -> Result<(), SkillsError> {
 }
 
 /// Create a new skill in the global skills directory.
-pub fn create_skill(
-    name: &str,
-    description: &str,
-    body: &str,
-) -> Result<PathBuf, SkillsError> {
+pub fn create_skill(name: &str, description: &str, body: &str) -> Result<PathBuf, SkillsError> {
     validate_skill_name(name)?;
     let dir = global_skills_dir().map_err(|e| SkillsError::Io(e.to_string()))?;
     let skill_dir = dir.join(name);
@@ -132,10 +130,7 @@ pub fn rename_skill(skill_dir: &Path, new_name: &str) -> Result<PathBuf, SkillsE
     }
 
     // Check destination FIRST — before any mutation
-    let new_dir = skill_dir
-        .parent()
-        .unwrap_or(Path::new("."))
-        .join(new_name);
+    let new_dir = skill_dir.parent().unwrap_or(Path::new(".")).join(new_name);
 
     if new_dir.exists() {
         return Err(SkillsError::DuplicateSkill(new_name.to_string()));
@@ -166,10 +161,7 @@ pub fn duplicate_skill(skill_dir: &Path, new_name: &str) -> Result<PathBuf, Skil
 
     let skill = load_skill(&skill_dir.join("SKILL.md"), SkillScope::Global)?;
 
-    let new_dir = skill_dir
-        .parent()
-        .unwrap_or(Path::new("."))
-        .join(new_name);
+    let new_dir = skill_dir.parent().unwrap_or(Path::new(".")).join(new_name);
 
     if new_dir.exists() {
         return Err(SkillsError::DuplicateSkill(new_name.to_string()));
@@ -239,9 +231,7 @@ mod tests {
     fn setup_skill(dir: &Path, name: &str) -> PathBuf {
         let skill_dir = dir.join(name);
         std::fs::create_dir_all(&skill_dir).unwrap();
-        let content = format!(
-            "---\nname: {name}\ndescription: Test skill\n---\n\nBody text.\n"
-        );
+        let content = format!("---\nname: {name}\ndescription: Test skill\n---\n\nBody text.\n");
         std::fs::write(skill_dir.join("SKILL.md"), content).unwrap();
         skill_dir
     }
@@ -317,7 +307,10 @@ mod tests {
 
         // Verify original was NOT corrupted
         let content = std::fs::read_to_string(skill_b.join("SKILL.md")).unwrap();
-        assert!(content.contains("name: skill-b"), "original skill-b should be intact");
+        assert!(
+            content.contains("name: skill-b"),
+            "original skill-b should be intact"
+        );
     }
 
     #[test]

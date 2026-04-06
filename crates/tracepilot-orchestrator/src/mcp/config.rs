@@ -170,9 +170,7 @@ pub fn get_server_detail(
     let config_entry = get_server(name)?;
     let cached = health_cache.get(name);
 
-    let tools = cached
-        .map(|c| c.tools.clone())
-        .unwrap_or_default();
+    let tools = cached.map(|c| c.tools.clone()).unwrap_or_default();
 
     let total_tokens: u32 = tools.iter().map(|t| t.estimate_tokens()).sum();
 

@@ -10,8 +10,8 @@
 //!   - `commands::logging`       - log path, export
 
 pub(crate) mod cache;
-pub mod config;
 mod commands;
+pub mod config;
 pub mod error;
 mod helpers;
 pub mod types;
@@ -20,7 +20,7 @@ mod validators;
 use std::num::NonZeroUsize;
 use std::sync::{Arc, Mutex};
 use tauri::Manager;
-use types::{SearchSemaphore, TurnCache};
+use types::{EventCache, SearchSemaphore, TurnCache};
 
 /// Build the Tauri plugin that registers all 78 IPC commands.
 pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
@@ -35,6 +35,11 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
                 NonZeroUsize::new(10).expect("cache capacity is non-zero"),
             )));
             app.manage(turn_cache);
+            let event_cache: EventCache = Arc::new(Mutex::new(lru::LruCache::new(
+                // SAFETY: 10 is non-zero
+                NonZeroUsize::new(10).expect("cache capacity is non-zero"),
+            )));
+            app.manage(event_cache);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

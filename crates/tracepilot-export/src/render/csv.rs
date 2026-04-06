@@ -67,48 +67,39 @@ fn render_session_files(
     prefix: &str,
 ) -> Result<()> {
     // Summary is always produced (metadata is always present)
-    files.push(make_file(
-        prefix,
-        "summary",
-        render_summary_csv(session)?,
-    ));
+    files.push(make_file(prefix, "summary", render_summary_csv(session)?));
 
     if let Some(conversation) = &session.conversation
-        && !conversation.is_empty() {
-            files.push(make_file(
-                prefix,
-                "conversation",
-                render_conversation_csv(conversation)?,
-            ));
+        && !conversation.is_empty()
+    {
+        files.push(make_file(
+            prefix,
+            "conversation",
+            render_conversation_csv(conversation)?,
+        ));
 
-            // Flatten all tool calls from all turns
-            let has_tools = conversation.iter().any(|t| !t.tool_calls.is_empty());
-            if has_tools {
-                files.push(make_file(
-                    prefix,
-                    "tools",
-                    render_tools_csv(conversation)?,
-                ));
-            }
+        // Flatten all tool calls from all turns
+        let has_tools = conversation.iter().any(|t| !t.tool_calls.is_empty());
+        if has_tools {
+            files.push(make_file(prefix, "tools", render_tools_csv(conversation)?));
         }
+    }
 
     if let Some(events) = &session.events
-        && !events.is_empty() {
-            files.push(make_file(
-                prefix,
-                "events",
-                render_events_csv(events)?,
-            ));
-        }
+        && !events.is_empty()
+    {
+        files.push(make_file(prefix, "events", render_events_csv(events)?));
+    }
 
     if let Some(metrics) = &session.shutdown_metrics
-        && !metrics.model_metrics.is_empty() {
-            files.push(make_file(
-                prefix,
-                "model-metrics",
-                render_model_metrics_csv(metrics)?,
-            ));
-        }
+        && !metrics.model_metrics.is_empty()
+    {
+        files.push(make_file(
+            prefix,
+            "model-metrics",
+            render_model_metrics_csv(metrics)?,
+        ));
+    }
 
     Ok(())
 }
@@ -237,11 +228,7 @@ fn render_events_csv(events: &[RawEvent]) -> Result<Vec<u8>> {
     writeln!(out, "event_type,timestamp,data_preview").map_err(csv_write_err)?;
 
     for event in events {
-        let ts = event
-            .timestamp
-            .as_ref()
-            .map(fmt_dt)
-            .unwrap_or_default();
+        let ts = event.timestamp.as_ref().map(fmt_dt).unwrap_or_default();
 
         // Show a truncated preview of the data payload
         let preview = {
@@ -280,11 +267,7 @@ fn render_model_metrics_csv(metrics: &ShutdownMetrics) -> Result<Vec<u8>> {
     models.sort_by_key(|(k, _)| k.as_str());
 
     for (model, detail) in models {
-        let reqs = detail
-            .requests
-            .as_ref()
-            .and_then(|r| r.count)
-            .unwrap_or(0);
+        let reqs = detail.requests.as_ref().and_then(|r| r.count).unwrap_or(0);
         let input = detail
             .usage
             .as_ref()
@@ -331,9 +314,7 @@ fn render_model_metrics_csv(metrics: &ShutdownMetrics) -> Result<Vec<u8>> {
 /// formula execution — a security best practice for user-generated content.
 fn escape_csv(value: &str) -> String {
     // Formula-injection hardening
-    let sanitized = if value
-        .starts_with(['=', '+', '-', '@', '\t', '\r'])
-    {
+    let sanitized = if value.starts_with(['=', '+', '-', '@', '\t', '\r']) {
         format!("'{}", value)
     } else {
         value.to_string()
@@ -388,15 +369,21 @@ mod tests {
     #[test]
     fn conversation_csv_rows() {
         let mut session = minimal_session();
-        session.conversation = Some(vec![
-            simple_turn(0, "Hello", "Hi!", Some("claude-opus-4.6")),
-        ]);
+        session.conversation = Some(vec![simple_turn(
+            0,
+            "Hello",
+            "Hi!",
+            Some("claude-opus-4.6"),
+        )]);
 
         let archive = test_archive(session);
         let renderer = CsvRenderer;
         let files = renderer.render(&archive).unwrap();
 
-        let conv_file = files.iter().find(|f| f.filename.contains("conversation")).unwrap();
+        let conv_file = files
+            .iter()
+            .find(|f| f.filename.contains("conversation"))
+            .unwrap();
         let text = conv_file.as_text().unwrap();
         assert!(text.contains("turn,model,user_message"));
         assert!(text.contains("claude-opus-4.6"));

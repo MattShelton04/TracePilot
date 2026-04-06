@@ -77,16 +77,22 @@ fn validate_asset_name(asset_name: &str) -> Result<(), SkillsError> {
 
     // Path traversal check
     if asset_name.contains("..") {
-        return Err(SkillsError::Asset("Asset name cannot contain '..' (path traversal)".into()));
+        return Err(SkillsError::Asset(
+            "Asset name cannot contain '..' (path traversal)".into(),
+        ));
     }
 
     // Absolute path checks
     if asset_name.starts_with('/') || asset_name.starts_with('\\') {
-        return Err(SkillsError::Asset("Asset name cannot start with path separator".into()));
+        return Err(SkillsError::Asset(
+            "Asset name cannot start with path separator".into(),
+        ));
     }
 
     if Path::new(asset_name).is_absolute() {
-        return Err(SkillsError::Asset("Asset name cannot be an absolute path".into()));
+        return Err(SkillsError::Asset(
+            "Asset name cannot be an absolute path".into(),
+        ));
     }
 
     Ok(())
@@ -98,12 +104,12 @@ fn safe_asset_path(skill_dir: &Path, asset_name: &str) -> Result<std::path::Path
     let asset_path = skill_dir.join(asset_name);
     // Canonicalize if path exists, otherwise verify parent is within skill_dir
     if asset_path.exists() {
-        let canonical = asset_path.canonicalize().map_err(|e| {
-            SkillsError::Asset(format!("Cannot resolve asset path: {e}"))
-        })?;
-        let canonical_dir = skill_dir.canonicalize().map_err(|e| {
-            SkillsError::Asset(format!("Cannot resolve skill dir: {e}"))
-        })?;
+        let canonical = asset_path
+            .canonicalize()
+            .map_err(|e| SkillsError::Asset(format!("Cannot resolve asset path: {e}")))?;
+        let canonical_dir = skill_dir
+            .canonicalize()
+            .map_err(|e| SkillsError::Asset(format!("Cannot resolve skill dir: {e}")))?;
         if !canonical.starts_with(&canonical_dir) {
             return Err(SkillsError::Asset("Invalid asset name".into()));
         }
@@ -112,11 +118,7 @@ fn safe_asset_path(skill_dir: &Path, asset_name: &str) -> Result<std::path::Path
 }
 
 /// Add a file asset to a skill directory.
-pub fn add_asset(
-    skill_dir: &Path,
-    asset_name: &str,
-    content: &[u8],
-) -> Result<(), SkillsError> {
+pub fn add_asset(skill_dir: &Path, asset_name: &str, content: &[u8]) -> Result<(), SkillsError> {
     if !skill_dir.exists() {
         return Err(SkillsError::NotFound(
             skill_dir.to_string_lossy().to_string(),
@@ -210,7 +212,9 @@ pub fn remove_asset(skill_dir: &Path, asset_name: &str) -> Result<(), SkillsErro
     let asset_path = safe_asset_path(skill_dir, asset_name)?;
 
     if !asset_path.exists() {
-        return Err(SkillsError::Asset(format!("Asset '{asset_name}' not found")));
+        return Err(SkillsError::Asset(format!(
+            "Asset '{asset_name}' not found"
+        )));
     }
 
     if asset_path.is_dir() {
@@ -227,7 +231,9 @@ pub fn read_asset(skill_dir: &Path, asset_name: &str) -> Result<String, SkillsEr
     let asset_path = safe_asset_path(skill_dir, asset_name)?;
 
     if !asset_path.exists() {
-        return Err(SkillsError::Asset(format!("Asset '{asset_name}' not found")));
+        return Err(SkillsError::Asset(format!(
+            "Asset '{asset_name}' not found"
+        )));
     }
     Ok(std::fs::read_to_string(&asset_path)?)
 }

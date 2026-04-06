@@ -107,9 +107,9 @@ fn parse_mcp_config(value: &Value, source_label: &str) -> Result<McpImportResult
     // Try flat format: treat the entire object as a server map
     if let Some(obj) = value.as_object() {
         // Check if any key looks like a server entry (has "command" or "url")
-        let has_server_like = obj.values().any(|v| {
-            v.get("command").is_some() || v.get("url").is_some()
-        });
+        let has_server_like = obj
+            .values()
+            .any(|v| v.get("command").is_some() || v.get("url").is_some());
         if has_server_like {
             let parsed = parse_server_map(obj, &mut warnings);
             return Ok(McpImportResult {
