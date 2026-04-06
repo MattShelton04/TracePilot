@@ -156,6 +156,7 @@ export const useSessionsStore = defineStore("sessions", () => {
     fetchPromise = (async () => {
       try {
         sessions.value = await listSessions();
+        error.value = null;
       } catch (e) {
         logError("[sessions] Silent refresh failed:", e);
       } finally {

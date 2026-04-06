@@ -39,7 +39,7 @@ describe("useSessionsStore — concurrency & deduplication", () => {
   });
 
   describe("fetchSessions deduplication", () => {
-    it("returns the same promise for concurrent calls", async () => {
+    it("coalesces concurrent calls into one underlying request", async () => {
       const deferred = createDeferred<SessionListItem[]>();
       mockListSessions.mockReturnValue(deferred.promise);
       const store = useSessionsStore();
@@ -123,6 +123,20 @@ describe("useSessionsStore — concurrency & deduplication", () => {
       expect(store.loading).toBe(false);
       expect(store.error).toBeNull();
     });
+
+    it("clears a previous error on successful refresh", async () => {
+      // Prime the store with an error from a failed fetchSessions
+      mockListSessions.mockRejectedValueOnce(new Error("network error"));
+      const store = useSessionsStore();
+      await store.fetchSessions();
+      expect(store.error).toBeTruthy();
+
+      // Now a successful refreshSessions should clear the stale error
+      mockListSessions.mockResolvedValue(MOCK_SESSIONS);
+      await store.refreshSessions();
+      expect(store.sessions).toEqual(MOCK_SESSIONS);
+      expect(store.error).toBeNull();
+    });
   });
 
   describe("reindex deduplication", () => {
@@ -156,6 +170,27 @@ describe("useSessionsStore — concurrency & deduplication", () => {
 
       await store.reindex();
       expect(mockReindexSessions).toHaveBeenCalledTimes(2);
+    });
+
+    it("dedup path suppresses ALREADY_INDEXING errors but surfaces other errors", async () => {
+      const deferred = createDeferred<[number, number]>();
+      mockReindexSessions.mockReturnValue(deferred.promise);
+      mockListSessions.mockResolvedValue(MOCK_SESSIONS);
+      const store = useSessionsStore();
+
+      // First call starts the reindex
+      const p1 = store.reindex();
+      // Second call enters the dedup branch
+      const p2 = store.reindex();
+
+      // Reject with a generic error (not ALREADY_INDEXING)
+      deferred.reject(new Error("disk full"));
+      await Promise.all([p1, p2]);
+
+      // The first caller sets error.value; the second dedup caller also sees it
+      expect(store.error).toContain("disk full");
+      // indexingPromise was cleared so a fresh attempt is allowed
+      expect(store.indexing).toBe(false);
     });
   });
 
