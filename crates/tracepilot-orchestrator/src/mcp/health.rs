@@ -32,7 +32,10 @@ fn kill_and_reap(child: &mut Child) {
 ///
 /// If the session ID is `None` or contains invalid HTTP header characters,
 /// this function does nothing (no error is returned).
-fn inject_session_id_header(headers: &mut HeaderMap, session_id: Option<&str>) {
+fn inject_session_id_header(
+    headers: &mut HeaderMap,
+    session_id: Option<&str>,
+) {
     if let Some(sid) = session_id
         && let Ok(val) = HeaderValue::from_str(sid)
     {
@@ -325,7 +328,9 @@ async fn check_http_server(
         .send()
         .await
     {
-        Ok(resp) if resp.status().is_success() => parse_tools_from_response(resp).await,
+        Ok(resp) if resp.status().is_success() => {
+            parse_tools_from_response(resp).await
+        }
         _ => vec![],
     };
 
@@ -460,9 +465,9 @@ fn spawn_and_initialize(
         cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
     }
 
-    let mut child = cmd
-        .spawn()
-        .map_err(|e| McpError::HealthCheck(format!("Failed to spawn '{command}': {e}")))?;
+    let mut child = cmd.spawn().map_err(|e| {
+        McpError::HealthCheck(format!("Failed to spawn '{command}': {e}"))
+    })?;
 
     // Wrap immediately so every subsequent return path reaps the child.
     // Take ownership of stdin/stdout before wrapping so the guard only
@@ -727,11 +732,7 @@ mod tests {
 
         assert!(headers.contains_key(MCP_SESSION_ID_HEADER));
         assert_eq!(
-            headers
-                .get(MCP_SESSION_ID_HEADER)
-                .unwrap()
-                .to_str()
-                .unwrap(),
+            headers.get(MCP_SESSION_ID_HEADER).unwrap().to_str().unwrap(),
             "test-session-123"
         );
     }
@@ -767,11 +768,7 @@ mod tests {
         // Empty string is a valid HTTP header value, so it gets inserted
         assert!(headers.contains_key(MCP_SESSION_ID_HEADER));
         assert_eq!(
-            headers
-                .get(MCP_SESSION_ID_HEADER)
-                .unwrap()
-                .to_str()
-                .unwrap(),
+            headers.get(MCP_SESSION_ID_HEADER).unwrap().to_str().unwrap(),
             ""
         );
     }
@@ -821,16 +818,10 @@ mod tests {
         let tools = extract_tools_from_json(&resp);
         assert_eq!(tools.len(), 2);
         assert_eq!(tools[0].name, "read_file");
-        assert_eq!(
-            tools[0].description.as_deref(),
-            Some("Read a file from disk")
-        );
+        assert_eq!(tools[0].description.as_deref(), Some("Read a file from disk"));
         assert!(tools[0].input_schema.is_some());
         assert_eq!(tools[1].name, "write_file");
-        assert_eq!(
-            tools[1].description.as_deref(),
-            Some("Write content to a file")
-        );
+        assert_eq!(tools[1].description.as_deref(), Some("Write content to a file"));
         assert!(tools[1].input_schema.is_none());
     }
 
@@ -892,7 +883,8 @@ mod tests {
         // Must end with a newline (newline-delimited JSON-RPC)
         assert!(output.ends_with('\n'));
         // The line (without trailing newline) must be valid JSON
-        let parsed: serde_json::Value = serde_json::from_str(output.trim_end()).unwrap();
+        let parsed: serde_json::Value =
+            serde_json::from_str(output.trim_end()).unwrap();
         assert_eq!(parsed["method"], "initialize");
     }
 

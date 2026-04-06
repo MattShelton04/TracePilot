@@ -140,15 +140,13 @@ fn filter_by_date_range(
             };
 
             if let Some(from) = from_date
-                && date_str.as_str() < from
-            {
-                return false;
-            }
+                && date_str.as_str() < from {
+                    return false;
+                }
             if let Some(to) = to_date
-                && date_str.as_str() > to
-            {
-                return false;
-            }
+                && date_str.as_str() > to {
+                    return false;
+                }
             true
         })
         .collect()

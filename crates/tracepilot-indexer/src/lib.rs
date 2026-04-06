@@ -19,8 +19,8 @@ pub mod index_db;
 pub use error::{IndexerError, Result};
 
 pub use index_db::SessionIndexInfo;
-pub use index_db::search_reader::sanitize_fts_query;
 pub use index_db::{SearchFacets, SearchFilters, SearchResult, SearchStats};
+pub use index_db::search_reader::sanitize_fts_query;
 
 /// Accumulated progress info emitted per session during indexing.
 #[derive(Debug, Clone)]
@@ -427,10 +427,7 @@ pub fn reindex_search_content(
     let phase2_start = std::time::Instant::now();
     let sessions = tracepilot_core::session::discovery::discover_sessions(session_state_dir)?;
     let db = index_db::IndexDb::open_or_create(index_db_path)?;
-    tracing::debug!(
-        sessions = sessions.len(),
-        "Phase 2: starting search content indexing"
-    );
+    tracing::debug!(sessions = sessions.len(), "Phase 2: starting search content indexing");
 
     let total = sessions.len();
 
@@ -458,10 +455,7 @@ pub fn reindex_search_content(
     );
 
     if to_index.is_empty() {
-        on_progress(&SearchIndexingProgress {
-            current: total,
-            total,
-        });
+        on_progress(&SearchIndexingProgress { current: total, total });
         return Ok((0, skipped));
     }
 
@@ -472,10 +466,12 @@ pub fn reindex_search_content(
             let events_path = session.path.join("events.jsonl");
             let content = if events_path.exists() {
                 match tracepilot_core::parsing::events::parse_typed_events(&events_path) {
-                    Ok(parsed) => Some(index_db::search_writer::extract_search_content(
-                        &session.id,
-                        &parsed.events,
-                    )),
+                    Ok(parsed) => {
+                        Some(index_db::search_writer::extract_search_content(
+                            &session.id,
+                            &parsed.events,
+                        ))
+                    }
                     Err(e) => {
                         tracing::warn!(
                             session_id = %session.id,
@@ -515,11 +511,7 @@ pub fn reindex_search_content(
             .collect();
 
         if is_cancelled() {
-            tracing::info!(
-                indexed,
-                skipped,
-                "Search indexing cancelled before bulk write"
-            );
+            tracing::info!(indexed, skipped, "Search indexing cancelled before bulk write");
             return Ok((indexed, skipped));
         }
 
@@ -527,18 +519,18 @@ pub fn reindex_search_content(
         match db.bulk_write_search_content(&bulk_data) {
             Ok(rows) => {
                 indexed = bulk_count;
-                tracing::debug!(sessions = bulk_count, rows, "Phase 2: bulk write complete");
+                tracing::debug!(
+                    sessions = bulk_count,
+                    rows,
+                    "Phase 2: bulk write complete"
+                );
             }
             Err(e) => {
                 tracing::error!(error = %e, "Phase 2: bulk write failed, falling back to per-session");
                 // Fall back to per-session writes
                 for (session_id, rows) in &bulk_data {
                     if is_cancelled() {
-                        tracing::info!(
-                            indexed,
-                            skipped,
-                            "Search indexing cancelled during fallback write"
-                        );
+                        tracing::info!(indexed, skipped, "Search indexing cancelled during fallback write");
                         return Ok((indexed, skipped));
                     }
                     match db.upsert_search_content(session_id, rows) {
@@ -554,10 +546,7 @@ pub fn reindex_search_content(
                 }
             }
         }
-        on_progress(&SearchIndexingProgress {
-            current: total,
-            total,
-        });
+        on_progress(&SearchIndexingProgress { current: total, total });
     } else {
         // Incremental path: per-session upsert (triggers update FTS per row)
         for (i, (session_id, content)) in prepared.into_iter().enumerate() {
@@ -752,12 +741,7 @@ mod progress_tracker_tests {
         std::thread::sleep(Duration::from_millis(5));
 
         let mut called = false;
-        tracker.emit(
-            &mut |_| {
-                called = true;
-            },
-            None,
-        );
+        tracker.emit(&mut |_| { called = true; }, None);
 
         assert!(called);
         assert!(tracker.last_emit > start);
@@ -770,12 +754,7 @@ mod progress_tracker_tests {
         tracker.increment();
 
         let mut call_count = 0;
-        let emitted = tracker.emit_if_ready(
-            &mut |_| {
-                call_count += 1;
-            },
-            None,
-        );
+        let emitted = tracker.emit_if_ready(&mut |_| { call_count += 1; }, None);
 
         assert!(!emitted);
         assert_eq!(call_count, 0);
@@ -788,12 +767,7 @@ mod progress_tracker_tests {
         tracker.increment();
 
         let mut call_count = 0;
-        let emitted = tracker.emit_if_ready(
-            &mut |_| {
-                call_count += 1;
-            },
-            None,
-        );
+        let emitted = tracker.emit_if_ready(&mut |_| { call_count += 1; }, None);
 
         assert!(emitted);
         assert_eq!(call_count, 1);
@@ -808,12 +782,7 @@ mod progress_tracker_tests {
         std::thread::sleep(Duration::from_millis(15));
 
         let mut call_count = 0;
-        let emitted = tracker.emit_if_ready(
-            &mut |_| {
-                call_count += 1;
-            },
-            None,
-        );
+        let emitted = tracker.emit_if_ready(&mut |_| { call_count += 1; }, None);
 
         assert!(emitted);
         assert_eq!(call_count, 1);
@@ -829,12 +798,9 @@ mod progress_tracker_tests {
         tracker.seen_repos.insert("repo2".into());
 
         let mut received_progress = None;
-        tracker.emit(
-            &mut |progress| {
-                received_progress = Some(progress.clone());
-            },
-            None,
-        );
+        tracker.emit(&mut |progress| {
+            received_progress = Some(progress.clone());
+        }, None);
 
         let progress = received_progress.unwrap();
         assert_eq!(progress.current, 1);
@@ -860,12 +826,9 @@ mod progress_tracker_tests {
         };
 
         let mut received_progress = None;
-        tracker.emit(
-            &mut |progress| {
-                received_progress = Some(progress.clone());
-            },
-            Some(info.clone()),
-        );
+        tracker.emit(&mut |progress| {
+            received_progress = Some(progress.clone());
+        }, Some(info.clone()));
 
         let progress = received_progress.unwrap();
         assert!(progress.session_info.is_some());

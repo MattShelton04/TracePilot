@@ -11,19 +11,17 @@ use chrono::Utc;
 
 use crate::document::*;
 use crate::error::{ExportError, Result};
-use crate::options::{ExportFormat, ExportOptions};
+use crate::options::{ExportOptions, ExportFormat};
 use crate::schema;
 
-use tracepilot_core::health::SessionIncidentCounts;
 use tracepilot_core::health::compute_health;
+use tracepilot_core::health::SessionIncidentCounts;
 use tracepilot_core::parsing::checkpoints::parse_checkpoints;
 use tracepilot_core::parsing::events::{
-    TypedEvent, TypedEventData, extract_combined_shutdown_data, parse_typed_events,
+    extract_combined_shutdown_data, parse_typed_events, TypedEvent, TypedEventData,
 };
 use tracepilot_core::parsing::rewind_snapshots::parse_rewind_index;
-use tracepilot_core::parsing::session_db::{
-    list_tables, read_custom_table, read_todo_deps, read_todos,
-};
+use tracepilot_core::parsing::session_db::{list_tables, read_custom_table, read_todo_deps, read_todos};
 use tracepilot_core::parsing::workspace::parse_workspace_yaml;
 use tracepilot_core::turns::reconstruct_turns;
 
@@ -92,7 +90,10 @@ fn build_options_record(options: &ExportOptions) -> ArchiveOptionsRecord {
 }
 
 /// Build a single [`PortableSession`] from a session directory.
-fn build_portable_session(session_dir: &Path, options: &ExportOptions) -> Result<PortableSession> {
+fn build_portable_session(
+    session_dir: &Path,
+    options: &ExportOptions,
+) -> Result<PortableSession> {
     // 1. Load workspace metadata (always required)
     let workspace_path = session_dir.join("workspace.yaml");
     if !workspace_path.exists() {
@@ -118,9 +119,7 @@ fn build_portable_session(session_dir: &Path, options: &ExportOptions) -> Result
     };
 
     // 3. Build metadata
-    let event_count = typed_events
-        .as_ref()
-        .map(|e| e.len())
+    let event_count = typed_events.as_ref().map(|e| e.len())
         .or_else(|| if events_path.exists() { None } else { Some(0) });
     let turn_count = typed_events.as_ref().map(|events| {
         let turns = reconstruct_turns(events);
@@ -146,8 +145,7 @@ fn build_portable_session(session_dir: &Path, options: &ExportOptions) -> Result
     // 4. Build each optional section
     let mut available_sections = Vec::new();
 
-    let conversation =
-        build_conversation(options, typed_events.as_deref(), &mut available_sections);
+    let conversation = build_conversation(options, typed_events.as_deref(), &mut available_sections);
     let events = build_events(options, raw_events, &mut available_sections);
     let todos = build_todos(options, session_dir, &mut available_sections);
     let plan = build_plan(options, session_dir, &mut available_sections);
@@ -155,12 +153,7 @@ fn build_portable_session(session_dir: &Path, options: &ExportOptions) -> Result
     let rewind_snapshots = build_rewind_snapshots(options, session_dir, &mut available_sections);
     let shutdown_metrics = build_metrics(options, typed_events.as_deref(), &mut available_sections);
     let incidents = build_incidents(options, typed_events.as_deref(), &mut available_sections);
-    let health = build_health(
-        options,
-        typed_events.as_deref(),
-        diagnostics.as_ref(),
-        &mut available_sections,
-    );
+    let health = build_health(options, typed_events.as_deref(), diagnostics.as_ref(), &mut available_sections);
     let custom_tables = build_custom_tables(options, session_dir, &mut available_sections);
     let parse_diagnostics = build_parse_diagnostics(
         options,
@@ -208,10 +201,9 @@ fn build_conversation(
         for turn in &mut turns {
             for tc in &mut turn.tool_calls {
                 if let Some(tc_id) = tc.tool_call_id.as_deref()
-                    && let Some(full) = full_results.get(tc_id)
-                {
-                    tc.result_content = Some(full.clone());
-                }
+                    && let Some(full) = full_results.get(tc_id) {
+                        tc.result_content = Some(full.clone());
+                    }
             }
         }
     }
@@ -228,10 +220,9 @@ fn build_full_result_map(events: &[TypedEvent]) -> std::collections::HashMap<Str
     for event in events {
         if let TypedEventData::ToolExecutionComplete(data) = &event.typed_data
             && let (Some(id), Some(result)) = (&data.tool_call_id, &data.result)
-            && let Some(text) = extract_full_result(result)
-        {
-            map.insert(id.clone(), text);
-        }
+                && let Some(text) = extract_full_result(result) {
+                    map.insert(id.clone(), text);
+                }
     }
     map
 }
@@ -241,16 +232,17 @@ fn build_full_result_map(events: &[TypedEvent]) -> std::collections::HashMap<Str
 fn extract_full_result(result: &serde_json::Value) -> Option<String> {
     match result {
         serde_json::Value::String(s) if !s.trim().is_empty() => Some(s.clone()),
-        serde_json::Value::Object(obj) => obj
-            .get("content")
-            .and_then(|v| v.as_str())
-            .filter(|s| !s.trim().is_empty())
-            .or_else(|| {
-                obj.get("detailedContent")
-                    .and_then(|v| v.as_str())
-                    .filter(|s| !s.trim().is_empty())
-            })
-            .map(|s| s.to_string()),
+        serde_json::Value::Object(obj) => {
+            obj.get("content")
+                .and_then(|v| v.as_str())
+                .filter(|s| !s.trim().is_empty())
+                .or_else(|| {
+                    obj.get("detailedContent")
+                        .and_then(|v| v.as_str())
+                        .filter(|s| !s.trim().is_empty())
+                })
+                .map(|s| s.to_string())
+        }
         _ => None,
     }
 }
@@ -471,21 +463,16 @@ fn build_incidents(
         };
 
         let summary = match &event.typed_data {
-            tracepilot_core::parsing::events::TypedEventData::SessionError(d) => d
-                .message
-                .clone()
-                .unwrap_or_else(|| "Unknown error".to_string()),
+            tracepilot_core::parsing::events::TypedEventData::SessionError(d) => {
+                d.message.clone().unwrap_or_else(|| "Unknown error".to_string())
+            }
             tracepilot_core::parsing::events::TypedEventData::SessionWarning(d) => {
                 d.message.clone().unwrap_or_else(|| "Warning".to_string())
             }
             tracepilot_core::parsing::events::TypedEventData::CompactionComplete(d) => {
                 format!(
                     "Compaction {}",
-                    if d.success.unwrap_or(false) {
-                        "succeeded"
-                    } else {
-                        "failed"
-                    }
+                    if d.success.unwrap_or(false) { "succeeded" } else { "failed" }
                 )
             }
             tracepilot_core::parsing::events::TypedEventData::SessionTruncation(_) => {

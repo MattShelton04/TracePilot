@@ -7,9 +7,7 @@
 use crate::github::TreeEntry;
 use crate::skills::error::SkillsError;
 use crate::skills::parser::parse_skill_md;
-use crate::skills::types::{
-    GitHubSkillPreview, LocalSkillPreview, RepoSkillsResult, SkillImportResult,
-};
+use crate::skills::types::{GitHubSkillPreview, LocalSkillPreview, RepoSkillsResult, SkillImportResult};
 use std::path::{Path, PathBuf};
 
 // ── Atomic directory install ────────────────────────────────────────────────
@@ -94,20 +92,17 @@ where
 
 /// Well-known skill directory locations to search in priority order.
 const WELL_KNOWN_SKILL_PATHS: &[&str] = &[
-    ".",               // Root SKILL.md
+    ".",                // Root SKILL.md
     ".github/skills",  // GitHub convention
-    ".copilot/skills", // Copilot convention
-    ".claude/skills",  // Claude convention
+    ".copilot/skills",  // Copilot convention
+    ".claude/skills",   // Claude convention
 ];
 
 /// Import a skill from a local directory.
 ///
 /// Copies the entire directory contents to the global skills folder.
 /// Uses atomic staging to prevent partial state on failure.
-pub fn import_from_local(
-    source_dir: &Path,
-    dest_parent: &Path,
-) -> Result<SkillImportResult, SkillsError> {
+pub fn import_from_local(source_dir: &Path, dest_parent: &Path) -> Result<SkillImportResult, SkillsError> {
     let skill_md = source_dir.join("SKILL.md");
     if !skill_md.exists() {
         return Err(SkillsError::Import(format!(
@@ -136,10 +131,7 @@ pub fn import_from_local(
 ///
 /// Creates a new skill directory with just the SKILL.md file.
 /// Uses atomic staging to prevent partial state on failure.
-pub fn import_from_file(
-    file_path: &Path,
-    dest_parent: &Path,
-) -> Result<SkillImportResult, SkillsError> {
+pub fn import_from_file(file_path: &Path, dest_parent: &Path) -> Result<SkillImportResult, SkillsError> {
     let content = std::fs::read_to_string(file_path)?;
     let (fm, _) = parse_skill_md(&content)?;
 
@@ -178,7 +170,11 @@ pub fn import_from_file(
 ///
 /// # Errors
 /// Returns `SkillsError::Import` if no SKILL.md is found after exhausting all search strategies.
-fn resolve_skill_path_in_repo(owner: &str, repo: &str, ref_: &str) -> Result<String, SkillsError> {
+fn resolve_skill_path_in_repo(
+    owner: &str,
+    repo: &str,
+    ref_: &str,
+) -> Result<String, SkillsError> {
     // Try to list the repo tree to find SKILL.md files
     if let Ok(entries) = crate::github::gh_list_tree(owner, repo, ref_) {
         let skill_dirs: Vec<String> = entries
@@ -244,7 +240,8 @@ pub fn import_from_github(
     git_ref: Option<&str>,
     dest_parent: &Path,
 ) -> Result<SkillImportResult, SkillsError> {
-    crate::github::gh_check_auth().map_err(|e| SkillsError::GitHub(e.to_string()))?;
+    crate::github::gh_check_auth()
+        .map_err(|e| SkillsError::GitHub(e.to_string()))?;
 
     let ref_ = git_ref.unwrap_or("HEAD");
 
@@ -265,7 +262,8 @@ pub(crate) fn import_from_github_path(
     ref_: &str,
     dest_parent: &Path,
 ) -> Result<SkillImportResult, SkillsError> {
-    crate::github::gh_check_auth().map_err(|e| SkillsError::GitHub(e.to_string()))?;
+    crate::github::gh_check_auth()
+        .map_err(|e| SkillsError::GitHub(e.to_string()))?;
 
     let skill_md_path = if base_path == "." {
         "SKILL.md".to_string()
@@ -290,17 +288,22 @@ pub(crate) fn import_from_github_path(
             match crate::github::gh_list_tree(owner, repo, ref_) {
                 Ok(entries) => {
                     let prefix = skill_path_prefix(base_path);
-                    let asset_paths: Vec<String> = collect_skill_blob_paths(&entries, base_path)
-                        .into_iter()
-                        .filter(|path| path != &skill_md_path)
-                        .collect();
-                    let path_refs: Vec<&str> = asset_paths.iter().map(String::as_str).collect();
-                    let contents = crate::github::gh_get_files_batch_with_binary(
-                        owner, repo, &path_refs, ref_,
-                    )
-                    .map_err(|e| {
-                        SkillsError::GitHub(format!("Failed to fetch skill files: {e}"))
-                    })?;
+                    let asset_paths: Vec<String> =
+                        collect_skill_blob_paths(&entries, base_path)
+                            .into_iter()
+                            .filter(|path| path != &skill_md_path)
+                            .collect();
+                    let path_refs: Vec<&str> =
+                        asset_paths.iter().map(String::as_str).collect();
+                    let contents =
+                        crate::github::gh_get_files_batch_with_binary(
+                            owner, repo, &path_refs, ref_,
+                        )
+                        .map_err(|e| {
+                            SkillsError::GitHub(format!(
+                                "Failed to fetch skill files: {e}"
+                            ))
+                        })?;
 
                     for repo_path in asset_paths {
                         let relative = if prefix.is_empty() {
@@ -311,18 +314,22 @@ pub(crate) fn import_from_github_path(
                         // Guard against path traversal from crafted tree entries.
                         // Use component analysis to correctly detect ParentDir
                         // segments without false positives on names like "..foo".
-                        let has_traversal = Path::new(relative)
-                            .components()
-                            .any(|c| matches!(c, std::path::Component::ParentDir));
+                        let has_traversal = Path::new(relative).components().any(|c| {
+                            matches!(c, std::path::Component::ParentDir)
+                        });
                         if has_traversal || Path::new(relative).is_absolute() {
-                            warnings.push(format!("Skipped '{}': unsafe path component", relative));
+                            warnings.push(format!(
+                                "Skipped '{}': unsafe path component",
+                                relative
+                            ));
                             continue;
                         }
                         match contents.get(&repo_path).and_then(|file| {
-                            file.bytes
-                                .as_ref()
-                                .cloned()
-                                .or_else(|| file.text.as_ref().map(|text| text.as_bytes().to_vec()))
+                            file.bytes.as_ref().cloned().or_else(|| {
+                                file.text
+                                    .as_ref()
+                                    .map(|text| text.as_bytes().to_vec())
+                            })
                         }) {
                             Some(file_content) => {
                                 let dest_path = staging.join(relative);
@@ -433,7 +440,8 @@ fn preview_github_import_path(
 
     let (fm, _) = parse_skill_md(&content)?;
 
-    crate::github::gh_check_auth().map_err(|e| SkillsError::GitHub(e.to_string()))?;
+    crate::github::gh_check_auth()
+        .map_err(|e| SkillsError::GitHub(e.to_string()))?;
 
     // List files that would be imported
     let mut files = vec!["SKILL.md".to_string()];
@@ -463,7 +471,8 @@ pub fn discover_github_skills(
     git_ref: Option<&str>,
 ) -> Result<Vec<GitHubSkillPreview>, SkillsError> {
     // Fail fast with a clear message if gh is not installed or authenticated.
-    crate::github::gh_check_auth().map_err(|e| SkillsError::GitHub(e.to_string()))?;
+    crate::github::gh_check_auth()
+        .map_err(|e| SkillsError::GitHub(e.to_string()))?;
 
     let ref_ = git_ref.unwrap_or("HEAD");
 
@@ -473,9 +482,7 @@ pub fn discover_github_skills(
     // Find all SKILL.md files in the repo
     let skill_md_paths: Vec<&str> = entries
         .iter()
-        .filter(|e| {
-            e.entry_type == "blob" && (e.path == "SKILL.md" || e.path.ends_with("/SKILL.md"))
-        })
+        .filter(|e| e.entry_type == "blob" && (e.path == "SKILL.md" || e.path.ends_with("/SKILL.md")))
         .map(|e| e.path.as_str())
         .collect();
 
@@ -498,8 +505,8 @@ pub fn discover_github_skills(
 
     // Batch-fetch all SKILL.md contents in at most ⌈N/25⌉ GraphQL calls
     // instead of N sequential `gh api` REST calls.
-    let contents =
-        crate::github::gh_get_files_batch(owner, repo, &filtered, ref_).unwrap_or_default();
+    let contents = crate::github::gh_get_files_batch(owner, repo, &filtered, ref_)
+        .unwrap_or_default();
 
     let mut previews = Vec::new();
 
@@ -547,13 +554,7 @@ pub fn import_github_skill(
     git_ref: Option<&str>,
     dest_parent: &Path,
 ) -> Result<SkillImportResult, SkillsError> {
-    import_from_github_path(
-        owner,
-        repo,
-        skill_path,
-        git_ref.unwrap_or("HEAD"),
-        dest_parent,
-    )
+    import_from_github_path(owner, repo, skill_path, git_ref.unwrap_or("HEAD"), dest_parent)
 }
 
 /// Discover skills within a local repository or directory.
@@ -840,19 +841,11 @@ mod tests {
         let repo_empty = TempDir::new().unwrap();
 
         // repo1: has a skill in .github/skills/
-        let skill_dir = repo1
-            .path()
-            .join(".github")
-            .join("skills")
-            .join("test-skill");
+        let skill_dir = repo1.path().join(".github").join("skills").join("test-skill");
         write_test_skill(&skill_dir);
 
         // repo2: has a skill directly in .copilot/skills/
-        let skill_dir2 = repo2
-            .path()
-            .join(".copilot")
-            .join("skills")
-            .join("another-skill");
+        let skill_dir2 = repo2.path().join(".copilot").join("skills").join("another-skill");
         std::fs::create_dir_all(&skill_dir2).unwrap();
         std::fs::write(
             skill_dir2.join("SKILL.md"),
@@ -879,16 +872,15 @@ mod tests {
         assert_eq!(r2.skills.len(), 1);
         assert_eq!(r2.skills[0].name, "another-skill");
 
-        let r3 = results
-            .iter()
-            .find(|r| r.repo_name == "Empty Repo")
-            .unwrap();
+        let r3 = results.iter().find(|r| r.repo_name == "Empty Repo").unwrap();
         assert_eq!(r3.skills.len(), 0);
     }
 
     #[test]
     fn discover_repo_skills_skips_nonexistent_paths() {
-        let repos = vec![("C:\\nonexistent\\path\\12345", "Missing")];
+        let repos = vec![
+            ("C:\\nonexistent\\path\\12345", "Missing"),
+        ];
         let results = discover_repo_skills(&repos);
         assert_eq!(results.len(), 0);
     }
@@ -1046,9 +1038,6 @@ mod tests {
 
         // No directories should be created at all (frontmatter parse fails before staging)
         let entries: Vec<_> = std::fs::read_dir(dst.path()).unwrap().collect();
-        assert!(
-            entries.is_empty(),
-            "No files should remain after failed import"
-        );
+        assert!(entries.is_empty(), "No files should remain after failed import");
     }
 }

@@ -126,7 +126,7 @@ fn main() {
                     "skills_discover_github",
                     "skills_import_github_skill",
                     "skills_gh_auth_status",
-                    "skills_discover_local",
+                     "skills_discover_local",
                     "skills_discover_repos",
                 ])
                 .default_permission(tauri_build::DefaultPermissionRule::AllowAllCommands),

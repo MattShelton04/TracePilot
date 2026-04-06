@@ -1,7 +1,7 @@
 //! Copilot CLI config injection and management.
 
 use crate::error::{OrchestratorError, Result};
-use crate::types::{AgentDefinition, BackupDiffPreview, BackupEntry, ConfigDiff, CopilotConfig};
+use crate::types::{AgentDefinition, BackupDiffPreview, BackupEntry, CopilotConfig, ConfigDiff};
 use std::path::{Path, PathBuf};
 
 /// Read all agent definitions for a given Copilot version.
@@ -19,10 +19,9 @@ pub fn read_agent_definitions(version_dir: &Path) -> Result<Vec<AgentDefinition>
         let entry = entry?;
         let path = entry.path();
         if path.extension().and_then(|e| e.to_str()) == Some("yaml")
-            && let Some(agent) = parse_agent_yaml(&path)?
-        {
-            agents.push(agent);
-        }
+            && let Some(agent) = parse_agent_yaml(&path)? {
+                agents.push(agent);
+            }
     }
 
     agents.sort_by(|a, b| a.name.cmp(&b.name));
@@ -95,7 +94,11 @@ pub fn write_copilot_config(copilot_home: &Path, config: &serde_json::Value) -> 
 }
 
 /// Create a backup of a file.
-pub fn create_backup(file_path: &Path, backup_dir: &Path, label: &str) -> Result<BackupEntry> {
+pub fn create_backup(
+    file_path: &Path,
+    backup_dir: &Path,
+    label: &str,
+) -> Result<BackupEntry> {
     if !file_path.exists() {
         return Err(OrchestratorError::NotFound(format!(
             "File to backup not found: {}",
@@ -106,7 +109,10 @@ pub fn create_backup(file_path: &Path, backup_dir: &Path, label: &str) -> Result
     std::fs::create_dir_all(backup_dir)?;
 
     let timestamp = chrono::Utc::now().format("%Y%m%d-%H%M%S%.3f");
-    let file_stem = file_path.file_stem().unwrap_or_default().to_string_lossy();
+    let file_stem = file_path
+        .file_stem()
+        .unwrap_or_default()
+        .to_string_lossy();
     let backup_name = if label.is_empty() {
         format!("{}-{}", file_stem, timestamp)
     } else {
@@ -126,10 +132,7 @@ pub fn create_backup(file_path: &Path, backup_dir: &Path, label: &str) -> Result
         "label": label,
         "original_filename": file_path.file_name().unwrap_or_default().to_string_lossy(),
     });
-    std::fs::write(
-        &sidecar_path,
-        serde_json::to_string_pretty(&sidecar).unwrap_or_default(),
-    )?;
+    std::fs::write(&sidecar_path, serde_json::to_string_pretty(&sidecar).unwrap_or_default())?;
 
     Ok(BackupEntry {
         id: uuid::Uuid::new_v4().to_string(),
@@ -157,29 +160,16 @@ pub fn list_backups(backup_dir: &Path) -> Result<Vec<BackupEntry>> {
         }
         if path.is_file() {
             let meta = std::fs::metadata(&path)?;
-            let file_name = path
-                .file_name()
-                .unwrap_or_default()
-                .to_string_lossy()
-                .to_string();
+            let file_name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
 
             // Try to read sidecar metadata
             let sidecar_path = backup_dir.join(format!("{}.meta.json", file_name));
             let (source_path, label) = if sidecar_path.exists() {
                 let sidecar_content = std::fs::read_to_string(&sidecar_path).unwrap_or_default();
-                let sidecar: serde_json::Value =
-                    serde_json::from_str(&sidecar_content).unwrap_or_default();
+                let sidecar: serde_json::Value = serde_json::from_str(&sidecar_content).unwrap_or_default();
                 (
-                    sidecar
-                        .get("source_path")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("")
-                        .to_string(),
-                    sidecar
-                        .get("label")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or(&file_name)
-                        .to_string(),
+                    sidecar.get("source_path").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                    sidecar.get("label").and_then(|v| v.as_str()).unwrap_or(&file_name).to_string(),
                 )
             } else {
                 (String::new(), file_name.clone())
@@ -193,7 +183,9 @@ pub fn list_backups(backup_dir: &Path) -> Result<Vec<BackupEntry>> {
                 created_at: meta
                     .modified()
                     .ok()
-                    .map(|t| chrono::DateTime::<chrono::Utc>::from(t).to_rfc3339())
+                    .map(|t| {
+                        chrono::DateTime::<chrono::Utc>::from(t).to_rfc3339()
+                    })
                     .unwrap_or_default(),
                 size_bytes: meta.len(),
             });
@@ -230,10 +222,7 @@ pub fn delete_backup(backup_path: &Path) -> Result<()> {
     std::fs::remove_file(backup_path)?;
 
     // Remove sidecar metadata if it exists
-    let file_name = backup_path
-        .file_name()
-        .unwrap_or_default()
-        .to_string_lossy();
+    let file_name = backup_path.file_name().unwrap_or_default().to_string_lossy();
     if let Some(parent) = backup_path.parent() {
         let sidecar_path = parent.join(format!("{}.meta.json", file_name));
         let _ = std::fs::remove_file(sidecar_path);
@@ -296,9 +285,7 @@ pub fn diff_files(old_path: &Path, new_path: &Path) -> Result<ConfigDiff> {
 
     let diff = similar::TextDiff::from_lines(&old_content, &new_content);
     let diff_text = diff.unified_diff().header("old", "new").to_string();
-    let has_changes = diff_text
-        .lines()
-        .any(|l| l.starts_with('+') || l.starts_with('-'));
+    let has_changes = diff_text.lines().any(|l| l.starts_with('+') || l.starts_with('-'));
 
     let file_name = new_path
         .file_name()
@@ -443,10 +430,7 @@ mod tests {
         fs::write(&backup, "backup content").unwrap();
 
         restore_backup(&backup, &restore_target).unwrap();
-        assert_eq!(
-            fs::read_to_string(&restore_target).unwrap(),
-            "backup content"
-        );
+        assert_eq!(fs::read_to_string(&restore_target).unwrap(), "backup content");
     }
 
     #[test]
@@ -458,10 +442,7 @@ mod tests {
         // Valid YAML should work
         let result = write_agent_definition(&path, "name: test\nmodel: opus\n");
         assert!(result.is_ok());
-        assert_eq!(
-            fs::read_to_string(&path).unwrap(),
-            "name: test\nmodel: opus\n"
-        );
+        assert_eq!(fs::read_to_string(&path).unwrap(), "name: test\nmodel: opus\n");
 
         // Invalid YAML should fail
         let result = write_agent_definition(&path, "invalid: [yaml: broken:");

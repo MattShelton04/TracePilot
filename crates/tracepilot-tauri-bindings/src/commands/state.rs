@@ -37,13 +37,10 @@ pub async fn get_session_count(state: tauri::State<'_, SharedConfig>) -> CmdResu
 
     blocking_cmd!({
         if let Some(db) = open_index_db(&index_path)
-            && let Ok(count) = db.session_count()
-        {
-            return Ok(count);
-        }
-        Ok::<_, BindingsError>(
-            tracepilot_core::session::discovery::discover_sessions(&session_state_dir)?.len(),
-        )
+            && let Ok(count) = db.session_count() {
+                return Ok(count);
+            }
+        Ok::<_, BindingsError>(tracepilot_core::session::discovery::discover_sessions(&session_state_dir)?.len())
     })
 }
 
@@ -234,21 +231,20 @@ fn is_windows_installed(exe: &Path) -> bool {
     // happens to contain another app's uninstaller. Acceptable for v1 since
     // the path-based checks above cover the standard install locations.
     if let Some(dir) = exe.parent()
-        && let Ok(entries) = std::fs::read_dir(dir)
-    {
-        for entry in entries.flatten() {
-            let name = entry.file_name();
-            let name = name.to_string_lossy().to_lowercase();
-            if name.starts_with("unins")
-                && entry
-                    .path()
-                    .extension()
-                    .is_some_and(|e| e.eq_ignore_ascii_case("exe"))
-            {
-                return true;
+        && let Ok(entries) = std::fs::read_dir(dir) {
+            for entry in entries.flatten() {
+                let name = entry.file_name();
+                let name = name.to_string_lossy().to_lowercase();
+                if name.starts_with("unins")
+                    && entry
+                        .path()
+                        .extension()
+                        .is_some_and(|e| e.eq_ignore_ascii_case("exe"))
+                {
+                    return true;
+                }
             }
         }
-    }
 
     false
 }
@@ -365,7 +361,8 @@ mod tests {
     #[test]
     fn empty_appimage_env_not_treated_as_appimage() {
         let exe = PathBuf::from("/home/me/tracepilot");
-        let install_type = detect_install_type_for(&exe, Some(OsStr::new("")), PlatformKind::Linux);
+        let install_type =
+            detect_install_type_for(&exe, Some(OsStr::new("")), PlatformKind::Linux);
         assert_eq!(install_type, InstallType::Portable);
     }
 

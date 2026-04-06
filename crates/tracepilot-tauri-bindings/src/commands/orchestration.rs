@@ -46,18 +46,14 @@ pub async fn check_system_deps(
 pub async fn list_worktrees(
     repo_path: String,
 ) -> CmdResult<Vec<tracepilot_orchestrator::WorktreeInfo>> {
-    blocking_cmd!(tracepilot_orchestrator::worktrees::list_worktrees(
-        std::path::Path::new(&repo_path)
-    ))
+    blocking_cmd!(tracepilot_orchestrator::worktrees::list_worktrees(std::path::Path::new(&repo_path)))
 }
 
 #[tauri::command]
 pub async fn create_worktree(
     request: tracepilot_orchestrator::CreateWorktreeRequest,
 ) -> CmdResult<tracepilot_orchestrator::WorktreeInfo> {
-    blocking_cmd!(tracepilot_orchestrator::worktrees::create_worktree(
-        &request
-    ))
+    blocking_cmd!(tracepilot_orchestrator::worktrees::create_worktree(&request))
 }
 
 #[tauri::command]
@@ -74,24 +70,20 @@ pub async fn remove_worktree(
 }
 
 #[tauri::command]
-pub async fn prune_worktrees(repo_path: String) -> CmdResult<tracepilot_orchestrator::PruneResult> {
-    blocking_cmd!(tracepilot_orchestrator::worktrees::prune_worktrees(
-        std::path::Path::new(&repo_path)
-    ))
+pub async fn prune_worktrees(
+    repo_path: String,
+) -> CmdResult<tracepilot_orchestrator::PruneResult> {
+    blocking_cmd!(tracepilot_orchestrator::worktrees::prune_worktrees(std::path::Path::new(&repo_path)))
 }
 
 #[tauri::command]
 pub async fn list_branches(repo_path: String) -> CmdResult<Vec<String>> {
-    blocking_cmd!(tracepilot_orchestrator::worktrees::list_branches(
-        std::path::Path::new(&repo_path)
-    ))
+    blocking_cmd!(tracepilot_orchestrator::worktrees::list_branches(std::path::Path::new(&repo_path)))
 }
 
 #[tauri::command]
 pub async fn get_worktree_disk_usage(path: String) -> CmdResult<u64> {
-    blocking_cmd!(tracepilot_orchestrator::worktrees::disk_usage_bytes(
-        std::path::Path::new(&path)
-    ))
+    blocking_cmd!(tracepilot_orchestrator::worktrees::disk_usage_bytes(std::path::Path::new(&path)))
 }
 
 #[tauri::command]
@@ -116,7 +108,10 @@ pub async fn lock_worktree(
 }
 
 #[tauri::command]
-pub async fn unlock_worktree(repo_path: String, worktree_path: String) -> CmdResult<()> {
+pub async fn unlock_worktree(
+    repo_path: String,
+    worktree_path: String,
+) -> CmdResult<()> {
     blocking_cmd!(tracepilot_orchestrator::worktrees::unlock_worktree(
         std::path::Path::new(&repo_path),
         std::path::Path::new(&worktree_path),
@@ -134,13 +129,14 @@ pub async fn get_worktree_details(
 
 #[tauri::command]
 pub async fn get_default_branch(repo_path: String) -> CmdResult<String> {
-    blocking_cmd!(tracepilot_orchestrator::worktrees::get_default_branch(
-        std::path::Path::new(&repo_path)
-    ))
+    blocking_cmd!(tracepilot_orchestrator::worktrees::get_default_branch(std::path::Path::new(&repo_path)))
 }
 
 #[tauri::command]
-pub async fn fetch_remote(repo_path: String, branch: Option<String>) -> CmdResult<String> {
+pub async fn fetch_remote(
+    repo_path: String,
+    branch: Option<String>,
+) -> CmdResult<String> {
     blocking_cmd!(tracepilot_orchestrator::worktrees::fetch_remote(
         std::path::Path::new(&repo_path),
         branch.as_deref(),

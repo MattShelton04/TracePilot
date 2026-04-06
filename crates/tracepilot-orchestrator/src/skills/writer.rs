@@ -40,12 +40,7 @@ fn yaml_escape(s: &str) -> String {
         || s.starts_with('`')
         || s.contains("---");
     if needs_quoting {
-        format!(
-            "\"{}\"",
-            s.replace('\\', "\\\\")
-                .replace('"', "\\\"")
-                .replace('\n', "\\n")
-        )
+        format!("\"{}\"", s.replace('\\', "\\\\").replace('"', "\\\"").replace('\n', "\\n"))
     } else {
         s.to_string()
     }
@@ -191,14 +186,9 @@ mod tests {
 
     #[test]
     fn yaml_escape_quotes_boolean_keywords() {
-        for keyword in &[
-            "true", "false", "yes", "no", "on", "off", "null", "True", "False", "YES", "NO", "Null",
-        ] {
+        for keyword in &["true", "false", "yes", "no", "on", "off", "null", "True", "False", "YES", "NO", "Null"] {
             let escaped = yaml_escape(keyword);
-            assert!(
-                escaped.starts_with('"'),
-                "'{keyword}' should be quoted but got: {escaped}"
-            );
+            assert!(escaped.starts_with('"'), "'{keyword}' should be quoted but got: {escaped}");
         }
     }
 

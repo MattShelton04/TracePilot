@@ -7,8 +7,8 @@ use std::path::Path;
 
 use tracepilot_core::parsing::events::TypedEventData;
 
-use super::IndexDb;
 use super::types::*;
+use super::IndexDb;
 
 /// Pre-computed session data ready for DB insertion.
 ///
@@ -33,8 +33,7 @@ pub(crate) fn prepare_session_data(session_path: &Path) -> Result<PreparedSessio
 
     let file_meta = SessionFileMeta::from_session_path(session_path);
 
-    let analytics =
-        extract_session_analytics(&summary, &typed_events, diagnostics.as_ref(), &file_meta);
+    let analytics = extract_session_analytics(&summary, &typed_events, diagnostics.as_ref(), &file_meta);
 
     let index_info = SessionIndexInfo {
         repository: summary.repository.clone(),
@@ -64,10 +63,7 @@ impl IndexDb {
     ///
     /// This is the DB-bound portion of indexing that must run sequentially
     /// (rusqlite::Connection is !Send).
-    pub(crate) fn write_prepared_session(
-        &self,
-        prepared: &PreparedSessionData,
-    ) -> Result<SessionIndexInfo> {
+    pub(crate) fn write_prepared_session(&self, prepared: &PreparedSessionData) -> Result<SessionIndexInfo> {
         let summary = &prepared.summary;
         let analytics = &prepared.analytics;
         let session_path = &prepared.session_path;
@@ -266,12 +262,7 @@ impl IndexDb {
                      VALUES (?1, ?2, ?3, ?4)",
                 )?;
                 for row in &analytics.activity_rows {
-                    stmt.execute(params![
-                        &session_id,
-                        row.day_of_week,
-                        row.hour,
-                        row.tool_call_count
-                    ])?;
+                    stmt.execute(params![&session_id, row.day_of_week, row.hour, row.tool_call_count])?;
                 }
             }
 
@@ -362,12 +353,7 @@ impl IndexDb {
         };
 
         if stored_av.unwrap_or(0) < CURRENT_ANALYTICS_VERSION {
-            tracing::debug!(
-                session_id,
-                stored = stored_av.unwrap_or(0),
-                current = CURRENT_ANALYTICS_VERSION,
-                "needs_reindex: analytics_version"
-            );
+            tracing::debug!(session_id, stored = stored_av.unwrap_or(0), current = CURRENT_ANALYTICS_VERSION, "needs_reindex: analytics_version");
             return true;
         }
 
@@ -414,8 +400,9 @@ impl IndexDb {
 
         self.conn.execute_batch("BEGIN")?;
         let result = (|| -> Result<()> {
-            self.conn
-                .execute_batch("CREATE TEMP TABLE IF NOT EXISTS _live_ids (id TEXT PRIMARY KEY)")?;
+            self.conn.execute_batch(
+                "CREATE TEMP TABLE IF NOT EXISTS _live_ids (id TEXT PRIMARY KEY)",
+            )?;
             self.conn.execute_batch("DELETE FROM _live_ids")?;
 
             let mut stmt = self
@@ -425,13 +412,15 @@ impl IndexDb {
                 stmt.execute([id])?;
             }
 
-            self.conn
-                .execute_batch("DELETE FROM sessions WHERE id NOT IN (SELECT id FROM _live_ids)")?;
+            self.conn.execute_batch(
+                "DELETE FROM sessions WHERE id NOT IN (SELECT id FROM _live_ids)",
+            )?;
             // search_content rows cascade-deleted via FK, but clean up explicitly
             self.conn.execute_batch(
                 "DELETE FROM search_content WHERE session_id NOT IN (SELECT id FROM _live_ids)",
             )?;
-            self.conn.execute_batch("DROP TABLE IF EXISTS _live_ids")?;
+            self.conn
+                .execute_batch("DROP TABLE IF EXISTS _live_ids")?;
             Ok(())
         })();
 
@@ -485,7 +474,8 @@ pub(crate) fn extract_session_analytics(
         .and_then(|m| m.total_api_duration_ms.map(|v| v as i64));
 
     if let Some(ref metrics) = summary.shutdown_metrics {
-        if let (Some(start_time), Some(updated)) = (metrics.session_start_time, summary.updated_at)
+        if let (Some(start_time), Some(updated)) =
+            (metrics.session_start_time, summary.updated_at)
         {
             let end_ms = updated.timestamp_millis() as u64;
             if end_ms > start_time {
@@ -494,24 +484,32 @@ pub(crate) fn extract_session_analytics(
         }
 
         for (model_name, detail) in &metrics.model_metrics {
-            let (input_t, output_t, cache_read, cache_write) = if let Some(ref usage) = detail.usage
-            {
-                (
-                    usage.input_tokens.unwrap_or(0) as i64,
-                    usage.output_tokens.unwrap_or(0) as i64,
-                    usage.cache_read_tokens.unwrap_or(0) as i64,
-                    usage.cache_write_tokens.unwrap_or(0) as i64,
-                )
-            } else {
-                (0, 0, 0, 0)
-            };
+            let (input_t, output_t, cache_read, cache_write) =
+                if let Some(ref usage) = detail.usage {
+                    (
+                        usage.input_tokens.unwrap_or(0) as i64,
+                        usage.output_tokens.unwrap_or(0) as i64,
+                        usage.cache_read_tokens.unwrap_or(0) as i64,
+                        usage.cache_write_tokens.unwrap_or(0) as i64,
+                    )
+                } else {
+                    (0, 0, 0, 0)
+                };
             let model_tokens = input_t + output_t;
             total_tokens += model_tokens;
 
-            let cost = detail.requests.as_ref().and_then(|r| r.cost).unwrap_or(0.0);
+            let cost = detail
+                .requests
+                .as_ref()
+                .and_then(|r| r.cost)
+                .unwrap_or(0.0);
             total_cost += cost;
 
-            let req_count = detail.requests.as_ref().and_then(|r| r.count).unwrap_or(0) as i64;
+            let req_count = detail
+                .requests
+                .as_ref()
+                .and_then(|r| r.count)
+                .unwrap_or(0) as i64;
 
             model_rows.push(ModelMetricsRow {
                 model: model_name.clone(),
@@ -535,16 +533,12 @@ pub(crate) fn extract_session_analytics(
                 if let Some(ref mm) = seg.model_metrics {
                     for detail in mm.values() {
                         if let Some(ref usage) = detail.usage {
-                            tokens += (usage.input_tokens.unwrap_or(0)
-                                + usage.output_tokens.unwrap_or(0))
-                                as i64;
+                            tokens += (usage.input_tokens.unwrap_or(0) + usage.output_tokens.unwrap_or(0)) as i64;
                         }
                     }
                 }
 
-                let mm_json = seg
-                    .model_metrics
-                    .as_ref()
+                let mm_json = seg.model_metrics.as_ref()
                     .and_then(|mm| serde_json::to_string(mm).ok());
                 session_segment_rows.push(SessionSegmentRow {
                     start_timestamp: seg.start_timestamp.clone(),
@@ -594,38 +588,42 @@ pub(crate) fn extract_session_analytics(
                 TypedEventData::ToolExecutionStart(d) => {
                     if let Some(ref tool_call_id) = d.tool_call_id {
                         let name = d.tool_name.clone().unwrap_or_else(|| "unknown".into());
-                        tool_starts.insert(tool_call_id.clone(), (name, event.raw.timestamp));
+                        tool_starts
+                            .insert(tool_call_id.clone(), (name, event.raw.timestamp));
                     }
                 }
                 TypedEventData::ToolExecutionComplete(d) => {
                     actual_tool_call_count += 1;
                     if let Some(ref tool_call_id) = d.tool_call_id
-                        && let Some((tool_name, start_ts)) = tool_starts.remove(tool_call_id)
-                    {
-                        let acc = tool_accum
-                            .entry(tool_name.clone())
-                            .or_insert((0, 0, 0, 0, 0));
-                        acc.0 += 1;
+                        && let Some((tool_name, start_ts)) =
+                            tool_starts.remove(tool_call_id)
+                        {
+                            let acc = tool_accum
+                                .entry(tool_name.clone())
+                                .or_insert((0, 0, 0, 0, 0));
+                            acc.0 += 1;
 
-                        match d.success {
-                            Some(true) => acc.1 += 1,
-                            Some(false) => acc.2 += 1,
-                            None => {}
-                        }
+                            match d.success {
+                                Some(true) => acc.1 += 1,
+                                Some(false) => acc.2 += 1,
+                                None => {}
+                            }
 
-                        if let (Some(start), Some(end)) = (start_ts, event.raw.timestamp) {
-                            let dur = (end - start).num_milliseconds().max(0);
-                            acc.3 += dur;
-                            acc.4 += 1;
-                        }
+                            if let (Some(start), Some(end)) =
+                                (start_ts, event.raw.timestamp)
+                            {
+                                let dur = (end - start).num_milliseconds().max(0);
+                                acc.3 += dur;
+                                acc.4 += 1;
+                            }
 
-                        if let Some(ts) = start_ts {
-                            use chrono::{Datelike, Timelike};
-                            let day = ts.weekday().num_days_from_monday() as i64;
-                            let hour = ts.hour() as i64;
-                            *heatmap_accum.entry((day, hour)).or_insert(0) += 1;
+                            if let Some(ts) = start_ts {
+                                use chrono::{Datelike, Timelike};
+                                let day = ts.weekday().num_days_from_monday() as i64;
+                                let hour = ts.hour() as i64;
+                                *heatmap_accum.entry((day, hour)).or_insert(0) += 1;
+                            }
                         }
-                    }
                 }
                 TypedEventData::SessionError(d) => {
                     error_count += 1;
@@ -644,7 +642,11 @@ pub(crate) fn extract_session_analytics(
                         incidents.push(IncidentRow {
                             event_type: "error".into(),
                             source_event_type: "session.error".into(),
-                            timestamp: event.raw.timestamp.as_ref().map(|t| t.to_rfc3339()),
+                            timestamp: event
+                                .raw
+                                .timestamp
+                                .as_ref()
+                                .map(|t| t.to_rfc3339()),
                             severity: "error".into(),
                             summary,
                             detail_json: serde_json::to_string(&event.raw.data).ok(),
@@ -657,7 +659,11 @@ pub(crate) fn extract_session_analytics(
                         incidents.push(IncidentRow {
                             event_type: "warning".into(),
                             source_event_type: "session.warning".into(),
-                            timestamp: event.raw.timestamp.as_ref().map(|t| t.to_rfc3339()),
+                            timestamp: event
+                                .raw
+                                .timestamp
+                                .as_ref()
+                                .map(|t| t.to_rfc3339()),
                             severity: "warning".into(),
                             summary: d.message.clone().unwrap_or_default(),
                             detail_json: serde_json::to_string(&event.raw.data).ok(),
@@ -674,7 +680,11 @@ pub(crate) fn extract_session_analytics(
                         incidents.push(IncidentRow {
                             event_type: "compaction".into(),
                             source_event_type: "session.compaction_complete".into(),
-                            timestamp: event.raw.timestamp.as_ref().map(|t| t.to_rfc3339()),
+                            timestamp: event
+                                .raw
+                                .timestamp
+                                .as_ref()
+                                .map(|t| t.to_rfc3339()),
                             severity: if d.success == Some(true) {
                                 "info"
                             } else {
@@ -701,7 +711,11 @@ pub(crate) fn extract_session_analytics(
                         incidents.push(IncidentRow {
                             event_type: "truncation".into(),
                             source_event_type: "session.truncation".into(),
-                            timestamp: event.raw.timestamp.as_ref().map(|t| t.to_rfc3339()),
+                            timestamp: event
+                                .raw
+                                .timestamp
+                                .as_ref()
+                                .map(|t| t.to_rfc3339()),
                             severity: "warning".into(),
                             summary: format!(
                                 "Truncated {} tokens ({} messages) by {}",
@@ -745,19 +759,18 @@ pub(crate) fn extract_session_analytics(
     // Modified files from shutdown metrics
     if let Some(ref metrics) = summary.shutdown_metrics
         && let Some(ref cc) = metrics.code_changes
-        && let Some(ref files) = cc.files_modified
-    {
-        for file in files {
-            let ext = std::path::Path::new(file)
-                .extension()
-                .and_then(|e| e.to_str())
-                .map(|s| s.to_string());
-            modified_file_rows.push(ModifiedFileRow {
-                file_path: file.clone(),
-                extension: ext,
-            });
-        }
-    }
+            && let Some(ref files) = cc.files_modified {
+                for file in files {
+                    let ext = std::path::Path::new(file)
+                        .extension()
+                        .and_then(|e| e.to_str())
+                        .map(|s| s.to_string());
+                    modified_file_rows.push(ModifiedFileRow {
+                        file_path: file.clone(),
+                        extension: ext,
+                    });
+                }
+            }
 
     // Health score
     let incident_counts = tracepilot_core::health::SessionIncidentCounts {

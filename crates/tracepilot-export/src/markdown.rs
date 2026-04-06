@@ -205,11 +205,10 @@ fn write_turn(out: &mut String, turn: &tracepilot_core::models::ConversationTurn
             if let Some(args) = tool.args_summary.as_deref() {
                 let _ = writeln!(out, "  - Args: {}", args);
             } else if let Some(args) = tool.arguments.as_ref()
-                && let Ok(pretty) = serde_json::to_string_pretty(args)
-            {
-                out.push_str("  - Args:\n");
-                write_indented_code_block(out, "json", &pretty, 4);
-            }
+                && let Ok(pretty) = serde_json::to_string_pretty(args) {
+                    out.push_str("  - Args:\n");
+                    write_indented_code_block(out, "json", &pretty, 4);
+                }
             if let Some(err) = tool.error.as_deref() {
                 let _ = writeln!(out, "  - Error: {}", err);
             }
