@@ -927,7 +927,7 @@ describe("useMcpStore", () => {
     it("serverList updates for all servers after checkHealth() bulk-updates via loop", async () => {
       const multiHealthResults: Record<string, McpHealthResultCached> = {
         filesystem: FIXTURE_CACHED,
-        github: { result: { ...FIXTURE_HEALTH, serverName: "github", status: "unhealthy" }, tools: [] },
+        github: { result: { ...FIXTURE_HEALTH, serverName: "github", status: "unreachable" }, tools: [] },
       };
       mockMcpCheckHealth.mockResolvedValue(multiHealthResults);
       const store = useMcpStore();
@@ -939,7 +939,7 @@ describe("useMcpStore", () => {
 
       // Both servers should have health data after the loop-based bulk update
       expect(store.serverList.find((s) => s.name === "filesystem")?.health?.status).toBe("healthy");
-      expect(store.serverList.find((s) => s.name === "github")?.health?.status).toBe("unhealthy");
+      expect(store.serverList.find((s) => s.name === "github")?.health?.status).toBe("unreachable");
       expect(store.summary.healthyServers).toBe(1);
     });
   });
