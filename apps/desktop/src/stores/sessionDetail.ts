@@ -675,8 +675,9 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
               const freshness = await checkSessionFreshness(id);
               if (!sessionGuard.isValid(token)) return;
               if (freshness.eventsFileSize === lastEventsFileSize) return;
-            } catch {
+            } catch (e) {
               // Freshness check failed — fall through to full fetch
+              logWarn("[sessionDetail] Freshness check failed, proceeding with full fetch", { sessionId: id, error: e });
             }
 
             const result = await getSessionTurns(id);
@@ -726,8 +727,9 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       if (sessionCache.has(id) || sessionId.value === id) return;
 
       setSessionCache(id, buildPrefetchedCachedSession(detailResult, turnsResult));
-    } catch {
+    } catch (e) {
       // Silent — prefetch is best-effort optimization
+      logWarn("[sessionDetail] Prefetch failed (best-effort)", { sessionId: id, error: e });
     }
   }
 

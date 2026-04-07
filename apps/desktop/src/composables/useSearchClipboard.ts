@@ -1,4 +1,5 @@
 import type { SearchResult } from "@tracepilot/types";
+import { logWarn } from "@/utils/logger";
 
 /** Safely extract text from an HTML snippet (handles code like `a < b && c > d`). */
 export function stripHtml(html: string): string {
@@ -6,8 +7,9 @@ export function stripHtml(html: string): string {
   try {
     const doc = new DOMParser().parseFromString(html, "text/html");
     return doc.body.textContent ?? "";
-  } catch {
+  } catch (e) {
     // Fallback: only strip known safe tags (<mark>, </mark>)
+    logWarn("[useSearchClipboard] DOMParser failed, using fallback HTML stripping", e);
     return html.replace(/<\/?mark>/gi, "");
   }
 }
@@ -34,7 +36,8 @@ export function useSearchClipboard() {
     try {
       await navigator.clipboard.writeText(text);
       return true;
-    } catch {
+    } catch (e) {
+      logWarn("[useSearchClipboard] Failed to copy results to clipboard", { count: items.length, error: e });
       return false;
     }
   }
@@ -54,7 +57,8 @@ export function useSearchClipboard() {
       if (result.sessionRepository) parts.push(`\nRepo: ${result.sessionRepository}`);
       await navigator.clipboard.writeText(parts.join("\n"));
       return true;
-    } catch {
+    } catch (e) {
+      logWarn("[useSearchClipboard] Failed to copy single result to clipboard", { sessionId: result.sessionId, error: e });
       return false;
     }
   }

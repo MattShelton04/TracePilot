@@ -1,5 +1,6 @@
 import type { ReleaseManifestEntry } from "@tracepilot/types";
 import { ref } from "vue";
+import { logWarn } from "@/utils/logger";
 
 const showWhatsNew = ref(false);
 const whatsNewPreviousVersion = ref("");
@@ -14,7 +15,8 @@ async function fetchManifest(): Promise<ReleaseManifestEntry[]> {
     const data = await resp.json();
     const versions = data.versions ?? [];
     return Array.isArray(versions) ? versions : [];
-  } catch {
+  } catch (e) {
+    logWarn("[useWhatsNew] Failed to fetch release manifest", e);
     return [];
   }
 }

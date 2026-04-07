@@ -1,6 +1,7 @@
 import { getInstallType } from "@tracepilot/client";
 import { toErrorMessage } from "@tracepilot/ui";
 import { ref } from "vue";
+import { logWarn } from "@/utils/logger";
 
 export type AutoUpdateStatus =
   | "idle"
@@ -20,8 +21,9 @@ async function detectInstallType(): Promise<InstallType> {
   if (installType.value !== "unknown") return installType.value;
   try {
     installType.value = (await getInstallType()) as InstallType;
-  } catch {
+  } catch (e) {
     // Browser mock / non-Tauri environment → treat as source
+    logWarn("[useAutoUpdate] Failed to get install type (likely outside Tauri), treating as source", e);
     installType.value = "source";
   }
   return installType.value;
