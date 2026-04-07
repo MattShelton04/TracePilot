@@ -23,7 +23,10 @@ async function detectInstallType(): Promise<InstallType> {
     installType.value = (await getInstallType()) as InstallType;
   } catch (e) {
     // Browser mock / non-Tauri environment → treat as source
-    logWarn("[useAutoUpdate] Failed to get install type (likely outside Tauri), treating as source", e);
+    logWarn(
+      "[useAutoUpdate] Failed to get install type (likely outside Tauri), treating as source",
+      e,
+    );
     installType.value = "source";
   }
   return installType.value;

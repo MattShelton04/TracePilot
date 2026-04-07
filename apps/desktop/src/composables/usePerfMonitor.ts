@@ -67,7 +67,12 @@ export function usePerfMonitor(label?: string) {
       record(`${componentName}:${name}`, m.duration);
       return m.duration;
     } catch (e) {
-      logWarn("[usePerfMonitor] Failed to measure performance", { component: componentName, name, startMark, error: e });
+      logWarn("[usePerfMonitor] Failed to measure performance", {
+        component: componentName,
+        name,
+        startMark,
+        error: e,
+      });
       return -1;
     }
   }

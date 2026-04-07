@@ -677,7 +677,10 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
               if (freshness.eventsFileSize === lastEventsFileSize) return;
             } catch (e) {
               // Freshness check failed — fall through to full fetch
-              logWarn("[sessionDetail] Freshness check failed, proceeding with full fetch", { sessionId: id, error: e });
+              logWarn("[sessionDetail] Freshness check failed, proceeding with full fetch", {
+                sessionId: id,
+                error: e,
+              });
             }
 
             const result = await getSessionTurns(id);

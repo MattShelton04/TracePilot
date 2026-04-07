@@ -16,7 +16,10 @@ export async function initAppVersion(): Promise<void> {
     }
   } catch (e) {
     // Outside Tauri context (browser-only dev mode) — keep 'dev'
-    logWarn("[useAppVersion] Failed to get version (likely outside Tauri context), keeping 'dev'", e);
+    logWarn(
+      "[useAppVersion] Failed to get version (likely outside Tauri context), keeping 'dev'",
+      e,
+    );
   }
 }
 

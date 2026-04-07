@@ -134,7 +134,10 @@ export function useGitRepository(options: UseGitRepositoryOptions): UseGitReposi
       defaultBranch.value = await getDefaultBranch(repoPath.value);
     } catch (e) {
       // Silently fail - some repos might not have a default branch configured
-      logWarn("[useGitRepository] Failed to get default branch", { repoPath: repoPath.value, error: e });
+      logWarn("[useGitRepository] Failed to get default branch", {
+        repoPath: repoPath.value,
+        error: e,
+      });
       defaultBranch.value = "";
     }
   }
