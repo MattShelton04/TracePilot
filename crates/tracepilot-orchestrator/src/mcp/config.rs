@@ -327,6 +327,31 @@ mod tests {
     }
 
     #[test]
+    fn add_server_rejects_reserved_session_header() {
+        with_temp_home(|| {
+            let server = McpServerConfig {
+                command: None,
+                args: vec![],
+                env: HashMap::new(),
+                url: Some("https://example.com/mcp".into()),
+                transport: Some(McpTransport::StreamableHttp),
+                headers: HashMap::from([("mcp-session-id".into(), "user-provided".into())]),
+                tools: vec![],
+                description: None,
+                tags: vec![],
+                enabled: true,
+            };
+
+            let err = add_server("remote-test", server).unwrap_err();
+            let msg = err.to_string();
+
+            assert!(matches!(err, McpError::Config(_)));
+            assert!(msg.contains("reserved"));
+            assert!(msg.contains("mcp-session-id"));
+        });
+    }
+
+    #[test]
     fn update_server_rejects_invalid_http_headers_without_changing_saved_config() {
         with_temp_home(|| {
             let path = mcp_config_path().unwrap();
@@ -377,6 +402,33 @@ mod tests {
                 saved.headers.get("Authorization").map(String::as_str),
                 Some("Bearer valid")
             );
+        });
+    }
+
+    #[test]
+    fn add_server_rejects_case_duplicate_headers() {
+        with_temp_home(|| {
+            let server = McpServerConfig {
+                command: None,
+                args: vec![],
+                env: HashMap::new(),
+                url: Some("https://example.com/mcp".into()),
+                transport: Some(McpTransport::StreamableHttp),
+                headers: HashMap::from([
+                    ("Authorization".into(), "Bearer one".into()),
+                    ("authorization".into(), "Bearer two".into()),
+                ]),
+                tools: vec![],
+                description: None,
+                tags: vec![],
+                enabled: true,
+            };
+
+            let err = add_server("remote-test", server).unwrap_err();
+            let msg = err.to_string();
+
+            assert!(matches!(err, McpError::Config(_)));
+            assert!(msg.contains("differ only by case"));
         });
     }
 }

@@ -15,6 +15,11 @@ fn parse_configured_headers(
         let parsed_value = HeaderValue::from_str(value).map_err(|e| {
             McpError::Config(format!("Invalid HTTP header value for '{name}': {e}"))
         })?;
+        if parsed_name == MCP_SESSION_ID_HEADER {
+            return Err(McpError::Config(
+                "HTTP header 'mcp-session-id' is reserved for MCP session negotiation".into(),
+            ));
+        }
         parsed.push((name.clone(), parsed_name, parsed_value));
     }
 
@@ -75,6 +80,7 @@ pub(crate) fn build_base_http_headers(
 /// this function does nothing (no error is returned).
 pub(crate) fn inject_session_id_header(headers: &mut HeaderMap, session_id: Option<&str>) {
     if let Some(sid) = session_id
+        && !sid.trim().is_empty()
         && let Ok(val) = HeaderValue::from_str(sid)
     {
         headers.insert(MCP_SESSION_ID_HEADER.clone(), val);
@@ -126,6 +132,16 @@ mod tests {
         let msg = err.to_string();
         assert!(msg.contains("Invalid HTTP header value"));
         assert!(msg.contains("Authorization"));
+    }
+
+    #[test]
+    fn validate_headers_rejects_reserved_mcp_session_id() {
+        let headers = HashMap::from([("mcp-session-id".to_string(), "user-provided".to_string())]);
+
+        let err = validate_configured_http_headers(&headers).unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("reserved"));
+        assert!(msg.contains("mcp-session-id"));
     }
 
     #[test]
@@ -207,38 +223,31 @@ mod tests {
     }
 
     #[test]
-    fn inject_session_id_header_allows_empty_value() {
+    fn inject_session_id_header_ignores_empty_value() {
         let mut headers = HeaderMap::new();
 
         inject_session_id_header(&mut headers, Some(""));
 
-        assert_eq!(
-            headers
-                .get(MCP_SESSION_ID_HEADER)
-                .unwrap()
-                .to_str()
-                .unwrap(),
-            ""
-        );
+        assert!(!headers.contains_key(MCP_SESSION_ID_HEADER));
     }
 
     #[test]
-    fn inject_session_id_header_overrides_user_configured_session_id() {
-        let mut headers = build_base_http_headers(&HashMap::from([(
+    fn inject_session_id_header_ignores_whitespace_only_value() {
+        let mut headers = HeaderMap::new();
+
+        inject_session_id_header(&mut headers, Some("   "));
+
+        assert!(!headers.contains_key(MCP_SESSION_ID_HEADER));
+    }
+
+    #[test]
+    fn build_base_headers_rejects_user_configured_session_id() {
+        let err = build_base_http_headers(&HashMap::from([(
             "mcp-session-id".to_string(),
             "user-provided".to_string(),
         )]))
-        .unwrap();
+        .unwrap_err();
 
-        inject_session_id_header(&mut headers, Some("negotiated-session"));
-
-        assert_eq!(
-            headers
-                .get(MCP_SESSION_ID_HEADER)
-                .unwrap()
-                .to_str()
-                .unwrap(),
-            "negotiated-session"
-        );
+        assert!(err.to_string().contains("reserved"));
     }
 }
