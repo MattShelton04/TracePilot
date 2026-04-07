@@ -387,7 +387,14 @@ describe("useSearchStore FTS maintenance", () => {
 
   it("runOptimize refreshes health info after a successful run", async () => {
     mockFtsOptimize.mockResolvedValue("done");
-    mockFtsHealth.mockResolvedValue({ inSync: true, indexedSessions: 5, totalSessions: 5, totalContentRows: 100, pendingSessions: 0, dbSizeBytes: 1024 });
+    mockFtsHealth.mockResolvedValue({
+      inSync: true,
+      indexedSessions: 5,
+      totalSessions: 5,
+      totalContentRows: 100,
+      pendingSessions: 0,
+      dbSizeBytes: 1024,
+    });
     const store = useSearchStore();
     await store.runOptimize();
     expect(mockFtsHealth).toHaveBeenCalledTimes(1);
@@ -430,5 +437,349 @@ describe("useSearchStore FTS maintenance", () => {
     await store.runOptimize();
     // toErrorMessage("permission denied") = "permission denied" (String fallback)
     expect(store.maintenanceMessage).toBe("Error: permission denied");
+  });
+});
+
+describe("useSearchStore – FTS maintenance concurrency", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    resetAllMocks();
+    setupDefaultMocks();
+  });
+
+  it("fetchHealth: concurrent calls deduplicate and only latest result is written", async () => {
+    // Deferred promises to control resolution order
+    let resolveFirst: (value: unknown) => void;
+    let resolveSecond: (value: unknown) => void;
+    const firstPromise = new Promise((resolve) => {
+      resolveFirst = resolve;
+    });
+    const secondPromise = new Promise((resolve) => {
+      resolveSecond = resolve;
+    });
+
+    mockFtsHealth.mockReturnValueOnce(firstPromise).mockReturnValueOnce(secondPromise);
+
+    const store = useSearchStore();
+
+    // Start two concurrent calls
+    const call1 = store.fetchHealth();
+    const call2 = store.fetchHealth();
+
+    // Resolve second (newer) call first
+    resolveSecond!({
+      inSync: true,
+      indexedSessions: 20,
+      totalSessions: 20,
+      totalContentRows: 200,
+      pendingSessions: 0,
+      dbSizeBytes: 2048,
+    });
+    await call2;
+
+    // Verify newer result is written
+    expect(store.healthInfo).toEqual({
+      inSync: true,
+      indexedSessions: 20,
+      totalSessions: 20,
+      totalContentRows: 200,
+      pendingSessions: 0,
+      dbSizeBytes: 2048,
+    });
+
+    // Resolve first (older) call
+    resolveFirst!({
+      inSync: false,
+      indexedSessions: 10,
+      totalSessions: 20,
+      totalContentRows: 100,
+      pendingSessions: 10,
+      dbSizeBytes: 1024,
+    });
+    await call1;
+
+    // Verify stale result did NOT overwrite newer result
+    expect(store.healthInfo).toEqual({
+      inSync: true,
+      indexedSessions: 20,
+      totalSessions: 20,
+      totalContentRows: 200,
+      pendingSessions: 0,
+      dbSizeBytes: 2048,
+    });
+  });
+
+  it("fetchHealth: stale error does not overwrite newer successful result", async () => {
+    let resolveSecond: (value: unknown) => void;
+    let rejectFirst: (reason?: unknown) => void;
+    const firstPromise = new Promise((_resolve, reject) => {
+      rejectFirst = reject;
+    });
+    const secondPromise = new Promise((resolve) => {
+      resolveSecond = resolve;
+    });
+
+    mockFtsHealth.mockReturnValueOnce(firstPromise).mockReturnValueOnce(secondPromise);
+
+    const store = useSearchStore();
+
+    const call1 = store.fetchHealth();
+    const call2 = store.fetchHealth();
+
+    // Resolve second (newer) call with success
+    resolveSecond!({
+      inSync: true,
+      indexedSessions: 15,
+      totalSessions: 15,
+      totalContentRows: 150,
+      pendingSessions: 0,
+      dbSizeBytes: 1536,
+    });
+    await call2;
+    expect(store.healthInfo).toEqual({
+      inSync: true,
+      indexedSessions: 15,
+      totalSessions: 15,
+      totalContentRows: 150,
+      pendingSessions: 0,
+      dbSizeBytes: 1536,
+    });
+
+    // Reject first (older) call (should be ignored)
+    rejectFirst!(new Error("timeout"));
+    await call1.catch(() => {}); // Swallow expected rejection
+
+    // Verify stale error did NOT clear the successful result
+    expect(store.healthInfo).toEqual({
+      inSync: true,
+      indexedSessions: 15,
+      totalSessions: 15,
+      totalContentRows: 150,
+      pendingSessions: 0,
+      dbSizeBytes: 1536,
+    });
+  });
+
+  it("fetchHealth: loading flag not cleared by stale call completion", async () => {
+    let resolveFirst: (value: unknown) => void;
+    let resolveSecond: (value: unknown) => void;
+    const firstPromise = new Promise((resolve) => {
+      resolveFirst = resolve;
+    });
+    const secondPromise = new Promise((resolve) => {
+      resolveSecond = resolve;
+    });
+
+    mockFtsHealth.mockReturnValueOnce(firstPromise).mockReturnValueOnce(secondPromise);
+
+    const store = useSearchStore();
+
+    const call1 = store.fetchHealth();
+    expect(store.healthLoading).toBe(true);
+
+    const call2 = store.fetchHealth();
+    expect(store.healthLoading).toBe(true);
+
+    // Resolve older call first
+    resolveFirst!({
+      inSync: true,
+      indexedSessions: 5,
+      totalSessions: 5,
+      totalContentRows: 50,
+      pendingSessions: 0,
+      dbSizeBytes: 512,
+    });
+    await call1;
+
+    // Loading flag should remain true because newer call is still pending
+    expect(store.healthLoading).toBe(true);
+
+    // Resolve newer call
+    resolveSecond!({
+      inSync: true,
+      indexedSessions: 10,
+      totalSessions: 10,
+      totalContentRows: 100,
+      pendingSessions: 0,
+      dbSizeBytes: 1024,
+    });
+    await call2;
+
+    // Now loading flag should be false
+    expect(store.healthLoading).toBe(false);
+    expect(store.healthInfo).toEqual({
+      inSync: true,
+      indexedSessions: 10,
+      totalSessions: 10,
+      totalContentRows: 100,
+      pendingSessions: 0,
+      dbSizeBytes: 1024,
+    });
+  });
+
+  it("runIntegrityCheck: concurrent calls deduplicate and only latest result is written", async () => {
+    let resolveFirst: (value: string) => void;
+    let resolveSecond: (value: string) => void;
+    const firstPromise = new Promise<string>((resolve) => {
+      resolveFirst = resolve;
+    });
+    const secondPromise = new Promise<string>((resolve) => {
+      resolveSecond = resolve;
+    });
+
+    mockFtsIntegrityCheck.mockReturnValueOnce(firstPromise).mockReturnValueOnce(secondPromise);
+
+    const store = useSearchStore();
+
+    const call1 = store.runIntegrityCheck();
+    const call2 = store.runIntegrityCheck();
+
+    // Resolve newer call first
+    resolveSecond!("integrity check passed - 0 errors");
+    await call2;
+    expect(store.maintenanceMessage).toBe("integrity check passed - 0 errors");
+
+    // Resolve older call (should be ignored)
+    resolveFirst!("stale result - 5 warnings");
+    await call1;
+
+    // Verify stale result did NOT overwrite newer result
+    expect(store.maintenanceMessage).toBe("integrity check passed - 0 errors");
+  });
+
+  it("runIntegrityCheck: stale error does not overwrite newer successful result", async () => {
+    let resolveSecond: (value: string) => void;
+    let rejectFirst: (reason?: unknown) => void;
+    const firstPromise = new Promise<string>((_resolve, reject) => {
+      rejectFirst = reject;
+    });
+    const secondPromise = new Promise<string>((resolve) => {
+      resolveSecond = resolve;
+    });
+
+    mockFtsIntegrityCheck.mockReturnValueOnce(firstPromise).mockReturnValueOnce(secondPromise);
+
+    const store = useSearchStore();
+
+    const call1 = store.runIntegrityCheck();
+    const call2 = store.runIntegrityCheck();
+
+    // Resolve second (newer) call with success
+    resolveSecond!("integrity ok");
+    await call2;
+    expect(store.maintenanceMessage).toBe("integrity ok");
+
+    // Reject first (older) call (should be ignored)
+    rejectFirst!(new Error("database locked"));
+    await call1;
+
+    // Verify stale error did NOT overwrite successful result
+    expect(store.maintenanceMessage).toBe("integrity ok");
+  });
+
+  it("runOptimize: concurrent calls deduplicate and only latest result is written", async () => {
+    let resolveFirst: (value: string) => void;
+    let resolveSecond: (value: string) => void;
+    const firstPromise = new Promise<string>((resolve) => {
+      resolveFirst = resolve;
+    });
+    const secondPromise = new Promise<string>((resolve) => {
+      resolveSecond = resolve;
+    });
+
+    mockFtsOptimize.mockReturnValueOnce(firstPromise).mockReturnValueOnce(secondPromise);
+    mockFtsHealth.mockResolvedValue({
+      inSync: true,
+      indexedSessions: 10,
+      totalSessions: 10,
+      totalContentRows: 100,
+      pendingSessions: 0,
+      dbSizeBytes: 1024,
+    });
+
+    const store = useSearchStore();
+
+    const call1 = store.runOptimize();
+    const call2 = store.runOptimize();
+
+    // Resolve newer call first
+    resolveSecond!("optimized 200 pages");
+    await call2;
+    expect(store.maintenanceMessage).toBe("optimized 200 pages");
+
+    // Resolve older call (should be ignored)
+    resolveFirst!("stale - optimized 100 pages");
+    await call1;
+
+    // Verify stale result did NOT overwrite newer result
+    expect(store.maintenanceMessage).toBe("optimized 200 pages");
+  });
+
+  it("runOptimize: stale error does not overwrite newer successful result", async () => {
+    let resolveSecond: (value: string) => void;
+    let rejectFirst: (reason?: unknown) => void;
+    const firstPromise = new Promise<string>((_resolve, reject) => {
+      rejectFirst = reject;
+    });
+    const secondPromise = new Promise<string>((resolve) => {
+      resolveSecond = resolve;
+    });
+
+    mockFtsOptimize.mockReturnValueOnce(firstPromise).mockReturnValueOnce(secondPromise);
+    mockFtsHealth.mockResolvedValue({
+      inSync: true,
+      indexedSessions: 10,
+      totalSessions: 10,
+      totalContentRows: 100,
+      pendingSessions: 0,
+      dbSizeBytes: 1024,
+    });
+
+    const store = useSearchStore();
+
+    const call1 = store.runOptimize();
+    const call2 = store.runOptimize();
+
+    // Resolve second (newer) call with success
+    resolveSecond!("optimize complete");
+    await call2;
+    expect(store.maintenanceMessage).toBe("optimize complete");
+
+    // Reject first (older) call (should be ignored)
+    rejectFirst!(new Error("write conflict"));
+    await call1;
+
+    // Verify stale error did NOT overwrite successful result
+    expect(store.maintenanceMessage).toBe("optimize complete");
+  });
+
+  it("runOptimize: fetchHealth() is called after successful optimize regardless of staleness", async () => {
+    mockFtsOptimize.mockResolvedValue("done");
+    mockFtsHealth.mockResolvedValue({
+      inSync: true,
+      indexedSessions: 10,
+      totalSessions: 10,
+      totalContentRows: 100,
+      pendingSessions: 0,
+      dbSizeBytes: 1024,
+    });
+
+    const store = useSearchStore();
+
+    await store.runOptimize();
+
+    // Verify fetchHealth was called to refresh health info
+    expect(mockFtsHealth).toHaveBeenCalledTimes(1);
+  });
+
+  it("runOptimize: fetchHealth() is NOT called when optimize fails", async () => {
+    mockFtsOptimize.mockRejectedValue(new Error("failed"));
+
+    const store = useSearchStore();
+
+    await store.runOptimize();
+
+    // Verify fetchHealth was NOT called since optimize failed
+    expect(mockFtsHealth).not.toHaveBeenCalled();
   });
 });
