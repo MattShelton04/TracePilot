@@ -191,17 +191,18 @@ mod tests {
     use super::*;
     use crate::mcp::types::{McpServerConfig, McpTransport};
     use std::collections::HashMap;
-    use std::sync::Mutex;
     use tempfile::TempDir;
 
-    static ENV_LOCK: Mutex<()> = Mutex::new(());
-
     fn with_temp_home<F: FnOnce()>(f: F) {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _guard = crate::TEST_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let tmp = TempDir::new().unwrap();
         std::fs::create_dir_all(tmp.path().join(".copilot")).unwrap();
         let old_home = std::env::var("HOME").ok();
         let old_userprofile = std::env::var("USERPROFILE").ok();
+        // SAFETY: Environment mutation is serialized across the entire crate via
+        // crate::TEST_ENV_LOCK, matching the Rust 2024 requirements for set_var/remove_var.
         unsafe {
             std::env::set_var("HOME", tmp.path());
             std::env::set_var("USERPROFILE", tmp.path());
