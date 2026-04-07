@@ -5765,6 +5765,7 @@ name = "tracepilot-core"
 version = "0.6.1"
 dependencies = [
  "chrono",
+ "dashmap",
  "dhat",
  "filetime",
  "rusqlite",
@@ -5839,7 +5840,6 @@ name = "tracepilot-orchestrator"
 version = "0.6.1"
 dependencies = [
  "chrono",
- "dashmap",
  "reqwest 0.12.28",
  "semver",
  "serde",
@@ -5861,7 +5861,6 @@ version = "0.6.1"
 dependencies = [
  "anyhow",
  "chrono",
- "dashmap",
  "lru",
  "reqwest 0.12.28",
  "semver",

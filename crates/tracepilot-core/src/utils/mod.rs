@@ -1,5 +1,6 @@
 //! Shared utility functions used across TracePilot crates.
 
+pub mod cache;
 pub mod sqlite;
 
 use std::path::PathBuf;
