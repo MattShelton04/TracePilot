@@ -50,7 +50,7 @@ export function useClipboard(options?: UseClipboardOptions): UseClipboardReturn 
     clearTimer();
 
     const clipboard = getClipboard();
-    if (!clipboard?.writeText) {
+    if (!clipboard) {
       error.value = "Clipboard API unavailable";
       copied.value = false;
       return false;
