@@ -1,8 +1,8 @@
 import type { ModelInfo, SessionTemplate, SystemDependencies } from "@tracepilot/types";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createDeferred } from "../helpers/deferred";
 import { useLauncherStore } from "../../stores/launcher";
+import { createDeferred } from "../helpers/deferred";
 
 // Mock the client module
 const mockLaunchSession = vi.fn();
@@ -152,7 +152,9 @@ describe("useLauncherStore", () => {
       const freshTemplates: SessionTemplate[] = [{ ...MOCK_TEMPLATE, id: "fresh-template" }];
 
       mockCheckSystemDeps.mockReturnValueOnce(staleDeps.promise).mockResolvedValueOnce(freshDeps);
-      mockGetAvailableModels.mockReturnValueOnce(staleModels.promise).mockResolvedValueOnce(freshModels);
+      mockGetAvailableModels
+        .mockReturnValueOnce(staleModels.promise)
+        .mockResolvedValueOnce(freshModels);
       mockListSessionTemplates
         .mockReturnValueOnce(staleTemplates.promise)
         .mockResolvedValueOnce(freshTemplates);
@@ -181,6 +183,52 @@ describe("useLauncherStore", () => {
       expect(store.loading).toBe(false);
     });
 
+    it("keeps loading true while newer initialize is still pending", async () => {
+      const staleDeps = createDeferred<SystemDependencies>();
+      const staleModels = createDeferred<ModelInfo[]>();
+      const staleTemplates = createDeferred<SessionTemplate[]>();
+      const freshDeps = createDeferred<SystemDependencies>();
+      const freshModels = createDeferred<ModelInfo[]>();
+      const freshTemplates = createDeferred<SessionTemplate[]>();
+
+      mockCheckSystemDeps
+        .mockReturnValueOnce(staleDeps.promise)
+        .mockReturnValueOnce(freshDeps.promise);
+      mockGetAvailableModels
+        .mockReturnValueOnce(staleModels.promise)
+        .mockReturnValueOnce(freshModels.promise);
+      mockListSessionTemplates
+        .mockReturnValueOnce(staleTemplates.promise)
+        .mockReturnValueOnce(freshTemplates.promise);
+
+      const store = useLauncherStore();
+      const first = store.initialize();
+      const second = store.initialize();
+
+      expect(store.loading).toBe(true);
+
+      staleDeps.resolve(MOCK_DEPS);
+      staleModels.resolve(MOCK_MODELS);
+      staleTemplates.resolve([MOCK_TEMPLATE]);
+      await first;
+
+      expect(store.loading).toBe(true);
+      expect(store.systemDeps).toBeNull();
+      expect(store.models).toEqual([]);
+      expect(store.templates).toEqual([]);
+
+      freshDeps.resolve({ ...MOCK_DEPS, gitVersion: "2.47.0" });
+      freshModels.resolve([{ id: "gpt-5.2", name: "GPT-5.2", tier: "standard" }]);
+      freshTemplates.resolve([{ ...MOCK_TEMPLATE_WRITE_TESTS, id: "fresh-pending" }]);
+      await second;
+
+      expect(store.loading).toBe(false);
+      expect(store.systemDeps?.gitVersion).toBe("2.47.0");
+      expect(store.models).toEqual([{ id: "gpt-5.2", name: "GPT-5.2", tier: "standard" }]);
+      expect(store.templates).toEqual([{ ...MOCK_TEMPLATE_WRITE_TESTS, id: "fresh-pending" }]);
+      expect(store.error).toBeNull();
+    });
+
     it("ignores stale initialize errors after a newer successful initialize", async () => {
       const staleDeps = createDeferred<SystemDependencies>();
 
@@ -188,8 +236,12 @@ describe("useLauncherStore", () => {
         ...MOCK_DEPS,
         copilotVersion: "1.1.0",
       };
-      const freshModels: ModelInfo[] = [{ id: "claude-sonnet-4.6", name: "Claude Sonnet 4.6", tier: "standard" }];
-      const freshTemplates: SessionTemplate[] = [{ ...MOCK_TEMPLATE_WRITE_TESTS, id: "fresh-write-tests" }];
+      const freshModels: ModelInfo[] = [
+        { id: "claude-sonnet-4.6", name: "Claude Sonnet 4.6", tier: "standard" },
+      ];
+      const freshTemplates: SessionTemplate[] = [
+        { ...MOCK_TEMPLATE_WRITE_TESTS, id: "fresh-write-tests" },
+      ];
 
       mockCheckSystemDeps.mockReturnValueOnce(staleDeps.promise).mockResolvedValueOnce(freshDeps);
       mockGetAvailableModels.mockResolvedValueOnce(MOCK_MODELS).mockResolvedValueOnce(freshModels);
