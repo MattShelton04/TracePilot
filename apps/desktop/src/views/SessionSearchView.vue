@@ -23,6 +23,7 @@ import { useSearchResultState } from "@/composables/useSearchResultState";
 import { useSearchUrlSync } from "@/composables/useSearchUrlSync";
 import { useSearchStore } from "@/stores/search";
 import { toFriendlyErrorMessage } from "@/utils/backendErrors";
+import { hasMeaningfulDateValue } from "@/utils/dateValidation";
 import { shouldIgnoreGlobalShortcut } from "@/utils/keyboardShortcuts";
 
 const store = useSearchStore();
@@ -132,7 +133,6 @@ const contentTypeConfig = CONTENT_TYPE_CONFIG;
 
 // ── Computed helpers ─────────────────────────────────────────
 const activeFilterCount = computed(() => {
-  const hasMeaningfulDateValue = (value: string | null) => value != null && value.trim().length > 0;
   let count = 0;
   if (store.contentTypes.length > 0 || store.excludeContentTypes.length > 0) count++;
   if (store.repository) count++;

@@ -239,6 +239,25 @@ describe("useSearchStore – scheduling", () => {
     expect(options?.dateToUnix).toBeUndefined();
   });
 
+  it("accepts overflow dates (JS Date auto-corrects e.g. Feb 31 → Mar 3)", async () => {
+    // Documents known behavior: new Date("2025-02-31") auto-corrects to Mar 3.
+    // This is accepted by the current validation (not rejected as invalid).
+    const store = useSearchStore();
+    store.dateFrom = "2025-02-31";
+    store.query = "hello";
+
+    await vi.runAllTimersAsync();
+    await nextTick();
+    await Promise.resolve();
+
+    expect(mockSearchContent).toHaveBeenCalled();
+    const latestCall = mockSearchContent.mock.calls[mockSearchContent.mock.calls.length - 1];
+    const [, options] = latestCall;
+    // Feb 31 auto-corrects to Mar 3 — verify it produces a valid unix timestamp
+    expect(options?.dateFromUnix).toBeDefined();
+    expect(typeof options?.dateFromUnix).toBe("number");
+  });
+
   it("skips facets fetch and logs warning when date filters are invalid", async () => {
     const store = useSearchStore();
     store.facets = emptyFacets;

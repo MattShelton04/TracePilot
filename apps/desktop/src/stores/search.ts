@@ -27,6 +27,7 @@ import { useSearchClipboard } from "@/composables/useSearchClipboard";
 import { logWarn } from "@/utils/logger";
 import { parseQualifiers } from "@/utils/parseQualifiers";
 import { safeListen } from "@/utils/tauriEvents";
+import { hasMeaningfulDateValue } from "@/utils/dateValidation";
 
 // Re-export types and utilities that consumers may depend on
 export type { RecentSearch } from "@/composables/useRecentSearches";
@@ -170,7 +171,6 @@ export const useSearchStore = defineStore("search", () => {
   const isBrowseMode = computed(() => !hasQuery.value);
   const totalPages = computed(() => Math.ceil(totalCount.value / pageSize.value));
   const hasActiveFilters = computed(() => {
-    const hasMeaningfulDateValue = (value: string | null) => value != null && value.trim().length > 0;
     return (
       contentTypes.value.length > 0 ||
       excludeContentTypes.value.length > 0 ||

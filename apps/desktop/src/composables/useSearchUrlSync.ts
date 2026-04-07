@@ -2,6 +2,7 @@ import type { SearchContentType } from "@tracepilot/types";
 import { onBeforeUnmount, onMounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useSearchStore } from "@/stores/search";
+import { normalizeDateValue } from "@/utils/dateValidation";
 
 /**
  * Syncs search store state ↔ URL query params.
@@ -17,12 +18,6 @@ export function useSearchUrlSync() {
   let syncingFromUrl = false;
   let writeTimer: ReturnType<typeof setTimeout> | null = null;
   const WRITE_DEBOUNCE_MS = 300;
-
-  const normalizeDateValue = (value: string | null) => {
-    if (value == null) return null;
-    const trimmed = value.trim();
-    return trimmed.length > 0 ? trimmed : null;
-  };
 
   /** Read URL query params into store state. Missing params reset to defaults. */
   function readUrlIntoStore() {
