@@ -53,17 +53,9 @@ where
     F: FnOnce(&mut McpConfigFile) -> Result<T, McpError>,
 {
     let _lock = CONFIG_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    let mut config = load_config().map_err(|e| match e {
-        crate::error::OrchestratorError::Io(io_err) => McpError::IoError(io_err),
-        crate::error::OrchestratorError::Json(json_err) => McpError::JsonError(json_err),
-        other => McpError::Config(other.to_string()),
-    })?;
+    let mut config = load_config().map_err(McpError::from_orchestrator)?;
     let result = f(&mut config)?;
-    save_config_unlocked(&config).map_err(|e| match e {
-        crate::error::OrchestratorError::Io(io_err) => McpError::IoError(io_err),
-        crate::error::OrchestratorError::Json(json_err) => McpError::JsonError(json_err),
-        other => McpError::Config(other.to_string()),
-    })?;
+    save_config_unlocked(&config).map_err(McpError::from_orchestrator)?;
     Ok(result)
 }
 
@@ -77,11 +69,7 @@ pub fn list_servers() -> crate::error::Result<Vec<(String, McpServerConfig)>> {
 
 /// Get a single server by name.
 pub fn get_server(name: &str) -> Result<McpServerConfig, McpError> {
-    let config = load_config().map_err(|e| match e {
-        crate::error::OrchestratorError::Io(io_err) => McpError::IoError(io_err),
-        crate::error::OrchestratorError::Json(json_err) => McpError::JsonError(json_err),
-        other => McpError::Config(other.to_string()),
-    })?;
+    let config = load_config().map_err(McpError::from_orchestrator)?;
     config
         .mcp_servers
         .get(name)

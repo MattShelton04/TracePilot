@@ -26,14 +26,24 @@ pub enum McpError {
     #[error("MCP network error: {0}")]
     Network(String),
     /// I/O error with preserved source chain.
-    #[error(transparent)]
-    IoError(#[from] std::io::Error),
+    #[error("MCP I/O error: {0}")]
+    IoSource(#[from] std::io::Error),
     /// JSON error with preserved source chain.
-    #[error(transparent)]
-    JsonError(#[from] serde_json::Error),
+    #[error("MCP JSON error: {0}")]
+    JsonSource(#[from] serde_json::Error),
 }
 
 impl McpError {
+    /// Convert an `OrchestratorError` into the closest `McpError` variant,
+    /// preserving typed sources for I/O and JSON errors.
+    pub fn from_orchestrator(e: crate::error::OrchestratorError) -> Self {
+        match e {
+            crate::error::OrchestratorError::Io(io_err) => McpError::IoSource(io_err),
+            crate::error::OrchestratorError::Json(json_err) => McpError::JsonSource(json_err),
+            other => McpError::Config(other.to_string()),
+        }
+    }
+
     /// Construct a HealthCheck error with context and source error.
     pub fn health_ctx(context: impl std::fmt::Display, source: impl std::fmt::Display) -> Self {
         McpError::HealthCheck(format!("{context}: {source}"))
@@ -102,7 +112,7 @@ mod tests {
         let json_err: serde_json::Error =
             serde_json::from_str::<String>("invalid").unwrap_err();
         let mcp_err: McpError = json_err.into();
-        assert!(matches!(mcp_err, McpError::JsonError(_)));
+        assert!(matches!(mcp_err, McpError::JsonSource(_)));
         assert!(!mcp_err.to_string().is_empty());
     }
 
@@ -110,26 +120,29 @@ mod tests {
     fn from_io_error() {
         let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "file missing");
         let mcp_err: McpError = io_err.into();
-        assert!(matches!(mcp_err, McpError::IoError(_)));
+        assert!(matches!(mcp_err, McpError::IoSource(_)));
         assert!(mcp_err.to_string().contains("file missing"));
     }
 
     #[test]
     fn io_error_preserves_source_chain() {
+        use std::error::Error;
         let io_err = std::io::Error::new(std::io::ErrorKind::PermissionDenied, "access denied");
         let mcp_err: McpError = io_err.into();
-        // Transparent errors forward to the inner error. std::io::Error itself may not have a source.
-        // What matters is that the error is the IoError variant, not a String variant.
-        assert!(matches!(mcp_err, McpError::IoError(_)));
+        assert!(matches!(mcp_err, McpError::IoSource(_)));
+        assert!(mcp_err.source().is_some(), "source chain should be preserved");
+        assert!(mcp_err.to_string().contains("MCP I/O error"));
     }
 
     #[test]
     fn json_error_preserves_source_chain() {
+        use std::error::Error;
         let json_err: serde_json::Error =
             serde_json::from_str::<String>("{{invalid}}").unwrap_err();
         let mcp_err: McpError = json_err.into();
-        // Transparent errors forward to the inner error.
-        assert!(matches!(mcp_err, McpError::JsonError(_)));
+        assert!(matches!(mcp_err, McpError::JsonSource(_)));
+        assert!(mcp_err.source().is_some(), "source chain should be preserved");
+        assert!(mcp_err.to_string().contains("MCP JSON error"));
     }
 
     #[test]
