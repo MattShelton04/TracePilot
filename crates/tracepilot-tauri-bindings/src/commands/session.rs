@@ -18,14 +18,16 @@ fn load_cached_typed_events(
     session_id: &str,
     events_path: &Path,
 ) -> Result<(Arc<Vec<tracepilot_core::parsing::events::TypedEvent>>, u64), BindingsError> {
-    let file_size = std::fs::metadata(events_path)
-        .map(|meta| meta.len())
-        .unwrap_or(0);
+    let meta = std::fs::metadata(events_path).ok();
+    let file_size = meta.as_ref().map_or(0, |m| m.len());
+    let file_mtime = meta.and_then(|m| m.modified().ok());
 
     let cached_events = match cache.lock() {
         Ok(mut lru) => lru
             .get(session_id)
-            .filter(|cached| cached.events_file_size == file_size)
+            .filter(|cached| {
+                cached.events_file_size == file_size && cached.events_file_mtime == file_mtime
+            })
             .map(|cached| Arc::clone(&cached.events)),
         Err(_) => {
             tracing::warn!("Event cache Mutex poisoned — skipping cache read");
@@ -46,6 +48,7 @@ fn load_cached_typed_events(
             CachedEvents {
                 events: Arc::clone(&events),
                 events_file_size: file_size,
+                events_file_mtime: file_mtime,
             },
         );
     } else {
@@ -568,7 +571,7 @@ mod tests {
             .append(true)
             .open(events_path)
             .expect("failed to open events.jsonl");
-        writeln!(
+        write!(
             file,
             "\n{}",
             serde_json::to_string(&serde_json::json!({
