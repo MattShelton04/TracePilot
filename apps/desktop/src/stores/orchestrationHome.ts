@@ -91,7 +91,9 @@ export const useOrchestrationHomeStore = defineStore("orchestrationHome", () => 
 
   async function doFetch(token: AsyncGuardToken) {
     try {
-      // Fast path: system deps and version info load first (< 100ms)
+      // Fast path: system deps and version info load first (< 100ms).
+      // Failures here are intentionally silent: null values are handled
+      // gracefully by the UI and the background path surfaces its own errors.
       const fastSettled = await allSettledRecord({
         deps: checkSystemDeps(),
         active: getActiveCopilotVersion(),
