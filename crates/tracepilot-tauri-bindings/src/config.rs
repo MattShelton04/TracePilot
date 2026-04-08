@@ -241,25 +241,139 @@ fn default_favourite_models() -> Vec<String> {
 
 fn default_model_prices() -> Vec<ModelPriceEntry> {
     vec![
-        ModelPriceEntry { model: "claude-sonnet-4.6".into(), input_per_m: 3.0, cached_input_per_m: 0.3, output_per_m: 15.0, premium_requests: 1.0 },
-        ModelPriceEntry { model: "claude-sonnet-4.5".into(), input_per_m: 3.0, cached_input_per_m: 0.3, output_per_m: 15.0, premium_requests: 1.0 },
-        ModelPriceEntry { model: "claude-haiku-4.5".into(), input_per_m: 1.0, cached_input_per_m: 0.1, output_per_m: 5.0, premium_requests: 0.33 },
-        ModelPriceEntry { model: "claude-opus-4.6".into(), input_per_m: 5.0, cached_input_per_m: 0.5, output_per_m: 25.0, premium_requests: 3.0 },
-        ModelPriceEntry { model: "claude-opus-4.6-fast".into(), input_per_m: 5.0, cached_input_per_m: 0.5, output_per_m: 25.0, premium_requests: 30.0 },
-        ModelPriceEntry { model: "claude-opus-4.5".into(), input_per_m: 5.0, cached_input_per_m: 0.5, output_per_m: 25.0, premium_requests: 3.0 },
-        ModelPriceEntry { model: "claude-sonnet-4".into(), input_per_m: 3.0, cached_input_per_m: 0.3, output_per_m: 15.0, premium_requests: 1.0 },
-        ModelPriceEntry { model: "gemini-3-pro-preview".into(), input_per_m: 3.0, cached_input_per_m: 0.3, output_per_m: 16.0, premium_requests: 1.0 },
-        ModelPriceEntry { model: "gpt-5.4".into(), input_per_m: 2.5, cached_input_per_m: 0.25, output_per_m: 15.0, premium_requests: 1.0 },
-        ModelPriceEntry { model: "gpt-5.3-codex".into(), input_per_m: 1.75, cached_input_per_m: 0.175, output_per_m: 14.0, premium_requests: 1.0 },
-        ModelPriceEntry { model: "gpt-5.2-codex".into(), input_per_m: 1.75, cached_input_per_m: 0.175, output_per_m: 14.0, premium_requests: 1.0 },
-        ModelPriceEntry { model: "gpt-5.2".into(), input_per_m: 2.5, cached_input_per_m: 0.25, output_per_m: 15.0, premium_requests: 1.0 },
-        ModelPriceEntry { model: "gpt-5.1-codex-max".into(), input_per_m: 1.75, cached_input_per_m: 0.175, output_per_m: 14.0, premium_requests: 1.0 },
-        ModelPriceEntry { model: "gpt-5.1-codex".into(), input_per_m: 1.75, cached_input_per_m: 0.175, output_per_m: 14.0, premium_requests: 1.0 },
-        ModelPriceEntry { model: "gpt-5.1".into(), input_per_m: 10.0, cached_input_per_m: 1.0, output_per_m: 40.0, premium_requests: 1.0 },
-        ModelPriceEntry { model: "gpt-5.4-mini".into(), input_per_m: 0.4, cached_input_per_m: 0.04, output_per_m: 1.6, premium_requests: 0.33 },
-        ModelPriceEntry { model: "gpt-5.1-codex-mini".into(), input_per_m: 0.4, cached_input_per_m: 0.04, output_per_m: 1.6, premium_requests: 0.33 },
-        ModelPriceEntry { model: "gpt-5-mini".into(), input_per_m: 0.4, cached_input_per_m: 0.04, output_per_m: 1.6, premium_requests: 0.0 },
-        ModelPriceEntry { model: "gpt-4.1".into(), input_per_m: 8.0, cached_input_per_m: 0.8, output_per_m: 24.0, premium_requests: 0.0 },
+        ModelPriceEntry {
+            model: "claude-sonnet-4.6".into(),
+            input_per_m: 3.0,
+            cached_input_per_m: 0.3,
+            output_per_m: 15.0,
+            premium_requests: 1.0,
+        },
+        ModelPriceEntry {
+            model: "claude-sonnet-4.5".into(),
+            input_per_m: 3.0,
+            cached_input_per_m: 0.3,
+            output_per_m: 15.0,
+            premium_requests: 1.0,
+        },
+        ModelPriceEntry {
+            model: "claude-haiku-4.5".into(),
+            input_per_m: 1.0,
+            cached_input_per_m: 0.1,
+            output_per_m: 5.0,
+            premium_requests: 0.33,
+        },
+        ModelPriceEntry {
+            model: "claude-opus-4.6".into(),
+            input_per_m: 5.0,
+            cached_input_per_m: 0.5,
+            output_per_m: 25.0,
+            premium_requests: 3.0,
+        },
+        ModelPriceEntry {
+            model: "claude-opus-4.6-fast".into(),
+            input_per_m: 5.0,
+            cached_input_per_m: 0.5,
+            output_per_m: 25.0,
+            premium_requests: 30.0,
+        },
+        ModelPriceEntry {
+            model: "claude-opus-4.5".into(),
+            input_per_m: 5.0,
+            cached_input_per_m: 0.5,
+            output_per_m: 25.0,
+            premium_requests: 3.0,
+        },
+        ModelPriceEntry {
+            model: "claude-sonnet-4".into(),
+            input_per_m: 3.0,
+            cached_input_per_m: 0.3,
+            output_per_m: 15.0,
+            premium_requests: 1.0,
+        },
+        ModelPriceEntry {
+            model: "gemini-3-pro-preview".into(),
+            input_per_m: 3.0,
+            cached_input_per_m: 0.3,
+            output_per_m: 16.0,
+            premium_requests: 1.0,
+        },
+        ModelPriceEntry {
+            model: "gpt-5.4".into(),
+            input_per_m: 2.5,
+            cached_input_per_m: 0.25,
+            output_per_m: 15.0,
+            premium_requests: 1.0,
+        },
+        ModelPriceEntry {
+            model: "gpt-5.3-codex".into(),
+            input_per_m: 1.75,
+            cached_input_per_m: 0.175,
+            output_per_m: 14.0,
+            premium_requests: 1.0,
+        },
+        ModelPriceEntry {
+            model: "gpt-5.2-codex".into(),
+            input_per_m: 1.75,
+            cached_input_per_m: 0.175,
+            output_per_m: 14.0,
+            premium_requests: 1.0,
+        },
+        ModelPriceEntry {
+            model: "gpt-5.2".into(),
+            input_per_m: 2.5,
+            cached_input_per_m: 0.25,
+            output_per_m: 15.0,
+            premium_requests: 1.0,
+        },
+        ModelPriceEntry {
+            model: "gpt-5.1-codex-max".into(),
+            input_per_m: 1.75,
+            cached_input_per_m: 0.175,
+            output_per_m: 14.0,
+            premium_requests: 1.0,
+        },
+        ModelPriceEntry {
+            model: "gpt-5.1-codex".into(),
+            input_per_m: 1.75,
+            cached_input_per_m: 0.175,
+            output_per_m: 14.0,
+            premium_requests: 1.0,
+        },
+        ModelPriceEntry {
+            model: "gpt-5.1".into(),
+            input_per_m: 10.0,
+            cached_input_per_m: 1.0,
+            output_per_m: 40.0,
+            premium_requests: 1.0,
+        },
+        ModelPriceEntry {
+            model: "gpt-5.4-mini".into(),
+            input_per_m: 0.4,
+            cached_input_per_m: 0.04,
+            output_per_m: 1.6,
+            premium_requests: 0.33,
+        },
+        ModelPriceEntry {
+            model: "gpt-5.1-codex-mini".into(),
+            input_per_m: 0.4,
+            cached_input_per_m: 0.04,
+            output_per_m: 1.6,
+            premium_requests: 0.33,
+        },
+        ModelPriceEntry {
+            model: "gpt-5-mini".into(),
+            input_per_m: 0.4,
+            cached_input_per_m: 0.04,
+            output_per_m: 1.6,
+            premium_requests: 0.0,
+        },
+        ModelPriceEntry {
+            model: "gpt-4.1".into(),
+            input_per_m: 8.0,
+            cached_input_per_m: 0.8,
+            output_per_m: 24.0,
+            premium_requests: 0.0,
+        },
     ]
 }
 
@@ -372,8 +486,9 @@ impl TracePilotConfig {
 
     /// Save config to the standard location.
     pub fn save(&self) -> Result<(), BindingsError> {
-        let path = config_file_path()
-            .ok_or_else(|| BindingsError::Validation("Cannot determine home directory for config file".into()))?;
+        let path = config_file_path().ok_or_else(|| {
+            BindingsError::Validation("Cannot determine home directory for config file".into())
+        })?;
         self.save_to(&path)
     }
 
@@ -513,10 +628,16 @@ mod tests {
 
         let loaded = TracePilotConfig::load_from(&path).expect("load_from should succeed");
         assert_eq!(loaded.version, config.version);
-        assert_eq!(loaded.paths.session_state_dir, config.paths.session_state_dir);
+        assert_eq!(
+            loaded.paths.session_state_dir,
+            config.paths.session_state_dir
+        );
         assert_eq!(loaded.paths.index_db_path, config.paths.index_db_path);
         assert_eq!(loaded.ui.theme, config.ui.theme);
-        assert_eq!(loaded.pricing.cost_per_premium_request, config.pricing.cost_per_premium_request);
+        assert_eq!(
+            loaded.pricing.cost_per_premium_request,
+            config.pricing.cost_per_premium_request
+        );
     }
 
     #[test]
@@ -525,7 +646,9 @@ mod tests {
         let nested = dir.path().join("a").join("b").join("c").join("config.toml");
 
         let config = TracePilotConfig::default();
-        config.save_to(&nested).expect("save_to should create parent dirs");
+        config
+            .save_to(&nested)
+            .expect("save_to should create parent dirs");
 
         assert!(nested.exists());
         let loaded = TracePilotConfig::load_from(&nested).expect("load_from nested path");
@@ -612,13 +735,17 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("wrong_schema.toml");
         // version should be u32, paths.sessionStateDir should be string
-        std::fs::write(&path, r#"
+        std::fs::write(
+            &path,
+            r#"
             version = "not_a_number"
 
             [paths]
             sessionStateDir = 42
             indexDbPath = true
-        "#).unwrap();
+        "#,
+        )
+        .unwrap();
 
         let err = TracePilotConfig::load_from(&path).unwrap_err();
         assert!(

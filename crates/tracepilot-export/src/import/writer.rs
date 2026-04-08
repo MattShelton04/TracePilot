@@ -210,12 +210,11 @@ fn write_workspace_yaml(
         serde_yml::Value::Mapping(imported_from),
     );
 
-    let yaml_str = serde_yml::to_string(&serde_yml::Value::Mapping(map)).map_err(|e| {
-        ExportError::Render {
+    let yaml_str =
+        serde_yml::to_string(&serde_yml::Value::Mapping(map)).map_err(|e| ExportError::Render {
             format: "YAML".to_string(),
             message: e.to_string(),
-        }
-    })?;
+        })?;
 
     fs::write(&path, yaml_str).map_err(|e| ExportError::io(&path, e))
 }
@@ -243,7 +242,10 @@ fn write_checkpoints(checkpoints: &[CheckpointExport], dir: &Path) -> Result<()>
     // Write index.md
     let mut index = String::from("| # | Title | File |\n| --- | --- | --- |\n");
     for cp in checkpoints {
-        index.push_str(&format!("| {} | {} | {} |\n", cp.number, cp.title, cp.filename));
+        index.push_str(&format!(
+            "| {} | {} | {} |\n",
+            cp.number, cp.title, cp.filename
+        ));
     }
     let index_path = cp_dir.join("index.md");
     fs::write(&index_path, &index).map_err(|e| ExportError::io(&index_path, e))?;

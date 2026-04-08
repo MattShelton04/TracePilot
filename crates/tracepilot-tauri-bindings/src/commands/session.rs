@@ -4,7 +4,8 @@ use crate::blocking_cmd;
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
 use crate::helpers::{
-    MAX_CHECKPOINT_CONTENT_BYTES, load_summary_list_item, read_config, with_session_path,
+    MAX_CHECKPOINT_CONTENT_BYTES, indexed_session_to_list_item, load_summary_list_item,
+    read_config, with_session_path,
 };
 use crate::types::{
     CachedEvents, CachedTurns, EventCache, EventItem, EventsResponse, FreshnessResponse,
@@ -88,28 +89,7 @@ pub async fn list_sessions(
 
                 return Ok(indexed
                     .into_iter()
-                    .map(|s| {
-                        let is_running = tracepilot_core::session::discovery::has_lock_file(
-                            std::path::Path::new(&s.path),
-                        );
-                        SessionListItem {
-                            id: s.id,
-                            summary: s.summary,
-                            repository: s.repository,
-                            branch: s.branch,
-                            host_type: s.host_type,
-                            created_at: s.created_at,
-                            updated_at: s.updated_at,
-                            event_count: s.event_count.map(|v| v as usize),
-                            turn_count: s.turn_count.map(|v| v as usize),
-                            current_model: s.current_model,
-                            is_running,
-                            error_count: s.error_count.map(|v| v as usize),
-                            rate_limit_count: s.rate_limit_count.map(|v| v as usize),
-                            compaction_count: s.compaction_count.map(|v| v as usize),
-                            truncation_count: s.truncation_count.map(|v| v as usize),
-                        }
-                    })
+                    .map(indexed_session_to_list_item)
                     .collect());
             }
         }

@@ -55,14 +55,26 @@ fn create_checkpoints(session_dir: &Path) {
     fs::create_dir_all(&cp_dir).unwrap();
     let index = "| # | Title | File |\n| --- | --- | --- |\n| 1 | Initial setup | cp1.md |\n| 2 | Add auth | cp2.md |\n";
     fs::write(cp_dir.join("index.md"), index).unwrap();
-    fs::write(cp_dir.join("cp1.md"), "# Checkpoint 1\nInitial project setup").unwrap();
-    fs::write(cp_dir.join("cp2.md"), "# Checkpoint 2\nAdded authentication").unwrap();
+    fs::write(
+        cp_dir.join("cp1.md"),
+        "# Checkpoint 1\nInitial project setup",
+    )
+    .unwrap();
+    fs::write(
+        cp_dir.join("cp2.md"),
+        "# Checkpoint 2\nAdded authentication",
+    )
+    .unwrap();
 }
 
 fn create_full_session(dir: &Path) {
     fs::write(dir.join("workspace.yaml"), full_workspace_yaml()).unwrap();
     fs::write(dir.join("events.jsonl"), sample_events_jsonl()).unwrap();
-    fs::write(dir.join("plan.md"), "# Implementation Plan\n\n## Phase 1\n\n- [ ] Build core\n").unwrap();
+    fs::write(
+        dir.join("plan.md"),
+        "# Implementation Plan\n\n## Phase 1\n\n- [ ] Build core\n",
+    )
+    .unwrap();
     create_checkpoints(dir);
 }
 
@@ -100,8 +112,15 @@ fn export_includes_conversation() {
     let archive: SessionArchive = serde_json::from_slice(&files[0].content).unwrap();
     let session = &archive.sessions[0];
 
-    assert!(session.available_sections.contains(&SectionId::Conversation));
-    let turns = session.conversation.as_ref().expect("conversation should be present");
+    assert!(
+        session
+            .available_sections
+            .contains(&SectionId::Conversation)
+    );
+    let turns = session
+        .conversation
+        .as_ref()
+        .expect("conversation should be present");
     assert!(!turns.is_empty(), "should have at least one turn");
 
     // Check that the conversation has the expected content
@@ -153,11 +172,20 @@ fn export_includes_checkpoints() {
     let session = &archive.sessions[0];
 
     assert!(session.available_sections.contains(&SectionId::Checkpoints));
-    let checkpoints = session.checkpoints.as_ref().expect("checkpoints should be present");
+    let checkpoints = session
+        .checkpoints
+        .as_ref()
+        .expect("checkpoints should be present");
     assert_eq!(checkpoints.len(), 2);
     assert_eq!(checkpoints[0].title, "Initial setup");
     assert_eq!(checkpoints[1].title, "Add auth");
-    assert!(checkpoints[0].content.as_ref().unwrap().contains("Checkpoint 1"));
+    assert!(
+        checkpoints[0]
+            .content
+            .as_ref()
+            .unwrap()
+            .contains("Checkpoint 1")
+    );
 }
 
 #[test]
@@ -171,7 +199,10 @@ fn export_includes_shutdown_metrics() {
     let session = &archive.sessions[0];
 
     assert!(session.available_sections.contains(&SectionId::Metrics));
-    let metrics = session.shutdown_metrics.as_ref().expect("metrics should be present");
+    let metrics = session
+        .shutdown_metrics
+        .as_ref()
+        .expect("metrics should be present");
     assert_eq!(metrics.shutdown_type.as_deref(), Some("routine"));
     assert_eq!(metrics.current_model.as_deref(), Some("claude-opus-4.6"));
 }
@@ -333,8 +364,18 @@ fn export_options_record_reflects_config() {
 
     assert_eq!(archive.export_options.format, "json");
     assert!(!archive.export_options.redaction_applied);
-    assert!(archive.export_options.included_sections.contains(&SectionId::Conversation));
-    assert!(archive.export_options.included_sections.contains(&SectionId::Plan));
+    assert!(
+        archive
+            .export_options
+            .included_sections
+            .contains(&SectionId::Conversation)
+    );
+    assert!(
+        archive
+            .export_options
+            .included_sections
+            .contains(&SectionId::Plan)
+    );
 }
 
 #[test]
@@ -397,7 +438,11 @@ fn batch_export_multiple_sessions() {
     let dir2 = tempfile::tempdir().unwrap();
 
     create_full_session(dir1.path());
-    fs::write(dir2.path().join("workspace.yaml"), "id: second-session\nsummary: Session 2\n").unwrap();
+    fs::write(
+        dir2.path().join("workspace.yaml"),
+        "id: second-session\nsummary: Session 2\n",
+    )
+    .unwrap();
 
     let dirs: Vec<&Path> = vec![dir1.path(), dir2.path()];
     let options = ExportOptions::minimal(ExportFormat::Json);
@@ -536,7 +581,11 @@ fn export_csv_produces_multiple_files() {
     let files = export_session(dir.path(), &options).unwrap();
 
     // At minimum: summary, conversation, tools, events
-    assert!(files.len() >= 3, "CSV should produce multiple files, got {}", files.len());
+    assert!(
+        files.len() >= 3,
+        "CSV should produce multiple files, got {}",
+        files.len()
+    );
 
     let filenames: Vec<&str> = files.iter().map(|f| f.filename.as_str()).collect();
     assert!(filenames.iter().any(|f| f.contains("summary")));
@@ -552,7 +601,10 @@ fn export_csv_summary_has_session_data() {
     let options = ExportOptions::all(ExportFormat::Csv);
     let files = export_session(dir.path(), &options).unwrap();
 
-    let summary = files.iter().find(|f| f.filename.contains("summary")).unwrap();
+    let summary = files
+        .iter()
+        .find(|f| f.filename.contains("summary"))
+        .unwrap();
     let text = summary.as_text().unwrap();
     assert!(text.contains("test-session-id"));
     assert!(text.contains("user/repo"));
@@ -566,7 +618,10 @@ fn export_csv_conversation_has_turns() {
     let options = ExportOptions::all(ExportFormat::Csv);
     let files = export_session(dir.path(), &options).unwrap();
 
-    let conv = files.iter().find(|f| f.filename.contains("conversation")).unwrap();
+    let conv = files
+        .iter()
+        .find(|f| f.filename.contains("conversation"))
+        .unwrap();
     let text = conv.as_text().unwrap();
     assert!(text.contains("turn,model,user_message"));
     assert!(text.contains("Hello world"));
@@ -594,7 +649,10 @@ fn export_csv_events_has_all_event_types() {
     let options = ExportOptions::all(ExportFormat::Csv);
     let files = export_session(dir.path(), &options).unwrap();
 
-    let events = files.iter().find(|f| f.filename.contains("events")).unwrap();
+    let events = files
+        .iter()
+        .find(|f| f.filename.contains("events"))
+        .unwrap();
     let text = events.as_text().unwrap();
     assert!(text.contains("session.start"));
     assert!(text.contains("session.shutdown"));
@@ -629,9 +687,7 @@ fn export_csv_minimal_session() {
 
 // ── Import pipeline integration tests ──────────────────────────────────────
 
-use tracepilot_export::import::{
-    import_sessions, preview_import, ConflictStrategy, ImportOptions,
-};
+use tracepilot_export::import::{ConflictStrategy, ImportOptions, import_sessions, preview_import};
 
 #[test]
 fn round_trip_export_import_preserves_metadata() {
@@ -676,7 +732,12 @@ fn round_trip_preserves_events() {
 
     // Import
     let import_target = tempfile::tempdir().unwrap();
-    let result = import_sessions(&archive_path, import_target.path(), &ImportOptions::default()).unwrap();
+    let result = import_sessions(
+        &archive_path,
+        import_target.path(),
+        &ImportOptions::default(),
+    )
+    .unwrap();
 
     // Verify events.jsonl was written
     let events_path = result.imported[0].path.join("events.jsonl");
@@ -699,7 +760,12 @@ fn round_trip_preserves_plan() {
     fs::write(&archive_path, &files[0].content).unwrap();
 
     let import_target = tempfile::tempdir().unwrap();
-    let result = import_sessions(&archive_path, import_target.path(), &ImportOptions::default()).unwrap();
+    let result = import_sessions(
+        &archive_path,
+        import_target.path(),
+        &ImportOptions::default(),
+    )
+    .unwrap();
 
     let plan_path = result.imported[0].path.join("plan.md");
     assert!(plan_path.exists());
@@ -721,7 +787,12 @@ fn round_trip_preserves_checkpoints() {
     fs::write(&archive_path, &files[0].content).unwrap();
 
     let import_target = tempfile::tempdir().unwrap();
-    let result = import_sessions(&archive_path, import_target.path(), &ImportOptions::default()).unwrap();
+    let result = import_sessions(
+        &archive_path,
+        import_target.path(),
+        &ImportOptions::default(),
+    )
+    .unwrap();
 
     let cp_dir = result.imported[0].path.join("checkpoints");
     assert!(cp_dir.exists());
@@ -764,7 +835,12 @@ fn import_conflict_skip() {
     let import_target = tempfile::tempdir().unwrap();
 
     // Import once
-    import_sessions(&archive_path, import_target.path(), &ImportOptions::default()).unwrap();
+    import_sessions(
+        &archive_path,
+        import_target.path(),
+        &ImportOptions::default(),
+    )
+    .unwrap();
 
     // Import again with Skip — should skip
     let result2 = import_sessions(
@@ -796,7 +872,12 @@ fn import_conflict_duplicate() {
     let import_target = tempfile::tempdir().unwrap();
 
     // Import once
-    import_sessions(&archive_path, import_target.path(), &ImportOptions::default()).unwrap();
+    import_sessions(
+        &archive_path,
+        import_target.path(),
+        &ImportOptions::default(),
+    )
+    .unwrap();
 
     // Import again with Duplicate
     let result2 = import_sessions(
@@ -813,7 +894,12 @@ fn import_conflict_duplicate() {
     assert!(result2.imported[0].was_duplicate);
     // New ID should be a fresh UUID (36 chars: 8-4-4-4-12), different from original
     assert_eq!(result2.imported[0].id.len(), 36);
-    assert!(result2.imported[0].id.chars().all(|c| c.is_ascii_hexdigit() || c == '-'));
+    assert!(
+        result2.imported[0]
+            .id
+            .chars()
+            .all(|c| c.is_ascii_hexdigit() || c == '-')
+    );
 }
 
 #[test]
@@ -853,7 +939,11 @@ fn export_skips_rewind_snapshots_on_malformed_index() {
     // Write invalid JSON to force a parse error in parse_rewind_index
     let rewind_dir = dir.path().join("rewind-snapshots");
     fs::create_dir_all(&rewind_dir).unwrap();
-    fs::write(rewind_dir.join("index.json"), "{ this is : not valid json !!! }").unwrap();
+    fs::write(
+        rewind_dir.join("index.json"),
+        "{ this is : not valid json !!! }",
+    )
+    .unwrap();
 
     let options = ExportOptions::all(ExportFormat::Json);
     let files = export_session(dir.path(), &options).unwrap();
@@ -861,7 +951,11 @@ fn export_skips_rewind_snapshots_on_malformed_index() {
     let session = &archive.sessions[0];
 
     // Export must succeed and the broken section must be absent
-    assert!(!session.available_sections.contains(&SectionId::RewindSnapshots));
+    assert!(
+        !session
+            .available_sections
+            .contains(&SectionId::RewindSnapshots)
+    );
     assert!(session.rewind_snapshots.is_none());
     // Other sections (health, parse diagnostics) are still present as expected
     assert!(session.available_sections.contains(&SectionId::Health));
