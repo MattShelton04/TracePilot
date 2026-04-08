@@ -37,7 +37,7 @@
     "@tauri-apps/cli": "^2.5.0",
     "@vitejs/plugin-vue": "^5.2.0",
     "@vue/test-utils": "^2.4.6",
-    "jsdom": "^28.1.0",
+    "jsdom": "^29.0.2",
     "rollup-plugin-visualizer": "^7.0.1",
     "tailwindcss": "^4.2.1",
     "typescript": "^5.8.0",
