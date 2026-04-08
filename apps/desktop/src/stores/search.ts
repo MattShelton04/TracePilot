@@ -130,15 +130,17 @@ export const useSearchStore = defineStore("search", () => {
     listenersInitialized = true;
 
     try {
-      unlisteners.push(
-        await safeListen("search-indexing-started", () => {
+      // Collect all listeners atomically before pushing to array
+      // This prevents race condition where disposal happens mid-initialization
+      const listeners = await Promise.all([
+        safeListen("search-indexing-started", () => {
           searchIndexing.value = true;
           searchIndexingProgress.value = null;
         }),
-        await safeListen<SearchIndexingProgress>("search-indexing-progress", (event) => {
+        safeListen<SearchIndexingProgress>("search-indexing-progress", (event) => {
           searchIndexingProgress.value = event.payload;
         }),
-        await safeListen("search-indexing-finished", () => {
+        safeListen("search-indexing-finished", () => {
           searchIndexing.value = false;
           searchIndexingProgress.value = null;
           // Only perform background operations if the search view is currently mounted
@@ -155,8 +157,23 @@ export const useSearchStore = defineStore("search", () => {
             fetchFacets();
           }
         }),
-      );
+      ]);
+
+      // Only push if not disposed during initialization
+      if (listenersInitialized) {
+        unlisteners.push(...listeners);
+      } else {
+        // Disposed during init - clean up immediately
+        for (const unlisten of listeners) {
+          try {
+            unlisten();
+          } catch (cleanupErr) {
+            logWarn("[search] Error cleaning up listener after disposal during init", cleanupErr);
+          }
+        }
+      }
     } catch (e) {
+      listenersInitialized = false; // Reset on error
       // Not in Tauri environment - event listeners not available
       logWarn("[search] Failed to initialize event listeners (not in Tauri environment)", e);
     }
@@ -168,13 +185,28 @@ export const useSearchStore = defineStore("search", () => {
   /**
    * Clean up event listeners to prevent memory leaks.
    * Should be called when the search view is unmounted.
+   * Safe to call multiple times - subsequent calls are no-ops.
    */
   function disposeEventListeners() {
+    const errors: unknown[] = [];
+
+    // Clean up all listeners, continuing even if some throw
     for (const unlisten of unlisteners) {
-      unlisten();
+      try {
+        unlisten();
+      } catch (err) {
+        errors.push(err);
+      }
     }
+
+    // Always reset state, even if cleanup had errors
     unlisteners.length = 0;
     listenersInitialized = false;
+
+    // Log accumulated errors after cleanup completes
+    if (errors.length > 0) {
+      logWarn("[search] Errors during event listener disposal", { count: errors.length, errors });
+    }
   }
 
   // ── Computed ─────────────────────────────────────────────────
