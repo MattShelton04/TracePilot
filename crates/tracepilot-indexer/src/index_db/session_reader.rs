@@ -1,12 +1,35 @@
 //! Read-only session query methods.
 
 use crate::Result;
-use rusqlite::{params_from_iter, types::ToSql};
+use rusqlite::{params_from_iter, types::ToSql, Row};
 use std::collections::HashSet;
 use std::path::PathBuf;
 
 use super::IndexDb;
 use super::types::*;
+
+const SESSION_COLUMNS: &str = "id, path, summary, repository, branch, cwd, host_type, created_at, updated_at, event_count, turn_count, current_model, error_count, rate_limit_count, compaction_count, truncation_count";
+
+fn indexed_session_from_row(row: &Row<'_>) -> rusqlite::Result<IndexedSession> {
+    Ok(IndexedSession {
+        id: row.get(0)?,
+        path: row.get(1)?,
+        summary: row.get(2)?,
+        repository: row.get(3)?,
+        branch: row.get(4)?,
+        cwd: row.get(5)?,
+        host_type: row.get(6)?,
+        created_at: row.get(7)?,
+        updated_at: row.get(8)?,
+        event_count: row.get(9)?,
+        turn_count: row.get(10)?,
+        current_model: row.get(11)?,
+        error_count: row.get(12)?,
+        rate_limit_count: row.get(13)?,
+        compaction_count: row.get(14)?,
+        truncation_count: row.get(15)?,
+    })
+}
 
 impl IndexDb {
     /// List indexed sessions with optional filters.
@@ -19,9 +42,7 @@ impl IndexDb {
     ) -> Result<Vec<IndexedSession>> {
         use super::helpers::build_eq_filter;
 
-        let mut sql = String::from(
-            "SELECT id, path, summary, repository, branch, cwd, host_type, created_at, updated_at, event_count, turn_count, current_model, error_count, rate_limit_count, compaction_count, truncation_count FROM sessions WHERE 1=1",
-        );
+        let mut sql = format!("SELECT {SESSION_COLUMNS} FROM sessions WHERE 1=1");
         let mut query_params: Vec<Box<dyn ToSql>> = Vec::new();
 
         if hide_empty {
@@ -52,26 +73,7 @@ impl IndexDb {
 
         let mut stmt = self.conn.prepare(&sql)?;
         let refs: Vec<&dyn ToSql> = query_params.iter().map(|p| p.as_ref()).collect();
-        let rows = stmt.query_map(params_from_iter(refs), |row| {
-            Ok(IndexedSession {
-                id: row.get(0)?,
-                path: row.get(1)?,
-                summary: row.get(2)?,
-                repository: row.get(3)?,
-                branch: row.get(4)?,
-                cwd: row.get(5)?,
-                host_type: row.get(6)?,
-                created_at: row.get(7)?,
-                updated_at: row.get(8)?,
-                event_count: row.get(9)?,
-                turn_count: row.get(10)?,
-                current_model: row.get(11)?,
-                error_count: row.get(12)?,
-                rate_limit_count: row.get(13)?,
-                compaction_count: row.get(14)?,
-                truncation_count: row.get(15)?,
-            })
-        })?;
+        let rows = stmt.query_map(params_from_iter(refs), indexed_session_from_row)?;
 
         let mut sessions = Vec::new();
         for row in rows {
@@ -140,26 +142,7 @@ impl IndexDb {
              WHERE sessions_fts MATCH ?1
              ORDER BY s.updated_at DESC, s.id ASC",
         )?;
-        let rows = stmt.query_map([query], |row| {
-            Ok(IndexedSession {
-                id: row.get(0)?,
-                path: row.get(1)?,
-                summary: row.get(2)?,
-                repository: row.get(3)?,
-                branch: row.get(4)?,
-                cwd: row.get(5)?,
-                host_type: row.get(6)?,
-                created_at: row.get(7)?,
-                updated_at: row.get(8)?,
-                event_count: row.get(9)?,
-                turn_count: row.get(10)?,
-                current_model: row.get(11)?,
-                error_count: row.get(12)?,
-                rate_limit_count: row.get(13)?,
-                compaction_count: row.get(14)?,
-                truncation_count: row.get(15)?,
-            })
-        })?;
+        let rows = stmt.query_map([query], indexed_session_from_row)?;
 
         let mut sessions = Vec::new();
         for row in rows {
