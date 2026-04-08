@@ -181,6 +181,23 @@ describe("useGitRepository", () => {
       expect(defaultBranch.value).toBe("develop");
     });
 
+    it("suppresses stale default-branch completion after repoPath is cleared", async () => {
+      const pendingBranch = createDeferred<string>();
+      vi.mocked(client.getDefaultBranch).mockReturnValueOnce(pendingBranch.promise);
+
+      const repoPath = ref("/path/to/repo-a");
+      const { defaultBranch } = useGitRepository({ repoPath });
+
+      await nextTick();
+      repoPath.value = "";
+      await nextTick();
+      expect(defaultBranch.value).toBe("");
+
+      pendingBranch.resolve("main");
+      await flushPromises();
+      expect(defaultBranch.value).toBe("");
+    });
+
     it("uses guard tokens rather than path matching for rapid A→B→A switches", async () => {
       const firstA = createDeferred<string>();
       const branchB = createDeferred<string>();
