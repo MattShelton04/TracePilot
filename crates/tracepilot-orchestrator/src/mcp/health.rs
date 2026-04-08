@@ -18,6 +18,18 @@ use std::time::Instant;
 /// HTTP header name for MCP session IDs.
 const MCP_SESSION_ID_HEADER: HeaderName = HeaderName::from_static("mcp-session-id");
 
+/// Sanitize error messages for safe logging.
+///
+/// Removes control characters (except spaces/tabs) to prevent log injection
+/// attacks and truncates to 500 characters to prevent log spam.
+fn sanitize_error_msg(err: &impl std::fmt::Display) -> String {
+    err.to_string()
+        .chars()
+        .filter(|c| !c.is_control() || *c == ' ' || *c == '\t')
+        .take(500)
+        .collect()
+}
+
 /// Kill a child process and reap it to prevent zombie accumulation.
 fn kill_and_reap(child: &mut Child) {
     let _ = child.kill();
@@ -294,7 +306,11 @@ async fn check_http_server(
 
     // Try to parse the initialize response body (may be JSON or SSE).
     if let Err(e) = init_resp.text().await {
-        tracing::debug!("[MCP Health] Failed to read initialize response body for server '{}': {}", name, e);
+        tracing::debug!(
+            server = %name,
+            error = %sanitize_error_msg(&e),
+            "[MCP Health] Failed to read initialize response body"
+        );
     }
 
     // Step 2: Send initialized notification (fire-and-forget).
@@ -312,7 +328,11 @@ async fn check_http_server(
         .send()
         .await
     {
-        tracing::debug!("[MCP Health] Failed to send initialized notification to server '{}': {}", name, e);
+        tracing::debug!(
+            server = %name,
+            error = %sanitize_error_msg(&e),
+            "[MCP Health] Failed to send initialized notification"
+        );
     }
 
     // Step 3: Send tools/list request.
@@ -337,11 +357,19 @@ async fn check_http_server(
             parse_tools_from_response(resp).await
         }
         Ok(resp) => {
-            tracing::warn!("[MCP Health] tools/list request failed for server '{}': HTTP {}", name, resp.status());
+            tracing::warn!(
+                server = %name,
+                status = %resp.status(),
+                "[MCP Health] tools/list request failed"
+            );
             vec![]
         }
         Err(e) => {
-            tracing::warn!("[MCP Health] tools/list request failed for server '{}': {}", name, e);
+            tracing::warn!(
+                server = %name,
+                error = %sanitize_error_msg(&e),
+                "[MCP Health] tools/list request failed"
+            );
             vec![]
         }
     };
@@ -376,7 +404,10 @@ async fn parse_tools_from_response(resp: reqwest::Response) -> Vec<McpTool> {
     let body = match resp.text().await {
         Ok(b) => b,
         Err(e) => {
-            tracing::debug!("[MCP Health] Failed to read tools/list response body: {}", e);
+            tracing::debug!(
+                error = %sanitize_error_msg(&e),
+                "[MCP Health] Failed to read tools/list response body"
+            );
             return vec![];
         }
     };
@@ -398,7 +429,10 @@ async fn parse_tools_from_response(resp: reqwest::Response) -> Vec<McpTool> {
     let parsed: serde_json::Value = match serde_json::from_str(&json_text) {
         Ok(v) => v,
         Err(e) => {
-            tracing::debug!("[MCP Health] Failed to parse tools/list JSON response: {}", e);
+            tracing::debug!(
+                error = %sanitize_error_msg(&e),
+                "[MCP Health] Failed to parse tools/list JSON response"
+            );
             return vec![];
         }
     };
@@ -589,7 +623,10 @@ fn spawn_and_initialize(
                 }
             }
             Err(e) => {
-                tracing::debug!("[MCP Health] Read error while waiting for tools/list response from stdio server: {}", e);
+                tracing::debug!(
+                    error = %sanitize_error_msg(&e),
+                    "[MCP Health] Read error while waiting for tools/list response from stdio server"
+                );
                 break;
             }
         }
