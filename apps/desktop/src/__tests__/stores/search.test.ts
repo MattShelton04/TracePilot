@@ -387,7 +387,14 @@ describe("useSearchStore FTS maintenance", () => {
 
   it("runOptimize refreshes health info after a successful run", async () => {
     mockFtsOptimize.mockResolvedValue("done");
-    mockFtsHealth.mockResolvedValue({ inSync: true, indexedSessions: 5, totalSessions: 5, totalContentRows: 100, pendingSessions: 0, dbSizeBytes: 1024 });
+    mockFtsHealth.mockResolvedValue({
+      inSync: true,
+      indexedSessions: 5,
+      totalSessions: 5,
+      totalContentRows: 100,
+      pendingSessions: 0,
+      dbSizeBytes: 1024,
+    });
     const store = useSearchStore();
     await store.runOptimize();
     expect(mockFtsHealth).toHaveBeenCalledTimes(1);
@@ -430,5 +437,51 @@ describe("useSearchStore FTS maintenance", () => {
     await store.runOptimize();
     // toErrorMessage("permission denied") = "permission denied" (String fallback)
     expect(store.maintenanceMessage).toBe("Error: permission denied");
+  });
+});
+
+describe("useSearchStore - event listener lifecycle", () => {
+  beforeEach(() => {
+    // Reset the mock before each test
+    vi.clearAllMocks();
+  });
+
+  it("should expose disposeEventListeners function", () => {
+    const store = useSearchStore();
+    expect(typeof store.disposeEventListeners).toBe("function");
+  });
+
+  it("should be safe to call disposeEventListeners multiple times", () => {
+    const store = useSearchStore();
+
+    // Multiple calls should not throw
+    expect(() => {
+      store.disposeEventListeners();
+      store.disposeEventListeners();
+      store.disposeEventListeners();
+    }).not.toThrow();
+  });
+
+  it("should be safe to call disposeEventListeners before initialization completes", () => {
+    const store = useSearchStore();
+
+    // Call dispose immediately (before async init completes)
+    expect(() => {
+      store.disposeEventListeners();
+    }).not.toThrow();
+  });
+
+  it("should reset listenersInitialized flag when disposed", async () => {
+    const store = useSearchStore();
+
+    // Wait for initialization
+    await nextTick();
+    await nextTick();
+
+    // Dispose
+    store.disposeEventListeners();
+
+    // Re-initialization should be allowed
+    await expect(store.initEventListeners()).resolves.not.toThrow();
   });
 });

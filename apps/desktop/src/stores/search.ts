@@ -24,10 +24,10 @@ import { computed, nextTick, ref, watch } from "vue";
 import { useAsyncGuard } from "@/composables/useAsyncGuard";
 import { useRecentSearches } from "@/composables/useRecentSearches";
 import { useSearchClipboard } from "@/composables/useSearchClipboard";
+import { hasMeaningfulDateValue } from "@/utils/dateValidation";
 import { logWarn } from "@/utils/logger";
 import { parseQualifiers } from "@/utils/parseQualifiers";
 import { safeListen } from "@/utils/tauriEvents";
-import { hasMeaningfulDateValue } from "@/utils/dateValidation";
 
 // Re-export types and utilities that consumers may depend on
 export type { RecentSearch } from "@/composables/useRecentSearches";
@@ -164,6 +164,18 @@ export const useSearchStore = defineStore("search", () => {
 
   // Initialize listeners eagerly when the store is first created
   initEventListeners();
+
+  /**
+   * Clean up event listeners to prevent memory leaks.
+   * Should be called when the search view is unmounted.
+   */
+  function disposeEventListeners() {
+    for (const unlisten of unlisteners) {
+      unlisten();
+    }
+    unlisteners.length = 0;
+    listenersInitialized = false;
+  }
 
   // ── Computed ─────────────────────────────────────────────────
   const hasResults = computed(() => results.value.length > 0);
@@ -359,7 +371,6 @@ export const useSearchStore = defineStore("search", () => {
     });
   }
 
-
   // ── Recent search helpers (store-level orchestration) ──────
   function applyRecentSearch(q: string) {
     query.value = q;
@@ -381,7 +392,10 @@ export const useSearchStore = defineStore("search", () => {
   const statsGuard = useAsyncGuard();
   const filterOptionsGuard = useAsyncGuard();
 
-  function parseDateInputToUnix(value: string | null, fieldName: "From" | "To"): number | undefined {
+  function parseDateInputToUnix(
+    value: string | null,
+    fieldName: "From" | "To",
+  ): number | undefined {
     if (value == null) return undefined;
     const trimmed = value.trim();
     if (!trimmed) return undefined;
@@ -617,6 +631,7 @@ export const useSearchStore = defineStore("search", () => {
     nextPage,
     prevPage,
     initEventListeners,
+    disposeEventListeners,
     applyBrowsePreset,
     applyRecentSearch,
     removeRecentSearch,

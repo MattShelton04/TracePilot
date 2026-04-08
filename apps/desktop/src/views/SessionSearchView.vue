@@ -223,6 +223,8 @@ onMounted(async () => {
 onUnmounted(() => {
   // Notify store that search view is unmounted (disables background operations)
   store.setViewMounted(false);
+  // Clean up event listeners to prevent memory leaks
+  store.disposeEventListeners();
   if (healthRefreshInterval) clearInterval(healthRefreshInterval);
 });
 </script>
