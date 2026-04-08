@@ -195,6 +195,50 @@ describe("useCachedFetch", () => {
       await fetch({ id: 1 }); // Should refetch
       expect(fetcher).toHaveBeenCalledTimes(2);
     });
+
+    it("returns cached data for prior parameters after other keys are fetched", async () => {
+      const fetcher = vi
+        .fn()
+        .mockResolvedValueOnce({ data: "first" })
+        .mockResolvedValueOnce({ data: "second" });
+      const { data, fetch } = useCachedFetch<{ data: string }, { id: number }>({ fetcher });
+
+      await fetch({ id: 1 });
+      await fetch({ id: 2 });
+
+      const cached = await fetch({ id: 1 });
+      expect(cached).toEqual({ data: "first" });
+      expect(data.value).toEqual({ data: "first" });
+      expect(fetcher).toHaveBeenCalledTimes(2);
+    });
+
+    it("stores stale responses in cache without overwriting newer active data", async () => {
+      const first = createDeferred<{ data: string }>();
+      const second = createDeferred<{ data: string }>();
+      const fetcher = vi
+        .fn()
+        .mockImplementationOnce(() => first.promise)
+        .mockImplementationOnce(() => second.promise);
+      const { data, fetch, isCached } = useCachedFetch<{ data: string }, { id: number }>({
+        fetcher,
+      });
+
+      const req1 = fetch({ id: 1 });
+      const req2 = fetch({ id: 2 });
+
+      second.resolve({ data: "second" });
+      await req2;
+      expect(data.value).toEqual({ data: "second" });
+
+      first.resolve({ data: "first" });
+      await req1;
+      expect(data.value).toEqual({ data: "second" });
+      expect(isCached({ id: 1 })).toBe(true);
+
+      const cachedResult = await fetch({ id: 1 });
+      expect(cachedResult).toEqual({ data: "first" });
+      expect(fetcher).toHaveBeenCalledTimes(2);
+    });
   });
 
   describe("request deduplication", () => {
@@ -216,7 +260,7 @@ describe("useCachedFetch", () => {
     });
 
     it("does not deduplicate requests for different parameters", async () => {
-      const resolvers: Array<(value: any) => void> = [];
+      const resolvers: Array<(value: unknown) => void> = [];
       const fetcher = vi.fn(() => new Promise((resolve) => resolvers.push(resolve)));
       const { fetch } = useCachedFetch<unknown, { id: number }>({ fetcher });
 
@@ -246,7 +290,7 @@ describe("useCachedFetch", () => {
 
   describe("generation-based stale request prevention", () => {
     it("prevents stale writes when newer request completes first", async () => {
-      const resolvers: Array<(value: any) => void> = [];
+      const resolvers: Array<(value: unknown) => void> = [];
       const fetcher = vi.fn(() => new Promise((resolve) => resolvers.push(resolve)));
       const { data, fetch } = useCachedFetch<unknown, { id: number }>({ fetcher });
 
@@ -271,7 +315,8 @@ describe("useCachedFetch", () => {
     });
 
     it("prevents stale error writes", async () => {
-      const resolvers: Array<{ resolve: (v: any) => void; reject: (e: any) => void }> = [];
+      const resolvers: Array<{ resolve: (v: unknown) => void; reject: (e: unknown) => void }> =
+        [];
       const fetcher = vi.fn(
         () =>
           new Promise((resolve, reject) => {
@@ -299,7 +344,7 @@ describe("useCachedFetch", () => {
     });
 
     it("prevents stale loading state updates", async () => {
-      const resolvers: Array<(value: any) => void> = [];
+      const resolvers: Array<(value: unknown) => void> = [];
       const fetcher = vi.fn(() => new Promise((resolve) => resolvers.push(resolve)));
       const { loading, fetch } = useCachedFetch<unknown, { id: number }>({ fetcher });
 
@@ -355,7 +400,7 @@ describe("useCachedFetch", () => {
     });
 
     it("increments generation to prevent stale writes after reset", async () => {
-      const resolvers: Array<(value: any) => void> = [];
+      const resolvers: Array<(value: unknown) => void> = [];
       const fetcher = vi.fn(() => new Promise((resolve) => resolvers.push(resolve)));
       const { data, fetch, reset } = useCachedFetch<unknown, { id: number }>({ fetcher });
 
@@ -499,7 +544,7 @@ describe("useCachedFetch", () => {
     });
 
     it("does not call onSuccess for stale requests", async () => {
-      const resolvers: Array<(value: any) => void> = [];
+      const resolvers: Array<(value: unknown) => void> = [];
       const fetcher = vi.fn(() => new Promise((resolve) => resolvers.push(resolve)));
       const onSuccess = vi.fn();
       const { fetch } = useCachedFetch<unknown, { id: number }>({ fetcher, onSuccess });
@@ -522,7 +567,8 @@ describe("useCachedFetch", () => {
     });
 
     it("does not call onError for stale requests", async () => {
-      const resolvers: Array<{ resolve: (v: any) => void; reject: (e: any) => void }> = [];
+      const resolvers: Array<{ resolve: (v: unknown) => void; reject: (e: unknown) => void }> =
+        [];
       const fetcher = vi.fn(
         () =>
           new Promise((resolve, reject) => {
@@ -549,7 +595,7 @@ describe("useCachedFetch", () => {
     });
 
     it("does not call onFinally for stale requests", async () => {
-      const resolvers: Array<(value: any) => void> = [];
+      const resolvers: Array<(value: unknown) => void> = [];
       const fetcher = vi.fn(() => new Promise((resolve) => resolvers.push(resolve)));
       const onFinally = vi.fn();
       const { fetch } = useCachedFetch<unknown, { id: number }>({ fetcher, onFinally });
@@ -811,10 +857,10 @@ describe("useCachedFetch", () => {
       expect(result).toBeUndefined();
     });
 
-    it("returns undefined for stale requests", async () => {
-      const resolvers: Array<(value: any) => void> = [];
+    it("returns data for stale requests but does not overwrite newer state", async () => {
+      const resolvers: Array<(value: unknown) => void> = [];
       const fetcher = vi.fn(() => new Promise((resolve) => resolvers.push(resolve)));
-      const { fetch } = useCachedFetch<unknown, { id: number }>({ fetcher });
+      const { data, fetch } = useCachedFetch<unknown, { id: number }>({ fetcher });
 
       const req1 = fetch({ id: 1 });
       const req2 = fetch({ id: 2 });
@@ -823,11 +869,13 @@ describe("useCachedFetch", () => {
       resolvers[1]({ value: "second" });
       const result2 = await req2;
       expect(result2).toEqual({ value: "second" });
+      expect(data.value).toEqual({ value: "second" });
 
       // Complete first request (stale)
       resolvers[0]({ value: "first" });
       const result1 = await req1;
-      expect(result1).toBeUndefined();
+      expect(result1).toEqual({ value: "first" });
+      expect(data.value).toEqual({ value: "second" });
     });
 
     it("returns cached data when using cache hit", async () => {
