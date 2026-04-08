@@ -324,6 +324,33 @@ describe("useSessionDetailStore", () => {
       expect(store.plan).toEqual({ plan: "updated plan" });
     });
 
+    it("sets detail error when refresh fails and retains existing detail", async () => {
+      const store = useSessionDetailStore();
+      await store.loadDetail(SESSION_ID);
+
+      mockGetSessionDetail.mockRejectedValueOnce(new Error("Detail refresh failed"));
+      await store.refreshAll();
+
+      expect(store.error).toBe("Detail refresh failed");
+      expect(store.detail).toEqual(FIXTURE_DETAIL);
+    });
+
+    it("clears detail error on successful refresh after failure", async () => {
+      const store = useSessionDetailStore();
+      await store.loadDetail(SESSION_ID);
+
+      mockGetSessionDetail.mockRejectedValueOnce(new Error("Detail fail"));
+      await store.refreshAll();
+      expect(store.error).toBe("Detail fail");
+
+      const UPDATED_DETAIL = { ...FIXTURE_DETAIL, branch: "feature/new" };
+      mockGetSessionDetail.mockResolvedValue(UPDATED_DETAIL);
+
+      await store.refreshAll();
+      expect(store.error).toBeNull();
+      expect(store.detail).toEqual(UPDATED_DETAIL);
+    });
+
     it("clears section error on successful refresh after prior error", async () => {
       const store = useSessionDetailStore();
       await store.loadDetail(SESSION_ID);
