@@ -293,7 +293,9 @@ async fn check_http_server(
         .map(|s| s.to_string());
 
     // Try to parse the initialize response body (may be JSON or SSE).
-    let _ = init_resp.text().await;
+    if let Err(e) = init_resp.text().await {
+        tracing::debug!("[MCP Health] Failed to read initialize response body for server '{}': {}", name, e);
+    }
 
     // Step 2: Send initialized notification (fire-and-forget).
     let notif = serde_json::json!({
@@ -303,12 +305,15 @@ async fn check_http_server(
 
     let mut notif_headers = base_headers.clone();
     inject_session_id_header(&mut notif_headers, session_id.as_deref());
-    let _ = client
+    if let Err(e) = client
         .post(&url)
         .headers(notif_headers)
         .json(&notif)
         .send()
-        .await;
+        .await
+    {
+        tracing::debug!("[MCP Health] Failed to send initialized notification to server '{}': {}", name, e);
+    }
 
     // Step 3: Send tools/list request.
     let tools_req = serde_json::json!({
@@ -331,7 +336,14 @@ async fn check_http_server(
         Ok(resp) if resp.status().is_success() => {
             parse_tools_from_response(resp).await
         }
-        _ => vec![],
+        Ok(resp) => {
+            tracing::warn!("[MCP Health] tools/list request failed for server '{}': HTTP {}", name, resp.status());
+            vec![]
+        }
+        Err(e) => {
+            tracing::warn!("[MCP Health] tools/list request failed for server '{}': {}", name, e);
+            vec![]
+        }
     };
 
     let tool_count = tools.len();
@@ -363,7 +375,10 @@ async fn parse_tools_from_response(resp: reqwest::Response) -> Vec<McpTool> {
 
     let body = match resp.text().await {
         Ok(b) => b,
-        Err(_) => return vec![],
+        Err(e) => {
+            tracing::debug!("[MCP Health] Failed to read tools/list response body: {}", e);
+            return vec![];
+        }
     };
 
     // For SSE responses, extract JSON from `data:` lines.
@@ -382,7 +397,10 @@ async fn parse_tools_from_response(resp: reqwest::Response) -> Vec<McpTool> {
 
     let parsed: serde_json::Value = match serde_json::from_str(&json_text) {
         Ok(v) => v,
-        Err(_) => return vec![],
+        Err(e) => {
+            tracing::debug!("[MCP Health] Failed to parse tools/list JSON response: {}", e);
+            return vec![];
+        }
     };
 
     extract_tools_from_json(&parsed)
