@@ -43,17 +43,17 @@
 //! - [`ipc`]: IPC preparation utilities (args summaries, payload optimization)
 //! - [`utils`]: Shared utility functions (duration, truncation, etc.)
 
-mod ipc;
-mod postprocess;
 mod reconstructor;
+mod postprocess;
+mod ipc;
 mod utils;
 
 use crate::models::conversation::ConversationTurn;
 use crate::parsing::events::TypedEvent;
 
 // Re-export public items
-pub use ipc::{compute_args_summary, prepare_turns_for_ipc};
 pub use reconstructor::TurnReconstructor;
+pub use ipc::{compute_args_summary, prepare_turns_for_ipc};
 
 /// Aggregate statistics for reconstructed turns.
 #[derive(Debug, Clone, PartialEq, Eq)]

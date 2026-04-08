@@ -146,10 +146,7 @@ mod tests {
         let io_err = std::io::Error::new(std::io::ErrorKind::PermissionDenied, "read error");
         let skills_err: SkillsError = io_err.into();
         assert!(matches!(skills_err, SkillsError::IoSource(_)));
-        assert!(
-            skills_err.source().is_some(),
-            "source chain should be preserved"
-        );
+        assert!(skills_err.source().is_some(), "source chain should be preserved");
         assert!(skills_err.to_string().contains("Skills I/O error"));
     }
 
@@ -160,10 +157,7 @@ mod tests {
         let yml_err = serde_yml::from_str::<serde_yml::Value>(yaml).unwrap_err();
         let skills_err: SkillsError = yml_err.into();
         assert!(matches!(skills_err, SkillsError::YamlSource(_)));
-        assert!(
-            skills_err.source().is_some(),
-            "source chain should be preserved"
-        );
+        assert!(skills_err.source().is_some(), "source chain should be preserved");
         assert!(skills_err.to_string().contains("Skills YAML error"));
     }
 

@@ -1,7 +1,7 @@
 //! SQL query helpers and statistical functions for the index database.
 
 use crate::Result;
-use rusqlite::{Connection, params_from_iter, types::ToSql};
+use rusqlite::{params_from_iter, types::ToSql, Connection};
 
 use tracepilot_core::analytics::types::*;
 
@@ -131,15 +131,7 @@ pub(super) fn query_model_distribution(
     for row in rows {
         let (model, tokens, input_t, output_t, cache_read, cost, request_count) = row?;
         grand_total += tokens;
-        entries.push((
-            model,
-            tokens,
-            input_t,
-            output_t,
-            cache_read,
-            cost,
-            request_count,
-        ));
+        entries.push((model, tokens, input_t, output_t, cache_read, cost, request_count));
     }
     Ok(entries
         .into_iter()
@@ -253,8 +245,12 @@ mod tests {
 
     #[test]
     fn test_build_date_repo_filter_with_dates() {
-        let (clause, values) =
-            build_date_repo_filter(Some("2026-01-01"), Some("2026-01-31"), None, false);
+        let (clause, values) = build_date_repo_filter(
+            Some("2026-01-01"),
+            Some("2026-01-31"),
+            None,
+            false
+        );
         assert!(clause.contains("date(COALESCE(s.updated_at, s.created_at)) >= ?"));
         assert!(clause.contains("date(COALESCE(s.updated_at, s.created_at)) <= ?"));
         // Ensure anonymous placeholders are used (not indexed ?1, ?2, …)
@@ -276,8 +272,12 @@ mod tests {
 
     #[test]
     fn test_build_date_repo_filter_all_filters() {
-        let (clause, values) =
-            build_date_repo_filter(Some("2026-01-01"), Some("2026-01-31"), Some("myrepo"), true);
+        let (clause, values) = build_date_repo_filter(
+            Some("2026-01-01"),
+            Some("2026-01-31"),
+            Some("myrepo"),
+            true
+        );
         assert!(clause.contains("s.turn_count"));
         assert!(clause.contains("date(COALESCE(s.updated_at, s.created_at)) >= ?"));
         assert!(clause.contains("date(COALESCE(s.updated_at, s.created_at)) <= ?"));
@@ -295,10 +295,7 @@ mod tests {
             .as_bytes()
             .windows(2)
             .any(|w| w[0] == b'?' && w[1].is_ascii_digit());
-        assert!(
-            !has_indexed,
-            "unexpected indexed placeholder in clause: {clause}"
-        );
+        assert!(!has_indexed, "unexpected indexed placeholder in clause: {clause}");
     }
 
     /// Verify that the number of `?` placeholders in the generated clause
@@ -306,13 +303,7 @@ mod tests {
     /// accidental mismatches when the function is modified in the future.
     #[test]
     fn test_build_date_repo_filter_placeholder_count_matches_values() {
-        type TestCase = (
-            Option<&'static str>,
-            Option<&'static str>,
-            Option<&'static str>,
-            bool,
-            usize,
-        );
+        type TestCase = (Option<&'static str>, Option<&'static str>, Option<&'static str>, bool, usize);
         let cases: Vec<TestCase> = vec![
             (None, None, None, false, 0),
             (None, None, None, true, 0),
@@ -322,20 +313,8 @@ mod tests {
             (Some("2026-01-01"), Some("2026-01-31"), None, false, 2),
             (Some("2026-01-01"), None, Some("myrepo"), false, 2),
             (None, Some("2026-01-31"), Some("myrepo"), false, 2),
-            (
-                Some("2026-01-01"),
-                Some("2026-01-31"),
-                Some("myrepo"),
-                false,
-                3,
-            ),
-            (
-                Some("2026-01-01"),
-                Some("2026-01-31"),
-                Some("myrepo"),
-                true,
-                3,
-            ),
+            (Some("2026-01-01"), Some("2026-01-31"), Some("myrepo"), false, 3),
+            (Some("2026-01-01"), Some("2026-01-31"), Some("myrepo"), true, 3),
         ];
         for (from, to, repo, hide_empty, expected_params) in cases {
             let (clause, values) = build_date_repo_filter(from, to, repo, hide_empty);
@@ -345,8 +324,7 @@ mod tests {
                 "placeholder count mismatch for from={from:?} to={to:?} repo={repo:?} hide_empty={hide_empty}"
             );
             assert_eq!(
-                values.len(),
-                expected_params,
+                values.len(), expected_params,
                 "bind value count mismatch for from={from:?} to={to:?} repo={repo:?} hide_empty={hide_empty}"
             );
             // No indexed params (`?N`) in any combination
@@ -386,8 +364,7 @@ mod tests {
             INSERT INTO sessions VALUES ('s5', NULL, NULL, 'repo-a', 5);
             -- s6: Jan 2026, repo-a, zero turns (tests hide_empty)
             INSERT INTO sessions VALUES ('s6', '2026-01-20', '2026-01-20', 'repo-a', 0);",
-        )
-        .expect("setup");
+        ).expect("setup");
 
         // Test 1: January 2026, repo-a, include empty sessions.
         // Expected: s1, s3, s5 (NULL-dates OR guard), s6 (zero turns) = 4
@@ -406,8 +383,12 @@ mod tests {
 
         // Test 2: January 2026, repo-a, hide empty sessions (turn_count > 0).
         // Expected: s1, s3, s5 = 3 (s6 excluded because turn_count = 0)
-        let (clause2, bind_values2) =
-            build_date_repo_filter(Some("2026-01-01"), Some("2026-01-31"), Some("repo-a"), true);
+        let (clause2, bind_values2) = build_date_repo_filter(
+            Some("2026-01-01"),
+            Some("2026-01-31"),
+            Some("repo-a"),
+            true,
+        );
         let sql2 = format!("SELECT COUNT(*) FROM sessions s{}", clause2);
         let refs2 = to_refs(&bind_values2);
         let count2: i64 = conn

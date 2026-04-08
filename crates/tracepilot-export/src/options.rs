@@ -94,7 +94,8 @@ impl Default for ContentDetailOptions {
 /// Each flag enables a set of regex-based patterns that replace matches with
 /// placeholder text (e.g., `<REDACTED_PATH>`). All flags default to `false`
 /// (no redaction), making exports fully transparent by default.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
+#[derive(Default)]
 pub struct RedactionOptions {
     /// Replace filesystem paths (Windows, Unix home, system dirs) with `<REDACTED_PATH>`.
     pub anonymize_paths: bool,
@@ -110,6 +111,7 @@ impl RedactionOptions {
         self.anonymize_paths || self.strip_secrets || self.strip_pii
     }
 }
+
 
 /// Complete export configuration provided by the user.
 #[derive(Debug, Clone)]

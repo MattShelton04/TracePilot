@@ -7,7 +7,7 @@
 //! This eliminates ~80 lines of duplicated code compared to the original implementation.
 
 use crate::commands::analytics_executor::{
-    AnalyticsContext, AnalyticsQueryParams, execute_analytics_query,
+    execute_analytics_query, AnalyticsContext, AnalyticsQueryParams,
 };
 use crate::config::SharedConfig;
 use crate::error::CmdResult;
@@ -36,13 +36,8 @@ pub async fn get_analytics(
         // Disk scan fallback
         |session_dir, params| {
             let (from, to, repo, hide) = params.as_refs();
-            let inputs = tracepilot_core::analytics::load_full_sessions_filtered(
-                session_dir,
-                from,
-                to,
-                repo,
-                hide,
-            )?;
+            let inputs =
+                tracepilot_core::analytics::load_full_sessions_filtered(session_dir, from, to, repo, hide)?;
             Ok(tracepilot_core::analytics::compute_analytics(&inputs))
         },
     )
@@ -73,13 +68,8 @@ pub async fn get_tool_analysis(
         // Disk scan fallback
         |session_dir, params| {
             let (from, to, repo, hide) = params.as_refs();
-            let inputs = tracepilot_core::analytics::load_full_sessions_filtered(
-                session_dir,
-                from,
-                to,
-                repo,
-                hide,
-            )?;
+            let inputs =
+                tracepilot_core::analytics::load_full_sessions_filtered(session_dir, from, to, repo, hide)?;
             Ok(tracepilot_core::analytics::compute_tool_analysis(&inputs))
         },
     )

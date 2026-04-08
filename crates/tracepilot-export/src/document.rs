@@ -94,6 +94,7 @@ pub struct PortableSession {
     pub available_sections: Vec<SectionId>,
 
     // ── Optional sections ──────────────────────────────────────────────
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub conversation: Option<Vec<ConversationTurn>>,
 

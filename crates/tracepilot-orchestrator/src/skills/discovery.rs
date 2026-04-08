@@ -56,10 +56,7 @@ pub fn discover_in_directory(
     let mut summaries = Vec::new();
 
     let entries = std::fs::read_dir(dir).map_err(|e| {
-        SkillsError::Io(format!(
-            "Failed to read skills directory {}: {e}",
-            dir.display()
-        ))
+        SkillsError::Io(format!("Failed to read skills directory {}: {e}", dir.display()))
     })?;
 
     for entry in entries.flatten() {
@@ -76,7 +73,10 @@ pub fn discover_in_directory(
         match load_skill_summary(&skill_md, &scope) {
             Ok(summary) => summaries.push(summary),
             Err(e) => {
-                tracing::warn!("Skipping skill at {}: {e}", path.display());
+                tracing::warn!(
+                    "Skipping skill at {}: {e}",
+                    path.display()
+                );
             }
         }
     }
@@ -178,8 +178,9 @@ mod tests {
     fn create_test_skill(dir: &Path, name: &str) {
         let skill_dir = dir.join(name);
         std::fs::create_dir_all(&skill_dir).unwrap();
-        let content =
-            format!("---\nname: {name}\ndescription: Test skill {name}\n---\n\nBody of {name}.\n");
+        let content = format!(
+            "---\nname: {name}\ndescription: Test skill {name}\n---\n\nBody of {name}.\n"
+        );
         std::fs::write(skill_dir.join("SKILL.md"), content).unwrap();
     }
 
@@ -238,11 +239,7 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let skill_dir = dir.path().join("with-assets");
         std::fs::create_dir_all(&skill_dir).unwrap();
-        std::fs::write(
-            skill_dir.join("SKILL.md"),
-            "---\nname: x\ndescription: y\n---\n",
-        )
-        .unwrap();
+        std::fs::write(skill_dir.join("SKILL.md"), "---\nname: x\ndescription: y\n---\n").unwrap();
         std::fs::write(skill_dir.join("helper.py"), "# helper").unwrap();
         std::fs::write(skill_dir.join("data.json"), "{}").unwrap();
 
@@ -265,11 +262,7 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let skill_dir = dir.path().join("nested-skill");
         std::fs::create_dir_all(&skill_dir).unwrap();
-        std::fs::write(
-            skill_dir.join("SKILL.md"),
-            "---\nname: x\ndescription: y\n---\n",
-        )
-        .unwrap();
+        std::fs::write(skill_dir.join("SKILL.md"), "---\nname: x\ndescription: y\n---\n").unwrap();
         std::fs::write(skill_dir.join("top-level.py"), "# top").unwrap();
 
         // Create nested directories with files

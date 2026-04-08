@@ -151,14 +151,12 @@ fn realistic_agentic_session_with_many_tool_rounds() {
 }
 #[test]
 fn session_error_embedded_in_turn() {
-    let events = make_turn_events(vec![
-        session_error("Rate limit exceeded")
-            .error_type("rate_limit")
-            .status_code(429)
-            .id("evt-err")
-            .timestamp("2026-03-10T07:00:30.000Z")
-            .build_event(),
-    ]);
+    let events = make_turn_events(vec![session_error("Rate limit exceeded")
+        .error_type("rate_limit")
+        .status_code(429)
+        .id("evt-err")
+        .timestamp("2026-03-10T07:00:30.000Z")
+        .build_event()]);
 
     let turns = reconstruct_turns(&events);
     assert_eq!(turns.len(), 1);
@@ -171,51 +169,43 @@ fn session_error_embedded_in_turn() {
 }
 #[test]
 fn session_error_fallback_to_error_type() {
-    let events = make_turn_events(vec![
-        session_error_empty()
-            .error_type("connection_timeout")
-            .id("evt-err")
-            .timestamp("2026-03-10T07:00:30.000Z")
-            .build_event(),
-    ]);
+    let events = make_turn_events(vec![session_error_empty()
+        .error_type("connection_timeout")
+        .id("evt-err")
+        .timestamp("2026-03-10T07:00:30.000Z")
+        .build_event()]);
 
     let turns = reconstruct_turns(&events);
     assert_eq!(turns[0].session_events[0].summary, "connection_timeout");
 }
 #[test]
 fn session_error_fallback_to_status_code() {
-    let events = make_turn_events(vec![
-        session_error_empty()
-            .status_code(500)
-            .id("evt-err")
-            .timestamp("2026-03-10T07:00:30.000Z")
-            .build_event(),
-    ]);
+    let events = make_turn_events(vec![session_error_empty()
+        .status_code(500)
+        .id("evt-err")
+        .timestamp("2026-03-10T07:00:30.000Z")
+        .build_event()]);
 
     let turns = reconstruct_turns(&events);
     assert_eq!(turns[0].session_events[0].summary, "HTTP 500");
 }
 #[test]
 fn session_error_fallback_to_default() {
-    let events = make_turn_events(vec![
-        session_error_empty()
-            .id("evt-err")
-            .timestamp("2026-03-10T07:00:30.000Z")
-            .build_event(),
-    ]);
+    let events = make_turn_events(vec![session_error_empty()
+        .id("evt-err")
+        .timestamp("2026-03-10T07:00:30.000Z")
+        .build_event()]);
 
     let turns = reconstruct_turns(&events);
     assert_eq!(turns[0].session_events[0].summary, "Session error");
 }
 #[test]
 fn session_warning_embedded_in_turn() {
-    let events = make_turn_events(vec![
-        session_warning("Approaching token limit")
-            .warning_type("token_budget")
-            .id("evt-warn")
-            .timestamp("2026-03-10T07:00:30.000Z")
-            .build_event(),
-    ]);
+    let events = make_turn_events(vec![session_warning("Approaching token limit")
+        .warning_type("token_budget")
+        .id("evt-warn")
+        .timestamp("2026-03-10T07:00:30.000Z")
+        .build_event()]);
 
     let turns = reconstruct_turns(&events);
     assert_eq!(turns[0].session_events.len(), 1);
@@ -226,12 +216,10 @@ fn session_warning_embedded_in_turn() {
 }
 #[test]
 fn compaction_start_embedded_in_turn() {
-    let events = make_turn_events(vec![
-        compaction_start()
-            .id("evt-comp-start")
-            .timestamp("2026-03-10T07:00:30.000Z")
-            .build_event(),
-    ]);
+    let events = make_turn_events(vec![compaction_start()
+        .id("evt-comp-start")
+        .timestamp("2026-03-10T07:00:30.000Z")
+        .build_event()]);
 
     let turns = reconstruct_turns(&events);
     assert_eq!(turns[0].session_events.len(), 1);
@@ -242,15 +230,13 @@ fn compaction_start_embedded_in_turn() {
 }
 #[test]
 fn compaction_complete_success() {
-    let events = make_turn_events(vec![
-        compaction_complete()
-            .success(true)
-            .pre_compaction_tokens(50000)
-            .pre_compaction_messages_length(120)
-            .id("evt-comp")
-            .timestamp("2026-03-10T07:00:30.000Z")
-            .build_event(),
-    ]);
+    let events = make_turn_events(vec![compaction_complete()
+        .success(true)
+        .pre_compaction_tokens(50000)
+        .pre_compaction_messages_length(120)
+        .id("evt-comp")
+        .timestamp("2026-03-10T07:00:30.000Z")
+        .build_event()]);
 
     let turns = reconstruct_turns(&events);
     let se = &turns[0].session_events[0];
@@ -260,15 +246,13 @@ fn compaction_complete_success() {
 }
 #[test]
 fn compaction_complete_failure() {
-    let events = make_turn_events(vec![
-        compaction_complete()
-            .success(false)
-            .error("Out of memory")
-            .pre_compaction_tokens(50000)
-            .id("evt-comp")
-            .timestamp("2026-03-10T07:00:30.000Z")
-            .build_event(),
-    ]);
+    let events = make_turn_events(vec![compaction_complete()
+        .success(false)
+        .error("Out of memory")
+        .pre_compaction_tokens(50000)
+        .id("evt-comp")
+        .timestamp("2026-03-10T07:00:30.000Z")
+        .build_event()]);
 
     let turns = reconstruct_turns(&events);
     let se = &turns[0].session_events[0];
@@ -615,14 +599,12 @@ fn session_events_flush_via_ensure_current_turn() {
 fn orphaned_session_events_create_synthetic_turn() {
     // A session with only session events (no UserMessage or other turn-creating events)
     // should produce a synthetic turn to hold them.
-    let events = vec![
-        session_error("Authentication failed")
-            .error_type("auth_failed")
-            .status_code(401)
-            .id("evt-err")
-            .timestamp("2026-03-10T07:00:00.000Z")
-            .build_event(),
-    ];
+    let events = vec![session_error("Authentication failed")
+        .error_type("auth_failed")
+        .status_code(401)
+        .id("evt-err")
+        .timestamp("2026-03-10T07:00:00.000Z")
+        .build_event()];
 
     let turns = reconstruct_turns(&events);
     assert_eq!(turns.len(), 1);
@@ -633,14 +615,12 @@ fn orphaned_session_events_create_synthetic_turn() {
 #[test]
 fn compaction_error_with_success_none() {
     // When success is None but error is set, treat as failure
-    let events = make_turn_events(vec![
-        compaction_complete()
-            .error("OOM")
-            .pre_compaction_tokens(50000)
-            .id("evt-comp")
-            .timestamp("2026-03-10T07:00:30.000Z")
-            .build_event(),
-    ]);
+    let events = make_turn_events(vec![compaction_complete()
+        .error("OOM")
+        .pre_compaction_tokens(50000)
+        .id("evt-comp")
+        .timestamp("2026-03-10T07:00:30.000Z")
+        .build_event()]);
 
     let turns = reconstruct_turns(&events);
     let se = &turns[0].session_events[0];

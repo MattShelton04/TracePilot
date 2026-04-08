@@ -518,7 +518,9 @@ fn subagent_child_tool_does_not_set_turn_model() {
         // Main agent tool call that spawns the subagent
         tool_start("task")
             .tool_call_id("tc-subagent")
-            .arguments(json!({ "prompt": "explore code", "model": "gemini-3-pro-preview" }))
+            .arguments(
+                json!({ "prompt": "explore code", "model": "gemini-3-pro-preview" }),
+            )
             .id("ev-2")
             .timestamp("2026-01-01T00:00:01Z")
             .build_event(),

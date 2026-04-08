@@ -181,10 +181,10 @@ pub fn preview_import(source: &Path, target_dir: Option<&Path>) -> Result<Import
             // Only probe filesystem for sessions with safe IDs
             if let Some(target) = target_dir
                 && !validator::contains_path_traversal(&s.metadata.id)
-                && s.metadata.id.len() <= validator::MAX_ID_LENGTH
-            {
-                summary.already_exists = writer::session_exists(&s.metadata.id, target);
-            }
+                    && s.metadata.id.len() <= validator::MAX_ID_LENGTH
+                {
+                    summary.already_exists = writer::session_exists(&s.metadata.id, target);
+                }
             summary
         })
         .collect();
@@ -219,7 +219,8 @@ pub fn import_sessions(
 
     // 4. Ensure target directory exists (skip in dry-run mode)
     if !options.dry_run && !target_dir.exists() {
-        std::fs::create_dir_all(target_dir).map_err(|e| ExportError::io(target_dir, e))?;
+        std::fs::create_dir_all(target_dir)
+            .map_err(|e| ExportError::io(target_dir, e))?;
     }
 
     // 5. Process each session
@@ -293,10 +294,9 @@ pub fn import_sessions(
             warnings.push(format!("Session {}: rewind_snapshots included in archive only (not restored to local session)", id));
         }
         if let Some(tables) = &session.custom_tables
-            && !tables.is_empty()
-        {
-            warnings.push(format!("Session {}: custom_tables included in archive only (not restored to local session)", id));
-        }
+            && !tables.is_empty() {
+                warnings.push(format!("Session {}: custom_tables included in archive only (not restored to local session)", id));
+            }
         if session.parse_diagnostics.is_some() {
             warnings.push(format!("Session {}: parse_diagnostics included in archive only (not restored to local session)", id));
         }
@@ -437,12 +437,7 @@ mod tests {
         assert_ne!(result.imported[0].id, "test-12345678");
         // Validate it looks like a UUID (8-4-4-4-12 hex format)
         assert_eq!(result.imported[0].id.len(), 36);
-        assert!(
-            result.imported[0]
-                .id
-                .chars()
-                .all(|c| c.is_ascii_hexdigit() || c == '-')
-        );
+        assert!(result.imported[0].id.chars().all(|c| c.is_ascii_hexdigit() || c == '-'));
     }
 
     #[test]
