@@ -568,12 +568,16 @@ fn spawn_and_initialize(
     let deadline = Instant::now() + timeout;
     loop {
         if Instant::now() > deadline {
+            tracing::debug!("[MCP Health] Timeout waiting for tools/list response from stdio server");
             break; // Return whatever we have
         }
 
         line.clear();
         match reader.read_line(&mut line) {
-            Ok(0) => break,
+            Ok(0) => {
+                tracing::debug!("[MCP Health] Stdio server closed stdout before sending tools/list response");
+                break;
+            }
             Ok(_) => {
                 if let Ok(resp) = serde_json::from_str::<serde_json::Value>(&line)
                     && resp.get("id").and_then(|v| v.as_u64()) == Some(2)
@@ -584,7 +588,10 @@ fn spawn_and_initialize(
                     return Ok((tools, latency_ms));
                 }
             }
-            Err(_) => break,
+            Err(e) => {
+                tracing::debug!("[MCP Health] Read error while waiting for tools/list response from stdio server: {}", e);
+                break;
+            }
         }
     }
 
