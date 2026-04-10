@@ -333,7 +333,6 @@ CREATE TABLE IF NOT EXISTS maintenance_state (
 );
 "#;
 
-
 /// Run all pending schema migrations in order.
 pub(super) fn run_migrations(conn: &Connection) -> Result<()> {
     conn.execute(
@@ -358,7 +357,10 @@ pub(super) fn run_migrations(conn: &Connection) -> Result<()> {
         ("Migration 6: deep FTS search", MIGRATION_6),
         ("Migration 7: browse indexes", MIGRATION_7),
         ("Migration 8: daily metric tracking", MIGRATION_8),
-        ("Migration 9: tool_result, content_fts, quality guard", MIGRATION_9),
+        (
+            "Migration 9: tool_result, content_fts, quality guard",
+            MIGRATION_9,
+        ),
         ("Migration 10: maintenance state", MIGRATION_10),
     ];
 
@@ -368,12 +370,20 @@ pub(super) fn run_migrations(conn: &Connection) -> Result<()> {
             // Ensure search columns exist before migrations that reference them
             if version >= 9 {
                 add_column_if_missing(conn, "sessions", "search_indexed_at", "TEXT")?;
-                add_column_if_missing(conn, "sessions", "search_extractor_version", "INTEGER DEFAULT 0")?;
+                add_column_if_missing(
+                    conn,
+                    "sessions",
+                    "search_extractor_version",
+                    "INTEGER DEFAULT 0",
+                )?;
             }
             tracing::info!(version, name, "Running migration");
             let tx = conn.unchecked_transaction()?;
             tx.execute_batch(sql)?;
-            tx.execute("INSERT INTO schema_version (version) VALUES (?1)", [version])?;
+            tx.execute(
+                "INSERT INTO schema_version (version) VALUES (?1)",
+                [version],
+            )?;
             tx.commit()?;
         }
     }
@@ -383,7 +393,12 @@ pub(super) fn run_migrations(conn: &Connection) -> Result<()> {
     // where version 6 committed but columns weren't added are recovered.
     // add_column_if_missing is safe to call repeatedly — it checks PRAGMA table_info.
     add_column_if_missing(conn, "sessions", "search_indexed_at", "TEXT")?;
-    add_column_if_missing(conn, "sessions", "search_extractor_version", "INTEGER DEFAULT 0")?;
+    add_column_if_missing(
+        conn,
+        "sessions",
+        "search_extractor_version",
+        "INTEGER DEFAULT 0",
+    )?;
 
     Ok(())
 }

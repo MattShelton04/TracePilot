@@ -11,8 +11,8 @@
 use crate::Result;
 use rusqlite::{params_from_iter, types::ToSql};
 
-use super::row_helpers::context_snippet_from_row;
 use super::IndexDb;
+use super::row_helpers::context_snippet_from_row;
 
 /// A single search result with context for display and deep-linking.
 #[derive(Debug, Clone)]
@@ -159,8 +159,14 @@ impl SearchQueryBuilder {
     fn with_filters(mut self, filters: &SearchFilters) -> Self {
         // Build IN filter for content types
         if !filters.content_types.is_empty() {
-            let placeholders = filters.content_types.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
-            self.where_clauses.push(format!("sc.content_type IN ({})", placeholders));
+            let placeholders = filters
+                .content_types
+                .iter()
+                .map(|_| "?")
+                .collect::<Vec<_>>()
+                .join(", ");
+            self.where_clauses
+                .push(format!("sc.content_type IN ({})", placeholders));
             for val in &filters.content_types {
                 self.params.push(Box::new(val.clone()));
             }
@@ -168,8 +174,14 @@ impl SearchQueryBuilder {
 
         // Build NOT IN filter for excluded content types
         if !filters.exclude_content_types.is_empty() {
-            let placeholders = filters.exclude_content_types.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
-            self.where_clauses.push(format!("sc.content_type NOT IN ({})", placeholders));
+            let placeholders = filters
+                .exclude_content_types
+                .iter()
+                .map(|_| "?")
+                .collect::<Vec<_>>()
+                .join(", ");
+            self.where_clauses
+                .push(format!("sc.content_type NOT IN ({})", placeholders));
             for val in &filters.exclude_content_types {
                 self.params.push(Box::new(val.clone()));
             }
@@ -177,8 +189,14 @@ impl SearchQueryBuilder {
 
         // Build IN filter for repositories
         if !filters.repositories.is_empty() {
-            let placeholders = filters.repositories.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
-            self.where_clauses.push(format!("s.repository IN ({})", placeholders));
+            let placeholders = filters
+                .repositories
+                .iter()
+                .map(|_| "?")
+                .collect::<Vec<_>>()
+                .join(", ");
+            self.where_clauses
+                .push(format!("s.repository IN ({})", placeholders));
             for val in &filters.repositories {
                 self.params.push(Box::new(val.clone()));
             }
@@ -186,8 +204,14 @@ impl SearchQueryBuilder {
 
         // Build IN filter for tool names
         if !filters.tool_names.is_empty() {
-            let placeholders = filters.tool_names.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
-            self.where_clauses.push(format!("sc.tool_name IN ({})", placeholders));
+            let placeholders = filters
+                .tool_names
+                .iter()
+                .map(|_| "?")
+                .collect::<Vec<_>>()
+                .join(", ");
+            self.where_clauses
+                .push(format!("sc.tool_name IN ({})", placeholders));
             for val in &filters.tool_names {
                 self.params.push(Box::new(val.clone()));
             }
@@ -201,11 +225,13 @@ impl SearchQueryBuilder {
 
         // Build timestamp range filters
         if let Some(from_unix) = filters.date_from_unix {
-            self.where_clauses.push("sc.timestamp_unix >= ?".to_string());
+            self.where_clauses
+                .push("sc.timestamp_unix >= ?".to_string());
             self.params.push(Box::new(from_unix));
         }
         if let Some(to_unix) = filters.date_to_unix {
-            self.where_clauses.push("sc.timestamp_unix <= ?".to_string());
+            self.where_clauses
+                .push("sc.timestamp_unix <= ?".to_string());
             self.params.push(Box::new(to_unix));
         }
 
@@ -448,8 +474,8 @@ impl IndexDb {
         let is_fts = sanitized_query.is_some();
         let base_select = format!("SELECT {column}, COUNT(*)");
 
-        let mut builder = SearchQueryBuilder::new(&base_select, is_fts)
-            .with_optional_fts_match(sanitized_query);
+        let mut builder =
+            SearchQueryBuilder::new(&base_select, is_fts).with_optional_fts_match(sanitized_query);
 
         if let Some(extra) = extra_where {
             builder = builder.with_extra_where(extra);
@@ -483,10 +509,11 @@ impl IndexDb {
     ) -> Result<(i64, i64)> {
         let is_fts = sanitized_query.is_some();
 
-        let (sql, params) = SearchQueryBuilder::new("SELECT COUNT(*), COUNT(DISTINCT sc.session_id)", is_fts)
-            .with_optional_fts_match(sanitized_query)
-            .with_filters(filters)
-            .build();
+        let (sql, params) =
+            SearchQueryBuilder::new("SELECT COUNT(*), COUNT(DISTINCT sc.session_id)", is_fts)
+                .with_optional_fts_match(sanitized_query)
+                .with_filters(filters)
+                .build();
 
         let refs: Vec<&dyn ToSql> = params.iter().map(|p| p.as_ref()).collect();
         Ok(self.conn.query_row(&sql, params_from_iter(refs), |row| {

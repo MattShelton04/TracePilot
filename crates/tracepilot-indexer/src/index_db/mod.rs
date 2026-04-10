@@ -66,15 +66,16 @@ impl IndexDb {
 
         // Debug-only: log slow SQL queries (>10ms) via tracing
         #[cfg(debug_assertions)]
-        db.conn.profile(Some(|query: &str, duration: std::time::Duration| {
-            if duration.as_millis() > 10 {
-                tracing::warn!(
-                    duration_ms = duration.as_millis(),
-                    query = %query.chars().take(200).collect::<String>(),
-                    "Slow SQL query"
-                );
-            }
-        }));
+        db.conn
+            .profile(Some(|query: &str, duration: std::time::Duration| {
+                if duration.as_millis() > 10 {
+                    tracing::warn!(
+                        duration_ms = duration.as_millis(),
+                        query = %query.chars().take(200).collect::<String>(),
+                        "Slow SQL query"
+                    );
+                }
+            }));
 
         Ok(db)
     }
@@ -145,7 +146,10 @@ impl IndexDb {
             .query_row("PRAGMA page_count", [], |row| row.get(0))
             .unwrap_or(0);
         if pages > 0 {
-            tracing::info!("Converting to incremental auto_vacuum (one-time VACUUM): {}", path.display());
+            tracing::info!(
+                "Converting to incremental auto_vacuum (one-time VACUUM): {}",
+                path.display()
+            );
             if let Err(e) = conn.execute_batch("VACUUM") {
                 tracing::warn!(error = %e, "One-time VACUUM failed (will retry on next open)");
             }
@@ -1107,7 +1111,10 @@ updated_at: "2026-03-10T07:15:00Z"
             .conn
             .query_row("PRAGMA auto_vacuum", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(auto_vacuum, 2, "New databases should use incremental auto_vacuum");
+        assert_eq!(
+            auto_vacuum, 2,
+            "New databases should use incremental auto_vacuum"
+        );
     }
 
     #[test]
@@ -1160,7 +1167,11 @@ updated_at: "2026-03-10T07:15:00Z"
         let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
 
         // Fresh DB has no epoch. First maintenance() should run and set it.
-        assert_eq!(db.read_maintenance_epoch(), 0, "Fresh DB should have no epoch");
+        assert_eq!(
+            db.read_maintenance_epoch(),
+            0,
+            "Fresh DB should have no epoch"
+        );
         db.maintenance();
         let epoch = db.read_maintenance_epoch();
         assert!(epoch > 0, "First maintenance() should set the epoch");
@@ -1168,7 +1179,10 @@ updated_at: "2026-03-10T07:15:00Z"
         // A second maintenance() call should be throttled (no-op)
         db.maintenance();
         let after = db.read_maintenance_epoch();
-        assert_eq!(epoch, after, "Throttled maintenance should not update epoch");
+        assert_eq!(
+            epoch, after,
+            "Throttled maintenance should not update epoch"
+        );
     }
 
     #[test]

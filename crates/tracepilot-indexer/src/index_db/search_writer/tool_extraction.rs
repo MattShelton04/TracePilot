@@ -112,10 +112,11 @@ pub(super) fn extract_tool_result(tool_name_lower: &str, result: &serde_json::Va
                 return t.to_string();
             }
             if let Some(stderr) = result.get("stderr").and_then(|v| v.as_str())
-                && !stderr.is_empty() {
-                    let t = truncate_utf8(stderr, EXTRACT_SHELL_STDERR);
-                    return t.to_string();
-                }
+                && !stderr.is_empty()
+            {
+                let t = truncate_utf8(stderr, EXTRACT_SHELL_STDERR);
+                return t.to_string();
+            }
             let full = flatten_json_with_keys(result);
             truncate_utf8(&full, EXTRACT_SHELL_FALLBACK).to_string()
         }
@@ -223,7 +224,10 @@ mod tests {
 
     #[test]
     fn test_expand_camel_case_multi() {
-        assert_eq!(expand_camel_case("searchContentType"), "search content type");
+        assert_eq!(
+            expand_camel_case("searchContentType"),
+            "search content type"
+        );
     }
 
     #[test]

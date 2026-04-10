@@ -11,9 +11,7 @@ fn bench_parse_typed_events(c: &mut Criterion) {
 
         group.throughput(criterion::Throughput::Bytes(jsonl.len() as u64));
         group.bench_with_input(BenchmarkId::from_parameter(size), &path, |b, path| {
-            b.iter(|| {
-                tracepilot_core::parsing::events::parse_typed_events(path).unwrap()
-            });
+            b.iter(|| tracepilot_core::parsing::events::parse_typed_events(path).unwrap());
         });
     }
     group.finish();
@@ -28,10 +26,9 @@ fn bench_reconstruct_turns(c: &mut Criterion) {
             .turn_count(turns)
             .tool_call_count(tools)
             .build_session_dir();
-        let parsed = tracepilot_core::parsing::events::parse_typed_events(
-            &session_dir.join("events.jsonl"),
-        )
-        .unwrap();
+        let parsed =
+            tracepilot_core::parsing::events::parse_typed_events(&session_dir.join("events.jsonl"))
+                .unwrap();
         group.throughput(criterion::Throughput::Elements(parsed.events.len() as u64));
         group.bench_with_input(
             BenchmarkId::from_parameter(size),

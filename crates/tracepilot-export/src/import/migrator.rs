@@ -10,7 +10,7 @@
 use serde_json::Value;
 
 use crate::error::{ExportError, Result};
-use crate::schema::{SchemaVersion, CURRENT_VERSION};
+use crate::schema::{CURRENT_VERSION, SchemaVersion};
 
 /// Migrate an archive JSON value from `from_version` to the current version.
 ///
@@ -40,12 +40,12 @@ pub fn migrate_to_current(mut doc: Value, from_version: &SchemaVersion) -> Resul
 
     // Update the version in the document
     if let Some(header) = doc.get_mut("header")
-        && let Some(sv) = header.get_mut("schemaVersion") {
-            *sv = serde_json::to_value(CURRENT_VERSION)
-                .map_err(|e| ExportError::Validation {
-                    message: format!("failed to update schema version: {}", e),
-                })?;
-        }
+        && let Some(sv) = header.get_mut("schemaVersion")
+    {
+        *sv = serde_json::to_value(CURRENT_VERSION).map_err(|e| ExportError::Validation {
+            message: format!("failed to update schema version: {}", e),
+        })?;
+    }
 
     Ok(doc)
 }

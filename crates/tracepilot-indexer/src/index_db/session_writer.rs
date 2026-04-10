@@ -405,12 +405,12 @@ impl IndexDb {
             )?;
             self.conn.execute_batch("DELETE FROM _live_ids")?;
 
-            let mut stmt = self
-                .conn
-                .prepare("INSERT OR IGNORE INTO _live_ids (id) VALUES (?1)")?;
-            for id in live_ids {
-                stmt.execute([id])?;
-            }
+            let json_live_ids = serde_json::to_string(&live_ids)
+                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+            self.conn.execute(
+                "INSERT OR IGNORE INTO _live_ids (id) SELECT value FROM json_each(?)",
+                [&json_live_ids],
+            )?;
 
             self.conn.execute_batch(
                 "DELETE FROM sessions WHERE id NOT IN (SELECT id FROM _live_ids)",

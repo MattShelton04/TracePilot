@@ -57,14 +57,15 @@ pub fn parse_archive(path: &Path) -> Result<SessionArchive> {
 
     // 5. Enforce minimum reader version if the archive declares one
     if let Some(min_reader) = &archive.header.minimum_reader_version
-        && !schema::CURRENT_VERSION.satisfies_minimum(min_reader) {
-            return Err(ExportError::UnsupportedVersion {
-                major: min_reader.major,
-                minor: min_reader.minor,
-                min_major: schema::CURRENT_VERSION.major,
-                min_minor: schema::CURRENT_VERSION.minor,
-            });
-        }
+        && !schema::CURRENT_VERSION.satisfies_minimum(min_reader)
+    {
+        return Err(ExportError::UnsupportedVersion {
+            major: min_reader.major,
+            minor: min_reader.minor,
+            min_major: schema::CURRENT_VERSION.major,
+            min_minor: schema::CURRENT_VERSION.minor,
+        });
+    }
 
     Ok(archive)
 }
@@ -85,11 +86,10 @@ pub fn parse_archive_str(json: &str) -> Result<SessionArchive> {
         });
     }
 
-    let archive: SessionArchive = serde_json::from_str(json).map_err(|e| {
-        ExportError::Validation {
+    let archive: SessionArchive =
+        serde_json::from_str(json).map_err(|e| ExportError::Validation {
             message: format!("invalid JSON structure: {}", e),
-        }
-    })?;
+        })?;
 
     // Verify content hash if present
     if let Some(expected_hash) = &archive.header.content_hash {
@@ -106,11 +106,10 @@ fn verify_content_hash(
 ) -> Result<()> {
     use sha2::{Digest, Sha256};
 
-    let sessions_json = serde_json::to_vec_pretty(sessions).map_err(|e| {
-        ExportError::Validation {
+    let sessions_json =
+        serde_json::to_vec_pretty(sessions).map_err(|e| ExportError::Validation {
             message: format!("failed to re-serialize sessions for hash verification: {e}"),
-        }
-    })?;
+        })?;
 
     let mut hasher = Sha256::new();
     hasher.update(&sessions_json);

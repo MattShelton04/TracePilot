@@ -211,10 +211,7 @@ fn write_turn(md: &mut String, turn: &ConversationTurn) {
 
     // Assistant messages
     for msg in &turn.assistant_messages {
-        let label = msg
-            .agent_display_name
-            .as_deref()
-            .unwrap_or("Assistant");
+        let label = msg.agent_display_name.as_deref().unwrap_or("Assistant");
         write_block(md, label, &msg.content);
     }
 
@@ -263,7 +260,9 @@ fn write_turn(md: &mut String, turn: &ConversationTurn) {
         md.push('\n');
 
         // Detailed tool call content (when tool details are included)
-        let detailed_tools: Vec<_> = turn.tool_calls.iter()
+        let detailed_tools: Vec<_> = turn
+            .tool_calls
+            .iter()
             .filter(|t| t.arguments.is_some() || t.result_content.is_some())
             .collect();
         if !detailed_tools.is_empty() {
@@ -319,9 +318,10 @@ fn write_todos(md: &mut String, todos: &TodoExport) {
         };
         let _ = writeln!(md, "- {} **{}**: {}", checkbox, item.id, item.title);
         if let Some(desc) = &item.description
-            && !desc.is_empty() {
-                let _ = writeln!(md, "  {}", desc);
-            }
+            && !desc.is_empty()
+        {
+            let _ = writeln!(md, "  {}", desc);
+        }
     }
 
     // Dependency graph if present
@@ -393,17 +393,16 @@ fn write_metrics(md: &mut String, metrics: &ShutdownMetrics) {
             md,
             "| Model | Requests | Input Tokens | Output Tokens | Cache Read | Cache Write |"
         );
-        let _ = writeln!(md, "|-------|----------|--------------|---------------|------------|-------------|");
+        let _ = writeln!(
+            md,
+            "|-------|----------|--------------|---------------|------------|-------------|"
+        );
 
         let mut sorted: Vec<_> = metrics.model_metrics.iter().collect();
         sorted.sort_by_key(|(k, _)| k.as_str());
 
         for (model, detail) in sorted {
-            let reqs = detail
-                .requests
-                .as_ref()
-                .and_then(|r| r.count)
-                .unwrap_or(0);
+            let reqs = detail.requests.as_ref().and_then(|r| r.count).unwrap_or(0);
             let input = detail
                 .usage
                 .as_ref()
@@ -547,9 +546,12 @@ mod tests {
     #[test]
     fn renders_conversation_turns() {
         let mut session = minimal_session();
-        session.conversation = Some(vec![
-            simple_turn(0, "Hello", "Hi there!", Some("claude-opus-4.6")),
-        ]);
+        session.conversation = Some(vec![simple_turn(
+            0,
+            "Hello",
+            "Hi there!",
+            Some("claude-opus-4.6"),
+        )]);
 
         let archive = test_archive(session);
         let renderer = MarkdownRenderer;
