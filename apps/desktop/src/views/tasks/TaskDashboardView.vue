@@ -363,42 +363,38 @@ function jobProgressColor(status: string) {
             </button>
           </div>
           <div v-if="presets.enabledPresets.length === 0" class="quick-presets-empty">
-            No enabled presets
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.4; margin-bottom: 6px">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <path d="M12 8v8M8 12h8" />
+            </svg>
+            <span>No enabled presets</span>
           </div>
           <div v-else class="quick-preset-grid">
-            <div
-              v-for="preset in presets.enabledPresets.slice(0, 4)"
+            <button
+              v-for="preset in presets.enabledPresets.slice(0, 6)"
               :key="preset.id"
               class="quick-preset-card"
+              @click="router.push({ path: '/tasks/new', query: { presetId: preset.id } })"
             >
-              <div class="quick-preset-card-top">
+              <div class="quick-preset-icon">
+                <svg v-if="preset.taskType === 'session_summary'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" />
+                </svg>
+                <svg v-else-if="preset.taskType === 'daily_digest' || preset.taskType === 'weekly_digest'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+                </svg>
+                <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                </svg>
+              </div>
+              <div class="quick-preset-info">
                 <span class="quick-preset-name">{{ preset.name }}</span>
-                <span v-if="preset.builtin" class="quick-preset-builtin">BUILT-IN</span>
+                <span v-if="preset.builtin" class="quick-preset-builtin">Built-in</span>
               </div>
-              <p v-if="preset.description" class="quick-preset-desc">
-                {{ preset.description }}
-              </p>
-              <div class="quick-preset-card-footer">
-                <div class="quick-preset-tags">
-                  <span
-                    v-for="tag in preset.tags.slice(0, 2)"
-                    :key="tag"
-                    class="quick-preset-tag"
-                  >
-                    {{ tag }}
-                  </span>
-                  <span v-if="!preset.tags.length" class="quick-preset-type-label">
-                    {{ preset.taskType }}
-                  </span>
-                </div>
-                <button
-                  class="quick-preset-run"
-                  @click="router.push({ path: '/tasks/new', query: { presetId: preset.id } })"
-                >
-                  Run
-                </button>
-              </div>
-            </div>
+              <span class="quick-preset-arrow">→</span>
+            </button>
           </div>
         </div>
       </div>
@@ -923,41 +919,62 @@ function jobProgressColor(status: string) {
 }
 
 .quick-presets-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
   font-size: 0.8125rem;
   color: var(--text-placeholder);
   text-align: center;
-  padding: 20px 0;
+  padding: 24px 0;
 }
 
 .quick-preset-grid {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
 }
 
 .quick-preset-card {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  align-items: center;
+  gap: 10px;
   padding: 10px 12px;
   background: var(--canvas-default);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
+  cursor: pointer;
   transition:
     border-color var(--transition-fast),
-    transform var(--transition-fast);
+    background var(--transition-fast);
+  text-align: left;
+  color: inherit;
+  font: inherit;
 }
 
 .quick-preset-card:hover {
   border-color: var(--accent-fg);
-  transform: translateY(-1px);
+  background: var(--accent-muted);
 }
 
-.quick-preset-card-top {
+.quick-preset-icon {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 6px;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: var(--accent-muted);
+  color: var(--accent-fg);
+  flex-shrink: 0;
+}
+
+.quick-preset-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
 }
 
 .quick-preset-name {
@@ -973,72 +990,24 @@ function jobProgressColor(status: string) {
   font-size: 0.5625rem;
   padding: 1px 5px;
   border-radius: var(--radius-sm, 4px);
-  background: var(--accent-muted);
-  color: var(--accent-fg);
+  background: var(--canvas-subtle);
+  color: var(--text-tertiary);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.03em;
   flex-shrink: 0;
 }
 
-.quick-preset-desc {
-  font-size: 0.6875rem;
+.quick-preset-arrow {
   color: var(--text-tertiary);
-  line-height: 1.4;
-  margin: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.quick-preset-card-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  margin-top: auto;
-}
-
-.quick-preset-tags {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  overflow: hidden;
-}
-
-.quick-preset-tag {
-  font-size: 0.5625rem;
-  padding: 1px 6px;
-  border-radius: var(--radius-sm, 4px);
-  background: var(--canvas-subtle);
-  color: var(--text-tertiary);
-  border: 1px solid var(--border-default);
-  white-space: nowrap;
-}
-
-.quick-preset-type-label {
-  font-size: 0.6875rem;
-  color: var(--text-tertiary);
-}
-
-.quick-preset-run {
-  padding: 3px 10px;
-  font-size: 0.6875rem;
-  font-weight: 600;
-  background: var(--accent-muted);
-  color: var(--accent-fg);
-  border: 1px solid var(--accent-fg);
-  border-radius: var(--radius-md);
-  cursor: pointer;
+  font-size: 0.875rem;
   flex-shrink: 0;
-  transition:
-    background var(--transition-fast),
-    color var(--transition-fast);
+  transition: transform var(--transition-fast);
 }
 
-.quick-preset-run:hover {
-  background: var(--accent-fg);
-  color: #09090b;
+.quick-preset-card:hover .quick-preset-arrow {
+  transform: translateX(2px);
+  color: var(--accent-fg);
 }
 
 /* ── Filter Row ──────────────────────────────────────────── */
@@ -1376,10 +1345,6 @@ function jobProgressColor(status: string) {
 
   .stats-strip {
     gap: 8px;
-  }
-
-  .quick-preset-grid {
-    grid-template-columns: 1fr;
   }
 
   .dashboard-cards {

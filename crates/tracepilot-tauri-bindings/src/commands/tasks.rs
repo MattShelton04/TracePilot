@@ -513,19 +513,34 @@ pub async fn task_orchestrator_stop(
                 }
                 std::thread::sleep(std::time::Duration::from_millis(300));
             }
+
+            // Clean up heartbeat after stop so health immediately reports "stopped".
+            let heartbeat_path = jobs_dir.join("heartbeat.json");
+            if heartbeat_path.exists() {
+                let _ = std::fs::remove_file(&heartbeat_path);
+            }
         } else {
             // Fallback: handle lost (app restarted) — try manifest in jobs_dir.
             drop(guard);
             let manifest_path = jobs_dir.join("manifest.json");
+            let heartbeat_path = jobs_dir.join("heartbeat.json");
+
             if manifest_path.exists() {
-                tracepilot_orchestrator::task_orchestrator::manifest::update_manifest_shutdown(
+                // Best-effort: set shutdown flag so a still-alive process exits.
+                let _ = tracepilot_orchestrator::task_orchestrator::manifest::update_manifest_shutdown(
                     &manifest_path,
-                )
-                .map_err(BindingsError::Orchestrator)?;
-            } else {
-                return Err(BindingsError::Validation(
-                    "Orchestrator is not running (no handle or manifest found).".into(),
-                ));
+                );
+            }
+
+            // Clean up stale heartbeat so the next health check returns "stopped"
+            // instead of staying stuck on "stale" forever.
+            if heartbeat_path.exists() {
+                let _ = std::fs::remove_file(&heartbeat_path);
+            }
+
+            // Also remove manifest to fully reset state.
+            if manifest_path.exists() {
+                let _ = std::fs::remove_file(&manifest_path);
             }
         }
 
