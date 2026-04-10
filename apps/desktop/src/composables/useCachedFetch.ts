@@ -154,9 +154,13 @@ export function useCachedFetch<TData, TParams = void>(
   // Per-key generation counter: prevent stale async writes while preserving multi-key cache
   const keyGenerations = new Map<string, number>();
 
+  // Monotonic epoch counter — incremented on reset() to invalidate all pre-reset generations
+  let resetEpoch = 0;
+
   // Track the currently active request so only the newest invocation updates shared state
   let activeKey: string | null = null;
   let activeGeneration = 0;
+  let activeEpoch = 0;
 
   /**
    * Fetch data with the given parameters.
@@ -168,6 +172,7 @@ export function useCachedFetch<TData, TParams = void>(
     if (cache && !opts?.force && loaded.has(cacheKey)) {
       activeKey = cacheKey;
       activeGeneration = keyGenerations.get(cacheKey) ?? 0;
+      activeEpoch = resetEpoch;
       const cachedValue = cacheData.get(cacheKey) ?? null;
       error.value = null;
       if (!silent) {
@@ -177,18 +182,23 @@ export function useCachedFetch<TData, TParams = void>(
       return cachedValue ?? undefined;
     }
 
-    // Return early if cached and not forced
     // Deduplicate: return existing promise if already in-flight
     const existingPromise = inflight.get(cacheKey);
     if (existingPromise) {
+      // Update active tracking so when the promise resolves, it updates shared state
+      activeKey = cacheKey;
+      activeGeneration = keyGenerations.get(cacheKey) ?? 0;
+      activeEpoch = resetEpoch;
       return existingPromise;
     }
 
     // Start new fetch
+    const epoch = resetEpoch;
     const gen = (keyGenerations.get(cacheKey) ?? 0) + 1;
     keyGenerations.set(cacheKey, gen);
     activeKey = cacheKey;
     activeGeneration = gen;
+    activeEpoch = epoch;
     if (!silent) {
       loading.value = true;
     }
@@ -198,13 +208,16 @@ export function useCachedFetch<TData, TParams = void>(
       try {
         const result = await fetcher(params);
 
-        // Only update cache/state if this is still the latest request for this key
-        if (gen !== keyGenerations.get(cacheKey)) return undefined;
+        // Stale if a newer request was made for this key, or a reset occurred
+        if (epoch !== resetEpoch || gen !== keyGenerations.get(cacheKey)) return undefined;
 
-        cacheData.set(cacheKey, result ?? null);
-        loaded.add(cacheKey);
+        // Only write to cache when caching is enabled
+        if (cache) {
+          cacheData.set(cacheKey, result ?? null);
+          loaded.add(cacheKey);
+        }
 
-        const isActive = activeKey === cacheKey && activeGeneration === gen;
+        const isActive = activeKey === cacheKey && activeGeneration === gen && activeEpoch === epoch;
         if (isActive) {
           data.value = result as TData;
           error.value = null;
@@ -221,11 +234,11 @@ export function useCachedFetch<TData, TParams = void>(
 
         return result;
       } catch (e) {
-        // Only update error if this is still the latest request for this key
-        if (gen !== keyGenerations.get(cacheKey)) return undefined;
+        // Stale if a newer request was made for this key, or a reset occurred
+        if (epoch !== resetEpoch || gen !== keyGenerations.get(cacheKey)) return undefined;
 
         const errorMsg = toErrorMessage(e);
-        const isActive = activeKey === cacheKey && activeGeneration === gen;
+        const isActive = activeKey === cacheKey && activeGeneration === gen && activeEpoch === epoch;
         if (isActive) {
           error.value = errorMsg;
 
@@ -249,7 +262,7 @@ export function useCachedFetch<TData, TParams = void>(
         inflight.delete(cacheKey);
 
         // Only update loading and call onFinally if this is still the latest request for this key
-        if (activeKey === cacheKey && activeGeneration === gen) {
+        if (activeKey === cacheKey && activeGeneration === gen && activeEpoch === epoch) {
           if (!silent) {
             loading.value = false;
           }
@@ -281,8 +294,10 @@ export function useCachedFetch<TData, TParams = void>(
     loaded.clear();
     inflight.clear();
     keyGenerations.clear();
+    resetEpoch++;
     activeKey = null;
     activeGeneration = 0;
+    activeEpoch = resetEpoch;
   };
 
   /**
