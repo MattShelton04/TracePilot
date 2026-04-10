@@ -156,6 +156,65 @@ function viewTask(taskId: string) {
   router.push({ path: `/tasks/${taskId}` });
 }
 
+function formatActivityTime(iso: string): string {
+  if (!iso) return "";
+  const date = new Date(iso);
+  const diffMs = now.value - date.getTime();
+  if (diffMs < 60_000) return `${Math.max(0, Math.floor(diffMs / 1000))}s ago`;
+  if (diffMs < 3_600_000) return `${Math.floor(diffMs / 60_000)}m ago`;
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+// ── Model picker ────────────────────────────────────────────
+const showModelPicker = ref(false);
+const modelPickerRef = ref<HTMLElement | null>(null);
+
+const selectedModelName = computed(() => {
+  const m = orchestrator.models.find((m) => m.id === orchestrator.selectedModel);
+  return m?.name ?? orchestrator.selectedModel;
+});
+const selectedModelTier = computed(() => {
+  const m = orchestrator.models.find((m) => m.id === orchestrator.selectedModel);
+  return m?.tier ?? "standard";
+});
+
+const TIER_META: Record<string, { label: string; desc: string; order: number }> = {
+  fast: { label: "Fast", desc: "Low cost, quick responses", order: 0 },
+  standard: { label: "Standard", desc: "Balanced cost & quality", order: 1 },
+  premium: { label: "Premium", desc: "Best quality, higher cost", order: 2 },
+};
+
+const modelTiers = computed(() => {
+  const groups: Record<string, typeof orchestrator.models> = {};
+  for (const m of orchestrator.models) {
+    const tier = m.tier || "standard";
+    if (!groups[tier]) groups[tier] = [];
+    groups[tier].push(m);
+  }
+  return Object.entries(groups)
+    .map(([id, models]) => ({
+      id,
+      label: TIER_META[id]?.label ?? id,
+      desc: TIER_META[id]?.desc ?? "",
+      order: TIER_META[id]?.order ?? 1,
+      models,
+    }))
+    .sort((a, b) => a.order - b.order);
+});
+
+const modelDropdownStyle = computed(() => {
+  // Position under the toggle button via JS since we use Teleport to body
+  const el = document.querySelector(".model-picker-toggle");
+  if (!el) return {};
+  const rect = el.getBoundingClientRect();
+  return {
+    position: "fixed" as const,
+    top: `${rect.bottom + 4}px`,
+    right: `${window.innerWidth - rect.right}px`,
+    minWidth: `${Math.max(rect.width, 280)}px`,
+  };
+});
+
 // ── Lifecycle ───────────────────────────────────────────────
 onMounted(() => {
   orchestrator.refresh();
@@ -178,15 +237,43 @@ onUnmounted(() => {
       <div class="page-header fade-section" style="--stagger: 0">
         <h1 class="page-title">Orchestrator Monitor</h1>
         <div class="header-actions">
-          <select
+          <div
             v-if="orchestrator.isStopped && orchestrator.models.length > 0"
-            v-model="orchestrator.selectedModel"
-            class="model-select"
+            class="model-picker"
           >
-            <option v-for="m in orchestrator.models" :key="m.id" :value="m.id">
-              {{ m.name }}
-            </option>
-          </select>
+            <button class="model-picker-toggle" @click="showModelPicker = !showModelPicker">
+              <span class="model-picker-label">Model</span>
+              <span class="model-picker-value">{{ selectedModelName }}</span>
+              <span class="model-picker-tier" :class="'tier-' + selectedModelTier">{{ selectedModelTier }}</span>
+              <svg class="model-picker-chevron" :class="{ open: showModelPicker }" width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" fill="none" />
+              </svg>
+            </button>
+            <Teleport to="body">
+              <div v-if="showModelPicker" class="model-picker-overlay" @click="showModelPicker = false" />
+              <div v-if="showModelPicker" class="model-picker-dropdown" :style="modelDropdownStyle">
+                <div class="model-picker-header">Select Model</div>
+                <div v-for="tier in modelTiers" :key="tier.id" class="model-tier-group">
+                  <div class="model-tier-label">
+                    <span class="tier-badge" :class="'tier-' + tier.id">{{ tier.label }}</span>
+                    <span class="tier-desc">{{ tier.desc }}</span>
+                  </div>
+                  <button
+                    v-for="m in tier.models"
+                    :key="m.id"
+                    class="model-option"
+                    :class="{ active: m.id === orchestrator.selectedModel }"
+                    @click="orchestrator.selectedModel = m.id; showModelPicker = false"
+                  >
+                    <span class="model-option-name">{{ m.name }}</span>
+                    <svg v-if="m.id === orchestrator.selectedModel" class="model-check" width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                      <path d="M6.5 12l-4-4 1.4-1.4 2.6 2.6 5.6-5.6L13.5 5z" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </Teleport>
+          </div>
           <button
             v-if="orchestrator.isStopped"
             class="action-btn start-btn"
@@ -514,8 +601,46 @@ onUnmounted(() => {
           </div>
         </SectionPanel>
 
+        <!-- Activity Feed -->
+        <SectionPanel title="Activity Feed" class="fade-section" style="--stagger: 6">
+          <template #actions>
+            <span class="subagent-count-badge">{{ orchestrator.activityFeed.length }}</span>
+          </template>
+          <div v-if="orchestrator.activityFeed.length === 0" class="empty-state">
+            <svg
+              class="empty-icon"
+              width="32"
+              height="32"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+            </svg>
+            <span>{{ orchestrator.isRunning ? "Waiting for activity…" : "Start the orchestrator to see activity" }}</span>
+          </div>
+          <div v-else class="activity-feed">
+            <div
+              v-for="entry in orchestrator.activityFeed"
+              :key="entry.id"
+              class="activity-entry"
+              :class="'activity-' + entry.eventType.replace(/\./g, '-')"
+            >
+              <span class="activity-icon">{{ entry.icon }}</span>
+              <div class="activity-content">
+                <span class="activity-label">{{ entry.label }}</span>
+                <span v-if="entry.detail" class="activity-detail">{{ entry.detail }}</span>
+              </div>
+              <span class="activity-time">{{ formatActivityTime(entry.timestamp) }}</span>
+            </div>
+          </div>
+        </SectionPanel>
+
         <!-- Health & Recovery -->
-        <SectionPanel title="Health & Recovery" class="fade-section" style="--stagger: 6">
+        <SectionPanel title="Health & Recovery" class="fade-section" style="--stagger: 7">
           <template #actions>
             <button class="collapse-toggle" @click="healthExpanded = !healthExpanded">
               {{ healthExpanded ? "Collapse" : "Expand" }}
@@ -656,26 +781,138 @@ onUnmounted(() => {
   gap: 14px;
 }
 
-.model-select {
-  padding: 5px 10px;
+/* ── Model Picker ─────────────────────────────────────────── */
+.model-picker {
+  position: relative;
+}
+
+.model-picker-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
   font-size: 0.75rem;
   background: var(--canvas-subtle);
   color: var(--text-primary);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
   cursor: pointer;
-  max-width: 160px;
-  color-scheme: dark;
+  transition: border-color 0.15s;
+}
+.model-picker-toggle:hover {
+  border-color: var(--accent-fg);
 }
 
-.model-select option {
+.model-picker-label {
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
+.model-picker-value {
+  font-weight: 600;
+}
+
+.model-picker-tier {
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+}
+.tier-fast     { background: var(--success-subtle); color: var(--success-fg); }
+.tier-standard { background: var(--accent-subtle); color: var(--accent-fg); }
+.tier-premium  { background: var(--warning-subtle); color: var(--warning-fg); }
+
+.model-picker-chevron {
+  transition: transform 0.2s;
+  color: var(--text-tertiary);
+}
+.model-picker-chevron.open {
+  transform: rotate(180deg);
+}
+
+.model-picker-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+}
+
+.model-picker-dropdown {
+  z-index: 1000;
   background: var(--canvas-overlay);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+  padding: 8px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.model-picker-header {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+  padding: 4px 8px 8px;
+}
+
+.model-tier-group {
+  margin-bottom: 4px;
+}
+
+.model-tier-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 4px;
+}
+
+.tier-badge {
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.tier-desc {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+}
+
+.model-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 6px 10px;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+.model-option:hover {
+  background: var(--canvas-subtle);
   color: var(--text-primary);
 }
+.model-option.active {
+  background: var(--accent-subtle);
+  color: var(--accent-fg);
+  font-weight: 600;
+}
 
-.model-select:focus {
-  border-color: var(--accent-fg);
-  outline: none;
+.model-check {
+  color: var(--accent-fg);
+  flex-shrink: 0;
+}
+.model-option-name {
+  text-align: left;
 }
 
 .refresh-btn {
@@ -1301,5 +1538,72 @@ onUnmounted(() => {
   .health-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* ── Activity Feed ─────────────────────────────────────────── */
+.activity-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.activity-entry {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  transition: background 0.1s;
+}
+.activity-entry:hover {
+  background: var(--canvas-subtle);
+}
+
+.activity-icon {
+  flex-shrink: 0;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  width: 20px;
+  text-align: center;
+}
+
+.activity-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.activity-label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.activity-detail {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.activity-time {
+  flex-shrink: 0;
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.activity-entry.activity-subagent-completed .activity-label {
+  color: var(--success-fg);
+}
+.activity-entry.activity-subagent-failed .activity-label {
+  color: var(--danger-fg);
 }
 </style>

@@ -1,5 +1,6 @@
 import {
   getAvailableModels,
+  getSessionEvents,
   taskAttribution,
   taskIngestResults,
   taskOrchestratorHealth,
@@ -12,6 +13,7 @@ import type {
   ModelInfo,
   OrchestratorHandle,
   OrchestratorState,
+  SessionEvent,
 } from "@tracepilot/types";
 import { toErrorMessage } from "@tracepilot/ui";
 import { defineStore } from "pinia";
@@ -21,6 +23,102 @@ import { logWarn } from "@/utils/logger";
 const POLL_FAST_MS = 5_000; // When running: full cycle every 5s
 const POLL_SLOW_MS = 15_000; // When idle: health-only check every 15s
 const DEFAULT_MODEL = "gpt-5-mini";
+const ACTIVITY_FEED_LIMIT = 30;
+
+/** Human-readable activity entry derived from raw session events. */
+export interface ActivityEntry {
+  id: string;
+  timestamp: string;
+  icon: string;
+  label: string;
+  detail: string;
+  eventType: string;
+}
+
+/** Map raw session events into human-readable activity entries. */
+function toActivityEntries(events: SessionEvent[]): ActivityEntry[] {
+  const entries: ActivityEntry[] = [];
+  for (const ev of events) {
+    const ts = ev.timestamp ?? "";
+    const d = ev.data ?? {};
+    let icon = "📋";
+    let label = ev.eventType;
+    let detail = "";
+
+    switch (ev.eventType) {
+      case "tool.execution_start": {
+        const tool = (d.toolName as string) ?? "unknown";
+        if (tool === "task") {
+          const args = d.arguments as Record<string, unknown> | undefined;
+          const name = (args?.name as string) ?? "";
+          icon = "🚀";
+          label = "Dispatched subagent";
+          detail = name || "task";
+        } else if (tool === "powershell" || tool === "bash") {
+          icon = "💻";
+          label = `Running ${tool}`;
+          const cmd = ((d.arguments as Record<string, unknown> | undefined)?.command as string) ?? "";
+          detail = cmd.length > 80 ? cmd.slice(0, 80) + "…" : cmd;
+        } else if (tool === "view" || tool === "read") {
+          icon = "📖";
+          label = "Reading file";
+          const path = ((d.arguments as Record<string, unknown> | undefined)?.path as string) ?? "";
+          detail = path.split(/[\\/]/).pop() ?? path;
+        } else if (tool === "create" || tool === "edit") {
+          icon = "✏️";
+          label = `Writing file (${tool})`;
+          const path = ((d.arguments as Record<string, unknown> | undefined)?.path as string) ?? "";
+          detail = path.split(/[\\/]/).pop() ?? path;
+        } else if (tool === "read_agent") {
+          icon = "👁️";
+          label = "Checking subagent";
+          detail = ((d.arguments as Record<string, unknown> | undefined)?.agent_id as string) ?? "";
+        } else {
+          icon = "🔧";
+          label = `Tool: ${tool}`;
+        }
+        break;
+      }
+      case "subagent.started": {
+        icon = "▶️";
+        label = "Subagent started";
+        detail = (d.agentName as string) ?? "";
+        break;
+      }
+      case "subagent.completed": {
+        icon = "✅";
+        label = "Subagent completed";
+        detail = (d.agentName as string) ?? "";
+        break;
+      }
+      case "subagent.failed": {
+        icon = "❌";
+        label = "Subagent failed";
+        detail = (d.error as string) ?? (d.agentName as string) ?? "";
+        break;
+      }
+      case "assistant.message": {
+        icon = "🤖";
+        label = "Orchestrator thinking";
+        const content = (d.content as string) ?? "";
+        detail = content.length > 100 ? content.slice(0, 100) + "…" : content;
+        break;
+      }
+      default:
+        continue; // Skip uninteresting events
+    }
+
+    entries.push({
+      id: ev.id ?? `${ts}-${entries.length}`,
+      timestamp: ts,
+      icon,
+      label,
+      detail,
+      eventType: ev.eventType,
+    });
+  }
+  return entries;
+}
 
 export const useOrchestratorStore = defineStore("orchestrator", () => {
   // ─── State ────────────────────────────────────────────────────────
@@ -35,6 +133,7 @@ export const useOrchestratorStore = defineStore("orchestrator", () => {
   const models = ref<ModelInfo[]>([]);
   const selectedModel = ref(DEFAULT_MODEL);
   const configModelLoaded = ref(false);
+  const activityFeed = ref<ActivityEntry[]>([]);
   let pollTimer: ReturnType<typeof setInterval> | null = null;
   let pollInFlight = false;
 
@@ -139,7 +238,25 @@ export const useOrchestratorStore = defineStore("orchestrator", () => {
     }
   }
 
-  /** Single poll cycle: check health + attribution + ingest results.
+  /** Fetch recent orchestrator session events and format as activity feed. */
+  let lastKnownEventCount = 0;
+  async function refreshActivity() {
+    const uuid = sessionUuid.value;
+    if (!uuid) return;
+    try {
+      // Use cached count to estimate offset; fetch a generous window to avoid missing events
+      const offset = Math.max(0, lastKnownEventCount - ACTIVITY_FEED_LIMIT);
+      const resp = await getSessionEvents(uuid, offset, ACTIVITY_FEED_LIMIT * 2);
+      lastKnownEventCount = resp.totalCount;
+      // If we got less than expected, re-fetch with correct offset
+      const entries = toActivityEntries(resp.events);
+      activityFeed.value = entries.slice(-ACTIVITY_FEED_LIMIT).reverse(); // newest first
+    } catch (e) {
+      logWarn("[orchestrator] Activity feed refresh failed:", e);
+    }
+  }
+
+  /** Single poll cycle: check health + attribution + activity + ingest results.
    *  Uses a single-flight guard to prevent overlapping polls. */
   async function pollCycle() {
     if (pollInFlight) return;
@@ -148,6 +265,7 @@ export const useOrchestratorStore = defineStore("orchestrator", () => {
       await checkHealth();
       if (isRunning.value) {
         await refreshAttribution();
+        await refreshActivity();
         await ingestResults();
       }
     } finally {
@@ -236,6 +354,7 @@ export const useOrchestratorStore = defineStore("orchestrator", () => {
     lastIngestedCount,
     models,
     selectedModel,
+    activityFeed,
     // Computed
     state,
     isRunning,
@@ -250,6 +369,7 @@ export const useOrchestratorStore = defineStore("orchestrator", () => {
     checkHealth,
     loadModels,
     refreshAttribution,
+    refreshActivity,
     ingestResults,
     pollCycle,
     startPolling,
