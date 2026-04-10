@@ -226,21 +226,29 @@ impl IndexDb {
 
             // INSERT child rows: tool calls (batch)
             if !analytics.tool_call_rows.is_empty() {
-                let mut stmt = self.conn.prepare(
-                    "INSERT INTO session_tool_calls
-                        (session_id, tool_name, call_count, success_count, failure_count, total_duration_ms, calls_with_duration)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-                )?;
-                for row in &analytics.tool_call_rows {
-                    stmt.execute(params![
-                        &session_id,
-                        &row.name,
-                        row.calls,
-                        row.success,
-                        row.failure,
-                        row.duration_ms,
-                        row.calls_with_duration
-                    ])?;
+                // Bulk insert by building a large query up to SQLite limits
+                // Standard SQLite limit is 999 or 32766 parameters. We use 50 rows per chunk
+                // which is 50 * 7 = 350 parameters to be extremely safe across all SQLite versions.
+                for chunk in analytics.tool_call_rows.chunks(50) {
+                    let mut query = String::from("INSERT INTO session_tool_calls (session_id, tool_name, call_count, success_count, failure_count, total_duration_ms, calls_with_duration) VALUES ");
+                    let mut params_vec = Vec::new();
+
+                    for (i, row) in chunk.iter().enumerate() {
+                        if i > 0 {
+                            query.push_str(", ");
+                        }
+                        // 7 placeholders per row
+                        query.push_str("(?, ?, ?, ?, ?, ?, ?)");
+                        params_vec.push(&session_id as &dyn rusqlite::ToSql);
+                        params_vec.push(&row.name as &dyn rusqlite::ToSql);
+                        params_vec.push(&row.calls as &dyn rusqlite::ToSql);
+                        params_vec.push(&row.success as &dyn rusqlite::ToSql);
+                        params_vec.push(&row.failure as &dyn rusqlite::ToSql);
+                        params_vec.push(&row.duration_ms as &dyn rusqlite::ToSql);
+                        params_vec.push(&row.calls_with_duration as &dyn rusqlite::ToSql);
+                    }
+
+                    self.conn.execute(&query, rusqlite::params_from_iter(params_vec))?;
                 }
             }
 
