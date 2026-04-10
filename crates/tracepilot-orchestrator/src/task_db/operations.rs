@@ -98,15 +98,15 @@ pub fn list_tasks(conn: &Connection, filter: &TaskFilter) -> Result<Vec<Task>> {
     }
     if let Some(task_type) = &filter.task_type {
         sql.push_str(&format!(" AND task_type = ?{}", param_values.len() + 1));
-        param_values.push(Box::new(task_type.clone()));
+        param_values.push(Box::new(task_type.as_str().to_string()));
     }
     if let Some(job_id) = &filter.job_id {
         sql.push_str(&format!(" AND job_id = ?{}", param_values.len() + 1));
-        param_values.push(Box::new(job_id.clone()));
+        param_values.push(Box::new(job_id.as_str().to_string()));
     }
     if let Some(preset_id) = &filter.preset_id {
         sql.push_str(&format!(" AND preset_id = ?{}", param_values.len() + 1));
-        param_values.push(Box::new(preset_id.clone()));
+        param_values.push(Box::new(preset_id.as_str().to_string()));
     }
 
     sql.push_str(" ORDER BY created_at DESC");
