@@ -101,6 +101,24 @@ impl IndexDb {
         false
     }
 
+    /// Helper to build a chunked insert SQL string for `search_content`
+    fn build_chunked_insert_sql(count: usize) -> String {
+        let mut sql = String::with_capacity(
+            150 + count * 50
+        );
+        sql.push_str("INSERT INTO search_content
+            (session_id, content_type, turn_number, event_index,
+             timestamp_unix, tool_name, content, metadata_json)
+         VALUES ");
+        for i in 0..count {
+            if i > 0 { sql.push_str(", "); }
+            let base = i * 8;
+            let values = format!("(?{}, ?{}, ?{}, ?{}, ?{}, ?{}, ?{}, ?{})", base + 1, base + 2, base + 3, base + 4, base + 5, base + 6, base + 7, base + 8);
+            sql.push_str(&values);
+        }
+        sql
+    }
+
     /// Index search content for a single session.
     /// Deletes existing content and inserts new rows, all within a transaction.
     pub fn upsert_search_content(
@@ -117,30 +135,26 @@ impl IndexDb {
                 [session_id],
             )?;
 
-            // Batch insert new content
-            let mut stmt = self.conn.prepare(
-                "INSERT INTO search_content
-                    (session_id, content_type, turn_number, event_index,
-                     timestamp_unix, tool_name, content, metadata_json)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-            )?;
-
             let mut inserted = 0;
-            for row in rows {
-                if row.content.is_empty() {
-                    continue;
+            let valid_rows: Vec<&SearchContentRow> = rows.iter().filter(|r| !r.content.is_empty()).collect();
+            let chunk_size = 50;
+
+            for chunk in valid_rows.chunks(chunk_size) {
+                let sql = Self::build_chunked_insert_sql(chunk.len());
+                let mut stmt = self.conn.prepare_cached(&sql)?;
+                let mut p: Vec<&dyn rusqlite::ToSql> = Vec::with_capacity(chunk.len() * 8);
+                for row in chunk {
+                    p.push(&row.session_id);
+                    p.push(&row.content_type);
+                    p.push(&row.turn_number);
+                    p.push(&row.event_index);
+                    p.push(&row.timestamp_unix);
+                    p.push(&row.tool_name);
+                    p.push(&row.content);
+                    p.push(&row.metadata_json);
                 }
-                stmt.execute(params![
-                    row.session_id,
-                    row.content_type,
-                    row.turn_number,
-                    row.event_index,
-                    row.timestamp_unix,
-                    row.tool_name,
-                    row.content,
-                    row.metadata_json,
-                ])?;
-                inserted += 1;
+                stmt.execute(rusqlite::params_from_iter(p))?;
+                inserted += chunk.len();
             }
 
             // Update search indexing timestamp and extractor version
@@ -206,14 +220,7 @@ impl IndexDb {
                  DROP TRIGGER IF EXISTS search_content_au;",
             )?;
 
-            // Step 2: Delete + insert content rows (no FTS overhead)
-            let mut stmt = self.conn.prepare(
-                "INSERT INTO search_content
-                    (session_id, content_type, turn_number, event_index,
-                     timestamp_unix, tool_name, content, metadata_json)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-            )?;
-
+            // Step 2: Delete + chunk insert content rows (no FTS overhead)
             let now = chrono::Utc::now().to_rfc3339();
             let mut total_inserted = 0;
 
@@ -224,21 +231,25 @@ impl IndexDb {
                     [session_id.as_str()],
                 )?;
 
-                for row in rows {
-                    if row.content.is_empty() {
-                        continue;
+                let valid_rows: Vec<&SearchContentRow> = rows.iter().filter(|r| !r.content.is_empty()).collect();
+                let chunk_size = 50;
+
+                for chunk in valid_rows.chunks(chunk_size) {
+                    let sql = Self::build_chunked_insert_sql(chunk.len());
+                    let mut stmt = self.conn.prepare_cached(&sql)?;
+                    let mut p: Vec<&dyn rusqlite::ToSql> = Vec::with_capacity(chunk.len() * 8);
+                    for row in chunk {
+                        p.push(&row.session_id);
+                        p.push(&row.content_type);
+                        p.push(&row.turn_number);
+                        p.push(&row.event_index);
+                        p.push(&row.timestamp_unix);
+                        p.push(&row.tool_name);
+                        p.push(&row.content);
+                        p.push(&row.metadata_json);
                     }
-                    stmt.execute(params![
-                        row.session_id,
-                        row.content_type,
-                        row.turn_number,
-                        row.event_index,
-                        row.timestamp_unix,
-                        row.tool_name,
-                        row.content,
-                        row.metadata_json,
-                    ])?;
-                    total_inserted += 1;
+                    stmt.execute(rusqlite::params_from_iter(p))?;
+                    total_inserted += chunk.len();
                 }
 
                 // Mark session as indexed
