@@ -104,7 +104,11 @@ pub fn migration_diffs(
             continue;
         }
 
-        let file_name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+        let file_name = path
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
         let from_path = from_dir.join(&file_name);
 
         let old_content = match std::fs::read_to_string(&from_path) {
@@ -123,7 +127,7 @@ pub fn migration_diffs(
             )
             .to_string();
 
-        let agent_name= path
+        let agent_name = path
             .file_stem()
             .and_then(|s| s.to_str())
             .unwrap_or("unknown")
@@ -158,7 +162,11 @@ pub fn migration_diffs(
             continue;
         }
 
-        let file_name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+        let file_name = path
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
         if !to_dir.join(&file_name).exists() {
             let old_content = std::fs::read_to_string(&path)?;
             let agent_name = path
@@ -191,12 +199,22 @@ pub fn migrate_agent(
     to_version: &str,
 ) -> Result<()> {
     let universal = copilot_home.join("pkg").join("universal");
-    let from_file = universal.join(from_version).join("definitions").join(file_name);
-    let to_file = universal.join(to_version).join("definitions").join(file_name);
+    let from_file = universal
+        .join(from_version)
+        .join("definitions")
+        .join(file_name);
+    let to_file = universal
+        .join(to_version)
+        .join("definitions")
+        .join(file_name);
 
     // Backup the target first (skip if target doesn't exist yet — new agent)
     let backup_dir = crate::config_injector::backup_dir()?;
-    match crate::config_injector::create_backup(&to_file, &backup_dir, &format!("pre-migrate-{}", to_version)) {
+    match crate::config_injector::create_backup(
+        &to_file,
+        &backup_dir,
+        &format!("pre-migrate-{}", to_version),
+    ) {
         Ok(_) => {}
         Err(OrchestratorError::NotFound(_)) => {
             // Target doesn't exist yet — nothing to back up for new agents
@@ -251,15 +269,17 @@ fn check_for_customizations(version_dir: &Path) -> bool {
         .and_then(|m| m.modified().ok());
 
     if let Some(extraction_time) = extraction_time
-        && let Ok(entries) = std::fs::read_dir(&defs_dir) {
-            for entry in entries.flatten() {
-                if let Ok(meta) = entry.metadata()
-                    && let Ok(modified) = meta.modified()
-                        && modified > extraction_time {
-                            return true;
-                        }
+        && let Ok(entries) = std::fs::read_dir(&defs_dir)
+    {
+        for entry in entries.flatten() {
+            if let Ok(meta) = entry.metadata()
+                && let Ok(modified) = meta.modified()
+                && modified > extraction_time
+            {
+                return true;
             }
         }
+    }
 
     false
 }
@@ -271,12 +291,8 @@ fn count_lock_files(version_dir: &Path) -> usize {
             entries
                 .flatten()
                 .filter(|e| {
-                    e.file_name()
-                        .to_string_lossy()
-                        .starts_with("inuse.")
-                        && e.file_name()
-                            .to_string_lossy()
-                            .ends_with(".lock")
+                    e.file_name().to_string_lossy().starts_with("inuse.")
+                        && e.file_name().to_string_lossy().ends_with(".lock")
                 })
                 .count()
         })
@@ -380,12 +396,20 @@ mod tests {
         // Setup v1.0.8 with an agent
         let old_defs = universal.join("1.0.8").join("definitions");
         fs::create_dir_all(&old_defs).unwrap();
-        fs::write(old_defs.join("task.agent.yaml"), "name: task\nmodel: opus-4.5\n").unwrap();
+        fs::write(
+            old_defs.join("task.agent.yaml"),
+            "name: task\nmodel: opus-4.5\n",
+        )
+        .unwrap();
 
         // Setup v1.0.9 with modified agent
         let new_defs = universal.join("1.0.9").join("definitions");
         fs::create_dir_all(&new_defs).unwrap();
-        fs::write(new_defs.join("task.agent.yaml"), "name: task\nmodel: opus-4.6\n").unwrap();
+        fs::write(
+            new_defs.join("task.agent.yaml"),
+            "name: task\nmodel: opus-4.6\n",
+        )
+        .unwrap();
 
         let diffs = migration_diffs(dir.path(), "1.0.8", "1.0.9").unwrap();
         assert_eq!(diffs.len(), 1);

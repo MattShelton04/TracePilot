@@ -85,7 +85,9 @@ pub(crate) fn validate_identifier(
 
     // Check for path separators (both Windows and Unix)
     if value.contains('/') || value.contains('\\') {
-        return Err(format!("{context} cannot contain path separators (/ or \\)"));
+        return Err(format!(
+            "{context} cannot contain path separators (/ or \\)"
+        ));
     }
 
     // Check for absolute paths
