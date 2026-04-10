@@ -63,8 +63,32 @@ impl IndexDb {
     ///
     /// This helper consolidates repetitive DELETE operations, making it easier
     /// to maintain the list of child tables and ensure consistency.
+    ///
+    /// # Security
+    /// Table names are validated against a compile-time whitelist to prevent SQL
+    /// injection. The session_id parameter is safely parameterized using SQLite's
+    /// parameter binding.
     fn delete_child_rows(&self, session_id: &str, tables: &[&str]) -> Result<()> {
+        // Whitelist of allowed child tables to prevent SQL injection
+        const ALLOWED_TABLES: &[&str] = &[
+            "session_model_metrics",
+            "session_tool_calls",
+            "session_modified_files",
+            "session_activity",
+            "session_incidents",
+            "session_segments",
+        ];
+
         for table in tables {
+            // Validate table name against whitelist
+            if !ALLOWED_TABLES.contains(table) {
+                return Err(rusqlite::Error::InvalidParameterName(format!(
+                    "Invalid table name for child row deletion: {}",
+                    table
+                ))
+                .into());
+            }
+
             self.conn.execute(
                 &format!("DELETE FROM {} WHERE session_id = ?1", table),
                 [session_id],
