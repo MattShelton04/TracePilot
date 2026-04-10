@@ -994,11 +994,11 @@ async function handleSaveEdit() {
       <Teleport to="body">
         <div
           v-if="showDetail"
-          class="detail-backdrop"
+          class="preset-backdrop"
           @click="closeDetail"
         />
         <Transition name="slideover">
-          <div v-if="showDetail && detailPreset" class="detail-panel">
+          <div v-if="showDetail && detailPreset" class="preset-slideover">
             <div class="detail-panel__header">
               <div class="detail-header__top">
                 <div class="detail-header__left">
@@ -1042,7 +1042,7 @@ async function handleSaveEdit() {
 
             <div class="detail-panel__body">
               <!-- Prompt Section -->
-              <div class="detail-section">
+              <div class="preset-section">
                 <button
                   class="detail-section__trigger"
                   :class="{ 'detail-section__trigger--expanded': detailSections.prompt }"
@@ -1109,7 +1109,7 @@ async function handleSaveEdit() {
               </div>
 
               <!-- Context Sources Section -->
-              <div class="detail-section">
+              <div class="preset-section">
                 <button
                   class="detail-section__trigger"
                   :class="{ 'detail-section__trigger--expanded': detailSections.context }"
@@ -1150,7 +1150,7 @@ async function handleSaveEdit() {
               </div>
 
               <!-- Output Config Section -->
-              <div class="detail-section">
+              <div class="preset-section">
                 <button
                   class="detail-section__trigger"
                   :class="{ 'detail-section__trigger--expanded': detailSections.output }"
@@ -1191,7 +1191,7 @@ async function handleSaveEdit() {
               </div>
 
               <!-- Execution Config Section -->
-              <div class="detail-section">
+              <div class="preset-section">
                 <button
                   class="detail-section__trigger"
                   :class="{ 'detail-section__trigger--expanded': detailSections.execution }"
@@ -2221,14 +2221,14 @@ async function handleSaveEdit() {
 
 <style>
 /* ── Detail Slide-over Panel (unscoped for Teleport) ─────── */
-.detail-backdrop {
+.preset-backdrop {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.5);
   z-index: 999;
 }
 
-.detail-panel {
+.preset-slideover {
   position: fixed;
   top: 0;
   right: 0;
@@ -2328,11 +2328,11 @@ async function handleSaveEdit() {
   overflow-y: auto;
 }
 
-.detail-section {
+.preset-section {
   border-bottom: 1px solid var(--border-muted);
 }
 
-.detail-section:last-child {
+.preset-section:last-child {
   border-bottom: none;
 }
 
@@ -2541,7 +2541,7 @@ async function handleSaveEdit() {
 }
 
 /* Teleported badge/tag/btn styles for detail panel */
-.detail-panel .badge {
+.preset-slideover .badge {
   display: inline-flex;
   align-items: center;
   padding: 2px 8px;
@@ -2554,25 +2554,25 @@ async function handleSaveEdit() {
   flex-shrink: 0;
 }
 
-.detail-panel .badge--type {
+.preset-slideover .badge--type {
   background: color-mix(in srgb, var(--type-color, var(--accent-fg)) 12%, transparent);
   color: var(--type-color, var(--accent-fg));
   border: 1px solid color-mix(in srgb, var(--type-color, var(--accent-fg)) 20%, transparent);
 }
 
-.detail-panel .badge--version {
+.preset-slideover .badge--version {
   background: var(--accent-muted);
   color: var(--accent-fg);
   font-variant-numeric: tabular-nums;
 }
 
-.detail-panel .badge--builtin {
+.preset-slideover .badge--builtin {
   background: rgba(167, 139, 250, 0.12);
   color: #a78bfa;
   border: 1px solid rgba(167, 139, 250, 0.2);
 }
 
-.detail-panel .tag-pill {
+.preset-slideover .tag-pill {
   display: inline-flex;
   align-items: center;
   padding: 2px 8px;
@@ -2584,7 +2584,7 @@ async function handleSaveEdit() {
   border: 1px solid rgba(99, 102, 241, 0.15);
 }
 
-.detail-panel .meta-item {
+.preset-slideover .meta-item {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -2592,7 +2592,7 @@ async function handleSaveEdit() {
   color: var(--text-tertiary);
 }
 
-.detail-panel .btn {
+.preset-slideover .btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -2606,47 +2606,47 @@ async function handleSaveEdit() {
   font-family: inherit;
 }
 
-.detail-panel .btn--sm {
+.preset-slideover .btn--sm {
   padding: 4px 10px;
   font-size: 0.75rem;
 }
 
-.detail-panel .btn--accent {
+.preset-slideover .btn--accent {
   background: var(--accent-muted);
   border: 1px solid rgba(99, 102, 241, 0.25);
   color: var(--accent-fg);
   font-weight: 600;
 }
 
-.detail-panel .btn--accent:hover:not(:disabled) {
+.preset-slideover .btn--accent:hover:not(:disabled) {
   background: rgba(99, 102, 241, 0.2);
   border-color: var(--accent-fg);
 }
 
-.detail-panel .btn--secondary {
+.preset-slideover .btn--secondary {
   background: var(--canvas-default, var(--canvas-subtle));
   border: 1px solid var(--border-default);
   color: var(--text-secondary);
 }
 
-.detail-panel .btn--secondary:hover {
+.preset-slideover .btn--secondary:hover {
   color: var(--text-primary);
   border-color: var(--accent-fg);
 }
 
-.detail-panel .btn--ghost {
+.preset-slideover .btn--ghost {
   background: transparent;
   border: 1px solid transparent;
   color: var(--text-tertiary);
 }
 
-.detail-panel .btn--ghost:hover:not(:disabled) {
+.preset-slideover .btn--ghost:hover:not(:disabled) {
   color: var(--text-secondary);
   background: var(--canvas-subtle);
   border-color: var(--border-default);
 }
 
-.detail-panel .btn--ghost:disabled {
+.preset-slideover .btn--ghost:disabled {
   opacity: 0.35;
   cursor: not-allowed;
 }

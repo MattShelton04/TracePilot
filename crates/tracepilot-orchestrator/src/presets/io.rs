@@ -178,65 +178,11 @@ pub fn seed_builtin_presets(dir: &Path) -> Result<()> {
             updated_at: "2025-01-01T00:00:00Z".to_string(),
         },
         TaskPreset {
-            id: "session-review".to_string(),
-            name: "Session Code Review".to_string(),
-            task_type: "code_review".to_string(),
-            description: "Analyse a Copilot CLI session's code changes and produce a focused review highlighting bugs, quality issues, and improvement suggestions.".to_string(),
-            version: 1,
-            prompt: PresetPrompt {
-                system: "You are a senior software engineer performing a code review of changes made during a Copilot CLI session.".to_string(),
-                user: "Review the code changes from this session. Focus on:\n1. **Bugs** — logic errors, missing edge cases\n2. **Quality** — readability, maintainability, naming\n3. **Security** — potential vulnerabilities\n4. **Performance** — unnecessary work, scaling concerns\n\nSession data:\n{{session_export}}".to_string(),
-                variables: vec![
-                    PromptVariable {
-                        name: "session_export".to_string(),
-                        var_type: VariableType::SessionRef,
-                        required: true,
-                        description: "The session to review".to_string(),
-                        default: None,
-                    },
-                ],
-            },
-            context: PresetContext {
-                sources: vec![ContextSource {
-                    id: "session-export".to_string(),
-                    source_type: ContextSourceType::SessionExport,
-                    label: Some("Session Export".to_string()),
-                    required: true,
-                    config: serde_json::json!({"format": "markdown"}),
-                }],
-                max_chars: 80_000,
-                format: ContextFormat::Markdown,
-            },
-            output: PresetOutput {
-                schema: serde_json::json!({
-                    "type": "object",
-                    "properties": {
-                        "issues": { "type": "array" },
-                        "suggestions": { "type": "array" },
-                        "overallAssessment": { "type": "string" }
-                    }
-                }),
-                format: OutputFormat::Markdown,
-                validation: ValidationMode::Warn,
-            },
-            execution: PresetExecution {
-                model_override: None,
-                timeout_seconds: 180,
-                max_retries: 2,
-                priority: "normal".to_string(),
-            },
-            tags: vec!["review".to_string(), "code".to_string(), "builtin".to_string()],
-            enabled: true,
-            builtin: true,
-            created_at: "2025-01-01T00:00:00Z".to_string(),
-            updated_at: "2025-01-01T00:00:00Z".to_string(),
-        },
-        TaskPreset {
             id: "daily-digest".to_string(),
             name: "Daily Digest".to_string(),
             task_type: "digest".to_string(),
             description: "Summarise all Copilot CLI sessions from the last 24 hours — activity, repositories, models used, and key outcomes.".to_string(),
-            version: 2,
+            version: 3,
             prompt: PresetPrompt {
                 system: "You are an expert technical analyst summarising daily developer activity from GitHub Copilot CLI sessions.".to_string(),
                 user: "Produce a daily digest of the Copilot CLI sessions from the last 24 hours. The session data is provided in the context section below. Include:\n1. **Overview** — total sessions, turns, and repositories touched\n2. **Highlights** — most significant sessions and what they accomplished\n3. **Patterns** — recurring themes, tools, or workflows\n4. **Issues** — any failures, incidents, or areas of concern\n5. **Recommendations** — suggested improvements or follow-ups".to_string(),
@@ -250,11 +196,11 @@ pub fn seed_builtin_presets(dir: &Path) -> Result<()> {
                     required: true,
                     config: serde_json::json!({
                         "window_hours": 24,
-                        "max_sessions": 50,
-                        "include_exports": true
+                        "max_sessions": 30,
+                        "include_exports": false
                     }),
                 }],
-                max_chars: 120_000,
+                max_chars: 80_000,
                 format: ContextFormat::Markdown,
             },
             output: PresetOutput {
@@ -288,7 +234,7 @@ pub fn seed_builtin_presets(dir: &Path) -> Result<()> {
             name: "Weekly Digest".to_string(),
             task_type: "digest".to_string(),
             description: "Summarise all Copilot CLI sessions from the last 7 days — trends, productivity patterns, and cross-session insights.".to_string(),
-            version: 2,
+            version: 3,
             prompt: PresetPrompt {
                 system: "You are an expert technical analyst producing a weekly summary of developer activity from GitHub Copilot CLI sessions.".to_string(),
                 user: "Produce a weekly digest of the Copilot CLI sessions from the last 7 days. The session data is provided in the context section below. Include:\n1. **Week Overview** — total sessions, turns, repositories, and models used\n2. **Day-by-Day Summary** — brief highlights for each active day\n3. **Top Sessions** — the 3-5 most impactful sessions with outcomes\n4. **Trends** — how activity, tool usage, or patterns changed over the week\n5. **Issues & Incidents** — failures, rate limits, or recurring problems\n6. **Recommendations** — productivity tips based on observed patterns".to_string(),
@@ -302,7 +248,7 @@ pub fn seed_builtin_presets(dir: &Path) -> Result<()> {
                     required: true,
                     config: serde_json::json!({
                         "window_hours": 168,
-                        "max_sessions": 100,
+                        "max_sessions": 50,
                         "include_exports": false
                     }),
                 }],
@@ -356,6 +302,20 @@ pub fn seed_builtin_presets(dir: &Path) -> Result<()> {
                             "Upgraded built-in preset"
                         );
                     }
+                }
+            }
+        }
+    }
+
+    // Clean up removed built-in presets
+    let removed_builtins = ["session-review"];
+    for id in &removed_builtins {
+        let path = preset_path(dir, id);
+        if path.exists() {
+            if let Ok(existing) = crate::json_io::atomic_json_read_opt::<TaskPreset>(&path) {
+                if existing.map_or(false, |p| p.builtin) {
+                    let _ = std::fs::remove_file(&path);
+                    tracing::info!(id = %id, "Removed deprecated built-in preset");
                 }
             }
         }
@@ -430,15 +390,15 @@ mod tests {
         assert_eq!(loaded.name, "Test Preset test-preset");
 
         let all = list_presets(&presets_path).unwrap();
-        // 1 test preset + 4 seeded built-in presets
-        assert_eq!(all.len(), 5);
+        // 1 test preset + 3 seeded built-in presets
+        assert_eq!(all.len(), 4);
 
         delete_preset(&presets_path, "test-preset").unwrap();
         assert!(!preset_exists(&presets_path, "test-preset"));
 
         // Built-ins remain
         let remaining = list_presets(&presets_path).unwrap();
-        assert_eq!(remaining.len(), 4);
+        assert_eq!(remaining.len(), 3);
     }
 
     #[test]

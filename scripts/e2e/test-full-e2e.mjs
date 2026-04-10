@@ -43,11 +43,10 @@ async function run() {
     log("\n═══ PHASE 1: Presets ═══");
     const presets = await ipc(page, "task_list_presets");
     log(`Found ${presets.length} presets`);
-    assert(presets.length >= 4, `At least 4 presets seeded (got ${presets.length})`);
+    assert(presets.length >= 3, `At least 3 presets seeded (got ${presets.length})`);
 
     const presetNames = presets.map((p) => p.name);
     assert(presetNames.includes("Session Summary"), "Session Summary preset exists");
-    assert(presetNames.includes("Session Code Review"), "Session Code Review preset exists");
     assert(presetNames.includes("Daily Digest"), "Daily Digest preset exists");
     assert(presetNames.includes("Weekly Digest"), "Weekly Digest preset exists");
 

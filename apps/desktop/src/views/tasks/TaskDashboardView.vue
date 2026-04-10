@@ -2,7 +2,9 @@
 import { ErrorState, formatDate, LoadingSpinner, SearchInput, StatCard } from "@tracepilot/ui";
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
+import RefreshToolbar from "@/components/RefreshToolbar.vue";
 import TaskCard from "@/components/tasks/TaskCard.vue";
+import { useAutoRefresh } from "@/composables/useAutoRefresh";
 import { useOrchestratorStore } from "@/stores/orchestrator";
 import { usePresetsStore } from "@/stores/presets";
 import { useTasksStore } from "@/stores/tasks";
@@ -11,19 +13,23 @@ const store = useTasksStore();
 const orchestrator = useOrchestratorStore();
 const presets = usePresetsStore();
 const router = useRouter();
-const refreshing = ref(false);
+
+const autoRefreshEnabled = ref(true);
+const autoRefreshInterval = ref(5);
+
+const { refreshing, refresh } = useAutoRefresh({
+  onRefresh: async () => {
+    await Promise.all([store.refreshTasks(), orchestrator.checkHealth()]);
+  },
+  enabled: autoRefreshEnabled,
+  intervalSeconds: autoRefreshInterval,
+});
 
 onMounted(() => {
   store.fetchTasks();
   orchestrator.checkHealth();
   presets.loadPresets();
 });
-
-async function handleRefresh() {
-  refreshing.value = true;
-  await store.refreshTasks();
-  refreshing.value = false;
-}
 
 function navigateToTask(taskId: string) {
   router.push(`/tasks/${taskId}`);
@@ -98,10 +104,12 @@ const orchUptime = computed(() => {
 
 const orchTaskProgress = computed(() => {
   if (!store.stats) return null;
-  const { total, done, failed } = store.stats;
-  if (total === 0) return null;
+  const { pending, inProgress, done, failed } = store.stats;
+  // Show progress for current batch: tasks that are pending, active, or recently completed
+  const batchTotal = pending + inProgress + done + failed;
+  if (batchTotal === 0) return null;
   const completed = done + failed;
-  return { completed, total, pct: Math.round((completed / total) * 100) };
+  return { completed, total: batchTotal, pct: Math.round((completed / batchTotal) * 100) };
 });
 
 function jobProgressPct(job: { tasksCompleted: number; taskCount: number }) {
@@ -150,27 +158,14 @@ function jobProgressColor(status: string) {
           Manage and monitor your automation tasks
         </p>
         <div class="title-actions">
-          <button
-            class="btn btn--ghost"
-            :disabled="refreshing"
-            @click="handleRefresh"
-          >
-            <svg
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              width="14"
-              height="14"
-              :class="{ 'spin-animation': refreshing }"
-            >
-              <path d="M1.5 8a6.5 6.5 0 0 1 11.25-4.5M14.5 8a6.5 6.5 0 0 1-11.25 4.5" />
-              <path d="M13 3v4h-4M3 13V9h4" />
-            </svg>
-            {{ refreshing ? "Refreshing…" : "Refresh" }}
-          </button>
+          <RefreshToolbar
+            :refreshing="refreshing"
+            :auto-refresh-enabled="autoRefreshEnabled"
+            :interval-seconds="autoRefreshInterval"
+            @refresh="refresh"
+            @update:auto-refresh-enabled="autoRefreshEnabled = $event"
+            @update:interval-seconds="autoRefreshInterval = $event"
+          />
           <button class="btn btn--primary" @click="navigateToNewTask">
             <svg
               viewBox="0 0 16 16"

@@ -5,6 +5,7 @@ import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import { isAlreadyIndexingError } from "@/utils/backendErrors";
 import { logError, logWarn } from "@/utils/logger";
+import { useOrchestratorStore } from "./orchestrator";
 import { usePreferencesStore } from "./preferences";
 
 export type SortOption = "updated" | "created" | "oldest" | "events" | "turns";
@@ -59,14 +60,18 @@ export const useSessionsStore = defineStore("sessions", () => {
 
   const filteredSessions = computed(() => {
     const prefs = usePreferencesStore();
+    const orch = useOrchestratorStore();
     const q = searchQuery.value ? searchQuery.value.toLowerCase() : null;
     const repo = filterRepo.value;
     const branch = filterBranch.value;
     const hideEmpty = prefs.hideEmptySessions;
     const cache = searchFieldCache.value;
+    const orchSessionId = orch.sessionUuid;
 
     // Single-pass filter: combine all predicates into one loop
     const result = sessions.value.filter((s) => {
+      // Hide orchestrator sessions from the main session list
+      if (orchSessionId && s.id === orchSessionId) return false;
       if (hideEmpty && (s.turnCount ?? 0) === 0) return false;
 
       if (q) {

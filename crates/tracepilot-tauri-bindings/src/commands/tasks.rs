@@ -353,8 +353,8 @@ pub async fn task_orchestrator_start(
         }
         let _launch_guard = LaunchGuard;
 
-        // Get pending tasks from DB, then release the lock
-        let (pending_tasks, resolved_models, context_contents) = {
+        // Get pending tasks from DB quickly, then release the lock BEFORE context assembly
+        let pending_tasks = {
             let db_guard = db
                 .lock()
                 .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
@@ -375,61 +375,59 @@ pub async fn task_orchestrator_start(
                     "No pending tasks to process. Create tasks first.".into(),
                 ));
             }
+            tasks
+        }; // db_guard dropped here — DB is free for other operations
 
-            let models: Vec<String> = tasks
-                .iter()
-                .map(|_| default_subagent_model.clone())
-                .collect();
+        let resolved_models: Vec<String> = pending_tasks
+            .iter()
+            .map(|_| default_subagent_model.clone())
+            .collect();
 
-            // Assemble rich context for each task using the preset + context assembler
-            let contexts: Vec<(String, String)> = tasks
-                .iter()
-                .map(|task| {
-                    let task_dir = jobs_dir.join(&task.id);
-                    let result_file = task_dir.join("result.json");
-                    let result_path = result_file.to_string_lossy().to_string();
+        // Assemble context OUTSIDE the DB lock (may involve expensive I/O)
+        let context_contents: Vec<(String, String)> = pending_tasks
+            .iter()
+            .map(|task| {
+                let task_dir = jobs_dir.join(&task.id);
+                let result_file = task_dir.join("result.json");
+                let result_path = result_file.to_string_lossy().to_string();
 
-                    // Try to load the preset for rich context assembly
-                    let content = match tracepilot_orchestrator::presets::io::get_preset(
-                        &presets_dir,
-                        &task.preset_id,
-                    ) {
-                        Ok(preset) => {
-                            match tracepilot_orchestrator::task_context::assemble_task_context(
-                                &preset,
-                                &task.input_params,
-                                &session_state_dir,
-                                preset.context.max_chars,
-                                &result_path,
-                            ) {
-                                Ok(assembled) => assembled.content,
-                                Err(e) => {
-                                    tracing::warn!(
-                                        task_id = %task.id,
-                                        error = %e,
-                                        "Context assembly failed, using fallback"
-                                    );
-                                    fallback_context(task, &result_path)
-                                }
+                let content = match tracepilot_orchestrator::presets::io::get_preset(
+                    &presets_dir,
+                    &task.preset_id,
+                ) {
+                    Ok(preset) => {
+                        match tracepilot_orchestrator::task_context::assemble_task_context(
+                            &preset,
+                            &task.input_params,
+                            &session_state_dir,
+                            preset.context.max_chars,
+                            &result_path,
+                        ) {
+                            Ok(assembled) => assembled.content,
+                            Err(e) => {
+                                tracing::warn!(
+                                    task_id = %task.id,
+                                    error = %e,
+                                    "Context assembly failed, using fallback"
+                                );
+                                fallback_context(task, &result_path)
                             }
                         }
-                        Err(e) => {
-                            tracing::warn!(
-                                task_id = %task.id,
-                                preset_id = %task.preset_id,
-                                error = %e,
-                                "Preset not found, using fallback context"
-                            );
-                            fallback_context(task, &result_path)
-                        }
-                    };
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            task_id = %task.id,
+                            preset_id = %task.preset_id,
+                            error = %e,
+                            "Preset not found, using fallback context"
+                        );
+                        fallback_context(task, &result_path)
+                    }
+                };
 
-                    (task.id.clone(), content)
-                })
-                .collect();
-
-            (tasks, models, contexts)
-        }; // db_guard dropped here
+                (task.id.clone(), content)
+            })
+            .collect();
 
         let launch_config = tracepilot_orchestrator::task_orchestrator::OrchestratorLaunchConfig {
             poll_interval,

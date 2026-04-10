@@ -228,16 +228,16 @@ pub fn retry_task(conn: &Connection, id: &str) -> Result<()> {
     Ok(())
 }
 
-/// Delete a task (must be in terminal state).
+/// Delete a task (must be in a terminal or pending state).
 pub fn delete_task(conn: &Connection, id: &str) -> Result<()> {
     let rows = conn.execute(
-        "DELETE FROM tasks WHERE id = ?1 AND status IN ('done', 'failed', 'cancelled', 'expired', 'dead_letter')",
+        "DELETE FROM tasks WHERE id = ?1 AND status IN ('pending', 'done', 'failed', 'cancelled', 'expired', 'dead_letter')",
         params![id],
     )?;
 
     if rows == 0 {
         return Err(OrchestratorError::Task(format!(
-            "Task {id} not found or not in a deletable state"
+            "Task {id} not found or not in a deletable state (cancel in-progress tasks first)"
         )));
     }
     Ok(())
