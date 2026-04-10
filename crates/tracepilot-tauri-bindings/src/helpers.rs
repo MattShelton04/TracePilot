@@ -124,7 +124,7 @@ pub(crate) fn lock_task_db(
     // Map the MutexGuard<Option<TaskDb>> to MutexGuard<TaskDb>
     // This is safe because get_or_init_task_db ensures the Option is Some
     MutexGuard::try_map(guard, |opt| opt.as_ref())
-        .map_err(|_| BindingsError::Validation("TaskDb not initialized".into()))
+        .map_err(|_| BindingsError::Validation("TaskDb not init".into()))
 }
 
 pub(crate) fn summary_to_list_item(
