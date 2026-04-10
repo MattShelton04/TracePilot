@@ -75,17 +75,46 @@ pub(crate) fn read_config(state: &SharedConfig) -> TracePilotConfig {
     }
 }
 
-/// Get or initialize the shared TaskDb.
+/// Acquire a lock on a shared mutex, converting poisoning errors to BindingsError.
 ///
-/// Lazily opens the database on first call using the default path
-/// (`~/.copilot/tracepilot/tasks.db`). Returns a clone of the Arc
-/// for use inside `spawn_blocking`.
+/// Returns a `MutexGuard` on success. Logs an error and returns a validation error
+/// if the mutex is poisoned. The `context` parameter is used for error messages
+/// and structured logging.
+pub(crate) fn lock_shared<T>(
+    mutex: &std::sync::Arc<std::sync::Mutex<T>>,
+    context: &str,
+) -> Result<std::sync::MutexGuard<T>, BindingsError> {
+    mutex.lock().map_err(|_| {
+        tracing::error!(context, "Mutex poisoned");
+        BindingsError::Validation(format!("{} mutex poisoned", context))
+    })
+}
+
+/// Lock an Option<T> mutex and extract a reference to the inner value.
+///
+/// Returns both the mutex guard and a reference to the inner value. This is a
+/// convenience wrapper for the common pattern of locking a mutex and then
+/// unwrapping an Option inside it.
+///
+/// # Errors
+///
+/// Returns an error if the mutex is poisoned or if the Option is None.
+pub(crate) fn lock_and_unwrap<T>(
+    mutex: &std::sync::Arc<std::sync::Mutex<Option<T>>>,
+    context: &str,
+    not_init_msg: &str,
+) -> Result<std::sync::MutexGuard<Option<T>>, BindingsError> {
+    let guard = lock_shared(mutex, context)?;
+    if guard.is_none() {
+        return Err(BindingsError::Validation(not_init_msg.into()));
+    }
+    Ok(guard)
+}
+
 pub(crate) fn get_or_init_task_db(
     state: &crate::types::SharedTaskDb,
 ) -> Result<crate::types::SharedTaskDb, BindingsError> {
-    let mut guard = state.lock().map_err(|_| {
-        BindingsError::Validation("TaskDb mutex poisoned".into())
-    })?;
+    let mut guard = lock_shared(state, "TaskDb")?;
     if guard.is_none() {
         let path = tracepilot_orchestrator::task_db::TaskDb::default_path()
             .map_err(|e| BindingsError::Validation(format!("Cannot resolve task DB path: {e}")))?;

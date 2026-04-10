@@ -34,8 +34,8 @@ pub async fn task_create(
     let default_model = cfg.tasks.default_subagent_model.clone();
 
     tokio::task::spawn_blocking(move || {
-        let guard = db.lock().map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
-        let db = guard.as_ref().ok_or_else(|| BindingsError::Validation("TaskDb not init".into()))?;
+        let guard = crate::helpers::lock_and_unwrap(&db, "TaskDb", "TaskDb not init")?;
+        let db = guard.as_ref().expect("lock_and_unwrap ensures Some");
         let new_task = NewTask {
             task_type,
             preset_id,
@@ -101,8 +101,7 @@ pub async fn task_create(
                     };
 
                     // Serialize manifest writes to prevent TOCTOU races
-                    let _manifest_guard = manifest_lock_clone.lock()
-                        .map_err(|_| BindingsError::Validation("manifest lock poisoned".into()))?;
+                    let _manifest_guard = crate::helpers::lock_shared(&manifest_lock_clone, "manifest")?;
 
                     if let Err(e) = tracepilot_orchestrator::task_orchestrator::manifest::append_task_to_manifest(
                         &manifest_path,
@@ -142,8 +141,8 @@ pub async fn task_create_batch(
 ) -> CmdResult<Job> {
     let db = get_or_init_task_db(&state)?;
     tokio::task::spawn_blocking(move || {
-        let guard = db.lock().map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
-        let db = guard.as_ref().ok_or_else(|| BindingsError::Validation("TaskDb not init".into()))?;
+        let guard = crate::helpers::lock_and_unwrap(&db, "TaskDb", "TaskDb not init")?;
+        let db = guard.as_ref().expect("lock_and_unwrap ensures Some");
         tracepilot_orchestrator::task_db::operations::create_task_batch(
             db.conn(),
             &tasks,
@@ -162,8 +161,8 @@ pub async fn task_get(
 ) -> CmdResult<Task> {
     let db = get_or_init_task_db(&state)?;
     tokio::task::spawn_blocking(move || {
-        let guard = db.lock().map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
-        let db = guard.as_ref().ok_or_else(|| BindingsError::Validation("TaskDb not init".into()))?;
+        let guard = crate::helpers::lock_and_unwrap(&db, "TaskDb", "TaskDb not init")?;
+        let db = guard.as_ref().expect("lock_and_unwrap ensures Some");
         tracepilot_orchestrator::task_db::operations::get_task(db.conn(), &id)
             .map_err(BindingsError::Orchestrator)
     })
@@ -178,8 +177,8 @@ pub async fn task_list(
     let db = get_or_init_task_db(&state)?;
     let f = filter.unwrap_or_default();
     tokio::task::spawn_blocking(move || {
-        let guard = db.lock().map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
-        let db = guard.as_ref().ok_or_else(|| BindingsError::Validation("TaskDb not init".into()))?;
+        let guard = crate::helpers::lock_and_unwrap(&db, "TaskDb", "TaskDb not init")?;
+        let db = guard.as_ref().expect("lock_and_unwrap ensures Some");
         tracepilot_orchestrator::task_db::operations::list_tasks(db.conn(), &f)
             .map_err(BindingsError::Orchestrator)
     })
@@ -193,8 +192,8 @@ pub async fn task_cancel(
 ) -> CmdResult<()> {
     let db = get_or_init_task_db(&state)?;
     tokio::task::spawn_blocking(move || {
-        let guard = db.lock().map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
-        let db = guard.as_ref().ok_or_else(|| BindingsError::Validation("TaskDb not init".into()))?;
+        let guard = crate::helpers::lock_and_unwrap(&db, "TaskDb", "TaskDb not init")?;
+        let db = guard.as_ref().expect("lock_and_unwrap ensures Some");
         tracepilot_orchestrator::task_db::operations::cancel_task(db.conn(), &id)
             .map_err(BindingsError::Orchestrator)
     })
@@ -208,8 +207,8 @@ pub async fn task_retry(
 ) -> CmdResult<()> {
     let db = get_or_init_task_db(&state)?;
     tokio::task::spawn_blocking(move || {
-        let guard = db.lock().map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
-        let db = guard.as_ref().ok_or_else(|| BindingsError::Validation("TaskDb not init".into()))?;
+        let guard = crate::helpers::lock_and_unwrap(&db, "TaskDb", "TaskDb not init")?;
+        let db = guard.as_ref().expect("lock_and_unwrap ensures Some");
         tracepilot_orchestrator::task_db::operations::retry_task(db.conn(), &id)
             .map_err(BindingsError::Orchestrator)
     })
@@ -223,8 +222,8 @@ pub async fn task_delete(
 ) -> CmdResult<()> {
     let db = get_or_init_task_db(&state)?;
     tokio::task::spawn_blocking(move || {
-        let guard = db.lock().map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
-        let db = guard.as_ref().ok_or_else(|| BindingsError::Validation("TaskDb not init".into()))?;
+        let guard = crate::helpers::lock_and_unwrap(&db, "TaskDb", "TaskDb not init")?;
+        let db = guard.as_ref().expect("lock_and_unwrap ensures Some");
         tracepilot_orchestrator::task_db::operations::delete_task(db.conn(), &id)
             .map_err(BindingsError::Orchestrator)
     })
@@ -237,8 +236,8 @@ pub async fn task_stats(
 ) -> CmdResult<TaskStats> {
     let db = get_or_init_task_db(&state)?;
     tokio::task::spawn_blocking(move || {
-        let guard = db.lock().map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
-        let db = guard.as_ref().ok_or_else(|| BindingsError::Validation("TaskDb not init".into()))?;
+        let guard = crate::helpers::lock_and_unwrap(&db, "TaskDb", "TaskDb not init")?;
+        let db = guard.as_ref().expect("lock_and_unwrap ensures Some");
         tracepilot_orchestrator::task_db::operations::get_task_stats(db.conn())
             .map_err(BindingsError::Orchestrator)
     })
@@ -254,8 +253,8 @@ pub async fn task_list_jobs(
 ) -> CmdResult<Vec<Job>> {
     let db = get_or_init_task_db(&state)?;
     tokio::task::spawn_blocking(move || {
-        let guard = db.lock().map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
-        let db = guard.as_ref().ok_or_else(|| BindingsError::Validation("TaskDb not init".into()))?;
+        let guard = crate::helpers::lock_and_unwrap(&db, "TaskDb", "TaskDb not init")?;
+        let db = guard.as_ref().expect("lock_and_unwrap ensures Some");
         tracepilot_orchestrator::task_db::operations::list_jobs(db.conn(), limit)
             .map_err(BindingsError::Orchestrator)
     })
@@ -269,8 +268,8 @@ pub async fn task_cancel_job(
 ) -> CmdResult<()> {
     let db = get_or_init_task_db(&state)?;
     tokio::task::spawn_blocking(move || {
-        let guard = db.lock().map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
-        let db = guard.as_ref().ok_or_else(|| BindingsError::Validation("TaskDb not init".into()))?;
+        let guard = crate::helpers::lock_and_unwrap(&db, "TaskDb", "TaskDb not init")?;
+        let db = guard.as_ref().expect("lock_and_unwrap ensures Some");
         tracepilot_orchestrator::task_db::operations::cancel_job(db.conn(), &job_id)
             .map_err(BindingsError::Orchestrator)
     })
@@ -347,9 +346,7 @@ pub async fn task_orchestrator_health(
     let session_state_dir = cfg.session_state_dir();
     let orch_state_clone = std::sync::Arc::clone(&*orch_state);
     let db = std::sync::Arc::clone(&*task_db);
-    let handle = orch_state
-        .lock()
-        .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?
+    let handle = crate::helpers::lock_shared(&orch_state, "orchestrator state")?
         .clone();
     let stale_secs = (cfg.tasks.poll_interval_seconds * cfg.tasks.heartbeat_stale_multiplier) as u64;
     tokio::task::spawn_blocking(move || {
@@ -372,9 +369,7 @@ pub async fn task_orchestrator_health(
                             }
                         }
                     }
-                    let mut guard = orch_state_clone
-                        .lock()
-                        .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
+                    let mut guard = crate::helpers::lock_shared(&orch_state_clone, "orchestrator state")?;
                     if let Some(ref mut stored) = *guard {
                         stored.session_uuid = Some(uuid);
                     }
@@ -383,9 +378,7 @@ pub async fn task_orchestrator_health(
         }
 
         // Read the (possibly just-updated) handle for session UUID + path
-        let current_handle = orch_state_clone
-            .lock()
-            .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?
+        let current_handle = crate::helpers::lock_shared(&orch_state_clone, "orchestrator state")?
             .clone();
 
         let mut result = tracepilot_orchestrator::task_recovery::check_orchestrator_health(
@@ -422,9 +415,7 @@ pub async fn task_orchestrator_start(
 
     // Check if already running
     {
-        let guard = orch_state
-            .lock()
-            .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
+        let guard = crate::helpers::lock_shared(&orch_state, "orchestrator state")?;
         if guard.is_some() {
             return Err(BindingsError::Validation(
                 "Orchestrator is already running. Stop it first.".into(),
@@ -464,12 +455,8 @@ pub async fn task_orchestrator_start(
 
         // Get pending tasks from DB quickly, then release the lock BEFORE context assembly
         let pending_tasks = {
-            let db_guard = db
-                .lock()
-                .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
-            let task_db = db_guard
-                .as_ref()
-                .ok_or_else(|| BindingsError::Validation("TaskDb not init".into()))?;
+            let db_guard = crate::helpers::lock_and_unwrap(&db, "TaskDb", "TaskDb not init")?;
+            let task_db = db_guard.as_ref().expect("lock_and_unwrap ensures Some");
 
             let filter = tracepilot_orchestrator::task_db::types::TaskFilter {
                 status: Some(tracepilot_orchestrator::task_db::types::TaskStatus::Pending),
@@ -574,9 +561,7 @@ pub async fn task_orchestrator_start(
 
         // Launch succeeded — now mark tasks in_progress and set context hashes.
         {
-            let db_guard = db
-                .lock()
-                .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
+            let db_guard = crate::helpers::lock_and_unwrap(&db, "TaskDb", "TaskDb not init")?;
             if let Some(task_db) = db_guard.as_ref() {
                 for task in &pending_tasks {
                     if let Err(e) = tracepilot_orchestrator::task_db::operations::update_task_status(
@@ -599,9 +584,7 @@ pub async fn task_orchestrator_start(
         }
 
         // Store handle
-        let mut guard = orch_state_clone
-            .lock()
-            .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
+        let mut guard = crate::helpers::lock_shared(&orch_state_clone, "orchestrator state")?;
         *guard = Some(handle.clone());
         drop(guard);
 
@@ -609,9 +592,7 @@ pub async fn task_orchestrator_start(
         // initial query and handle-store). These would have been committed
         // to the DB but missed by hot-add since the handle wasn't set yet.
         {
-            let db_guard = db
-                .lock()
-                .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
+            let db_guard = crate::helpers::lock_and_unwrap(&db, "TaskDb", "TaskDb not init")?;
             if let Some(task_db) = db_guard.as_ref() {
                 let filter = tracepilot_orchestrator::task_db::types::TaskFilter {
                     status: Some(tracepilot_orchestrator::task_db::types::TaskStatus::Pending),
@@ -685,9 +666,7 @@ pub async fn task_orchestrator_stop(
     let jobs_dir = cfg.jobs_dir();
 
     tokio::task::spawn_blocking(move || {
-        let mut guard = orch_state_clone
-            .lock()
-            .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
+        let mut guard = crate::helpers::lock_shared(&orch_state_clone, "orchestrator state")?;
 
         if let Some(handle) = guard.as_ref() {
             // Normal path: we have the in-memory handle with manifest path + PID.
@@ -796,12 +775,8 @@ pub async fn task_ingest_results(
     tokio::task::spawn_blocking(move || {
         // Phase 1: Quick lock to collect task IDs
         let task_ids = {
-            let db_guard = db
-                .lock()
-                .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
-            let task_db = db_guard
-                .as_ref()
-                .ok_or_else(|| BindingsError::Validation("TaskDb not init".into()))?;
+            let db_guard = crate::helpers::lock_and_unwrap(&db, "TaskDb", "TaskDb not init")?;
+            let task_db = db_guard.as_ref().expect("lock_and_unwrap ensures Some");
 
             let pending_filter = tracepilot_orchestrator::task_db::types::TaskFilter {
                 status: Some(tracepilot_orchestrator::task_db::types::TaskStatus::Pending),
@@ -842,12 +817,10 @@ pub async fn task_ingest_results(
         }
 
         // Phase 3: Re-acquire lock for DB writes only
-        let db_guard = db
-            .lock()
-            .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
+        let db_guard = crate::helpers::lock_and_unwrap(&db, "TaskDb", "TaskDb not init")?;
         let task_db = db_guard
             .as_ref()
-            .ok_or_else(|| BindingsError::Validation("TaskDb not init".into()))?;
+            .expect("lock_and_unwrap ensures Some");
 
         let mut ingested_count = 0u32;
         let mut retried_ids: Vec<String> = Vec::new();

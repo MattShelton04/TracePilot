@@ -23,18 +23,15 @@ fn load_cached_typed_events(
     let file_size = meta.as_ref().map_or(0, |m| m.len());
     let file_mtime = meta.and_then(|m| m.modified().ok());
 
-    let cached_events = match cache.lock() {
-        Ok(mut lru) => lru
-            .get(session_id)
-            .filter(|cached| {
-                cached.events_file_size == file_size && cached.events_file_mtime == file_mtime
-            })
-            .map(|cached| Arc::clone(&cached.events)),
-        Err(_) => {
-            tracing::warn!("Event cache Mutex poisoned — skipping cache read");
-            None
-        }
-    };
+    let cached_events = crate::helpers::lock_shared(cache, "EventCache")
+        .ok()
+        .and_then(|mut lru| {
+            lru.get(session_id)
+                .filter(|cached| {
+                    cached.events_file_size == file_size && cached.events_file_mtime == file_mtime
+                })
+                .map(|cached| Arc::clone(&cached.events))
+        });
 
     if let Some(events) = cached_events {
         return Ok((events, file_size));
@@ -43,7 +40,7 @@ fn load_cached_typed_events(
     let events =
         Arc::new(tracepilot_core::parsing::events::parse_typed_events(events_path)?.events);
 
-    if let Ok(mut lru) = cache.lock() {
+    if let Ok(mut lru) = crate::helpers::lock_shared(cache, "EventCache") {
         lru.put(
             session_id.to_string(),
             CachedEvents {
@@ -52,8 +49,6 @@ fn load_cached_typed_events(
                 events_file_mtime: file_mtime,
             },
         );
-    } else {
-        tracing::warn!("Event cache Mutex poisoned — skipping cache write");
     }
 
     Ok((events, file_size))
@@ -225,8 +220,7 @@ pub async fn get_session_turns(
             let file_size = std::fs::metadata(&events_path)
                 .map(|m| m.len())
                 .unwrap_or(0);
-            let Ok(mut lru) = cache.lock() else {
-                tracing::warn!("Turn cache Mutex poisoned — skipping cache read");
+            let Ok(mut lru) = crate::helpers::lock_shared(&cache, "TurnCache") else {
                 let (events, events_file_size) =
                     load_cached_typed_events(&event_cache, &session_id, &events_path)?;
                 let turns = tracepilot_core::turns::reconstruct_turns(events.as_ref());
@@ -259,7 +253,7 @@ pub async fn get_session_turns(
         let turns = tracepilot_core::turns::reconstruct_turns(events.as_ref());
 
         // Store full (untrimmed) turns in LRU
-        if let Ok(mut lru) = cache.lock() {
+        if let Ok(mut lru) = crate::helpers::lock_shared(&cache, "TurnCache") {
             lru.put(
                 session_id.clone(),
                 CachedTurns {
