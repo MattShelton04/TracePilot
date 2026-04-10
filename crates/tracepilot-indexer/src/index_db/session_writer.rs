@@ -1,7 +1,7 @@
 //! Session write operations: upsert, reindex detection, pruning.
 
 use crate::Result;
-use rusqlite::params;
+use rusqlite::{params, params_from_iter};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
@@ -289,21 +289,26 @@ impl IndexDb {
 
             // INSERT child rows: incidents (batch)
             if !analytics.incidents.is_empty() {
-                let mut stmt = self.conn.prepare(
-                    "INSERT INTO session_incidents
-                        (session_id, event_type, source_event_type, timestamp, severity, summary, detail_json)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-                )?;
-                for inc in &analytics.incidents {
-                    stmt.execute(params![
-                        &session_id,
-                        &inc.event_type,
-                        &inc.source_event_type,
-                        &inc.timestamp,
-                        &inc.severity,
-                        &inc.summary,
-                        &inc.detail_json
-                    ])?;
+                let chunk_size = 50;
+                for chunk in analytics.incidents.chunks(chunk_size) {
+                    let mut sql = String::with_capacity(180 + chunk.len() * 20);
+                    sql.push_str("INSERT INTO session_incidents (session_id, event_type, source_event_type, timestamp, severity, summary, detail_json) VALUES ");
+                    for j in 0..chunk.len() {
+                        if j > 0 { sql.push_str(","); }
+                        sql.push_str("(?,?,?,?,?,?,?)");
+                    }
+                    let mut stmt = self.conn.prepare(&sql)?;
+                    let mut params_vec: Vec<&dyn rusqlite::ToSql> = Vec::with_capacity(chunk.len() * 7);
+                    for inc in chunk {
+                        params_vec.push(&session_id);
+                        params_vec.push(&inc.event_type);
+                        params_vec.push(&inc.source_event_type);
+                        params_vec.push(&inc.timestamp);
+                        params_vec.push(&inc.severity);
+                        params_vec.push(&inc.summary);
+                        params_vec.push(&inc.detail_json);
+                    }
+                    stmt.execute(params_from_iter(params_vec))?;
                 }
             }
 
