@@ -204,8 +204,13 @@ pub fn launch_orchestrator(
         ));
     }
 
-    // Build the copilot command with model + auto-approve + prompt
-    let copilot_cmd = format!("{} --model {} --allow-all", cli, model);
+    // Build the copilot command with model + auto-approve + prompt.
+    // Quote cli path to handle spaces (e.g., "C:\Program Files\...").
+    let copilot_cmd = if cli.contains(' ') {
+        format!("\"{}\" --model {} --allow-all", cli, model)
+    } else {
+        format!("{} --model {} --allow-all", cli, model)
+    };
 
     // Build a short bootstrap prompt that tells copilot to read the full instructions
     // from the file. This avoids all shell escaping issues with the long prompt.

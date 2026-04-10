@@ -186,8 +186,8 @@ stateDiagram-v2
 
 The orchestrator stops when any of these conditions are met:
 - `shutdown: true` in manifest (set by `task_orchestrator_stop`)
-- `max_cycles` reached (default: 10)
-- `max_empty_polls` consecutive cycles with no pending tasks (default: 3)
+- `max_cycles` reached (default: 100)
+- `max_empty_polls` consecutive cycles with no pending tasks (default: 10)
 
 ### Bootstrap Prompt Pattern
 
@@ -212,26 +212,36 @@ SQLite database at `~/.copilot/tracepilot/tasks.db`.
 erDiagram
     tasks {
         TEXT id PK "UUID"
+        TEXT job_id FK "references jobs(id)"
         TEXT task_type "e.g. session_summary"
         TEXT preset_id "FK to preset file"
-        TEXT status "pending|in_progress|done|failed|cancelled"
+        TEXT status "pending|claimed|in_progress|done|failed|cancelled|expired|dead_letter"
         TEXT priority "low|normal|high|critical"
         TEXT input_params "JSON blob"
-        TEXT result "JSON blob (after ingestion)"
+        TEXT context_hash "dedup index (partial unique)"
+        INTEGER attempt_count "default 0"
+        INTEGER max_retries "default 3"
+        TEXT orchestrator_session_id
+        TEXT result_summary
+        TEXT result_parsed "JSON blob"
+        INTEGER schema_valid "nullable"
         TEXT error_message
         TEXT created_at "ISO 8601"
-        TEXT updated_at "ISO 8601"
+        TEXT updated_at "ISO 8601 (trigger-maintained)"
         TEXT completed_at "ISO 8601"
     }
 
     jobs {
         TEXT id PK "UUID"
-        TEXT task_id FK
+        TEXT name
+        TEXT preset_id
         TEXT status "pending|running|completed|failed"
-        TEXT model "e.g. gpt-5-mini"
-        TEXT started_at
-        TEXT completed_at
-        TEXT error_message
+        INTEGER task_count
+        INTEGER tasks_completed
+        INTEGER tasks_failed
+        TEXT created_at "ISO 8601"
+        TEXT completed_at "ISO 8601"
+        TEXT orchestrator_session_id
     }
 
     task_deps {
@@ -240,22 +250,22 @@ erDiagram
     }
 
     task_meta {
-        TEXT task_id FK
-        TEXT key
+        TEXT key PK "global key-value store"
         TEXT value
     }
 
-    tasks ||--o{ jobs : "has"
+    jobs ||--o{ tasks : "groups"
     tasks ||--o{ task_deps : "depends on"
-    tasks ||--o{ task_meta : "metadata"
 ```
 
 ### Task Lifecycle
 
 ```
-pending → in_progress → done
-                      → failed → pending (retry)
+pending → claimed → in_progress → done
+                                 → failed → pending (retry, up to max_retries)
+                                          → dead_letter (exhausted retries)
 pending → cancelled
+in_progress → expired (stale release)
 ```
 
 - Tasks start as `pending` when created
@@ -477,13 +487,16 @@ no HTTP, no stdin/stdout.
 ```json
 {
   "version": 1,
-  "created_at": "2026-04-03T09:00:00Z",
+  "poll_interval_seconds": 30,
+  "max_parallel": 3,
   "shutdown": false,
   "tasks": [
     {
       "id": "abc-123",
+      "type": "session_summary",
       "title": "Summarise session X",
       "model": "gpt-5-mini",
+      "priority": "normal",
       "context_file": "C:/.../jobs/abc-123/context.md",
       "result_file": "C:/.../jobs/abc-123/result.json",
       "status_file": "C:/.../jobs/abc-123/status.json"
@@ -581,7 +594,7 @@ Health is determined by heartbeat freshness and process handle validity.
 
 ```
 timeout = poll_interval_seconds × heartbeat_stale_multiplier
-default = 30 × 3 = 90 seconds
+default = 30 × 6 = 180 seconds
 ```
 
 ---
@@ -657,18 +670,18 @@ are hidden.
 | Command | Parameters | Returns | Description |
 |---------|-----------|---------|-------------|
 | `task_create` | `NewTask` | `Task` | Create a single task |
-| `task_create_batch` | `NewTask[]` | `Task[]` | Create multiple tasks |
+| `task_create_batch` | `NewTask[], jobName, presetId?` | `Job` | Create multiple tasks as a job |
 | `task_get` | `taskId` | `Task` | Get task by ID |
 | `task_list` | `TaskFilter?` | `Task[]` | List/filter tasks |
-| `task_cancel` | `taskId` | `Task` | Cancel a pending task |
-| `task_retry` | `taskId` | `Task` | Retry a failed task |
+| `task_cancel` | `taskId` | `()` | Cancel a pending task |
+| `task_retry` | `taskId` | `()` | Retry a failed task |
 | `task_delete` | `taskId` | `()` | Delete a task |
 | `task_stats` | — | `TaskStats` | Aggregate task statistics |
-| `task_list_jobs` | `taskId?` | `Job[]` | List jobs for a task |
-| `task_cancel_job` | `jobId` | `Job` | Cancel a running job |
+| `task_list_jobs` | `limit?: i64` | `Job[]` | List jobs (most recent first) |
+| `task_cancel_job` | `jobId` | `()` | Cancel a running job |
 | `task_list_presets` | — | `TaskPreset[]` | List all presets |
 | `task_get_preset` | `presetId` | `TaskPreset` | Get preset by ID |
-| `task_save_preset` | `TaskPreset` | `TaskPreset` | Create/update preset |
+| `task_save_preset` | `TaskPreset` | `()` | Create/update preset |
 | `task_delete_preset` | `presetId` | `()` | Delete a preset |
 | `task_orchestrator_health` | — | `HealthCheckResult` | Check orchestrator health |
 | `task_orchestrator_start` | `model?` | `OrchestratorHandle` | Launch orchestrator |
@@ -725,6 +738,7 @@ Missing from `build.rs` = runtime "not allowed" error even though the handler ex
 
 ### Long startup delay before "Running" state
 
-The orchestrator writes its first heartbeat after initial task processing.
-For large task batches, this can take minutes. The monitor will show
-"Starting…" during this period.
+The launcher pre-writes an initial heartbeat (cycle 0) before spawning the CLI
+process, so the monitor shows "Running" immediately. The orchestrator prompt also
+instructs the agent to write a heartbeat as its very first action. If neither
+heartbeat appears, the monitor shows "Starting…" — check console for launch errors.

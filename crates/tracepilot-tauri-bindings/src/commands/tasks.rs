@@ -110,6 +110,18 @@ pub async fn task_create(
                     ) {
                         tracing::warn!(task_id = %task.id, error = %e, "Failed to hot-add task to manifest");
                     } else {
+                        // Mark task as in_progress and bind to the running orchestrator session
+                        let _ = tracepilot_orchestrator::task_db::operations::update_task_status(
+                            db.conn(),
+                            &task.id,
+                            tracepilot_orchestrator::task_db::types::TaskStatus::InProgress,
+                        );
+                        if let Some(ref sid) = handle.session_uuid {
+                            let _ = tracepilot_orchestrator::task_db::operations::set_orchestrator_session_id(
+                                db.conn(),
+                                sid,
+                            );
+                        }
                         tracing::info!(task_id = %task.id, "Hot-added task to running orchestrator manifest");
                     }
                 }
@@ -642,10 +654,17 @@ pub async fn task_orchestrator_start(
                             model,
                             priority: task.priority.clone(),
                         };
-                        let _ = tracepilot_orchestrator::task_orchestrator::manifest::append_task_to_manifest(
+                        if tracepilot_orchestrator::task_orchestrator::manifest::append_task_to_manifest(
                             &manifest_path,
                             &manifest_task,
-                        );
+                        ).is_ok() {
+                            // Mark straggler as in_progress so results can be ingested
+                            let _ = tracepilot_orchestrator::task_db::operations::update_task_status(
+                                task_db.conn(),
+                                &task.id,
+                                tracepilot_orchestrator::task_db::types::TaskStatus::InProgress,
+                            );
+                        }
                     }
                 }
             }
@@ -768,6 +787,7 @@ pub async fn task_ingest_results(
 ) -> CmdResult<u32> {
     let cfg = read_config(&config);
     let jobs_dir = cfg.jobs_dir();
+    let presets_dir = cfg.presets_dir();
     let default_subagent_model = cfg.tasks.default_subagent_model.clone();
     let db = get_or_init_task_db(&task_db)?;
     let orch_state_clone = std::sync::Arc::clone(&*orch_state);
@@ -922,7 +942,10 @@ pub async fn task_ingest_results(
                                     context_file: task_dir.join("context.md").to_string_lossy().to_string(),
                                     result_file: task_dir.join("result.json").to_string_lossy().to_string(),
                                     status_file: task_dir.join("status.json").to_string_lossy().to_string(),
-                                    model: default_subagent_model.clone(),
+                                    model: tracepilot_orchestrator::presets::io::get_preset(&presets_dir, &task.preset_id)
+                                        .ok()
+                                        .and_then(|p| p.execution.model_override.clone())
+                                        .unwrap_or_else(|| default_subagent_model.clone()),
                                     priority: task.priority.clone(),
                                 };
 

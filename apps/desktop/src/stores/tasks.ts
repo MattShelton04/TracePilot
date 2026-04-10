@@ -123,6 +123,7 @@ export const useTasksStore = defineStore("tasks", () => {
   /** Silent refresh — no loading state change. */
   async function refreshTasks() {
     if (refreshTasksPromise) return refreshTasksPromise;
+    const token = loadGuard.start();
     refreshTasksPromise = (async () => {
       try {
         const [taskResult, statsResult, jobsResult] = await Promise.all([
@@ -130,6 +131,7 @@ export const useTasksStore = defineStore("tasks", () => {
           taskStats(),
           taskListJobs(),
         ]);
+        if (!loadGuard.isValid(token)) return;
         tasks.value = taskResult;
         stats.value = statsResult;
         jobs.value = jobsResult;

@@ -350,6 +350,11 @@ pub fn get_pending_tasks_for_manifest(conn: &Connection) -> Result<Vec<Task>> {
 /// Release stale in-progress or claimed tasks back to pending.
 /// Tasks are considered stale if they've been in the given state for longer than `stale_minutes`.
 pub fn release_stale_tasks(conn: &Connection, stale_minutes: i64) -> Result<u64> {
+    if stale_minutes <= 0 {
+        return Err(OrchestratorError::Task(
+            "stale_minutes must be positive".into(),
+        ));
+    }
     let rows = conn.execute(
         "UPDATE tasks SET status = 'pending'
          WHERE status IN ('in_progress', 'claimed')
@@ -401,14 +406,21 @@ pub fn get_job(conn: &Connection, id: &str) -> Result<Job> {
 
 /// List all jobs, newest first.
 pub fn list_jobs(conn: &Connection, limit: Option<i64>) -> Result<Vec<Job>> {
-    let sql = format!(
-        "SELECT * FROM jobs ORDER BY created_at DESC{}",
-        limit.map_or(String::new(), |l| format!(" LIMIT {l}"))
-    );
+    let (sql, param_values): (String, Vec<Box<dyn rusqlite::types::ToSql>>) = match limit {
+        Some(l) => (
+            "SELECT * FROM jobs ORDER BY created_at DESC LIMIT ?1".to_string(),
+            vec![Box::new(l)],
+        ),
+        None => (
+            "SELECT * FROM jobs ORDER BY created_at DESC".to_string(),
+            vec![],
+        ),
+    };
 
+    let params_refs: Vec<&dyn rusqlite::types::ToSql> = param_values.iter().map(|p| p.as_ref()).collect();
     let mut stmt = conn.prepare(&sql)?;
     let jobs = stmt
-        .query_map([], |row| Ok(row_to_job(row)))?
+        .query_map(params_refs.as_slice(), |row| Ok(row_to_job(row)))?
         .collect::<std::result::Result<Vec<_>, _>>()?;
 
     jobs.into_iter()

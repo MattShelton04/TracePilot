@@ -23,32 +23,47 @@ pub fn atomic_json_write<T: Serialize>(path: &Path, value: &T) -> Result<()> {
     let tmp = path.with_extension("json.tmp");
     std::fs::write(&tmp, &json)?;
 
-    // On Windows, rename fails if target exists; remove first.
+    // On Windows, rename fails if target exists — use backup-swap to avoid data loss.
     #[cfg(windows)]
-    if path.exists() {
-        let _ = std::fs::remove_file(path);
+    {
+        if path.exists() {
+            let bak = path.with_extension("json.bak");
+            std::fs::rename(path, &bak).map_err(|e| {
+                let _ = std::fs::remove_file(&tmp);
+                e
+            })?;
+            if let Err(e) = std::fs::rename(&tmp, path) {
+                let _ = std::fs::rename(&bak, path); // restore original
+                return Err(e.into());
+            }
+            let _ = std::fs::remove_file(&bak);
+        } else {
+            std::fs::rename(&tmp, path)?;
+        }
     }
 
+    #[cfg(not(windows))]
     std::fs::rename(&tmp, path)?;
+
     Ok(())
 }
 
 /// Read and deserialize a JSON file. Returns a default if the file doesn't exist.
 pub fn atomic_json_read<T: DeserializeOwned + Default>(path: &Path) -> Result<T> {
-    if !path.exists() {
-        return Ok(T::default());
+    match std::fs::read_to_string(path) {
+        Ok(content) => Ok(serde_json::from_str(&content)?),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(T::default()),
+        Err(e) => Err(e.into()),
     }
-    let content = std::fs::read_to_string(path)?;
-    Ok(serde_json::from_str(&content)?)
 }
 
 /// Read a JSON file, returning `None` if it doesn't exist.
 pub fn atomic_json_read_opt<T: DeserializeOwned>(path: &Path) -> Result<Option<T>> {
-    if !path.exists() {
-        return Ok(None);
+    match std::fs::read_to_string(path) {
+        Ok(content) => Ok(Some(serde_json::from_str(&content)?)),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(e.into()),
     }
-    let content = std::fs::read_to_string(path)?;
-    Ok(Some(serde_json::from_str(&content)?))
 }
 
 #[cfg(test)]

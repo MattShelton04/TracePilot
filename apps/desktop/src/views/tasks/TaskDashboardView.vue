@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ErrorState, formatDate, LoadingSpinner, SearchInput, StatCard } from "@tracepilot/ui";
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import RefreshToolbar from "@/components/RefreshToolbar.vue";
 import TaskCard from "@/components/tasks/TaskCard.vue";
@@ -91,11 +91,15 @@ const stateColorClass = computed(() => {
   }
 });
 
+// Reactive clock for uptime display (ticks every second)
+const nowMs = ref(Date.now());
+const _uptimeClock = setInterval(() => { nowMs.value = Date.now(); }, 1000);
+onUnmounted(() => clearInterval(_uptimeClock));
+
 const orchUptime = computed(() => {
   if (!orchestrator.handle?.launchedAt) return null;
   const launched = new Date(orchestrator.handle.launchedAt).getTime();
-  const now = Date.now();
-  const diffSec = Math.floor((now - launched) / 1000);
+  const diffSec = Math.floor((nowMs.value - launched) / 1000);
   if (diffSec < 60) return `${diffSec}s`;
   if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m`;
   const h = Math.floor(diffSec / 3600);

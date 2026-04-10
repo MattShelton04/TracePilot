@@ -37,7 +37,7 @@ pub struct HeartbeatFile {
     pub completed_tasks: Vec<String>,
 }
 
-/// Validate a task ID to prevent path traversal.
+/// Validate a task ID to prevent path traversal and Windows reserved names.
 pub(crate) fn validate_task_id(task_id: &str) -> crate::error::Result<()> {
     if task_id.is_empty()
         || task_id.contains('/')
@@ -49,6 +49,24 @@ pub(crate) fn validate_task_id(task_id: &str) -> crate::error::Result<()> {
             "Invalid task ID (potential path traversal): {task_id}"
         )));
     }
+
+    // Block Windows reserved device names that cause filesystem issues
+    #[cfg(windows)]
+    {
+        let upper = task_id.to_uppercase();
+        let stem = upper.split('.').next().unwrap_or(&upper);
+        const RESERVED: &[&str] = &[
+            "CON", "PRN", "AUX", "NUL",
+            "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+            "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+        ];
+        if RESERVED.contains(&stem) {
+            return Err(crate::error::OrchestratorError::Task(format!(
+                "Invalid task ID (Windows reserved device name): {task_id}"
+            )));
+        }
+    }
+
     Ok(())
 }
 
