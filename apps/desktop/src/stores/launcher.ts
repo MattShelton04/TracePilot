@@ -18,6 +18,7 @@ import type {
 import { toErrorMessage } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
+import { useAsyncGuard } from "@/composables/useAsyncGuard";
 import { logWarn } from "@/utils/logger";
 import { aggregateSettledErrors } from "@/utils/settleErrors";
 
@@ -28,6 +29,7 @@ export const useLauncherStore = defineStore("launcher", () => {
   const systemDeps = ref<SystemDependencies | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
+  const initializeGuard = useAsyncGuard();
 
   const isReady = computed(
     () => systemDeps.value?.gitAvailable && systemDeps.value?.copilotAvailable,
@@ -43,6 +45,7 @@ export const useLauncherStore = defineStore("launcher", () => {
   });
 
   async function initialize() {
+    const token = initializeGuard.start();
     loading.value = true;
     error.value = null;
     try {
@@ -51,14 +54,16 @@ export const useLauncherStore = defineStore("launcher", () => {
         getAvailableModels(),
         listSessionTemplates(),
       ]);
+      if (!initializeGuard.isValid(token)) return;
       if (depsResult.status === "fulfilled") systemDeps.value = depsResult.value;
       if (modelsResult.status === "fulfilled") models.value = modelsResult.value;
       if (templatesResult.status === "fulfilled") templates.value = templatesResult.value;
       error.value = aggregateSettledErrors([depsResult, modelsResult, templatesResult]);
     } catch (e) {
+      if (!initializeGuard.isValid(token)) return;
       error.value = toErrorMessage(e);
     } finally {
-      loading.value = false;
+      if (initializeGuard.isValid(token)) loading.value = false;
     }
   }
 
