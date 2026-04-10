@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { TaskPreset } from "@tracepilot/types";
+import type { ContextSourceType, TaskPreset } from "@tracepilot/types";
 import { formatDate } from "@tracepilot/ui";
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
@@ -240,30 +240,123 @@ async function handleSaveEdit() {
 }
 
 // ─── Context source helpers for edit modal ───────────────────────
-const SOURCE_TYPES: { value: string; label: string }[] = [
-  { value: "session_export", label: "Session Export" },
-  { value: "session_analytics", label: "Session Analytics" },
-  { value: "session_health", label: "Session Health" },
-  { value: "session_todos", label: "Session Todos" },
-  { value: "recent_sessions", label: "Recent Sessions" },
-  { value: "multi_session_digest", label: "Multi-Session Digest" },
+interface SourceConfigField {
+  key: string;
+  label: string;
+  type: "number" | "boolean" | "string" | "select";
+  default: unknown;
+  hint: string;
+  options?: string[];
+}
+
+interface SourceTypeInfo {
+  value: ContextSourceType;
+  label: string;
+  description: string;
+  requiresSession: boolean;
+  configSchema: SourceConfigField[];
+}
+
+const SOURCE_TYPES: SourceTypeInfo[] = [
+  {
+    value: "session_export",
+    label: "Session Export",
+    description: "Full structured export of a session (conversation, plan, todos, metrics, etc.)",
+    requiresSession: true,
+    configSchema: [
+      {
+        key: "sections",
+        label: "Sections",
+        type: "string",
+        default: "conversation,plan,todos,metrics,incidents,health",
+        hint: "Comma-separated: conversation, events, todos, plan, checkpoints, metrics, incidents, health",
+        options: ["conversation", "events", "todos", "plan", "checkpoints", "metrics", "incidents", "health"],
+      },
+      { key: "max_bytes", label: "Max bytes", type: "number", default: 50000, hint: "Byte limit for the export output" },
+    ],
+  },
+  {
+    value: "session_analytics",
+    label: "Session Analytics",
+    description: "Aggregate stats from a session (events, turns, repo, model)",
+    requiresSession: true,
+    configSchema: [],
+  },
+  {
+    value: "session_health",
+    label: "Session Health",
+    description: "Health scoring data for a session",
+    requiresSession: true,
+    configSchema: [],
+  },
+  {
+    value: "session_todos",
+    label: "Session Todos",
+    description: "Plan / todos from a session's plan.md file",
+    requiresSession: true,
+    configSchema: [],
+  },
+  {
+    value: "recent_sessions",
+    label: "Recent Sessions",
+    description: "Summary list of recent sessions",
+    requiresSession: false,
+    configSchema: [
+      { key: "max_sessions", label: "Max sessions", type: "number", default: 10, hint: "How many recent sessions to include" },
+    ],
+  },
+  {
+    value: "multi_session_digest",
+    label: "Multi-Session Digest",
+    description: "Combined summary of sessions within a time window (daily/weekly)",
+    requiresSession: false,
+    configSchema: [
+      { key: "window_hours", label: "Window (hours)", type: "number", default: 24, hint: "How many hours back to look (24 = daily, 168 = weekly)" },
+      { key: "max_sessions", label: "Max sessions", type: "number", default: 50, hint: "Cap on sessions to include" },
+      { key: "include_exports", label: "Include exports", type: "boolean", default: false, hint: "Include brief conversation exports per session (expensive)" },
+    ],
+  },
 ];
+
+function getSourceType(typeValue: string): SourceTypeInfo | undefined {
+  return SOURCE_TYPES.find((s) => s.value === typeValue);
+}
 
 function addContextSource() {
   if (!editingPreset.value) return;
   const id = `src-${Date.now()}`;
+  const defaultType = SOURCE_TYPES[0];
+  const defaultConfig: Record<string, unknown> = {};
+  for (const field of defaultType.configSchema) {
+    defaultConfig[field.key] = field.default;
+  }
   editingPreset.value.context.sources.push({
     id,
-    type: "session_export",
+    type: defaultType.value,
     label: null,
     required: false,
-    config: {},
+    config: defaultConfig,
   });
 }
 
 function removeContextSource(idx: number) {
   if (!editingPreset.value) return;
   editingPreset.value.context.sources.splice(idx, 1);
+}
+
+/** When source type changes, populate default config from schema. */
+function onSourceTypeChange(src: { type: string; config: Record<string, unknown> }) {
+  const info = getSourceType(src.type);
+  if (!info) return;
+  const newConfig: Record<string, unknown> = {};
+  for (const field of info.configSchema) {
+    newConfig[field.key] = src.config[field.key] ?? field.default;
+  }
+  // Preserve any custom keys that aren't in the schema
+  for (const [k, v] of Object.entries(src.config)) {
+    if (!(k in newConfig)) newConfig[k] = v;
+  }
+  src.config = newConfig;
 }
 
 function addConfigKey(src: { config: Record<string, unknown> }) {
@@ -990,7 +1083,11 @@ function renameConfigKey(
                   class="ctx-source-card"
                 >
                   <div class="ctx-source-top">
-                    <select v-model="src.type" class="modal__input modal__input--sm">
+                    <select
+                      v-model="src.type"
+                      class="modal__input modal__input--sm"
+                      @change="onSourceTypeChange(src)"
+                    >
                       <option
                         v-for="st in SOURCE_TYPES"
                         :key="st.value"
@@ -1017,10 +1114,60 @@ function renameConfigKey(
                       ✕
                     </button>
                   </div>
-                  <!-- Config key-value editor -->
-                  <div v-if="Object.keys(src.config).length > 0" class="ctx-source-config">
+                  <!-- Source description -->
+                  <p v-if="getSourceType(src.type)?.description" class="ctx-source-desc">
+                    {{ getSourceType(src.type)!.description }}
+                  </p>
+                  <p v-if="getSourceType(src.type)?.requiresSession" class="ctx-source-hint">
+                    ⚠ Requires a <code>session_id</code> variable in the prompt
+                  </p>
+                  <!-- Schema-driven config fields -->
+                  <div
+                    v-if="getSourceType(src.type)?.configSchema?.length"
+                    class="ctx-source-config"
+                  >
                     <div
-                      v-for="key in Object.keys(src.config)"
+                      v-for="field in getSourceType(src.type)!.configSchema"
+                      :key="field.key"
+                      class="ctx-schema-field"
+                    >
+                      <label class="ctx-schema-label">
+                        {{ field.label }}
+                        <span class="ctx-schema-hint">{{ field.hint }}</span>
+                      </label>
+                      <input
+                        v-if="field.type === 'number'"
+                        :value="src.config[field.key] ?? field.default"
+                        class="modal__input modal__input--xs"
+                        type="number"
+                        @input="src.config[field.key] = Number(($event.target as HTMLInputElement).value)"
+                      />
+                      <label v-else-if="field.type === 'boolean'" class="ctx-source-required">
+                        <input
+                          :checked="Boolean(src.config[field.key] ?? field.default)"
+                          type="checkbox"
+                          @change="src.config[field.key] = ($event.target as HTMLInputElement).checked"
+                        />
+                        <span>{{ src.config[field.key] ? 'Enabled' : 'Disabled' }}</span>
+                      </label>
+                      <input
+                        v-else
+                        :value="String(src.config[field.key] ?? field.default ?? '')"
+                        class="modal__input modal__input--xs"
+                        type="text"
+                        :placeholder="String(field.default ?? '')"
+                        @input="src.config[field.key] = ($event.target as HTMLInputElement).value"
+                      />
+                    </div>
+                  </div>
+                  <!-- Extra custom config keys (not in schema) -->
+                  <div
+                    v-if="Object.keys(src.config).filter(k => !(getSourceType(src.type)?.configSchema ?? []).some(f => f.key === k)).length > 0"
+                    class="ctx-source-config ctx-source-config--custom"
+                  >
+                    <label class="ctx-schema-label">Custom Config</label>
+                    <div
+                      v-for="key in Object.keys(src.config).filter(k => !(getSourceType(src.type)?.configSchema ?? []).some(f => f.key === k))"
                       :key="key"
                       class="ctx-kv-row"
                     >
@@ -1051,7 +1198,7 @@ function renameConfigKey(
                     class="btn btn--xs btn--ghost ctx-add-key"
                     @click="addConfigKey(src)"
                   >
-                    + Add Config Key
+                    + Add Custom Key
                   </button>
                 </div>
               </div>
@@ -1384,14 +1531,14 @@ function renameConfigKey(
               </button>
               <button
                 class="btn btn--secondary btn--sm"
-                @click="closeDetail(); openEditModal(detailPreset)"
+                @click="openEditModal(detailPreset!); closeDetail()"
               >
                 Edit
               </button>
               <button
                 class="btn btn--ghost btn--sm"
                 :disabled="detailPreset.builtin"
-                @click="closeDetail(); confirmDelete(detailPreset)"
+                @click="confirmDelete(detailPreset!); closeDetail()"
               >
                 Delete
               </button>
@@ -2825,6 +2972,52 @@ function renameConfigKey(
 .ctx-source-config {
   margin-top: 8px;
   padding-left: 4px;
+}
+
+.ctx-source-config--custom {
+  border-top: 1px dashed var(--border-default);
+  padding-top: 8px;
+}
+
+.ctx-source-desc {
+  margin: 4px 0 0;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  line-height: 1.3;
+}
+
+.ctx-source-hint {
+  margin: 2px 0 0;
+  font-size: 0.6875rem;
+  color: var(--text-warning, #f0ad4e);
+  line-height: 1.3;
+}
+
+.ctx-source-hint code {
+  font-size: 0.6875rem;
+  background: var(--bg-secondary);
+  padding: 1px 3px;
+  border-radius: 3px;
+}
+
+.ctx-schema-field {
+  margin-bottom: 6px;
+}
+
+.ctx-schema-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 2px;
+}
+
+.ctx-schema-hint {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 400;
+  color: var(--text-tertiary);
+  margin-bottom: 2px;
 }
 
 .ctx-kv-row {

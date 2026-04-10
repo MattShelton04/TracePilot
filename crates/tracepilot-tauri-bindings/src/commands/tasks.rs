@@ -482,39 +482,51 @@ pub async fn task_orchestrator_start(
 
 #[tauri::command]
 pub async fn task_orchestrator_stop(
+    config: tauri::State<'_, SharedConfig>,
     orch_state: tauri::State<'_, crate::types::SharedOrchestratorState>,
 ) -> CmdResult<()> {
     let orch_state_clone = std::sync::Arc::clone(&*orch_state);
+    let cfg = read_config(&config);
+    let jobs_dir = cfg.jobs_dir();
 
     tokio::task::spawn_blocking(move || {
         let mut guard = orch_state_clone
             .lock()
             .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
-        let handle = guard
-            .as_ref()
-            .ok_or_else(|| BindingsError::Validation("Orchestrator is not running.".into()))?;
 
-        let manifest_path = std::path::PathBuf::from(&handle.manifest_path);
-        let pid = handle.pid;
+        if let Some(handle) = guard.as_ref() {
+            // Normal path: we have the in-memory handle with manifest path + PID.
+            let manifest_path = std::path::PathBuf::from(&handle.manifest_path);
+            let pid = handle.pid;
 
-        // Write shutdown flag BEFORE removing handle — if this fails, handle
-        // stays in state so we can retry and don't lose track of the process.
-        tracepilot_orchestrator::task_orchestrator::manifest::update_manifest_shutdown(
-            &manifest_path,
-        )
-        .map_err(BindingsError::Orchestrator)?;
+            tracepilot_orchestrator::task_orchestrator::manifest::update_manifest_shutdown(
+                &manifest_path,
+            )
+            .map_err(BindingsError::Orchestrator)?;
 
-        // Shutdown write succeeded — now remove handle from state.
-        guard.take();
-        drop(guard);
+            guard.take();
+            drop(guard);
 
-        // Wait briefly for the process to observe the shutdown flag and exit,
-        // preventing a quick re-start from racing with the old process.
-        for _ in 0..10 {
-            if !is_process_alive(pid) {
-                break;
+            for _ in 0..10 {
+                if !is_process_alive(pid) {
+                    break;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(300));
             }
-            std::thread::sleep(std::time::Duration::from_millis(300));
+        } else {
+            // Fallback: handle lost (app restarted) — try manifest in jobs_dir.
+            drop(guard);
+            let manifest_path = jobs_dir.join("manifest.json");
+            if manifest_path.exists() {
+                tracepilot_orchestrator::task_orchestrator::manifest::update_manifest_shutdown(
+                    &manifest_path,
+                )
+                .map_err(BindingsError::Orchestrator)?;
+            } else {
+                return Err(BindingsError::Validation(
+                    "Orchestrator is not running (no handle or manifest found).".into(),
+                ));
+            }
         }
 
         Ok(())
