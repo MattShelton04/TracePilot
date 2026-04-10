@@ -2,7 +2,9 @@
 import { ErrorState, LoadingSpinner, SectionPanel, StatCard } from "@tracepilot/ui";
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
+import RefreshToolbar from "@/components/RefreshToolbar.vue";
 import TaskStatusBadge from "@/components/tasks/TaskStatusBadge.vue";
+import { useAutoRefresh } from "@/composables/useAutoRefresh";
 import { useOrchestratorStore } from "@/stores/orchestrator";
 
 const orchestrator = useOrchestratorStore();
@@ -10,6 +12,15 @@ const router = useRouter();
 const now = ref(Date.now());
 let tickTimer: ReturnType<typeof setInterval> | null = null;
 const healthExpanded = ref(false);
+
+const autoRefreshEnabled = ref(true);
+const autoRefreshInterval = ref(5);
+
+const { refreshing, refresh: autoRefresh } = useAutoRefresh({
+  onRefresh: () => orchestrator.pollCycle(),
+  enabled: autoRefreshEnabled,
+  intervalSeconds: autoRefreshInterval,
+});
 
 // ── Derived state ───────────────────────────────────────────
 const stateLabel = computed(() => {
@@ -131,14 +142,12 @@ function viewTask(taskId: string) {
 onMounted(() => {
   orchestrator.refresh();
   orchestrator.loadModels();
-  orchestrator.startPolling();
   tickTimer = setInterval(() => {
     now.value = Date.now();
   }, 1000);
 });
 
 onUnmounted(() => {
-  orchestrator.stopPolling();
   if (tickTimer) clearInterval(tickTimer);
 });
 </script>
@@ -181,26 +190,14 @@ onUnmounted(() => {
             </svg>
             {{ orchestrator.stopping ? "Stopping…" : "Stop" }}
           </button>
-          <button
-            class="refresh-btn"
-            :disabled="orchestrator.loading"
-            @click="orchestrator.refresh()"
-          >
-            <svg
-              class="refresh-icon"
-              :class="{ spinning: orchestrator.loading }"
-              width="14"
-              height="14"
-              viewBox="0 0 16 16"
-              fill="currentColor"
-            >
-              <path
-                d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 1 1 .908-.418A6 6 0 1 1 8 2v1z"
-              />
-              <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966a.25.25 0 0 1 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z" />
-            </svg>
-            {{ orchestrator.loading ? "Refreshing…" : "Refresh" }}
-          </button>
+          <RefreshToolbar
+            :refreshing="refreshing"
+            :auto-refresh-enabled="autoRefreshEnabled"
+            :interval-seconds="autoRefreshInterval"
+            @refresh="autoRefresh"
+            @update:auto-refresh-enabled="autoRefreshEnabled = $event"
+            @update:interval-seconds="autoRefreshInterval = $event"
+          />
         </div>
       </div>
 

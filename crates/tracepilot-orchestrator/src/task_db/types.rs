@@ -121,6 +121,8 @@ pub struct Task {
     pub created_at: String,
     pub updated_at: String,
     pub completed_at: Option<String>,
+    pub claimed_at: Option<String>,
+    pub started_at: Option<String>,
 }
 
 /// Parameters for creating a new task.

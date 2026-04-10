@@ -20,6 +20,18 @@ impl IndexDb {
         filter_branch: Option<&str>,
         hide_empty: bool,
     ) -> Result<Vec<IndexedSession>> {
+        self.list_sessions_filtered(limit, filter_repo, filter_branch, hide_empty, None)
+    }
+
+    /// List sessions with optional CWD prefix exclusion (used to hide orchestrator sessions).
+    pub fn list_sessions_filtered(
+        &self,
+        limit: Option<usize>,
+        filter_repo: Option<&str>,
+        filter_branch: Option<&str>,
+        hide_empty: bool,
+        exclude_cwd_prefix: Option<&str>,
+    ) -> Result<Vec<IndexedSession>> {
         use super::helpers::build_eq_filter;
 
         let mut sql = format!("SELECT {SESSION_COLUMNS} FROM sessions WHERE 1=1");
@@ -42,6 +54,11 @@ impl IndexDb {
                 branch.to_string(),
                 &mut query_params,
             ));
+        }
+
+        if let Some(prefix) = exclude_cwd_prefix {
+            sql.push_str(" AND (cwd IS NULL OR cwd NOT LIKE ?)");
+            query_params.push(Box::new(format!("{prefix}%")));
         }
 
         sql.push_str(" ORDER BY updated_at DESC");

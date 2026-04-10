@@ -11,9 +11,11 @@ import {
 } from "@tracepilot/ui";
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import RefreshToolbar from "@/components/RefreshToolbar.vue";
 import PriorityBadge from "@/components/tasks/PriorityBadge.vue";
 import TaskStatusBadge from "@/components/tasks/TaskStatusBadge.vue";
 import TaskTypeBadge from "@/components/tasks/TaskTypeBadge.vue";
+import { useAutoRefresh } from "@/composables/useAutoRefresh";
 import { taskTitle, useTasksStore } from "@/stores/tasks";
 
 const route = useRoute();
@@ -27,6 +29,18 @@ const task = computed(() => store.selectedTask);
 const loading = ref(false);
 const cancelling = ref(false);
 const retrying = ref(false);
+
+// ─── Auto-refresh ─────────────────────────────────────────────────
+const autoRefreshEnabled = ref(true);
+const autoRefreshInterval = ref(5);
+
+const { refreshing, refresh } = useAutoRefresh({
+  onRefresh: async () => {
+    if (taskId.value) await store.getTask(taskId.value);
+  },
+  enabled: autoRefreshEnabled,
+  intervalSeconds: autoRefreshInterval,
+});
 
 // ─── Tabs ─────────────────────────────────────────────────────────
 type TabId = "result" | "context" | "timeline" | "subagent" | "raw";
@@ -110,14 +124,14 @@ const timelineEvents = computed<TimelineEvent[]>(() => {
   if (s === "claimed") {
     events.push({
       label: "Claimed",
-      timestamp: null,
+      timestamp: t.claimedAt ?? t.updatedAt,
       state: "active",
       variant: "default",
     });
   } else if (POST_CLAIMED.has(s)) {
     events.push({
       label: "Claimed",
-      timestamp: null,
+      timestamp: t.claimedAt ?? null,
       state: "done",
       variant: "default",
     });
@@ -133,14 +147,14 @@ const timelineEvents = computed<TimelineEvent[]>(() => {
   if (s === "in_progress") {
     events.push({
       label: "In Progress",
-      timestamp: null,
+      timestamp: t.startedAt ?? t.updatedAt,
       state: "active",
       variant: "default",
     });
   } else if (s === "done" || s === "failed") {
     events.push({
       label: "In Progress",
-      timestamp: null,
+      timestamp: t.startedAt ?? null,
       state: "done",
       variant: "default",
     });
@@ -322,6 +336,14 @@ watch(taskId, (newId) => {
           </svg>
           Back to Tasks
         </button>
+        <RefreshToolbar
+          :refreshing="refreshing"
+          :auto-refresh-enabled="autoRefreshEnabled"
+          :interval-seconds="autoRefreshInterval"
+          @refresh="refresh"
+          @update:auto-refresh-enabled="autoRefreshEnabled = $event"
+          @update:interval-seconds="autoRefreshInterval = $event"
+        />
       </div>
 
       <!-- Loading -->

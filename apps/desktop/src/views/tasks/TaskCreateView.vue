@@ -1,15 +1,16 @@
 <script setup lang="ts">
-import { searchSessions } from "@tracepilot/client";
 import type { PromptVariable, SessionListItem, TaskPreset } from "@tracepilot/types";
 import { ErrorState, LoadingSpinner, SectionPanel, useToast } from "@tracepilot/ui";
 import { computed, onMounted, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 import { usePresetsStore } from "@/stores/presets";
+import { useSessionsStore } from "@/stores/sessions";
 import { useTasksStore } from "@/stores/tasks";
 
 const router = useRouter();
 const presetsStore = usePresetsStore();
 const tasksStore = useTasksStore();
+const sessionsStore = useSessionsStore();
 const { success: toastSuccess, error: toastError } = useToast();
 
 // ── Wizard state ──────────────────────────────────────────────────────
@@ -105,6 +106,15 @@ function selectPreset(preset: TaskPreset) {
       newValues[v.name] = v.default === "true";
     } else if (v.type === "number") {
       newValues[v.name] = v.default != null ? Number(v.default) : 0;
+    } else if (v.type === "date") {
+      // Smart defaults: "week_start_date" → this Monday, others → today
+      if (v.default) {
+        newValues[v.name] = v.default;
+      } else if (v.name.includes("week")) {
+        newValues[v.name] = thisWeekMondayISO();
+      } else {
+        newValues[v.name] = todayISO();
+      }
     } else {
       newValues[v.name] = v.default ?? "";
     }
@@ -182,6 +192,24 @@ function isSessionVariable(variable: PromptVariable): boolean {
   return variable.type === "session_ref" || variable.name === "session_id";
 }
 
+function isDateVariable(variable: PromptVariable): boolean {
+  return variable.type === "date";
+}
+
+/** Get today's date as YYYY-MM-DD. */
+function todayISO(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/** Get this week's Monday as YYYY-MM-DD. */
+function thisWeekMondayISO(): string {
+  const d = new Date();
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  d.setDate(diff);
+  return d.toISOString().slice(0, 10);
+}
+
 let sessionSearchTimer: ReturnType<typeof setTimeout> | null = null;
 
 function handleSessionSearch(variableName: string, query: string) {
@@ -191,17 +219,15 @@ function handleSessionSearch(variableName: string, query: string) {
     sessionSearchResults[variableName] = [];
     return;
   }
-  sessionSearchLoading[variableName] = true;
-  sessionSearchTimer = setTimeout(async () => {
-    try {
-      const results = await searchSessions(query);
-      sessionSearchResults[variableName] = results;
-    } catch {
-      sessionSearchResults[variableName] = [];
-    } finally {
-      sessionSearchLoading[variableName] = false;
-    }
-  }, 300);
+  // Use local session list from sessions store (instant, no IPC)
+  const q = query.toLowerCase();
+  sessionSearchResults[variableName] = sessionsStore.sessions
+    .filter(
+      (s) =>
+        (s.summary ?? "").toLowerCase().includes(q) ||
+        s.id.toLowerCase().includes(q),
+    )
+    .slice(0, 20);
 }
 
 function selectSession(variableName: string, session: SessionListItem) {
@@ -213,6 +239,8 @@ function selectSession(variableName: string, session: SessionListItem) {
 // ── Lifecycle ─────────────────────────────────────────────────────────
 onMounted(() => {
   presetsStore.loadPresets();
+  // Pre-load sessions so the session picker can use local data instantly
+  if (sessionsStore.sessions.length === 0) sessionsStore.fetchSessions();
 });
 </script>
 
@@ -469,11 +497,6 @@ onMounted(() => {
                           )
                         "
                       />
-                      <LoadingSpinner
-                        v-if="sessionSearchLoading[variable.name]"
-                        size="sm"
-                        class="session-search-spinner"
-                      />
                     </div>
                     <div
                       v-if="sessionSearchResults[variable.name]?.length"
@@ -497,6 +520,16 @@ onMounted(() => {
                       Selected: <code>{{ formValues[variable.name] }}</code>
                     </p>
                   </div>
+
+                  <!-- Date input -->
+                  <input
+                    v-else-if="isDateVariable(variable)"
+                    :id="`var-${variable.name}`"
+                    :value="String(formValues[variable.name] ?? '')"
+                    type="date"
+                    class="form-input"
+                    @input="formValues[variable.name] = ($event.target as HTMLInputElement).value"
+                  />
 
                   <!-- String text input -->
                   <input

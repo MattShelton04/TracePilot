@@ -116,15 +116,30 @@ pub fn list_tasks(conn: &Connection, filter: &TaskFilter) -> Result<Vec<Task>> {
 
 /// Update a task's status.
 pub fn update_task_status(conn: &Connection, id: &str, status: TaskStatus) -> Result<()> {
+    let now = chrono::Utc::now().to_rfc3339();
     let completed_at = if status.is_terminal() {
-        Some(chrono::Utc::now().to_rfc3339())
+        Some(now.clone())
+    } else {
+        None
+    };
+    let claimed_at = if status == TaskStatus::Claimed {
+        Some(now.clone())
+    } else {
+        None
+    };
+    let started_at = if status == TaskStatus::InProgress {
+        Some(now)
     } else {
         None
     };
 
     let rows = conn.execute(
-        "UPDATE tasks SET status = ?1, completed_at = COALESCE(?2, completed_at) WHERE id = ?3",
-        params![status.as_str(), completed_at, id],
+        "UPDATE tasks SET status = ?1,
+            completed_at = COALESCE(?2, completed_at),
+            claimed_at = COALESCE(?3, claimed_at),
+            started_at = COALESCE(?4, started_at)
+         WHERE id = ?5",
+        params![status.as_str(), completed_at, claimed_at, started_at, id],
     )?;
 
     if rows == 0 {
@@ -214,7 +229,8 @@ pub fn cancel_job(conn: &Connection, job_id: &str) -> Result<()> {
 pub fn retry_task(conn: &Connection, id: &str) -> Result<()> {
     let rows = conn.execute(
         "UPDATE tasks SET status = 'pending', attempt_count = attempt_count + 1,
-            completed_at = NULL, error_message = NULL, result_summary = NULL,
+            completed_at = NULL, claimed_at = NULL, started_at = NULL,
+            error_message = NULL, result_summary = NULL,
             result_parsed = NULL, schema_valid = NULL
          WHERE id = ?1 AND status IN ('failed', 'dead_letter')",
         params![id],
@@ -445,6 +461,8 @@ fn row_to_task(row: &rusqlite::Row<'_>) -> std::result::Result<Task, String> {
         created_at: row.get("created_at").map_err(|e| e.to_string())?,
         updated_at: row.get("updated_at").map_err(|e| e.to_string())?,
         completed_at: row.get("completed_at").map_err(|e| e.to_string())?,
+        claimed_at: row.get("claimed_at").map_err(|e| e.to_string())?,
+        started_at: row.get("started_at").map_err(|e| e.to_string())?,
     })
 }
 

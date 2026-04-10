@@ -181,12 +181,20 @@ pub fn seed_builtin_presets(dir: &Path) -> Result<()> {
             id: "daily-digest".to_string(),
             name: "Daily Digest".to_string(),
             task_type: "digest".to_string(),
-            description: "Summarise all Copilot CLI sessions from the last 24 hours — activity, repositories, models used, and key outcomes.".to_string(),
-            version: 3,
+            description: "Summarise all Copilot CLI sessions from a specific day — activity, repositories, models used, and key outcomes.".to_string(),
+            version: 4,
             prompt: PresetPrompt {
                 system: "You are an expert technical analyst summarising daily developer activity from GitHub Copilot CLI sessions.".to_string(),
-                user: "Produce a daily digest of the Copilot CLI sessions from the last 24 hours. The session data is provided in the context section below. Include:\n1. **Overview** — total sessions, turns, and repositories touched\n2. **Highlights** — most significant sessions and what they accomplished\n3. **Patterns** — recurring themes, tools, or workflows\n4. **Issues** — any failures, incidents, or areas of concern\n5. **Recommendations** — suggested improvements or follow-ups".to_string(),
-                variables: vec![],
+                user: "Produce a daily digest of the Copilot CLI sessions for {{target_date}}. The session data is provided in the context section below. Include:\n1. **Overview** — total sessions, turns, and repositories touched\n2. **Highlights** — most significant sessions and what they accomplished\n3. **Patterns** — recurring themes, tools, or workflows\n4. **Issues** — any failures, incidents, or areas of concern\n5. **Recommendations** — suggested improvements or follow-ups".to_string(),
+                variables: vec![
+                    PromptVariable {
+                        name: "target_date".to_string(),
+                        var_type: VariableType::Date,
+                        required: false,
+                        description: "The date to summarise (defaults to today)".to_string(),
+                        default: None,
+                    },
+                ],
             },
             context: PresetContext {
                 sources: vec![ContextSource {
@@ -233,12 +241,20 @@ pub fn seed_builtin_presets(dir: &Path) -> Result<()> {
             id: "weekly-digest".to_string(),
             name: "Weekly Digest".to_string(),
             task_type: "digest".to_string(),
-            description: "Summarise all Copilot CLI sessions from the last 7 days — trends, productivity patterns, and cross-session insights.".to_string(),
-            version: 3,
+            description: "Summarise all Copilot CLI sessions from a specific week — trends, productivity patterns, and cross-session insights.".to_string(),
+            version: 4,
             prompt: PresetPrompt {
                 system: "You are an expert technical analyst producing a weekly summary of developer activity from GitHub Copilot CLI sessions.".to_string(),
-                user: "Produce a weekly digest of the Copilot CLI sessions from the last 7 days. The session data is provided in the context section below. Include:\n1. **Week Overview** — total sessions, turns, repositories, and models used\n2. **Day-by-Day Summary** — brief highlights for each active day\n3. **Top Sessions** — the 3-5 most impactful sessions with outcomes\n4. **Trends** — how activity, tool usage, or patterns changed over the week\n5. **Issues & Incidents** — failures, rate limits, or recurring problems\n6. **Recommendations** — productivity tips based on observed patterns".to_string(),
-                variables: vec![],
+                user: "Produce a weekly digest of the Copilot CLI sessions for the week starting {{week_start_date}}. The session data is provided in the context section below. Include:\n1. **Week Overview** — total sessions, turns, repositories, and models used\n2. **Day-by-Day Summary** — brief highlights for each active day\n3. **Top Sessions** — the 3-5 most impactful sessions with outcomes\n4. **Trends** — how activity, tool usage, or patterns changed over the week\n5. **Issues & Incidents** — failures, rate limits, or recurring problems\n6. **Recommendations** — productivity tips based on observed patterns".to_string(),
+                variables: vec![
+                    PromptVariable {
+                        name: "week_start_date".to_string(),
+                        var_type: VariableType::Date,
+                        required: false,
+                        description: "The Monday of the week to summarise (defaults to this week)".to_string(),
+                        default: None,
+                    },
+                ],
             },
             context: PresetContext {
                 sources: vec![ContextSource {

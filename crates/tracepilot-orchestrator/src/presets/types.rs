@@ -65,6 +65,8 @@ pub enum VariableType {
     Boolean,
     SessionRef,
     SessionList,
+    /// ISO 8601 date string (YYYY-MM-DD), used for digest date pickers.
+    Date,
 }
 
 /// Context sources and budget configuration.

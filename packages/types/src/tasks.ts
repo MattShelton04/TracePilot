@@ -51,6 +51,8 @@ export interface Task {
   createdAt: string;
   updatedAt: string;
   completedAt: string | null;
+  claimedAt: string | null;
+  startedAt: string | null;
 }
 
 export interface Job {
@@ -134,7 +136,7 @@ export interface PromptVariable {
   default: string | null;
 }
 
-export type VariableType = "string" | "number" | "boolean" | "session_ref" | "session_list";
+export type VariableType = "string" | "number" | "boolean" | "session_ref" | "session_list" | "date";
 
 export interface PresetContext {
   sources: ContextSource[];

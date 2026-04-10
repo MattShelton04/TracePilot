@@ -358,6 +358,7 @@ export async function listSessions(options?: {
   repo?: string;
   branch?: string;
   hideEmpty?: boolean;
+  hideOrchestrator?: boolean;
 }): Promise<SessionListItem[]> {
   return invoke<SessionListItem[]>(
     "list_sessions",
@@ -367,6 +368,7 @@ export async function listSessions(options?: {
           repo: options.repo,
           branch: options.branch,
           hideEmpty: options.hideEmpty,
+          hideOrchestrator: options.hideOrchestrator,
         }
       : undefined,
   );

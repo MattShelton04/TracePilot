@@ -277,6 +277,56 @@ fn assemble_recent_sessions(
     Ok(lines.join("\n"))
 }
 
+/// Compute the (start, end, window_hours) for a digest based on params.
+///
+/// Priority: `target_date` → daily window, `week_start_date` → weekly window,
+/// else `window_hours` from params/config.
+fn resolve_digest_window(
+    source: &ContextSource,
+    params: &serde_json::Value,
+) -> (
+    chrono::DateTime<chrono::Utc>,
+    chrono::DateTime<chrono::Utc>,
+    u64,
+) {
+    use chrono::{NaiveDate, TimeZone, Utc};
+
+    // Try target_date (daily)
+    if let Some(date_str) = params.get("target_date").and_then(|v| v.as_str()) {
+        if let Ok(date) = NaiveDate::parse_from_str(date_str, "%Y-%m-%d") {
+            let start = Utc
+                .from_utc_datetime(&date.and_hms_opt(0, 0, 0).unwrap());
+            let end = start + chrono::Duration::hours(24);
+            return (start, end, 24);
+        }
+    }
+
+    // Try week_start_date (weekly)
+    if let Some(date_str) = params.get("week_start_date").and_then(|v| v.as_str()) {
+        if let Ok(date) = NaiveDate::parse_from_str(date_str, "%Y-%m-%d") {
+            let start = Utc
+                .from_utc_datetime(&date.and_hms_opt(0, 0, 0).unwrap());
+            let end = start + chrono::Duration::hours(168);
+            return (start, end, 168);
+        }
+    }
+
+    // Fall back to window_hours from now
+    let window_hours = params
+        .get("window_hours")
+        .and_then(|v| v.as_u64())
+        .or_else(|| {
+            source
+                .config
+                .get("window_hours")
+                .and_then(|v| v.as_u64())
+        })
+        .unwrap_or(24);
+    let cutoff = Utc::now() - chrono::Duration::hours(window_hours as i64);
+    let end = Utc::now() + chrono::Duration::hours(1); // slight future buffer
+    (cutoff, end, window_hours)
+}
+
 /// Multi-session digest: discovers sessions within a time window and produces
 /// a combined summary of all matching sessions.
 ///
@@ -288,21 +338,15 @@ fn assemble_recent_sessions(
 ///
 /// The `params` object may optionally contain:
 /// - `window_hours` — runtime override for the config value
+/// - `target_date` — ISO date (YYYY-MM-DD) for daily digest anchor
+/// - `week_start_date` — ISO date (YYYY-MM-DD) for weekly digest anchor
 fn assemble_multi_session_digest(
     source: &ContextSource,
     params: &serde_json::Value,
     data_dir: &Path,
 ) -> Result<String> {
-    let window_hours = params
-        .get("window_hours")
-        .and_then(|v| v.as_u64())
-        .or_else(|| {
-            source
-                .config
-                .get("window_hours")
-                .and_then(|v| v.as_u64())
-        })
-        .unwrap_or(24);
+    // Determine time window from target_date / week_start_date or fall back to window_hours
+    let (cutoff, end, window_hours) = resolve_digest_window(source, params);
 
     let max_sessions = source
         .config
@@ -316,7 +360,6 @@ fn assemble_multi_session_digest(
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
 
-    let cutoff = chrono::Utc::now() - chrono::Duration::hours(window_hours as i64);
     let discovered = tracepilot_core::session::discovery::discover_sessions(data_dir)?;
 
     // Load summaries and filter by time window
@@ -327,7 +370,7 @@ fn assemble_multi_session_digest(
             Ok(summary) => {
                 let session_time = summary.updated_at.or(summary.created_at);
                 if let Some(ts) = session_time {
-                    if ts >= cutoff {
+                    if ts >= cutoff && ts < end {
                         sessions_in_window.push(summary);
                     }
                 }

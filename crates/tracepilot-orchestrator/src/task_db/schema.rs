@@ -1,7 +1,7 @@
 //! SQL schema definitions for the task database.
 
 /// Schema version for migrations.
-pub const SCHEMA_VERSION: i32 = 1;
+pub const SCHEMA_VERSION: i32 = 2;
 
 /// Initial schema DDL.
 pub const SCHEMA_V1: &str = "
@@ -75,4 +75,10 @@ CREATE TRIGGER IF NOT EXISTS trg_tasks_updated_at
 BEGIN
     UPDATE tasks SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = NEW.id;
 END;
+";
+
+/// Migration from schema v1 → v2: add claimed_at and started_at timestamps.
+pub const MIGRATION_V2: &str = "
+ALTER TABLE tasks ADD COLUMN claimed_at TEXT;
+ALTER TABLE tasks ADD COLUMN started_at TEXT;
 ";

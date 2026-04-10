@@ -5,12 +5,15 @@ import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import { isAlreadyIndexingError } from "@/utils/backendErrors";
 import { logError, logWarn } from "@/utils/logger";
-import { useOrchestratorStore } from "./orchestrator";
 import { usePreferencesStore } from "./preferences";
 
 export type SortOption = "updated" | "created" | "oldest" | "events" | "turns";
 
 export const useSessionsStore = defineStore("sessions", () => {
+  /** Fetch sessions, hiding orchestrator sessions by default. */
+  const fetchAllSessions = () =>
+    listSessions({ hideOrchestrator: true });
+
   // Both fetchSessions and refreshSessions share this promise so that a
   // silent background refresh coalesces with any concurrent explicit fetch.
   /** Deduplicate concurrent fetchSessions/refreshSessions calls. */
@@ -60,18 +63,15 @@ export const useSessionsStore = defineStore("sessions", () => {
 
   const filteredSessions = computed(() => {
     const prefs = usePreferencesStore();
-    const orch = useOrchestratorStore();
     const q = searchQuery.value ? searchQuery.value.toLowerCase() : null;
     const repo = filterRepo.value;
     const branch = filterBranch.value;
     const hideEmpty = prefs.hideEmptySessions;
     const cache = searchFieldCache.value;
-    const orchSessionId = orch.sessionUuid;
 
     // Single-pass filter: combine all predicates into one loop
+    // Note: orchestrator sessions are excluded at the backend level via hideOrchestrator
     const result = sessions.value.filter((s) => {
-      // Hide orchestrator sessions from the main session list
-      if (orchSessionId && s.id === orchSessionId) return false;
       if (hideEmpty && (s.turnCount ?? 0) === 0) return false;
 
       if (q) {
@@ -144,7 +144,7 @@ export const useSessionsStore = defineStore("sessions", () => {
     error.value = null;
     fetchPromise = (async () => {
       try {
-        sessions.value = await listSessions();
+        sessions.value = await fetchAllSessions();
       } catch (e) {
         error.value = toErrorMessage(e);
       } finally {
@@ -160,7 +160,7 @@ export const useSessionsStore = defineStore("sessions", () => {
     if (fetchPromise) return fetchPromise;
     fetchPromise = (async () => {
       try {
-        sessions.value = await listSessions();
+        sessions.value = await fetchAllSessions();
         error.value = null;
       } catch (e) {
         logError("[sessions] Silent refresh failed:", e);
@@ -177,7 +177,7 @@ export const useSessionsStore = defineStore("sessions", () => {
       // Deduplicate: wait for the in-flight indexing call
       try {
         await indexingPromise;
-        sessions.value = await listSessions();
+        sessions.value = await fetchAllSessions();
       } catch (e) {
         const msg = toErrorMessage(e);
         if (!isAlreadyIndexingError(msg)) {
@@ -192,7 +192,7 @@ export const useSessionsStore = defineStore("sessions", () => {
     try {
       indexingPromise = reindexSessions();
       await indexingPromise;
-      sessions.value = await listSessions();
+      sessions.value = await fetchAllSessions();
     } catch (e) {
       const msg = toErrorMessage(e);
       if (!isAlreadyIndexingError(msg)) {
@@ -218,7 +218,7 @@ export const useSessionsStore = defineStore("sessions", () => {
         logWarn("[sessions] Background reindex in progress failed", e);
       }
       try {
-        sessions.value = await listSessions();
+        sessions.value = await fetchAllSessions();
       } catch (e) {
         // Silent refresh failed
         logWarn("[sessions] Failed to refresh session list after background reindex", e);
@@ -229,7 +229,7 @@ export const useSessionsStore = defineStore("sessions", () => {
     try {
       indexingPromise = reindexSessions();
       await indexingPromise;
-      sessions.value = await listSessions();
+      sessions.value = await fetchAllSessions();
     } catch (e) {
       // Silent — this is a background optimization, not user-initiated
       logWarn("[sessions] Background ensureIndex failed", e);

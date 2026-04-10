@@ -106,11 +106,17 @@ const orchUptime = computed(() => {
 const orchTaskProgress = computed(() => {
   if (!store.stats) return null;
   const { pending, inProgress, done, failed } = store.stats;
-  // Show progress for current batch: tasks that are pending, active, or recently completed
-  const batchTotal = pending + inProgress + done + failed;
-  if (batchTotal === 0) return null;
-  const completed = done + failed;
-  return { completed, total: batchTotal, pct: Math.round((completed / batchTotal) * 100) };
+  // Only count tasks in the active pipeline (exclude cancelled/expired/dead_letter)
+  const activeTotal = pending + inProgress + done + failed;
+  if (activeTotal === 0) return null;
+  return {
+    done,
+    failed,
+    pending,
+    inProgress,
+    total: activeTotal,
+    pct: Math.round(((done + failed) / activeTotal) * 100),
+  };
 });
 
 function jobProgressPct(job: { tasksCompleted: number; taskCount: number }) {
@@ -320,8 +326,11 @@ function jobProgressColor(status: string) {
             <div class="orch-progress-strip-header">
               <span class="orch-progress-strip-label">Task Progress</span>
               <span class="orch-progress-strip-value">
-                {{ orchTaskProgress.completed }}/{{ orchTaskProgress.total }}
-                ({{ orchTaskProgress.pct }}%)
+                ✓ {{ orchTaskProgress.done }}
+                <template v-if="orchTaskProgress.failed > 0"> · ✗ {{ orchTaskProgress.failed }}</template>
+                <template v-if="orchTaskProgress.inProgress > 0"> · ⟳ {{ orchTaskProgress.inProgress }}</template>
+                <template v-if="orchTaskProgress.pending > 0"> · ◌ {{ orchTaskProgress.pending }}</template>
+                · {{ orchTaskProgress.pct }}%
               </span>
             </div>
             <div class="orch-progress-bar">
