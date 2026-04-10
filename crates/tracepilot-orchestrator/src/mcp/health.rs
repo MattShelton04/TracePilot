@@ -17,6 +17,18 @@ use std::io::{BufRead, BufReader, Write};
 use std::process::Child;
 use std::time::Instant;
 
+/// Sanitize error messages for safe logging.
+///
+/// Removes control characters (except spaces/tabs) to prevent log injection
+/// attacks and truncates to 500 characters to prevent log spam.
+fn sanitize_error_msg(err: &impl std::fmt::Display) -> String {
+    err.to_string()
+        .chars()
+        .filter(|c| !c.is_control() || *c == ' ' || *c == '\t')
+        .take(500)
+        .collect()
+}
+
 /// Kill a child process and reap it to prevent zombie accumulation.
 fn kill_and_reap(child: &mut Child) {
     let _ = child.kill();
@@ -260,7 +272,13 @@ async fn check_http_server(
         .map(|s| s.to_string());
 
     // Try to parse the initialize response body (may be JSON or SSE).
-    let _ = init_resp.text().await;
+    if let Err(e) = init_resp.text().await {
+        tracing::debug!(
+            server = %name,
+            error = %sanitize_error_msg(&e),
+            "[MCP Health] Failed to read initialize response body"
+        );
+    }
 
     // Step 2: Send initialized notification (fire-and-forget).
     let notif = serde_json::json!({
@@ -270,12 +288,19 @@ async fn check_http_server(
 
     let mut notif_headers = base_headers.clone();
     inject_session_id_header(&mut notif_headers, session_id.as_deref());
-    let _ = client
+    if let Err(e) = client
         .post(&url)
         .headers(notif_headers)
         .json(&notif)
         .send()
-        .await;
+        .await
+    {
+        tracing::debug!(
+            server = %name,
+            error = %sanitize_error_msg(&e),
+            "[MCP Health] Failed to send initialized notification"
+        );
+    }
 
     // Step 3: Send tools/list request.
     let tools_req = serde_json::json!({
@@ -295,8 +320,25 @@ async fn check_http_server(
         .send()
         .await
     {
-        Ok(resp) if resp.status().is_success() => parse_tools_from_response(resp).await,
-        _ => vec![],
+        Ok(resp) if resp.status().is_success() => {
+            parse_tools_from_response(resp).await
+        }
+        Ok(resp) => {
+            tracing::warn!(
+                server = %name,
+                status = %resp.status(),
+                "[MCP Health] tools/list request failed"
+            );
+            vec![]
+        }
+        Err(e) => {
+            tracing::warn!(
+                server = %name,
+                error = %sanitize_error_msg(&e),
+                "[MCP Health] tools/list request failed"
+            );
+            vec![]
+        }
     };
 
     let tool_count = tools.len();
@@ -328,7 +370,13 @@ async fn parse_tools_from_response(resp: reqwest::Response) -> Vec<McpTool> {
 
     let body = match resp.text().await {
         Ok(b) => b,
-        Err(_) => return vec![],
+        Err(e) => {
+            tracing::debug!(
+                error = %sanitize_error_msg(&e),
+                "[MCP Health] Failed to read tools/list response body"
+            );
+            return vec![];
+        }
     };
 
     // For SSE responses, extract JSON from `data:` lines.
@@ -347,7 +395,13 @@ async fn parse_tools_from_response(resp: reqwest::Response) -> Vec<McpTool> {
 
     let parsed: serde_json::Value = match serde_json::from_str(&json_text) {
         Ok(v) => v,
-        Err(_) => return vec![],
+        Err(e) => {
+            tracing::debug!(
+                error = %sanitize_error_msg(&e),
+                "[MCP Health] Failed to parse tools/list JSON response"
+            );
+            return vec![];
+        }
     };
 
     extract_tools_from_json(&parsed)
@@ -515,12 +569,16 @@ fn spawn_and_initialize(
     let deadline = Instant::now() + timeout;
     loop {
         if Instant::now() > deadline {
+            tracing::debug!("[MCP Health] Timeout waiting for tools/list response from stdio server");
             break; // Return whatever we have
         }
 
         line.clear();
         match reader.read_line(&mut line) {
-            Ok(0) => break,
+            Ok(0) => {
+                tracing::debug!("[MCP Health] Stdio server closed stdout before sending tools/list response");
+                break;
+            }
             Ok(_) => {
                 if let Ok(resp) = serde_json::from_str::<serde_json::Value>(&line)
                     && resp.get("id").and_then(|v| v.as_u64()) == Some(2)
@@ -531,7 +589,13 @@ fn spawn_and_initialize(
                     return Ok((tools, latency_ms));
                 }
             }
-            Err(_) => break,
+            Err(e) => {
+                tracing::debug!(
+                    error = %sanitize_error_msg(&e),
+                    "[MCP Health] Read error while waiting for tools/list response from stdio server"
+                );
+                break;
+            }
         }
     }
 
