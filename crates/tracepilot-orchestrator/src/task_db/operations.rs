@@ -32,30 +32,46 @@ pub fn create_task_batch(
 ) -> Result<Job> {
     let job_id = uuid::Uuid::new_v4().to_string();
 
-    conn.execute(
-        "INSERT INTO jobs (id, name, preset_id, task_count) VALUES (?1, ?2, ?3, ?4)",
-        params![job_id, job_name, preset_id, tasks.len() as i32],
-    )?;
+    // Wrap in a transaction so partial failures don't leave inconsistent state
+    conn.execute_batch("BEGIN IMMEDIATE")?;
 
-    for task in tasks {
-        let task_id = uuid::Uuid::new_v4().to_string();
-        let priority = task.priority.as_deref().unwrap_or("normal");
-        let max_retries = task.max_retries.unwrap_or(3);
-        let params_json = serde_json::to_string(&task.input_params)?;
-
+    let result = (|| -> Result<()> {
         conn.execute(
-            "INSERT INTO tasks (id, job_id, task_type, preset_id, priority, input_params, max_retries)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-            params![
-                task_id,
-                job_id,
-                task.task_type,
-                task.preset_id,
-                priority,
-                params_json,
-                max_retries
-            ],
+            "INSERT INTO jobs (id, name, preset_id, task_count) VALUES (?1, ?2, ?3, ?4)",
+            params![job_id, job_name, preset_id, tasks.len() as i32],
         )?;
+
+        for task in tasks {
+            let task_id = uuid::Uuid::new_v4().to_string();
+            let priority = task.priority.as_deref().unwrap_or("normal");
+            let max_retries = task.max_retries.unwrap_or(3);
+            let params_json = serde_json::to_string(&task.input_params)?;
+
+            conn.execute(
+                "INSERT INTO tasks (id, job_id, task_type, preset_id, priority, input_params, max_retries)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                params![
+                    task_id,
+                    job_id,
+                    task.task_type,
+                    task.preset_id,
+                    priority,
+                    params_json,
+                    max_retries
+                ],
+            )?;
+        }
+        Ok(())
+    })();
+
+    match result {
+        Ok(()) => {
+            conn.execute_batch("COMMIT")?;
+        }
+        Err(e) => {
+            let _ = conn.execute_batch("ROLLBACK");
+            return Err(e);
+        }
     }
 
     get_job(conn, &job_id)
@@ -296,12 +312,12 @@ pub fn get_pending_tasks_for_manifest(conn: &Connection) -> Result<Vec<Task>> {
     list_tasks(conn, &filter)
 }
 
-/// Release stale in-progress tasks back to pending.
-/// Tasks are considered stale if they've been in_progress for longer than `stale_minutes`.
+/// Release stale in-progress or claimed tasks back to pending.
+/// Tasks are considered stale if they've been in the given state for longer than `stale_minutes`.
 pub fn release_stale_tasks(conn: &Connection, stale_minutes: i64) -> Result<u64> {
     let rows = conn.execute(
         "UPDATE tasks SET status = 'pending'
-         WHERE status = 'in_progress'
+         WHERE status IN ('in_progress', 'claimed')
          AND datetime(updated_at) < datetime('now', ?1)",
         params![format!("-{stale_minutes} minutes")],
     )?;

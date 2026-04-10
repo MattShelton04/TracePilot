@@ -106,6 +106,7 @@ pub struct SessionListItem {
     pub summary: Option<String>,
     pub repository: Option<String>,
     pub branch: Option<String>,
+    pub cwd: Option<String>,
     pub host_type: Option<String>,
     pub created_at: Option<String>,
     pub updated_at: Option<String>,

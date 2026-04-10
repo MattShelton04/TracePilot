@@ -87,10 +87,14 @@ pub fn apply_budget(mut sections: Vec<BudgetSection>, max_chars: usize) -> Budge
             budget_remaining -= section.content.len();
             result.push(section);
         } else {
-            // Truncate at a line boundary
-            let truncated_content = truncate_at_line_boundary(&section.content, budget_remaining);
-            budget_remaining = budget_remaining.saturating_sub(truncated_content.len());
-            section.content = format!("{}\n\n[... truncated ...]", truncated_content);
+            // Truncate at a line boundary, reserving space for the suffix marker
+            let suffix = "\n\n[... truncated ...]";
+            let available = budget_remaining.saturating_sub(suffix.len());
+            let truncated_content = truncate_at_line_boundary(&section.content, available);
+            budget_remaining = budget_remaining
+                .saturating_sub(truncated_content.len())
+                .saturating_sub(suffix.len());
+            section.content = format!("{}{}", truncated_content, suffix);
             truncated = true;
             result.push(section);
         }

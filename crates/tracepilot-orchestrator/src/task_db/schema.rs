@@ -78,7 +78,23 @@ END;
 ";
 
 /// Migration from schema v1 → v2: add claimed_at and started_at timestamps.
-pub const MIGRATION_V2: &str = "
-ALTER TABLE tasks ADD COLUMN claimed_at TEXT;
-ALTER TABLE tasks ADD COLUMN started_at TEXT;
-";
+/// Uses IF NOT EXISTS pattern via subqueries to be idempotent (safe to re-run).
+pub fn migrate_v1_to_v2(conn: &rusqlite::Connection) -> std::result::Result<(), rusqlite::Error> {
+    // Check which columns already exist
+    let has_column = |col: &str| -> bool {
+        let mut stmt = conn
+            .prepare("SELECT COUNT(*) FROM pragma_table_info('tasks') WHERE name = ?1")
+            .unwrap();
+        stmt.query_row(rusqlite::params![col], |row| row.get::<_, i32>(0))
+            .unwrap_or(0)
+            > 0
+    };
+
+    if !has_column("claimed_at") {
+        conn.execute_batch("ALTER TABLE tasks ADD COLUMN claimed_at TEXT;")?;
+    }
+    if !has_column("started_at") {
+        conn.execute_batch("ALTER TABLE tasks ADD COLUMN started_at TEXT;")?;
+    }
+    Ok(())
+}

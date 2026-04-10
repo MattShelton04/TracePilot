@@ -106,11 +106,22 @@ pub async fn list_sessions(
 
         let mut items = Vec::new();
         let should_hide_empty = hide_empty.unwrap_or(false);
+        // Normalize the exclude_cwd prefix for comparison (forward slashes)
+        let exclude_cwd_normalized = exclude_cwd.as_deref().map(|p| p.replace('\\', "/"));
         for session in sessions {
             let item = match load_summary_list_item(&session.path) {
                 Ok(item) => item,
                 Err(_) => continue,
             };
+
+            // Apply CWD exclusion filter (same logic as SQL path in session_reader)
+            if let Some(ref prefix) = exclude_cwd_normalized {
+                if let Some(ref cwd) = item.cwd {
+                    if cwd.replace('\\', "/").starts_with(prefix.as_str()) {
+                        continue;
+                    }
+                }
+            }
 
             if repo
                 .as_ref()

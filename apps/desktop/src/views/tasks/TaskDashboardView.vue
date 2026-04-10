@@ -347,7 +347,7 @@ function jobProgressColor(status: string) {
             <button
               v-if="orchestrator.sessionUuid"
               class="orch-monitor-link"
-              @click="router.push(`/sessions/${orchestrator.sessionUuid}`)"
+              @click="router.push(`/session/${orchestrator.sessionUuid}/overview`)"
             >
               View Session →
             </button>

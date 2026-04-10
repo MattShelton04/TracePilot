@@ -2,11 +2,12 @@
 import type { PromptVariable, SessionListItem, TaskPreset } from "@tracepilot/types";
 import { ErrorState, LoadingSpinner, SectionPanel, useToast } from "@tracepilot/ui";
 import { computed, onMounted, reactive, ref } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { usePresetsStore } from "@/stores/presets";
 import { useSessionsStore } from "@/stores/sessions";
 import { useTasksStore } from "@/stores/tasks";
 
+const route = useRoute();
 const router = useRouter();
 const presetsStore = usePresetsStore();
 const tasksStore = useTasksStore();
@@ -219,15 +220,17 @@ function handleSessionSearch(variableName: string, query: string) {
     sessionSearchResults[variableName] = [];
     return;
   }
-  // Use local session list from sessions store (instant, no IPC)
-  const q = query.toLowerCase();
-  sessionSearchResults[variableName] = sessionsStore.sessions
-    .filter(
-      (s) =>
-        (s.summary ?? "").toLowerCase().includes(q) ||
-        s.id.toLowerCase().includes(q),
-    )
-    .slice(0, 20);
+  // Debounce: wait 150ms before filtering to avoid per-keystroke work
+  sessionSearchTimer = setTimeout(() => {
+    const q = query.toLowerCase();
+    sessionSearchResults[variableName] = sessionsStore.sessions
+      .filter(
+        (s) =>
+          (s.summary ?? "").toLowerCase().includes(q) ||
+          s.id.toLowerCase().includes(q),
+      )
+      .slice(0, 20);
+  }, 150);
 }
 
 function selectSession(variableName: string, session: SessionListItem) {
@@ -237,10 +240,16 @@ function selectSession(variableName: string, session: SessionListItem) {
 }
 
 // ── Lifecycle ─────────────────────────────────────────────────────────
-onMounted(() => {
-  presetsStore.loadPresets();
+onMounted(async () => {
+  await presetsStore.loadPresets();
   // Pre-load sessions so the session picker can use local data instantly
   if (sessionsStore.sessions.length === 0) sessionsStore.fetchSessions();
+  // Auto-select preset if presetId is in query params
+  const presetId = route.query.presetId as string | undefined;
+  if (presetId) {
+    const match = presetsStore.enabledPresets.find((p) => p.id === presetId);
+    if (match) selectPreset(match);
+  }
 });
 </script>
 

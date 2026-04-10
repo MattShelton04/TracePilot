@@ -34,7 +34,9 @@ export const useOrchestratorStore = defineStore("orchestrator", () => {
   const lastIngestedCount = ref(0);
   const models = ref<ModelInfo[]>([]);
   const selectedModel = ref(DEFAULT_MODEL);
+  const configModelLoaded = ref(false);
   let pollTimer: ReturnType<typeof setInterval> | null = null;
+  let pollInFlight = false;
 
   // ─── Computed ─────────────────────────────────────────────────────
 
@@ -90,10 +92,23 @@ export const useOrchestratorStore = defineStore("orchestrator", () => {
     }
   }
 
-  /** Load available models from the backend. */
+  /** Load available models from the backend and set initial model from config. */
   async function loadModels() {
     try {
       models.value = await getAvailableModels();
+      // Load configured model preference from backend config (only once)
+      if (!configModelLoaded.value) {
+        try {
+          const { getConfig } = await import("@tracepilot/client");
+          const cfg = await getConfig();
+          if (cfg.tasks?.orchestratorModel) {
+            selectedModel.value = cfg.tasks.orchestratorModel;
+          }
+          configModelLoaded.value = true;
+        } catch {
+          // Config read failed — keep default
+        }
+      }
     } catch (e) {
       logWarn("[orchestrator] Failed to load models:", e);
     }
@@ -122,13 +137,19 @@ export const useOrchestratorStore = defineStore("orchestrator", () => {
     }
   }
 
-  /** Single poll cycle: check health + attribution + ingest results. */
+  /** Single poll cycle: check health + attribution + ingest results.
+   *  Uses a single-flight guard to prevent overlapping polls. */
   async function pollCycle() {
-    await checkHealth();
-    // Only do attribution + ingestion when running (saves IPC calls when idle)
-    if (isRunning.value) {
-      await refreshAttribution();
-      await ingestResults();
+    if (pollInFlight) return;
+    pollInFlight = true;
+    try {
+      await checkHealth();
+      if (isRunning.value) {
+        await refreshAttribution();
+        await ingestResults();
+      }
+    } finally {
+      pollInFlight = false;
     }
   }
 

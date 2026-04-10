@@ -170,6 +170,7 @@ pub fn launch_orchestrator(
         tracing::warn!(error = %e, "Failed to write initial heartbeat file");
     } else if let Err(e) = std::fs::rename(&tmp_heartbeat, &heartbeat_path) {
         tracing::warn!(error = %e, "Failed to rename initial heartbeat file");
+        let _ = std::fs::remove_file(&tmp_heartbeat);
     }
 
     // 5. Launch via spawn_detached_terminal (reuse existing launcher infra)
@@ -183,11 +184,19 @@ pub fn launch_orchestrator(
         ));
     }
 
+    // Validate orchestrator_model against injection (same rules as cli_command)
+    let model = &config.orchestrator_model;
+    if !model
+        .chars()
+        .all(|c| c.is_alphanumeric() || "-_.".contains(c))
+    {
+        return Err(OrchestratorError::Launch(
+            "Orchestrator model contains invalid characters".into(),
+        ));
+    }
+
     // Build the copilot command with model + auto-approve + prompt
-    let copilot_cmd = format!(
-        "{} --model {} --allow-all",
-        cli, config.orchestrator_model
-    );
+    let copilot_cmd = format!("{} --model {} --allow-all", cli, model);
 
     // Build a short bootstrap prompt that tells copilot to read the full instructions
     // from the file. This avoids all shell escaping issues with the long prompt.

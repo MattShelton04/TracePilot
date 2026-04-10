@@ -13,6 +13,8 @@ pub struct IngestResult {
     pub status: TaskStatus,
     pub ingested: bool,
     pub error: Option<String>,
+    pub result_summary: Option<String>,
+    pub result_parsed: Option<serde_json::Value>,
 }
 
 /// Scan the jobs directory for completed tasks and build `TaskResult` values
@@ -36,6 +38,8 @@ pub fn scan_completed_tasks(
                     status: TaskStatus::Failed,
                     ingested: false,
                     error: Some(format!("Failed to read status.json: {}", e)),
+                    result_summary: None,
+                    result_parsed: None,
                 });
                 continue;
             }
@@ -61,20 +65,9 @@ pub fn scan_completed_tasks(
             status: task_status,
             ingested: true,
             error: status_file.error_message.clone(),
+            result_summary: result_file.as_ref().and_then(|rf| rf.summary.clone()),
+            result_parsed: result_file.as_ref().map(|rf| rf.result.clone()),
         });
-
-        // Build TaskResult for DB storage if we have result data
-        if let Some(rf) = &result_file {
-            let _task_result = TaskResult {
-                task_id: task_id.clone(),
-                status: task_status,
-                result_summary: rf.summary.clone(),
-                result_parsed: Some(rf.result.clone()),
-                schema_valid: true, // TODO: validate against preset schema
-                error_message: status_file.error_message,
-            };
-            // Caller is responsible for storing via task_db::operations::store_task_result
-        }
     }
 
     results
@@ -101,6 +94,8 @@ pub fn ingest_results(
                     status: TaskStatus::Failed,
                     ingested: false,
                     error: Some(format!("Failed to read status.json: {}", e)),
+                    result_summary: None,
+                    result_parsed: None,
                 });
                 continue;
             }
@@ -131,6 +126,8 @@ pub fn ingest_results(
                     status: task_status,
                     ingested: true,
                     error: None,
+                    result_summary: task_result.result_summary.clone(),
+                    result_parsed: task_result.result_parsed.clone(),
                 });
             }
             Err(e) => {
@@ -140,6 +137,8 @@ pub fn ingest_results(
                     status: task_status,
                     ingested: false,
                     error: Some(format!("DB store failed: {}", e)),
+                    result_summary: None,
+                    result_parsed: None,
                 });
             }
         }

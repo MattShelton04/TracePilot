@@ -439,6 +439,25 @@ pub async fn task_orchestrator_start(
             jobs_dir,
         };
 
+        // Mark all claimed tasks as in_progress BEFORE launching the orchestrator
+        // so the process sees correct status from the start.
+        {
+            let db_guard = db
+                .lock()
+                .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
+            if let Some(task_db) = db_guard.as_ref() {
+                for task in &pending_tasks {
+                    if let Err(e) = tracepilot_orchestrator::task_db::operations::update_task_status(
+                        task_db.conn(),
+                        &task.id,
+                        tracepilot_orchestrator::task_db::types::TaskStatus::InProgress,
+                    ) {
+                        tracing::warn!(task_id = %task.id, error = %e, "Failed to mark task in_progress");
+                    }
+                }
+            }
+        }
+
         let handle =
             tracepilot_orchestrator::task_orchestrator::launch_orchestrator(
                 &pending_tasks,
@@ -454,22 +473,6 @@ pub async fn task_orchestrator_start(
             .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
         *guard = Some(handle.clone());
         drop(guard);
-
-        // Mark all claimed tasks as in_progress in the DB
-        let db_guard = db
-            .lock()
-            .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
-        if let Some(task_db) = db_guard.as_ref() {
-            for task in &pending_tasks {
-                if let Err(e) = tracepilot_orchestrator::task_db::operations::update_task_status(
-                    task_db.conn(),
-                    &task.id,
-                    tracepilot_orchestrator::task_db::types::TaskStatus::InProgress,
-                ) {
-                    tracing::warn!(task_id = %task.id, error = %e, "Failed to mark task in_progress");
-                }
-            }
-        }
 
         Ok(handle)
     })
@@ -496,9 +499,49 @@ pub async fn task_orchestrator_stop(
         )
         .map_err(BindingsError::Orchestrator)?;
 
+        // Wait briefly for the process to observe the shutdown flag and exit,
+        // preventing a quick re-start from racing with the old process.
+        let pid = handle.pid;
+        for _ in 0..10 {
+            if !is_process_alive(pid) {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(300));
+        }
+
         Ok(())
     })
     .await?
+}
+
+/// Check if a process with the given PID is still alive (portable, no extra deps).
+fn is_process_alive(pid: u32) -> bool {
+    #[cfg(windows)]
+    {
+        // Use tasklist to check if the PID exists
+        std::process::Command::new("tasklist")
+            .args(["/NH", "/FI", &format!("PID eq {pid}")])
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::null())
+            .output()
+            .map(|o| {
+                let out = String::from_utf8_lossy(&o.stdout);
+                // tasklist returns "INFO: No tasks..." when PID doesn't exist
+                !out.contains("No tasks") && out.contains(&pid.to_string())
+            })
+            .unwrap_or(false)
+    }
+    #[cfg(unix)]
+    {
+        // signal 0 checks process existence without killing it
+        std::process::Command::new("kill")
+            .args(["-0", &pid.to_string()])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false)
+    }
 }
 
 // ─── Ingestion ──────────────────────────────────────────────────────
@@ -515,6 +558,54 @@ pub async fn task_ingest_results(
     let db = get_or_init_task_db(&task_db)?;
 
     tokio::task::spawn_blocking(move || {
+        // Phase 1: Quick lock to collect task IDs
+        let task_ids = {
+            let db_guard = db
+                .lock()
+                .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
+            let task_db = db_guard
+                .as_ref()
+                .ok_or_else(|| BindingsError::Validation("TaskDb not init".into()))?;
+
+            let pending_filter = tracepilot_orchestrator::task_db::types::TaskFilter {
+                status: Some(tracepilot_orchestrator::task_db::types::TaskStatus::Pending),
+                ..Default::default()
+            };
+            let in_progress_filter = tracepilot_orchestrator::task_db::types::TaskFilter {
+                status: Some(tracepilot_orchestrator::task_db::types::TaskStatus::InProgress),
+                ..Default::default()
+            };
+
+            let mut ids: Vec<String> = Vec::new();
+            if let Ok(tasks) = tracepilot_orchestrator::task_db::operations::list_tasks(
+                task_db.conn(),
+                &pending_filter,
+            ) {
+                ids.extend(tasks.into_iter().map(|t| t.id));
+            }
+            if let Ok(tasks) = tracepilot_orchestrator::task_db::operations::list_tasks(
+                task_db.conn(),
+                &in_progress_filter,
+            ) {
+                ids.extend(tasks.into_iter().map(|t| t.id));
+            }
+            ids
+        }; // db_guard dropped — DB is free for other operations
+
+        if task_ids.is_empty() {
+            return Ok(0);
+        }
+
+        // Phase 2: File I/O without holding the DB lock
+        let scan_results =
+            tracepilot_orchestrator::task_ipc::scan_completed_tasks(&jobs_dir, &task_ids);
+
+        let actionable: Vec<_> = scan_results.into_iter().filter(|r| r.ingested).collect();
+        if actionable.is_empty() {
+            return Ok(0);
+        }
+
+        // Phase 3: Re-acquire lock for DB writes only
         let db_guard = db
             .lock()
             .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
@@ -522,42 +613,29 @@ pub async fn task_ingest_results(
             .as_ref()
             .ok_or_else(|| BindingsError::Validation("TaskDb not init".into()))?;
 
-        // Get all non-terminal tasks (pending + in_progress) — these are candidates for ingestion
-        let pending_filter = tracepilot_orchestrator::task_db::types::TaskFilter {
-            status: Some(tracepilot_orchestrator::task_db::types::TaskStatus::Pending),
-            ..Default::default()
-        };
-        let in_progress_filter = tracepilot_orchestrator::task_db::types::TaskFilter {
-            status: Some(tracepilot_orchestrator::task_db::types::TaskStatus::InProgress),
-            ..Default::default()
-        };
-
-        let mut task_ids: Vec<String> = Vec::new();
-        if let Ok(tasks) = tracepilot_orchestrator::task_db::operations::list_tasks(
-            task_db.conn(),
-            &pending_filter,
-        ) {
-            task_ids.extend(tasks.into_iter().map(|t| t.id));
-        }
-        if let Ok(tasks) = tracepilot_orchestrator::task_db::operations::list_tasks(
-            task_db.conn(),
-            &in_progress_filter,
-        ) {
-            task_ids.extend(tasks.into_iter().map(|t| t.id));
-        }
-
-        if task_ids.is_empty() {
-            return Ok(0);
+        let mut ingested_count = 0u32;
+        for result in &actionable {
+            let task_result = tracepilot_orchestrator::task_db::types::TaskResult {
+                task_id: result.task_id.clone(),
+                status: result.status,
+                result_summary: result.result_summary.clone(),
+                result_parsed: result.result_parsed.clone(),
+                schema_valid: true,
+                error_message: result.error.clone(),
+            };
+            match tracepilot_orchestrator::task_db::operations::store_task_result(
+                task_db.conn(),
+                &task_result,
+            ) {
+                Ok(()) => {
+                    ingested_count += 1;
+                }
+                Err(e) => {
+                    tracing::error!(task_id = %result.task_id, error = %e, "Failed to store task result");
+                }
+            }
         }
 
-        let results = tracepilot_orchestrator::task_ipc::ingest_results(
-            task_db.conn(),
-            &jobs_dir,
-            &task_ids,
-        )
-        .map_err(BindingsError::Orchestrator)?;
-
-        let ingested_count = results.iter().filter(|r| r.ingested).count() as u32;
         Ok(ingested_count)
     })
     .await?
@@ -567,11 +645,28 @@ pub async fn task_ingest_results(
 
 #[tauri::command]
 pub async fn task_attribution(
+    config: tauri::State<'_, SharedConfig>,
     session_path: String,
 ) -> CmdResult<tracepilot_orchestrator::task_attribution::AttributionSnapshot> {
-    let path = std::path::PathBuf::from(session_path);
+    // Validate that the path is within the session state directory to prevent
+    // arbitrary file system reads via path traversal.
+    let cfg = read_config(&config);
+    let session_state_dir = cfg.session_state_dir();
+    let path = std::path::PathBuf::from(&session_path);
+    let canonical_path = path
+        .canonicalize()
+        .map_err(|e| BindingsError::Validation(format!("Invalid session path: {e}")))?;
+    let canonical_state = session_state_dir
+        .canonicalize()
+        .unwrap_or_else(|_| session_state_dir.clone());
+    if !canonical_path.starts_with(&canonical_state) {
+        return Err(BindingsError::Validation(
+            "Session path must be within the session state directory".into(),
+        ));
+    }
+
     tokio::task::spawn_blocking(move || {
-        tracepilot_orchestrator::task_attribution::build_attribution_from_session(&path)
+        tracepilot_orchestrator::task_attribution::build_attribution_from_session(&canonical_path)
             .map_err(BindingsError::Orchestrator)
     })
     .await?

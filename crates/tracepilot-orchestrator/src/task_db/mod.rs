@@ -84,8 +84,7 @@ impl TaskDb {
         if current_version < schema::SCHEMA_VERSION {
             if current_version == 0 {
                 conn.execute_batch(schema::SCHEMA_V1)?;
-                // Also apply v2 columns on fresh DBs
-                conn.execute_batch(schema::MIGRATION_V2)?;
+                schema::migrate_v1_to_v2(conn)?;
                 conn.execute(
                     "INSERT OR REPLACE INTO task_meta (key, value) VALUES ('schema_version', ?1)",
                     rusqlite::params![schema::SCHEMA_VERSION.to_string()],
@@ -96,7 +95,7 @@ impl TaskDb {
                 );
             }
             if current_version >= 1 && current_version < 2 {
-                conn.execute_batch(schema::MIGRATION_V2)?;
+                schema::migrate_v1_to_v2(conn)?;
                 conn.execute(
                     "INSERT OR REPLACE INTO task_meta (key, value) VALUES ('schema_version', '2')",
                     [],
