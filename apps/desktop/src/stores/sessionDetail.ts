@@ -677,10 +677,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
               if (freshness.eventsFileSize === lastEventsFileSize) return;
             } catch (e) {
               // Freshness check failed — fall through to full fetch
-              logWarn("[sessionDetail] Freshness check failed, proceeding with full fetch", {
-                sessionId: id,
-                error: e,
-              });
+              logWarn("[sessionDetail] Freshness check failed, proceeding with full fetch", { sessionId: id }, e);
             }
 
             const result = await getSessionTurns(id);
@@ -732,7 +729,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       setSessionCache(id, buildPrefetchedCachedSession(detailResult, turnsResult));
     } catch (e) {
       // Silent — prefetch is best-effort optimization
-      logWarn("[sessionDetail] Prefetch failed (best-effort)", { sessionId: id, error: e });
+      logWarn("[sessionDetail] Prefetch failed (best-effort)", { sessionId: id }, e);
     }
   }
 

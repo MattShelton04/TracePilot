@@ -37,10 +37,7 @@ export function useSearchClipboard() {
       await navigator.clipboard.writeText(text);
       return true;
     } catch (e) {
-      logWarn("[useSearchClipboard] Failed to copy results to clipboard", {
-        count: items.length,
-        error: e,
-      });
+      logWarn("[useSearchClipboard] Failed to copy results to clipboard", { count: items.length }, e);
       return false;
     }
   }
@@ -61,10 +58,7 @@ export function useSearchClipboard() {
       await navigator.clipboard.writeText(parts.join("\n"));
       return true;
     } catch (e) {
-      logWarn("[useSearchClipboard] Failed to copy single result to clipboard", {
-        sessionId: result.sessionId,
-        error: e,
-      });
+      logWarn("[useSearchClipboard] Failed to copy single result to clipboard", { sessionId: result.sessionId }, e);
       return false;
     }
   }
