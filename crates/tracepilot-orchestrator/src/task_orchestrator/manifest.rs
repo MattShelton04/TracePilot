@@ -33,6 +33,44 @@ pub struct ManifestTask {
     pub priority: String,
 }
 
+impl ManifestTask {
+    /// Build a `ManifestTask` from a database [`Task`], its resolved model,
+    /// and the jobs directory root.
+    ///
+    /// This is the single source of truth for mapping a `Task` into the
+    /// manifest representation the orchestrator reads.  All hot-add, retry,
+    /// and initial-manifest code paths should use this constructor to avoid
+    /// divergence.
+    pub fn from_task(task: &Task, model: &str, jobs_dir: &Path) -> Self {
+        let task_dir = jobs_dir.join(&task.id);
+        let title = task
+            .input_params
+            .get("title")
+            .and_then(|v| v.as_str())
+            .unwrap_or(&task.task_type)
+            .to_string();
+        Self {
+            id: task.id.clone(),
+            task_type: task.task_type.clone(),
+            title,
+            context_file: task_dir
+                .join("context.md")
+                .to_string_lossy()
+                .to_string(),
+            result_file: task_dir
+                .join("result.json")
+                .to_string_lossy()
+                .to_string(),
+            status_file: task_dir
+                .join("status.json")
+                .to_string_lossy()
+                .to_string(),
+            model: model.to_string(),
+            priority: task.priority.clone(),
+        }
+    }
+}
+
 /// Input for manifest generation: a task paired with its resolved model.
 pub struct ManifestInput<'a> {
     pub task: &'a Task,
@@ -51,35 +89,7 @@ pub fn generate_manifest(
 ) -> TaskManifest {
     let tasks = inputs
         .iter()
-        .map(|input| {
-            let task = input.task;
-            let task_dir = jobs_dir.join(&task.id);
-            let title = task
-                .input_params
-                .get("title")
-                .and_then(|v| v.as_str())
-                .unwrap_or(&task.task_type)
-                .to_string();
-            ManifestTask {
-                id: task.id.clone(),
-                task_type: task.task_type.clone(),
-                title,
-                context_file: task_dir
-                    .join("context.md")
-                    .to_string_lossy()
-                    .to_string(),
-                result_file: task_dir
-                    .join("result.json")
-                    .to_string_lossy()
-                    .to_string(),
-                status_file: task_dir
-                    .join("status.json")
-                    .to_string_lossy()
-                    .to_string(),
-                model: input.model.clone(),
-                priority: task.priority.clone(),
-            }
-        })
+        .map(|input| ManifestTask::from_task(input.task, &input.model, jobs_dir))
         .collect();
 
     TaskManifest {
@@ -157,6 +167,67 @@ mod tests {
             claimed_at: None,
             started_at: None,
         }
+    }
+
+    #[test]
+    fn from_task_populates_all_fields() {
+        let dir = TempDir::new().unwrap();
+        let task = sample_task("task-abc", "high");
+        let mt = ManifestTask::from_task(&task, "claude-haiku-4.5", dir.path());
+
+        assert_eq!(mt.id, "task-abc");
+        assert_eq!(mt.task_type, "session_summary");
+        assert_eq!(mt.title, "Task task-abc");
+        assert_eq!(mt.model, "claude-haiku-4.5");
+        assert_eq!(mt.priority, "high");
+        assert!(mt.context_file.contains("task-abc"));
+        assert!(mt.context_file.ends_with("context.md"));
+        assert!(mt.result_file.contains("task-abc"));
+        assert!(mt.result_file.ends_with("result.json"));
+        assert!(mt.status_file.contains("task-abc"));
+        assert!(mt.status_file.ends_with("status.json"));
+    }
+
+    #[test]
+    fn from_task_title_falls_back_to_task_type() {
+        let dir = TempDir::new().unwrap();
+        let mut task = sample_task("task-no-title", "normal");
+        task.input_params = serde_json::json!({ "foo": "bar" });
+
+        let mt = ManifestTask::from_task(&task, "gpt-5.4", dir.path());
+        assert_eq!(mt.title, "session_summary", "should fall back to task_type");
+    }
+
+    #[test]
+    fn from_task_title_falls_back_when_title_is_not_string() {
+        let dir = TempDir::new().unwrap();
+        let mut task = sample_task("task-numeric-title", "normal");
+        task.input_params = serde_json::json!({ "title": 42 });
+
+        let mt = ManifestTask::from_task(&task, "gpt-5.4", dir.path());
+        assert_eq!(mt.title, "session_summary", "non-string title falls back to task_type");
+    }
+
+    #[test]
+    fn from_task_matches_generate_manifest_output() {
+        let dir = TempDir::new().unwrap();
+        let task = sample_task("task-cross", "normal");
+        let inputs = vec![ManifestInput {
+            task: &task,
+            model: "claude-haiku-4.5".to_string(),
+        }];
+        let manifest = generate_manifest(&inputs, dir.path(), 30, 3);
+        let from_task = ManifestTask::from_task(&task, "claude-haiku-4.5", dir.path());
+
+        let generated = &manifest.tasks[0];
+        assert_eq!(generated.id, from_task.id);
+        assert_eq!(generated.task_type, from_task.task_type);
+        assert_eq!(generated.title, from_task.title);
+        assert_eq!(generated.context_file, from_task.context_file);
+        assert_eq!(generated.result_file, from_task.result_file);
+        assert_eq!(generated.status_file, from_task.status_file);
+        assert_eq!(generated.model, from_task.model);
+        assert_eq!(generated.priority, from_task.priority);
     }
 
     #[test]
