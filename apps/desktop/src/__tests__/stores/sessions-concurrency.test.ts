@@ -1,7 +1,7 @@
+import type { SessionListItem } from "@tracepilot/types";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useSessionsStore } from "../../stores/sessions";
-import type { SessionListItem } from "@tracepilot/types";
 import { createDeferred } from "../helpers/deferred";
 
 const mockListSessions = vi.fn();

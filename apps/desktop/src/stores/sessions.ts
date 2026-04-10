@@ -11,8 +11,7 @@ export type SortOption = "updated" | "created" | "oldest" | "events" | "turns";
 
 export const useSessionsStore = defineStore("sessions", () => {
   /** Fetch sessions, hiding orchestrator sessions by default. */
-  const fetchAllSessions = () =>
-    listSessions({ hideOrchestrator: true });
+  const fetchAllSessions = () => listSessions({ hideOrchestrator: true });
 
   // Both fetchSessions and refreshSessions share this promise so that a
   // silent background refresh coalesces with any concurrent explicit fetch.
