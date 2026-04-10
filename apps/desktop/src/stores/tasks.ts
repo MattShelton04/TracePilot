@@ -135,10 +135,12 @@ export const useTasksStore = defineStore("tasks", () => {
         tasks.value = taskResult;
         stats.value = statsResult;
         jobs.value = jobsResult;
+        error.value = null;
       } catch (e) {
         logWarn("[tasks] Silent refresh failed:", e);
       } finally {
         refreshTasksPromise = null;
+        if (loadGuard.isValid(token)) loading.value = false;
       }
     })();
     return refreshTasksPromise;
