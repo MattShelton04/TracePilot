@@ -66,7 +66,9 @@ pub fn check_orchestrator_health(
                 health: OrchestratorHealth::Healthy,
                 heartbeat_age_secs: Some(age),
                 last_cycle: heartbeat.as_ref().map(|h| h.cycle),
-                active_tasks: heartbeat.map(|h| h.active_tasks).unwrap_or_default(),
+                active_tasks: heartbeat
+                    .map(|h| h.active_tasks)
+                    .unwrap_or_default(),
                 needs_restart: false,
                 session_uuid: None,
                 session_path: None,
@@ -94,15 +96,19 @@ pub fn check_orchestrator_health(
 
     // Check heartbeat freshness
     match heartbeat_age {
-        Some(age) if age < timeout => HealthCheckResult {
-            health: OrchestratorHealth::Healthy,
-            heartbeat_age_secs: Some(age),
-            last_cycle: heartbeat.as_ref().map(|h| h.cycle),
-            active_tasks: heartbeat.map(|h| h.active_tasks).unwrap_or_default(),
-            needs_restart: false,
-            session_uuid: None,
-            session_path: None,
-        },
+        Some(age) if age < timeout => {
+            HealthCheckResult {
+                health: OrchestratorHealth::Healthy,
+                heartbeat_age_secs: Some(age),
+                last_cycle: heartbeat.as_ref().map(|h| h.cycle),
+                active_tasks: heartbeat
+                    .map(|h| h.active_tasks)
+                    .unwrap_or_default(),
+                needs_restart: false,
+                session_uuid: None,
+                session_path: None,
+            }
+        }
         Some(age) => {
             // Heartbeat exists but is stale
             HealthCheckResult {
@@ -135,7 +141,10 @@ pub fn check_orchestrator_health(
 /// Decision factors:
 /// 1. Heartbeat is stale (> timeout)
 /// 2. There are still pending tasks in the DB
-pub fn should_restart(health: &HealthCheckResult, has_pending_tasks: bool) -> bool {
+pub fn should_restart(
+    health: &HealthCheckResult,
+    has_pending_tasks: bool,
+) -> bool {
     health.needs_restart && has_pending_tasks
 }
 

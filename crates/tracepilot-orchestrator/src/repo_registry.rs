@@ -25,8 +25,9 @@ struct RegistryFile {
 
 /// Get the path to the registry JSON file.
 fn registry_path() -> Result<PathBuf> {
-    let home = tracepilot_core::utils::home_dir_opt()
-        .ok_or_else(|| OrchestratorError::Registry("Cannot determine home directory".into()))?;
+    let home = tracepilot_core::utils::home_dir_opt().ok_or_else(|| {
+        OrchestratorError::Registry("Cannot determine home directory".into())
+    })?;
     let dir = home.join(".copilot").join("tracepilot");
     Ok(dir.join("repo-registry.json"))
 }
@@ -253,8 +254,14 @@ mod tests {
     fn test_normalize_path() {
         #[cfg(windows)]
         {
-            assert_eq!(normalize_path("C:\\Git\\MyRepo\\"), "c:/git/myrepo");
-            assert_eq!(normalize_path("C:\\Git\\MyRepo"), "c:/git/myrepo");
+            assert_eq!(
+                normalize_path("C:\\Git\\MyRepo\\"),
+                "c:/git/myrepo"
+            );
+            assert_eq!(
+                normalize_path("C:\\Git\\MyRepo"),
+                "c:/git/myrepo"
+            );
         }
         #[cfg(not(windows))]
         {

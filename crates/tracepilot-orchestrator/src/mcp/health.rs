@@ -320,7 +320,9 @@ async fn check_http_server(
         .send()
         .await
     {
-        Ok(resp) if resp.status().is_success() => parse_tools_from_response(resp).await,
+        Ok(resp) if resp.status().is_success() => {
+            parse_tools_from_response(resp).await
+        }
         Ok(resp) => {
             tracing::warn!(
                 server = %name,
@@ -567,18 +569,14 @@ fn spawn_and_initialize(
     let deadline = Instant::now() + timeout;
     loop {
         if Instant::now() > deadline {
-            tracing::debug!(
-                "[MCP Health] Timeout waiting for tools/list response from stdio server"
-            );
+            tracing::debug!("[MCP Health] Timeout waiting for tools/list response from stdio server");
             break; // Return whatever we have
         }
 
         line.clear();
         match reader.read_line(&mut line) {
             Ok(0) => {
-                tracing::debug!(
-                    "[MCP Health] Stdio server closed stdout before sending tools/list response"
-                );
+                tracing::debug!("[MCP Health] Stdio server closed stdout before sending tools/list response");
                 break;
             }
             Ok(_) => {

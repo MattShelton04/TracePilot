@@ -95,8 +95,9 @@ pub fn assemble_task_context(
 
     // 4. Output schema section (Required priority)
     if !preset.output.schema.is_null() {
-        let schema_text: String = serde_json::to_string_pretty(&preset.output.schema)
-            .unwrap_or_else(|_| preset.output.schema.to_string());
+        let schema_text: String =
+            serde_json::to_string_pretty(&preset.output.schema)
+                .unwrap_or_else(|_| preset.output.schema.to_string());
         sections.push(BudgetSection {
             label: "Output Schema".to_string(),
             content: schema_text,
@@ -108,7 +109,11 @@ pub fn assemble_task_context(
     let budget_result = budget::apply_budget(sections, max_chars);
 
     // 6. Render final markdown
-    let content = render_context_markdown(&budget_result.sections, &preset.id, result_file_path);
+    let content = render_context_markdown(
+        &budget_result.sections,
+        &preset.id,
+        result_file_path,
+    );
 
     // 7. Compute hash
     let mut hasher = Sha256::new();

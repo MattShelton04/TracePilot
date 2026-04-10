@@ -6,8 +6,8 @@
 //! does not overwrite existing files.
 
 use crate::error::Result;
-use serde::Serialize;
 use serde::de::DeserializeOwned;
+use serde::Serialize;
 use std::path::Path;
 
 /// Atomically write a JSON value to disk.

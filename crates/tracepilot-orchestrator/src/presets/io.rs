@@ -27,8 +27,12 @@ pub fn presets_dir() -> Result<PathBuf> {
 
 /// Validate a preset ID to prevent path traversal.
 fn validate_preset_id(id: &str) -> Result<()> {
-    crate::validation::validate_identifier(id, crate::validation::TEMPLATE_ID_RULES, "Preset ID")
-        .map_err(OrchestratorError::Preset)
+    crate::validation::validate_identifier(
+        id,
+        crate::validation::TEMPLATE_ID_RULES,
+        "Preset ID",
+    )
+    .map_err(OrchestratorError::Preset)
 }
 
 /// Path to a preset file.
@@ -85,8 +89,9 @@ pub fn list_presets(dir: &Path) -> Result<Vec<TaskPreset>> {
 pub fn get_preset(dir: &Path, id: &str) -> Result<TaskPreset> {
     validate_preset_id(id)?;
     let path = preset_path(dir, id);
-    json_io::atomic_json_read_opt::<TaskPreset>(&path)?
-        .ok_or_else(|| OrchestratorError::NotFound(format!("Preset not found: {id}")))
+    json_io::atomic_json_read_opt::<TaskPreset>(&path)?.ok_or_else(|| {
+        OrchestratorError::NotFound(format!("Preset not found: {id}"))
+    })
 }
 
 /// Save (create or update) a preset.

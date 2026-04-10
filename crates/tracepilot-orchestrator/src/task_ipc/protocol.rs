@@ -56,8 +56,9 @@ pub(crate) fn validate_task_id(task_id: &str) -> crate::error::Result<()> {
         let upper = task_id.to_uppercase();
         let stem = upper.split('.').next().unwrap_or(&upper);
         const RESERVED: &[&str] = &[
-            "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7",
-            "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+            "CON", "PRN", "AUX", "NUL",
+            "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+            "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
         ];
         if RESERVED.contains(&stem) {
             return Err(crate::error::OrchestratorError::Task(format!(
@@ -104,22 +105,29 @@ pub fn read_status_file(
 }
 
 /// Read the heartbeat.json file if it exists.
-pub fn read_heartbeat(jobs_dir: &std::path::Path) -> crate::error::Result<Option<HeartbeatFile>> {
+pub fn read_heartbeat(
+    jobs_dir: &std::path::Path,
+) -> crate::error::Result<Option<HeartbeatFile>> {
     let path = jobs_dir.join("heartbeat.json");
     crate::json_io::atomic_json_read_opt(&path)
 }
 
 /// Check if a heartbeat is fresh (written within `max_age_secs` seconds).
-pub fn is_heartbeat_fresh(jobs_dir: &std::path::Path, max_age_secs: u64) -> bool {
+pub fn is_heartbeat_fresh(
+    jobs_dir: &std::path::Path,
+    max_age_secs: u64,
+) -> bool {
     let path = jobs_dir.join("heartbeat.json");
     match std::fs::metadata(&path) {
-        Ok(meta) => match meta.modified() {
-            Ok(modified) => {
-                let age = modified.elapsed().unwrap_or_default();
-                age.as_secs() < max_age_secs
+        Ok(meta) => {
+            match meta.modified() {
+                Ok(modified) => {
+                    let age = modified.elapsed().unwrap_or_default();
+                    age.as_secs() < max_age_secs
+                }
+                Err(_) => false,
             }
-            Err(_) => false,
-        },
+        }
         Err(_) => false,
     }
 }

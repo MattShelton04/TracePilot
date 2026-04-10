@@ -69,7 +69,9 @@ pub fn build_attribution(events: &[TypedEvent]) -> AttributionSnapshot {
     for event in events {
         if let TypedEventData::ToolExecutionStart(ref data) = event.typed_data {
             if data.tool_name.as_deref() == Some("task") {
-                if let (Some(call_id), Some(args)) = (&data.tool_call_id, &data.arguments) {
+                if let (Some(call_id), Some(args)) =
+                    (&data.tool_call_id, &data.arguments)
+                {
                     if let Some(name) = args.get("name").and_then(|v| v.as_str()) {
                         tool_call_names.insert(call_id.clone(), name.to_string());
                     }
@@ -367,22 +369,24 @@ mod tests {
         use tracepilot_core::models::event_types::event_type_enum::SessionEventType;
         use tracepilot_core::parsing::events::{RawEvent, TypedEvent, TypedEventData};
 
-        let events = vec![TypedEvent {
-            raw: RawEvent {
-                event_type: "subagent.started".to_string(),
-                data: serde_json::Value::Null,
-                id: None,
-                timestamp: None,
-                parent_id: None,
+        let events = vec![
+            TypedEvent {
+                raw: RawEvent {
+                    event_type: "subagent.started".to_string(),
+                    data: serde_json::Value::Null,
+                    id: None,
+                    timestamp: None,
+                    parent_id: None,
+                },
+                event_type: SessionEventType::SubagentStarted,
+                typed_data: TypedEventData::SubagentStarted(SubagentStartedData {
+                    tool_call_id: None,
+                    agent_name: Some("tp-direct-001".to_string()),
+                    agent_display_name: None,
+                    agent_description: None,
+                }),
             },
-            event_type: SessionEventType::SubagentStarted,
-            typed_data: TypedEventData::SubagentStarted(SubagentStartedData {
-                tool_call_id: None,
-                agent_name: Some("tp-direct-001".to_string()),
-                agent_display_name: None,
-                agent_description: None,
-            }),
-        }];
+        ];
 
         let snapshot = build_attribution(&events);
         assert_eq!(snapshot.subagents.len(), 1);
