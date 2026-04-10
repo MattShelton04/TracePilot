@@ -16,6 +16,7 @@ pub async fn task_create(
     state: tauri::State<'_, SharedTaskDb>,
     config: tauri::State<'_, SharedConfig>,
     orch_state: tauri::State<'_, crate::types::SharedOrchestratorState>,
+    manifest_lock: tauri::State<'_, crate::types::ManifestLock>,
     task_type: String,
     preset_id: String,
     input_params: serde_json::Value,
@@ -25,6 +26,7 @@ pub async fn task_create(
     let db = get_or_init_task_db(&state)?;
     let cfg = read_config(&config);
     let orch_state_clone = std::sync::Arc::clone(&*orch_state);
+    let manifest_lock_clone = std::sync::Arc::clone(&*manifest_lock);
 
     let jobs_dir = cfg.jobs_dir();
     let presets_dir = cfg.presets_dir();
@@ -57,11 +59,13 @@ pub async fn task_create(
                     let result_file = task_dir.join("result.json");
                     let result_path = result_file.to_string_lossy().to_string();
 
-                    let content = match tracepilot_orchestrator::presets::io::get_preset(
+                    let (content, resolved_model) = match tracepilot_orchestrator::presets::io::get_preset(
                         &presets_dir,
                         &task.preset_id,
                     ) {
                         Ok(preset) => {
+                            let model = preset.execution.model_override.clone()
+                                .unwrap_or_else(|| default_model.clone());
                             match tracepilot_orchestrator::task_context::assemble_task_context(
                                 &preset,
                                 &task.input_params,
@@ -69,11 +73,11 @@ pub async fn task_create(
                                 preset.context.max_chars,
                                 &result_path,
                             ) {
-                                Ok(assembled) => assembled.content,
-                                Err(_) => fallback_context(&task, &result_path),
+                                Ok(assembled) => (assembled.content, model),
+                                Err(_) => (fallback_context(&task, &result_path), model),
                             }
                         }
-                        Err(_) => fallback_context(&task, &result_path),
+                        Err(_) => (fallback_context(&task, &result_path), default_model.clone()),
                     };
 
                     let context_path = task_dir.join("context.md");
@@ -92,9 +96,13 @@ pub async fn task_create(
                         context_file: context_path.to_string_lossy().to_string(),
                         result_file: result_path,
                         status_file: task_dir.join("status.json").to_string_lossy().to_string(),
-                        model: default_model.clone(),
+                        model: resolved_model,
                         priority: task.priority.clone(),
                     };
+
+                    // Serialize manifest writes to prevent TOCTOU races
+                    let _manifest_guard = manifest_lock_clone.lock()
+                        .map_err(|_| BindingsError::Validation("manifest lock poisoned".into()))?;
 
                     if let Err(e) = tracepilot_orchestrator::task_orchestrator::manifest::append_task_to_manifest(
                         &manifest_path,
@@ -677,11 +685,14 @@ pub async fn task_ingest_results(
     config: tauri::State<'_, SharedConfig>,
     task_db: tauri::State<'_, SharedTaskDb>,
     orch_state: tauri::State<'_, crate::types::SharedOrchestratorState>,
+    manifest_lock: tauri::State<'_, crate::types::ManifestLock>,
 ) -> CmdResult<u32> {
     let cfg = read_config(&config);
     let jobs_dir = cfg.jobs_dir();
+    let default_subagent_model = cfg.tasks.default_subagent_model.clone();
     let db = get_or_init_task_db(&task_db)?;
     let orch_state_clone = std::sync::Arc::clone(&*orch_state);
+    let manifest_lock_clone = std::sync::Arc::clone(&*manifest_lock);
 
     tokio::task::spawn_blocking(move || {
         // Phase 1: Quick lock to collect task IDs
@@ -747,7 +758,7 @@ pub async fn task_ingest_results(
                 status: result.status,
                 result_summary: result.result_summary.clone(),
                 result_parsed: result.result_parsed.clone(),
-                schema_valid: true,
+                schema_valid: None,
                 error_message: result.error.clone(),
             };
             match tracepilot_orchestrator::task_db::operations::store_task_result(
@@ -802,6 +813,10 @@ pub async fn task_ingest_results(
                 if let Some(handle) = orch_guard.as_ref() {
                     let manifest_path = std::path::PathBuf::from(&handle.manifest_path);
                     if manifest_path.exists() {
+                        // Serialize manifest writes to prevent TOCTOU races
+                        let _manifest_guard = manifest_lock_clone.lock()
+                            .map_err(|_| BindingsError::Validation("manifest lock poisoned".into()))?;
+
                         for retry_id in &retried_ids {
                             // Re-read the task to get current state
                             if let Ok(task) = tracepilot_orchestrator::task_db::operations::get_task(
@@ -828,7 +843,7 @@ pub async fn task_ingest_results(
                                     context_file: task_dir.join("context.md").to_string_lossy().to_string(),
                                     result_file: task_dir.join("result.json").to_string_lossy().to_string(),
                                     status_file: task_dir.join("status.json").to_string_lossy().to_string(),
-                                    model: "default".to_string(),
+                                    model: default_subagent_model.clone(),
                                     priority: task.priority.clone(),
                                 };
 

@@ -82,10 +82,8 @@ END;
 pub fn migrate_v1_to_v2(conn: &rusqlite::Connection) -> std::result::Result<(), rusqlite::Error> {
     // Check which columns already exist
     let has_column = |col: &str| -> bool {
-        let mut stmt = conn
-            .prepare("SELECT COUNT(*) FROM pragma_table_info('tasks') WHERE name = ?1")
-            .unwrap();
-        stmt.query_row(rusqlite::params![col], |row| row.get::<_, i32>(0))
+        conn.prepare("SELECT COUNT(*) FROM pragma_table_info('tasks') WHERE name = ?1")
+            .and_then(|mut stmt| stmt.query_row(rusqlite::params![col], |row| row.get::<_, i32>(0)))
             .unwrap_or(0)
             > 0
     };

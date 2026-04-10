@@ -21,7 +21,7 @@ use std::num::NonZeroUsize;
 use std::sync::{Arc, Mutex};
 use tauri::Manager;
 use types::{
-    EventCache, SearchSemaphore, SharedOrchestratorState, SharedTaskDb, TurnCache,
+    EventCache, ManifestLock, SearchSemaphore, SharedOrchestratorState, SharedTaskDb, TurnCache,
 };
 
 const SESSION_CACHE_CAPACITY: usize = 10;
@@ -53,6 +53,10 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             // Orchestrator state: tracks the active orchestrator handle.
             let orch_state: SharedOrchestratorState = Arc::new(Mutex::new(None));
             app.manage(orch_state);
+
+            // Manifest lock: serializes concurrent manifest read-modify-write operations.
+            let manifest_lock: ManifestLock = Arc::new(Mutex::new(()));
+            app.manage(manifest_lock);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

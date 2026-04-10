@@ -264,9 +264,7 @@ export const useOrchestratorStore = defineStore("orchestrator", () => {
     try {
       await checkHealth();
       if (isRunning.value) {
-        await refreshAttribution();
-        await refreshActivity();
-        await ingestResults();
+        await Promise.all([refreshAttribution(), refreshActivity(), ingestResults()]);
       }
     } finally {
       pollInFlight = false;

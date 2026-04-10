@@ -110,10 +110,12 @@ pub fn list_tasks(conn: &Connection, filter: &TaskFilter) -> Result<Vec<Task>> {
     sql.push_str(" ORDER BY created_at DESC");
 
     if let Some(limit) = filter.limit {
-        sql.push_str(&format!(" LIMIT {limit}"));
+        sql.push_str(&format!(" LIMIT ?{}", param_values.len() + 1));
+        param_values.push(Box::new(limit));
     }
     if let Some(offset) = filter.offset {
-        sql.push_str(&format!(" OFFSET {offset}"));
+        sql.push_str(&format!(" OFFSET ?{}", param_values.len() + 1));
+        param_values.push(Box::new(offset));
     }
 
     let params_refs: Vec<&dyn rusqlite::types::ToSql> =
@@ -210,7 +212,8 @@ pub fn store_task_result(conn: &Connection, result: &TaskResult) -> Result<()> {
             schema_valid = ?4,
             error_message = ?5,
             completed_at = COALESCE(completed_at, ?6)
-         WHERE id = ?7",
+         WHERE id = ?7
+           AND status NOT IN ('cancelled', 'expired', 'dead_letter')",
         params![
             result.status.as_str(),
             result.result_summary,
@@ -640,7 +643,7 @@ mod tests {
             status: TaskStatus::Done,
             result_summary: Some("Completed successfully".into()),
             result_parsed: Some(serde_json::json!({"score": 95})),
-            schema_valid: true,
+            schema_valid: Some(true),
             error_message: None,
         };
         store_task_result(&db.conn, &result).unwrap();

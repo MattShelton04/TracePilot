@@ -184,6 +184,6 @@ pub struct TaskResult {
     pub status: TaskStatus,
     pub result_summary: Option<String>,
     pub result_parsed: Option<serde_json::Value>,
-    pub schema_valid: bool,
+    pub schema_valid: Option<bool>,
     pub error_message: Option<String>,
 }

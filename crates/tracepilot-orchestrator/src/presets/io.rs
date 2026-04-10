@@ -13,6 +13,11 @@ use super::types::TaskPreset;
 const MAX_PRESET_SIZE: u64 = 1_048_576;
 
 /// Default presets storage directory.
+///
+/// **Note**: In the Tauri app, `TaskConfig::presets_dir()` from the user
+/// config is used instead. This standalone helper is provided for
+/// library / CLI usage only.
+#[allow(dead_code)]
 pub fn presets_dir() -> Result<PathBuf> {
     let home = crate::launcher::copilot_home()?;
     let dir = home.join("tracepilot").join("task-presets");
@@ -96,7 +101,7 @@ pub fn save_preset(dir: &Path, preset: &TaskPreset) -> Result<()> {
     json_io::atomic_json_write(&path, preset)
 }
 
-/// Delete a preset by ID.
+/// Delete a preset by ID. Built-in presets cannot be deleted.
 pub fn delete_preset(dir: &Path, id: &str) -> Result<()> {
     validate_preset_id(id)?;
     let path = preset_path(dir, id);
@@ -104,6 +109,16 @@ pub fn delete_preset(dir: &Path, id: &str) -> Result<()> {
         return Err(OrchestratorError::NotFound(format!(
             "Preset not found: {id}"
         )));
+    }
+    // Prevent deletion of built-in presets
+    if let Ok(content) = std::fs::read_to_string(&path) {
+        if let Ok(preset) = serde_json::from_str::<super::types::TaskPreset>(&content) {
+            if preset.builtin {
+                return Err(OrchestratorError::Preset(
+                    "Cannot delete built-in presets".into(),
+                ));
+            }
+        }
     }
     std::fs::remove_file(&path)?;
     Ok(())

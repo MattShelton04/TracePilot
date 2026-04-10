@@ -15,6 +15,10 @@ pub type SharedTaskDb = Arc<Mutex<Option<tracepilot_orchestrator::task_db::TaskD
 pub type SharedOrchestratorState =
     Arc<Mutex<Option<tracepilot_orchestrator::task_orchestrator::OrchestratorHandle>>>;
 
+/// Mutex to serialize concurrent manifest file read-modify-write operations,
+/// preventing TOCTOU races when multiple tasks are created simultaneously.
+pub type ManifestLock = Arc<Mutex<()>>;
+
 // ── LRU Turn Cache ──────────────────────────────────────────────────
 
 /// Cached turns for a single session, keyed by session ID in the LRU.

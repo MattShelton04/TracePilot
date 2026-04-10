@@ -114,7 +114,7 @@ pub fn ingest_results(
             status: task_status,
             result_summary: result_file.as_ref().and_then(|rf| rf.summary.clone()),
             result_parsed: result_file.map(|rf| rf.result),
-            schema_valid: true,
+            schema_valid: None,
             error_message: status_file.error_message,
         };
 

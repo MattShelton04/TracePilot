@@ -257,7 +257,17 @@ fn assemble_recent_sessions(
         .and_then(|v| v.as_u64())
         .unwrap_or(10) as usize;
 
-    let discovered = tracepilot_core::session::discovery::discover_sessions(data_dir)?;
+    let mut discovered = tracepilot_core::session::discovery::discover_sessions(data_dir)?;
+
+    // Sort by most-recently-modified first so we get the truly recent sessions
+    discovered.sort_by(|a, b| {
+        let mtime = |p: &std::path::Path| {
+            std::fs::metadata(p)
+                .and_then(|m| m.modified())
+                .unwrap_or(std::time::SystemTime::UNIX_EPOCH)
+        };
+        mtime(&b.path).cmp(&mtime(&a.path))
+    });
 
     let mut lines = vec!["### Recent Sessions".to_string()];
     for session in discovered.iter().take(max_sessions) {
