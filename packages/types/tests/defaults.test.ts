@@ -4,7 +4,14 @@ import {
   DEFAULT_AUTO_REFRESH_INTERVAL_SECONDS,
   DEFAULT_CLI_COMMAND,
   DEFAULT_CONTENT_MAX_WIDTH,
+  DEFAULT_CONTEXT_BUDGET_TOKENS,
   DEFAULT_COST_PER_PREMIUM_REQUEST,
+  DEFAULT_HEARTBEAT_STALE_MULTIPLIER,
+  DEFAULT_MAX_CONCURRENT_TASKS,
+  DEFAULT_MAX_RETRIES,
+  DEFAULT_ORCHESTRATOR_MODEL,
+  DEFAULT_POLL_INTERVAL_SECONDS,
+  DEFAULT_SUBAGENT_MODEL,
   DEFAULT_UI_SCALE,
   createDefaultConfig,
 } from "../src/defaults.js";
@@ -48,9 +55,21 @@ describe("createDefaultConfig", () => {
       renderMarkdown: true,
       mcpServers: false,
       skills: false,
+      aiTasks: false,
     },
     logging: {
       level: "info",
+    },
+    tasks: {
+      enabled: false,
+      orchestratorModel: DEFAULT_ORCHESTRATOR_MODEL,
+      defaultSubagentModel: DEFAULT_SUBAGENT_MODEL,
+      pollIntervalSeconds: DEFAULT_POLL_INTERVAL_SECONDS,
+      maxConcurrentTasks: DEFAULT_MAX_CONCURRENT_TASKS,
+      heartbeatStaleMultiplier: DEFAULT_HEARTBEAT_STALE_MULTIPLIER,
+      maxRetries: DEFAULT_MAX_RETRIES,
+      autoStartOrchestrator: false,
+      contextBudgetTokens: DEFAULT_CONTEXT_BUDGET_TOKENS,
     },
   };
 
