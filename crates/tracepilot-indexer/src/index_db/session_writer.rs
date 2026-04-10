@@ -59,6 +59,20 @@ impl IndexDb {
         self.write_prepared_session(&prepared)
     }
 
+    /// Delete rows from multiple child tables for a given session_id.
+    ///
+    /// This helper consolidates repetitive DELETE operations, making it easier
+    /// to maintain the list of child tables and ensure consistency.
+    fn delete_child_rows(&self, session_id: &str, tables: &[&str]) -> Result<()> {
+        for table in tables {
+            self.conn.execute(
+                &format!("DELETE FROM {} WHERE session_id = ?1", table),
+                [session_id],
+            )?;
+        }
+        Ok(())
+    }
+
     /// Write pre-computed session data to the index database.
     ///
     /// This is the DB-bound portion of indexing that must run sequentially
@@ -76,29 +90,16 @@ impl IndexDb {
 
         let result = (|| -> Result<()> {
             // Delete child table rows first
-            self.conn.execute(
-                "DELETE FROM session_model_metrics WHERE session_id = ?1",
-                [&session_id],
-            )?;
-            self.conn.execute(
-                "DELETE FROM session_tool_calls WHERE session_id = ?1",
-                [&session_id],
-            )?;
-            self.conn.execute(
-                "DELETE FROM session_modified_files WHERE session_id = ?1",
-                [&session_id],
-            )?;
-            self.conn.execute(
-                "DELETE FROM session_activity WHERE session_id = ?1",
-                [&session_id],
-            )?;
-            self.conn.execute(
-                "DELETE FROM session_incidents WHERE session_id = ?1",
-                [&session_id],
-            )?;
-            self.conn.execute(
-                "DELETE FROM session_segments WHERE session_id = ?1",
-                [&session_id],
+            self.delete_child_rows(
+                &session_id,
+                &[
+                    "session_model_metrics",
+                    "session_tool_calls",
+                    "session_modified_files",
+                    "session_activity",
+                    "session_incidents",
+                    "session_segments",
+                ],
             )?;
             // NOTE: search_content is NOT deleted here — it's managed by Phase 2 (search_writer).
             // Phase 2 may not run immediately (semaphore busy), so deleting here would
