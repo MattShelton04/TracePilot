@@ -119,6 +119,12 @@ function resolveTask(id: string) {
   return tasksStore.tasks.find((t) => t.id === id) ?? null;
 }
 
+/** Get a subagent's start time from attribution data. */
+function subagentStartTime(taskId: string): string | null {
+  const agent = (orchestrator.attribution?.subagents ?? []).find((s) => s.taskId === taskId);
+  return agent?.startedAt ?? null;
+}
+
 function truncateError(err: string | null, len = 60): string {
   if (!err) return "";
   return err.length > len ? `${err.slice(0, len)}…` : err;
@@ -428,7 +434,11 @@ onUnmounted(() => {
           <template #actions>
             <span class="subagent-count-badge">{{ activeTaskCount }}</span>
           </template>
-          <div v-if="activeTaskCount === 0" class="empty-state">
+          <div v-if="!orchestrator.health && orchestrator.isRunning" class="empty-state">
+            <span class="spinner" />
+            <span>Waiting for heartbeat…</span>
+          </div>
+          <div v-else-if="activeTaskCount === 0" class="empty-state">
             <svg
               class="empty-icon"
               width="32"
@@ -463,8 +473,17 @@ onUnmounted(() => {
               <div v-else class="active-task-meta">
                 <span class="active-task-id cell-mono">{{ truncateId(tid, 20) }}</span>
               </div>
-              <div class="active-task-footer">
+              <div v-if="resolveTask(tid)?.taskType" class="active-task-desc">
+                {{ resolveTask(tid)!.presetId }}
+              </div>
+              <div class="active-task-bottom">
+                <span v-if="subagentStartTime(tid)" class="active-task-elapsed">
+                  ⏱ {{ elapsedSince(subagentStartTime(tid)) }}
+                </span>
                 <span class="sa-link">View Task →</span>
+              </div>
+              <div class="subagent-progress">
+                <div class="subagent-progress-fill running" />
               </div>
             </button>
           </div>
@@ -1131,19 +1150,19 @@ onUnmounted(() => {
 /* ── Active Task Cards ────────────────────────────────────────── */
 .active-task-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
   padding: 4px 0;
 }
 
 .active-task-card {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px 14px;
+  gap: 10px;
+  padding: 16px 18px;
   background: var(--canvas-subtle);
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   cursor: pointer;
   transition:
     border-color var(--transition-fast),
@@ -1185,9 +1204,62 @@ onUnmounted(() => {
   color: var(--text-tertiary);
 }
 
+.active-task-desc {
+  font-size: 0.75rem;
+  color: var(--fg-muted);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.active-task-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.active-task-elapsed {
+  font-size: 0.6875rem;
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+
 .active-task-footer {
   display: flex;
   justify-content: flex-end;
+}
+
+.subagent-progress {
+  height: 3px;
+  background: var(--border-muted);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 2px;
+}
+.subagent-progress-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+.subagent-progress-fill.running {
+  width: 100%;
+  background: var(--accent-fg);
+  animation: progress-indeterminate 1.5s ease-in-out infinite;
+}
+@keyframes progress-indeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(100%);
+  }
 }
 
 /* ── Subagent Card Grid ──────────────────────────────────────── */
@@ -1544,7 +1616,7 @@ onUnmounted(() => {
 .activity-feed {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0;
   max-height: 400px;
   overflow-y: auto;
 }
@@ -1553,9 +1625,13 @@ onUnmounted(() => {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  padding: 8px 10px;
-  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  border-radius: 0;
+  border-bottom: 1px solid var(--border-muted);
   transition: background 0.1s;
+}
+.activity-entry:last-child {
+  border-bottom: none;
 }
 .activity-entry:hover {
   background: var(--canvas-subtle);

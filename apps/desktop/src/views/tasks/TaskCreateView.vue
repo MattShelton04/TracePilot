@@ -248,7 +248,12 @@ onMounted(async () => {
   const presetId = route.query.presetId as string | undefined;
   if (presetId) {
     const match = presetsStore.enabledPresets.find((p) => p.id === presetId);
-    if (match) selectPreset(match);
+    if (match) {
+      selectPreset(match);
+      // Skip directly to Configure step when coming from a preset link
+      currentStep.value = 2;
+      highestStep.value = 2;
+    }
   }
 });
 </script>
