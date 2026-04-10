@@ -263,5 +263,19 @@ describe("useSessionsStore — concurrency & deduplication", () => {
       expect(store.error).toBeNull();
       expect(store.indexing).toBe(false);
     });
+
+    it("preserves mixed caller semantics when shared refresh fails", async () => {
+      mockReindexSessions.mockResolvedValue([1, 1]);
+      mockListSessions.mockRejectedValue(new Error("refresh failed"));
+      const store = useSessionsStore();
+
+      const reindexPromise = store.reindex();
+      const ensurePromise = store.ensureIndex();
+      await Promise.all([reindexPromise, ensurePromise]);
+
+      expect(mockListSessions).toHaveBeenCalledTimes(1);
+      expect(store.error).toContain("refresh failed");
+      expect(store.indexing).toBe(false);
+    });
   });
 });
