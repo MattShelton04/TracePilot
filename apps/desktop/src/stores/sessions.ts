@@ -172,7 +172,7 @@ export const useSessionsStore = defineStore("sessions", () => {
     return fetchPromise;
   }
 
-  /** Reindex sessions in the background, then refresh the list. */
+  /** Deduplicate concurrent post-index session-list refreshes. */
   async function refreshSessionsAfterIndex() {
     if (postIndexRefreshPromise) return postIndexRefreshPromise;
     postIndexRefreshPromise = fetchAllSessions();
