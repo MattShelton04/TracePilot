@@ -273,7 +273,7 @@ pub(crate) fn import_from_github_path(
 
     // Fetch the SKILL.md
     let content = crate::github::gh_get_file(owner, repo, &skill_md_path, ref_)
-        .map_err(|e| SkillsError::GitHub(format!("Failed to fetch SKILL.md: {e}")))?;
+        .map_err(|e| SkillsError::github_ctx("Failed to fetch SKILL.md", e))?;
 
     let (fm, _) = parse_skill_md(&content)?;
 
@@ -436,7 +436,7 @@ fn preview_github_import_path(
     };
 
     let content = crate::github::gh_get_file(owner, repo, &skill_md_path, ref_)
-        .map_err(|e| SkillsError::GitHub(format!("Failed to fetch SKILL.md: {e}")))?;
+        .map_err(|e| SkillsError::github_ctx("Failed to fetch SKILL.md", e))?;
 
     let (fm, _) = parse_skill_md(&content)?;
 
@@ -477,7 +477,7 @@ pub fn discover_github_skills(
     let ref_ = git_ref.unwrap_or("HEAD");
 
     let entries = crate::github::gh_list_tree(owner, repo, ref_)
-        .map_err(|e| SkillsError::GitHub(format!("Failed to list repository: {e}")))?;
+        .map_err(|e| SkillsError::github_ctx("Failed to list repository", e))?;
 
     // Find all SKILL.md files in the repo
     let skill_md_paths: Vec<&str> = entries

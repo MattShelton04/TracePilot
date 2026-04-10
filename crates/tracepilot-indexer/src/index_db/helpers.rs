@@ -10,14 +10,9 @@ use tracepilot_core::analytics::types::*;
 /// Returns `(where_clause, bind_values)` where `where_clause` starts with
 /// `" WHERE 1=1"` and may include additional AND conditions.
 ///
-/// Uses anonymous `?` placeholders (consistent with `build_in_filter`,
-/// `build_eq_filter`, and the other helpers in this module).  Callers pass
+/// Uses anonymous `?` placeholders (consistent with the other helpers in this
+/// module). Callers pass
 /// the returned `bind_values` through `to_refs` + `params_from_iter`.
-///
-/// # Future work
-/// The return type `(String, Vec<String>)` differs from the mutable-vector
-/// signature used by the other filter helpers.  Unifying these is tracked
-/// separately and is out of scope here.
 pub(super) fn build_date_repo_filter(
     from_date: Option<&str>,
     to_date: Option<&str>,
@@ -55,23 +50,37 @@ pub(super) fn to_refs(values: &[String]) -> Vec<&dyn ToSql> {
     values.iter().map(|v| v as &dyn ToSql).collect()
 }
 
-pub(super) fn query_day_tokens(
+pub(super) fn execute_query_map<T, F, P>(
     conn: &Connection,
     sql: &str,
-    refs: &[&dyn ToSql],
-) -> Result<Vec<DayTokens>> {
+    params: P,
+    mut mapper: F,
+) -> Result<Vec<T>>
+where
+    F: FnMut(&rusqlite::Row<'_>) -> rusqlite::Result<T>,
+    P: IntoIterator,
+    P::Item: ToSql,
+{
     let mut stmt = conn.prepare(sql)?;
-    let rows = stmt.query_map(params_from_iter(refs.iter().copied()), |row| {
-        Ok(DayTokens {
-            date: row.get(0)?,
-            tokens: row.get::<_, i64>(1)? as u64,
-        })
-    })?;
+    let rows = stmt.query_map(params_from_iter(params), |row| mapper(row))?;
     let mut result = Vec::new();
     for row in rows {
         result.push(row?);
     }
     Ok(result)
+}
+
+pub(super) fn query_day_tokens(
+    conn: &Connection,
+    sql: &str,
+    refs: &[&dyn ToSql],
+) -> Result<Vec<DayTokens>> {
+    execute_query_map(conn, sql, refs.iter().copied(), |row| {
+        Ok(DayTokens {
+            date: row.get(0)?,
+            tokens: row.get::<_, i64>(1)? as u64,
+        })
+    })
 }
 
 pub(super) fn query_day_activity(
@@ -79,18 +88,12 @@ pub(super) fn query_day_activity(
     sql: &str,
     refs: &[&dyn ToSql],
 ) -> Result<Vec<DayActivity>> {
-    let mut stmt = conn.prepare(sql)?;
-    let rows = stmt.query_map(params_from_iter(refs.iter().copied()), |row| {
+    execute_query_map(conn, sql, refs.iter().copied(), |row| {
         Ok(DayActivity {
             date: row.get(0)?,
             count: row.get(1)?,
         })
-    })?;
-    let mut result = Vec::new();
-    for row in rows {
-        result.push(row?);
-    }
-    Ok(result)
+    })
 }
 
 pub(super) fn query_day_cost(
@@ -98,18 +101,12 @@ pub(super) fn query_day_cost(
     sql: &str,
     refs: &[&dyn ToSql],
 ) -> Result<Vec<DayCost>> {
-    let mut stmt = conn.prepare(sql)?;
-    let rows = stmt.query_map(params_from_iter(refs.iter().copied()), |row| {
+    execute_query_map(conn, sql, refs.iter().copied(), |row| {
         Ok(DayCost {
             date: row.get(0)?,
             cost: row.get(1)?,
         })
-    })?;
-    let mut result = Vec::new();
-    for row in rows {
-        result.push(row?);
-    }
-    Ok(result)
+    })
 }
 
 pub(super) fn query_model_distribution(
@@ -165,15 +162,9 @@ pub(super) fn query_durations(
     sql: &str,
     refs: &[&dyn ToSql],
 ) -> Result<Vec<u64>> {
-    let mut stmt = conn.prepare(sql)?;
-    let rows = stmt.query_map(params_from_iter(refs.iter().copied()), |row| {
-        row.get::<_, i64>(0)
-    })?;
-    let mut result = Vec::new();
-    for row in rows {
-        result.push(row? as u64);
-    }
-    Ok(result)
+    execute_query_map(conn, sql, refs.iter().copied(), |row| {
+        Ok(row.get::<_, i64>(0)? as u64)
+    })
 }
 
 pub(super) fn compute_duration_stats(durations: &[u64]) -> ApiDurationStats {
@@ -212,49 +203,6 @@ pub(super) fn compute_duration_stats(durations: &[u64]) -> ApiDurationStats {
     }
 }
 
-/// Build an IN clause filter for arrays of values (e.g., `col IN (?, ?, ?)`).
-/// Returns the SQL fragment and appends parameters to the provided vector.
-///
-/// If `values` is empty, returns an empty string and adds no parameters.
-/// This is a pure function with no side effects other than appending to `params`.
-pub(super) fn build_in_filter<T: ToSql + Clone + 'static>(
-    column: &str,
-    values: &[T],
-    params: &mut Vec<Box<dyn ToSql>>,
-) -> String {
-    if values.is_empty() {
-        return String::new();
-    }
-
-    let placeholders = values.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
-    for val in values {
-        params.push(Box::new(val.clone()));
-    }
-
-    format!(" AND {} IN ({})", column, placeholders)
-}
-
-/// Build a NOT IN exclusion filter (e.g., `col NOT IN (?, ?, ?)`).
-/// Returns the SQL fragment and appends parameters to the provided vector.
-///
-/// If `values` is empty, returns an empty string and adds no parameters.
-pub(super) fn build_not_in_filter<T: ToSql + Clone + 'static>(
-    column: &str,
-    values: &[T],
-    params: &mut Vec<Box<dyn ToSql>>,
-) -> String {
-    if values.is_empty() {
-        return String::new();
-    }
-
-    let placeholders = values.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
-    for val in values {
-        params.push(Box::new(val.clone()));
-    }
-
-    format!(" AND {} NOT IN ({})", column, placeholders)
-}
-
 /// Build an equality filter (e.g., `col = ?`).
 /// Returns the SQL fragment and appends the parameter to the provided vector.
 ///
@@ -268,62 +216,9 @@ pub(super) fn build_eq_filter<T: ToSql + 'static>(
     format!(" AND {} = ?", column)
 }
 
-/// Build a unix timestamp range filter (e.g., `col >= ? AND col <= ?`).
-/// Returns the SQL fragment and appends parameters to the provided vector.
-///
-/// If both `from_unix` and `to_unix` are None, returns an empty string.
-pub(super) fn build_timestamp_range_filter(
-    column: &str,
-    from_unix: Option<i64>,
-    to_unix: Option<i64>,
-    params: &mut Vec<Box<dyn ToSql>>,
-) -> String {
-    let mut parts = Vec::new();
-
-    if let Some(from) = from_unix {
-        params.push(Box::new(from));
-        parts.push(format!("{} >= ?", column));
-    }
-
-    if let Some(to) = to_unix {
-        params.push(Box::new(to));
-        parts.push(format!("{} <= ?", column));
-    }
-
-    if parts.is_empty() {
-        String::new()
-    } else {
-        format!(" AND {}", parts.join(" AND "))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_build_in_filter_empty() {
-        let mut params: Vec<Box<dyn ToSql>> = Vec::new();
-        let sql = build_in_filter("col", &Vec::<String>::new(), &mut params);
-        assert_eq!(sql, "");
-        assert_eq!(params.len(), 0);
-    }
-
-    #[test]
-    fn test_build_in_filter_single_value() {
-        let mut params: Vec<Box<dyn ToSql>> = Vec::new();
-        let sql = build_in_filter("col", &vec!["value1".to_string()], &mut params);
-        assert_eq!(sql, " AND col IN (?)");
-        assert_eq!(params.len(), 1);
-    }
-
-    #[test]
-    fn test_build_in_filter_multiple_values() {
-        let mut params: Vec<Box<dyn ToSql>> = Vec::new();
-        let sql = build_in_filter("col", &vec!["a".to_string(), "b".to_string(), "c".to_string()], &mut params);
-        assert_eq!(sql, " AND col IN (?, ?, ?)");
-        assert_eq!(params.len(), 3);
-    }
 
     #[test]
     fn test_build_eq_filter() {
@@ -331,38 +226,6 @@ mod tests {
         let sql = build_eq_filter("repository", "myrepo".to_string(), &mut params);
         assert_eq!(sql, " AND repository = ?");
         assert_eq!(params.len(), 1);
-    }
-
-    #[test]
-    fn test_build_timestamp_range_filter_both() {
-        let mut params: Vec<Box<dyn ToSql>> = Vec::new();
-        let sql = build_timestamp_range_filter("timestamp_unix", Some(1000), Some(2000), &mut params);
-        assert_eq!(sql, " AND timestamp_unix >= ? AND timestamp_unix <= ?");
-        assert_eq!(params.len(), 2);
-    }
-
-    #[test]
-    fn test_build_timestamp_range_filter_from_only() {
-        let mut params: Vec<Box<dyn ToSql>> = Vec::new();
-        let sql = build_timestamp_range_filter("timestamp_unix", Some(1000), None, &mut params);
-        assert_eq!(sql, " AND timestamp_unix >= ?");
-        assert_eq!(params.len(), 1);
-    }
-
-    #[test]
-    fn test_build_timestamp_range_filter_to_only() {
-        let mut params: Vec<Box<dyn ToSql>> = Vec::new();
-        let sql = build_timestamp_range_filter("timestamp_unix", None, Some(2000), &mut params);
-        assert_eq!(sql, " AND timestamp_unix <= ?");
-        assert_eq!(params.len(), 1);
-    }
-
-    #[test]
-    fn test_build_timestamp_range_filter_neither() {
-        let mut params: Vec<Box<dyn ToSql>> = Vec::new();
-        let sql = build_timestamp_range_filter("timestamp_unix", None, None, &mut params);
-        assert_eq!(sql, "");
-        assert_eq!(params.len(), 0);
     }
 
     #[test]
@@ -440,7 +303,8 @@ mod tests {
     /// accidental mismatches when the function is modified in the future.
     #[test]
     fn test_build_date_repo_filter_placeholder_count_matches_values() {
-        let cases: Vec<(Option<&str>, Option<&str>, Option<&str>, bool, usize)> = vec![
+        type TestCase = (Option<&'static str>, Option<&'static str>, Option<&'static str>, bool, usize);
+        let cases: Vec<TestCase> = vec![
             (None, None, None, false, 0),
             (None, None, None, true, 0),
             (Some("2026-01-01"), None, None, false, 1),
@@ -551,28 +415,42 @@ mod tests {
             .expect("query4");
         assert_eq!(count4, 6, "expected all 6 sessions with no filter");
     }
-
     #[test]
-    fn test_build_not_in_filter_empty() {
-        let mut params: Vec<Box<dyn ToSql>> = Vec::new();
-        let sql = build_not_in_filter("col", &Vec::<String>::new(), &mut params);
-        assert_eq!(sql, "");
-        assert_eq!(params.len(), 0);
+    fn test_execute_query_map_collects_rows() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        conn.execute_batch(
+            "CREATE TABLE test (id INTEGER PRIMARY KEY, value INTEGER);
+             INSERT INTO test (value) VALUES (10), (20), (30);",
+        )
+        .expect("setup");
+
+        let result: Vec<i64> = execute_query_map(
+            &conn,
+            "SELECT value FROM test WHERE value > ? ORDER BY value",
+            [15],
+            |row| row.get(0),
+        )
+        .expect("query succeeds");
+
+        assert_eq!(result, vec![20, 30]);
     }
 
     #[test]
-    fn test_build_not_in_filter_single_value() {
-        let mut params: Vec<Box<dyn ToSql>> = Vec::new();
-        let sql = build_not_in_filter("col", &vec!["tool_call".to_string()], &mut params);
-        assert_eq!(sql, " AND col NOT IN (?)");
-        assert_eq!(params.len(), 1);
-    }
+    fn test_execute_query_map_propagates_mapper_errors() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        conn.execute_batch(
+            "CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT);
+             INSERT INTO test (value) VALUES ('not a number');",
+        )
+        .expect("setup");
 
-    #[test]
-    fn test_build_not_in_filter_multiple_values() {
-        let mut params: Vec<Box<dyn ToSql>> = Vec::new();
-        let sql = build_not_in_filter("col", &vec!["tool_call".to_string(), "tool_error".to_string()], &mut params);
-        assert_eq!(sql, " AND col NOT IN (?, ?)");
-        assert_eq!(params.len(), 2);
+        let result: Result<Vec<i64>> = execute_query_map(
+            &conn,
+            "SELECT value FROM test",
+            std::iter::empty::<i64>(),
+            |row| row.get(0),
+        );
+
+        assert!(result.is_err());
     }
 }

@@ -67,7 +67,7 @@ pub fn read_copilot_config(copilot_home: &Path) -> Result<CopilotConfig> {
 pub fn write_agent_definition(path: &Path, yaml_content: &str) -> Result<()> {
     // Validate YAML is parseable before writing
     let _: serde_yml::Value = serde_yml::from_str(yaml_content)
-        .map_err(|e| OrchestratorError::Config(format!("Invalid YAML: {e}")))?;
+        .map_err(|e| OrchestratorError::config_ctx("Invalid YAML", e))?;
 
     let parent = path
         .parent()

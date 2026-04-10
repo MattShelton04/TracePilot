@@ -2,6 +2,7 @@
 
 pub mod analytics;
 pub mod analytics_executor;
+pub mod blocking_helper;
 pub mod config_cmds;
 pub mod export_import;
 pub mod logging;

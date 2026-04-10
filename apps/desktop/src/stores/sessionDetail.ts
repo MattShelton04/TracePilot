@@ -33,24 +33,36 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
   const turns = ref<ConversationTurn[]>([]);
   const turnsVersion = ref(0);
   const events = ref<EventsResponse | null>(null);
-  const todos = ref<TodosResponse | null>(null);
-  const checkpoints = ref<CheckpointEntry[]>([]);
-  const plan = ref<SessionPlan | null>(null);
-  const shutdownMetrics = ref<ShutdownMetrics | null>(null);
-  const incidents = ref<SessionIncident[]>([]);
 
   const loading = ref(false);
   const error = ref<string | null>(null);
   const loaded = ref<Set<string>>(new Set());
 
-  // Per-section error state — surfaces failures to the UI instead of silent console.error
+  // ── AsyncSection helper ─────────────────────────────────────────
+  // Consolidates data + error state for sections, eliminating separate
+  // error ref declarations and manual error clearing across 5+ sections.
+  interface AsyncSectionState<T> {
+    data: Ref<T>;
+    error: Ref<string | null>;
+  }
+
+  function createAsyncSection<T>(initialData: T): AsyncSectionState<T> {
+    return {
+      data: ref<T>(initialData) as Ref<T>,
+      error: ref<string | null>(null),
+    };
+  }
+
+  // Standard sections using AsyncSection pattern
+  const todosSection = createAsyncSection<TodosResponse | null>(null);
+  const checkpointsSection = createAsyncSection<CheckpointEntry[]>([]);
+  const planSection = createAsyncSection<SessionPlan | null>(null);
+  const metricsSection = createAsyncSection<ShutdownMetrics | null>(null);
+  const incidentsSection = createAsyncSection<SessionIncident[]>([]);
+
+  // Special-case sections (custom loaders, not in registry)
   const turnsError = ref<string | null>(null);
   const eventsError = ref<string | null>(null);
-  const todosError = ref<string | null>(null);
-  const checkpointsError = ref<string | null>(null);
-  const planError = ref<string | null>(null);
-  const metricsError = ref<string | null>(null);
-  const incidentsError = ref<string | null>(null);
 
   // Track file size for freshness detection (avoids redundant turn re-fetches)
   let lastEventsFileSize = 0;
@@ -244,9 +256,14 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     }
   }
 
-  // ── Frontend session cache (last 5 sessions) ────────────────────────
+  // ── Frontend session cache (last 10 sessions, LRU eviction) ────────────
   // Caches all loaded section data so switching between recently viewed
   // sessions restores the UI instantly without any IPC roundtrip.
+  //
+  // Eviction policy: Least Recently Used (LRU). Both reads and writes
+  // promote the entry to the most-recently-used position so that
+  // frequently accessed sessions survive longer in the cache than sessions
+  // that were only visited once a long time ago.
   interface CachedSession {
     detail: SessionDetail;
     turns: ConversationTurn[];
@@ -260,22 +277,83 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
   const SESSION_CACHE_SIZE = 10;
   const sessionCache = new Map<string, CachedSession>();
 
-  function saveToCache(id: string) {
-    if (!detail.value) return;
-    sessionCache.set(id, {
-      detail: detail.value,
-      turns: turns.value,
-      eventsFileSize: lastEventsFileSize,
-      checkpoints: checkpoints.value,
-      plan: plan.value,
-      shutdownMetrics: shutdownMetrics.value,
-      incidents: incidents.value,
-      loadedSections: new Set(loaded.value),
-    });
+  /**
+   * Write a session snapshot to the cache, promoting it to the most-recently-used
+   * position. Evicts the least-recently-used entry when the cache is full.
+   *
+   * Uses delete-then-reinsert to update insertion order: JS Map preserves
+   * insertion order and Map.set() on an existing key does NOT move the key,
+   * so we must delete first to achieve LRU semantics.
+   */
+  function setSessionCache(id: string, cached: CachedSession) {
+    // LRU: delete existing entry before reinserting to move it to MRU position
+    sessionCache.delete(id);
+    sessionCache.set(id, cached);
     if (sessionCache.size > SESSION_CACHE_SIZE) {
       const oldest = sessionCache.keys().next().value;
-      if (oldest) sessionCache.delete(oldest);
+      if (oldest !== undefined) sessionCache.delete(oldest);
     }
+  }
+
+  /**
+   * Read a session snapshot from the cache, promoting it to the most-recently-used
+   * position (LRU read-touch). Returns undefined on a cache miss.
+   */
+  function getFromSessionCache(id: string): CachedSession | undefined {
+    const entry = sessionCache.get(id);
+    if (entry !== undefined) {
+      // LRU: move to MRU position by delete-then-reinsert
+      sessionCache.delete(id);
+      sessionCache.set(id, entry);
+    }
+    return entry;
+  }
+
+  function buildCachedSessionSnapshot(currentDetail: SessionDetail): CachedSession {
+    return {
+      detail: currentDetail,
+      turns: turns.value,
+      eventsFileSize: lastEventsFileSize,
+      checkpoints: checkpointsSection.data.value,
+      plan: planSection.data.value,
+      shutdownMetrics: metricsSection.data.value,
+      incidents: incidentsSection.data.value,
+      loadedSections: new Set(loaded.value),
+    } satisfies CachedSession;
+  }
+
+  function buildPrefetchedCachedSession(
+    detailResult: SessionDetail,
+    turnsResult: Awaited<ReturnType<typeof getSessionTurns>>,
+  ): CachedSession {
+    return {
+      detail: detailResult,
+      turns: turnsResult.turns,
+      eventsFileSize: turnsResult.eventsFileSize,
+      checkpoints: [],
+      plan: null,
+      shutdownMetrics: null,
+      incidents: [],
+      loadedSections: new Set(["detail", "turns"]),
+    } satisfies CachedSession;
+  }
+
+  function restoreFromCachedSession(cached: CachedSession) {
+    detail.value = cached.detail;
+    replaceTurns(cached.turns);
+    lastEventsFileSize = cached.eventsFileSize;
+    checkpointsSection.data.value = cached.checkpoints;
+    planSection.data.value = cached.plan;
+    metricsSection.data.value = cached.shutdownMetrics;
+    incidentsSection.data.value = cached.incidents;
+
+    loaded.value = new Set(cached.loadedSections);
+  }
+
+  function saveToCache(id: string) {
+    const currentDetail = detail.value;
+    if (!currentDetail) return;
+    setSessionCache(id, buildCachedSessionSnapshot(currentDetail));
   }
 
   // Guard against stale async responses when user switches sessions quickly
@@ -351,45 +429,44 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
   //   turns  — has lastEventsFileSize side-effect + freshness check
   //   events — uses eventsGuard + pagination args
   //
-  // NOTE: Cache save/restore paths (saveToCache, loadDetail cache-hit,
-  // prefetchSession) still enumerate fields manually because CachedSession
-  // has a different shape. Update those when adding a new cached section.
+  // NOTE: CachedSession field mapping is centralized via:
+  // buildCachedSessionSnapshot(), restoreFromCachedSession(), and
+  // buildPrefetchedCachedSession().
   function defineSection<T>(config: {
     key: string;
-    errorRef: Ref<string | null>;
-    dataRef: Ref<T>;
+    section: AsyncSectionState<T>;
     defaultValue: () => T;
     fetchFn: (id: string) => Promise<T>;
     logLevel?: "error" | "warn";
   }) {
     const load = buildSectionLoader({
       key: config.key,
-      errorRef: config.errorRef,
+      errorRef: config.section.error,
       fetchFn: config.fetchFn,
       onResult: (result) => {
-        config.dataRef.value = result;
+        config.section.data.value = result;
       },
       logLevel: config.logLevel,
     });
 
     return {
       key: config.key,
-      errorRef: config.errorRef,
+      section: config.section,
       load,
       clearError: () => {
-        config.errorRef.value = null;
+        config.section.error.value = null;
       },
       resetData: () => {
-        config.dataRef.value = config.defaultValue();
+        config.section.data.value = config.defaultValue();
       },
       buildRefresh: (id: string, token: number) =>
         buildRefreshPromise(
           {
             key: config.key,
-            errorRef: config.errorRef,
+            errorRef: config.section.error,
             fetchFn: config.fetchFn,
             onResult: (r) => {
-              config.dataRef.value = r;
+              config.section.data.value = r;
             },
             logLevel: config.logLevel,
           },
@@ -401,40 +478,35 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
 
   const todosDef = defineSection({
     key: "todos",
-    errorRef: todosError,
-    dataRef: todos,
+    section: todosSection,
     defaultValue: () => null,
     fetchFn: (id) => getSessionTodos(id),
   });
 
   const checkpointsDef = defineSection({
     key: "checkpoints",
-    errorRef: checkpointsError,
-    dataRef: checkpoints,
+    section: checkpointsSection,
     defaultValue: (): CheckpointEntry[] => [],
     fetchFn: (id) => getSessionCheckpoints(id),
   });
 
   const planDef = defineSection({
     key: "plan",
-    errorRef: planError,
-    dataRef: plan,
+    section: planSection,
     defaultValue: () => null,
     fetchFn: (id) => getSessionPlan(id),
   });
 
   const metricsDef = defineSection({
     key: "metrics",
-    errorRef: metricsError,
-    dataRef: shutdownMetrics,
+    section: metricsSection,
     defaultValue: () => null,
     fetchFn: (id) => getShutdownMetrics(id),
   });
 
   const incidentsDef = defineSection({
     key: "incidents",
-    errorRef: incidentsError,
-    dataRef: incidents,
+    section: incidentsSection,
     defaultValue: (): SessionIncident[] => [],
     fetchFn: (id) => getSessionIncidents(id),
     logLevel: "warn",
@@ -480,25 +552,18 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     error.value = null;
     clearSectionErrors();
 
-    // Check frontend cache for instant restore
-    const cached = sessionCache.get(id);
+    // Check frontend cache for instant restore — promotes session to MRU position
+    const cached = getFromSessionCache(id);
     if (cached) {
       // Restore ALL sections immediately — zero IPC, zero spinner
-      detail.value = cached.detail;
-      replaceTurns(cached.turns);
-      lastEventsFileSize = cached.eventsFileSize;
-      checkpoints.value = cached.checkpoints;
-      plan.value = cached.plan;
-      shutdownMetrics.value = cached.shutdownMetrics;
-      incidents.value = cached.incidents;
-      loaded.value = new Set(cached.loadedSections);
+      restoreFromCachedSession(cached);
       loading.value = false;
       // Events & todos intentionally NOT cached (paginated / rarely viewed).
       // Remove from loaded so they are fetched fresh on-demand rather than
       // eagerly background-refreshed.
       events.value = null;
       loaded.value.delete("events");
-      todos.value = null;
+      todosSection.data.value = null;
       loaded.value.delete("todos");
 
       // Background refresh: silently update stale data (throttled).
@@ -592,8 +657,10 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
             const result = await getSessionDetail(id);
             if (!sessionGuard.isValid(token)) return;
             detail.value = result;
+            error.value = null;
           } catch (e) {
             if (!sessionGuard.isValid(token)) return;
+            error.value = toErrorMessage(e);
             logError("[sessionDetail] Failed to refresh detail:", e);
           }
         })(),
@@ -610,8 +677,9 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
               const freshness = await checkSessionFreshness(id);
               if (!sessionGuard.isValid(token)) return;
               if (freshness.eventsFileSize === lastEventsFileSize) return;
-            } catch {
+            } catch (e) {
               // Freshness check failed — fall through to full fetch
+              logWarn("[sessionDetail] Freshness check failed, proceeding with full fetch", { sessionId: id }, e);
             }
 
             const result = await getSessionTurns(id);
@@ -660,24 +728,10 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       // Don't overwrite if user navigated to this session while we were fetching
       if (sessionCache.has(id) || sessionId.value === id) return;
 
-      sessionCache.set(id, {
-        detail: detailResult,
-        turns: turnsResult.turns,
-        eventsFileSize: turnsResult.eventsFileSize,
-        checkpoints: [],
-        plan: null,
-        shutdownMetrics: null,
-        incidents: [],
-        loadedSections: new Set(["detail", "turns"]),
-      });
-
-      // Evict oldest if over capacity
-      if (sessionCache.size > SESSION_CACHE_SIZE) {
-        const oldest = sessionCache.keys().next().value;
-        if (oldest) sessionCache.delete(oldest);
-      }
-    } catch {
+      setSessionCache(id, buildPrefetchedCachedSession(detailResult, turnsResult));
+    } catch (e) {
       // Silent — prefetch is best-effort optimization
+      logWarn("[sessionDetail] Prefetch failed (best-effort)", { sessionId: id }, e);
     }
   }
 
@@ -687,21 +741,21 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     turns,
     turnsVersion,
     events,
-    todos,
-    checkpoints,
-    plan,
-    shutdownMetrics,
-    incidents,
+    todos: todosSection.data,
+    checkpoints: checkpointsSection.data,
+    plan: planSection.data,
+    shutdownMetrics: metricsSection.data,
+    incidents: incidentsSection.data,
     loading,
     error,
     loaded,
     turnsError,
     eventsError,
-    todosError,
-    checkpointsError,
-    planError,
-    metricsError,
-    incidentsError,
+    todosError: todosSection.error,
+    checkpointsError: checkpointsSection.error,
+    planError: planSection.error,
+    metricsError: metricsSection.error,
+    incidentsError: incidentsSection.error,
     loadDetail,
     loadTurns,
     loadEvents,

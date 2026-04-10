@@ -5,8 +5,11 @@ use rusqlite::{params_from_iter, types::ToSql};
 use std::collections::HashSet;
 use std::path::PathBuf;
 
+use super::row_helpers::*;
 use super::types::*;
 use super::IndexDb;
+
+const SESSION_COLUMNS: &str = "id, path, summary, repository, branch, cwd, host_type, created_at, updated_at, event_count, turn_count, current_model, error_count, rate_limit_count, compaction_count, truncation_count";
 
 impl IndexDb {
     /// List indexed sessions with optional filters.
@@ -19,9 +22,7 @@ impl IndexDb {
     ) -> Result<Vec<IndexedSession>> {
         use super::helpers::build_eq_filter;
 
-        let mut sql = String::from(
-            "SELECT id, path, summary, repository, branch, cwd, host_type, created_at, updated_at, event_count, turn_count, current_model, error_count, rate_limit_count, compaction_count, truncation_count FROM sessions WHERE 1=1",
-        );
+        let mut sql = format!("SELECT {SESSION_COLUMNS} FROM sessions WHERE 1=1");
         let mut query_params: Vec<Box<dyn ToSql>> = Vec::new();
 
         if hide_empty {
@@ -29,10 +30,18 @@ impl IndexDb {
         }
 
         if let Some(repo) = filter_repo {
-            sql.push_str(&build_eq_filter("repository", repo.to_string(), &mut query_params));
+            sql.push_str(&build_eq_filter(
+                "repository",
+                repo.to_string(),
+                &mut query_params,
+            ));
         }
         if let Some(branch) = filter_branch {
-            sql.push_str(&build_eq_filter("branch", branch.to_string(), &mut query_params));
+            sql.push_str(&build_eq_filter(
+                "branch",
+                branch.to_string(),
+                &mut query_params,
+            ));
         }
 
         sql.push_str(" ORDER BY updated_at DESC");
@@ -44,26 +53,7 @@ impl IndexDb {
 
         let mut stmt = self.conn.prepare(&sql)?;
         let refs: Vec<&dyn ToSql> = query_params.iter().map(|p| p.as_ref()).collect();
-        let rows = stmt.query_map(params_from_iter(refs), |row| {
-            Ok(IndexedSession {
-                id: row.get(0)?,
-                path: row.get(1)?,
-                summary: row.get(2)?,
-                repository: row.get(3)?,
-                branch: row.get(4)?,
-                cwd: row.get(5)?,
-                host_type: row.get(6)?,
-                created_at: row.get(7)?,
-                updated_at: row.get(8)?,
-                event_count: row.get(9)?,
-                turn_count: row.get(10)?,
-                current_model: row.get(11)?,
-                error_count: row.get(12)?,
-                rate_limit_count: row.get(13)?,
-                compaction_count: row.get(14)?,
-                truncation_count: row.get(15)?,
-            })
-        })?;
+        let rows = stmt.query_map(params_from_iter(refs), indexed_session_from_row)?;
 
         let mut sessions = Vec::new();
         for row in rows {
@@ -120,11 +110,32 @@ impl IndexDb {
         Ok(results.into_iter().collect())
     }
 
+    /// Full-text search across session metadata returning full indexed rows.
+    pub fn search_sessions(&self, query: &str) -> Result<Vec<IndexedSession>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT
+                s.id, s.path, s.summary, s.repository, s.branch, s.cwd, s.host_type,
+                s.created_at, s.updated_at, s.event_count, s.turn_count, s.current_model,
+                s.error_count, s.rate_limit_count, s.compaction_count, s.truncation_count
+             FROM sessions_fts f
+             INNER JOIN sessions s ON s.rowid = f.rowid
+             WHERE sessions_fts MATCH ?1
+             ORDER BY s.updated_at DESC, s.id ASC",
+        )?;
+        let rows = stmt.query_map([query], indexed_session_from_row)?;
+
+        let mut sessions = Vec::new();
+        for row in rows {
+            sessions.push(row?);
+        }
+        Ok(sessions)
+    }
+
     /// Get distinct CWD paths from all indexed sessions (for repo discovery).
     pub fn distinct_session_cwds(&self) -> Result<Vec<String>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT DISTINCT cwd FROM sessions WHERE cwd IS NOT NULL AND cwd != ''",
-        )?;
+        let mut stmt = self
+            .conn
+            .prepare("SELECT DISTINCT cwd FROM sessions WHERE cwd IS NOT NULL AND cwd != ''")?;
         let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
         let mut cwds = Vec::new();
         for row in rows {
@@ -139,16 +150,7 @@ impl IndexDb {
             "SELECT event_type, source_event_type, timestamp, severity, summary, detail_json
              FROM session_incidents WHERE session_id = ?1 ORDER BY timestamp",
         )?;
-        let rows = stmt.query_map([session_id], |row| {
-            Ok(IndexedIncident {
-                event_type: row.get(0)?,
-                source_event_type: row.get(1)?,
-                timestamp: row.get(2)?,
-                severity: row.get(3)?,
-                summary: row.get(4)?,
-                detail_json: row.get(5)?,
-            })
-        })?;
+        let rows = stmt.query_map([session_id], indexed_incident_from_row)?;
         let mut result = Vec::new();
         for row in rows {
             result.push(row?);

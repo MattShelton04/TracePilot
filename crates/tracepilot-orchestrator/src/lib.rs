@@ -28,3 +28,6 @@ pub mod worktrees;
 
 pub use error::{OrchestratorError, Result};
 pub use types::*;
+
+#[cfg(test)]
+pub(crate) static TEST_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());

@@ -6,41 +6,33 @@
 //! configured URL endpoint.
 
 use crate::mcp::error::McpError;
+use crate::mcp::headers::{
+    MCP_SESSION_ID_HEADER, build_base_http_headers, inject_session_id_header,
+};
 use crate::mcp::types::{McpHealthResult, McpHealthStatus, McpServerConfig, McpTool, McpTransport};
 use chrono::Utc;
-use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
 use std::process::Child;
 use std::time::Instant;
 
-/// HTTP header name for MCP session IDs.
-const MCP_SESSION_ID_HEADER: HeaderName = HeaderName::from_static("mcp-session-id");
+/// Sanitize error messages for safe logging.
+///
+/// Removes control characters (except spaces/tabs) to prevent log injection
+/// attacks and truncates to 500 characters to prevent log spam.
+fn sanitize_error_msg(err: &impl std::fmt::Display) -> String {
+    err.to_string()
+        .chars()
+        .filter(|c| !c.is_control() || *c == ' ' || *c == '\t')
+        .take(500)
+        .collect()
+}
 
 /// Kill a child process and reap it to prevent zombie accumulation.
 fn kill_and_reap(child: &mut Child) {
     let _ = child.kill();
     let _ = child.wait();
-}
-
-/// Inject an MCP session ID into HTTP headers if present.
-///
-/// Per the MCP protocol specification, the server may return an `mcp-session-id`
-/// header in the initialize response that must be included in subsequent requests
-/// to maintain session continuity.
-///
-/// If the session ID is `None` or contains invalid HTTP header characters,
-/// this function does nothing (no error is returned).
-fn inject_session_id_header(
-    headers: &mut HeaderMap,
-    session_id: Option<&str>,
-) {
-    if let Some(sid) = session_id
-        && let Ok(val) = HeaderValue::from_str(sid)
-    {
-        headers.insert(MCP_SESSION_ID_HEADER.clone(), val);
-    }
 }
 
 /// Cached health result including discovered tools.
@@ -207,23 +199,10 @@ async fn check_http_server(
     };
 
     // Build request headers — include any user-configured headers.
-    let mut base_headers = reqwest::header::HeaderMap::new();
-    base_headers.insert(
-        reqwest::header::CONTENT_TYPE,
-        "application/json".parse().unwrap(),
-    );
-    base_headers.insert(
-        reqwest::header::ACCEPT,
-        "application/json, text/event-stream".parse().unwrap(),
-    );
-    for (k, v) in &config.headers {
-        if let (Ok(hname), Ok(hval)) = (
-            reqwest::header::HeaderName::from_bytes(k.as_bytes()),
-            reqwest::header::HeaderValue::from_str(v),
-        ) {
-            base_headers.insert(hname, hval);
-        }
-    }
+    let base_headers = match build_base_http_headers(&config.headers) {
+        Ok(headers) => headers,
+        Err(err) => return make_error_result(name, start, &err.to_string()),
+    };
 
     // Step 1: JSON-RPC initialize request per MCP spec.
     let init_req = serde_json::json!({
@@ -293,7 +272,13 @@ async fn check_http_server(
         .map(|s| s.to_string());
 
     // Try to parse the initialize response body (may be JSON or SSE).
-    let _ = init_resp.text().await;
+    if let Err(e) = init_resp.text().await {
+        tracing::debug!(
+            server = %name,
+            error = %sanitize_error_msg(&e),
+            "[MCP Health] Failed to read initialize response body"
+        );
+    }
 
     // Step 2: Send initialized notification (fire-and-forget).
     let notif = serde_json::json!({
@@ -303,12 +288,19 @@ async fn check_http_server(
 
     let mut notif_headers = base_headers.clone();
     inject_session_id_header(&mut notif_headers, session_id.as_deref());
-    let _ = client
+    if let Err(e) = client
         .post(&url)
         .headers(notif_headers)
         .json(&notif)
         .send()
-        .await;
+        .await
+    {
+        tracing::debug!(
+            server = %name,
+            error = %sanitize_error_msg(&e),
+            "[MCP Health] Failed to send initialized notification"
+        );
+    }
 
     // Step 3: Send tools/list request.
     let tools_req = serde_json::json!({
@@ -331,7 +323,22 @@ async fn check_http_server(
         Ok(resp) if resp.status().is_success() => {
             parse_tools_from_response(resp).await
         }
-        _ => vec![],
+        Ok(resp) => {
+            tracing::warn!(
+                server = %name,
+                status = %resp.status(),
+                "[MCP Health] tools/list request failed"
+            );
+            vec![]
+        }
+        Err(e) => {
+            tracing::warn!(
+                server = %name,
+                error = %sanitize_error_msg(&e),
+                "[MCP Health] tools/list request failed"
+            );
+            vec![]
+        }
     };
 
     let tool_count = tools.len();
@@ -363,7 +370,13 @@ async fn parse_tools_from_response(resp: reqwest::Response) -> Vec<McpTool> {
 
     let body = match resp.text().await {
         Ok(b) => b,
-        Err(_) => return vec![],
+        Err(e) => {
+            tracing::debug!(
+                error = %sanitize_error_msg(&e),
+                "[MCP Health] Failed to read tools/list response body"
+            );
+            return vec![];
+        }
     };
 
     // For SSE responses, extract JSON from `data:` lines.
@@ -382,7 +395,13 @@ async fn parse_tools_from_response(resp: reqwest::Response) -> Vec<McpTool> {
 
     let parsed: serde_json::Value = match serde_json::from_str(&json_text) {
         Ok(v) => v,
-        Err(_) => return vec![],
+        Err(e) => {
+            tracing::debug!(
+                error = %sanitize_error_msg(&e),
+                "[MCP Health] Failed to parse tools/list JSON response"
+            );
+            return vec![];
+        }
     };
 
     extract_tools_from_json(&parsed)
@@ -418,13 +437,37 @@ fn extract_tools_from_json(resp: &serde_json::Value) -> Vec<McpTool> {
         .collect()
 }
 
+/// Serialize a JSON-RPC message and write it as a newline-delimited JSON line.
+fn write_jsonrpc(writer: &mut impl Write, msg: &serde_json::Value) -> Result<(), McpError> {
+    let text = serde_json::to_string(msg)
+        .map_err(|e| McpError::HealthCheck(format!("JSON serialization error: {e}")))?;
+    writeln!(writer, "{text}")
+        .map_err(|e| McpError::HealthCheck(format!("Failed to write JSON-RPC message: {e}")))
+}
+
 /// Spawn a stdio MCP server, send initialize + tools/list, return tools.
+///
+/// Takes ownership of stdin/stdout from the child process up-front and uses a
+/// single `BufReader` for the entire handshake.  Previous versions created two
+/// separate `BufReader` instances for the initialize and tools/list read phases.
+/// Because `BufReader` may read ahead into its internal buffer, recreating it
+/// could silently lose already-buffered data when a server responds quickly,
+/// causing the health check to hang until timeout.
 fn spawn_and_initialize(
     command: &str,
     args: &[String],
     env: &HashMap<String, String>,
 ) -> Result<(Vec<McpTool>, u64), McpError> {
     use std::process::{Command, Stdio};
+
+    /// RAII guard that ensures the child process is always killed and reaped,
+    /// even on early `?`-returns from `write_jsonrpc` or pipe setup.
+    struct ChildGuard(Child);
+    impl Drop for ChildGuard {
+        fn drop(&mut self) {
+            kill_and_reap(&mut self.0);
+        }
+    }
 
     let start = Instant::now();
 
@@ -441,15 +484,30 @@ fn spawn_and_initialize(
         cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
     }
 
-    let mut child = cmd.spawn().map_err(|e| {
-        McpError::HealthCheck(format!("Failed to spawn '{command}': {e}"))
-    })?;
+    let mut child = cmd
+        .spawn()
+        .map_err(|e| McpError::HealthCheck(format!("Failed to spawn '{command}': {e}")))?;
 
-    let stdin = child.stdin.as_mut().ok_or_else(|| {
+    // Wrap immediately so every subsequent return path reaps the child.
+    // Take ownership of stdin/stdout before wrapping so the guard only
+    // holds the (pipe-less) child handle used for kill/wait.
+    let mut stdin = child.stdin.take().ok_or_else(|| {
+        kill_and_reap(&mut child);
         McpError::HealthCheck("Failed to open stdin".into())
     })?;
+    let stdout = child.stdout.take().ok_or_else(|| {
+        kill_and_reap(&mut child);
+        McpError::HealthCheck("Failed to open stdout".into())
+    })?;
+    let guard = ChildGuard(child);
 
-    // Send JSON-RPC initialize request
+    // A single BufReader for the entire handshake — prevents buffered data loss
+    // that occurs when creating separate readers for each phase.
+    let mut reader = BufReader::new(stdout);
+    let mut line = String::new();
+    let timeout = std::time::Duration::from_secs(10);
+
+    // ── Phase 1: Send initialize request ──────────────────────────────
     let init_req = serde_json::json!({
         "jsonrpc": "2.0",
         "id": 1,
@@ -463,128 +521,89 @@ fn spawn_and_initialize(
             }
         }
     });
+    write_jsonrpc(&mut stdin, &init_req)?;
 
-    let msg = serde_json::to_string(&init_req)
-        .map_err(|e| McpError::HealthCheck(format!("JSON error: {e}")))?;
-    writeln!(stdin, "{msg}").map_err(|e| {
-        McpError::HealthCheck(format!("Failed to write to stdin: {e}"))
-    })?;
-
-    // Read the initialize response
-    let stdout = child.stdout.as_mut().ok_or_else(|| {
-        McpError::HealthCheck("Failed to open stdout".into())
-    })?;
-    let mut reader = BufReader::new(stdout);
-    let mut line = String::new();
-
-    // Set a timeout by using a separate thread
-    let timeout = std::time::Duration::from_secs(10);
+    // Read initialize response
     let deadline = Instant::now() + timeout;
-
     loop {
         if Instant::now() > deadline {
-            kill_and_reap(&mut child);
             return Err(McpError::HealthCheck("Initialize timed out".into()));
         }
 
         line.clear();
         match reader.read_line(&mut line) {
             Ok(0) => {
-                kill_and_reap(&mut child);
                 return Err(McpError::HealthCheck("Server closed stdout".into()));
             }
             Ok(_) => {
                 // Try parsing as JSON-RPC response
-                if let Ok(resp) = serde_json::from_str::<serde_json::Value>(&line) {
-                    if resp.get("id").and_then(|v| v.as_u64()) == Some(1) {
-                        // Got initialize response, now send tools/list
-                        break;
-                    }
+                if let Ok(resp) = serde_json::from_str::<serde_json::Value>(&line)
+                    && resp.get("id").and_then(|v| v.as_u64()) == Some(1)
+                {
+                    // Got initialize response, proceed to next phase
+                    break;
                 }
             }
             Err(e) => {
-                kill_and_reap(&mut child);
                 return Err(McpError::HealthCheck(format!("Read error: {e}")));
             }
         }
     }
 
-    // Send initialized notification
-    let stdin = child.stdin.as_mut().ok_or_else(|| {
-        McpError::HealthCheck("stdin closed".into())
-    })?;
+    // ── Phase 2: Send initialized notification + tools/list request ───
     let notif = serde_json::json!({
         "jsonrpc": "2.0",
         "method": "notifications/initialized"
     });
-    let msg = serde_json::to_string(&notif).unwrap();
-    writeln!(stdin, "{msg}").map_err(|e| {
-        McpError::HealthCheck(format!("Failed to send initialized: {e}"))
-    })?;
+    write_jsonrpc(&mut stdin, &notif)?;
 
-    // Send tools/list
     let tools_req = serde_json::json!({
         "jsonrpc": "2.0",
         "id": 2,
         "method": "tools/list",
         "params": {}
     });
-    let msg = serde_json::to_string(&tools_req).unwrap();
-    writeln!(stdin, "{msg}").map_err(|e| {
-        McpError::HealthCheck(format!("Failed to send tools/list: {e}"))
-    })?;
+    write_jsonrpc(&mut stdin, &tools_req)?;
 
-    // Read tools/list response
-    let stdout = child.stdout.as_mut().ok_or_else(|| {
-        McpError::HealthCheck("stdout closed".into())
-    })?;
-    let mut reader = BufReader::new(stdout);
+    // ── Phase 3: Read tools/list response (reuses same BufReader) ─────
     let deadline = Instant::now() + timeout;
-    let mut tools = Vec::new();
-
     loop {
         if Instant::now() > deadline {
-            kill_and_reap(&mut child);
+            tracing::debug!("[MCP Health] Timeout waiting for tools/list response from stdio server");
             break; // Return whatever we have
         }
 
         line.clear();
         match reader.read_line(&mut line) {
-            Ok(0) => break,
+            Ok(0) => {
+                tracing::debug!("[MCP Health] Stdio server closed stdout before sending tools/list response");
+                break;
+            }
             Ok(_) => {
-                if let Ok(resp) = serde_json::from_str::<serde_json::Value>(&line) {
-                    if resp.get("id").and_then(|v| v.as_u64()) == Some(2) {
-                        if let Some(result) = resp.get("result") {
-                            if let Some(tool_list) = result.get("tools").and_then(|t| t.as_array())
-                            {
-                                for tool_val in tool_list {
-                                    let name = tool_val
-                                        .get("name")
-                                        .and_then(|v| v.as_str())
-                                        .unwrap_or("unknown")
-                                        .to_string();
-                                    let description = tool_val
-                                        .get("description")
-                                        .and_then(|v| v.as_str())
-                                        .map(|s| s.to_string());
-                                    let input_schema = tool_val.get("inputSchema").cloned();
-
-                                    tools.push(McpTool::new(name, description, input_schema));
-                                }
-                            }
-                        }
-                        break;
-                    }
+                if let Ok(resp) = serde_json::from_str::<serde_json::Value>(&line)
+                    && resp.get("id").and_then(|v| v.as_u64()) == Some(2)
+                {
+                    let tools = extract_tools_from_json(&resp);
+                    let latency_ms = start.elapsed().as_millis() as u64;
+                    // guard drops here, killing and reaping the child
+                    return Ok((tools, latency_ms));
                 }
             }
-            Err(_) => break,
+            Err(e) => {
+                tracing::debug!(
+                    error = %sanitize_error_msg(&e),
+                    "[MCP Health] Read error while waiting for tools/list response from stdio server"
+                );
+                break;
+            }
         }
     }
 
     let latency_ms = start.elapsed().as_millis() as u64;
-    kill_and_reap(&mut child);
+    // guard drops here, killing and reaping the child
+    drop(guard);
 
-    Ok((tools, latency_ms))
+    Ok((vec![], latency_ms))
 }
 
 fn make_error_result(name: &str, start: Instant, error: &str) -> McpHealthResultCached {
@@ -734,69 +753,156 @@ mod tests {
     }
 
     #[test]
-    fn inject_session_id_header_adds_header_when_present() {
-        let mut headers = reqwest::header::HeaderMap::new();
-        let session_id = "test-session-123";
+    fn http_server_with_invalid_headers_returns_actionable_error() {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
 
-        inject_session_id_header(&mut headers, Some(session_id));
+        rt.block_on(async {
+            let mut server = make_server(true);
+            server.command = None;
+            server.url = Some("http://127.0.0.1:1/mcp".into());
+            server.transport = Some(crate::mcp::types::McpTransport::StreamableHttp);
+            server.headers.insert("Bad Header".into(), "value".into());
 
-        assert!(headers.contains_key(MCP_SESSION_ID_HEADER));
+            let result = check_single_server("invalid-http", &server).await;
+            let error_message = result.result.error_message.unwrap_or_default();
+
+            assert_eq!(result.result.status, McpHealthStatus::Unreachable);
+            assert!(error_message.contains("Invalid HTTP header name"));
+            assert!(error_message.contains("Bad Header"));
+        });
+    }
+
+    // ── extract_tools_from_json tests ─────────────────────────────────
+
+    #[test]
+    fn extract_tools_from_json_parses_valid_response() {
+        let resp = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "result": {
+                "tools": [
+                    {
+                        "name": "read_file",
+                        "description": "Read a file from disk",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": { "path": { "type": "string" } }
+                        }
+                    },
+                    {
+                        "name": "write_file",
+                        "description": "Write content to a file"
+                    }
+                ]
+            }
+        });
+
+        let tools = extract_tools_from_json(&resp);
+        assert_eq!(tools.len(), 2);
+        assert_eq!(tools[0].name, "read_file");
         assert_eq!(
-            headers.get(MCP_SESSION_ID_HEADER).unwrap().to_str().unwrap(),
-            "test-session-123"
+            tools[0].description.as_deref(),
+            Some("Read a file from disk")
         );
-    }
-
-    #[test]
-    fn inject_session_id_header_does_nothing_when_none() {
-        let mut headers = reqwest::header::HeaderMap::new();
-
-        inject_session_id_header(&mut headers, None);
-
-        assert!(!headers.contains_key(MCP_SESSION_ID_HEADER));
-    }
-
-    #[test]
-    fn inject_session_id_header_handles_invalid_header_value() {
-        let mut headers = reqwest::header::HeaderMap::new();
-        // Invalid header value (contains non-ASCII control characters)
-        let session_id = "test\u{0000}session";
-
-        inject_session_id_header(&mut headers, Some(session_id));
-
-        // Should not panic, and header should not be added
-        assert!(!headers.contains_key(MCP_SESSION_ID_HEADER));
-    }
-
-    #[test]
-    fn inject_session_id_header_handles_empty_string() {
-        let mut headers = reqwest::header::HeaderMap::new();
-        let session_id = "";
-
-        inject_session_id_header(&mut headers, Some(session_id));
-
-        // Empty string is a valid HTTP header value, so it gets inserted
-        assert!(headers.contains_key(MCP_SESSION_ID_HEADER));
+        assert!(tools[0].input_schema.is_some());
+        assert_eq!(tools[1].name, "write_file");
         assert_eq!(
-            headers.get(MCP_SESSION_ID_HEADER).unwrap().to_str().unwrap(),
-            ""
+            tools[1].description.as_deref(),
+            Some("Write content to a file")
         );
+        assert!(tools[1].input_schema.is_none());
     }
 
     #[test]
-    fn inject_session_id_header_modifies_existing_headermap() {
-        let mut headers = reqwest::header::HeaderMap::new();
-        headers.insert(
-            reqwest::header::CONTENT_TYPE,
-            "application/json".parse().unwrap(),
+    fn extract_tools_from_json_handles_empty_tools_array() {
+        let resp = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "result": { "tools": [] }
+        });
+
+        let tools = extract_tools_from_json(&resp);
+        assert!(tools.is_empty());
+    }
+
+    #[test]
+    fn extract_tools_from_json_handles_missing_result() {
+        let resp = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "error": { "code": -32600, "message": "Invalid Request" }
+        });
+
+        let tools = extract_tools_from_json(&resp);
+        assert!(tools.is_empty());
+    }
+
+    #[test]
+    fn extract_tools_from_json_handles_missing_name() {
+        let resp = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "result": {
+                "tools": [
+                    { "description": "A tool without a name" }
+                ]
+            }
+        });
+
+        let tools = extract_tools_from_json(&resp);
+        assert_eq!(tools.len(), 1);
+        assert_eq!(tools[0].name, "unknown");
+    }
+
+    // ── write_jsonrpc tests ───────────────────────────────────────────
+
+    #[test]
+    fn write_jsonrpc_writes_valid_json_line() {
+        let mut buf = Vec::new();
+        let msg = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize"
+        });
+
+        write_jsonrpc(&mut buf, &msg).unwrap();
+
+        let output = String::from_utf8(buf).unwrap();
+        // Must end with a newline (newline-delimited JSON-RPC)
+        assert!(output.ends_with('\n'));
+        // The line (without trailing newline) must be valid JSON
+        let parsed: serde_json::Value = serde_json::from_str(output.trim_end()).unwrap();
+        assert_eq!(parsed["method"], "initialize");
+    }
+
+    #[test]
+    fn write_jsonrpc_returns_error_on_write_failure() {
+        // A writer that always fails
+        struct FailWriter;
+        impl Write for FailWriter {
+            fn write(&mut self, _buf: &[u8]) -> std::io::Result<usize> {
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::BrokenPipe,
+                    "simulated broken pipe",
+                ))
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+
+        let msg = serde_json::json!({"jsonrpc": "2.0", "id": 1});
+        let result = write_jsonrpc(&mut FailWriter, &msg);
+        assert!(result.is_err());
+
+        let err = result.unwrap_err();
+        let err_msg = err.to_string();
+        assert!(
+            err_msg.contains("Failed to write JSON-RPC message"),
+            "unexpected error message: {err_msg}"
         );
-        let session_id = "session-456";
-
-        inject_session_id_header(&mut headers, Some(session_id));
-
-        // Both headers should be present
-        assert!(headers.contains_key(reqwest::header::CONTENT_TYPE));
-        assert!(headers.contains_key(MCP_SESSION_ID_HEADER));
-        assert_eq!(headers.len(), 2);
     }
 }

@@ -42,6 +42,7 @@ import type {
 } from "@tracepilot/types";
 import { createDefaultConfig } from "@tracepilot/types";
 
+import { type CommandName } from "./commands.js";
 import { invokePlugin, isTauri } from "./invoke.js";
 
 // Re-export IPC performance instrumentation utilities
@@ -56,7 +57,7 @@ async function getMocks() {
   return mocksModule;
 }
 
-async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+async function invoke<T>(cmd: CommandName, args?: Record<string, unknown>): Promise<T> {
   if (isTauri()) {
     return invokePlugin<T>(cmd, args);
   }
@@ -64,7 +65,7 @@ async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T
   return getMockData<T>(cmd, args);
 }
 
-async function getMockData<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+async function getMockData<T>(cmd: CommandName, args?: Record<string, unknown>): Promise<T> {
   const mocks = await getMocks();
   const mockSessionId = typeof args?.sessionId === "string" ? args.sessionId : "mock-id";
 
@@ -870,4 +871,5 @@ export * from "./mcp.js";
 // Re-export orchestration module
 export * from "./orchestration.js";
 export * from "./skills.js";
+export { IPC_COMMANDS, type CommandName } from "./commands.js";
 export type { SessionHealth };

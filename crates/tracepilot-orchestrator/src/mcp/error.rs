@@ -16,29 +16,42 @@ pub enum McpError {
     /// Import/parse failure.
     #[error("MCP import error: {0}")]
     Import(String),
-    /// Configuration file I/O error.
+    /// Configuration file I/O error (with custom message).
     #[error("MCP config error: {0}")]
     Config(String),
-    /// JSON serialization/deserialization error.
+    /// JSON serialization/deserialization error (with custom message).
     #[error("MCP JSON error: {0}")]
     Json(String),
     /// Network/HTTP error.
     #[error("MCP network error: {0}")]
     Network(String),
+    /// I/O error with preserved source chain.
+    #[error("MCP I/O error: {0}")]
+    IoSource(#[from] std::io::Error),
+    /// JSON error with preserved source chain.
+    #[error("MCP JSON error: {0}")]
+    JsonSource(#[from] serde_json::Error),
 }
 
-// Manual `From` impls convert source errors to String because many call sites
-// construct these variants with custom string messages directly.
-
-impl From<serde_json::Error> for McpError {
-    fn from(e: serde_json::Error) -> Self {
-        McpError::Json(e.to_string())
+impl McpError {
+    /// Convert an `OrchestratorError` into the closest `McpError` variant,
+    /// preserving typed sources for I/O and JSON errors.
+    pub fn from_orchestrator(e: crate::error::OrchestratorError) -> Self {
+        match e {
+            crate::error::OrchestratorError::Io(io_err) => McpError::IoSource(io_err),
+            crate::error::OrchestratorError::Json(json_err) => McpError::JsonSource(json_err),
+            other => McpError::Config(other.to_string()),
+        }
     }
-}
 
-impl From<std::io::Error> for McpError {
-    fn from(e: std::io::Error) -> Self {
-        McpError::Config(e.to_string())
+    /// Construct a HealthCheck error with context and source error.
+    pub fn health_ctx(context: impl std::fmt::Display, source: impl std::fmt::Display) -> Self {
+        McpError::HealthCheck(format!("{context}: {source}"))
+    }
+
+    /// Construct an Import error with context and source error.
+    pub fn import_ctx(context: impl std::fmt::Display, source: impl std::fmt::Display) -> Self {
+        McpError::Import(format!("{context}: {source}"))
     }
 }
 
@@ -99,7 +112,7 @@ mod tests {
         let json_err: serde_json::Error =
             serde_json::from_str::<String>("invalid").unwrap_err();
         let mcp_err: McpError = json_err.into();
-        assert!(matches!(mcp_err, McpError::Json(_)));
+        assert!(matches!(mcp_err, McpError::JsonSource(_)));
         assert!(!mcp_err.to_string().is_empty());
     }
 
@@ -107,7 +120,46 @@ mod tests {
     fn from_io_error() {
         let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "file missing");
         let mcp_err: McpError = io_err.into();
-        assert!(matches!(mcp_err, McpError::Config(_)));
+        assert!(matches!(mcp_err, McpError::IoSource(_)));
         assert!(mcp_err.to_string().contains("file missing"));
+    }
+
+    #[test]
+    fn io_error_preserves_source_chain() {
+        use std::error::Error;
+        let io_err = std::io::Error::new(std::io::ErrorKind::PermissionDenied, "access denied");
+        let mcp_err: McpError = io_err.into();
+        assert!(matches!(mcp_err, McpError::IoSource(_)));
+        assert!(mcp_err.source().is_some(), "source chain should be preserved");
+        assert!(mcp_err.to_string().contains("MCP I/O error"));
+    }
+
+    #[test]
+    fn json_error_preserves_source_chain() {
+        use std::error::Error;
+        let json_err: serde_json::Error =
+            serde_json::from_str::<String>("{{invalid}}").unwrap_err();
+        let mcp_err: McpError = json_err.into();
+        assert!(matches!(mcp_err, McpError::JsonSource(_)));
+        assert!(mcp_err.source().is_some(), "source chain should be preserved");
+        assert!(mcp_err.to_string().contains("MCP JSON error"));
+    }
+
+    #[test]
+    fn health_ctx_creates_formatted_error() {
+        let err = McpError::health_ctx("JSON error", "unexpected token");
+        let msg = err.to_string();
+        assert!(msg.contains("health check failed"));
+        assert!(msg.contains("JSON error"));
+        assert!(msg.contains("unexpected token"));
+    }
+
+    #[test]
+    fn import_ctx_creates_formatted_error() {
+        let err = McpError::import_ctx("Failed to read", "permission denied");
+        let msg = err.to_string();
+        assert!(msg.contains("import error"));
+        assert!(msg.contains("Failed to read"));
+        assert!(msg.contains("permission denied"));
     }
 }

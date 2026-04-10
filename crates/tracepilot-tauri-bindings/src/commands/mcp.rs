@@ -1,5 +1,6 @@
 //! MCP Tauri commands (11 commands).
 
+use crate::blocking_cmd;
 use crate::error::CmdResult;
 use std::collections::HashMap;
 use tracepilot_orchestrator::OrchestratorError;
@@ -14,20 +15,14 @@ fn mcp<T>(r: Result<T, tracepilot_orchestrator::mcp::McpError>) -> Result<T, Orc
 #[tauri::command]
 pub async fn mcp_list_servers(
 ) -> CmdResult<Vec<(String, tracepilot_orchestrator::mcp::types::McpServerConfig)>> {
-    Ok(tokio::task::spawn_blocking(|| {
-        tracepilot_orchestrator::mcp::config::list_servers()
-    })
-    .await??)
+    blocking_cmd!(tracepilot_orchestrator::mcp::config::list_servers())
 }
 
 #[tauri::command]
 pub async fn mcp_get_server(
     name: String,
 ) -> CmdResult<tracepilot_orchestrator::mcp::types::McpServerConfig> {
-    Ok(tokio::task::spawn_blocking(move || {
-        mcp(tracepilot_orchestrator::mcp::config::get_server(&name))
-    })
-    .await??)
+    blocking_cmd!(mcp(tracepilot_orchestrator::mcp::config::get_server(&name)))
 }
 
 #[tauri::command]
@@ -35,10 +30,7 @@ pub async fn mcp_add_server(
     name: String,
     config: tracepilot_orchestrator::mcp::types::McpServerConfig,
 ) -> CmdResult<()> {
-    Ok(tokio::task::spawn_blocking(move || {
-        mcp(tracepilot_orchestrator::mcp::config::add_server(&name, config))
-    })
-    .await??)
+    blocking_cmd!(mcp(tracepilot_orchestrator::mcp::config::add_server(&name, config)))
 }
 
 #[tauri::command]
@@ -46,28 +38,19 @@ pub async fn mcp_update_server(
     name: String,
     config: tracepilot_orchestrator::mcp::types::McpServerConfig,
 ) -> CmdResult<()> {
-    Ok(tokio::task::spawn_blocking(move || {
-        mcp(tracepilot_orchestrator::mcp::config::update_server(&name, config))
-    })
-    .await??)
+    blocking_cmd!(mcp(tracepilot_orchestrator::mcp::config::update_server(&name, config)))
 }
 
 #[tauri::command]
 pub async fn mcp_remove_server(
     name: String,
 ) -> CmdResult<tracepilot_orchestrator::mcp::types::McpServerConfig> {
-    Ok(tokio::task::spawn_blocking(move || {
-        mcp(tracepilot_orchestrator::mcp::config::remove_server(&name))
-    })
-    .await??)
+    blocking_cmd!(mcp(tracepilot_orchestrator::mcp::config::remove_server(&name)))
 }
 
 #[tauri::command]
 pub async fn mcp_toggle_server(name: String) -> CmdResult<bool> {
-    Ok(tokio::task::spawn_blocking(move || {
-        mcp(tracepilot_orchestrator::mcp::config::toggle_server(&name))
-    })
-    .await??)
+    blocking_cmd!(mcp(tracepilot_orchestrator::mcp::config::toggle_server(&name)))
 }
 
 // -- Health checks --
@@ -109,12 +92,9 @@ pub async fn mcp_check_server_health(
 pub async fn mcp_import_from_file(
     path: String,
 ) -> CmdResult<tracepilot_orchestrator::mcp::import::McpImportResult> {
-    Ok(tokio::task::spawn_blocking(move || {
-        mcp(tracepilot_orchestrator::mcp::import::import_from_file(
-            std::path::Path::new(&path),
-        ))
-    })
-    .await??)
+    blocking_cmd!(mcp(tracepilot_orchestrator::mcp::import::import_from_file(
+        std::path::Path::new(&path),
+    )))
 }
 
 #[tauri::command]
@@ -124,15 +104,12 @@ pub async fn mcp_import_from_github(
     path: Option<String>,
     git_ref: Option<String>,
 ) -> CmdResult<tracepilot_orchestrator::mcp::import::McpImportResult> {
-    Ok(tokio::task::spawn_blocking(move || {
-        mcp(tracepilot_orchestrator::mcp::import::import_from_github(
-            &owner,
-            &repo,
-            path.as_deref(),
-            git_ref.as_deref(),
-        ))
-    })
-    .await??)
+    blocking_cmd!(mcp(tracepilot_orchestrator::mcp::import::import_from_github(
+        &owner,
+        &repo,
+        path.as_deref(),
+        git_ref.as_deref(),
+    )))
 }
 
 // -- Diff --
@@ -141,11 +118,10 @@ pub async fn mcp_import_from_github(
 pub async fn mcp_compute_diff(
     incoming: HashMap<String, tracepilot_orchestrator::mcp::types::McpServerConfig>,
 ) -> CmdResult<tracepilot_orchestrator::mcp::diff::McpConfigDiff> {
-    Ok(tokio::task::spawn_blocking(move || {
+    blocking_cmd!({
         let config = tracepilot_orchestrator::mcp::config::load_config()?;
         Ok::<_, OrchestratorError>(
             tracepilot_orchestrator::mcp::diff::compute_diff(&config.mcp_servers, &incoming),
         )
     })
-    .await??)
 }

@@ -22,7 +22,6 @@ reqwest = { workspace = true }
 
 similar = "2"
 walkdir = "2"
-dashmap = { workspace = true }
 sha2 = "0.10"
 
 [dev-dependencies]

@@ -53,7 +53,10 @@ pub fn create_skill(
     body: &str,
 ) -> Result<PathBuf, SkillsError> {
     validate_skill_name(name)?;
-    let dir = global_skills_dir().map_err(|e| SkillsError::Io(e.to_string()))?;
+    let dir = global_skills_dir().map_err(|e| match e {
+        crate::error::OrchestratorError::Io(io_err) => SkillsError::IoSource(io_err),
+        other => SkillsError::Io(other.to_string()),
+    })?;
     let skill_dir = dir.join(name);
 
     if skill_dir.exists() {

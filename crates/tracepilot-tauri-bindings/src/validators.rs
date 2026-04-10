@@ -49,6 +49,132 @@ pub(crate) fn validate_session_id_list(session_ids: &[String]) -> CmdResult<()> 
     Ok(())
 }
 
+// ── Date validation ───────────────────────────────────────────────────────
+
+/// Maximum reasonable Unix timestamp (year 3000-01-01).
+///
+/// Used to reject obviously invalid timestamps that would cause confusing
+/// downstream behavior. Real session timestamps should never exceed this.
+const MAX_UNIX_TIMESTAMP: i64 = 32503680000; // 3000-01-01 00:00:00 UTC
+
+/// Validate a single Unix timestamp is within reasonable bounds.
+///
+/// Rejects negative timestamps and dates far in the future (>= year 3000).
+fn validate_unix_timestamp(timestamp: i64, param_name: &str) -> CmdResult<()> {
+    if timestamp < 0 {
+        return Err(BindingsError::Validation(format!(
+            "Invalid {}: timestamp cannot be negative (got {})",
+            param_name, timestamp
+        )));
+    }
+    if timestamp >= MAX_UNIX_TIMESTAMP {
+        return Err(BindingsError::Validation(format!(
+            "Invalid {}: timestamp {} is too far in the future (max: {})",
+            param_name, timestamp, MAX_UNIX_TIMESTAMP
+        )));
+    }
+    Ok(())
+}
+
+/// Validate Unix timestamp date range (used by search commands).
+///
+/// Ensures:
+/// * Individual timestamps are non-negative and < year 3000
+/// * If both present: `from <= to`
+///
+/// Both parameters are optional; `None` values are always valid.
+pub(crate) fn validate_unix_date_range(
+    date_from: Option<i64>,
+    date_to: Option<i64>,
+) -> CmdResult<()> {
+    // Validate individual timestamps
+    if let Some(from) = date_from {
+        validate_unix_timestamp(from, "date_from")?;
+    }
+    if let Some(to) = date_to {
+        validate_unix_timestamp(to, "date_to")?;
+    }
+
+    // Validate range ordering
+    if let (Some(from), Some(to)) = (date_from, date_to) {
+        if from > to {
+            return Err(BindingsError::Validation(format!(
+                "Invalid date range: date_from ({}) is after date_to ({})",
+                from, to
+            )));
+        }
+    }
+    Ok(())
+}
+
+/// Parse an ISO 8601 date string.
+///
+/// Accepts both full RFC 3339 datetimes (`2024-01-15T00:00:00Z`) and
+/// date-only strings (`2024-01-15`) since the frontend sends `YYYY-MM-DD`
+/// for analytics date range filters.
+fn parse_iso_date(date_str: &str, param_name: &str) -> CmdResult<chrono::DateTime<chrono::Utc>> {
+    let trimmed = date_str.trim();
+    if trimmed.is_empty() {
+        return Err(BindingsError::Validation(format!(
+            "Invalid {}: cannot be empty or whitespace",
+            param_name
+        )));
+    }
+
+    // Try full RFC 3339 first (e.g. "2024-01-15T00:00:00Z")
+    if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(trimmed) {
+        return Ok(dt.with_timezone(&chrono::Utc));
+    }
+
+    // Fall back to date-only YYYY-MM-DD (frontend sends this format)
+    if let Ok(nd) = chrono::NaiveDate::parse_from_str(trimmed, "%Y-%m-%d") {
+        return Ok(nd
+            .and_hms_opt(0, 0, 0)
+            .expect("midnight is always valid")
+            .and_utc());
+    }
+
+    Err(BindingsError::Validation(format!(
+        "Invalid {}: '{}' is not a valid date (expected YYYY-MM-DD or RFC 3339 datetime)",
+        param_name,
+        truncate_for_display(date_str, 50),
+    )))
+}
+
+/// Validate date range (used by analytics commands).
+///
+/// Ensures:
+/// * Strings parse as valid dates (YYYY-MM-DD or RFC 3339 datetime)
+/// * If both present: `from_date <= to_date`
+///
+/// Both parameters are optional; `None` values are always valid.
+pub(crate) fn validate_iso_date_range(
+    from_date: &Option<String>,
+    to_date: &Option<String>,
+) -> CmdResult<()> {
+    // Parse and validate individual dates
+    let from_parsed = if let Some(from) = from_date {
+        Some(parse_iso_date(from, "from_date")?)
+    } else {
+        None
+    };
+    let to_parsed = if let Some(to) = to_date {
+        Some(parse_iso_date(to, "to_date")?)
+    } else {
+        None
+    };
+
+    // Validate range ordering
+    if let (Some(from), Some(to)) = (from_parsed, to_parsed) {
+        if from > to {
+            return Err(BindingsError::Validation(
+                "Invalid date range: from_date is after to_date".to_string(),
+            ));
+        }
+    }
+    Ok(())
+}
+
 // ── Pagination helpers ────────────────────────────────────────────────────
 
 /// Clamp an explicit pagination limit to a safe upper bound.
@@ -216,5 +342,186 @@ mod tests {
     fn exact_length_unchanged() {
         let result = truncate_for_display("abcde", 5);
         assert_eq!(result, "abcde");
+    }
+
+    // -- validate_unix_date_range -------------------------------------------
+
+    #[test]
+    fn unix_range_both_none_passes() {
+        assert!(validate_unix_date_range(None, None).is_ok());
+    }
+
+    #[test]
+    fn unix_range_only_from_passes() {
+        assert!(validate_unix_date_range(Some(1704067200), None).is_ok()); // 2024-01-01
+    }
+
+    #[test]
+    fn unix_range_only_to_passes() {
+        assert!(validate_unix_date_range(None, Some(1704067200)).is_ok());
+    }
+
+    #[test]
+    fn unix_range_valid_range_passes() {
+        assert!(validate_unix_date_range(Some(1704067200), Some(1704153600)).is_ok());
+        // from: 2024-01-01, to: 2024-01-02
+    }
+
+    #[test]
+    fn unix_range_equal_timestamps_passes() {
+        let timestamp = 1704067200;
+        assert!(validate_unix_date_range(Some(timestamp), Some(timestamp)).is_ok());
+    }
+
+    #[test]
+    fn unix_range_swapped_fails() {
+        let err = validate_unix_date_range(Some(1704153600), Some(1704067200)).unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("date_from") && msg.contains("after"), "got: {msg}");
+    }
+
+    #[test]
+    fn unix_range_negative_from_fails() {
+        let err = validate_unix_date_range(Some(-1), Some(1704067200)).unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("negative") && msg.contains("date_from"), "got: {msg}");
+    }
+
+    #[test]
+    fn unix_range_negative_to_fails() {
+        let err = validate_unix_date_range(Some(1704067200), Some(-100)).unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("negative") && msg.contains("date_to"), "got: {msg}");
+    }
+
+    #[test]
+    fn unix_range_extreme_future_fails() {
+        // Way beyond year 3000
+        let err = validate_unix_date_range(Some(99999999999), None).unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("too far in the future"), "got: {msg}");
+    }
+
+    #[test]
+    fn unix_range_year_3000_boundary_fails() {
+        // Exactly at MAX_UNIX_TIMESTAMP should fail
+        let err = validate_unix_date_range(Some(32503680000), None).unwrap_err();
+        assert!(err.to_string().contains("too far in the future"));
+    }
+
+    #[test]
+    fn unix_range_just_before_year_3000_passes() {
+        // One second before MAX should pass
+        assert!(validate_unix_date_range(Some(32503679999), None).is_ok());
+    }
+
+    #[test]
+    fn unix_range_epoch_zero_passes() {
+        // 1970-01-01 00:00:00 is a valid edge case
+        assert!(validate_unix_date_range(Some(0), Some(1704067200)).is_ok());
+    }
+
+    // -- validate_iso_date_range --------------------------------------------
+
+    #[test]
+    fn iso_range_both_none_passes() {
+        assert!(validate_iso_date_range(&None, &None).is_ok());
+    }
+
+    #[test]
+    fn iso_range_only_from_passes() {
+        let from = Some("2024-01-01T00:00:00Z".to_string());
+        assert!(validate_iso_date_range(&from, &None).is_ok());
+    }
+
+    #[test]
+    fn iso_range_only_to_passes() {
+        let to = Some("2024-12-31T23:59:59Z".to_string());
+        assert!(validate_iso_date_range(&None, &to).is_ok());
+    }
+
+    #[test]
+    fn iso_range_valid_range_passes() {
+        let from = Some("2024-01-01T00:00:00Z".to_string());
+        let to = Some("2024-12-31T23:59:59Z".to_string());
+        assert!(validate_iso_date_range(&from, &to).is_ok());
+    }
+
+    #[test]
+    fn iso_range_equal_dates_passes() {
+        let date = Some("2024-06-15T12:00:00Z".to_string());
+        assert!(validate_iso_date_range(&date, &date).is_ok());
+    }
+
+    #[test]
+    fn iso_range_swapped_fails() {
+        let from = Some("2024-12-31T00:00:00Z".to_string());
+        let to = Some("2024-01-01T00:00:00Z".to_string());
+        let err = validate_iso_date_range(&from, &to).unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("from_date") && msg.contains("after"), "got: {msg}");
+    }
+
+    #[test]
+    fn iso_range_invalid_format_fails() {
+        let invalid = Some("not-a-date".to_string());
+        let err = validate_iso_date_range(&invalid, &None).unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("not a valid date"), "got: {msg}");
+        assert!(msg.contains("from_date"), "got: {msg}");
+    }
+
+    #[test]
+    fn iso_range_empty_string_fails() {
+        let empty = Some("".to_string());
+        let err = validate_iso_date_range(&empty, &None).unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("empty or whitespace"), "got: {msg}");
+    }
+
+    #[test]
+    fn iso_range_whitespace_only_fails() {
+        let whitespace = Some("   ".to_string());
+        let err = validate_iso_date_range(&whitespace, &None).unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("empty or whitespace"), "got: {msg}");
+    }
+
+    #[test]
+    fn iso_range_with_timezone_offset_passes() {
+        let from = Some("2024-01-01T00:00:00+05:30".to_string());
+        let to = Some("2024-01-01T12:00:00-08:00".to_string());
+        assert!(validate_iso_date_range(&from, &to).is_ok());
+    }
+
+    #[test]
+    fn iso_range_date_only_format_passes() {
+        // Frontend sends YYYY-MM-DD for analytics date ranges
+        let date_only = Some("2024-01-01".to_string());
+        assert!(validate_iso_date_range(&date_only, &None).is_ok());
+    }
+
+    #[test]
+    fn iso_range_date_only_range_passes() {
+        let from = Some("2024-01-01".to_string());
+        let to = Some("2024-12-31".to_string());
+        assert!(validate_iso_date_range(&from, &to).is_ok());
+    }
+
+    #[test]
+    fn iso_range_mixed_formats_passes() {
+        // Date-only from + RFC 3339 to should work
+        let from = Some("2024-01-01".to_string());
+        let to = Some("2024-12-31T23:59:59Z".to_string());
+        assert!(validate_iso_date_range(&from, &to).is_ok());
+    }
+
+    #[test]
+    fn iso_range_truncated_string_in_error() {
+        let very_long = Some("not-a-date".repeat(20));
+        let err = validate_iso_date_range(&very_long, &None).unwrap_err();
+        let msg = err.to_string();
+        // Should be truncated with ellipsis
+        assert!(msg.contains("…") || msg.len() < very_long.as_ref().unwrap().len());
     }
 }

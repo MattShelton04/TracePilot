@@ -842,3 +842,68 @@ fn import_session_filter() {
     assert_eq!(result.imported.len(), 0);
     assert_eq!(result.skipped.len(), 1);
 }
+
+// ── Error-resilience tests for optional file-backed sections ────────────────
+
+#[test]
+fn export_skips_rewind_snapshots_on_malformed_index() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("workspace.yaml"), full_workspace_yaml()).unwrap();
+
+    // Write invalid JSON to force a parse error in parse_rewind_index
+    let rewind_dir = dir.path().join("rewind-snapshots");
+    fs::create_dir_all(&rewind_dir).unwrap();
+    fs::write(rewind_dir.join("index.json"), "{ this is : not valid json !!! }").unwrap();
+
+    let options = ExportOptions::all(ExportFormat::Json);
+    let files = export_session(dir.path(), &options).unwrap();
+    let archive: SessionArchive = serde_json::from_slice(&files[0].content).unwrap();
+    let session = &archive.sessions[0];
+
+    // Export must succeed and the broken section must be absent
+    assert!(!session.available_sections.contains(&SectionId::RewindSnapshots));
+    assert!(session.rewind_snapshots.is_none());
+    // Other sections (health, parse diagnostics) are still present as expected
+    assert!(session.available_sections.contains(&SectionId::Health));
+}
+
+#[test]
+fn export_skips_checkpoints_on_unreadable_index() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("workspace.yaml"), full_workspace_yaml()).unwrap();
+
+    // Make checkpoints/index.md a directory — reading it as a file causes an I/O error
+    let cp_index_path = dir.path().join("checkpoints").join("index.md");
+    fs::create_dir_all(&cp_index_path).unwrap();
+
+    let options = ExportOptions::all(ExportFormat::Json);
+    let files = export_session(dir.path(), &options).unwrap();
+    let archive: SessionArchive = serde_json::from_slice(&files[0].content).unwrap();
+    let session = &archive.sessions[0];
+
+    // Export must succeed and the broken section must be absent
+    assert!(!session.available_sections.contains(&SectionId::Checkpoints));
+    assert!(session.checkpoints.is_none());
+    // Other sections are still present as expected
+    assert!(session.available_sections.contains(&SectionId::Health));
+}
+
+#[test]
+fn export_skips_plan_on_unreadable_file() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("workspace.yaml"), full_workspace_yaml()).unwrap();
+
+    // Make plan.md a directory — reading it as a file causes an I/O error
+    fs::create_dir_all(dir.path().join("plan.md")).unwrap();
+
+    let options = ExportOptions::all(ExportFormat::Json);
+    let files = export_session(dir.path(), &options).unwrap();
+    let archive: SessionArchive = serde_json::from_slice(&files[0].content).unwrap();
+    let session = &archive.sessions[0];
+
+    // Export must succeed and the broken section must be absent
+    assert!(!session.available_sections.contains(&SectionId::Plan));
+    assert!(session.plan.is_none());
+    // Other sections are still present as expected
+    assert!(session.available_sections.contains(&SectionId::Health));
+}

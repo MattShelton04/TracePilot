@@ -21,6 +21,7 @@ pub async fn get_analytics(
     repo: Option<String>,
     hide_empty: Option<bool>,
 ) -> CmdResult<tracepilot_core::analytics::AnalyticsData> {
+    crate::validators::validate_iso_date_range(&from_date, &to_date)?;
     let ctx = AnalyticsContext::from_state(&state);
     let params = AnalyticsQueryParams::from_options(from_date, to_date, repo, hide_empty);
 
@@ -53,6 +54,7 @@ pub async fn get_tool_analysis(
     repo: Option<String>,
     hide_empty: Option<bool>,
 ) -> CmdResult<tracepilot_core::analytics::ToolAnalysisData> {
+    crate::validators::validate_iso_date_range(&from_date, &to_date)?;
     let ctx = AnalyticsContext::from_state(&state);
     let params = AnalyticsQueryParams::from_options(from_date, to_date, repo, hide_empty);
 
@@ -85,6 +87,7 @@ pub async fn get_code_impact(
     repo: Option<String>,
     hide_empty: Option<bool>,
 ) -> CmdResult<tracepilot_core::analytics::CodeImpactData> {
+    crate::validators::validate_iso_date_range(&from_date, &to_date)?;
     let ctx = AnalyticsContext::from_state(&state);
     let params = AnalyticsQueryParams::from_options(from_date, to_date, repo, hide_empty);
 

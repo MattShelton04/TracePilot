@@ -16,7 +16,7 @@ pub enum SkillsError {
     /// Frontmatter validation error.
     #[error("Frontmatter validation error: {0}")]
     FrontmatterValidation(String),
-    /// File I/O error.
+    /// File I/O error (with custom message).
     #[error("Skills I/O error: {0}")]
     Io(String),
     /// Import error.
@@ -28,26 +28,24 @@ pub enum SkillsError {
     /// GitHub operation error.
     #[error("Skills GitHub error: {0}")]
     GitHub(String),
-    /// YAML serialization error.
+    /// YAML serialization error (with custom message).
     #[error("Skills YAML error: {0}")]
     Yaml(String),
     /// Path traversal / containment violation.
     #[error("Path not allowed: {0}")]
     PathTraversal(String),
+    /// I/O error with preserved source chain.
+    #[error("Skills I/O error: {0}")]
+    IoSource(#[from] std::io::Error),
+    /// YAML error with preserved source chain.
+    #[error("Skills YAML error: {0}")]
+    YamlSource(#[from] serde_yml::Error),
 }
 
-// Manual `From` impls convert source errors to String because many call sites
-// construct these variants with custom string messages directly.
-
-impl From<std::io::Error> for SkillsError {
-    fn from(e: std::io::Error) -> Self {
-        SkillsError::Io(e.to_string())
-    }
-}
-
-impl From<serde_yml::Error> for SkillsError {
-    fn from(e: serde_yml::Error) -> Self {
-        SkillsError::Yaml(e.to_string())
+impl SkillsError {
+    /// Construct a GitHub error with context and source error.
+    pub fn github_ctx(context: impl std::fmt::Display, source: impl std::fmt::Display) -> Self {
+        SkillsError::GitHub(format!("{context}: {source}"))
     }
 }
 
@@ -129,7 +127,7 @@ mod tests {
     fn from_io_error() {
         let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "file missing");
         let skills_err: SkillsError = io_err.into();
-        assert!(matches!(skills_err, SkillsError::Io(_)));
+        assert!(matches!(skills_err, SkillsError::IoSource(_)));
         assert!(skills_err.to_string().contains("file missing"));
     }
 
@@ -138,7 +136,37 @@ mod tests {
         let yaml = "{{invalid";
         let yml_err = serde_yml::from_str::<serde_yml::Value>(yaml).unwrap_err();
         let skills_err: SkillsError = yml_err.into();
-        assert!(matches!(skills_err, SkillsError::Yaml(_)));
+        assert!(matches!(skills_err, SkillsError::YamlSource(_)));
         assert!(!skills_err.to_string().is_empty());
+    }
+
+    #[test]
+    fn io_error_preserves_source_chain() {
+        use std::error::Error;
+        let io_err = std::io::Error::new(std::io::ErrorKind::PermissionDenied, "read error");
+        let skills_err: SkillsError = io_err.into();
+        assert!(matches!(skills_err, SkillsError::IoSource(_)));
+        assert!(skills_err.source().is_some(), "source chain should be preserved");
+        assert!(skills_err.to_string().contains("Skills I/O error"));
+    }
+
+    #[test]
+    fn yaml_error_preserves_source_chain() {
+        use std::error::Error;
+        let yaml = "bad: {{unclosed";
+        let yml_err = serde_yml::from_str::<serde_yml::Value>(yaml).unwrap_err();
+        let skills_err: SkillsError = yml_err.into();
+        assert!(matches!(skills_err, SkillsError::YamlSource(_)));
+        assert!(skills_err.source().is_some(), "source chain should be preserved");
+        assert!(skills_err.to_string().contains("Skills YAML error"));
+    }
+
+    #[test]
+    fn github_ctx_creates_formatted_error() {
+        let err = SkillsError::github_ctx("Failed to fetch SKILL.md", "404 not found");
+        let msg = err.to_string();
+        assert!(msg.contains("GitHub error"));
+        assert!(msg.contains("Failed to fetch SKILL.md"));
+        assert!(msg.contains("404 not found"));
     }
 }

@@ -7,6 +7,7 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
+use crate::blocking_cmd;
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
 use crate::helpers::{read_config, with_session_path};
@@ -17,6 +18,35 @@ use crate::types::{
 
 use tracepilot_export::options::{ContentDetailOptions, ExportFormat, ExportOptions, OutputTarget, RedactionOptions};
 use tracepilot_export::SectionId;
+
+// ── Helper Functions ──────────────────────────────────────────────────────
+
+/// Build `ContentDetailOptions` and `RedactionOptions` from optional parameters.
+///
+/// This centralizes the option-building logic used by both `export_sessions` and
+/// `preview_export`, ensuring consistent defaults across all export commands.
+fn build_export_detail_options(
+    include_subagent_internals: Option<bool>,
+    include_tool_details: Option<bool>,
+    include_full_tool_results: Option<bool>,
+    anonymize_paths: Option<bool>,
+    strip_secrets: Option<bool>,
+    strip_pii: Option<bool>,
+) -> (ContentDetailOptions, RedactionOptions) {
+    let content_detail = ContentDetailOptions {
+        include_subagent_internals: include_subagent_internals.unwrap_or(true),
+        include_tool_details: include_tool_details.unwrap_or(true),
+        include_full_tool_results: include_full_tool_results.unwrap_or(false),
+    };
+
+    let redaction = RedactionOptions {
+        anonymize_paths: anonymize_paths.unwrap_or(false),
+        strip_secrets: strip_secrets.unwrap_or(false),
+        strip_pii: strip_pii.unwrap_or(false),
+    };
+
+    (content_detail, redaction)
+}
 
 // ── Export Commands ────────────────────────────────────────────────────────
 
@@ -46,21 +76,22 @@ pub async fn export_sessions(
     let export_format = parse_format(&format)?;
     let section_set = parse_sections(&sections)?;
 
-    tokio::task::spawn_blocking(move || {
+    blocking_cmd!({
+        let (content_detail, redaction) = build_export_detail_options(
+            include_subagent_internals,
+            include_tool_details,
+            include_full_tool_results,
+            anonymize_paths,
+            strip_secrets,
+            strip_pii,
+        );
+
         let options = ExportOptions {
             format: export_format,
             sections: section_set,
             output: OutputTarget::File(PathBuf::from(&output_path)),
-            content_detail: ContentDetailOptions {
-                include_subagent_internals: include_subagent_internals.unwrap_or(true),
-                include_tool_details: include_tool_details.unwrap_or(true),
-                include_full_tool_results: include_full_tool_results.unwrap_or(false),
-            },
-            redaction: RedactionOptions {
-                anonymize_paths: anonymize_paths.unwrap_or(false),
-                strip_secrets: strip_secrets.unwrap_or(false),
-                strip_pii: strip_pii.unwrap_or(false),
-            },
+            content_detail,
+            redaction,
         };
 
         // Resolve session directories
@@ -115,7 +146,6 @@ pub async fn export_sessions(
             exported_at: now.to_rfc3339(),
         })
     })
-    .await?
 }
 
 /// Generate a preview of the export output (for the live preview panel).
@@ -140,20 +170,21 @@ pub async fn preview_export(
     let section_set = parse_sections(&sections)?;
 
     with_session_path(&state, session_id, move |session_path| {
+        let (content_detail, redaction) = build_export_detail_options(
+            include_subagent_internals,
+            include_tool_details,
+            include_full_tool_results,
+            anonymize_paths,
+            strip_secrets,
+            strip_pii,
+        );
+
         let options = ExportOptions {
             format: export_format,
             sections: section_set.clone(),
             output: OutputTarget::String,
-            content_detail: ContentDetailOptions {
-                include_subagent_internals: include_subagent_internals.unwrap_or(true),
-                include_tool_details: include_tool_details.unwrap_or(true),
-                include_full_tool_results: include_full_tool_results.unwrap_or(false),
-            },
-            redaction: RedactionOptions {
-                anonymize_paths: anonymize_paths.unwrap_or(false),
-                strip_secrets: strip_secrets.unwrap_or(false),
-                strip_pii: strip_pii.unwrap_or(false),
-            },
+            content_detail,
+            redaction,
         };
 
         let full_content = tracepilot_export::preview_export(
@@ -238,7 +269,7 @@ pub async fn preview_import(
     let cfg = read_config(&state);
     let session_state_dir = cfg.session_state_dir();
 
-    tokio::task::spawn_blocking(move || {
+    blocking_cmd!({
         let path = PathBuf::from(&file_path);
 
         let preview = tracepilot_export::import::preview_import(&path, Some(&session_state_dir))?;
@@ -273,7 +304,7 @@ pub async fn preview_import(
             })
             .collect();
 
-        Ok(ImportPreviewResult {
+        Ok::<_, crate::error::BindingsError>(ImportPreviewResult {
             valid: preview.can_import,
             issues,
             sessions,
@@ -281,7 +312,6 @@ pub async fn preview_import(
             needs_migration,
         })
     })
-    .await?
 }
 
 /// Import sessions from a `.tpx.json` file.
@@ -306,7 +336,7 @@ pub async fn import_sessions(
         _ => tracepilot_export::import::ConflictStrategy::Skip,
     };
 
-    tokio::task::spawn_blocking(move || {
+    blocking_cmd!({
         let path = PathBuf::from(&file_path);
 
         let options = tracepilot_export::import::ImportOptions {
@@ -318,13 +348,12 @@ pub async fn import_sessions(
         let result =
             tracepilot_export::import::import_sessions(&path, &session_state_dir, &options)?;
 
-        Ok(ImportSessionsResult {
+        Ok::<_, crate::error::BindingsError>(ImportSessionsResult {
             imported_count: result.imported.len(),
             skipped_count: result.skipped.len(),
             warnings: result.warnings,
         })
     })
-    .await?
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -375,6 +404,61 @@ fn parse_sections(sections: &[String]) -> CmdResult<HashSet<SectionId>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn build_export_detail_options_uses_defaults_when_all_none() {
+        let (content, redaction) = build_export_detail_options(None, None, None, None, None, None);
+        let default_content = ContentDetailOptions::default();
+        let default_redaction = RedactionOptions::default();
+
+        assert_eq!(content.include_subagent_internals, default_content.include_subagent_internals);
+        assert_eq!(content.include_tool_details, default_content.include_tool_details);
+        assert_eq!(content.include_full_tool_results, default_content.include_full_tool_results);
+
+        assert_eq!(redaction.anonymize_paths, default_redaction.anonymize_paths);
+        assert_eq!(redaction.strip_secrets, default_redaction.strip_secrets);
+        assert_eq!(redaction.strip_pii, default_redaction.strip_pii);
+    }
+
+    #[test]
+    fn build_export_detail_options_respects_explicit_values() {
+        let (content, redaction) = build_export_detail_options(
+            Some(false),
+            Some(false),
+            Some(true),
+            Some(true),
+            Some(true),
+            Some(true),
+        );
+
+        assert_eq!(content.include_subagent_internals, false);
+        assert_eq!(content.include_tool_details, false);
+        assert_eq!(content.include_full_tool_results, true);
+
+        assert_eq!(redaction.anonymize_paths, true);
+        assert_eq!(redaction.strip_secrets, true);
+        assert_eq!(redaction.strip_pii, true);
+    }
+
+    #[test]
+    fn build_export_detail_options_handles_partial_overrides() {
+        let (content, redaction) = build_export_detail_options(
+            Some(false),
+            None,
+            None,
+            None,
+            Some(true),
+            None,
+        );
+
+        assert_eq!(content.include_subagent_internals, false); // overridden
+        assert_eq!(content.include_tool_details, true); // default
+        assert_eq!(content.include_full_tool_results, false); // default
+
+        assert_eq!(redaction.anonymize_paths, false); // default
+        assert_eq!(redaction.strip_secrets, true); // overridden
+        assert_eq!(redaction.strip_pii, false); // default
+    }
 
     #[test]
     fn empty_sections_returns_empty_set() {

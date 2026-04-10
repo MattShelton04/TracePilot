@@ -15,6 +15,7 @@ export interface AutoRefreshOptions {
  * Features:
  * - Manual refresh with in-flight guard (no double-fetches)
  * - Auto-refresh with configurable interval
+ * - Manual refresh resets the auto-refresh clock (no rapid double-refresh)
  * - Pauses when document tab is hidden (Page Visibility API)
  * - Cleans up on unmount
  */
@@ -29,10 +30,18 @@ export function useAutoRefresh(options: AutoRefreshOptions) {
   async function refresh() {
     if (refreshing.value) return;
     refreshing.value = true;
+    // Cancel any pending auto-refresh so that manual refresh resets the clock.
+    // This prevents a rapid double-refresh when the user refreshes shortly
+    // before the timer would have fired naturally.
+    stopTimer();
     try {
       await onRefresh();
     } finally {
       refreshing.value = false;
+      // Reschedule: the next auto-refresh is a full interval from now.
+      // refresh() is the single owner of post-refresh rescheduling —
+      // whether invoked manually or by the timer callback.
+      if (!disposed && enabled.value) scheduleNext();
     }
   }
 
@@ -41,8 +50,14 @@ export function useAutoRefresh(options: AutoRefreshOptions) {
     if (disposed || !enabled.value || document.hidden) return;
     timer = setTimeout(async () => {
       if (disposed) return;
-      await refresh();
-      if (!disposed) scheduleNext();
+      // Swallow any error thrown by onRefresh so the unhandled-rejection handler
+      // is not triggered. Errors are still rethrown on the manual-refresh code path.
+      // The loop continues because refresh() reschedules in its finally block.
+      try {
+        await refresh();
+      } catch {
+        // intentionally ignored — onRefresh is responsible for its own error handling
+      }
     }, intervalSeconds.value * 1000);
   }
 

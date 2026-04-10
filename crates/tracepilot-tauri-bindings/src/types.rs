@@ -25,6 +25,15 @@ pub(crate) struct CachedTurns {
 
 pub(crate) type TurnCache = Arc<Mutex<lru::LruCache<String, CachedTurns>>>;
 
+/// Cached typed events for a single session, keyed by session ID in the LRU.
+pub(crate) struct CachedEvents {
+    pub events: Arc<Vec<tracepilot_core::parsing::events::TypedEvent>>,
+    pub events_file_size: u64,
+    pub events_file_mtime: Option<std::time::SystemTime>,
+}
+
+pub(crate) type EventCache = Arc<Mutex<lru::LruCache<String, CachedEvents>>>;
+
 /// Response wrapper for `get_session_turns` — includes file size for
 /// frontend freshness tracking.
 #[derive(Debug, Serialize)]

@@ -9,8 +9,9 @@
 //!   - `commands::state`         - DB size, session count, updates, git info
 //!   - `commands::logging`       - log path, export
 
-pub mod config;
+pub(crate) mod cache;
 mod commands;
+pub mod config;
 pub mod error;
 mod helpers;
 pub mod types;
@@ -19,7 +20,11 @@ mod validators;
 use std::num::NonZeroUsize;
 use std::sync::{Arc, Mutex};
 use tauri::Manager;
-use types::{SearchSemaphore, SharedOrchestratorState, SharedTaskDb, TurnCache};
+use types::{
+    EventCache, SearchSemaphore, SharedOrchestratorState, SharedTaskDb, TurnCache,
+};
+
+const SESSION_CACHE_CAPACITY: usize = 10;
 
 /// Build the Tauri plugin that registers all IPC commands.
 pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
@@ -30,10 +35,16 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
                 tokio::sync::Semaphore::new(1),
             )));
             let turn_cache: TurnCache = Arc::new(Mutex::new(lru::LruCache::new(
-                // SAFETY: 10 is non-zero
-                NonZeroUsize::new(10).expect("cache capacity is non-zero"),
+                // SAFETY: cache capacity is non-zero
+                NonZeroUsize::new(SESSION_CACHE_CAPACITY).expect("cache capacity is non-zero"),
             )));
             app.manage(turn_cache);
+
+            let event_cache: EventCache = Arc::new(Mutex::new(lru::LruCache::new(
+                // SAFETY: cache capacity is non-zero
+                NonZeroUsize::new(SESSION_CACHE_CAPACITY).expect("cache capacity is non-zero"),
+            )));
+            app.manage(event_cache);
 
             // Task DB: lazily initialized (None until first use via config path).
             let task_db: SharedTaskDb = Arc::new(Mutex::new(None));
@@ -42,7 +53,6 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             // Orchestrator state: tracks the active orchestrator handle.
             let orch_state: SharedOrchestratorState = Arc::new(Mutex::new(None));
             app.manage(orch_state);
-
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

@@ -36,15 +36,13 @@ const LINUX_TERMINALS: &[&str] = &[
 
 // ─── Internal helpers ───────────────────────────────────────────────
 
-/// Internal helper: run a command with a timeout.
-///
-/// This is extracted to avoid code duplication between run_hidden and run_hidden_shell.
+/// Internal helper: spawn a command with stdout/stderr piped.
 fn spawn_captured_child(mut cmd: Command, program: &str) -> Result<Child> {
     cmd.stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped());
 
     cmd.spawn()
-        .map_err(|e| OrchestratorError::Launch(format!("Failed to spawn {program}: {e}")))
+        .map_err(|e| OrchestratorError::launch_ctx(format!("Failed to spawn {program}"), e))
 }
 
 fn read_pipe_to_end<R>(mut reader: R, label: &'static str) -> mpsc::Receiver<Result<Vec<u8>>>
@@ -57,23 +55,47 @@ where
         let result = reader
             .read_to_end(&mut buf)
             .map(|_| buf)
-            .map_err(|e| OrchestratorError::Launch(format!("Failed to read {label}: {e}")));
+            .map_err(|e| OrchestratorError::launch_ctx(format!("Failed to read {label}"), e));
         let _ = tx.send(result);
     });
     rx
 }
 
-fn run_with_timeout(
-    cmd: Command,
-    program: &str,
-    args: &[&str],
+/// Core timeout implementation: execute a spawned child process with a wall-clock timeout.
+///
+/// This function handles:
+/// - Async stdout/stderr reading via background threads
+/// - Shared child process ownership for timeout-based kill
+/// - Timeout detection via `recv_timeout()`
+///
+/// Returns `(stdout, stderr, status)` on success, or an error if:
+/// - The child process cannot be waited on (mutex poison, wait failure)
+/// - Pipe reader threads disconnect
+/// - The process exceeds `timeout_secs`
+///
+/// On timeout, attempts to kill the child and logs any kill failures.
+fn execute_with_timeout(
+    mut child: Child,
     timeout_secs: u64,
-) -> Result<Output> {
-    let mut child = spawn_captured_child(cmd, program)?;
-
+) -> std::result::Result<(Vec<u8>, Vec<u8>, std::process::ExitStatus), OrchestratorError> {
     // Take the pipe handles before wrapping the child so the thread owns them.
-    let stdout_pipe = child.stdout.take().expect("stdout was piped");
-    let stderr_pipe = child.stderr.take().expect("stderr was piped");
+    // Return an error if pipes weren't configured (defensive programming - should never happen).
+    let stdout_pipe = child
+        .stdout
+        .take()
+        .ok_or_else(|| {
+            OrchestratorError::Launch(
+                "stdout not piped: process was not configured correctly".into(),
+            )
+        })?;
+    let stderr_pipe = child
+        .stderr
+        .take()
+        .ok_or_else(|| {
+            OrchestratorError::Launch(
+                "stderr not piped: process was not configured correctly".into(),
+            )
+        })?;
     let stdout_rx = read_pipe_to_end(stdout_pipe, "stdout");
     let stderr_rx = read_pipe_to_end(stderr_pipe, "stderr");
 
@@ -92,7 +114,7 @@ fn run_with_timeout(
             .map_err(|_| OrchestratorError::Launch("mutex poisoned".into()))
             .and_then(|mut c| {
                 c.wait()
-                    .map_err(|e| OrchestratorError::Launch(format!("wait failed: {e}")))
+                    .map_err(|e| OrchestratorError::launch_ctx("wait failed", e))
             })
             .and_then(|status| {
                 let stdout = stdout_rx
@@ -107,28 +129,48 @@ fn run_with_timeout(
     });
 
     match rx.recv_timeout(Duration::from_secs(timeout_secs)) {
-        Ok(Ok((stdout, stderr, status))) => Ok(Output {
+        Ok(result) => result,
+        Err(_) => {
+            // Timeout occurred - attempt to kill the process
+            if let Ok(mut child) = child_shared.lock()
+                && let Err(e) = child.kill()
+            {
+                tracing::warn!("Failed to kill timed-out process: {}", e);
+            }
+            Err(OrchestratorError::Timeout { secs: timeout_secs })
+        }
+    }
+}
+
+fn run_with_timeout(
+    cmd: Command,
+    program: &str,
+    args: &[&str],
+    timeout_secs: u64,
+) -> Result<Output> {
+    let child = spawn_captured_child(cmd, program)?;
+
+    match execute_with_timeout(child, timeout_secs) {
+        Ok((stdout, stderr, status)) => Ok(Output {
             status,
             stdout,
             stderr,
         }),
-        Ok(Err(e)) => Err(e),
-        Err(_) => {
-            // Timeout occurred - attempt to kill the process
-            if let Ok(mut child) = child_shared.lock() {
-                if let Err(e) = child.kill() {
-                    tracing::warn!("Failed to kill timed-out process: {}", e);
-                }
-            }
-            let cmd_display = if args.is_empty() {
-                program.to_string()
+        Err(e) => {
+            // Enhance timeout error with command context
+            if let OrchestratorError::Timeout { secs } = &e {
+                let cmd_display = if args.is_empty() {
+                    program.to_string()
+                } else {
+                    format!("{} {}", program, args.join(" "))
+                };
+                Err(OrchestratorError::Launch(format!(
+                    "Command timed out after {secs}s: {cmd_display}. \
+                     Check system resources and try again."
+                )))
             } else {
-                format!("{} {}", program, args.join(" "))
-            };
-            Err(OrchestratorError::Launch(format!(
-                "Command timed out after {timeout_secs}s: {cmd_display}. \
-                 Check system resources and try again."
-            )))
+                Err(e)
+            }
         }
     }
 }
@@ -257,45 +299,10 @@ pub fn run_hidden_stdout_timeout(
     #[cfg(windows)]
     cmd.creation_flags(CREATE_NO_WINDOW);
 
-    let mut child = spawn_captured_child(cmd, program)?;
+    let child = spawn_captured_child(cmd, program)?;
 
-    // Take the pipe handles before wrapping the child so the thread owns them.
-    let stdout_pipe = child.stdout.take().expect("stdout was piped");
-    let stderr_pipe = child.stderr.take().expect("stderr was piped");
-    let stdout_rx = read_pipe_to_end(stdout_pipe, "stdout");
-    let stderr_rx = read_pipe_to_end(stderr_pipe, "stderr");
-
-    // Wrap child in Arc<Mutex> so the main thread can kill it on timeout.
-    let child_shared = Arc::new(Mutex::new(child));
-    let child_for_thread = Arc::clone(&child_shared);
-
-    let (tx, rx) = mpsc::channel::<std::result::Result<
-        (Vec<u8>, Vec<u8>, std::process::ExitStatus),
-        OrchestratorError,
-    >>();
-
-    std::thread::spawn(move || {
-        let result = child_for_thread
-            .lock()
-            .map_err(|_| OrchestratorError::Launch("mutex poisoned".into()))
-            .and_then(|mut c| {
-                c.wait()
-                    .map_err(|e| OrchestratorError::Launch(format!("wait failed: {e}")))
-            })
-            .and_then(|status| {
-                let stdout = stdout_rx
-                    .recv()
-                    .map_err(|_| OrchestratorError::Launch("stdout reader thread disconnected".into()))??;
-                let stderr = stderr_rx
-                    .recv()
-                    .map_err(|_| OrchestratorError::Launch("stderr reader thread disconnected".into()))??;
-                Ok((stdout, stderr, status))
-            });
-        let _ = tx.send(result);
-    });
-
-    match rx.recv_timeout(Duration::from_secs(timeout_secs)) {
-        Ok(Ok((stdout, stderr, status))) => {
+    match execute_with_timeout(child, timeout_secs) {
+        Ok((stdout, stderr, status)) => {
             if status.success() {
                 Ok(String::from_utf8_lossy(&stdout).trim().to_string())
             } else {
@@ -306,13 +313,16 @@ pub fn run_hidden_stdout_timeout(
                 )))
             }
         }
-        Ok(Err(e)) => Err(e),
-        Err(_) => {
-            let _ = child_shared.lock().map(|mut c| c.kill());
-            Err(OrchestratorError::Launch(format!(
-                "GitHub API call timed out after {timeout_secs}s. \
-                 Check your internet connection and try again."
-            )))
+        Err(e) => {
+            // Enhance timeout error with user-friendly context
+            if let OrchestratorError::Timeout { secs } = &e {
+                Err(OrchestratorError::Launch(format!(
+                    "GitHub API call timed out after {secs}s. \
+                     Check your internet connection and try again."
+                )))
+            } else {
+                Err(e)
+            }
         }
     }
 }
@@ -412,7 +422,7 @@ fn spawn_outside_job_win(
         .args(["-NoProfile", "-NonInteractive", "-Command", &wmi_script])
         .creation_flags(CREATE_NO_WINDOW)
         .output()
-        .map_err(|e| OrchestratorError::Launch(format!("WMI fallback failed: {e}")))?;
+        .map_err(|e| OrchestratorError::launch_ctx("WMI fallback failed", e))?;
 
     if output.status.success() {
         let pid = String::from_utf8_lossy(&output.stdout)
@@ -433,7 +443,7 @@ fn spawn_outside_job_win(
         .current_dir(work_dir)
         .creation_flags(CREATE_NEW_CONSOLE)
         .spawn()
-        .map_err(|e| OrchestratorError::Launch(format!("Failed to spawn terminal: {e}")))?;
+        .map_err(|e| OrchestratorError::launch_ctx("Failed to spawn terminal", e))?;
     Ok(child.id())
 }
 
@@ -481,7 +491,7 @@ fn spawn_terminal_macos(
     let child = Command::new("osascript")
         .args(["-e", &script])
         .spawn()
-        .map_err(|e| OrchestratorError::Launch(format!("Failed to open terminal: {e}")))?;
+        .map_err(|e| OrchestratorError::launch_ctx("Failed to open terminal", e))?;
     Ok(child.id())
 }
 
@@ -862,5 +872,68 @@ mod tests {
         assert!(validate_env_var_name("1BAD").is_err());
         assert!(validate_env_var_name("HAS SPACE").is_err());
         assert!(validate_env_var_name("A=B").is_err());
+    }
+
+    #[test]
+    fn test_execute_with_timeout_missing_stdout_pipe() {
+        // Spawn a process without piping stdout to verify error handling
+        let child = Command::new("git")
+            .arg("--version")
+            .stderr(std::process::Stdio::piped())
+            // stdout is NOT piped - should trigger our error
+            .spawn()
+            .expect("failed to spawn test process");
+
+        let result = execute_with_timeout(child, 5);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        let err_msg = err.to_string();
+        assert!(
+            err_msg.contains("stdout not piped") || err_msg.contains("not configured correctly"),
+            "Expected stdout pipe error, got: {}",
+            err_msg
+        );
+    }
+
+    #[test]
+    fn test_execute_with_timeout_missing_stderr_pipe() {
+        // Spawn a process without piping stderr to verify error handling
+        let child = Command::new("git")
+            .arg("--version")
+            .stdout(std::process::Stdio::piped())
+            // stderr is NOT piped - should trigger our error
+            .spawn()
+            .expect("failed to spawn test process");
+
+        let result = execute_with_timeout(child, 5);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        let err_msg = err.to_string();
+        assert!(
+            err_msg.contains("stderr not piped") || err_msg.contains("not configured correctly"),
+            "Expected stderr pipe error, got: {}",
+            err_msg
+        );
+    }
+
+    #[test]
+    fn test_execute_with_timeout_missing_both_pipes() {
+        // Spawn a process without piping either stdout or stderr
+        let child = Command::new("git")
+            .arg("--version")
+            // Neither stdout nor stderr are piped
+            .spawn()
+            .expect("failed to spawn test process");
+
+        let result = execute_with_timeout(child, 5);
+        assert!(result.is_err());
+        // Should error on the first pipe (stdout) that's checked
+        let err = result.unwrap_err();
+        let err_msg = err.to_string();
+        assert!(
+            err_msg.contains("stdout not piped") || err_msg.contains("not configured correctly"),
+            "Expected stdout pipe error, got: {}",
+            err_msg
+        );
     }
 }

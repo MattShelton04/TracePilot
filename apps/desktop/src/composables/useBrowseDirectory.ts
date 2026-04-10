@@ -3,6 +3,8 @@
  * Falls back to browser prompt() when running outside Tauri (dev mode).
  */
 
+import { logWarn } from "@/utils/logger";
+
 /** Strip null bytes and control characters from user-provided paths. */
 function sanitizePath(raw: string | null): string | null {
   if (!raw) return null;
@@ -31,7 +33,8 @@ export async function browseForDirectory(options?: {
       defaultPath: options?.defaultPath,
     });
     return selected ?? null;
-  } catch {
+  } catch (e) {
+    logWarn("[useBrowseDirectory] Tauri directory dialog failed, falling back to prompt", e);
     const input = prompt(options?.title ?? "Select directory:", options?.defaultPath ?? "");
     return sanitizePath(input);
   }
@@ -58,7 +61,8 @@ export async function browseForSavePath(options?: {
       filters: options?.filters,
     });
     return selected ?? null;
-  } catch {
+  } catch (e) {
+    logWarn("[useBrowseDirectory] Tauri save dialog failed, falling back to prompt", e);
     const input = prompt(options?.title ?? "Select file path:", options?.defaultPath ?? "");
     return sanitizePath(input);
   }
@@ -91,7 +95,8 @@ export async function browseForFile(options?: {
       return (result as string[])[0] ?? null;
     }
     return null;
-  } catch {
+  } catch (e) {
+    logWarn("[useBrowseDirectory] Tauri file picker dialog failed, falling back to prompt", e);
     const input = prompt(options?.title ?? "Select file:", options?.defaultPath ?? "");
     return sanitizePath(input);
   }

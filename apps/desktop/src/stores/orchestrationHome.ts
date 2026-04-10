@@ -13,6 +13,7 @@ import { useWorktreesStore } from "@/stores/worktrees";
 import { type AsyncGuardToken, useAsyncGuard } from "@/composables/useAsyncGuard";
 import { logWarn } from "@/utils/logger";
 import { aggregateSettledErrors } from "@/utils/settleErrors";
+import { allSettledRecord } from "@/utils/settledRecord";
 
 export interface ActivityEvent {
   id: string;
@@ -90,16 +91,18 @@ export const useOrchestrationHomeStore = defineStore("orchestrationHome", () => 
 
   async function doFetch(token: AsyncGuardToken) {
     try {
-      // Fast path: system deps and version info load first (< 100ms)
-      const [depsResult, activeResult] = await Promise.allSettled([
-        checkSystemDeps(),
-        getActiveCopilotVersion(),
-      ]);
+      // Fast path: system deps and version info load first (< 100ms).
+      // Failures here are intentionally silent: null values are handled
+      // gracefully by the UI and the background path surfaces its own errors.
+      const fastSettled = await allSettledRecord({
+        deps: checkSystemDeps(),
+        active: getActiveCopilotVersion(),
+      });
 
       if (!loadGuard.isValid(token)) return;
 
-      const deps = depsResult.status === "fulfilled" ? depsResult.value : null;
-      const active = activeResult.status === "fulfilled" ? activeResult.value : null;
+      const deps = fastSettled.deps.status === "fulfilled" ? fastSettled.deps.value : null;
+      const active = fastSettled.active.status === "fulfilled" ? fastSettled.active.value : null;
       systemDeps.value = deps;
       activeVersion.value = active;
 
@@ -107,18 +110,19 @@ export const useOrchestrationHomeStore = defineStore("orchestrationHome", () => 
       if (loading.value) loading.value = false;
 
       // Background path: sessions + versions (can be slower)
-      const [sessionsResult, versionsResult] = await Promise.allSettled([
-        listSessions(),
-        discoverCopilotVersions(),
-      ]);
+      const bgSettled = await allSettledRecord({
+        sessions: listSessions(),
+        versions: discoverCopilotVersions(),
+      });
 
       if (!loadGuard.isValid(token)) return;
 
-      const sessions = sessionsResult.status === "fulfilled" ? sessionsResult.value : [];
-      const versionsData = versionsResult.status === "fulfilled" ? versionsResult.value : [];
+      const sessions = bgSettled.sessions.status === "fulfilled" ? bgSettled.sessions.value : [];
+      const versionsData =
+        bgSettled.versions.status === "fulfilled" ? bgSettled.versions.value : [];
 
       // Surface background loading errors
-      error.value = aggregateSettledErrors([sessionsResult, versionsResult]);
+      error.value = aggregateSettledErrors(Object.values(bgSettled));
 
       totalSessions.value = sessions.length;
       activeSessions.value = sessions.filter((s) => s.isRunning).length;
