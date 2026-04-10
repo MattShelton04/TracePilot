@@ -66,7 +66,8 @@ export function usePerfMonitor(label?: string) {
       const m = performance.measure(`${componentName}:${name}`, `${componentName}:${startMark}`);
       record(`${componentName}:${name}`, m.duration);
       return m.duration;
-    } catch {
+    } catch (e) {
+      logWarn("[usePerfMonitor] Failed to measure performance", { component: componentName, name, startMark }, e);
       return -1;
     }
   }

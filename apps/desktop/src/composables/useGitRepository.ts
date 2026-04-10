@@ -14,6 +14,7 @@ import { fetchRemote, getDefaultBranch } from "@tracepilot/client";
 import { pathBasename, pathDirname, sanitizeBranchForPath } from "@tracepilot/ui";
 import type { Ref } from "vue";
 import { ref, watch } from "vue";
+import { logWarn } from "@/utils/logger";
 import { useAsyncGuard } from "./useAsyncGuard";
 
 export interface UseGitRepositoryOptions {
@@ -140,9 +141,10 @@ export function useGitRepository(options: UseGitRepositoryOptions): UseGitReposi
       const branch = await getDefaultBranch(targetPath);
       if (!defaultBranchGuard.isValid(token)) return;
       defaultBranch.value = branch;
-    } catch {
+    } catch (e) {
       if (!defaultBranchGuard.isValid(token)) return;
       // Silently fail - some repos might not have a default branch configured
+      logWarn("[useGitRepository] Failed to get default branch", { repoPath: repoPath.value }, e);
       defaultBranch.value = "";
     }
   }

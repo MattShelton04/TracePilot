@@ -3,6 +3,7 @@ import { checkForUpdates } from "@tracepilot/client";
 import type { UpdateCheckResult } from "@tracepilot/types";
 import { toErrorMessage } from "@tracepilot/ui";
 import { ref } from "vue";
+import { logWarn } from "@/utils/logger";
 
 const CACHE_KEY = "tracepilot-update-check";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -14,7 +15,8 @@ export const updateCheckError = ref<string | null>(null);
 async function getCurrentVersion(): Promise<string> {
   try {
     return await getVersion();
-  } catch {
+  } catch (e) {
+    logWarn("[useUpdateCheck] Failed to get version from Tauri, defaulting to 'dev'", e);
     return "dev";
   }
 }
@@ -42,8 +44,9 @@ export async function runUpdateCheck(force = false): Promise<void> {
             return;
           }
         }
-      } catch {
+      } catch (e) {
         // Corrupt cache — clear it and continue to live check
+        logWarn("[useUpdateCheck] Corrupt update check cache, clearing", e);
         localStorage.removeItem(CACHE_KEY);
       }
     }
