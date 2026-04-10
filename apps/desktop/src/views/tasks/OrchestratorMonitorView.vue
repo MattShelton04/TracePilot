@@ -862,7 +862,7 @@ onUnmounted(() => {
   background: var(--canvas-overlay);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-lg);
   padding: 8px;
   max-height: 400px;
   overflow-y: auto;

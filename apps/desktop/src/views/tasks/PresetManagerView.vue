@@ -2040,7 +2040,7 @@ function renameConfigKey(
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--backdrop-color);
   backdrop-filter: blur(4px);
 }
 
@@ -2510,7 +2510,7 @@ function renameConfigKey(
 .preset-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--backdrop-color);
   z-index: 999;
 }
 
@@ -2526,7 +2526,7 @@ function renameConfigKey(
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  box-shadow: -8px 0 30px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-lg);
 }
 
 .slideover-enter-active {

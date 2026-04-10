@@ -1262,7 +1262,7 @@ function jobProgressClass(status: string) {
 }
 
 .jobs-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--neutral-subtle);
 }
 
 .jobs-table__name {

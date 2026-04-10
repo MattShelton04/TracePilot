@@ -1117,7 +1117,7 @@ watch(taskId, (newId) => {
   font-size: 0.75rem;
   line-height: 1.6;
   color: var(--text-secondary);
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--canvas-inset);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   padding: 10px 14px;
@@ -1252,7 +1252,7 @@ watch(taskId, (newId) => {
   max-height: 400px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-subtle);
-  background: rgba(0, 0, 0, 0.25);
+  background: var(--canvas-inset);
 }
 
 .json-block {
