@@ -159,7 +159,7 @@ impl SearchQueryBuilder {
     ///
     /// Generates `column IN (?, ?, ...)` with one placeholder per value.
     /// Empty value lists are ignored (no-op).
-    fn add_in_filter<T: ToString + Clone>(mut self, column: &str, values: &[T]) -> Self {
+    fn add_in_filter<T: ToString>(mut self, column: &str, values: &[T]) -> Self {
         if values.is_empty() {
             return self;
         }
@@ -176,7 +176,7 @@ impl SearchQueryBuilder {
     ///
     /// Generates `column NOT IN (?, ?, ...)` with one placeholder per value.
     /// Empty value lists are ignored (no-op).
-    fn add_not_in_filter<T: ToString + Clone>(mut self, column: &str, values: &[T]) -> Self {
+    fn add_not_in_filter<T: ToString>(mut self, column: &str, values: &[T]) -> Self {
         if values.is_empty() {
             return self;
         }
