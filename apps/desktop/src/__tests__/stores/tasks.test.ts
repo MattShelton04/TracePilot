@@ -1,8 +1,8 @@
 import type { Job, Task, TaskStats } from "@tracepilot/types";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createDeferred } from "../helpers/deferred";
 import { useTasksStore } from "../../stores/tasks";
+import { createDeferred } from "../helpers/deferred";
 
 const mockTaskList = vi.fn();
 const mockTaskStats = vi.fn();
@@ -91,9 +91,15 @@ describe("useTasksStore", () => {
     mockTaskList.mockReset();
     mockTaskStats.mockReset();
     mockTaskListJobs.mockReset();
-    mockTaskList.mockReturnValueOnce(fetchTasksDeferred.promise).mockReturnValueOnce(refreshTasksDeferred.promise);
-    mockTaskStats.mockReturnValueOnce(fetchStatsDeferred.promise).mockReturnValueOnce(refreshStatsDeferred.promise);
-    mockTaskListJobs.mockReturnValueOnce(fetchJobsDeferred.promise).mockReturnValueOnce(refreshJobsDeferred.promise);
+    mockTaskList
+      .mockReturnValueOnce(fetchTasksDeferred.promise)
+      .mockReturnValueOnce(refreshTasksDeferred.promise);
+    mockTaskStats
+      .mockReturnValueOnce(fetchStatsDeferred.promise)
+      .mockReturnValueOnce(refreshStatsDeferred.promise);
+    mockTaskListJobs
+      .mockReturnValueOnce(fetchJobsDeferred.promise)
+      .mockReturnValueOnce(refreshJobsDeferred.promise);
 
     const store = useTasksStore();
     const fetchPromise = store.fetchTasks();
@@ -137,7 +143,9 @@ describe("useTasksStore", () => {
     mockTaskStats
       .mockReturnValueOnce(refreshStatsDeferred.promise)
       .mockReturnValueOnce(fetchStatsDeferred.promise);
-    mockTaskListJobs.mockReturnValueOnce(refreshJobsDeferred.promise).mockReturnValueOnce(fetchJobsDeferred.promise);
+    mockTaskListJobs
+      .mockReturnValueOnce(refreshJobsDeferred.promise)
+      .mockReturnValueOnce(fetchJobsDeferred.promise);
 
     const store = useTasksStore();
     const refreshPromise = store.refreshTasks();
@@ -174,9 +182,15 @@ describe("useTasksStore", () => {
     mockTaskList.mockReset();
     mockTaskStats.mockReset();
     mockTaskListJobs.mockReset();
-    mockTaskList.mockReturnValueOnce(fetchTasksDeferred.promise).mockReturnValueOnce(refreshTasksDeferred.promise);
-    mockTaskStats.mockReturnValueOnce(fetchStatsDeferred.promise).mockReturnValueOnce(refreshStatsDeferred.promise);
-    mockTaskListJobs.mockReturnValueOnce(fetchJobsDeferred.promise).mockReturnValueOnce(refreshJobsDeferred.promise);
+    mockTaskList
+      .mockReturnValueOnce(fetchTasksDeferred.promise)
+      .mockReturnValueOnce(refreshTasksDeferred.promise);
+    mockTaskStats
+      .mockReturnValueOnce(fetchStatsDeferred.promise)
+      .mockReturnValueOnce(refreshStatsDeferred.promise);
+    mockTaskListJobs
+      .mockReturnValueOnce(fetchJobsDeferred.promise)
+      .mockReturnValueOnce(refreshJobsDeferred.promise);
 
     const store = useTasksStore();
     const fetchPromise = store.fetchTasks();
@@ -233,7 +247,9 @@ describe("useTasksStore", () => {
     mockTaskList.mockReset();
     mockTaskStats.mockReset();
     mockTaskListJobs.mockReset();
-    mockTaskList.mockReturnValueOnce(fetchTasksDeferred.promise).mockReturnValueOnce(refreshTasksDeferred.promise);
+    mockTaskList
+      .mockReturnValueOnce(fetchTasksDeferred.promise)
+      .mockReturnValueOnce(refreshTasksDeferred.promise);
     mockTaskStats.mockReturnValue(fetchStatsDeferred.promise);
     mockTaskListJobs.mockReturnValue(fetchJobsDeferred.promise);
 
