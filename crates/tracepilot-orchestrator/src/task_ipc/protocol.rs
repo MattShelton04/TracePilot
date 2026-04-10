@@ -37,12 +37,28 @@ pub struct HeartbeatFile {
     pub completed_tasks: Vec<String>,
 }
 
+/// Validate a task ID to prevent path traversal.
+pub(crate) fn validate_task_id(task_id: &str) -> crate::error::Result<()> {
+    if task_id.is_empty()
+        || task_id.contains('/')
+        || task_id.contains('\\')
+        || task_id.contains("..")
+        || task_id == "."
+    {
+        return Err(crate::error::OrchestratorError::Task(format!(
+            "Invalid task ID (potential path traversal): {task_id}"
+        )));
+    }
+    Ok(())
+}
+
 /// Write a context.md file for a task.
 pub fn write_context_file(
     jobs_dir: &std::path::Path,
     task_id: &str,
     content: &str,
 ) -> crate::error::Result<std::path::PathBuf> {
+    validate_task_id(task_id)?;
     let task_dir = jobs_dir.join(task_id);
     std::fs::create_dir_all(&task_dir)?;
     let path = task_dir.join("context.md");
@@ -55,6 +71,7 @@ pub fn read_result_file(
     jobs_dir: &std::path::Path,
     task_id: &str,
 ) -> crate::error::Result<Option<TaskResultFile>> {
+    validate_task_id(task_id)?;
     let path = jobs_dir.join(task_id).join("result.json");
     crate::json_io::atomic_json_read_opt(&path)
 }
@@ -64,6 +81,7 @@ pub fn read_status_file(
     jobs_dir: &std::path::Path,
     task_id: &str,
 ) -> crate::error::Result<Option<TaskStatusFile>> {
+    validate_task_id(task_id)?;
     let path = jobs_dir.join(task_id).join("status.json");
     crate::json_io::atomic_json_read_opt(&path)
 }

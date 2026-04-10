@@ -22,7 +22,7 @@ import { logWarn } from "@/utils/logger";
 
 const POLL_FAST_MS = 5_000; // When running: full cycle every 5s
 const POLL_SLOW_MS = 15_000; // When idle: health-only check every 15s
-const DEFAULT_MODEL = "gpt-5-mini";
+const DEFAULT_MODEL = "claude-haiku-4.5";
 const ACTIVITY_FEED_LIMIT = 30;
 
 /** Human-readable activity entry derived from raw session events. */
@@ -288,14 +288,20 @@ export const useOrchestratorStore = defineStore("orchestrator", () => {
   // Adjust polling cadence based on orchestrator state.
   // When running → fast full-cycle polling.
   // When idle → slow health-only polling (detects restarts / stale state).
+  // `immediate: true` ensures polling starts on store creation even when idle.
   watch(isRunning, (running) => {
     if (running) {
       startPolling(POLL_FAST_MS);
     } else {
       // Final ingestion, then switch to slow health-only polling
-      ingestResults().finally(() => startPolling(POLL_SLOW_MS));
+      // (re-check isRunning in case state changed during async ingestion)
+      ingestResults().finally(() => {
+        if (!isRunning.value) {
+          startPolling(POLL_SLOW_MS);
+        }
+      });
     }
-  });
+  }, { immediate: true });
 
   /** Perform a full refresh: health + attribution + ingestion. */
   async function refresh() {

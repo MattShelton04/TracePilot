@@ -110,14 +110,25 @@ pub fn delete_preset(dir: &Path, id: &str) -> Result<()> {
             "Preset not found: {id}"
         )));
     }
-    // Prevent deletion of built-in presets
-    if let Ok(content) = std::fs::read_to_string(&path) {
-        if let Ok(preset) = serde_json::from_str::<super::types::TaskPreset>(&content) {
-            if preset.builtin {
+    // Prevent deletion of built-in presets (fail-safe: if we can't verify, refuse)
+    match std::fs::read_to_string(&path) {
+        Ok(content) => match serde_json::from_str::<super::types::TaskPreset>(&content) {
+            Ok(preset) if preset.builtin => {
                 return Err(OrchestratorError::Preset(
                     "Cannot delete built-in presets".into(),
                 ));
             }
+            Ok(_) => {} // not built-in, proceed
+            Err(e) => {
+                return Err(OrchestratorError::Preset(format!(
+                    "Cannot verify preset is not built-in (parse error: {e})"
+                )));
+            }
+        },
+        Err(e) => {
+            return Err(OrchestratorError::Preset(format!(
+                "Cannot verify preset is not built-in (read error: {e})"
+            )));
         }
     }
     std::fs::remove_file(&path)?;

@@ -76,7 +76,9 @@ impl Default for OrchestratorState {
 
 /// Prepare the jobs directory structure for a set of tasks.
 ///
-/// Creates `jobs_dir` and per-task subdirectories.
+/// Creates `jobs_dir` and per-task subdirectories. Removes stale
+/// `result.json` and `status.json` files to prevent incorrect ingestion
+/// of results from prior runs.
 pub fn prepare_jobs_dir(
     jobs_dir: &Path,
     task_ids: &[String],
@@ -85,6 +87,13 @@ pub fn prepare_jobs_dir(
     for task_id in task_ids {
         let task_dir = jobs_dir.join(task_id);
         std::fs::create_dir_all(&task_dir)?;
+        // Clean stale IPC files so a restarted orchestrator doesn't ingest old results
+        for stale_file in &["result.json", "status.json"] {
+            let path = task_dir.join(stale_file);
+            if path.exists() {
+                let _ = std::fs::remove_file(&path);
+            }
+        }
     }
     Ok(())
 }

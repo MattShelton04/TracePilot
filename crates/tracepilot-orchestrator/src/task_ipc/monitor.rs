@@ -149,6 +149,8 @@ pub fn ingest_results(
 
 /// Clean up job files for completed tasks.
 pub fn cleanup_task_files(jobs_dir: &Path, task_id: &str) -> Result<()> {
+    // Validate task_id to prevent path traversal
+    super::protocol::validate_task_id(task_id)?;
     let task_dir = jobs_dir.join(task_id);
     if task_dir.exists() {
         std::fs::remove_dir_all(&task_dir)?;

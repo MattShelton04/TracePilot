@@ -69,7 +69,9 @@ pub fn create_task_batch(
             conn.execute_batch("COMMIT")?;
         }
         Err(e) => {
-            let _ = conn.execute_batch("ROLLBACK");
+            if let Err(rb_err) = conn.execute_batch("ROLLBACK") {
+                tracing::error!(error = %rb_err, "Failed to rollback create_task_batch transaction");
+            }
             return Err(e);
         }
     }
@@ -213,7 +215,7 @@ pub fn store_task_result(conn: &Connection, result: &TaskResult) -> Result<()> {
             error_message = ?5,
             completed_at = COALESCE(completed_at, ?6)
          WHERE id = ?7
-           AND status NOT IN ('cancelled', 'expired', 'dead_letter')",
+           AND status NOT IN ('pending', 'cancelled', 'expired', 'dead_letter')",
         params![
             result.status.as_str(),
             result.result_summary,

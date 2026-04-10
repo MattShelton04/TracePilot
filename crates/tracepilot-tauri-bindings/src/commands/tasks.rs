@@ -475,20 +475,27 @@ pub async fn task_orchestrator_start(
             tasks
         }; // db_guard dropped here — DB is free for other operations
 
+        // Resolve model per-task: use preset model_override if set, else global default
         let resolved_models: Vec<String> = pending_tasks
             .iter()
-            .map(|_| default_subagent_model.clone())
+            .map(|task| {
+                tracepilot_orchestrator::presets::io::get_preset(&presets_dir, &task.preset_id)
+                    .ok()
+                    .and_then(|p| p.execution.model_override.clone())
+                    .unwrap_or_else(|| default_subagent_model.clone())
+            })
             .collect();
 
         // Assemble context OUTSIDE the DB lock (may involve expensive I/O)
-        let context_contents: Vec<(String, String)> = pending_tasks
+        // Collect (task_id, content, Option<context_hash>) tuples
+        let context_results: Vec<(String, String, Option<String>)> = pending_tasks
             .iter()
             .map(|task| {
                 let task_dir = jobs_dir.join(&task.id);
                 let result_file = task_dir.join("result.json");
                 let result_path = result_file.to_string_lossy().to_string();
 
-                let content = match tracepilot_orchestrator::presets::io::get_preset(
+                let (content, hash) = match tracepilot_orchestrator::presets::io::get_preset(
                     &presets_dir,
                     &task.preset_id,
                 ) {
@@ -500,14 +507,14 @@ pub async fn task_orchestrator_start(
                             preset.context.max_chars,
                             &result_path,
                         ) {
-                            Ok(assembled) => assembled.content,
+                            Ok(assembled) => (assembled.content, Some(assembled.context_hash)),
                             Err(e) => {
                                 tracing::warn!(
                                     task_id = %task.id,
                                     error = %e,
                                     "Context assembly failed, using fallback"
                                 );
-                                fallback_context(task, &result_path)
+                                (fallback_context(task, &result_path), None)
                             }
                         }
                     }
@@ -518,14 +525,20 @@ pub async fn task_orchestrator_start(
                             error = %e,
                             "Preset not found, using fallback context"
                         );
-                        fallback_context(task, &result_path)
+                        (fallback_context(task, &result_path), None)
                     }
                 };
 
-                (task.id.clone(), content)
+                (task.id.clone(), content, hash)
             })
             .collect();
 
+        let context_contents: Vec<(String, String)> = context_results
+            .iter()
+            .map(|(id, content, _)| (id.clone(), content.clone()))
+            .collect();
+
+        let jobs_dir_for_rescan = jobs_dir.clone();
         let launch_config = tracepilot_orchestrator::task_orchestrator::OrchestratorLaunchConfig {
             poll_interval,
             max_parallel: max_concurrent,
@@ -547,7 +560,7 @@ pub async fn task_orchestrator_start(
             )
             .map_err(BindingsError::Orchestrator)?;
 
-        // Launch succeeded — now mark tasks in_progress.
+        // Launch succeeded — now mark tasks in_progress and set context hashes.
         {
             let db_guard = db
                 .lock()
@@ -561,6 +574,14 @@ pub async fn task_orchestrator_start(
                     ) {
                         tracing::warn!(task_id = %task.id, error = %e, "Failed to mark task in_progress");
                     }
+                    // Persist context hash for dedup index enforcement
+                    if let Some((_, _, Some(hash))) = context_results.iter().find(|(id, _, _)| id == &task.id) {
+                        let _ = tracepilot_orchestrator::task_db::operations::set_context_hash(
+                            task_db.conn(),
+                            &task.id,
+                            hash,
+                        );
+                    }
                 }
             }
         }
@@ -571,6 +592,64 @@ pub async fn task_orchestrator_start(
             .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
         *guard = Some(handle.clone());
         drop(guard);
+
+        // Rescan for any tasks created during the launch window (between
+        // initial query and handle-store). These would have been committed
+        // to the DB but missed by hot-add since the handle wasn't set yet.
+        {
+            let db_guard = db
+                .lock()
+                .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
+            if let Some(task_db) = db_guard.as_ref() {
+                let filter = tracepilot_orchestrator::task_db::types::TaskFilter {
+                    status: Some(tracepilot_orchestrator::task_db::types::TaskStatus::Pending),
+                    ..Default::default()
+                };
+                if let Ok(stragglers) = tracepilot_orchestrator::task_db::operations::list_tasks(
+                    task_db.conn(),
+                    &filter,
+                ) {
+                    let manifest_path = std::path::PathBuf::from(&handle.manifest_path);
+                    for task in &stragglers {
+                        // Skip tasks we already included in the initial manifest
+                        if pending_tasks.iter().any(|p| p.id == task.id) {
+                            continue;
+                        }
+                        let task_dir = jobs_dir_for_rescan.join(&task.id);
+                        let _ = std::fs::create_dir_all(&task_dir);
+                        let result_path = task_dir.join("result.json").to_string_lossy().to_string();
+                        let content = fallback_context(task, &result_path);
+                        let _ = std::fs::write(task_dir.join("context.md"), &content);
+
+                        let title = task.input_params
+                            .get("title")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or(&task.task_type)
+                            .to_string();
+
+                        let model = tracepilot_orchestrator::presets::io::get_preset(&presets_dir, &task.preset_id)
+                            .ok()
+                            .and_then(|p| p.execution.model_override.clone())
+                            .unwrap_or_else(|| default_subagent_model.clone());
+
+                        let manifest_task = tracepilot_orchestrator::task_orchestrator::manifest::ManifestTask {
+                            id: task.id.clone(),
+                            task_type: task.task_type.clone(),
+                            title,
+                            context_file: task_dir.join("context.md").to_string_lossy().to_string(),
+                            result_file: result_path,
+                            status_file: task_dir.join("status.json").to_string_lossy().to_string(),
+                            model,
+                            priority: task.priority.clone(),
+                        };
+                        let _ = tracepilot_orchestrator::task_orchestrator::manifest::append_task_to_manifest(
+                            &manifest_path,
+                            &manifest_task,
+                        );
+                    }
+                }
+            }
+        }
 
         Ok(handle)
     })
