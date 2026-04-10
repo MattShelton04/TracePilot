@@ -5,7 +5,7 @@ use crate::cache::TtlCache;
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
 use crate::helpers::{
-    emit_indexing_progress, load_summary_list_item, read_config, remove_index_db_files,
+    emit_indexing_progress, indexed_session_to_list_item, read_config, remove_index_db_files,
 };
 use crate::types::{
     SearchFacetsResponse, SearchResultItem, SearchResultsResponse, SearchSemaphore,
@@ -60,7 +60,6 @@ pub async fn search_sessions(
 ) -> CmdResult<Vec<SessionListItem>> {
     let cfg = read_config(&state);
     let index_path = cfg.index_db_path();
-    let session_state_dir = cfg.session_state_dir();
 
     blocking_cmd!({
         if !index_path.exists() {
@@ -68,33 +67,13 @@ pub async fn search_sessions(
         }
 
         let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
-        let result_ids = db.search(&query)?;
-        let mut sessions = Vec::new();
-        for session_id in result_ids {
-            let path = match db.get_session_path(&session_id) {
-                Ok(Some(p)) => p,
-                _ => match tracepilot_core::session::discovery::resolve_session_path_in(
-                    &session_id,
-                    &session_state_dir,
-                ) {
-                    Ok(path) => path,
-                    Err(_) => continue,
-                },
-            };
-            let item = match load_summary_list_item(&path) {
-                Ok(item) => item,
-                Err(_) => continue,
-            };
-            sessions.push(item);
-        }
-
-        sessions.sort_by(|a, b| {
-            b.updated_at
-                .cmp(&a.updated_at)
-                .then_with(|| a.id.cmp(&b.id))
-        });
-
-        Ok::<_, crate::error::BindingsError>(sessions)
+        let indexed = db.search_sessions(&query)?;
+        Ok::<_, crate::error::BindingsError>(
+            indexed
+                .into_iter()
+                .map(indexed_session_to_list_item)
+                .collect(),
+        )
     })
 }
 
