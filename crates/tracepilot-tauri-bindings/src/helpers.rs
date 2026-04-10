@@ -100,6 +100,33 @@ pub(crate) fn get_or_init_task_db(
     Ok(state.clone())
 }
 
+/// Lock the TaskDb mutex and return a reference to the initialized database.
+///
+/// This helper encapsulates the standard pattern used across all task commands:
+/// 1. Acquire the mutex lock on the Arc<Mutex<Option<TaskDb>>>
+/// 2. Handle mutex poisoning with a consistent error message
+/// 3. Verify the Option<TaskDb> is Some (DB is initialized)
+///
+/// The caller must have already called `get_or_init_task_db` to ensure the
+/// database is initialized before calling this function.
+///
+/// Returns a mapped MutexGuard that derefs to &TaskDb, eliminating the need
+/// for callers to handle the Option layer.
+pub(crate) fn lock_task_db(
+    db: &std::sync::Arc<std::sync::Mutex<Option<tracepilot_orchestrator::task_db::TaskDb>>>,
+) -> CmdResult<impl std::ops::Deref<Target = tracepilot_orchestrator::task_db::TaskDb> + '_> {
+    use std::sync::MutexGuard;
+
+    let guard = db
+        .lock()
+        .map_err(|_| BindingsError::Validation("TaskDb mutex poisoned".into()))?;
+
+    // Map the MutexGuard<Option<TaskDb>> to MutexGuard<TaskDb>
+    // This is safe because get_or_init_task_db ensures the Option is Some
+    MutexGuard::try_map(guard, |opt| opt.as_ref())
+        .map_err(|_| BindingsError::Validation("TaskDb not initialized".into()))
+}
+
 pub(crate) fn summary_to_list_item(
     summary: tracepilot_core::SessionSummary,
     session_path: &Path,
