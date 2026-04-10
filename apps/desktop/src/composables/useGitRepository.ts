@@ -15,6 +15,7 @@ import { pathBasename, pathDirname, sanitizeBranchForPath } from "@tracepilot/ui
 import type { Ref } from "vue";
 import { ref, watch } from "vue";
 import { logWarn } from "@/utils/logger";
+import { useAsyncGuard } from "./useAsyncGuard";
 
 export interface UseGitRepositoryOptions {
   /**
@@ -110,47 +111,66 @@ export function useGitRepository(options: UseGitRepositoryOptions): UseGitReposi
 
   const defaultBranch = ref("");
   const fetchingRemote = ref(false);
+  const defaultBranchGuard = useAsyncGuard();
+  const fetchGuard = useAsyncGuard();
 
   // Auto-load default branch when repoPath changes
   watch(
     repoPath,
     async (newPath) => {
+      defaultBranchGuard.invalidate();
+      fetchGuard.invalidate();
+      defaultBranch.value = "";
+      fetchingRemote.value = false;
+
       if (newPath) {
-        await loadDefaultBranch();
-      } else {
-        defaultBranch.value = "";
+        await loadDefaultBranchForPath(newPath);
       }
     },
     { immediate: true },
   );
 
-  async function loadDefaultBranch() {
-    if (!repoPath.value) {
+  async function loadDefaultBranchForPath(targetPath: string) {
+    if (!targetPath) {
       defaultBranch.value = "";
       return;
     }
 
+    const token = defaultBranchGuard.start();
     try {
-      defaultBranch.value = await getDefaultBranch(repoPath.value);
+      const branch = await getDefaultBranch(targetPath);
+      if (!defaultBranchGuard.isValid(token)) return;
+      defaultBranch.value = branch;
     } catch (e) {
+      if (!defaultBranchGuard.isValid(token)) return;
       // Silently fail - some repos might not have a default branch configured
       logWarn("[useGitRepository] Failed to get default branch", { repoPath: repoPath.value }, e);
       defaultBranch.value = "";
     }
   }
 
-  async function fetchRemoteImpl() {
-    if (!repoPath.value) return;
+  async function loadDefaultBranch() {
+    await loadDefaultBranchForPath(repoPath.value);
+  }
 
+  async function fetchRemoteImpl() {
+    const targetPath = repoPath.value;
+    if (!targetPath) return;
+
+    const token = fetchGuard.start();
     fetchingRemote.value = true;
     try {
-      await fetchRemote(repoPath.value);
+      await fetchRemote(targetPath);
+      if (!fetchGuard.isValid(token)) return;
       onFetchSuccess?.();
     } catch (error) {
+      if (!fetchGuard.isValid(token)) return;
       const message = error instanceof Error ? error.message : String(error);
       onFetchError?.(message);
     } finally {
-      fetchingRemote.value = false;
+      if (fetchGuard.isValid(token)) {
+        fetchingRemote.value = false;
+      }
     }
   }
 

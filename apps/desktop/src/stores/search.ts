@@ -24,10 +24,10 @@ import { computed, nextTick, ref, watch } from "vue";
 import { useAsyncGuard } from "@/composables/useAsyncGuard";
 import { useRecentSearches } from "@/composables/useRecentSearches";
 import { useSearchClipboard } from "@/composables/useSearchClipboard";
+import { hasMeaningfulDateValue } from "@/utils/dateValidation";
 import { logWarn } from "@/utils/logger";
 import { parseQualifiers } from "@/utils/parseQualifiers";
 import { safeListen } from "@/utils/tauriEvents";
-import { hasMeaningfulDateValue } from "@/utils/dateValidation";
 
 // Re-export types and utilities that consumers may depend on
 export type { RecentSearch } from "@/composables/useRecentSearches";
@@ -359,7 +359,6 @@ export const useSearchStore = defineStore("search", () => {
     });
   }
 
-
   // ── Recent search helpers (store-level orchestration) ──────
   function applyRecentSearch(q: string) {
     query.value = q;
@@ -381,7 +380,10 @@ export const useSearchStore = defineStore("search", () => {
   const statsGuard = useAsyncGuard();
   const filterOptionsGuard = useAsyncGuard();
 
-  function parseDateInputToUnix(value: string | null, fieldName: "From" | "To"): number | undefined {
+  function parseDateInputToUnix(
+    value: string | null,
+    fieldName: "From" | "To",
+  ): number | undefined {
     if (value == null) return undefined;
     const trimmed = value.trim();
     if (!trimmed) return undefined;
@@ -491,32 +493,49 @@ export const useSearchStore = defineStore("search", () => {
   }
 
   // ── FTS Maintenance ─────────────────────────────────────────
+  // Guards prevent stale async responses and deduplicate concurrent requests
+  const healthGuard = useAsyncGuard();
+  const integrityCheckGuard = useAsyncGuard();
+  const optimizeGuard = useAsyncGuard();
+
   async function fetchHealth() {
+    const token = healthGuard.start();
     healthLoading.value = true;
     try {
-      healthInfo.value = await ftsHealth();
+      const result = await ftsHealth();
+      if (!healthGuard.isValid(token)) return;
+      healthInfo.value = result;
     } catch (_e) {
+      if (!healthGuard.isValid(token)) return;
       healthInfo.value = null;
     } finally {
-      healthLoading.value = false;
+      if (healthGuard.isValid(token)) healthLoading.value = false;
     }
   }
 
   async function runIntegrityCheck() {
+    const token = integrityCheckGuard.start();
     maintenanceMessage.value = null;
     try {
-      maintenanceMessage.value = await ftsIntegrityCheck();
+      const result = await ftsIntegrityCheck();
+      if (!integrityCheckGuard.isValid(token)) return;
+      maintenanceMessage.value = result;
     } catch (e) {
+      if (!integrityCheckGuard.isValid(token)) return;
       maintenanceMessage.value = `Error: ${toErrorMessage(e)}`;
     }
   }
 
   async function runOptimize() {
+    const token = optimizeGuard.start();
     maintenanceMessage.value = null;
     try {
-      maintenanceMessage.value = await ftsOptimize();
+      const result = await ftsOptimize();
+      if (!optimizeGuard.isValid(token)) return;
+      maintenanceMessage.value = result;
       await fetchHealth(); // refresh health after optimize
     } catch (e) {
+      if (!optimizeGuard.isValid(token)) return;
       maintenanceMessage.value = `Error: ${toErrorMessage(e)}`;
     }
   }

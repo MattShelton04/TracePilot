@@ -107,6 +107,33 @@ pub(crate) fn load_summary_list_item(session_path: &Path) -> CmdResult<SessionLi
     Ok(summary_to_list_item(summary, session_path))
 }
 
+fn maybe_i64_to_usize(value: Option<i64>) -> Option<usize> {
+    value.and_then(|v| usize::try_from(v).ok())
+}
+
+pub(crate) fn indexed_session_to_list_item(
+    session: tracepilot_indexer::index_db::IndexedSession,
+) -> SessionListItem {
+    let is_running = tracepilot_core::session::discovery::has_lock_file(Path::new(&session.path));
+    SessionListItem {
+        id: session.id,
+        summary: session.summary,
+        repository: session.repository,
+        branch: session.branch,
+        host_type: session.host_type,
+        created_at: session.created_at,
+        updated_at: session.updated_at,
+        event_count: maybe_i64_to_usize(session.event_count),
+        turn_count: maybe_i64_to_usize(session.turn_count),
+        current_model: session.current_model,
+        is_running,
+        error_count: maybe_i64_to_usize(session.error_count),
+        rate_limit_count: maybe_i64_to_usize(session.rate_limit_count),
+        compaction_count: maybe_i64_to_usize(session.compaction_count),
+        truncation_count: maybe_i64_to_usize(session.truncation_count),
+    }
+}
+
 pub(crate) fn open_index_db(
     index_path: &std::path::Path,
 ) -> Option<tracepilot_indexer::index_db::IndexDb> {
@@ -140,9 +167,9 @@ pub(crate) fn validate_path_within(path: &str, dir: &std::path::Path) -> CmdResu
         )));
     }
     let canonical = p.canonicalize()?;
-    let canonical_dir = dir.canonicalize().map_err(|e| {
-        BindingsError::Validation(format!("Cannot resolve allowed directory: {e}"))
-    })?;
+    let canonical_dir = dir
+        .canonicalize()
+        .map_err(|e| BindingsError::Validation(format!("Cannot resolve allowed directory: {e}")))?;
     if !canonical.starts_with(&canonical_dir) {
         return Err(BindingsError::Validation(
             "Path is outside the allowed directory".into(),
@@ -157,10 +184,7 @@ pub(crate) fn validate_path_within(path: &str, dir: &std::path::Path) -> CmdResu
 /// file already exists (e.g. overwrite or symlink), the full canonical path is
 /// verified to prevent symlink escapes. Returns the resolved path so callers
 /// can use it directly, reducing TOCTOU risk.
-pub(crate) fn validate_write_path_within(
-    path: &str,
-    dir: &std::path::Path,
-) -> CmdResult<PathBuf> {
+pub(crate) fn validate_write_path_within(path: &str, dir: &std::path::Path) -> CmdResult<PathBuf> {
     if path.is_empty() {
         return Err(BindingsError::Validation("Path must not be empty".into()));
     }
@@ -179,9 +203,9 @@ pub(crate) fn validate_write_path_within(
             parent.display()
         )));
     }
-    let canonical_dir = dir.canonicalize().map_err(|e| {
-        BindingsError::Validation(format!("Cannot resolve allowed directory: {e}"))
-    })?;
+    let canonical_dir = dir
+        .canonicalize()
+        .map_err(|e| BindingsError::Validation(format!("Cannot resolve allowed directory: {e}")))?;
 
     // If the target already exists (overwrite or symlink), canonicalize the full
     // path to ensure symlinks don't escape the allowed directory.
@@ -308,9 +332,11 @@ mod tests {
         let state = make_shared_config(dir.path().to_str().unwrap());
 
         // Valid UUID that doesn't exist on disk
-        let result = with_session_path(&state, "00000000-0000-0000-0000-000000000000".into(), |_path| {
-            Ok("should not reach here".to_string())
-        })
+        let result = with_session_path(
+            &state,
+            "00000000-0000-0000-0000-000000000000".into(),
+            |_path| Ok("should not reach here".to_string()),
+        )
         .await;
 
         assert!(result.is_err(), "missing session should produce an error");
@@ -336,7 +362,11 @@ mod tests {
         })
         .await;
 
-        assert!(result.is_ok(), "valid session should succeed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "valid session should succeed: {:?}",
+            result.err()
+        );
         let resolved = result.unwrap();
         assert!(
             resolved.contains(session_id),
@@ -395,7 +425,12 @@ mod tests {
         let dir = tempdir().unwrap();
         let result = validate_path_within("", dir.path());
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("must not be empty"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("must not be empty")
+        );
     }
 
     #[test]
@@ -477,7 +512,12 @@ mod tests {
         let dir = tempdir().unwrap();
         let result = validate_write_path_within("", dir.path());
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("must not be empty"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("must not be empty")
+        );
     }
 
     #[test]
@@ -499,7 +539,10 @@ mod tests {
         let result = validate_write_path_within(deep.to_str().unwrap(), dir.path());
         assert!(result.is_err());
         assert!(
-            result.unwrap_err().to_string().contains("Parent directory does not exist"),
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Parent directory does not exist"),
         );
     }
 
@@ -574,7 +617,12 @@ mod tests {
 
         let result = validate_write_path_within(bad_path.to_str().unwrap(), dir.path());
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Parent directory does not exist"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Parent directory does not exist")
+        );
     }
 
     #[test]

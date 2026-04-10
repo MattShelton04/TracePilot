@@ -18,8 +18,10 @@ import type {
 import { toErrorMessage } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
+import { useAsyncGuard } from "@/composables/useAsyncGuard";
 import { logWarn } from "@/utils/logger";
 import { aggregateSettledErrors } from "@/utils/settleErrors";
+import { allSettledRecord } from "@/utils/settledRecord";
 
 export const useLauncherStore = defineStore("launcher", () => {
   const models = ref<ModelInfo[]>([]);
@@ -28,6 +30,7 @@ export const useLauncherStore = defineStore("launcher", () => {
   const systemDeps = ref<SystemDependencies | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
+  const initializeGuard = useAsyncGuard();
 
   const isReady = computed(
     () => systemDeps.value?.gitAvailable && systemDeps.value?.copilotAvailable,
@@ -43,22 +46,25 @@ export const useLauncherStore = defineStore("launcher", () => {
   });
 
   async function initialize() {
+    const token = initializeGuard.start();
     loading.value = true;
     error.value = null;
     try {
-      const [depsResult, modelsResult, templatesResult] = await Promise.allSettled([
-        checkSystemDeps(),
-        getAvailableModels(),
-        listSessionTemplates(),
-      ]);
-      if (depsResult.status === "fulfilled") systemDeps.value = depsResult.value;
-      if (modelsResult.status === "fulfilled") models.value = modelsResult.value;
-      if (templatesResult.status === "fulfilled") templates.value = templatesResult.value;
-      error.value = aggregateSettledErrors([depsResult, modelsResult, templatesResult]);
+      const settled = await allSettledRecord({
+        deps: checkSystemDeps(),
+        models: getAvailableModels(),
+        templates: listSessionTemplates(),
+      });
+      if (!initializeGuard.isValid(token)) return;
+      if (settled.deps.status === "fulfilled") systemDeps.value = settled.deps.value;
+      if (settled.models.status === "fulfilled") models.value = settled.models.value;
+      if (settled.templates.status === "fulfilled") templates.value = settled.templates.value;
+      error.value = aggregateSettledErrors(Object.values(settled));
     } catch (e) {
+      if (!initializeGuard.isValid(token)) return;
       error.value = toErrorMessage(e);
     } finally {
-      loading.value = false;
+      if (initializeGuard.isValid(token)) loading.value = false;
     }
   }
 
