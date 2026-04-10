@@ -18,7 +18,8 @@ import { defineStore } from "pinia";
 import { computed, ref, watch } from "vue";
 import { logWarn } from "@/utils/logger";
 
-const POLL_INTERVAL_MS = 5_000;
+const POLL_FAST_MS = 5_000; // When running: full cycle every 5s
+const POLL_SLOW_MS = 15_000; // When idle: health-only check every 15s
 const DEFAULT_MODEL = "gpt-5-mini";
 
 export const useOrchestratorStore = defineStore("orchestrator", () => {
@@ -124,14 +125,17 @@ export const useOrchestratorStore = defineStore("orchestrator", () => {
   /** Single poll cycle: check health + attribution + ingest results. */
   async function pollCycle() {
     await checkHealth();
-    await refreshAttribution();
-    await ingestResults();
+    // Only do attribution + ingestion when running (saves IPC calls when idle)
+    if (isRunning.value) {
+      await refreshAttribution();
+      await ingestResults();
+    }
   }
 
-  /** Start the background polling loop. */
-  function startPolling() {
-    if (pollTimer) return;
-    pollTimer = setInterval(pollCycle, POLL_INTERVAL_MS);
+  /** Start the background polling loop at the given interval. */
+  function startPolling(intervalMs = POLL_FAST_MS) {
+    stopPolling();
+    pollTimer = setInterval(pollCycle, intervalMs);
   }
 
   /** Stop the background polling loop. */
@@ -142,13 +146,15 @@ export const useOrchestratorStore = defineStore("orchestrator", () => {
     }
   }
 
-  // Auto-start/stop polling based on orchestrator state
+  // Adjust polling cadence based on orchestrator state.
+  // When running → fast full-cycle polling.
+  // When idle → slow health-only polling (detects restarts / stale state).
   watch(isRunning, (running) => {
     if (running) {
-      startPolling();
+      startPolling(POLL_FAST_MS);
     } else {
-      // Do one final ingestion then stop
-      ingestResults().finally(stopPolling);
+      // Final ingestion, then switch to slow health-only polling
+      ingestResults().finally(() => startPolling(POLL_SLOW_MS));
     }
   });
 

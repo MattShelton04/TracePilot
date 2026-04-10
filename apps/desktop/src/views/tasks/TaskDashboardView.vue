@@ -106,16 +106,17 @@ const orchUptime = computed(() => {
 const orchTaskProgress = computed(() => {
   if (!store.stats) return null;
   const { pending, inProgress, done, failed } = store.stats;
-  // Only count tasks in the active pipeline (exclude cancelled/expired/dead_letter)
-  const activeTotal = pending + inProgress + done + failed;
-  if (activeTotal === 0) return null;
+  // Only show tasks in the active pipeline — queued (pending + in_progress).
+  // Done/failed are historical and shouldn't inflate the denominator.
+  const queued = pending + inProgress;
+  if (queued === 0) return null; // Nothing to process
   return {
     done,
     failed,
     pending,
     inProgress,
-    total: activeTotal,
-    pct: Math.round(((done + failed) / activeTotal) * 100),
+    total: queued,
+    pct: 0, // 0% because none of the queued tasks are done yet
   };
 });
 
@@ -324,19 +325,17 @@ function jobProgressColor(status: string) {
           <!-- Task progress indicator -->
           <div v-if="orchTaskProgress && orchestrator.isRunning" class="orch-progress-strip">
             <div class="orch-progress-strip-header">
-              <span class="orch-progress-strip-label">Task Progress</span>
+              <span class="orch-progress-strip-label">Task Queue</span>
               <span class="orch-progress-strip-value">
-                ✓ {{ orchTaskProgress.done }}
-                <template v-if="orchTaskProgress.failed > 0"> · ✗ {{ orchTaskProgress.failed }}</template>
-                <template v-if="orchTaskProgress.inProgress > 0"> · ⟳ {{ orchTaskProgress.inProgress }}</template>
-                <template v-if="orchTaskProgress.pending > 0"> · ◌ {{ orchTaskProgress.pending }}</template>
-                · {{ orchTaskProgress.pct }}%
+                <template v-if="orchTaskProgress.inProgress > 0">⟳ {{ orchTaskProgress.inProgress }} running</template>
+                <template v-if="orchTaskProgress.inProgress > 0 && orchTaskProgress.pending > 0"> · </template>
+                <template v-if="orchTaskProgress.pending > 0">◌ {{ orchTaskProgress.pending }} pending</template>
               </span>
             </div>
             <div class="orch-progress-bar">
               <div
                 class="orch-progress-fill"
-                :style="{ width: `${orchTaskProgress.pct}%` }"
+                :style="{ width: orchTaskProgress.total > 0 ? `${Math.round((orchTaskProgress.inProgress / orchTaskProgress.total) * 100)}%` : '0%' }"
               />
             </div>
           </div>

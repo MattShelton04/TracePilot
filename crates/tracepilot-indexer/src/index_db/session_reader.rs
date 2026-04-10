@@ -57,8 +57,15 @@ impl IndexDb {
         }
 
         if let Some(prefix) = exclude_cwd_prefix {
-            sql.push_str(" AND (cwd IS NULL OR cwd NOT LIKE ?)");
-            query_params.push(Box::new(format!("{prefix}%")));
+            // Normalize both sides to forward slashes for Windows compatibility.
+            // The copilot CLI may record CWD with backslashes or forward slashes,
+            // and cfg.jobs_dir() may differ.  `REPLACE(cwd, '\', '/')` ensures
+            // the LIKE comparison works regardless of separator style.
+            let normalized = prefix.replace('\\', "/");
+            sql.push_str(
+                " AND (cwd IS NULL OR REPLACE(cwd, '\\', '/') NOT LIKE ?)",
+            );
+            query_params.push(Box::new(format!("{normalized}%")));
         }
 
         sql.push_str(" ORDER BY updated_at DESC");

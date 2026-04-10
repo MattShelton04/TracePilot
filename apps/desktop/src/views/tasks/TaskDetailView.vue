@@ -26,7 +26,7 @@ const { confirm } = useConfirmDialog();
 
 const taskId = computed(() => route.params.taskId as string);
 const task = computed(() => store.selectedTask);
-const loading = ref(false);
+const initialLoading = ref(true);
 const cancelling = ref(false);
 const retrying = ref(false);
 
@@ -253,9 +253,8 @@ function isSimpleValue(value: unknown): boolean {
 
 // ─── Actions ──────────────────────────────────────────────────────
 async function loadTask(id: string) {
-  loading.value = true;
   await store.getTask(id);
-  loading.value = false;
+  initialLoading.value = false;
 }
 
 async function handleCancel() {
@@ -347,7 +346,7 @@ watch(taskId, (newId) => {
       </div>
 
       <!-- Loading -->
-      <div v-if="loading" class="loading-state">
+      <div v-if="initialLoading" class="loading-state">
         <LoadingSpinner size="lg" />
         <span class="loading-label">Loading task…</span>
       </div>
@@ -361,7 +360,7 @@ watch(taskId, (newId) => {
       />
 
       <!-- Not found -->
-      <div v-else-if="!task && !loading" class="not-found">
+      <div v-else-if="!task && !initialLoading" class="not-found">
         <p>Task "{{ taskId }}" was not found.</p>
         <button class="btn btn-secondary" @click="goBack">
           Back to Tasks

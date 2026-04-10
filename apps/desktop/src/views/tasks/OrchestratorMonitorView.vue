@@ -6,8 +6,10 @@ import RefreshToolbar from "@/components/RefreshToolbar.vue";
 import TaskStatusBadge from "@/components/tasks/TaskStatusBadge.vue";
 import { useAutoRefresh } from "@/composables/useAutoRefresh";
 import { useOrchestratorStore } from "@/stores/orchestrator";
+import { taskTitle, useTasksStore } from "@/stores/tasks";
 
 const orchestrator = useOrchestratorStore();
+const tasksStore = useTasksStore();
 const router = useRouter();
 const now = ref(Date.now());
 let tickTimer: ReturnType<typeof setInterval> | null = null;
@@ -101,6 +103,13 @@ function truncateId(id: string, len = 12): string {
   return id.length > len ? `${id.slice(0, len)}…` : id;
 }
 
+/** Resolve a friendly display name for a subagent's task. */
+function subagentLabel(taskId: string): string {
+  const task = tasksStore.tasks.find((t) => t.id === taskId);
+  if (task) return taskTitle(task);
+  return truncateId(taskId, 8);
+}
+
 function truncateError(err: string | null, len = 60): string {
   if (!err) return "";
   return err.length > len ? `${err.slice(0, len)}…` : err;
@@ -142,6 +151,7 @@ function viewTask(taskId: string) {
 onMounted(() => {
   orchestrator.refresh();
   orchestrator.loadModels();
+  tasksStore.fetchTasks(); // Load tasks so we can resolve subagent → task title
   tickTimer = setInterval(() => {
     now.value = Date.now();
   }, 1000);
@@ -386,7 +396,7 @@ onUnmounted(() => {
               class="subagent-card"
             >
               <div class="subagent-card-top">
-                <span class="subagent-name cell-mono">{{ truncateId(agent.taskId) }}</span>
+                <span class="subagent-name">{{ subagentLabel(agent.taskId) }}</span>
                 <span class="subagent-status-badge" :class="agent.status">
                   <span v-if="agent.status === 'running' || agent.status === 'spawning'" class="spinner-xs" />
                   <svg
@@ -403,7 +413,7 @@ onUnmounted(() => {
                   {{ agent.status }}
                 </span>
               </div>
-              <div v-if="agent.agentName" class="subagent-task-title">{{ agent.agentName }}</div>
+              <div class="subagent-task-id cell-mono">{{ truncateId(agent.taskId) }}</div>
               <div class="subagent-card-meta">
                 <span class="subagent-elapsed">⏱ {{ elapsedSince(agent.startedAt) }}</span>
               </div>
@@ -447,7 +457,7 @@ onUnmounted(() => {
               :class="{ 'card-failed': agent.status === 'failed' }"
             >
               <div class="subagent-card-top">
-                <span class="subagent-name cell-mono">{{ truncateId(agent.taskId) }}</span>
+                <span class="subagent-name">{{ subagentLabel(agent.taskId) }}</span>
                 <span class="subagent-status-badge" :class="agent.status">
                   <svg
                     v-if="agent.status === 'completed'"
@@ -474,7 +484,7 @@ onUnmounted(() => {
                   {{ agent.status }}
                 </span>
               </div>
-              <div v-if="agent.agentName" class="subagent-task-title">{{ agent.agentName }}</div>
+              <div class="subagent-task-id cell-mono">{{ truncateId(agent.taskId) }}</div>
               <div class="subagent-card-meta">
                 <span class="subagent-elapsed">{{ durationBetween(agent.startedAt, agent.completedAt) }}</span>
               </div>
@@ -939,10 +949,20 @@ onUnmounted(() => {
 }
 
 .subagent-name {
-  font-family: var(--font-mono, "JetBrains Mono", "Fira Code", monospace);
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   font-weight: 600;
-  color: var(--accent-fg);
+  color: var(--text-primary);
+  line-height: 1.35;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subagent-task-id {
+  font-size: 0.625rem;
+  color: var(--text-tertiary);
+  margin-top: 2px;
 }
 
 .subagent-status-badge {
@@ -988,12 +1008,7 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
-.subagent-task-title {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  line-height: 1.35;
-}
+/* (subagent-task-title removed — replaced by subagent-task-id) */
 
 .subagent-card-meta {
   display: flex;

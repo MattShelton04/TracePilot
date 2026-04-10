@@ -34,8 +34,8 @@ impl Default for OrchestratorLaunchConfig {
         Self {
             poll_interval: 30,
             max_parallel: 3,
-            max_empty_polls: 10,
-            max_cycles: 100,
+            max_empty_polls: 30,
+            max_cycles: 200,
             orchestrator_model: "claude-haiku-4.5".to_string(),
             cli_command: "copilot".to_string(),
             jobs_dir: PathBuf::new(), // Must be set by caller

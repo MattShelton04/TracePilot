@@ -238,6 +238,53 @@ async function handleSaveEdit() {
   saving.value = false;
   if (ok) closeEditModal();
 }
+
+// ─── Context source helpers for edit modal ───────────────────────
+const SOURCE_TYPES: { value: string; label: string }[] = [
+  { value: "session_export", label: "Session Export" },
+  { value: "session_analytics", label: "Session Analytics" },
+  { value: "session_health", label: "Session Health" },
+  { value: "session_todos", label: "Session Todos" },
+  { value: "recent_sessions", label: "Recent Sessions" },
+  { value: "multi_session_digest", label: "Multi-Session Digest" },
+];
+
+function addContextSource() {
+  if (!editingPreset.value) return;
+  const id = `src-${Date.now()}`;
+  editingPreset.value.context.sources.push({
+    id,
+    type: "session_export",
+    label: null,
+    required: false,
+    config: {},
+  });
+}
+
+function removeContextSource(idx: number) {
+  if (!editingPreset.value) return;
+  editingPreset.value.context.sources.splice(idx, 1);
+}
+
+function addConfigKey(src: { config: Record<string, unknown> }) {
+  const key = `key_${Object.keys(src.config).length}`;
+  src.config[key] = "";
+}
+
+function removeConfigKey(src: { config: Record<string, unknown> }, key: string) {
+  delete src.config[key];
+}
+
+function renameConfigKey(
+  src: { config: Record<string, unknown> },
+  oldKey: string,
+  newKey: string,
+) {
+  if (oldKey === newKey || !newKey.trim()) return;
+  const val = src.config[oldKey];
+  delete src.config[oldKey];
+  src.config[newKey.trim()] = val;
+}
 </script>
 
 <template>
@@ -920,6 +967,92 @@ async function handleSaveEdit() {
                     <option value="json">JSON</option>
                     <option value="text">Plain Text</option>
                   </select>
+                </div>
+              </div>
+
+              <!-- Context Sources -->
+              <div class="edit-field" style="margin-top: 12px">
+                <div class="ctx-sources-header">
+                  <label class="modal__label">Context Sources</label>
+                  <button class="btn btn--xs btn--ghost" @click="addContextSource">
+                    + Add Source
+                  </button>
+                </div>
+                <div
+                  v-if="editingPreset.context.sources.length === 0"
+                  class="ctx-sources-empty"
+                >
+                  No context sources configured. Click "Add Source" to add one.
+                </div>
+                <div
+                  v-for="(src, idx) in editingPreset.context.sources"
+                  :key="src.id"
+                  class="ctx-source-card"
+                >
+                  <div class="ctx-source-top">
+                    <select v-model="src.type" class="modal__input modal__input--sm">
+                      <option
+                        v-for="st in SOURCE_TYPES"
+                        :key="st.value"
+                        :value="st.value"
+                      >
+                        {{ st.label }}
+                      </option>
+                    </select>
+                    <input
+                      v-model="src.label"
+                      class="modal__input modal__input--sm"
+                      type="text"
+                      placeholder="Label (optional)"
+                    />
+                    <label class="ctx-source-required">
+                      <input v-model="src.required" type="checkbox" />
+                      <span>Required</span>
+                    </label>
+                    <button
+                      class="btn btn--xs btn--danger-ghost"
+                      title="Remove source"
+                      @click="removeContextSource(idx)"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <!-- Config key-value editor -->
+                  <div v-if="Object.keys(src.config).length > 0" class="ctx-source-config">
+                    <div
+                      v-for="key in Object.keys(src.config)"
+                      :key="key"
+                      class="ctx-kv-row"
+                    >
+                      <input
+                        :value="key"
+                        class="modal__input modal__input--xs"
+                        type="text"
+                        placeholder="Key"
+                        @change="renameConfigKey(src, key, ($event.target as HTMLInputElement).value)"
+                      />
+                      <input
+                        :value="String(src.config[key] ?? '')"
+                        class="modal__input modal__input--xs"
+                        type="text"
+                        placeholder="Value"
+                        @input="src.config[key] = ($event.target as HTMLInputElement).value"
+                      />
+                      <button
+                        class="btn btn--xs btn--danger-ghost"
+                        title="Remove key"
+                        @click="removeConfigKey(src, key)"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                  <button
+                    class="btn btn--xs btn--ghost ctx-add-key"
+                    @click="addConfigKey(src)"
+                  >
+                    + Add Config Key
+                  </button>
                 </div>
               </div>
             </div>
@@ -2649,5 +2782,89 @@ async function handleSaveEdit() {
 .preset-slideover .btn--ghost:disabled {
   opacity: 0.35;
   cursor: not-allowed;
+}
+
+/* ─── Context Source Editor ──────────────────────────────────────── */
+.ctx-sources-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ctx-sources-empty {
+  padding: 12px 0;
+  color: var(--text-tertiary);
+  font-size: 0.8125rem;
+  font-style: italic;
+}
+
+.ctx-source-card {
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+}
+
+.ctx-source-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ctx-source-required {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.ctx-source-config {
+  margin-top: 8px;
+  padding-left: 4px;
+}
+
+.ctx-kv-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.ctx-add-key {
+  margin-top: 6px;
+  font-size: 0.6875rem;
+}
+
+.modal__input--sm {
+  font-size: 0.8125rem;
+  padding: 4px 8px;
+}
+
+.modal__input--xs {
+  font-size: 0.75rem;
+  padding: 3px 6px;
+  flex: 1;
+  min-width: 60px;
+}
+
+.btn--xs {
+  font-size: 0.6875rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.btn--danger-ghost {
+  background: transparent;
+  color: #f87171;
+  border: none;
+  cursor: pointer;
+}
+
+.btn--danger-ghost:hover {
+  background: rgba(248, 113, 113, 0.1);
 }
 </style>
