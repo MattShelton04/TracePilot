@@ -3,6 +3,22 @@
 use serde::Serialize;
 use std::sync::{Arc, Mutex};
 
+// ── Shared TaskDb Handle ────────────────────────────────────────────
+
+/// Thread-safe shared handle to the task database.
+/// Lazily initialized on first use (config must be available for the path).
+pub type SharedTaskDb = Arc<Mutex<Option<tracepilot_orchestrator::task_db::TaskDb>>>;
+
+// ── Shared Orchestrator State ──────────────────────────────────────
+
+/// Thread-safe shared state for the active orchestrator session.
+pub type SharedOrchestratorState =
+    Arc<Mutex<Option<tracepilot_orchestrator::task_orchestrator::OrchestratorHandle>>>;
+
+/// Mutex to serialize concurrent manifest file read-modify-write operations,
+/// preventing TOCTOU races when multiple tasks are created simultaneously.
+pub type ManifestLock = Arc<Mutex<()>>;
+
 // ── LRU Turn Cache ──────────────────────────────────────────────────
 
 /// Cached turns for a single session, keyed by session ID in the LRU.
@@ -94,6 +110,7 @@ pub struct SessionListItem {
     pub summary: Option<String>,
     pub repository: Option<String>,
     pub branch: Option<String>,
+    pub cwd: Option<String>,
     pub host_type: Option<String>,
     pub created_at: Option<String>,
     pub updated_at: Option<String>,

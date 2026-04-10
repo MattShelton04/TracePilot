@@ -85,6 +85,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
     renderMarkdown: true,
     mcpServers: false,
     skills: false,
+    aiTasks: false,
   });
   const logLevel = ref("info");
 
@@ -217,6 +218,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
       renderMarkdown: config.features.renderMarkdown ?? true,
       mcpServers: config.features.mcpServers ?? false,
       skills: config.features.skills ?? false,
+      aiTasks: config.features.aiTasks ?? false,
     };
     logLevel.value = config.logging?.level ?? "info";
   }
@@ -249,6 +251,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
       },
       features: { ...featureFlags.value } as TracePilotConfig["features"],
       logging: { level: logLevel.value },
+      tasks: base.tasks,
     };
   }
 

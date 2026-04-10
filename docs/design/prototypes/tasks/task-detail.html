@@ -1,0 +1,2203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Task Detail — Session Summary — TracePilot</title>
+  <link rel="stylesheet" href="../shared/design-system-c.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    /* ================================================================
+       Task Detail View — Custom Styles
+       Extends design-system-c.css for the /tasks/:id route.
+       ================================================================ */
+
+    /* --- Page-level scaffolding --- */
+    .page-header-detail {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 20px 28px 16px;
+      border-bottom: 1px solid var(--border-default);
+      flex-shrink: 0;
+      background: var(--canvas-subtle);
+      background-image: var(--gradient-surface);
+    }
+    .page-header-left {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-width: 0;
+    }
+    .page-header-title-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .page-header-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      color: var(--text-primary);
+      line-height: 1.3;
+    }
+    .page-header-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-shrink: 0;
+      padding-top: 4px;
+    }
+
+    /* --- Badge variants --- */
+    .badge-lg {
+      padding: 4px 14px;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      border-radius: var(--radius-md);
+      letter-spacing: -0.01em;
+    }
+    .badge-outline {
+      background: transparent;
+      border: 1px solid currentColor;
+      opacity: 0.85;
+    }
+    .badge-type {
+      background: var(--done-muted);
+      color: var(--done-fg);
+    }
+
+    /* --- Stagger animation for cards on page load --- */
+    @keyframes slideUpFade {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .stagger-in {
+      animation: slideUpFade 0.4s cubic-bezier(0.23, 1, 0.32, 1) both;
+    }
+    .stagger-in:nth-child(1) { animation-delay: 0.04s; }
+    .stagger-in:nth-child(2) { animation-delay: 0.10s; }
+    .stagger-in:nth-child(3) { animation-delay: 0.16s; }
+    .stagger-in:nth-child(4) { animation-delay: 0.22s; }
+    .stagger-in:nth-child(5) { animation-delay: 0.28s; }
+    .stagger-in:nth-child(6) { animation-delay: 0.34s; }
+    .stagger-in:nth-child(7) { animation-delay: 0.40s; }
+
+    /* --- Section (reusable full-width card section) --- */
+    .detail-section {
+      background: var(--canvas-subtle);
+      background-image: var(--gradient-card);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+    .detail-section + .detail-section {
+      margin-top: 18px;
+    }
+    .detail-section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 13px 18px;
+      border-bottom: 1px solid var(--border-default);
+      gap: 10px;
+    }
+    .detail-section-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-tertiary);
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .detail-section-title .section-icon {
+      font-size: 14px;
+      opacity: 0.55;
+    }
+    .detail-section-body {
+      padding: 18px;
+    }
+
+    /* --- Metadata definition list (two column) --- */
+    .meta-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+    }
+    @media (max-width: 760px) {
+      .meta-grid { grid-template-columns: 1fr; }
+    }
+    .meta-item {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      padding: 9px 18px;
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 0.8125rem;
+    }
+    .meta-item:nth-child(odd) {
+      border-right: 1px solid var(--border-subtle);
+    }
+    @media (max-width: 760px) {
+      .meta-item:nth-child(odd) { border-right: none; }
+    }
+    .meta-label {
+      color: var(--text-tertiary);
+      font-weight: 500;
+      min-width: 110px;
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+    .meta-value {
+      color: var(--text-primary);
+      font-weight: 400;
+      min-width: 0;
+      word-break: break-word;
+    }
+    .meta-value .font-mono {
+      font-size: 0.75rem;
+    }
+    .meta-value a {
+      color: var(--text-link);
+      text-decoration: none;
+      transition: color var(--transition-fast);
+    }
+    .meta-value a:hover {
+      color: var(--accent-fg);
+      text-decoration: underline;
+    }
+
+    /* --- Result Viewer --- */
+    .result-summary-card {
+      background: var(--canvas-default);
+      border: 1px solid var(--border-muted);
+      border-radius: var(--radius-md);
+      padding: 18px 20px;
+      font-size: 0.875rem;
+      line-height: 1.7;
+      color: var(--text-primary);
+      position: relative;
+    }
+    .result-summary-card::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      background: var(--gradient-accent);
+      border-radius: 3px 0 0 3px;
+    }
+    .result-summary-label {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-tertiary);
+      margin-bottom: 8px;
+    }
+
+    /* Key decisions list */
+    .decisions-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    .decisions-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 11px 0;
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 0.8125rem;
+      line-height: 1.6;
+      color: var(--text-primary);
+    }
+    .decisions-list li:last-child { border-bottom: none; }
+    .decision-number {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--accent-muted);
+      color: var(--accent-fg);
+      font-size: 0.6875rem;
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .decision-check {
+      color: var(--success-fg);
+      font-size: 14px;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    /* Files modified list */
+    .files-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    .files-list li {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 0.8125rem;
+      color: var(--text-primary);
+      transition: background var(--transition-fast);
+    }
+    .files-list li:hover {
+      background: var(--neutral-subtle);
+    }
+    .file-icon {
+      width: 18px;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 13px;
+    }
+    .file-icon.ts { color: #3178c6; }
+    .file-icon.vue { color: #42b883; }
+    .file-icon.test { color: var(--warning-fg); }
+    .file-path {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+    .file-path .file-name {
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+    .file-dir {
+      color: var(--text-tertiary);
+    }
+
+    /* Outcome badge (large) */
+    .outcome-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 20px;
+      border-radius: var(--radius-md);
+      font-size: 0.9375rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      text-transform: uppercase;
+    }
+    .outcome-badge.completed {
+      background: var(--success-muted);
+      color: var(--success-fg);
+      border: 1px solid rgba(52,211,153,0.2);
+      box-shadow: 0 0 24px rgba(52,211,153,0.06);
+    }
+    .outcome-badge .outcome-icon {
+      font-size: 18px;
+    }
+
+    /* Token usage chart */
+    .token-chart {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .token-chart-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .token-chart-label {
+      width: 130px;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      font-weight: 500;
+      flex-shrink: 0;
+    }
+    .token-chart-bar-track {
+      flex: 1;
+      height: 24px;
+      background: var(--canvas-default);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      position: relative;
+      border: 1px solid var(--border-subtle);
+    }
+    .token-chart-bar-fill {
+      height: 100%;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: white;
+      white-space: nowrap;
+      transition: width 0.8s cubic-bezier(0.23, 1, 0.32, 1);
+    }
+    .token-chart-bar-fill.prompt {
+      background: linear-gradient(90deg, #6366f1, #818cf8);
+    }
+    .token-chart-bar-fill.completion {
+      background: linear-gradient(90deg, #8b5cf6, #a78bfa);
+    }
+    .token-chart-bar-fill.total {
+      background: linear-gradient(90deg, #059669, #34d399);
+    }
+    .token-chart-value {
+      width: 80px;
+      text-align: right;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+    }
+
+    /* Session stats inline badges */
+    .session-stats-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .stat-inline {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background: var(--canvas-default);
+      border: 1px solid var(--border-muted);
+      border-radius: var(--radius-md);
+      min-width: 120px;
+    }
+    .stat-inline-icon {
+      font-size: 18px;
+      opacity: 0.6;
+    }
+    .stat-inline-content {
+      display: flex;
+      flex-direction: column;
+    }
+    .stat-inline-value {
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      line-height: 1.2;
+      font-variant-numeric: tabular-nums;
+    }
+    .stat-inline-label {
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+      font-weight: 500;
+    }
+
+    /* Raw JSON toggle */
+    .raw-json-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      background: var(--canvas-default);
+      border: 1px solid var(--border-default);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      user-select: none;
+    }
+    .raw-json-toggle:hover {
+      color: var(--text-primary);
+      border-color: var(--border-accent);
+    }
+    .raw-json-toggle.active {
+      background: var(--accent-muted);
+      color: var(--accent-fg);
+      border-color: var(--accent-emphasis);
+    }
+    .raw-json-block {
+      display: none;
+      margin-top: 14px;
+      background: var(--canvas-inset);
+      border: 1px solid var(--border-muted);
+      border-radius: var(--radius-md);
+      padding: 16px 18px;
+      overflow-x: auto;
+    }
+    .raw-json-block.visible {
+      display: block;
+      animation: slideUpFade 0.25s ease;
+    }
+    .raw-json-block pre {
+      margin: 0;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.75rem;
+      line-height: 1.65;
+      color: var(--text-secondary);
+      white-space: pre;
+      tab-size: 2;
+    }
+    .raw-json-block .json-key { color: var(--accent-fg); }
+    .raw-json-block .json-str { color: var(--success-fg); }
+    .raw-json-block .json-num { color: var(--warning-fg); }
+    .raw-json-block .json-bracket { color: var(--text-tertiary); }
+    .raw-json-block .json-null { color: var(--text-placeholder); }
+
+    /* Result sub-sections */
+    .result-block {
+      margin-top: 20px;
+    }
+    .result-block:first-child {
+      margin-top: 0;
+    }
+    .result-block-label {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-tertiary);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* --- Execution Timeline --- */
+    .timeline {
+      position: relative;
+      padding-left: 28px;
+    }
+    .timeline::before {
+      content: '';
+      position: absolute;
+      left: 10px;
+      top: 6px;
+      bottom: 6px;
+      width: 2px;
+      background: var(--border-default);
+      border-radius: 1px;
+    }
+    .timeline-event {
+      position: relative;
+      padding-bottom: 20px;
+    }
+    .timeline-event:last-child {
+      padding-bottom: 0;
+    }
+    .timeline-dot {
+      position: absolute;
+      left: -22px;
+      top: 4px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      border: 2px solid var(--canvas-subtle);
+      z-index: 1;
+    }
+    .timeline-dot.created   { background: var(--text-tertiary); }
+    .timeline-dot.claimed   { background: var(--accent-fg); }
+    .timeline-dot.started   { background: var(--done-fg); }
+    .timeline-dot.processing{ background: var(--warning-fg); }
+    .timeline-dot.written   { background: var(--accent-fg); }
+    .timeline-dot.validated { background: var(--success-fg); }
+    .timeline-dot.completed { background: var(--success-fg); box-shadow: 0 0 0 3px var(--success-muted); }
+    .timeline-dot.running {
+      background: var(--warning-fg);
+      box-shadow: 0 0 0 3px var(--warning-muted);
+    }
+
+    @keyframes timelinePulse {
+      0%, 100% { box-shadow: 0 0 0 3px var(--warning-muted); }
+      50%      { box-shadow: 0 0 0 6px rgba(251,191,36,0.08); }
+    }
+    .timeline-dot.running {
+      animation: timelinePulse 2s ease-in-out infinite;
+    }
+
+    .timeline-event-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 3px;
+    }
+    .timeline-event-title {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .timeline-event-time {
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+      font-variant-numeric: tabular-nums;
+      font-family: "JetBrains Mono", monospace;
+    }
+    .timeline-event-detail {
+      font-size: 0.75rem;
+      color: var(--text-tertiary);
+      margin-top: 2px;
+    }
+    .timeline-duration-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      background: var(--neutral-subtle);
+      border-radius: var(--radius-sm);
+      font-size: 0.625rem;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      font-variant-numeric: tabular-nums;
+      margin-top: 4px;
+    }
+
+    /* --- Context Preview --- */
+    .collapsible-trigger {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      user-select: none;
+      width: 100%;
+      padding: 0;
+      background: none;
+      border: none;
+      color: inherit;
+      font: inherit;
+    }
+    .collapsible-trigger:hover .collapsible-chevron {
+      color: var(--text-primary);
+    }
+    .collapsible-chevron {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      transition: transform var(--transition-fast);
+      flex-shrink: 0;
+    }
+    .collapsible-chevron.open {
+      transform: rotate(90deg);
+    }
+    .collapsible-body {
+      display: none;
+      margin-top: 14px;
+    }
+    .collapsible-body.open {
+      display: block;
+      animation: slideUpFade 0.25s ease;
+    }
+    .context-source-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 0.8125rem;
+    }
+    .context-source-item:last-child {
+      border-bottom: none;
+    }
+    .context-source-name {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+    .context-source-icon {
+      font-size: 14px;
+      opacity: 0.5;
+    }
+    .context-source-size {
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+      font-variant-numeric: tabular-nums;
+    }
+    .context-preview-block {
+      background: var(--canvas-inset);
+      border: 1px solid var(--border-muted);
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+      line-height: 1.7;
+      max-height: 200px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .context-total-bar {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 16px;
+      background: var(--canvas-default);
+      border: 1px solid var(--border-muted);
+      border-radius: var(--radius-md);
+      margin-top: 12px;
+    }
+    .context-total-label {
+      font-size: 0.75rem;
+      color: var(--text-tertiary);
+      font-weight: 500;
+    }
+    .context-total-value {
+      font-size: 0.875rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* --- Validation Status --- */
+    .validation-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 900px) {
+      .validation-grid { grid-template-columns: 1fr; }
+    }
+    .validation-result-card {
+      background: var(--canvas-default);
+      border: 1px solid var(--border-muted);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+    .validation-result-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .validation-result-body {
+      padding: 14px;
+    }
+    .validation-check-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 0;
+      font-size: 0.8125rem;
+    }
+    .validation-check-icon {
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+    .validation-check-icon.pass { color: var(--success-fg); }
+    .validation-check-icon.fail { color: var(--danger-fg); }
+    .validation-check-name {
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+    .validation-check-type {
+      margin-left: auto;
+      font-size: 0.6875rem;
+      font-family: "JetBrains Mono", monospace;
+      color: var(--text-tertiary);
+    }
+    .schema-block {
+      background: var(--canvas-inset);
+      border: 1px solid var(--border-muted);
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      overflow-x: auto;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.6875rem;
+      line-height: 1.65;
+      color: var(--text-secondary);
+      white-space: pre;
+      max-height: 350px;
+      overflow-y: auto;
+    }
+
+    /* --- Related Tasks --- */
+    .related-task-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border-subtle);
+      cursor: pointer;
+      transition: background var(--transition-fast);
+    }
+    .related-task-item:last-child { border-bottom: none; }
+    .related-task-item:hover { background: var(--neutral-subtle); }
+    .related-task-item.current {
+      background: var(--accent-subtle);
+      border-left: 2px solid var(--accent-emphasis);
+    }
+    .related-task-id {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+      min-width: 80px;
+      flex-shrink: 0;
+    }
+    .related-task-type {
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--text-primary);
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .related-task-status {
+      flex-shrink: 0;
+    }
+    .related-task-duration {
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+      min-width: 50px;
+      text-align: right;
+    }
+
+    /* --- Divider with label --- */
+    .section-divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 24px 0 18px;
+    }
+    .section-divider::before,
+    .section-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border-subtle);
+    }
+    .section-divider-label {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-placeholder);
+      white-space: nowrap;
+    }
+
+    /* --- Subtle glow accent at the top of the page --- */
+    .page-glow {
+      position: absolute;
+      top: -120px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 600px;
+      height: 240px;
+      background: radial-gradient(ellipse at center, rgba(99,102,241,0.06) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Scroll region relative for glow */
+    .page-content {
+      position: relative;
+    }
+
+    /* --- Result grid layout --- */
+    .result-two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 900px) {
+      .result-two-col { grid-template-columns: 1fr; }
+    }
+
+    /* --- Subtle noise texture overlay --- */
+    .detail-section::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      opacity: 0.015;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      pointer-events: none;
+      border-radius: inherit;
+    }
+    .detail-section {
+      position: relative;
+    }
+
+    /* --- Scrollbar inside code blocks --- */
+    .schema-block::-webkit-scrollbar,
+    .context-preview-block::-webkit-scrollbar,
+    .raw-json-block::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+    .schema-block::-webkit-scrollbar-thumb,
+    .context-preview-block::-webkit-scrollbar-thumb,
+    .raw-json-block::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.1);
+      border-radius: 2px;
+    }
+
+    /* --- Two-column detail layout --- */
+    .detail-layout {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 18px;
+      align-items: start;
+    }
+    @media (max-width: 1100px) {
+      .detail-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+    .detail-main {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      min-width: 0;
+    }
+    .detail-aside {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      min-width: 0;
+    }
+
+    /* --- Btn-danger variant --- */
+    .btn-danger {
+      color: var(--danger-fg);
+      border-color: rgba(251,113,133,0.2);
+    }
+    .btn-danger:hover {
+      background: var(--danger-subtle);
+      border-color: rgba(251,113,133,0.3);
+    }
+
+    /* --- Result inner panel --- */
+    .result-inner-panel {
+      background: var(--canvas-default);
+      border: 1px solid var(--border-muted);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+    .result-inner-header {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 0.6875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-tertiary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .result-inner-body {
+      padding: 14px;
+    }
+
+    /* --- Tab controls inside result viewer --- */
+    .result-tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid var(--border-default);
+      padding: 0 18px;
+    }
+    .result-tab {
+      padding: 10px 14px;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      background: none;
+      border-top: none;
+      border-left: none;
+      border-right: none;
+    }
+    .result-tab:hover { color: var(--text-primary); }
+    .result-tab.active {
+      color: var(--text-primary);
+      border-bottom-color: var(--accent-emphasis);
+    }
+
+    /* --- Visible/formatted/raw toggle views --- */
+    .result-view { display: none; }
+    .result-view.active { display: block; }
+
+    /* --- Hover card effect for sidebar items --- */
+    .sidebar-nav-item .nav-count {
+      margin-left: auto;
+      font-size: 0.6875rem;
+      color: var(--text-placeholder);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* --- Breadcrumb styling refinements --- */
+    .breadcrumb .breadcrumb-task-id {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.6875rem;
+      color: var(--text-placeholder);
+    }
+
+    /* --- Tooltip --- */
+    [data-tooltip] {
+      position: relative;
+    }
+    [data-tooltip]::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 4px 10px;
+      background: var(--canvas-overlay);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-sm);
+      font-size: 0.6875rem;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--transition-fast);
+      z-index: var(--z-tooltip);
+    }
+    [data-tooltip]:hover::after {
+      opacity: 1;
+    }
+
+    /* --- Token usage donut ring --- */
+    .token-donut-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    .token-donut {
+      width: 90px;
+      height: 90px;
+      flex-shrink: 0;
+    }
+    .token-donut-legend {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .token-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.75rem;
+    }
+    .token-legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+    .token-legend-dot.prompt { background: #6366f1; }
+    .token-legend-dot.completion { background: #a78bfa; }
+    .token-legend-label { color: var(--text-tertiary); }
+    .token-legend-value {
+      margin-left: auto;
+      font-weight: 600;
+      color: var(--text-primary);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* --- Kbd style --- */
+    kbd {
+      display: inline-flex;
+      align-items: center;
+      padding: 1px 5px;
+      border: 1px solid var(--border-default);
+      border-radius: 3px;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.625rem;
+      color: var(--text-tertiary);
+      background: var(--canvas-default);
+    }
+
+    /* --- Back arrow button --- */
+    .btn-back {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 10px;
+      border-radius: var(--radius-sm);
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      background: none;
+      border: 1px solid var(--border-default);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .btn-back:hover {
+      color: var(--text-primary);
+      background: var(--neutral-subtle);
+    }
+
+    /* --- Subtle pulse for live indicator --- */
+    @keyframes livePulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    .live-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--success-fg);
+      animation: livePulse 1.8s ease-in-out infinite;
+    }
+
+    /* Ensure all interactive buttons have pointer */
+    button { cursor: pointer; }
+
+    /* --- Schema highlight --- */
+    .schema-key { color: var(--accent-fg); }
+    .schema-type { color: var(--warning-fg); }
+    .schema-required { color: var(--danger-fg); }
+    .schema-comment { color: var(--text-placeholder); }
+  </style>
+</head>
+<body>
+
+<div class="app-layout">
+  <!-- ============================================================
+       SIDEBAR
+       ============================================================ -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-icon">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      </div>
+      <span class="sidebar-brand-text">TracePilot</span>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="sidebar-section-title">Navigation</div>
+
+      <a href="#" class="sidebar-nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Dashboard
+      </a>
+
+      <a href="#" class="sidebar-nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        Sessions
+        <span class="sidebar-nav-badge">142</span>
+      </a>
+
+      <a href="#" class="sidebar-nav-item active">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+        Tasks
+        <span class="sidebar-nav-badge">38</span>
+      </a>
+
+      <a href="#" class="sidebar-nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg>
+        Jobs
+        <span class="sidebar-nav-badge">5</span>
+      </a>
+
+      <a href="#" class="sidebar-nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
+        Skills
+        <span class="sidebar-nav-badge">12</span>
+      </a>
+
+      <div class="sidebar-section-title">System</div>
+
+      <a href="#" class="sidebar-nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+        Analytics
+      </a>
+
+      <a href="#" class="sidebar-nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+        Settings
+      </a>
+
+      <a href="#" class="sidebar-nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+        MCP Servers
+        <span class="sidebar-nav-badge">
+          <span class="live-dot" style="display:inline-block;vertical-align:middle;margin-right:2px;"></span>
+          3
+        </span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <span class="sidebar-version">v0.8.0-alpha</span>
+      <button class="theme-toggle" onclick="toggleTheme()" data-tooltip="Toggle theme">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ============================================================
+       MAIN CONTENT
+       ============================================================ -->
+  <main class="main-content">
+
+    <!-- -------- Breadcrumb Bar -------- -->
+    <div class="page-header-bar">
+      <nav class="breadcrumb">
+        <a href="#">Tasks</a>
+        <span class="breadcrumb-sep">›</span>
+        <span class="breadcrumb-current">Session Summary</span>
+        <span class="breadcrumb-sep">—</span>
+        <span class="breadcrumb-task-id">abc-123</span>
+      </nav>
+      <div style="margin-left:auto;">
+        <button class="btn-back" onclick="history.back()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          Back to Dashboard
+        </button>
+      </div>
+    </div>
+
+    <!-- -------- Page Header -------- -->
+    <div class="page-header-detail">
+      <div class="page-header-left">
+        <div class="page-header-title-row">
+          <h1 class="page-header-title">Session Summary</h1>
+          <span class="badge badge-success badge-lg">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Completed
+          </span>
+          <span class="badge badge-type">Session Summary</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <span class="font-mono" style="font-size:0.75rem;color:var(--text-tertiary);">task-f7a2b3c1</span>
+          <span style="color:var(--text-placeholder);">·</span>
+          <span style="font-size:0.75rem;color:var(--text-tertiary);">Completed in <strong style="color:var(--text-secondary);">2m 25s</strong></span>
+          <span style="color:var(--text-placeholder);">·</span>
+          <span style="font-size:0.75rem;color:var(--text-tertiary);">Apr 1, 2026 at 10:02 AM</span>
+        </div>
+      </div>
+      <div class="page-header-actions">
+        <button class="btn">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
+          Retry
+        </button>
+        <button class="btn btn-danger">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+          Delete
+        </button>
+      </div>
+    </div>
+
+    <!-- -------- Scrollable Content -------- -->
+    <div class="page-content">
+      <div class="page-glow"></div>
+      <div class="page-content-inner">
+        <div class="detail-layout">
+
+          <!-- ========================================
+               LEFT COLUMN — Main Content
+               ======================================== -->
+          <div class="detail-main">
+
+            <!-- ================================
+                 Section 1: Task Metadata
+                 ================================ -->
+            <div class="detail-section stagger-in">
+              <div class="detail-section-header">
+                <span class="detail-section-title">
+                  <span class="section-icon">📋</span>
+                  Task Metadata
+                </span>
+                <span class="badge badge-neutral" style="font-size:0.625rem;">ID: task-f7a2b3c1</span>
+              </div>
+              <div class="meta-grid">
+                <div class="meta-item">
+                  <span class="meta-label">Task ID</span>
+                  <span class="meta-value"><code class="font-mono">task-f7a2b3c1</code></span>
+                </div>
+                <div class="meta-item">
+                  <span class="meta-label">Type</span>
+                  <span class="meta-value">
+                    <span class="badge badge-done" style="font-size:0.6875rem;">Session Summary</span>
+                  </span>
+                </div>
+                <div class="meta-item">
+                  <span class="meta-label">Preset</span>
+                  <span class="meta-value">Session Summary v1</span>
+                </div>
+                <div class="meta-item">
+                  <span class="meta-label">Priority</span>
+                  <span class="meta-value">
+                    <span class="badge badge-neutral">Normal</span>
+                  </span>
+                </div>
+                <div class="meta-item">
+                  <span class="meta-label">Model Used</span>
+                  <span class="meta-value"><code class="font-mono">claude-haiku-4.5</code></span>
+                </div>
+                <div class="meta-item">
+                  <span class="meta-label">Job</span>
+                  <span class="meta-value"><a href="#">Weekly Digest 2026-04-01</a></span>
+                </div>
+                <div class="meta-item">
+                  <span class="meta-label">Created</span>
+                  <span class="meta-value font-mono" style="font-size:0.75rem;">2026-04-01 10:00:00</span>
+                </div>
+                <div class="meta-item">
+                  <span class="meta-label">Claimed</span>
+                  <span class="meta-value font-mono" style="font-size:0.75rem;">2026-04-01 10:00:05</span>
+                </div>
+                <div class="meta-item">
+                  <span class="meta-label">Completed</span>
+                  <span class="meta-value font-mono" style="font-size:0.75rem;">2026-04-01 10:02:30</span>
+                </div>
+                <div class="meta-item">
+                  <span class="meta-label">Duration</span>
+                  <span class="meta-value"><strong>2m 25s</strong></span>
+                </div>
+                <div class="meta-item">
+                  <span class="meta-label">Attempts</span>
+                  <span class="meta-value">1 of 3</span>
+                </div>
+                <div class="meta-item">
+                  <span class="meta-label">Schema Valid</span>
+                  <span class="meta-value" style="color:var(--success-fg);">✅ Yes</span>
+                </div>
+                <div class="meta-item" style="grid-column: 1 / -1; border-right:none;">
+                  <span class="meta-label">Context Size</span>
+                  <span class="meta-value">12,450 chars <span style="color:var(--text-tertiary);">(~3,112 tokens)</span></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- ================================
+                 Section 2: Result Viewer
+                 ================================ -->
+            <div class="detail-section stagger-in">
+              <div class="detail-section-header">
+                <span class="detail-section-title">
+                  <span class="section-icon">✨</span>
+                  Result
+                </span>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span class="outcome-badge completed">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    Completed
+                  </span>
+                </div>
+              </div>
+
+              <!-- Result Tabs -->
+              <div class="result-tabs">
+                <button class="result-tab active" data-tab="formatted" onclick="switchResultTab('formatted')">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;margin-right:4px;" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  Formatted
+                </button>
+                <button class="result-tab" data-tab="raw" onclick="switchResultTab('raw')">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;margin-right:4px;" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                  Raw JSON
+                </button>
+              </div>
+
+              <!-- Formatted View -->
+              <div class="result-view active" id="result-formatted">
+                <div class="detail-section-body">
+
+                  <!-- Summary -->
+                  <div class="result-block">
+                    <div class="result-block-label">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                      Summary
+                    </div>
+                    <div class="result-summary-card">
+                      This session focused on implementing a new authentication flow using JWT tokens. The developer worked with Claude to design the token refresh mechanism, handle edge cases around expired tokens, and write comprehensive tests. Three key architectural decisions were made regarding token storage, refresh timing, and error propagation.
+                    </div>
+                  </div>
+
+                  <!-- Two-column: Key Decisions + Files Modified -->
+                  <div class="result-two-col" style="margin-top:20px;">
+
+                    <!-- Key Decisions -->
+                    <div class="result-inner-panel">
+                      <div class="result-inner-header">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                        Key Decisions
+                      </div>
+                      <div class="result-inner-body" style="padding:8px 14px;">
+                        <ol class="decisions-list">
+                          <li>
+                            <span class="decision-number">1</span>
+                            <span>Store JWT in httpOnly cookies instead of localStorage for XSS protection</span>
+                          </li>
+                          <li>
+                            <span class="decision-number">2</span>
+                            <span>Implement silent refresh 5 minutes before token expiry</span>
+                          </li>
+                          <li>
+                            <span class="decision-number">3</span>
+                            <span>Use a centralized error boundary for auth failures</span>
+                          </li>
+                        </ol>
+                      </div>
+                    </div>
+
+                    <!-- Files Modified -->
+                    <div class="result-inner-panel">
+                      <div class="result-inner-header">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+                        Files Modified
+                        <span class="badge badge-neutral" style="font-size:0.5625rem;margin-left:auto;">5 files</span>
+                      </div>
+                      <div class="result-inner-body" style="padding:6px 8px;">
+                        <ul class="files-list">
+                          <li>
+                            <span class="file-icon ts">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                            </span>
+                            <span class="file-path"><span class="file-dir">src/auth/</span><span class="file-name">jwt.ts</span></span>
+                          </li>
+                          <li>
+                            <span class="file-icon ts">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                            </span>
+                            <span class="file-path"><span class="file-dir">src/auth/</span><span class="file-name">refresh.ts</span></span>
+                          </li>
+                          <li>
+                            <span class="file-icon ts">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                            </span>
+                            <span class="file-path"><span class="file-dir">src/middleware/</span><span class="file-name">authGuard.ts</span></span>
+                          </li>
+                          <li>
+                            <span class="file-icon vue">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                            </span>
+                            <span class="file-path"><span class="file-dir">src/components/</span><span class="file-name">ErrorBoundary.vue</span></span>
+                          </li>
+                          <li>
+                            <span class="file-icon test">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                            </span>
+                            <span class="file-path"><span class="file-dir">tests/auth/</span><span class="file-name">jwt.test.ts</span></span>
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Token Usage Chart -->
+                  <div class="result-block" style="margin-top:20px;">
+                    <div class="result-block-label">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+                      Token Usage
+                    </div>
+                    <div class="token-chart">
+                      <div class="token-chart-row">
+                        <span class="token-chart-label">Prompt Tokens</span>
+                        <div class="token-chart-bar-track">
+                          <div class="token-chart-bar-fill prompt" style="width: 71%;">
+                            <span>71%</span>
+                          </div>
+                        </div>
+                        <span class="token-chart-value">32,100</span>
+                      </div>
+                      <div class="token-chart-row">
+                        <span class="token-chart-label">Completion Tokens</span>
+                        <div class="token-chart-bar-track">
+                          <div class="token-chart-bar-fill completion" style="width: 29%;">
+                            <span>29%</span>
+                          </div>
+                        </div>
+                        <span class="token-chart-value">13,130</span>
+                      </div>
+                      <div class="token-chart-row">
+                        <span class="token-chart-label">Total Tokens</span>
+                        <div class="token-chart-bar-track">
+                          <div class="token-chart-bar-fill total" style="width: 100%;">
+                            <span>45,230</span>
+                          </div>
+                        </div>
+                        <span class="token-chart-value" style="font-weight:700;color:var(--text-primary);">45,230</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Session Stats -->
+                  <div class="result-block" style="margin-top:20px;">
+                    <div class="result-block-label">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                      Session Statistics
+                    </div>
+                    <div class="session-stats-row">
+                      <div class="stat-inline">
+                        <span class="stat-inline-icon">💬</span>
+                        <div class="stat-inline-content">
+                          <span class="stat-inline-value">24</span>
+                          <span class="stat-inline-label">Turns</span>
+                        </div>
+                      </div>
+                      <div class="stat-inline">
+                        <span class="stat-inline-icon">🔧</span>
+                        <div class="stat-inline-content">
+                          <span class="stat-inline-value">18</span>
+                          <span class="stat-inline-label">Tool Calls</span>
+                        </div>
+                      </div>
+                      <div class="stat-inline">
+                        <span class="stat-inline-icon">⏱</span>
+                        <div class="stat-inline-content">
+                          <span class="stat-inline-value">47m</span>
+                          <span class="stat-inline-label">Duration</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
+              <!-- Raw JSON View -->
+              <div class="result-view" id="result-raw">
+                <div class="detail-section-body">
+                  <div class="raw-json-block visible" style="display:block;">
+                    <pre><span class="json-bracket">{</span>
+  <span class="json-key">"summary"</span>: <span class="json-str">"This session focused on implementing a new authentication flow using JWT tokens. The developer worked with Claude to design the token refresh mechanism, handle edge cases around expired tokens, and write comprehensive tests. Three key architectural decisions were made regarding token storage, refresh timing, and error propagation."</span>,
+  <span class="json-key">"key_decisions"</span>: <span class="json-bracket">[</span>
+    <span class="json-str">"Store JWT in httpOnly cookies instead of localStorage for XSS protection"</span>,
+    <span class="json-str">"Implement silent refresh 5 minutes before token expiry"</span>,
+    <span class="json-str">"Use a centralized error boundary for auth failures"</span>
+  <span class="json-bracket">]</span>,
+  <span class="json-key">"files_modified"</span>: <span class="json-bracket">[</span>
+    <span class="json-str">"src/auth/jwt.ts"</span>,
+    <span class="json-str">"src/auth/refresh.ts"</span>,
+    <span class="json-str">"src/middleware/authGuard.ts"</span>,
+    <span class="json-str">"src/components/ErrorBoundary.vue"</span>,
+    <span class="json-str">"tests/auth/jwt.test.ts"</span>
+  <span class="json-bracket">]</span>,
+  <span class="json-key">"outcome"</span>: <span class="json-str">"completed"</span>,
+  <span class="json-key">"token_usage"</span>: <span class="json-bracket">{</span>
+    <span class="json-key">"total_tokens"</span>: <span class="json-num">45230</span>,
+    <span class="json-key">"prompt_tokens"</span>: <span class="json-num">32100</span>,
+    <span class="json-key">"completion_tokens"</span>: <span class="json-num">13130</span>
+  <span class="json-bracket">}</span>,
+  <span class="json-key">"session_stats"</span>: <span class="json-bracket">{</span>
+    <span class="json-key">"turns"</span>: <span class="json-num">24</span>,
+    <span class="json-key">"tool_calls"</span>: <span class="json-num">18</span>,
+    <span class="json-key">"duration_minutes"</span>: <span class="json-num">47</span>
+  <span class="json-bracket">}</span>
+<span class="json-bracket">}</span></pre>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ================================
+                 Section 3: Execution Timeline
+                 ================================ -->
+            <div class="detail-section stagger-in">
+              <div class="detail-section-header">
+                <span class="detail-section-title">
+                  <span class="section-icon">📍</span>
+                  Execution Timeline
+                </span>
+                <span style="font-size:0.6875rem;color:var(--text-tertiary);">Total: 2m 30s</span>
+              </div>
+              <div class="detail-section-body">
+                <div class="timeline">
+
+                  <!-- Event: Created -->
+                  <div class="timeline-event">
+                    <div class="timeline-dot created"></div>
+                    <div class="timeline-event-header">
+                      <span class="timeline-event-title">Task Created</span>
+                      <span class="timeline-event-time">10:00:00.000</span>
+                    </div>
+                    <div class="timeline-event-detail">
+                      Task <code class="font-mono" style="font-size:0.6875rem;">task-f7a2b3c1</code> enqueued with priority Normal
+                    </div>
+                    <div class="timeline-duration-chip">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                      +5s
+                    </div>
+                  </div>
+
+                  <!-- Event: Claimed -->
+                  <div class="timeline-event">
+                    <div class="timeline-dot claimed"></div>
+                    <div class="timeline-event-header">
+                      <span class="timeline-event-title">Claimed by Orchestrator</span>
+                      <span class="timeline-event-time">10:00:05.120</span>
+                    </div>
+                    <div class="timeline-event-detail">
+                      Orchestrator picked up task from queue — model: <code class="font-mono" style="font-size:0.6875rem;">claude-haiku-4.5</code>
+                    </div>
+                    <div class="timeline-duration-chip">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                      +2s
+                    </div>
+                  </div>
+
+                  <!-- Event: Subagent started -->
+                  <div class="timeline-event">
+                    <div class="timeline-dot started"></div>
+                    <div class="timeline-event-header">
+                      <span class="timeline-event-title">Subagent Started</span>
+                      <span class="timeline-event-time">10:00:07.340</span>
+                    </div>
+                    <div class="timeline-event-detail">
+                      Agent <code class="font-mono" style="font-size:0.6875rem;">tp-task-f7a2b3c1</code> spawned — context assembled (12,450 chars)
+                    </div>
+                    <div class="timeline-duration-chip">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                      +1m 48s
+                    </div>
+                  </div>
+
+                  <!-- Event: Processing -->
+                  <div class="timeline-event">
+                    <div class="timeline-dot processing"></div>
+                    <div class="timeline-event-header">
+                      <span class="timeline-event-title">Processing</span>
+                      <span class="timeline-event-time">10:00:07.340 — 10:01:55.800</span>
+                    </div>
+                    <div class="timeline-event-detail">
+                      LLM inference & response streaming — 24 turns, 18 tool calls
+                    </div>
+                    <div class="timeline-duration-chip">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                      +20s
+                    </div>
+                  </div>
+
+                  <!-- Event: Result written -->
+                  <div class="timeline-event">
+                    <div class="timeline-dot written"></div>
+                    <div class="timeline-event-header">
+                      <span class="timeline-event-title">Result Written</span>
+                      <span class="timeline-event-time">10:02:15.200</span>
+                    </div>
+                    <div class="timeline-event-detail">
+                      Structured output parsed — 6 fields extracted from response
+                    </div>
+                    <div class="timeline-duration-chip">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                      +8s
+                    </div>
+                  </div>
+
+                  <!-- Event: Validated -->
+                  <div class="timeline-event">
+                    <div class="timeline-dot validated"></div>
+                    <div class="timeline-event-header">
+                      <span class="timeline-event-title">Schema Validated</span>
+                      <span class="timeline-event-time">10:02:23.410</span>
+                    </div>
+                    <div class="timeline-event-detail">
+                      Output validated against <code class="font-mono" style="font-size:0.6875rem;">SessionSummaryResult</code> schema — all fields pass
+                    </div>
+                    <div class="timeline-duration-chip">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                      +7s
+                    </div>
+                  </div>
+
+                  <!-- Event: Completed -->
+                  <div class="timeline-event">
+                    <div class="timeline-dot completed"></div>
+                    <div class="timeline-event-header">
+                      <span class="timeline-event-title">Completed</span>
+                      <span class="timeline-event-time">10:02:30.000</span>
+                    </div>
+                    <div class="timeline-event-detail">
+                      Task finalized — result available, status set to <span class="badge badge-success" style="font-size:0.625rem;">completed</span>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+            <!-- ================================
+                 Section 4: Context Preview
+                 ================================ -->
+            <div class="detail-section stagger-in">
+              <div class="detail-section-header">
+                <button class="collapsible-trigger" onclick="toggleCollapsible('context-section')">
+                  <span class="collapsible-chevron" id="context-section-chevron">▶</span>
+                  <span class="detail-section-title" style="border:0;padding:0;">
+                    <span class="section-icon">📄</span>
+                    Context Preview
+                  </span>
+                </button>
+                <span style="font-size:0.6875rem;color:var(--text-tertiary);">12,450 chars · ~3,112 tokens</span>
+              </div>
+              <div class="collapsible-body" id="context-section-body">
+                <div class="detail-section-body">
+
+                  <!-- Context Sources -->
+                  <div class="result-block-label" style="margin-bottom:8px;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                    Context Sources
+                  </div>
+                  <div class="result-inner-panel" style="margin-bottom:14px;">
+                    <div style="padding:4px 0;">
+                      <div class="context-source-item">
+                        <span class="context-source-name">
+                          <span class="context-source-icon">📝</span>
+                          System Prompt
+                        </span>
+                        <span class="context-source-size">1,240 chars</span>
+                      </div>
+                      <div class="context-source-item">
+                        <span class="context-source-name">
+                          <span class="context-source-icon">💬</span>
+                          Session Transcript
+                        </span>
+                        <span class="context-source-size">8,920 chars</span>
+                      </div>
+                      <div class="context-source-item">
+                        <span class="context-source-name">
+                          <span class="context-source-icon">📋</span>
+                          Task Preset Template
+                        </span>
+                        <span class="context-source-size">680 chars</span>
+                      </div>
+                      <div class="context-source-item">
+                        <span class="context-source-name">
+                          <span class="context-source-icon">📐</span>
+                          Output Schema
+                        </span>
+                        <span class="context-source-size">820 chars</span>
+                      </div>
+                      <div class="context-source-item">
+                        <span class="context-source-name">
+                          <span class="context-source-icon">🗂</span>
+                          File Metadata
+                        </span>
+                        <span class="context-source-size">790 chars</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Context Preview (truncated markdown) -->
+                  <div class="result-block-label" style="margin-bottom:8px;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+                    Preview (truncated)
+                  </div>
+                  <div class="context-preview-block">## System Prompt
+
+You are a session summarizer. Your task is to analyze the
+provided conversation transcript and produce a structured
+summary with the following components:
+
+- A concise narrative summary (2-4 sentences)
+- Key architectural or design decisions made
+- List of all files created or modified
+- Overall outcome assessment
+- Token usage breakdown
+- Session statistics
+
+---
+
+## Session Transcript (truncated)
+
+[Turn 1] User: I need to implement JWT-based authentication
+for our Express API. The tokens should be stored securely
+and refresh automatically.
+
+[Turn 2] Assistant: I'll help design a secure JWT auth flow.
+Let me start by examining your current auth setup...
+
+[Turn 3] User: Here's our current auth middleware...
+// ... 8,920 chars of conversation continues ...
+
+---
+
+## Output Schema: SessionSummaryResult
+// See validation section for full schema definition</div>
+
+                  <!-- Total context bar -->
+                  <div class="context-total-bar">
+                    <span class="context-total-label">Total Context Assembled</span>
+                    <span style="flex:1;"></span>
+                    <span class="context-total-value">12,450 <span style="font-weight:400;font-size:0.75rem;color:var(--text-tertiary);">chars</span></span>
+                    <span style="color:var(--text-placeholder);">·</span>
+                    <span class="context-total-value">~3,112 <span style="font-weight:400;font-size:0.75rem;color:var(--text-tertiary);">tokens</span></span>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+            <!-- ================================
+                 Section 5: Validation Status
+                 ================================ -->
+            <div class="detail-section stagger-in">
+              <div class="detail-section-header">
+                <span class="detail-section-title">
+                  <span class="section-icon">🛡</span>
+                  Validation Status
+                </span>
+                <span class="badge badge-success" style="font-size:0.625rem;">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  All Fields Valid
+                </span>
+              </div>
+              <div class="detail-section-body">
+                <div class="validation-grid">
+
+                  <!-- Validation Results -->
+                  <div class="validation-result-card">
+                    <div class="validation-result-header">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                      Field Validation
+                    </div>
+                    <div class="validation-result-body">
+                      <div class="validation-check-item">
+                        <span class="validation-check-icon pass">✓</span>
+                        <span class="validation-check-name">summary</span>
+                        <span class="validation-check-type">string</span>
+                      </div>
+                      <div class="validation-check-item">
+                        <span class="validation-check-icon pass">✓</span>
+                        <span class="validation-check-name">key_decisions</span>
+                        <span class="validation-check-type">string[]</span>
+                      </div>
+                      <div class="validation-check-item">
+                        <span class="validation-check-icon pass">✓</span>
+                        <span class="validation-check-name">files_modified</span>
+                        <span class="validation-check-type">string[]</span>
+                      </div>
+                      <div class="validation-check-item">
+                        <span class="validation-check-icon pass">✓</span>
+                        <span class="validation-check-name">outcome</span>
+                        <span class="validation-check-type">enum</span>
+                      </div>
+                      <div class="validation-check-item">
+                        <span class="validation-check-icon pass">✓</span>
+                        <span class="validation-check-name">token_usage</span>
+                        <span class="validation-check-type">object</span>
+                      </div>
+                      <div class="validation-check-item">
+                        <span class="validation-check-icon pass">✓</span>
+                        <span class="validation-check-name">session_stats</span>
+                        <span class="validation-check-type">object</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Output Schema -->
+                  <div class="validation-result-card">
+                    <div class="validation-result-header">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                      Output Schema
+                    </div>
+                    <div style="padding:8px;">
+                      <div class="schema-block"><span class="schema-comment">// SessionSummaryResult</span>
+<span class="schema-key">"type"</span>: <span class="schema-type">"object"</span>,
+<span class="schema-key">"required"</span>: [
+  <span class="schema-required">"summary"</span>,
+  <span class="schema-required">"key_decisions"</span>,
+  <span class="schema-required">"files_modified"</span>,
+  <span class="schema-required">"outcome"</span>,
+  <span class="schema-required">"token_usage"</span>,
+  <span class="schema-required">"session_stats"</span>
+],
+<span class="schema-key">"properties"</span>: {
+  <span class="schema-key">"summary"</span>: {
+    <span class="schema-key">"type"</span>: <span class="schema-type">"string"</span>,
+    <span class="schema-key">"minLength"</span>: <span class="json-num">50</span>,
+    <span class="schema-key">"maxLength"</span>: <span class="json-num">2000</span>
+  },
+  <span class="schema-key">"key_decisions"</span>: {
+    <span class="schema-key">"type"</span>: <span class="schema-type">"array"</span>,
+    <span class="schema-key">"items"</span>: { <span class="schema-key">"type"</span>: <span class="schema-type">"string"</span> },
+    <span class="schema-key">"minItems"</span>: <span class="json-num">1</span>
+  },
+  <span class="schema-key">"files_modified"</span>: {
+    <span class="schema-key">"type"</span>: <span class="schema-type">"array"</span>,
+    <span class="schema-key">"items"</span>: { <span class="schema-key">"type"</span>: <span class="schema-type">"string"</span> }
+  },
+  <span class="schema-key">"outcome"</span>: {
+    <span class="schema-key">"type"</span>: <span class="schema-type">"string"</span>,
+    <span class="schema-key">"enum"</span>: [
+      <span class="json-str">"completed"</span>,
+      <span class="json-str">"partial"</span>,
+      <span class="json-str">"failed"</span>
+    ]
+  },
+  <span class="schema-key">"token_usage"</span>: {
+    <span class="schema-key">"type"</span>: <span class="schema-type">"object"</span>,
+    <span class="schema-key">"properties"</span>: {
+      <span class="schema-key">"total_tokens"</span>:      { <span class="schema-key">"type"</span>: <span class="schema-type">"integer"</span> },
+      <span class="schema-key">"prompt_tokens"</span>:     { <span class="schema-key">"type"</span>: <span class="schema-type">"integer"</span> },
+      <span class="schema-key">"completion_tokens"</span>: { <span class="schema-key">"type"</span>: <span class="schema-type">"integer"</span> }
+    }
+  },
+  <span class="schema-key">"session_stats"</span>: {
+    <span class="schema-key">"type"</span>: <span class="schema-type">"object"</span>,
+    <span class="schema-key">"properties"</span>: {
+      <span class="schema-key">"turns"</span>:            { <span class="schema-key">"type"</span>: <span class="schema-type">"integer"</span> },
+      <span class="schema-key">"tool_calls"</span>:       { <span class="schema-key">"type"</span>: <span class="schema-type">"integer"</span> },
+      <span class="schema-key">"duration_minutes"</span>: { <span class="schema-key">"type"</span>: <span class="schema-type">"integer"</span> }
+    }
+  }
+}</div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+          <!-- END detail-main -->
+
+          <!-- ========================================
+               RIGHT COLUMN — Sidebar / Related
+               ======================================== -->
+          <div class="detail-aside">
+
+            <!-- Quick Stats Card -->
+            <div class="detail-section stagger-in">
+              <div class="detail-section-header">
+                <span class="detail-section-title">
+                  <span class="section-icon">⚡</span>
+                  Quick Stats
+                </span>
+              </div>
+              <div class="detail-section-body" style="padding:12px 14px;">
+                <div style="display:flex;flex-direction:column;gap:12px;">
+                  <div style="display:flex;align-items:center;justify-content:space-between;">
+                    <span style="font-size:0.75rem;color:var(--text-tertiary);">Status</span>
+                    <span class="badge badge-success" style="font-size:0.625rem;">Completed</span>
+                  </div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;">
+                    <span style="font-size:0.75rem;color:var(--text-tertiary);">Duration</span>
+                    <span style="font-size:0.8125rem;font-weight:600;color:var(--text-primary);">2m 25s</span>
+                  </div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;">
+                    <span style="font-size:0.75rem;color:var(--text-tertiary);">Tokens</span>
+                    <span style="font-size:0.8125rem;font-weight:600;color:var(--text-primary);font-variant-numeric:tabular-nums;">45,230</span>
+                  </div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;">
+                    <span style="font-size:0.75rem;color:var(--text-tertiary);">Model</span>
+                    <span class="font-mono" style="font-size:0.6875rem;color:var(--text-secondary);">claude-haiku-4.5</span>
+                  </div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;">
+                    <span style="font-size:0.75rem;color:var(--text-tertiary);">Attempts</span>
+                    <span style="font-size:0.8125rem;font-weight:500;color:var(--text-primary);">1 / 3</span>
+                  </div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;">
+                    <span style="font-size:0.75rem;color:var(--text-tertiary);">Validated</span>
+                    <span style="font-size:0.8125rem;color:var(--success-fg);">✅ Yes</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Token Breakdown Donut -->
+            <div class="detail-section stagger-in">
+              <div class="detail-section-header">
+                <span class="detail-section-title">
+                  <span class="section-icon">🍩</span>
+                  Token Breakdown
+                </span>
+              </div>
+              <div class="detail-section-body" style="display:flex;justify-content:center;">
+                <div class="token-donut-wrapper">
+                  <svg class="token-donut" viewBox="0 0 100 100">
+                    <!-- Background ring -->
+                    <circle cx="50" cy="50" r="40" fill="none" stroke="var(--neutral-muted)" stroke-width="12" />
+                    <!-- Completion slice (drawn first, full circle, then overlaid by prompt) -->
+                    <circle cx="50" cy="50" r="40" fill="none"
+                      stroke="#a78bfa" stroke-width="12"
+                      stroke-dasharray="251.3 251.3"
+                      stroke-dashoffset="0"
+                      transform="rotate(-90 50 50)"
+                      style="transition: stroke-dashoffset 0.8s ease;" />
+                    <!-- Prompt slice (71% = 178.4 of 251.3) -->
+                    <circle cx="50" cy="50" r="40" fill="none"
+                      stroke="#6366f1" stroke-width="12"
+                      stroke-dasharray="178.4 251.3"
+                      stroke-dashoffset="0"
+                      transform="rotate(-90 50 50)"
+                      style="transition: stroke-dashoffset 0.8s ease;" />
+                    <!-- Center text -->
+                    <text x="50" y="47" text-anchor="middle" fill="var(--text-primary)" font-size="11" font-weight="700" font-family="Inter, sans-serif">45.2k</text>
+                    <text x="50" y="59" text-anchor="middle" fill="var(--text-tertiary)" font-size="7" font-weight="500" font-family="Inter, sans-serif">tokens</text>
+                  </svg>
+                  <div class="token-donut-legend">
+                    <div class="token-legend-item">
+                      <span class="token-legend-dot prompt"></span>
+                      <span class="token-legend-label">Prompt</span>
+                      <span class="token-legend-value">32,100</span>
+                    </div>
+                    <div class="token-legend-item">
+                      <span class="token-legend-dot completion"></span>
+                      <span class="token-legend-label">Completion</span>
+                      <span class="token-legend-value">13,130</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Related Tasks (Parent Job) -->
+            <div class="detail-section stagger-in">
+              <div class="detail-section-header">
+                <span class="detail-section-title">
+                  <span class="section-icon">🔗</span>
+                  Related Tasks
+                </span>
+              </div>
+              <div style="padding:6px 0;">
+                <!-- Parent Job Link -->
+                <div style="padding:10px 16px;border-bottom:1px solid var(--border-default);display:flex;align-items:center;gap:8px;">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg>
+                  <span style="font-size:0.75rem;color:var(--text-tertiary);">Parent Job:</span>
+                  <a href="#" style="font-size:0.75rem;color:var(--text-link);text-decoration:none;font-weight:500;">Weekly Digest 2026-04-01</a>
+                </div>
+
+                <!-- Sibling Tasks -->
+                <div class="related-task-item current">
+                  <span class="related-task-id">f7a2b3c1</span>
+                  <span class="related-task-type">Session Summary</span>
+                  <span class="related-task-status"><span class="badge badge-success" style="font-size:0.5625rem;">Done</span></span>
+                  <span class="related-task-duration">2m 25s</span>
+                </div>
+
+                <div class="related-task-item">
+                  <span class="related-task-id">a1b2c3d4</span>
+                  <span class="related-task-type">Code Quality Audit</span>
+                  <span class="related-task-status"><span class="badge badge-success" style="font-size:0.5625rem;">Done</span></span>
+                  <span class="related-task-duration">3m 12s</span>
+                </div>
+
+                <div class="related-task-item">
+                  <span class="related-task-id">e5f6a7b8</span>
+                  <span class="related-task-type">Security Review</span>
+                  <span class="related-task-status"><span class="badge badge-success" style="font-size:0.5625rem;">Done</span></span>
+                  <span class="related-task-duration">1m 48s</span>
+                </div>
+
+                <div class="related-task-item">
+                  <span class="related-task-id">c9d0e1f2</span>
+                  <span class="related-task-type">Test Coverage Report</span>
+                  <span class="related-task-status"><span class="badge badge-success" style="font-size:0.5625rem;">Done</span></span>
+                  <span class="related-task-duration">4m 02s</span>
+                </div>
+
+                <div class="related-task-item">
+                  <span class="related-task-id">g3h4i5j6</span>
+                  <span class="related-task-type">Dependency Analysis</span>
+                  <span class="related-task-status"><span class="badge badge-warning" style="font-size:0.5625rem;">Partial</span></span>
+                  <span class="related-task-duration">5m 37s</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Keyboard Shortcuts -->
+            <div class="detail-section stagger-in">
+              <div class="detail-section-header">
+                <span class="detail-section-title">
+                  <span class="section-icon">⌨</span>
+                  Shortcuts
+                </span>
+              </div>
+              <div class="detail-section-body" style="padding:10px 14px;">
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                  <div style="display:flex;align-items:center;justify-content:space-between;font-size:0.75rem;">
+                    <span style="color:var(--text-tertiary);">Retry task</span>
+                    <kbd>R</kbd>
+                  </div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;font-size:0.75rem;">
+                    <span style="color:var(--text-tertiary);">Delete task</span>
+                    <kbd>⌫</kbd>
+                  </div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;font-size:0.75rem;">
+                    <span style="color:var(--text-tertiary);">Toggle raw JSON</span>
+                    <kbd>J</kbd>
+                  </div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;font-size:0.75rem;">
+                    <span style="color:var(--text-tertiary);">Back to list</span>
+                    <kbd>Esc</kbd>
+                  </div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;font-size:0.75rem;">
+                    <span style="color:var(--text-tertiary);">Copy task ID</span>
+                    <kbd>C</kbd>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+          <!-- END detail-aside -->
+
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ================================================================
+     JAVASCRIPT — Interactions
+     ================================================================ -->
+<script>
+  // --- Theme Toggle ---
+  function toggleTheme() {
+    const root = document.documentElement;
+    const current = root.getAttribute('data-theme');
+    root.setAttribute('data-theme', current === 'light' ? '' : 'light');
+    if (current === 'light') {
+      root.removeAttribute('data-theme');
+    }
+  }
+
+  // --- Result Tab Switching ---
+  function switchResultTab(tabName) {
+    document.querySelectorAll('.result-tab').forEach(function(tab) {
+      tab.classList.toggle('active', tab.getAttribute('data-tab') === tabName);
+    });
+    document.querySelectorAll('.result-view').forEach(function(view) {
+      view.classList.remove('active');
+    });
+    var target = document.getElementById('result-' + tabName);
+    if (target) {
+      target.classList.add('active');
+    }
+  }
+
+  // --- Collapsible Sections ---
+  function toggleCollapsible(id) {
+    var body = document.getElementById(id + '-body');
+    var chevron = document.getElementById(id + '-chevron');
+    if (body && chevron) {
+      body.classList.toggle('open');
+      chevron.classList.toggle('open');
+    }
+  }
+
+  // --- Keyboard Shortcuts ---
+  document.addEventListener('keydown', function(e) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+    switch (e.key.toLowerCase()) {
+      case 'j':
+        e.preventDefault();
+        var currentTab = document.querySelector('.result-tab.active');
+        if (currentTab) {
+          var nextTab = currentTab.getAttribute('data-tab') === 'formatted' ? 'raw' : 'formatted';
+          switchResultTab(nextTab);
+        }
+        break;
+      case 'escape':
+        e.preventDefault();
+        // Would navigate back in real app
+        break;
+      case 'c':
+        e.preventDefault();
+        navigator.clipboard.writeText('task-f7a2b3c1').then(function() {
+          showToast('Task ID copied!');
+        });
+        break;
+    }
+  });
+
+  // --- Toast Notification ---
+  function showToast(message) {
+    var existing = document.querySelector('.toast-notification');
+    if (existing) existing.remove();
+
+    var toast = document.createElement('div');
+    toast.className = 'toast-notification';
+    toast.textContent = message;
+    toast.style.cssText = [
+      'position: fixed',
+      'bottom: 24px',
+      'left: 50%',
+      'transform: translateX(-50%)',
+      'padding: 8px 18px',
+      'background: var(--canvas-overlay)',
+      'border: 1px solid var(--border-default)',
+      'border-radius: var(--radius-md)',
+      'font-size: 0.8125rem',
+      'color: var(--text-primary)',
+      'box-shadow: var(--shadow-lg)',
+      'z-index: 100',
+      'animation: slideUpFade 0.25s ease',
+      'pointer-events: none'
+    ].join(';');
+    document.body.appendChild(toast);
+    setTimeout(function() {
+      toast.style.opacity = '0';
+      toast.style.transition = 'opacity 0.3s ease';
+      setTimeout(function() { toast.remove(); }, 300);
+    }, 2000);
+  }
+
+  // --- Animate token bars on scroll into view ---
+  var tokenBarsAnimated = false;
+  function animateTokenBars() {
+    if (tokenBarsAnimated) return;
+    var bars = document.querySelectorAll('.token-chart-bar-fill');
+    if (bars.length === 0) return;
+
+    var rect = bars[0].getBoundingClientRect();
+    if (rect.top < window.innerHeight && rect.bottom > 0) {
+      tokenBarsAnimated = true;
+      bars.forEach(function(bar) {
+        var targetWidth = bar.style.width;
+        bar.style.width = '0%';
+        requestAnimationFrame(function() {
+          requestAnimationFrame(function() {
+            bar.style.width = targetWidth;
+          });
+        });
+      });
+    }
+  }
+
+  // --- Run on load & scroll ---
+  var pageContent = document.querySelector('.page-content');
+  if (pageContent) {
+    pageContent.addEventListener('scroll', animateTokenBars);
+  }
+  window.addEventListener('load', function() {
+    setTimeout(animateTokenBars, 600);
+  });
+
+  // --- Related task item click (visual only) ---
+  document.querySelectorAll('.related-task-item').forEach(function(item) {
+    item.addEventListener('click', function() {
+      if (!this.classList.contains('current')) {
+        showToast('Would navigate to task ' + this.querySelector('.related-task-id').textContent);
+      }
+    });
+  });
+</script>
+
+</body>
+</html>

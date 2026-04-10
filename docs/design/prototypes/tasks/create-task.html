@@ -1,0 +1,2420 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Create Task / Run Tasks</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/design-system-c.css">
+  <style>
+    /* =============================================================
+       TracePilot — Create Task / Run Tasks Flow
+       Aesthetic: Deep-space command interface with crystalline modals.
+       Layered depth via frosted-glass panels and cinematic lighting.
+       ============================================================= */
+
+    body {
+      font-family: "Instrument Sans", "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    /* --- Ambient Background Glow --- */
+    .main-content {
+      position: relative;
+    }
+    .main-content::before {
+      content: '';
+      position: fixed;
+      top: -40%;
+      right: -20%;
+      width: 80vw;
+      height: 80vh;
+      background: radial-gradient(ellipse at center, rgba(99,102,241,0.04) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .main-content::after {
+      content: '';
+      position: fixed;
+      bottom: -30%;
+      left: -10%;
+      width: 60vw;
+      height: 60vh;
+      background: radial-gradient(ellipse at center, rgba(52,211,153,0.025) 0%, transparent 55%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .page-content { position: relative; z-index: 1; }
+
+    /* --- Page Header --- */
+    .page-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 28px;
+    }
+    .page-header-left { display: flex; flex-direction: column; gap: 6px; }
+    .page-header-title {
+      font-size: 1.375rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .page-header-title .title-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-md);
+      background: var(--gradient-accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      color: #fff;
+      box-shadow: 0 2px 12px rgba(99,102,241,0.35);
+      flex-shrink: 0;
+    }
+    .page-header-subtitle {
+      font-size: 0.8125rem;
+      color: var(--text-tertiary);
+      padding-left: 44px;
+    }
+    .page-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    /* --- Showcase Scenes --- */
+    .showcase-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 48px;
+      padding-bottom: 80px;
+    }
+    .scene {
+      position: relative;
+    }
+    .scene-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--accent-fg);
+      margin-bottom: 16px;
+      padding: 4px 12px;
+      background: var(--accent-subtle);
+      border: 1px solid rgba(99,102,241,0.15);
+      border-radius: var(--radius-full);
+    }
+    .scene-label .scene-num {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--accent-emphasis);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.5625rem;
+      font-weight: 700;
+    }
+    .scene-title {
+      font-size: 1.125rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+    }
+    .scene-desc {
+      font-size: 0.8125rem;
+      color: var(--text-tertiary);
+      margin-bottom: 20px;
+      max-width: 600px;
+      line-height: 1.6;
+    }
+
+    /* --- Modal Container (for scenes) --- */
+    .modal-frame {
+      background: var(--canvas-default);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-lg), 0 0 60px rgba(0,0,0,0.4);
+      overflow: hidden;
+      position: relative;
+      max-width: 620px;
+    }
+    .modal-frame.wide { max-width: 760px; }
+    .modal-frame.extra-wide { max-width: 900px; }
+
+    .modal-frame::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent 10%, rgba(99,102,241,0.35) 50%, transparent 90%);
+      z-index: 2;
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border-default);
+      background: var(--canvas-subtle);
+      background-image: var(--gradient-card);
+    }
+    .modal-header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .modal-header-icon {
+      width: 26px;
+      height: 26px;
+      border-radius: var(--radius-sm);
+      background: var(--accent-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+    }
+    .modal-header-title {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+    }
+    .modal-header-sub {
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+    }
+    .modal-close {
+      width: 28px;
+      height: 28px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-default);
+      background: var(--canvas-default);
+      color: var(--text-tertiary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      font-size: 14px;
+    }
+    .modal-close:hover {
+      background: var(--neutral-subtle);
+      color: var(--text-primary);
+    }
+    .modal-body {
+      padding: 20px;
+    }
+    .modal-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px;
+      border-top: 1px solid var(--border-default);
+      background: var(--canvas-subtle);
+      background-image: var(--gradient-card);
+    }
+    .modal-footer-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.75rem;
+      color: var(--text-tertiary);
+    }
+    .modal-footer-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* --- Preset Cards --- */
+    .preset-search {
+      position: relative;
+      margin-bottom: 16px;
+    }
+    .preset-search-icon {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-placeholder);
+      font-size: 14px;
+      pointer-events: none;
+    }
+    .preset-search input {
+      width: 100%;
+      padding: 10px 12px 10px 36px;
+      background: var(--canvas-inset);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      color: var(--text-primary);
+      font-size: 0.8125rem;
+      font-family: inherit;
+      outline: none;
+      transition: all var(--transition-fast);
+    }
+    .preset-search input::placeholder { color: var(--text-placeholder); }
+    .preset-search input:focus {
+      border-color: var(--accent-emphasis);
+      box-shadow: var(--shadow-glow-accent);
+    }
+    .preset-search-shortcut {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid var(--border-default);
+      font-size: 0.625rem;
+      color: var(--text-placeholder);
+      font-family: "JetBrains Mono", monospace;
+    }
+
+    .preset-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+    .preset-card {
+      background: var(--canvas-subtle);
+      background-image: var(--gradient-card);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      cursor: pointer;
+      transition: all var(--transition-normal);
+      position: relative;
+      overflow: hidden;
+    }
+    .preset-card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      opacity: 0;
+      transition: opacity var(--transition-normal);
+      pointer-events: none;
+    }
+    .preset-card:hover {
+      border-color: var(--border-accent);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md), 0 0 0 1px var(--border-glow);
+    }
+    .preset-card:hover::after { opacity: 1; }
+    .preset-card.selected {
+      border-color: var(--accent-emphasis);
+      box-shadow: var(--shadow-glow-accent);
+      background: rgba(99,102,241,0.06);
+    }
+    .preset-card-emoji {
+      font-size: 1.5rem;
+      margin-bottom: 8px;
+      display: block;
+      line-height: 1;
+    }
+    .preset-card-name {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 3px;
+    }
+    .preset-card-desc {
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+      line-height: 1.45;
+    }
+    .preset-card.custom-card {
+      border-style: dashed;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      gap: 6px;
+    }
+    .preset-card.custom-card .preset-card-emoji {
+      opacity: 0.5;
+    }
+
+    /* preset color accents (top strip) */
+    .preset-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      border-radius: 2px 2px 0 0;
+    }
+    .preset-card[data-color="indigo"]::before { background: var(--accent-fg); }
+    .preset-card[data-color="emerald"]::before { background: var(--success-fg); }
+    .preset-card[data-color="rose"]::before { background: var(--danger-fg); }
+    .preset-card[data-color="amber"]::before { background: var(--warning-fg); }
+    .preset-card[data-color="violet"]::before { background: var(--done-fg); }
+    .preset-card.custom-card::before { background: var(--text-placeholder); }
+
+    /* --- Wizard Steps --- */
+    .wizard-steps {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      padding: 0 20px;
+      border-bottom: 1px solid var(--border-default);
+      background: var(--canvas-subtle);
+    }
+    .wizard-step {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 16px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--text-placeholder);
+      position: relative;
+      cursor: pointer;
+      transition: color var(--transition-fast);
+      white-space: nowrap;
+    }
+    .wizard-step:hover { color: var(--text-tertiary); }
+    .wizard-step.active {
+      color: var(--text-primary);
+    }
+    .wizard-step.active::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--accent-emphasis);
+      border-radius: 2px 2px 0 0;
+    }
+    .wizard-step.completed {
+      color: var(--success-fg);
+    }
+    .wizard-step-num {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 1.5px solid currentColor;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.625rem;
+      font-weight: 700;
+      flex-shrink: 0;
+      transition: all var(--transition-fast);
+    }
+    .wizard-step.active .wizard-step-num {
+      background: var(--accent-emphasis);
+      border-color: var(--accent-emphasis);
+      color: #fff;
+    }
+    .wizard-step.completed .wizard-step-num {
+      background: var(--success-emphasis);
+      border-color: var(--success-emphasis);
+      color: #fff;
+    }
+    .wizard-step-connector {
+      width: 32px;
+      height: 1px;
+      background: var(--border-default);
+      flex-shrink: 0;
+    }
+    .wizard-step-connector.completed {
+      background: var(--success-fg);
+    }
+
+    /* --- Wizard Panels --- */
+    .wizard-panel {
+      display: none;
+      animation: panelFadeIn 0.3s ease;
+    }
+    .wizard-panel.active { display: block; }
+    @keyframes panelFadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* --- Session Picker --- */
+    .session-list {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      margin-top: 12px;
+    }
+    .session-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      border: 1px solid transparent;
+    }
+    .session-item:hover {
+      background: var(--neutral-subtle);
+    }
+    .session-item.selected {
+      background: var(--accent-subtle);
+      border-color: var(--accent-emphasis);
+      box-shadow: var(--shadow-glow-accent);
+    }
+    .session-item-check {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 1.5px solid var(--border-default);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all var(--transition-fast);
+      color: transparent;
+      font-size: 10px;
+    }
+    .session-item.selected .session-item-check {
+      background: var(--accent-emphasis);
+      border-color: var(--accent-emphasis);
+      color: #fff;
+    }
+    .session-item-id {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.75rem;
+      color: var(--text-tertiary);
+      min-width: 60px;
+    }
+    .session-item-name {
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--text-primary);
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .session-item-time {
+      font-size: 0.6875rem;
+      color: var(--text-placeholder);
+      flex-shrink: 0;
+    }
+    .session-section-label {
+      font-size: 0.6875rem;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 12px 12px 4px;
+    }
+
+    /* --- Config Form --- */
+    .config-section {
+      margin-bottom: 18px;
+    }
+    .config-section:last-child { margin-bottom: 0; }
+    .config-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .config-label .optional {
+      font-weight: 400;
+      color: var(--text-placeholder);
+      font-size: 0.6875rem;
+    }
+    .config-input {
+      width: 100%;
+      padding: 8px 12px;
+      background: var(--canvas-inset);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      color: var(--text-primary);
+      font-size: 0.8125rem;
+      font-family: inherit;
+      outline: none;
+      transition: all var(--transition-fast);
+    }
+    .config-input:focus {
+      border-color: var(--accent-emphasis);
+      box-shadow: var(--shadow-glow-accent);
+    }
+    .config-input::placeholder { color: var(--text-placeholder); }
+
+    textarea.config-input {
+      resize: vertical;
+      min-height: 60px;
+      line-height: 1.5;
+    }
+
+    .config-select {
+      width: 100%;
+      padding: 8px 28px 8px 12px;
+      background: var(--canvas-inset);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      color: var(--text-primary);
+      font-size: 0.8125rem;
+      font-family: inherit;
+      outline: none;
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='%2371717a'%3E%3Cpath d='M5 7L0.5 2.5h9z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      transition: all var(--transition-fast);
+    }
+    .config-select:focus {
+      border-color: var(--accent-emphasis);
+      box-shadow: var(--shadow-glow-accent);
+    }
+
+    .config-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .config-variable {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      background: var(--canvas-inset);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-sm);
+      margin-bottom: 6px;
+    }
+    .config-variable-key {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.75rem;
+      color: var(--accent-fg);
+      min-width: 100px;
+      flex-shrink: 0;
+    }
+    .config-variable-val {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text-primary);
+      font-size: 0.8125rem;
+      font-family: inherit;
+      outline: none;
+    }
+    .config-variable-val::placeholder { color: var(--text-placeholder); }
+
+    /* --- Priority Selector --- */
+    .priority-group {
+      display: flex;
+      gap: 6px;
+    }
+    .priority-btn {
+      padding: 6px 14px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-default);
+      background: var(--canvas-default);
+      color: var(--text-tertiary);
+      font-size: 0.75rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-family: inherit;
+    }
+    .priority-btn:hover {
+      border-color: var(--border-accent);
+      color: var(--text-primary);
+    }
+    .priority-btn.active-low {
+      background: rgba(52,211,153,0.08);
+      border-color: rgba(52,211,153,0.3);
+      color: var(--success-fg);
+    }
+    .priority-btn.active-normal {
+      background: var(--accent-subtle);
+      border-color: var(--accent-emphasis);
+      color: var(--accent-fg);
+    }
+    .priority-btn.active-high {
+      background: rgba(251,191,36,0.08);
+      border-color: rgba(251,191,36,0.3);
+      color: var(--warning-fg);
+    }
+    .priority-btn.active-urgent {
+      background: rgba(251,113,133,0.08);
+      border-color: rgba(251,113,133,0.3);
+      color: var(--danger-fg);
+    }
+
+    /* --- Review Summary --- */
+    .review-card {
+      background: var(--canvas-subtle);
+      background-image: var(--gradient-card);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+    .review-card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-default);
+    }
+    .review-card-header-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: var(--radius-sm);
+      background: var(--accent-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+    }
+    .review-card-header-text {
+      flex: 1;
+    }
+    .review-card-header-title {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .review-card-header-sub {
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+    }
+    .review-card-body {
+      padding: 14px 16px;
+    }
+    .review-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      padding: 6px 0;
+      font-size: 0.8125rem;
+    }
+    .review-row + .review-row {
+      border-top: 1px solid var(--border-subtle);
+    }
+    .review-row-label {
+      color: var(--text-tertiary);
+      font-size: 0.75rem;
+      min-width: 100px;
+    }
+    .review-row-value {
+      color: var(--text-primary);
+      font-weight: 500;
+      text-align: right;
+    }
+
+    /* --- Cost Indicator --- */
+    .cost-indicator {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: var(--canvas-inset);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      margin-top: 14px;
+    }
+    .cost-indicator-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-sm);
+      background: var(--accent-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      flex-shrink: 0;
+    }
+    .cost-indicator-text {
+      flex: 1;
+    }
+    .cost-indicator-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .cost-indicator-sub {
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+      line-height: 1.4;
+    }
+    .cost-indicator-breakdown {
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .cost-token {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 4px 10px;
+      border-radius: var(--radius-sm);
+      background: var(--canvas-default);
+      border: 1px solid var(--border-subtle);
+    }
+    .cost-token-val {
+      font-size: 0.875rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: var(--accent-fg);
+    }
+    .cost-token-label {
+      font-size: 0.5625rem;
+      color: var(--text-placeholder);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    /* --- Batch Multi-select --- */
+    .batch-session-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      max-height: 260px;
+      overflow-y: auto;
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      background: var(--canvas-inset);
+    }
+    .batch-session-list::-webkit-scrollbar { width: 6px; }
+    .batch-session-list::-webkit-scrollbar-track { background: transparent; }
+    .batch-session-list::-webkit-scrollbar-thumb {
+      background: var(--border-default);
+      border-radius: 3px;
+    }
+    .batch-session-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: var(--canvas-default);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      position: relative;
+    }
+    .batch-session-item:hover { background: var(--neutral-subtle); }
+    .batch-session-item.checked { background: rgba(99,102,241,0.04); }
+    .batch-session-item.disabled {
+      opacity: 0.45;
+      pointer-events: none;
+      cursor: not-allowed;
+    }
+
+    .batch-checkbox {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      border: 1.5px solid var(--border-default);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all var(--transition-fast);
+      color: transparent;
+      font-size: 10px;
+      background: var(--canvas-default);
+    }
+    .batch-session-item.checked .batch-checkbox {
+      background: var(--accent-emphasis);
+      border-color: var(--accent-emphasis);
+      color: #fff;
+    }
+    .batch-session-item.disabled .batch-checkbox {
+      background: var(--neutral-muted);
+      border-color: transparent;
+    }
+    .batch-session-info {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+    .batch-session-info-top {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .batch-session-id {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+    }
+    .batch-session-name {
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+    .batch-session-meta {
+      font-size: 0.6875rem;
+      color: var(--text-placeholder);
+    }
+    .batch-session-skip-badge {
+      font-size: 0.625rem;
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+      background: var(--warning-muted);
+      color: var(--warning-fg);
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    /* --- Session List Context (Scene 4) --- */
+    .session-context-list {
+      background: var(--canvas-subtle);
+      background-image: var(--gradient-card);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+    .session-context-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border-default);
+      background: var(--canvas-subtle);
+    }
+    .session-context-header-checkbox {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      border: 1.5px solid var(--border-default);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 10px;
+      color: var(--text-placeholder);
+      background: var(--canvas-default);
+      cursor: pointer;
+    }
+    .session-context-header-text {
+      font-size: 0.6875rem;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      flex: 1;
+    }
+
+    .session-context-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-subtle);
+      transition: all var(--transition-fast);
+      cursor: pointer;
+    }
+    .session-context-row:last-child { border-bottom: none; }
+    .session-context-row:hover { background: rgba(255,255,255,0.02); }
+    .session-context-row.checked {
+      background: rgba(99,102,241,0.04);
+    }
+    .session-context-row .batch-checkbox.checked-state {
+      background: var(--accent-emphasis);
+      border-color: var(--accent-emphasis);
+      color: #fff;
+    }
+    .session-context-row-info {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+    .session-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .session-dot.active { background: var(--success-fg); box-shadow: 0 0 6px rgba(52,211,153,0.4); }
+    .session-dot.idle { background: var(--text-placeholder); }
+    .session-context-name {
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+    .session-context-id {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.6875rem;
+      color: var(--text-placeholder);
+    }
+    .session-context-badge {
+      font-size: 0.6875rem;
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+      font-weight: 500;
+      flex-shrink: 0;
+    }
+
+    /* --- Floating Action Bar --- */
+    .floating-action-bar {
+      position: relative;
+      margin-top: 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 16px;
+      background: var(--canvas-overlay);
+      border: 1px solid var(--border-accent);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg), 0 0 30px rgba(99,102,241,0.1);
+      animation: barSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes barSlideUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .fab-count {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--accent-fg);
+      white-space: nowrap;
+    }
+    .fab-sep {
+      width: 1px;
+      height: 20px;
+      background: var(--border-default);
+      flex-shrink: 0;
+    }
+    .fab-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex: 1;
+    }
+
+    /* --- Success Toast --- */
+    .toast-container {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 10px;
+    }
+    .toast {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 18px;
+      background: var(--canvas-overlay);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg), 0 0 40px rgba(0,0,0,0.3);
+      min-width: 340px;
+      animation: toastSlideIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+      overflow: hidden;
+    }
+    .toast::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      background: var(--success-fg);
+      border-radius: 3px 0 0 3px;
+    }
+    @keyframes toastSlideIn {
+      from { opacity: 0; transform: translateX(30px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    .toast-icon {
+      font-size: 1.25rem;
+      flex-shrink: 0;
+    }
+    .toast-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .toast-title {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .toast-sub {
+      font-size: 0.75rem;
+      color: var(--text-tertiary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .toast-spinner {
+      width: 12px;
+      height: 12px;
+      border: 1.5px solid var(--border-default);
+      border-top-color: var(--accent-fg);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .toast-link {
+      font-size: 0.75rem;
+      color: var(--accent-fg);
+      text-decoration: none;
+      font-weight: 500;
+      white-space: nowrap;
+      transition: color var(--transition-fast);
+    }
+    .toast-link:hover { color: var(--text-primary); }
+    .toast-progress {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      height: 2px;
+      background: var(--success-fg);
+      border-radius: 0 0 0 3px;
+      animation: toastProgress 4s linear forwards;
+    }
+    @keyframes toastProgress {
+      from { width: 100%; }
+      to { width: 0; }
+    }
+
+    /* --- Batch Review Summary --- */
+    .batch-review-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .batch-review-stat {
+      background: var(--canvas-inset);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .batch-review-stat-val {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      font-variant-numeric: tabular-nums;
+    }
+    .batch-review-stat-label {
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+    }
+
+    /* --- Job Name Input --- */
+    .job-name-section {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 14px;
+      background: var(--canvas-inset);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      margin-bottom: 14px;
+    }
+    .job-name-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      flex-shrink: 0;
+    }
+    .job-name-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text-primary);
+      font-size: 0.8125rem;
+      font-family: inherit;
+      outline: none;
+    }
+    .job-name-input::placeholder { color: var(--text-placeholder); }
+
+    /* --- Sidebar active state override --- */
+    .sidebar-nav-item.active {
+      position: relative;
+    }
+
+    /* --- Stagger entrance --- */
+    .stagger-1 { animation-delay: 0.05s; }
+    .stagger-2 { animation-delay: 0.1s; }
+    .stagger-3 { animation-delay: 0.15s; }
+    .stagger-4 { animation-delay: 0.2s; }
+    .stagger-5 { animation-delay: 0.25s; }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .scene {
+      animation: fadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+    }
+    .scene:nth-child(1) { animation-delay: 0s; }
+    .scene:nth-child(2) { animation-delay: 0.08s; }
+    .scene:nth-child(3) { animation-delay: 0.16s; }
+    .scene:nth-child(4) { animation-delay: 0.24s; }
+    .scene:nth-child(5) { animation-delay: 0.32s; }
+
+    /* --- Batch flow stepper (mini) --- */
+    .batch-stepper {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-bottom: 16px;
+    }
+    .batch-step-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--border-default);
+      transition: all var(--transition-fast);
+      cursor: pointer;
+    }
+    .batch-step-dot.active {
+      background: var(--accent-emphasis);
+      box-shadow: 0 0 8px rgba(99,102,241,0.4);
+      width: 24px;
+      border-radius: var(--radius-full);
+    }
+    .batch-step-dot.completed {
+      background: var(--success-fg);
+    }
+
+    /* --- Theme Toggle Button --- */
+    .theme-toggle {
+      width: 28px;
+      height: 28px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-default);
+      background: var(--canvas-default);
+      color: var(--text-tertiary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .theme-toggle:hover {
+      background: var(--neutral-subtle);
+      color: var(--text-primary);
+    }
+
+    /* --- Subtle grid pattern background --- */
+    .page-content::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: var(--sidebar-width);
+      right: 0;
+      bottom: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+      z-index: 0;
+      mask-image: radial-gradient(ellipse at 50% 30%, black 0%, transparent 70%);
+      -webkit-mask-image: radial-gradient(ellipse at 50% 30%, black 0%, transparent 70%);
+    }
+
+    /* --- Scrollbar for page --- */
+    .page-content::-webkit-scrollbar { width: 8px; }
+    .page-content::-webkit-scrollbar-track { background: transparent; }
+    .page-content::-webkit-scrollbar-thumb {
+      background: var(--border-default);
+      border-radius: 4px;
+    }
+    .page-content::-webkit-scrollbar-thumb:hover {
+      background: var(--border-muted);
+    }
+
+    /* --- btn-success --- */
+    .btn-success {
+      background: linear-gradient(135deg, #059669, #34d399);
+      color: #fff;
+      border-color: transparent;
+      box-shadow: 0 1px 4px rgba(52,211,153,0.3);
+    }
+    .btn-success:hover { box-shadow: 0 2px 8px rgba(52,211,153,0.4); opacity: 0.95; }
+
+    /* --- Batch select count --- */
+    .batch-select-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 14px;
+      background: var(--accent-subtle);
+      border: 1px solid rgba(99,102,241,0.2);
+      border-radius: var(--radius-md);
+      margin-bottom: 12px;
+    }
+    .batch-select-count {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--accent-fg);
+    }
+    .batch-select-actions {
+      display: flex;
+      gap: 8px;
+    }
+    .batch-select-actions button {
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+      background: none;
+      border: none;
+      cursor: pointer;
+      transition: color var(--transition-fast);
+      font-family: inherit;
+    }
+    .batch-select-actions button:hover { color: var(--text-primary); }
+
+    /* --- Keyboard shortcut hints --- */
+    .kbd {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1px 5px;
+      border-radius: 4px;
+      border: 1px solid var(--border-default);
+      background: var(--canvas-default);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.5625rem;
+      color: var(--text-placeholder);
+      line-height: 1.6;
+    }
+
+    /* --- Batch review sessions list --- */
+    .batch-review-sessions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+    .batch-review-session-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      background: var(--canvas-inset);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-full);
+      font-size: 0.6875rem;
+      color: var(--text-secondary);
+    }
+    .batch-review-session-tag .tag-id {
+      font-family: "JetBrains Mono", monospace;
+      color: var(--text-tertiary);
+      font-size: 0.625rem;
+    }
+
+    /* --- Responsive within modal --- */
+    @media (max-width: 700px) {
+      .preset-grid { grid-template-columns: repeat(2, 1fr); }
+      .config-row { grid-template-columns: 1fr; }
+      .batch-review-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <!-- ==================== SIDEBAR ==================== -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="sidebar-brand-icon">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        </div>
+        <span class="sidebar-brand-text">TracePilot</span>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="sidebar-section-title">Navigation</div>
+
+        <a class="sidebar-nav-item" href="#">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          Home
+        </a>
+
+        <a class="sidebar-nav-item" href="#">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Sessions
+          <span class="sidebar-nav-badge">24</span>
+        </a>
+
+        <a class="sidebar-nav-item" href="#">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+          Worktrees
+          <span class="sidebar-nav-badge">5</span>
+        </a>
+
+        <a class="sidebar-nav-item" href="#">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+          Templates
+        </a>
+
+        <a class="sidebar-nav-item" href="#">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+          MCP Servers
+          <span class="sidebar-nav-badge">3</span>
+        </a>
+
+        <a class="sidebar-nav-item" href="#">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+          Skills
+          <span class="sidebar-nav-badge">8</span>
+        </a>
+
+        <div class="sidebar-section-title">AI Agents</div>
+
+        <a class="sidebar-nav-item active" href="#">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
+          Tasks
+          <span class="sidebar-nav-badge" style="background: var(--accent-muted); color: var(--accent-fg); padding: 1px 7px; border-radius: 9999px;">12</span>
+        </a>
+
+        <div class="sidebar-section-title">System</div>
+
+        <a class="sidebar-nav-item" href="#">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+          Settings
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <span class="sidebar-version">v0.8.2-dev</span>
+        <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        </button>
+      </div>
+    </aside>
+
+    <!-- ==================== MAIN CONTENT ==================== -->
+    <main class="main-content">
+      <div class="page-header-bar">
+        <div class="breadcrumb">
+          <a href="#">Tasks</a>
+          <span class="breadcrumb-sep">›</span>
+          <span class="breadcrumb-current">Create Task Flow</span>
+        </div>
+      </div>
+
+      <div class="page-content">
+        <div class="page-content-inner">
+
+          <!-- Page Header -->
+          <div class="page-header">
+            <div class="page-header-left">
+              <div class="page-header-title">
+                <div class="title-icon">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                </div>
+                Create Task / Run Tasks
+              </div>
+              <div class="page-header-subtitle">Modal-based creation UX — preset selection, single task wizard, batch creation, and contextual actions.</div>
+            </div>
+            <div class="page-header-actions">
+              <span class="kbd">⌘</span><span class="kbd" style="margin-left: 2px;">K</span>
+            </div>
+          </div>
+
+          <!-- ==================== SHOWCASE ==================== -->
+          <div class="showcase-grid">
+
+            <!-- ==================== SCENE 1 ==================== -->
+            <div class="scene">
+              <div class="scene-label">
+                <span class="scene-num">1</span>
+                Preset Selector Modal
+              </div>
+              <div class="scene-title">Choose a Task Preset</div>
+              <div class="scene-desc">Users start by picking from curated presets or starting a custom task. Search narrows options instantly.</div>
+
+              <div class="modal-frame" id="preset-modal">
+                <div class="modal-header">
+                  <div class="modal-header-left">
+                    <div class="modal-header-icon">⚡</div>
+                    <div>
+                      <div class="modal-header-title">New Task</div>
+                      <div class="modal-header-sub">Choose a preset or create custom</div>
+                    </div>
+                  </div>
+                  <button class="modal-close" title="Close">✕</button>
+                </div>
+                <div class="modal-body">
+                  <div class="preset-search">
+                    <span class="preset-search-icon">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    </span>
+                    <input type="text" id="preset-search-input" placeholder="Search presets..." autocomplete="off">
+                    <span class="preset-search-shortcut">/</span>
+                  </div>
+                  <div class="preset-grid" id="preset-grid">
+                    <div class="preset-card" data-color="indigo" data-preset="session-summary" onclick="selectPreset(this)">
+                      <span class="preset-card-emoji">📝</span>
+                      <div class="preset-card-name">Session Summary</div>
+                      <div class="preset-card-desc">Generate a concise summary of session activity, decisions, and outcomes.</div>
+                    </div>
+                    <div class="preset-card" data-color="emerald" data-preset="code-review" onclick="selectPreset(this)">
+                      <span class="preset-card-emoji">🔍</span>
+                      <div class="preset-card-name">Code Review</div>
+                      <div class="preset-card-desc">Automated review of diffs with security, quality, and style analysis.</div>
+                    </div>
+                    <div class="preset-card" data-color="rose" data-preset="health-audit" onclick="selectPreset(this)">
+                      <span class="preset-card-emoji">🏥</span>
+                      <div class="preset-card-name">Health Audit</div>
+                      <div class="preset-card-desc">Deep diagnostic of session health, error rates, and anomalies.</div>
+                    </div>
+                    <div class="preset-card" data-color="amber" data-preset="cost-analysis" onclick="selectPreset(this)">
+                      <span class="preset-card-emoji">💰</span>
+                      <div class="preset-card-name">Cost Analysis</div>
+                      <div class="preset-card-desc">Break down token usage, model costs, and optimization suggestions.</div>
+                    </div>
+                    <div class="preset-card" data-color="violet" data-preset="weekly-digest" onclick="selectPreset(this)">
+                      <span class="preset-card-emoji">📊</span>
+                      <div class="preset-card-name">Weekly Digest</div>
+                      <div class="preset-card-desc">Aggregate stats and highlights from the past seven days of sessions.</div>
+                    </div>
+                    <div class="preset-card custom-card" data-color="" data-preset="custom" onclick="selectPreset(this)">
+                      <span class="preset-card-emoji">✨</span>
+                      <div class="preset-card-name">Custom…</div>
+                      <div class="preset-card-desc">Build a task from scratch with full control.</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="modal-footer">
+                  <div class="modal-footer-left">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                    Click a preset to continue
+                  </div>
+                  <div class="modal-footer-right">
+                    <span class="kbd">↑↓</span>
+                    <span style="font-size: 0.6875rem; color: var(--text-placeholder);">navigate</span>
+                    <span class="kbd">⏎</span>
+                    <span style="font-size: 0.6875rem; color: var(--text-placeholder);">select</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ==================== SCENE 2 ==================== -->
+            <div class="scene">
+              <div class="scene-label">
+                <span class="scene-num">2</span>
+                Single Task Wizard
+              </div>
+              <div class="scene-title">Configure & Create</div>
+              <div class="scene-desc">Three-step wizard: select target session, configure variables and priority, then review and launch.</div>
+
+              <div class="modal-frame wide" id="wizard-modal">
+                <div class="modal-header">
+                  <div class="modal-header-left">
+                    <div class="modal-header-icon">📝</div>
+                    <div>
+                      <div class="modal-header-title">Session Summary</div>
+                      <div class="modal-header-sub">Single task creation</div>
+                    </div>
+                  </div>
+                  <button class="modal-close" title="Close">✕</button>
+                </div>
+
+                <!-- Wizard Step Navigation -->
+                <div class="wizard-steps" id="wizard-steps">
+                  <div class="wizard-step completed" data-step="1" onclick="goToStep(1)">
+                    <span class="wizard-step-num">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    </span>
+                    Select Target
+                  </div>
+                  <div class="wizard-step-connector completed"></div>
+                  <div class="wizard-step active" data-step="2" onclick="goToStep(2)">
+                    <span class="wizard-step-num">2</span>
+                    Configure
+                  </div>
+                  <div class="wizard-step-connector"></div>
+                  <div class="wizard-step" data-step="3" onclick="goToStep(3)">
+                    <span class="wizard-step-num">3</span>
+                    Review
+                  </div>
+                </div>
+
+                <!-- Step 1: Select Target -->
+                <div class="modal-body wizard-panel" data-panel="1">
+                  <div class="preset-search">
+                    <span class="preset-search-icon">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    </span>
+                    <input type="text" placeholder="Search sessions..." autocomplete="off">
+                    <span class="preset-search-shortcut">⌘F</span>
+                  </div>
+                  <div class="session-section-label">Recent Sessions</div>
+                  <div class="session-list">
+                    <div class="session-item selected" onclick="selectSession(this)">
+                      <div class="session-item-check">✓</div>
+                      <span class="session-item-id">abc-123</span>
+                      <span class="session-item-name">JWT Auth Implementation</span>
+                      <span class="session-item-time">2 hours ago</span>
+                    </div>
+                    <div class="session-item" onclick="selectSession(this)">
+                      <div class="session-item-check">✓</div>
+                      <span class="session-item-id">def-456</span>
+                      <span class="session-item-name">React Refactor — Component Tree</span>
+                      <span class="session-item-time">5 hours ago</span>
+                    </div>
+                    <div class="session-item" onclick="selectSession(this)">
+                      <div class="session-item-check">✓</div>
+                      <span class="session-item-id">ghi-789</span>
+                      <span class="session-item-name">DB Migration — Postgres 16</span>
+                      <span class="session-item-time">Yesterday</span>
+                    </div>
+                  </div>
+                  <div class="session-section-label">Older</div>
+                  <div class="session-list">
+                    <div class="session-item" onclick="selectSession(this)">
+                      <div class="session-item-check">✓</div>
+                      <span class="session-item-id">jkl-012</span>
+                      <span class="session-item-name">API Gateway Setup</span>
+                      <span class="session-item-time">3 days ago</span>
+                    </div>
+                    <div class="session-item" onclick="selectSession(this)">
+                      <div class="session-item-check">✓</div>
+                      <span class="session-item-id">mno-345</span>
+                      <span class="session-item-name">CI Pipeline Optimization</span>
+                      <span class="session-item-time">5 days ago</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Step 2: Configure -->
+                <div class="modal-body wizard-panel active" data-panel="2">
+                  <div class="config-section">
+                    <div class="config-label">Variables</div>
+                    <div class="config-variable">
+                      <span class="config-variable-key">$SESSION_ID</span>
+                      <input class="config-variable-val" type="text" value="abc-123" readonly>
+                    </div>
+                    <div class="config-variable">
+                      <span class="config-variable-key">$FORMAT</span>
+                      <input class="config-variable-val" type="text" value="markdown" placeholder="Output format...">
+                    </div>
+                    <div class="config-variable">
+                      <span class="config-variable-key">$DEPTH</span>
+                      <input class="config-variable-val" type="text" value="detailed" placeholder="Summary depth...">
+                    </div>
+                  </div>
+
+                  <div class="config-section">
+                    <div class="config-row">
+                      <div>
+                        <div class="config-label">Model Override <span class="optional">optional</span></div>
+                        <select class="config-select" id="model-select">
+                          <option value="">Default (inherit from session)</option>
+                          <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
+                          <option value="claude-haiku" selected>Claude Haiku 4.5</option>
+                          <option value="gpt-4o">GPT-4o</option>
+                          <option value="gpt-4o-mini">GPT-4o mini</option>
+                        </select>
+                      </div>
+                      <div>
+                        <div class="config-label">Max Tokens <span class="optional">optional</span></div>
+                        <input class="config-input" type="number" value="4096" placeholder="4096">
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="config-section">
+                    <div class="config-label">Priority</div>
+                    <div class="priority-group" id="priority-group">
+                      <button class="priority-btn" data-priority="low" onclick="setPriority(this)">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="18" x2="19" y2="18"/></svg>
+                        Low
+                      </button>
+                      <button class="priority-btn active-normal" data-priority="normal" onclick="setPriority(this)">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="15" x2="19" y2="15"/><line x1="5" y1="19" x2="19" y2="19"/></svg>
+                        Normal
+                      </button>
+                      <button class="priority-btn" data-priority="high" onclick="setPriority(this)">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><line x1="5" y1="16" x2="19" y2="16"/><line x1="5" y1="20" x2="19" y2="20"/></svg>
+                        High
+                      </button>
+                      <button class="priority-btn" data-priority="urgent" onclick="setPriority(this)">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 3v12"/><circle cx="12" cy="19" r="1.5" fill="currentColor"/></svg>
+                        Urgent
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="config-section">
+                    <div class="config-label">Custom Instructions <span class="optional">optional</span></div>
+                    <textarea class="config-input" placeholder="Add any specific instructions for this task run..."></textarea>
+                  </div>
+                </div>
+
+                <!-- Step 3: Review -->
+                <div class="modal-body wizard-panel" data-panel="3">
+                  <div class="review-card">
+                    <div class="review-card-header">
+                      <div class="review-card-header-icon">📝</div>
+                      <div class="review-card-header-text">
+                        <div class="review-card-header-title">Session Summary</div>
+                        <div class="review-card-header-sub">Single task • Ready to create</div>
+                      </div>
+                      <span class="badge badge-accent">Normal</span>
+                    </div>
+                    <div class="review-card-body">
+                      <div class="review-row">
+                        <span class="review-row-label">Target Session</span>
+                        <span class="review-row-value"><span style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:var(--text-tertiary);margin-right:6px;">abc-123</span> JWT Auth Implementation</span>
+                      </div>
+                      <div class="review-row">
+                        <span class="review-row-label">Model</span>
+                        <span class="review-row-value">Claude Haiku 4.5</span>
+                      </div>
+                      <div class="review-row">
+                        <span class="review-row-label">Format</span>
+                        <span class="review-row-value">Markdown</span>
+                      </div>
+                      <div class="review-row">
+                        <span class="review-row-label">Depth</span>
+                        <span class="review-row-value">Detailed</span>
+                      </div>
+                      <div class="review-row">
+                        <span class="review-row-label">Max Tokens</span>
+                        <span class="review-row-value" style="font-variant-numeric:tabular-nums;">4,096</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="cost-indicator">
+                    <div class="cost-indicator-icon">⚡</div>
+                    <div class="cost-indicator-text">
+                      <div class="cost-indicator-title">Estimated Cost</div>
+                      <div class="cost-indicator-sub">1 premium request → up to 3 free sub-agent calls</div>
+                    </div>
+                    <div class="cost-indicator-breakdown">
+                      <div class="cost-token">
+                        <span class="cost-token-val">1</span>
+                        <span class="cost-token-label">Premium</span>
+                      </div>
+                      <div class="cost-token">
+                        <span class="cost-token-val" style="color: var(--success-fg);">3</span>
+                        <span class="cost-token-label">Sub-agents</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Footer (changes per step) -->
+                <div class="modal-footer" id="wizard-footer">
+                  <div class="modal-footer-left">
+                    <button class="btn btn-ghost btn-sm" id="wizard-back" onclick="wizardBack()">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                      Back
+                    </button>
+                  </div>
+                  <div class="modal-footer-right" id="wizard-footer-right">
+                    <button class="btn btn-sm" onclick="wizardNext()">
+                      Continue
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ==================== SCENE 3 ==================== -->
+            <div class="scene">
+              <div class="scene-label">
+                <span class="scene-num">3</span>
+                Batch Creation
+              </div>
+              <div class="scene-title">Create Multiple Tasks</div>
+              <div class="scene-desc">Select a preset and multiple sessions at once. Sessions with pending tasks are skipped automatically.</div>
+
+              <div class="modal-frame wide" id="batch-modal">
+                <div class="modal-header">
+                  <div class="modal-header-left">
+                    <div class="modal-header-icon">🔍</div>
+                    <div>
+                      <div class="modal-header-title">Batch: Code Review</div>
+                      <div class="modal-header-sub">Multi-session task creation</div>
+                    </div>
+                  </div>
+                  <button class="modal-close" title="Close">✕</button>
+                </div>
+
+                <div class="modal-body">
+                  <!-- Batch mini-stepper -->
+                  <div class="batch-stepper" id="batch-stepper">
+                    <div class="batch-step-dot completed" data-bstep="1" onclick="goToBatchStep(1)"></div>
+                    <div class="batch-step-dot completed" data-bstep="2" onclick="goToBatchStep(2)"></div>
+                    <div class="batch-step-dot completed" data-bstep="3" onclick="goToBatchStep(3)"></div>
+                    <div class="batch-step-dot active" data-bstep="4" onclick="goToBatchStep(4)"></div>
+                  </div>
+
+                  <!-- Batch Step 1: Preset selected (already done, shown as tag) -->
+                  <!-- Batch Step 2: Session Selection -->
+                  <div class="batch-panel" data-bpanel="2" style="display:none;">
+                    <div class="batch-select-bar">
+                      <span class="batch-select-count">4 of 5 sessions selected</span>
+                      <div class="batch-select-actions">
+                        <button onclick="batchSelectAll()">Select all</button>
+                        <button onclick="batchDeselectAll()">Deselect all</button>
+                      </div>
+                    </div>
+
+                    <div class="batch-session-list" id="batch-session-list">
+                      <div class="batch-session-item checked" onclick="toggleBatchSession(this)">
+                        <div class="batch-checkbox">✓</div>
+                        <div class="batch-session-info">
+                          <div class="batch-session-info-top">
+                            <span class="batch-session-id">abc-123</span>
+                            <span class="batch-session-name">JWT Auth Implementation</span>
+                          </div>
+                          <span class="batch-session-meta">42 turns • 2 hours ago</span>
+                        </div>
+                      </div>
+                      <div class="batch-session-item checked" onclick="toggleBatchSession(this)">
+                        <div class="batch-checkbox">✓</div>
+                        <div class="batch-session-info">
+                          <div class="batch-session-info-top">
+                            <span class="batch-session-id">def-456</span>
+                            <span class="batch-session-name">React Refactor — Component Tree</span>
+                          </div>
+                          <span class="batch-session-meta">28 turns • 5 hours ago</span>
+                        </div>
+                      </div>
+                      <div class="batch-session-item disabled">
+                        <div class="batch-checkbox">—</div>
+                        <div class="batch-session-info">
+                          <div class="batch-session-info-top">
+                            <span class="batch-session-id">ghi-789</span>
+                            <span class="batch-session-name">DB Migration — Postgres 16</span>
+                          </div>
+                          <span class="batch-session-meta">15 turns • Yesterday</span>
+                        </div>
+                        <span class="batch-session-skip-badge">Pending task</span>
+                      </div>
+                      <div class="batch-session-item checked" onclick="toggleBatchSession(this)">
+                        <div class="batch-checkbox">✓</div>
+                        <div class="batch-session-info">
+                          <div class="batch-session-info-top">
+                            <span class="batch-session-id">jkl-012</span>
+                            <span class="batch-session-name">API Gateway Setup</span>
+                          </div>
+                          <span class="batch-session-meta">61 turns • 3 days ago</span>
+                        </div>
+                      </div>
+                      <div class="batch-session-item checked" onclick="toggleBatchSession(this)">
+                        <div class="batch-checkbox">✓</div>
+                        <div class="batch-session-info">
+                          <div class="batch-session-info-top">
+                            <span class="batch-session-id">mno-345</span>
+                            <span class="batch-session-name">CI Pipeline Optimization</span>
+                          </div>
+                          <span class="batch-session-meta">33 turns • 5 days ago</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Batch Step 3: Config -->
+                  <div class="batch-panel" data-bpanel="3" style="display:none;">
+                    <div class="job-name-section">
+                      <span class="job-name-label">Job Name</span>
+                      <input class="job-name-input" type="text" value="code-review-batch-2024-01-15" placeholder="Enter a name for this batch job...">
+                    </div>
+                    <div class="config-section">
+                      <div class="config-row">
+                        <div>
+                          <div class="config-label">Model</div>
+                          <select class="config-select">
+                            <option>Claude Haiku 4.5</option>
+                            <option selected>Claude Sonnet 4</option>
+                            <option>GPT-4o</option>
+                          </select>
+                        </div>
+                        <div>
+                          <div class="config-label">Priority</div>
+                          <select class="config-select">
+                            <option>Low</option>
+                            <option selected>Normal</option>
+                            <option>High</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Batch Step 4: Review (ACTIVE) -->
+                  <div class="batch-panel active" data-bpanel="4">
+                    <div class="batch-review-grid">
+                      <div class="batch-review-stat">
+                        <span class="batch-review-stat-val" style="color: var(--accent-fg);">4</span>
+                        <span class="batch-review-stat-label">Tasks to create</span>
+                      </div>
+                      <div class="batch-review-stat">
+                        <span class="batch-review-stat-val" style="color: var(--warning-fg);">1</span>
+                        <span class="batch-review-stat-label">Skipped (pending)</span>
+                      </div>
+                      <div class="batch-review-stat">
+                        <span class="batch-review-stat-val">Sonnet 4</span>
+                        <span class="batch-review-stat-label">Model</span>
+                      </div>
+                      <div class="batch-review-stat">
+                        <span class="batch-review-stat-val" style="color: var(--success-fg);">~12</span>
+                        <span class="batch-review-stat-label">Sub-agent calls</span>
+                      </div>
+                    </div>
+
+                    <div style="margin-bottom: 8px;">
+                      <div class="config-label">Target Sessions</div>
+                    </div>
+                    <div class="batch-review-sessions">
+                      <span class="batch-review-session-tag">
+                        <span class="tag-id">abc-123</span>
+                        JWT Auth
+                      </span>
+                      <span class="batch-review-session-tag">
+                        <span class="tag-id">def-456</span>
+                        React Refactor
+                      </span>
+                      <span class="batch-review-session-tag">
+                        <span class="tag-id">jkl-012</span>
+                        API Gateway
+                      </span>
+                      <span class="batch-review-session-tag">
+                        <span class="tag-id">mno-345</span>
+                        CI Pipeline
+                      </span>
+                    </div>
+
+                    <div class="job-name-section">
+                      <span class="job-name-label">Job Name</span>
+                      <input class="job-name-input" type="text" value="code-review-batch-2024-01-15" readonly style="color: var(--text-secondary);">
+                    </div>
+
+                    <div class="cost-indicator">
+                      <div class="cost-indicator-icon">⚡</div>
+                      <div class="cost-indicator-text">
+                        <div class="cost-indicator-title">Batch Estimated Cost</div>
+                        <div class="cost-indicator-sub">4 premium requests → up to 12 free sub-agent calls</div>
+                      </div>
+                      <div class="cost-indicator-breakdown">
+                        <div class="cost-token">
+                          <span class="cost-token-val">4</span>
+                          <span class="cost-token-label">Premium</span>
+                        </div>
+                        <div class="cost-token">
+                          <span class="cost-token-val" style="color: var(--success-fg);">12</span>
+                          <span class="cost-token-label">Sub-agents</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="modal-footer">
+                  <div class="modal-footer-left">
+                    <button class="btn btn-ghost btn-sm">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                      Back
+                    </button>
+                  </div>
+                  <div class="modal-footer-right">
+                    <button class="btn btn-primary btn-sm" onclick="showToast()">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                      Create 4 Tasks
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ==================== SCENE 4 ==================== -->
+            <div class="scene">
+              <div class="scene-label">
+                <span class="scene-num">4</span>
+                Session List Context
+              </div>
+              <div class="scene-title">Contextual Bulk Actions</div>
+              <div class="scene-desc">Select sessions from the list view to trigger bulk task creation. The floating action bar appears when sessions are checked.</div>
+
+              <div class="modal-frame extra-wide" id="session-context-frame" style="box-shadow: none; border: none; background: transparent;">
+                <div class="session-context-list">
+                  <div class="session-context-header">
+                    <div class="session-context-header-checkbox" onclick="toggleAllContextSessions()">—</div>
+                    <div class="session-context-header-text" style="flex: 1;">Session</div>
+                    <div class="session-context-header-text" style="width: 80px; text-align: center;">Status</div>
+                    <div class="session-context-header-text" style="width: 80px; text-align: right;">Turns</div>
+                  </div>
+
+                  <div class="session-context-row checked" onclick="toggleContextSession(this)">
+                    <div class="batch-checkbox checked-state">✓</div>
+                    <div class="session-context-row-info">
+                      <span class="session-dot active"></span>
+                      <div style="flex:1;">
+                        <div class="session-context-name">JWT Auth Implementation</div>
+                        <div class="session-context-id">abc-123</div>
+                      </div>
+                    </div>
+                    <span class="session-context-badge badge-success" style="width:80px;text-align:center;">Active</span>
+                    <span style="width:80px;text-align:right;font-size:0.8125rem;font-variant-numeric:tabular-nums;color:var(--text-secondary);">42</span>
+                  </div>
+
+                  <div class="session-context-row checked" onclick="toggleContextSession(this)">
+                    <div class="batch-checkbox checked-state">✓</div>
+                    <div class="session-context-row-info">
+                      <span class="session-dot active"></span>
+                      <div style="flex:1;">
+                        <div class="session-context-name">React Refactor — Component Tree</div>
+                        <div class="session-context-id">def-456</div>
+                      </div>
+                    </div>
+                    <span class="session-context-badge badge-success" style="width:80px;text-align:center;">Active</span>
+                    <span style="width:80px;text-align:right;font-size:0.8125rem;font-variant-numeric:tabular-nums;color:var(--text-secondary);">28</span>
+                  </div>
+
+                  <div class="session-context-row checked" onclick="toggleContextSession(this)">
+                    <div class="batch-checkbox checked-state">✓</div>
+                    <div class="session-context-row-info">
+                      <span class="session-dot idle"></span>
+                      <div style="flex:1;">
+                        <div class="session-context-name">DB Migration — Postgres 16</div>
+                        <div class="session-context-id">ghi-789</div>
+                      </div>
+                    </div>
+                    <span class="session-context-badge badge-neutral" style="width:80px;text-align:center;">Idle</span>
+                    <span style="width:80px;text-align:right;font-size:0.8125rem;font-variant-numeric:tabular-nums;color:var(--text-secondary);">15</span>
+                  </div>
+
+                  <div class="session-context-row" onclick="toggleContextSession(this)">
+                    <div class="batch-checkbox">✓</div>
+                    <div class="session-context-row-info">
+                      <span class="session-dot idle"></span>
+                      <div style="flex:1;">
+                        <div class="session-context-name">API Gateway Setup</div>
+                        <div class="session-context-id">jkl-012</div>
+                      </div>
+                    </div>
+                    <span class="session-context-badge badge-neutral" style="width:80px;text-align:center;">Idle</span>
+                    <span style="width:80px;text-align:right;font-size:0.8125rem;font-variant-numeric:tabular-nums;color:var(--text-secondary);">61</span>
+                  </div>
+
+                  <div class="session-context-row" onclick="toggleContextSession(this)">
+                    <div class="batch-checkbox">✓</div>
+                    <div class="session-context-row-info">
+                      <span class="session-dot idle"></span>
+                      <div style="flex:1;">
+                        <div class="session-context-name">CI Pipeline Optimization</div>
+                        <div class="session-context-id">mno-345</div>
+                      </div>
+                    </div>
+                    <span class="session-context-badge badge-neutral" style="width:80px;text-align:center;">Idle</span>
+                    <span style="width:80px;text-align:right;font-size:0.8125rem;font-variant-numeric:tabular-nums;color:var(--text-secondary);">33</span>
+                  </div>
+                </div>
+
+                <!-- Floating Action Bar -->
+                <div class="floating-action-bar" id="floating-action-bar">
+                  <span class="fab-count">3 selected</span>
+                  <div class="fab-sep"></div>
+                  <div class="fab-actions">
+                    <button class="btn btn-sm btn-primary" onclick="showToast()">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                      Summarise All
+                    </button>
+                    <button class="btn btn-sm">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                      Review All
+                    </button>
+                    <button class="btn btn-sm btn-ghost" id="more-actions-btn" onclick="toggleMoreMenu()">
+                      More
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                  </div>
+                  <div id="more-menu" style="display:none;position:absolute;bottom:calc(100% + 6px);right:16px;background:var(--canvas-overlay);border:1px solid var(--border-default);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:4px;min-width:160px;z-index:10;">
+                    <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:flex-start;border:none;">
+                      🏥 Health Audit All
+                    </button>
+                    <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:flex-start;border:none;">
+                      💰 Cost Analysis All
+                    </button>
+                    <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:flex-start;border:none;">
+                      📊 Weekly Digest
+                    </button>
+                    <div style="height:1px;background:var(--border-default);margin:4px 0;"></div>
+                    <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:flex-start;border:none;color:var(--danger-fg);">
+                      ✕ Clear Selection
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ==================== SCENE 5 ==================== -->
+            <div class="scene">
+              <div class="scene-label">
+                <span class="scene-num">5</span>
+                Success Toast
+              </div>
+              <div class="scene-title">Creation Confirmation</div>
+              <div class="scene-desc">After task creation, a toast notification confirms the batch and shows orchestrator status with a link to the dashboard.</div>
+
+              <div class="toast-container" id="toast-container">
+                <div class="toast" id="success-toast">
+                  <span class="toast-icon">✅</span>
+                  <div class="toast-content">
+                    <div class="toast-title">4 tasks created</div>
+                    <div class="toast-sub">
+                      <span class="toast-spinner"></span>
+                      Orchestrator starting…
+                    </div>
+                  </div>
+                  <a href="#" class="toast-link">View Dashboard →</a>
+                  <div class="toast-progress"></div>
+                </div>
+              </div>
+            </div>
+
+          </div><!-- /showcase-grid -->
+        </div><!-- /page-content-inner -->
+      </div><!-- /page-content -->
+    </main>
+  </div>
+
+  <script>
+    // =====================================================
+    //  Theme Toggle
+    // =====================================================
+    function toggleTheme() {
+      const html = document.documentElement;
+      const current = html.getAttribute('data-theme');
+      html.setAttribute('data-theme', current === 'dark' ? 'light' : 'dark');
+    }
+
+    // =====================================================
+    //  Scene 1: Preset Selector
+    // =====================================================
+    function selectPreset(card) {
+      document.querySelectorAll('#preset-grid .preset-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+    }
+
+    // Preset search filtering
+    const presetSearchInput = document.getElementById('preset-search-input');
+    if (presetSearchInput) {
+      presetSearchInput.addEventListener('input', function() {
+        const query = this.value.toLowerCase();
+        document.querySelectorAll('#preset-grid .preset-card').forEach(card => {
+          const name = card.querySelector('.preset-card-name').textContent.toLowerCase();
+          const desc = card.querySelector('.preset-card-desc').textContent.toLowerCase();
+          const matches = name.includes(query) || desc.includes(query);
+          card.style.display = matches ? '' : 'none';
+        });
+      });
+    }
+
+    // =====================================================
+    //  Scene 2: Wizard Navigation
+    // =====================================================
+    let currentStep = 2;
+
+    function goToStep(step) {
+      currentStep = step;
+      renderWizard();
+    }
+
+    function wizardNext() {
+      if (currentStep < 3) {
+        currentStep++;
+        renderWizard();
+      }
+    }
+
+    function wizardBack() {
+      if (currentStep > 1) {
+        currentStep--;
+        renderWizard();
+      }
+    }
+
+    function renderWizard() {
+      // Update step indicators
+      document.querySelectorAll('#wizard-steps .wizard-step').forEach(s => {
+        const stepNum = parseInt(s.dataset.step);
+        s.classList.remove('active', 'completed');
+        if (stepNum === currentStep) {
+          s.classList.add('active');
+        } else if (stepNum < currentStep) {
+          s.classList.add('completed');
+          // Replace number with check SVG for completed steps
+          const numEl = s.querySelector('.wizard-step-num');
+          numEl.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+        } else {
+          // Reset future steps to show number
+          const numEl = s.querySelector('.wizard-step-num');
+          numEl.textContent = stepNum;
+        }
+      });
+
+      // Update connectors
+      const connectors = document.querySelectorAll('#wizard-steps .wizard-step-connector');
+      connectors.forEach((c, i) => {
+        c.classList.toggle('completed', i + 1 < currentStep);
+      });
+
+      // Show/hide panels
+      document.querySelectorAll('#wizard-modal .wizard-panel').forEach(p => {
+        const panelNum = parseInt(p.dataset.panel);
+        p.classList.toggle('active', panelNum === currentStep);
+      });
+
+      // Update footer buttons
+      const backBtn = document.getElementById('wizard-back');
+      const footerRight = document.getElementById('wizard-footer-right');
+
+      backBtn.style.visibility = currentStep > 1 ? 'visible' : 'hidden';
+
+      if (currentStep === 3) {
+        footerRight.innerHTML = `
+          <button class="btn btn-sm" onclick="showToast()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Create Task
+          </button>
+          <button class="btn btn-primary btn-sm" onclick="showToast()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            Create &amp; Run Immediately
+          </button>
+        `;
+      } else {
+        footerRight.innerHTML = `
+          <button class="btn btn-sm" onclick="wizardNext()">
+            Continue
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </button>
+        `;
+      }
+    }
+
+    // Session selection in wizard step 1
+    function selectSession(item) {
+      document.querySelectorAll('#wizard-modal .session-item').forEach(s => s.classList.remove('selected'));
+      item.classList.add('selected');
+    }
+
+    // Priority selector
+    function setPriority(btn) {
+      const group = document.getElementById('priority-group');
+      group.querySelectorAll('.priority-btn').forEach(b => {
+        b.className = 'priority-btn';
+      });
+      const priority = btn.dataset.priority;
+      const classMap = { low: 'active-low', normal: 'active-normal', high: 'active-high', urgent: 'active-urgent' };
+      btn.classList.add(classMap[priority]);
+    }
+
+    // =====================================================
+    //  Scene 3: Batch Session Toggle
+    // =====================================================
+    function toggleBatchSession(item) {
+      item.classList.toggle('checked');
+      updateBatchCount();
+    }
+
+    function batchSelectAll() {
+      document.querySelectorAll('#batch-session-list .batch-session-item:not(.disabled)').forEach(item => {
+        item.classList.add('checked');
+      });
+      updateBatchCount();
+    }
+
+    function batchDeselectAll() {
+      document.querySelectorAll('#batch-session-list .batch-session-item').forEach(item => {
+        item.classList.remove('checked');
+      });
+      updateBatchCount();
+    }
+
+    function updateBatchCount() {
+      const total = document.querySelectorAll('#batch-session-list .batch-session-item:not(.disabled)').length;
+      const checked = document.querySelectorAll('#batch-session-list .batch-session-item.checked').length;
+      const countEl = document.querySelector('.batch-select-count');
+      if (countEl) countEl.textContent = `${checked} of ${total} sessions selected`;
+    }
+
+    // Batch stepper navigation
+    let currentBatchStep = 4;
+
+    function goToBatchStep(step) {
+      currentBatchStep = step;
+      document.querySelectorAll('.batch-step-dot').forEach(d => {
+        const s = parseInt(d.dataset.bstep);
+        d.classList.remove('active', 'completed');
+        if (s === step) d.classList.add('active');
+        else if (s < step) d.classList.add('completed');
+      });
+      document.querySelectorAll('.batch-panel').forEach(p => {
+        const pn = parseInt(p.dataset.bpanel);
+        p.style.display = pn === step ? 'block' : 'none';
+        p.classList.toggle('active', pn === step);
+      });
+    }
+
+    // =====================================================
+    //  Scene 4: Context Session Checkboxes
+    // =====================================================
+    function toggleContextSession(row) {
+      row.classList.toggle('checked');
+      const checkbox = row.querySelector('.batch-checkbox');
+      checkbox.classList.toggle('checked-state');
+      updateFabCount();
+    }
+
+    function toggleAllContextSessions() {
+      const rows = document.querySelectorAll('.session-context-row');
+      const allChecked = Array.from(rows).every(r => r.classList.contains('checked'));
+
+      rows.forEach(r => {
+        if (allChecked) {
+          r.classList.remove('checked');
+          r.querySelector('.batch-checkbox').classList.remove('checked-state');
+        } else {
+          r.classList.add('checked');
+          r.querySelector('.batch-checkbox').classList.add('checked-state');
+        }
+      });
+      updateFabCount();
+    }
+
+    function updateFabCount() {
+      const checked = document.querySelectorAll('.session-context-row.checked').length;
+      const fabCount = document.querySelector('.fab-count');
+      if (fabCount) fabCount.textContent = `${checked} selected`;
+
+      const fab = document.getElementById('floating-action-bar');
+      if (fab) fab.style.display = checked > 0 ? 'flex' : 'none';
+    }
+
+    // More actions dropdown
+    function toggleMoreMenu() {
+      const menu = document.getElementById('more-menu');
+      menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+    }
+
+    // Close more menu on outside click
+    document.addEventListener('click', function(e) {
+      const menu = document.getElementById('more-menu');
+      const btn = document.getElementById('more-actions-btn');
+      if (menu && btn && !btn.contains(e.target) && !menu.contains(e.target)) {
+        menu.style.display = 'none';
+      }
+    });
+
+    // =====================================================
+    //  Scene 5: Toast (also callable from other scenes)
+    // =====================================================
+    function showToast() {
+      const container = document.getElementById('toast-container');
+      const toast = document.getElementById('success-toast');
+
+      // Clone toast for re-animation
+      const newToast = toast.cloneNode(true);
+      newToast.id = 'dynamic-toast-' + Date.now();
+      container.appendChild(newToast);
+
+      // Remove after animation
+      setTimeout(() => {
+        if (newToast.parentNode) {
+          newToast.style.opacity = '0';
+          newToast.style.transform = 'translateX(30px)';
+          newToast.style.transition = 'all 0.3s ease';
+          setTimeout(() => newToast.remove(), 300);
+        }
+      }, 4500);
+    }
+
+    // =====================================================
+    //  Keyboard Shortcuts
+    // =====================================================
+    document.addEventListener('keydown', function(e) {
+      // / to focus preset search
+      if (e.key === '/' && document.activeElement.tagName !== 'INPUT') {
+        e.preventDefault();
+        const input = document.getElementById('preset-search-input');
+        if (input) input.focus();
+      }
+
+      // Escape to close more menu
+      if (e.key === 'Escape') {
+        const menu = document.getElementById('more-menu');
+        if (menu) menu.style.display = 'none';
+      }
+
+      // Arrow keys for preset navigation
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' ||
+          e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        const presets = Array.from(document.querySelectorAll('#preset-grid .preset-card')).filter(
+          c => c.style.display !== 'none'
+        );
+        const current = presets.findIndex(c => c.classList.contains('selected'));
+        let next = current;
+
+        if (e.key === 'ArrowRight') next = Math.min(current + 1, presets.length - 1);
+        else if (e.key === 'ArrowLeft') next = Math.max(current - 1, 0);
+        else if (e.key === 'ArrowDown') next = Math.min(current + 3, presets.length - 1);
+        else if (e.key === 'ArrowUp') next = Math.max(current - 3, 0);
+
+        if (next !== current && next >= 0) {
+          presets.forEach(c => c.classList.remove('selected'));
+          presets[next].classList.add('selected');
+          presets[next].scrollIntoView({ block: 'nearest' });
+        }
+      }
+
+      // Enter to confirm preset selection
+      if (e.key === 'Enter' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'BUTTON') {
+        const selected = document.querySelector('#preset-grid .preset-card.selected');
+        if (selected) {
+          selected.style.transform = 'scale(0.97)';
+          setTimeout(() => { selected.style.transform = ''; }, 150);
+        }
+      }
+    });
+
+    // =====================================================
+    //  Initialize
+    // =====================================================
+    renderWizard();
+  </script>
+</body>
+</html>

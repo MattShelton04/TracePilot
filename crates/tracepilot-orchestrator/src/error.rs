@@ -26,10 +26,20 @@ pub enum OrchestratorError {
     Worktree(String),
     #[error("Registry error: {0}")]
     Registry(String),
+    #[error("Task error: {0}")]
+    Task(String),
+    #[error("Task database error: {0}")]
+    TaskDb(#[from] rusqlite::Error),
+    #[error("Preset error: {0}")]
+    Preset(String),
+    #[error("Core error: {0}")]
+    Core(#[from] tracepilot_core::TracePilotError),
     #[error(transparent)]
     Mcp(#[from] crate::mcp::McpError),
     #[error(transparent)]
     Skills(#[from] crate::skills::SkillsError),
+    #[error("Export error: {0}")]
+    Export(#[from] tracepilot_export::ExportError),
 }
 
 pub type Result<T> = std::result::Result<T, OrchestratorError>;

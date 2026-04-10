@@ -1,0 +1,1685 @@
+<script setup lang="ts">
+import { ErrorState, LoadingSpinner, SectionPanel, StatCard } from "@tracepilot/ui";
+import { computed, onMounted, onUnmounted, ref } from "vue";
+import { useRouter } from "vue-router";
+import RefreshToolbar from "@/components/RefreshToolbar.vue";
+import TaskStatusBadge from "@/components/tasks/TaskStatusBadge.vue";
+import TaskTypeBadge from "@/components/tasks/TaskTypeBadge.vue";
+import { useAutoRefresh } from "@/composables/useAutoRefresh";
+import { useOrchestratorStore } from "@/stores/orchestrator";
+import { taskTitle, useTasksStore } from "@/stores/tasks";
+
+const orchestrator = useOrchestratorStore();
+const tasksStore = useTasksStore();
+const router = useRouter();
+const now = ref(Date.now());
+let tickTimer: ReturnType<typeof setInterval> | null = null;
+const healthExpanded = ref(false);
+
+const autoRefreshEnabled = ref(true);
+const autoRefreshInterval = ref(5);
+
+// The orchestrator store already owns a poll loop (fast when running, slow when idle).
+// The view-level autoRefresh is only used for the manual refresh button — it does NOT
+// start its own setInterval when the store is already polling.
+const { refreshing, refresh: autoRefresh } = useAutoRefresh({
+  onRefresh: () => orchestrator.pollCycle(),
+  enabled: ref(false), // disabled — store handles cadence
+  intervalSeconds: autoRefreshInterval,
+});
+
+// ── Derived state ───────────────────────────────────────────
+const stateLabel = computed(() => {
+  if (orchestrator.starting) return "Starting…";
+  switch (orchestrator.health?.health) {
+    case "healthy":
+      return "Running";
+    case "stale":
+      return "Stale";
+    case "stopped":
+      return "Stopped";
+    case "unknown":
+      return orchestrator.handle ? "Starting…" : "Unknown";
+    default:
+      return orchestrator.handle ? "Starting…" : "Idle";
+  }
+});
+
+const stateColorClass = computed(() => {
+  switch (orchestrator.health?.health) {
+    case "healthy":
+      return "state-healthy";
+    case "stale":
+      return "state-stale";
+    case "stopped":
+      return "state-stopped";
+    default:
+      return orchestrator.handle ? "state-active" : "state-stopped";
+  }
+});
+
+const heartbeatDisplay = computed(() => {
+  const secs = orchestrator.health?.heartbeatAgeSecs;
+  if (secs == null) return "No heartbeat";
+  if (secs < 60) return `${secs}s ago`;
+  return `${Math.floor(secs / 60)}m ${secs % 60}s ago`;
+});
+
+const heartbeatColor = computed<"success" | "warning" | "danger">(() => {
+  const secs = orchestrator.health?.heartbeatAgeSecs;
+  if (secs == null) return "danger";
+  if (secs < 30) return "success";
+  if (secs < 60) return "warning";
+  return "danger";
+});
+
+const activeTaskCount = computed(() => orchestrator.health?.activeTasks?.length ?? 0);
+const lastCycle = computed(() => orchestrator.health?.lastCycle ?? null);
+
+// Ring fill: full circle (327) when healthy, partial when stale, quarter when stopped/unknown
+const ringDasharray = computed(() => {
+  switch (orchestrator.health?.health) {
+    case "healthy":
+      return "327";
+    case "stale":
+      return "164 163";
+    case "stopped":
+      return "82 245";
+    default:
+      return orchestrator.handle ? "245 82" : "82 245";
+  }
+});
+
+// Uptime since orchestrator was launched
+const uptimeDisplay = computed(() => {
+  const launched = orchestrator.handle?.launchedAt;
+  if (!launched || !orchestrator.isRunning) return null;
+  const diffMs = now.value - new Date(launched).getTime();
+  if (diffMs < 0) return null;
+  const secs = Math.floor(diffMs / 1000);
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m ${secs % 60}s`;
+});
+
+function truncateId(id: string, len = 12): string {
+  return id.length > len ? `${id.slice(0, len)}…` : id;
+}
+
+/** Resolve a friendly display name for a subagent's task. */
+function subagentLabel(taskId: string): string {
+  const task = tasksStore.tasks.find((t) => t.id === taskId);
+  if (task) return taskTitle(task);
+  return truncateId(taskId, 8);
+}
+
+/** Look up a task object by ID from the loaded tasks. */
+function resolveTask(id: string) {
+  return tasksStore.tasks.find((t) => t.id === id) ?? null;
+}
+
+/** Get a subagent's start time from attribution data. */
+function subagentStartTime(taskId: string): string | null {
+  const agent = (orchestrator.attribution?.subagents ?? []).find((s) => s.taskId === taskId);
+  return agent?.startedAt ?? null;
+}
+
+function truncateError(err: string | null, len = 60): string {
+  if (!err) return "";
+  return err.length > len ? `${err.slice(0, len)}…` : err;
+}
+
+function elapsedSince(isoDate: string | null): string {
+  if (!isoDate) return "—";
+  const diffMs = now.value - new Date(isoDate).getTime();
+  if (diffMs < 0) return "0s";
+  const secs = Math.floor(diffMs / 1000);
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+function durationBetween(start: string | null, end: string | null): string {
+  if (!start || !end) return "—";
+  const diffMs = new Date(end).getTime() - new Date(start).getTime();
+  if (diffMs < 0) return "—";
+  const secs = Math.floor(diffMs / 1000);
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
+function viewSession() {
+  const uuid = orchestrator.sessionUuid;
+  if (uuid) {
+    router.push({ path: `/session/${uuid}/overview` });
+  }
+}
+
+function viewTask(taskId: string) {
+  router.push({ path: `/tasks/${taskId}` });
+}
+
+function formatActivityTime(iso: string): string {
+  if (!iso) return "";
+  const date = new Date(iso);
+  const diffMs = now.value - date.getTime();
+  if (diffMs < 60_000) return `${Math.max(0, Math.floor(diffMs / 1000))}s ago`;
+  if (diffMs < 3_600_000) return `${Math.floor(diffMs / 60_000)}m ago`;
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+// ── Model picker ────────────────────────────────────────────
+const showModelPicker = ref(false);
+const modelPickerRef = ref<HTMLElement | null>(null);
+
+const selectedModelName = computed(() => {
+  const m = orchestrator.models.find((m) => m.id === orchestrator.selectedModel);
+  return m?.name ?? orchestrator.selectedModel;
+});
+const selectedModelTier = computed(() => {
+  const m = orchestrator.models.find((m) => m.id === orchestrator.selectedModel);
+  return m?.tier ?? "standard";
+});
+
+const TIER_META: Record<string, { label: string; desc: string; order: number }> = {
+  fast: { label: "Fast", desc: "Low cost, quick responses", order: 0 },
+  standard: { label: "Standard", desc: "Balanced cost & quality", order: 1 },
+  premium: { label: "Premium", desc: "Best quality, higher cost", order: 2 },
+};
+
+const modelTiers = computed(() => {
+  const groups: Record<string, typeof orchestrator.models> = {};
+  for (const m of orchestrator.models) {
+    const tier = m.tier || "standard";
+    if (!groups[tier]) groups[tier] = [];
+    groups[tier].push(m);
+  }
+  return Object.entries(groups)
+    .map(([id, models]) => ({
+      id,
+      label: TIER_META[id]?.label ?? id,
+      desc: TIER_META[id]?.desc ?? "",
+      order: TIER_META[id]?.order ?? 1,
+      models,
+    }))
+    .sort((a, b) => a.order - b.order);
+});
+
+const modelDropdownStyle = computed(() => {
+  // Position under the toggle button via JS since we use Teleport to body
+  const el = document.querySelector(".model-picker-toggle");
+  if (!el) return {};
+  const rect = el.getBoundingClientRect();
+  return {
+    position: "fixed" as const,
+    top: `${rect.bottom + 4}px`,
+    right: `${window.innerWidth - rect.right}px`,
+    minWidth: `${Math.max(rect.width, 280)}px`,
+  };
+});
+
+// ── Lifecycle ───────────────────────────────────────────────
+onMounted(() => {
+  orchestrator.refresh();
+  orchestrator.loadModels();
+  tasksStore.fetchTasks(); // Load tasks so we can resolve subagent → task title
+  tickTimer = setInterval(() => {
+    now.value = Date.now();
+  }, 1000);
+});
+
+onUnmounted(() => {
+  if (tickTimer) clearInterval(tickTimer);
+});
+</script>
+
+<template>
+  <div class="page-content">
+    <div class="page-content-inner">
+      <!-- Header -->
+      <div class="page-header fade-section" style="--stagger: 0">
+        <h1 class="page-title">Orchestrator Monitor</h1>
+        <div class="header-actions">
+          <div
+            v-if="orchestrator.isStopped && orchestrator.models.length > 0"
+            class="model-picker"
+          >
+            <button class="model-picker-toggle" @click="showModelPicker = !showModelPicker">
+              <span class="model-picker-label">Model</span>
+              <span class="model-picker-value">{{ selectedModelName }}</span>
+              <span class="model-picker-tier" :class="'tier-' + selectedModelTier">{{ selectedModelTier }}</span>
+              <svg class="model-picker-chevron" :class="{ open: showModelPicker }" width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" fill="none" />
+              </svg>
+            </button>
+            <Teleport to="body">
+              <div v-if="showModelPicker" class="model-picker-overlay" @click="showModelPicker = false" />
+              <div v-if="showModelPicker" class="model-picker-dropdown" :style="modelDropdownStyle">
+                <div class="model-picker-header">Select Model</div>
+                <div v-for="tier in modelTiers" :key="tier.id" class="model-tier-group">
+                  <div class="model-tier-label">
+                    <span class="tier-badge" :class="'tier-' + tier.id">{{ tier.label }}</span>
+                    <span class="tier-desc">{{ tier.desc }}</span>
+                  </div>
+                  <button
+                    v-for="m in tier.models"
+                    :key="m.id"
+                    class="model-option"
+                    :class="{ active: m.id === orchestrator.selectedModel }"
+                    @click="orchestrator.selectedModel = m.id; showModelPicker = false"
+                  >
+                    <span class="model-option-name">{{ m.name }}</span>
+                    <svg v-if="m.id === orchestrator.selectedModel" class="model-check" width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                      <path d="M6.5 12l-4-4 1.4-1.4 2.6 2.6 5.6-5.6L13.5 5z" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </Teleport>
+          </div>
+          <button
+            v-if="orchestrator.isStopped"
+            class="action-btn start-btn"
+            :disabled="orchestrator.starting"
+            @click="orchestrator.startOrchestrator()"
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M4 2l10 6-10 6z" />
+            </svg>
+            {{ orchestrator.starting ? "Starting…" : "Start" }}
+          </button>
+          <button
+            v-else
+            class="action-btn stop-btn"
+            :disabled="orchestrator.stopping"
+            @click="orchestrator.stopOrchestrator()"
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+              <rect x="3" y="3" width="10" height="10" rx="1" />
+            </svg>
+            {{ orchestrator.stopping ? "Stopping…" : "Stop" }}
+          </button>
+          <RefreshToolbar
+            :refreshing="refreshing"
+            :auto-refresh-enabled="autoRefreshEnabled"
+            :interval-seconds="autoRefreshInterval"
+            @refresh="autoRefresh"
+            @update:auto-refresh-enabled="autoRefreshEnabled = $event"
+            @update:interval-seconds="autoRefreshInterval = $event"
+          />
+        </div>
+      </div>
+
+      <!-- Error state -->
+      <ErrorState
+        v-if="orchestrator.error && !orchestrator.health"
+        heading="Health check failed"
+        :message="orchestrator.error"
+        @retry="orchestrator.refresh()"
+      />
+
+      <!-- Loading state (initial load only) -->
+      <div v-else-if="orchestrator.loading && !orchestrator.health" class="loading-container">
+        <LoadingSpinner />
+        <span class="loading-text">Checking orchestrator health…</span>
+      </div>
+
+      <template v-else>
+        <!-- Status Hero -->
+        <section class="status-hero fade-section" style="--stagger: 1" aria-label="Orchestrator status">
+          <div class="status-ring-container" :class="stateColorClass">
+            <svg class="status-ring" width="120" height="120" viewBox="0 0 120 120">
+              <circle
+                cx="60"
+                cy="60"
+                r="52"
+                fill="none"
+                stroke="var(--border-default)"
+                stroke-width="4"
+              />
+              <circle
+                cx="60"
+                cy="60"
+                r="52"
+                fill="none"
+                stroke="var(--state-color)"
+                stroke-width="4"
+                stroke-linecap="round"
+                :stroke-dasharray="ringDasharray"
+                stroke-dashoffset="0"
+                class="status-ring-progress"
+              />
+              <circle
+                cx="60"
+                cy="60"
+                r="8"
+                fill="var(--state-color)"
+                class="status-ring-dot"
+                :class="{ pulsing: orchestrator.isRunning }"
+              />
+            </svg>
+          </div>
+          <div class="status-info" :class="stateColorClass">
+            <div class="status-label">{{ stateLabel }}</div>
+            <div class="status-heartbeat">
+              Last heartbeat: <strong>{{ heartbeatDisplay }}</strong>
+            </div>
+            <div class="hero-meta">
+              <div v-if="orchestrator.handle?.pid" class="hero-meta-item">
+                <span class="hero-meta-label">PID</span>
+                <span class="hero-meta-value">{{ orchestrator.handle.pid }}</span>
+              </div>
+              <div v-if="uptimeDisplay" class="hero-meta-item">
+                <span class="hero-meta-label">Uptime</span>
+                <span class="hero-meta-value">{{ uptimeDisplay }}</span>
+              </div>
+            </div>
+            <div class="hero-actions">
+              <button
+                v-if="orchestrator.sessionUuid"
+                class="session-hero-btn"
+                @click="viewSession"
+              >
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                  <path
+                    d="M3.75 2h3.5a.75.75 0 0 1 0 1.5h-3.5a.25.25 0 0 0-.25.25v8.5c0 .138.112.25.25.25h8.5a.25.25 0 0 0 .25-.25v-3.5a.75.75 0 0 1 1.5 0v3.5A1.75 1.75 0 0 1 12.25 14h-8.5A1.75 1.75 0 0 1 2 12.25v-8.5C2 2.784 2.784 2 3.75 2Zm6.854-1h4.146a.25.25 0 0 1 .25.25v4.146a.25.25 0 0 1-.427.177L13.03 4.03 9.28 7.78a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l3.75-3.75-1.543-1.543A.25.25 0 0 1 10.604 1Z"
+                  />
+                </svg>
+                View Session
+              </button>
+            </div>
+            <div v-if="orchestrator.needsRestart" class="needs-restart-badge">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                <path
+                  d="M8.22 1.754a.25.25 0 0 0-.44 0L1.698 13.132a.25.25 0 0 0 .22.368h12.164a.25.25 0 0 0 .22-.368L8.22 1.754zm-1.763-.707c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575L6.457 1.047zM9 11a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-.25-5.25a.75.75 0 0 0-1.5 0v2.5a.75.75 0 0 0 1.5 0v-2.5z"
+                />
+              </svg>
+              Needs Restart
+            </div>
+            <div v-if="orchestrator.error" class="inline-error">
+              {{ orchestrator.error }}
+            </div>
+          </div>
+        </section>
+
+        <!-- Health Stats -->
+        <div class="stats-grid fade-section" style="--stagger: 2">
+          <StatCard
+            :value="orchestrator.health?.heartbeatAgeSecs != null ? `${orchestrator.health.heartbeatAgeSecs}s` : '—'"
+            label="Heartbeat Age"
+            :color="heartbeatColor"
+          />
+          <StatCard
+            :value="lastCycle != null ? lastCycle : '—'"
+            label="Last Cycle"
+            color="accent"
+          />
+          <StatCard
+            :value="activeTaskCount"
+            label="Active Tasks"
+            color="accent"
+          />
+          <StatCard
+            :value="orchestrator.lastIngestedCount"
+            label="Last Ingested"
+            color="done"
+          />
+        </div>
+
+        <!-- Active Tasks (from heartbeat) -->
+        <SectionPanel title="Active Tasks" class="fade-section" style="--stagger: 3">
+          <template #actions>
+            <span class="subagent-count-badge">{{ activeTaskCount }}</span>
+          </template>
+          <div v-if="!orchestrator.health && orchestrator.isRunning" class="empty-state">
+            <span class="spinner" />
+            <span>Waiting for heartbeat…</span>
+          </div>
+          <div v-else-if="activeTaskCount === 0" class="empty-state">
+            <svg
+              class="empty-icon"
+              width="32"
+              height="32"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <line x1="8" y1="12" x2="16" y2="12" />
+            </svg>
+            <span>No active tasks</span>
+          </div>
+          <div v-else class="active-task-grid">
+            <button
+              v-for="tid in orchestrator.health?.activeTasks ?? []"
+              :key="tid"
+              class="active-task-card"
+              @click="viewTask(tid)"
+            >
+              <div class="active-task-top">
+                <TaskStatusBadge status="in_progress" />
+                <span class="active-task-name">{{ subagentLabel(tid) }}</span>
+              </div>
+              <div v-if="resolveTask(tid)" class="active-task-meta">
+                <TaskTypeBadge :task-type="resolveTask(tid)!.taskType" />
+                <span class="active-task-id cell-mono">{{ truncateId(tid, 8) }}</span>
+              </div>
+              <div v-else class="active-task-meta">
+                <span class="active-task-id cell-mono">{{ truncateId(tid, 20) }}</span>
+              </div>
+              <div v-if="resolveTask(tid)?.taskType" class="active-task-desc">
+                {{ resolveTask(tid)!.presetId }}
+              </div>
+              <div class="active-task-bottom">
+                <span v-if="subagentStartTime(tid)" class="active-task-elapsed">
+                  ⏱ {{ elapsedSince(subagentStartTime(tid)) }}
+                </span>
+                <span class="sa-link">View Task →</span>
+              </div>
+              <div class="subagent-progress">
+                <div class="subagent-progress-fill running" />
+              </div>
+            </button>
+          </div>
+        </SectionPanel>
+
+        <!-- Active Subagents (from attribution) -->
+        <SectionPanel title="Active Subagents" class="fade-section" style="--stagger: 4">
+          <template #actions>
+            <span class="subagent-count-badge">{{ orchestrator.activeSubagents.length }}</span>
+          </template>
+          <div v-if="orchestrator.activeSubagents.length === 0" class="empty-state">
+            <svg
+              class="empty-icon"
+              width="32"
+              height="32"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <line x1="8" y1="12" x2="16" y2="12" />
+            </svg>
+            <span>{{ orchestrator.sessionUuid ? "No active subagents" : "Waiting for session discovery…" }}</span>
+          </div>
+          <div v-else class="subagent-grid">
+            <div
+              v-for="agent in orchestrator.activeSubagents"
+              :key="agent.taskId"
+              class="subagent-card"
+            >
+              <div class="subagent-card-top">
+                <span class="subagent-name">{{ subagentLabel(agent.taskId) }}</span>
+                <span class="subagent-status-badge" :class="agent.status">
+                  <span v-if="agent.status === 'running' || agent.status === 'spawning'" class="spinner-xs" />
+                  <svg
+                    v-else
+                    width="10"
+                    height="10"
+                    viewBox="0 0 16 16"
+                    fill="currentColor"
+                  >
+                    <path
+                      d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"
+                    />
+                  </svg>
+                  {{ agent.status }}
+                </span>
+              </div>
+              <div class="subagent-task-id cell-mono">{{ truncateId(agent.taskId) }}</div>
+              <div class="subagent-card-meta">
+                <span class="subagent-elapsed">⏱ {{ elapsedSince(agent.startedAt) }}</span>
+              </div>
+              <div class="subagent-progress">
+                <div class="subagent-progress-fill" :class="agent.status" />
+              </div>
+              <div class="subagent-card-footer">
+                <button class="sa-link" @click="viewTask(agent.taskId)">View Task →</button>
+              </div>
+            </div>
+          </div>
+        </SectionPanel>
+
+        <!-- Completed Subagents (from attribution) -->
+        <SectionPanel title="Completed Subagents" class="fade-section" style="--stagger: 5">
+          <template #actions>
+            <span class="subagent-count-badge">{{ orchestrator.completedSubagents.length }}</span>
+          </template>
+          <div v-if="orchestrator.completedSubagents.length === 0" class="empty-state">
+            <svg
+              class="empty-icon"
+              width="32"
+              height="32"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+              <polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
+            <span>No completed subagents yet</span>
+          </div>
+          <div v-else class="subagent-grid">
+            <div
+              v-for="agent in orchestrator.completedSubagents"
+              :key="agent.taskId"
+              class="subagent-card"
+              :class="{ 'card-failed': agent.status === 'failed' }"
+            >
+              <div class="subagent-card-top">
+                <span class="subagent-name">{{ subagentLabel(agent.taskId) }}</span>
+                <span class="subagent-status-badge" :class="agent.status">
+                  <svg
+                    v-if="agent.status === 'completed'"
+                    width="10"
+                    height="10"
+                    viewBox="0 0 16 16"
+                    fill="currentColor"
+                  >
+                    <path
+                      d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"
+                    />
+                  </svg>
+                  <svg
+                    v-else-if="agent.status === 'failed'"
+                    width="10"
+                    height="10"
+                    viewBox="0 0 16 16"
+                    fill="currentColor"
+                  >
+                    <path
+                      d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734L9.06 8l3.22 3.22a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L8 9.06l-3.22 3.22a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"
+                    />
+                  </svg>
+                  {{ agent.status }}
+                </span>
+              </div>
+              <div class="subagent-task-id cell-mono">{{ truncateId(agent.taskId) }}</div>
+              <div class="subagent-card-meta">
+                <span class="subagent-elapsed">{{ durationBetween(agent.startedAt, agent.completedAt) }}</span>
+              </div>
+              <div v-if="agent.error" class="completed-error" :title="agent.error">
+                {{ truncateError(agent.error, 40) }}
+              </div>
+              <div class="subagent-card-footer">
+                <button class="sa-link" @click="viewTask(agent.taskId)">View Task →</button>
+              </div>
+            </div>
+          </div>
+        </SectionPanel>
+
+        <!-- Activity Feed -->
+        <SectionPanel title="Activity Feed" class="fade-section" style="--stagger: 6">
+          <template #actions>
+            <span class="subagent-count-badge">{{ orchestrator.activityFeed.length }}</span>
+          </template>
+          <div v-if="orchestrator.activityFeed.length === 0" class="empty-state">
+            <svg
+              class="empty-icon"
+              width="32"
+              height="32"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+            </svg>
+            <span>{{ orchestrator.isRunning ? "Waiting for activity…" : "Start the orchestrator to see activity" }}</span>
+          </div>
+          <div v-else class="activity-feed">
+            <div
+              v-for="entry in orchestrator.activityFeed"
+              :key="entry.id"
+              class="activity-entry"
+              :class="'activity-' + entry.eventType.replace(/\./g, '-')"
+            >
+              <span class="activity-icon">{{ entry.icon }}</span>
+              <div class="activity-content">
+                <span class="activity-label">{{ entry.label }}</span>
+                <span v-if="entry.detail" class="activity-detail">{{ entry.detail }}</span>
+              </div>
+              <span class="activity-time">{{ formatActivityTime(entry.timestamp) }}</span>
+            </div>
+          </div>
+        </SectionPanel>
+
+        <!-- Health & Recovery -->
+        <SectionPanel title="Health & Recovery" class="fade-section" style="--stagger: 7">
+          <template #actions>
+            <button class="collapse-toggle" @click="healthExpanded = !healthExpanded">
+              {{ healthExpanded ? "Collapse" : "Expand" }}
+            </button>
+          </template>
+          <div class="health-summary">
+            <div class="health-badge" :class="orchestrator.health?.health ?? 'stopped'">
+              <span class="health-dot" />
+              {{ orchestrator.health?.health ?? "unknown" }}
+            </div>
+            <span v-if="orchestrator.error" class="health-error-inline">
+              {{ truncateError(orchestrator.error, 50) }}
+            </span>
+          </div>
+          <div v-if="healthExpanded" class="health-grid">
+            <div class="health-item">
+              <span class="health-item-label">Needs Restart</span>
+              <span class="health-item-value">{{ orchestrator.needsRestart ? "Yes" : "No" }}</span>
+            </div>
+            <div class="health-item">
+              <span class="health-item-label">Last Error</span>
+              <span class="health-item-value">{{ orchestrator.error ?? "None" }}</span>
+            </div>
+            <div class="health-item">
+              <span class="health-item-label">Poll Interval</span>
+              <span class="health-item-value">5 000 ms</span>
+            </div>
+            <div class="health-item">
+              <span class="health-item-label">Stale Threshold</span>
+              <span class="health-item-value">60 s</span>
+            </div>
+            <div class="health-policy">
+              <strong>Recovery Policy:</strong> The orchestrator always starts a fresh Copilot session on launch —
+              it never resumes a prior session. If the process is detected as stale or crashed, a full restart is
+              triggered with a new session UUID.
+            </div>
+          </div>
+        </SectionPanel>
+      </template>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+/* ── Animations ──────────────────────────────────────────────── */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.fade-section {
+  animation: fadeInUp 0.4s ease-out both;
+  animation-delay: calc(var(--stagger, 0) * 0.08s);
+}
+
+/* ── Action Buttons ──────────────────────────────────────────── */
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition:
+    background var(--transition-fast),
+    opacity var(--transition-fast);
+}
+
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.start-btn {
+  background: var(--success-fg);
+  color: var(--text-inverse);
+}
+
+.start-btn:hover:not(:disabled) {
+  background: var(--success-emphasis);
+}
+
+.stop-btn {
+  background: var(--danger-fg);
+  color: var(--text-inverse);
+}
+
+.stop-btn:hover:not(:disabled) {
+  background: var(--danger-emphasis);
+}
+
+/* ── Header ──────────────────────────────────────────────────── */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.page-title {
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* ── Model Picker ─────────────────────────────────────────── */
+.model-picker {
+  position: relative;
+}
+
+.model-picker-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  font-size: 0.75rem;
+  background: var(--canvas-subtle);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.model-picker-toggle:hover {
+  border-color: var(--accent-fg);
+}
+
+.model-picker-label {
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
+.model-picker-value {
+  font-weight: 600;
+}
+
+.model-picker-tier {
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+}
+.tier-fast     { background: var(--success-subtle); color: var(--success-fg); }
+.tier-standard { background: var(--accent-subtle); color: var(--accent-fg); }
+.tier-premium  { background: var(--warning-subtle); color: var(--warning-fg); }
+
+.model-picker-chevron {
+  transition: transform 0.2s;
+  color: var(--text-tertiary);
+}
+.model-picker-chevron.open {
+  transform: rotate(180deg);
+}
+
+.model-picker-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+}
+
+.model-picker-dropdown {
+  z-index: 1000;
+  background: var(--canvas-overlay);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 8px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.model-picker-header {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+  padding: 4px 8px 8px;
+}
+
+.model-tier-group {
+  margin-bottom: 4px;
+}
+
+.model-tier-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 4px;
+}
+
+.tier-badge {
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.tier-desc {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+}
+
+.model-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 6px 10px;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+.model-option:hover {
+  background: var(--canvas-subtle);
+  color: var(--text-primary);
+}
+.model-option.active {
+  background: var(--accent-subtle);
+  color: var(--accent-fg);
+  font-weight: 600;
+}
+
+.model-check {
+  color: var(--accent-fg);
+  flex-shrink: 0;
+}
+.model-option-name {
+  text-align: left;
+}
+
+.refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: var(--canvas-subtle);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.refresh-btn:hover:not(:disabled) {
+  background: var(--canvas-overlay);
+  border-color: var(--accent-fg);
+}
+
+.refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.refresh-icon {
+  flex-shrink: 0;
+}
+
+.refresh-icon.spinning {
+  animation: spin 0.8s linear infinite;
+}
+
+/* ── Loading ─────────────────────────────────────────────────── */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 64px 0;
+}
+
+.loading-text {
+  font-size: 0.8125rem;
+  color: var(--text-tertiary);
+}
+
+/* ── Status Hero ─────────────────────────────────────────────── */
+.status-hero {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  padding: 28px 32px;
+  background: var(--canvas-subtle);
+  background-image: var(--gradient-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  margin-bottom: 24px;
+}
+
+.status-ring-container {
+  flex-shrink: 0;
+}
+
+/* State color mapping — keeps palette in CSS, referenced via var(--state-color) */
+.state-healthy { --state-color: var(--success-fg); }
+.state-stale   { --state-color: var(--warning-fg); }
+.state-stopped { --state-color: var(--neutral-emphasis); }
+.state-active  { --state-color: var(--accent-fg); }
+
+.status-ring-progress {
+  transition:
+    stroke 0.3s ease,
+    stroke-dasharray 0.3s ease;
+}
+
+.status-ring-dot.pulsing {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.status-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.status-label {
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--state-color, var(--text-primary));
+}
+
+.status-heartbeat {
+  font-size: 0.8125rem;
+  color: var(--text-tertiary);
+}
+
+.status-heartbeat strong {
+  color: var(--text-secondary);
+}
+
+/* ── Hero Meta (PID / Model / Uptime) ────────────────────────── */
+.hero-meta {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+.hero-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.6875rem;
+}
+
+.hero-meta-label {
+  color: var(--text-placeholder);
+  font-weight: 500;
+}
+
+.hero-meta-value {
+  font-family: var(--font-mono, "JetBrains Mono", "Fira Code", monospace);
+  font-weight: 500;
+  color: var(--text-secondary);
+  font-size: 0.6875rem;
+}
+
+/* ── Hero Actions ────────────────────────────────────────────── */
+.hero-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.session-hero-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: transparent;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  color: var(--accent-fg);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.session-hero-btn:hover {
+  background: var(--canvas-overlay);
+  border-color: var(--accent-fg);
+}
+
+.needs-restart-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: var(--warning-subtle);
+  color: var(--warning-fg);
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  width: fit-content;
+}
+
+.inline-error {
+  font-size: 0.75rem;
+  color: var(--danger-fg);
+  margin-top: 2px;
+}
+
+/* ── Stats Grid ──────────────────────────────────────────────── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+/* ── Subagent Count Badge ────────────────────────────────────── */
+.subagent-count-badge {
+  background: var(--accent-muted);
+  color: var(--accent-fg);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+/* ── Empty States ────────────────────────────────────────────── */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 32px 0;
+  color: var(--text-placeholder);
+  font-size: 0.8125rem;
+}
+
+.empty-icon {
+  opacity: 0.4;
+}
+
+/* ── Active Task Cards ────────────────────────────────────────── */
+.active-task-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+  padding: 4px 0;
+}
+
+.active-task-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 18px;
+  background: var(--canvas-subtle);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+  text-align: left;
+  font-family: inherit;
+  color: inherit;
+}
+
+.active-task-card:hover {
+  border-color: var(--accent-fg);
+  box-shadow: 0 0 0 1px var(--accent-fg);
+}
+
+.active-task-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.active-task-name {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.active-task-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.active-task-id {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+}
+
+.active-task-desc {
+  font-size: 0.75rem;
+  color: var(--fg-muted);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.active-task-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.active-task-elapsed {
+  font-size: 0.6875rem;
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.active-task-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.subagent-progress {
+  height: 3px;
+  background: var(--border-muted);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 2px;
+}
+.subagent-progress-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+.subagent-progress-fill.running {
+  width: 100%;
+  background: var(--accent-fg);
+  animation: progress-indeterminate 1.5s ease-in-out infinite;
+}
+@keyframes progress-indeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* ── Subagent Card Grid ──────────────────────────────────────── */
+.subagent-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.subagent-card {
+  background: var(--canvas-subtle);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.subagent-card:hover {
+  border-color: var(--accent-fg);
+  box-shadow: 0 0 0 1px var(--accent-fg);
+}
+
+.subagent-card.card-failed {
+  border-color: var(--danger-muted);
+}
+
+.subagent-card.card-failed:hover {
+  border-color: var(--danger-fg);
+  box-shadow: 0 0 0 1px var(--danger-fg);
+}
+
+.subagent-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.subagent-name {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.35;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subagent-task-id {
+  font-size: 0.625rem;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+.subagent-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.subagent-status-badge.running {
+  background: var(--accent-subtle);
+  color: var(--accent-fg);
+}
+
+.subagent-status-badge.spawning {
+  background: var(--warning-subtle);
+  color: var(--warning-fg);
+}
+
+.subagent-status-badge.completed {
+  background: var(--success-subtle);
+  color: var(--success-fg);
+}
+
+.subagent-status-badge.failed {
+  background: var(--danger-subtle);
+  color: var(--danger-fg);
+}
+
+.spinner-xs {
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid var(--border-default);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+/* (subagent-task-title removed — replaced by subagent-task-id) */
+
+.subagent-card-meta {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.subagent-elapsed {
+  font-family: var(--font-mono, "JetBrains Mono", "Fira Code", monospace);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.subagent-progress {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--border-default);
+  overflow: hidden;
+}
+
+.subagent-progress-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent-fg);
+  animation: indeterminate 1.5s ease-in-out infinite;
+}
+
+.subagent-progress-fill.spawning {
+  background: var(--warning-fg);
+}
+
+.subagent-progress-fill.completed,
+.subagent-progress-fill.failed {
+  animation: none;
+  width: 100%;
+}
+
+.subagent-progress-fill.completed {
+  background: var(--success-fg);
+}
+
+.subagent-progress-fill.failed {
+  background: var(--danger-fg);
+}
+
+@keyframes indeterminate {
+  0% {
+    transform: translateX(-100%);
+    width: 40%;
+  }
+  50% {
+    transform: translateX(60%);
+    width: 60%;
+  }
+  100% {
+    transform: translateX(200%);
+    width: 40%;
+  }
+}
+
+.subagent-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-top: auto;
+}
+
+.sa-link {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--accent-fg);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  transition: opacity var(--transition-fast);
+}
+
+.sa-link:hover {
+  opacity: 0.8;
+  text-decoration: underline;
+}
+
+.completed-error {
+  font-size: 0.6875rem;
+  color: var(--danger-fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Health & Recovery ───────────────────────────────────────── */
+.collapse-toggle {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--accent-fg);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.collapse-toggle:hover {
+  background: var(--canvas-overlay);
+}
+
+.health-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.health-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.health-badge.healthy {
+  background: var(--success-subtle);
+  color: var(--success-fg);
+  border: 1px solid var(--success-subtle);
+}
+
+.health-badge.stale {
+  background: var(--warning-subtle);
+  color: var(--warning-fg);
+  border: 1px solid var(--warning-subtle);
+}
+
+.health-badge.stopped,
+.health-badge.unknown {
+  background: var(--danger-subtle);
+  color: var(--danger-fg);
+  border: 1px solid var(--danger-subtle);
+}
+
+.health-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.health-error-inline {
+  font-size: 0.6875rem;
+  color: var(--danger-fg);
+}
+
+.health-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+.health-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.health-item-label {
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-placeholder);
+}
+
+.health-item-value {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.health-policy {
+  grid-column: 1 / -1;
+  padding: 8px 12px;
+  background: var(--canvas-subtle);
+  border-radius: var(--radius-sm);
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  border: 1px solid var(--border-default);
+  line-height: 1.6;
+}
+
+.health-policy strong {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.cell-mono {
+  font-family: var(--font-mono, "JetBrains Mono", "Fira Code", monospace);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+/* ── Responsive ──────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .status-hero {
+    flex-direction: column;
+    text-align: center;
+    gap: 16px;
+    padding: 24px 20px;
+  }
+
+  .status-info {
+    align-items: center;
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .subagent-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .active-task-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .health-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Activity Feed ─────────────────────────────────────────── */
+.activity-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.activity-entry {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 0;
+  border-bottom: 1px solid var(--border-muted);
+  transition: background 0.1s;
+}
+.activity-entry:last-child {
+  border-bottom: none;
+}
+.activity-entry:hover {
+  background: var(--canvas-subtle);
+}
+
+.activity-icon {
+  flex-shrink: 0;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  width: 20px;
+  text-align: center;
+}
+
+.activity-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.activity-label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.activity-detail {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.activity-time {
+  flex-shrink: 0;
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.activity-entry.activity-subagent-completed .activity-label {
+  color: var(--success-fg);
+}
+.activity-entry.activity-subagent-failed .activity-label {
+  color: var(--danger-fg);
+}
+</style>

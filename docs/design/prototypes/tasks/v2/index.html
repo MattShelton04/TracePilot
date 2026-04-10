@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Task System Prototypes v2</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 15px; -webkit-font-smoothing: antialiased; }
+    body {
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #09090b;
+      color: #fafafa;
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 60px 32px 80px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 56px;
+    }
+    .header-icon {
+      width: 64px; height: 64px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #6366f1, #a78bfa);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      color: white;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 32px rgba(99, 102, 241, 0.35);
+    }
+    .header h1 {
+      font-size: 2.1rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin-bottom: 8px;
+    }
+    .header p {
+      color: #a1a1aa;
+      font-size: 1rem;
+      max-width: 640px;
+      margin: 0 auto;
+      line-height: 1.7;
+    }
+    .badge-row {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 12px;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+    .badge-accent {
+      background: rgba(99, 102, 241, 0.12);
+      color: #818cf8;
+      border: 1px solid rgba(99, 102, 241, 0.2);
+    }
+    .badge-success {
+      background: rgba(52, 211, 153, 0.12);
+      color: #34d399;
+      border: 1px solid rgba(52, 211, 153, 0.2);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+      margin-top: 40px;
+    }
+
+    .card {
+      background: #111113;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 24px;
+      text-decoration: none;
+      color: inherit;
+      transition: all 200ms ease;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .card:hover {
+      border-color: rgba(99, 102, 241, 0.4);
+      box-shadow: 0 4px 24px rgba(99, 102, 241, 0.12);
+      transform: translateY(-2px);
+    }
+    .card-icon {
+      width: 40px; height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+    .card-icon.accent { background: rgba(99, 102, 241, 0.12); }
+    .card-icon.success { background: rgba(52, 211, 153, 0.12); }
+    .card-icon.warning { background: rgba(251, 191, 36, 0.12); }
+    .card-icon.violet { background: rgba(167, 139, 250, 0.12); }
+    .card-icon.danger { background: rgba(251, 113, 133, 0.12); }
+
+    .card h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    .card p {
+      font-size: 0.8125rem;
+      color: #a1a1aa;
+      line-height: 1.6;
+      flex: 1;
+    }
+    .card-route {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.6875rem;
+      color: #71717a;
+      padding: 4px 8px;
+      background: rgba(255, 255, 255, 0.04);
+      border-radius: 4px;
+      width: fit-content;
+    }
+
+    .note {
+      margin-top: 48px;
+      padding: 20px;
+      background: rgba(99, 102, 241, 0.06);
+      border: 1px solid rgba(99, 102, 241, 0.15);
+      border-radius: 10px;
+      font-size: 0.8125rem;
+      color: #a1a1aa;
+      line-height: 1.7;
+    }
+    .note strong { color: #818cf8; }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #818cf8;
+      text-decoration: none;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      margin-bottom: 32px;
+    }
+    .back-link:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <a href="../index.html" class="back-link">← All Prototypes</a>
+
+    <div class="header">
+      <div class="header-icon">🤖</div>
+      <h1>Task System Prototypes — v2</h1>
+      <p>Refined, production-grade HTML prototypes for the AI Agent Task System. Built against real backend data types with realistic mock data.</p>
+      <div class="badge-row">
+        <span class="badge badge-accent">v2 Refined</span>
+        <span class="badge badge-accent">5 Views</span>
+        <span class="badge badge-success">Real Data Types</span>
+        <span class="badge badge-success">Dark + Light Theme</span>
+      </div>
+    </div>
+
+    <div class="grid">
+      <a href="task-dashboard.html" class="card">
+        <div class="card-icon accent">📊</div>
+        <h3>Task Dashboard</h3>
+        <p>The main command center. Stats bar, orchestrator status hero card, task queue table with filters, recent jobs, and quick-run preset cards.</p>
+        <div class="card-route">/tasks</div>
+      </a>
+
+      <a href="task-detail.html" class="card">
+        <div class="card-icon success">📋</div>
+        <h3>Task Detail</h3>
+        <p>Single task deep-dive with 5 tabs: structured result viewer, context preview, lifecycle timeline, subagent attribution, and raw JSON.</p>
+        <div class="card-route">/tasks/:id</div>
+      </a>
+
+      <a href="create-task.html" class="card">
+        <div class="card-icon warning">✨</div>
+        <h3>Create Task</h3>
+        <p>4-step wizard: select preset, configure parameters, preview context with token budget visualization, and review before launch.</p>
+        <div class="card-route">/tasks/new</div>
+      </a>
+
+      <a href="orchestrator-monitor.html" class="card">
+        <div class="card-icon violet">🛰️</div>
+        <h3>Orchestrator Monitor</h3>
+        <p>Real-time mission control. Live event stream, active subagent cards, metrics dashboard, health panel, and completed task timeline.</p>
+        <div class="card-route">/tasks/monitor</div>
+      </a>
+
+      <a href="preset-manager.html" class="card">
+        <div class="card-icon danger">🧩</div>
+        <h3>Preset Manager</h3>
+        <p>Browse, search, and manage task presets. Grid/list toggle, category filters, slide-over detail panel, inline editing modal.</p>
+        <div class="card-route">/tasks/presets</div>
+      </a>
+    </div>
+
+    <div class="note">
+      <strong>Note:</strong> These v2 prototypes replace the original v1 prototypes. They are built against the real 
+      backend types (Task, Job, TaskPreset, OrchestratorStatus, HealthCheckResult, AttributionSnapshot) and use 
+      realistic mock data. All prototypes use <code>design-system-c.css</code> tokens and support dark/light theme 
+      switching. Open any prototype in a browser to see the interactive version.
+    </div>
+  </div>
+</body>
+</html>

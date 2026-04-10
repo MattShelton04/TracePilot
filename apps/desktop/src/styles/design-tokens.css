@@ -120,6 +120,7 @@
 
   /* --- Interaction States --- */
   --state-hover-overlay: rgba(255, 255, 255, 0.12); /* Subtle overlay for hover states */
+  --backdrop-color: rgba(0, 0, 0, 0.6); /* Modal/dialog backdrop */
   --chart-tooltip-bg: rgba(24, 24, 27, 0.94);
   --chart-tooltip-fg: #fafafa;
   --chart-active-emphasis: 28%;
@@ -233,6 +234,7 @@
     0,
     0.08
   ); /* Inverted and slightly more visible for light theme */
+  --backdrop-color: rgba(0, 0, 0, 0.5); /* Slightly lighter for light theme */
   --chart-tooltip-bg: rgba(24, 24, 27, 0.88);
   --chart-tooltip-fg: #fafafa;
   --chart-active-emphasis: 20%;

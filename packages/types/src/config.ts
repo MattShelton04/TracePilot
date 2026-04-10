@@ -56,9 +56,30 @@ export interface TracePilotConfig {
     renderMarkdown: boolean;
     mcpServers: boolean;
     skills: boolean;
+    aiTasks: boolean;
   };
   logging: {
     level: string;
+  };
+  tasks: {
+    /** Whether the AI task system is enabled. */
+    enabled: boolean;
+    /** Model used for the orchestrator session (polling root agent). */
+    orchestratorModel: string;
+    /** Default model for subagent task execution. */
+    defaultSubagentModel: string;
+    /** How often the orchestrator polls for new tasks (seconds). */
+    pollIntervalSeconds: number;
+    /** Maximum number of concurrent subagent tasks. */
+    maxConcurrentTasks: number;
+    /** Multiplier for poll interval to detect stale heartbeats. */
+    heartbeatStaleMultiplier: number;
+    /** Max consecutive crash restarts before circuit-breaking. */
+    maxRetries: number;
+    /** Whether to auto-start the orchestrator on app launch. */
+    autoStartOrchestrator: boolean;
+    /** Approximate token budget for context assembly per task. */
+    contextBudgetTokens: number;
   };
 }
 

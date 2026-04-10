@@ -1,0 +1,2383 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Create Task</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/design-system-c.css">
+  <style>
+    /* =============================================================
+       TracePilot — Create Task Wizard (v2)
+       4-step wizard: Select Preset → Configure → Context → Review
+       Aesthetic: Linear/Raycast precision wizard with cinematic depth
+       ============================================================= */
+
+    /* --- Ambient Background Glow --- */
+    .main-content { position: relative; }
+    .main-content::before {
+      content: '';
+      position: fixed;
+      top: -40%;
+      right: -20%;
+      width: 80vw;
+      height: 80vh;
+      background: radial-gradient(ellipse at center, rgba(99,102,241,0.04) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .main-content::after {
+      content: '';
+      position: fixed;
+      bottom: -30%;
+      left: -10%;
+      width: 60vw;
+      height: 60vh;
+      background: radial-gradient(ellipse at center, rgba(52,211,153,0.025) 0%, transparent 55%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .page-content { position: relative; z-index: 1; }
+
+    /* --- Wizard Container --- */
+    .wizard-container {
+      max-width: 820px;
+      margin: 0 auto;
+    }
+
+    /* --- Page Title --- */
+    .wizard-page-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 28px;
+    }
+    .wizard-page-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-md);
+      background: var(--gradient-accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      flex-shrink: 0;
+      box-shadow: 0 2px 12px rgba(99,102,241,0.35);
+    }
+    .wizard-page-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: var(--text-primary);
+    }
+    .wizard-page-subtitle {
+      font-size: 0.8125rem;
+      color: var(--text-tertiary);
+      margin-top: 2px;
+    }
+
+    /* ================================
+       STEP PROGRESS INDICATOR
+       ================================ */
+    .stepper {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      margin-bottom: 32px;
+      padding: 0 4px;
+    }
+    .stepper-step {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      padding: 8px 0;
+      transition: opacity var(--transition-normal);
+      user-select: none;
+      white-space: nowrap;
+    }
+    .stepper-step.future { opacity: 0.4; cursor: default; }
+    .stepper-step.completed { opacity: 0.7; }
+    .stepper-step.active { opacity: 1; }
+    .stepper-step.completed:hover { opacity: 0.9; }
+
+    .stepper-number {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 600;
+      flex-shrink: 0;
+      transition: all var(--transition-normal);
+      border: 1.5px solid var(--border-default);
+      background: var(--canvas-default);
+      color: var(--text-tertiary);
+    }
+    .stepper-step.active .stepper-number {
+      background: var(--accent-emphasis);
+      border-color: var(--accent-emphasis);
+      color: #fff;
+      box-shadow: 0 0 12px rgba(99,102,241,0.4);
+    }
+    .stepper-step.completed .stepper-number {
+      background: var(--success-muted);
+      border-color: var(--success-fg);
+      color: var(--success-fg);
+    }
+
+    .stepper-label {
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      transition: color var(--transition-normal);
+    }
+    .stepper-step.active .stepper-label { color: var(--text-primary); }
+    .stepper-step.completed .stepper-label { color: var(--text-secondary); }
+
+    .stepper-connector {
+      flex: 1;
+      height: 1px;
+      background: var(--border-default);
+      margin: 0 14px;
+      position: relative;
+      min-width: 20px;
+    }
+    .stepper-connector-fill {
+      position: absolute;
+      left: 0;
+      top: 0;
+      height: 100%;
+      background: var(--success-fg);
+      transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      width: 0%;
+    }
+    .stepper-connector.done .stepper-connector-fill { width: 100%; }
+
+    /* ================================
+       WIZARD STEP PANELS
+       ================================ */
+    .wizard-viewport {
+      overflow: hidden;
+      position: relative;
+    }
+    .wizard-track {
+      display: flex;
+      transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .wizard-step {
+      flex: 0 0 100%;
+      min-width: 0;
+      opacity: 0;
+      transition: opacity 0.3s ease 0.1s;
+    }
+    .wizard-step.active { opacity: 1; }
+
+    /* ================================
+       STEP 1: SELECT PRESET
+       ================================ */
+    .preset-search-bar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 16px;
+      align-items: center;
+    }
+    .preset-search {
+      flex: 1;
+      position: relative;
+    }
+    .preset-search-icon {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-placeholder);
+    }
+    .preset-search input {
+      width: 100%;
+      padding: 9px 12px 9px 36px;
+      background: var(--canvas-default);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      color: var(--text-primary);
+      font-size: 0.8125rem;
+      outline: none;
+      transition: all var(--transition-fast);
+      font-family: inherit;
+    }
+    .preset-search input::placeholder { color: var(--text-placeholder); }
+    .preset-search input:focus {
+      border-color: var(--accent-emphasis);
+      box-shadow: var(--shadow-glow-accent);
+    }
+
+    .category-pills {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .category-pill {
+      padding: 5px 12px;
+      border-radius: var(--radius-full);
+      font-size: 0.75rem;
+      font-weight: 500;
+      border: 1px solid var(--border-default);
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      white-space: nowrap;
+    }
+    .category-pill:hover {
+      border-color: var(--border-accent);
+      color: var(--text-primary);
+    }
+    .category-pill.active {
+      background: var(--accent-muted);
+      border-color: var(--accent-emphasis);
+      color: var(--accent-fg);
+    }
+
+    .preset-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    @media (max-width: 768px) {
+      .preset-grid { grid-template-columns: 1fr; }
+    }
+
+    .preset-card {
+      background: var(--canvas-subtle);
+      background-image: var(--gradient-card);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      cursor: pointer;
+      transition: all var(--transition-normal);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .preset-card:hover {
+      border-color: var(--border-accent);
+      box-shadow: var(--shadow-md), 0 0 0 1px var(--border-glow);
+      transform: translateY(-1px);
+    }
+    .preset-card.selected {
+      border-color: var(--accent-emphasis);
+      box-shadow: var(--shadow-glow-accent);
+    }
+    .preset-card.selected::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--gradient-accent);
+      border-radius: 10px 10px 0 0;
+    }
+
+    .preset-card-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .preset-card-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    .preset-card-icon.pi-summary { background: var(--accent-muted); }
+    .preset-card-icon.pi-health { background: var(--success-muted); }
+    .preset-card-icon.pi-review { background: var(--done-muted); }
+    .preset-card-icon.pi-report { background: var(--warning-muted); }
+    .preset-card-icon.pi-scratch { background: var(--neutral-muted); }
+
+    .preset-card-title-row {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+    .preset-card-name {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+    }
+    .preset-card-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .preset-card-desc {
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+      line-height: 1.55;
+    }
+
+    .preset-card-footer {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 2px;
+    }
+
+    .preset-tag {
+      padding: 2px 8px;
+      border-radius: var(--radius-sm);
+      font-size: 0.6875rem;
+      font-weight: 500;
+      background: var(--neutral-subtle);
+      color: var(--text-tertiary);
+    }
+    .builtin-badge {
+      padding: 2px 8px;
+      border-radius: var(--radius-sm);
+      font-size: 0.6875rem;
+      font-weight: 600;
+      background: var(--accent-muted);
+      color: var(--accent-fg);
+    }
+
+    .preset-card-check {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--accent-emphasis);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(99,102,241,0.4);
+    }
+    .preset-card.selected .preset-card-check { display: flex; }
+
+    /* Scratch card */
+    .scratch-card {
+      border-style: dashed;
+      opacity: 0.55;
+      text-align: center;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      grid-column: 1 / -1;
+    }
+    .scratch-card:hover { opacity: 0.85; }
+    .scratch-card.selected { opacity: 1; }
+    .scratch-card-label {
+      font-size: 0.8125rem;
+      color: var(--text-tertiary);
+      font-weight: 500;
+    }
+    .scratch-card-sub {
+      font-size: 0.75rem;
+      color: var(--text-placeholder);
+      margin-top: 4px;
+    }
+
+    /* ================================
+       STEP 2: CONFIGURE PARAMETERS
+       ================================ */
+    .config-section {
+      background: var(--canvas-subtle);
+      background-image: var(--gradient-card);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+    .config-section-header {
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--border-default);
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .config-section-body {
+      padding: 20px 18px;
+    }
+
+    .form-group {
+      margin-bottom: 18px;
+    }
+    .form-group:last-child { margin-bottom: 0; }
+
+    .form-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+    }
+    .form-label .required {
+      color: var(--danger-fg);
+      font-weight: 700;
+    }
+    .form-hint {
+      font-size: 0.75rem;
+      color: var(--text-tertiary);
+      margin-bottom: 8px;
+      line-height: 1.4;
+    }
+
+    .form-input,
+    .form-select,
+    .form-textarea {
+      width: 100%;
+      padding: 8px 12px;
+      background: var(--canvas-default);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      color: var(--text-primary);
+      font-size: 0.8125rem;
+      font-family: inherit;
+      outline: none;
+      transition: all var(--transition-fast);
+    }
+    .form-textarea {
+      min-height: 80px;
+      resize: vertical;
+      line-height: 1.55;
+    }
+    .form-input::placeholder,
+    .form-textarea::placeholder { color: var(--text-placeholder); }
+    .form-input:focus,
+    .form-select:focus,
+    .form-textarea:focus {
+      border-color: var(--accent-emphasis);
+      box-shadow: var(--shadow-glow-accent);
+    }
+    .form-input.error,
+    .form-select.error {
+      border-color: var(--danger-fg);
+      box-shadow: 0 0 0 2px rgba(251,113,133,0.15);
+    }
+    .form-error {
+      font-size: 0.75rem;
+      color: var(--danger-fg);
+      margin-top: 4px;
+      display: none;
+    }
+    .form-error.visible { display: block; }
+
+    .form-select {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='%2371717a'%3E%3Cpath d='M5 7L0.5 2.5h9z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 32px;
+      cursor: pointer;
+    }
+
+    /* Session picker dropdown */
+    .session-picker-list {
+      background: var(--canvas-default);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .session-picker-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      cursor: pointer;
+      transition: background var(--transition-fast);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .session-picker-item:last-child { border-bottom: none; }
+    .session-picker-item:hover { background: var(--neutral-subtle); }
+    .session-picker-item.selected {
+      background: var(--accent-subtle);
+      border-color: var(--border-accent);
+    }
+    .session-picker-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .session-picker-name {
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .session-picker-meta {
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+      display: flex;
+      gap: 8px;
+      margin-top: 2px;
+    }
+    .session-picker-check {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 1.5px solid var(--border-default);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all var(--transition-fast);
+      color: transparent;
+    }
+    .session-picker-item.selected .session-picker-check {
+      background: var(--accent-emphasis);
+      border-color: var(--accent-emphasis);
+      color: #fff;
+    }
+    /* Multi-select checkbox style */
+    .session-picker-checkbox {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      border: 1.5px solid var(--border-default);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all var(--transition-fast);
+      color: transparent;
+    }
+    .session-picker-item.checked .session-picker-checkbox {
+      background: var(--accent-emphasis);
+      border-color: var(--accent-emphasis);
+      color: #fff;
+    }
+
+    /* Toggle switch */
+    .toggle-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .toggle {
+      width: 36px;
+      height: 20px;
+      border-radius: 10px;
+      background: var(--neutral-muted);
+      position: relative;
+      cursor: pointer;
+      transition: background var(--transition-fast);
+      flex-shrink: 0;
+      border: none;
+      padding: 0;
+    }
+    .toggle::after {
+      content: '';
+      position: absolute;
+      left: 3px;
+      top: 3px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--text-tertiary);
+      transition: all var(--transition-fast);
+    }
+    .toggle.on {
+      background: var(--accent-emphasis);
+    }
+    .toggle.on::after {
+      left: 19px;
+      background: #fff;
+    }
+    .toggle-label {
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+    }
+
+    /* Number stepper */
+    .number-stepper {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      width: fit-content;
+    }
+    .number-stepper-btn {
+      width: 32px;
+      height: 34px;
+      border: none;
+      background: var(--canvas-default);
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      transition: all var(--transition-fast);
+    }
+    .number-stepper-btn:hover {
+      background: var(--neutral-subtle);
+      color: var(--text-primary);
+    }
+    .number-stepper-value {
+      width: 48px;
+      text-align: center;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      border-left: 1px solid var(--border-default);
+      border-right: 1px solid var(--border-default);
+      padding: 6px 0;
+      font-variant-numeric: tabular-nums;
+      background: var(--canvas-default);
+    }
+
+    /* Priority selector */
+    .priority-group {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .priority-option {
+      padding: 7px 16px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-default);
+      background: var(--canvas-default);
+      color: var(--text-secondary);
+      font-size: 0.8125rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .priority-option:hover {
+      border-color: var(--border-accent);
+      color: var(--text-primary);
+    }
+    .priority-option.selected {
+      border-color: var(--accent-emphasis);
+      background: var(--accent-subtle);
+      color: var(--accent-fg);
+    }
+    .priority-option.selected.priority-low {
+      border-color: var(--success-fg);
+      background: var(--success-subtle);
+      color: var(--success-fg);
+    }
+    .priority-option.selected.priority-normal {
+      border-color: var(--accent-emphasis);
+      background: var(--accent-subtle);
+      color: var(--accent-fg);
+    }
+    .priority-option.selected.priority-high {
+      border-color: var(--warning-fg);
+      background: var(--warning-subtle);
+      color: var(--warning-fg);
+    }
+    .priority-option.selected.priority-critical {
+      border-color: var(--danger-fg);
+      background: var(--danger-subtle);
+      color: var(--danger-fg);
+    }
+    .priority-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    /* ================================
+       STEP 3: CONTEXT PREVIEW
+       ================================ */
+    .context-sources-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .context-source-card {
+      background: var(--canvas-default);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      transition: all var(--transition-fast);
+    }
+    .context-source-card.disabled {
+      opacity: 0.45;
+    }
+    .context-source-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+    .csi-export { background: var(--accent-muted); }
+    .csi-analytics { background: var(--done-muted); }
+    .csi-health { background: var(--success-muted); }
+    .csi-todos { background: var(--warning-muted); }
+    .csi-recent { background: var(--neutral-muted); }
+
+    .context-source-body { flex: 1; min-width: 0; }
+    .context-source-label {
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+    .context-source-type {
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+      margin-top: 1px;
+      font-family: "JetBrains Mono", monospace;
+    }
+    .context-source-size {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .context-source-toggle {
+      flex-shrink: 0;
+    }
+    .context-source-required {
+      font-size: 0.6875rem;
+      color: var(--text-placeholder);
+      font-weight: 500;
+      flex-shrink: 0;
+    }
+
+    /* Token budget bar */
+    .token-budget-section {
+      margin-bottom: 20px;
+    }
+    .token-budget-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .token-budget-label {
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+    .token-budget-value {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+    .token-budget-value.green { color: var(--success-fg); }
+    .token-budget-value.amber { color: var(--warning-fg); }
+    .token-budget-value.red { color: var(--danger-fg); }
+
+    .token-budget-track {
+      height: 10px;
+      background: var(--neutral-muted);
+      border-radius: var(--radius-full);
+      overflow: hidden;
+      position: relative;
+      margin-bottom: 8px;
+    }
+    .token-budget-segments {
+      display: flex;
+      height: 100%;
+      transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .token-budget-segment {
+      height: 100%;
+      transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .token-budget-segment:first-child { border-radius: var(--radius-full) 0 0 var(--radius-full); }
+    .token-budget-segment:last-child { border-radius: 0 var(--radius-full) var(--radius-full) 0; }
+
+    .tbs-export { background: var(--accent-fg); }
+    .tbs-analytics { background: var(--done-fg); }
+    .tbs-health { background: var(--success-fg); }
+    .tbs-todos { background: var(--warning-fg); }
+    .tbs-recent { background: var(--neutral-fg); }
+
+    .token-budget-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .token-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+    }
+    .token-legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+
+    /* Advanced section */
+    .advanced-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      padding: 10px 0;
+      transition: color var(--transition-fast);
+      border: none;
+      background: none;
+    }
+    .advanced-toggle:hover { color: var(--text-primary); }
+    .advanced-toggle .chevron {
+      transition: transform var(--transition-normal);
+      display: flex;
+    }
+    .advanced-toggle.expanded .chevron { transform: rotate(90deg); }
+    .advanced-body {
+      display: none;
+      padding-top: 4px;
+    }
+    .advanced-body.visible { display: block; }
+
+    /* ================================
+       STEP 4: REVIEW & LAUNCH
+       ================================ */
+    .review-card {
+      background: var(--canvas-subtle);
+      background-image: var(--gradient-card);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+    .review-card-header {
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--border-default);
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .review-card-body {
+      padding: 18px;
+    }
+
+    .review-preset-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 12px;
+    }
+    .review-preset-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+    .review-preset-name {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+    }
+    .review-preset-desc {
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+      margin-top: 2px;
+      line-height: 1.5;
+    }
+
+    .review-kv-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+    .review-kv-table tr {
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .review-kv-table tr:last-child { border-bottom: none; }
+    .review-kv-table td {
+      padding: 8px 0;
+      font-size: 0.8125rem;
+      vertical-align: top;
+    }
+    .review-kv-table td:first-child {
+      color: var(--text-tertiary);
+      font-weight: 500;
+      width: 140px;
+      padding-right: 16px;
+      white-space: nowrap;
+    }
+    .review-kv-table td:last-child {
+      color: var(--text-primary);
+    }
+
+    .review-context-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .review-context-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.8125rem;
+    }
+    .review-context-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+    .review-context-name {
+      flex: 1;
+      color: var(--text-primary);
+    }
+    .review-context-size {
+      color: var(--text-tertiary);
+      font-variant-numeric: tabular-nums;
+      font-size: 0.75rem;
+    }
+
+    .cost-indicator {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      border-radius: var(--radius-md);
+      background: var(--success-subtle);
+      border: 1px solid rgba(52,211,153,0.15);
+      margin-bottom: 16px;
+    }
+    .cost-indicator-icon {
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+    .cost-indicator-text {
+      font-size: 0.8125rem;
+      color: var(--success-fg);
+      font-weight: 500;
+    }
+
+    .launch-options {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .launch-option {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-default);
+      background: var(--canvas-default);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .launch-option:hover {
+      border-color: var(--border-accent);
+    }
+    .launch-option.selected {
+      border-color: var(--accent-emphasis);
+      background: var(--accent-subtle);
+    }
+    .launch-option-radio {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      border: 2px solid var(--border-default);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all var(--transition-fast);
+    }
+    .launch-option.selected .launch-option-radio {
+      border-color: var(--accent-emphasis);
+    }
+    .launch-option.selected .launch-option-radio::after {
+      content: '';
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-emphasis);
+    }
+    .launch-option-body { flex: 1; }
+    .launch-option-label {
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+    .launch-option-desc {
+      font-size: 0.75rem;
+      color: var(--text-tertiary);
+      margin-top: 1px;
+    }
+
+    .schedule-option {
+      opacity: 0.4;
+      cursor: not-allowed;
+      position: relative;
+    }
+    .schedule-option:hover { border-color: var(--border-default); }
+    .coming-soon-badge {
+      padding: 2px 8px;
+      border-radius: var(--radius-sm);
+      font-size: 0.6875rem;
+      font-weight: 600;
+      background: var(--neutral-muted);
+      color: var(--text-placeholder);
+      flex-shrink: 0;
+    }
+
+    /* ================================
+       WIZARD NAVIGATION
+       ================================ */
+    .wizard-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 20px;
+      border-top: 1px solid var(--border-default);
+      margin-top: 8px;
+    }
+    .wizard-nav-left { display: flex; gap: 8px; }
+    .wizard-nav-right { display: flex; gap: 8px; }
+
+    .wiz-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 18px;
+      border-radius: var(--radius-md);
+      font-size: 0.8125rem;
+      font-weight: 500;
+      border: 1px solid var(--border-default);
+      background: var(--canvas-subtle);
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      font-family: inherit;
+    }
+    .wiz-btn:hover {
+      background: var(--neutral-subtle);
+      border-color: var(--border-muted);
+    }
+    .wiz-btn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+    .wiz-btn-primary {
+      background: var(--gradient-accent);
+      color: #fff;
+      border-color: transparent;
+      box-shadow: 0 1px 4px rgba(99,102,241,0.3);
+    }
+    .wiz-btn-primary:hover {
+      box-shadow: 0 2px 10px rgba(99,102,241,0.45);
+      opacity: 0.95;
+    }
+    .wiz-btn-primary:disabled {
+      opacity: 0.35;
+      box-shadow: none;
+    }
+    .wiz-btn-secondary {
+      border-color: var(--accent-emphasis);
+      color: var(--accent-fg);
+      background: transparent;
+    }
+    .wiz-btn-secondary:hover {
+      background: var(--accent-subtle);
+    }
+    .wiz-btn-ghost {
+      background: transparent;
+      border-color: transparent;
+      color: var(--text-secondary);
+    }
+    .wiz-btn-ghost:hover {
+      background: var(--neutral-subtle);
+      color: var(--text-primary);
+    }
+
+    /* ================================
+       TOAST NOTIFICATION
+       ================================ */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      padding: 12px 20px;
+      border-radius: var(--radius-md);
+      background: var(--canvas-overlay);
+      border: 1px solid var(--border-accent);
+      box-shadow: var(--shadow-lg), 0 0 20px rgba(99,102,241,0.15);
+      color: var(--text-primary);
+      font-size: 0.8125rem;
+      font-weight: 500;
+      z-index: 100;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: all 0.3s ease;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .toast.visible {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+
+    /* ================================
+       RESPONSIVE
+       ================================ */
+    @media (max-width: 900px) {
+      .stepper-label { display: none; }
+      .stepper-connector { margin: 0 8px; min-width: 12px; }
+    }
+    @media (max-width: 768px) {
+      .wizard-container { padding: 0 4px; }
+      .preset-grid { grid-template-columns: 1fr; }
+      .wizard-nav { flex-direction: column; gap: 10px; }
+      .wizard-nav-left, .wizard-nav-right { width: 100%; justify-content: center; }
+    }
+
+    /* ================================
+       ANIMATIONS
+       ================================ */
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-in {
+      animation: fadeInUp 0.35s ease forwards;
+    }
+    .stagger-1 { animation-delay: 0.05s; }
+    .stagger-2 { animation-delay: 0.1s; }
+    .stagger-3 { animation-delay: 0.15s; }
+    .stagger-4 { animation-delay: 0.2s; }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Sidebar generated by shared.js -->
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <!-- Main content -->
+    <main class="main-content">
+      <!-- Breadcrumb bar -->
+      <div class="page-header-bar">
+        <div class="breadcrumb">
+          <a href="../task-dashboard.html">Tasks</a>
+          <span class="breadcrumb-sep">&rsaquo;</span>
+          <span class="breadcrumb-current">Create Task</span>
+        </div>
+        <div style="flex: 1;"></div>
+        <button class="btn btn-ghost btn-sm" onclick="toggleTheme()">
+          <span class="theme-icon">🌙</span>
+        </button>
+      </div>
+
+      <div class="page-content">
+        <div class="wizard-container">
+
+          <!-- Page Header -->
+          <div class="wizard-page-header animate-in">
+            <div class="wizard-page-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            </div>
+            <div>
+              <div class="wizard-page-title">Create Task</div>
+              <div class="wizard-page-subtitle">Configure and launch an AI agent task</div>
+            </div>
+          </div>
+
+          <!-- Step Progress Indicator -->
+          <div class="stepper animate-in stagger-1" id="stepper">
+            <div class="stepper-step active" data-step="0" onclick="goToStep(0)">
+              <div class="stepper-number">1</div>
+              <span class="stepper-label">Select Preset</span>
+            </div>
+            <div class="stepper-connector" id="conn-0"><div class="stepper-connector-fill"></div></div>
+            <div class="stepper-step future" data-step="1" onclick="goToStep(1)">
+              <div class="stepper-number">2</div>
+              <span class="stepper-label">Configure</span>
+            </div>
+            <div class="stepper-connector" id="conn-1"><div class="stepper-connector-fill"></div></div>
+            <div class="stepper-step future" data-step="2" onclick="goToStep(2)">
+              <div class="stepper-number">3</div>
+              <span class="stepper-label">Context</span>
+            </div>
+            <div class="stepper-connector" id="conn-2"><div class="stepper-connector-fill"></div></div>
+            <div class="stepper-step future" data-step="3" onclick="goToStep(3)">
+              <div class="stepper-number">4</div>
+              <span class="stepper-label">Review & Launch</span>
+            </div>
+          </div>
+
+          <!-- Wizard Viewport -->
+          <div class="wizard-viewport animate-in stagger-2">
+            <div class="wizard-track" id="wizardTrack">
+
+              <!-- ========== STEP 1: SELECT PRESET ========== -->
+              <div class="wizard-step active" id="step-0">
+                <div class="preset-search-bar">
+                  <div class="preset-search">
+                    <span class="preset-search-icon">
+                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="4.5"/><line x1="10.5" y1="10.5" x2="14" y2="14"/></svg>
+                    </span>
+                    <input type="text" placeholder="Search presets..." id="presetSearch" oninput="filterPresets()">
+                  </div>
+                  <div class="category-pills" id="categoryPills">
+                    <button class="category-pill active" data-cat="all" onclick="filterByCategory('all', this)">All</button>
+                    <button class="category-pill" data-cat="analysis" onclick="filterByCategory('analysis', this)">Analysis</button>
+                    <button class="category-pill" data-cat="review" onclick="filterByCategory('review', this)">Review</button>
+                    <button class="category-pill" data-cat="reporting" onclick="filterByCategory('reporting', this)">Reporting</button>
+                  </div>
+                </div>
+
+                <div class="preset-grid" id="presetGrid"></div>
+
+                <!-- Wizard nav -->
+                <div class="wizard-nav">
+                  <div class="wizard-nav-left">
+                    <a href="../task-dashboard.html" class="wiz-btn wiz-btn-ghost">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+                      Cancel
+                    </a>
+                  </div>
+                  <div class="wizard-nav-right">
+                    <button class="wiz-btn wiz-btn-primary" id="nextBtn0" disabled onclick="nextStep()">
+                      Next
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ========== STEP 2: CONFIGURE PARAMETERS ========== -->
+              <div class="wizard-step" id="step-1">
+                <div id="configFormContainer"></div>
+
+                <div class="wizard-nav">
+                  <div class="wizard-nav-left">
+                    <button class="wiz-btn wiz-btn-ghost" onclick="prevStep()">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+                      Back
+                    </button>
+                  </div>
+                  <div class="wizard-nav-right">
+                    <button class="wiz-btn wiz-btn-primary" id="nextBtn1" onclick="nextStep()">
+                      Next
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ========== STEP 3: CONTEXT PREVIEW ========== -->
+              <div class="wizard-step" id="step-2">
+                <div id="contextPreviewContainer"></div>
+
+                <div class="wizard-nav">
+                  <div class="wizard-nav-left">
+                    <button class="wiz-btn wiz-btn-ghost" onclick="prevStep()">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+                      Back
+                    </button>
+                  </div>
+                  <div class="wizard-nav-right">
+                    <button class="wiz-btn wiz-btn-primary" onclick="nextStep()">
+                      Next
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ========== STEP 4: REVIEW & LAUNCH ========== -->
+              <div class="wizard-step" id="step-3">
+                <div id="reviewContainer"></div>
+
+                <div class="wizard-nav">
+                  <div class="wizard-nav-left">
+                    <button class="wiz-btn wiz-btn-ghost" onclick="prevStep()">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+                      Back
+                    </button>
+                  </div>
+                  <div class="wizard-nav-right">
+                    <button class="wiz-btn wiz-btn-secondary" onclick="createAndView()">
+                      Create &amp; View
+                    </button>
+                    <button class="wiz-btn wiz-btn-primary" onclick="createTask()">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                      Create Task
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+            </div><!-- /wizard-track -->
+          </div><!-- /wizard-viewport -->
+
+        </div><!-- /wizard-container -->
+      </div><!-- /page-content -->
+    </main>
+  </div><!-- /app-layout -->
+
+  <!-- Toast notification -->
+  <div class="toast" id="toast">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--success-fg)" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+    <span id="toastText"></span>
+  </div>
+
+  <!-- Shared JS -->
+  <script src="../../shared/shared.js"></script>
+  <script>
+    // =====================================================
+    // MOCK DATA
+    // =====================================================
+    const PRESETS = [
+      {
+        id: "session-summary",
+        name: "Session Summary",
+        icon: "📊",
+        iconClass: "pi-summary",
+        description: "Generate a comprehensive AI-powered summary of a Copilot CLI session, including key decisions, code changes, and recommendations.",
+        builtin: true,
+        tags: ["analysis", "summary"],
+        prompt: {
+          variables: [
+            { name: "sessionId", type: "session_ref", required: true, description: "Session to summarize", default: null },
+            { name: "focusAreas", type: "string", required: false, description: "Areas to focus on (comma-separated)", default: null },
+            { name: "maxLength", type: "number", required: false, description: "Max summary length in words", default: "500" }
+          ]
+        },
+        context: {
+          sources: [
+            { id: "export", type: "session_export", label: "Full Session Export", required: true, config: {} },
+            { id: "analytics", type: "session_analytics", label: "Session Analytics", required: false, config: {} }
+          ],
+          maxChars: 50000,
+          format: "markdown"
+        },
+        output: { schema: {}, format: "markdown", validation: "warn" },
+        execution: { modelOverride: null, timeoutSeconds: 300, maxRetries: 3, priority: "normal" }
+      },
+      {
+        id: "health-report",
+        name: "Health Report",
+        icon: "💚",
+        iconClass: "pi-health",
+        description: "Analyze session health metrics and generate a detailed report with scoring and recommendations.",
+        builtin: true,
+        tags: ["analysis", "health"],
+        prompt: {
+          variables: [
+            { name: "sessionId", type: "session_ref", required: true, description: "Session to analyze", default: null },
+            { name: "includeComparison", type: "boolean", required: false, description: "Compare against recent sessions", default: "false" }
+          ]
+        },
+        context: {
+          sources: [
+            { id: "health", type: "session_health", label: "Health Metrics", required: true, config: {} },
+            { id: "recent", type: "recent_sessions", label: "Recent Sessions (for comparison)", required: false, config: {} }
+          ],
+          maxChars: 40000,
+          format: "markdown"
+        },
+        output: { schema: {}, format: "json", validation: "strict" },
+        execution: { modelOverride: null, timeoutSeconds: 240, maxRetries: 2, priority: "normal" }
+      },
+      {
+        id: "code-review",
+        name: "Code Review",
+        icon: "🔍",
+        iconClass: "pi-review",
+        description: "Perform an automated code review of changes made during a session, highlighting potential issues and improvements.",
+        builtin: false,
+        tags: ["review", "code"],
+        prompt: {
+          variables: [
+            { name: "sessionId", type: "session_ref", required: true, description: "Session to review", default: null },
+            { name: "severity", type: "string", required: false, description: "Minimum severity to report", default: "medium" }
+          ]
+        },
+        context: {
+          sources: [
+            { id: "export", type: "session_export", label: "Session Export", required: true, config: {} },
+            { id: "todos", type: "session_todos", label: "Session TODOs", required: false, config: {} }
+          ],
+          maxChars: 60000,
+          format: "markdown"
+        },
+        output: { schema: {}, format: "json", validation: "strict" },
+        execution: { modelOverride: "claude-sonnet-4.6", timeoutSeconds: 600, maxRetries: 3, priority: "high" }
+      },
+      {
+        id: "sprint-report",
+        name: "Sprint Report",
+        icon: "📋",
+        iconClass: "pi-report",
+        description: "Aggregate multiple sessions from a sprint into a comprehensive report with metrics, achievements, and blockers.",
+        builtin: false,
+        tags: ["reporting", "batch"],
+        prompt: {
+          variables: [
+            { name: "sessions", type: "session_list", required: true, description: "Sessions to include in report", default: null },
+            { name: "sprintName", type: "string", required: true, description: "Sprint name/identifier", default: null }
+          ]
+        },
+        context: {
+          sources: [
+            { id: "export", type: "session_export", label: "Session Exports", required: true, config: {} },
+            { id: "analytics", type: "session_analytics", label: "Analytics Data", required: true, config: {} }
+          ],
+          maxChars: 100000,
+          format: "json"
+        },
+        output: { schema: {}, format: "markdown", validation: "warn" },
+        execution: { modelOverride: null, timeoutSeconds: 900, maxRetries: 2, priority: "normal" }
+      }
+    ];
+
+    const MOCK_SESSIONS = [
+      { id: "s-001", name: "Auth refactor", branch: "feat/auth-refactor", duration: "2h 15m", turnCount: 12, age: "2h ago" },
+      { id: "s-002", name: "Payment module", branch: "feat/payments", duration: "3h 40m", turnCount: 18, age: "yesterday" },
+      { id: "s-003", name: "Onboarding flow", branch: "feat/onboarding", duration: "1h 50m", turnCount: 8, age: "3d ago" },
+      { id: "s-004", name: "API rate limiting", branch: "fix/rate-limits", duration: "45m", turnCount: 5, age: "4d ago" },
+      { id: "s-005", name: "Dashboard widgets", branch: "feat/dashboard", duration: "4h 10m", turnCount: 22, age: "5d ago" },
+      { id: "s-006", name: "WebSocket notifications", branch: "feat/ws-notify", duration: "2h 30m", turnCount: 15, age: "1w ago" },
+    ];
+
+    const MOCK_JOBS = [
+      { id: "job-001", name: "Nightly Analysis Batch" },
+      { id: "job-002", name: "Sprint 24 Report" },
+      { id: "job-003", name: "Code Quality Sweep" },
+    ];
+
+    const SOURCE_ICONS = {
+      session_export: "📦",
+      session_analytics: "📈",
+      session_health: "💚",
+      session_todos: "✅",
+      recent_sessions: "🕐"
+    };
+    const SOURCE_ICON_CLASS = {
+      session_export: "csi-export",
+      session_analytics: "csi-analytics",
+      session_health: "csi-health",
+      session_todos: "csi-todos",
+      recent_sessions: "csi-recent"
+    };
+    const SOURCE_BAR_CLASS = {
+      session_export: "tbs-export",
+      session_analytics: "tbs-analytics",
+      session_health: "tbs-health",
+      session_todos: "tbs-todos",
+      recent_sessions: "tbs-recent"
+    };
+    const SOURCE_SIZE_ESTIMATES = {
+      session_export: 28000,
+      session_analytics: 8000,
+      session_health: 5000,
+      session_todos: 3000,
+      recent_sessions: 12000
+    };
+
+    // =====================================================
+    // STATE
+    // =====================================================
+    let currentStep = 0;
+    let highestStep = 0;
+    let selectedPresetId = null;
+    let selectedCategory = 'all';
+    let formValues = {};
+    let selectedPriority = 'normal';
+    let maxRetries = 3;
+    let contextToggles = {};
+    let contextFormat = 'markdown';
+    let budgetOverride = null;
+    let launchMode = 'standalone';
+    let selectedJobId = null;
+
+    // =====================================================
+    // INIT
+    // =====================================================
+    document.addEventListener('DOMContentLoaded', function() {
+      // Render sidebar
+      if (typeof generateSidebar === 'function') {
+        document.getElementById('sidebar').innerHTML = generateSidebar('tasks');
+      }
+      renderPresets();
+    });
+
+    // =====================================================
+    // STEP NAVIGATION
+    // =====================================================
+    function goToStep(step) {
+      if (step > highestStep + 1) return;
+      if (step === currentStep) return;
+      if (step > currentStep && !validateStep(currentStep)) return;
+
+      currentStep = step;
+      if (step > highestStep) highestStep = step;
+
+      // Update stepper UI
+      var steps = document.querySelectorAll('.stepper-step');
+      steps.forEach(function(el, i) {
+        el.classList.remove('active', 'completed', 'future');
+        if (i < currentStep) {
+          el.classList.add('completed');
+          el.querySelector('.stepper-number').innerHTML = '<svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3,7 6,10 11,4"/></svg>';
+        } else if (i === currentStep) {
+          el.classList.add('active');
+          el.querySelector('.stepper-number').textContent = i + 1;
+        } else if (i <= highestStep) {
+          el.querySelector('.stepper-number').textContent = i + 1;
+        } else {
+          el.classList.add('future');
+          el.querySelector('.stepper-number').textContent = i + 1;
+        }
+      });
+
+      // Connectors
+      for (var c = 0; c < 3; c++) {
+        var conn = document.getElementById('conn-' + c);
+        if (c < currentStep) {
+          conn.classList.add('done');
+        } else {
+          conn.classList.remove('done');
+        }
+      }
+
+      // Slide track
+      document.getElementById('wizardTrack').style.transform = 'translateX(-' + (currentStep * 100) + '%)';
+
+      // Activate panel
+      document.querySelectorAll('.wizard-step').forEach(function(panel, i) {
+        panel.classList.toggle('active', i === currentStep);
+      });
+
+      // Render step content
+      if (currentStep === 1) renderConfigForm();
+      if (currentStep === 2) renderContextPreview();
+      if (currentStep === 3) renderReview();
+    }
+
+    function nextStep() {
+      if (currentStep < 3) goToStep(currentStep + 1);
+    }
+    function prevStep() {
+      if (currentStep > 0) goToStep(currentStep - 1);
+    }
+
+    function validateStep(step) {
+      if (step === 0) {
+        if (!selectedPresetId) {
+          showToast('Please select a preset to continue');
+          return false;
+        }
+        return true;
+      }
+      if (step === 1) {
+        var preset = getPreset(selectedPresetId);
+        if (!preset) return false;
+        var valid = true;
+        preset.prompt.variables.forEach(function(v) {
+          if (v.required) {
+            var val = formValues[v.name];
+            if (!val || (Array.isArray(val) && val.length === 0)) {
+              valid = false;
+              var input = document.getElementById('field-' + v.name);
+              if (input) {
+                input.classList.add('error');
+                var err = document.getElementById('error-' + v.name);
+                if (err) err.classList.add('visible');
+              }
+            }
+          }
+        });
+        if (!valid) {
+          showToast('Please fill in all required fields');
+        }
+        return valid;
+      }
+      return true;
+    }
+
+    function getPreset(id) {
+      return PRESETS.find(function(p) { return p.id === id; });
+    }
+
+    // =====================================================
+    // STEP 1: PRESET SELECTION
+    // =====================================================
+    function renderPresets() {
+      var grid = document.getElementById('presetGrid');
+      var search = (document.getElementById('presetSearch').value || '').toLowerCase();
+      var filtered = PRESETS.filter(function(p) {
+        var matchSearch = !search || p.name.toLowerCase().includes(search) || p.description.toLowerCase().includes(search) || p.tags.some(function(t) { return t.includes(search); });
+        var matchCat = selectedCategory === 'all' || p.tags.some(function(t) { return t === selectedCategory; });
+        return matchSearch && matchCat;
+      });
+
+      var html = '';
+      filtered.forEach(function(p) {
+        var isSelected = selectedPresetId === p.id;
+        html += '<div class="preset-card' + (isSelected ? ' selected' : '') + '" data-id="' + p.id + '" onclick="selectPreset(\'' + p.id + '\')">';
+        html += '  <div class="preset-card-check"><svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3,7 6,10 11,4"/></svg></div>';
+        html += '  <div class="preset-card-header">';
+        html += '    <div class="preset-card-icon ' + p.iconClass + '">' + p.icon + '</div>';
+        html += '    <div class="preset-card-title-row">';
+        html += '      <div class="preset-card-name">' + p.name + '</div>';
+        html += '      <div class="preset-card-meta">';
+        if (p.builtin) html += '<span class="builtin-badge">Built-in</span>';
+        html += '      </div>';
+        html += '    </div>';
+        html += '  </div>';
+        html += '  <div class="preset-card-desc">' + p.description + '</div>';
+        html += '  <div class="preset-card-footer">';
+        p.tags.forEach(function(t) {
+          html += '<span class="preset-tag">' + t + '</span>';
+        });
+        html += '  </div>';
+        html += '</div>';
+      });
+
+      // Scratch card
+      var isScratch = selectedPresetId === 'scratch';
+      html += '<div class="preset-card scratch-card' + (isScratch ? ' selected' : '') + '" onclick="selectPreset(\'scratch\')">';
+      html += '  <div class="preset-card-check"><svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3,7 6,10 11,4"/></svg></div>';
+      html += '  <div class="scratch-card-label">⚡ Start from scratch</div>';
+      html += '  <div class="scratch-card-sub">Create a custom task with your own prompt and context configuration</div>';
+      html += '</div>';
+
+      grid.innerHTML = html;
+
+      // Stagger animation
+      grid.querySelectorAll('.preset-card').forEach(function(card, i) {
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(6px)';
+        card.style.transition = 'none';
+        setTimeout(function() {
+          card.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
+          card.style.opacity = '1';
+          card.style.transform = 'translateY(0)';
+        }, 30 + 50 * i);
+      });
+    }
+
+    function selectPreset(id) {
+      selectedPresetId = id;
+      formValues = {};
+
+      // Set defaults
+      if (id !== 'scratch') {
+        var preset = getPreset(id);
+        if (preset) {
+          selectedPriority = preset.execution.priority;
+          maxRetries = preset.execution.maxRetries;
+          preset.prompt.variables.forEach(function(v) {
+            if (v.default != null) {
+              formValues[v.name] = v.default;
+            }
+          });
+          preset.context.sources.forEach(function(s) {
+            contextToggles[s.id] = true;
+          });
+          contextFormat = preset.context.format || 'markdown';
+          budgetOverride = null;
+        }
+      }
+
+      // Re-render grid
+      renderPresets();
+
+      // Enable next button
+      document.getElementById('nextBtn0').disabled = false;
+    }
+
+    function filterPresets() {
+      renderPresets();
+    }
+
+    function filterByCategory(cat, el) {
+      selectedCategory = cat;
+      document.querySelectorAll('.category-pill').forEach(function(p) { p.classList.remove('active'); });
+      el.classList.add('active');
+      renderPresets();
+    }
+
+    // =====================================================
+    // STEP 2: CONFIGURE FORM
+    // =====================================================
+    function renderConfigForm() {
+      var preset = getPreset(selectedPresetId);
+      if (!preset) return;
+
+      var html = '';
+
+      // Parameters section
+      html += '<div class="config-section">';
+      html += '  <div class="config-section-header">';
+      html += '    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
+      html += '    Parameters';
+      html += '  </div>';
+      html += '  <div class="config-section-body">';
+
+      preset.prompt.variables.forEach(function(v) {
+        html += '<div class="form-group">';
+        html += '  <label class="form-label">' + formatVarName(v.name);
+        if (v.required) html += ' <span class="required">*</span>';
+        html += '  </label>';
+        html += '  <div class="form-hint">' + v.description + '</div>';
+
+        if (v.type === 'session_ref') {
+          html += renderSessionPicker(v.name, false);
+        } else if (v.type === 'session_list') {
+          html += renderSessionPicker(v.name, true);
+        } else if (v.type === 'boolean') {
+          var isOn = formValues[v.name] === 'true' || formValues[v.name] === true;
+          html += '<div class="toggle-wrap">';
+          html += '  <button class="toggle' + (isOn ? ' on' : '') + '" id="field-' + v.name + '" onclick="toggleBool(\'' + v.name + '\', this)"></button>';
+          html += '  <span class="toggle-label">' + (isOn ? 'Yes' : 'No') + '</span>';
+          html += '</div>';
+        } else if (v.type === 'number') {
+          var val = formValues[v.name] || v.default || '';
+          html += '<input type="number" class="form-input" id="field-' + v.name + '" value="' + val + '" placeholder="' + (v.default || '') + '" oninput="updateFormValue(\'' + v.name + '\', this.value)" style="max-width: 200px;">';
+        } else {
+          var val = formValues[v.name] || '';
+          html += '<input type="text" class="form-input" id="field-' + v.name + '" value="' + val + '" placeholder="' + (v.default || 'Enter ' + formatVarName(v.name).toLowerCase() + '...') + '" oninput="updateFormValue(\'' + v.name + '\', this.value); clearError(\'' + v.name + '\')">';
+        }
+
+        html += '  <div class="form-error" id="error-' + v.name + '">This field is required</div>';
+        html += '</div>';
+      });
+
+      html += '  </div>';
+      html += '</div>';
+
+      // Execution settings section
+      html += '<div class="config-section">';
+      html += '  <div class="config-section-header">';
+      html += '    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
+      html += '    Execution Settings';
+      html += '  </div>';
+      html += '  <div class="config-section-body">';
+
+      // Priority
+      html += '<div class="form-group">';
+      html += '  <label class="form-label">Priority</label>';
+      html += '  <div class="priority-group">';
+      ['low', 'normal', 'high', 'critical'].forEach(function(p) {
+        var sel = selectedPriority === p ? ' selected' : '';
+        html += '<div class="priority-option priority-' + p + sel + '" onclick="setPriority(\'' + p + '\')">';
+        html += '  <span class="priority-dot"></span>';
+        html += '  ' + p.charAt(0).toUpperCase() + p.slice(1);
+        html += '</div>';
+      });
+      html += '  </div>';
+      html += '</div>';
+
+      // Max retries
+      html += '<div class="form-group">';
+      html += '  <label class="form-label">Max Retries</label>';
+      html += '  <div class="form-hint">Number of times to retry on failure</div>';
+      html += '  <div class="number-stepper">';
+      html += '    <button class="number-stepper-btn" onclick="adjustRetries(-1)">−</button>';
+      html += '    <div class="number-stepper-value" id="retriesValue">' + maxRetries + '</div>';
+      html += '    <button class="number-stepper-btn" onclick="adjustRetries(1)">+</button>';
+      html += '  </div>';
+      html += '</div>';
+
+      // Model override (if set)
+      if (preset.execution.modelOverride) {
+        html += '<div class="form-group">';
+        html += '  <label class="form-label">Model Override</label>';
+        html += '  <div class="form-hint">This preset uses a specific model</div>';
+        html += '  <div style="display:flex; align-items:center; gap:8px;">';
+        html += '    <span class="badge badge-accent" style="font-family: \'JetBrains Mono\', monospace;">' + preset.execution.modelOverride + '</span>';
+        html += '  </div>';
+        html += '</div>';
+      }
+
+      // Timeout
+      html += '<div class="form-group">';
+      html += '  <label class="form-label">Timeout</label>';
+      html += '  <div style="font-size: 0.8125rem; color: var(--text-secondary); font-variant-numeric: tabular-nums;">' + formatTimeout(preset.execution.timeoutSeconds) + '</div>';
+      html += '</div>';
+
+      html += '  </div>';
+      html += '</div>';
+
+      document.getElementById('configFormContainer').innerHTML = html;
+
+      // Animate sections in
+      setTimeout(function() {
+        document.querySelectorAll('#configFormContainer .config-section').forEach(function(el, i) {
+          el.style.opacity = '0';
+          el.style.transform = 'translateY(6px)';
+          el.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+          setTimeout(function() {
+            el.style.opacity = '1';
+            el.style.transform = 'translateY(0)';
+          }, 80 * i);
+        });
+      }, 50);
+    }
+
+    function renderSessionPicker(varName, multi) {
+      var selected = formValues[varName];
+      var html = '<div class="session-picker-list">';
+      MOCK_SESSIONS.forEach(function(s) {
+        var isSelected = multi
+          ? (Array.isArray(selected) && selected.includes(s.id))
+          : (selected === s.id);
+        html += '<div class="session-picker-item' + (isSelected ? (multi ? ' checked' : ' selected') : '') + '" onclick="' + (multi ? 'toggleSessionMulti' : 'selectSession') + '(\'' + varName + '\', \'' + s.id + '\')">';
+        if (multi) {
+          html += '<div class="session-picker-checkbox">' + (isSelected ? '<svg width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3,7 6,10 11,4"/></svg>' : '') + '</div>';
+        } else {
+          html += '<div class="session-picker-check">' + (isSelected ? '<svg width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3,7 6,10 11,4"/></svg>' : '') + '</div>';
+        }
+        html += '<div class="session-picker-info">';
+        html += '  <div class="session-picker-name">' + s.name + '</div>';
+        html += '  <div class="session-picker-meta">';
+        html += '    <span>' + s.branch + '</span>';
+        html += '    <span>·</span>';
+        html += '    <span>' + s.duration + '</span>';
+        html += '    <span>·</span>';
+        html += '    <span>' + s.turnCount + ' turns</span>';
+        html += '    <span>·</span>';
+        html += '    <span>' + s.age + '</span>';
+        html += '  </div>';
+        html += '</div>';
+        html += '</div>';
+      });
+      html += '</div>';
+      return html;
+    }
+
+    function selectSession(varName, sessionId) {
+      formValues[varName] = sessionId;
+      clearError(varName);
+      renderConfigForm();
+    }
+
+    function toggleSessionMulti(varName, sessionId) {
+      if (!Array.isArray(formValues[varName])) formValues[varName] = [];
+      var idx = formValues[varName].indexOf(sessionId);
+      if (idx >= 0) {
+        formValues[varName].splice(idx, 1);
+      } else {
+        formValues[varName].push(sessionId);
+      }
+      clearError(varName);
+      renderConfigForm();
+    }
+
+    function toggleBool(varName, el) {
+      var isOn = el.classList.contains('on');
+      formValues[varName] = !isOn ? 'true' : 'false';
+      el.classList.toggle('on');
+      var label = el.nextElementSibling;
+      if (label) label.textContent = !isOn ? 'Yes' : 'No';
+    }
+
+    function updateFormValue(varName, value) {
+      formValues[varName] = value;
+    }
+
+    function clearError(varName) {
+      var input = document.getElementById('field-' + varName);
+      if (input) input.classList.remove('error');
+      var err = document.getElementById('error-' + varName);
+      if (err) err.classList.remove('visible');
+    }
+
+    function setPriority(p) {
+      selectedPriority = p;
+      document.querySelectorAll('.priority-option').forEach(function(el) { el.classList.remove('selected'); });
+      var el = document.querySelector('.priority-option.priority-' + p);
+      if (el) el.classList.add('selected');
+    }
+
+    function adjustRetries(delta) {
+      maxRetries = Math.max(0, Math.min(10, maxRetries + delta));
+      var el = document.getElementById('retriesValue');
+      if (el) el.textContent = maxRetries;
+    }
+
+    function formatVarName(name) {
+      return name.replace(/([A-Z])/g, ' $1').replace(/^./, function(c) { return c.toUpperCase(); });
+    }
+
+    function formatTimeout(s) {
+      if (s >= 60) {
+        var m = Math.floor(s / 60);
+        var rem = s % 60;
+        return rem > 0 ? m + 'm ' + rem + 's' : m + ' minutes';
+      }
+      return s + ' seconds';
+    }
+
+    // =====================================================
+    // STEP 3: CONTEXT PREVIEW
+    // =====================================================
+    function renderContextPreview() {
+      var preset = getPreset(selectedPresetId);
+      if (!preset) return;
+
+      var html = '';
+      var maxBudget = budgetOverride || preset.context.maxChars;
+
+      // Context sources
+      html += '<div class="config-section">';
+      html += '  <div class="config-section-header">';
+      html += '    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>';
+      html += '    Context Sources';
+      html += '  </div>';
+      html += '  <div class="config-section-body">';
+
+      html += '<div class="context-sources-grid">';
+      preset.context.sources.forEach(function(src) {
+        var enabled = contextToggles[src.id] !== false;
+        var size = SOURCE_SIZE_ESTIMATES[src.type] || 5000;
+        html += '<div class="context-source-card' + (!enabled ? ' disabled' : '') + '">';
+        html += '  <div class="context-source-icon ' + (SOURCE_ICON_CLASS[src.type] || 'csi-export') + '">' + (SOURCE_ICONS[src.type] || '📦') + '</div>';
+        html += '  <div class="context-source-body">';
+        html += '    <div class="context-source-label">' + (src.label || src.type) + '</div>';
+        html += '    <div class="context-source-type">' + src.type + '</div>';
+        html += '  </div>';
+        html += '  <div class="context-source-size">~' + formatNumber(size) + ' chars</div>';
+        if (src.required) {
+          html += '<span class="context-source-required">Required</span>';
+        } else {
+          html += '<div class="context-source-toggle">';
+          html += '  <button class="toggle' + (enabled ? ' on' : '') + '" onclick="toggleContext(\'' + src.id + '\')"></button>';
+          html += '</div>';
+        }
+        html += '</div>';
+      });
+      html += '</div>';
+
+      html += '  </div>';
+      html += '</div>';
+
+      // Token budget visualization
+      var totalUsed = 0;
+      var segments = [];
+      preset.context.sources.forEach(function(src) {
+        var enabled = contextToggles[src.id] !== false;
+        if (enabled) {
+          var size = SOURCE_SIZE_ESTIMATES[src.type] || 5000;
+          totalUsed += size;
+          segments.push({ type: src.type, label: src.label || src.type, size: size });
+        }
+      });
+
+      var pct = Math.round((totalUsed / maxBudget) * 100);
+      var budgetColor = pct < 70 ? 'green' : (pct < 90 ? 'amber' : 'red');
+
+      html += '<div class="config-section">';
+      html += '  <div class="config-section-header">';
+      html += '    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="5" width="22" height="14" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>';
+      html += '    Token Budget';
+      html += '  </div>';
+      html += '  <div class="config-section-body">';
+
+      html += '<div class="token-budget-section">';
+      html += '  <div class="token-budget-header">';
+      html += '    <span class="token-budget-label">Estimated Usage</span>';
+      html += '    <span class="token-budget-value ' + budgetColor + '">~' + formatNumber(totalUsed) + ' / ' + formatNumber(maxBudget) + ' chars</span>';
+      html += '  </div>';
+
+      html += '  <div class="token-budget-track">';
+      html += '    <div class="token-budget-segments" id="budgetSegments">';
+      segments.forEach(function(seg) {
+        var w = Math.max(1, (seg.size / maxBudget) * 100);
+        html += '<div class="token-budget-segment ' + (SOURCE_BAR_CLASS[seg.type] || 'tbs-export') + '" style="width: ' + w + '%" title="' + seg.label + ': ~' + formatNumber(seg.size) + ' chars"></div>';
+      });
+      html += '    </div>';
+      html += '  </div>';
+
+      html += '  <div class="token-budget-legend">';
+      segments.forEach(function(seg) {
+        html += '<div class="token-legend-item">';
+        html += '  <div class="token-legend-dot" style="background: var(--' + getLegendColor(seg.type) + ')"></div>';
+        html += '  ' + seg.label + ' (~' + formatNumber(seg.size) + ')';
+        html += '</div>';
+      });
+      html += '  </div>';
+      html += '</div>';
+
+      html += '  </div>';
+      html += '</div>';
+
+      // Advanced section
+      html += '<div style="margin-bottom: 8px;">';
+      html += '  <button class="advanced-toggle" id="advancedToggle" onclick="toggleAdvanced()">';
+      html += '    <span class="chevron"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="4,2 8,6 4,10"/></svg></span>';
+      html += '    Advanced Options';
+      html += '  </button>';
+      html += '  <div class="advanced-body" id="advancedBody">';
+      html += '    <div class="config-section">';
+      html += '      <div class="config-section-body">';
+
+      // Format selector
+      html += '      <div class="form-group">';
+      html += '        <label class="form-label">Context Format</label>';
+      html += '        <div class="form-hint">Format used when assembling context data</div>';
+      html += '        <select class="form-select" style="max-width: 200px;" onchange="contextFormat = this.value">';
+      html += '          <option value="markdown"' + (contextFormat === 'markdown' ? ' selected' : '') + '>Markdown</option>';
+      html += '          <option value="json"' + (contextFormat === 'json' ? ' selected' : '') + '>JSON</option>';
+      html += '        </select>';
+      html += '      </div>';
+
+      // Budget override
+      html += '      <div class="form-group">';
+      html += '        <label class="form-label">Budget Override</label>';
+      html += '        <div class="form-hint">Override the maximum character budget (leave blank for default: ' + formatNumber(preset.context.maxChars) + ')</div>';
+      html += '        <input type="number" class="form-input" style="max-width: 200px;" value="' + (budgetOverride || '') + '" placeholder="' + preset.context.maxChars + '" onchange="setBudgetOverride(this.value)">';
+      html += '      </div>';
+
+      html += '      </div>';
+      html += '    </div>';
+      html += '  </div>';
+      html += '</div>';
+
+      document.getElementById('contextPreviewContainer').innerHTML = html;
+
+      // Animate budget bar
+      setTimeout(function() {
+        var segs = document.getElementById('budgetSegments');
+        if (segs) {
+          var children = segs.children;
+          for (var i = 0; i < children.length; i++) {
+            var target = children[i].style.width;
+            children[i].style.width = '0%';
+            (function(el, tw) {
+              setTimeout(function() { el.style.width = tw; }, 50 + i * 100);
+            })(children[i], target);
+          }
+        }
+      }, 100);
+    }
+
+    function toggleContext(srcId) {
+      contextToggles[srcId] = !contextToggles[srcId];
+      renderContextPreview();
+    }
+
+    function toggleAdvanced() {
+      var toggle = document.getElementById('advancedToggle');
+      var body = document.getElementById('advancedBody');
+      toggle.classList.toggle('expanded');
+      body.classList.toggle('visible');
+    }
+
+    function setBudgetOverride(val) {
+      budgetOverride = val ? parseInt(val, 10) : null;
+      renderContextPreview();
+    }
+
+    function getLegendColor(type) {
+      var map = {
+        session_export: 'accent-fg',
+        session_analytics: 'done-fg',
+        session_health: 'success-fg',
+        session_todos: 'warning-fg',
+        recent_sessions: 'neutral-fg'
+      };
+      return map[type] || 'accent-fg';
+    }
+
+    function formatNumber(n) {
+      if (n >= 1000) return (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 'K';
+      return n.toString();
+    }
+
+    // =====================================================
+    // STEP 4: REVIEW & LAUNCH
+    // =====================================================
+    function renderReview() {
+      var preset = getPreset(selectedPresetId);
+      if (!preset) return;
+
+      var html = '';
+      var maxBudget = budgetOverride || preset.context.maxChars;
+
+      // Preset summary
+      html += '<div class="review-card">';
+      html += '  <div class="review-card-header">';
+      html += '    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>';
+      html += '    Task Preset';
+      html += '  </div>';
+      html += '  <div class="review-card-body">';
+      html += '    <div class="review-preset-header">';
+      html += '      <div class="review-preset-icon ' + preset.iconClass + '">' + preset.icon + '</div>';
+      html += '      <div>';
+      html += '        <div class="review-preset-name">' + preset.name + '</div>';
+      html += '        <div class="review-preset-desc">' + preset.description + '</div>';
+      html += '      </div>';
+      html += '    </div>';
+      html += '  </div>';
+      html += '</div>';
+
+      // Parameters
+      html += '<div class="review-card">';
+      html += '  <div class="review-card-header">';
+      html += '    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
+      html += '    Parameters';
+      html += '  </div>';
+      html += '  <div class="review-card-body">';
+      html += '    <table class="review-kv-table">';
+      preset.prompt.variables.forEach(function(v) {
+        var val = formValues[v.name];
+        var display = '';
+        if (v.type === 'session_ref') {
+          var sess = MOCK_SESSIONS.find(function(s) { return s.id === val; });
+          display = sess ? sess.name + ' <span style="color:var(--text-tertiary);font-size:0.75rem">(' + sess.branch + ')</span>' : '<span style="color:var(--text-placeholder)">—</span>';
+        } else if (v.type === 'session_list') {
+          if (Array.isArray(val) && val.length > 0) {
+            display = val.map(function(sid) {
+              var sess = MOCK_SESSIONS.find(function(s) { return s.id === sid; });
+              return sess ? sess.name : sid;
+            }).join(', ');
+          } else {
+            display = '<span style="color:var(--text-placeholder)">—</span>';
+          }
+        } else if (v.type === 'boolean') {
+          display = val === 'true' ? '<span style="color:var(--success-fg)">Yes</span>' : '<span style="color:var(--text-tertiary)">No</span>';
+        } else {
+          display = val || '<span style="color:var(--text-placeholder)">' + (v.default || '—') + '</span>';
+        }
+        html += '<tr><td>' + formatVarName(v.name) + '</td><td>' + display + '</td></tr>';
+      });
+      html += '    </table>';
+      html += '  </div>';
+      html += '</div>';
+
+      // Context sources
+      var totalUsed = 0;
+      var activeSources = preset.context.sources.filter(function(src) { return contextToggles[src.id] !== false; });
+      activeSources.forEach(function(src) {
+        totalUsed += (SOURCE_SIZE_ESTIMATES[src.type] || 5000);
+      });
+
+      html += '<div class="review-card">';
+      html += '  <div class="review-card-header">';
+      html += '    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>';
+      html += '    Context Sources';
+      html += '  </div>';
+      html += '  <div class="review-card-body">';
+      html += '    <div class="review-context-list">';
+      activeSources.forEach(function(src) {
+        var size = SOURCE_SIZE_ESTIMATES[src.type] || 5000;
+        html += '<div class="review-context-item">';
+        html += '  <div class="review-context-dot" style="background: var(--' + getLegendColor(src.type) + ')"></div>';
+        html += '  <span class="review-context-name">' + (src.label || src.type) + '</span>';
+        html += '  <span class="review-context-size">~' + formatNumber(size) + ' chars</span>';
+        html += '</div>';
+      });
+      html += '    </div>';
+      html += '    <div style="margin-top: 12px; font-size: 0.75rem; color: var(--text-tertiary);">Total: ~' + formatNumber(totalUsed) + ' / ' + formatNumber(maxBudget) + ' chars &middot; Format: ' + contextFormat + '</div>';
+      html += '  </div>';
+      html += '</div>';
+
+      // Execution settings
+      html += '<div class="review-card">';
+      html += '  <div class="review-card-header">';
+      html += '    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
+      html += '    Execution';
+      html += '  </div>';
+      html += '  <div class="review-card-body">';
+      html += '    <table class="review-kv-table">';
+      html += '      <tr><td>Model</td><td>' + (preset.execution.modelOverride ? '<span class="badge badge-accent" style="font-family:\'JetBrains Mono\',monospace;">' + preset.execution.modelOverride + '</span>' : '<span style="color:var(--text-secondary)">Default (auto-select)</span>') + '</td></tr>';
+      html += '      <tr><td>Priority</td><td><span class="priority-dot" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:' + getPriorityColor(selectedPriority) + ';margin-right:6px;vertical-align:middle;"></span>' + selectedPriority.charAt(0).toUpperCase() + selectedPriority.slice(1) + '</td></tr>';
+      html += '      <tr><td>Max Retries</td><td>' + maxRetries + '</td></tr>';
+      html += '      <tr><td>Timeout</td><td>' + formatTimeout(preset.execution.timeoutSeconds) + '</td></tr>';
+      html += '    </table>';
+      html += '  </div>';
+      html += '</div>';
+
+      // Cost indicator
+      html += '<div class="cost-indicator">';
+      html += '  <span class="cost-indicator-icon">✨</span>';
+      html += '  <span class="cost-indicator-text">~1 subagent request (free under Copilot plan)</span>';
+      html += '</div>';
+
+      // Launch options
+      html += '<div class="review-card">';
+      html += '  <div class="review-card-header">';
+      html += '    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
+      html += '    Launch Options';
+      html += '  </div>';
+      html += '  <div class="review-card-body">';
+      html += '    <div class="launch-options">';
+
+      // Standalone
+      html += '      <div class="launch-option' + (launchMode === 'standalone' ? ' selected' : '') + '" onclick="setLaunchMode(\'standalone\')">';
+      html += '        <div class="launch-option-radio"></div>';
+      html += '        <div class="launch-option-body">';
+      html += '          <div class="launch-option-label">Create as standalone task</div>';
+      html += '          <div class="launch-option-desc">Run independently as a single task</div>';
+      html += '        </div>';
+      html += '      </div>';
+
+      // Add to job
+      html += '      <div class="launch-option' + (launchMode === 'job' ? ' selected' : '') + '" onclick="setLaunchMode(\'job\')">';
+      html += '        <div class="launch-option-radio"></div>';
+      html += '        <div class="launch-option-body">';
+      html += '          <div class="launch-option-label">Add to existing job</div>';
+      html += '          <div class="launch-option-desc">Attach this task to a running or queued job</div>';
+      if (launchMode === 'job') {
+        html += '          <select class="form-select" style="margin-top:8px; max-width:280px;" onchange="selectedJobId = this.value">';
+        html += '            <option value="">Select a job...</option>';
+        MOCK_JOBS.forEach(function(j) {
+          html += '<option value="' + j.id + '"' + (selectedJobId === j.id ? ' selected' : '') + '>' + j.name + '</option>';
+        });
+        html += '          </select>';
+      }
+      html += '        </div>';
+      html += '      </div>';
+
+      // Schedule (disabled)
+      html += '      <div class="launch-option schedule-option">';
+      html += '        <div class="launch-option-radio"></div>';
+      html += '        <div class="launch-option-body">';
+      html += '          <div class="launch-option-label">Schedule for later</div>';
+      html += '          <div class="launch-option-desc">Set a specific time or trigger for this task</div>';
+      html += '        </div>';
+      html += '        <span class="coming-soon-badge">Coming soon</span>';
+      html += '      </div>';
+
+      html += '    </div>';
+      html += '  </div>';
+      html += '</div>';
+
+      document.getElementById('reviewContainer').innerHTML = html;
+
+      // Stagger card animations
+      setTimeout(function() {
+        document.querySelectorAll('#reviewContainer .review-card, #reviewContainer .cost-indicator').forEach(function(el, i) {
+          el.style.opacity = '0';
+          el.style.transform = 'translateY(6px)';
+          el.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+          setTimeout(function() {
+            el.style.opacity = '1';
+            el.style.transform = 'translateY(0)';
+          }, 60 * i);
+        });
+      }, 50);
+    }
+
+    function setLaunchMode(mode) {
+      launchMode = mode;
+      renderReview();
+    }
+
+    function getPriorityColor(p) {
+      var map = {
+        low: 'var(--success-fg)',
+        normal: 'var(--accent-fg)',
+        high: 'var(--warning-fg)',
+        critical: 'var(--danger-fg)'
+      };
+      return map[p] || 'var(--accent-fg)';
+    }
+
+    // =====================================================
+    // ACTIONS
+    // =====================================================
+    function createTask() {
+      var preset = getPreset(selectedPresetId);
+      if (!preset) return;
+      showToast('Task "' + preset.name + '" created successfully');
+      setTimeout(function() {
+        showToast('Redirecting to dashboard...');
+      }, 1500);
+    }
+
+    function createAndView() {
+      var preset = getPreset(selectedPresetId);
+      if (!preset) return;
+      showToast('Task "' + preset.name + '" created — opening detail view...');
+    }
+
+    // =====================================================
+    // TOAST
+    // =====================================================
+    function showToast(msg) {
+      var el = document.getElementById('toast');
+      document.getElementById('toastText').textContent = msg;
+      el.classList.add('visible');
+      clearTimeout(window._toastTimer);
+      window._toastTimer = setTimeout(function() {
+        el.classList.remove('visible');
+      }, 2500);
+    }
+
+    // =====================================================
+    // KEYBOARD
+    // =====================================================
+    document.addEventListener('keydown', function(e) {
+      if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+        e.preventDefault();
+        var search = document.getElementById('presetSearch');
+        if (search && currentStep === 0) search.focus();
+      }
+      if (e.key === 'Escape') {
+        var search = document.getElementById('presetSearch');
+        if (search && document.activeElement === search) search.blur();
+      }
+    });
+  </script>
+</body>
+</html>

@@ -14,12 +14,15 @@ thiserror = { workspace = true }
 tracing = { workspace = true }
 semver = { workspace = true }
 tracepilot-core = { path = "../tracepilot-core" }
+tracepilot-export = { path = "../tracepilot-export" }
+rusqlite = { workspace = true }
 
 tokio = { workspace = true }
 reqwest = { workspace = true }
 
 similar = "2"
 walkdir = "2"
+sha2 = "0.10"
 
 [dev-dependencies]
 tempfile = { workspace = true }

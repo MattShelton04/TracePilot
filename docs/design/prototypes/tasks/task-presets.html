@@ -1,0 +1,2622 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Task Presets — TracePilot</title>
+  <link rel="stylesheet" href="../shared/design-system-c.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+  <style>
+    /* ====================================================
+       Task Presets — Page-specific styles
+       ==================================================== */
+
+    /* --- Preset Card Grid --- */
+    .presets-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+    @media (max-width: 1200px) {
+      .presets-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 800px) {
+      .presets-grid { grid-template-columns: 1fr; }
+    }
+
+    /* --- Preset Card --- */
+    .preset-card {
+      background: var(--canvas-subtle);
+      background-image: var(--gradient-card);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      padding: 0;
+      transition: all var(--transition-normal);
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .preset-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: transparent;
+      transition: background var(--transition-normal);
+    }
+    .preset-card:hover {
+      border-color: var(--border-accent);
+      box-shadow: var(--shadow-md), 0 0 0 1px var(--border-glow);
+      transform: translateY(-2px);
+    }
+    .preset-card:hover::before {
+      background: var(--gradient-accent);
+    }
+    .preset-card.selected {
+      border-color: var(--accent-emphasis);
+      box-shadow: var(--shadow-glow-accent);
+    }
+    .preset-card.selected::before {
+      background: var(--gradient-accent);
+    }
+
+    .preset-card-header {
+      padding: 18px 18px 0;
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+    }
+    .preset-card-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+      position: relative;
+    }
+    .preset-card-icon::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+    }
+    .preset-card-icon.blue {
+      background: linear-gradient(135deg, rgba(59,130,246,0.2), rgba(59,130,246,0.08));
+      border: 1px solid rgba(59,130,246,0.2);
+    }
+    .preset-card-icon.purple {
+      background: linear-gradient(135deg, rgba(139,92,246,0.2), rgba(139,92,246,0.08));
+      border: 1px solid rgba(139,92,246,0.2);
+    }
+    .preset-card-icon.emerald {
+      background: linear-gradient(135deg, rgba(52,211,153,0.2), rgba(52,211,153,0.08));
+      border: 1px solid rgba(52,211,153,0.2);
+    }
+    .preset-card-icon.amber {
+      background: linear-gradient(135deg, rgba(251,191,36,0.2), rgba(251,191,36,0.08));
+      border: 1px solid rgba(251,191,36,0.2);
+    }
+    .preset-card-icon.rose {
+      background: linear-gradient(135deg, rgba(251,113,133,0.2), rgba(251,113,133,0.08));
+      border: 1px solid rgba(251,113,133,0.2);
+    }
+    .preset-card-icon.indigo {
+      background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(99,102,241,0.08));
+      border: 1px solid rgba(99,102,241,0.2);
+    }
+    .preset-card-icon.cyan {
+      background: linear-gradient(135deg, rgba(34,211,238,0.2), rgba(34,211,238,0.08));
+      border: 1px solid rgba(34,211,238,0.2);
+    }
+
+    .preset-card-title-row {
+      flex: 1;
+      min-width: 0;
+    }
+    .preset-card-name {
+      font-size: 0.9375rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .preset-card-version {
+      font-size: 0.625rem;
+      font-weight: 600;
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: var(--neutral-muted);
+      color: var(--text-tertiary);
+      letter-spacing: 0.02em;
+    }
+
+    .preset-card-body {
+      padding: 10px 18px 0;
+      flex: 1;
+    }
+    .preset-card-desc {
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+      line-height: 1.55;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .preset-card-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 10px;
+    }
+    .preset-tag {
+      font-size: 0.625rem;
+      font-weight: 500;
+      padding: 2px 7px;
+      border-radius: var(--radius-full);
+      background: var(--accent-subtle);
+      color: var(--accent-fg);
+      letter-spacing: 0.01em;
+    }
+    .preset-tag.analysis { background: rgba(139,92,246,0.1); color: #a78bfa; }
+    .preset-tag.summary { background: rgba(59,130,246,0.1); color: #60a5fa; }
+    .preset-tag.automation { background: rgba(52,211,153,0.1); color: #34d399; }
+    .preset-tag.review { background: rgba(251,191,36,0.1); color: #fbbf24; }
+    .preset-tag.cost { background: rgba(251,113,133,0.1); color: #fb7185; }
+    .preset-tag.health { background: rgba(34,211,238,0.1); color: #22d3ee; }
+    .preset-tag.digest { background: rgba(99,102,241,0.1); color: #818cf8; }
+
+    .preset-card-meta {
+      padding: 10px 18px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+    .meta-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      font-size: 0.625rem;
+      font-weight: 500;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: var(--canvas-default);
+      color: var(--text-tertiary);
+      border: 1px solid var(--border-subtle);
+    }
+    .meta-badge svg {
+      width: 10px;
+      height: 10px;
+      opacity: 0.6;
+    }
+    .meta-badge.output-json { color: var(--warning-fg); border-color: rgba(251,191,36,0.15); }
+    .meta-badge.output-md { color: var(--accent-fg); border-color: rgba(99,102,241,0.15); }
+    .meta-badge.model { color: var(--done-fg); border-color: rgba(167,139,250,0.15); }
+
+    .preset-card-footer {
+      padding: 12px 18px;
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .preset-card-stats {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+    }
+    .preset-card-stats .stat-value {
+      font-weight: 600;
+      color: var(--text-secondary);
+      font-variant-numeric: tabular-nums;
+    }
+    .mini-sparkline {
+      display: inline-flex;
+      align-items: flex-end;
+      gap: 1px;
+      height: 14px;
+      vertical-align: middle;
+    }
+    .mini-sparkline .bar {
+      width: 3px;
+      border-radius: 1px;
+      background: var(--accent-fg);
+      opacity: 0.5;
+      transition: opacity var(--transition-fast);
+    }
+    .preset-card:hover .mini-sparkline .bar { opacity: 0.8; }
+
+    .preset-card-actions {
+      display: flex;
+      gap: 2px;
+      align-items: center;
+    }
+    .preset-action-btn {
+      width: 28px;
+      height: 28px;
+      border: none;
+      background: transparent;
+      color: var(--text-placeholder);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all var(--transition-fast);
+      position: relative;
+    }
+    .preset-action-btn:hover {
+      background: var(--neutral-muted);
+      color: var(--text-primary);
+    }
+    .preset-action-btn svg {
+      width: 14px;
+      height: 14px;
+    }
+    .preset-action-btn[data-tooltip]::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 3px 8px;
+      background: var(--canvas-overlay);
+      border: 1px solid var(--border-default);
+      border-radius: 4px;
+      font-size: 0.625rem;
+      color: var(--text-primary);
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--transition-fast);
+      z-index: var(--z-tooltip);
+    }
+    .preset-action-btn:hover[data-tooltip]::after {
+      opacity: 1;
+    }
+
+    /* --- Toggle Switch --- */
+    .toggle-switch {
+      position: relative;
+      width: 32px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+      position: absolute;
+    }
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: var(--neutral-muted);
+      border-radius: var(--radius-full);
+      transition: background var(--transition-fast);
+      border: 1px solid var(--border-subtle);
+    }
+    .toggle-slider::before {
+      content: "";
+      position: absolute;
+      height: 12px;
+      width: 12px;
+      left: 2px;
+      bottom: 2px;
+      background: var(--text-tertiary);
+      border-radius: 50%;
+      transition: all var(--transition-fast);
+    }
+    .toggle-switch input:checked + .toggle-slider {
+      background: var(--accent-emphasis);
+      border-color: var(--accent-emphasis);
+    }
+    .toggle-switch input:checked + .toggle-slider::before {
+      transform: translateX(14px);
+      background: white;
+    }
+
+    /* --- Section Header --- */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      gap: 12px;
+    }
+    .section-header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .section-title {
+      font-size: 0.875rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: var(--text-primary);
+    }
+    .section-count {
+      font-size: 0.625rem;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: var(--radius-full);
+      background: var(--accent-muted);
+      color: var(--accent-fg);
+      font-variant-numeric: tabular-nums;
+    }
+    .section-note {
+      font-size: 0.75rem;
+      color: var(--text-tertiary);
+      margin-top: -10px;
+      margin-bottom: 16px;
+      line-height: 1.5;
+    }
+
+    /* --- View Toggle --- */
+    .view-toggle {
+      display: inline-flex;
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+    .view-toggle-btn {
+      padding: 5px 10px;
+      background: transparent;
+      border: none;
+      color: var(--text-placeholder);
+      cursor: pointer;
+      font-size: 0.75rem;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: all var(--transition-fast);
+    }
+    .view-toggle-btn:not(:last-child) {
+      border-right: 1px solid var(--border-default);
+    }
+    .view-toggle-btn:hover {
+      background: var(--neutral-subtle);
+      color: var(--text-secondary);
+    }
+    .view-toggle-btn.active {
+      background: var(--accent-muted);
+      color: var(--accent-fg);
+    }
+    .view-toggle-btn svg {
+      width: 13px;
+      height: 13px;
+    }
+
+    /* --- Detail Panel (Side Panel) --- */
+    .detail-panel-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: var(--z-overlay);
+      opacity: 0;
+      visibility: hidden;
+      transition: all var(--transition-normal);
+      backdrop-filter: blur(2px);
+    }
+    .detail-panel-overlay.visible {
+      opacity: 1;
+      visibility: visible;
+    }
+    .detail-panel {
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: 520px;
+      max-width: 90vw;
+      background: var(--canvas-subtle);
+      border-left: 1px solid var(--border-default);
+      z-index: var(--z-modal);
+      transform: translateX(100%);
+      transition: transform var(--transition-slow);
+      display: flex;
+      flex-direction: column;
+      box-shadow: -8px 0 30px rgba(0,0,0,0.3);
+    }
+    .detail-panel.open {
+      transform: translateX(0);
+    }
+    .detail-panel-header {
+      padding: 18px 22px;
+      border-bottom: 1px solid var(--border-default);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .detail-panel-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .detail-panel-title .icon {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+    .detail-panel-close {
+      width: 30px;
+      height: 30px;
+      border: 1px solid var(--border-default);
+      background: transparent;
+      color: var(--text-tertiary);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all var(--transition-fast);
+    }
+    .detail-panel-close:hover {
+      background: var(--neutral-muted);
+      color: var(--text-primary);
+    }
+    .detail-panel-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 22px;
+    }
+    .detail-section {
+      margin-bottom: 24px;
+    }
+    .detail-section-title {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .detail-section-title svg {
+      width: 12px;
+      height: 12px;
+      opacity: 0.5;
+    }
+
+    /* Prompt Preview */
+    .prompt-preview {
+      background: var(--canvas-default);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.75rem;
+      line-height: 1.7;
+      overflow: hidden;
+    }
+    .prompt-preview-header {
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 0.625rem;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .prompt-preview-body {
+      padding: 12px;
+      color: var(--text-secondary);
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .prompt-var {
+      background: rgba(251,191,36,0.15);
+      color: #fbbf24;
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-weight: 500;
+    }
+
+    /* Variable Table */
+    .var-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      font-size: 0.75rem;
+    }
+    .var-table th {
+      text-align: left;
+      padding: 7px 10px;
+      font-size: 0.625rem;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      background: var(--canvas-default);
+      border-bottom: 1px solid var(--border-default);
+    }
+    .var-table td {
+      padding: 7px 10px;
+      border-bottom: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+    }
+    .var-table tr:last-child td { border-bottom: none; }
+    .var-table .var-name {
+      font-family: "JetBrains Mono", monospace;
+      font-weight: 500;
+      color: var(--warning-fg);
+      font-size: 0.6875rem;
+    }
+    .var-table .var-type {
+      font-size: 0.625rem;
+      color: var(--text-placeholder);
+      font-weight: 500;
+    }
+
+    /* Schema Preview */
+    .schema-preview {
+      background: var(--canvas-default);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.6875rem;
+      line-height: 1.7;
+      color: var(--text-secondary);
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .schema-key { color: var(--accent-fg); }
+    .schema-string { color: var(--success-fg); }
+    .schema-type { color: var(--warning-fg); }
+
+    /* Execution Config */
+    .exec-config {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .exec-config-item {
+      background: var(--canvas-default);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 8px 10px;
+    }
+    .exec-config-label {
+      font-size: 0.625rem;
+      font-weight: 500;
+      color: var(--text-placeholder);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-bottom: 2px;
+    }
+    .exec-config-value {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Usage History Chart (mini) */
+    .usage-chart {
+      height: 80px;
+      display: flex;
+      align-items: flex-end;
+      gap: 3px;
+      padding: 8px 0;
+    }
+    .usage-chart .chart-bar {
+      flex: 1;
+      background: var(--accent-muted);
+      border-radius: 2px 2px 0 0;
+      min-height: 4px;
+      transition: all var(--transition-fast);
+      position: relative;
+    }
+    .usage-chart .chart-bar:hover {
+      background: var(--accent-fg);
+    }
+    .usage-chart .chart-bar[data-tooltip]:hover::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      bottom: calc(100% + 4px);
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 2px 6px;
+      background: var(--canvas-overlay);
+      border: 1px solid var(--border-default);
+      border-radius: 3px;
+      font-size: 0.5625rem;
+      color: var(--text-primary);
+      white-space: nowrap;
+      z-index: 10;
+    }
+
+    /* --- Create Preset Modal --- */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: var(--z-modal);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      visibility: hidden;
+      transition: all var(--transition-normal);
+      backdrop-filter: blur(4px);
+    }
+    .modal-overlay.visible {
+      opacity: 1;
+      visibility: visible;
+    }
+    .modal {
+      background: var(--canvas-subtle);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-xl);
+      width: 560px;
+      max-width: 90vw;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: var(--shadow-lg);
+      transform: translateY(10px) scale(0.98);
+      transition: transform var(--transition-slow);
+    }
+    .modal-overlay.visible .modal {
+      transform: translateY(0) scale(1);
+    }
+    .modal-header {
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid var(--border-default);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .modal-title {
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .modal-close {
+      width: 30px;
+      height: 30px;
+      border: 1px solid var(--border-default);
+      background: transparent;
+      color: var(--text-tertiary);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all var(--transition-fast);
+    }
+    .modal-close:hover {
+      background: var(--neutral-muted);
+      color: var(--text-primary);
+    }
+    .modal-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 24px;
+    }
+    .modal-footer {
+      padding: 14px 24px;
+      border-top: 1px solid var(--border-default);
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    /* Form Fields */
+    .form-group {
+      margin-bottom: 18px;
+    }
+    .form-label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+    .form-sublabel {
+      font-size: 0.6875rem;
+      color: var(--text-placeholder);
+      font-weight: 400;
+      margin-left: 4px;
+    }
+    .form-input {
+      width: 100%;
+      padding: 8px 12px;
+      background: var(--canvas-default);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      color: var(--text-primary);
+      font-size: 0.8125rem;
+      font-family: inherit;
+      outline: none;
+      transition: all var(--transition-fast);
+    }
+    .form-input:focus {
+      border-color: var(--accent-emphasis);
+      box-shadow: var(--shadow-glow-accent);
+    }
+    .form-input::placeholder { color: var(--text-placeholder); }
+    .form-textarea {
+      resize: vertical;
+      min-height: 72px;
+    }
+
+    /* Template Selector */
+    .template-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+    .template-option {
+      padding: 14px;
+      background: var(--canvas-default);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      text-align: center;
+    }
+    .template-option:hover {
+      border-color: var(--border-accent);
+      background: var(--accent-subtle);
+    }
+    .template-option.selected {
+      border-color: var(--accent-emphasis);
+      background: var(--accent-subtle);
+      box-shadow: var(--shadow-glow-accent);
+    }
+    .template-option-icon {
+      font-size: 24px;
+      margin-bottom: 6px;
+    }
+    .template-option-name {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .template-option-desc {
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+      margin-top: 2px;
+    }
+
+    /* Tag Input */
+    .tag-input-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      padding: 6px 10px;
+      background: var(--canvas-default);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      min-height: 36px;
+      align-items: center;
+      cursor: text;
+      transition: all var(--transition-fast);
+    }
+    .tag-input-container:focus-within {
+      border-color: var(--accent-emphasis);
+      box-shadow: var(--shadow-glow-accent);
+    }
+    .tag-input-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 2px 8px;
+      background: var(--accent-muted);
+      color: var(--accent-fg);
+      border-radius: var(--radius-full);
+      font-size: 0.6875rem;
+      font-weight: 500;
+    }
+    .tag-input-tag .remove {
+      cursor: pointer;
+      opacity: 0.6;
+      font-size: 0.75rem;
+      line-height: 1;
+    }
+    .tag-input-tag .remove:hover { opacity: 1; }
+    .tag-input-field {
+      border: none;
+      background: none;
+      outline: none;
+      color: var(--text-primary);
+      font-size: 0.8125rem;
+      font-family: inherit;
+      min-width: 80px;
+      flex: 1;
+    }
+    .tag-input-field::placeholder { color: var(--text-placeholder); }
+
+    /* --- Import/Export Bar --- */
+    .import-export-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 18px;
+      background: var(--canvas-subtle);
+      background-image: var(--gradient-card);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      margin-top: 20px;
+    }
+    .import-export-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-md);
+      background: var(--neutral-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .import-export-text {
+      flex: 1;
+    }
+    .import-export-title {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .import-export-desc {
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+      margin-top: 1px;
+    }
+    .import-export-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    /* --- Page Title Row --- */
+    .page-title-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .page-title-left { flex: 1; }
+    .page-title-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    /* --- Search and Toolbar Row --- */
+    .toolbar-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+    .toolbar-row .search-container {
+      flex: 1;
+      max-width: 360px;
+    }
+    .toolbar-spacer { flex: 1; }
+
+    /* --- List View --- */
+    .presets-list {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .preset-list-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 16px;
+      background: var(--canvas-subtle);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .preset-list-item:hover {
+      border-color: var(--border-accent);
+      background: var(--accent-subtle);
+    }
+    .preset-list-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    .preset-list-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .preset-list-name {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .preset-list-desc {
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+      margin-top: 1px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* --- Custom badge for preset type --- */
+    .preset-type-badge {
+      font-size: 0.5625rem;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 3px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .preset-type-badge.builtin {
+      background: rgba(52,211,153,0.12);
+      color: var(--success-fg);
+    }
+    .preset-type-badge.custom {
+      background: rgba(139,92,246,0.12);
+      color: #a78bfa;
+    }
+
+    /* --- Sidebar sub-items --- */
+    .sidebar-sub-items {
+      padding-left: 34px;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+    .sidebar-sub-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      border-radius: var(--radius-sm);
+      color: var(--text-tertiary);
+      text-decoration: none;
+      font-size: 0.75rem;
+      font-weight: 500;
+      transition: all var(--transition-fast);
+      cursor: pointer;
+      position: relative;
+    }
+    .sidebar-sub-item:hover {
+      color: var(--text-primary);
+      background: var(--neutral-subtle);
+    }
+    .sidebar-sub-item.active {
+      color: var(--accent-fg);
+      background: var(--accent-subtle);
+    }
+    .sidebar-sub-item::before {
+      content: "";
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: currentColor;
+      opacity: 0.4;
+      flex-shrink: 0;
+    }
+    .sidebar-sub-item.active::before {
+      opacity: 1;
+      background: var(--accent-fg);
+    }
+
+    /* --- Stagger Animation --- */
+    @keyframes fadeSlideUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .stagger-in {
+      opacity: 0;
+      animation: fadeSlideUp 0.35s ease forwards;
+    }
+    .stagger-in:nth-child(1) { animation-delay: 0.04s; }
+    .stagger-in:nth-child(2) { animation-delay: 0.08s; }
+    .stagger-in:nth-child(3) { animation-delay: 0.12s; }
+    .stagger-in:nth-child(4) { animation-delay: 0.16s; }
+    .stagger-in:nth-child(5) { animation-delay: 0.20s; }
+    .stagger-in:nth-child(6) { animation-delay: 0.24s; }
+    .stagger-in:nth-child(7) { animation-delay: 0.28s; }
+
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+
+    /* --- Context Source Badges --- */
+    .context-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3px;
+    }
+    .context-badge {
+      font-size: 0.5625rem;
+      font-weight: 600;
+      padding: 1px 5px;
+      border-radius: 3px;
+      background: var(--canvas-default);
+      color: var(--text-placeholder);
+      border: 1px solid var(--border-subtle);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    /* --- Kbd style --- */
+    kbd {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1px 5px;
+      border: 1px solid var(--border-default);
+      border-radius: 4px;
+      background: var(--canvas-default);
+      font-size: 0.625rem;
+      font-family: inherit;
+      color: var(--text-placeholder);
+      box-shadow: 0 1px 0 var(--border-muted);
+    }
+
+    /* --- Notification Toast --- */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      padding: 12px 18px;
+      background: var(--canvas-overlay);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-lg);
+      z-index: calc(var(--z-modal) + 10);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.8125rem;
+      color: var(--text-primary);
+      transform: translateY(20px);
+      opacity: 0;
+      transition: all var(--transition-slow);
+      pointer-events: none;
+    }
+    .toast.visible {
+      transform: translateY(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .toast-icon {
+      font-size: 16px;
+    }
+    .toast-close {
+      background: none;
+      border: none;
+      color: var(--text-placeholder);
+      cursor: pointer;
+      padding: 2px;
+      font-size: 14px;
+      line-height: 1;
+    }
+
+    /* --- Dropdown Menu --- */
+    .dropdown-menu {
+      position: absolute;
+      top: calc(100% + 4px);
+      right: 0;
+      min-width: 180px;
+      background: var(--canvas-overlay);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-lg);
+      z-index: var(--z-tooltip);
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(-4px);
+      transition: all var(--transition-fast);
+      padding: 4px;
+    }
+    .dropdown-menu.visible {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+    }
+    .dropdown-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      border-radius: var(--radius-sm);
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      border: none;
+      background: none;
+      width: 100%;
+      text-align: left;
+    }
+    .dropdown-item:hover {
+      background: var(--accent-subtle);
+      color: var(--text-primary);
+    }
+    .dropdown-item svg {
+      width: 14px;
+      height: 14px;
+      opacity: 0.6;
+    }
+    .dropdown-divider {
+      height: 1px;
+      background: var(--border-subtle);
+      margin: 4px 0;
+    }
+
+    /* --- Context Source Config (detail panel) --- */
+    .context-source-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .context-source-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      background: var(--canvas-default);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+    }
+    .context-source-icon {
+      width: 22px;
+      height: 22px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      flex-shrink: 0;
+    }
+    .context-source-name {
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+    .context-source-config {
+      font-size: 0.625rem;
+      color: var(--text-placeholder);
+      margin-left: auto;
+    }
+
+    /* --- Custom preset delete state --- */
+    .preset-card.custom-card .preset-card-footer {
+      border-color: var(--border-subtle);
+    }
+    .btn-danger-ghost {
+      background: transparent;
+      border-color: transparent;
+      color: var(--danger-fg);
+    }
+    .btn-danger-ghost:hover {
+      background: var(--danger-subtle);
+      color: var(--danger-fg);
+    }
+
+    /* --- Responsive --- */
+    @media (max-width: 900px) {
+      .sidebar { display: none; }
+      .detail-panel { width: 100%; }
+      .presets-grid { grid-template-columns: 1fr; }
+      .template-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <!-- ========== SIDEBAR ========== -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="sidebar-brand-icon">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        </div>
+        <span class="sidebar-brand-text">TracePilot</span>
+      </div>
+
+      <nav class="sidebar-nav">
+        <span class="sidebar-section-title">Main</span>
+        <a href="#" class="sidebar-nav-item" data-nav="dashboard">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          Dashboard
+        </a>
+        <a href="#" class="sidebar-nav-item" data-nav="sessions">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          Sessions
+          <span class="sidebar-nav-badge">12</span>
+        </a>
+        <a href="#" class="sidebar-nav-item active" data-nav="tasks">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          Tasks
+          <span class="sidebar-nav-badge">7</span>
+        </a>
+        <div class="sidebar-sub-items">
+          <a href="#" class="sidebar-sub-item">Queue</a>
+          <a href="#" class="sidebar-sub-item">History</a>
+          <a href="#" class="sidebar-sub-item active">Presets</a>
+          <a href="#" class="sidebar-sub-item">Schedules</a>
+        </div>
+        <a href="#" class="sidebar-nav-item" data-nav="skills">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+          Skills
+          <span class="sidebar-nav-badge">8</span>
+        </a>
+        <a href="#" class="sidebar-nav-item" data-nav="mcp">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+          MCP Servers
+          <span class="sidebar-nav-badge">6</span>
+        </a>
+
+        <span class="sidebar-section-title">Configure</span>
+        <a href="#" class="sidebar-nav-item" data-nav="profiles">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Profiles
+        </a>
+        <a href="#" class="sidebar-nav-item" data-nav="export">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export
+        </a>
+        <a href="#" class="sidebar-nav-item" data-nav="settings">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          Settings
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <span class="sidebar-version">v0.4.2-alpha</span>
+        <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        </button>
+      </div>
+    </aside>
+
+    <!-- ========== MAIN CONTENT ========== -->
+    <main class="main-content">
+      <!-- Breadcrumb Bar -->
+      <div class="page-header-bar">
+        <nav class="breadcrumb">
+          <a href="#">Tasks</a>
+          <span class="breadcrumb-sep">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </span>
+          <span class="breadcrumb-current">Presets</span>
+        </nav>
+        <div style="flex:1"></div>
+        <kbd>Ctrl</kbd><span style="font-size:0.625rem;color:var(--text-placeholder)">+</span><kbd>P</kbd>
+        <span style="font-size:0.6875rem;color:var(--text-placeholder);margin-left:2px">Command palette</span>
+      </div>
+
+      <!-- Page Content -->
+      <div class="page-content">
+        <div class="page-content-inner">
+
+          <!-- Page Title Row -->
+          <div class="page-title-row stagger-in">
+            <div class="page-title-left">
+              <h1 class="page-title">Task Presets</h1>
+              <p class="page-subtitle">Reusable prompt templates for automated analysis</p>
+            </div>
+            <div class="page-title-actions">
+              <div style="position:relative">
+                <button class="btn" id="importExportBtn" onclick="toggleDropdown('importExportMenu')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                  Share
+                </button>
+                <div class="dropdown-menu" id="importExportMenu">
+                  <button class="dropdown-item" onclick="showToast('Importing from file...')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    Import from JSON
+                  </button>
+                  <button class="dropdown-item" onclick="showToast('Exported all presets')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Export all as JSON
+                  </button>
+                  <div class="dropdown-divider"></div>
+                  <button class="dropdown-item" onclick="showToast('Link copied to clipboard')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                    Copy share link
+                  </button>
+                </div>
+              </div>
+              <button class="btn btn-primary" onclick="openCreateModal()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Create Preset
+              </button>
+            </div>
+          </div>
+
+          <!-- Search and View Toggle -->
+          <div class="toolbar-row stagger-in">
+            <div class="search-container">
+              <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" class="search-input" placeholder="Search presets..." id="presetSearch" oninput="filterPresets(this.value)">
+              <span class="search-shortcut">/</span>
+            </div>
+            <div class="toolbar-spacer"></div>
+            <div class="view-toggle">
+              <button class="view-toggle-btn active" onclick="setView('grid', this)" title="Grid view">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                Grid
+              </button>
+              <button class="view-toggle-btn" onclick="setView('list', this)" title="List view">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                List
+              </button>
+            </div>
+          </div>
+
+          <!-- ========== BUILT-IN PRESETS ========== -->
+          <div id="builtinSection" style="margin-bottom:32px">
+            <div class="section-header stagger-in">
+              <div class="section-header-left">
+                <h2 class="section-title">Built-in Presets</h2>
+                <span class="section-count">5</span>
+                <span class="preset-type-badge builtin">shipped</span>
+              </div>
+            </div>
+            <p class="section-note stagger-in">Shipped with TracePilot. Customise or duplicate to create your own.</p>
+
+            <!-- Grid View -->
+            <div class="presets-grid" id="builtinGrid">
+
+              <!-- Preset 1: Session Summary -->
+              <div class="preset-card stagger-in" data-preset="session-summary" onclick="openDetailPanel('session-summary')">
+                <div class="preset-card-header">
+                  <div class="preset-card-icon blue">&#x1F4DD;</div>
+                  <div class="preset-card-title-row">
+                    <div class="preset-card-name">
+                      Session Summary
+                      <span class="preset-card-version">v1</span>
+                    </div>
+                  </div>
+                  <label class="toggle-switch" onclick="event.stopPropagation()">
+                    <input type="checkbox" checked>
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+                <div class="preset-card-body">
+                  <p class="preset-card-desc">Generate concise summary of a Copilot session including key decisions, files modified, and outcome assessment</p>
+                  <div class="preset-card-tags">
+                    <span class="preset-tag summary">summary</span>
+                    <span class="preset-tag analysis">analysis</span>
+                    <span class="preset-tag automation">automation</span>
+                  </div>
+                </div>
+                <div class="preset-card-meta">
+                  <span class="context-badge">SESSION</span>
+                  <span class="context-badge">TURNS</span>
+                  <span class="context-badge">TOOLS</span>
+                  <span class="meta-badge output-md">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    Markdown
+                  </span>
+                </div>
+                <div class="preset-card-footer">
+                  <div class="preset-card-stats">
+                    <span class="stat-value">47</span> tasks run
+                    <span class="mini-sparkline">
+                      <span class="bar" style="height:4px"></span>
+                      <span class="bar" style="height:8px"></span>
+                      <span class="bar" style="height:6px"></span>
+                      <span class="bar" style="height:10px"></span>
+                      <span class="bar" style="height:7px"></span>
+                      <span class="bar" style="height:12px"></span>
+                      <span class="bar" style="height:9px"></span>
+                      <span class="bar" style="height:14px"></span>
+                    </span>
+                  </div>
+                  <div class="preset-card-actions">
+                    <button class="preset-action-btn" data-tooltip="Edit" onclick="event.stopPropagation(); showToast('Opening editor...')">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    </button>
+                    <button class="preset-action-btn" data-tooltip="Duplicate" onclick="event.stopPropagation(); showToast('Preset duplicated')">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    </button>
+                    <button class="preset-action-btn" data-tooltip="Test Run" onclick="event.stopPropagation(); showToast('Running test...')">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                    </button>
+                    <button class="preset-action-btn" data-tooltip="View Schema" onclick="event.stopPropagation(); showToast('Schema viewer opened')">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Preset 2: Code Review Digest -->
+              <div class="preset-card stagger-in" data-preset="code-review-digest" onclick="openDetailPanel('code-review-digest')">
+                <div class="preset-card-header">
+                  <div class="preset-card-icon purple">&#x1F50D;</div>
+                  <div class="preset-card-title-row">
+                    <div class="preset-card-name">
+                      Code Review Digest
+                      <span class="preset-card-version">v1</span>
+                    </div>
+                  </div>
+                  <label class="toggle-switch" onclick="event.stopPropagation()">
+                    <input type="checkbox" checked>
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+                <div class="preset-card-body">
+                  <p class="preset-card-desc">Summarise code changes and review findings with severity analysis</p>
+                  <div class="preset-card-tags">
+                    <span class="preset-tag review">review</span>
+                    <span class="preset-tag analysis">analysis</span>
+                    <span class="preset-tag summary">summary</span>
+                  </div>
+                </div>
+                <div class="preset-card-meta">
+                  <span class="context-badge">SESSION</span>
+                  <span class="context-badge">DIFFS</span>
+                  <span class="context-badge">REVIEWS</span>
+                  <span class="meta-badge output-md">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    Markdown
+                  </span>
+                  <span class="meta-badge model">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10H12V2z"/></svg>
+                    Claude Sonnet
+                  </span>
+                </div>
+                <div class="preset-card-footer">
+                  <div class="preset-card-stats">
+                    <span class="stat-value">32</span> tasks run
+                    <span class="mini-sparkline">
+                      <span class="bar" style="height:6px"></span>
+                      <span class="bar" style="height:10px"></span>
+                      <span class="bar" style="height:8px"></span>
+                      <span class="bar" style="height:5px"></span>
+                      <span class="bar" style="height:11px"></span>
+                      <span class="bar" style="height:14px"></span>
+                      <span class="bar" style="height:10px"></span>
+                      <span class="bar" style="height:12px"></span>
+                    </span>
+                  </div>
+                  <div class="preset-card-actions">
+                    <button class="preset-action-btn" data-tooltip="Edit" onclick="event.stopPropagation(); showToast('Opening editor...')">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    </button>
+                    <button class="preset-action-btn" data-tooltip="Duplicate" onclick="event.stopPropagation(); showToast('Preset duplicated')">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    </button>
+                    <button class="preset-action-btn" data-tooltip="Test Run" onclick="event.stopPropagation(); showToast('Running test...')">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                    </button>
+                    <button class="preset-action-btn" data-tooltip="View Schema" onclick="event.stopPropagation(); showToast('Schema viewer opened')">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Preset 3: Health Audit -->
+              <div class="preset-card stagger-in" data-preset="health-audit" onclick="openDetailPanel('health-audit')">
+                <div class="preset-card-header">
+                  <div class="preset-card-icon emerald">&#x1F3E5;</div>
+                  <div class="preset-card-title-row">
+                    <div class="preset-card-name">
+                      Health Audit
+                      <span class="preset-card-version">v1</span>
+                    </div>
+                  </div>
+                  <label class="toggle-switch" onclick="event.stopPropagation()">
+                    <input type="checkbox" checked>
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+                <div class="preset-card-body">
+                  <p class="preset-card-desc">Analyse session health flags, incidents, and suggest improvements with risk scoring</p>
+                  <div class="preset-card-tags">
+                    <span class="preset-tag health">health</span>
+                    <span class="preset-tag analysis">analysis</span>
+                    <span class="preset-tag automation">automation</span>
+                  </div>
+                </div>
+                <div class="preset-card-meta">
+                  <span class="context-badge">SESSION</span>
+                  <span class="context-badge">HEALTH</span>
+                  <span class="context-badge">INCIDENTS</span>
+                  <span class="meta-badge output-json">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                    JSON
+                  </span>
+                </div>
+                <div class="preset-card-footer">
+                  <div class="preset-card-stats">
+                    <span class="stat-value">28</span> tasks run
+                    <span class="mini-sparkline">
+                      <span class="bar" style="height:10px"></span>
+                      <span class="bar" style="height:6px"></span>
+                      <span class="bar" style="height:12px"></span>
+                      <span class="bar" style="height:8px"></span>
+                      <span class="bar" style="height:4px"></span>
+                      <span class="bar" style="height:9px"></span>
+                      <span class="bar" style="height:11px"></span>
+                      <span class="bar" style="height:7px"></span>
+                    </span>
+                  </div>
+                  <div class="preset-card-actions">
+                    <button class="preset-action-btn" data-tooltip="Edit" onclick="event.stopPropagation(); showToast('Opening editor...')">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    </button>
+                    <button class="preset-action-btn" data-tooltip="Duplicate" onclick="event.stopPropagation(); showToast('Preset duplicated')">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    </button>
+                    <button class="preset-action-btn" data-tooltip="Test Run" onclick="event.stopPropagation(); showToast('Running test...')">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                    </button>
+                    <button class="preset-action-btn" data-tooltip="View Schema" onclick="event.stopPropagation(); showToast('Schema viewer opened')">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Preset 4: Cost Analysis -->
+              <div class="preset-card stagger-in" data-preset="cost-analysis" onclick="openDetailPanel('cost-analysis')">
+                <div class="preset-card-header">
+                  <div class="preset-card-icon amber">&#x1F4B0;</div>
+                  <div class="preset-card-title-row">
+                    <div class="preset-card-name">
+                      Cost Analysis
+                      <span class="preset-card-version">v1</span>
+                    </div>
+                  </div>
+                  <label class="toggle-switch" onclick="event.stopPropagation()">
+                    <input type="checkbox" checked>
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+                <div class="preset-card-body">
+                  <p class="preset-card-desc">Break down token/model usage, cost per turn, and optimisation recommendations</p>
+                  <div class="preset-card-tags">
+                    <span class="preset-tag cost">cost</span>
+                    <span class="preset-tag analysis">analysis</span>
+                    <span class="preset-tag automation">automation</span>
+                  </div>
+                </div>
+                <div class="preset-card-meta">
+                  <span class="context-badge">SESSION</span>
+                  <span class="context-badge">TOKENS</span>
+                  <span class="context-badge">MODELS</span>
+                  <span class="meta-badge output-json">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                    JSON
+                  </span>
+                  <span class="meta-badge model">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10H12V2z"/></svg>
+                    GPT-4.1
+                  </span>
+                </div>
+                <div class="preset-card-footer">
+                  <div class="preset-card-stats">
+                    <span class="stat-value">19</span> tasks run
+                    <span class="mini-sparkline">
+                      <span class="bar" style="height:3px"></span>
+                      <span class="bar" style="height:5px"></span>
+                      <span class="bar" style="height:8px"></span>
+                      <span class="bar" style="height:6px"></span>
+                      <span class="bar" style="height:10px"></span>
+                      <span class="bar" style="height:13px"></span>
+                      <span class="bar" style="height:11px"></span>
+                      <span class="bar" style="height:14px"></span>
+                    </span>
+                  </div>
+                  <div class="preset-card-actions">
+                    <button class="preset-action-btn" data-tooltip="Edit" onclick="event.stopPropagation(); showToast('Opening editor...')">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    </button>
+                    <button class="preset-action-btn" data-tooltip="Duplicate" onclick="event.stopPropagation(); showToast('Preset duplicated')">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    </button>
+                    <button class="preset-action-btn" data-tooltip="Test Run" onclick="event.stopPropagation(); showToast('Running test...')">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                    </button>
+                    <button class="preset-action-btn" data-tooltip="View Schema" onclick="event.stopPropagation(); showToast('Schema viewer opened')">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Preset 5: Weekly Digest -->
+              <div class="preset-card stagger-in" data-preset="weekly-digest" onclick="openDetailPanel('weekly-digest')">
+                <div class="preset-card-header">
+                  <div class="preset-card-icon indigo">&#x1F4CA;</div>
+                  <div class="preset-card-title-row">
+                    <div class="preset-card-name">
+                      Weekly Digest
+                      <span class="preset-card-version">v1</span>
+                    </div>
+                  </div>
+                  <label class="toggle-switch" onclick="event.stopPropagation()">
+                    <input type="checkbox" checked>
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+                <div class="preset-card-body">
+                  <p class="preset-card-desc">Aggregate summaries across recent sessions with trend analysis</p>
+                  <div class="preset-card-tags">
+                    <span class="preset-tag digest">digest</span>
+                    <span class="preset-tag summary">summary</span>
+                    <span class="preset-tag analysis">analysis</span>
+                  </div>
+                </div>
+                <div class="preset-card-meta">
+                  <span class="context-badge">SESSIONS</span>
+                  <span class="context-badge">HISTORY</span>
+                  <span class="context-badge">METRICS</span>
+                  <span class="meta-badge output-md">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    Markdown
+                  </span>
+                </div>
+                <div class="preset-card-footer">
+                  <div class="preset-card-stats">
+                    <span class="stat-value">8</span> tasks run
+                    <span class="mini-sparkline">
+                      <span class="bar" style="height:6px"></span>
+                      <span class="bar" style="height:4px"></span>
+                      <span class="bar" style="height:8px"></span>
+                      <span class="bar" style="height:10px"></span>
+                      <span class="bar" style="height:7px"></span>
+                      <span class="bar" style="height:5px"></span>
+                      <span class="bar" style="height:9px"></span>
+                      <span class="bar" style="height:12px"></span>
+                    </span>
+                  </div>
+                  <div class="preset-card-actions">
+                    <button class="preset-action-btn" data-tooltip="Edit" onclick="event.stopPropagation(); showToast('Opening editor...')">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    </button>
+                    <button class="preset-action-btn" data-tooltip="Duplicate" onclick="event.stopPropagation(); showToast('Preset duplicated')">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    </button>
+                    <button class="preset-action-btn" data-tooltip="Test Run" onclick="event.stopPropagation(); showToast('Running test...')">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                    </button>
+                    <button class="preset-action-btn" data-tooltip="View Schema" onclick="event.stopPropagation(); showToast('Schema viewer opened')">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+            </div><!-- /builtinGrid -->
+          </div><!-- /builtinSection -->
+
+          <!-- ========== CUSTOM PRESETS ========== -->
+          <div id="customSection" style="margin-bottom:32px">
+            <div class="section-header stagger-in">
+              <div class="section-header-left">
+                <h2 class="section-title">Custom Presets</h2>
+                <span class="section-count">2</span>
+                <span class="preset-type-badge custom">user</span>
+              </div>
+              <button class="btn btn-sm" onclick="openCreateModal()">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Create New
+              </button>
+            </div>
+
+            <div class="presets-grid" id="customGrid">
+
+              <!-- Custom 1: PR Summary Generator -->
+              <div class="preset-card custom-card stagger-in" data-preset="pr-summary" onclick="openDetailPanel('pr-summary')">
+                <div class="preset-card-header">
+                  <div class="preset-card-icon cyan">&#x1F4E4;</div>
+                  <div class="preset-card-title-row">
+                    <div class="preset-card-name">
+                      PR Summary Generator
+                      <span class="preset-card-version">v2</span>
+                    </div>
+                  </div>
+                  <label class="toggle-switch" onclick="event.stopPropagation()">
+                    <input type="checkbox" checked>
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+                <div class="preset-card-body">
+                  <p class="preset-card-desc">Custom preset for generating PR descriptions from sessions including motivation, changes overview, and test plan</p>
+                  <div class="preset-card-tags">
+                    <span class="preset-tag summary">pr</span>
+                    <span class="preset-tag automation">automation</span>
+                    <span class="preset-tag review">review</span>
+                  </div>
+                </div>
+                <div class="preset-card-meta">
+                  <span class="context-badge">SESSION</span>
+                  <span class="context-badge">DIFFS</span>
+                  <span class="context-badge">COMMITS</span>
+                  <span class="meta-badge output-md">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    Markdown
+                  </span>
+                </div>
+                <div class="preset-card-footer">
+                  <div class="preset-card-stats">
+                    <span class="stat-value">15</span> tasks run
+                    <span class="mini-sparkline">
+                      <span class="bar" style="height:5px"></span>
+                      <span class="bar" style="height:9px"></span>
+                      <span class="bar" style="height:7px"></span>
+                      <span class="bar" style="height:11px"></span>
+                      <span class="bar" style="height:8px"></span>
+                      <span class="bar" style="height:13px"></span>
+                      <span class="bar" style="height:10px"></span>
+                      <span class="bar" style="height:14px"></span>
+                    </span>
+                  </div>
+                  <div class="preset-card-actions">
+                    <button class="preset-action-btn" data-tooltip="Edit" onclick="event.stopPropagation(); showToast('Opening editor...')">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    </button>
+                    <button class="preset-action-btn" data-tooltip="Duplicate" onclick="event.stopPropagation(); showToast('Preset duplicated')">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    </button>
+                    <button class="preset-action-btn" data-tooltip="Test Run" onclick="event.stopPropagation(); showToast('Running test...')">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                    </button>
+                    <button class="preset-action-btn btn-danger-ghost" data-tooltip="Delete" onclick="event.stopPropagation(); showToast('Preset deleted')">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Custom 2: Architecture Decision Record -->
+              <div class="preset-card custom-card stagger-in" data-preset="adr-extract" onclick="openDetailPanel('adr-extract')">
+                <div class="preset-card-header">
+                  <div class="preset-card-icon rose">&#x1F3DB;&#xFE0F;</div>
+                  <div class="preset-card-title-row">
+                    <div class="preset-card-name">
+                      Architecture Decision Record
+                      <span class="preset-card-version">v1</span>
+                    </div>
+                  </div>
+                  <label class="toggle-switch" onclick="event.stopPropagation()">
+                    <input type="checkbox">
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+                <div class="preset-card-body">
+                  <p class="preset-card-desc">Extract ADRs from sessions automatically, capturing context, decision, consequences, and alternatives</p>
+                  <div class="preset-card-tags">
+                    <span class="preset-tag analysis">architecture</span>
+                    <span class="preset-tag digest">documentation</span>
+                    <span class="preset-tag automation">automation</span>
+                  </div>
+                </div>
+                <div class="preset-card-meta">
+                  <span class="context-badge">SESSION</span>
+                  <span class="context-badge">TURNS</span>
+                  <span class="context-badge">FILES</span>
+                  <span class="meta-badge output-md">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    Markdown
+                  </span>
+                  <span class="meta-badge model">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10H12V2z"/></svg>
+                    Claude Opus
+                  </span>
+                </div>
+                <div class="preset-card-footer">
+                  <div class="preset-card-stats">
+                    <span class="stat-value">3</span> tasks run
+                    <span class="mini-sparkline">
+                      <span class="bar" style="height:8px"></span>
+                      <span class="bar" style="height:4px"></span>
+                      <span class="bar" style="height:10px"></span>
+                      <span class="bar" style="height:6px"></span>
+                      <span class="bar" style="height:3px"></span>
+                      <span class="bar" style="height:5px"></span>
+                      <span class="bar" style="height:7px"></span>
+                      <span class="bar" style="height:4px"></span>
+                    </span>
+                  </div>
+                  <div class="preset-card-actions">
+                    <button class="preset-action-btn" data-tooltip="Edit" onclick="event.stopPropagation(); showToast('Opening editor...')">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    </button>
+                    <button class="preset-action-btn" data-tooltip="Duplicate" onclick="event.stopPropagation(); showToast('Preset duplicated')">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    </button>
+                    <button class="preset-action-btn" data-tooltip="Test Run" onclick="event.stopPropagation(); showToast('Running test...')">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                    </button>
+                    <button class="preset-action-btn btn-danger-ghost" data-tooltip="Delete" onclick="event.stopPropagation(); showToast('Preset deleted')">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+            </div><!-- /customGrid -->
+          </div><!-- /customSection -->
+
+          <!-- ========== IMPORT/EXPORT BAR ========== -->
+          <div class="import-export-bar stagger-in">
+            <div class="import-export-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m8 17 4 4 4-4"/></svg>
+            </div>
+            <div class="import-export-text">
+              <div class="import-export-title">Import &amp; Export Presets</div>
+              <div class="import-export-desc">Share presets with your team or back up your custom configurations as JSON files.</div>
+            </div>
+            <div class="import-export-actions">
+              <button class="btn btn-sm" onclick="showToast('File picker opened...')">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                Import
+              </button>
+              <button class="btn btn-sm" onclick="showToast('Exported 7 presets')">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Export All
+              </button>
+              <button class="btn btn-sm" onclick="showToast('Share link copied')">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                Share
+              </button>
+            </div>
+          </div>
+
+        </div><!-- /page-content-inner -->
+      </div><!-- /page-content -->
+    </main>
+
+    <!-- ========== DETAIL PANEL ========== -->
+    <div class="detail-panel-overlay" id="detailOverlay" onclick="closeDetailPanel()"></div>
+    <div class="detail-panel" id="detailPanel">
+      <div class="detail-panel-header">
+        <div class="detail-panel-title">
+          <div class="icon preset-card-icon blue" id="detailIcon" style="width:36px;height:36px;font-size:18px">&#x1F4DD;</div>
+          <div>
+            <div class="text-title-md" id="detailName">Session Summary</div>
+            <div class="text-body-sm" style="color:var(--text-tertiary)" id="detailType">Built-in preset &middot; v1</div>
+          </div>
+        </div>
+        <button class="detail-panel-close" onclick="closeDetailPanel()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="detail-panel-body">
+
+        <!-- Full Description -->
+        <div class="detail-section">
+          <div class="detail-section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            Description
+          </div>
+          <p class="text-body" style="color:var(--text-secondary)" id="detailDesc">Generate a concise, structured summary of a Copilot session. Captures key decisions made during the session, all files that were created or modified, tool calls executed, and provides an overall outcome assessment with confidence scoring.</p>
+        </div>
+
+        <!-- Prompt Preview -->
+        <div class="detail-section">
+          <div class="detail-section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+            Prompt Template
+          </div>
+          <div class="prompt-preview">
+            <div class="prompt-preview-header">
+              <span style="color:var(--success-fg)">&#x25CF;</span> System Prompt
+            </div>
+            <div class="prompt-preview-body" id="detailSystemPrompt">You are a session analysis assistant for TracePilot. Your role is to produce concise, actionable summaries of Copilot coding sessions.
+
+Always structure output using the provided schema. Be factual and precise. Include confidence scores where applicable.</div>
+          </div>
+          <div class="prompt-preview" style="margin-top:8px">
+            <div class="prompt-preview-header">
+              <span style="color:var(--accent-fg)">&#x25CF;</span> User Prompt
+            </div>
+            <div class="prompt-preview-body" id="detailUserPrompt">Analyse the following session data and produce a structured summary.
+
+Session ID: <span class="prompt-var">{{session_id}}</span>
+Duration: <span class="prompt-var">{{session_duration}}</span>
+Turn count: <span class="prompt-var">{{turn_count}}</span>
+
+Session transcript:
+<span class="prompt-var">{{session_transcript}}</span>
+
+File changes:
+<span class="prompt-var">{{file_changes}}</span>
+
+Produce a summary covering:
+1. Executive overview (2-3 sentences)
+2. Key decisions with rationale
+3. Files modified with change description
+4. Tool usage patterns
+5. Outcome assessment with confidence score</div>
+          </div>
+        </div>
+
+        <!-- Variable Definitions -->
+        <div class="detail-section">
+          <div class="detail-section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+            Variable Definitions
+          </div>
+          <table class="var-table">
+            <thead>
+              <tr>
+                <th>Variable</th>
+                <th>Type</th>
+                <th>Source</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="var-name">session_id</td>
+                <td class="var-type">string</td>
+                <td>Session metadata</td>
+              </tr>
+              <tr>
+                <td class="var-name">session_duration</td>
+                <td class="var-type">string</td>
+                <td>Computed from timestamps</td>
+              </tr>
+              <tr>
+                <td class="var-name">turn_count</td>
+                <td class="var-type">number</td>
+                <td>Session turn array length</td>
+              </tr>
+              <tr>
+                <td class="var-name">session_transcript</td>
+                <td class="var-type">string</td>
+                <td>Formatted turn content</td>
+              </tr>
+              <tr>
+                <td class="var-name">file_changes</td>
+                <td class="var-type">string</td>
+                <td>Tool call file operations</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Context Sources -->
+        <div class="detail-section">
+          <div class="detail-section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            Context Sources
+          </div>
+          <div class="context-source-list">
+            <div class="context-source-item">
+              <div class="context-source-icon" style="background:var(--accent-muted);color:var(--accent-fg)">&#x1F4C4;</div>
+              <span class="context-source-name">Session Metadata</span>
+              <span class="context-source-config">id, timestamps, model</span>
+            </div>
+            <div class="context-source-item">
+              <div class="context-source-icon" style="background:var(--success-muted);color:var(--success-fg)">&#x1F4AC;</div>
+              <span class="context-source-name">Turn History</span>
+              <span class="context-source-config">all turns, max 200</span>
+            </div>
+            <div class="context-source-item">
+              <div class="context-source-icon" style="background:var(--warning-muted);color:var(--warning-fg)">&#x1F527;</div>
+              <span class="context-source-name">Tool Calls</span>
+              <span class="context-source-config">name, args, result summary</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Output Schema -->
+        <div class="detail-section">
+          <div class="detail-section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+            Output Schema
+          </div>
+          <div class="schema-preview">{
+  <span class="schema-key">"summary"</span>: {
+    <span class="schema-key">"executive_overview"</span>: <span class="schema-type">string</span>,
+    <span class="schema-key">"key_decisions"</span>: [
+      {
+        <span class="schema-key">"decision"</span>: <span class="schema-type">string</span>,
+        <span class="schema-key">"rationale"</span>: <span class="schema-type">string</span>,
+        <span class="schema-key">"confidence"</span>: <span class="schema-type">number</span>
+      }
+    ],
+    <span class="schema-key">"files_modified"</span>: [
+      {
+        <span class="schema-key">"path"</span>: <span class="schema-type">string</span>,
+        <span class="schema-key">"change_type"</span>: <span class="schema-string">"created" | "modified" | "deleted"</span>,
+        <span class="schema-key">"description"</span>: <span class="schema-type">string</span>
+      }
+    ],
+    <span class="schema-key">"outcome_assessment"</span>: {
+      <span class="schema-key">"status"</span>: <span class="schema-string">"success" | "partial" | "failed"</span>,
+      <span class="schema-key">"confidence"</span>: <span class="schema-type">number</span>,
+      <span class="schema-key">"notes"</span>: <span class="schema-type">string</span>
+    }
+  }
+}</div>
+        </div>
+
+        <!-- Execution Config -->
+        <div class="detail-section">
+          <div class="detail-section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.28.46.72.78 1.21.89H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            Execution Config
+          </div>
+          <div class="exec-config">
+            <div class="exec-config-item">
+              <div class="exec-config-label">Model</div>
+              <div class="exec-config-value" style="color:var(--accent-fg)">claude-sonnet-4.5</div>
+            </div>
+            <div class="exec-config-item">
+              <div class="exec-config-label">Timeout</div>
+              <div class="exec-config-value">30s</div>
+            </div>
+            <div class="exec-config-item">
+              <div class="exec-config-label">Max Retries</div>
+              <div class="exec-config-value">2</div>
+            </div>
+            <div class="exec-config-item">
+              <div class="exec-config-label">Priority</div>
+              <div class="exec-config-value" style="color:var(--warning-fg)">Normal</div>
+            </div>
+            <div class="exec-config-item">
+              <div class="exec-config-label">Max Tokens</div>
+              <div class="exec-config-value">4,096</div>
+            </div>
+            <div class="exec-config-item">
+              <div class="exec-config-label">Temperature</div>
+              <div class="exec-config-value">0.3</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Usage History -->
+        <div class="detail-section">
+          <div class="detail-section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+            Usage History (Last 30 Days)
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <span class="text-body-sm" style="color:var(--text-tertiary)">47 total runs</span>
+            <span class="text-body-sm" style="color:var(--success-fg)">&#x2191; 12% vs last month</span>
+          </div>
+          <div class="usage-chart" id="usageChart">
+            <div class="chart-bar" style="height:20%" data-tooltip="Jan 1: 2 runs"></div>
+            <div class="chart-bar" style="height:35%" data-tooltip="Jan 2: 3 runs"></div>
+            <div class="chart-bar" style="height:15%" data-tooltip="Jan 3: 1 run"></div>
+            <div class="chart-bar" style="height:45%" data-tooltip="Jan 4: 4 runs"></div>
+            <div class="chart-bar" style="height:30%" data-tooltip="Jan 5: 3 runs"></div>
+            <div class="chart-bar" style="height:60%" data-tooltip="Jan 6: 5 runs"></div>
+            <div class="chart-bar" style="height:25%" data-tooltip="Jan 7: 2 runs"></div>
+            <div class="chart-bar" style="height:40%" data-tooltip="Jan 8: 3 runs"></div>
+            <div class="chart-bar" style="height:50%" data-tooltip="Jan 9: 4 runs"></div>
+            <div class="chart-bar" style="height:35%" data-tooltip="Jan 10: 3 runs"></div>
+            <div class="chart-bar" style="height:20%" data-tooltip="Jan 11: 2 runs"></div>
+            <div class="chart-bar" style="height:55%" data-tooltip="Jan 12: 5 runs"></div>
+            <div class="chart-bar" style="height:70%" data-tooltip="Jan 13: 6 runs"></div>
+            <div class="chart-bar" style="height:45%" data-tooltip="Jan 14: 4 runs"></div>
+            <div class="chart-bar" style="height:30%" data-tooltip="Jan 15: 3 runs"></div>
+            <div class="chart-bar" style="height:10%" data-tooltip="Jan 16: 1 run"></div>
+            <div class="chart-bar" style="height:40%" data-tooltip="Jan 17: 3 runs"></div>
+            <div class="chart-bar" style="height:65%" data-tooltip="Jan 18: 5 runs"></div>
+            <div class="chart-bar" style="height:50%" data-tooltip="Jan 19: 4 runs"></div>
+            <div class="chart-bar" style="height:35%" data-tooltip="Jan 20: 3 runs"></div>
+            <div class="chart-bar" style="height:80%" data-tooltip="Jan 21: 7 runs"></div>
+            <div class="chart-bar" style="height:55%" data-tooltip="Jan 22: 5 runs"></div>
+            <div class="chart-bar" style="height:40%" data-tooltip="Jan 23: 3 runs"></div>
+            <div class="chart-bar" style="height:25%" data-tooltip="Jan 24: 2 runs"></div>
+            <div class="chart-bar" style="height:60%" data-tooltip="Jan 25: 5 runs"></div>
+            <div class="chart-bar" style="height:45%" data-tooltip="Jan 26: 4 runs"></div>
+            <div class="chart-bar" style="height:90%" data-tooltip="Jan 27: 8 runs"></div>
+            <div class="chart-bar" style="height:70%" data-tooltip="Jan 28: 6 runs"></div>
+            <div class="chart-bar" style="height:50%" data-tooltip="Jan 29: 4 runs"></div>
+            <div class="chart-bar" style="height:100%" data-tooltip="Jan 30: 9 runs"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:0.625rem;color:var(--text-placeholder);margin-top:4px">
+            <span>30 days ago</span>
+            <span>Today</span>
+          </div>
+        </div>
+
+        <!-- Panel Footer Actions -->
+        <div style="display:flex;gap:8px;padding-top:8px;border-top:1px solid var(--border-subtle)">
+          <button class="btn btn-primary" style="flex:1" onclick="showToast('Test run started...')">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Test Run
+          </button>
+          <button class="btn" onclick="showToast('Opening editor...')">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            Edit
+          </button>
+          <button class="btn" onclick="showToast('Preset duplicated')">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Duplicate
+          </button>
+        </div>
+
+      </div><!-- /detail-panel-body -->
+    </div><!-- /detailPanel -->
+
+    <!-- ========== CREATE PRESET MODAL ========== -->
+    <div class="modal-overlay" id="createModal">
+      <div class="modal" onclick="event.stopPropagation()">
+        <div class="modal-header">
+          <div>
+            <div class="modal-title">Create New Preset</div>
+            <div class="text-body-sm" style="color:var(--text-tertiary);margin-top:2px">Define a reusable prompt template for automated analysis</div>
+          </div>
+          <button class="modal-close" onclick="closeCreateModal()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="modal-body">
+
+          <!-- Step indicator -->
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:24px">
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="width:22px;height:22px;border-radius:50%;background:var(--accent-emphasis);color:white;display:flex;align-items:center;justify-content:center;font-size:0.6875rem;font-weight:700">1</span>
+              <span class="text-body-sm" style="font-weight:600;color:var(--text-primary)">Details</span>
+            </div>
+            <div style="flex:1;height:1px;background:var(--border-default)"></div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="width:22px;height:22px;border-radius:50%;background:var(--neutral-muted);color:var(--text-placeholder);display:flex;align-items:center;justify-content:center;font-size:0.6875rem;font-weight:700">2</span>
+              <span class="text-body-sm" style="color:var(--text-placeholder)">Template</span>
+            </div>
+            <div style="flex:1;height:1px;background:var(--border-default)"></div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="width:22px;height:22px;border-radius:50%;background:var(--neutral-muted);color:var(--text-placeholder);display:flex;align-items:center;justify-content:center;font-size:0.6875rem;font-weight:700">3</span>
+              <span class="text-body-sm" style="color:var(--text-placeholder)">Configure</span>
+            </div>
+          </div>
+
+          <!-- Name -->
+          <div class="form-group">
+            <label class="form-label">
+              Preset Name
+              <span class="form-sublabel">Required</span>
+            </label>
+            <input type="text" class="form-input" placeholder="e.g., Security Audit Report" id="presetNameInput">
+          </div>
+
+          <!-- Description -->
+          <div class="form-group">
+            <label class="form-label">Description</label>
+            <textarea class="form-input form-textarea" placeholder="Describe what this preset does and when to use it..." id="presetDescInput"></textarea>
+          </div>
+
+          <!-- Tags -->
+          <div class="form-group">
+            <label class="form-label">Tags</label>
+            <div class="tag-input-container" onclick="this.querySelector('input').focus()">
+              <span class="tag-input-tag">analysis <span class="remove" onclick="this.parentElement.remove()">&times;</span></span>
+              <input type="text" class="tag-input-field" placeholder="Add tag...">
+            </div>
+          </div>
+
+          <!-- Template Selection -->
+          <div class="form-group">
+            <label class="form-label">Start From</label>
+            <div class="template-grid">
+              <div class="template-option selected" onclick="selectTemplate(this)">
+                <div class="template-option-icon">&#x2728;</div>
+                <div class="template-option-name">Blank Preset</div>
+                <div class="template-option-desc">Start from scratch</div>
+              </div>
+              <div class="template-option" onclick="selectTemplate(this)">
+                <div class="template-option-icon">&#x1F4DD;</div>
+                <div class="template-option-name">Session Summary</div>
+                <div class="template-option-desc">Duplicate built-in</div>
+              </div>
+              <div class="template-option" onclick="selectTemplate(this)">
+                <div class="template-option-icon">&#x1F50D;</div>
+                <div class="template-option-name">Code Review</div>
+                <div class="template-option-desc">Duplicate built-in</div>
+              </div>
+              <div class="template-option" onclick="selectTemplate(this)">
+                <div class="template-option-icon">&#x1F3E5;</div>
+                <div class="template-option-name">Health Audit</div>
+                <div class="template-option-desc">Duplicate built-in</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Output Format -->
+          <div class="form-group">
+            <label class="form-label">Output Format</label>
+            <div style="display:flex;gap:8px">
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:8px 14px;background:var(--canvas-default);border:1px solid var(--accent-emphasis);border-radius:var(--radius-md);font-size:0.8125rem;color:var(--text-primary)">
+                <input type="radio" name="outputFormat" value="markdown" checked style="accent-color:var(--accent-emphasis)">
+                Markdown
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:8px 14px;background:var(--canvas-default);border:1px solid var(--border-default);border-radius:var(--radius-md);font-size:0.8125rem;color:var(--text-secondary)">
+                <input type="radio" name="outputFormat" value="json" style="accent-color:var(--accent-emphasis)">
+                JSON
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:8px 14px;background:var(--canvas-default);border:1px solid var(--border-default);border-radius:var(--radius-md);font-size:0.8125rem;color:var(--text-secondary)">
+                <input type="radio" name="outputFormat" value="text" style="accent-color:var(--accent-emphasis)">
+                Plain Text
+              </label>
+            </div>
+          </div>
+
+          <!-- Model Override -->
+          <div class="form-group">
+            <label class="form-label">
+              Model Override
+              <span class="form-sublabel">Optional &mdash; uses default if unset</span>
+            </label>
+            <select class="filter-select" style="width:100%">
+              <option value="">Use default model</option>
+              <option value="claude-sonnet-4.5">Claude Sonnet 4.5</option>
+              <option value="claude-opus-4.5">Claude Opus 4.5</option>
+              <option value="gpt-4.1">GPT-4.1</option>
+              <option value="gpt-5.1">GPT-5.1</option>
+            </select>
+          </div>
+
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" onclick="closeCreateModal()">Cancel</button>
+          <button class="btn" onclick="showToast('Saved as draft')">Save as Draft</button>
+          <button class="btn btn-primary" onclick="closeCreateModal(); showToast('Preset created successfully!')">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Create Preset
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== TOAST ========== -->
+    <div class="toast" id="toast">
+      <span class="toast-icon">&#x2705;</span>
+      <span id="toastMessage">Action completed</span>
+      <button class="toast-close" onclick="hideToast()">&times;</button>
+    </div>
+
+  </div><!-- /app-layout -->
+
+  <!-- ========== JAVASCRIPT ========== -->
+  <script>
+    /* ============================================================
+       TracePilot — Task Presets Page Interactions
+       ============================================================ */
+
+    // --- Preset Data Store ---
+    const presetData = {
+      'session-summary': {
+        name: 'Session Summary',
+        icon: '\u{1F4DD}',
+        iconClass: 'blue',
+        type: 'Built-in preset',
+        version: 'v1',
+        desc: 'Generate a concise, structured summary of a Copilot session. Captures key decisions made during the session, all files that were created or modified, tool calls executed, and provides an overall outcome assessment with confidence scoring.',
+        systemPrompt: 'You are a session analysis assistant for TracePilot. Your role is to produce concise, actionable summaries of Copilot coding sessions.\n\nAlways structure output using the provided schema. Be factual and precise. Include confidence scores where applicable.',
+        userPrompt: 'Analyse the following session data and produce a structured summary.\n\nSession ID: <span class=\"prompt-var\">{{session_id}}</span>\nDuration: <span class=\"prompt-var\">{{session_duration}}</span>\nTurn count: <span class=\"prompt-var\">{{turn_count}}</span>\n\nSession transcript:\n<span class=\"prompt-var\">{{session_transcript}}</span>\n\nFile changes:\n<span class=\"prompt-var\">{{file_changes}}</span>\n\nProduce a summary covering:\n1. Executive overview (2-3 sentences)\n2. Key decisions with rationale\n3. Files modified with change description\n4. Tool usage patterns\n5. Outcome assessment with confidence score',
+        model: 'claude-sonnet-4.5',
+        timeout: '30s',
+        retries: '2',
+        priority: 'Normal',
+        runs: 47
+      },
+      'code-review-digest': {
+        name: 'Code Review Digest',
+        icon: '\u{1F50D}',
+        iconClass: 'purple',
+        type: 'Built-in preset',
+        version: 'v1',
+        desc: 'Summarise code changes and review findings with severity analysis. Analyses diffs, identifies potential issues, and produces a structured review digest that highlights critical, warning, and informational findings with file-level granularity.',
+        systemPrompt: 'You are a code review analyst for TracePilot. Analyse code changes from a Copilot session and produce a structured review digest.\n\nFocus on: correctness, security, performance, maintainability. Rate severity as critical/warning/info.',
+        userPrompt: 'Review the following session changes and produce a structured digest.\n\nSession: <span class=\"prompt-var\">{{session_id}}</span>\nChanges:\n<span class=\"prompt-var\">{{code_diffs}}</span>\n\nReview comments:\n<span class=\"prompt-var\">{{review_comments}}</span>\n\nProduce a digest with severity analysis and recommendations.',
+        model: 'claude-sonnet-4.5',
+        timeout: '45s',
+        retries: '2',
+        priority: 'Normal',
+        runs: 32
+      },
+      'health-audit': {
+        name: 'Health Audit',
+        icon: '\u{1F3E5}',
+        iconClass: 'emerald',
+        type: 'Built-in preset',
+        version: 'v1',
+        desc: 'Analyse session health flags, incidents, and suggest improvements with risk scoring. Examines turn latency, error rates, tool failures, and token efficiency to produce an actionable health report with prioritised recommendations.',
+        systemPrompt: 'You are a session health auditor for TracePilot. Analyse session telemetry and health indicators to identify issues and suggest improvements.\n\nRate risks as high/medium/low. Include actionable recommendations.',
+        userPrompt: 'Audit the health of the following session.\n\nSession: <span class=\"prompt-var\">{{session_id}}</span>\nHealth flags:\n<span class=\"prompt-var\">{{health_flags}}</span>\n\nIncidents:\n<span class=\"prompt-var\">{{incidents}}</span>\n\nPerformance metrics:\n<span class=\"prompt-var\">{{perf_metrics}}</span>\n\nProduce a health audit with risk scores and improvement suggestions.',
+        model: 'claude-sonnet-4.5',
+        timeout: '30s',
+        retries: '3',
+        priority: 'High',
+        runs: 28
+      },
+      'cost-analysis': {
+        name: 'Cost Analysis',
+        icon: '\u{1F4B0}',
+        iconClass: 'amber',
+        type: 'Built-in preset',
+        version: 'v1',
+        desc: 'Break down token/model usage, cost per turn, and optimisation recommendations. Produces a detailed cost breakdown with per-turn analysis, model comparison, and specific suggestions for reducing costs while maintaining quality.',
+        systemPrompt: 'You are a cost analysis assistant for TracePilot. Analyse token usage and model costs to provide optimisation recommendations.\n\nBe precise with numbers. Include specific, actionable cost-saving suggestions.',
+        userPrompt: 'Analyse the cost profile of this session.\n\nSession: <span class=\"prompt-var\">{{session_id}}</span>\nToken usage:\n<span class=\"prompt-var\">{{token_usage}}</span>\n\nModel breakdown:\n<span class=\"prompt-var\">{{model_breakdown}}</span>\n\nProduce cost analysis with per-turn breakdown and optimisation recommendations.',
+        model: 'gpt-4.1',
+        timeout: '20s',
+        retries: '1',
+        priority: 'Low',
+        runs: 19
+      },
+      'weekly-digest': {
+        name: 'Weekly Digest',
+        icon: '\u{1F4CA}',
+        iconClass: 'indigo',
+        type: 'Built-in preset',
+        version: 'v1',
+        desc: 'Aggregate summaries across recent sessions with trend analysis. Produces a weekly overview including session counts, success rates, common patterns, top files modified, and cost trends with week-over-week comparisons.',
+        systemPrompt: 'You are a weekly digest generator for TracePilot. Aggregate data across multiple sessions to identify trends, patterns, and insights.\n\nFocus on actionable trends. Include week-over-week comparisons where data is available.',
+        userPrompt: 'Generate a weekly digest from the following session data.\n\nPeriod: <span class=\"prompt-var\">{{date_range}}</span>\nSessions:\n<span class=\"prompt-var\">{{session_summaries}}</span>\n\nPrevious period metrics:\n<span class=\"prompt-var\">{{previous_metrics}}</span>\n\nProduce a comprehensive weekly digest with trends and recommendations.',
+        model: 'claude-sonnet-4.5',
+        timeout: '60s',
+        retries: '2',
+        priority: 'Normal',
+        runs: 8
+      },
+      'pr-summary': {
+        name: 'PR Summary Generator',
+        icon: '\u{1F4E4}',
+        iconClass: 'cyan',
+        type: 'Custom preset',
+        version: 'v2',
+        desc: 'Custom preset for generating PR descriptions from sessions including motivation, changes overview, test plan, and deployment notes. Automatically extracts the narrative from session conversations and structures it for GitHub PR templates.',
+        systemPrompt: 'You are a PR description generator for TracePilot. Transform session transcripts into well-structured pull request descriptions.\n\nFollow the team\'s PR template format. Be concise but thorough. Include test plan and deployment notes.',
+        userPrompt: 'Generate a PR description from the following session.\n\nSession: <span class=\"prompt-var\">{{session_id}}</span>\nBranch: <span class=\"prompt-var\">{{branch_name}}</span>\n\nConversation:\n<span class=\"prompt-var\">{{session_transcript}}</span>\n\nCommits:\n<span class=\"prompt-var\">{{commit_messages}}</span>\n\nDiffs:\n<span class=\"prompt-var\">{{code_diffs}}</span>\n\nProduce a PR description with motivation, changes overview, test plan, and deployment notes.',
+        model: 'claude-sonnet-4.5',
+        timeout: '30s',
+        retries: '2',
+        priority: 'Normal',
+        runs: 15
+      },
+      'adr-extract': {
+        name: 'Architecture Decision Record',
+        icon: '\u{1F3DB}\uFE0F',
+        iconClass: 'rose',
+        type: 'Custom preset',
+        version: 'v1',
+        desc: 'Extract ADRs from sessions automatically, capturing context, decision rationale, consequences, alternatives considered, and team consensus. Formats output as standard ADR documents compatible with common ADR tools and repositories.',
+        systemPrompt: 'You are an ADR extraction agent for TracePilot. Identify architectural decisions made during sessions and format them as standard ADR documents.\n\nFollow the Michael Nygard ADR format. Include all considered alternatives and their trade-offs.',
+        userPrompt: 'Extract architectural decisions from the following session.\n\nSession: <span class=\"prompt-var\">{{session_id}}</span>\n\nTranscript:\n<span class=\"prompt-var\">{{session_transcript}}</span>\n\nFiles changed:\n<span class=\"prompt-var\">{{file_changes}}</span>\n\nExtract ADRs in standard format including:\n- Title\n- Status\n- Context\n- Decision\n- Consequences\n- Alternatives considered',
+        model: 'claude-opus-4.5',
+        timeout: '45s',
+        retries: '2',
+        priority: 'Normal',
+        runs: 3
+      }
+    };
+
+    // --- Theme Toggle ---
+    function toggleTheme() {
+      const root = document.documentElement;
+      const current = root.getAttribute('data-theme') || 'dark';
+      root.setAttribute('data-theme', current === 'dark' ? 'light' : 'dark');
+    }
+
+    // --- Detail Panel ---
+    function openDetailPanel(presetId) {
+      const data = presetData[presetId];
+      if (!data) return;
+
+      // Update panel content
+      document.getElementById('detailName').textContent = data.name;
+      document.getElementById('detailType').innerHTML = data.type + ' &middot; ' + data.version;
+      document.getElementById('detailDesc').textContent = data.desc;
+
+      const iconEl = document.getElementById('detailIcon');
+      iconEl.textContent = data.icon;
+      iconEl.className = 'icon preset-card-icon ' + data.iconClass;
+
+      document.getElementById('detailSystemPrompt').textContent = data.systemPrompt;
+      document.getElementById('detailUserPrompt').innerHTML = data.userPrompt;
+
+      // Highlight selected card
+      document.querySelectorAll('.preset-card').forEach(c => c.classList.remove('selected'));
+      const card = document.querySelector('[data-preset="' + presetId + '"]');
+      if (card) card.classList.add('selected');
+
+      // Show panel
+      document.getElementById('detailOverlay').classList.add('visible');
+      document.getElementById('detailPanel').classList.add('open');
+    }
+
+    function closeDetailPanel() {
+      document.getElementById('detailOverlay').classList.remove('visible');
+      document.getElementById('detailPanel').classList.remove('open');
+      document.querySelectorAll('.preset-card').forEach(c => c.classList.remove('selected'));
+    }
+
+    // --- Create Modal ---
+    function openCreateModal() {
+      document.getElementById('createModal').classList.add('visible');
+    }
+
+    function closeCreateModal() {
+      document.getElementById('createModal').classList.remove('visible');
+    }
+
+    // --- Template Selector ---
+    function selectTemplate(el) {
+      el.parentElement.querySelectorAll('.template-option').forEach(t => t.classList.remove('selected'));
+      el.classList.add('selected');
+    }
+
+    // --- View Toggle ---
+    function setView(mode, btn) {
+      document.querySelectorAll('.view-toggle-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      const grids = document.querySelectorAll('.presets-grid');
+      if (mode === 'list') {
+        grids.forEach(g => {
+          g.style.gridTemplateColumns = '1fr';
+        });
+        document.querySelectorAll('.preset-card').forEach(card => {
+          card.style.flexDirection = 'row';
+          card.style.alignItems = 'center';
+        });
+      } else {
+        grids.forEach(g => {
+          g.style.gridTemplateColumns = '';
+        });
+        document.querySelectorAll('.preset-card').forEach(card => {
+          card.style.flexDirection = '';
+          card.style.alignItems = '';
+        });
+      }
+    }
+
+    // --- Search / Filter ---
+    function filterPresets(query) {
+      const q = query.toLowerCase().trim();
+      document.querySelectorAll('.preset-card').forEach(card => {
+        const name = card.querySelector('.preset-card-name')?.textContent.toLowerCase() || '';
+        const desc = card.querySelector('.preset-card-desc')?.textContent.toLowerCase() || '';
+        const tags = Array.from(card.querySelectorAll('.preset-tag')).map(t => t.textContent.toLowerCase()).join(' ');
+        const match = !q || name.includes(q) || desc.includes(q) || tags.includes(q);
+        card.style.display = match ? '' : 'none';
+      });
+    }
+
+    // --- Dropdown ---
+    function toggleDropdown(id) {
+      const menu = document.getElementById(id);
+      menu.classList.toggle('visible');
+      // Close on outside click
+      const handler = (e) => {
+        if (!menu.contains(e.target) && e.target.id !== 'importExportBtn') {
+          menu.classList.remove('visible');
+          document.removeEventListener('click', handler);
+        }
+      };
+      setTimeout(() => document.addEventListener('click', handler), 0);
+    }
+
+    // --- Toast Notifications ---
+    let toastTimer = null;
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toastMessage').textContent = message;
+      toast.classList.add('visible');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(hideToast, 3000);
+    }
+    function hideToast() {
+      document.getElementById('toast').classList.remove('visible');
+    }
+
+    // --- Keyboard Shortcuts ---
+    document.addEventListener('keydown', (e) => {
+      // "/" focuses search
+      if (e.key === '/' && !e.ctrlKey && !e.metaKey) {
+        const search = document.getElementById('presetSearch');
+        if (document.activeElement !== search) {
+          e.preventDefault();
+          search.focus();
+        }
+      }
+      // Escape closes panels/modals
+      if (e.key === 'Escape') {
+        closeDetailPanel();
+        closeCreateModal();
+        // Close any open dropdown
+        document.querySelectorAll('.dropdown-menu.visible').forEach(m => m.classList.remove('visible'));
+      }
+      // Ctrl+N opens create modal
+      if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+        e.preventDefault();
+        openCreateModal();
+      }
+    });
+
+    // --- Close modal on overlay click ---
+    document.getElementById('createModal').addEventListener('click', function(e) {
+      if (e.target === this) closeCreateModal();
+    });
+
+    // --- Tag Input ---
+    document.querySelectorAll('.tag-input-field').forEach(input => {
+      input.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && this.value.trim()) {
+          e.preventDefault();
+          const tag = document.createElement('span');
+          tag.className = 'tag-input-tag';
+          tag.innerHTML = this.value.trim() + ' <span class="remove" onclick="this.parentElement.remove()">&times;</span>';
+          this.parentElement.insertBefore(tag, this);
+          this.value = '';
+        }
+        if (e.key === 'Backspace' && !this.value) {
+          const tags = this.parentElement.querySelectorAll('.tag-input-tag');
+          if (tags.length) tags[tags.length - 1].remove();
+        }
+      });
+    });
+
+    // --- Animate sparkline bars on load ---
+    document.querySelectorAll('.mini-sparkline .bar').forEach(bar => {
+      const h = bar.style.height;
+      bar.style.height = '0px';
+      bar.style.transition = 'height 0.4s ease';
+      setTimeout(() => { bar.style.height = h; }, 300 + Math.random() * 400);
+    });
+
+    // --- Animate chart bars on detail panel open ---
+    const chartObserver = new MutationObserver((mutations) => {
+      mutations.forEach(m => {
+        if (m.target.classList.contains('open')) {
+          document.querySelectorAll('.usage-chart .chart-bar').forEach((bar, i) => {
+            const h = bar.style.height;
+            bar.style.height = '0%';
+            setTimeout(() => { bar.style.height = h; }, 50 + i * 20);
+          });
+        }
+      });
+    });
+    chartObserver.observe(document.getElementById('detailPanel'), { attributes: true, attributeFilter: ['class'] });
+
+    // --- Auto-open first preset on load for demo ---
+    // setTimeout(() => openDetailPanel('session-summary'), 800);
+  </script>
+</body>
+</html>

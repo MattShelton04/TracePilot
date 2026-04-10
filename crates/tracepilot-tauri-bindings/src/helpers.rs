@@ -75,6 +75,31 @@ pub(crate) fn read_config(state: &SharedConfig) -> TracePilotConfig {
     }
 }
 
+/// Get or initialize the shared TaskDb.
+///
+/// Lazily opens the database on first call using the default path
+/// (`~/.copilot/tracepilot/tasks.db`). Returns a clone of the Arc
+/// for use inside `spawn_blocking`.
+pub(crate) fn get_or_init_task_db(
+    state: &crate::types::SharedTaskDb,
+) -> Result<crate::types::SharedTaskDb, BindingsError> {
+    let mut guard = state.lock().map_err(|_| {
+        BindingsError::Validation("TaskDb mutex poisoned".into())
+    })?;
+    if guard.is_none() {
+        let path = tracepilot_orchestrator::task_db::TaskDb::default_path()
+            .map_err(|e| BindingsError::Validation(format!("Cannot resolve task DB path: {e}")))?;
+        let db = tracepilot_orchestrator::task_db::TaskDb::open_or_create(&path)
+            .map_err(|e| BindingsError::Validation(format!("Failed to open task DB: {e}")))?;
+        db.startup_maintenance()
+            .map_err(|e| BindingsError::Validation(format!("Task DB maintenance failed: {e}")))?;
+        tracing::info!(path = %path.display(), "Task DB initialized");
+        *guard = Some(db);
+    }
+    drop(guard);
+    Ok(state.clone())
+}
+
 pub(crate) fn summary_to_list_item(
     summary: tracepilot_core::SessionSummary,
     session_path: &Path,
@@ -85,6 +110,7 @@ pub(crate) fn summary_to_list_item(
         summary: summary.summary,
         repository: summary.repository,
         branch: summary.branch,
+        cwd: summary.cwd,
         host_type: summary.host_type,
         created_at: summary.created_at.map(|d| d.to_rfc3339()),
         updated_at: summary.updated_at.map(|d| d.to_rfc3339()),
@@ -120,6 +146,7 @@ pub(crate) fn indexed_session_to_list_item(
         summary: session.summary,
         repository: session.repository,
         branch: session.branch,
+        cwd: session.cwd,
         host_type: session.host_type,
         created_at: session.created_at,
         updated_at: session.updated_at,

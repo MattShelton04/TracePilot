@@ -1,0 +1,1722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Orchestrator Monitor — TracePilot</title>
+  <link rel="stylesheet" href="../../shared/design-system-c.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    /* ================================================================
+       Orchestrator Monitor v2 — Mission Control
+       Extends design-system-c.css for /tasks/monitor
+       ================================================================ */
+
+    /* --- Monitor Tokens --- */
+    :root {
+      --mon-deep: #050506;
+      --mon-panel: rgba(17, 17, 19, 0.88);
+      --mon-panel-raised: rgba(24, 24, 27, 0.7);
+      --mon-green: #34d399;
+      --mon-green-dim: rgba(52, 211, 153, 0.12);
+      --mon-green-glow: rgba(52, 211, 153, 0.35);
+      --mon-cyan: #22d3ee;
+      --mon-cyan-dim: rgba(34, 211, 238, 0.10);
+      --mon-font-mono: 'JetBrains Mono', ui-monospace, monospace;
+    }
+
+    :root[data-theme="light"] {
+      --mon-deep: #f4f4f5;
+      --mon-panel: rgba(255, 255, 255, 0.92);
+      --mon-panel-raised: rgba(250, 250, 250, 0.9);
+      --mon-green: #059669;
+      --mon-green-dim: rgba(5, 150, 105, 0.10);
+      --mon-green-glow: rgba(5, 150, 105, 0.20);
+      --mon-cyan: #0891b2;
+      --mon-cyan-dim: rgba(8, 145, 178, 0.10);
+    }
+
+    /* --- Ambient Background --- */
+    .main-content {
+      position: relative;
+      overflow: hidden;
+    }
+    .main-content::before {
+      content: '';
+      position: absolute;
+      top: -180px;
+      right: -120px;
+      width: 520px;
+      height: 520px;
+      background: radial-gradient(circle, rgba(99, 102, 241, 0.07) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .main-content::after {
+      content: '';
+      position: absolute;
+      bottom: -200px;
+      left: -100px;
+      width: 480px;
+      height: 480px;
+      background: radial-gradient(circle, rgba(52, 211, 153, 0.05) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* --- Top Bar --- */
+    .monitor-topbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 24px;
+      border-bottom: 1px solid var(--border-default);
+      background: var(--canvas-subtle);
+      background-image: var(--gradient-surface);
+      flex-shrink: 0;
+      position: relative;
+      z-index: 2;
+    }
+    .topbar-title {
+      font-size: 0.9375rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
+    .topbar-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: var(--radius-sm);
+      background: var(--mon-green-dim);
+      border: 1px solid rgba(52, 211, 153, 0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      flex-shrink: 0;
+    }
+    .topbar-divider {
+      width: 1px;
+      height: 24px;
+      background: var(--border-default);
+      flex-shrink: 0;
+    }
+    .topbar-spacer { flex: 1; }
+
+    /* State badge */
+    .state-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px 4px 8px;
+      border-radius: var(--radius-full);
+      font-size: 0.6875rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .state-badge.running {
+      background: var(--mon-green-dim);
+      border: 1px solid rgba(52, 211, 153, 0.2);
+      color: var(--mon-green);
+    }
+    .state-badge.idle {
+      background: var(--neutral-subtle);
+      border: 1px solid var(--border-default);
+      color: var(--text-secondary);
+    }
+    .state-badge.error {
+      background: var(--danger-subtle);
+      border: 1px solid rgba(251, 113, 133, 0.2);
+      color: var(--danger-fg);
+    }
+    .state-badge.starting, .state-badge.stopping {
+      background: var(--warning-subtle);
+      border: 1px solid rgba(251, 191, 36, 0.2);
+      color: var(--warning-fg);
+    }
+
+    .pulse-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+      position: relative;
+      flex-shrink: 0;
+    }
+    .pulse-dot::after {
+      content: '';
+      position: absolute;
+      inset: -3px;
+      border-radius: 50%;
+      background: currentColor;
+      animation: pulseDot 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    @keyframes pulseDot {
+      0% { opacity: 0.6; transform: scale(1); }
+      50% { opacity: 0; transform: scale(2.4); }
+      100% { opacity: 0; transform: scale(2.4); }
+    }
+
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .btn-topbar {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 12px;
+      border-radius: var(--radius-md);
+      font-size: 0.6875rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      border: 1px solid var(--border-default);
+      background: var(--canvas-subtle);
+      color: var(--text-secondary);
+      font-family: inherit;
+    }
+    .btn-topbar:hover {
+      border-color: var(--border-accent);
+      color: var(--text-primary);
+      background: var(--accent-subtle);
+    }
+    .btn-topbar svg { width: 13px; height: 13px; }
+    .btn-topbar.danger {
+      border-color: rgba(251, 113, 133, 0.2);
+      color: var(--danger-fg);
+      background: var(--danger-subtle);
+    }
+    .btn-topbar.danger:hover {
+      border-color: rgba(251, 113, 133, 0.4);
+      background: var(--danger-muted);
+    }
+    .btn-topbar.success {
+      border-color: rgba(52, 211, 153, 0.2);
+      color: var(--success-fg);
+      background: var(--success-subtle);
+    }
+    .btn-topbar.success:hover {
+      border-color: rgba(52, 211, 153, 0.4);
+      background: var(--success-muted);
+    }
+    .btn-topbar-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 30px;
+      height: 30px;
+      padding: 0;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-default);
+      background: var(--canvas-subtle);
+      color: var(--text-tertiary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      font-size: 14px;
+    }
+    .btn-topbar-icon:hover {
+      color: var(--text-primary);
+      border-color: var(--border-accent);
+      background: var(--accent-subtle);
+    }
+
+    /* --- Page Scroll Area --- */
+    .monitor-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 24px 32px;
+      position: relative;
+      z-index: 1;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255,255,255,0.08) transparent;
+    }
+    .monitor-scroll::-webkit-scrollbar { width: 6px; }
+    .monitor-scroll::-webkit-scrollbar-track { background: transparent; }
+    .monitor-scroll::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.08);
+      border-radius: 3px;
+    }
+
+    .monitor-layout {
+      max-width: 1380px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* --- Panel Base --- */
+    .mon-panel {
+      background: var(--mon-panel);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-xl);
+      overflow: hidden;
+      backdrop-filter: blur(10px);
+      position: relative;
+    }
+    .mon-panel::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: var(--gradient-card);
+      pointer-events: none;
+    }
+    .mon-panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border-default);
+      position: relative;
+      z-index: 1;
+    }
+    .mon-panel-label {
+      font-size: 0.6875rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-tertiary);
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .mon-panel-label svg { width: 13px; height: 13px; opacity: 0.5; }
+    .mon-panel-body {
+      padding: 16px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ================================================================
+       SECTION 1: Status Hero
+       ================================================================ */
+    .status-hero {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 0;
+      align-items: center;
+      padding: 20px 24px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Left: state indicator */
+    .hero-left {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .hero-state-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .hero-state-label {
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: var(--mon-green);
+      text-transform: uppercase;
+    }
+    .hero-state-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--mon-green);
+      position: relative;
+      flex-shrink: 0;
+    }
+    .hero-state-dot::after {
+      content: '';
+      position: absolute;
+      inset: -5px;
+      border-radius: 50%;
+      background: var(--mon-green);
+      animation: pulseDot 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    .hero-meta {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .hero-meta-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.6875rem;
+    }
+    .hero-meta-label {
+      color: var(--text-placeholder);
+      font-weight: 500;
+    }
+    .hero-meta-value {
+      font-family: var(--mon-font-mono);
+      font-weight: 500;
+      color: var(--text-secondary);
+      font-size: 0.6875rem;
+    }
+
+    /* Center: metrics strip */
+    .hero-metrics {
+      display: flex;
+      gap: 0;
+      align-items: stretch;
+    }
+    .hero-metric {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      padding: 0 20px;
+      border-right: 1px solid var(--border-subtle);
+    }
+    .hero-metric:last-child { border-right: none; }
+    .hero-metric-value {
+      font-size: 1.125rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+      font-variant-numeric: tabular-nums;
+      line-height: 1.2;
+    }
+    .hero-metric-value.accent { color: var(--accent-fg); }
+    .hero-metric-value.success { color: var(--success-fg); }
+    .hero-metric-value.warning { color: var(--warning-fg); }
+    .hero-metric-label {
+      font-size: 0.5625rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-tertiary);
+      white-space: nowrap;
+    }
+    .heartbeat-value {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .heartbeat-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--mon-green);
+      animation: heartbeatBlink 2s ease-in-out infinite;
+    }
+    @keyframes heartbeatBlink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* Right: progress ring */
+    .hero-right {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+    }
+    .progress-ring-container {
+      position: relative;
+      width: 100px;
+      height: 100px;
+    }
+    .progress-ring-svg {
+      transform: rotate(-90deg);
+      width: 100px;
+      height: 100px;
+    }
+    .progress-ring-bg {
+      fill: none;
+      stroke: var(--border-default);
+      stroke-width: 6;
+    }
+    .progress-ring-fill {
+      fill: none;
+      stroke: var(--success-fg);
+      stroke-width: 6;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 1s ease;
+    }
+    .progress-ring-text {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .progress-ring-pct {
+      font-size: 1.375rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: var(--text-primary);
+      line-height: 1;
+    }
+    .progress-ring-sub {
+      font-size: 0.5625rem;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-top: 2px;
+    }
+
+    /* ================================================================
+       SECTION 2: Two-column layout
+       ================================================================ */
+    .monitor-two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .monitor-full {
+      grid-column: 1 / -1;
+    }
+
+    /* ================================================================
+       SECTION 3: Active Subagents — Card Grid
+       ================================================================ */
+    .subagent-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+    .subagent-card {
+      background: var(--mon-panel-raised);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      position: relative;
+      transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+    }
+    .subagent-card:hover {
+      border-color: var(--border-accent);
+      box-shadow: 0 0 0 1px var(--border-accent);
+    }
+    .subagent-card-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .subagent-name {
+      font-family: var(--mon-font-mono);
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--accent-fg);
+    }
+    .subagent-status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+      font-size: 0.625rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .subagent-status-badge.running {
+      background: var(--accent-muted);
+      color: var(--accent-fg);
+    }
+    .subagent-status-badge.spawning {
+      background: var(--warning-subtle);
+      color: var(--warning-fg);
+    }
+    .subagent-status-badge.completed {
+      background: var(--success-subtle);
+      color: var(--success-fg);
+    }
+    .subagent-status-badge.failed {
+      background: var(--danger-subtle);
+      color: var(--danger-fg);
+    }
+
+    .spinner-xs {
+      width: 10px;
+      height: 10px;
+      border: 1.5px solid var(--border-default);
+      border-top-color: currentColor;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .dots-anim::after {
+      content: '';
+      animation: dots 1.5s steps(3, end) infinite;
+    }
+    @keyframes dots {
+      0%   { content: ''; }
+      33%  { content: '.'; }
+      66%  { content: '..'; }
+      100% { content: '...'; }
+    }
+
+    .subagent-task-title {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      line-height: 1.35;
+    }
+    .subagent-badges {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .sa-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 2px 8px;
+      border-radius: var(--radius-sm);
+      font-size: 0.625rem;
+      font-weight: 500;
+      border: 1px solid var(--border-subtle);
+    }
+    .sa-chip.type-chip {
+      background: var(--done-subtle);
+      color: var(--done-fg);
+      border-color: var(--done-muted);
+    }
+    .sa-chip.priority-high {
+      background: var(--danger-subtle);
+      color: var(--danger-fg);
+      border-color: rgba(251, 113, 133, 0.15);
+    }
+    .sa-chip.priority-normal {
+      background: var(--neutral-subtle);
+      color: var(--text-tertiary);
+      border-color: var(--border-subtle);
+    }
+    .subagent-elapsed {
+      font-family: var(--mon-font-mono);
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      font-variant-numeric: tabular-nums;
+    }
+    .subagent-progress {
+      height: 3px;
+      border-radius: 2px;
+      background: var(--border-default);
+      overflow: hidden;
+    }
+    .subagent-progress-fill {
+      height: 100%;
+      border-radius: 2px;
+      background: var(--accent-fg);
+      animation: indeterminate 1.5s ease-in-out infinite;
+    }
+    .subagent-progress-fill.spawning {
+      background: var(--warning-fg);
+    }
+    @keyframes indeterminate {
+      0%   { transform: translateX(-100%); width: 40%; }
+      50%  { transform: translateX(60%); width: 60%; }
+      100% { transform: translateX(200%); width: 40%; }
+    }
+    .subagent-card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: auto;
+    }
+    .sa-link {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: var(--accent-fg);
+      text-decoration: none;
+      cursor: pointer;
+      transition: opacity var(--transition-fast);
+    }
+    .sa-link:hover { opacity: 0.8; text-decoration: underline; }
+
+    /* ================================================================
+       SECTION 4: Event Stream — Terminal Aesthetic
+       ================================================================ */
+    .event-stream-container {
+      display: flex;
+      flex-direction: column;
+      height: 380px;
+    }
+    .event-filters {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .ev-pill {
+      padding: 3px 9px;
+      border-radius: var(--radius-full);
+      font-size: 0.625rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text-tertiary);
+      font-family: inherit;
+      letter-spacing: 0.02em;
+    }
+    .ev-pill:hover {
+      background: var(--neutral-subtle);
+      color: var(--text-secondary);
+    }
+    .ev-pill.active {
+      background: var(--accent-subtle);
+      border-color: rgba(99, 102, 241, 0.15);
+      color: var(--accent-fg);
+    }
+    .ev-pill-divider {
+      width: 1px;
+      height: 16px;
+      background: var(--border-default);
+      margin: 0 2px;
+    }
+    .ev-control {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 9px;
+      border-radius: var(--radius-full);
+      font-size: 0.625rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--border-default);
+      background: transparent;
+      color: var(--text-tertiary);
+      font-family: inherit;
+      transition: all var(--transition-fast);
+    }
+    .ev-control:hover {
+      color: var(--text-secondary);
+      background: var(--neutral-subtle);
+    }
+    .ev-control.active {
+      background: var(--mon-green-dim);
+      border-color: rgba(52, 211, 153, 0.15);
+      color: var(--mon-green);
+    }
+    .ev-control svg { width: 10px; height: 10px; }
+
+    .event-stream {
+      flex: 1;
+      overflow-y: auto;
+      font-family: var(--mon-font-mono);
+      font-size: 0.6875rem;
+      line-height: 1.75;
+      padding: 10px 14px;
+      background: var(--mon-deep);
+      border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255,255,255,0.06) transparent;
+      position: relative;
+    }
+    .event-stream::-webkit-scrollbar { width: 5px; }
+    .event-stream::-webkit-scrollbar-track { background: transparent; }
+    .event-stream::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.06);
+      border-radius: 3px;
+    }
+    .event-stream.paused::after {
+      content: 'PAUSED';
+      position: sticky;
+      top: 4px;
+      float: right;
+      padding: 2px 8px;
+      border-radius: var(--radius-sm);
+      background: var(--warning-muted);
+      color: var(--warning-fg);
+      font-size: 0.5625rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+    }
+    .ev-line {
+      display: flex;
+      gap: 10px;
+      padding: 2px 0;
+      align-items: flex-start;
+      animation: evSlideIn 0.3s ease-out;
+    }
+    .ev-line:hover { background: rgba(255, 255, 255, 0.02); }
+    @keyframes evSlideIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .ev-time {
+      color: var(--text-placeholder);
+      flex-shrink: 0;
+      min-width: 52px;
+      font-variant-numeric: tabular-nums;
+    }
+    .ev-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      margin-top: 5px;
+    }
+    .ev-dot.info    { background: var(--accent-fg); }
+    .ev-dot.success { background: var(--success-fg); }
+    .ev-dot.warning { background: var(--warning-fg); }
+    .ev-dot.error   { background: var(--danger-fg); }
+    .ev-msg {
+      color: var(--text-secondary);
+      flex: 1;
+    }
+    .ev-msg strong {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+    .ev-line.ev-success .ev-msg { color: var(--success-fg); }
+    .ev-line.ev-error   .ev-msg { color: var(--danger-fg); }
+    .ev-line.ev-warning .ev-msg { color: var(--warning-fg); }
+
+    /* ================================================================
+       SECTION 5: Completed Tasks Timeline (horizontal)
+       ================================================================ */
+    .timeline-scroll {
+      display: flex;
+      gap: 12px;
+      overflow-x: auto;
+      padding: 4px 2px 8px;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255,255,255,0.06) transparent;
+    }
+    .timeline-scroll::-webkit-scrollbar { height: 4px; }
+    .timeline-scroll::-webkit-scrollbar-track { background: transparent; }
+    .timeline-scroll::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.06);
+      border-radius: 2px;
+    }
+    .timeline-chip {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: var(--mon-panel-raised);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      min-width: 200px;
+      max-width: 260px;
+    }
+    .timeline-chip:hover {
+      border-color: var(--border-accent);
+      background: var(--accent-subtle);
+    }
+    .timeline-chip-icon {
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+    .timeline-chip-body {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+    .timeline-chip-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .timeline-chip-meta {
+      font-size: 0.625rem;
+      color: var(--text-tertiary);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ================================================================
+       SECTION 6: Health & Recovery
+       ================================================================ */
+    .health-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+    }
+    .health-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .health-item-label {
+      font-size: 0.625rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-placeholder);
+    }
+    .health-item-value {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .health-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: var(--radius-full);
+      font-size: 0.6875rem;
+      font-weight: 600;
+    }
+    .health-badge.healthy {
+      background: var(--success-subtle);
+      color: var(--success-fg);
+      border: 1px solid rgba(52, 211, 153, 0.15);
+    }
+    .health-badge.stale {
+      background: var(--warning-subtle);
+      color: var(--warning-fg);
+      border: 1px solid rgba(251, 191, 36, 0.15);
+    }
+    .health-badge.stopped {
+      background: var(--danger-subtle);
+      color: var(--danger-fg);
+      border: 1px solid rgba(251, 113, 133, 0.15);
+    }
+    .health-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+    .health-policy {
+      grid-column: 1 / -1;
+      padding: 8px 12px;
+      background: var(--neutral-subtle);
+      border-radius: var(--radius-sm);
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+      border: 1px solid var(--border-subtle);
+    }
+    .health-policy strong {
+      color: var(--text-secondary);
+      font-weight: 600;
+    }
+
+    /* ================================================================
+       ANIMATIONS & UTILITIES
+       ================================================================ */
+    .stagger { opacity: 0; animation: fadeUp 0.4s ease forwards; }
+    .stagger-1 { animation-delay: 0.05s; }
+    .stagger-2 { animation-delay: 0.10s; }
+    .stagger-3 { animation-delay: 0.15s; }
+    .stagger-4 { animation-delay: 0.20s; }
+    .stagger-5 { animation-delay: 0.25s; }
+    .stagger-6 { animation-delay: 0.30s; }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .count-pop {
+      animation: countPop 0.35s ease;
+    }
+    @keyframes countPop {
+      0% { transform: scale(1); }
+      40% { transform: scale(1.2); }
+      100% { transform: scale(1); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    /* ================================================================
+       RESPONSIVE
+       ================================================================ */
+    @media (max-width: 1100px) {
+      .subagent-grid { grid-template-columns: repeat(2, 1fr); }
+      .health-grid { grid-template-columns: repeat(2, 1fr); }
+      .status-hero { grid-template-columns: 1fr; gap: 16px; }
+      .hero-right { justify-content: flex-start; }
+      .hero-metrics { flex-wrap: wrap; }
+    }
+    @media (max-width: 768px) {
+      .monitor-topbar { padding: 10px 16px; flex-wrap: wrap; gap: 8px; }
+      .monitor-scroll { padding: 14px 16px 24px; }
+      .subagent-grid { grid-template-columns: 1fr; }
+      .monitor-two-col { grid-template-columns: 1fr; }
+      .health-grid { grid-template-columns: 1fr; }
+      .hero-metrics { gap: 0; }
+      .hero-metric { padding: 0 14px; }
+      .topbar-actions { flex-wrap: wrap; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+
+    <!-- Sidebar (injected by shared.js) -->
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+
+      <!-- Top Bar -->
+      <header class="monitor-topbar stagger stagger-1">
+        <nav class="breadcrumb">
+          <a href="../task-dashboard.html">Tasks</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">Monitor</span>
+        </nav>
+
+        <div class="topbar-divider"></div>
+
+        <div class="topbar-title">
+          <span class="topbar-icon">📡</span>
+          Orchestrator Monitor
+        </div>
+
+        <div class="topbar-divider"></div>
+
+        <div class="state-badge running" id="state-badge">
+          <span class="pulse-dot"></span>
+          <span id="state-text">Running</span>
+        </div>
+
+        <div class="topbar-spacer"></div>
+
+        <div class="topbar-actions">
+          <button class="btn-topbar danger" onclick="showToast('Stopping orchestrator…')" title="Stop orchestrator">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
+            Stop
+          </button>
+          <button class="btn-topbar success" onclick="showToast('Restarting orchestrator…')" title="Restart orchestrator">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4v6h6"/><path d="M23 20v-6h-6"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/></svg>
+            Restart
+          </button>
+          <button class="btn-topbar-icon" onclick="showToast('Opening settings…')" title="Orchestrator settings">
+            ⚙
+          </button>
+        </div>
+      </header>
+
+      <!-- Scrollable Content -->
+      <div class="monitor-scroll">
+        <div class="monitor-layout">
+
+          <!-- ═══════════════════════════════════════════════
+               1. STATUS HERO PANEL
+               ═══════════════════════════════════════════════ -->
+          <div class="mon-panel stagger stagger-2">
+            <div class="status-hero" id="status-hero">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+
+          <!-- ═══════════════════════════════════════════════
+               2. ACTIVE SUBAGENTS
+               ═══════════════════════════════════════════════ -->
+          <div class="mon-panel stagger stagger-3">
+            <div class="mon-panel-head">
+              <div class="mon-panel-label">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+                Active Subagents <span id="subagent-count" style="font-weight:400;opacity:0.5;margin-left:2px;">(3)</span>
+              </div>
+            </div>
+            <div class="mon-panel-body">
+              <div class="subagent-grid" id="subagent-grid">
+                <!-- Populated by JS -->
+              </div>
+            </div>
+          </div>
+
+          <!-- ═══════════════════════════════════════════════
+               3. EVENT STREAM
+               ═══════════════════════════════════════════════ -->
+          <div class="mon-panel stagger stagger-4">
+            <div class="mon-panel-head">
+              <div class="mon-panel-label">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+                Event Stream
+              </div>
+              <div class="event-filters">
+                <button class="ev-pill active" data-filter="all" onclick="setEvFilter('all',this)">All</button>
+                <button class="ev-pill" data-filter="info" onclick="setEvFilter('info',this)">Info</button>
+                <button class="ev-pill" data-filter="success" onclick="setEvFilter('success',this)">Success</button>
+                <button class="ev-pill" data-filter="warning" onclick="setEvFilter('warning',this)">Warning</button>
+                <button class="ev-pill" data-filter="error" onclick="setEvFilter('error',this)">Error</button>
+                <div class="ev-pill-divider"></div>
+                <button class="ev-control active" id="autoscroll-btn" onclick="toggleAutoscroll()">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
+                  Auto
+                </button>
+                <button class="ev-control" onclick="clearEvents()">Clear</button>
+              </div>
+            </div>
+            <div class="event-stream-container">
+              <div class="event-stream" id="event-stream">
+                <!-- Populated by JS -->
+              </div>
+            </div>
+          </div>
+
+          <!-- ═══════════════════════════════════════════════
+               4. COMPLETED TASKS TIMELINE
+               ═══════════════════════════════════════════════ -->
+          <div class="mon-panel stagger stagger-5">
+            <div class="mon-panel-head">
+              <div class="mon-panel-label">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                Recently Completed
+              </div>
+            </div>
+            <div class="mon-panel-body">
+              <div class="timeline-scroll" id="completed-timeline">
+                <!-- Populated by JS -->
+              </div>
+            </div>
+          </div>
+
+          <!-- ═══════════════════════════════════════════════
+               5. HEALTH & RECOVERY
+               ═══════════════════════════════════════════════ -->
+          <div class="mon-panel stagger stagger-6">
+            <div class="mon-panel-head">
+              <div class="mon-panel-label">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                Health &amp; Recovery
+              </div>
+              <div class="health-badge healthy" id="health-badge">
+                <span class="health-dot"></span>
+                <span id="health-text">Healthy</span>
+              </div>
+            </div>
+            <div class="mon-panel-body">
+              <div class="health-grid" id="health-grid">
+                <!-- Populated by JS -->
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /monitor-layout -->
+      </div><!-- /monitor-scroll -->
+    </main>
+  </div>
+
+  <!-- ============================================================
+       SHARED JS
+       ============================================================ -->
+  <script src="../../shared/shared.js"></script>
+
+  <!-- ============================================================
+       MONITOR LOGIC
+       ============================================================ -->
+  <script>
+    /* ================================================================
+       MOCK DATA
+       ================================================================ */
+    const orchestrator = {
+      state: 'running',
+      pid: 28451,
+      sessionId: 'c9e2f4a1-3b7d-4e8f-a2c1-9d6e5f4a3b2c',
+      launchedAt: '2026-04-02T23:10:00Z',
+      taskCount: 47,
+      tasksCompleted: 41,
+      tasksFailed: 2,
+      lastHeartbeat: '2026-04-03T01:48:30Z',
+      restartCount: 1,
+      error: null
+    };
+
+    const health = {
+      health: 'healthy',
+      heartbeatAgeSecs: 12,
+      lastCycle: 142,
+      activeTasks: ['tsk_a1b2c3', 'tsk_d4e5f6', 'tsk_g7h8i9'],
+      needsRestart: false
+    };
+
+    const subagents = [
+      {
+        taskId: 'tsk_a1b2c3',
+        agentName: 'tp-tsk_a1b2c3',
+        status: 'running',
+        startedAt: '2026-04-03T01:47:15Z',
+        task: { title: 'Summarize payment refactor', type: 'session_summary', priority: 'high' }
+      },
+      {
+        taskId: 'tsk_d4e5f6',
+        agentName: 'tp-tsk_d4e5f6',
+        status: 'running',
+        startedAt: '2026-04-03T01:46:40Z',
+        task: { title: 'Health check: auth module', type: 'health_report', priority: 'normal' }
+      },
+      {
+        taskId: 'tsk_g7h8i9',
+        agentName: 'tp-tsk_g7h8i9',
+        status: 'spawning',
+        startedAt: '2026-04-03T01:48:25Z',
+        task: { title: 'Code review: API routes', type: 'code_review', priority: 'normal' }
+      }
+    ];
+
+    const events = [
+      { time: '01:48:30', level: 'info',    msg: 'Heartbeat cycle 142 — 3 active, 4 pending' },
+      { time: '01:48:25', level: 'info',    msg: "Spawning subagent <strong>tp-tsk_g7h8i9</strong> for task 'Code review: API routes'" },
+      { time: '01:48:12', level: 'success', msg: "Task <strong>tsk_j0k1l2</strong> completed — 'Summarize onboarding flow' (2m 14s)" },
+      { time: '01:47:58', level: 'info',    msg: 'Result ingested for <strong>tsk_j0k1l2</strong> — schema valid ✓' },
+      { time: '01:47:15', level: 'info',    msg: "Spawning subagent <strong>tp-tsk_a1b2c3</strong> for task 'Summarize payment refactor'" },
+      { time: '01:46:40', level: 'info',    msg: "Spawning subagent <strong>tp-tsk_d4e5f6</strong> for task 'Health check: auth module'" },
+      { time: '01:46:02', level: 'warning', msg: 'Task <strong>tsk_m3n4o5</strong> failed attempt 2/3 — retrying in next cycle' },
+      { time: '01:45:30', level: 'info',    msg: 'Heartbeat cycle 141 — 2 active, 5 pending' },
+      { time: '01:44:18', level: 'success', msg: "Task <strong>tsk_p6q7r8</strong> completed — 'Sprint metrics report' (4m 32s)" },
+      { time: '01:43:05', level: 'error',   msg: 'Subagent <strong>tp-tsk_m3n4o5</strong> failed: context window exceeded' },
+      { time: '01:42:30', level: 'info',    msg: 'Heartbeat cycle 140 — 3 active, 3 pending' },
+      { time: '01:41:12', level: 'success', msg: "Task <strong>tsk_s9t0u1</strong> completed — 'Auth session summary' (1m 48s)" },
+      { time: '01:40:00', level: 'info',    msg: 'Polling manifest… found 6 pending tasks' },
+      { time: '01:39:30', level: 'info',    msg: 'Heartbeat cycle 139 — 2 active, 6 pending' },
+      { time: '01:38:15', level: 'info',    msg: "Spawning subagent <strong>tp-tsk_s9t0u1</strong> for task 'Auth session summary'" }
+    ];
+
+    const completedTasks = [
+      { id: 'tsk_j0k1l2', title: 'Summarize onboarding flow', duration: '2m 14s', status: 'done' },
+      { id: 'tsk_p6q7r8', title: 'Sprint metrics report',     duration: '4m 32s', status: 'done' },
+      { id: 'tsk_m3n4o5', title: 'Review: checkout module',   duration: '3m 01s', status: 'failed' },
+      { id: 'tsk_s9t0u1', title: 'Auth session summary',      duration: '1m 48s', status: 'done' },
+      { id: 'tsk_v2w3x4', title: 'Code health: user service', duration: '2m 55s', status: 'done' },
+      { id: 'tsk_y5z6a7', title: 'Cost analysis: sprint 14',  duration: '1m 22s', status: 'done' },
+      { id: 'tsk_b8c9d0', title: 'Summarize API migration',   duration: '3m 40s', status: 'done' },
+      { id: 'tsk_e1f2g3', title: 'Review: billing service',   duration: '2m 08s', status: 'failed' },
+      { id: 'tsk_h4i5j6', title: 'Health report: database',   duration: '1m 33s', status: 'done' },
+      { id: 'tsk_k7l8m9', title: 'Sprint velocity report',    duration: '2m 47s', status: 'done' }
+    ];
+
+    /* ================================================================
+       STATE
+       ================================================================ */
+    const state = {
+      uptimeSecs: 9510, // 2h 38m 30s from launchedAt
+      heartbeatAge: health.heartbeatAgeSecs,
+      autoscroll: true,
+      evFilter: 'all',
+      cycle: health.lastCycle,
+      completedCount: orchestrator.tasksCompleted,
+      failedCount: orchestrator.tasksFailed,
+      subagentElapsed: {}
+    };
+
+    // Compute initial subagent elapsed times (seconds since start)
+    const NOW_SIM = new Date('2026-04-03T01:48:30Z').getTime();
+    subagents.forEach(sa => {
+      const started = new Date(sa.startedAt).getTime();
+      state.subagentElapsed[sa.taskId] = Math.floor((NOW_SIM - started) / 1000);
+    });
+
+    /* ================================================================
+       SIDEBAR SETUP
+       ================================================================ */
+    (function initSidebar() {
+      const sidebarEl = document.getElementById('sidebar');
+      let html = generateSidebar('');
+
+      const tasksIcon = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3h10v10H3z" rx="1.5"/><path d="M6 6l2 2 3-3"/></svg>`;
+      const monitorIcon = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="8" rx="1.5"/><line x1="5" y1="14" x2="11" y2="14"/><line x1="8" y1="11" x2="8" y2="14"/></svg>`;
+
+      const tasksNav = `
+        <a class="sidebar-nav-item" href="../task-dashboard.html">
+          <span class="nav-icon">${tasksIcon}</span>
+          <span>Tasks</span>
+          <span class="sidebar-nav-badge">47</span>
+        </a>
+        <a class="sidebar-nav-item active" href="#">
+          <span class="nav-icon">${monitorIcon}</span>
+          <span>Monitor</span>
+          <span class="sidebar-nav-badge" style="background:var(--success-muted);color:var(--success-fg);">LIVE</span>
+        </a>`;
+
+      html = html.replace(
+        '<div class="sidebar-section-title">Advanced</div>',
+        tasksNav + '<div class="sidebar-section-title">Advanced</div>'
+      );
+
+      sidebarEl.innerHTML = html;
+    })();
+
+    /* ================================================================
+       UTILITY FUNCTIONS
+       ================================================================ */
+    function fmtUptime(secs) {
+      const h = Math.floor(secs / 3600);
+      const m = Math.floor((secs % 3600) / 60);
+      const s = secs % 60;
+      if (h > 0) return `${h}h ${m}m`;
+      return `${m}m ${String(s).padStart(2, '0')}s`;
+    }
+
+    function fmtElapsed(secs) {
+      const m = Math.floor(secs / 60);
+      const s = secs % 60;
+      return `${m}:${String(s).padStart(2, '0')}`;
+    }
+
+    function truncId(id) {
+      if (!id) return '—';
+      return id.length > 12 ? id.slice(0, 8) + '…' + id.slice(-4) : id;
+    }
+
+    function showToast(msg) {
+      let toast = document.getElementById('toast');
+      if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'toast';
+        Object.assign(toast.style, {
+          position: 'fixed', bottom: '24px', right: '24px', zIndex: '100',
+          padding: '10px 20px', borderRadius: 'var(--radius-md)',
+          background: 'var(--canvas-overlay)', border: '1px solid var(--border-default)',
+          color: 'var(--text-primary)', fontSize: '0.8125rem', fontWeight: '600',
+          fontFamily: 'inherit', boxShadow: 'var(--shadow-lg)',
+          transition: 'opacity 0.3s ease, transform 0.3s ease',
+          opacity: '0', transform: 'translateY(8px)'
+        });
+        document.body.appendChild(toast);
+      }
+      toast.textContent = msg;
+      toast.style.opacity = '1';
+      toast.style.transform = 'translateY(0)';
+      clearTimeout(toast._timer);
+      toast._timer = setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(8px)';
+      }, 2500);
+    }
+
+    /* ================================================================
+       RENDER: STATUS HERO
+       ================================================================ */
+    function renderStatusHero() {
+      const pct = orchestrator.taskCount > 0
+        ? Math.round((state.completedCount / orchestrator.taskCount) * 100)
+        : 0;
+      const circumference = 2 * Math.PI * 42;
+      const offset = circumference - (pct / 100) * circumference;
+
+      document.getElementById('status-hero').innerHTML = `
+        <div class="hero-left">
+          <div class="hero-state-row">
+            <span class="hero-state-dot"></span>
+            <span class="hero-state-label">${orchestrator.state.toUpperCase()}</span>
+          </div>
+          <div class="hero-meta">
+            <div class="hero-meta-item">
+              <span class="hero-meta-label">PID</span>
+              <span class="hero-meta-value">${orchestrator.pid}</span>
+            </div>
+            <div class="hero-meta-item">
+              <span class="hero-meta-label">Session</span>
+              <span class="hero-meta-value" title="${orchestrator.sessionId}">${truncId(orchestrator.sessionId)}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="hero-metrics">
+          <div class="hero-metric">
+            <span class="hero-metric-value" id="uptime-value">${fmtUptime(state.uptimeSecs)}</span>
+            <span class="hero-metric-label">Uptime</span>
+          </div>
+          <div class="hero-metric">
+            <span class="hero-metric-value accent" id="cycle-value">#${state.cycle}</span>
+            <span class="hero-metric-label">Cycle</span>
+          </div>
+          <div class="hero-metric">
+            <span class="hero-metric-value success" id="tasks-value">${state.completedCount}/${orchestrator.taskCount}</span>
+            <span class="hero-metric-label">Complete</span>
+          </div>
+          <div class="hero-metric">
+            <span class="hero-metric-value warning">${subagents.length}</span>
+            <span class="hero-metric-label">Subagents</span>
+          </div>
+          <div class="hero-metric">
+            <span class="hero-metric-value">
+              <span class="heartbeat-value">
+                <span class="heartbeat-dot"></span>
+                <span id="heartbeat-value">${state.heartbeatAge}s</span>
+              </span>
+            </span>
+            <span class="hero-metric-label">Heartbeat</span>
+          </div>
+        </div>
+
+        <div class="hero-right">
+          <div class="progress-ring-container">
+            <svg class="progress-ring-svg" viewBox="0 0 100 100">
+              <circle class="progress-ring-bg" cx="50" cy="50" r="42"/>
+              <circle class="progress-ring-fill" cx="50" cy="50" r="42"
+                stroke-dasharray="${circumference}"
+                stroke-dashoffset="${offset}"
+                id="progress-ring-circle"/>
+            </svg>
+            <div class="progress-ring-text">
+              <span class="progress-ring-pct" id="pct-value">${pct}%</span>
+              <span class="progress-ring-sub">complete</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    renderStatusHero();
+
+    /* ================================================================
+       RENDER: ACTIVE SUBAGENTS
+       ================================================================ */
+    function renderSubagents() {
+      const grid = document.getElementById('subagent-grid');
+      grid.innerHTML = subagents.map(sa => {
+        const elapsed = state.subagentElapsed[sa.taskId] || 0;
+        const isSpawning = sa.status === 'spawning';
+        const priorityClass = sa.task.priority === 'high' ? 'priority-high' : 'priority-normal';
+
+        return `
+          <div class="subagent-card" data-task="${sa.taskId}">
+            <div class="subagent-card-top">
+              <span class="subagent-name">${sa.agentName}</span>
+              <span class="subagent-status-badge ${sa.status}">
+                ${isSpawning
+                  ? '<span class="dots-anim"></span>'
+                  : '<span class="spinner-xs"></span>'}
+                ${sa.status}
+              </span>
+            </div>
+            <div class="subagent-task-title">${sa.task.title}</div>
+            <div class="subagent-badges">
+              <span class="sa-chip type-chip">◆ ${sa.task.type.replace(/_/g, ' ')}</span>
+              <span class="sa-chip ${priorityClass}">↕ ${sa.task.priority}</span>
+            </div>
+            <div class="subagent-progress">
+              <div class="subagent-progress-fill ${isSpawning ? 'spawning' : ''}"></div>
+            </div>
+            <div class="subagent-card-footer">
+              <span class="subagent-elapsed" data-task="${sa.taskId}">${fmtElapsed(elapsed)}</span>
+              <a class="sa-link" href="../task-detail.html">View Task →</a>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+    renderSubagents();
+
+    /* ================================================================
+       RENDER: EVENT STREAM
+       ================================================================ */
+    function evDotClass(level) {
+      if (level === 'success') return 'success';
+      if (level === 'warning') return 'warning';
+      if (level === 'error') return 'error';
+      return 'info';
+    }
+
+    function evLineClass(level) {
+      if (level === 'success') return 'ev-success';
+      if (level === 'error') return 'ev-error';
+      if (level === 'warning') return 'ev-warning';
+      return '';
+    }
+
+    function renderEvents() {
+      const stream = document.getElementById('event-stream');
+      stream.innerHTML = events.map(ev => `
+        <div class="ev-line ${evLineClass(ev.level)}" data-level="${ev.level}">
+          <span class="ev-time">${ev.time}</span>
+          <span class="ev-dot ${evDotClass(ev.level)}"></span>
+          <span class="ev-msg">${ev.msg}</span>
+        </div>
+      `).join('');
+    }
+    renderEvents();
+
+    /* ================================================================
+       RENDER: COMPLETED TIMELINE
+       ================================================================ */
+    function renderTimeline() {
+      const container = document.getElementById('completed-timeline');
+      container.innerHTML = completedTasks.map(t => {
+        const icon = t.status === 'done' ? '✓' : '✗';
+        const iconColor = t.status === 'done' ? 'var(--success-fg)' : 'var(--danger-fg)';
+        return `
+          <div class="timeline-chip" onclick="showToast('Opening ${t.id}…')">
+            <span class="timeline-chip-icon" style="color:${iconColor};font-weight:700;">${icon}</span>
+            <div class="timeline-chip-body">
+              <span class="timeline-chip-title" title="${t.title}">${t.title}</span>
+              <span class="timeline-chip-meta">${t.id} · ${t.duration}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+    renderTimeline();
+
+    /* ================================================================
+       RENDER: HEALTH & RECOVERY
+       ================================================================ */
+    function renderHealth() {
+      document.getElementById('health-grid').innerHTML = `
+        <div class="health-item">
+          <span class="health-item-label">Heartbeat Age</span>
+          <span class="health-item-value" id="health-hb-age">${state.heartbeatAge} seconds</span>
+        </div>
+        <div class="health-item">
+          <span class="health-item-label">Current Cycle</span>
+          <span class="health-item-value" style="font-family:var(--mon-font-mono);">#${state.cycle}</span>
+        </div>
+        <div class="health-item">
+          <span class="health-item-label">Restart Count</span>
+          <span class="health-item-value">${orchestrator.restartCount} <span style="color:var(--text-tertiary);font-weight:400;font-size:0.75rem;">(auto-recovered 1h 24m ago)</span></span>
+        </div>
+        <div class="health-item">
+          <span class="health-item-label">Needs Restart</span>
+          <span class="health-item-value" style="color:${health.needsRestart ? 'var(--danger-fg)' : 'var(--success-fg)'};">${health.needsRestart ? 'Yes' : 'No'}</span>
+        </div>
+        <div class="health-policy">
+          <strong>Recovery Policy:</strong> Auto-restart on stale heartbeat (&gt;120s). Max 3 restarts per session. Failed tasks auto-retry up to maxRetries.
+        </div>
+      `;
+    }
+    renderHealth();
+
+    /* ================================================================
+       LIVE UPDATES
+       ================================================================ */
+
+    // --- Uptime counter (every second) ---
+    setInterval(() => {
+      state.uptimeSecs++;
+      const el = document.getElementById('uptime-value');
+      if (el) el.textContent = fmtUptime(state.uptimeSecs);
+    }, 1000);
+
+    // --- Heartbeat age counter (every second) ---
+    setInterval(() => {
+      state.heartbeatAge++;
+      const el = document.getElementById('heartbeat-value');
+      if (el) el.textContent = state.heartbeatAge + 's';
+      const hbEl = document.getElementById('health-hb-age');
+      if (hbEl) hbEl.textContent = state.heartbeatAge + ' seconds';
+    }, 1000);
+
+    // --- Subagent elapsed counters (every second) ---
+    setInterval(() => {
+      subagents.forEach(sa => {
+        state.subagentElapsed[sa.taskId] = (state.subagentElapsed[sa.taskId] || 0) + 1;
+        const el = document.querySelector(`.subagent-elapsed[data-task="${sa.taskId}"]`);
+        if (el) el.textContent = fmtElapsed(state.subagentElapsed[sa.taskId]);
+      });
+    }, 1000);
+
+    // --- Simulated heartbeat reset (every ~10s) ---
+    setInterval(() => {
+      state.heartbeatAge = 0;
+      state.cycle++;
+      const cycleEl = document.getElementById('cycle-value');
+      if (cycleEl) {
+        cycleEl.textContent = '#' + state.cycle;
+        cycleEl.classList.remove('count-pop');
+        void cycleEl.offsetWidth;
+        cycleEl.classList.add('count-pop');
+      }
+    }, 10000);
+
+    // --- Simulated new events (every 3-5 seconds) ---
+    const newEventTemplates = [
+      { level: 'info',    msg: 'Subagent <strong>tp-tsk_a1b2c3</strong> context window: 52K chars' },
+      { level: 'info',    msg: 'Status file updated: <strong>tsk_d4e5f6/status.json</strong> — processing' },
+      { level: 'info',    msg: 'Cost tracker: $0.23 accumulated (session total)' },
+      { level: 'success', msg: "Task <strong>tsk_d4e5f6</strong> completed — 'Health check: auth module' (3m 12s)" },
+      { level: 'info',    msg: 'Result ingested for <strong>tsk_d4e5f6</strong> — schema valid ✓' },
+      { level: 'info',    msg: 'Spawning subagent <strong>tp-tsk_n1o2p3</strong> for task \'Summarize sprint 15\'' },
+      { level: 'warning', msg: 'Task <strong>tsk_q4r5s6</strong> approaching timeout (4m 30s / 5m limit)' },
+      { level: 'info',    msg: 'Health check passed — all subagents responsive' },
+      { level: 'success', msg: "Task <strong>tsk_a1b2c3</strong> completed — 'Summarize payment refactor' (4m 28s)" },
+      { level: 'info',    msg: 'Rate limit status: 18/50 RPM — within budget' },
+      { level: 'error',   msg: 'Subagent <strong>tp-tsk_q4r5s6</strong> timed out after 5m — task marked failed' },
+      { level: 'info',    msg: 'Spawning subagent <strong>tp-tsk_t7u8v9</strong> for task \'Code review: billing\'' },
+      { level: 'success', msg: "Task <strong>tsk_g7h8i9</strong> completed — 'Code review: API routes' (2m 50s)" },
+      { level: 'info',    msg: 'Memory usage: 248 MB (orchestrator process)' },
+      { level: 'info',    msg: 'Polling manifest… found 2 pending tasks' },
+    ];
+
+    let simEventIdx = 0;
+    let simTimeBase = new Date('2026-04-03T01:48:30Z');
+
+    function nextSimTime() {
+      simTimeBase = new Date(simTimeBase.getTime() + 3000 + Math.random() * 4000);
+      const h = String(simTimeBase.getHours()).padStart(2, '0');
+      const m = String(simTimeBase.getMinutes()).padStart(2, '0');
+      const s = String(simTimeBase.getSeconds()).padStart(2, '0');
+      return `${h}:${m}:${s}`;
+    }
+
+    function addSimEvent() {
+      if (simEventIdx >= newEventTemplates.length) {
+        simEventIdx = 0;
+        simTimeBase = new Date(simTimeBase.getTime() + 10000);
+      }
+
+      const template = newEventTemplates[simEventIdx++];
+      const stream = document.getElementById('event-stream');
+      if (!stream) return;
+
+      const line = document.createElement('div');
+      line.className = `ev-line ${evLineClass(template.level)}`;
+      line.setAttribute('data-level', template.level);
+
+      // Respect current filter
+      if (state.evFilter !== 'all' && template.level !== state.evFilter) {
+        line.style.display = 'none';
+      }
+
+      line.innerHTML = `
+        <span class="ev-time">${nextSimTime()}</span>
+        <span class="ev-dot ${evDotClass(template.level)}"></span>
+        <span class="ev-msg">${template.msg}</span>
+      `;
+
+      stream.insertBefore(line, stream.firstChild);
+
+      if (state.autoscroll) {
+        stream.scrollTop = 0;
+      }
+
+      // Update counters on completions
+      if (template.level === 'success') {
+        state.completedCount = Math.min(state.completedCount + 1, orchestrator.taskCount);
+        updateProgressRing();
+        const tasksEl = document.getElementById('tasks-value');
+        if (tasksEl) {
+          tasksEl.textContent = `${state.completedCount}/${orchestrator.taskCount}`;
+          tasksEl.classList.remove('count-pop');
+          void tasksEl.offsetWidth;
+          tasksEl.classList.add('count-pop');
+        }
+      }
+      if (template.level === 'error') {
+        state.failedCount++;
+      }
+    }
+
+    function updateProgressRing() {
+      const pct = orchestrator.taskCount > 0
+        ? Math.round((state.completedCount / orchestrator.taskCount) * 100) : 0;
+      const circumference = 2 * Math.PI * 42;
+      const offset = circumference - (pct / 100) * circumference;
+      const circle = document.getElementById('progress-ring-circle');
+      const pctEl = document.getElementById('pct-value');
+      if (circle) circle.setAttribute('stroke-dashoffset', offset);
+      if (pctEl) pctEl.textContent = pct + '%';
+    }
+
+    function scheduleSimEvent() {
+      const delay = 3000 + Math.random() * 2000;
+      setTimeout(() => {
+        addSimEvent();
+        scheduleSimEvent();
+      }, delay);
+    }
+    scheduleSimEvent();
+
+    /* ================================================================
+       EVENT STREAM CONTROLS
+       ================================================================ */
+    function setEvFilter(filter, btn) {
+      state.evFilter = filter;
+      document.querySelectorAll('.ev-pill').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+
+      const stream = document.getElementById('event-stream');
+      if (!stream) return;
+      stream.querySelectorAll('.ev-line').forEach(line => {
+        const level = line.getAttribute('data-level');
+        line.style.display = (filter === 'all' || level === filter) ? '' : 'none';
+      });
+    }
+
+    function toggleAutoscroll() {
+      state.autoscroll = !state.autoscroll;
+      const btn = document.getElementById('autoscroll-btn');
+      const stream = document.getElementById('event-stream');
+      if (btn) btn.classList.toggle('active', state.autoscroll);
+      if (stream) stream.classList.toggle('paused', !state.autoscroll);
+    }
+
+    function clearEvents() {
+      const stream = document.getElementById('event-stream');
+      if (stream) stream.innerHTML = '';
+      showToast('Event stream cleared');
+    }
+
+    // Auto-detect scroll position for auto-scroll pause
+    const streamEl = document.getElementById('event-stream');
+    if (streamEl) {
+      streamEl.addEventListener('scroll', () => {
+        if (streamEl.scrollTop > 40 && state.autoscroll) {
+          state.autoscroll = false;
+          const btn = document.getElementById('autoscroll-btn');
+          if (btn) btn.classList.remove('active');
+          streamEl.classList.add('paused');
+        }
+      });
+    }
+
+    /* ================================================================
+       EVENT DETAIL EXPAND (click event lines)
+       ================================================================ */
+    document.getElementById('event-stream')?.addEventListener('click', (e) => {
+      const line = e.target.closest('.ev-line');
+      if (!line) return;
+      const msg = line.querySelector('.ev-msg');
+      if (msg) {
+        showToast(msg.textContent.slice(0, 80) + (msg.textContent.length > 80 ? '…' : ''));
+      }
+    });
+
+    /* ================================================================
+       KEYBOARD SHORTCUTS
+       ================================================================ */
+    document.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.key === 'p' || e.key === 'P') toggleAutoscroll();
+      if (e.key === 'c' || e.key === 'C') clearEvents();
+    });
+
+    /* ================================================================
+       PROGRESS RING ENTRY ANIMATION
+       ================================================================ */
+    requestAnimationFrame(() => {
+      const circle = document.getElementById('progress-ring-circle');
+      if (circle) {
+        const circumference = 2 * Math.PI * 42;
+        circle.style.transition = 'none';
+        circle.setAttribute('stroke-dashoffset', circumference);
+        requestAnimationFrame(() => {
+          circle.style.transition = 'stroke-dashoffset 1.2s ease';
+          updateProgressRing();
+        });
+      }
+    });
+
+  </script>
+</body>
+</html>

@@ -20,11 +20,13 @@ mod validators;
 use std::num::NonZeroUsize;
 use std::sync::{Arc, Mutex};
 use tauri::Manager;
-use types::{EventCache, SearchSemaphore, TurnCache};
+use types::{
+    EventCache, ManifestLock, SearchSemaphore, SharedOrchestratorState, SharedTaskDb, TurnCache,
+};
 
 const SESSION_CACHE_CAPACITY: usize = 10;
 
-/// Build the Tauri plugin that registers all 78 IPC commands.
+/// Build the Tauri plugin that registers all IPC commands.
 pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
     tauri::plugin::Builder::new("tracepilot")
         .setup(|app, _api| {
@@ -37,11 +39,24 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
                 NonZeroUsize::new(SESSION_CACHE_CAPACITY).expect("cache capacity is non-zero"),
             )));
             app.manage(turn_cache);
+
             let event_cache: EventCache = Arc::new(Mutex::new(lru::LruCache::new(
                 // SAFETY: cache capacity is non-zero
                 NonZeroUsize::new(SESSION_CACHE_CAPACITY).expect("cache capacity is non-zero"),
             )));
             app.manage(event_cache);
+
+            // Task DB: lazily initialized (None until first use via config path).
+            let task_db: SharedTaskDb = Arc::new(Mutex::new(None));
+            app.manage(task_db);
+
+            // Orchestrator state: tracks the active orchestrator handle.
+            let orch_state: SharedOrchestratorState = Arc::new(Mutex::new(None));
+            app.manage(orch_state);
+
+            // Manifest lock: serializes concurrent manifest read-modify-write operations.
+            let manifest_lock: ManifestLock = Arc::new(Mutex::new(()));
+            app.manage(manifest_lock);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -174,6 +189,26 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::skills::skills_import_github_skill,
             commands::skills::skills_discover_local,
             commands::skills::skills_discover_repos,
+            // Task system commands (16)
+            commands::tasks::task_create,
+            commands::tasks::task_create_batch,
+            commands::tasks::task_get,
+            commands::tasks::task_list,
+            commands::tasks::task_cancel,
+            commands::tasks::task_retry,
+            commands::tasks::task_delete,
+            commands::tasks::task_stats,
+            commands::tasks::task_list_jobs,
+            commands::tasks::task_cancel_job,
+            commands::tasks::task_list_presets,
+            commands::tasks::task_get_preset,
+            commands::tasks::task_save_preset,
+            commands::tasks::task_delete_preset,
+            commands::tasks::task_orchestrator_health,
+            commands::tasks::task_orchestrator_start,
+            commands::tasks::task_orchestrator_stop,
+            commands::tasks::task_ingest_results,
+            commands::tasks::task_attribution,
         ])
         .build()
 }

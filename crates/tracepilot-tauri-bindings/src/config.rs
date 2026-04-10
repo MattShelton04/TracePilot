@@ -42,6 +42,8 @@ pub struct TracePilotConfig {
     pub features: FeaturesConfig,
     #[serde(default)]
     pub logging: LoggingConfig,
+    #[serde(default)]
+    pub tasks: TasksConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -174,6 +176,8 @@ pub struct FeaturesConfig {
     pub mcp_servers: bool,
     #[serde(default = "default_true")]
     pub skills: bool,
+    #[serde(default)]
+    pub ai_tasks: bool,
 }
 
 impl Default for FeaturesConfig {
@@ -185,6 +189,7 @@ impl Default for FeaturesConfig {
             render_markdown: true,
             mcp_servers: true,
             skills: true,
+            ai_tasks: false,
         }
     }
 }
@@ -204,6 +209,78 @@ impl Default for LoggingConfig {
     fn default() -> Self {
         Self {
             level: default_log_level(),
+        }
+    }
+}
+
+/// Configuration for the AI Agent Task System (orchestrator + subagents).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TasksConfig {
+    /// Whether the tasks feature is enabled.
+    #[serde(default)]
+    pub enabled: bool,
+    /// Model used for the orchestrator session (the polling root agent).
+    #[serde(default = "default_orchestrator_model")]
+    pub orchestrator_model: String,
+    /// Default model for subagent task execution (overridable per-preset/task).
+    #[serde(default = "default_subagent_model")]
+    pub default_subagent_model: String,
+    /// How often the orchestrator polls for new tasks (seconds).
+    #[serde(default = "default_poll_interval")]
+    pub poll_interval_seconds: u32,
+    /// Maximum number of concurrent subagent tasks.
+    #[serde(default = "default_max_concurrent_tasks")]
+    pub max_concurrent_tasks: u32,
+    /// Multiplier applied to poll interval to determine heartbeat staleness.
+    /// If heartbeat is older than `poll_interval * this`, orchestrator is dead.
+    #[serde(default = "default_heartbeat_stale_multiplier")]
+    pub heartbeat_stale_multiplier: u32,
+    /// Max consecutive orchestrator crash restarts before circuit-breaking.
+    #[serde(default = "default_max_retries")]
+    pub max_retries: u32,
+    /// Whether to auto-start the orchestrator when the app launches.
+    #[serde(default)]
+    pub auto_start_orchestrator: bool,
+    /// Approximate token budget for context assembly per task.
+    #[serde(default = "default_context_budget_tokens")]
+    pub context_budget_tokens: u32,
+}
+
+fn default_orchestrator_model() -> String {
+    "claude-haiku-4.5".to_string()
+}
+fn default_subagent_model() -> String {
+    "claude-sonnet-4.6".to_string()
+}
+fn default_poll_interval() -> u32 {
+    30
+}
+fn default_max_concurrent_tasks() -> u32 {
+    3
+}
+fn default_heartbeat_stale_multiplier() -> u32 {
+    6
+}
+fn default_max_retries() -> u32 {
+    3
+}
+fn default_context_budget_tokens() -> u32 {
+    50_000
+}
+
+impl Default for TasksConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            orchestrator_model: default_orchestrator_model(),
+            default_subagent_model: default_subagent_model(),
+            poll_interval_seconds: default_poll_interval(),
+            max_concurrent_tasks: default_max_concurrent_tasks(),
+            heartbeat_stale_multiplier: default_heartbeat_stale_multiplier(),
+            max_retries: default_max_retries(),
+            auto_start_orchestrator: false,
+            context_budget_tokens: default_context_budget_tokens(),
         }
     }
 }
@@ -269,7 +346,7 @@ impl Default for TracePilotConfig {
         // sentinel values — the setup wizard will prompt the user for paths.
         let home = home_dir().unwrap_or_default();
         Self {
-            version: 3,
+            version: 4,
             paths: PathsConfig {
                 session_state_dir: home
                     .join(".copilot")
@@ -289,13 +366,14 @@ impl Default for TracePilotConfig {
             tool_rendering: ToolRenderingConfig::default(),
             features: FeaturesConfig::default(),
             logging: LoggingConfig::default(),
+            tasks: TasksConfig::default(),
         }
     }
 }
 
 impl TracePilotConfig {
     /// Current schema version. Bump this when adding migrations.
-    pub const CURRENT_VERSION: u32 = 3;
+    pub const CURRENT_VERSION: u32 = 4;
 
     /// Apply any pending migrations to bring the config up to the current version.
     /// Returns true if any migrations were applied.
@@ -324,7 +402,13 @@ impl TracePilotConfig {
         }
 
         // Future migrations go here:
-        // if self.version < 4 { ... self.version = 4; }
+        // if self.version < 5 { ... self.version = 5; }
+
+        // Migration from v3 → v4: added tasks config section (handled by serde default).
+        if self.version < 4 {
+            self.version = 4;
+            tracing::info!("Migrated config from v3 → v4 (added tasks config)");
+        }
 
         self.version != original
     }
@@ -402,6 +486,24 @@ impl TracePilotConfig {
     pub fn index_db_path(&self) -> PathBuf {
         PathBuf::from(&self.paths.index_db_path)
     }
+
+    /// Path to the task presets directory (derived from copilot home).
+    pub fn presets_dir(&self) -> PathBuf {
+        // Presets live alongside the index DB: ~/.copilot/tracepilot/presets/
+        PathBuf::from(&self.paths.index_db_path)
+            .parent()
+            .unwrap_or_else(|| std::path::Path::new("."))
+            .join("presets")
+    }
+
+    /// Path to the jobs directory for orchestrator IPC.
+    pub fn jobs_dir(&self) -> PathBuf {
+        // Jobs dir: ~/.copilot/tracepilot/jobs/
+        PathBuf::from(&self.paths.index_db_path)
+            .parent()
+            .unwrap_or_else(|| std::path::Path::new("."))
+            .join("jobs")
+    }
 }
 
 /// Thread-safe shared config state for Tauri managed state.
@@ -427,7 +529,7 @@ mod tests {
         let mut config = TracePilotConfig::default();
         config.version = 1;
         assert!(config.migrate());
-        assert_eq!(config.version, 3);
+        assert_eq!(config.version, TracePilotConfig::CURRENT_VERSION);
     }
 
     #[test]
@@ -493,8 +595,7 @@ mod tests {
         let mut config: TracePilotConfig = toml::from_str(v1_toml).expect("parse v1 config");
         assert_eq!(config.version, 1);
         assert!(config.migrate());
-        assert_eq!(config.version, 3);
-        // Preserved user settings survive migration
+        assert_eq!(config.version, TracePilotConfig::CURRENT_VERSION);
         assert_eq!(config.paths.index_db_path, "/custom/path/index.db");
         assert_eq!(config.ui.theme, "light");
         // New v2 field gets default value
