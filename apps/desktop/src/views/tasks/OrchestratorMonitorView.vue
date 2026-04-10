@@ -18,9 +18,12 @@ const healthExpanded = ref(false);
 const autoRefreshEnabled = ref(true);
 const autoRefreshInterval = ref(5);
 
+// The orchestrator store already owns a poll loop (fast when running, slow when idle).
+// The view-level autoRefresh is only used for the manual refresh button — it does NOT
+// start its own setInterval when the store is already polling.
 const { refreshing, refresh: autoRefresh } = useAutoRefresh({
   onRefresh: () => orchestrator.pollCycle(),
-  enabled: autoRefreshEnabled,
+  enabled: ref(false), // disabled — store handles cadence
   intervalSeconds: autoRefreshInterval,
 });
 

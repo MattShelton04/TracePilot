@@ -87,8 +87,10 @@ export const useOrchestratorStore = defineStore("orchestrator", () => {
     try {
       const result = await taskOrchestratorHealth();
       health.value = result;
+      error.value = null;
     } catch (e) {
       logWarn("[orchestrator] Health check failed:", e);
+      error.value = e instanceof Error ? e.message : String(e);
     }
   }
 

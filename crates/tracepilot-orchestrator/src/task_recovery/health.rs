@@ -57,16 +57,40 @@ pub fn check_orchestrator_health(
         .and_then(|t| t.elapsed().ok())
         .map(|d| d.as_secs());
 
-    // No handle means orchestrator was never launched or state was lost
+    // No handle means orchestrator was never launched (this process) or state was lost.
+    // Fall through to heartbeat-based classification so we can detect a live process
+    // that survived an app restart.
     if handle.is_none() {
-        return HealthCheckResult {
-            health: OrchestratorHealth::Stopped,
-            heartbeat_age_secs: heartbeat_age,
-            last_cycle: heartbeat.as_ref().map(|h| h.cycle),
-            active_tasks: vec![],
-            needs_restart: false,
-            session_uuid: None,
-            session_path: None,
+        return match heartbeat_age {
+            Some(age) if age < timeout => HealthCheckResult {
+                health: OrchestratorHealth::Healthy,
+                heartbeat_age_secs: Some(age),
+                last_cycle: heartbeat.as_ref().map(|h| h.cycle),
+                active_tasks: heartbeat
+                    .map(|h| h.active_tasks)
+                    .unwrap_or_default(),
+                needs_restart: false,
+                session_uuid: None,
+                session_path: None,
+            },
+            Some(age) => HealthCheckResult {
+                health: OrchestratorHealth::Stale,
+                heartbeat_age_secs: Some(age),
+                last_cycle: heartbeat.as_ref().map(|h| h.cycle),
+                active_tasks: vec![],
+                needs_restart: true,
+                session_uuid: None,
+                session_path: None,
+            },
+            None => HealthCheckResult {
+                health: OrchestratorHealth::Stopped,
+                heartbeat_age_secs: None,
+                last_cycle: None,
+                active_tasks: vec![],
+                needs_restart: false,
+                session_uuid: None,
+                session_path: None,
+            },
         };
     }
 

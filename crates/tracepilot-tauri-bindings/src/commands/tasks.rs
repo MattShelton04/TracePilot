@@ -439,8 +439,18 @@ pub async fn task_orchestrator_start(
             jobs_dir,
         };
 
-        // Mark all claimed tasks as in_progress BEFORE launching the orchestrator
-        // so the process sees correct status from the start.
+        // Launch orchestrator FIRST, then mark tasks in_progress only on success.
+        // This avoids stranding tasks in InProgress if the launch fails.
+        let handle =
+            tracepilot_orchestrator::task_orchestrator::launch_orchestrator(
+                &pending_tasks,
+                &resolved_models,
+                &context_contents,
+                &launch_config,
+            )
+            .map_err(BindingsError::Orchestrator)?;
+
+        // Launch succeeded — now mark tasks in_progress.
         {
             let db_guard = db
                 .lock()
@@ -457,15 +467,6 @@ pub async fn task_orchestrator_start(
                 }
             }
         }
-
-        let handle =
-            tracepilot_orchestrator::task_orchestrator::launch_orchestrator(
-                &pending_tasks,
-                &resolved_models,
-                &context_contents,
-                &launch_config,
-            )
-            .map_err(BindingsError::Orchestrator)?;
 
         // Store handle
         let mut guard = orch_state_clone
@@ -490,18 +491,25 @@ pub async fn task_orchestrator_stop(
             .lock()
             .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
         let handle = guard
-            .take()
+            .as_ref()
             .ok_or_else(|| BindingsError::Validation("Orchestrator is not running.".into()))?;
 
         let manifest_path = std::path::PathBuf::from(&handle.manifest_path);
+        let pid = handle.pid;
+
+        // Write shutdown flag BEFORE removing handle — if this fails, handle
+        // stays in state so we can retry and don't lose track of the process.
         tracepilot_orchestrator::task_orchestrator::manifest::update_manifest_shutdown(
             &manifest_path,
         )
         .map_err(BindingsError::Orchestrator)?;
 
+        // Shutdown write succeeded — now remove handle from state.
+        guard.take();
+        drop(guard);
+
         // Wait briefly for the process to observe the shutdown flag and exit,
         // preventing a quick re-start from racing with the old process.
-        let pid = handle.pid;
         for _ in 0..10 {
             if !is_process_alive(pid) {
                 break;

@@ -131,6 +131,9 @@ pub fn list_tasks(conn: &Connection, filter: &TaskFilter) -> Result<Vec<Task>> {
 }
 
 /// Update a task's status.
+///
+/// Guards against overwriting terminal states (done, failed, cancelled, expired,
+/// dead_letter). Callers should use `cancel_task` / `retry_task` for those transitions.
 pub fn update_task_status(conn: &Connection, id: &str, status: TaskStatus) -> Result<()> {
     let now = chrono::Utc::now().to_rfc3339();
     let completed_at = if status.is_terminal() {
@@ -154,13 +157,29 @@ pub fn update_task_status(conn: &Connection, id: &str, status: TaskStatus) -> Re
             completed_at = COALESCE(?2, completed_at),
             claimed_at = COALESCE(?3, claimed_at),
             started_at = COALESCE(?4, started_at)
-         WHERE id = ?5",
+         WHERE id = ?5
+           AND status NOT IN ('done', 'failed', 'cancelled', 'expired', 'dead_letter')",
         params![status.as_str(), completed_at, claimed_at, started_at, id],
     )?;
 
     if rows == 0 {
+        // Check if the task exists but is in a terminal state.
+        let exists: bool = conn
+            .query_row("SELECT 1 FROM tasks WHERE id = ?1", params![id], |_| {
+                Ok(true)
+            })
+            .unwrap_or(false);
+        if exists {
+            return Err(OrchestratorError::Task(format!(
+                "Task {id} is in a terminal state and cannot be updated"
+            )));
+        }
         return Err(OrchestratorError::NotFound(format!("Task not found: {id}")));
     }
+
+    // Propagate status change to job counters/lifecycle.
+    update_job_counters(conn, id)?;
+
     Ok(())
 }
 
@@ -404,6 +423,21 @@ fn update_job_counters(conn: &Connection, task_id: &str) -> Result<()> {
          WHERE id = ?1",
         params![job_id],
     )?;
+
+    // Transition job to Running if any task is active and the job is still Pending.
+    let has_active: bool = conn.query_row(
+        "SELECT COUNT(*) > 0 FROM tasks
+         WHERE job_id = ?1 AND status IN ('in_progress', 'claimed')",
+        params![job_id],
+        |row| row.get(0),
+    )?;
+
+    if has_active {
+        conn.execute(
+            "UPDATE jobs SET status = 'running' WHERE id = ?1 AND status = 'pending'",
+            params![job_id],
+        )?;
+    }
 
     // Check if all tasks are terminal — if so, mark job complete.
     let all_terminal: bool = conn.query_row(

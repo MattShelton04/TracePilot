@@ -687,14 +687,14 @@ In `~/.copilot/tracepilot/config.toml`:
 ai_tasks = true
 
 [tasks]
-presets_dir = "~/.copilot/tracepilot/presets"
-jobs_dir = "~/.copilot/tracepilot/jobs"
-default_model = "gpt-5-mini"
-max_parallel_tasks = 3
+enabled = true
+orchestrator_model = "claude-haiku-4.5"
+default_subagent_model = "claude-sonnet-4.6"
 poll_interval_seconds = 30
-max_cycles = 10
-max_empty_polls = 3
-heartbeat_stale_multiplier = 3
+max_concurrent_tasks = 3
+heartbeat_stale_multiplier = 6
+max_retries = 3
+auto_start_orchestrator = false
 context_budget_tokens = 50000
 ```
 

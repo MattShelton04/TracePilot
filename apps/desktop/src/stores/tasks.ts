@@ -35,6 +35,7 @@ export const useTasksStore = defineStore("tasks", () => {
   const sortBy = ref<TaskSortOption>("newest");
 
   const loadGuard = useAsyncGuard();
+  const getTaskGuard = useAsyncGuard();
 
   // ─── Computed ─────────────────────────────────────────────────────
 
@@ -124,9 +125,14 @@ export const useTasksStore = defineStore("tasks", () => {
     if (refreshTasksPromise) return refreshTasksPromise;
     refreshTasksPromise = (async () => {
       try {
-        const [taskResult, statsResult] = await Promise.all([taskList(), taskStats()]);
+        const [taskResult, statsResult, jobsResult] = await Promise.all([
+          taskList(),
+          taskStats(),
+          taskListJobs(),
+        ]);
         tasks.value = taskResult;
         stats.value = statsResult;
+        jobs.value = jobsResult;
       } catch (e) {
         logWarn("[tasks] Silent refresh failed:", e);
       } finally {
@@ -137,14 +143,19 @@ export const useTasksStore = defineStore("tasks", () => {
   }
 
   async function getTask(id: string): Promise<Task | null> {
+    const token = getTaskGuard.start();
     error.value = null;
     selectedTask.value = null;
     try {
       const task = await taskGet(id);
-      selectedTask.value = task;
+      if (getTaskGuard.isValid(token)) {
+        selectedTask.value = task;
+      }
       return task;
     } catch (e) {
-      error.value = toErrorMessage(e);
+      if (getTaskGuard.isValid(token)) {
+        error.value = toErrorMessage(e);
+      }
       return null;
     }
   }
