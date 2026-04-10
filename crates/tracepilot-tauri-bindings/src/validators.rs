@@ -107,31 +107,44 @@ pub(crate) fn validate_unix_date_range(
     Ok(())
 }
 
-/// Parse an ISO 8601 / RFC 3339 date string.
+/// Parse an ISO 8601 date string.
+///
+/// Accepts both full RFC 3339 datetimes (`2024-01-15T00:00:00Z`) and
+/// date-only strings (`2024-01-15`) since the frontend sends `YYYY-MM-DD`
+/// for analytics date range filters.
 fn parse_iso_date(date_str: &str, param_name: &str) -> CmdResult<chrono::DateTime<chrono::Utc>> {
-    if date_str.trim().is_empty() {
+    let trimmed = date_str.trim();
+    if trimmed.is_empty() {
         return Err(BindingsError::Validation(format!(
             "Invalid {}: cannot be empty or whitespace",
             param_name
         )));
     }
 
-    chrono::DateTime::parse_from_rfc3339(date_str)
-        .map(|dt| dt.with_timezone(&chrono::Utc))
-        .map_err(|e| {
-            BindingsError::Validation(format!(
-                "Invalid {}: '{}' is not a valid ISO 8601 / RFC 3339 datetime ({})",
-                param_name,
-                truncate_for_display(date_str, 50),
-                e
-            ))
-        })
+    // Try full RFC 3339 first (e.g. "2024-01-15T00:00:00Z")
+    if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(trimmed) {
+        return Ok(dt.with_timezone(&chrono::Utc));
+    }
+
+    // Fall back to date-only YYYY-MM-DD (frontend sends this format)
+    if let Ok(nd) = chrono::NaiveDate::parse_from_str(trimmed, "%Y-%m-%d") {
+        return Ok(nd
+            .and_hms_opt(0, 0, 0)
+            .expect("midnight is always valid")
+            .and_utc());
+    }
+
+    Err(BindingsError::Validation(format!(
+        "Invalid {}: '{}' is not a valid date (expected YYYY-MM-DD or RFC 3339 datetime)",
+        param_name,
+        truncate_for_display(date_str, 50),
+    )))
 }
 
-/// Validate ISO 8601 date range (used by analytics commands).
+/// Validate date range (used by analytics commands).
 ///
 /// Ensures:
-/// * Strings parse as valid RFC 3339 datetimes
+/// * Strings parse as valid dates (YYYY-MM-DD or RFC 3339 datetime)
 /// * If both present: `from_date <= to_date`
 ///
 /// Both parameters are optional; `None` values are always valid.
@@ -454,7 +467,7 @@ mod tests {
         let invalid = Some("not-a-date".to_string());
         let err = validate_iso_date_range(&invalid, &None).unwrap_err();
         let msg = err.to_string();
-        assert!(msg.contains("not a valid ISO 8601"), "got: {msg}");
+        assert!(msg.contains("not a valid date"), "got: {msg}");
         assert!(msg.contains("from_date"), "got: {msg}");
     }
 
@@ -482,11 +495,25 @@ mod tests {
     }
 
     #[test]
-    fn iso_range_date_only_format_fails() {
-        // RFC 3339 requires time component
+    fn iso_range_date_only_format_passes() {
+        // Frontend sends YYYY-MM-DD for analytics date ranges
         let date_only = Some("2024-01-01".to_string());
-        let err = validate_iso_date_range(&date_only, &None).unwrap_err();
-        assert!(err.to_string().contains("not a valid ISO 8601"));
+        assert!(validate_iso_date_range(&date_only, &None).is_ok());
+    }
+
+    #[test]
+    fn iso_range_date_only_range_passes() {
+        let from = Some("2024-01-01".to_string());
+        let to = Some("2024-12-31".to_string());
+        assert!(validate_iso_date_range(&from, &to).is_ok());
+    }
+
+    #[test]
+    fn iso_range_mixed_formats_passes() {
+        // Date-only from + RFC 3339 to should work
+        let from = Some("2024-01-01".to_string());
+        let to = Some("2024-12-31T23:59:59Z".to_string());
+        assert!(validate_iso_date_range(&from, &to).is_ok());
     }
 
     #[test]
