@@ -144,14 +144,23 @@ export function useCachedFetch<TData, TParams = void>(
   const loading = ref(false);
   const error = ref<string | null>(null);
 
-  // Cache tracking: which cache keys have been successfully loaded
+  // Cache tracking: which cache keys have been successfully loaded and their data
+  const cacheData = new Map<string, TData | null>();
   const loaded = new Set<string>();
 
   // In-flight promise tracking: deduplicate concurrent requests
   const inflight = new Map<string, Promise<TData | undefined>>();
 
-  // Generation counter: prevent stale async writes
-  let generation = 0;
+  // Per-key generation counter: prevent stale async writes while preserving multi-key cache
+  const keyGenerations = new Map<string, number>();
+
+  // Monotonic epoch counter — incremented on reset() to invalidate all pre-reset generations
+  let resetEpoch = 0;
+
+  // Track the currently active request so only the newest invocation updates shared state
+  let activeKey: string | null = null;
+  let activeGeneration = 0;
+  let activeEpoch = 0;
 
   /**
    * Fetch data with the given parameters.
@@ -159,19 +168,37 @@ export function useCachedFetch<TData, TParams = void>(
   const fetch = async (params: TParams, opts?: { force?: boolean }): Promise<TData | undefined> => {
     const cacheKey = cacheKeyFn(params);
 
-    // Return early if cached and not forced
+    // Return cached data when available
     if (cache && !opts?.force && loaded.has(cacheKey)) {
-      return data.value ?? undefined;
+      activeKey = cacheKey;
+      activeGeneration = keyGenerations.get(cacheKey) ?? 0;
+      activeEpoch = resetEpoch;
+      const cachedValue = cacheData.get(cacheKey) ?? null;
+      error.value = null;
+      if (!silent) {
+        loading.value = false;
+      }
+      data.value = cachedValue;
+      return cachedValue ?? undefined;
     }
 
     // Deduplicate: return existing promise if already in-flight
     const existingPromise = inflight.get(cacheKey);
     if (existingPromise) {
+      // Update active tracking so when the promise resolves, it updates shared state
+      activeKey = cacheKey;
+      activeGeneration = keyGenerations.get(cacheKey) ?? 0;
+      activeEpoch = resetEpoch;
       return existingPromise;
     }
 
     // Start new fetch
-    const gen = ++generation;
+    const epoch = resetEpoch;
+    const gen = (keyGenerations.get(cacheKey) ?? 0) + 1;
+    keyGenerations.set(cacheKey, gen);
+    activeKey = cacheKey;
+    activeGeneration = gen;
+    activeEpoch = epoch;
     if (!silent) {
       loading.value = true;
     }
@@ -181,16 +208,23 @@ export function useCachedFetch<TData, TParams = void>(
       try {
         const result = await fetcher(params);
 
-        // Only update if this is still the latest request
-        if (gen !== generation) return undefined;
+        // Stale if a newer request was made for this key, or a reset occurred
+        if (epoch !== resetEpoch || gen !== keyGenerations.get(cacheKey)) return undefined;
 
-        data.value = result as TData;
+        // Only write to cache when caching is enabled
         if (cache) {
+          cacheData.set(cacheKey, result ?? null);
           loaded.add(cacheKey);
         }
 
+        const isActive = activeKey === cacheKey && activeGeneration === gen && activeEpoch === epoch;
+        if (isActive) {
+          data.value = result as TData;
+          error.value = null;
+        }
+
         // Call onSuccess with try-catch to prevent callback errors from breaking state
-        if (onSuccess) {
+        if (isActive && onSuccess) {
           try {
             onSuccess(result);
           } catch (callbackError) {
@@ -200,18 +234,21 @@ export function useCachedFetch<TData, TParams = void>(
 
         return result;
       } catch (e) {
-        // Only update error if this is still the latest request
-        if (gen !== generation) return undefined;
+        // Stale if a newer request was made for this key, or a reset occurred
+        if (epoch !== resetEpoch || gen !== keyGenerations.get(cacheKey)) return undefined;
 
         const errorMsg = toErrorMessage(e);
-        error.value = errorMsg;
+        const isActive = activeKey === cacheKey && activeGeneration === gen && activeEpoch === epoch;
+        if (isActive) {
+          error.value = errorMsg;
 
-        if (resetOnError) {
-          data.value = initialData;
+          if (resetOnError) {
+            data.value = initialData;
+          }
         }
 
         // Call onError with try-catch
-        if (onError) {
+        if (isActive && onError) {
           try {
             onError(errorMsg);
           } catch (callbackError) {
@@ -224,8 +261,8 @@ export function useCachedFetch<TData, TParams = void>(
         // Clean up inflight tracking
         inflight.delete(cacheKey);
 
-        // Only update loading and call onFinally if this is still the latest request
-        if (gen === generation) {
+        // Only update loading and call onFinally if this is still the latest request for this key
+        if (activeKey === cacheKey && activeGeneration === gen && activeEpoch === epoch) {
           if (!silent) {
             loading.value = false;
           }
@@ -253,9 +290,14 @@ export function useCachedFetch<TData, TParams = void>(
     data.value = initialData;
     loading.value = false;
     error.value = null;
+    cacheData.clear();
     loaded.clear();
     inflight.clear();
-    generation++;
+    keyGenerations.clear();
+    resetEpoch++;
+    activeKey = null;
+    activeGeneration = 0;
+    activeEpoch = resetEpoch;
   };
 
   /**
@@ -269,6 +311,7 @@ export function useCachedFetch<TData, TParams = void>(
    * Clear the cache without resetting data/loading/error state.
    */
   const clearCache = () => {
+    cacheData.clear();
     loaded.clear();
   };
 
