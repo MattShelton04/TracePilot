@@ -130,6 +130,7 @@ function viewTask(taskId: string) {
 // ── Lifecycle ───────────────────────────────────────────────
 onMounted(() => {
   orchestrator.refresh();
+  orchestrator.loadModels();
   orchestrator.startPolling();
   tickTimer = setInterval(() => {
     now.value = Date.now();
@@ -149,11 +150,20 @@ onUnmounted(() => {
       <div class="page-header fade-section" style="--stagger: 0">
         <h1 class="page-title">Orchestrator Monitor</h1>
         <div class="header-actions">
+          <select
+            v-if="orchestrator.isStopped && orchestrator.models.length > 0"
+            v-model="orchestrator.selectedModel"
+            class="model-select"
+          >
+            <option v-for="m in orchestrator.models" :key="m.id" :value="m.id">
+              {{ m.name }}
+            </option>
+          </select>
           <button
             v-if="orchestrator.isStopped"
             class="action-btn start-btn"
             :disabled="orchestrator.starting"
-            @click="orchestrator.startOrchestrator('gpt-5-mini')"
+            @click="orchestrator.startOrchestrator()"
           >
             <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
               <path d="M4 2l10 6-10 6z" />
@@ -621,6 +631,22 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 14px;
+}
+
+.model-select {
+  padding: 5px 10px;
+  font-size: 0.75rem;
+  background: var(--canvas-subtle);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  max-width: 160px;
+}
+
+.model-select:focus {
+  border-color: var(--accent);
+  outline: none;
 }
 
 .refresh-btn {

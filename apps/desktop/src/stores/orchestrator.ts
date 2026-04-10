@@ -1,4 +1,5 @@
 import {
+  getAvailableModels,
   taskAttribution,
   taskIngestResults,
   taskOrchestratorHealth,
@@ -8,6 +9,7 @@ import {
 import type {
   AttributionSnapshot,
   HealthCheckResult,
+  ModelInfo,
   OrchestratorHandle,
   OrchestratorState,
 } from "@tracepilot/types";
@@ -17,6 +19,7 @@ import { computed, ref, watch } from "vue";
 import { logWarn } from "@/utils/logger";
 
 const POLL_INTERVAL_MS = 5_000;
+const DEFAULT_MODEL = "gpt-5-mini";
 
 export const useOrchestratorStore = defineStore("orchestrator", () => {
   // ─── State ────────────────────────────────────────────────────────
@@ -28,6 +31,8 @@ export const useOrchestratorStore = defineStore("orchestrator", () => {
   const stopping = ref(false);
   const error = ref<string | null>(null);
   const lastIngestedCount = ref(0);
+  const models = ref<ModelInfo[]>([]);
+  const selectedModel = ref(DEFAULT_MODEL);
   let pollTimer: ReturnType<typeof setInterval> | null = null;
 
   // ─── Computed ─────────────────────────────────────────────────────
@@ -81,6 +86,15 @@ export const useOrchestratorStore = defineStore("orchestrator", () => {
       health.value = result;
     } catch (e) {
       logWarn("[orchestrator] Health check failed:", e);
+    }
+  }
+
+  /** Load available models from the backend. */
+  async function loadModels() {
+    try {
+      models.value = await getAvailableModels();
+    } catch (e) {
+      logWarn("[orchestrator] Failed to load models:", e);
     }
   }
 
@@ -149,12 +163,12 @@ export const useOrchestratorStore = defineStore("orchestrator", () => {
     }
   }
 
-  /** Launch the orchestrator. Picks up pending tasks and spawns a CLI session. */
+  /** Launch the orchestrator. Uses selectedModel unless overridden. */
   async function startOrchestrator(model?: string) {
     starting.value = true;
     error.value = null;
     try {
-      handle.value = await taskOrchestratorStart(model);
+      handle.value = await taskOrchestratorStart(model ?? selectedModel.value);
       await checkHealth();
     } catch (e) {
       error.value = toErrorMessage(e);
@@ -191,6 +205,8 @@ export const useOrchestratorStore = defineStore("orchestrator", () => {
     stopping,
     error,
     lastIngestedCount,
+    models,
+    selectedModel,
     // Computed
     state,
     isRunning,
@@ -203,6 +219,7 @@ export const useOrchestratorStore = defineStore("orchestrator", () => {
     completedSubagents,
     // Actions
     checkHealth,
+    loadModels,
     refreshAttribution,
     ingestResults,
     pollCycle,

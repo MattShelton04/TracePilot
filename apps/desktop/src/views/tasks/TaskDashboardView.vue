@@ -28,6 +28,7 @@ const { refreshing, refresh } = useAutoRefresh({
 onMounted(() => {
   store.fetchTasks();
   orchestrator.checkHealth();
+  orchestrator.loadModels();
   presets.loadPresets();
 });
 
@@ -263,22 +264,33 @@ function jobProgressColor(status: string) {
                 {{ stateLabel }}
               </span>
             </div>
-            <button
-              v-if="orchestrator.isStopped"
-              class="orch-action-btn orch-start"
-              :disabled="orchestrator.starting"
-              @click="orchestrator.startOrchestrator('gpt-5-mini')"
-            >
-              {{ orchestrator.starting ? "Starting…" : "Start" }}
-            </button>
-            <button
-              v-else
-              class="orch-action-btn orch-stop"
-              :disabled="orchestrator.stopping"
-              @click="orchestrator.stopOrchestrator()"
-            >
-              {{ orchestrator.stopping ? "Stopping…" : "Stop" }}
-            </button>
+            <div class="orch-header-controls">
+              <select
+                v-if="orchestrator.isStopped && orchestrator.models.length > 0"
+                v-model="orchestrator.selectedModel"
+                class="orch-model-select"
+              >
+                <option v-for="m in orchestrator.models" :key="m.id" :value="m.id">
+                  {{ m.name }}
+                </option>
+              </select>
+              <button
+                v-if="orchestrator.isStopped"
+                class="orch-action-btn orch-start"
+                :disabled="orchestrator.starting"
+                @click="orchestrator.startOrchestrator()"
+              >
+                {{ orchestrator.starting ? "Starting…" : "Start" }}
+              </button>
+              <button
+                v-else
+                class="orch-action-btn orch-stop"
+                :disabled="orchestrator.stopping"
+                @click="orchestrator.stopOrchestrator()"
+              >
+                {{ orchestrator.stopping ? "Stopping…" : "Stop" }}
+              </button>
+            </div>
           </div>
           <div class="orch-card-stats">
             <div class="orch-stat">
@@ -747,6 +759,28 @@ function jobProgressColor(status: string) {
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: background var(--transition-fast);
+}
+
+.orch-header-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.orch-model-select {
+  padding: 3px 8px;
+  font-size: 0.6875rem;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  max-width: 140px;
+}
+
+.orch-model-select:focus {
+  border-color: var(--accent);
+  outline: none;
 }
 
 .orch-action-btn:disabled {
