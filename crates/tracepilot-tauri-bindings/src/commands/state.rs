@@ -7,6 +7,7 @@ use crate::helpers::{open_index_db, read_config, with_session_path};
 use crate::types::{GitInfo, UpdateCheckResult};
 use std::ffi::OsStr;
 use std::path::Path;
+use tracing::warn;
 
 #[tauri::command]
 pub async fn get_db_size(state: tauri::State<'_, SharedConfig>) -> CmdResult<u64> {
@@ -37,10 +38,13 @@ pub async fn get_session_count(state: tauri::State<'_, SharedConfig>) -> CmdResu
 
     blocking_cmd!({
         if let Some(db) = open_index_db(&index_path)
-            && let Ok(count) = db.session_count() {
-                return Ok(count);
-            }
-        Ok::<_, BindingsError>(tracepilot_core::session::discovery::discover_sessions(&session_state_dir)?.len())
+            && let Ok(count) = db.session_count()
+        {
+            return Ok(count);
+        }
+        Ok::<_, BindingsError>(
+            tracepilot_core::session::discovery::discover_sessions(&session_state_dir)?.len(),
+        )
     })
 }
 
@@ -126,13 +130,34 @@ pub async fn check_for_updates() -> CmdResult<UpdateCheckResult> {
 
 #[tauri::command]
 pub async fn get_git_info() -> GitInfo {
-    let run = |args: &[&str]| -> Option<String> {
-        tracepilot_orchestrator::process::run_hidden("git", args, None, None)
+    // Run git commands off the async runtime thread and enforce a short timeout
+    // so a hung git binary (e.g., waiting for credentials) cannot stall the UI.
+    match tokio::task::spawn_blocking(|| collect_git_info(5)).await {
+        Ok(info) => info,
+        Err(e) => {
+            warn!(error = %e, "get_git_info worker task failed");
+            GitInfo {
+                commit_hash: None,
+                branch: None,
+            }
+        }
+    }
+}
+
+fn collect_git_info(timeout_secs: u64) -> GitInfo {
+    git_info_from_runner(|args| {
+        tracepilot_orchestrator::process::run_hidden("git", args, None, Some(timeout_secs))
             .ok()
             .and_then(|o| String::from_utf8(o.stdout).ok())
             .map(|s| s.trim().to_string())
             .filter(|s| !s.is_empty())
-    };
+    })
+}
+
+fn git_info_from_runner<F>(mut run: F) -> GitInfo
+where
+    F: FnMut(&[&str]) -> Option<String>,
+{
     GitInfo {
         commit_hash: run(&["rev-parse", "--short", "HEAD"]),
         branch: run(&["rev-parse", "--abbrev-ref", "HEAD"]),
@@ -231,20 +256,21 @@ fn is_windows_installed(exe: &Path) -> bool {
     // happens to contain another app's uninstaller. Acceptable for v1 since
     // the path-based checks above cover the standard install locations.
     if let Some(dir) = exe.parent()
-        && let Ok(entries) = std::fs::read_dir(dir) {
-            for entry in entries.flatten() {
-                let name = entry.file_name();
-                let name = name.to_string_lossy().to_lowercase();
-                if name.starts_with("unins")
-                    && entry
-                        .path()
-                        .extension()
-                        .is_some_and(|e| e.eq_ignore_ascii_case("exe"))
-                {
-                    return true;
-                }
+        && let Ok(entries) = std::fs::read_dir(dir)
+    {
+        for entry in entries.flatten() {
+            let name = entry.file_name();
+            let name = name.to_string_lossy().to_lowercase();
+            if name.starts_with("unins")
+                && entry
+                    .path()
+                    .extension()
+                    .is_some_and(|e| e.eq_ignore_ascii_case("exe"))
+            {
+                return true;
             }
         }
+    }
 
     false
 }
@@ -278,6 +304,33 @@ mod tests {
     use std::io::Write;
     use std::path::PathBuf;
     use tempfile::tempdir;
+
+    #[test]
+    fn git_info_from_runner_uses_runner_values() {
+        let mut calls = Vec::new();
+        let info = git_info_from_runner(|args| {
+            calls.push(args.join(" "));
+            if args.contains(&"--abbrev-ref") {
+                Some("main".to_string())
+            } else {
+                Some("abc123".to_string())
+            }
+        });
+
+        assert_eq!(info.commit_hash.as_deref(), Some("abc123"));
+        assert_eq!(info.branch.as_deref(), Some("main"));
+        assert_eq!(
+            calls,
+            vec!["rev-parse --short HEAD", "rev-parse --abbrev-ref HEAD"]
+        );
+    }
+
+    #[test]
+    fn git_info_from_runner_allows_missing_values() {
+        let info = git_info_from_runner(|_| None);
+        assert!(info.commit_hash.is_none());
+        assert!(info.branch.is_none());
+    }
 
     #[test]
     fn windows_program_files_counts_as_installed() {
@@ -361,8 +414,7 @@ mod tests {
     #[test]
     fn empty_appimage_env_not_treated_as_appimage() {
         let exe = PathBuf::from("/home/me/tracepilot");
-        let install_type =
-            detect_install_type_for(&exe, Some(OsStr::new("")), PlatformKind::Linux);
+        let install_type = detect_install_type_for(&exe, Some(OsStr::new("")), PlatformKind::Linux);
         assert_eq!(install_type, InstallType::Portable);
     }
 
