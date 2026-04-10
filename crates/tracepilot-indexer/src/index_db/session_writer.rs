@@ -204,106 +204,159 @@ impl IndexDb {
 
             // INSERT child rows: model metrics (batch)
             if !analytics.model_rows.is_empty() {
-                let mut stmt = self.conn.prepare(
-                    "INSERT INTO session_model_metrics
-                        (session_id, model_name, input_tokens, output_tokens,
-                         cache_read_tokens, cache_write_tokens, cost, request_count)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-                )?;
-                for row in &analytics.model_rows {
-                    stmt.execute(params![
-                        &session_id,
-                        &row.model,
-                        row.input_tokens,
-                        row.output_tokens,
-                        row.cache_read_tokens,
-                        row.cache_write_tokens,
-                        row.cost,
-                        row.premium_requests
-                    ])?;
+                let chunk_size = 99; // SQLite max parameters is typically 999. 99 rows * 8 columns = 792 parameters.
+                for chunk in analytics.model_rows.chunks(chunk_size) {
+                    let mut sql = String::with_capacity(chunk_size * 50);
+                    sql.push_str("INSERT INTO session_model_metrics (session_id, model_name, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cost, request_count) VALUES ");
+
+                    for i in 0..chunk.len() {
+                        if i > 0 { sql.push_str(", "); }
+                        sql.push_str("(?, ?, ?, ?, ?, ?, ?, ?)");
+                    }
+
+                    let mut stmt = self.conn.prepare_cached(&sql)?;
+                    let mut p: Vec<&dyn rusqlite::ToSql> = Vec::with_capacity(chunk.len() * 8);
+                    for row in chunk {
+                        p.push(&session_id);
+                        p.push(&row.model);
+                        p.push(&row.input_tokens);
+                        p.push(&row.output_tokens);
+                        p.push(&row.cache_read_tokens);
+                        p.push(&row.cache_write_tokens);
+                        p.push(&row.cost);
+                        p.push(&row.premium_requests);
+                    }
+                    stmt.execute(rusqlite::params_from_iter(p))?;
                 }
             }
 
             // INSERT child rows: tool calls (batch)
             if !analytics.tool_call_rows.is_empty() {
-                let mut stmt = self.conn.prepare(
-                    "INSERT INTO session_tool_calls
-                        (session_id, tool_name, call_count, success_count, failure_count, total_duration_ms, calls_with_duration)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-                )?;
-                for row in &analytics.tool_call_rows {
-                    stmt.execute(params![
-                        &session_id,
-                        &row.name,
-                        row.calls,
-                        row.success,
-                        row.failure,
-                        row.duration_ms,
-                        row.calls_with_duration
-                    ])?;
+                let chunk_size = 99; // 99 rows * 7 columns = 693 parameters
+                for chunk in analytics.tool_call_rows.chunks(chunk_size) {
+                    let mut sql = String::with_capacity(chunk_size * 40);
+                    sql.push_str("INSERT INTO session_tool_calls (session_id, tool_name, call_count, success_count, failure_count, total_duration_ms, calls_with_duration) VALUES ");
+
+                    for i in 0..chunk.len() {
+                        if i > 0 { sql.push_str(", "); }
+                        sql.push_str("(?, ?, ?, ?, ?, ?, ?)");
+                    }
+
+                    let mut stmt = self.conn.prepare_cached(&sql)?;
+                    let mut p: Vec<&dyn rusqlite::ToSql> = Vec::with_capacity(chunk.len() * 7);
+                    for row in chunk {
+                        p.push(&session_id);
+                        p.push(&row.name);
+                        p.push(&row.calls);
+                        p.push(&row.success);
+                        p.push(&row.failure);
+                        p.push(&row.duration_ms);
+                        p.push(&row.calls_with_duration);
+                    }
+                    stmt.execute(rusqlite::params_from_iter(p))?;
                 }
             }
 
             // INSERT child rows: modified files (batch)
             if !analytics.modified_file_rows.is_empty() {
-                let mut stmt = self.conn.prepare(
-                    "INSERT OR IGNORE INTO session_modified_files (session_id, file_path, extension)
-                     VALUES (?1, ?2, ?3)",
-                )?;
-                for row in &analytics.modified_file_rows {
-                    stmt.execute(params![&session_id, &row.file_path, &row.extension])?;
+                let chunk_size = 300; // 300 rows * 3 columns = 900 parameters
+                for chunk in analytics.modified_file_rows.chunks(chunk_size) {
+                    let mut sql = String::with_capacity(chunk_size * 20);
+                    sql.push_str("INSERT OR IGNORE INTO session_modified_files (session_id, file_path, extension) VALUES ");
+
+                    for i in 0..chunk.len() {
+                        if i > 0 { sql.push_str(", "); }
+                        sql.push_str("(?, ?, ?)");
+                    }
+
+                    let mut stmt = self.conn.prepare_cached(&sql)?;
+                    let mut p: Vec<&dyn rusqlite::ToSql> = Vec::with_capacity(chunk.len() * 3);
+                    for row in chunk {
+                        p.push(&session_id);
+                        p.push(&row.file_path);
+                        p.push(&row.extension);
+                    }
+                    stmt.execute(rusqlite::params_from_iter(p))?;
                 }
             }
 
             // INSERT child rows: activity heatmap (batch)
             if !analytics.activity_rows.is_empty() {
-                let mut stmt = self.conn.prepare(
-                    "INSERT INTO session_activity (session_id, day_of_week, hour, tool_call_count)
-                     VALUES (?1, ?2, ?3, ?4)",
-                )?;
-                for row in &analytics.activity_rows {
-                    stmt.execute(params![&session_id, row.day_of_week, row.hour, row.tool_call_count])?;
+                let chunk_size = 200; // 200 rows * 4 columns = 800 parameters
+                for chunk in analytics.activity_rows.chunks(chunk_size) {
+                    let mut sql = String::with_capacity(chunk_size * 20);
+                    sql.push_str("INSERT INTO session_activity (session_id, day_of_week, hour, tool_call_count) VALUES ");
+
+                    for i in 0..chunk.len() {
+                        if i > 0 { sql.push_str(", "); }
+                        sql.push_str("(?, ?, ?, ?)");
+                    }
+
+                    let mut stmt = self.conn.prepare_cached(&sql)?;
+                    let mut p: Vec<&dyn rusqlite::ToSql> = Vec::with_capacity(chunk.len() * 4);
+                    for row in chunk {
+                        p.push(&session_id);
+                        p.push(&row.day_of_week);
+                        p.push(&row.hour);
+                        p.push(&row.tool_call_count);
+                    }
+                    stmt.execute(rusqlite::params_from_iter(p))?;
                 }
             }
 
             // INSERT child rows: session segments (batch)
             if !analytics.session_segment_rows.is_empty() {
-                let mut stmt = self.conn.prepare(
-                    "INSERT INTO session_segments (session_id, start_timestamp, end_timestamp, total_tokens, total_requests, total_premium_requests, total_api_duration_ms, current_model, model_metrics_json)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-                )?;
-                for row in &analytics.session_segment_rows {
-                    stmt.execute(params![
-                        &session_id,
-                        &row.start_timestamp,
-                        &row.end_timestamp,
-                        row.tokens,
-                        row.total_requests,
-                        row.premium_requests,
-                        row.api_duration_ms,
-                        &row.current_model,
-                        &row.model_metrics_json
-                    ])?;
+                let chunk_size = 99; // 99 rows * 9 columns = 891 parameters
+                for chunk in analytics.session_segment_rows.chunks(chunk_size) {
+                    let mut sql = String::with_capacity(chunk_size * 40);
+                    sql.push_str("INSERT INTO session_segments (session_id, start_timestamp, end_timestamp, total_tokens, total_requests, total_premium_requests, total_api_duration_ms, current_model, model_metrics_json) VALUES ");
+
+                    for i in 0..chunk.len() {
+                        if i > 0 { sql.push_str(", "); }
+                        sql.push_str("(?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                    }
+
+                    let mut stmt = self.conn.prepare_cached(&sql)?;
+                    let mut p: Vec<&dyn rusqlite::ToSql> = Vec::with_capacity(chunk.len() * 9);
+                    for row in chunk {
+                        p.push(&session_id);
+                        p.push(&row.start_timestamp);
+                        p.push(&row.end_timestamp);
+                        p.push(&row.tokens);
+                        p.push(&row.total_requests);
+                        p.push(&row.premium_requests);
+                        p.push(&row.api_duration_ms);
+                        p.push(&row.current_model);
+                        p.push(&row.model_metrics_json);
+                    }
+                    stmt.execute(rusqlite::params_from_iter(p))?;
                 }
             }
 
             // INSERT child rows: incidents (batch)
             if !analytics.incidents.is_empty() {
-                let mut stmt = self.conn.prepare(
-                    "INSERT INTO session_incidents
-                        (session_id, event_type, source_event_type, timestamp, severity, summary, detail_json)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-                )?;
-                for inc in &analytics.incidents {
-                    stmt.execute(params![
-                        &session_id,
-                        &inc.event_type,
-                        &inc.source_event_type,
-                        &inc.timestamp,
-                        &inc.severity,
-                        &inc.summary,
-                        &inc.detail_json
-                    ])?;
+                let chunk_size = 99; // 99 rows * 7 columns = 693 parameters
+                for chunk in analytics.incidents.chunks(chunk_size) {
+                    let mut sql = String::with_capacity(chunk_size * 40);
+                    sql.push_str("INSERT INTO session_incidents (session_id, event_type, source_event_type, timestamp, severity, summary, detail_json) VALUES ");
+
+                    for i in 0..chunk.len() {
+                        if i > 0 { sql.push_str(", "); }
+                        sql.push_str("(?, ?, ?, ?, ?, ?, ?)");
+                    }
+
+                    let mut stmt = self.conn.prepare_cached(&sql)?;
+                    let mut p: Vec<&dyn rusqlite::ToSql> = Vec::with_capacity(chunk.len() * 7);
+                    for row in chunk {
+                        p.push(&session_id);
+                        p.push(&row.event_type);
+                        p.push(&row.source_event_type);
+                        p.push(&row.timestamp);
+                        p.push(&row.severity);
+                        p.push(&row.summary);
+                        p.push(&row.detail_json);
+                    }
+                    stmt.execute(rusqlite::params_from_iter(p))?;
                 }
             }
 
