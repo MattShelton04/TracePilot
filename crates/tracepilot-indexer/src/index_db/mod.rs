@@ -42,7 +42,7 @@ impl IndexDb {
             std::fs::create_dir_all(parent)?;
         }
 
-        let mut conn =
+        let conn =
             Connection::open(path).map_err(|e| IndexerError::database_open(path.display(), e))?;
 
         // Performance and correctness pragmas
@@ -54,11 +54,19 @@ impl IndexDb {
         )
         .map_err(|e| IndexerError::database_config("Failed to set database pragmas", e))?;
 
+        // Enable incremental auto_vacuum so freed pages can be reclaimed on
+        // demand via `PRAGMA incremental_vacuum(N)` without a full VACUUM.
+        // For existing databases with auto_vacuum=NONE, a one-time VACUUM is
+        // required to convert the file format.
+        Self::ensure_incremental_auto_vacuum(&conn, path)?;
+
         run_migrations(&conn)?;
+
+        let mut db = Self { conn };
 
         // Debug-only: log slow SQL queries (>10ms) via tracing
         #[cfg(debug_assertions)]
-        conn.profile(Some(|query: &str, duration: std::time::Duration| {
+        db.conn.profile(Some(|query: &str, duration: std::time::Duration| {
             if duration.as_millis() > 10 {
                 tracing::warn!(
                     duration_ms = duration.as_millis(),
@@ -68,7 +76,7 @@ impl IndexDb {
             }
         }));
 
-        Ok(Self { conn })
+        Ok(db)
     }
 
     /// Open the index database in read-only mode (no WAL/SHM side-effects).
@@ -113,6 +121,156 @@ impl IndexDb {
     pub fn analyze(&self) {
         if let Err(e) = self.conn.execute_batch("ANALYZE") {
             tracing::warn!(error = %e, "ANALYZE failed (non-fatal)");
+        }
+    }
+
+    /// Ensure the database uses incremental auto_vacuum.
+    ///
+    /// For new databases the pragma is a no-op. For existing databases that
+    /// still have `auto_vacuum=NONE`, a one-time VACUUM converts the format.
+    fn ensure_incremental_auto_vacuum(conn: &Connection, path: &Path) -> Result<()> {
+        let current: i64 = conn
+            .query_row("PRAGMA auto_vacuum", [], |row| row.get(0))
+            .unwrap_or(0);
+        if current == 2 {
+            return Ok(());
+        }
+
+        conn.execute_batch("PRAGMA auto_vacuum = INCREMENTAL")
+            .map_err(|e| IndexerError::database_config("Failed to set auto_vacuum", e))?;
+
+        // Existing non-empty DB needs VACUUM to persist the mode change.
+        // Failure is non-fatal — retries on next open.
+        let pages: i64 = conn
+            .query_row("PRAGMA page_count", [], |row| row.get(0))
+            .unwrap_or(0);
+        if pages > 0 {
+            tracing::info!("Converting to incremental auto_vacuum (one-time VACUUM): {}", path.display());
+            if let Err(e) = conn.execute_batch("VACUUM") {
+                tracing::warn!(error = %e, "One-time VACUUM failed (will retry on next open)");
+            }
+        }
+        Ok(())
+    }
+
+    /// Run database maintenance to keep the file compact.
+    ///
+    /// Uses a startup-only strategy: full maintenance (FTS optimize, vacuum,
+    /// WAL checkpoint, ANALYZE) runs at most once every 4 hours, so it
+    /// naturally fires on the first indexing pass after app startup but is a
+    /// complete no-op during the frequent auto-refresh cycles (every ~5 s).
+    ///
+    /// Call [`maintenance_force`] after bulk operations (e.g. rebuild) to
+    /// bypass the time gate.
+    pub fn maintenance(&self) {
+        const MIN_INTERVAL_SECS: i64 = 4 * 3600; // 4 hours
+
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
+
+        let last_run = self.read_maintenance_epoch();
+        if (now - last_run) < MIN_INTERVAL_SECS {
+            return;
+        }
+
+        if self.run_full_maintenance() {
+            self.write_maintenance_epoch(now);
+        }
+        self.analyze();
+    }
+
+    /// Run full maintenance unconditionally, bypassing the time gate.
+    ///
+    /// Use after bulk operations like `rebuild_search_content` where
+    /// large amounts of data were deleted and re-inserted.
+    pub fn maintenance_force(&self) {
+        if self.run_full_maintenance() {
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs() as i64)
+                .unwrap_or(0);
+            self.write_maintenance_epoch(now);
+        }
+        self.analyze();
+    }
+
+    /// Core maintenance operations: FTS optimize → vacuum → WAL checkpoint.
+    /// Returns `true` if at least the vacuum or checkpoint succeeded.
+    fn run_full_maintenance(&self) -> bool {
+        let start = std::time::Instant::now();
+        let mut any_succeeded = false;
+
+        // 1. Optimize FTS5 search index (merge segments → frees pages).
+        // Must run BEFORE vacuum so freed pages are reclaimed in the same pass.
+        if let Err(e) = self
+            .conn
+            .execute_batch("INSERT INTO search_fts(search_fts) VALUES('optimize')")
+        {
+            tracing::warn!(error = %e, "FTS optimize failed (non-fatal)");
+        } else {
+            any_succeeded = true;
+        }
+
+        // 2. Reclaim freelist pages (requires incremental auto_vacuum)
+        let freelist: i64 = self
+            .conn
+            .query_row("PRAGMA freelist_count", [], |row| row.get(0))
+            .unwrap_or(0);
+        let mut reclaimed: i64 = 0;
+        if freelist > 0 {
+            let cap = freelist.min(50_000);
+            if let Err(e) = self
+                .conn
+                .execute_batch(&format!("PRAGMA incremental_vacuum({cap})"))
+            {
+                tracing::warn!(error = %e, "incremental_vacuum failed (non-fatal)");
+            } else {
+                let after: i64 = self
+                    .conn
+                    .query_row("PRAGMA freelist_count", [], |row| row.get(0))
+                    .unwrap_or(0);
+                reclaimed = freelist - after;
+                any_succeeded = true;
+            }
+        }
+
+        // 3. WAL checkpoint — truncate to reclaim WAL file space
+        if let Err(e) = self.conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE)") {
+            tracing::warn!(error = %e, "WAL checkpoint failed (non-fatal)");
+        } else {
+            any_succeeded = true;
+        }
+
+        tracing::debug!(
+            reclaimed_pages = reclaimed,
+            freelist_before = freelist,
+            elapsed_ms = start.elapsed().as_millis(),
+            "Full maintenance complete"
+        );
+
+        any_succeeded
+    }
+
+    // ── Maintenance timestamp helpers ─────────────────────────────────
+
+    fn read_maintenance_epoch(&self) -> i64 {
+        self.conn
+            .query_row(
+                "SELECT CAST(value AS INTEGER) FROM maintenance_state WHERE key = 'last_run_epoch'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap_or(0)
+    }
+
+    fn write_maintenance_epoch(&self, epoch: i64) {
+        if let Err(e) = self.conn.execute(
+            "INSERT OR REPLACE INTO maintenance_state (key, value) VALUES ('last_run_epoch', ?1)",
+            [epoch],
+        ) {
+            tracing::warn!(error = %e, "Failed to write maintenance timestamp (non-fatal)");
         }
     }
 }
@@ -182,8 +340,8 @@ updated_at: "2026-03-10T07:15:00Z"
             .conn
             .query_row("SELECT COUNT(*) FROM schema_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(v1, 9);
-        assert_eq!(count1, 9);
+        assert_eq!(v1, 10);
+        assert_eq!(count1, 10);
         drop(db1);
 
         let db2 = IndexDb::open_or_create(&db_path).unwrap();
@@ -191,7 +349,7 @@ updated_at: "2026-03-10T07:15:00Z"
             .conn
             .query_row("SELECT COUNT(*) FROM schema_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(count2, 9);
+        assert_eq!(count2, 10);
     }
 
     #[test]
@@ -938,5 +1096,96 @@ updated_at: "2026-03-10T07:15:00Z"
             incremental_hits.contains(&session_id.to_string()),
             "FTS should find 'incremental' after trigger-based upsert post-bulk"
         );
+    }
+
+    #[test]
+    fn test_new_db_has_incremental_auto_vacuum() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
+
+        let auto_vacuum: i64 = db
+            .conn
+            .query_row("PRAGMA auto_vacuum", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(auto_vacuum, 2, "New databases should use incremental auto_vacuum");
+    }
+
+    #[test]
+    fn test_maintenance_force_runs_without_error() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
+
+        // Insert some data so maintenance has something to work with
+        let session_dir = write_session(
+            tmp.path(),
+            "maint-1111-1111-1111-111111111111",
+            "Test maintenance",
+            "org/repo",
+            "main",
+            "hello world",
+            "goodbye world",
+        );
+        db.upsert_session(&session_dir).unwrap();
+
+        let rows = vec![search_writer::SearchContentRow {
+            session_id: "maint-1111-1111-1111-111111111111".to_string(),
+            content_type: "user_message",
+            turn_number: Some(0),
+            event_index: 0,
+            timestamp_unix: Some(1000),
+            tool_name: None,
+            content: "hello world maintenance test".to_string(),
+            metadata_json: None,
+        }];
+        db.upsert_search_content("maint-1111-1111-1111-111111111111", &rows)
+            .unwrap();
+
+        // maintenance_force bypasses the time gate
+        db.maintenance_force();
+
+        // Verify freelist is small after maintenance
+        let freelist: i64 = db
+            .conn
+            .query_row("PRAGMA freelist_count", [], |row| row.get(0))
+            .unwrap();
+        assert!(
+            freelist < 10,
+            "Freelist should be small after maintenance, got {freelist}"
+        );
+    }
+
+    #[test]
+    fn test_maintenance_throttles_repeated_calls() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
+
+        // Fresh DB has no epoch. First maintenance() should run and set it.
+        assert_eq!(db.read_maintenance_epoch(), 0, "Fresh DB should have no epoch");
+        db.maintenance();
+        let epoch = db.read_maintenance_epoch();
+        assert!(epoch > 0, "First maintenance() should set the epoch");
+
+        // A second maintenance() call should be throttled (no-op)
+        db.maintenance();
+        let after = db.read_maintenance_epoch();
+        assert_eq!(epoch, after, "Throttled maintenance should not update epoch");
+    }
+
+    #[test]
+    fn test_reopen_preserves_incremental_auto_vacuum() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db_path = tmp.path().join("index.db");
+
+        // Create the DB
+        let db = IndexDb::open_or_create(&db_path).unwrap();
+        drop(db);
+
+        // Reopen and verify auto_vacuum is still incremental
+        let db2 = IndexDb::open_or_create(&db_path).unwrap();
+        let auto_vacuum: i64 = db2
+            .conn
+            .query_row("PRAGMA auto_vacuum", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(auto_vacuum, 2, "auto_vacuum should persist across reopens");
     }
 }

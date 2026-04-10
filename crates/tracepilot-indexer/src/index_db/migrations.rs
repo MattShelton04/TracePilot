@@ -325,6 +325,14 @@ INSERT INTO search_fts(search_fts, rank) VALUES('automerge', 8);
 UPDATE sessions SET search_indexed_at = NULL, search_extractor_version = 0;
 "#;
 
+pub(super) const MIGRATION_10: &str = r#"
+-- Maintenance state: stores timestamps for throttled maintenance operations.
+CREATE TABLE IF NOT EXISTS maintenance_state (
+    key   TEXT PRIMARY KEY,
+    value TEXT
+);
+"#;
+
 
 /// Run all pending schema migrations in order.
 pub(super) fn run_migrations(conn: &Connection) -> Result<()> {
@@ -351,6 +359,7 @@ pub(super) fn run_migrations(conn: &Connection) -> Result<()> {
         ("Migration 7: browse indexes", MIGRATION_7),
         ("Migration 8: daily metric tracking", MIGRATION_8),
         ("Migration 9: tool_result, content_fts, quality guard", MIGRATION_9),
+        ("Migration 10: maintenance state", MIGRATION_10),
     ];
 
     for (i, (name, sql)) in migrations.iter().enumerate() {
