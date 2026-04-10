@@ -53,7 +53,9 @@ pub async fn task_create(
                 let manifest_path = std::path::PathBuf::from(&handle.manifest_path);
                 if manifest_path.exists() {
                     let task_dir = jobs_dir.join(&task.id);
-                    let _ = std::fs::create_dir_all(&task_dir);
+                    if let Err(e) = std::fs::create_dir_all(&task_dir) {
+                        tracing::warn!(task_id = %task.id, path = %task_dir.display(), error = %e, "Failed to create task dir; skipping hot-add");
+                    } else {
 
                     // Assemble context file for the new task
                     let result_file = task_dir.join("result.json");
@@ -81,7 +83,9 @@ pub async fn task_create(
                     };
 
                     let context_path = task_dir.join("context.md");
-                    let _ = std::fs::write(&context_path, &content);
+                    if let Err(e) = std::fs::write(&context_path, &content) {
+                        tracing::warn!(task_id = %task.id, path = %context_path.display(), error = %e, "Failed to write context file; skipping hot-add");
+                    } else {
 
                     let title = task.input_params
                         .get("title")
@@ -111,19 +115,26 @@ pub async fn task_create(
                         tracing::warn!(task_id = %task.id, error = %e, "Failed to hot-add task to manifest");
                     } else {
                         // Mark task as in_progress and bind to the running orchestrator session
-                        let _ = tracepilot_orchestrator::task_db::operations::update_task_status(
+                        if let Err(e) = tracepilot_orchestrator::task_db::operations::update_task_status(
                             db.conn(),
                             &task.id,
                             tracepilot_orchestrator::task_db::types::TaskStatus::InProgress,
-                        );
+                        ) {
+                            tracing::warn!(task_id = %task.id, error = %e, "Hot-added task to manifest but failed to update DB status to in_progress");
+                        }
                         if let Some(ref sid) = handle.session_uuid {
-                            let _ = tracepilot_orchestrator::task_db::operations::set_orchestrator_session_id(
+                            if let Err(e) = tracepilot_orchestrator::task_db::operations::set_orchestrator_session_id(
                                 db.conn(),
                                 sid,
-                            );
+                            ) {
+                                tracing::warn!(session_id = %sid, error = %e, "Failed to set orchestrator session ID");
+                            }
                         }
                         tracing::info!(task_id = %task.id, "Hot-added task to running orchestrator manifest");
                     }
+
+                    } // context write succeeded
+                    } // dir creation succeeded
                 }
             }
         }
@@ -588,11 +599,13 @@ pub async fn task_orchestrator_start(
                     }
                     // Persist context hash for dedup index enforcement
                     if let Some((_, _, Some(hash))) = context_results.iter().find(|(id, _, _)| id == &task.id) {
-                        let _ = tracepilot_orchestrator::task_db::operations::set_context_hash(
+                        if let Err(e) = tracepilot_orchestrator::task_db::operations::set_context_hash(
                             task_db.conn(),
                             &task.id,
                             hash,
-                        );
+                        ) {
+                            tracing::warn!(task_id = %task.id, error = %e, "Failed to persist context hash for dedup enforcement");
+                        }
                     }
                 }
             }
@@ -628,10 +641,17 @@ pub async fn task_orchestrator_start(
                             continue;
                         }
                         let task_dir = jobs_dir_for_rescan.join(&task.id);
-                        let _ = std::fs::create_dir_all(&task_dir);
+                        if let Err(e) = std::fs::create_dir_all(&task_dir) {
+                            tracing::warn!(task_id = %task.id, path = %task_dir.display(), error = %e, "Failed to create straggler task dir; skipping");
+                            continue;
+                        }
                         let result_path = task_dir.join("result.json").to_string_lossy().to_string();
                         let content = fallback_context(task, &result_path);
-                        let _ = std::fs::write(task_dir.join("context.md"), &content);
+                        let context_path = task_dir.join("context.md");
+                        if let Err(e) = std::fs::write(&context_path, &content) {
+                            tracing::warn!(task_id = %task.id, path = %context_path.display(), error = %e, "Failed to write straggler context file; skipping");
+                            continue;
+                        }
 
                         let title = task.input_params
                             .get("title")
@@ -659,11 +679,13 @@ pub async fn task_orchestrator_start(
                             &manifest_task,
                         ).is_ok() {
                             // Mark straggler as in_progress so results can be ingested
-                            let _ = tracepilot_orchestrator::task_db::operations::update_task_status(
+                            if let Err(e) = tracepilot_orchestrator::task_db::operations::update_task_status(
                                 task_db.conn(),
                                 &task.id,
                                 tracepilot_orchestrator::task_db::types::TaskStatus::InProgress,
-                            );
+                            ) {
+                                tracing::warn!(task_id = %task.id, error = %e, "Straggler added to manifest but failed to update DB status to in_progress");
+                            }
                         }
                     }
                 }
@@ -711,8 +733,10 @@ pub async fn task_orchestrator_stop(
 
             // Clean up heartbeat after stop so health immediately reports "stopped".
             let heartbeat_path = jobs_dir.join("heartbeat.json");
-            if heartbeat_path.exists() {
-                let _ = std::fs::remove_file(&heartbeat_path);
+            if let Err(e) = std::fs::remove_file(&heartbeat_path) {
+                if e.kind() != std::io::ErrorKind::NotFound {
+                    tracing::warn!(path = %heartbeat_path.display(), error = %e, "Failed to remove heartbeat file after stop");
+                }
             }
         } else {
             // Fallback: handle lost (app restarted) — try manifest in jobs_dir.
@@ -722,20 +746,26 @@ pub async fn task_orchestrator_stop(
 
             if manifest_path.exists() {
                 // Best-effort: set shutdown flag so a still-alive process exits.
-                let _ = tracepilot_orchestrator::task_orchestrator::manifest::update_manifest_shutdown(
+                if let Err(e) = tracepilot_orchestrator::task_orchestrator::manifest::update_manifest_shutdown(
                     &manifest_path,
-                );
+                ) {
+                    tracing::warn!(path = %manifest_path.display(), error = %e, "Failed to set manifest shutdown flag (best-effort)");
+                }
             }
 
             // Clean up stale heartbeat so the next health check returns "stopped"
             // instead of staying stuck on "stale" forever.
-            if heartbeat_path.exists() {
-                let _ = std::fs::remove_file(&heartbeat_path);
+            if let Err(e) = std::fs::remove_file(&heartbeat_path) {
+                if e.kind() != std::io::ErrorKind::NotFound {
+                    tracing::warn!(path = %heartbeat_path.display(), error = %e, "Failed to remove stale heartbeat file");
+                }
             }
 
             // Also remove manifest to fully reset state.
-            if manifest_path.exists() {
-                let _ = std::fs::remove_file(&manifest_path);
+            if let Err(e) = std::fs::remove_file(&manifest_path) {
+                if e.kind() != std::io::ErrorKind::NotFound {
+                    tracing::warn!(path = %manifest_path.display(), error = %e, "Failed to remove stale manifest file");
+                }
             }
         }
 
@@ -926,8 +956,13 @@ pub async fn task_ingest_results(
 
                                 // Clean up old result/status files so the orchestrator
                                 // treats it as a fresh task
-                                let _ = std::fs::remove_file(task_dir.join("result.json"));
-                                let _ = std::fs::remove_file(task_dir.join("status.json"));
+                                for filename in &["result.json", "status.json"] {
+                                    if let Err(e) = std::fs::remove_file(task_dir.join(filename)) {
+                                        if e.kind() != std::io::ErrorKind::NotFound {
+                                            tracing::warn!(task_id = %task.id, file = %filename, error = %e, "Failed to remove old file for retry cleanup");
+                                        }
+                                    }
+                                }
 
                                 let title = task.input_params
                                     .get("title")
