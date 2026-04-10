@@ -156,6 +156,7 @@ describe("useSessionsStore — concurrency & deduplication", () => {
       deferred.resolve([1, 1]);
       await Promise.all([p1, p2]);
 
+      expect(mockListSessions).toHaveBeenCalledTimes(1);
       expect(store.indexing).toBe(false);
       expect(store.sessions).toEqual(MOCK_SESSIONS);
     });
@@ -211,7 +212,56 @@ describe("useSessionsStore — concurrency & deduplication", () => {
       deferred.resolve([1, 1]);
       await Promise.all([reindexP, ensureP]);
 
+      expect(mockListSessions).toHaveBeenCalledTimes(1);
       expect(store.sessions).toEqual(MOCK_SESSIONS);
+    });
+
+    it("coalesces concurrent ensureIndex calls into one post-index refresh fetch", async () => {
+      const deferred = createDeferred<[number, number]>();
+      mockReindexSessions.mockReturnValue(deferred.promise);
+      mockListSessions.mockResolvedValue(MOCK_SESSIONS);
+      const store = useSessionsStore();
+
+      const p1 = store.ensureIndex();
+      const p2 = store.ensureIndex();
+
+      expect(mockReindexSessions).toHaveBeenCalledTimes(1);
+
+      deferred.resolve([1, 1]);
+      await Promise.all([p1, p2]);
+
+      expect(mockListSessions).toHaveBeenCalledTimes(1);
+      expect(store.error).toBeNull();
+    });
+  });
+
+  describe("post-index refresh error semantics", () => {
+    it("surfaces post-index refresh failures for reindex callers", async () => {
+      mockReindexSessions.mockResolvedValue([1, 1]);
+      mockListSessions.mockRejectedValue(new Error("refresh failed"));
+      const store = useSessionsStore();
+
+      const p1 = store.reindex();
+      const p2 = store.reindex();
+      await Promise.all([p1, p2]);
+
+      expect(mockListSessions).toHaveBeenCalledTimes(1);
+      expect(store.error).toContain("refresh failed");
+      expect(store.indexing).toBe(false);
+    });
+
+    it("keeps ensureIndex refresh failures silent while sharing one fetch", async () => {
+      mockReindexSessions.mockResolvedValue([1, 1]);
+      mockListSessions.mockRejectedValue(new Error("refresh failed"));
+      const store = useSessionsStore();
+
+      const p1 = store.ensureIndex();
+      const p2 = store.ensureIndex();
+      await Promise.all([p1, p2]);
+
+      expect(mockListSessions).toHaveBeenCalledTimes(1);
+      expect(store.error).toBeNull();
+      expect(store.indexing).toBe(false);
     });
   });
 });
