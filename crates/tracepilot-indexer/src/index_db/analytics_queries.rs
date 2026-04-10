@@ -6,8 +6,8 @@ use std::collections::HashMap;
 
 use tracepilot_core::analytics::types::*;
 
-use super::helpers::*;
 use super::IndexDb;
+use super::helpers::*;
 
 impl IndexDb {
     /// Query aggregate analytics from pre-computed per-session data.
@@ -61,11 +61,26 @@ impl IndexDb {
             total_compactions,
             total_truncations,
         ): (
-            u32, i64, f64, f64, i64, i64, u32, f64, i64, u32, u32, u32, i64, u32, i64, i64, i64,
-        ) = self.conn.query_row(
-            &agg_sql,
-            params_from_iter(refs.iter().copied()),
-            |row| {
+            u32,
+            i64,
+            f64,
+            f64,
+            i64,
+            i64,
+            u32,
+            f64,
+            i64,
+            u32,
+            u32,
+            u32,
+            i64,
+            u32,
+            i64,
+            i64,
+            i64,
+        ) = self
+            .conn
+            .query_row(&agg_sql, params_from_iter(refs.iter().copied()), |row| {
                 Ok((
                     row.get(0)?,
                     row.get(1)?,
@@ -85,8 +100,7 @@ impl IndexDb {
                     row.get(15)?,
                     row.get(16)?,
                 ))
-            },
-        )?;
+            })?;
 
         // Tokens by day
         let day_sql = format!(
@@ -146,13 +160,11 @@ impl IndexDb {
             where_clause
         );
         let refs = to_refs(&bind_values);
-        let (total_cache_read_tokens, total_input_tokens): (i64, i64) = self
-            .conn
-            .query_row(
-                &cache_sql,
-                params_from_iter(refs.iter().copied()),
-                |row| Ok((row.get(0)?, row.get(1)?)),
-            )?;
+        let (total_cache_read_tokens, total_input_tokens): (i64, i64) =
+            self.conn
+                .query_row(&cache_sql, params_from_iter(refs.iter().copied()), |row| {
+                    Ok((row.get(0)?, row.get(1)?))
+                })?;
         let total_cache_read_tokens = total_cache_read_tokens.max(0) as u64;
         let total_input_tokens = total_input_tokens.max(0) as u64;
         let cache_hit_rate = if total_input_tokens > 0 {
@@ -403,11 +415,11 @@ impl IndexDb {
             where_clause
         );
         let refs = to_refs(&bind_values);
-        let (total_added, total_removed): (i64, i64) = self.conn.query_row(
-            &agg_sql,
-            params_from_iter(refs.iter().copied()),
-            |row| Ok((row.get(0)?, row.get(1)?)),
-        )?;
+        let (total_added, total_removed): (i64, i64) =
+            self.conn
+                .query_row(&agg_sql, params_from_iter(refs.iter().copied()), |row| {
+                    Ok((row.get(0)?, row.get(1)?))
+                })?;
 
         // File type breakdown from session_modified_files
         let ext_sql = format!(
@@ -476,11 +488,11 @@ impl IndexDb {
             where_clause
         );
         let refs = to_refs(&bind_values);
-        let files_modified: u32 = self.conn.query_row(
-            &fc_sql,
-            params_from_iter(refs.iter().copied()),
-            |row| row.get(0),
-        )?;
+        let files_modified: u32 =
+            self.conn
+                .query_row(&fc_sql, params_from_iter(refs.iter().copied()), |row| {
+                    row.get(0)
+                })?;
 
         // Changes by day
         let cbd_sql = format!(

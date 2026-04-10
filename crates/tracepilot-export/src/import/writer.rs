@@ -210,12 +210,11 @@ fn write_workspace_yaml(
         serde_yml::Value::Mapping(imported_from),
     );
 
-    let yaml_str = serde_yml::to_string(&serde_yml::Value::Mapping(map)).map_err(|e| {
-        ExportError::Render {
+    let yaml_str =
+        serde_yml::to_string(&serde_yml::Value::Mapping(map)).map_err(|e| ExportError::Render {
             format: "YAML".to_string(),
             message: e.to_string(),
-        }
-    })?;
+        })?;
 
     fs::write(&path, yaml_str).map_err(|e| ExportError::io(&path, e))
 }
@@ -243,7 +242,10 @@ fn write_checkpoints(checkpoints: &[CheckpointExport], dir: &Path) -> Result<()>
     // Write index.md
     let mut index = String::from("| # | Title | File |\n| --- | --- | --- |\n");
     for cp in checkpoints {
-        index.push_str(&format!("| {} | {} | {} |\n", cp.number, cp.title, cp.filename));
+        index.push_str(&format!(
+            "| {} | {} | {} |\n",
+            cp.number, cp.title, cp.filename
+        ));
     }
     let index_path = cp_dir.join("index.md");
     fs::write(&index_path, &index).map_err(|e| ExportError::io(&index_path, e))?;
@@ -261,7 +263,7 @@ fn write_checkpoints(checkpoints: &[CheckpointExport], dir: &Path) -> Result<()>
 
 fn write_session_db(todos: &TodoExport, dir: &Path) -> Result<()> {
     let db_path = dir.join("session.db");
-    let conn = Connection::open(&db_path).map_err(|e| ExportError::SessionData {
+    let mut conn = Connection::open(&db_path).map_err(|e| ExportError::SessionData {
         message: format!("failed to create session.db: {}", e),
     })?;
 
@@ -285,8 +287,12 @@ fn write_session_db(todos: &TodoExport, dir: &Path) -> Result<()> {
         message: format!("failed to create tables: {}", e),
     })?;
 
+    let tx = conn.transaction().map_err(|e| ExportError::SessionData {
+        message: format!("failed to start transaction: {}", e),
+    })?;
+
     // Insert todos
-    let mut stmt = conn
+    let mut stmt = tx
         .prepare("INSERT INTO todos (id, title, description, status, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)")
         .map_err(|e| ExportError::SessionData {
             message: format!("failed to prepare insert: {}", e),
@@ -308,7 +314,7 @@ fn write_session_db(todos: &TodoExport, dir: &Path) -> Result<()> {
     drop(stmt);
 
     // Insert deps
-    let mut dep_stmt = conn
+    let mut dep_stmt = tx
         .prepare("INSERT INTO todo_deps (todo_id, depends_on) VALUES (?1, ?2)")
         .map_err(|e| ExportError::SessionData {
             message: format!("failed to prepare dep insert: {}", e),
@@ -321,6 +327,11 @@ fn write_session_db(todos: &TodoExport, dir: &Path) -> Result<()> {
                 message: format!("failed to insert dep: {}", e),
             })?;
     }
+    drop(dep_stmt);
+
+    tx.commit().map_err(|e| ExportError::SessionData {
+        message: format!("failed to commit transaction: {}", e),
+    })?;
 
     Ok(())
 }

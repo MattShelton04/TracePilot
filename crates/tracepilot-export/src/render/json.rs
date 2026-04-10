@@ -43,12 +43,11 @@ impl ExportRenderer for JsonRenderer {
 
     fn render(&self, archive: &SessionArchive) -> Result<Vec<ExportFile>> {
         // 1. Serialize sessions to compute content hash
-        let sessions_json = serde_json::to_vec_pretty(&archive.sessions).map_err(|e| {
-            ExportError::Render {
+        let sessions_json =
+            serde_json::to_vec_pretty(&archive.sessions).map_err(|e| ExportError::Render {
                 format: "JSON".to_string(),
                 message: format!("failed to serialize sessions: {e}"),
-            }
-        })?;
+            })?;
 
         // 2. Clone archive and set the content hash
         let mut output = archive.clone();
@@ -162,7 +161,11 @@ mod tests {
         let parsed: serde_json::Value = serde_json::from_slice(&files[0].content).unwrap();
         let hash = parsed["header"]["contentHash"].as_str();
         assert!(hash.is_some(), "content hash should be present");
-        assert_eq!(hash.unwrap().len(), 64, "SHA-256 hash should be 64 hex chars");
+        assert_eq!(
+            hash.unwrap().len(),
+            64,
+            "SHA-256 hash should be 64 hex chars"
+        );
     }
 
     #[test]
@@ -175,7 +178,10 @@ mod tests {
             serde_json::from_slice(&files[0].content).expect("should deserialize");
 
         assert_eq!(deserialized.sessions.len(), 1);
-        assert_eq!(deserialized.sessions[0].metadata.id, archive.sessions[0].metadata.id);
+        assert_eq!(
+            deserialized.sessions[0].metadata.id,
+            archive.sessions[0].metadata.id
+        );
         assert_eq!(
             deserialized.header.schema_version,
             archive.header.schema_version

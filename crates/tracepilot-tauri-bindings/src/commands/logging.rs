@@ -11,10 +11,7 @@ pub async fn get_log_path(app: tauri::AppHandle) -> CmdResult<String> {
 }
 
 #[tauri::command]
-pub async fn export_logs(
-    app: tauri::AppHandle,
-    destination: String,
-) -> CmdResult<String> {
+pub async fn export_logs(app: tauri::AppHandle, destination: String) -> CmdResult<String> {
     let log_dir = app.path().app_log_dir()?;
 
     blocking_cmd!({
@@ -23,11 +20,15 @@ pub async fn export_logs(
         let dest = std::path::PathBuf::from(&destination);
 
         if !dest.is_absolute() {
-            return Err(BindingsError::Validation("Destination path must be absolute".into()));
+            return Err(BindingsError::Validation(
+                "Destination path must be absolute".into(),
+            ));
         }
 
         if !log_dir.exists() {
-            return Err(BindingsError::Validation("Log directory does not exist".into()));
+            return Err(BindingsError::Validation(
+                "Log directory does not exist".into(),
+            ));
         }
 
         let mut log_files: Vec<_> = std::fs::read_dir(&log_dir)?
@@ -82,9 +83,7 @@ pub async fn export_logs(
                     if f.read_to_string(&mut content).is_ok() {
                         combined.push_str(&format!(
                             "=== {} ===\n",
-                            file.file_name()
-                                .unwrap_or_default()
-                                .to_string_lossy()
+                            file.file_name().unwrap_or_default().to_string_lossy()
                         ));
                         combined.push_str(&content);
                         combined.push('\n');
@@ -96,7 +95,9 @@ pub async fn export_logs(
         }
 
         if exported_count == 0 {
-            return Err(BindingsError::Validation("Could not read any log files (all locked or unreadable)".into()));
+            return Err(BindingsError::Validation(
+                "Could not read any log files (all locked or unreadable)".into(),
+            ));
         }
 
         std::fs::write(&dest, &combined)?;

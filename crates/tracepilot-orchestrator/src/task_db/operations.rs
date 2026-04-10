@@ -1,7 +1,7 @@
 //! CRUD operations for the task database.
 
 use crate::error::{OrchestratorError, Result};
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 
 use super::types::{Job, JobStatus, NewTask, Task, TaskFilter, TaskResult, TaskStats, TaskStatus};
 
@@ -17,7 +17,14 @@ pub fn create_task(conn: &Connection, task: &NewTask) -> Result<Task> {
     conn.execute(
         "INSERT INTO tasks (id, task_type, preset_id, priority, input_params, max_retries)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-        params![id, task.task_type, task.preset_id, priority, params_json, max_retries],
+        params![
+            id,
+            task.task_type,
+            task.preset_id,
+            priority,
+            params_json,
+            max_retries
+        ],
     )?;
 
     get_task(conn, &id)
@@ -417,7 +424,8 @@ pub fn list_jobs(conn: &Connection, limit: Option<i64>) -> Result<Vec<Job>> {
         ),
     };
 
-    let params_refs: Vec<&dyn rusqlite::types::ToSql> = param_values.iter().map(|p| p.as_ref()).collect();
+    let params_refs: Vec<&dyn rusqlite::types::ToSql> =
+        param_values.iter().map(|p| p.as_ref()).collect();
     let mut stmt = conn.prepare(&sql)?;
     let jobs = stmt
         .query_map(params_refs.as_slice(), |row| Ok(row_to_job(row)))?
@@ -491,11 +499,7 @@ fn update_job_counters(conn: &Connection, task_id: &str) -> Result<()> {
 
         conn.execute(
             "UPDATE jobs SET status = ?1, completed_at = ?2 WHERE id = ?3",
-            params![
-                job_status.as_str(),
-                chrono::Utc::now().to_rfc3339(),
-                job_id
-            ],
+            params![job_status.as_str(), chrono::Utc::now().to_rfc3339(), job_id],
         )?;
     }
 

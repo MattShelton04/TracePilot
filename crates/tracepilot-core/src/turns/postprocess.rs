@@ -36,27 +36,29 @@ pub(crate) fn infer_subagent_models(turns: &mut [ConversationTurn]) {
             // Propagate to subagents — prefer child model over parent's ToolExecComplete model
             for tc in turn.tool_calls.iter_mut() {
                 if tc.is_subagent
-                    && let Some(ref id) = tc.tool_call_id {
-                        if let Some(model) = child_models.get(id) {
-                            if tc.model.as_deref() != Some(model.as_str()) {
-                                tc.model = Some(model.clone());
-                                changed = true;
-                            }
-                        } else {
-                            // No child tool calls — fall back to model from arguments
-                            let args_model = tc
-                                .arguments
-                                .as_ref()
-                                .and_then(|a| a.get("model"))
-                                .and_then(|m| m.as_str())
-                                .map(|s| s.to_string());
-                            if let Some(ref m) = args_model
-                                && tc.model.as_deref() != Some(m.as_str()) {
-                                    tc.model = args_model;
-                                    changed = true;
-                                }
+                    && let Some(ref id) = tc.tool_call_id
+                {
+                    if let Some(model) = child_models.get(id) {
+                        if tc.model.as_deref() != Some(model.as_str()) {
+                            tc.model = Some(model.clone());
+                            changed = true;
+                        }
+                    } else {
+                        // No child tool calls — fall back to model from arguments
+                        let args_model = tc
+                            .arguments
+                            .as_ref()
+                            .and_then(|a| a.get("model"))
+                            .and_then(|m| m.as_str())
+                            .map(|s| s.to_string());
+                        if let Some(ref m) = args_model
+                            && tc.model.as_deref() != Some(m.as_str())
+                        {
+                            tc.model = args_model;
+                            changed = true;
                         }
                     }
+                }
             }
         }
         if !changed {
@@ -220,9 +222,10 @@ pub(crate) fn resolve_agent_display_names(turns: &mut [ConversationTurn]) {
             .chain(turn.reasoning_texts.iter_mut())
         {
             if let Some(parent_id) = &msg.parent_tool_call_id
-                && msg.agent_display_name.is_none() {
-                    msg.agent_display_name = agent_names.get(parent_id).cloned();
-                }
+                && msg.agent_display_name.is_none()
+            {
+                msg.agent_display_name = agent_names.get(parent_id).cloned();
+            }
         }
     }
 }

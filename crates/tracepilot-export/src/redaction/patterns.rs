@@ -57,8 +57,7 @@ static BEARER_TOKEN: Lazy<Regex> =
 static GITHUB_TOKEN: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"(?:ghp|gho|ghu|ghs|ghr|github_pat)_[A-Za-z0-9_]{30,}").unwrap());
 
-static AWS_KEY: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"(?:AKIA|ASIA)[A-Z0-9]{16}").unwrap());
+static AWS_KEY: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?:AKIA|ASIA)[A-Z0-9]{16}").unwrap());
 
 static GENERIC_SECRET_ASSIGN: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r#"(?i)(?:password|passwd|secret|token|credential|private[_-]?key)\s*[:=]\s*["']?([^\s"']{8,})["']?"#).unwrap()
@@ -140,11 +139,7 @@ pub fn apply_patterns(text: &str, patterns: &[RedactionPattern]) -> Option<Strin
         }
     }
 
-    if changed {
-        Some(result)
-    } else {
-        None
-    }
+    if changed { Some(result) } else { None }
 }
 
 #[cfg(test)]

@@ -155,7 +155,11 @@ mod tests {
         let sections = vec![
             section("prompt", "Required prompt", Priority::Required),
             section("data", "Primary data", Priority::Primary),
-            section("extra", "Supplementary info that is quite long and should be dropped", Priority::Supplementary),
+            section(
+                "extra",
+                "Supplementary info that is quite long and should be dropped",
+                Priority::Supplementary,
+            ),
         ];
         // Budget fits required + primary but not supplementary
         let result = apply_budget(sections, 50);
@@ -168,9 +172,11 @@ mod tests {
 
     #[test]
     fn required_never_dropped() {
-        let sections = vec![
-            section("prompt", "This required content is 40 chars long!", Priority::Required),
-        ];
+        let sections = vec![section(
+            "prompt",
+            "This required content is 40 chars long!",
+            Priority::Required,
+        )];
         let result = apply_budget(sections, 10);
         assert!(result.truncated);
         assert_eq!(result.sections.len(), 1);

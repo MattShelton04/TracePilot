@@ -16,8 +16,10 @@ use crate::types::{
     ImportSessionPreview, ImportSessionsResult, SessionSectionsInfo,
 };
 
-use tracepilot_export::options::{ContentDetailOptions, ExportFormat, ExportOptions, OutputTarget, RedactionOptions};
 use tracepilot_export::SectionId;
+use tracepilot_export::options::{
+    ContentDetailOptions, ExportFormat, ExportOptions, OutputTarget, RedactionOptions,
+};
 
 // ── Helper Functions ──────────────────────────────────────────────────────
 
@@ -98,10 +100,7 @@ pub async fn export_sessions(
         let session_paths: Vec<PathBuf> = session_ids
             .iter()
             .map(|id| {
-                tracepilot_core::session::discovery::resolve_session_path_in(
-                    id,
-                    &session_state_dir,
-                )
+                tracepilot_core::session::discovery::resolve_session_path_in(id, &session_state_dir)
             })
             .collect::<std::result::Result<Vec<_>, _>>()?;
 
@@ -111,7 +110,9 @@ pub async fn export_sessions(
         let files = tracepilot_export::export_sessions_batch(&path_refs, &options)?;
 
         if files.is_empty() {
-            return Err(BindingsError::Validation("Export produced no output".into()));
+            return Err(BindingsError::Validation(
+                "Export produced no output".into(),
+            ));
         }
 
         // Write to destination
@@ -227,11 +228,11 @@ pub async fn get_session_sections(
 
         let summary = tracepilot_core::summary::load_session_summary(&session_path).ok();
 
-        let has_events = events_path.exists()
-            && events_path.metadata().map(|m| m.len() > 0).unwrap_or(false);
+        let has_events =
+            events_path.exists() && events_path.metadata().map(|m| m.len() > 0).unwrap_or(false);
         let has_todos = db_path.exists();
-        let has_plan = plan_path.exists()
-            && plan_path.metadata().map(|m| m.len() > 0).unwrap_or(false);
+        let has_plan =
+            plan_path.exists() && plan_path.metadata().map(|m| m.len() > 0).unwrap_or(false);
         let has_checkpoints = checkpoints_path.exists() && checkpoints_path.is_dir();
         let has_conversation = has_events;
         let has_metrics = summary
@@ -411,9 +412,18 @@ mod tests {
         let default_content = ContentDetailOptions::default();
         let default_redaction = RedactionOptions::default();
 
-        assert_eq!(content.include_subagent_internals, default_content.include_subagent_internals);
-        assert_eq!(content.include_tool_details, default_content.include_tool_details);
-        assert_eq!(content.include_full_tool_results, default_content.include_full_tool_results);
+        assert_eq!(
+            content.include_subagent_internals,
+            default_content.include_subagent_internals
+        );
+        assert_eq!(
+            content.include_tool_details,
+            default_content.include_tool_details
+        );
+        assert_eq!(
+            content.include_full_tool_results,
+            default_content.include_full_tool_results
+        );
 
         assert_eq!(redaction.anonymize_paths, default_redaction.anonymize_paths);
         assert_eq!(redaction.strip_secrets, default_redaction.strip_secrets);
@@ -442,14 +452,8 @@ mod tests {
 
     #[test]
     fn build_export_detail_options_handles_partial_overrides() {
-        let (content, redaction) = build_export_detail_options(
-            Some(false),
-            None,
-            None,
-            None,
-            Some(true),
-            None,
-        );
+        let (content, redaction) =
+            build_export_detail_options(Some(false), None, None, None, Some(true), None);
 
         assert_eq!(content.include_subagent_internals, false); // overridden
         assert_eq!(content.include_tool_details, true); // default
@@ -463,7 +467,10 @@ mod tests {
     #[test]
     fn empty_sections_returns_empty_set() {
         let result = parse_sections(&[]).unwrap();
-        assert!(result.is_empty(), "empty input should produce empty set, not all sections");
+        assert!(
+            result.is_empty(),
+            "empty input should produce empty set, not all sections"
+        );
     }
 
     #[test]

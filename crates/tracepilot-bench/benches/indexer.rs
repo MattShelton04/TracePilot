@@ -1,5 +1,7 @@
 use criterion::{BatchSize, BenchmarkId, Criterion, criterion_group, criterion_main};
-use tracepilot_bench::{SessionFixtureBuilder, create_multi_session_fixture, create_varied_session_fixture};
+use tracepilot_bench::{
+    SessionFixtureBuilder, create_multi_session_fixture, create_varied_session_fixture,
+};
 use tracepilot_indexer::index_db::IndexDb;
 
 fn bench_upsert_session(c: &mut Criterion) {
@@ -37,19 +39,23 @@ fn bench_reindex_all(c: &mut Criterion) {
         let (_sessions_guard, sessions_path) = create_multi_session_fixture(count, 50);
 
         group.throughput(criterion::Throughput::Elements(count as u64));
-        group.bench_with_input(BenchmarkId::from_parameter(count), &sessions_path, |b, sessions_path| {
-            b.iter_batched(
-                || {
-                    let db_dir = tempfile::tempdir().unwrap();
-                    let db_path = db_dir.path().join("bench.db");
-                    (db_dir, db_path)
-                },
-                |(_db_dir, db_path)| {
-                    tracepilot_indexer::reindex_all(sessions_path, &db_path).unwrap();
-                },
-                BatchSize::SmallInput,
-            );
-        });
+        group.bench_with_input(
+            BenchmarkId::from_parameter(count),
+            &sessions_path,
+            |b, sessions_path| {
+                b.iter_batched(
+                    || {
+                        let db_dir = tempfile::tempdir().unwrap();
+                        let db_path = db_dir.path().join("bench.db");
+                        (db_dir, db_path)
+                    },
+                    |(_db_dir, db_path)| {
+                        tracepilot_indexer::reindex_all(sessions_path, &db_path).unwrap();
+                    },
+                    BatchSize::SmallInput,
+                );
+            },
+        );
     }
     group.finish();
 }
@@ -114,19 +120,23 @@ fn bench_reindex_varied(c: &mut Criterion) {
         let (_sessions_guard, sessions_path) = create_varied_session_fixture(count);
 
         group.throughput(criterion::Throughput::Elements(count as u64));
-        group.bench_with_input(BenchmarkId::from_parameter(count), &sessions_path, |b, sessions_path| {
-            b.iter_batched(
-                || {
-                    let db_dir = tempfile::tempdir().unwrap();
-                    let db_path = db_dir.path().join("bench.db");
-                    (db_dir, db_path)
-                },
-                |(_db_dir, db_path)| {
-                    tracepilot_indexer::reindex_all(sessions_path, &db_path).unwrap();
-                },
-                BatchSize::SmallInput,
-            );
-        });
+        group.bench_with_input(
+            BenchmarkId::from_parameter(count),
+            &sessions_path,
+            |b, sessions_path| {
+                b.iter_batched(
+                    || {
+                        let db_dir = tempfile::tempdir().unwrap();
+                        let db_path = db_dir.path().join("bench.db");
+                        (db_dir, db_path)
+                    },
+                    |(_db_dir, db_path)| {
+                        tracepilot_indexer::reindex_all(sessions_path, &db_path).unwrap();
+                    },
+                    BatchSize::SmallInput,
+                );
+            },
+        );
     }
     group.finish();
 }
@@ -142,12 +152,13 @@ fn bench_reindex_search_content(c: &mut Criterion) {
 
     for count in [10, 50, 100, 200] {
         let events_per_session = match count {
-            10 => 200,   // larger sessions at small scale
+            10 => 200, // larger sessions at small scale
             50 => 100,
             100 => 50,
             _ => 50,
         };
-        let (_sessions_guard, sessions_path) = create_multi_session_fixture(count, events_per_session);
+        let (_sessions_guard, sessions_path) =
+            create_multi_session_fixture(count, events_per_session);
 
         group.throughput(criterion::Throughput::Elements(count as u64));
         group.bench_with_input(

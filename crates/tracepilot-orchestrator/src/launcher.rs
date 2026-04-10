@@ -1,7 +1,9 @@
 //! Copilot CLI session launcher.
 
 use crate::error::{OrchestratorError, Result};
-use crate::types::{CreateWorktreeRequest, LaunchConfig, LaunchedSession, ModelInfo, SystemDependencies};
+use crate::types::{
+    CreateWorktreeRequest, LaunchConfig, LaunchedSession, ModelInfo, SystemDependencies,
+};
 use crate::worktrees;
 use std::path::Path;
 use std::process::Command;
@@ -44,9 +46,7 @@ fn validate_model(model: &str) -> Result<()> {
     if known.iter().any(|id| id == model) {
         Ok(())
     } else {
-        Err(OrchestratorError::Launch(format!(
-            "Unknown model: {model}"
-        )))
+        Err(OrchestratorError::Launch(format!("Unknown model: {model}")))
     }
 }
 
@@ -69,9 +69,7 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
     // Handle worktree creation if requested
     let (work_dir, worktree_path) = if config.create_worktree {
         let branch = config.branch.as_deref().ok_or_else(|| {
-            OrchestratorError::Launch(
-                "Branch is required when creating a worktree".into(),
-            )
+            OrchestratorError::Launch("Branch is required when creating a worktree".into())
         })?;
 
         let request = CreateWorktreeRequest {
@@ -99,7 +97,10 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
     // Sanitize CLI command — allow only safe characters.
     // Colon is needed for Windows drive letters (e.g., C:\path\to\copilot).
     let cli = &config.cli_command;
-    if !cli.chars().all(|c| c.is_alphanumeric() || "-_./\\ :".contains(c)) {
+    if !cli
+        .chars()
+        .all(|c| c.is_alphanumeric() || "-_./\\ :".contains(c))
+    {
         return Err(OrchestratorError::Launch(
             "CLI command contains invalid characters".into(),
         ));
@@ -141,7 +142,7 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
         config.branch.as_deref().map(|b| {
             let escaped = b.replace('\'', "''");
             // Try checkout; if it fails (branch doesn't exist locally), try creating from remote
-            format!("git checkout '{b}'" , b = escaped)
+            format!("git checkout '{b}'", b = escaped)
         })
     } else {
         None
@@ -193,11 +194,7 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
                     "  Write-Host 'Branch checked out.' -ForegroundColor Green ",
                     "}}; Write-Host ''; ",
                 ),
-                detect_default,
-                branch_name,
-                base_branch_expr,
-                branch_name,
-                base_branch_expr,
+                detect_default, branch_name, base_branch_expr, branch_name, base_branch_expr,
             )
         } else {
             String::new()
@@ -209,13 +206,7 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
         }
         let env_setup: String = envs
             .iter()
-            .map(|(k, v)| {
-                format!(
-                    "$env:{} = '{}'; ",
-                    k,
-                    v.replace('\'', "''")
-                )
-            })
+            .map(|(k, v)| format!("$env:{} = '{}'; ", k, v.replace('\'', "''")))
             .collect();
 
         // Build the full PowerShell script with startup banner
@@ -228,11 +219,7 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
         };
         let ps_cmd = format!(
             "{env_setup}$host.UI.RawUI.WindowTitle = 'Copilot Session'; Set-Location -LiteralPath '{}'; Write-Host 'Starting Copilot session in:' -ForegroundColor Cyan; Write-Host '  {}' -ForegroundColor White; Write-Host ''; {}{}{}",
-            escaped_dir,
-            escaped_dir,
-            checkout_step,
-            copilot_cmd,
-            interactive_suffix
+            escaped_dir, escaped_dir, checkout_step, copilot_cmd, interactive_suffix
         );
 
         // Use -EncodedCommand (Base64 UTF-16LE) to avoid all escaping issues
@@ -247,7 +234,10 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
 
     #[cfg(target_os = "macos")]
     let pid = {
-        let checkout_prefix = checkout_cmd.as_deref().map(|c| format!("{} && ", c)).unwrap_or_default();
+        let checkout_prefix = checkout_cmd
+            .as_deref()
+            .map(|c| format!("{} && ", c))
+            .unwrap_or_default();
         // Shell-escape prompt with single quotes for bash/zsh
         let interactive_suffix = if let Some(prompt) = &config.prompt {
             let escaped_prompt = prompt.replace('\'', "'\\''");
@@ -262,7 +252,10 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
 
     #[cfg(target_os = "linux")]
     let pid = {
-        let checkout_prefix = checkout_cmd.as_deref().map(|c| format!("{} && ", c)).unwrap_or_default();
+        let checkout_prefix = checkout_cmd
+            .as_deref()
+            .map(|c| format!("{} && ", c))
+            .unwrap_or_default();
         let interactive_suffix = if let Some(prompt) = &config.prompt {
             let escaped_prompt = prompt.replace('\'', "'\\''");
             format!(" --interactive '{}'", escaped_prompt)
@@ -286,7 +279,9 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
 pub fn open_in_explorer(path: &str) -> Result<()> {
     let p = Path::new(path);
     if !p.exists() {
-        return Err(OrchestratorError::Launch(format!("Path does not exist: {path}")));
+        return Err(OrchestratorError::Launch(format!(
+            "Path does not exist: {path}"
+        )));
     }
 
     #[cfg(windows)]
@@ -318,7 +313,9 @@ pub fn open_in_explorer(path: &str) -> Result<()> {
 pub fn open_in_terminal(path: &str) -> Result<()> {
     let p = Path::new(path);
     if !p.exists() {
-        return Err(OrchestratorError::Launch(format!("Path does not exist: {path}")));
+        return Err(OrchestratorError::Launch(format!(
+            "Path does not exist: {path}"
+        )));
     }
 
     // Empty program = just open a terminal at the directory
@@ -332,25 +329,101 @@ pub fn open_in_terminal(path: &str) -> Result<()> {
 /// `packages/types/src/models.ts → MODEL_REGISTRY`.
 pub fn available_models() -> Vec<ModelInfo> {
     vec![
-        ModelInfo { id: "claude-sonnet-4.6".into(), name: "Claude Sonnet 4.6".into(), tier: "standard".into() },
-        ModelInfo { id: "claude-sonnet-4.5".into(), name: "Claude Sonnet 4.5".into(), tier: "standard".into() },
-        ModelInfo { id: "claude-haiku-4.5".into(), name: "Claude Haiku 4.5".into(), tier: "fast".into() },
-        ModelInfo { id: "claude-opus-4.6".into(), name: "Claude Opus 4.6".into(), tier: "premium".into() },
-        ModelInfo { id: "claude-opus-4.6-fast".into(), name: "Claude Opus 4.6 Fast".into(), tier: "premium".into() },
-        ModelInfo { id: "claude-opus-4.5".into(), name: "Claude Opus 4.5".into(), tier: "premium".into() },
-        ModelInfo { id: "claude-sonnet-4".into(), name: "Claude Sonnet 4".into(), tier: "standard".into() },
-        ModelInfo { id: "gemini-3-pro-preview".into(), name: "Gemini 3 Pro".into(), tier: "standard".into() },
-        ModelInfo { id: "gpt-5.4".into(), name: "GPT-5.4".into(), tier: "standard".into() },
-        ModelInfo { id: "gpt-5.3-codex".into(), name: "GPT-5.3 Codex".into(), tier: "standard".into() },
-        ModelInfo { id: "gpt-5.2-codex".into(), name: "GPT-5.2 Codex".into(), tier: "standard".into() },
-        ModelInfo { id: "gpt-5.2".into(), name: "GPT-5.2".into(), tier: "standard".into() },
-        ModelInfo { id: "gpt-5.1-codex-max".into(), name: "GPT-5.1 Codex Max".into(), tier: "standard".into() },
-        ModelInfo { id: "gpt-5.1-codex".into(), name: "GPT-5.1 Codex".into(), tier: "standard".into() },
-        ModelInfo { id: "gpt-5.1".into(), name: "GPT-5.1".into(), tier: "standard".into() },
-        ModelInfo { id: "gpt-5.4-mini".into(), name: "GPT-5.4 Mini".into(), tier: "fast".into() },
-        ModelInfo { id: "gpt-5.1-codex-mini".into(), name: "GPT-5.1 Codex Mini".into(), tier: "fast".into() },
-        ModelInfo { id: "gpt-5-mini".into(), name: "GPT-5 Mini".into(), tier: "fast".into() },
-        ModelInfo { id: "gpt-4.1".into(), name: "GPT-4.1".into(), tier: "fast".into() },
+        ModelInfo {
+            id: "claude-sonnet-4.6".into(),
+            name: "Claude Sonnet 4.6".into(),
+            tier: "standard".into(),
+        },
+        ModelInfo {
+            id: "claude-sonnet-4.5".into(),
+            name: "Claude Sonnet 4.5".into(),
+            tier: "standard".into(),
+        },
+        ModelInfo {
+            id: "claude-haiku-4.5".into(),
+            name: "Claude Haiku 4.5".into(),
+            tier: "fast".into(),
+        },
+        ModelInfo {
+            id: "claude-opus-4.6".into(),
+            name: "Claude Opus 4.6".into(),
+            tier: "premium".into(),
+        },
+        ModelInfo {
+            id: "claude-opus-4.6-fast".into(),
+            name: "Claude Opus 4.6 Fast".into(),
+            tier: "premium".into(),
+        },
+        ModelInfo {
+            id: "claude-opus-4.5".into(),
+            name: "Claude Opus 4.5".into(),
+            tier: "premium".into(),
+        },
+        ModelInfo {
+            id: "claude-sonnet-4".into(),
+            name: "Claude Sonnet 4".into(),
+            tier: "standard".into(),
+        },
+        ModelInfo {
+            id: "gemini-3-pro-preview".into(),
+            name: "Gemini 3 Pro".into(),
+            tier: "standard".into(),
+        },
+        ModelInfo {
+            id: "gpt-5.4".into(),
+            name: "GPT-5.4".into(),
+            tier: "standard".into(),
+        },
+        ModelInfo {
+            id: "gpt-5.3-codex".into(),
+            name: "GPT-5.3 Codex".into(),
+            tier: "standard".into(),
+        },
+        ModelInfo {
+            id: "gpt-5.2-codex".into(),
+            name: "GPT-5.2 Codex".into(),
+            tier: "standard".into(),
+        },
+        ModelInfo {
+            id: "gpt-5.2".into(),
+            name: "GPT-5.2".into(),
+            tier: "standard".into(),
+        },
+        ModelInfo {
+            id: "gpt-5.1-codex-max".into(),
+            name: "GPT-5.1 Codex Max".into(),
+            tier: "standard".into(),
+        },
+        ModelInfo {
+            id: "gpt-5.1-codex".into(),
+            name: "GPT-5.1 Codex".into(),
+            tier: "standard".into(),
+        },
+        ModelInfo {
+            id: "gpt-5.1".into(),
+            name: "GPT-5.1".into(),
+            tier: "standard".into(),
+        },
+        ModelInfo {
+            id: "gpt-5.4-mini".into(),
+            name: "GPT-5.4 Mini".into(),
+            tier: "fast".into(),
+        },
+        ModelInfo {
+            id: "gpt-5.1-codex-mini".into(),
+            name: "GPT-5.1 Codex Mini".into(),
+            tier: "fast".into(),
+        },
+        ModelInfo {
+            id: "gpt-5-mini".into(),
+            name: "GPT-5 Mini".into(),
+            tier: "fast".into(),
+        },
+        ModelInfo {
+            id: "gpt-4.1".into(),
+            name: "GPT-4.1".into(),
+            tier: "fast".into(),
+        },
     ]
 }
 
@@ -364,7 +437,11 @@ fn check_tool(name: &str, args: &[&str]) -> (bool, Option<String>) {
         _ => {
             #[cfg(windows)]
             {
-                let full_cmd = if args.is_empty() { name.to_string() } else { format!("{} {}", name, args.join(" ")) };
+                let full_cmd = if args.is_empty() {
+                    name.to_string()
+                } else {
+                    format!("{} {}", name, args.join(" "))
+                };
                 crate::process::run_hidden_shell(&full_cmd, None, Some(5)).ok()
             }
             #[cfg(not(windows))]
@@ -450,7 +527,10 @@ mod tests {
             Some("2.45.0".to_string())
         );
         assert_eq!(extract_version("1.0.8"), Some("1.0.8".to_string()));
-        assert_eq!(extract_version("version 10.12.3 (build abc)"), Some("10.12.3".to_string()));
+        assert_eq!(
+            extract_version("version 10.12.3 (build abc)"),
+            Some("10.12.3".to_string())
+        );
         assert_eq!(extract_version("no version here"), None);
     }
 

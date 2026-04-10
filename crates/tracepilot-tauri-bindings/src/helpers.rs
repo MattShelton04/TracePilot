@@ -83,9 +83,9 @@ pub(crate) fn read_config(state: &SharedConfig) -> TracePilotConfig {
 pub(crate) fn get_or_init_task_db(
     state: &crate::types::SharedTaskDb,
 ) -> Result<crate::types::SharedTaskDb, BindingsError> {
-    let mut guard = state.lock().map_err(|_| {
-        BindingsError::Validation("TaskDb mutex poisoned".into())
-    })?;
+    let mut guard = state
+        .lock()
+        .map_err(|_| BindingsError::Validation("TaskDb mutex poisoned".into()))?;
     if guard.is_none() {
         let path = tracepilot_orchestrator::task_db::TaskDb::default_path()
             .map_err(|e| BindingsError::Validation(format!("Cannot resolve task DB path: {e}")))?;
