@@ -79,8 +79,23 @@ fn execute_with_timeout(
     timeout_secs: u64,
 ) -> std::result::Result<(Vec<u8>, Vec<u8>, std::process::ExitStatus), OrchestratorError> {
     // Take the pipe handles before wrapping the child so the thread owns them.
-    let stdout_pipe = child.stdout.take().expect("stdout was piped");
-    let stderr_pipe = child.stderr.take().expect("stderr was piped");
+    // Return an error if pipes weren't configured (defensive programming - should never happen).
+    let stdout_pipe = child
+        .stdout
+        .take()
+        .ok_or_else(|| {
+            OrchestratorError::Launch(
+                "stdout not piped: process was not configured correctly".into(),
+            )
+        })?;
+    let stderr_pipe = child
+        .stderr
+        .take()
+        .ok_or_else(|| {
+            OrchestratorError::Launch(
+                "stderr not piped: process was not configured correctly".into(),
+            )
+        })?;
     let stdout_rx = read_pipe_to_end(stdout_pipe, "stdout");
     let stderr_rx = read_pipe_to_end(stderr_pipe, "stderr");
 
@@ -117,10 +132,10 @@ fn execute_with_timeout(
         Ok(result) => result,
         Err(_) => {
             // Timeout occurred - attempt to kill the process
-            if let Ok(mut child) = child_shared.lock() {
-                if let Err(e) = child.kill() {
-                    tracing::warn!("Failed to kill timed-out process: {}", e);
-                }
+            if let Ok(mut child) = child_shared.lock()
+                && let Err(e) = child.kill()
+            {
+                tracing::warn!("Failed to kill timed-out process: {}", e);
             }
             Err(OrchestratorError::Timeout { secs: timeout_secs })
         }
@@ -857,5 +872,68 @@ mod tests {
         assert!(validate_env_var_name("1BAD").is_err());
         assert!(validate_env_var_name("HAS SPACE").is_err());
         assert!(validate_env_var_name("A=B").is_err());
+    }
+
+    #[test]
+    fn test_execute_with_timeout_missing_stdout_pipe() {
+        // Spawn a process without piping stdout to verify error handling
+        let child = Command::new("git")
+            .arg("--version")
+            .stderr(std::process::Stdio::piped())
+            // stdout is NOT piped - should trigger our error
+            .spawn()
+            .expect("failed to spawn test process");
+
+        let result = execute_with_timeout(child, 5);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        let err_msg = err.to_string();
+        assert!(
+            err_msg.contains("stdout not piped") || err_msg.contains("not configured correctly"),
+            "Expected stdout pipe error, got: {}",
+            err_msg
+        );
+    }
+
+    #[test]
+    fn test_execute_with_timeout_missing_stderr_pipe() {
+        // Spawn a process without piping stderr to verify error handling
+        let child = Command::new("git")
+            .arg("--version")
+            .stdout(std::process::Stdio::piped())
+            // stderr is NOT piped - should trigger our error
+            .spawn()
+            .expect("failed to spawn test process");
+
+        let result = execute_with_timeout(child, 5);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        let err_msg = err.to_string();
+        assert!(
+            err_msg.contains("stderr not piped") || err_msg.contains("not configured correctly"),
+            "Expected stderr pipe error, got: {}",
+            err_msg
+        );
+    }
+
+    #[test]
+    fn test_execute_with_timeout_missing_both_pipes() {
+        // Spawn a process without piping either stdout or stderr
+        let child = Command::new("git")
+            .arg("--version")
+            // Neither stdout nor stderr are piped
+            .spawn()
+            .expect("failed to spawn test process");
+
+        let result = execute_with_timeout(child, 5);
+        assert!(result.is_err());
+        // Should error on the first pipe (stdout) that's checked
+        let err = result.unwrap_err();
+        let err_msg = err.to_string();
+        assert!(
+            err_msg.contains("stdout not piped") || err_msg.contains("not configured correctly"),
+            "Expected stdout pipe error, got: {}",
+            err_msg
+        );
     }
 }

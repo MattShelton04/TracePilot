@@ -11,6 +11,7 @@
 mod analytics_queries;
 mod helpers;
 mod migrations;
+mod row_helpers;
 pub mod search_reader;
 pub mod search_writer;
 mod session_reader;

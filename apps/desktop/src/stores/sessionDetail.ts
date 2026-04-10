@@ -657,8 +657,10 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
             const result = await getSessionDetail(id);
             if (!sessionGuard.isValid(token)) return;
             detail.value = result;
+            error.value = null;
           } catch (e) {
             if (!sessionGuard.isValid(token)) return;
+            error.value = toErrorMessage(e);
             logError("[sessionDetail] Failed to refresh detail:", e);
           }
         })(),

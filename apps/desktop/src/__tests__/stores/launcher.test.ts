@@ -2,6 +2,7 @@ import type { ModelInfo, SessionTemplate, SystemDependencies } from "@tracepilot
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useLauncherStore } from "../../stores/launcher";
+import { createDeferred } from "../helpers/deferred";
 
 // Mock the client module
 const mockLaunchSession = vi.fn();
@@ -136,6 +137,138 @@ describe("useLauncherStore", () => {
       expect(store.models).toEqual([]); // failed
       expect(store.templates).toHaveLength(1); // succeeded
       expect(store.error).toContain("Network error");
+    });
+
+    it("ignores stale initialize responses when a newer call finishes first", async () => {
+      const staleDeps = createDeferred<SystemDependencies>();
+      const staleModels = createDeferred<ModelInfo[]>();
+      const staleTemplates = createDeferred<SessionTemplate[]>();
+
+      const freshDeps: SystemDependencies = {
+        ...MOCK_DEPS,
+        gitVersion: "2.46.0",
+      };
+      const freshModels: ModelInfo[] = [{ id: "gpt-5.4", name: "GPT-5.4", tier: "premium" }];
+      const freshTemplates: SessionTemplate[] = [{ ...MOCK_TEMPLATE, id: "fresh-template" }];
+
+      mockCheckSystemDeps.mockReturnValueOnce(staleDeps.promise).mockResolvedValueOnce(freshDeps);
+      mockGetAvailableModels
+        .mockReturnValueOnce(staleModels.promise)
+        .mockResolvedValueOnce(freshModels);
+      mockListSessionTemplates
+        .mockReturnValueOnce(staleTemplates.promise)
+        .mockResolvedValueOnce(freshTemplates);
+
+      const store = useLauncherStore();
+      const first = store.initialize();
+      const second = store.initialize();
+
+      await second;
+
+      expect(store.systemDeps).toEqual(freshDeps);
+      expect(store.models).toEqual(freshModels);
+      expect(store.templates).toEqual(freshTemplates);
+      expect(store.error).toBeNull();
+      expect(store.loading).toBe(false);
+
+      staleDeps.resolve(MOCK_DEPS);
+      staleModels.resolve(MOCK_MODELS);
+      staleTemplates.resolve([MOCK_TEMPLATE, MOCK_TEMPLATE_WRITE_TESTS]);
+      await first;
+
+      expect(store.systemDeps).toEqual(freshDeps);
+      expect(store.models).toEqual(freshModels);
+      expect(store.templates).toEqual(freshTemplates);
+      expect(store.error).toBeNull();
+      expect(store.loading).toBe(false);
+    });
+
+    it("keeps loading true while newer initialize is still pending", async () => {
+      const staleDeps = createDeferred<SystemDependencies>();
+      const staleModels = createDeferred<ModelInfo[]>();
+      const staleTemplates = createDeferred<SessionTemplate[]>();
+      const freshDeps = createDeferred<SystemDependencies>();
+      const freshModels = createDeferred<ModelInfo[]>();
+      const freshTemplates = createDeferred<SessionTemplate[]>();
+
+      mockCheckSystemDeps
+        .mockReturnValueOnce(staleDeps.promise)
+        .mockReturnValueOnce(freshDeps.promise);
+      mockGetAvailableModels
+        .mockReturnValueOnce(staleModels.promise)
+        .mockReturnValueOnce(freshModels.promise);
+      mockListSessionTemplates
+        .mockReturnValueOnce(staleTemplates.promise)
+        .mockReturnValueOnce(freshTemplates.promise);
+
+      const store = useLauncherStore();
+      const first = store.initialize();
+      const second = store.initialize();
+
+      expect(store.loading).toBe(true);
+
+      staleDeps.resolve(MOCK_DEPS);
+      staleModels.resolve(MOCK_MODELS);
+      staleTemplates.resolve([MOCK_TEMPLATE]);
+      await first;
+
+      expect(store.loading).toBe(true);
+      expect(store.systemDeps).toBeNull();
+      expect(store.models).toEqual([]);
+      expect(store.templates).toEqual([]);
+
+      freshDeps.resolve({ ...MOCK_DEPS, gitVersion: "2.47.0" });
+      freshModels.resolve([{ id: "gpt-5.2", name: "GPT-5.2", tier: "standard" }]);
+      freshTemplates.resolve([{ ...MOCK_TEMPLATE_WRITE_TESTS, id: "fresh-pending" }]);
+      await second;
+
+      expect(store.loading).toBe(false);
+      expect(store.systemDeps?.gitVersion).toBe("2.47.0");
+      expect(store.models).toEqual([{ id: "gpt-5.2", name: "GPT-5.2", tier: "standard" }]);
+      expect(store.templates).toEqual([{ ...MOCK_TEMPLATE_WRITE_TESTS, id: "fresh-pending" }]);
+      expect(store.error).toBeNull();
+    });
+
+    it("ignores stale initialize errors after a newer successful initialize", async () => {
+      const staleDeps = createDeferred<SystemDependencies>();
+
+      const freshDeps: SystemDependencies = {
+        ...MOCK_DEPS,
+        copilotVersion: "1.1.0",
+      };
+      const freshModels: ModelInfo[] = [
+        { id: "claude-sonnet-4.6", name: "Claude Sonnet 4.6", tier: "standard" },
+      ];
+      const freshTemplates: SessionTemplate[] = [
+        { ...MOCK_TEMPLATE_WRITE_TESTS, id: "fresh-write-tests" },
+      ];
+
+      mockCheckSystemDeps.mockReturnValueOnce(staleDeps.promise).mockResolvedValueOnce(freshDeps);
+      mockGetAvailableModels.mockResolvedValueOnce(MOCK_MODELS).mockResolvedValueOnce(freshModels);
+      mockListSessionTemplates
+        .mockResolvedValueOnce([MOCK_TEMPLATE])
+        .mockResolvedValueOnce(freshTemplates);
+
+      const store = useLauncherStore();
+      const first = store.initialize();
+      const second = store.initialize();
+
+      await second;
+
+      expect(store.systemDeps).toEqual(freshDeps);
+      expect(store.models).toEqual(freshModels);
+      expect(store.templates).toEqual(freshTemplates);
+      expect(store.error).toBeNull();
+      expect(store.loading).toBe(false);
+
+      staleDeps.reject(new Error("stale deps failed"));
+      await first;
+
+      expect(store.systemDeps).toEqual(freshDeps);
+      expect(store.models).toEqual(freshModels);
+      expect(store.templates).toEqual(freshTemplates);
+      expect(store.error).toBeNull();
+      expect(store.loading).toBe(false);
     });
   });
 

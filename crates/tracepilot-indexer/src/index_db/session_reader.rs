@@ -1,35 +1,15 @@
 //! Read-only session query methods.
 
 use crate::Result;
-use rusqlite::{params_from_iter, types::ToSql, Row};
+use rusqlite::{params_from_iter, types::ToSql};
 use std::collections::HashSet;
 use std::path::PathBuf;
 
-use super::IndexDb;
+use super::row_helpers::*;
 use super::types::*;
+use super::IndexDb;
 
 const SESSION_COLUMNS: &str = "id, path, summary, repository, branch, cwd, host_type, created_at, updated_at, event_count, turn_count, current_model, error_count, rate_limit_count, compaction_count, truncation_count";
-
-fn indexed_session_from_row(row: &Row<'_>) -> rusqlite::Result<IndexedSession> {
-    Ok(IndexedSession {
-        id: row.get(0)?,
-        path: row.get(1)?,
-        summary: row.get(2)?,
-        repository: row.get(3)?,
-        branch: row.get(4)?,
-        cwd: row.get(5)?,
-        host_type: row.get(6)?,
-        created_at: row.get(7)?,
-        updated_at: row.get(8)?,
-        event_count: row.get(9)?,
-        turn_count: row.get(10)?,
-        current_model: row.get(11)?,
-        error_count: row.get(12)?,
-        rate_limit_count: row.get(13)?,
-        compaction_count: row.get(14)?,
-        truncation_count: row.get(15)?,
-    })
-}
 
 impl IndexDb {
     /// List indexed sessions with optional filters.
@@ -170,16 +150,7 @@ impl IndexDb {
             "SELECT event_type, source_event_type, timestamp, severity, summary, detail_json
              FROM session_incidents WHERE session_id = ?1 ORDER BY timestamp",
         )?;
-        let rows = stmt.query_map([session_id], |row| {
-            Ok(IndexedIncident {
-                event_type: row.get(0)?,
-                source_event_type: row.get(1)?,
-                timestamp: row.get(2)?,
-                severity: row.get(3)?,
-                summary: row.get(4)?,
-                detail_json: row.get(5)?,
-            })
-        })?;
+        let rows = stmt.query_map([session_id], indexed_incident_from_row)?;
         let mut result = Vec::new();
         for row in rows {
             result.push(row?);

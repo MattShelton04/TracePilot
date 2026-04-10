@@ -6,6 +6,7 @@
 pub mod config;
 pub mod diff;
 pub mod error;
+pub(crate) mod headers;
 pub mod health;
 pub mod import;
 pub mod types;

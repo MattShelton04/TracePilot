@@ -11,6 +11,7 @@
 use crate::Result;
 use rusqlite::{params_from_iter, types::ToSql};
 
+use super::row_helpers::context_snippet_from_row;
 use super::IndexDb;
 
 /// A single search result with context for display and deep-linking.
@@ -711,16 +712,7 @@ impl IndexDb {
                 Box::new(event_idx),
                 Box::new(radius as i64),
             ]),
-            |row| {
-                Ok(ContextSnippet {
-                    id: row.get(0)?,
-                    content_type: row.get(1)?,
-                    turn_number: row.get(2)?,
-                    event_index: row.get(3)?,
-                    tool_name: row.get(4)?,
-                    preview: row.get(5)?,
-                })
-            },
+            context_snippet_from_row,
         )?;
         let mut before_results: Vec<ContextSnippet> = Vec::new();
         for row in before {
@@ -741,16 +733,7 @@ impl IndexDb {
                 Box::new(event_idx),
                 Box::new(radius as i64),
             ]),
-            |row| {
-                Ok(ContextSnippet {
-                    id: row.get(0)?,
-                    content_type: row.get(1)?,
-                    turn_number: row.get(2)?,
-                    event_index: row.get(3)?,
-                    tool_name: row.get(4)?,
-                    preview: row.get(5)?,
-                })
-            },
+            context_snippet_from_row,
         )?;
         let mut after_results = Vec::new();
         for row in after {

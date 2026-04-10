@@ -25,6 +25,7 @@ import { computed, ref } from "vue";
 import { useAsyncGuard } from "@/composables/useAsyncGuard";
 import { useToastStore } from "@/stores/toast";
 import { aggregateSettledErrors } from "@/utils/settleErrors";
+import { allSettledRecord } from "@/utils/settledRecord";
 
 export type ConfigTab = "agents" | "global" | "versions" | "backups";
 
@@ -54,28 +55,22 @@ export const useConfigInjectorStore = defineStore("configInjector", () => {
     loading.value = true;
     error.value = null;
     try {
-      const [agentsRes, configRes, versionsRes, activeRes, backupsRes] = await Promise.allSettled([
-        getAgentDefinitions(),
-        getCopilotConfig(),
-        discoverCopilotVersions(),
-        getActiveCopilotVersion(),
-        listConfigBackups(),
-      ]);
+      const settled = await allSettledRecord({
+        agents: getAgentDefinitions(),
+        config: getCopilotConfig(),
+        versions: discoverCopilotVersions(),
+        active: getActiveCopilotVersion(),
+        backups: listConfigBackups(),
+      });
       if (!initGuard.isValid(token)) return;
 
-      if (agentsRes.status === "fulfilled") agents.value = agentsRes.value;
-      if (configRes.status === "fulfilled") copilotConfig.value = configRes.value;
-      if (versionsRes.status === "fulfilled") versions.value = versionsRes.value;
-      if (activeRes.status === "fulfilled") activeVersion.value = activeRes.value;
-      if (backupsRes.status === "fulfilled") backups.value = backupsRes.value;
+      if (settled.agents.status === "fulfilled") agents.value = settled.agents.value;
+      if (settled.config.status === "fulfilled") copilotConfig.value = settled.config.value;
+      if (settled.versions.status === "fulfilled") versions.value = settled.versions.value;
+      if (settled.active.status === "fulfilled") activeVersion.value = settled.active.value;
+      if (settled.backups.status === "fulfilled") backups.value = settled.backups.value;
 
-      error.value = aggregateSettledErrors([
-        agentsRes,
-        configRes,
-        versionsRes,
-        activeRes,
-        backupsRes,
-      ]);
+      error.value = aggregateSettledErrors(Object.values(settled));
     } catch (e) {
       if (!initGuard.isValid(token)) return;
       error.value = toErrorMessage(e);
