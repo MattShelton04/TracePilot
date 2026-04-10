@@ -88,11 +88,13 @@ export interface TurnToolCall {
 export interface TurnsResponse {
   turns: ConversationTurn[];
   eventsFileSize: number;
+  eventsFileMtime?: number | null;
 }
 
 /** Lightweight freshness probe response. */
 export interface FreshnessResponse {
   eventsFileSize: number;
+  eventsFileMtime?: number | null;
 }
 
 /** Paginated events response */

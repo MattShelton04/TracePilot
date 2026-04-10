@@ -64,14 +64,23 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
   const turnsError = ref<string | null>(null);
   const eventsError = ref<string | null>(null);
 
-  // Track file size for freshness detection (avoids redundant turn re-fetches)
-  let lastEventsFileSize = 0;
+  // Track events.jsonl fingerprint (size + mtime) for freshness detection
+  type EventsFingerprint = { size: number; mtime: number | null };
+  let lastEventsFingerprint: EventsFingerprint = { size: 0, mtime: null };
   let turnFingerprints: string[] = [];
 
   // Background refresh throttle — skip stale-while-revalidate if data was
   // fetched less than REFRESH_THROTTLE_MS ago (P1 perf fix).
   const lastFetchTimestamp = new Map<string, number>();
   const REFRESH_THROTTLE_MS = 5_000;
+
+  const buildEventsFingerprint = (size: number, mtime?: number | null): EventsFingerprint => ({
+    size,
+    mtime: mtime ?? null,
+  });
+
+  const isSameEventsFingerprint = (a: EventsFingerprint, b: EventsFingerprint): boolean =>
+    a.size === b.size && a.mtime === b.mtime;
 
   // Restrict deep fingerprinting to turns likely to change retroactively:
   // any turn with an in-progress subagent, plus the tail turn.
@@ -267,7 +276,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
   interface CachedSession {
     detail: SessionDetail;
     turns: ConversationTurn[];
-    eventsFileSize: number;
+    eventsFingerprint: EventsFingerprint;
     checkpoints: CheckpointEntry[];
     plan: SessionPlan | null;
     shutdownMetrics: ShutdownMetrics | null;
@@ -313,7 +322,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     return {
       detail: currentDetail,
       turns: turns.value,
-      eventsFileSize: lastEventsFileSize,
+      eventsFingerprint: { ...lastEventsFingerprint },
       checkpoints: checkpointsSection.data.value,
       plan: planSection.data.value,
       shutdownMetrics: metricsSection.data.value,
@@ -329,7 +338,10 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     return {
       detail: detailResult,
       turns: turnsResult.turns,
-      eventsFileSize: turnsResult.eventsFileSize,
+      eventsFingerprint: buildEventsFingerprint(
+        turnsResult.eventsFileSize,
+        turnsResult.eventsFileMtime ?? null,
+      ),
       checkpoints: [],
       plan: null,
       shutdownMetrics: null,
@@ -341,7 +353,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
   function restoreFromCachedSession(cached: CachedSession) {
     detail.value = cached.detail;
     replaceTurns(cached.turns);
-    lastEventsFileSize = cached.eventsFileSize;
+    lastEventsFingerprint = { ...cached.eventsFingerprint };
     checkpointsSection.data.value = cached.checkpoints;
     planSection.data.value = cached.plan;
     metricsSection.data.value = cached.shutdownMetrics;
@@ -426,7 +438,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
   //
   // Sections NOT in this registry (require custom logic):
   //   detail — uses global `error` ref + loading spinner + cache
-  //   turns  — has lastEventsFileSize side-effect + freshness check
+  //   turns  — has events fingerprint side-effect + freshness check
   //   events — uses eventsGuard + pagination args
   //
   // NOTE: CachedSession field mapping is centralized via:
@@ -516,7 +528,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
 
   /** Clear all per-section error refs (used on session switch / reset). */
   function clearSectionErrors() {
-    turnsError.value = null; // special case: custom loader with lastEventsFileSize
+    turnsError.value = null; // special case: custom loader with events fingerprint tracking
     eventsError.value = null; // special case: uses eventsGuard + pagination
     for (const sec of standardSections) {
       sec.clearError();
@@ -534,7 +546,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       sec.resetData();
     }
     loaded.value.clear();
-    lastEventsFileSize = 0;
+    lastEventsFingerprint = buildEventsFingerprint(0, null);
   }
 
   async function loadDetail(id: string) {
@@ -602,7 +614,10 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     fetchFn: (id) => getSessionTurns(id),
     onResult: (result) => {
       replaceTurns(result.turns);
-      lastEventsFileSize = result.eventsFileSize;
+      lastEventsFingerprint = buildEventsFingerprint(
+        result.eventsFileSize,
+        result.eventsFileMtime ?? null,
+      );
     },
   });
 
@@ -676,7 +691,11 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
             try {
               const freshness = await checkSessionFreshness(id);
               if (!sessionGuard.isValid(token)) return;
-              if (freshness.eventsFileSize === lastEventsFileSize) return;
+              const probe = buildEventsFingerprint(
+                freshness.eventsFileSize,
+                freshness.eventsFileMtime ?? null,
+              );
+              if (isSameEventsFingerprint(probe, lastEventsFingerprint)) return;
             } catch (e) {
               // Freshness check failed — fall through to full fetch
               logWarn("[sessionDetail] Freshness check failed, proceeding with full fetch", { sessionId: id }, e);
@@ -686,7 +705,10 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
             if (!sessionGuard.isValid(token)) return;
             mergeTurns(result.turns);
             turnsError.value = null;
-            lastEventsFileSize = result.eventsFileSize;
+            lastEventsFingerprint = buildEventsFingerprint(
+              result.eventsFileSize,
+              result.eventsFileMtime ?? null,
+            );
           } catch (e) {
             if (!sessionGuard.isValid(token)) return;
             turnsError.value = toErrorMessage(e);
