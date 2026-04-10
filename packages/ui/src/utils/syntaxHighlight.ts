@@ -652,6 +652,8 @@ function tomlRules(): TokenRule[] {
 
 // ── Language → Rules mapping ──
 
+// Rule arrays (and their /g regexes) are shared across calls; tokenize()
+// resets lastIndex before each use so the cached instances stay safe.
 const TS_RULES = tsRules();
 const RUST_RULES = rustRules();
 const PYTHON_RULES = pythonRules();
