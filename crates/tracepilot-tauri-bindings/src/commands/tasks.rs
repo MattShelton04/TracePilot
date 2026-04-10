@@ -14,6 +14,8 @@ use tracepilot_orchestrator::task_db::types::*;
 #[tauri::command]
 pub async fn task_create(
     state: tauri::State<'_, SharedTaskDb>,
+    config: tauri::State<'_, SharedConfig>,
+    orch_state: tauri::State<'_, crate::types::SharedOrchestratorState>,
     task_type: String,
     preset_id: String,
     input_params: serde_json::Value,
@@ -21,6 +23,14 @@ pub async fn task_create(
     max_retries: Option<i32>,
 ) -> CmdResult<Task> {
     let db = get_or_init_task_db(&state)?;
+    let cfg = read_config(&config);
+    let orch_state_clone = std::sync::Arc::clone(&*orch_state);
+
+    let jobs_dir = cfg.jobs_dir();
+    let presets_dir = cfg.presets_dir();
+    let session_state_dir = cfg.session_state_dir();
+    let default_model = cfg.tasks.default_subagent_model.clone();
+
     tokio::task::spawn_blocking(move || {
         let guard = db.lock().map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
         let db = guard.as_ref().ok_or_else(|| BindingsError::Validation("TaskDb not init".into()))?;
@@ -31,8 +41,74 @@ pub async fn task_create(
             input_params,
             max_retries,
         };
-        tracepilot_orchestrator::task_db::operations::create_task(db.conn(), &new_task)
-            .map_err(BindingsError::Orchestrator)
+        let task = tracepilot_orchestrator::task_db::operations::create_task(db.conn(), &new_task)
+            .map_err(BindingsError::Orchestrator)?;
+
+        // If orchestrator is running, hot-add this task to the manifest so it
+        // gets picked up on the next poll cycle without requiring a restart.
+        if let Ok(orch_guard) = orch_state_clone.lock() {
+            if let Some(handle) = orch_guard.as_ref() {
+                let manifest_path = std::path::PathBuf::from(&handle.manifest_path);
+                if manifest_path.exists() {
+                    let task_dir = jobs_dir.join(&task.id);
+                    let _ = std::fs::create_dir_all(&task_dir);
+
+                    // Assemble context file for the new task
+                    let result_file = task_dir.join("result.json");
+                    let result_path = result_file.to_string_lossy().to_string();
+
+                    let content = match tracepilot_orchestrator::presets::io::get_preset(
+                        &presets_dir,
+                        &task.preset_id,
+                    ) {
+                        Ok(preset) => {
+                            match tracepilot_orchestrator::task_context::assemble_task_context(
+                                &preset,
+                                &task.input_params,
+                                &session_state_dir,
+                                preset.context.max_chars,
+                                &result_path,
+                            ) {
+                                Ok(assembled) => assembled.content,
+                                Err(_) => fallback_context(&task, &result_path),
+                            }
+                        }
+                        Err(_) => fallback_context(&task, &result_path),
+                    };
+
+                    let context_path = task_dir.join("context.md");
+                    let _ = std::fs::write(&context_path, &content);
+
+                    let title = task.input_params
+                        .get("title")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or(&task.task_type)
+                        .to_string();
+
+                    let manifest_task = tracepilot_orchestrator::task_orchestrator::manifest::ManifestTask {
+                        id: task.id.clone(),
+                        task_type: task.task_type.clone(),
+                        title,
+                        context_file: context_path.to_string_lossy().to_string(),
+                        result_file: result_path,
+                        status_file: task_dir.join("status.json").to_string_lossy().to_string(),
+                        model: default_model.clone(),
+                        priority: task.priority.clone(),
+                    };
+
+                    if let Err(e) = tracepilot_orchestrator::task_orchestrator::manifest::append_task_to_manifest(
+                        &manifest_path,
+                        &manifest_task,
+                    ) {
+                        tracing::warn!(task_id = %task.id, error = %e, "Failed to hot-add task to manifest");
+                    } else {
+                        tracing::info!(task_id = %task.id, "Hot-added task to running orchestrator manifest");
+                    }
+                }
+            }
+        }
+
+        Ok(task)
     })
     .await?
 }
@@ -587,10 +663,12 @@ fn is_process_alive(pid: u32) -> bool {
 pub async fn task_ingest_results(
     config: tauri::State<'_, SharedConfig>,
     task_db: tauri::State<'_, SharedTaskDb>,
+    orch_state: tauri::State<'_, crate::types::SharedOrchestratorState>,
 ) -> CmdResult<u32> {
     let cfg = read_config(&config);
     let jobs_dir = cfg.jobs_dir();
     let db = get_or_init_task_db(&task_db)?;
+    let orch_state_clone = std::sync::Arc::clone(&*orch_state);
 
     tokio::task::spawn_blocking(move || {
         // Phase 1: Quick lock to collect task IDs
@@ -649,6 +727,7 @@ pub async fn task_ingest_results(
             .ok_or_else(|| BindingsError::Validation("TaskDb not init".into()))?;
 
         let mut ingested_count = 0u32;
+        let mut retried_ids: Vec<String> = Vec::new();
         for result in &actionable {
             let task_result = tracepilot_orchestrator::task_db::types::TaskResult {
                 task_id: result.task_id.clone(),
@@ -664,9 +743,91 @@ pub async fn task_ingest_results(
             ) {
                 Ok(()) => {
                     ingested_count += 1;
+
+                    // Auto-retry: if the task failed and has retries remaining,
+                    // reset it to pending so the orchestrator picks it up again.
+                    if result.status == tracepilot_orchestrator::task_db::types::TaskStatus::Failed {
+                        if let Ok(task) = tracepilot_orchestrator::task_db::operations::get_task(
+                            task_db.conn(),
+                            &result.task_id,
+                        ) {
+                            if task.attempt_count < task.max_retries {
+                                match tracepilot_orchestrator::task_db::operations::retry_task(
+                                    task_db.conn(),
+                                    &result.task_id,
+                                ) {
+                                    Ok(()) => {
+                                        retried_ids.push(result.task_id.clone());
+                                        tracing::info!(
+                                            task_id = %result.task_id,
+                                            attempt = task.attempt_count + 1,
+                                            max = task.max_retries,
+                                            "Auto-retrying failed task"
+                                        );
+                                    }
+                                    Err(e) => {
+                                        tracing::warn!(
+                                            task_id = %result.task_id,
+                                            error = %e,
+                                            "Auto-retry failed"
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
                 Err(e) => {
                     tracing::error!(task_id = %result.task_id, error = %e, "Failed to store task result");
+                }
+            }
+        }
+
+        // Hot-add retried tasks back to the manifest so the orchestrator picks them up
+        if !retried_ids.is_empty() {
+            if let Ok(orch_guard) = orch_state_clone.lock() {
+                if let Some(handle) = orch_guard.as_ref() {
+                    let manifest_path = std::path::PathBuf::from(&handle.manifest_path);
+                    if manifest_path.exists() {
+                        for retry_id in &retried_ids {
+                            // Re-read the task to get current state
+                            if let Ok(task) = tracepilot_orchestrator::task_db::operations::get_task(
+                                task_db.conn(),
+                                retry_id,
+                            ) {
+                                let task_dir = jobs_dir.join(&task.id);
+
+                                // Clean up old result/status files so the orchestrator
+                                // treats it as a fresh task
+                                let _ = std::fs::remove_file(task_dir.join("result.json"));
+                                let _ = std::fs::remove_file(task_dir.join("status.json"));
+
+                                let title = task.input_params
+                                    .get("title")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or(&task.task_type)
+                                    .to_string();
+
+                                let manifest_task = tracepilot_orchestrator::task_orchestrator::manifest::ManifestTask {
+                                    id: task.id.clone(),
+                                    task_type: task.task_type.clone(),
+                                    title,
+                                    context_file: task_dir.join("context.md").to_string_lossy().to_string(),
+                                    result_file: task_dir.join("result.json").to_string_lossy().to_string(),
+                                    status_file: task_dir.join("status.json").to_string_lossy().to_string(),
+                                    model: "default".to_string(),
+                                    priority: task.priority.clone(),
+                                };
+
+                                if let Err(e) = tracepilot_orchestrator::task_orchestrator::manifest::append_task_to_manifest(
+                                    &manifest_path,
+                                    &manifest_task,
+                                ) {
+                                    tracing::warn!(task_id = %task.id, error = %e, "Failed to re-add retried task to manifest");
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

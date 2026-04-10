@@ -160,6 +160,23 @@ export const useTasksStore = defineStore("tasks", () => {
     }
   }
 
+  /** Refresh the selected task without nulling it first (avoids UI flash). */
+  async function refreshTask(id: string): Promise<Task | null> {
+    const token = getTaskGuard.start();
+    try {
+      const task = await taskGet(id);
+      if (getTaskGuard.isValid(token)) {
+        selectedTask.value = task;
+      }
+      return task;
+    } catch (e) {
+      if (getTaskGuard.isValid(token)) {
+        error.value = toErrorMessage(e);
+      }
+      return null;
+    }
+  }
+
   async function createTask(
     taskType: string,
     presetId: string,
@@ -257,6 +274,7 @@ export const useTasksStore = defineStore("tasks", () => {
     fetchTasks,
     refreshTasks,
     getTask,
+    refreshTask,
     createTask,
     createBatch,
     cancelTask,

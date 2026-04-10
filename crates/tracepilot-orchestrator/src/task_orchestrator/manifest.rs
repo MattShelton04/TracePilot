@@ -108,6 +108,26 @@ pub fn update_manifest_shutdown(path: &Path) -> Result<()> {
     json_io::atomic_json_write(path, &manifest)
 }
 
+/// Append a new task entry to an existing manifest on disk.
+///
+/// This allows dynamically adding tasks to a running orchestrator — the
+/// orchestrator re-reads the manifest each poll cycle, so appended tasks
+/// will be picked up automatically.
+pub fn append_task_to_manifest(
+    path: &Path,
+    task: &ManifestTask,
+) -> Result<()> {
+    let mut manifest: TaskManifest = json_io::atomic_json_read_opt(path)?
+        .ok_or_else(|| OrchestratorError::Task(
+            "Cannot append: manifest file does not exist".into(),
+        ))?;
+    // Avoid duplicate entries
+    if !manifest.tasks.iter().any(|t| t.id == task.id) {
+        manifest.tasks.push(task.clone());
+    }
+    json_io::atomic_json_write(path, &manifest)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -186,5 +206,60 @@ mod tests {
         update_manifest_shutdown(&path).unwrap();
         let loaded: TaskManifest = json_io::atomic_json_read_opt(&path).unwrap().unwrap();
         assert!(loaded.shutdown);
+    }
+
+    #[test]
+    fn append_task_to_manifest_adds_new_entry() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("manifest.json");
+        let t1 = sample_task("task-001", "normal");
+        let inputs = vec![
+            ManifestInput { task: &t1, model: "claude-haiku-4.5".to_string() },
+        ];
+        let manifest = generate_manifest(&inputs, dir.path(), 30, 3);
+        write_manifest(&manifest, &path).unwrap();
+
+        let new_task = ManifestTask {
+            id: "task-002".into(),
+            task_type: "session_summary".into(),
+            title: "New task".into(),
+            context_file: "context.md".into(),
+            result_file: "result.json".into(),
+            status_file: "status.json".into(),
+            model: "claude-haiku-4.5".into(),
+            priority: "high".into(),
+        };
+        append_task_to_manifest(&path, &new_task).unwrap();
+
+        let loaded: TaskManifest = json_io::atomic_json_read_opt(&path).unwrap().unwrap();
+        assert_eq!(loaded.tasks.len(), 2);
+        assert_eq!(loaded.tasks[1].id, "task-002");
+    }
+
+    #[test]
+    fn append_task_deduplicates() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("manifest.json");
+        let t1 = sample_task("task-001", "normal");
+        let inputs = vec![
+            ManifestInput { task: &t1, model: "claude-haiku-4.5".to_string() },
+        ];
+        let manifest = generate_manifest(&inputs, dir.path(), 30, 3);
+        write_manifest(&manifest, &path).unwrap();
+
+        let dup = ManifestTask {
+            id: "task-001".into(),
+            task_type: "session_summary".into(),
+            title: "Duplicate".into(),
+            context_file: "context.md".into(),
+            result_file: "result.json".into(),
+            status_file: "status.json".into(),
+            model: "claude-haiku-4.5".into(),
+            priority: "normal".into(),
+        };
+        append_task_to_manifest(&path, &dup).unwrap();
+
+        let loaded: TaskManifest = json_io::atomic_json_read_opt(&path).unwrap().unwrap();
+        assert_eq!(loaded.tasks.len(), 1);
     }
 }

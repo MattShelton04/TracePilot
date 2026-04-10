@@ -362,10 +362,28 @@ fn assemble_multi_session_digest(
 
     let discovered = tracepilot_core::session::discovery::discover_sessions(data_dir)?;
 
+    // Pre-filter using filesystem modification time to avoid expensive summary loads.
+    // We use a generous buffer (2x window) since mtime may lag behind actual session
+    // timestamps. Sessions that pass this cheap check are then fully validated below.
+    let fs_cutoff = {
+        let buffer_hours = std::cmp::max(window_hours * 2, 48);
+        cutoff - chrono::Duration::hours(buffer_hours as i64)
+    };
+
     // Load summaries and filter by time window
     let mut sessions_in_window: Vec<tracepilot_core::models::session_summary::SessionSummary> =
         Vec::new();
     for disc in &discovered {
+        // Cheap filesystem-level pre-filter: skip directories clearly too old
+        if let Ok(meta) = std::fs::metadata(&disc.path) {
+            if let Ok(modified) = meta.modified() {
+                let mtime: chrono::DateTime<chrono::Utc> = modified.into();
+                if mtime < fs_cutoff {
+                    continue;
+                }
+            }
+        }
+
         match tracepilot_core::summary::load_session_summary(&disc.path) {
             Ok(summary) => {
                 let session_time = summary.updated_at.or(summary.created_at);
