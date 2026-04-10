@@ -246,12 +246,18 @@ impl IndexDb {
 
             // INSERT child rows: modified files (batch)
             if !analytics.modified_file_rows.is_empty() {
-                let mut stmt = self.conn.prepare(
-                    "INSERT OR IGNORE INTO session_modified_files (session_id, file_path, extension)
-                     VALUES (?1, ?2, ?3)",
-                )?;
-                for row in &analytics.modified_file_rows {
-                    stmt.execute(params![&session_id, &row.file_path, &row.extension])?;
+                for chunk in analytics.modified_file_rows.chunks(100) {
+                    let mut sql = String::with_capacity(100 + chunk.len() * 20);
+                    sql.push_str("INSERT OR IGNORE INTO session_modified_files (session_id, file_path, extension) VALUES ");
+                    let mut params_vec: Vec<&dyn rusqlite::ToSql> = Vec::with_capacity(chunk.len() * 3);
+                    for (i, row) in chunk.iter().enumerate() {
+                        if i > 0 { sql.push_str(", "); }
+                        sql.push_str(&format!("(?{}, ?{}, ?{})", i * 3 + 1, i * 3 + 2, i * 3 + 3));
+                        params_vec.push(&session_id);
+                        params_vec.push(&row.file_path);
+                        params_vec.push(&row.extension);
+                    }
+                    self.conn.execute(&sql, rusqlite::params_from_iter(params_vec))?;
                 }
             }
 
