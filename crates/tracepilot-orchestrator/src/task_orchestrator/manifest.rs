@@ -20,7 +20,7 @@ pub struct TaskManifest {
 }
 
 /// A single task entry in the manifest.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ManifestTask {
     pub id: String,
     #[serde(rename = "type")]
@@ -219,15 +219,7 @@ mod tests {
         let manifest = generate_manifest(&inputs, dir.path(), 30, 3);
         let from_task = ManifestTask::from_task(&task, "claude-haiku-4.5", dir.path());
 
-        let generated = &manifest.tasks[0];
-        assert_eq!(generated.id, from_task.id);
-        assert_eq!(generated.task_type, from_task.task_type);
-        assert_eq!(generated.title, from_task.title);
-        assert_eq!(generated.context_file, from_task.context_file);
-        assert_eq!(generated.result_file, from_task.result_file);
-        assert_eq!(generated.status_file, from_task.status_file);
-        assert_eq!(generated.model, from_task.model);
-        assert_eq!(generated.priority, from_task.priority);
+        assert_eq!(&manifest.tasks[0], &from_task);
     }
 
     #[test]
