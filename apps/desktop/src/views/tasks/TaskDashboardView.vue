@@ -78,16 +78,16 @@ const stateLabel = computed(() => {
   }
 });
 
-const stateColor = computed(() => {
+const stateColorClass = computed(() => {
   switch (orchestrator.health?.health) {
     case "healthy":
-      return "#34d399";
+      return "state-color-healthy";
     case "stale":
-      return "#fbbf24";
+      return "state-color-stale";
     case "stopped":
-      return "#71717a";
+      return "state-color-stopped";
     default:
-      return orchestrator.handle ? "#818cf8" : "#71717a";
+      return orchestrator.handle ? "state-color-starting" : "state-color-stopped";
   }
 });
 
@@ -125,16 +125,16 @@ function jobProgressPct(job: { tasksCompleted: number; taskCount: number }) {
   return Math.round((job.tasksCompleted / job.taskCount) * 100);
 }
 
-function jobProgressColor(status: string) {
+function jobProgressClass(status: string) {
   switch (status) {
     case "completed":
-      return "#34d399";
+      return "job-progress-success";
     case "failed":
-      return "#f87171";
+      return "job-progress-danger";
     case "running":
-      return "var(--accent-fg)";
+      return "job-progress-accent";
     default:
-      return "var(--text-tertiary)";
+      return "job-progress-neutral";
   }
 }
 </script>
@@ -267,7 +267,7 @@ function jobProgressColor(status: string) {
                 :class="orchestrator.isRunning ? 'dot-green' : orchestrator.isStale ? 'dot-warning' : 'dot-gray'"
               />
               Orchestrator
-              <span class="orch-state-label" :style="{ color: stateColor }">
+              <span class="orch-state-label" :class="stateColorClass">
                 {{ stateLabel }}
               </span>
             </div>
@@ -538,9 +538,9 @@ function jobProgressColor(status: string) {
                     <div class="job-progress-bar">
                       <div
                         class="job-progress-fill"
+                        :class="jobProgressClass(job.status)"
                         :style="{
                           width: `${jobProgressPct(job)}%`,
-                          background: jobProgressColor(job.status),
                         }"
                       />
                     </div>
@@ -649,48 +649,48 @@ function jobProgressColor(status: string) {
 }
 
 .stat-card--accent {
-  border-left-color: var(--accent-fg, #818cf8);
+  border-left-color: var(--accent-fg);
 }
 
 .stat-card--accent .stat-card-icon {
-  color: var(--accent-fg, #818cf8);
-  background: var(--accent-muted, rgba(99, 102, 241, 0.12));
+  color: var(--accent-fg);
+  background: var(--accent-muted);
 }
 
 .stat-card--warning {
-  border-left-color: #fbbf24;
+  border-left-color: var(--warning-fg);
 }
 
 .stat-card--warning .stat-card-icon {
-  color: #fbbf24;
-  background: rgba(251, 191, 36, 0.12);
+  color: var(--warning-fg);
+  background: var(--warning-subtle);
 }
 
 .stat-card--active {
-  border-left-color: var(--accent-fg, #818cf8);
+  border-left-color: var(--accent-fg);
 }
 
 .stat-card--active .stat-card-icon {
-  color: var(--accent-fg, #818cf8);
-  background: var(--accent-muted, rgba(99, 102, 241, 0.12));
+  color: var(--accent-fg);
+  background: var(--accent-muted);
 }
 
 .stat-card--done {
-  border-left-color: #34d399;
+  border-left-color: var(--success-fg);
 }
 
 .stat-card--done .stat-card-icon {
-  color: #34d399;
-  background: rgba(52, 211, 153, 0.12);
+  color: var(--success-fg);
+  background: var(--success-subtle);
 }
 
 .stat-card--danger {
-  border-left-color: #f87171;
+  border-left-color: var(--danger-fg);
 }
 
 .stat-card--danger .stat-card-icon {
-  color: #f87171;
-  background: rgba(248, 113, 113, 0.12);
+  color: var(--danger-fg);
+  background: var(--danger-subtle);
 }
 
 /* ── Dashboard Cards (Orchestrator + Quick Presets) ──────────── */
@@ -735,17 +735,17 @@ function jobProgressColor(status: string) {
 }
 
 .dot-green {
-  background: #34d399;
-  box-shadow: 0 0 6px rgba(52, 211, 153, 0.5);
+  background: var(--success-fg);
+  box-shadow: 0 0 6px var(--success-muted);
 }
 
 .dot-gray {
-  background: #71717a;
+  background: var(--neutral-emphasis);
 }
 
 .dot-warning {
-  background: #fbbf24;
-  box-shadow: 0 0 6px rgba(251, 191, 36, 0.5);
+  background: var(--warning-fg);
+  box-shadow: 0 0 6px var(--warning-muted);
 }
 
 .orch-state-label {
@@ -793,21 +793,21 @@ function jobProgressColor(status: string) {
 }
 
 .orch-start {
-  background: #34d399;
-  color: #09090b;
+  background: var(--success-fg);
+  color: var(--text-inverse);
 }
 
 .orch-start:hover:not(:disabled) {
-  background: #2dd890;
+  background: var(--success-emphasis);
 }
 
 .orch-stop {
-  background: #f87171;
-  color: #09090b;
+  background: var(--danger-fg);
+  color: var(--text-inverse);
 }
 
 .orch-stop:hover:not(:disabled) {
-  background: #f55858;
+  background: var(--danger-emphasis);
 }
 
 .orch-card-stats {
@@ -830,7 +830,33 @@ function jobProgressColor(status: string) {
 }
 
 .stale-text {
-  color: #fbbf24;
+  color: var(--warning-fg);
+}
+
+.state-color-healthy {
+  color: var(--success-fg);
+}
+.state-color-stale {
+  color: var(--warning-fg);
+}
+.state-color-stopped {
+  color: var(--neutral-emphasis);
+}
+.state-color-starting {
+  color: var(--accent-fg);
+}
+
+.job-progress-success {
+  background: var(--success-fg);
+}
+.job-progress-danger {
+  background: var(--danger-fg);
+}
+.job-progress-accent {
+  background: var(--accent-fg);
+}
+.job-progress-neutral {
+  background: var(--text-tertiary);
 }
 
 .orch-stat-label {
@@ -842,7 +868,7 @@ function jobProgressColor(status: string) {
 
 .orch-error {
   font-size: 0.75rem;
-  color: #f87171;
+  color: var(--danger-fg);
   margin-bottom: 8px;
 }
 
@@ -877,7 +903,7 @@ function jobProgressColor(status: string) {
 
 .orch-progress-bar {
   height: 4px;
-  background: var(--border-default, rgba(255, 255, 255, 0.06));
+  background: var(--border-default);
   border-radius: 999px;
   overflow: hidden;
 }
@@ -1030,8 +1056,8 @@ function jobProgressColor(status: string) {
   padding: 0 10px;
   border: 1px solid var(--border-default);
   border-radius: 6px;
-  background: var(--canvas-subtle, #111113);
-  color: var(--text-secondary, #a1a1aa);
+  background: var(--canvas-subtle);
+  color: var(--text-secondary);
   font-size: 0.8125rem;
   font-family: inherit;
   cursor: pointer;
@@ -1045,12 +1071,12 @@ function jobProgressColor(status: string) {
 }
 
 .filter-select:focus {
-  border-color: var(--accent-fg, #818cf8);
+  border-color: var(--accent-fg);
 }
 
 .filter-select option {
-  background: var(--canvas-default, #09090b);
-  color: var(--text-primary, #fafafa);
+  background: var(--canvas-default);
+  color: var(--text-primary);
 }
 
 /* ── Buttons ─────────────────────────────────────────────── */
@@ -1076,13 +1102,13 @@ function jobProgressColor(status: string) {
 .btn--primary {
   background: var(--gradient-accent, var(--accent-emphasis));
   border: 1px solid transparent;
-  color: #fff;
+  color: var(--text-on-emphasis);
   font-weight: 600;
-  box-shadow: 0 1px 6px rgba(99, 102, 241, 0.35);
+  box-shadow: 0 1px 6px var(--accent-muted);
 }
 
 .btn--primary:hover:not(:disabled) {
-  box-shadow: 0 3px 14px rgba(99, 102, 241, 0.45);
+  box-shadow: 0 3px 14px var(--accent-muted);
   transform: translateY(-1px);
 }
 
@@ -1183,7 +1209,7 @@ function jobProgressColor(status: string) {
 .jobs-section {
   margin-top: 32px;
   padding-top: 24px;
-  border-top: 1px solid var(--border-default, rgba(255, 255, 255, 0.06));
+  border-top: 1px solid var(--border-default);
 }
 
 .jobs-section__title {
@@ -1196,9 +1222,9 @@ function jobProgressColor(status: string) {
 
 .jobs-table-wrap {
   overflow-x: auto;
-  border: 1px solid var(--border-default, rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--border-default);
   border-radius: 8px;
-  background: var(--canvas-subtle, #111113);
+  background: var(--canvas-subtle);
 }
 
 .jobs-table {
@@ -1214,16 +1240,16 @@ function jobProgressColor(status: string) {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--text-tertiary, #71717a);
-  border-bottom: 1px solid var(--border-default, rgba(255, 255, 255, 0.06));
+  color: var(--text-tertiary);
+  border-bottom: 1px solid var(--border-default);
   white-space: nowrap;
 }
 
 .jobs-table td {
   padding: 10px 14px;
-  color: var(--text-secondary, #a1a1aa);
+  color: var(--text-secondary);
   border-bottom: 1px solid
-    var(--border-muted, rgba(255, 255, 255, 0.03));
+    var(--border-muted);
   vertical-align: middle;
 }
 
@@ -1236,7 +1262,7 @@ function jobProgressColor(status: string) {
 }
 
 .jobs-table__name {
-  color: var(--text-primary, #fafafa);
+  color: var(--text-primary);
   font-weight: 500;
 }
 
@@ -1251,16 +1277,16 @@ function jobProgressColor(status: string) {
 }
 
 .jobs-table__counts {
-  color: var(--text-secondary, #a1a1aa);
+  color: var(--text-secondary);
 }
 
 .jobs-table__failed {
-  color: var(--danger-fg, #f87171);
+  color: var(--danger-fg);
   font-weight: 500;
 }
 
 .jobs-table__date {
-  color: var(--text-tertiary, #71717a);
+  color: var(--text-tertiary);
   white-space: nowrap;
 }
 
@@ -1287,7 +1313,7 @@ function jobProgressColor(status: string) {
 .job-progress-bar {
   flex: 1;
   height: 3px;
-  background: var(--border-default, rgba(255, 255, 255, 0.06));
+  background: var(--border-default);
   border-radius: 999px;
   overflow: hidden;
   min-width: 60px;

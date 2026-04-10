@@ -44,68 +44,68 @@ const config: Record<TaskStatus, { label: string; cssClass: string }> = {
 }
 
 .status-pending {
-  background: rgba(161, 161, 170, 0.12);
-  color: #a1a1aa;
+  background: var(--neutral-subtle);
+  color: var(--neutral-fg);
 }
 .status-pending .status-dot {
-  background: #a1a1aa;
+  background: var(--neutral-fg);
 }
 
 .status-claimed {
-  background: rgba(96, 165, 250, 0.12);
-  color: #60a5fa;
+  background: var(--accent-subtle);
+  color: var(--accent-fg);
 }
 .status-claimed .status-dot {
-  background: #60a5fa;
+  background: var(--accent-fg);
 }
 
 .status-in-progress {
-  background: rgba(99, 102, 241, 0.12);
-  color: #818cf8;
+  background: var(--accent-subtle);
+  color: var(--accent-fg);
 }
 .status-in-progress .status-dot {
-  background: #818cf8;
+  background: var(--accent-fg);
   animation: pulse-dot 1.5s ease-in-out infinite;
 }
 
 .status-done {
-  background: rgba(52, 211, 153, 0.12);
-  color: #34d399;
+  background: var(--success-subtle);
+  color: var(--success-fg);
 }
 .status-done .status-dot {
-  background: #34d399;
+  background: var(--success-fg);
 }
 
 .status-failed {
-  background: rgba(248, 113, 113, 0.12);
-  color: #f87171;
+  background: var(--danger-subtle);
+  color: var(--danger-fg);
 }
 .status-failed .status-dot {
-  background: #f87171;
+  background: var(--danger-fg);
 }
 
 .status-cancelled {
-  background: rgba(251, 191, 36, 0.12);
-  color: #fbbf24;
+  background: var(--warning-subtle);
+  color: var(--warning-fg);
 }
 .status-cancelled .status-dot {
-  background: #fbbf24;
+  background: var(--warning-fg);
 }
 
 .status-expired {
-  background: rgba(167, 139, 250, 0.12);
-  color: #a78bfa;
+  background: var(--done-subtle);
+  color: var(--done-fg);
 }
 .status-expired .status-dot {
-  background: #a78bfa;
+  background: var(--done-fg);
 }
 
 .status-dead-letter {
-  background: rgba(239, 68, 68, 0.12);
-  color: #ef4444;
+  background: var(--danger-subtle);
+  color: var(--danger-emphasis);
 }
 .status-dead-letter .status-dot {
-  background: #ef4444;
+  background: var(--danger-emphasis);
 }
 
 @keyframes pulse-dot {

@@ -18,8 +18,8 @@ const props = defineProps<{ taskType: string }>();
   border-radius: 4px;
   font-size: 11px;
   font-weight: 500;
-  background: rgba(129, 140, 248, 0.1);
-  color: #818cf8;
+  background: var(--accent-subtle);
+  color: var(--accent-fg);
   white-space: nowrap;
 }
 </style>

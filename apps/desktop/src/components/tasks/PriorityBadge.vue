@@ -32,22 +32,22 @@ const config: Record<string, { label: string; cssClass: string }> = {
 }
 
 .priority-critical {
-  background: rgba(239, 68, 68, 0.15);
-  color: #ef4444;
+  background: var(--danger-muted);
+  color: var(--danger-emphasis);
 }
 
 .priority-high {
-  background: rgba(251, 146, 60, 0.15);
-  color: #fb923c;
+  background: var(--warning-muted);
+  color: var(--attention-fg);
 }
 
 .priority-normal {
-  background: rgba(161, 161, 170, 0.1);
-  color: #a1a1aa;
+  background: var(--neutral-subtle);
+  color: var(--neutral-fg);
 }
 
 .priority-low {
-  background: rgba(113, 113, 122, 0.1);
-  color: #71717a;
+  background: var(--neutral-subtle);
+  color: var(--neutral-emphasis);
 }
 </style>

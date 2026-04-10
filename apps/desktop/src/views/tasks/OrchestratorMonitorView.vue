@@ -4,6 +4,7 @@ import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import RefreshToolbar from "@/components/RefreshToolbar.vue";
 import TaskStatusBadge from "@/components/tasks/TaskStatusBadge.vue";
+import TaskTypeBadge from "@/components/tasks/TaskTypeBadge.vue";
 import { useAutoRefresh } from "@/composables/useAutoRefresh";
 import { useOrchestratorStore } from "@/stores/orchestrator";
 import { taskTitle, useTasksStore } from "@/stores/tasks";
@@ -44,16 +45,16 @@ const stateLabel = computed(() => {
   }
 });
 
-const stateColor = computed(() => {
+const stateColorClass = computed(() => {
   switch (orchestrator.health?.health) {
     case "healthy":
-      return "#34d399";
+      return "state-healthy";
     case "stale":
-      return "#fbbf24";
+      return "state-stale";
     case "stopped":
-      return "#71717a";
+      return "state-stopped";
     default:
-      return orchestrator.handle ? "#818cf8" : "#71717a";
+      return orchestrator.handle ? "state-active" : "state-stopped";
   }
 });
 
@@ -111,6 +112,11 @@ function subagentLabel(taskId: string): string {
   const task = tasksStore.tasks.find((t) => t.id === taskId);
   if (task) return taskTitle(task);
   return truncateId(taskId, 8);
+}
+
+/** Look up a task object by ID from the loaded tasks. */
+function resolveTask(id: string) {
+  return tasksStore.tasks.find((t) => t.id === id) ?? null;
 }
 
 function truncateError(err: string | null, len = 60): string {
@@ -231,7 +237,7 @@ onUnmounted(() => {
       <template v-else>
         <!-- Status Hero -->
         <section class="status-hero fade-section" style="--stagger: 1" aria-label="Orchestrator status">
-          <div class="status-ring-container">
+          <div class="status-ring-container" :class="stateColorClass">
             <svg class="status-ring" width="120" height="120" viewBox="0 0 120 120">
               <circle
                 cx="60"
@@ -246,7 +252,7 @@ onUnmounted(() => {
                 cy="60"
                 r="52"
                 fill="none"
-                :stroke="stateColor"
+                stroke="var(--state-color)"
                 stroke-width="4"
                 stroke-linecap="round"
                 :stroke-dasharray="ringDasharray"
@@ -257,14 +263,14 @@ onUnmounted(() => {
                 cx="60"
                 cy="60"
                 r="8"
-                :fill="stateColor"
+                fill="var(--state-color)"
                 class="status-ring-dot"
                 :class="{ pulsing: orchestrator.isRunning }"
               />
             </svg>
           </div>
-          <div class="status-info">
-            <div class="status-label" :style="{ color: stateColor }">{{ stateLabel }}</div>
+          <div class="status-info" :class="stateColorClass">
+            <div class="status-label">{{ stateLabel }}</div>
             <div class="status-heartbeat">
               Last heartbeat: <strong>{{ heartbeatDisplay }}</strong>
             </div>
@@ -354,14 +360,21 @@ onUnmounted(() => {
           </div>
           <div v-else class="active-task-grid">
             <button
-              v-for="taskId in orchestrator.health?.activeTasks ?? []"
-              :key="taskId"
+              v-for="tid in orchestrator.health?.activeTasks ?? []"
+              :key="tid"
               class="active-task-card"
-              @click="viewTask(taskId)"
+              @click="viewTask(tid)"
             >
               <div class="active-task-top">
                 <TaskStatusBadge status="in_progress" />
-                <span class="active-task-id cell-mono">{{ truncateId(taskId, 20) }}</span>
+                <span class="active-task-name">{{ subagentLabel(tid) }}</span>
+              </div>
+              <div v-if="resolveTask(tid)" class="active-task-meta">
+                <TaskTypeBadge :task-type="resolveTask(tid)!.taskType" />
+                <span class="active-task-id cell-mono">{{ truncateId(tid, 8) }}</span>
+              </div>
+              <div v-else class="active-task-meta">
+                <span class="active-task-id cell-mono">{{ truncateId(tid, 20) }}</span>
               </div>
               <div class="active-task-footer">
                 <span class="sa-link">View Task →</span>
@@ -605,21 +618,21 @@ onUnmounted(() => {
 }
 
 .start-btn {
-  background: #34d399;
-  color: #09090b;
+  background: var(--success-fg);
+  color: var(--text-inverse);
 }
 
 .start-btn:hover:not(:disabled) {
-  background: #2dd890;
+  background: var(--success-emphasis);
 }
 
 .stop-btn {
-  background: #f87171;
-  color: #09090b;
+  background: var(--danger-fg);
+  color: var(--text-inverse);
 }
 
 .stop-btn:hover:not(:disabled) {
-  background: #f55858;
+  background: var(--danger-emphasis);
 }
 
 /* ── Header ──────────────────────────────────────────────────── */
@@ -652,10 +665,16 @@ onUnmounted(() => {
   border-radius: var(--radius-md);
   cursor: pointer;
   max-width: 160px;
+  color-scheme: dark;
+}
+
+.model-select option {
+  background: var(--canvas-overlay);
+  color: var(--text-primary);
 }
 
 .model-select:focus {
-  border-color: var(--accent);
+  border-color: var(--accent-fg);
   outline: none;
 }
 
@@ -726,6 +745,12 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
+/* State color mapping — keeps palette in CSS, referenced via var(--state-color) */
+.state-healthy { --state-color: var(--success-fg); }
+.state-stale   { --state-color: var(--warning-fg); }
+.state-stopped { --state-color: var(--neutral-emphasis); }
+.state-active  { --state-color: var(--accent-fg); }
+
 .status-ring-progress {
   transition:
     stroke 0.3s ease,
@@ -746,6 +771,7 @@ onUnmounted(() => {
   font-size: 1.75rem;
   font-weight: 700;
   line-height: 1.2;
+  color: var(--state-color, var(--text-primary));
 }
 
 .status-heartbeat {
@@ -818,8 +844,8 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   padding: 4px 12px;
-  background: rgba(251, 191, 36, 0.12);
-  color: #fbbf24;
+  background: var(--warning-subtle);
+  color: var(--warning-fg);
   border-radius: 999px;
   font-size: 0.6875rem;
   font-weight: 600;
@@ -828,7 +854,7 @@ onUnmounted(() => {
 
 .inline-error {
   font-size: 0.75rem;
-  color: #f87171;
+  color: var(--danger-fg);
   margin-top: 2px;
 }
 
@@ -901,8 +927,25 @@ onUnmounted(() => {
   gap: 8px;
 }
 
+.active-task-name {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.active-task-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
 .active-task-id {
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
 }
 
 .active-task-footer {
@@ -936,12 +979,12 @@ onUnmounted(() => {
 }
 
 .subagent-card.card-failed {
-  border-color: rgba(248, 113, 113, 0.3);
+  border-color: var(--danger-muted);
 }
 
 .subagent-card.card-failed:hover {
-  border-color: #f87171;
-  box-shadow: 0 0 0 1px #f87171;
+  border-color: var(--danger-fg);
+  box-shadow: 0 0 0 1px var(--danger-fg);
 }
 
 .subagent-card-top {
@@ -982,23 +1025,23 @@ onUnmounted(() => {
 }
 
 .subagent-status-badge.running {
-  background: rgba(99, 102, 241, 0.12);
+  background: var(--accent-subtle);
   color: var(--accent-fg);
 }
 
 .subagent-status-badge.spawning {
-  background: rgba(251, 191, 36, 0.12);
-  color: #fbbf24;
+  background: var(--warning-subtle);
+  color: var(--warning-fg);
 }
 
 .subagent-status-badge.completed {
-  background: rgba(52, 211, 153, 0.12);
-  color: #34d399;
+  background: var(--success-subtle);
+  color: var(--success-fg);
 }
 
 .subagent-status-badge.failed {
-  background: rgba(248, 113, 113, 0.12);
-  color: #f87171;
+  background: var(--danger-subtle);
+  color: var(--danger-fg);
 }
 
 .spinner-xs {
@@ -1042,7 +1085,7 @@ onUnmounted(() => {
 }
 
 .subagent-progress-fill.spawning {
-  background: #fbbf24;
+  background: var(--warning-fg);
 }
 
 .subagent-progress-fill.completed,
@@ -1052,11 +1095,11 @@ onUnmounted(() => {
 }
 
 .subagent-progress-fill.completed {
-  background: #34d399;
+  background: var(--success-fg);
 }
 
 .subagent-progress-fill.failed {
-  background: #f87171;
+  background: var(--danger-fg);
 }
 
 @keyframes indeterminate {
@@ -1100,7 +1143,7 @@ onUnmounted(() => {
 
 .completed-error {
   font-size: 0.6875rem;
-  color: #f87171;
+  color: var(--danger-fg);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1145,22 +1188,22 @@ onUnmounted(() => {
 }
 
 .health-badge.healthy {
-  background: rgba(52, 211, 153, 0.12);
-  color: #34d399;
-  border: 1px solid rgba(52, 211, 153, 0.15);
+  background: var(--success-subtle);
+  color: var(--success-fg);
+  border: 1px solid var(--success-subtle);
 }
 
 .health-badge.stale {
-  background: rgba(251, 191, 36, 0.12);
-  color: #fbbf24;
-  border: 1px solid rgba(251, 191, 36, 0.15);
+  background: var(--warning-subtle);
+  color: var(--warning-fg);
+  border: 1px solid var(--warning-subtle);
 }
 
 .health-badge.stopped,
 .health-badge.unknown {
-  background: rgba(248, 113, 113, 0.12);
-  color: #f87171;
-  border: 1px solid rgba(248, 113, 113, 0.15);
+  background: var(--danger-subtle);
+  color: var(--danger-fg);
+  border: 1px solid var(--danger-subtle);
 }
 
 .health-dot {
@@ -1172,7 +1215,7 @@ onUnmounted(() => {
 
 .health-error-inline {
   font-size: 0.6875rem;
-  color: #f87171;
+  color: var(--danger-fg);
 }
 
 .health-grid {

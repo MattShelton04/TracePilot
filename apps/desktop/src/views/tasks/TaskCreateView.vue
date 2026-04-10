@@ -714,7 +714,7 @@ onMounted(async () => {
                   :disabled="submitting"
                   @click="handleSubmit(false)"
                 >
-                  <LoadingSpinner v-if="submitting" size="sm" color="#fff" />
+                  <LoadingSpinner v-if="submitting" size="sm" color="var(--text-on-emphasis)" />
                   <span v-else>🚀</span>
                   {{ submitting ? "Creating…" : "Create Task" }}
                 </button>
@@ -1168,7 +1168,7 @@ onMounted(async () => {
 
 .toggle-checkbox:checked + .toggle-track .toggle-thumb {
   left: 18px;
-  background: #fff;
+  background: var(--text-on-emphasis);
 }
 
 .toggle-label {
@@ -1397,27 +1397,27 @@ onMounted(async () => {
 }
 
 .priority-pill--low.active {
-  background: rgba(113, 113, 122, 0.15);
-  border-color: #71717a;
-  color: #a1a1aa;
+  background: var(--neutral-muted);
+  border-color: var(--neutral-emphasis);
+  color: var(--neutral-fg);
 }
 
 .priority-pill--normal.active {
-  background: rgba(96, 165, 250, 0.15);
-  border-color: #60a5fa;
-  color: #60a5fa;
+  background: var(--accent-muted);
+  border-color: var(--accent-fg);
+  color: var(--accent-fg);
 }
 
 .priority-pill--high.active {
-  background: rgba(251, 191, 36, 0.15);
-  border-color: #fbbf24;
-  color: #fbbf24;
+  background: var(--warning-muted);
+  border-color: var(--warning-fg);
+  color: var(--warning-fg);
 }
 
 .priority-pill--critical.active {
-  background: rgba(248, 113, 113, 0.15);
-  border-color: #f87171;
-  color: #f87171;
+  background: var(--danger-muted);
+  border-color: var(--danger-fg);
+  color: var(--danger-fg);
 }
 
 /* ── Session picker ──────────────────────────────────────────────────── */

@@ -86,19 +86,19 @@ function displayTags(tags: string[]): { visible: string[]; extra: number } {
   return { visible: tags.slice(0, 3), extra: tags.length - 3 };
 }
 
-function taskTypeColor(taskType: string): string {
-  const colors: Record<string, string> = {
-    analysis: "#818cf8",
-    review: "#34d399",
-    generation: "#fbbf24",
-    health: "#f87171",
-    summary: "#38bdf8",
+function taskTypeColorClass(taskType: string): string {
+  const classes: Record<string, string> = {
+    analysis: "type-color-accent",
+    review: "type-color-success",
+    generation: "type-color-warning",
+    health: "type-color-danger",
+    summary: "type-color-info",
   };
   const key = taskType.toLowerCase();
-  for (const [k, v] of Object.entries(colors)) {
+  for (const [k, v] of Object.entries(classes)) {
     if (key.includes(k)) return v;
   }
-  return "var(--accent-fg)";
+  return "type-color-accent";
 }
 
 function infoLine(preset: TaskPreset): string {
@@ -554,7 +554,7 @@ function renameConfigKey(
                 <h3 class="preset-card__name">{{ preset.name }}</h3>
                 <span
                   class="badge badge--type"
-                  :style="{ '--type-color': taskTypeColor(preset.taskType) }"
+                  :class="taskTypeColorClass(preset.taskType)"
                 >
                   {{ preset.taskType }}
                 </span>
@@ -740,7 +740,7 @@ function renameConfigKey(
             <span class="preset-list__type">
               <span
                 class="badge badge--type badge--sm"
-                :style="{ '--type-color': taskTypeColor(preset.taskType) }"
+                :class="taskTypeColorClass(preset.taskType)"
               >
                 {{ preset.taskType }}
               </span>
@@ -1284,7 +1284,7 @@ function renameConfigKey(
                 <div class="detail-header__left">
                   <span
                     class="badge badge--type"
-                    :style="{ '--type-color': taskTypeColor(detailPreset.taskType) }"
+                    :class="taskTypeColorClass(detailPreset.taskType)"
                   >
                     {{ detailPreset.taskType }}
                   </span>
@@ -1626,7 +1626,7 @@ function renameConfigKey(
 }
 
 .stat-dot--builtin {
-  background: #a78bfa;
+  background: var(--done-fg);
 }
 
 .stat-dot--custom {
@@ -1738,13 +1738,13 @@ function renameConfigKey(
 .btn--primary {
   background: var(--gradient-accent, var(--accent-emphasis));
   border: 1px solid transparent;
-  color: #fff;
+  color: var(--text-on-emphasis);
   font-weight: 600;
-  box-shadow: 0 1px 6px rgba(99, 102, 241, 0.35);
+  box-shadow: 0 1px 6px var(--accent-muted);
 }
 
 .btn--primary:hover:not(:disabled) {
-  box-shadow: 0 3px 14px rgba(99, 102, 241, 0.45);
+  box-shadow: 0 3px 14px var(--accent-muted);
   transform: translateY(-1px);
 }
 
@@ -1789,15 +1789,15 @@ function renameConfigKey(
 }
 
 .btn--danger {
-  background: var(--danger-emphasis, #dc2626);
+  background: var(--danger-emphasis);
   border: 1px solid transparent;
-  color: #fff;
+  color: var(--text-on-emphasis);
   font-weight: 600;
 }
 
 .btn--danger:hover {
   opacity: 0.9;
-  box-shadow: 0 2px 10px rgba(220, 38, 38, 0.35);
+  box-shadow: 0 2px 10px var(--danger-muted);
 }
 
 .btn--sm {
@@ -1814,7 +1814,7 @@ function renameConfigKey(
 
 /* ── Preset Card ─────────────────────────────────────────── */
 .preset-card {
-  background: #111113;
+  background: var(--canvas-subtle);
   border: 1px solid var(--border-default);
   border-radius: 10px;
   padding: 18px 20px;
@@ -1828,7 +1828,7 @@ function renameConfigKey(
 
 .preset-card:hover {
   border-color: var(--accent-fg);
-  box-shadow: 0 2px 12px rgba(99, 102, 241, 0.1);
+  box-shadow: 0 2px 12px var(--accent-subtle);
 }
 
 .preset-card--disabled {
@@ -1920,9 +1920,9 @@ function renameConfigKey(
 }
 
 .badge--builtin {
-  background: rgba(167, 139, 250, 0.12);
-  color: #a78bfa;
-  border: 1px solid rgba(167, 139, 250, 0.2);
+  background: var(--done-subtle);
+  color: var(--done-fg);
+  border: 1px solid var(--done-muted);
 }
 
 /* ── Tag Pill ────────────────────────────────────────────── */
@@ -1935,7 +1935,7 @@ function renameConfigKey(
   font-weight: 500;
   color: var(--accent-fg);
   background: var(--accent-muted);
-  border: 1px solid rgba(99, 102, 241, 0.15);
+  border: 1px solid var(--accent-subtle);
 }
 
 /* ── Toggle Switch ───────────────────────────────────────── */
@@ -1983,7 +1983,7 @@ function renameConfigKey(
 
 .toggle input:checked + .toggle__slider::after {
   left: 18px;
-  background: #fff;
+  background: var(--text-on-emphasis);
 }
 
 /* ── State Messages ──────────────────────────────────────── */
@@ -2334,13 +2334,13 @@ function renameConfigKey(
 /* ── Accent Button ───────────────────────────────────────── */
 .btn--accent {
   background: var(--accent-muted);
-  border: 1px solid rgba(99, 102, 241, 0.25);
+  border: 1px solid var(--accent-muted);
   color: var(--accent-fg);
   font-weight: 600;
 }
 
 .btn--accent:hover:not(:disabled) {
-  background: rgba(99, 102, 241, 0.2);
+  background: var(--accent-muted);
   border-color: var(--accent-fg);
 }
 
@@ -2350,7 +2350,7 @@ function renameConfigKey(
 }
 
 .preset-card--builtin {
-  border-left: 3px solid #a78bfa;
+  border-left: 3px solid var(--done-fg);
 }
 
 .preset-card:not(.preset-card--builtin):not(.preset-card--disabled) {
@@ -2373,6 +2373,12 @@ function renameConfigKey(
   color: var(--type-color, var(--accent-fg));
   border: 1px solid color-mix(in srgb, var(--type-color, var(--accent-fg)) 20%, transparent);
 }
+
+.type-color-accent { --type-color: var(--accent-fg); color: var(--accent-fg); }
+.type-color-success { --type-color: var(--success-fg); color: var(--success-fg); }
+.type-color-warning { --type-color: var(--warning-fg); color: var(--warning-fg); }
+.type-color-danger { --type-color: var(--danger-fg); color: var(--danger-fg); }
+.type-color-info { --type-color: var(--accent-fg); color: var(--accent-fg); }
 
 .badge--version {
   background: var(--accent-muted);
@@ -2741,7 +2747,7 @@ function renameConfigKey(
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #f87171;
+  background: var(--danger-fg);
 }
 
 .detail-optional-text {
@@ -2840,6 +2846,12 @@ function renameConfigKey(
   border: 1px solid color-mix(in srgb, var(--type-color, var(--accent-fg)) 20%, transparent);
 }
 
+.preset-slideover .type-color-accent { --type-color: var(--accent-fg); color: var(--accent-fg); }
+.preset-slideover .type-color-success { --type-color: var(--success-fg); color: var(--success-fg); }
+.preset-slideover .type-color-warning { --type-color: var(--warning-fg); color: var(--warning-fg); }
+.preset-slideover .type-color-danger { --type-color: var(--danger-fg); color: var(--danger-fg); }
+.preset-slideover .type-color-info { --type-color: var(--accent-fg); color: var(--accent-fg); }
+
 .preset-slideover .badge--version {
   background: var(--accent-muted);
   color: var(--accent-fg);
@@ -2847,9 +2859,9 @@ function renameConfigKey(
 }
 
 .preset-slideover .badge--builtin {
-  background: rgba(167, 139, 250, 0.12);
-  color: #a78bfa;
-  border: 1px solid rgba(167, 139, 250, 0.2);
+  background: var(--done-subtle);
+  color: var(--done-fg);
+  border: 1px solid var(--done-muted);
 }
 
 .preset-slideover .tag-pill {
@@ -2861,7 +2873,7 @@ function renameConfigKey(
   font-weight: 500;
   color: var(--accent-fg);
   background: var(--accent-muted);
-  border: 1px solid rgba(99, 102, 241, 0.15);
+  border: 1px solid var(--accent-subtle);
 }
 
 .preset-slideover .meta-item {
@@ -2893,13 +2905,13 @@ function renameConfigKey(
 
 .preset-slideover .btn--accent {
   background: var(--accent-muted);
-  border: 1px solid rgba(99, 102, 241, 0.25);
+  border: 1px solid var(--accent-muted);
   color: var(--accent-fg);
   font-weight: 600;
 }
 
 .preset-slideover .btn--accent:hover:not(:disabled) {
-  background: rgba(99, 102, 241, 0.2);
+  background: var(--accent-muted);
   border-color: var(--accent-fg);
 }
 
@@ -2989,7 +3001,7 @@ function renameConfigKey(
 .ctx-source-hint {
   margin: 2px 0 0;
   font-size: 0.6875rem;
-  color: var(--text-warning, #f0ad4e);
+  color: var(--warning-fg);
   line-height: 1.3;
 }
 
@@ -3052,12 +3064,12 @@ function renameConfigKey(
 
 .btn--danger-ghost {
   background: transparent;
-  color: #f87171;
+  color: var(--danger-fg);
   border: none;
   cursor: pointer;
 }
 
 .btn--danger-ghost:hover {
-  background: rgba(248, 113, 113, 0.1);
+  background: var(--danger-subtle);
 }
 </style>

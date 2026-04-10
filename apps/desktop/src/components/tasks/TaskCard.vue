@@ -48,8 +48,8 @@ defineEmits<{
   flex-direction: column;
   gap: 10px;
   padding: 14px 16px;
-  background: var(--color-canvas-subtle, #111113);
-  border: 1px solid var(--color-border, rgba(255, 255, 255, 0.06));
+  background: var(--canvas-subtle);
+  border: 1px solid var(--border-muted);
   border-radius: 10px;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -60,8 +60,8 @@ defineEmits<{
 }
 
 .task-card:hover {
-  background: var(--color-canvas-overlay, #18181b);
-  border-color: rgba(255, 255, 255, 0.1);
+  background: var(--canvas-overlay);
+  border-color: var(--border-default);
   transform: translateY(-1px);
 }
 
@@ -79,14 +79,14 @@ defineEmits<{
   margin: 0;
   font-size: 14px;
   font-weight: 600;
-  color: var(--color-text-primary, #fafafa);
+  color: var(--text-primary);
   line-height: 1.4;
 }
 
 .task-card-summary {
   margin: 4px 0 0;
   font-size: 12px;
-  color: var(--color-text-secondary, #a1a1aa);
+  color: var(--text-secondary);
   line-height: 1.5;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -97,7 +97,7 @@ defineEmits<{
 .task-card-error {
   margin: 4px 0 0;
   font-size: 12px;
-  color: #f87171;
+  color: var(--danger-fg);
   line-height: 1.5;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -114,13 +114,13 @@ defineEmits<{
 
 .task-card-meta {
   font-size: 11px;
-  color: var(--color-text-tertiary, #71717a);
+  color: var(--text-tertiary);
   margin-left: auto;
 }
 
 .task-card-attempts {
   font-size: 11px;
-  color: #fbbf24;
+  color: var(--warning-fg);
   font-weight: 500;
 }
 </style>

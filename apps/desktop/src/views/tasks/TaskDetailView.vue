@@ -36,7 +36,7 @@ const autoRefreshInterval = ref(5);
 
 const { refreshing, refresh } = useAutoRefresh({
   onRefresh: async () => {
-    if (taskId.value) await store.getTask(taskId.value);
+    if (taskId.value) await store.refreshTask(taskId.value);
   },
   enabled: autoRefreshEnabled,
   intervalSeconds: autoRefreshInterval,
@@ -830,6 +830,7 @@ watch(taskId, (newId) => {
   gap: 16px;
   margin-bottom: 16px;
   flex-wrap: wrap;
+  overflow: hidden;
 }
 
 .detail-header-left {
@@ -886,9 +887,9 @@ watch(taskId, (newId) => {
 }
 
 .meta-chip-accent {
-  color: var(--accent-fg, #818cf8);
-  border-color: rgba(129, 140, 248, 0.2);
-  background: rgba(129, 140, 248, 0.06);
+  color: var(--accent-fg);
+  border-color: var(--accent-muted);
+  background: var(--accent-subtle);
 }
 
 .detail-actions {
@@ -905,13 +906,13 @@ watch(taskId, (newId) => {
   gap: 10px;
   padding: 12px 16px;
   margin-bottom: 16px;
-  background: rgba(248, 113, 113, 0.06);
-  border: 1px solid rgba(248, 113, 113, 0.15);
+  background: var(--danger-subtle);
+  border: 1px solid var(--danger-subtle);
   border-radius: var(--radius-lg);
 }
 
 .error-banner-icon {
-  color: #f87171;
+  color: var(--danger-fg);
   font-weight: 700;
   font-size: 0.875rem;
   flex-shrink: 0;
@@ -920,7 +921,7 @@ watch(taskId, (newId) => {
 
 .error-banner-text {
   font-size: 0.8125rem;
-  color: #f87171;
+  color: var(--danger-fg);
   line-height: 1.55;
   word-break: break-word;
 }
@@ -958,7 +959,7 @@ watch(taskId, (newId) => {
 
 .tab-item.active {
   color: var(--text-primary);
-  border-bottom-color: var(--accent-fg, #818cf8);
+  border-bottom-color: var(--accent-fg);
 }
 
 .tab-icon {
@@ -1025,33 +1026,33 @@ watch(taskId, (newId) => {
 }
 
 .btn-warning {
-  color: #fbbf24;
-  border-color: rgba(251, 191, 36, 0.3);
+  color: var(--warning-fg);
+  border-color: var(--warning-muted);
 }
 
 .btn-warning:hover {
-  background: rgba(251, 191, 36, 0.1);
-  border-color: rgba(251, 191, 36, 0.5);
+  background: var(--warning-subtle);
+  border-color: var(--warning-muted);
 }
 
 .btn-accent {
-  color: #818cf8;
-  border-color: rgba(129, 140, 248, 0.3);
+  color: var(--accent-fg);
+  border-color: var(--accent-muted);
 }
 
 .btn-accent:hover {
-  background: rgba(129, 140, 248, 0.1);
-  border-color: rgba(129, 140, 248, 0.5);
+  background: var(--accent-subtle);
+  border-color: var(--accent-muted);
 }
 
 .btn-danger {
-  color: var(--danger-fg, #f87171);
-  border-color: rgba(248, 113, 113, 0.3);
+  color: var(--danger-fg);
+  border-color: var(--danger-muted);
 }
 
 .btn-danger:hover {
-  background: rgba(248, 113, 113, 0.1);
-  border-color: rgba(248, 113, 113, 0.5);
+  background: var(--danger-subtle);
+  border-color: var(--danger-muted);
 }
 
 /* ─── Copy Button ─── */
@@ -1138,12 +1139,12 @@ watch(taskId, (newId) => {
 }
 
 .valid-check {
-  color: #34d399;
+  color: var(--success-fg);
   font-weight: 500;
 }
 
 .invalid-cross {
-  color: #f87171;
+  color: var(--danger-fg);
   font-weight: 500;
 }
 
@@ -1186,9 +1187,9 @@ watch(taskId, (newId) => {
   border-radius: var(--radius-md);
   font-size: 0.75rem;
   font-weight: 600;
-  color: #34d399;
-  background: rgba(52, 211, 153, 0.08);
-  border: 1px solid rgba(52, 211, 153, 0.15);
+  color: var(--success-fg);
+  background: var(--success-subtle);
+  border: 1px solid var(--success-subtle);
 }
 
 .schema-fail {
@@ -1199,9 +1200,9 @@ watch(taskId, (newId) => {
   border-radius: var(--radius-md);
   font-size: 0.75rem;
   font-weight: 600;
-  color: #f87171;
-  background: rgba(248, 113, 113, 0.08);
-  border: 1px solid rgba(248, 113, 113, 0.15);
+  color: var(--danger-fg);
+  background: var(--danger-subtle);
+  border: 1px solid var(--danger-subtle);
 }
 
 /* ─── Empty State ─── */
@@ -1221,7 +1222,7 @@ watch(taskId, (newId) => {
 }
 
 .empty-icon-danger {
-  color: #f87171;
+  color: var(--danger-fg);
   opacity: 0.6;
 }
 
@@ -1258,7 +1259,7 @@ watch(taskId, (newId) => {
   font-family: "JetBrains Mono", var(--font-mono, monospace);
   font-size: 0.75rem;
   line-height: 1.6;
-  color: var(--text-secondary, #a1a1aa);
+  color: var(--text-secondary);
   padding: 16px;
   margin: 0;
   white-space: pre-wrap;
@@ -1301,9 +1302,9 @@ watch(taskId, (newId) => {
 }
 
 .tl-active .tl-dot {
-  border-color: var(--accent-fg, #818cf8);
-  background: var(--accent-fg, #818cf8);
-  box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.2);
+  border-color: var(--accent-fg);
+  background: var(--accent-fg);
+  box-shadow: 0 0 0 3px var(--accent-muted);
   animation: tl-pulse 1.5s ease-in-out infinite;
 }
 
@@ -1314,27 +1315,27 @@ watch(taskId, (newId) => {
 
 /* Terminal variant overrides */
 .tl-v-success.tl-done .tl-dot {
-  border-color: #34d399;
-  background: #34d399;
+  border-color: var(--success-fg);
+  background: var(--success-fg);
 }
 
 .tl-v-danger.tl-done .tl-dot {
-  border-color: #f87171;
-  background: #f87171;
+  border-color: var(--danger-fg);
+  background: var(--danger-fg);
 }
 
 .tl-v-warning.tl-done .tl-dot {
-  border-color: #fbbf24;
-  background: #fbbf24;
+  border-color: var(--warning-fg);
+  background: var(--warning-fg);
 }
 
 @keyframes tl-pulse {
   0%,
   100% {
-    box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.2);
+    box-shadow: 0 0 0 3px var(--accent-muted);
   }
   50% {
-    box-shadow: 0 0 0 6px rgba(129, 140, 248, 0.08);
+    box-shadow: 0 0 0 6px var(--accent-subtle);
   }
 }
 
@@ -1376,7 +1377,7 @@ watch(taskId, (newId) => {
 }
 
 .tl-active-text {
-  color: var(--accent-fg, #818cf8);
+  color: var(--accent-fg);
   font-weight: 500;
 }
 
