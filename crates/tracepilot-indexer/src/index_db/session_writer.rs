@@ -7,8 +7,8 @@ use std::path::Path;
 
 use tracepilot_core::parsing::events::TypedEventData;
 
-use super::types::*;
 use super::IndexDb;
+use super::types::*;
 
 /// Pre-computed session data ready for DB insertion.
 ///
@@ -33,7 +33,8 @@ pub(crate) fn prepare_session_data(session_path: &Path) -> Result<PreparedSessio
 
     let file_meta = SessionFileMeta::from_session_path(session_path);
 
-    let analytics = extract_session_analytics(&summary, &typed_events, diagnostics.as_ref(), &file_meta);
+    let analytics =
+        extract_session_analytics(&summary, &typed_events, diagnostics.as_ref(), &file_meta);
 
     let index_info = SessionIndexInfo {
         repository: summary.repository.clone(),
@@ -63,7 +64,10 @@ impl IndexDb {
     ///
     /// This is the DB-bound portion of indexing that must run sequentially
     /// (rusqlite::Connection is !Send).
-    pub(crate) fn write_prepared_session(&self, prepared: &PreparedSessionData) -> Result<SessionIndexInfo> {
+    pub(crate) fn write_prepared_session(
+        &self,
+        prepared: &PreparedSessionData,
+    ) -> Result<SessionIndexInfo> {
         let summary = &prepared.summary;
         let analytics = &prepared.analytics;
         let session_path = &prepared.session_path;
@@ -202,110 +206,121 @@ impl IndexDb {
             //   After:  6 prepare() calls + 300-700 execute() calls
             // ──────────────────────────────────────────────────────────────
 
+            let chunk_size = 50;
+
             // INSERT child rows: model metrics (batch)
-            if !analytics.model_rows.is_empty() {
-                let mut stmt = self.conn.prepare(
-                    "INSERT INTO session_model_metrics
-                        (session_id, model_name, input_tokens, output_tokens,
-                         cache_read_tokens, cache_write_tokens, cost, request_count)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-                )?;
-                for row in &analytics.model_rows {
-                    stmt.execute(params![
+            execute_batched_insert(
+                &self.conn,
+                "INSERT INTO session_model_metrics
+                    (session_id, model_name, input_tokens, output_tokens,
+                     cache_read_tokens, cache_write_tokens, cost, request_count)",
+                &analytics.model_rows,
+                8,
+                chunk_size,
+                |row| {
+                    vec![
                         &session_id,
                         &row.model,
-                        row.input_tokens,
-                        row.output_tokens,
-                        row.cache_read_tokens,
-                        row.cache_write_tokens,
-                        row.cost,
-                        row.premium_requests
-                    ])?;
-                }
-            }
+                        &row.input_tokens,
+                        &row.output_tokens,
+                        &row.cache_read_tokens,
+                        &row.cache_write_tokens,
+                        &row.cost,
+                        &row.premium_requests,
+                    ]
+                },
+            )?;
 
             // INSERT child rows: tool calls (batch)
-            if !analytics.tool_call_rows.is_empty() {
-                let mut stmt = self.conn.prepare(
-                    "INSERT INTO session_tool_calls
-                        (session_id, tool_name, call_count, success_count, failure_count, total_duration_ms, calls_with_duration)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-                )?;
-                for row in &analytics.tool_call_rows {
-                    stmt.execute(params![
+            execute_batched_insert(
+                &self.conn,
+                "INSERT INTO session_tool_calls
+                    (session_id, tool_name, call_count, success_count, failure_count, total_duration_ms, calls_with_duration)",
+                &analytics.tool_call_rows,
+                7,
+                chunk_size,
+                |row| {
+                    vec![
                         &session_id,
                         &row.name,
-                        row.calls,
-                        row.success,
-                        row.failure,
-                        row.duration_ms,
-                        row.calls_with_duration
-                    ])?;
-                }
-            }
+                        &row.calls,
+                        &row.success,
+                        &row.failure,
+                        &row.duration_ms,
+                        &row.calls_with_duration,
+                    ]
+                },
+            )?;
 
             // INSERT child rows: modified files (batch)
-            if !analytics.modified_file_rows.is_empty() {
-                let mut stmt = self.conn.prepare(
-                    "INSERT OR IGNORE INTO session_modified_files (session_id, file_path, extension)
-                     VALUES (?1, ?2, ?3)",
-                )?;
-                for row in &analytics.modified_file_rows {
-                    stmt.execute(params![&session_id, &row.file_path, &row.extension])?;
-                }
-            }
+            execute_batched_insert(
+                &self.conn,
+                "INSERT OR IGNORE INTO session_modified_files (session_id, file_path, extension)",
+                &analytics.modified_file_rows,
+                3,
+                chunk_size,
+                |row| vec![&session_id, &row.file_path, &row.extension],
+            )?;
 
             // INSERT child rows: activity heatmap (batch)
-            if !analytics.activity_rows.is_empty() {
-                let mut stmt = self.conn.prepare(
-                    "INSERT INTO session_activity (session_id, day_of_week, hour, tool_call_count)
-                     VALUES (?1, ?2, ?3, ?4)",
-                )?;
-                for row in &analytics.activity_rows {
-                    stmt.execute(params![&session_id, row.day_of_week, row.hour, row.tool_call_count])?;
-                }
-            }
+            execute_batched_insert(
+                &self.conn,
+                "INSERT INTO session_activity (session_id, day_of_week, hour, tool_call_count)",
+                &analytics.activity_rows,
+                4,
+                chunk_size,
+                |row| {
+                    vec![
+                        &session_id,
+                        &row.day_of_week,
+                        &row.hour,
+                        &row.tool_call_count,
+                    ]
+                },
+            )?;
 
             // INSERT child rows: session segments (batch)
-            if !analytics.session_segment_rows.is_empty() {
-                let mut stmt = self.conn.prepare(
-                    "INSERT INTO session_segments (session_id, start_timestamp, end_timestamp, total_tokens, total_requests, total_premium_requests, total_api_duration_ms, current_model, model_metrics_json)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-                )?;
-                for row in &analytics.session_segment_rows {
-                    stmt.execute(params![
+            execute_batched_insert(
+                &self.conn,
+                "INSERT INTO session_segments (session_id, start_timestamp, end_timestamp, total_tokens, total_requests, total_premium_requests, total_api_duration_ms, current_model, model_metrics_json)",
+                &analytics.session_segment_rows,
+                9,
+                chunk_size,
+                |row| {
+                    vec![
                         &session_id,
                         &row.start_timestamp,
                         &row.end_timestamp,
-                        row.tokens,
-                        row.total_requests,
-                        row.premium_requests,
-                        row.api_duration_ms,
+                        &row.tokens,
+                        &row.total_requests,
+                        &row.premium_requests,
+                        &row.api_duration_ms,
                         &row.current_model,
-                        &row.model_metrics_json
-                    ])?;
-                }
-            }
+                        &row.model_metrics_json,
+                    ]
+                },
+            )?;
 
             // INSERT child rows: incidents (batch)
-            if !analytics.incidents.is_empty() {
-                let mut stmt = self.conn.prepare(
-                    "INSERT INTO session_incidents
-                        (session_id, event_type, source_event_type, timestamp, severity, summary, detail_json)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-                )?;
-                for inc in &analytics.incidents {
-                    stmt.execute(params![
+            execute_batched_insert(
+                &self.conn,
+                "INSERT INTO session_incidents
+                    (session_id, event_type, source_event_type, timestamp, severity, summary, detail_json)",
+                &analytics.incidents,
+                7,
+                chunk_size,
+                |inc| {
+                    vec![
                         &session_id,
                         &inc.event_type,
                         &inc.source_event_type,
                         &inc.timestamp,
                         &inc.severity,
                         &inc.summary,
-                        &inc.detail_json
-                    ])?;
-                }
-            }
+                        &inc.detail_json,
+                    ]
+                },
+            )?;
 
             Ok(())
         })();
@@ -353,7 +368,12 @@ impl IndexDb {
         };
 
         if stored_av.unwrap_or(0) < CURRENT_ANALYTICS_VERSION {
-            tracing::debug!(session_id, stored = stored_av.unwrap_or(0), current = CURRENT_ANALYTICS_VERSION, "needs_reindex: analytics_version");
+            tracing::debug!(
+                session_id,
+                stored = stored_av.unwrap_or(0),
+                current = CURRENT_ANALYTICS_VERSION,
+                "needs_reindex: analytics_version"
+            );
             return true;
         }
 
@@ -400,9 +420,8 @@ impl IndexDb {
 
         self.conn.execute_batch("BEGIN")?;
         let result = (|| -> Result<()> {
-            self.conn.execute_batch(
-                "CREATE TEMP TABLE IF NOT EXISTS _live_ids (id TEXT PRIMARY KEY)",
-            )?;
+            self.conn
+                .execute_batch("CREATE TEMP TABLE IF NOT EXISTS _live_ids (id TEXT PRIMARY KEY)")?;
             self.conn.execute_batch("DELETE FROM _live_ids")?;
 
             let mut stmt = self
@@ -412,15 +431,13 @@ impl IndexDb {
                 stmt.execute([id])?;
             }
 
-            self.conn.execute_batch(
-                "DELETE FROM sessions WHERE id NOT IN (SELECT id FROM _live_ids)",
-            )?;
+            self.conn
+                .execute_batch("DELETE FROM sessions WHERE id NOT IN (SELECT id FROM _live_ids)")?;
             // search_content rows cascade-deleted via FK, but clean up explicitly
             self.conn.execute_batch(
                 "DELETE FROM search_content WHERE session_id NOT IN (SELECT id FROM _live_ids)",
             )?;
-            self.conn
-                .execute_batch("DROP TABLE IF EXISTS _live_ids")?;
+            self.conn.execute_batch("DROP TABLE IF EXISTS _live_ids")?;
             Ok(())
         })();
 
@@ -435,6 +452,54 @@ impl IndexDb {
             }
         }
     }
+}
+
+/// Helper to batch insert rows using multiple VALUES clauses in a single statement.
+///
+/// Note: SQLite limit on parameters is 32766 for modern versions (we use batch chunks of 100 which is extremely safe).
+pub(crate) fn execute_batched_insert<'a, R>(
+    conn: &rusqlite::Connection,
+    base_query: &str,
+    rows: &'a [R],
+    param_count: usize,
+    chunk_size: usize,
+    mut row_to_params: impl FnMut(&'a R) -> Vec<&'a dyn rusqlite::ToSql>,
+) -> crate::Result<()> {
+    if rows.is_empty() {
+        return Ok(());
+    }
+
+    let mut query = String::with_capacity(base_query.len() + chunk_size * (param_count * 4 + 4));
+
+    for chunk in rows.chunks(chunk_size) {
+        query.clear();
+        query.push_str(base_query);
+        query.push_str(" VALUES ");
+
+        let mut params: Vec<&dyn rusqlite::ToSql> = Vec::with_capacity(chunk.len() * param_count);
+
+        for (i, row) in chunk.iter().enumerate() {
+            if i > 0 {
+                query.push_str(", ");
+            }
+            query.push('(');
+            for j in 0..param_count {
+                if j > 0 {
+                    query.push_str(", ");
+                }
+                use std::fmt::Write;
+                let _ = write!(&mut query, "?{}", i * param_count + j + 1);
+            }
+            query.push(')');
+
+            params.extend(row_to_params(row));
+        }
+
+        let mut stmt = conn.prepare_cached(&query)?;
+        stmt.execute(rusqlite::params_from_iter(params))?;
+    }
+
+    Ok(())
 }
 
 // ── Pure analytics extraction ──────────────────────────────────────────
@@ -474,8 +539,7 @@ pub(crate) fn extract_session_analytics(
         .and_then(|m| m.total_api_duration_ms.map(|v| v as i64));
 
     if let Some(ref metrics) = summary.shutdown_metrics {
-        if let (Some(start_time), Some(updated)) =
-            (metrics.session_start_time, summary.updated_at)
+        if let (Some(start_time), Some(updated)) = (metrics.session_start_time, summary.updated_at)
         {
             let end_ms = updated.timestamp_millis() as u64;
             if end_ms > start_time {
@@ -484,32 +548,24 @@ pub(crate) fn extract_session_analytics(
         }
 
         for (model_name, detail) in &metrics.model_metrics {
-            let (input_t, output_t, cache_read, cache_write) =
-                if let Some(ref usage) = detail.usage {
-                    (
-                        usage.input_tokens.unwrap_or(0) as i64,
-                        usage.output_tokens.unwrap_or(0) as i64,
-                        usage.cache_read_tokens.unwrap_or(0) as i64,
-                        usage.cache_write_tokens.unwrap_or(0) as i64,
-                    )
-                } else {
-                    (0, 0, 0, 0)
-                };
+            let (input_t, output_t, cache_read, cache_write) = if let Some(ref usage) = detail.usage
+            {
+                (
+                    usage.input_tokens.unwrap_or(0) as i64,
+                    usage.output_tokens.unwrap_or(0) as i64,
+                    usage.cache_read_tokens.unwrap_or(0) as i64,
+                    usage.cache_write_tokens.unwrap_or(0) as i64,
+                )
+            } else {
+                (0, 0, 0, 0)
+            };
             let model_tokens = input_t + output_t;
             total_tokens += model_tokens;
 
-            let cost = detail
-                .requests
-                .as_ref()
-                .and_then(|r| r.cost)
-                .unwrap_or(0.0);
+            let cost = detail.requests.as_ref().and_then(|r| r.cost).unwrap_or(0.0);
             total_cost += cost;
 
-            let req_count = detail
-                .requests
-                .as_ref()
-                .and_then(|r| r.count)
-                .unwrap_or(0) as i64;
+            let req_count = detail.requests.as_ref().and_then(|r| r.count).unwrap_or(0) as i64;
 
             model_rows.push(ModelMetricsRow {
                 model: model_name.clone(),
@@ -533,12 +589,16 @@ pub(crate) fn extract_session_analytics(
                 if let Some(ref mm) = seg.model_metrics {
                     for detail in mm.values() {
                         if let Some(ref usage) = detail.usage {
-                            tokens += (usage.input_tokens.unwrap_or(0) + usage.output_tokens.unwrap_or(0)) as i64;
+                            tokens += (usage.input_tokens.unwrap_or(0)
+                                + usage.output_tokens.unwrap_or(0))
+                                as i64;
                         }
                     }
                 }
 
-                let mm_json = seg.model_metrics.as_ref()
+                let mm_json = seg
+                    .model_metrics
+                    .as_ref()
                     .and_then(|mm| serde_json::to_string(mm).ok());
                 session_segment_rows.push(SessionSegmentRow {
                     start_timestamp: seg.start_timestamp.clone(),
@@ -588,42 +648,38 @@ pub(crate) fn extract_session_analytics(
                 TypedEventData::ToolExecutionStart(d) => {
                     if let Some(ref tool_call_id) = d.tool_call_id {
                         let name = d.tool_name.clone().unwrap_or_else(|| "unknown".into());
-                        tool_starts
-                            .insert(tool_call_id.clone(), (name, event.raw.timestamp));
+                        tool_starts.insert(tool_call_id.clone(), (name, event.raw.timestamp));
                     }
                 }
                 TypedEventData::ToolExecutionComplete(d) => {
                     actual_tool_call_count += 1;
                     if let Some(ref tool_call_id) = d.tool_call_id
-                        && let Some((tool_name, start_ts)) =
-                            tool_starts.remove(tool_call_id)
-                        {
-                            let acc = tool_accum
-                                .entry(tool_name.clone())
-                                .or_insert((0, 0, 0, 0, 0));
-                            acc.0 += 1;
+                        && let Some((tool_name, start_ts)) = tool_starts.remove(tool_call_id)
+                    {
+                        let acc = tool_accum
+                            .entry(tool_name.clone())
+                            .or_insert((0, 0, 0, 0, 0));
+                        acc.0 += 1;
 
-                            match d.success {
-                                Some(true) => acc.1 += 1,
-                                Some(false) => acc.2 += 1,
-                                None => {}
-                            }
-
-                            if let (Some(start), Some(end)) =
-                                (start_ts, event.raw.timestamp)
-                            {
-                                let dur = (end - start).num_milliseconds().max(0);
-                                acc.3 += dur;
-                                acc.4 += 1;
-                            }
-
-                            if let Some(ts) = start_ts {
-                                use chrono::{Datelike, Timelike};
-                                let day = ts.weekday().num_days_from_monday() as i64;
-                                let hour = ts.hour() as i64;
-                                *heatmap_accum.entry((day, hour)).or_insert(0) += 1;
-                            }
+                        match d.success {
+                            Some(true) => acc.1 += 1,
+                            Some(false) => acc.2 += 1,
+                            None => {}
                         }
+
+                        if let (Some(start), Some(end)) = (start_ts, event.raw.timestamp) {
+                            let dur = (end - start).num_milliseconds().max(0);
+                            acc.3 += dur;
+                            acc.4 += 1;
+                        }
+
+                        if let Some(ts) = start_ts {
+                            use chrono::{Datelike, Timelike};
+                            let day = ts.weekday().num_days_from_monday() as i64;
+                            let hour = ts.hour() as i64;
+                            *heatmap_accum.entry((day, hour)).or_insert(0) += 1;
+                        }
+                    }
                 }
                 TypedEventData::SessionError(d) => {
                     error_count += 1;
@@ -642,11 +698,7 @@ pub(crate) fn extract_session_analytics(
                         incidents.push(IncidentRow {
                             event_type: "error".into(),
                             source_event_type: "session.error".into(),
-                            timestamp: event
-                                .raw
-                                .timestamp
-                                .as_ref()
-                                .map(|t| t.to_rfc3339()),
+                            timestamp: event.raw.timestamp.as_ref().map(|t| t.to_rfc3339()),
                             severity: "error".into(),
                             summary,
                             detail_json: serde_json::to_string(&event.raw.data).ok(),
@@ -659,11 +711,7 @@ pub(crate) fn extract_session_analytics(
                         incidents.push(IncidentRow {
                             event_type: "warning".into(),
                             source_event_type: "session.warning".into(),
-                            timestamp: event
-                                .raw
-                                .timestamp
-                                .as_ref()
-                                .map(|t| t.to_rfc3339()),
+                            timestamp: event.raw.timestamp.as_ref().map(|t| t.to_rfc3339()),
                             severity: "warning".into(),
                             summary: d.message.clone().unwrap_or_default(),
                             detail_json: serde_json::to_string(&event.raw.data).ok(),
@@ -680,11 +728,7 @@ pub(crate) fn extract_session_analytics(
                         incidents.push(IncidentRow {
                             event_type: "compaction".into(),
                             source_event_type: "session.compaction_complete".into(),
-                            timestamp: event
-                                .raw
-                                .timestamp
-                                .as_ref()
-                                .map(|t| t.to_rfc3339()),
+                            timestamp: event.raw.timestamp.as_ref().map(|t| t.to_rfc3339()),
                             severity: if d.success == Some(true) {
                                 "info"
                             } else {
@@ -711,11 +755,7 @@ pub(crate) fn extract_session_analytics(
                         incidents.push(IncidentRow {
                             event_type: "truncation".into(),
                             source_event_type: "session.truncation".into(),
-                            timestamp: event
-                                .raw
-                                .timestamp
-                                .as_ref()
-                                .map(|t| t.to_rfc3339()),
+                            timestamp: event.raw.timestamp.as_ref().map(|t| t.to_rfc3339()),
                             severity: "warning".into(),
                             summary: format!(
                                 "Truncated {} tokens ({} messages) by {}",
@@ -759,18 +799,19 @@ pub(crate) fn extract_session_analytics(
     // Modified files from shutdown metrics
     if let Some(ref metrics) = summary.shutdown_metrics
         && let Some(ref cc) = metrics.code_changes
-            && let Some(ref files) = cc.files_modified {
-                for file in files {
-                    let ext = std::path::Path::new(file)
-                        .extension()
-                        .and_then(|e| e.to_str())
-                        .map(|s| s.to_string());
-                    modified_file_rows.push(ModifiedFileRow {
-                        file_path: file.clone(),
-                        extension: ext,
-                    });
-                }
-            }
+        && let Some(ref files) = cc.files_modified
+    {
+        for file in files {
+            let ext = std::path::Path::new(file)
+                .extension()
+                .and_then(|e| e.to_str())
+                .map(|s| s.to_string());
+            modified_file_rows.push(ModifiedFileRow {
+                file_path: file.clone(),
+                extension: ext,
+            });
+        }
+    }
 
     // Health score
     let incident_counts = tracepilot_core::health::SessionIncidentCounts {
