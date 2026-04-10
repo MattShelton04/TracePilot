@@ -261,7 +261,7 @@ fn write_checkpoints(checkpoints: &[CheckpointExport], dir: &Path) -> Result<()>
 
 fn write_session_db(todos: &TodoExport, dir: &Path) -> Result<()> {
     let db_path = dir.join("session.db");
-    let conn = Connection::open(&db_path).map_err(|e| ExportError::SessionData {
+    let mut conn = Connection::open(&db_path).map_err(|e| ExportError::SessionData {
         message: format!("failed to create session.db: {}", e),
     })?;
 
@@ -285,42 +285,53 @@ fn write_session_db(todos: &TodoExport, dir: &Path) -> Result<()> {
         message: format!("failed to create tables: {}", e),
     })?;
 
-    // Insert todos
-    let mut stmt = conn
-        .prepare("INSERT INTO todos (id, title, description, status, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)")
-        .map_err(|e| ExportError::SessionData {
-            message: format!("failed to prepare insert: {}", e),
-        })?;
+    let tx = conn.transaction().map_err(|e| ExportError::SessionData {
+        message: format!("failed to start transaction: {}", e),
+    })?;
 
-    for item in &todos.items {
-        stmt.execute(rusqlite::params![
-            item.id,
-            item.title,
-            item.description,
-            item.status,
-            item.created_at,
-            item.updated_at,
-        ])
-        .map_err(|e| ExportError::SessionData {
-            message: format!("failed to insert todo '{}': {}", item.id, e),
-        })?;
-    }
-    drop(stmt);
-
-    // Insert deps
-    let mut dep_stmt = conn
-        .prepare("INSERT INTO todo_deps (todo_id, depends_on) VALUES (?1, ?2)")
-        .map_err(|e| ExportError::SessionData {
-            message: format!("failed to prepare dep insert: {}", e),
-        })?;
-
-    for dep in &todos.deps {
-        dep_stmt
-            .execute(rusqlite::params![dep.todo_id, dep.depends_on])
+    {
+        // Insert todos
+        let mut stmt = tx
+            .prepare("INSERT INTO todos (id, title, description, status, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)")
             .map_err(|e| ExportError::SessionData {
-                message: format!("failed to insert dep: {}", e),
+                message: format!("failed to prepare insert: {}", e),
             })?;
+
+        for item in &todos.items {
+            stmt.execute(rusqlite::params![
+                item.id,
+                item.title,
+                item.description,
+                item.status,
+                item.created_at,
+                item.updated_at,
+            ])
+            .map_err(|e| ExportError::SessionData {
+                message: format!("failed to insert todo '{}': {}", item.id, e),
+            })?;
+        }
+        drop(stmt);
+
+        // Insert deps
+        let mut dep_stmt = tx
+            .prepare("INSERT INTO todo_deps (todo_id, depends_on) VALUES (?1, ?2)")
+            .map_err(|e| ExportError::SessionData {
+                message: format!("failed to prepare dep insert: {}", e),
+            })?;
+
+        for dep in &todos.deps {
+            dep_stmt
+                .execute(rusqlite::params![dep.todo_id, dep.depends_on])
+                .map_err(|e| ExportError::SessionData {
+                    message: format!("failed to insert dep: {}", e),
+                })?;
+        }
+        drop(dep_stmt);
     }
+
+    tx.commit().map_err(|e| ExportError::SessionData {
+        message: format!("failed to commit transaction: {}", e),
+    })?;
 
     Ok(())
 }
