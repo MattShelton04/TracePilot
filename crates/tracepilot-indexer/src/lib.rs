@@ -591,8 +591,10 @@ pub fn reindex_search_content(
         }
     }
 
-    // Let SQLite optimize statistics if it deems necessary
-    let _ = db.conn.execute_batch("PRAGMA optimize");
+    // Time-gated maintenance: fires on the first indexing pass after startup
+    // (4-hour throttle), complete no-op during subsequent auto-refresh cycles.
+    // With incremental auto_vacuum, freed pages are reused naturally.
+    db.maintenance();
 
     tracing::debug!(
         indexed,
@@ -615,10 +617,17 @@ pub fn rebuild_search_content(
 ) -> Result<(usize, usize)> {
     let db = index_db::IndexDb::open_or_create(index_db_path)?;
     db.clear_search_content()?;
-    let _ = db.conn.execute_batch("VACUUM;");
     drop(db);
 
-    reindex_search_content(session_state_dir, index_db_path, on_progress, is_cancelled)
+    let result = reindex_search_content(session_state_dir, index_db_path, on_progress, is_cancelled);
+
+    // Force full maintenance after rebuild — clear_search_content frees many
+    // pages that should be reclaimed immediately, not deferred to next startup.
+    if let Ok(db) = index_db::IndexDb::open_or_create(index_db_path) {
+        db.maintenance_force();
+    }
+
+    result
 }
 
 #[cfg(test)]
