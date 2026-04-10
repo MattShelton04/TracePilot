@@ -4,6 +4,21 @@ import { defineComponent } from "vue";
 import { useClipboard } from "../composables/useClipboard";
 
 const writeTextMock = vi.fn<(text: string) => Promise<void>>();
+const navigatorDescriptor = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+
+function restoreNavigator() {
+  if (navigatorDescriptor) {
+    Object.defineProperty(globalThis, "navigator", navigatorDescriptor);
+  }
+}
+
+function stubNavigator(value: Navigator | undefined) {
+  Object.defineProperty(globalThis, "navigator", {
+    value,
+    configurable: true,
+    writable: true,
+  });
+}
 
 function createWrapper(options?: Parameters<typeof useClipboard>[0]) {
   return mount(
@@ -21,6 +36,7 @@ describe("useClipboard", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     writeTextMock.mockResolvedValue(undefined);
+    restoreNavigator();
     Object.assign(navigator, {
       clipboard: { writeText: writeTextMock },
     });
@@ -29,6 +45,7 @@ describe("useClipboard", () => {
   afterEach(() => {
     vi.useRealTimers();
     writeTextMock.mockReset();
+    restoreNavigator();
   });
 
   it("isSupported is true when clipboard API exists", () => {
@@ -100,5 +117,15 @@ describe("useClipboard", () => {
 
     vi.advanceTimersByTime(200);
     expect(w.vm.copied).toBe(false);
+  });
+
+  it("gracefully handles environments without navigator", async () => {
+    stubNavigator(undefined);
+    const w = createWrapper();
+
+    expect(w.vm.isSupported).toBe(false);
+    const result = await w.vm.copy("text");
+    expect(result).toBe(false);
+    expect(w.vm.error).toBe("Clipboard API unavailable");
   });
 });

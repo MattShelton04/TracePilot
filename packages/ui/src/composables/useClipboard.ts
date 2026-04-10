@@ -27,7 +27,14 @@ export function useClipboard(options?: UseClipboardOptions): UseClipboardReturn 
 
   const copied = ref(false);
   const error = ref<string | null>(null);
-  const isSupported = !!navigator?.clipboard?.writeText;
+
+  const getClipboard = () => {
+    const nav = (globalThis as { navigator?: Navigator }).navigator;
+    if (!nav) return null;
+    return typeof nav.clipboard?.writeText === "function" ? nav.clipboard : null;
+  };
+
+  const isSupported = !!getClipboard();
 
   let timer: ReturnType<typeof setTimeout> | null = null;
 
@@ -42,8 +49,15 @@ export function useClipboard(options?: UseClipboardOptions): UseClipboardReturn 
     error.value = null;
     clearTimer();
 
+    const clipboard = getClipboard();
+    if (!clipboard) {
+      error.value = "Clipboard API unavailable";
+      copied.value = false;
+      return false;
+    }
+
     try {
-      await navigator.clipboard.writeText(text);
+      await clipboard.writeText(text);
       copied.value = true;
       timer = setTimeout(() => {
         copied.value = false;

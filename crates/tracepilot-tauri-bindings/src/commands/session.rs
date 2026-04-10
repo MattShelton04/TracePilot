@@ -4,13 +4,59 @@ use crate::blocking_cmd;
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
 use crate::helpers::{
-    load_summary_list_item, read_config, with_session_path,
-    MAX_CHECKPOINT_CONTENT_BYTES,
+    MAX_CHECKPOINT_CONTENT_BYTES, load_summary_list_item, read_config, with_session_path,
 };
 use crate::types::{
-    CachedTurns, EventItem, EventsResponse, FreshnessResponse, SessionIncidentItem,
-    SessionListItem, TodosResponse, TurnCache, TurnsResponse,
+    CachedEvents, CachedTurns, EventCache, EventItem, EventsResponse, FreshnessResponse,
+    SessionIncidentItem, SessionListItem, TodosResponse, TurnCache, TurnsResponse,
 };
+use std::path::Path;
+use std::sync::Arc;
+
+fn load_cached_typed_events(
+    cache: &EventCache,
+    session_id: &str,
+    events_path: &Path,
+) -> Result<(Arc<Vec<tracepilot_core::parsing::events::TypedEvent>>, u64), BindingsError> {
+    let meta = std::fs::metadata(events_path).ok();
+    let file_size = meta.as_ref().map_or(0, |m| m.len());
+    let file_mtime = meta.and_then(|m| m.modified().ok());
+
+    let cached_events = match cache.lock() {
+        Ok(mut lru) => lru
+            .get(session_id)
+            .filter(|cached| {
+                cached.events_file_size == file_size && cached.events_file_mtime == file_mtime
+            })
+            .map(|cached| Arc::clone(&cached.events)),
+        Err(_) => {
+            tracing::warn!("Event cache Mutex poisoned — skipping cache read");
+            None
+        }
+    };
+
+    if let Some(events) = cached_events {
+        return Ok((events, file_size));
+    }
+
+    let events =
+        Arc::new(tracepilot_core::parsing::events::parse_typed_events(events_path)?.events);
+
+    if let Ok(mut lru) = cache.lock() {
+        lru.put(
+            session_id.to_string(),
+            CachedEvents {
+                events: Arc::clone(&events),
+                events_file_size: file_size,
+                events_file_mtime: file_mtime,
+            },
+        );
+    } else {
+        tracing::warn!("Event cache Mutex poisoned — skipping cache write");
+    }
+
+    Ok((events, file_size))
+}
 
 #[tauri::command]
 #[tracing::instrument(skip_all)]
@@ -33,13 +79,12 @@ pub async fn list_sessions(
             // Check if index has any sessions; if empty, fall through to disk scan
             let count = db.session_count().unwrap_or(0);
             if count > 0 {
-                let indexed = db
-                    .list_sessions(
-                        limit.map(|l| l as usize),
-                        repo.as_deref(),
-                        branch.as_deref(),
-                        hide_empty.unwrap_or(false),
-                    )?;
+                let indexed = db.list_sessions(
+                    limit.map(|l| l as usize),
+                    repo.as_deref(),
+                    branch.as_deref(),
+                    hide_empty.unwrap_or(false),
+                )?;
 
                 return Ok(indexed
                     .into_iter()
@@ -70,8 +115,7 @@ pub async fn list_sessions(
         }
 
         // Fallback: full disk scan (used when index is empty or missing)
-        let sessions =
-            tracepilot_core::session::discovery::discover_sessions(&session_state_dir)?;
+        let sessions = tracepilot_core::session::discovery::discover_sessions(&session_state_dir)?;
 
         let mut items = Vec::new();
         let should_hide_empty = hide_empty.unwrap_or(false);
@@ -138,21 +182,20 @@ pub async fn get_session_incidents(
 
     blocking_cmd!({
         let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
-        let incidents = db
-            .get_session_incidents(&session_id)?;
-        Ok::<_, BindingsError>(incidents
-            .into_iter()
-            .map(|i| SessionIncidentItem {
-                event_type: i.event_type,
-                source_event_type: i.source_event_type,
-                timestamp: i.timestamp,
-                severity: i.severity,
-                summary: i.summary,
-                detail_json: i
-                    .detail_json
-                    .and_then(|s| serde_json::from_str(&s).ok()),
-            })
-            .collect())
+        let incidents = db.get_session_incidents(&session_id)?;
+        Ok::<_, BindingsError>(
+            incidents
+                .into_iter()
+                .map(|i| SessionIncidentItem {
+                    event_type: i.event_type,
+                    source_event_type: i.source_event_type,
+                    timestamp: i.timestamp,
+                    severity: i.severity,
+                    summary: i.summary,
+                    detail_json: i.detail_json.and_then(|s| serde_json::from_str(&s).ok()),
+                })
+                .collect(),
+        )
     })
 }
 
@@ -161,12 +204,14 @@ pub async fn get_session_incidents(
 pub async fn get_session_turns(
     state: tauri::State<'_, SharedConfig>,
     cache: tauri::State<'_, TurnCache>,
+    event_cache: tauri::State<'_, EventCache>,
     session_id: String,
 ) -> CmdResult<TurnsResponse> {
     crate::validators::validate_session_id(&session_id)?;
 
     let session_state_dir = read_config(&state).session_state_dir();
     let cache = cache.inner().clone();
+    let event_cache = event_cache.inner().clone();
 
     blocking_cmd!({
         let path = tracepilot_core::session::discovery::resolve_session_path_in(
@@ -175,32 +220,34 @@ pub async fn get_session_turns(
         )?;
         let events_path = path.join("events.jsonl");
 
-        let file_size = std::fs::metadata(&events_path)
-            .map(|m| m.len())
-            .unwrap_or(0);
-
         // Check LRU cache — return if file size unchanged (append-only).
         // Clone cache data and release lock before running prepare_turns_for_ipc
         // to minimise Mutex hold time on concurrent IPC requests.
         let cached_turns = {
+            let file_size = std::fs::metadata(&events_path)
+                .map(|m| m.len())
+                .unwrap_or(0);
             let Ok(mut lru) = cache.lock() else {
                 tracing::warn!("Turn cache Mutex poisoned — skipping cache read");
-                let events = tracepilot_core::parsing::events::parse_typed_events(&events_path)?
-                    .events;
-                let turns = tracepilot_core::turns::reconstruct_turns(&events);
+                let (events, events_file_size) =
+                    load_cached_typed_events(&event_cache, &session_id, &events_path)?;
+                let turns = tracepilot_core::turns::reconstruct_turns(events.as_ref());
                 let mut ipc_turns = turns;
                 tracepilot_core::turns::prepare_turns_for_ipc(&mut ipc_turns);
                 return Ok(TurnsResponse {
                     turns: ipc_turns,
-                    events_file_size: file_size,
+                    events_file_size,
                 });
             };
-            lru.get(&session_id)
-                .filter(|cached| cached.events_file_size == file_size)
-                .map(|cached| cached.turns.clone())
+            (
+                lru.get(&session_id)
+                    .filter(|cached| cached.events_file_size == file_size)
+                    .map(|cached| cached.turns.clone()),
+                file_size,
+            )
         };
 
-        if let Some(mut turns) = cached_turns {
+        if let (Some(mut turns), file_size) = cached_turns {
             tracepilot_core::turns::prepare_turns_for_ipc(&mut turns);
             return Ok(TurnsResponse {
                 turns,
@@ -209,17 +256,17 @@ pub async fn get_session_turns(
         }
 
         // Cache miss or stale — parse from disk
-        let events = tracepilot_core::parsing::events::parse_typed_events(&events_path)?
-            .events;
-        let turns = tracepilot_core::turns::reconstruct_turns(&events);
+        let (events, events_file_size) =
+            load_cached_typed_events(&event_cache, &session_id, &events_path)?;
+        let turns = tracepilot_core::turns::reconstruct_turns(events.as_ref());
 
         // Store full (untrimmed) turns in LRU
         if let Ok(mut lru) = cache.lock() {
             lru.put(
-                session_id,
+                session_id.clone(),
                 CachedTurns {
                     turns: turns.clone(),
-                    events_file_size: file_size,
+                    events_file_size,
                 },
             );
         }
@@ -228,7 +275,7 @@ pub async fn get_session_turns(
         tracepilot_core::turns::prepare_turns_for_ipc(&mut ipc_turns);
         Ok::<_, BindingsError>(TurnsResponse {
             turns: ipc_turns,
-            events_file_size: file_size,
+            events_file_size,
         })
     })
 }
@@ -243,7 +290,9 @@ pub async fn check_session_freshness(
         let file_size = std::fs::metadata(path.join("events.jsonl"))
             .map(|m| m.len())
             .unwrap_or(0);
-        Ok(FreshnessResponse { events_file_size: file_size })
+        Ok(FreshnessResponse {
+            events_file_size: file_size,
+        })
     })
     .await
 }
@@ -252,6 +301,7 @@ pub async fn check_session_freshness(
 #[tracing::instrument(skip_all, fields(%session_id))]
 pub async fn get_session_events(
     state: tauri::State<'_, SharedConfig>,
+    cache: tauri::State<'_, EventCache>,
     session_id: String,
     offset: Option<u32>,
     limit: Option<u32>,
@@ -259,15 +309,16 @@ pub async fn get_session_events(
 ) -> CmdResult<EventsResponse> {
     // Clamp explicit limit to a safe upper bound; None preserves "return all".
     let limit = crate::validators::clamp_limit(limit, crate::validators::MAX_EVENTS_PAGE_LIMIT);
+    let cache = cache.inner().clone();
+    let cache_session_id = session_id.clone();
 
     with_session_path(&state, session_id, move |path| {
         let events_path = path.join("events.jsonl");
-        let all_events = tracepilot_core::parsing::events::parse_typed_events(&events_path)?
-            .events;
+        let (all_events, _) = load_cached_typed_events(&cache, &cache_session_id, &events_path)?;
 
         let all_event_types: Vec<String> = {
             let mut types = std::collections::BTreeSet::new();
-            for event in &all_events {
+            for event in all_events.iter() {
                 types.insert(event.event_type.to_string());
             }
             types.into_iter().collect()
@@ -366,16 +417,19 @@ pub async fn get_session_plan(
 #[tauri::command]
 pub async fn get_shutdown_metrics(
     state: tauri::State<'_, SharedConfig>,
+    cache: tauri::State<'_, EventCache>,
     session_id: String,
 ) -> CmdResult<Option<tracepilot_core::models::event_types::ShutdownData>> {
-    with_session_path(&state, session_id, |path| {
+    let cache = cache.inner().clone();
+    let cache_session_id = session_id.clone();
+
+    with_session_path(&state, session_id, move |path| {
         let events_path = path.join("events.jsonl");
-        let events = tracepilot_core::parsing::events::parse_typed_events(&events_path)?
-            .events;
-        Ok(tracepilot_core::parsing::events::extract_combined_shutdown_data(
-            &events,
+        let (events, _) = load_cached_typed_events(&cache, &cache_session_id, &events_path)?;
+        Ok(
+            tracepilot_core::parsing::events::extract_combined_shutdown_data(events.as_ref())
+                .map(|(data, _count)| data),
         )
-        .map(|(data, _count)| data))
     })
     .await
 }
@@ -384,16 +438,19 @@ pub async fn get_shutdown_metrics(
 #[tauri::command]
 pub async fn get_tool_result(
     state: tauri::State<'_, SharedConfig>,
+    cache: tauri::State<'_, EventCache>,
     session_id: String,
     tool_call_id: String,
 ) -> CmdResult<Option<serde_json::Value>> {
+    let cache = cache.inner().clone();
+    let cache_session_id = session_id.clone();
+
     with_session_path(&state, session_id, move |path| {
         let events_path = path.join("events.jsonl");
-        let events = tracepilot_core::parsing::events::parse_typed_events(&events_path)?
-            .events;
+        let (events, _) = load_cached_typed_events(&cache, &cache_session_id, &events_path)?;
 
         let mut last_result: Option<serde_json::Value> = None;
-        for event in &events {
+        for event in events.iter() {
             if let tracepilot_core::parsing::events::TypedEventData::ToolExecutionComplete(
                 ref data,
             ) = event.typed_data
@@ -420,23 +477,24 @@ pub async fn resume_session_in_terminal(
 
     // Sanitize CLI command: allow only alphanumeric, hyphens, underscores, dots, slashes, spaces.
     // Colon is needed for Windows drive letters (e.g., C:\path\to\copilot).
-    if !cli.chars().all(|c| c.is_alphanumeric() || "-_./\\ :".contains(c)) {
-        return Err(BindingsError::Validation("CLI command contains invalid characters".into()));
+    if !cli
+        .chars()
+        .all(|c| c.is_alphanumeric() || "-_./\\ :".contains(c))
+    {
+        return Err(BindingsError::Validation(
+            "CLI command contains invalid characters".into(),
+        ));
     }
 
     // Resolve the session's original working directory from workspace.yaml
     let session_state_dir = read_config(&state).session_state_dir();
     let sid = session_id.clone();
     let session_cwd = tokio::task::spawn_blocking(move || {
-        let session_path = tracepilot_core::session::discovery::resolve_session_path_in(
-            &sid,
-            &session_state_dir,
-        )?;
+        let session_path =
+            tracepilot_core::session::discovery::resolve_session_path_in(&sid, &session_state_dir)?;
         let workspace_path = session_path.join("workspace.yaml");
         let metadata = tracepilot_core::parsing::workspace::parse_workspace_yaml(&workspace_path)?;
-        Ok::<Option<std::path::PathBuf>, BindingsError>(
-            metadata.cwd.map(std::path::PathBuf::from),
-        )
+        Ok::<Option<std::path::PathBuf>, BindingsError>(metadata.cwd.map(std::path::PathBuf::from))
     })
     .await??;
 
@@ -456,10 +514,7 @@ pub async fn resume_session_in_terminal(
             }
             None
         })
-        .or_else(|| {
-            tracepilot_core::utils::home_dir_opt()
-                .filter(|p| p.is_dir())
-        })
+        .or_else(|| tracepilot_core::utils::home_dir_opt().filter(|p| p.is_dir()))
         .unwrap_or_else(|| std::path::PathBuf::from("."));
 
     let cmd = format!("{} --resume {}", cli, session_id);
@@ -485,10 +540,156 @@ pub async fn resume_session_in_terminal(
 
     #[cfg(not(windows))]
     {
-        tracepilot_orchestrator::process::spawn_detached_terminal(
-            &cmd, &[], &effective_cwd, None,
-        )?;
+        tracepilot_orchestrator::process::spawn_detached_terminal(&cmd, &[], &effective_cwd, None)?;
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+    use std::num::NonZeroUsize;
+    use std::path::PathBuf;
+    use std::sync::{Arc, Mutex};
+
+    fn event_cache(capacity: usize) -> EventCache {
+        Arc::new(Mutex::new(lru::LruCache::new(
+            NonZeroUsize::new(capacity).expect("cache capacity is non-zero"),
+        )))
+    }
+
+    fn append_event_line(
+        events_path: &Path,
+        event_type: &str,
+        data: serde_json::Value,
+        id: &str,
+        timestamp: &str,
+    ) {
+        let mut file = std::fs::OpenOptions::new()
+            .append(true)
+            .open(events_path)
+            .expect("failed to open events.jsonl");
+        write!(
+            file,
+            "\n{}",
+            serde_json::to_string(&serde_json::json!({
+                "type": event_type,
+                "data": data,
+                "id": id,
+                "timestamp": timestamp,
+            }))
+            .expect("failed to serialize event")
+        )
+        .expect("failed to append event");
+    }
+
+    fn temp_session(events: &[(&str, serde_json::Value)]) -> (tempfile::TempDir, PathBuf) {
+        let dir = tempfile::tempdir().expect("failed to create temp dir");
+        let session_path = dir.path().to_path_buf();
+
+        std::fs::write(
+            session_path.join("workspace.yaml"),
+            "id: test-session-00000000\nconversationMode: ask\n",
+        )
+        .expect("failed to write workspace.yaml");
+
+        let events_path = session_path.join("events.jsonl");
+        let mut file = std::fs::File::create(&events_path).expect("failed to create events.jsonl");
+
+        for (index, (event_type, data)) in events.iter().enumerate() {
+            if index > 0 {
+                writeln!(file).expect("failed to add newline");
+            }
+            write!(
+                file,
+                "{}",
+                serde_json::to_string(&serde_json::json!({
+                    "type": event_type,
+                    "data": data,
+                    "id": format!("e{}", index + 1),
+                    "timestamp": format!("2025-01-01T00:00:{index:02}.000Z"),
+                }))
+                .expect("failed to serialize event")
+            )
+            .expect("failed to write event");
+        }
+
+        (dir, session_path)
+    }
+
+    #[test]
+    fn load_cached_typed_events_returns_cached_arc_on_hit() {
+        let (_dir, session_path) = temp_session(&[
+            ("session.start", serde_json::json!({ "cwd": "/repo" })),
+            ("user.message", serde_json::json!({ "content": "hello" })),
+        ]);
+        let cache = event_cache(2);
+        let events_path = session_path.join("events.jsonl");
+
+        let (first, first_size) =
+            load_cached_typed_events(&cache, "session-a", &events_path).expect("cache miss loads");
+        let (second, second_size) =
+            load_cached_typed_events(&cache, "session-a", &events_path).expect("cache hit loads");
+
+        assert_eq!(first_size, second_size);
+        assert_eq!(first.len(), 2);
+        assert!(Arc::ptr_eq(&first, &second));
+    }
+
+    #[test]
+    fn load_cached_typed_events_invalidates_stale_entries_when_file_changes() {
+        let (_dir, session_path) = temp_session(&[
+            ("session.start", serde_json::json!({ "cwd": "/repo" })),
+            ("user.message", serde_json::json!({ "content": "hello" })),
+        ]);
+        let cache = event_cache(2);
+        let events_path = session_path.join("events.jsonl");
+
+        let (first, first_size) =
+            load_cached_typed_events(&cache, "session-a", &events_path).expect("initial load");
+
+        append_event_line(
+            &events_path,
+            "tool.execution.complete",
+            serde_json::json!({
+                "toolCallId": "call-1",
+                "success": true,
+                "result": { "ok": true },
+            }),
+            "e3",
+            "2025-01-01T00:00:02.000Z",
+        );
+
+        let (second, second_size) = load_cached_typed_events(&cache, "session-a", &events_path)
+            .expect("reload after append");
+
+        assert!(second_size > first_size);
+        assert_eq!(second.len(), 3);
+        assert!(!Arc::ptr_eq(&first, &second));
+    }
+
+    #[test]
+    fn load_cached_typed_events_recovers_from_poisoned_mutex() {
+        let (_dir, session_path) = temp_session(&[
+            ("session.start", serde_json::json!({ "cwd": "/repo" })),
+            ("user.message", serde_json::json!({ "content": "hello" })),
+        ]);
+        let cache = event_cache(2);
+        let events_path = session_path.join("events.jsonl");
+
+        let poisoned_cache = Arc::clone(&cache);
+        let _ = std::thread::spawn(move || {
+            let _guard = poisoned_cache.lock().expect("lock cache");
+            panic!("poison cache");
+        })
+        .join();
+
+        let (events, file_size) =
+            load_cached_typed_events(&cache, "session-a", &events_path).expect("poison fallback");
+
+        assert_eq!(events.len(), 2);
+        assert!(file_size > 0);
+    }
 }

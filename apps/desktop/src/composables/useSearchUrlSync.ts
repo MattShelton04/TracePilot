@@ -2,6 +2,7 @@ import type { SearchContentType } from "@tracepilot/types";
 import { onBeforeUnmount, onMounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useSearchStore } from "@/stores/search";
+import { normalizeDateValue } from "@/utils/dateValidation";
 
 /**
  * Syncs search store state ↔ URL query params.
@@ -64,8 +65,8 @@ export function useSearchUrlSync() {
     store.repository = typeof q.repo === "string" && q.repo ? q.repo : null;
     store.toolName = typeof q.tool === "string" && q.tool ? q.tool : null;
     store.sessionId = typeof q.session === "string" && q.session ? q.session : null;
-    store.dateFrom = typeof q.from === "string" && q.from ? q.from : null;
-    store.dateTo = typeof q.to === "string" && q.to ? q.to : null;
+    store.dateFrom = normalizeDateValue(typeof q.from === "string" ? q.from : null);
+    store.dateTo = normalizeDateValue(typeof q.to === "string" ? q.to : null);
 
     // Check if search-relevant state actually changed
     const arraysEqual = (a: unknown[], b: unknown[]) =>
@@ -118,8 +119,10 @@ export function useSearchUrlSync() {
     if (store.repository) query.repo = store.repository;
     if (store.toolName) query.tool = store.toolName;
     if (store.sessionId) query.session = store.sessionId;
-    if (store.dateFrom) query.from = store.dateFrom;
-    if (store.dateTo) query.to = store.dateTo;
+    const normalizedDateFrom = normalizeDateValue(store.dateFrom);
+    const normalizedDateTo = normalizeDateValue(store.dateTo);
+    if (normalizedDateFrom) query.from = normalizedDateFrom;
+    if (normalizedDateTo) query.to = normalizedDateTo;
 
     // Only update if query actually changed
     const current = { ...route.query } as Record<string, string>;

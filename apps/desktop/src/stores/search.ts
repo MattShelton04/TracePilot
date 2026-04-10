@@ -27,6 +27,7 @@ import { useSearchClipboard } from "@/composables/useSearchClipboard";
 import { logWarn } from "@/utils/logger";
 import { parseQualifiers } from "@/utils/parseQualifiers";
 import { safeListen } from "@/utils/tauriEvents";
+import { hasMeaningfulDateValue } from "@/utils/dateValidation";
 
 // Re-export types and utilities that consumers may depend on
 export type { RecentSearch } from "@/composables/useRecentSearches";
@@ -56,6 +57,12 @@ export interface FacetOverrides {
   repo?: string | null;
   tool?: string | null;
   session?: string | null;
+}
+
+interface ParsedDateRange {
+  dateFromUnix?: number;
+  dateToUnix?: number;
+  error?: string;
 }
 
 export const useSearchStore = defineStore("search", () => {
@@ -169,8 +176,8 @@ export const useSearchStore = defineStore("search", () => {
       excludeContentTypes.value.length > 0 ||
       repository.value !== null ||
       toolName.value !== null ||
-      dateFrom.value !== null ||
-      dateTo.value !== null ||
+      hasMeaningfulDateValue(dateFrom.value) ||
+      hasMeaningfulDateValue(dateTo.value) ||
       sessionId.value !== null
     );
   });
@@ -256,13 +263,12 @@ export const useSearchStore = defineStore("search", () => {
     error.value = null;
 
     try {
-      let dateFromUnix: number | undefined;
-      let dateToUnix: number | undefined;
-      if (dateFrom.value) {
-        dateFromUnix = Math.floor(new Date(dateFrom.value).getTime() / 1000);
-      }
-      if (dateTo.value) {
-        dateToUnix = Math.floor(new Date(dateTo.value).getTime() / 1000);
+      const { dateFromUnix, dateToUnix, error: dateError } = parseDateRange();
+      if (dateError) {
+        error.value = dateError;
+        clearSearchResults();
+        facets.value = null;
+        return;
       }
 
       const response = await searchContent(searchQuery, {
@@ -304,10 +310,7 @@ export const useSearchStore = defineStore("search", () => {
     } catch (e) {
       if (!searchGuard.isValid(token)) return;
       error.value = toErrorMessage(e);
-      results.value = [];
-      totalCount.value = 0;
-      hasMore.value = false;
-      latencyMs.value = 0;
+      clearSearchResults();
     } finally {
       if (searchGuard.isValid(token)) loading.value = false;
     }
@@ -378,13 +381,44 @@ export const useSearchStore = defineStore("search", () => {
   const statsGuard = useAsyncGuard();
   const filterOptionsGuard = useAsyncGuard();
 
+  function parseDateInputToUnix(value: string | null, fieldName: "From" | "To"): number | undefined {
+    if (value == null) return undefined;
+    const trimmed = value.trim();
+    if (!trimmed) return undefined;
+
+    const timestampMs = new Date(trimmed).getTime();
+    if (!Number.isFinite(timestampMs)) {
+      throw new Error(`Invalid date filter: ${fieldName} date is not a valid date.`);
+    }
+
+    return Math.floor(timestampMs / 1000);
+  }
+
+  function parseDateRange(): ParsedDateRange {
+    try {
+      const dateFromUnix = parseDateInputToUnix(dateFrom.value, "From");
+      const dateToUnix = parseDateInputToUnix(dateTo.value, "To");
+
+      if (dateFromUnix != null && dateToUnix != null && dateFromUnix > dateToUnix) {
+        return { error: "Invalid date filter: From date cannot be after To date." };
+      }
+
+      return { dateFromUnix, dateToUnix };
+    } catch (e) {
+      return { error: toErrorMessage(e) };
+    }
+  }
+
   async function fetchFacets(forQuery?: string, overrides?: FacetOverrides) {
     const token = facetGuard.start();
     try {
-      let dateFromUnix: number | undefined;
-      let dateToUnix: number | undefined;
-      if (dateFrom.value) dateFromUnix = Math.floor(new Date(dateFrom.value).getTime() / 1000);
-      if (dateTo.value) dateToUnix = Math.floor(new Date(dateTo.value).getTime() / 1000);
+      const { dateFromUnix, dateToUnix, error: dateError } = parseDateRange();
+      if (dateError) {
+        if (!facetGuard.isValid(token)) return;
+        facets.value = null;
+        logWarn("[search] Skipping search facets fetch due to invalid date filter:", dateError);
+        return;
+      }
 
       const ct = overrides?.contentTypes ?? contentTypes.value;
       const repo = overrides?.repo ?? repository.value;
@@ -488,6 +522,13 @@ export const useSearchStore = defineStore("search", () => {
   }
 
   // ── Helpers ──────────────────────────────────────────────────
+  function clearSearchResults() {
+    results.value = [];
+    totalCount.value = 0;
+    hasMore.value = false;
+    latencyMs.value = 0;
+  }
+
   function clearFilters() {
     contentTypes.value = [];
     excludeContentTypes.value = [];
@@ -505,10 +546,7 @@ export const useSearchStore = defineStore("search", () => {
     hydrating = true;
     query.value = "";
     clearFilters();
-    results.value = [];
-    totalCount.value = 0;
-    hasMore.value = false;
-    latencyMs.value = 0;
+    clearSearchResults();
     error.value = null;
     nextTick(() => {
       hydrating = false;

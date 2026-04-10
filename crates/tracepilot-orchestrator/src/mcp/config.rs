@@ -6,6 +6,7 @@
 use crate::json_io::{atomic_json_read, atomic_json_write};
 use crate::launcher::copilot_home;
 use crate::mcp::error::McpError;
+use crate::mcp::headers::validate_configured_http_headers;
 use crate::mcp::types::{McpServerConfig, McpServerDetail, McpSummary};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -53,9 +54,9 @@ where
     F: FnOnce(&mut McpConfigFile) -> Result<T, McpError>,
 {
     let _lock = CONFIG_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    let mut config = load_config().map_err(|e| McpError::Config(e.to_string()))?;
+    let mut config = load_config().map_err(McpError::from_orchestrator)?;
     let result = f(&mut config)?;
-    save_config_unlocked(&config).map_err(|e| McpError::Config(e.to_string()))?;
+    save_config_unlocked(&config).map_err(McpError::from_orchestrator)?;
     Ok(result)
 }
 
@@ -69,7 +70,7 @@ pub fn list_servers() -> crate::error::Result<Vec<(String, McpServerConfig)>> {
 
 /// Get a single server by name.
 pub fn get_server(name: &str) -> Result<McpServerConfig, McpError> {
-    let config = load_config().map_err(|e| McpError::Config(e.to_string()))?;
+    let config = load_config().map_err(McpError::from_orchestrator)?;
     config
         .mcp_servers
         .get(name)
@@ -79,6 +80,7 @@ pub fn get_server(name: &str) -> Result<McpServerConfig, McpError> {
 
 /// Add a new server. Returns error if name already exists.
 pub fn add_server(name: &str, server: McpServerConfig) -> Result<(), McpError> {
+    validate_configured_http_headers(&server.headers)?;
     with_config_mut(|config| {
         if config.mcp_servers.contains_key(name) {
             return Err(McpError::DuplicateServer(name.to_string()));
@@ -90,6 +92,7 @@ pub fn add_server(name: &str, server: McpServerConfig) -> Result<(), McpError> {
 
 /// Update an existing server. Returns error if name doesn't exist.
 pub fn update_server(name: &str, server: McpServerConfig) -> Result<(), McpError> {
+    validate_configured_http_headers(&server.headers)?;
     with_config_mut(|config| {
         if !config.mcp_servers.contains_key(name) {
             return Err(McpError::ServerNotFound(name.to_string()));
@@ -170,9 +173,7 @@ pub fn get_server_detail(
     let config_entry = get_server(name)?;
     let cached = health_cache.get(name);
 
-    let tools = cached
-        .map(|c| c.tools.clone())
-        .unwrap_or_default();
+    let tools = cached.map(|c| c.tools.clone()).unwrap_or_default();
 
     let total_tokens: u32 = tools.iter().map(|t| t.estimate_tokens()).sum();
 
@@ -188,9 +189,36 @@ pub fn get_server_detail(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::mcp::types::McpServerConfig;
+    use crate::mcp::types::{McpServerConfig, McpTransport};
     use std::collections::HashMap;
     use tempfile::TempDir;
+
+    fn with_temp_home<F: FnOnce()>(f: F) {
+        let _guard = crate::TEST_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let tmp = TempDir::new().unwrap();
+        std::fs::create_dir_all(tmp.path().join(".copilot")).unwrap();
+        let old_home = std::env::var("HOME").ok();
+        let old_userprofile = std::env::var("USERPROFILE").ok();
+        // SAFETY: Environment mutation is serialized across the entire crate via
+        // crate::TEST_ENV_LOCK, matching the Rust 2024 requirements for set_var/remove_var.
+        unsafe {
+            std::env::set_var("HOME", tmp.path());
+            std::env::set_var("USERPROFILE", tmp.path());
+        }
+        f();
+        unsafe {
+            match old_home {
+                Some(v) => std::env::set_var("HOME", v),
+                None => std::env::remove_var("HOME"),
+            }
+            match old_userprofile {
+                Some(v) => std::env::set_var("USERPROFILE", v),
+                None => std::env::remove_var("USERPROFILE"),
+            }
+        }
+    }
 
     fn setup_test_config(dir: &TempDir) -> PathBuf {
         let path = dir.path().join("mcp-config.json");
@@ -272,5 +300,136 @@ mod tests {
         let parsed: McpServerConfig = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed.env.get("API_KEY").unwrap(), "test-key");
         assert_eq!(parsed.env.get("DEBUG").unwrap(), "true");
+    }
+
+    #[test]
+    fn add_server_rejects_invalid_http_headers() {
+        with_temp_home(|| {
+            let server = McpServerConfig {
+                command: None,
+                args: vec![],
+                env: HashMap::new(),
+                url: Some("https://example.com/mcp".into()),
+                transport: Some(McpTransport::StreamableHttp),
+                headers: HashMap::from([("Bad Header".into(), "value".into())]),
+                tools: vec![],
+                description: None,
+                tags: vec![],
+                enabled: true,
+            };
+
+            let err = add_server("remote-test", server).unwrap_err();
+            let msg = err.to_string();
+
+            assert!(matches!(err, McpError::Config(_)));
+            assert!(msg.contains("Invalid HTTP header name"));
+            assert!(msg.contains("Bad Header"));
+        });
+    }
+
+    #[test]
+    fn add_server_rejects_reserved_session_header() {
+        with_temp_home(|| {
+            let server = McpServerConfig {
+                command: None,
+                args: vec![],
+                env: HashMap::new(),
+                url: Some("https://example.com/mcp".into()),
+                transport: Some(McpTransport::StreamableHttp),
+                headers: HashMap::from([("mcp-session-id".into(), "user-provided".into())]),
+                tools: vec![],
+                description: None,
+                tags: vec![],
+                enabled: true,
+            };
+
+            let err = add_server("remote-test", server).unwrap_err();
+            let msg = err.to_string();
+
+            assert!(matches!(err, McpError::Config(_)));
+            assert!(msg.contains("reserved"));
+            assert!(msg.contains("mcp-session-id"));
+        });
+    }
+
+    #[test]
+    fn update_server_rejects_invalid_http_headers_without_changing_saved_config() {
+        with_temp_home(|| {
+            let path = mcp_config_path().unwrap();
+            let initial = McpConfigFile {
+                mcp_servers: HashMap::from([(
+                    "remote-test".into(),
+                    McpServerConfig {
+                        command: None,
+                        args: vec![],
+                        env: HashMap::new(),
+                        url: Some("https://example.com/mcp".into()),
+                        transport: Some(McpTransport::StreamableHttp),
+                        headers: HashMap::from([("Authorization".into(), "Bearer valid".into())]),
+                        tools: vec![],
+                        description: None,
+                        tags: vec![],
+                        enabled: true,
+                    },
+                )]),
+            };
+            atomic_json_write(&path, &initial).unwrap();
+
+            let updated = McpServerConfig {
+                command: None,
+                args: vec![],
+                env: HashMap::new(),
+                url: Some("https://example.com/mcp".into()),
+                transport: Some(McpTransport::StreamableHttp),
+                headers: HashMap::from([(
+                    "Authorization".into(),
+                    "Bearer token\r\nX-Injected: true".into(),
+                )]),
+                tools: vec![],
+                description: None,
+                tags: vec![],
+                enabled: true,
+            };
+
+            let err = update_server("remote-test", updated).unwrap_err();
+            let msg = err.to_string();
+            assert!(matches!(err, McpError::Config(_)));
+            assert!(msg.contains("Invalid HTTP header value"));
+            assert!(msg.contains("Authorization"));
+
+            let reloaded = load_config().unwrap();
+            let saved = reloaded.mcp_servers.get("remote-test").unwrap();
+            assert_eq!(
+                saved.headers.get("Authorization").map(String::as_str),
+                Some("Bearer valid")
+            );
+        });
+    }
+
+    #[test]
+    fn add_server_rejects_case_duplicate_headers() {
+        with_temp_home(|| {
+            let server = McpServerConfig {
+                command: None,
+                args: vec![],
+                env: HashMap::new(),
+                url: Some("https://example.com/mcp".into()),
+                transport: Some(McpTransport::StreamableHttp),
+                headers: HashMap::from([
+                    ("Authorization".into(), "Bearer one".into()),
+                    ("authorization".into(), "Bearer two".into()),
+                ]),
+                tools: vec![],
+                description: None,
+                tags: vec![],
+                enabled: true,
+            };
+
+            let err = add_server("remote-test", server).unwrap_err();
+            let msg = err.to_string();
+
+            assert!(matches!(err, McpError::Config(_)));
+            assert!(msg.contains("differ only by case"));
+        });
     }
 }

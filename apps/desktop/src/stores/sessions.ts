@@ -9,12 +9,14 @@ import { usePreferencesStore } from "./preferences";
 
 export type SortOption = "updated" | "created" | "oldest" | "events" | "turns";
 
-/** Deduplicate concurrent indexing calls. */
-let indexingPromise: Promise<[number, number]> | null = null;
-/** Deduplicate concurrent fetchSessions calls. */
-let fetchPromise: Promise<void> | null = null;
-
 export const useSessionsStore = defineStore("sessions", () => {
+  // Both fetchSessions and refreshSessions share this promise so that a
+  // silent background refresh coalesces with any concurrent explicit fetch.
+  /** Deduplicate concurrent fetchSessions/refreshSessions calls. */
+  let fetchPromise: Promise<void> | null = null;
+  /** Deduplicate concurrent reindex/ensureIndex calls. */
+  let indexingPromise: Promise<[number, number]> | null = null;
+
   const sessions = ref<SessionListItem[]>([]);
   const loading = ref(false);
   const indexing = ref(false);
@@ -154,6 +156,7 @@ export const useSessionsStore = defineStore("sessions", () => {
     fetchPromise = (async () => {
       try {
         sessions.value = await listSessions();
+        error.value = null;
       } catch (e) {
         logError("[sessions] Silent refresh failed:", e);
       } finally {
@@ -184,7 +187,6 @@ export const useSessionsStore = defineStore("sessions", () => {
     try {
       indexingPromise = reindexSessions();
       await indexingPromise;
-      // After reindex completes, refresh the list from the now-updated index
       sessions.value = await listSessions();
     } catch (e) {
       const msg = toErrorMessage(e);
