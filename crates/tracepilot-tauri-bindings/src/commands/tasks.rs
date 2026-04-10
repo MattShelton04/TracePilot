@@ -319,12 +319,14 @@ pub async fn task_delete_preset(
 #[tauri::command]
 pub async fn task_orchestrator_health(
     config: tauri::State<'_, SharedConfig>,
+    task_db: tauri::State<'_, SharedTaskDb>,
     orch_state: tauri::State<'_, crate::types::SharedOrchestratorState>,
 ) -> CmdResult<tracepilot_orchestrator::task_recovery::HealthCheckResult> {
     let cfg = read_config(&config);
     let jobs_dir = cfg.jobs_dir();
     let session_state_dir = cfg.session_state_dir();
     let orch_state_clone = std::sync::Arc::clone(&*orch_state);
+    let db = std::sync::Arc::clone(&*task_db);
     let handle = orch_state
         .lock()
         .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?
@@ -339,6 +341,17 @@ pub async fn task_orchestrator_health(
                     h.pid,
                     &h.launched_at,
                 ) {
+                    // Set orchestrator_session_id on active tasks
+                    if let Ok(db_guard) = db.lock() {
+                        if let Some(task_db) = db_guard.as_ref() {
+                            if let Err(e) = tracepilot_orchestrator::task_db::operations::set_orchestrator_session_id(
+                                task_db.conn(),
+                                &uuid,
+                            ) {
+                                tracing::warn!(error = %e, "Failed to set orchestrator_session_id on tasks");
+                            }
+                        }
+                    }
                     let mut guard = orch_state_clone
                         .lock()
                         .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;

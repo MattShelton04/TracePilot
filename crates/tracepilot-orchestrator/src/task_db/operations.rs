@@ -183,6 +183,17 @@ pub fn update_task_status(conn: &Connection, id: &str, status: TaskStatus) -> Re
     Ok(())
 }
 
+/// Set the orchestrator session ID on in-progress tasks that don't have one yet.
+pub fn set_orchestrator_session_id(conn: &Connection, session_id: &str) -> Result<()> {
+    conn.execute(
+        "UPDATE tasks SET orchestrator_session_id = ?1
+         WHERE status IN ('in_progress', 'claimed')
+           AND (orchestrator_session_id IS NULL OR orchestrator_session_id = '')",
+        params![session_id],
+    )?;
+    Ok(())
+}
+
 /// Store a task result (from file-based IPC).
 pub fn store_task_result(conn: &Connection, result: &TaskResult) -> Result<()> {
     let result_parsed = result
