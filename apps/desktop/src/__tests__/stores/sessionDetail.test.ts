@@ -1,4 +1,4 @@
-import { setupPinia } from "@tracepilot/test-utils";
+import { createDeferred, setupPinia } from "@tracepilot/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 
@@ -377,6 +377,34 @@ describe("useSessionDetailStore", () => {
       expect(store.todos).toEqual(FIXTURE_TODOS);
     });
 
+    it("discards stale standard-section refresh results after switching sessions", async () => {
+      const store = useSessionDetailStore();
+      await store.loadDetail(SESSION_ID);
+      await store.loadPlan();
+
+      const stalePlan = createDeferred<typeof FIXTURE_PLAN>();
+      mockGetSessionDetail.mockResolvedValue(FIXTURE_DETAIL);
+      mockGetSessionPlan.mockReturnValueOnce(stalePlan.promise);
+
+      const refreshPromise = store.refreshAll();
+
+      const OTHER_ID = "other-456";
+      const OTHER_DETAIL = { ...FIXTURE_DETAIL, id: OTHER_ID };
+      const OTHER_PLAN = { plan: "other plan" };
+      mockGetSessionDetail.mockResolvedValueOnce(OTHER_DETAIL);
+      await store.loadDetail(OTHER_ID);
+      mockGetSessionPlan.mockResolvedValueOnce(OTHER_PLAN);
+      await store.loadPlan();
+
+      expect(resolveStaleDetail).toBeDefined();
+      stalePlan.resolve({ plan: "stale plan" });
+      await refreshPromise;
+
+      expect(store.sessionId).toBe(OTHER_ID);
+      expect(store.plan).toEqual(OTHER_PLAN);
+      expect(store.planError).toBeNull();
+    });
+
     it("updates non-tail turns when refresh returns retrospective subagent completion", async () => {
       const store = useSessionDetailStore();
       await store.loadDetail(SESSION_ID);
@@ -550,9 +578,7 @@ describe("useSessionDetailStore", () => {
       mockGetSessionPlan.mockResolvedValue(FIXTURE_PLAN);
       mockGetShutdownMetrics.mockResolvedValue(FIXTURE_METRICS);
       mockGetSessionIncidents.mockResolvedValue(FIXTURE_INCIDENTS);
-      mockCheckSessionFreshness.mockResolvedValue(
-        buildFreshness(FIXTURE_TURNS.eventsFileSize + 1),
-      );
+      mockCheckSessionFreshness.mockResolvedValue(buildFreshness(FIXTURE_TURNS.eventsFileSize + 1));
 
       // Load the original session — cache hit
       await store.loadDetail(SESSION_ID);
@@ -639,7 +665,7 @@ describe("useSessionDetailStore", () => {
 
       // Set up slow detail response for SESSION_ID
       const STALE_DETAIL = { ...FIXTURE_DETAIL, repository: "stale-repo" };
-      let resolveStaleDetail: (v: unknown) => void;
+      let resolveStaleDetail: ((v: unknown) => void) | undefined;
       const staleDetailPromise = new Promise((r) => {
         resolveStaleDetail = r;
       });
@@ -661,7 +687,8 @@ describe("useSessionDetailStore", () => {
       await store.loadDetail(THIRD_ID);
 
       // Now the stale SESSION_ID detail response arrives
-      resolveStaleDetail!(STALE_DETAIL);
+      expect(resolveStaleDetail).toBeDefined();
+      resolveStaleDetail?.(STALE_DETAIL);
       await new Promise((r) => setTimeout(r, 50));
 
       // The stale response should have been discarded — detail should be THIRD session
