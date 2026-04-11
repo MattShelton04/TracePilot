@@ -1,4 +1,4 @@
-import { createPinia, setActivePinia } from "pinia";
+import { setupPinia } from "@tracepilot/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 
@@ -60,7 +60,7 @@ const buildFreshness = (size: number, mtime = FIXTURE_EVENTS_MTIME) => ({
 
 describe("useSessionDetailStore", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
+    setupPinia();
     vi.clearAllMocks();
 
     // Default: all succeed

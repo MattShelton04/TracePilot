@@ -1,5 +1,5 @@
 import type { AnalyticsData, CodeImpactData, ToolAnalysisData } from "@tracepilot/types";
-import { createPinia, setActivePinia } from "pinia";
+import { setupPinia } from "@tracepilot/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useAnalyticsStore } from "../../stores/analytics";
 
@@ -100,7 +100,7 @@ const FIXTURE_CODE_IMPACT: CodeImpactData = {
 
 describe("useAnalyticsStore", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
+    setupPinia();
     vi.clearAllMocks();
   });
 

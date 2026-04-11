@@ -4,6 +4,16 @@ export interface Deferred<T> {
   reject: (reason?: unknown) => void;
 }
 
+/**
+ * Creates a manually-controlled Promise for async test orchestration.
+ *
+ * @example
+ * ```ts
+ * const d = createDeferred<string>();
+ * someAsyncFn(); // internally awaits something we control
+ * d.resolve("done");
+ * ```
+ */
 export function createDeferred<T>(): Deferred<T> {
   let resolve!: (value: T | PromiseLike<T>) => void;
   let reject!: (reason?: unknown) => void;

@@ -1,8 +1,7 @@
 import type { SessionListItem } from "@tracepilot/types";
-import { createPinia, setActivePinia } from "pinia";
+import { setupPinia, createDeferred } from "@tracepilot/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useSessionsStore } from "../../stores/sessions";
-import { createDeferred } from "../helpers/deferred";
 
 const mockListSessions = vi.fn();
 const mockReindexSessions = vi.fn();
@@ -33,7 +32,7 @@ const MOCK_SESSIONS: SessionListItem[] = [
 
 describe("useSessionsStore — concurrency & deduplication", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
+    setupPinia();
     mockListSessions.mockReset();
     mockReindexSessions.mockReset();
   });
@@ -79,7 +78,7 @@ describe("useSessionsStore — concurrency & deduplication", () => {
       expect(store1.loading).toBe(true);
 
       // Create a brand-new Pinia — the new store must start clean
-      setActivePinia(createPinia());
+      setupPinia();
       mockListSessions.mockResolvedValue(MOCK_SESSIONS);
 
       const store2 = useSessionsStore();

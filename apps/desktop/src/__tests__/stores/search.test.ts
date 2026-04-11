@@ -1,4 +1,4 @@
-import { createPinia, setActivePinia } from "pinia";
+import { setupPinia } from "@tracepilot/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import { BROWSE_PRESETS, useSearchStore } from "../../stores/search";
@@ -90,7 +90,7 @@ async function flushSearchQueue() {
 describe("useSearchStore – scheduling", () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    setActivePinia(createPinia());
+    setupPinia();
     resetAllMocks();
 
     mockSearchContent.mockResolvedValue({
@@ -276,7 +276,7 @@ describe("useSearchStore – scheduling", () => {
 
 describe("useSearchStore browse presets", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
+    setupPinia();
     resetAllMocks();
     setupDefaultMocks();
   });
@@ -337,7 +337,7 @@ describe("useSearchStore browse presets", () => {
 
 describe("useSearchStore FTS maintenance", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
+    setupPinia();
     resetAllMocks();
     setupDefaultMocks();
   });
@@ -442,7 +442,7 @@ describe("useSearchStore FTS maintenance", () => {
 
 describe("useSearchStore – FTS maintenance concurrency", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
+    setupPinia();
     resetAllMocks();
     setupDefaultMocks();
   });

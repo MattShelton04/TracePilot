@@ -35,6 +35,7 @@
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.1",
     "@tauri-apps/cli": "^2.5.0",
+    "@tracepilot/test-utils": "workspace:*",
     "@vitejs/plugin-vue": "^5.2.0",
     "@vue/test-utils": "^2.4.6",
     "jsdom": "^28.1.0",

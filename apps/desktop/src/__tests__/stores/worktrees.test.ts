@@ -6,10 +6,9 @@ import type {
   WorktreeInfo,
 } from "@tracepilot/types";
 import { flushPromises } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
+import { setupPinia, createDeferred } from "@tracepilot/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useWorktreesStore } from "../../stores/worktrees";
-import { createDeferred } from "../helpers/deferred";
 
 // ── Mock client functions ──────────────────────────────────────
 const mockListWorktrees = vi.fn();
@@ -134,7 +133,7 @@ function allMocks() {
 // ════════════════════════════════════════════════════════════════
 describe("useWorktreesStore", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
+    setupPinia();
     for (const mock of allMocks()) mock.mockReset();
     // Default: disk usage resolves immediately
     mockGetWorktreeDiskUsage.mockResolvedValue(0);

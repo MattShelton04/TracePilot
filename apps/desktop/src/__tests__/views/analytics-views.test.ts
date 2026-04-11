@@ -1,6 +1,6 @@
 import type { AnalyticsData, CodeImpactData, ToolAnalysisData } from "@tracepilot/types";
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
+import { setupPinia } from "@tracepilot/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // ── Mock client ───────────────────────────────────────────────
@@ -170,7 +170,7 @@ async function loadCodeImpact() {
 
 describe("AnalyticsDashboardView", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
+    setupPinia();
     vi.clearAllMocks();
   });
 
@@ -331,7 +331,7 @@ describe("AnalyticsDashboardView", () => {
 
 describe("ToolAnalysisView", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
+    setupPinia();
     vi.clearAllMocks();
   });
 
@@ -396,7 +396,7 @@ describe("ToolAnalysisView", () => {
 
 describe("CodeImpactView", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
+    setupPinia();
     vi.clearAllMocks();
   });
 

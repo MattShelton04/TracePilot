@@ -1,4 +1,5 @@
 import * as client from "@tracepilot/client";
+import { createDeferred } from "@tracepilot/test-utils";
 import { flushPromises } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick, ref } from "vue";
@@ -28,16 +29,6 @@ vi.mock("@tracepilot/ui", async (importOriginal) => {
 });
 
 describe("useGitRepository", () => {
-  function createDeferred<T>() {
-    let resolve!: (value: T) => void;
-    let reject!: (error?: unknown) => void;
-    const promise = new Promise<T>((res, rej) => {
-      resolve = res;
-      reject = rej;
-    });
-    return { promise, resolve, reject };
-  }
-
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(client.getDefaultBranch).mockResolvedValue("main");

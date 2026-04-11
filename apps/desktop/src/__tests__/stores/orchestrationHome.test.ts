@@ -5,7 +5,7 @@ import type {
   SystemDependencies,
   WorktreeInfo,
 } from "@tracepilot/types";
-import { createPinia, setActivePinia } from "pinia";
+import { setupPinia } from "@tracepilot/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useOrchestrationHomeStore } from "@/stores/orchestrationHome";
 
@@ -151,7 +151,7 @@ const FIXTURE_REPOS: RegisteredRepo[] = [
 
 describe("useOrchestrationHomeStore", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
+    setupPinia();
     vi.clearAllMocks();
 
     // Default: all succeed with empty/default data

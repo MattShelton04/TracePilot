@@ -1,8 +1,3 @@
-/**
- * Test data builders with proper TypeScript types.
- * Provides factory functions for creating mock ConversationTurn and TurnToolCall objects.
- */
-
 import type { AttributedMessage, ConversationTurn, TurnToolCall } from "@tracepilot/types";
 
 /**
