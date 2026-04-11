@@ -220,12 +220,11 @@ fn write_workspace_yaml(
         serde_yml::Value::Mapping(imported_from),
     );
 
-    let yaml_str = serde_yml::to_string(&serde_yml::Value::Mapping(map)).map_err(|e| {
-        ExportError::Render {
+    let yaml_str =
+        serde_yml::to_string(&serde_yml::Value::Mapping(map)).map_err(|e| ExportError::Render {
             format: "YAML".to_string(),
             message: e.to_string(),
-        }
-    })?;
+        })?;
 
     fs::write(&path, yaml_str).map_err(|e| ExportError::io(&path, e))
 }
@@ -253,7 +252,10 @@ fn write_checkpoints(checkpoints: &[CheckpointExport], dir: &Path) -> Result<()>
     // Write index.md
     let mut index = String::from("| # | Title | File |\n| --- | --- | --- |\n");
     for cp in checkpoints {
-        index.push_str(&format!("| {} | {} | {} |\n", cp.number, cp.title, cp.filename));
+        index.push_str(&format!(
+            "| {} | {} | {} |\n",
+            cp.number, cp.title, cp.filename
+        ));
     }
     let index_path = cp_dir.join("index.md");
     fs::write(&index_path, &index).map_err(|e| ExportError::io(&index_path, e))?;
@@ -345,9 +347,10 @@ fn write_session_db(todos: &TodoExport, dir: &Path) -> Result<()> {
 
     match insert_result {
         Ok(()) => {
-            conn.execute_batch("COMMIT").map_err(|e| ExportError::SessionData {
-                message: format!("failed to commit transaction: {}", e),
-            })?;
+            conn.execute_batch("COMMIT")
+                .map_err(|e| ExportError::SessionData {
+                    message: format!("failed to commit transaction: {}", e),
+                })?;
         }
         Err(e) => {
             let _ = conn.execute_batch("ROLLBACK");
@@ -394,8 +397,8 @@ mod tests {
 
         let yaml_path = result.join("workspace.yaml");
         let content = fs::read_to_string(&yaml_path).unwrap();
-        assert!(content.contains(&format!("id: {}", new_id)));
-        assert!(!content.contains(&format!("id: {}", session.metadata.id)));
+        let parsed: serde_yml::Value = serde_yml::from_str(&content).unwrap();
+        assert_eq!(parsed["id"].as_str(), Some(new_id));
         assert!(!dir.path().join(&session.metadata.id).exists());
     }
 
