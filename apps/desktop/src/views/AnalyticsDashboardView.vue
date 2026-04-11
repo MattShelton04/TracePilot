@@ -16,6 +16,7 @@ import {
   generateYLabels,
   LoadingOverlay,
   PageShell,
+  SectionPanel,
   StatCard,
   useChartTooltip,
 } from "@tracepilot/ui";
@@ -224,9 +225,7 @@ const {
 
           <!-- API Duration Stats + Productivity Metrics -->
           <div class="grid-2 mb-4" v-if="data.apiDurationStats || data.productivityMetrics">
-            <div class="section-panel" v-if="data.apiDurationStats">
-              <div class="section-panel-header">API Duration</div>
-              <div class="section-panel-body">
+            <SectionPanel v-if="data.apiDurationStats" title="API Duration">
                 <div class="metric-grid">
                   <div class="metric-item">
                     <span class="metric-value">{{ formatDuration(data.apiDurationStats.avgMs) }}</span>
@@ -253,11 +252,8 @@ const {
                     <span class="metric-label">Sessions w/ Data</span>
                   </div>
                 </div>
-              </div>
-            </div>
-            <div class="section-panel" v-if="data.productivityMetrics">
-              <div class="section-panel-header">Productivity Metrics</div>
-              <div class="section-panel-body">
+            </SectionPanel>
+            <SectionPanel v-if="data.productivityMetrics" title="Productivity Metrics">
                 <div class="metric-grid">
                   <div class="metric-item">
                     <span class="metric-value">{{ data.productivityMetrics.avgTurnsPerSession.toFixed(1) }}</span>
@@ -280,16 +276,13 @@ const {
                     <span class="metric-label">Avg Compactions / Session</span>
                   </div>
                 </div>
-              </div>
-            </div>
+            </SectionPanel>
           </div>
 
           <!-- Row 1: Token Usage + Session Activity Per Day -->
           <div class="grid-2 mb-4">
             <!-- Token Usage Over Time -->
-            <div class="section-panel">
-              <div class="section-panel-header">Token Usage Over Time</div>
-              <div class="section-panel-body">
+            <SectionPanel title="Token Usage Over Time">
                 <LineAreaChart
                   v-if="tokenChart"
                   :chart-data="tokenChart"
@@ -304,13 +297,10 @@ const {
                   @click="onChartClick($event, tokenChart.coords, (i) => `${formatDateMedium(tokenChart!.coords[i].date)} — ${formatNumberFull(tokenChart!.coords[i].tokens)} tokens`, 'tokens', '.chart-frame')"
                   @dismiss-tooltip="dismissTooltip"
                 />
-              </div>
-            </div>
+            </SectionPanel>
 
             <!-- Session Activity Per Day -->
-            <div class="section-panel">
-              <div class="section-panel-header">Session Activity Per Day</div>
-              <div class="section-panel-body">
+            <SectionPanel title="Session Activity Per Day">
                 <ChartFrame
                   v-if="activityChart"
                   :chart-layout="chartLayout"
@@ -344,18 +334,16 @@ const {
                     :class="{ 'chart-bar--active': tooltip.chartId === 'activity' && tooltip.highlightIndex === bi }"
                   />
                 </ChartFrame>
-              </div>
-            </div>
+            </SectionPanel>
           </div>
 
           <!-- Row 2: Model Distribution + Cost Trend -->
           <div class="grid-2 mb-4">
             <!-- Model Distribution (Donut) -->
-            <div class="section-panel">
-              <div class="section-panel-header" style="display: flex; justify-content: space-between; align-items: center;">
-                Model Distribution
+            <SectionPanel title="Model Distribution">
+              <template #actions>
                 <router-link :to="{ name: 'model-comparison' }" class="more-info-link">More Info →</router-link>
-              </div>
+              </template>
               <div class="donut-panel-body">
                 <svg viewBox="0 0 160 160" width="160" height="160" role="img" aria-label="Donut chart showing token distribution by model">
                   <circle
@@ -397,12 +385,10 @@ const {
                   </div>
                 </div>
               </div>
-            </div>
+            </SectionPanel>
 
             <!-- Cost Trend -->
-            <div class="section-panel">
-              <div class="section-panel-header">Cost Trend</div>
-              <div class="section-panel-body">
+            <SectionPanel title="Cost Trend">
                 <LineAreaChart
                   v-if="costChart"
                   :chart-data="costChart"
@@ -418,15 +404,12 @@ const {
                   @click="onChartClick($event, costChart.coords, (i) => `${formatDateMedium(costChart!.coords[i].date)} — ${formatCost(costChart!.coords[i].cost)}`, 'cost', '.chart-frame')"
                   @dismiss-tooltip="dismissTooltip"
                 />
-              </div>
-            </div>
+            </SectionPanel>
           </div>
           <!-- Row 3: Cache Efficiency + Session Health Distribution -->
           <div class="grid-2 mb-4" v-if="data.cacheStats || data.healthDistribution">
             <!-- Cache Efficiency -->
-            <div class="section-panel" v-if="data.cacheStats">
-              <div class="section-panel-header">Cache Efficiency</div>
-              <div class="section-panel-body">
+            <SectionPanel v-if="data.cacheStats" title="Cache Efficiency">
                 <div class="cache-hit-rate" :title="`${data.cacheStats.cacheHitRate.toFixed(1)}% of input tokens were served from the prompt cache`">
                   <div class="cache-hit-rate-label">
                     <span>Cache Hit Rate</span>
@@ -458,13 +441,10 @@ const {
                     <span class="metric-label">Total Input Tokens</span>
                   </div>
                 </div>
-              </div>
-            </div>
+            </SectionPanel>
 
             <!-- Session Health Distribution -->
-            <div class="section-panel" v-if="data.healthDistribution">
-              <div class="section-panel-header">Session Health Distribution</div>
-              <div class="section-panel-body">
+            <SectionPanel v-if="data.healthDistribution" title="Session Health Distribution">
                 <div class="health-dist-grid">
                   <div class="health-dist-card health-dist-card--healthy" :title="`${data.healthDistribution.healthyCount} sessions with health score ≥ 0.8`">
                     <span class="health-dist-count">{{ data.healthDistribution.healthyCount }}</span>
@@ -482,20 +462,17 @@ const {
                     <span class="health-dist-sub">score &lt; 0.5</span>
                   </div>
                 </div>
-              </div>
-            </div>
+            </SectionPanel>
           </div>
 
           <!-- Incidents Over Time (full-width, polished chart) -->
-          <div v-if="incidentChart" class="section-panel mb-4">
-            <div class="section-panel-header" style="display: flex; justify-content: space-between; align-items: center;">
-              <span>Incidents Over Time</span>
+          <SectionPanel v-if="incidentChart" title="Incidents Over Time" class="mb-4">
+            <template #actions>
               <label class="incident-normalize-toggle" title="Show incidents per session per day for a normalized view">
                 <input type="checkbox" v-model="incidentNormalize" />
                 <span>Per Session</span>
               </label>
-            </div>
-            <div class="section-panel-body">
+            </template>
               <ChartFrame
                 :chart-layout="chartLayout"
                 :grid-lines="incidentGridLines"
@@ -570,8 +547,7 @@ const {
                   </div>
                 </template>
               </ChartFrame>
-            </div>
-          </div>
+          </SectionPanel>
 
       </template>
     </LoadingOverlay>
