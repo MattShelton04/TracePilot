@@ -111,4 +111,55 @@ updated_at: "2026-06-20T18:30:45.123Z"
         assert_eq!(updated.year(), 2026);
         assert_eq!(updated.month(), 6);
     }
+
+    #[test]
+    fn test_parse_workspace_yaml_missing_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("does-not-exist.yaml");
+        let err = parse_workspace_yaml(&path).unwrap_err();
+        match &err {
+            TracePilotError::ParseError { context, source } => {
+                assert!(
+                    context.starts_with("Failed to read"),
+                    "expected 'Failed to read' prefix, got: {context}"
+                );
+                assert!(
+                    context.contains("does-not-exist.yaml"),
+                    "error context should include the filename, got: {context}"
+                );
+                let source = source.as_ref().expect("should have a source error");
+                assert!(
+                    source.to_string().contains("No such file")
+                        || source.to_string().contains("cannot find"),
+                    "source error should be IO not-found, got: {source}"
+                );
+            }
+            _ => panic!("Expected ParseError, got {:?}", err),
+        }
+    }
+
+    #[test]
+    fn test_parse_workspace_yaml_bad_content() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("bad-content.yaml");
+        std::fs::write(&path, "id: [invalid yaml").unwrap();
+        let err = parse_workspace_yaml(&path).unwrap_err();
+        match &err {
+            TracePilotError::ParseError { context, source } => {
+                assert!(
+                    context.starts_with("Failed to parse"),
+                    "expected 'Failed to parse' prefix, got: {context}"
+                );
+                assert!(
+                    context.contains("bad-content.yaml"),
+                    "error context should include the filename, got: {context}"
+                );
+                assert!(
+                    source.is_some(),
+                    "should have a YAML parse source error"
+                );
+            }
+            _ => panic!("Expected ParseError, got {:?}", err),
+        }
+    }
 }
