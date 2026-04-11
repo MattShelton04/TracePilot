@@ -11,8 +11,7 @@ export type SortOption = "updated" | "created" | "oldest" | "events" | "turns";
 
 export const useSessionsStore = defineStore("sessions", () => {
   /** Fetch sessions, hiding orchestrator sessions by default. */
-  const fetchAllSessions = () =>
-    listSessions({ hideOrchestrator: true });
+  const fetchAllSessions = () => listSessions({ hideOrchestrator: true });
 
   // Both fetchSessions and refreshSessions share this promise so that a
   // silent background refresh coalesces with any concurrent explicit fetch.
@@ -20,6 +19,8 @@ export const useSessionsStore = defineStore("sessions", () => {
   let fetchPromise: Promise<void> | null = null;
   /** Deduplicate concurrent reindex/ensureIndex calls. */
   let indexingPromise: Promise<[number, number]> | null = null;
+  /** Deduplicate session-list refresh after indexing completes. */
+  let postIndexRefreshPromise: Promise<SessionListItem[]> | null = null;
 
   const sessions = ref<SessionListItem[]>([]);
   const loading = ref(false);
@@ -171,13 +172,24 @@ export const useSessionsStore = defineStore("sessions", () => {
     return fetchPromise;
   }
 
+  /** Deduplicate concurrent post-index session-list refreshes. */
+  async function refreshSessionsAfterIndex() {
+    if (postIndexRefreshPromise) return postIndexRefreshPromise;
+    postIndexRefreshPromise = fetchAllSessions();
+    try {
+      return await postIndexRefreshPromise;
+    } finally {
+      postIndexRefreshPromise = null;
+    }
+  }
+
   /** Reindex sessions in the background, then refresh the list. */
   async function reindex() {
     if (indexingPromise) {
       // Deduplicate: wait for the in-flight indexing call
       try {
         await indexingPromise;
-        sessions.value = await fetchAllSessions();
+        sessions.value = await refreshSessionsAfterIndex();
       } catch (e) {
         const msg = toErrorMessage(e);
         if (!isAlreadyIndexingError(msg)) {
@@ -192,7 +204,7 @@ export const useSessionsStore = defineStore("sessions", () => {
     try {
       indexingPromise = reindexSessions();
       await indexingPromise;
-      sessions.value = await fetchAllSessions();
+      sessions.value = await refreshSessionsAfterIndex();
     } catch (e) {
       const msg = toErrorMessage(e);
       if (!isAlreadyIndexingError(msg)) {
@@ -218,7 +230,7 @@ export const useSessionsStore = defineStore("sessions", () => {
         logWarn("[sessions] Background reindex in progress failed", e);
       }
       try {
-        sessions.value = await fetchAllSessions();
+        sessions.value = await refreshSessionsAfterIndex();
       } catch (e) {
         // Silent refresh failed
         logWarn("[sessions] Failed to refresh session list after background reindex", e);
@@ -229,7 +241,7 @@ export const useSessionsStore = defineStore("sessions", () => {
     try {
       indexingPromise = reindexSessions();
       await indexingPromise;
-      sessions.value = await fetchAllSessions();
+      sessions.value = await refreshSessionsAfterIndex();
     } catch (e) {
       // Silent — this is a background optimization, not user-initiated
       logWarn("[sessions] Background ensureIndex failed", e);
