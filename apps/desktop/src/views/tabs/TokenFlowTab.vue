@@ -53,7 +53,6 @@ const modelEntries = computed(() => {
       outputTokens: data.usage?.outputTokens ?? 0,
       cacheReadTokens: data.usage?.cacheReadTokens ?? 0,
       cacheWriteTokens: data.usage?.cacheWriteTokens ?? 0,
-      reasoningTokens: data.usage?.reasoningTokens ?? (null as number | null),
       requests: data.requests?.count ?? 0,
       cost: data.requests?.cost ?? 0,
     }))
@@ -98,13 +97,6 @@ function charsToTokens(chars: number): number {
   return Math.round(chars / 4);
 }
 
-// ── Real reasoning tokens from model metrics (v1.0.24+) ──
-const realReasoningTokens = computed(() => {
-  const entries = modelEntries.value;
-  if (entries.every((m) => m.reasoningTokens == null)) return null;
-  return entries.reduce((s, m) => s + (m.reasoningTokens ?? 0), 0);
-});
-
 // ── Estimate input sources from turns ──
 const estimatedUserInput = computed(() =>
   turns.value.reduce((s, t) => s + charsToTokens((t.userMessage ?? "").length), 0),
@@ -125,15 +117,9 @@ const estimatedSystemContext = computed(() => {
 const estimatedAssistantText = computed(() =>
   turns.value.reduce((s, t) => s + charsToTokens(t.assistantMessages.join("").length), 0),
 );
-const estimatedReasoning = computed(() => {
-  // Prefer real reasoning token counts from model metrics when available
-  if (realReasoningTokens.value != null) return realReasoningTokens.value;
-  // Fall back to char-based heuristic for older sessions
-  return turns.value.reduce(
-    (s, t) => s + charsToTokens((t.reasoningTexts ?? []).join("").length),
-    0,
-  );
-});
+const estimatedReasoning = computed(() =>
+  turns.value.reduce((s, t) => s + charsToTokens((t.reasoningTexts ?? []).join("").length), 0),
+);
 const estimatedToolCalls = computed(() => {
   const remainder =
     totalOutputTokens.value - estimatedAssistantText.value - estimatedReasoning.value;
@@ -249,7 +235,7 @@ const sankeyData = computed(() => {
       rawNodes.push({
         id: "out-reasoning",
         col: 2,
-        label: realReasoningTokens.value != null ? "Reasoning" : "Reasoning (est.)",
+        label: "Reasoning",
         tokens: estimatedReasoning.value,
         color: COLORS.violet,
       });
