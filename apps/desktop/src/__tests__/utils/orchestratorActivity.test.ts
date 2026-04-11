@@ -226,17 +226,29 @@ describe("toActivityEntries", () => {
     ]);
   });
 
-  it("generates fallback id from timestamp and index when id is missing", () => {
+  it("filters unknown event types and generates fallback ids when missing", () => {
     const events: SessionEvent[] = [
       {
-        id: undefined as unknown as string,
         timestamp: "2026-01-01T00:00:00Z",
-        eventType: "subagent.started",
-        data: { agentName: "test" },
+        eventType: "assistant.message",
+        data: { content: "hello" },
+      },
+      {
+        timestamp: "2026-01-01T00:00:01Z",
+        eventType: "some.future.event",
+        data: {},
       },
     ];
 
     const entries = toActivityEntries(events);
-    expect(entries[0].id).toBe("2026-01-01T00:00:00Z-0");
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toEqual({
+      id: "2026-01-01T00:00:00Z-0",
+      timestamp: "2026-01-01T00:00:00Z",
+      icon: "🤖",
+      label: "Orchestrator thinking",
+      detail: "hello",
+      eventType: "assistant.message",
+    });
   });
 });
