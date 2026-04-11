@@ -9,6 +9,7 @@
 //! - `analytics_queries` — Aggregate analytics, tool analysis, code impact queries
 
 mod analytics_queries;
+pub(crate) mod batch_insert;
 mod helpers;
 mod migrations;
 mod row_helpers;
