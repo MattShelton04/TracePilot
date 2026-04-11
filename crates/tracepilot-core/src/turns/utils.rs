@@ -28,17 +28,11 @@ pub(crate) fn json_value_to_string(value: &serde_json::Value) -> String {
 const RESULT_PREVIEW_MAX_BYTES: usize = 1024;
 
 /// Truncate a string to a maximum byte length, respecting UTF-8 boundaries.
+///
+/// This is a thin wrapper around [`crate::utils::truncate_utf8_with_marker`]
+/// that preserves the existing "…[truncated]" suffix for turn result previews.
 pub(crate) fn truncate_str(s: &str, max_bytes: usize) -> String {
-    if s.len() <= max_bytes {
-        return s.to_string();
-    }
-    let truncate_at = s
-        .char_indices()
-        .map(|(idx, _)| idx)
-        .take_while(|idx| *idx <= max_bytes)
-        .last()
-        .unwrap_or(0);
-    format!("{}…[truncated]", &s[..truncate_at])
+    crate::utils::truncate_utf8_with_marker(s, max_bytes, Some("…[truncated]"))
 }
 
 /// Extract a truncated result preview from a polymorphic `result` field.
