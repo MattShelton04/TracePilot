@@ -778,7 +778,7 @@ function jobProgressClass(status: string) {
 .orch-model-select {
   padding: 3px 8px;
   font-size: 0.6875rem;
-  background: var(--bg-tertiary);
+  background: var(--surface-tertiary);
   color: var(--text-secondary);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
@@ -787,7 +787,7 @@ function jobProgressClass(status: string) {
 }
 
 .orch-model-select:focus {
-  border-color: var(--accent);
+  border-color: var(--accent-fg);
   outline: none;
 }
 

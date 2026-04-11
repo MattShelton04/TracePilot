@@ -2960,7 +2960,7 @@ function renameConfigKey(
 .ctx-source-card {
   margin-top: 8px;
   padding: 10px 12px;
-  background: var(--bg-tertiary);
+  background: var(--surface-tertiary);
   border: 1px solid var(--border-default);
   border-radius: 8px;
 }
@@ -3007,7 +3007,7 @@ function renameConfigKey(
 
 .ctx-source-hint code {
   font-size: 0.6875rem;
-  background: var(--bg-secondary);
+  background: var(--surface-secondary);
   padding: 1px 3px;
   border-radius: 3px;
 }

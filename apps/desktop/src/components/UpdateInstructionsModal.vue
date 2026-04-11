@@ -163,8 +163,8 @@ function handleOpenRelease() {
 }
 
 .modal-content {
-  background: var(--color-canvas-default, #1e1e2e);
-  border: 1px solid var(--color-border-muted, rgba(255, 255, 255, 0.08));
+  background: var(--canvas-default);
+  border: 1px solid var(--border-muted);
   border-radius: 12px;
   max-width: 520px;
   width: 90%;
@@ -190,7 +190,7 @@ function handleOpenRelease() {
 .modal-close {
   background: none;
   border: none;
-  color: var(--color-fg-muted, #94a3b8);
+  color: var(--text-secondary);
   font-size: 22px;
   cursor: pointer;
   padding: 4px 8px;
@@ -218,7 +218,7 @@ function handleOpenRelease() {
 
 .method-description {
   font-size: 13px;
-  color: var(--color-fg-muted, #94a3b8);
+  color: var(--text-secondary);
   line-height: 1.5;
 }
 
@@ -232,7 +232,7 @@ function handleOpenRelease() {
 }
 
 .method-description code {
-  background: var(--color-canvas-subtle, rgba(255, 255, 255, 0.04));
+  background: var(--canvas-subtle);
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 12px;
@@ -242,7 +242,7 @@ function handleOpenRelease() {
 
 .update-intro {
   font-size: 14px;
-  color: var(--color-fg-muted, #94a3b8);
+  color: var(--text-secondary);
   margin-bottom: 16px;
 }
 
@@ -254,7 +254,7 @@ function handleOpenRelease() {
 }
 
 .update-steps code {
-  background: var(--color-canvas-subtle, rgba(255, 255, 255, 0.04));
+  background: var(--canvas-subtle);
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 12px;
@@ -263,10 +263,10 @@ function handleOpenRelease() {
 }
 
 .update-steps kbd {
-  background: var(--color-canvas-subtle, rgba(255, 255, 255, 0.08));
+  background: var(--canvas-subtle);
   padding: 1px 5px;
   border-radius: 3px;
-  border: 1px solid var(--color-border-muted, rgba(255, 255, 255, 0.12));
+  border: 1px solid var(--border-muted);
   font-size: 12px;
   font-family: inherit;
 }
@@ -274,15 +274,15 @@ function handleOpenRelease() {
 .update-note {
   margin-top: 12px;
   padding: 10px 14px;
-  background: var(--color-attention-subtle, rgba(234, 179, 8, 0.08));
+  background: var(--attention-subtle);
   border-radius: 8px;
   font-size: 13px;
-  color: var(--color-fg-muted, #94a3b8);
+  color: var(--text-secondary);
   line-height: 1.5;
 }
 
 .update-note strong {
-  color: var(--color-attention-fg, #eab308);
+  color: var(--attention-fg);
 }
 
 .update-note code {
@@ -323,14 +323,14 @@ function handleOpenRelease() {
 }
 
 .modal-btn:hover {
-  background: var(--color-accent-emphasis-hover, #4f46e5);
+  background: var(--accent-emphasis-hover);
 }
 
 .auto-update-section {
   padding: 16px;
-  background: var(--color-accent-subtle, rgba(99, 102, 241, 0.08));
+  background: var(--accent-subtle);
   border-radius: 10px;
-  border: 1px solid var(--color-border-muted, rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--border-muted);
 }
 
 .install-btn {
@@ -346,13 +346,13 @@ function handleOpenRelease() {
   display: block;
   margin-top: 6px;
   font-size: 12px;
-  color: var(--color-fg-muted, #94a3b8);
+  color: var(--text-secondary);
 }
 
 .auto-update-error {
   margin-top: 8px;
   padding: 8px 12px;
-  background: var(--color-danger-subtle, rgba(239, 68, 68, 0.1));
+  background: var(--danger-subtle);
   border-radius: 6px;
   font-size: 12px;
   color: var(--danger-fg);
