@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import type { SkillImportResult } from "@tracepilot/types";
+import { PageHeader, useConfirmDialog } from "@tracepilot/ui";
 import { computed, onMounted, ref } from "vue";
 import SkillCard from "@/components/skills/SkillCard.vue";
 import SkillImportWizard from "@/components/skills/SkillImportWizard.vue";
 import { useSkillsStore } from "@/stores/skills";
 
 const store = useSkillsStore();
+const { confirm: showConfirm } = useConfirmDialog();
 const showImportWizard = ref(false);
 const showNewSkillModal = ref(false);
 
@@ -55,25 +57,28 @@ function handleImported(_result: SkillImportResult) {
   showImportWizard.value = false;
 }
 
-function handleDeleteSkill(dir: string) {
-  store.deleteSkill(dir);
+async function handleDeleteSkill(dir: string) {
+  const ok = await showConfirm({
+    title: "Delete Skill",
+    message: "Delete this skill? This cannot be undone.",
+    variant: "danger",
+    confirmLabel: "Delete",
+    cancelLabel: "Cancel",
+  });
+  if (ok) store.deleteSkill(dir);
 }
 </script>
 
 <template>
   <div class="page-content">
     <div class="page-content-inner">
-      <!-- Title Row -->
-      <div class="page-title-row">
-        <h1 class="page-title">
-          <span class="title-icon-tile">
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16">
-              <path d="M9 1L5 9h4l-2 6 6-8H9l2-6z"/>
-            </svg>
-          </span>
-          Skills
-        </h1>
-        <div class="title-actions">
+      <PageHeader title="Skills">
+        <template #icon>
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16">
+            <path d="M9 1L5 9h4l-2 6 6-8H9l2-6z"/>
+          </svg>
+        </template>
+        <template #actions>
           <button class="btn btn--ghost" @click="store.error = null; showImportWizard = true">
             <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
               <path d="M8 2v8M4 6l4-4 4 4" /><path d="M2 12v2h12v-2" />
@@ -86,8 +91,8 @@ function handleDeleteSkill(dir: string) {
             </svg>
             New Skill
           </button>
-        </div>
-      </div>
+        </template>
+      </PageHeader>
 
       <!-- Stats Strip -->
       <div class="stats-strip">
@@ -240,51 +245,6 @@ function handleDeleteSkill(dir: string) {
 </template>
 
 <style scoped>
-/* ── Title Row ───────────────────────────────────────────── */
-.page-title-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 4px;
-}
-
-.page-title {
-  font-size: 1.375rem;
-  font-weight: 700;
-  letter-spacing: -0.025em;
-  color: var(--text-primary);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 0;
-  white-space: nowrap;
-}
-
-.title-icon-tile {
-  width: 30px;
-  height: 30px;
-  border-radius: var(--radius-md);
-  background: var(--accent-muted);
-  border: 1px solid var(--border-accent, var(--accent-fg));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--accent-fg);
-  flex-shrink: 0;
-}
-
-.title-icon-tile svg {
-  width: 16px;
-  height: 16px;
-}
-
-.title-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
 /* ── Stats Strip ─────────────────────────────────────────── */
 .stats-strip {
   display: flex;
@@ -492,7 +452,7 @@ function handleDeleteSkill(dir: string) {
 .btn--primary {
   background: var(--gradient-accent, var(--accent-emphasis));
   border: 1px solid transparent;
-  color: #fff;
+  color: var(--text-on-emphasis, #fff);
   font-weight: 600;
   box-shadow: 0 1px 6px rgba(99, 102, 241, 0.35);
 }

@@ -1,5 +1,6 @@
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import type { IndexingProgressPayload } from "@tracepilot/types";
+import { IPC_EVENTS } from "@tracepilot/types";
 import { onBeforeUnmount } from "vue";
 import { safeListen } from "@/utils/tauriEvents";
 
@@ -22,15 +23,15 @@ export function useIndexingEvents(callbacks: IndexingEventsCallbacks) {
 
   /** Register all Tauri event listeners. Must be awaited. */
   async function setup() {
-    unlistenStarted = await safeListen("indexing-started", () => {
+    unlistenStarted = await safeListen(IPC_EVENTS.INDEXING_STARTED, () => {
       callbacks.onStarted();
     });
 
-    unlistenProgress = await safeListen<IndexingProgressPayload>("indexing-progress", (event) => {
+    unlistenProgress = await safeListen<IndexingProgressPayload>(IPC_EVENTS.INDEXING_PROGRESS, (event) => {
       callbacks.onProgress(event.payload);
     });
 
-    unlistenFinished = await safeListen("indexing-finished", () => {
+    unlistenFinished = await safeListen(IPC_EVENTS.INDEXING_FINISHED, () => {
       callbacks.onFinished();
     });
   }

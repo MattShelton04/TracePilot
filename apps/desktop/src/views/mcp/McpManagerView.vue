@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { McpServerConfig } from "@tracepilot/types";
-import { useToast } from "@tracepilot/ui";
+import { PageHeader, useToast } from "@tracepilot/ui";
 import { computed, onMounted, ref } from "vue";
 import McpAddServerModal from "@/components/mcp/McpAddServerModal.vue";
 import McpServerCard from "@/components/mcp/McpServerCard.vue";
@@ -102,13 +102,11 @@ async function handleImport() {
   <div class="page-content">
   <div class="page-content-inner">
   <div class="mcp-manager-view">
-    <!-- Page Title Row -->
-    <div class="page-title-row">
-      <h1>
-        <span class="title-icon">🔌</span>
-        MCP Servers
-      </h1>
-      <div class="title-actions">
+    <PageHeader title="MCP Servers">
+      <template #icon>
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="5" rx="1"/><rect x="2" y="9" width="12" height="5" rx="1"/><circle cx="4.5" cy="4.5" r="0.75" fill="currentColor" stroke="none"/><circle cx="4.5" cy="11.5" r="0.75" fill="currentColor" stroke="none"/><path d="M11 4.5h1M11 11.5h1"/></svg>
+      </template>
+      <template #actions>
         <button class="btn-import" @click="handleImport">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 10v3h8v-3M8 2v8M5 5l3-3 3 3"/></svg>
           Import
@@ -117,8 +115,8 @@ async function handleImport() {
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg>
           Add Server
         </button>
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
     <!-- Stats Strip -->
     <div v-if="store.summary.totalServers > 0" class="stats-strip">
@@ -274,45 +272,7 @@ async function handleImport() {
   gap: 0;
 }
 
-/* ─── Page Title Row ─── */
-.page-title-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 4px;
-}
-
-.page-title-row h1 {
-  font-size: 1.375rem;
-  font-weight: 700;
-  letter-spacing: -0.025em;
-  color: var(--text-primary);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 0;
-}
-
-.title-icon {
-  width: 30px;
-  height: 30px;
-  border-radius: var(--radius-md);
-  background: var(--accent-muted);
-  border: 1px solid var(--border-accent);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 15px;
-  color: var(--accent-fg);
-}
-
-.title-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
+/* ─── Buttons ─── */
 .btn-add-server {
   display: inline-flex;
   align-items: center;

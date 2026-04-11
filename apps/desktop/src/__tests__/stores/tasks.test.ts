@@ -1,8 +1,7 @@
 import type { Job, Task, TaskStats } from "@tracepilot/types";
-import { createPinia, setActivePinia } from "pinia";
+import { setupPinia, createDeferred } from "@tracepilot/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useTasksStore } from "../../stores/tasks";
-import { createDeferred } from "../helpers/deferred";
 
 const mockTaskList = vi.fn();
 const mockTaskStats = vi.fn();
@@ -70,7 +69,7 @@ function makeJob(id: string): Job {
 
 describe("useTasksStore", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
+    setupPinia();
     mockTaskList.mockReset();
     mockTaskStats.mockReset();
     mockTaskListJobs.mockReset();

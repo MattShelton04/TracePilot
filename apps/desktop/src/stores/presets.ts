@@ -5,10 +5,9 @@ import {
   taskSavePreset,
 } from "@tracepilot/client";
 import type { TaskPreset } from "@tracepilot/types";
-import { toErrorMessage } from "@tracepilot/ui";
+import { toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
-import { useAsyncGuard } from "@/composables/useAsyncGuard";
 
 export const usePresetsStore = defineStore("presets", () => {
   // ─── State ────────────────────────────────────────────────────────

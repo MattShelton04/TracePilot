@@ -1,10 +1,9 @@
 import { mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
+import { setupPinia, makeTurn, makeTurnToolCall } from "@tracepilot/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import AgentTreeView from "../../../components/timeline/AgentTreeView.vue";
 import { useSessionDetailStore } from "../../../stores/sessionDetail";
-import { makeTurn, makeTurnToolCall } from "../../helpers/testBuilders";
 
 // ── Mock @tracepilot/client ─────────────────────────────────────────
 vi.mock("@tracepilot/client", async () => {
@@ -46,7 +45,7 @@ describe("AgentTreeView", () => {
   let store: ReturnType<typeof useSessionDetailStore>;
 
   beforeEach(() => {
-    setActivePinia(createPinia());
+    setupPinia();
     store = useSessionDetailStore();
   });
 

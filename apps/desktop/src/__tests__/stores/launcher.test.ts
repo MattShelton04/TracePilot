@@ -1,8 +1,7 @@
 import type { ModelInfo, SessionTemplate, SystemDependencies } from "@tracepilot/types";
-import { createPinia, setActivePinia } from "pinia";
+import { setupPinia, createDeferred } from "@tracepilot/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useLauncherStore } from "../../stores/launcher";
-import { createDeferred } from "../helpers/deferred";
 
 // Mock the client module
 const mockLaunchSession = vi.fn();
@@ -86,7 +85,7 @@ const MOCK_DEPS: SystemDependencies = {
 
 describe("useLauncherStore", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
+    setupPinia();
     mockLaunchSession.mockReset();
     mockGetAvailableModels.mockReset();
     mockListSessionTemplates.mockReset();

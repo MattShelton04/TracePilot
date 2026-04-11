@@ -1,10 +1,10 @@
-import { createPinia, setActivePinia } from "pinia";
+import { setupPinia } from "@tracepilot/test-utils";
 import { beforeEach, describe, expect, it } from "vitest";
 import { usePreferencesStore } from "../../stores/preferences";
 
 describe("usePreferencesStore", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
+    setupPinia();
     localStorage.clear();
   });
 

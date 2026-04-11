@@ -4,7 +4,7 @@
  * 2. Context source schema is visible in edit modal
  * 3. Stale orchestrator stop fallback works
  */
-import { connect, shutdown } from './connect.mjs';
+import { connect, ipc, shutdown } from './connect.mjs';
 
 const { browser, page, context, port } = await connect();
 let passed = 0;
@@ -109,14 +109,13 @@ await page.waitForTimeout(300);
 
 // --- Fix 3: Stale orchestrator force-stop ---
 await test('Fix 3: Stop without handle gives clean error', async () => {
-  const result = await page.evaluate(async () => {
-    try {
-      await window.__TAURI_INTERNALS__.invoke('plugin:tracepilot|task_orchestrator_stop');
-      return { ok: true };
-    } catch (e) {
-      return { ok: false, error: String(e) };
-    }
-  });
+  let result;
+  try {
+    await ipc(page, 'task_orchestrator_stop');
+    result = { ok: true };
+  } catch (e) {
+    result = { ok: false, error: String(e) };
+  }
   // Should either succeed (manifest exists) or give a clear error (no manifest)
   if (!result.ok) {
     assert(
@@ -127,13 +126,8 @@ await test('Fix 3: Stop without handle gives clean error', async () => {
 });
 
 await test('Fix 3: Health check returns valid state', async () => {
-  const result = await page.evaluate(async () => {
-    try {
-      return await window.__TAURI_INTERNALS__.invoke('plugin:tracepilot|task_orchestrator_health');
-    } catch (e) {
-      return { error: String(e) };
-    }
-  });
+  let result;
+  try { result = await ipc(page, 'task_orchestrator_health'); } catch (e) { result = { error: String(e) }; }
   assert(!result.error, `Health check failed: ${result.error}`);
   assert(
     ['healthy', 'stale', 'stopped', 'unknown'].includes(result.health),

@@ -718,7 +718,7 @@ onUnmounted(() => {
 }
 
 :deep(.btn-accent:hover:not(:disabled)) {
-  background: #4f46e5;
+  background: var(--accent-emphasis);
 }
 
 :deep(.btn-accent:disabled) {

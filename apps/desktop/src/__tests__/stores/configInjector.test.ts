@@ -5,10 +5,9 @@ import type {
   CopilotVersion,
   MigrationDiff,
 } from "@tracepilot/types";
-import { createPinia, setActivePinia } from "pinia";
+import { setupPinia, createDeferred } from "@tracepilot/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useConfigInjectorStore } from "@/stores/configInjector";
-import { createDeferred } from "../helpers/deferred";
 
 // ── Mock client functions ──────────────────────────────────────
 const mockGetAgentDefinitions = vi.fn();
@@ -150,7 +149,7 @@ const FIXTURE_MIGRATION_DIFFS: MigrationDiff[] = [
 
 describe("useConfigInjectorStore", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
+    setupPinia();
     vi.clearAllMocks();
 
     // Default: all succeed with empty/default data

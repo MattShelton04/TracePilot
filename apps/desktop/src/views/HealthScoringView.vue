@@ -5,7 +5,7 @@
 
 import { getHealthScores } from "@tracepilot/client";
 import type { HealthScoringData } from "@tracepilot/types";
-import { ErrorState, HealthRing, LoadingOverlay, toErrorMessage } from "@tracepilot/ui";
+import { ErrorState, HealthRing, LoadingOverlay, StatCard, toErrorMessage } from "@tracepilot/ui";
 import { computed, onMounted, ref } from "vue";
 import StubBanner from "@/components/StubBanner.vue";
 
@@ -52,22 +52,10 @@ function severityLabel(severity: "warning" | "danger"): string {
         <section class="health-hero" aria-label="Overall health summary">
           <HealthRing :score="data.overallScore" size="lg" />
           <div class="grid-4" style="flex: 1;">
-            <div class="stat-card">
-              <div class="stat-card-value success">{{ data.healthyCount }}</div>
-              <div class="stat-card-label">Healthy</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-card-value warning">{{ data.attentionCount }}</div>
-              <div class="stat-card-label">Needs Attention</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-card-value danger">{{ data.criticalCount }}</div>
-              <div class="stat-card-label">Critical</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-card-value warning">{{ avgScoreDisplay }}</div>
-              <div class="stat-card-label">Avg Score</div>
-            </div>
+            <StatCard :value="data.healthyCount" label="Healthy" color="success" />
+            <StatCard :value="data.attentionCount" label="Needs Attention" color="warning" />
+            <StatCard :value="data.criticalCount" label="Critical" color="danger" />
+            <StatCard :value="avgScoreDisplay" label="Avg Score" color="warning" />
           </div>
         </section>
 

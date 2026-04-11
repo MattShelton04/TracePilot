@@ -1,4 +1,4 @@
-import { createPinia, setActivePinia } from "pinia";
+import { setupPinia } from "@tracepilot/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 
@@ -66,7 +66,7 @@ import { useAnalyticsStore } from "../../stores/analytics";
 
 describe("useAnalyticsPage", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
+    setupPinia();
     vi.clearAllMocks();
     mountCallbacks = [];
   });

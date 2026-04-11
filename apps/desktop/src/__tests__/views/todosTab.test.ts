@@ -1,10 +1,9 @@
 import type { TodosResponse } from "@tracepilot/types";
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
+import { setupPinia, createDeferred } from "@tracepilot/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import TodosTab from "../../views/tabs/TodosTab.vue";
-import { createDeferred } from "../helpers/deferred";
 
 const mockGetSessionTodos = vi.fn();
 
@@ -43,7 +42,7 @@ const ErrorAlertStub = {
 };
 describe("TodosTab", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
+    setupPinia();
     vi.clearAllMocks();
   });
 

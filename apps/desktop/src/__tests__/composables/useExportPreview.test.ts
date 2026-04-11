@@ -7,7 +7,7 @@ import type {
 } from "@tracepilot/types";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick, ref } from "vue";
-import { createDeferred } from "../helpers/deferred";
+import { createDeferred } from "@tracepilot/test-utils";
 
 // ── Mocks ──────────────────────────────────────────────────────
 vi.mock("@tracepilot/client", async () => {

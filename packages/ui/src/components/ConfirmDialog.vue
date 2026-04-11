@@ -177,7 +177,7 @@ function variantClass(v?: ConfirmVariant): string {
 
 /* ── Confirm button variant colors ───────────────────────────── */
 .btn-confirm {
-  color: #fff;
+  color: var(--text-on-emphasis, #fff);
   border: none;
   padding: 0.4rem 1rem;
   border-radius: 6px;

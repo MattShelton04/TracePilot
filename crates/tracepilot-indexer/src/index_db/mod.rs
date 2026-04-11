@@ -47,13 +47,8 @@ impl IndexDb {
             Connection::open(path).map_err(|e| IndexerError::database_open(path.display(), e))?;
 
         // Performance and correctness pragmas
-        conn.execute_batch(
-            "PRAGMA journal_mode=WAL;
-             PRAGMA synchronous=NORMAL;
-             PRAGMA foreign_keys=ON;
-             PRAGMA busy_timeout=5000;",
-        )
-        .map_err(|e| IndexerError::database_config("Failed to set database pragmas", e))?;
+        tracepilot_core::utils::sqlite::configure_connection(&conn)
+            .map_err(|e| IndexerError::database_config("Failed to set database pragmas", e))?;
 
         // Enable incremental auto_vacuum so freed pages can be reclaimed on
         // demand via `PRAGMA incremental_vacuum(N)` without a full VACUUM.

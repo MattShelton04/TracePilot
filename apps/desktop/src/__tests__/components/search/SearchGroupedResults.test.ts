@@ -4,10 +4,14 @@ import { describe, expect, it, vi } from "vitest";
 import SearchGroupedResults from "../../../components/search/SearchGroupedResults.vue";
 import type { SessionGroup } from "../../../stores/search";
 
-vi.mock("@tracepilot/ui", () => ({
-  formatRelativeTime: (ts: number) => `${ts}s ago`,
-  formatDateMedium: (ts: number) => `2025-01-01 ${ts}`,
-}));
+vi.mock("@tracepilot/ui", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@tracepilot/ui")>();
+  return {
+    ...actual,
+    formatRelativeTime: (ts: number) => `${ts}s ago`,
+    formatDateMedium: (ts: number) => `2025-01-01 ${ts}`,
+  };
+});
 
 const CONTENT_TYPE_CONFIG: Record<string, ContentTypeStyle> = {
   user_message: { label: "User Message", color: "#3b82f6" },

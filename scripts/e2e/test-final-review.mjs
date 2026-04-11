@@ -2,7 +2,7 @@
  * E2E test for the 10 findings from the final multi-model review.
  * Tests observable behavior through UI + IPC layer.
  */
-import { connect, startConsoleCapture, navigateTo, shutdown } from './connect.mjs';
+import { connect, ipc, startConsoleCapture, navigateTo, shutdown } from './connect.mjs';
 
 const results = [];
 function log(test, pass, detail = '') {
@@ -20,11 +20,8 @@ try {
   // Observable: orchestrator health endpoint works, task_stats works
   // ═══════════════════════════════════════════════════════════════════
   console.log('\n═══ Fix 1: Orchestrator health IPC ═══');
-  const healthResult = await page.evaluate(async () => {
-    try {
-      return await window.__TAURI_INTERNALS__.invoke('plugin:tracepilot|task_orchestrator_health');
-    } catch (e) { return { error: e.toString() }; }
-  });
+  let healthResult;
+  try { healthResult = await ipc(page, 'task_orchestrator_health'); } catch (e) { healthResult = { error: e.toString() }; }
   log('Orchestrator health IPC works', !healthResult?.error,
     healthResult?.health || healthResult?.error?.substring(0, 80));
 
@@ -34,11 +31,8 @@ try {
   // ═══════════════════════════════════════════════════════════════════
   console.log('\n═══ Fix 2: Task detail async guard ═══');
   // First get a task ID if any exist
-  const taskList = await page.evaluate(async () => {
-    try {
-      return await window.__TAURI_INTERNALS__.invoke('plugin:tracepilot|task_list', {});
-    } catch (e) { return []; }
-  });
+  let taskList;
+  try { taskList = await ipc(page, 'task_list'); } catch { taskList = []; }
   
   if (taskList.length > 0) {
     const taskId = taskList[0].id;
@@ -55,12 +49,11 @@ try {
   // Observable: stop on non-running orchestrator gives clean error
   // ═══════════════════════════════════════════════════════════════════
   console.log('\n═══ Fix 3: Orchestrator stop safety ═══');
-  const stopResult = await page.evaluate(async () => {
-    try {
-      await window.__TAURI_INTERNALS__.invoke('plugin:tracepilot|task_orchestrator_stop');
-      return { ok: true };
-    } catch (e) { return { error: e.toString() }; }
-  });
+  let stopResult;
+  try {
+    await ipc(page, 'task_orchestrator_stop');
+    stopResult = { ok: true };
+  } catch (e) { stopResult = { error: e.toString() }; }
   // Expected: "Orchestrator is not running." error since we didn't start it
   log('Stop gives clean error when not running',
     stopResult?.error?.includes('not running') || stopResult?.ok === true,
@@ -72,42 +65,31 @@ try {
   // ═══════════════════════════════════════════════════════════════════
   console.log('\n═══ Fix 4: Terminal state protection ═══');
   // Create a temporary test task
-  const newTask = await page.evaluate(async () => {
-    try {
-      return await window.__TAURI_INTERNALS__.invoke('plugin:tracepilot|task_create', {
-        taskType: 'session_summary',
-        presetId: 'session-summary',
-        inputParams: {},
-        priority: 'normal',
-      });
-    } catch (e) { return { error: e.toString() }; }
-  });
+  let newTask;
+  try { newTask = await ipc(page, 'task_create', {
+    taskType: 'session_summary',
+    presetId: 'session-summary',
+    inputParams: {},
+    priority: 'normal',
+  }); } catch (e) { newTask = { error: e.toString() }; }
 
   if (newTask && !newTask.error) {
     // Cancel it
-    const cancelResult = await page.evaluate(async (id) => {
-      try {
-        await window.__TAURI_INTERNALS__.invoke('plugin:tracepilot|task_cancel', { id });
-        return { ok: true };
-      } catch (e) { return { error: e.toString() }; }
-    }, newTask.id);
+    let cancelResult;
+    try {
+      await ipc(page, 'task_cancel', { id: newTask.id });
+      cancelResult = { ok: true };
+    } catch (e) { cancelResult = { error: e.toString() }; }
     log('Task cancel works', cancelResult?.ok === true, `taskId: ${newTask.id}`);
 
     // Verify it's cancelled
-    const verifyTask = await page.evaluate(async (id) => {
-      try {
-        return await window.__TAURI_INTERNALS__.invoke('plugin:tracepilot|task_get', { id });
-      } catch (e) { return { error: e.toString() }; }
-    }, newTask.id);
+    let verifyTask;
+    try { verifyTask = await ipc(page, 'task_get', { id: newTask.id }); } catch (e) { verifyTask = { error: e.toString() }; }
     log('Cancelled task status is terminal', verifyTask?.status === 'cancelled',
       `status: ${verifyTask?.status}`);
 
     // Clean up: delete the test task
-    await page.evaluate(async (id) => {
-      try {
-        await window.__TAURI_INTERNALS__.invoke('plugin:tracepilot|task_delete', { id });
-      } catch (e) { /* ignore */ }
-    }, newTask.id);
+    try { await ipc(page, 'task_delete', { id: newTask.id }); } catch { /* ignore */ }
   } else {
     log('Task cancel works', false, `create failed: ${newTask?.error}`);
     log('Cancelled task status is terminal', false, 'SKIP: create failed');
@@ -118,11 +100,8 @@ try {
   // Observable: jobs endpoint works via IPC
   // ═══════════════════════════════════════════════════════════════════
   console.log('\n═══ Fix 5: Jobs refresh ═══');
-  const jobsList = await page.evaluate(async () => {
-    try {
-      return await window.__TAURI_INTERNALS__.invoke('plugin:tracepilot|task_list_jobs');
-    } catch (e) { return { error: e.toString() }; }
-  });
+  let jobsList;
+  try { jobsList = await ipc(page, 'task_list_jobs'); } catch (e) { jobsList = { error: e.toString() }; }
   log('Jobs IPC works', Array.isArray(jobsList), `count: ${jobsList?.length ?? jobsList?.error}`);
 
   // ═══════════════════════════════════════════════════════════════════
@@ -130,11 +109,8 @@ try {
   // Observable: health check returns structured result
   // ═══════════════════════════════════════════════════════════════════
   console.log('\n═══ Fix 6: Health check error reporting ═══');
-  const health2 = await page.evaluate(async () => {
-    try {
-      return await window.__TAURI_INTERNALS__.invoke('plugin:tracepilot|task_orchestrator_health');
-    } catch (e) { return { error: e.toString() }; }
-  });
+  let health2;
+  try { health2 = await ipc(page, 'task_orchestrator_health'); } catch (e) { health2 = { error: e.toString() }; }
   log('Health returns structured result', health2 && typeof health2.health === 'string',
     `health: ${health2?.health}`);
 
@@ -153,11 +129,8 @@ try {
   // Observable: task_stats returns valid stats structure
   // ═══════════════════════════════════════════════════════════════════
   console.log('\n═══ Fix 8: Task stats ═══');
-  const stats = await page.evaluate(async () => {
-    try {
-      return await window.__TAURI_INTERNALS__.invoke('plugin:tracepilot|task_stats');
-    } catch (e) { return { error: e.toString() }; }
-  });
+  let stats;
+  try { stats = await ipc(page, 'task_stats'); } catch (e) { stats = { error: e.toString() }; }
   log('Task stats IPC works', stats && typeof stats.total === 'number',
     `total: ${stats?.total}, pending: ${stats?.pending}, in_progress: ${stats?.in_progress}`);
 
@@ -176,11 +149,8 @@ try {
   await navigateTo(page, '/tasks/presets');
   await page.waitForTimeout(2000);
   const presetsPage = await page.locator('.page-content').count();
-  const presetsList = await page.evaluate(async () => {
-    try {
-      return await window.__TAURI_INTERNALS__.invoke('plugin:tracepilot|task_list_presets');
-    } catch (e) { return { error: e.toString() }; }
-  });
+  let presetsList;
+  try { presetsList = await ipc(page, 'task_list_presets'); } catch (e) { presetsList = { error: e.toString() }; }
   log('Presets page loads', presetsPage > 0);
   log('Presets IPC works', Array.isArray(presetsList), `count: ${presetsList?.length ?? presetsList?.error}`);
 

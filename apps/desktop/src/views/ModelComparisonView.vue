@@ -6,6 +6,7 @@ import {
   formatNumber,
   formatPercent,
   LoadingOverlay,
+  StatCard,
 } from "@tracepilot/ui";
 import { computed, ref, watch } from "vue";
 import AnalyticsPageHeader from "@/components/AnalyticsPageHeader.vue";
@@ -428,22 +429,10 @@ const compareMetrics = computed<CompareMetric[]>(() => {
           <template v-else>
             <!-- Stat Cards -->
             <div class="grid-4 mb-4">
-              <div class="stat-card">
-                <div class="stat-card-value accent">{{ modelCount }}</div>
-                <div class="stat-card-label">Models Used</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-card-value done">{{ formatNumber(totalTokens) }}</div>
-                <div class="stat-card-label">Total Tokens</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-card-value success">{{ formatCost(totalCost) }}</div>
-                <div class="stat-card-label">Wholesale Cost</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-card-value warning">{{ formatCost(totalCopilotCost) }}</div>
-                <div class="stat-card-label">Copilot Cost</div>
-              </div>
+              <StatCard :value="modelCount" label="Models Used" />
+              <StatCard :value="formatNumber(totalTokens)" label="Total Tokens" color="done" />
+              <StatCard :value="formatCost(totalCost)" label="Wholesale Cost" color="success" />
+              <StatCard :value="formatCost(totalCopilotCost)" label="Copilot Cost" color="warning" />
             </div>
 
             <!-- Model Cards Row -->

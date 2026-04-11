@@ -3,7 +3,7 @@
  * 1. Quick presets visual redesign renders correctly
  * 2. Stale orchestrator stop cleanup works (heartbeat deleted → health = stopped)
  */
-import { connect, navigateTo, shutdown } from './connect.mjs';
+import { connect, ipc, navigateTo, shutdown } from './connect.mjs';
 
 const passed = [];
 const failed = [];
@@ -63,27 +63,20 @@ async function run() {
 
   // ── 5. Check health status via IPC ──
   try {
-    const health = await page.evaluate(async () => {
-      return await window.__TAURI_INTERNALS__.invoke(
-        'plugin:tracepilot|task_orchestrator_health'
-      );
-    });
+    const health = await ipc(page, 'task_orchestrator_health');
     console.log(`    Health: ${JSON.stringify(health)}`);
     ok(`Health check returned: ${health?.health ?? 'null'}`);
   } catch (e) { fail('Health check IPC', e.message); }
 
   // ── 6. Test stop command when not running (should clean up, not error) ──
   try {
-    const result = await page.evaluate(async () => {
-      try {
-        await window.__TAURI_INTERNALS__.invoke(
-          'plugin:tracepilot|task_orchestrator_stop'
-        );
-        return { ok: true };
-      } catch (e) {
-        return { ok: false, err: String(e) };
-      }
-    });
+    let result;
+    try {
+      await ipc(page, 'task_orchestrator_stop');
+      result = { ok: true };
+    } catch (e) {
+      result = { ok: false, err: String(e) };
+    }
     // With our fix, stop should succeed (clean up files) even without a running process
     if (result.ok) {
       ok('Stop command succeeds (cleanup mode)');
@@ -95,11 +88,7 @@ async function run() {
 
   // ── 7. Health after stop should be stopped (not stale) ──
   try {
-    const health = await page.evaluate(async () => {
-      return await window.__TAURI_INTERNALS__.invoke(
-        'plugin:tracepilot|task_orchestrator_health'
-      );
-    });
+    const health = await ipc(page, 'task_orchestrator_health');
     console.log(`    Health after stop: ${JSON.stringify(health)}`);
     if (health?.health === 'stopped' || health?.health === 'unknown') {
       ok(`Health after stop: ${health.health}`);

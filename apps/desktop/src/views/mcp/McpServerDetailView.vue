@@ -1337,13 +1337,13 @@ function goBack() {
 .btn-primary {
   background: var(--accent-emphasis);
   border-color: var(--accent-emphasis);
-  color: #fff;
+  color: var(--text-on-emphasis, #fff);
 }
 
 .btn-primary:hover {
   background: var(--accent-fg);
   border-color: var(--accent-fg);
-  color: #fff;
+  color: var(--text-on-emphasis, #fff);
 }
 
 .btn-primary:disabled {

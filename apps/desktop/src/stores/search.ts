@@ -18,10 +18,10 @@ import type {
   SearchResult,
   SearchStatsResponse,
 } from "@tracepilot/types";
-import { toErrorMessage } from "@tracepilot/ui";
+import { IPC_EVENTS } from "@tracepilot/types";
+import { toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, nextTick, ref, watch } from "vue";
-import { useAsyncGuard } from "@/composables/useAsyncGuard";
 import { useRecentSearches } from "@/composables/useRecentSearches";
 import { useSearchClipboard } from "@/composables/useSearchClipboard";
 import { hasMeaningfulDateValue } from "@/utils/dateValidation";
@@ -131,14 +131,14 @@ export const useSearchStore = defineStore("search", () => {
 
     try {
       unlisteners.push(
-        await safeListen("search-indexing-started", () => {
+        await safeListen(IPC_EVENTS.SEARCH_INDEXING_STARTED, () => {
           searchIndexing.value = true;
           searchIndexingProgress.value = null;
         }),
-        await safeListen<SearchIndexingProgress>("search-indexing-progress", (event) => {
+        await safeListen<SearchIndexingProgress>(IPC_EVENTS.SEARCH_INDEXING_PROGRESS, (event) => {
           searchIndexingProgress.value = event.payload;
         }),
-        await safeListen("search-indexing-finished", () => {
+        await safeListen(IPC_EVENTS.SEARCH_INDEXING_FINISHED, () => {
           searchIndexing.value = false;
           searchIndexingProgress.value = null;
           // Only perform background operations if the search view is currently mounted

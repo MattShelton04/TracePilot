@@ -175,18 +175,18 @@ function fileName(path: string): string {
 }
 
 /* ── Syntax highlighting tokens ── */
-.code-line-content :deep(.syn-keyword)  { color: #c084fc; }
-.code-line-content :deep(.syn-type)     { color: #38bdf8; }
-.code-line-content :deep(.syn-string)   { color: #34d399; }
-.code-line-content :deep(.syn-number)   { color: #fb923c; }
+.code-line-content :deep(.syn-keyword)  { color: var(--syn-keyword, #c084fc); }
+.code-line-content :deep(.syn-type)     { color: var(--syn-type, #38bdf8); }
+.code-line-content :deep(.syn-string)   { color: var(--syn-string, #34d399); }
+.code-line-content :deep(.syn-number)   { color: var(--syn-number, #fb923c); }
 .code-line-content :deep(.syn-comment)  { color: var(--text-tertiary); font-style: italic; }
-.code-line-content :deep(.syn-func)     { color: #fbbf24; }
-.code-line-content :deep(.syn-const)    { color: #818cf8; }
-.code-line-content :deep(.syn-param)    { color: #f472b6; }
+.code-line-content :deep(.syn-func)     { color: var(--syn-func, #fbbf24); }
+.code-line-content :deep(.syn-const)    { color: var(--syn-const, #818cf8); }
+.code-line-content :deep(.syn-param)    { color: var(--syn-param, #f472b6); }
 .code-line-content :deep(.syn-operator) { color: var(--text-tertiary); }
-.code-line-content :deep(.syn-tag)      { color: #fb7185; }
-.code-line-content :deep(.syn-attr)     { color: #38bdf8; }
+.code-line-content :deep(.syn-tag)      { color: var(--syn-tag, #fb7185); }
+.code-line-content :deep(.syn-attr)     { color: var(--syn-attr, #38bdf8); }
 .code-line-content :deep(.syn-punct)    { color: var(--text-tertiary); }
-.code-line-content :deep(.syn-prop)     { color: #93c5fd; }
-.code-line-content :deep(.syn-regex)    { color: #fb923c; }
+.code-line-content :deep(.syn-prop)     { color: var(--syn-prop, #93c5fd); }
+.code-line-content :deep(.syn-regex)    { color: var(--syn-regex, #fb923c); }
 </style>

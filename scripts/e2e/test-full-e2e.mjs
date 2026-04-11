@@ -1,14 +1,5 @@
 // Full E2E integration test: create task → start orchestrator → verify processing
-import { connect, navigateTo, startConsoleCapture } from './connect.mjs';
-
-async function ipc(page, cmd, args = {}) {
-  return page.evaluate(
-    async ({ cmd, args }) => {
-      return window.__TAURI_INTERNALS__.invoke(`plugin:tracepilot|${cmd}`, args);
-    },
-    { cmd, args },
-  );
-}
+import { connect, ipc, navigateTo, startConsoleCapture } from './connect.mjs';
 
 async function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));

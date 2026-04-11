@@ -1,6 +1,6 @@
 import * as client from "@tracepilot/client";
 import { createDefaultConfig } from "@tracepilot/types";
-import { createPinia, setActivePinia } from "pinia";
+import { setupPinia } from "@tracepilot/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import { BASE_FONT_SIZE_PX, usePreferencesStore } from "../../stores/preferences";
@@ -16,7 +16,7 @@ vi.mock("@tracepilot/client", async () => {
 
 describe("usePreferencesStore DOM side effects", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
+    setupPinia();
     localStorage.clear();
     // Reset document styles
     document.documentElement.style.fontSize = "";

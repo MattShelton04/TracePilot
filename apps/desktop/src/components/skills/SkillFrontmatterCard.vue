@@ -313,7 +313,7 @@ function removeGlob(index: number) {
 
 .fm-card__toggle input:checked + .toggle-slider::after {
   transform: translateX(14px);
-  background: #fff;
+  background: var(--text-on-emphasis, #fff);
 }
 
 .fm-card__toggle input:disabled + .toggle-slider {

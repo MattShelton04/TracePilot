@@ -11,9 +11,8 @@ import type {
   RedactionOptions,
   SectionId,
 } from "@tracepilot/types";
-import { toErrorMessage } from "@tracepilot/ui";
+import { toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
 import { type ComputedRef, onUnmounted, type Ref, ref, watch } from "vue";
-import { useAsyncGuard } from "@/composables/useAsyncGuard";
 import { logError } from "@/utils/logger";
 
 const DEBOUNCE_MS = 400;

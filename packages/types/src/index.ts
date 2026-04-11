@@ -3,6 +3,7 @@ export * from "./config.js";
 export * from "./conversation.js";
 export * from "./defaults.js";
 export * from "./export.js";
+export { IPC_EVENTS } from "./ipc-events.js";
 export { TRACEPILOT_KNOWN_EVENTS, type TracePilotKnownEvent } from "./known-events.js";
 export * from "./mcp.js";
 export * from "./models.js";

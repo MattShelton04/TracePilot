@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { SkillAsset, SkillFrontmatter } from "@tracepilot/types";
-import { MarkdownContent, useResizeHandle } from "@tracepilot/ui";
+import { MarkdownContent, useConfirmDialog, useResizeHandle } from "@tracepilot/ui";
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import SkillAssetsTree from "@/components/skills/SkillAssetsTree.vue";
@@ -14,6 +14,7 @@ import { parseSkillContent, serializeSkillContent } from "@/utils/skillFrontmatt
 const route = useRoute();
 const router = useRouter();
 const store = useSkillsStore();
+const { confirm: showConfirm } = useConfirmDialog();
 
 // ─── State ────────────────────────────────────────────────
 const saving = ref(false);
@@ -157,7 +158,13 @@ async function handleSave() {
 }
 
 async function handleDelete() {
-  if (!confirm("Delete this skill? This cannot be undone.")) return;
+  const { confirmed } = await showConfirm({
+    title: "Delete Skill",
+    message: "Delete this skill? This cannot be undone.",
+    variant: "danger",
+    confirmLabel: "Delete",
+  });
+  if (!confirmed) return;
   deleting.value = true;
   const ok = await store.deleteSkill(skillDir.value);
   deleting.value = false;
@@ -166,9 +173,15 @@ async function handleDelete() {
   }
 }
 
-function handleDiscard() {
+async function handleDiscard() {
   if (!editorDirty.value) return;
-  if (!confirm("Discard all unsaved changes?")) return;
+  const { confirmed } = await showConfirm({
+    title: "Discard Changes",
+    message: "Discard all unsaved changes?",
+    variant: "warning",
+    confirmLabel: "Discard",
+  });
+  if (!confirmed) return;
   loadSkill();
 }
 
@@ -190,7 +203,13 @@ async function handleNewFile(name: string) {
 }
 
 async function handleRemoveAsset(assetPath: string) {
-  if (!confirm(`Remove asset "${assetPath}"?`)) return;
+  const { confirmed } = await showConfirm({
+    title: "Remove Asset",
+    message: `Remove asset "${assetPath}"?`,
+    variant: "danger",
+    confirmLabel: "Remove",
+  });
+  if (!confirmed) return;
   const ok = await store.removeAsset(skillDir.value, assetPath);
   if (ok) await loadAssets();
 }
@@ -740,7 +759,7 @@ function syncScroll() {
   border-radius: var(--radius-md);
   border: none;
   background: var(--accent-emphasis);
-  color: #fff;
+  color: var(--text-on-emphasis, #fff);
   font-size: 0.8125rem;
   font-weight: 600;
   cursor: pointer;

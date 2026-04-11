@@ -10,10 +10,9 @@ import {
   taskStats,
 } from "@tracepilot/client";
 import type { Job, NewTask, Task, TaskFilter, TaskStats } from "@tracepilot/types";
-import { toErrorMessage } from "@tracepilot/ui";
+import { toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
-import { useAsyncGuard } from "@/composables/useAsyncGuard";
 import { logError, logWarn } from "@/utils/logger";
 
 export type TaskSortOption = "newest" | "oldest" | "priority" | "status";

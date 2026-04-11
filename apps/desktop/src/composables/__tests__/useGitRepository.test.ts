@@ -1,4 +1,5 @@
 import * as client from "@tracepilot/client";
+import { createDeferred } from "@tracepilot/test-utils";
 import { flushPromises } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick, ref } from "vue";
@@ -11,29 +12,23 @@ vi.mock("@tracepilot/client", () => ({
 }));
 
 // Mock UI utilities - these are simple path utilities
-vi.mock("@tracepilot/ui", () => ({
-  pathBasename: vi.fn((path: string) => path.split("/").pop() || path.split("\\").pop() || ""),
-  pathDirname: vi.fn((path: string) => {
-    const parts = path.split("/");
-    if (parts.length > 1) return parts.slice(0, -1).join("/");
-    const winParts = path.split("\\");
-    if (winParts.length > 1) return winParts.slice(0, -1).join("\\");
-    return "";
-  }),
-  sanitizeBranchForPath: vi.fn((branch: string) => branch.replace(/[/\\:*?"<>|#]/g, "-")),
-}));
+vi.mock("@tracepilot/ui", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@tracepilot/ui")>();
+  return {
+    ...actual,
+    pathBasename: vi.fn((path: string) => path.split("/").pop() || path.split("\\").pop() || ""),
+    pathDirname: vi.fn((path: string) => {
+      const parts = path.split("/");
+      if (parts.length > 1) return parts.slice(0, -1).join("/");
+      const winParts = path.split("\\");
+      if (winParts.length > 1) return winParts.slice(0, -1).join("\\");
+      return "";
+    }),
+    sanitizeBranchForPath: vi.fn((branch: string) => branch.replace(/[/\\:*?"<>|#]/g, "-")),
+  };
+});
 
 describe("useGitRepository", () => {
-  function createDeferred<T>() {
-    let resolve!: (value: T) => void;
-    let reject!: (error?: unknown) => void;
-    const promise = new Promise<T>((res, rej) => {
-      resolve = res;
-      reject = rej;
-    });
-    return { promise, resolve, reject };
-  }
-
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(client.getDefaultBranch).mockResolvedValue("main");

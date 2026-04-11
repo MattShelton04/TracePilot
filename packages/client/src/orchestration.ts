@@ -21,16 +21,9 @@ import type {
   WorktreeInfo,
 } from "@tracepilot/types";
 
-import { type CommandName } from "./commands.js";
-import { invokePlugin, isTauri } from "./invoke.js";
+import { createInvoke } from "./invoke.js";
 
-async function invoke<T>(cmd: CommandName, args?: Record<string, unknown>): Promise<T> {
-  if (isTauri()) {
-    return invokePlugin<T>(cmd, args);
-  }
-  console.warn(`[TracePilot] Not in Tauri — returning mock data for "${cmd}"`);
-  return getMockData<T>(cmd, args);
-}
+const invoke = createInvoke("Orchestration", getMockData);
 
 // ─── System ───────────────────────────────────────────────────────
 

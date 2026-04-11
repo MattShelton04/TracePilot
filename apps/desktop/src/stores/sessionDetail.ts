@@ -21,10 +21,9 @@ import type {
   TodosResponse,
   TurnToolCall,
 } from "@tracepilot/types";
-import { toErrorMessage } from "@tracepilot/ui";
+import { type AsyncGuardToken, toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { type Ref, ref } from "vue";
-import { type AsyncGuardToken, useAsyncGuard } from "@/composables/useAsyncGuard";
 import { logError, logWarn } from "@/utils/logger";
 
 export const useSessionDetailStore = defineStore("sessionDetail", () => {

@@ -1,10 +1,17 @@
 <script setup lang="ts">
 import { isSessionRunning, openInExplorer, resumeSessionInTerminal } from "@tracepilot/client";
-import { Badge, ErrorAlert, SkeletonLoader, TabNav, useClipboard } from "@tracepilot/ui";
+import {
+  Badge,
+  ErrorAlert,
+  PageShell,
+  SkeletonLoader,
+  TabNav,
+  useAutoRefresh,
+  useClipboard,
+} from "@tracepilot/ui";
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import RefreshToolbar from "@/components/RefreshToolbar.vue";
-import { useAutoRefresh } from "@/composables/useAutoRefresh";
 import { usePerfMonitor } from "@/composables/usePerfMonitor";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
@@ -139,14 +146,13 @@ watch(isSessionActive, (active) => {
 </script>
 
 <template>
-  <div class="page-content">
-    <div class="page-content-inner">
+  <PageShell>
 
-      <!-- Loading state -->
-      <div v-if="store.loading" style="padding-top: 8px;">
-        <SkeletonLoader variant="text" :count="1" />
-        <SkeletonLoader variant="badge" :count="3" />
-      </div>
+    <!-- Loading state -->
+    <div v-if="store.loading" style="padding-top: 8px;">
+      <SkeletonLoader variant="text" :count="1" />
+      <SkeletonLoader variant="badge" :count="3" />
+    </div>
 
       <!-- Error state -->
       <ErrorAlert v-if="store.error" :message="store.error" />
@@ -244,8 +250,7 @@ watch(isSessionActive, (active) => {
         </div>
       </template>
 
-    </div>
-  </div>
+  </PageShell>
 </template>
 
 <style scoped>

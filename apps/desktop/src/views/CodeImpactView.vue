@@ -8,6 +8,7 @@ import {
   generateYLabels,
   LoadingOverlay,
   mapToLineCoords,
+  StatCard,
   toPolylinePoints,
   useChartTooltip,
 } from "@tracepilot/ui";
@@ -100,23 +101,19 @@ const timelineChart = computed(() => {
 
           <!-- Stats Row -->
           <div class="grid-4 mb-4">
-            <div class="stat-card">
-              <div class="stat-card-value accent">{{ formatNumberFull(data.filesModified) }}</div>
-              <div class="stat-card-label">Files Modified</div>
-            </div>
+            <StatCard :value="formatNumberFull(data.filesModified)" label="Files Modified" />
             <div class="stat-card">
               <div class="stat-card-value lines-added-value">+{{ formatNumberFull(data.linesAdded) }}</div>
               <div class="stat-card-label">Lines Added</div>
             </div>
-            <div class="stat-card">
-              <div class="stat-card-value danger">-{{ formatNumberFull(data.linesRemoved) }}</div>
-              <div class="stat-card-label">Lines Removed</div>
-            </div>
-            <div class="stat-card">
-              <div :class="['stat-card-value', data.netChange >= 0 ? 'done' : 'danger']">{{ data.netChange >= 0 ? '+' : '' }}{{ formatNumberFull(data.netChange) }}</div>
-              <div class="stat-card-label">Net Change</div>
-              <div class="stat-card-trend">{{ data.netChange > 0 ? 'Net positive' : data.netChange < 0 ? 'Net negative' : 'Net neutral' }}</div>
-            </div>
+            <StatCard :value="`-${formatNumberFull(data.linesRemoved)}`" label="Lines Removed" color="danger" />
+            <StatCard
+              :value="`${data.netChange >= 0 ? '+' : ''}${formatNumberFull(data.netChange)}`"
+              label="Net Change"
+              :color="data.netChange >= 0 ? 'done' : 'danger'"
+              :trend="data.netChange > 0 ? 'Net positive' : data.netChange < 0 ? 'Net negative' : 'Net neutral'"
+              :trend-direction="data.netChange > 0 ? 'up' : data.netChange < 0 ? 'down' : 'neutral'"
+            />
           </div>
 
           <!-- Two-Column Layout -->

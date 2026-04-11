@@ -11,11 +11,10 @@
  */
 
 import { fetchRemote, getDefaultBranch } from "@tracepilot/client";
-import { pathBasename, pathDirname, sanitizeBranchForPath } from "@tracepilot/ui";
+import { pathBasename, pathDirname, sanitizeBranchForPath, useAsyncGuard } from "@tracepilot/ui";
 import type { Ref } from "vue";
 import { ref, watch } from "vue";
 import { logWarn } from "@/utils/logger";
-import { useAsyncGuard } from "./useAsyncGuard";
 
 export interface UseGitRepositoryOptions {
   /**

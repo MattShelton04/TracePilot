@@ -1,4 +1,4 @@
-import { createPinia, setActivePinia } from "pinia";
+import { setupPinia } from "@tracepilot/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useSessionsStore } from "../../stores/sessions";
 
@@ -29,7 +29,7 @@ const MOCK_SESSION = {
 
 describe("useSessionsStore", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
+    setupPinia();
     mockListSessions.mockReset();
     mockReindexSessions.mockReset();
   });

@@ -15,7 +15,7 @@ vi.mock("vue", async () => {
   };
 });
 
-import { useAutoRefresh } from "../useAutoRefresh";
+import { useAutoRefresh } from "../composables/useAutoRefresh";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 

@@ -1938,7 +1938,7 @@ onMounted(() => {
   border-color: var(--danger-muted);
 }
 .btn-danger {
-  color: #fff;
+  color: var(--text-on-emphasis, #fff);
   background: var(--danger-fg);
   border: 1px solid var(--danger-fg);
   font-weight: 600;

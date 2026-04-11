@@ -1,11 +1,16 @@
 <script setup lang="ts">
-import { ErrorState, LoadingSpinner, SectionPanel, StatCard } from "@tracepilot/ui";
+import {
+  ErrorState,
+  LoadingSpinner,
+  SectionPanel,
+  StatCard,
+  useAutoRefresh,
+} from "@tracepilot/ui";
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import RefreshToolbar from "@/components/RefreshToolbar.vue";
 import TaskStatusBadge from "@/components/tasks/TaskStatusBadge.vue";
 import TaskTypeBadge from "@/components/tasks/TaskTypeBadge.vue";
-import { useAutoRefresh } from "@/composables/useAutoRefresh";
 import { useOrchestratorStore } from "@/stores/orchestrator";
 import { taskTitle, useTasksStore } from "@/stores/tasks";
 

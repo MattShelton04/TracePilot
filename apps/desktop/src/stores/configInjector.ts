@@ -19,10 +19,9 @@ import type {
   CopilotVersion,
   MigrationDiff,
 } from "@tracepilot/types";
-import { toErrorMessage } from "@tracepilot/ui";
+import { toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
-import { useAsyncGuard } from "@/composables/useAsyncGuard";
 import { useToastStore } from "@/stores/toast";
 import { aggregateSettledErrors } from "@/utils/settleErrors";
 import { allSettledRecord } from "@/utils/settledRecord";

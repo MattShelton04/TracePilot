@@ -61,7 +61,7 @@ pub(crate) fn emit_indexing_progress(
         total_events: progress.running_events,
         total_repos: progress.running_repos,
     };
-    let _ = app.emit("indexing-progress", payload);
+    let _ = app.emit(crate::events::INDEXING_PROGRESS, payload);
 }
 
 /// Read config from shared state, falling back to defaults.
@@ -98,6 +98,32 @@ pub(crate) fn get_or_init_task_db(
     }
     drop(guard);
     Ok(state.clone())
+}
+
+/// Initialise the task DB (if needed), acquire the mutex, and run a
+/// blocking closure with the underlying `TaskDb`.
+///
+/// This encapsulates the `get_or_init_task_db → spawn_blocking → lock →
+/// unwrap Option` boilerplate shared by most task CRUD commands.
+pub(crate) async fn with_task_db<T, F>(
+    state: &crate::types::SharedTaskDb,
+    f: F,
+) -> CmdResult<T>
+where
+    T: Send + 'static,
+    F: FnOnce(&tracepilot_orchestrator::task_db::TaskDb) -> Result<T, BindingsError> + Send + 'static,
+{
+    let db = get_or_init_task_db(state)?;
+    tokio::task::spawn_blocking(move || {
+        let guard = db
+            .lock()
+            .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
+        let db = guard
+            .as_ref()
+            .ok_or_else(|| BindingsError::Validation("TaskDb not init".into()))?;
+        f(db)
+    })
+    .await?
 }
 
 pub(crate) fn summary_to_list_item(

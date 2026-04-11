@@ -54,10 +54,10 @@ function dismiss() {
   align-items: center;
   gap: 10px;
   padding: 8px 16px;
-  background: var(--color-accent-subtle, rgba(99, 102, 241, 0.12));
-  border-bottom: 1px solid var(--color-border-muted, rgba(255, 255, 255, 0.06));
+  background: var(--accent-subtle);
+  border-bottom: 1px solid var(--border-muted);
   font-size: 13px;
-  color: var(--color-fg-default, #e2e8f0);
+  color: var(--text-primary);
   z-index: 100;
 }
 
@@ -78,7 +78,7 @@ function dismiss() {
   padding: 4px 12px;
   border-radius: 6px;
   background: var(--accent-emphasis);
-  color: #fff;
+  color: var(--text-on-emphasis, #fff);
   border: none;
   font-size: 12px;
   font-weight: 500;
@@ -88,13 +88,13 @@ function dismiss() {
 }
 
 .update-banner-btn:hover {
-  background: var(--color-accent-emphasis-hover, #4f46e5);
+  background: var(--accent-emphasis-hover);
 }
 
 .update-banner-close {
   background: none;
   border: none;
-  color: var(--color-fg-muted, #94a3b8);
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 18px;
   line-height: 1;
@@ -104,7 +104,7 @@ function dismiss() {
 }
 
 .update-banner-close:hover {
-  color: var(--color-fg-default, #e2e8f0);
+  color: var(--text-primary);
 }
 
 .banner-slide-enter-active,

@@ -49,6 +49,20 @@ export const DEFAULT_MAX_RETRIES = 3;
 export const DEFAULT_CONTEXT_BUDGET_TOKENS = 50_000;
 
 /**
+ * Default feature flag values — single source of truth for TypeScript.
+ * MUST match `crates/tracepilot-tauri-bindings/src/config.rs` FeaturesConfig::default().
+ */
+export const DEFAULT_FEATURES: TracePilotConfig["features"] = {
+  exportView: false,
+  healthScoring: false,
+  sessionReplay: false,
+  renderMarkdown: true,
+  mcpServers: true,
+  skills: true,
+  aiTasks: false,
+};
+
+/**
  * Build a default TracePilotConfig, optionally overriding specific fields.
  *
  * Deep-merges top-level sections so callers can override individual fields
@@ -109,13 +123,7 @@ export function createDefaultConfig(
       ...overrides?.toolRendering,
     },
     features: {
-      exportView: true,
-      healthScoring: false,
-      sessionReplay: false,
-      renderMarkdown: true,
-      mcpServers: false,
-      skills: false,
-      aiTasks: false,
+      ...DEFAULT_FEATURES,
       ...overrides?.features,
     },
     logging: {

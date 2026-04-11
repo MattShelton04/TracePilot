@@ -164,23 +164,17 @@ describe("useAsyncData", () => {
 
       const { data, execute } = useAsyncData(asyncFn);
 
-      // Start first request
       const first = execute();
-
-      // Start second request before first completes
       const second = execute();
 
-      // Resolve second request first
       resolveSecond?.("second");
       await second;
 
       expect(data.value).toBe("second");
 
-      // Resolve first request (should be ignored)
       resolveFirst?.("first");
       await first;
 
-      // Data should still be 'second'
       expect(data.value).toBe("second");
     });
 
@@ -199,24 +193,18 @@ describe("useAsyncData", () => {
 
       const { data, error, execute } = useAsyncData(asyncFn);
 
-      // Start first request
       const first = execute();
-
-      // Start second request
       const second = execute();
 
-      // Resolve second request first
       resolveSecond?.("success");
       await second;
 
       expect(data.value).toBe("success");
       expect(error.value).toBeNull();
 
-      // Reject first request (should be ignored)
       rejectFirst?.(new Error("old error"));
-      await first.catch(() => {}); // Suppress unhandled rejection
+      await first.catch(() => {});
 
-      // Error should still be null
       expect(error.value).toBeNull();
     });
 
@@ -235,19 +223,16 @@ describe("useAsyncData", () => {
 
       const { loading, execute } = useAsyncData(asyncFn);
 
-      // Start both requests
       execute();
       execute();
 
       expect(loading.value).toBe(true);
 
-      // Resolve second (current)
       resolveSecond?.("second");
       await nextTick();
 
       expect(loading.value).toBe(false);
 
-      // Resolve first (stale) - should not change loading
       resolveFirst?.("first");
       await nextTick();
 
@@ -337,7 +322,6 @@ describe("useAsyncData", () => {
       resolveFirst?.("first");
       await nextTick();
 
-      // Should still be called only once
       expect(onSuccess).toHaveBeenCalledTimes(1);
     });
   });
@@ -381,129 +365,6 @@ describe("useAsyncData", () => {
     });
   });
 
-  describe("Retry", () => {
-    it("should retry after failure when retry is configured", async () => {
-      const asyncFn = vi
-        .fn()
-        .mockRejectedValueOnce(new Error("fail"))
-        .mockResolvedValueOnce("success");
-
-      const { data, error, execute, retry, canRetry } = useAsyncData(asyncFn, {
-        retry: { maxAttempts: 3, delay: 100 },
-      });
-
-      await execute();
-      expect(error.value).not.toBeNull();
-      expect(canRetry.value).toBe(true);
-
-      const retryPromise = retry();
-      vi.advanceTimersByTime(100);
-      await retryPromise;
-
-      expect(data.value).toBe("success");
-      expect(error.value).toBeNull();
-      expect(canRetry.value).toBe(false);
-    });
-
-    it("should use exponential backoff", async () => {
-      const asyncFn = vi
-        .fn()
-        .mockRejectedValueOnce(new Error("fail 1"))
-        .mockRejectedValueOnce(new Error("fail 2"))
-        .mockResolvedValueOnce("success");
-
-      const { execute, retry } = useAsyncData(asyncFn, {
-        retry: { maxAttempts: 3, delay: 100 },
-      });
-
-      await execute();
-
-      // First retry: 100ms
-      const retry1 = retry();
-      vi.advanceTimersByTime(100);
-      await retry1;
-
-      // Second retry: 200ms (exponential backoff)
-      const retry2 = retry();
-      vi.advanceTimersByTime(200);
-      await retry2;
-
-      expect(asyncFn).toHaveBeenCalledTimes(3);
-    });
-
-    it("should not retry beyond maxAttempts", async () => {
-      const asyncFn = vi.fn().mockRejectedValue(new Error("always fail"));
-
-      const { execute, retry, canRetry } = useAsyncData(asyncFn, {
-        retry: { maxAttempts: 2, delay: 100 },
-      });
-
-      await execute();
-      expect(canRetry.value).toBe(true);
-
-      // First retry
-      const retry1 = retry();
-      vi.advanceTimersByTime(100);
-      await retry1;
-      expect(canRetry.value).toBe(true);
-
-      // Second retry
-      const retry2 = retry();
-      vi.advanceTimersByTime(200);
-      await retry2;
-      expect(canRetry.value).toBe(false);
-
-      // Third retry should be a no-op
-      await retry();
-      expect(asyncFn).toHaveBeenCalledTimes(3); // Original + 2 retries
-    });
-
-    it("should be a no-op if retry is not configured", async () => {
-      const asyncFn = vi.fn().mockRejectedValue(new Error("fail"));
-
-      const { execute, retry, canRetry } = useAsyncData(asyncFn);
-
-      await execute();
-      expect(canRetry.value).toBe(false);
-
-      await retry();
-      expect(asyncFn).toHaveBeenCalledTimes(1);
-    });
-
-    it("should reset retry count on successful execution", async () => {
-      const asyncFn = vi
-        .fn()
-        .mockRejectedValueOnce(new Error("fail"))
-        .mockResolvedValueOnce("success")
-        .mockRejectedValueOnce(new Error("fail again"));
-
-      const { execute, retry, canRetry } = useAsyncData(asyncFn, {
-        retry: { maxAttempts: 2, delay: 100 },
-      });
-
-      // First failure
-      await execute();
-      expect(canRetry.value).toBe(true);
-
-      // Retry succeeds
-      const retry1 = retry();
-      vi.advanceTimersByTime(100);
-      await retry1;
-      expect(canRetry.value).toBe(false);
-
-      // New execution fails
-      await execute();
-      expect(canRetry.value).toBe(true);
-
-      // Should be able to retry again (count was reset)
-      const retry2 = retry();
-      vi.advanceTimersByTime(100);
-      await retry2;
-
-      expect(asyncFn).toHaveBeenCalledTimes(4);
-    });
-  });
-
   describe("Clear Error", () => {
     it("should clear error message", async () => {
       const asyncFn = vi.fn().mockRejectedValue(new Error("fail"));
@@ -528,19 +389,6 @@ describe("useAsyncData", () => {
 
       expect(data.value).toBe("initial");
       expect(loading.value).toBe(false);
-    });
-
-    it("should clear canRetry flag", async () => {
-      const asyncFn = vi.fn().mockRejectedValue(new Error("fail"));
-      const { execute, clearError, canRetry } = useAsyncData(asyncFn, {
-        retry: { maxAttempts: 3 },
-      });
-
-      await execute();
-      expect(canRetry.value).toBe(true);
-
-      clearError();
-      expect(canRetry.value).toBe(false);
     });
   });
 
@@ -579,7 +427,6 @@ describe("useAsyncData", () => {
       resolveAsync?.("result");
       await promise;
 
-      // Data should not be updated
       expect(data.value).toBeNull();
     });
 
@@ -591,58 +438,7 @@ describe("useAsyncData", () => {
       reset();
       await refresh();
 
-      // Should only be called once (from execute)
       expect(asyncFn).toHaveBeenCalledTimes(1);
-    });
-  });
-
-  describe("Reset On Execute", () => {
-    it("should reset data to null when resetOnExecute is true", async () => {
-      const asyncFn = vi.fn(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        return "new data";
-      });
-
-      const { data, execute } = useAsyncData(asyncFn, {
-        initialData: "initial",
-        resetOnExecute: true,
-      });
-
-      expect(data.value).toBe("initial");
-
-      const promise = execute();
-      await nextTick();
-
-      // Data should be null immediately when execution starts
-      expect(data.value).toBeNull();
-
-      vi.advanceTimersByTime(100);
-      await promise;
-
-      expect(data.value).toBe("new data");
-    });
-
-    it("should preserve data when resetOnExecute is false", async () => {
-      const asyncFn = vi.fn(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        return "new data";
-      });
-
-      const { data, execute } = useAsyncData(asyncFn, {
-        initialData: "initial",
-        resetOnExecute: false,
-      });
-
-      const promise = execute();
-      await nextTick();
-
-      // Data should still be 'initial' while loading
-      expect(data.value).toBe("initial");
-
-      vi.advanceTimersByTime(100);
-      await promise;
-
-      expect(data.value).toBe("new data");
     });
   });
 
@@ -657,7 +453,6 @@ describe("useAsyncData", () => {
 
       await execute();
 
-      // TypeScript should understand data.value is { id: number; name: string } | null
       expect(data.value?.id).toBe(1);
       expect(data.value?.name).toBe("test");
     });
@@ -667,11 +462,7 @@ describe("useAsyncData", () => {
 
       const { execute } = useAsyncData(asyncFn);
 
-      // TypeScript should enforce correct parameter types
       await execute(1, "test");
-
-      // The following would cause a type error:
-      // execute('wrong', 123);
     });
   });
 
@@ -698,7 +489,6 @@ describe("useAsyncData", () => {
       const asyncFn = vi.fn(async (x: number) => x);
       const { data, execute } = useAsyncData(asyncFn);
 
-      // Rapid fire multiple executes
       execute(1);
       execute(2);
       execute(3);
@@ -707,7 +497,6 @@ describe("useAsyncData", () => {
 
       await final;
 
-      // Only the last result should be stored
       expect(data.value).toBe(5);
     });
 

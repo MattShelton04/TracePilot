@@ -1093,7 +1093,7 @@ onUnmounted(() => {
 
 .result-view-btn:hover {
   background: var(--accent-emphasis);
-  color: #fff;
+  color: var(--text-on-emphasis, #fff);
 }
 
 /* ÔöÇÔöÇ Pagination ÔöÇÔöÇ */
@@ -1235,7 +1235,7 @@ onUnmounted(() => {
 .indexing-banner {
   margin: 0 0 12px 0;
   padding: 12px 16px;
-  background: var(--bg-secondary, #1c1c1e);
+  background: var(--surface-secondary);
   border: 1px solid var(--accent-fg);
   border-radius: 8px;
   animation: fadeSlideIn 0.3s ease both;
@@ -1264,7 +1264,7 @@ onUnmounted(() => {
   flex: 1;
   min-width: 80px;
   height: 4px;
-  background: var(--bg-tertiary, #30363d);
+  background: var(--surface-tertiary);
   border-radius: 2px;
   overflow: hidden;
 }

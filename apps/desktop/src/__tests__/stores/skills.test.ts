@@ -1,9 +1,8 @@
 import type { Skill, SkillAsset, SkillImportResult, SkillSummary } from "@tracepilot/types";
 import { flushPromises } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
+import { setupPinia, createDeferred } from "@tracepilot/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useSkillsStore } from "../../stores/skills";
-import { createDeferred } from "../helpers/deferred";
 
 // ── Mock client functions ──────────────────────────────────────
 const mockSkillsListAll = vi.fn();
@@ -41,9 +40,13 @@ vi.mock("@tracepilot/client", () => ({
 }));
 
 // ── Mock @tracepilot/ui ────────────────────────────────────────
-vi.mock("@tracepilot/ui", () => ({
-  toErrorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
-}));
+vi.mock("@tracepilot/ui", async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    toErrorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
+  };
+});
 
 // ── Mock logger ────────────────────────────────────────────────
 const mockLogWarn = vi.fn();
@@ -145,7 +148,7 @@ function allMocks() {
 // ════════════════════════════════════════════════════════════════
 describe("useSkillsStore", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
+    setupPinia();
     for (const mock of allMocks()) mock.mockReset();
   });
 

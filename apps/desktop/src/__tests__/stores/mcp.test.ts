@@ -8,10 +8,9 @@ import type {
   McpTool,
 } from "@tracepilot/types";
 import { flushPromises } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
+import { setupPinia, createDeferred } from "@tracepilot/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useMcpStore } from "../../stores/mcp";
-import { createDeferred } from "../helpers/deferred";
 
 // ── Mock client functions ──────────────────────────────────────
 const mockMcpListServers = vi.fn();
@@ -47,9 +46,13 @@ vi.mock("@/utils/logger", () => ({
 }));
 
 // ── Mock @tracepilot/ui ────────────────────────────────────────
-vi.mock("@tracepilot/ui", () => ({
-  toErrorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
-}));
+vi.mock("@tracepilot/ui", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@tracepilot/ui")>();
+  return {
+    ...actual,
+    toErrorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
+  };
+});
 
 // ── Fixtures ───────────────────────────────────────────────────
 const FIXTURE_CONFIG: McpServerConfig = {
@@ -158,7 +161,7 @@ function seedStore(store: ReturnType<typeof useMcpStore>) {
 // ════════════════════════════════════════════════════════════════
 describe("useMcpStore", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
+    setupPinia();
     for (const mock of allMocks()) mock.mockReset();
   });
 

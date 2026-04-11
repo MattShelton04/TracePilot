@@ -283,7 +283,7 @@ function hasGap(matches: GrepMatch[], idx: number): boolean {
   line-height: 16px;
   border-radius: 9999px;
   background: rgba(251, 191, 36, 0.15);
-  color: #fbbf24;
+  color: var(--syn-match, #fbbf24);
   flex-shrink: 0;
 }
 .grep-matches { padding: 2px 0; }
@@ -324,7 +324,7 @@ function hasGap(matches: GrepMatch[], idx: number): boolean {
 }
 .grep-line-text :deep(.grep-highlight) {
   background: rgba(251, 191, 36, 0.25);
-  color: #fbbf24;
+  color: var(--syn-match, #fbbf24);
   border-radius: 2px;
   padding: 0 1px;
 }

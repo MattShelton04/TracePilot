@@ -9,6 +9,7 @@ import {
   FormSwitch,
   formatBytes,
   MarkdownContent,
+  PageShell,
   ProgressBar,
   useToast,
 } from "@tracepilot/ui";
@@ -252,9 +253,8 @@ function copiedToClipboard() {
 </script>
 
 <template>
-  <div class="page-content">
-    <div class="page-content-inner">
-      <!-- ── Header + Tabs ── -->
+  <PageShell>
+    <!-- ── Header + Tabs ── -->
       <header class="export-header">
         <div class="header-row">
           <h1>Export & Import</h1>
@@ -774,8 +774,7 @@ function copiedToClipboard() {
           </div>
         </div>
       </div>
-    </div>
-  </div>
+  </PageShell>
 </template>
 
 <style scoped>
