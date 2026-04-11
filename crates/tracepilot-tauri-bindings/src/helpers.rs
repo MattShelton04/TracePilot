@@ -100,6 +100,32 @@ pub(crate) fn get_or_init_task_db(
     Ok(state.clone())
 }
 
+/// Initialise the task DB (if needed), acquire the mutex, and run a
+/// blocking closure with the underlying `TaskDb`.
+///
+/// This encapsulates the `get_or_init_task_db → spawn_blocking → lock →
+/// unwrap Option` boilerplate shared by most task CRUD commands.
+pub(crate) async fn with_task_db<T, F>(
+    state: &crate::types::SharedTaskDb,
+    f: F,
+) -> CmdResult<T>
+where
+    T: Send + 'static,
+    F: FnOnce(&tracepilot_orchestrator::task_db::TaskDb) -> Result<T, BindingsError> + Send + 'static,
+{
+    let db = get_or_init_task_db(state)?;
+    tokio::task::spawn_blocking(move || {
+        let guard = db
+            .lock()
+            .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
+        let db = guard
+            .as_ref()
+            .ok_or_else(|| BindingsError::Validation("TaskDb not init".into()))?;
+        f(db)
+    })
+    .await?
+}
+
 pub(crate) fn summary_to_list_item(
     summary: tracepilot_core::SessionSummary,
     session_path: &Path,

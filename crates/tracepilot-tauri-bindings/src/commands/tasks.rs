@@ -5,7 +5,7 @@
 
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
-use crate::helpers::{get_or_init_task_db, read_config};
+use crate::helpers::{get_or_init_task_db, read_config, with_task_db};
 use crate::types::SharedTaskDb;
 use tracepilot_orchestrator::task_db::types::*;
 
@@ -127,10 +127,7 @@ pub async fn task_create_batch(
     job_name: String,
     preset_id: Option<String>,
 ) -> CmdResult<Job> {
-    let db = get_or_init_task_db(&state)?;
-    tokio::task::spawn_blocking(move || {
-        let guard = db.lock().map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
-        let db = guard.as_ref().ok_or_else(|| BindingsError::Validation("TaskDb not init".into()))?;
+    with_task_db(&state, move |db| {
         tracepilot_orchestrator::task_db::operations::create_task_batch(
             db.conn(),
             &tasks,
@@ -139,7 +136,7 @@ pub async fn task_create_batch(
         )
         .map_err(BindingsError::Orchestrator)
     })
-    .await?
+    .await
 }
 
 #[tauri::command]
@@ -147,14 +144,11 @@ pub async fn task_get(
     state: tauri::State<'_, SharedTaskDb>,
     id: String,
 ) -> CmdResult<Task> {
-    let db = get_or_init_task_db(&state)?;
-    tokio::task::spawn_blocking(move || {
-        let guard = db.lock().map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
-        let db = guard.as_ref().ok_or_else(|| BindingsError::Validation("TaskDb not init".into()))?;
+    with_task_db(&state, move |db| {
         tracepilot_orchestrator::task_db::operations::get_task(db.conn(), &id)
             .map_err(BindingsError::Orchestrator)
     })
-    .await?
+    .await
 }
 
 #[tauri::command]
@@ -162,15 +156,12 @@ pub async fn task_list(
     state: tauri::State<'_, SharedTaskDb>,
     filter: Option<TaskFilter>,
 ) -> CmdResult<Vec<Task>> {
-    let db = get_or_init_task_db(&state)?;
     let f = filter.unwrap_or_default();
-    tokio::task::spawn_blocking(move || {
-        let guard = db.lock().map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
-        let db = guard.as_ref().ok_or_else(|| BindingsError::Validation("TaskDb not init".into()))?;
+    with_task_db(&state, move |db| {
         tracepilot_orchestrator::task_db::operations::list_tasks(db.conn(), &f)
             .map_err(BindingsError::Orchestrator)
     })
-    .await?
+    .await
 }
 
 #[tauri::command]
@@ -178,14 +169,11 @@ pub async fn task_cancel(
     state: tauri::State<'_, SharedTaskDb>,
     id: String,
 ) -> CmdResult<()> {
-    let db = get_or_init_task_db(&state)?;
-    tokio::task::spawn_blocking(move || {
-        let guard = db.lock().map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
-        let db = guard.as_ref().ok_or_else(|| BindingsError::Validation("TaskDb not init".into()))?;
+    with_task_db(&state, move |db| {
         tracepilot_orchestrator::task_db::operations::cancel_task(db.conn(), &id)
             .map_err(BindingsError::Orchestrator)
     })
-    .await?
+    .await
 }
 
 #[tauri::command]
@@ -193,14 +181,11 @@ pub async fn task_retry(
     state: tauri::State<'_, SharedTaskDb>,
     id: String,
 ) -> CmdResult<()> {
-    let db = get_or_init_task_db(&state)?;
-    tokio::task::spawn_blocking(move || {
-        let guard = db.lock().map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
-        let db = guard.as_ref().ok_or_else(|| BindingsError::Validation("TaskDb not init".into()))?;
+    with_task_db(&state, move |db| {
         tracepilot_orchestrator::task_db::operations::retry_task(db.conn(), &id)
             .map_err(BindingsError::Orchestrator)
     })
-    .await?
+    .await
 }
 
 #[tauri::command]
@@ -208,28 +193,22 @@ pub async fn task_delete(
     state: tauri::State<'_, SharedTaskDb>,
     id: String,
 ) -> CmdResult<()> {
-    let db = get_or_init_task_db(&state)?;
-    tokio::task::spawn_blocking(move || {
-        let guard = db.lock().map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
-        let db = guard.as_ref().ok_or_else(|| BindingsError::Validation("TaskDb not init".into()))?;
+    with_task_db(&state, move |db| {
         tracepilot_orchestrator::task_db::operations::delete_task(db.conn(), &id)
             .map_err(BindingsError::Orchestrator)
     })
-    .await?
+    .await
 }
 
 #[tauri::command]
 pub async fn task_stats(
     state: tauri::State<'_, SharedTaskDb>,
 ) -> CmdResult<TaskStats> {
-    let db = get_or_init_task_db(&state)?;
-    tokio::task::spawn_blocking(move || {
-        let guard = db.lock().map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
-        let db = guard.as_ref().ok_or_else(|| BindingsError::Validation("TaskDb not init".into()))?;
+    with_task_db(&state, move |db| {
         tracepilot_orchestrator::task_db::operations::get_task_stats(db.conn())
             .map_err(BindingsError::Orchestrator)
     })
-    .await?
+    .await
 }
 
 // ─── Jobs ───────────────────────────────────────────────────────────
@@ -239,14 +218,11 @@ pub async fn task_list_jobs(
     state: tauri::State<'_, SharedTaskDb>,
     limit: Option<i64>,
 ) -> CmdResult<Vec<Job>> {
-    let db = get_or_init_task_db(&state)?;
-    tokio::task::spawn_blocking(move || {
-        let guard = db.lock().map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
-        let db = guard.as_ref().ok_or_else(|| BindingsError::Validation("TaskDb not init".into()))?;
+    with_task_db(&state, move |db| {
         tracepilot_orchestrator::task_db::operations::list_jobs(db.conn(), limit)
             .map_err(BindingsError::Orchestrator)
     })
-    .await?
+    .await
 }
 
 #[tauri::command]
@@ -254,14 +230,11 @@ pub async fn task_cancel_job(
     state: tauri::State<'_, SharedTaskDb>,
     job_id: String,
 ) -> CmdResult<()> {
-    let db = get_or_init_task_db(&state)?;
-    tokio::task::spawn_blocking(move || {
-        let guard = db.lock().map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
-        let db = guard.as_ref().ok_or_else(|| BindingsError::Validation("TaskDb not init".into()))?;
+    with_task_db(&state, move |db| {
         tracepilot_orchestrator::task_db::operations::cancel_job(db.conn(), &job_id)
             .map_err(BindingsError::Orchestrator)
     })
-    .await?
+    .await
 }
 
 // ─── Presets ────────────────────────────────────────────────────────
