@@ -17,6 +17,26 @@ use crate::error::{Result, TracePilotError};
 use rusqlite::Connection;
 use std::path::Path;
 
+/// Configure a SQLite connection with standard performance and correctness PRAGMAs.
+///
+/// Sets:
+/// - `journal_mode=WAL` for concurrent reads
+/// - `synchronous=NORMAL` for balanced durability/performance
+/// - `foreign_keys=ON` for referential integrity
+/// - `busy_timeout=5000` to avoid SQLITE_BUSY on contention
+///
+/// Both the indexer and orchestrator databases share this configuration.
+/// Each caller wraps the returned `rusqlite::Error` in its own error type.
+#[inline]
+pub fn configure_connection(conn: &Connection) -> rusqlite::Result<()> {
+    conn.execute_batch(
+        "PRAGMA journal_mode=WAL;
+         PRAGMA synchronous=NORMAL;
+         PRAGMA foreign_keys=ON;
+         PRAGMA busy_timeout=5000;",
+    )
+}
+
 /// Open a SQLite database in read-only mode without creating file locks.
 ///
 /// This is the preferred method for all read operations to avoid:

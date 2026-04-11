@@ -37,13 +37,8 @@ impl TaskDb {
             ))
         })?;
 
-        conn.execute_batch(
-            "PRAGMA journal_mode=WAL;
-             PRAGMA synchronous=NORMAL;
-             PRAGMA foreign_keys=ON;
-             PRAGMA busy_timeout=5000;",
-        )
-        .map_err(|e| OrchestratorError::Task(format!("Failed to set task DB pragmas: {e}")))?;
+        tracepilot_core::utils::sqlite::configure_connection(&conn)
+            .map_err(|e| OrchestratorError::Task(format!("Failed to set task DB pragmas: {e}")))?;
 
         Self::run_migrations(&conn)?;
 
