@@ -45,6 +45,25 @@ describe("toolCategory", () => {
     expect(toolCategory("")).toBe("other");
     expect(toolCategory("random")).toBe("other");
   });
+
+  it("returns 'other' for known built-in tools not in any category", () => {
+    const uncategorizedBuiltins = [
+      "ask_user",
+      "report_intent",
+      "skill",
+      "list_powershell",
+      "store_memory",
+      "fetch_copilot_cli_documentation",
+    ];
+    for (const tool of uncategorizedBuiltins) {
+      expect(toolCategory(tool)).toBe("other");
+    }
+  });
+
+  it("does not match non-github-mcp-server prefix strings as github", () => {
+    expect(toolCategory("github-actions")).toBe("other");
+    expect(toolCategory("github")).toBe("other");
+  });
 });
 
 describe("formatArgsSummary", () => {
