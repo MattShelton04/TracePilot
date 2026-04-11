@@ -21,6 +21,12 @@ pub struct CompactionCompleteData {
     pub checkpoint_path: Option<String>,
     pub compaction_tokens_used: Option<CompactionTokenUsage>,
     pub request_id: Option<String>,
+    /// System prompt tokens after compaction.
+    pub system_tokens: Option<u64>,
+    /// Conversation tokens after compaction.
+    pub conversation_tokens: Option<u64>,
+    /// Tool definition tokens after compaction.
+    pub tool_definitions_tokens: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -34,7 +40,12 @@ pub struct CompactionTokenUsage {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CompactionStartData {
-    // Typically empty — value is in the timestamp.
+    /// System prompt tokens before compaction.
+    pub system_tokens: Option<u64>,
+    /// Conversation tokens before compaction.
+    pub conversation_tokens: Option<u64>,
+    /// Tool definition tokens before compaction.
+    pub tool_definitions_tokens: Option<u64>,
 }
 
 /// Data for `session.truncation` events — context window pressure metrics.

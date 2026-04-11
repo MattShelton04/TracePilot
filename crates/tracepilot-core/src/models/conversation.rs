@@ -106,8 +106,14 @@ pub struct TurnToolCall {
     pub agent_display_name: Option<String>,
     /// Description of what the subagent does.
     pub agent_description: Option<String>,
-    /// The model used for this specific tool call (populated from ToolExecComplete).
+    /// The model used for this specific tool call (populated from ToolExecComplete or SubagentCompleted).
     pub model: Option<String>,
+    /// Total tokens consumed during subagent execution (from SubagentCompleted/Failed).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub total_tokens: Option<u64>,
+    /// Total tool calls made during subagent execution (from SubagentCompleted/Failed).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub total_tool_calls: Option<u64>,
     /// Human-readable description of what this tool call intends to do.
     pub intention_summary: Option<String>,
     /// Truncated preview of the tool result (≤1KB). Use `get_tool_result` for full content.

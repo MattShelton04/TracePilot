@@ -110,6 +110,9 @@ pub(super) fn typed_data_to_value(data: &TypedEventData) -> Value {
         TypedEventData::HookEnd(value) => serde_json::to_value(value).unwrap(),
         TypedEventData::SessionHandoff(value) => serde_json::to_value(value).unwrap(),
         TypedEventData::SessionImportLegacy(value) => serde_json::to_value(value).unwrap(),
+        TypedEventData::SessionRemoteSteerableChanged(value) => {
+            serde_json::to_value(value).unwrap()
+        }
         TypedEventData::Other(value) => value.clone(),
     }
 }

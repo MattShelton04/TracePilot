@@ -76,6 +76,10 @@ export interface TurnToolCall {
   agentDescription?: string;
   /** The model used for this specific tool call. */
   model?: string;
+  /** Total tokens consumed during subagent execution (from SubagentCompleted/Failed). */
+  totalTokens?: number;
+  /** Total tool calls made during subagent execution (from SubagentCompleted/Failed). */
+  totalToolCalls?: number;
   /** AI-generated summary of what this tool call intends to do. */
   intentionSummary?: string;
   /** Truncated preview of the tool result (≤1 KB). Use getToolResult() for full content. */

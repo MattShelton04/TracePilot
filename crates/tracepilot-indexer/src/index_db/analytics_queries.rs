@@ -143,7 +143,9 @@ impl IndexDb {
                     SUM(m.output_tokens),
                     SUM(m.cache_read_tokens),
                     SUM(m.cost),
-                    SUM(m.request_count)
+                    SUM(m.request_count),
+                    SUM(COALESCE(m.reasoning_tokens, 0)),
+                    MAX(CASE WHEN m.reasoning_tokens IS NOT NULL THEN 1 ELSE 0 END)
              FROM session_model_metrics m
              JOIN sessions s ON s.id = m.session_id{}
              GROUP BY m.model_name ORDER BY 2 DESC",

@@ -20,12 +20,12 @@ use crate::models::event_types::{
     CompactionStartData, HookEndData, HookStartData, ModelChangeData, ModelMetricDetail,
     PlanChangedData, RequestMetrics, SessionContext, SessionErrorData, SessionEventType,
     SessionHandoffData, SessionImportLegacyData, SessionInfoData, SessionModeChangedData,
-    SessionResumeData, SessionSegment, SessionStartData, SessionTaskCompleteData,
-    SessionTruncationData, SessionWarningData, ShutdownData, SkillInvokedData,
-    SubagentCompletedData, SubagentDeselectedData, SubagentFailedData, SubagentSelectedData,
-    SubagentStartedData, SystemMessageData, SystemNotificationData, ToolExecCompleteData,
-    ToolExecStartData, ToolUserRequestedData, TurnEndData, TurnStartData, UsageMetrics,
-    UserMessageData, WorkspaceFileChangedData,
+    SessionRemoteSteerableChangedData, SessionResumeData, SessionSegment, SessionStartData,
+    SessionTaskCompleteData, SessionTruncationData, SessionWarningData, ShutdownData,
+    SkillInvokedData, SubagentCompletedData, SubagentDeselectedData, SubagentFailedData,
+    SubagentSelectedData, SubagentStartedData, SystemMessageData, SystemNotificationData,
+    ToolExecCompleteData, ToolExecStartData, ToolUserRequestedData, TurnEndData, TurnStartData,
+    UsageMetrics, UserMessageData, WorkspaceFileChangedData,
 };
 use crate::parsing::diagnostics::{EventParseWarning, ParseDiagnostics};
 use chrono::{DateTime, Utc};
@@ -99,6 +99,7 @@ pub enum TypedEventData {
     HookEnd(HookEndData),
     SessionHandoff(SessionHandoffData),
     SessionImportLegacy(SessionImportLegacyData),
+    SessionRemoteSteerableChanged(SessionRemoteSteerableChangedData),
     Other(Value),
 }
 
@@ -386,6 +387,14 @@ pub(crate) fn typed_data_from_raw(
                 data
             )
         }
+        SessionEventType::SessionRemoteSteerableChanged => {
+            try_deser!(
+                SessionRemoteSteerableChanged,
+                SessionRemoteSteerableChangedData,
+                "session.remote_steerable_changed",
+                data
+            )
+        }
         SessionEventType::Unknown(name) => (
             TypedEventData::Other(data.clone()),
             Some(EventParseWarning::UnknownEventType {
@@ -569,6 +578,11 @@ fn combine_shutdown_data(
             shutdowns.iter().map(|(s, _)| s.total_premium_requests),
         ),
         total_api_duration_ms: sum_opt_u64(shutdowns.iter().map(|(s, _)| s.total_api_duration_ms)),
+        // Token fields are point-in-time snapshots — use the last shutdown's values.
+        current_tokens: last.current_tokens,
+        system_tokens: last.system_tokens,
+        conversation_tokens: last.conversation_tokens,
+        tool_definitions_tokens: last.tool_definitions_tokens,
         code_changes: combine_code_changes(shutdowns.iter().map(|(s, _)| s.code_changes.as_ref())),
         model_metrics: Some(combine_model_metrics(
             shutdowns.iter().map(|(s, _)| s.model_metrics.as_ref()),
@@ -666,6 +680,7 @@ fn combine_model_metrics<'a>(
                     output_tokens: None,
                     cache_read_tokens: None,
                     cache_write_tokens: None,
+                    reasoning_tokens: None,
                 });
                 e_usg.input_tokens =
                     sum_opt_u64([e_usg.input_tokens, usg.input_tokens].into_iter());
@@ -675,6 +690,8 @@ fn combine_model_metrics<'a>(
                     sum_opt_u64([e_usg.cache_read_tokens, usg.cache_read_tokens].into_iter());
                 e_usg.cache_write_tokens =
                     sum_opt_u64([e_usg.cache_write_tokens, usg.cache_write_tokens].into_iter());
+                e_usg.reasoning_tokens =
+                    sum_opt_u64([e_usg.reasoning_tokens, usg.reasoning_tokens].into_iter());
             }
         }
     }

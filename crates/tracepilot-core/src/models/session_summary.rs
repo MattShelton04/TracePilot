@@ -62,6 +62,14 @@ pub struct ShutdownMetrics {
     pub total_api_duration_ms: Option<u64>,
     pub session_start_time: Option<u64>,
     pub current_model: Option<String>,
+    /// Token budget: total context tokens at shutdown.
+    pub current_tokens: Option<u64>,
+    /// Token budget: system prompt tokens at shutdown.
+    pub system_tokens: Option<u64>,
+    /// Token budget: conversation history tokens at shutdown.
+    pub conversation_tokens: Option<u64>,
+    /// Token budget: tool definition tokens at shutdown.
+    pub tool_definitions_tokens: Option<u64>,
     pub code_changes: Option<CodeChanges>,
     #[serde(default)]
     pub model_metrics: HashMap<String, ModelMetricDetail>,

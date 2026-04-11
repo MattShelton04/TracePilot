@@ -103,6 +103,7 @@ fn assistant_message(content: &str) -> TypedEvent {
             reasoning_opaque: None,
             encrypted_content: None,
             phase: None,
+            request_id: None,
         }),
     )
 }

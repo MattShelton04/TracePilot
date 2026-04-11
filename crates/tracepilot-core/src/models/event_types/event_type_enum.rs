@@ -84,6 +84,8 @@ pub enum SessionEventType {
     SessionHandoff,
     #[strum(serialize = "session.import_legacy")]
     SessionImportLegacy,
+    #[strum(serialize = "session.remote_steerable_changed")]
+    SessionRemoteSteerableChanged,
     /// Catch-all for unrecognized event types from newer Copilot CLI versions.
     /// The contained string is the original wire-format type name.
     #[strum(default)]
@@ -129,6 +131,7 @@ pub const KNOWN_EVENT_TYPES: &[&str] = &[
     "hook.end",
     "session.handoff",
     "session.import_legacy",
+    "session.remote_steerable_changed",
 ];
 
 impl fmt::Display for SessionEventType {

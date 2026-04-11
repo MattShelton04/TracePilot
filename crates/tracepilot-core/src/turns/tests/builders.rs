@@ -240,6 +240,7 @@ impl AssistantMessageBuilder {
             reasoning_opaque: self.reasoning_opaque,
             encrypted_content: self.encrypted_content,
             phase: self.phase,
+            request_id: None,
         }
     }
 
@@ -574,6 +575,10 @@ impl SubagentCompletedBuilder {
             tool_call_id: self.tool_call_id,
             agent_name: self.agent_name,
             agent_display_name: self.agent_display_name,
+            duration_ms: None,
+            model: None,
+            total_tokens: None,
+            total_tool_calls: None,
         }
     }
 
@@ -625,6 +630,10 @@ impl SubagentFailedBuilder {
             agent_name: self.agent_name,
             agent_display_name: self.agent_display_name,
             error: self.error,
+            duration_ms: None,
+            model: None,
+            total_tokens: None,
+            total_tool_calls: None,
         }
     }
 
@@ -813,7 +822,11 @@ impl CompactionStartBuilder {
     }
 
     fn build_data(self) -> CompactionStartData {
-        CompactionStartData {}
+        CompactionStartData {
+            system_tokens: None,
+            conversation_tokens: None,
+            tool_definitions_tokens: None,
+        }
     }
 
     fn into_event_builder(self) -> EventBuilder {
@@ -874,6 +887,9 @@ impl CompactionCompleteBuilder {
             checkpoint_path: None,
             compaction_tokens_used: None,
             request_id: None,
+            system_tokens: None,
+            conversation_tokens: None,
+            tool_definitions_tokens: None,
         }
     }
 

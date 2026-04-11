@@ -5,6 +5,7 @@ import {
   formatArgsSummary,
   formatDuration,
   formatLiveDuration,
+  formatNumber,
   getAgentColor,
   getAgentIcon,
   inferAgentTypeFromToolCall,
@@ -90,7 +91,7 @@ const headerDuration = computed(() => {
 const model = computed(() => {
   if (!props.subagent) return "";
   const args = props.subagent.toolCall.arguments as Record<string, unknown> | undefined;
-  return (args?.model as string) || props.subagent.toolCall.model || "";
+  return props.subagent.toolCall.model || (args?.model as string) || "";
 });
 
 const description = computed(() => {
@@ -265,6 +266,14 @@ function pillIcon(type: "intent" | "memory" | "read_agent"): string {
             <span v-if="headerDuration">{{ headerDuration }}</span>
             <span class="sep">·</span>
             <span>Turn {{ subagent.turnIndex }}</span>
+            <template v-if="subagent.toolCall.totalTokens">
+              <span class="sep">·</span>
+              <span title="Total tokens consumed">{{ formatNumber(subagent.toolCall.totalTokens) }} tok</span>
+            </template>
+            <template v-if="subagent.toolCall.totalToolCalls">
+              <span class="sep">·</span>
+              <span title="Total tool calls made">{{ subagent.toolCall.totalToolCalls }} tools</span>
+            </template>
           </div>
         </div>
         <span :class="['cv-panel-status', status]">{{ statusText }}</span>
@@ -527,6 +536,7 @@ function pillIcon(type: "intent" | "memory" | "read_agent"): string {
 .cv-panel-meta {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 5px;
   font-size: 0.6875rem;
   color: var(--text-tertiary);

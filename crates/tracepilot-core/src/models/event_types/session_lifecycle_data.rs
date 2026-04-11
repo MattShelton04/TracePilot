@@ -16,6 +16,8 @@ pub struct SessionStartData {
     pub already_in_use: Option<bool>,
     /// The model selected at session creation.
     pub selected_model: Option<String>,
+    /// Whether the session supports remote steering.
+    pub remote_steerable: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -38,6 +40,14 @@ pub struct ShutdownData {
     pub total_api_duration_ms: Option<u64>,
     pub session_start_time: Option<u64>,
     pub current_model: Option<String>,
+    /// Total tokens in the context window at shutdown.
+    pub current_tokens: Option<u64>,
+    /// System prompt tokens at shutdown.
+    pub system_tokens: Option<u64>,
+    /// Conversation tokens at shutdown.
+    pub conversation_tokens: Option<u64>,
+    /// Tool definition tokens at shutdown.
+    pub tool_definitions_tokens: Option<u64>,
     pub code_changes: Option<CodeChanges>,
     pub model_metrics: Option<HashMap<String, ModelMetricDetail>>,
     pub session_segments: Option<Vec<SessionSegment>>,
@@ -85,6 +95,7 @@ pub struct UsageMetrics {
     pub output_tokens: Option<u64>,
     pub cache_read_tokens: Option<u64>,
     pub cache_write_tokens: Option<u64>,
+    pub reasoning_tokens: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -96,6 +107,8 @@ pub struct SessionResumeData {
     pub reasoning_effort: Option<String>,
     pub context: Option<SessionContext>,
     pub already_in_use: Option<bool>,
+    /// Whether the session supports remote steering.
+    pub remote_steerable: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -138,6 +151,7 @@ pub struct SessionModeChangedData {
 #[serde(rename_all = "camelCase")]
 pub struct SessionTaskCompleteData {
     pub summary: Option<String>,
+    pub success: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -150,6 +164,8 @@ pub struct SessionHandoffData {
     pub context: Option<String>,
     pub summary: Option<String>,
     pub remote_session_id: Option<String>,
+    /// Host identifier for the handoff target.
+    pub host: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -179,4 +195,11 @@ pub struct AbortData {
 pub struct SystemNotificationData {
     pub content: Option<String>,
     pub kind: Option<serde_json::Value>,
+}
+
+/// Data for `session.remote_steerable_changed` events.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionRemoteSteerableChangedData {
+    pub remote_steerable: Option<bool>,
 }

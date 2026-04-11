@@ -333,6 +333,12 @@ CREATE TABLE IF NOT EXISTS maintenance_state (
 );
 "#;
 
+pub(super) const MIGRATION_11: &str = r#"
+-- Add reasoning_tokens column to model metrics (v1.0.24+ sessions).
+-- NULL means "data not available" (older sessions); 0 means "no reasoning used".
+ALTER TABLE session_model_metrics ADD COLUMN reasoning_tokens INTEGER;
+"#;
+
 /// Run all pending schema migrations in order.
 pub(super) fn run_migrations(conn: &Connection) -> Result<()> {
     conn.execute(
@@ -362,6 +368,7 @@ pub(super) fn run_migrations(conn: &Connection) -> Result<()> {
             MIGRATION_9,
         ),
         ("Migration 10: maintenance state", MIGRATION_10),
+        ("Migration 11: reasoning tokens", MIGRATION_11),
     ];
 
     for (i, (name, sql)) in migrations.iter().enumerate() {

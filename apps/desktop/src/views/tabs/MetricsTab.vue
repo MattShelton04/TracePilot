@@ -42,6 +42,7 @@ const modelEntries = computed(() => {
       const inputTokens = data.usage?.inputTokens ?? 0;
       const outputTokens = data.usage?.outputTokens ?? 0;
       const cacheReadTokens = data.usage?.cacheReadTokens ?? 0;
+      const reasoningTokens = data.usage?.reasoningTokens ?? null;
       const wholesaleCost = prefs.computeWholesaleCost(
         name,
         inputTokens,
@@ -57,6 +58,7 @@ const modelEntries = computed(() => {
         outputTokens,
         cacheReadTokens,
         cacheWriteTokens: data.usage?.cacheWriteTokens ?? 0,
+        reasoningTokens,
         totalTokens: inputTokens + outputTokens,
         wholesaleCost,
       };
@@ -75,6 +77,16 @@ const totalCacheReadTokens = computed(() =>
   modelEntries.value.reduce((sum, m) => sum + m.cacheReadTokens, 0),
 );
 const totalRequests = computed(() => modelEntries.value.reduce((sum, m) => sum + m.requests, 0));
+
+/** Whether any model reports reasoning tokens (v1.0.24+ sessions). */
+const hasReasoningData = computed(() =>
+  modelEntries.value.some((m) => m.reasoningTokens != null),
+);
+
+/** Whether session has token budget data (v1.0.8+ sessions). */
+const hasTokenBudget = computed(() =>
+  metrics.value?.currentTokens != null || metrics.value?.systemTokens != null,
+);
 
 const copilotCost = computed(() => {
   const premiumReqs = metrics.value?.totalPremiumRequests ?? 0;
@@ -137,27 +149,40 @@ function segmentWholesaleCost(seg: SessionSegment): number {
   }, 0);
 }
 
-const modelColumns = [
-  { key: "name", label: "Model", align: "left" as const },
-  { key: "requests", label: "Requests", align: "right" as const },
-  { key: "copilotCost", label: "Copilot Cost", align: "right" as const },
-  { key: "wholesaleCost", label: "Wholesale Cost", align: "right" as const },
-  { key: "inputTokens", label: "Input Tokens", align: "right" as const },
-  { key: "outputTokens", label: "Output Tokens", align: "right" as const },
-  {
-    key: "cacheReadTokens",
-    label: "Cache Read",
-    align: "right" as const,
-    class: "hidden lg:table-cell",
-  },
-  {
-    key: "cacheWriteTokens",
-    label: "Cache Write",
-    align: "right" as const,
-    class: "hidden lg:table-cell",
-  },
-  { key: "totalTokens", label: "Total", align: "right" as const },
-];
+const modelColumns = computed(() => {
+  const cols = [
+    { key: "name", label: "Model", align: "left" as const },
+    { key: "requests", label: "Requests", align: "right" as const },
+    { key: "copilotCost", label: "Copilot Cost", align: "right" as const },
+    { key: "wholesaleCost", label: "Wholesale Cost", align: "right" as const },
+    { key: "inputTokens", label: "Input Tokens", align: "right" as const },
+    { key: "outputTokens", label: "Output Tokens", align: "right" as const },
+  ];
+  if (hasReasoningData.value) {
+    cols.push({
+      key: "reasoningTokens",
+      label: "Reasoning",
+      align: "right" as const,
+      class: "hidden lg:table-cell",
+    } as typeof cols[number]);
+  }
+  cols.push(
+    {
+      key: "cacheReadTokens",
+      label: "Cache Read",
+      align: "right" as const,
+      class: "hidden lg:table-cell",
+    } as typeof cols[number],
+    {
+      key: "cacheWriteTokens",
+      label: "Cache Write",
+      align: "right" as const,
+      class: "hidden lg:table-cell",
+    } as typeof cols[number],
+    { key: "totalTokens", label: "Total", align: "right" as const },
+  );
+  return cols;
+});
 </script>
 
 <template>
@@ -222,6 +247,11 @@ const modelColumns = [
         </template>
         <template #cell-outputTokens="{ value }">
           <span class="text-[var(--text-secondary)]">{{ formatNumber(value as number) }}</span>
+        </template>
+        <template v-if="hasReasoningData" #cell-reasoningTokens="{ value }">
+          <span :class="value != null ? 'text-[var(--text-secondary)]' : 'text-[var(--text-placeholder)]'">
+            {{ value != null ? formatNumber(value as number) : 'N/A' }}
+          </span>
         </template>
         <template #cell-cacheReadTokens="{ value }">
           <span class="text-[var(--text-tertiary)]">{{ formatNumber(value as number) }}</span>
@@ -334,6 +364,34 @@ const modelColumns = [
               <span class="legend-uncached">{{ ((1 - cacheHitRatio) * 100).toFixed(1) }}% uncached</span>
             </div>
           </div>
+        </div>
+      </SectionPanel>
+
+      <!-- Token Budget Breakdown (v1.0.8+ sessions) -->
+      <SectionPanel v-if="hasTokenBudget" title="Token Budget" class="mb-6">
+        <div class="grid-4">
+          <StatCard
+            :value="metrics.currentTokens != null ? formatNumber(metrics.currentTokens) : 'N/A'"
+            label="Current Context"
+            color="accent"
+            tooltip="Total tokens currently in the context window at shutdown."
+          />
+          <StatCard
+            :value="metrics.systemTokens != null ? formatNumber(metrics.systemTokens) : 'N/A'"
+            label="System Prompt"
+            color="done"
+            tooltip="Tokens consumed by the system prompt."
+          />
+          <StatCard
+            :value="metrics.conversationTokens != null ? formatNumber(metrics.conversationTokens) : 'N/A'"
+            label="Conversation"
+            tooltip="Tokens consumed by conversation history."
+          />
+          <StatCard
+            :value="metrics.toolDefinitionsTokens != null ? formatNumber(metrics.toolDefinitionsTokens) : 'N/A'"
+            label="Tool Definitions"
+            tooltip="Tokens consumed by tool/function definitions."
+          />
         </div>
       </SectionPanel>
 

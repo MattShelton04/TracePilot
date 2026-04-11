@@ -25,8 +25,9 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
     let mut health_score_sum: f64 = 0.0;
     let mut tokens_by_day: BTreeMap<String, u64> = BTreeMap::new();
     let mut activity_by_day: BTreeMap<String, u32> = BTreeMap::new();
-    // model key → (input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, premium_cost, request_count)
-    let mut model_tokens: HashMap<String, (u64, u64, u64, u64, f64, u64)> = HashMap::new();
+    // model key → (input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, premium_cost, request_count, reasoning_tokens_sum, has_reasoning_data)
+    let mut model_tokens: HashMap<String, (u64, u64, u64, u64, f64, u64, u64, bool)> =
+        HashMap::new();
     let mut cost_by_day: BTreeMap<String, f64> = BTreeMap::new();
     let mut durations: Vec<u64> = Vec::new();
     let mut total_turns: u64 = 0;
@@ -104,11 +105,17 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
                     session_tokens += session_model_tokens;
                     let entry = model_tokens
                         .entry(model_name.clone())
-                        .or_insert((0, 0, 0, 0, 0.0, 0));
+                        .or_insert((0, 0, 0, 0, 0.0, 0, 0, false));
                     entry.0 += input_t;
                     entry.1 += output_t;
                     entry.2 += cache_read;
                     entry.3 += cache_write;
+
+                    // Reasoning tokens (v1.0.24+)
+                    if let Some(rt) = usage.reasoning_tokens {
+                        entry.6 += rt;
+                        entry.7 = true;
+                    }
 
                     // Accumulate global cache stats
                     total_cache_read_tokens += cache_read;
@@ -124,7 +131,7 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
                     let req_count = requests.count.unwrap_or(0);
                     let entry = model_tokens
                         .entry(model_name.clone())
-                        .or_insert((0, 0, 0, 0, 0.0, 0));
+                        .or_insert((0, 0, 0, 0, 0.0, 0, 0, false));
                     entry.4 += cost;
                     entry.5 += req_count;
                 }
@@ -226,12 +233,12 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
     // Model distribution with percentages (inputTokens already includes cacheReadTokens)
     let total_model_tokens: u64 = model_tokens
         .values()
-        .map(|(i, o, _cr, _cw, _, _rc)| i + o)
+        .map(|(i, o, _cr, _cw, _, _rc, _, _)| i + o)
         .sum();
     let mut model_distribution: Vec<ModelDistEntry> = model_tokens
         .into_iter()
         .map(
-            |(model, (input_t, output_t, cache_read, _cache_write, premium_req, request_count))| {
+            |(model, (input_t, output_t, cache_read, _cache_write, premium_req, request_count, reasoning_sum, has_reasoning))| {
                 let tokens = input_t + output_t;
                 let percentage = if total_model_tokens > 0 {
                     (tokens as f64 / total_model_tokens as f64) * 100.0
@@ -247,6 +254,7 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
                     cache_read_tokens: cache_read,
                     premium_requests: premium_req,
                     request_count,
+                    reasoning_tokens: if has_reasoning { Some(reasoning_sum) } else { None },
                 }
             },
         )

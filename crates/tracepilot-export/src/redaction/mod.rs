@@ -415,6 +415,8 @@ mod tests {
                 agent_description: None,
                 model: None,
                 intention_summary: None,
+                total_tokens: None,
+                total_tool_calls: None,
                 result_content: Some("email: admin@company.com".into()),
                 args_summary: None,
             }],

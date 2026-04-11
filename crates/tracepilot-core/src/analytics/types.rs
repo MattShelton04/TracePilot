@@ -78,6 +78,8 @@ pub struct ModelDistEntry {
     pub premium_requests: f64,
     /// Number of API requests made to this model.
     pub request_count: u64,
+    /// Total reasoning tokens consumed by this model (None = data unavailable).
+    pub reasoning_tokens: Option<u64>,
 }
 
 /// Cost for a single day.

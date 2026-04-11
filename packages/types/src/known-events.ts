@@ -50,6 +50,7 @@ export const TRACEPILOT_KNOWN_EVENTS = [
   "hook.end",
   "session.handoff",
   "session.import_legacy",
+  "session.remote_steerable_changed",
 ] as const;
 
 export type TracePilotKnownEvent = (typeof TRACEPILOT_KNOWN_EVENTS)[number];

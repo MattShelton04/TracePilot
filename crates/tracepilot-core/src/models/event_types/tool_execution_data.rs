@@ -44,6 +44,8 @@ pub struct SkillInvokedData {
     pub allowed_tools: Option<Vec<String>>,
     pub plugin_name: Option<String>,
     pub plugin_version: Option<String>,
+    /// Human-readable description of the skill.
+    pub description: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

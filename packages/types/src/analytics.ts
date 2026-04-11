@@ -28,6 +28,7 @@ export interface AnalyticsData {
     cacheReadTokens: number;
     premiumRequests: number;
     requestCount: number;
+    reasoningTokens?: number | null;
   }>;
   /** Cost per day for trend charts */
   costByDay: Array<{ date: string; cost: number }>;
