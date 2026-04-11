@@ -130,8 +130,8 @@ where
 
     tokio::task::spawn_blocking(move || {
         // Phase 1: Try SQL fast path
-        if let Some(db) = open_index_db(&ctx.index_path) {
-            match sql_fn(&db, &params) {
+        if let Some(opened) = open_index_db(&ctx.index_path) {
+            match sql_fn(&opened.db, &params) {
                 Ok(result) => return Ok(result),
                 Err(e) => {
                     tracing::warn!(

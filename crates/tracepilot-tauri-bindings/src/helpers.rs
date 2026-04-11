@@ -5,8 +5,15 @@ use crate::error::{BindingsError, CmdResult};
 use crate::types::{IndexingProgressPayload, SessionListItem};
 use std::path::{Path, PathBuf};
 use tauri::Emitter;
+use tracing::warn;
 
 pub(crate) const MAX_CHECKPOINT_CONTENT_BYTES: usize = 50 * 1024;
+
+/// Successfully opened index database with a precomputed session count.
+pub(crate) struct OpenIndexDb {
+    pub db: tracepilot_indexer::index_db::IndexDb,
+    pub session_count: usize,
+}
 
 /// Resolve a session directory path and run a blocking closure with it.
 ///
@@ -187,17 +194,40 @@ pub(crate) fn indexed_session_to_list_item(
     }
 }
 
-pub(crate) fn open_index_db(
-    index_path: &std::path::Path,
-) -> Option<tracepilot_indexer::index_db::IndexDb> {
+pub(crate) fn open_index_db(index_path: &std::path::Path) -> Option<OpenIndexDb> {
     if !index_path.exists() {
         return None;
     }
-    let db = tracepilot_indexer::index_db::IndexDb::open_readonly(index_path).ok()?;
-    if db.session_count().unwrap_or(0) == 0 {
+
+    let db = match tracepilot_indexer::index_db::IndexDb::open_readonly(index_path) {
+        Ok(db) => db,
+        Err(e) => {
+            warn!(
+                path = %index_path.display(),
+                error = %e,
+                "Failed to open index database; falling back to session scan"
+            );
+            return None;
+        }
+    };
+
+    let session_count = match db.session_count() {
+        Ok(count) => count,
+        Err(e) => {
+            warn!(
+                path = %index_path.display(),
+                error = %e,
+                "Failed to read session count from index database; falling back to session scan"
+            );
+            return None;
+        }
+    };
+
+    if session_count == 0 {
         return None;
     }
-    Some(db)
+
+    Some(OpenIndexDb { db, session_count })
 }
 
 pub(crate) fn copilot_home() -> CmdResult<std::path::PathBuf> {
@@ -307,9 +337,57 @@ pub(crate) fn remove_index_db_files(index_path: &Path) -> Result<(), BindingsErr
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rusqlite;
     use std::fs;
-    use std::sync::{Arc, RwLock};
+    use std::sync::{Arc, Mutex, RwLock};
     use tempfile::tempdir;
+    use tracing_subscriber::fmt::MakeWriter;
+
+    #[derive(Clone, Default)]
+    struct LogCapture {
+        buffer: Arc<Mutex<Vec<u8>>>,
+    }
+
+    impl LogCapture {
+        fn install(&self) -> tracing::subscriber::DefaultGuard {
+            let subscriber = tracing_subscriber::fmt()
+                .with_writer(self.clone())
+                .with_ansi(false)
+                .finish();
+            tracing::subscriber::set_default(subscriber)
+        }
+
+        fn output(&self) -> String {
+            let data = self.buffer.lock().unwrap();
+            String::from_utf8_lossy(&data[..]).into_owned()
+        }
+    }
+
+    impl<'a> MakeWriter<'a> for LogCapture {
+        type Writer = LogWriter;
+
+        fn make_writer(&'a self) -> Self::Writer {
+            LogWriter {
+                buffer: self.buffer.clone(),
+            }
+        }
+    }
+
+    struct LogWriter {
+        buffer: Arc<Mutex<Vec<u8>>>,
+    }
+
+    impl std::io::Write for LogWriter {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            let mut guard = self.buffer.lock().unwrap();
+            guard.extend_from_slice(buf);
+            Ok(buf.len())
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
 
     fn make_shared_config(session_state_dir: &str) -> SharedConfig {
         Arc::new(RwLock::new(Some(crate::config::TracePilotConfig {
@@ -319,6 +397,55 @@ mod tests {
             },
             ..Default::default()
         })))
+    }
+
+    #[test]
+    fn open_index_db_returns_none_for_missing_file() {
+        let dir = tempdir().unwrap();
+        let index_path = dir.path().join("index.db");
+
+        let logs = LogCapture::default();
+        let _guard = logs.install();
+
+        let result = open_index_db(&index_path);
+        assert!(result.is_none());
+        assert!(logs.output().is_empty());
+    }
+
+    #[test]
+    fn open_index_db_logs_when_index_is_corrupt() {
+        let dir = tempdir().unwrap();
+        let index_path = dir.path().join("index.db");
+        fs::write(&index_path, b"not a sqlite db").unwrap();
+
+        let logs = LogCapture::default();
+        let _guard = logs.install();
+
+        let result = open_index_db(&index_path);
+        assert!(result.is_none());
+
+        let output = logs.output();
+        assert!(output.contains("Failed to open index database"));
+        assert!(output.contains(index_path.to_string_lossy().as_ref()));
+    }
+
+    #[test]
+    fn open_index_db_logs_when_schema_is_missing() {
+        let dir = tempdir().unwrap();
+        let index_path = dir.path().join("index.db");
+
+        // Create an empty SQLite file without the expected schema
+        let _conn = rusqlite::Connection::open(&index_path).unwrap();
+
+        let logs = LogCapture::default();
+        let _guard = logs.install();
+
+        let result = open_index_db(&index_path);
+        assert!(result.is_none());
+
+        let output = logs.output();
+        assert!(output.contains("Failed to read session count"));
+        assert!(output.contains(index_path.to_string_lossy().as_ref()));
     }
 
     #[test]
