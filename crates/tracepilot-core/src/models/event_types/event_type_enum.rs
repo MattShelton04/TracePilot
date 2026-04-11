@@ -177,3 +177,107 @@ impl<'de> Deserialize<'de> for SessionEventType {
         Ok(SessionEventType::parse_wire(s.as_str()))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{KNOWN_EVENT_TYPES, SessionEventType};
+    use std::collections::{BTreeSet, HashSet};
+    use std::fs;
+    use std::path::PathBuf;
+
+    const TS_EVENTS_ARRAY_START: &str = "export const TRACEPILOT_KNOWN_EVENTS = [";
+    const TS_EVENTS_ARRAY_END: &str = "] as const;";
+
+    fn typescript_known_events_path() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../packages/types/src/known-events.ts")
+    }
+
+    fn read_typescript_known_events() -> Vec<String> {
+        let path = typescript_known_events_path();
+        let source = fs::read_to_string(&path)
+            .unwrap_or_else(|e| panic!("failed to read {}: {e}", path.display()));
+
+        let mut in_array = false;
+        let mut events = Vec::new();
+        for line in source.lines() {
+            let trimmed = line.trim();
+            if !in_array {
+                if trimmed == TS_EVENTS_ARRAY_START {
+                    in_array = true;
+                }
+                continue;
+            }
+            if trimmed == TS_EVENTS_ARRAY_END {
+                break;
+            }
+            if trimmed.is_empty() || trimmed.starts_with("//") {
+                continue;
+            }
+            if let Some(raw) = trimmed.strip_prefix('"').and_then(|rest| rest.split('"').next()) {
+                events.push(raw.to_string());
+            }
+        }
+
+        assert!(
+            in_array && !events.is_empty(),
+            "failed to parse TRACEPILOT_KNOWN_EVENTS array from {}",
+            path.display()
+        );
+        events
+    }
+
+    #[test]
+    fn known_event_types_match_typescript_known_events() {
+        let rust_events: Vec<String> = KNOWN_EVENT_TYPES.iter().map(|v| (*v).to_string()).collect();
+        let ts_events = read_typescript_known_events();
+
+        let rust_set: BTreeSet<&str> = KNOWN_EVENT_TYPES.iter().copied().collect();
+        let ts_set: BTreeSet<&str> = ts_events.iter().map(String::as_str).collect();
+
+        let missing_in_ts: Vec<&str> = rust_set.difference(&ts_set).copied().collect();
+        let extra_in_ts: Vec<&str> = ts_set.difference(&rust_set).copied().collect();
+
+        assert!(
+            missing_in_ts.is_empty() && extra_in_ts.is_empty(),
+            "known-event set mismatch. missing_in_ts={missing_in_ts:?}, extra_in_ts={extra_in_ts:?}"
+        );
+
+        assert_eq!(
+            rust_events, ts_events,
+            "known-event ordering mismatch between Rust KNOWN_EVENT_TYPES and TypeScript TRACEPILOT_KNOWN_EVENTS"
+        );
+    }
+
+    #[test]
+    fn known_event_types_are_unique() {
+        let unique: HashSet<&str> = KNOWN_EVENT_TYPES.iter().copied().collect();
+        assert_eq!(
+            unique.len(),
+            KNOWN_EVENT_TYPES.len(),
+            "KNOWN_EVENT_TYPES contains duplicates"
+        );
+    }
+
+    #[test]
+    fn typescript_known_events_are_unique() {
+        let ts_events = read_typescript_known_events();
+        let unique: HashSet<&str> = ts_events.iter().map(String::as_str).collect();
+        assert_eq!(
+            unique.len(),
+            ts_events.len(),
+            "TRACEPILOT_KNOWN_EVENTS contains duplicates"
+        );
+    }
+
+    #[test]
+    fn known_event_types_roundtrip_through_enum() {
+        for wire in KNOWN_EVENT_TYPES {
+            let parsed = SessionEventType::parse_wire(wire);
+            assert!(
+                !matches!(parsed, SessionEventType::Unknown(_)),
+                "KNOWN_EVENT_TYPES entry parsed as Unknown: {wire}"
+            );
+            assert_eq!(parsed.to_string(), *wire, "roundtrip mismatch for {wire}");
+        }
+    }
+}

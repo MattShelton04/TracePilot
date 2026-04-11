@@ -2,7 +2,7 @@
  * Canonical list of event types TracePilot currently handles with typed parsing.
  *
  * Must stay in sync with KNOWN_EVENT_TYPES in:
- *   crates/tracepilot-core/src/models/event_types.rs
+ *   crates/tracepilot-core/src/models/event_types/event_type_enum.rs
  *
  * Used by the version analyzer to compute coverage against installed Copilot CLI schemas.
  */
@@ -10,14 +10,14 @@ export const TRACEPILOT_KNOWN_EVENTS = [
   // Session lifecycle
   "session.start",
   "session.shutdown",
-  "session.resume",
-  "session.error",
-  "session.info",
-  "session.model_change",
-  "session.context_changed",
   "session.compaction_start",
   "session.compaction_complete",
   "session.plan_changed",
+  "session.model_change",
+  "session.info",
+  "session.context_changed",
+  "session.error",
+  "session.resume",
   "session.workspace_file_changed",
   // Conversation
   "user.message",
