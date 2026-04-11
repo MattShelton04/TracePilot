@@ -43,6 +43,7 @@ pub async fn skills_create(
     description: String,
     body: String,
 ) -> CmdResult<String> {
+    crate::validators::validate_skill_name(&name)?;
     blocking_cmd!(sk(tracepilot_orchestrator::skills::manager::create_skill(&name, &description, &body)
         .map(|p| p.to_string_lossy().to_string())))
 }
@@ -87,6 +88,7 @@ pub async fn skills_rename(
     skill_dir: String,
     new_name: String,
 ) -> CmdResult<String> {
+    crate::validators::validate_skill_name(&new_name)?;
     blocking_cmd!(sk(check_skill_dir(&skill_dir).and_then(|_| {
         tracepilot_orchestrator::skills::manager::rename_skill(
             std::path::Path::new(&skill_dir),
@@ -101,6 +103,7 @@ pub async fn skills_duplicate(
     skill_dir: String,
     new_name: String,
 ) -> CmdResult<String> {
+    crate::validators::validate_skill_name(&new_name)?;
     blocking_cmd!(sk(check_skill_dir(&skill_dir).and_then(|_| {
         tracepilot_orchestrator::skills::manager::duplicate_skill(
             std::path::Path::new(&skill_dir),
@@ -127,6 +130,7 @@ pub async fn skills_add_asset(
     asset_name: String,
     content: Vec<u8>,
 ) -> CmdResult<()> {
+    crate::validators::validate_asset_name(&asset_name)?;
     blocking_cmd!(sk(check_skill_dir(&skill_dir).and_then(|_| {
         tracepilot_orchestrator::skills::assets::add_asset(
             std::path::Path::new(&skill_dir),
@@ -142,6 +146,7 @@ pub async fn skills_copy_asset_from(
     asset_name: String,
     source_path: String,
 ) -> CmdResult<()> {
+    crate::validators::validate_asset_name(&asset_name)?;
     blocking_cmd!(sk(check_skill_dir(&skill_dir).and_then(|_| {
         tracepilot_orchestrator::skills::assets::copy_asset_from(
             std::path::Path::new(&skill_dir),

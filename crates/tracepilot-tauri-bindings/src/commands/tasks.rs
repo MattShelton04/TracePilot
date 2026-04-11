@@ -23,6 +23,7 @@ pub async fn task_create(
     priority: Option<String>,
     max_retries: Option<i32>,
 ) -> CmdResult<Task> {
+    crate::validators::validate_preset_id(&preset_id)?;
     let db = get_or_init_task_db(&state)?;
     let cfg = read_config(&config);
     let orch_state_clone = std::sync::Arc::clone(&*orch_state);

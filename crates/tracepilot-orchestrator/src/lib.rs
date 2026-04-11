@@ -23,7 +23,7 @@ pub mod task_recovery;
 pub mod templates;
 pub mod tokens;
 pub mod types;
-pub(crate) mod validation;
+pub mod validation;
 pub mod version_manager;
 pub mod worktrees;
 

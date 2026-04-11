@@ -295,6 +295,7 @@ pub async fn save_session_template(
 
 #[tauri::command]
 pub async fn delete_session_template(id: String) -> CmdResult<()> {
+    crate::validators::validate_template_id(&id)?;
     blocking_cmd!(tracepilot_orchestrator::templates::delete_template(&id))
 }
 
@@ -305,5 +306,6 @@ pub async fn restore_default_templates() -> CmdResult<()> {
 
 #[tauri::command]
 pub async fn increment_template_usage(id: String) -> CmdResult<()> {
+    crate::validators::validate_template_id(&id)?;
     blocking_cmd!(tracepilot_orchestrator::templates::increment_usage(&id))
 }
