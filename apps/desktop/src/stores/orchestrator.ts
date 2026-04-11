@@ -15,6 +15,7 @@ import type {
   OrchestratorState,
   SessionEvent,
 } from "@tracepilot/types";
+import { getToolArgs, toolArgString } from "@tracepilot/types";
 import { toErrorMessage } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref, watch } from "vue";
@@ -49,30 +50,30 @@ function toActivityEntries(events: SessionEvent[]): ActivityEntry[] {
       case "tool.execution_start": {
         const tool = (d.toolName as string) ?? "unknown";
         if (tool === "task") {
-          const args = d.arguments as Record<string, unknown> | undefined;
-          const name = (args?.name as string) ?? "";
+          const args = getToolArgs({ arguments: d.arguments });
+          const name = toolArgString(args, "name");
           icon = "🚀";
           label = "Dispatched subagent";
           detail = name || "task";
         } else if (tool === "powershell" || tool === "bash") {
           icon = "💻";
           label = `Running ${tool}`;
-          const cmd = ((d.arguments as Record<string, unknown> | undefined)?.command as string) ?? "";
+          const cmd = toolArgString(getToolArgs({ arguments: d.arguments }), "command");
           detail = cmd.length > 80 ? cmd.slice(0, 80) + "…" : cmd;
         } else if (tool === "view" || tool === "read") {
           icon = "📖";
           label = "Reading file";
-          const path = ((d.arguments as Record<string, unknown> | undefined)?.path as string) ?? "";
+          const path = toolArgString(getToolArgs({ arguments: d.arguments }), "path");
           detail = path.split(/[\\/]/).pop() ?? path;
         } else if (tool === "create" || tool === "edit") {
           icon = "✏️";
           label = `Writing file (${tool})`;
-          const path = ((d.arguments as Record<string, unknown> | undefined)?.path as string) ?? "";
+          const path = toolArgString(getToolArgs({ arguments: d.arguments }), "path");
           detail = path.split(/[\\/]/).pop() ?? path;
         } else if (tool === "read_agent") {
           icon = "👁️";
           label = "Checking subagent";
-          detail = ((d.arguments as Record<string, unknown> | undefined)?.agent_id as string) ?? "";
+          detail = toolArgString(getToolArgs({ arguments: d.arguments }), "agent_id");
         } else {
           icon = "🔧";
           label = `Tool: ${tool}`;
@@ -289,19 +290,23 @@ export const useOrchestratorStore = defineStore("orchestrator", () => {
   // When running → fast full-cycle polling.
   // When idle → slow health-only polling (detects restarts / stale state).
   // `immediate: true` ensures polling starts on store creation even when idle.
-  watch(isRunning, (running) => {
-    if (running) {
-      startPolling(POLL_FAST_MS);
-    } else {
-      // Final ingestion, then switch to slow health-only polling
-      // (re-check isRunning in case state changed during async ingestion)
-      ingestResults().finally(() => {
-        if (!isRunning.value) {
-          startPolling(POLL_SLOW_MS);
-        }
-      });
-    }
-  }, { immediate: true });
+  watch(
+    isRunning,
+    (running) => {
+      if (running) {
+        startPolling(POLL_FAST_MS);
+      } else {
+        // Final ingestion, then switch to slow health-only polling
+        // (re-check isRunning in case state changed during async ingestion)
+        ingestResults().finally(() => {
+          if (!isRunning.value) {
+            startPolling(POLL_SLOW_MS);
+          }
+        });
+      }
+    },
+    { immediate: true },
+  );
 
   /** Perform a full refresh: health + attribution + ingestion. */
   async function refresh() {

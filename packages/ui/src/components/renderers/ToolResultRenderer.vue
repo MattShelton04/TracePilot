@@ -11,6 +11,7 @@
  */
 
 import type { TurnToolCall } from "@tracepilot/types";
+import { getToolArgs } from "@tracepilot/types";
 import { type Component, computed } from "vue";
 import MarkdownContent from "../MarkdownContent.vue";
 import PlainTextRenderer from "./PlainTextRenderer.vue";
@@ -41,8 +42,7 @@ const activeComponent = computed<Component | null>(() => {
 });
 
 const parsedArgs = computed(() => {
-  if (!props.tc.arguments || typeof props.tc.arguments !== "object") return {};
-  return props.tc.arguments as Record<string, unknown>;
+  return getToolArgs(props.tc);
 });
 </script>
 

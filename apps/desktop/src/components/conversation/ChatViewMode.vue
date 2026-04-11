@@ -5,6 +5,7 @@ import type {
   SessionEventSeverity,
   TurnToolCall,
 } from "@tracepilot/types";
+import { getToolArgs, toolArgString } from "@tracepilot/types";
 import {
   formatArgsSummary,
   formatDuration,
@@ -233,13 +234,12 @@ function hiddenToolCount(items: ToolGroupItem[]): number {
 // ─── Intent/memory pill helpers ───────────────────────────────────
 
 function intentLabel(tc: TurnToolCall): string {
-  const args = tc.arguments as Record<string, unknown> | undefined;
-  return (args?.intent as string) ?? "…";
+  return toolArgString(getToolArgs(tc), "intent") || "…";
 }
 
 function memoryLabel(tc: TurnToolCall): string {
-  const args = tc.arguments as Record<string, unknown> | undefined;
-  return (args?.fact as string) ?? (args?.subject as string) ?? "…";
+  const args = getToolArgs(tc);
+  return toolArgString(args, "fact") || toolArgString(args, "subject") || "…";
 }
 
 // ─── Subagent completion tracking ─────────────────────────────────
@@ -251,10 +251,7 @@ function memoryLabel(tc: TurnToolCall): string {
 
 function parseAgentNameFromReadAgent(tc: TurnToolCall): string | null {
   try {
-    const args =
-      typeof tc.arguments === "string"
-        ? JSON.parse(tc.arguments)
-        : (tc.arguments as Record<string, unknown> | null);
+    const args = typeof tc.arguments === "string" ? JSON.parse(tc.arguments) : getToolArgs(tc);
     const candidates = [args?.agent_id, args?.agent_name, args?.name];
     for (const candidate of candidates) {
       if (typeof candidate === "string" && candidate.trim().length > 0) {
@@ -271,8 +268,8 @@ function parseAgentNameFromReadAgent(tc: TurnToolCall): string | null {
 const agentNameToToolCallId = computed(() => {
   const map = new Map<string, string>();
   for (const [toolCallId, sa] of subagentMap.value) {
-    const args = sa.toolCall.arguments as Record<string, unknown> | undefined;
-    const identifiers = [args?.name, args?.agent_id, args?.agent_name, sa.toolCall.toolCallId];
+    const args = getToolArgs(sa.toolCall);
+    const identifiers = [args.name, args.agent_id, args.agent_name, sa.toolCall.toolCallId];
     for (const identifier of identifiers) {
       if (typeof identifier === "string" && identifier.trim().length > 0) {
         map.set(identifier, toolCallId);

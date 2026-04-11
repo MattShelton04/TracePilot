@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { TurnToolCall } from "@tracepilot/types";
+import { getToolArgs, toolArgString } from "@tracepilot/types";
 import {
   agentStatusFromToolCall,
   formatArgsSummary,
@@ -90,21 +91,23 @@ const headerDuration = computed(() => {
 
 const model = computed(() => {
   if (!props.subagent) return "";
-  const args = props.subagent.toolCall.arguments as Record<string, unknown> | undefined;
-  return props.subagent.toolCall.model || (args?.model as string) || "";
+  const args = getToolArgs(props.subagent.toolCall);
+  return props.subagent.toolCall.model || toolArgString(args, "model") || "";
 });
 
 const description = computed(() => {
   if (!props.subagent) return "";
   const tc = props.subagent.toolCall;
-  const args = tc.arguments as Record<string, unknown> | undefined;
-  return tc.intentionSummary || (args?.description as string) || (args?.name as string) || "";
+  const args = getToolArgs(tc);
+  return (
+    tc.intentionSummary || toolArgString(args, "description") || toolArgString(args, "name") || ""
+  );
 });
 
 const prompt = computed(() => {
   if (!props.subagent) return "";
-  const args = props.subagent.toolCall.arguments as Record<string, unknown> | undefined;
-  return (args?.prompt as string) || "";
+  const args = getToolArgs(props.subagent.toolCall);
+  return toolArgString(args, "prompt");
 });
 
 const isPromptLong = computed(() => prompt.value.length > 300);
@@ -231,6 +234,11 @@ function pillIcon(type: "intent" | "memory" | "read_agent"): string {
   if (type === "intent") return "📋";
   if (type === "memory") return "💾";
   return "⏳";
+}
+
+/** Get description text for a nested-subagent item in the activity stream. */
+function nestedSubagentDesc(tc: TurnToolCall): string {
+  return tc.intentionSummary || toolArgString(getToolArgs(tc), "description");
 }
 </script>
 
@@ -404,8 +412,8 @@ function pillIcon(type: "intent" | "memory" | "read_agent"): string {
                     {{ item.toolCall.success === false ? '✗' : item.toolCall.isComplete ? '✓' : '…' }}
                   </span>
                 </div>
-                <div v-if="item.toolCall.intentionSummary || (item.toolCall.arguments as any)?.description" class="cv-panel-nested-desc">
-                  {{ item.toolCall.intentionSummary || (item.toolCall.arguments as any)?.description }}
+                <div v-if="nestedSubagentDesc(item.toolCall)" class="cv-panel-nested-desc">
+                  {{ nestedSubagentDesc(item.toolCall) }}
                 </div>
               </div>
 

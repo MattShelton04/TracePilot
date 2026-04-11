@@ -5,6 +5,7 @@
  * Model switches are detected and annotated inline (not as separate steps).
  */
 import type { ConversationTurn, ReplayStep, TurnToolCall } from "@tracepilot/types";
+import { getToolArgs, toolArgString } from "@tracepilot/types";
 
 /**
  * Convert an array of ConversationTurns into ReplaySteps.
@@ -87,9 +88,9 @@ function deriveStepTitle(turn: ConversationTurn, stepType: string): string {
   // Check for report_intent tool call
   const intentCall = turn.toolCalls.find((tc) => tc.toolName === "report_intent" && tc.arguments);
   if (intentCall) {
-    const args = intentCall.arguments as Record<string, unknown> | undefined;
-    if (args?.intent && typeof args.intent === "string") {
-      return args.intent;
+    const intent = toolArgString(getToolArgs(intentCall), "intent");
+    if (intent) {
+      return intent;
     }
   }
 
@@ -128,13 +129,15 @@ function extractFilesModified(toolCalls: TurnToolCall[]): string[] {
   for (const tc of toolCalls) {
     if (!tc.arguments || typeof tc.arguments !== "object") continue;
     if (!MUTATING_TOOLS.has(tc.toolName)) continue;
-    const args = tc.arguments as Record<string, unknown>;
+    const args = getToolArgs(tc);
 
-    if (typeof args.path === "string" && args.path) {
-      files.add(normalizePath(args.path));
+    const path = toolArgString(args, "path");
+    if (path) {
+      files.add(normalizePath(path));
     }
-    if (typeof args.file === "string" && args.file) {
-      files.add(normalizePath(args.file));
+    const file = toolArgString(args, "file");
+    if (file) {
+      files.add(normalizePath(file));
     }
   }
 
@@ -154,7 +157,7 @@ function normalizePath(path: string): string {
 /** Extract a short command/summary string from tool call arguments. */
 function extractToolCommand(tc: TurnToolCall): string | undefined {
   if (!tc.arguments || typeof tc.arguments !== "object") return undefined;
-  const args = tc.arguments as Record<string, unknown>;
+  const args = getToolArgs(tc);
 
   switch (tc.toolName) {
     case "powershell":

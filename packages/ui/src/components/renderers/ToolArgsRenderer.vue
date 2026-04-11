@@ -8,6 +8,7 @@
  */
 
 import type { TurnToolCall } from "@tracepilot/types";
+import { getToolArgs } from "@tracepilot/types";
 import { type Component, computed, ref } from "vue";
 import { getRendererEntry, hasResultRenderer, shouldHideArgsWithRichResult } from "./registry";
 
@@ -27,14 +28,18 @@ const activeComponent = computed<Component | null>(() => {
 });
 
 const hasArgs = computed(() => {
-  const a = props.tc.arguments;
-  return a && typeof a === "object" && !Array.isArray(a) && Object.keys(a as object).length > 0;
+  const a = getToolArgs(props.tc);
+  return Object.keys(a).length > 0;
 });
 
 const formattedJson = computed(() => {
   if (!hasArgs.value) return "";
   return JSON.stringify(props.tc.arguments, null, 2);
 });
+
+const argsRecord = computed(() => getToolArgs(props.tc));
+
+const argsKeyCount = computed(() => Object.keys(argsRecord.value).length);
 
 /** True when the rich result renderer already shows the args info AND a result exists. */
 const shouldHideCompletely = computed(
@@ -58,7 +63,7 @@ const shouldHideCompletely = computed(
       >
         <span class="args-toggle-icon" :class="{ 'args-toggle-icon--open': isOpen }">▶</span>
         <span class="args-toggle-label">Parameters</span>
-        <span class="args-toggle-count">{{ Object.keys(tc.arguments as object).length }}</span>
+        <span class="args-toggle-count">{{ argsKeyCount }}</span>
       </button>
 
       <div v-show="isOpen" class="args-content">
@@ -66,7 +71,7 @@ const shouldHideCompletely = computed(
         <component
           v-if="activeComponent"
           :is="activeComponent"
-          :args="tc.arguments as Record<string, unknown>"
+          :args="argsRecord"
           :tc="tc"
         />
         <!-- Fallback: JSON display -->

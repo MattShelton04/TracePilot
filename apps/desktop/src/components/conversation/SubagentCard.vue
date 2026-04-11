@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { TurnToolCall } from "@tracepilot/types";
+import { getToolArgs, toolArgString } from "@tracepilot/types";
 import {
   agentStatusFromToolCall,
   formatDuration,
@@ -32,13 +33,15 @@ const displayName = computed(() => {
 
 const description = computed(() => {
   const tc = props.toolCall;
-  const args = tc.arguments as Record<string, unknown> | undefined;
-  return tc.intentionSummary || (args?.description as string) || (args?.name as string) || "";
+  const args = getToolArgs(tc);
+  return (
+    tc.intentionSummary || toolArgString(args, "description") || toolArgString(args, "name") || ""
+  );
 });
 
 const model = computed(() => {
-  const args = props.toolCall.arguments as Record<string, unknown> | undefined;
-  return props.toolCall.model || (args?.model as string) || "";
+  const args = getToolArgs(props.toolCall);
+  return props.toolCall.model || toolArgString(args, "model") || "";
 });
 
 const duration = computed(() => {
