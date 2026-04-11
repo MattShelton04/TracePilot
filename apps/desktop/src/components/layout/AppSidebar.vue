@@ -3,6 +3,7 @@ import { computed, ref } from "vue";
 import { useRoute } from "vue-router";
 import LogoIcon from "@/components/icons/LogoIcon.vue";
 import { useAppVersion } from "@/composables/useAppVersion";
+import { useSidebarNav } from "@/composables/useSidebarNav";
 import { useUpdateCheck } from "@/composables/useUpdateCheck";
 import { useWhatsNew } from "@/composables/useWhatsNew";
 import { usePreferencesStore } from "@/stores/preferences";
@@ -21,6 +22,14 @@ const { openWhatsNew } = useWhatsNew();
 const route = useRoute();
 const sessionsStore = useSessionsStore();
 const prefsStore = usePreferencesStore();
+
+const {
+  visiblePrimaryNav,
+  visibleAdvancedNav,
+  orchestrationNav,
+  visibleTasksNav,
+  visibleConfigNav,
+} = useSidebarNav();
 
 const activeSidebarId = computed(() => (route.meta?.sidebarId as string) || "sessions");
 const sessionCount = computed(() => sessionsStore.visibleSessionCount);
@@ -60,76 +69,6 @@ async function handleWhatsNewPreview() {
 async function handleVersionClick() {
   await openWhatsNew("0.0.0", appVersion.value);
 }
-
-interface NavItem {
-  id: string;
-  label: string;
-  to: string;
-  icon: string;
-  featureFlag?: string;
-}
-
-const primaryNav: NavItem[] = [
-  { id: "sessions", label: "Sessions", to: "/", icon: "sessions" },
-  { id: "search", label: "Search", to: "/search", icon: "search" },
-  { id: "analytics", label: "Analytics", to: "/analytics", icon: "analytics" },
-  { id: "health", label: "Health", to: "/health", icon: "health", featureFlag: "healthScoring" },
-  { id: "tools", label: "Tools", to: "/tools", icon: "tools" },
-  { id: "code", label: "Code", to: "/code", icon: "code" },
-];
-
-const advancedNav: NavItem[] = [
-  { id: "models", label: "Models", to: "/models", icon: "models" },
-  { id: "compare", label: "Compare", to: "/compare", icon: "compare" },
-  { id: "replay", label: "Replay", to: "/replay", icon: "replay", featureFlag: "sessionReplay" },
-  { id: "export", label: "Export", to: "/export", icon: "export", featureFlag: "exportView" },
-];
-
-const visiblePrimaryNav = computed(() =>
-  primaryNav.filter((item) => !item.featureFlag || prefsStore.isFeatureEnabled(item.featureFlag)),
-);
-
-const visibleAdvancedNav = computed(() =>
-  advancedNav.filter((item) => !item.featureFlag || prefsStore.isFeatureEnabled(item.featureFlag)),
-);
-
-const orchestrationNav: NavItem[] = [
-  { id: "orchestration", label: "Command Centre", to: "/orchestration", icon: "orchestration" },
-  { id: "worktrees", label: "Worktrees", to: "/orchestration/worktrees", icon: "worktrees" },
-  { id: "launcher", label: "Launcher", to: "/orchestration/launcher", icon: "launcher" },
-  { id: "config-injector", label: "Config Injector", to: "/orchestration/config", icon: "config" },
-];
-
-const configurationNav: NavItem[] = [
-  { id: "mcp", label: "MCP Servers", to: "/mcp", icon: "mcp", featureFlag: "mcpServers" },
-  { id: "skills", label: "Skills", to: "/skills", icon: "skills", featureFlag: "skills" },
-];
-
-const visibleConfigNav = computed(() =>
-  configurationNav.filter((item) => !item.featureFlag || prefsStore.isFeatureEnabled(item.featureFlag)),
-);
-
-const tasksNav: NavItem[] = [
-  { id: "ai-tasks", label: "Tasks", to: "/tasks", icon: "ai-tasks", featureFlag: "aiTasks" },
-  {
-    id: "ai-monitor",
-    label: "Monitor",
-    to: "/tasks/monitor",
-    icon: "ai-monitor",
-    featureFlag: "aiTasks",
-  },
-  {
-    id: "ai-presets",
-    label: "Presets",
-    to: "/tasks/presets",
-    icon: "ai-presets",
-    featureFlag: "aiTasks",
-  },
-];
-
-const visibleTasksNav = computed(() =>
-  tasksNav.filter((item) => !item.featureFlag || prefsStore.isFeatureEnabled(item.featureFlag)),
-);
 </script>
 
 <template>

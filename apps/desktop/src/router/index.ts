@@ -24,6 +24,7 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: "Sessions",
       sidebarId: "sessions",
+      sidebar: { section: "primary", label: "Sessions", icon: "sessions", order: 0 },
     },
   },
   {
@@ -94,6 +95,7 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: "Session Search",
       sidebarId: "search",
+      sidebar: { section: "primary", label: "Search", icon: "search", order: 1 },
     },
   },
   {
@@ -103,6 +105,7 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: "Analytics Dashboard",
       sidebarId: "analytics",
+      sidebar: { section: "primary", label: "Analytics", icon: "analytics", order: 2 },
     },
   },
   {
@@ -113,6 +116,7 @@ const routes: RouteRecordRaw[] = [
       title: "Health Scoring",
       sidebarId: "health",
       featureFlag: "healthScoring",
+      sidebar: { section: "primary", label: "Health", icon: "health", order: 3 },
     },
   },
   {
@@ -122,6 +126,7 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: "Tool Analysis",
       sidebarId: "tools",
+      sidebar: { section: "primary", label: "Tools", icon: "tools", order: 4 },
     },
   },
   {
@@ -131,6 +136,7 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: "Code Impact",
       sidebarId: "code",
+      sidebar: { section: "primary", label: "Code", icon: "code", order: 5 },
     },
   },
   {
@@ -140,6 +146,7 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: "Model Comparison",
       sidebarId: "models",
+      sidebar: { section: "advanced", label: "Models", icon: "models", order: 0 },
     },
   },
   {
@@ -149,6 +156,7 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: "Session Comparison",
       sidebarId: "compare",
+      sidebar: { section: "advanced", label: "Compare", icon: "compare", order: 1 },
     },
   },
   {
@@ -159,6 +167,7 @@ const routes: RouteRecordRaw[] = [
       title: "Session Replay",
       sidebarId: "replay",
       featureFlag: "sessionReplay",
+      sidebar: { section: "advanced", label: "Replay", icon: "replay", order: 2 },
     },
   },
   {
@@ -169,6 +178,7 @@ const routes: RouteRecordRaw[] = [
       title: "Export",
       sidebarId: "export",
       featureFlag: "exportView",
+      sidebar: { section: "advanced", label: "Export", icon: "export", order: 3 },
     },
   },
   {
@@ -188,6 +198,7 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: "Orchestration",
       sidebarId: "orchestration",
+      sidebar: { section: "orchestration", label: "Command Centre", icon: "orchestration", order: 0 },
     },
   },
   {
@@ -197,6 +208,7 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: "Worktree Manager",
       sidebarId: "worktrees",
+      sidebar: { section: "orchestration", label: "Worktrees", icon: "worktrees", order: 1 },
     },
   },
   {
@@ -206,6 +218,7 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: "Session Launcher",
       sidebarId: "launcher",
+      sidebar: { section: "orchestration", label: "Launcher", icon: "launcher", order: 2 },
     },
   },
   {
@@ -215,6 +228,7 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: "Config Injector",
       sidebarId: "config-injector",
+      sidebar: { section: "orchestration", label: "Config Injector", icon: "config", order: 3 },
     },
   },
   // === MCP Server Management ===
@@ -226,6 +240,7 @@ const routes: RouteRecordRaw[] = [
       title: "MCP Servers",
       sidebarId: "mcp",
       featureFlag: "mcpServers",
+      sidebar: { section: "configuration", label: "MCP Servers", icon: "mcp", order: 0 },
     },
   },
   {
@@ -247,6 +262,7 @@ const routes: RouteRecordRaw[] = [
       title: "Skills",
       sidebarId: "skills",
       featureFlag: "skills",
+      sidebar: { section: "configuration", label: "Skills", icon: "skills", order: 1 },
     },
   },
   {
@@ -268,6 +284,7 @@ const routes: RouteRecordRaw[] = [
       title: "AI Tasks",
       sidebarId: "ai-tasks",
       featureFlag: "aiTasks",
+      sidebar: { section: "tasks", label: "Tasks", icon: "ai-tasks", order: 0 },
     },
   },
   {
@@ -298,6 +315,7 @@ const routes: RouteRecordRaw[] = [
       title: "Orchestrator Monitor",
       sidebarId: "ai-monitor",
       featureFlag: "aiTasks",
+      sidebar: { section: "tasks", label: "Monitor", icon: "ai-monitor", order: 1 },
     },
   },
   {
@@ -308,6 +326,7 @@ const routes: RouteRecordRaw[] = [
       title: "Task Presets",
       sidebarId: "ai-presets",
       featureFlag: "aiTasks",
+      sidebar: { section: "tasks", label: "Presets", icon: "ai-presets", order: 2 },
     },
   },
   // 404 catch-all — must be last
