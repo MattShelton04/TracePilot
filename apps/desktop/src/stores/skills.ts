@@ -45,6 +45,7 @@ export const useSkillsStore = defineStore("skills", () => {
   const error = ref<string | null>(null);
   const searchQuery = ref("");
   const filterScope = ref<"all" | SkillScope>("all");
+  const currentRepoRoot = ref<string | undefined>(undefined);
 
   const loadGuard = useAsyncGuard();
 
@@ -93,11 +94,14 @@ export const useSkillsStore = defineStore("skills", () => {
   // ─── Actions ──────────────────────────────────────────────────────
 
   async function loadSkills(repoRoot?: string) {
+    if (repoRoot !== undefined) {
+      currentRepoRoot.value = repoRoot;
+    }
     const token = loadGuard.start();
     loading.value = true;
     error.value = null;
     try {
-      const result = await skillsListAll(repoRoot);
+      const result = await skillsListAll(currentRepoRoot.value);
       if (!loadGuard.isValid(token)) return;
       skills.value = result;
     } catch (e) {
