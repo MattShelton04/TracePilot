@@ -65,7 +65,7 @@ pub(crate) struct ModelMetricsRow {
     pub cache_write_tokens: i64,
     pub cost: f64,
     pub premium_requests: i64,
-    pub reasoning_tokens: i64,
+    pub reasoning_tokens: Option<i64>,
 }
 
 /// Named row for per-tool call stats.

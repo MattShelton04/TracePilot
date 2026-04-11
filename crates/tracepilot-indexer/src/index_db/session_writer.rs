@@ -220,7 +220,10 @@ impl IndexDb {
                     Value::Integer(row.cache_write_tokens),
                     Value::Real(row.cost),
                     Value::Integer(row.premium_requests),
-                    Value::Integer(row.reasoning_tokens),
+                    match row.reasoning_tokens {
+                        Some(v) => Value::Integer(v),
+                        None => Value::Null,
+                    },
                 ],
             )?;
 
@@ -505,10 +508,10 @@ pub(crate) fn extract_session_analytics(
                         usage.output_tokens.unwrap_or(0) as i64,
                         usage.cache_read_tokens.unwrap_or(0) as i64,
                         usage.cache_write_tokens.unwrap_or(0) as i64,
-                        usage.reasoning_tokens.map(|v| v as i64).unwrap_or(-1),
+                        usage.reasoning_tokens.map(|v| v as i64),
                     )
                 } else {
-                    (0, 0, 0, 0, -1)
+                    (0, 0, 0, 0, None)
                 };
             let model_tokens = input_t + output_t;
             total_tokens += model_tokens;
@@ -526,7 +529,7 @@ pub(crate) fn extract_session_analytics(
                 cache_write_tokens: cache_write,
                 cost,
                 premium_requests: req_count,
-                reasoning_tokens: if reasoning >= 0 { reasoning } else { 0 },
+                reasoning_tokens: reasoning,
             });
         }
 
