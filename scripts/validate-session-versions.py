@@ -33,6 +33,8 @@ VERSION_FIELD_MAP: dict[str, str] = {
     "subagent.completed.totalTokens": "1.0.11",
     "subagent.completed.totalToolCalls": "1.0.11",
     "subagent.completed.durationMs": "1.0.11",
+    "assistant.message.requestId": "1.0.22",
+    "session.start.remoteSteerable": "1.0.13",
 }
 
 # Known event types — anything else is flagged as unknown.
@@ -138,7 +140,10 @@ class SessionReport:
 
     @property
     def session_id(self) -> str:
-        return self.path.parent.name
+        events_file = self.path.parent / "events.jsonl"
+        if events_file.is_file():
+            return self.path.parent.name
+        return self.path.stem
 
 
 def analyze_session(events_path: Path) -> SessionReport:
@@ -147,6 +152,8 @@ def analyze_session(events_path: Path) -> SessionReport:
 
     shutdown_data: dict[str, Any] | None = None
     subagent_completed_data: list[dict[str, Any]] = []
+    assistant_message_data: list[dict[str, Any]] = []
+    session_start_data: dict[str, Any] | None = None
 
     try:
         with open(events_path, "r", encoding="utf-8") as f:
@@ -167,6 +174,7 @@ def analyze_session(events_path: Path) -> SessionReport:
                 # Extract copilot version from first session.start
                 if event_type == "session.start" and report.copilot_version is None:
                     report.copilot_version = data.get("copilotVersion")
+                    session_start_data = data
 
                 # Track unknown event types
                 if event_type not in KNOWN_EVENT_TYPES:
@@ -179,6 +187,10 @@ def analyze_session(events_path: Path) -> SessionReport:
                 # Collect subagent.completed events
                 if event_type == "subagent.completed":
                     subagent_completed_data.append(data)
+
+                # Collect assistant.message events
+                if event_type == "assistant.message":
+                    assistant_message_data.append(data)
 
     except OSError as e:
         report.parse_errors.append(f"Cannot read file: {e}")
@@ -220,6 +232,42 @@ def analyze_session(events_path: Path) -> SessionReport:
                         f"MISSING: {field_path} expected for v{version} (introduced in v{min_ver})"
                     )
                 elif not expected and any_present:
+                    report.anomalies.append(
+                        f"UNEXPECTED: {field_path} present in v{version} (expected from v{min_ver}+)"
+                    )
+
+    if version and assistant_message_data:
+        for field_path, min_ver in VERSION_FIELD_MAP.items():
+            if field_path.startswith("assistant.message."):
+                json_key = field_path.split(".")[-1]
+                any_present = any(
+                    d.get(json_key) is not None for d in assistant_message_data
+                )
+                report.field_presence[field_path] = any_present
+
+                expected = version_gte(version, min_ver)
+                if expected and not any_present:
+                    report.anomalies.append(
+                        f"MISSING: {field_path} expected for v{version} (introduced in v{min_ver})"
+                    )
+                elif not expected and any_present:
+                    report.anomalies.append(
+                        f"UNEXPECTED: {field_path} present in v{version} (expected from v{min_ver}+)"
+                    )
+
+    if version and session_start_data is not None:
+        for field_path, min_ver in VERSION_FIELD_MAP.items():
+            if field_path.startswith("session.start."):
+                json_key = field_path.split(".")[-1]
+                present = session_start_data.get(json_key) is not None
+                report.field_presence[field_path] = present
+
+                expected = version_gte(version, min_ver)
+                if expected and not present:
+                    report.anomalies.append(
+                        f"MISSING: {field_path} expected for v{version} (introduced in v{min_ver})"
+                    )
+                elif not expected and present:
                     report.anomalies.append(
                         f"UNEXPECTED: {field_path} present in v{version} (expected from v{min_ver}+)"
                     )

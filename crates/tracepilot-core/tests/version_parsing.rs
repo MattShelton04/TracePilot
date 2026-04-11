@@ -318,8 +318,8 @@ fn v1_0_11_subagent_completed_has_metrics() {
 #[test]
 fn v1_0_24_parses_without_errors() {
     let parsed = parse_typed_events(&fixture_path("v1_0_24.jsonl")).unwrap();
-    // 11 events: +1 for session.remote_steerable_changed
-    assert_common_parse!(parsed, 11, "v1.0.24");
+    // 13 events: +2 for subagent.failed flow, +1 for session.remote_steerable_changed
+    assert_common_parse!(parsed, 13, "v1.0.24");
 }
 
 #[test]
@@ -388,6 +388,50 @@ fn v1_0_24_subagent_completed_has_metrics() {
         assert_eq!(data.total_tokens, Some(75000));
         assert_eq!(data.total_tool_calls, Some(15));
         assert_eq!(data.duration_ms, Some(8000));
+        assert_eq!(data.agent_name.as_deref(), Some("explore"));
+    } else {
+        panic!("expected SubagentCompleted variant");
+    }
+}
+
+#[test]
+fn v1_0_24_subagent_failed_has_metrics() {
+    let parsed = parse_typed_events(&fixture_path("v1_0_24.jsonl")).unwrap();
+    let failed = parsed
+        .events
+        .iter()
+        .find(|e| e.event_type == SessionEventType::SubagentFailed)
+        .expect("subagent.failed event present");
+    if let TypedEventData::SubagentFailed(data) = &failed.typed_data {
+        assert_eq!(data.model.as_deref(), Some("gpt-5.4"));
+        assert_eq!(data.total_tokens, Some(12000));
+        assert_eq!(data.total_tool_calls, Some(3));
+        assert_eq!(data.duration_ms, Some(30000));
+        assert_eq!(data.error.as_deref(), Some("Timeout exceeded"));
+        assert_eq!(data.agent_name.as_deref(), Some("code-review"));
+        assert_eq!(data.agent_display_name.as_deref(), Some("Code Review"));
+    } else {
+        panic!("expected SubagentFailed variant");
+    }
+}
+
+#[test]
+fn v1_0_24_session_start_has_remote_steerable() {
+    let parsed = parse_typed_events(&fixture_path("v1_0_24.jsonl")).unwrap();
+    let start = find_session_start(&parsed.events);
+    if let TypedEventData::SessionStart(data) = start {
+        assert_eq!(data.remote_steerable, Some(true));
+    } else {
+        panic!("expected SessionStart variant");
+    }
+}
+
+#[test]
+fn v1_0_11_subagent_completed_has_agent_name() {
+    let parsed = parse_typed_events(&fixture_path("v1_0_11.jsonl")).unwrap();
+    let sub = find_subagent_completed(&parsed.events);
+    if let TypedEventData::SubagentCompleted(data) = sub {
+        assert_eq!(data.agent_name.as_deref(), Some("explore"));
     } else {
         panic!("expected SubagentCompleted variant");
     }
@@ -454,6 +498,7 @@ fn turn_reconstruction_v1_0_11() {
     assert_eq!(sub.model.as_deref(), Some("gpt-5.4"));
     assert_eq!(sub.total_tokens, Some(50000));
     assert_eq!(sub.total_tool_calls, Some(10));
+    assert_eq!(sub.duration_ms, Some(5000));
 }
 
 #[test]
@@ -471,6 +516,7 @@ fn turn_reconstruction_v1_0_24() {
     assert_eq!(sub.model.as_deref(), Some("claude-opus-4.6"));
     assert_eq!(sub.total_tokens, Some(75000));
     assert_eq!(sub.total_tool_calls, Some(15));
+    assert_eq!(sub.duration_ms, Some(8000));
 }
 
 // ===========================================================================
@@ -490,6 +536,8 @@ fn token_budget_absent_before_v1_0_8_present_after() {
                 data.current_tokens.is_none(),
                 "{name} should NOT have currentTokens"
             );
+        } else {
+            panic!("{name}: expected SessionShutdown variant");
         }
     }
 
@@ -513,6 +561,8 @@ fn token_budget_absent_before_v1_0_8_present_after() {
                 data.tool_definitions_tokens.is_some(),
                 "{name} SHOULD have toolDefinitionsTokens"
             );
+        } else {
+            panic!("{name}: expected SessionShutdown variant");
         }
     }
 }
@@ -534,6 +584,8 @@ fn subagent_metrics_absent_before_v1_0_11_present_after() {
                 data.model.is_none(),
                 "{name} should NOT have subagent model"
             );
+        } else {
+            panic!("{name}: expected SubagentCompleted variant");
         }
     }
 
@@ -557,6 +609,8 @@ fn subagent_metrics_absent_before_v1_0_11_present_after() {
                 data.duration_ms.is_some(),
                 "{name} SHOULD have subagent durationMs"
             );
+        } else {
+            panic!("{name}: expected SubagentCompleted variant");
         }
     }
 }
@@ -584,6 +638,8 @@ fn reasoning_tokens_only_in_v1_0_24() {
                     }
                 }
             }
+        } else {
+            panic!("{name}: expected SessionShutdown variant");
         }
     }
 
@@ -594,5 +650,7 @@ fn reasoning_tokens_only_in_v1_0_24() {
         let mm = data.model_metrics.as_ref().unwrap();
         let usage = mm["claude-opus-4.6"].usage.as_ref().unwrap();
         assert_eq!(usage.reasoning_tokens, Some(300));
+    } else {
+        panic!("v1_0_24: expected SessionShutdown variant");
     }
 }
