@@ -22,15 +22,10 @@ pub struct WorkspaceMetadata {
 
 /// Parse a `workspace.yaml` file from a session directory.
 pub fn parse_workspace_yaml(path: &Path) -> Result<WorkspaceMetadata> {
-    let content = std::fs::read_to_string(path).map_err(|e| TracePilotError::ParseError {
-        context: format!("Failed to read {}", path.display()),
-        source: Some(Box::new(e)),
-    })?;
-    let metadata: WorkspaceMetadata =
-        serde_yml::from_str(&content).map_err(|e| TracePilotError::ParseError {
-            context: format!("Failed to parse {}", path.display()),
-            source: Some(Box::new(e)),
-        })?;
+    let content = std::fs::read_to_string(path)
+        .map_err(|e| TracePilotError::io_context("Failed to read", path.display(), e))?;
+    let metadata: WorkspaceMetadata = serde_yml::from_str(&content)
+        .map_err(|e| TracePilotError::parse_context("YAML", path.display(), e))?;
     Ok(metadata)
 }
 

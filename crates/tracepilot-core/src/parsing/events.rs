@@ -125,10 +125,8 @@ pub struct ParsedEvents {
 /// Returns `(events, malformed_line_count)` so the caller can track parse quality.
 #[tracing::instrument(skip_all, fields(path = %path.display()))]
 fn parse_events_jsonl(path: &Path) -> Result<(Vec<RawEvent>, usize)> {
-    let file = std::fs::File::open(path).map_err(|e| TracePilotError::ParseError {
-        context: format!("Failed to open {}", path.display()),
-        source: Some(Box::new(e)),
-    })?;
+    let file = std::fs::File::open(path)
+        .map_err(|e| TracePilotError::io_context("Failed to open", path.display(), e))?;
     // Estimate event count from file size (~1KB per event) to reduce Vec reallocations
     let estimated_events = file
         .metadata()
@@ -139,9 +137,8 @@ fn parse_events_jsonl(path: &Path) -> Result<(Vec<RawEvent>, usize)> {
     let mut malformed = 0usize;
 
     for (line_num, line) in reader.lines().enumerate() {
-        let line = line.map_err(|e| TracePilotError::ParseError {
-            context: format!("Failed to read line {}", line_num + 1),
-            source: Some(Box::new(e)),
+        let line = line.map_err(|e| {
+            TracePilotError::io_context("Failed to read line", format!("{}", line_num + 1), e)
         })?;
         let trimmed = line.trim();
         if trimmed.is_empty() {
