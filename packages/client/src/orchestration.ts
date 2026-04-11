@@ -234,5 +234,8 @@ async function getMockData<T>(cmd: string, _args?: Record<string, unknown>): Pro
     mocksModule = await import("./mock/orchestration.js");
   }
   const mocks = mocksModule.ORCHESTRATION_MOCK_DATA;
-  return (mocks[cmd] ?? null) as T;
+  if (!(cmd in mocks)) {
+    throw new Error(`[STUB] No mock data for orchestration command: ${cmd}`);
+  }
+  return mocks[cmd] as T;
 }

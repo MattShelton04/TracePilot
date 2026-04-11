@@ -25,7 +25,12 @@ import type {
 
 // Deterministic timestamp used for mock "just-created" responses.
 // Keeps dev-mode UIs and snapshot tests stable across reloads.
-const MOCK_NOW = "2026-03-20T12:00:00.000Z";
+const MOCK_NOW_MS = new Date("2026-03-20T12:00:00.000Z").getTime();
+
+/** Offset MOCK_NOW by `ms` milliseconds and return an ISO string. */
+function ts(ms: number): string {
+  return new Date(MOCK_NOW_MS + ms).toISOString();
+}
 
 export const ORCHESTRATION_MOCK_DATA: Record<string, unknown> = {
   check_system_deps: {
@@ -122,7 +127,7 @@ export const ORCHESTRATION_MOCK_DATA: Record<string, unknown> = {
     isBare: false,
     status: "active",
     isLocked: false,
-    createdAt: MOCK_NOW,
+    createdAt: ts(0),
     repoRoot: "C:\\git\\MyProject",
   } satisfies WorktreeInfo,
 
@@ -135,7 +140,7 @@ export const ORCHESTRATION_MOCK_DATA: Record<string, unknown> = {
   launch_session: {
     pid: 12345,
     command: "copilot --model claude-opus-4.6",
-    launchedAt: MOCK_NOW,
+    launchedAt: ts(0),
   } satisfies LaunchedSession,
 
   get_available_models: [
@@ -336,7 +341,7 @@ export const ORCHESTRATION_MOCK_DATA: Record<string, unknown> = {
   add_registered_repo: {
     path: "C:\\git\\NewRepo",
     name: "NewRepo",
-    addedAt: MOCK_NOW,
+    addedAt: ts(0),
     source: "manual",
     favourite: false,
   } satisfies RegisteredRepo,
@@ -351,7 +356,7 @@ export const ORCHESTRATION_MOCK_DATA: Record<string, unknown> = {
     label: "manual-backup",
     sourcePath: "",
     backupPath: "",
-    createdAt: MOCK_NOW,
+    createdAt: ts(0),
     sizeBytes: 256,
   } satisfies BackupEntry,
   restore_config_backup: undefined,
