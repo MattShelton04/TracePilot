@@ -60,6 +60,30 @@ impl IndexDb {
         self.write_prepared_session(&prepared)
     }
 
+    /// Delete rows from all session child tables for a given session_id.
+    ///
+    /// Consolidates the 6 individual DELETE statements into a single helper.
+    /// Table names are hardcoded constants (not dynamic) so there is no SQL
+    /// injection risk.
+    fn delete_child_rows(&self, session_id: &str) -> Result<()> {
+        const CHILD_TABLES: &[&str] = &[
+            "session_model_metrics",
+            "session_tool_calls",
+            "session_modified_files",
+            "session_activity",
+            "session_incidents",
+            "session_segments",
+        ];
+
+        for table in CHILD_TABLES {
+            self.conn.execute(
+                &format!("DELETE FROM {} WHERE session_id = ?1", table),
+                [session_id],
+            )?;
+        }
+        Ok(())
+    }
+
     /// Write pre-computed session data to the index database.
     ///
     /// This is the DB-bound portion of indexing that must run sequentially
@@ -77,30 +101,7 @@ impl IndexDb {
 
         let result = (|| -> Result<()> {
             // Delete child table rows first
-            self.conn.execute(
-                "DELETE FROM session_model_metrics WHERE session_id = ?1",
-                [&session_id],
-            )?;
-            self.conn.execute(
-                "DELETE FROM session_tool_calls WHERE session_id = ?1",
-                [&session_id],
-            )?;
-            self.conn.execute(
-                "DELETE FROM session_modified_files WHERE session_id = ?1",
-                [&session_id],
-            )?;
-            self.conn.execute(
-                "DELETE FROM session_activity WHERE session_id = ?1",
-                [&session_id],
-            )?;
-            self.conn.execute(
-                "DELETE FROM session_incidents WHERE session_id = ?1",
-                [&session_id],
-            )?;
-            self.conn.execute(
-                "DELETE FROM session_segments WHERE session_id = ?1",
-                [&session_id],
-            )?;
+            self.delete_child_rows(&session_id)?;
             // NOTE: search_content is NOT deleted here — it's managed by Phase 2 (search_writer).
             // Phase 2 may not run immediately (semaphore busy), so deleting here would
             // leave a gap where the session has no search content until the next Phase 2 cycle.
