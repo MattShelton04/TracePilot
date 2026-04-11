@@ -1,4 +1,24 @@
 //! Shared utility functions used across TracePilot crates.
+//!
+//! # String Truncation Utilities
+//!
+//! This module provides two families of truncation functions:
+//!
+//! ## Byte-based truncation (for storage/indexing)
+//! - [`truncate_utf8()`] - Truncates to byte limit, respecting UTF-8 boundaries
+//! - [`truncate_utf8_with_marker()`] - Same, with optional marker suffix
+//! - [`truncate_string_utf8()`] - In-place version for owned strings
+//!
+//! Use these when:
+//! - Storing in databases with byte-limited columns
+//! - Sending over wire protocols with size constraints
+//! - Indexing content with byte budgets
+//!
+//! ## Security Note
+//! These functions preserve UTF-8 validity but do NOT sanitize for:
+//! - SQL injection (use parameterized queries)
+//! - XSS attacks (escape at display layer)
+//! - Command injection (validate separately)
 
 pub mod cache;
 pub mod sqlite;
@@ -24,6 +44,13 @@ pub fn truncate_string_utf8(s: &mut String, max_bytes: usize) {
     s.truncate(truncated_len);
 }
 
+/// Maximum allowed length for truncation markers.
+///
+/// This limit prevents potential DoS attacks via excessively large marker strings
+/// and ensures reasonable output sizes. Markers longer than this are replaced with
+/// a simple ellipsis ("…") and trigger a debug assertion.
+const MAX_MARKER_BYTES: usize = 256;
+
 /// Truncate a string to a maximum byte length with an optional marker suffix.
 ///
 /// This is the unified truncation utility that supports:
@@ -39,8 +66,12 @@ pub fn truncate_string_utf8(s: &mut String, max_bytes: usize) {
 /// # Returns
 /// An owned `String` that:
 /// - Is at most `max_bytes` (if `marker` is `None`)
-/// - Is at most `max_bytes + marker.len()` (if `marker` is `Some`)
+/// - Is at most `max_bytes + marker.len()` (if `marker` is `Some` and within limits)
 /// - Respects UTF-8 character boundaries
+///
+/// # Marker Length Limit
+/// Markers longer than [`MAX_MARKER_BYTES`] (256 bytes) are rejected to prevent
+/// abuse. In this case, a simple "…" is used instead, and a debug assertion fires.
 ///
 /// # Examples
 /// ```
@@ -69,7 +100,21 @@ pub fn truncate_utf8_with_marker(input: &str, max_bytes: usize, marker: Option<&
     let truncated = truncate_utf8(input, max_bytes);
 
     match marker {
-        Some(m) => format!("{}{}", truncated, m),
+        Some(m) if m.len() <= MAX_MARKER_BYTES => format!("{}{}", truncated, m),
+        Some(m) => {
+            // Marker too long - replace with simple ellipsis
+            debug_assert!(
+                false,
+                "Truncation marker too long ({} bytes, max {}), using fallback",
+                m.len(),
+                MAX_MARKER_BYTES
+            );
+            tracing::warn!(
+                "Truncation marker too long ({} bytes), using fallback ellipsis",
+                m.len()
+            );
+            format!("{}…", truncated)
+        }
         None => truncated.to_string(),
     }
 }
@@ -279,5 +324,25 @@ mod tests {
             truncate_utf8_with_marker("hello world", 5, Some("⋯")),
             "hello⋯"
         );
+    }
+
+    #[test]
+    #[cfg_attr(debug_assertions, should_panic(expected = "Truncation marker too long"))]
+    fn truncate_with_marker_oversized_marker() {
+        // Marker longer than MAX_MARKER_BYTES should be rejected
+        let huge_marker = "X".repeat(300); // > 256 bytes
+        let result = truncate_utf8_with_marker("hello world", 5, Some(&huge_marker));
+        // In release mode: should use fallback ellipsis
+        // In debug mode: will panic at debug_assert
+        #[cfg(not(debug_assertions))]
+        assert_eq!(result, "hello…");
+    }
+
+    #[test]
+    fn truncate_with_marker_boundary_marker() {
+        // Marker exactly at MAX_MARKER_BYTES should be accepted
+        let max_marker = "X".repeat(256); // == 256 bytes
+        let result = truncate_utf8_with_marker("hello world", 5, Some(&max_marker));
+        assert_eq!(result, format!("hello{}", max_marker));
     }
 }
