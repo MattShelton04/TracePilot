@@ -16,6 +16,7 @@ import {
   generateYLabels,
   LoadingOverlay,
   PageShell,
+  StatCard,
   useChartTooltip,
 } from "@tracepilot/ui";
 import { computed, ref, watch } from "vue";
@@ -194,26 +195,11 @@ const {
 
           <!-- Stats Row -->
           <div class="grid-5 mb-4">
-            <div class="stat-card">
-              <div class="stat-card-value accent">{{ formatNumberFull(data.totalSessions) }}</div>
-              <div class="stat-card-label">Total Sessions</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-card-value gradient-value">{{ formatNumber(data.totalTokens) }}</div>
-              <div class="stat-card-label">Total Tokens</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-card-value warning">{{ formatCost(copilotCost) }}</div>
-              <div class="stat-card-label">Copilot Cost</div>
-            </div>
-            <div class="stat-card" :title="'Estimated cost if this usage went through direct API access instead of GitHub Copilot, based on per-model token pricing configured in Settings.'">
-              <div class="stat-card-value done">{{ formatCost(totalWholesaleCost) }}</div>
-              <div class="stat-card-label">Wholesale Cost</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-card-value warning">{{ formatPercent(data.averageHealthScore * 100) }}</div>
-              <div class="stat-card-label">Avg Health Score</div>
-            </div>
+            <StatCard :value="formatNumberFull(data.totalSessions)" label="Total Sessions" />
+            <StatCard :value="formatNumber(data.totalTokens)" label="Total Tokens" :gradient="true" />
+            <StatCard :value="formatCost(copilotCost)" label="Copilot Cost" color="warning" />
+            <StatCard :value="formatCost(totalWholesaleCost)" label="Wholesale Cost" color="done" tooltip="Estimated cost if this usage went through direct API access instead of GitHub Copilot, based on per-model token pricing configured in Settings." />
+            <StatCard :value="formatPercent(data.averageHealthScore * 100)" label="Avg Health Score" color="warning" />
           </div>
 
           <!-- Incident Stats -->

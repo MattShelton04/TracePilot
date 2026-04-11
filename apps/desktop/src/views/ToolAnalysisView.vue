@@ -7,6 +7,7 @@ import {
   formatRate,
   LoadingOverlay,
   PageShell,
+  StatCard,
   useChartTooltip,
 } from "@tracepilot/ui";
 import { computed } from "vue";
@@ -164,22 +165,10 @@ const successFailureChart = computed(() => {
 
           <!-- Stat Cards -->
           <div class="grid-4 mb-4">
-            <div class="stat-card">
-              <div class="stat-card-value accent">{{ formatNumberFull(data.totalCalls) }}</div>
-              <div class="stat-card-label">Total Tool Calls</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-card-value done">{{ uniqueToolCount }}</div>
-              <div class="stat-card-label">Unique Tools</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-card-value success">{{ formatRate(data.successRate) }}</div>
-              <div class="stat-card-label">Success Rate</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-card-value warning">{{ formatDuration(data.avgDurationMs) }}</div>
-              <div class="stat-card-label">Avg Duration</div>
-            </div>
+            <StatCard :value="formatNumberFull(data.totalCalls)" label="Total Tool Calls" />
+            <StatCard :value="uniqueToolCount" label="Unique Tools" color="done" />
+            <StatCard :value="formatRate(data.successRate)" label="Success Rate" color="success" />
+            <StatCard :value="formatDuration(data.avgDurationMs)" label="Avg Duration" color="warning" />
           </div>
 
           <!-- Tool Usage Table -->
