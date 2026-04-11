@@ -59,18 +59,13 @@ impl IndexDb {
         self.write_prepared_session(&prepared)
     }
 
-    /// Delete rows from multiple child tables for a given session_id.
+    /// Delete rows from all session child tables for a given session_id.
     ///
-    /// This helper consolidates repetitive DELETE operations, making it easier
-    /// to maintain the list of child tables and ensure consistency.
-    ///
-    /// # Security
-    /// Table names are validated against a compile-time whitelist to prevent SQL
-    /// injection. The session_id parameter is safely parameterized using SQLite's
-    /// parameter binding.
-    fn delete_child_rows(&self, session_id: &str, tables: &[&str]) -> Result<()> {
-        // Whitelist of allowed child tables to prevent SQL injection
-        const ALLOWED_TABLES: &[&str] = &[
+    /// Consolidates the 6 individual DELETE statements into a single helper.
+    /// Table names are hardcoded constants (not dynamic) so there is no SQL
+    /// injection risk.
+    fn delete_child_rows(&self, session_id: &str) -> Result<()> {
+        const CHILD_TABLES: &[&str] = &[
             "session_model_metrics",
             "session_tool_calls",
             "session_modified_files",
@@ -79,16 +74,7 @@ impl IndexDb {
             "session_segments",
         ];
 
-        for table in tables {
-            // Validate table name against whitelist
-            if !ALLOWED_TABLES.contains(table) {
-                return Err(rusqlite::Error::InvalidParameterName(format!(
-                    "Invalid table name for child row deletion: {}",
-                    table
-                ))
-                .into());
-            }
-
+        for table in CHILD_TABLES {
             self.conn.execute(
                 &format!("DELETE FROM {} WHERE session_id = ?1", table),
                 [session_id],
@@ -114,17 +100,7 @@ impl IndexDb {
 
         let result = (|| -> Result<()> {
             // Delete child table rows first
-            self.delete_child_rows(
-                &session_id,
-                &[
-                    "session_model_metrics",
-                    "session_tool_calls",
-                    "session_modified_files",
-                    "session_activity",
-                    "session_incidents",
-                    "session_segments",
-                ],
-            )?;
+            self.delete_child_rows(&session_id)?;
             // NOTE: search_content is NOT deleted here — it's managed by Phase 2 (search_writer).
             // Phase 2 may not run immediately (semaphore busy), so deleting here would
             // leave a gap where the session has no search content until the next Phase 2 cycle.
