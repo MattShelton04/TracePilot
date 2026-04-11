@@ -37,7 +37,6 @@ interface ModelRow {
   inputTokens: number;
   outputTokens: number;
   cacheReadTokens: number;
-  reasoningTokens: number | null;
   percentage: number;
   premiumRequests: number;
   cacheHitRate: number;
@@ -69,7 +68,6 @@ const modelRows = computed<ModelRow[]>(() => {
       inputTokens: m.inputTokens,
       outputTokens: m.outputTokens,
       cacheReadTokens: m.cacheReadTokens,
-      reasoningTokens: m.reasoningTokens ?? null,
       percentage,
       premiumRequests,
       cacheHitRate,
@@ -83,7 +81,6 @@ const totalTokens = computed(() => modelRows.value.reduce((sum, m) => sum + m.to
 const totalCost = computed(() => modelRows.value.reduce((sum, m) => sum + (m.cost ?? 0), 0));
 const totalCopilotCost = computed(() => modelRows.value.reduce((sum, m) => sum + m.copilotCost, 0));
 const modelCount = computed(() => modelRows.value.length);
-const hasReasoningData = computed(() => modelRows.value.some((m) => m.reasoningTokens != null));
 
 // ── Cost & normalization toggles ─────────────────────────────
 type CostMode = "wholesale" | "copilot" | "both";
@@ -122,7 +119,6 @@ type SortKey =
   | "inputTokens"
   | "outputTokens"
   | "cacheReadTokens"
-  | "reasoningTokens"
   | "percentage"
   | "premiumRequests"
   | "cacheHitRate"
@@ -154,11 +150,6 @@ const sortedRows = computed(() => {
       if (bc === Infinity) return -1;
       return dir * (ac - bc);
     }
-    if (key === "reasoningTokens") {
-      const ar = a.reasoningTokens ?? -1;
-      const br = b.reasoningTokens ?? -1;
-      return dir * (ar - br);
-    }
     return dir * ((a[key] as number) - (b[key] as number));
   });
 });
@@ -182,7 +173,6 @@ const displayRows = computed<ModelRow[]>(() => {
         inputTokens: r.inputTokens / divisor,
         outputTokens: r.outputTokens / divisor,
         cacheReadTokens: r.cacheReadTokens / divisor,
-        reasoningTokens: r.reasoningTokens != null ? r.reasoningTokens / divisor : null,
         premiumRequests: r.premiumRequests / divisor,
         cost: r.cost != null ? r.cost / divisor : null,
         copilotCost: r.copilotCost / divisor,
@@ -197,7 +187,6 @@ const displayRows = computed<ModelRow[]>(() => {
       inputTokens: acc.inputTokens + r.inputTokens,
       outputTokens: acc.outputTokens + r.outputTokens,
       cacheReadTokens: acc.cacheReadTokens + r.cacheReadTokens,
-      reasoningTokens: acc.reasoningTokens + (r.reasoningTokens ?? 0),
       premiumRequests: acc.premiumRequests + r.premiumRequests,
       cost: acc.cost + (r.cost ?? 0),
       copilotCost: acc.copilotCost + r.copilotCost,
@@ -207,7 +196,6 @@ const displayRows = computed<ModelRow[]>(() => {
       inputTokens: 0,
       outputTokens: 0,
       cacheReadTokens: 0,
-      reasoningTokens: 0,
       premiumRequests: 0,
       cost: 0,
       copilotCost: 0,
@@ -221,10 +209,6 @@ const displayRows = computed<ModelRow[]>(() => {
     outputTokens: sums.outputTokens > 0 ? (r.outputTokens / sums.outputTokens) * 100 : 0,
     cacheReadTokens:
       sums.cacheReadTokens > 0 ? (r.cacheReadTokens / sums.cacheReadTokens) * 100 : 0,
-    reasoningTokens:
-      r.reasoningTokens != null && sums.reasoningTokens > 0
-        ? (r.reasoningTokens / sums.reasoningTokens) * 100
-        : r.reasoningTokens,
     premiumRequests:
       sums.premiumRequests > 0 ? (r.premiumRequests / sums.premiumRequests) * 100 : 0,
     cost: sums.cost > 0 ? ((r.cost ?? 0) / sums.cost) * 100 : 0,
@@ -426,16 +410,6 @@ const compareMetrics = computed<CompareMetric[]>(() => {
       valueB: fmtNorm(b.copilotCost, true),
       ...formatModelDelta(a.copilotCost, b.copilotCost, false),
     },
-    ...(hasReasoningData.value
-      ? [
-          {
-            label: "Reasoning Tokens",
-            valueA: a.reasoningTokens != null ? fmtNorm(a.reasoningTokens) : "N/A",
-            valueB: b.reasoningTokens != null ? fmtNorm(b.reasoningTokens) : "N/A",
-            ...formatModelDelta(a.reasoningTokens ?? 0, b.reasoningTokens ?? 0, true),
-          },
-        ]
-      : []),
   ];
 });
 </script>
@@ -519,7 +493,6 @@ const compareMetrics = computed<CompareMetric[]>(() => {
                     <col class="col-input" />
                     <col class="col-output" />
                     <col class="col-cached" />
-                    <col v-if="hasReasoningData" class="col-cached" />
                     <col class="col-share" />
                     <col class="col-prem-req" />
                     <col class="col-cache-hit" />
@@ -542,9 +515,6 @@ const compareMetrics = computed<CompareMetric[]>(() => {
                       </th>
                       <th class="sort-header" @click="toggleSort('cacheReadTokens')">
                         Cached <span class="sort-arrow">{{ sortArrow('cacheReadTokens') }}</span>
-                      </th>
-                      <th v-if="hasReasoningData" class="sort-header" @click="toggleSort('reasoningTokens')">
-                        Reasoning <span class="sort-arrow">{{ sortArrow('reasoningTokens') }}</span>
                       </th>
                       <th class="sort-header" @click="toggleSort('percentage')">
                         Share <span class="sort-arrow">{{ sortArrow('percentage') }}</span>
@@ -575,9 +545,6 @@ const compareMetrics = computed<CompareMetric[]>(() => {
                       <td class="num-cell">{{ fmtNorm(row.inputTokens) }}</td>
                       <td class="num-cell">{{ fmtNorm(row.outputTokens) }}</td>
                       <td class="num-cell">{{ fmtNorm(row.cacheReadTokens) }}</td>
-                      <td v-if="hasReasoningData" class="num-cell">
-                        {{ row.reasoningTokens != null ? fmtNorm(row.reasoningTokens) : 'N/A' }}
-                      </td>
                       <td class="num-cell">
                         <div class="inline-progress">
                           <span>{{ formatPercent(row.percentage) }}</span>
