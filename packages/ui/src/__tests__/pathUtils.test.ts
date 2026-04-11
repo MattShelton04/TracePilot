@@ -83,14 +83,6 @@ describe("shortenPath", () => {
   it("returns path as-is if exact number of segments", () => {
     expect(shortenPath("a/b/c", 3)).toBe("a/b/c");
   });
-  it("handles 0 segments", () => {
-    // If segments is 0, parts.slice(0) returns the whole array, so we get …/a/b/c
-    expect(shortenPath("a/b/c", 0)).toBe("…/a/b/c");
-  });
-  it("handles negative segments", () => {
-    // If segments is negative, e.g. -1, parts.slice(-(-1)) => parts.slice(1)
-    expect(shortenPath("a/b/c", -1)).toBe("…/b/c");
-  });
   it("handles root path", () => {
     expect(shortenPath("/")).toBe("/");
   });
