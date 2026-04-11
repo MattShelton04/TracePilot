@@ -1,5 +1,11 @@
 <script setup lang="ts">
-import { ErrorState, LoadingSpinner, SearchInput, StatCard } from "@tracepilot/ui";
+import {
+  ErrorState,
+  LoadingSpinner,
+  SearchInput,
+  StatCard,
+  useAutoRefresh,
+} from "@tracepilot/ui";
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import OrchestratorStatusCard from "@/components/tasks/OrchestratorStatusCard.vue";
@@ -7,7 +13,6 @@ import QuickPresetsCard from "@/components/tasks/QuickPresetsCard.vue";
 import RecentJobsTable from "@/components/tasks/RecentJobsTable.vue";
 import RefreshToolbar from "@/components/RefreshToolbar.vue";
 import TaskCard from "@/components/tasks/TaskCard.vue";
-import { useAutoRefresh } from "@/composables/useAutoRefresh";
 import { useOrchestratorStore } from "@/stores/orchestrator";
 import { usePresetsStore } from "@/stores/presets";
 import { useTasksStore } from "@/stores/tasks";
@@ -422,7 +427,6 @@ const hasActiveFilters = computed(
   margin-top: 16px;
 }
 
-
 /* ── Filter Row ──────────────────────────────────────────── */
 .filter-row {
   display: flex;
@@ -591,7 +595,6 @@ const hasActiveFilters = computed(
   justify-content: center;
   gap: 8px;
 }
-
 
 /* ── Utilities ───────────────────────────────────────────── */
 .spin-animation {

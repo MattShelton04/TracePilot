@@ -1,6 +1,5 @@
-import { toErrorMessage } from "@tracepilot/ui";
+import { toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
 import { type Ref, ref } from "vue";
-import { useAsyncGuard } from "./useAsyncGuard";
 
 /**
  * Options for configuring async data fetching behavior.

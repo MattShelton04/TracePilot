@@ -10,11 +10,11 @@ import {
   ProgressBar,
   SearchInput,
   SkeletonLoader,
+  useAutoRefresh,
 } from "@tracepilot/ui";
 import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import RefreshToolbar from "@/components/RefreshToolbar.vue";
-import { useAutoRefresh } from "@/composables/useAutoRefresh";
 import { useIndexingEvents } from "@/composables/useIndexingEvents";
 import { usePerfMonitor } from "@/composables/usePerfMonitor";
 import { usePreferencesStore } from "@/stores/preferences";

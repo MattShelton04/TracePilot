@@ -31,10 +31,9 @@ import type {
   SkillScope,
   SkillSummary,
 } from "@tracepilot/types";
-import { runAction, runMutation, toErrorMessage } from "@tracepilot/ui";
+import { runAction, runMutation, toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
-import { useAsyncGuard } from "@/composables/useAsyncGuard";
 import { logWarn } from "@/utils/logger";
 
 export const useSkillsStore = defineStore("skills", () => {

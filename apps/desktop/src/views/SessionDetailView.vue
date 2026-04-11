@@ -1,10 +1,17 @@
 <script setup lang="ts">
 import { isSessionRunning, openInExplorer, resumeSessionInTerminal } from "@tracepilot/client";
-import { Badge, ErrorAlert, PageShell, SkeletonLoader, TabNav, useClipboard } from "@tracepilot/ui";
+import {
+  Badge,
+  ErrorAlert,
+  PageShell,
+  SkeletonLoader,
+  TabNav,
+  useAutoRefresh,
+  useClipboard,
+} from "@tracepilot/ui";
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import RefreshToolbar from "@/components/RefreshToolbar.vue";
-import { useAutoRefresh } from "@/composables/useAutoRefresh";
 import { usePerfMonitor } from "@/composables/usePerfMonitor";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSessionDetailStore } from "@/stores/sessionDetail";

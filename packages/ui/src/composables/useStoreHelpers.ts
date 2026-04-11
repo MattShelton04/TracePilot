@@ -1,14 +1,12 @@
 import type { Ref } from "vue";
 import { toErrorMessage } from "../utils/formatters";
+import type { AsyncGuard } from "./useAsyncGuard";
 
 /**
  * Minimal async-guard contract used by {@link runAction}.
- * Compatible with the `useAsyncGuard()` composable in `@tracepilot/desktop`.
+ * Compatible with the full `AsyncGuard` interface from `useAsyncGuard()`.
  */
-export interface AsyncGuardLike {
-  start(): number;
-  isValid(token: number): boolean;
-}
+export type AsyncGuardLike = Pick<AsyncGuard, "start" | "isValid">;
 
 /**
  * Options for a guarded query/load action.

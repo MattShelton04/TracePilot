@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { useAsyncGuard } from "../useAsyncGuard";
+import { useAsyncGuard } from "../composables/useAsyncGuard";
 
 describe("useAsyncGuard", () => {
   describe("basic functionality", () => {

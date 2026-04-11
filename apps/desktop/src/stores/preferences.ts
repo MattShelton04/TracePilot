@@ -17,10 +17,9 @@ import {
   DEFAULT_UI_SCALE,
   getDefaultWholesalePrices,
 } from "@tracepilot/types";
-import { normalizePath } from "@tracepilot/ui";
+import { normalizePath, useAsyncGuard } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { ref, watch } from "vue";
-import { useAsyncGuard } from "@/composables/useAsyncGuard";
 import { logWarn } from "@/utils/logger";
 
 export type ThemeOption = "dark" | "light";

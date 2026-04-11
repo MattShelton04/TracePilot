@@ -6,11 +6,10 @@ import {
   listSessions,
 } from "@tracepilot/client";
 import type { CopilotVersion, RegisteredRepo, SystemDependencies } from "@tracepilot/types";
-import { toErrorMessage } from "@tracepilot/ui";
+import { type AsyncGuardToken, toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import { useWorktreesStore } from "@/stores/worktrees";
-import { type AsyncGuardToken, useAsyncGuard } from "@/composables/useAsyncGuard";
 import { logWarn } from "@/utils/logger";
 import { aggregateSettledErrors } from "@/utils/settleErrors";
 import { allSettledRecord } from "@/utils/settledRecord";

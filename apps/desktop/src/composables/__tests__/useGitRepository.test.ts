@@ -11,17 +11,21 @@ vi.mock("@tracepilot/client", () => ({
 }));
 
 // Mock UI utilities - these are simple path utilities
-vi.mock("@tracepilot/ui", () => ({
-  pathBasename: vi.fn((path: string) => path.split("/").pop() || path.split("\\").pop() || ""),
-  pathDirname: vi.fn((path: string) => {
-    const parts = path.split("/");
-    if (parts.length > 1) return parts.slice(0, -1).join("/");
-    const winParts = path.split("\\");
-    if (winParts.length > 1) return winParts.slice(0, -1).join("\\");
-    return "";
-  }),
-  sanitizeBranchForPath: vi.fn((branch: string) => branch.replace(/[/\\:*?"<>|#]/g, "-")),
-}));
+vi.mock("@tracepilot/ui", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@tracepilot/ui")>();
+  return {
+    ...actual,
+    pathBasename: vi.fn((path: string) => path.split("/").pop() || path.split("\\").pop() || ""),
+    pathDirname: vi.fn((path: string) => {
+      const parts = path.split("/");
+      if (parts.length > 1) return parts.slice(0, -1).join("/");
+      const winParts = path.split("\\");
+      if (winParts.length > 1) return winParts.slice(0, -1).join("\\");
+      return "";
+    }),
+    sanitizeBranchForPath: vi.fn((branch: string) => branch.replace(/[/\\:*?"<>|#]/g, "-")),
+  };
+});
 
 describe("useGitRepository", () => {
   function createDeferred<T>() {

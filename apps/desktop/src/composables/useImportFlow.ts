@@ -6,9 +6,8 @@
 
 import { importSessions, previewImport } from "@tracepilot/client";
 import type { ConflictStrategy, ImportPreviewResult, ImportResult } from "@tracepilot/types";
-import { toErrorMessage } from "@tracepilot/ui";
+import { toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
 import { type ComputedRef, computed, onBeforeUnmount, type Ref, ref } from "vue";
-import { useAsyncGuard } from "@/composables/useAsyncGuard";
 import { logError, logInfo } from "@/utils/logger";
 
 // ── Step Type ──────────────────────────────────────────────────

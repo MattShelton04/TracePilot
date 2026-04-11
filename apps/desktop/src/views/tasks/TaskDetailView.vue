@@ -6,6 +6,7 @@ import {
   formatRelativeTime,
   LoadingSpinner,
   SectionPanel,
+  useAutoRefresh,
   useConfirmDialog,
   useToast,
 } from "@tracepilot/ui";
@@ -15,7 +16,6 @@ import RefreshToolbar from "@/components/RefreshToolbar.vue";
 import PriorityBadge from "@/components/tasks/PriorityBadge.vue";
 import TaskStatusBadge from "@/components/tasks/TaskStatusBadge.vue";
 import TaskTypeBadge from "@/components/tasks/TaskTypeBadge.vue";
-import { useAutoRefresh } from "@/composables/useAutoRefresh";
 import { taskTitle, useTasksStore } from "@/stores/tasks";
 
 const route = useRoute();

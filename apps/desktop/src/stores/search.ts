@@ -19,10 +19,9 @@ import type {
   SearchStatsResponse,
 } from "@tracepilot/types";
 import { IPC_EVENTS } from "@tracepilot/types";
-import { toErrorMessage } from "@tracepilot/ui";
+import { toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, nextTick, ref, watch } from "vue";
-import { useAsyncGuard } from "@/composables/useAsyncGuard";
 import { useRecentSearches } from "@/composables/useRecentSearches";
 import { useSearchClipboard } from "@/composables/useSearchClipboard";
 import { hasMeaningfulDateValue } from "@/utils/dateValidation";

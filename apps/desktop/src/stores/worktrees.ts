@@ -21,10 +21,9 @@ import type {
   WorktreeDetails,
   WorktreeInfo,
 } from "@tracepilot/types";
-import { toErrorMessage } from "@tracepilot/ui";
+import { toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
-import { useAsyncGuard } from "@/composables/useAsyncGuard";
 import { logWarn } from "@/utils/logger";
 import { aggregateSettledErrors } from "@/utils/settleErrors";
 
