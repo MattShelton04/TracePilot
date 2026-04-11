@@ -4,7 +4,8 @@ import { formatDate } from "@tracepilot/ui";
 import { ref } from "vue";
 
 const props = defineProps<{
-  preset: TaskPreset;
+  preset: TaskPreset | null;
+  visible: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -53,9 +54,9 @@ function infoLine(preset: TaskPreset): string {
 
 <template>
   <Teleport to="body">
-    <div class="preset-backdrop" @click="emit('close')" />
+    <div v-if="visible" class="preset-backdrop" @click="emit('close')" />
     <Transition name="slideover" appear>
-      <div class="preset-slideover">
+      <div v-if="visible && preset" class="preset-slideover">
         <div class="detail-panel__header">
           <div class="detail-header__top">
             <div class="detail-header__left">

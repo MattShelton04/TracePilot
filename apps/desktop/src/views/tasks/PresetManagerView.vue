@@ -1263,7 +1263,7 @@ function renameConfigKey(
 
       <!-- Detail Slide-over Panel -->
       <PresetDetailSlideover
-        v-if="showDetail && detailPreset"
+        :visible="showDetail"
         :preset="detailPreset"
         @close="closeDetail"
         @run="runTask"

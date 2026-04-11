@@ -42,8 +42,10 @@ export function useSidebarNav() {
       const sidebar = route.meta?.sidebar;
       if (!sidebar) continue;
 
+      const sidebarId = route.meta.sidebarId ?? route.path;
+
       const item: NavItem & { _order: number } = {
-        id: route.meta.sidebarId as string,
+        id: sidebarId,
         label: sidebar.label,
         to: route.path,
         icon: sidebar.icon,
