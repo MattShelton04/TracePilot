@@ -505,8 +505,7 @@ impl IndexDb {
     pub fn search_stats(&self) -> Result<SearchStats> {
         let total_rows: i64 = self
             .conn
-            .query_row("SELECT COUNT(*) FROM search_content", [], |row| row.get(0))
-            .unwrap_or(0);
+            .query_row("SELECT COUNT(*) FROM search_content", [], |row| row.get(0))?;
 
         let indexed_sessions: i64 = self
             .conn
@@ -514,13 +513,11 @@ impl IndexDb {
                 "SELECT COUNT(*) FROM sessions WHERE search_indexed_at IS NOT NULL",
                 [],
                 |row| row.get(0),
-            )
-            .unwrap_or(0);
+            )?;
 
         let total_sessions: i64 = self
             .conn
-            .query_row("SELECT COUNT(*) FROM sessions", [], |row| row.get(0))
-            .unwrap_or(0);
+            .query_row("SELECT COUNT(*) FROM sessions", [], |row| row.get(0))?;
 
         let mut stmt = self.conn.prepare(
             "SELECT content_type, COUNT(*) FROM search_content GROUP BY content_type ORDER BY COUNT(*) DESC",
@@ -638,24 +635,20 @@ impl IndexDb {
     pub fn fts_health(&self) -> Result<FtsHealthInfo> {
         let total_content_rows: i64 = self
             .conn
-            .query_row("SELECT COUNT(*) FROM search_content", [], |r| r.get(0))
-            .unwrap_or(0);
+            .query_row("SELECT COUNT(*) FROM search_content", [], |r| r.get(0))?;
         let fts_index_rows: i64 = self
             .conn
-            .query_row("SELECT COUNT(*) FROM search_fts", [], |r| r.get(0))
-            .unwrap_or(0);
+            .query_row("SELECT COUNT(*) FROM search_fts", [], |r| r.get(0))?;
         let indexed_sessions: i64 = self
             .conn
             .query_row(
                 "SELECT COUNT(*) FROM sessions WHERE search_indexed_at IS NOT NULL",
                 [],
                 |r| r.get(0),
-            )
-            .unwrap_or(0);
+            )?;
         let total_sessions: i64 = self
             .conn
-            .query_row("SELECT COUNT(*) FROM sessions", [], |r| r.get(0))
-            .unwrap_or(0);
+            .query_row("SELECT COUNT(*) FROM sessions", [], |r| r.get(0))?;
         let pending_sessions = total_sessions - indexed_sessions;
         let in_sync = total_content_rows == fts_index_rows && pending_sessions == 0;
         let content_types: Vec<(String, i64)> = {
@@ -675,8 +668,7 @@ impl IndexDb {
                 "SELECT page_count * page_size FROM pragma_page_count(), pragma_page_size()",
                 [],
                 |r| r.get(0),
-            )
-            .unwrap_or(0);
+            )?;
         Ok(FtsHealthInfo {
             total_content_rows,
             fts_index_rows,
@@ -1534,5 +1526,62 @@ mod tests {
         assert!(sql.contains("LIMIT ?"));
         assert!(sql.contains("OFFSET ?"));
         assert_eq!(params.len(), 2);
+    }
+
+    #[test]
+    fn test_search_stats_returns_error_on_missing_database() {
+        // Test with a non-existent database file
+        let temp_dir = tempfile::tempdir().unwrap();
+        let db_path = temp_dir.path().join("nonexistent.db");
+
+        // Attempting to open a non-existent database in readonly mode should fail
+        let result = IndexDb::open_readonly(&db_path);
+        assert!(result.is_err(), "Should fail to open non-existent database in readonly mode");
+    }
+
+    #[test]
+    fn test_fts_health_returns_error_on_query_failure() {
+        use rusqlite::Connection;
+
+        // Create an in-memory database without the required schema
+        let conn = Connection::open_in_memory().unwrap();
+        let db = IndexDb { conn };
+
+        // Calling fts_health on a database without the required tables should error
+        let result = db.fts_health();
+        assert!(
+            result.is_err(),
+            "fts_health should return error when tables don't exist, not zeros"
+        );
+
+        // Verify the error is a database error
+        match result {
+            Err(crate::IndexerError::Database(e)) => {
+                assert!(
+                    format!("{:?}", e).contains("no such table"),
+                    "Error should indicate missing table"
+                );
+            }
+            _ => panic!("Expected Database error variant"),
+        }
+    }
+
+    #[test]
+    fn test_search_stats_propagates_errors() {
+        use rusqlite::Connection;
+
+        // Create an in-memory database with partial schema (missing tables)
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute("CREATE TABLE sessions (id TEXT)", []).unwrap();
+        // Deliberately not creating search_content table
+
+        let db = IndexDb { conn };
+
+        // search_stats should fail when search_content table doesn't exist
+        let result = db.search_stats();
+        assert!(
+            result.is_err(),
+            "search_stats should return error when tables are missing"
+        );
     }
 }

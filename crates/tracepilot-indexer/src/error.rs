@@ -56,6 +56,22 @@ impl IndexerError {
             source,
         }
     }
+
+    /// Create a Database error with context for query failures.
+    ///
+    /// This helper provides additional context when database queries fail,
+    /// making it easier to debug issues in logs and error reports.
+    ///
+    /// # Example
+    /// ```ignore
+    /// let count: i64 = conn
+    ///     .query_row("SELECT COUNT(*) FROM sessions", [], |r| r.get(0))
+    ///     .map_err(|e| IndexerError::query_failed("Failed to count sessions", e))?;
+    /// ```
+    pub fn query_failed(context: impl Into<String>, source: rusqlite::Error) -> Self {
+        tracing::warn!("Database query failed: {} - {:?}", context.into(), source);
+        Self::Database(source)
+    }
 }
 
 #[cfg(test)]
