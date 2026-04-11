@@ -1093,7 +1093,7 @@ onUnmounted(() => {
 
 .result-view-btn:hover {
   background: var(--accent-emphasis);
-  color: #fff;
+  color: var(--text-on-emphasis, #fff);
 }
 
 /* ÔöÇÔöÇ Pagination ÔöÇÔöÇ */

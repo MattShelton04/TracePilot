@@ -61,7 +61,7 @@ const emit = defineEmits<{
 }
 .segment-btn.active {
   background: var(--accent-emphasis);
-  color: #fff;
+  color: var(--text-on-emphasis, #fff);
 }
 .segment-count {
   font-size: 0.6875rem;

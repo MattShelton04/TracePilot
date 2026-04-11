@@ -314,7 +314,7 @@ function handleOpenRelease() {
   padding: 8px 20px;
   border-radius: 8px;
   background: var(--accent-emphasis);
-  color: #fff;
+  color: var(--text-on-emphasis, #fff);
   border: none;
   font-size: 13px;
   font-weight: 500;

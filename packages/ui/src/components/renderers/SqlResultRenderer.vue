@@ -130,11 +130,11 @@ function cellClass(value: string): string {
   line-height: 1.5;
 }
 /* SQL syntax highlight classes */
-.sql-query-code :deep(.syn-keyword) { color: #c084fc; }
-.sql-query-code :deep(.syn-string) { color: #34d399; }
-.sql-query-code :deep(.syn-number) { color: #fb923c; }
+.sql-query-code :deep(.syn-keyword) { color: var(--syn-keyword, #c084fc); }
+.sql-query-code :deep(.syn-string) { color: var(--syn-string, #34d399); }
+.sql-query-code :deep(.syn-number) { color: var(--syn-number, #fb923c); }
 .sql-query-code :deep(.syn-comment) { color: var(--text-tertiary); font-style: italic; }
-.sql-query-code :deep(.syn-func) { color: #fbbf24; }
+.sql-query-code :deep(.syn-func) { color: var(--syn-func, #fbbf24); }
 .sql-query-code :deep(.syn-operator) { color: var(--text-tertiary); }
 
 .sql-table-section { padding: 8px 12px; }
@@ -188,9 +188,9 @@ function cellClass(value: string): string {
 
 /* Semantic cell styles */
 .sql-cell--null { color: var(--text-tertiary); font-style: italic; }
-.sql-cell--number { color: #fb923c; }
-.sql-cell--boolean { color: #c084fc; }
-.sql-cell--date { color: #38bdf8; }
+.sql-cell--number { color: var(--syn-number, #fb923c); }
+.sql-cell--boolean { color: var(--syn-keyword, #c084fc); }
+.sql-cell--date { color: var(--syn-type, #38bdf8); }
 
 .sql-plain-output {
   margin: 0;

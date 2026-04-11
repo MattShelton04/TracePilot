@@ -125,7 +125,7 @@ const speeds = [0.5, 1, 2, 4];
   border-radius: 50%;
   background: var(--accent-emphasis);
   border-color: var(--accent-emphasis);
-  color: #fff;
+  color: var(--text-on-emphasis, #fff);
   font-size: 1rem;
 }
 .transport-play:hover {
@@ -167,7 +167,7 @@ const speeds = [0.5, 1, 2, 4];
   right: -7px; top: -5px;
   width: 16px; height: 16px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--text-on-emphasis, #fff);
   border: 3px solid var(--accent-fg);
   box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.25), 0 2px 6px rgba(0, 0, 0, 0.3);
   cursor: grab;

@@ -444,7 +444,7 @@ function handleDeleteSkill(dir: string) {
 .btn--primary {
   background: var(--gradient-accent, var(--accent-emphasis));
   border: 1px solid transparent;
-  color: #fff;
+  color: var(--text-on-emphasis, #fff);
   font-weight: 600;
   box-shadow: 0 1px 6px rgba(99, 102, 241, 0.35);
 }

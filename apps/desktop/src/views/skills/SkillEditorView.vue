@@ -759,7 +759,7 @@ function syncScroll() {
   border-radius: var(--radius-md);
   border: none;
   background: var(--accent-emphasis);
-  color: #fff;
+  color: var(--text-on-emphasis, #fff);
   font-size: 0.8125rem;
   font-weight: 600;
   cursor: pointer;
