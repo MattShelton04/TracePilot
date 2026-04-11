@@ -222,6 +222,9 @@ export async function incrementTemplateUsage(id: string): Promise<void> {
 }
 
 // ─── Mock Data ────────────────────────────────────────────────────
+//
+// Mocks live in `./mock/orchestration.ts`.  When adding a new command,
+// register the TypeScript wrapper above AND add a mock entry there.
 
 // Lazy-load mocks to avoid pulling them into production builds.
 let mocksModule: typeof import("./mock/orchestration.js") | undefined;

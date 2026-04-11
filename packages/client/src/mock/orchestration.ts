@@ -1,4 +1,9 @@
-// packages/client/src/mock/orchestration.ts
+/**
+ * Mock data for orchestration Tauri commands.
+ *
+ * When adding a new orchestration command, add its mock response here.
+ * Core session commands live in `mock/index.ts` instead.
+ */
 
 import type {
   AgentDefinition,
@@ -17,6 +22,10 @@ import type {
   WorktreeDetails,
   WorktreeInfo,
 } from "@tracepilot/types";
+
+// Deterministic timestamp used for mock "just-created" responses.
+// Keeps dev-mode UIs and snapshot tests stable across reloads.
+const MOCK_NOW = "2026-03-20T12:00:00.000Z";
 
 export const ORCHESTRATION_MOCK_DATA: Record<string, unknown> = {
   check_system_deps: {
@@ -113,7 +122,7 @@ export const ORCHESTRATION_MOCK_DATA: Record<string, unknown> = {
     isBare: false,
     status: "active",
     isLocked: false,
-    createdAt: new Date().toISOString(),
+    createdAt: MOCK_NOW,
     repoRoot: "C:\\git\\MyProject",
   } satisfies WorktreeInfo,
 
@@ -126,7 +135,7 @@ export const ORCHESTRATION_MOCK_DATA: Record<string, unknown> = {
   launch_session: {
     pid: 12345,
     command: "copilot --model claude-opus-4.6",
-    launchedAt: new Date().toISOString(),
+    launchedAt: MOCK_NOW,
   } satisfies LaunchedSession,
 
   get_available_models: [
@@ -327,7 +336,7 @@ export const ORCHESTRATION_MOCK_DATA: Record<string, unknown> = {
   add_registered_repo: {
     path: "C:\\git\\NewRepo",
     name: "NewRepo",
-    addedAt: new Date().toISOString(),
+    addedAt: MOCK_NOW,
     source: "manual",
     favourite: false,
   } satisfies RegisteredRepo,
@@ -342,7 +351,7 @@ export const ORCHESTRATION_MOCK_DATA: Record<string, unknown> = {
     label: "manual-backup",
     sourcePath: "",
     backupPath: "",
-    createdAt: new Date().toISOString(),
+    createdAt: MOCK_NOW,
     sizeBytes: 256,
   } satisfies BackupEntry,
   restore_config_backup: undefined,
