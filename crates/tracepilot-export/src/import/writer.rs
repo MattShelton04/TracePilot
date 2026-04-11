@@ -25,9 +25,17 @@ pub fn write_session(
     archive: &SessionArchive,
     target_parent: &Path,
 ) -> Result<PathBuf> {
-    let session_id = &session.metadata.id;
-    let final_dir = target_parent.join(session_id);
-    let staging_dir = target_parent.join(format!(".import-staging-{}", session_id));
+    write_session_to_id(session, archive, target_parent, &session.metadata.id)
+}
+
+pub(crate) fn write_session_to_id(
+    session: &PortableSession,
+    archive: &SessionArchive,
+    target_parent: &Path,
+    target_session_id: &str,
+) -> Result<PathBuf> {
+    let final_dir = target_parent.join(target_session_id);
+    let staging_dir = target_parent.join(format!(".import-staging-{}", target_session_id));
 
     // Clean up any leftover staging directory from a previous failed import
     if staging_dir.exists() {
@@ -38,7 +46,7 @@ pub fn write_session(
     fs::create_dir_all(&staging_dir).map_err(|e| ExportError::io(&staging_dir, e))?;
 
     // Write all session files into staging
-    let write_result = write_session_files(session, archive, &staging_dir);
+    let write_result = write_session_files(session, archive, &staging_dir, target_session_id);
 
     if let Err(err) = write_result {
         // Rollback: clean up staging directory on failure
@@ -50,7 +58,7 @@ pub fn write_session(
     // Uses a backup strategy: rename existing → backup, rename staging → final,
     // then delete backup. On failure, restore backup to recover original data.
     if final_dir.exists() {
-        let backup_dir = target_parent.join(format!(".import-backup-{}", session_id));
+        let backup_dir = target_parent.join(format!(".import-backup-{}", target_session_id));
         // Clean up any leftover backup from a previous failed attempt
         if backup_dir.exists() {
             let _ = fs::remove_dir_all(&backup_dir);
@@ -91,9 +99,10 @@ fn write_session_files(
     session: &PortableSession,
     archive: &SessionArchive,
     dir: &Path,
+    target_session_id: &str,
 ) -> Result<()> {
     // 1. workspace.yaml (always written)
-    write_workspace_yaml(session, archive, dir)?;
+    write_workspace_yaml(session, archive, dir, target_session_id)?;
 
     // 2. events.jsonl
     if let Some(events) = &session.events {
@@ -123,6 +132,7 @@ fn write_workspace_yaml(
     session: &PortableSession,
     archive: &SessionArchive,
     dir: &Path,
+    target_session_id: &str,
 ) -> Result<()> {
     let meta = &session.metadata;
     let path = dir.join("workspace.yaml");
@@ -133,7 +143,7 @@ fn write_workspace_yaml(
 
     map.insert(
         serde_yml::Value::String("id".to_string()),
-        serde_yml::Value::String(meta.id.clone()),
+        serde_yml::Value::String(target_session_id.to_string()),
     );
 
     if let Some(cwd) = &meta.cwd {
@@ -370,6 +380,23 @@ mod tests {
         assert!(content.contains("test-12345678"));
         assert!(content.contains("user/repo"));
         assert!(content.contains("imported_from"));
+    }
+
+    #[test]
+    fn write_session_to_id_overrides_directory_and_workspace_id() {
+        let dir = tempfile::tempdir().unwrap();
+        let session = minimal_session();
+        let archive = test_archive(session.clone());
+        let new_id = "duplicate-session-id";
+
+        let result = write_session_to_id(&session, &archive, dir.path(), new_id).unwrap();
+        assert_eq!(result.file_name().unwrap().to_string_lossy(), new_id);
+
+        let yaml_path = result.join("workspace.yaml");
+        let content = fs::read_to_string(&yaml_path).unwrap();
+        assert!(content.contains(&format!("id: {}", new_id)));
+        assert!(!content.contains(&format!("id: {}", session.metadata.id)));
+        assert!(!dir.path().join(&session.metadata.id).exists());
     }
 
     #[test]

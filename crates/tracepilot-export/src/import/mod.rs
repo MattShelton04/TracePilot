@@ -257,12 +257,11 @@ pub fn import_sessions(
                 }
                 ConflictStrategy::Duplicate => {
                     // Generate new ID and write
-                    let mut dup_session = session.clone();
-                    let new_id = generate_duplicate_id(id);
-                    dup_session.metadata.id = new_id.clone();
+                    let new_id = generate_duplicate_id(target_dir);
 
                     if !options.dry_run {
-                        let path = writer::write_session(&dup_session, &archive, target_dir)?;
+                        let path =
+                            writer::write_session_to_id(session, &archive, target_dir, &new_id)?;
                         imported.push(ImportedSession {
                             id: new_id,
                             path,
@@ -313,8 +312,20 @@ pub fn import_sessions(
 ///
 /// Uses a fresh UUID v4 so imported duplicates are indistinguishable from
 /// natively-created sessions.
-fn generate_duplicate_id(_original_id: &str) -> String {
-    uuid::Uuid::new_v4().to_string()
+fn generate_duplicate_id(target_dir: &Path) -> String {
+    generate_duplicate_id_with(target_dir, || uuid::Uuid::new_v4().to_string())
+}
+
+fn generate_duplicate_id_with<F>(target_dir: &Path, mut next_id: F) -> String
+where
+    F: FnMut() -> String,
+{
+    loop {
+        let candidate = next_id();
+        if !writer::session_exists(&candidate, target_dir) {
+            return candidate;
+        }
+    }
 }
 
 #[cfg(test)]
@@ -423,7 +434,9 @@ mod tests {
         let archive_path = write_test_archive(dir.path());
 
         // Pre-create existing
-        fs::create_dir_all(target.path().join("test-12345678")).unwrap();
+        let existing_dir = target.path().join("test-12345678");
+        fs::create_dir_all(&existing_dir).unwrap();
+        fs::write(existing_dir.join("workspace.yaml"), "id: test-12345678\n").unwrap();
 
         let options = ImportOptions {
             conflict_strategy: ConflictStrategy::Duplicate,
@@ -438,6 +451,17 @@ mod tests {
         // Validate it looks like a UUID (8-4-4-4-12 hex format)
         assert_eq!(result.imported[0].id.len(), 36);
         assert!(result.imported[0].id.chars().all(|c| c.is_ascii_hexdigit() || c == '-'));
+        assert_eq!(
+            result.imported[0].path.file_name().unwrap().to_string_lossy(),
+            result.imported[0].id
+        );
+
+        let yaml = fs::read_to_string(result.imported[0].path.join("workspace.yaml")).unwrap();
+        assert!(yaml.contains(&format!("id: {}", result.imported[0].id)));
+        assert!(!yaml.contains("id: test-12345678\n"));
+
+        let existing_yaml = fs::read_to_string(existing_dir.join("workspace.yaml")).unwrap();
+        assert_eq!(existing_yaml, "id: test-12345678\n");
     }
 
     #[test]
@@ -489,5 +513,18 @@ mod tests {
         // The malicious ID should NOT have triggered a filesystem probe
         assert!(!preview.sessions[0].already_exists);
         assert!(!preview.can_import);
+    }
+
+    #[test]
+    fn duplicate_id_generation_retries_existing_candidate() {
+        let target = tempfile::tempdir().unwrap();
+        fs::create_dir_all(target.path().join("collision-id")).unwrap();
+
+        let generated = generate_duplicate_id_with(target.path(), {
+            let mut ids = ["collision-id".to_string(), "fresh-id".to_string()].into_iter();
+            move || ids.next().unwrap()
+        });
+
+        assert_eq!(generated, "fresh-id");
     }
 }
