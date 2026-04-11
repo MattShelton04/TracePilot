@@ -28,7 +28,7 @@ defineProps<{
   display: flex;
   flex-direction: column;
   gap: 10px;
-  margin-bottom: 16px;
+  margin-bottom: 24px;
 }
 
 .page-header__row {
