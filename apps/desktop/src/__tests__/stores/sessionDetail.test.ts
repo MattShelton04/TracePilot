@@ -664,11 +664,8 @@ describe("useSessionDetailStore", () => {
 
       // Set up slow detail response for SESSION_ID
       const STALE_DETAIL = { ...FIXTURE_DETAIL, repository: "stale-repo" };
-      let resolveStaleDetail: ((v: unknown) => void) | undefined;
-      const staleDetailPromise = new Promise((r) => {
-        resolveStaleDetail = r;
-      });
-      mockGetSessionDetail.mockReturnValueOnce(staleDetailPromise);
+      const staleDetail = createDeferred<typeof STALE_DETAIL>();
+      mockGetSessionDetail.mockReturnValueOnce(staleDetail.promise);
       mockCheckSessionFreshness.mockResolvedValue(ZERO_FRESHNESS);
       mockGetSessionCheckpoints.mockResolvedValue(FIXTURE_CHECKPOINTS);
       mockGetSessionPlan.mockResolvedValue(FIXTURE_PLAN);
@@ -686,8 +683,7 @@ describe("useSessionDetailStore", () => {
       await store.loadDetail(THIRD_ID);
 
       // Now the stale SESSION_ID detail response arrives
-      expect(resolveStaleDetail).toBeDefined();
-      resolveStaleDetail?.(STALE_DETAIL);
+      staleDetail.resolve(STALE_DETAIL);
       await new Promise((r) => setTimeout(r, 50));
 
       // The stale response should have been discarded — detail should be THIRD session
