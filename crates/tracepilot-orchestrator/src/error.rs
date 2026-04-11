@@ -18,8 +18,6 @@ pub enum OrchestratorError {
     Timeout { secs: u64 },
     #[error("Version error: {0}")]
     Version(String),
-    #[error("Template error: {0}")]
-    Template(String),
     #[error("Not found: {0}")]
     NotFound(String),
     #[error("Worktree error: {0}")]

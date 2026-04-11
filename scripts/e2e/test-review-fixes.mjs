@@ -2,7 +2,7 @@
  * E2E test for the 17 multi-model review fixes.
  * Tests what's observable through the UI + IPC layer.
  */
-import { connect, startConsoleCapture, navigateTo, shutdown } from './connect.mjs';
+import { connect, ipc, startConsoleCapture, navigateTo, shutdown } from './connect.mjs';
 
 const results = [];
 function log(test, pass, detail = '') {
@@ -168,13 +168,8 @@ try {
   // ─── Test 12: Task create with presetId query param ────────────────
   console.log('\n═══ Test 12: Preset Auto-Selection via URL ═══');
   // Get list of presets first
-  const presets = await page.evaluate(async () => {
-    try {
-      const result = await window.__TAURI_INTERNALS__?.invoke('plugin:tracepilot|task_list_presets');
-      return result;
-    } catch { return null; }
-  });
-  
+  let presets;
+  try { presets = await ipc(page, 'task_list_presets'); } catch { presets = null; }
   if (presets && presets.length > 0) {
     const firstPresetId = presets[0].id;
     await navigateTo(page, `/tasks/new?presetId=${firstPresetId}`);

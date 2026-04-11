@@ -300,6 +300,23 @@ export async function navigateTo(page, route) {
   await page.waitForTimeout(1000);
 }
 
+// ─── IPC Helper ──────────────────────────────────────────────────────────────
+
+/**
+ * Invoke a TracePilot IPC command via the running app's Tauri internals.
+ *
+ * @param {import('playwright-core').Page} page
+ * @param {string} cmd - Command name, e.g. 'task_list', 'task_create'
+ * @param {Record<string, unknown>} [args={}]
+ * @returns {Promise<unknown>}
+ */
+export async function ipc(page, cmd, args = {}) {
+  return page.evaluate(
+    async ([c, a]) => window.__TAURI_INTERNALS__.invoke(`plugin:tracepilot|${c}`, a),
+    [cmd, args],
+  );
+}
+
 // ─── Lifecycle ───────────────────────────────────────────────────────────────
 
 /**

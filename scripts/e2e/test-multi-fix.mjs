@@ -1,7 +1,7 @@
 /**
  * E2E test: dynamic task pickup, auto-retry, theme colors, UI fixes
  */
-import { connect, navigateTo, shutdown, startConsoleCapture } from './connect.mjs';
+import { connect, ipc, navigateTo, shutdown, startConsoleCapture } from './connect.mjs';
 
 let browser, page, context, port;
 let passed = 0, failed = 0;
@@ -16,13 +16,6 @@ async function test(name, fn) {
   } catch (e) {
     fail(name, e.message ?? e);
   }
-}
-
-async function ipc(cmd, args = {}) {
-  return page.evaluate(
-    ([c, a]) => window.__TAURI_INTERNALS__.invoke(`plugin:tracepilot|${c}`, a),
-    [cmd, args],
-  );
 }
 
 // ─── Tests ──────────────────────────────────────────────────────────
@@ -64,7 +57,7 @@ async function main() {
   // 4. Create a test task via IPC
   let testTask;
   await test('Create task via IPC', async () => {
-    testTask = await ipc('task_create', {
+    testTask = await ipc(page, 'task_create', {
       taskType: 'session_summary',
       presetId: 'session-summary',
       inputParams: { title: 'E2E Auto Test', session_id: 'test-session-000' },
@@ -76,14 +69,14 @@ async function main() {
 
   // 5. Verify task shows up in list
   await test('Task appears in task list', async () => {
-    const tasks = await ipc('task_list', {});
+    const tasks = await ipc(page, 'task_list', {});
     const found = tasks.find(t => t.id === testTask.id);
     if (!found) throw new Error(`Task ${testTask.id} not in list`);
   });
 
   // 6. Verify task has max_retries set
   await test('Task has max_retries=2', async () => {
-    const task = await ipc('task_get', { id: testTask.id });
+    const task = await ipc(page, 'task_get', { id: testTask.id });
     if (task.maxRetries !== 2) throw new Error(`maxRetries=${task.maxRetries}, expected 2`);
   });
 
@@ -156,7 +149,7 @@ async function main() {
 
   // 13. Verify digest perf optimization (mtime pre-filter exists in Rust — test via IPC timing)
   await test('Digest context sources are configured', async () => {
-    const presets = await ipc('task_list_presets', {});
+    const presets = await ipc(page, 'task_list_presets', {});
     const digest = presets.find(p => p.id === 'daily-digest' || p.id === 'weekly-digest');
     if (!digest) throw new Error('No digest preset found');
   });
@@ -165,15 +158,15 @@ async function main() {
   await test('Manifest append function exists', async () => {
     // We can't directly test Rust functions, but we can verify the task we created
     // is correctly stored and would be appendable
-    const task = await ipc('task_get', { id: testTask.id });
-    if (task.status !== 'pending') throw new Error(`Expected pending, got ${task.status}`);
+    const task2 = await ipc(page, 'task_get', { id: testTask.id });
+    if (task2.status !== 'pending') throw new Error(`Expected pending, got ${task2.status}`);
   });
 
   // 15. Clean up test task
   await test('Delete test task', async () => {
-    await ipc('task_delete', { id: testTask.id });
+    await ipc(page, 'task_delete', { id: testTask.id });
     try {
-      await ipc('task_get', { id: testTask.id });
+      await ipc(page, 'task_get', { id: testTask.id });
       throw new Error('Task still exists after delete');
     } catch (e) {
       if (e.message?.includes('still exists')) throw e;

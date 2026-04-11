@@ -10,7 +10,7 @@
  * 6. Task deletion works
  */
 
-import { connect, navigateTo, shutdown } from './connect.mjs';
+import { connect, ipc, navigateTo, shutdown } from './connect.mjs';
 
 let passed = 0;
 let failed = 0;
@@ -113,32 +113,22 @@ try {
   console.log('\n--- Task Lifecycle (IPC) ---');
 
   // First list existing tasks
-  const existingTasks = await safeEval(page, async () => {
-    try {
-      const result = await window.__TAURI_INTERNALS__.invoke('plugin:tracepilot|task_list');
-      return result;
-    } catch (e) {
-      return { error: e.message || String(e) };
-    }
-  }, { error: 'eval failed' });
+  let existingTasks;
+  try { existingTasks = await ipc(page, 'task_list'); } catch (e) { existingTasks = { error: e.message || String(e) }; }
 
   const taskListWorks = Array.isArray(existingTasks) || (existingTasks && !existingTasks.error);
   assert(taskListWorks, 'task_list IPC command works', existingTasks?.error);
 
   // Create a test task
-  const createResult = await safeEval(page, async () => {
-    try {
-      const task = await window.__TAURI_INTERNALS__.invoke('plugin:tracepilot|task_create', {
-        taskType: 'session_summary',
-        presetId: 'session-summary',
-        inputParams: { sessionId: 'test-e2e-session' },
-        contextSources: ['session_export'],
-      });
-      return task;
-    } catch (e) {
-      return { error: e.message || String(e) };
-    }
-  }, { error: 'eval failed' });
+  let createResult;
+  try {
+    createResult = await ipc(page, 'task_create', {
+      taskType: 'session_summary',
+      presetId: 'session-summary',
+      inputParams: { sessionId: 'test-e2e-session' },
+      contextSources: ['session_export'],
+    });
+  } catch (e) { createResult = { error: e.message || String(e) }; }
 
   const taskCreated = createResult && createResult.id && !createResult.error;
   assert(taskCreated, 'Task created via IPC', createResult?.error);
@@ -147,24 +137,8 @@ try {
 
   if (taskId) {
     // ─── Test 8: Fetch task detail ───
-    const taskDetail = await safeEval(page, async (id) => {
-      try {
-        const task = await window.__TAURI_INTERNALS__.invoke('plugin:tracepilot|task_get', { id });
-        return task;
-      } catch (e) {
-        return { error: e.message || String(e) };
-      }
-    }, { error: 'eval failed' }, taskId);
-
-    // Need to pass taskId into evaluate
-    const taskDetailResult = await page.evaluate(async (id) => {
-      try {
-        const task = await window.__TAURI_INTERNALS__.invoke('plugin:tracepilot|task_get', { id });
-        return task;
-      } catch (e) {
-        return { error: e.message || String(e) };
-      }
-    }, taskId);
+    let taskDetailResult;
+    try { taskDetailResult = await ipc(page, 'task_get', { id: taskId }); } catch (e) { taskDetailResult = { error: e.message || String(e) }; }
 
     const detailOk = taskDetailResult && taskDetailResult.id === taskId && !taskDetailResult.error;
     assert(detailOk, 'Task detail fetched via IPC', taskDetailResult?.error);
@@ -192,26 +166,17 @@ try {
     assert(hasTimeline, 'Task detail shows timeline');
 
     // ─── Test 11: Delete the test task ───
-    const deleteResult = await page.evaluate(async (id) => {
-      try {
-        await window.__TAURI_INTERNALS__.invoke('plugin:tracepilot|task_delete', { id });
-        return { ok: true };
-      } catch (e) {
-        return { error: e.message || String(e) };
-      }
-    }, taskId);
+    let deleteResult;
+    try { await ipc(page, 'task_delete', { id: taskId }); deleteResult = { ok: true }; } catch (e) { deleteResult = { error: e.message || String(e) }; }
 
     assert(deleteResult.ok === true, 'Task deleted via IPC', deleteResult?.error);
 
     // Verify it's gone
-    const afterDelete = await page.evaluate(async (id) => {
-      try {
-        const task = await window.__TAURI_INTERNALS__.invoke('plugin:tracepilot|task_get', { id });
-        return { found: true, status: task?.status };
-      } catch (e) {
-        return { found: false, error: e.message || String(e) };
-      }
-    }, taskId);
+    let afterDelete;
+    try {
+      const task = await ipc(page, 'task_get', { id: taskId });
+      afterDelete = { found: true, status: task?.status };
+    } catch (e) { afterDelete = { found: false, error: e.message || String(e) }; }
 
     // Task should either be not found or have a deleted status
     const deletedOk = !afterDelete.found || afterDelete.error?.includes('not found');
@@ -220,14 +185,8 @@ try {
 
   // ─── Test 12: Orchestrator health check IPC ───
   console.log('\n--- Orchestrator Health ---');
-  const healthResult = await safeEval(page, async () => {
-    try {
-      const health = await window.__TAURI_INTERNALS__.invoke('plugin:tracepilot|task_orchestrator_health');
-      return health;
-    } catch (e) {
-      return { error: e.message || String(e) };
-    }
-  }, { error: 'eval failed' });
+  let healthResult;
+  try { healthResult = await ipc(page, 'task_orchestrator_health'); } catch (e) { healthResult = { error: e.message || String(e) }; }
 
   const healthOk = healthResult && !healthResult.error;
   assert(healthOk, 'Orchestrator health check IPC works', healthResult?.error);
@@ -238,14 +197,8 @@ try {
   }
 
   // ─── Test 13: List presets IPC ───
-  const presetsResult = await safeEval(page, async () => {
-    try {
-      const presets = await window.__TAURI_INTERNALS__.invoke('plugin:tracepilot|task_list_presets');
-      return presets;
-    } catch (e) {
-      return { error: e.message || String(e) };
-    }
-  }, { error: 'eval failed' });
+  let presetsResult;
+  try { presetsResult = await ipc(page, 'task_list_presets'); } catch (e) { presetsResult = { error: e.message || String(e) }; }
 
   const presetsOk = Array.isArray(presetsResult) && presetsResult.length > 0;
   assert(presetsOk, 'task_list_presets returns presets', presetsResult?.error || `count: ${presetsResult?.length}`);
