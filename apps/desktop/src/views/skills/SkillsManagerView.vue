@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import type { SkillImportResult } from "@tracepilot/types";
-import { PageHeader } from "@tracepilot/ui";
+import { PageHeader, useConfirmDialog } from "@tracepilot/ui";
 import { computed, onMounted, ref } from "vue";
 import SkillCard from "@/components/skills/SkillCard.vue";
 import SkillImportWizard from "@/components/skills/SkillImportWizard.vue";
 import { useSkillsStore } from "@/stores/skills";
 
 const store = useSkillsStore();
+const { confirm: showConfirm } = useConfirmDialog();
 const showImportWizard = ref(false);
 const showNewSkillModal = ref(false);
 
@@ -56,8 +57,15 @@ function handleImported(_result: SkillImportResult) {
   showImportWizard.value = false;
 }
 
-function handleDeleteSkill(dir: string) {
-  store.deleteSkill(dir);
+async function handleDeleteSkill(dir: string) {
+  const ok = await showConfirm({
+    title: "Delete Skill",
+    message: "Delete this skill? This cannot be undone.",
+    variant: "danger",
+    confirmLabel: "Delete",
+    cancelLabel: "Cancel",
+  });
+  if (ok) store.deleteSkill(dir);
 }
 </script>
 

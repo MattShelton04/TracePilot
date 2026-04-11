@@ -44,10 +44,13 @@ export function useSidebarNav() {
 
       const sidebarId = route.meta.sidebarId ?? route.path;
 
+      // Strip dynamic segments (e.g. /replay/:id? → /replay)
+      const basePath = route.path.replace(/\/:[^/]+/g, "");
+
       const item: NavItem & { _order: number } = {
         id: sidebarId,
         label: sidebar.label,
-        to: route.path,
+        to: basePath,
         icon: sidebar.icon,
         featureFlag: route.meta.featureFlag as string | undefined,
         _order: sidebar.order,

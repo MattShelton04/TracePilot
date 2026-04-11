@@ -103,7 +103,9 @@ async function handleImport() {
   <div class="page-content-inner">
   <div class="mcp-manager-view">
     <PageHeader title="MCP Servers">
-      <template #icon>🔌</template>
+      <template #icon>
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="5" rx="1"/><rect x="2" y="9" width="12" height="5" rx="1"/><circle cx="4.5" cy="4.5" r="0.75" fill="currentColor" stroke="none"/><circle cx="4.5" cy="11.5" r="0.75" fill="currentColor" stroke="none"/><path d="M11 4.5h1M11 11.5h1"/></svg>
+      </template>
       <template #actions>
         <button class="btn-import" @click="handleImport">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 10v3h8v-3M8 2v8M5 5l3-3 3 3"/></svg>
