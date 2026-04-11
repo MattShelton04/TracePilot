@@ -12,6 +12,7 @@ import {
   DEFAULT_CONTENT_MAX_WIDTH,
   DEFAULT_COST_PER_PREMIUM_REQUEST,
   DEFAULT_FAVOURITE_MODELS,
+  DEFAULT_FEATURES,
   DEFAULT_TOOL_RENDERING_PREFS,
   DEFAULT_UI_SCALE,
   getDefaultWholesalePrices,
@@ -78,15 +79,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
     enabled: DEFAULT_TOOL_RENDERING_PREFS.enabled,
     toolOverrides: { ...DEFAULT_TOOL_RENDERING_PREFS.toolOverrides },
   });
-  const featureFlags = ref<Record<string, boolean>>({
-    exportView: true,
-    healthScoring: false,
-    sessionReplay: false,
-    renderMarkdown: true,
-    mcpServers: false,
-    skills: false,
-    aiTasks: false,
-  });
+  const featureFlags = ref<Record<string, boolean>>({ ...DEFAULT_FEATURES });
   const logLevel = ref("info");
 
   // Ephemeral state — stays in localStorage only
@@ -212,13 +205,8 @@ export const usePreferencesStore = defineStore("preferences", () => {
       toolOverrides: { ...config.toolRendering.toolOverrides },
     };
     featureFlags.value = {
-      exportView: config.features.exportView,
-      healthScoring: config.features.healthScoring,
-      sessionReplay: config.features.sessionReplay,
-      renderMarkdown: config.features.renderMarkdown ?? true,
-      mcpServers: config.features.mcpServers ?? false,
-      skills: config.features.skills ?? false,
-      aiTasks: config.features.aiTasks ?? false,
+      ...DEFAULT_FEATURES,
+      ...config.features,
     };
     logLevel.value = config.logging?.level ?? "info";
   }
