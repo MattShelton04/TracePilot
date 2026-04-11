@@ -2,7 +2,6 @@
 
 use crate::Result;
 use rusqlite::params;
-use rusqlite::types::Value;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
@@ -202,128 +201,134 @@ impl IndexDb {
             // Builds INSERT ... VALUES (...),(...),... in chunks of 50,
             // reducing round-trips from N to ceil(N/50).
             // ──────────────────────────────────────────────────────────────
-            use super::batch_insert::batched_insert;
+            use super::batch_insert::json_each_insert;
 
-            batched_insert(
+            json_each_insert(
                 &self.conn,
                 "INSERT INTO session_model_metrics \
                     (session_id, model_name, input_tokens, output_tokens, \
-                     cache_read_tokens, cache_write_tokens, cost, request_count, reasoning_tokens) VALUES",
-                9,
+                     cache_read_tokens, cache_write_tokens, cost, request_count, reasoning_tokens) SELECT json_extract(value, '$[0]'), json_extract(value, '$[1]'), json_extract(value, '$[2]'), json_extract(value, '$[3]'), json_extract(value, '$[4]'), json_extract(value, '$[5]'), json_extract(value, '$[6]'), json_extract(value, '$[7]'), json_extract(value, '$[8]') FROM json_each(?)",
                 &analytics.model_rows,
-                |row| vec![
-                    Value::Text(session_id.clone()),
-                    Value::Text(row.model.clone()),
-                    Value::Integer(row.input_tokens),
-                    Value::Integer(row.output_tokens),
-                    Value::Integer(row.cache_read_tokens),
-                    Value::Integer(row.cache_write_tokens),
-                    Value::Real(row.cost),
-                    Value::Integer(row.premium_requests),
-                    match row.reasoning_tokens {
-                        Some(v) => Value::Integer(v),
-                        None => Value::Null,
-                    },
-                ],
+                |row| {
+                    vec![
+                        serde_json::json!(session_id.clone()),
+                        serde_json::json!(row.model.clone()),
+                        serde_json::json!(row.input_tokens),
+                        serde_json::json!(row.output_tokens),
+                        serde_json::json!(row.cache_read_tokens),
+                        serde_json::json!(row.cache_write_tokens),
+                        serde_json::json!(row.cost),
+                        serde_json::json!(row.premium_requests),
+                        match row.reasoning_tokens {
+                            Some(v) => serde_json::json!(v),
+                            None => serde_json::Value::Null,
+                        },
+                    ]
+                },
             )?;
 
-            batched_insert(
+            json_each_insert(
                 &self.conn,
                 "INSERT INTO session_tool_calls \
                     (session_id, tool_name, call_count, success_count, \
-                     failure_count, total_duration_ms, calls_with_duration) VALUES",
-                7,
+                     failure_count, total_duration_ms, calls_with_duration) SELECT json_extract(value, '$[0]'), json_extract(value, '$[1]'), json_extract(value, '$[2]'), json_extract(value, '$[3]'), json_extract(value, '$[4]'), json_extract(value, '$[5]'), json_extract(value, '$[6]') FROM json_each(?)",
                 &analytics.tool_call_rows,
-                |row| vec![
-                    Value::Text(session_id.clone()),
-                    Value::Text(row.name.clone()),
-                    Value::Integer(row.calls),
-                    Value::Integer(row.success),
-                    Value::Integer(row.failure),
-                    Value::Integer(row.duration_ms),
-                    Value::Integer(row.calls_with_duration),
-                ],
+                |row| {
+                    vec![
+                        serde_json::json!(session_id.clone()),
+                        serde_json::json!(row.name.clone()),
+                        serde_json::json!(row.calls),
+                        serde_json::json!(row.success),
+                        serde_json::json!(row.failure),
+                        serde_json::json!(row.duration_ms),
+                        serde_json::json!(row.calls_with_duration),
+                    ]
+                },
             )?;
 
-            batched_insert(
+            json_each_insert(
                 &self.conn,
                 "INSERT OR IGNORE INTO session_modified_files \
-                    (session_id, file_path, extension) VALUES",
-                3,
+                    (session_id, file_path, extension) SELECT json_extract(value, '$[0]'), json_extract(value, '$[1]'), json_extract(value, '$[2]') FROM json_each(?)",
                 &analytics.modified_file_rows,
-                |row| vec![
-                    Value::Text(session_id.clone()),
-                    Value::Text(row.file_path.clone()),
-                    match &row.extension {
-                        Some(ext) => Value::Text(ext.clone()),
-                        None => Value::Null,
-                    },
-                ],
+                |row| {
+                    vec![
+                        serde_json::json!(session_id.clone()),
+                        serde_json::json!(row.file_path.clone()),
+                        match &row.extension {
+                            Some(ext) => serde_json::json!(ext.clone()),
+                            None => serde_json::Value::Null,
+                        },
+                    ]
+                },
             )?;
 
-            batched_insert(
+            json_each_insert(
                 &self.conn,
                 "INSERT INTO session_activity \
-                    (session_id, day_of_week, hour, tool_call_count) VALUES",
-                4,
+                    (session_id, day_of_week, hour, tool_call_count) SELECT json_extract(value, '$[0]'), json_extract(value, '$[1]'), json_extract(value, '$[2]'), json_extract(value, '$[3]') FROM json_each(?)",
                 &analytics.activity_rows,
-                |row| vec![
-                    Value::Text(session_id.clone()),
-                    Value::Integer(row.day_of_week),
-                    Value::Integer(row.hour),
-                    Value::Integer(row.tool_call_count),
-                ],
+                |row| {
+                    vec![
+                        serde_json::json!(session_id.clone()),
+                        serde_json::json!(row.day_of_week),
+                        serde_json::json!(row.hour),
+                        serde_json::json!(row.tool_call_count),
+                    ]
+                },
             )?;
 
-            batched_insert(
+            json_each_insert(
                 &self.conn,
                 "INSERT INTO session_segments \
                     (session_id, start_timestamp, end_timestamp, total_tokens, \
                      total_requests, total_premium_requests, total_api_duration_ms, \
-                     current_model, model_metrics_json) VALUES",
-                9,
+                     current_model, model_metrics_json) SELECT json_extract(value, '$[0]'), json_extract(value, '$[1]'), json_extract(value, '$[2]'), json_extract(value, '$[3]'), json_extract(value, '$[4]'), json_extract(value, '$[5]'), json_extract(value, '$[6]'), json_extract(value, '$[7]'), json_extract(value, '$[8]') FROM json_each(?)",
                 &analytics.session_segment_rows,
-                |row| vec![
-                    Value::Text(session_id.clone()),
-                    Value::Text(row.start_timestamp.clone()),
-                    Value::Text(row.end_timestamp.clone()),
-                    Value::Integer(row.tokens),
-                    Value::Integer(row.total_requests),
-                    Value::Real(row.premium_requests),
-                    Value::Integer(row.api_duration_ms),
-                    match &row.current_model {
-                        Some(m) => Value::Text(m.clone()),
-                        None => Value::Null,
-                    },
-                    match &row.model_metrics_json {
-                        Some(j) => Value::Text(j.clone()),
-                        None => Value::Null,
-                    },
-                ],
+                |row| {
+                    vec![
+                        serde_json::json!(session_id.clone()),
+                        serde_json::json!(row.start_timestamp.clone()),
+                        serde_json::json!(row.end_timestamp.clone()),
+                        serde_json::json!(row.tokens),
+                        serde_json::json!(row.total_requests),
+                        serde_json::json!(row.premium_requests),
+                        serde_json::json!(row.api_duration_ms),
+                        match &row.current_model {
+                            Some(m) => serde_json::json!(m.clone()),
+                            None => serde_json::Value::Null,
+                        },
+                        match &row.model_metrics_json {
+                            Some(j) => serde_json::json!(j.clone()),
+                            None => serde_json::Value::Null,
+                        },
+                    ]
+                },
             )?;
 
-            batched_insert(
+            json_each_insert(
                 &self.conn,
                 "INSERT INTO session_incidents \
                     (session_id, event_type, source_event_type, timestamp, \
-                     severity, summary, detail_json) VALUES",
-                7,
+                     severity, summary, detail_json) SELECT json_extract(value, '$[0]'), json_extract(value, '$[1]'), json_extract(value, '$[2]'), json_extract(value, '$[3]'), json_extract(value, '$[4]'), json_extract(value, '$[5]'), json_extract(value, '$[6]') FROM json_each(?)",
                 &analytics.incidents,
-                |inc| vec![
-                    Value::Text(session_id.clone()),
-                    Value::Text(inc.event_type.clone()),
-                    Value::Text(inc.source_event_type.clone()),
-                    match &inc.timestamp {
-                        Some(t) => Value::Text(t.clone()),
-                        None => Value::Null,
-                    },
-                    Value::Text(inc.severity.clone()),
-                    Value::Text(inc.summary.clone()),
-                    match &inc.detail_json {
-                        Some(d) => Value::Text(d.clone()),
-                        None => Value::Null,
-                    },
-                ],
+                |inc| {
+                    vec![
+                        serde_json::json!(session_id.clone()),
+                        serde_json::json!(inc.event_type.clone()),
+                        serde_json::json!(inc.source_event_type.clone()),
+                        match &inc.timestamp {
+                            Some(t) => serde_json::json!(t.clone()),
+                            None => serde_json::Value::Null,
+                        },
+                        serde_json::json!(inc.severity.clone()),
+                        serde_json::json!(inc.summary.clone()),
+                        match &inc.detail_json {
+                            Some(d) => serde_json::json!(d.clone()),
+                            None => serde_json::Value::Null,
+                        },
+                    ]
+                },
             )?;
 
             Ok(())
@@ -426,10 +431,8 @@ impl IndexDb {
         let result = (|| -> Result<()> {
             // Use json_each() to pass all live IDs as a single JSON array parameter,
             // avoiding the N individual INSERT statements into a temp table.
-            let live_json = serde_json::to_string(
-                &live_ids.iter().collect::<Vec<_>>(),
-            )
-            .expect("string serialization is infallible");
+            let live_json = serde_json::to_string(&live_ids.iter().collect::<Vec<_>>())
+                .expect("string serialization is infallible");
 
             self.conn.execute(
                 "DELETE FROM sessions WHERE id NOT IN (SELECT value FROM json_each(?1))",

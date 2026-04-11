@@ -13,8 +13,7 @@ mod content_extraction;
 mod tests;
 mod tool_extraction;
 
-use rusqlite::types::Value;
-use super::batch_insert::batched_insert;
+use super::batch_insert::json_each_insert;
 
 use crate::Result;
 use rusqlite::params;
@@ -124,35 +123,36 @@ impl IndexDb {
             // Batch insert new content (skip empty rows)
             let non_empty: Vec<&SearchContentRow> =
                 rows.iter().filter(|r| !r.content.is_empty()).collect();
-            batched_insert(
+            json_each_insert(
                 &self.conn,
                 "INSERT INTO search_content \
                     (session_id, content_type, turn_number, event_index, \
-                     timestamp_unix, tool_name, content, metadata_json) VALUES",
-                8,
+                     timestamp_unix, tool_name, content, metadata_json) SELECT json_extract(value, '$[0]'), json_extract(value, '$[1]'), json_extract(value, '$[2]'), json_extract(value, '$[3]'), json_extract(value, '$[4]'), json_extract(value, '$[5]'), json_extract(value, '$[6]'), json_extract(value, '$[7]') FROM json_each(?)",
                 &non_empty,
-                |row| vec![
-                    Value::Text(row.session_id.clone()),
-                    Value::Text(row.content_type.to_string()),
-                    match row.turn_number {
-                        Some(n) => Value::Integer(n),
-                        None => Value::Null,
-                    },
-                    Value::Integer(row.event_index),
-                    match row.timestamp_unix {
-                        Some(n) => Value::Integer(n),
-                        None => Value::Null,
-                    },
-                    match &row.tool_name {
-                        Some(s) => Value::Text(s.clone()),
-                        None => Value::Null,
-                    },
-                    Value::Text(row.content.clone()),
-                    match &row.metadata_json {
-                        Some(s) => Value::Text(s.clone()),
-                        None => Value::Null,
-                    },
-                ],
+                |row| {
+                    vec![
+                        serde_json::json!(row.session_id.clone()),
+                        serde_json::json!(row.content_type.to_string()),
+                        match row.turn_number {
+                            Some(n) => serde_json::json!(n),
+                            None => serde_json::Value::Null,
+                        },
+                        serde_json::json!(row.event_index),
+                        match row.timestamp_unix {
+                            Some(n) => serde_json::json!(n),
+                            None => serde_json::Value::Null,
+                        },
+                        match &row.tool_name {
+                            Some(s) => serde_json::json!(s.clone()),
+                            None => serde_json::Value::Null,
+                        },
+                        serde_json::json!(row.content.clone()),
+                        match &row.metadata_json {
+                            Some(s) => serde_json::json!(s.clone()),
+                            None => serde_json::Value::Null,
+                        },
+                    ]
+                },
             )?;
             let inserted = non_empty.len();
 
@@ -232,35 +232,36 @@ impl IndexDb {
 
                 let non_empty: Vec<&SearchContentRow> =
                     rows.iter().filter(|r| !r.content.is_empty()).collect();
-                batched_insert(
+                json_each_insert(
                     &self.conn,
                     "INSERT INTO search_content \
                         (session_id, content_type, turn_number, event_index, \
-                         timestamp_unix, tool_name, content, metadata_json) VALUES",
-                    8,
+                         timestamp_unix, tool_name, content, metadata_json) SELECT json_extract(value, '$[0]'), json_extract(value, '$[1]'), json_extract(value, '$[2]'), json_extract(value, '$[3]'), json_extract(value, '$[4]'), json_extract(value, '$[5]'), json_extract(value, '$[6]'), json_extract(value, '$[7]') FROM json_each(?)",
                     &non_empty,
-                    |row| vec![
-                        Value::Text(row.session_id.clone()),
-                        Value::Text(row.content_type.to_string()),
-                        match row.turn_number {
-                            Some(n) => Value::Integer(n),
-                            None => Value::Null,
-                        },
-                        Value::Integer(row.event_index),
-                        match row.timestamp_unix {
-                            Some(n) => Value::Integer(n),
-                            None => Value::Null,
-                        },
-                        match &row.tool_name {
-                            Some(s) => Value::Text(s.clone()),
-                            None => Value::Null,
-                        },
-                        Value::Text(row.content.clone()),
-                        match &row.metadata_json {
-                            Some(s) => Value::Text(s.clone()),
-                            None => Value::Null,
-                        },
-                    ],
+                    |row| {
+                        vec![
+                            serde_json::json!(row.session_id.clone()),
+                            serde_json::json!(row.content_type.to_string()),
+                            match row.turn_number {
+                                Some(n) => serde_json::json!(n),
+                                None => serde_json::Value::Null,
+                            },
+                            serde_json::json!(row.event_index),
+                            match row.timestamp_unix {
+                                Some(n) => serde_json::json!(n),
+                                None => serde_json::Value::Null,
+                            },
+                            match &row.tool_name {
+                                Some(s) => serde_json::json!(s.clone()),
+                                None => serde_json::Value::Null,
+                            },
+                            serde_json::json!(row.content.clone()),
+                            match &row.metadata_json {
+                                Some(s) => serde_json::json!(s.clone()),
+                                None => serde_json::Value::Null,
+                            },
+                        ]
+                    },
                 )?;
                 total_inserted += non_empty.len();
 

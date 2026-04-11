@@ -1,56 +1,36 @@
 //! Multi-row INSERT batching for SQLite child-table writes.
 //!
-//! Instead of executing N individual `INSERT ... VALUES (?)` statements,
-//! this builds `INSERT ... VALUES (?,...),(?,...), ...` in chunks of 50,
-//! reducing statement count from N to ⌈N/50⌉. Within an explicit
-//! transaction (SAVEPOINT), the main win is fewer SQLite VM step() calls.
+//! Replaces chunked multi-statement inserts with `json_each` bulk inserts.
+//! This bypasses `SQLITE_MAX_VARIABLE_NUMBER` limits entirely and eliminates
+//! Rust-side loop execution overhead.
 
 use crate::Result;
-use rusqlite::types::Value;
+use serde_json::Value as JsonValue;
 
-/// Maximum rows per multi-row INSERT statement.
+/// Execute a bulk INSERT using SQLite's `json_each` extension.
 ///
-/// With 9 columns (the widest child table), 50 × 9 = 450 bind parameters,
-/// well within SQLite's `SQLITE_MAX_VARIABLE_NUMBER` (32 766 since 3.32).
-const BATCH_CHUNK_SIZE: usize = 50;
-
-/// Execute a multi-row INSERT in chunks of up to [`BATCH_CHUNK_SIZE`] rows.
-///
-/// `sql_prefix` is everything up to (but not including) the first VALUES
-/// tuple, e.g. `"INSERT INTO t (a, b) VALUES"`.
-///
-/// Uses `prepare()` — **not** `prepare_cached()` — because the SQL string
-/// varies by chunk size (the last chunk is typically smaller).
-pub(crate) fn batched_insert<T>(
+/// Converts the items to a JSON array of arrays, and uses a single SQL statement.
+/// `sql_prefix` is everything up to the SELECT part, e.g.
+/// `"INSERT INTO t (a, b) SELECT json_extract(value, '$[0]'), json_extract(value, '$[1]') FROM json_each(?)"`.
+pub(crate) fn json_each_insert<T>(
     conn: &rusqlite::Connection,
-    sql_prefix: &str,
-    params_per_row: usize,
+    sql: &str,
     items: &[T],
-    to_values: impl Fn(&T) -> Vec<Value>,
+    to_json_values: impl Fn(&T) -> Vec<JsonValue>,
 ) -> Result<()> {
     if items.is_empty() {
         return Ok(());
     }
 
-    for chunk in items.chunks(BATCH_CHUNK_SIZE) {
-        let placeholders: String = (0..chunk.len())
-            .map(|i| {
-                let start = i * params_per_row + 1;
-                let p: String = (start..start + params_per_row)
-                    .map(|n| format!("?{n}"))
-                    .collect::<Vec<_>>()
-                    .join(",");
-                format!("({p})")
-            })
-            .collect::<Vec<_>>()
-            .join(",");
+    let json_arr: Vec<JsonValue> = items
+        .iter()
+        .map(|item| JsonValue::Array(to_json_values(item)))
+        .collect();
 
-        let sql = format!("{sql_prefix} {placeholders}");
-        let mut stmt = conn.prepare(&sql)?;
+    let json_str = serde_json::to_string(&json_arr).expect("Failed to serialize array to JSON");
 
-        let values: Vec<Value> = chunk.iter().flat_map(&to_values).collect();
-        stmt.execute(rusqlite::params_from_iter(values.iter()))?;
-    }
+    let mut stmt = conn.prepare(sql)?;
+    stmt.execute([json_str])?;
 
     Ok(())
 }
@@ -59,16 +39,17 @@ pub(crate) fn batched_insert<T>(
 mod tests {
     use super::*;
     use rusqlite::Connection;
+    use serde_json::json;
 
     #[test]
     fn empty_items_is_noop() {
         let conn = Connection::open_in_memory().unwrap();
-        conn.execute_batch("CREATE TABLE t (a TEXT, b INTEGER)").unwrap();
+        conn.execute_batch("CREATE TABLE t (a TEXT, b INTEGER)")
+            .unwrap();
         let items: Vec<(String, i64)> = vec![];
-        batched_insert(
+        json_each_insert(
             &conn,
-            "INSERT INTO t (a, b) VALUES",
-            2,
+            "INSERT INTO t (a, b) SELECT json_extract(value, '$[0]'), json_extract(value, '$[1]') FROM json_each(?)",
             &items,
             |_| unreachable!(),
         )
@@ -80,56 +61,42 @@ mod tests {
     }
 
     #[test]
-    fn inserts_exact_chunk_boundary() {
+    fn inserts_items() {
         let conn = Connection::open_in_memory().unwrap();
         conn.execute_batch("CREATE TABLE t (v INTEGER)").unwrap();
-        // Insert exactly BATCH_CHUNK_SIZE items
-        let items: Vec<i64> = (0..BATCH_CHUNK_SIZE as i64).collect();
-        batched_insert(&conn, "INSERT INTO t (v) VALUES", 1, &items, |&v| {
-            vec![Value::Integer(v)]
-        })
+        let items: Vec<i64> = (0..100).collect();
+        json_each_insert(
+            &conn,
+            "INSERT INTO t (v) SELECT json_extract(value, '$[0]') FROM json_each(?)",
+            &items,
+            |&v| vec![json!(v)],
+        )
         .unwrap();
         let count: i64 = conn
             .query_row("SELECT count(*) FROM t", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(count, BATCH_CHUNK_SIZE as i64);
-    }
-
-    #[test]
-    fn inserts_across_chunk_boundary() {
-        let conn = Connection::open_in_memory().unwrap();
-        conn.execute_batch("CREATE TABLE t (v INTEGER)").unwrap();
-        let n = BATCH_CHUNK_SIZE as i64 + 7;
-        let items: Vec<i64> = (0..n).collect();
-        batched_insert(&conn, "INSERT INTO t (v) VALUES", 1, &items, |&v| {
-            vec![Value::Integer(v)]
-        })
-        .unwrap();
-        let count: i64 = conn
-            .query_row("SELECT count(*) FROM t", [], |r| r.get(0))
-            .unwrap();
-        assert_eq!(count, n);
+        assert_eq!(count, 100);
     }
 
     #[test]
     fn handles_multi_column_with_nulls() {
         let conn = Connection::open_in_memory().unwrap();
-        conn.execute_batch("CREATE TABLE t (a TEXT, b TEXT)").unwrap();
+        conn.execute_batch("CREATE TABLE t (a TEXT, b TEXT)")
+            .unwrap();
         let items = vec![
             (String::from("x"), Some(String::from("y"))),
             (String::from("z"), None),
         ];
-        batched_insert(
+        json_each_insert(
             &conn,
-            "INSERT INTO t (a, b) VALUES",
-            2,
+            "INSERT INTO t (a, b) SELECT json_extract(value, '$[0]'), json_extract(value, '$[1]') FROM json_each(?)",
             &items,
             |(a, b)| {
                 vec![
-                    Value::Text(a.clone()),
+                    json!(a),
                     match b {
-                        Some(s) => Value::Text(s.clone()),
-                        None => Value::Null,
+                        Some(s) => json!(s),
+                        None => JsonValue::Null,
                     },
                 ]
             },
