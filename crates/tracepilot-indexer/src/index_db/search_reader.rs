@@ -1529,14 +1529,27 @@ mod tests {
     }
 
     #[test]
-    fn test_search_stats_returns_error_on_missing_database() {
-        // Test with a non-existent database file
+    fn test_open_readonly_fails_on_missing_database() {
+        // Test that open_readonly fails appropriately on non-existent database
         let temp_dir = tempfile::tempdir().unwrap();
         let db_path = temp_dir.path().join("nonexistent.db");
 
         // Attempting to open a non-existent database in readonly mode should fail
         let result = IndexDb::open_readonly(&db_path);
-        assert!(result.is_err(), "Should fail to open non-existent database in readonly mode");
+        assert!(
+            result.is_err(),
+            "Should fail to open non-existent database in readonly mode"
+        );
+
+        // Verify error message contains useful context
+        if let Err(err) = result {
+            let err_msg = err.to_string();
+            assert!(
+                err_msg.contains("readonly") || err_msg.contains("open"),
+                "Error message should indicate readonly/open failure: {}",
+                err_msg
+            );
+        }
     }
 
     #[test]
@@ -1559,7 +1572,8 @@ mod tests {
             Err(crate::IndexerError::Database(e)) => {
                 assert!(
                     format!("{:?}", e).contains("no such table"),
-                    "Error should indicate missing table"
+                    "Error should indicate missing table, got: {:?}",
+                    e
                 );
             }
             _ => panic!("Expected Database error variant"),
@@ -1572,7 +1586,8 @@ mod tests {
 
         // Create an in-memory database with partial schema (missing tables)
         let conn = Connection::open_in_memory().unwrap();
-        conn.execute("CREATE TABLE sessions (id TEXT)", []).unwrap();
+        conn.execute("CREATE TABLE sessions (id TEXT)", [])
+            .unwrap();
         // Deliberately not creating search_content table
 
         let db = IndexDb { conn };
@@ -1583,5 +1598,18 @@ mod tests {
             result.is_err(),
             "search_stats should return error when tables are missing"
         );
+
+        // Verify error indicates the missing table
+        match result {
+            Err(crate::IndexerError::Database(e)) => {
+                let err_msg = format!("{:?}", e);
+                assert!(
+                    err_msg.contains("no such table") || err_msg.contains("search_content"),
+                    "Error should reference missing search_content table, got: {}",
+                    err_msg
+                );
+            }
+            _ => panic!("Expected Database error variant"),
+        }
     }
 }
