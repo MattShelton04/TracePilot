@@ -208,8 +208,8 @@ impl IndexDb {
                 &self.conn,
                 "INSERT INTO session_model_metrics \
                     (session_id, model_name, input_tokens, output_tokens, \
-                     cache_read_tokens, cache_write_tokens, cost, request_count) VALUES",
-                8,
+                     cache_read_tokens, cache_write_tokens, cost, request_count, reasoning_tokens) VALUES",
+                9,
                 &analytics.model_rows,
                 |row| vec![
                     Value::Text(session_id.clone()),
@@ -220,6 +220,7 @@ impl IndexDb {
                     Value::Integer(row.cache_write_tokens),
                     Value::Real(row.cost),
                     Value::Integer(row.premium_requests),
+                    Value::Integer(row.reasoning_tokens),
                 ],
             )?;
 
@@ -497,17 +498,18 @@ pub(crate) fn extract_session_analytics(
         }
 
         for (model_name, detail) in &metrics.model_metrics {
-            let (input_t, output_t, cache_read, cache_write) = if let Some(ref usage) = detail.usage
-            {
-                (
-                    usage.input_tokens.unwrap_or(0) as i64,
-                    usage.output_tokens.unwrap_or(0) as i64,
-                    usage.cache_read_tokens.unwrap_or(0) as i64,
-                    usage.cache_write_tokens.unwrap_or(0) as i64,
-                )
-            } else {
-                (0, 0, 0, 0)
-            };
+            let (input_t, output_t, cache_read, cache_write, reasoning) =
+                if let Some(ref usage) = detail.usage {
+                    (
+                        usage.input_tokens.unwrap_or(0) as i64,
+                        usage.output_tokens.unwrap_or(0) as i64,
+                        usage.cache_read_tokens.unwrap_or(0) as i64,
+                        usage.cache_write_tokens.unwrap_or(0) as i64,
+                        usage.reasoning_tokens.map(|v| v as i64).unwrap_or(-1),
+                    )
+                } else {
+                    (0, 0, 0, 0, -1)
+                };
             let model_tokens = input_t + output_t;
             total_tokens += model_tokens;
 
@@ -524,6 +526,7 @@ pub(crate) fn extract_session_analytics(
                 cache_write_tokens: cache_write,
                 cost,
                 premium_requests: req_count,
+                reasoning_tokens: if reasoning >= 0 { reasoning } else { 0 },
             });
         }
 

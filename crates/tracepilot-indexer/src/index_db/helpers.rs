@@ -124,12 +124,14 @@ pub(super) fn query_model_distribution(
             row.get::<_, i64>(4)?,
             row.get::<_, f64>(5)?,
             row.get::<_, i64>(6)?,
+            row.get::<_, i64>(7)?,
+            row.get::<_, i64>(8)?,
         ))
     })?;
-    let mut entries: Vec<(String, i64, i64, i64, i64, f64, i64)> = Vec::new();
+    let mut entries: Vec<(String, i64, i64, i64, i64, f64, i64, i64, bool)> = Vec::new();
     let mut grand_total: i64 = 0;
     for row in rows {
-        let (model, tokens, input_t, output_t, cache_read, cost, request_count) = row?;
+        let (model, tokens, input_t, output_t, cache_read, cost, request_count, reasoning_sum, has_reasoning) = row?;
         grand_total += tokens;
         entries.push((
             model,
@@ -139,12 +141,14 @@ pub(super) fn query_model_distribution(
             cache_read,
             cost,
             request_count,
+            reasoning_sum,
+            has_reasoning != 0,
         ));
     }
     Ok(entries
         .into_iter()
         .map(
-            |(model, tokens, input_t, output_t, cache_read, cost, request_count)| {
+            |(model, tokens, input_t, output_t, cache_read, cost, request_count, reasoning_sum, has_reasoning)| {
                 let percentage = if grand_total > 0 {
                     (tokens as f64 / grand_total as f64) * 100.0
                 } else {
@@ -159,6 +163,11 @@ pub(super) fn query_model_distribution(
                     cache_read_tokens: cache_read as u64,
                     premium_requests: cost,
                     request_count: request_count as u64,
+                    reasoning_tokens: if has_reasoning {
+                        Some(reasoning_sum as u64)
+                    } else {
+                        None
+                    },
                 }
             },
         )

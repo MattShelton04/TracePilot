@@ -26,6 +26,22 @@ export function totalCacheRead(m: ShutdownMetrics | null): number {
   return Object.values(m.modelMetrics).reduce((s, mm) => s + (mm.usage?.cacheReadTokens ?? 0), 0);
 }
 
+export function totalReasoningTokens(m: ShutdownMetrics | null): number {
+  if (!m?.modelMetrics) return 0;
+  return Object.values(m.modelMetrics).reduce((s, mm) => s + (mm.usage?.reasoningTokens ?? 0), 0);
+}
+
+/** True when the session has any reasoning token data (v1.0.24+ sessions). */
+export function hasReasoningTokenData(m: ShutdownMetrics | null): boolean {
+  if (!m?.modelMetrics) return false;
+  return Object.values(m.modelMetrics).some((mm) => mm.usage?.reasoningTokens != null);
+}
+
+/** True when the session has token budget data (v1.0.8+ sessions). */
+export function hasTokenBudgetData(m: ShutdownMetrics | null): boolean {
+  return m?.currentTokens != null || m?.systemTokens != null;
+}
+
 export function wholesaleCost(
   m: ShutdownMetrics | null,
   computeWholesaleCost: (

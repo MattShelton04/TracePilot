@@ -177,6 +177,8 @@ impl TurnReconstructor {
                     agent_description: None,
                     model: model_from_args,
                     intention_summary: intention,
+                    total_tokens: None,
+                    total_tool_calls: None,
                     result_content: None,
                     args_summary: None,
                 });
@@ -222,7 +224,10 @@ impl TurnReconstructor {
                         }
                         tool_call.is_complete = true;
                     }
-                    if data.model.is_some() {
+                    // For subagents, SubagentCompleted/Failed has the authoritative model.
+                    // Only apply ToolExecComplete's model for non-subagent tool calls,
+                    // or as a fallback if the subagent hasn't reported its own model yet.
+                    if data.model.is_some() && (!tool_call.is_subagent || tool_call.model.is_none()) {
                         tool_call.model = data.model.clone();
                     }
                     if tool_call.parent_tool_call_id.is_none() {
@@ -293,6 +298,8 @@ impl TurnReconstructor {
                         agent_description: data.agent_description.clone(),
                         model: None,
                         intention_summary: None,
+                        total_tokens: None,
+                        total_tool_calls: None,
                         result_content: None,
                         args_summary: None,
                     });
@@ -309,6 +316,10 @@ impl TurnReconstructor {
                     event.raw.timestamp,
                     true,
                     None,
+                    data.model.as_deref(),
+                    data.duration_ms,
+                    data.total_tokens,
+                    data.total_tool_calls,
                 );
             }
 
@@ -318,6 +329,10 @@ impl TurnReconstructor {
                     event.raw.timestamp,
                     false,
                     data.error.as_deref(),
+                    data.model.as_deref(),
+                    data.duration_ms,
+                    data.total_tokens,
+                    data.total_tool_calls,
                 );
             }
 
@@ -656,6 +671,10 @@ impl TurnReconstructor {
         timestamp: Option<DateTime<Utc>>,
         success: bool,
         error: Option<&str>,
+        model: Option<&str>,
+        reported_duration_ms: Option<u64>,
+        total_tokens: Option<u64>,
+        total_tool_calls: Option<u64>,
     ) {
         if let Some(tool_call) = self.find_tool_call_mut(tool_call_id) {
             // Mark as subagent — handles the case where SubagentCompleted arrives
@@ -663,12 +682,20 @@ impl TurnReconstructor {
             tool_call.is_subagent = true;
             if tool_call.completed_at.is_none() || timestamp > tool_call.completed_at {
                 tool_call.completed_at = timestamp;
-                tool_call.duration_ms = duration_ms(tool_call.started_at, tool_call.completed_at);
+                // Prefer the subagent's self-reported duration over timestamp math.
+                tool_call.duration_ms = reported_duration_ms
+                    .or_else(|| duration_ms(tool_call.started_at, tool_call.completed_at));
             }
             tool_call.success = Some(success);
             if let Some(err) = error {
                 tool_call.error = Some(err.to_string());
             }
+            // Subagent's self-reported model is authoritative.
+            if let Some(m) = model {
+                tool_call.model = Some(m.to_string());
+            }
+            tool_call.total_tokens = total_tokens;
+            tool_call.total_tool_calls = total_tool_calls;
             tool_call.is_complete = true;
         } else {
             tracing::debug!(
