@@ -61,7 +61,7 @@ pub(crate) fn emit_indexing_progress(
         total_events: progress.running_events,
         total_repos: progress.running_repos,
     };
-    let _ = app.emit("indexing-progress", payload);
+    let _ = app.emit(crate::events::INDEXING_PROGRESS, payload);
 }
 
 /// Read config from shared state, falling back to defaults.

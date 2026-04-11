@@ -96,7 +96,7 @@ pub async fn reindex_sessions(
     let index_path = cfg.index_db_path();
     let app_handle = app.clone();
 
-    let _ = app.emit("indexing-started", ());
+    let _ = app.emit(crate::events::INDEXING_STARTED, ());
 
     let result = tokio::task::spawn_blocking(move || {
         let _permit = permit;
@@ -128,7 +128,7 @@ pub async fn reindex_sessions(
     })
     .await;
 
-    let _ = app.emit("indexing-finished", ());
+    let _ = app.emit(crate::events::INDEXING_FINISHED, ());
 
     // Invalidate facets cache after reindex.
     invalidate_facets_cache();
@@ -144,13 +144,13 @@ pub async fn reindex_sessions(
             tokio::task::spawn_blocking(move || {
                 let _permit = search_permit;
                 let start = std::time::Instant::now();
-                let _ = app2.emit("search-indexing-started", ());
+                let _ = app2.emit(crate::events::SEARCH_INDEXING_STARTED, ());
                 match tracepilot_indexer::reindex_search_content(
                     &session_state_dir2,
                     &index_path2,
                     |progress| {
                         let _ = app2.emit(
-                            "search-indexing-progress",
+                            crate::events::SEARCH_INDEXING_PROGRESS,
                             serde_json::json!({
                                 "current": progress.current,
                                 "total": progress.total
@@ -167,14 +167,14 @@ pub async fn reindex_sessions(
                             "reindex_sessions Phase 2 wall time"
                         );
                         let _ = app2.emit(
-                            "search-indexing-finished",
+                            crate::events::SEARCH_INDEXING_FINISHED,
                             serde_json::json!({"success": true}),
                         );
                     }
                     Err(e) => {
                         tracing::warn!(error = %e, "Phase 2 search indexing failed");
                         let _ = app2.emit(
-                            "search-indexing-finished",
+                            crate::events::SEARCH_INDEXING_FINISHED,
                             serde_json::json!({"success": false, "error": e.to_string()}),
                         );
                     }
@@ -204,7 +204,7 @@ pub async fn reindex_sessions_full(
     let index_path = cfg.index_db_path();
     let app_handle = app.clone();
 
-    let _ = app.emit("indexing-started", ());
+    let _ = app.emit(crate::events::INDEXING_STARTED, ());
 
     let result = tokio::task::spawn_blocking(move || {
         let _permit = permit;
@@ -223,7 +223,7 @@ pub async fn reindex_sessions_full(
     })
     .await;
 
-    let _ = app.emit("indexing-finished", ());
+    let _ = app.emit(crate::events::INDEXING_FINISHED, ());
 
     // Invalidate facets cache after full reindex.
     invalidate_facets_cache();
@@ -239,13 +239,13 @@ pub async fn reindex_sessions_full(
             tokio::task::spawn_blocking(move || {
                 let _permit = search_permit;
                 let start = std::time::Instant::now();
-                let _ = app2.emit("search-indexing-started", ());
+                let _ = app2.emit(crate::events::SEARCH_INDEXING_STARTED, ());
                 match tracepilot_indexer::rebuild_search_content(
                     &session_state_dir2,
                     &index_path2,
                     |progress| {
                         let _ = app2.emit(
-                            "search-indexing-progress",
+                            crate::events::SEARCH_INDEXING_PROGRESS,
                             serde_json::json!({
                                 "current": progress.current,
                                 "total": progress.total
@@ -262,14 +262,14 @@ pub async fn reindex_sessions_full(
                             "rebuild_search_index Phase 2 wall time"
                         );
                         let _ = app2.emit(
-                            "search-indexing-finished",
+                            crate::events::SEARCH_INDEXING_FINISHED,
                             serde_json::json!({"success": true}),
                         );
                     }
                     Err(e) => {
                         tracing::warn!(error = %e, "Phase 2 search rebuild failed");
                         let _ = app2.emit(
-                            "search-indexing-finished",
+                            crate::events::SEARCH_INDEXING_FINISHED,
                             serde_json::json!({"success": false, "error": e.to_string()}),
                         );
                     }
@@ -506,7 +506,7 @@ pub async fn rebuild_search_index(
     let index_path = cfg.index_db_path();
     let app_handle = app.clone();
 
-    let _ = app.emit("search-indexing-started", ());
+    let _ = app.emit(crate::events::SEARCH_INDEXING_STARTED, ());
 
     let result = tokio::task::spawn_blocking(move || {
         let _permit = permit;
@@ -515,7 +515,7 @@ pub async fn rebuild_search_index(
             &index_path,
             |progress| {
                 let _ = app_handle.emit(
-                    "search-indexing-progress",
+                    crate::events::SEARCH_INDEXING_PROGRESS,
                     serde_json::json!({
                         "current": progress.current,
                         "total": progress.total
@@ -533,7 +533,7 @@ pub async fn rebuild_search_index(
         invalidate_facets_cache();
     }
     let _ = app.emit(
-        "search-indexing-finished",
+        crate::events::SEARCH_INDEXING_FINISHED,
         serde_json::json!({"success": success}),
     );
     result?
