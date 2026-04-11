@@ -83,22 +83,9 @@ pub async fn task_create(
                     let context_path = task_dir.join("context.md");
                     let _ = std::fs::write(&context_path, &content);
 
-                    let title = task.input_params
-                        .get("title")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or(&task.task_type)
-                        .to_string();
-
-                    let manifest_task = tracepilot_orchestrator::task_orchestrator::manifest::ManifestTask {
-                        id: task.id.clone(),
-                        task_type: task.task_type.clone(),
-                        title,
-                        context_file: context_path.to_string_lossy().to_string(),
-                        result_file: result_path,
-                        status_file: task_dir.join("status.json").to_string_lossy().to_string(),
-                        model: resolved_model,
-                        priority: task.priority.clone(),
-                    };
+                    let manifest_task = tracepilot_orchestrator::task_orchestrator::manifest::ManifestTask::from_task(
+                        &task, &resolved_model, &jobs_dir,
+                    );
 
                     // Serialize manifest writes to prevent TOCTOU races
                     let _manifest_guard = manifest_lock_clone.lock()
@@ -490,12 +477,7 @@ pub async fn task_orchestrator_start(
         // Resolve model per-task: use preset model_override if set, else global default
         let resolved_models: Vec<String> = pending_tasks
             .iter()
-            .map(|task| {
-                tracepilot_orchestrator::presets::io::get_preset(&presets_dir, &task.preset_id)
-                    .ok()
-                    .and_then(|p| p.execution.model_override.clone())
-                    .unwrap_or_else(|| default_subagent_model.clone())
-            })
+            .map(|task| resolve_task_model(&presets_dir, &task.preset_id, &default_subagent_model))
             .collect();
 
         // Assemble context OUTSIDE the DB lock (may involve expensive I/O)
@@ -633,27 +615,10 @@ pub async fn task_orchestrator_start(
                         let content = fallback_context(task, &result_path);
                         let _ = std::fs::write(task_dir.join("context.md"), &content);
 
-                        let title = task.input_params
-                            .get("title")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or(&task.task_type)
-                            .to_string();
-
-                        let model = tracepilot_orchestrator::presets::io::get_preset(&presets_dir, &task.preset_id)
-                            .ok()
-                            .and_then(|p| p.execution.model_override.clone())
-                            .unwrap_or_else(|| default_subagent_model.clone());
-
-                        let manifest_task = tracepilot_orchestrator::task_orchestrator::manifest::ManifestTask {
-                            id: task.id.clone(),
-                            task_type: task.task_type.clone(),
-                            title,
-                            context_file: task_dir.join("context.md").to_string_lossy().to_string(),
-                            result_file: result_path,
-                            status_file: task_dir.join("status.json").to_string_lossy().to_string(),
-                            model,
-                            priority: task.priority.clone(),
-                        };
+                        let model = resolve_task_model(&presets_dir, &task.preset_id, &default_subagent_model);
+                        let manifest_task = tracepilot_orchestrator::task_orchestrator::manifest::ManifestTask::from_task(
+                            task, &model, &jobs_dir_for_rescan,
+                        );
                         if tracepilot_orchestrator::task_orchestrator::manifest::append_task_to_manifest(
                             &manifest_path,
                             &manifest_task,
@@ -929,25 +894,11 @@ pub async fn task_ingest_results(
                                 let _ = std::fs::remove_file(task_dir.join("result.json"));
                                 let _ = std::fs::remove_file(task_dir.join("status.json"));
 
-                                let title = task.input_params
-                                    .get("title")
-                                    .and_then(|v| v.as_str())
-                                    .unwrap_or(&task.task_type)
-                                    .to_string();
-
-                                let manifest_task = tracepilot_orchestrator::task_orchestrator::manifest::ManifestTask {
-                                    id: task.id.clone(),
-                                    task_type: task.task_type.clone(),
-                                    title,
-                                    context_file: task_dir.join("context.md").to_string_lossy().to_string(),
-                                    result_file: task_dir.join("result.json").to_string_lossy().to_string(),
-                                    status_file: task_dir.join("status.json").to_string_lossy().to_string(),
-                                    model: tracepilot_orchestrator::presets::io::get_preset(&presets_dir, &task.preset_id)
-                                        .ok()
-                                        .and_then(|p| p.execution.model_override.clone())
-                                        .unwrap_or_else(|| default_subagent_model.clone()),
-                                    priority: task.priority.clone(),
-                                };
+                                let manifest_task = tracepilot_orchestrator::task_orchestrator::manifest::ManifestTask::from_task(
+                                    &task,
+                                    &resolve_task_model(&presets_dir, &task.preset_id, &default_subagent_model),
+                                    &jobs_dir,
+                                );
 
                                 if let Err(e) = tracepilot_orchestrator::task_orchestrator::manifest::append_task_to_manifest(
                                     &manifest_path,
@@ -999,6 +950,22 @@ pub async fn task_attribution(
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────
+
+/// Resolve the effective model for a task by checking the preset's
+/// `model_override` first, falling back to `default_model`.
+///
+/// This centralises the model-resolution pattern used whenever a task
+/// needs to be hot-added or retried into a running orchestrator manifest.
+fn resolve_task_model(
+    presets_dir: &std::path::Path,
+    preset_id: &str,
+    default_model: &str,
+) -> String {
+    tracepilot_orchestrator::presets::io::get_preset(presets_dir, preset_id)
+        .ok()
+        .and_then(|p| p.execution.model_override.clone())
+        .unwrap_or_else(|| default_model.to_string())
+}
 
 /// Build minimal context when preset loading or full assembly fails.
 fn fallback_context(
