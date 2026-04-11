@@ -247,10 +247,9 @@ impl TurnReconstructor {
                 if let Some(ref model) = data.model {
                     let tc_info = self
                         .find_tool_call_ref(data.tool_call_id.as_deref())
-                        .map(|tc| (tc.is_subagent, tc.parent_tool_call_id.clone()));
+                        .map(|tc| (tc.is_subagent, tc.parent_tool_call_id.as_deref()));
                     if let Some((is_subagent, parent_id)) = tc_info {
                         let parent_is_subagent = parent_id
-                            .as_deref()
                             .and_then(|pid| self.find_tool_call_ref(Some(pid)))
                             .map(|p| p.is_subagent)
                             .unwrap_or(false);
@@ -379,8 +378,9 @@ impl TurnReconstructor {
             (SessionEventType::SessionWarning, TypedEventData::SessionWarning(data)) => {
                 let summary = data
                     .message
-                    .clone()
-                    .unwrap_or_else(|| "Session warning".to_string());
+                    .as_deref()
+                    .unwrap_or("Session warning")
+                    .to_string();
                 self.push_session_event(
                     "session.warning",
                     event.raw.timestamp,

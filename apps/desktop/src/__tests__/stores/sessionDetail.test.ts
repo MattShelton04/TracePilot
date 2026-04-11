@@ -40,9 +40,11 @@ const FIXTURE_DETAIL = {
   turnCount: 10,
   checkpointCount: 2,
 };
+const FIXTURE_EVENTS_MTIME = 1_700_000_000_000;
 const FIXTURE_TURNS = {
   turns: [{ turnIndex: 0, userMessage: "hello", assistantMessages: [], toolCalls: [] }],
   eventsFileSize: 1024,
+  eventsFileMtime: FIXTURE_EVENTS_MTIME,
 };
 const FIXTURE_EVENTS = { events: [], totalCount: 0, hasMore: false, allEventTypes: [] };
 const FIXTURE_TODOS = { todos: [], deps: [] };
@@ -50,6 +52,11 @@ const FIXTURE_CHECKPOINTS = [{ number: 1, content: "checkpoint" }];
 const FIXTURE_PLAN = { plan: "do the thing" };
 const FIXTURE_METRICS = { totalPremiumRequests: 5, currentModel: "gpt-4" };
 const FIXTURE_INCIDENTS = [{ severity: "warning", summary: "rate limit" }];
+const ZERO_FRESHNESS = { eventsFileSize: 0, eventsFileMtime: null };
+const buildFreshness = (size: number, mtime = FIXTURE_EVENTS_MTIME) => ({
+  eventsFileSize: size,
+  eventsFileMtime: mtime,
+});
 
 describe("useSessionDetailStore", () => {
   beforeEach(() => {
@@ -65,7 +72,7 @@ describe("useSessionDetailStore", () => {
     mockGetSessionPlan.mockResolvedValue(FIXTURE_PLAN);
     mockGetShutdownMetrics.mockResolvedValue(FIXTURE_METRICS);
     mockGetSessionIncidents.mockResolvedValue(FIXTURE_INCIDENTS);
-    mockCheckSessionFreshness.mockResolvedValue({ eventsFileSize: 0 });
+    mockCheckSessionFreshness.mockResolvedValue(ZERO_FRESHNESS);
   });
 
   describe("initial state", () => {
@@ -274,7 +281,7 @@ describe("useSessionDetailStore", () => {
 
       const updatedTodos = { todos: [{ id: "new" }], deps: [] };
       mockGetSessionTodos.mockResolvedValue(updatedTodos);
-      mockCheckSessionFreshness.mockResolvedValue({ eventsFileSize: 1024 }); // same size — skip turns
+      mockCheckSessionFreshness.mockResolvedValue(buildFreshness(1024)); // same fingerprint — skip turns
 
       await store.refreshAll();
 
@@ -399,6 +406,7 @@ describe("useSessionDetailStore", () => {
           },
         ],
         eventsFileSize: 100,
+        eventsFileMtime: 1_000,
       };
       mockGetSessionTurns.mockResolvedValue(initialTurns);
       await store.loadTurns();
@@ -406,7 +414,7 @@ describe("useSessionDetailStore", () => {
       const beforeVersion = store.turnsVersion;
       expect(store.turns[0]?.toolCalls[0]?.isComplete).toBe(false);
 
-      mockCheckSessionFreshness.mockResolvedValue({ eventsFileSize: 120 });
+      mockCheckSessionFreshness.mockResolvedValue(buildFreshness(120, 2_000));
       mockGetSessionTurns.mockResolvedValue({
         turns: [
           {
@@ -433,6 +441,7 @@ describe("useSessionDetailStore", () => {
           },
         ],
         eventsFileSize: 120,
+        eventsFileMtime: 2_000,
       });
 
       await store.refreshAll();
@@ -450,10 +459,12 @@ describe("useSessionDetailStore", () => {
       const beforeVersion = store.turnsVersion;
       mockCheckSessionFreshness.mockResolvedValue({
         eventsFileSize: FIXTURE_TURNS.eventsFileSize + 10,
+        eventsFileMtime: FIXTURE_EVENTS_MTIME + 10,
       });
       mockGetSessionTurns.mockResolvedValue({
         turns: structuredClone(FIXTURE_TURNS.turns),
         eventsFileSize: FIXTURE_TURNS.eventsFileSize + 10,
+        eventsFileMtime: FIXTURE_EVENTS_MTIME + 10,
       });
 
       await store.refreshAll();
@@ -477,13 +488,14 @@ describe("useSessionDetailStore", () => {
           },
         ],
         eventsFileSize: 200,
+        eventsFileMtime: 2_500,
       });
       await store.loadTurns();
 
       const beforeVersion = store.turnsVersion;
       expect(store.turns[0]?.model).toBe("gpt-5.3-codex");
 
-      mockCheckSessionFreshness.mockResolvedValue({ eventsFileSize: 220 });
+      mockCheckSessionFreshness.mockResolvedValue(buildFreshness(220, 2_800));
       mockGetSessionTurns.mockResolvedValue({
         turns: [
           {
@@ -496,6 +508,7 @@ describe("useSessionDetailStore", () => {
           },
         ],
         eventsFileSize: 220,
+        eventsFileMtime: 2_800,
       });
 
       await store.refreshAll();
@@ -537,9 +550,9 @@ describe("useSessionDetailStore", () => {
       mockGetSessionPlan.mockResolvedValue(FIXTURE_PLAN);
       mockGetShutdownMetrics.mockResolvedValue(FIXTURE_METRICS);
       mockGetSessionIncidents.mockResolvedValue(FIXTURE_INCIDENTS);
-      mockCheckSessionFreshness.mockResolvedValue({
-        eventsFileSize: FIXTURE_TURNS.eventsFileSize + 1,
-      });
+      mockCheckSessionFreshness.mockResolvedValue(
+        buildFreshness(FIXTURE_TURNS.eventsFileSize + 1),
+      );
 
       // Load the original session — cache hit
       await store.loadDetail(SESSION_ID);
@@ -574,7 +587,7 @@ describe("useSessionDetailStore", () => {
       mockGetSessionPlan.mockResolvedValue(FIXTURE_PLAN);
       mockGetShutdownMetrics.mockResolvedValue(FIXTURE_METRICS);
       mockGetSessionIncidents.mockResolvedValue(FIXTURE_INCIDENTS);
-      mockCheckSessionFreshness.mockResolvedValue({ eventsFileSize: 0 });
+      mockCheckSessionFreshness.mockResolvedValue(ZERO_FRESHNESS);
 
       await store.loadDetail(SESSION_ID);
       await new Promise((r) => setTimeout(r, 50));
@@ -596,7 +609,7 @@ describe("useSessionDetailStore", () => {
       // Set up failures for the background refresh
       vi.clearAllMocks();
       mockGetSessionDetail.mockResolvedValue(FIXTURE_DETAIL);
-      mockCheckSessionFreshness.mockResolvedValue({ eventsFileSize: 0 });
+      mockCheckSessionFreshness.mockResolvedValue(ZERO_FRESHNESS);
       mockGetSessionTurns.mockResolvedValue(FIXTURE_TURNS);
       mockGetSessionPlan.mockRejectedValue(new Error("Plan refresh failed"));
       mockGetSessionCheckpoints.mockResolvedValue(FIXTURE_CHECKPOINTS);
@@ -631,7 +644,7 @@ describe("useSessionDetailStore", () => {
         resolveStaleDetail = r;
       });
       mockGetSessionDetail.mockReturnValueOnce(staleDetailPromise);
-      mockCheckSessionFreshness.mockResolvedValue({ eventsFileSize: 0 });
+      mockCheckSessionFreshness.mockResolvedValue(ZERO_FRESHNESS);
       mockGetSessionCheckpoints.mockResolvedValue(FIXTURE_CHECKPOINTS);
       mockGetSessionPlan.mockResolvedValue(FIXTURE_PLAN);
       mockGetShutdownMetrics.mockResolvedValue(FIXTURE_METRICS);
@@ -667,7 +680,7 @@ describe("useSessionDetailStore", () => {
 
       // Load cached session — should be instant
       mockGetSessionDetail.mockResolvedValue(FIXTURE_DETAIL);
-      mockCheckSessionFreshness.mockResolvedValue({ eventsFileSize: 0 });
+      mockCheckSessionFreshness.mockResolvedValue(ZERO_FRESHNESS);
       mockGetSessionCheckpoints.mockResolvedValue(FIXTURE_CHECKPOINTS);
       mockGetSessionPlan.mockResolvedValue(FIXTURE_PLAN);
       mockGetShutdownMetrics.mockResolvedValue(FIXTURE_METRICS);
@@ -695,6 +708,7 @@ describe("useSessionDetailStore", () => {
       const prefetchedTurns = {
         turns: [{ turnIndex: 0, userMessage: "prefetched", assistantMessages: [], toolCalls: [] }],
         eventsFileSize: 777,
+        eventsFileMtime: 7_770,
       };
 
       mockGetSessionDetail.mockResolvedValue(prefetchedDetail);
@@ -704,9 +718,9 @@ describe("useSessionDetailStore", () => {
       vi.clearAllMocks();
       mockGetSessionDetail.mockResolvedValue(prefetchedDetail);
       mockGetSessionTurns.mockResolvedValue(prefetchedTurns);
-      mockCheckSessionFreshness.mockResolvedValue({
-        eventsFileSize: prefetchedTurns.eventsFileSize,
-      });
+      mockCheckSessionFreshness.mockResolvedValue(
+        buildFreshness(prefetchedTurns.eventsFileSize, prefetchedTurns.eventsFileMtime),
+      );
 
       await store.loadDetail(PREFETCH_ID);
 
@@ -747,7 +761,7 @@ describe("useSessionDetailStore", () => {
       for (const id of ids) {
         mockGetSessionDetail.mockResolvedValue({ ...FIXTURE_DETAIL, id });
         mockGetSessionTurns.mockResolvedValue(FIXTURE_TURNS);
-        mockCheckSessionFreshness.mockResolvedValue({ eventsFileSize: 0 });
+        mockCheckSessionFreshness.mockResolvedValue(ZERO_FRESHNESS);
         await store.loadDetail(id);
       }
     }
@@ -764,7 +778,7 @@ describe("useSessionDetailStore", () => {
     ): Promise<boolean> {
       mockGetSessionDetail.mockResolvedValue({ ...FIXTURE_DETAIL, id });
       mockGetSessionTurns.mockResolvedValue(FIXTURE_TURNS);
-      mockCheckSessionFreshness.mockResolvedValue({ eventsFileSize: 0 });
+      mockCheckSessionFreshness.mockResolvedValue(ZERO_FRESHNESS);
       // Do NOT await — loading state is set synchronously before first IPC await
       const pending = store.loadDetail(id);
       const wasLoading = store.loading; // true = cache miss, false = cache hit
@@ -814,7 +828,7 @@ describe("useSessionDetailStore", () => {
       // saveToCache(s-9) adds s-9 → cache = {s-0…s-9} (10 entries).
       // getFromSessionCache(s-0) promotes s-0 to MRU → cache = {s-1…s-9, s-0}, s-1 is now LRU.
       mockGetSessionDetail.mockResolvedValue({ ...FIXTURE_DETAIL, id: "s-0" });
-      mockCheckSessionFreshness.mockResolvedValue({ eventsFileSize: 0 });
+      mockCheckSessionFreshness.mockResolvedValue(ZERO_FRESHNESS);
       await store.loadDetail("s-0");
       await new Promise((r) => setTimeout(r, 10)); // let background refresh settle
 
@@ -851,7 +865,7 @@ describe("useSessionDetailStore", () => {
       // Navigate s-9 → s-0 (cache hit, read-touch).
       // cache = {s-1…s-9, s-0}, s-1 is now LRU.
       mockGetSessionDetail.mockResolvedValue({ ...FIXTURE_DETAIL, id: "s-0" });
-      mockCheckSessionFreshness.mockResolvedValue({ eventsFileSize: 0 });
+      mockCheckSessionFreshness.mockResolvedValue(ZERO_FRESHNESS);
       await store.loadDetail("s-0");
       await new Promise((r) => setTimeout(r, 10));
 

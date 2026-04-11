@@ -93,4 +93,44 @@ mod tests {
         let path = home_dir();
         assert!(!path.as_os_str().is_empty());
     }
+
+    #[test]
+    fn truncate_multibyte_emoji() {
+        // "🦀" is 4 bytes in UTF-8
+        let s = "🦀crab";
+        // Max bytes < 4 should return empty string since we can't include the crab
+        assert_eq!(truncate_utf8(s, 2), "");
+        assert_eq!(truncate_utf8(s, 3), "");
+        // Max bytes >= 4 includes the crab
+        assert_eq!(truncate_utf8(s, 4), "🦀");
+        assert_eq!(truncate_utf8(s, 5), "🦀c");
+        assert_eq!(truncate_utf8(s, 8), "🦀crab");
+    }
+
+    #[test]
+    fn truncate_multibyte_cut_middle() {
+        // "💖" is 4 bytes
+        let s = "hello 💖 world";
+        // "hello " is 6 bytes. 6 + 4 = 10 bytes for "hello 💖"
+        assert_eq!(truncate_utf8(s, 6), "hello ");
+        assert_eq!(truncate_utf8(s, 7), "hello ");
+        assert_eq!(truncate_utf8(s, 8), "hello ");
+        assert_eq!(truncate_utf8(s, 9), "hello ");
+        assert_eq!(truncate_utf8(s, 10), "hello 💖");
+    }
+
+    #[test]
+    fn truncate_string_utf8_in_place() {
+        let mut s = String::from("café");
+        truncate_string_utf8(&mut s, 4);
+        assert_eq!(s, "caf");
+
+        let mut s2 = String::from("🦀crab");
+        truncate_string_utf8(&mut s2, 3);
+        assert_eq!(s2, "");
+
+        let mut s3 = String::from("hello");
+        truncate_string_utf8(&mut s3, 10);
+        assert_eq!(s3, "hello");
+    }
 }

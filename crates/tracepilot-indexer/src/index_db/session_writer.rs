@@ -2,6 +2,7 @@
 
 use crate::Result;
 use rusqlite::params;
+use rusqlite::types::Value;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
@@ -60,6 +61,30 @@ impl IndexDb {
         self.write_prepared_session(&prepared)
     }
 
+    /// Delete rows from all session child tables for a given session_id.
+    ///
+    /// Consolidates the 6 individual DELETE statements into a single helper.
+    /// Table names are hardcoded constants (not dynamic) so there is no SQL
+    /// injection risk.
+    fn delete_child_rows(&self, session_id: &str) -> Result<()> {
+        const CHILD_TABLES: &[&str] = &[
+            "session_model_metrics",
+            "session_tool_calls",
+            "session_modified_files",
+            "session_activity",
+            "session_incidents",
+            "session_segments",
+        ];
+
+        for table in CHILD_TABLES {
+            self.conn.execute(
+                &format!("DELETE FROM {} WHERE session_id = ?1", table),
+                [session_id],
+            )?;
+        }
+        Ok(())
+    }
+
     /// Write pre-computed session data to the index database.
     ///
     /// This is the DB-bound portion of indexing that must run sequentially
@@ -80,30 +105,7 @@ impl IndexDb {
 
         let result = (|| -> Result<()> {
             // Delete child table rows first
-            self.conn.execute(
-                "DELETE FROM session_model_metrics WHERE session_id = ?1",
-                [&session_id],
-            )?;
-            self.conn.execute(
-                "DELETE FROM session_tool_calls WHERE session_id = ?1",
-                [&session_id],
-            )?;
-            self.conn.execute(
-                "DELETE FROM session_modified_files WHERE session_id = ?1",
-                [&session_id],
-            )?;
-            self.conn.execute(
-                "DELETE FROM session_activity WHERE session_id = ?1",
-                [&session_id],
-            )?;
-            self.conn.execute(
-                "DELETE FROM session_incidents WHERE session_id = ?1",
-                [&session_id],
-            )?;
-            self.conn.execute(
-                "DELETE FROM session_segments WHERE session_id = ?1",
-                [&session_id],
-            )?;
+            self.delete_child_rows(&session_id)?;
             // NOTE: search_content is NOT deleted here — it's managed by Phase 2 (search_writer).
             // Phase 2 may not run immediately (semaphore busy), so deleting here would
             // leave a gap where the session has no search content until the next Phase 2 cycle.
@@ -195,126 +197,130 @@ impl IndexDb {
             )?;
 
             // ──────────────────────────────────────────────────────────────
-            // INSERT child rows using prepared statement batching
+            // INSERT child rows using multi-row VALUES batching
             // ──────────────────────────────────────────────────────────────
-            // Pattern: Prepare SQL once, execute N times (2-10x faster than
-            // individual execute() calls). Empty arrays are skipped to avoid
-            // unnecessary prepare() overhead.
-            //
-            // For 300-700+ child rows per session across 6 tables:
-            //   Before: 300-700 prepare() + execute() calls
-            //   After:  6 prepare() calls + 300-700 execute() calls
+            // Builds INSERT ... VALUES (...),(...),... in chunks of 50,
+            // reducing round-trips from N to ceil(N/50).
             // ──────────────────────────────────────────────────────────────
+            use super::batch_insert::batched_insert;
 
-            // INSERT child rows: model metrics (batch)
-            if !analytics.model_rows.is_empty() {
-                let mut stmt = self.conn.prepare(
-                    "INSERT INTO session_model_metrics
-                        (session_id, model_name, input_tokens, output_tokens,
-                         cache_read_tokens, cache_write_tokens, cost, request_count)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-                )?;
-                for row in &analytics.model_rows {
-                    stmt.execute(params![
-                        &session_id,
-                        &row.model,
-                        row.input_tokens,
-                        row.output_tokens,
-                        row.cache_read_tokens,
-                        row.cache_write_tokens,
-                        row.cost,
-                        row.premium_requests
-                    ])?;
-                }
-            }
+            batched_insert(
+                &self.conn,
+                "INSERT INTO session_model_metrics \
+                    (session_id, model_name, input_tokens, output_tokens, \
+                     cache_read_tokens, cache_write_tokens, cost, request_count) VALUES",
+                8,
+                &analytics.model_rows,
+                |row| vec![
+                    Value::Text(session_id.clone()),
+                    Value::Text(row.model.clone()),
+                    Value::Integer(row.input_tokens),
+                    Value::Integer(row.output_tokens),
+                    Value::Integer(row.cache_read_tokens),
+                    Value::Integer(row.cache_write_tokens),
+                    Value::Real(row.cost),
+                    Value::Integer(row.premium_requests),
+                ],
+            )?;
 
-            // INSERT child rows: tool calls (batch)
-            if !analytics.tool_call_rows.is_empty() {
-                let mut stmt = self.conn.prepare(
-                    "INSERT INTO session_tool_calls
-                        (session_id, tool_name, call_count, success_count, failure_count, total_duration_ms, calls_with_duration)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-                )?;
-                for row in &analytics.tool_call_rows {
-                    stmt.execute(params![
-                        &session_id,
-                        &row.name,
-                        row.calls,
-                        row.success,
-                        row.failure,
-                        row.duration_ms,
-                        row.calls_with_duration
-                    ])?;
-                }
-            }
+            batched_insert(
+                &self.conn,
+                "INSERT INTO session_tool_calls \
+                    (session_id, tool_name, call_count, success_count, \
+                     failure_count, total_duration_ms, calls_with_duration) VALUES",
+                7,
+                &analytics.tool_call_rows,
+                |row| vec![
+                    Value::Text(session_id.clone()),
+                    Value::Text(row.name.clone()),
+                    Value::Integer(row.calls),
+                    Value::Integer(row.success),
+                    Value::Integer(row.failure),
+                    Value::Integer(row.duration_ms),
+                    Value::Integer(row.calls_with_duration),
+                ],
+            )?;
 
-            // INSERT child rows: modified files (batch)
-            if !analytics.modified_file_rows.is_empty() {
-                let mut stmt = self.conn.prepare(
-                    "INSERT OR IGNORE INTO session_modified_files (session_id, file_path, extension)
-                     VALUES (?1, ?2, ?3)",
-                )?;
-                for row in &analytics.modified_file_rows {
-                    stmt.execute(params![&session_id, &row.file_path, &row.extension])?;
-                }
-            }
+            batched_insert(
+                &self.conn,
+                "INSERT OR IGNORE INTO session_modified_files \
+                    (session_id, file_path, extension) VALUES",
+                3,
+                &analytics.modified_file_rows,
+                |row| vec![
+                    Value::Text(session_id.clone()),
+                    Value::Text(row.file_path.clone()),
+                    match &row.extension {
+                        Some(ext) => Value::Text(ext.clone()),
+                        None => Value::Null,
+                    },
+                ],
+            )?;
 
-            // INSERT child rows: activity heatmap (batch)
-            if !analytics.activity_rows.is_empty() {
-                let mut stmt = self.conn.prepare(
-                    "INSERT INTO session_activity (session_id, day_of_week, hour, tool_call_count)
-                     VALUES (?1, ?2, ?3, ?4)",
-                )?;
-                for row in &analytics.activity_rows {
-                    stmt.execute(params![
-                        &session_id,
-                        row.day_of_week,
-                        row.hour,
-                        row.tool_call_count
-                    ])?;
-                }
-            }
+            batched_insert(
+                &self.conn,
+                "INSERT INTO session_activity \
+                    (session_id, day_of_week, hour, tool_call_count) VALUES",
+                4,
+                &analytics.activity_rows,
+                |row| vec![
+                    Value::Text(session_id.clone()),
+                    Value::Integer(row.day_of_week),
+                    Value::Integer(row.hour),
+                    Value::Integer(row.tool_call_count),
+                ],
+            )?;
 
-            // INSERT child rows: session segments (batch)
-            if !analytics.session_segment_rows.is_empty() {
-                let mut stmt = self.conn.prepare(
-                    "INSERT INTO session_segments (session_id, start_timestamp, end_timestamp, total_tokens, total_requests, total_premium_requests, total_api_duration_ms, current_model, model_metrics_json)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-                )?;
-                for row in &analytics.session_segment_rows {
-                    stmt.execute(params![
-                        &session_id,
-                        &row.start_timestamp,
-                        &row.end_timestamp,
-                        row.tokens,
-                        row.total_requests,
-                        row.premium_requests,
-                        row.api_duration_ms,
-                        &row.current_model,
-                        &row.model_metrics_json
-                    ])?;
-                }
-            }
+            batched_insert(
+                &self.conn,
+                "INSERT INTO session_segments \
+                    (session_id, start_timestamp, end_timestamp, total_tokens, \
+                     total_requests, total_premium_requests, total_api_duration_ms, \
+                     current_model, model_metrics_json) VALUES",
+                9,
+                &analytics.session_segment_rows,
+                |row| vec![
+                    Value::Text(session_id.clone()),
+                    Value::Text(row.start_timestamp.clone()),
+                    Value::Text(row.end_timestamp.clone()),
+                    Value::Integer(row.tokens),
+                    Value::Integer(row.total_requests),
+                    Value::Real(row.premium_requests),
+                    Value::Integer(row.api_duration_ms),
+                    match &row.current_model {
+                        Some(m) => Value::Text(m.clone()),
+                        None => Value::Null,
+                    },
+                    match &row.model_metrics_json {
+                        Some(j) => Value::Text(j.clone()),
+                        None => Value::Null,
+                    },
+                ],
+            )?;
 
-            // INSERT child rows: incidents (batch)
-            if !analytics.incidents.is_empty() {
-                let mut stmt = self.conn.prepare(
-                    "INSERT INTO session_incidents
-                        (session_id, event_type, source_event_type, timestamp, severity, summary, detail_json)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-                )?;
-                for inc in &analytics.incidents {
-                    stmt.execute(params![
-                        &session_id,
-                        &inc.event_type,
-                        &inc.source_event_type,
-                        &inc.timestamp,
-                        &inc.severity,
-                        &inc.summary,
-                        &inc.detail_json
-                    ])?;
-                }
-            }
+            batched_insert(
+                &self.conn,
+                "INSERT INTO session_incidents \
+                    (session_id, event_type, source_event_type, timestamp, \
+                     severity, summary, detail_json) VALUES",
+                7,
+                &analytics.incidents,
+                |inc| vec![
+                    Value::Text(session_id.clone()),
+                    Value::Text(inc.event_type.clone()),
+                    Value::Text(inc.source_event_type.clone()),
+                    match &inc.timestamp {
+                        Some(t) => Value::Text(t.clone()),
+                        None => Value::Null,
+                    },
+                    Value::Text(inc.severity.clone()),
+                    Value::Text(inc.summary.clone()),
+                    match &inc.detail_json {
+                        Some(d) => Value::Text(d.clone()),
+                        None => Value::Null,
+                    },
+                ],
+            )?;
 
             Ok(())
         })();
@@ -414,24 +420,21 @@ impl IndexDb {
 
         self.conn.execute_batch("BEGIN")?;
         let result = (|| -> Result<()> {
-            self.conn
-                .execute_batch("CREATE TEMP TABLE IF NOT EXISTS _live_ids (id TEXT PRIMARY KEY)")?;
-            self.conn.execute_batch("DELETE FROM _live_ids")?;
+            // Use json_each() to pass all live IDs as a single JSON array parameter,
+            // avoiding the N individual INSERT statements into a temp table.
+            let live_json = serde_json::to_string(
+                &live_ids.iter().collect::<Vec<_>>(),
+            )
+            .expect("string serialization is infallible");
 
-            let mut stmt = self
-                .conn
-                .prepare("INSERT OR IGNORE INTO _live_ids (id) VALUES (?1)")?;
-            for id in live_ids {
-                stmt.execute([id])?;
-            }
-
-            self.conn
-                .execute_batch("DELETE FROM sessions WHERE id NOT IN (SELECT id FROM _live_ids)")?;
-            // search_content rows cascade-deleted via FK, but clean up explicitly
-            self.conn.execute_batch(
-                "DELETE FROM search_content WHERE session_id NOT IN (SELECT id FROM _live_ids)",
+            self.conn.execute(
+                "DELETE FROM sessions WHERE id NOT IN (SELECT value FROM json_each(?1))",
+                [&live_json],
             )?;
-            self.conn.execute_batch("DROP TABLE IF EXISTS _live_ids")?;
+            self.conn.execute(
+                "DELETE FROM search_content WHERE session_id NOT IN (SELECT value FROM json_each(?1))",
+                [&live_json],
+            )?;
             Ok(())
         })();
 

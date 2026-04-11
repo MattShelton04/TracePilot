@@ -80,6 +80,18 @@ describe("shortenPath", () => {
   it("handles Windows paths", () => {
     expect(shortenPath("C:\\Users\\matt\\projects\\tracepilot")).toBe("…/projects/tracepilot");
   });
+  it("returns path as-is if exact number of segments", () => {
+    expect(shortenPath("a/b/c", 3)).toBe("a/b/c");
+  });
+  it("handles root path", () => {
+    expect(shortenPath("/")).toBe("/");
+  });
+  it("handles trailing slash by ignoring it (normalizePath strips it)", () => {
+    expect(shortenPath("a/b/c/", 2)).toBe("…/b/c");
+  });
+  it("returns entire path if segments is larger than parts.length", () => {
+    expect(shortenPath("a/b/c", 10)).toBe("a/b/c");
+  });
 });
 
 describe("sanitizeBranchForPath", () => {

@@ -1,5 +1,70 @@
 import { describe, expect, it } from "vitest";
-import { formatArgsSummary } from "../utils/toolCall";
+import { formatArgsSummary, toolCategory } from "../utils/toolCall";
+
+describe("toolCategory", () => {
+  it("returns 'file' for file-related tools", () => {
+    const tools = ["view", "edit", "create", "grep", "glob"];
+    for (const tool of tools) {
+      expect(toolCategory(tool)).toBe("file");
+    }
+  });
+
+  it("returns 'shell' for shell-related tools", () => {
+    const tools = ["powershell", "read_powershell", "write_powershell", "stop_powershell"];
+    for (const tool of tools) {
+      expect(toolCategory(tool)).toBe("shell");
+    }
+  });
+
+  it("returns 'agent' for agent-related tools", () => {
+    const tools = ["task", "read_agent", "write_agent", "list_agents"];
+    for (const tool of tools) {
+      expect(toolCategory(tool)).toBe("agent");
+    }
+  });
+
+  it("returns 'github' for tools starting with 'github-mcp-server'", () => {
+    expect(toolCategory("github-mcp-server")).toBe("github");
+    expect(toolCategory("github-mcp-server-repo")).toBe("github");
+    expect(toolCategory("github-mcp-server-issues")).toBe("github");
+  });
+
+  it("returns 'web' for web-related tools", () => {
+    const tools = ["web_search", "web_fetch"];
+    for (const tool of tools) {
+      expect(toolCategory(tool)).toBe("web");
+    }
+  });
+
+  it("returns 'data' for sql tool", () => {
+    expect(toolCategory("sql")).toBe("data");
+  });
+
+  it("returns 'other' for unknown tools or empty string", () => {
+    expect(toolCategory("unknown_tool")).toBe("other");
+    expect(toolCategory("")).toBe("other");
+    expect(toolCategory("random")).toBe("other");
+  });
+
+  it("returns 'other' for known built-in tools not in any category", () => {
+    const uncategorizedBuiltins = [
+      "ask_user",
+      "report_intent",
+      "skill",
+      "list_powershell",
+      "store_memory",
+      "fetch_copilot_cli_documentation",
+    ];
+    for (const tool of uncategorizedBuiltins) {
+      expect(toolCategory(tool)).toBe("other");
+    }
+  });
+
+  it("does not match non-github-mcp-server prefix strings as github", () => {
+    expect(toolCategory("github-actions")).toBe("other");
+    expect(toolCategory("github")).toBe("other");
+  });
+});
 
 describe("formatArgsSummary", () => {
   it("returns empty string for falsy or non-object args", () => {

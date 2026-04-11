@@ -13,12 +13,18 @@ use crate::types::{
 };
 use std::path::Path;
 use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
+
+fn system_time_to_unix_millis(time: Option<SystemTime>) -> Option<i64> {
+    time.and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+        .map(|d| d.as_millis() as i64)
+}
 
 fn load_cached_typed_events(
     cache: &EventCache,
     session_id: &str,
     events_path: &Path,
-) -> Result<(Arc<Vec<tracepilot_core::parsing::events::TypedEvent>>, u64), BindingsError> {
+) -> Result<(Arc<Vec<tracepilot_core::parsing::events::TypedEvent>>, u64, Option<std::time::SystemTime>), BindingsError> {
     let meta = std::fs::metadata(events_path).ok();
     let file_size = meta.as_ref().map_or(0, |m| m.len());
     let file_mtime = meta.and_then(|m| m.modified().ok());
@@ -37,7 +43,7 @@ fn load_cached_typed_events(
     };
 
     if let Some(events) = cached_events {
-        return Ok((events, file_size));
+        return Ok((events, file_size, file_mtime));
     }
 
     let events =
@@ -56,7 +62,7 @@ fn load_cached_typed_events(
         tracing::warn!("Event cache Mutex poisoned — skipping cache write");
     }
 
-    Ok((events, file_size))
+    Ok((events, file_size, file_mtime))
 }
 
 #[tauri::command]
@@ -222,12 +228,12 @@ pub async fn get_session_turns(
         // Clone cache data and release lock before running prepare_turns_for_ipc
         // to minimise Mutex hold time on concurrent IPC requests.
         let cached_turns = {
-            let file_size = std::fs::metadata(&events_path)
-                .map(|m| m.len())
-                .unwrap_or(0);
+            let meta = std::fs::metadata(&events_path).ok();
+            let file_size = meta.as_ref().map_or(0, |m| m.len());
+            let file_mtime = meta.and_then(|m| m.modified().ok());
             let Ok(mut lru) = cache.lock() else {
                 tracing::warn!("Turn cache Mutex poisoned — skipping cache read");
-                let (events, events_file_size) =
+                let (events, events_file_size, events_file_mtime) =
                     load_cached_typed_events(&event_cache, &session_id, &events_path)?;
                 let turns = tracepilot_core::turns::reconstruct_turns(events.as_ref());
                 let mut ipc_turns = turns;
@@ -235,26 +241,31 @@ pub async fn get_session_turns(
                 return Ok(TurnsResponse {
                     turns: ipc_turns,
                     events_file_size,
+                    events_file_mtime: system_time_to_unix_millis(events_file_mtime),
                 });
             };
             (
                 lru.get(&session_id)
-                    .filter(|cached| cached.events_file_size == file_size)
+                    .filter(|cached| {
+                        cached.events_file_size == file_size && cached.events_file_mtime == file_mtime
+                    })
                     .map(|cached| cached.turns.clone()),
                 file_size,
+                file_mtime,
             )
         };
 
-        if let (Some(mut turns), file_size) = cached_turns {
+        if let (Some(mut turns), file_size, file_mtime) = cached_turns {
             tracepilot_core::turns::prepare_turns_for_ipc(&mut turns);
             return Ok(TurnsResponse {
                 turns,
                 events_file_size: file_size,
+                events_file_mtime: system_time_to_unix_millis(file_mtime),
             });
         }
 
         // Cache miss or stale — parse from disk
-        let (events, events_file_size) =
+        let (events, events_file_size, events_file_mtime) =
             load_cached_typed_events(&event_cache, &session_id, &events_path)?;
         let turns = tracepilot_core::turns::reconstruct_turns(events.as_ref());
 
@@ -265,6 +276,7 @@ pub async fn get_session_turns(
                 CachedTurns {
                     turns: turns.clone(),
                     events_file_size,
+                    events_file_mtime,
                 },
             );
         }
@@ -274,6 +286,7 @@ pub async fn get_session_turns(
         Ok::<_, BindingsError>(TurnsResponse {
             turns: ipc_turns,
             events_file_size,
+            events_file_mtime: system_time_to_unix_millis(events_file_mtime),
         })
     })
 }
@@ -285,11 +298,12 @@ pub async fn check_session_freshness(
     session_id: String,
 ) -> CmdResult<FreshnessResponse> {
     with_session_path(&state, session_id, |path| {
-        let file_size = std::fs::metadata(path.join("events.jsonl"))
-            .map(|m| m.len())
-            .unwrap_or(0);
+        let meta = std::fs::metadata(path.join("events.jsonl")).ok();
+        let file_size = meta.as_ref().map_or(0, |m| m.len());
+        let file_mtime = meta.and_then(|m| m.modified().ok());
         Ok(FreshnessResponse {
             events_file_size: file_size,
+            events_file_mtime: system_time_to_unix_millis(file_mtime),
         })
     })
     .await
@@ -312,7 +326,7 @@ pub async fn get_session_events(
 
     with_session_path(&state, session_id, move |path| {
         let events_path = path.join("events.jsonl");
-        let (all_events, _) = load_cached_typed_events(&cache, &cache_session_id, &events_path)?;
+        let (all_events, _, _) = load_cached_typed_events(&cache, &cache_session_id, &events_path)?;
 
         let all_event_types: Vec<String> = {
             let mut types = std::collections::BTreeSet::new();
@@ -423,7 +437,7 @@ pub async fn get_shutdown_metrics(
 
     with_session_path(&state, session_id, move |path| {
         let events_path = path.join("events.jsonl");
-        let (events, _) = load_cached_typed_events(&cache, &cache_session_id, &events_path)?;
+        let (events, _, _) = load_cached_typed_events(&cache, &cache_session_id, &events_path)?;
         Ok(
             tracepilot_core::parsing::events::extract_combined_shutdown_data(events.as_ref())
                 .map(|(data, _count)| data),
@@ -445,7 +459,7 @@ pub async fn get_tool_result(
 
     with_session_path(&state, session_id, move |path| {
         let events_path = path.join("events.jsonl");
-        let (events, _) = load_cached_typed_events(&cache, &cache_session_id, &events_path)?;
+        let (events, _, _) = load_cached_typed_events(&cache, &cache_session_id, &events_path)?;
 
         let mut last_result: Option<serde_json::Value> = None;
         for event in events.iter() {
@@ -626,12 +640,13 @@ mod tests {
         let cache = event_cache(2);
         let events_path = session_path.join("events.jsonl");
 
-        let (first, first_size) =
+        let (first, first_size, first_mtime) =
             load_cached_typed_events(&cache, "session-a", &events_path).expect("cache miss loads");
-        let (second, second_size) =
+        let (second, second_size, second_mtime) =
             load_cached_typed_events(&cache, "session-a", &events_path).expect("cache hit loads");
 
         assert_eq!(first_size, second_size);
+        assert_eq!(first_mtime, second_mtime);
         assert_eq!(first.len(), 2);
         assert!(Arc::ptr_eq(&first, &second));
     }
@@ -645,7 +660,7 @@ mod tests {
         let cache = event_cache(2);
         let events_path = session_path.join("events.jsonl");
 
-        let (first, first_size) =
+        let (first, first_size, _first_mtime) =
             load_cached_typed_events(&cache, "session-a", &events_path).expect("initial load");
 
         append_event_line(
@@ -660,7 +675,7 @@ mod tests {
             "2025-01-01T00:00:02.000Z",
         );
 
-        let (second, second_size) = load_cached_typed_events(&cache, "session-a", &events_path)
+        let (second, second_size, _second_mtime) = load_cached_typed_events(&cache, "session-a", &events_path)
             .expect("reload after append");
 
         assert!(second_size > first_size);
@@ -684,7 +699,7 @@ mod tests {
         })
         .join();
 
-        let (events, file_size) =
+        let (events, file_size, _mtime) =
             load_cached_typed_events(&cache, "session-a", &events_path).expect("poison fallback");
 
         assert_eq!(events.len(), 2);

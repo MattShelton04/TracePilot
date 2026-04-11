@@ -25,6 +25,7 @@ pub type ManifestLock = Arc<Mutex<()>>;
 pub(crate) struct CachedTurns {
     pub turns: Vec<tracepilot_core::ConversationTurn>,
     pub events_file_size: u64,
+    pub events_file_mtime: Option<std::time::SystemTime>,
 }
 
 pub(crate) type TurnCache = Arc<Mutex<lru::LruCache<String, CachedTurns>>>;
@@ -45,12 +46,14 @@ pub(crate) type EventCache = Arc<Mutex<lru::LruCache<String, CachedEvents>>>;
 pub struct TurnsResponse {
     pub turns: Vec<tracepilot_core::ConversationTurn>,
     pub events_file_size: u64,
+    pub events_file_mtime: Option<i64>,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FreshnessResponse {
     pub events_file_size: u64,
+    pub events_file_mtime: Option<i64>,
 }
 
 #[derive(Debug, Serialize)]

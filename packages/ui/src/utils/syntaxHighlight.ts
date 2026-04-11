@@ -652,41 +652,57 @@ function tomlRules(): TokenRule[] {
 
 // ── Language → Rules mapping ──
 
-const LANG_RULES: Record<string, () => TokenRule[]> = {
-  typescript: tsRules,
-  tsx: tsRules,
-  javascript: tsRules,
-  jsx: tsRules,
-  vue: tsRules,
-  svelte: tsRules,
-  rust: rustRules,
-  python: pythonRules,
-  css: cssRules,
-  scss: cssRules,
-  less: cssRules,
-  json: jsonRules,
-  sql: sqlRules,
-  bash: shellRules,
-  powershell: shellRules,
-  bat: shellRules,
-  go: goRules,
-  html: htmlRules,
-  xml: htmlRules,
-  markdown: markdownRules,
-  yaml: yamlRules,
-  toml: tomlRules,
-  csharp: tsRules,
-  java: tsRules,
-  kotlin: tsRules,
-  swift: tsRules,
-  php: tsRules,
-  ruby: pythonRules,
-  perl: pythonRules,
-  lua: pythonRules,
-  elixir: pythonRules,
-  erlang: pythonRules,
-  hcl: tomlRules,
-  scala: scalaRules,
+// Rule arrays (and their /g regexes) are shared across calls; tokenize()
+// resets lastIndex before each use so the cached instances stay safe.
+const TS_RULES = tsRules();
+const RUST_RULES = rustRules();
+const PYTHON_RULES = pythonRules();
+const CSS_RULES = cssRules();
+const JSON_RULES = jsonRules();
+const SQL_RULES = sqlRules();
+const SHELL_RULES = shellRules();
+const GO_RULES = goRules();
+const HTML_RULES = htmlRules();
+const MARKDOWN_RULES = markdownRules();
+const YAML_RULES = yamlRules();
+const TOML_RULES = tomlRules();
+const SCALA_RULES = scalaRules();
+
+const LANG_RULES: Record<string, TokenRule[]> = {
+  typescript: TS_RULES,
+  tsx: TS_RULES,
+  javascript: TS_RULES,
+  jsx: TS_RULES,
+  vue: TS_RULES,
+  svelte: TS_RULES,
+  rust: RUST_RULES,
+  python: PYTHON_RULES,
+  css: CSS_RULES,
+  scss: CSS_RULES,
+  less: CSS_RULES,
+  json: JSON_RULES,
+  sql: SQL_RULES,
+  bash: SHELL_RULES,
+  powershell: SHELL_RULES,
+  bat: SHELL_RULES,
+  go: GO_RULES,
+  html: HTML_RULES,
+  xml: HTML_RULES,
+  markdown: MARKDOWN_RULES,
+  yaml: YAML_RULES,
+  toml: TOML_RULES,
+  csharp: TS_RULES,
+  java: TS_RULES,
+  kotlin: TS_RULES,
+  swift: TS_RULES,
+  php: TS_RULES,
+  ruby: PYTHON_RULES,
+  perl: PYTHON_RULES,
+  lua: PYTHON_RULES,
+  elixir: PYTHON_RULES,
+  erlang: PYTHON_RULES,
+  hcl: TOML_RULES,
+  scala: SCALA_RULES,
 };
 
 /**
@@ -697,10 +713,9 @@ const LANG_RULES: Record<string, () => TokenRule[]> = {
  * @returns HTML string with `.syn-*` spans. Safe for v-html (each segment is escaped).
  */
 export function highlightLine(line: string, language: string): string {
-  const rulesFn = LANG_RULES[language];
-  if (!rulesFn) return escapeHtml(line);
+  const rules = LANG_RULES[language];
+  if (!rules) return escapeHtml(line);
 
-  const rules = rulesFn();
   const tokens = tokenize(line, rules);
   return applyTokensWithEscape(line, tokens);
 }
