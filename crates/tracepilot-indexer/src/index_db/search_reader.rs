@@ -11,8 +11,8 @@
 use crate::Result;
 use rusqlite::{params_from_iter, types::ToSql};
 
-use super::row_helpers::context_snippet_from_row;
 use super::IndexDb;
+use super::row_helpers::context_snippet_from_row;
 
 /// A single search result with context for display and deep-linking.
 #[derive(Debug, Clone)]
@@ -155,43 +155,47 @@ impl SearchQueryBuilder {
         self
     }
 
+    /// Add an IN-filter for a list of values.
+    ///
+    /// Generates `column IN (?, ?, ...)` with one placeholder per value.
+    /// Empty value lists are ignored (no-op).
+    fn add_in_filter<T: ToString>(mut self, column: &str, values: &[T]) -> Self {
+        if values.is_empty() {
+            return self;
+        }
+        let placeholders = values.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+        self.where_clauses
+            .push(format!("{} IN ({})", column, placeholders));
+        for val in values {
+            self.params.push(Box::new(val.to_string()));
+        }
+        self
+    }
+
+    /// Add a NOT IN-filter for a list of values.
+    ///
+    /// Generates `column NOT IN (?, ?, ...)` with one placeholder per value.
+    /// Empty value lists are ignored (no-op).
+    fn add_not_in_filter<T: ToString>(mut self, column: &str, values: &[T]) -> Self {
+        if values.is_empty() {
+            return self;
+        }
+        let placeholders = values.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+        self.where_clauses
+            .push(format!("{} NOT IN ({})", column, placeholders));
+        for val in values {
+            self.params.push(Box::new(val.to_string()));
+        }
+        self
+    }
+
     /// Add standard search filters (content types, repositories, tools, dates, session ID).
     fn with_filters(mut self, filters: &SearchFilters) -> Self {
-        // Build IN filter for content types
-        if !filters.content_types.is_empty() {
-            let placeholders = filters.content_types.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
-            self.where_clauses.push(format!("sc.content_type IN ({})", placeholders));
-            for val in &filters.content_types {
-                self.params.push(Box::new(val.clone()));
-            }
-        }
-
-        // Build NOT IN filter for excluded content types
-        if !filters.exclude_content_types.is_empty() {
-            let placeholders = filters.exclude_content_types.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
-            self.where_clauses.push(format!("sc.content_type NOT IN ({})", placeholders));
-            for val in &filters.exclude_content_types {
-                self.params.push(Box::new(val.clone()));
-            }
-        }
-
-        // Build IN filter for repositories
-        if !filters.repositories.is_empty() {
-            let placeholders = filters.repositories.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
-            self.where_clauses.push(format!("s.repository IN ({})", placeholders));
-            for val in &filters.repositories {
-                self.params.push(Box::new(val.clone()));
-            }
-        }
-
-        // Build IN filter for tool names
-        if !filters.tool_names.is_empty() {
-            let placeholders = filters.tool_names.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
-            self.where_clauses.push(format!("sc.tool_name IN ({})", placeholders));
-            for val in &filters.tool_names {
-                self.params.push(Box::new(val.clone()));
-            }
-        }
+        // Use helper methods for IN-filters
+        self = self.add_in_filter("sc.content_type", &filters.content_types);
+        self = self.add_not_in_filter("sc.content_type", &filters.exclude_content_types);
+        self = self.add_in_filter("s.repository", &filters.repositories);
+        self = self.add_in_filter("sc.tool_name", &filters.tool_names);
 
         // Build equality filter for session_id
         if let Some(ref sid) = filters.session_id {
@@ -201,11 +205,13 @@ impl SearchQueryBuilder {
 
         // Build timestamp range filters
         if let Some(from_unix) = filters.date_from_unix {
-            self.where_clauses.push("sc.timestamp_unix >= ?".to_string());
+            self.where_clauses
+                .push("sc.timestamp_unix >= ?".to_string());
             self.params.push(Box::new(from_unix));
         }
         if let Some(to_unix) = filters.date_to_unix {
-            self.where_clauses.push("sc.timestamp_unix <= ?".to_string());
+            self.where_clauses
+                .push("sc.timestamp_unix <= ?".to_string());
             self.params.push(Box::new(to_unix));
         }
 
@@ -448,8 +454,8 @@ impl IndexDb {
         let is_fts = sanitized_query.is_some();
         let base_select = format!("SELECT {column}, COUNT(*)");
 
-        let mut builder = SearchQueryBuilder::new(&base_select, is_fts)
-            .with_optional_fts_match(sanitized_query);
+        let mut builder =
+            SearchQueryBuilder::new(&base_select, is_fts).with_optional_fts_match(sanitized_query);
 
         if let Some(extra) = extra_where {
             builder = builder.with_extra_where(extra);
@@ -483,10 +489,11 @@ impl IndexDb {
     ) -> Result<(i64, i64)> {
         let is_fts = sanitized_query.is_some();
 
-        let (sql, params) = SearchQueryBuilder::new("SELECT COUNT(*), COUNT(DISTINCT sc.session_id)", is_fts)
-            .with_optional_fts_match(sanitized_query)
-            .with_filters(filters)
-            .build();
+        let (sql, params) =
+            SearchQueryBuilder::new("SELECT COUNT(*), COUNT(DISTINCT sc.session_id)", is_fts)
+                .with_optional_fts_match(sanitized_query)
+                .with_filters(filters)
+                .build();
 
         let refs: Vec<&dyn ToSql> = params.iter().map(|p| p.as_ref()).collect();
         Ok(self.conn.query_row(&sql, params_from_iter(refs), |row| {
@@ -955,6 +962,95 @@ fn sanitize_snippet(raw: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ── SearchQueryBuilder helper method tests ─────────────────────
+
+    #[test]
+    fn test_add_in_filter_single_value() {
+        let builder = SearchQueryBuilder::new("SELECT *", false);
+        let (sql, params) = builder
+            .add_in_filter("col", &vec!["value1".to_string()])
+            .build();
+
+        assert!(sql.contains("col IN (?)"));
+        assert_eq!(params.len(), 1);
+    }
+
+    #[test]
+    fn test_add_in_filter_multiple_values() {
+        let builder = SearchQueryBuilder::new("SELECT *", false);
+        let (sql, params) = builder
+            .add_in_filter(
+                "col",
+                &vec!["val1".to_string(), "val2".to_string(), "val3".to_string()],
+            )
+            .build();
+
+        assert!(sql.contains("col IN (?, ?, ?)"));
+        assert_eq!(params.len(), 3);
+    }
+
+    #[test]
+    fn test_add_in_filter_empty_values() {
+        let builder = SearchQueryBuilder::new("SELECT *", false);
+        let empty_vec: Vec<String> = vec![];
+        let (sql, params) = builder.add_in_filter("col", &empty_vec).build();
+
+        // Empty filter should not add WHERE clause
+        assert!(!sql.contains("col IN"));
+        assert_eq!(params.len(), 0);
+    }
+
+    #[test]
+    fn test_add_not_in_filter_single_value() {
+        let builder = SearchQueryBuilder::new("SELECT *", false);
+        let (sql, params) = builder
+            .add_not_in_filter("col", &vec!["exclude1".to_string()])
+            .build();
+
+        assert!(sql.contains("col NOT IN (?)"));
+        assert_eq!(params.len(), 1);
+    }
+
+    #[test]
+    fn test_add_not_in_filter_multiple_values() {
+        let builder = SearchQueryBuilder::new("SELECT *", false);
+        let (sql, params) = builder
+            .add_not_in_filter("col", &vec!["exc1".to_string(), "exc2".to_string()])
+            .build();
+
+        assert!(sql.contains("col NOT IN (?, ?)"));
+        assert_eq!(params.len(), 2);
+    }
+
+    #[test]
+    fn test_add_not_in_filter_empty_values() {
+        let builder = SearchQueryBuilder::new("SELECT *", false);
+        let empty_vec: Vec<String> = vec![];
+        let (sql, params) = builder.add_not_in_filter("col", &empty_vec).build();
+
+        // Empty filter should not add WHERE clause
+        assert!(!sql.contains("col NOT IN"));
+        assert_eq!(params.len(), 0);
+    }
+
+    #[test]
+    fn test_combined_in_filters() {
+        let builder = SearchQueryBuilder::new("SELECT *", false);
+        let (sql, params) = builder
+            .add_in_filter("col1", &vec!["a".to_string()])
+            .add_not_in_filter("col2", &vec!["b".to_string(), "c".to_string()])
+            .add_in_filter(
+                "col3",
+                &vec!["d".to_string(), "e".to_string(), "f".to_string()],
+            )
+            .build();
+
+        assert!(sql.contains("col1 IN (?)"));
+        assert!(sql.contains("col2 NOT IN (?, ?)"));
+        assert!(sql.contains("col3 IN (?, ?, ?)"));
+        assert_eq!(params.len(), 6);
+    }
 
     // ── sanitize_fts_query tests ────────────────────────────────────
 

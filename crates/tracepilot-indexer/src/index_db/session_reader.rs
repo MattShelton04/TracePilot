@@ -5,9 +5,9 @@ use rusqlite::{params_from_iter, types::ToSql};
 use std::collections::HashSet;
 use std::path::PathBuf;
 
+use super::IndexDb;
 use super::row_helpers::*;
 use super::types::*;
-use super::IndexDb;
 
 const SESSION_COLUMNS: &str = "id, path, summary, repository, branch, cwd, host_type, created_at, updated_at, event_count, turn_count, current_model, error_count, rate_limit_count, compaction_count, truncation_count";
 
@@ -62,9 +62,7 @@ impl IndexDb {
             // and cfg.jobs_dir() may differ.  `REPLACE(cwd, '\', '/')` ensures
             // the LIKE comparison works regardless of separator style.
             let normalized = prefix.replace('\\', "/");
-            sql.push_str(
-                " AND (cwd IS NULL OR REPLACE(cwd, '\\', '/') NOT LIKE ?)",
-            );
+            sql.push_str(" AND (cwd IS NULL OR REPLACE(cwd, '\\', '/') NOT LIKE ?)");
             query_params.push(Box::new(format!("{normalized}%")));
         }
 

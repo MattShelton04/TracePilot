@@ -9,9 +9,9 @@
 //! - `tool_extraction` — Tool-specific JSON→text extractors and JSON flatteners
 
 mod content_extraction;
-mod tool_extraction;
 #[cfg(test)]
 mod tests;
+mod tool_extraction;
 
 use rusqlite::types::Value;
 use super::batch_insert::batched_insert;
@@ -97,9 +97,10 @@ impl IndexDb {
 
         // Compare search_indexed_at < events_mtime
         if let (Some(sia), Some(em)) = (&search_indexed_at, &stored_ev_mtime)
-            && sia < em {
-                return true;
-            }
+            && sia < em
+        {
+            return true;
+        }
 
         false
     }
@@ -272,9 +273,8 @@ impl IndexDb {
             }
 
             // Step 3: Rebuild FTS index in a single pass
-            self.conn.execute_batch(
-                "INSERT INTO search_fts(search_fts) VALUES('rebuild');",
-            )?;
+            self.conn
+                .execute_batch("INSERT INTO search_fts(search_fts) VALUES('rebuild');")?;
 
             // Step 4: Recreate triggers
             self.conn.execute_batch(
