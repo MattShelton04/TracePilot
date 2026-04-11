@@ -76,3 +76,33 @@ export async function invokePlugin<T>(cmd: string, args?: Record<string, unknown
     throw error;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Invoke factory — eliminates per-module boilerplate
+// ---------------------------------------------------------------------------
+
+import type { CommandName } from "./commands.js";
+
+export type InvokeFn = <T>(cmd: CommandName, args?: Record<string, unknown>) => Promise<T>;
+type MockFallback = <T>(cmd: CommandName, args?: Record<string, unknown>) => T | Promise<T>;
+
+/**
+ * Create a typed invoke function for a client module.
+ *
+ * - In Tauri → delegates to `invokePlugin` (perf-instrumented).
+ * - Outside Tauri with `fallback` → calls the fallback for mock data.
+ * - Outside Tauri without `fallback` → throws with a descriptive error.
+ */
+export function createInvoke(domain: string, fallback?: MockFallback): InvokeFn {
+  return async <T>(cmd: CommandName, args?: Record<string, unknown>): Promise<T> => {
+    if (isTauri()) {
+      return invokePlugin<T>(cmd, args);
+    }
+    if (fallback) {
+      console.warn(`[TracePilot] Not in Tauri — returning mock data for "${cmd}"`);
+      return fallback<T>(cmd, args);
+    }
+    console.warn(`[TracePilot] Not in Tauri — no mock for ${domain} "${cmd}"`);
+    throw new Error(`No mock data for ${domain} command: ${cmd}`);
+  };
+}

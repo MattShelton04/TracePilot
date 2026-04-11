@@ -6,16 +6,9 @@ import type {
   McpImportResult,
   McpServerConfig,
 } from "@tracepilot/types";
-import { type CommandName } from "./commands.js";
-import { invokePlugin, isTauri } from "./invoke.js";
+import { createInvoke } from "./invoke.js";
 
-async function invoke<T>(cmd: CommandName, args?: Record<string, unknown>): Promise<T> {
-  if (isTauri()) {
-    return invokePlugin<T>(cmd, args);
-  }
-  console.warn(`[TracePilot] Not in Tauri — no mock for MCP "${cmd}"`);
-  throw new Error(`No mock data for MCP command: ${cmd}`);
-}
+const invoke = createInvoke("MCP");
 
 // -- Server CRUD --
 
