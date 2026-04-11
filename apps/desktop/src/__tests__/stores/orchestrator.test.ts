@@ -35,7 +35,10 @@ const HEALTH_RUNNING: HealthCheckResult = {
 };
 
 describe("useOrchestratorStore", () => {
+  let store: ReturnType<typeof useOrchestratorStore>;
+
   beforeEach(() => {
+    vi.useFakeTimers();
     setupPinia();
     mockGetAvailableModels.mockReset();
     mockGetSessionEvents.mockReset();
@@ -55,7 +58,9 @@ describe("useOrchestratorStore", () => {
   });
 
   afterEach(() => {
+    store?.stopPolling();
     vi.clearAllTimers();
+    vi.useRealTimers();
   });
 
   it("refreshActivity tolerates malformed events and still returns valid entries", async () => {
@@ -65,7 +70,7 @@ describe("useOrchestratorStore", () => {
           id: "valid",
           timestamp: "2026-01-01T00:00:00Z",
           eventType: "tool.execution_start",
-          data: { toolName: "view", arguments: { path: "/tmp/valid.txt" } },
+          data: { toolName: "view", arguments: { path: "/home/user/valid.txt" } },
         },
         {
           id: "malformed",
@@ -79,7 +84,7 @@ describe("useOrchestratorStore", () => {
       allEventTypes: ["tool.execution_start"],
     } satisfies EventsResponse);
 
-    const store = useOrchestratorStore();
+    store = useOrchestratorStore();
     store.stopPolling();
     store.health = HEALTH_RUNNING;
 

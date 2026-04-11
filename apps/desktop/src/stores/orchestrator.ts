@@ -17,9 +17,8 @@ import type {
 import { toErrorMessage } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref, watch } from "vue";
-import type { ActivityEntry } from "@/utils/orchestratorActivity";
 import { logWarn } from "@/utils/logger";
-import { toActivityEntries } from "@/utils/orchestratorActivity";
+import { toActivityEntries, type ActivityEntry } from "@/utils/orchestratorActivity";
 
 export type { ActivityEntry } from "@/utils/orchestratorActivity";
 

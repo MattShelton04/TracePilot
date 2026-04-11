@@ -1,6 +1,6 @@
 import type { SessionEvent } from "@tracepilot/types";
 import { describe, expect, it } from "vitest";
-import { toActivityEntries } from "../../utils/orchestratorActivity";
+import { toActivityEntries } from "@/utils/orchestratorActivity";
 
 describe("toActivityEntries", () => {
   it("maps known activity event types with existing labels/icons", () => {
@@ -83,7 +83,6 @@ describe("toActivityEntries", () => {
 
     const entries = toActivityEntries(events);
 
-    expect(() => toActivityEntries(events)).not.toThrow();
     expect(entries).toEqual([
       {
         id: "a",
@@ -133,5 +132,111 @@ describe("toActivityEntries", () => {
 
     expect(entries[0].detail).toBe(`${"x".repeat(80)}…`);
     expect(entries[1].detail).toBe("task");
+  });
+
+  it("covers subagent lifecycle and remaining tool branches", () => {
+    const events: SessionEvent[] = [
+      {
+        id: "g",
+        timestamp: "2026-01-01T00:00:06Z",
+        eventType: "subagent.started",
+        data: { agentName: "coder" },
+      },
+      {
+        id: "h",
+        timestamp: "2026-01-01T00:00:07Z",
+        eventType: "subagent.completed",
+        data: { agentName: "coder" },
+      },
+      {
+        id: "i",
+        timestamp: "2026-01-01T00:00:08Z",
+        eventType: "tool.execution_start",
+        data: { toolName: "edit", arguments: { path: "/src/index.ts" } },
+      },
+      {
+        id: "j",
+        timestamp: "2026-01-01T00:00:09Z",
+        eventType: "tool.execution_start",
+        data: { toolName: "create", arguments: { path: "new-file.ts" } },
+      },
+      {
+        id: "k",
+        timestamp: "2026-01-01T00:00:10Z",
+        eventType: "tool.execution_start",
+        data: { toolName: "powershell", arguments: { command: "Get-Date" } },
+      },
+      {
+        id: "l",
+        timestamp: "2026-01-01T00:00:11Z",
+        eventType: "tool.execution_start",
+        data: { toolName: "read_agent", arguments: { agent_id: "agent-42" } },
+      },
+    ];
+
+    expect(toActivityEntries(events)).toEqual([
+      {
+        id: "g",
+        timestamp: "2026-01-01T00:00:06Z",
+        icon: "▶️",
+        label: "Subagent started",
+        detail: "coder",
+        eventType: "subagent.started",
+      },
+      {
+        id: "h",
+        timestamp: "2026-01-01T00:00:07Z",
+        icon: "✅",
+        label: "Subagent completed",
+        detail: "coder",
+        eventType: "subagent.completed",
+      },
+      {
+        id: "i",
+        timestamp: "2026-01-01T00:00:08Z",
+        icon: "✏️",
+        label: "Writing file (edit)",
+        detail: "index.ts",
+        eventType: "tool.execution_start",
+      },
+      {
+        id: "j",
+        timestamp: "2026-01-01T00:00:09Z",
+        icon: "✏️",
+        label: "Writing file (create)",
+        detail: "new-file.ts",
+        eventType: "tool.execution_start",
+      },
+      {
+        id: "k",
+        timestamp: "2026-01-01T00:00:10Z",
+        icon: "💻",
+        label: "Running powershell",
+        detail: "Get-Date",
+        eventType: "tool.execution_start",
+      },
+      {
+        id: "l",
+        timestamp: "2026-01-01T00:00:11Z",
+        icon: "👁️",
+        label: "Checking subagent",
+        detail: "agent-42",
+        eventType: "tool.execution_start",
+      },
+    ]);
+  });
+
+  it("generates fallback id from timestamp and index when id is missing", () => {
+    const events: SessionEvent[] = [
+      {
+        id: undefined as unknown as string,
+        timestamp: "2026-01-01T00:00:00Z",
+        eventType: "subagent.started",
+        data: { agentName: "test" },
+      },
+    ];
+
+    const entries = toActivityEntries(events);
+    expect(entries[0].id).toBe("2026-01-01T00:00:00Z-0");
   });
 });
