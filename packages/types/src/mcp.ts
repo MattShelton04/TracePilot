@@ -6,7 +6,6 @@ export type McpTransport = "stdio" | "local" | "sse" | "streamable-http" | "http
 /** Configuration for a single MCP server.
  *
  * The `type` field matches the Copilot CLI `mcp-config.json` format.
- * `transport` is kept as an alias for backward compatibility.
  */
 export interface McpServerConfig {
   command?: string;
@@ -15,8 +14,6 @@ export interface McpServerConfig {
   url?: string;
   /** Transport type — serialized as `"type"` in JSON by the Rust backend. */
   type?: McpTransport;
-  /** @deprecated Use `type` instead. Kept for backward compat. */
-  transport?: McpTransport;
   /** HTTP headers for remote MCP servers. */
   headers?: Record<string, string>;
   /** Tool filter patterns (e.g. `["*"]`). */

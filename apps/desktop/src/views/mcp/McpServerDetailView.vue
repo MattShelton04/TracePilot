@@ -66,7 +66,7 @@ const lastCheckedDisplay = computed(() => {
   }
 });
 
-const transportLabel = computed(() => server.value?.config.type ?? server.value?.config.transport ?? "stdio");
+const transportLabel = computed(() => server.value?.config.type ?? "stdio");
 
 const iconLetter = computed(() => server.value?.name.charAt(0).toUpperCase() ?? "?");
 
@@ -304,7 +304,7 @@ function goBack() {
                   <span class="transport-badge">{{ transportLabel }}</span>
                 </div>
               </div>
-              <template v-if="(server.config.type ?? server.config.transport) !== 'sse' && (server.config.type ?? server.config.transport) !== 'http' && (server.config.type ?? server.config.transport) !== 'streamable-http'">
+              <template v-if="server.config.type !== 'sse' && server.config.type !== 'http' && server.config.type !== 'streamable-http'">
                 <div v-if="server.config.command" class="config-row">
                   <div class="config-label">Command</div>
                   <div class="config-value">
