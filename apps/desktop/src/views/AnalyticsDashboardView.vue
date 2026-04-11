@@ -15,6 +15,7 @@ import {
   generateXLabels,
   generateYLabels,
   LoadingOverlay,
+  PageShell,
   useChartTooltip,
 } from "@tracepilot/ui";
 import { computed, ref, watch } from "vue";
@@ -185,11 +186,10 @@ const {
 </script>
 
 <template>
-  <div class="page-content">
-    <div class="page-content-inner">
-      <AnalyticsPageHeader title="Analytics Dashboard" :subtitle="pageSubtitle" />
-      <LoadingOverlay :loading="loading" message="Loading analytics…">
-        <ErrorState v-if="store.analyticsError" heading="Failed to load analytics" :message="store.analyticsError" @retry="store.fetchAnalytics({ force: true })" />
+  <PageShell>
+    <AnalyticsPageHeader title="Analytics Dashboard" :subtitle="pageSubtitle" />
+    <LoadingOverlay :loading="loading" message="Loading analytics…">
+      <ErrorState v-if="store.analyticsError" heading="Failed to load analytics" :message="store.analyticsError" @retry="store.fetchAnalytics({ force: true })" />
         <template v-else-if="data">
 
           <!-- Stats Row -->
@@ -587,10 +587,9 @@ const {
             </div>
           </div>
 
-        </template>
-      </LoadingOverlay>
-    </div>
-  </div>
+      </template>
+    </LoadingOverlay>
+  </PageShell>
 </template>
 
 <style scoped>

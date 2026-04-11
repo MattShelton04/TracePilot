@@ -24,6 +24,7 @@ export { default as LoadingSpinner } from "./components/LoadingSpinner.vue";
 export { default as MarkdownContent } from "./components/MarkdownContent.vue";
 export { default as MiniTimeline } from "./components/MiniTimeline.vue";
 export { default as ModalDialog } from "./components/ModalDialog.vue";
+export { default as PageShell } from "./components/PageShell.vue";
 export { default as ProgressBar } from "./components/ProgressBar.vue";
 export { default as ReasoningBlock } from "./components/ReasoningBlock.vue";
 // Renderers

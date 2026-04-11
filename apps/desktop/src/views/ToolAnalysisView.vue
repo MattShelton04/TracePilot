@@ -6,6 +6,7 @@ import {
   formatNumberFull,
   formatRate,
   LoadingOverlay,
+  PageShell,
   useChartTooltip,
 } from "@tracepilot/ui";
 import { computed } from "vue";
@@ -155,10 +156,9 @@ const successFailureChart = computed(() => {
 </script>
 
 <template>
-  <div class="page-content">
-    <div class="page-content-inner">
-      <AnalyticsPageHeader title="Tool Analysis" :subtitle="pageSubtitle" />
-      <LoadingOverlay :loading="loading" message="Loading tool analysis…">
+  <PageShell>
+    <AnalyticsPageHeader title="Tool Analysis" :subtitle="pageSubtitle" />
+    <LoadingOverlay :loading="loading" message="Loading tool analysis…">
         <ErrorState v-if="store.toolAnalysisError" heading="Failed to load tool analysis" :message="store.toolAnalysisError" @retry="store.fetchToolAnalysis({ force: true })" />
         <template v-else-if="data">
 
@@ -366,10 +366,9 @@ const successFailureChart = computed(() => {
               >{{ tooltip.content }}</div>
             </div>
           </div>
-        </template>
-      </LoadingOverlay>
-    </div>
-  </div>
+      </template>
+    </LoadingOverlay>
+  </PageShell>
 </template>
 
 <style scoped>
