@@ -214,7 +214,7 @@ watch(filteredOptions, () => {
     </div>
 
     <Teleport to="body">
-      <div v-if="isOpen" ref="dropdownRef" class="select-dropdown" :style="dropdownStyle">
+      <div v-if="isOpen" ref="dropdownRef" class="tp-select-dropdown" :style="dropdownStyle">
         <div ref="listRef" class="options-list">
           <div
             v-for="(opt, idx) in filteredOptions"
@@ -313,8 +313,10 @@ watch(filteredOptions, () => {
 }
 </style>
 
+<!-- Unscoped: dropdown is <Teleport>'d to <body>, so scoped attrs don't reach it.
+     All rules are prefixed with .tp-select-dropdown to avoid collisions. -->
 <style>
-.select-dropdown {
+.tp-select-dropdown {
   z-index: 9999;
   background: var(--canvas-overlay);
   border: 1px solid var(--border-default);
@@ -326,12 +328,12 @@ watch(filteredOptions, () => {
   max-height: 300px;
 }
 
-.select-dropdown .options-list {
+.tp-select-dropdown .options-list {
   overflow-y: auto;
   padding: 4px;
 }
 
-.select-dropdown .option-item {
+.tp-select-dropdown .option-item {
   padding: 6px 10px;
   font-size: 0.8125rem;
   color: var(--text-secondary);
@@ -343,19 +345,19 @@ watch(filteredOptions, () => {
   text-overflow: ellipsis;
 }
 
-.select-dropdown .option-item:hover,
-.select-dropdown .option-item.selected {
+.tp-select-dropdown .option-item:hover,
+.tp-select-dropdown .option-item.selected {
   background: var(--neutral-subtle);
   color: var(--text-primary);
 }
 
-.select-dropdown .option-item.active {
+.tp-select-dropdown .option-item.active {
   background: var(--accent-subtle);
   color: var(--accent-fg);
   font-weight: 600;
 }
 
-.select-dropdown .no-options {
+.tp-select-dropdown .no-options {
   padding: 12px;
   text-align: center;
   font-size: 0.75rem;

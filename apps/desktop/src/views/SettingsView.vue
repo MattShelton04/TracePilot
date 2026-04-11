@@ -49,16 +49,15 @@ const databaseSize = computed(() => dataStorageRef.value?.databaseSize ?? "—")
 .page-title-spaced {
   margin-bottom: 24px;
 }
-</style>
 
-<!-- Shared styles for all settings sub-components -->
-<style>
+/* Shared styles for all settings sub-components (scoped via :deep) */
+
 /* Section spacing */
-.settings-root .settings-section {
+.settings-root :deep(.settings-section) {
   margin-bottom: 24px;
 }
 
-.settings-root .settings-section-title {
+.settings-root :deep(.settings-section-title) {
   font-size: 0.6875rem;
   font-weight: 600;
   color: var(--text-tertiary);
@@ -68,7 +67,7 @@ const databaseSize = computed(() => dataStorageRef.value?.databaseSize ?? "—")
 }
 
 /* Setting rows */
-.settings-root .setting-row {
+.settings-root :deep(.setting-row) {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -76,48 +75,48 @@ const databaseSize = computed(() => dataStorageRef.value?.databaseSize ?? "—")
   border-bottom: 1px solid var(--border-subtle);
 }
 
-.settings-root .setting-row:last-child {
+.settings-root :deep(.setting-row:last-child) {
   border-bottom: none;
 }
 
-.settings-root .setting-info {
+.settings-root :deep(.setting-info) {
   flex: 1;
   min-width: 0;
 }
 
-.settings-root .setting-info-stacked {
+.settings-root :deep(.setting-info-stacked) {
   margin-bottom: 8px;
 }
 
-.settings-root .setting-label {
+.settings-root :deep(.setting-label) {
   font-size: 0.8125rem;
   font-weight: 500;
   color: var(--text-primary);
 }
 
-.settings-root .setting-description {
+.settings-root :deep(.setting-description) {
   font-size: 0.6875rem;
   color: var(--text-tertiary);
   margin-top: 1px;
 }
 
-.settings-root .empty-count-hint {
+.settings-root :deep(.empty-count-hint) {
   color: var(--text-placeholder);
   font-style: italic;
 }
 
-.settings-root .setting-control-group {
+.settings-root :deep(.setting-control-group) {
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
-.settings-root .setting-unit {
+.settings-root :deep(.setting-unit) {
   font-size: 0.75rem;
   color: var(--text-tertiary);
 }
 
-.settings-root .setting-value-display {
+.settings-root :deep(.setting-value-display) {
   font-size: 0.8125rem;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
@@ -125,91 +124,91 @@ const databaseSize = computed(() => dataStorageRef.value?.databaseSize ?? "—")
 }
 
 /* Danger button override */
-.settings-root .btn-danger {
+.settings-root :deep(.btn-danger) {
   color: var(--danger-fg);
   border-color: var(--danger-muted);
 }
-.settings-root .btn-danger:hover {
+.settings-root :deep(.btn-danger:hover) {
   background: var(--danger-subtle);
 }
 
-.settings-root .setting-actions {
+.settings-root :deep(.setting-actions) {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.settings-root .setting-result {
+.settings-root :deep(.setting-result) {
   font-size: 0.75rem;
   color: var(--text-secondary);
 }
 
 /* Input widths */
-.settings-root .input-narrow-center {
+.settings-root :deep(.input-narrow-center) {
   width: 80px;
   text-align: center;
 }
 
-.settings-root .input-medium {
+.settings-root :deep(.input-medium) {
   width: 240px;
 }
 
-.settings-root .input-medium-mono {
+.settings-root :deep(.input-medium-mono) {
   width: 240px;
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.75rem;
 }
 
-.settings-root .input-cost {
+.settings-root :deep(.input-cost) {
   width: 90px;
   text-align: center;
 }
 
 /* Danger row */
-.settings-root .setting-row-danger {
+.settings-root :deep(.setting-row-danger) {
   border-top: 1px solid var(--danger-muted);
 }
 
-.settings-root .setting-label-danger {
+.settings-root :deep(.setting-label-danger) {
   color: var(--danger-fg);
 }
 
-.settings-root .setting-result-danger {
+.settings-root :deep(.setting-result-danger) {
   color: var(--danger-fg);
 }
 
 /* Stacked / end row modifiers */
-.settings-root .setting-row-stacked {
+.settings-root :deep(.setting-row-stacked) {
   flex-direction: column;
   align-items: stretch;
 }
 
-.settings-root .setting-label-spaced {
+.settings-root :deep(.setting-label-spaced) {
   margin-bottom: 8px;
 }
 
-.settings-root .setting-description-spaced {
+.settings-root :deep(.setting-description-spaced) {
   margin-bottom: 8px;
 }
 
-.settings-root .setting-row-end {
+.settings-root :deep(.setting-row-end) {
   justify-content: flex-end;
 }
 
 /* Utility classes */
-.settings-root .text-left {
+.settings-root :deep(.text-left) {
   text-align: left;
 }
 
-.settings-root .text-center {
+.settings-root :deep(.text-center) {
   text-align: center;
 }
 
-.settings-root .text-xs {
+.settings-root :deep(.text-xs) {
   font-size: 0.75rem;
 }
 
-.settings-root .tabular-nums {
+.settings-root :deep(.tabular-nums) {
   font-variant-numeric: tabular-nums;
 }
 </style>
