@@ -1,6 +1,7 @@
 # TracePilot Code Duplication & Architecture Consolidation Report
 
 **Generated**: 2026-04-11
+**Last updated**: 2026-07-23 — Implementation complete through Phase 4
 **Scope**: Full codebase audit — Rust backend (6 crates), Vue/TypeScript frontend (desktop app + 4 shared packages), infrastructure/config
 **Review process**: Deep analysis by 5 parallel explore agents + manual investigation; reviewed and validated by Claude Opus 4.6, GPT 5.4, and GPT 5.3 Codex — see §7 for consolidated review findings, corrections, and reprioritization.
 
@@ -808,3 +809,77 @@ All three reviewers converged on these pushbacks:
 
 - **Full Opus 4.6 review**: `docs/tech-debt-report-review.md` (detailed spot-check of 12 claims + gap analysis)
 - **GPT 5.4 and Codex 5.3 reviews**: Consolidated into §7 above
+
+---
+
+## §9 Implementation Status (as of 2026-07-23)
+
+All work was done on branch `tech-debt/phase-1-foundation` (24 commits).
+
+### Phase 1 — Foundation (7/7 ✅)
+
+| # | Task | Commit | Impact |
+|---|------|--------|--------|
+| 1.1 | Fix feature flag drift | `a17e8a8` | Aligned `DEFAULT_FEATURES` between Rust and TypeScript |
+| 1.2 | Fix skills store repo scope bug | `4669418` | Added `currentRepoRoot` ref to persist repo scope |
+| 1.3 | Simplify `useAsyncData` | `62c758c` | 332→101 lines; removed retry/backoff/resetOnExecute |
+| 1.4 | Create PageShell component | `6bb3c53` | Migrated 5 views to shared layout wrapper |
+| 1.5 | Create `runAction`/`runMutation` | `3d0978e` | Store helpers; migrated skills store |
+| 1.6 | Migrate stat-card divs | `2b190d2` | 20 raw divs → `<StatCard>` across 5 views |
+| 1.7 | Extract `with_task_db()` | `4812230` | 9 Tauri commands deduped |
+
+### Phase 2 — Component Extraction (6/7 ✅, 1 dropped)
+
+| # | Task | Commit | Impact |
+|---|------|--------|--------|
+| 2.2 | IPC event constants | `06ab4c3` | 16 magic strings replaced (Rust + TS) |
+| 2.3 | Mega-SFC decomposition | `00471c5`, `7127243` | TaskDashboardView 1384→640 lines; PresetManagerView 3075→2365 lines |
+| 2.4 | Legacy CSS tokens | `d174750` | 29 legacy tokens replaced across 5 files |
+| 2.5 | SectionPanel migration | `236f3e2` | 8 raw divs → `<SectionPanel>` |
+| 2.6 | PageHeader component | `c2ae96e` | Extracted shared header; migrated 3 views |
+| 2.7 | DTO `From<>` traits | — | **Dropped**: conversions have `has_lock_file` side effects |
+
+### Phase 3 — Cross-Cutting Infrastructure (5/5 ✅)
+
+| # | Task | Commit | Impact |
+|---|------|--------|--------|
+| 3.1 | SQLite PRAGMA extraction | `6e3ec22` | `configure_connection()` in tracepilot-core; 2 crates deduped |
+| 3.2 | Sidebar from route config | `8f2e882` | 70 lines of hardcoded nav → `useSidebarNav` composable |
+| 3.3 | Move composables to `@tracepilot/ui` | `45cbcaa` | `useAsyncGuard` + `useAutoRefresh` shared; −1138 lines from desktop |
+| 3.4 | Create `@tracepilot/test-utils` | `c4ed4bc` | `setupPinia()`, `createDeferred`, domain builders; 26 test files migrated |
+| 3.5 | `createInvoke` factory | `d9eb29b` | 4 duplicate invoke wrappers eliminated |
+
+### Phase 4 — Cleanup & Polish (5/7 ✅, 2 deferred)
+
+| # | Task | Commit | Impact |
+|---|------|--------|--------|
+| 4.1 | Hard-coded colors → tokens | `06a8607` | 12 `--syn-*` tokens (dark+light); 25+ bare hex values replaced across 19 files |
+| 4.2 | Scope unscoped CSS | `51db9b4` | SettingsView → `:deep()` scoped; SearchableSelect → BEM prefixed |
+| 4.3 | Dep version normalization | `c6c534d` | 4 deps aligned (@vitejs/plugin-vue, vitest, tsx) |
+| 4.4 | `window.confirm` → `useConfirmDialog` | `51db9b4` | 3 calls in SkillEditorView converted |
+| 4.5 | E2E test helper consolidation | `da1696e` | Shared `ipc()` helper; 30+ raw invoke calls replaced (−98 lines) |
+| 4.6 | Rust error variants | `da1696e` | Removed dead `Template` variant; full variant refactor deferred (86 call sites) |
+| 4.7 | Logger consolidation | — | **Skipped**: only 3 `console.warn` calls in client; appropriate for shared library |
+
+### Deferred / Backlog
+
+| Task | Reason |
+|------|--------|
+| `ts-rs` codegen (Task 2.1) | High setup cost; Rust↔TS types manually synced for now |
+| Full error variant refactor (Task 4.6) | 86 call sites across 10 variants; should be one variant per PR |
+| `useFilteredCollection` | Only 3 consumers; filter logic diverges |
+| `MigrationRunner` abstraction | Only 2 consumers with different table names |
+| Chart infrastructure extraction | Needs design exploration first |
+
+### Test Status (final)
+
+| Suite | Count | Status |
+|-------|-------|--------|
+| Desktop (vitest) | 1,177 tests / 61 files | ✅ All passing |
+| UI package (vitest) | 741 tests / 58 files | ✅ All passing |
+| Rust orchestrator | 339 tests | ✅ All passing |
+| Rust indexer | 158 tests | ✅ All passing |
+| Rust core | 215 tests | ✅ All passing |
+| Desktop typecheck | — | ✅ Clean |
+| UI typecheck | — | ✅ Clean |
+| Client typecheck | — | ✅ Clean |
