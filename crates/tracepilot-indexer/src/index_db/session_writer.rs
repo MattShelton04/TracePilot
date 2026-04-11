@@ -2,7 +2,6 @@
 
 use crate::Result;
 use rusqlite::params;
-use rusqlite::types::Value;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
@@ -211,20 +210,20 @@ impl IndexDb {
                      cache_read_tokens, cache_write_tokens, cost, request_count, reasoning_tokens) VALUES",
                 9,
                 &analytics.model_rows,
-                |row| vec![
-                    Value::Text(session_id.clone()),
-                    Value::Text(row.model.clone()),
-                    Value::Integer(row.input_tokens),
-                    Value::Integer(row.output_tokens),
-                    Value::Integer(row.cache_read_tokens),
-                    Value::Integer(row.cache_write_tokens),
-                    Value::Real(row.cost),
-                    Value::Integer(row.premium_requests),
-                    match row.reasoning_tokens {
-                        Some(v) => Value::Integer(v),
-                        None => Value::Null,
-                    },
-                ],
+                |row, params| {
+                    params.push(&session_id as &dyn rusqlite::ToSql);
+                    params.push(&row.model);
+                    params.push(&row.input_tokens);
+                    params.push(&row.output_tokens);
+                    params.push(&row.cache_read_tokens);
+                    params.push(&row.cache_write_tokens);
+                    params.push(&row.cost);
+                    params.push(&row.premium_requests);
+                    match &row.reasoning_tokens {
+                        Some(v) => params.push(v),
+                        None => params.push(&rusqlite::types::Null),
+                    }
+                },
             )?;
 
             batched_insert(
@@ -234,15 +233,15 @@ impl IndexDb {
                      failure_count, total_duration_ms, calls_with_duration) VALUES",
                 7,
                 &analytics.tool_call_rows,
-                |row| vec![
-                    Value::Text(session_id.clone()),
-                    Value::Text(row.name.clone()),
-                    Value::Integer(row.calls),
-                    Value::Integer(row.success),
-                    Value::Integer(row.failure),
-                    Value::Integer(row.duration_ms),
-                    Value::Integer(row.calls_with_duration),
-                ],
+                |row, params| {
+                    params.push(&session_id as &dyn rusqlite::ToSql);
+                    params.push(&row.name);
+                    params.push(&row.calls);
+                    params.push(&row.success);
+                    params.push(&row.failure);
+                    params.push(&row.duration_ms);
+                    params.push(&row.calls_with_duration);
+                },
             )?;
 
             batched_insert(
@@ -251,14 +250,14 @@ impl IndexDb {
                     (session_id, file_path, extension) VALUES",
                 3,
                 &analytics.modified_file_rows,
-                |row| vec![
-                    Value::Text(session_id.clone()),
-                    Value::Text(row.file_path.clone()),
+                |row, params| {
+                    params.push(&session_id as &dyn rusqlite::ToSql);
+                    params.push(&row.file_path);
                     match &row.extension {
-                        Some(ext) => Value::Text(ext.clone()),
-                        None => Value::Null,
-                    },
-                ],
+                        Some(ext) => params.push(ext),
+                        None => params.push(&rusqlite::types::Null),
+                    }
+                },
             )?;
 
             batched_insert(
@@ -267,12 +266,12 @@ impl IndexDb {
                     (session_id, day_of_week, hour, tool_call_count) VALUES",
                 4,
                 &analytics.activity_rows,
-                |row| vec![
-                    Value::Text(session_id.clone()),
-                    Value::Integer(row.day_of_week),
-                    Value::Integer(row.hour),
-                    Value::Integer(row.tool_call_count),
-                ],
+                |row, params| {
+                    params.push(&session_id as &dyn rusqlite::ToSql);
+                    params.push(&row.day_of_week);
+                    params.push(&row.hour);
+                    params.push(&row.tool_call_count);
+                },
             )?;
 
             batched_insert(
@@ -283,23 +282,23 @@ impl IndexDb {
                      current_model, model_metrics_json) VALUES",
                 9,
                 &analytics.session_segment_rows,
-                |row| vec![
-                    Value::Text(session_id.clone()),
-                    Value::Text(row.start_timestamp.clone()),
-                    Value::Text(row.end_timestamp.clone()),
-                    Value::Integer(row.tokens),
-                    Value::Integer(row.total_requests),
-                    Value::Real(row.premium_requests),
-                    Value::Integer(row.api_duration_ms),
+                |row, params| {
+                    params.push(&session_id as &dyn rusqlite::ToSql);
+                    params.push(&row.start_timestamp);
+                    params.push(&row.end_timestamp);
+                    params.push(&row.tokens);
+                    params.push(&row.total_requests);
+                    params.push(&row.premium_requests);
+                    params.push(&row.api_duration_ms);
                     match &row.current_model {
-                        Some(m) => Value::Text(m.clone()),
-                        None => Value::Null,
-                    },
+                        Some(m) => params.push(m),
+                        None => params.push(&rusqlite::types::Null),
+                    }
                     match &row.model_metrics_json {
-                        Some(j) => Value::Text(j.clone()),
-                        None => Value::Null,
-                    },
-                ],
+                        Some(j) => params.push(j),
+                        None => params.push(&rusqlite::types::Null),
+                    }
+                },
             )?;
 
             batched_insert(
@@ -309,21 +308,21 @@ impl IndexDb {
                      severity, summary, detail_json) VALUES",
                 7,
                 &analytics.incidents,
-                |inc| vec![
-                    Value::Text(session_id.clone()),
-                    Value::Text(inc.event_type.clone()),
-                    Value::Text(inc.source_event_type.clone()),
+                |inc, params| {
+                    params.push(&session_id as &dyn rusqlite::ToSql);
+                    params.push(&inc.event_type);
+                    params.push(&inc.source_event_type);
                     match &inc.timestamp {
-                        Some(t) => Value::Text(t.clone()),
-                        None => Value::Null,
-                    },
-                    Value::Text(inc.severity.clone()),
-                    Value::Text(inc.summary.clone()),
+                        Some(t) => params.push(t),
+                        None => params.push(&rusqlite::types::Null),
+                    }
+                    params.push(&inc.severity);
+                    params.push(&inc.summary);
                     match &inc.detail_json {
-                        Some(d) => Value::Text(d.clone()),
-                        None => Value::Null,
-                    },
-                ],
+                        Some(d) => params.push(d),
+                        None => params.push(&rusqlite::types::Null),
+                    }
+                },
             )?;
 
             Ok(())
