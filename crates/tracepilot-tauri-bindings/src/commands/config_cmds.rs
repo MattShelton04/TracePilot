@@ -288,6 +288,7 @@ pub async fn list_session_templates() -> CmdResult<Vec<tracepilot_orchestrator::
 pub async fn save_session_template(
     template: tracepilot_orchestrator::SessionTemplate,
 ) -> CmdResult<()> {
+    crate::validators::validate_template_id(&template.id)?;
     blocking_cmd!(tracepilot_orchestrator::templates::save_template(
         &template,
     ))

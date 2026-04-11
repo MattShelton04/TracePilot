@@ -258,6 +258,7 @@ pub async fn task_get_preset(
     config: tauri::State<'_, SharedConfig>,
     id: String,
 ) -> CmdResult<tracepilot_orchestrator::presets::types::TaskPreset> {
+    crate::validators::validate_preset_id(&id)?;
     let cfg = read_config(&config);
     let presets_dir = cfg.presets_dir();
     tokio::task::spawn_blocking(move || {
@@ -272,6 +273,7 @@ pub async fn task_save_preset(
     config: tauri::State<'_, SharedConfig>,
     preset: tracepilot_orchestrator::presets::types::TaskPreset,
 ) -> CmdResult<()> {
+    crate::validators::validate_preset_id(&preset.id)?;
     let cfg = read_config(&config);
     let presets_dir = cfg.presets_dir();
     tokio::task::spawn_blocking(move || {
@@ -286,6 +288,7 @@ pub async fn task_delete_preset(
     config: tauri::State<'_, SharedConfig>,
     id: String,
 ) -> CmdResult<()> {
+    crate::validators::validate_preset_id(&id)?;
     let cfg = read_config(&config);
     let presets_dir = cfg.presets_dir();
     tokio::task::spawn_blocking(move || {

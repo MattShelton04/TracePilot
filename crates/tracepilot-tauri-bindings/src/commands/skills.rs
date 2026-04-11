@@ -161,6 +161,7 @@ pub async fn skills_remove_asset(
     skill_dir: String,
     asset_name: String,
 ) -> CmdResult<()> {
+    crate::validators::validate_asset_name(&asset_name)?;
     blocking_cmd!(sk(check_skill_dir(&skill_dir).and_then(|_| {
         tracepilot_orchestrator::skills::assets::remove_asset(
             std::path::Path::new(&skill_dir),
@@ -174,6 +175,7 @@ pub async fn skills_read_asset(
     skill_dir: String,
     asset_name: String,
 ) -> CmdResult<String> {
+    crate::validators::validate_asset_name(&asset_name)?;
     blocking_cmd!(sk(check_skill_dir(&skill_dir).and_then(|_| {
         tracepilot_orchestrator::skills::assets::read_asset(
             std::path::Path::new(&skill_dir),
