@@ -9,6 +9,7 @@ pub mod github;
 pub mod json_io;
 pub mod launcher;
 pub mod mcp;
+pub mod models;
 pub mod presets;
 pub mod process;
 pub mod repo_registry;
