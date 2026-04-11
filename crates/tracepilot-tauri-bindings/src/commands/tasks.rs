@@ -144,6 +144,7 @@ pub async fn task_get(
     state: tauri::State<'_, SharedTaskDb>,
     id: String,
 ) -> CmdResult<Task> {
+    crate::validators::validate_task_id(&id)?;
     with_task_db(&state, move |db| {
         tracepilot_orchestrator::task_db::operations::get_task(db.conn(), &id)
             .map_err(BindingsError::Orchestrator)
@@ -169,6 +170,7 @@ pub async fn task_cancel(
     state: tauri::State<'_, SharedTaskDb>,
     id: String,
 ) -> CmdResult<()> {
+    crate::validators::validate_task_id(&id)?;
     with_task_db(&state, move |db| {
         tracepilot_orchestrator::task_db::operations::cancel_task(db.conn(), &id)
             .map_err(BindingsError::Orchestrator)
@@ -181,6 +183,7 @@ pub async fn task_retry(
     state: tauri::State<'_, SharedTaskDb>,
     id: String,
 ) -> CmdResult<()> {
+    crate::validators::validate_task_id(&id)?;
     with_task_db(&state, move |db| {
         tracepilot_orchestrator::task_db::operations::retry_task(db.conn(), &id)
             .map_err(BindingsError::Orchestrator)
@@ -193,6 +196,7 @@ pub async fn task_delete(
     state: tauri::State<'_, SharedTaskDb>,
     id: String,
 ) -> CmdResult<()> {
+    crate::validators::validate_task_id(&id)?;
     with_task_db(&state, move |db| {
         tracepilot_orchestrator::task_db::operations::delete_task(db.conn(), &id)
             .map_err(BindingsError::Orchestrator)
@@ -230,6 +234,7 @@ pub async fn task_cancel_job(
     state: tauri::State<'_, SharedTaskDb>,
     job_id: String,
 ) -> CmdResult<()> {
+    crate::validators::validate_task_id(&job_id)?;
     with_task_db(&state, move |db| {
         tracepilot_orchestrator::task_db::operations::cancel_job(db.conn(), &job_id)
             .map_err(BindingsError::Orchestrator)
