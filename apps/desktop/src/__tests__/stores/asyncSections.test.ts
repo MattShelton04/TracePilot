@@ -146,6 +146,7 @@ describe("asyncSections helpers", () => {
   });
 
   it("uses warn logging for refresh failures when requested", async () => {
+    const guard = useAsyncGuard();
     const section = createAsyncSection<string[]>(["current"]);
     const def = defineAsyncSection({
       key: "incidents",
@@ -156,12 +157,12 @@ describe("asyncSections helpers", () => {
       },
       sessionId: ref("session-1"),
       loaded: ref(new Set(["incidents"])),
-      guard: useAsyncGuard(),
+      guard,
       logPrefix: "[test]",
       logLevel: "warn",
     });
 
-    await def.buildRefresh("session-1", 0);
+    await def.buildRefresh("session-1", guard.current());
 
     expect(section.error.value).toBe("refresh warn failure");
     expect(mockLogWarn).toHaveBeenCalledWith(

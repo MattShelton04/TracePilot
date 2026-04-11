@@ -50,7 +50,7 @@ interface DefineAsyncSectionOptions<T> {
   logLevel?: "error" | "warn";
 }
 
-function getSectionLogger(level: "error" | "warn" | undefined) {
+function getLogFunction(level: "error" | "warn" | undefined) {
   return level === "warn" ? logWarn : logError;
 }
 
@@ -77,7 +77,7 @@ export function buildSectionLoader<T>(opts: BuildSectionLoaderOptions<T>) {
     } catch (e) {
       if (!opts.guard.isValid(token)) return;
       opts.errorRef.value = toErrorMessage(e);
-      getSectionLogger(opts.logLevel)(`${opts.logPrefix} Failed to load ${opts.key}:`, e);
+      getLogFunction(opts.logLevel)(`${opts.logPrefix} Failed to load ${opts.key}:`, e);
     }
   };
 }
@@ -95,7 +95,7 @@ async function buildSectionRefreshPromise<T>(
   } catch (e) {
     if (!cfg.guard.isValid(token)) return;
     cfg.errorRef.value = toErrorMessage(e);
-    getSectionLogger(cfg.logLevel)(`${cfg.logPrefix} Failed to refresh ${cfg.key}:`, e);
+    getLogFunction(cfg.logLevel)(`${cfg.logPrefix} Failed to refresh ${cfg.key}:`, e);
   }
 }
 
