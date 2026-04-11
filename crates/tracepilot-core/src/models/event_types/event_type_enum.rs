@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use strum::{EnumString, IntoStaticStr};
+use strum::{EnumCount, EnumString, IntoStaticStr};
 
 /// All known session event types, plus an `Unknown` catch-all for forward compatibility.
 ///
@@ -9,7 +9,7 @@ use strum::{EnumString, IntoStaticStr};
 ///
 /// The `Unknown` variant with `#[strum(default)]` captures any unrecognized string,
 /// ensuring forward compatibility with new Copilot CLI event types.
-#[derive(Debug, Clone, PartialEq, Eq, EnumString, IntoStaticStr)]
+#[derive(Debug, Clone, PartialEq, Eq, EnumCount, EnumString, IntoStaticStr)]
 pub enum SessionEventType {
     #[strum(serialize = "session.start")]
     SessionStart,
@@ -184,6 +184,7 @@ mod tests {
     use std::collections::{BTreeSet, HashSet};
     use std::fs;
     use std::path::PathBuf;
+    use strum::EnumCount;
 
     const TS_EVENTS_ARRAY_START: &str = "export const TRACEPILOT_KNOWN_EVENTS = [";
     const TS_EVENTS_ARRAY_END: &str = "] as const;";
@@ -198,6 +199,7 @@ mod tests {
             .unwrap_or_else(|e| panic!("failed to read {}: {e}", path.display()));
 
         let mut in_array = false;
+        let mut saw_array_end = false;
         let mut events = Vec::new();
         for line in source.lines() {
             let trimmed = line.trim();
@@ -208,6 +210,7 @@ mod tests {
                 continue;
             }
             if trimmed == TS_EVENTS_ARRAY_END {
+                saw_array_end = true;
                 break;
             }
             if trimmed.is_empty() || trimmed.starts_with("//") {
@@ -219,9 +222,11 @@ mod tests {
         }
 
         assert!(
-            in_array && !events.is_empty(),
-            "failed to parse TRACEPILOT_KNOWN_EVENTS array from {}",
+            in_array && saw_array_end && !events.is_empty(),
+            "failed to parse TRACEPILOT_KNOWN_EVENTS array from {} (in_array={in_array}, saw_array_end={saw_array_end}, events={})",
             path.display()
+            ,
+            events.len()
         );
         events
     }
@@ -279,5 +284,14 @@ mod tests {
             );
             assert_eq!(parsed.to_string(), *wire, "roundtrip mismatch for {wire}");
         }
+    }
+
+    #[test]
+    fn known_event_types_cover_all_non_unknown_variants() {
+        assert_eq!(
+            KNOWN_EVENT_TYPES.len() + 1,
+            SessionEventType::COUNT,
+            "KNOWN_EVENT_TYPES must include every non-Unknown SessionEventType variant"
+        );
     }
 }
