@@ -25,3 +25,5 @@ export type { Toast, ToastOptions } from "./useToast";
 export { useToast } from "./useToast";
 export { useToggleSet } from "./useToggleSet";
 export { useResizeHandle } from "./useResizeHandle";
+export type { AsyncGuardLike, RunActionOptions } from "./useStoreHelpers";
+export { runAction, runMutation } from "./useStoreHelpers";

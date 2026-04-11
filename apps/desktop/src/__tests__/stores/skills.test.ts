@@ -41,9 +41,13 @@ vi.mock("@tracepilot/client", () => ({
 }));
 
 // ── Mock @tracepilot/ui ────────────────────────────────────────
-vi.mock("@tracepilot/ui", () => ({
-  toErrorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
-}));
+vi.mock("@tracepilot/ui", async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    toErrorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
+  };
+});
 
 // ── Mock logger ────────────────────────────────────────────────
 const mockLogWarn = vi.fn();

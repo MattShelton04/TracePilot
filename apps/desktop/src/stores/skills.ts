@@ -31,7 +31,7 @@ import type {
   SkillScope,
   SkillSummary,
 } from "@tracepilot/types";
-import { toErrorMessage } from "@tracepilot/ui";
+import { runAction, runMutation, toErrorMessage } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import { useAsyncGuard } from "@/composables/useAsyncGuard";
@@ -97,19 +97,15 @@ export const useSkillsStore = defineStore("skills", () => {
     if (repoRoot !== undefined) {
       currentRepoRoot.value = repoRoot;
     }
-    const token = loadGuard.start();
-    loading.value = true;
-    error.value = null;
-    try {
-      const result = await skillsListAll(currentRepoRoot.value);
-      if (!loadGuard.isValid(token)) return;
-      skills.value = result;
-    } catch (e) {
-      if (!loadGuard.isValid(token)) return;
-      error.value = toErrorMessage(e);
-    } finally {
-      if (loadGuard.isValid(token)) loading.value = false;
-    }
+    await runAction({
+      loading,
+      error,
+      guard: loadGuard,
+      action: () => skillsListAll(currentRepoRoot.value),
+      onSuccess: (result) => {
+        skills.value = result;
+      },
+    });
   }
 
   async function getSkill(dir: string): Promise<Skill | null> {
@@ -130,15 +126,11 @@ export const useSkillsStore = defineStore("skills", () => {
     desc: string,
     body: string,
   ): Promise<string | null> {
-    error.value = null;
-    try {
+    return runMutation(error, async () => {
       const dir = await skillsCreate(name, desc, body);
       await loadSkills();
       return dir;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return null;
-    }
+    });
   }
 
   async function updateSkill(
@@ -170,18 +162,14 @@ export const useSkillsStore = defineStore("skills", () => {
   }
 
   async function deleteSkill(dir: string): Promise<boolean> {
-    error.value = null;
-    try {
+    return (await runMutation(error, async () => {
       await skillsDelete(dir);
       skills.value = skills.value.filter((s) => s.directory !== dir);
       if (selectedSkill.value?.directory === dir) {
         selectedSkill.value = null;
       }
-      return true;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return false;
-    }
+      return true as const;
+    })) ?? false;
   }
 
   async function renameSkill(dir: string, newName: string): Promise<string | null> {
