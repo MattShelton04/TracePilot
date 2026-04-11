@@ -40,6 +40,7 @@ pub(super) fn make_input(
                 output_tokens: Some(tokens / 2),
                 cache_read_tokens: Some(0),
                 cache_write_tokens: Some(0),
+                reasoning_tokens: None,
             }),
         },
     );
@@ -67,6 +68,10 @@ pub(super) fn make_input(
                 total_api_duration_ms: Some(5000),
                 session_start_time: Some(updated.timestamp_millis() as u64 - 300_000),
                 current_model: Some(model.to_string()),
+                current_tokens: None,
+                system_tokens: None,
+                conversation_tokens: None,
+                tool_definitions_tokens: None,
                 code_changes: Some(CodeChanges {
                     lines_added: Some(50),
                     lines_removed: Some(10),

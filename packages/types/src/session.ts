@@ -60,6 +60,10 @@ export interface ShutdownMetrics {
   totalApiDurationMs?: number | null;
   sessionStartTime?: number | null;
   currentModel?: string | null;
+  currentTokens?: number | null;
+  systemTokens?: number | null;
+  conversationTokens?: number | null;
+  toolDefinitionsTokens?: number | null;
   codeChanges?: CodeChanges | null;
   modelMetrics?: Record<string, ModelMetricDetail> | null;
   sessionSegments?: SessionSegment[] | null;
@@ -90,6 +94,7 @@ export interface ModelMetricDetail {
     outputTokens?: number;
     cacheReadTokens?: number;
     cacheWriteTokens?: number;
+    reasoningTokens?: number;
   };
 }
 

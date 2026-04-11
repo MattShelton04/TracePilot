@@ -29,6 +29,8 @@ pub struct AssistantMessageData {
     pub encrypted_content: Option<String>,
     /// Generation phase for phased-output models.
     pub phase: Option<String>,
+    /// LLM request ID for tracing individual API calls.
+    pub request_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

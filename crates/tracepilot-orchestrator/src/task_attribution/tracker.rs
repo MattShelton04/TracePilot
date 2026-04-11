@@ -267,6 +267,10 @@ mod tests {
                     tool_call_id: Some("call-A".to_string()),
                     agent_name: Some("general-purpose".to_string()),
                     agent_display_name: None,
+                    duration_ms: None,
+                    model: None,
+                    total_tokens: None,
+                    total_tool_calls: None,
                 }),
             },
             // 4. Another task, still in progress
