@@ -43,6 +43,8 @@ use crate::schema::SchemaVersion;
 pub use migrator::MigrationStatus;
 pub use validator::{IssueSeverity, ValidationIssue};
 
+const MAX_DUPLICATE_ID_ATTEMPTS: usize = 1024;
+
 // ── Import options ─────────────────────────────────────────────────────────
 
 /// Configuration for an import operation.
@@ -262,7 +264,7 @@ pub fn import_sessions(
                 }
                 ConflictStrategy::Duplicate => {
                     // Generate new ID and write
-                    let new_id = generate_duplicate_id(target_dir, &reserved_ids);
+                    let new_id = generate_duplicate_id(target_dir, &reserved_ids)?;
                     reserved_ids.insert(new_id.clone());
 
                     if !options.dry_run {
@@ -319,7 +321,7 @@ pub fn import_sessions(
 ///
 /// Uses a fresh UUID v4 so imported duplicates are indistinguishable from
 /// natively-created sessions.
-fn generate_duplicate_id(target_dir: &Path, reserved_ids: &HashSet<String>) -> String {
+fn generate_duplicate_id(target_dir: &Path, reserved_ids: &HashSet<String>) -> Result<String> {
     generate_duplicate_id_with(target_dir, reserved_ids, || uuid::Uuid::new_v4().to_string())
 }
 
@@ -327,16 +329,23 @@ fn generate_duplicate_id_with<F>(
     target_dir: &Path,
     reserved_ids: &HashSet<String>,
     mut next_id: F,
-) -> String
+) -> Result<String>
 where
     F: FnMut() -> String,
 {
-    loop {
+    for _attempt in 0..MAX_DUPLICATE_ID_ATTEMPTS {
         let candidate = next_id();
         if !reserved_ids.contains(&candidate) && !writer::session_exists(&candidate, target_dir) {
-            return candidate;
+            return Ok(candidate);
         }
     }
+
+    Err(ExportError::Validation {
+        message: format!(
+            "failed to allocate a unique duplicate session ID after {} attempts",
+            MAX_DUPLICATE_ID_ATTEMPTS
+        ),
+    })
 }
 
 #[cfg(test)]
@@ -544,7 +553,8 @@ mod tests {
         let generated = generate_duplicate_id_with(target.path(), &reserved, {
             let mut ids = ["collision-id".to_string(), "fresh-id".to_string()].into_iter();
             move || ids.next().unwrap()
-        });
+        })
+        .unwrap();
 
         assert_eq!(generated, "fresh-id");
     }
@@ -557,8 +567,42 @@ mod tests {
         let generated = generate_duplicate_id_with(target.path(), &reserved, {
             let mut ids = ["reserved-id".to_string(), "fresh-id".to_string()].into_iter();
             move || ids.next().unwrap()
-        });
+        })
+        .unwrap();
 
         assert_eq!(generated, "fresh-id");
+    }
+
+    #[test]
+    fn duplicate_id_generation_retries_reserved_and_existing_candidates() {
+        let target = tempfile::tempdir().unwrap();
+        fs::create_dir_all(target.path().join("existing-id")).unwrap();
+        let reserved = HashSet::from(["reserved-id".to_string()]);
+
+        let generated = generate_duplicate_id_with(target.path(), &reserved, {
+            let mut ids = [
+                "reserved-id".to_string(),
+                "existing-id".to_string(),
+                "fresh-id".to_string(),
+            ]
+            .into_iter();
+            move || ids.next().unwrap()
+        })
+        .unwrap();
+
+        assert_eq!(generated, "fresh-id");
+    }
+
+    #[test]
+    fn duplicate_id_generation_errors_after_too_many_conflicts() {
+        let target = tempfile::tempdir().unwrap();
+        let reserved = HashSet::from(["collision-id".to_string()]);
+
+        let err = generate_duplicate_id_with(target.path(), &reserved, || "collision-id".to_string())
+            .unwrap_err();
+
+        assert!(err
+            .to_string()
+            .contains("failed to allocate a unique duplicate session ID"));
     }
 }
