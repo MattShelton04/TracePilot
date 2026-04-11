@@ -125,7 +125,7 @@ impl TurnReconstructor {
                         )
                             && !summary.trim().is_empty() {
                                 self.tool_call_intentions
-                                    .insert(id.into(), summary.into());
+                                    .insert(id.to_string(), summary.to_string());
                             }
                     }
                 }
@@ -184,7 +184,7 @@ impl TurnReconstructor {
                 // Index the new tool call
                 if let Some(id) = &data.tool_call_id {
                     self.tool_call_index
-                        .insert(id.into(), (CURRENT_TURN_SENTINEL, tc_index));
+                        .insert(id.clone(), (CURRENT_TURN_SENTINEL, tc_index));
                 }
             }
 
@@ -298,7 +298,7 @@ impl TurnReconstructor {
                     });
                     if let Some(id) = &data.tool_call_id {
                         self.tool_call_index
-                            .insert(id.into(), (CURRENT_TURN_SENTINEL, tc_index));
+                            .insert(id.clone(), (CURRENT_TURN_SENTINEL, tc_index));
                     }
                 }
             }
@@ -589,7 +589,7 @@ impl TurnReconstructor {
             for (tc_idx, tc) in turn.tool_calls.iter().enumerate() {
                 if let Some(id) = &tc.tool_call_id {
                     self.tool_call_index
-                        .insert(id.into(), (finalized_index, tc_idx));
+                        .insert(id.clone(), (finalized_index, tc_idx));
                 }
             }
 
