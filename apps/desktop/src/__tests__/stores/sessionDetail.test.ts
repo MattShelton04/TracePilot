@@ -396,7 +396,6 @@ describe("useSessionDetailStore", () => {
       mockGetSessionPlan.mockResolvedValueOnce(OTHER_PLAN);
       await store.loadPlan();
 
-      expect(resolveStaleDetail).toBeDefined();
       stalePlan.resolve({ plan: "stale plan" });
       await refreshPromise;
 
