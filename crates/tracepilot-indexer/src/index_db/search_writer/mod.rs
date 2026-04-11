@@ -13,6 +13,9 @@ mod tool_extraction;
 #[cfg(test)]
 mod tests;
 
+use rusqlite::types::Value;
+use super::batch_insert::batched_insert;
+
 use crate::Result;
 use rusqlite::params;
 use std::path::Path;
@@ -117,31 +120,40 @@ impl IndexDb {
                 [session_id],
             )?;
 
-            // Batch insert new content
-            let mut stmt = self.conn.prepare(
-                "INSERT INTO search_content
-                    (session_id, content_type, turn_number, event_index,
-                     timestamp_unix, tool_name, content, metadata_json)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            // Batch insert new content (skip empty rows)
+            let non_empty: Vec<&SearchContentRow> =
+                rows.iter().filter(|r| !r.content.is_empty()).collect();
+            batched_insert(
+                &self.conn,
+                "INSERT INTO search_content \
+                    (session_id, content_type, turn_number, event_index, \
+                     timestamp_unix, tool_name, content, metadata_json) VALUES",
+                8,
+                &non_empty,
+                |row| vec![
+                    Value::Text(row.session_id.clone()),
+                    Value::Text(row.content_type.to_string()),
+                    match row.turn_number {
+                        Some(n) => Value::Integer(n),
+                        None => Value::Null,
+                    },
+                    Value::Integer(row.event_index),
+                    match row.timestamp_unix {
+                        Some(n) => Value::Integer(n),
+                        None => Value::Null,
+                    },
+                    match &row.tool_name {
+                        Some(s) => Value::Text(s.clone()),
+                        None => Value::Null,
+                    },
+                    Value::Text(row.content.clone()),
+                    match &row.metadata_json {
+                        Some(s) => Value::Text(s.clone()),
+                        None => Value::Null,
+                    },
+                ],
             )?;
-
-            let mut inserted = 0;
-            for row in rows {
-                if row.content.is_empty() {
-                    continue;
-                }
-                stmt.execute(params![
-                    row.session_id,
-                    row.content_type,
-                    row.turn_number,
-                    row.event_index,
-                    row.timestamp_unix,
-                    row.tool_name,
-                    row.content,
-                    row.metadata_json,
-                ])?;
-                inserted += 1;
-            }
+            let inserted = non_empty.len();
 
             // Update search indexing timestamp and extractor version
             let now = chrono::Utc::now().to_rfc3339();
@@ -207,13 +219,6 @@ impl IndexDb {
             )?;
 
             // Step 2: Delete + insert content rows (no FTS overhead)
-            let mut stmt = self.conn.prepare(
-                "INSERT INTO search_content
-                    (session_id, content_type, turn_number, event_index,
-                     timestamp_unix, tool_name, content, metadata_json)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-            )?;
-
             let now = chrono::Utc::now().to_rfc3339();
             let mut total_inserted = 0;
 
@@ -224,22 +229,39 @@ impl IndexDb {
                     [session_id.as_str()],
                 )?;
 
-                for row in rows {
-                    if row.content.is_empty() {
-                        continue;
-                    }
-                    stmt.execute(params![
-                        row.session_id,
-                        row.content_type,
-                        row.turn_number,
-                        row.event_index,
-                        row.timestamp_unix,
-                        row.tool_name,
-                        row.content,
-                        row.metadata_json,
-                    ])?;
-                    total_inserted += 1;
-                }
+                let non_empty: Vec<&SearchContentRow> =
+                    rows.iter().filter(|r| !r.content.is_empty()).collect();
+                batched_insert(
+                    &self.conn,
+                    "INSERT INTO search_content \
+                        (session_id, content_type, turn_number, event_index, \
+                         timestamp_unix, tool_name, content, metadata_json) VALUES",
+                    8,
+                    &non_empty,
+                    |row| vec![
+                        Value::Text(row.session_id.clone()),
+                        Value::Text(row.content_type.to_string()),
+                        match row.turn_number {
+                            Some(n) => Value::Integer(n),
+                            None => Value::Null,
+                        },
+                        Value::Integer(row.event_index),
+                        match row.timestamp_unix {
+                            Some(n) => Value::Integer(n),
+                            None => Value::Null,
+                        },
+                        match &row.tool_name {
+                            Some(s) => Value::Text(s.clone()),
+                            None => Value::Null,
+                        },
+                        Value::Text(row.content.clone()),
+                        match &row.metadata_json {
+                            Some(s) => Value::Text(s.clone()),
+                            None => Value::Null,
+                        },
+                    ],
+                )?;
+                total_inserted += non_empty.len();
 
                 // Mark session as indexed
                 self.conn.execute(
