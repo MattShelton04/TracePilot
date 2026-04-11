@@ -14,11 +14,11 @@ defineProps<{
         </span>
         {{ title }}
       </h1>
-      <p v-if="subtitle" class="page-subtitle">{{ subtitle }}</p>
       <div v-if="$slots.actions" class="title-actions">
         <slot name="actions" />
       </div>
     </div>
+    <p v-if="subtitle" class="page-subtitle">{{ subtitle }}</p>
     <slot />
   </div>
 </template>
@@ -28,7 +28,7 @@ defineProps<{
   display: flex;
   flex-direction: column;
   gap: 10px;
-  margin-bottom: 4px;
+  margin-bottom: 16px;
 }
 
 .page-header__row {
@@ -72,8 +72,6 @@ defineProps<{
   font-size: 0.8125rem;
   color: var(--text-tertiary);
   margin: 0;
-  flex: 1;
-  min-width: 180px;
 }
 
 .title-actions {
