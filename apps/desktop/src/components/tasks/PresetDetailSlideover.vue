@@ -54,7 +54,7 @@ function infoLine(preset: TaskPreset): string {
 <template>
   <Teleport to="body">
     <div class="preset-backdrop" @click="emit('close')" />
-    <Transition name="slideover">
+    <Transition name="slideover" appear>
       <div class="preset-slideover">
         <div class="detail-panel__header">
           <div class="detail-header__top">
