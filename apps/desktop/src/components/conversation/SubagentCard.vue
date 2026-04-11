@@ -4,6 +4,7 @@ import {
   agentStatusFromToolCall,
   formatDuration,
   formatLiveDuration,
+  formatNumber,
   getAgentColor,
   getAgentIcon,
   inferAgentTypeFromToolCall,
@@ -37,7 +38,7 @@ const description = computed(() => {
 
 const model = computed(() => {
   const args = props.toolCall.arguments as Record<string, unknown> | undefined;
-  return (args?.model as string) || props.toolCall.model || "";
+  return props.toolCall.model || (args?.model as string) || "";
 });
 
 const duration = computed(() => {
@@ -84,8 +85,12 @@ function handleClick() {
       />
       <span class="cv-subagent-arrow">▶</span>
     </div>
-    <div v-if="childToolCount" class="cv-subagent-hint">
-      {{ childToolCount }} tool call{{ childToolCount !== 1 ? "s" : "" }} inside
+    <div v-if="childToolCount || toolCall.totalTokens || toolCall.totalToolCalls" class="cv-subagent-hint">
+      <span v-if="childToolCount">{{ childToolCount }} tool call{{ childToolCount !== 1 ? "s" : "" }} inside</span>
+      <span v-if="childToolCount && (toolCall.totalTokens || toolCall.totalToolCalls)"> · </span>
+      <span v-if="toolCall.totalTokens" title="Tokens consumed">{{ formatNumber(toolCall.totalTokens) }} tok</span>
+      <span v-if="toolCall.totalTokens && toolCall.totalToolCalls"> · </span>
+      <span v-if="toolCall.totalToolCalls" title="Tool calls made">{{ toolCall.totalToolCalls }} tool exec{{ toolCall.totalToolCalls !== 1 ? "s" : "" }}</span>
     </div>
   </div>
 </template>

@@ -11,6 +11,7 @@ import {
   formatArgsSummary,
   formatDuration,
   formatLiveDuration,
+  formatNumber,
   formatTime,
   getAgentColor,
   inferAgentTypeFromToolCall,
@@ -40,6 +41,8 @@ interface AgentNode {
   model?: string;
   durationMs?: number;
   toolCount: number;
+  totalTokens?: number;
+  totalToolCalls?: number;
   status: "completed" | "failed" | "in-progress";
   toolCalls: TurnToolCall[];
   toolCallRef?: TurnToolCall; // The subagent tool call itself
@@ -251,6 +254,8 @@ function buildAgentNode(
     model: tc.model,
     durationMs: tc.durationMs,
     toolCount: childTools.length,
+    totalTokens: tc.totalTokens,
+    totalToolCalls: tc.totalToolCalls,
     status: agentStatusFromToolCall(tc),
     toolCalls: childTools,
     toolCallRef: tc,
@@ -919,6 +924,7 @@ watch(
                 {{ formatLiveDuration(liveDuration(ln.node)) }}
               </span>
               <span>{{ ln.node.toolCount }} tool{{ ln.node.toolCount !== 1 ? "s" : "" }}</span>
+              <span v-if="ln.node.totalTokens" class="agent-node-tokens">{{ formatNumber(ln.node.totalTokens) }} tok</span>
               <span class="agent-node-status" :class="{ 'agent-node-status--in-progress': ln.node.status === 'in-progress' }">
                 {{ STATUS_ICONS[ln.node.status] }}
                 <span v-if="ln.node.status === 'in-progress'" class="sr-only">In progress</span>
@@ -987,6 +993,10 @@ watch(
               <div v-if="selectedNode.model" class="detail-info-item">
                 <span class="detail-label">Model</span>
                 <Badge variant="done">{{ selectedNode.model }}</Badge>
+              </div>
+              <div v-if="selectedNode.totalTokens" class="detail-info-item">
+                <span class="detail-label">Tokens</span>
+                <span class="detail-value">{{ formatNumber(selectedNode.totalTokens) }}</span>
               </div>
             </div>
           </div>
@@ -1468,6 +1478,12 @@ watch(
   gap: 8px;
   font-size: 0.75rem;
   color: var(--text-secondary);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.agent-node-tokens {
+  color: var(--text-tertiary);
 }
 
 .agent-node-status {
