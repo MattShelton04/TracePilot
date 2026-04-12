@@ -285,8 +285,8 @@ pub(crate) fn clamp_limit(limit: Option<u32>, max_limit: u32) -> Option<u32> {
 
 /// Truncate a string for inclusion in error messages.
 ///
-/// Uses **character** (not byte) boundaries to avoid panicking on
-/// multi-byte UTF-8 input.  Appends "…" when truncation occurs.
+/// Truncates by **character count** (not byte count) for user-facing messages
+/// where visual length matters. Appends "…" when truncation occurs.
 fn truncate_for_display(s: &str, max_chars: usize) -> String {
     let char_count = s.chars().count();
     if char_count <= max_chars {

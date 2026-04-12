@@ -1,4 +1,10 @@
 //! Shared utility functions used across TracePilot crates.
+//!
+//! # String Truncation Utilities
+//!
+//! - [`truncate_utf8()`] - Truncates to byte limit, respecting UTF-8 boundaries
+//! - [`truncate_utf8_with_marker()`] - Same, with optional marker suffix
+//! - [`truncate_string_utf8()`] - In-place version for owned strings
 
 pub mod cache;
 pub mod sqlite;
@@ -22,6 +28,36 @@ pub fn truncate_utf8(input: &str, max_bytes: usize) -> &str {
 pub fn truncate_string_utf8(s: &mut String, max_bytes: usize) {
     let truncated_len = truncate_utf8(s.as_str(), max_bytes).len();
     s.truncate(truncated_len);
+}
+
+/// Truncate a string to a maximum byte length with an optional marker suffix.
+///
+/// Respects UTF-8 character boundaries. When truncation occurs, appends the
+/// marker (if provided) to the truncated content.
+///
+/// # Examples
+/// ```
+/// use tracepilot_core::utils::truncate_utf8_with_marker;
+///
+/// assert_eq!(truncate_utf8_with_marker("hello", 10, None), "hello");
+/// assert_eq!(truncate_utf8_with_marker("hello world", 5, None), "hello");
+/// assert_eq!(truncate_utf8_with_marker("hello world", 5, Some("…")), "hello…");
+/// assert_eq!(
+///     truncate_utf8_with_marker("hello world", 5, Some("…[truncated]")),
+///     "hello…[truncated]"
+/// );
+/// ```
+pub fn truncate_utf8_with_marker(input: &str, max_bytes: usize, marker: Option<&str>) -> String {
+    if input.len() <= max_bytes {
+        return input.to_string();
+    }
+
+    let truncated = truncate_utf8(input, max_bytes);
+
+    match marker {
+        Some(m) => format!("{}{}", truncated, m),
+        None => truncated.to_string(),
+    }
 }
 
 /// Resolve the user's home directory with a platform-specific fallback.
@@ -132,5 +168,102 @@ mod tests {
         let mut s3 = String::from("hello");
         truncate_string_utf8(&mut s3, 10);
         assert_eq!(s3, "hello");
+    }
+
+    // -- truncate_utf8_with_marker ------------------------------------------
+
+    #[test]
+    fn truncate_with_marker_no_truncation_needed() {
+        assert_eq!(truncate_utf8_with_marker("hello", 10, None), "hello");
+        assert_eq!(truncate_utf8_with_marker("hello", 10, Some("…")), "hello");
+        assert_eq!(
+            truncate_utf8_with_marker("hello", 10, Some("…[truncated]")),
+            "hello"
+        );
+    }
+
+    #[test]
+    fn truncate_with_marker_no_marker() {
+        assert_eq!(truncate_utf8_with_marker("hello world", 5, None), "hello");
+        assert_eq!(
+            truncate_utf8_with_marker("hello world", 8, None),
+            "hello wo"
+        );
+    }
+
+    #[test]
+    fn truncate_with_marker_simple_marker() {
+        assert_eq!(
+            truncate_utf8_with_marker("hello world", 5, Some("…")),
+            "hello…"
+        );
+        assert_eq!(
+            truncate_utf8_with_marker("hello world", 8, Some("…")),
+            "hello wo…"
+        );
+    }
+
+    #[test]
+    fn truncate_with_marker_verbose_marker() {
+        assert_eq!(
+            truncate_utf8_with_marker("hello world", 5, Some("…[truncated]")),
+            "hello…[truncated]"
+        );
+    }
+
+    #[test]
+    fn truncate_with_marker_empty_string() {
+        assert_eq!(truncate_utf8_with_marker("", 10, None), "");
+        assert_eq!(truncate_utf8_with_marker("", 10, Some("…")), "");
+    }
+
+    #[test]
+    fn truncate_with_marker_zero_max() {
+        assert_eq!(truncate_utf8_with_marker("hello", 0, None), "");
+        assert_eq!(truncate_utf8_with_marker("hello", 0, Some("…")), "…");
+    }
+
+    #[test]
+    fn truncate_with_marker_multibyte_chars() {
+        // "café" = "caf" (3 bytes) + "é" (2 bytes) = 5 bytes
+        assert_eq!(truncate_utf8_with_marker("café", 4, None), "caf");
+        assert_eq!(truncate_utf8_with_marker("café", 4, Some("…")), "caf…");
+        assert_eq!(truncate_utf8_with_marker("café", 5, Some("…")), "café");
+    }
+
+    #[test]
+    fn truncate_with_marker_emoji() {
+        // "🦀" is 4 bytes
+        assert_eq!(truncate_utf8_with_marker("🦀crab", 2, None), "");
+        assert_eq!(truncate_utf8_with_marker("🦀crab", 2, Some("…")), "…");
+        assert_eq!(truncate_utf8_with_marker("🦀crab", 4, Some("…")), "🦀…");
+        assert_eq!(
+            truncate_utf8_with_marker("🦀crab", 5, Some("…")),
+            "🦀c…"
+        );
+    }
+
+    #[test]
+    fn truncate_with_marker_at_boundary() {
+        let s = "hello";
+        assert_eq!(truncate_utf8_with_marker(s, 5, None), "hello");
+        assert_eq!(truncate_utf8_with_marker(s, 5, Some("…")), "hello");
+    }
+
+    #[test]
+    fn truncate_with_marker_empty_marker() {
+        assert_eq!(
+            truncate_utf8_with_marker("hello world", 5, Some("")),
+            "hello"
+        );
+    }
+
+    #[test]
+    fn truncate_with_marker_multibyte_marker() {
+        // Marker itself can contain multi-byte chars
+        assert_eq!(
+            truncate_utf8_with_marker("hello world", 5, Some("⋯")),
+            "hello⋯"
+        );
     }
 }
