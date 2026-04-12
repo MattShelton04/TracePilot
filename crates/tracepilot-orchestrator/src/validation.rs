@@ -68,7 +68,7 @@ pub const SKILL_NAME_RULES: ValidationRules = ValidationRules {
 /// - Rejects strings containing `..`
 /// - Rejects strings starting with `/` or `\`
 /// - Rejects absolute paths (as determined by `Path::is_absolute()`)
-pub(crate) fn validate_identifier(
+pub fn validate_identifier(
     value: &str,
     rules: ValidationRules,
     context: &str,
@@ -76,6 +76,11 @@ pub(crate) fn validate_identifier(
     // Check for empty string
     if value.is_empty() {
         return Err(format!("{context} cannot be empty"));
+    }
+
+    // Check for NULL bytes (security: can truncate paths in C APIs)
+    if value.contains('\0') {
+        return Err(format!("{context} cannot contain NULL bytes"));
     }
 
     // Check for path traversal attempts
@@ -186,6 +191,13 @@ mod tests {
         let result = validate_identifier("C:\\Windows", SKILL_NAME_RULES, "Skill name");
         // Caught by backslash check first
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_null_byte_rejected() {
+        let result = validate_identifier("test\0name", TEMPLATE_ID_RULES, "Template ID");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("NULL bytes"));
     }
 
     // ─── Character Validation Tests ────────────────────────────────────

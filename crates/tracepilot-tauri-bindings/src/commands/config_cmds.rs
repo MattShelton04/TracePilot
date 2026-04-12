@@ -288,6 +288,7 @@ pub async fn list_session_templates() -> CmdResult<Vec<tracepilot_orchestrator::
 pub async fn save_session_template(
     template: tracepilot_orchestrator::SessionTemplate,
 ) -> CmdResult<()> {
+    crate::validators::validate_template_id(&template.id)?;
     blocking_cmd!(tracepilot_orchestrator::templates::save_template(
         &template,
     ))
@@ -295,6 +296,7 @@ pub async fn save_session_template(
 
 #[tauri::command]
 pub async fn delete_session_template(id: String) -> CmdResult<()> {
+    crate::validators::validate_template_id(&id)?;
     blocking_cmd!(tracepilot_orchestrator::templates::delete_template(&id))
 }
 
@@ -305,5 +307,6 @@ pub async fn restore_default_templates() -> CmdResult<()> {
 
 #[tauri::command]
 pub async fn increment_template_usage(id: String) -> CmdResult<()> {
+    crate::validators::validate_template_id(&id)?;
     blocking_cmd!(tracepilot_orchestrator::templates::increment_usage(&id))
 }

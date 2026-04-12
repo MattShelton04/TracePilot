@@ -23,6 +23,7 @@ pub async fn task_create(
     priority: Option<String>,
     max_retries: Option<i32>,
 ) -> CmdResult<Task> {
+    crate::validators::validate_preset_id(&preset_id)?;
     let db = get_or_init_task_db(&state)?;
     let cfg = read_config(&config);
     let orch_state_clone = std::sync::Arc::clone(&*orch_state);
@@ -127,6 +128,12 @@ pub async fn task_create_batch(
     job_name: String,
     preset_id: Option<String>,
 ) -> CmdResult<Job> {
+    if let Some(ref id) = preset_id {
+        crate::validators::validate_preset_id(id)?;
+    }
+    for task in &tasks {
+        crate::validators::validate_preset_id(&task.preset_id)?;
+    }
     with_task_db(&state, move |db| {
         tracepilot_orchestrator::task_db::operations::create_task_batch(
             db.conn(),
@@ -262,6 +269,7 @@ pub async fn task_get_preset(
     config: tauri::State<'_, SharedConfig>,
     id: String,
 ) -> CmdResult<tracepilot_orchestrator::presets::types::TaskPreset> {
+    crate::validators::validate_preset_id(&id)?;
     let cfg = read_config(&config);
     let presets_dir = cfg.presets_dir();
     tokio::task::spawn_blocking(move || {
@@ -276,6 +284,7 @@ pub async fn task_save_preset(
     config: tauri::State<'_, SharedConfig>,
     preset: tracepilot_orchestrator::presets::types::TaskPreset,
 ) -> CmdResult<()> {
+    crate::validators::validate_preset_id(&preset.id)?;
     let cfg = read_config(&config);
     let presets_dir = cfg.presets_dir();
     tokio::task::spawn_blocking(move || {
@@ -290,6 +299,7 @@ pub async fn task_delete_preset(
     config: tauri::State<'_, SharedConfig>,
     id: String,
 ) -> CmdResult<()> {
+    crate::validators::validate_preset_id(&id)?;
     let cfg = read_config(&config);
     let presets_dir = cfg.presets_dir();
     tokio::task::spawn_blocking(move || {

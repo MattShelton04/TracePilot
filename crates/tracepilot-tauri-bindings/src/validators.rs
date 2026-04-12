@@ -12,6 +12,67 @@ use crate::error::{BindingsError, CmdResult};
 /// parameter preserves the existing "return everything" behaviour.
 pub(crate) const MAX_EVENTS_PAGE_LIMIT: u32 = 10_000;
 
+// ── Identifier validation ─────────────────────────────────────────────────
+
+/// Validate a template ID.
+///
+/// Template IDs must be safe for use in filesystem operations and cannot
+/// contain path traversal sequences. Alphanumeric characters, hyphens, and
+/// underscores are allowed.
+///
+/// This uses the shared validation logic from `tracepilot_orchestrator::validation`
+/// to ensure consistency across all identifier validation.
+pub(crate) fn validate_template_id(id: &str) -> CmdResult<()> {
+    tracepilot_orchestrator::validation::validate_identifier(
+        id,
+        tracepilot_orchestrator::validation::TEMPLATE_ID_RULES,
+        "Template ID",
+    )
+    .map_err(BindingsError::Validation)
+}
+
+/// Validate a preset ID.
+///
+/// Preset IDs must be safe for use in filesystem operations and cannot
+/// contain path traversal sequences. Alphanumeric characters, hyphens, and
+/// underscores are allowed.
+pub(crate) fn validate_preset_id(id: &str) -> CmdResult<()> {
+    tracepilot_orchestrator::validation::validate_identifier(
+        id,
+        tracepilot_orchestrator::validation::TEMPLATE_ID_RULES,
+        "Preset ID",
+    )
+    .map_err(BindingsError::Validation)
+}
+
+/// Validate a skill name.
+///
+/// Skill names must be safe for use in filesystem operations and cannot
+/// contain path traversal sequences or path separators. Character restrictions
+/// are more permissive than template/preset IDs to support existing skill
+/// naming conventions.
+pub(crate) fn validate_skill_name(name: &str) -> CmdResult<()> {
+    tracepilot_orchestrator::validation::validate_identifier(
+        name,
+        tracepilot_orchestrator::validation::SKILL_NAME_RULES,
+        "Skill name",
+    )
+    .map_err(BindingsError::Validation)
+}
+
+/// Validate an asset name for skills.
+///
+/// Asset names must be safe for use in filesystem operations. Uses the same
+/// rules as skill names to allow flexibility while preventing path traversal.
+pub(crate) fn validate_asset_name(name: &str) -> CmdResult<()> {
+    tracepilot_orchestrator::validation::validate_identifier(
+        name,
+        tracepilot_orchestrator::validation::SKILL_NAME_RULES,
+        "Asset name",
+    )
+    .map_err(BindingsError::Validation)
+}
+
 // ── Session-ID validation ─────────────────────────────────────────────────
 
 /// Validate that a session ID is a well-formed UUID.
@@ -602,5 +663,101 @@ mod tests {
         let msg = err.to_string();
         // Should be truncated with ellipsis
         assert!(msg.contains("…") || msg.len() < very_long.as_ref().unwrap().len());
+    }
+
+    // -- validate_template_id -----------------------------------------------
+
+    #[test]
+    fn template_id_valid_passes() {
+        assert!(validate_template_id("my-template").is_ok());
+        assert!(validate_template_id("template_123").is_ok());
+        assert!(validate_template_id("abc").is_ok());
+    }
+
+    #[test]
+    fn template_id_path_traversal_fails() {
+        let err = validate_template_id("../etc/passwd").unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("path traversal"));
+    }
+
+    #[test]
+    fn template_id_path_separator_fails() {
+        assert!(validate_template_id("foo/bar").is_err());
+        assert!(validate_template_id("foo\\bar").is_err());
+    }
+
+    #[test]
+    fn template_id_empty_fails() {
+        let err = validate_template_id("").unwrap_err();
+        assert!(err.to_string().contains("cannot be empty"));
+    }
+
+    #[test]
+    fn template_id_special_chars_fail() {
+        assert!(validate_template_id("my@template").is_err());
+        assert!(validate_template_id("my template").is_err());
+    }
+
+    // -- validate_preset_id -------------------------------------------------
+
+    #[test]
+    fn preset_id_valid_passes() {
+        assert!(validate_preset_id("my-preset").is_ok());
+        assert!(validate_preset_id("preset_v2").is_ok());
+    }
+
+    #[test]
+    fn preset_id_path_traversal_fails() {
+        let err = validate_preset_id("../../secrets").unwrap_err();
+        assert!(err.to_string().contains("path traversal"));
+    }
+
+    // -- validate_skill_name ------------------------------------------------
+
+    #[test]
+    fn skill_name_valid_passes() {
+        // Skill names are permissive - only path-safety checks
+        assert!(validate_skill_name("my-skill").is_ok());
+        assert!(validate_skill_name("skill_v2").is_ok());
+        assert!(validate_skill_name("my skill").is_ok());
+        assert!(validate_skill_name("my.skill").is_ok());
+    }
+
+    #[test]
+    fn skill_name_path_traversal_fails() {
+        let err = validate_skill_name("../malicious").unwrap_err();
+        assert!(err.to_string().contains("path traversal"));
+    }
+
+    #[test]
+    fn skill_name_path_separator_fails() {
+        assert!(validate_skill_name("foo/bar").is_err());
+        assert!(validate_skill_name("foo\\bar").is_err());
+    }
+
+    #[test]
+    fn skill_name_empty_fails() {
+        assert!(validate_skill_name("").is_err());
+    }
+
+    // -- validate_asset_name ------------------------------------------------
+
+    #[test]
+    fn asset_name_valid_passes() {
+        assert!(validate_asset_name("logo.png").is_ok());
+        assert!(validate_asset_name("data.json").is_ok());
+        assert!(validate_asset_name("my asset.txt").is_ok());
+    }
+
+    #[test]
+    fn asset_name_path_traversal_fails() {
+        let err = validate_asset_name("../../../etc/passwd").unwrap_err();
+        assert!(err.to_string().contains("path traversal"));
+    }
+
+    #[test]
+    fn asset_name_path_separator_fails() {
+        assert!(validate_asset_name("subdir/file.txt").is_err());
     }
 }
