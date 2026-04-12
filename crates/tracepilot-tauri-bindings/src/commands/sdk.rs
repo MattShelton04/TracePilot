@@ -198,3 +198,13 @@ pub async fn sdk_detect_ui_server() -> CmdResult<Vec<DetectedUiServer>> {
     let servers = tracepilot_orchestrator::bridge::detect_ui_servers().await;
     Ok(servers)
 }
+
+#[tauri::command]
+pub async fn sdk_launch_ui_server(
+    working_dir: Option<String>,
+) -> CmdResult<u32> {
+    let pid = tracepilot_orchestrator::bridge::manager::launch_ui_server(
+        working_dir.as_deref(),
+    )?;
+    Ok(pid)
+}

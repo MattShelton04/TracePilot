@@ -723,6 +723,94 @@ impl BridgeManager {
     }
 }
 
+/// Launch a `copilot --ui-server` process in a new terminal window.
+///
+/// This is independent of the SDK client — it simply spawns the CLI
+/// binary with `--ui-server` so the user gets a visible terminal with
+/// the Copilot TUI that TracePilot can then connect to via TCP.
+pub fn launch_ui_server(working_dir: Option<&str>) -> Result<u32, BridgeError> {
+    // Resolve copilot binary path via PATH
+    let copilot_path = {
+        #[cfg(windows)]
+        {
+            std::process::Command::new("where")
+                .arg("copilot")
+                .output()
+                .ok()
+                .and_then(|o| {
+                    if o.status.success() {
+                        String::from_utf8_lossy(&o.stdout)
+                            .lines()
+                            .next()
+                            .map(|s| s.trim().to_string())
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or_else(|| "copilot".to_string())
+        }
+        #[cfg(not(windows))]
+        {
+            std::process::Command::new("which")
+                .arg("copilot")
+                .output()
+                .ok()
+                .and_then(|o| {
+                    if o.status.success() {
+                        String::from_utf8_lossy(&o.stdout)
+                            .lines()
+                            .next()
+                            .map(|s| s.trim().to_string())
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or_else(|| "copilot".to_string())
+        }
+    };
+
+    let work_dir = working_dir
+        .map(std::path::PathBuf::from)
+        .or_else(|| std::env::current_dir().ok())
+        .unwrap_or_else(|| std::path::PathBuf::from("."));
+
+    #[cfg(windows)]
+    {
+        let ps_cmd = format!(
+            "$host.UI.RawUI.WindowTitle = 'TracePilot \u{2022} Copilot CLI Server'; \
+             Write-Host 'Starting Copilot CLI UI Server...' -ForegroundColor Cyan; \
+             Write-Host '  Working directory: {}' -ForegroundColor White; \
+             Write-Host '  Connect from TracePilot Settings > Detect & Connect' -ForegroundColor DarkGray; \
+             Write-Host ''; \
+             & '{}' --ui-server",
+            work_dir.display().to_string().replace('\'', "''"),
+            copilot_path.replace('\'', "''"),
+        );
+        let encoded = crate::process::encode_powershell_command(&ps_cmd);
+        crate::process::spawn_detached_terminal(
+            "powershell",
+            &["-NoExit", "-EncodedCommand", &encoded],
+            &work_dir,
+            None,
+        )
+        .map_err(|e| BridgeError::Sdk(format!("Failed to launch UI server: {e}")))
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        let cmd = format!("{} --ui-server", copilot_path);
+        crate::process::spawn_detached_terminal(&cmd, &[], &work_dir, None)
+            .map_err(|e| BridgeError::Sdk(format!("Failed to launch UI server: {e}")))
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let cmd = format!("{} --ui-server", copilot_path);
+        crate::process::spawn_detached_terminal(&cmd, &[], &work_dir, None)
+            .map_err(|e| BridgeError::Sdk(format!("Failed to launch UI server: {e}")))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -121,3 +121,7 @@ export async function sdkListModels(): Promise<BridgeModelInfo[]> {
 export async function sdkDetectUiServer(): Promise<DetectedUiServer[]> {
   return invoke<DetectedUiServer[]>("sdk_detect_ui_server");
 }
+
+export async function sdkLaunchUiServer(workingDir?: string): Promise<number> {
+  return invoke<number>("sdk_launch_ui_server", { workingDir: workingDir ?? null });
+}

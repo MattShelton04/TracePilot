@@ -168,6 +168,7 @@ fn main() {
                     "sdk_get_foreground_session",
                     "sdk_set_foreground_session",
                     "sdk_detect_ui_server",
+                    "sdk_launch_ui_server",
                 ])
                 .default_permission(tauri_build::DefaultPermissionRule::AllowAllCommands),
         ),

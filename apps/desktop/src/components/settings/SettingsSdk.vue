@@ -59,18 +59,19 @@ async function handleDisconnect() {
 }
 
 async function handleDetectAndConnect() {
-  // If already connected, disconnect first so we can switch to TCP mode
-  if (sdk.isConnected) {
-    await sdk.disconnect();
-  }
   await sdk.detectAndConnect();
 }
 
+async function handleConnectToServer(address: string) {
+  await sdk.connectToServer(address);
+}
+
+async function handleLaunchServer() {
+  await sdk.launchUiServer();
+}
+
 async function handleDetect() {
-  const servers = await sdk.detectUiServer();
-  if (servers.length > 0) {
-    sdk.updateSettings(servers[0].address, sdk.savedLogLevel);
-  }
+  await sdk.detectUiServer();
 }
 
 function handleClearUrl() {
@@ -253,15 +254,15 @@ const sessionCountLabel = computed(() => {
         <div class="setting-info">
           <div class="setting-label">Connection Mode</div>
           <div class="setting-description">
-            <strong>Stdio</strong> spawns an isolated CLI subprocess (default).
-            <strong>TCP</strong> connects to an existing <code>copilot --ui-server</code> — both TracePilot and the terminal share the same server.
+            <strong>Stdio</strong> spawns an isolated subprocess.
+            <strong>TCP</strong> connects to a running <code>copilot --ui-server</code>.
           </div>
         </div>
         <div class="sdk-mode-actions">
           <ActionButton
             size="sm"
-            :class="{ 'btn-active': !cliUrl }"
-            :disabled="sdk.isConnected && !cliUrl"
+            :class="{ 'btn-active': sdk.isConnected && sdk.isStdioMode }"
+            :disabled="sdk.isConnected && sdk.isStdioMode"
             @click="handleClearUrl"
           >
             📦 Stdio
@@ -273,27 +274,41 @@ const sessionCountLabel = computed(() => {
           >
             {{ sdk.detecting ? "Scanning…" : "🔍 Detect & Connect" }}
           </ActionButton>
+          <ActionButton
+            size="sm"
+            :disabled="sdk.launching"
+            @click="handleLaunchServer"
+          >
+            {{ sdk.launching ? "Starting…" : "🚀 Launch Server" }}
+          </ActionButton>
         </div>
       </div>
 
-      <!-- Detected servers (shown after detection) -->
-      <div v-if="sdk.detectedServers.length > 0 && !sdk.isConnected" class="setting-row">
+      <!-- Detected servers (always shown after at least one detection) -->
+      <div v-if="sdk.detectedServers.length > 0 || sdk.lastDetectMessage" class="setting-row setting-row-stacked">
         <div class="setting-info">
           <div class="setting-label">Detected Servers</div>
           <div class="setting-description">
-            Found {{ sdk.detectedServers.length }} running instance{{ sdk.detectedServers.length !== 1 ? 's' : '' }}
+            {{ sdk.lastDetectMessage ?? `${sdk.detectedServers.length} server(s) found` }}
           </div>
         </div>
-        <div class="sdk-detected-list">
+        <div v-if="sdk.detectedServers.length > 0" class="sdk-detected-list">
           <button
             v-for="server in sdk.detectedServers"
             :key="server.pid"
             class="sdk-detected-item"
-            @click="sdk.updateSettings(server.address, sdk.savedLogLevel)"
+            :class="{ 'sdk-detected-item--active': sdk.isConnected && cliUrl === server.address }"
+            @click="handleConnectToServer(server.address)"
           >
             <span class="sdk-detected-addr">{{ server.address }}</span>
-            <span class="sdk-detected-pid">PID {{ server.pid }}</span>
+            <span class="sdk-detected-meta">
+              <span class="sdk-detected-pid">PID {{ server.pid }}</span>
+              <span v-if="sdk.isConnected && cliUrl === server.address" class="sdk-detected-connected">● Connected</span>
+            </span>
           </button>
+        </div>
+        <div v-if="sdk.detectedServers.length > 1" class="sdk-detected-hint">
+          Click a server to switch to it
         </div>
       </div>
 
@@ -501,14 +516,34 @@ const sessionCountLabel = computed(() => {
   background: var(--accent-subtle);
   border-color: var(--accent-emphasis);
 }
+.sdk-detected-item--active {
+  background: var(--accent-subtle);
+  border-color: var(--accent-emphasis);
+  cursor: default;
+}
 .sdk-detected-addr {
   font-family: 'JetBrains Mono', monospace;
   font-weight: 500;
   color: var(--accent-fg);
 }
+.sdk-detected-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .sdk-detected-pid {
   font-size: 0.6875rem;
   color: var(--text-tertiary);
+}
+.sdk-detected-connected {
+  font-size: 0.6875rem;
+  color: var(--success-fg);
+  font-weight: 500;
+}
+.sdk-detected-hint {
+  font-size: 0.6875rem;
+  color: var(--text-placeholder);
+  padding-top: 2px;
 }
 
 .sdk-url-row {

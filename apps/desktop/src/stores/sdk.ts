@@ -19,6 +19,7 @@ import {
   sdkGetAuthStatus,
   sdkGetForegroundSession,
   sdkGetQuota,
+  sdkLaunchUiServer,
   sdkListModels,
   sdkListSessions,
   sdkResumeSession,
@@ -104,6 +105,10 @@ export const useSdkStore = defineStore("sdk", () => {
   // UI server detection
   const detectedServers = ref<DetectedUiServer[]>([]);
   const detecting = ref(false);
+  /** Message shown after detection: "Found N server(s)" or "No servers found" */
+  const lastDetectMessage = ref<string | null>(null);
+  /** True while launching a UI server process */
+  const launching = ref(false);
 
   // ─── Computed ─────────────────────────────────────────────────────
 
@@ -436,22 +441,33 @@ export const useSdkStore = defineStore("sdk", () => {
   /** Detect running `copilot --ui-server` instances and return their addresses. */
   async function detectUiServer(): Promise<DetectedUiServer[]> {
     detecting.value = true;
+    lastDetectMessage.value = null;
     try {
       const servers = await sdkDetectUiServer();
       detectedServers.value = servers;
+      if (servers.length === 0) {
+        lastDetectMessage.value = "No running Copilot servers found. Launch one or start copilot --ui-server manually.";
+      } else {
+        lastDetectMessage.value = `Found ${servers.length} server${servers.length !== 1 ? "s" : ""}`;
+      }
       logInfo("[sdk] Detected UI servers:", servers.length, servers.map(s => s.address));
       return servers;
     } catch (e) {
       logWarn("[sdk] UI server detection failed:", e);
       detectedServers.value = [];
+      lastDetectMessage.value = "Detection failed — " + toErrorMessage(e);
       return [];
     } finally {
       detecting.value = false;
     }
   }
 
-  /** Detect a UI server and auto-connect to it. */
+  /** Detect a UI server and auto-connect to the first one found. */
   async function detectAndConnect(): Promise<boolean> {
+    // If already connected, disconnect first so we can reconnect to TCP
+    if (connectionState.value === "connected") {
+      await disconnect();
+    }
     const servers = await detectUiServer();
     if (servers.length === 0) return false;
     // Use the first detected server
@@ -460,6 +476,36 @@ export const useSdkStore = defineStore("sdk", () => {
     updateSettings(server.address, savedLogLevel.value);
     await connect({ cliUrl: server.address, logLevel: savedLogLevel.value || undefined });
     return connectionState.value === "connected";
+  }
+
+  /** Switch to a specific server address (disconnect first if needed). */
+  async function connectToServer(address: string): Promise<boolean> {
+    if (connectionState.value === "connected") {
+      await disconnect();
+    }
+    updateSettings(address, savedLogLevel.value);
+    await connect({ cliUrl: address, logLevel: savedLogLevel.value || undefined });
+    return connectionState.value === "connected";
+  }
+
+  /** Launch a new `copilot --ui-server` terminal and optionally auto-detect after a delay. */
+  async function launchUiServer(workingDir?: string): Promise<number | null> {
+    launching.value = true;
+    try {
+      const pid = await sdkLaunchUiServer(workingDir);
+      logInfo("[sdk] Launched UI server, PID:", pid);
+      // Give the server a moment to start, then auto-detect
+      setTimeout(async () => {
+        await detectUiServer();
+        launching.value = false;
+      }, 3000);
+      return pid;
+    } catch (e) {
+      lastError.value = toErrorMessage(e);
+      logWarn("[sdk] Failed to launch UI server:", e);
+      launching.value = false;
+      return null;
+    }
   }
 
   // Attempt auto-connect on store initialization (deferred to next tick so preferences are loaded)
@@ -491,6 +537,8 @@ export const useSdkStore = defineStore("sdk", () => {
     sendingMessage,
     detectedServers,
     detecting,
+    lastDetectMessage,
+    launching,
 
     // Computed
     isConnected,
@@ -523,6 +571,8 @@ export const useSdkStore = defineStore("sdk", () => {
     setForegroundSession,
     detectUiServer,
     detectAndConnect,
+    connectToServer,
+    launchUiServer,
     cleanup,
   };
 });
