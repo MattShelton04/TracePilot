@@ -26,7 +26,7 @@ pub async fn save_config(
 
     let mut guard = state
         .write()
-        .map_err(|_| BindingsError::Validation("Config lock poisoned".into()))?;
+        .map_err(crate::error::lock_poison_err("Config"))?;
     *guard = Some(config);
     Ok(())
 }
@@ -91,7 +91,7 @@ pub async fn factory_reset(state: tauri::State<'_, SharedConfig>) -> CmdResult<(
 
     let mut guard = state
         .write()
-        .map_err(|_| BindingsError::Validation("Config lock poisoned".into()))?;
+        .map_err(crate::error::lock_poison_err("Config"))?;
     *guard = None;
     Ok(())
 }
