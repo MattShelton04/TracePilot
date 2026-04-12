@@ -7,6 +7,9 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 
 ## [Unreleased]
 
+### Removed
+- Deprecated `exportSession()` client API — use `exportSessions()` instead (same functionality, accepts a single config)
+
 ## [0.6.1] - 2026-03-31
 
 ### Added

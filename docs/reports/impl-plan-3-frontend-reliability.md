@@ -391,7 +391,7 @@ async function getMockModule() {
 **Additional changes required**:
 - `getMockData()` must become `async` since it now depends on a dynamic import
 - All `invoke()` calls that use mock fallbacks must `await` the lazy import
-- `getHealthScores()` and `exportSession()` also reference mocks and must lazy-load them
+- `getHealthScores()` and `exportSessions()` also reference mocks and must lazy-load them
 - Instead of building one huge mock object eagerly, use an async switch-based resolver:
 
 ```ts

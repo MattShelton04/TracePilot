@@ -512,7 +512,7 @@ Note: Lower severity for a Tauri desktop app, but window resizing still matters.
 |----------|-------|
 | 🟠 High | Zero tests — critical IPC bridge untested |
 | 🟠 High | No error handling layer — raw `invoke()` with no try/catch, retry, or error normalization |
-| 🟡 Medium | `getHealthScores()` and `exportSession()` are permanent stubs returning mocks even in Tauri |
+| 🟡 Medium | `getHealthScores()` and `exportSessions()` are permanent stubs returning mocks even in Tauri |
 | 🟡 Medium | No caching strategy — every call hits the backend |
 | 🟡 Medium | 46 KB mock data file (`mock/index.ts`) should be extracted to JSON or test-fixtures package |
 | 🟢 Low | Unnecessary `SessionHealth` re-export from types package |
