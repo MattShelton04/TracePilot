@@ -40,9 +40,8 @@ pub fn discover_sessions(base_dir: &Path) -> Result<Vec<DiscoveredSession>> {
         return Ok(sessions);
     }
 
-    let entries = std::fs::read_dir(base_dir).map_err(|e| TracePilotError::ParseError {
-        context: format!("Failed to read session-state dir: {}", base_dir.display()),
-        source: Some(Box::new(e)),
+    let entries = std::fs::read_dir(base_dir).map_err(|e| {
+        TracePilotError::io_context("Failed to read session-state dir:", base_dir.display(), e)
     })?;
 
     for entry in entries {
