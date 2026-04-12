@@ -487,6 +487,7 @@ export const useSearchStore = defineStore("search", () => {
       const err = aggregateSettledErrors(results);
       if (err) {
         error.value = err;
+        logWarn("[search] Rebuild encountered errors:", err);
       }
       if (hasQuery.value || hasActiveFilters.value || hasResults.value) {
         await executeSearch();
