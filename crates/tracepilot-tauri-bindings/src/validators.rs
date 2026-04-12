@@ -49,6 +49,40 @@ pub(crate) fn validate_session_id_list(session_ids: &[String]) -> CmdResult<()> 
     Ok(())
 }
 
+// ── Task-ID validation ────────────────────────────────────────────────────
+
+/// Validate that a task ID is a well-formed UUID.
+///
+/// All orchestrator tasks use UUID identifiers (enforced by the task database
+/// schema).  Rejecting malformed IDs at the IPC boundary provides:
+///
+/// * immediate, clear error messages instead of opaque database errors
+/// * fast rejection without database I/O
+/// * defence-in-depth regardless of downstream checks
+pub(crate) fn validate_task_id(task_id: &str) -> CmdResult<()> {
+    uuid::Uuid::parse_str(task_id).map_err(|_| {
+        BindingsError::Validation(format!(
+            "Invalid task ID format: expected UUID, got '{}'",
+            truncate_for_display(task_id, 64)
+        ))
+    })?;
+    Ok(())
+}
+
+/// Validate a job ID (UUID format, same as task IDs).
+///
+/// Jobs share the same UUID identifier format as tasks. This wrapper provides
+/// a correctly-worded error message when validating the `job_id` parameter.
+pub(crate) fn validate_job_id(job_id: &str) -> CmdResult<()> {
+    uuid::Uuid::parse_str(job_id).map_err(|_| {
+        BindingsError::Validation(format!(
+            "Invalid job ID format: expected UUID, got '{}'",
+            truncate_for_display(job_id, 64)
+        ))
+    })?;
+    Ok(())
+}
+
 // ── Date validation ───────────────────────────────────────────────────────
 
 /// Maximum reasonable Unix timestamp (year 3000-01-01).
@@ -281,6 +315,51 @@ mod tests {
     #[test]
     fn empty_list_passes() {
         assert!(validate_session_id_list(&[]).is_ok());
+    }
+
+    // -- validate_task_id ---------------------------------------------------
+
+    #[test]
+    fn task_valid_uuid_passes() {
+        assert!(validate_task_id("a1b2c3d4-e5f6-7890-abcd-ef1234567890").is_ok());
+    }
+
+    #[test]
+    fn task_uppercase_uuid_passes() {
+        assert!(validate_task_id("A1B2C3D4-E5F6-7890-ABCD-EF1234567890").is_ok());
+    }
+
+    #[test]
+    fn task_invalid_uuid_fails_with_validation_error() {
+        let err = validate_task_id("not-a-uuid").unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("Invalid task ID format"), "got: {msg}");
+        assert!(msg.contains("not-a-uuid"), "should include input: {msg}");
+    }
+
+    #[test]
+    fn task_empty_string_fails() {
+        assert!(validate_task_id("").is_err());
+    }
+
+    #[test]
+    fn task_partial_uuid_fails() {
+        // Only the first segment of a valid UUID — not a full UUID.
+        assert!(validate_task_id("a1b2c3d4").is_err());
+    }
+
+    // -- validate_job_id ------------------------------------------------------
+
+    #[test]
+    fn job_valid_uuid_passes() {
+        assert!(validate_job_id("a1b2c3d4-e5f6-7890-abcd-ef1234567890").is_ok());
+    }
+
+    #[test]
+    fn job_invalid_id_fails() {
+        let err = validate_job_id("not-a-uuid").unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("job ID"), "error should say 'job ID', got: {msg}");
     }
 
     // -- clamp_limit --------------------------------------------------------
