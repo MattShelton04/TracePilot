@@ -1,12 +1,13 @@
 <script setup lang="ts">
 /**
- * SettingsSdk — SDK bridge configuration panel with built-in diagnostics.
+ * SettingsSdk — SDK bridge configuration panel.
  *
- * Visible only when the copilotSdk feature flag is enabled.
- * Follows the same setting-row / SectionPanel pattern used in
- * SettingsGeneral and SettingsLogging for visual consistency.
+ * Organized into three logical groups:
+ *   1. Connection — status, mode selector, connect/disconnect
+ *   2. TCP Servers — detect, launch, switch between servers
+ *   3. Advanced — log level, diagnostics, raw state
  */
-import { ActionButton, FormInput, SectionPanel } from "@tracepilot/ui";
+import { ActionButton, BtnGroup, FormInput, SectionPanel } from "@tracepilot/ui";
 import { computed, ref } from "vue";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSdkStore } from "@/stores/sdk";
@@ -15,18 +16,27 @@ const prefs = usePreferencesStore();
 const sdk = useSdkStore();
 
 const isEnabled = computed(() => prefs.isFeatureEnabled("copilotSdk"));
-const showHowTo = ref(false);
+const showAdvanced = ref(false);
 
-// Connection mode: "auto" (stdio), "detect" (auto-detect --ui-server), "manual" (custom TCP)
-const connectionMode = computed({
-  get: () => {
-    if (!sdk.savedCliUrl) return "auto";
-    return "manual";
-  },
-  set: (_v: string) => {
-    // Handled by mode-specific actions
-  },
-});
+// ─── Mode selection (local UI state, drives what connect() does) ────────
+// "stdio" = isolated subprocess, "tcp" = connect to existing server
+const selectedMode = ref<"stdio" | "tcp">(sdk.savedCliUrl ? "tcp" : "stdio");
+
+const modeOptions = [
+  { value: "stdio", label: "📦 Stdio" },
+  { value: "tcp", label: "🌐 TCP" },
+];
+
+function handleModeChange(mode: string) {
+  selectedMode.value = mode as "stdio" | "tcp";
+  if (mode === "stdio") {
+    sdk.updateSettings("", sdk.savedLogLevel);
+    // If connected in TCP mode, disconnect (user explicitly chose stdio)
+    if (sdk.isConnected && sdk.isTcpMode) {
+      sdk.disconnect();
+    }
+  }
+}
 
 // Bind to persisted store settings
 const cliUrl = computed({
@@ -38,14 +48,7 @@ const logLevel = computed({
   set: (v: string) => sdk.updateSettings(sdk.savedCliUrl, v),
 });
 
-// Diagnostics
-const diagLog = ref<string[]>([]);
-const diagRunning = ref(false);
-
-function diagAppend(msg: string) {
-  const ts = new Date().toISOString().slice(11, 23);
-  diagLog.value = [...diagLog.value, `[${ts}] ${msg}`];
-}
+// ─── Handlers ───────────────────────────────────────────────────────────
 
 async function handleConnect() {
   await sdk.connect({
@@ -58,24 +61,19 @@ async function handleDisconnect() {
   await sdk.disconnect();
 }
 
-async function handleDetectAndConnect() {
-  await sdk.detectAndConnect();
+async function handleDetect() {
+  await sdk.detectUiServer();
 }
 
 async function handleConnectToServer(address: string) {
+  // Don't reconnect to the same server
+  if (sdk.isConnected && cliUrl.value === address) return;
+  selectedMode.value = "tcp";
   await sdk.connectToServer(address);
 }
 
 async function handleLaunchServer() {
   await sdk.launchUiServer();
-}
-
-async function handleDetect() {
-  await sdk.detectUiServer();
-}
-
-function handleClearUrl() {
-  sdk.updateSettings("", sdk.savedLogLevel);
 }
 
 async function refreshAll() {
@@ -88,94 +86,58 @@ async function refreshAll() {
   ]);
 }
 
-/** Run full diagnostics — tests each SDK operation step-by-step and logs results. */
+// ─── Diagnostics ────────────────────────────────────────────────────────
+
+const diagLog = ref<string[]>([]);
+const diagRunning = ref(false);
+
+function diagAppend(msg: string) {
+  const ts = new Date().toISOString().slice(11, 23);
+  diagLog.value = [...diagLog.value, `[${ts}] ${msg}`];
+}
+
 async function runDiagnostics() {
   diagLog.value = [];
   diagRunning.value = true;
 
   try {
-    // Step 1: Check current state
     diagAppend(`State: ${sdk.connectionState}, SDK available: ${sdk.sdkAvailable}`);
     diagAppend(`Sessions in store: ${sdk.sessions.length}, Models: ${sdk.models.length}`);
 
-    // Step 2: Detect UI servers
     diagAppend("Scanning for running copilot --ui-server instances...");
     const servers = await sdk.detectUiServer();
     if (servers.length > 0) {
-      for (const s of servers) {
-        diagAppend(`✅ Found UI server: PID ${s.pid} @ ${s.address}`);
-      }
+      for (const s of servers) diagAppend(`✅ Found UI server: PID ${s.pid} @ ${s.address}`);
     } else {
       diagAppend("⏭️ No --ui-server instances detected");
     }
 
-    // Step 3: Connect (or reconnect)
     diagAppend("Connecting to SDK...");
     try {
-      await sdk.connect({
-        cliUrl: cliUrl.value || undefined,
-        logLevel: logLevel.value || undefined,
-      });
+      await sdk.connect({ cliUrl: cliUrl.value || undefined, logLevel: logLevel.value || undefined });
       diagAppend(`✅ Connected! State: ${sdk.connectionState}, Mode: ${sdk.connectionMode ?? "unknown"}`);
     } catch (e) {
       diagAppend(`❌ Connect failed: ${e instanceof Error ? e.message : String(e)}`);
-      diagAppend(`Last error: ${sdk.lastError}`);
       return;
     }
 
-    // Step 4: Auth status
     diagAppend("Fetching auth status...");
     await sdk.fetchAuthStatus();
-    if (sdk.authStatus) {
-      diagAppend(`✅ Auth: ${sdk.authStatus.isAuthenticated ? "authenticated" : "NOT authenticated"} (${sdk.authStatus.login ?? "no login"} @ ${sdk.authStatus.host ?? "no host"})`);
-    } else {
-      diagAppend("⚠️ Auth status: null (could not retrieve)");
-    }
+    diagAppend(sdk.authStatus
+      ? `✅ Auth: ${sdk.authStatus.isAuthenticated ? "authenticated" : "NOT authenticated"} (${sdk.authStatus.login ?? "no login"})`
+      : "⚠️ Auth status: null");
 
-    // Step 5: Models
     diagAppend("Fetching models...");
     await sdk.fetchModels();
     diagAppend(`✅ Models: ${sdk.models.length} available`);
-    if (sdk.models.length > 0) {
-      diagAppend(`   First 5: ${sdk.models.slice(0, 5).map(m => m.id).join(", ")}`);
-    }
 
-    // Step 6: Sessions
     diagAppend("Fetching sessions...");
     await sdk.fetchSessions();
     diagAppend(`✅ Sessions: ${sdk.sessions.length} found`);
-    if (sdk.sessions.length > 0) {
-      const active = sdk.sessions.filter(s => s.isActive).length;
-      diagAppend(`   Active (resumed): ${active}, Listed: ${sdk.sessions.length - active}`);
-      diagAppend(`   First 3: ${sdk.sessions.slice(0, 3).map(s => s.sessionId.slice(0, 8) + "…").join(", ")}`);
-    }
 
-    // Step 7: Status
     diagAppend("Fetching bridge status...");
     await sdk.refreshStatus();
     diagAppend(`✅ Status: state=${sdk.connectionState}, active=${sdk.activeSessions}, cli=${sdk.cliVersion ?? "unknown"}`);
-
-    // Step 8: Quota (expected to fail)
-    diagAppend("Fetching quota (may fail — expected on most CLI versions)...");
-    await sdk.fetchQuota();
-    if (sdk.quota) {
-      diagAppend(`✅ Quota: ${sdk.quota.quotas?.length ?? 0} entries`);
-    } else {
-      diagAppend("⚠️ Quota: not available (expected — account.get_quota not supported)");
-    }
-
-    // Step 9: Session summary (no resume — too risky)
-    if (sdk.sessions.length > 0) {
-      const first3 = sdk.sessions.slice(0, 3).map(s => {
-        const id = s.sessionId.slice(0, 8) + "…";
-        const flags = [s.isActive ? "active" : "listed", s.isRemote ? "remote" : "local"].join(", ");
-        return `${id} (${flags})`;
-      });
-      diagAppend(`📋 Sessions: ${first3.join(" · ")}${sdk.sessions.length > 3 ? ` +${sdk.sessions.length - 3} more` : ""}`);
-      diagAppend("ℹ️ Session resume is triggered when you click 'Link for Steering' in a session.");
-    } else {
-      diagAppend("⏭️ No sessions found. Start a Copilot CLI session first.");
-    }
 
     diagAppend("─── Diagnostics complete ───");
   } catch (e) {
@@ -185,29 +147,42 @@ async function runDiagnostics() {
   }
 }
 
+// ─── Computed labels ────────────────────────────────────────────────────
+
 const connectionLabel = computed(() => {
-  switch (sdk.connectionState) {
-    case "connected": return "Connected";
-    case "connecting": return "Connecting…";
-    case "error": return "Error";
-    default: return "Disconnected";
-  }
+  if (sdk.isConnecting) return "Connecting…";
+  if (!sdk.isConnected) return "Disconnected";
+  const parts = ["Connected"];
+  if (sdk.connectionMode === "tcp") parts.push("TCP · " + (cliUrl.value || "?"));
+  else parts.push("Stdio");
+  if (sdk.cliVersion) parts[1] += ` · CLI ${sdk.cliVersion}`;
+  return parts.join(" · ");
 });
 
 const sessionCountLabel = computed(() => {
   const total = sdk.sessions.length;
   const active = sdk.sessions.filter(s => s.isActive).length;
-  if (total === 0) return "0 sessions";
-  if (active === 0) return `${total} session${total !== 1 ? "s" : ""} (none resumed)`;
-  return `${active} resumed / ${total} total`;
+  if (total === 0) return "No sessions";
+  if (active === 0) return `${total} session${total !== 1 ? "s" : ""}`;
+  return `${active} active / ${total} total`;
 });
+
+/** True when the user's selected mode is TCP (or has a CLI URL set). */
+const isTcpSelected = computed(() => selectedMode.value === "tcp" || !!cliUrl.value);
+
+/** True when currently connected to this specific server address. */
+function isActiveServer(address: string) {
+  return sdk.isConnected && cliUrl.value === address;
+}
 </script>
 
 <template>
   <div v-if="isEnabled" class="settings-section">
     <div class="settings-section-title">Copilot SDK Bridge</div>
+
+    <!-- ─── 1. Connection ─────────────────────────── -->
     <SectionPanel>
-      <!-- Connection status -->
+      <!-- Status row -->
       <div class="setting-row">
         <div class="setting-info">
           <div class="setting-label">
@@ -216,18 +191,14 @@ const sessionCountLabel = computed(() => {
           </div>
           <div class="setting-description">
             {{ connectionLabel }}
-            <template v-if="sdk.connectionMode"> · {{ sdk.connectionMode === 'tcp' ? '🌐 TCP (shared server)' : '📦 Stdio (isolated subprocess)' }}</template>
-            <template v-if="sdk.cliVersion"> · CLI {{ sdk.cliVersion }}</template>
-            <template v-if="sdk.isConnected"> · {{ sessionCountLabel }}</template>
-            <template v-if="sdk.isConnected"> · {{ sdk.models.length }} models</template>
+            <template v-if="sdk.isConnected">
+              <span class="sdk-stat"> · {{ sessionCountLabel }}</span>
+              <span class="sdk-stat"> · {{ sdk.models.length }} models</span>
+            </template>
           </div>
         </div>
         <div class="setting-actions">
-          <ActionButton
-            v-if="sdk.isConnected"
-            size="sm"
-            @click="refreshAll"
-          >
+          <ActionButton v-if="sdk.isConnected" size="sm" @click="refreshAll">
             Refresh
           </ActionButton>
           <ActionButton
@@ -239,7 +210,7 @@ const sessionCountLabel = computed(() => {
             {{ sdk.isConnecting ? "Connecting…" : "Connect" }}
           </ActionButton>
           <ActionButton
-            v-else
+            v-if="sdk.isConnected"
             size="sm"
             class="btn-danger"
             @click="handleDisconnect"
@@ -249,115 +220,24 @@ const sessionCountLabel = computed(() => {
         </div>
       </div>
 
-      <!-- Connection Mode -->
+      <!-- Mode selector -->
       <div class="setting-row">
         <div class="setting-info">
-          <div class="setting-label">Connection Mode</div>
+          <div class="setting-label">Mode</div>
           <div class="setting-description">
-            <strong>Stdio</strong> spawns an isolated subprocess.
-            <strong>TCP</strong> connects to a running <code>copilot --ui-server</code>.
+            {{ selectedMode === 'stdio'
+              ? 'Spawns an isolated CLI subprocess — no shared state with your terminal.'
+              : 'Connects to a running CLI server — steer sessions started in your terminal.' }}
           </div>
         </div>
-        <div class="sdk-mode-actions">
-          <ActionButton
-            size="sm"
-            :class="{ 'btn-active': sdk.isConnected && sdk.isStdioMode }"
-            :disabled="sdk.isConnected && sdk.isStdioMode"
-            @click="handleClearUrl"
-          >
-            📦 Stdio
-          </ActionButton>
-          <ActionButton
-            size="sm"
-            :disabled="sdk.detecting"
-            @click="handleDetectAndConnect"
-          >
-            {{ sdk.detecting ? "Scanning…" : "🔍 Detect & Connect" }}
-          </ActionButton>
-          <ActionButton
-            size="sm"
-            :disabled="sdk.launching"
-            @click="handleLaunchServer"
-          >
-            {{ sdk.launching ? "Starting…" : "🚀 Launch Server" }}
-          </ActionButton>
-        </div>
+        <BtnGroup
+          :options="modeOptions"
+          :model-value="selectedMode"
+          @update:model-value="handleModeChange"
+        />
       </div>
 
-      <!-- Detected servers (always shown after at least one detection) -->
-      <div v-if="sdk.detectedServers.length > 0 || sdk.lastDetectMessage" class="setting-row setting-row-stacked">
-        <div class="setting-info">
-          <div class="setting-label">Detected Servers</div>
-          <div class="setting-description">
-            {{ sdk.lastDetectMessage ?? `${sdk.detectedServers.length} server(s) found` }}
-          </div>
-        </div>
-        <div v-if="sdk.detectedServers.length > 0" class="sdk-detected-list">
-          <button
-            v-for="server in sdk.detectedServers"
-            :key="server.pid"
-            class="sdk-detected-item"
-            :class="{ 'sdk-detected-item--active': sdk.isConnected && cliUrl === server.address }"
-            @click="handleConnectToServer(server.address)"
-          >
-            <span class="sdk-detected-addr">{{ server.address }}</span>
-            <span class="sdk-detected-meta">
-              <span class="sdk-detected-pid">PID {{ server.pid }}</span>
-              <span v-if="sdk.isConnected && cliUrl === server.address" class="sdk-detected-connected">● Connected</span>
-            </span>
-          </button>
-        </div>
-        <div v-if="sdk.detectedServers.length > 1" class="sdk-detected-hint">
-          Click a server to switch to it
-        </div>
-      </div>
-
-      <!-- CLI URL (shown when in TCP mode or manually set) -->
-      <div v-if="cliUrl || connectionMode === 'manual'" class="setting-row">
-        <div class="setting-info">
-          <div class="setting-label">CLI URL</div>
-          <div class="setting-description">
-            TCP address of a running Copilot CLI server.
-            Use <code>Detect UI Server</code> above or enter manually.
-          </div>
-        </div>
-        <div class="sdk-url-row">
-          <FormInput
-            v-model="cliUrl"
-            type="text"
-            placeholder="e.g. 127.0.0.1:60381"
-            class="input-medium"
-            :disabled="sdk.isConnected"
-          />
-          <ActionButton
-            v-if="cliUrl && !sdk.isConnected"
-            size="sm"
-            class="btn-ghost"
-            title="Clear URL and switch to stdio mode"
-            @click="handleClearUrl"
-          >
-            ✕
-          </ActionButton>
-        </div>
-      </div>
-
-      <!-- SDK Log Level -->
-      <div class="setting-row">
-        <div class="setting-info">
-          <div class="setting-label">SDK log level</div>
-          <div class="setting-description">
-            Verbosity for SDK bridge diagnostic messages
-          </div>
-        </div>
-        <select v-model="logLevel" class="sdk-select" :disabled="sdk.isConnected">
-          <option value="error">Error</option>
-          <option value="warn">Warn</option>
-          <option value="info">Info</option>
-          <option value="debug">Debug</option>
-        </select>
-      </div>
-
-      <!-- Auth (shown when connected) -->
+      <!-- Auth (when connected) -->
       <div v-if="sdk.isConnected && sdk.authStatus" class="setting-row">
         <div class="setting-info">
           <div class="setting-label">Authentication</div>
@@ -366,24 +246,6 @@ const sessionCountLabel = computed(() => {
               {{ sdk.authStatus.isAuthenticated ? "Authenticated" : "Not authenticated" }}
             </span>
             <template v-if="sdk.authStatus.login"> · {{ sdk.authStatus.login }}</template>
-            <template v-if="sdk.authStatus.host"> · {{ sdk.authStatus.host }}</template>
-          </div>
-        </div>
-      </div>
-
-      <!-- Quota (shown when connected and available) -->
-      <div v-if="sdk.isConnected && sdk.quota?.quotas?.length" class="setting-row setting-row-stacked">
-        <div class="setting-info">
-          <div class="setting-label">Quota</div>
-          <div class="setting-description">Current API usage limits</div>
-        </div>
-        <div class="sdk-quota-grid">
-          <div v-for="q in sdk.quota.quotas" :key="q.quotaType" class="sdk-quota-item">
-            <span class="sdk-quota-type">{{ q.quotaType }}</span>
-            <span class="sdk-quota-val">
-              {{ q.used ?? "?" }} / {{ q.limit ?? "∞" }}
-              <template v-if="q.remaining != null"> ({{ q.remaining }} left)</template>
-            </span>
           </div>
         </div>
       </div>
@@ -395,78 +257,152 @@ const sessionCountLabel = computed(() => {
           <div class="setting-description setting-result-danger">{{ sdk.lastError }}</div>
         </div>
       </div>
-
-      <!-- How to Use (collapsible) -->
-      <div class="setting-row setting-row-stacked">
-        <button class="sdk-howto-toggle" @click="showHowTo = !showHowTo">
-          <span class="sdk-howto-arrow" :class="{ 'sdk-howto-arrow--open': showHowTo }">▸</span>
-          How to use the SDK Bridge
-        </button>
-        <div v-if="showHowTo" class="sdk-howto">
-          <p><strong>Stdio mode (default)</strong> — TracePilot spawns its own isolated Copilot CLI process. Good for creating new sessions. No shared state with your terminal.</p>
-          <p><strong>TCP mode (recommended for steering)</strong> — Connect to an existing CLI server to steer sessions started in your terminal:</p>
-          <ol>
-            <li>Run <code>copilot --ui-server</code> in a terminal. It starts a background server.</li>
-            <li>Click <strong>Detect &amp; Connect</strong> above — TracePilot will find it and connect automatically.</li>
-            <li>Or run <code>copilot --server --port 3333</code> and enter <code>127.0.0.1:3333</code> as the CLI URL.</li>
-          </ol>
-          <p>Once connected, open any session's conversation view and click <strong>Link for Steering</strong> to send messages and change modes in real time.</p>
-        </div>
-      </div>
     </SectionPanel>
 
-    <!-- Diagnostics -->
-    <div class="settings-section-title" style="margin-top: 16px;">SDK Diagnostics</div>
-    <SectionPanel>
-      <div class="setting-row">
-        <div class="setting-info">
-          <div class="setting-label">Connection Test</div>
-          <div class="setting-description">
-            Scans for UI servers, connects, and tests auth, models, and sessions.
+    <!-- ─── 2. TCP Servers (only when TCP mode selected) ── -->
+    <template v-if="isTcpSelected">
+      <div class="settings-section-title" style="margin-top: 16px;">TCP Servers</div>
+      <SectionPanel>
+        <!-- Actions row -->
+        <div class="setting-row">
+          <div class="setting-info">
+            <div class="setting-label">Server Discovery</div>
+            <div class="setting-description">
+              Scan for running <code>copilot --ui-server</code> instances, or launch a new one.
+            </div>
+          </div>
+          <div class="sdk-mode-actions">
+            <ActionButton size="sm" :disabled="sdk.detecting" @click="handleDetect">
+              {{ sdk.detecting ? "Scanning…" : "🔍 Detect" }}
+            </ActionButton>
+            <ActionButton size="sm" :disabled="sdk.launching" @click="handleLaunchServer">
+              {{ sdk.launching ? "Starting…" : "🚀 Launch" }}
+            </ActionButton>
           </div>
         </div>
-        <ActionButton size="sm" :disabled="diagRunning" @click="runDiagnostics">
-          {{ diagRunning ? "Running…" : "Run Diagnostics" }}
-        </ActionButton>
-      </div>
 
-      <div v-if="diagLog.length > 0" class="diag-log-wrap">
-        <div class="diag-log">
-          <div v-for="(line, i) in diagLog" :key="i" class="diag-line" :class="{
-            'diag-ok': line.includes('✅'),
-            'diag-warn': line.includes('⚠️'),
-            'diag-err': line.includes('❌') || line.includes('💥'),
-          }">{{ line }}</div>
+        <!-- Detected servers list -->
+        <div v-if="sdk.detectedServers.length > 0 || sdk.lastDetectMessage" class="setting-row setting-row-stacked">
+          <div v-if="sdk.detectedServers.length > 0" class="sdk-detected-list">
+            <button
+              v-for="server in sdk.detectedServers"
+              :key="server.pid"
+              class="sdk-detected-item"
+              :class="{ 'sdk-detected-item--active': isActiveServer(server.address) }"
+              :disabled="isActiveServer(server.address)"
+              @click="handleConnectToServer(server.address)"
+            >
+              <span class="sdk-detected-addr">{{ server.address }}</span>
+              <span class="sdk-detected-meta">
+                <span class="sdk-detected-pid">PID {{ server.pid }}</span>
+                <span v-if="isActiveServer(server.address)" class="sdk-detected-badge">● Connected</span>
+              </span>
+            </button>
+          </div>
+          <div v-else-if="sdk.lastDetectMessage" class="sdk-detect-msg">
+            {{ sdk.lastDetectMessage }}
+          </div>
         </div>
-      </div>
 
-      <!-- Raw state dump -->
-      <div class="setting-row setting-row-stacked">
-        <div class="setting-info">
-          <div class="setting-label">Raw State</div>
-          <div class="setting-description">Current SDK store values</div>
+        <!-- Manual CLI URL -->
+        <div class="setting-row">
+          <div class="setting-info">
+            <div class="setting-label">CLI URL</div>
+            <div class="setting-description">
+              Detected automatically, or enter manually (e.g. <code>127.0.0.1:3333</code>)
+            </div>
+          </div>
+          <div class="sdk-url-row">
+            <FormInput
+              v-model="cliUrl"
+              type="text"
+              placeholder="127.0.0.1:port"
+              class="input-medium"
+              :disabled="sdk.isConnected"
+            />
+            <ActionButton
+              v-if="cliUrl && !sdk.isConnected"
+              size="sm"
+              class="btn-ghost"
+              title="Clear URL"
+              @click="sdk.updateSettings('', sdk.savedLogLevel)"
+            >
+              ✕
+            </ActionButton>
+          </div>
         </div>
-        <div class="diag-raw">
-          <div><span class="diag-key">connectionState:</span> {{ sdk.connectionState }}</div>
-          <div><span class="diag-key">connectionMode:</span> {{ sdk.connectionMode ?? "null" }}</div>
-          <div><span class="diag-key">sdkAvailable:</span> {{ sdk.sdkAvailable }}</div>
-          <div><span class="diag-key">cliVersion:</span> {{ sdk.cliVersion ?? "null" }}</div>
-          <div><span class="diag-key">protocolVersion:</span> {{ sdk.protocolVersion ?? "null" }}</div>
-          <div><span class="diag-key">activeSessions:</span> {{ sdk.activeSessions }}</div>
-          <div><span class="diag-key">sessions.length:</span> {{ sdk.sessions.length }}</div>
-          <div><span class="diag-key">models.length:</span> {{ sdk.models.length }}</div>
-          <div><span class="diag-key">authStatus:</span> {{ sdk.authStatus ? `${sdk.authStatus.isAuthenticated ? 'yes' : 'no'} (${sdk.authStatus.login})` : 'null' }}</div>
-          <div><span class="diag-key">lastError:</span> {{ sdk.lastError ?? "null" }}</div>
-          <div><span class="diag-key">detectedServers:</span> {{ sdk.detectedServers.length }} servers</div>
-          <div><span class="diag-key">sendingMessage:</span> {{ sdk.sendingMessage }}</div>
-          <div><span class="diag-key">recentEvents:</span> {{ sdk.recentEvents.length }} events</div>
+      </SectionPanel>
+    </template>
+
+    <!-- ─── 3. Advanced (collapsible) ─────────────── -->
+    <div class="settings-section-title sdk-advanced-toggle" style="margin-top: 16px;" @click="showAdvanced = !showAdvanced">
+      <span class="sdk-toggle-arrow" :class="{ 'sdk-toggle-arrow--open': showAdvanced }">▸</span>
+      Advanced
+    </div>
+    <template v-if="showAdvanced">
+      <SectionPanel>
+        <!-- Log level -->
+        <div class="setting-row">
+          <div class="setting-info">
+            <div class="setting-label">SDK log level</div>
+            <div class="setting-description">
+              Verbosity for bridge diagnostic messages
+            </div>
+          </div>
+          <select v-model="logLevel" class="sdk-select" :disabled="sdk.isConnected">
+            <option value="error">Error</option>
+            <option value="warn">Warn</option>
+            <option value="info">Info</option>
+            <option value="debug">Debug</option>
+          </select>
         </div>
-      </div>
-    </SectionPanel>
+
+        <!-- Diagnostics -->
+        <div class="setting-row">
+          <div class="setting-info">
+            <div class="setting-label">Diagnostics</div>
+            <div class="setting-description">
+              Tests connection, auth, models, and session discovery step-by-step.
+            </div>
+          </div>
+          <ActionButton size="sm" :disabled="diagRunning" @click="runDiagnostics">
+            {{ diagRunning ? "Running…" : "Run Diagnostics" }}
+          </ActionButton>
+        </div>
+
+        <div v-if="diagLog.length > 0" class="diag-log-wrap">
+          <div class="diag-log">
+            <div v-for="(line, i) in diagLog" :key="i" class="diag-line" :class="{
+              'diag-ok': line.includes('✅'),
+              'diag-warn': line.includes('⚠️'),
+              'diag-err': line.includes('❌') || line.includes('💥'),
+            }">{{ line }}</div>
+          </div>
+        </div>
+
+        <!-- Raw state dump -->
+        <div class="setting-row setting-row-stacked">
+          <div class="setting-info">
+            <div class="setting-label">Raw State</div>
+          </div>
+          <div class="diag-raw">
+            <div><span class="diag-key">connectionState:</span> {{ sdk.connectionState }}</div>
+            <div><span class="diag-key">connectionMode:</span> {{ sdk.connectionMode ?? "null" }}</div>
+            <div><span class="diag-key">sdkAvailable:</span> {{ sdk.sdkAvailable }}</div>
+            <div><span class="diag-key">cliVersion:</span> {{ sdk.cliVersion ?? "null" }}</div>
+            <div><span class="diag-key">activeSessions:</span> {{ sdk.activeSessions }}</div>
+            <div><span class="diag-key">sessions.length:</span> {{ sdk.sessions.length }}</div>
+            <div><span class="diag-key">models.length:</span> {{ sdk.models.length }}</div>
+            <div><span class="diag-key">detectedServers:</span> {{ sdk.detectedServers.length }}</div>
+          </div>
+        </div>
+      </SectionPanel>
+    </template>
   </div>
 </template>
 
 <style scoped>
+/* ─── Status dot ─────────────────────────────── */
 .sdk-dot {
   display: inline-block;
   width: 7px;
@@ -480,18 +416,18 @@ const sessionCountLabel = computed(() => {
 .sdk-dot--error { background: var(--danger-fg); }
 .sdk-dot--disconnected { background: var(--text-placeholder); }
 
+.sdk-stat {
+  color: var(--text-tertiary);
+}
+
+/* ─── Mode actions ───────────────────────────── */
 .sdk-mode-actions {
   display: flex;
   gap: 6px;
   flex-shrink: 0;
 }
 
-.btn-active {
-  background: var(--accent-subtle) !important;
-  border-color: var(--accent-emphasis) !important;
-  color: var(--accent-fg) !important;
-}
-
+/* ─── Detected servers ───────────────────────── */
 .sdk-detected-list {
   display: flex;
   flex-direction: column;
@@ -503,7 +439,7 @@ const sessionCountLabel = computed(() => {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 6px 10px;
+  padding: 7px 12px;
   background: var(--canvas-subtle);
   border: 1px solid var(--border-muted);
   border-radius: var(--radius-md);
@@ -512,7 +448,7 @@ const sessionCountLabel = computed(() => {
   font-size: 0.8125rem;
   color: var(--text-primary);
 }
-.sdk-detected-item:hover {
+.sdk-detected-item:hover:not(:disabled) {
   background: var(--accent-subtle);
   border-color: var(--accent-emphasis);
 }
@@ -520,6 +456,9 @@ const sessionCountLabel = computed(() => {
   background: var(--accent-subtle);
   border-color: var(--accent-emphasis);
   cursor: default;
+}
+.sdk-detected-item:disabled {
+  opacity: 1; /* keep visible, just not clickable */
 }
 .sdk-detected-addr {
   font-family: 'JetBrains Mono', monospace;
@@ -535,17 +474,18 @@ const sessionCountLabel = computed(() => {
   font-size: 0.6875rem;
   color: var(--text-tertiary);
 }
-.sdk-detected-connected {
+.sdk-detected-badge {
   font-size: 0.6875rem;
   color: var(--success-fg);
   font-weight: 500;
 }
-.sdk-detected-hint {
-  font-size: 0.6875rem;
-  color: var(--text-placeholder);
-  padding-top: 2px;
+.sdk-detect-msg {
+  font-size: 0.8125rem;
+  color: var(--text-tertiary);
+  padding: 4px 0;
 }
 
+/* ─── URL input ──────────────────────────────── */
 .sdk-url-row {
   display: flex;
   align-items: center;
@@ -558,10 +498,9 @@ const sessionCountLabel = computed(() => {
   opacity: 0.6;
   font-size: 0.875rem;
 }
-.btn-ghost:hover {
-  opacity: 1;
-}
+.btn-ghost:hover { opacity: 1; }
 
+/* ─── Select ─────────────────────────────────── */
 .sdk-select {
   padding: 5px 10px;
   border: 1px solid var(--border-default);
@@ -586,79 +525,31 @@ const sessionCountLabel = computed(() => {
   cursor: not-allowed;
 }
 
+/* ─── Values ─────────────────────────────────── */
 .sdk-val-ok { color: var(--success-fg); font-weight: 500; }
 .sdk-val-err { color: var(--danger-fg); font-weight: 500; }
 
-.sdk-quota-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-top: 6px;
-}
-.sdk-quota-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 0.75rem;
-}
-.sdk-quota-type {
-  color: var(--text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  font-size: 0.6875rem;
-  font-weight: 500;
-}
-.sdk-quota-val {
-  color: var(--text-secondary);
-  font-variant-numeric: tabular-nums;
-}
-
-.sdk-howto {
-  line-height: 1.7;
-  padding: 8px 12px 4px;
-  font-size: 0.8125rem;
-  color: var(--text-secondary);
-}
-.sdk-howto p {
-  margin: 0 0 8px;
-}
-.sdk-howto p:last-child {
-  margin-bottom: 0;
-}
-.sdk-howto ol {
-  margin: 4px 0 8px 16px;
-  padding: 0;
-}
-.sdk-howto li {
-  margin: 2px 0;
-}
-
-.sdk-howto-toggle {
+/* ─── Advanced toggle ────────────────────────── */
+.sdk-advanced-toggle {
+  cursor: pointer;
+  user-select: none;
   display: flex;
   align-items: center;
   gap: 6px;
-  background: none;
-  border: none;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  padding: 4px 0;
-  font-size: 0.75rem;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  transition: color var(--transition-fast);
 }
-.sdk-howto-toggle:hover {
+.sdk-advanced-toggle:hover {
   color: var(--text-primary);
 }
-.sdk-howto-arrow {
+.sdk-toggle-arrow {
   display: inline-block;
   transition: transform 0.15s ease;
   font-size: 0.6875rem;
 }
-.sdk-howto-arrow--open {
+.sdk-toggle-arrow--open {
   transform: rotate(90deg);
 }
 
+/* ─── Code ───────────────────────────────────── */
 code {
   background: var(--neutral-subtle);
   padding: 0.1rem 0.35rem;
