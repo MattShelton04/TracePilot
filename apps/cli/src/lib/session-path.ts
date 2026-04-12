@@ -6,7 +6,7 @@ const COPILOT_SESSION_DIR_ENV = "COPILOT_SESSION_STATE_DIR";
 
 function expandHome(path: string, home: string): string {
   if (path === "~") return home;
-  if (path.startsWith("~/")) return join(home, path.slice(2));
+  if (path.startsWith("~/") || path.startsWith("~\\")) return join(home, path.slice(2));
   return path;
 }
 
