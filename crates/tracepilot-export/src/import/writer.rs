@@ -25,9 +25,17 @@ pub fn write_session(
     archive: &SessionArchive,
     target_parent: &Path,
 ) -> Result<PathBuf> {
-    let session_id = &session.metadata.id;
-    let final_dir = target_parent.join(session_id);
-    let staging_dir = target_parent.join(format!(".import-staging-{}", session_id));
+    write_session_to_id(session, archive, target_parent, &session.metadata.id)
+}
+
+pub(crate) fn write_session_to_id(
+    session: &PortableSession,
+    archive: &SessionArchive,
+    target_parent: &Path,
+    target_session_id: &str,
+) -> Result<PathBuf> {
+    let final_dir = target_parent.join(target_session_id);
+    let staging_dir = target_parent.join(format!(".import-staging-{}", target_session_id));
 
     // Clean up any leftover staging directory from a previous failed import
     if staging_dir.exists() {
@@ -38,7 +46,7 @@ pub fn write_session(
     fs::create_dir_all(&staging_dir).map_err(|e| ExportError::io(&staging_dir, e))?;
 
     // Write all session files into staging
-    let write_result = write_session_files(session, archive, &staging_dir);
+    let write_result = write_session_files(session, archive, &staging_dir, target_session_id);
 
     if let Err(err) = write_result {
         // Rollback: clean up staging directory on failure
@@ -50,7 +58,7 @@ pub fn write_session(
     // Uses a backup strategy: rename existing → backup, rename staging → final,
     // then delete backup. On failure, restore backup to recover original data.
     if final_dir.exists() {
-        let backup_dir = target_parent.join(format!(".import-backup-{}", session_id));
+        let backup_dir = target_parent.join(format!(".import-backup-{}", target_session_id));
         // Clean up any leftover backup from a previous failed attempt
         if backup_dir.exists() {
             let _ = fs::remove_dir_all(&backup_dir);
@@ -91,9 +99,10 @@ fn write_session_files(
     session: &PortableSession,
     archive: &SessionArchive,
     dir: &Path,
+    target_session_id: &str,
 ) -> Result<()> {
     // 1. workspace.yaml (always written)
-    write_workspace_yaml(session, archive, dir)?;
+    write_workspace_yaml(session, archive, dir, target_session_id)?;
 
     // 2. events.jsonl
     if let Some(events) = &session.events {
@@ -123,6 +132,7 @@ fn write_workspace_yaml(
     session: &PortableSession,
     archive: &SessionArchive,
     dir: &Path,
+    target_session_id: &str,
 ) -> Result<()> {
     let meta = &session.metadata;
     let path = dir.join("workspace.yaml");
@@ -133,7 +143,7 @@ fn write_workspace_yaml(
 
     map.insert(
         serde_yml::Value::String("id".to_string()),
-        serde_yml::Value::String(meta.id.clone()),
+        serde_yml::Value::String(target_session_id.to_string()),
     );
 
     if let Some(cwd) = &meta.cwd {
@@ -210,12 +220,11 @@ fn write_workspace_yaml(
         serde_yml::Value::Mapping(imported_from),
     );
 
-    let yaml_str = serde_yml::to_string(&serde_yml::Value::Mapping(map)).map_err(|e| {
-        ExportError::Render {
+    let yaml_str =
+        serde_yml::to_string(&serde_yml::Value::Mapping(map)).map_err(|e| ExportError::Render {
             format: "YAML".to_string(),
             message: e.to_string(),
-        }
-    })?;
+        })?;
 
     fs::write(&path, yaml_str).map_err(|e| ExportError::io(&path, e))
 }
@@ -243,7 +252,10 @@ fn write_checkpoints(checkpoints: &[CheckpointExport], dir: &Path) -> Result<()>
     // Write index.md
     let mut index = String::from("| # | Title | File |\n| --- | --- | --- |\n");
     for cp in checkpoints {
-        index.push_str(&format!("| {} | {} | {} |\n", cp.number, cp.title, cp.filename));
+        index.push_str(&format!(
+            "| {} | {} | {} |\n",
+            cp.number, cp.title, cp.filename
+        ));
     }
     let index_path = cp_dir.join("index.md");
     fs::write(&index_path, &index).map_err(|e| ExportError::io(&index_path, e))?;
@@ -335,9 +347,10 @@ fn write_session_db(todos: &TodoExport, dir: &Path) -> Result<()> {
 
     match insert_result {
         Ok(()) => {
-            conn.execute_batch("COMMIT").map_err(|e| ExportError::SessionData {
-                message: format!("failed to commit transaction: {}", e),
-            })?;
+            conn.execute_batch("COMMIT")
+                .map_err(|e| ExportError::SessionData {
+                    message: format!("failed to commit transaction: {}", e),
+                })?;
         }
         Err(e) => {
             let _ = conn.execute_batch("ROLLBACK");
@@ -370,6 +383,23 @@ mod tests {
         assert!(content.contains("test-12345678"));
         assert!(content.contains("user/repo"));
         assert!(content.contains("imported_from"));
+    }
+
+    #[test]
+    fn write_session_to_id_overrides_directory_and_workspace_id() {
+        let dir = tempfile::tempdir().unwrap();
+        let session = minimal_session();
+        let archive = test_archive(session.clone());
+        let new_id = "duplicate-session-id";
+
+        let result = write_session_to_id(&session, &archive, dir.path(), new_id).unwrap();
+        assert_eq!(result.file_name().unwrap().to_string_lossy(), new_id);
+
+        let yaml_path = result.join("workspace.yaml");
+        let content = fs::read_to_string(&yaml_path).unwrap();
+        let parsed: serde_yml::Value = serde_yml::from_str(&content).unwrap();
+        assert_eq!(parsed["id"].as_str(), Some(new_id));
+        assert!(!dir.path().join(&session.metadata.id).exists());
     }
 
     #[test]
