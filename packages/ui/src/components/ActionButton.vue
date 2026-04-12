@@ -1,6 +1,9 @@
 <script setup lang="ts">
+import LoadingSpinner from "./LoadingSpinner.vue";
+
 defineProps<{
   disabled?: boolean;
+  loading?: boolean;
   size?: "sm" | "md";
   variant?: "primary" | "ghost" | "default";
 }>();
@@ -9,13 +12,43 @@ defineProps<{
 <template>
   <button
     type="button"
-    class="btn"
+    class="btn action-btn"
     :class="[
       variant === 'primary' ? 'btn-primary' : variant === 'ghost' ? 'btn-ghost' : '',
       size === 'sm' ? 'btn-sm' : '',
     ]"
-    :disabled="disabled"
+    :disabled="disabled || loading"
+    :aria-busy="loading"
   >
-    <slot />
+    <span v-if="loading" class="action-btn__spinner">
+      <LoadingSpinner size="sm" color="currentColor" />
+    </span>
+    <span class="action-btn__content" :class="{ 'opacity-0': loading }">
+      <slot />
+    </span>
   </button>
 </template>
+
+<style scoped>
+.action-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.action-btn__spinner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+}
+.action-btn__content {
+  transition: opacity 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+}
+.opacity-0 {
+  opacity: 0;
+}
+</style>
