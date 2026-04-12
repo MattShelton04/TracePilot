@@ -128,6 +128,12 @@ pub async fn task_create_batch(
     job_name: String,
     preset_id: Option<String>,
 ) -> CmdResult<Job> {
+    if let Some(ref id) = preset_id {
+        crate::validators::validate_preset_id(id)?;
+    }
+    for task in &tasks {
+        crate::validators::validate_preset_id(&task.preset_id)?;
+    }
     with_task_db(&state, move |db| {
         tracepilot_orchestrator::task_db::operations::create_task_batch(
             db.conn(),
