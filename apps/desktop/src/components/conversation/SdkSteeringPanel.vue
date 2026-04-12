@@ -8,6 +8,7 @@
  * when SDK session data doesn't provide one.
  */
 import type { BridgeSessionMode } from "@tracepilot/types";
+import type { CSSProperties } from "vue";
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { useSdkStore } from "@/stores/sdk";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
@@ -30,10 +31,10 @@ const emit = defineEmits<{
 // ─── Local state ────────────────────────────────────────────────
 const prompt = ref("");
 const inputEl = ref<HTMLTextAreaElement | null>(null);
-const modelDropdownOpen = ref(false);
-const modelDropdownEl = ref<HTMLElement | null>(null);
-const modelDropdownStyle = ref<Record<string, string>>({});
 const userLinked = ref(false);
+/** Model chosen by user before linking — passed to ResumeSessionConfig.model */
+const pendingModel = ref<string | null>(null);
+const showModelPicker = ref(false);
 
 // ─── Sent messages log ──────────────────────────────────────────
 interface SentMessage {
@@ -62,42 +63,50 @@ function autoRemoveSent(id: number, delayMs: number) {
   }, delayMs);
 }
 
-// Position the teleported dropdown above the model button (with viewport bounds check)
-function updateDropdownPosition() {
-  const btn = document.querySelector(".cb-model-btn") as HTMLElement | null;
-  if (!btn) return;
+// ─── Computed ───────────────────────────────────────────────────
+const isEnabled = computed(() => prefs.isFeatureEnabled("copilotSdk"));
+
+// Position the teleported model picker dropdown above/below the model pick button
+const modelPickerStyle = computed((): CSSProperties => {
+  const btn = document.querySelector(".cb-model-pick-btn") as HTMLElement | null;
+  if (!btn) return {};
   const rect = btn.getBoundingClientRect();
   const maxH = 240;
   const gap = 6;
-
-  // Check if there's enough space above the button
   const spaceAbove = rect.top - gap;
-  const openUpward = spaceAbove >= maxH;
-
-  if (openUpward) {
-    modelDropdownStyle.value = {
+  if (spaceAbove >= maxH) {
+    return {
       position: "fixed",
       left: `${rect.left}px`,
       bottom: `${window.innerHeight - rect.top + gap}px`,
-      minWidth: "200px",
+      minWidth: "220px",
       maxHeight: `${maxH}px`,
-      zIndex: "9999",
-    };
-  } else {
-    // Open downward if not enough space above
-    modelDropdownStyle.value = {
-      position: "fixed",
-      left: `${rect.left}px`,
-      top: `${rect.bottom + gap}px`,
-      minWidth: "200px",
-      maxHeight: `${Math.min(maxH, window.innerHeight - rect.bottom - gap - 8)}px`,
-      zIndex: "9999",
+      zIndex: 9999,
     };
   }
-}
+  return {
+    position: "fixed",
+    left: `${rect.left}px`,
+    top: `${rect.bottom + gap}px`,
+    minWidth: "220px",
+    maxHeight: `${Math.min(maxH, window.innerHeight - rect.bottom - gap - 8)}px`,
+    zIndex: 9999,
+  };
+});
 
-// ─── Computed ───────────────────────────────────────────────────
-const isEnabled = computed(() => prefs.isFeatureEnabled("copilotSdk"));
+// Close model picker on outside click
+function closeModelPicker(event: MouseEvent) {
+  const target = event.target as HTMLElement;
+  if (!target.closest(".cb-model-pick-btn") && !target.closest(".cb-model-dropdown-portal")) {
+    showModelPicker.value = false;
+  }
+}
+if (typeof document !== "undefined") {
+  document.addEventListener("click", closeModelPicker);
+  onBeforeUnmount(() => {
+    document.removeEventListener("click", closeModelPicker);
+  });
+}
 
 const linkedSession = computed(() => {
   const sid = effectiveSessionId.value ?? props.sessionId;
@@ -183,7 +192,7 @@ async function linkSession(): Promise<boolean> {
   resuming.value = true;
   sessionError.value = null;
   try {
-    const result = await sdk.resumeSession(sid, props.sessionCwd);
+    const result = await sdk.resumeSession(sid, props.sessionCwd, pendingModel.value ?? undefined);
     if (!result) {
       sessionError.value = friendlyError(sdk.lastError ?? "Could not link session");
     } else {
@@ -213,6 +222,8 @@ watch(
     resolvedSessionId.value = null;
     sessionError.value = null;
     sentMessages.value = [];
+    pendingModel.value = null;
+    showModelPicker.value = false;
   },
 );
 
@@ -308,28 +319,6 @@ async function handleModeChange(mode: BridgeSessionMode) {
   }
 }
 
-async function handleModelSelect(modelId: string) {
-  if (!props.sessionId || !isLinked.value) return;
-  modelDropdownOpen.value = false;
-  sessionError.value = null;
-  sdk.lastError = null;
-
-  await sdk.setSessionModel(effectiveSessionId.value!, modelId);
-
-  // Store catches errors silently (sets lastError but doesn't throw).
-  // Check for -32601 (unhandled method) specifically — CLI may not support model switching.
-  const err = sdk.lastError as string | null;
-  if (err) {
-    if (err.includes("-32601") || err.includes("Unhandled method")) {
-      sessionError.value = "Model switching not supported by this CLI version. Model will be inferred from chat history.";
-      sdk.lastError = null;
-    } else {
-      sessionError.value = `Model switch failed: ${err}`;
-    }
-    logWarn("[sdk] Model switch failed:", err);
-  }
-}
-
 async function handleAbort() {
   if (!props.sessionId || !isLinked.value) return;
   sessionError.value = null;
@@ -375,29 +364,6 @@ function autoResize() {
 const maxInputHeight = 4 * 20 + 10; // ~4 lines
 
 watch(prompt, () => nextTick(autoResize));
-
-function toggleModelDropdown() {
-  modelDropdownOpen.value = !modelDropdownOpen.value;
-  if (modelDropdownOpen.value) {
-    nextTick(updateDropdownPosition);
-  }
-}
-
-function closeModelDropdown(event: MouseEvent) {
-  const target = event.target as HTMLElement;
-  // Dropdown is teleported outside .cb-model-selector, so check both
-  if (!target.closest(".cb-model-selector") && !target.closest(".cb-model-dropdown-portal")) {
-    modelDropdownOpen.value = false;
-  }
-}
-
-// Close dropdown when clicking outside
-if (typeof document !== "undefined") {
-  document.addEventListener("click", closeModelDropdown);
-  onBeforeUnmount(() => {
-    document.removeEventListener("click", closeModelDropdown);
-  });
-}
 
 async function handleConnect() {
   await sdk.connect({});
@@ -461,7 +427,7 @@ async function handleConnect() {
       <button class="cb-error-dismiss" title="Dismiss">✕</button>
     </div>
 
-    <!-- Not-linked state: show link prompt instead of command bar -->
+    <!-- Not-linked state: show link prompt with optional model picker -->
     <div v-if="!isLinked && !resuming" class="cb-link-prompt">
       <div class="cb-link-info">
         <div class="cb-link-title">Link for Steering</div>
@@ -471,12 +437,61 @@ async function handleConnect() {
             : 'This spawns a separate CLI subprocess. For simultaneous terminal use, connect via --ui-server (TCP mode) in Settings instead.' }}
         </div>
       </div>
-      <button class="cb-btn-link" :disabled="resuming" @click="linkSession">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
-          <path d="M10 2h4v4" /><path d="M14 2L8 8" /><path d="M12 9v4a1 1 0 01-1 1H3a1 1 0 01-1-1V5a1 1 0 011-1h4" />
-        </svg>
-        Link Session
-      </button>
+      <div class="cb-link-actions">
+        <!-- Model picker toggle -->
+        <div class="cb-prelink-model">
+          <button
+            class="cb-model-pick-btn"
+            :class="{ active: showModelPicker }"
+            title="Choose a model for this session"
+            @click.stop="showModelPicker = !showModelPicker"
+          >
+            <svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12">
+              <path d="M8 1a2.5 2.5 0 00-2.5 2.5v.382a5.522 5.522 0 00-1.293.749l-.331-.191A2.5 2.5 0 00.58 6.56l.5.866a2.5 2.5 0 002.297 1.12l.331-.192a5.56 5.56 0 000 1.291l-.331.192a2.5 2.5 0 00-2.296 1.12l-.5.867a2.5 2.5 0 003.296 2.12l.331-.192c.39.305.826.56 1.293.749v.382a2.5 2.5 0 005 0v-.382a5.52 5.52 0 001.293-.749l.331.192a2.5 2.5 0 003.296-2.12l-.5-.867a2.5 2.5 0 00-2.296-1.12l-.331.192a5.56 5.56 0 000-1.291l.331-.192a2.5 2.5 0 002.296-1.12l.5-.866A2.5 2.5 0 0012.124 4.44l-.331.191A5.52 5.52 0 0010.5 3.882V3.5A2.5 2.5 0 008 1zm0 5.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3z"/>
+            </svg>
+            <span class="cb-model-pick-label">{{ pendingModel ?? 'default model' }}</span>
+            <svg viewBox="0 0 12 12" width="10" height="10" :class="{ flip: showModelPicker }">
+              <path d="M3 5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+
+          <!-- Inline dropdown for model selection -->
+          <Teleport to="body">
+            <div
+              v-if="showModelPicker"
+              class="cb-model-dropdown-portal"
+              :style="modelPickerStyle"
+            >
+              <button
+                :class="['cb-model-option', { active: !pendingModel }]"
+                @click.stop="pendingModel = null; showModelPicker = false"
+              >
+                <span>Default (session's current model)</span>
+                <span class="cb-check">✓</span>
+              </button>
+              <button
+                v-for="m in sdk.models"
+                :key="m.id"
+                :class="['cb-model-option', { active: pendingModel === m.id }]"
+                @click.stop="pendingModel = m.id; showModelPicker = false"
+              >
+                <span>{{ m.name ?? m.id }}</span>
+                <span class="cb-check">✓</span>
+              </button>
+              <div v-if="sdk.models.length === 0" class="cb-model-empty">
+                Connect SDK to see available models
+              </div>
+            </div>
+          </Teleport>
+        </div>
+
+        <button class="cb-btn-link" :disabled="resuming" @click="linkSession">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+            <path d="M10 2h4v4" /><path d="M14 2L8 8" /><path d="M12 9v4a1 1 0 01-1 1H3a1 1 0 01-1-1V5a1 1 0 011-1h4" />
+          </svg>
+          Link Session
+        </button>
+      </div>
     </div>
 
     <!-- Linking in progress -->
@@ -548,39 +563,14 @@ async function handleConnect() {
           </button>
         </div>
 
-        <!-- Model selector (dropdown opens upward, positioned outside overflow) -->
-        <div class="cb-model-selector">
-          <button
-            :class="['cb-model-btn', { open: modelDropdownOpen }]"
-            @click.stop="toggleModelDropdown"
-          >
+        <!-- Model display (read-only after link — model is set at resume time) -->
+        <div
+          class="cb-model-selector"
+          :title="'Model is set when linking. Unlink and re-link to change it.'"
+        >
+          <span class="cb-model-btn disabled">
             <span class="cb-model-name">{{ currentModel ?? "model" }}</span>
-            <svg viewBox="0 0 12 12" width="12" height="12">
-              <path d="M3 7l3-3 3 3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
-          </button>
-
-          <Teleport to="body">
-            <div
-              v-if="modelDropdownOpen"
-              ref="modelDropdownEl"
-              class="cb-model-dropdown-portal"
-              :style="modelDropdownStyle"
-            >
-              <button
-                v-for="model in sdk.models"
-                :key="model.id"
-                :class="['cb-model-option', { active: currentModel === model.id }]"
-                @click.stop="handleModelSelect(model.id)"
-              >
-                <span>{{ model.name ?? model.id }}</span>
-                <span class="cb-check">✓</span>
-              </button>
-              <div v-if="sdk.models.length === 0" class="cb-model-empty">
-                No models available
-              </div>
-            </div>
-          </Teleport>
+          </span>
         </div>
 
         <span class="cb-kbd-hint">
@@ -814,8 +804,8 @@ async function handleConnect() {
   -webkit-backdrop-filter: blur(20px);
   padding: 14px 18px;
   display: flex;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  gap: 10px;
   transition: all var(--transition-normal);
 }
 .cb-link-info {
@@ -834,6 +824,46 @@ async function handleConnect() {
   font-size: 0.6875rem;
   color: var(--text-tertiary);
   line-height: 1.5;
+}
+.cb-link-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cb-prelink-model {
+  position: relative;
+}
+.cb-model-pick-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-muted);
+  background: rgba(255,255,255,0.03);
+  color: var(--text-tertiary);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  font-family: inherit;
+}
+.cb-model-pick-btn:hover,
+.cb-model-pick-btn.active {
+  background: rgba(255,255,255,0.06);
+  border-color: var(--border-default);
+  color: var(--text-secondary);
+}
+.cb-model-pick-label {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.625rem;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cb-model-pick-btn svg.flip {
+  transform: rotate(180deg);
 }
 .cb-btn-link {
   display: inline-flex;
@@ -1108,28 +1138,18 @@ async function handleConnect() {
   color: var(--text-tertiary);
   font-size: 0.6875rem;
   font-weight: 500;
-  cursor: pointer;
+  cursor: default;
   transition: all var(--transition-fast);
   font-family: inherit;
 }
-.cb-model-btn:hover {
-  background: rgba(255,255,255,0.04);
-  color: var(--text-secondary);
+.cb-model-btn.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 .cb-model-name {
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 0.625rem;
 }
-.cb-model-btn svg {
-  width: 12px;
-  height: 12px;
-  transition: transform var(--transition-fast);
-}
-.cb-model-btn.open svg {
-  transform: rotate(180deg);
-}
-
-/* Model dropdown — removed, now uses portal (see global styles below) */
 
 /* Keyboard hint */
 .cb-kbd-hint {

@@ -47,7 +47,7 @@ import type {
 import { IPC_EVENTS } from "@tracepilot/types";
 import { toErrorMessage } from "@tracepilot/ui";
 import { defineStore } from "pinia";
-import { computed, ref, shallowRef } from "vue";
+import { computed, ref, shallowRef, watch } from "vue";
 import { safeListen } from "@/utils/tauriEvents";
 import { logInfo, logWarn } from "@/utils/logger";
 import { usePreferencesStore } from "@/stores/preferences";
@@ -139,10 +139,12 @@ export const useSdkStore = defineStore("sdk", () => {
     connectionMode.value = status.connectionMode ?? null;
   }
 
-  async function connect(config: BridgeConnectConfig = {}) {
+  async function connect(config: BridgeConnectConfig = {}): Promise<boolean> {
     connecting.value = true;
     lastError.value = null;
-    logInfo("[sdk] Connecting...", config);
+    // Redact sensitive fields before logging
+    const safeConfig = { ...config, githubToken: config.githubToken ? "<redacted>" : undefined };
+    logInfo("[sdk] Connecting...", safeConfig);
     try {
       const status = await sdkConnect(config);
       applyStatus(status);
@@ -150,11 +152,14 @@ export const useSdkStore = defineStore("sdk", () => {
       // Hydrate ancillary data after successful connection
       if (status.state === "connected") {
         await hydrateAfterConnect();
+        return true;
       }
+      return false;
     } catch (e) {
       lastError.value = toErrorMessage(e);
       connectionState.value = "error";
       logWarn("[sdk] Connect failed:", e);
+      return false;
     } finally {
       connecting.value = false;
     }
@@ -261,10 +266,10 @@ export const useSdkStore = defineStore("sdk", () => {
   }
 
   /** Resume an existing session for steering (e.g. from --ui-server). */
-  async function resumeSession(sessionId: string, workingDirectory?: string): Promise<BridgeSessionInfo | null> {
-    logInfo("[sdk] Resuming session:", sessionId, "cwd:", workingDirectory ?? "(none)");
+  async function resumeSession(sessionId: string, workingDirectory?: string, model?: string): Promise<BridgeSessionInfo | null> {
+    logInfo("[sdk] Resuming session:", sessionId, "cwd:", workingDirectory ?? "(none)", "model:", model ?? "(none)");
     try {
-      const session = await sdkResumeSession(sessionId, workingDirectory);
+      const session = await sdkResumeSession(sessionId, workingDirectory, model);
       logInfo("[sdk] Resume result:", session);
       lastError.value = null; // Clear any stale errors on success
       // Update existing entry or add new one
@@ -436,8 +441,8 @@ export const useSdkStore = defineStore("sdk", () => {
   }
 
   // Auto-connect when copilotSdk feature is enabled
+  const prefs = usePreferencesStore();
   async function autoConnect() {
-    const prefs = usePreferencesStore();
     if (prefs.isFeatureEnabled("copilotSdk") && connectionState.value === "disconnected" && !connecting.value) {
       logInfo("[sdk] Auto-connecting (copilotSdk feature enabled)...");
       await connect({
@@ -525,6 +530,17 @@ export const useSdkStore = defineStore("sdk", () => {
 
   // Attempt auto-connect on store initialization (deferred to next tick so preferences are loaded)
   setTimeout(() => autoConnect(), 500);
+
+  // Disconnect SDK when the feature toggle is turned off
+  watch(
+    () => prefs.isFeatureEnabled("copilotSdk"),
+    (enabled) => {
+      if (!enabled && connectionState.value !== "disconnected") {
+        logInfo("[sdk] Feature toggle disabled — disconnecting SDK bridge");
+        disconnect();
+      }
+    },
+  );
 
   // ─── Public API ───────────────────────────────────────────────────
 

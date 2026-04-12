@@ -41,7 +41,7 @@ pub async fn detect_ui_servers() -> Vec<DetectedUiServer> {
 /// Windows: Use PowerShell Get-CimInstance + Get-NetTCPConnection
 #[cfg(target_os = "windows")]
 async fn detect_windows() -> Vec<DetectedUiServer> {
-    use std::process::Command;
+    use tokio::process::Command;
 
     // PowerShell one-liner that finds copilot processes with --ui-server or --server
     // in their command line, then resolves their listening TCP ports.
@@ -65,6 +65,7 @@ $results | ConvertTo-Json -Compress
     let output = match Command::new("powershell")
         .args(["-NoProfile", "-NonInteractive", "-Command", script])
         .output()
+        .await
     {
         Ok(o) => o,
         Err(e) => {
@@ -129,12 +130,13 @@ fn parse_powershell_output(json: &str) -> Vec<DetectedUiServer> {
 /// macOS: Use `ps` + `lsof` to find processes and their listening ports.
 #[cfg(target_os = "macos")]
 async fn detect_unix(_tool: &str) -> Vec<DetectedUiServer> {
-    use std::process::Command;
+    use tokio::process::Command;
 
     // Step 1: Find copilot processes with ui-server or --server in args
     let ps_output = match Command::new("ps")
         .args(["ax", "-o", "pid,command"])
         .output()
+        .await
     {
         Ok(o) => o,
         Err(_) => return vec![],
@@ -161,6 +163,7 @@ async fn detect_unix(_tool: &str) -> Vec<DetectedUiServer> {
         let lsof_output = match Command::new("lsof")
             .args(["-nP", "-iTCP", "-sTCP:LISTEN", "-a", "-p", &pid.to_string()])
             .output()
+            .await
         {
             Ok(o) => o,
             Err(_) => continue,
@@ -191,12 +194,13 @@ async fn detect_unix(_tool: &str) -> Vec<DetectedUiServer> {
 /// Linux: Use /proc filesystem + `ss` for port discovery.
 #[cfg(target_os = "linux")]
 async fn detect_linux() -> Vec<DetectedUiServer> {
-    use std::process::Command;
+    use tokio::process::Command;
 
     // Step 1: Find copilot processes via ps
     let ps_output = match Command::new("ps")
         .args(["ax", "-o", "pid,command"])
         .output()
+        .await
     {
         Ok(o) => o,
         Err(_) => return vec![],
@@ -223,6 +227,7 @@ async fn detect_linux() -> Vec<DetectedUiServer> {
         let ss_output = match Command::new("ss")
             .args(["-tlnp", "--no-header"])
             .output()
+            .await
         {
             Ok(o) => o,
             Err(_) => continue,

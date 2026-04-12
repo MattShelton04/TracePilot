@@ -67,9 +67,10 @@ pub async fn sdk_resume_session(
     bridge: tauri::State<'_, SharedBridgeManager>,
     session_id: String,
     working_directory: Option<String>,
+    model: Option<String>,
 ) -> CmdResult<BridgeSessionInfo> {
     let mut mgr = bridge.write().await;
-    mgr.resume_session(&session_id, working_directory.as_deref())
+    mgr.resume_session(&session_id, working_directory.as_deref(), model.as_deref())
         .await
         .map_err(Into::into)
 }

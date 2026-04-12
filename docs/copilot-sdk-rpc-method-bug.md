@@ -119,7 +119,13 @@ These methods also use snake_case but we haven't confirmed whether the CLI recog
 
 ## CLI Support Note
 
-The official SDK test suites contain notes that `session.model.getCurrent` and `session.model.switchTo` were "not yet implemented in CLI" at the time those tests were written. However, these test comments may be outdated — the convenience methods (`session.setModel`) exist across all official SDKs, suggesting the CLI may have since added support. The fix is still correct regardless: the method names must match what the CLI server expects.
+**Two separate issues exist:**
+
+1. **SDK bug (upstream):** The community Rust SDK sends snake_case method names — this causes `-32601` errors. This is fixable with the PR above.
+
+2. **CLI limitation:** Even with the correct camelCase names, `session.model.switchTo` is accepted (no error) but has **no effect** — `session.model.getCurrent` returns the same model before and after the call. The official SDK test suites confirm this: model switching is "defined in schema but not yet implemented in CLI."
+
+**TracePilot approach:** Model selection is available at **link time** (passed to `ResumeSessionConfig.model` when resuming a session). Mid-session model switching is disabled with a tooltip: *"Model is set when linking. Unlink and re-link to change it."*
 
 ## TracePilot Workaround
 

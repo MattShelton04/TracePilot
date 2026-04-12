@@ -47,10 +47,12 @@ export async function sdkCreateSession(
 export async function sdkResumeSession(
   sessionId: string,
   workingDirectory?: string,
+  model?: string,
 ): Promise<BridgeSessionInfo> {
   return invoke<BridgeSessionInfo>("sdk_resume_session", {
     sessionId,
     workingDirectory: workingDirectory ?? null,
+    model: model ?? null,
   });
 }
 

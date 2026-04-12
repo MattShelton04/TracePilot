@@ -270,13 +270,14 @@ impl BridgeManager {
         &mut self,
         session_id: &str,
         working_directory: Option<&str>,
+        model: Option<&str>,
     ) -> Result<BridgeSessionInfo, BridgeError> {
         // Already tracked — no-op.
         if self.sessions.contains_key(session_id) {
             debug!("Session {} already resumed — returning cached", session_id);
             return Ok(BridgeSessionInfo {
                 session_id: session_id.to_string(),
-                model: None,
+                model: model.map(String::from),
                 working_directory: working_directory.map(String::from),
                 mode: None,
                 is_active: true,
@@ -285,12 +286,15 @@ impl BridgeManager {
             });
         }
 
-        info!("Resuming session {} via SDK (cwd: {:?})", session_id, working_directory);
+        info!("Resuming session {} via SDK (cwd: {:?}, model: {:?})", session_id, working_directory, model);
         let client = self.require_client()?;
 
         let mut resume_config = copilot_sdk::ResumeSessionConfig::default();
         if let Some(cwd) = working_directory {
             resume_config.working_directory = Some(cwd.to_string());
+        }
+        if let Some(m) = model {
+            resume_config.model = Some(m.to_string());
         }
 
         let session = client
@@ -341,6 +345,7 @@ impl BridgeManager {
         &mut self,
         _session_id: &str,
         _working_directory: Option<&str>,
+        _model: Option<&str>,
     ) -> Result<BridgeSessionInfo, BridgeError> {
         Err(BridgeError::NotAvailable)
     }
@@ -889,9 +894,15 @@ async fn raw_rpc_call(
 ) -> Result<serde_json::Value, BridgeError> {
     use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
     use tokio::net::TcpStream;
+    use tokio::time::{timeout, Duration};
 
-    // Parse URL — accepts "host:port", "http://host:port", or bare "port"
+    const RPC_TIMEOUT: Duration = Duration::from_secs(10);
+    const MAX_BODY_SIZE: usize = 10 * 1024 * 1024; // 10 MB
+
+    // Parse URL — accepts "host:port", "http://host:port", "ws://host:port", or bare "port"
     let addr = if let Some(rest) = cli_url.strip_prefix("http://") {
+        rest.to_string()
+    } else if let Some(rest) = cli_url.strip_prefix("ws://") {
         rest.to_string()
     } else if cli_url.contains(':') {
         cli_url.to_string()
@@ -901,8 +912,9 @@ async fn raw_rpc_call(
 
     debug!("raw_rpc_call: {} → {} params={}", addr, method, params);
 
-    let mut stream = TcpStream::connect(&addr)
+    let mut stream = timeout(RPC_TIMEOUT, TcpStream::connect(&addr))
         .await
+        .map_err(|_| BridgeError::Sdk(format!("TCP connect to {addr}: timed out after {RPC_TIMEOUT:?}")))?
         .map_err(|e| BridgeError::Sdk(format!("TCP connect to {addr}: {e}")))?;
 
     let body = serde_json::json!({
@@ -915,40 +927,51 @@ async fn raw_rpc_call(
         .map_err(|e| BridgeError::Sdk(format!("JSON serialize: {e}")))?;
 
     let msg = format!("Content-Length: {}\r\n\r\n{}", body_str.len(), body_str);
-    stream
-        .write_all(msg.as_bytes())
+    timeout(RPC_TIMEOUT, stream.write_all(msg.as_bytes()))
         .await
+        .map_err(|_| BridgeError::Sdk("TCP write timed out".into()))?
         .map_err(|e| BridgeError::Sdk(format!("TCP write: {e}")))?;
 
     // Read Content-Length header from response
     let mut reader = BufReader::new(stream);
     let mut content_length: usize = 0;
-    loop {
-        let mut line = String::new();
-        reader
-            .read_line(&mut line)
-            .await
-            .map_err(|e| BridgeError::Sdk(format!("TCP read header: {e}")))?;
-        let trimmed = line.trim();
-        if trimmed.is_empty() {
-            break;
+    let header_result = timeout(RPC_TIMEOUT, async {
+        loop {
+            let mut line = String::new();
+            reader
+                .read_line(&mut line)
+                .await
+                .map_err(|e| BridgeError::Sdk(format!("TCP read header: {e}")))?;
+            let trimmed = line.trim();
+            if trimmed.is_empty() {
+                break;
+            }
+            if let Some(len_str) = trimmed.strip_prefix("Content-Length:") {
+                content_length = len_str
+                    .trim()
+                    .parse()
+                    .map_err(|_| BridgeError::Sdk("Invalid Content-Length".into()))?;
+            }
         }
-        if let Some(len_str) = trimmed.strip_prefix("Content-Length:") {
-            content_length = len_str
-                .trim()
-                .parse()
-                .map_err(|_| BridgeError::Sdk("Invalid Content-Length".into()))?;
-        }
-    }
+        Ok::<(), BridgeError>(())
+    })
+    .await
+    .map_err(|_| BridgeError::Sdk("TCP read header timed out".into()))?;
+    header_result?;
 
     if content_length == 0 {
         return Err(BridgeError::Sdk("No Content-Length in response".into()));
     }
+    if content_length > MAX_BODY_SIZE {
+        return Err(BridgeError::Sdk(format!(
+            "Response body too large: {content_length} bytes (max {MAX_BODY_SIZE})"
+        )));
+    }
 
     let mut body_buf = vec![0u8; content_length];
-    reader
-        .read_exact(&mut body_buf)
+    timeout(RPC_TIMEOUT, reader.read_exact(&mut body_buf))
         .await
+        .map_err(|_| BridgeError::Sdk("TCP read body timed out".into()))?
         .map_err(|e| BridgeError::Sdk(format!("TCP read body: {e}")))?;
 
     let response: serde_json::Value = serde_json::from_slice(&body_buf)
@@ -1205,5 +1228,56 @@ mod tests {
         .expect("should handle http:// prefix");
 
         assert_eq!(result, expected);
+    }
+
+    #[cfg(feature = "copilot-sdk")]
+    #[tokio::test]
+    async fn raw_rpc_call_parses_ws_prefix() {
+        let expected = serde_json::json!("ok");
+        let (_keep, addr) = mock_jsonrpc_server(expected.clone()).await;
+
+        let url_with_ws = format!("ws://{}", addr);
+        let result = raw_rpc_call(
+            &url_with_ws,
+            "test.method",
+            serde_json::json!({}),
+        )
+        .await
+        .expect("should handle ws:// prefix");
+
+        assert_eq!(result, expected);
+    }
+
+    #[cfg(feature = "copilot-sdk")]
+    #[tokio::test]
+    async fn raw_rpc_call_rejects_oversized_body() {
+        // Simulate a server that claims a body larger than 10MB — raw_rpc_call should reject
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+
+        let _server = tokio::spawn(async move {
+            if let Ok((mut stream, _)) = listener.accept().await {
+                use tokio::io::{AsyncReadExt, AsyncWriteExt};
+                let mut buf = vec![0u8; 4096];
+                let _ = stream.read(&mut buf).await;
+                // Respond with a Content-Length that exceeds MAX_BODY_SIZE
+                let response = "Content-Length: 20000000\r\n\r\n{}";
+                let _ = stream.write_all(response.as_bytes()).await;
+            }
+        });
+
+        let result = raw_rpc_call(
+            &addr.to_string(),
+            "test.method",
+            serde_json::json!({}),
+        )
+        .await;
+
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("too large"),
+            "error should mention body too large: {err}"
+        );
     }
 }
