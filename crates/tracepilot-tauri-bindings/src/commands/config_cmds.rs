@@ -3,7 +3,7 @@
 use crate::blocking_cmd;
 use crate::config::{self, SharedConfig, TracePilotConfig};
 use crate::error::{BindingsError, CmdResult};
-use crate::helpers::{copilot_home, read_config, remove_index_db_files, validate_path_within, validate_write_path_within};
+use crate::helpers::{copilot_home, get_config_paths, read_config, remove_index_db_files, validate_path_within, validate_write_path_within};
 use crate::types::ValidateSessionDirResult;
 
 #[tauri::command]
@@ -66,13 +66,12 @@ pub async fn validate_session_dir(path: String) -> CmdResult<ValidateSessionDirR
 
 #[tauri::command]
 pub async fn factory_reset(state: tauri::State<'_, SharedConfig>) -> CmdResult<()> {
-    let cfg = read_config(&state);
-    let index_path = cfg.index_db_path();
+    let paths = get_config_paths(&state);
     let config_path = config::config_file_path();
 
     tokio::task::spawn_blocking(move || {
         // Best-effort: log failures but don't abort the reset.
-        if let Err(e) = remove_index_db_files(&index_path) {
+        if let Err(e) = remove_index_db_files(&paths.index_db_path) {
             tracing::warn!(error = %e, "factory_reset: failed to remove index DB files");
         }
 

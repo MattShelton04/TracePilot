@@ -4,7 +4,7 @@ use crate::blocking_cmd;
 use crate::cache::TtlCache;
 use crate::config::SharedConfig;
 use crate::error::CmdResult;
-use crate::helpers::read_config;
+use crate::helpers::{get_config_paths, read_config};
 use std::sync::LazyLock;
 use std::time::Duration;
 
@@ -174,14 +174,13 @@ pub async fn toggle_repo_favourite(path: String) -> CmdResult<bool> {
 pub async fn discover_repos_from_sessions(
     state: tauri::State<'_, SharedConfig>,
 ) -> CmdResult<Vec<tracepilot_orchestrator::RegisteredRepo>> {
-    let cfg = read_config(&state);
-    let index_path = cfg.index_db_path();
+    let paths = get_config_paths(&state);
 
     let cwds = tokio::task::spawn_blocking(move || -> CmdResult<Vec<String>> {
-        if !index_path.exists() {
+        if !paths.index_db_path.exists() {
             Ok(Vec::new())
         } else {
-            let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
+            let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&paths.index_db_path)?;
             Ok(db.distinct_session_cwds()?)
         }
     })
