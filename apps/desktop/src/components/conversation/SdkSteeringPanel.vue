@@ -62,27 +62,47 @@ function autoRemoveSent(id: number, delayMs: number) {
   }, delayMs);
 }
 
-// Position the teleported dropdown above the model button
+// Position the teleported dropdown above the model button (with viewport bounds check)
 function updateDropdownPosition() {
   const btn = document.querySelector(".cb-model-btn") as HTMLElement | null;
   if (!btn) return;
   const rect = btn.getBoundingClientRect();
-  modelDropdownStyle.value = {
-    position: "fixed",
-    left: `${rect.left}px`,
-    bottom: `${window.innerHeight - rect.top + 6}px`,
-    minWidth: "200px",
-    maxHeight: "240px",
-    zIndex: "9999",
-  };
+  const maxH = 240;
+  const gap = 6;
+
+  // Check if there's enough space above the button
+  const spaceAbove = rect.top - gap;
+  const openUpward = spaceAbove >= maxH;
+
+  if (openUpward) {
+    modelDropdownStyle.value = {
+      position: "fixed",
+      left: `${rect.left}px`,
+      bottom: `${window.innerHeight - rect.top + gap}px`,
+      minWidth: "200px",
+      maxHeight: `${maxH}px`,
+      zIndex: "9999",
+    };
+  } else {
+    // Open downward if not enough space above
+    modelDropdownStyle.value = {
+      position: "fixed",
+      left: `${rect.left}px`,
+      top: `${rect.bottom + gap}px`,
+      minWidth: "200px",
+      maxHeight: `${Math.min(maxH, window.innerHeight - rect.bottom - gap - 8)}px`,
+      zIndex: "9999",
+    };
+  }
 }
 
 // ─── Computed ───────────────────────────────────────────────────
 const isEnabled = computed(() => prefs.isFeatureEnabled("copilotSdk"));
 
 const linkedSession = computed(() => {
-  if (!props.sessionId) return null;
-  return sdk.sessions.find((s) => s.sessionId === props.sessionId) ?? null;
+  const sid = effectiveSessionId.value ?? props.sessionId;
+  if (!sid) return null;
+  return sdk.sessions.find((s) => s.sessionId === sid) ?? null;
 });
 
 /** Panel is visible whenever SDK is connected and feature is on (even if session isn't linked yet). */
@@ -118,16 +138,6 @@ const inferredModel = computed(() => {
 const currentModel = computed(
   () => linkedSession.value?.model ?? inferredModel.value ?? null,
 );
-
-const shortModel = computed(() => {
-  const m = currentModel.value;
-  if (!m) return null;
-  // Shorten common prefixes for display
-  return m
-    .replace(/^gpt-/, "")
-    .replace(/^claude-/, "")
-    .replace(/^o[0-9]+-/, (p) => p);
-});
 
 const hasText = computed(() => prompt.value.trim().length > 0);
 
@@ -211,8 +221,8 @@ function clearError() {
   sdk.lastError = null;
 }
 
-/** The error to show inline (session-specific first, then global). */
-const inlineError = computed(() => sessionError.value ?? null);
+/** The error to show inline (session-specific first, then global SDK errors). */
+const inlineError = computed(() => sessionError.value ?? sdk.lastError ?? null);
 
 // ─── Actions ────────────────────────────────────────────────────
 
@@ -283,15 +293,41 @@ async function handleSend() {
 async function handleModeChange(mode: BridgeSessionMode) {
   if (!props.sessionId || !isLinked.value) return;
   sessionError.value = null;
+  sdk.lastError = null;
   await sdk.setSessionMode(effectiveSessionId.value!, mode);
-  scheduleRefresh(500);
+  const err = sdk.lastError as string | null;
+  if (err) {
+    if (err.includes("-32601") || err.includes("Unhandled method")) {
+      sessionError.value = "Mode switching not supported by this CLI version.";
+      sdk.lastError = null;
+    } else {
+      sessionError.value = `Mode switch failed: ${err}`;
+    }
+  } else {
+    scheduleRefresh(500);
+  }
 }
 
 async function handleModelSelect(modelId: string) {
   if (!props.sessionId || !isLinked.value) return;
   modelDropdownOpen.value = false;
   sessionError.value = null;
+  sdk.lastError = null;
+
   await sdk.setSessionModel(effectiveSessionId.value!, modelId);
+
+  // Store catches errors silently (sets lastError but doesn't throw).
+  // Check for -32601 (unhandled method) specifically — CLI may not support model switching.
+  const err = sdk.lastError as string | null;
+  if (err) {
+    if (err.includes("-32601") || err.includes("Unhandled method")) {
+      sessionError.value = "Model switching not supported by this CLI version. Model will be inferred from chat history.";
+      sdk.lastError = null;
+    } else {
+      sessionError.value = `Model switch failed: ${err}`;
+    }
+    logWarn("[sdk] Model switch failed:", err);
+  }
 }
 
 async function handleAbort() {
@@ -518,7 +554,7 @@ async function handleConnect() {
             :class="['cb-model-btn', { open: modelDropdownOpen }]"
             @click.stop="toggleModelDropdown"
           >
-            <span class="cb-model-name">{{ shortModel ?? "model" }}</span>
+            <span class="cb-model-name">{{ currentModel ?? "model" }}</span>
             <svg viewBox="0 0 12 12" width="12" height="12">
               <path d="M3 7l3-3 3 3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
             </svg>
@@ -535,7 +571,7 @@ async function handleConnect() {
                 v-for="model in sdk.models"
                 :key="model.id"
                 :class="['cb-model-option', { active: currentModel === model.id }]"
-                @click="handleModelSelect(model.id)"
+                @click.stop="handleModelSelect(model.id)"
               >
                 <span>{{ model.name ?? model.id }}</span>
                 <span class="cb-check">✓</span>

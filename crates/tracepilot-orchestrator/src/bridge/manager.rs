@@ -26,6 +26,9 @@ pub struct BridgeManager {
     error_message: Option<String>,
     /// "stdio" or "tcp" — tracks how we connected.
     connection_mode: Option<String>,
+    /// TCP server URL when in TCP mode — used for raw JSON-RPC calls
+    /// that bypass the SDK (workaround for upstream method name bugs).
+    cli_url: Option<String>,
     event_tx: broadcast::Sender<BridgeEvent>,
     status_tx: broadcast::Sender<BridgeStatus>,
 
@@ -48,6 +51,7 @@ impl BridgeManager {
             state: BridgeConnectionState::Disconnected,
             error_message: None,
             connection_mode: None,
+            cli_url: None,
             event_tx: tx,
             status_tx,
             #[cfg(feature = "copilot-sdk")]
@@ -116,6 +120,7 @@ impl BridgeManager {
         // Track connection mode based on config
         let is_tcp = config.cli_url.is_some();
         self.connection_mode = Some(if is_tcp { "tcp" } else { "stdio" }.to_string());
+        self.cli_url = config.cli_url.clone();
 
         let mut builder = copilot_sdk::Client::builder();
 
@@ -184,6 +189,7 @@ impl BridgeManager {
         self.state = BridgeConnectionState::Disconnected;
         self.error_message = None;
         self.connection_mode = None;
+        self.cli_url = None;
         self.emit_status_change();
         info!("Copilot SDK bridge disconnected");
         Ok(())
@@ -461,6 +467,11 @@ impl BridgeManager {
     }
 
     /// Change the model for a session.
+    ///
+    /// In TCP mode, sends a raw JSON-RPC call with the correct camelCase method
+    /// name (`session.model.switchTo`). The upstream Rust SDK has a bug where it
+    /// sends `session.model.switch_to` (snake_case) which the CLI doesn't recognize.
+    /// See: docs/copilot-sdk-rpc-method-bug.md
     #[cfg(feature = "copilot-sdk")]
     pub async fn set_session_model(
         &self,
@@ -468,6 +479,56 @@ impl BridgeManager {
         model: &str,
         reasoning_effort: Option<String>,
     ) -> Result<(), BridgeError> {
+        // TCP mode: bypass SDK with raw JSON-RPC using correct method name
+        if let Some(url) = &self.cli_url {
+            info!(
+                "Setting model for session {} to '{}' via raw RPC (tcp: {})",
+                session_id, model, url
+            );
+
+            let mut params = serde_json::json!({
+                "sessionId": session_id,
+                "modelId": model,
+            });
+            if let Some(effort) = &reasoning_effort {
+                params["reasoningEffort"] = serde_json::json!(effort);
+            }
+
+            let result = raw_rpc_call(url, "session.model.switchTo", params).await?;
+            info!("session.model.switchTo result: {}", result);
+
+            // Verify the model actually changed
+            let verify_params = serde_json::json!({ "sessionId": session_id });
+            match raw_rpc_call(url, "session.model.getCurrent", verify_params).await {
+                Ok(current) => {
+                    let current_model = current
+                        .get("modelId")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("<none>");
+                    info!(
+                        "session.model.getCurrent after switch: current='{}', requested='{}'",
+                        current_model, model
+                    );
+                    if current_model != model && current_model != "<none>" {
+                        warn!(
+                            "Model switch may not have taken effect: requested '{}', current '{}'",
+                            model, current_model
+                        );
+                    }
+                }
+                Err(e) => {
+                    warn!("getCurrent verification failed (non-fatal): {}", e);
+                }
+            }
+
+            return Ok(());
+        }
+
+        // Stdio mode: use SDK method (may fail with -32601 due to upstream bug)
+        info!(
+            "Setting model for session {} to '{}' via SDK (stdio)",
+            session_id, model
+        );
         let session = self.require_session(session_id)?;
         let opts = reasoning_effort.map(|re| copilot_sdk::SetModelOptions {
             reasoning_effort: Some(re),
@@ -815,6 +876,101 @@ pub fn launch_ui_server(working_dir: Option<&str>) -> Result<u32, BridgeError> {
     }
 }
 
+/// Send a raw JSON-RPC request to the CLI server over TCP.
+///
+/// Bypasses the SDK to work around upstream method name bugs
+/// (e.g. `session.model.switch_to` should be `session.model.switchTo`).
+/// Uses Content-Length framing (LSP-style protocol).
+#[cfg(feature = "copilot-sdk")]
+async fn raw_rpc_call(
+    cli_url: &str,
+    method: &str,
+    params: serde_json::Value,
+) -> Result<serde_json::Value, BridgeError> {
+    use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
+    use tokio::net::TcpStream;
+
+    // Parse URL — accepts "host:port", "http://host:port", or bare "port"
+    let addr = if let Some(rest) = cli_url.strip_prefix("http://") {
+        rest.to_string()
+    } else if cli_url.contains(':') {
+        cli_url.to_string()
+    } else {
+        format!("127.0.0.1:{cli_url}")
+    };
+
+    debug!("raw_rpc_call: {} → {} params={}", addr, method, params);
+
+    let mut stream = TcpStream::connect(&addr)
+        .await
+        .map_err(|e| BridgeError::Sdk(format!("TCP connect to {addr}: {e}")))?;
+
+    let body = serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": method,
+        "params": params,
+    });
+    let body_str = serde_json::to_string(&body)
+        .map_err(|e| BridgeError::Sdk(format!("JSON serialize: {e}")))?;
+
+    let msg = format!("Content-Length: {}\r\n\r\n{}", body_str.len(), body_str);
+    stream
+        .write_all(msg.as_bytes())
+        .await
+        .map_err(|e| BridgeError::Sdk(format!("TCP write: {e}")))?;
+
+    // Read Content-Length header from response
+    let mut reader = BufReader::new(stream);
+    let mut content_length: usize = 0;
+    loop {
+        let mut line = String::new();
+        reader
+            .read_line(&mut line)
+            .await
+            .map_err(|e| BridgeError::Sdk(format!("TCP read header: {e}")))?;
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            break;
+        }
+        if let Some(len_str) = trimmed.strip_prefix("Content-Length:") {
+            content_length = len_str
+                .trim()
+                .parse()
+                .map_err(|_| BridgeError::Sdk("Invalid Content-Length".into()))?;
+        }
+    }
+
+    if content_length == 0 {
+        return Err(BridgeError::Sdk("No Content-Length in response".into()));
+    }
+
+    let mut body_buf = vec![0u8; content_length];
+    reader
+        .read_exact(&mut body_buf)
+        .await
+        .map_err(|e| BridgeError::Sdk(format!("TCP read body: {e}")))?;
+
+    let response: serde_json::Value = serde_json::from_slice(&body_buf)
+        .map_err(|e| BridgeError::Sdk(format!("JSON parse response: {e}")))?;
+
+    debug!("raw_rpc_call: {} response={}", method, response);
+
+    if let Some(error) = response.get("error") {
+        let msg = error
+            .get("message")
+            .and_then(|m| m.as_str())
+            .unwrap_or("Unknown");
+        let code = error.get("code").and_then(|c| c.as_i64()).unwrap_or(0);
+        return Err(BridgeError::Sdk(format!("JSON-RPC error {code}: {msg}")));
+    }
+
+    Ok(response
+        .get("result")
+        .cloned()
+        .unwrap_or(serde_json::Value::Null))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -842,5 +998,212 @@ mod tests {
                 .await;
             assert!(matches!(result, Err(BridgeError::NotAvailable)));
         }
+    }
+
+    #[test]
+    fn manager_new_has_no_cli_url() {
+        let (mgr, _rx, _status_rx) = BridgeManager::new();
+        assert!(mgr.cli_url.is_none());
+        assert!(mgr.connection_mode.is_none());
+    }
+
+    /// Helper: starts a minimal Content-Length framed JSON-RPC server that
+    /// returns a canned response for the first request, then shuts down.
+    #[cfg(feature = "copilot-sdk")]
+    async fn mock_jsonrpc_server(
+        response: serde_json::Value,
+    ) -> (tokio::net::TcpListener, String) {
+        use tokio::net::TcpListener;
+
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap().to_string();
+        let response_clone = response.clone();
+
+        tokio::spawn(async move {
+            use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
+
+            let (stream, _) = listener.accept().await.unwrap();
+            let mut reader = BufReader::new(stream);
+
+            // Read headers
+            let mut content_length: usize = 0;
+            loop {
+                let mut line = String::new();
+                reader.read_line(&mut line).await.unwrap();
+                let trimmed = line.trim();
+                if trimmed.is_empty() {
+                    break;
+                }
+                if let Some(len_str) = trimmed.strip_prefix("Content-Length:") {
+                    content_length = len_str.trim().parse().unwrap();
+                }
+            }
+
+            // Read body
+            let mut body_buf = vec![0u8; content_length];
+            reader.read_exact(&mut body_buf).await.unwrap();
+
+            let request: serde_json::Value = serde_json::from_slice(&body_buf).unwrap();
+
+            // Build JSON-RPC response with matching id
+            let resp = serde_json::json!({
+                "jsonrpc": "2.0",
+                "id": request.get("id").cloned().unwrap_or(serde_json::json!(1)),
+                "result": response_clone,
+            });
+
+            let resp_str = serde_json::to_string(&resp).unwrap();
+            let msg = format!("Content-Length: {}\r\n\r\n{}", resp_str.len(), resp_str);
+            reader.get_mut().write_all(msg.as_bytes()).await.unwrap();
+        });
+
+        // Return the listener (to keep it alive) and address
+        let addr_for_caller = addr.clone();
+        // We need to return something that keeps the spawned task's listener alive.
+        // The listener is moved into the spawned task, so we just return the address.
+        // Bind a new reference to keep things tidy:
+        let listener2 = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        (listener2, addr_for_caller)
+    }
+
+    /// Helper: starts a JSON-RPC server that returns an error.
+    #[cfg(feature = "copilot-sdk")]
+    async fn mock_jsonrpc_error_server(code: i64, message: &str) -> String {
+        use tokio::net::TcpListener;
+
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap().to_string();
+        let msg_owned = message.to_string();
+
+        tokio::spawn(async move {
+            use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
+
+            let (stream, _) = listener.accept().await.unwrap();
+            let mut reader = BufReader::new(stream);
+
+            let mut content_length: usize = 0;
+            loop {
+                let mut line = String::new();
+                reader.read_line(&mut line).await.unwrap();
+                let trimmed = line.trim();
+                if trimmed.is_empty() {
+                    break;
+                }
+                if let Some(len_str) = trimmed.strip_prefix("Content-Length:") {
+                    content_length = len_str.trim().parse().unwrap();
+                }
+            }
+
+            let mut body_buf = vec![0u8; content_length];
+            reader.read_exact(&mut body_buf).await.unwrap();
+
+            let request: serde_json::Value = serde_json::from_slice(&body_buf).unwrap();
+
+            let resp = serde_json::json!({
+                "jsonrpc": "2.0",
+                "id": request.get("id").cloned().unwrap_or(serde_json::json!(1)),
+                "error": {
+                    "code": code,
+                    "message": msg_owned,
+                },
+            });
+
+            let resp_str = serde_json::to_string(&resp).unwrap();
+            let msg = format!("Content-Length: {}\r\n\r\n{}", resp_str.len(), resp_str);
+            reader.get_mut().write_all(msg.as_bytes()).await.unwrap();
+        });
+
+        addr
+    }
+
+    #[cfg(feature = "copilot-sdk")]
+    #[tokio::test]
+    async fn raw_rpc_call_success_returns_result() {
+        let expected = serde_json::json!({ "modelId": "gpt-4.1" });
+        let (_keep, addr) = mock_jsonrpc_server(expected.clone()).await;
+
+        let result = raw_rpc_call(
+            &addr,
+            "session.model.getCurrent",
+            serde_json::json!({ "sessionId": "test-123" }),
+        )
+        .await
+        .expect("should succeed");
+
+        assert_eq!(result, expected);
+    }
+
+    #[cfg(feature = "copilot-sdk")]
+    #[tokio::test]
+    async fn raw_rpc_call_null_result() {
+        let (_keep, addr) = mock_jsonrpc_server(serde_json::Value::Null).await;
+
+        let result = raw_rpc_call(
+            &addr,
+            "session.model.switchTo",
+            serde_json::json!({ "sessionId": "test-123", "modelId": "gpt-4.1" }),
+        )
+        .await
+        .expect("should succeed");
+
+        assert_eq!(result, serde_json::Value::Null);
+    }
+
+    #[cfg(feature = "copilot-sdk")]
+    #[tokio::test]
+    async fn raw_rpc_call_error_response() {
+        let addr = mock_jsonrpc_error_server(-32601, "Unhandled method").await;
+
+        let result = raw_rpc_call(
+            &addr,
+            "session.model.switch_to",
+            serde_json::json!({ "sessionId": "test-123" }),
+        )
+        .await;
+
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("-32601"), "error should contain code: {err}");
+        assert!(
+            err.contains("Unhandled method"),
+            "error should contain message: {err}"
+        );
+    }
+
+    #[cfg(feature = "copilot-sdk")]
+    #[tokio::test]
+    async fn raw_rpc_call_connection_refused() {
+        // Use a port that's extremely unlikely to be listening
+        let result = raw_rpc_call(
+            "127.0.0.1:1",
+            "test.method",
+            serde_json::json!({}),
+        )
+        .await;
+
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("TCP connect"),
+            "error should mention TCP connect: {err}"
+        );
+    }
+
+    #[cfg(feature = "copilot-sdk")]
+    #[tokio::test]
+    async fn raw_rpc_call_parses_http_prefix() {
+        let expected = serde_json::json!("ok");
+        let (_keep, addr) = mock_jsonrpc_server(expected.clone()).await;
+
+        let url_with_http = format!("http://{}", addr);
+        let result = raw_rpc_call(
+            &url_with_http,
+            "test.method",
+            serde_json::json!({}),
+        )
+        .await
+        .expect("should handle http:// prefix");
+
+        assert_eq!(result, expected);
     }
 }

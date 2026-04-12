@@ -362,11 +362,14 @@ export const useSdkStore = defineStore("sdk", () => {
 
   async function setSessionModel(sessionId: string, model: string, reasoningEffort?: string) {
     try {
+      logInfo("[sdk] setSessionModel:", { sessionId, model, reasoningEffort });
       await sdkSetSessionModel(sessionId, model, reasoningEffort);
+      logInfo("[sdk] setSessionModel succeeded — optimistically updating to:", model);
       sessions.value = sessions.value.map((s) =>
         s.sessionId === sessionId ? { ...s, model } : s,
       );
     } catch (e) {
+      logWarn("[sdk] setSessionModel failed:", e);
       lastError.value = toErrorMessage(e);
     }
   }

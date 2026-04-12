@@ -402,6 +402,11 @@ function isActiveServer(address: string) {
 </template>
 
 <style scoped>
+/* Override global setting-row borders — SDK panel uses .sdk-divider for subsection breaks */
+:deep(.setting-row) {
+  border-bottom: none !important;
+}
+
 /* ─── Internal divider / subsection ──────────── */
 .sdk-divider {
   height: 1px;
