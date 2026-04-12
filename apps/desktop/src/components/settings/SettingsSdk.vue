@@ -15,6 +15,7 @@ const prefs = usePreferencesStore();
 const sdk = useSdkStore();
 
 const isEnabled = computed(() => prefs.isFeatureEnabled("copilotSdk"));
+const showHowTo = ref(false);
 
 // Connection mode: "auto" (stdio), "detect" (auto-detect --ui-server), "manual" (custom TCP)
 const connectionMode = computed({
@@ -58,13 +59,16 @@ async function handleDisconnect() {
 }
 
 async function handleDetectAndConnect() {
+  // If already connected, disconnect first so we can switch to TCP mode
+  if (sdk.isConnected) {
+    await sdk.disconnect();
+  }
   await sdk.detectAndConnect();
 }
 
 async function handleDetect() {
   const servers = await sdk.detectUiServer();
   if (servers.length > 0) {
-    // Auto-fill the first detected server's address
     sdk.updateSettings(servers[0].address, sdk.savedLogLevel);
   }
 }
@@ -257,17 +261,17 @@ const sessionCountLabel = computed(() => {
           <ActionButton
             size="sm"
             :class="{ 'btn-active': !cliUrl }"
-            :disabled="sdk.isConnected"
+            :disabled="sdk.isConnected && !cliUrl"
             @click="handleClearUrl"
           >
             📦 Stdio
           </ActionButton>
           <ActionButton
             size="sm"
-            :disabled="sdk.isConnected || sdk.detecting"
+            :disabled="sdk.detecting"
             @click="handleDetectAndConnect"
           >
-            {{ sdk.detecting ? "Scanning…" : "🔍 Detect UI Server" }}
+            {{ sdk.detecting ? "Scanning…" : "🔍 Detect & Connect" }}
           </ActionButton>
         </div>
       </div>
@@ -376,23 +380,22 @@ const sessionCountLabel = computed(() => {
           <div class="setting-description setting-result-danger">{{ sdk.lastError }}</div>
         </div>
       </div>
-    </SectionPanel>
 
-    <!-- How to use -->
-    <div class="settings-section-title" style="margin-top: 16px;">How to Use</div>
-    <SectionPanel>
+      <!-- How to Use (collapsible) -->
       <div class="setting-row setting-row-stacked">
-        <div class="setting-info">
-          <div class="setting-description sdk-howto">
-            <p><strong>Stdio mode (default)</strong> — TracePilot spawns its own isolated Copilot CLI process. Good for creating new sessions. No shared state with your terminal.</p>
-            <p><strong>TCP mode (recommended for steering)</strong> — Connect to an existing CLI server to steer sessions started in your terminal:</p>
-            <ol>
-              <li>Run <code>copilot --ui-server</code> in a terminal. It starts a background server and prints its port.</li>
-              <li>Click <strong>Detect UI Server</strong> above — TracePilot will find it automatically.</li>
-              <li>Or manually run <code>copilot --server --port 3333</code> and enter <code>127.0.0.1:3333</code> as the CLI URL.</li>
-            </ol>
-            <p>Once connected in TCP mode, open any session's conversation view and click <strong>Link for Steering</strong> to send messages and change modes in real time.</p>
-          </div>
+        <button class="sdk-howto-toggle" @click="showHowTo = !showHowTo">
+          <span class="sdk-howto-arrow" :class="{ 'sdk-howto-arrow--open': showHowTo }">▸</span>
+          How to use the SDK Bridge
+        </button>
+        <div v-if="showHowTo" class="sdk-howto">
+          <p><strong>Stdio mode (default)</strong> — TracePilot spawns its own isolated Copilot CLI process. Good for creating new sessions. No shared state with your terminal.</p>
+          <p><strong>TCP mode (recommended for steering)</strong> — Connect to an existing CLI server to steer sessions started in your terminal:</p>
+          <ol>
+            <li>Run <code>copilot --ui-server</code> in a terminal. It starts a background server.</li>
+            <li>Click <strong>Detect &amp; Connect</strong> above — TracePilot will find it and connect automatically.</li>
+            <li>Or run <code>copilot --server --port 3333</code> and enter <code>127.0.0.1:3333</code> as the CLI URL.</li>
+          </ol>
+          <p>Once connected, open any session's conversation view and click <strong>Link for Steering</strong> to send messages and change modes in real time.</p>
         </div>
       </div>
     </SectionPanel>
@@ -577,6 +580,9 @@ const sessionCountLabel = computed(() => {
 
 .sdk-howto {
   line-height: 1.7;
+  padding: 8px 12px 4px;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
 }
 .sdk-howto p {
   margin: 0 0 8px;
@@ -590,6 +596,32 @@ const sessionCountLabel = computed(() => {
 }
 .sdk-howto li {
   margin: 2px 0;
+}
+
+.sdk-howto-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 4px 0;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  transition: color var(--transition-fast);
+}
+.sdk-howto-toggle:hover {
+  color: var(--text-primary);
+}
+.sdk-howto-arrow {
+  display: inline-block;
+  transition: transform 0.15s ease;
+  font-size: 0.6875rem;
+}
+.sdk-howto-arrow--open {
+  transform: rotate(90deg);
 }
 
 code {
