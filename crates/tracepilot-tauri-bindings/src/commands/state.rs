@@ -37,10 +37,8 @@ pub async fn get_session_count(state: tauri::State<'_, SharedConfig>) -> CmdResu
     let session_state_dir = cfg.session_state_dir();
 
     blocking_cmd!({
-        if let Some(db) = open_index_db(&index_path)
-            && let Ok(count) = db.session_count()
-        {
-            return Ok(count);
+        if let Some(opened) = open_index_db(&index_path) {
+            return Ok(opened.session_count);
         }
         Ok::<_, BindingsError>(
             tracepilot_core::session::discovery::discover_sessions(&session_state_dir)?.len(),
