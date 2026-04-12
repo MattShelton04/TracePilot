@@ -34,17 +34,11 @@ pub fn parse_rewind_index(session_dir: &Path) -> Result<Option<RewindIndex>> {
         return Ok(None);
     }
 
-    let content =
-        std::fs::read_to_string(&index_path).map_err(|e| TracePilotError::ParseError {
-            context: format!("Failed to read {}", index_path.display()),
-            source: Some(Box::new(e)),
-        })?;
+    let content = std::fs::read_to_string(&index_path)
+        .map_err(|e| TracePilotError::io_context("Failed to read", index_path.display(), e))?;
 
-    let index: RewindIndex =
-        serde_json::from_str(&content).map_err(|e| TracePilotError::ParseError {
-            context: format!("Failed to parse {}", index_path.display()),
-            source: Some(Box::new(e)),
-        })?;
+    let index: RewindIndex = serde_json::from_str(&content)
+        .map_err(|e| TracePilotError::parse_context("JSON", index_path.display(), e))?;
 
     Ok(Some(index))
 }
