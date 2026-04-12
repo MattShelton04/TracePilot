@@ -258,4 +258,35 @@ describe("deepClone", () => {
       expect(cloned.metadata).not.toBe(config.metadata);
     });
   });
+
+  describe("error handling", () => {
+    it("throws on circular references (JSON fallback)", () => {
+      const obj: any = { name: "test" };
+      obj.self = obj; // Create circular reference
+
+      if (typeof structuredClone !== "undefined") {
+        // structuredClone handles circular refs, no error
+        expect(() => deepClone(obj)).not.toThrow();
+      } else {
+        // JSON fallback should throw with clear error message
+        expect(() => deepClone(obj)).toThrow(/Failed to clone object/);
+      }
+    });
+
+    it("throws on unclonable types with clear error message", () => {
+      const objWithFunction = {
+        name: "test",
+        fn: () => console.log("hello"),
+      };
+
+      if (typeof structuredClone !== "undefined") {
+        // structuredClone throws on functions
+        expect(() => deepClone(objWithFunction)).toThrow(/Failed to clone object/);
+      } else {
+        // JSON fallback silently drops functions, no error
+        const result = deepClone(objWithFunction);
+        expect(result).toEqual({ name: "test" });
+      }
+    });
+  });
 });
