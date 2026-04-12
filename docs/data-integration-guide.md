@@ -91,7 +91,7 @@ These functions bypass `invoke()` entirely and return hardcoded mock data:
 | `getToolAnalysis()` | `MOCK_TOOL_ANALYSIS` | `ToolAnalysisData` | `ToolAnalysisView` |
 | `getCodeImpact()` | `MOCK_CODE_IMPACT` | `CodeImpactData` | `CodeImpactView` |
 | `getHealthScores()` | `MOCK_HEALTH_SCORING` | `HealthScoringData` | `HealthScoringView` |
-| `exportSession(config)` | `MOCK_EXPORT_RESULT` | `ExportConfig → ExportResult` | `ExportView` |
+| `exportSessions(config)` | `MOCK_EXPORT_RESULT` | `ExportConfig → ExportResult` | `ExportView` |
 
 ---
 
@@ -278,7 +278,7 @@ These functions bypass `invoke()` entirely and return hardcoded mock data:
 - Return `ExportResult` (success, file path, count)
 - Tauri file dialog for choosing destination
 
-**Current state:** Calls `exportSession(config)` → returns `MOCK_EXPORT_RESULT`. The `tracepilot-export` crate already exists but isn't wired to the Tauri plugin.
+**Current state:** Calls `exportSessions(config)` → returns `MOCK_EXPORT_RESULT`. The `tracepilot-export` crate already exists but isn't wired to the Tauri plugin.
 
 **How to wire it:**
 
@@ -299,7 +299,7 @@ These functions bypass `invoke()` entirely and return hardcoded mock data:
 
 4. **Update client** — replace `MOCK_EXPORT_RESULT` return:
    ```typescript
-   export async function exportSession(config: ExportConfig): Promise<ExportResult> {
+   export async function exportSessions(config: ExportConfig): Promise<ExportResult> {
      return invoke<ExportResult>("export_session", { config });
    }
    ```

@@ -651,13 +651,6 @@ export async function importSessions(config: ImportConfig): Promise<ImportResult
   });
 }
 
-/**
- * @deprecated Use `exportSessions` instead. Kept for backward compatibility.
- */
-export async function exportSession(config: ExportConfig): Promise<ExportResult> {
-  return exportSessions(config);
-}
-
 // ── Setup / Configuration Commands ────────────────────────────
 
 /** Check if TracePilot config.toml exists (determines if setup is needed). */

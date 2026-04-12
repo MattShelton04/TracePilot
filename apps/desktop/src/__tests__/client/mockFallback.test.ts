@@ -12,7 +12,6 @@
 
 import type { ContextSnippet, FtsHealthInfo } from "@tracepilot/client";
 import {
-  exportSession,
   exportSessions,
   ftsHealth,
   ftsIntegrityCheck,
@@ -81,16 +80,6 @@ describe("Export mock fallback", () => {
     expect(typeof result.filePath).toBe("string");
     expect(typeof result.fileSizeBytes).toBe("number");
     expect(typeof result.exportedAt).toBe("string");
-  });
-
-  it("exportSession (deprecated) delegates to exportSessions", async () => {
-    const result = await exportSession({
-      sessionIds: ["sess-1"],
-      format: "json",
-      sections: ["conversation"],
-      outputPath: "/out.json",
-    });
-    expect(result.sessionsExported).toBeGreaterThanOrEqual(0);
   });
 
   it("previewExport resolves to an ExportPreviewResult", async () => {
