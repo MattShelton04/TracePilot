@@ -10,6 +10,7 @@ import type {
   BridgeSessionInfo,
   BridgeSessionMode,
   BridgeStatus,
+  DetectedUiServer,
 } from "@tracepilot/types";
 import { createInvoke } from "./invoke.js";
 
@@ -112,4 +113,11 @@ export async function sdkGetAuthStatus(): Promise<BridgeAuthStatus> {
 
 export async function sdkListModels(): Promise<BridgeModelInfo[]> {
   return invoke<BridgeModelInfo[]>("sdk_list_models");
+}
+
+// ─── UI Server Detection ──────────────────────────────────────────
+
+/** Detect running `copilot --ui-server` processes on the local machine. */
+export async function sdkDetectUiServer(): Promise<DetectedUiServer[]> {
+  return invoke<DetectedUiServer[]>("sdk_detect_ui_server");
 }

@@ -116,8 +116,12 @@ Terminal TUI ────┐
    protocol v3. Each client receives `session.event` broadcasts independently.
 
 3. **Starting it**: Run `copilot --ui-server` in a terminal. The CLI will print
-   the TCP address (e.g., `127.0.0.1:53076`). Set this as the `cli_url` in
-   TracePilot Settings → SDK Bridge → CLI URL.
+   the TCP address (e.g., `127.0.0.1:53076`). TracePilot can **auto-detect**
+   running `--ui-server` instances via the "Detect UI Server" button in
+   Settings → SDK Bridge. The detection scans for copilot processes with
+   `--ui-server` or `--server` in their command line and resolves their
+   listening TCP ports. Alternatively, set the address manually in the
+   CLI URL field, or run `copilot --server --port 3333` for a fixed port.
 
 4. **TracePilot steers alongside the terminal**: When TracePilot sends a message
    via the shared server, the server processes it identically to a TUI message.

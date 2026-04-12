@@ -100,3 +100,13 @@ export interface BridgeMessagePayload {
   prompt: string;
   mode?: string;
 }
+
+// ─── UI Server Detection ──────────────────────────────────────────
+
+/** A detected `copilot --ui-server` process with its listening address. */
+export interface DetectedUiServer {
+  pid: number;
+  port: number;
+  /** e.g. "127.0.0.1:60381" — ready to use as `cliUrl`. */
+  address: string;
+}

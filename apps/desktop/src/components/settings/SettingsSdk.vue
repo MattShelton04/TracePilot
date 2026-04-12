@@ -16,6 +16,17 @@ const sdk = useSdkStore();
 
 const isEnabled = computed(() => prefs.isFeatureEnabled("copilotSdk"));
 
+// Connection mode: "auto" (stdio), "detect" (auto-detect --ui-server), "manual" (custom TCP)
+const connectionMode = computed({
+  get: () => {
+    if (!sdk.savedCliUrl) return "auto";
+    return "manual";
+  },
+  set: (_v: string) => {
+    // Handled by mode-specific actions
+  },
+});
+
 // Bind to persisted store settings
 const cliUrl = computed({
   get: () => sdk.savedCliUrl,
@@ -46,6 +57,22 @@ async function handleDisconnect() {
   await sdk.disconnect();
 }
 
+async function handleDetectAndConnect() {
+  await sdk.detectAndConnect();
+}
+
+async function handleDetect() {
+  const servers = await sdk.detectUiServer();
+  if (servers.length > 0) {
+    // Auto-fill the first detected server's address
+    sdk.updateSettings(servers[0].address, sdk.savedLogLevel);
+  }
+}
+
+function handleClearUrl() {
+  sdk.updateSettings("", sdk.savedLogLevel);
+}
+
 async function refreshAll() {
   await Promise.all([
     sdk.refreshStatus(),
@@ -66,7 +93,18 @@ async function runDiagnostics() {
     diagAppend(`State: ${sdk.connectionState}, SDK available: ${sdk.sdkAvailable}`);
     diagAppend(`Sessions in store: ${sdk.sessions.length}, Models: ${sdk.models.length}`);
 
-    // Step 2: Connect (or reconnect)
+    // Step 2: Detect UI servers
+    diagAppend("Scanning for running copilot --ui-server instances...");
+    const servers = await sdk.detectUiServer();
+    if (servers.length > 0) {
+      for (const s of servers) {
+        diagAppend(`✅ Found UI server: PID ${s.pid} @ ${s.address}`);
+      }
+    } else {
+      diagAppend("⏭️ No --ui-server instances detected");
+    }
+
+    // Step 3: Connect (or reconnect)
     diagAppend("Connecting to SDK...");
     try {
       await sdk.connect({
@@ -80,7 +118,7 @@ async function runDiagnostics() {
       return;
     }
 
-    // Step 3: Auth status
+    // Step 4: Auth status
     diagAppend("Fetching auth status...");
     await sdk.fetchAuthStatus();
     if (sdk.authStatus) {
@@ -89,7 +127,7 @@ async function runDiagnostics() {
       diagAppend("⚠️ Auth status: null (could not retrieve)");
     }
 
-    // Step 4: Models
+    // Step 5: Models
     diagAppend("Fetching models...");
     await sdk.fetchModels();
     diagAppend(`✅ Models: ${sdk.models.length} available`);
@@ -97,7 +135,7 @@ async function runDiagnostics() {
       diagAppend(`   First 5: ${sdk.models.slice(0, 5).map(m => m.id).join(", ")}`);
     }
 
-    // Step 5: Sessions
+    // Step 6: Sessions
     diagAppend("Fetching sessions...");
     await sdk.fetchSessions();
     diagAppend(`✅ Sessions: ${sdk.sessions.length} found`);
@@ -107,12 +145,12 @@ async function runDiagnostics() {
       diagAppend(`   First 3: ${sdk.sessions.slice(0, 3).map(s => s.sessionId.slice(0, 8) + "…").join(", ")}`);
     }
 
-    // Step 6: Status
+    // Step 7: Status
     diagAppend("Fetching bridge status...");
     await sdk.refreshStatus();
     diagAppend(`✅ Status: state=${sdk.connectionState}, active=${sdk.activeSessions}, cli=${sdk.cliVersion ?? "unknown"}`);
 
-    // Step 7: Quota (expected to fail)
+    // Step 8: Quota (expected to fail)
     diagAppend("Fetching quota (may fail — expected on most CLI versions)...");
     await sdk.fetchQuota();
     if (sdk.quota) {
@@ -121,7 +159,7 @@ async function runDiagnostics() {
       diagAppend("⚠️ Quota: not available (expected — account.get_quota not supported)");
     }
 
-    // Step 8: Session summary (no resume — too risky to interfere with active sessions)
+    // Step 9: Session summary (no resume — too risky)
     if (sdk.sessions.length > 0) {
       const first3 = sdk.sessions.slice(0, 3).map(s => {
         const id = s.sessionId.slice(0, 8) + "…";
@@ -129,7 +167,7 @@ async function runDiagnostics() {
         return `${id} (${flags})`;
       });
       diagAppend(`📋 Sessions: ${first3.join(" · ")}${sdk.sessions.length > 3 ? ` +${sdk.sessions.length - 3} more` : ""}`);
-      diagAppend("ℹ️ Session resume is triggered automatically when you open a session's steering panel.");
+      diagAppend("ℹ️ Session resume is triggered when you click 'Link for Steering' in a session.");
     } else {
       diagAppend("⏭️ No sessions found. Start a Copilot CLI session first.");
     }
@@ -173,7 +211,7 @@ const sessionCountLabel = computed(() => {
           </div>
           <div class="setting-description">
             {{ connectionLabel }}
-            <template v-if="sdk.connectionMode"> · {{ sdk.connectionMode === 'tcp' ? '🌐 TCP (--ui-server)' : '📦 Stdio (subprocess)' }}</template>
+            <template v-if="sdk.connectionMode"> · {{ sdk.connectionMode === 'tcp' ? '🌐 TCP (shared server)' : '📦 Stdio (isolated subprocess)' }}</template>
             <template v-if="sdk.cliVersion"> · CLI {{ sdk.cliVersion }}</template>
             <template v-if="sdk.isConnected"> · {{ sessionCountLabel }}</template>
             <template v-if="sdk.isConnected"> · {{ sdk.models.length }} models</template>
@@ -206,26 +244,82 @@ const sessionCountLabel = computed(() => {
         </div>
       </div>
 
-      <!-- CLI URL -->
+      <!-- Connection Mode -->
       <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">Connection Mode</div>
+          <div class="setting-description">
+            <strong>Stdio</strong> spawns an isolated CLI subprocess (default).
+            <strong>TCP</strong> connects to an existing <code>copilot --ui-server</code> — both TracePilot and the terminal share the same server.
+          </div>
+        </div>
+        <div class="sdk-mode-actions">
+          <ActionButton
+            size="sm"
+            :class="{ 'btn-active': !cliUrl }"
+            :disabled="sdk.isConnected"
+            @click="handleClearUrl"
+          >
+            📦 Stdio
+          </ActionButton>
+          <ActionButton
+            size="sm"
+            :disabled="sdk.isConnected || sdk.detecting"
+            @click="handleDetectAndConnect"
+          >
+            {{ sdk.detecting ? "Scanning…" : "🔍 Detect UI Server" }}
+          </ActionButton>
+        </div>
+      </div>
+
+      <!-- Detected servers (shown after detection) -->
+      <div v-if="sdk.detectedServers.length > 0 && !sdk.isConnected" class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">Detected Servers</div>
+          <div class="setting-description">
+            Found {{ sdk.detectedServers.length }} running instance{{ sdk.detectedServers.length !== 1 ? 's' : '' }}
+          </div>
+        </div>
+        <div class="sdk-detected-list">
+          <button
+            v-for="server in sdk.detectedServers"
+            :key="server.pid"
+            class="sdk-detected-item"
+            @click="sdk.updateSettings(server.address, sdk.savedLogLevel)"
+          >
+            <span class="sdk-detected-addr">{{ server.address }}</span>
+            <span class="sdk-detected-pid">PID {{ server.pid }}</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- CLI URL (shown when in TCP mode or manually set) -->
+      <div v-if="cliUrl || connectionMode === 'manual'" class="setting-row">
         <div class="setting-info">
           <div class="setting-label">CLI URL</div>
           <div class="setting-description">
-            To steer alongside the terminal, run <code>copilot --ui-server</code> and enter
-            the TCP address shown on startup (e.g. <code>127.0.0.1:19563</code>).
-            Leave empty to use a private subprocess (default — separate from terminal).
-            <br />
-            <strong>Tip:</strong> In TCP mode, both TracePilot and the terminal connect to the same server.
-            In stdio mode, TracePilot spawns its own isolated CLI process.
+            TCP address of a running Copilot CLI server.
+            Use <code>Detect UI Server</code> above or enter manually.
           </div>
         </div>
-        <FormInput
-          v-model="cliUrl"
-          type="text"
-          placeholder="e.g. 127.0.0.1:19563 (leave empty for auto)"
-          class="input-medium"
-          :disabled="sdk.isConnected"
-        />
+        <div class="sdk-url-row">
+          <FormInput
+            v-model="cliUrl"
+            type="text"
+            placeholder="e.g. 127.0.0.1:60381"
+            class="input-medium"
+            :disabled="sdk.isConnected"
+          />
+          <ActionButton
+            v-if="cliUrl && !sdk.isConnected"
+            size="sm"
+            class="btn-ghost"
+            title="Clear URL and switch to stdio mode"
+            @click="handleClearUrl"
+          >
+            ✕
+          </ActionButton>
+        </div>
       </div>
 
       <!-- SDK Log Level -->
@@ -284,6 +378,25 @@ const sessionCountLabel = computed(() => {
       </div>
     </SectionPanel>
 
+    <!-- How to use -->
+    <div class="settings-section-title" style="margin-top: 16px;">How to Use</div>
+    <SectionPanel>
+      <div class="setting-row setting-row-stacked">
+        <div class="setting-info">
+          <div class="setting-description sdk-howto">
+            <p><strong>Stdio mode (default)</strong> — TracePilot spawns its own isolated Copilot CLI process. Good for creating new sessions. No shared state with your terminal.</p>
+            <p><strong>TCP mode (recommended for steering)</strong> — Connect to an existing CLI server to steer sessions started in your terminal:</p>
+            <ol>
+              <li>Run <code>copilot --ui-server</code> in a terminal. It starts a background server and prints its port.</li>
+              <li>Click <strong>Detect UI Server</strong> above — TracePilot will find it automatically.</li>
+              <li>Or manually run <code>copilot --server --port 3333</code> and enter <code>127.0.0.1:3333</code> as the CLI URL.</li>
+            </ol>
+            <p>Once connected in TCP mode, open any session's conversation view and click <strong>Link for Steering</strong> to send messages and change modes in real time.</p>
+          </div>
+        </div>
+      </div>
+    </SectionPanel>
+
     <!-- Diagnostics -->
     <div class="settings-section-title" style="margin-top: 16px;">SDK Diagnostics</div>
     <SectionPanel>
@@ -291,9 +404,7 @@ const sessionCountLabel = computed(() => {
         <div class="setting-info">
           <div class="setting-label">Connection Test</div>
           <div class="setting-description">
-            Runs a step-by-step test of SDK operations: connect, auth, models, sessions.
-            Logs each step so you can see exactly what's working and what's failing.
-            Session resume is NOT tested here — it happens automatically when you steer a session.
+            Scans for UI servers, connects, and tests auth, models, and sessions.
           </div>
         </div>
         <ActionButton size="sm" :disabled="diagRunning" @click="runDiagnostics">
@@ -328,6 +439,7 @@ const sessionCountLabel = computed(() => {
           <div><span class="diag-key">models.length:</span> {{ sdk.models.length }}</div>
           <div><span class="diag-key">authStatus:</span> {{ sdk.authStatus ? `${sdk.authStatus.isAuthenticated ? 'yes' : 'no'} (${sdk.authStatus.login})` : 'null' }}</div>
           <div><span class="diag-key">lastError:</span> {{ sdk.lastError ?? "null" }}</div>
+          <div><span class="diag-key">detectedServers:</span> {{ sdk.detectedServers.length }} servers</div>
           <div><span class="diag-key">sendingMessage:</span> {{ sdk.sendingMessage }}</div>
           <div><span class="diag-key">recentEvents:</span> {{ sdk.recentEvents.length }} events</div>
         </div>
@@ -349,6 +461,68 @@ const sessionCountLabel = computed(() => {
 .sdk-dot--connecting { background: var(--warning-fg); }
 .sdk-dot--error { background: var(--danger-fg); }
 .sdk-dot--disconnected { background: var(--text-placeholder); }
+
+.sdk-mode-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.btn-active {
+  background: var(--accent-subtle) !important;
+  border-color: var(--accent-emphasis) !important;
+  color: var(--accent-fg) !important;
+}
+
+.sdk-detected-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sdk-detected-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 10px;
+  background: var(--canvas-subtle);
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+}
+.sdk-detected-item:hover {
+  background: var(--accent-subtle);
+  border-color: var(--accent-emphasis);
+}
+.sdk-detected-addr {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 500;
+  color: var(--accent-fg);
+}
+.sdk-detected-pid {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+}
+
+.sdk-url-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.btn-ghost {
+  background: transparent !important;
+  border: none !important;
+  padding: 2px 6px !important;
+  opacity: 0.6;
+  font-size: 0.875rem;
+}
+.btn-ghost:hover {
+  opacity: 1;
+}
 
 .sdk-select {
   padding: 5px 10px;
@@ -399,6 +573,23 @@ const sessionCountLabel = computed(() => {
 .sdk-quota-val {
   color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
+}
+
+.sdk-howto {
+  line-height: 1.7;
+}
+.sdk-howto p {
+  margin: 0 0 8px;
+}
+.sdk-howto p:last-child {
+  margin-bottom: 0;
+}
+.sdk-howto ol {
+  margin: 4px 0 8px 16px;
+  padding: 0;
+}
+.sdk-howto li {
+  margin: 2px 0;
 }
 
 code {

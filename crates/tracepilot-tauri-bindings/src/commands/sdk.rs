@@ -10,6 +10,7 @@ use crate::error::CmdResult;
 use tracepilot_orchestrator::bridge::{
     BridgeAuthStatus, BridgeConnectConfig, BridgeMessagePayload, BridgeModelInfo, BridgeQuota,
     BridgeSessionConfig, BridgeSessionInfo, BridgeSessionMode, BridgeStatus,
+    DetectedUiServer,
 };
 use tracepilot_orchestrator::bridge::manager::SharedBridgeManager;
 
@@ -188,4 +189,12 @@ pub async fn sdk_set_foreground_session(
     mgr.set_foreground_session(&session_id)
         .await
         .map_err(Into::into)
+}
+
+// ─── UI Server Detection ──────────────────────────────────────────
+
+#[tauri::command]
+pub async fn sdk_detect_ui_server() -> CmdResult<Vec<DetectedUiServer>> {
+    let servers = tracepilot_orchestrator::bridge::detect_ui_servers().await;
+    Ok(servers)
 }

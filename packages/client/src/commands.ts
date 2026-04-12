@@ -168,6 +168,7 @@ export const IPC_COMMANDS = [
   "sdk_list_models",
   "sdk_get_foreground_session",
   "sdk_set_foreground_session",
+  "sdk_detect_ui_server",
 ] as const;
 
 export type CommandName = (typeof IPC_COMMANDS)[number];

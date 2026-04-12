@@ -5,10 +5,12 @@
 //! session steering, and quota monitoring. When disabled, the bridge degrades
 //! gracefully and all SDK operations return `BridgeError::NotAvailable`.
 
+pub mod discovery;
 pub mod manager;
 
 use serde::{Deserialize, Serialize};
 
+pub use discovery::{detect_ui_servers, DetectedUiServer};
 pub use manager::BridgeManager;
 
 // ─── Error Types ──────────────────────────────────────────────────

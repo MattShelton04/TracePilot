@@ -77,13 +77,14 @@ TracePilot integrates the community [Copilot SDK for Rust](https://github.com/co
 |---|---|---|
 | Rust types | `crates/tracepilot-orchestrator/src/bridge/mod.rs` | Bridge types, errors, event structs |
 | Rust logic | `crates/tracepilot-orchestrator/src/bridge/manager.rs` | BridgeManager — connects SDK, manages sessions |
-| Tauri IPC | `crates/tracepilot-tauri-bindings/src/commands/sdk.rs` | 16 Tauri commands wrapping BridgeManager |
+| Discovery | `crates/tracepilot-orchestrator/src/bridge/discovery.rs` | Auto-detect `--ui-server` instances |
+| Tauri IPC | `crates/tracepilot-tauri-bindings/src/commands/sdk.rs` | 19 Tauri commands wrapping BridgeManager |
 | TS types | `packages/types/src/sdk.ts` | TypeScript mirrors of Rust bridge types |
 | TS client | `packages/client/src/sdk.ts` | IPC wrappers for SDK commands |
 | Pinia store | `apps/desktop/src/stores/sdk.ts` | Reactive state + actions |
 | Steering UI | `apps/desktop/src/components/conversation/SdkSteeringPanel.vue` | Message input, mode/model switcher, abort |
 | Status | `apps/desktop/src/components/layout/SdkStatusIndicator.vue` | Sidebar connection indicator |
-| Settings | `apps/desktop/src/components/settings/SettingsSdk.vue` | Configuration panel |
+| Settings | `apps/desktop/src/components/settings/SettingsSdk.vue` | Configuration + detect UI + diagnostics |
 
 ## Feature Gating
 
@@ -114,30 +115,49 @@ Even with the Cargo feature enabled, the UI only shows SDK controls when `copilo
 ## Setup & Prerequisites
 
 1. **Copilot CLI** must be installed and authenticated (`gh auth login`)
-2. The SDK spawns a **new CLI subprocess** via stdio JSON-RPC. This subprocess can see sessions from `~/.copilot/session-state/` and resume them for steering.
-3. Alternatively, provide a **CLI URL** (e.g. `http://localhost:19563`) to connect to an existing ACP server.
+2. **Stdio mode (default)**: The SDK spawns a new CLI subprocess via stdio JSON-RPC. This subprocess can see sessions from `~/.copilot/session-state/` and resume them for steering. Good for creating new sessions, but isolated from your terminal.
+3. **TCP mode (recommended for steering)**: Connect to a running CLI server to steer sessions in real-time alongside the terminal. Three options:
+   - Run `copilot --ui-server` in a terminal → auto-detect in TracePilot
+   - Run `copilot --server --port 3333` → enter `127.0.0.1:3333` in CLI URL field
+   - TracePilot auto-detects `--ui-server` instances via the "Detect UI Server" button
 
 ### Auto-Connect
 
 When the `copilotSdk` experimental feature is enabled, TracePilot **automatically connects** to the SDK on app startup. You don't need to manually click "Connect". The auto-connect:
-- Spawns a Copilot CLI subprocess
+- Uses the saved CLI URL if one was configured (TCP mode) or spawns a subprocess (stdio mode)
 - Authenticates with your GitHub account
 - Discovers all sessions from `~/.copilot/session-state/`
 - Fetches available models
 
 The connection status is visible in the sidebar (green dot = connected) and in Settings → SDK Bridge.
 
-### How Connection Works
+### Connection Modes
 
-When auto-connecting or when you click **Connect** without a CLI URL:
+#### Stdio Mode (default — no CLI URL set)
+
 1. The SDK locates the `copilot` binary on your PATH
 2. It spawns it as a subprocess using stdio-based JSON-RPC
 3. The subprocess discovers all existing sessions from `~/.copilot/session-state/`
 4. You can then resume any session for real-time steering
+5. ⚠️ This subprocess is **isolated** from your terminal CLI — two processes may write to the same `events.jsonl`
 
-When you provide a CLI URL:
-1. The SDK connects via TCP to the specified ACP server
-2. This is useful for connecting to a CLI instance started separately
+#### TCP Mode (recommended — CLI URL set)
+
+1. Run `copilot --ui-server` in a terminal (starts a background JSON-RPC server on a random port)
+2. In TracePilot Settings → SDK Bridge, click **Detect UI Server** — it finds running instances automatically
+3. Or manually enter the address (e.g. `127.0.0.1:60381`)
+4. **Both TracePilot and the terminal share the same server** — no concurrent write risk
+5. `getForeground` / `setForeground` APIs enable session tracking
+
+#### Auto-Detection
+
+TracePilot can detect running `copilot --ui-server` or `copilot --server` processes on the local machine:
+
+- **Windows**: Uses `Get-CimInstance Win32_Process` + `Get-NetTCPConnection` via PowerShell
+- **macOS**: Uses `ps` + `lsof` to find processes and listening ports
+- **Linux**: Uses `ps` + `ss` for port discovery
+
+Click "Detect UI Server" in Settings or use "Detect & Connect" for one-click discovery + connection.
 
 ### Building with SDK Enabled
 

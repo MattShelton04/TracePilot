@@ -14,6 +14,7 @@ import {
   sdkConnect,
   sdkCreateSession,
   sdkDestroySession,
+  sdkDetectUiServer,
   sdkDisconnect,
   sdkGetAuthStatus,
   sdkGetForegroundSession,
@@ -40,6 +41,7 @@ import type {
   BridgeSessionInfo,
   BridgeSessionMode,
   BridgeStatus,
+  DetectedUiServer,
 } from "@tracepilot/types";
 import { IPC_EVENTS } from "@tracepilot/types";
 import { toErrorMessage } from "@tracepilot/ui";
@@ -98,6 +100,10 @@ export const useSdkStore = defineStore("sdk", () => {
 
   // Steering state
   const sendingMessage = ref(false);
+
+  // UI server detection
+  const detectedServers = ref<DetectedUiServer[]>([]);
+  const detecting = ref(false);
 
   // ─── Computed ─────────────────────────────────────────────────────
 
@@ -427,6 +433,35 @@ export const useSdkStore = defineStore("sdk", () => {
     saveSdkSettings({ cliUrl: newCliUrl, logLevel: newLogLevel });
   }
 
+  /** Detect running `copilot --ui-server` instances and return their addresses. */
+  async function detectUiServer(): Promise<DetectedUiServer[]> {
+    detecting.value = true;
+    try {
+      const servers = await sdkDetectUiServer();
+      detectedServers.value = servers;
+      logInfo("[sdk] Detected UI servers:", servers.length, servers.map(s => s.address));
+      return servers;
+    } catch (e) {
+      logWarn("[sdk] UI server detection failed:", e);
+      detectedServers.value = [];
+      return [];
+    } finally {
+      detecting.value = false;
+    }
+  }
+
+  /** Detect a UI server and auto-connect to it. */
+  async function detectAndConnect(): Promise<boolean> {
+    const servers = await detectUiServer();
+    if (servers.length === 0) return false;
+    // Use the first detected server
+    const server = servers[0];
+    logInfo("[sdk] Auto-connecting to detected UI server:", server.address);
+    updateSettings(server.address, savedLogLevel.value);
+    await connect({ cliUrl: server.address, logLevel: savedLogLevel.value || undefined });
+    return connectionState.value === "connected";
+  }
+
   // Attempt auto-connect on store initialization (deferred to next tick so preferences are loaded)
   setTimeout(() => autoConnect(), 500);
 
@@ -454,6 +489,8 @@ export const useSdkStore = defineStore("sdk", () => {
     foregroundSessionId,
     recentEvents,
     sendingMessage,
+    detectedServers,
+    detecting,
 
     // Computed
     isConnected,
@@ -484,6 +521,8 @@ export const useSdkStore = defineStore("sdk", () => {
     setSessionModel,
     fetchForegroundSession,
     setForegroundSession,
+    detectUiServer,
+    detectAndConnect,
     cleanup,
   };
 });
