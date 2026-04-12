@@ -2,7 +2,7 @@
  * Canonical list of event types TracePilot currently handles with typed parsing.
  *
  * Must stay in sync with KNOWN_EVENT_TYPES in:
- *   crates/tracepilot-core/src/models/event_types.rs
+ *   crates/tracepilot-core/src/models/event_types/event_type_enum.rs
  *
  * Used by the version analyzer to compute coverage against installed Copilot CLI schemas.
  */
