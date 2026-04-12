@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 use crate::blocking_cmd;
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
-use crate::helpers::{read_config, with_session_path};
+use crate::helpers::{get_config_paths, read_config, with_session_path};
 use crate::types::{
     ExportPreviewResult, ExportSessionsResult, ImportIssue, ImportPreviewResult,
     ImportSessionPreview, ImportSessionsResult, SessionSectionsInfo,
@@ -71,8 +71,7 @@ pub async fn export_sessions(
     }
     crate::validators::validate_session_id_list(&session_ids)?;
 
-    let cfg = read_config(&state);
-    let session_state_dir = cfg.session_state_dir();
+    let paths = get_config_paths(&state);
     let export_format = parse_format(&format)?;
     let section_set = parse_sections(&sections)?;
 
@@ -100,7 +99,7 @@ pub async fn export_sessions(
             .map(|id| {
                 tracepilot_core::session::discovery::resolve_session_path_in(
                     id,
-                    &session_state_dir,
+                    &paths.session_state_dir,
                 )
             })
             .collect::<std::result::Result<Vec<_>, _>>()?;
@@ -266,13 +265,12 @@ pub async fn preview_import(
     state: tauri::State<'_, SharedConfig>,
     file_path: String,
 ) -> CmdResult<ImportPreviewResult> {
-    let cfg = read_config(&state);
-    let session_state_dir = cfg.session_state_dir();
+    let paths = get_config_paths(&state);
 
     blocking_cmd!({
         let path = PathBuf::from(&file_path);
 
-        let preview = tracepilot_export::import::preview_import(&path, Some(&session_state_dir))?;
+        let preview = tracepilot_export::import::preview_import(&path, Some(&paths.session_state_dir))?;
 
         let needs_migration = matches!(
             preview.migration_status,
@@ -327,8 +325,7 @@ pub async fn import_sessions(
         crate::validators::validate_session_id_list(ids)?;
     }
 
-    let cfg = read_config(&state);
-    let session_state_dir = cfg.session_state_dir();
+    let paths = get_config_paths(&state);
 
     let strategy = match conflict_strategy.as_deref() {
         Some("replace") => tracepilot_export::import::ConflictStrategy::Replace,
@@ -346,7 +343,7 @@ pub async fn import_sessions(
         };
 
         let result =
-            tracepilot_export::import::import_sessions(&path, &session_state_dir, &options)?;
+            tracepilot_export::import::import_sessions(&path, &paths.session_state_dir, &options)?;
 
         Ok::<_, crate::error::BindingsError>(ImportSessionsResult {
             imported_count: result.imported.len(),

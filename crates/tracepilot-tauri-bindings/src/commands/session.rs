@@ -4,8 +4,8 @@ use crate::blocking_cmd;
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
 use crate::helpers::{
-    MAX_CHECKPOINT_CONTENT_BYTES, indexed_session_to_list_item, load_summary_list_item,
-    read_config, with_session_path,
+    MAX_CHECKPOINT_CONTENT_BYTES, get_config_paths, indexed_session_to_list_item,
+    load_summary_list_item, read_config, with_session_path,
 };
 use crate::types::{
     CachedEvents, CachedTurns, EventCache, EventItem, EventsResponse, FreshnessResponse,
@@ -75,19 +75,17 @@ pub async fn list_sessions(
     hide_empty: Option<bool>,
     hide_orchestrator: Option<bool>,
 ) -> CmdResult<Vec<SessionListItem>> {
-    let cfg = read_config(&state);
-    let index_path = cfg.index_db_path();
-    let session_state_dir = cfg.session_state_dir();
+    let paths = get_config_paths(&state);
     let exclude_cwd = if hide_orchestrator.unwrap_or(false) {
-        Some(cfg.jobs_dir().to_string_lossy().to_string())
+        Some(paths.jobs_dir.to_string_lossy().to_string())
     } else {
         None
     };
 
     blocking_cmd!({
         // Fast path: query the index DB (single SQLite read, no per-session I/O)
-        if index_path.exists() {
-            let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
+        if paths.index_db_path.exists() {
+            let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&paths.index_db_path)?;
 
             // Check if index has any sessions; if empty, fall through to disk scan
             let count = db.session_count().unwrap_or(0);
@@ -108,7 +106,7 @@ pub async fn list_sessions(
         }
 
         // Fallback: full disk scan (used when index is empty or missing)
-        let sessions = tracepilot_core::session::discovery::discover_sessions(&session_state_dir)?;
+        let sessions = tracepilot_core::session::discovery::discover_sessions(&paths.session_state_dir)?;
 
         let mut items = Vec::new();
         let should_hide_empty = hide_empty.unwrap_or(false);
@@ -181,11 +179,10 @@ pub async fn get_session_incidents(
 ) -> CmdResult<Vec<SessionIncidentItem>> {
     crate::validators::validate_session_id(&session_id)?;
 
-    let cfg = read_config(&state);
-    let index_path = cfg.index_db_path();
+    let paths = get_config_paths(&state);
 
     blocking_cmd!({
-        let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
+        let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&paths.index_db_path)?;
         let incidents = db.get_session_incidents(&session_id)?;
         Ok::<_, BindingsError>(
             incidents

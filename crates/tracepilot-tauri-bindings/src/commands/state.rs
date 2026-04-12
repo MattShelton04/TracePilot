@@ -3,7 +3,7 @@
 use crate::blocking_cmd;
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
-use crate::helpers::{open_index_db, read_config, with_session_path};
+use crate::helpers::{get_config_paths, open_index_db, read_config, with_session_path};
 use crate::types::{GitInfo, UpdateCheckResult};
 use std::ffi::OsStr;
 use std::path::Path;
@@ -32,16 +32,14 @@ pub async fn is_session_running(
 
 #[tauri::command]
 pub async fn get_session_count(state: tauri::State<'_, SharedConfig>) -> CmdResult<usize> {
-    let cfg = read_config(&state);
-    let index_path = cfg.index_db_path();
-    let session_state_dir = cfg.session_state_dir();
+    let paths = get_config_paths(&state);
 
     blocking_cmd!({
-        if let Some(opened) = open_index_db(&index_path) {
+        if let Some(opened) = open_index_db(&paths.index_db_path) {
             return Ok(opened.session_count);
         }
         Ok::<_, BindingsError>(
-            tracepilot_core::session::discovery::discover_sessions(&session_state_dir)?.len(),
+            tracepilot_core::session::discovery::discover_sessions(&paths.session_state_dir)?.len(),
         )
     })
 }

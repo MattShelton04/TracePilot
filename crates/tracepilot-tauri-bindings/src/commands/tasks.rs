@@ -5,7 +5,7 @@
 
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
-use crate::helpers::{get_or_init_task_db, read_config, with_task_db};
+use crate::helpers::{get_config_paths, get_or_init_task_db, read_config, with_task_db};
 use crate::types::SharedTaskDb;
 use tracepilot_orchestrator::task_db::types::*;
 
@@ -25,13 +25,14 @@ pub async fn task_create(
 ) -> CmdResult<Task> {
     crate::validators::validate_preset_id(&preset_id)?;
     let db = get_or_init_task_db(&state)?;
-    let cfg = read_config(&config);
+    let paths = get_config_paths(&config);
+    let cfg = read_config(&config);  // Still need cfg for non-path fields
     let orch_state_clone = std::sync::Arc::clone(&*orch_state);
     let manifest_lock_clone = std::sync::Arc::clone(&*manifest_lock);
 
-    let jobs_dir = cfg.jobs_dir();
-    let presets_dir = cfg.presets_dir();
-    let session_state_dir = cfg.session_state_dir();
+    let jobs_dir = paths.jobs_dir;
+    let presets_dir = paths.presets_dir;
+    let session_state_dir = paths.session_state_dir;
     let default_model = cfg.tasks.default_subagent_model.clone();
 
     tokio::task::spawn_blocking(move || {
@@ -255,10 +256,9 @@ pub async fn task_cancel_job(
 pub async fn task_list_presets(
     config: tauri::State<'_, SharedConfig>,
 ) -> CmdResult<Vec<tracepilot_orchestrator::presets::types::TaskPreset>> {
-    let cfg = read_config(&config);
-    let presets_dir = cfg.presets_dir();
+    let paths = get_config_paths(&config);
     tokio::task::spawn_blocking(move || {
-        tracepilot_orchestrator::presets::io::list_presets(&presets_dir)
+        tracepilot_orchestrator::presets::io::list_presets(&paths.presets_dir)
             .map_err(BindingsError::Orchestrator)
     })
     .await?
@@ -270,10 +270,9 @@ pub async fn task_get_preset(
     id: String,
 ) -> CmdResult<tracepilot_orchestrator::presets::types::TaskPreset> {
     crate::validators::validate_preset_id(&id)?;
-    let cfg = read_config(&config);
-    let presets_dir = cfg.presets_dir();
+    let paths = get_config_paths(&config);
     tokio::task::spawn_blocking(move || {
-        tracepilot_orchestrator::presets::io::get_preset(&presets_dir, &id)
+        tracepilot_orchestrator::presets::io::get_preset(&paths.presets_dir, &id)
             .map_err(BindingsError::Orchestrator)
     })
     .await?
@@ -285,10 +284,9 @@ pub async fn task_save_preset(
     preset: tracepilot_orchestrator::presets::types::TaskPreset,
 ) -> CmdResult<()> {
     crate::validators::validate_preset_id(&preset.id)?;
-    let cfg = read_config(&config);
-    let presets_dir = cfg.presets_dir();
+    let paths = get_config_paths(&config);
     tokio::task::spawn_blocking(move || {
-        tracepilot_orchestrator::presets::io::save_preset(&presets_dir, &preset)
+        tracepilot_orchestrator::presets::io::save_preset(&paths.presets_dir, &preset)
             .map_err(BindingsError::Orchestrator)
     })
     .await?
@@ -300,10 +298,9 @@ pub async fn task_delete_preset(
     id: String,
 ) -> CmdResult<()> {
     crate::validators::validate_preset_id(&id)?;
-    let cfg = read_config(&config);
-    let presets_dir = cfg.presets_dir();
+    let paths = get_config_paths(&config);
     tokio::task::spawn_blocking(move || {
-        tracepilot_orchestrator::presets::io::delete_preset(&presets_dir, &id)
+        tracepilot_orchestrator::presets::io::delete_preset(&paths.presets_dir, &id)
             .map_err(BindingsError::Orchestrator)
     })
     .await?
@@ -317,9 +314,10 @@ pub async fn task_orchestrator_health(
     task_db: tauri::State<'_, SharedTaskDb>,
     orch_state: tauri::State<'_, crate::types::SharedOrchestratorState>,
 ) -> CmdResult<tracepilot_orchestrator::task_recovery::HealthCheckResult> {
-    let cfg = read_config(&config);
-    let jobs_dir = cfg.jobs_dir();
-    let session_state_dir = cfg.session_state_dir();
+    let paths = get_config_paths(&config);
+    let cfg = read_config(&config);  // Still need cfg for non-path fields
+    let jobs_dir = paths.jobs_dir;
+    let session_state_dir = paths.session_state_dir;
     let orch_state_clone = std::sync::Arc::clone(&*orch_state);
     let db = std::sync::Arc::clone(&*task_db);
     let handle = orch_state
@@ -414,15 +412,16 @@ pub async fn task_orchestrator_start(
         ));
     }
 
-    let cfg = read_config(&config);
+    let paths = get_config_paths(&config);
+    let cfg = read_config(&config);  // Still need cfg for non-path fields
     let db = get_or_init_task_db(&task_db)?;
     let orch_state_clone = std::sync::Arc::clone(&*orch_state);
 
     let orchestrator_model = model.unwrap_or_else(|| cfg.tasks.orchestrator_model.clone());
     let default_subagent_model = cfg.tasks.default_subagent_model.clone();
-    let jobs_dir = cfg.jobs_dir();
-    let presets_dir = cfg.presets_dir();
-    let session_state_dir = cfg.session_state_dir();
+    let jobs_dir = paths.jobs_dir;
+    let presets_dir = paths.presets_dir;
+    let session_state_dir = paths.session_state_dir;
     let cli_command = cfg.general.cli_command.clone();
     let poll_interval = cfg.tasks.poll_interval_seconds;
     let max_concurrent = cfg.tasks.max_concurrent_tasks;
@@ -634,8 +633,7 @@ pub async fn task_orchestrator_stop(
     orch_state: tauri::State<'_, crate::types::SharedOrchestratorState>,
 ) -> CmdResult<()> {
     let orch_state_clone = std::sync::Arc::clone(&*orch_state);
-    let cfg = read_config(&config);
-    let jobs_dir = cfg.jobs_dir();
+    let paths = get_config_paths(&config);
 
     tokio::task::spawn_blocking(move || {
         let mut guard = orch_state_clone
@@ -738,9 +736,10 @@ pub async fn task_ingest_results(
     orch_state: tauri::State<'_, crate::types::SharedOrchestratorState>,
     manifest_lock: tauri::State<'_, crate::types::ManifestLock>,
 ) -> CmdResult<u32> {
-    let cfg = read_config(&config);
-    let jobs_dir = cfg.jobs_dir();
-    let presets_dir = cfg.presets_dir();
+    let paths = get_config_paths(&config);
+    let cfg = read_config(&config);  // Still need cfg for non-path fields
+    let jobs_dir = paths.jobs_dir;
+    let presets_dir = paths.presets_dir;
     let default_subagent_model = cfg.tasks.default_subagent_model.clone();
     let db = get_or_init_task_db(&task_db)?;
     let orch_state_clone = std::sync::Arc::clone(&*orch_state);
@@ -915,15 +914,14 @@ pub async fn task_attribution(
 ) -> CmdResult<tracepilot_orchestrator::task_attribution::AttributionSnapshot> {
     // Validate that the path is within the session state directory to prevent
     // arbitrary file system reads via path traversal.
-    let cfg = read_config(&config);
-    let session_state_dir = cfg.session_state_dir();
+    let paths = get_config_paths(&config);
     let path = std::path::PathBuf::from(&session_path);
     let canonical_path = path
         .canonicalize()
         .map_err(|e| BindingsError::Validation(format!("Invalid session path: {e}")))?;
-    let canonical_state = session_state_dir
+    let canonical_state = paths.session_state_dir
         .canonicalize()
-        .unwrap_or_else(|_| session_state_dir.clone());
+        .unwrap_or_else(|_| paths.session_state_dir.clone());
     if !canonical_path.starts_with(&canonical_state) {
         return Err(BindingsError::Validation(
             "Session path must be within the session state directory".into(),

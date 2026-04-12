@@ -5,7 +5,8 @@ use crate::cache::TtlCache;
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
 use crate::helpers::{
-    emit_indexing_progress, indexed_session_to_list_item, read_config, remove_index_db_files,
+    emit_indexing_progress, get_config_paths, indexed_session_to_list_item, read_config,
+    remove_index_db_files,
 };
 use crate::types::{
     SearchFacetsResponse, SearchResultItem, SearchResultsResponse, SearchSemaphore,
@@ -58,15 +59,14 @@ pub async fn search_sessions(
     state: tauri::State<'_, SharedConfig>,
     query: String,
 ) -> CmdResult<Vec<SessionListItem>> {
-    let cfg = read_config(&state);
-    let index_path = cfg.index_db_path();
+    let paths = get_config_paths(&state);
 
     blocking_cmd!({
-        if !index_path.exists() {
+        if !paths.index_db_path.exists() {
             return Ok(Vec::new());
         }
 
-        let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
+        let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&paths.index_db_path)?;
         let indexed = db.search_sessions(&query)?;
         Ok::<_, crate::error::BindingsError>(
             indexed
@@ -91,9 +91,9 @@ pub async fn reindex_sessions(
         Err(_) => return Err(BindingsError::AlreadyIndexing),
     };
 
-    let cfg = read_config(&state);
-    let session_state_dir = cfg.session_state_dir();
-    let index_path = cfg.index_db_path();
+    let paths = get_config_paths(&state);
+    let session_state_dir = paths.session_state_dir;
+    let index_path = paths.index_db_path;
     let app_handle = app.clone();
 
     let _ = app.emit(crate::events::INDEXING_STARTED, ());
@@ -137,9 +137,9 @@ pub async fn reindex_sessions(
     if result.as_ref().map(|r| r.is_ok()).unwrap_or(false) {
         let search_permit = search_semaphore.0.clone().try_acquire_owned();
         if let Ok(search_permit) = search_permit {
-            let cfg2 = read_config(&state);
-            let session_state_dir2 = cfg2.session_state_dir();
-            let index_path2 = cfg2.index_db_path();
+            let paths2 = get_config_paths(&state);
+            let session_state_dir2 = paths2.session_state_dir;
+            let index_path2 = paths2.index_db_path;
             let app2 = app.clone();
             tokio::task::spawn_blocking(move || {
                 let _permit = search_permit;
@@ -199,9 +199,9 @@ pub async fn reindex_sessions_full(
         Err(_) => return Err(BindingsError::AlreadyIndexing),
     };
 
-    let cfg = read_config(&state);
-    let session_state_dir = cfg.session_state_dir();
-    let index_path = cfg.index_db_path();
+    let paths = get_config_paths(&state);
+    let session_state_dir = paths.session_state_dir;
+    let index_path = paths.index_db_path;
     let app_handle = app.clone();
 
     let _ = app.emit(crate::events::INDEXING_STARTED, ());
@@ -232,9 +232,9 @@ pub async fn reindex_sessions_full(
     if result.as_ref().map(|r| r.is_ok()).unwrap_or(false) {
         let search_permit = search_semaphore.0.clone().try_acquire_owned();
         if let Ok(search_permit) = search_permit {
-            let cfg2 = read_config(&state);
-            let session_state_dir2 = cfg2.session_state_dir();
-            let index_path2 = cfg2.index_db_path();
+            let paths2 = get_config_paths(&state);
+            let session_state_dir2 = paths2.session_state_dir;
+            let index_path2 = paths2.index_db_path;
             let app2 = app.clone();
             tokio::task::spawn_blocking(move || {
                 let _permit = search_permit;
@@ -302,13 +302,12 @@ pub async fn search_content(
     crate::validators::validate_optional_session_id(&session_id)?;
     crate::validators::validate_unix_date_range(date_from_unix, date_to_unix)?;
 
-    let cfg = read_config(&state);
-    let index_path = cfg.index_db_path();
+    let paths = get_config_paths(&state);
     let query_for_closure = query.clone();
 
     blocking_cmd!({
         let start = std::time::Instant::now();
-        let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
+        let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&paths.index_db_path)?;
 
         let filters = tracepilot_indexer::SearchFilters {
             content_types: content_types.unwrap_or_default(),
@@ -398,11 +397,10 @@ pub async fn get_search_facets(
         return Ok(response);
     }
 
-    let cfg = read_config(&state);
-    let index_path = cfg.index_db_path();
+    let paths = get_config_paths(&state);
 
     let result = blocking_cmd!({
-        let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
+        let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&paths.index_db_path)?;
 
         let filters = tracepilot_indexer::SearchFilters {
             content_types: content_types.unwrap_or_default(),
@@ -440,11 +438,10 @@ pub async fn get_search_facets(
 pub async fn get_search_stats(
     state: tauri::State<'_, SharedConfig>,
 ) -> CmdResult<SearchStatsResponse> {
-    let cfg = read_config(&state);
-    let index_path = cfg.index_db_path();
+    let paths = get_config_paths(&state);
 
     blocking_cmd!({
-        let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
+        let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&paths.index_db_path)?;
 
         let stats = db.search_stats()?;
 
@@ -462,11 +459,10 @@ pub async fn get_search_stats(
 pub async fn get_search_repositories(
     state: tauri::State<'_, SharedConfig>,
 ) -> CmdResult<Vec<String>> {
-    let cfg = read_config(&state);
-    let index_path = cfg.index_db_path();
+    let paths = get_config_paths(&state);
 
     blocking_cmd!({
-        let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
+        let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&paths.index_db_path)?;
         db.search_repositories()
     })
 }
@@ -476,11 +472,10 @@ pub async fn get_search_repositories(
 pub async fn get_search_tool_names(
     state: tauri::State<'_, SharedConfig>,
 ) -> CmdResult<Vec<String>> {
-    let cfg = read_config(&state);
-    let index_path = cfg.index_db_path();
+    let paths = get_config_paths(&state);
 
     blocking_cmd!({
-        let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
+        let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&paths.index_db_path)?;
         db.search_tool_names()
     })
 }
@@ -501,9 +496,9 @@ pub async fn rebuild_search_index(
         Err(_) => return Err(BindingsError::AlreadyIndexing),
     };
 
-    let cfg = read_config(&state);
-    let session_state_dir = cfg.session_state_dir();
-    let index_path = cfg.index_db_path();
+    let paths = get_config_paths(&state);
+    let session_state_dir = paths.session_state_dir;
+    let index_path = paths.index_db_path;
     let app_handle = app.clone();
 
     let _ = app.emit(crate::events::SEARCH_INDEXING_STARTED, ());
@@ -542,9 +537,9 @@ pub async fn rebuild_search_index(
 /// Run FTS integrity check.
 #[tauri::command]
 pub async fn fts_integrity_check(state: tauri::State<'_, SharedConfig>) -> CmdResult<String> {
-    let cfg = read_config(&state);
+    let paths = get_config_paths(&state);
     blocking_cmd!({
-        let db = tracepilot_indexer::index_db::IndexDb::open_or_create(&cfg.index_db_path())?;
+        let db = tracepilot_indexer::index_db::IndexDb::open_or_create(&paths.index_db_path)?;
         db.fts_integrity_check()
     })
 }
@@ -552,9 +547,9 @@ pub async fn fts_integrity_check(state: tauri::State<'_, SharedConfig>) -> CmdRe
 /// Optimize the FTS index.
 #[tauri::command]
 pub async fn fts_optimize(state: tauri::State<'_, SharedConfig>) -> CmdResult<String> {
-    let cfg = read_config(&state);
+    let paths = get_config_paths(&state);
     blocking_cmd!({
-        let db = tracepilot_indexer::index_db::IndexDb::open_or_create(&cfg.index_db_path())?;
+        let db = tracepilot_indexer::index_db::IndexDb::open_or_create(&paths.index_db_path)?;
         db.fts_optimize()
     })
 }
@@ -564,9 +559,9 @@ pub async fn fts_optimize(state: tauri::State<'_, SharedConfig>) -> CmdResult<St
 pub async fn fts_health(
     state: tauri::State<'_, SharedConfig>,
 ) -> CmdResult<tracepilot_indexer::index_db::search_reader::FtsHealthInfo> {
-    let cfg = read_config(&state);
+    let paths = get_config_paths(&state);
     blocking_cmd!({
-        let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&cfg.index_db_path())?;
+        let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&paths.index_db_path)?;
         db.fts_health()
     })
 }
@@ -581,9 +576,9 @@ pub async fn get_result_context(
     Vec<tracepilot_indexer::index_db::ContextSnippet>,
     Vec<tracepilot_indexer::index_db::ContextSnippet>,
 )> {
-    let cfg = read_config(&state);
+    let paths = get_config_paths(&state);
     blocking_cmd!({
-        let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&cfg.index_db_path())?;
+        let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&paths.index_db_path)?;
         db.get_result_context(result_id, radius.unwrap_or(2))
     })
 }

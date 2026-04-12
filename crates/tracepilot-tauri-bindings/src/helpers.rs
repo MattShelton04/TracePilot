@@ -9,6 +9,41 @@ use tracing::warn;
 
 pub(crate) const MAX_CHECKPOINT_CONTENT_BYTES: usize = 50 * 1024;
 
+/// Commonly-used configuration paths extracted from TracePilotConfig.
+///
+/// This struct consolidates the most frequently-accessed path getters to
+/// reduce repetitive `read_config()` + `.path()` boilerplate across command modules.
+pub(crate) struct ConfigPaths {
+    pub session_state_dir: PathBuf,
+    pub index_db_path: PathBuf,
+    pub presets_dir: PathBuf,
+    pub jobs_dir: PathBuf,
+}
+
+/// Read config and extract commonly-used paths in a single operation.
+///
+/// This helper eliminates the repetitive pattern of:
+/// ```rust,ignore
+/// let cfg = read_config(&state);
+/// let session_state_dir = cfg.session_state_dir();
+/// let index_path = cfg.index_db_path();
+/// ```
+///
+/// Replacing it with:
+/// ```rust,ignore
+/// let paths = get_config_paths(&state);
+/// // Use paths.session_state_dir, paths.index_db_path, etc.
+/// ```
+pub(crate) fn get_config_paths(state: &SharedConfig) -> ConfigPaths {
+    let cfg = read_config(state);
+    ConfigPaths {
+        session_state_dir: cfg.session_state_dir(),
+        index_db_path: cfg.index_db_path(),
+        presets_dir: cfg.presets_dir(),
+        jobs_dir: cfg.jobs_dir(),
+    }
+}
+
 /// Successfully opened index database with a precomputed session count.
 pub(crate) struct OpenIndexDb {
     pub db: tracepilot_indexer::index_db::IndexDb,
