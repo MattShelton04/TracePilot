@@ -7,6 +7,16 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-04-12
+
+### Added
+- **AI Tasks** (experimental) — define reusable task presets with context-aware prompts, dispatch them through a Copilot CLI orchestrator, and monitor runs from dedicated dashboard, detail, and preset-management views. Enable in **Settings → Experimental**. Very rough implementation (not recommended yet)
+- **Live session steering via Copilot SDK** (experimental) — connect TracePilot to an active Copilot CLI session and send follow-up messages from the chat view. Enable in **Settings → Experimental**. Prone to bugs - not recommended for use yet.
+
+### Changed
+- **Copilot CLI v1.0.24 support** — added coverage for new session fields including reasoning tokens, request IDs, and subagent performance metrics, improving compatibility and analytics fidelity on newer sessions
+- Search and indexing are more robust — CLI search now includes assistant and tool content, while index DB maintenance and opening safeguards reduce bloat and improve refresh reliability
+
 ### Removed
 - Deprecated `exportSession()` client API — use `exportSessions()` instead (same functionality, accepts a single config)
 

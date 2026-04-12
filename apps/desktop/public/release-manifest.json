@@ -1,6 +1,22 @@
 {
   "versions": [
     {
+      "version": "0.6.2",
+      "date": "2026-04-12",
+      "notes": {
+        "added": [
+          "AI Tasks (experimental): define reusable task presets with context-aware prompts and run them through a Copilot CLI orchestrator from dedicated dashboard, detail, and preset-management views. Enable in Settings -> Experimental. Very rough implementation (not recommended yet)",
+          "Live session steering via Copilot SDK (experimental): connect TracePilot to an active Copilot CLI session and send follow-up messages from the chat view. Prone to bugs - not recommended for use yet."
+        ],
+        "changed": [
+          "Copilot CLI v1.0.24 support: reasoning tokens, request IDs, and subagent performance metrics are now captured more completely",
+          "Search and indexing are more robust: CLI search now includes assistant and tool content, with safer index DB maintenance and refresh behavior"
+        ],
+        "fixed": []
+      },
+      "requiresReindex": false
+    },
+    {
       "version": "0.6.1",
       "date": "2026-03-31",
       "notes": {
