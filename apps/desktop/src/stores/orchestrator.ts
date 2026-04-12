@@ -18,7 +18,7 @@ import { toErrorMessage } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref, watch } from "vue";
 import { logWarn } from "@/utils/logger";
-import { toActivityEntries, type ActivityEntry } from "@/utils/orchestratorActivity";
+import { type ActivityEntry, toActivityEntries } from "@/utils/orchestratorActivity";
 import { aggregateSettledErrors } from "@/utils/settleErrors";
 
 export type { ActivityEntry } from "@/utils/orchestratorActivity";
@@ -27,7 +27,6 @@ const POLL_FAST_MS = 5_000; // When running: full cycle every 5s
 const POLL_SLOW_MS = 15_000; // When idle: health-only check every 15s
 const DEFAULT_MODEL = "claude-haiku-4.5";
 const ACTIVITY_FEED_LIMIT = 30;
-
 
 export const useOrchestratorStore = defineStore("orchestrator", () => {
   // ─── State ────────────────────────────────────────────────────────

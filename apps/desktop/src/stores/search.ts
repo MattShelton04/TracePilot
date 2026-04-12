@@ -27,8 +27,8 @@ import { useSearchClipboard } from "@/composables/useSearchClipboard";
 import { hasMeaningfulDateValue } from "@/utils/dateValidation";
 import { logWarn } from "@/utils/logger";
 import { parseQualifiers } from "@/utils/parseQualifiers";
-import { safeListen } from "@/utils/tauriEvents";
 import { aggregateSettledErrors } from "@/utils/settleErrors";
+import { safeListen } from "@/utils/tauriEvents";
 
 // Re-export types and utilities that consumers may depend on
 export type { RecentSearch } from "@/composables/useRecentSearches";
@@ -483,11 +483,7 @@ export const useSearchStore = defineStore("search", () => {
     try {
       await rebuildSearchIndex();
       // Fetch stats/facets/filters in parallel; all should complete even if one fails
-      const results = await Promise.allSettled([
-        fetchStats(),
-        fetchFacets(),
-        fetchFilterOptions(),
-      ]);
+      const results = await Promise.allSettled([fetchStats(), fetchFacets(), fetchFilterOptions()]);
       const err = aggregateSettledErrors(results);
       if (err) {
         error.value = err;
@@ -673,11 +669,7 @@ export const useSearchStore = defineStore("search", () => {
     // Load stats/facets without executing a search (for browse presets view)
     async fetchStatsOnly() {
       // Fetch in parallel; all should complete even if one fails
-      const results = await Promise.allSettled([
-        fetchStats(),
-        fetchFacets(),
-        fetchFilterOptions(),
-      ]);
+      const results = await Promise.allSettled([fetchStats(), fetchFacets(), fetchFilterOptions()]);
       const err = aggregateSettledErrors(results);
       if (err) {
         logWarn("[search] fetchStatsOnly encountered errors:", err);

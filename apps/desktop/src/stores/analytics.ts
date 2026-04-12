@@ -3,8 +3,8 @@ import type { AnalyticsData, CodeImpactData, ToolAnalysisData } from "@tracepilo
 import { defineStore } from "pinia";
 import { computed, ref, watch } from "vue";
 import { useCachedFetch } from "@/composables/useCachedFetch";
-import { aggregateSettledErrors } from "@/utils/settleErrors";
 import { logWarn } from "@/utils/logger";
+import { aggregateSettledErrors } from "@/utils/settleErrors";
 import { usePreferencesStore } from "./preferences";
 import { useSessionsStore } from "./sessions";
 
