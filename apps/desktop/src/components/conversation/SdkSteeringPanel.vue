@@ -32,6 +32,7 @@ const inputEl = ref<HTMLTextAreaElement | null>(null);
 const modelDropdownOpen = ref(false);
 const modelDropdownEl = ref<HTMLElement | null>(null);
 const modelDropdownStyle = ref<Record<string, string>>({});
+const userLinked = ref(false);
 
 // ─── Sent messages log ──────────────────────────────────────────
 interface SentMessage {
@@ -88,9 +89,9 @@ const isVisible = computed(
   () => isEnabled.value && sdk.isConnected && !!props.sessionId,
 );
 
-/** Whether the session is actively linked (resumed) and ready for steering. */
+/** Whether the session is actively linked AND the user wants to steer it. */
 const isLinked = computed(
-  () => linkedSession.value?.isActive === true,
+  () => userLinked.value && linkedSession.value?.isActive === true,
 );
 
 const modes: { value: BridgeSessionMode; label: string; icon: string }[] = [
@@ -157,11 +158,15 @@ async function linkSession(): Promise<boolean> {
   const existing = sdk.sessions.find((s) => s.sessionId === sid);
   if (existing?.isActive) {
     resolvedSessionId.value = sid;
+    userLinked.value = true;
     return true;
   }
   if (resolvedSessionId.value) {
     const resolved = sdk.sessions.find((s) => s.sessionId === resolvedSessionId.value);
-    if (resolved?.isActive) return true;
+    if (resolved?.isActive) {
+      userLinked.value = true;
+      return true;
+    }
   }
 
   resuming.value = true;
@@ -172,6 +177,7 @@ async function linkSession(): Promise<boolean> {
       sessionError.value = friendlyError(sdk.lastError ?? "Could not link session");
     } else {
       resolvedSessionId.value = result.sessionId;
+      userLinked.value = true;
       logInfo("[sdk] Session linked for steering:", result.sessionId);
     }
     return result !== null;
@@ -192,6 +198,7 @@ async function linkSession(): Promise<boolean> {
 watch(
   () => props.sessionId,
   () => {
+    userLinked.value = false;
     resolvedSessionId.value = null;
     sessionError.value = null;
     sentMessages.value = [];
@@ -293,23 +300,24 @@ async function handleAbort() {
   scheduleRefresh(500);
 }
 
-/** Unlink the session — hides command bar but keeps session alive in the subprocess. */
-async function handleUnlinkSession() {
-  const sid = effectiveSessionId.value;
-  if (!sid) return;
-  sessionError.value = null;
-  await sdk.unlinkSession(sid);
+/** Unlink — purely Vue state reset. Session stays alive in bridge + subprocess. */
+function handleUnlinkSession() {
+  userLinked.value = false;
   resolvedSessionId.value = null;
-  logInfo("[sdk] Session unlinked (still alive in subprocess):", sid);
+  sessionError.value = null;
+  sentMessages.value = [];
+  logInfo("[sdk] Session unlinked (kept alive in bridge):", props.sessionId);
 }
 
-/** Destroy the session entirely — writes shutdown event, can't re-link without re-resume. */
+/** Destroy the session entirely — writes shutdown event, removes from bridge. */
 async function handleDestroySession() {
   const sid = effectiveSessionId.value;
   if (!sid) return;
   sessionError.value = null;
   await sdk.destroySession(sid);
+  userLinked.value = false;
   resolvedSessionId.value = null;
+  sentMessages.value = [];
   logInfo("[sdk] Session destroyed:", sid);
 }
 
@@ -382,7 +390,7 @@ async function handleConnect() {
       </div>
     </TransitionGroup>
 
-    <!-- Session label with stop button -->
+    <!-- Session label with unlink/destroy buttons -->
     <div v-if="shortSessionId" class="cb-session-label">
       <span class="cb-session-icon">{{ isLinked ? '🔗' : '○' }}</span>
       {{ isLinked ? 'Steering' : 'Not linked' }}
@@ -390,14 +398,19 @@ async function handleConnect() {
       <span class="cb-session-id">{{ shortSessionId }}</span>
       <button
         v-if="isLinked"
-        class="cb-btn-stop"
-        title="Unlink — hide command bar but keep session alive"
+        class="cb-btn-stop cb-btn-unlink"
+        title="Unlink — hide command bar, session stays alive for re-linking"
         @click="handleUnlinkSession"
       >
-        <svg viewBox="0 0 16 16" fill="currentColor" width="10" height="10">
-          <path d="M3.72 3.72a.75.75 0 011.06 0L8 6.94l3.22-3.22a.75.75 0 111.06 1.06L9.06 8l3.22 3.22a.75.75 0 11-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 01-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 010-1.06z"/>
-        </svg>
         Unlink
+      </button>
+      <button
+        v-if="isLinked"
+        class="cb-btn-stop cb-btn-destroy"
+        title="Destroy — shut down session process completely"
+        @click="handleDestroySession"
+      >
+        Destroy
       </button>
     </div>
 
@@ -740,6 +753,17 @@ async function handleConnect() {
   border-color: var(--danger-muted);
   color: var(--danger-fg);
   background: rgba(251, 113, 133, 0.06);
+}
+.cb-btn-unlink {
+  margin-left: auto;
+}
+.cb-btn-destroy {
+  margin-left: 0;
+}
+.cb-btn-destroy:hover {
+  border-color: var(--danger-emphasis);
+  color: var(--danger-fg);
+  background: rgba(251, 113, 133, 0.12);
 }
 
 /* ─── Link prompt (shown before steering) ─────── */

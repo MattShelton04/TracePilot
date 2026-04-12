@@ -104,22 +104,35 @@ Terminal TUI ────┐
 - Events are broadcast to **all connected clients** via `session.event` notifications
 - This is the **safest** mode for steering active sessions
 
-#### --ui-server behavior notes
+#### --ui-server behavior (verified)
 
-1. **Schema validation still applies**: Even in TCP mode, the shared server
+1. **What it does**: `copilot --ui-server` starts a CLI instance that runs both
+   a terminal TUI **and** an embedded TCP JSON-RPC server. The server listens
+   on `127.0.0.1:<port>` (port is printed on startup). Protocol is JSON-RPC v2
+   with Content-Length framing over TCP.
+
+2. **Simultaneous access**: Both the terminal TUI and TracePilot can connect to
+   the **same** server simultaneously. Multiple clients are supported by
+   protocol v3. Each client receives `session.event` broadcasts independently.
+
+3. **Starting it**: Run `copilot --ui-server` in a terminal. The CLI will print
+   the TCP address (e.g., `127.0.0.1:53076`). Set this as the `cli_url` in
+   TracePilot Settings → SDK Bridge → CLI URL.
+
+4. **TracePilot steers alongside the terminal**: When TracePilot sends a message
+   via the shared server, the server processes it identically to a TUI message.
+   The server broadcasts `session.event` notifications to all connected clients.
+   Whether the TUI terminal visually renders third-party messages depends on the
+   CLI's TUI implementation — it receives the events but may not render them as
+   its own prompt/response flow.
+
+5. **Schema validation still applies**: Even in TCP mode, the shared server
    validates `events.jsonl` with its own CLI version. If the session was
    written by a different CLI version, resume will still fail with a
    "corruption" error.
 
-2. **TUI reflection**: When TracePilot sends a message via the shared server,
-   the server processes it and broadcasts `session.event` notifications to all
-   connected clients. Whether the TUI terminal visually renders third-party
-   messages depends on the CLI's TUI implementation — it may only show its own
-   prompt/response flow.
-
-3. **Multi-client support**: The protocol (v3) explicitly supports multiple
-   clients connecting to the same server. Each client receives event
-   broadcasts independently.
+6. **Foreground APIs**: `session.setForeground` and `session.getForeground` only
+   work in `--ui-server` mode, not stdio mode.
 
 ---
 
