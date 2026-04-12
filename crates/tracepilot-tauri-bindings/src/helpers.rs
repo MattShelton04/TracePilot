@@ -425,7 +425,12 @@ mod tests {
         assert!(result.is_none());
 
         let output = logs.output();
-        assert!(output.contains("Failed to open index database"));
+        // Corrupt files may fail at open or at first query — either log message is valid
+        assert!(
+            output.contains("Failed to open index database")
+                || output.contains("Failed to read session count from index database"),
+            "Expected a warning about corrupt index DB, got: {output}"
+        );
         assert!(output.contains(index_path.to_string_lossy().as_ref()));
     }
 
