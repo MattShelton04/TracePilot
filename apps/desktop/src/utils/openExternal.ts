@@ -12,8 +12,10 @@ const ALLOWED_PROTOCOLS = new Set(["http:", "https:"]);
  */
 export function sanitizeExternalUrl(rawUrl: string): string | null {
   try {
-    const parsed = new URL(rawUrl);
-    return ALLOWED_PROTOCOLS.has(parsed.protocol) ? parsed.toString() : null;
+    const normalized = rawUrl.trim();
+    if (!normalized) return null;
+    const parsed = new URL(normalized);
+    return ALLOWED_PROTOCOLS.has(parsed.protocol.toLowerCase()) ? parsed.toString() : null;
   } catch {
     return null;
   }
