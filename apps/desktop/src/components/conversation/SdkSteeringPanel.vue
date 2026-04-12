@@ -349,7 +349,8 @@ function toggleModelDropdown() {
 
 function closeModelDropdown(event: MouseEvent) {
   const target = event.target as HTMLElement;
-  if (!target.closest(".cb-model-selector")) {
+  // Dropdown is teleported outside .cb-model-selector, so check both
+  if (!target.closest(".cb-model-selector") && !target.closest(".cb-model-dropdown-portal")) {
     modelDropdownOpen.value = false;
   }
 }

@@ -180,8 +180,8 @@ function isActiveServer(address: string) {
   <div v-if="isEnabled" class="settings-section">
     <div class="settings-section-title">Copilot SDK Bridge</div>
 
-    <!-- ─── 1. Connection ─────────────────────────── -->
     <SectionPanel>
+      <!-- ─── Connection ───────────────────────────── -->
       <!-- Status row -->
       <div class="setting-row">
         <div class="setting-info">
@@ -257,17 +257,13 @@ function isActiveServer(address: string) {
           <div class="setting-description setting-result-danger">{{ sdk.lastError }}</div>
         </div>
       </div>
-    </SectionPanel>
 
-    <!-- ─── 2. TCP Servers (only when TCP mode selected) ── -->
-    <template v-if="isTcpSelected">
-      <SectionPanel style="margin-top: 8px;">
-        <div class="setting-row" style="padding-bottom: 0;">
-          <div class="setting-info">
-            <div class="setting-label" style="font-size: 0.8125rem; color: var(--text-tertiary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">TCP Servers</div>
-          </div>
-        </div>
-        <!-- Actions row -->
+      <!-- ─── TCP Servers (only when TCP mode) ─────── -->
+      <template v-if="isTcpSelected">
+        <div class="sdk-divider" />
+        <div class="sdk-subsection-title">TCP Servers</div>
+
+        <!-- Server discovery -->
         <div class="setting-row">
           <div class="setting-info">
             <div class="setting-label">Server Discovery</div>
@@ -335,16 +331,16 @@ function isActiveServer(address: string) {
             </ActionButton>
           </div>
         </div>
-      </SectionPanel>
-    </template>
+      </template>
 
-    <!-- ─── 3. Advanced (collapsible) ─────────────── -->
-    <div class="sdk-advanced-toggle" style="margin-top: 12px;" @click="showAdvanced = !showAdvanced">
-      <span class="sdk-toggle-arrow" :class="{ 'sdk-toggle-arrow--open': showAdvanced }">▸</span>
-      <span class="sdk-advanced-label">Advanced</span>
-    </div>
-    <template v-if="showAdvanced">
-      <SectionPanel>
+      <!-- ─── Advanced (collapsible) ───────────────── -->
+      <div class="sdk-divider" />
+      <div class="sdk-advanced-toggle" @click="showAdvanced = !showAdvanced">
+        <span class="sdk-toggle-arrow" :class="{ 'sdk-toggle-arrow--open': showAdvanced }">▸</span>
+        <span>Advanced</span>
+      </div>
+
+      <template v-if="showAdvanced">
         <!-- Log level -->
         <div class="setting-row">
           <div class="setting-info">
@@ -400,12 +396,27 @@ function isActiveServer(address: string) {
             <div><span class="diag-key">detectedServers:</span> {{ sdk.detectedServers.length }}</div>
           </div>
         </div>
-      </SectionPanel>
-    </template>
+      </template>
+    </SectionPanel>
   </div>
 </template>
 
 <style scoped>
+/* ─── Internal divider / subsection ──────────── */
+.sdk-divider {
+  height: 1px;
+  background: var(--border-muted);
+  margin: 4px 12px;
+}
+.sdk-subsection-title {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 6px 12px 2px;
+}
+
 /* ─── Status dot ─────────────────────────────── */
 .sdk-dot {
   display: inline-block;
@@ -540,11 +551,12 @@ function isActiveServer(address: string) {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.8125rem;
+  font-size: 0.6875rem;
   color: var(--text-tertiary);
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.05em;
+  padding: 6px 12px 2px;
 }
 .sdk-advanced-toggle:hover {
   color: var(--text-primary);
