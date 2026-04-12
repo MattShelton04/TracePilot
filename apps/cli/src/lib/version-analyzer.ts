@@ -11,6 +11,7 @@ import { basename, join } from "node:path";
 import { createInterface } from "node:readline";
 import { TRACEPILOT_KNOWN_EVENTS } from "@tracepilot/types";
 import yaml from "js-yaml";
+import { getSessionStateDir } from "./session-path.js";
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -629,10 +630,6 @@ export function computeCoverage(
 }
 
 // ── Session Scanning ─────────────────────────────────────────────────
-
-function getSessionStateDir(): string {
-  return join(homedir(), ".copilot", "session-state");
-}
 
 /**
  * Scan sessions to extract copilotVersion and observed event types.

@@ -4,22 +4,18 @@
 
 import { createReadStream } from "node:fs";
 import { readdir, readFile, stat } from "node:fs/promises";
-import { homedir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { formatTokens } from "@tracepilot/types";
 import yaml from "js-yaml";
 import { CliError } from "../utils/errorHandler.js";
+import { getSessionStateDir } from "../lib/session-path.js";
 
 // Re-export for convenience
-export { formatTokens };
+export { formatTokens, getSessionStateDir };
 
 /** Regex to validate a full UUID (v4-style, case-insensitive). */
 export const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-export function getSessionStateDir(): string {
-  return join(homedir(), ".copilot", "session-state");
-}
 
 /** Ensure the Copilot session directory exists and is readable. */
 export async function requireSessionStateDir(): Promise<string> {

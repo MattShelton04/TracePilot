@@ -10,6 +10,10 @@ tracepilot show <session-id>     # Show session details
 tracepilot search <query>        # Search sessions (coming soon)
 ```
 
+## Configuration
+
+- Set `TRACEPILOT_SESSION_STATE_DIR` (or `COPILOT_SESSION_STATE_DIR`) to override the Copilot session-state directory. Defaults to `~/.copilot/session-state`.
+
 ## Development
 
 ```bash

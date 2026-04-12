@@ -59,10 +59,22 @@ describe("commands/utils", () => {
     mocked.readFile.mockResolvedValue("");
     mocked.createReadStream.mockReturnValue({} as never);
     mocked.createInterface.mockReturnValue((async function* () {})());
+    delete process.env.TRACEPILOT_SESSION_STATE_DIR;
+    delete process.env.COPILOT_SESSION_STATE_DIR;
   });
 
   it("builds session state dir from homedir", () => {
     expect(getSessionStateDir()).toBe(join("/tmp/home", ".copilot", "session-state"));
+  });
+
+  it("prefers TRACEPILOT_SESSION_STATE_DIR env var and expands home", () => {
+    process.env.TRACEPILOT_SESSION_STATE_DIR = "~/.tracepilot/sessions";
+    expect(getSessionStateDir()).toBe(join("/tmp/home", ".tracepilot/sessions"));
+  });
+
+  it("falls back to COPILOT_SESSION_STATE_DIR when tracepilot override is unset", () => {
+    process.env.COPILOT_SESSION_STATE_DIR = "/var/copilot/session-state";
+    expect(getSessionStateDir()).toBe("/var/copilot/session-state");
   });
 
   it("requireSessionStateDir returns path when directory exists", async () => {
