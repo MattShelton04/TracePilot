@@ -2,7 +2,7 @@
   "name": "@tracepilot/desktop",
   "version": "0.6.2",
   "private": true,
-  "description": "TracePilot desktop application â€” Tauri + Vue",
+  "description": "TracePilot desktop application - Tauri + Vue",
   "author": "Matt Shelton (@MattShelton04)",
   "license": "GPL-3.0-or-later",
   "homepage": "https://github.com/MattShelton04/TracePilot",
