@@ -190,28 +190,8 @@ pub(crate) fn clamp_limit(limit: Option<u32>, max_limit: u32) -> Option<u32> {
 
 /// Truncate a string for inclusion in error messages.
 ///
-/// **Important**: This function truncates by **character count**, not byte count.
-/// This is intentional for user-facing error messages where visual length matters
-/// more than storage efficiency.
-///
-/// For byte-based truncation (e.g., for storage or indexing), use
-/// [`tracepilot_core::utils::truncate_utf8`] or
-/// [`tracepilot_core::utils::truncate_utf8_with_marker`] instead.
-///
-/// Uses **character** (not byte) boundaries to avoid panicking on
-/// multi-byte UTF-8 input. Appends "…" when truncation occurs.
-///
-/// # Examples
-/// ```
-/// # use tracepilot_tauri_bindings::validators::truncate_for_display;
-/// // Short string unchanged
-/// assert_eq!(truncate_for_display("hello", 10), "hello");
-///
-/// // Long string truncated with ellipsis
-/// let long = "a".repeat(100);
-/// let result = truncate_for_display(&long, 10);
-/// assert_eq!(result.chars().count(), 11); // 10 'a' + 1 '…'
-/// ```
+/// Truncates by **character count** (not byte count) for user-facing messages
+/// where visual length matters. Appends "…" when truncation occurs.
 fn truncate_for_display(s: &str, max_chars: usize) -> String {
     let char_count = s.chars().count();
     if char_count <= max_chars {
