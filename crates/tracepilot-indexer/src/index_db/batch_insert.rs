@@ -54,18 +54,27 @@ where
         return Ok(());
     }
 
+    use std::fmt::Write;
+
     for chunk in items.chunks(BATCH_CHUNK_SIZE) {
-        let placeholders: String = (0..chunk.len())
-            .map(|i| {
-                let start = i * params_per_row + 1;
-                let p: String = (start..start + params_per_row)
-                    .map(|n| format!("?{n}"))
-                    .collect::<Vec<_>>()
-                    .join(",");
-                format!("({p})")
-            })
-            .collect::<Vec<_>>()
-            .join(",");
+        // Pre-allocate to avoid repeated allocations.
+        // Approx 5 bytes per parameter (e.g. "?123,"). Plus parenthesis.
+        let mut placeholders =
+            String::with_capacity(chunk.len() * params_per_row * 5 + chunk.len() * 2);
+        for i in 0..chunk.len() {
+            if i > 0 {
+                placeholders.push(',');
+            }
+            placeholders.push('(');
+            let start = i * params_per_row + 1;
+            for n in 0..params_per_row {
+                if n > 0 {
+                    placeholders.push(',');
+                }
+                let _ = write!(&mut placeholders, "?{}", start + n);
+            }
+            placeholders.push(')');
+        }
 
         let sql = format!("{sql_prefix} {placeholders}");
         let mut stmt = conn.prepare(&sql)?;
@@ -89,7 +98,8 @@ mod tests {
     #[test]
     fn empty_items_is_noop() {
         let conn = Connection::open_in_memory().unwrap();
-        conn.execute_batch("CREATE TABLE t (a TEXT, b INTEGER)").unwrap();
+        conn.execute_batch("CREATE TABLE t (a TEXT, b INTEGER)")
+            .unwrap();
         let items: Vec<(String, i64)> = vec![];
         batched_insert(
             &conn,
@@ -140,7 +150,8 @@ mod tests {
     #[test]
     fn handles_multi_column_with_nulls() {
         let conn = Connection::open_in_memory().unwrap();
-        conn.execute_batch("CREATE TABLE t (a TEXT, b TEXT)").unwrap();
+        conn.execute_batch("CREATE TABLE t (a TEXT, b TEXT)")
+            .unwrap();
         let items = vec![
             (String::from("x"), Some(String::from("y"))),
             (String::from("z"), None),

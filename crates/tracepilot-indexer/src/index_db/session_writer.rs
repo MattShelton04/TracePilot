@@ -425,10 +425,8 @@ impl IndexDb {
         let result = (|| -> Result<()> {
             // Use json_each() to pass all live IDs as a single JSON array parameter,
             // avoiding the N individual INSERT statements into a temp table.
-            let live_json = serde_json::to_string(
-                &live_ids.iter().collect::<Vec<_>>(),
-            )
-            .expect("string serialization is infallible");
+            let live_json = serde_json::to_string(&live_ids.iter().collect::<Vec<_>>())
+                .expect("string serialization is infallible");
 
             self.conn.execute(
                 "DELETE FROM sessions WHERE id NOT IN (SELECT value FROM json_each(?1))",
