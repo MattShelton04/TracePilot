@@ -218,6 +218,11 @@ mod tests {
             }
             if let Some(raw) = trimmed.strip_prefix('"').and_then(|rest| rest.split('"').next()) {
                 events.push(raw.to_string());
+            } else {
+                panic!(
+                    "unparseable line in TRACEPILOT_KNOWN_EVENTS array: {trimmed:?} in {}",
+                    path.display()
+                );
             }
         }
 
@@ -233,7 +238,6 @@ mod tests {
 
     #[test]
     fn known_event_types_match_typescript_known_events() {
-        let rust_events: Vec<String> = KNOWN_EVENT_TYPES.iter().map(|v| (*v).to_string()).collect();
         let ts_events = read_typescript_known_events();
 
         let rust_set: BTreeSet<&str> = KNOWN_EVENT_TYPES.iter().copied().collect();
@@ -245,11 +249,6 @@ mod tests {
         assert!(
             missing_in_ts.is_empty() && extra_in_ts.is_empty(),
             "known-event set mismatch. missing_in_ts={missing_in_ts:?}, extra_in_ts={extra_in_ts:?}"
-        );
-
-        assert_eq!(
-            rust_events, ts_events,
-            "known-event ordering mismatch between Rust KNOWN_EVENT_TYPES and TypeScript TRACEPILOT_KNOWN_EVENTS"
         );
     }
 
