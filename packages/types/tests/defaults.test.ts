@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   CONFIG_VERSION,
+  createDefaultConfig,
   DEFAULT_AUTO_REFRESH_INTERVAL_SECONDS,
   DEFAULT_CLI_COMMAND,
   DEFAULT_CONTENT_MAX_WIDTH,
   DEFAULT_CONTEXT_BUDGET_TOKENS,
   DEFAULT_COST_PER_PREMIUM_REQUEST,
+  DEFAULT_FEATURES,
   DEFAULT_HEARTBEAT_STALE_MULTIPLIER,
   DEFAULT_MAX_CONCURRENT_TASKS,
   DEFAULT_MAX_RETRIES,
@@ -13,7 +15,6 @@ import {
   DEFAULT_POLL_INTERVAL_SECONDS,
   DEFAULT_SUBAGENT_MODEL,
   DEFAULT_UI_SCALE,
-  createDefaultConfig,
 } from "../src/defaults.js";
 import { DEFAULT_FAVOURITE_MODELS } from "../src/models.js";
 
@@ -48,15 +49,7 @@ describe("createDefaultConfig", () => {
       enabled: true,
       toolOverrides: {},
     },
-    features: {
-      exportView: false,
-      healthScoring: false,
-      sessionReplay: false,
-      renderMarkdown: true,
-      mcpServers: true,
-      skills: true,
-      aiTasks: false,
-    },
+    features: { ...DEFAULT_FEATURES },
     logging: {
       level: "info",
     },
