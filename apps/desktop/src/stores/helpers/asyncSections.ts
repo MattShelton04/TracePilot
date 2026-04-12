@@ -1,3 +1,7 @@
+/**
+ * Extracted from sessionDetail.ts to reduce the store's size and isolate the
+ * load-once / refresh / guard-token boilerplate that repeats for every async section.
+ */
 import { type AsyncGuard, type AsyncGuardToken, toErrorMessage } from "@tracepilot/ui";
 import { type Ref, ref } from "vue";
 import { logError, logWarn } from "@/utils/logger";
@@ -20,16 +24,6 @@ interface BuildSectionLoaderOptions<T> {
   key: string;
   sessionId: Ref<string | null>;
   loaded: Ref<Set<string>>;
-  guard: AsyncGuard;
-  errorRef: Ref<string | null>;
-  fetchFn: (id: string) => Promise<T>;
-  onResult: (result: T) => void;
-  logPrefix: string;
-  logLevel?: "error" | "warn";
-}
-
-interface BuildSectionRefreshOptions<T> {
-  key: string;
   guard: AsyncGuard;
   errorRef: Ref<string | null>;
   fetchFn: (id: string) => Promise<T>;
@@ -83,7 +77,7 @@ export function buildSectionLoader<T>(opts: BuildSectionLoaderOptions<T>) {
 }
 
 async function buildSectionRefreshPromise<T>(
-  cfg: BuildSectionRefreshOptions<T>,
+  cfg: Omit<BuildSectionLoaderOptions<T>, "sessionId" | "loaded">,
   id: string,
   token: AsyncGuardToken,
 ): Promise<void> {
