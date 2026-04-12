@@ -1,6 +1,6 @@
 {
   "name": "@tracepilot/cli",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "private": true,
   "description": "TracePilot CLI - inspect Copilot sessions from your terminal",
   "author": "Matt Shelton (@MattShelton04)",
