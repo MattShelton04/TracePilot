@@ -69,11 +69,17 @@ pub(crate) fn validate_task_id(task_id: &str) -> CmdResult<()> {
     Ok(())
 }
 
-/// Validate every ID in a batch (e.g. multi-task operations).
-pub(crate) fn validate_task_id_list(task_ids: &[String]) -> CmdResult<()> {
-    for id in task_ids {
-        validate_task_id(id)?;
-    }
+/// Validate a job ID (UUID format, same as task IDs).
+///
+/// Jobs share the same UUID identifier format as tasks. This wrapper provides
+/// a correctly-worded error message when validating the `job_id` parameter.
+pub(crate) fn validate_job_id(job_id: &str) -> CmdResult<()> {
+    uuid::Uuid::parse_str(job_id).map_err(|_| {
+        BindingsError::Validation(format!(
+            "Invalid job ID format: expected UUID, got '{}'",
+            truncate_for_display(job_id, 64)
+        ))
+    })?;
     Ok(())
 }
 
@@ -342,29 +348,18 @@ mod tests {
         assert!(validate_task_id("a1b2c3d4").is_err());
     }
 
-    // -- validate_task_id_list ----------------------------------------------
+    // -- validate_job_id ------------------------------------------------------
 
     #[test]
-    fn task_list_all_valid() {
-        let ids = vec![
-            "a1b2c3d4-e5f6-7890-abcd-ef1234567890".to_string(),
-            "b2c3d4e5-f6a7-8901-bcde-f12345678901".to_string(),
-        ];
-        assert!(validate_task_id_list(&ids).is_ok());
+    fn job_valid_uuid_passes() {
+        assert!(validate_job_id("a1b2c3d4-e5f6-7890-abcd-ef1234567890").is_ok());
     }
 
     #[test]
-    fn task_list_one_invalid_fails() {
-        let ids = vec![
-            "a1b2c3d4-e5f6-7890-abcd-ef1234567890".to_string(),
-            "invalid".to_string(),
-        ];
-        assert!(validate_task_id_list(&ids).is_err());
-    }
-
-    #[test]
-    fn task_empty_list_passes() {
-        assert!(validate_task_id_list(&[]).is_ok());
+    fn job_invalid_id_fails() {
+        let err = validate_job_id("not-a-uuid").unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("job ID"), "error should say 'job ID', got: {msg}");
     }
 
     // -- clamp_limit --------------------------------------------------------
