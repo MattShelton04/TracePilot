@@ -16,7 +16,7 @@ import {
   UUID_REGEX,
 } from "./utils.js";
 
-type MatchSource = "metadata" | "user" | "assistant" | "tool" | "content";
+type MatchSource = "metadata" | "user" | "assistant" | "tool";
 
 export interface SearchHit {
   sessionId: string;
@@ -50,6 +50,9 @@ function extractEventTexts(evt: Record<string, unknown>): { texts: string[]; sou
   const add = (value: unknown) => {
     if (typeof value === "string" && value.trim()) {
       texts.push(value);
+    } else if (value != null && typeof value === "object") {
+      const json = JSON.stringify(value);
+      if (json.length > 2) texts.push(json);
     }
   };
 
@@ -78,7 +81,7 @@ function extractEventTexts(evt: Record<string, unknown>): { texts: string[]; sou
     return { texts, source: "tool" };
   }
 
-  return { texts: [], source: "content" };
+  return { texts: [], source: "user" };
 }
 
 export async function searchSessions(query: string): Promise<SearchHit[]> {
@@ -189,9 +192,7 @@ export async function searchCommand(query: string, options: { json?: boolean }) 
             ? "[user]"
             : h.matchSource === "assistant"
               ? "[assistant]"
-              : h.matchSource === "tool"
-                ? "[tool]"
-                : "[content]";
+              : "[tool]";
       const source = chalk.dim(sourceLabel);
       console.log(`  ${chalk.yellow(h.sessionId.slice(0, 8))}  ${title}  ${source}`);
       if (h.repository) console.log(`           ${chalk.cyan(h.repository)}`);
