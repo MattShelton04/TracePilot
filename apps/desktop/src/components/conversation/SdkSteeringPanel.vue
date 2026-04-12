@@ -309,8 +309,8 @@ function handleUnlinkSession() {
   logInfo("[sdk] Session unlinked (kept alive in bridge):", props.sessionId);
 }
 
-/** Destroy the session entirely — writes shutdown event, removes from bridge. */
-async function handleDestroySession() {
+/** Shutdown the session — writes shutdown event, removes from bridge. */
+async function handleShutdownSession() {
   const sid = effectiveSessionId.value;
   if (!sid) return;
   sessionError.value = null;
@@ -318,7 +318,7 @@ async function handleDestroySession() {
   userLinked.value = false;
   resolvedSessionId.value = null;
   sentMessages.value = [];
-  logInfo("[sdk] Session destroyed:", sid);
+  logInfo("[sdk] Session shut down:", sid);
 }
 
 function handleKeydown(event: KeyboardEvent) {
@@ -407,10 +407,10 @@ async function handleConnect() {
       <button
         v-if="isLinked"
         class="cb-btn-stop cb-btn-destroy"
-        title="Destroy — shut down session process completely"
-        @click="handleDestroySession"
+        title="Shutdown — stop the CLI subprocess for this session"
+        @click="handleShutdownSession"
       >
-        Destroy
+        Shutdown
       </button>
     </div>
 

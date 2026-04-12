@@ -50,8 +50,31 @@ import { logInfo, logWarn } from "@/utils/logger";
 import { usePreferencesStore } from "@/stores/preferences";
 
 const MAX_EVENTS = 500;
+const SDK_SETTINGS_KEY = "tracepilot:sdk-settings";
+
+interface SdkSettings {
+  cliUrl: string;
+  logLevel: string;
+}
+
+function loadSdkSettings(): SdkSettings {
+  try {
+    const raw = localStorage.getItem(SDK_SETTINGS_KEY);
+    if (raw) return { cliUrl: "", logLevel: "info", ...JSON.parse(raw) };
+  } catch { /* ignore */ }
+  return { cliUrl: "", logLevel: "info" };
+}
+
+function saveSdkSettings(settings: SdkSettings) {
+  localStorage.setItem(SDK_SETTINGS_KEY, JSON.stringify(settings));
+}
 
 export const useSdkStore = defineStore("sdk", () => {
+  // ─── Persisted settings ─────────────────────────────────────────
+  const savedSettings = loadSdkSettings();
+  const savedCliUrl = ref(savedSettings.cliUrl);
+  const savedLogLevel = ref(savedSettings.logLevel);
+
   // ─── State ────────────────────────────────────────────────────────
 
   const connectionState = ref<BridgeConnectionState>("disconnected");
@@ -377,13 +400,31 @@ export const useSdkStore = defineStore("sdk", () => {
   // Initialize listeners eagerly
   initEventListeners();
 
+  // Disconnect when browser window unloads (app close / refresh)
+  if (typeof window !== "undefined") {
+    window.addEventListener("beforeunload", () => {
+      if (connectionState.value === "connected") {
+        sdkDisconnect().catch(() => {});
+      }
+    });
+  }
+
   // Auto-connect when copilotSdk feature is enabled
   async function autoConnect() {
     const prefs = usePreferencesStore();
     if (prefs.isFeatureEnabled("copilotSdk") && connectionState.value === "disconnected" && !connecting.value) {
       logInfo("[sdk] Auto-connecting (copilotSdk feature enabled)...");
-      await connect({});
+      await connect({
+        cliUrl: savedCliUrl.value || undefined,
+        logLevel: savedLogLevel.value || undefined,
+      });
     }
+  }
+
+  function updateSettings(newCliUrl: string, newLogLevel: string) {
+    savedCliUrl.value = newCliUrl;
+    savedLogLevel.value = newLogLevel;
+    saveSdkSettings({ cliUrl: newCliUrl, logLevel: newLogLevel });
   }
 
   // Attempt auto-connect on store initialization (deferred to next tick so preferences are loaded)
@@ -392,6 +433,11 @@ export const useSdkStore = defineStore("sdk", () => {
   // ─── Public API ───────────────────────────────────────────────────
 
   return {
+    // Persisted settings
+    savedCliUrl,
+    savedLogLevel,
+    updateSettings,
+
     // State
     connectionState,
     sdkAvailable,

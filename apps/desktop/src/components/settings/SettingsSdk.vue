@@ -16,8 +16,15 @@ const sdk = useSdkStore();
 
 const isEnabled = computed(() => prefs.isFeatureEnabled("copilotSdk"));
 
-const cliUrl = ref("");
-const logLevel = ref("info");
+// Bind to persisted store settings
+const cliUrl = computed({
+  get: () => sdk.savedCliUrl,
+  set: (v: string) => sdk.updateSettings(v, sdk.savedLogLevel),
+});
+const logLevel = computed({
+  get: () => sdk.savedLogLevel,
+  set: (v: string) => sdk.updateSettings(sdk.savedCliUrl, v),
+});
 
 // Diagnostics
 const diagLog = ref<string[]>([]);
@@ -204,18 +211,18 @@ const sessionCountLabel = computed(() => {
         <div class="setting-info">
           <div class="setting-label">CLI URL</div>
           <div class="setting-description">
-            URL for connecting to a <code>copilot --ui-server</code>
-            (e.g. <code>http://localhost:19563</code>).
-            Leave empty to spawn a private CLI subprocess (default).
-            <br>
-            <strong>Note:</strong> In TCP mode, the CLI's TUI will be notified when you resume or steer a session.
-            In stdio mode, a separate CLI process handles steering — the user's terminal CLI won't see changes.
+            To steer alongside the terminal, run <code>copilot --ui-server</code> and enter
+            the TCP address shown on startup (e.g. <code>127.0.0.1:19563</code>).
+            Leave empty to use a private subprocess (default — separate from terminal).
+            <br />
+            <strong>Tip:</strong> In TCP mode, both TracePilot and the terminal connect to the same server.
+            In stdio mode, TracePilot spawns its own isolated CLI process.
           </div>
         </div>
         <FormInput
           v-model="cliUrl"
           type="text"
-          placeholder="auto (spawns subprocess)"
+          placeholder="e.g. 127.0.0.1:19563 (leave empty for auto)"
           class="input-medium"
           :disabled="sdk.isConnected"
         />
