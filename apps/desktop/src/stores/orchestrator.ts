@@ -19,6 +19,7 @@ import { defineStore } from "pinia";
 import { computed, ref, watch } from "vue";
 import { logWarn } from "@/utils/logger";
 import { toActivityEntries, type ActivityEntry } from "@/utils/orchestratorActivity";
+import { aggregateSettledErrors } from "@/utils/settleErrors";
 
 export type { ActivityEntry } from "@/utils/orchestratorActivity";
 
@@ -165,14 +166,24 @@ export const useOrchestratorStore = defineStore("orchestrator", () => {
   }
 
   /** Single poll cycle: check health + attribution + activity + ingest results.
-   *  Uses a single-flight guard to prevent overlapping polls. */
+   *  Uses a single-flight guard to prevent overlapping polls.
+   *  Uses Promise.allSettled to ensure all operations complete even if one fails. */
   async function pollCycle() {
     if (pollInFlight) return;
     pollInFlight = true;
     try {
       await checkHealth();
       if (isRunning.value) {
-        await Promise.all([refreshAttribution(), refreshActivity(), ingestResults()]);
+        // Run independent operations in parallel; all should complete even if one fails
+        const results = await Promise.allSettled([
+          refreshAttribution(),
+          refreshActivity(),
+          ingestResults(),
+        ]);
+        const err = aggregateSettledErrors(results);
+        if (err) {
+          logWarn("[orchestrator] Poll cycle encountered errors:", err);
+        }
       }
     } finally {
       pollInFlight = false;

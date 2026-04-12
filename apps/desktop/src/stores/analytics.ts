@@ -3,6 +3,8 @@ import type { AnalyticsData, CodeImpactData, ToolAnalysisData } from "@tracepilo
 import { defineStore } from "pinia";
 import { computed, ref, watch } from "vue";
 import { useCachedFetch } from "@/composables/useCachedFetch";
+import { aggregateSettledErrors } from "@/utils/settleErrors";
+import { logWarn } from "@/utils/logger";
 import { usePreferencesStore } from "./preferences";
 import { useSessionsStore } from "./sessions";
 
@@ -112,11 +114,16 @@ export const useAnalyticsStore = defineStore("analytics", () => {
   const fetchCodeImpact = buildFetchAction(codeImpactFetcher);
 
   async function refreshAll(options?: { fromDate?: string; toDate?: string }) {
-    await Promise.all([
+    // Fetch all analytics in parallel; all should complete even if one fails
+    const results = await Promise.allSettled([
       fetchAnalytics({ ...options, force: true }),
       fetchToolAnalysis({ ...options, force: true }),
       fetchCodeImpact({ ...options, force: true }),
     ]);
+    const err = aggregateSettledErrors(results);
+    if (err) {
+      logWarn("[analytics] refreshAll encountered errors:", err);
+    }
   }
 
   /** Change the active repository filter. Cache keys already include repo so no clear needed. */

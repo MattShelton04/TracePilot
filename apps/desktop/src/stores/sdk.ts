@@ -51,6 +51,7 @@ import { computed, ref, shallowRef, watch } from "vue";
 import { safeListen } from "@/utils/tauriEvents";
 import { logInfo, logWarn } from "@/utils/logger";
 import { usePreferencesStore } from "@/stores/preferences";
+import { aggregateSettledErrors } from "@/utils/settleErrors";
 
 const MAX_EVENTS = 500;
 const SDK_SETTINGS_KEY = "tracepilot:sdk-settings";
@@ -176,15 +177,21 @@ export const useSdkStore = defineStore("sdk", () => {
     }
   }
 
-  /** Fetch sessions, models, and auth after connecting. Quota skipped (not all CLI versions support it). */
+  /** Fetch sessions, models, and auth after connecting. Quota skipped (not all CLI versions support it).
+   *  Uses Promise.allSettled to ensure partial hydration succeeds even if some calls fail. */
   async function hydrateAfterConnect() {
     logInfo("[sdk] Hydrating: fetching auth, models, sessions, version...");
-    await Promise.all([
+    // Hydrate all data in parallel; partial success is acceptable
+    const results = await Promise.allSettled([
       fetchAuthStatus(),
       fetchModels(),
       fetchSessions(),
       fetchVersionInfo(),
     ]);
+    const err = aggregateSettledErrors(results);
+    if (err) {
+      logWarn("[sdk] Hydration encountered errors:", err);
+    }
     logInfo("[sdk] Hydration complete: auth=", authStatus.value?.isAuthenticated, "models=", models.value.length, "sessions=", sessions.value.length, "cli=", cliVersion.value);
   }
 

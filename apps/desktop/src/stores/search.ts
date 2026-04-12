@@ -28,6 +28,7 @@ import { hasMeaningfulDateValue } from "@/utils/dateValidation";
 import { logWarn } from "@/utils/logger";
 import { parseQualifiers } from "@/utils/parseQualifiers";
 import { safeListen } from "@/utils/tauriEvents";
+import { aggregateSettledErrors } from "@/utils/settleErrors";
 
 // Re-export types and utilities that consumers may depend on
 export type { RecentSearch } from "@/composables/useRecentSearches";
@@ -481,7 +482,16 @@ export const useSearchStore = defineStore("search", () => {
     error.value = null;
     try {
       await rebuildSearchIndex();
-      await Promise.all([fetchStats(), fetchFacets(), fetchFilterOptions()]);
+      // Fetch stats/facets/filters in parallel; all should complete even if one fails
+      const results = await Promise.allSettled([
+        fetchStats(),
+        fetchFacets(),
+        fetchFilterOptions(),
+      ]);
+      const err = aggregateSettledErrors(results);
+      if (err) {
+        error.value = err;
+      }
       if (hasQuery.value || hasActiveFilters.value || hasResults.value) {
         await executeSearch();
       }
@@ -662,7 +672,16 @@ export const useSearchStore = defineStore("search", () => {
     },
     // Load stats/facets without executing a search (for browse presets view)
     async fetchStatsOnly() {
-      await Promise.all([fetchStats(), fetchFacets(), fetchFilterOptions()]);
+      // Fetch in parallel; all should complete even if one fails
+      const results = await Promise.allSettled([
+        fetchStats(),
+        fetchFacets(),
+        fetchFilterOptions(),
+      ]);
+      const err = aggregateSettledErrors(results);
+      if (err) {
+        logWarn("[search] fetchStatsOnly encountered errors:", err);
+      }
     },
   };
 });
