@@ -261,8 +261,12 @@ function isActiveServer(address: string) {
 
     <!-- ─── 2. TCP Servers (only when TCP mode selected) ── -->
     <template v-if="isTcpSelected">
-      <div class="settings-section-title" style="margin-top: 16px;">TCP Servers</div>
-      <SectionPanel>
+      <SectionPanel style="margin-top: 8px;">
+        <div class="setting-row" style="padding-bottom: 0;">
+          <div class="setting-info">
+            <div class="setting-label" style="font-size: 0.8125rem; color: var(--text-tertiary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">TCP Servers</div>
+          </div>
+        </div>
         <!-- Actions row -->
         <div class="setting-row">
           <div class="setting-info">
@@ -335,9 +339,9 @@ function isActiveServer(address: string) {
     </template>
 
     <!-- ─── 3. Advanced (collapsible) ─────────────── -->
-    <div class="settings-section-title sdk-advanced-toggle" style="margin-top: 16px;" @click="showAdvanced = !showAdvanced">
+    <div class="sdk-advanced-toggle" style="margin-top: 12px;" @click="showAdvanced = !showAdvanced">
       <span class="sdk-toggle-arrow" :class="{ 'sdk-toggle-arrow--open': showAdvanced }">▸</span>
-      Advanced
+      <span class="sdk-advanced-label">Advanced</span>
     </div>
     <template v-if="showAdvanced">
       <SectionPanel>
@@ -536,6 +540,11 @@ function isActiveServer(address: string) {
   display: flex;
   align-items: center;
   gap: 6px;
+  font-size: 0.8125rem;
+  color: var(--text-tertiary);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 .sdk-advanced-toggle:hover {
   color: var(--text-primary);

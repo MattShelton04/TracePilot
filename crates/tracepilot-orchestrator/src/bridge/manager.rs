@@ -263,6 +263,7 @@ impl BridgeManager {
     pub async fn resume_session(
         &mut self,
         session_id: &str,
+        working_directory: Option<&str>,
     ) -> Result<BridgeSessionInfo, BridgeError> {
         // Already tracked — no-op.
         if self.sessions.contains_key(session_id) {
@@ -270,7 +271,7 @@ impl BridgeManager {
             return Ok(BridgeSessionInfo {
                 session_id: session_id.to_string(),
                 model: None,
-                working_directory: None,
+                working_directory: working_directory.map(String::from),
                 mode: None,
                 is_active: true,
                 resume_error: None,
@@ -278,17 +279,19 @@ impl BridgeManager {
             });
         }
 
-        info!("Resuming session {} via SDK", session_id);
+        info!("Resuming session {} via SDK (cwd: {:?})", session_id, working_directory);
         let client = self.require_client()?;
+
+        let mut resume_config = copilot_sdk::ResumeSessionConfig::default();
+        if let Some(cwd) = working_directory {
+            resume_config.working_directory = Some(cwd.to_string());
+        }
+
         let session = client
-            .resume_session(session_id, copilot_sdk::ResumeSessionConfig::default())
+            .resume_session(session_id, resume_config)
             .await
             .map_err(|e| {
                 let msg = e.to_string();
-                // Categorize common resume failures for better frontend UX:
-                // - "Session file is corrupted" → CLI schema validation mismatch
-                // - "Session not found" → session dir doesn't exist on disk
-                // - "lock" / "in use" → another process is writing to the session
                 if msg.contains("corrupted") {
                     warn!(
                         "Session {} has schema validation issues (CLI version mismatch): {}",
@@ -331,6 +334,7 @@ impl BridgeManager {
     pub async fn resume_session(
         &mut self,
         _session_id: &str,
+        _working_directory: Option<&str>,
     ) -> Result<BridgeSessionInfo, BridgeError> {
         Err(BridgeError::NotAvailable)
     }

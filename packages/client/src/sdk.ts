@@ -46,8 +46,12 @@ export async function sdkCreateSession(
 
 export async function sdkResumeSession(
   sessionId: string,
+  workingDirectory?: string,
 ): Promise<BridgeSessionInfo> {
-  return invoke<BridgeSessionInfo>("sdk_resume_session", { sessionId });
+  return invoke<BridgeSessionInfo>("sdk_resume_session", {
+    sessionId,
+    workingDirectory: workingDirectory ?? null,
+  });
 }
 
 export async function sdkSendMessage(

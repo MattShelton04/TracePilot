@@ -661,7 +661,7 @@ defineExpose({ revealEvent });
       </div>
 
       <!-- SDK Steering Panel (appears at bottom of chat when SDK is active) -->
-      <SdkSteeringPanel :session-id="store.sessionId" @message-sent="handleSteeringMessage" />
+      <SdkSteeringPanel :session-id="store.sessionId" :session-cwd="store.detail?.cwd ?? undefined" @message-sent="handleSteeringMessage" />
     </div>
 
     <!-- Subagent panel (fixed viewport-sticky, below header) -->

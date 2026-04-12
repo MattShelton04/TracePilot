@@ -20,6 +20,7 @@ const detail = useSessionDetailStore();
 
 const props = defineProps<{
   sessionId: string | null;
+  sessionCwd?: string;
 }>();
 
 const emit = defineEmits<{
@@ -172,7 +173,7 @@ async function linkSession(): Promise<boolean> {
   resuming.value = true;
   sessionError.value = null;
   try {
-    const result = await sdk.resumeSession(sid);
+    const result = await sdk.resumeSession(sid, props.sessionCwd);
     if (!result) {
       sessionError.value = friendlyError(sdk.lastError ?? "Could not link session");
     } else {

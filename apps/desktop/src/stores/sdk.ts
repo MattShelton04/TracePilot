@@ -160,15 +160,27 @@ export const useSdkStore = defineStore("sdk", () => {
     }
   }
 
+  /** Fetch CLI version info from the connected SDK. */
+  async function fetchVersionInfo() {
+    try {
+      const status = await sdkCliStatus();
+      cliVersion.value = status.cliVersion ?? null;
+      protocolVersion.value = status.protocolVersion ?? null;
+    } catch (e) {
+      logWarn("[sdk] Failed to fetch CLI version:", e);
+    }
+  }
+
   /** Fetch sessions, models, and auth after connecting. Quota skipped (not all CLI versions support it). */
   async function hydrateAfterConnect() {
-    logInfo("[sdk] Hydrating: fetching auth, models, sessions...");
+    logInfo("[sdk] Hydrating: fetching auth, models, sessions, version...");
     await Promise.all([
       fetchAuthStatus(),
       fetchModels(),
       fetchSessions(),
+      fetchVersionInfo(),
     ]);
-    logInfo("[sdk] Hydration complete: auth=", authStatus.value?.isAuthenticated, "models=", models.value.length, "sessions=", sessions.value.length);
+    logInfo("[sdk] Hydration complete: auth=", authStatus.value?.isAuthenticated, "models=", models.value.length, "sessions=", sessions.value.length, "cli=", cliVersion.value);
   }
 
   async function disconnect() {
@@ -249,10 +261,10 @@ export const useSdkStore = defineStore("sdk", () => {
   }
 
   /** Resume an existing session for steering (e.g. from --ui-server). */
-  async function resumeSession(sessionId: string): Promise<BridgeSessionInfo | null> {
-    logInfo("[sdk] Resuming session:", sessionId);
+  async function resumeSession(sessionId: string, workingDirectory?: string): Promise<BridgeSessionInfo | null> {
+    logInfo("[sdk] Resuming session:", sessionId, "cwd:", workingDirectory ?? "(none)");
     try {
-      const session = await sdkResumeSession(sessionId);
+      const session = await sdkResumeSession(sessionId, workingDirectory);
       logInfo("[sdk] Resume result:", session);
       lastError.value = null; // Clear any stale errors on success
       // Update existing entry or add new one
