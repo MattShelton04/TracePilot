@@ -9,7 +9,7 @@ use crate::types::SharedTaskDb;
 use tracepilot_orchestrator::task_db::types::*;
 
 use super::manifest_helpers::{
-    build_and_append_manifest_task, ensure_task_job_dir, fallback_context, write_task_context,
+    build_and_append_manifest_task, fallback_context, write_task_context,
 };
 
 // ─── Task CRUD ──────────────────────────────────────────────────────
@@ -56,7 +56,8 @@ pub async fn task_create(
             if let Some(handle) = orch_guard.as_ref() {
                 let manifest_path = std::path::PathBuf::from(&handle.manifest_path);
                 if manifest_path.exists() {
-                    let task_dir = ensure_task_job_dir(&jobs_dir, &task.id)?;
+                    let task_dir = jobs_dir.join(&task.id);
+                    let _ = std::fs::create_dir_all(&task_dir);
                     let result_file = task_dir.join("result.json");
                     let result_path = result_file.to_string_lossy().to_string();
 

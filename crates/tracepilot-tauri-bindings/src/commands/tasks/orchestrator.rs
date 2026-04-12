@@ -309,7 +309,8 @@ pub async fn task_orchestrator_start(
                         if pending_tasks.iter().any(|p| p.id == task.id) {
                             continue;
                         }
-                        let task_dir = ensure_task_job_dir(&jobs_dir_for_rescan, &task.id)?;
+                        let task_dir = jobs_dir_for_rescan.join(&task.id);
+                        let _ = std::fs::create_dir_all(&task_dir);
                         let result_path = task_dir.join("result.json").to_string_lossy().to_string();
                         let content = fallback_context(task, &result_path);
                         let _ = write_task_context(&task_dir, &content);
