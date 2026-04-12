@@ -37,6 +37,7 @@ tempfile = "3"
 strum = { version = "0.27", features = ["derive"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 semver = "1"
+copilot-sdk = { git = "https://github.com/copilot-community-sdk/copilot-sdk-rust.git", rev = "2946ba1", package = "copilot-sdk" }
 rayon = "1.10"
 dashmap = "6"
 

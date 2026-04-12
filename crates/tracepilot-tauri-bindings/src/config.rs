@@ -178,6 +178,8 @@ pub struct FeaturesConfig {
     pub skills: bool,
     #[serde(default)]
     pub ai_tasks: bool,
+    #[serde(default)]
+    pub copilot_sdk: bool,
 }
 
 impl Default for FeaturesConfig {
@@ -190,6 +192,7 @@ impl Default for FeaturesConfig {
             mcp_servers: true,
             skills: true,
             ai_tasks: false,
+            copilot_sdk: false,
         }
     }
 }

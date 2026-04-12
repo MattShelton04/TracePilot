@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { FormSwitch, SectionPanel } from "@tracepilot/ui";
 import { usePreferencesStore } from "@/stores/preferences";
+import { useSdkStore } from "@/stores/sdk";
 
 const preferences = usePreferencesStore();
+const sdk = useSdkStore();
 
 const flags = [
   {
@@ -36,7 +38,21 @@ const flags = [
     description:
       "Enable the AI Tasks system — define tasks with prompts and context, dispatch them to a Copilot CLI orchestrator agent.",
   },
+  {
+    key: "copilotSdk",
+    label: "Copilot SDK Bridge",
+    description:
+      "Enable the SDK bridge for real-time session steering, programmatic events, and direct communication with Copilot CLI.",
+  },
 ] as const;
+
+function handleToggle(key: string) {
+  preferences.toggleFeature(key);
+  // Auto-connect SDK when the copilotSdk flag is toggled on
+  if (key === "copilotSdk" && preferences.isFeatureEnabled("copilotSdk")) {
+    sdk.autoConnect();
+  }
+}
 </script>
 
 <template>
@@ -54,7 +70,7 @@ const flags = [
         </div>
         <FormSwitch
           :model-value="preferences.isFeatureEnabled(flag.key)"
-          @update:model-value="preferences.toggleFeature(flag.key)"
+          @update:model-value="handleToggle(flag.key)"
           :aria-label="flag.label"
         />
       </div>

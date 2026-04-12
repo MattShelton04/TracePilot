@@ -858,6 +858,7 @@ export async function taskAttribution(sessionPath: string): Promise<AttributionS
 export * from "./mcp.js";
 // Re-export orchestration module
 export * from "./orchestration.js";
+export * from "./sdk.js";
 export * from "./skills.js";
 export { IPC_COMMANDS, type CommandName } from "./commands.js";
 export type { SessionHealth };

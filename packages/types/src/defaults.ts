@@ -60,6 +60,7 @@ export const DEFAULT_FEATURES: TracePilotConfig["features"] = {
   mcpServers: true,
   skills: true,
   aiTasks: false,
+  copilotSdk: false,
 };
 
 /**

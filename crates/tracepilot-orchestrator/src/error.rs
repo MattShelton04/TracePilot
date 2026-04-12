@@ -36,6 +36,8 @@ pub enum OrchestratorError {
     Mcp(#[from] crate::mcp::McpError),
     #[error(transparent)]
     Skills(#[from] crate::skills::SkillsError),
+    #[error("Copilot SDK bridge error: {0}")]
+    Bridge(#[from] crate::bridge::BridgeError),
     #[error("Export error: {0}")]
     Export(#[from] tracepilot_export::ExportError),
 }

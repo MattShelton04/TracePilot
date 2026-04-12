@@ -4,6 +4,10 @@ description = "Tauri IPC command layer bridging the frontend to tracepilot-core"
 version.workspace = true
 edition.workspace = true
 
+[features]
+default = ["copilot-sdk"]
+copilot-sdk = ["tracepilot-orchestrator/copilot-sdk", "dep:copilot-sdk"]
+
 [dependencies]
 tracepilot-core = { workspace = true }
 tracepilot-indexer = { workspace = true }
@@ -22,6 +26,7 @@ uuid = "1"
 lru = "0.12"
 reqwest = { workspace = true }
 semver = { workspace = true }
+copilot-sdk = { workspace = true, optional = true }
 
 [dev-dependencies]
 rusqlite = { workspace = true }

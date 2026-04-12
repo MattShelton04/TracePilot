@@ -21,6 +21,8 @@ mod validators;
 use std::num::NonZeroUsize;
 use std::sync::{Arc, Mutex};
 use tauri::Manager;
+use tauri::Emitter;
+use tracepilot_orchestrator::bridge::manager::SharedBridgeManager;
 use types::{
     EventCache, ManifestLock, SearchSemaphore, SharedOrchestratorState, SharedTaskDb, TurnCache,
 };
@@ -58,6 +60,49 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             // Manifest lock: serializes concurrent manifest read-modify-write operations.
             let manifest_lock: ManifestLock = Arc::new(Mutex::new(()));
             app.manage(manifest_lock);
+
+            // Copilot SDK bridge manager.
+            let (bridge_manager, _bridge_rx, _bridge_status_rx) =
+                tracepilot_orchestrator::bridge::BridgeManager::new();
+            let shared_bridge: SharedBridgeManager =
+                Arc::new(tokio::sync::RwLock::new(bridge_manager));
+            // Spawn event forwarding task: reads bridge events and emits Tauri IPC events.
+            {
+                let bridge_for_events = shared_bridge.clone();
+                let app_handle = app.clone();
+                tauri::async_runtime::spawn(async move {
+                    let mut rx = bridge_for_events.read().await.subscribe();
+                    loop {
+                        match rx.recv().await {
+                            Ok(event) => {
+                                let _ = app_handle.emit(events::SDK_BRIDGE_EVENT, &event);
+                            }
+                            Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                            Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+                        }
+                    }
+                });
+            }
+            // Spawn status change forwarding task.
+            {
+                let bridge_for_status = shared_bridge.clone();
+                let app_handle = app.clone();
+                tauri::async_runtime::spawn(async move {
+                    let mut rx = bridge_for_status.read().await.subscribe_status();
+                    loop {
+                        match rx.recv().await {
+                            Ok(status) => {
+                                let _ =
+                                    app_handle.emit(events::SDK_CONNECTION_CHANGED, &status);
+                            }
+                            Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                            Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+                        }
+                    }
+                });
+            }
+            app.manage(shared_bridge);
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -210,6 +255,27 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::tasks::task_orchestrator_stop,
             commands::tasks::task_ingest_results,
             commands::tasks::task_attribution,
+            // SDK bridge commands (15)
+            commands::sdk::sdk_connect,
+            commands::sdk::sdk_disconnect,
+            commands::sdk::sdk_status,
+            commands::sdk::sdk_cli_status,
+            commands::sdk::sdk_create_session,
+            commands::sdk::sdk_resume_session,
+            commands::sdk::sdk_send_message,
+            commands::sdk::sdk_abort_session,
+            commands::sdk::sdk_destroy_session,
+            commands::sdk::sdk_unlink_session,
+            commands::sdk::sdk_set_session_mode,
+            commands::sdk::sdk_set_session_model,
+            commands::sdk::sdk_list_sessions,
+            commands::sdk::sdk_get_quota,
+            commands::sdk::sdk_get_auth_status,
+            commands::sdk::sdk_list_models,
+            commands::sdk::sdk_get_foreground_session,
+            commands::sdk::sdk_set_foreground_session,
+            commands::sdk::sdk_detect_ui_server,
+            commands::sdk::sdk_launch_ui_server,
         ])
         .build()
 }

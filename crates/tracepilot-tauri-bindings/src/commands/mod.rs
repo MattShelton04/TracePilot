@@ -8,6 +8,7 @@ pub mod export_import;
 pub mod logging;
 pub mod mcp;
 pub mod orchestration;
+pub mod sdk;
 pub mod search;
 pub mod session;
 pub mod skills;

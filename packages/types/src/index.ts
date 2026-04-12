@@ -10,6 +10,7 @@ export * from "./models.js";
 export * from "./orchestration.js";
 export * from "./replay.js";
 export * from "./search.js";
+export * from "./sdk.js";
 export * from "./session.js";
 export * from "./skills.js";
 export * from "./tasks.js";
