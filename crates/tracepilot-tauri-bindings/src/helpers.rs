@@ -312,6 +312,67 @@ pub(crate) fn validate_write_path_within(path: &str, dir: &std::path::Path) -> C
     Ok(canonical_parent.join(file_name))
 }
 
+// ─── Task enrollment helpers ────────────────────────────────────────
+
+/// Resolve the effective model for a task by checking the preset's
+/// `model_override` first, falling back to `default_model`.
+///
+/// This centralises the model-resolution pattern used whenever a task
+/// needs to be hot-added, retried, or initially enrolled into an
+/// orchestrator manifest.  All enrollment call sites should use this
+/// helper to avoid divergence.
+pub(crate) fn resolve_task_model(
+    presets_dir: &Path,
+    preset_id: &str,
+    default_model: &str,
+) -> String {
+    tracepilot_orchestrator::presets::io::get_preset(presets_dir, preset_id)
+        .ok()
+        .and_then(|p| p.execution.model_override.clone())
+        .unwrap_or_else(|| default_model.to_string())
+}
+
+/// Build minimal context when preset loading or full assembly fails.
+///
+/// Provides the subagent with enough information to attempt the task even
+/// without full context: task metadata, input parameters, and the output
+/// path for results.
+pub(crate) fn fallback_context(
+    task: &tracepilot_orchestrator::task_db::Task,
+    result_path: &str,
+) -> String {
+    format!(
+        "# Task: {}\n\n**Type:** {}\n**Preset:** {}\n\n\
+         ## Input Parameters\n\n```json\n{}\n```\n\n\
+         ## Output Format\n\nWrite your result as valid JSON to: `{}`\n\
+         Use atomic write: write to `.tmp` then rename.\n",
+        task.id,
+        task.task_type,
+        task.preset_id,
+        serde_json::to_string_pretty(&task.input_params).unwrap_or_default(),
+        result_path,
+    )
+}
+
+/// Create the task directory within the jobs directory, returning its path.
+///
+/// Uses `create_dir_all` to be idempotent — safe to call even if the
+/// directory already exists (e.g. retry enrollment).
+pub(crate) fn prepare_task_dir(jobs_dir: &Path, task_id: &str) -> PathBuf {
+    let task_dir = jobs_dir.join(task_id);
+    let _ = std::fs::create_dir_all(&task_dir);
+    task_dir
+}
+
+/// Write the context markdown file into the task directory.
+///
+/// This is best-effort; if the write fails the orchestrator will still
+/// attempt the task (it may fall back to built-in context).
+pub(crate) fn write_task_context(task_dir: &Path, content: &str) {
+    let context_path = task_dir.join("context.md");
+    let _ = std::fs::write(&context_path, content);
+}
+
 /// Delete the index database and its WAL/SHM sidecar files, surfacing I/O errors.
 /// Missing files are silently ignored to avoid TOCTOU races (WAL/SHM are managed
 /// dynamically by SQLite and may vanish between checks).
@@ -818,5 +879,84 @@ mod tests {
 
         let result = validate_write_path_within(file.to_str().unwrap(), dir.path());
         assert!(result.is_ok());
+    }
+
+    // ── Task enrollment helper tests ────────────────────────────────
+
+    #[test]
+    fn prepare_task_dir_creates_directory() {
+        let dir = tempdir().unwrap();
+        let task_dir = prepare_task_dir(dir.path(), "task-abc-123");
+        assert!(task_dir.exists());
+        assert!(task_dir.is_dir());
+        assert_eq!(task_dir.file_name().unwrap(), "task-abc-123");
+    }
+
+    #[test]
+    fn prepare_task_dir_is_idempotent() {
+        let dir = tempdir().unwrap();
+        let first = prepare_task_dir(dir.path(), "task-1");
+        // Place a file so we can verify the directory isn't recreated from scratch
+        fs::write(first.join("marker.txt"), b"exists").unwrap();
+        let second = prepare_task_dir(dir.path(), "task-1");
+        assert_eq!(first, second);
+        assert!(second.join("marker.txt").exists());
+    }
+
+    #[test]
+    fn write_task_context_creates_file() {
+        let dir = tempdir().unwrap();
+        write_task_context(dir.path(), "# Hello\n\nSome context");
+        let content = fs::read_to_string(dir.path().join("context.md")).unwrap();
+        assert_eq!(content, "# Hello\n\nSome context");
+    }
+
+    #[test]
+    fn write_task_context_overwrites_existing() {
+        let dir = tempdir().unwrap();
+        write_task_context(dir.path(), "old content");
+        write_task_context(dir.path(), "new content");
+        let content = fs::read_to_string(dir.path().join("context.md")).unwrap();
+        assert_eq!(content, "new content");
+    }
+
+    #[test]
+    fn resolve_task_model_returns_default_when_preset_missing() {
+        let dir = tempdir().unwrap();
+        let model = resolve_task_model(dir.path(), "nonexistent-preset", "gpt-4o");
+        assert_eq!(model, "gpt-4o");
+    }
+
+    #[test]
+    fn fallback_context_contains_task_metadata() {
+        let task = tracepilot_orchestrator::task_db::types::Task {
+            id: "task-001".to_string(),
+            job_id: None,
+            task_type: "code-review".to_string(),
+            preset_id: "review-preset".to_string(),
+            status: tracepilot_orchestrator::task_db::types::TaskStatus::Pending,
+            priority: "normal".to_string(),
+            input_params: serde_json::json!({"file": "main.rs"}),
+            context_hash: None,
+            attempt_count: 0,
+            max_retries: 3,
+            orchestrator_session_id: None,
+            result_summary: None,
+            result_parsed: None,
+            schema_valid: None,
+            error_message: None,
+            created_at: "2025-01-01T00:00:00Z".to_string(),
+            updated_at: "2025-01-01T00:00:00Z".to_string(),
+            completed_at: None,
+            claimed_at: None,
+            started_at: None,
+        };
+        let ctx = fallback_context(&task, "/tmp/result.json");
+        assert!(ctx.contains("# Task: task-001"));
+        assert!(ctx.contains("**Type:** code-review"));
+        assert!(ctx.contains("**Preset:** review-preset"));
+        assert!(ctx.contains("\"file\": \"main.rs\""));
+        assert!(ctx.contains("/tmp/result.json"));
+        assert!(ctx.contains("atomic write"));
     }
 }
