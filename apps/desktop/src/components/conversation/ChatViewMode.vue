@@ -232,6 +232,8 @@ function hiddenToolCount(items: ToolGroupItem[]): number {
 }
 
 // ─── Intent/memory pill helpers ───────────────────────────────────
+// Note: uses || (not ??) so empty strings also fall through to the "…"
+// placeholder — a blank display label is never desirable in the UI.
 
 function intentLabel(tc: TurnToolCall): string {
   return toolArgString(getToolArgs(tc), "intent") || "…";
