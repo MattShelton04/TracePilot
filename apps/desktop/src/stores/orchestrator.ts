@@ -27,6 +27,7 @@ const POLL_SLOW_MS = 15_000; // When idle: health-only check every 15s
 const DEFAULT_MODEL = "claude-haiku-4.5";
 const ACTIVITY_FEED_LIMIT = 30;
 
+
 export const useOrchestratorStore = defineStore("orchestrator", () => {
   // ─── State ────────────────────────────────────────────────────────
   const health = ref<HealthCheckResult | null>(null);
@@ -196,19 +197,23 @@ export const useOrchestratorStore = defineStore("orchestrator", () => {
   // When running → fast full-cycle polling.
   // When idle → slow health-only polling (detects restarts / stale state).
   // `immediate: true` ensures polling starts on store creation even when idle.
-  watch(isRunning, (running) => {
-    if (running) {
-      startPolling(POLL_FAST_MS);
-    } else {
-      // Final ingestion, then switch to slow health-only polling
-      // (re-check isRunning in case state changed during async ingestion)
-      ingestResults().finally(() => {
-        if (!isRunning.value) {
-          startPolling(POLL_SLOW_MS);
-        }
-      });
-    }
-  }, { immediate: true });
+  watch(
+    isRunning,
+    (running) => {
+      if (running) {
+        startPolling(POLL_FAST_MS);
+      } else {
+        // Final ingestion, then switch to slow health-only polling
+        // (re-check isRunning in case state changed during async ingestion)
+        ingestResults().finally(() => {
+          if (!isRunning.value) {
+            startPolling(POLL_SLOW_MS);
+          }
+        });
+      }
+    },
+    { immediate: true },
+  );
 
   /** Perform a full refresh: health + attribution + ingestion. */
   async function refresh() {

@@ -6,6 +6,7 @@
  */
 
 import type { TurnToolCall } from "@tracepilot/types";
+import { getToolArgs, toolArgString } from "@tracepilot/types";
 
 export type AgentType = "main" | "explore" | "general-purpose" | "code-review" | "task";
 
@@ -43,8 +44,8 @@ export function inferAgentType(displayName?: string, toolName?: string, args?: u
   if (name.includes("code-review") || name.includes("code review")) return "code-review";
   if (name.includes("general") || name.includes("general-purpose")) return "general-purpose";
   if (args && typeof args === "object") {
-    const a = args as Record<string, unknown>;
-    const agentType = String(a.agent_type ?? "").toLowerCase();
+    const a = getToolArgs({ arguments: args });
+    const agentType = toolArgString(a, "agent_type").toLowerCase();
     if (agentType.includes("explore")) return "explore";
     if (agentType.includes("code-review") || agentType.includes("code_review"))
       return "code-review";

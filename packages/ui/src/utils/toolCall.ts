@@ -3,6 +3,8 @@
  * Centralizes icon mapping, categorization, and argument summarization.
  */
 
+import { getToolArgs } from "@tracepilot/types";
+
 const TOOL_ICONS: Record<string, string> = {
   view: "👁",
   edit: "✏️",
@@ -53,7 +55,7 @@ export function categoryColor(category: string): string {
 /** Extract a useful one-line summary from tool call arguments. */
 export function formatArgsSummary(args: unknown, toolName: string): string {
   if (!args || typeof args !== "object") return "";
-  const a = args as Record<string, unknown>;
+  const a = getToolArgs({ arguments: args });
 
   if (toolName === "view" && a.path) return String(a.path);
   if (toolName === "edit" && a.path) return String(a.path);
@@ -80,7 +82,7 @@ export function formatArgsSummary(args: unknown, toolName: string): string {
 /** Extract prompt/description text from tool-call arguments. */
 export function extractPrompt(args: unknown): string | null {
   if (!args || typeof args !== "object") return null;
-  const obj = args as Record<string, unknown>;
+  const obj = getToolArgs({ arguments: args });
   const raw = obj.prompt ?? obj.description;
   return typeof raw === "string" ? raw : null;
 }
