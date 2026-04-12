@@ -55,6 +55,7 @@ export * from "./composables";
 export * from "./utils/agentGrouping";
 export * from "./utils/agentTypes";
 export * from "./utils/chartGeometry";
+export { deepClone } from "./utils/clone";
 export * from "./utils/contentTypes";
 // Utilities
 export * from "./utils/formatters";

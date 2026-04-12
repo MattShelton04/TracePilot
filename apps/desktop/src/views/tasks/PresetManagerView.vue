@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ContextSourceType, TaskPreset } from "@tracepilot/types";
-import { formatDate } from "@tracepilot/ui";
+import { deepClone, formatDate } from "@tracepilot/ui";
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import PresetDetailSlideover from "@/components/tasks/PresetDetailSlideover.vue";
@@ -112,7 +112,7 @@ function runTask(preset: TaskPreset) {
 async function duplicatePreset(preset: TaskPreset) {
   const now = new Date().toISOString();
   const copy: TaskPreset = {
-    ...JSON.parse(JSON.stringify(preset)),
+    ...deepClone(preset),
     id: `${preset.id}-copy-${Date.now()}`,
     name: `${preset.name} (Copy)`,
     builtin: false,
@@ -212,7 +212,7 @@ function openNewPresetModal() {
 
 function openEditModal(preset: TaskPreset) {
   store.error = null;
-  editingPreset.value = JSON.parse(JSON.stringify(preset));
+  editingPreset.value = deepClone(preset);
   showEditModal.value = true;
 }
 
@@ -261,9 +261,24 @@ const SOURCE_TYPES: SourceTypeInfo[] = [
         type: "string",
         default: "conversation,plan,todos,metrics,incidents,health",
         hint: "Comma-separated: conversation, events, todos, plan, checkpoints, metrics, incidents, health",
-        options: ["conversation", "events", "todos", "plan", "checkpoints", "metrics", "incidents", "health"],
+        options: [
+          "conversation",
+          "events",
+          "todos",
+          "plan",
+          "checkpoints",
+          "metrics",
+          "incidents",
+          "health",
+        ],
       },
-      { key: "max_bytes", label: "Max bytes", type: "number", default: 50000, hint: "Byte limit for the export output" },
+      {
+        key: "max_bytes",
+        label: "Max bytes",
+        type: "number",
+        default: 50000,
+        hint: "Byte limit for the export output",
+      },
     ],
   },
   {
@@ -293,7 +308,13 @@ const SOURCE_TYPES: SourceTypeInfo[] = [
     description: "Summary list of recent sessions",
     requiresSession: false,
     configSchema: [
-      { key: "max_sessions", label: "Max sessions", type: "number", default: 10, hint: "How many recent sessions to include" },
+      {
+        key: "max_sessions",
+        label: "Max sessions",
+        type: "number",
+        default: 10,
+        hint: "How many recent sessions to include",
+      },
     ],
   },
   {
@@ -302,9 +323,27 @@ const SOURCE_TYPES: SourceTypeInfo[] = [
     description: "Combined summary of sessions within a time window (daily/weekly)",
     requiresSession: false,
     configSchema: [
-      { key: "window_hours", label: "Window (hours)", type: "number", default: 24, hint: "How many hours back to look (24 = daily, 168 = weekly)" },
-      { key: "max_sessions", label: "Max sessions", type: "number", default: 50, hint: "Cap on sessions to include" },
-      { key: "include_exports", label: "Include exports", type: "boolean", default: false, hint: "Include brief conversation exports per session (expensive)" },
+      {
+        key: "window_hours",
+        label: "Window (hours)",
+        type: "number",
+        default: 24,
+        hint: "How many hours back to look (24 = daily, 168 = weekly)",
+      },
+      {
+        key: "max_sessions",
+        label: "Max sessions",
+        type: "number",
+        default: 50,
+        hint: "Cap on sessions to include",
+      },
+      {
+        key: "include_exports",
+        label: "Include exports",
+        type: "boolean",
+        default: false,
+        hint: "Include brief conversation exports per session (expensive)",
+      },
     ],
   },
 ];
@@ -359,11 +398,7 @@ function removeConfigKey(src: { config: Record<string, unknown> }, key: string) 
   delete src.config[key];
 }
 
-function renameConfigKey(
-  src: { config: Record<string, unknown> },
-  oldKey: string,
-  newKey: string,
-) {
+function renameConfigKey(src: { config: Record<string, unknown> }, oldKey: string, newKey: string) {
   if (oldKey === newKey || !newKey.trim()) return;
   const val = src.config[oldKey];
   delete src.config[oldKey];
