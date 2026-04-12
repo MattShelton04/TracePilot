@@ -21,9 +21,14 @@ import type {
   TodosResponse,
   TurnToolCall,
 } from "@tracepilot/types";
-import { type AsyncGuardToken, toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
+import { toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
 import { defineStore } from "pinia";
-import { type Ref, ref } from "vue";
+import { ref } from "vue";
+import {
+  buildSectionLoader,
+  createAsyncSection,
+  defineAsyncSection,
+} from "@/stores/helpers/asyncSections";
 import { logError, logWarn } from "@/utils/logger";
 
 export const useSessionDetailStore = defineStore("sessionDetail", () => {
@@ -36,21 +41,6 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
   const loading = ref(false);
   const error = ref<string | null>(null);
   const loaded = ref<Set<string>>(new Set());
-
-  // ── AsyncSection helper ─────────────────────────────────────────
-  // Consolidates data + error state for sections, eliminating separate
-  // error ref declarations and manual error clearing across 5+ sections.
-  interface AsyncSectionState<T> {
-    data: Ref<T>;
-    error: Ref<string | null>;
-  }
-
-  function createAsyncSection<T>(initialData: T): AsyncSectionState<T> {
-    return {
-      data: ref<T>(initialData) as Ref<T>,
-      error: ref<string | null>(null),
-    };
-  }
 
   // Standard sections using AsyncSection pattern
   const todosSection = createAsyncSection<TodosResponse | null>(null);
@@ -371,69 +361,9 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
   const sessionGuard = useAsyncGuard();
   const eventsGuard = useAsyncGuard();
 
-  // ── Section loader factory ───────────────────────────────────────────
-  // Eliminates boilerplate across load functions that share identical
-  // guard / fetch / stale-token / error-handling logic.
-  function buildSectionLoader<T>(opts: {
-    key: string;
-    errorRef: Ref<string | null>;
-    fetchFn: (id: string) => Promise<T>;
-    onResult: (result: T) => void;
-    logLevel?: "error" | "warn";
-  }) {
-    return async () => {
-      const id = sessionId.value;
-      if (!id || loaded.value.has(opts.key)) return;
-      const token = sessionGuard.current();
-      opts.errorRef.value = null;
-
-      try {
-        const result = await opts.fetchFn(id);
-        if (!sessionGuard.isValid(token)) return;
-        opts.onResult(result);
-        loaded.value.add(opts.key);
-      } catch (e) {
-        if (!sessionGuard.isValid(token)) return;
-        opts.errorRef.value = toErrorMessage(e);
-        const logFn = opts.logLevel === "warn" ? logWarn : logError;
-        logFn(`[sessionDetail] Failed to load ${opts.key}:`, e);
-      }
-    };
-  }
-
-  // ── Section refresh helper ──────────────────────────────────────────
-  // Used by refreshAll() for sections that follow the simple pattern:
-  // fetch → assign result → clear error (on success).
-  // Unlike buildSectionLoader, this clears errorRef on *success* (not before
-  // the fetch), preserving the previous error during the refresh attempt.
-  async function buildRefreshPromise<T>(
-    cfg: {
-      key: string;
-      errorRef: Ref<string | null>;
-      fetchFn: (id: string) => Promise<T>;
-      onResult: (result: T) => void;
-      logLevel?: "error" | "warn";
-    },
-    id: string,
-    token: AsyncGuardToken,
-  ): Promise<void> {
-    try {
-      const result = await cfg.fetchFn(id);
-      if (!sessionGuard.isValid(token)) return;
-      cfg.onResult(result);
-      cfg.errorRef.value = null;
-    } catch (e) {
-      if (!sessionGuard.isValid(token)) return;
-      cfg.errorRef.value = toErrorMessage(e);
-      const logFn = cfg.logLevel === "warn" ? logWarn : logError;
-      logFn(`[sessionDetail] Failed to refresh ${cfg.key}:`, e);
-    }
-  }
-
   // ── Section registry ────────────────────────────────────────────────
-  // Defines standard section config ONCE. Used by loaders, refreshAll,
-  // clearSectionErrors, and resetSectionData — eliminating duplicate
-  // key/errorRef/fetchFn/onResult mappings.
+  // Standard section state/load/refresh mechanics live in a focused helper so
+  // this store can stay centered on session-specific behavior.
   //
   // Sections NOT in this registry (require custom logic):
   //   detail — uses global `error` ref + loading spinner + cache
@@ -443,83 +373,59 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
   // NOTE: CachedSession field mapping is centralized via:
   // buildCachedSessionSnapshot(), restoreFromCachedSession(), and
   // buildPrefetchedCachedSession().
-  function defineSection<T>(config: {
-    key: string;
-    section: AsyncSectionState<T>;
-    defaultValue: () => T;
-    fetchFn: (id: string) => Promise<T>;
-    logLevel?: "error" | "warn";
-  }) {
-    const load = buildSectionLoader({
-      key: config.key,
-      errorRef: config.section.error,
-      fetchFn: config.fetchFn,
-      onResult: (result) => {
-        config.section.data.value = result;
-      },
-      logLevel: config.logLevel,
-    });
-
-    return {
-      key: config.key,
-      section: config.section,
-      load,
-      clearError: () => {
-        config.section.error.value = null;
-      },
-      resetData: () => {
-        config.section.data.value = config.defaultValue();
-      },
-      buildRefresh: (id: string, token: number) =>
-        buildRefreshPromise(
-          {
-            key: config.key,
-            errorRef: config.section.error,
-            fetchFn: config.fetchFn,
-            onResult: (r) => {
-              config.section.data.value = r;
-            },
-            logLevel: config.logLevel,
-          },
-          id,
-          token,
-        ),
-    };
-  }
-
-  const todosDef = defineSection({
+  const todosDef = defineAsyncSection({
     key: "todos",
     section: todosSection,
     defaultValue: () => null,
     fetchFn: (id) => getSessionTodos(id),
+    sessionId,
+    loaded,
+    guard: sessionGuard,
+    logPrefix: "[sessionDetail]",
   });
 
-  const checkpointsDef = defineSection({
+  const checkpointsDef = defineAsyncSection({
     key: "checkpoints",
     section: checkpointsSection,
     defaultValue: (): CheckpointEntry[] => [],
     fetchFn: (id) => getSessionCheckpoints(id),
+    sessionId,
+    loaded,
+    guard: sessionGuard,
+    logPrefix: "[sessionDetail]",
   });
 
-  const planDef = defineSection({
+  const planDef = defineAsyncSection({
     key: "plan",
     section: planSection,
     defaultValue: () => null,
     fetchFn: (id) => getSessionPlan(id),
+    sessionId,
+    loaded,
+    guard: sessionGuard,
+    logPrefix: "[sessionDetail]",
   });
 
-  const metricsDef = defineSection({
+  const metricsDef = defineAsyncSection({
     key: "metrics",
     section: metricsSection,
     defaultValue: () => null,
     fetchFn: (id) => getShutdownMetrics(id),
+    sessionId,
+    loaded,
+    guard: sessionGuard,
+    logPrefix: "[sessionDetail]",
   });
 
-  const incidentsDef = defineSection({
+  const incidentsDef = defineAsyncSection({
     key: "incidents",
     section: incidentsSection,
     defaultValue: (): SessionIncident[] => [],
     fetchFn: (id) => getSessionIncidents(id),
+    sessionId,
+    loaded,
+    guard: sessionGuard,
+    logPrefix: "[sessionDetail]",
     logLevel: "warn",
   });
 
@@ -609,6 +515,9 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
 
   const loadTurns = buildSectionLoader({
     key: "turns",
+    sessionId,
+    loaded,
+    guard: sessionGuard,
     errorRef: turnsError,
     fetchFn: (id) => getSessionTurns(id),
     onResult: (result) => {
@@ -618,6 +527,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
         result.eventsFileMtime ?? null,
       );
     },
+    logPrefix: "[sessionDetail]",
   });
 
   async function loadEvents(offset = 0, limit = 100, eventType?: string) {
@@ -663,7 +573,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     const promises: Promise<void>[] = [];
 
     // Detail uses the global `error` ref (not a section errorRef), so it
-    // stays as a one-off instead of going through buildRefreshPromise.
+    // stays as a one-off instead of going through the shared section helper.
     if (sections.has("detail")) {
       promises.push(
         (async () => {
@@ -697,7 +607,11 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
               if (isSameEventsFingerprint(probe, lastEventsFingerprint)) return;
             } catch (e) {
               // Freshness check failed — fall through to full fetch
-              logWarn("[sessionDetail] Freshness check failed, proceeding with full fetch", { sessionId: id }, e);
+              logWarn(
+                "[sessionDetail] Freshness check failed, proceeding with full fetch",
+                { sessionId: id },
+                e,
+              );
             }
 
             const result = await getSessionTurns(id);
@@ -722,7 +636,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     // current page position.
 
     // All remaining standard sections use the section registry — config is
-    // defined once in defineSection(), eliminating duplicate mappings.
+    // defined once in defineAsyncSection(), eliminating duplicate mappings.
     for (const sec of standardSections) {
       if (sections.has(sec.key)) {
         promises.push(sec.buildRefresh(id, token));
