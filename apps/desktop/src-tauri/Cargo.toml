@@ -34,6 +34,8 @@ console-subscriber = { version = "0.4", optional = true }
 # Build: cargo tauri dev --features tokio-console
 # Connect: tokio-console http://127.0.0.1:6669
 tokio-console = ["dep:console-subscriber"]
+copilot-sdk = ["tracepilot-tauri-bindings/copilot-sdk"]
+default = ["copilot-sdk"]
 
 [[bin]]
 name = "tracepilot-desktop"

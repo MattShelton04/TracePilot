@@ -42,6 +42,7 @@ import {
 } from "./chatViewUtils";
 import SubagentCard from "./SubagentCard.vue";
 import SubagentPanel from "./SubagentPanel.vue";
+import SdkSteeringPanel from "./SdkSteeringPanel.vue";
 
 // ─── Store & Route ────────────────────────────────────────────────
 
@@ -340,6 +341,13 @@ function tcProps(turn: ConversationTurn, tc: TurnToolCall) {
 function toggleToolDetail(turn: ConversationTurn, tc: TurnToolCall) {
   const idx = findToolCallIndex(turn, tc);
   expandedToolDetails.toggle(`${turn.turnIndex}-${idx}`);
+}
+
+/** When a steering message is sent, force-refresh turns to pick up new events faster. */
+function handleSteeringMessage(_prompt: string) {
+  // The steering panel already schedules its own refreshes (800ms + 3s),
+  // but we also trigger an immediate refreshAll here for good measure.
+  store.refreshAll();
 }
 
 // ─── Subagent turn colors ─────────────────────────────────────────
@@ -651,6 +659,9 @@ defineExpose({ revealEvent });
           </div>
         </div>
       </div>
+
+      <!-- SDK Steering Panel (appears at bottom of chat when SDK is active) -->
+      <SdkSteeringPanel :session-id="store.sessionId" @message-sent="handleSteeringMessage" />
     </div>
 
     <!-- Subagent panel (fixed viewport-sticky, below header) -->

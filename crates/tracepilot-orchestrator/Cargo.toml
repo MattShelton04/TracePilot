@@ -4,6 +4,10 @@ description = "Orchestration capabilities: worktrees, session launching, config 
 version.workspace = true
 edition.workspace = true
 
+[features]
+default = ["copilot-sdk"]
+copilot-sdk = ["dep:copilot-sdk"]
+
 [dependencies]
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -23,6 +27,8 @@ reqwest = { workspace = true }
 similar = "2"
 walkdir = "2"
 sha2 = "0.10"
+
+copilot-sdk = { workspace = true, optional = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }

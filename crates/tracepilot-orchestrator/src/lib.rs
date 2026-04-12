@@ -27,6 +27,8 @@ pub mod validation;
 pub mod version_manager;
 pub mod worktrees;
 
+pub mod bridge;
+
 pub use error::{OrchestratorError, Result};
 pub use types::*;
 

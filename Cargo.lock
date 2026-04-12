@@ -833,6 +833,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "copilot-sdk"
+version = "0.1.17"
+source = "git+https://github.com/copilot-community-sdk/copilot-sdk-rust.git?rev=2946ba1#2946ba176297acc3cbbc97cf6d526152dad54b62"
+dependencies = [
+ "chrono",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "which",
+]
+
+[[package]]
 name = "core-foundation"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1335,6 +1349,12 @@ dependencies = [
  "log",
  "regex",
 ]
+
+[[package]]
+name = "env_home"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c7f84e12ccf0a7ddc17a6c41c93326024c42920d7ee630d04950e6926645c0fe"
 
 [[package]]
 name = "equivalent"
@@ -5849,6 +5869,7 @@ name = "tracepilot-orchestrator"
 version = "0.6.1"
 dependencies = [
  "chrono",
+ "copilot-sdk",
  "reqwest 0.12.28",
  "rusqlite",
  "semver",
@@ -5873,6 +5894,7 @@ version = "0.6.1"
 dependencies = [
  "anyhow",
  "chrono",
+ "copilot-sdk",
  "lru",
  "reqwest 0.12.28",
  "rusqlite",
@@ -6462,6 +6484,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "which"
+version = "7.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "24d643ce3fd3e5b54854602a080f34fb10ab75e0b813ee32d00ca2b44fa74762"
+dependencies = [
+ "either",
+ "env_home",
+ "rustix",
+ "winsafe",
+]
+
+[[package]]
 name = "winapi"
 version = "0.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6922,6 +6956,12 @@ dependencies = [
  "cfg-if",
  "windows-sys 0.59.0",
 ]
+
+[[package]]
+name = "winsafe"
+version = "0.0.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d135d17ab770252ad95e9a872d365cf3090e3be864a34ab46f48555993efc904"
 
 [[package]]
 name = "wit-bindgen"

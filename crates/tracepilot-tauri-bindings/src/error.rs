@@ -15,6 +15,10 @@ pub enum BindingsError {
     #[error(transparent)]
     Orchestrator(#[from] tracepilot_orchestrator::OrchestratorError),
 
+    /// Error from the Copilot SDK bridge.
+    #[error(transparent)]
+    Bridge(#[from] tracepilot_orchestrator::bridge::BridgeError),
+
     /// Error from `tracepilot-indexer` (FTS, SQLite index operations).
     #[error(transparent)]
     Indexer(#[from] tracepilot_indexer::IndexerError),

@@ -293,14 +293,24 @@ async function handleAbort() {
   scheduleRefresh(500);
 }
 
-/** Stop (destroy) the SDK session — unlinks it from the bridge. */
-async function handleStopSession() {
+/** Unlink the session — hides command bar but keeps session alive in the subprocess. */
+async function handleUnlinkSession() {
+  const sid = effectiveSessionId.value;
+  if (!sid) return;
+  sessionError.value = null;
+  await sdk.unlinkSession(sid);
+  resolvedSessionId.value = null;
+  logInfo("[sdk] Session unlinked (still alive in subprocess):", sid);
+}
+
+/** Destroy the session entirely — writes shutdown event, can't re-link without re-resume. */
+async function handleDestroySession() {
   const sid = effectiveSessionId.value;
   if (!sid) return;
   sessionError.value = null;
   await sdk.destroySession(sid);
   resolvedSessionId.value = null;
-  logInfo("[sdk] Session stopped/unlinked:", sid);
+  logInfo("[sdk] Session destroyed:", sid);
 }
 
 function handleKeydown(event: KeyboardEvent) {
@@ -381,8 +391,8 @@ async function handleConnect() {
       <button
         v-if="isLinked"
         class="cb-btn-stop"
-        title="Stop steering this session"
-        @click="handleStopSession"
+        title="Unlink — hide command bar but keep session alive"
+        @click="handleUnlinkSession"
       >
         <svg viewBox="0 0 16 16" fill="currentColor" width="10" height="10">
           <path d="M3.72 3.72a.75.75 0 011.06 0L8 6.94l3.22-3.22a.75.75 0 111.06 1.06L9.06 8l3.22 3.22a.75.75 0 11-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 01-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 010-1.06z"/>
@@ -406,8 +416,8 @@ async function handleConnect() {
         <div class="cb-link-title">Link for Steering</div>
         <div class="cb-link-desc">
           {{ sdk.connectionMode === 'tcp'
-            ? 'Attach to this session on the shared server to send messages and change settings.'
-            : 'This creates a separate CLI subprocess to steer this session. The session must not be actively running in a terminal.' }}
+            ? 'Attach to this session on the shared server. You can steer alongside the terminal CLI.'
+            : 'This spawns a separate CLI subprocess. For simultaneous terminal use, connect via --ui-server (TCP mode) in Settings instead.' }}
         </div>
       </div>
       <button class="cb-btn-link" :disabled="resuming" @click="linkSession">

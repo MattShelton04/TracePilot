@@ -2,6 +2,7 @@
 import { computed, ref } from "vue";
 import { useRoute } from "vue-router";
 import LogoIcon from "@/components/icons/LogoIcon.vue";
+import SdkStatusIndicator from "@/components/layout/SdkStatusIndicator.vue";
 import { useAppVersion } from "@/composables/useAppVersion";
 import { useSidebarNav } from "@/composables/useSidebarNav";
 import { useUpdateCheck } from "@/composables/useUpdateCheck";
@@ -271,6 +272,7 @@ async function handleVersionClick() {
         >
           v{{ appVersion }}
         </button>
+        <SdkStatusIndicator />
         <button
           class="theme-toggle"
           :aria-label="`Current theme: ${currentTheme}. Click to switch.`"
