@@ -16,7 +16,6 @@ defineProps<{
     :class="[
       variant === 'primary' ? 'btn-primary' : variant === 'ghost' ? 'btn-ghost' : '',
       size === 'sm' ? 'btn-sm' : '',
-      { 'is-loading': loading }
     ]"
     :disabled="disabled || loading"
     :aria-busy="loading"
@@ -48,7 +47,6 @@ defineProps<{
   transition: opacity 0.15s ease;
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
 }
 .opacity-0 {
   opacity: 0;
