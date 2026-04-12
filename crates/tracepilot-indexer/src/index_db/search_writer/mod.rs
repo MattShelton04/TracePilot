@@ -13,7 +13,6 @@ mod content_extraction;
 mod tests;
 mod tool_extraction;
 
-use rusqlite::types::Value;
 use super::batch_insert::batched_insert;
 
 use crate::Result;
@@ -131,28 +130,28 @@ impl IndexDb {
                      timestamp_unix, tool_name, content, metadata_json) VALUES",
                 8,
                 &non_empty,
-                |row| vec![
-                    Value::Text(row.session_id.clone()),
-                    Value::Text(row.content_type.to_string()),
-                    match row.turn_number {
-                        Some(n) => Value::Integer(n),
-                        None => Value::Null,
-                    },
-                    Value::Integer(row.event_index),
-                    match row.timestamp_unix {
-                        Some(n) => Value::Integer(n),
-                        None => Value::Null,
-                    },
+                |row, params| {
+                    params.push(&row.session_id);
+                    params.push(&row.content_type as &dyn rusqlite::ToSql);
+                    match &row.turn_number {
+                        Some(n) => params.push(n),
+                        None => params.push(&rusqlite::types::Null),
+                    }
+                    params.push(&row.event_index);
+                    match &row.timestamp_unix {
+                        Some(n) => params.push(n),
+                        None => params.push(&rusqlite::types::Null),
+                    }
                     match &row.tool_name {
-                        Some(s) => Value::Text(s.clone()),
-                        None => Value::Null,
-                    },
-                    Value::Text(row.content.clone()),
+                        Some(s) => params.push(s),
+                        None => params.push(&rusqlite::types::Null),
+                    }
+                    params.push(&row.content);
                     match &row.metadata_json {
-                        Some(s) => Value::Text(s.clone()),
-                        None => Value::Null,
-                    },
-                ],
+                        Some(s) => params.push(s),
+                        None => params.push(&rusqlite::types::Null),
+                    }
+                },
             )?;
             let inserted = non_empty.len();
 
@@ -239,28 +238,28 @@ impl IndexDb {
                          timestamp_unix, tool_name, content, metadata_json) VALUES",
                     8,
                     &non_empty,
-                    |row| vec![
-                        Value::Text(row.session_id.clone()),
-                        Value::Text(row.content_type.to_string()),
-                        match row.turn_number {
-                            Some(n) => Value::Integer(n),
-                            None => Value::Null,
-                        },
-                        Value::Integer(row.event_index),
-                        match row.timestamp_unix {
-                            Some(n) => Value::Integer(n),
-                            None => Value::Null,
-                        },
+                    |row, params| {
+                        params.push(&row.session_id);
+                        params.push(&row.content_type as &dyn rusqlite::ToSql);
+                        match &row.turn_number {
+                            Some(n) => params.push(n),
+                            None => params.push(&rusqlite::types::Null),
+                        }
+                        params.push(&row.event_index);
+                        match &row.timestamp_unix {
+                            Some(n) => params.push(n),
+                            None => params.push(&rusqlite::types::Null),
+                        }
                         match &row.tool_name {
-                            Some(s) => Value::Text(s.clone()),
-                            None => Value::Null,
-                        },
-                        Value::Text(row.content.clone()),
+                            Some(s) => params.push(s),
+                            None => params.push(&rusqlite::types::Null),
+                        }
+                        params.push(&row.content);
                         match &row.metadata_json {
-                            Some(s) => Value::Text(s.clone()),
-                            None => Value::Null,
-                        },
-                    ],
+                            Some(s) => params.push(s),
+                            None => params.push(&rusqlite::types::Null),
+                        }
+                    },
                 )?;
                 total_inserted += non_empty.len();
 

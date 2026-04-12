@@ -31,6 +31,7 @@ pub mod parser;
 pub mod validator;
 pub mod writer;
 
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -41,6 +42,8 @@ use crate::schema::SchemaVersion;
 
 pub use migrator::MigrationStatus;
 pub use validator::{IssueSeverity, ValidationIssue};
+
+const MAX_DUPLICATE_ID_ATTEMPTS: usize = 1024;
 
 // ── Import options ─────────────────────────────────────────────────────────
 
@@ -181,10 +184,10 @@ pub fn preview_import(source: &Path, target_dir: Option<&Path>) -> Result<Import
             // Only probe filesystem for sessions with safe IDs
             if let Some(target) = target_dir
                 && !validator::contains_path_traversal(&s.metadata.id)
-                    && s.metadata.id.len() <= validator::MAX_ID_LENGTH
-                {
-                    summary.already_exists = writer::session_exists(&s.metadata.id, target);
-                }
+                && s.metadata.id.len() <= validator::MAX_ID_LENGTH
+            {
+                summary.already_exists = writer::session_exists(&s.metadata.id, target);
+            }
             summary
         })
         .collect();
@@ -219,14 +222,18 @@ pub fn import_sessions(
 
     // 4. Ensure target directory exists (skip in dry-run mode)
     if !options.dry_run && !target_dir.exists() {
-        std::fs::create_dir_all(target_dir)
-            .map_err(|e| ExportError::io(target_dir, e))?;
+        std::fs::create_dir_all(target_dir).map_err(|e| ExportError::io(target_dir, e))?;
     }
 
     // 5. Process each session
     let mut imported = Vec::new();
     let mut skipped = Vec::new();
     let mut warnings = Vec::new();
+    let mut reserved_ids: HashSet<String> = archive
+        .sessions
+        .iter()
+        .map(|session| session.metadata.id.clone())
+        .collect();
 
     for session in &archive.sessions {
         let id = &session.metadata.id;
@@ -257,12 +264,12 @@ pub fn import_sessions(
                 }
                 ConflictStrategy::Duplicate => {
                     // Generate new ID and write
-                    let mut dup_session = session.clone();
-                    let new_id = generate_duplicate_id(id);
-                    dup_session.metadata.id = new_id.clone();
+                    let new_id = generate_duplicate_id(target_dir, &reserved_ids)?;
+                    reserved_ids.insert(new_id.clone());
 
                     if !options.dry_run {
-                        let path = writer::write_session(&dup_session, &archive, target_dir)?;
+                        let path =
+                            writer::write_session_to_id(session, &archive, target_dir, &new_id)?;
                         imported.push(ImportedSession {
                             id: new_id,
                             path,
@@ -294,9 +301,10 @@ pub fn import_sessions(
             warnings.push(format!("Session {}: rewind_snapshots included in archive only (not restored to local session)", id));
         }
         if let Some(tables) = &session.custom_tables
-            && !tables.is_empty() {
-                warnings.push(format!("Session {}: custom_tables included in archive only (not restored to local session)", id));
-            }
+            && !tables.is_empty()
+        {
+            warnings.push(format!("Session {}: custom_tables included in archive only (not restored to local session)", id));
+        }
         if session.parse_diagnostics.is_some() {
             warnings.push(format!("Session {}: parse_diagnostics included in archive only (not restored to local session)", id));
         }
@@ -313,8 +321,31 @@ pub fn import_sessions(
 ///
 /// Uses a fresh UUID v4 so imported duplicates are indistinguishable from
 /// natively-created sessions.
-fn generate_duplicate_id(_original_id: &str) -> String {
-    uuid::Uuid::new_v4().to_string()
+fn generate_duplicate_id(target_dir: &Path, reserved_ids: &HashSet<String>) -> Result<String> {
+    generate_duplicate_id_with(target_dir, reserved_ids, || uuid::Uuid::new_v4().to_string())
+}
+
+fn generate_duplicate_id_with<F>(
+    target_dir: &Path,
+    reserved_ids: &HashSet<String>,
+    mut next_id: F,
+) -> Result<String>
+where
+    F: FnMut() -> String,
+{
+    for _attempt in 0..MAX_DUPLICATE_ID_ATTEMPTS {
+        let candidate = next_id();
+        if !reserved_ids.contains(&candidate) && !writer::session_exists(&candidate, target_dir) {
+            return Ok(candidate);
+        }
+    }
+
+    Err(ExportError::Validation {
+        message: format!(
+            "failed to allocate a unique duplicate session ID after {} attempts",
+            MAX_DUPLICATE_ID_ATTEMPTS
+        ),
+    })
 }
 
 #[cfg(test)]
@@ -423,7 +454,9 @@ mod tests {
         let archive_path = write_test_archive(dir.path());
 
         // Pre-create existing
-        fs::create_dir_all(target.path().join("test-12345678")).unwrap();
+        let existing_dir = target.path().join("test-12345678");
+        fs::create_dir_all(&existing_dir).unwrap();
+        fs::write(existing_dir.join("workspace.yaml"), "id: test-12345678\n").unwrap();
 
         let options = ImportOptions {
             conflict_strategy: ConflictStrategy::Duplicate,
@@ -437,7 +470,27 @@ mod tests {
         assert_ne!(result.imported[0].id, "test-12345678");
         // Validate it looks like a UUID (8-4-4-4-12 hex format)
         assert_eq!(result.imported[0].id.len(), 36);
-        assert!(result.imported[0].id.chars().all(|c| c.is_ascii_hexdigit() || c == '-'));
+        assert!(
+            result.imported[0]
+                .id
+                .chars()
+                .all(|c| c.is_ascii_hexdigit() || c == '-')
+        );
+        assert_eq!(
+            result.imported[0]
+                .path
+                .file_name()
+                .unwrap()
+                .to_string_lossy(),
+            result.imported[0].id
+        );
+
+        let yaml = fs::read_to_string(result.imported[0].path.join("workspace.yaml")).unwrap();
+        let parsed: serde_yml::Value = serde_yml::from_str(&yaml).unwrap();
+        assert_eq!(parsed["id"].as_str(), Some(result.imported[0].id.as_str()));
+
+        let existing_yaml = fs::read_to_string(existing_dir.join("workspace.yaml")).unwrap();
+        assert_eq!(existing_yaml, "id: test-12345678\n");
     }
 
     #[test]
@@ -489,5 +542,67 @@ mod tests {
         // The malicious ID should NOT have triggered a filesystem probe
         assert!(!preview.sessions[0].already_exists);
         assert!(!preview.can_import);
+    }
+
+    #[test]
+    fn duplicate_id_generation_retries_existing_candidate() {
+        let target = tempfile::tempdir().unwrap();
+        fs::create_dir_all(target.path().join("collision-id")).unwrap();
+        let reserved = HashSet::new();
+
+        let generated = generate_duplicate_id_with(target.path(), &reserved, {
+            let mut ids = ["collision-id".to_string(), "fresh-id".to_string()].into_iter();
+            move || ids.next().unwrap()
+        })
+        .unwrap();
+
+        assert_eq!(generated, "fresh-id");
+    }
+
+    #[test]
+    fn duplicate_id_generation_retries_reserved_candidate() {
+        let target = tempfile::tempdir().unwrap();
+        let reserved = HashSet::from(["reserved-id".to_string()]);
+
+        let generated = generate_duplicate_id_with(target.path(), &reserved, {
+            let mut ids = ["reserved-id".to_string(), "fresh-id".to_string()].into_iter();
+            move || ids.next().unwrap()
+        })
+        .unwrap();
+
+        assert_eq!(generated, "fresh-id");
+    }
+
+    #[test]
+    fn duplicate_id_generation_retries_reserved_and_existing_candidates() {
+        let target = tempfile::tempdir().unwrap();
+        fs::create_dir_all(target.path().join("existing-id")).unwrap();
+        let reserved = HashSet::from(["reserved-id".to_string()]);
+
+        let generated = generate_duplicate_id_with(target.path(), &reserved, {
+            let mut ids = [
+                "reserved-id".to_string(),
+                "existing-id".to_string(),
+                "fresh-id".to_string(),
+            ]
+            .into_iter();
+            move || ids.next().unwrap()
+        })
+        .unwrap();
+
+        assert_eq!(generated, "fresh-id");
+    }
+
+    #[test]
+    fn duplicate_id_generation_errors_after_too_many_conflicts() {
+        let target = tempfile::tempdir().unwrap();
+        let reserved = HashSet::from(["collision-id".to_string()]);
+
+        let err = generate_duplicate_id_with(target.path(), &reserved, || "collision-id".to_string())
+            .unwrap_err();
+
+        assert!(err
+            .to_string()
+            .contains("failed to allocate a unique duplicate session ID"));
     }
 }

@@ -6,7 +6,7 @@
 //! transaction (SAVEPOINT), the main win is fewer SQLite VM step() calls.
 
 use crate::Result;
-use rusqlite::types::Value;
+use rusqlite::ToSql;
 
 /// Maximum rows per multi-row INSERT statement.
 ///
@@ -19,15 +19,37 @@ const BATCH_CHUNK_SIZE: usize = 50;
 /// `sql_prefix` is everything up to (but not including) the first VALUES
 /// tuple, e.g. `"INSERT INTO t (a, b) VALUES"`.
 ///
+/// The `to_params` closure is called once per row to append borrowed parameters
+/// to the provided vector. This avoids cloning strings — params are borrowed
+/// from the source data.
+///
+/// # Example
+///
+/// ```ignore
+/// batched_insert(
+///     &conn,
+///     "INSERT INTO t (id, name) VALUES",
+///     2,
+///     &rows,
+///     |row, params| {
+///         params.push(&row.id);
+///         params.push(&row.name);
+///     },
+/// )?;
+/// ```
+///
 /// Uses `prepare()` — **not** `prepare_cached()` — because the SQL string
 /// varies by chunk size (the last chunk is typically smaller).
-pub(crate) fn batched_insert<T>(
+pub(crate) fn batched_insert<'a, T, F>(
     conn: &rusqlite::Connection,
     sql_prefix: &str,
     params_per_row: usize,
-    items: &[T],
-    to_values: impl Fn(&T) -> Vec<Value>,
-) -> Result<()> {
+    items: &'a [T],
+    to_params: F,
+) -> Result<()>
+where
+    F: for<'b> Fn(&'a T, &'b mut Vec<&'a dyn ToSql>),
+{
     if items.is_empty() {
         return Ok(());
     }
@@ -48,8 +70,12 @@ pub(crate) fn batched_insert<T>(
         let sql = format!("{sql_prefix} {placeholders}");
         let mut stmt = conn.prepare(&sql)?;
 
-        let values: Vec<Value> = chunk.iter().flat_map(&to_values).collect();
-        stmt.execute(rusqlite::params_from_iter(values.iter()))?;
+        let mut params: Vec<&'a dyn ToSql> = Vec::with_capacity(chunk.len() * params_per_row);
+        for item in chunk {
+            to_params(item, &mut params);
+        }
+
+        stmt.execute(rusqlite::params_from_iter(params))?;
     }
 
     Ok(())
@@ -70,7 +96,7 @@ mod tests {
             "INSERT INTO t (a, b) VALUES",
             2,
             &items,
-            |_| unreachable!(),
+            |_, _| unreachable!(),
         )
         .unwrap();
         let count: i64 = conn
@@ -85,8 +111,8 @@ mod tests {
         conn.execute_batch("CREATE TABLE t (v INTEGER)").unwrap();
         // Insert exactly BATCH_CHUNK_SIZE items
         let items: Vec<i64> = (0..BATCH_CHUNK_SIZE as i64).collect();
-        batched_insert(&conn, "INSERT INTO t (v) VALUES", 1, &items, |&v| {
-            vec![Value::Integer(v)]
+        batched_insert(&conn, "INSERT INTO t (v) VALUES", 1, &items, |v, params| {
+            params.push(v);
         })
         .unwrap();
         let count: i64 = conn
@@ -101,8 +127,8 @@ mod tests {
         conn.execute_batch("CREATE TABLE t (v INTEGER)").unwrap();
         let n = BATCH_CHUNK_SIZE as i64 + 7;
         let items: Vec<i64> = (0..n).collect();
-        batched_insert(&conn, "INSERT INTO t (v) VALUES", 1, &items, |&v| {
-            vec![Value::Integer(v)]
+        batched_insert(&conn, "INSERT INTO t (v) VALUES", 1, &items, |v, params| {
+            params.push(v);
         })
         .unwrap();
         let count: i64 = conn
@@ -124,14 +150,12 @@ mod tests {
             "INSERT INTO t (a, b) VALUES",
             2,
             &items,
-            |(a, b)| {
-                vec![
-                    Value::Text(a.clone()),
-                    match b {
-                        Some(s) => Value::Text(s.clone()),
-                        None => Value::Null,
-                    },
-                ]
+            |(a, b), params| {
+                params.push(a as &dyn ToSql);
+                match b {
+                    Some(s) => params.push(s as &dyn ToSql),
+                    None => params.push(&rusqlite::types::Null),
+                }
             },
         )
         .unwrap();

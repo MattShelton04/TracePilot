@@ -45,7 +45,7 @@ function syncFromProps() {
   form.command = props.config.command ?? "";
   form.args = (props.config.args ?? []).join(", ");
   form.url = props.config.url ?? "";
-  form.transport = props.config.type ?? props.config.transport ?? "stdio";
+  form.transport = props.config.type ?? "stdio";
   form.description = props.config.description ?? "";
   form.tags = (props.config.tags ?? []).join(", ");
   form.tools = (props.config.tools ?? []).join(", ");
