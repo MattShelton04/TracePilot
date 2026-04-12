@@ -417,4 +417,57 @@ describe("useAnalyticsStore", () => {
       expect(store.toolAnalysisError).toBeNull();
     });
   });
+
+  // ── refreshAll error resilience ───────────────────────────
+  describe("refreshAll error resilience", () => {
+    it("completes all fetches even when one fails", async () => {
+      mockGetAnalytics.mockRejectedValue(new Error("Analytics API down"));
+      mockGetToolAnalysis.mockResolvedValue(FIXTURE_TOOL_ANALYSIS);
+      mockGetCodeImpact.mockResolvedValue(FIXTURE_CODE_IMPACT);
+
+      const store = useAnalyticsStore();
+      await store.refreshAll();
+
+      // Despite analytics failing, tool analysis and code impact should complete
+      expect(mockGetAnalytics).toHaveBeenCalledTimes(1);
+      expect(mockGetToolAnalysis).toHaveBeenCalledTimes(1);
+      expect(mockGetCodeImpact).toHaveBeenCalledTimes(1);
+      expect(store.toolAnalysis).toEqual(FIXTURE_TOOL_ANALYSIS);
+      expect(store.codeImpact).toEqual(FIXTURE_CODE_IMPACT);
+      expect(store.analyticsError).toBe("Analytics API down");
+    });
+
+    it("completes successfully when all operations succeed", async () => {
+      mockGetAnalytics.mockResolvedValue(FIXTURE_ANALYTICS);
+      mockGetToolAnalysis.mockResolvedValue(FIXTURE_TOOL_ANALYSIS);
+      mockGetCodeImpact.mockResolvedValue(FIXTURE_CODE_IMPACT);
+
+      const store = useAnalyticsStore();
+      await store.refreshAll();
+
+      expect(store.analytics).toEqual(FIXTURE_ANALYTICS);
+      expect(store.toolAnalysis).toEqual(FIXTURE_TOOL_ANALYSIS);
+      expect(store.codeImpact).toEqual(FIXTURE_CODE_IMPACT);
+      expect(store.analyticsError).toBeNull();
+      expect(store.toolAnalysisError).toBeNull();
+      expect(store.codeImpactError).toBeNull();
+    });
+
+    it("handles all operations failing gracefully", async () => {
+      mockGetAnalytics.mockRejectedValue(new Error("Analytics failed"));
+      mockGetToolAnalysis.mockRejectedValue(new Error("Tool analysis failed"));
+      mockGetCodeImpact.mockRejectedValue(new Error("Code impact failed"));
+
+      const store = useAnalyticsStore();
+
+      // Should not throw
+      await expect(store.refreshAll()).resolves.toBeUndefined();
+
+      // All operations should have been attempted
+      expect(mockGetAnalytics).toHaveBeenCalledTimes(1);
+      expect(mockGetToolAnalysis).toHaveBeenCalledTimes(1);
+      expect(mockGetCodeImpact).toHaveBeenCalledTimes(1);
+    });
+  });
 });
+

@@ -109,4 +109,79 @@ describe("useOrchestratorStore", () => {
       },
     ]);
   });
+
+  describe("pollCycle error resilience", () => {
+    it("completes all operations even when one fails", async () => {
+      mockTaskOrchestratorHealth.mockResolvedValue(HEALTH_RUNNING);
+      mockTaskAttribution.mockRejectedValue(new Error("Attribution API down"));
+      mockGetSessionEvents.mockResolvedValue({
+        events: [],
+        totalCount: 0,
+        hasMore: false,
+        allEventTypes: [],
+      } satisfies EventsResponse);
+      mockTaskIngestResults.mockResolvedValue(5);
+
+      store = useOrchestratorStore();
+      store.stopPolling();
+      store.health = HEALTH_RUNNING;
+
+      // Clear any calls from store initialization
+      vi.clearAllMocks();
+
+      await store.pollCycle();
+
+      // Despite attribution failing, activity and ingestion should complete
+      expect(mockTaskAttribution).toHaveBeenCalled();
+      expect(mockGetSessionEvents).toHaveBeenCalled();
+      expect(mockTaskIngestResults).toHaveBeenCalled();
+      expect(store.lastIngestedCount).toBe(5);
+    });
+
+    it("completes successfully when all operations succeed", async () => {
+      mockTaskOrchestratorHealth.mockResolvedValue(HEALTH_RUNNING);
+      mockTaskAttribution.mockResolvedValue({ subagents: [] });
+      mockGetSessionEvents.mockResolvedValue({
+        events: [],
+        totalCount: 0,
+        hasMore: false,
+        allEventTypes: [],
+      } satisfies EventsResponse);
+      mockTaskIngestResults.mockResolvedValue(3);
+
+      store = useOrchestratorStore();
+      store.stopPolling();
+      store.health = HEALTH_RUNNING;
+
+      // Clear any calls from store initialization
+      vi.clearAllMocks();
+
+      await store.pollCycle();
+
+      expect(store.attribution).toEqual({ subagents: [] });
+      expect(store.lastIngestedCount).toBe(3);
+    });
+
+    it("handles all operations failing gracefully", async () => {
+      mockTaskOrchestratorHealth.mockResolvedValue(HEALTH_RUNNING);
+      mockTaskAttribution.mockRejectedValue(new Error("Attribution failed"));
+      mockGetSessionEvents.mockRejectedValue(new Error("Events failed"));
+      mockTaskIngestResults.mockRejectedValue(new Error("Ingestion failed"));
+
+      store = useOrchestratorStore();
+      store.stopPolling();
+      store.health = HEALTH_RUNNING;
+
+      // Clear any calls from store initialization
+      vi.clearAllMocks();
+
+      // Should not throw
+      await expect(store.pollCycle()).resolves.toBeUndefined();
+
+      // All operations should have been attempted
+      expect(mockTaskAttribution).toHaveBeenCalled();
+      expect(mockGetSessionEvents).toHaveBeenCalled();
+      expect(mockTaskIngestResults).toHaveBeenCalled();
+    });
+  });
 });
