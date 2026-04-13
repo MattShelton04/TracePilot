@@ -122,7 +122,7 @@ fn build_portable_session(
     let event_count = typed_events.as_ref().map(|e| e.len())
         .or_else(|| if events_path.exists() { None } else { Some(0) });
     let turn_count = typed_events.as_ref().map(|events| {
-        let turns = reconstruct_turns(events);
+        let turns = reconstruct_turns(events.clone());
         turns.len()
     });
 
@@ -193,7 +193,7 @@ fn build_conversation(
         return None;
     }
     let events = typed_events?;
-    let mut turns = reconstruct_turns(events);
+    let mut turns = reconstruct_turns(events.to_vec());
 
     // Optionally replace truncated result_content with full content from events
     if options.content_detail.include_full_tool_results && !turns.is_empty() {

@@ -37,7 +37,7 @@ fn marks_incomplete_session_without_turn_end() {
             .build_event(),
     ];
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns.len(), 1);
     assert!(!turns[0].is_complete);
     assert!(turns[0].end_timestamp.is_none());
@@ -129,7 +129,7 @@ fn realistic_agentic_session_with_many_tool_rounds() {
             .build_event(),
     );
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns.len(), 1);
 
     let turn = &turns[0];
@@ -158,7 +158,7 @@ fn session_error_embedded_in_turn() {
         .timestamp("2026-03-10T07:00:30.000Z")
         .build_event()]);
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns.len(), 1);
     assert_eq!(turns[0].session_events.len(), 1);
     let se = &turns[0].session_events[0];
@@ -175,7 +175,7 @@ fn session_error_fallback_to_error_type() {
         .timestamp("2026-03-10T07:00:30.000Z")
         .build_event()]);
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns[0].session_events[0].summary, "connection_timeout");
 }
 #[test]
@@ -186,7 +186,7 @@ fn session_error_fallback_to_status_code() {
         .timestamp("2026-03-10T07:00:30.000Z")
         .build_event()]);
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns[0].session_events[0].summary, "HTTP 500");
 }
 #[test]
@@ -196,7 +196,7 @@ fn session_error_fallback_to_default() {
         .timestamp("2026-03-10T07:00:30.000Z")
         .build_event()]);
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns[0].session_events[0].summary, "Session error");
 }
 #[test]
@@ -207,7 +207,7 @@ fn session_warning_embedded_in_turn() {
         .timestamp("2026-03-10T07:00:30.000Z")
         .build_event()]);
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns[0].session_events.len(), 1);
     let se = &turns[0].session_events[0];
     assert_eq!(se.event_type, "session.warning");
@@ -221,7 +221,7 @@ fn compaction_start_embedded_in_turn() {
         .timestamp("2026-03-10T07:00:30.000Z")
         .build_event()]);
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns[0].session_events.len(), 1);
     let se = &turns[0].session_events[0];
     assert_eq!(se.event_type, "session.compaction_start");
@@ -238,7 +238,7 @@ fn compaction_complete_success() {
         .timestamp("2026-03-10T07:00:30.000Z")
         .build_event()]);
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     let se = &turns[0].session_events[0];
     assert_eq!(se.event_type, "session.compaction_complete");
     assert_eq!(se.severity, SessionEventSeverity::Info);
@@ -254,7 +254,7 @@ fn compaction_complete_failure() {
         .timestamp("2026-03-10T07:00:30.000Z")
         .build_event()]);
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     let se = &turns[0].session_events[0];
     assert_eq!(se.severity, SessionEventSeverity::Warning);
     assert_eq!(se.summary, "Compaction failed: Out of memory");
@@ -278,7 +278,7 @@ fn session_truncation_embedded() {
         None,
     )]);
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     let se = &turns[0].session_events[0];
     assert_eq!(se.event_type, "session.truncation");
     assert_eq!(se.severity, SessionEventSeverity::Warning);
@@ -296,7 +296,7 @@ fn plan_changed_embedded() {
         None,
     )]);
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     let se = &turns[0].session_events[0];
     assert_eq!(se.event_type, "session.plan_changed");
     assert_eq!(se.severity, SessionEventSeverity::Info);
@@ -315,7 +315,7 @@ fn mode_changed_embedded() {
         None,
     )]);
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     let se = &turns[0].session_events[0];
     assert_eq!(se.event_type, "session.mode_changed");
     assert_eq!(se.severity, SessionEventSeverity::Info);
@@ -340,7 +340,7 @@ fn multiple_session_events_in_single_turn() {
             .build_event(),
     ]);
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns.len(), 1);
     assert_eq!(turns[0].session_events.len(), 3);
     assert_eq!(
@@ -386,7 +386,7 @@ fn session_events_between_turns_attach_to_next_turn() {
             .build_event(),
     ];
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns.len(), 2);
     // Turn 1 should have no session events
     assert_eq!(turns[0].session_events.len(), 0);
@@ -419,7 +419,7 @@ fn session_events_before_any_turn_attach_to_first() {
             .build_event(),
     ];
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns.len(), 1);
     assert_eq!(turns[0].session_events.len(), 1);
     assert_eq!(
@@ -446,7 +446,7 @@ fn trailing_session_events_attach_to_last_turn() {
             .build_event(),
     ];
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns.len(), 1);
     assert_eq!(turns[0].session_events.len(), 1);
     assert_eq!(turns[0].session_events[0].summary, "Session crashed");
@@ -534,7 +534,7 @@ fn truncation_summary_tokens_only() {
         None,
     )]);
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns[0].session_events[0].summary, "Truncated 5000 tokens");
 }
 #[test]
@@ -556,7 +556,7 @@ fn truncation_summary_default_fallback() {
         None,
     )]);
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns[0].session_events[0].summary, "Context truncated");
 }
 #[test]
@@ -586,7 +586,7 @@ fn session_events_flush_via_ensure_current_turn() {
         ),
     ];
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns.len(), 1);
     // The mode_changed event should be flushed into the synthetic turn
     assert_eq!(turns[0].session_events.len(), 1);
@@ -606,7 +606,7 @@ fn orphaned_session_events_create_synthetic_turn() {
         .timestamp("2026-03-10T07:00:00.000Z")
         .build_event()];
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns.len(), 1);
     assert!(turns[0].user_message.is_none());
     assert_eq!(turns[0].session_events.len(), 1);
@@ -622,7 +622,7 @@ fn compaction_error_with_success_none() {
         .timestamp("2026-03-10T07:00:30.000Z")
         .build_event()]);
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     let se = &turns[0].session_events[0];
     assert_eq!(se.severity, SessionEventSeverity::Warning);
     assert_eq!(se.summary, "Compaction failed: OOM");
@@ -676,7 +676,7 @@ fn computes_turn_stats() {
             .build_event(),
     ];
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     let stats = turn_stats(&turns);
 
     assert_eq!(stats.total_turns, 2);
@@ -711,7 +711,7 @@ fn abort_event_finalizes_current_turn() {
             None,
         ),
     ];
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns.len(), 1, "abort should finalize the current turn");
     assert!(
         !turns[0].is_complete,
@@ -738,6 +738,6 @@ fn truncation_summary_messages_only() {
         None,
     )]);
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns[0].session_events[0].summary, "Truncated 25 messages");
 }

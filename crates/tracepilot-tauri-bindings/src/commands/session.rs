@@ -235,7 +235,7 @@ pub async fn get_session_turns(
                 tracing::warn!("Turn cache Mutex poisoned — skipping cache read");
                 let (events, events_file_size, events_file_mtime) =
                     load_cached_typed_events(&event_cache, &session_id, &events_path)?;
-                let turns = tracepilot_core::turns::reconstruct_turns(events.as_ref());
+                let turns = tracepilot_core::turns::reconstruct_turns((*events).clone());
                 let mut ipc_turns = turns;
                 tracepilot_core::turns::prepare_turns_for_ipc(&mut ipc_turns);
                 return Ok(TurnsResponse {
@@ -267,7 +267,7 @@ pub async fn get_session_turns(
         // Cache miss or stale — parse from disk
         let (events, events_file_size, events_file_mtime) =
             load_cached_typed_events(&event_cache, &session_id, &events_path)?;
-        let turns = tracepilot_core::turns::reconstruct_turns(events.as_ref());
+        let turns = tracepilot_core::turns::reconstruct_turns((*events).clone());
 
         // Store full (untrimmed) turns in LRU
         if let Ok(mut lru) = cache.lock() {

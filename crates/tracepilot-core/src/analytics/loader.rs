@@ -82,7 +82,6 @@ fn load_single_full_session(session: &DiscoveredSession) -> crate::Result<Sessio
 
     let turns = result
         .typed_events
-        .as_ref()
         .map(|events| crate::turns::reconstruct_turns(events));
 
     Ok(SessionAnalyticsInput { summary, turns })

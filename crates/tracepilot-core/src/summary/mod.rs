@@ -108,8 +108,8 @@ fn load_session_summary_impl(session_dir: &Path, retain_events: bool) -> Result<
                     summary.shutdown_metrics = Some(shutdown_data_to_metrics(&sd, count));
                 }
 
-                // Turn count
-                let turns = reconstruct_turns(&typed_events);
+                // Turn count - clone events for turn reconstruction (needed for later use)
+                let turns = reconstruct_turns(typed_events.clone());
                 let stats = turn_stats(&turns);
                 summary.turn_count = Some(stats.total_turns);
 

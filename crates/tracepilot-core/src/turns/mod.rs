@@ -72,10 +72,12 @@ pub struct TurnStats {
 /// this can take 5-50ms. Called once per session load, then cached in TurnCache.
 ///
 /// This is the public entry point — it delegates to [`TurnReconstructor`].
+///
+/// Takes ownership of the events vector to enable zero-copy reconstruction.
 #[tracing::instrument(skip_all, fields(event_count = events.len()))]
-pub fn reconstruct_turns(events: &[TypedEvent]) -> Vec<ConversationTurn> {
+pub fn reconstruct_turns(events: Vec<TypedEvent>) -> Vec<ConversationTurn> {
     let mut reconstructor = TurnReconstructor::new();
-    for (idx, event) in events.iter().enumerate() {
+    for (idx, event) in events.into_iter().enumerate() {
         reconstructor.process(event, idx);
     }
     reconstructor.finalize()

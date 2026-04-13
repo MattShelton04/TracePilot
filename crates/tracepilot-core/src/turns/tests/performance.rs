@@ -235,20 +235,20 @@ fn perf_reconstruct_turns_subagent_heavy() {
         let event_count = events.len();
 
         // Warm up
-        let _ = reconstruct_turns(&events);
+        let _ = reconstruct_turns(events.clone());
 
         // Measure
         let iterations = 50;
         let start = std::time::Instant::now();
         for _ in 0..iterations {
-            let result = reconstruct_turns(&events);
+            let result = reconstruct_turns(events.clone());
             std::hint::black_box(&result);
         }
         let elapsed = start.elapsed();
         let per_iter = elapsed / iterations;
 
         // Verify correctness
-        let result = reconstruct_turns(&events);
+        let result = reconstruct_turns(events.clone());
         assert_eq!(result.len(), turns);
         for turn in &result {
             assert_eq!(

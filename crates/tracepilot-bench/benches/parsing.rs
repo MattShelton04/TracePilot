@@ -33,11 +33,12 @@ fn bench_reconstruct_turns(c: &mut Criterion) {
         )
         .unwrap();
         group.throughput(criterion::Throughput::Elements(parsed.events.len() as u64));
+        let events = parsed.events; // Extract owned events
         group.bench_with_input(
             BenchmarkId::from_parameter(size),
-            &parsed.events,
+            &events,
             |b, events| {
-                b.iter(|| tracepilot_core::turns::reconstruct_turns(events));
+                b.iter(|| tracepilot_core::turns::reconstruct_turns(events.clone()));
             },
         );
     }
