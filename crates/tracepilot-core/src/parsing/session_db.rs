@@ -92,15 +92,22 @@ pub fn read_todo_deps(db_path: &Path) -> Result<Vec<TodoDep>> {
     Ok(deps)
 }
 
-/// List all table names in a session database (opened read-only).
+/// List user table names in a session database (opened read-only).
+///
+/// Internal SQLite tables (`sqlite_%`) are excluded.
 /// Returns an empty list if the database file does not exist.
 pub fn list_tables(db_path: &Path) -> Result<Vec<String>> {
     let Some(conn) = open_readonly_if_exists(db_path)? else {
         return Ok(Vec::new());
     };
 
-    let mut stmt =
-        conn.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")?;
+    let mut stmt = conn.prepare(
+        "SELECT name
+         FROM sqlite_master
+         WHERE type='table'
+           AND name NOT LIKE 'sqlite_%'
+         ORDER BY name",
+    )?;
     let tables = stmt
         .query_map([], |row| row.get::<_, String>(0))?
         .collect::<std::result::Result<Vec<_>, _>>()?;
@@ -223,8 +230,31 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let db_path = create_test_db(&dir);
         let tables = list_tables(&db_path).unwrap();
-        assert!(tables.contains(&"todos".to_string()));
-        assert!(tables.contains(&"todo_deps".to_string()));
+        assert_eq!(tables, vec!["todo_deps".to_string(), "todos".to_string()]);
+    }
+
+    #[test]
+    fn test_list_tables_excludes_sqlite_internal_tables() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("internal_tables.db");
+        let conn = Connection::open(&db_path).unwrap();
+        conn.execute_batch(
+            "CREATE TABLE user_notes (id INTEGER PRIMARY KEY, body TEXT);
+             CREATE TABLE custom_metrics (
+               id INTEGER PRIMARY KEY AUTOINCREMENT,
+               name TEXT NOT NULL
+             );
+             INSERT INTO custom_metrics (name) VALUES ('latency');",
+        )
+        .unwrap();
+        drop(conn);
+
+        let tables = list_tables(&db_path).unwrap();
+        assert_eq!(
+            tables,
+            vec!["custom_metrics".to_string(), "user_notes".to_string()]
+        );
+        assert!(!tables.iter().any(|name| name == "sqlite_sequence"));
     }
 
     #[test]
