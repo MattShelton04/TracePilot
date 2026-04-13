@@ -21,7 +21,7 @@ import type {
   WorktreeDetails,
   WorktreeInfo,
 } from "@tracepilot/types";
-import { toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
+import { runAction, runMutation, toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import { logWarn } from "@/utils/logger";
@@ -186,15 +186,11 @@ export const useWorktreesStore = defineStore("worktrees", () => {
   }
 
   async function addWorktree(request: CreateWorktreeRequest): Promise<WorktreeInfo | null> {
-    error.value = null;
-    try {
+    return runMutation(error, async () => {
       const wt = await createWorktreeApi(request);
       worktrees.value = [...worktrees.value, wt];
       return wt;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return null;
-    }
+    });
   }
 
   async function deleteWorktree(
@@ -202,31 +198,25 @@ export const useWorktreesStore = defineStore("worktrees", () => {
     force = false,
     repoPath?: string,
   ): Promise<boolean> {
-    error.value = null;
     const repo = repoPath ?? currentRepoPath.value;
-    try {
-      await removeWorktreeApi(repo, worktreePath, force);
-      worktrees.value = worktrees.value.filter((w) => w.path !== worktreePath);
-      return true;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return false;
-    }
+    return (
+      (await runMutation(error, async () => {
+        await removeWorktreeApi(repo, worktreePath, force);
+        worktrees.value = worktrees.value.filter((w) => w.path !== worktreePath);
+        return true as const;
+      })) ?? false
+    );
   }
 
   async function prune(repoPath?: string): Promise<PruneResult | null> {
-    error.value = null;
     const repo = repoPath ?? currentRepoPath.value;
-    try {
+    return runMutation(error, async () => {
       const result = await pruneWorktreesApi(repo);
       if (result.prunedCount > 0) {
         await loadWorktrees(repo);
       }
       return result;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return null;
-    }
+    });
   }
 
   async function lockWorktree(
@@ -234,43 +224,39 @@ export const useWorktreesStore = defineStore("worktrees", () => {
     reason?: string,
     repoPath?: string,
   ): Promise<boolean> {
-    error.value = null;
     const repo = repoPath ?? currentRepoPath.value;
-    try {
-      await lockWorktreeApi(repo, worktreePath, reason);
-      const idx = worktrees.value.findIndex((w) => w.path === worktreePath);
-      if (idx >= 0) {
-        worktrees.value[idx] = {
-          ...worktrees.value[idx],
-          isLocked: true,
-          lockedReason: reason,
-        };
-      }
-      return true;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return false;
-    }
+    return (
+      (await runMutation(error, async () => {
+        await lockWorktreeApi(repo, worktreePath, reason);
+        const idx = worktrees.value.findIndex((w) => w.path === worktreePath);
+        if (idx >= 0) {
+          worktrees.value[idx] = {
+            ...worktrees.value[idx],
+            isLocked: true,
+            lockedReason: reason,
+          };
+        }
+        return true as const;
+      })) ?? false
+    );
   }
 
   async function unlockWorktree(worktreePath: string, repoPath?: string): Promise<boolean> {
-    error.value = null;
     const repo = repoPath ?? currentRepoPath.value;
-    try {
-      await unlockWorktreeApi(repo, worktreePath);
-      const idx = worktrees.value.findIndex((w) => w.path === worktreePath);
-      if (idx >= 0) {
-        worktrees.value[idx] = {
-          ...worktrees.value[idx],
-          isLocked: false,
-          lockedReason: undefined,
-        };
-      }
-      return true;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return false;
-    }
+    return (
+      (await runMutation(error, async () => {
+        await unlockWorktreeApi(repo, worktreePath);
+        const idx = worktrees.value.findIndex((w) => w.path === worktreePath);
+        if (idx >= 0) {
+          worktrees.value[idx] = {
+            ...worktrees.value[idx],
+            isLocked: false,
+            lockedReason: undefined,
+          };
+        }
+        return true as const;
+      })) ?? false
+    );
   }
 
   async function fetchWorktreeDetails(worktreePath: string): Promise<WorktreeDetails | null> {
@@ -293,55 +279,47 @@ export const useWorktreesStore = defineStore("worktrees", () => {
   // ─── Repository Registry Actions ──────────────────────────────────
 
   async function loadRegisteredRepos() {
-    reposLoading.value = true;
-    try {
-      registeredRepos.value = await listRegisteredRepos();
-    } catch (e) {
-      error.value = toErrorMessage(e);
-    } finally {
-      reposLoading.value = false;
-    }
+    await runAction({
+      loading: reposLoading,
+      error,
+      action: () => listRegisteredRepos(),
+      onSuccess: (result) => {
+        registeredRepos.value = result;
+      },
+    });
   }
 
   async function addRepo(path: string): Promise<RegisteredRepo | null> {
-    error.value = null;
-    try {
+    return runMutation(error, async () => {
       const repo = await addRegisteredRepoApi(path);
       // Refresh the list to ensure consistency
       await loadRegisteredRepos();
       return repo;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return null;
-    }
+    });
   }
 
   async function removeRepo(path: string): Promise<boolean> {
-    error.value = null;
-    try {
-      await removeRegisteredRepoApi(path);
-      registeredRepos.value = registeredRepos.value.filter((r) => r.path !== path);
-      // Also remove worktrees belonging to this repo
-      worktrees.value = worktrees.value.filter((w) => w.repoRoot !== path);
-      return true;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return false;
-    }
+    return (
+      (await runMutation(error, async () => {
+        await removeRegisteredRepoApi(path);
+        registeredRepos.value = registeredRepos.value.filter((r) => r.path !== path);
+        // Also remove worktrees belonging to this repo
+        worktrees.value = worktrees.value.filter((w) => w.repoRoot !== path);
+        return true as const;
+      })) ?? false
+    );
   }
 
   async function discoverRepos(): Promise<RegisteredRepo[]> {
-    error.value = null;
-    try {
-      const newRepos = await discoverReposApi();
-      if (newRepos.length > 0) {
-        await loadRegisteredRepos();
-      }
-      return newRepos;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return [];
-    }
+    return (
+      (await runMutation(error, async () => {
+        const newRepos = await discoverReposApi();
+        if (newRepos.length > 0) {
+          await loadRegisteredRepos();
+        }
+        return newRepos;
+      })) ?? []
+    );
   }
 
   const togglingFavourites = ref(new Set<string>());

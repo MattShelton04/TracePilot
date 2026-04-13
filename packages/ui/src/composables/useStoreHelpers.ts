@@ -56,6 +56,22 @@ export async function runAction<T>(opts: RunActionOptions<T>): Promise<void> {
 }
 
 /**
+ * Options for {@link runMutation}.
+ */
+export interface RunMutationOptions {
+  /**
+   * Optional side-effect callback invoked when the action throws.
+   *
+   * Called **after** `error.value` has been set to the formatted message,
+   * so reading `error.value` inside the callback is safe.
+   *
+   * The callback is guarded — if it throws, the exception is silently
+   * swallowed so it cannot break the mutation's return semantics.
+   */
+  onError?: (e: unknown) => void;
+}
+
+/**
  * Execute a mutation (create/update/delete) that manages error state.
  *
  * Returns the action's result on success, or `null` on failure.
@@ -75,17 +91,28 @@ export async function runAction<T>(opts: RunActionOptions<T>): Promise<void> {
  *   skills.value = skills.value.filter(s => s.directory !== dir);
  *   return true as const;
  * });
+ *
+ * // mutation + error logging
+ * const task = await runMutation(error, () => taskCreate(...), {
+ *   onError: (e) => logError("[tasks] create failed:", e),
+ * });
  * ```
  */
 export async function runMutation<T>(
   error: Ref<string | null>,
   action: () => Promise<T>,
+  options?: RunMutationOptions,
 ): Promise<T | null> {
   error.value = null;
   try {
     return await action();
   } catch (e) {
     error.value = toErrorMessage(e);
+    try {
+      options?.onError?.(e);
+    } catch {
+      // Guard: onError must not break mutation return semantics.
+    }
     return null;
   }
 }

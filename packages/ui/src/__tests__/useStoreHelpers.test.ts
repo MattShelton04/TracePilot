@@ -190,4 +190,71 @@ describe("runMutation", () => {
 
     expect(reloaded).toHaveBeenCalledOnce();
   });
+
+  it("calls onError callback on failure", async () => {
+    const error = ref<string | null>(null);
+    const onError = vi.fn();
+
+    const result = await runMutation(
+      error,
+      async () => {
+        throw new Error("mutation failed");
+      },
+      { onError },
+    );
+
+    expect(result).toBeNull();
+    expect(error.value).toBe("mutation failed");
+    expect(onError).toHaveBeenCalledOnce();
+    expect(onError).toHaveBeenCalledWith(expect.any(Error));
+  });
+
+  it("does not call onError on success", async () => {
+    const error = ref<string | null>(null);
+    const onError = vi.fn();
+
+    const result = await runMutation(error, async () => "ok", { onError });
+
+    expect(result).toBe("ok");
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("swallows exceptions from onError callback", async () => {
+    const error = ref<string | null>(null);
+
+    const result = await runMutation(
+      error,
+      async () => {
+        throw new Error("action failed");
+      },
+      {
+        onError: () => {
+          throw new Error("callback exploded");
+        },
+      },
+    );
+
+    // onError threw, but runMutation still returned null and set error
+    expect(result).toBeNull();
+    expect(error.value).toBe("action failed");
+  });
+
+  it("sets error.value before invoking onError", async () => {
+    const error = ref<string | null>(null);
+    let errorDuringCallback: string | null = null;
+
+    await runMutation(
+      error,
+      async () => {
+        throw new Error("ordering test");
+      },
+      {
+        onError: () => {
+          errorDuringCallback = error.value;
+        },
+      },
+    );
+
+    expect(errorDuringCallback).toBe("ordering test");
+  });
 });

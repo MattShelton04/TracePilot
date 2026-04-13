@@ -10,7 +10,7 @@ import {
   taskStats,
 } from "@tracepilot/client";
 import type { Job, NewTask, Task, TaskFilter, TaskStats } from "@tracepilot/types";
-import { toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
+import { runMutation, toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import { logError, logWarn } from "@/utils/logger";
@@ -189,16 +189,13 @@ export const useTasksStore = defineStore("tasks", () => {
     priority?: string,
     maxRetries?: number,
   ): Promise<Task | null> {
-    error.value = null;
-    try {
+    return runMutation(error, async () => {
       const task = await taskCreate(taskType, presetId, inputParams, priority, maxRetries);
       await refreshTasks();
       return task;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      logError("[tasks] Failed to create task:", e);
-      return null;
-    }
+    }, {
+      onError: (e) => logError("[tasks] Failed to create task:", e),
+    });
   }
 
   async function createBatch(
@@ -206,56 +203,47 @@ export const useTasksStore = defineStore("tasks", () => {
     jobName: string,
     presetId?: string,
   ): Promise<Job | null> {
-    error.value = null;
-    try {
+    return runMutation(error, async () => {
       const job = await taskCreateBatch(newTasks, jobName, presetId);
       await refreshTasks();
       return job;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      logError("[tasks] Failed to create batch:", e);
-      return null;
-    }
+    }, {
+      onError: (e) => logError("[tasks] Failed to create batch:", e),
+    });
   }
 
   async function cancelTask(id: string): Promise<boolean> {
-    error.value = null;
-    try {
-      await taskCancel(id);
-      await refreshTasks();
-      return true;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return false;
-    }
+    return (
+      (await runMutation(error, async () => {
+        await taskCancel(id);
+        await refreshTasks();
+        return true as const;
+      })) ?? false
+    );
   }
 
   async function retryTask(id: string): Promise<boolean> {
-    error.value = null;
-    try {
-      await taskRetry(id);
-      await refreshTasks();
-      return true;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return false;
-    }
+    return (
+      (await runMutation(error, async () => {
+        await taskRetry(id);
+        await refreshTasks();
+        return true as const;
+      })) ?? false
+    );
   }
 
   async function deleteTask(id: string): Promise<boolean> {
-    error.value = null;
-    try {
-      await taskDelete(id);
-      tasks.value = tasks.value.filter((t) => t.id !== id);
-      if (selectedTask.value?.id === id) {
-        selectedTask.value = null;
-      }
-      await refreshTasks();
-      return true;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return false;
-    }
+    return (
+      (await runMutation(error, async () => {
+        await taskDelete(id);
+        tasks.value = tasks.value.filter((t) => t.id !== id);
+        if (selectedTask.value?.id === id) {
+          selectedTask.value = null;
+        }
+        await refreshTasks();
+        return true as const;
+      })) ?? false
+    );
   }
 
   return {

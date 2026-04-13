@@ -5,7 +5,7 @@ import {
   taskSavePreset,
 } from "@tracepilot/client";
 import type { TaskPreset } from "@tracepilot/types";
-import { toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
+import { runAction, runMutation, useAsyncGuard } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 
@@ -61,59 +61,47 @@ export const usePresetsStore = defineStore("presets", () => {
   // ─── Actions ──────────────────────────────────────────────────────
 
   async function loadPresets() {
-    const token = loadGuard.start();
-    loading.value = true;
-    error.value = null;
-    try {
-      const result = await taskListPresets();
-      if (!loadGuard.isValid(token)) return;
-      presets.value = result;
-    } catch (e) {
-      if (!loadGuard.isValid(token)) return;
-      error.value = toErrorMessage(e);
-    } finally {
-      if (loadGuard.isValid(token)) loading.value = false;
-    }
+    await runAction({
+      loading,
+      error,
+      guard: loadGuard,
+      action: () => taskListPresets(),
+      onSuccess: (result) => {
+        presets.value = result;
+      },
+    });
   }
 
   async function getPreset(id: string): Promise<TaskPreset | null> {
-    error.value = null;
     selectedPreset.value = null;
-    try {
+    return runMutation(error, async () => {
       const preset = await taskGetPreset(id);
       selectedPreset.value = preset;
       return preset;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return null;
-    }
+    });
   }
 
   async function savePreset(preset: TaskPreset): Promise<boolean> {
-    error.value = null;
-    try {
-      await taskSavePreset(preset);
-      await loadPresets();
-      return true;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return false;
-    }
+    return (
+      (await runMutation(error, async () => {
+        await taskSavePreset(preset);
+        await loadPresets();
+        return true as const;
+      })) ?? false
+    );
   }
 
   async function deletePreset(id: string): Promise<boolean> {
-    error.value = null;
-    try {
-      await taskDeletePreset(id);
-      presets.value = presets.value.filter((p) => p.id !== id);
-      if (selectedPreset.value?.id === id) {
-        selectedPreset.value = null;
-      }
-      return true;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return false;
-    }
+    return (
+      (await runMutation(error, async () => {
+        await taskDeletePreset(id);
+        presets.value = presets.value.filter((p) => p.id !== id);
+        if (selectedPreset.value?.id === id) {
+          selectedPreset.value = null;
+        }
+        return true as const;
+      })) ?? false
+    );
   }
 
   return {

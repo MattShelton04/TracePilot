@@ -31,7 +31,7 @@ import type {
   SkillScope,
   SkillSummary,
 } from "@tracepilot/types";
-import { runAction, runMutation, toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
+import { runAction, runMutation, useAsyncGuard } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import { logWarn } from "@/utils/logger";
@@ -108,16 +108,12 @@ export const useSkillsStore = defineStore("skills", () => {
   }
 
   async function getSkill(dir: string): Promise<Skill | null> {
-    error.value = null;
     selectedSkill.value = null;
-    try {
+    return runMutation(error, async () => {
       const skill = await skillsGetSkill(dir);
       selectedSkill.value = skill;
       return skill;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return null;
-    }
+    });
   }
 
   async function createSkill(
@@ -137,27 +133,23 @@ export const useSkillsStore = defineStore("skills", () => {
     fm: SkillFrontmatter,
     body: string,
   ): Promise<boolean> {
-    error.value = null;
-    try {
-      await skillsUpdate(dir, fm, body);
-      await loadSkills();
-      return true;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return false;
-    }
+    return (
+      (await runMutation(error, async () => {
+        await skillsUpdate(dir, fm, body);
+        await loadSkills();
+        return true as const;
+      })) ?? false
+    );
   }
 
   async function updateSkillRaw(dir: string, content: string): Promise<boolean> {
-    error.value = null;
-    try {
-      await skillsUpdateRaw(dir, content);
-      await loadSkills();
-      return true;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return false;
-    }
+    return (
+      (await runMutation(error, async () => {
+        await skillsUpdateRaw(dir, content);
+        await loadSkills();
+        return true as const;
+      })) ?? false
+    );
   }
 
   async function deleteSkill(dir: string): Promise<boolean> {
@@ -172,27 +164,19 @@ export const useSkillsStore = defineStore("skills", () => {
   }
 
   async function renameSkill(dir: string, newName: string): Promise<string | null> {
-    error.value = null;
-    try {
+    return runMutation(error, async () => {
       const newDir = await skillsRename(dir, newName);
       await loadSkills();
       return newDir;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return null;
-    }
+    });
   }
 
   async function duplicateSkill(dir: string, newName: string): Promise<string | null> {
-    error.value = null;
-    try {
+    return runMutation(error, async () => {
       const newDir = await skillsDuplicate(dir, newName);
       await loadSkills();
       return newDir;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return null;
-    }
+    });
   }
 
   // ─── Asset Actions ────────────────────────────────────────────────
@@ -211,14 +195,12 @@ export const useSkillsStore = defineStore("skills", () => {
     name: string,
     content: number[],
   ): Promise<boolean> {
-    error.value = null;
-    try {
-      await skillsAddAsset(dir, name, content);
-      return true;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return false;
-    }
+    return (
+      (await runMutation(error, async () => {
+        await skillsAddAsset(dir, name, content);
+        return true as const;
+      })) ?? false
+    );
   }
 
   async function copyAssetFrom(
@@ -226,14 +208,12 @@ export const useSkillsStore = defineStore("skills", () => {
     name: string,
     sourcePath: string,
   ): Promise<boolean> {
-    error.value = null;
-    try {
-      await skillsCopyAssetFrom(dir, name, sourcePath);
-      return true;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return false;
-    }
+    return (
+      (await runMutation(error, async () => {
+        await skillsCopyAssetFrom(dir, name, sourcePath);
+        return true as const;
+      })) ?? false
+    );
   }
 
   async function readAsset(dir: string, name: string): Promise<string | null> {
@@ -246,40 +226,30 @@ export const useSkillsStore = defineStore("skills", () => {
   }
 
   async function removeAsset(dir: string, name: string): Promise<boolean> {
-    error.value = null;
-    try {
-      await skillsRemoveAsset(dir, name);
-      return true;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return false;
-    }
+    return (
+      (await runMutation(error, async () => {
+        await skillsRemoveAsset(dir, name);
+        return true as const;
+      })) ?? false
+    );
   }
 
   // ─── Import Actions ───────────────────────────────────────────────
 
   async function importLocal(sourceDir: string, scope?: string, repoRoot?: string): Promise<SkillImportResult | null> {
-    error.value = null;
-    try {
+    return runMutation(error, async () => {
       const result = await skillsImportLocal(sourceDir, scope, repoRoot);
       await loadSkills();
       return result;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return null;
-    }
+    });
   }
 
   async function importFile(path: string, scope?: string, repoRoot?: string): Promise<SkillImportResult | null> {
-    error.value = null;
-    try {
+    return runMutation(error, async () => {
       const result = await skillsImportFile(path, scope, repoRoot);
       await loadSkills();
       return result;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return null;
-    }
+    });
   }
 
   async function importGitHub(
@@ -290,15 +260,11 @@ export const useSkillsStore = defineStore("skills", () => {
     scope?: string,
     repoRoot?: string,
   ): Promise<SkillImportResult | null> {
-    error.value = null;
-    try {
+    return runMutation(error, async () => {
       const result = await skillsImportGitHub(owner, repo, skillPath, gitRef, scope, repoRoot);
       await loadSkills();
       return result;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return null;
-    }
+    });
   }
 
   async function discoverGitHub(
@@ -307,12 +273,11 @@ export const useSkillsStore = defineStore("skills", () => {
     path?: string,
     gitRef?: string,
   ): Promise<GitHubSkillPreview[]> {
-    try {
-      return await skillsDiscoverGitHub(owner, repo, path, gitRef);
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return [];
-    }
+    return (
+      (await runMutation(error, async () => {
+        return await skillsDiscoverGitHub(owner, repo, path, gitRef);
+      })) ?? []
+    );
   }
 
   async function importGitHubSkill(
@@ -323,35 +288,29 @@ export const useSkillsStore = defineStore("skills", () => {
     scope?: string,
     repoRoot?: string,
   ): Promise<SkillImportResult | null> {
-    error.value = null;
-    try {
+    return runMutation(error, async () => {
       const result = await skillsImportGitHubSkill(owner, repo, skillPath, gitRef, scope, repoRoot);
       await loadSkills();
       return result;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return null;
-    }
+    });
   }
 
   async function discoverLocal(dir: string): Promise<LocalSkillPreview[]> {
-    try {
-      return await skillsDiscoverLocal(dir);
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return [];
-    }
+    return (
+      (await runMutation(error, async () => {
+        return await skillsDiscoverLocal(dir);
+      })) ?? []
+    );
   }
 
   async function discoverRepos(
     repos: [string, string][],
   ): Promise<RepoSkillsResult[]> {
-    try {
-      return await skillsDiscoverRepos(repos);
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return [];
-    }
+    return (
+      (await runMutation(error, async () => {
+        return await skillsDiscoverRepos(repos);
+      })) ?? []
+    );
   }
 
   return {
