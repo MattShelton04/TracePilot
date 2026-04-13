@@ -61,7 +61,12 @@ pub struct GitHubFileContent {
 /// Uses `gh auth status` and parses the output. Returns `authenticated: false`
 /// rather than an error when `gh` is installed but not logged in.
 pub fn gh_auth_status() -> Result<GhAuthInfo> {
-    let output = run_hidden("gh", &["auth", "status", "--hostname", "github.com"], None, Some(15))?;
+    let output = run_hidden(
+        "gh",
+        &["auth", "status", "--hostname", "github.com"],
+        None,
+        Some(15),
+    )?;
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
     let combined = format!("{stdout}{stderr}");
@@ -125,9 +130,8 @@ pub fn gh_get_file_bytes(owner: &str, repo: &str, path: &str, ref_: &str) -> Res
 
     // GitHub returns base64-encoded content (with newlines)
     let cleaned = response.content.replace('\n', "");
-    base64_decode(&cleaned).map_err(|e| {
-        OrchestratorError::Launch(format!("Failed to decode base64 content: {e}"))
-    })
+    base64_decode(&cleaned)
+        .map_err(|e| OrchestratorError::Launch(format!("Failed to decode base64 content: {e}")))
 }
 
 /// List the file tree of a GitHub repository at a given ref.
@@ -278,7 +282,10 @@ fn base64_decode(input: &str) -> std::result::Result<Vec<u8>, String> {
         }
     }
 
-    let bytes: Vec<u8> = input.bytes().filter(|&b| b != b'\n' && b != b'\r').collect();
+    let bytes: Vec<u8> = input
+        .bytes()
+        .filter(|&b| b != b'\n' && b != b'\r')
+        .collect();
     let mut out = Vec::with_capacity(bytes.len() * 3 / 4);
 
     for chunk in bytes.chunks(4) {

@@ -10,7 +10,7 @@ pub mod manager;
 
 use serde::{Deserialize, Serialize};
 
-pub use discovery::{detect_ui_servers, DetectedUiServer};
+pub use discovery::{DetectedUiServer, detect_ui_servers};
 pub use manager::BridgeManager;
 
 // ─── Error Types ──────────────────────────────────────────────────

@@ -85,8 +85,8 @@ fn assemble_session_export(
         .map(|v| v as usize);
 
     // ── Export ──────────────────────────────────────────────────────────
-    let markdown = tracepilot_export::preview_export(&session_path, &options, max_bytes)
-        .map_err(|e| {
+    let markdown =
+        tracepilot_export::preview_export(&session_path, &options, max_bytes).map_err(|e| {
             tracing::warn!(
                 session = %session_id,
                 error = %e,
@@ -177,10 +177,7 @@ fn parse_section_id(name: &str) -> Option<tracepilot_export::SectionId> {
 }
 
 /// Session analytics: produces aggregate stats from parsed session data.
-fn assemble_session_analytics(
-    params: &serde_json::Value,
-    data_dir: &Path,
-) -> Result<String> {
+fn assemble_session_analytics(params: &serde_json::Value, data_dir: &Path) -> Result<String> {
     let session_id = require_session_id(params)?;
     let session_path =
         tracepilot_core::session::discovery::resolve_session_path_in(session_id, data_dir)?;
@@ -213,9 +210,7 @@ fn assemble_session_analytics(
 }
 
 /// Session health: placeholder for health scoring data.
-fn assemble_session_health(
-    params: &serde_json::Value,
-) -> Result<String> {
+fn assemble_session_health(params: &serde_json::Value) -> Result<String> {
     let session_id = params
         .get("session_id")
         .or_else(|| params.get("session_export"))
@@ -229,10 +224,7 @@ fn assemble_session_health(
 }
 
 /// Session todos: reads the plan.md file from a session.
-fn assemble_session_todos(
-    params: &serde_json::Value,
-    data_dir: &Path,
-) -> Result<String> {
+fn assemble_session_todos(params: &serde_json::Value, data_dir: &Path) -> Result<String> {
     let session_id = require_session_id(params)?;
     let session_path =
         tracepilot_core::session::discovery::resolve_session_path_in(session_id, data_dir)?;
@@ -247,10 +239,7 @@ fn assemble_session_todos(
 }
 
 /// Recent sessions: lists a summary of recent sessions.
-fn assemble_recent_sessions(
-    source: &ContextSource,
-    data_dir: &Path,
-) -> Result<String> {
+fn assemble_recent_sessions(source: &ContextSource, data_dir: &Path) -> Result<String> {
     let max_sessions = source
         .config
         .get("max_sessions")
@@ -304,8 +293,7 @@ fn resolve_digest_window(
     // Try target_date (daily)
     if let Some(date_str) = params.get("target_date").and_then(|v| v.as_str()) {
         if let Ok(date) = NaiveDate::parse_from_str(date_str, "%Y-%m-%d") {
-            let start = Utc
-                .from_utc_datetime(&date.and_hms_opt(0, 0, 0).unwrap());
+            let start = Utc.from_utc_datetime(&date.and_hms_opt(0, 0, 0).unwrap());
             let end = start + chrono::Duration::hours(24);
             return (start, end, 24);
         }
@@ -314,8 +302,7 @@ fn resolve_digest_window(
     // Try week_start_date (weekly)
     if let Some(date_str) = params.get("week_start_date").and_then(|v| v.as_str()) {
         if let Ok(date) = NaiveDate::parse_from_str(date_str, "%Y-%m-%d") {
-            let start = Utc
-                .from_utc_datetime(&date.and_hms_opt(0, 0, 0).unwrap());
+            let start = Utc.from_utc_datetime(&date.and_hms_opt(0, 0, 0).unwrap());
             let end = start + chrono::Duration::hours(168);
             return (start, end, 168);
         }
@@ -325,12 +312,7 @@ fn resolve_digest_window(
     let window_hours = params
         .get("window_hours")
         .and_then(|v| v.as_u64())
-        .or_else(|| {
-            source
-                .config
-                .get("window_hours")
-                .and_then(|v| v.as_u64())
-        })
+        .or_else(|| source.config.get("window_hours").and_then(|v| v.as_u64()))
         .unwrap_or(24);
     let cutoff = Utc::now() - chrono::Duration::hours(window_hours as i64);
     let end = Utc::now() + chrono::Duration::hours(1); // slight future buffer
@@ -414,8 +396,11 @@ fn assemble_multi_session_digest(
     }
 
     // Sort newest first
-    sessions_in_window
-        .sort_by(|a, b| b.updated_at.cmp(&a.updated_at).then(b.created_at.cmp(&a.created_at)));
+    sessions_in_window.sort_by(|a, b| {
+        b.updated_at
+            .cmp(&a.updated_at)
+            .then(b.created_at.cmp(&a.created_at))
+    });
     sessions_in_window.truncate(max_sessions);
 
     let total_found = sessions_in_window.len();
@@ -564,4 +549,3 @@ fn truncate(s: &str, max_len: usize) -> String {
         format!("{}...", &s[..end])
     }
 }
-
