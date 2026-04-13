@@ -77,9 +77,7 @@ fn read_dismissed_defaults() -> Vec<String> {
 /// Write the set of dismissed default template IDs.
 fn write_dismissed_defaults(ids: &[String]) -> Result<()> {
     let path = dismissed_defaults_path()?;
-    let content = serde_json::to_string_pretty(ids)?;
-    std::fs::write(&path, content)?;
-    Ok(())
+    crate::json_io::atomic_json_write(&path, &ids)
 }
 
 /// Dismiss a default template so it no longer appears.
@@ -185,12 +183,7 @@ pub fn save_template(template: &SessionTemplate) -> Result<()> {
 
     let dir = templates_dir()?;
     let path = dir.join(format!("{}.json", template.id));
-    let temp = dir.join(format!(".{}.json.tmp", template.id));
-
-    let content = serde_json::to_string_pretty(template)?;
-    std::fs::write(&temp, &content)?;
-    std::fs::rename(&temp, &path)?;
-    Ok(())
+    crate::json_io::atomic_json_write(&path, template)
 }
 
 /// Delete a template by ID. For default templates, this dismisses them instead.

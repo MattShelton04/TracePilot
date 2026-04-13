@@ -16,7 +16,11 @@ use std::path::Path;
 ///
 /// Writes to a `.tmp` sibling file, then renames over the target.
 /// Creates parent directories if needed.
-pub fn atomic_write(path: &Path, content: &[u8]) -> Result<()> {
+///
+/// Returns `std::io::Result` so callers with different error types
+/// (e.g. `SkillsError`, `BindingsError`) can use `?` directly via
+/// their `From<std::io::Error>` implementations.
+pub fn atomic_write(path: &Path, content: &[u8]) -> std::io::Result<()> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
@@ -51,7 +55,7 @@ pub fn atomic_write(path: &Path, content: &[u8]) -> Result<()> {
 
             if let Err(e) = std::fs::rename(&temp_path, path) {
                 let _ = std::fs::rename(&bak_path, path); // restore original
-                return Err(e.into());
+                return Err(e);
             }
             let _ = std::fs::remove_file(&bak_path);
         } else {
@@ -67,8 +71,8 @@ pub fn atomic_write(path: &Path, content: &[u8]) -> Result<()> {
 
 /// Atomically write a string slice to disk.
 ///
-/// See `atomic_write` for implementation details.
-pub fn atomic_write_str(path: &Path, content: &str) -> Result<()> {
+/// See [`atomic_write`] for implementation details.
+pub fn atomic_write_str(path: &Path, content: &str) -> std::io::Result<()> {
     atomic_write(path, content.as_bytes())
 }
 
@@ -77,7 +81,7 @@ pub fn atomic_write_str(path: &Path, content: &str) -> Result<()> {
 /// Serializes the value to a pretty-printed string and uses `atomic_write`.
 pub fn atomic_json_write<T: Serialize>(path: &Path, value: &T) -> Result<()> {
     let json = serde_json::to_string_pretty(value)?;
-    atomic_write_str(path, &json)
+    Ok(atomic_write_str(path, &json)?)
 }
 
 /// Read and deserialize a JSON file. Returns a default if the file doesn't exist.

@@ -1,5 +1,6 @@
 //! Skill asset management — list, add, remove files in skill directories.
 
+use crate::json_io::atomic_write;
 use crate::skills::error::SkillsError;
 use crate::skills::types::SkillAsset;
 use std::path::Path;

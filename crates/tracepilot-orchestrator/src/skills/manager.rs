@@ -1,5 +1,6 @@
 //! Skill lifecycle manager — CRUD operations for skills.
 
+use crate::json_io::atomic_write_str;
 use crate::skills::discovery::{global_skills_dir, load_skill};
 use crate::skills::error::SkillsError;
 use crate::skills::parser::parse_skill_md;
