@@ -108,8 +108,9 @@ pub fn open_readonly_if_exists(db_path: &Path) -> Result<Option<Connection>> {
 /// * `table_name` - Name of the table to check
 ///
 /// # Returns
-/// - `true` if the table exists
-/// - `false` if the table doesn't exist or query fails
+/// - `Ok(true)` if the table exists
+/// - `Ok(false)` if the table doesn't exist
+/// - `Err` if the existence check fails (e.g., I/O or SQL error)
 ///
 /// # Example
 /// ```no_run
@@ -117,21 +118,24 @@ pub fn open_readonly_if_exists(db_path: &Path) -> Result<Option<Connection>> {
 /// use std::path::Path;
 ///
 /// let conn = open_readonly(Path::new("/path/to/db.sqlite"))?;
-/// if table_exists(&conn, "todos") {
+/// if table_exists(&conn, "todos")? {
 ///     // Table exists, query it
 /// }
 /// # Ok::<(), tracepilot_core::error::TracePilotError>(())
 /// ```
 #[must_use = "table existence check is useless if not used"]
 #[inline]
-pub fn table_exists(conn: &Connection, table_name: &str) -> bool {
+pub fn table_exists(conn: &Connection, table_name: &str) -> Result<bool> {
     conn.query_row(
         "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?1",
         [table_name],
         |row| row.get::<_, i64>(0),
     )
     .map(|count| count > 0)
-    .unwrap_or(false)
+    .map_err(|e| {
+        tracing::warn!("Failed to check existence of table '{}': {}", table_name, e);
+        TracePilotError::DatabaseError(e)
+    })
 }
 
 /// Check if a column exists in a table.
@@ -192,6 +196,7 @@ pub fn row_count(conn: &Connection, table_name: &str) -> Option<i64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::error::Result;
     use rusqlite::Connection;
     use tempfile::TempDir;
 
@@ -297,42 +302,46 @@ mod tests {
     }
 
     #[test]
-    fn test_table_exists_true() {
+    fn test_table_exists_true() -> Result<()> {
         let dir = tempfile::tempdir().unwrap();
         let db_path = create_test_db(&dir);
         let conn = open_readonly(&db_path).unwrap();
 
-        assert!(table_exists(&conn, "users"));
-        assert!(table_exists(&conn, "posts"));
+        assert!(table_exists(&conn, "users")?);
+        assert!(table_exists(&conn, "posts")?);
+        Ok(())
     }
 
     #[test]
-    fn test_table_exists_false() {
+    fn test_table_exists_false() -> Result<()> {
         let dir = tempfile::tempdir().unwrap();
         let db_path = create_test_db(&dir);
         let conn = open_readonly(&db_path).unwrap();
 
-        assert!(!table_exists(&conn, "nonexistent"));
+        assert!(!table_exists(&conn, "nonexistent")?);
+        Ok(())
     }
 
     #[test]
-    fn test_table_exists_empty_string() {
+    fn test_table_exists_empty_string() -> Result<()> {
         let dir = tempfile::tempdir().unwrap();
         let db_path = create_test_db(&dir);
         let conn = open_readonly(&db_path).unwrap();
 
-        assert!(!table_exists(&conn, ""));
+        assert!(!table_exists(&conn, "")?);
+        Ok(())
     }
 
     #[test]
-    fn test_table_exists_returns_bool_not_int() {
+    fn test_table_exists_returns_bool_not_int() -> Result<()> {
         let dir = tempfile::tempdir().unwrap();
         let db_path = create_test_db(&dir);
         let conn = open_readonly(&db_path).unwrap();
 
         // This verifies the i64 -> bool conversion works correctly
-        let result = table_exists(&conn, "users");
+        let result = table_exists(&conn, "users")?;
         assert!(matches!(result, true | false));
+        Ok(())
     }
 
     #[test]
@@ -356,7 +365,7 @@ mod tests {
     // === PRIORITY 2: IMPORTANT TESTS (Should Have) ===
 
     #[test]
-    fn test_multiple_readonly_connections() {
+    fn test_multiple_readonly_connections() -> Result<()> {
         let dir = tempfile::tempdir().unwrap();
         let db_path = create_test_db(&dir);
 
@@ -365,8 +374,9 @@ mod tests {
 
         // All should be able to query
         for conn in &conns {
-            assert!(table_exists(conn, "users"));
+            assert!(table_exists(conn, "users")?);
         }
+        Ok(())
     }
 
     #[test]
@@ -390,7 +400,7 @@ mod tests {
     }
 
     #[test]
-    fn test_table_exists_case_sensitivity() {
+    fn test_table_exists_case_sensitivity() -> Result<()> {
         let dir = tempfile::tempdir().unwrap();
         let db_path = dir.path().join("case.db");
         let conn = Connection::open(&db_path).unwrap();
@@ -401,9 +411,10 @@ mod tests {
         let readonly = open_readonly(&db_path).unwrap();
         // SQLite table names are case-SENSITIVE in the query, but the exact name
         // stored in sqlite_master is what we need to match
-        assert!(table_exists(&readonly, "MyTable"));
+        assert!(table_exists(&readonly, "MyTable")?);
         // These may or may not exist depending on SQLite's case-folding behavior
         // The important thing is that the exact name works
+        Ok(())
     }
 
     #[test]
@@ -419,7 +430,7 @@ mod tests {
     }
 
     #[test]
-    fn test_open_readonly_non_wal_database() {
+    fn test_open_readonly_non_wal_database() -> Result<()> {
         let dir = tempfile::tempdir().unwrap();
         let db_path = dir.path().join("test.db");
         let conn = Connection::open(&db_path).unwrap();
@@ -430,7 +441,8 @@ mod tests {
 
         // Should still open readonly successfully
         let readonly_conn = open_readonly(&db_path).unwrap();
-        assert!(table_exists(&readonly_conn, "test"));
+        assert!(table_exists(&readonly_conn, "test")?);
+        Ok(())
     }
 
     #[test]
@@ -476,14 +488,15 @@ mod tests {
     // === PRIORITY 3: SECURITY TESTS ===
 
     #[test]
-    fn test_sql_injection_resistance_table_exists() {
+    fn test_sql_injection_resistance_table_exists() -> Result<()> {
         let dir = tempfile::tempdir().unwrap();
         let db_path = create_test_db(&dir);
         let conn = open_readonly(&db_path).unwrap();
 
         // These should safely return false, not execute malicious SQL
-        assert!(!table_exists(&conn, "users'; DROP TABLE users; --"));
-        assert!(!table_exists(&conn, "users' OR '1'='1"));
+        assert!(!table_exists(&conn, "users'; DROP TABLE users; --")?);
+        assert!(!table_exists(&conn, "users' OR '1'='1")?);
+        Ok(())
     }
 
     #[test]
@@ -515,7 +528,7 @@ mod tests {
     // === EDGE CASES ===
 
     #[test]
-    fn test_missing_table() {
+    fn test_missing_table() -> Result<()> {
         let dir = tempfile::tempdir().unwrap();
         let db_path = dir.path().join("empty.db");
         let conn = Connection::open(&db_path).unwrap();
@@ -523,17 +536,19 @@ mod tests {
         drop(conn);
 
         let readonly = open_readonly(&db_path).unwrap();
-        assert!(!table_exists(&readonly, "nonexistent"));
+        assert!(!table_exists(&readonly, "nonexistent")?);
+        Ok(())
     }
 
     #[test]
-    fn test_table_exists_in_empty_database() {
+    fn test_table_exists_in_empty_database() -> Result<()> {
         let dir = tempfile::tempdir().unwrap();
         let db_path = dir.path().join("empty.db");
         Connection::open(&db_path).unwrap();
 
         let readonly = open_readonly(&db_path).unwrap();
-        assert!(!table_exists(&readonly, "anything"));
+        assert!(!table_exists(&readonly, "anything")?);
+        Ok(())
     }
 
     #[cfg(unix)]

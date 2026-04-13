@@ -45,7 +45,7 @@ pub fn read_todos(db_path: &Path) -> Result<Vec<TodoItem>> {
         return Ok(Vec::new());
     };
 
-    if !table_exists(&conn, "todos") {
+    if !table_exists(&conn, "todos")? {
         return Ok(Vec::new());
     }
 
@@ -75,7 +75,7 @@ pub fn read_todo_deps(db_path: &Path) -> Result<Vec<TodoDep>> {
         return Ok(Vec::new());
     };
 
-    if !table_exists(&conn, "todo_deps") {
+    if !table_exists(&conn, "todo_deps")? {
         return Ok(Vec::new());
     }
 
@@ -125,7 +125,7 @@ pub fn read_custom_table(db_path: &Path, table_name: &str) -> Result<CustomTable
         });
     };
 
-    if !table_exists(&conn, table_name) {
+    if !table_exists(&conn, table_name)? {
         return Ok(CustomTableInfo {
             name: table_name.to_string(),
             columns: Vec::new(),
