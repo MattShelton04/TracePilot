@@ -701,11 +701,13 @@ pub async fn task_orchestrator_stop(
 fn is_process_alive(pid: u32) -> bool {
     #[cfg(windows)]
     {
+        use std::os::windows::process::CommandExt;
         // Use tasklist to check if the PID exists
         std::process::Command::new("tasklist")
             .args(["/NH", "/FI", &format!("PID eq {pid}")])
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::null())
+            .creation_flags(0x08000000) // CREATE_NO_WINDOW
             .output()
             .map(|o| {
                 let out = String::from_utf8_lossy(&o.stdout);

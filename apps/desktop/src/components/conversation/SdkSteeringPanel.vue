@@ -11,13 +11,13 @@ import type { BridgeSessionMode } from "@tracepilot/types";
 import type { CSSProperties } from "vue";
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { useSdkStore } from "@/stores/sdk";
-import { useSessionDetailStore } from "@/stores/sessionDetail";
+import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { usePreferencesStore } from "@/stores/preferences";
 import { logInfo, logWarn } from "@/utils/logger";
 
 const sdk = useSdkStore();
 const prefs = usePreferencesStore();
-const detail = useSessionDetailStore();
+const detail = useSessionDetailContext();
 
 const props = defineProps<{
   sessionId: string | null;

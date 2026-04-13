@@ -28,7 +28,7 @@ import { useCrossTurnSubagents } from "@/composables/useCrossTurnSubagents";
 import { useSubagentPanel } from "@/composables/useSubagentPanel";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
 import { usePreferencesStore } from "@/stores/preferences";
-import { useSessionDetailStore } from "@/stores/sessionDetail";
+import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import {
   COLLAPSE_THRESHOLD,
   countRegularTools,
@@ -46,7 +46,7 @@ import SdkSteeringPanel from "./SdkSteeringPanel.vue";
 
 // ─── Store & Route ────────────────────────────────────────────────
 
-const store = useSessionDetailStore();
+const store = useSessionDetailContext();
 const preferences = usePreferencesStore();
 const route = useRoute();
 const turns = computed(() => store.turns);
@@ -145,10 +145,6 @@ function showGap(turn: ConversationTurn, ti: number): boolean {
 
 function gapCount(turn: ConversationTurn, ti: number): number {
   return turn.turnIndex - turns.value[ti - 1].turnIndex - 1;
-}
-
-function userEventId(turn: ConversationTurn): string | undefined {
-  return turn.eventIndex != null ? `event-${turn.eventIndex}` : undefined;
 }
 
 // ─── Memoized per-turn render data ────────────────────────────────
@@ -389,8 +385,11 @@ function findOwningSubagent(turnIndex: number, eventIndex: number): string | nul
 }
 
 function revealEvent(turnIndex: number, eventIndex?: number) {
-  const elId = eventIndex != null ? `event-${eventIndex}` : `turn-${turnIndex}`;
-  let el = document.getElementById(elId);
+  const root = cvRootEl.value;
+  if (!root) return;
+
+  const elId = eventIndex != null ? `[data-event-idx="${eventIndex}"]` : `[data-turn-idx="${turnIndex}"]`;
+  let el = root.querySelector<HTMLElement>(elId);
 
   // If event not in DOM, check if it belongs to a subagent and open the panel
   if (!el && eventIndex != null) {
@@ -398,14 +397,14 @@ function revealEvent(turnIndex: number, eventIndex?: number) {
     if (agentId) {
       panel.selectSubagent(agentId);
       // Scroll to the subagent card wrapper instead
-      const cardEl = document.querySelector(`[data-agent-id="${agentId}"]`) as HTMLElement | null;
+      const cardEl = root.querySelector<HTMLElement>(`[data-agent-id="${agentId}"]`);
       if (cardEl) el = cardEl;
     }
   }
 
   if (!el) {
     // Final fallback: scroll to the turn block
-    el = document.getElementById(`turn-${turnIndex}`);
+    el = root.querySelector<HTMLElement>(`[data-turn-idx="${turnIndex}"]`);
     if (!el) return;
   }
 
@@ -470,7 +469,7 @@ defineExpose({ revealEvent });
               <div
                 v-if="turn.userMessage"
                 class="cv-user-anchor"
-                :id="userEventId(turn)"
+                :data-event-idx="turn.eventIndex != null ? turn.eventIndex : undefined"
               >
                 <div class="cv-user-header">
                   <span class="cv-user-avatar" aria-hidden="true">👤</span>
@@ -489,7 +488,7 @@ defineExpose({ revealEvent });
               <div
                 class="cv-turn-block"
                 :data-turn="`T${turn.turnIndex}`"
-                :id="`turn-${turn.turnIndex}`"
+                :data-turn-idx="turn.turnIndex"
                 :style="subagentTurnColors.get(turn.turnIndex) ? { borderLeft: `3px solid ${subagentTurnColors.get(turn.turnIndex)}`, paddingLeft: '12px' } : {}"
               >
                 <!-- Main reasoning -->
@@ -533,7 +532,7 @@ defineExpose({ revealEvent });
                         <div
                           v-if="item.type === 'intent'"
                           class="cv-intent-pill"
-                          :id="item.toolCall.eventIndex != null ? `event-${item.toolCall.eventIndex}` : undefined"
+                          :data-event-idx="item.toolCall.eventIndex != null ? item.toolCall.eventIndex : undefined"
                         >
                           <span class="cv-pill-icon" aria-hidden="true">🎯</span>
                           <span class="cv-pill-label">{{ intentLabel(item.toolCall) }}</span>
@@ -543,7 +542,7 @@ defineExpose({ revealEvent });
                         <div
                           v-else-if="item.type === 'memory'"
                           class="cv-memory-pill"
-                          :id="item.toolCall.eventIndex != null ? `event-${item.toolCall.eventIndex}` : undefined"
+                          :data-event-idx="item.toolCall.eventIndex != null ? item.toolCall.eventIndex : undefined"
                         >
                           <span class="cv-pill-icon" aria-hidden="true">🧠</span>
                           <span class="cv-pill-label">{{ truncateText(memoryLabel(item.toolCall), 80) }}</span>
@@ -552,7 +551,7 @@ defineExpose({ revealEvent });
                         <!-- Read-agent row -->
                         <ToolCallItem
                           v-else-if="item.type === 'read-agent'"
-                          :id="item.toolCall.eventIndex != null ? `event-${item.toolCall.eventIndex}` : undefined"
+                          :data-event-idx="item.toolCall.eventIndex != null ? item.toolCall.eventIndex : undefined"
                           v-bind="tcProps(turn, item.toolCall)"
                           @toggle="toggleToolDetail(turn, item.toolCall)"
                           @load-full-result="handleLoadFullResult"
@@ -562,7 +561,7 @@ defineExpose({ revealEvent });
                         <!-- Ask-user (rich renderer) -->
                         <ToolCallItem
                           v-else-if="item.type === 'ask-user'"
-                          :id="item.toolCall.eventIndex != null ? `event-${item.toolCall.eventIndex}` : undefined"
+                          :data-event-idx="item.toolCall.eventIndex != null ? item.toolCall.eventIndex : undefined"
                           v-bind="tcProps(turn, item.toolCall)"
                           @toggle="toggleToolDetail(turn, item.toolCall)"
                           @load-full-result="handleLoadFullResult"
@@ -573,7 +572,7 @@ defineExpose({ revealEvent });
                         <ToolCallItem
                           v-else-if="item.type === 'tool'"
                           v-show="isItemVisible(item, segment.items, iIdx, `${turn.turnIndex}-group-${sIdx}`)"
-                          :id="item.toolCall.eventIndex != null ? `event-${item.toolCall.eventIndex}` : undefined"
+                          :data-event-idx="item.toolCall.eventIndex != null ? item.toolCall.eventIndex : undefined"
                           v-bind="tcProps(turn, item.toolCall)"
                           @toggle="toggleToolDetail(turn, item.toolCall)"
                           @load-full-result="handleLoadFullResult"
@@ -624,7 +623,7 @@ defineExpose({ revealEvent });
                       <div
                         v-for="sa in segment.subagents"
                         :key="sa.toolCallId"
-                        :id="sa.eventIndex != null ? `event-${sa.eventIndex}` : undefined"
+                        :data-event-idx="sa.eventIndex != null ? sa.eventIndex : undefined"
                         :data-agent-id="sa.toolCallId"
                       >
                         <SubagentCard

@@ -1,13 +1,20 @@
 {
   "identifier": "default",
   "description": "Default permissions for TracePilot",
-  "windows": ["main"],
+  "windows": ["main", "viewer-*"],
   "permissions": [
     "core:default",
+    "core:window:allow-close",
+    "core:window:allow-destroy",
+    "core:window:allow-request-user-attention",
+    "core:window:allow-set-focus",
+    "core:window:allow-set-title",
+    "core:window:allow-unminimize",
     "tracepilot:default",
     "dialog:allow-open",
     "dialog:allow-save",
     "log:default",
+    "notification:default",
     {
       "identifier": "opener:allow-open-url",
       "allow": [{ "url": "https://github.com/*" }, { "url": "https://api.github.com/*" }]

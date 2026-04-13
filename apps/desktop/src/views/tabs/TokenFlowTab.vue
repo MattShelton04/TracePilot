@@ -11,10 +11,10 @@ import {
 } from "@tracepilot/ui";
 import { computed, ref } from "vue";
 import { usePreferencesStore } from "@/stores/preferences";
-import { useSessionDetailStore } from "@/stores/sessionDetail";
+import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { getChartColors, getSemanticColors } from "@/utils/designTokens";
 
-const store = useSessionDetailStore();
+const store = useSessionDetailContext();
 const prefs = usePreferencesStore();
 
 useSessionTabLoader(

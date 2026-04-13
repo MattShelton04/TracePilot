@@ -10,7 +10,7 @@ import type { TracePilotConfig } from "./config.js";
 import { DEFAULT_FAVOURITE_MODELS } from "./models.js";
 
 /** Current config schema version. */
-export const CONFIG_VERSION = 4;
+export const CONFIG_VERSION = 5;
 
 /** Default cost per premium request (USD). */
 export const DEFAULT_COST_PER_PREMIUM_REQUEST = 0.04;
@@ -47,6 +47,9 @@ export const DEFAULT_MAX_RETRIES = 3;
 
 /** Default context budget in tokens per task. */
 export const DEFAULT_CONTEXT_BUDGET_TOKENS = 50_000;
+
+/** Default alert cooldown in seconds. */
+export const DEFAULT_ALERT_COOLDOWN_SECONDS = 20;
 
 /**
  * Default feature flag values — single source of truth for TypeScript.
@@ -86,6 +89,7 @@ export function createDefaultConfig(
     features: Partial<TracePilotConfig["features"]>;
     logging: Partial<TracePilotConfig["logging"]>;
     tasks: Partial<TracePilotConfig["tasks"]>;
+    alerts: Partial<TracePilotConfig["alerts"]>;
   }>,
 ): TracePilotConfig {
   return {
@@ -142,6 +146,18 @@ export function createDefaultConfig(
       autoStartOrchestrator: false,
       contextBudgetTokens: DEFAULT_CONTEXT_BUDGET_TOKENS,
       ...overrides?.tasks,
+    },
+    alerts: {
+      enabled: false,
+      scope: "monitored" as const,
+      nativeNotifications: true,
+      taskbarFlash: true,
+      soundEnabled: false,
+      onSessionEnd: true,
+      onAskUser: true,
+      onSessionError: false,
+      cooldownSeconds: DEFAULT_ALERT_COOLDOWN_SECONDS,
+      ...overrides?.alerts,
     },
   };
 }

@@ -1,34 +1,82 @@
 <script setup lang="ts">
 import { checkConfigExists, getConfig, saveConfig } from "@tracepilot/client";
 import { ConfirmDialog, ToastContainer } from "@tracepilot/ui";
-import { computed, onMounted, ref } from "vue";
-import { useRoute } from "vue-router";
+import { computed, onMounted, provide, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import ErrorBoundary from "@/components/ErrorBoundary.vue";
 import IndexingLoadingScreen from "@/components/IndexingLoadingScreen.vue";
+import AlertCenterDrawer from "@/components/layout/AlertCenterDrawer.vue";
 import AppSidebar from "@/components/layout/AppSidebar.vue";
 import BreadcrumbNav from "@/components/layout/BreadcrumbNav.vue";
+import SessionTabContent from "@/components/layout/SessionTabContent.vue";
+import SessionTabStrip from "@/components/layout/SessionTabStrip.vue";
 import SearchPalette from "@/components/SearchPalette.vue";
 import SetupWizard from "@/components/SetupWizard.vue";
 import UpdateInstructionsModal from "@/components/UpdateInstructionsModal.vue";
 import WhatsNewModal from "@/components/WhatsNewModal.vue";
 import { initAppVersion, useAppVersion } from "@/composables/useAppVersion";
 import { runUpdateCheck } from "@/composables/useUpdateCheck";
+import { useAlertWatcher } from "@/composables/useAlertWatcher";
+import { registerNotificationClickHandler } from "@/composables/useAlertDispatcher";
+import { resolveWindowRole, useWindowRole } from "@/composables/useWindowRole";
 import { useWhatsNew } from "@/composables/useWhatsNew";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSessionsStore } from "@/stores/sessions";
-import { logError } from "@/utils/logger";
+import { useSessionTabsStore } from "@/stores/sessionTabs";
+import { logError, logInfo } from "@/utils/logger";
 import { openExternal } from "@/utils/openExternal";
 
 type AppPhase = "loading" | "setup" | "indexing" | "app";
 
 const route = useRoute();
+const router = useRouter();
 const sessionsStore = useSessionsStore();
 const prefsStore = usePreferencesStore();
+const tabStore = useSessionTabsStore();
 const { appVersion } = useAppVersion();
+const { isMain } = useWindowRole();
 
 const phase = ref<AppPhase>("loading");
 const expectedSessionCount = ref(0);
 const showUpdateModal = ref(false);
+let alertInitDone = false;
+
+/** Idempotent: start alert watcher + notification handler + window lifecycle (main only) */
+function initAlertSystem() {
+  if (!isMain() || alertInitDone) return;
+
+  try {
+    useAlertWatcher(router);
+    registerNotificationClickHandler();
+    alertInitDone = true;
+    logInfo("[app] Alert system initialized successfully");
+  } catch (e) {
+    logError("[app] Alert system initialization failed:", e);
+    return;
+  }
+
+  // Close all viewer windows when the main window is closed
+  import("@tauri-apps/api/window").then(({ getCurrentWindow, getAllWindows }) => {
+    const mainWin = getCurrentWindow();
+    mainWin.onCloseRequested(async (event) => {
+      event.preventDefault();
+      try {
+        const all = await getAllWindows();
+        await Promise.allSettled(
+          all.filter((w) => w.label.startsWith("viewer-")).map((w) => w.close()),
+        );
+      } catch { /* best-effort */ }
+      await mainWin.destroy();
+    });
+  }).catch(() => {});
+
+  // Listen for popup window close events to update monitored session set
+  import("@tauri-apps/api/event").then(({ listen }) => {
+    listen<{ sessionId: string }>("popup-session-closed", (event) => {
+      tabStore.unregisterPopup(event.payload.sessionId);
+    });
+  }).catch(() => {});
+}
 
 const {
   showWhatsNew,
@@ -41,6 +89,9 @@ const {
 } = useWhatsNew();
 
 onMounted(async () => {
+  // Resolve window role before any role-gated logic
+  await resolveWindowRole();
+
   // Initialize app version from Tauri runtime (or 'dev' in browser mode)
   await initAppVersion();
 
@@ -56,12 +107,16 @@ onMounted(async () => {
       }
 
       phase.value = "app";
-      sessionsStore.fetchSessions();
+      await sessionsStore.fetchSessions();
       // Signal that the app is fully initialized for automation (CDP / Playwright).
       // Placed here (not main.ts) so it fires only after config + setup checks pass.
       (window as unknown as Record<string, unknown>).__TRACEPILOT_READY__ = true;
       // Wait for preferences to load from config.toml before using config-backed values
       await prefsStore.whenReady;
+
+      // Start alert watcher + window lifecycle (main window only, idempotent)
+      initAlertSystem();
+
       // Post-load hooks: version change detection + update check
       await checkVersionChange();
       if (prefsStore.checkForUpdates) {
@@ -103,6 +158,7 @@ function onSetupComplete() {
   // Config.toml now exists — arm the auto-save watcher
   prefsStore.hydrate();
   sessionsStore.fetchSessions();
+  initAlertSystem();
 }
 
 async function onIndexingComplete() {
@@ -116,16 +172,83 @@ async function onIndexingComplete() {
   }
   phase.value = "app";
   sessionsStore.fetchSessions();
+  initAlertSystem();
+}
+
+/**
+ * Tab view vs router-view switching logic.
+ *
+ * The tab strip has a "Sessions" home pill. Clicking it deactivates all tabs
+ * and returns to the session list. Navigating via sidebar (settings, etc.)
+ * also hides the tab view. Activating a tab brings it back.
+ */
+
+/** Routes that are compatible with showing the tab view on top */
+const isSessionRoute = computed(() => {
+  const name = route.name as string | undefined;
+  return !name || name === "sessions" || name === "not-found" || route.path.startsWith("/session/");
+});
+
+/** Whether the tab view is currently displaying */
+const isTabViewActive = computed(
+  () => tabStore.tabCount > 0 && tabStore.activeTab !== null && isSessionRoute.value,
+);
+
+// Expose route-view visibility so child components (SessionDetailView)
+// can disable auto-refresh when hidden behind the tab view.
+const routeViewVisible = computed(() => !isTabViewActive.value);
+provide("routeViewVisible", routeViewVisible);
+
+// When the user navigates away from session-compatible routes (e.g. settings),
+// deactivate tab selection so the router-view shows through.
+// Note: navigating to "/" (sessions list) is handled by sidebar's @nav-sessions
+// and tab strip's @go-home, not this watcher.
+let suppressTabDeactivation = false;
+
+watch(
+  () => route.fullPath,
+  () => {
+    if (suppressTabDeactivation) return;
+    if (!isSessionRoute.value) {
+      tabStore.deactivateAll();
+    }
+  },
+);
+
+// Re-show tab view when a tab is activated (e.g. clicking tab strip)
+watch(
+  () => tabStore.activeTab,
+  (tab) => {
+    if (tab && !isSessionRoute.value) {
+      // Suppress the route watcher so it doesn't immediately deactivate
+      suppressTabDeactivation = true;
+      router.push("/").finally(() => {
+        suppressTabDeactivation = false;
+      });
+    }
+  },
+);
+
+function onTabGoHome() {
+  tabStore.deactivateAll();
+  router.push("/");
 }
 
 const breadcrumbs = computed(() => {
   const crumbs: { label: string; to?: string }[] = [{ label: "Sessions", to: "/" }];
 
+  // Tab mode: breadcrumbs reflect the active tab
+  if (isTabViewActive.value) {
+    const tab = tabStore.activeTab!;
+    crumbs.push({ label: tab.label });
+    return crumbs;
+  }
+
   if (route.name === "sessions" || route.name === "not-found") {
     return [{ label: "Sessions" }];
   }
 
-  // Session detail pages
+  // Session detail pages (legacy route mode)
   if (route.params.id) {
     const detail = sessionsStore.sessions.find((s) => s.id === route.params.id);
     const sessionLabel =
@@ -165,13 +288,15 @@ const breadcrumbs = computed(() => {
       <div class="app-orb app-orb-1" />
       <div class="app-orb app-orb-2" />
     </div>
-    <AppSidebar @view-update-details="showUpdateModal = true" />
+    <AppSidebar @view-update-details="showUpdateModal = true" @nav-sessions="onTabGoHome" />
     <div class="main-content">
       <div class="page-header-bar">
         <BreadcrumbNav :items="breadcrumbs" />
       </div>
+      <SessionTabStrip :is-session-route="isSessionRoute" @go-home="onTabGoHome" />
       <ErrorBoundary>
-        <router-view />
+        <SessionTabContent v-show="isTabViewActive" />
+        <router-view v-show="!isTabViewActive" />
       </ErrorBoundary>
     </div>
   </div>
@@ -197,6 +322,7 @@ const breadcrumbs = computed(() => {
   <ToastContainer />
   <ConfirmDialog />
   <SearchPalette />
+  <AlertCenterDrawer />
 </template>
 
 <style scoped>

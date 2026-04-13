@@ -803,8 +803,10 @@ pub fn launch_ui_server(working_dir: Option<&str>) -> Result<u32, BridgeError> {
     let copilot_path = {
         #[cfg(windows)]
         {
+            use std::os::windows::process::CommandExt;
             std::process::Command::new("where")
                 .arg("copilot")
+                .creation_flags(crate::process::CREATE_NO_WINDOW)
                 .output()
                 .ok()
                 .and_then(|o| {

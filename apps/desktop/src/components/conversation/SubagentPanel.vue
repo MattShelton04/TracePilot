@@ -20,12 +20,12 @@ import { computed, nextTick, ref, watch } from "vue";
 import type { SubagentFullData } from "@/composables/useCrossTurnSubagents";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
 import { usePreferencesStore } from "@/stores/preferences";
-import { useSessionDetailStore } from "@/stores/sessionDetail";
+import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 
 const preferences = usePreferencesStore();
 const renderMd = computed(() => preferences.isFeatureEnabled("renderMarkdown"));
 
-const store = useSessionDetailStore();
+const store = useSessionDetailContext();
 const expandedToolDetails = useToggleSet<string>();
 const {
   fullResults,

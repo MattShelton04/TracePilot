@@ -4,12 +4,30 @@ import { useRoute, useRouter } from "vue-router";
 
 const props = defineProps<{
   tabs: Array<{ name: string; routeName: string; label: string; count?: number }>;
+  /**
+   * When provided, TabNav operates in "local" mode: active tab is controlled
+   * via v-model instead of vue-router. Used for tabbed session views where
+   * inner tabs are not route-driven.
+   */
+  modelValue?: string;
 }>();
 
-const route = useRoute();
-const router = useRouter();
+const emit = defineEmits<{
+  "update:modelValue": [value: string];
+}>();
 
-const activeTab = computed(() => route.name as string);
+// Only call useRoute/useRouter when NOT in local mode (i.e. router is available).
+// Child (viewer) windows don't install vue-router; calling useRoute() there
+// returns undefined and logs inject warnings.
+const route = props.modelValue === undefined ? useRoute() : undefined;
+const router = props.modelValue === undefined ? useRouter() : undefined;
+
+/** True when TabNav is controlled by v-model (local mode) */
+const isLocalMode = computed(() => props.modelValue !== undefined);
+
+const activeTab = computed(() =>
+  isLocalMode.value ? props.modelValue! : (route?.name as string),
+);
 
 // Track which tab has tabindex="0" — follows keyboard focus, resets on route change
 const focusedIndex = ref(0);
@@ -26,7 +44,11 @@ watch(
 const tabRefs = ref<HTMLButtonElement[]>([]);
 
 function navigate(routeName: string) {
-  router.push({ name: routeName, params: route.params });
+  if (isLocalMode.value) {
+    emit("update:modelValue", routeName);
+  } else {
+    router!.push({ name: routeName, params: route!.params });
+  }
 }
 
 function handleKeydown(e: KeyboardEvent, index: number) {

@@ -9,9 +9,9 @@ import {
   useSessionTabLoader,
 } from "@tracepilot/ui";
 import { computed, ref, watch } from "vue";
-import { useSessionDetailStore } from "@/stores/sessionDetail";
+import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 
-const store = useSessionDetailStore();
+const store = useSessionDetailContext();
 const filterType = ref<string | null>(null);
 const pageSize = 50;
 const currentPage = ref(0);

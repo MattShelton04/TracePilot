@@ -51,6 +51,7 @@ import { computed, ref, shallowRef, watch } from "vue";
 import { safeListen } from "@/utils/tauriEvents";
 import { logInfo, logWarn } from "@/utils/logger";
 import { usePreferencesStore } from "@/stores/preferences";
+import { useWindowRole } from "@/composables/useWindowRole";
 
 const MAX_EVENTS = 500;
 const SDK_SETTINGS_KEY = "tracepilot:sdk-settings";
@@ -432,9 +433,11 @@ export const useSdkStore = defineStore("sdk", () => {
   initEventListeners();
 
   // Disconnect when browser window unloads (app close / refresh)
+  // Only the main window owns the SDK connection lifecycle.
+  const { isMain } = useWindowRole();
   if (typeof window !== "undefined") {
     window.addEventListener("beforeunload", () => {
-      if (connectionState.value === "connected") {
+      if (isMain() && connectionState.value === "connected") {
         sdkDisconnect().catch(() => {});
       }
     });
@@ -529,7 +532,10 @@ export const useSdkStore = defineStore("sdk", () => {
   }
 
   // Attempt auto-connect on store initialization (deferred to next tick so preferences are loaded)
-  setTimeout(() => autoConnect(), 500);
+  // Only the main window should auto-connect — child windows read SDK state reactively.
+  if (isMain()) {
+    setTimeout(() => autoConnect(), 500);
+  }
 
   // Disconnect SDK when the feature toggle is turned off
   watch(

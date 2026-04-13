@@ -1,9 +1,10 @@
 import type { ConversationTurn, TurnToolCall } from "@tracepilot/types";
+import type { SessionDetailContext } from "@/composables/useSessionDetail";
 import { useToggleSet } from "@tracepilot/ui";
 import type { ComputedRef, Ref } from "vue";
 import { computed, ref, watch } from "vue";
 import { usePreferencesStore } from "@/stores/preferences";
-import { useSessionDetailStore } from "@/stores/sessionDetail";
+import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { useToolResultLoader } from "./useToolResultLoader";
 
 /**
@@ -27,7 +28,7 @@ export interface UseTimelineToolStateOptions {
 export interface UseTimelineToolStateReturn {
   // Store refs
   /** SessionDetail store instance */
-  store: ReturnType<typeof useSessionDetailStore>;
+  store: SessionDetailContext;
   /** Preferences store instance */
   prefs: ReturnType<typeof usePreferencesStore>;
 
@@ -118,7 +119,7 @@ export function useTimelineToolState(
   options: UseTimelineToolStateOptions = {},
 ): UseTimelineToolStateReturn {
   // Store access
-  const store = useSessionDetailStore();
+  const store = useSessionDetailContext();
   const prefs = usePreferencesStore();
 
   // Tool result loading

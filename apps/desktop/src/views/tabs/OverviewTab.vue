@@ -14,10 +14,10 @@ import {
   useSessionTabLoader,
 } from "@tracepilot/ui";
 import { computed, ref } from "vue";
-import { useSessionDetailStore } from "@/stores/sessionDetail";
+import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { formatObjectResult } from "@/utils/formatResult";
 
-const store = useSessionDetailStore();
+const store = useSessionDetailContext();
 
 useSessionTabLoader(
   () => store.sessionId,

@@ -7,6 +7,7 @@ import { useAppVersion } from "@/composables/useAppVersion";
 import { useSidebarNav } from "@/composables/useSidebarNav";
 import { useUpdateCheck } from "@/composables/useUpdateCheck";
 import { useWhatsNew } from "@/composables/useWhatsNew";
+import { useAlertsStore } from "@/stores/alerts";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSessionsStore } from "@/stores/sessions";
 
@@ -14,6 +15,7 @@ const DISMISSED_KEY = "tracepilot-dismissed-update";
 
 const emit = defineEmits<{
   "view-update-details": [];
+  "nav-sessions": [];
 }>();
 
 const { appVersion } = useAppVersion();
@@ -23,6 +25,7 @@ const { openWhatsNew } = useWhatsNew();
 const route = useRoute();
 const sessionsStore = useSessionsStore();
 const prefsStore = usePreferencesStore();
+const alertsStore = useAlertsStore();
 
 const {
   visiblePrimaryNav,
@@ -93,6 +96,7 @@ async function handleVersionClick() {
         :data-testid="`nav-${item.id}`"
         class="sidebar-nav-item"
         :class="{ active: activeSidebarId === item.id }"
+        @click="item.id === 'sessions' && emit('nav-sessions')"
       >
         <span class="nav-icon">
           <!-- sessions -->
@@ -273,6 +277,21 @@ async function handleVersionClick() {
           v{{ appVersion }}
         </button>
         <SdkStatusIndicator />
+        <button
+          v-if="prefsStore.alertsEnabled"
+          class="alert-bell-btn"
+          :class="{ 'has-unread': alertsStore.hasUnread }"
+          :aria-label="`Alerts${alertsStore.unreadCount > 0 ? ` (${alertsStore.unreadCount} unread)` : ''}`"
+          @click="alertsStore.toggleDrawer()"
+        >
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M4 6a4 4 0 018 0c0 2 1 4 2 5H2c1-1 2-3 2-5z" />
+            <path d="M6.5 13a1.5 1.5 0 003 0" />
+          </svg>
+          <span v-if="alertsStore.unreadCount > 0" class="alert-badge">
+            {{ alertsStore.unreadCount > 9 ? '9+' : alertsStore.unreadCount }}
+          </span>
+        </button>
         <button
           class="theme-toggle"
           :aria-label="`Current theme: ${currentTheme}. Click to switch.`"

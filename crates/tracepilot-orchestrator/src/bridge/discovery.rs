@@ -64,6 +64,7 @@ $results | ConvertTo-Json -Compress
 
     let output = match Command::new("powershell")
         .args(["-NoProfile", "-NonInteractive", "-Command", script])
+        .creation_flags(crate::process::CREATE_NO_WINDOW)
         .output()
         .await
     {

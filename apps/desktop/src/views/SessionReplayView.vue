@@ -18,13 +18,13 @@ import ReplayTransportBar from "@/components/replay/ReplayTransportBar.vue";
 import { useReplayController } from "@/composables/useReplayController";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
 import { usePreferencesStore } from "@/stores/preferences";
-import { useSessionDetailStore } from "@/stores/sessionDetail";
+import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { useSessionsStore } from "@/stores/sessions";
 import { turnsToReplaySteps } from "@/utils/replayTransform";
 
 const route = useRoute();
 const router = useRouter();
-const store = useSessionDetailStore();
+const store = useSessionDetailContext();
 const sessionsStore = useSessionsStore();
 const preferences = usePreferencesStore();
 

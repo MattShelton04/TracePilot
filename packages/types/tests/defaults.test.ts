@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   CONFIG_VERSION,
   createDefaultConfig,
+  DEFAULT_ALERT_COOLDOWN_SECONDS,
   DEFAULT_AUTO_REFRESH_INTERVAL_SECONDS,
   DEFAULT_CLI_COMMAND,
   DEFAULT_CONTENT_MAX_WIDTH,
@@ -63,6 +64,17 @@ describe("createDefaultConfig", () => {
       maxRetries: DEFAULT_MAX_RETRIES,
       autoStartOrchestrator: false,
       contextBudgetTokens: DEFAULT_CONTEXT_BUDGET_TOKENS,
+    },
+    alerts: {
+      enabled: false,
+      scope: "monitored",
+      nativeNotifications: true,
+      taskbarFlash: true,
+      soundEnabled: false,
+      onSessionEnd: true,
+      onAskUser: true,
+      onSessionError: false,
+      cooldownSeconds: DEFAULT_ALERT_COOLDOWN_SECONDS,
     },
   };
 

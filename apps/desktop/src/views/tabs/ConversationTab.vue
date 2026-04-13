@@ -25,15 +25,21 @@ import {
   useToggleSet,
 } from "@tracepilot/ui";
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { useRoute } from "vue-router";
+import { type RouteLocationNormalizedLoaded, useRoute } from "vue-router";
 import ChatViewMode from "@/components/conversation/ChatViewMode.vue";
 import { useAutoScroll } from "@/composables/useAutoScroll";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
+import { useWindowRole } from "@/composables/useWindowRole";
 import { usePreferencesStore } from "@/stores/preferences";
-import { useSessionDetailStore } from "@/stores/sessionDetail";
+import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 
-const route = useRoute();
-const store = useSessionDetailStore();
+const { isViewer } = useWindowRole();
+// useRoute() returns undefined when no router is installed (child windows).
+// We provide an empty-query stub to avoid property-access crashes.
+const route: Pick<RouteLocationNormalizedLoaded, "query"> = isViewer()
+  ? { query: {} }
+  : useRoute();
+const store = useSessionDetailContext();
 const preferences = usePreferencesStore();
 const expandedToolDetails = useToggleSet<string>();
 const expandedReasoning = useToggleSet<string>();
@@ -54,10 +60,12 @@ const {
 const { getSections, getArgsSummary, findToolCallIndex, totalToolCalls, totalDurationMs } =
   useConversationSections(() => store.turns);
 
-// Auto-scroll
+// Auto-scroll — find this component's own .page-content ancestor (not a sibling tab's)
 const scrollContainer = ref<HTMLElement | null>(null);
+const conversationRoot = ref<HTMLElement | null>(null);
 onMounted(() => {
-  scrollContainer.value = document.querySelector(".page-content");
+  scrollContainer.value = conversationRoot.value?.closest(".page-content") as HTMLElement | null
+    ?? document.querySelector(".page-content");
 });
 const { isLockedToBottom, showScrollToTop, hasOverflow, scrollToBottom, scrollToTop } =
   useAutoScroll({
@@ -99,14 +107,17 @@ onBeforeUnmount(() => {
 });
 
 function scrollToTarget(turnIndex: number, eventIndex: number | null) {
+  const root = conversationRoot.value;
+  if (!root) return;
+
   if (eventIndex != null) {
-    const eventEl = document.getElementById(`event-${eventIndex}`);
+    const eventEl = root.querySelector<HTMLElement>(`[data-event-idx="${eventIndex}"]`);
     if (eventEl) {
       scrollAndHighlight(eventEl);
       return;
     }
   }
-  const turnEl = document.getElementById(`turn-${turnIndex}`);
+  const turnEl = root.querySelector<HTMLElement>(`[data-turn-idx="${turnIndex}"]`);
   if (turnEl) scrollAndHighlight(turnEl);
 }
 
@@ -232,7 +243,7 @@ function retryLoadTurns() {
 </script>
 
 <template>
-  <div>
+  <div ref="conversationRoot">
     <!-- Error alert for failed turn loading -->
     <ErrorAlert
       v-if="store.turnsError"
@@ -263,7 +274,7 @@ function retryLoadTurns() {
     <!-- ═══════════════ COMPACT VIEW ═══════════════ -->
     <div v-else-if="activeView === 'compact'" class="turn-group">
       <template v-for="turn in store.turns" :key="turn.turnIndex">
-        <div v-if="turn.userMessage" :id="turn.eventIndex != null ? `event-${turn.eventIndex}` : `turn-${turn.turnIndex}`" class="compact-turn-user">
+        <div v-if="turn.userMessage" :data-event-idx="turn.eventIndex != null ? turn.eventIndex : undefined" :data-turn-idx="turn.eventIndex == null ? turn.turnIndex : undefined" class="compact-turn-user">
           <span class="compact-turn-label-prefix user">👤 User</span>
           <div class="compact-turn-user-text">{{ truncateText(turn.userMessage, 300) }}</div>
         </div>
@@ -309,7 +320,7 @@ function retryLoadTurns() {
               />
               <button
                 v-for="tc in section.toolCalls"
-                :id="tc.eventIndex != null ? `event-${tc.eventIndex}` : undefined"
+                :data-event-idx="tc.eventIndex != null ? tc.eventIndex : undefined"
                 :key="tc.toolCallId ?? tc.toolName"
                 class="compact-tool-pill"
                 :class="{
@@ -360,7 +371,7 @@ function retryLoadTurns() {
 
     <!-- ═══════════════ TIMELINE VIEW ═══════════════ -->
     <div v-else-if="activeView === 'timeline'" class="timeline-view">
-      <div v-for="(turn, turnIdx) in store.turns" :key="turn.turnIndex" :id="`turn-${turn.turnIndex}`" class="timeline-turn">
+      <div v-for="(turn, turnIdx) in store.turns" :key="turn.turnIndex" :data-turn-idx="turn.turnIndex" class="timeline-turn">
         <div v-if="turnIdx < store.turns.length - 1" class="timeline-connector" />
         <div class="timeline-marker">{{ turn.turnIndex }}</div>
 
@@ -407,7 +418,7 @@ function retryLoadTurns() {
               <div :style="section.agentId ? { paddingLeft: '12px', borderLeft: `2px solid color-mix(in srgb, ${getAgentColor(section.agentType)} 25%, transparent)` } : {}" style="display: flex; flex-direction: column; gap: 6px;">
                 <ToolCallItem
                   v-for="tc in section.toolCalls"
-                  :id="tc.eventIndex != null ? `event-${tc.eventIndex}` : undefined"
+                  :data-event-idx="tc.eventIndex != null ? tc.eventIndex : undefined"
                   :key="tc.toolCallId ?? tc.toolName"
                   v-bind="tcProps(turn, tc, 'tl-', 'compact')"
                   @toggle="toggleToolDetail(turn, tc, 'tl-')"

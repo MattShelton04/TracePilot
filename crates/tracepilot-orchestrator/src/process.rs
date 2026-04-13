@@ -22,7 +22,7 @@ const CREATE_NEW_CONSOLE: u32 = 0x00000010;
 #[cfg(windows)]
 const CREATE_BREAKAWAY_FROM_JOB: u32 = 0x01000000;
 #[cfg(windows)]
-const CREATE_NO_WINDOW: u32 = 0x08000000;
+pub(crate) const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 // ─── Linux terminal emulator fallback list ──────────────────────────
 #[cfg(target_os = "linux")]
