@@ -16,14 +16,17 @@ const emit = defineEmits<{
   "update:modelValue": [value: string];
 }>();
 
-const route = useRoute();
-const router = useRouter();
+// Only call useRoute/useRouter when NOT in local mode (i.e. router is available).
+// Child (viewer) windows don't install vue-router; calling useRoute() there
+// returns undefined and logs inject warnings.
+const route = props.modelValue === undefined ? useRoute() : undefined;
+const router = props.modelValue === undefined ? useRouter() : undefined;
 
 /** True when TabNav is controlled by v-model (local mode) */
 const isLocalMode = computed(() => props.modelValue !== undefined);
 
 const activeTab = computed(() =>
-  isLocalMode.value ? props.modelValue! : (route.name as string),
+  isLocalMode.value ? props.modelValue! : (route?.name as string),
 );
 
 // Track which tab has tabindex="0" — follows keyboard focus, resets on route change
@@ -44,7 +47,7 @@ function navigate(routeName: string) {
   if (isLocalMode.value) {
     emit("update:modelValue", routeName);
   } else {
-    router.push({ name: routeName, params: route.params });
+    router!.push({ name: routeName, params: route!.params });
   }
 }
 

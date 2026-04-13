@@ -270,12 +270,26 @@ async function pollRunningSessionsForAskUser() {
   try {
     const sessionsStore = useSessionsStore();
 
-    // Filter by scope and cap at 5 most recent to limit network traffic.
+    // Filter by scope — no hard cap. Each poll is a lightweight JSON fetch.
     const allRunning = sessionsStore.sessions.filter((s) => s.isRunning);
-    const scopedRunning = filterSessionsByScope(allRunning).slice(0, 5);
+    const scopedRunning = filterSessionsByScope(allRunning);
 
     for (const session of scopedRunning) {
       try {
+        // Inline seeding: if we have no baseline for this session, seed it
+        // now instead of scanning (prevents stale alert burst on scope change).
+        if (!lastSeenTurnCount.has(session.id)) {
+          const result = await getSessionTurns(session.id);
+          lastSeenTurnCount.set(session.id, result.turns.length);
+          for (const turn of result.turns) {
+            for (const tc of turn.toolCalls) {
+              if (tc.toolName !== "ask_user") continue;
+              const rawKey = tc.toolCallId ?? `${turn.turnIndex}:ask_user`;
+              alertedAskUserCalls.add(`${session.id}:${rawKey}`);
+            }
+          }
+          continue;
+        }
         const result = await getSessionTurns(session.id);
         scanTurnsForAskUser(session.id, result.turns, session.summary);
       } catch (e) {
@@ -300,7 +314,7 @@ async function seedTurnBaselines() {
   try {
     const sessionsStore = useSessionsStore();
     const allRunning = sessionsStore.sessions.filter((s) => s.isRunning);
-    const runningSessions = filterSessionsByScope(allRunning).slice(0, 5);
+    const runningSessions = filterSessionsByScope(allRunning);
 
     for (const session of runningSessions) {
       if (lastSeenTurnCount.has(session.id)) continue;

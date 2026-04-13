@@ -54,12 +54,13 @@ onMounted(async () => {
   }
 });
 
-// Notify main window when this popup closes so it can update monitored set
-onUnmounted(async () => {
-  try {
-    const { emit } = await import("@tauri-apps/api/event");
-    await emit("popup-session-closed", { sessionId: props.sessionId });
-  } catch { /* best-effort */ }
+// Notify main window when this popup closes so it can update monitored set.
+// Uses synchronous event emission for reliability — async imports may not
+// complete before the webview tears down during native window close.
+import { emit } from "@tauri-apps/api/event";
+
+onUnmounted(() => {
+  emit("popup-session-closed", { sessionId: props.sessionId }).catch(() => {});
 });
 
 async function updateWindowTitle() {

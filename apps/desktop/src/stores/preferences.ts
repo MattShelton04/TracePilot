@@ -90,7 +90,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
   const alertsOnSessionEnd = ref(true);
   const alertsOnAskUser = ref(true);
   const alertsOnSessionError = ref(false);
-  const alertsCooldownSeconds = ref(30);
+  const alertsCooldownSeconds = ref(20);
 
   // Ephemeral state — stays in localStorage only
   const lastViewedSession = ref<string | null>(localStorage.getItem("tracepilot-last-session"));
@@ -230,7 +230,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
       alertsOnSessionEnd.value = config.alerts.onSessionEnd ?? true;
       alertsOnAskUser.value = config.alerts.onAskUser ?? true;
       alertsOnSessionError.value = config.alerts.onSessionError ?? false;
-      alertsCooldownSeconds.value = config.alerts.cooldownSeconds ?? 30;
+      alertsCooldownSeconds.value = config.alerts.cooldownSeconds ?? 20;
     }
   }
 

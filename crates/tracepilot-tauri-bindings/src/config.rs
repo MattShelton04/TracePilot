@@ -323,7 +323,7 @@ pub struct AlertsConfig {
 }
 
 fn default_alert_cooldown() -> u32 {
-    30
+    20
 }
 
 fn default_alert_scope() -> String {

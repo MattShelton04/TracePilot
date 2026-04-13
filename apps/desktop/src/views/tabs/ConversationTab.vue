@@ -107,14 +107,17 @@ onBeforeUnmount(() => {
 });
 
 function scrollToTarget(turnIndex: number, eventIndex: number | null) {
+  const root = conversationRoot.value;
+  if (!root) return;
+
   if (eventIndex != null) {
-    const eventEl = document.getElementById(`event-${eventIndex}`);
+    const eventEl = root.querySelector<HTMLElement>(`[data-event-idx="${eventIndex}"]`);
     if (eventEl) {
       scrollAndHighlight(eventEl);
       return;
     }
   }
-  const turnEl = document.getElementById(`turn-${turnIndex}`);
+  const turnEl = root.querySelector<HTMLElement>(`[data-turn-idx="${turnIndex}"]`);
   if (turnEl) scrollAndHighlight(turnEl);
 }
 
@@ -271,7 +274,7 @@ function retryLoadTurns() {
     <!-- ═══════════════ COMPACT VIEW ═══════════════ -->
     <div v-else-if="activeView === 'compact'" class="turn-group">
       <template v-for="turn in store.turns" :key="turn.turnIndex">
-        <div v-if="turn.userMessage" :id="turn.eventIndex != null ? `event-${turn.eventIndex}` : `turn-${turn.turnIndex}`" class="compact-turn-user">
+        <div v-if="turn.userMessage" :data-event-idx="turn.eventIndex != null ? turn.eventIndex : undefined" :data-turn-idx="turn.eventIndex == null ? turn.turnIndex : undefined" class="compact-turn-user">
           <span class="compact-turn-label-prefix user">👤 User</span>
           <div class="compact-turn-user-text">{{ truncateText(turn.userMessage, 300) }}</div>
         </div>
@@ -317,7 +320,7 @@ function retryLoadTurns() {
               />
               <button
                 v-for="tc in section.toolCalls"
-                :id="tc.eventIndex != null ? `event-${tc.eventIndex}` : undefined"
+                :data-event-idx="tc.eventIndex != null ? tc.eventIndex : undefined"
                 :key="tc.toolCallId ?? tc.toolName"
                 class="compact-tool-pill"
                 :class="{
@@ -368,7 +371,7 @@ function retryLoadTurns() {
 
     <!-- ═══════════════ TIMELINE VIEW ═══════════════ -->
     <div v-else-if="activeView === 'timeline'" class="timeline-view">
-      <div v-for="(turn, turnIdx) in store.turns" :key="turn.turnIndex" :id="`turn-${turn.turnIndex}`" class="timeline-turn">
+      <div v-for="(turn, turnIdx) in store.turns" :key="turn.turnIndex" :data-turn-idx="turn.turnIndex" class="timeline-turn">
         <div v-if="turnIdx < store.turns.length - 1" class="timeline-connector" />
         <div class="timeline-marker">{{ turn.turnIndex }}</div>
 
@@ -415,7 +418,7 @@ function retryLoadTurns() {
               <div :style="section.agentId ? { paddingLeft: '12px', borderLeft: `2px solid color-mix(in srgb, ${getAgentColor(section.agentType)} 25%, transparent)` } : {}" style="display: flex; flex-direction: column; gap: 6px;">
                 <ToolCallItem
                   v-for="tc in section.toolCalls"
-                  :id="tc.eventIndex != null ? `event-${tc.eventIndex}` : undefined"
+                  :data-event-idx="tc.eventIndex != null ? tc.eventIndex : undefined"
                   :key="tc.toolCallId ?? tc.toolName"
                   v-bind="tcProps(turn, tc, 'tl-', 'compact')"
                   @toggle="toggleToolDetail(turn, tc, 'tl-')"

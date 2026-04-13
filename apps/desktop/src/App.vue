@@ -39,6 +39,38 @@ const { isMain } = useWindowRole();
 const phase = ref<AppPhase>("loading");
 const expectedSessionCount = ref(0);
 const showUpdateModal = ref(false);
+let alertInitDone = false;
+
+/** Idempotent: start alert watcher + notification handler + window lifecycle (main only) */
+function initAlertSystem() {
+  if (!isMain() || alertInitDone) return;
+  alertInitDone = true;
+
+  useAlertWatcher();
+  registerNotificationClickHandler();
+
+  // Close all viewer windows when the main window is closed
+  import("@tauri-apps/api/window").then(({ getCurrentWindow, getAllWindows }) => {
+    const mainWin = getCurrentWindow();
+    mainWin.onCloseRequested(async (event) => {
+      event.preventDefault();
+      try {
+        const all = await getAllWindows();
+        await Promise.allSettled(
+          all.filter((w) => w.label.startsWith("viewer-")).map((w) => w.close()),
+        );
+      } catch { /* best-effort */ }
+      await mainWin.destroy();
+    });
+  }).catch(() => {});
+
+  // Listen for popup window close events to update monitored session set
+  import("@tauri-apps/api/event").then(({ listen }) => {
+    listen<{ sessionId: string }>("popup-session-closed", (event) => {
+      tabStore.unregisterPopup(event.payload.sessionId);
+    });
+  }).catch(() => {});
+}
 
 const {
   showWhatsNew,
@@ -76,33 +108,8 @@ onMounted(async () => {
       // Wait for preferences to load from config.toml before using config-backed values
       await prefsStore.whenReady;
 
-      // Start alert watcher after prefs + sessions are available (main window only)
-      if (isMain()) {
-        useAlertWatcher();
-        registerNotificationClickHandler();
-
-        // Close all viewer windows when the main window is closed
-        import("@tauri-apps/api/window").then(({ getCurrentWindow, getAllWindows }) => {
-          const mainWin = getCurrentWindow();
-          mainWin.onCloseRequested(async (event) => {
-            event.preventDefault();
-            try {
-              const all = await getAllWindows();
-              await Promise.allSettled(
-                all.filter((w) => w.label.startsWith("viewer-")).map((w) => w.close()),
-              );
-            } catch { /* best-effort */ }
-            await mainWin.destroy();
-          });
-        }).catch(() => {});
-
-        // Listen for popup window close events to update monitored session set
-        import("@tauri-apps/api/event").then(({ listen }) => {
-          listen<{ sessionId: string }>("popup-session-closed", (event) => {
-            tabStore.unregisterPopup(event.payload.sessionId);
-          });
-        }).catch(() => {});
-      }
+      // Start alert watcher + window lifecycle (main window only, idempotent)
+      initAlertSystem();
 
       // Post-load hooks: version change detection + update check
       await checkVersionChange();
@@ -145,6 +152,7 @@ function onSetupComplete() {
   // Config.toml now exists — arm the auto-save watcher
   prefsStore.hydrate();
   sessionsStore.fetchSessions();
+  initAlertSystem();
 }
 
 async function onIndexingComplete() {
@@ -158,6 +166,7 @@ async function onIndexingComplete() {
   }
   phase.value = "app";
   sessionsStore.fetchSessions();
+  initAlertSystem();
 }
 
 /**

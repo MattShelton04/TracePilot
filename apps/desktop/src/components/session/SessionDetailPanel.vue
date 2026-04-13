@@ -165,6 +165,14 @@ onMounted(async () => {
   await checkRunning();
 });
 
+// When the underlying session changes (e.g. tab switches that reuse the panel),
+// re-load detail data and re-check running state.
+watch(() => props.sessionId, (newId) => {
+  isSessionActive.value = false;
+  props.store.loadDetail(newId);
+  checkRunning();
+});
+
 watch(isSessionActive, (active) => {
   if (!active) {
     confirmingCopy.value = false;

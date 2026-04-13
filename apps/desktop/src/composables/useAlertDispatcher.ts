@@ -12,8 +12,21 @@ import { logError, logInfo, logWarn } from "@/utils/logger";
 // ── Cooldown tracking ────────────────────────────────────────────
 // Maps "sessionId:alertType" → last-fired timestamp to enforce cooldown.
 const cooldownMap = new Map<string, number>();
+const PRUNE_INTERVAL = 5 * 60 * 1000; // 5 min
+let lastPrune = Date.now();
+
+/** Remove cooldown entries older than 10 minutes to prevent unbounded growth */
+function pruneCooldownMap(maxAge = 10 * 60 * 1000) {
+  const now = Date.now();
+  if (now - lastPrune < PRUNE_INTERVAL) return;
+  lastPrune = now;
+  for (const [key, ts] of cooldownMap) {
+    if (now - ts > maxAge) cooldownMap.delete(key);
+  }
+}
 
 function isCoolingDown(sessionId: string, type: AlertType, cooldownSeconds: number): boolean {
+  pruneCooldownMap();
   const key = `${sessionId}:${type}`;
   const lastFired = cooldownMap.get(key);
   if (!lastFired) return false;
@@ -133,7 +146,6 @@ let notificationListenerRegistered = false;
  */
 export async function registerNotificationClickHandler() {
   if (notificationListenerRegistered) return;
-  notificationListenerRegistered = true;
 
   try {
     const { onAction, registerActionTypes } = await import("@tauri-apps/plugin-notification");
@@ -157,6 +169,8 @@ export async function registerNotificationClickHandler() {
       }
     });
 
+    // Only mark as registered after everything succeeded
+    notificationListenerRegistered = true;
     logInfo("[alerts] Notification click handler registered");
   } catch (e) {
     logWarn("[alerts] Failed to register notification click handler:", e);

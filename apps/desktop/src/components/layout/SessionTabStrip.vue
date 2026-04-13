@@ -11,7 +11,6 @@
  *  - Drag a tab out of the strip to pop it into its own window
  */
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
-import { useRouter } from "vue-router";
 import { useSessionTabsStore } from "@/stores/sessionTabs";
 import { openSessionWindow } from "@tracepilot/client";
 import { logError } from "@/utils/logger";
@@ -26,7 +25,6 @@ const emit = defineEmits<{
   "go-home": [];
 }>();
 
-const router = useRouter();
 const tabStore = useSessionTabsStore();
 
 const tabRefs = ref<HTMLElement[]>([]);
@@ -76,9 +74,8 @@ function close(sessionId: string, event?: MouseEvent) {
 }
 
 function goHome() {
-  tabStore.deactivateAll();
+  // Emit event — parent (App.vue) handles deactivation + route push
   emit("go-home");
-  router.push("/");
 }
 
 function handleMiddleClick(event: MouseEvent, sessionId: string) {
@@ -267,10 +264,12 @@ function contextCloseAll() {
 
 async function contextPopOut() {
   if (!contextMenuTab.value) return;
+  const sessionId = contextMenuTab.value;
   try {
-    const tab = tabs.value.find((t) => t.sessionId === contextMenuTab.value);
-    await openSessionWindow(contextMenuTab.value, tab?.label);
-    tabStore.registerPopup(contextMenuTab.value);
+    const tab = tabs.value.find((t) => t.sessionId === sessionId);
+    await openSessionWindow(sessionId, tab?.label);
+    tabStore.registerPopup(sessionId);
+    tabStore.closeTab(sessionId);
   } catch (e) {
     logError("[tab-strip] Failed to pop out session:", e);
   }

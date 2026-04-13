@@ -7,9 +7,9 @@ use crate::error::CmdResult;
 
 /// Open a new viewer window for a specific session.
 ///
-/// The window label is `viewer-{short_id}` where short_id is the first 8 chars
-/// of the session ID. The full session ID is passed via a query parameter so
-/// the frontend doesn't need to resolve it from a prefix.
+/// The window label is `viewer-{session_id}` using the full session ID to
+/// avoid label collisions. The full session ID is also passed via a query
+/// parameter for the frontend.
 ///
 /// If a window with that label already exists, it is focused instead of
 /// creating a duplicate.
@@ -21,9 +21,7 @@ pub async fn open_session_window(
 ) -> CmdResult<String> {
     use tauri::Manager;
 
-    // Safe ASCII-only truncation (session IDs are hex UUIDs)
-    let short_id: String = session_id.chars().take(8).collect();
-    let label = format!("viewer-{}", short_id);
+    let label = format!("viewer-{}", session_id);
 
     // If a window with this label already exists, focus it instead
     if let Some(existing) = app.get_webview_window(&label) {
@@ -36,6 +34,8 @@ pub async fn open_session_window(
         format!("index.html?sessionId={}", session_id).into(),
     );
 
+    // Short ID for a readable title bar
+    let short_id: String = session_id.chars().take(8).collect();
     let title = match &session_name {
         Some(name) if !name.is_empty() => format!("TracePilot — {}", name),
         _ => format!("TracePilot — Session {}", short_id),
