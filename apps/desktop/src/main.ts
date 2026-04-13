@@ -2,6 +2,7 @@ import { ensureMarkdownReady, toErrorMessage } from "@tracepilot/ui";
 import { createPinia } from "pinia";
 import { createApp } from "vue";
 import App from "./App.vue";
+import { resolveWindowRole, useWindowRole } from "./composables/useWindowRole";
 import router from "./router";
 import "./styles.css";
 import { initLogging, logError } from "./utils/logger";
@@ -22,16 +23,35 @@ document.documentElement.setAttribute(
 // mdReady guard as a safety net if the import hasn't resolved yet.
 ensureMarkdownReady();
 
-const app = createApp(App);
+// Resolve window role early so child windows can mount a lightweight shell
+resolveWindowRole().then(async () => {
+  const { isViewer, viewerSessionId } = useWindowRole();
 
-// Global error handler — captures unhandled errors for both devtools AND log file
-app.config.errorHandler = (err, _instance, info) => {
-  logError(`[TracePilot] Unhandled error (${info}): ${toErrorMessage(err)}`, err);
-};
+  if (isViewer()) {
+    // Child viewer window — mount lightweight shell without router or full app chrome
+    const { default: ChildApp } = await import("./ChildApp.vue");
+    const childApp = createApp(ChildApp, {
+      sessionId: viewerSessionId.value ?? "",
+    });
+    childApp.config.errorHandler = (err, _instance, info) => {
+      logError(`[TracePilot:viewer] Unhandled error (${info}): ${toErrorMessage(err)}`, err);
+    };
+    childApp.use(createPinia());
+    childApp.mount("#root");
+  } else {
+    // Main window — full app with router, sidebar, setup wizard, etc.
+    const app = createApp(App);
+    app.config.errorHandler = (err, _instance, info) => {
+      logError(`[TracePilot] Unhandled error (${info}): ${toErrorMessage(err)}`, err);
+    };
+    app.use(createPinia());
+    app.use(router);
+    app.mount("#root");
+  }
 
-app.use(createPinia());
-app.use(router);
-app.mount("#root");
+  // Init logging AFTER mount — Tauri IPC requires mounted webview
+  initLogging();
+});
 
 // Window-level error handlers — catch errors that escape Vue's boundary
 window.addEventListener("error", (event) => {
@@ -41,9 +61,6 @@ window.addEventListener("error", (event) => {
 window.addEventListener("unhandledrejection", (event) => {
   logError(`[unhandledrejection] ${toErrorMessage(event.reason)}`, event.reason);
 });
-
-// Init logging AFTER mount — Tauri IPC requires mounted webview
-initLogging();
 
 // Dev-only: observe long tasks (>50ms main-thread blocks)
 if (import.meta.env.DEV) {

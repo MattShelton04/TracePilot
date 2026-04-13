@@ -855,6 +855,24 @@ export async function taskAttribution(sessionPath: string): Promise<AttributionS
   return invoke<AttributionSnapshot>("task_attribution", { sessionPath });
 }
 
+// ── Window management ──────────────────────────────────────────────
+
+/**
+ * Open a viewer window for a specific session.
+ * If the window already exists, it will be focused instead.
+ * Returns the window label (e.g. "viewer-abc12345").
+ */
+export async function openSessionWindow(sessionId: string, sessionName?: string): Promise<string> {
+  return invoke<string>("open_session_window", { sessionId, sessionName: sessionName ?? null });
+}
+
+/**
+ * Close a viewer window by its label.
+ */
+export async function closeSessionWindow(label: string): Promise<void> {
+  return invoke<void>("close_session_window", { label });
+}
+
 export * from "./mcp.js";
 // Re-export orchestration module
 export * from "./orchestration.js";

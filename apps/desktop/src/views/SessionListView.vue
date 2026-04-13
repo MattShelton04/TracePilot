@@ -20,12 +20,14 @@ import { usePerfMonitor } from "@/composables/usePerfMonitor";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { type SortOption, useSessionsStore } from "@/stores/sessions";
+import { useSessionTabsStore } from "@/stores/sessionTabs";
 
 const router = useRouter();
 const store = useSessionsStore();
 usePerfMonitor("SessionListView");
 const detailStore = useSessionDetailStore();
 const prefs = usePreferencesStore();
+const tabStore = useSessionTabsStore();
 const { refreshing, refresh } = useAutoRefresh({
   onRefresh: () => store.ensureIndex(),
   enabled: computed(() => prefs.autoRefreshEnabled),
@@ -47,6 +49,10 @@ const { setup: setupIndexingEvents } = useIndexingEvents({
 });
 
 function prefetchTopSessions() {
+  // NOTE: Prefetch populates the Pinia singleton's cache. Per-tab instances
+  // (via createSessionDetailInstance) have their own cache and won't benefit
+  // from this prefetch. This is acceptable — tabs do their own data loading
+  // on open, and this optimization still speeds up route-based navigation.
   const PREFETCH_LIMIT = 5;
   const MAX_TURN_COUNT = 500;
   const top = store.sessions
@@ -110,6 +116,19 @@ watch(
     }
   },
 );
+
+/**
+ * Open a session via route (default click) or in a tab (Ctrl/Meta+click).
+ */
+function openSession(event: MouseEvent, sessionId: string, label: string) {
+  if (event.ctrlKey || event.metaKey) {
+    // Ctrl/Meta+click → open in tab
+    tabStore.openTab(sessionId, label);
+    return;
+  }
+  // Default click → route-based navigation (legacy)
+  router.push({ name: "session-overview", params: { id: sessionId } });
+}
 </script>
 
 <template>
@@ -184,14 +203,16 @@ watch(
 
       <!-- Session cards grid -->
       <div v-else-if="store.filteredSessions.length > 0" class="grid-cards" data-testid="session-grid">
-        <router-link
+        <div
           v-for="session in store.filteredSessions"
           :key="session.id"
-          :to="{ name: 'session-overview', params: { id: session.id } }"
           data-testid="session-card"
           class="card card-interactive session-card-new"
           :class="{ 'card--active': session.isRunning }"
-          style="text-decoration: none; color: inherit;"
+          tabindex="0"
+          role="link"
+          @click="openSession($event, session.id, session.summary || 'Untitled Session')"
+          @keydown.enter="openSession($event as unknown as MouseEvent, session.id, session.summary || 'Untitled Session')"
         >
           <Transition name="active-pop">
             <span v-if="session.isRunning" class="active-pop-wrapper active-badge-topright">
@@ -236,7 +257,7 @@ watch(
             </div>
             <span class="card-time-new" :title="session.updatedAt">{{ formatRelativeTime(session.updatedAt) }}</span>
           </div>
-        </router-link>
+        </div>
       </div>
 
       <!-- Empty state -->
@@ -327,6 +348,9 @@ watch(
   height: 100%;
   padding: 20px;
   position: relative;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
 }
 
 .card-header-new {

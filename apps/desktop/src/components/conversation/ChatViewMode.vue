@@ -28,7 +28,7 @@ import { useCrossTurnSubagents } from "@/composables/useCrossTurnSubagents";
 import { useSubagentPanel } from "@/composables/useSubagentPanel";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
 import { usePreferencesStore } from "@/stores/preferences";
-import { useSessionDetailStore } from "@/stores/sessionDetail";
+import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import {
   COLLAPSE_THRESHOLD,
   countRegularTools,
@@ -46,7 +46,7 @@ import SdkSteeringPanel from "./SdkSteeringPanel.vue";
 
 // ─── Store & Route ────────────────────────────────────────────────
 
-const store = useSessionDetailStore();
+const store = useSessionDetailContext();
 const preferences = usePreferencesStore();
 const route = useRoute();
 const turns = computed(() => store.turns);

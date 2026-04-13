@@ -25,15 +25,21 @@ import {
   useToggleSet,
 } from "@tracepilot/ui";
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { useRoute } from "vue-router";
+import { type RouteLocationNormalizedLoaded, useRoute } from "vue-router";
 import ChatViewMode from "@/components/conversation/ChatViewMode.vue";
 import { useAutoScroll } from "@/composables/useAutoScroll";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
+import { useWindowRole } from "@/composables/useWindowRole";
 import { usePreferencesStore } from "@/stores/preferences";
-import { useSessionDetailStore } from "@/stores/sessionDetail";
+import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 
-const route = useRoute();
-const store = useSessionDetailStore();
+const { isViewer } = useWindowRole();
+// useRoute() returns undefined when no router is installed (child windows).
+// We provide an empty-query stub to avoid property-access crashes.
+const route: Pick<RouteLocationNormalizedLoaded, "query"> = isViewer()
+  ? { query: {} }
+  : useRoute();
+const store = useSessionDetailContext();
 const preferences = usePreferencesStore();
 const expandedToolDetails = useToggleSet<string>();
 const expandedReasoning = useToggleSet<string>();
@@ -54,10 +60,12 @@ const {
 const { getSections, getArgsSummary, findToolCallIndex, totalToolCalls, totalDurationMs } =
   useConversationSections(() => store.turns);
 
-// Auto-scroll
+// Auto-scroll — find this component's own .page-content ancestor (not a sibling tab's)
 const scrollContainer = ref<HTMLElement | null>(null);
+const conversationRoot = ref<HTMLElement | null>(null);
 onMounted(() => {
-  scrollContainer.value = document.querySelector(".page-content");
+  scrollContainer.value = conversationRoot.value?.closest(".page-content") as HTMLElement | null
+    ?? document.querySelector(".page-content");
 });
 const { isLockedToBottom, showScrollToTop, hasOverflow, scrollToBottom, scrollToTop } =
   useAutoScroll({
@@ -232,7 +240,7 @@ function retryLoadTurns() {
 </script>
 
 <template>
-  <div>
+  <div ref="conversationRoot">
     <!-- Error alert for failed turn loading -->
     <ErrorAlert
       v-if="store.turnsError"

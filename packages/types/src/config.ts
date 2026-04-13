@@ -82,6 +82,26 @@ export interface TracePilotConfig {
     /** Approximate token budget for context assembly per task. */
     contextBudgetTokens: number;
   };
+  alerts: {
+    /** Master switch for the alerting system. */
+    enabled: boolean;
+    /** Which sessions to monitor: 'monitored' = open tabs/views only, 'all' = all running. */
+    scope: "monitored" | "all";
+    /** Show native OS toast notifications. */
+    nativeNotifications: boolean;
+    /** Flash the taskbar icon when an alert fires. */
+    taskbarFlash: boolean;
+    /** Play a sound when an alert fires. */
+    soundEnabled: boolean;
+    /** Alert when a session agent finishes (completes or errors out). */
+    onSessionEnd: boolean;
+    /** Alert when a session prompts the user via ask_user. */
+    onAskUser: boolean;
+    /** Alert when a session encounters an error. */
+    onSessionError: boolean;
+    /** Minimum seconds between alerts for the same session to prevent spam. */
+    cooldownSeconds: number;
+  };
 }
 
 /** Result from validating a session directory */

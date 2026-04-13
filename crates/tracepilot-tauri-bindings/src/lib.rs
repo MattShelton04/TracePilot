@@ -276,6 +276,9 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::sdk::sdk_set_foreground_session,
             commands::sdk::sdk_detect_ui_server,
             commands::sdk::sdk_launch_ui_server,
+            // Window management commands (2)
+            commands::window::open_session_window,
+            commands::window::close_session_window,
         ])
         .build()
 }

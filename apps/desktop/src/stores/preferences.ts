@@ -81,6 +81,17 @@ export const usePreferencesStore = defineStore("preferences", () => {
   const featureFlags = ref<Record<string, boolean>>({ ...DEFAULT_FEATURES });
   const logLevel = ref("info");
 
+  // Alert preferences — exposed as reactive refs for the alerting system
+  const alertsEnabled = ref(false);
+  const alertsScope = ref<"monitored" | "all">("monitored");
+  const alertsNativeNotifications = ref(true);
+  const alertsTaskbarFlash = ref(true);
+  const alertsSoundEnabled = ref(false);
+  const alertsOnSessionEnd = ref(true);
+  const alertsOnAskUser = ref(true);
+  const alertsOnSessionError = ref(false);
+  const alertsCooldownSeconds = ref(30);
+
   // Ephemeral state — stays in localStorage only
   const lastViewedSession = ref<string | null>(localStorage.getItem("tracepilot-last-session"));
   const lastSeenVersion = ref<string | null>(localStorage.getItem("tracepilot-last-seen-version"));
@@ -208,6 +219,19 @@ export const usePreferencesStore = defineStore("preferences", () => {
       ...config.features,
     };
     logLevel.value = config.logging?.level ?? "info";
+
+    // Alert settings
+    if (config.alerts) {
+      alertsEnabled.value = config.alerts.enabled ?? false;
+      alertsScope.value = config.alerts.scope === "all" ? "all" : "monitored";
+      alertsNativeNotifications.value = config.alerts.nativeNotifications ?? true;
+      alertsTaskbarFlash.value = config.alerts.taskbarFlash ?? true;
+      alertsSoundEnabled.value = config.alerts.soundEnabled ?? false;
+      alertsOnSessionEnd.value = config.alerts.onSessionEnd ?? true;
+      alertsOnAskUser.value = config.alerts.onAskUser ?? true;
+      alertsOnSessionError.value = config.alerts.onSessionError ?? false;
+      alertsCooldownSeconds.value = config.alerts.cooldownSeconds ?? 30;
+    }
   }
 
   // ── Build config from reactive state ───────────────────────
@@ -239,6 +263,17 @@ export const usePreferencesStore = defineStore("preferences", () => {
       features: { ...featureFlags.value } as TracePilotConfig["features"],
       logging: { level: logLevel.value },
       tasks: base.tasks,
+      alerts: {
+        enabled: alertsEnabled.value,
+        scope: alertsScope.value,
+        nativeNotifications: alertsNativeNotifications.value,
+        taskbarFlash: alertsTaskbarFlash.value,
+        soundEnabled: alertsSoundEnabled.value,
+        onSessionEnd: alertsOnSessionEnd.value,
+        onAskUser: alertsOnAskUser.value,
+        onSessionError: alertsOnSessionError.value,
+        cooldownSeconds: alertsCooldownSeconds.value,
+      },
     };
   }
 
@@ -363,6 +398,15 @@ export const usePreferencesStore = defineStore("preferences", () => {
       contentMaxWidth,
       uiScale,
       logLevel,
+      alertsEnabled,
+      alertsScope,
+      alertsNativeNotifications,
+      alertsTaskbarFlash,
+      alertsSoundEnabled,
+      alertsOnSessionEnd,
+      alertsOnAskUser,
+      alertsOnSessionError,
+      alertsCooldownSeconds,
     ],
     scheduleSave,
     { deep: true },
@@ -473,6 +517,15 @@ export const usePreferencesStore = defineStore("preferences", () => {
     contentMaxWidth,
     uiScale,
     logLevel,
+    alertsEnabled,
+    alertsScope,
+    alertsNativeNotifications,
+    alertsTaskbarFlash,
+    alertsSoundEnabled,
+    alertsOnSessionEnd,
+    alertsOnAskUser,
+    alertsOnSessionError,
+    alertsCooldownSeconds,
     applyTheme: () => applyTheme(theme.value),
     /** Resolves when config has been loaded from backend. Await before reading config-backed values at startup. */
     whenReady: hydratePromise,

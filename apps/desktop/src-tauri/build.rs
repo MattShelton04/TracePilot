@@ -169,6 +169,9 @@ fn main() {
                     "sdk_set_foreground_session",
                     "sdk_detect_ui_server",
                     "sdk_launch_ui_server",
+                    // Window management commands
+                    "open_session_window",
+                    "close_session_window",
                 ])
                 .default_permission(tauri_build::DefaultPermissionRule::AllowAllCommands),
         ),

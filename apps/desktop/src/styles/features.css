@@ -432,6 +432,52 @@
 }
 
 /* ============================
+   ALERT BELL
+   ============================ */
+
+.alert-bell-btn {
+  position: relative;
+  background: none;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  padding: 5px;
+  cursor: pointer;
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  transition:
+    color var(--transition-fast),
+    background-color var(--transition-fast);
+}
+.alert-bell-btn:hover {
+  background: var(--neutral-subtle);
+  color: var(--text-primary);
+}
+.alert-bell-btn.has-unread {
+  color: var(--accent-fg);
+}
+
+.alert-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: var(--danger-fg);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  line-height: 16px;
+  text-align: center;
+  border-radius: 8px;
+  padding: 0 3px;
+  pointer-events: none;
+}
+
+/* ============================
    GRADIENT TEXT EFFECT
    ============================ */
 

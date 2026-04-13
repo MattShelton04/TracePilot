@@ -18,9 +18,9 @@ import {
 } from "@tracepilot/ui";
 import { computed } from "vue";
 import { usePreferencesStore } from "@/stores/preferences";
-import { useSessionDetailStore } from "@/stores/sessionDetail";
+import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 
-const store = useSessionDetailStore();
+const store = useSessionDetailContext();
 const prefs = usePreferencesStore();
 
 useSessionTabLoader(

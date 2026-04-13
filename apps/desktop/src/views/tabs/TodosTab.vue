@@ -10,10 +10,10 @@ import {
 } from "@tracepilot/ui";
 import { computed, ref } from "vue";
 import TodoDependencyGraph from "@/components/TodoDependencyGraph.vue";
-import { useSessionDetailStore } from "@/stores/sessionDetail";
+import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { buildTodoRelations, buildTodoStatusStats } from "@/utils/todoStats";
 
-const store = useSessionDetailStore();
+const store = useSessionDetailContext();
 
 const todosLoading = ref(false);
 const hasLoadedTodos = computed(() => store.loaded.has("todos"));

@@ -44,6 +44,8 @@ pub struct TracePilotConfig {
     pub logging: LoggingConfig,
     #[serde(default)]
     pub tasks: TasksConfig,
+    #[serde(default)]
+    pub alerts: AlertsConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -288,6 +290,62 @@ impl Default for TasksConfig {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AlertsConfig {
+    /// Master switch for the alerting system.
+    #[serde(default)]
+    pub enabled: bool,
+    /// Which sessions to monitor: "monitored" = open tabs/views only, "all" = all running.
+    #[serde(default = "default_alert_scope")]
+    pub scope: String,
+    /// Show native OS toast notifications.
+    #[serde(default = "default_true")]
+    pub native_notifications: bool,
+    /// Flash the taskbar icon when an alert fires.
+    #[serde(default = "default_true")]
+    pub taskbar_flash: bool,
+    /// Play a sound when an alert fires.
+    #[serde(default)]
+    pub sound_enabled: bool,
+    /// Alert when a session agent finishes.
+    #[serde(default = "default_true")]
+    pub on_session_end: bool,
+    /// Alert when a session prompts the user via ask_user.
+    #[serde(default = "default_true")]
+    pub on_ask_user: bool,
+    /// Alert when a session encounters an error.
+    #[serde(default)]
+    pub on_session_error: bool,
+    /// Minimum seconds between alerts for the same session.
+    #[serde(default = "default_alert_cooldown")]
+    pub cooldown_seconds: u32,
+}
+
+fn default_alert_cooldown() -> u32 {
+    30
+}
+
+fn default_alert_scope() -> String {
+    "monitored".to_string()
+}
+
+impl Default for AlertsConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            scope: default_alert_scope(),
+            native_notifications: true,
+            taskbar_flash: true,
+            sound_enabled: false,
+            on_session_end: true,
+            on_ask_user: true,
+            on_session_error: false,
+            cooldown_seconds: default_alert_cooldown(),
+        }
+    }
+}
+
 // ── Serde default helpers ────────────────────────────────────────
 
 fn default_true() -> bool {
@@ -338,7 +396,7 @@ impl Default for TracePilotConfig {
         // sentinel values — the setup wizard will prompt the user for paths.
         let home = home_dir().unwrap_or_default();
         Self {
-            version: 4,
+            version: 5,
             paths: PathsConfig {
                 session_state_dir: home
                     .join(".copilot")
@@ -359,13 +417,14 @@ impl Default for TracePilotConfig {
             features: FeaturesConfig::default(),
             logging: LoggingConfig::default(),
             tasks: TasksConfig::default(),
+            alerts: AlertsConfig::default(),
         }
     }
 }
 
 impl TracePilotConfig {
     /// Current schema version. Bump this when adding migrations.
-    pub const CURRENT_VERSION: u32 = 4;
+    pub const CURRENT_VERSION: u32 = 5;
 
     /// Apply any pending migrations to bring the config up to the current version.
     /// Returns true if any migrations were applied.
@@ -400,6 +459,12 @@ impl TracePilotConfig {
         if self.version < 4 {
             self.version = 4;
             tracing::info!("Migrated config from v3 → v4 (added tasks config)");
+        }
+
+        // Migration from v4 → v5: added alerts config section (handled by serde default).
+        if self.version < 5 {
+            self.version = 5;
+            tracing::info!("Migrated config from v4 → v5 (added alerts config)");
         }
 
         self.version != original
