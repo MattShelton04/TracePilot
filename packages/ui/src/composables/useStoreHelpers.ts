@@ -65,8 +65,11 @@ export interface RunMutationOptions {
    * Called **after** `error.value` has been set to the formatted message,
    * so reading `error.value` inside the callback is safe.
    *
-   * The callback is guarded — if it throws, the exception is silently
-   * swallowed so it cannot break the mutation's return semantics.
+   * Must be synchronous — the guard only catches sync exceptions.
+   * Returning a rejected `Promise` will escape as an unhandled rejection.
+   *
+   * The callback is guarded — if it throws synchronously, the exception is
+   * silently swallowed so it cannot break the mutation's return semantics.
    */
   onError?: (e: unknown) => void;
 }

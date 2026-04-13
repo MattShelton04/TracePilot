@@ -274,9 +274,7 @@ export const useSkillsStore = defineStore("skills", () => {
     gitRef?: string,
   ): Promise<GitHubSkillPreview[]> {
     return (
-      (await runMutation(error, async () => {
-        return await skillsDiscoverGitHub(owner, repo, path, gitRef);
-      })) ?? []
+      (await runMutation(error, () => skillsDiscoverGitHub(owner, repo, path, gitRef))) ?? []
     );
   }
 
@@ -297,9 +295,7 @@ export const useSkillsStore = defineStore("skills", () => {
 
   async function discoverLocal(dir: string): Promise<LocalSkillPreview[]> {
     return (
-      (await runMutation(error, async () => {
-        return await skillsDiscoverLocal(dir);
-      })) ?? []
+      (await runMutation(error, () => skillsDiscoverLocal(dir))) ?? []
     );
   }
 
@@ -307,9 +303,7 @@ export const useSkillsStore = defineStore("skills", () => {
     repos: [string, string][],
   ): Promise<RepoSkillsResult[]> {
     return (
-      (await runMutation(error, async () => {
-        return await skillsDiscoverRepos(repos);
-      })) ?? []
+      (await runMutation(error, () => skillsDiscoverRepos(repos))) ?? []
     );
   }
 
