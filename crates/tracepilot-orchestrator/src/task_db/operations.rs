@@ -1,7 +1,7 @@
 //! CRUD operations for the task database.
 
 use crate::error::{OrchestratorError, Result};
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 use serde::de::DeserializeOwned;
 
 use super::query_builder::TaskQueryBuilder;
@@ -19,7 +19,14 @@ pub fn create_task(conn: &Connection, task: &NewTask) -> Result<Task> {
     conn.execute(
         "INSERT INTO tasks (id, task_type, preset_id, priority, input_params, max_retries)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-        params![id, task.task_type, task.preset_id, priority, params_json, max_retries],
+        params![
+            id,
+            task.task_type,
+            task.preset_id,
+            priority,
+            params_json,
+            max_retries
+        ],
     )?;
 
     get_task(conn, &id)
@@ -487,11 +494,7 @@ fn update_job_counters(conn: &Connection, task_id: &str) -> Result<()> {
 
         conn.execute(
             "UPDATE jobs SET status = ?1, completed_at = ?2 WHERE id = ?3",
-            params![
-                job_status.as_str(),
-                chrono::Utc::now().to_rfc3339(),
-                job_id
-            ],
+            params![job_status.as_str(), chrono::Utc::now().to_rfc3339(), job_id],
         )?;
     }
 
@@ -558,11 +561,8 @@ fn row_to_job(row: &rusqlite::Row<'_>) -> Result<Job> {
 }
 
 fn parse_json_field<T: DeserializeOwned>(field: &str, raw: &str) -> Result<T> {
-    serde_json::from_str(raw).map_err(|e| {
-        OrchestratorError::Task(format!(
-            "Invalid JSON in {field}: {e}"
-        ))
-    })
+    serde_json::from_str(raw)
+        .map_err(|e| OrchestratorError::Task(format!("Invalid JSON in {field}: {e}")))
 }
 
 #[cfg(test)]

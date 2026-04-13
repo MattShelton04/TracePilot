@@ -109,8 +109,7 @@ mod tests {
 
     #[test]
     fn from_serde_json_error() {
-        let json_err: serde_json::Error =
-            serde_json::from_str::<String>("invalid").unwrap_err();
+        let json_err: serde_json::Error = serde_json::from_str::<String>("invalid").unwrap_err();
         let mcp_err: McpError = json_err.into();
         assert!(matches!(mcp_err, McpError::JsonSource(_)));
         assert!(!mcp_err.to_string().is_empty());
@@ -130,7 +129,10 @@ mod tests {
         let io_err = std::io::Error::new(std::io::ErrorKind::PermissionDenied, "access denied");
         let mcp_err: McpError = io_err.into();
         assert!(matches!(mcp_err, McpError::IoSource(_)));
-        assert!(mcp_err.source().is_some(), "source chain should be preserved");
+        assert!(
+            mcp_err.source().is_some(),
+            "source chain should be preserved"
+        );
         assert!(mcp_err.to_string().contains("MCP I/O error"));
     }
 
@@ -141,7 +143,10 @@ mod tests {
             serde_json::from_str::<String>("{{invalid}}").unwrap_err();
         let mcp_err: McpError = json_err.into();
         assert!(matches!(mcp_err, McpError::JsonSource(_)));
-        assert!(mcp_err.source().is_some(), "source chain should be preserved");
+        assert!(
+            mcp_err.source().is_some(),
+            "source chain should be preserved"
+        );
         assert!(mcp_err.to_string().contains("MCP JSON error"));
     }
 

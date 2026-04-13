@@ -315,7 +315,10 @@ mod tests {
             .with_i64_filter("max_retries", Some(max_retries))
             .build();
 
-        assert_eq!(sql, "SELECT * FROM tasks WHERE status = ? AND max_retries = ?");
+        assert_eq!(
+            sql,
+            "SELECT * FROM tasks WHERE status = ? AND max_retries = ?"
+        );
         assert_eq!(params.len(), 2);
     }
 }

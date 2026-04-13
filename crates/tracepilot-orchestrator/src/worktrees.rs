@@ -1,7 +1,9 @@
 //! Git worktree management operations.
 
 use crate::error::{OrchestratorError, Result};
-use crate::types::{CreateWorktreeRequest, PruneResult, WorktreeDetails, WorktreeInfo, WorktreeStatus};
+use crate::types::{
+    CreateWorktreeRequest, PruneResult, WorktreeDetails, WorktreeInfo, WorktreeStatus,
+};
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 use std::time::Duration;
@@ -59,14 +61,16 @@ pub fn is_git_repo(path: &Path) -> bool {
 pub fn get_default_branch(repo_path: &Path) -> Result<String> {
     // Try symbolic-ref of origin/HEAD first (most reliable for cloned repos)
     if let Ok(ref_str) = git(repo_path, &["symbolic-ref", "refs/remotes/origin/HEAD"])
-        && let Some(branch) = ref_str.strip_prefix("refs/remotes/origin/") {
-            return Ok(branch.to_string());
-        }
+        && let Some(branch) = ref_str.strip_prefix("refs/remotes/origin/")
+    {
+        return Ok(branch.to_string());
+    }
     // Fall back to the branch that HEAD points to in the main worktree
     if let Ok(head_ref) = git(repo_path, &["symbolic-ref", "--short", "HEAD"])
-        && !head_ref.is_empty() {
-            return Ok(head_ref);
-        }
+        && !head_ref.is_empty()
+    {
+        return Ok(head_ref);
+    }
     // Last resort
     Ok("main".to_string())
 }
@@ -100,14 +104,12 @@ pub fn create_worktree(request: &CreateWorktreeRequest) -> Result<WorktreeInfo> 
     let target = match &request.target_dir {
         Some(dir) => PathBuf::from(dir),
         None => {
-            let parent = repo
-                .parent()
-                .ok_or_else(|| OrchestratorError::Worktree("Cannot find parent directory".into()))?;
+            let parent = repo.parent().ok_or_else(|| {
+                OrchestratorError::Worktree("Cannot find parent directory".into())
+            })?;
             parent.join(format!(
                 "{}-{}",
-                repo.file_name()
-                    .unwrap_or_default()
-                    .to_string_lossy(),
+                repo.file_name().unwrap_or_default().to_string_lossy(),
                 sanitize_branch_name(&request.branch)
             ))
         }
@@ -119,7 +121,15 @@ pub fn create_worktree(request: &CreateWorktreeRequest) -> Result<WorktreeInfo> 
     args.push(&target_str);
 
     // Check if the branch already exists locally
-    let branch_exists = git(repo, &["rev-parse", "--verify", &format!("refs/heads/{}", &request.branch)]).is_ok();
+    let branch_exists = git(
+        repo,
+        &[
+            "rev-parse",
+            "--verify",
+            &format!("refs/heads/{}", &request.branch),
+        ],
+    )
+    .is_ok();
 
     let base_branch_owned: String;
     if !branch_exists {
@@ -213,10 +223,7 @@ pub fn prune_worktrees(repo_path: &Path) -> Result<PruneResult> {
 
 /// List branches for a repository (local + remote, deduplicated).
 pub fn list_branches(repo_path: &Path) -> Result<Vec<String>> {
-    let output = git(
-        repo_path,
-        &["branch", "-a", "--format=%(refname:short)"],
-    )?;
+    let output = git(repo_path, &["branch", "-a", "--format=%(refname:short)"])?;
 
     let mut seen = std::collections::HashSet::new();
     let mut branches = Vec::new();
@@ -297,7 +304,12 @@ pub fn get_worktree_details(worktree_path: &Path) -> Result<WorktreeDetails> {
             let remote_ref = format!("origin/{}", default_branch);
             if let Ok(output) = git(
                 worktree_path,
-                &["rev-list", "--left-right", "--count", &format!("HEAD...{}", remote_ref)],
+                &[
+                    "rev-list",
+                    "--left-right",
+                    "--count",
+                    &format!("HEAD...{}", remote_ref),
+                ],
             ) {
                 parse_count(&output)
             } else {
@@ -343,10 +355,17 @@ pub fn disk_usage_bytes(path: &Path) -> Result<u64> {
 /// Validate a branch name using git check-ref-format.
 pub fn validate_branch_name(name: &str) -> Result<()> {
     if name.is_empty() {
-        return Err(OrchestratorError::Worktree("Branch name cannot be empty".into()));
+        return Err(OrchestratorError::Worktree(
+            "Branch name cannot be empty".into(),
+        ));
     }
     // Use git check-ref-format to validate (5s timeout for local check)
-    let output = crate::process::run_hidden("git", &["check-ref-format", "--branch", name], None, Some(5))?;
+    let output = crate::process::run_hidden(
+        "git",
+        &["check-ref-format", "--branch", name],
+        None,
+        Some(5),
+    )?;
     if output.status.success() {
         Ok(())
     } else {
@@ -460,8 +479,9 @@ fn build_worktree_info(
 fn sanitize_branch_name(name: &str) -> String {
     name.chars()
         .map(|c| match c {
-            '/' | ' ' | '~' | '^' | ':' | '?' | '*' | '[' | ']' | '\\' | '<' | '>' | '|'
-            | '"' => '-',
+            '/' | ' ' | '~' | '^' | ':' | '?' | '*' | '[' | ']' | '\\' | '<' | '>' | '|' | '"' => {
+                '-'
+            }
             _ => c,
         })
         .collect()
@@ -487,7 +507,10 @@ mod tests {
 
     #[test]
     fn test_sanitize_branch_name() {
-        assert_eq!(sanitize_branch_name("feature/my-feature"), "feature-my-feature");
+        assert_eq!(
+            sanitize_branch_name("feature/my-feature"),
+            "feature-my-feature"
+        );
         assert_eq!(sanitize_branch_name("my branch"), "my-branch");
         assert_eq!(sanitize_branch_name("test~1"), "test-1");
         assert_eq!(sanitize_branch_name("foo^bar"), "foo-bar");

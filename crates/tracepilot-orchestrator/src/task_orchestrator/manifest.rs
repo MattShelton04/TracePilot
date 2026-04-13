@@ -53,18 +53,9 @@ impl ManifestTask {
             id: task.id.clone(),
             task_type: task.task_type.clone(),
             title,
-            context_file: task_dir
-                .join("context.md")
-                .to_string_lossy()
-                .to_string(),
-            result_file: task_dir
-                .join("result.json")
-                .to_string_lossy()
-                .to_string(),
-            status_file: task_dir
-                .join("status.json")
-                .to_string_lossy()
-                .to_string(),
+            context_file: task_dir.join("context.md").to_string_lossy().to_string(),
+            result_file: task_dir.join("result.json").to_string_lossy().to_string(),
+            status_file: task_dir.join("status.json").to_string_lossy().to_string(),
             model: model.to_string(),
             priority: task.priority.clone(),
         }
@@ -110,10 +101,9 @@ pub fn write_manifest(manifest: &TaskManifest, path: &Path) -> Result<()> {
 ///
 /// Reads the existing manifest, sets `shutdown: true`, and writes it back.
 pub fn update_manifest_shutdown(path: &Path) -> Result<()> {
-    let mut manifest: TaskManifest = json_io::atomic_json_read_opt(path)?
-        .ok_or_else(|| OrchestratorError::Task(
-            "Cannot shutdown: manifest file does not exist".into(),
-        ))?;
+    let mut manifest: TaskManifest = json_io::atomic_json_read_opt(path)?.ok_or_else(|| {
+        OrchestratorError::Task("Cannot shutdown: manifest file does not exist".into())
+    })?;
     manifest.shutdown = true;
     json_io::atomic_json_write(path, &manifest)
 }
@@ -123,14 +113,10 @@ pub fn update_manifest_shutdown(path: &Path) -> Result<()> {
 /// This allows dynamically adding tasks to a running orchestrator — the
 /// orchestrator re-reads the manifest each poll cycle, so appended tasks
 /// will be picked up automatically.
-pub fn append_task_to_manifest(
-    path: &Path,
-    task: &ManifestTask,
-) -> Result<()> {
-    let mut manifest: TaskManifest = json_io::atomic_json_read_opt(path)?
-        .ok_or_else(|| OrchestratorError::Task(
-            "Cannot append: manifest file does not exist".into(),
-        ))?;
+pub fn append_task_to_manifest(path: &Path, task: &ManifestTask) -> Result<()> {
+    let mut manifest: TaskManifest = json_io::atomic_json_read_opt(path)?.ok_or_else(|| {
+        OrchestratorError::Task("Cannot append: manifest file does not exist".into())
+    })?;
     // Avoid duplicate entries
     if !manifest.tasks.iter().any(|t| t.id == task.id) {
         manifest.tasks.push(task.clone());
@@ -205,7 +191,10 @@ mod tests {
         task.input_params = serde_json::json!({ "title": 42 });
 
         let mt = ManifestTask::from_task(&task, "gpt-5.4", dir.path());
-        assert_eq!(mt.title, "session_summary", "non-string title falls back to task_type");
+        assert_eq!(
+            mt.title, "session_summary",
+            "non-string title falls back to task_type"
+        );
     }
 
     #[test]
@@ -228,8 +217,14 @@ mod tests {
         let t1 = sample_task("task-001", "high");
         let t2 = sample_task("task-002", "normal");
         let inputs = vec![
-            ManifestInput { task: &t1, model: "claude-haiku-4.5".to_string() },
-            ManifestInput { task: &t2, model: "claude-haiku-4.5".to_string() },
+            ManifestInput {
+                task: &t1,
+                model: "claude-haiku-4.5".to_string(),
+            },
+            ManifestInput {
+                task: &t2,
+                model: "claude-haiku-4.5".to_string(),
+            },
         ];
         let manifest = generate_manifest(&inputs, dir.path(), 30, 3);
 
@@ -247,9 +242,10 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let path = dir.path().join("manifest.json");
         let t1 = sample_task("task-001", "normal");
-        let inputs = vec![
-            ManifestInput { task: &t1, model: "claude-haiku-4.5".to_string() },
-        ];
+        let inputs = vec![ManifestInput {
+            task: &t1,
+            model: "claude-haiku-4.5".to_string(),
+        }];
         let manifest = generate_manifest(&inputs, dir.path(), 30, 3);
 
         write_manifest(&manifest, &path).unwrap();
@@ -276,9 +272,10 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let path = dir.path().join("manifest.json");
         let t1 = sample_task("task-001", "normal");
-        let inputs = vec![
-            ManifestInput { task: &t1, model: "claude-haiku-4.5".to_string() },
-        ];
+        let inputs = vec![ManifestInput {
+            task: &t1,
+            model: "claude-haiku-4.5".to_string(),
+        }];
         let manifest = generate_manifest(&inputs, dir.path(), 30, 3);
         write_manifest(&manifest, &path).unwrap();
 
@@ -304,9 +301,10 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let path = dir.path().join("manifest.json");
         let t1 = sample_task("task-001", "normal");
-        let inputs = vec![
-            ManifestInput { task: &t1, model: "claude-haiku-4.5".to_string() },
-        ];
+        let inputs = vec![ManifestInput {
+            task: &t1,
+            model: "claude-haiku-4.5".to_string(),
+        }];
         let manifest = generate_manifest(&inputs, dir.path(), 30, 3);
         write_manifest(&manifest, &path).unwrap();
 
