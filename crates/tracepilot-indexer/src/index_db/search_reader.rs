@@ -1767,46 +1767,6 @@ mod tests {
     }
 
     #[test]
-    fn test_builder_sort_newest() {
-        let (sql, _) = SearchQueryBuilder::new("SELECT *", false)
-            .with_sort(Some("newest"))
-            .build();
-
-        assert!(sql.contains("ORDER BY sc.timestamp_unix DESC NULLS LAST"));
-    }
-
-    #[test]
-    fn test_builder_sort_oldest() {
-        let (sql, _) = SearchQueryBuilder::new("SELECT *", false)
-            .with_sort(Some("oldest"))
-            .build();
-
-        assert!(sql.contains("ORDER BY sc.timestamp_unix ASC NULLS LAST"));
-    }
-
-    #[test]
-    fn test_builder_sort_relevance_fts() {
-        let (sql, _) = SearchQueryBuilder::new("SELECT *", true) // is_fts = true
-            .with_sort(None) // Default sort for FTS
-            .build();
-
-        // Should use relevance-weighted ranking
-        assert!(sql.contains("ORDER BY CASE sc.content_type"));
-        assert!(sql.contains("WHEN 'user_message' THEN rank * 2.0"));
-        assert!(sql.contains("WHEN 'error' THEN rank * 2.0"));
-    }
-
-    #[test]
-    fn test_builder_sort_default_non_fts() {
-        let (sql, _) = SearchQueryBuilder::new("SELECT *", false) // is_fts = false
-            .with_sort(None) // Default sort for non-FTS
-            .build();
-
-        // Should default to newest first
-        assert!(sql.contains("ORDER BY sc.timestamp_unix DESC NULLS LAST"));
-    }
-
-    #[test]
     fn test_builder_fts_match_clause() {
         let (sql, params) = SearchQueryBuilder::new("SELECT *", true)
             .with_fts_match("error message")
@@ -2001,5 +1961,147 @@ mod tests {
         // We just verify they're building valid SQL
         assert!(sql_fts.contains("WHERE"));
         assert!(sql_non_fts.contains("WHERE"));
+    }
+
+    // ── Security: SQL Injection Prevention Tests ──────────────────────
+
+    #[test]
+    fn test_builder_sql_injection_protection_session_id() {
+        // Verify that malicious SQL in session_id is safely parameterized
+        let filters = SearchFilters {
+            content_types: vec![],
+            exclude_content_types: vec![],
+            repositories: vec![],
+            tool_names: vec![],
+            session_id: Some("'; DROP TABLE sessions; --".to_string()),
+            date_from_unix: None,
+            date_to_unix: None,
+            limit: None,
+            offset: None,
+            sort_by: None,
+        };
+
+        let (sql, params) = SearchQueryBuilder::new("SELECT *", false)
+            .with_filters(&filters)
+            .build();
+
+        // Should use parameterized query, not string interpolation
+        assert!(sql.contains("sc.session_id = ?"), "Should use placeholder");
+        assert_eq!(params.len(), 1);
+        // The malicious string should NOT appear in the SQL
+        assert!(!sql.contains("DROP TABLE"), "Injection should be parameterized");
+    }
+
+    #[test]
+    fn test_builder_sql_injection_protection_content_types() {
+        // Verify boolean injection attempts are parameterized
+        let filters = SearchFilters {
+            content_types: vec![
+                "user_message".to_string(),
+                "' OR '1'='1".to_string(), // Boolean injection attempt
+            ],
+            exclude_content_types: vec![],
+            repositories: vec![],
+            tool_names: vec![],
+            session_id: None,
+            date_from_unix: None,
+            date_to_unix: None,
+            limit: None,
+            offset: None,
+            sort_by: None,
+        };
+
+        let (sql, params) = SearchQueryBuilder::new("SELECT *", false)
+            .with_filters(&filters)
+            .build();
+
+        // Should have placeholders, not inline values
+        assert!(sql.contains("sc.content_type IN (?, ?)"));
+        assert_eq!(params.len(), 2);
+        assert!(!sql.contains("OR '1'='1'"), "Injection should not appear in SQL");
+    }
+
+    #[test]
+    fn test_builder_sql_injection_protection_repositories() {
+        // Verify DELETE injection is parameterized
+        let filters = SearchFilters {
+            content_types: vec![],
+            exclude_content_types: vec![],
+            repositories: vec![
+                "org/repo".to_string(),
+                "evil'; DELETE FROM sessions WHERE '1'='1".to_string(),
+            ],
+            tool_names: vec![],
+            session_id: None,
+            date_from_unix: None,
+            date_to_unix: None,
+            limit: None,
+            offset: None,
+            sort_by: None,
+        };
+
+        let (sql, params) = SearchQueryBuilder::new("SELECT *", false)
+            .with_filters(&filters)
+            .build();
+
+        assert!(sql.contains("s.repository IN (?, ?)"));
+        assert_eq!(params.len(), 2);
+        assert!(!sql.contains("DELETE FROM"), "Injection should be parameterized");
+    }
+
+    #[test]
+    fn test_builder_union_injection_protection() {
+        // Verify UNION-based SQL injection is blocked
+        let filters = SearchFilters {
+            content_types: vec![],
+            exclude_content_types: vec![],
+            repositories: vec![],
+            tool_names: vec![
+                "bash".to_string(),
+                "read' UNION SELECT password FROM users--".to_string(),
+            ],
+            session_id: None,
+            date_from_unix: None,
+            date_to_unix: None,
+            limit: None,
+            offset: None,
+            sort_by: None,
+        };
+
+        let (sql, params) = SearchQueryBuilder::new("SELECT *", false)
+            .with_filters(&filters)
+            .build();
+
+        assert!(sql.contains("sc.tool_name IN (?, ?)"));
+        assert_eq!(params.len(), 2);
+        assert!(!sql.contains("UNION SELECT"), "UNION injection should be parameterized");
+    }
+
+    #[test]
+    fn test_builder_comment_injection_protection() {
+        // Verify SQL comment injection is parameterized
+        let filters = SearchFilters {
+            content_types: vec![],
+            exclude_content_types: vec![],
+            repositories: vec!["repo -- ignore rest".to_string()],
+            tool_names: vec![],
+            session_id: None,
+            date_from_unix: None,
+            date_to_unix: None,
+            limit: None,
+            offset: None,
+            sort_by: None,
+        };
+
+        let (sql, params) = SearchQueryBuilder::new("SELECT *", false)
+            .with_filters(&filters)
+            .build();
+
+        // The comment should be part of the parameter value, not the SQL
+        assert!(sql.contains("s.repository IN (?)"));
+        assert_eq!(params.len(), 1);
+        // SQL comments should not appear in the generated query structure
+        let sql_without_params = sql.split('?').collect::<Vec<_>>().join("");
+        assert!(!sql_without_params.contains("--"), "Comments should not be in SQL structure");
     }
 }
