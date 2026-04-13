@@ -4,6 +4,7 @@ use crate::error::{OrchestratorError, Result};
 use rusqlite::{params, Connection};
 use serde::de::DeserializeOwned;
 
+use super::query_builder::TaskQueryBuilder;
 use super::types::{Job, JobStatus, NewTask, Task, TaskFilter, TaskResult, TaskStats, TaskStatus};
 
 // ─── Task CRUD ────────────────────────────────────────────────────
@@ -93,36 +94,27 @@ pub fn get_task(conn: &Connection, id: &str) -> Result<Task> {
 
 /// List tasks with optional filters.
 pub fn list_tasks(conn: &Connection, filter: &TaskFilter) -> Result<Vec<Task>> {
-    let mut sql = String::from("SELECT * FROM tasks WHERE 1=1");
-    let mut param_values: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+    let mut builder = TaskQueryBuilder::new("SELECT * FROM tasks");
 
-    if let Some(status) = &filter.status {
-        sql.push_str(&format!(" AND status = ?{}", param_values.len() + 1));
-        param_values.push(Box::new(status.as_str().to_string()));
+    // Add filters
+    if let Some(ref status) = filter.status {
+        builder = builder.with_string_filter("status", Some(status.as_str()));
     }
-    if let Some(task_type) = &filter.task_type {
-        sql.push_str(&format!(" AND task_type = ?{}", param_values.len() + 1));
-        param_values.push(Box::new(task_type.clone()));
+    if let Some(ref task_type) = filter.task_type {
+        builder = builder.with_string_filter("task_type", Some(task_type.as_str()));
     }
-    if let Some(job_id) = &filter.job_id {
-        sql.push_str(&format!(" AND job_id = ?{}", param_values.len() + 1));
-        param_values.push(Box::new(job_id.clone()));
+    if let Some(ref job_id) = filter.job_id {
+        builder = builder.with_string_filter("job_id", Some(job_id.as_str()));
     }
-    if let Some(preset_id) = &filter.preset_id {
-        sql.push_str(&format!(" AND preset_id = ?{}", param_values.len() + 1));
-        param_values.push(Box::new(preset_id.clone()));
+    if let Some(ref preset_id) = filter.preset_id {
+        builder = builder.with_string_filter("preset_id", Some(preset_id.as_str()));
     }
 
-    sql.push_str(" ORDER BY created_at DESC");
-
-    if let Some(limit) = filter.limit {
-        sql.push_str(&format!(" LIMIT ?{}", param_values.len() + 1));
-        param_values.push(Box::new(limit));
-    }
-    if let Some(offset) = filter.offset {
-        sql.push_str(&format!(" OFFSET ?{}", param_values.len() + 1));
-        param_values.push(Box::new(offset));
-    }
+    let (sql, param_values) = builder
+        .with_order_by("created_at DESC")
+        .with_limit(filter.limit)
+        .with_offset(filter.offset)
+        .build();
 
     let params_refs: Vec<&dyn rusqlite::types::ToSql> =
         param_values.iter().map(|p| p.as_ref()).collect();
@@ -413,18 +405,14 @@ pub fn get_job(conn: &Connection, id: &str) -> Result<Job> {
 
 /// List all jobs, newest first.
 pub fn list_jobs(conn: &Connection, limit: Option<i64>) -> Result<Vec<Job>> {
-    let (sql, param_values): (String, Vec<Box<dyn rusqlite::types::ToSql>>) = match limit {
-        Some(l) => (
-            "SELECT * FROM jobs ORDER BY created_at DESC LIMIT ?1".to_string(),
-            vec![Box::new(l)],
-        ),
-        None => (
-            "SELECT * FROM jobs ORDER BY created_at DESC".to_string(),
-            vec![],
-        ),
-    };
+    let (sql, param_values) = TaskQueryBuilder::new("SELECT * FROM jobs")
+        .with_order_by("created_at DESC")
+        .with_limit(limit)
+        .build();
 
-    let params_refs: Vec<&dyn rusqlite::types::ToSql> = param_values.iter().map(|p| p.as_ref()).collect();
+    let params_refs: Vec<&dyn rusqlite::types::ToSql> =
+        param_values.iter().map(|p| p.as_ref()).collect();
+
     let mut stmt = conn.prepare(&sql)?;
     let mut rows = stmt.query(params_refs.as_slice())?;
     let mut jobs = Vec::new();

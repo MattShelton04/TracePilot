@@ -4,6 +4,7 @@
 //! The orchestrator agent communicates via file-based IPC, not direct DB access.
 
 pub mod operations;
+pub mod query_builder;
 pub mod schema;
 pub mod types;
 
