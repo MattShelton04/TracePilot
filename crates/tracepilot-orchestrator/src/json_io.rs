@@ -2,8 +2,9 @@
 //!
 //! Provides safe file I/O using the write-to-temp-then-rename
 //! pattern to prevent partial writes on crash or interruption.
-//! On Windows, removes the target before rename since `fs::rename`
-//! does not overwrite existing files.
+//! On Windows, uses a backup-swap pattern (rename original → .bak,
+//! rename tmp → target, remove .bak) since `fs::rename` does not
+//! overwrite existing files.
 //!
 //! Also includes helpers for reading/deserializing JSON files.
 
