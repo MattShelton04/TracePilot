@@ -1612,4 +1612,394 @@ mod tests {
             _ => panic!("Expected Database error variant"),
         }
     }
+
+    // ── Comprehensive SearchQueryBuilder Tests ─────────────────────────
+
+    #[test]
+    fn test_builder_empty_repositories_filter() {
+        let filters = SearchFilters {
+            content_types: vec![],
+            exclude_content_types: vec![],
+            repositories: vec![], // Empty list
+            tool_names: vec![],
+            session_id: None,
+            date_from_unix: None,
+            date_to_unix: None,
+            limit: None,
+            offset: None,
+            sort_by: None,
+        };
+
+        let (sql, params) = SearchQueryBuilder::new("SELECT *", false)
+            .with_filters(&filters)
+            .build();
+
+        // Empty repos filter should not add any IN clause
+        assert!(!sql.contains("repository IN"), "Empty repos should not add IN clause");
+        assert!(sql.contains("WHERE 1=1"), "Should have default WHERE clause");
+        assert_eq!(params.len(), 0, "Should have no parameters");
+    }
+
+    #[test]
+    fn test_builder_multiple_repositories() {
+        let filters = SearchFilters {
+            content_types: vec![],
+            exclude_content_types: vec![],
+            repositories: vec!["repo1".to_string(), "repo2".to_string(), "repo3".to_string()],
+            tool_names: vec![],
+            session_id: None,
+            date_from_unix: None,
+            date_to_unix: None,
+            limit: None,
+            offset: None,
+            sort_by: None,
+        };
+
+        let (sql, params) = SearchQueryBuilder::new("SELECT *", false)
+            .with_filters(&filters)
+            .build();
+
+        assert!(sql.contains("s.repository IN (?, ?, ?)"), "Should have 3 repo placeholders");
+        assert_eq!(params.len(), 3, "Should have 3 parameters");
+    }
+
+    #[test]
+    fn test_builder_pagination_boundary_zero_offset() {
+        let (sql, params) = SearchQueryBuilder::new("SELECT *", false)
+            .with_pagination(50, 0) // offset = 0
+            .build();
+
+        assert!(sql.contains("LIMIT ?"), "Should have LIMIT");
+        assert!(sql.contains("OFFSET ?"), "Should have OFFSET even at 0");
+        assert_eq!(params.len(), 2, "Should have limit and offset params");
+    }
+
+    #[test]
+    fn test_builder_pagination_large_offset() {
+        let (sql, params) = SearchQueryBuilder::new("SELECT *", false)
+            .with_pagination(10, 999999) // Very large offset
+            .build();
+
+        assert!(sql.contains("LIMIT ?"));
+        assert!(sql.contains("OFFSET ?"));
+        assert_eq!(params.len(), 2);
+    }
+
+    #[test]
+    fn test_builder_pagination_single_item() {
+        let (_sql, params) = SearchQueryBuilder::new("SELECT *", false)
+            .with_pagination(1, 5) // limit = 1
+            .build();
+
+        assert_eq!(params.len(), 2);
+    }
+
+    #[test]
+    fn test_builder_date_range_both_bounds() {
+        let filters = SearchFilters {
+            content_types: vec![],
+            exclude_content_types: vec![],
+            repositories: vec![],
+            tool_names: vec![],
+            session_id: None,
+            date_from_unix: Some(1000000),
+            date_to_unix: Some(2000000),
+            limit: None,
+            offset: None,
+            sort_by: None,
+        };
+
+        let (sql, params) = SearchQueryBuilder::new("SELECT *", false)
+            .with_filters(&filters)
+            .build();
+
+        assert!(sql.contains("sc.timestamp_unix >= ?"), "Should have lower bound");
+        assert!(sql.contains("sc.timestamp_unix <= ?"), "Should have upper bound");
+        assert_eq!(params.len(), 2, "Should have two timestamp params");
+    }
+
+    #[test]
+    fn test_builder_date_range_only_from() {
+        let filters = SearchFilters {
+            content_types: vec![],
+            exclude_content_types: vec![],
+            repositories: vec![],
+            tool_names: vec![],
+            session_id: None,
+            date_from_unix: Some(1000000),
+            date_to_unix: None,
+            limit: None,
+            offset: None,
+            sort_by: None,
+        };
+
+        let (sql, params) = SearchQueryBuilder::new("SELECT *", false)
+            .with_filters(&filters)
+            .build();
+
+        assert!(sql.contains("sc.timestamp_unix >= ?"), "Should have lower bound only");
+        assert!(!sql.contains("sc.timestamp_unix <= ?"), "Should not have upper bound");
+        assert_eq!(params.len(), 1);
+    }
+
+    #[test]
+    fn test_builder_date_range_only_to() {
+        let filters = SearchFilters {
+            content_types: vec![],
+            exclude_content_types: vec![],
+            repositories: vec![],
+            tool_names: vec![],
+            session_id: None,
+            date_from_unix: None,
+            date_to_unix: Some(2000000),
+            limit: None,
+            offset: None,
+            sort_by: None,
+        };
+
+        let (sql, params) = SearchQueryBuilder::new("SELECT *", false)
+            .with_filters(&filters)
+            .build();
+
+        assert!(!sql.contains("sc.timestamp_unix >= ?"), "Should not have lower bound");
+        assert!(sql.contains("sc.timestamp_unix <= ?"), "Should have upper bound only");
+        assert_eq!(params.len(), 1);
+    }
+
+    #[test]
+    fn test_builder_sort_newest() {
+        let (sql, _) = SearchQueryBuilder::new("SELECT *", false)
+            .with_sort(Some("newest"))
+            .build();
+
+        assert!(sql.contains("ORDER BY sc.timestamp_unix DESC NULLS LAST"));
+    }
+
+    #[test]
+    fn test_builder_sort_oldest() {
+        let (sql, _) = SearchQueryBuilder::new("SELECT *", false)
+            .with_sort(Some("oldest"))
+            .build();
+
+        assert!(sql.contains("ORDER BY sc.timestamp_unix ASC NULLS LAST"));
+    }
+
+    #[test]
+    fn test_builder_sort_relevance_fts() {
+        let (sql, _) = SearchQueryBuilder::new("SELECT *", true) // is_fts = true
+            .with_sort(None) // Default sort for FTS
+            .build();
+
+        // Should use relevance-weighted ranking
+        assert!(sql.contains("ORDER BY CASE sc.content_type"));
+        assert!(sql.contains("WHEN 'user_message' THEN rank * 2.0"));
+        assert!(sql.contains("WHEN 'error' THEN rank * 2.0"));
+    }
+
+    #[test]
+    fn test_builder_sort_default_non_fts() {
+        let (sql, _) = SearchQueryBuilder::new("SELECT *", false) // is_fts = false
+            .with_sort(None) // Default sort for non-FTS
+            .build();
+
+        // Should default to newest first
+        assert!(sql.contains("ORDER BY sc.timestamp_unix DESC NULLS LAST"));
+    }
+
+    #[test]
+    fn test_builder_fts_match_clause() {
+        let (sql, params) = SearchQueryBuilder::new("SELECT *", true)
+            .with_fts_match("error message")
+            .build();
+
+        assert!(sql.contains("search_fts MATCH ?"), "Should have FTS MATCH clause");
+        assert_eq!(params.len(), 1);
+        // Note: params are Box<dyn ToSql> so we can't easily inspect the value
+    }
+
+    #[test]
+    fn test_builder_optional_fts_match_some() {
+        let (sql, params) = SearchQueryBuilder::new("SELECT *", true)
+            .with_optional_fts_match(Some("test query"))
+            .build();
+
+        assert!(sql.contains("search_fts MATCH ?"));
+        assert_eq!(params.len(), 1);
+    }
+
+    #[test]
+    fn test_builder_optional_fts_match_none() {
+        let (sql, params) = SearchQueryBuilder::new("SELECT *", true)
+            .with_optional_fts_match(None)
+            .build();
+
+        assert!(!sql.contains("search_fts MATCH"), "Should not have MATCH clause");
+        assert_eq!(params.len(), 0);
+    }
+
+    #[test]
+    fn test_builder_content_types_filter() {
+        let filters = SearchFilters {
+            content_types: vec!["user_message".to_string(), "assistant_message".to_string()],
+            exclude_content_types: vec![],
+            repositories: vec![],
+            tool_names: vec![],
+            session_id: None,
+            date_from_unix: None,
+            date_to_unix: None,
+            limit: None,
+            offset: None,
+            sort_by: None,
+        };
+
+        let (sql, params) = SearchQueryBuilder::new("SELECT *", false)
+            .with_filters(&filters)
+            .build();
+
+        assert!(sql.contains("sc.content_type IN (?, ?)"));
+        assert_eq!(params.len(), 2);
+    }
+
+    #[test]
+    fn test_builder_exclude_content_types_filter() {
+        let filters = SearchFilters {
+            content_types: vec![],
+            exclude_content_types: vec!["tool_call".to_string(), "tool_result".to_string()],
+            repositories: vec![],
+            tool_names: vec![],
+            session_id: None,
+            date_from_unix: None,
+            date_to_unix: None,
+            limit: None,
+            offset: None,
+            sort_by: None,
+        };
+
+        let (sql, params) = SearchQueryBuilder::new("SELECT *", false)
+            .with_filters(&filters)
+            .build();
+
+        assert!(sql.contains("sc.content_type NOT IN (?, ?)"));
+        assert_eq!(params.len(), 2);
+    }
+
+    #[test]
+    fn test_builder_tool_names_filter() {
+        let filters = SearchFilters {
+            content_types: vec![],
+            exclude_content_types: vec![],
+            repositories: vec![],
+            tool_names: vec!["read".to_string(), "edit".to_string(), "bash".to_string()],
+            session_id: None,
+            date_from_unix: None,
+            date_to_unix: None,
+            limit: None,
+            offset: None,
+            sort_by: None,
+        };
+
+        let (sql, params) = SearchQueryBuilder::new("SELECT *", false)
+            .with_filters(&filters)
+            .build();
+
+        assert!(sql.contains("sc.tool_name IN (?, ?, ?)"));
+        assert_eq!(params.len(), 3);
+    }
+
+    #[test]
+    fn test_builder_session_id_filter() {
+        let filters = SearchFilters {
+            content_types: vec![],
+            exclude_content_types: vec![],
+            repositories: vec![],
+            tool_names: vec![],
+            session_id: Some("test-session-id-123".to_string()),
+            date_from_unix: None,
+            date_to_unix: None,
+            limit: None,
+            offset: None,
+            sort_by: None,
+        };
+
+        let (sql, params) = SearchQueryBuilder::new("SELECT *", false)
+            .with_filters(&filters)
+            .build();
+
+        assert!(sql.contains("sc.session_id = ?"));
+        assert_eq!(params.len(), 1);
+    }
+
+    #[test]
+    fn test_builder_combined_filters() {
+        // Test multiple filters applied together
+        let filters = SearchFilters {
+            content_types: vec!["error".to_string()],
+            exclude_content_types: vec!["tool_result".to_string()],
+            repositories: vec!["repo1".to_string(), "repo2".to_string()],
+            tool_names: vec!["bash".to_string()],
+            session_id: Some("session-123".to_string()),
+            date_from_unix: Some(1000000),
+            date_to_unix: Some(2000000),
+            limit: None,
+            offset: None,
+            sort_by: None,
+        };
+
+        let (sql, params) = SearchQueryBuilder::new("SELECT *", false)
+            .with_filters(&filters)
+            .build();
+
+        // Should have all filter clauses combined with AND
+        assert!(sql.contains("sc.content_type IN (?)"));
+        assert!(sql.contains("sc.content_type NOT IN (?)"));
+        assert!(sql.contains("s.repository IN (?, ?)"));
+        assert!(sql.contains("sc.tool_name IN (?)"));
+        assert!(sql.contains("sc.session_id = ?"));
+        assert!(sql.contains("sc.timestamp_unix >= ?"));
+        assert!(sql.contains("sc.timestamp_unix <= ?"));
+
+        // Should have all parameters (1 + 1 + 2 + 1 + 1 + 2 = 8)
+        assert_eq!(params.len(), 8);
+    }
+
+    #[test]
+    fn test_builder_with_extra_where_empty() {
+        let (sql, _) = SearchQueryBuilder::new("SELECT *", false)
+            .with_extra_where("") // Empty extra clause
+            .build();
+
+        // Should still build valid SQL without the extra clause
+        assert!(sql.contains("WHERE 1=1"));
+    }
+
+    #[test]
+    fn test_builder_with_group_by_no_order() {
+        let (sql, _) = SearchQueryBuilder::new("SELECT COUNT(*)", false)
+            .with_group_by("sc.repository", None)
+            .build();
+
+        assert!(sql.contains("GROUP BY sc.repository"));
+        // Should only have GROUP BY, no ORDER BY
+        assert!(!sql.contains("ORDER BY COUNT"));
+    }
+
+    #[test]
+    fn test_builder_fts_vs_non_fts_from_clause() {
+        // FTS query
+        let (sql_fts, _) = SearchQueryBuilder::new("SELECT *", true)
+            .build();
+
+        // Non-FTS query
+        let (sql_non_fts, _) = SearchQueryBuilder::new("SELECT *", false)
+            .build();
+
+        // Both should have FROM clauses but potentially different based on build_from_clause
+        assert!(sql_fts.contains("FROM"));
+        assert!(sql_non_fts.contains("FROM"));
+
+        // The actual FROM clause content depends on build_from_clause implementation
+        // We just verify they're building valid SQL
+        assert!(sql_fts.contains("WHERE"));
+        assert!(sql_non_fts.contains("WHERE"));
+    }
 }
