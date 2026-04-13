@@ -279,54 +279,6 @@ pub fn run_hidden_stdout(
     }
 }
 
-/// Run a hidden command with a wall-clock timeout, returning trimmed stdout.
-///
-/// If the process does not complete within `timeout_secs` seconds it is killed
-/// and an error is returned. This prevents commands like `gh api` from blocking
-/// indefinitely on large repositories or slow network connections.
-pub fn run_hidden_stdout_timeout(
-    program: &str,
-    args: &[&str],
-    cwd: Option<&Path>,
-    timeout_secs: u64,
-) -> Result<String> {
-    let mut cmd = Command::new(program);
-    cmd.args(args);
-    if let Some(dir) = cwd {
-        cmd.current_dir(dir);
-    }
-
-    #[cfg(windows)]
-    cmd.creation_flags(CREATE_NO_WINDOW);
-
-    let child = spawn_captured_child(cmd, program)?;
-
-    match execute_with_timeout(child, timeout_secs) {
-        Ok((stdout, stderr, status)) => {
-            if status.success() {
-                Ok(String::from_utf8_lossy(&stdout).trim().to_string())
-            } else {
-                let stderr_str = String::from_utf8_lossy(&stderr).trim().to_string();
-                Err(OrchestratorError::Launch(format!(
-                    "{program} failed (exit {}): {stderr_str}",
-                    status.code().unwrap_or(-1)
-                )))
-            }
-        }
-        Err(e) => {
-            // Enhance timeout error with user-friendly context
-            if let OrchestratorError::Timeout { secs } = &e {
-                Err(OrchestratorError::Launch(format!(
-                    "GitHub API call timed out after {secs}s. \
-                     Check your internet connection and try again."
-                )))
-            } else {
-                Err(e)
-            }
-        }
-    }
-}
-
 // ─── Detached terminal spawning (user-facing) ───────────────────────
 
 /// Spawn a process in a new visible terminal window, detached from the
