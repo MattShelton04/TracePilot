@@ -23,7 +23,7 @@ import { useWhatsNew } from "@/composables/useWhatsNew";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSessionsStore } from "@/stores/sessions";
 import { useSessionTabsStore } from "@/stores/sessionTabs";
-import { logError } from "@/utils/logger";
+import { logError, logInfo } from "@/utils/logger";
 import { openExternal } from "@/utils/openExternal";
 
 type AppPhase = "loading" | "setup" | "indexing" | "app";
@@ -44,10 +44,16 @@ let alertInitDone = false;
 /** Idempotent: start alert watcher + notification handler + window lifecycle (main only) */
 function initAlertSystem() {
   if (!isMain() || alertInitDone) return;
-  alertInitDone = true;
 
-  useAlertWatcher();
-  registerNotificationClickHandler();
+  try {
+    useAlertWatcher(router);
+    registerNotificationClickHandler();
+    alertInitDone = true;
+    logInfo("[app] Alert system initialized successfully");
+  } catch (e) {
+    logError("[app] Alert system initialization failed:", e);
+    return;
+  }
 
   // Close all viewer windows when the main window is closed
   import("@tauri-apps/api/window").then(({ getCurrentWindow, getAllWindows }) => {

@@ -14,7 +14,7 @@ import { useSessionsStore } from "@/stores/sessions";
 import { useSessionTabsStore } from "@/stores/sessionTabs";
 import { logInfo, logWarn } from "@/utils/logger";
 import { onScopeDispose, watch } from "vue";
-import { useRouter } from "vue-router";
+import type { Router } from "vue-router";
 import { getSessionTurns } from "@tracepilot/client";
 import type { ConversationTurn } from "@tracepilot/types";
 import type { RouteLocationNormalizedLoaded } from "vue-router";
@@ -273,11 +273,13 @@ async function pollRunningSessionsForAskUser() {
     // Filter by scope — no hard cap. Each poll is a lightweight JSON fetch.
     const allRunning = sessionsStore.sessions.filter((s) => s.isRunning);
     const scopedRunning = filterSessionsByScope(allRunning);
+    logInfo(`[alert-watcher] ask_user poll: ${allRunning.length} running, ${scopedRunning.length} in scope`);
 
     for (const session of scopedRunning) {
       try {
-        // Inline seeding: if we have no baseline for this session, seed it
-        // now instead of scanning (prevents stale alert burst on scope change).
+        // Inline seeding: if we have no baseline for this session, record the
+        // current turn count and mark ALL existing ask_user calls as already-seen.
+        // Only ask_user events that appear in FUTURE turns will trigger alerts.
         if (!lastSeenTurnCount.has(session.id)) {
           const result = await getSessionTurns(session.id);
           lastSeenTurnCount.set(session.id, result.turns.length);
@@ -323,13 +325,13 @@ async function seedTurnBaselines() {
         const result = await getSessionTurns(session.id);
         lastSeenTurnCount.set(session.id, result.turns.length);
 
-        // Also mark any existing ask_user calls as already seen
+        // Mark ALL existing ask_user calls as already seen so only future
+        // events trigger alerts after app startup.
         for (const turn of result.turns) {
           for (const tc of turn.toolCalls) {
             if (tc.toolName !== "ask_user") continue;
             const rawKey = tc.toolCallId ?? `${turn.turnIndex}:ask_user`;
-            const callKey = `${session.id}:${rawKey}`;
-            alertedAskUserCalls.add(callKey);
+            alertedAskUserCalls.add(`${session.id}:${rawKey}`);
           }
         }
       } catch (e) {
@@ -345,15 +347,17 @@ async function seedTurnBaselines() {
 
 /**
  * Start the alert watcher. Call once in App.vue (main window only).
+ * @param router — Pass the Router captured during synchronous setup.
+ *   `useRouter()` cannot be called here because this runs after `await`
+ *   in `onMounted`, where Vue's component instance is no longer active.
  * Automatically cleans up on scope disposal.
  */
-export function useAlertWatcher() {
+export function useAlertWatcher(router: Router) {
   const sessionsStore = useSessionsStore();
   const prefs = usePreferencesStore();
 
-  // Capture route ref within Vue's injection scope — safe to read later
-  // from timer callbacks and watchers without inject().
-  const router = useRouter();
+  logInfo(`[alert-watcher] Initializing — alertsEnabled=${prefs.alertsEnabled}, scope=${prefs.alertsScope}, sessions=${sessionsStore.sessions.length}, running=${sessionsStore.sessions.filter(s => s.isRunning).length}`);
+
   capturedRoute = router.currentRoute.value;
   // Keep capturedRoute in sync reactively
   watch(() => router.currentRoute.value, (r) => { capturedRoute = r; });
@@ -384,6 +388,26 @@ export function useAlertWatcher() {
     { deep: false },
   );
 
+  // ── Periodic session refresh ─────────────────────────────────
+  // The session-end watcher only fires when the sessions array ref changes.
+  // Nothing else refreshes the list after startup, so we poll every 30s
+  // to detect isRunning transitions (agent finished / awaiting user).
+  let refreshTimer: ReturnType<typeof setInterval> | null = null;
+
+  function startRefreshPolling() {
+    stopRefreshPolling();
+    if (prefs.alertsEnabled) {
+      refreshTimer = setInterval(() => sessionsStore.refreshSessions(), 30_000);
+    }
+  }
+
+  function stopRefreshPolling() {
+    if (refreshTimer) {
+      clearInterval(refreshTimer);
+      refreshTimer = null;
+    }
+  }
+
   // Poll open tabs for ask_user events every 10 seconds
   function startPolling() {
     stopPolling();
@@ -404,6 +428,7 @@ export function useAlertWatcher() {
     () => [prefs.alertsEnabled, prefs.alertsOnAskUser, prefs.alertsScope],
     () => {
       startPolling();
+      startRefreshPolling();
       // Re-seed baselines when scope changes (e.g. switching to "all")
       seedTurnBaselines();
     },
@@ -415,6 +440,7 @@ export function useAlertWatcher() {
     stopSessionWatch();
     stopPrefsWatch();
     stopPolling();
+    stopRefreshPolling();
     // Clear module-level state on scope disposal
     previouslyRunning.clear();
     lastSeenTurnCount.clear();
