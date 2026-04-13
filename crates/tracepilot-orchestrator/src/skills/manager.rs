@@ -74,7 +74,7 @@ pub fn create_skill(
 
     let content = write_skill_md(&fm, body);
     let skill_path = skill_dir.join("SKILL.md");
-    std::fs::write(&skill_path, content)?;
+    atomic_write_str(&skill_path, &content)?;
 
     Ok(skill_dir)
 }
@@ -93,7 +93,7 @@ pub fn update_skill(
     }
 
     let content = write_skill_md(frontmatter, body);
-    std::fs::write(&skill_path, content)?;
+    atomic_write_str(&skill_path, &content)?;
     Ok(())
 }
 
@@ -102,7 +102,7 @@ pub fn update_skill_raw(skill_dir: &Path, raw_content: &str) -> Result<(), Skill
     // Validate by parsing
     let _ = parse_skill_md(raw_content)?;
     let skill_path = skill_dir.join("SKILL.md");
-    std::fs::write(&skill_path, raw_content)?;
+    atomic_write_str(&skill_path, raw_content)?;
     Ok(())
 }
 
@@ -151,7 +151,7 @@ pub fn rename_skill(skill_dir: &Path, new_name: &str) -> Result<PathBuf, SkillsE
     let new_content = write_skill_md(&fm, &body);
 
     // Write updated SKILL.md to the OLD directory first (safe — can retry)
-    std::fs::write(&skill_path, &new_content)?;
+    atomic_write_str(&skill_path, &new_content)?;
 
     // Now rename the directory — if this fails, the old dir still has valid content
     if let Err(e) = std::fs::rename(skill_dir, &new_dir) {

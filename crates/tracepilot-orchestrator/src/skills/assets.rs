@@ -160,7 +160,7 @@ pub fn add_asset(
         }
     }
 
-    std::fs::write(&asset_path, content)?;
+    atomic_write(&asset_path, content)?;
 
     Ok(())
 }

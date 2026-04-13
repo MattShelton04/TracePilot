@@ -1,51 +1,83 @@
-//! Atomic JSON read/write helpers.
+//! Atomic file I/O helpers.
 //!
-//! Provides safe file I/O for JSON configuration files using the
-//! write-to-temp-then-rename pattern to prevent partial writes.
+//! Provides safe file I/O using the write-to-temp-then-rename
+//! pattern to prevent partial writes on crash or interruption.
 //! On Windows, removes the target before rename since `fs::rename`
 //! does not overwrite existing files.
+//!
+//! Also includes helpers for reading/deserializing JSON files.
 
 use crate::error::Result;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::path::Path;
 
-/// Atomically write a JSON value to disk.
+/// Atomically write a byte slice to disk.
 ///
-/// Writes to a `.json.tmp` sibling, then renames over the target.
+/// Writes to a `.tmp` sibling file, then renames over the target.
 /// Creates parent directories if needed.
-pub fn atomic_json_write<T: Serialize>(path: &Path, value: &T) -> Result<()> {
+pub fn atomic_write(path: &Path, content: &[u8]) -> Result<()> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
 
-    let json = serde_json::to_string_pretty(value)?;
-    let tmp = path.with_extension("json.tmp");
-    std::fs::write(&tmp, &json)?;
+    let temp_path = path.with_extension(
+        path.extension()
+            .map(|s| s.to_str().unwrap_or(""))
+            .map(|s| format!("{s}.tmp"))
+            .unwrap_or_else(|| "tmp".to_string()),
+    );
+
+    std::fs::write(&temp_path, content)?;
 
     // On Windows, rename fails if target exists — use backup-swap to avoid data loss.
     #[cfg(windows)]
     {
         if path.exists() {
-            let bak = path.with_extension("json.bak");
-            std::fs::rename(path, &bak).map_err(|e| {
-                let _ = std::fs::remove_file(&tmp);
+            let bak_path = path.with_extension(
+                path.extension()
+                    .map(|s| s.to_str().unwrap_or(""))
+                    .map(|s| format!("{s}.bak"))
+                    .unwrap_or_else(|| "bak".to_string()),
+            );
+            if bak_path.exists() {
+                let _ = std::fs::remove_file(&bak_path);
+            }
+
+            std::fs::rename(path, &bak_path).map_err(|e| {
+                let _ = std::fs::remove_file(&temp_path);
                 e
             })?;
-            if let Err(e) = std::fs::rename(&tmp, path) {
-                let _ = std::fs::rename(&bak, path); // restore original
+
+            if let Err(e) = std::fs::rename(&temp_path, path) {
+                let _ = std::fs::rename(&bak_path, path); // restore original
                 return Err(e.into());
             }
-            let _ = std::fs::remove_file(&bak);
+            let _ = std::fs::remove_file(&bak_path);
         } else {
-            std::fs::rename(&tmp, path)?;
+            std::fs::rename(&temp_path, path)?;
         }
     }
 
     #[cfg(not(windows))]
-    std::fs::rename(&tmp, path)?;
+    std::fs::rename(&temp_path, path)?;
 
     Ok(())
+}
+
+/// Atomically write a string slice to disk.
+///
+/// See `atomic_write` for implementation details.
+pub fn atomic_write_str(path: &Path, content: &str) -> Result<()> {
+    atomic_write(path, content.as_bytes())
+}
+
+/// Atomically write a JSON value to disk.
+///
+/// Serializes the value to a pretty-printed string and uses `atomic_write`.
+pub fn atomic_json_write<T: Serialize>(path: &Path, value: &T) -> Result<()> {
+    let json = serde_json::to_string_pretty(value)?;
+    atomic_write_str(path, &json)
 }
 
 /// Read and deserialize a JSON file. Returns a default if the file doesn't exist.
@@ -91,6 +123,35 @@ mod tests {
 
         let read: TestData = atomic_json_read(&path).unwrap();
         assert_eq!(read, data);
+    }
+
+    #[test]
+    fn atomic_write_str_works() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("test.txt");
+        let content = "Hello, world!";
+        atomic_write_str(&path, content).unwrap();
+        let read = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(read, content);
+    }
+
+    #[test]
+    fn atomic_write_bytes_works() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("test.bin");
+        let content = b"\x01\x02\x03";
+        atomic_write(&path, content).unwrap();
+        let read = std::fs::read(&path).unwrap();
+        assert_eq!(read, content);
+    }
+
+    #[test]
+    fn atomic_write_no_extension() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("no-ext-file");
+        atomic_write_str(&path, "content").unwrap();
+        assert!(path.exists());
+        assert!(!dir.path().join("no-ext-file.tmp").exists());
     }
 
     #[test]
