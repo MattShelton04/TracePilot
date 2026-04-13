@@ -108,7 +108,7 @@ mod dhat_tests {
         }
 
         let parsed = crate::parsing::events::parse_typed_events(&events_path).unwrap();
-        let _turns = crate::turns::reconstruct_turns(&parsed.events);
+        let _turns = crate::turns::reconstruct_turns(parsed.events.clone());
 
         let stats = dhat::HeapStats::get();
         eprintln!("\n=== DHAT HEAP PROFILING RESULTS ===");

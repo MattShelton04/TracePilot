@@ -50,7 +50,7 @@ fn turn_end_event(ts: &str, evt_id: &str) -> TypedEvent {
         .build_event()
 }
 fn run_subagent_scenario(events: Vec<TypedEvent>) -> TurnToolCall {
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert!(!turns.is_empty(), "Expected at least one turn");
     let subagent = turns[0]
         .tool_calls
@@ -84,7 +84,7 @@ fn treats_subagent_events_as_tool_calls() {
             .build_event(),
     ];
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns.len(), 1);
     assert_eq!(turns[0].tool_calls.len(), 1);
     let tool_call = &turns[0].tool_calls[0];
@@ -135,7 +135,7 @@ fn subagent_started_merges_into_tool_exec_start() {
             .build_event(),
     ];
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns.len(), 1);
 
     let turn = &turns[0];
@@ -206,7 +206,7 @@ fn subagent_completed_finds_entry_in_finalized_turn() {
             .build_event(),
     ];
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
 
     // The subagent entry in finalized turn 1 should have the completed_at from SubagentCompleted
     let tc = &turns[0].tool_calls[0];
@@ -265,7 +265,7 @@ fn subagent_failed_finds_entry_in_finalized_turn() {
             .build_event(),
     ];
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     let tc = &turns[0].tool_calls[0];
     assert!(tc.is_subagent);
     assert!(tc.is_complete);
@@ -309,7 +309,7 @@ fn subagent_failed_records_error() {
             .timestamp("2025-01-01T00:00:05Z")
             .build_event(),
     ];
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns.len(), 1);
     let tc = &turns[0].tool_calls[0];
     assert!(tc.is_subagent);
@@ -363,7 +363,7 @@ fn repro_enrich_subagent_bug() {
             .build_event(),
     ];
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     let tc = &turns[0].tool_calls[0];
 
     assert!(tc.is_subagent, "Should be recognized as a subagent");

@@ -27,7 +27,7 @@ fn leaves_orphaned_tool_call_incomplete() {
             .build_event(),
     ];
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns.len(), 1);
     assert_eq!(turns[0].tool_calls.len(), 1);
     assert!(!turns[0].tool_calls[0].is_complete);
@@ -75,7 +75,7 @@ fn tool_exec_complete_finds_entry_in_finalized_turn() {
             .build_event(),
     ];
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     let tc = &turns[0].tool_calls[0];
     assert_eq!(tc.tool_call_id.as_deref(), Some("tc-slow"));
     assert!(tc.is_complete);
@@ -125,7 +125,7 @@ fn duplicate_tool_execution_start_is_deduplicated() {
             .timestamp("2025-01-01T00:00:04Z")
             .build_event(),
     ];
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns.len(), 1);
     assert_eq!(
         turns[0].tool_calls.len(),
@@ -181,7 +181,7 @@ fn extracts_intention_summary_for_tool_calls() {
             .build_event(),
     ];
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns.len(), 1);
     let turn = &turns[0];
 
@@ -230,7 +230,7 @@ fn handles_polymorphic_result_string() {
             .build_event(),
     ];
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     let tc = &turns[0].tool_calls[0];
     assert_eq!(tc.result_content.as_deref(), Some("file contents here"));
 }

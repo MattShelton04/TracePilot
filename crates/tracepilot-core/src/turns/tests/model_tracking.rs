@@ -66,7 +66,7 @@ fn infers_subagent_model_from_child_tool_calls() {
             .build_event(),
     ];
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns.len(), 1);
 
     // sub-1 should have model inferred from its child tool call
@@ -155,7 +155,7 @@ fn subagent_model_overrides_wrong_parent_model() {
             .build_event(),
     ];
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns.len(), 1);
 
     let sub1 = turns[0]
@@ -261,7 +261,7 @@ fn nested_subagent_model_propagation() {
             .build_event(),
     ];
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns.len(), 1);
 
     // Inner subagent should get its model from the leaf tool call
@@ -315,7 +315,7 @@ fn session_model_change_sets_turn_model() {
             .timestamp("2025-01-01T00:00:03Z")
             .build_event(),
     ];
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns.len(), 1);
     assert_eq!(
         turns[0].model.as_deref(),
@@ -350,7 +350,7 @@ fn session_start_seeds_model() {
             .timestamp("2025-01-01T00:00:01Z")
             .build_event(),
     ];
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns.len(), 1);
     assert_eq!(
         turns[0].model.as_deref(),
@@ -382,7 +382,7 @@ fn session_resume_seeds_model() {
             .timestamp("2025-01-01T00:00:01Z")
             .build_event(),
     ];
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns.len(), 1);
     assert_eq!(
         turns[0].model.as_deref(),
@@ -420,7 +420,7 @@ fn ensure_current_turn_inherits_session_model() {
             .timestamp("2025-01-01T00:00:01Z")
             .build_event(),
     ];
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns.len(), 1);
     assert_eq!(
         turns[0].model.as_deref(),
@@ -465,7 +465,7 @@ fn session_model_change_does_not_overwrite_existing_model() {
             .timestamp("2025-01-01T00:00:04Z")
             .build_event(),
     ];
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns.len(), 1);
     assert_eq!(
         turns[0].model.as_deref(),
@@ -499,7 +499,7 @@ fn session_model_change_persists_across_turns() {
             .timestamp("2025-01-01T00:00:03Z")
             .build_event(),
     ];
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns.len(), 1);
     assert_eq!(
         turns[0].model.as_deref(),
@@ -570,7 +570,7 @@ fn subagent_child_tool_does_not_set_turn_model() {
             .build_event(),
     ];
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns.len(), 1);
     // turn.model should NOT be gemini (the subagent's model)
     assert_ne!(
@@ -631,7 +631,7 @@ fn correct_turn_models_fixes_polluted_model_from_subagent_child() {
             .build_event(),
     ];
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns.len(), 1);
     // Even though the inline guard couldn't catch it (parent wasn't subagent yet),
     // correct_turn_models() should have cleared the polluted model.
@@ -702,7 +702,7 @@ fn correct_turn_models_preserves_main_agent_model() {
             .build_event(),
     ];
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns.len(), 1);
     assert_eq!(
         turns[0].model.as_deref(),
@@ -769,7 +769,7 @@ fn cross_turn_subagent_child_does_not_pollute_next_turn_model() {
             .build_event(),
     ];
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns.len(), 2);
 
     // Turn 1 should have claude model (from SessionModelChange)

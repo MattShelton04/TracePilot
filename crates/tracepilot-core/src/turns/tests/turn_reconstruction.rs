@@ -58,7 +58,7 @@ fn reconstructs_simple_single_turn() {
             .build_event(),
     ];
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns.len(), 1);
 
     let turn = &turns[0];
@@ -138,7 +138,7 @@ fn reconstructs_multiple_turns() {
             .build_event(),
     ];
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns.len(), 2);
     assert_eq!(turns[0].turn_index, 0);
     assert_eq!(turns[1].turn_index, 1);

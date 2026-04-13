@@ -39,7 +39,7 @@ fn collects_multiple_assistant_messages_per_turn() {
             .build_event(),
     ];
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns[0].assistant_messages.len(), 2);
     assert_eq!(
         msg_contents(&turns[0].assistant_messages),
@@ -128,7 +128,7 @@ fn filters_empty_string_assistant_messages() {
             .build_event(),
     ];
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns.len(), 1);
 
     let turn = &turns[0];
@@ -173,7 +173,7 @@ fn filters_whitespace_only_assistant_messages() {
             .build_event(),
     ];
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns[0].assistant_messages.len(), 1);
     assert_eq!(turns[0].assistant_messages[0].content, "Real response");
 }
@@ -203,7 +203,7 @@ fn none_content_still_filtered() {
             .build_event(),
     ];
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns[0].assistant_messages.len(), 1);
     assert_eq!(turns[0].assistant_messages[0].content, "Done!");
 }
@@ -247,7 +247,7 @@ fn turn_stats_excludes_empty_messages() {
             .build_event(),
     ];
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     let stats = turn_stats(&turns);
     // Only 1 real message, not 3
     assert_eq!(stats.total_messages, 1);
@@ -286,7 +286,7 @@ fn collects_reasoning_texts_from_assistant_messages() {
             .build_event(),
     ];
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns.len(), 1);
     let turn = &turns[0];
     // Both reasoning texts collected
@@ -329,7 +329,7 @@ fn truncates_large_result_content() {
             .build_event(),
     ];
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     let tc = &turns[0].tool_calls[0];
     let content = tc.result_content.as_ref().unwrap();
     // Should be truncated to ~1024 bytes + truncation marker
@@ -366,7 +366,7 @@ fn skips_empty_reasoning_text() {
             .build_event(),
     ];
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     // Empty and whitespace-only reasoning should be skipped
     assert!(turns[0].reasoning_texts.is_empty());
 }
@@ -393,7 +393,7 @@ fn falls_back_to_detailed_content_when_content_empty() {
             .build_event(),
     ];
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     let tc = &turns[0].tool_calls[0];
     // Should fall back to detailedContent when content is empty
     assert_eq!(tc.result_content.as_deref(), Some("1. fn main() {}\n2. }"));
@@ -452,7 +452,7 @@ fn attributed_messages_preserve_parent_tool_call_id() {
             .build_event(),
     ];
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns.len(), 1);
     let turn = &turns[0];
 
@@ -512,7 +512,7 @@ fn messages_without_subagents_have_none_parent() {
             .build_event(),
     ];
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     let turn = &turns[0];
 
     assert_eq!(turn.assistant_messages.len(), 1);
@@ -590,7 +590,7 @@ fn assistant_reasoning_appends_to_turn() {
             .build_event(),
     ];
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns.len(), 1);
     let turn = &turns[0];
 
@@ -625,7 +625,7 @@ fn assistant_reasoning_without_prior_turn_creates_turn() {
         None,
     )];
 
-    let turns = reconstruct_turns(&events);
+    let turns = reconstruct_turns(events.clone());
     assert_eq!(turns.len(), 1);
     assert_eq!(turns[0].reasoning_texts.len(), 1);
     assert_eq!(turns[0].reasoning_texts[0].content, "Thinking...");

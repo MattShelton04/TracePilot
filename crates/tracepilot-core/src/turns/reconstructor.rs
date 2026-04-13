@@ -64,17 +64,19 @@ impl TurnReconstructor {
     }
 
     /// Process a single event, advancing the state machine.
-    pub fn process(&mut self, event: &TypedEvent, event_index: usize) {
-        match (&event.event_type, &event.typed_data) {
+    ///
+    /// Takes ownership of the event to avoid cloning event data into turn structures.
+    pub fn process(&mut self, event: TypedEvent, event_index: usize) {
+        match (event.event_type, event.typed_data) {
             (SessionEventType::UserMessage, TypedEventData::UserMessage(data)) => {
                 self.finalize_current_turn(false, None);
                 let mut turn = new_turn(
                     self.turns.len(),
                     event.raw.timestamp,
-                    data.interaction_id.clone(),
-                    data.content.clone(),
-                    data.transformed_content.clone(),
-                    data.attachments.clone(),
+                    data.interaction_id,
+                    data.content,
+                    data.transformed_content,
+                    data.attachments,
                 );
                 turn.event_index = Some(event_index);
                 turn.model = self.session_model.clone();
@@ -86,34 +88,40 @@ impl TurnReconstructor {
             (SessionEventType::AssistantTurnStart, TypedEventData::TurnStart(data)) => {
                 let turn = self.ensure_current_turn(event.raw.timestamp);
                 if turn.turn_id.is_none() {
-                    turn.turn_id = data.turn_id.clone();
+                    turn.turn_id = data.turn_id;
                 }
                 if turn.interaction_id.is_none() {
-                    turn.interaction_id = data.interaction_id.clone();
+                    turn.interaction_id = data.interaction_id;
                 }
             }
 
-            (SessionEventType::AssistantMessage, TypedEventData::AssistantMessage(data)) => {
+            (SessionEventType::AssistantMessage, TypedEventData::AssistantMessage(mut data)) => {
                 let turn = self.ensure_current_turn(event.raw.timestamp);
                 if turn.interaction_id.is_none() {
-                    turn.interaction_id = data.interaction_id.clone();
+                    turn.interaction_id = data.interaction_id.take();
                 }
-                if let Some(content) = &data.content
+
+                // Process content - take ownership to avoid clone
+                let parent_id_for_content = data.parent_tool_call_id.clone();
+                if let Some(content) = data.content.take()
                     && !content.trim().is_empty() {
                         turn.assistant_messages.push(AttributedMessage {
-                            content: content.clone(),
-                            parent_tool_call_id: data.parent_tool_call_id.clone(),
+                            content,
+                            parent_tool_call_id: parent_id_for_content.clone(),
                             agent_display_name: None, // resolved in finalize()
                         });
                     }
-                if let Some(reasoning) = &data.reasoning_text
+
+                // Process reasoning - take ownership
+                if let Some(reasoning) = data.reasoning_text.take()
                     && !reasoning.trim().is_empty() {
                         turn.reasoning_texts.push(AttributedMessage {
-                            content: reasoning.clone(),
-                            parent_tool_call_id: data.parent_tool_call_id.clone(),
+                            content: reasoning,
+                            parent_tool_call_id: data.parent_tool_call_id,
                             agent_display_name: None, // resolved in finalize()
                         });
                     }
+
                 if let Some(tokens) = data.output_tokens {
                     *turn.output_tokens.get_or_insert(0) += tokens;
                 }
@@ -139,7 +147,7 @@ impl TurnReconstructor {
                         return;
                     }
 
-                // Lookup intention before borrowing self mutably via ensure_current_turn
+                // Lookup intention before consuming data
                 let intention = data
                     .tool_call_id
                     .as_ref()
@@ -152,25 +160,25 @@ impl TurnReconstructor {
                     .and_then(|m| m.as_str())
                     .map(|s| s.to_string());
 
+                // Clone tool_call_id for indexing before moving data
+                let tool_call_id_for_index = data.tool_call_id.clone();
+
                 let turn = self.ensure_current_turn(event.raw.timestamp);
 
                 let tc_index = turn.tool_calls.len();
                 turn.tool_calls.push(TurnToolCall {
-                    tool_call_id: data.tool_call_id.clone(),
-                    parent_tool_call_id: data.parent_tool_call_id.clone(),
-                    tool_name: data
-                        .tool_name
-                        .clone()
-                        .unwrap_or_else(|| "unknown".to_string()),
+                    tool_call_id: data.tool_call_id,
+                    parent_tool_call_id: data.parent_tool_call_id,
+                    tool_name: data.tool_name.unwrap_or_else(|| "unknown".to_string()),
                     event_index: Some(event_index),
-                    arguments: data.arguments.clone(),
+                    arguments: data.arguments,
                     success: None,
                     error: None,
                     started_at: event.raw.timestamp,
                     completed_at: None,
                     duration_ms: None,
-                    mcp_server_name: data.mcp_server_name.clone(),
-                    mcp_tool_name: data.mcp_tool_name.clone(),
+                    mcp_server_name: data.mcp_server_name,
+                    mcp_tool_name: data.mcp_tool_name,
                     is_complete: false,
                     is_subagent: false,
                     agent_display_name: None,
@@ -184,19 +192,19 @@ impl TurnReconstructor {
                 });
 
                 // Index the new tool call
-                if let Some(id) = &data.tool_call_id {
+                if let Some(id) = tool_call_id_for_index {
                     self.tool_call_index
-                        .insert(id.clone(), (CURRENT_TURN_SENTINEL, tc_index));
+                        .insert(id, (CURRENT_TURN_SENTINEL, tc_index));
                 }
             }
 
             (
                 SessionEventType::ToolExecutionComplete,
-                TypedEventData::ToolExecutionComplete(data),
+                TypedEventData::ToolExecutionComplete(mut data),
             ) => {
                 if let Some(turn) = self.current_turn.as_mut()
                     && turn.interaction_id.is_none() {
-                        turn.interaction_id = data.interaction_id.clone();
+                        turn.interaction_id = data.interaction_id.take();
                     }
 
                 if let Some(tool_call) = self.find_tool_call_mut(data.tool_call_id.as_deref()) {
@@ -228,10 +236,10 @@ impl TurnReconstructor {
                     // Only apply ToolExecComplete's model for non-subagent tool calls,
                     // or as a fallback if the subagent hasn't reported its own model yet.
                     if data.model.is_some() && (!tool_call.is_subagent || tool_call.model.is_none()) {
-                        tool_call.model = data.model.clone();
+                        tool_call.model = data.model.clone();  // Keep clone - may need model again below
                     }
                     if tool_call.parent_tool_call_id.is_none() {
-                        tool_call.parent_tool_call_id = data.parent_tool_call_id.clone();
+                        tool_call.parent_tool_call_id = data.parent_tool_call_id.take();
                     }
                     if let Some(result) = &data.result
                         && let Some(preview) = extract_result_preview(result) {
@@ -270,17 +278,18 @@ impl TurnReconstructor {
 
             (SessionEventType::SubagentStarted, TypedEventData::SubagentStarted(data)) => {
                 if let Some(existing) = self.find_tool_call_mut(data.tool_call_id.as_deref()) {
-                    enrich_subagent(existing, data);
+                    enrich_subagent(existing, &data);
                 } else {
                     // No matching ToolExecStart — create a new entry in current turn
+                    // Clone tool_call_id for indexing before moving data
+                    let tool_call_id_for_index = data.tool_call_id.clone();
+
                     let turn = self.ensure_current_turn(event.raw.timestamp);
                     let tc_index = turn.tool_calls.len();
                     turn.tool_calls.push(TurnToolCall {
-                        tool_call_id: data.tool_call_id.clone(),
+                        tool_call_id: data.tool_call_id,
                         parent_tool_call_id: None,
-                        tool_name: data
-                            .agent_name
-                            .clone()
+                        tool_name: data.agent_name
                             .or_else(|| data.agent_display_name.clone())
                             .unwrap_or_else(|| "subagent".to_string()),
                         event_index: Some(event_index),
@@ -294,8 +303,8 @@ impl TurnReconstructor {
                         mcp_tool_name: None,
                         is_complete: false,
                         is_subagent: true,
-                        agent_display_name: data.agent_display_name.clone(),
-                        agent_description: data.agent_description.clone(),
+                        agent_display_name: data.agent_display_name,
+                        agent_description: data.agent_description,
                         model: None,
                         intention_summary: None,
                         total_tokens: None,
@@ -303,9 +312,9 @@ impl TurnReconstructor {
                         result_content: None,
                         args_summary: None,
                     });
-                    if let Some(id) = &data.tool_call_id {
+                    if let Some(id) = tool_call_id_for_index {
                         self.tool_call_index
-                            .insert(id.clone(), (CURRENT_TURN_SENTINEL, tc_index));
+                            .insert(id, (CURRENT_TURN_SENTINEL, tc_index));
                     }
                 }
             }
@@ -336,23 +345,23 @@ impl TurnReconstructor {
                 );
             }
 
-            (SessionEventType::AssistantTurnEnd, TypedEventData::TurnEnd(data)) => {
+            (SessionEventType::AssistantTurnEnd, TypedEventData::TurnEnd(mut data)) => {
                 if let Some(turn) = self.current_turn.as_mut()
                     && turn.turn_id.is_none() {
-                        turn.turn_id = data.turn_id.clone();
+                        turn.turn_id = data.turn_id.take();
                     }
                 self.finalize_current_turn(true, event.raw.timestamp);
             }
 
             // Model change: update session-level model; set turn model if not already set
-            (SessionEventType::SessionModelChange, TypedEventData::ModelChange(data)) => {
-                if let Some(ref model) = data.new_model {
-                    self.session_model = Some(model.clone());
+            (SessionEventType::SessionModelChange, TypedEventData::ModelChange(mut data)) => {
+                if let Some(model) = data.new_model.take() {
+                    self.session_model = Some(model.clone()); // Clone for session-level storage
+                    if let Some(turn) = self.current_turn.as_mut()
+                        && turn.model.is_none() {
+                            turn.model = Some(model);
+                        }
                 }
-                if let Some(turn) = self.current_turn.as_mut()
-                    && turn.model.is_none() {
-                        turn.model = data.new_model.clone();
-                    }
             }
 
             // Abort: finalize the current turn as incomplete
@@ -361,12 +370,12 @@ impl TurnReconstructor {
             }
 
             // Standalone reasoning block: append to current turn's reasoning texts
-            (SessionEventType::AssistantReasoning, TypedEventData::AssistantReasoning(data)) => {
-                if let Some(content) = &data.content
+            (SessionEventType::AssistantReasoning, TypedEventData::AssistantReasoning(mut data)) => {
+                if let Some(content) = data.content.take()
                     && !content.trim().is_empty() {
                         let turn = self.ensure_current_turn(event.raw.timestamp);
                         turn.reasoning_texts.push(AttributedMessage {
-                            content: content.clone(),
+                            content,
                             parent_tool_call_id: None,
                             agent_display_name: None,
                         });
@@ -494,7 +503,7 @@ impl TurnReconstructor {
             // Session start/resume: seed session_model from selected_model
             (SessionEventType::SessionStart, TypedEventData::SessionStart(data)) => {
                 if self.session_model.is_none()
-                    && let Some(ref model) = data.selected_model {
+                    && let Some(model) = data.selected_model.as_ref() {
                         self.session_model = Some(model.clone());
                     }
                 self.push_session_event(
@@ -509,7 +518,7 @@ impl TurnReconstructor {
             }
 
             (SessionEventType::SessionResume, TypedEventData::SessionResume(data)) => {
-                if let Some(ref model) = data.selected_model {
+                if let Some(model) = data.selected_model.as_ref() {
                     self.session_model = Some(model.clone());
                 }
                 self.push_session_event(
