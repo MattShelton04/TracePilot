@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { McpServerConfig } from "@tracepilot/types";
-import { useToast } from "@tracepilot/ui";
+import { deepClone, useToast } from "@tracepilot/ui";
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import McpConfigEditor from "@/components/mcp/McpConfigEditor.vue";
@@ -90,9 +90,7 @@ const filteredTools = computed(() => {
   if (!toolSearch.value) return tools;
   const q = toolSearch.value.toLowerCase();
   return tools.filter(
-    (t) =>
-      t.name.toLowerCase().includes(q) ||
-      (t.description ?? "").toLowerCase().includes(q),
+    (t) => t.name.toLowerCase().includes(q) || (t.description ?? "").toLowerCase().includes(q),
   );
 });
 
@@ -158,7 +156,7 @@ function handleExportJson() {
 function startEditing() {
   if (!server.value) return;
   editName.value = serverName.value;
-  editConfig.value = JSON.parse(JSON.stringify(server.value.config));
+  editConfig.value = deepClone(server.value.config);
   editing.value = true;
 }
 
