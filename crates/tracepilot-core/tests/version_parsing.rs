@@ -444,7 +444,7 @@ fn v1_0_11_subagent_completed_has_agent_name() {
 #[test]
 fn turn_reconstruction_v1_0_2() {
     let parsed = parse_typed_events(&fixture_path("v1_0_2.jsonl")).unwrap();
-    let turns = reconstruct_turns(&parsed.events);
+    let turns = reconstruct_turns(parsed.events.clone());
     assert!(!turns.is_empty(), "should produce at least one turn");
 
     let turn = &turns[0];
@@ -468,7 +468,7 @@ fn turn_reconstruction_v1_0_2() {
 #[test]
 fn turn_reconstruction_v1_0_8() {
     let parsed = parse_typed_events(&fixture_path("v1_0_8.jsonl")).unwrap();
-    let turns = reconstruct_turns(&parsed.events);
+    let turns = reconstruct_turns(parsed.events.clone());
     assert!(!turns.is_empty());
 
     let turn = &turns[0];
@@ -485,7 +485,7 @@ fn turn_reconstruction_v1_0_8() {
 #[test]
 fn turn_reconstruction_v1_0_11() {
     let parsed = parse_typed_events(&fixture_path("v1_0_11.jsonl")).unwrap();
-    let turns = reconstruct_turns(&parsed.events);
+    let turns = reconstruct_turns(parsed.events.clone());
     assert!(!turns.is_empty());
 
     let turn = &turns[0];
@@ -504,7 +504,7 @@ fn turn_reconstruction_v1_0_11() {
 #[test]
 fn turn_reconstruction_v1_0_24() {
     let parsed = parse_typed_events(&fixture_path("v1_0_24.jsonl")).unwrap();
-    let turns = reconstruct_turns(&parsed.events);
+    let turns = reconstruct_turns(parsed.events.clone());
     assert!(!turns.is_empty());
 
     let turn = &turns[0];
