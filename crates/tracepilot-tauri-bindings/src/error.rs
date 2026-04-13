@@ -66,6 +66,10 @@ pub enum BindingsError {
     /// Input validation failed (user-facing message).
     #[error("{0}")]
     Validation(String),
+
+    /// Mutex lock failure (poisoned or contention).
+    #[error("Concurrency error: {0}")]
+    Concurrency(String),
 }
 
 // Tauri v2 requires command return errors to implement `Into<InvokeError>`.

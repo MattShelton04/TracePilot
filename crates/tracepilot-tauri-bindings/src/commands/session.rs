@@ -29,17 +29,14 @@ fn load_cached_typed_events(
     let file_size = meta.as_ref().map_or(0, |m| m.len());
     let file_mtime = meta.and_then(|m| m.modified().ok());
 
-    let cached_events = match cache.lock() {
+    let cached_events = match crate::helpers::acquire_lock(cache, "event cache read") {
         Ok(mut lru) => lru
             .get(session_id)
             .filter(|cached| {
                 cached.events_file_size == file_size && cached.events_file_mtime == file_mtime
             })
             .map(|cached| Arc::clone(&cached.events)),
-        Err(_) => {
-            tracing::warn!("Event cache Mutex poisoned — skipping cache read");
-            None
-        }
+        Err(_) => None,
     };
 
     if let Some(events) = cached_events {
@@ -49,7 +46,7 @@ fn load_cached_typed_events(
     let events =
         Arc::new(tracepilot_core::parsing::events::parse_typed_events(events_path)?.events);
 
-    if let Ok(mut lru) = cache.lock() {
+    if let Ok(mut lru) = crate::helpers::acquire_lock(cache, "event cache write") {
         lru.put(
             session_id.to_string(),
             CachedEvents {
@@ -231,7 +228,7 @@ pub async fn get_session_turns(
             let meta = std::fs::metadata(&events_path).ok();
             let file_size = meta.as_ref().map_or(0, |m| m.len());
             let file_mtime = meta.and_then(|m| m.modified().ok());
-            let Ok(mut lru) = cache.lock() else {
+            let Ok(mut lru) = crate::helpers::acquire_lock(&cache, "turn cache read") else {
                 tracing::warn!("Turn cache Mutex poisoned — skipping cache read");
                 let (events, events_file_size, events_file_mtime) =
                     load_cached_typed_events(&event_cache, &session_id, &events_path)?;
@@ -270,7 +267,7 @@ pub async fn get_session_turns(
         let turns = tracepilot_core::turns::reconstruct_turns(events.as_ref());
 
         // Store full (untrimmed) turns in LRU
-        if let Ok(mut lru) = cache.lock() {
+        if let Ok(mut lru) = crate::helpers::acquire_lock(&cache, "turn cache write") {
             lru.put(
                 session_id.clone(),
                 CachedTurns {
@@ -694,7 +691,7 @@ mod tests {
 
         let poisoned_cache = Arc::clone(&cache);
         let _ = std::thread::spawn(move || {
-            let _guard = poisoned_cache.lock().expect("lock cache");
+            let _guard = crate::helpers::acquire_lock(&poisoned_cache, "poison test").unwrap();
             panic!("poison cache");
         })
         .join();

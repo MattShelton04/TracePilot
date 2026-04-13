@@ -90,9 +90,7 @@ pub(crate) fn read_config(state: &SharedConfig) -> TracePilotConfig {
 pub(crate) fn get_or_init_task_db(
     state: &crate::types::SharedTaskDb,
 ) -> Result<crate::types::SharedTaskDb, BindingsError> {
-    let mut guard = state.lock().map_err(|_| {
-        BindingsError::Validation("TaskDb mutex poisoned".into())
-    })?;
+    let mut guard = acquire_lock(state, "TaskDb initialization")?;
     if guard.is_none() {
         let path = tracepilot_orchestrator::task_db::TaskDb::default_path()
             .map_err(|e| BindingsError::Validation(format!("Cannot resolve task DB path: {e}")))?;
@@ -105,6 +103,23 @@ pub(crate) fn get_or_init_task_db(
     }
     drop(guard);
     Ok(state.clone())
+}
+
+/// Acquire a mutex lock, converting poison/panic errors to BindingsError::Concurrency.
+///
+/// Handles both poisoned mutexes (recoverable via `into_inner()`) and normal locks.
+/// Returns descriptive error for debugging while preventing panics.
+pub(crate) fn acquire_lock<T>(
+    mutex: &std::sync::Mutex<T>,
+    context: &str,
+) -> Result<std::sync::MutexGuard<'_, T>, BindingsError> {
+    mutex
+        .lock()
+        .or_else(|poisoned| {
+            warn!(context, "Mutex poisoned, recovering inner value");
+            Ok(poisoned.into_inner())
+        })
+        .map_err(|_| BindingsError::Concurrency(format!("Failed to acquire lock: {context}")))
 }
 
 /// Initialise the task DB (if needed), acquire the mutex, and run a
@@ -122,9 +137,7 @@ where
 {
     let db = get_or_init_task_db(state)?;
     tokio::task::spawn_blocking(move || {
-        let guard = db
-            .lock()
-            .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
+        let guard = acquire_lock(&db, "TaskDb access")?;
         let db = guard
             .as_ref()
             .ok_or_else(|| BindingsError::Validation("TaskDb not init".into()))?;
@@ -358,7 +371,7 @@ mod tests {
         }
 
         fn output(&self) -> String {
-            let data = self.buffer.lock().unwrap();
+            let data = acquire_lock(&self.buffer, "test log buffer").unwrap();
             String::from_utf8_lossy(&data[..]).into_owned()
         }
     }
@@ -379,7 +392,7 @@ mod tests {
 
     impl std::io::Write for LogWriter {
         fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-            let mut guard = self.buffer.lock().unwrap();
+            let mut guard = acquire_lock(&self.buffer, "test log writer").unwrap();
             guard.extend_from_slice(buf);
             Ok(buf.len())
         }
