@@ -54,18 +54,28 @@ where
         return Ok(());
     }
 
+    use std::fmt::Write;
+
     for chunk in items.chunks(BATCH_CHUNK_SIZE) {
-        let placeholders: String = (0..chunk.len())
-            .map(|i| {
-                let start = i * params_per_row + 1;
-                let p: String = (start..start + params_per_row)
-                    .map(|n| format!("?{n}"))
-                    .collect::<Vec<_>>()
-                    .join(",");
-                format!("({p})")
-            })
-            .collect::<Vec<_>>()
-            .join(",");
+        // Pre-allocate assuming ~5 bytes per placeholder (e.g., "?12,") plus parentheses and commas
+        // Typical structure per item: "(?1,?2,?3),"
+        let est_capacity = chunk.len() * (params_per_row * 5 + 3);
+        let mut placeholders = String::with_capacity(est_capacity);
+
+        for i in 0..chunk.len() {
+            if i > 0 {
+                placeholders.push(',');
+            }
+            placeholders.push('(');
+            let start = i * params_per_row + 1;
+            for j in 0..params_per_row {
+                if j > 0 {
+                    placeholders.push(',');
+                }
+                let _ = write!(&mut placeholders, "?{}", start + j);
+            }
+            placeholders.push(')');
+        }
 
         let sql = format!("{sql_prefix} {placeholders}");
         let mut stmt = conn.prepare(&sql)?;

@@ -1,0 +1,3 @@
+## 2025-02-18 - Optimized SQL String Allocation in batch_insert
+**Learning:** Found a specific performance bottleneck in `crates/tracepilot-indexer/src/index_db/batch_insert.rs` where SQL placeholder strings (like `(?1,?2),(?3,?4)`) for chunked batch insertion were generated using dynamic `.map()`, `format!()`, and `.join()` combinations. This resulted in O(N*M) unnecessary intermediate allocations.
+**Action:** When dynamically generating large SQL placeholder strings in Rust for batch inserts, avoid `.map()`, `format!()`, and `.join()`. Instead, use `String::with_capacity()` based on an explicit calculation of bytes, and construct the sequence iteratively using `std::fmt::Write` (e.g., `write!(&mut buffer, "?{}", start + j)`).
