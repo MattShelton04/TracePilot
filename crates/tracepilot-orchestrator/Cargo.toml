@@ -24,7 +24,7 @@ rusqlite = { workspace = true }
 tokio = { workspace = true }
 reqwest = { workspace = true }
 
-similar = "2"
+similar = "3"
 walkdir = "2"
 sha2 = "0.10"
 
