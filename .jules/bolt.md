@@ -1,0 +1,3 @@
+## 2025-01-20 - Optimize SQL placeholder generation in batch_insert
+**Learning:** Using chained iterators like `.map().join(",")` to generate large placeholder strings dynamically is heavily inefficient in Rust due to massive numbers of intermediate heap allocations. In high throughput code paths (like SQLite batch insertion where chunks hold hundreds of parameters), this becomes a measurable bottleneck compared to a single pre-allocated string.
+**Action:** When dynamically constructing wide or repetitive strings with known bounds, pre-allocate a String via `String::with_capacity()` and append directly using `std::fmt::Write::write!` to avoid intermediate array allocations.

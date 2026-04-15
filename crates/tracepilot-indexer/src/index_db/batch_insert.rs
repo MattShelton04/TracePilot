@@ -55,17 +55,24 @@ where
     }
 
     for chunk in items.chunks(BATCH_CHUNK_SIZE) {
-        let placeholders: String = (0..chunk.len())
-            .map(|i| {
-                let start = i * params_per_row + 1;
-                let p: String = (start..start + params_per_row)
-                    .map(|n| format!("?{n}"))
-                    .collect::<Vec<_>>()
-                    .join(",");
-                format!("({p})")
-            })
-            .collect::<Vec<_>>()
-            .join(",");
+        // Optimize placeholder string generation: avoid .map().join() which causes multiple allocations
+        // 5 chars for "(?N,)" max digits 3, safe conservative bound.
+        use std::fmt::Write;
+        let mut placeholders = String::with_capacity(chunk.len() * (params_per_row * 5 + 3));
+        for i in 0..chunk.len() {
+            if i > 0 {
+                placeholders.push(',');
+            }
+            placeholders.push('(');
+            let start = i * params_per_row + 1;
+            for j in 0..params_per_row {
+                if j > 0 {
+                    placeholders.push(',');
+                }
+                write!(&mut placeholders, "?{}", start + j).expect("String write failed");
+            }
+            placeholders.push(')');
+        }
 
         let sql = format!("{sql_prefix} {placeholders}");
         let mut stmt = conn.prepare(&sql)?;
