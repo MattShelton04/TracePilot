@@ -65,12 +65,8 @@ pub(crate) fn validate_skill_name(name: &str) -> CmdResult<()> {
 /// Asset names must be safe for use in filesystem operations. Uses the same
 /// rules as skill names to allow flexibility while preventing path traversal.
 pub(crate) fn validate_asset_name(name: &str) -> CmdResult<()> {
-    tracepilot_orchestrator::validation::validate_identifier(
-        name,
-        tracepilot_orchestrator::validation::SKILL_NAME_RULES,
-        "Asset name",
-    )
-    .map_err(BindingsError::Validation)
+    tracepilot_orchestrator::skills::assets::validate_asset_name(name)
+        .map_err(|e| BindingsError::Validation(e.to_string()))
 }
 
 // ── Session-ID validation ─────────────────────────────────────────────────
@@ -757,7 +753,19 @@ mod tests {
     }
 
     #[test]
-    fn asset_name_path_separator_fails() {
-        assert!(validate_asset_name("subdir/file.txt").is_err());
+    fn asset_name_nested_path_passes() {
+        assert!(validate_asset_name("subdir/file.txt").is_ok());
+        assert!(validate_asset_name("deep/nested/file.md").is_ok());
+    }
+
+    #[test]
+    fn asset_name_leading_separator_fails() {
+        assert!(validate_asset_name("/etc/passwd").is_err());
+        assert!(validate_asset_name("\\Windows\\file").is_err());
+    }
+
+    #[test]
+    fn asset_name_skill_md_fails() {
+        assert!(validate_asset_name("SKILL.md").is_err());
     }
 }
