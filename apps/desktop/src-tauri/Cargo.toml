@@ -18,7 +18,7 @@ tauri = { version = "2", features = [] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
-tauri-plugin-dialog = "2.6.0"
+tauri-plugin-dialog = "2.7.0"
 tauri-plugin-log = "2"
 tauri-plugin-notification = "2"
 tauri-plugin-opener = "2"
