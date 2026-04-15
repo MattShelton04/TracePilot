@@ -1,0 +1,3 @@
+## 2024-05-19 - Optimization: SQL Batch Insert String Allocation
+**Learning:** In Rust `rusqlite` batch inserts, generating multi-row parameter strings like `(?,?), (?,?)` by chaining `.map()`, `format!()`, and `.join(",")` inside iterators forces excessive intermediate `String` allocations and copying per row. This becomes a significant CPU bottleneck on large inserts due to heap fragmentation.
+**Action:** When dynamically generating large SQL placeholder strings in Rust, always compute the required buffer size, pre-allocate using `String::with_capacity()`, and append via `std::fmt::Write` (`write!`). This avoids multi-allocation overhead and operates mostly in-place.
