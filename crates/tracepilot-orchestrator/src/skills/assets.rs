@@ -62,7 +62,11 @@ fn collect_assets(
 }
 
 /// Validate an asset name against path traversal and absolute paths.
-fn validate_asset_name(asset_name: &str) -> Result<(), SkillsError> {
+///
+/// Asset names may contain path separators (`/`, `\`) for nested files
+/// (e.g. `subdir/helper.py`), but must not contain `..`, start with a
+/// separator, or be absolute.
+pub fn validate_asset_name(asset_name: &str) -> Result<(), SkillsError> {
     // Check empty
     if asset_name.is_empty() {
         return Err(SkillsError::Asset("Asset name cannot be empty".into()));
@@ -369,6 +373,24 @@ mod tests {
     #[test]
     fn validate_asset_name_rejects_skill_md() {
         assert!(validate_asset_name("SKILL.md").is_err());
+    }
+
+    #[test]
+    fn read_asset_nested_path_works() {
+        let dir = TempDir::new().unwrap();
+        let skill_dir = setup_skill_with_assets(&dir);
+        let sub_dir = skill_dir.join("scripts");
+        std::fs::create_dir_all(&sub_dir).unwrap();
+        std::fs::write(sub_dir.join("run.ps1"), "echo hello").unwrap();
+
+        let content = read_asset(&skill_dir, "scripts/run.ps1").unwrap();
+        assert_eq!(content, "echo hello");
+    }
+
+    #[test]
+    fn validate_asset_name_allows_nested_paths() {
+        assert!(validate_asset_name("subdir/file.txt").is_ok());
+        assert!(validate_asset_name("deep/nested/file.md").is_ok());
     }
 
     #[test]
