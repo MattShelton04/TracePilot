@@ -23,7 +23,7 @@ anyhow = { workspace = true }
 tauri = { version = "2", features = [] }
 tokio = { version = "1", features = ["rt", "sync"] }
 uuid = "1"
-lru = "0.12"
+lru = "0.17"
 reqwest = { workspace = true }
 semver = { workspace = true }
 copilot-sdk = { workspace = true, optional = true }
