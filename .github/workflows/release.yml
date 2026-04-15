@@ -50,7 +50,7 @@ jobs:
 
       - name: Create GitHub Release
         id: create
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           name: "TracePilot v${{ steps.version.outputs.version }}"
@@ -93,7 +93,7 @@ jobs:
           includeUpdaterJson: true
 
       - name: Upload standalone exe
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.create-release.outputs.tag }}
           files: target/release/tracepilot-desktop.exe
