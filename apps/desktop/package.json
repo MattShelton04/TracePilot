@@ -37,7 +37,7 @@
     "@tailwindcss/vite": "^4.2.1",
     "@tauri-apps/cli": "^2.5.0",
     "@tracepilot/test-utils": "workspace:*",
-    "@vitejs/plugin-vue": "^5.2.4",
+    "@vitejs/plugin-vue": "^6.0.6",
     "@vue/test-utils": "^2.4.6",
     "jsdom": "^28.1.0",
     "rollup-plugin-visualizer": "^7.0.1",
