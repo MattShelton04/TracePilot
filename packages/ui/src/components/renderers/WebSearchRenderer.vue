@@ -56,7 +56,7 @@ const unwrappedContent = computed(() => {
 const sources = computed<Array<{ title: string; url: string; domain: string }>>(() => {
   const text = unwrappedContent.value;
   if (!text) return [];
-  const matches = text.matchAll(/\[([^\]]+)\]\((https?:\/\/(?:[^()]*|\([^()]*\))*)\)/g);
+  const matches = text.matchAll(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g);
   const seen = new Set<string>();
   const results: Array<{ title: string; url: string; domain: string }> = [];
   for (const m of matches) {
