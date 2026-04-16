@@ -24,7 +24,7 @@ const query = computed(() => (typeof props.args?.query === "string" ? props.args
 const unwrappedContent = computed(() => {
   if (!props.content) return "";
   const s = props.content.trim();
-  if (!s.startsWith("{")) return s;
+  if (!s.startsWith("{") && !s.startsWith("[")) return s;
   try {
     const parsed = JSON.parse(s);
     // Envelope: { type: "text", text: { value: "..." } }

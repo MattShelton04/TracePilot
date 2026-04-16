@@ -56,12 +56,6 @@ const selectedChoiceIdx = computed(() => {
     if (prefixMatch !== -1) return prefixMatch;
   }
 
-  // 3. Check if response contains a choice verbatim (for wrapped responses)
-  const containsMatch = choices.value.findIndex(
-    (c) => c.trim().length > 0 && resp.includes(c.toLowerCase().trim()),
-  );
-  if (containsMatch !== -1) return containsMatch;
-
   return -1;
 });
 

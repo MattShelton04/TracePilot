@@ -95,7 +95,7 @@ const parsedTable = computed<{ headers: string[]; rows: string[][] } | null>(() 
   if (direct) return direct;
 
   // 2. Extract embedded JSON array from surrounding text (e.g. "Results:\n[{...}]")
-  const arrayMatch = trimmed.match(/\[[\s\S]*\]/);
+  const arrayMatch = trimmed.match(/\[\s*\{[\s\S]*?\}\s*\]/);
   if (arrayMatch) {
     const embedded = tryParse(arrayMatch[0]);
     if (embedded) return embedded;

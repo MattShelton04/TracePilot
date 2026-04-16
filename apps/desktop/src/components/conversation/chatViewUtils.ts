@@ -15,7 +15,6 @@ export type ToolSegment =
 
 export type ToolGroupItem =
   | { type: "intent"; toolCall: TurnToolCall }
-  | { type: "memory"; toolCall: TurnToolCall }
   | { type: "ask-user"; toolCall: TurnToolCall }
   | { type: "read-agent"; toolCall: TurnToolCall }
   | { type: "tool"; toolCall: TurnToolCall };
