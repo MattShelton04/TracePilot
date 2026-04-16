@@ -233,6 +233,25 @@ const sqlContent = JSON.stringify([
 
 const sqlEmptyContent = "Query executed successfully. 0 rows affected.";
 
+const sqlMarkdownContent = [
+  "Executed 2 statement(s):",
+  "",
+  "1. UPDATE",
+  "   6 row(s) updated.",
+  "",
+  "2. SELECT",
+  "   6 row(s) returned:",
+  "   ",
+  "   | id | title | status |",
+  "   | --- | --- | --- |",
+  "   | fix-store-memory | Fix StoreMemoryRenderer | done |",
+  "   | fix-askuser-match | Fix AskUserRenderer selection | done |",
+  "   | fix-sql-parsing | Fix SqlResultRenderer parsing | done |",
+  "   | fix-shell-command | Fix ShellOutputRenderer truncation | done |",
+  "   | fix-edit-dead-code | Remove dead computeWordDiff | done |",
+  "   | add-showcase-sidebar | Add showcase to sidebar | done |",
+].join("\n");
+
 const webSearchArgs = {
   query: "What are the latest features in Vue 3.5?",
 };
@@ -393,6 +412,14 @@ const sections: ShowcaseSection[] = [
     issues: [],
   },
   {
+    id: "sql-markdown",
+    title: "SqlResultRenderer (markdown pipe table)",
+    tool: "sql",
+    type: "result",
+    description: "Parses markdown pipe tables embedded in text (common Copilot SQL output format).",
+    issues: [],
+  },
+  {
     id: "web-search",
     title: "WebSearchRenderer",
     tool: "web_search",
@@ -540,6 +567,11 @@ function toggleSection(id: string) {
             v-if="s.id === 'sql-empty'"
             :content="sqlEmptyContent"
             :args="sqlArgs"
+          />
+          <SqlResultRenderer
+            v-if="s.id === 'sql-markdown'"
+            :content="sqlMarkdownContent"
+            :args="{ query: 'UPDATE todos SET status = \'done\'; SELECT id, title, status FROM todos;', description: 'Update all todos to done' }"
           />
           <WebSearchRenderer
             v-if="s.id === 'web-search'"

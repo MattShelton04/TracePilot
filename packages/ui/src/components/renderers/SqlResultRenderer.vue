@@ -29,6 +29,40 @@ const highlightedQuery = computed(() => {
   return highlightSql(query.value);
 });
 
+/** Parse a markdown pipe table from text. Handles tables embedded in surrounding text. */
+function parseMarkdownTable(text: string): { headers: string[]; rows: string[][] } | null {
+  const allLines = text.split("\n");
+
+  // Find the header separator line (e.g. "| --- | --- |" or "| :--- | ---: |")
+  const sepIdx = allLines.findIndex((l) =>
+    /^\s*\|[\s:]*-{2,}[\s:]*(\|[\s:]*-{2,}[\s:]*)*\|\s*$/.test(l),
+  );
+  if (sepIdx < 1) return null;
+
+  const headerLine = allLines[sepIdx - 1];
+  if (!headerLine.includes("|")) return null;
+
+  const parsePipeRow = (line: string): string[] =>
+    line
+      .replace(/^\s*\|/, "")
+      .replace(/\|\s*$/, "")
+      .split("|")
+      .map((c) => c.trim());
+
+  const headers = parsePipeRow(headerLine);
+  if (headers.length === 0 || headers.every((h) => h === "")) return null;
+
+  const rows: string[][] = [];
+  for (let i = sepIdx + 1; i < allLines.length; i++) {
+    const line = allLines[i].trim();
+    if (!line.startsWith("|")) break;
+    rows.push(parsePipeRow(line));
+  }
+
+  if (rows.length === 0) return null;
+  return { headers, rows };
+}
+
 /** Try to parse the content as a structured result.
  *  Handles: JSON array of objects, newline-delimited JSON objects,
  *  and content with a JSON array embedded in surrounding text. */
@@ -81,6 +115,10 @@ const parsedTable = computed<{ headers: string[]; rows: string[][] } | null>(() 
       // Not NDJSON
     }
   }
+
+  // 4. Parse markdown pipe tables (e.g. "| col1 | col2 |\n| --- | --- |\n| val | val |")
+  const mdTable = parseMarkdownTable(trimmed);
+  if (mdTable) return mdTable;
 
   return null;
 });
