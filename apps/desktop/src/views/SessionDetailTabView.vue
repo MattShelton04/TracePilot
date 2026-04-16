@@ -12,6 +12,7 @@
 import { computed, defineAsyncComponent, provide, watch } from "vue";
 import SessionDetailPanel from "@/components/session/SessionDetailPanel.vue";
 import { createSessionDetailInstance, SESSION_DETAIL_KEY, toSessionDetailContext } from "@/composables/useSessionDetail";
+import { NAVIGATE_CHECKPOINT_KEY } from "@/composables/useCheckpointNavigation";
 import { useWindowRole } from "@/composables/useWindowRole";
 import { useSessionTabsStore } from "@/stores/sessionTabs";
 
@@ -66,6 +67,12 @@ watch(
 function onIsActiveChange(active: boolean) {
   if (!isViewer()) tabStore.setTabActive(props.sessionId, active);
 }
+
+// ── Checkpoint navigation (conversation → overview tab) ─────────
+provide(NAVIGATE_CHECKPOINT_KEY, (checkpointNumber: number) => {
+  store.pendingCheckpointFocus = checkpointNumber;
+  emit("update:activeSubTab", "overview");
+});
 </script>
 
 <template>

@@ -3,6 +3,7 @@ import type {
   AttributedMessage,
   ConversationTurn,
   SessionEventSeverity,
+  TurnSessionEvent,
   TurnToolCall,
 } from "@tracepilot/types";
 import { getToolArgs, toolArgString } from "@tracepilot/types";
@@ -24,6 +25,7 @@ import {
 } from "@tracepilot/ui";
 import { computed, nextTick, onMounted, onUnmounted, ref } from "vue";
 import { useRoute } from "vue-router";
+import { useCheckpointNavigation } from "@/composables/useCheckpointNavigation";
 import { useCrossTurnSubagents } from "@/composables/useCrossTurnSubagents";
 import { useSubagentPanel } from "@/composables/useSubagentPanel";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
@@ -51,6 +53,7 @@ const preferences = usePreferencesStore();
 const route = useRoute();
 const turns = computed(() => store.turns);
 const renderMd = computed(() => preferences.isFeatureEnabled("renderMarkdown"));
+const navigateToCheckpoint = useCheckpointNavigation();
 
 // ─── Cross-turn subagent data ─────────────────────────────────────
 
@@ -196,6 +199,10 @@ function severityIcon(severity: SessionEventSeverity): string {
   if (severity === "error") return "⚠️";
   if (severity === "warning") return "⚠️";
   return "ℹ️";
+}
+
+function isCompactionEvent(evt: TurnSessionEvent): boolean {
+  return evt.eventType === "session.compaction_complete";
 }
 
 // ─── Progressive disclosure ───────────────────────────────────────
@@ -452,18 +459,41 @@ defineExpose({ revealEvent });
               </div>
 
               <!-- Session events -->
-              <div
-                v-for="evt in (turn.sessionEvents ?? [])"
-                :key="evt.timestamp"
-                :class="['cv-session-event', severityClass(evt.severity)]"
-              >
-                <span class="cv-session-event-icon">{{ severityIcon(evt.severity) }}</span>
-                <span class="cv-session-event-type">{{ evt.eventType }}</span>
-                <span class="cv-session-event-summary">{{ evt.summary }}</span>
-                <span v-if="evt.timestamp" class="cv-session-event-time">
-                  {{ formatTime(evt.timestamp) }}
-                </span>
-              </div>
+              <template v-for="evt in (turn.sessionEvents ?? [])" :key="evt.timestamp">
+                <!-- Compaction event with checkpoint pill -->
+                <div
+                  v-if="isCompactionEvent(evt)"
+                  class="cv-session-event cv-compaction"
+                >
+                  <span class="cv-session-event-icon">🗜️</span>
+                  <button
+                    v-if="evt.checkpointNumber != null"
+                    class="cv-checkpoint-pill"
+                    :title="`View Checkpoint #${evt.checkpointNumber} in Overview tab`"
+                    @click="navigateToCheckpoint(evt.checkpointNumber!)"
+                  >
+                    📋 Checkpoint #{{ evt.checkpointNumber }}
+                  </button>
+                  <span v-else class="cv-session-event-type">compaction</span>
+                  <span class="cv-session-event-summary">{{ evt.summary }}</span>
+                  <span v-if="evt.timestamp" class="cv-session-event-time">
+                    {{ formatTime(evt.timestamp) }}
+                  </span>
+                </div>
+
+                <!-- Regular session event -->
+                <div
+                  v-else
+                  :class="['cv-session-event', severityClass(evt.severity)]"
+                >
+                  <span class="cv-session-event-icon">{{ severityIcon(evt.severity) }}</span>
+                  <span class="cv-session-event-type">{{ evt.eventType }}</span>
+                  <span class="cv-session-event-summary">{{ evt.summary }}</span>
+                  <span v-if="evt.timestamp" class="cv-session-event-time">
+                    {{ formatTime(evt.timestamp) }}
+                  </span>
+                </div>
+              </template>
 
               <!-- User message anchor -->
               <div
@@ -802,6 +832,35 @@ defineExpose({ revealEvent });
   flex-shrink: 0;
   font-size: 11px;
   opacity: 0.6;
+}
+
+/* ─── Compaction event ────────────────────────────────────────────── */
+
+.cv-compaction {
+  background: var(--accent-subtle, rgba(56, 139, 253, 0.08));
+  color: var(--accent-fg, #58a6ff);
+  border-left: 3px solid var(--accent-emphasis, #1f6feb);
+}
+
+.cv-checkpoint-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border: 1px solid var(--accent-muted, rgba(56, 139, 253, 0.4));
+  border-radius: 12px;
+  background: var(--accent-subtle, rgba(56, 139, 253, 0.1));
+  color: var(--accent-fg, #58a6ff);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.cv-checkpoint-pill:hover {
+  background: var(--accent-muted, rgba(56, 139, 253, 0.25));
+  border-color: var(--accent-fg, #58a6ff);
 }
 
 /* ─── User message anchor ──────────────────────────────────────── */

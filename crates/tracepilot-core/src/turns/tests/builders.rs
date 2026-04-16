@@ -844,6 +844,7 @@ pub struct CompactionCompleteBuilder {
     error: Option<String>,
     pre_compaction_tokens: Option<u64>,
     pre_compaction_messages_length: Option<u64>,
+    checkpoint_number: Option<u64>,
 }
 
 impl CompactionCompleteBuilder {
@@ -853,6 +854,7 @@ impl CompactionCompleteBuilder {
             error: None,
             pre_compaction_tokens: None,
             pre_compaction_messages_length: None,
+            checkpoint_number: None,
         }
     }
 
@@ -876,6 +878,11 @@ impl CompactionCompleteBuilder {
         self
     }
 
+    pub fn checkpoint_number(mut self, n: u64) -> Self {
+        self.checkpoint_number = Some(n);
+        self
+    }
+
     fn build_data(self) -> CompactionCompleteData {
         CompactionCompleteData {
             success: self.success,
@@ -883,7 +890,7 @@ impl CompactionCompleteBuilder {
             pre_compaction_tokens: self.pre_compaction_tokens,
             pre_compaction_messages_length: self.pre_compaction_messages_length,
             summary_content: None,
-            checkpoint_number: None,
+            checkpoint_number: self.checkpoint_number,
             checkpoint_path: None,
             compaction_tokens_used: None,
             request_id: None,

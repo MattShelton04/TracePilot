@@ -50,6 +50,8 @@ export interface TurnSessionEvent {
   severity: SessionEventSeverity;
   /** Human-readable summary of what happened. */
   summary: string;
+  /** For compaction_complete events, the associated checkpoint number. */
+  checkpointNumber?: number;
 }
 
 /** A tool call within a turn */

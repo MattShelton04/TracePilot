@@ -435,11 +435,13 @@ impl TurnReconstructor {
                     (Some(tokens), _, _) => format!("Compaction complete ({tokens} tokens)"),
                     _ => "Compaction complete".to_string(),
                 };
-                self.push_session_event(
+                let cp_num = data.checkpoint_number.and_then(|n| u32::try_from(n).ok());
+                self.push_session_event_ext(
                     "session.compaction_complete",
                     event.raw.timestamp,
                     severity,
                     summary,
+                    cp_num,
                 );
             }
 
@@ -564,11 +566,23 @@ impl TurnReconstructor {
         severity: SessionEventSeverity,
         summary: String,
     ) {
+        self.push_session_event_ext(event_type, timestamp, severity, summary, None);
+    }
+
+    fn push_session_event_ext(
+        &mut self,
+        event_type: &str,
+        timestamp: Option<DateTime<Utc>>,
+        severity: SessionEventSeverity,
+        summary: String,
+        checkpoint_number: Option<u32>,
+    ) {
         let se = TurnSessionEvent {
             event_type: event_type.to_string(),
             timestamp,
             severity,
             summary,
+            checkpoint_number,
         };
         if let Some(turn) = &mut self.current_turn {
             turn.session_events.push(se);

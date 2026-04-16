@@ -3,6 +3,7 @@ import {
   Badge,
   DefList,
   ErrorAlert,
+  ExpandChevron,
   formatDate,
   formatDuration,
   formatNumberFull,
@@ -13,7 +14,8 @@ import {
   truncateText,
   useSessionTabLoader,
 } from "@tracepilot/ui";
-import { computed, ref } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
+import CheckpointContentView from "@/components/checkpoints/CheckpointContentView.vue";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { formatObjectResult } from "@/utils/formatResult";
 
@@ -98,6 +100,40 @@ function toggleCheckpoint(num: number) {
     expandedCheckpoints.value.add(num);
   }
 }
+
+function expandAllCheckpoints() {
+  for (const cp of store.checkpoints) {
+    if (cp.content) expandedCheckpoints.value.add(cp.number);
+  }
+}
+
+function collapseAllCheckpoints() {
+  expandedCheckpoints.value.clear();
+}
+
+const allCheckpointsExpanded = computed(() =>
+  store.checkpoints.every((cp) => !cp.content || expandedCheckpoints.value.has(cp.number)),
+);
+
+// Auto-expand a checkpoint when navigated to from conversation view
+const checkpointSectionRef = ref<HTMLElement | null>(null);
+
+watch(
+  () => [store.pendingCheckpointFocus, store.checkpoints.length] as const,
+  async ([num]) => {
+    if (num == null) return;
+    expandedCheckpoints.value.add(num);
+    await nextTick();
+    const container = checkpointSectionRef.value ?? document;
+    const el = container.querySelector(`[data-checkpoint="${num}"]`);
+    if (el) {
+      store.pendingCheckpointFocus = null;
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+    // If el not found, keep pending — watcher will re-fire when checkpoints load
+  },
+  { immediate: true },
+);
 
 const isPlanExpanded = ref(true);
 
@@ -279,25 +315,50 @@ function retryLoadSection(section: string) {
       :title="`Checkpoints (${store.checkpoints.length})`"
       class="mb-6"
     >
-      <div
-        v-for="cp in store.checkpoints"
-        :key="cp.number"
-        class="checkpoint-row"
-      >
-        <div class="checkpoint-item" @click="toggleCheckpoint(cp.number)">
-          <div class="checkpoint-number">{{ cp.number }}</div>
-          <div class="checkpoint-body">
-            <div class="checkpoint-title">{{ cp.title }}</div>
-            <div class="checkpoint-file font-mono">{{ cp.filename }}</div>
+      <template #actions>
+        <button
+          class="cp-toggle-all-btn"
+          @click="allCheckpointsExpanded ? collapseAllCheckpoints() : expandAllCheckpoints()"
+        >
+          {{ allCheckpointsExpanded ? 'Collapse all' : 'Expand all' }}
+        </button>
+      </template>
+
+      <div class="cp-timeline" ref="checkpointSectionRef">
+        <div
+          v-for="(cp, idx) in store.checkpoints"
+          :key="cp.number"
+          :data-checkpoint="cp.number"
+          class="cp-timeline-item"
+        >
+          <!-- Timeline connector -->
+          <div class="cp-timeline-rail">
+            <div v-if="idx > 0" class="cp-timeline-line top" />
+            <div
+              class="cp-timeline-dot"
+              :class="{ active: expandedCheckpoints.has(cp.number) }"
+            >
+              {{ cp.number }}
+            </div>
+            <div v-if="idx < store.checkpoints.length - 1" class="cp-timeline-line bottom" />
           </div>
-          <div class="checkpoint-actions">
-            <button v-if="cp.content" class="detail-toggle-btn">
-              {{ expandedCheckpoints.has(cp.number) ? 'Hide Content' : 'View Content' }}
+
+          <!-- Content -->
+          <div class="cp-timeline-content">
+            <button class="cp-timeline-header" @click="toggleCheckpoint(cp.number)">
+              <div class="cp-timeline-title-row">
+                <span class="cp-timeline-title">{{ cp.title }}</span>
+                <ExpandChevron
+                  v-if="cp.content"
+                  :expanded="expandedCheckpoints.has(cp.number)"
+                  class="cp-timeline-chevron"
+                />
+              </div>
             </button>
+            <div v-if="expandedCheckpoints.has(cp.number) && cp.content" class="cp-timeline-body">
+              <CheckpointContentView :content="cp.content" />
+            </div>
           </div>
-        </div>
-        <div v-if="expandedCheckpoints.has(cp.number) && cp.content" class="checkpoint-content">
-          <MarkdownContent :content="cp.content" />
         </div>
       </div>
     </SectionPanel>
@@ -407,64 +468,124 @@ function retryLoadSection(section: string) {
   color: var(--text-primary);
 }
 
-.checkpoint-row {
-  border-bottom: 1px solid var(--border);
-}
-.checkpoint-row:last-child {
-  border-bottom: none;
+/* ── Checkpoint timeline ───────────────────────────────────────── */
+
+.cp-toggle-all-btn {
+  background: none;
+  border: none;
+  color: var(--accent-fg, #58a6ff);
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm, 4px);
 }
 
-.checkpoint-item {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 0.75rem 0;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-.checkpoint-item:hover {
+.cp-toggle-all-btn:hover {
   background: var(--surface-secondary);
 }
 
-.checkpoint-number {
-  flex-shrink: 0;
+.cp-timeline {
+  display: flex;
+  flex-direction: column;
+}
+
+.cp-timeline-item {
+  display: flex;
+  gap: 12px;
+  min-height: 0;
+}
+
+.cp-timeline-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   width: 24px;
-  height: 24px;
+  flex-shrink: 0;
+}
+
+.cp-timeline-line {
+  width: 2px;
+  flex: 1;
+  background: var(--border, rgba(255, 255, 255, 0.1));
+}
+
+.cp-timeline-line.top {
+  min-height: 4px;
+}
+
+.cp-timeline-line.bottom {
+  min-height: 4px;
+}
+
+.cp-timeline-dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--surface-tertiary);
-  border-radius: 50%;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--text-secondary);
+  font-size: 0.625rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  background: var(--surface-tertiary, rgba(255, 255, 255, 0.06));
+  color: var(--text-tertiary, #6e7681);
+  border: 2px solid var(--border, rgba(255, 255, 255, 0.1));
+  transition: all 0.15s;
 }
 
-.checkpoint-body {
-  flex-grow: 1;
+.cp-timeline-dot.active {
+  background: var(--accent-emphasis, #1f6feb);
+  color: #fff;
+  border-color: var(--accent-emphasis, #1f6feb);
+}
+
+.cp-timeline-content {
+  flex: 1;
+  min-width: 0;
+  padding-bottom: 4px;
+}
+
+.cp-timeline-header {
+  display: flex;
+  align-items: flex-start;
+  width: 100%;
+  padding: 2px 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  border-radius: var(--radius-sm, 4px);
+  transition: background 0.15s;
+}
+
+.cp-timeline-header:hover {
+  background: var(--surface-secondary, rgba(255, 255, 255, 0.04));
+}
+
+.cp-timeline-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
   min-width: 0;
 }
 
-.checkpoint-title {
-  font-size: 0.875rem;
+.cp-timeline-title {
+  font-size: 0.8125rem;
   font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 2px;
+  color: var(--text-primary, #e6edf3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.checkpoint-file {
-  font-size: 0.75rem;
-  color: var(--text-tertiary);
-}
-
-.checkpoint-actions {
+.cp-timeline-chevron {
   flex-shrink: 0;
+  opacity: 0.4;
 }
 
-.checkpoint-content {
-  padding: 0 1rem 1rem 3rem;
-  font-size: 0.875rem;
-  color: var(--text-secondary);
+.cp-timeline-body {
+  padding: 6px 4px 8px;
 }
 
 </style>
