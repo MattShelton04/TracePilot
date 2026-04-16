@@ -574,11 +574,20 @@ Show TypeScript/ESLint diagnostics as a VS Code-style problems panel:
 
 ## 9. Priority Roadmap
 
-### Phase 1: Fix Critical Issues
-- [ ] ANSI support in ShellOutputRenderer
-- [ ] Fix keyword coloring heuristics
-- [ ] Add citations to StoreMemoryRenderer
-- [ ] Fix category/subject confusion in StoreMemoryRenderer
+### ✅ Completed (Round 1–3)
+- [x] Fix category/subject confusion in StoreMemoryRenderer
+- [x] Add citations display to StoreMemoryRenderer
+- [x] Fix `formatArgsSummary` for store_memory and ask_user
+- [x] Fix ShellOutputRenderer command truncation (pre-wrap)
+- [x] Fix ShellOutputRenderer keyword coloring word-boundary regression
+- [x] Fix AskUserRenderer flexible selection matching (prefix stripping, contains)
+- [x] Fix SqlResultRenderer multi-strategy JSON parsing + markdown pipe tables
+- [x] Remove dead `computeWordDiff` from EditDiffRenderer
+- [x] Create dev showcase page at `/#/dev/renderers`
+- [x] **store_memory pill → full ToolCallItem** — ChatViewMode now renders store_memory via ToolCallItem + rich StoreMemoryRenderer (was a non-expandable pill)
+- [x] **Remove noisy word-level diff** — reverted EditDiffRenderer to clean line-level LCS diff
+- [x] **Fix WebSearchRenderer JSON envelope** — unwraps `{type:"text",text:{value:"..."}}` wrappers from real web_search tool results
+- [x] **Markdown in ask_user question** — both AskUserArgsRenderer and AskUserRenderer now render question text via MarkdownContent
 
 ### Phase 2: New High-Impact Renderers
 - [ ] TaskAgentRenderer
@@ -586,17 +595,16 @@ Show TypeScript/ESLint diagnostics as a VS Code-style problems panel:
 - [ ] WebFetchRenderer
 
 ### Phase 3: Enhancement Pass
-- [ ] Word-level diff highlighting
+- [ ] ANSI escape sequence support in ShellOutputRenderer
 - [ ] Image preview in ViewCodeRenderer
 - [ ] Column sorting in SqlResultRenderer
-- [ ] WebSearchRenderer markdown improvements
 - [ ] CodeBlock expand-in-place
+- [ ] Virtual scrolling for large outputs
 
 ### Phase 4: Missing Tests & Polish
 - [ ] Tests for all untested renderers
 - [ ] CSS variable standardization
 - [ ] Accessibility improvements
-- [ ] Virtual scrolling for large outputs
 - [ ] Extended file icon set
 
 ---
