@@ -213,6 +213,8 @@ async function handleVersionClick() {
             <svg v-if="item.icon === 'mcp'" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="5" rx="1"/><rect x="2" y="9" width="12" height="5" rx="1"/><circle cx="4.5" cy="4.5" r="0.75" fill="currentColor" stroke="none"/><circle cx="4.5" cy="11.5" r="0.75" fill="currentColor" stroke="none"/><path d="M11 4.5h1M11 11.5h1"/></svg>
             <!-- skills -->
             <svg v-else-if="item.icon === 'skills'" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 1L5 9h4l-2 6 6-8H9l2-6z"/></svg>
+            <!-- renderers (dev only — paintbrush icon) -->
+            <svg v-else-if="item.icon === 'renderers'" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M11.5 1.5l3 3-7 7H4.5V8.5z"/><path d="M2 14c0-1 1-2 2.5-2"/></svg>
           </span>
           <span>{{ item.label }}</span>
         </router-link>
