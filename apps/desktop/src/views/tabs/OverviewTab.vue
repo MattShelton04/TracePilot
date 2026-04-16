@@ -3,7 +3,6 @@ import {
   Badge,
   DefList,
   ErrorAlert,
-  ExpandChevron,
   formatDate,
   formatDuration,
   formatNumberFull,
@@ -14,8 +13,8 @@ import {
   truncateText,
   useSessionTabLoader,
 } from "@tracepilot/ui";
-import { computed, nextTick, ref, watch } from "vue";
-import CheckpointContentView from "@/components/checkpoints/CheckpointContentView.vue";
+import { computed, ref } from "vue";
+import CheckpointTimeline from "@/components/checkpoints/CheckpointTimeline.vue";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { formatObjectResult } from "@/utils/formatResult";
 
@@ -90,50 +89,6 @@ function toggleDetail(idx: number) {
     expandedDetails.value.add(idx);
   }
 }
-
-const expandedCheckpoints = ref<Set<number>>(new Set());
-
-function toggleCheckpoint(num: number) {
-  if (expandedCheckpoints.value.has(num)) {
-    expandedCheckpoints.value.delete(num);
-  } else {
-    expandedCheckpoints.value.add(num);
-  }
-}
-
-function expandAllCheckpoints() {
-  for (const cp of store.checkpoints) {
-    if (cp.content) expandedCheckpoints.value.add(cp.number);
-  }
-}
-
-function collapseAllCheckpoints() {
-  expandedCheckpoints.value.clear();
-}
-
-const allCheckpointsExpanded = computed(() =>
-  store.checkpoints.every((cp) => !cp.content || expandedCheckpoints.value.has(cp.number)),
-);
-
-// Auto-expand a checkpoint when navigated to from conversation view
-const checkpointSectionRef = ref<HTMLElement | null>(null);
-
-watch(
-  () => [store.pendingCheckpointFocus, store.checkpoints.length] as const,
-  async ([num]) => {
-    if (num == null) return;
-    expandedCheckpoints.value.add(num);
-    await nextTick();
-    const container = checkpointSectionRef.value ?? document;
-    const el = container.querySelector(`[data-checkpoint="${num}"]`);
-    if (el) {
-      store.pendingCheckpointFocus = null;
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
-    // If el not found, keep pending — watcher will re-fire when checkpoints load
-  },
-  { immediate: true },
-);
 
 const isPlanExpanded = ref(true);
 
@@ -315,57 +270,11 @@ function retryLoadSection(section: string) {
       :title="`Checkpoints (${store.checkpoints.length})`"
       class="mb-6"
     >
-      <template #actions>
-        <button
-          class="cp-toggle-all-btn"
-          @click="allCheckpointsExpanded ? collapseAllCheckpoints() : expandAllCheckpoints()"
-        >
-          {{ allCheckpointsExpanded ? 'Collapse all' : 'Expand all' }}
-        </button>
-      </template>
-
-      <div class="cp-timeline" ref="checkpointSectionRef">
-        <div
-          v-for="(cp, idx) in store.checkpoints"
-          :key="cp.number"
-          :data-checkpoint="cp.number"
-          class="cp-timeline-item"
-        >
-          <!-- Timeline connector -->
-          <div
-            class="cp-timeline-rail"
-            :class="{
-              first: idx === 0,
-              last: idx === store.checkpoints.length - 1,
-              only: store.checkpoints.length === 1,
-            }"
-          >
-            <div
-              class="cp-timeline-dot"
-              :class="{ active: expandedCheckpoints.has(cp.number) }"
-            >
-              {{ cp.number }}
-            </div>
-          </div>
-
-          <!-- Content -->
-          <div class="cp-timeline-content">
-            <button class="cp-timeline-header" @click="toggleCheckpoint(cp.number)">
-              <div class="cp-timeline-title-row">
-                <span class="cp-timeline-title">{{ cp.title }}</span>
-                <ExpandChevron
-                  v-if="cp.content"
-                  :expanded="expandedCheckpoints.has(cp.number)"
-                  class="cp-timeline-chevron"
-                />
-              </div>
-            </button>
-            <div v-if="expandedCheckpoints.has(cp.number) && cp.content" class="cp-timeline-body">
-              <CheckpointContentView :content="cp.content" />
-            </div>
-          </div>
-        </div>
-      </div>
+      <CheckpointTimeline
+        :checkpoints="store.checkpoints"
+        :focus-number="store.pendingCheckpointFocus"
+        @update:focus-number="store.pendingCheckpointFocus = $event"
+      />
     </SectionPanel>
   </div>
 </template>
@@ -471,145 +380,6 @@ function retryLoadSection(section: string) {
   font-size: 0.875rem;
   line-height: 1.6;
   color: var(--text-primary);
-}
-
-/* ── Checkpoint timeline ───────────────────────────────────────── */
-
-.cp-toggle-all-btn {
-  background: none;
-  border: none;
-  color: var(--accent-fg, #58a6ff);
-  font-size: 0.75rem;
-  cursor: pointer;
-  padding: 2px 8px;
-  border-radius: var(--radius-sm, 4px);
-}
-
-.cp-toggle-all-btn:hover {
-  background: var(--surface-secondary);
-}
-
-.cp-timeline {
-  display: flex;
-  flex-direction: column;
-}
-
-.cp-timeline-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  min-height: 0;
-}
-
-.cp-timeline-rail {
-  position: relative;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  width: 24px;
-  flex-shrink: 0;
-  align-self: stretch;
-}
-
-/* Continuous connector line via pseudo-element */
-.cp-timeline-rail::before {
-  content: '';
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  background: var(--border, rgba(255, 255, 255, 0.1));
-}
-
-/* First item: line starts at dot center */
-.cp-timeline-rail.first::before {
-  top: 13px;
-}
-
-/* Last item: line ends at dot center */
-.cp-timeline-rail.last::before {
-  bottom: calc(100% - 13px);
-}
-
-/* Single item: no line at all */
-.cp-timeline-rail.only::before {
-  display: none;
-}
-
-.cp-timeline-dot {
-  position: relative;
-  z-index: 1;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.625rem;
-  font-weight: 700;
-  flex-shrink: 0;
-  margin-top: 2px;
-  background: var(--surface-tertiary, rgba(255, 255, 255, 0.06));
-  color: var(--text-tertiary, #6e7681);
-  border: 2px solid var(--border, rgba(255, 255, 255, 0.1));
-  transition: all 0.15s;
-}
-
-.cp-timeline-dot.active {
-  background: var(--accent-emphasis, #1f6feb);
-  color: #fff;
-  border-color: var(--accent-emphasis, #1f6feb);
-}
-
-.cp-timeline-content {
-  flex: 1;
-  min-width: 0;
-  padding-bottom: 4px;
-}
-
-.cp-timeline-header {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  padding: 2px 4px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  text-align: left;
-  border-radius: var(--radius-sm, 4px);
-  transition: background 0.15s;
-}
-
-.cp-timeline-header:hover {
-  background: var(--surface-secondary, rgba(255, 255, 255, 0.04));
-}
-
-.cp-timeline-title-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex: 1;
-  min-width: 0;
-}
-
-.cp-timeline-title {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--text-primary, #e6edf3);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.cp-timeline-chevron {
-  flex-shrink: 0;
-  opacity: 0.4;
-}
-
-.cp-timeline-body {
-  padding: 6px 4px 8px;
 }
 
 </style>
