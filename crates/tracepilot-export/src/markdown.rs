@@ -371,6 +371,7 @@ mod tests {
                 timestamp: Some(Utc.with_ymd_and_hms(2026, 3, 25, 12, 1, 3).unwrap()),
                 severity: tracepilot_core::models::SessionEventSeverity::Info,
                 summary: "Export stub located".into(),
+                checkpoint_number: None,
             }],
         }];
 
