@@ -84,7 +84,9 @@ function classifyTool(tc: TurnToolCall): ToolGroupItem {
     case "report_intent":
       return { type: "intent", toolCall: tc };
     case "store_memory":
-      return { type: "memory", toolCall: tc };
+      // Render as a regular tool row so the rich StoreMemoryRenderer
+      // is used when expanded (instead of a tiny non-expandable pill).
+      return { type: "tool", toolCall: tc };
     case "ask_user":
       return { type: "ask-user", toolCall: tc };
     case "read_agent":

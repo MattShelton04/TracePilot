@@ -1,7 +1,10 @@
 <script setup lang="ts">
 /**
  * AskUserArgsRenderer — shows the ask_user question and choices.
+ * Question text is rendered as markdown since it often contains formatting.
  */
+import MarkdownContent from "../MarkdownContent.vue";
+
 defineProps<{
   args: Record<string, unknown>;
 }>();
@@ -17,7 +20,7 @@ const choices = (args: Record<string, unknown>) =>
   <div class="askuser-args">
     <div v-if="question(args)" class="askuser-question">
       <span class="askuser-icon">💬</span>
-      <span class="askuser-question-text">{{ question(args) }}</span>
+      <MarkdownContent class="askuser-question-text" :content="question(args)!" :render="true" />
     </div>
     <div v-if="choices(args)" class="askuser-choices">
       <div v-for="(choice, idx) in choices(args)" :key="idx" class="askuser-choice">

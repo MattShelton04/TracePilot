@@ -3,7 +3,7 @@
  * EditDiffRenderer — renders edit tool results as a rich diff view.
  *
  * Features: unified/split toggle, line numbers, full-line backgrounds,
- * word-level inline highlights, and a "Modified" badge.
+ * and a "Modified" badge.
  */
 import { computed, ref } from "vue";
 import RendererShell from "./RendererShell.vue";
@@ -35,106 +35,6 @@ const newStr = computed(() =>
 
 const isDelete = computed(() => oldStr.value != null && !newStr.value);
 
-// ── Word-level diff utilities ──
-
-interface WordSegment {
-  text: string;
-  highlight: boolean;
-}
-
-/** Compute word-level diff segments between two strings.
- *  Uses token-based LCS to find unchanged tokens, then marks changed tokens. */
-function computeWordSegments(
-  oldLine: string,
-  newLine: string,
-): { oldSegments: WordSegment[]; newSegments: WordSegment[] } {
-  const tokenize = (s: string): string[] => {
-    const tokens: string[] = [];
-    let current = "";
-    for (const ch of s) {
-      if (/\s/.test(ch)) {
-        if (current) tokens.push(current);
-        tokens.push(ch);
-        current = "";
-      } else if (/\W/.test(ch)) {
-        if (current) tokens.push(current);
-        tokens.push(ch);
-        current = "";
-      } else {
-        current += ch;
-      }
-    }
-    if (current) tokens.push(current);
-    return tokens;
-  };
-
-  const oldTokens = tokenize(oldLine);
-  const newTokens = tokenize(newLine);
-  const m = oldTokens.length;
-  const n = newTokens.length;
-
-  // Skip word diff if too large
-  if (m * n > 50_000) {
-    return {
-      oldSegments: [{ text: oldLine, highlight: true }],
-      newSegments: [{ text: newLine, highlight: true }],
-    };
-  }
-
-  // Token-level LCS
-  const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
-  for (let i = 1; i <= m; i++) {
-    for (let j = 1; j <= n; j++) {
-      dp[i][j] =
-        oldTokens[i - 1] === newTokens[j - 1]
-          ? dp[i - 1][j - 1] + 1
-          : Math.max(dp[i - 1][j], dp[i][j - 1]);
-    }
-  }
-
-  // Backtrack to classify tokens
-  const oldMarked = new Array<boolean>(m).fill(true);
-  const newMarked = new Array<boolean>(n).fill(true);
-  let oi = m;
-  let ni = n;
-  while (oi > 0 && ni > 0) {
-    if (oldTokens[oi - 1] === newTokens[ni - 1]) {
-      oldMarked[oi - 1] = false;
-      newMarked[ni - 1] = false;
-      oi--;
-      ni--;
-    } else if (dp[oi][ni - 1] >= dp[oi - 1][ni]) {
-      ni--;
-    } else {
-      oi--;
-    }
-  }
-
-  // Merge consecutive same-highlight tokens into segments
-  const merge = (tokens: string[], marks: boolean[]): WordSegment[] => {
-    if (tokens.length === 0) return [];
-    const segs: WordSegment[] = [];
-    let text = tokens[0];
-    let hl = marks[0];
-    for (let i = 1; i < tokens.length; i++) {
-      if (marks[i] === hl) {
-        text += tokens[i];
-      } else {
-        segs.push({ text, highlight: hl });
-        text = tokens[i];
-        hl = marks[i];
-      }
-    }
-    segs.push({ text, highlight: hl });
-    return segs;
-  };
-
-  return {
-    oldSegments: merge(oldTokens, oldMarked),
-    newSegments: merge(newTokens, newMarked),
-  };
-}
-
 // ── Line-level diff for unified/split views ──
 
 interface DiffLine {
@@ -142,8 +42,6 @@ interface DiffLine {
   oldNum?: number;
   newNum?: number;
   content: string;
-  /** Word-level segments for inline highlighting (only set for paired add/remove lines). */
-  segments?: WordSegment[];
 }
 
 /** Strip trailing empty entry from split (common for content ending with \n). */
@@ -153,7 +51,7 @@ function splitLines(text: string): string[] {
   return lines;
 }
 
-/** Convert word-level segments into line-level diff entries. */
+/** Compute line-level diff entries using LCS on lines. */
 const diffLines = computed<DiffLine[]>(() => {
   if (oldStr.value == null || newStr.value == null) return [];
 
@@ -205,42 +103,7 @@ const diffLines = computed<DiffLine[]>(() => {
   }
 
   stack.reverse();
-
-  // Post-process: compute word-level segments for adjacent removed/added pairs
-  const result: DiffLine[] = [];
-  let i = 0;
-  while (i < stack.length) {
-    if (stack[i].type === "removed") {
-      // Collect consecutive removed lines
-      const removedBlock: DiffLine[] = [];
-      while (i < stack.length && stack[i].type === "removed") {
-        removedBlock.push(stack[i]);
-        i++;
-      }
-      // Collect consecutive added lines
-      const addedBlock: DiffLine[] = [];
-      while (i < stack.length && stack[i].type === "added") {
-        addedBlock.push(stack[i]);
-        i++;
-      }
-      // Pair up and compute word segments
-      const pairCount = Math.min(removedBlock.length, addedBlock.length);
-      for (let p = 0; p < pairCount; p++) {
-        const { oldSegments, newSegments } = computeWordSegments(
-          removedBlock[p].content,
-          addedBlock[p].content,
-        );
-        removedBlock[p].segments = oldSegments;
-        addedBlock[p].segments = newSegments;
-      }
-      result.push(...removedBlock, ...addedBlock);
-    } else {
-      result.push(stack[i]);
-      i++;
-    }
-  }
-
-  return result;
+  return stack;
 });
 
 const oldLineCount = computed(() => (oldStr.value ? splitLines(oldStr.value).length : 0));
@@ -359,8 +222,7 @@ function fileName(path: string): string {
               <span v-else>&nbsp;</span>
             </td>
             <td class="diff-code">
-              <pre v-if="line.segments"><template v-for="(seg, si) in line.segments" :key="si"><span :class="seg.highlight ? 'word-hl' : ''">{{ seg.text }}</span></template></pre>
-              <pre v-else>{{ line.content }}</pre>
+              <pre>{{ line.content }}</pre>
             </td>
           </tr>
         </tbody>
@@ -380,8 +242,7 @@ function fileName(path: string): string {
                 <span v-else>&nbsp;</span>
               </td>
               <td class="diff-code">
-                <pre v-if="pair.left?.segments"><template v-for="(seg, si) in pair.left.segments" :key="si"><span :class="seg.highlight ? 'word-hl' : ''">{{ seg.text }}</span></template></pre>
-                <pre v-else>{{ pair.left?.content ?? '' }}</pre>
+                <pre>{{ pair.left?.content ?? '' }}</pre>
               </td>
             </tr>
           </tbody>
@@ -396,8 +257,7 @@ function fileName(path: string): string {
                 <span v-else>&nbsp;</span>
               </td>
               <td class="diff-code">
-                <pre v-if="pair.right?.segments"><template v-for="(seg, si) in pair.right.segments" :key="si"><span :class="seg.highlight ? 'word-hl' : ''">{{ seg.text }}</span></template></pre>
-                <pre v-else>{{ pair.right?.content ?? '' }}</pre>
+                <pre>{{ pair.right?.content ?? '' }}</pre>
               </td>
             </tr>
           </tbody>
@@ -560,16 +420,6 @@ function fileName(path: string): string {
 .diff-line--removed .diff-code { color: var(--danger-fg, #f87171); }
 .diff-line--added .diff-code { color: var(--success-fg, #34d399); }
 .diff-line--context .diff-code { color: var(--text-secondary); }
-
-/* ── Word-level inline highlights ── */
-.diff-line--removed .word-hl {
-  background: rgba(248, 113, 113, 0.25);
-  border-radius: 2px;
-}
-.diff-line--added .word-hl {
-  background: rgba(52, 211, 153, 0.25);
-  border-radius: 2px;
-}
 
 /* ── Split view ── */
 .diff-split {

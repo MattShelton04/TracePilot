@@ -2,8 +2,10 @@
 /**
  * AskUserRenderer — renders ask_user tool results showing the question,
  * available choices, and which option was selected (or freeform response).
+ * Question text is rendered as markdown since it often contains formatting.
  */
 import { computed } from "vue";
+import MarkdownContent from "../MarkdownContent.vue";
 import RendererShell from "./RendererShell.vue";
 
 const props = defineProps<{
@@ -79,7 +81,7 @@ const isFreeformResponse = computed(
       <!-- Question -->
       <div v-if="question" class="askuser-question-bar">
         <span class="askuser-q-icon">❓</span>
-        <span class="askuser-q-text">{{ question }}</span>
+        <MarkdownContent class="askuser-q-text" :content="question" :render="true" />
       </div>
 
       <!-- Choices with selection indicator -->
@@ -132,6 +134,8 @@ const isFreeformResponse = computed(
   color: var(--text-primary);
   font-size: 0.8125rem;
   line-height: 1.5;
+  flex: 1;
+  min-width: 0;
 }
 .askuser-choices-section {
   padding: 8px 12px;

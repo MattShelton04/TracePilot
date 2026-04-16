@@ -18,10 +18,45 @@ const emit = defineEmits<{
 
 const query = computed(() => (typeof props.args?.query === "string" ? props.args.query : null));
 
+/** Unwrap JSON envelopes that wrap the real text content.
+ *  Real web_search results often arrive as:
+ *  `{"type":"text","text":{"value":"...actual markdown..."}}` */
+const unwrappedContent = computed(() => {
+  if (!props.content) return "";
+  const s = props.content.trim();
+  if (!s.startsWith("{")) return s;
+  try {
+    const parsed = JSON.parse(s);
+    // Envelope: { type: "text", text: { value: "..." } }
+    if (parsed?.text?.value && typeof parsed.text.value === "string") {
+      return parsed.text.value;
+    }
+    // Simpler envelope: { value: "..." }
+    if (typeof parsed?.value === "string") return parsed.value;
+    // Direct text field
+    if (typeof parsed?.text === "string") return parsed.text;
+    // Array of text entries
+    if (Array.isArray(parsed)) {
+      return parsed
+        .map((e: Record<string, unknown>) =>
+          typeof e === "string"
+            ? e
+            : ((e?.text as Record<string, unknown>)?.value ?? e?.value ?? ""),
+        )
+        .filter(Boolean)
+        .join("\n\n");
+    }
+  } catch {
+    // Not JSON — use as-is
+  }
+  return s;
+});
+
 /** Extract URLs from markdown link format. */
 const sources = computed<Array<{ title: string; url: string; domain: string }>>(() => {
-  if (!props.content) return [];
-  const matches = props.content.matchAll(/\[([^\]]+)\]\((https?:\/\/(?:[^()]*|\([^()]*\))*)\)/g);
+  const text = unwrappedContent.value;
+  if (!text) return [];
+  const matches = text.matchAll(/\[([^\]]+)\]\((https?:\/\/(?:[^()]*|\([^()]*\))*)\)/g);
   const seen = new Set<string>();
   const results: Array<{ title: string; url: string; domain: string }> = [];
   for (const m of matches) {
@@ -41,8 +76,9 @@ const sources = computed<Array<{ title: string; url: string; domain: string }>>(
 
 /** Simple markdown → HTML (safe — escapes first, then applies formatting). */
 const renderedBody = computed(() => {
-  if (!props.content) return "";
-  let html = escapeHtml(props.content);
+  const text = unwrappedContent.value;
+  if (!text) return "";
+  let html = escapeHtml(text);
 
   // Headings: ### before ## to avoid conflicts
   html = html.replace(/^### (.+)$/gm, '<h4 class="ws-heading ws-h3">$1</h4>');
