@@ -2,7 +2,6 @@
 import type {
   AttributedMessage,
   ConversationTurn,
-  SessionEventSeverity,
   TurnToolCall,
 } from "@tracepilot/types";
 import { getToolArgs, toolArgString } from "@tracepilot/types";
@@ -24,6 +23,7 @@ import {
 } from "@tracepilot/ui";
 import { computed, nextTick, onMounted, onUnmounted, ref } from "vue";
 import { useRoute } from "vue-router";
+import SessionEventRow from "@/components/conversation/SessionEventRow.vue";
 import { useCrossTurnSubagents } from "@/composables/useCrossTurnSubagents";
 import { useSubagentPanel } from "@/composables/useSubagentPanel";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
@@ -185,18 +185,6 @@ const toolCallTurnIndex = computed(() => {
   }
   return map;
 });
-
-function severityClass(severity: SessionEventSeverity): string {
-  if (severity === "error") return "error";
-  if (severity === "warning") return "warning";
-  return "info";
-}
-
-function severityIcon(severity: SessionEventSeverity): string {
-  if (severity === "error") return "⚠️";
-  if (severity === "warning") return "⚠️";
-  return "ℹ️";
-}
 
 // ─── Progressive disclosure ───────────────────────────────────────
 
@@ -452,18 +440,11 @@ defineExpose({ revealEvent });
               </div>
 
               <!-- Session events -->
-              <div
+              <SessionEventRow
                 v-for="evt in (turn.sessionEvents ?? [])"
                 :key="evt.timestamp"
-                :class="['cv-session-event', severityClass(evt.severity)]"
-              >
-                <span class="cv-session-event-icon">{{ severityIcon(evt.severity) }}</span>
-                <span class="cv-session-event-type">{{ evt.eventType }}</span>
-                <span class="cv-session-event-summary">{{ evt.summary }}</span>
-                <span v-if="evt.timestamp" class="cv-session-event-time">
-                  {{ formatTime(evt.timestamp) }}
-                </span>
-              </div>
+                :event="evt"
+              />
 
               <!-- User message anchor -->
               <div
@@ -751,57 +732,6 @@ defineExpose({ revealEvent });
   color: var(--text-placeholder, #6e7681);
   white-space: nowrap;
   user-select: none;
-}
-
-/* ─── Session events ───────────────────────────────────────────── */
-
-.cv-session-event {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  border-radius: var(--radius-md, 8px);
-  font-size: 12px;
-  margin: 4px 0;
-}
-
-.cv-session-event.info {
-  background: var(--neutral-subtle, rgba(110, 118, 129, 0.1));
-  color: var(--text-secondary, #8b949e);
-}
-
-.cv-session-event.warning {
-  background: var(--warning-subtle, rgba(210, 153, 34, 0.1));
-  color: var(--warning-fg, #d29922);
-}
-
-.cv-session-event.error {
-  background: var(--danger-subtle, rgba(248, 81, 73, 0.1));
-  color: var(--danger-fg, #f85149);
-}
-
-.cv-session-event-icon {
-  flex-shrink: 0;
-}
-
-.cv-session-event-type {
-  font-family: "JetBrains Mono", monospace;
-  font-size: 11px;
-  opacity: 0.7;
-}
-
-.cv-session-event-summary {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.cv-session-event-time {
-  flex-shrink: 0;
-  font-size: 11px;
-  opacity: 0.6;
 }
 
 /* ─── User message anchor ──────────────────────────────────────── */

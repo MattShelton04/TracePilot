@@ -41,6 +41,9 @@ pub struct TurnSessionEvent {
     pub severity: SessionEventSeverity,
     /// Human-readable summary of what happened.
     pub summary: String,
+    /// For compaction_complete events, the associated checkpoint number (if any).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub checkpoint_number: Option<u32>,
 }
 
 /// A single conversation turn.

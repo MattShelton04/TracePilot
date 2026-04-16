@@ -619,6 +619,9 @@ export function createSessionDetailInstance() {
     }
   }
 
+  // ── Cross-tab navigation: checkpoint focus ─────────────────────────
+  const pendingCheckpointFocus = ref<number | null>(null);
+
   return {
     sessionId,
     detail,
@@ -640,6 +643,7 @@ export function createSessionDetailInstance() {
     planError: planSection.error,
     metricsError: metricsSection.error,
     incidentsError: incidentsSection.error,
+    pendingCheckpointFocus,
     loadDetail,
     loadTurns,
     loadEvents,

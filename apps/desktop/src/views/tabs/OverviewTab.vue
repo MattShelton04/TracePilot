@@ -14,6 +14,7 @@ import {
   useSessionTabLoader,
 } from "@tracepilot/ui";
 import { computed, ref } from "vue";
+import CheckpointTimeline from "@/components/checkpoints/CheckpointTimeline.vue";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { formatObjectResult } from "@/utils/formatResult";
 
@@ -89,17 +90,8 @@ function toggleDetail(idx: number) {
   }
 }
 
-const expandedCheckpoints = ref<Set<number>>(new Set());
-
-function toggleCheckpoint(num: number) {
-  if (expandedCheckpoints.value.has(num)) {
-    expandedCheckpoints.value.delete(num);
-  } else {
-    expandedCheckpoints.value.add(num);
-  }
-}
-
 const isPlanExpanded = ref(true);
+const timelineRef = ref<InstanceType<typeof CheckpointTimeline> | null>(null);
 
 function hasDetail(incident: { detailJson?: unknown }): boolean {
   return incident.detailJson != null && incident.detailJson !== "";
@@ -279,27 +271,20 @@ function retryLoadSection(section: string) {
       :title="`Checkpoints (${store.checkpoints.length})`"
       class="mb-6"
     >
-      <div
-        v-for="cp in store.checkpoints"
-        :key="cp.number"
-        class="checkpoint-row"
-      >
-        <div class="checkpoint-item" @click="toggleCheckpoint(cp.number)">
-          <div class="checkpoint-number">{{ cp.number }}</div>
-          <div class="checkpoint-body">
-            <div class="checkpoint-title">{{ cp.title }}</div>
-            <div class="checkpoint-file font-mono">{{ cp.filename }}</div>
-          </div>
-          <div class="checkpoint-actions">
-            <button v-if="cp.content" class="detail-toggle-btn">
-              {{ expandedCheckpoints.has(cp.number) ? 'Hide Content' : 'View Content' }}
-            </button>
-          </div>
-        </div>
-        <div v-if="expandedCheckpoints.has(cp.number) && cp.content" class="checkpoint-content">
-          <MarkdownContent :content="cp.content" />
-        </div>
-      </div>
+      <template #actions>
+        <button
+          class="cp-toggle-all-btn"
+          @click="timelineRef?.allExpanded ? timelineRef?.collapseAll() : timelineRef?.expandAll()"
+        >
+          {{ timelineRef?.allExpanded ? 'Collapse all' : 'Expand all' }}
+        </button>
+      </template>
+      <CheckpointTimeline
+        ref="timelineRef"
+        :checkpoints="store.checkpoints"
+        :focus-number="store.pendingCheckpointFocus"
+        @update:focus-number="store.pendingCheckpointFocus = $event"
+      />
     </SectionPanel>
   </div>
 </template>
@@ -407,64 +392,18 @@ function retryLoadSection(section: string) {
   color: var(--text-primary);
 }
 
-.checkpoint-row {
-  border-bottom: 1px solid var(--border);
-}
-.checkpoint-row:last-child {
-  border-bottom: none;
-}
-
-.checkpoint-item {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 0.75rem 0;
+.cp-toggle-all-btn {
+  background: none;
+  border: none;
+  color: var(--accent-fg, #58a6ff);
+  font-size: 0.75rem;
   cursor: pointer;
-  transition: background 0.15s;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm, 4px);
 }
-.checkpoint-item:hover {
+
+.cp-toggle-all-btn:hover {
   background: var(--surface-secondary);
-}
-
-.checkpoint-number {
-  flex-shrink: 0;
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--surface-tertiary);
-  border-radius: 50%;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-}
-
-.checkpoint-body {
-  flex-grow: 1;
-  min-width: 0;
-}
-
-.checkpoint-title {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 2px;
-}
-
-.checkpoint-file {
-  font-size: 0.75rem;
-  color: var(--text-tertiary);
-}
-
-.checkpoint-actions {
-  flex-shrink: 0;
-}
-
-.checkpoint-content {
-  padding: 0 1rem 1rem 3rem;
-  font-size: 0.875rem;
-  color: var(--text-secondary);
 }
 
 </style>

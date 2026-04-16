@@ -260,6 +260,34 @@ fn compaction_complete_failure() {
     assert_eq!(se.summary, "Compaction failed: Out of memory");
 }
 #[test]
+fn compaction_complete_passes_checkpoint_number() {
+    let events = make_turn_events(vec![compaction_complete()
+        .success(true)
+        .pre_compaction_tokens(60000)
+        .checkpoint_number(5)
+        .id("evt-comp-cp")
+        .timestamp("2026-03-10T07:00:30.000Z")
+        .build_event()]);
+
+    let turns = reconstruct_turns(&events);
+    let se = &turns[0].session_events[0];
+    assert_eq!(se.event_type, "session.compaction_complete");
+    assert_eq!(se.checkpoint_number, Some(5));
+    assert_eq!(se.summary, "Compaction complete (60000 tokens)");
+}
+#[test]
+fn compaction_complete_no_checkpoint_number() {
+    let events = make_turn_events(vec![compaction_complete()
+        .success(true)
+        .pre_compaction_tokens(40000)
+        .id("evt-comp-nocp")
+        .build_event()]);
+
+    let turns = reconstruct_turns(&events);
+    let se = &turns[0].session_events[0];
+    assert_eq!(se.checkpoint_number, None);
+}
+#[test]
 fn session_truncation_embedded() {
     let events = make_turn_events(vec![make_event(
         SessionEventType::SessionTruncation,
@@ -499,6 +527,7 @@ fn session_events_serialization_round_trip() {
             timestamp: None,
             severity: SessionEventSeverity::Error,
             summary: "Test error".to_string(),
+            checkpoint_number: None,
         }],
     };
 
