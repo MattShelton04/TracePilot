@@ -332,15 +332,20 @@ function retryLoadSection(section: string) {
           class="cp-timeline-item"
         >
           <!-- Timeline connector -->
-          <div class="cp-timeline-rail">
-            <div v-if="idx > 0" class="cp-timeline-line top" />
+          <div
+            class="cp-timeline-rail"
+            :class="{
+              first: idx === 0,
+              last: idx === store.checkpoints.length - 1,
+              only: store.checkpoints.length === 1,
+            }"
+          >
             <div
               class="cp-timeline-dot"
               :class="{ active: expandedCheckpoints.has(cp.number) }"
             >
               {{ cp.number }}
             </div>
-            <div v-if="idx < store.checkpoints.length - 1" class="cp-timeline-line bottom" />
           </div>
 
           <!-- Content -->
@@ -491,33 +496,51 @@ function retryLoadSection(section: string) {
 
 .cp-timeline-item {
   display: flex;
+  align-items: flex-start;
   gap: 12px;
   min-height: 0;
 }
 
 .cp-timeline-rail {
+  position: relative;
   display: flex;
-  flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
+  justify-content: center;
   width: 24px;
   flex-shrink: 0;
+  align-self: stretch;
 }
 
-.cp-timeline-line {
+/* Continuous connector line via pseudo-element */
+.cp-timeline-rail::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  top: 0;
+  bottom: 0;
   width: 2px;
-  flex: 1;
   background: var(--border, rgba(255, 255, 255, 0.1));
 }
 
-.cp-timeline-line.top {
-  min-height: 4px;
+/* First item: line starts at dot center */
+.cp-timeline-rail.first::before {
+  top: 13px;
 }
 
-.cp-timeline-line.bottom {
-  min-height: 4px;
+/* Last item: line ends at dot center */
+.cp-timeline-rail.last::before {
+  bottom: calc(100% - 13px);
+}
+
+/* Single item: no line at all */
+.cp-timeline-rail.only::before {
+  display: none;
 }
 
 .cp-timeline-dot {
+  position: relative;
+  z-index: 1;
   width: 22px;
   height: 22px;
   border-radius: 50%;
@@ -527,6 +550,7 @@ function retryLoadSection(section: string) {
   font-size: 0.625rem;
   font-weight: 700;
   flex-shrink: 0;
+  margin-top: 2px;
   background: var(--surface-tertiary, rgba(255, 255, 255, 0.06));
   color: var(--text-tertiary, #6e7681);
   border: 2px solid var(--border, rgba(255, 255, 255, 0.1));
@@ -547,7 +571,7 @@ function retryLoadSection(section: string) {
 
 .cp-timeline-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   width: 100%;
   padding: 2px 4px;
   background: none;
