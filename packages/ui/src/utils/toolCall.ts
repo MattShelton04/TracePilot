@@ -15,6 +15,7 @@ const TOOL_ICONS: Record<string, string> = {
   task: "🤖",
   report_intent: "🎯",
   ask_user: "💬",
+  store_memory: "🧠",
   web_search: "🌐",
   web_fetch: "🌐",
   sql: "🗄️",

@@ -343,21 +343,6 @@ const routes: RouteRecordRaw[] = [
   },
 ];
 
-// Dev-only routes (renderer showcase, etc.)
-if (import.meta.env.DEV) {
-  // Insert before the catch-all 404 route
-  routes.splice(-1, 0, {
-    path: "/dev/renderers",
-    name: "dev-renderers",
-    component: () => import("@/views/dev/RendererShowcaseView.vue"),
-    meta: {
-      title: "Renderer Showcase",
-      sidebarId: "dev-renderers",
-      sidebar: { section: "configuration", label: "Renderers", icon: "renderers", order: 99 },
-    },
-  });
-}
-
 const router = createRouter({
   history: createWebHashHistory(),
   routes,
