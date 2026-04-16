@@ -2,8 +2,10 @@
 /**
  * AskUserRenderer — renders ask_user tool results showing the question,
  * available choices, and which option was selected (or freeform response).
+ * Question text is rendered as markdown since it often contains formatting.
  */
 import { computed } from "vue";
+import MarkdownContent from "../MarkdownContent.vue";
 import RendererShell from "./RendererShell.vue";
 
 const props = defineProps<{
@@ -29,11 +31,32 @@ const allowFreeform = computed(() => props.args?.allow_freeform !== false);
 /** The user's response (the tool result content). */
 const response = computed(() => props.content?.trim() ?? "");
 
-/** Check if the response matches one of the predefined choices. */
+/** Check if the response matches one of the predefined choices.
+ *  Uses flexible matching: exact match, contains check, and prefix-stripped comparison
+ *  to handle responses like "User selected: Option A" from different tool formats. */
 const selectedChoiceIdx = computed(() => {
   if (!response.value || choices.value.length === 0) return -1;
-  const resp = response.value.toLowerCase();
-  return choices.value.findIndex((c) => c.toLowerCase() === resp);
+  const resp = response.value.toLowerCase().trim();
+
+  // 1. Exact match (case-insensitive)
+  const exact = choices.value.findIndex((c) => c.toLowerCase().trim() === resp);
+  if (exact !== -1) return exact;
+
+  // 2. Strip common prefixes from the response (e.g. "User selected: ...")
+  const prefixes = ["user selected: ", "user responded: ", "selected: "];
+  let stripped = resp;
+  for (const prefix of prefixes) {
+    if (resp.startsWith(prefix)) {
+      stripped = resp.slice(prefix.length).trim();
+      break;
+    }
+  }
+  if (stripped !== resp) {
+    const prefixMatch = choices.value.findIndex((c) => c.toLowerCase().trim() === stripped);
+    if (prefixMatch !== -1) return prefixMatch;
+  }
+
+  return -1;
 });
 
 const isFreeformResponse = computed(
@@ -52,7 +75,7 @@ const isFreeformResponse = computed(
       <!-- Question -->
       <div v-if="question" class="askuser-question-bar">
         <span class="askuser-q-icon">❓</span>
-        <span class="askuser-q-text">{{ question }}</span>
+        <MarkdownContent class="askuser-q-text" :content="question" :render="true" />
       </div>
 
       <!-- Choices with selection indicator -->
@@ -105,6 +128,8 @@ const isFreeformResponse = computed(
   color: var(--text-primary);
   font-size: 0.8125rem;
   line-height: 1.5;
+  flex: 1;
+  min-width: 0;
 }
 .askuser-choices-section {
   padding: 8px 12px;

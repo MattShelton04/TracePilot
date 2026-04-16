@@ -198,7 +198,7 @@ function isItemVisible(
   itemIndex: number,
   groupKey: string,
 ): boolean {
-  // Pills (intent, memory, ask-user) are always visible
+  // Pills (intent, ask-user) are always visible
   if (item.type !== "tool") return true;
   // If group is expanded, everything visible
   if (expandedGroups.has(groupKey)) return true;
@@ -216,17 +216,12 @@ function hiddenToolCount(items: ToolGroupItem[]): number {
   return countRegularTools(items) - MAX_VISIBLE_TOOLS;
 }
 
-// ─── Intent/memory pill helpers ───────────────────────────────────
+// ─── Intent pill helpers ──────────────────────────────────────────
 // Note: uses || (not ??) so empty strings also fall through to the "…"
 // placeholder — a blank display label is never desirable in the UI.
 
 function intentLabel(tc: TurnToolCall): string {
   return toolArgString(getToolArgs(tc), "intent") || "…";
-}
-
-function memoryLabel(tc: TurnToolCall): string {
-  const args = getToolArgs(tc);
-  return toolArgString(args, "fact") || toolArgString(args, "subject") || "…";
 }
 
 // ─── Subagent completion tracking ─────────────────────────────────
@@ -517,16 +512,6 @@ defineExpose({ revealEvent });
                         >
                           <span class="cv-pill-icon" aria-hidden="true">🎯</span>
                           <span class="cv-pill-label">{{ intentLabel(item.toolCall) }}</span>
-                        </div>
-
-                        <!-- Memory pill -->
-                        <div
-                          v-else-if="item.type === 'memory'"
-                          class="cv-memory-pill"
-                          :data-event-idx="item.toolCall.eventIndex != null ? item.toolCall.eventIndex : undefined"
-                        >
-                          <span class="cv-pill-icon" aria-hidden="true">🧠</span>
-                          <span class="cv-pill-label">{{ truncateText(memoryLabel(item.toolCall), 80) }}</span>
                         </div>
 
                         <!-- Read-agent row -->
@@ -901,33 +886,6 @@ defineExpose({ revealEvent });
 }
 
 .cv-intent-pill .cv-pill-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* ─── Memory pill ──────────────────────────────────────────────── */
-
-.cv-memory-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 10px;
-  background: var(--done-subtle, rgba(163, 113, 247, 0.1));
-  border: 1px solid color-mix(in srgb, var(--done-fg, #a371f7) 30%, transparent);
-  border-radius: var(--radius-full, 100px);
-  font-size: 12px;
-  color: var(--done-fg, #a371f7);
-  max-width: 100%;
-  margin: 2px 0;
-}
-
-.cv-memory-pill .cv-pill-icon {
-  flex-shrink: 0;
-  font-size: 13px;
-}
-
-.cv-memory-pill .cv-pill-label {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

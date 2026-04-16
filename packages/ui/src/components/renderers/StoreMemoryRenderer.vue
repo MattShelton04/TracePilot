@@ -1,6 +1,9 @@
 <script setup lang="ts">
 /**
  * StoreMemoryRenderer — renders store_memory tool results as a memory card.
+ *
+ * The store_memory tool uses `subject` (not `category`) as its topic field,
+ * and also provides `citations` for traceability.
  */
 import { computed } from "vue";
 import RendererShell from "./RendererShell.vue";
@@ -19,10 +22,10 @@ const fact = computed(() => (typeof props.args?.fact === "string" ? props.args.f
 const subject = computed(() =>
   typeof props.args?.subject === "string" ? props.args.subject : null,
 );
-const category = computed(() =>
-  typeof props.args?.category === "string" ? props.args.category : null,
-);
 const reason = computed(() => (typeof props.args?.reason === "string" ? props.args.reason : null));
+const citations = computed(() =>
+  typeof props.args?.citations === "string" ? props.args.citations : null,
+);
 </script>
 
 <template>
@@ -37,13 +40,17 @@ const reason = computed(() => (typeof props.args?.reason === "string" ? props.ar
         <span class="memory-icon">💡</span>
         <span>{{ fact }}</span>
       </div>
-      <div v-if="category" class="memory-meta">
-        <span class="memory-meta-label">Category</span>
-        <span class="memory-meta-badge">{{ category }}</span>
+      <div v-if="subject" class="memory-meta">
+        <span class="memory-meta-label">Subject</span>
+        <span class="memory-meta-badge">{{ subject }}</span>
       </div>
       <div v-if="reason" class="memory-reason">
         <span class="memory-meta-label">Reason</span>
         <p class="memory-reason-text">{{ reason }}</p>
+      </div>
+      <div v-if="citations" class="memory-citations">
+        <span class="memory-meta-label">Citations</span>
+        <code class="memory-citations-text">{{ citations }}</code>
       </div>
       <pre v-if="!fact" class="memory-fallback">{{ content }}</pre>
     </div>
@@ -98,6 +105,18 @@ const reason = computed(() => (typeof props.args?.reason === "string" ? props.ar
   margin: 0;
   font-size: 0.75rem;
   color: var(--text-secondary);
+  line-height: 1.5;
+}
+.memory-citations {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.memory-citations-text {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
+  word-break: break-all;
   line-height: 1.5;
 }
 .memory-fallback {

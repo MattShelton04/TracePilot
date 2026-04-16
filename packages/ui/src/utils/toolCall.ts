@@ -15,6 +15,7 @@ const TOOL_ICONS: Record<string, string> = {
   task: "🤖",
   report_intent: "🎯",
   ask_user: "💬",
+  store_memory: "🧠",
   web_search: "🌐",
   web_fetch: "🌐",
   sql: "🗄️",
@@ -73,6 +74,14 @@ export function formatArgsSummary(args: unknown, toolName: string): string {
   }
   if (toolName === "report_intent" && a.intent) return String(a.intent);
   if (toolName === "sql" && a.description) return String(a.description);
+  if (toolName === "store_memory" && a.fact) {
+    const fact = String(a.fact);
+    return fact.length > 100 ? `${fact.slice(0, 100)}…` : fact;
+  }
+  if (toolName === "ask_user" && a.question) {
+    const q = String(a.question);
+    return q.length > 100 ? `${q.slice(0, 100)}…` : q;
+  }
   if (toolName === "web_search" && a.query) return String(a.query);
   if (toolName === "web_fetch" && a.url) return String(a.url);
   if (toolName.startsWith("github-mcp-server") && a.method) return String(a.method);

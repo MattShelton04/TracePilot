@@ -48,31 +48,48 @@ interface OutputLine {
   cls: string;
 }
 
+/** Test if a word appears as a standalone token (word boundary aware). */
+function hasWord(text: string, word: string): boolean {
+  return new RegExp(`(?:^|[\\s:=,;|/\\\\()])${word}(?:[\\s:=,;|/\\\\()]|$)`, "i").test(text);
+}
+
+/** Test if a line looks like a genuine error line (not just a filename containing "error"). */
+function isErrorLine(line: string): boolean {
+  const lower = line.toLowerCase();
+  // Genuine error patterns: "error TS2322:", "ERROR:", "fatal error", "error:", "- error"
+  if (/\berror[\s:[\]]/i.test(line)) return true;
+  if (hasWord(lower, "fail") || hasWord(lower, "failed") || hasWord(lower, "failure")) return true;
+  if (hasWord(lower, "fatal")) return true;
+  if (hasWord(lower, "exception")) return true;
+  if (lower.startsWith("e ")) return true;
+  // Avoid: "0 errors", "error_handler.ts", "found 0 errors"
+  if (/\b0\s+errors?\b/i.test(line)) return false;
+  return false;
+}
+
+function isWarningLine(line: string): boolean {
+  if (/\bwarning[\s:[\]]/i.test(line)) return true;
+  if (hasWord(line.toLowerCase(), "deprecat")) return true;
+  return false;
+}
+
+function isSuccessLine(line: string): boolean {
+  const lower = line.toLowerCase();
+  return (
+    hasWord(lower, "success") ||
+    hasWord(lower, "passed") ||
+    lower.includes("✓") ||
+    /\bdone\b/i.test(line) ||
+    /\bcomplete(?:d)?\b/i.test(line)
+  );
+}
+
 const outputLines = computed<OutputLine[]>(() => {
   if (!props.content) return [];
   return props.content.split("\n").map((line) => {
-    const lower = line.toLowerCase();
-    if (
-      lower.includes("error") ||
-      lower.includes("fail") ||
-      lower.includes("fatal") ||
-      lower.includes("exception") ||
-      lower.startsWith("e ")
-    ) {
-      return { text: line, cls: "term-error" };
-    }
-    if (lower.includes("warning") || lower.includes("warn") || lower.includes("deprecat")) {
-      return { text: line, cls: "term-warning" };
-    }
-    if (
-      lower.includes("success") ||
-      lower.includes("passed") ||
-      lower.includes("✓") ||
-      lower.includes("done") ||
-      lower.includes("complete")
-    ) {
-      return { text: line, cls: "term-success" };
-    }
+    if (isErrorLine(line)) return { text: line, cls: "term-error" };
+    if (isWarningLine(line)) return { text: line, cls: "term-warning" };
+    if (isSuccessLine(line)) return { text: line, cls: "term-success" };
     if (line.trim() === "" || line.startsWith("#") || line.startsWith("//")) {
       return { text: line, cls: "term-dim" };
     }
@@ -188,9 +205,8 @@ const outputLines = computed<OutputLine[]>(() => {
 .shell-command {
   flex: 1;
   font-size: 0.75rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: pre-wrap;
+  word-break: break-word;
   color: var(--term-strong);
 }
 .shell-mode-badge {

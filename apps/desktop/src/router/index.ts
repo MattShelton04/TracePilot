@@ -198,7 +198,12 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: "Orchestration",
       sidebarId: "orchestration",
-      sidebar: { section: "orchestration", label: "Command Centre", icon: "orchestration", order: 0 },
+      sidebar: {
+        section: "orchestration",
+        label: "Command Centre",
+        icon: "orchestration",
+        order: 0,
+      },
     },
   },
   {
