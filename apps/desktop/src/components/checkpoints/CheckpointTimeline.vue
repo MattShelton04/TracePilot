@@ -64,18 +64,11 @@ watch(
   },
   { immediate: true },
 );
+
+defineExpose({ allExpanded, expandAll, collapseAll });
 </script>
 
 <template>
-  <div class="cp-toolbar">
-    <button
-      class="cp-toggle-all-btn"
-      @click="allExpanded ? collapseAll() : expandAll()"
-    >
-      {{ allExpanded ? 'Collapse all' : 'Expand all' }}
-    </button>
-  </div>
-
   <div ref="rootRef" class="cp-timeline">
     <div
       v-for="(cp, idx) in checkpoints"
@@ -121,26 +114,6 @@ watch(
 </template>
 
 <style scoped>
-.cp-toolbar {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 4px;
-}
-
-.cp-toggle-all-btn {
-  background: none;
-  border: none;
-  color: var(--accent-fg, #58a6ff);
-  font-size: 0.75rem;
-  cursor: pointer;
-  padding: 2px 8px;
-  border-radius: var(--radius-sm, 4px);
-}
-
-.cp-toggle-all-btn:hover {
-  background: var(--surface-secondary);
-}
-
 .cp-timeline {
   display: flex;
   flex-direction: column;

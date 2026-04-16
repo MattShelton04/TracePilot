@@ -91,6 +91,7 @@ function toggleDetail(idx: number) {
 }
 
 const isPlanExpanded = ref(true);
+const timelineRef = ref<InstanceType<typeof CheckpointTimeline> | null>(null);
 
 function hasDetail(incident: { detailJson?: unknown }): boolean {
   return incident.detailJson != null && incident.detailJson !== "";
@@ -270,7 +271,16 @@ function retryLoadSection(section: string) {
       :title="`Checkpoints (${store.checkpoints.length})`"
       class="mb-6"
     >
+      <template #actions>
+        <button
+          class="cp-toggle-all-btn"
+          @click="timelineRef?.allExpanded ? timelineRef?.collapseAll() : timelineRef?.expandAll()"
+        >
+          {{ timelineRef?.allExpanded ? 'Collapse all' : 'Expand all' }}
+        </button>
+      </template>
       <CheckpointTimeline
+        ref="timelineRef"
         :checkpoints="store.checkpoints"
         :focus-number="store.pendingCheckpointFocus"
         @update:focus-number="store.pendingCheckpointFocus = $event"
@@ -380,6 +390,20 @@ function retryLoadSection(section: string) {
   font-size: 0.875rem;
   line-height: 1.6;
   color: var(--text-primary);
+}
+
+.cp-toggle-all-btn {
+  background: none;
+  border: none;
+  color: var(--accent-fg, #58a6ff);
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm, 4px);
+}
+
+.cp-toggle-all-btn:hover {
+  background: var(--surface-secondary);
 }
 
 </style>
