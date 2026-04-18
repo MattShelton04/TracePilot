@@ -152,10 +152,8 @@ pub fn run_migrations(
                 report.to_version = migration.version;
                 report.last_backup_path = backup_path.clone();
 
-                if do_backup && opts.backup_retention > 0 {
-                    if let Some(db) = db_path {
-                        prune_backups(db, opts.backup_dir.as_deref(), opts.backup_retention);
-                    }
+                if do_backup && opts.backup_retention > 0 && let Some(db) = db_path {
+                    prune_backups(db, opts.backup_dir.as_deref(), opts.backup_retention);
                 }
             }
             Err(source) => {

@@ -44,10 +44,8 @@ pub fn backup_path_for(db_path: &Path, version: u32, backup_dir: Option<&Path>) 
 /// `std::fs::copy` so WAL-mode databases include all committed pages.
 /// Overwrites any pre-existing backup at the destination.
 pub(super) fn write_backup(conn: &Connection, dest_path: &Path) -> Result<(), BackupError> {
-    if let Some(parent) = dest_path.parent() {
-        if !parent.as_os_str().is_empty() {
-            std::fs::create_dir_all(parent).map_err(BackupError::Io)?;
-        }
+    if let Some(parent) = dest_path.parent() && !parent.as_os_str().is_empty() {
+        std::fs::create_dir_all(parent).map_err(BackupError::Io)?;
     }
 
     if dest_path.exists() {
@@ -104,7 +102,7 @@ pub(super) fn prune_backups(db_path: &Path, backup_dir: Option<&Path>, keep: usi
         return;
     }
 
-    entries.sort_by(|a, b| b.0.cmp(&a.0));
+    entries.sort_by_key(|b| std::cmp::Reverse(b.0));
     for (_, path) in entries.into_iter().skip(keep) {
         if let Err(e) = std::fs::remove_file(&path) {
             tracing::warn!(path = %path.display(), error = %e, "Failed to prune old backup");

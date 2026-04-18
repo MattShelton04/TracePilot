@@ -893,6 +893,7 @@ mod tests {
     }
 
     /// Build events.jsonl with two shutdown events (simulating a resumed session).
+    #[allow(clippy::vec_init_then_push)]
     fn resumed_session_jsonl() -> String {
         let mut lines = Vec::new();
         // session.start

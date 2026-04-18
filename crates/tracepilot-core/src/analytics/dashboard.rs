@@ -15,6 +15,7 @@ use super::types::*;
 /// For 100+ sessions, consider caching results in the index DB (Phase 3).
 ///
 /// Only requires `SessionSummary` data (no turns needed).
+#[allow(clippy::type_complexity)]
 #[tracing::instrument(skip_all, fields(session_count = sessions.len()))]
 pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
     let total_sessions = sessions.len() as u32;
@@ -275,7 +276,7 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
             },
         )
         .collect();
-    model_distribution.sort_by(|a, b| b.tokens.cmp(&a.tokens));
+    model_distribution.sort_by_key(|b| std::cmp::Reverse(b.tokens));
 
     // Average health score
     let average_health_score = if total_sessions > 0 {

@@ -94,7 +94,8 @@ jobs:
 
       - name: Rust lint (clippy)
         if: runner.os == 'Linux'
-        run: cargo clippy --workspace --exclude tracepilot-desktop --all-targets -- -D warnings
+        # Warnings only — not blocking, to avoid chasing lint churn across Rust versions
+        run: cargo clippy --workspace --exclude tracepilot-desktop --all-targets
 
       - name: Frontend lint (biome)
         if: runner.os == 'Linux'

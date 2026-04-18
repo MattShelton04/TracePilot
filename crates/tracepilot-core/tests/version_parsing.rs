@@ -627,7 +627,7 @@ fn reasoning_tokens_only_in_v1_0_24() {
         let shutdown = find_shutdown(&parsed.events);
         if let TypedEventData::SessionShutdown(data) = shutdown {
             if let Some(ref mm) = data.model_metrics {
-                for (_model, detail) in mm {
+                for detail in mm.values() {
                     if let Some(ref usage) = detail.usage {
                         assert!(
                             usage.reasoning_tokens.is_none(),

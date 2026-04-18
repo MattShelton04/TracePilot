@@ -691,6 +691,7 @@ impl TurnReconstructor {
     // ── Unified subagent terminal handler ─────────────────────────────
 
     /// Handle SubagentCompleted or SubagentFailed — merged to eliminate duplication.
+    #[allow(clippy::too_many_arguments)]
     fn handle_subagent_terminal(
         &mut self,
         tool_call_id: Option<&str>,

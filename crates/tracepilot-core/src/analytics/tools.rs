@@ -116,7 +116,7 @@ pub fn compute_tool_analysis(sessions: &[SessionAnalyticsInput]) -> ToolAnalysis
             }
         })
         .collect();
-    tools.sort_by(|a, b| b.call_count.cmp(&a.call_count));
+    tools.sort_by_key(|b| std::cmp::Reverse(b.call_count));
 
     // Most used tool
     let most_used_tool = tools
