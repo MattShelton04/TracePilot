@@ -174,12 +174,47 @@ pub async fn list_sessions(
 #[tracing::instrument(skip_all, fields(%session_id))]
 pub async fn get_session_detail(
     state: tauri::State<'_, SharedConfig>,
+    event_cache: tauri::State<'_, EventCache>,
     session_id: String,
 ) -> CmdResult<tracepilot_core::SessionSummary> {
-    with_session_path(&state, session_id, |path| {
-        Ok(tracepilot_core::summary::load_session_summary(&path)?)
+    crate::validators::validate_session_id(&session_id)?;
+
+    let session_state_dir = read_config(&state).session_state_dir();
+    let event_cache = event_cache.inner().clone();
+
+    blocking_cmd!({
+        let path = tracepilot_core::session::discovery::resolve_session_path_in(
+            &session_id,
+            &session_state_dir,
+        )?;
+        let events_path = path.join("events.jsonl");
+
+        // Use cached events — avoids re-parsing events.jsonl on every call.
+        // Cache key is (session_id, file_size, mtime) so active sessions
+        // (append-only) always get fresh data when the file changes.
+        // On cache/parse error, gracefully degrade to empty events (matches
+        // original load_session_summary behaviour of proceeding without event data).
+        let events = if events_path.exists() {
+            match load_cached_typed_events(&event_cache, &session_id, &events_path) {
+                Ok((cached, _, _)) => cached,
+                Err(e) => {
+                    tracing::warn!(
+                        path = %events_path.display(),
+                        error = %e,
+                        "Failed to load cached events for session detail; proceeding without event data"
+                    );
+                    std::sync::Arc::new(vec![])
+                }
+            }
+        } else {
+            std::sync::Arc::new(vec![])
+        };
+
+        Ok::<_, BindingsError>(tracepilot_core::summary::load_session_summary_from_events(
+            &path,
+            &events,
+        )?)
     })
-    .await
 }
 
 #[tauri::command]

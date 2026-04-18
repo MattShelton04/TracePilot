@@ -46,6 +46,99 @@ pub fn load_session_summary_with_events(session_dir: &Path) -> Result<SessionLoa
     load_session_summary_impl(session_dir, true)
 }
 
+/// Build a [`SessionSummary`] from pre-parsed events, avoiding a second disk read.
+///
+/// Used by `get_session_detail` after pulling events from the [`EventCache`].
+/// The caller is responsible for passing an up-to-date events slice (i.e. one
+/// that was loaded with a cache key that matches the current file metadata).
+/// An empty slice means the session has no `events.jsonl` yet.
+///
+/// [`EventCache`]: tracepilot_tauri_bindings::types::EventCache
+pub fn load_session_summary_from_events(
+    session_dir: &Path,
+    events: &[TypedEvent],
+) -> Result<SessionSummary> {
+    let workspace_path = session_dir.join("workspace.yaml");
+    let mut summary = if workspace_path.exists() {
+        match parse_workspace_yaml(&workspace_path) {
+            Ok(ws) => SessionSummary {
+                id: ws.id,
+                summary: ws.summary,
+                repository: ws.repository,
+                branch: ws.branch,
+                cwd: ws.cwd,
+                host_type: ws.host_type,
+                created_at: ws.created_at,
+                updated_at: ws.updated_at,
+                event_count: None,
+                has_events: false,
+                has_session_db: false,
+                has_plan: false,
+                has_checkpoints: false,
+                checkpoint_count: None,
+                turn_count: None,
+                shutdown_metrics: None,
+            },
+            Err(e) => {
+                tracing::warn!(
+                    path = %workspace_path.display(),
+                    error = %e,
+                    "Failed to parse workspace.yaml; falling back to events-only summary"
+                );
+                minimal_summary_from_dir(session_dir)?
+            }
+        }
+    } else {
+        minimal_summary_from_dir(session_dir)?
+    };
+
+    if !events.is_empty() {
+        summary.has_events = true;
+        summary.event_count = Some(events.len());
+
+        if let Some((sd, count)) = extract_combined_shutdown_data(events) {
+            summary.shutdown_metrics = Some(shutdown_data_to_metrics(&sd, count));
+        }
+
+        let turns = reconstruct_turns(events);
+        let stats = turn_stats(&turns);
+        summary.turn_count = Some(stats.total_turns);
+
+        if let Some(start_data) = extract_session_start(events) {
+            if let Some(ctx) = &start_data.context {
+                if summary.repository.is_none() {
+                    summary.repository = ctx.repository.clone();
+                }
+                if summary.branch.is_none() {
+                    summary.branch = ctx.branch.clone();
+                }
+                if summary.host_type.is_none() {
+                    summary.host_type = ctx.host_type.clone();
+                }
+                if summary.cwd.is_none() {
+                    summary.cwd = ctx.cwd.clone();
+                }
+            }
+            if summary.created_at.is_none()
+                && let Some(ref ts) = start_data.start_time
+            {
+                summary.created_at = chrono::DateTime::parse_from_rfc3339(ts)
+                    .ok()
+                    .map(|d| d.with_timezone(&chrono::Utc));
+            }
+        }
+    }
+
+    summary.has_session_db = session_dir.join("session.db").exists();
+    summary.has_plan = session_dir.join("plan.md").exists();
+    if let Ok(Some(cp_index)) = parse_checkpoints(session_dir) {
+        summary.has_checkpoints = true;
+        summary.checkpoint_count = Some(cp_index.checkpoints.len());
+    }
+
+    Ok(summary)
+}
+
 fn load_session_summary_impl(session_dir: &Path, retain_events: bool) -> Result<SessionLoadResult> {
     // 1. Parse workspace.yaml — preferred source of session metadata.
     //    For old Copilot CLI sessions that lack workspace.yaml we fall back to a
@@ -386,6 +479,83 @@ mod tests {
 
         // Falls back to directory name as ID
         assert_eq!(summary.id, "bad-workspace-test");
+    }
+
+    // ── load_session_summary_from_events tests ────────────────────────────────
+
+    /// Verify load_session_summary_from_events produces parity with load_session_summary
+    /// given pre-parsed events from the same file.
+    #[test]
+    fn test_summary_from_events_parity_with_disk() {
+        let dir = tempfile::tempdir().unwrap();
+        let session_dir = dir.path();
+
+        fs::write(session_dir.join("workspace.yaml"), full_workspace_yaml()).unwrap();
+        fs::write(session_dir.join("events.jsonl"), sample_events_jsonl()).unwrap();
+        fs::write(session_dir.join("session.db"), b"").unwrap();
+        fs::write(session_dir.join("plan.md"), "# Plan").unwrap();
+        create_checkpoints(session_dir);
+
+        // Ground truth: load from disk
+        let expected = load_session_summary(session_dir).unwrap();
+
+        // Parse events once, then build summary from pre-parsed slice
+        let parsed = crate::parsing::events::parse_typed_events(&session_dir.join("events.jsonl"))
+            .unwrap();
+        let actual = load_session_summary_from_events(session_dir, &parsed.events).unwrap();
+
+        assert_eq!(actual.id, expected.id);
+        assert_eq!(actual.summary, expected.summary);
+        assert_eq!(actual.repository, expected.repository);
+        assert_eq!(actual.branch, expected.branch);
+        assert_eq!(actual.cwd, expected.cwd);
+        assert_eq!(actual.has_events, expected.has_events);
+        assert_eq!(actual.event_count, expected.event_count);
+        assert_eq!(actual.turn_count, expected.turn_count);
+        assert_eq!(actual.has_session_db, expected.has_session_db);
+        assert_eq!(actual.has_plan, expected.has_plan);
+        assert_eq!(actual.has_checkpoints, expected.has_checkpoints);
+        assert_eq!(actual.checkpoint_count, expected.checkpoint_count);
+        assert_eq!(
+            actual.shutdown_metrics.is_some(),
+            expected.shutdown_metrics.is_some()
+        );
+    }
+
+    /// An empty events slice should produce has_events = false, no counts.
+    #[test]
+    fn test_summary_from_events_empty_slice() {
+        let dir = tempfile::tempdir().unwrap();
+        let session_dir = dir.path();
+        fs::write(session_dir.join("workspace.yaml"), minimal_workspace_yaml()).unwrap();
+
+        let summary = load_session_summary_from_events(session_dir, &[]).unwrap();
+
+        assert!(!summary.has_events);
+        assert!(summary.event_count.is_none());
+        assert!(summary.turn_count.is_none());
+        assert!(summary.shutdown_metrics.is_none());
+    }
+
+    /// Context enrichment from events works the same in the pre-parsed path.
+    #[test]
+    fn test_summary_from_events_context_enrichment() {
+        let dir = tempfile::tempdir().unwrap();
+        let session_dir = dir.path();
+        fs::write(session_dir.join("workspace.yaml"), sparse_workspace_yaml()).unwrap();
+        fs::write(
+            session_dir.join("events.jsonl"),
+            enrichment_events_jsonl(),
+        )
+        .unwrap();
+
+        let parsed = crate::parsing::events::parse_typed_events(&session_dir.join("events.jsonl"))
+            .unwrap();
+        let summary = load_session_summary_from_events(session_dir, &parsed.events).unwrap();
+
+        assert_eq!(summary.repository.as_deref(), Some("org/project"));
+        assert_eq!(summary.branch.as_deref(), Some("feature-x"));
+        assert_eq!(summary.host_type.as_deref(), Some("vscode"));
     }
 
     /// Events.jsonl with two shutdown events simulating a resumed session.

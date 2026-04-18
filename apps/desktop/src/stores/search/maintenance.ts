@@ -17,13 +17,20 @@ export function createMaintenanceSlice() {
   const integrityCheckGuard = useAsyncGuard();
   const optimizeGuard = useAsyncGuard();
 
-  async function fetchHealth() {
+  /** Timestamp of the last completed health fetch — prevents redundant checks on re-navigation. */
+  let healthLastFetchedAt = 0;
+  const HEALTH_CACHE_TTL_MS = 30_000;
+
+  /** Fetch FTS health info. Skips if a fresh result exists unless `force` is true. */
+  async function fetchHealth(force = false) {
+    if (!force && Date.now() - healthLastFetchedAt < HEALTH_CACHE_TTL_MS) return;
     const token = healthGuard.start();
     healthLoading.value = true;
     try {
       const result = await ftsHealth();
       if (!healthGuard.isValid(token)) return;
       healthInfo.value = result;
+      healthLastFetchedAt = Date.now();
     } catch (_e) {
       if (!healthGuard.isValid(token)) return;
       healthInfo.value = null;
@@ -52,7 +59,7 @@ export function createMaintenanceSlice() {
       const result = await ftsOptimize();
       if (!optimizeGuard.isValid(token)) return;
       maintenanceMessage.value = result;
-      await fetchHealth(); // refresh health after optimize
+      await fetchHealth(true); // force-refresh health after optimize
     } catch (e) {
       if (!optimizeGuard.isValid(token)) return;
       maintenanceMessage.value = `Error: ${toErrorMessage(e)}`;

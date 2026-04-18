@@ -35,6 +35,10 @@ export function createFacetsSlice(q: QuerySlice) {
   const statsGuard = useAsyncGuard();
   const filterOptionsGuard = useAsyncGuard();
 
+  /** Timestamp of the last unfiltered facets fetch — prevents redundant round-trips on re-navigation. */
+  let facetsLastFetchedAt = 0;
+  const FACETS_CACHE_TTL_MS = 2 * 60 * 1000;
+
   async function fetchFacets(forQuery?: string, overrides?: FacetOverrides) {
     const token = facetGuard.start();
     try {
@@ -52,6 +56,21 @@ export function createFacetsSlice(q: QuerySlice) {
       const session =
         overrides?.session !== undefined ? overrides.session : q.sessionId.value;
 
+      // Skip re-fetch for unfiltered browse-mode calls when results are already fresh.
+      // Filter-scoped fetches (after a search) always run to reflect the current query.
+      const isUnfiltered =
+        !forQuery &&
+        ct.length === 0 &&
+        q.excludeContentTypes.value.length === 0 &&
+        !repo &&
+        !tool &&
+        !session &&
+        !dateFromUnix &&
+        !dateToUnix;
+      if (isUnfiltered && facets.value && Date.now() - facetsLastFetchedAt < FACETS_CACHE_TTL_MS) {
+        return;
+      }
+
       const result = await getSearchFacets(forQuery, {
         contentTypes: ct.length > 0 ? ct : undefined,
         excludeContentTypes:
@@ -64,10 +83,16 @@ export function createFacetsSlice(q: QuerySlice) {
       });
       if (!facetGuard.isValid(token)) return;
       facets.value = result;
+      if (isUnfiltered) facetsLastFetchedAt = Date.now();
     } catch (e) {
       if (!facetGuard.isValid(token)) return;
       logWarn("[search] Failed to fetch search facets:", e);
     }
+  }
+
+  /** Invalidate the facets cache so the next unfiltered fetch always runs (e.g. after reindex). */
+  function invalidateFacetsCache() {
+    facetsLastFetchedAt = 0;
   }
 
   async function fetchStats() {
@@ -108,6 +133,7 @@ export function createFacetsSlice(q: QuerySlice) {
     fetchFacets,
     fetchStats,
     fetchFilterOptions,
+    invalidateFacetsCache,
   };
 }
 

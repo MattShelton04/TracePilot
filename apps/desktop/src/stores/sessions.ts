@@ -21,6 +21,10 @@ export const useSessionsStore = defineStore("sessions", () => {
   const indexInflight = useInflightPromise<[number, number]>();
   /** Deduplicate session-list refresh after indexing completes. */
   const postIndexRefreshInflight = useInflightPromise<SessionListItem[]>();
+  /** Timestamp of last completed ensureIndex — prevents redundant reindexes on re-navigation. */
+  let lastIndexedAt = 0;
+  /** Minimum interval between ensureIndex calls (2 min). Explicit user-triggered reindex ignores this. */
+  const MIN_INDEX_INTERVAL_MS = 2 * 60 * 1000;
 
   const sessions = ref<SessionListItem[]>([]);
   const loading = ref(false);
@@ -208,6 +212,10 @@ export const useSessionsStore = defineStore("sessions", () => {
    * Ensure the index is up-to-date without blocking the UI.
    * Runs an incremental reindex in the background and silently refreshes
    * the session list when done. Does not show loading/indexing states.
+   *
+   * Throttled to at most once per MIN_INDEX_INTERVAL_MS to prevent redundant
+   * reindexes when the user navigates back to the session list. The periodic
+   * auto-refresh and explicit user-triggered reindex are unaffected.
    */
   async function ensureIndex() {
     const existingIndex = indexInflight.current();
@@ -227,8 +235,12 @@ export const useSessionsStore = defineStore("sessions", () => {
       return;
     }
 
+    // Skip if we indexed recently — avoids 479ms reindexSessions on every re-navigation.
+    if (Date.now() - lastIndexedAt < MIN_INDEX_INTERVAL_MS) return;
+
     try {
       await indexInflight.run(() => reindexSessions());
+      lastIndexedAt = Date.now();
       sessions.value = await refreshSessionsAfterIndex();
     } catch (e) {
       // Silent — this is a background optimization, not user-initiated
