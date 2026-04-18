@@ -211,8 +211,7 @@ pub async fn get_session_detail(
         };
 
         Ok::<_, BindingsError>(tracepilot_core::summary::load_session_summary_from_events(
-            &path,
-            &events,
+            &path, &events,
         )?)
     })
 }

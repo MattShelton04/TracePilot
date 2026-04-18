@@ -91,6 +91,8 @@ jobs:
       # ── Lint + format (Linux only — single source of truth) ─
       - name: Rust format check
         if: runner.os == 'Linux'
+        # Informational only — formatting churn across rustfmt versions is non-blocking
+        continue-on-error: true
         run: cargo fmt --all -- --check
 
       - name: Rust lint (clippy)

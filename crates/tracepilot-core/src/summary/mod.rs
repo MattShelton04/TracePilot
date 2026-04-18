@@ -500,8 +500,8 @@ mod tests {
         let expected = load_session_summary(session_dir).unwrap();
 
         // Parse events once, then build summary from pre-parsed slice
-        let parsed = crate::parsing::events::parse_typed_events(&session_dir.join("events.jsonl"))
-            .unwrap();
+        let parsed =
+            crate::parsing::events::parse_typed_events(&session_dir.join("events.jsonl")).unwrap();
         let actual = load_session_summary_from_events(session_dir, &parsed.events).unwrap();
 
         assert_eq!(actual.id, expected.id);
@@ -543,14 +543,10 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let session_dir = dir.path();
         fs::write(session_dir.join("workspace.yaml"), sparse_workspace_yaml()).unwrap();
-        fs::write(
-            session_dir.join("events.jsonl"),
-            enrichment_events_jsonl(),
-        )
-        .unwrap();
+        fs::write(session_dir.join("events.jsonl"), enrichment_events_jsonl()).unwrap();
 
-        let parsed = crate::parsing::events::parse_typed_events(&session_dir.join("events.jsonl"))
-            .unwrap();
+        let parsed =
+            crate::parsing::events::parse_typed_events(&session_dir.join("events.jsonl")).unwrap();
         let summary = load_session_summary_from_events(session_dir, &parsed.events).unwrap();
 
         assert_eq!(summary.repository.as_deref(), Some("org/project"));
