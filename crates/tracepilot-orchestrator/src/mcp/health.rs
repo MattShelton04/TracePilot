@@ -11,12 +11,12 @@ use crate::mcp::headers::{
 };
 use crate::mcp::types::{McpHealthResult, McpHealthStatus, McpServerConfig, McpTool, McpTransport};
 use chrono::Utc;
-use tracepilot_core::utils::sanitize_error_msg;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
 use std::process::Child;
 use std::time::Instant;
+use tracepilot_core::utils::sanitize_error_msg;
 
 /// Kill a child process and reap it to prevent zombie accumulation.
 fn kill_and_reap(child: &mut Child) {

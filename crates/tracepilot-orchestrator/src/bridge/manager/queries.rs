@@ -3,11 +3,11 @@
 //! each submodule's line-count budget in check (Wave 44).
 
 use super::BridgeManager;
+#[cfg(feature = "copilot-sdk")]
+use crate::bridge::BridgeQuotaSnapshot;
 use crate::bridge::{
     BridgeAuthStatus, BridgeError, BridgeModelInfo, BridgeQuota, BridgeSessionInfo, BridgeStatus,
 };
-#[cfg(feature = "copilot-sdk")]
-use crate::bridge::BridgeQuotaSnapshot;
 
 impl BridgeManager {
     /// List all sessions known to the SDK client.

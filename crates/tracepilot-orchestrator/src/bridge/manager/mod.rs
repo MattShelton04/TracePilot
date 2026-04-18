@@ -11,9 +11,9 @@
 //! contributes an `impl BridgeManager` block so the public API remains a single
 //! flat surface from the caller's point of view.
 
-use super::{BridgeConnectionState, BridgeEvent, BridgeStatus};
 #[cfg(feature = "copilot-sdk")]
 use super::BridgeError;
+use super::{BridgeConnectionState, BridgeEvent, BridgeStatus};
 #[cfg(feature = "copilot-sdk")]
 use std::collections::HashMap;
 use std::sync::Arc;
