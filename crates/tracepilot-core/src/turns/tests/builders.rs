@@ -3,6 +3,8 @@
 //! This module provides fluent builder APIs for constructing test events
 //! with sensible defaults, reducing boilerplate in test code.
 //!
+// Builder methods exist for completeness and future test coverage.
+#![allow(dead_code, clippy::wrong_self_convention)]
 //! # Example
 //! ```ignore
 //! use super::builders::*;

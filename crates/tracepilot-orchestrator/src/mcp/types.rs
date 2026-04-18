@@ -322,11 +322,20 @@ mod tests {
         };
         let json = serde_json::to_string_pretty(&cfg).unwrap();
         // JSON key should be "type" not "transport"
-        assert!(json.contains(r#""type":"#) || json.contains(r#""type" :"#), "Expected 'type' key: {json}");
-        assert!(!json.contains(r#""transport""#), "Should NOT have 'transport' key: {json}");
+        assert!(
+            json.contains(r#""type":"#) || json.contains(r#""type" :"#),
+            "Expected 'type' key: {json}"
+        );
+        assert!(
+            !json.contains(r#""transport""#),
+            "Should NOT have 'transport' key: {json}"
+        );
         // Value should be "http" (not "streamable-http") to match Copilot CLI format
         assert!(json.contains(r#""http""#), "Expected 'http' value: {json}");
-        assert!(!json.contains(r#""streamable-http""#), "Should NOT serialize as 'streamable-http': {json}");
+        assert!(
+            !json.contains(r#""streamable-http""#),
+            "Should NOT serialize as 'streamable-http': {json}"
+        );
         assert!(json.contains(r#""headers""#));
         assert!(json.contains(r#""tools""#));
     }
@@ -343,10 +352,8 @@ mod tests {
         // Should be non-zero for a tool with name and description
         assert!(tokens > 0);
         // Verify it matches direct call to estimate_tool_tokens
-        let expected = crate::tokens::estimate_tool_tokens(
-            "file_search",
-            "Search for files in the workspace",
-        );
+        let expected =
+            crate::tokens::estimate_tool_tokens("file_search", "Search for files in the workspace");
         assert_eq!(tokens, expected);
     }
 

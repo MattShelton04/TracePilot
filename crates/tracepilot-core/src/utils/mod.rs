@@ -7,7 +7,11 @@
 //! - [`truncate_string_utf8()`] - In-place version for owned strings
 
 pub mod cache;
+pub mod log_sanitize;
+pub mod migrator;
 pub mod sqlite;
+
+pub use log_sanitize::{sanitize as sanitize_log, sanitize_error_msg};
 
 use std::path::PathBuf;
 
@@ -237,10 +241,7 @@ mod tests {
         assert_eq!(truncate_utf8_with_marker("🦀crab", 2, None), "");
         assert_eq!(truncate_utf8_with_marker("🦀crab", 2, Some("…")), "…");
         assert_eq!(truncate_utf8_with_marker("🦀crab", 4, Some("…")), "🦀…");
-        assert_eq!(
-            truncate_utf8_with_marker("🦀crab", 5, Some("…")),
-            "🦀c…"
-        );
+        assert_eq!(truncate_utf8_with_marker("🦀crab", 5, Some("…")), "🦀c…");
     }
 
     #[test]

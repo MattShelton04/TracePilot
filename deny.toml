@@ -1,0 +1,38 @@
+# cargo-deny configuration for TracePilot.
+# Run locally: cargo deny check
+# CI integration is deferred to Phase 6.6 (dependency hygiene).
+
+[advisories]
+version = 2
+ignore = []
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+
+[licenses]
+version = 2
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "CC0-1.0",
+    "ISC",
+    "MPL-2.0",
+    "Unicode-3.0",
+    "Unicode-DFS-2016",
+    "Zlib",
+    "GPL-3.0-or-later", # TracePilot itself (matches workspace Cargo.toml)
+]
+confidence-threshold = 0.9
+
+[sources]
+unknown-registry = "warn"
+unknown-git = "warn"
+allow-git = [
+    # Community Copilot SDK — pinned to a specific SHA in workspace Cargo.toml.
+    # Replace with a crates.io release when available.
+    "https://github.com/copilot-community-sdk/copilot-sdk-rust.git",
+]

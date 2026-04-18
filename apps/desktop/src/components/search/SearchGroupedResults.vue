@@ -74,8 +74,8 @@ defineEmits<{
             <span
               class="ct-badge"
               :style="{
-                background: contentTypeConfig[result.contentType]?.color + '20',
-                color: contentTypeConfig[result.contentType]?.color,
+                '--ct-bg': (contentTypeConfig[result.contentType]?.color ?? '') + '20',
+                '--ct-fg': contentTypeConfig[result.contentType]?.color,
               }"
             >
               {{ contentTypeConfig[result.contentType]?.label ?? result.contentType }}
@@ -344,6 +344,8 @@ defineEmits<{
   text-transform: uppercase;
   letter-spacing: 0.05em;
   flex-shrink: 0;
+  background: var(--ct-bg);
+  color: var(--ct-fg);
 }
 
 .tool-name-badge {

@@ -26,9 +26,14 @@ reqwest = { workspace = true }
 
 similar = "2"
 walkdir = "2"
-sha2 = "0.10"
+sha2 = { workspace = true }
+url = "2"
 
 copilot-sdk = { workspace = true, optional = true }
+
+# Phase 1B.1 codegen pilot: derive `specta::Type` on `BridgeMetricsSnapshot`
+# so tauri-specta can emit a TS mirror. Zero runtime cost.
+specta = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]
 tempfile = { workspace = true }

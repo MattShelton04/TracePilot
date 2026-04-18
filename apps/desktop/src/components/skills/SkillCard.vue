@@ -2,6 +2,8 @@
 import type { SkillSummary } from "@tracepilot/types";
 import { useRouter } from "vue-router";
 import SkillScopeBadge from "./SkillScopeBadge.vue";
+import { ROUTE_NAMES } from "@/config/routes";
+import { pushRoute } from "@/router/navigation";
 
 const props = defineProps<{
   skill: SkillSummary;
@@ -17,8 +19,7 @@ const disableTooltip =
   "TracePilot cannot currently disable Copilot skills. Remove the skill directory or use session-level disabledSkills elsewhere.";
 
 function navigateToEditor() {
-  router.push({
-    name: "skill-editor",
+  pushRoute(router, ROUTE_NAMES.skillEditor, {
     params: { name: encodeURIComponent(props.skill.directory) },
   });
 }

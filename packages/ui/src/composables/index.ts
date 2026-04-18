@@ -3,6 +3,16 @@ export type {
   AsyncGuardToken,
 } from "./useAsyncGuard";
 export { useAsyncGuard } from "./useAsyncGuard";
+export type {
+  UseAsyncDataOptions,
+  UseAsyncDataReturn,
+} from "./useAsyncData";
+export { useAsyncData } from "./useAsyncData";
+export type {
+  CachedFetchOptions,
+  CachedFetchResult,
+} from "./useCachedFetch";
+export { useCachedFetch } from "./useCachedFetch";
 export type { AutoRefreshOptions } from "./useAutoRefresh";
 export { useAutoRefresh } from "./useAutoRefresh";
 export type {
@@ -21,8 +31,20 @@ export { useConfirmDialog } from "./useConfirmDialog";
 export type { ConversationSectionsReturn } from "./useConversationSections";
 export { useConversationSections } from "./useConversationSections";
 export { useDismissable } from "./useDismissable";
+export type { UseInflightPromiseReturn } from "./useInflightPromise";
+export { useInflightPromise } from "./useInflightPromise";
 export { useLiveDuration } from "./useLiveDuration";
+export type { UsePersistedRefOptions } from "./usePersistedRef";
+export { usePersistedRef } from "./usePersistedRef";
+export type {
+  UsePollingControls,
+  UsePollingOptions,
+} from "./usePolling";
+export { usePolling } from "./usePolling";
+export { useResizeHandle } from "./useResizeHandle";
 export { useSessionTabLoader } from "./useSessionTabLoader";
+export type { AsyncGuardLike, RunActionOptions } from "./useStoreHelpers";
+export { runAction, runMutation } from "./useStoreHelpers";
 export type {
   TimelineNavigationOptions,
   TimelineNavigationReturn,
@@ -31,6 +53,3 @@ export { useTimelineNavigation } from "./useTimelineNavigation";
 export type { Toast, ToastOptions } from "./useToast";
 export { useToast } from "./useToast";
 export { useToggleSet } from "./useToggleSet";
-export { useResizeHandle } from "./useResizeHandle";
-export type { AsyncGuardLike, RunActionOptions } from "./useStoreHelpers";
-export { runAction, runMutation } from "./useStoreHelpers";

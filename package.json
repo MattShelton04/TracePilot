@@ -16,7 +16,7 @@
     "orchestration"
   ],
   "scripts": {
-    "start": "pnpm install && pnpm tauri dev --no-watch",
+    "start": "pnpm tauri dev --no-watch",
     "dev": "pnpm --filter @tracepilot/desktop dev",
     "build": "pnpm --filter @tracepilot/desktop build",
     "build:cli": "pnpm --filter @tracepilot/cli build",
@@ -27,6 +27,7 @@
     "format": "biome format --write .",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
+    "gen:bindings": "cargo run -p tracepilot-tauri-bindings --bin gen-bindings",
     "clean": "pnpm -r clean"
   },
   "engines": {

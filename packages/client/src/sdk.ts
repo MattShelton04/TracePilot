@@ -4,6 +4,7 @@ import type {
   BridgeAuthStatus,
   BridgeConnectConfig,
   BridgeMessagePayload,
+  BridgeMetricsSnapshot,
   BridgeModelInfo,
   BridgeQuota,
   BridgeSessionConfig,
@@ -130,4 +131,14 @@ export async function sdkDetectUiServer(): Promise<DetectedUiServer[]> {
 
 export async function sdkLaunchUiServer(workingDir?: string): Promise<number> {
   return invoke<number>("sdk_launch_ui_server", { workingDir: workingDir ?? null });
+}
+
+// ─── Observability ────────────────────────────────────────────────
+
+/**
+ * Snapshot of bridge broadcast-channel counters (events forwarded, dropped
+ * due to lag, lag occurrences). Cheap to poll. See Phase 1A.6.
+ */
+export async function sdkBridgeMetrics(): Promise<BridgeMetricsSnapshot> {
+  return invoke<BridgeMetricsSnapshot>("sdk_bridge_metrics");
 }

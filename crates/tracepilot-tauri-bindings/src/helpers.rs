@@ -90,9 +90,9 @@ pub(crate) fn read_config(state: &SharedConfig) -> TracePilotConfig {
 pub(crate) fn get_or_init_task_db(
     state: &crate::types::SharedTaskDb,
 ) -> Result<crate::types::SharedTaskDb, BindingsError> {
-    let mut guard = state.lock().map_err(|_| {
-        BindingsError::Validation("TaskDb mutex poisoned".into())
-    })?;
+    let mut guard = state
+        .lock()
+        .map_err(|_| BindingsError::Validation("TaskDb mutex poisoned".into()))?;
     if guard.is_none() {
         let path = tracepilot_orchestrator::task_db::TaskDb::default_path()
             .map_err(|e| BindingsError::Validation(format!("Cannot resolve task DB path: {e}")))?;
@@ -112,13 +112,12 @@ pub(crate) fn get_or_init_task_db(
 ///
 /// This encapsulates the `get_or_init_task_db → spawn_blocking → lock →
 /// unwrap Option` boilerplate shared by most task CRUD commands.
-pub(crate) async fn with_task_db<T, F>(
-    state: &crate::types::SharedTaskDb,
-    f: F,
-) -> CmdResult<T>
+pub(crate) async fn with_task_db<T, F>(state: &crate::types::SharedTaskDb, f: F) -> CmdResult<T>
 where
     T: Send + 'static,
-    F: FnOnce(&tracepilot_orchestrator::task_db::TaskDb) -> Result<T, BindingsError> + Send + 'static,
+    F: FnOnce(&tracepilot_orchestrator::task_db::TaskDb) -> Result<T, BindingsError>
+        + Send
+        + 'static,
 {
     let db = get_or_init_task_db(state)?;
     tokio::task::spawn_blocking(move || {

@@ -117,10 +117,12 @@ fn has_recent_activity(session_dir: &Path) -> bool {
         for entry in entries.filter_map(|e| e.ok()) {
             let name = entry.file_name();
             let name_str = name.to_string_lossy();
-            if name_str.starts_with("inuse.") && name_str.ends_with(".lock")
-                && is_file_recent(&entry.path(), now) {
-                    return true;
-                }
+            if name_str.starts_with("inuse.")
+                && name_str.ends_with(".lock")
+                && is_file_recent(&entry.path(), now)
+            {
+                return true;
+            }
         }
     }
 

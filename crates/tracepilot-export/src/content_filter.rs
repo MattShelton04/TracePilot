@@ -221,19 +221,13 @@ mod tests {
     fn noop_when_all_detail_enabled() {
         let turn = make_turn_with_subagent();
         let mut archive = archive_with_turn(turn);
-        let original_tool_count = archive.sessions[0]
-            .conversation
-            .as_ref()
-            .unwrap()[0]
+        let original_tool_count = archive.sessions[0].conversation.as_ref().unwrap()[0]
             .tool_calls
             .len();
 
         apply_content_filters(&mut archive, &ContentDetailOptions::default());
 
-        let filtered_tool_count = archive.sessions[0]
-            .conversation
-            .as_ref()
-            .unwrap()[0]
+        let filtered_tool_count = archive.sessions[0].conversation.as_ref().unwrap()[0]
             .tool_calls
             .len();
         assert_eq!(original_tool_count, filtered_tool_count);
@@ -299,7 +293,10 @@ mod tests {
         let conv = archive.sessions[0].conversation.as_ref().unwrap();
         for tc in &conv[0].tool_calls {
             assert!(tc.arguments.is_none(), "arguments should be stripped");
-            assert!(tc.result_content.is_none(), "result_content should be stripped");
+            assert!(
+                tc.result_content.is_none(),
+                "result_content should be stripped"
+            );
             // Summaries should be preserved
             if tc.tool_name == "read_file" {
                 assert_eq!(tc.intention_summary.as_deref(), Some("Read foo.rs"));
@@ -334,9 +331,12 @@ mod tests {
     fn no_subagents_is_noop_for_collapse() {
         let mut turn = make_turn_with_subagent();
         // Remove subagent entries
-        turn.tool_calls.retain(|tc| !tc.is_subagent && tc.parent_tool_call_id.is_none());
-        turn.assistant_messages.retain(|m| m.parent_tool_call_id.is_none());
-        turn.reasoning_texts.retain(|m| m.parent_tool_call_id.is_none());
+        turn.tool_calls
+            .retain(|tc| !tc.is_subagent && tc.parent_tool_call_id.is_none());
+        turn.assistant_messages
+            .retain(|m| m.parent_tool_call_id.is_none());
+        turn.reasoning_texts
+            .retain(|m| m.parent_tool_call_id.is_none());
         let mut archive = archive_with_turn(turn);
 
         let opts = ContentDetailOptions {

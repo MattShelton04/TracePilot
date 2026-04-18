@@ -9,6 +9,7 @@
 //!   - `commands::state`         - DB size, session count, updates, git info
 //!   - `commands::logging`       - log path, export
 
+pub(crate) mod broadcast;
 pub(crate) mod cache;
 mod commands;
 pub mod config;
@@ -18,10 +19,11 @@ mod helpers;
 pub mod types;
 mod validators;
 
-use std::num::NonZeroUsize;
+#[doc(hidden)]
+pub mod specta_exports;
+
 use std::sync::{Arc, Mutex};
 use tauri::Manager;
-use tauri::Emitter;
 use tracepilot_orchestrator::bridge::manager::SharedBridgeManager;
 use types::{
     EventCache, ManifestLock, SearchSemaphore, SharedOrchestratorState, SharedTaskDb, TurnCache,
@@ -37,16 +39,12 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             app.manage(SearchSemaphore(std::sync::Arc::new(
                 tokio::sync::Semaphore::new(1),
             )));
-            let turn_cache: TurnCache = Arc::new(Mutex::new(lru::LruCache::new(
-                // SAFETY: cache capacity is non-zero
-                NonZeroUsize::new(SESSION_CACHE_CAPACITY).expect("cache capacity is non-zero"),
-            )));
+            let turn_cache: TurnCache =
+                Arc::new(Mutex::new(cache::build_session_lru(SESSION_CACHE_CAPACITY)));
             app.manage(turn_cache);
 
-            let event_cache: EventCache = Arc::new(Mutex::new(lru::LruCache::new(
-                // SAFETY: cache capacity is non-zero
-                NonZeroUsize::new(SESSION_CACHE_CAPACITY).expect("cache capacity is non-zero"),
-            )));
+            let event_cache: EventCache =
+                Arc::new(Mutex::new(cache::build_session_lru(SESSION_CACHE_CAPACITY)));
             app.manage(event_cache);
 
             // Task DB: lazily initialized (None until first use via config path).
@@ -71,16 +69,8 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
                 let bridge_for_events = shared_bridge.clone();
                 let app_handle = app.clone();
                 tauri::async_runtime::spawn(async move {
-                    let mut rx = bridge_for_events.read().await.subscribe();
-                    loop {
-                        match rx.recv().await {
-                            Ok(event) => {
-                                let _ = app_handle.emit(events::SDK_BRIDGE_EVENT, &event);
-                            }
-                            Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
-                            Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
-                        }
-                    }
+                    let rx = bridge_for_events.read().await.subscribe();
+                    broadcast::forward_broadcast(rx, app_handle, events::SDK_BRIDGE_EVENT).await;
                 });
             }
             // Spawn status change forwarding task.
@@ -88,17 +78,9 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
                 let bridge_for_status = shared_bridge.clone();
                 let app_handle = app.clone();
                 tauri::async_runtime::spawn(async move {
-                    let mut rx = bridge_for_status.read().await.subscribe_status();
-                    loop {
-                        match rx.recv().await {
-                            Ok(status) => {
-                                let _ =
-                                    app_handle.emit(events::SDK_CONNECTION_CHANGED, &status);
-                            }
-                            Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
-                            Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
-                        }
-                    }
+                    let rx = bridge_for_status.read().await.subscribe_status();
+                    broadcast::forward_broadcast(rx, app_handle, events::SDK_CONNECTION_CHANGED)
+                        .await;
                 });
             }
             app.manage(shared_bridge);
@@ -276,6 +258,7 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::sdk::sdk_set_foreground_session,
             commands::sdk::sdk_detect_ui_server,
             commands::sdk::sdk_launch_ui_server,
+            commands::sdk::sdk_bridge_metrics,
             // Window management commands (2)
             commands::window::open_session_window,
             commands::window::close_session_window,

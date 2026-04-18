@@ -1,0 +1,501 @@
+/* Session Comparison view — extracted from SessionComparisonView.vue in Wave 32.
+ * Scoped under `.session-comparison-feature` (applied to the shell root) so the
+ * cascade stays bounded to this page even though the styles are unscoped.
+ */
+
+/* ── Selector Row ── */
+.session-comparison-feature .selector-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.session-comparison-feature .comp-select {
+  flex: 0 1 340px;
+  min-width: 200px;
+  max-width: 340px;
+  padding: 10px 14px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  background: var(--canvas-overlay);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%2371717a' stroke-width='1.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+}
+
+.session-comparison-feature .comp-select:focus {
+  outline: none;
+  border-color: var(--accent-emphasis);
+  box-shadow: 0 0 0 3px var(--accent-muted);
+}
+
+.session-comparison-feature .vs-label {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.session-comparison-feature .compare-btn {
+  padding: 10px 24px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--gradient-accent);
+  color: var(--text-inverse);
+  cursor: pointer;
+  transition: all 150ms ease;
+  white-space: nowrap;
+}
+
+.session-comparison-feature .compare-btn:hover:not(:disabled) {
+  box-shadow: var(--shadow-glow-accent);
+  transform: translateY(-1px);
+}
+
+.session-comparison-feature .compare-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Loading ── */
+.session-comparison-feature .loading-area {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+/* ── Summary Cards ── */
+.session-comparison-feature .summary-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.session-comparison-feature .summary-card {
+  background: var(--canvas-subtle);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  position: relative;
+  overflow: hidden;
+}
+
+.session-comparison-feature .summary-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+}
+
+.session-comparison-feature .summary-card.session-a::before {
+  background: linear-gradient(90deg, var(--chart-primary), var(--chart-primary-light));
+}
+
+.session-comparison-feature .summary-card.session-b::before {
+  background: linear-gradient(90deg, var(--done-fg), var(--chart-secondary));
+}
+
+.session-comparison-feature .summary-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+  margin-bottom: 8px;
+}
+
+.session-comparison-feature .session-name {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: var(--text-primary);
+}
+
+.session-comparison-feature .summary-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+/* ── Delta Table ── */
+.session-comparison-feature .delta-table-wrap {
+  margin: -4px -4px;
+}
+
+.session-comparison-feature .delta-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.session-comparison-feature .delta-table th {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary);
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.session-comparison-feature .delta-table td {
+  padding: 10px 14px;
+  font-size: 0.8125rem;
+  border-bottom: 1px solid var(--border-subtle);
+  font-variant-numeric: tabular-nums;
+}
+
+.session-comparison-feature .col-val-a { text-align: right; width: 30%; }
+.session-comparison-feature .col-metric { text-align: center; width: 20%; }
+.session-comparison-feature .col-val-b { text-align: left; width: 30%; }
+.session-comparison-feature .col-delta { text-align: center; width: 20%; }
+
+.session-comparison-feature .delta-table .metric-name {
+  color: var(--text-secondary);
+  font-weight: 500;
+  text-align: center;
+}
+
+.session-comparison-feature .delta-table .val-a {
+  color: var(--accent-fg);
+  font-weight: 600;
+  text-align: right;
+}
+
+.session-comparison-feature .delta-table .val-b {
+  color: var(--done-fg);
+  font-weight: 600;
+  text-align: left;
+}
+
+.session-comparison-feature .delta-table .delta-col {
+  text-align: center;
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+
+.session-comparison-feature .delta-positive { color: var(--success-fg); }
+.session-comparison-feature .delta-negative { color: var(--danger-fg); }
+.session-comparison-feature .delta-neutral { color: var(--text-tertiary); }
+
+/* ── Chart Grid ── */
+.session-comparison-feature .chart-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.session-comparison-feature .chart-box {
+  background: var(--canvas-subtle);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.session-comparison-feature .chart-box-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-default);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.session-comparison-feature .chart-box-body {
+  padding: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.session-comparison-feature .chart-body-col {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.session-comparison-feature .chart-body-center {
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ── Bar Charts ── */
+.session-comparison-feature .bar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.session-comparison-feature .bar-label {
+  width: 90px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.session-comparison-feature .bar-track {
+  flex: 1;
+  height: 18px;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.session-comparison-feature .bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 6px;
+  transition: width 500ms ease;
+  min-width: 2px;
+  position: relative;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.session-comparison-feature .bar-fill-a {
+  background: linear-gradient(90deg, var(--chart-primary), var(--chart-primary-light));
+}
+
+.session-comparison-feature .bar-fill-b {
+  background: linear-gradient(90deg, var(--done-fg), var(--chart-secondary));
+}
+
+.session-comparison-feature .bar-value {
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: var(--text-inverse);
+  font-family: 'JetBrains Mono', monospace;
+  white-space: nowrap;
+  position: relative;
+  z-index: 1;
+}
+
+.session-comparison-feature .bar-fill-cache {
+  background: linear-gradient(90deg, var(--chart-success), var(--chart-success-light));
+}
+
+.session-comparison-feature .bar-value-outside {
+  margin-left: 6px;
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-family: 'JetBrains Mono', monospace;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── Donut Charts ── */
+.session-comparison-feature .donut-wrap {
+  text-align: center;
+}
+
+.session-comparison-feature .donut-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 12px;
+}
+
+.session-comparison-feature .donut-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
+}
+
+.session-comparison-feature .donut-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  background: var(--swatch-color);
+}
+
+/* ── Tool Usage ── */
+.session-comparison-feature .tool-legend {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 12px;
+  font-size: 0.6875rem;
+}
+
+.session-comparison-feature .tool-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-secondary);
+}
+
+.session-comparison-feature .tool-legend-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.session-comparison-feature .swatch-a { background: var(--chart-primary); }
+.session-comparison-feature .swatch-b { background: var(--chart-secondary); }
+
+.session-comparison-feature .tool-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.session-comparison-feature .tool-label {
+  width: 100px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  text-align: right;
+  flex-shrink: 0;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.session-comparison-feature .tool-bars {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.session-comparison-feature .tool-bar {
+  height: 14px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  padding-left: 6px;
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: var(--text-inverse);
+  font-family: 'JetBrains Mono', monospace;
+  transition: width 500ms ease;
+  min-width: 20px;
+}
+
+.session-comparison-feature .tool-bar-a { background: linear-gradient(90deg, var(--chart-primary), var(--chart-primary-light)); }
+.session-comparison-feature .tool-bar-b { background: linear-gradient(90deg, var(--done-fg), var(--chart-secondary)); }
+
+/* ── Waveform ── */
+.session-comparison-feature .waveform-container {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 60px;
+  padding: 0 4px;
+  width: 100%;
+}
+
+.session-comparison-feature .waveform-bar {
+  flex: 1;
+  border-radius: 2px 2px 0 0;
+  min-width: 4px;
+  transition: height 300ms ease;
+}
+
+.session-comparison-feature .waveform-bar-a { background: linear-gradient(180deg, var(--chart-primary-light), var(--chart-primary)); }
+.session-comparison-feature .waveform-bar-b { background: linear-gradient(180deg, var(--chart-secondary), var(--done-fg)); }
+
+/* ── Timeline ── */
+.session-comparison-feature .timeline-desc {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  margin-bottom: 12px;
+}
+
+.session-comparison-feature .timeline-section {
+  margin-bottom: 8px;
+}
+
+.session-comparison-feature .timeline-label {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.session-comparison-feature .label-a { color: var(--accent-fg); }
+.session-comparison-feature .label-b { color: var(--done-fg); }
+
+.session-comparison-feature .mini-timeline-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 0;
+}
+
+.session-comparison-feature .mini-tl-block {
+  height: 8px;
+  border-radius: 2px;
+  transition: width 300ms ease;
+}
+
+/* ── Normalization Toggle ── */
+.session-comparison-feature .norm-toggle {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 16px;
+  background: var(--canvas-default);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: 3px;
+  width: fit-content;
+}
+
+.session-comparison-feature .norm-toggle .toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.session-comparison-feature .norm-toggle .toggle-btn:hover {
+  color: var(--text-secondary);
+}
+
+.session-comparison-feature .norm-toggle .toggle-btn.active {
+  background: var(--canvas-subtle);
+  color: var(--text-primary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .session-comparison-feature .selector-row {
+    flex-direction: column;
+  }
+  .session-comparison-feature .comp-select {
+    width: 100%;
+    max-width: none;
+  }
+  .session-comparison-feature .summary-pair,
+  .session-comparison-feature .chart-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}

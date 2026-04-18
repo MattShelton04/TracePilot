@@ -7,7 +7,7 @@
 use std::path::PathBuf;
 
 use tracepilot_core::models::event_types::SessionEventType;
-use tracepilot_core::parsing::events::{parse_typed_events, TypedEventData};
+use tracepilot_core::parsing::events::{TypedEventData, parse_typed_events};
 use tracepilot_core::turns::reconstruct_turns;
 
 fn fixture_path(name: &str) -> PathBuf {
@@ -40,9 +40,7 @@ fn find_subagent_completed(
         .expect("fixture must contain subagent.completed")
 }
 
-fn find_session_start(
-    events: &[tracepilot_core::parsing::events::TypedEvent],
-) -> &TypedEventData {
+fn find_session_start(events: &[tracepilot_core::parsing::events::TypedEvent]) -> &TypedEventData {
     events
         .iter()
         .find(|e| e.event_type == SessionEventType::SessionStart)
@@ -162,7 +160,10 @@ fn v1_0_2_subagent_completed_has_no_metrics() {
     let sub = find_subagent_completed(&parsed.events);
     if let TypedEventData::SubagentCompleted(data) = sub {
         assert_eq!(data.agent_display_name.as_deref(), Some("Explore Agent"));
-        assert!(data.model.is_none(), "no model in v1.0.2 subagent.completed");
+        assert!(
+            data.model.is_none(),
+            "no model in v1.0.2 subagent.completed"
+        );
         assert!(
             data.total_tokens.is_none(),
             "no totalTokens in v1.0.2 subagent.completed"
@@ -597,10 +598,7 @@ fn subagent_metrics_absent_before_v1_0_11_present_after() {
                 data.total_tokens.is_some(),
                 "{name} SHOULD have subagent totalTokens"
             );
-            assert!(
-                data.model.is_some(),
-                "{name} SHOULD have subagent model"
-            );
+            assert!(data.model.is_some(), "{name} SHOULD have subagent model");
             assert!(
                 data.total_tool_calls.is_some(),
                 "{name} SHOULD have subagent totalToolCalls"
@@ -629,7 +627,7 @@ fn reasoning_tokens_only_in_v1_0_24() {
         let shutdown = find_shutdown(&parsed.events);
         if let TypedEventData::SessionShutdown(data) = shutdown {
             if let Some(ref mm) = data.model_metrics {
-                for (_model, detail) in mm {
+                for detail in mm.values() {
                     if let Some(ref usage) = detail.usage {
                         assert!(
                             usage.reasoning_tokens.is_none(),

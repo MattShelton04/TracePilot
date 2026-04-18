@@ -284,7 +284,7 @@ pub fn default_templates() -> Vec<SessionTemplate> {
                 env_vars: Default::default(),
                 create_worktree: false,
                 auto_approve: false,
-                cli_command: "copilot".into(),
+                cli_command: tracepilot_core::constants::DEFAULT_CLI_COMMAND.into(),
             },
             tags: vec!["review".into(), "multi-agent".into(), "premium".into()],
             created_at: now.clone(),
@@ -312,7 +312,7 @@ pub fn default_templates() -> Vec<SessionTemplate> {
                 env_vars: Default::default(),
                 create_worktree: false,
                 auto_approve: false,
-                cli_command: "copilot".into(),
+                cli_command: tracepilot_core::constants::DEFAULT_CLI_COMMAND.into(),
             },
             tags: vec!["testing".into(), "coverage".into()],
             created_at: now,
@@ -380,7 +380,11 @@ mod tests {
     fn test_default_templates_not_empty() {
         let templates = default_templates();
         assert_eq!(templates.len(), 2);
-        assert!(templates.iter().any(|t| t.id == "default-multi-agent-review"));
+        assert!(
+            templates
+                .iter()
+                .any(|t| t.id == "default-multi-agent-review")
+        );
         assert!(templates.iter().any(|t| t.id == "default-write-tests"));
     }
 
@@ -414,7 +418,7 @@ mod tests {
                 env_vars: Default::default(),
                 create_worktree: false,
                 auto_approve: false,
-                cli_command: "copilot".into(),
+                cli_command: tracepilot_core::constants::DEFAULT_CLI_COMMAND.into(),
             },
             tags: vec![],
             created_at: "2025-01-01T00:00:00Z".into(),
@@ -515,7 +519,7 @@ mod tests {
                     env_vars: Default::default(),
                     create_worktree: false,
                     auto_approve: false,
-                    cli_command: "copilot".into(),
+                    cli_command: tracepilot_core::constants::DEFAULT_CLI_COMMAND.into(),
                 },
                 tags: vec![],
                 created_at: "2025-01-01T00:00:00Z".into(),
@@ -578,7 +582,7 @@ mod tests {
                     env_vars: Default::default(),
                     create_worktree: false,
                     auto_approve: false,
-                    cli_command: "copilot".into(),
+                    cli_command: tracepilot_core::constants::DEFAULT_CLI_COMMAND.into(),
                 },
                 tags: vec![],
                 created_at: "2025-01-01T00:00:00Z".into(),
@@ -614,19 +618,28 @@ mod tests {
         with_temp_home(|| {
             // Default templates start with usage_count 0
             let all = all_templates().unwrap();
-            let review = all.iter().find(|t| t.id == "default-multi-agent-review").unwrap();
+            let review = all
+                .iter()
+                .find(|t| t.id == "default-multi-agent-review")
+                .unwrap();
             assert_eq!(review.usage_count, 0);
 
             // Increment creates a user override file
             increment_usage("default-multi-agent-review").unwrap();
             let all = all_templates().unwrap();
-            let review = all.iter().find(|t| t.id == "default-multi-agent-review").unwrap();
+            let review = all
+                .iter()
+                .find(|t| t.id == "default-multi-agent-review")
+                .unwrap();
             assert_eq!(review.usage_count, 1);
 
             // Second increment reads from the file
             increment_usage("default-multi-agent-review").unwrap();
             let all = all_templates().unwrap();
-            let review = all.iter().find(|t| t.id == "default-multi-agent-review").unwrap();
+            let review = all
+                .iter()
+                .find(|t| t.id == "default-multi-agent-review")
+                .unwrap();
             assert_eq!(review.usage_count, 2);
         });
     }
@@ -648,7 +661,11 @@ mod tests {
 
             // Should log warning and return all default templates (empty dismissed list)
             let all = all_templates().unwrap();
-            assert_eq!(all.len(), 2, "Should return all default templates when dismissed_defaults.json is corrupted");
+            assert_eq!(
+                all.len(),
+                2,
+                "Should return all default templates when dismissed_defaults.json is corrupted"
+            );
             assert!(all.iter().any(|t| t.id == "default-multi-agent-review"));
             assert!(all.iter().any(|t| t.id == "default-write-tests"));
         });
@@ -687,17 +704,29 @@ mod tests {
             // Test object instead of array
             std::fs::write(&path, b"{\"key\": \"value\"}").unwrap();
             let all = all_templates().unwrap();
-            assert_eq!(all.len(), 2, "Should return all templates when dismissed_defaults is an object");
+            assert_eq!(
+                all.len(),
+                2,
+                "Should return all templates when dismissed_defaults is an object"
+            );
 
             // Test string instead of array
             std::fs::write(&path, b"\"just a string\"").unwrap();
             let all = all_templates().unwrap();
-            assert_eq!(all.len(), 2, "Should return all templates when dismissed_defaults is a string");
+            assert_eq!(
+                all.len(),
+                2,
+                "Should return all templates when dismissed_defaults is a string"
+            );
 
             // Test number instead of array
             std::fs::write(&path, b"42").unwrap();
             let all = all_templates().unwrap();
-            assert_eq!(all.len(), 2, "Should return all templates when dismissed_defaults is a number");
+            assert_eq!(
+                all.len(),
+                2,
+                "Should return all templates when dismissed_defaults is a number"
+            );
         });
     }
 }

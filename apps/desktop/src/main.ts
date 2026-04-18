@@ -3,15 +3,21 @@ import { createPinia } from "pinia";
 import { createApp } from "vue";
 import App from "./App.vue";
 import { resolveWindowRole, useWindowRole } from "./composables/useWindowRole";
+import { STORAGE_KEYS } from "./config/storageKeys";
+import { runStorageKeyMigrations } from "./config/storageKeysMigration";
 import router from "./router";
 import "./styles.css";
 import { initLogging, logError } from "./utils/logger";
+
+// Run any pending localStorage key migrations before the cached-theme read
+// or any store setup so all downstream code sees canonical keys.
+runStorageKeyMigrations();
 
 // Apply persisted theme before mount to prevent flash.
 // Uses a dedicated write-through cache key so we never parse the full config
 // blob synchronously on startup.
 const VALID_THEMES = ["dark", "light"];
-const cachedTheme = localStorage.getItem("tracepilot-theme");
+const cachedTheme = localStorage.getItem(STORAGE_KEYS.theme);
 document.documentElement.setAttribute(
   "data-theme",
   cachedTheme && VALID_THEMES.includes(cachedTheme) ? cachedTheme : "dark",

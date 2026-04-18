@@ -49,7 +49,7 @@ pub struct TurnsResponse {
     pub events_file_mtime: Option<i64>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct FreshnessResponse {
     pub events_file_size: u64,
@@ -106,7 +106,7 @@ pub struct SearchStatsResponse {
 /// Newtype for the search indexing semaphore (separate from main indexing).
 pub struct SearchSemaphore(pub Arc<tokio::sync::Semaphore>);
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionListItem {
     pub id: String,

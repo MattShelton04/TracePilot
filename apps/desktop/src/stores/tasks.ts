@@ -10,7 +10,7 @@ import {
   taskStats,
 } from "@tracepilot/client";
 import type { Job, NewTask, Task, TaskFilter, TaskStats } from "@tracepilot/types";
-import { toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
+import { runMutation, toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import { logError, logWarn } from "@/utils/logger";
@@ -219,43 +219,34 @@ export const useTasksStore = defineStore("tasks", () => {
   }
 
   async function cancelTask(id: string): Promise<boolean> {
-    error.value = null;
-    try {
+    const ok = await runMutation(error, async () => {
       await taskCancel(id);
       await refreshTasks();
-      return true;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return false;
-    }
+      return true as const;
+    });
+    return ok ?? false;
   }
 
   async function retryTask(id: string): Promise<boolean> {
-    error.value = null;
-    try {
+    const ok = await runMutation(error, async () => {
       await taskRetry(id);
       await refreshTasks();
-      return true;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return false;
-    }
+      return true as const;
+    });
+    return ok ?? false;
   }
 
   async function deleteTask(id: string): Promise<boolean> {
-    error.value = null;
-    try {
+    const ok = await runMutation(error, async () => {
       await taskDelete(id);
       tasks.value = tasks.value.filter((t) => t.id !== id);
       if (selectedTask.value?.id === id) {
         selectedTask.value = null;
       }
       await refreshTasks();
-      return true;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return false;
-    }
+      return true as const;
+    });
+    return ok ?? false;
   }
 
   return {

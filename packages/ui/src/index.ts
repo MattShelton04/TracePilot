@@ -1,5 +1,6 @@
 // TracePilot UI component library — shared Vue components for desktop and web.
 
+// ── Components ─────────────────────────────────────────────────────
 export { default as ActionButton } from "./components/ActionButton.vue";
 export { default as AgentBadge } from "./components/AgentBadge.vue";
 export { default as Badge } from "./components/Badge.vue";
@@ -9,15 +10,14 @@ export { default as ConfirmDialog } from "./components/ConfirmDialog.vue";
 export { default as DataTable } from "./components/DataTable.vue";
 export { default as DefList } from "./components/DefList.vue";
 export { default as EmptyState } from "./components/EmptyState.vue";
-export { default as EnvVarTable } from "./components/EnvVarTable.vue";
 export type { EnvVar } from "./components/EnvVarTable.vue";
+export { default as EnvVarTable } from "./components/EnvVarTable.vue";
 export { default as ErrorAlert } from "./components/ErrorAlert.vue";
 export { default as ErrorState } from "./components/ErrorState.vue";
 export { default as ExpandChevron } from "./components/ExpandChevron.vue";
 export { default as FilterSelect } from "./components/FilterSelect.vue";
 export { default as FormInput } from "./components/FormInput.vue";
 export { default as FormSwitch } from "./components/FormSwitch.vue";
-// Visualization & layout components
 export { default as HealthRing } from "./components/HealthRing.vue";
 export { default as LoadingOverlay } from "./components/LoadingOverlay.vue";
 export { default as LoadingSpinner } from "./components/LoadingSpinner.vue";
@@ -28,20 +28,17 @@ export { default as PageHeader } from "./components/PageHeader.vue";
 export { default as PageShell } from "./components/PageShell.vue";
 export { default as ProgressBar } from "./components/ProgressBar.vue";
 export { default as ReasoningBlock } from "./components/ReasoningBlock.vue";
-// Renderers
-export * from "./components/renderers";
 export { default as SearchableSelect } from "./components/SearchableSelect.vue";
 export { default as SearchInput } from "./components/SearchInput.vue";
-export { default as SegmentedControl } from "./components/SegmentedControl.vue";
-export type { SegmentOption } from "./components/SegmentedControl.vue";
-// Base components
 export { default as SectionPanel } from "./components/SectionPanel.vue";
-// Original components
+export type { SegmentOption } from "./components/SegmentedControl.vue";
+export { default as SegmentedControl } from "./components/SegmentedControl.vue";
 export { default as SessionCard } from "./components/SessionCard.vue";
 export { default as SessionList } from "./components/SessionList.vue";
 export { default as SkeletonLoader } from "./components/SkeletonLoader.vue";
 export { default as StatCard } from "./components/StatCard.vue";
 export { default as StatusIcon } from "./components/StatusIcon.vue";
+export type { TabNavItem } from "./components/TabNav.vue";
 export { default as TabNav } from "./components/TabNav.vue";
 export { default as TagList } from "./components/TagList.vue";
 export { default as TerminologyLegend } from "./components/TerminologyLegend.vue";
@@ -50,15 +47,146 @@ export { default as TokenBar } from "./components/TokenBar.vue";
 export { default as ToolCallDetail } from "./components/ToolCallDetail.vue";
 export { default as ToolCallItem } from "./components/ToolCallItem.vue";
 export { default as ToolDetailPanel } from "./components/ToolDetailPanel.vue";
-// Composables
-export * from "./composables";
-export * from "./utils/agentGrouping";
-export * from "./utils/agentTypes";
-export * from "./utils/chartGeometry";
-export * from "./utils/contentTypes";
-// Utilities
-export * from "./utils/formatters";
-export * from "./utils/languageDetection";
+
+// ── Renderers ──────────────────────────────────────────────────────
+export { default as CodeBlock } from "./components/renderers/CodeBlock.vue";
+export { default as PlainTextRenderer } from "./components/renderers/PlainTextRenderer.vue";
+export {
+  getRegisteredRenderers,
+  getRendererEntry,
+  hasArgsRenderer,
+  hasResultRenderer,
+  type RendererEntry,
+} from "./components/renderers/registry";
+export { default as RendererShell } from "./components/renderers/RendererShell.vue";
+export { default as ToolArgsRenderer } from "./components/renderers/ToolArgsRenderer.vue";
+export { default as ToolResultRenderer } from "./components/renderers/ToolResultRenderer.vue";
+
+// ── Composables ────────────────────────────────────────────────────
+export type {
+  AsyncGuard,
+  AsyncGuardToken,
+} from "./composables/useAsyncGuard";
+export { useAsyncGuard } from "./composables/useAsyncGuard";
+export type {
+  UseAsyncDataOptions,
+  UseAsyncDataReturn,
+} from "./composables/useAsyncData";
+export { useAsyncData } from "./composables/useAsyncData";
+export type { AutoRefreshOptions } from "./composables/useAutoRefresh";
+export { useAutoRefresh } from "./composables/useAutoRefresh";
+export type {
+  CachedFetchOptions,
+  CachedFetchResult,
+} from "./composables/useCachedFetch";
+export { useCachedFetch } from "./composables/useCachedFetch";
+export type {
+  ChartTooltipState,
+  UseChartTooltipReturn,
+} from "./composables/useChartTooltip";
+export { useChartTooltip } from "./composables/useChartTooltip";
+export type { UseClipboardOptions, UseClipboardReturn } from "./composables/useClipboard";
+export { useClipboard } from "./composables/useClipboard";
+export type {
+  ConfirmOptions,
+  ConfirmResult,
+  ConfirmVariant,
+} from "./composables/useConfirmDialog";
+export { useConfirmDialog } from "./composables/useConfirmDialog";
+export type { ConversationSectionsReturn } from "./composables/useConversationSections";
+export { useConversationSections } from "./composables/useConversationSections";
+export { useDismissable } from "./composables/useDismissable";
+export type { UseInflightPromiseReturn } from "./composables/useInflightPromise";
+export { useInflightPromise } from "./composables/useInflightPromise";
+export { useLiveDuration } from "./composables/useLiveDuration";
+export type { UsePersistedRefOptions } from "./composables/usePersistedRef";
+export { usePersistedRef } from "./composables/usePersistedRef";
+export type {
+  UsePollingControls,
+  UsePollingOptions,
+} from "./composables/usePolling";
+export { usePolling } from "./composables/usePolling";
+export { useResizeHandle } from "./composables/useResizeHandle";
+export { useSessionTabLoader } from "./composables/useSessionTabLoader";
+export type { AsyncGuardLike, RunActionOptions } from "./composables/useStoreHelpers";
+export { runAction, runMutation } from "./composables/useStoreHelpers";
+export type {
+  TimelineNavigationOptions,
+  TimelineNavigationReturn,
+} from "./composables/useTimelineNavigation";
+export { useTimelineNavigation } from "./composables/useTimelineNavigation";
+export type { Toast, ToastOptions } from "./composables/useToast";
+export { useToast } from "./composables/useToast";
+export { useToggleSet } from "./composables/useToggleSet";
+
+// ── Utilities ──────────────────────────────────────────────────────
+export type { AgentSection, SubagentContent } from "./utils/agentGrouping";
+export {
+  buildSubagentContentIndex,
+  buildSubagentIndex,
+  groupTurnByAgent,
+  hasSubagents,
+} from "./utils/agentGrouping";
+export type { AgentStatus, AgentType } from "./utils/agentTypes";
+export {
+  AGENT_COLORS,
+  AGENT_ICONS,
+  agentStatusFromToolCall,
+  getAgentColor,
+  getAgentIcon,
+  getToolCallColor,
+  getToolStatusColor,
+  inferAgentType,
+  inferAgentTypeFromToolCall,
+  STATUS_ICONS,
+} from "./utils/agentTypes";
+export type {
+  ChartCoord,
+  ChartLayout,
+  XAxisLabel,
+  YAxisLabel,
+} from "./utils/chartGeometry";
+export {
+  computeBarWidth,
+  computeGridLines,
+  createChartLayout,
+  generateXLabels,
+  generateYLabels,
+  labelStride,
+  mapToLineCoords,
+  toAreaPoints,
+  toPolylinePoints,
+} from "./utils/chartGeometry";
+export type { ContentTypeStyle } from "./utils/contentTypes";
+export { ALL_CONTENT_TYPES, CONTENT_TYPE_CONFIG } from "./utils/contentTypes";
+export {
+  getAgentColors,
+  getChartColors,
+  getDesignToken,
+  getSemanticColors,
+  getStatusColors,
+} from "./utils/designTokens";
+export {
+  formatBytes,
+  formatClockTime,
+  formatCost,
+  formatDate,
+  formatDateMedium,
+  formatDateShort,
+  formatDuration,
+  formatLiveDuration,
+  formatNumber,
+  formatNumberFull,
+  formatPercent,
+  formatRate,
+  formatRelativeTime,
+  formatShortDate,
+  formatTime,
+  formatTokens,
+  toErrorMessage,
+  truncateText,
+} from "./utils/formatters";
+export { detectLanguage, languageDisplayName } from "./utils/languageDetection";
 export { ensureMarkdownReady } from "./utils/markdownLoader";
 export {
   normalizePath,
@@ -67,11 +195,18 @@ export {
   sanitizeBranchForPath,
   shortenPath,
 } from "./utils/pathUtils";
-export * from "./utils/syntaxHighlight";
+export { highlightLine, highlightSql } from "./utils/syntaxHighlight";
 export {
   detectParallelIds,
   type TimeSpanItem,
   timeSpansOverlap,
   toTimeSpan,
 } from "./utils/timelineUtils";
-export * from "./utils/toolCall";
+export type { ToolCategory } from "./utils/toolCall";
+export {
+  categoryColor,
+  extractPrompt,
+  formatArgsSummary,
+  toolCategory,
+  toolIcon,
+} from "./utils/toolCall";

@@ -81,7 +81,7 @@ pub fn compute_code_impact(sessions: &[SessionAnalyticsInput]) -> CodeImpactData
             }
         })
         .collect();
-    file_type_breakdown.sort_by(|a, b| b.count.cmp(&a.count));
+    file_type_breakdown.sort_by_key(|b| std::cmp::Reverse(b.count));
 
     // Most modified files (by frequency, since we don't have per-file line counts)
     let mut most_modified_files: Vec<ModifiedFileEntry> = file_counts
@@ -92,7 +92,7 @@ pub fn compute_code_impact(sessions: &[SessionAnalyticsInput]) -> CodeImpactData
             deletions: 0,            // not available per-file
         })
         .collect();
-    most_modified_files.sort_by(|a, b| b.additions.cmp(&a.additions));
+    most_modified_files.sort_by_key(|b| std::cmp::Reverse(b.additions));
     most_modified_files.truncate(20); // Top 20
 
     // Changes by day

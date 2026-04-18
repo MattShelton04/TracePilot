@@ -1,7 +1,12 @@
 //! Schema migrations for the index database.
 
 use crate::Result;
+use crate::error::IndexerError;
 use rusqlite::Connection;
+use std::path::Path;
+use tracepilot_core::utils::migrator::{
+    Migration, MigrationPlan, MigratorOptions, run_migrations as core_run_migrations,
+};
 
 pub(super) const MIGRATION_1: &str = r#"
 CREATE TABLE IF NOT EXISTS sessions (
@@ -339,66 +344,9 @@ pub(super) const MIGRATION_11: &str = r#"
 ALTER TABLE session_model_metrics ADD COLUMN reasoning_tokens INTEGER;
 "#;
 
-/// Run all pending schema migrations in order.
-pub(super) fn run_migrations(conn: &Connection) -> Result<()> {
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL)",
-        [],
-    )?;
-
-    let current_version: i64 = conn
-        .query_row(
-            "SELECT COALESCE(MAX(version), 0) FROM schema_version",
-            [],
-            |row| row.get(0),
-        )
-        .unwrap_or(0);
-
-    let migrations: &[(&str, &str)] = &[
-        ("Migration 1: base schema", MIGRATION_1),
-        ("Migration 2: enriched schema", MIGRATION_2),
-        ("Migration 3: analytics schema", MIGRATION_3),
-        ("Migration 4: tool duration tracking", MIGRATION_4),
-        ("Migration 5: incident tracking", MIGRATION_5),
-        ("Migration 6: deep FTS search", MIGRATION_6),
-        ("Migration 7: browse indexes", MIGRATION_7),
-        ("Migration 8: daily metric tracking", MIGRATION_8),
-        (
-            "Migration 9: tool_result, content_fts, quality guard",
-            MIGRATION_9,
-        ),
-        ("Migration 10: maintenance state", MIGRATION_10),
-        ("Migration 11: reasoning tokens", MIGRATION_11),
-    ];
-
-    for (i, (name, sql)) in migrations.iter().enumerate() {
-        let version = (i + 1) as i64;
-        if version > current_version {
-            // Ensure search columns exist before migrations that reference them
-            if version >= 9 {
-                add_column_if_missing(conn, "sessions", "search_indexed_at", "TEXT")?;
-                add_column_if_missing(
-                    conn,
-                    "sessions",
-                    "search_extractor_version",
-                    "INTEGER DEFAULT 0",
-                )?;
-            }
-            tracing::info!(version, name, "Running migration");
-            let tx = conn.unchecked_transaction()?;
-            tx.execute_batch(sql)?;
-            tx.execute(
-                "INSERT INTO schema_version (version) VALUES (?1)",
-                [version],
-            )?;
-            tx.commit()?;
-        }
-    }
-
-    // Idempotent ALTER TABLE additions for Migration 6 columns.
-    // Always run (not gated on current_version) so that partial failures
-    // where version 6 committed but columns weren't added are recovered.
-    // add_column_if_missing is safe to call repeatedly — it checks PRAGMA table_info.
+/// Pre-hook for migration 9: ensure the `search_indexed_at` / `search_extractor_version`
+/// columns exist before the migration body references them in its `UPDATE`.
+fn ensure_search_columns(conn: &Connection) -> rusqlite::Result<()> {
     add_column_if_missing(conn, "sessions", "search_indexed_at", "TEXT")?;
     add_column_if_missing(
         conn,
@@ -406,7 +354,127 @@ pub(super) fn run_migrations(conn: &Connection) -> Result<()> {
         "search_extractor_version",
         "INTEGER DEFAULT 0",
     )?;
+    Ok(())
+}
 
+static INDEX_DB_MIGRATIONS: &[Migration] = &[
+    Migration {
+        version: 1,
+        name: "base schema",
+        sql: MIGRATION_1,
+        pre_hook: None,
+    },
+    Migration {
+        version: 2,
+        name: "enriched schema",
+        sql: MIGRATION_2,
+        pre_hook: None,
+    },
+    Migration {
+        version: 3,
+        name: "analytics schema",
+        sql: MIGRATION_3,
+        pre_hook: None,
+    },
+    Migration {
+        version: 4,
+        name: "tool duration tracking",
+        sql: MIGRATION_4,
+        pre_hook: None,
+    },
+    Migration {
+        version: 5,
+        name: "incident tracking",
+        sql: MIGRATION_5,
+        pre_hook: None,
+    },
+    Migration {
+        version: 6,
+        name: "deep FTS search",
+        sql: MIGRATION_6,
+        pre_hook: None,
+    },
+    Migration {
+        version: 7,
+        name: "browse indexes",
+        sql: MIGRATION_7,
+        pre_hook: None,
+    },
+    Migration {
+        version: 8,
+        name: "daily metric tracking",
+        sql: MIGRATION_8,
+        pre_hook: None,
+    },
+    Migration {
+        version: 9,
+        name: "tool_result, content_fts, quality guard",
+        sql: MIGRATION_9,
+        pre_hook: Some(ensure_search_columns),
+    },
+    Migration {
+        version: 10,
+        name: "maintenance state",
+        sql: MIGRATION_10,
+        pre_hook: None,
+    },
+    Migration {
+        version: 11,
+        name: "reasoning tokens",
+        sql: MIGRATION_11,
+        pre_hook: None,
+    },
+];
+
+pub(super) static INDEX_DB_PLAN: MigrationPlan = MigrationPlan {
+    migrations: INDEX_DB_MIGRATIONS,
+};
+
+/// Run all pending schema migrations in order.
+///
+/// `db_path` is `None` for in-memory databases (tests); otherwise backups
+/// are written alongside the DB as `{db}.pre-v{N}.bak` per applied version.
+pub(super) fn run_migrations(conn: &mut Connection, db_path: Option<&Path>) -> Result<()> {
+    let opts = MigratorOptions {
+        backup: db_path.is_some(),
+        ..Default::default()
+    };
+    core_run_migrations(conn, db_path, &INDEX_DB_PLAN, &opts).map_err(map_migration_err)?;
+
+    // Idempotent ALTER TABLE additions for Migration 6 columns.
+    // Always run (not gated on current_version) so that partial failures
+    // where version 6 committed but columns weren't added are recovered.
+    // add_column_if_missing is safe to call repeatedly — it checks PRAGMA table_info.
+    post_migration_fixups(conn)?;
+
+    Ok(())
+}
+
+fn map_migration_err(err: tracepilot_core::utils::migrator::MigrationError) -> IndexerError {
+    use tracepilot_core::utils::migrator::MigrationError as ME;
+    match err {
+        ME::SchemaVersion(s) => IndexerError::DatabaseConfiguration {
+            details: "schema_version table setup failed".to_string(),
+            source: s,
+        },
+        ME::Migration { source, .. } => IndexerError::Database(source),
+        ME::BackupSqlite { source, .. } => IndexerError::DatabaseConfiguration {
+            details: "pre-migration backup failed".to_string(),
+            source,
+        },
+        ME::Backup { source, .. } => IndexerError::Io(source),
+    }
+}
+
+/// Idempotent post-migration fixups that run on every open.
+fn post_migration_fixups(conn: &Connection) -> Result<()> {
+    add_column_if_missing(conn, "sessions", "search_indexed_at", "TEXT")?;
+    add_column_if_missing(
+        conn,
+        "sessions",
+        "search_extractor_version",
+        "INTEGER DEFAULT 0",
+    )?;
     Ok(())
 }
 
@@ -416,7 +484,7 @@ fn add_column_if_missing(
     table: &str,
     column: &str,
     col_type: &str,
-) -> Result<()> {
+) -> rusqlite::Result<()> {
     let mut stmt = conn.prepare(&format!("PRAGMA table_info({})", table))?;
     let has_column = stmt
         .query_map([], |row| row.get::<_, String>(1))?

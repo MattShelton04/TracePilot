@@ -149,10 +149,7 @@ updated_at: "2026-06-20T18:30:45.123Z"
                     context.contains("bad-content.yaml"),
                     "error context should include the filename, got: {context}"
                 );
-                assert!(
-                    source.is_some(),
-                    "should have a YAML parse source error"
-                );
+                assert!(source.is_some(), "should have a YAML parse source error");
             }
             _ => panic!("Expected ParseError, got {:?}", err),
         }

@@ -1,0 +1,23 @@
+# cargo audit configuration for TracePilot.
+# Run locally: cargo audit
+# CI: this file is picked up automatically by rustsec/audit-check.
+#
+# Add entries here when a dependency has a known advisory that:
+#   a) is a transitive dep we cannot control directly, OR
+#   b) the vulnerable conditions do not apply to this codebase.
+# Always document *why* and *when* to revisit.
+
+[advisories]
+ignore = [
+    # RUSTSEC-2026-0097: rand 0.9.2 unsound with custom logger using rand::rng().
+    # Requires a custom logger that calls rand::rng() during reseeding — TracePilot
+    # does not implement a custom logger that accesses rand. Transitive dep; revisit
+    # when an upstream dep bumps rand to 0.9.3+ once the fix lands upstream.
+    "RUSTSEC-2026-0097",
+
+    # RUSTSEC-2025-0068: serde_yml 0.0.12 is unsound and unmaintained.
+    # Direct dep of tracepilot-core for YAML parsing. The unsoundness is in the
+    # serde serialiser path; TracePilot only deserialises with serde_yml.
+    # Track migration to serde_norway or equivalent in a follow-up issue.
+    "RUSTSEC-2025-0068",
+]

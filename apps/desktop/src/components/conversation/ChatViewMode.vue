@@ -29,6 +29,7 @@ import { useSubagentPanel } from "@/composables/useSubagentPanel";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
+import { useWindowRole } from "@/composables/useWindowRole";
 import {
   COLLAPSE_THRESHOLD,
   countRegularTools,
@@ -48,6 +49,7 @@ import SdkSteeringPanel from "./SdkSteeringPanel.vue";
 
 const store = useSessionDetailContext();
 const preferences = usePreferencesStore();
+const { isViewer } = useWindowRole();
 const route = useRoute();
 const turns = computed(() => store.turns);
 const renderMd = computed(() => preferences.isFeatureEnabled("renderMarkdown"));
@@ -626,7 +628,8 @@ defineExpose({ revealEvent });
       </div>
 
       <!-- SDK Steering Panel (appears at bottom of chat when SDK is active) -->
-      <SdkSteeringPanel :session-id="store.sessionId" :session-cwd="store.detail?.cwd ?? undefined" @message-sent="handleSteeringMessage" />
+      <!-- Viewer windows are read-only; steering commands aren't allowlisted in viewer.json -->
+      <SdkSteeringPanel v-if="!isViewer()" :session-id="store.sessionId" :session-cwd="store.detail?.cwd ?? undefined" @message-sent="handleSteeringMessage" />
     </div>
 
     <!-- Subagent panel (fixed viewport-sticky, below header) -->

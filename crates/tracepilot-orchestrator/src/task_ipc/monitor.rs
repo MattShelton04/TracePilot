@@ -21,10 +21,7 @@ pub struct IngestResult {
 /// ready to be stored in the DB.
 ///
 /// Returns one `IngestResult` per task that has a `status.json` file.
-pub fn scan_completed_tasks(
-    jobs_dir: &Path,
-    task_ids: &[String],
-) -> Vec<IngestResult> {
+pub fn scan_completed_tasks(jobs_dir: &Path, task_ids: &[String]) -> Vec<IngestResult> {
     let mut results = Vec::new();
 
     for task_id in task_ids {
@@ -191,7 +188,11 @@ mod tests {
     #[test]
     fn scan_finds_completed_tasks() {
         let dir = TempDir::new().unwrap();
-        let ids = vec!["task-001".to_string(), "task-002".to_string(), "task-003".to_string()];
+        let ids = vec![
+            "task-001".to_string(),
+            "task-002".to_string(),
+            "task-003".to_string(),
+        ];
 
         // task-001: completed with result
         write_status(dir.path(), "task-001", "done");

@@ -3,9 +3,10 @@ import { checkForUpdates } from "@tracepilot/client";
 import type { UpdateCheckResult } from "@tracepilot/types";
 import { toErrorMessage } from "@tracepilot/ui";
 import { ref } from "vue";
+import { STORAGE_KEYS } from "@/config/storageKeys";
 import { logWarn } from "@/utils/logger";
 
-const CACHE_KEY = "tracepilot-update-check";
+const CACHE_KEY = STORAGE_KEYS.updateCheck;
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 export const updateResult = ref<UpdateCheckResult | null>(null);

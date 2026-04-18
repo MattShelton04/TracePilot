@@ -2,14 +2,33 @@
 import { computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
+export interface TabNavItem {
+  name: string;
+  routeName: string;
+  label: string;
+  count?: number;
+  /** Optional icon (emoji or short glyph) rendered before the label. */
+  icon?: string;
+}
+
 const props = defineProps<{
-  tabs: Array<{ name: string; routeName: string; label: string; count?: number }>;
+  tabs: TabNavItem[];
   /**
    * When provided, TabNav operates in "local" mode: active tab is controlled
    * via v-model instead of vue-router. Used for tabbed session views where
    * inner tabs are not route-driven.
    */
   modelValue?: string;
+  /**
+   * Visual variant. `pill` renders fully-rounded tabs; the default renders
+   * the underline-style tabs used by session views.
+   */
+  variant?: "default" | "pill";
+  /**
+   * When true, each tab receives a `--stagger` CSS custom property
+   * (index * 50ms) so consumers can drive entry animations.
+   */
+  staggered?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -80,7 +99,13 @@ function handleKeydown(e: KeyboardEvent, index: number) {
 }
 </script>
 <template>
-  <nav class="tab-nav" role="tablist" aria-label="Session tabs" data-testid="session-tabs">
+  <nav
+    class="tab-nav"
+    :class="{ 'tab-nav--pill': variant === 'pill' }"
+    role="tablist"
+    aria-label="Session tabs"
+    data-testid="session-tabs"
+  >
     <button
       v-for="(tab, index) in tabs"
       :key="tab.name"
@@ -91,12 +116,28 @@ function handleKeydown(e: KeyboardEvent, index: number) {
       :tabindex="index === focusedIndex ? 0 : -1"
       :data-testid="`session-tab-${tab.routeName}`"
       class="tab-nav-item"
-      :class="{ active: activeTab === tab.routeName }"
+      :class="{ active: activeTab === tab.routeName, 'tab-nav-item--pill': variant === 'pill' }"
+      :style="staggered ? { '--stagger': `${index * 50}ms` } : undefined"
       @click="navigate(tab.routeName)"
       @keydown="handleKeydown($event, index)"
     >
+      <span v-if="tab.icon" class="tab-nav-icon" aria-hidden="true">{{ tab.icon }}</span>
       {{ tab.label }}
       <span v-if="tab.count != null" class="tab-count">{{ tab.count }}</span>
     </button>
   </nav>
 </template>
+
+<style scoped>
+.tab-nav-item--pill {
+  border-radius: 999px;
+}
+.tab-nav--pill {
+  border-bottom: none;
+}
+.tab-nav-icon {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 2px;
+}
+</style>

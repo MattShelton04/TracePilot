@@ -19,7 +19,7 @@ use crate::document::{
     PortableSessionMetadata, SessionArchive,
 };
 use crate::options::RedactionOptions;
-use patterns::{RedactionPattern, PATH_PATTERNS, PII_PATTERNS, SECRET_PATTERNS};
+use patterns::{PATH_PATTERNS, PII_PATTERNS, RedactionPattern, SECRET_PATTERNS};
 use tracepilot_core::models::conversation::ConversationTurn;
 
 /// Statistics about what the redaction engine modified.
@@ -35,10 +35,7 @@ pub struct RedactionStats {
 ///
 /// When all redaction flags are `false` (the default), this is a no-op.
 /// Returns statistics about what was modified.
-pub fn apply_redaction(
-    archive: &mut SessionArchive,
-    options: &RedactionOptions,
-) -> RedactionStats {
+pub fn apply_redaction(archive: &mut SessionArchive, options: &RedactionOptions) -> RedactionStats {
     if !options.has_any() {
         return RedactionStats::default();
     }
@@ -115,11 +112,12 @@ fn redact_session(
 
     if let Some(metrics) = &mut session.shutdown_metrics
         && let Some(changes) = &mut metrics.code_changes
-            && let Some(files) = &mut changes.files_modified {
-                for f in files.iter_mut() {
-                    redact_string(f, patterns, stats);
-                }
-            }
+        && let Some(files) = &mut changes.files_modified
+    {
+        for f in files.iter_mut() {
+            redact_string(f, patterns, stats);
+        }
+    }
 
     if let Some(tables) = &mut session.custom_tables {
         redact_custom_tables(tables, patterns, stats);
@@ -361,7 +359,14 @@ mod tests {
 
         let stats = apply_redaction(&mut archive, &RedactionOptions::default());
         assert_eq!(stats.fields_redacted, 0);
-        assert!(archive.sessions[0].metadata.cwd.as_ref().unwrap().contains("alice"));
+        assert!(
+            archive.sessions[0]
+                .metadata
+                .cwd
+                .as_ref()
+                .unwrap()
+                .contains("alice")
+        );
         assert!(!archive.export_options.redaction_applied);
     }
 
@@ -374,8 +379,22 @@ mod tests {
 
         let stats = apply_redaction(&mut archive, &test_options_paths_only());
         assert!(stats.fields_redacted >= 2);
-        assert!(!archive.sessions[0].metadata.cwd.as_ref().unwrap().contains("alice"));
-        assert!(!archive.sessions[0].metadata.git_root.as_ref().unwrap().contains("alice"));
+        assert!(
+            !archive.sessions[0]
+                .metadata
+                .cwd
+                .as_ref()
+                .unwrap()
+                .contains("alice")
+        );
+        assert!(
+            !archive.sessions[0]
+                .metadata
+                .git_root
+                .as_ref()
+                .unwrap()
+                .contains("alice")
+        );
         assert!(archive.export_options.redaction_applied);
     }
 
@@ -442,7 +461,13 @@ mod tests {
         let args = turn.tool_calls[0].arguments.as_ref().unwrap();
         assert!(!args.to_string().contains("/home/user"));
         // Email in result content
-        assert!(!turn.tool_calls[0].result_content.as_ref().unwrap().contains("admin@"));
+        assert!(
+            !turn.tool_calls[0]
+                .result_content
+                .as_ref()
+                .unwrap()
+                .contains("admin@")
+        );
 
         assert!(stats.fields_redacted > 0);
     }
@@ -537,8 +562,14 @@ mod tests {
             .as_ref()
             .unwrap()[0];
         let att_str = att.to_string();
-        assert!(!att_str.contains("/home/alice"), "Path should be redacted in attachment");
-        assert!(!att_str.contains("ghp_"), "Token should be redacted in attachment");
+        assert!(
+            !att_str.contains("/home/alice"),
+            "Path should be redacted in attachment"
+        );
+        assert!(
+            !att_str.contains("ghp_"),
+            "Token should be redacted in attachment"
+        );
     }
 
     #[test]
@@ -585,8 +616,14 @@ mod tests {
         apply_redaction(&mut archive, &test_options_all());
 
         let cp = &archive.sessions[0].checkpoints.as_ref().unwrap()[0];
-        assert!(!cp.title.contains("/home/alice"), "Checkpoint title should be redacted");
-        assert!(!cp.filename.contains("/home/alice"), "Checkpoint filename should be redacted");
+        assert!(
+            !cp.title.contains("/home/alice"),
+            "Checkpoint title should be redacted"
+        );
+        assert!(
+            !cp.filename.contains("/home/alice"),
+            "Checkpoint filename should be redacted"
+        );
         assert!(
             !cp.content.as_ref().unwrap().contains("ghp_"),
             "Checkpoint content should be redacted"
@@ -630,8 +667,14 @@ mod tests {
 
         let ext = archive.sessions[0].extensions.as_ref().unwrap();
         let ext_str = ext.to_string();
-        assert!(!ext_str.contains("10.0.0.1"), "Extension IP should be redacted");
-        assert!(!ext_str.contains("admin@corp.com"), "Extension email should be redacted");
+        assert!(
+            !ext_str.contains("10.0.0.1"),
+            "Extension IP should be redacted"
+        );
+        assert!(
+            !ext_str.contains("admin@corp.com"),
+            "Extension email should be redacted"
+        );
     }
 
     #[test]
@@ -676,8 +719,7 @@ mod tests {
     #[test]
     fn env_var_assign_handles_quoted_values() {
         let mut session = minimal_session();
-        session.plan =
-            Some(r#"export PASSWORD="my secret pass""#.into());
+        session.plan = Some(r#"export PASSWORD="my secret pass""#.into());
         let mut archive = test_archive(session);
 
         apply_redaction(&mut archive, &test_options_all());

@@ -7,57 +7,20 @@
 // This composable should be activated once in the main window (App.vue).
 // It watches the sessions store for running-state transitions and polls
 // active tab instances for new ask_user events.
+//
+// All dedup / baseline state lives in the alertWatcher Pinia store so it
+// is observable, testable, and resettable.
 
+import { getSessionTurns } from "@tracepilot/client";
+import type { ConversationTurn } from "@tracepilot/types";
+import { onScopeDispose, watch } from "vue";
+import type { Router } from "vue-router";
 import { dispatchAlert } from "@/composables/useAlertDispatcher";
+import { useAlertWatcherStore } from "@/stores/alertWatcher";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSessionsStore } from "@/stores/sessions";
 import { useSessionTabsStore } from "@/stores/sessionTabs";
 import { logInfo, logWarn } from "@/utils/logger";
-import { onScopeDispose, watch } from "vue";
-import type { Router } from "vue-router";
-import { getSessionTurns } from "@tracepilot/client";
-import type { ConversationTurn } from "@tracepilot/types";
-import type { RouteLocationNormalizedLoaded } from "vue-router";
-
-// ── State tracking ───────────────────────────────────────────────
-
-/** Track which sessions were running in the previous refresh cycle. */
-const previouslyRunning = new Set<string>();
-
-/**
- * Track the last-seen turn count per session so we only scan new turns
- * for ask_user events. Key: sessionId, Value: number of turns last checked.
- */
-const lastSeenTurnCount = new Map<string, number>();
-
-/**
- * Track which ask_user tool call IDs we've already alerted on,
- * to avoid duplicate notifications when turns are re-fetched.
- */
-const alertedAskUserCalls = new Set<string>();
-
-/**
- * Sessions whose error baseline has been established. We skip the first
- * observation so that pre-existing errors on startup don't trigger alerts.
- * Value: true once baseline has been recorded.
- */
-const errorBaselineEstablished = new Set<string>();
-
-/** Track previously seen error counts per session. */
-const lastSeenErrorCount = new Map<string, number>();
-
-/** Guard flag to prevent overlapping ask_user poll cycles. */
-let askUserPollInFlight = false;
-
-/** Guard flag to prevent overlapping seed operations. */
-let seedInFlight = false;
-
-/**
- * Captured route reference — set once during useAlertWatcher() setup (within
- * Vue's injection scope). Read by getMonitoredSessionIds() from any context
- * (timer callbacks, watchers) without needing inject().
- */
-let capturedRoute: RouteLocationNormalizedLoaded | null = null;
 
 // ── Monitored session resolution ─────────────────────────────────
 
@@ -80,11 +43,15 @@ function getMonitoredSessionIds(): Set<string> {
     for (const sid of tabStore.popupSessionIds) {
       ids.add(sid);
     }
-  } catch { /* tab store not available */ }
+  } catch {
+    /* tab store not available */
+  }
 
   // Current route (captured during setup — safe to read from any context)
-  if (capturedRoute) {
-    const routeId = capturedRoute.params?.id;
+  const store = useAlertWatcherStore();
+  const route = store.capturedRoute;
+  if (route) {
+    const routeId = route.params?.id;
     if (typeof routeId === "string" && routeId) {
       ids.add(routeId);
     }
@@ -110,9 +77,10 @@ function filterSessionsByScope<T extends { id: string }>(sessions: T[]): T[] {
 // ── Session-end detection ────────────────────────────────────────
 
 function checkSessionEndAlerts(
-  sessions: Array<{ id: string; isRunning: boolean; summary?: string }>,
+  sessions: Array<{ id: string; isRunning: boolean; summary?: string | null }>,
 ) {
   const prefs = usePreferencesStore();
+  const store = useAlertWatcherStore();
 
   // Build the full set of currently running session IDs — used for pruning
   // regardless of whether alerts are enabled or scoped.
@@ -124,7 +92,7 @@ function checkSessionEndAlerts(
 
     for (const session of scopedSessions) {
       if (session.isRunning) continue;
-      if (!previouslyRunning.has(session.id)) continue;
+      if (!store.seenRunning(session.id)) continue;
 
       const shortId = session.id.slice(0, 8);
       const label = session.summary || `Session ${shortId}`;
@@ -133,7 +101,7 @@ function checkSessionEndAlerts(
       dispatchAlert({
         type: "session-end",
         sessionId: session.id,
-        sessionSummary: session.summary,
+        sessionSummary: session.summary ?? undefined,
         title: "Session Completed",
         body: label,
       });
@@ -143,12 +111,8 @@ function checkSessionEndAlerts(
   // Update tracking state — always use ALL running sessions, not scoped.
   // This prevents pruneStaleEntries from evicting dedup keys for sessions
   // that are running but out of scope.
-  previouslyRunning.clear();
-  for (const id of allRunning) {
-    previouslyRunning.add(id);
-  }
-
-  pruneStaleEntries(allRunning);
+  store.replaceRunning(allRunning);
+  store.pruneStaleEntries(allRunning);
 }
 
 // ── ask_user detection ───────────────────────────────────────────
@@ -156,9 +120,10 @@ function checkSessionEndAlerts(
 function scanTurnsForAskUser(sessionId: string, turns: ConversationTurn[], summary?: string) {
   const prefs = usePreferencesStore();
   if (!prefs.alertsEnabled || !prefs.alertsOnAskUser) return;
+  const store = useAlertWatcherStore();
 
-  const lastCount = lastSeenTurnCount.get(sessionId) ?? 0;
-  lastSeenTurnCount.set(sessionId, turns.length);
+  const lastCount = store.getLastTurnCount(sessionId);
+  store.setLastTurnCount(sessionId, turns.length);
 
   // Only scan turns we haven't checked yet
   const newTurns = turns.slice(lastCount);
@@ -170,8 +135,8 @@ function scanTurnsForAskUser(sessionId: string, turns: ConversationTurn[], summa
       // toolCallId is opaque — cannot extract sessionId from it.
       const rawKey = tc.toolCallId ?? `${turn.turnIndex}:ask_user`;
       const callKey = `${sessionId}:${rawKey}`;
-      if (alertedAskUserCalls.has(callKey)) continue;
-      alertedAskUserCalls.add(callKey);
+      if (store.hasAlertedAskUser(callKey)) continue;
+      store.markAskUserAlerted(callKey);
 
       const shortId = sessionId.slice(0, 8);
       const label = summary || `Session ${shortId}`;
@@ -190,10 +155,11 @@ function scanTurnsForAskUser(sessionId: string, turns: ConversationTurn[], summa
 // ── Error detection ──────────────────────────────────────────────
 
 function checkSessionErrorAlerts(
-  sessions: Array<{ id: string; isRunning: boolean; summary?: string; errorCount?: number }>,
+  sessions: Array<{ id: string; isRunning: boolean; summary?: string | null; errorCount?: number | null }>,
 ) {
   const prefs = usePreferencesStore();
   if (!prefs.alertsEnabled || !prefs.alertsOnSessionError) return;
+  const store = useAlertWatcherStore();
 
   const scopedSessions = filterSessionsByScope(sessions);
 
@@ -201,14 +167,14 @@ function checkSessionErrorAlerts(
     if (!session.isRunning) continue;
     const currentErrors = session.errorCount ?? 0;
 
-    if (!errorBaselineEstablished.has(session.id)) {
+    if (!store.isErrorBaselineEstablished(session.id)) {
       // First observation — record baseline, don't alert
-      errorBaselineEstablished.add(session.id);
-      lastSeenErrorCount.set(session.id, currentErrors);
+      store.establishErrorBaseline(session.id);
+      store.setLastErrorCount(session.id, currentErrors);
       continue;
     }
 
-    const lastErrors = lastSeenErrorCount.get(session.id) ?? 0;
+    const lastErrors = store.getLastErrorCount(session.id);
 
     if (currentErrors > lastErrors) {
       const shortId = session.id.slice(0, 8);
@@ -218,40 +184,13 @@ function checkSessionErrorAlerts(
       dispatchAlert({
         type: "session-error",
         sessionId: session.id,
-        sessionSummary: session.summary,
+        sessionSummary: session.summary ?? undefined,
         title: "Session Error",
         body: `${label} encountered ${newErrors} new error${newErrors > 1 ? "s" : ""}`,
       });
     }
 
-    lastSeenErrorCount.set(session.id, currentErrors);
-  }
-}
-
-// ── Stale entry cleanup ──────────────────────────────────────────
-
-/**
- * Remove tracking data for sessions that are no longer running.
- * Prevents unbounded growth of module-level Maps/Sets.
- */
-function pruneStaleEntries(currentlyRunning: Set<string>) {
-  for (const id of lastSeenTurnCount.keys()) {
-    if (!currentlyRunning.has(id)) {
-      lastSeenTurnCount.delete(id);
-    }
-  }
-  for (const id of lastSeenErrorCount.keys()) {
-    if (!currentlyRunning.has(id)) {
-      lastSeenErrorCount.delete(id);
-      errorBaselineEstablished.delete(id);
-    }
-  }
-  // Prune alerted ask_user calls for sessions that are no longer running
-  for (const key of alertedAskUserCalls) {
-    const sessionId = key.split(":")[0];
-    if (!currentlyRunning.has(sessionId)) {
-      alertedAskUserCalls.delete(key);
-    }
+    store.setLastErrorCount(session.id, currentErrors);
   }
 }
 
@@ -262,10 +201,11 @@ let pollTimer: ReturnType<typeof setInterval> | null = null;
 async function pollRunningSessionsForAskUser() {
   const prefs = usePreferencesStore();
   if (!prefs.alertsEnabled || !prefs.alertsOnAskUser) return;
+  const store = useAlertWatcherStore();
 
   // Prevent overlapping poll cycles or polls during seeding
-  if (askUserPollInFlight || seedInFlight) return;
-  askUserPollInFlight = true;
+  if (store.askUserPollInFlight || store.seedInFlight) return;
+  store.askUserPollInFlight = true;
 
   try {
     const sessionsStore = useSessionsStore();
@@ -273,33 +213,35 @@ async function pollRunningSessionsForAskUser() {
     // Filter by scope — no hard cap. Each poll is a lightweight JSON fetch.
     const allRunning = sessionsStore.sessions.filter((s) => s.isRunning);
     const scopedRunning = filterSessionsByScope(allRunning);
-    logInfo(`[alert-watcher] ask_user poll: ${allRunning.length} running, ${scopedRunning.length} in scope`);
+    logInfo(
+      `[alert-watcher] ask_user poll: ${allRunning.length} running, ${scopedRunning.length} in scope`,
+    );
 
     for (const session of scopedRunning) {
       try {
         // Inline seeding: if we have no baseline for this session, record the
         // current turn count and mark ALL existing ask_user calls as already-seen.
         // Only ask_user events that appear in FUTURE turns will trigger alerts.
-        if (!lastSeenTurnCount.has(session.id)) {
+        if (!store.hasTurnCount(session.id)) {
           const result = await getSessionTurns(session.id);
-          lastSeenTurnCount.set(session.id, result.turns.length);
+          store.setLastTurnCount(session.id, result.turns.length);
           for (const turn of result.turns) {
             for (const tc of turn.toolCalls) {
               if (tc.toolName !== "ask_user") continue;
               const rawKey = tc.toolCallId ?? `${turn.turnIndex}:ask_user`;
-              alertedAskUserCalls.add(`${session.id}:${rawKey}`);
+              store.markAskUserAlerted(`${session.id}:${rawKey}`);
             }
           }
           continue;
         }
         const result = await getSessionTurns(session.id);
-        scanTurnsForAskUser(session.id, result.turns, session.summary);
+        scanTurnsForAskUser(session.id, result.turns, session.summary ?? undefined);
       } catch (e) {
         logWarn(`[alert-watcher] Failed to poll turns for ${session.id}:`, e);
       }
     }
   } finally {
-    askUserPollInFlight = false;
+    store.askUserPollInFlight = false;
   }
 }
 
@@ -310,8 +252,9 @@ async function pollRunningSessionsForAskUser() {
  * ask_user calls from before app startup don't fire stale alerts.
  */
 async function seedTurnBaselines() {
-  if (seedInFlight) return;
-  seedInFlight = true;
+  const store = useAlertWatcherStore();
+  if (store.seedInFlight) return;
+  store.seedInFlight = true;
 
   try {
     const sessionsStore = useSessionsStore();
@@ -319,11 +262,11 @@ async function seedTurnBaselines() {
     const runningSessions = filterSessionsByScope(allRunning);
 
     for (const session of runningSessions) {
-      if (lastSeenTurnCount.has(session.id)) continue;
+      if (store.hasTurnCount(session.id)) continue;
 
       try {
         const result = await getSessionTurns(session.id);
-        lastSeenTurnCount.set(session.id, result.turns.length);
+        store.setLastTurnCount(session.id, result.turns.length);
 
         // Mark ALL existing ask_user calls as already seen so only future
         // events trigger alerts after app startup.
@@ -331,7 +274,7 @@ async function seedTurnBaselines() {
           for (const tc of turn.toolCalls) {
             if (tc.toolName !== "ask_user") continue;
             const rawKey = tc.toolCallId ?? `${turn.turnIndex}:ask_user`;
-            alertedAskUserCalls.add(`${session.id}:${rawKey}`);
+            store.markAskUserAlerted(`${session.id}:${rawKey}`);
           }
         }
       } catch (e) {
@@ -339,7 +282,7 @@ async function seedTurnBaselines() {
       }
     }
   } finally {
-    seedInFlight = false;
+    store.seedInFlight = false;
   }
 }
 
@@ -355,24 +298,32 @@ async function seedTurnBaselines() {
 export function useAlertWatcher(router: Router) {
   const sessionsStore = useSessionsStore();
   const prefs = usePreferencesStore();
+  const store = useAlertWatcherStore();
 
-  logInfo(`[alert-watcher] Initializing — alertsEnabled=${prefs.alertsEnabled}, scope=${prefs.alertsScope}, sessions=${sessionsStore.sessions.length}, running=${sessionsStore.sessions.filter(s => s.isRunning).length}`);
+  logInfo(
+    `[alert-watcher] Initializing — alertsEnabled=${prefs.alertsEnabled}, scope=${prefs.alertsScope}, sessions=${sessionsStore.sessions.length}, running=${sessionsStore.sessions.filter((s) => s.isRunning).length}`,
+  );
 
-  capturedRoute = router.currentRoute.value;
+  store.setCapturedRoute(router.currentRoute.value);
   // Keep capturedRoute in sync reactively
-  watch(() => router.currentRoute.value, (r) => { capturedRoute = r; });
+  watch(
+    () => router.currentRoute.value,
+    (r) => {
+      store.setCapturedRoute(r);
+    },
+  );
 
   // Initialize tracking from current state (don't alert on app startup)
   for (const session of sessionsStore.sessions) {
     if (session.isRunning) {
-      previouslyRunning.add(session.id);
+      store.markRunning(session.id);
     }
     // Record baseline error counts — mark as established so the first
     // real increase triggers an alert
     if (session.errorCount) {
-      lastSeenErrorCount.set(session.id, session.errorCount);
+      store.setLastErrorCount(session.id, session.errorCount);
     }
-    errorBaselineEstablished.add(session.id);
+    store.establishErrorBaseline(session.id);
   }
 
   // Seed turn baselines — the prefs watcher below handles this
@@ -441,11 +392,7 @@ export function useAlertWatcher(router: Router) {
     stopPrefsWatch();
     stopPolling();
     stopRefreshPolling();
-    // Clear module-level state on scope disposal
-    previouslyRunning.clear();
-    lastSeenTurnCount.clear();
-    lastSeenErrorCount.clear();
-    alertedAskUserCalls.clear();
-    errorBaselineEstablished.clear();
+    // Clear dedup state on scope disposal
+    store.$reset();
   });
 }

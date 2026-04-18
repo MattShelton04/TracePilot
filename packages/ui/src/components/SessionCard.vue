@@ -56,7 +56,7 @@ function isActive(session: SessionListItem): boolean {
       <span v-if="session.compactionCount" class="flex items-center gap-1" title="Context compactions">
         ↻ {{ session.compactionCount }}
       </span>
-      <span class="ml-auto" style="color: var(--text-tertiary);" :title="session.updatedAt">
+      <span class="ml-auto" style="color: var(--text-tertiary);" :title="session.updatedAt ?? undefined">
         {{ formatRelativeTime(session.updatedAt) }}
       </span>
     </div>

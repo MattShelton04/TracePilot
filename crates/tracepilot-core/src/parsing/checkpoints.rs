@@ -94,15 +94,9 @@ pub fn parse_checkpoints(session_dir: &Path) -> Result<Option<CheckpointIndex>> 
             continue;
         }
 
-        let file_content = Some(
-            std::fs::read_to_string(&canonical_file).map_err(|e| {
-                TracePilotError::io_context(
-                    "Failed to read checkpoint",
-                    canonical_file.display(),
-                    e,
-                )
-            })?,
-        );
+        let file_content = Some(std::fs::read_to_string(&canonical_file).map_err(|e| {
+            TracePilotError::io_context("Failed to read checkpoint", canonical_file.display(), e)
+        })?);
         entries.push(CheckpointEntry {
             number,
             title: title.to_string(),

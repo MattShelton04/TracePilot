@@ -1,4 +1,5 @@
 import { createRouter, createWebHashHistory, type RouteRecordRaw } from "vue-router";
+import { ROUTE_NAMES } from "@/config/routes";
 import { usePreferencesStore } from "@/stores/preferences";
 import { logError } from "@/utils/logger";
 import type {} from "./types";
@@ -38,7 +39,7 @@ const routes: RouteRecordRaw[] = [
     children: [
       {
         path: "",
-        redirect: (to) => ({ name: "session-overview", params: to.params }),
+        redirect: (to) => ({ name: ROUTE_NAMES.sessionOverview, params: to.params }),
       },
       {
         path: "overview",
@@ -350,12 +351,12 @@ const router = createRouter({
 
 // Gate feature-flagged routes (await hydration so deep-links aren't incorrectly blocked)
 router.beforeEach(async (to) => {
-  const flag = to.meta?.featureFlag as string | undefined;
+  const flag = to.meta?.featureFlag;
   if (flag) {
     const prefs = usePreferencesStore();
     await prefs.whenReady;
     if (!prefs.isFeatureEnabled(flag)) {
-      return { name: "sessions" };
+      return { name: ROUTE_NAMES.sessions };
     }
   }
 });
@@ -380,7 +381,7 @@ router.onError((error, to) => {
         `[router] Chunk load failed for ${to.fullPath}, skipping reload (already retried recently)`,
         error,
       );
-      router.replace({ name: "sessions" });
+      router.replace({ name: ROUTE_NAMES.sessions });
     }
   }
 });

@@ -14,19 +14,21 @@ import type {
   OrchestratorHandle,
   OrchestratorState,
 } from "@tracepilot/types";
-import { toErrorMessage } from "@tracepilot/ui";
+import { DEFAULT_ORCHESTRATOR_MODEL } from "@tracepilot/types";
+import { toErrorMessage, usePolling } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref, watch } from "vue";
 import { logWarn } from "@/utils/logger";
-import { toActivityEntries, type ActivityEntry } from "@/utils/orchestratorActivity";
+import { type ActivityEntry, toActivityEntries } from "@/utils/orchestratorActivity";
 
 export type { ActivityEntry } from "@/utils/orchestratorActivity";
 
-const POLL_FAST_MS = 5_000; // When running: full cycle every 5s
-const POLL_SLOW_MS = 15_000; // When idle: health-only check every 15s
-const DEFAULT_MODEL = "claude-haiku-4.5";
-const ACTIVITY_FEED_LIMIT = 30;
+import { POLL_FAST_MS, POLL_SLOW_MS } from "@/config/tuning";
 
+/** Single source of truth lives in `@tracepilot/types` and (on the Rust
+ * side) `tracepilot_core::constants::DEFAULT_ORCHESTRATOR_MODEL`. */
+const DEFAULT_MODEL = DEFAULT_ORCHESTRATOR_MODEL;
+const ACTIVITY_FEED_LIMIT = 30;
 
 export const useOrchestratorStore = defineStore("orchestrator", () => {
   // ─── State ────────────────────────────────────────────────────────
@@ -42,7 +44,6 @@ export const useOrchestratorStore = defineStore("orchestrator", () => {
   const selectedModel = ref(DEFAULT_MODEL);
   const configModelLoaded = ref(false);
   const activityFeed = ref<ActivityEntry[]>([]);
-  let pollTimer: ReturnType<typeof setInterval> | null = null;
   let pollInFlight = false;
 
   // ─── Computed ─────────────────────────────────────────────────────
@@ -179,18 +180,19 @@ export const useOrchestratorStore = defineStore("orchestrator", () => {
     }
   }
 
-  /** Start the background polling loop at the given interval. */
+  // Two dedicated pollers — usePolling captures intervalMs at construction
+  // time, so we keep one instance per cadence and route via startPolling().
+  const pollOpts = { immediate: false, pauseWhenHidden: true, swallowErrors: true } as const;
+  const fastPoll = usePolling(pollCycle, { intervalMs: POLL_FAST_MS, ...pollOpts });
+  const slowPoll = usePolling(pollCycle, { intervalMs: POLL_SLOW_MS, ...pollOpts });
+
   function startPolling(intervalMs = POLL_FAST_MS) {
     stopPolling();
-    pollTimer = setInterval(pollCycle, intervalMs);
+    (intervalMs === POLL_SLOW_MS ? slowPoll : fastPoll).start();
   }
-
-  /** Stop the background polling loop. */
   function stopPolling() {
-    if (pollTimer) {
-      clearInterval(pollTimer);
-      pollTimer = null;
-    }
+    fastPoll.stop();
+    slowPoll.stop();
   }
 
   // Adjust polling cadence based on orchestrator state.

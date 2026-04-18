@@ -21,6 +21,7 @@ import {
 import { onMounted, ref } from "vue";
 import { browseForDirectory } from "@/composables/useBrowseDirectory";
 import { useIndexingEvents } from "@/composables/useIndexingEvents";
+import { STORAGE_KEYS } from "@/config/storageKeys";
 import { useAnalyticsStore } from "@/stores/analytics";
 import { useSessionsStore } from "@/stores/sessions";
 import { isAlreadyIndexingError } from "@/utils/backendErrors";
@@ -118,11 +119,10 @@ async function clearCache() {
     await sessionsStore.fetchSessions();
     analyticsStore.$reset();
   } catch (e) {
-    const msg = toErrorMessage(e);
-    if (isAlreadyIndexingError(msg)) {
+    if (isAlreadyIndexingError(e)) {
       reindexResult.value = "Indexing already in progress…";
     } else {
-      reindexResult.value = `Error: ${msg}`;
+      reindexResult.value = `Error: ${toErrorMessage(e)}`;
     }
   } finally {
     clearing.value = false;
@@ -137,11 +137,10 @@ async function rebuildSearchIndex() {
     searchRebuildResult.value = `Indexed ${indexed} of ${total} sessions`;
     toast.success("Search index rebuilt successfully");
   } catch (e) {
-    const msg = toErrorMessage(e);
-    if (isAlreadyIndexingError(msg)) {
+    if (isAlreadyIndexingError(e)) {
       searchRebuildResult.value = "Search indexing already in progress…";
     } else {
-      searchRebuildResult.value = `Error: ${msg}`;
+      searchRebuildResult.value = `Error: ${toErrorMessage(e)}`;
     }
   } finally {
     searchRebuilding.value = false;
@@ -162,12 +161,12 @@ async function handleFactoryReset() {
   try {
     await factoryResetApi();
     // Clear all TracePilot localStorage keys
-    localStorage.removeItem("tracepilot-prefs");
-    localStorage.removeItem("tracepilot-theme");
-    localStorage.removeItem("tracepilot-last-session");
-    localStorage.removeItem("tracepilot-last-seen-version");
-    localStorage.removeItem("tracepilot-update-check");
-    localStorage.removeItem("tracepilot-dismissed-update");
+    localStorage.removeItem(STORAGE_KEYS.legacyPrefs);
+    localStorage.removeItem(STORAGE_KEYS.theme);
+    localStorage.removeItem(STORAGE_KEYS.lastSession);
+    localStorage.removeItem(STORAGE_KEYS.lastSeenVersion);
+    localStorage.removeItem(STORAGE_KEYS.updateCheck);
+    localStorage.removeItem(STORAGE_KEYS.dismissedUpdate);
     window.location.reload();
   } catch (e) {
     resetting.value = false;

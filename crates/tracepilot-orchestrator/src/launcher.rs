@@ -6,7 +6,6 @@ use crate::types::{
     CreateWorktreeRequest, LaunchConfig, LaunchedSession, ModelInfo, SystemDependencies,
 };
 use crate::worktrees;
-use std::path::Path;
 use std::process::Command;
 
 // Re-export process utilities for backward compatibility.
@@ -26,7 +25,7 @@ pub fn copilot_home() -> Result<std::path::PathBuf> {
 /// Check system dependencies (git, copilot CLI).
 pub fn check_dependencies(copilot_cmd: Option<&str>) -> SystemDependencies {
     let git = check_tool("git", &["--version"]);
-    let cmd = copilot_cmd.unwrap_or("copilot");
+    let cmd = copilot_cmd.unwrap_or(tracepilot_core::constants::DEFAULT_CLI_COMMAND);
     let copilot = check_tool(cmd, &["--version"]);
     let copilot_home_exists = tracepilot_core::utils::home_dir_opt()
         .map(|h| h.join(".copilot").exists())
@@ -58,13 +57,8 @@ fn validate_model(model: &str) -> Result<()> {
 /// NOTE: The returned `pid` is the PID of the **terminal wrapper process**, not
 /// the Copilot session itself. It is informational only.
 pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
-    let repo = Path::new(&config.repo_path);
-    if !repo.exists() {
-        return Err(OrchestratorError::Launch(format!(
-            "Repository path does not exist: {}",
-            config.repo_path
-        )));
-    }
+    // Phase 1A.2: canonicalize repo path + reject UNC/network paths.
+    let repo = canonicalize_user_path(&config.repo_path)?;
 
     // Handle worktree creation if requested
     let (work_dir, worktree_path) = if config.create_worktree {
@@ -275,34 +269,79 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
     })
 }
 
-/// Open a path in the system file explorer.
-pub fn open_in_explorer(path: &str) -> Result<()> {
-    let p = Path::new(path);
-    if !p.exists() {
-        return Err(OrchestratorError::Launch(format!(
-            "Path does not exist: {path}"
-        )));
+/// Canonicalize a user-supplied path and reject attack shapes.
+///
+/// Performs symlink-following canonicalization, then:
+///   - Errors if the path does not exist.
+///   - Errors if the input contains a NUL byte (defence in depth).
+///   - On Windows, rejects raw UNC network paths (`\\server\share`) and
+///     strips the verbatim `\\?\` prefix that `std::fs::canonicalize`
+///     always prepends, so the returned path is safe to pass to tools
+///     that don't grok verbatim form (explorer.exe, older PowerShell,
+///     git-for-windows worktree).
+///
+/// Returns the canonical absolute path suitable for passing to a child
+/// process launched via `Command::arg` or embedded into a shell script
+/// with appropriate quoting.
+///
+/// NOTE: This helper does *not* enforce containment within a configured
+/// jail root. For the launch / explorer / terminal sites the policy is
+/// "path must exist on the local filesystem and must not be a network
+/// share"; callers that need stricter jailing must add their own root
+/// check against the returned canonical path.
+fn canonicalize_user_path(path: &str) -> Result<std::path::PathBuf> {
+    if path.as_bytes().contains(&0) {
+        return Err(OrchestratorError::Launch("Path contains a NUL byte".into()));
     }
+
+    let canonical = std::fs::canonicalize(path).map_err(|e| {
+        OrchestratorError::Launch(format!(
+            "Path does not exist or is not accessible: {path}: {e}"
+        ))
+    })?;
 
     #[cfg(windows)]
     {
-        // Windows explorer requires backslash paths
-        let win_path = path.replace('/', "\\");
-        Command::new("explorer")
-            .arg(&win_path)
-            .spawn()
-            .map_err(|e| OrchestratorError::launch_ctx("Failed to open explorer", e))?;
+        let s = canonical.to_string_lossy();
+        // `canonicalize` on Windows always returns a verbatim path
+        // (`\\?\C:\...` or `\\?\UNC\server\share`). Reject the UNC form
+        // explicitly; refusing network paths is a deliberate policy choice
+        // (Phase 1A.2 — see docs/tech-debt-plan-revised-2026-04.md).
+        if s.starts_with(r"\\?\UNC\") {
+            return Err(OrchestratorError::Launch(format!(
+                "Network (UNC) paths are not permitted: {path}"
+            )));
+        }
+
+        // Strip the verbatim prefix so downstream consumers (explorer.exe,
+        // PowerShell, git-for-windows) see a normal `C:\…` path.
+        if let Some(stripped) = s.strip_prefix(r"\\?\") {
+            return Ok(std::path::PathBuf::from(stripped.to_string()));
+        }
     }
+
+    Ok(canonical)
+}
+
+/// Open a path in the system file explorer.
+pub fn open_in_explorer(path: &str) -> Result<()> {
+    let canonical = canonicalize_user_path(path)?;
+
+    #[cfg(windows)]
+    Command::new("explorer")
+        .arg(&canonical)
+        .spawn()
+        .map_err(|e| OrchestratorError::launch_ctx("Failed to open explorer", e))?;
 
     #[cfg(target_os = "macos")]
     Command::new("open")
-        .arg(path)
+        .arg(&canonical)
         .spawn()
         .map_err(|e| OrchestratorError::launch_ctx("Failed to open Finder", e))?;
 
     #[cfg(target_os = "linux")]
     Command::new("xdg-open")
-        .arg(path)
+        .arg(&canonical)
         .spawn()
         .map_err(|e| OrchestratorError::launch_ctx("Failed to open file manager", e))?;
 
@@ -311,15 +350,10 @@ pub fn open_in_explorer(path: &str) -> Result<()> {
 
 /// Open a new terminal window at the given directory.
 pub fn open_in_terminal(path: &str) -> Result<()> {
-    let p = Path::new(path);
-    if !p.exists() {
-        return Err(OrchestratorError::Launch(format!(
-            "Path does not exist: {path}"
-        )));
-    }
+    let canonical = canonicalize_user_path(path)?;
 
     // Empty program = just open a terminal at the directory
-    crate::process::spawn_detached_terminal("", &[], p, None)?;
+    crate::process::spawn_detached_terminal("", &[], &canonical, None)?;
     Ok(())
 }
 
@@ -341,12 +375,12 @@ fn check_tool(name: &str, args: &[&str]) -> (bool, Option<String>) {
         _ => {
             #[cfg(windows)]
             {
-                let full_cmd = if args.is_empty() {
-                    name.to_string()
-                } else {
-                    format!("{} {}", name, args.join(" "))
-                };
-                crate::process::run_hidden_shell(&full_cmd, None, Some(5)).ok()
+                // On Windows, some tools are batch files / PowerShell shims /
+                // aliases that `CreateProcess` can't find directly. Fall back
+                // to resolving them through `cmd.exe /c` — but pass the args
+                // as separate argv elements so nothing is re-tokenised as a
+                // shell metacharacter. See Phase 1A.4.
+                crate::process::run_hidden_via_cmd(name, args, None, Some(5)).ok()
             }
             #[cfg(not(windows))]
             None

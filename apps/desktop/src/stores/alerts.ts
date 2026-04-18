@@ -2,8 +2,10 @@
 // Stores alert events (session ended, ask_user prompts, errors) and
 // provides reactive state for the alert center drawer + badge count.
 
+import { usePersistedRef } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
+import { STORAGE_KEYS } from "@/config/storageKeys";
 
 /** Alert event types that trigger notifications. */
 export type AlertType = "session-end" | "ask-user" | "session-error";
@@ -25,7 +27,7 @@ export interface AlertEvent {
 }
 
 const MAX_HISTORY = 100;
-const STORAGE_KEY = "tracepilot:alert-history";
+const STORAGE_KEY = STORAGE_KEYS.alerts;
 
 let idCounter = 0;
 
@@ -34,37 +36,20 @@ function generateId(): string {
 }
 
 export const useAlertsStore = defineStore("alerts", () => {
-  const alerts = ref<AlertEvent[]>([]);
+  const alerts = usePersistedRef<AlertEvent[]>(STORAGE_KEY, [], {
+    serializer: {
+      read: (raw) => (JSON.parse(raw) as AlertEvent[]).slice(0, MAX_HISTORY),
+      write: (value) => JSON.stringify(value.slice(0, MAX_HISTORY)),
+    },
+    onParseError: () => {
+      // Corrupt data — start fresh
+    },
+  });
   const drawerOpen = ref(false);
 
   // ── Derived state ──────────────────────────────────────────
   const unreadCount = computed(() => alerts.value.filter((a) => !a.read).length);
   const hasUnread = computed(() => unreadCount.value > 0);
-
-  // ── Persistence ────────────────────────────────────────────
-  function hydrate() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as AlertEvent[];
-        alerts.value = parsed.slice(0, MAX_HISTORY);
-      }
-    } catch {
-      // Corrupt data — start fresh
-      alerts.value = [];
-    }
-  }
-
-  function persist() {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(alerts.value.slice(0, MAX_HISTORY)));
-    } catch {
-      // localStorage full or unavailable — silently skip
-    }
-  }
-
-  // Hydrate on creation
-  hydrate();
 
   // ── Actions ────────────────────────────────────────────────
 
@@ -76,7 +61,6 @@ export const useAlertsStore = defineStore("alerts", () => {
       read: false,
     };
     alerts.value = [alert, ...alerts.value].slice(0, MAX_HISTORY);
-    persist();
     return alert;
   }
 
@@ -84,29 +68,23 @@ export const useAlertsStore = defineStore("alerts", () => {
     const alert = alerts.value.find((a) => a.id === id);
     if (alert && !alert.read) {
       alert.read = true;
-      persist();
     }
   }
 
   function markAllRead() {
-    let changed = false;
     for (const alert of alerts.value) {
       if (!alert.read) {
         alert.read = true;
-        changed = true;
       }
     }
-    if (changed) persist();
   }
 
   function dismiss(id: string) {
     alerts.value = alerts.value.filter((a) => a.id !== id);
-    persist();
   }
 
   function clearAll() {
     alerts.value = [];
-    persist();
   }
 
   function toggleDrawer() {

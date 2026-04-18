@@ -128,32 +128,42 @@ fn check_session(session: &PortableSession, idx: usize, issues: &mut Vec<Validat
             }
             // Size limit check
             if let Some(content) = &cp.content
-                && content.len() > MAX_SECTION_SIZE {
-                    issues.push(ValidationIssue::error(&format!(
-                        "{}: checkpoint '{}' content too large: {} bytes (max {})",
-                        prefix, cp.filename, content.len(), MAX_SECTION_SIZE
-                    )));
-                }
+                && content.len() > MAX_SECTION_SIZE
+            {
+                issues.push(ValidationIssue::error(&format!(
+                    "{}: checkpoint '{}' content too large: {} bytes (max {})",
+                    prefix,
+                    cp.filename,
+                    content.len(),
+                    MAX_SECTION_SIZE
+                )));
+            }
         }
     }
 
     // ── Size limit checks ──────────────────────────────────────────
 
     if let Some(plan) = &session.plan
-        && plan.len() > MAX_SECTION_SIZE {
-            issues.push(ValidationIssue::error(&format!(
-                "{}: plan too large: {} bytes (max {})",
-                prefix, plan.len(), MAX_SECTION_SIZE
-            )));
-        }
+        && plan.len() > MAX_SECTION_SIZE
+    {
+        issues.push(ValidationIssue::error(&format!(
+            "{}: plan too large: {} bytes (max {})",
+            prefix,
+            plan.len(),
+            MAX_SECTION_SIZE
+        )));
+    }
 
     if let Some(events) = &session.events
-        && events.len() > MAX_EVENTS {
-            issues.push(ValidationIssue::error(&format!(
-                "{}: too many events: {} (max {})",
-                prefix, events.len(), MAX_EVENTS
-            )));
-        }
+        && events.len() > MAX_EVENTS
+    {
+        issues.push(ValidationIssue::error(&format!(
+            "{}: too many events: {} (max {})",
+            prefix,
+            events.len(),
+            MAX_EVENTS
+        )));
+    }
 
     // ── Warnings (non-blocking) ────────────────────────────────────
 
@@ -409,7 +419,11 @@ mod tests {
         archive.sessions.push(s2);
 
         let issues = collect_issues(&archive);
-        assert!(issues.iter().any(|i| i.is_error() && i.message.contains("Duplicate session ID")));
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.is_error() && i.message.contains("Duplicate session ID"))
+        );
     }
 
     #[test]
@@ -433,9 +447,11 @@ mod tests {
         let archive = test_archive(session);
 
         let issues = collect_issues(&archive);
-        assert!(issues.iter().any(|i| {
-            i.severity == IssueSeverity::Warning && i.message.contains("not a UUID")
-        }));
+        assert!(
+            issues.iter().any(|i| {
+                i.severity == IssueSeverity::Warning && i.message.contains("not a UUID")
+            })
+        );
     }
 
     #[test]
@@ -466,7 +482,11 @@ mod tests {
         ]);
         let archive = test_archive(session);
         let issues = collect_issues(&archive);
-        assert!(issues.iter().any(|i| i.is_error() && i.message.contains("duplicate checkpoint filename")));
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.is_error() && i.message.contains("duplicate checkpoint filename"))
+        );
     }
 
     #[test]
@@ -508,7 +528,11 @@ mod tests {
         }]);
         let archive = test_archive(session);
         let issues = collect_issues(&archive);
-        assert!(issues.iter().any(|i| i.is_error() && i.message.contains("path separator")));
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.is_error() && i.message.contains("path separator"))
+        );
     }
 
     #[test]
@@ -522,7 +546,11 @@ mod tests {
         }]);
         let archive = test_archive(session);
         let issues = collect_issues(&archive);
-        assert!(issues.iter().any(|i| i.is_error() && i.message.contains("reserved")));
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.is_error() && i.message.contains("reserved"))
+        );
     }
 
     #[test]
@@ -536,7 +564,11 @@ mod tests {
         }]);
         let archive = test_archive(session);
         let issues = collect_issues(&archive);
-        assert!(issues.iter().any(|i| i.is_error() && i.message.contains("dangerous characters")));
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.is_error() && i.message.contains("dangerous characters"))
+        );
     }
 
     // ── Tests for previously-missing checks (fixed by unification) ──
@@ -572,7 +604,11 @@ mod tests {
         let archive = test_archive(session);
 
         let issues = collect_issues(&archive);
-        assert!(issues.iter().any(|i| i.is_error() && i.message.contains("plan too large")));
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.is_error() && i.message.contains("plan too large"))
+        );
     }
 
     #[test]
@@ -591,7 +627,11 @@ mod tests {
         session.events = Some(vec![event; MAX_EVENTS + 1]);
         let archive = test_archive(session);
         let issues = collect_issues(&archive);
-        assert!(issues.iter().any(|i| i.is_error() && i.message.contains("too many events")));
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.is_error() && i.message.contains("too many events"))
+        );
     }
 
     #[test]

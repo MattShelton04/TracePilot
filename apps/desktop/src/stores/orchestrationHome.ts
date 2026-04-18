@@ -11,8 +11,8 @@ import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import { useWorktreesStore } from "@/stores/worktrees";
 import { logWarn } from "@/utils/logger";
-import { aggregateSettledErrors } from "@/utils/settleErrors";
 import { allSettledRecord } from "@/utils/settledRecord";
+import { aggregateSettledErrors } from "@/utils/settleErrors";
 
 export interface ActivityEvent {
   id: string;

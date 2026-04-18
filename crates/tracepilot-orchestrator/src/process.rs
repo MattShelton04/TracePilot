@@ -8,9 +8,9 @@
 use crate::error::{OrchestratorError, Result};
 use std::collections::HashMap;
 use std::io::Read;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Output};
-use std::sync::{mpsc, Arc, Mutex};
+use std::sync::{Arc, Mutex, mpsc};
 use std::time::Duration;
 
 #[cfg(windows)]
@@ -21,8 +21,11 @@ use std::os::windows::process::CommandExt;
 const CREATE_NEW_CONSOLE: u32 = 0x00000010;
 #[cfg(windows)]
 const CREATE_BREAKAWAY_FROM_JOB: u32 = 0x01000000;
+/// Re-export of the cross-crate constant so existing
+/// `crate::process::CREATE_NO_WINDOW` references keep compiling.
+/// New code should import `tracepilot_core::constants::CREATE_NO_WINDOW`.
 #[cfg(windows)]
-pub(crate) const CREATE_NO_WINDOW: u32 = 0x08000000;
+pub(crate) use tracepilot_core::constants::CREATE_NO_WINDOW;
 
 // ─── Linux terminal emulator fallback list ──────────────────────────
 #[cfg(target_os = "linux")]
@@ -80,22 +83,12 @@ fn execute_with_timeout(
 ) -> std::result::Result<(Vec<u8>, Vec<u8>, std::process::ExitStatus), OrchestratorError> {
     // Take the pipe handles before wrapping the child so the thread owns them.
     // Return an error if pipes weren't configured (defensive programming - should never happen).
-    let stdout_pipe = child
-        .stdout
-        .take()
-        .ok_or_else(|| {
-            OrchestratorError::Launch(
-                "stdout not piped: process was not configured correctly".into(),
-            )
-        })?;
-    let stderr_pipe = child
-        .stderr
-        .take()
-        .ok_or_else(|| {
-            OrchestratorError::Launch(
-                "stderr not piped: process was not configured correctly".into(),
-            )
-        })?;
+    let stdout_pipe = child.stdout.take().ok_or_else(|| {
+        OrchestratorError::Launch("stdout not piped: process was not configured correctly".into())
+    })?;
+    let stderr_pipe = child.stderr.take().ok_or_else(|| {
+        OrchestratorError::Launch("stderr not piped: process was not configured correctly".into())
+    })?;
     let stdout_rx = read_pipe_to_end(stdout_pipe, "stdout");
     let stderr_rx = read_pipe_to_end(stderr_pipe, "stderr");
 
@@ -103,10 +96,9 @@ fn execute_with_timeout(
     let child_shared = Arc::new(Mutex::new(child));
     let child_for_thread = Arc::clone(&child_shared);
 
-    let (tx, rx) = mpsc::channel::<std::result::Result<
-        (Vec<u8>, Vec<u8>, std::process::ExitStatus),
-        OrchestratorError,
-    >>();
+    let (tx, rx) = mpsc::channel::<
+        std::result::Result<(Vec<u8>, Vec<u8>, std::process::ExitStatus), OrchestratorError>,
+    >();
 
     std::thread::spawn(move || {
         let result = child_for_thread
@@ -117,12 +109,12 @@ fn execute_with_timeout(
                     .map_err(|e| OrchestratorError::launch_ctx("wait failed", e))
             })
             .and_then(|status| {
-                let stdout = stdout_rx
-                    .recv()
-                    .map_err(|_| OrchestratorError::Launch("stdout reader thread disconnected".into()))??;
-                let stderr = stderr_rx
-                    .recv()
-                    .map_err(|_| OrchestratorError::Launch("stderr reader thread disconnected".into()))??;
+                let stdout = stdout_rx.recv().map_err(|_| {
+                    OrchestratorError::Launch("stdout reader thread disconnected".into())
+                })??;
+                let stderr = stderr_rx.recv().map_err(|_| {
+                    OrchestratorError::Launch("stderr reader thread disconnected".into())
+                })??;
                 Ok((stdout, stderr, status))
             });
         let _ = tx.send(result);
@@ -177,6 +169,44 @@ fn run_with_timeout(
 
 // ─── Hidden execution (internal commands) ───────────────────────────
 
+/// Probe the system `PATH` for an executable by name.
+///
+/// On Windows, invokes `where.exe <name>` with `CREATE_NO_WINDOW` so no
+/// console window flashes. On other platforms, invokes `which <name>`.
+/// Returns the first matching path, or `None` if the probe fails or the
+/// executable is not found.
+///
+/// Use this helper instead of inlining `Command::new("where"/"which")`
+/// so that all probes share the same hidden-window + flag semantics.
+pub fn find_executable(name: &str) -> Option<PathBuf> {
+    #[cfg(windows)]
+    {
+        let mut cmd = Command::new("where");
+        cmd.arg(name).creation_flags(CREATE_NO_WINDOW);
+        let output = cmd.output().ok()?;
+        if !output.status.success() {
+            return None;
+        }
+        String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .next()
+            .map(|s| PathBuf::from(s.trim()))
+            .filter(|p| !p.as_os_str().is_empty())
+    }
+    #[cfg(not(windows))]
+    {
+        let output = Command::new("which").arg(name).output().ok()?;
+        if !output.status.success() {
+            return None;
+        }
+        String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .next()
+            .map(|s| PathBuf::from(s.trim()))
+            .filter(|p| !p.as_os_str().is_empty())
+    }
+}
+
 /// Run a command invisibly, capturing stdout and stderr.
 ///
 /// On Windows, sets `CREATE_NO_WINDOW` to prevent console/conhost windows
@@ -209,13 +239,95 @@ pub fn run_hidden(
     }
 }
 
-/// Run a command string through a shell invisibly, capturing stdout and stderr.
+/// Run a command on Windows via `cmd.exe /c` to get PATHEXT / alias /
+/// batch-file resolution when direct `CreateProcess` fails.
 ///
-/// On Windows, uses `powershell -Command` to ensure aliases and batch files are found.
-/// On Unix, uses `sh -c`.
+/// **IMPORTANT — this is not an injection-safe escape hatch.** Windows
+/// fundamentally passes a single command-line string to `CreateProcess`,
+/// so `cmd.exe` will re-tokenise metacharacters (`&`, `|`, `>`, `<`, `^`)
+/// that appear anywhere in the joined command line. This helper is
+/// appropriate **only** when `program` and `args` come from a closed
+/// set of trusted, hardcoded values (e.g. the `check_system_deps` tool
+/// list). For anything touched by user input, use [`run_hidden`]
+/// directly with a validated argv, or reject the input upstream.
+///
+/// The benefit over the deprecated [`run_hidden_shell`] is that callers
+/// no longer have to `format!(\"{program} {args}\")` themselves — that
+/// anti-pattern is now contained inside the trust boundary of this one
+/// function, which at least documents the constraint explicitly.
+///
+/// On non-Windows platforms this is an error — the direct
+/// [`run_hidden`] exec already resolves via `PATH` on POSIX.
+pub fn run_hidden_via_cmd(
+    program: &str,
+    args: &[&str],
+    cwd: Option<&Path>,
+    timeout_secs: Option<u64>,
+) -> Result<Output> {
+    #[cfg(windows)]
+    {
+        // cmd.exe /c <program> <arg1> <arg2> ... — each argv element is
+        // forwarded to cmd, which performs PATHEXT + alias resolution on
+        // `program` but does NOT re-tokenise subsequent args. This gives
+        // us the resolution benefit of a shell without the injection
+        // surface of passing a single concatenated command string.
+        let mut argv = Vec::with_capacity(args.len() + 2);
+        argv.push("/c");
+        argv.push(program);
+        argv.extend_from_slice(args);
+
+        let mut cmd = Command::new("cmd");
+        cmd.args(&argv);
+        if let Some(dir) = cwd {
+            cmd.current_dir(dir);
+        }
+        cmd.creation_flags(CREATE_NO_WINDOW);
+
+        match timeout_secs {
+            Some(timeout) => run_with_timeout(cmd, "cmd", &argv, timeout),
+            None => cmd.output().map_err(Into::into),
+        }
+    }
+
+    #[cfg(not(windows))]
+    {
+        let _ = (program, args, cwd, timeout_secs);
+        Err(OrchestratorError::Launch(
+            "run_hidden_via_cmd is Windows-only; use run_hidden on POSIX".into(),
+        ))
+    }
+}
+
+/// Run a shell script file invisibly, capturing stdout and stderr.
+///
+/// **WARNING — prefer [`run_hidden`] whenever possible.** Shell invocation
+/// is only appropriate when the command genuinely needs shell resolution
+/// (aliases, PATH lookup for built-in functions, or executing an explicit
+/// `.ps1`/`.sh` script). For everything else — and especially for any
+/// value that originated from user input — use [`run_hidden`] with an
+/// explicit `program` + argv slice.
+///
+/// Run a command through a shell, with `full_command` interpreted as a
+/// shell script string.
+///
+/// **DEPRECATED — DO NOT USE FOR NEW CODE.** Use [`run_hidden`] with an
+/// explicit `(program, &[args])` argv whenever possible. If you need to
+/// resolve Windows aliases / `PATHEXT` extensions (batch files,
+/// PowerShell functions), use [`run_hidden_via_cmd`] which passes the
+/// program and arguments as separate argv entries to `cmd.exe /c`
+/// without concatenation.
+///
+/// This function does **not** sanitise `full_command`; callers are
+/// responsible for ensuring it is not attacker-controlled. See the
+/// Phase 1A.4 audit in `docs/tech-debt-plan-revised-2026-04.md`.
+///
+/// On Windows, uses `powershell -Command`. On Unix, uses `sh -c`.
 ///
 /// If `timeout_secs` is `Some`, the process will be killed if it doesn't
 /// complete within that duration.
+#[deprecated(
+    note = "prefer run_hidden with explicit argv; use run_hidden_via_cmd on Windows for alias/PATHEXT resolution"
+)]
 pub fn run_hidden_shell(
     full_command: &str,
     cwd: Option<&Path>,
@@ -231,7 +343,9 @@ pub fn run_hidden_shell(
         cmd.creation_flags(CREATE_NO_WINDOW);
 
         match timeout_secs {
-            Some(timeout) => run_with_timeout(cmd, "powershell", &["-Command", full_command], timeout),
+            Some(timeout) => {
+                run_with_timeout(cmd, "powershell", &["-Command", full_command], timeout)
+            }
             None => cmd.output().map_err(Into::into),
         }
     }
@@ -370,13 +484,13 @@ pub fn spawn_detached_terminal(
 // ─── Windows: three-tier detached spawn ─────────────────────────────
 
 #[cfg(windows)]
-fn spawn_outside_job_win(
-    program: &str,
-    args: &[&str],
-    work_dir: &Path,
-) -> Result<u32> {
+fn spawn_outside_job_win(program: &str, args: &[&str], work_dir: &Path) -> Result<u32> {
     // Default to powershell if no program specified (e.g., "open terminal here")
-    let program = if program.is_empty() { "powershell" } else { program };
+    let program = if program.is_empty() {
+        "powershell"
+    } else {
+        program
+    };
 
     // Strategy 1: direct spawn with breakaway flag
     match Command::new(program)
@@ -389,7 +503,11 @@ fn spawn_outside_job_win(
         Err(e) if e.raw_os_error() == Some(5) => {
             tracing::debug!("CREATE_BREAKAWAY_FROM_JOB denied, falling back to WMI");
         }
-        Err(e) => return Err(OrchestratorError::Launch(format!("Failed to spawn terminal: {e}"))),
+        Err(e) => {
+            return Err(OrchestratorError::Launch(format!(
+                "Failed to spawn terminal: {e}"
+            )));
+        }
     }
 
     // Strategy 2: WMI Win32_Process.Create (runs via wmiprvse.exe, outside job)
@@ -582,8 +700,7 @@ impl<W: std::io::Write> Base64Encoder<W> {
     }
 
     fn encode_block(&mut self) -> std::io::Result<()> {
-        const CHARS: &[u8] =
-            b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
         let b = &self.buf;
         let out = match self.len {
             3 => [
@@ -637,8 +754,12 @@ impl<W: std::io::Write> std::io::Write for Base64Encoder<W> {
 /// Validate that an environment variable name contains only safe characters.
 /// Prevents shell injection via env var names in constructed commands.
 pub(crate) fn validate_env_var_name(name: &str) -> Result<()> {
-    crate::validation::validate_identifier(name, crate::validation::ENV_VAR_RULES, "Environment variable name")
-        .map_err(OrchestratorError::Launch)
+    crate::validation::validate_identifier(
+        name,
+        crate::validation::ENV_VAR_RULES,
+        "Environment variable name",
+    )
+    .map_err(OrchestratorError::Launch)
 }
 
 // ─── Shell quoting ──────────────────────────────────────────────────
@@ -727,6 +848,7 @@ mod tests {
         let result = run_hidden("sleep", &["10"], None, Some(1));
 
         #[cfg(windows)]
+        #[allow(deprecated)] // test-only; exercises the deprecated API's timeout path
         let result = run_hidden_shell("Start-Sleep -Seconds 10", None, Some(1));
 
         assert!(result.is_err());
@@ -749,7 +871,10 @@ mod tests {
 
         // Should NOT be a timeout error
         let err_msg = result.unwrap_err().to_string();
-        assert!(!err_msg.contains("timed out"), "Should not report timeout for quick failure");
+        assert!(
+            !err_msg.contains("timed out"),
+            "Should not report timeout for quick failure"
+        );
         assert!(err_msg.contains("failed"), "Should report command failure");
     }
 
@@ -769,7 +894,10 @@ mod tests {
     fn test_very_short_timeout() {
         // 1 second timeout should be enough for git --version
         let result = run_hidden("git", &["--version"], None, Some(1));
-        assert!(result.is_ok(), "Fast command should complete within 1s timeout");
+        assert!(
+            result.is_ok(),
+            "Fast command should complete within 1s timeout"
+        );
     }
 
     #[test]
@@ -778,15 +906,85 @@ mod tests {
         let result = run_hidden("sleep", &["5"], None, Some(1));
 
         #[cfg(windows)]
+        #[allow(deprecated)] // test-only; exercises the deprecated API's timeout path
         let result = run_hidden_shell("Start-Sleep -Seconds 5", None, Some(1));
 
         assert!(result.is_err());
         let err_msg = result.unwrap_err().to_string();
 
         // Verify error message contains key information
-        assert!(err_msg.contains("timed out"), "Error should mention timeout");
-        assert!(err_msg.contains("1s"), "Error should mention timeout duration");
-        assert!(err_msg.contains("Check system resources"), "Error should be actionable");
+        assert!(
+            err_msg.contains("timed out"),
+            "Error should mention timeout"
+        );
+        assert!(
+            err_msg.contains("1s"),
+            "Error should mention timeout duration"
+        );
+        assert!(
+            err_msg.contains("Check system resources"),
+            "Error should be actionable"
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn test_run_hidden_via_cmd_resolves_aliases() {
+        // `where` is a cmd-builtin — direct CreateProcess can't find it, but
+        // cmd.exe /c can. This exercises the alias/PATHEXT fallback path.
+        let out = run_hidden_via_cmd("where", &["cmd"], None, Some(5));
+        assert!(
+            out.is_ok(),
+            "run_hidden_via_cmd should resolve cmd builtins"
+        );
+        let out = out.unwrap();
+        assert!(out.status.success());
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        assert!(
+            stdout.to_lowercase().contains("cmd.exe"),
+            "expected cmd path in stdout, got: {stdout}"
+        );
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn test_run_hidden_via_cmd_errors_on_posix() {
+        let result = run_hidden_via_cmd("true", &[], None, None);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_find_executable_missing_returns_none() {
+        // A name that almost certainly isn't on PATH on any platform.
+        let result = find_executable("tracepilot-definitely-does-not-exist-xyz");
+        assert!(result.is_none(), "expected None for missing executable");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn test_find_executable_locates_cmd() {
+        // `cmd.exe` is always on PATH on Windows.
+        let result = find_executable("cmd");
+        let path = result.expect("expected to locate cmd on PATH");
+        let display = path.to_string_lossy().to_lowercase();
+        assert!(
+            display.ends_with("cmd.exe") || display.ends_with("cmd"),
+            "expected cmd path, got {}",
+            path.display()
+        );
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn test_find_executable_locates_sh() {
+        // `sh` is universally present on POSIX systems.
+        let result = find_executable("sh");
+        let path = result.expect("expected to locate sh on PATH");
+        assert!(
+            path.is_absolute() || path.exists(),
+            "expected absolute or existing path for sh, got {}",
+            path.display()
+        );
     }
 
     #[cfg(windows)]

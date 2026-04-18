@@ -1,0 +1,716 @@
+/**
+ * Shared styles for the Preset Manager feature.
+ *
+ * These are cross-cutting utilities consumed by multiple children
+ * (PresetStatsStrip, PresetFilterBar, PresetGrid, PresetList, and the
+ * modal family). Imported globally from PresetManagerView.vue so the
+ * class names cascade into children without needing to duplicate per
+ * scoped-style block. Layout-specific rules stay inside each child.
+ */
+
+/* ── Page Header ─────────────────────────────────────────── */
+.preset-manager-header {
+  margin-bottom: 4px;
+}
+
+/* ── Buttons ─────────────────────────────────────────────── */
+.preset-manager .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: var(--radius-md);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+  font-family: inherit;
+}
+
+.preset-manager .btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.preset-manager .btn--primary {
+  background: var(--gradient-accent, var(--accent-emphasis));
+  border: 1px solid transparent;
+  color: var(--text-on-emphasis);
+  font-weight: 600;
+  box-shadow: 0 1px 6px var(--accent-muted);
+}
+
+.preset-manager .btn--primary:hover:not(:disabled) {
+  box-shadow: 0 3px 14px var(--accent-muted);
+  transform: translateY(-1px);
+}
+
+.preset-manager .btn--primary:active {
+  transform: translateY(0);
+}
+
+.preset-manager .btn--primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.preset-manager .btn--secondary {
+  background: var(--canvas-default, var(--canvas-subtle));
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+}
+
+.preset-manager .btn--secondary:hover {
+  color: var(--text-primary);
+  border-color: var(--accent-fg);
+  background: var(--accent-subtle, var(--canvas-inset));
+}
+
+.preset-manager .btn--ghost {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-tertiary);
+}
+
+.preset-manager .btn--ghost:hover:not(:disabled) {
+  color: var(--text-secondary);
+  background: var(--canvas-subtle);
+  border-color: var(--border-default);
+}
+
+.preset-manager .btn--ghost:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.preset-manager .btn--danger {
+  background: var(--danger-emphasis);
+  border: 1px solid transparent;
+  color: var(--text-on-emphasis);
+  font-weight: 600;
+}
+
+.preset-manager .btn--danger:hover {
+  opacity: 0.9;
+  box-shadow: 0 2px 10px var(--danger-muted);
+}
+
+.preset-manager .btn--accent {
+  background: var(--accent-muted);
+  border: 1px solid var(--accent-muted);
+  color: var(--accent-fg);
+  font-weight: 600;
+}
+
+.preset-manager .btn--accent:hover:not(:disabled) {
+  background: var(--accent-muted);
+  border-color: var(--accent-fg);
+}
+
+.preset-manager .btn--sm {
+  padding: 4px 10px;
+  font-size: 0.75rem;
+}
+
+/* ── Badge ───────────────────────────────────────────────── */
+.preset-manager .badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.preset-manager .badge--builtin {
+  background: var(--done-subtle);
+  color: var(--done-fg);
+  border: 1px solid var(--done-muted);
+}
+
+.preset-manager .badge--type {
+  background: color-mix(in srgb, var(--type-color, var(--accent-fg)) 12%, transparent);
+  color: var(--type-color, var(--accent-fg));
+  border: 1px solid color-mix(in srgb, var(--type-color, var(--accent-fg)) 20%, transparent);
+}
+
+.preset-manager .type-color-accent { --type-color: var(--accent-fg); color: var(--accent-fg); }
+.preset-manager .type-color-success { --type-color: var(--success-fg); color: var(--success-fg); }
+.preset-manager .type-color-warning { --type-color: var(--warning-fg); color: var(--warning-fg); }
+.preset-manager .type-color-danger { --type-color: var(--danger-fg); color: var(--danger-fg); }
+.preset-manager .type-color-info { --type-color: var(--accent-fg); color: var(--accent-fg); }
+
+.preset-manager .badge--version {
+  background: var(--accent-muted);
+  color: var(--accent-fg);
+  font-variant-numeric: tabular-nums;
+}
+
+.preset-manager .badge--sm {
+  padding: 1px 6px;
+  font-size: 0.5625rem;
+}
+
+.preset-manager .badge--inline {
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+/* ── Tag Pill ────────────────────────────────────────────── */
+.preset-manager .tag-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 0.625rem;
+  font-weight: 500;
+  color: var(--accent-fg);
+  background: var(--accent-muted);
+  border: 1px solid var(--accent-subtle);
+}
+
+.preset-manager .tag-pill--more {
+  background: transparent;
+  border-style: dashed;
+  color: var(--text-tertiary);
+}
+
+.preset-manager .tag-pill--sm {
+  padding: 1px 6px;
+  font-size: 0.5625rem;
+}
+
+/* ── Toggle Switch ───────────────────────────────────────── */
+.preset-manager .toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.preset-manager .toggle input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.preset-manager .toggle__slider {
+  width: 34px;
+  height: 18px;
+  background: var(--canvas-inset);
+  border: 1px solid var(--border-default);
+  border-radius: 9999px;
+  position: relative;
+  transition: all var(--transition-fast);
+}
+
+.preset-manager .toggle__slider::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  background: var(--text-tertiary);
+  border-radius: 50%;
+  transition: all var(--transition-fast);
+}
+
+.preset-manager .toggle input:checked + .toggle__slider {
+  background: var(--accent-emphasis);
+  border-color: var(--accent-emphasis);
+}
+
+.preset-manager .toggle input:checked + .toggle__slider::after {
+  left: 18px;
+  background: var(--text-on-emphasis);
+}
+
+/* ── State Messages ──────────────────────────────────────── */
+.preset-manager .state-message {
+  text-align: center;
+  padding: 40px 20px;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.preset-manager .state-message--error {
+  color: var(--danger-fg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+/* ── Empty State ─────────────────────────────────────────── */
+.preset-manager .empty-state {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.preset-manager .empty-state__icon {
+  font-size: 3rem;
+  margin-bottom: 12px;
+}
+
+.preset-manager .empty-state__title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 6px;
+}
+
+.preset-manager .empty-state__desc {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin: 0 0 20px;
+}
+
+.preset-manager .empty-state__actions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+/* ── Modal ───────────────────────────────────────────────── */
+.preset-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--backdrop-color);
+  backdrop-filter: blur(4px);
+}
+
+.preset-modal {
+  width: 440px;
+  max-width: 90vw;
+  background: var(--canvas-default);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-default);
+  box-shadow: var(--shadow-lg);
+}
+
+.preset-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-muted);
+}
+
+.preset-modal__title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.preset-modal__close {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 4px;
+}
+
+.preset-modal__close:hover {
+  color: var(--text-primary);
+}
+
+.preset-modal__body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.preset-modal__label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.preset-modal__input {
+  padding: 8px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--canvas-subtle);
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.preset-modal__input:focus {
+  border-color: var(--accent-fg);
+}
+
+.preset-modal__input--readonly {
+  color: var(--text-tertiary);
+  cursor: default;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.75rem;
+}
+
+.preset-modal__textarea {
+  padding: 8px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--canvas-subtle);
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  outline: none;
+  font-family: inherit;
+  resize: vertical;
+  transition: border-color var(--transition-fast);
+}
+
+.preset-modal__textarea:focus {
+  border-color: var(--accent-fg);
+}
+
+.preset-modal__textarea--code {
+  font-family: var(--font-mono, "JetBrains Mono", "Fira Code", monospace);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  tab-size: 2;
+  background: var(--canvas-default);
+  border-color: var(--border-muted);
+}
+
+.preset-modal__hint {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  margin: 8px 0 0;
+  font-style: italic;
+}
+
+.preset-modal__validation-hint {
+  font-size: 0.75rem;
+  color: var(--danger-fg);
+  margin: 2px 0 0;
+}
+
+.preset-modal__optional {
+  font-weight: 400;
+  color: var(--text-tertiary);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.preset-modal__confirm-text {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.preset-modal__confirm-text strong {
+  color: var(--text-primary);
+}
+
+.preset-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border-muted);
+}
+
+.preset-modal--wide {
+  width: 720px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.preset-modal--wide .preset-modal__body {
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* Buttons inside modals (modals render outside .preset-manager). */
+.preset-modal .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: var(--radius-md);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+  font-family: inherit;
+}
+
+.preset-modal .btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.preset-modal .btn--primary {
+  background: var(--gradient-accent, var(--accent-emphasis));
+  border: 1px solid transparent;
+  color: var(--text-on-emphasis);
+  font-weight: 600;
+  box-shadow: 0 1px 6px var(--accent-muted);
+}
+
+.preset-modal .btn--primary:hover:not(:disabled) {
+  box-shadow: 0 3px 14px var(--accent-muted);
+  transform: translateY(-1px);
+}
+
+.preset-modal .btn--primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.preset-modal .btn--secondary {
+  background: var(--canvas-default, var(--canvas-subtle));
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+}
+
+.preset-modal .btn--secondary:hover {
+  color: var(--text-primary);
+  border-color: var(--accent-fg);
+  background: var(--accent-subtle, var(--canvas-inset));
+}
+
+.preset-modal .btn--ghost {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-tertiary);
+}
+
+.preset-modal .btn--ghost:hover:not(:disabled) {
+  color: var(--text-secondary);
+  background: var(--canvas-subtle);
+  border-color: var(--border-default);
+}
+
+.preset-modal .btn--danger {
+  background: var(--danger-emphasis);
+  border: 1px solid transparent;
+  color: var(--text-on-emphasis);
+  font-weight: 600;
+}
+
+.preset-modal .btn--danger:hover {
+  opacity: 0.9;
+  box-shadow: 0 2px 10px var(--danger-muted);
+}
+
+.preset-modal .btn--sm {
+  padding: 4px 10px;
+  font-size: 0.75rem;
+}
+
+.preset-modal .btn--xs {
+  padding: 2px 8px;
+  font-size: 0.6875rem;
+}
+
+.preset-modal .btn--danger-ghost {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--danger-fg);
+  padding: 2px 8px;
+  font-size: 0.6875rem;
+}
+
+.preset-modal .btn--danger-ghost:hover {
+  background: var(--danger-subtle, var(--canvas-subtle));
+}
+
+/* ── Edit Preset Modal — internal layout ─────────────────── */
+.preset-modal .edit-body {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.preset-modal .edit-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.preset-modal .edit-section__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.preset-modal .edit-section__icon {
+  font-size: 0.8125rem;
+  line-height: 1;
+}
+
+.preset-modal .edit-section__title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--accent-fg);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0;
+}
+
+.preset-modal .edit-section__divider {
+  height: 1px;
+  background: var(--border-default);
+  margin: -4px 0 4px;
+}
+
+.preset-modal .edit-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.preset-modal .edit-grid--2col {
+  grid-template-columns: 1fr 1fr;
+}
+
+.preset-modal .edit-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+}
+
+.preset-modal .edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.preset-modal .ctx-sources-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.preset-modal .ctx-sources-empty {
+  padding: 12px;
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  font-style: italic;
+  text-align: center;
+  border: 1px dashed var(--border-muted);
+  border-radius: var(--radius-md);
+}
+
+.preset-modal .ctx-source-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--canvas-subtle);
+  margin-top: 8px;
+}
+
+.preset-modal .ctx-source-top {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.preset-modal .ctx-source-required {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.preset-modal .ctx-source-desc {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.preset-modal .ctx-source-hint {
+  font-size: 0.6875rem;
+  color: var(--warning-fg);
+  margin: 0;
+}
+
+.preset-modal .ctx-source-hint code {
+  font-family: var(--font-mono, monospace);
+  background: var(--canvas-inset);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.preset-modal .ctx-source-config {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  background: var(--canvas-default);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-muted);
+}
+
+.preset-modal .ctx-source-config--custom {
+  border-style: dashed;
+}
+
+.preset-modal .ctx-schema-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.preset-modal .ctx-schema-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.preset-modal .ctx-schema-hint {
+  font-weight: 400;
+  color: var(--text-tertiary);
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.6875rem;
+}
+
+.preset-modal .ctx-kv-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.preset-modal .ctx-add-key {
+  align-self: flex-start;
+}

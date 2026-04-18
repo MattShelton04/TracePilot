@@ -24,7 +24,14 @@ fn load_cached_typed_events(
     cache: &EventCache,
     session_id: &str,
     events_path: &Path,
-) -> Result<(Arc<Vec<tracepilot_core::parsing::events::TypedEvent>>, u64, Option<std::time::SystemTime>), BindingsError> {
+) -> Result<
+    (
+        Arc<Vec<tracepilot_core::parsing::events::TypedEvent>>,
+        u64,
+        Option<std::time::SystemTime>,
+    ),
+    BindingsError,
+> {
     let meta = std::fs::metadata(events_path).ok();
     let file_size = meta.as_ref().map_or(0, |m| m.len());
     let file_mtime = meta.and_then(|m| m.modified().ok());
@@ -66,6 +73,7 @@ fn load_cached_typed_events(
 }
 
 #[tauri::command]
+#[specta::specta]
 #[tracing::instrument(skip_all)]
 pub async fn list_sessions(
     state: tauri::State<'_, SharedConfig>,
@@ -175,6 +183,7 @@ pub async fn get_session_detail(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, level = "debug", err, fields(session_id = %session_id))]
 pub async fn get_session_incidents(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,
@@ -247,7 +256,8 @@ pub async fn get_session_turns(
             (
                 lru.get(&session_id)
                     .filter(|cached| {
-                        cached.events_file_size == file_size && cached.events_file_mtime == file_mtime
+                        cached.events_file_size == file_size
+                            && cached.events_file_mtime == file_mtime
                     })
                     .map(|cached| cached.turns.clone()),
                 file_size,
@@ -293,6 +303,7 @@ pub async fn get_session_turns(
 
 /// Lightweight freshness probe— returns just the events.jsonl file size.
 #[tauri::command]
+#[specta::specta]
 pub async fn check_session_freshness(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,
@@ -373,6 +384,7 @@ pub async fn get_session_events(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, level = "debug", err, fields(session_id = %session_id))]
 pub async fn get_session_todos(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,
@@ -387,6 +399,7 @@ pub async fn get_session_todos(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, level = "debug", err, fields(session_id = %session_id))]
 pub async fn get_session_checkpoints(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,
@@ -408,6 +421,7 @@ pub async fn get_session_checkpoints(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, level = "debug", err, fields(session_id = %session_id))]
 pub async fn get_session_plan(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,
@@ -485,7 +499,8 @@ pub async fn resume_session_in_terminal(
     // Validate UUID format (also prevents command injection via session_id)
     crate::validators::validate_session_id(&session_id)?;
 
-    let cli = cli_command.unwrap_or_else(|| "copilot".to_string());
+    let cli =
+        cli_command.unwrap_or_else(|| tracepilot_core::constants::DEFAULT_CLI_COMMAND.to_string());
 
     // Sanitize CLI command: allow only alphanumeric, hyphens, underscores, dots, slashes, spaces.
     // Colon is needed for Windows drive letters (e.g., C:\path\to\copilot).
@@ -675,8 +690,9 @@ mod tests {
             "2025-01-01T00:00:02.000Z",
         );
 
-        let (second, second_size, _second_mtime) = load_cached_typed_events(&cache, "session-a", &events_path)
-            .expect("reload after append");
+        let (second, second_size, _second_mtime) =
+            load_cached_typed_events(&cache, "session-a", &events_path)
+                .expect("reload after append");
 
         assert!(second_size > first_size);
         assert_eq!(second.len(), 3);

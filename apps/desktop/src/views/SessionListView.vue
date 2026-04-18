@@ -17,6 +17,8 @@ import { useRouter } from "vue-router";
 import RefreshToolbar from "@/components/RefreshToolbar.vue";
 import { useIndexingEvents } from "@/composables/useIndexingEvents";
 import { usePerfMonitor } from "@/composables/usePerfMonitor";
+import { ROUTE_NAMES } from "@/config/routes";
+import { pushRoute } from "@/router/navigation";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { type SortOption, useSessionsStore } from "@/stores/sessions";
@@ -127,7 +129,7 @@ function openSession(event: MouseEvent, sessionId: string, label: string) {
     return;
   }
   // Default click → route-based navigation (legacy)
-  router.push({ name: "session-overview", params: { id: sessionId } });
+  pushRoute(router, ROUTE_NAMES.sessionOverview, { params: { id: sessionId } });
 }
 </script>
 
@@ -255,7 +257,7 @@ function openSession(event: MouseEvent, sessionId: string, label: string) {
                 {{ session.compactionCount }}
               </span>
             </div>
-            <span class="card-time-new" :title="session.updatedAt">{{ formatRelativeTime(session.updatedAt) }}</span>
+            <span class="card-time-new" :title="session.updatedAt ?? undefined">{{ formatRelativeTime(session.updatedAt) }}</span>
           </div>
         </div>
       </div>

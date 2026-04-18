@@ -8,6 +8,11 @@ export interface SegmentOption {
 defineProps<{
   modelValue: string;
   options: SegmentOption[];
+  /**
+   * Corner rounding. `pill` renders fully-rounded ("pill") options — used for
+   * category filters. Default `square` preserves the current 6px radius.
+   */
+  rounded?: "square" | "pill";
 }>();
 
 const emit = defineEmits<{
@@ -16,12 +21,16 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div class="segmented-control" role="radiogroup">
+  <div
+    class="segmented-control"
+    :class="{ 'segmented-control--pill': rounded === 'pill' }"
+    role="radiogroup"
+  >
     <button
       v-for="opt in options"
       :key="opt.value"
       class="segment-btn"
-      :class="{ active: modelValue === opt.value }"
+      :class="{ active: modelValue === opt.value, 'segment-btn--pill': rounded === 'pill' }"
       role="radio"
       :aria-checked="modelValue === opt.value"
       @click="emit('update:modelValue', opt.value)"
@@ -71,5 +80,13 @@ const emit = defineEmits<{
 }
 .segment-btn:not(.active) .segment-count {
   background: var(--neutral-muted);
+}
+.segmented-control--pill {
+  border-radius: 999px;
+  padding: 3px;
+}
+.segment-btn--pill {
+  border-radius: 999px;
+  padding: 4px 14px;
 }
 </style>

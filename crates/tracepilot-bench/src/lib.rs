@@ -414,10 +414,9 @@ pub fn generate_analytics_inputs(
 
         let summary =
             tracepilot_core::summary::load_session_summary(&session_dir).expect("load summary");
-        let parsed = tracepilot_core::parsing::events::parse_typed_events(
-            &session_dir.join("events.jsonl"),
-        )
-        .expect("parse events");
+        let parsed =
+            tracepilot_core::parsing::events::parse_typed_events(&session_dir.join("events.jsonl"))
+                .expect("parse events");
         let turns = tracepilot_core::turns::reconstruct_turns(&parsed.events);
 
         inputs.push(tracepilot_core::analytics::SessionAnalyticsInput {
@@ -500,7 +499,11 @@ pub fn create_varied_session_fixture(session_count: usize) -> (TempDir, PathBuf)
                 make_workspace_yaml(&session_id, idx),
             )
             .unwrap();
-            std::fs::write(session_dir.join("events.jsonl"), builder.build_jsonl_string()).unwrap();
+            std::fs::write(
+                session_dir.join("events.jsonl"),
+                builder.build_jsonl_string(),
+            )
+            .unwrap();
 
             idx += 1;
         }

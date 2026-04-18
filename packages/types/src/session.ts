@@ -3,24 +3,30 @@
 // assessment, shutdown metrics, and session artifacts (todos, plans,
 // checkpoints).
 
-/** Session list item (enriched from workspace.yaml + events) */
+/**
+ * Session list item (enriched from workspace.yaml + events)
+ *
+ * Mirrored by src/generated/bindings.ts as of wave 21 — keep in sync or
+ * delete this interface once the full cutover lands.
+ */
 export interface SessionListItem {
   id: string;
-  summary?: string;
-  repository?: string;
-  branch?: string;
-  hostType?: string;
-  createdAt?: string;
-  updatedAt?: string;
-  eventCount?: number;
-  turnCount?: number;
-  currentModel?: string;
+  summary?: string | null;
+  repository?: string | null;
+  branch?: string | null;
+  cwd?: string | null;
+  hostType?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  eventCount?: number | null;
+  turnCount?: number | null;
+  currentModel?: string | null;
   /** Whether this session is currently running (has an `inuse.*.lock` file). */
   isRunning: boolean;
-  errorCount?: number;
-  rateLimitCount?: number;
-  compactionCount?: number;
-  truncationCount?: number;
+  errorCount?: number | null;
+  rateLimitCount?: number | null;
+  compactionCount?: number | null;
+  truncationCount?: number | null;
 }
 
 /** A session incident (error, rate limit, compaction, or truncation). */

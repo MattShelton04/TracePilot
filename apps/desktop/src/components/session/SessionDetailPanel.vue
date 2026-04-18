@@ -22,6 +22,7 @@ import { computed, onMounted, ref, watch } from "vue";
 import type { Router } from "vue-router";
 import RefreshToolbar from "@/components/RefreshToolbar.vue";
 import type { SessionDetailContext } from "@/composables/useSessionDetail";
+import { useWindowRole } from "@/composables/useWindowRole";
 import { usePreferencesStore } from "@/stores/preferences";
 import { logError } from "@/utils/logger";
 
@@ -49,6 +50,7 @@ const emit = defineEmits<{
 }>();
 
 const prefs = usePreferencesStore();
+const { isViewer } = useWindowRole();
 const resolvedSessionId = computed(() => props.store.detail?.id ?? props.sessionId);
 const { copy, copied } = useClipboard();
 
@@ -232,21 +234,23 @@ watch(isSessionActive, (active) => {
             {{ copied ? '✓ Copied!' : '📋 Copy Resume Command' }}
           </button>
 
-          <template v-if="confirmingResume">
-            <span class="resume-warning">⚠ Session is active elsewhere</span>
-            <button class="resume-btn resume-btn--confirm" @click="resumeInTerminal">
-              Resume Anyway
+          <template v-if="!isViewer()">
+            <template v-if="confirmingResume">
+              <span class="resume-warning">⚠ Session is active elsewhere</span>
+              <button class="resume-btn resume-btn--confirm" @click="resumeInTerminal">
+                Resume Anyway
+              </button>
+              <button class="resume-btn resume-btn--cancel" @click="cancelResume">Cancel</button>
+            </template>
+            <button
+              v-else
+              class="resume-btn"
+              @click="resumeInTerminal"
+              :title="`Resume session ${sessionId} in a new terminal`"
+            >
+              ▶ Resume in Terminal
             </button>
-            <button class="resume-btn resume-btn--cancel" @click="cancelResume">Cancel</button>
           </template>
-          <button
-            v-else
-            class="resume-btn"
-            @click="resumeInTerminal"
-            :title="`Resume session ${sessionId} in a new terminal`"
-          >
-            ▶ Resume in Terminal
-          </button>
 
           <button
             v-if="prefs.isFeatureEnabled('sessionReplay') && router"
@@ -258,6 +262,7 @@ watch(isSessionActive, (active) => {
           </button>
 
           <button
+            v-if="!isViewer()"
             class="resume-btn"
             @click="openSessionFolder"
             title="Open session state folder in file explorer"

@@ -3,8 +3,7 @@ import { checkConfigExists, getConfig, saveConfig } from "@tracepilot/client";
 import { ConfirmDialog, ToastContainer } from "@tracepilot/ui";
 import { computed, onMounted, provide, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import ErrorBoundary from "@/components/ErrorBoundary.vue";
-import IndexingLoadingScreen from "@/components/IndexingLoadingScreen.vue";
+import ErrorBoundary from "@/components/ErrorBoundary.vue";import IndexingLoadingScreen from "@/components/IndexingLoadingScreen.vue";
 import AlertCenterDrawer from "@/components/layout/AlertCenterDrawer.vue";
 import AppSidebar from "@/components/layout/AppSidebar.vue";
 import BreadcrumbNav from "@/components/layout/BreadcrumbNav.vue";
@@ -15,11 +14,15 @@ import SetupWizard from "@/components/SetupWizard.vue";
 import UpdateInstructionsModal from "@/components/UpdateInstructionsModal.vue";
 import WhatsNewModal from "@/components/WhatsNewModal.vue";
 import { initAppVersion, useAppVersion } from "@/composables/useAppVersion";
+import { useBreadcrumbs } from "@/composables/useBreadcrumbs";
 import { runUpdateCheck } from "@/composables/useUpdateCheck";
 import { useAlertWatcher } from "@/composables/useAlertWatcher";
 import { registerNotificationClickHandler } from "@/composables/useAlertDispatcher";
 import { resolveWindowRole, useWindowRole } from "@/composables/useWindowRole";
 import { useWhatsNew } from "@/composables/useWhatsNew";
+import { useWindowLifecycle } from "@/composables/useWindowLifecycle";
+import { pushRoute } from "@/router/navigation";
+import { ROUTE_NAMES } from "@/config/routes";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSessionsStore } from "@/stores/sessions";
 import { useSessionTabsStore } from "@/stores/sessionTabs";
@@ -41,7 +44,19 @@ const expectedSessionCount = ref(0);
 const showUpdateModal = ref(false);
 let alertInitDone = false;
 
-/** Idempotent: start alert watcher + notification handler + window lifecycle (main only) */
+// Window + event listener ownership lives in a dedicated composable so HMR
+// and window teardown can release the handles (Phase 1A.7).  MUST be invoked
+// synchronously from <script setup> so `onScopeDispose` attaches correctly
+// — the composable itself gates on `enabled` so it is cheap to install
+// unconditionally and takes effect once the window role resolves.
+useWindowLifecycle({
+  enabled: () => isMain(),
+  onPopupClosed: (sessionId) => {
+    tabStore.unregisterPopup(sessionId);
+  },
+});
+
+/** Idempotent: start alert watcher + notification handler (main only) */
 function initAlertSystem() {
   if (!isMain() || alertInitDone) return;
 
@@ -52,30 +67,7 @@ function initAlertSystem() {
     logInfo("[app] Alert system initialized successfully");
   } catch (e) {
     logError("[app] Alert system initialization failed:", e);
-    return;
   }
-
-  // Close all viewer windows when the main window is closed
-  import("@tauri-apps/api/window").then(({ getCurrentWindow, getAllWindows }) => {
-    const mainWin = getCurrentWindow();
-    mainWin.onCloseRequested(async (event) => {
-      event.preventDefault();
-      try {
-        const all = await getAllWindows();
-        await Promise.allSettled(
-          all.filter((w) => w.label.startsWith("viewer-")).map((w) => w.close()),
-        );
-      } catch { /* best-effort */ }
-      await mainWin.destroy();
-    });
-  }).catch(() => {});
-
-  // Listen for popup window close events to update monitored session set
-  import("@tauri-apps/api/event").then(({ listen }) => {
-    listen<{ sessionId: string }>("popup-session-closed", (event) => {
-      tabStore.unregisterPopup(event.payload.sessionId);
-    });
-  }).catch(() => {});
 }
 
 const {
@@ -128,6 +120,9 @@ onMounted(async () => {
   } catch {
     phase.value = "app";
     sessionsStore.fetchSessions();
+    // Even on config-read failure, the main window must still own its
+    // listeners — otherwise the close-cascade + popup cleanup never arms.
+    initAlertSystem();
     (window as unknown as Record<string, unknown>).__TRACEPILOT_READY__ = true;
   }
 });
@@ -222,7 +217,7 @@ watch(
     if (tab && !isSessionRoute.value) {
       // Suppress the route watcher so it doesn't immediately deactivate
       suppressTabDeactivation = true;
-      router.push("/").finally(() => {
+      pushRoute(router, ROUTE_NAMES.sessions).finally(() => {
         suppressTabDeactivation = false;
       });
     }
@@ -231,43 +226,10 @@ watch(
 
 function onTabGoHome() {
   tabStore.deactivateAll();
-  router.push("/");
+  pushRoute(router, ROUTE_NAMES.sessions);
 }
 
-const breadcrumbs = computed(() => {
-  const crumbs: { label: string; to?: string }[] = [{ label: "Sessions", to: "/" }];
-
-  // Tab mode: breadcrumbs reflect the active tab
-  if (isTabViewActive.value) {
-    const tab = tabStore.activeTab!;
-    crumbs.push({ label: tab.label });
-    return crumbs;
-  }
-
-  if (route.name === "sessions" || route.name === "not-found") {
-    return [{ label: "Sessions" }];
-  }
-
-  // Session detail pages (legacy route mode)
-  if (route.params.id) {
-    const detail = sessionsStore.sessions.find((s) => s.id === route.params.id);
-    const sessionLabel =
-      detail?.summary?.slice(0, 40) || `Session ${String(route.params.id).slice(0, 8)}`;
-    crumbs.push({ label: sessionLabel, to: `/session/${route.params.id}/overview` });
-
-    if (route.meta?.title && route.meta.title !== "Session Detail") {
-      crumbs.push({ label: route.meta.title as string });
-    }
-    return crumbs;
-  }
-
-  // Top-level pages
-  if (route.meta?.title) {
-    return [{ label: route.meta.title as string }];
-  }
-
-  return crumbs;
-});
+const { breadcrumbs } = useBreadcrumbs(isTabViewActive);
 </script>
 
 <template>

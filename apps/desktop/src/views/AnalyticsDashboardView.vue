@@ -205,22 +205,34 @@ const {
 
           <!-- Incident Stats -->
           <div class="grid-4 mb-4">
-            <div class="stat-card stat-card--incident-error">
-              <div class="stat-card-value">{{ formatNumberFull(data.sessionsWithErrors) }}</div>
-              <div class="stat-card-label">Sessions with Errors</div>
-            </div>
-            <div class="stat-card stat-card--incident-ratelimit">
-              <div class="stat-card-value">{{ formatNumberFull(data.totalRateLimits) }}</div>
-              <div class="stat-card-label">Total Rate Limits</div>
-            </div>
-            <div class="stat-card stat-card--incident-compaction">
-              <div class="stat-card-value">{{ formatNumberFull(data.totalCompactions) }}</div>
-              <div class="stat-card-label">Total Compactions</div>
-            </div>
-            <div class="stat-card stat-card--incident-truncation">
-              <div class="stat-card-value">{{ formatNumberFull(data.totalTruncations) }}</div>
-              <div class="stat-card-label">Total Truncations</div>
-            </div>
+            <StatCard
+              class="stat-card--incident-error"
+              variant="plain"
+              accent-color="var(--danger-fg)"
+              :value="formatNumberFull(data.sessionsWithErrors)"
+              label="Sessions with Errors"
+            />
+            <StatCard
+              class="stat-card--incident-ratelimit"
+              variant="plain"
+              accent-color="var(--warning-fg)"
+              :value="formatNumberFull(data.totalRateLimits)"
+              label="Total Rate Limits"
+            />
+            <StatCard
+              class="stat-card--incident-compaction"
+              variant="plain"
+              accent-color="var(--chart-secondary)"
+              :value="formatNumberFull(data.totalCompactions)"
+              label="Total Compactions"
+            />
+            <StatCard
+              class="stat-card--incident-truncation"
+              variant="plain"
+              accent-color="var(--text-tertiary)"
+              :value="formatNumberFull(data.totalTruncations)"
+              label="Total Truncations"
+            />
           </div>
 
           <!-- API Duration Stats + Productivity Metrics -->
@@ -685,22 +697,18 @@ const {
 }
 
 .stat-card--incident-error {
-  border-left: 3px solid var(--danger-fg);
   background: color-mix(in srgb, var(--danger-fg) 6%, var(--canvas-subtle));
 }
 
 .stat-card--incident-ratelimit {
-  border-left: 3px solid var(--warning-fg);
   background: color-mix(in srgb, var(--warning-fg) 6%, var(--canvas-subtle));
 }
 
 .stat-card--incident-compaction {
-  border-left: 3px solid var(--chart-secondary);
   background: color-mix(in srgb, var(--chart-secondary) 6%, var(--canvas-subtle));
 }
 
 .stat-card--incident-truncation {
-  border-left: 3px solid var(--text-tertiary);
   background: color-mix(in srgb, var(--text-tertiary) 6%, var(--canvas-subtle));
 }
 

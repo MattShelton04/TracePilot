@@ -1,0 +1,31 @@
+{
+  "$schema": "../gen/schemas/windows-schema.json",
+  "identifier": "viewer",
+  "description": "Read-only permission set for viewer (pop-out session detail) windows. Phase 1A.1 of the tech-debt plan: before this split, viewer-* windows inherited the main capability and could invoke destructive commands (factory_reset, save_config, sdk_send_message, launch_session, skills_*, mcp_*, task_*, etc.). This capability whitelists only the read-only session-viewing commands actually reached from ChildApp.vue → SessionDetailTabView.vue → tab components. Intentionally missing: dialog, opener, process, updater, notification, and any tracepilot write/launch/delete/sdk/mcp/skills/task command. See docs/adr/0002-tauri-capability-scoping.md.",
+  "windows": ["viewer-*"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-close",
+    "core:window:allow-destroy",
+    "core:window:allow-set-focus",
+    "core:window:allow-set-title",
+    "core:window:allow-unminimize",
+    "log:default",
+
+    "tracepilot:allow-list-sessions",
+    "tracepilot:allow-get-session-detail",
+    "tracepilot:allow-get-session-turns",
+    "tracepilot:allow-get-session-events",
+    "tracepilot:allow-get-session-incidents",
+    "tracepilot:allow-get-session-todos",
+    "tracepilot:allow-get-session-checkpoints",
+    "tracepilot:allow-get-session-plan",
+    "tracepilot:allow-get-shutdown-metrics",
+    "tracepilot:allow-check-session-freshness",
+    "tracepilot:allow-is-session-running",
+    "tracepilot:allow-get-tool-result",
+    "tracepilot:allow-check-config-exists",
+    "tracepilot:allow-get-config",
+    "tracepilot:allow-close-session-window"
+  ]
+}

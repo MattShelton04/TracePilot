@@ -21,9 +21,8 @@ use crate::skills::types::SkillFrontmatter;
 /// ```
 pub fn parse_skill_md(content: &str) -> Result<(SkillFrontmatter, String), SkillsError> {
     let (yaml_str, body) = split_frontmatter(content)?;
-    let frontmatter: SkillFrontmatter = serde_yml::from_str(&yaml_str).map_err(|e| {
-        SkillsError::FrontmatterParse(format!("Invalid frontmatter YAML: {e}"))
-    })?;
+    let frontmatter: SkillFrontmatter = serde_yml::from_str(&yaml_str)
+        .map_err(|e| SkillsError::FrontmatterParse(format!("Invalid frontmatter YAML: {e}")))?;
 
     validate_frontmatter(&frontmatter)?;
 
@@ -65,7 +64,11 @@ fn validate_frontmatter(fm: &SkillFrontmatter) -> Result<(), SkillsError> {
         ));
     }
     // Validate name format: lowercase kebab-case with alphanumeric and hyphens
-    if !fm.name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {
+    if !fm
+        .name
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    {
         return Err(SkillsError::FrontmatterValidation(
             "'name' must contain only alphanumeric characters, hyphens, and underscores".into(),
         ));
@@ -182,7 +185,10 @@ Help with Rust code."#;
     fn parse_single_quoted_description() {
         let content = "---\nname: test-skill\ndescription: 'This is a single-quoted description with colons: and stuff'\n---\n\nBody.\n";
         let (fm, body) = parse_skill_md(content).unwrap();
-        assert_eq!(fm.description, "This is a single-quoted description with colons: and stuff");
+        assert_eq!(
+            fm.description,
+            "This is a single-quoted description with colons: and stuff"
+        );
         assert_eq!(body, "Body.");
     }
 

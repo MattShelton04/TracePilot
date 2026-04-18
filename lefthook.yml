@@ -3,12 +3,40 @@
 # See https://github.com/evilmartians/lefthook
 
 pre-commit:
+  parallel: true
   commands:
-    lint:
+    biome:
       glob: "*.{ts,tsx,vue,js,jsx,json}"
       run: npx @biomejs/biome check --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
+    rustfmt:
+      glob: "*.rs"
+      run: cargo fmt --all -- --check {staged_files}
+
+# Heavier checks that shouldn't block every commit but should run before
+# sharing work with the remote. Skip with `git push --no-verify` if urgent.
+pre-push:
+  parallel: true
+  commands:
+    typecheck:
+      run: pnpm -r --filter "./apps/*" --filter "./packages/*" typecheck
+    rustfmt-all:
+      run: cargo fmt --all -- --check
+    filesize:
+      run: node scripts/check-file-sizes.mjs
 
 commit-msg:
   commands:
     conventional-commit:
       run: node -e "const msg=require('fs').readFileSync('{1}','utf8').trim();if(!/^(feat|fix|perf|refactor|chore|docs|style|test|ci|build)(\(.+\))?:\s.+/.test(msg)){console.error('ERROR: Commit message must follow Conventional Commits format\n  Format: <type>(<optional scope>): <description>\n  Types: feat, fix, perf, refactor, chore, docs, style, test, ci, build');process.exit(1)}"
+
+# Named "fix" bundle — run manually with `lefthook run fix` for a one-shot
+# auto-fix pass. Intentionally NOT wired to any git hook.
+fix:
+  commands:
+    biome-fix:
+      run: npx @biomejs/biome check --write .
+    rustfmt-fix:
+      run: cargo fmt --all
+    clippy-fix:
+      run: cargo clippy --workspace --exclude tracepilot-desktop --all-targets --fix --allow-dirty --allow-staged
+

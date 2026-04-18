@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { McpServerConfig } from "@tracepilot/types";
-import { PageHeader, useToast } from "@tracepilot/ui";
+import { PageHeader, PageShell, useToast } from "@tracepilot/ui";
 import { computed, onMounted, ref } from "vue";
 import McpAddServerModal from "@/components/mcp/McpAddServerModal.vue";
 import McpServerCard from "@/components/mcp/McpServerCard.vue";
@@ -99,8 +99,7 @@ async function handleImport() {
 </script>
 
 <template>
-  <div class="page-content">
-  <div class="page-content-inner">
+  <PageShell>
   <div class="mcp-manager-view">
     <PageHeader title="MCP Servers">
       <template #icon>
@@ -261,8 +260,7 @@ async function handleImport() {
       @submit="handleAddServer"
     />
   </div>
-  </div>
-  </div>
+  </PageShell>
 </template>
 
 <style scoped>

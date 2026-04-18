@@ -1,6 +1,6 @@
 import { listSessions, reindexSessions } from "@tracepilot/client";
 import type { SessionListItem } from "@tracepilot/types";
-import { toErrorMessage } from "@tracepilot/ui";
+import { toErrorMessage, useInflightPromise } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import { isAlreadyIndexingError } from "@/utils/backendErrors";
@@ -13,14 +13,14 @@ export const useSessionsStore = defineStore("sessions", () => {
   /** Fetch sessions, hiding orchestrator sessions by default. */
   const fetchAllSessions = () => listSessions({ hideOrchestrator: true });
 
-  // Both fetchSessions and refreshSessions share this promise so that a
+  // Both fetchSessions and refreshSessions share this slot so that a
   // silent background refresh coalesces with any concurrent explicit fetch.
   /** Deduplicate concurrent fetchSessions/refreshSessions calls. */
-  let fetchPromise: Promise<void> | null = null;
+  const fetchInflight = useInflightPromise<void>();
   /** Deduplicate concurrent reindex/ensureIndex calls. */
-  let indexingPromise: Promise<[number, number]> | null = null;
+  const indexInflight = useInflightPromise<[number, number]>();
   /** Deduplicate session-list refresh after indexing completes. */
-  let postIndexRefreshPromise: Promise<SessionListItem[]> | null = null;
+  const postIndexRefreshInflight = useInflightPromise<SessionListItem[]>();
 
   const sessions = ref<SessionListItem[]>([]);
   const loading = ref(false);
@@ -113,7 +113,7 @@ export const useSessionsStore = defineStore("sessions", () => {
   });
 
   const repositories = computed(() => {
-    const repos = new Set(sessions.value.map((s) => s.repository).filter(Boolean));
+    const repos = new Set(sessions.value.map((s) => s.repository).filter((r): r is string => !!r));
     return [...repos].sort();
   });
 
@@ -122,7 +122,7 @@ export const useSessionsStore = defineStore("sessions", () => {
     if (filterRepo.value) {
       s = s.filter((x) => x.repository === filterRepo.value);
     }
-    const br = new Set(s.map((s) => s.branch).filter(Boolean));
+    const br = new Set(s.map((s) => s.branch).filter((b): b is string => !!b));
     return [...br].sort();
   });
 
@@ -140,60 +140,51 @@ export const useSessionsStore = defineStore("sessions", () => {
   });
 
   async function fetchSessions() {
-    if (fetchPromise) return fetchPromise;
+    const existing = fetchInflight.current();
+    if (existing) return existing;
     loading.value = true;
     error.value = null;
-    fetchPromise = (async () => {
+    return fetchInflight.run(async () => {
       try {
         sessions.value = await fetchAllSessions();
       } catch (e) {
         error.value = toErrorMessage(e);
       } finally {
-        fetchPromise = null;
         loading.value = false;
       }
-    })();
-    return fetchPromise;
+    });
   }
 
   /** Silently refresh session list without triggering loading skeleton. */
   async function refreshSessions() {
-    if (fetchPromise) return fetchPromise;
-    fetchPromise = (async () => {
+    const existing = fetchInflight.current();
+    if (existing) return existing;
+    return fetchInflight.run(async () => {
       try {
         sessions.value = await fetchAllSessions();
         error.value = null;
       } catch (e) {
         logError("[sessions] Silent refresh failed:", e);
-      } finally {
-        fetchPromise = null;
       }
-    })();
-    return fetchPromise;
+    });
   }
 
   /** Deduplicate concurrent post-index session-list refreshes. */
   async function refreshSessionsAfterIndex() {
-    if (postIndexRefreshPromise) return postIndexRefreshPromise;
-    postIndexRefreshPromise = fetchAllSessions();
-    try {
-      return await postIndexRefreshPromise;
-    } finally {
-      postIndexRefreshPromise = null;
-    }
+    return postIndexRefreshInflight.run(() => fetchAllSessions());
   }
 
   /** Reindex sessions in the background, then refresh the list. */
   async function reindex() {
-    if (indexingPromise) {
+    const existingIndex = indexInflight.current();
+    if (existingIndex) {
       // Deduplicate: wait for the in-flight indexing call
       try {
-        await indexingPromise;
+        await existingIndex;
         sessions.value = await refreshSessionsAfterIndex();
       } catch (e) {
-        const msg = toErrorMessage(e);
-        if (!isAlreadyIndexingError(msg)) {
-          error.value = msg;
+        if (!isAlreadyIndexingError(e)) {
+          error.value = toErrorMessage(e);
         }
       }
       return;
@@ -202,16 +193,13 @@ export const useSessionsStore = defineStore("sessions", () => {
     indexing.value = true;
     error.value = null;
     try {
-      indexingPromise = reindexSessions();
-      await indexingPromise;
+      await indexInflight.run(() => reindexSessions());
       sessions.value = await refreshSessionsAfterIndex();
     } catch (e) {
-      const msg = toErrorMessage(e);
-      if (!isAlreadyIndexingError(msg)) {
-        error.value = msg;
+      if (!isAlreadyIndexingError(e)) {
+        error.value = toErrorMessage(e);
       }
     } finally {
-      indexingPromise = null;
       indexing.value = false;
     }
   }
@@ -222,9 +210,10 @@ export const useSessionsStore = defineStore("sessions", () => {
    * the session list when done. Does not show loading/indexing states.
    */
   async function ensureIndex() {
-    if (indexingPromise) {
+    const existingIndex = indexInflight.current();
+    if (existingIndex) {
       try {
-        await indexingPromise;
+        await existingIndex;
       } catch (e) {
         // Background reindex already running - log warning if it fails
         logWarn("[sessions] Background reindex in progress failed", e);
@@ -239,14 +228,11 @@ export const useSessionsStore = defineStore("sessions", () => {
     }
 
     try {
-      indexingPromise = reindexSessions();
-      await indexingPromise;
+      await indexInflight.run(() => reindexSessions());
       sessions.value = await refreshSessionsAfterIndex();
     } catch (e) {
       // Silent — this is a background optimization, not user-initiated
       logWarn("[sessions] Background ensureIndex failed", e);
-    } finally {
-      indexingPromise = null;
     }
   }
 

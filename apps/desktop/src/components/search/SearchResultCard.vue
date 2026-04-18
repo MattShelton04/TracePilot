@@ -88,8 +88,8 @@ watch(
       <span
         class="ct-badge"
         :style="{
-          background: ctConfig[result.contentType]?.color + '20',
-          color: ctConfig[result.contentType]?.color,
+          '--ct-bg': (ctConfig[result.contentType]?.color ?? '') + '20',
+          '--ct-fg': ctConfig[result.contentType]?.color,
         }"
         style="margin-left: auto"
       >
@@ -143,20 +143,20 @@ watch(
         <div v-for="(ctx, ci) in contextBefore" :key="'b' + ci" class="context-item context-before">
           <span
             class="context-type-dot"
-            :style="{ background: ctLookup(ctx.contentType)?.color ?? '#888' }"
+            :style="{ '--dot-color': ctLookup(ctx.contentType)?.color }"
           />
           <span class="context-label">{{ ctLookup(ctx.contentType)?.label ?? ctx.contentType }}</span>
           <span v-if="ctx.toolName" class="context-tool">{{ ctx.toolName }}</span>
           <span class="context-preview">{{ ctx.preview }}</span>
         </div>
         <div class="context-item context-current">
-          <span class="context-type-dot" :style="{ background: ctConfig[result.contentType]?.color ?? '#888' }" />
+          <span class="context-type-dot" :style="{ '--dot-color': ctConfig[result.contentType]?.color }" />
           <span class="context-label" style="font-weight: 600">▸ Current match</span>
         </div>
         <div v-for="(ctx, ci) in contextAfter" :key="'a' + ci" class="context-item context-after">
           <span
             class="context-type-dot"
-            :style="{ background: ctLookup(ctx.contentType)?.color ?? '#888' }"
+            :style="{ '--dot-color': ctLookup(ctx.contentType)?.color }"
           />
           <span class="context-label">{{ ctLookup(ctx.contentType)?.label ?? ctx.contentType }}</span>
           <span v-if="ctx.toolName" class="context-tool">{{ ctx.toolName }}</span>
@@ -232,6 +232,8 @@ watch(
   font-size: 0.6875rem;
   font-weight: 500;
   white-space: nowrap;
+  background: var(--ct-bg);
+  color: var(--ct-fg);
 }
 .result-snippet {
   font-size: 0.8125rem;
@@ -450,6 +452,7 @@ watch(
   height: 5px;
   border-radius: 50%;
   flex-shrink: 0;
+  background: var(--dot-color, var(--text-tertiary));
 }
 .context-label {
   font-size: 0.625rem;

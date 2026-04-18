@@ -7,7 +7,7 @@
  * renderers, agent grouping, reasoning blocks).
  */
 
-import { Badge, EmptyState, ErrorAlert, SessionCard, SkeletonLoader } from "@tracepilot/ui";
+import { Badge, EmptyState, ErrorAlert, PageShell, SessionCard, SkeletonLoader } from "@tracepilot/ui";
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import ModelSwitchBanner from "@/components/replay/ModelSwitchBanner.vue";
@@ -17,6 +17,8 @@ import ReplayStepContent from "@/components/replay/ReplayStepContent.vue";
 import ReplayTransportBar from "@/components/replay/ReplayTransportBar.vue";
 import { useReplayController } from "@/composables/useReplayController";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
+import { ROUTE_NAMES } from "@/config/routes";
+import { pushRoute } from "@/router/navigation";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { useSessionsStore } from "@/stores/sessions";
@@ -44,7 +46,7 @@ const recentSessions = computed(() => {
 });
 
 function openReplay(id: string) {
-  router.push({ name: "replay", params: { id } });
+  pushRoute(router, ROUTE_NAMES.replay, { params: { id } });
 }
 
 // Tool result lazy loader
@@ -168,8 +170,7 @@ const totalToolCalls = computed(() =>
 </script>
 
 <template>
-  <div class="page-content">
-    <div class="page-content-inner">
+  <PageShell>
 
       <!-- ═════════════ NO SESSION ID → RECENT SESSIONS PICKER ═════════════ -->
       <template v-if="!sessionId">
@@ -275,7 +276,7 @@ const totalToolCalls = computed(() =>
               <Badge v-if="totalToolCalls" variant="warning">{{ totalToolCalls }} tool calls</Badge>
             </div>
           </div>
-          <button class="back-btn" @click="router.push({ name: 'session-overview', params: { id: sessionId } })" title="Back to session detail">
+          <button class="back-btn" @click="pushRoute(router, ROUTE_NAMES.sessionOverview, { params: { id: sessionId } })" title="Back to session detail">
             ← Detail
           </button>
         </header>
@@ -356,8 +357,7 @@ const totalToolCalls = computed(() =>
           :current-step="controller.currentStep.value"
         />
       </template>
-    </div>
-  </div>
+  </PageShell>
 </template>
 
 <style scoped>

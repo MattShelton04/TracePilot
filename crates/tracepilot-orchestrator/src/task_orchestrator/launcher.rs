@@ -36,8 +36,8 @@ impl Default for OrchestratorLaunchConfig {
             max_parallel: 3,
             max_empty_polls: 30,
             max_cycles: 200,
-            orchestrator_model: "claude-haiku-4.5".to_string(),
-            cli_command: "copilot".to_string(),
+            orchestrator_model: tracepilot_core::constants::DEFAULT_ORCHESTRATOR_MODEL.to_string(),
+            cli_command: tracepilot_core::constants::DEFAULT_CLI_COMMAND.to_string(),
             jobs_dir: PathBuf::new(), // Must be set by caller
         }
     }
@@ -79,10 +79,7 @@ impl Default for OrchestratorState {
 /// Creates `jobs_dir` and per-task subdirectories. Removes stale
 /// `result.json` and `status.json` files to prevent incorrect ingestion
 /// of results from prior runs.
-pub fn prepare_jobs_dir(
-    jobs_dir: &Path,
-    task_ids: &[String],
-) -> Result<()> {
+pub fn prepare_jobs_dir(jobs_dir: &Path, task_ids: &[String]) -> Result<()> {
     std::fs::create_dir_all(jobs_dir)?;
     for task_id in task_ids {
         let task_dir = jobs_dir.join(task_id);
@@ -139,17 +136,16 @@ pub fn launch_orchestrator(
             model: model.clone(),
         })
         .collect();
-    let task_manifest = manifest::generate_manifest(
-        &inputs,
-        jobs_dir,
-        config.poll_interval,
-        config.max_parallel,
-    );
+    let task_manifest =
+        manifest::generate_manifest(&inputs, jobs_dir, config.poll_interval, config.max_parallel);
     manifest::write_manifest(&task_manifest, &manifest_path)?;
 
     // 4. Render prompt
     let manifest_str = manifest_path.to_string_lossy().to_string();
-    let heartbeat_str = jobs_dir.join("heartbeat.json").to_string_lossy().to_string();
+    let heartbeat_str = jobs_dir
+        .join("heartbeat.json")
+        .to_string_lossy()
+        .to_string();
     let prompt_config = prompt::OrchestratorPromptConfig {
         manifest_path: manifest_str,
         heartbeat_path: heartbeat_str,

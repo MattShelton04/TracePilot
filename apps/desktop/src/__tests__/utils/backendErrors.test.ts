@@ -1,9 +1,37 @@
 import { describe, expect, it } from "vitest";
 import {
+  getErrorCode,
   isAlreadyIndexingError,
+  isBackendErrorEnvelope,
   isSearchSyntaxError,
   toFriendlyErrorMessage,
 } from "../../utils/backendErrors";
+
+// ── isBackendErrorEnvelope / getErrorCode ────────────────────
+
+describe("isBackendErrorEnvelope", () => {
+  it("accepts valid envelope", () => {
+    expect(isBackendErrorEnvelope({ code: "X", message: "y" })).toBe(true);
+  });
+  it("rejects strings / nulls / Errors", () => {
+    expect(isBackendErrorEnvelope("ALREADY_INDEXING")).toBe(false);
+    expect(isBackendErrorEnvelope(null)).toBe(false);
+    expect(isBackendErrorEnvelope(new Error("x"))).toBe(false);
+  });
+});
+
+describe("getErrorCode", () => {
+  it("extracts code from structured envelope", () => {
+    expect(getErrorCode({ code: "ALREADY_INDEXING", message: "busy" })).toBe("ALREADY_INDEXING");
+  });
+  it("returns null for plain strings", () => {
+    expect(getErrorCode("ALREADY_INDEXING")).toBeNull();
+  });
+  it("returns null for null/undefined", () => {
+    expect(getErrorCode(null)).toBeNull();
+    expect(getErrorCode(undefined)).toBeNull();
+  });
+});
 
 // ── isAlreadyIndexingError ───────────────────────────────────
 
@@ -29,6 +57,31 @@ describe("isAlreadyIndexingError", () => {
 
   it("rejects empty string", () => {
     expect(isAlreadyIndexingError("")).toBe(false);
+  });
+
+  // ── Structured envelope form (new in Phase 1A.5) ──
+  it("matches the structured envelope with code=ALREADY_INDEXING", () => {
+    expect(
+      isAlreadyIndexingError({ code: "ALREADY_INDEXING", message: "Indexing is already in progress." }),
+    ).toBe(true);
+  });
+  it("also matches the current backend message via the substring fallback", () => {
+    // Defence in depth: even without the envelope (e.g. error re-thrown as
+    // a plain string after `toErrorMessage`), the friendly phrasing must
+    // still be detected so concurrent-reindex dedupe keeps working.
+    expect(isAlreadyIndexingError("Indexing is already in progress.")).toBe(true);
+  });
+  it("ignores non-ALREADY_INDEXING envelope codes when the message is unrelated", () => {
+    expect(isAlreadyIndexingError({ code: "VALIDATION", message: "bad input" })).toBe(false);
+  });
+  it("honours the legacy substring fallback for VALIDATION envelopes carrying a matching phrase", () => {
+    // Historically the backend sometimes surfaced the raw literal
+    // `"ALREADY_INDEXING"` as a validation error. The fallback still
+    // catches those; but code === "VALIDATION" alone is NOT treated as
+    // ALREADY_INDEXING (see the test directly above).
+    expect(
+      isAlreadyIndexingError({ code: "VALIDATION", message: "already indexing" }),
+    ).toBe(true);
   });
 });
 

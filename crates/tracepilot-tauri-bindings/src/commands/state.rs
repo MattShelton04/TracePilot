@@ -20,6 +20,7 @@ pub async fn get_db_size(state: tauri::State<'_, SharedConfig>) -> CmdResult<u64
 
 /// Check if a session is currently running by looking for `inuse.*.lock` files.
 #[tauri::command]
+#[tracing::instrument(skip_all, level = "debug", err, fields(session_id = %session_id))]
 pub async fn is_session_running(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,

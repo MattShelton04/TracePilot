@@ -8,6 +8,7 @@ import {
   generateYLabels,
   LoadingOverlay,
   mapToLineCoords,
+  PageShell,
   StatCard,
   toPolylinePoints,
   useChartTooltip,
@@ -92,20 +93,21 @@ const timelineChart = computed(() => {
 </script>
 
 <template>
-  <div class="page-content">
-    <div class="page-content-inner">
-      <AnalyticsPageHeader title="Code Impact" :subtitle="pageSubtitle" />
-      <LoadingOverlay :loading="loading" message="Loading code impact data…">
+  <PageShell>
+    <AnalyticsPageHeader title="Code Impact" :subtitle="pageSubtitle" />
+    <LoadingOverlay :loading="loading" message="Loading code impact data…">
         <ErrorState v-if="store.codeImpactError" heading="Failed to load code impact data" :message="store.codeImpactError" @retry="store.fetchCodeImpact({ force: true })" />
         <template v-else-if="data">
 
           <!-- Stats Row -->
           <div class="grid-4 mb-4">
             <StatCard :value="formatNumberFull(data.filesModified)" label="Files Modified" />
-            <div class="stat-card">
-              <div class="stat-card-value lines-added-value">+{{ formatNumberFull(data.linesAdded) }}</div>
-              <div class="stat-card-label">Lines Added</div>
-            </div>
+            <StatCard
+              :value="`+${formatNumberFull(data.linesAdded)}`"
+              label="Lines Added"
+              variant="plain"
+              custom-value-class="lines-added-value"
+            />
             <StatCard :value="`-${formatNumberFull(data.linesRemoved)}`" label="Lines Removed" color="danger" />
             <StatCard
               :value="`${data.netChange >= 0 ? '+' : ''}${formatNumberFull(data.netChange)}`"
@@ -292,12 +294,12 @@ const timelineChart = computed(() => {
           </div>
         </template>
       </LoadingOverlay>
-    </div>
-  </div>
+  </PageShell>
 </template>
 
 <style scoped>
-.lines-added-value {
+.lines-added-value,
+:deep(.lines-added-value) {
   background: linear-gradient(135deg, var(--chart-success), var(--chart-success-light));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;

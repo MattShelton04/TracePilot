@@ -5,6 +5,7 @@
 //! [`CmdResult`] so callers can propagate with `?`.
 
 use crate::error::{BindingsError, CmdResult};
+use tracepilot_core::ids::{PresetId, SessionId, SkillName};
 
 /// Maximum number of items per page for paginated event responses.
 ///
@@ -36,13 +37,18 @@ pub(crate) fn validate_template_id(id: &str) -> CmdResult<()> {
 /// Preset IDs must be safe for use in filesystem operations and cannot
 /// contain path traversal sequences. Alphanumeric characters, hyphens, and
 /// underscores are allowed.
-pub(crate) fn validate_preset_id(id: &str) -> CmdResult<()> {
+///
+/// Returns a [`PresetId`] newtype — callers get a type-checked receipt that
+/// validation has happened, instead of re-validating (or forgetting to) at
+/// every downstream boundary.
+pub(crate) fn validate_preset_id(id: &str) -> CmdResult<PresetId> {
     tracepilot_orchestrator::validation::validate_identifier(
         id,
         tracepilot_orchestrator::validation::TEMPLATE_ID_RULES,
         "Preset ID",
     )
-    .map_err(BindingsError::Validation)
+    .map_err(BindingsError::Validation)?;
+    Ok(PresetId::from_validated(id))
 }
 
 /// Validate a skill name.
@@ -51,13 +57,16 @@ pub(crate) fn validate_preset_id(id: &str) -> CmdResult<()> {
 /// contain path traversal sequences or path separators. Character restrictions
 /// are more permissive than template/preset IDs to support existing skill
 /// naming conventions.
-pub(crate) fn validate_skill_name(name: &str) -> CmdResult<()> {
+///
+/// Returns a [`SkillName`] newtype on success.
+pub(crate) fn validate_skill_name(name: &str) -> CmdResult<SkillName> {
     tracepilot_orchestrator::validation::validate_identifier(
         name,
         tracepilot_orchestrator::validation::SKILL_NAME_RULES,
         "Skill name",
     )
-    .map_err(BindingsError::Validation)
+    .map_err(BindingsError::Validation)?;
+    Ok(SkillName::from_validated(name))
 }
 
 /// Validate an asset name for skills.
@@ -80,14 +89,26 @@ pub(crate) fn validate_asset_name(name: &str) -> CmdResult<()> {
 /// * immediate, clear error messages instead of opaque "not found"
 /// * fast rejection without filesystem I/O
 /// * defence-in-depth regardless of downstream checks
-pub(crate) fn validate_session_id(session_id: &str) -> CmdResult<()> {
+/// Validate that a session ID is a well-formed UUID.
+///
+/// All Copilot CLI sessions use UUID directory names (enforced during
+/// discovery by [`tracepilot_core::session::discovery`]).  Rejecting
+/// malformed IDs at the IPC boundary provides:
+///
+/// * immediate, clear error messages instead of opaque "not found"
+/// * fast rejection without filesystem I/O
+/// * defence-in-depth regardless of downstream checks
+///
+/// Returns a [`SessionId`] newtype on success so downstream callers can
+/// carry a type-level proof that validation has occurred.
+pub(crate) fn validate_session_id(session_id: &str) -> CmdResult<SessionId> {
     uuid::Uuid::parse_str(session_id).map_err(|_| {
         BindingsError::Validation(format!(
             "Invalid session ID format: expected UUID, got '{}'",
             truncate_for_display(session_id, 64)
         ))
     })?;
-    Ok(())
+    Ok(SessionId::from_validated(session_id))
 }
 
 /// Validate an optional session-ID filter (e.g. for search queries).
@@ -307,6 +328,24 @@ mod tests {
     }
 
     #[test]
+    fn validate_session_id_returns_newtype_carrying_input() {
+        let sid = validate_session_id("a1b2c3d4-e5f6-7890-abcd-ef1234567890").unwrap();
+        assert_eq!(sid.as_str(), "a1b2c3d4-e5f6-7890-abcd-ef1234567890");
+    }
+
+    #[test]
+    fn validate_preset_id_returns_newtype_carrying_input() {
+        let pid = validate_preset_id("my-preset").unwrap();
+        assert_eq!(pid.as_str(), "my-preset");
+    }
+
+    #[test]
+    fn validate_skill_name_returns_newtype_carrying_input() {
+        let sn = validate_skill_name("my.skill").unwrap();
+        assert_eq!(sn.as_str(), "my.skill");
+    }
+
+    #[test]
     fn uppercase_uuid_passes() {
         assert!(validate_session_id("A1B2C3D4-E5F6-7890-ABCD-EF1234567890").is_ok());
     }
@@ -416,7 +455,10 @@ mod tests {
     fn job_invalid_id_fails() {
         let err = validate_job_id("not-a-uuid").unwrap_err();
         let msg = err.to_string();
-        assert!(msg.contains("job ID"), "error should say 'job ID', got: {msg}");
+        assert!(
+            msg.contains("job ID"),
+            "error should say 'job ID', got: {msg}"
+        );
     }
 
     // -- clamp_limit --------------------------------------------------------
@@ -513,21 +555,30 @@ mod tests {
     fn unix_range_swapped_fails() {
         let err = validate_unix_date_range(Some(1704153600), Some(1704067200)).unwrap_err();
         let msg = err.to_string();
-        assert!(msg.contains("date_from") && msg.contains("after"), "got: {msg}");
+        assert!(
+            msg.contains("date_from") && msg.contains("after"),
+            "got: {msg}"
+        );
     }
 
     #[test]
     fn unix_range_negative_from_fails() {
         let err = validate_unix_date_range(Some(-1), Some(1704067200)).unwrap_err();
         let msg = err.to_string();
-        assert!(msg.contains("negative") && msg.contains("date_from"), "got: {msg}");
+        assert!(
+            msg.contains("negative") && msg.contains("date_from"),
+            "got: {msg}"
+        );
     }
 
     #[test]
     fn unix_range_negative_to_fails() {
         let err = validate_unix_date_range(Some(1704067200), Some(-100)).unwrap_err();
         let msg = err.to_string();
-        assert!(msg.contains("negative") && msg.contains("date_to"), "got: {msg}");
+        assert!(
+            msg.contains("negative") && msg.contains("date_to"),
+            "got: {msg}"
+        );
     }
 
     #[test]
@@ -595,7 +646,10 @@ mod tests {
         let to = Some("2024-01-01T00:00:00Z".to_string());
         let err = validate_iso_date_range(&from, &to).unwrap_err();
         let msg = err.to_string();
-        assert!(msg.contains("from_date") && msg.contains("after"), "got: {msg}");
+        assert!(
+            msg.contains("from_date") && msg.contains("after"),
+            "got: {msg}"
+        );
     }
 
     #[test]

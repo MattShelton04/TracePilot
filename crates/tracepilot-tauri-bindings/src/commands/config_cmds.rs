@@ -3,12 +3,17 @@
 use crate::blocking_cmd;
 use crate::config::{self, SharedConfig, TracePilotConfig};
 use crate::error::{BindingsError, CmdResult};
-use crate::helpers::{copilot_home, read_config, remove_index_db_files, validate_path_within, validate_write_path_within};
+use crate::helpers::{
+    copilot_home, read_config, remove_index_db_files, validate_path_within,
+    validate_write_path_within,
+};
 use crate::types::ValidateSessionDirResult;
 
 #[tauri::command]
 pub async fn check_config_exists() -> CmdResult<bool> {
-    blocking_cmd!(Ok::<_, BindingsError>(config::config_file_path().is_some_and(|p| p.exists())))
+    blocking_cmd!(Ok::<_, BindingsError>(
+        config::config_file_path().is_some_and(|p| p.exists())
+    ))
 }
 
 #[tauri::command]
@@ -17,6 +22,7 @@ pub async fn get_config(state: tauri::State<'_, SharedConfig>) -> CmdResult<Trac
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, level = "debug", err)]
 pub async fn save_config(
     state: tauri::State<'_, SharedConfig>,
     config: TracePilotConfig,
@@ -108,7 +114,9 @@ pub async fn get_agent_definitions(
             let active = tracepilot_orchestrator::version_manager::active_version(&home)?;
             std::path::PathBuf::from(&active.path)
         };
-        Ok::<_, BindingsError>(tracepilot_orchestrator::config_injector::read_agent_definitions(&version_dir)?)
+        Ok::<_, BindingsError>(
+            tracepilot_orchestrator::config_injector::read_agent_definitions(&version_dir)?,
+        )
     })
 }
 
@@ -117,10 +125,12 @@ pub async fn save_agent_definition(file_path: String, yaml_content: String) -> C
     blocking_cmd!({
         let home = copilot_home()?;
         let validated = validate_write_path_within(&file_path, &home)?;
-        Ok::<_, BindingsError>(tracepilot_orchestrator::config_injector::write_agent_definition(
-            &validated,
-            &yaml_content,
-        )?)
+        Ok::<_, BindingsError>(
+            tracepilot_orchestrator::config_injector::write_agent_definition(
+                &validated,
+                &yaml_content,
+            )?,
+        )
     })
 }
 
@@ -128,7 +138,9 @@ pub async fn save_agent_definition(file_path: String, yaml_content: String) -> C
 pub async fn get_copilot_config() -> CmdResult<tracepilot_orchestrator::CopilotConfig> {
     blocking_cmd!({
         let home = copilot_home()?;
-        Ok::<_, BindingsError>(tracepilot_orchestrator::config_injector::read_copilot_config(&home)?)
+        Ok::<_, BindingsError>(
+            tracepilot_orchestrator::config_injector::read_copilot_config(&home)?,
+        )
     })
 }
 
@@ -136,7 +148,9 @@ pub async fn get_copilot_config() -> CmdResult<tracepilot_orchestrator::CopilotC
 pub async fn save_copilot_config(config: serde_json::Value) -> CmdResult<()> {
     blocking_cmd!({
         let home = copilot_home()?;
-        Ok::<_, BindingsError>(tracepilot_orchestrator::config_injector::write_copilot_config(&home, &config)?)
+        Ok::<_, BindingsError>(
+            tracepilot_orchestrator::config_injector::write_copilot_config(&home, &config)?,
+        )
     })
 }
 
@@ -174,10 +188,12 @@ pub async fn restore_config_backup(backup_path: String, restore_to: String) -> C
         let validated_backup = validate_path_within(&backup_path, &backup_dir)?;
         let home = copilot_home()?;
         let validated_restore = validate_write_path_within(&restore_to, &home)?;
-        Ok::<_, crate::error::BindingsError>(tracepilot_orchestrator::config_injector::restore_backup(
-            &validated_backup,
-            &validated_restore,
-        )?)
+        Ok::<_, crate::error::BindingsError>(
+            tracepilot_orchestrator::config_injector::restore_backup(
+                &validated_backup,
+                &validated_restore,
+            )?,
+        )
     })
 }
 
@@ -186,9 +202,9 @@ pub async fn delete_config_backup(backup_path: String) -> CmdResult<()> {
     blocking_cmd!({
         let backup_dir = tracepilot_orchestrator::config_injector::backup_dir()?;
         let validated = validate_path_within(&backup_path, &backup_dir)?;
-        Ok::<_, crate::error::BindingsError>(tracepilot_orchestrator::config_injector::delete_backup(
-            &validated,
-        )?)
+        Ok::<_, crate::error::BindingsError>(
+            tracepilot_orchestrator::config_injector::delete_backup(&validated)?,
+        )
     })
 }
 
@@ -203,10 +219,12 @@ pub async fn preview_backup_restore(
         let home = copilot_home()?;
         let validated_source = validate_write_path_within(&source_path, &home)?;
 
-        Ok::<_, crate::error::BindingsError>(tracepilot_orchestrator::config_injector::preview_backup_restore(
-            &validated_backup,
-            &validated_source,
-        )?)
+        Ok::<_, crate::error::BindingsError>(
+            tracepilot_orchestrator::config_injector::preview_backup_restore(
+                &validated_backup,
+                &validated_source,
+            )?,
+        )
     })
 }
 
@@ -231,9 +249,9 @@ pub async fn discover_copilot_versions() -> CmdResult<Vec<tracepilot_orchestrato
 {
     blocking_cmd!({
         let home = copilot_home()?;
-        Ok::<_, crate::error::BindingsError>(tracepilot_orchestrator::version_manager::discover_versions(
-            &home,
-        )?)
+        Ok::<_, crate::error::BindingsError>(
+            tracepilot_orchestrator::version_manager::discover_versions(&home)?,
+        )
     })
 }
 
@@ -241,9 +259,9 @@ pub async fn discover_copilot_versions() -> CmdResult<Vec<tracepilot_orchestrato
 pub async fn get_active_copilot_version() -> CmdResult<tracepilot_orchestrator::CopilotVersion> {
     blocking_cmd!({
         let home = copilot_home()?;
-        Ok::<_, crate::error::BindingsError>(tracepilot_orchestrator::version_manager::active_version(
-            &home,
-        )?)
+        Ok::<_, crate::error::BindingsError>(
+            tracepilot_orchestrator::version_manager::active_version(&home)?,
+        )
     })
 }
 
@@ -254,11 +272,13 @@ pub async fn get_migration_diffs(
 ) -> CmdResult<Vec<tracepilot_orchestrator::MigrationDiff>> {
     blocking_cmd!({
         let home = copilot_home()?;
-        Ok::<_, crate::error::BindingsError>(tracepilot_orchestrator::version_manager::migration_diffs(
-            &home,
-            &from_version,
-            &to_version,
-        )?)
+        Ok::<_, crate::error::BindingsError>(
+            tracepilot_orchestrator::version_manager::migration_diffs(
+                &home,
+                &from_version,
+                &to_version,
+            )?,
+        )
     })
 }
 
@@ -270,12 +290,14 @@ pub async fn migrate_agent_definition(
 ) -> CmdResult<()> {
     blocking_cmd!({
         let home = copilot_home()?;
-        Ok::<_, crate::error::BindingsError>(tracepilot_orchestrator::version_manager::migrate_agent(
-            &home,
-            &file_name,
-            &from_version,
-            &to_version,
-        )?)
+        Ok::<_, crate::error::BindingsError>(
+            tracepilot_orchestrator::version_manager::migrate_agent(
+                &home,
+                &file_name,
+                &from_version,
+                &to_version,
+            )?,
+        )
     })
 }
 
@@ -289,9 +311,7 @@ pub async fn save_session_template(
     template: tracepilot_orchestrator::SessionTemplate,
 ) -> CmdResult<()> {
     crate::validators::validate_template_id(&template.id)?;
-    blocking_cmd!(tracepilot_orchestrator::templates::save_template(
-        &template,
-    ))
+    blocking_cmd!(tracepilot_orchestrator::templates::save_template(&template,))
 }
 
 #[tauri::command]

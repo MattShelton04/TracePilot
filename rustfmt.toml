@@ -1,0 +1,4 @@
+max_width = 100
+edition = "2024"
+# Deliberately kept minimal to avoid unstable-feature churn.
+# Run `cargo fmt --all -- --check` in CI; `cargo fmt --all` to fix.

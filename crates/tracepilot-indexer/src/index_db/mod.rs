@@ -43,7 +43,7 @@ impl IndexDb {
             std::fs::create_dir_all(parent)?;
         }
 
-        let conn =
+        let mut conn =
             Connection::open(path).map_err(|e| IndexerError::database_open(path.display(), e))?;
 
         // Performance and correctness pragmas
@@ -56,7 +56,7 @@ impl IndexDb {
         // required to convert the file format.
         Self::ensure_incremental_auto_vacuum(&conn, path)?;
 
-        run_migrations(&conn)?;
+        run_migrations(&mut conn, Some(path))?;
 
         let mut db = Self { conn };
 

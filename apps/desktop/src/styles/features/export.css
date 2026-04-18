@@ -1,0 +1,682 @@
+/* ──────────────────────────────────────────────────────────────
+ * Styles for the Export/Import feature (ExportView + children).
+ * Extracted from ExportView.vue (Wave 24 decomposition).
+ * All rules are scoped under `.export-feature` (applied to the
+ * ExportView shell) so they behave equivalently to the original
+ * <style scoped> block.
+ * ────────────────────────────────────────────────────────────── */
+
+/* ── Header ────────────────────────────────────────────────── */
+.export-feature .export-header {
+  margin-bottom: 24px;
+}
+.export-feature .export-header h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+.export-feature .header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.export-feature .text-secondary {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  margin: 0;
+}
+.export-feature .text-tertiary {
+  color: var(--text-tertiary);
+  font-size: 0.8rem;
+}
+
+/* ── Export Tab Nav (pill variant) ─────────────────────────── */
+.export-feature .export-tab-nav {
+  align-self: center;
+}
+
+/* ── Export Split Layout ───────────────────────────────────── */
+.export-feature .export-split {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+@media (max-width: 1000px) {
+  .export-feature .export-split {
+    grid-template-columns: 1fr;
+  }
+  .export-feature .preview-col {
+    order: -1;
+  }
+}
+
+.export-feature .config-col,
+.export-feature .preview-col {
+  max-height: calc(100vh - 180px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-default) transparent;
+}
+.export-feature .config-col {
+  padding: 0 8px;
+}
+.export-feature .config-col::-webkit-scrollbar,
+.export-feature .preview-col::-webkit-scrollbar {
+  width: 5px;
+}
+.export-feature .config-col::-webkit-scrollbar-thumb,
+.export-feature .preview-col::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: 999px;
+}
+
+/* ── Preset Bar ────────────────────────────────────────────── */
+.export-feature .preset-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.export-feature .preset-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  font-family: inherit;
+  border: 1px solid var(--border-default);
+  background: var(--canvas-subtle);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.export-feature .preset-btn:hover {
+  border-color: var(--accent-emphasis);
+  color: var(--text-primary);
+  background: var(--accent-subtle);
+}
+.export-feature .preset-btn.active {
+  border-color: var(--accent-emphasis);
+  color: var(--accent-fg);
+  background: var(--accent-muted);
+}
+.export-feature .preset-save-btn {
+  border-style: dashed;
+}
+.export-feature .preset-delete {
+  font-size: 0.875rem;
+  line-height: 1;
+  opacity: 0.5;
+  margin-left: 2px;
+  cursor: pointer;
+}
+.export-feature .preset-delete:hover {
+  opacity: 1;
+  color: var(--danger-fg, #f85149);
+}
+.export-feature .save-preset-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.export-feature .save-preset-input {
+  flex: 1;
+  padding: 6px 10px;
+  font-size: 0.8125rem;
+  font-family: inherit;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--canvas-default);
+  color: var(--text-primary);
+  outline: none;
+}
+.export-feature .save-preset-input:focus {
+  border-color: var(--accent-emphasis);
+}
+.export-feature .btn-sm {
+  padding: 5px 12px;
+  font-size: 0.75rem;
+}
+
+/* ── Config Sections ───────────────────────────────────────── */
+.export-feature .config-section {
+  margin-bottom: 20px;
+}
+.export-feature .config-section-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin: 0 0 10px;
+}
+.export-feature .section-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.export-feature .section-actions {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+}
+
+/* ── Session Picker (searchable dropdown) ──────────────────── */
+.export-feature .session-picker {
+  position: relative;
+}
+.export-feature .session-search-input {
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--canvas-default);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  font-family: inherit;
+  outline: none;
+  cursor: text;
+  transition: border-color var(--transition-fast);
+  box-sizing: border-box;
+}
+.export-feature .session-search-input:focus {
+  border-color: var(--accent-emphasis);
+}
+.export-feature .session-search-selected {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 8px 12px;
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+  background: var(--canvas-default);
+  pointer-events: auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.export-feature .session-search-input:focus + .session-search-selected {
+  display: none;
+}
+.export-feature .session-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  margin-top: 4px;
+  max-height: 240px;
+  overflow-y: auto;
+  background: var(--canvas-default);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-default) transparent;
+}
+.export-feature .session-dropdown-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+.export-feature .session-dropdown-item:hover,
+.export-feature .session-dropdown-item.selected {
+  background: var(--accent-subtle);
+}
+.export-feature .session-dropdown-item.selected {
+  border-left: 2px solid var(--accent-emphasis);
+}
+.export-feature .session-dropdown-name {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.export-feature .session-dropdown-meta {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.export-feature .session-dropdown-empty {
+  padding: 12px;
+  text-align: center;
+  font-size: 0.8125rem;
+  color: var(--text-tertiary);
+}
+.export-feature .session-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+}
+.export-feature .session-info-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.export-feature .session-info-stats {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ── Format Description ────────────────────────────────────── */
+.export-feature .format-desc-text {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  margin-top: 8px;
+}
+
+/* ── Section Toggle Rows ───────────────────────────────────── */
+.export-feature .toggle-group-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary);
+  padding: 10px 0 4px;
+}
+.export-feature .toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-muted);
+  transition: background var(--transition-fast);
+}
+.export-feature .toggle-row:last-child {
+  border-bottom: none;
+}
+.export-feature .toggle-row:hover {
+  background: var(--canvas-subtle);
+  margin: 0 -8px;
+  padding: 8px 8px;
+  border-radius: var(--radius-md);
+}
+.export-feature .toggle-row-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+  opacity: 0.7;
+  width: 20px;
+  text-align: center;
+}
+.export-feature .toggle-row-label {
+  flex: 1;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+.export-feature .no-data-hint {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  font-weight: 400;
+}
+.export-feature .detail-hint {
+  display: block;
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  font-weight: 400;
+  line-height: 1.3;
+}
+
+/* ── Link Button ───────────────────────────────────────────── */
+.export-feature .link-btn {
+  background: none;
+  border: none;
+  color: var(--accent-fg);
+  cursor: pointer;
+  font-size: inherit;
+  font-family: inherit;
+  padding: 0;
+}
+.export-feature .link-btn:hover {
+  text-decoration: underline;
+}
+
+/* ── Export Actions ─────────────────────────────────────────── */
+.export-feature .export-actions {
+  margin-top: 8px;
+}
+.export-feature .btn-export {
+  width: 100%;
+  padding: 12px 24px;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.export-feature .export-footer-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+/* ── Preview Panel ─────────────────────────────────────────── */
+.export-feature .preview-panel {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--canvas-inset);
+  min-height: 0;
+  max-height: calc(100vh - 180px);
+}
+.export-feature .preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-default);
+  flex-shrink: 0;
+}
+.export-feature .preview-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.export-feature .view-toggle {
+  display: flex;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.export-feature .view-toggle-btn {
+  padding: 3px 10px;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  font-family: inherit;
+  background: var(--canvas-subtle);
+  color: var(--text-secondary);
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.export-feature .view-toggle-btn:not(:last-child) {
+  border-right: 1px solid var(--border-default);
+}
+.export-feature .view-toggle-btn.active {
+  background: var(--accent-muted);
+  color: var(--accent-fg);
+  font-weight: 600;
+}
+.export-feature .view-toggle-btn.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.export-feature .preview-body {
+  flex: 1;
+  overflow: auto;
+  padding: 16px;
+  min-height: 200px;
+}
+.export-feature .preview-empty,
+.export-feature .preview-loading,
+.export-feature .preview-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+}
+.export-feature .preview-loading {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  gap: 8px;
+}
+.export-feature .preview-code {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+.export-feature .preview-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border-default);
+  background: var(--canvas-subtle);
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+.export-feature .preview-footer-left {
+  display: flex;
+  gap: 8px;
+}
+
+/* ── Import Container ──────────────────────────────────────── */
+.export-feature .import-container {
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+/* ── Drop Zone ─────────────────────────────────────────────── */
+.export-feature .drop-zone {
+  border: 2px dashed var(--border-default);
+  border-radius: var(--radius-md);
+  padding: 48px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: var(--canvas-subtle);
+}
+.export-feature .drop-zone:hover {
+  border-color: var(--accent-emphasis);
+  background: var(--accent-subtle);
+}
+.export-feature .drop-zone-icon {
+  font-size: 36px;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+.export-feature .drop-zone-text {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+.export-feature .drop-zone-hint {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+}
+
+/* ── Import File Card ──────────────────────────────────────── */
+.export-feature .import-file-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--canvas-subtle);
+  margin-bottom: 20px;
+}
+.export-feature .import-file-icon {
+  font-size: 28px;
+  opacity: 0.7;
+}
+.export-feature .import-file-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.export-feature .import-file-meta {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ── Validation Items ──────────────────────────────────────── */
+.export-feature .validation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.export-feature .validation-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-md);
+  font-size: 0.8125rem;
+  background: var(--canvas-subtle);
+  transition: all 0.2s;
+}
+.export-feature .validation-item.checking {
+  border-color: var(--accent-emphasis);
+}
+.export-feature .validation-item.passed {
+  border-color: var(--success-emphasis);
+  background: var(--success-subtle);
+}
+.export-feature .validation-item.issue-error {
+  border-color: var(--danger-emphasis);
+  background: var(--danger-subtle);
+}
+.export-feature .validation-item.issue-warning {
+  border-color: var(--warning-emphasis);
+  background: var(--warning-subtle);
+}
+.export-feature .validation-icon {
+  width: 20px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.export-feature .validation-label {
+  flex: 1;
+  color: var(--text-secondary);
+}
+
+/* ── Import Session Rows ───────────────────────────────────── */
+.export-feature .import-session-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-muted);
+}
+.export-feature .import-session-row:last-child {
+  border-bottom: none;
+}
+.export-feature .import-session-info {
+  flex: 1;
+}
+.export-feature .import-session-name {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.export-feature .import-session-meta {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+/* ── Import Actions ────────────────────────────────────────── */
+.export-feature .import-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+
+/* ── Import Progress ───────────────────────────────────────── */
+.export-feature .import-progress-container {
+  text-align: center;
+}
+.export-feature .import-progress-label {
+  margin-top: 12px;
+  font-size: 0.875rem;
+}
+
+/* ── Import Success ────────────────────────────────────────── */
+.export-feature .import-success {
+  text-align: center;
+  padding: 32px 0;
+}
+.export-feature .import-success-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+.export-feature .import-success-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--success-fg);
+  margin: 0 0 8px;
+}
+.export-feature .import-success-desc {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  margin: 0 0 16px;
+}
+
+/* ── Import Error ──────────────────────────────────────────── */
+.export-feature .import-error {
+  padding: 10px 14px;
+  border: 1px solid var(--danger-emphasis);
+  border-radius: var(--radius-md);
+  background: var(--danger-subtle);
+  color: var(--danger-fg);
+  font-size: 0.8125rem;
+  margin-top: 12px;
+}
+.export-feature .import-error-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 500px;
+  margin: 0 auto 16px;
+}
+
+/* ── Import Notes (info-level messages) ───────────────────── */
+.export-feature .import-note-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 500px;
+  margin: 0 auto 16px;
+}
+.export-feature .import-note {
+  padding: 8px 14px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--canvas-subtle);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+
+/* ── Spinner ───────────────────────────────────────────────── */
+@keyframes export-view-spin {
+  to { transform: rotate(360deg); }
+}
+.export-feature .spinner {
+  display: inline-block;
+  animation: export-view-spin 0.8s linear infinite;
+}

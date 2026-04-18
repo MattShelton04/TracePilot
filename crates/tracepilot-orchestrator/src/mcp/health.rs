@@ -16,18 +16,7 @@ use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
 use std::process::Child;
 use std::time::Instant;
-
-/// Sanitize error messages for safe logging.
-///
-/// Removes control characters (except spaces/tabs) to prevent log injection
-/// attacks and truncates to 500 characters to prevent log spam.
-fn sanitize_error_msg(err: &impl std::fmt::Display) -> String {
-    err.to_string()
-        .chars()
-        .filter(|c| !c.is_control() || *c == ' ' || *c == '\t')
-        .take(500)
-        .collect()
-}
+use tracepilot_core::utils::sanitize_error_msg;
 
 /// Kill a child process and reap it to prevent zombie accumulation.
 fn kill_and_reap(child: &mut Child) {
@@ -189,8 +178,30 @@ async fn check_http_server(
         }
     };
 
+    // SSRF guard: enforce URL policy before firing any request.
+    // See crates/tracepilot-orchestrator/src/mcp/url_policy.rs
+    // Use the async variant so DNS resolution doesn't block this runtime.
+    if let Err(e) = crate::mcp::url_policy::validate_mcp_url_async(&url).await {
+        return make_error_result(name, start, &format!("Rejected MCP URL: {e}"));
+    }
+
+    // Custom redirect policy: re-validate every redirect target against the
+    // same URL policy so a hostile server can't 302 us onto a loopback /
+    // RFC1918 address after we've checked the initial URL. Also cap the
+    // redirect chain to a small number to prevent amplification.
+    let redirect_policy = reqwest::redirect::Policy::custom(|attempt| {
+        if attempt.previous().len() >= 5 {
+            return attempt.error("Too many redirects");
+        }
+        match crate::mcp::url_policy::validate_mcp_url(attempt.url().as_str()) {
+            Ok(()) => attempt.follow(),
+            Err(e) => attempt.error(format!("Redirect target rejected by URL policy: {e}")),
+        }
+    });
+
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(15))
+        .redirect(redirect_policy)
         .build();
 
     let client = match client {
@@ -320,9 +331,7 @@ async fn check_http_server(
         .send()
         .await
     {
-        Ok(resp) if resp.status().is_success() => {
-            parse_tools_from_response(resp).await
-        }
+        Ok(resp) if resp.status().is_success() => parse_tools_from_response(resp).await,
         Ok(resp) => {
             tracing::warn!(
                 server = %name,
@@ -569,14 +578,18 @@ fn spawn_and_initialize(
     let deadline = Instant::now() + timeout;
     loop {
         if Instant::now() > deadline {
-            tracing::debug!("[MCP Health] Timeout waiting for tools/list response from stdio server");
+            tracing::debug!(
+                "[MCP Health] Timeout waiting for tools/list response from stdio server"
+            );
             break; // Return whatever we have
         }
 
         line.clear();
         match reader.read_line(&mut line) {
             Ok(0) => {
-                tracing::debug!("[MCP Health] Stdio server closed stdout before sending tools/list response");
+                tracing::debug!(
+                    "[MCP Health] Stdio server closed stdout before sending tools/list response"
+                );
                 break;
             }
             Ok(_) => {
@@ -762,7 +775,7 @@ mod tests {
         rt.block_on(async {
             let mut server = make_server(true);
             server.command = None;
-            server.url = Some("http://127.0.0.1:1/mcp".into());
+            server.url = Some("http://198.51.100.1:1/mcp".into());
             server.transport = Some(crate::mcp::types::McpTransport::StreamableHttp);
             server.headers.insert("Bad Header".into(), "value".into());
 

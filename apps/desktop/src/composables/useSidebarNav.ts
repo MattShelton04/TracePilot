@@ -1,5 +1,6 @@
 import { computed } from "vue";
 import { useRouter } from "vue-router";
+import type { FeatureFlag } from "@/config/featureFlags";
 import type { SidebarSection } from "@/router/types";
 import { usePreferencesStore } from "@/stores/preferences";
 
@@ -8,7 +9,7 @@ export interface NavItem {
   label: string;
   to: string;
   icon: string;
-  featureFlag?: string;
+  featureFlag?: FeatureFlag;
 }
 
 export interface SidebarNavGroups {
@@ -52,7 +53,7 @@ export function useSidebarNav() {
         label: sidebar.label,
         to: basePath,
         icon: sidebar.icon,
-        featureFlag: route.meta.featureFlag as string | undefined,
+        featureFlag: route.meta.featureFlag,
         _order: sidebar.order,
       };
 
@@ -61,7 +62,10 @@ export function useSidebarNav() {
 
     // Sort each group by order
     for (const section of Object.values(groups)) {
-      section.sort((a, b) => ((a as NavItem & { _order: number })._order - (b as NavItem & { _order: number })._order));
+      section.sort(
+        (a, b) =>
+          (a as NavItem & { _order: number })._order - (b as NavItem & { _order: number })._order,
+      );
     }
 
     return groups;
