@@ -130,6 +130,7 @@ pub(super) fn make_tool_call(
         agent_display_name: None,
         agent_description: None,
         model: None,
+        requested_model: None,
         intention_summary: None,
         total_tokens: None,
         total_tool_calls: None,

@@ -20,6 +20,7 @@ export interface AgentNode {
   displayName: string;
   description?: string;
   model?: string;
+  requestedModel?: string;
   durationMs?: number;
   toolCount: number;
   totalTokens?: number;
@@ -66,6 +67,7 @@ export function buildAgentNode(
     displayName: tc.agentDisplayName ?? `${agentType} #${fallbackIdx + 1}`,
     description: tc.agentDescription,
     model: tc.model,
+    requestedModel: tc.requestedModel,
     durationMs: tc.durationMs,
     toolCount: childTools.length,
     totalTokens: tc.totalTokens,

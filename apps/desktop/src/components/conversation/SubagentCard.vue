@@ -44,6 +44,18 @@ const model = computed(() => {
   return props.toolCall.model || toolArgString(args, "model") || "";
 });
 
+const requestedModel = computed(() => props.toolCall.requestedModel || "");
+
+const modelMismatch = computed(() => {
+  const tc = props.toolCall;
+  return (
+    tc.isComplete &&
+    !!tc.model &&
+    !!tc.requestedModel &&
+    tc.model !== tc.requestedModel
+  );
+});
+
 const duration = computed(() => {
   if (status.value === "in-progress" && !props.toolCall.durationMs) {
     return "";
@@ -79,6 +91,11 @@ function handleClick() {
         <span class="cv-subagent-desc">{{ description }}</span>
       </div>
       <span v-if="model" class="cv-subagent-model">{{ model }}</span>
+      <span
+        v-if="modelMismatch"
+        class="cv-subagent-model-warn"
+        :title="`Requested: ${requestedModel} — actual model was substituted`"
+      >⚠</span>
       <span v-if="duration" class="cv-subagent-dur">{{ duration }}</span>
       <span
         :class="[
@@ -160,6 +177,12 @@ function handleClick() {
   color: var(--text-placeholder);
   white-space: nowrap;
   flex-shrink: 0;
+}
+.cv-subagent-model-warn {
+  font-size: 0.625rem;
+  color: var(--warning-fg);
+  flex-shrink: 0;
+  cursor: help;
 }
 .cv-subagent-dur {
   font-family: "JetBrains Mono", monospace;

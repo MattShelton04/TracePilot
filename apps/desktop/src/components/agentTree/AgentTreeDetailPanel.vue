@@ -96,6 +96,11 @@ const AGENT_TYPE_ICONS: Record<string, string> = {
           <div v-if="ctx.selectedNode.value.model" class="detail-info-item">
             <span class="detail-label">Model</span>
             <Badge variant="done">{{ ctx.selectedNode.value.model }}</Badge>
+            <span
+              v-if="ctx.selectedNode.value.status !== 'in-progress' && ctx.selectedNode.value.requestedModel && ctx.selectedNode.value.model !== ctx.selectedNode.value.requestedModel"
+              class="detail-model-warn"
+              :title="`Requested: ${ctx.selectedNode.value.requestedModel}`"
+            >⚠ substituted</span>
           </div>
           <div v-if="ctx.selectedNode.value.totalTokens" class="detail-info-item">
             <span class="detail-label">Tokens</span>

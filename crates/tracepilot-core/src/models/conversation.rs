@@ -111,6 +111,11 @@ pub struct TurnToolCall {
     pub agent_description: Option<String>,
     /// The model used for this specific tool call (populated from ToolExecComplete or SubagentCompleted).
     pub model: Option<String>,
+    /// The model originally requested in the tool call arguments — never updated after creation.
+    /// Populated from `arguments.model` at ToolExecutionStart. Used to detect attribution
+    /// mismatches when a premium model was requested but a cheaper model was actually used.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub requested_model: Option<String>,
     /// Total tokens consumed during subagent execution (from SubagentCompleted/Failed).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub total_tokens: Option<u64>,

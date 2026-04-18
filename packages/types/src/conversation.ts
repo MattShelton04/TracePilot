@@ -78,6 +78,9 @@ export interface TurnToolCall {
   agentDescription?: string;
   /** The model used for this specific tool call. */
   model?: string;
+  /** The model originally requested in the tool call arguments. May differ from `model` when a
+   * premium model was requested but a cheaper model was substituted due to rate-limit attribution. */
+  requestedModel?: string;
   /** Total tokens consumed during subagent execution (from SubagentCompleted/Failed). */
   totalTokens?: number;
   /** Total tool calls made during subagent execution (from SubagentCompleted/Failed). */
