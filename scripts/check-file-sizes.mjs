@@ -52,6 +52,8 @@ const ALLOWLIST = new Set([
   "apps/desktop/src/components/timeline/TurnWaterfallView.vue",
   "apps/desktop/src/components/timeline/NestedSwimlanesView.vue",
   "apps/desktop/src/components/conversation/ChatViewMode.vue",
+  // TODO: extract model-mismatch warning + tool-call list into sub-components
+  "apps/desktop/src/components/conversation/SubagentPanel.vue",
 
   // ── Rust god-modules (Phase 4 decomposition targets) ───────────
   "crates/tracepilot-indexer/src/index_db/search_reader.rs",
