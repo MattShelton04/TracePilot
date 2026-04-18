@@ -47,7 +47,6 @@ async function handleCopy(e: MouseEvent) {
         <span class="smp-icon" aria-hidden="true">🔧</span>
         <span class="smp-label">{{ label }}</span>
         <span class="smp-badge">{{ wordCount.toLocaleString() }} words</span>
-        <ExpandChevron :expanded="expanded" class="smp-chevron" aria-hidden="true" />
       </button>
       <button
         class="smp-copy"
@@ -55,6 +54,13 @@ async function handleCopy(e: MouseEvent) {
         :aria-label="copied ? 'Copied!' : 'Copy system message to clipboard'"
         @click="handleCopy"
       >{{ copied ? "✓ Copied" : "Copy" }}</button>
+      <button
+        class="smp-expand-btn"
+        :aria-label="`${expanded ? 'Collapse' : 'Expand'} ${label}`"
+        @click="expanded = !expanded"
+      >
+        <ExpandChevron :expanded="expanded" />
+      </button>
     </div>
 
     <div v-if="expanded" class="smp-body">
@@ -134,11 +140,15 @@ async function handleCopy(e: MouseEvent) {
   background: var(--surface-secondary, rgba(255, 255, 255, 0.05));
 }
 
-.smp-chevron {
+.smp-expand-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 10px 0 4px;
   flex-shrink: 0;
-  margin-left: auto;
-  color: var(--text-muted, #6e7681);
-  transition: color 0.15s;
 }
 
 .smp-toggle:hover .smp-chevron {
