@@ -427,13 +427,17 @@
   box-shadow: 0 2px 8px var(--accent-muted);
   opacity: 0.95;
 }
-.btn:active {
+.btn:active:not(:disabled) {
   transform: scale(0.97);
   transition-duration: 50ms;
 }
-.btn-primary:active {
+.btn-primary:active:not(:disabled) {
   transform: scale(0.97);
   opacity: 0.9;
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 .btn-sm {
   padding: 4px 8px;
