@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 const mocked = vi.hoisted(() => ({
   homedir: vi.fn(),
@@ -69,12 +69,12 @@ describe("commands/utils", () => {
 
   it("prefers TRACEPILOT_SESSION_STATE_DIR env var and expands home", () => {
     process.env.TRACEPILOT_SESSION_STATE_DIR = "~/.tracepilot/sessions";
-    expect(getSessionStateDir()).toBe(join("/tmp/home", ".tracepilot/sessions"));
+    expect(getSessionStateDir()).toBe(resolve(join("/tmp/home", ".tracepilot/sessions")));
   });
 
   it("falls back to COPILOT_SESSION_STATE_DIR when tracepilot override is unset", () => {
     process.env.COPILOT_SESSION_STATE_DIR = "/var/copilot/session-state";
-    expect(getSessionStateDir()).toBe("/var/copilot/session-state");
+    expect(getSessionStateDir()).toBe(resolve("/var/copilot/session-state"));
   });
 
   it("requireSessionStateDir returns path when directory exists", async () => {

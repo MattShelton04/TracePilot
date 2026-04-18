@@ -34,6 +34,7 @@
 //!   resolved address and is out of scope for wave 1.
 
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, ToSocketAddrs};
+use url::Host;
 
 /// Reason a URL was rejected by [`validate_mcp_url`].
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
@@ -78,23 +79,29 @@ pub fn validate_mcp_url(url: &str) -> Result<(), UrlPolicyError> {
         }
     }
 
-    let host = parsed.host_str().ok_or(UrlPolicyError::MissingHost)?;
+    let host_str = parsed.host_str().ok_or(UrlPolicyError::MissingHost)?;
 
-    // Fast path: host is an IP literal — check it directly.
-    if let Ok(ip) = host.parse::<IpAddr>() {
-        return classify_ip(ip, host);
+    // Fast path: host is an IP literal — use the already-parsed Host enum
+    // from the url crate so we never have to round-trip through a string.
+    // NOTE: host_str() for IPv6 literals includes the surrounding brackets
+    // (e.g. "[::1]"), so `host_str.parse::<IpAddr>()` would fail. Always use
+    // `parsed.host()` to obtain the pre-parsed address.
+    match parsed.host().ok_or(UrlPolicyError::MissingHost)? {
+        Host::Ipv4(addr) => return classify_ip(IpAddr::V4(addr), host_str),
+        Host::Ipv6(addr) => return classify_ip(IpAddr::V6(addr), host_str),
+        Host::Domain(_) => {} // fall through to DNS resolution below
     }
 
     // Hostname — resolve and check the *first* address. DNS rebinding
     // could return a different address at request time; that's covered
     // by operating-system + reqwest-level defences, not this pre-check.
     let port = parsed.port_or_known_default().unwrap_or(0);
-    let addrs = (host, port).to_socket_addrs().map_err(|e| {
-        UrlPolicyError::Unparseable(format!("DNS resolution failed for {host}: {e}"))
+    let addrs = (host_str, port).to_socket_addrs().map_err(|e| {
+        UrlPolicyError::Unparseable(format!("DNS resolution failed for {host_str}: {e}"))
     })?;
 
     for addr in addrs {
-        classify_ip(addr.ip(), host)?;
+        classify_ip(addr.ip(), host_str)?;
     }
     Ok(())
 }
