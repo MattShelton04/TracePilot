@@ -16,7 +16,7 @@
     "orchestration"
   ],
   "scripts": {
-    "start": "pnpm install && pnpm tauri dev --no-watch",
+    "start": "pnpm tauri dev --no-watch",
     "dev": "pnpm --filter @tracepilot/desktop dev",
     "build": "pnpm --filter @tracepilot/desktop build",
     "build:cli": "pnpm --filter @tracepilot/cli build",

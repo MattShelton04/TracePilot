@@ -14,7 +14,7 @@ tauri-build = { version = "2", features = [] }
 tracepilot-core = { workspace = true }
 tracepilot-indexer = { workspace = true }
 tracepilot-tauri-bindings = { path = "../../../crates/tracepilot-tauri-bindings" }
-tauri = { version = "2", features = [] }
+tauri = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }

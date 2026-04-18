@@ -7,8 +7,11 @@
 //! - [`truncate_string_utf8()`] - In-place version for owned strings
 
 pub mod cache;
+pub mod log_sanitize;
 pub mod migrator;
 pub mod sqlite;
+
+pub use log_sanitize::{sanitize as sanitize_log, sanitize_error_msg};
 
 use std::path::PathBuf;
 

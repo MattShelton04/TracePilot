@@ -20,7 +20,7 @@ toml = { workspace = true }
 tracing = { workspace = true }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
-tauri = { version = "2", features = [] }
+tauri = { workspace = true }
 tokio = { version = "1", features = ["rt", "sync"] }
 uuid = "1"
 lru = "0.12"
@@ -38,7 +38,7 @@ specta-typescript = { workspace = true }
 
 [dev-dependencies]
 rusqlite = { workspace = true }
-tempfile = "3"
+tempfile = { workspace = true }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 tracing-subscriber = { workspace = true }
 

@@ -107,7 +107,8 @@ jobs:
                   print(f'✅ {bench_name}: {actual:.0f} ns within budget {limit} ns')
 
           if violations:
-              print(f'::warning::{len(violations)} benchmark(s) exceed perf budget')
+              print(f'::error::{len(violations)} benchmark(s) exceed perf budget')
+              sys.exit(1)
           else:
               print('All benchmarks within budget')
           "

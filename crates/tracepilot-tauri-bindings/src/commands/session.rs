@@ -183,6 +183,7 @@ pub async fn get_session_detail(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, level = "debug", err, fields(session_id = %session_id))]
 pub async fn get_session_incidents(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,
@@ -383,6 +384,7 @@ pub async fn get_session_events(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, level = "debug", err, fields(session_id = %session_id))]
 pub async fn get_session_todos(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,
@@ -397,6 +399,7 @@ pub async fn get_session_todos(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, level = "debug", err, fields(session_id = %session_id))]
 pub async fn get_session_checkpoints(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,
@@ -418,6 +421,7 @@ pub async fn get_session_checkpoints(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, level = "debug", err, fields(session_id = %session_id))]
 pub async fn get_session_plan(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,

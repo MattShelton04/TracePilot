@@ -144,6 +144,7 @@ pub async fn task_create_batch(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, level = "debug", err, fields(task_id = %id))]
 pub async fn task_get(state: tauri::State<'_, SharedTaskDb>, id: String) -> CmdResult<Task> {
     crate::validators::validate_task_id(&id)?;
     with_task_db(&state, move |db| {
@@ -167,6 +168,7 @@ pub async fn task_list(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, level = "debug", err, fields(task_id = %id))]
 pub async fn task_cancel(state: tauri::State<'_, SharedTaskDb>, id: String) -> CmdResult<()> {
     crate::validators::validate_task_id(&id)?;
     with_task_db(&state, move |db| {
@@ -177,6 +179,7 @@ pub async fn task_cancel(state: tauri::State<'_, SharedTaskDb>, id: String) -> C
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, level = "debug", err, fields(task_id = %id))]
 pub async fn task_retry(state: tauri::State<'_, SharedTaskDb>, id: String) -> CmdResult<()> {
     crate::validators::validate_task_id(&id)?;
     with_task_db(&state, move |db| {
@@ -187,6 +190,7 @@ pub async fn task_retry(state: tauri::State<'_, SharedTaskDb>, id: String) -> Cm
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, level = "debug", err, fields(task_id = %id))]
 pub async fn task_delete(state: tauri::State<'_, SharedTaskDb>, id: String) -> CmdResult<()> {
     crate::validators::validate_task_id(&id)?;
     with_task_db(&state, move |db| {

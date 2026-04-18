@@ -11,23 +11,12 @@ use crate::mcp::headers::{
 };
 use crate::mcp::types::{McpHealthResult, McpHealthStatus, McpServerConfig, McpTool, McpTransport};
 use chrono::Utc;
+use tracepilot_core::utils::sanitize_error_msg;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
 use std::process::Child;
 use std::time::Instant;
-
-/// Sanitize error messages for safe logging.
-///
-/// Removes control characters (except spaces/tabs) to prevent log injection
-/// attacks and truncates to 500 characters to prevent log spam.
-fn sanitize_error_msg(err: &impl std::fmt::Display) -> String {
-    err.to_string()
-        .chars()
-        .filter(|c| !c.is_control() || *c == ' ' || *c == '\t')
-        .take(500)
-        .collect()
-}
 
 /// Kill a child process and reap it to prevent zombie accumulation.
 fn kill_and_reap(child: &mut Child) {

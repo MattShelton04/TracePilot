@@ -1,4 +1,12 @@
 # git-cliff configuration
+# ---------------------------------------------------------------------------
+# STATUS: committed-but-unused (as of Wave 48 / Plan §6.1).
+# This config is NOT wired into any CI workflow or `package.json` script; no
+# automation currently runs `git-cliff` against it. It is intentionally kept
+# in-tree as an opinionated starting point for whoever wires up automated
+# changelog generation in a future release-pipeline wave. Until then,
+# `CHANGELOG.md` is maintained by hand. Do not delete without owner review.
+# ---------------------------------------------------------------------------
 # See https://git-cliff.org/docs/configuration for full reference
 
 [changelog]

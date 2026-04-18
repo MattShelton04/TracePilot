@@ -76,8 +76,9 @@ jobs:
             if python3 -c "exit(0 if float('$ACTUAL') <= float('$BUDGET') else 1)"; then
               echo "✅ Bundle size within budget"
             else
-              echo "⚠️ Bundle size exceeds budget by $(python3 -c "print(f'{float(\"$ACTUAL\") - float(\"$BUDGET\"):.1f}')")KB"
-              echo "::warning::Bundle size ($ACTUAL KB) exceeds budget ($BUDGET KB)"
+              echo "❌ Bundle size exceeds budget by $(python3 -c "print(f'{float(\"$ACTUAL\") - float(\"$BUDGET\"):.1f}')")KB"
+              echo "::error::Bundle size ($ACTUAL KB) exceeds budget ($BUDGET KB)"
+              exit 1
             fi
           else
             echo "No perf-budget.json found — skipping budget check"

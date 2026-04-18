@@ -22,6 +22,7 @@ pub async fn get_config(state: tauri::State<'_, SharedConfig>) -> CmdResult<Trac
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, level = "debug", err)]
 pub async fn save_config(
     state: tauri::State<'_, SharedConfig>,
     config: TracePilotConfig,
