@@ -6,6 +6,7 @@
  */
 import { defineStore } from "pinia";
 import { computed, ref, watch } from "vue";
+import { STORAGE_KEYS } from "@/config/storageKeys";
 
 export interface SessionTab {
   /** Session ID (unique per tab) */
@@ -18,7 +19,7 @@ export interface SessionTab {
   isActive?: boolean;
 }
 
-const STORAGE_KEY = "tracepilot:session-tabs";
+const STORAGE_KEY = STORAGE_KEYS.sessionTabs;
 const MAX_TABS = 20;
 
 /** Default sub-tab for newly opened sessions */

@@ -1,4 +1,5 @@
 import "vue-router";
+import type { FeatureFlag } from "@/config/featureFlags";
 import type { RouteName } from "@/config/routes";
 import type { SidebarId } from "@/config/sidebarIds";
 
@@ -22,7 +23,7 @@ declare module "vue-router" {
     /** Sidebar nav item ID for active state — narrowed to the canonical registry. */
     sidebarId?: SidebarId;
     /** Feature flag key — route is blocked when flag is disabled */
-    featureFlag?: string;
+    featureFlag?: FeatureFlag;
     /** Sidebar navigation metadata — routes with this appear in the sidebar */
     sidebar?: SidebarMeta;
     /** Target route name when this record is redirected — typed against the registry. */

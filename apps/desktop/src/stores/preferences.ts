@@ -20,6 +20,8 @@ import {
 import { normalizePath, useAsyncGuard } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { ref, watch } from "vue";
+import type { FeatureFlag } from "@/config/featureFlags";
+import { STORAGE_KEYS } from "@/config/storageKeys";
 import { logWarn } from "@/utils/logger";
 
 export type ThemeOption = "dark" | "light";
@@ -37,7 +39,7 @@ export const BASE_FONT_SIZE_PX = 16;
 function applyTheme(theme: ThemeOption) {
   document.documentElement.setAttribute("data-theme", theme);
   // Write-through cache for instant theme on next launch (no flash)
-  localStorage.setItem("tracepilot-theme", theme);
+  localStorage.setItem(STORAGE_KEYS.theme, theme);
 }
 
 function applyContentMaxWidth(value: number) {
@@ -58,7 +60,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
 
   // Initialize theme from write-through cache to match main.ts (prevents flash)
   const VALID_THEMES: ThemeOption[] = ["dark", "light"];
-  const cachedTheme = localStorage.getItem("tracepilot-theme");
+  const cachedTheme = localStorage.getItem(STORAGE_KEYS.theme);
   const theme = ref<ThemeOption>(
     VALID_THEMES.includes(cachedTheme as ThemeOption) ? (cachedTheme as ThemeOption) : "dark",
   );
@@ -93,8 +95,8 @@ export const usePreferencesStore = defineStore("preferences", () => {
   const alertsCooldownSeconds = ref(20);
 
   // Ephemeral state — stays in localStorage only
-  const lastViewedSession = ref<string | null>(localStorage.getItem("tracepilot-last-session"));
-  const lastSeenVersion = ref<string | null>(localStorage.getItem("tracepilot-last-seen-version"));
+  const lastViewedSession = ref<string | null>(localStorage.getItem(STORAGE_KEYS.lastSession));
+  const lastSeenVersion = ref<string | null>(localStorage.getItem(STORAGE_KEYS.lastSeenVersion));
 
   // ── Hydration gate ──────────────────────────────────────────
   // Prevents reactive watches from persisting default values to disk
@@ -110,7 +112,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
   // On first load after upgrade, pull old prefs into config.toml
   // and remove the legacy key.
   function migrateFromLocalStorage(config: TracePilotConfig): TracePilotConfig {
-    const raw = localStorage.getItem("tracepilot-prefs");
+    const raw = localStorage.getItem(STORAGE_KEYS.legacyPrefs);
     if (!raw) return config;
 
     try {
@@ -174,9 +176,9 @@ export const usePreferencesStore = defineStore("preferences", () => {
 
       // Migrate ephemeral fields
       if (old.lastViewedSession)
-        localStorage.setItem("tracepilot-last-session", old.lastViewedSession);
+        localStorage.setItem(STORAGE_KEYS.lastSession, old.lastViewedSession);
       if (old.lastSeenVersion)
-        localStorage.setItem("tracepilot-last-seen-version", old.lastSeenVersion);
+        localStorage.setItem(STORAGE_KEYS.lastSeenVersion, old.lastSeenVersion);
     } catch (e) {
       // Corrupt localStorage — leave key in place; it'll be retried next launch
       logWarn("[preferences] Failed to migrate legacy preferences", e);
@@ -321,13 +323,13 @@ export const usePreferencesStore = defineStore("preferences", () => {
       }
 
       let config = await getConfig();
-      const hadLegacyPrefs = !!localStorage.getItem("tracepilot-prefs");
+      const hadLegacyPrefs = !!localStorage.getItem(STORAGE_KEYS.legacyPrefs);
       // One-time migration from localStorage
       if (hadLegacyPrefs) {
         config = migrateFromLocalStorage(config);
         await saveConfig(config);
         // Only clear legacy key after save succeeds
-        localStorage.removeItem("tracepilot-prefs");
+        localStorage.removeItem(STORAGE_KEYS.legacyPrefs);
       }
       backendConfig = config;
       applyConfig(config);
@@ -344,12 +346,12 @@ export const usePreferencesStore = defineStore("preferences", () => {
 
   // ── Persist ephemeral state to localStorage ────────────────
   watch(lastViewedSession, (v) => {
-    if (v) localStorage.setItem("tracepilot-last-session", v);
-    else localStorage.removeItem("tracepilot-last-session");
+    if (v) localStorage.setItem(STORAGE_KEYS.lastSession, v);
+    else localStorage.removeItem(STORAGE_KEYS.lastSession);
   });
   watch(lastSeenVersion, (v) => {
-    if (v) localStorage.setItem("tracepilot-last-seen-version", v);
-    else localStorage.removeItem("tracepilot-last-seen-version");
+    if (v) localStorage.setItem(STORAGE_KEYS.lastSeenVersion, v);
+    else localStorage.removeItem(STORAGE_KEYS.lastSeenVersion);
   });
 
   // Watch theme changes: update DOM + write-through cache
@@ -489,12 +491,12 @@ export const usePreferencesStore = defineStore("preferences", () => {
   }
 
   /** Check if a feature flag is enabled. */
-  function isFeatureEnabled(flag: string): boolean {
+  function isFeatureEnabled(flag: FeatureFlag): boolean {
     return featureFlags.value[flag] ?? false;
   }
 
   /** Toggle a feature flag on or off. */
-  function toggleFeature(flag: string): void {
+  function toggleFeature(flag: FeatureFlag): void {
     featureFlags.value[flag] = !featureFlags.value[flag];
   }
 

@@ -21,6 +21,7 @@ import {
 import { onMounted, ref } from "vue";
 import { browseForDirectory } from "@/composables/useBrowseDirectory";
 import { useIndexingEvents } from "@/composables/useIndexingEvents";
+import { STORAGE_KEYS } from "@/config/storageKeys";
 import { useAnalyticsStore } from "@/stores/analytics";
 import { useSessionsStore } from "@/stores/sessions";
 import { isAlreadyIndexingError } from "@/utils/backendErrors";
@@ -160,12 +161,12 @@ async function handleFactoryReset() {
   try {
     await factoryResetApi();
     // Clear all TracePilot localStorage keys
-    localStorage.removeItem("tracepilot-prefs");
-    localStorage.removeItem("tracepilot-theme");
-    localStorage.removeItem("tracepilot-last-session");
-    localStorage.removeItem("tracepilot-last-seen-version");
-    localStorage.removeItem("tracepilot-update-check");
-    localStorage.removeItem("tracepilot-dismissed-update");
+    localStorage.removeItem(STORAGE_KEYS.legacyPrefs);
+    localStorage.removeItem(STORAGE_KEYS.theme);
+    localStorage.removeItem(STORAGE_KEYS.lastSession);
+    localStorage.removeItem(STORAGE_KEYS.lastSeenVersion);
+    localStorage.removeItem(STORAGE_KEYS.updateCheck);
+    localStorage.removeItem(STORAGE_KEYS.dismissedUpdate);
     window.location.reload();
   } catch (e) {
     resetting.value = false;

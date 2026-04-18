@@ -7,11 +7,12 @@ import { useAppVersion } from "@/composables/useAppVersion";
 import { useSidebarNav } from "@/composables/useSidebarNav";
 import { useUpdateCheck } from "@/composables/useUpdateCheck";
 import { useWhatsNew } from "@/composables/useWhatsNew";
+import { STORAGE_KEYS } from "@/config/storageKeys";
 import { useAlertsStore } from "@/stores/alerts";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSessionsStore } from "@/stores/sessions";
 
-const DISMISSED_KEY = "tracepilot-dismissed-update";
+const DISMISSED_KEY = STORAGE_KEYS.dismissedUpdate;
 
 const emit = defineEmits<{
   "view-update-details": [];

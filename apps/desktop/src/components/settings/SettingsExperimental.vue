@@ -1,16 +1,18 @@
 <script setup lang="ts">
 import { FormSwitch, SectionPanel } from "@tracepilot/ui";
+import type { FeatureFlag } from "@/config/featureFlags";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSdkStore } from "@/stores/sdk";
 
 const preferences = usePreferencesStore();
 const sdk = useSdkStore();
 
-const flags = [
+const flags: readonly { key: FeatureFlag; label: string; description: string }[] = [
   {
     key: "mcpServers",
     label: "MCP Servers",
-    description: "Manage Model Context Protocol servers — add, configure, and monitor MCP integrations.",
+    description:
+      "Manage Model Context Protocol servers — add, configure, and monitor MCP integrations.",
   },
   {
     key: "skills",
@@ -46,7 +48,7 @@ const flags = [
   },
 ] as const;
 
-function handleToggle(key: string) {
+function handleToggle(key: FeatureFlag) {
   preferences.toggleFeature(key);
   // Auto-connect SDK when the copilotSdk flag is toggled on
   if (key === "copilotSdk" && preferences.isFeatureEnabled("copilotSdk")) {

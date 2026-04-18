@@ -351,7 +351,7 @@ const router = createRouter({
 
 // Gate feature-flagged routes (await hydration so deep-links aren't incorrectly blocked)
 router.beforeEach(async (to) => {
-  const flag = to.meta?.featureFlag as string | undefined;
+  const flag = to.meta?.featureFlag;
   if (flag) {
     const prefs = usePreferencesStore();
     await prefs.whenReady;

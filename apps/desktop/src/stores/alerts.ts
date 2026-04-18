@@ -5,6 +5,7 @@
 import { usePersistedRef } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
+import { STORAGE_KEYS } from "@/config/storageKeys";
 
 /** Alert event types that trigger notifications. */
 export type AlertType = "session-end" | "ask-user" | "session-error";
@@ -26,7 +27,7 @@ export interface AlertEvent {
 }
 
 const MAX_HISTORY = 100;
-const STORAGE_KEY = "tracepilot:alert-history";
+const STORAGE_KEY = STORAGE_KEYS.alerts;
 
 let idCounter = 0;
 

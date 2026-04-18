@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { useUpdateCheck } from "@/composables/useUpdateCheck";
+import { STORAGE_KEYS } from "@/config/storageKeys";
 
 const emit = defineEmits<{
   "view-details": [];
@@ -9,7 +10,7 @@ const emit = defineEmits<{
 
 const { updateResult } = useUpdateCheck();
 
-const dismissedVersion = ref(localStorage.getItem("tracepilot-dismissed-update"));
+const dismissedVersion = ref(localStorage.getItem(STORAGE_KEYS.dismissedUpdate));
 
 const visible = computed(() => {
   if (!updateResult.value?.hasUpdate) return false;
@@ -19,7 +20,7 @@ const visible = computed(() => {
 function dismiss() {
   if (updateResult.value?.latestVersion) {
     const version = updateResult.value.latestVersion;
-    localStorage.setItem("tracepilot-dismissed-update", version);
+    localStorage.setItem(STORAGE_KEYS.dismissedUpdate, version);
     dismissedVersion.value = version;
   }
   emit("dismiss");

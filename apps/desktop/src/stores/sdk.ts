@@ -49,12 +49,13 @@ import { runMutation, toErrorMessage } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref, shallowRef, watch } from "vue";
 import { useWindowRole } from "@/composables/useWindowRole";
+import { STORAGE_KEYS } from "@/config/storageKeys";
 import { MAX_SDK_EVENTS } from "@/config/tuning";
 import { usePreferencesStore } from "@/stores/preferences";
 import { logInfo, logWarn } from "@/utils/logger";
 import { safeListen } from "@/utils/tauriEvents";
 
-const SDK_SETTINGS_KEY = "tracepilot:sdk-settings";
+const SDK_SETTINGS_KEY = STORAGE_KEYS.sdkSettings;
 
 interface SdkSettings {
   cliUrl: string;

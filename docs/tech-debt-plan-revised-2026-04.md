@@ -173,15 +173,15 @@ the DTO sweep is deferred to subsequent waves. Full playbook:
 
 **Wave-8 deliverables:** `docs/specta-migration-guide.md`; `crates/tracepilot-tauri-bindings/src/{specta_exports.rs, bin/gen-bindings.rs, build.rs}`; pilot derives on `ErrorCode` + `BridgeMetricsSnapshot`; checked-in `packages/client/src/generated/bindings.ts`; `pnpm gen:bindings` script.
 
-### 1B.2 TS key registries — 🟡 PARTIAL (wave 6)
+### 1B.2 TS key registries — ✅ DONE (wave 13)
 
 Under `apps/desktop/src/config/`:
 
 - `routes.ts` — `export const ROUTE_NAMES = {…} as const`; `RouteName` union + `isRouteName()` guard. ✅ landed (wave 6). `router/types.ts` RouteMeta augmentation now narrows `sidebarId?: SidebarId` and adds `redirectTo?: RouteName`. All `router.push/replace({ name: ... })` call sites migrated (router/index.ts, WorktreeManagerView, McpServerDetailView, McpServerCard, SkillEditorView, SessionListView, SessionDetailView, SessionReplayView, ExportView). Route-record `name:` literals in the declarative routes array intentionally left as string literals — drift is caught by `src/__tests__/router/routeRegistry.test.ts` which asserts every registered route is in `ROUTE_NAMES` (and vice versa) and every `meta.sidebarId` is in `SIDEBAR_IDS`.
 - `sidebarIds.ts` — `SIDEBAR_IDS` const + `SidebarId` union (20 entries). ✅ landed (wave 6). Covered by the registry consistency test above.
 - `tuning.ts` — cross-cutting tuning constants only (`POLL_FAST_MS`, `POLL_SLOW_MS`, `MAX_SDK_EVENTS`). ✅ landed (wave 6) and wired into `stores/orchestrator.ts` and `stores/sdk.ts`. Component-local animation/debounce durations deliberately **not** hoisted — cohesion wins over SSOT when a constant has a single caller.
-- `featureFlags.ts` — **deferred** (touches `@tracepilot/types` `DEFAULT_FEATURES`; best done alongside specta codegen in 1B.1).
-- `storageKeys.ts` — **deferred** (requires a one-shot migration shim for legacy `tracepilot-*` keys on existing user machines).
+- `featureFlags.ts` — ✅ landed (wave 13). `FEATURE_FLAGS` / `FeatureFlag` / `isFeatureFlag()` derived at runtime from `DEFAULT_FEATURES` in `@tracepilot/types`, so the array and backend-shaped record cannot drift. `RouteMeta.featureFlag`, `NavItem.featureFlag`, and `preferences.isFeatureEnabled()`/`toggleFeature()` now type against `FeatureFlag`. Registry consistency test: `src/__tests__/config/featureFlags.test.ts`.
+- `storageKeys.ts` — ✅ landed (wave 13). `STORAGE_KEYS` / `StorageKey` consolidates every `localStorage` key used by the desktop app (theme, last-session, last-seen-version, legacy-prefs, update-check, dismissed-update, sdk-settings, session-tabs, alerts). Existing dash- and colon-style values are preserved verbatim for backwards compatibility with installed users. `storageKeysMigration.ts` exposes `runStorageKeyMigrations()` as a no-op scaffold (wired from `main.ts` before any store setup) so future key renames land as single edits instead of ad-hoc per-call-site migrations. Registry test: `src/__tests__/config/storageKeys.test.ts`.
 
 ### 1B.3 Rust constants module ✅ DONE (wave 4)
 
@@ -256,8 +256,8 @@ Under `apps/desktop/src/config/`:
 
 - `useInflightPromise<T>()` ✅ landed in `@tracepilot/ui/composables` (wave 9) + 4 vitest cases. Adopted in `stores/sessions.ts` for all 3 manual dedup slots (`fetchPromise`, `indexingPromise`, `postIndexRefreshPromise`).
 - `usePersistedRef<T>(key, default, options?)` ✅ landed in `@tracepilot/ui/composables` (wave 9) + 5 vitest cases. Adopted in `stores/alerts.ts` (slice-cap preserved via custom serializer). Left as-is (by design): `sdk.ts` (persists object, exposes separate refs), `sessionTabs.ts` (same pattern), `preferences.ts` (has versioned/legacy key migration + write-through theme cache + mostly backed by `config.toml` not localStorage).
-- `useAsyncData` (existing `apps/desktop/src/composables/useAsyncData.ts`): sweep of ~13 `ref<T[]>([]) + loading + error` trios **deferred to wave 10** (too large for a single wave; needs per-store triage anyway).
-- Convert `useAlertWatcher` from module-level mutable state to a Pinia store: **deferred to wave 10** — behaviourally risky (dedup Sets/Maps must port correctly or alerts double-fire or silently drop).
+- `useAsyncData` (existing `apps/desktop/src/composables/useAsyncData.ts`): sweep of ~13 `ref<T[]>([]) + loading + error` trios — **WONTFIX (wave 12b triage, 0/13 migrated)**. Every candidate store was triaged and found to already own at least one disqualifying pattern: `runAction`/`runMutation` sharing `loading`/`error` across multiple mutations (`skills`, `presets`, `mcp`, `worktrees`), multi-fetch `allSettledRecord` initialize with aggregated errors (`launcher`, `configInjector`, `orchestrationHome`), module-level promise dedup or `useInflightPromise` (`tasks`, `sessions`), stale-while-revalidate caching (`orchestrationHome`), or complex polling/event-driven state (`orchestrator`, `sdk`, `search`, `alertWatcher`). `useAsyncData` owns its own `loading`/`error` and writes `data.value = result` in one shot, which would break every candidate. The composable remains available for any future store that is a clean trio; no existing store qualifies.
+- Convert `useAlertWatcher` from module-level mutable state to a Pinia store: ✅ DONE (wave 12a). Module-level Sets/Maps + in-flight flags + captured route migrated to `stores/alertWatcher.ts` (setup store with closure-owned Sets/Maps to preserve non-reactive membership semantics + `$reset()`). Composable is behaviour-identical; all dedup reads/writes go through the store. New file: `src/stores/__tests__/alertWatcher.test.ts` (12 cases covering running transitions, ask_user dedup, error baseline skip-first, prune, and `$reset`). Desktop test count: 1221 → 1233.
 - Wrap `App.vue:59,74` dynamic imports via `useWindowLifecycle.ts`: **WONTFIX this phase** — trivial inline pattern; the lifecycle helper (shipped in wave 1A.7) already serves its primary purpose elsewhere.
 
 ### 2.3 Shared-component adoption
