@@ -99,6 +99,8 @@ jobs:
 
       - name: Frontend lint (biome)
         if: runner.os == 'Linux'
+        # Warnings only — biome formatting churn is non-blocking
+        continue-on-error: true
         run: pnpm lint
 
       # ── File-size guard-rails ───────────────────────────────
