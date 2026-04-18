@@ -5,416 +5,54 @@
  * and provides actions for session steering (send message, set mode/model, abort).
  *
  * Feature-gated: only activates when `copilotSdk` feature flag is enabled.
+ *
+ * Composed from pure slice factories in `stores/sdk/`:
+ *   - `connection.ts`  connection lifecycle + hydrated caches
+ *   - `messaging.ts`   per-session steering actions
+ *   - `settings.ts`    persisted `cliUrl` / `logLevel`
+ *
+ * IPC semantics preserved: `session.resume` is never implicitly invoked, the
+ * `isActive` gate on sessions is only set by the explicit `resumeSession`
+ * action, and `resolvedSessionId` (owned by `useSdkSteering`) is unaffected.
  */
 
 import type { UnlistenFn } from "@tauri-apps/api/event";
-import {
-  sdkAbortSession,
-  sdkCliStatus,
-  sdkConnect,
-  sdkCreateSession,
-  sdkDestroySession,
-  sdkDetectUiServer,
-  sdkDisconnect,
-  sdkGetAuthStatus,
-  sdkGetForegroundSession,
-  sdkGetQuota,
-  sdkLaunchUiServer,
-  sdkListModels,
-  sdkListSessions,
-  sdkResumeSession,
-  sdkSendMessage,
-  sdkSetForegroundSession,
-  sdkSetSessionMode,
-  sdkSetSessionModel,
-  sdkStatus,
-  sdkUnlinkSession,
-} from "@tracepilot/client";
-import type {
-  BridgeAuthStatus,
-  BridgeConnectConfig,
-  BridgeConnectionState,
-  BridgeEvent,
-  BridgeMessagePayload,
-  BridgeModelInfo,
-  BridgeQuota,
-  BridgeSessionConfig,
-  BridgeSessionInfo,
-  BridgeSessionMode,
-  BridgeStatus,
-  DetectedUiServer,
-} from "@tracepilot/types";
+import { sdkDisconnect } from "@tracepilot/client";
+import type { BridgeEvent, BridgeStatus } from "@tracepilot/types";
 import { IPC_EVENTS } from "@tracepilot/types";
-import { runMutation, toErrorMessage } from "@tracepilot/ui";
 import { defineStore } from "pinia";
-import { computed, ref, shallowRef, watch } from "vue";
+import { watch } from "vue";
 import { useWindowRole } from "@/composables/useWindowRole";
-import { STORAGE_KEYS } from "@/config/storageKeys";
 import { MAX_SDK_EVENTS } from "@/config/tuning";
+import { createConnectionSlice } from "@/stores/sdk/connection";
+import { createMessagingSlice } from "@/stores/sdk/messaging";
+import { createSettingsSlice } from "@/stores/sdk/settings";
 import { usePreferencesStore } from "@/stores/preferences";
 import { logInfo, logWarn } from "@/utils/logger";
 import { safeListen } from "@/utils/tauriEvents";
 
-const SDK_SETTINGS_KEY = STORAGE_KEYS.sdkSettings;
-
-interface SdkSettings {
-  cliUrl: string;
-  logLevel: string;
-}
-
-function loadSdkSettings(): SdkSettings {
-  try {
-    const raw = localStorage.getItem(SDK_SETTINGS_KEY);
-    if (raw) return { cliUrl: "", logLevel: "info", ...JSON.parse(raw) };
-  } catch {
-    /* ignore */
-  }
-  return { cliUrl: "", logLevel: "info" };
-}
-
-function saveSdkSettings(settings: SdkSettings) {
-  localStorage.setItem(SDK_SETTINGS_KEY, JSON.stringify(settings));
-}
-
 export const useSdkStore = defineStore("sdk", () => {
-  // ─── Persisted settings ─────────────────────────────────────────
-  const savedSettings = loadSdkSettings();
-  const savedCliUrl = ref(savedSettings.cliUrl);
-  const savedLogLevel = ref(savedSettings.logLevel);
+  const settings = createSettingsSlice();
+  const messagingRefs = { foregroundSessionIdResetter: null as null | (() => void) };
 
-  // ─── State ────────────────────────────────────────────────────────
-
-  const connectionState = ref<BridgeConnectionState>("disconnected");
-  const sdkAvailable = ref(false);
-  const cliVersion = ref<string | null>(null);
-  const protocolVersion = ref<number | null>(null);
-  const activeSessions = ref(0);
-  const lastError = ref<string | null>(null);
-  const connecting = ref(false);
-  /** "stdio" (private subprocess) or "tcp" (connected to --ui-server). */
-  const connectionMode = ref<string | null>(null);
-
-  const authStatus = ref<BridgeAuthStatus | null>(null);
-  const quota = ref<BridgeQuota | null>(null);
-  const sessions = ref<BridgeSessionInfo[]>([]);
-  const models = ref<BridgeModelInfo[]>([]);
-  const foregroundSessionId = ref<string | null>(null);
-
-  // Circular buffer of recent bridge events (per-session keyed by sessionId)
-  const recentEvents = shallowRef<BridgeEvent[]>([]);
-
-  // Steering state
-  const sendingMessage = ref(false);
-
-  // UI server detection
-  const detectedServers = ref<DetectedUiServer[]>([]);
-  const detecting = ref(false);
-  /** Message shown after detection: "Found N server(s)" or "No servers found" */
-  const lastDetectMessage = ref<string | null>(null);
-  /** True while launching a UI server process */
-  const launching = ref(false);
-
-  // ─── Computed ─────────────────────────────────────────────────────
-
-  const isConnected = computed(() => connectionState.value === "connected");
-  const isConnecting = computed(() => connecting.value || connectionState.value === "connecting");
-  const hasError = computed(() => lastError.value !== null);
-  const isTcpMode = computed(() => connectionMode.value === "tcp");
-  const isStdioMode = computed(
-    () => connectionMode.value === "stdio" || connectionMode.value === null,
-  );
-
-  const foregroundSession = computed(
-    () => sessions.value.find((s) => s.sessionId === foregroundSessionId.value) ?? null,
-  );
-
-  const sessionEvents = computed(() => {
-    return (sessionId: string) => recentEvents.value.filter((e) => e.sessionId === sessionId);
+  const connection = createConnectionSlice({
+    savedCliUrl: settings.savedCliUrl,
+    savedLogLevel: settings.savedLogLevel,
+    updateSettings: settings.updateSettings,
+    onDisconnect: () => messagingRefs.foregroundSessionIdResetter?.(),
   });
 
-  // ─── Actions ──────────────────────────────────────────────────────
-
-  function applyStatus(status: BridgeStatus) {
-    connectionState.value = status.state;
-    sdkAvailable.value = status.sdkAvailable;
-    cliVersion.value = status.cliVersion ?? null;
-    protocolVersion.value = status.protocolVersion ?? null;
-    activeSessions.value = status.activeSessions;
-    lastError.value = status.error ?? null;
-    connectionMode.value = status.connectionMode ?? null;
-  }
-
-  async function connect(config: BridgeConnectConfig = {}): Promise<boolean> {
-    connecting.value = true;
-    lastError.value = null;
-    // Redact sensitive fields before logging
-    const safeConfig = { ...config, githubToken: config.githubToken ? "<redacted>" : undefined };
-    logInfo("[sdk] Connecting...", safeConfig);
-    try {
-      const status = await sdkConnect(config);
-      applyStatus(status);
-      logInfo("[sdk] Connect result:", status.state, "sdk_available:", status.sdkAvailable);
-      // Hydrate ancillary data after successful connection
-      if (status.state === "connected") {
-        await hydrateAfterConnect();
-        return true;
-      }
-      return false;
-    } catch (e) {
-      lastError.value = toErrorMessage(e);
-      connectionState.value = "error";
-      logWarn("[sdk] Connect failed:", e);
-      return false;
-    } finally {
-      connecting.value = false;
-    }
-  }
-
-  /** Fetch CLI version info from the connected SDK. */
-  async function fetchVersionInfo() {
-    try {
-      const status = await sdkCliStatus();
-      cliVersion.value = status.cliVersion ?? null;
-      protocolVersion.value = status.protocolVersion ?? null;
-    } catch (e) {
-      logWarn("[sdk] Failed to fetch CLI version:", e);
-    }
-  }
-
-  /** Fetch sessions, models, and auth after connecting. Quota skipped (not all CLI versions support it). */
-  async function hydrateAfterConnect() {
-    logInfo("[sdk] Hydrating: fetching auth, models, sessions, version...");
-    await Promise.all([fetchAuthStatus(), fetchModels(), fetchSessions(), fetchVersionInfo()]);
-    logInfo(
-      "[sdk] Hydration complete: auth=",
-      authStatus.value?.isAuthenticated,
-      "models=",
-      models.value.length,
-      "sessions=",
-      sessions.value.length,
-      "cli=",
-      cliVersion.value,
-    );
-  }
-
-  async function disconnect() {
-    await runMutation(lastError, async () => {
-      await sdkDisconnect();
-      connectionState.value = "disconnected";
-      connectionMode.value = null;
-      sessions.value = [];
-      foregroundSessionId.value = null;
-      activeSessions.value = 0;
-    });
-  }
-
-  async function refreshStatus() {
-    try {
-      const status = await sdkStatus();
-      applyStatus(status);
-    } catch (e) {
-      logWarn("[sdk] Failed to refresh status", e);
-    }
-  }
-
-  async function checkCliStatus() {
-    try {
-      const status = await sdkCliStatus();
-      applyStatus(status);
-    } catch (e) {
-      logWarn("[sdk] Failed to check CLI status", e);
-    }
-  }
-
-  async function fetchAuthStatus() {
-    try {
-      authStatus.value = await sdkGetAuthStatus();
-    } catch (e) {
-      logWarn("[sdk] Failed to fetch auth status", e);
-    }
-  }
-
-  async function fetchQuota() {
-    try {
-      quota.value = await sdkGetQuota();
-    } catch {
-      // Silently ignore — many CLI versions don't support account.get_quota
-      quota.value = null;
-    }
-  }
-
-  async function fetchSessions() {
-    try {
-      sessions.value = await sdkListSessions();
-      logInfo(
-        "[sdk] Sessions fetched:",
-        sessions.value.length,
-        "total,",
-        sessions.value.filter((s) => s.isActive).length,
-        "active",
-      );
-    } catch (e) {
-      logWarn("[sdk] Failed to fetch sessions", e);
-    }
-  }
-
-  async function fetchModels() {
-    try {
-      models.value = await sdkListModels();
-    } catch (e) {
-      logWarn("[sdk] Failed to fetch models", e);
-    }
-  }
-
-  async function createSession(config: BridgeSessionConfig): Promise<BridgeSessionInfo | null> {
-    return runMutation(lastError, async () => {
-      const session = await sdkCreateSession(config);
-      sessions.value = [...sessions.value, session];
-      activeSessions.value = sessions.value.length;
-      return session;
-    });
-  }
-
-  /** Resume an existing session for steering (e.g. from --ui-server). */
-  async function resumeSession(
-    sessionId: string,
-    workingDirectory?: string,
-    model?: string,
-  ): Promise<BridgeSessionInfo | null> {
-    logInfo(
-      "[sdk] Resuming session:",
-      sessionId,
-      "cwd:",
-      workingDirectory ?? "(none)",
-      "model:",
-      model ?? "(none)",
-    );
-    try {
-      const session = await sdkResumeSession(sessionId, workingDirectory, model);
-      logInfo("[sdk] Resume result:", session);
-      lastError.value = null; // Clear any stale errors on success
-      // Update existing entry or add new one
-      const idx = sessions.value.findIndex((s) => s.sessionId === session.sessionId);
-      if (idx >= 0) {
-        // Replace with updated info (isActive = true after resume)
-        const updated = [...sessions.value];
-        updated[idx] = session;
-        sessions.value = updated;
-      } else {
-        sessions.value = [...sessions.value, session];
-      }
-      // Also update if the returned ID matches the input (common case)
-      if (session.sessionId !== sessionId) {
-        const origIdx = sessions.value.findIndex((s) => s.sessionId === sessionId);
-        if (origIdx >= 0) {
-          const updated = [...sessions.value];
-          updated[origIdx] = { ...updated[origIdx], isActive: true };
-          sessions.value = updated;
-        }
-      }
-      return session;
-    } catch (e) {
-      lastError.value = toErrorMessage(e);
-      logWarn("[sdk] Resume failed:", e);
-      return null;
-    }
-  }
-
-  async function sendMessage(
-    sessionId: string,
-    payload: BridgeMessagePayload,
-  ): Promise<string | null> {
-    sendingMessage.value = true;
-    logInfo(
-      "[sdk] Sending message to session:",
-      sessionId,
-      "prompt:",
-      payload.prompt?.slice(0, 50),
-    );
-    try {
-      const turnId = await sdkSendMessage(sessionId, payload);
-      logInfo("[sdk] Message sent, turnId:", turnId);
-      lastError.value = null; // Clear any stale errors on success
-      return turnId;
-    } catch (e) {
-      lastError.value = toErrorMessage(e);
-      logWarn("[sdk] Send message failed:", e);
-      return null;
-    } finally {
-      sendingMessage.value = false;
-    }
-  }
-
-  async function abortSession(sessionId: string) {
-    await runMutation(lastError, () => sdkAbortSession(sessionId));
-  }
-
-  async function destroySession(sessionId: string) {
-    logInfo("[sdk] Destroying session:", sessionId);
-    try {
-      await sdkDestroySession(sessionId);
-      // Remove from local list or mark inactive
-      sessions.value = sessions.value.map((s) =>
-        s.sessionId === sessionId ? { ...s, isActive: false } : s,
-      );
-      lastError.value = null;
-      logInfo("[sdk] Session destroyed:", sessionId);
-    } catch (e) {
-      lastError.value = toErrorMessage(e);
-      logWarn("[sdk] Destroy failed:", e);
-    }
-  }
-
-  /** Unlink a session without destroying it — no shutdown event written. */
-  async function unlinkSession(sessionId: string) {
-    logInfo("[sdk] Unlinking session:", sessionId);
-    try {
-      await sdkUnlinkSession(sessionId);
-      lastError.value = null;
-      logInfo("[sdk] Session unlinked:", sessionId);
-    } catch (e) {
-      lastError.value = toErrorMessage(e);
-      logWarn("[sdk] Unlink failed:", e);
-    }
-  }
-
-  async function setSessionMode(sessionId: string, mode: BridgeSessionMode) {
-    await runMutation(lastError, async () => {
-      await sdkSetSessionMode(sessionId, mode);
-      // Optimistic update
-      sessions.value = sessions.value.map((s) => (s.sessionId === sessionId ? { ...s, mode } : s));
-    });
-  }
-
-  async function setSessionModel(sessionId: string, model: string, reasoningEffort?: string) {
-    try {
-      logInfo("[sdk] setSessionModel:", { sessionId, model, reasoningEffort });
-      await sdkSetSessionModel(sessionId, model, reasoningEffort);
-      logInfo("[sdk] setSessionModel succeeded — optimistically updating to:", model);
-      sessions.value = sessions.value.map((s) => (s.sessionId === sessionId ? { ...s, model } : s));
-    } catch (e) {
-      logWarn("[sdk] setSessionModel failed:", e);
-      lastError.value = toErrorMessage(e);
-    }
-  }
-
-  async function fetchForegroundSession() {
-    try {
-      foregroundSessionId.value = await sdkGetForegroundSession();
-    } catch (e) {
-      logWarn("[sdk] Failed to fetch foreground session", e);
-    }
-  }
-
-  async function setForegroundSession(sessionId: string) {
-    await runMutation(lastError, async () => {
-      await sdkSetForegroundSession(sessionId);
-      foregroundSessionId.value = sessionId;
-    });
-  }
+  const messaging = createMessagingSlice({
+    sessions: connection.sessions,
+    activeSessions: connection.activeSessions,
+    lastError: connection.lastError,
+    recentEvents: connection.recentEvents,
+  });
+  messagingRefs.foregroundSessionIdResetter = () => {
+    messaging.foregroundSessionId.value = null;
+  };
 
   // ─── Event Listeners ──────────────────────────────────────────────
-
   let listenersInitialized = false;
   const unlisteners: UnlistenFn[] = [];
 
@@ -425,13 +63,13 @@ export const useSdkStore = defineStore("sdk", () => {
     try {
       unlisteners.push(
         await safeListen<BridgeEvent>(IPC_EVENTS.SDK_BRIDGE_EVENT, (event) => {
-          const current = recentEvents.value;
+          const current = connection.recentEvents.value;
           const next = [...current, event.payload];
-          // Keep bounded
-          recentEvents.value = next.length > MAX_SDK_EVENTS ? next.slice(-MAX_SDK_EVENTS) : next;
+          connection.recentEvents.value =
+            next.length > MAX_SDK_EVENTS ? next.slice(-MAX_SDK_EVENTS) : next;
         }),
         await safeListen<BridgeStatus>(IPC_EVENTS.SDK_CONNECTION_CHANGED, (event) => {
-          applyStatus(event.payload);
+          connection.applyStatus(event.payload);
         }),
       );
     } catch (e) {
@@ -445,15 +83,14 @@ export const useSdkStore = defineStore("sdk", () => {
     listenersInitialized = false;
   }
 
-  // Initialize listeners eagerly
   initEventListeners();
 
-  // Disconnect when browser window unloads (app close / refresh)
+  // Disconnect when browser window unloads (app close / refresh).
   // Only the main window owns the SDK connection lifecycle.
   const { isMain } = useWindowRole();
   if (typeof window !== "undefined") {
     window.addEventListener("beforeunload", () => {
-      if (isMain() && connectionState.value === "connected") {
+      if (isMain() && connection.connectionState.value === "connected") {
         sdkDisconnect().catch(() => {});
       }
     });
@@ -464,177 +101,98 @@ export const useSdkStore = defineStore("sdk", () => {
   async function autoConnect() {
     if (
       prefs.isFeatureEnabled("copilotSdk") &&
-      connectionState.value === "disconnected" &&
-      !connecting.value
+      connection.connectionState.value === "disconnected" &&
+      !connection.connecting.value
     ) {
       logInfo("[sdk] Auto-connecting (copilotSdk feature enabled)...");
-      await connect({
-        cliUrl: savedCliUrl.value || undefined,
-        logLevel: savedLogLevel.value || undefined,
+      await connection.connect({
+        cliUrl: settings.savedCliUrl.value || undefined,
+        logLevel: settings.savedLogLevel.value || undefined,
       });
     }
   }
 
-  function updateSettings(newCliUrl: string, newLogLevel: string) {
-    savedCliUrl.value = newCliUrl;
-    savedLogLevel.value = newLogLevel;
-    saveSdkSettings({ cliUrl: newCliUrl, logLevel: newLogLevel });
-  }
-
-  /** Detect running `copilot --ui-server` instances and return their addresses. */
-  async function detectUiServer(): Promise<DetectedUiServer[]> {
-    detecting.value = true;
-    lastDetectMessage.value = null;
-    try {
-      const servers = await sdkDetectUiServer();
-      detectedServers.value = servers;
-      if (servers.length === 0) {
-        lastDetectMessage.value =
-          "No running Copilot servers found. Launch one or start copilot --ui-server manually.";
-      } else {
-        lastDetectMessage.value = `Found ${servers.length} server${servers.length !== 1 ? "s" : ""}`;
-      }
-      logInfo(
-        "[sdk] Detected UI servers:",
-        servers.length,
-        servers.map((s) => s.address),
-      );
-      return servers;
-    } catch (e) {
-      logWarn("[sdk] UI server detection failed:", e);
-      detectedServers.value = [];
-      lastDetectMessage.value = "Detection failed — " + toErrorMessage(e);
-      return [];
-    } finally {
-      detecting.value = false;
-    }
-  }
-
-  /** Detect a UI server and auto-connect to the first one found. */
-  async function detectAndConnect(): Promise<boolean> {
-    // If already connected, disconnect first so we can reconnect to TCP
-    if (connectionState.value === "connected") {
-      await disconnect();
-    }
-    const servers = await detectUiServer();
-    if (servers.length === 0) return false;
-    // Use the first detected server
-    const server = servers[0];
-    logInfo("[sdk] Auto-connecting to detected UI server:", server.address);
-    updateSettings(server.address, savedLogLevel.value);
-    await connect({ cliUrl: server.address, logLevel: savedLogLevel.value || undefined });
-    return connectionState.value === "connected";
-  }
-
-  /** Switch to a specific server address (disconnect first if needed). */
-  async function connectToServer(address: string): Promise<boolean> {
-    if (connectionState.value === "connected") {
-      await disconnect();
-    }
-    updateSettings(address, savedLogLevel.value);
-    await connect({ cliUrl: address, logLevel: savedLogLevel.value || undefined });
-    return connectionState.value === "connected";
-  }
-
-  /** Launch a new `copilot --ui-server` terminal and optionally auto-detect after a delay. */
-  async function launchUiServer(workingDir?: string): Promise<number | null> {
-    launching.value = true;
-    try {
-      const pid = await sdkLaunchUiServer(workingDir);
-      logInfo("[sdk] Launched UI server, PID:", pid);
-      // Give the server a moment to start, then auto-detect
-      setTimeout(async () => {
-        await detectUiServer();
-        launching.value = false;
-      }, 3000);
-      return pid;
-    } catch (e) {
-      lastError.value = toErrorMessage(e);
-      logWarn("[sdk] Failed to launch UI server:", e);
-      launching.value = false;
-      return null;
-    }
-  }
-
-  // Attempt auto-connect on store initialization (deferred to next tick so preferences are loaded)
-  // Only the main window should auto-connect — child windows read SDK state reactively.
   if (isMain()) {
     setTimeout(() => autoConnect(), 500);
   }
 
-  // Disconnect SDK when the feature toggle is turned off
+  // Disconnect SDK when the feature toggle is turned off.
   watch(
     () => prefs.isFeatureEnabled("copilotSdk"),
     (enabled) => {
-      if (!enabled && connectionState.value !== "disconnected") {
+      if (!enabled && connection.connectionState.value !== "disconnected") {
         logInfo("[sdk] Feature toggle disabled — disconnecting SDK bridge");
-        disconnect();
+        connection.disconnect();
       }
     },
   );
 
   // ─── Public API ───────────────────────────────────────────────────
-
   return {
     // Persisted settings
-    savedCliUrl,
-    savedLogLevel,
-    updateSettings,
+    savedCliUrl: settings.savedCliUrl,
+    savedLogLevel: settings.savedLogLevel,
+    updateSettings: settings.updateSettings,
 
-    // State
-    connectionState,
-    sdkAvailable,
-    cliVersion,
-    protocolVersion,
-    activeSessions,
-    lastError,
-    connecting,
-    connectionMode,
-    authStatus,
-    quota,
-    sessions,
-    models,
-    foregroundSessionId,
-    recentEvents,
-    sendingMessage,
-    detectedServers,
-    detecting,
-    lastDetectMessage,
-    launching,
+    // State (connection)
+    connectionState: connection.connectionState,
+    sdkAvailable: connection.sdkAvailable,
+    cliVersion: connection.cliVersion,
+    protocolVersion: connection.protocolVersion,
+    activeSessions: connection.activeSessions,
+    lastError: connection.lastError,
+    connecting: connection.connecting,
+    connectionMode: connection.connectionMode,
+    authStatus: connection.authStatus,
+    quota: connection.quota,
+    sessions: connection.sessions,
+    models: connection.models,
+    recentEvents: connection.recentEvents,
+    detectedServers: connection.detectedServers,
+    detecting: connection.detecting,
+    lastDetectMessage: connection.lastDetectMessage,
+    launching: connection.launching,
+
+    // State (messaging)
+    foregroundSessionId: messaging.foregroundSessionId,
+    sendingMessage: messaging.sendingMessage,
 
     // Computed
-    isConnected,
-    isConnecting,
-    hasError,
-    isTcpMode,
-    isStdioMode,
-    foregroundSession,
-    sessionEvents,
+    isConnected: connection.isConnected,
+    isConnecting: connection.isConnecting,
+    hasError: connection.hasError,
+    isTcpMode: connection.isTcpMode,
+    isStdioMode: connection.isStdioMode,
+    foregroundSession: messaging.foregroundSession,
+    sessionEvents: messaging.sessionEvents,
 
-    // Actions
-    connect,
-    disconnect,
+    // Actions (connection)
+    connect: connection.connect,
+    disconnect: connection.disconnect,
     autoConnect,
-    refreshStatus,
-    checkCliStatus,
-    fetchAuthStatus,
-    fetchQuota,
-    fetchSessions,
-    fetchModels,
-    createSession,
-    resumeSession,
-    sendMessage,
-    abortSession,
-    destroySession,
-    unlinkSession,
-    setSessionMode,
-    setSessionModel,
-    fetchForegroundSession,
-    setForegroundSession,
-    detectUiServer,
-    detectAndConnect,
-    connectToServer,
-    launchUiServer,
+    refreshStatus: connection.refreshStatus,
+    checkCliStatus: connection.checkCliStatus,
+    fetchAuthStatus: connection.fetchAuthStatus,
+    fetchQuota: connection.fetchQuota,
+    fetchSessions: connection.fetchSessions,
+    fetchModels: connection.fetchModels,
+    detectUiServer: connection.detectUiServer,
+    detectAndConnect: connection.detectAndConnect,
+    connectToServer: connection.connectToServer,
+    launchUiServer: connection.launchUiServer,
+
+    // Actions (messaging)
+    createSession: messaging.createSession,
+    resumeSession: messaging.resumeSession,
+    sendMessage: messaging.sendMessage,
+    abortSession: messaging.abortSession,
+    destroySession: messaging.destroySession,
+    unlinkSession: messaging.unlinkSession,
+    setSessionMode: messaging.setSessionMode,
+    setSessionModel: messaging.setSessionModel,
+    fetchForegroundSession: messaging.fetchForegroundSession,
+    setForegroundSession: messaging.setForegroundSession,
+
     cleanup,
   };
 });

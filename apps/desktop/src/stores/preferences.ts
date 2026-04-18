@@ -1,238 +1,107 @@
+/**
+ * Preferences Pinia store.
+ *
+ * Composition shell that wires four pure slice factories in
+ * `stores/preferences/` (ui, pricing, alerts, featureFlags) together with the
+ * config.toml-backed hydration / migration / debounced persistence layer.
+ *
+ * PRESERVED FROM WAVE 2.2:
+ *   - Versioned/legacy-key migration from `localStorage`
+ *   - Write-through theme cache (instant theme on next launch, no flash)
+ *   - All state backed by config.toml via `@tracepilot/client`
+ *
+ * The exported symbols (`usePreferencesStore`, `ThemeOption`, `BASE_FONT_SIZE_PX`,
+ * `ModelWholesalePrice`, `DEFAULT_WHOLESALE_PRICES`) match the legacy surface.
+ */
+
 import { checkConfigExists, getConfig, saveConfig } from "@tracepilot/client";
-import type {
-  ModelPriceEntry,
-  RichRenderableToolName,
-  ToolRenderingPreferences,
-  TracePilotConfig,
-} from "@tracepilot/types";
+import type { TracePilotConfig } from "@tracepilot/types";
 import {
   createDefaultConfig,
-  DEFAULT_AUTO_REFRESH_INTERVAL_SECONDS,
-  DEFAULT_CLI_COMMAND,
   DEFAULT_CONTENT_MAX_WIDTH,
-  DEFAULT_COST_PER_PREMIUM_REQUEST,
-  DEFAULT_FAVOURITE_MODELS,
   DEFAULT_FEATURES,
-  DEFAULT_TOOL_RENDERING_PREFS,
   DEFAULT_UI_SCALE,
-  getDefaultWholesalePrices,
 } from "@tracepilot/types";
-import { normalizePath, useAsyncGuard } from "@tracepilot/ui";
+import { useAsyncGuard } from "@tracepilot/ui";
 import { defineStore } from "pinia";
-import { ref, watch } from "vue";
-import type { FeatureFlag } from "@/config/featureFlags";
+import { watch } from "vue";
 import { STORAGE_KEYS } from "@/config/storageKeys";
+import { createAlertsSlice } from "@/stores/preferences/alerts";
+import { createFeatureFlagsSlice } from "@/stores/preferences/featureFlags";
+import { migrateFromLocalStorage } from "@/stores/preferences/migration";
+import { createPricingSlice, DEFAULT_WHOLESALE_PRICES } from "@/stores/preferences/pricing";
+import {
+  applyContentMaxWidth,
+  applyTheme,
+  applyUiScale,
+  createUiSlice,
+  type ThemeOption,
+} from "@/stores/preferences/ui";
 import { logWarn } from "@/utils/logger";
 
-export type ThemeOption = "dark" | "light";
-
-// Re-export for backwards compat — consumers that imported ModelWholesalePrice
-// now use the shared ModelPriceEntry type from @tracepilot/types.
-export type ModelWholesalePrice = ModelPriceEntry;
-
-/** Default wholesale prices for common models ($ per 1M tokens).
- *  Derived from the shared MODEL_REGISTRY in @tracepilot/types. */
-export const DEFAULT_WHOLESALE_PRICES: ModelPriceEntry[] = getDefaultWholesalePrices();
-
-export const BASE_FONT_SIZE_PX = 16;
-
-function applyTheme(theme: ThemeOption) {
-  document.documentElement.setAttribute("data-theme", theme);
-  // Write-through cache for instant theme on next launch (no flash)
-  localStorage.setItem(STORAGE_KEYS.theme, theme);
-}
-
-function applyContentMaxWidth(value: number) {
-  // 0 means no limit (full width)
-  const cssVal = value <= 0 ? "none" : `${value}px`;
-  document.documentElement.style.setProperty("--content-max-width", cssVal);
-}
-
-function applyUiScale(scale: number) {
-  // Clamp to safe range to avoid breaking layouts (0.8x to 1.3x)
-  const clamped = Math.max(0.8, Math.min(1.3, scale));
-  // Scaling root font-size adjusts all rem-based sizes uniformly
-  document.documentElement.style.fontSize = `${BASE_FONT_SIZE_PX * clamped}px`;
-}
+// ── Public re-exports (back-compat) ─────────────────────────────
+export type { ThemeOption } from "@/stores/preferences/ui";
+export { BASE_FONT_SIZE_PX } from "@/stores/preferences/ui";
+export type { ModelWholesalePrice } from "@/stores/preferences/pricing";
+export { DEFAULT_WHOLESALE_PRICES } from "@/stores/preferences/pricing";
 
 export const usePreferencesStore = defineStore("preferences", () => {
-  // ── Reactive state ──────────────────────────────────────────
+  const ui = createUiSlice();
+  const pricing = createPricingSlice();
+  const alerts = createAlertsSlice();
+  const flags = createFeatureFlagsSlice();
 
-  // Initialize theme from write-through cache to match main.ts (prevents flash)
-  const VALID_THEMES: ThemeOption[] = ["dark", "light"];
-  const cachedTheme = localStorage.getItem(STORAGE_KEYS.theme);
-  const theme = ref<ThemeOption>(
-    VALID_THEMES.includes(cachedTheme as ThemeOption) ? (cachedTheme as ThemeOption) : "dark",
-  );
-  const sessionStateDir = ref("");
-  const hideEmptySessions = ref(true);
-  const cliCommand = ref(DEFAULT_CLI_COMMAND);
-  const autoRefreshEnabled = ref(false);
-  const autoRefreshIntervalSeconds = ref(DEFAULT_AUTO_REFRESH_INTERVAL_SECONDS);
-  const checkForUpdates = ref(true);
-  const favouriteModels = ref<string[]>([...DEFAULT_FAVOURITE_MODELS]);
-  const recentRepoPaths = ref<string[]>([]);
-  const contentMaxWidth = ref(DEFAULT_CONTENT_MAX_WIDTH);
-  const uiScale = ref(DEFAULT_UI_SCALE);
-  const costPerPremiumRequest = ref(DEFAULT_COST_PER_PREMIUM_REQUEST);
-  const modelWholesalePrices = ref<ModelPriceEntry[]>([...DEFAULT_WHOLESALE_PRICES]);
-  const toolRendering = ref<ToolRenderingPreferences>({
-    enabled: DEFAULT_TOOL_RENDERING_PREFS.enabled,
-    toolOverrides: { ...DEFAULT_TOOL_RENDERING_PREFS.toolOverrides },
-  });
-  const featureFlags = ref<Record<string, boolean>>({ ...DEFAULT_FEATURES });
-  const logLevel = ref("info");
-
-  // Alert preferences — exposed as reactive refs for the alerting system
-  const alertsEnabled = ref(false);
-  const alertsScope = ref<"monitored" | "all">("monitored");
-  const alertsNativeNotifications = ref(true);
-  const alertsTaskbarFlash = ref(true);
-  const alertsSoundEnabled = ref(false);
-  const alertsOnSessionEnd = ref(true);
-  const alertsOnAskUser = ref(true);
-  const alertsOnSessionError = ref(false);
-  const alertsCooldownSeconds = ref(20);
-
-  // Ephemeral state — stays in localStorage only
-  const lastViewedSession = ref<string | null>(localStorage.getItem(STORAGE_KEYS.lastSession));
-  const lastSeenVersion = ref<string | null>(localStorage.getItem(STORAGE_KEYS.lastSeenVersion));
-
-  // ── Hydration gate ──────────────────────────────────────────
-  // Prevents reactive watches from persisting default values to disk
-  // before the real config has been loaded from the backend.
+  // Hydration gate — prevents reactive watches from persisting default values
+  // to disk before the real config has been loaded from the backend.
   let hydrated = false;
 
-  // ── Backend reference ───────────────────────────────────────
-  // We store the last-known full config so we can merge preference
-  // changes back without clobbering paths/version fields.
+  // Last-known full backend config so preference changes can be merged back
+  // without clobbering paths/version fields.
   let backendConfig: TracePilotConfig | null = null;
-
-  // ── localStorage migration ──────────────────────────────────
-  // On first load after upgrade, pull old prefs into config.toml
-  // and remove the legacy key.
-  function migrateFromLocalStorage(config: TracePilotConfig): TracePilotConfig {
-    const raw = localStorage.getItem(STORAGE_KEYS.legacyPrefs);
-    if (!raw) return config;
-
-    try {
-      const old = JSON.parse(raw);
-
-      // UI section
-      if (old.theme === "dark" || old.theme === "light") config.ui.theme = old.theme;
-      if (typeof old.hideEmptySessions === "boolean")
-        config.ui.hideEmptySessions = old.hideEmptySessions;
-      if (typeof old.autoRefreshEnabled === "boolean")
-        config.ui.autoRefreshEnabled = old.autoRefreshEnabled;
-      if (typeof old.autoRefreshIntervalSeconds === "number")
-        config.ui.autoRefreshIntervalSeconds = old.autoRefreshIntervalSeconds;
-      if (typeof old.checkForUpdates === "boolean") config.ui.checkForUpdates = old.checkForUpdates;
-      if (Array.isArray(old.favouriteModels)) config.ui.favouriteModels = old.favouriteModels;
-      if (Array.isArray(old.recentRepoPaths)) config.ui.recentRepoPaths = old.recentRepoPaths;
-
-      // General
-      if (typeof old.cliCommand === "string") config.general.cliCommand = old.cliCommand;
-
-      // Pricing
-      if (typeof old.costPerPremiumRequest === "number")
-        config.pricing.costPerPremiumRequest = old.costPerPremiumRequest;
-      if (Array.isArray(old.modelWholesalePrices)) {
-        // Merge with defaults: preserve user customizations, backfill new fields
-        const saved = old.modelWholesalePrices as ModelPriceEntry[];
-        config.pricing.models = DEFAULT_WHOLESALE_PRICES.map((def) => {
-          const existing = saved.find((s) => s.model === def.model);
-          return existing
-            ? {
-                ...def,
-                ...existing,
-                premiumRequests: existing.premiumRequests ?? def.premiumRequests,
-              }
-            : def;
-        });
-        // Include any user-added models not in defaults
-        for (const s of saved) {
-          if (!DEFAULT_WHOLESALE_PRICES.find((d) => d.model === s.model)) {
-            config.pricing.models.push({ ...s, premiumRequests: s.premiumRequests ?? 1 });
-          }
-        }
-      }
-
-      // Tool rendering
-      if (old.toolRendering && typeof old.toolRendering === "object") {
-        config.toolRendering.enabled =
-          typeof old.toolRendering.enabled === "boolean" ? old.toolRendering.enabled : true;
-        config.toolRendering.toolOverrides = old.toolRendering.toolOverrides ?? {};
-      }
-
-      // Features
-      if (old.featureFlags && typeof old.featureFlags === "object") {
-        for (const key of Object.keys(config.features)) {
-          const k = key as keyof typeof config.features;
-          if (typeof old.featureFlags[key] === "boolean") {
-            (config.features as Record<string, boolean>)[k] = old.featureFlags[key] as boolean;
-          }
-        }
-      }
-
-      // Migrate ephemeral fields
-      if (old.lastViewedSession)
-        localStorage.setItem(STORAGE_KEYS.lastSession, old.lastViewedSession);
-      if (old.lastSeenVersion)
-        localStorage.setItem(STORAGE_KEYS.lastSeenVersion, old.lastSeenVersion);
-    } catch (e) {
-      // Corrupt localStorage — leave key in place; it'll be retried next launch
-      logWarn("[preferences] Failed to migrate legacy preferences", e);
-    }
-
-    return config;
-  }
 
   // ── Apply config → reactive refs ───────────────────────────
   function applyConfig(config: TracePilotConfig) {
-    theme.value = (config.ui.theme === "light" ? "light" : "dark") as ThemeOption;
-    sessionStateDir.value = config.paths.sessionStateDir;
-    hideEmptySessions.value = config.ui.hideEmptySessions;
-    autoRefreshEnabled.value = config.ui.autoRefreshEnabled;
-    autoRefreshIntervalSeconds.value = config.ui.autoRefreshIntervalSeconds;
-    checkForUpdates.value = config.ui.checkForUpdates;
-    favouriteModels.value = [...config.ui.favouriteModels];
-    recentRepoPaths.value = [...config.ui.recentRepoPaths];
+    ui.theme.value = (config.ui.theme === "light" ? "light" : "dark") as ThemeOption;
+    ui.sessionStateDir.value = config.paths.sessionStateDir;
+    ui.hideEmptySessions.value = config.ui.hideEmptySessions;
+    ui.autoRefreshEnabled.value = config.ui.autoRefreshEnabled;
+    ui.autoRefreshIntervalSeconds.value = config.ui.autoRefreshIntervalSeconds;
+    ui.checkForUpdates.value = config.ui.checkForUpdates;
+    ui.favouriteModels.value = [...config.ui.favouriteModels];
+    ui.recentRepoPaths.value = [...config.ui.recentRepoPaths];
 
     // Defensive nullish coalescing (??) is used for backwards compatibility
     // with existing configs that may not have these newer fields yet.
     const rawWidth = config.ui.contentMaxWidth ?? DEFAULT_CONTENT_MAX_WIDTH;
     // Clamp to 400px min, or allow 0 for "No limit"
-    contentMaxWidth.value = rawWidth === 0 ? 0 : Math.max(400, rawWidth);
+    ui.contentMaxWidth.value = rawWidth === 0 ? 0 : Math.max(400, rawWidth);
 
     const rawScale = config.ui.uiScale ?? DEFAULT_UI_SCALE;
     // Normalize to 0.8x to 1.3x range to ensure UI usability
-    uiScale.value = Math.max(0.8, Math.min(1.3, rawScale));
+    ui.uiScale.value = Math.max(0.8, Math.min(1.3, rawScale));
 
-    cliCommand.value = config.general.cliCommand;
-    costPerPremiumRequest.value = config.pricing.costPerPremiumRequest;
-    modelWholesalePrices.value =
+    ui.cliCommand.value = config.general.cliCommand;
+    pricing.costPerPremiumRequest.value = config.pricing.costPerPremiumRequest;
+    pricing.modelWholesalePrices.value =
       config.pricing.models.length > 0 ? [...config.pricing.models] : [...DEFAULT_WHOLESALE_PRICES];
-    toolRendering.value = {
+    pricing.toolRendering.value = {
       enabled: config.toolRendering.enabled,
       toolOverrides: { ...config.toolRendering.toolOverrides },
     };
-    featureFlags.value = {
-      ...DEFAULT_FEATURES,
-      ...config.features,
-    };
-    logLevel.value = config.logging?.level ?? "info";
+    flags.featureFlags.value = { ...DEFAULT_FEATURES, ...config.features };
+    ui.logLevel.value = config.logging?.level ?? "info";
 
     // Alert settings
     if (config.alerts) {
-      alertsEnabled.value = config.alerts.enabled ?? false;
-      alertsScope.value = config.alerts.scope === "all" ? "all" : "monitored";
-      alertsNativeNotifications.value = config.alerts.nativeNotifications ?? true;
-      alertsTaskbarFlash.value = config.alerts.taskbarFlash ?? true;
-      alertsSoundEnabled.value = config.alerts.soundEnabled ?? false;
-      alertsOnSessionEnd.value = config.alerts.onSessionEnd ?? true;
-      alertsOnAskUser.value = config.alerts.onAskUser ?? true;
-      alertsOnSessionError.value = config.alerts.onSessionError ?? false;
-      alertsCooldownSeconds.value = config.alerts.cooldownSeconds ?? 20;
+      alerts.alertsEnabled.value = config.alerts.enabled ?? false;
+      alerts.alertsScope.value = config.alerts.scope === "all" ? "all" : "monitored";
+      alerts.alertsNativeNotifications.value = config.alerts.nativeNotifications ?? true;
+      alerts.alertsTaskbarFlash.value = config.alerts.taskbarFlash ?? true;
+      alerts.alertsSoundEnabled.value = config.alerts.soundEnabled ?? false;
+      alerts.alertsOnSessionEnd.value = config.alerts.onSessionEnd ?? true;
+      alerts.alertsOnAskUser.value = config.alerts.onAskUser ?? true;
+      alerts.alertsOnSessionError.value = config.alerts.onSessionError ?? false;
+      alerts.alertsCooldownSeconds.value = config.alerts.cooldownSeconds ?? 20;
     }
   }
 
@@ -241,40 +110,40 @@ export const usePreferencesStore = defineStore("preferences", () => {
     const base = backendConfig ?? createDefaultConfig();
     return {
       ...base,
-      paths: { ...base.paths, sessionStateDir: sessionStateDir.value },
-      general: { ...base.general, cliCommand: cliCommand.value },
+      paths: { ...base.paths, sessionStateDir: ui.sessionStateDir.value },
+      general: { ...base.general, cliCommand: ui.cliCommand.value },
       ui: {
-        theme: theme.value,
-        hideEmptySessions: hideEmptySessions.value,
-        autoRefreshEnabled: autoRefreshEnabled.value,
-        autoRefreshIntervalSeconds: autoRefreshIntervalSeconds.value,
-        checkForUpdates: checkForUpdates.value,
-        favouriteModels: [...favouriteModels.value],
-        recentRepoPaths: [...recentRepoPaths.value],
-        contentMaxWidth: contentMaxWidth.value,
-        uiScale: uiScale.value,
+        theme: ui.theme.value,
+        hideEmptySessions: ui.hideEmptySessions.value,
+        autoRefreshEnabled: ui.autoRefreshEnabled.value,
+        autoRefreshIntervalSeconds: ui.autoRefreshIntervalSeconds.value,
+        checkForUpdates: ui.checkForUpdates.value,
+        favouriteModels: [...ui.favouriteModels.value],
+        recentRepoPaths: [...ui.recentRepoPaths.value],
+        contentMaxWidth: ui.contentMaxWidth.value,
+        uiScale: ui.uiScale.value,
       },
       pricing: {
-        costPerPremiumRequest: costPerPremiumRequest.value,
-        models: [...modelWholesalePrices.value],
+        costPerPremiumRequest: pricing.costPerPremiumRequest.value,
+        models: [...pricing.modelWholesalePrices.value],
       },
       toolRendering: {
-        enabled: toolRendering.value.enabled,
-        toolOverrides: { ...toolRendering.value.toolOverrides },
+        enabled: pricing.toolRendering.value.enabled,
+        toolOverrides: { ...pricing.toolRendering.value.toolOverrides },
       },
-      features: { ...featureFlags.value } as TracePilotConfig["features"],
-      logging: { level: logLevel.value },
+      features: { ...flags.featureFlags.value } as TracePilotConfig["features"],
+      logging: { level: ui.logLevel.value },
       tasks: base.tasks,
       alerts: {
-        enabled: alertsEnabled.value,
-        scope: alertsScope.value,
-        nativeNotifications: alertsNativeNotifications.value,
-        taskbarFlash: alertsTaskbarFlash.value,
-        soundEnabled: alertsSoundEnabled.value,
-        onSessionEnd: alertsOnSessionEnd.value,
-        onAskUser: alertsOnAskUser.value,
-        onSessionError: alertsOnSessionError.value,
-        cooldownSeconds: alertsCooldownSeconds.value,
+        enabled: alerts.alertsEnabled.value,
+        scope: alerts.alertsScope.value,
+        nativeNotifications: alerts.alertsNativeNotifications.value,
+        taskbarFlash: alerts.alertsTaskbarFlash.value,
+        soundEnabled: alerts.alertsSoundEnabled.value,
+        onSessionEnd: alerts.alertsOnSessionEnd.value,
+        onAskUser: alerts.alertsOnAskUser.value,
+        onSessionError: alerts.alertsOnSessionError.value,
+        cooldownSeconds: alerts.alertsCooldownSeconds.value,
       },
     };
   }
@@ -345,204 +214,65 @@ export const usePreferencesStore = defineStore("preferences", () => {
   hydrate();
 
   // ── Persist ephemeral state to localStorage ────────────────
-  watch(lastViewedSession, (v) => {
+  watch(ui.lastViewedSession, (v) => {
     if (v) localStorage.setItem(STORAGE_KEYS.lastSession, v);
     else localStorage.removeItem(STORAGE_KEYS.lastSession);
   });
-  watch(lastSeenVersion, (v) => {
+  watch(ui.lastSeenVersion, (v) => {
     if (v) localStorage.setItem(STORAGE_KEYS.lastSeenVersion, v);
     else localStorage.removeItem(STORAGE_KEYS.lastSeenVersion);
   });
 
   // Watch theme changes: update DOM + write-through cache
-  watch(
-    theme,
-    (newTheme) => {
-      applyTheme(newTheme);
-    },
-    { immediate: true },
-  );
+  watch(ui.theme, (newTheme) => applyTheme(newTheme), { immediate: true });
 
   // Watch content max-width: update CSS variable
-  watch(
-    contentMaxWidth,
-    (v) => {
-      applyContentMaxWidth(v);
-    },
-    { immediate: true },
-  );
+  watch(ui.contentMaxWidth, (v) => applyContentMaxWidth(v), { immediate: true });
 
   // Watch UI scale: update root font-size
-  watch(
-    uiScale,
-    (v) => {
-      applyUiScale(v);
-    },
-    { immediate: true },
-  );
+  watch(ui.uiScale, (v) => applyUiScale(v), { immediate: true });
 
   // Watch all config-backed refs → debounced save to backend
   watch(
     [
-      theme,
-      sessionStateDir,
-      costPerPremiumRequest,
-      modelWholesalePrices,
-      hideEmptySessions,
-      cliCommand,
-      autoRefreshEnabled,
-      autoRefreshIntervalSeconds,
-      checkForUpdates,
-      toolRendering,
-      featureFlags,
-      favouriteModels,
-      recentRepoPaths,
-      contentMaxWidth,
-      uiScale,
-      logLevel,
-      alertsEnabled,
-      alertsScope,
-      alertsNativeNotifications,
-      alertsTaskbarFlash,
-      alertsSoundEnabled,
-      alertsOnSessionEnd,
-      alertsOnAskUser,
-      alertsOnSessionError,
-      alertsCooldownSeconds,
+      ui.theme,
+      ui.sessionStateDir,
+      pricing.costPerPremiumRequest,
+      pricing.modelWholesalePrices,
+      ui.hideEmptySessions,
+      ui.cliCommand,
+      ui.autoRefreshEnabled,
+      ui.autoRefreshIntervalSeconds,
+      ui.checkForUpdates,
+      pricing.toolRendering,
+      flags.featureFlags,
+      ui.favouriteModels,
+      ui.recentRepoPaths,
+      ui.contentMaxWidth,
+      ui.uiScale,
+      ui.logLevel,
+      alerts.alertsEnabled,
+      alerts.alertsScope,
+      alerts.alertsNativeNotifications,
+      alerts.alertsTaskbarFlash,
+      alerts.alertsSoundEnabled,
+      alerts.alertsOnSessionEnd,
+      alerts.alertsOnAskUser,
+      alerts.alertsOnSessionError,
+      alerts.alertsCooldownSeconds,
     ],
     scheduleSave,
     { deep: true },
   );
 
-  // ── Public API ─────────────────────────────────────────────
-
-  /** Look up wholesale price for a model name (fuzzy match on prefix). */
-  function getWholesalePrice(modelName: string): ModelPriceEntry | undefined {
-    const lower = modelName.toLowerCase();
-    const sorted = [...modelWholesalePrices.value].sort((a, b) => b.model.length - a.model.length);
-    return (
-      sorted.find((p) => lower.includes(p.model.toLowerCase())) ??
-      sorted.find((p) => lower.startsWith(p.model.toLowerCase().split("-").slice(0, 2).join("-")))
-    );
-  }
-
-  /** Compute wholesale cost for a model given token usage. */
-  function computeWholesaleCost(
-    modelName: string,
-    inputTokens: number,
-    cacheReadTokens: number,
-    outputTokens: number,
-  ): number | null {
-    const price = getWholesalePrice(modelName);
-    if (!price) return null;
-    const nonCachedInput = Math.max(inputTokens - cacheReadTokens, 0);
-    return (
-      (nonCachedInput / 1_000_000) * price.inputPerM +
-      (cacheReadTokens / 1_000_000) * price.cachedInputPerM +
-      (outputTokens / 1_000_000) * price.outputPerM
-    );
-  }
-
-  function addWholesalePrice(price: ModelPriceEntry) {
-    modelWholesalePrices.value.push(price);
-  }
-
-  function removeWholesalePrice(model: string) {
-    modelWholesalePrices.value = modelWholesalePrices.value.filter((p) => p.model !== model);
-  }
-
-  function resetWholesalePrices() {
-    modelWholesalePrices.value = [...DEFAULT_WHOLESALE_PRICES];
-  }
-
-  /** Check if rich rendering is enabled for a specific tool. */
-  function isRichRenderingEnabled(toolName: string): boolean {
-    if (!toolRendering.value.enabled) return false;
-    const override = toolRendering.value.toolOverrides[toolName as RichRenderableToolName];
-    return override ?? true;
-  }
-
-  /** Set the per-tool rendering override. */
-  function setToolRenderingOverride(toolName: RichRenderableToolName, enabled: boolean) {
-    toolRendering.value.toolOverrides[toolName] = enabled;
-  }
-
-  /** Look up premium request multiplier for a model. */
-  function getPremiumRequests(modelId: string): number {
-    const price = getWholesalePrice(modelId);
-    return price?.premiumRequests ?? 1;
-  }
-
-  /** Add a repo path to recents (max 10, deduped, most recent first). */
-  function addRecentRepoPath(path: string) {
-    const normalized = normalizePath(path);
-    recentRepoPaths.value = [
-      normalized,
-      ...recentRepoPaths.value.filter((p) => p !== normalized),
-    ].slice(0, 10);
-  }
-
-  /** Reset tool rendering preferences to defaults. */
-  function resetToolRendering() {
-    toolRendering.value = {
-      enabled: DEFAULT_TOOL_RENDERING_PREFS.enabled,
-      toolOverrides: { ...DEFAULT_TOOL_RENDERING_PREFS.toolOverrides },
-    };
-  }
-
-  /** Check if a feature flag is enabled. */
-  function isFeatureEnabled(flag: FeatureFlag): boolean {
-    return featureFlags.value[flag] ?? false;
-  }
-
-  /** Toggle a feature flag on or off. */
-  function toggleFeature(flag: FeatureFlag): void {
-    featureFlags.value[flag] = !featureFlags.value[flag];
-  }
-
   return {
-    theme,
-    sessionStateDir,
-    lastViewedSession,
-    costPerPremiumRequest,
-    modelWholesalePrices,
-    hideEmptySessions,
-    cliCommand,
-    autoRefreshEnabled,
-    autoRefreshIntervalSeconds,
-    checkForUpdates,
-    lastSeenVersion,
-    toolRendering,
-    featureFlags,
-    favouriteModels,
-    recentRepoPaths,
-    contentMaxWidth,
-    uiScale,
-    logLevel,
-    alertsEnabled,
-    alertsScope,
-    alertsNativeNotifications,
-    alertsTaskbarFlash,
-    alertsSoundEnabled,
-    alertsOnSessionEnd,
-    alertsOnAskUser,
-    alertsOnSessionError,
-    alertsCooldownSeconds,
-    applyTheme: () => applyTheme(theme.value),
+    ...ui,
+    ...pricing,
+    ...alerts,
+    ...flags,
+    applyTheme: () => applyTheme(ui.theme.value),
     /** Resolves when config has been loaded from backend. Await before reading config-backed values at startup. */
     whenReady: hydratePromise,
-    getWholesalePrice,
-    getPremiumRequests,
-    computeWholesaleCost,
-    addWholesalePrice,
-    removeWholesalePrice,
-    resetWholesalePrices,
-    addRecentRepoPath,
-    isRichRenderingEnabled,
-    setToolRenderingOverride,
-    resetToolRendering,
-    isFeatureEnabled,
-    toggleFeature,
     /** Re-run hydration after the setup wizard creates config.toml.
      *  This arms the auto-save watcher so subsequent preference changes persist. */
     hydrate,

@@ -98,9 +98,6 @@ const ALLOWLIST = new Set([
   "crates/tracepilot-indexer/src/index_db/search_writer/tests.rs",
 
   // ── Pinia stores (Phase 4/5) ────────────────────────────────────
-  "apps/desktop/src/stores/search.ts",
-  "apps/desktop/src/stores/sdk.ts",
-  "apps/desktop/src/stores/preferences.ts",
   "apps/desktop/src/stores/worktrees.ts",
   "apps/desktop/src/stores/skills.ts",
   "apps/desktop/src/stores/tasks.ts",
@@ -111,8 +108,6 @@ const ALLOWLIST = new Set([
   "packages/client/src/index.ts",
   "packages/client/src/mock/index.ts",
   "packages/ui/src/utils/syntaxHighlight.ts",
-  "apps/desktop/src/composables/useSessionDetail.ts",
-  "apps/desktop/src/composables/useOrbitalAnimation.ts",
 
   // ── Test files (allow-listed; not a Phase 4 priority) ──────────
   "apps/desktop/src/__tests__/stores/worktrees.test.ts",

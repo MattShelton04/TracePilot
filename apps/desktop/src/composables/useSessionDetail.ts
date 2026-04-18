@@ -23,37 +23,26 @@
  * ```
  */
 import {
-  checkSessionFreshness,
-  getSessionCheckpoints,
   getSessionDetail,
   getSessionEvents,
-  getSessionIncidents,
-  getSessionPlan,
-  getSessionTodos,
   getSessionTurns,
-  getShutdownMetrics,
 } from "@tracepilot/client";
-import type {
-  AttributedMessage,
-  CheckpointEntry,
-  ConversationTurn,
-  EventsResponse,
-  SessionDetail,
-  SessionIncident,
-  SessionPlan,
-  ShutdownMetrics,
-  TodosResponse,
-  TurnToolCall,
-} from "@tracepilot/types";
+import type { EventsResponse, SessionDetail } from "@tracepilot/types";
 import { toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
 import type { InjectionKey, UnwrapNestedRefs } from "vue";
 import { inject, reactive, ref } from "vue";
-import {
-  buildSectionLoader,
-  createAsyncSection,
-  defineAsyncSection,
-} from "@/stores/helpers/asyncSections";
 import { logDebug, logError, logWarn } from "@/utils/logger";
+import { createSessionCache } from "./session/cache";
+import {
+  buildCachedSessionSnapshot,
+  buildPrefetchedCachedSession,
+  restoreFromCachedSession,
+} from "./session/snapshot";
+import { useSessionSections } from "./session/useSessionSections";
+import { useSessionTurnsRefresh } from "./session/useSessionTurnsRefresh";
+
+const LOG_PREFIX = "[sessionDetail]";
+const REFRESH_THROTTLE_MS = 5_000;
 
 /**
  * Create an independent session detail state instance.
@@ -65,371 +54,56 @@ import { logDebug, logError, logWarn } from "@/utils/logger";
 export function createSessionDetailInstance() {
   const sessionId = ref<string | null>(null);
   const detail = ref<SessionDetail | null>(null);
-  const turns = ref<ConversationTurn[]>([]);
-  const turnsVersion = ref(0);
   const events = ref<EventsResponse | null>(null);
 
   const loading = ref(false);
   const error = ref<string | null>(null);
   const loaded = ref<Set<string>>(new Set());
 
-  // Standard sections using AsyncSection pattern
-  const todosSection = createAsyncSection<TodosResponse | null>(null);
-  const checkpointsSection = createAsyncSection<CheckpointEntry[]>([]);
-  const planSection = createAsyncSection<SessionPlan | null>(null);
-  const metricsSection = createAsyncSection<ShutdownMetrics | null>(null);
-  const incidentsSection = createAsyncSection<SessionIncident[]>([]);
-
-  // Special-case sections (custom loaders, not in registry)
-  const turnsError = ref<string | null>(null);
   const eventsError = ref<string | null>(null);
-
-  // Track events.jsonl fingerprint (size + mtime) for freshness detection
-  type EventsFingerprint = { size: number; mtime: number | null };
-  let lastEventsFingerprint: EventsFingerprint = { size: 0, mtime: null };
-  let turnFingerprints: string[] = [];
-
-  // Background refresh throttle
-  const lastFetchTimestamp = new Map<string, number>();
-  const REFRESH_THROTTLE_MS = 5_000;
-
-  const buildEventsFingerprint = (size: number, mtime?: number | null): EventsFingerprint => ({
-    size,
-    mtime: mtime ?? null,
-  });
-
-  const isSameEventsFingerprint = (a: EventsFingerprint, b: EventsFingerprint): boolean =>
-    a.size === b.size && a.mtime === b.mtime;
-
-  let deepCompareTurnIndexes = new Set<number>();
-
-  function bumpTurnsVersion() {
-    turnsVersion.value += 1;
-  }
-
-  function hashText(value: string): number {
-    let hash = 2166136261;
-    for (let i = 0; i < value.length; i++) {
-      hash ^= value.charCodeAt(i);
-      hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
-    }
-    return hash >>> 0;
-  }
-
-  function messageFingerprint(msg: AttributedMessage): string {
-    return [
-      msg.parentToolCallId ?? "",
-      msg.agentDisplayName ?? "",
-      msg.content.length,
-      hashText(msg.content),
-    ].join("|");
-  }
-
-  function toolCallFingerprint(tc: TurnToolCall): string {
-    return [
-      tc.toolCallId ?? "",
-      tc.parentToolCallId ?? "",
-      tc.toolName,
-      tc.eventIndex ?? "",
-      tc.isSubagent ? "1" : "0",
-      tc.isComplete ? "1" : "0",
-      tc.success == null ? "u" : tc.success ? "1" : "0",
-      tc.startedAt ?? "",
-      tc.completedAt ?? "",
-      tc.durationMs ?? "",
-      tc.error ?? "",
-      tc.model ?? "",
-      tc.argsSummary ?? "",
-      tc.resultContent?.length ?? 0,
-      tc.resultContent ? hashText(tc.resultContent) : "",
-      tc.agentDisplayName ?? "",
-    ].join("|");
-  }
-
-  function turnFingerprint(turn: ConversationTurn): string {
-    const reasoning = turn.reasoningTexts ?? [];
-    const sessionEvents = turn.sessionEvents ?? [];
-    return [
-      turn.turnIndex,
-      turn.eventIndex ?? "",
-      turn.turnId ?? "",
-      turn.interactionId ?? "",
-      turn.model ?? "",
-      turn.timestamp ?? "",
-      turn.endTimestamp ?? "",
-      turn.isComplete ? "1" : "0",
-      turn.durationMs ?? "",
-      turn.outputTokens ?? "",
-      turn.userMessage?.length ?? 0,
-      turn.assistantMessages.length,
-      turn.assistantMessages.map(messageFingerprint).join(","),
-      reasoning.length,
-      reasoning.map(messageFingerprint).join(","),
-      sessionEvents.length,
-      sessionEvents
-        .map(
-          (evt) =>
-            `${evt.eventType}:${evt.severity}:${evt.summary.length}:${hashText(evt.summary)}:${evt.timestamp ?? ""}`,
-        )
-        .join(","),
-      turn.toolCalls.length,
-      turn.toolCalls.map(toolCallFingerprint).join(","),
-    ].join("||");
-  }
-
-  function computeDeepCompareIndexes(turnList: ConversationTurn[]): Set<number> {
-    const indexes = new Set<number>();
-    if (turnList.length > 0) {
-      indexes.add(turnList.length - 1);
-    }
-    for (let i = 0; i < turnList.length; i++) {
-      if (turnList[i]?.toolCalls.some((tc) => tc.isSubagent && !tc.isComplete)) {
-        indexes.add(i);
-      }
-    }
-    return indexes;
-  }
-
-  function replaceTurns(incoming: ConversationTurn[]) {
-    const hadData = turns.value.length > 0;
-    const hasIncoming = incoming.length > 0;
-    turns.value = incoming;
-    turnFingerprints = incoming.map(turnFingerprint);
-    deepCompareTurnIndexes = computeDeepCompareIndexes(incoming);
-    if (hadData || hasIncoming) {
-      bumpTurnsVersion();
-    }
-  }
-
-  function mergeTurns(incoming: ConversationTurn[]) {
-    const existing = turns.value;
-
-    if (existing.length === 0 || incoming.length < existing.length) {
-      replaceTurns(incoming);
-      return;
-    }
-
-    const nextFingerprints = [...turnFingerprints];
-    let changed = false;
-    const overlapLength = Math.min(existing.length, incoming.length);
-
-    const candidateIndexes = new Set<number>([
-      Math.max(0, overlapLength - 1),
-      ...deepCompareTurnIndexes,
-    ]);
-    for (const idx of candidateIndexes) {
-      if (idx < 0 || idx >= overlapLength) continue;
-      const nextFp = turnFingerprint(incoming[idx]);
-      nextFingerprints[idx] = nextFp;
-      if (turnFingerprints[idx] !== nextFp) {
-        existing[idx] = incoming[idx];
-        changed = true;
-      }
-    }
-
-    for (let i = 0; i < overlapLength; i++) {
-      if (candidateIndexes.has(i)) continue;
-      const current = existing[i];
-      const next = incoming[i];
-      if (
-        current.turnIndex !== next.turnIndex ||
-        current.eventIndex !== next.eventIndex ||
-        current.turnId !== next.turnId ||
-        current.interactionId !== next.interactionId ||
-        current.model !== next.model ||
-        current.timestamp !== next.timestamp ||
-        current.endTimestamp !== next.endTimestamp ||
-        current.isComplete !== next.isComplete ||
-        current.durationMs !== next.durationMs ||
-        current.outputTokens !== next.outputTokens ||
-        current.userMessage !== next.userMessage
-      ) {
-        existing[i] = next;
-        nextFingerprints[i] = turnFingerprint(next);
-        changed = true;
-      }
-    }
-
-    for (let i = existing.length; i < incoming.length; i++) {
-      existing.push(incoming[i]);
-      nextFingerprints[i] = turnFingerprint(incoming[i]);
-      changed = true;
-    }
-
-    if (turnFingerprints.length !== nextFingerprints.length) {
-      changed = true;
-    }
-
-    turnFingerprints = nextFingerprints;
-    deepCompareTurnIndexes = computeDeepCompareIndexes(incoming);
-
-    if (changed) {
-      bumpTurnsVersion();
-    }
-  }
-
-  // ── Frontend session cache (last 10 sessions, LRU eviction) ────────────
-  interface CachedSession {
-    detail: SessionDetail;
-    turns: ConversationTurn[];
-    eventsFingerprint: EventsFingerprint;
-    checkpoints: CheckpointEntry[];
-    plan: SessionPlan | null;
-    shutdownMetrics: ShutdownMetrics | null;
-    incidents: SessionIncident[];
-    loadedSections: Set<string>;
-  }
-  const SESSION_CACHE_SIZE = 10;
-  const sessionCache = new Map<string, CachedSession>();
-
-  function setSessionCache(id: string, cached: CachedSession) {
-    sessionCache.delete(id);
-    sessionCache.set(id, cached);
-    if (sessionCache.size > SESSION_CACHE_SIZE) {
-      const oldest = sessionCache.keys().next().value;
-      if (oldest !== undefined) sessionCache.delete(oldest);
-    }
-  }
-
-  function getFromSessionCache(id: string): CachedSession | undefined {
-    const entry = sessionCache.get(id);
-    if (entry !== undefined) {
-      sessionCache.delete(id);
-      sessionCache.set(id, entry);
-    }
-    return entry;
-  }
-
-  function buildCachedSessionSnapshot(currentDetail: SessionDetail): CachedSession {
-    return {
-      detail: currentDetail,
-      turns: turns.value,
-      eventsFingerprint: { ...lastEventsFingerprint },
-      checkpoints: checkpointsSection.data.value,
-      plan: planSection.data.value,
-      shutdownMetrics: metricsSection.data.value,
-      incidents: incidentsSection.data.value,
-      loadedSections: new Set(loaded.value),
-    } satisfies CachedSession;
-  }
-
-  function buildPrefetchedCachedSession(
-    detailResult: SessionDetail,
-    turnsResult: Awaited<ReturnType<typeof getSessionTurns>>,
-  ): CachedSession {
-    return {
-      detail: detailResult,
-      turns: turnsResult.turns,
-      eventsFingerprint: buildEventsFingerprint(
-        turnsResult.eventsFileSize,
-        turnsResult.eventsFileMtime ?? null,
-      ),
-      checkpoints: [],
-      plan: null,
-      shutdownMetrics: null,
-      incidents: [],
-      loadedSections: new Set(["detail", "turns"]),
-    } satisfies CachedSession;
-  }
-
-  function restoreFromCachedSession(cached: CachedSession) {
-    detail.value = cached.detail;
-    replaceTurns(cached.turns);
-    lastEventsFingerprint = { ...cached.eventsFingerprint };
-    checkpointsSection.data.value = cached.checkpoints;
-    planSection.data.value = cached.plan;
-    metricsSection.data.value = cached.shutdownMetrics;
-    incidentsSection.data.value = cached.incidents;
-
-    loaded.value = new Set(cached.loadedSections);
-  }
-
-  function saveToCache(id: string) {
-    const currentDetail = detail.value;
-    if (!currentDetail) return;
-    setSessionCache(id, buildCachedSessionSnapshot(currentDetail));
-  }
 
   // Guard against stale async responses when user switches sessions quickly
   const sessionGuard = useAsyncGuard();
   const eventsGuard = useAsyncGuard();
 
-  // ── Section registry ────────────────────────────────────────────────
-  const todosDef = defineAsyncSection({
-    key: "todos",
-    section: todosSection,
-    defaultValue: () => null,
-    fetchFn: (id) => getSessionTodos(id),
+  const turnsRefresh = useSessionTurnsRefresh({
     sessionId,
     loaded,
     guard: sessionGuard,
-    logPrefix: "[sessionDetail]",
+    logPrefix: LOG_PREFIX,
   });
 
-  const checkpointsDef = defineAsyncSection({
-    key: "checkpoints",
-    section: checkpointsSection,
-    defaultValue: (): CheckpointEntry[] => [],
-    fetchFn: (id) => getSessionCheckpoints(id),
+  const sections = useSessionSections({
     sessionId,
     loaded,
     guard: sessionGuard,
-    logPrefix: "[sessionDetail]",
+    logPrefix: LOG_PREFIX,
   });
 
-  const planDef = defineAsyncSection({
-    key: "plan",
-    section: planSection,
-    defaultValue: () => null,
-    fetchFn: (id) => getSessionPlan(id),
-    sessionId,
-    loaded,
-    guard: sessionGuard,
-    logPrefix: "[sessionDetail]",
-  });
+  // Background refresh throttle
+  const lastFetchTimestamp = new Map<string, number>();
 
-  const metricsDef = defineAsyncSection({
-    key: "metrics",
-    section: metricsSection,
-    defaultValue: () => null,
-    fetchFn: (id) => getShutdownMetrics(id),
-    sessionId,
-    loaded,
-    guard: sessionGuard,
-    logPrefix: "[sessionDetail]",
-  });
+  const sessionCache = createSessionCache();
+  const snapshotCtx = { detail, loaded, turnsRefresh, sections };
 
-  const incidentsDef = defineAsyncSection({
-    key: "incidents",
-    section: incidentsSection,
-    defaultValue: (): SessionIncident[] => [],
-    fetchFn: (id) => getSessionIncidents(id),
-    sessionId,
-    loaded,
-    guard: sessionGuard,
-    logPrefix: "[sessionDetail]",
-    logLevel: "warn",
-  });
-
-  const standardSections = [todosDef, checkpointsDef, planDef, metricsDef, incidentsDef];
+  function saveToCache(id: string) {
+    const currentDetail = detail.value;
+    if (!currentDetail) return;
+    sessionCache.set(id, buildCachedSessionSnapshot(snapshotCtx, currentDetail));
+  }
 
   function clearSectionErrors() {
-    turnsError.value = null;
+    turnsRefresh.clearTurnsError();
     eventsError.value = null;
-    for (const sec of standardSections) {
-      sec.clearError();
-    }
+    sections.clearErrors();
   }
 
   function resetSectionData() {
     detail.value = null;
-    replaceTurns([]);
+    turnsRefresh.resetTurns();
     events.value = null;
-    for (const sec of standardSections) {
-      sec.resetData();
-    }
+    sections.resetData();
     loaded.value.clear();
-    lastEventsFingerprint = buildEventsFingerprint(0, null);
   }
 
   async function loadDetail(id: string) {
@@ -448,13 +122,13 @@ export function createSessionDetailInstance() {
     clearSectionErrors();
 
     // Check frontend cache for instant restore
-    const cached = getFromSessionCache(id);
+    const cached = sessionCache.get(id);
     if (cached) {
-      restoreFromCachedSession(cached);
+      restoreFromCachedSession(snapshotCtx, cached);
       loading.value = false;
       events.value = null;
       loaded.value.delete("events");
-      todosSection.data.value = null;
+      sections.todosSection.data.value = null;
       loaded.value.delete("todos");
 
       const lastFetched = lastFetchTimestamp.get(id) ?? 0;
@@ -484,23 +158,6 @@ export function createSessionDetailInstance() {
     }
   }
 
-  const loadTurns = buildSectionLoader({
-    key: "turns",
-    sessionId,
-    loaded,
-    guard: sessionGuard,
-    errorRef: turnsError,
-    fetchFn: (id) => getSessionTurns(id),
-    onResult: (result) => {
-      replaceTurns(result.turns);
-      lastEventsFingerprint = buildEventsFingerprint(
-        result.eventsFileSize,
-        result.eventsFileMtime ?? null,
-      );
-    },
-    logPrefix: "[sessionDetail]",
-  });
-
   async function loadEvents(offset = 0, limit = 100, eventType?: string) {
     const id = sessionId.value;
     if (!id) return;
@@ -516,7 +173,7 @@ export function createSessionDetailInstance() {
     } catch (e) {
       if (!sessionGuard.isValid(sessionToken) || !eventsGuard.isValid(eventsToken)) return;
       eventsError.value = toErrorMessage(e);
-      logError("[sessionDetail] Failed to load events:", e);
+      logError(`${LOG_PREFIX} Failed to load events:`, e);
     }
   }
 
@@ -535,11 +192,11 @@ export function createSessionDetailInstance() {
     const id = sessionId.value;
     if (!id) return;
     const token = sessionGuard.current();
-    const sections = new Set(loaded.value);
+    const loadedSections = new Set(loaded.value);
 
     const promises: Promise<void>[] = [];
 
-    if (sections.has("detail")) {
+    if (loadedSections.has("detail")) {
       promises.push(
         (async () => {
           try {
@@ -550,54 +207,17 @@ export function createSessionDetailInstance() {
           } catch (e) {
             if (!sessionGuard.isValid(token)) return;
             error.value = toErrorMessage(e);
-            logError("[sessionDetail] Failed to refresh detail:", e);
+            logError(`${LOG_PREFIX} Failed to refresh detail:`, e);
           }
         })(),
       );
     }
 
-    if (sections.has("turns")) {
-      promises.push(
-        (async () => {
-          try {
-            try {
-              const freshness = await checkSessionFreshness(id);
-              if (!sessionGuard.isValid(token)) return;
-              const probe = buildEventsFingerprint(
-                freshness.eventsFileSize,
-                freshness.eventsFileMtime ?? null,
-              );
-              if (isSameEventsFingerprint(probe, lastEventsFingerprint)) return;
-            } catch (e) {
-              logWarn(
-                "[sessionDetail] Freshness check failed, proceeding with full fetch",
-                { sessionId: id },
-                e,
-              );
-            }
-
-            const result = await getSessionTurns(id);
-            if (!sessionGuard.isValid(token)) return;
-            mergeTurns(result.turns);
-            turnsError.value = null;
-            lastEventsFingerprint = buildEventsFingerprint(
-              result.eventsFileSize,
-              result.eventsFileMtime ?? null,
-            );
-          } catch (e) {
-            if (!sessionGuard.isValid(token)) return;
-            turnsError.value = toErrorMessage(e);
-            logError("[sessionDetail] Failed to refresh turns:", e);
-          }
-        })(),
-      );
+    if (loadedSections.has("turns")) {
+      promises.push(turnsRefresh.refreshTurns(id, token));
     }
 
-    for (const sec of standardSections) {
-      if (sections.has(sec.key)) {
-        promises.push(sec.buildRefresh(id, token));
-      }
-    }
+    promises.push(...sections.refreshLoaded(id, token));
 
     await Promise.allSettled(promises);
   }
@@ -613,7 +233,7 @@ export function createSessionDetailInstance() {
 
       if (sessionCache.has(id) || sessionId.value === id) return;
 
-      setSessionCache(id, buildPrefetchedCachedSession(detailResult, turnsResult));
+      sessionCache.set(id, buildPrefetchedCachedSession(detailResult, turnsResult));
     } catch (e) {
       // Prefetch is best-effort; a missing on-disk events.jsonl (e.g. session
       // exists in the index but its data dir was cleaned up, or hasn't been
@@ -623,9 +243,9 @@ export function createSessionDetailInstance() {
       const msg = e instanceof Error ? e.message : String(e);
       const isMissingFile = /Failed to open|no such file|cannot find the file/i.test(msg);
       if (isMissingFile) {
-        logDebug("[sessionDetail] Prefetch skipped — session data missing", { sessionId: id });
+        logDebug(`${LOG_PREFIX} Prefetch skipped — session data missing`, { sessionId: id });
       } else {
-        logWarn("[sessionDetail] Prefetch failed (best-effort)", { sessionId: id }, e);
+        logWarn(`${LOG_PREFIX} Prefetch failed (best-effort)`, { sessionId: id }, e);
       }
     }
   }
@@ -636,33 +256,33 @@ export function createSessionDetailInstance() {
   return {
     sessionId,
     detail,
-    turns,
-    turnsVersion,
+    turns: turnsRefresh.turns,
+    turnsVersion: turnsRefresh.turnsVersion,
     events,
-    todos: todosSection.data,
-    checkpoints: checkpointsSection.data,
-    plan: planSection.data,
-    shutdownMetrics: metricsSection.data,
-    incidents: incidentsSection.data,
+    todos: sections.todosSection.data,
+    checkpoints: sections.checkpointsSection.data,
+    plan: sections.planSection.data,
+    shutdownMetrics: sections.metricsSection.data,
+    incidents: sections.incidentsSection.data,
     loading,
     error,
     loaded,
-    turnsError,
+    turnsError: turnsRefresh.turnsError,
     eventsError,
-    todosError: todosSection.error,
-    checkpointsError: checkpointsSection.error,
-    planError: planSection.error,
-    metricsError: metricsSection.error,
-    incidentsError: incidentsSection.error,
+    todosError: sections.todosSection.error,
+    checkpointsError: sections.checkpointsSection.error,
+    planError: sections.planSection.error,
+    metricsError: sections.metricsSection.error,
+    incidentsError: sections.incidentsSection.error,
     pendingCheckpointFocus,
     loadDetail,
-    loadTurns,
+    loadTurns: turnsRefresh.loadTurns,
     loadEvents,
-    loadTodos: todosDef.load,
-    loadCheckpoints: checkpointsDef.load,
-    loadPlan: planDef.load,
-    loadShutdownMetrics: metricsDef.load,
-    loadIncidents: incidentsDef.load,
+    loadTodos: sections.todosDef.load,
+    loadCheckpoints: sections.checkpointsDef.load,
+    loadPlan: sections.planDef.load,
+    loadShutdownMetrics: sections.metricsDef.load,
+    loadIncidents: sections.incidentsDef.load,
     reset,
     refreshAll,
     prefetchSession,
