@@ -77,7 +77,7 @@ function filterSessionsByScope<T extends { id: string }>(sessions: T[]): T[] {
 // ── Session-end detection ────────────────────────────────────────
 
 function checkSessionEndAlerts(
-  sessions: Array<{ id: string; isRunning: boolean; summary?: string }>,
+  sessions: Array<{ id: string; isRunning: boolean; summary?: string | null }>,
 ) {
   const prefs = usePreferencesStore();
   const store = useAlertWatcherStore();
@@ -101,7 +101,7 @@ function checkSessionEndAlerts(
       dispatchAlert({
         type: "session-end",
         sessionId: session.id,
-        sessionSummary: session.summary,
+        sessionSummary: session.summary ?? undefined,
         title: "Session Completed",
         body: label,
       });
@@ -155,7 +155,7 @@ function scanTurnsForAskUser(sessionId: string, turns: ConversationTurn[], summa
 // ── Error detection ──────────────────────────────────────────────
 
 function checkSessionErrorAlerts(
-  sessions: Array<{ id: string; isRunning: boolean; summary?: string; errorCount?: number }>,
+  sessions: Array<{ id: string; isRunning: boolean; summary?: string | null; errorCount?: number | null }>,
 ) {
   const prefs = usePreferencesStore();
   if (!prefs.alertsEnabled || !prefs.alertsOnSessionError) return;
@@ -184,7 +184,7 @@ function checkSessionErrorAlerts(
       dispatchAlert({
         type: "session-error",
         sessionId: session.id,
-        sessionSummary: session.summary,
+        sessionSummary: session.summary ?? undefined,
         title: "Session Error",
         body: `${label} encountered ${newErrors} new error${newErrors > 1 ? "s" : ""}`,
       });
@@ -235,7 +235,7 @@ async function pollRunningSessionsForAskUser() {
           continue;
         }
         const result = await getSessionTurns(session.id);
-        scanTurnsForAskUser(session.id, result.turns, session.summary);
+        scanTurnsForAskUser(session.id, result.turns, session.summary ?? undefined);
       } catch (e) {
         logWarn(`[alert-watcher] Failed to poll turns for ${session.id}:`, e);
       }

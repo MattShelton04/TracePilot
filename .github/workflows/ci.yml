@@ -134,6 +134,9 @@ jobs:
         uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998 # v2.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          # RUSTSEC-2026-0097: rand unsound w/ custom logger — not applicable (TracePilot has no custom rand logger).
+          # RUSTSEC-2025-0068: serde_yml unmaintained — direct dep of tracepilot-core; migration tracked separately.
+          args: --ignore RUSTSEC-2026-0097 --ignore RUSTSEC-2025-0068
 
       - name: pnpm audit (production)
         run: pnpm audit --prod --audit-level=high

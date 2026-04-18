@@ -257,7 +257,7 @@ function openSession(event: MouseEvent, sessionId: string, label: string) {
                 {{ session.compactionCount }}
               </span>
             </div>
-            <span class="card-time-new" :title="session.updatedAt">{{ formatRelativeTime(session.updatedAt) }}</span>
+            <span class="card-time-new" :title="session.updatedAt ?? undefined">{{ formatRelativeTime(session.updatedAt) }}</span>
           </div>
         </div>
       </div>

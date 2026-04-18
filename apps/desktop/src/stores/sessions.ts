@@ -113,7 +113,7 @@ export const useSessionsStore = defineStore("sessions", () => {
   });
 
   const repositories = computed(() => {
-    const repos = new Set(sessions.value.map((s) => s.repository).filter(Boolean));
+    const repos = new Set(sessions.value.map((s) => s.repository).filter((r): r is string => !!r));
     return [...repos].sort();
   });
 
@@ -122,7 +122,7 @@ export const useSessionsStore = defineStore("sessions", () => {
     if (filterRepo.value) {
       s = s.filter((x) => x.repository === filterRepo.value);
     }
-    const br = new Set(s.map((s) => s.branch).filter(Boolean));
+    const br = new Set(s.map((s) => s.branch).filter((b): b is string => !!b));
     return [...br].sort();
   });
 
