@@ -1,10 +1,10 @@
 # Specta / tauri-specta migration guide
 
-> Phase 1B.1 pilot status: **🟡 PARTIAL (wave 8)** — codegen infrastructure
-> and a tiny pilot allow-list landed. The bulk of the Rust ↔ TS contract
-> is still hand-maintained in `packages/types/` and
-> `packages/client/src/commands.ts`. This guide is the playbook for
-> expanding coverage in subsequent waves.
+> Phase 1B.1 pilot status: **🟡 PARTIAL (wave 21)** — codegen infrastructure
+> landed in wave 8; additional session-listing DTOs were migrated in wave
+> 21. The bulk of the Rust ↔ TS contract is still hand-maintained in
+> `packages/types/` and `packages/client/src/commands.ts`. This guide is
+> the playbook for expanding coverage in subsequent waves.
 
 ## What landed in this wave
 
@@ -43,6 +43,30 @@ Three Rust surfaces are emitted to `bindings.ts`:
 | `ErrorCode` enum | `crates/tracepilot-tauri-bindings/src/error.rs` | `#[derive(serde::Serialize, specta::Type)]` + `#[serde(rename_all = "SCREAMING_SNAKE_CASE")]` |
 | `BridgeMetricsSnapshot` struct | `crates/tracepilot-orchestrator/src/bridge/manager.rs` | `#[derive(..., specta::Type)]` (keeps existing `#[serde(rename_all = "camelCase")]`) |
 | `sdk_bridge_metrics` command | `crates/tracepilot-tauri-bindings/src/commands/sdk.rs` | `#[tauri::command]` + `#[specta::specta]` |
+
+### Generated as of wave 21 (session-listing batch)
+
+Annotated additively without touching the runtime `tauri::generate_handler!`
+registry. These DTOs + commands now round-trip through specta:
+
+| Rust symbol | Location | Notes |
+| --- | --- | --- |
+| `SessionListItem` struct | `crates/tracepilot-tauri-bindings/src/types.rs` | `#[derive(..., specta::Type)]`; hand-written mirror in `packages/types/src/session.ts` was fixed to include `cwd?: string \| null` (the Rust wire format always emitted it) |
+| `FreshnessResponse` struct | `crates/tracepilot-tauri-bindings/src/types.rs` | `#[derive(..., specta::Type)]`; mirror at `packages/types/src/conversation.ts` |
+| `list_sessions` command | `crates/tracepilot-tauri-bindings/src/commands/session.rs` | `#[specta::specta]` |
+| `check_session_freshness` command | `crates/tracepilot-tauri-bindings/src/commands/session.rs` | `#[specta::specta]` |
+
+Drift between generated + hand-written is caught at compile-time by
+`packages/client/src/__tests__/generated.drift.test.ts`.
+
+**Running totals:** 3 types + 3 commands in the allow-list (was 2 + 1).
+
+#### DTOs needing per-field overrides (deferred)
+
+| DTO | Reason deferred |
+| --- | --- |
+| `SessionIncidentItem` | `detail_json: Option<serde_json::Value>`. Enabling the `specta` `serde_json` feature emits a tagged `Value` union (`{ Null } \| { Bool: bool } \| …`), which does not match the wire format (arbitrary JSON) nor the hand-written `unknown`. Needs a forwarding `impl specta::Type` (similar to `BindingsError`) that maps `serde_json::Value` to TS `unknown` / `any`. Tackle in a follow-up wave alongside `EventItem` (same shape concern). |
+| `TurnsResponse`, `EventsResponse`, `TodosResponse`, `SessionSummary`, `ConversationTurn` | Transitively pull in large graphs from `tracepilot-core` (`ConversationTurn`, `TypedEvent`, `TodoItem`, `TodoDep`, `SessionSummary`, …). Cascading specta annotation on `tracepilot-core` is its own wave. |
 
 The generated `ErrorCode` union matches the strings consumed by
 `apps/desktop/src/utils/backendErrors.ts` exactly (`"IO" | "TAURI" | … |
@@ -188,7 +212,7 @@ from Rust. In rough order of payoff (widest fan-out first):
 
 | File | Mirrors (approx.) |
 | --- | --- |
-| `session.ts` | `tracepilot-core::SessionHeader`, `ConversationTurn`, `TypedEvent` and friends |
+| `session.ts` | `tracepilot-core::SessionHeader`, `ConversationTurn`, `TypedEvent` and friends; `SessionListItem` ✅ migrated wave 21 |
 | `search.ts` | `tracepilot-indexer::SearchHit`, facet DTOs, FTS health |
 | `sdk.ts` | `tracepilot-orchestrator::bridge::{BridgeStatus, BridgeSessionInfo, BridgeModelInfo, BridgeQuota, BridgeAuthStatus, DetectedUiServer, BridgeConnectConfig, BridgeSessionConfig, BridgeSessionMode, BridgeMessagePayload}` + `BridgeMetricsSnapshot` (✅ migrated this wave) |
 | `tasks.ts` | `tracepilot-orchestrator::task_orchestrator::*` task/job/preset DTOs |

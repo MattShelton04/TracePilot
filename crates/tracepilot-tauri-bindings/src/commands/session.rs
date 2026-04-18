@@ -73,6 +73,7 @@ fn load_cached_typed_events(
 }
 
 #[tauri::command]
+#[specta::specta]
 #[tracing::instrument(skip_all)]
 pub async fn list_sessions(
     state: tauri::State<'_, SharedConfig>,
@@ -301,6 +302,7 @@ pub async fn get_session_turns(
 
 /// Lightweight freshness probe— returns just the events.jsonl file size.
 #[tauri::command]
+#[specta::specta]
 pub async fn check_session_freshness(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,

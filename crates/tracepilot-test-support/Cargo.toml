@@ -1,0 +1,11 @@
+[package]
+name = "tracepilot-test-support"
+description = "Shared test-only helpers and fixtures for the TracePilot workspace"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+# Fixture helpers only need std. Consumers that want analytics/export
+# builders can depend on the relevant internal crate directly;
+# feature-gated internal deps are added here when those migrations land.

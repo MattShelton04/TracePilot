@@ -7,6 +7,7 @@ members = [
     "crates/tracepilot-orchestrator",
     "crates/tracepilot-tauri-bindings",
     "crates/tracepilot-bench",
+    "crates/tracepilot-test-support",
     "apps/desktop/src-tauri",
 ]
 
@@ -23,7 +24,7 @@ categories = ["development-tools", "visualization"]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yml = "0.0.12"
-rusqlite = { version = "0.32", features = ["bundled", "trace"] }
+rusqlite = { version = "0.32", features = ["bundled", "trace", "backup"] }
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 thiserror = "2"
@@ -53,6 +54,7 @@ tracepilot-core = { path = "crates/tracepilot-core" }
 tracepilot-indexer = { path = "crates/tracepilot-indexer" }
 tracepilot-export = { path = "crates/tracepilot-export" }
 tracepilot-orchestrator = { path = "crates/tracepilot-orchestrator" }
+tracepilot-test-support = { path = "crates/tracepilot-test-support" }
 
 [profile.release]
 lto = "thin"

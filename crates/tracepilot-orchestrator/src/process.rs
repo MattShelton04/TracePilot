@@ -8,7 +8,7 @@
 use crate::error::{OrchestratorError, Result};
 use std::collections::HashMap;
 use std::io::Read;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Output};
 use std::sync::{Arc, Mutex, mpsc};
 use std::time::Duration;
@@ -168,6 +168,44 @@ fn run_with_timeout(
 }
 
 // ─── Hidden execution (internal commands) ───────────────────────────
+
+/// Probe the system `PATH` for an executable by name.
+///
+/// On Windows, invokes `where.exe <name>` with `CREATE_NO_WINDOW` so no
+/// console window flashes. On other platforms, invokes `which <name>`.
+/// Returns the first matching path, or `None` if the probe fails or the
+/// executable is not found.
+///
+/// Use this helper instead of inlining `Command::new("where"/"which")`
+/// so that all probes share the same hidden-window + flag semantics.
+pub fn find_executable(name: &str) -> Option<PathBuf> {
+    #[cfg(windows)]
+    {
+        let mut cmd = Command::new("where");
+        cmd.arg(name).creation_flags(CREATE_NO_WINDOW);
+        let output = cmd.output().ok()?;
+        if !output.status.success() {
+            return None;
+        }
+        String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .next()
+            .map(|s| PathBuf::from(s.trim()))
+            .filter(|p| !p.as_os_str().is_empty())
+    }
+    #[cfg(not(windows))]
+    {
+        let output = Command::new("which").arg(name).output().ok()?;
+        if !output.status.success() {
+            return None;
+        }
+        String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .next()
+            .map(|s| PathBuf::from(s.trim()))
+            .filter(|p| !p.as_os_str().is_empty())
+    }
+}
 
 /// Run a command invisibly, capturing stdout and stderr.
 ///
@@ -913,6 +951,40 @@ mod tests {
     fn test_run_hidden_via_cmd_errors_on_posix() {
         let result = run_hidden_via_cmd("true", &[], None, None);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_find_executable_missing_returns_none() {
+        // A name that almost certainly isn't on PATH on any platform.
+        let result = find_executable("tracepilot-definitely-does-not-exist-xyz");
+        assert!(result.is_none(), "expected None for missing executable");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn test_find_executable_locates_cmd() {
+        // `cmd.exe` is always on PATH on Windows.
+        let result = find_executable("cmd");
+        let path = result.expect("expected to locate cmd on PATH");
+        let display = path.to_string_lossy().to_lowercase();
+        assert!(
+            display.ends_with("cmd.exe") || display.ends_with("cmd"),
+            "expected cmd path, got {}",
+            path.display()
+        );
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn test_find_executable_locates_sh() {
+        // `sh` is universally present on POSIX systems.
+        let result = find_executable("sh");
+        let path = result.expect("expected to locate sh on PATH");
+        assert!(
+            path.is_absolute() || path.exists(),
+            "expected absolute or existing path for sh, got {}",
+            path.display()
+        );
     }
 
     #[cfg(windows)]

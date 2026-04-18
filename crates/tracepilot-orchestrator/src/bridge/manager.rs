@@ -868,46 +868,10 @@ impl BridgeManager {
 /// the Copilot TUI that TracePilot can then connect to via TCP.
 pub fn launch_ui_server(working_dir: Option<&str>) -> Result<u32, BridgeError> {
     // Resolve copilot binary path via PATH
-    let copilot_path = {
-        #[cfg(windows)]
-        {
-            use std::os::windows::process::CommandExt;
-            std::process::Command::new("where")
-                .arg(tracepilot_core::constants::DEFAULT_CLI_COMMAND)
-                .creation_flags(crate::process::CREATE_NO_WINDOW)
-                .output()
-                .ok()
-                .and_then(|o| {
-                    if o.status.success() {
-                        String::from_utf8_lossy(&o.stdout)
-                            .lines()
-                            .next()
-                            .map(|s| s.trim().to_string())
-                    } else {
-                        None
-                    }
-                })
-                .unwrap_or_else(|| tracepilot_core::constants::DEFAULT_CLI_COMMAND.to_string())
-        }
-        #[cfg(not(windows))]
-        {
-            std::process::Command::new("which")
-                .arg(tracepilot_core::constants::DEFAULT_CLI_COMMAND)
-                .output()
-                .ok()
-                .and_then(|o| {
-                    if o.status.success() {
-                        String::from_utf8_lossy(&o.stdout)
-                            .lines()
-                            .next()
-                            .map(|s| s.trim().to_string())
-                    } else {
-                        None
-                    }
-                })
-                .unwrap_or_else(|| tracepilot_core::constants::DEFAULT_CLI_COMMAND.to_string())
-        }
-    };
+    let copilot_path =
+        crate::process::find_executable(tracepilot_core::constants::DEFAULT_CLI_COMMAND)
+            .map(|p| p.to_string_lossy().into_owned())
+            .unwrap_or_else(|| tracepilot_core::constants::DEFAULT_CLI_COMMAND.to_string());
 
     let work_dir = working_dir
         .map(std::path::PathBuf::from)

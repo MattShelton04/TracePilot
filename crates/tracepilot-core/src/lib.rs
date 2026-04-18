@@ -60,6 +60,7 @@ pub mod analytics;
 pub mod constants;
 pub mod error;
 pub mod health;
+pub mod ids;
 pub mod models;
 pub mod parsing;
 pub mod session;
@@ -83,6 +84,7 @@ static ALLOC: dhat::Alloc = dhat::Alloc;
 pub mod testing;
 
 pub use error::{Result, TracePilotError};
+pub use ids::{PresetId, SessionId, SkillName};
 pub use models::{ConversationTurn, SessionEvent, SessionSummary, ShutdownMetrics, TurnToolCall};
 pub use session::discovery::{discover_sessions, resolve_session_path};
 pub use summary::{SessionLoadResult, load_session_summary, load_session_summary_with_events};

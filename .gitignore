@@ -43,6 +43,14 @@ desktop.ini
 
 # Playwright
 .playwright-cli/
+playwright-report/
+test-results/
+blob-report/
+packages/ui/playwright/.cache/
+test-results/
+blob-report/
+packages/ui/src/__vrt__/__screenshots__/**/*-actual.png
+packages/ui/src/__vrt__/__screenshots__/**/*-diff.png
 
 # Agent planning artifacts
 .agent/

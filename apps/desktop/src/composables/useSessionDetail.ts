@@ -53,7 +53,7 @@ import {
   createAsyncSection,
   defineAsyncSection,
 } from "@/stores/helpers/asyncSections";
-import { logError, logWarn } from "@/utils/logger";
+import { logDebug, logError, logWarn } from "@/utils/logger";
 
 /**
  * Create an independent session detail state instance.
@@ -615,7 +615,18 @@ export function createSessionDetailInstance() {
 
       setSessionCache(id, buildPrefetchedCachedSession(detailResult, turnsResult));
     } catch (e) {
-      logWarn("[sessionDetail] Prefetch failed (best-effort)", { sessionId: id }, e);
+      // Prefetch is best-effort; a missing on-disk events.jsonl (e.g. session
+      // exists in the index but its data dir was cleaned up, or hasn't been
+      // materialized yet) is the common case and not actionable. Downgrade
+      // "Failed to open" errors to debug so they don't spam the WARN log;
+      // anything else still surfaces as a warning.
+      const msg = e instanceof Error ? e.message : String(e);
+      const isMissingFile = /Failed to open|no such file|cannot find the file/i.test(msg);
+      if (isMissingFile) {
+        logDebug("[sessionDetail] Prefetch skipped — session data missing", { sessionId: id });
+      } else {
+        logWarn("[sessionDetail] Prefetch failed (best-effort)", { sessionId: id }, e);
+      }
     }
   }
 

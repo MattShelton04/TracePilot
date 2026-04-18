@@ -5,6 +5,7 @@ import {
   formatBytes,
   formatDateMedium,
   formatRelativeTime,
+  usePolling,
   useToast,
 } from "@tracepilot/ui";
 import { computed, onMounted, onUnmounted, ref } from "vue";
@@ -34,7 +35,12 @@ useSearchUrlSync();
 // ── Main indexing progress (local to this view) ──────────────
 const indexingProgress = ref<IndexingProgressPayload | null>(null);
 const isIndexing = ref(false);
-let healthRefreshInterval: number | undefined;
+const healthPolling = usePolling(() => store.fetchHealth(), {
+  intervalMs: 5_000,
+  immediate: false,
+  pauseWhenHidden: true,
+  swallowErrors: true,
+});
 
 const { setup: setupIndexingEvents } = useIndexingEvents({
   onStarted: () => {
@@ -213,7 +219,7 @@ onMounted(async () => {
   // so it shouldn't delay search readiness.
   setTimeout(() => store.fetchHealth(), 0);
   // Refresh health every 5s for live progress during indexing
-  healthRefreshInterval = window.setInterval(() => store.fetchHealth(), 5_000);
+  healthPolling.start();
 
   // Main indexing events (local — only for showing main index progress)
   await setupIndexingEvents();
@@ -223,7 +229,7 @@ onMounted(async () => {
 onUnmounted(() => {
   // Notify store that search view is unmounted (disables background operations)
   store.setViewMounted(false);
-  if (healthRefreshInterval) clearInterval(healthRefreshInterval);
+  healthPolling.stop();
 });
 </script>
 

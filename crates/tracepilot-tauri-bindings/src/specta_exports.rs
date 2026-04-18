@@ -37,7 +37,9 @@ const HEADER: &str = "\
 pub fn export(out_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     let builder = Builder::<tauri::Wry>::new()
         .commands(tauri_specta::collect_commands![
-            crate::commands::sdk::sdk_bridge_metrics
+            crate::commands::sdk::sdk_bridge_metrics,
+            crate::commands::session::list_sessions,
+            crate::commands::session::check_session_freshness,
         ])
         .typ::<ErrorCode>()
         .typ::<BridgeMetricsSnapshot>();

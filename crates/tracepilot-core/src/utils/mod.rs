@@ -7,6 +7,7 @@
 //! - [`truncate_string_utf8()`] - In-place version for owned strings
 
 pub mod cache;
+pub mod migrator;
 pub mod sqlite;
 
 use std::path::PathBuf;

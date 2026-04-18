@@ -3,12 +3,18 @@
 // assessment, shutdown metrics, and session artifacts (todos, plans,
 // checkpoints).
 
-/** Session list item (enriched from workspace.yaml + events) */
+/**
+ * Session list item (enriched from workspace.yaml + events)
+ *
+ * Mirrored by src/generated/bindings.ts as of wave 21 — keep in sync or
+ * delete this interface once the full cutover lands.
+ */
 export interface SessionListItem {
   id: string;
   summary?: string;
   repository?: string;
   branch?: string;
+  cwd?: string | null;
   hostType?: string;
   createdAt?: string;
   updatedAt?: string;

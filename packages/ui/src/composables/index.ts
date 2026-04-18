@@ -26,6 +26,11 @@ export { useInflightPromise } from "./useInflightPromise";
 export { useLiveDuration } from "./useLiveDuration";
 export type { UsePersistedRefOptions } from "./usePersistedRef";
 export { usePersistedRef } from "./usePersistedRef";
+export type {
+  UsePollingControls,
+  UsePollingOptions,
+} from "./usePolling";
+export { usePolling } from "./usePolling";
 export { useResizeHandle } from "./useResizeHandle";
 export { useSessionTabLoader } from "./useSessionTabLoader";
 export type { AsyncGuardLike, RunActionOptions } from "./useStoreHelpers";

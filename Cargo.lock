@@ -5973,6 +5973,7 @@ dependencies = [
  "strum",
  "tempfile",
  "thiserror 2.0.18",
+ "tracepilot-test-support",
  "tracing",
  "uuid",
 ]
@@ -6015,6 +6016,7 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.18",
  "tracepilot-core",
+ "tracepilot-test-support",
  "tracing",
  "uuid",
 ]
@@ -6090,6 +6092,10 @@ dependencies = [
  "tracing-subscriber",
  "uuid",
 ]
+
+[[package]]
+name = "tracepilot-test-support"
+version = "0.6.2"
 
 [[package]]
 name = "tracing"

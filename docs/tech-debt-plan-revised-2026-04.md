@@ -79,7 +79,7 @@ Phase 0  (guard-rails: CI + xplatform + coverage + a11y + migration snapshots + 
 | 0.6 | Lefthook parity | Add `cargo fmt`, `pnpm typecheck` to pre-push. **Do not** add `cargo clippy --fix` (too invasive); expose as optional `lefthook run --commands fix`. |
 | 0.7 | **Coverage gate** | `vitest --coverage` + `cargo tarpaulin` with initial threshold set to current-baseline + floor; tightening schedule documented. |
 | 0.8 | **a11y smoke gate** | Add `@axe-core/playwright` (or `vitest-axe` for component tests); run against at least App shell + top 5 views. Warn-only at first, error after Phase 4. |
-| 0.9 | **Visual-regression harness** | Playwright snapshot tests (deterministic renders) for the 20 mega-SFCs that Phase 4 will touch. Snapshots captured **now** at current behaviour. |
+| 0.9 | **Visual-regression harness** ✅ **DONE (Wave 16b, component-level)** — Playwright CT (`@playwright/experimental-ct-vue`) harness in `packages/ui` with baselines for `StatCard` / `TabNav` / `PageHeader` / `SegmentedControl` / `PageShell` covering the variants added in waves 10–11. Runs on-demand via `pnpm --filter @tracepilot/ui vrt`; **deliberately not** wired into default CI (baselines are platform-sensitive). View-level VRT (mocked Tauri IPC, App shell + top-N views) flagged as follow-up, to land with Phase 4 decomposition. |
 | 0.10 | **Migration fixture tests** | Commit historical `IndexDb`/`TaskDb`/`config.json` snapshots for N-3 to N; tests migrate them up to current on every CI run. |
 | 0.11 | File-size guardrails | `scripts/check-file-sizes.mjs` in CI: fail on **new** files exceeding budgets; existing violations allow-listed (list only shrinks). |
 | 0.12 | Governance scaffolding | `CODEOWNERS`, `SECURITY.md`, `.github/PULL_REQUEST_TEMPLATE.md`, `.github/ISSUE_TEMPLATE/{bug,feature,config}.yml`. |
@@ -157,7 +157,7 @@ Phase 0  (guard-rails: CI + xplatform + coverage + a11y + migration snapshots + 
 
 **Objective:** Eliminate the drift surfaces (hand-mirrored command/event/route/flag registries).
 
-### 1B.1 Rust ↔ TS contract codegen — 🟡 PARTIAL (wave 8 — infra + pilot)
+### 1B.1 Rust ↔ TS contract codegen — 🟡 PARTIAL (wave 8 infra; wave 21 session-listing batch)
 
 Infrastructure landed and a narrow pilot is generating cleanly. The bulk of
 the DTO sweep is deferred to subsequent waves. Full playbook:
@@ -172,6 +172,8 @@ the DTO sweep is deferred to subsequent waves. Full playbook:
 - Delete the regex-based `commandContract.test.ts` once generation is authoritative. — **DEFERRED** (retained until full command migration completes).
 
 **Wave-8 deliverables:** `docs/specta-migration-guide.md`; `crates/tracepilot-tauri-bindings/src/{specta_exports.rs, bin/gen-bindings.rs, build.rs}`; pilot derives on `ErrorCode` + `BridgeMetricsSnapshot`; checked-in `packages/client/src/generated/bindings.ts`; `pnpm gen:bindings` script.
+
+**Wave-21 deliverables (session-listing batch):** Additive specta annotations on `SessionListItem` + `FreshnessResponse` DTOs and `list_sessions` + `check_session_freshness` commands in `crates/tracepilot-tauri-bindings`. Extended `collect_commands!` allow-list in `specta_exports.rs`. Fixed a drift bug in the hand-written `SessionListItem` mirror (`cwd?: string | null` was missing). New drift-detection test at `packages/client/src/__tests__/generated.drift.test.ts` asserts compile-time assignability between generated and hand-written shapes. `SessionIncidentItem` was dropped mid-wave — its `Option<serde_json::Value>` field requires a forwarding `impl specta::Type` (tracked in the migration guide under "DTOs needing per-field overrides"). `tauri::generate_handler!` is **untouched** — runtime registration unchanged.
 
 ### 1B.2 TS key registries — ✅ DONE (wave 13)
 
@@ -201,19 +203,19 @@ Under `apps/desktop/src/config/`:
 
 **Objective:** Fix lifecycle, state ownership, and migration risks **before** splitting any files.
 
-### 3-safety.1 DB migration framework (was 3.4)
+### 3-safety.1 DB migration framework (was 3.4) — ✅ **DONE (wave 15; decomposed wave 17)**
 
-- Unify `IndexDb` + `TaskDb` migration runners behind a `Migrator` trait in `core::utils::sqlite`.
-- Standardise on a single `schema_version` table (migrate `TaskDb` away from key-value `task_meta` versioning).
-- Add backup-before-migrate (`{db}.pre-vN.bak`) + rollback-on-failure.
-- Document migration policy ADR: forward-only; schema additions allowed; column removals require two-phase; breaking changes require user-data export step.
+- Unify `IndexDb` + `TaskDb` migration runners behind a `Migrator` trait in `core::utils::sqlite`. — ✅ Shared framework landed as `tracepilot_core::utils::migrator` (`Migration`, `MigrationPlan`, `MigratorOptions`, `MigrationReport`, `MigrationError`, `run_migrations`). Both `IndexDb` (`INDEX_DB_PLAN`, 11 migrations) and `TaskDb` (`TASK_DB_PLAN`, 2 migrations) now delegate. **Wave 17:** split monolithic `utils/migrator.rs` (710 LOC → file-size-budget violation) into `utils/migrator/{mod,types,backup,schema,tests}.rs`; all public paths (`tracepilot_core::utils::migrator::Migration`, `MigrationPlan`, `MigratorOptions`, `MigrationError`, `MigrationReport`, `RestoreOutcome`, `ensure_schema_version_table`, `backup_path_for`, `run_migrations`) preserved via re-exports — zero consumer edits.
+- Standardise on a single `schema_version` table (migrate `TaskDb` away from key-value `task_meta` versioning). — ✅ Canonical `schema_version(version INTEGER NOT NULL, applied_at TEXT DEFAULT (datetime('now')))`. Legacy `TaskDb` installs are **dual-read**: `bootstrap_legacy_schema_version` back-fills rows from `task_meta.schema_version` without re-running migrations. `task_meta` is preserved for backwards-read compatibility.
+- Add backup-before-migrate (`{db}.pre-vN.bak`) + rollback-on-failure. — ✅ Backups use `rusqlite::backup::Backup` (WAL-safe), write per applied version, cap retention at the last 5 files, and are skipped for in-memory databases. Each migration runs under an `unchecked_transaction`; a body failure auto-rolls the DB back and preserves the matching backup for manual recovery.
+- Document migration policy ADR: forward-only; schema additions allowed; column removals require two-phase; breaking changes require user-data export step. — ✅ [`docs/adr/0004-db-migration-policy.md`](./adr/0004-db-migration-policy.md).
 
-### 3-safety.2 Path + process helpers (was 3.5)
+### 3-safety.2 Path + process helpers (was 3.5) — 🟡 **PARTIAL (wave 17)**
 
-- Promote `CREATE_NO_WINDOW` to `core::constants`.
-- Centralise `which`/`where` probing in `process::find_executable`.
-- Replace inline `Command::new` in `bridge/manager.rs:807-840` and `bridge/discovery.rs` with shared helpers.
-- Formalise jail helpers in `core::utils::fs` (path canonicalisation, symlink policy from 1A.2 ADR).
+- ✅ **Promote `CREATE_NO_WINDOW` to `core::constants`** — shipped in wave 15 as `tracepilot_core::constants::CREATE_NO_WINDOW = 0x0800_0000`. All six callsites use the constant (verified wave 17: `bridge/manager.rs:877` via `crate::process::CREATE_NO_WINDOW` re-export, `bridge/discovery.rs:67`, `mcp/health.rs:504`, `process.rs` multiple, `commands/tasks.rs:698`). No raw `0x08000000` literals remain in the workspace.
+- ✅ **Centralise `which`/`where` probing in `process::find_executable`** — added in wave 17. Windows path uses `where.exe` with `CREATE_NO_WINDOW`; non-Windows uses `which`. Returns `Option<PathBuf>`. Covered by three tests: missing-executable returns `None`; Windows locates `cmd`; POSIX locates `sh`.
+- 🟡 **Replace inline `Command::new` in `bridge/manager.rs:807-840` and `bridge/discovery.rs`** — `bridge/manager.rs::launch_ui_server` (original lines 869-910) migrated to `crate::process::find_executable(DEFAULT_CLI_COMMAND)` in wave 17. `bridge/discovery.rs` does **not** probe for executables — its `Command::new` calls spawn PowerShell (Win), `ps`+`lsof` (macOS), and `ps`+`ss` (Linux) for *process enumeration*, which is out of scope for `find_executable`. No action taken there.
+- 🔴 **Formalise jail helpers in `core::utils::fs`** — **deferred.** Rationale: `canonicalize_user_path` already exists in `tracepilot-orchestrator::launcher` and `validate_path_within` in `tracepilot-tauri-bindings::helpers`, and both bake in crate-specific error types (`OrchestratorError`, `ExportError`, etc.). Moving them to `core::utils::fs` requires a new shared error taxonomy or generic error-conversion story, and there are 20+ `canonicalize` callsites across `orchestrator`, `tauri-bindings`, `export`, and `core` with non-uniform symlink policies (some follow, some reject). Per this plan's scope-management guidance for ambiguous consolidations, this is deferred to a dedicated wave — policy decision required (which error type; whether to enforce a single symlink policy; whether 1A.2's `canonicalize_user_path` should absorb the tauri-bindings `validate_path_within` semantics). The symlink policy is already documented in ADR 0003 §"Symlink policy".
 
 ### 3-safety.3 Concurrency cleanups (was 3.8)
 
@@ -230,9 +232,50 @@ Under `apps/desktop/src/config/`:
 - Migrate `SessionSearchView.vue:214-226` and `orchestrator.ts:185-191` polling loops.
 - Document as a convention; Biome lint to flag raw `setInterval` outside composables.
 
-### 3-safety.5 Shared test-support crate
+**Wave 18 (Phase 3-safety.4) — DONE.**
 
-- New `crates/tracepilot-test-support` (`[dev-dependencies]`) hosting `builders.rs`, `analytics/test_helpers.rs`, `export/test_helpers.rs`. Delete duplicate fixtures.
+- Added `packages/ui/src/composables/usePolling.ts` — visibility + scope-aware
+  polling with single-flight guard, optional `active` ref, and
+  `onScopeDispose` cleanup so it works in both component scopes and Pinia
+  setup-store scopes.
+- Tests: `packages/ui/src/__tests__/usePolling.test.ts` (14 cases).
+- Migrated callsites:
+  - `apps/desktop/src/views/SessionSearchView.vue:37,216,226` →
+    `usePolling(() => store.fetchHealth(), { intervalMs: 5_000, immediate:
+    false, pauseWhenHidden: true, swallowErrors: true })`, started in
+    `onMounted`, stopped in `onUnmounted`.
+  - `apps/desktop/src/stores/orchestrator.ts:47,185-191` → two
+    `usePolling` instances (fast / slow) backing the existing imperative
+    `startPolling(intervalMs)` / `stopPolling()` surface used by the
+    `watch(isRunning, …)` state machine and tests. Chose option (a) —
+    `usePolling` uses `getCurrentScope()` + `onScopeDispose` so it binds
+    to the Pinia setup-store's effect scope instead of leaking a silent
+    component-lifecycle assumption.
+- **DEFERRED:** Biome lint rule for raw `setInterval` outside composables.
+  Biome does not currently ship a stock rule for this pattern; custom
+  restricted-syntax/ESLint-style rules would require either a plugin or a
+  separate lint step. Tracking as a future follow-up.
+
+### 3-safety.5 Shared test-support crate — ✅ DONE (wave 19, PARTIAL scope)
+
+- New `crates/tracepilot-test-support` (`publish = false`, consumed from `[dev-dependencies]`) created with a `fixtures` module.
+- **Consumers now depending on `tracepilot-test-support`:**
+  - `tracepilot-core` (dev-dep) — `src/summary/mod.rs` tests.
+  - `tracepilot-export` (dev-dep) — `tests/integration.rs`.
+- **Helpers extracted to `tracepilot_test_support::fixtures`:**
+  - `full_workspace_yaml()` — was duplicated in `core/summary/mod.rs` and `export/tests/integration.rs`.
+  - `minimal_workspace_yaml()` — same pair.
+  - `sparse_workspace_yaml()` — was only in `core/summary`, now shareable.
+  - `sample_events_jsonl()` — was duplicated verbatim across the same pair.
+  - `enrichment_events_jsonl()` — was only in `core/summary`, now shareable.
+  - `create_checkpoints(&Path)` — was duplicated (slightly divergent content) across the same pair; unified on the richer export variant (core tests only assert count/existence).
+  - `create_full_session(&Path)` — was only in `export/tests/integration.rs`, promoted so future crates can reuse.
+- **Helpers deliberately left local (one-off, not cross-crate duplicates):**
+  - `crates/tracepilot-core/src/analytics/test_helpers.rs` — `pub(super)` helpers (`make_input`, `make_input_with_code`, `make_tool_call`, `make_turn_with_tools`) used only inside the analytics test modules; they reference the crate-private `SessionAnalyticsInput` type which is not part of any public API.
+  - `crates/tracepilot-core/src/turns/tests/builders.rs` — single-consumer builders for the turns aggregator test suite only; no other crate references them.
+  - `crates/tracepilot-export/src/test_helpers.rs` (`test_archive`, `minimal_session`, `simple_turn`, `simple_tool_call`) — gated behind `#[cfg(test)]`, used across 10 test modules but all inside `tracepilot-export`; extracting would introduce a dev-dep cycle with the host crate for no current caller benefit. Can be promoted later if a second consumer appears.
+- **Scope call (per wave brief):** the repo had 4 true cross-crate fixture duplicates, so the small-wave scaffold path was taken. The crate is live and ready for future helper promotions.
+
 
 **Definition of done:** Migration fixtures pass on Windows + Linux; no `Mutex<Option<T>>` lazy-init idiom in async paths; locks held ≤ one IO call; polling respects tab visibility; zero listener leaks across 100 window cycles in the regression test.
 
@@ -404,15 +447,16 @@ Each decomposition extracts 3–6 children, moves CSS > 500 LOC to `styles/featu
 
 ## Phase 3-polish — Generics, newtypes, polish 🟡
 
-### 3-polish.1 LRU + broadcast forwarder generics
+### 3-polish.1 LRU + broadcast forwarder generics ✅ DONE (wave 20)
 
-- Replace 2× hard-coded LRU cache constructors in `tauri-bindings/src/lib.rs:40-50` with `build_session_lru::<T>(cap)`.
-- Replace 2× broadcast→emit loops with `forward_broadcast<T: Serialize>(rx, app, event_name)`.
+- Replace 2× hard-coded LRU cache constructors in `tauri-bindings/src/lib.rs:40-50` with `build_session_lru::<T>(cap)`. ✅ Helper lives in `tracepilot-tauri-bindings/src/cache.rs`; both `TurnCache` and `EventCache` constructors migrated.
+- Replace 2× broadcast→emit loops with `forward_broadcast<T: Serialize>(rx, app, event_name)`. ✅ Helper lives in `tracepilot-tauri-bindings/src/broadcast.rs`; SDK bridge-event and connection-status forwarders migrated. Lagged frames now log via `tracing::warn` instead of being silently dropped.
 
-### 3-polish.2 Newtypes
+### 3-polish.2 Newtypes ✅ DONE (wave 20, surface-level adoption)
 
-- `SessionId`, `PresetId`, `SkillName` in `tracepilot-core`; `validate_session_id` returns `SessionId`.
-- Uniform validation in command entrypoints.
+- `SessionId`, `PresetId`, `SkillName` live in `tracepilot_core::ids` (re-exported from the crate root).
+- `validate_session_id`, `validate_preset_id`, `validate_skill_name` in `tracepilot-tauri-bindings::validators` return the matching newtype on success; call-sites that used the unit-result form still compile via `?;`.
+- Deep propagation of the newtypes into internal APIs is deferred — see Wave 20 notes; pushing further would exceed the 10-file touch budget.
 
 ---
 

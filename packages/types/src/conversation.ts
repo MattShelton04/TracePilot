@@ -97,7 +97,12 @@ export interface TurnsResponse {
   eventsFileMtime?: number | null;
 }
 
-/** Lightweight freshness probe response. */
+/**
+ * Lightweight freshness probe response.
+ *
+ * Mirrored by src/generated/bindings.ts as of wave 21 — keep in sync or
+ * delete this interface once the full cutover lands.
+ */
 export interface FreshnessResponse {
   eventsFileSize: number;
   eventsFileMtime?: number | null;

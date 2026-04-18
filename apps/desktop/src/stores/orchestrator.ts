@@ -15,7 +15,7 @@ import type {
   OrchestratorState,
 } from "@tracepilot/types";
 import { DEFAULT_ORCHESTRATOR_MODEL } from "@tracepilot/types";
-import { toErrorMessage } from "@tracepilot/ui";
+import { toErrorMessage, usePolling } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref, watch } from "vue";
 import { logWarn } from "@/utils/logger";
@@ -44,7 +44,6 @@ export const useOrchestratorStore = defineStore("orchestrator", () => {
   const selectedModel = ref(DEFAULT_MODEL);
   const configModelLoaded = ref(false);
   const activityFeed = ref<ActivityEntry[]>([]);
-  let pollTimer: ReturnType<typeof setInterval> | null = null;
   let pollInFlight = false;
 
   // ─── Computed ─────────────────────────────────────────────────────
@@ -181,18 +180,19 @@ export const useOrchestratorStore = defineStore("orchestrator", () => {
     }
   }
 
-  /** Start the background polling loop at the given interval. */
+  // Two dedicated pollers — usePolling captures intervalMs at construction
+  // time, so we keep one instance per cadence and route via startPolling().
+  const pollOpts = { immediate: false, pauseWhenHidden: true, swallowErrors: true } as const;
+  const fastPoll = usePolling(pollCycle, { intervalMs: POLL_FAST_MS, ...pollOpts });
+  const slowPoll = usePolling(pollCycle, { intervalMs: POLL_SLOW_MS, ...pollOpts });
+
   function startPolling(intervalMs = POLL_FAST_MS) {
     stopPolling();
-    pollTimer = setInterval(pollCycle, intervalMs);
+    (intervalMs === POLL_SLOW_MS ? slowPoll : fastPoll).start();
   }
-
-  /** Stop the background polling loop. */
   function stopPolling() {
-    if (pollTimer) {
-      clearInterval(pollTimer);
-      pollTimer = null;
-    }
+    fastPoll.stop();
+    slowPoll.stop();
   }
 
   // Adjust polling cadence based on orchestrator state.

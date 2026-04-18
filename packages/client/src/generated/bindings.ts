@@ -21,6 +21,9 @@ export const commands = {
 	 *  See Phase 1A.6 in `docs/tech-debt-plan-revised-2026-04.md`.
 	 */
 	sdkBridgeMetrics: () => typedError<BridgeMetricsSnapshot, BindingsErrorIpc>(__TAURI_INVOKE("sdk_bridge_metrics")),
+	listSessions: (limit: number | null, repo: string | null, branch: string | null, hideEmpty: boolean | null, hideOrchestrator: boolean | null) => typedError<SessionListItem[], BindingsErrorIpc>(__TAURI_INVOKE("list_sessions", { limit, repo, branch, hideEmpty, hideOrchestrator })),
+	// Lightweight freshness probe— returns just the events.jsonl file size.
+	checkSessionFreshness: (sessionId: string) => typedError<FreshnessResponse, BindingsErrorIpc>(__TAURI_INVOKE("check_session_freshness", { sessionId })),
 };
 
 /* Types */
@@ -49,6 +52,31 @@ export type BridgeMetricsSnapshot = {
  *  ones. The discriminant is written to the IPC envelope as `code`.
  */
 export type ErrorCode = "IO" | "TAURI" | "NETWORK" | "JOIN" | "PARSE" | "SERIALIZATION" | "CORE" | "ORCHESTRATOR" | "BRIDGE" | "INDEXER" | "EXPORT" | "ALREADY_INDEXING" | "VALIDATION";
+
+export type FreshnessResponse = {
+	eventsFileSize: number,
+	eventsFileMtime: number | null,
+};
+
+export type SessionListItem = {
+	id: string,
+	summary: string | null,
+	repository: string | null,
+	branch: string | null,
+	cwd: string | null,
+	hostType: string | null,
+	createdAt: string | null,
+	updatedAt: string | null,
+	eventCount: number | null,
+	turnCount: number | null,
+	currentModel: string | null,
+	// Whether this session is currently running (has an `inuse.*.lock` file).
+	isRunning: boolean,
+	errorCount: number | null,
+	rateLimitCount: number | null,
+	compactionCount: number | null,
+	truncationCount: number | null,
+};
 
 /* Tauri Specta runtime */
 async function typedError<T, E>(result: Promise<T>): Promise<{ status: "ok"; data: T } | { status: "error"; error: E }> {
