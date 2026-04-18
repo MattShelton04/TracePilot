@@ -169,9 +169,12 @@ pub(crate) fn typed_data_from_raw(
     data: &Value,
 ) -> (TypedEventData, Option<EventParseWarning>) {
     /// Helper: attempt deserialization, return warning on failure.
+    ///
+    /// Uses `&Value` as a `Deserializer` directly — no clone on the success path.
+    /// The clone is deferred to the error fallback, which is rare in practice.
     macro_rules! try_deser {
         ($variant:ident, $data_type:ty, $wire:expr, $data:expr) => {{
-            match serde_json::from_value::<$data_type>($data.clone()) {
+            match <$data_type as serde::de::Deserialize>::deserialize($data) {
                 Ok(typed) => (TypedEventData::$variant(typed), None),
                 Err(e) => (
                     TypedEventData::Other($data.clone()),
@@ -446,8 +449,6 @@ pub fn parse_typed_events(path: &Path) -> Result<ParsedEvents> {
     })
 }
 
-/// Collect ALL `session.shutdown` events and combine their per-instance metrics.
-///
 /// Metrics in each shutdown event are per-instance (not cumulative), so resumed
 /// sessions require summing across all shutdown events. Returns `(combined_data, count)`.
 pub fn extract_combined_shutdown_data(events: &[TypedEvent]) -> Option<(ShutdownData, u32)> {
