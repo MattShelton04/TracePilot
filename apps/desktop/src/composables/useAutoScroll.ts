@@ -82,16 +82,17 @@ export function useAutoScroll(options: AutoScrollOptions) {
     if (!el) return;
     const useSmooth = animated && !prefersReducedMotion.matches;
     const behavior = useSmooth ? "smooth" : "auto";
-    // Guard: prevent scroll handler from disengaging during smooth animation
-    if (useSmooth) isProgrammaticScroll = true;
+    if (useSmooth) {
+      // Guard: prevent scroll handler from disengaging during smooth animation.
+      // Use scrollend to clear the guard exactly when animation completes, with
+      // a fallback timeout for browsers that don't fire scrollend reliably.
+      isProgrammaticScroll = true;
+      const clear = () => { isProgrammaticScroll = false; };
+      el.addEventListener("scrollend", clear, { once: true });
+      setTimeout(clear, 1500);
+    }
     el.scrollTo({ top: el.scrollHeight, behavior });
     isLockedToBottom.value = true;
-    if (useSmooth) {
-      // Clear guard after animation completes (fallback timeout)
-      setTimeout(() => {
-        isProgrammaticScroll = false;
-      }, 500);
-    }
   }
 
   function scrollToTop(animated = true) {
@@ -99,14 +100,14 @@ export function useAutoScroll(options: AutoScrollOptions) {
     if (!el) return;
     const useSmooth = animated && !prefersReducedMotion.matches;
     const behavior = useSmooth ? "smooth" : "auto";
-    if (useSmooth) isProgrammaticScroll = true;
+    if (useSmooth) {
+      isProgrammaticScroll = true;
+      const clear = () => { isProgrammaticScroll = false; };
+      el.addEventListener("scrollend", clear, { once: true });
+      setTimeout(clear, 1500);
+    }
     el.scrollTo({ top: 0, behavior });
     isLockedToBottom.value = false;
-    if (useSmooth) {
-      setTimeout(() => {
-        isProgrammaticScroll = false;
-      }, 500);
-    }
   }
 
   function handleScroll() {
@@ -141,16 +142,10 @@ export function useAutoScroll(options: AutoScrollOptions) {
   // When data changes, auto-scroll if locked to bottom
   watch(watchSource, () => {
     if (!hasReceivedFirstData) {
-      // First data load — don't snap to bottom, but pre-lock so the next update
-      // (new message arriving) auto-scrolls without requiring a manual ↓ click first.
+      // First data load — don't auto-scroll; update overflow/state so the ↓ FAB
+      // appears if needed. User must scroll to bottom to engage auto-scroll.
       hasReceivedFirstData = true;
-      nextTick(() => {
-        const el = containerRef.value;
-        if (!el) return;
-        updateOverflow();
-        showScrollToTop.value = el.scrollTop > 300;
-        isLockedToBottom.value = true;
-      });
+      nextTick(() => recalculateState());
       return;
     }
     if (isLockedToBottom.value && !hasActiveTextSelection()) {
