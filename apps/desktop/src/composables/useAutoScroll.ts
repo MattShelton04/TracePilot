@@ -141,14 +141,15 @@ export function useAutoScroll(options: AutoScrollOptions) {
   // When data changes, auto-scroll if locked to bottom
   watch(watchSource, () => {
     if (!hasReceivedFirstData) {
-      // First data load — scroll to bottom so user sees the latest content,
-      // then recalculate state (which will detect near-bottom and lock scroll).
+      // First data load — don't snap to bottom, but pre-lock so the next update
+      // (new message arriving) auto-scrolls without requiring a manual ↓ click first.
       hasReceivedFirstData = true;
       nextTick(() => {
         const el = containerRef.value;
         if (!el) return;
-        el.scrollTo({ top: el.scrollHeight, behavior: "auto" });
-        recalculateState();
+        updateOverflow();
+        showScrollToTop.value = el.scrollTop > 300;
+        isLockedToBottom.value = true;
       });
       return;
     }
