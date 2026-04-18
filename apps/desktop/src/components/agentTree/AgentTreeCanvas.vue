@@ -124,7 +124,7 @@ function lineColor(line: AgentTreeSvgLine): string {
           <span
             v-if="ln.node.status !== 'in-progress' && ln.node.requestedModel && ln.node.model !== ln.node.requestedModel"
             class="agent-node-model-warn"
-            :title="`Model substituted — requested ${ln.node.requestedModel}`"
+            :title="`Requested ${ln.node.requestedModel} but a different model ran`"
           >⚠</span>
         </div>
 

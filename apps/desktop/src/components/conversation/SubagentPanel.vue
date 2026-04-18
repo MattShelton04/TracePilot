@@ -299,7 +299,7 @@ function nestedSubagentDesc(tc: TurnToolCall): string {
         <!-- Model mismatch warning banner -->
         <div v-if="modelMismatch" class="cv-panel-model-warn">
           <span class="cv-panel-model-warn-icon">⚠</span>
-          <span>Model substituted — requested <code>{{ requestedModel }}</code>, ran as <code>{{ model }}</code></span>
+          <span>Requested <code>{{ requestedModel }}</code> but ran as <code>{{ model }}</code></span>
         </div>
 
         <!-- Description -->

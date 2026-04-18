@@ -94,7 +94,7 @@ function handleClick() {
       <span
         v-if="modelMismatch"
         class="cv-subagent-model-warn"
-        :title="`Requested: ${requestedModel} — actual model was substituted`"
+        :title="`Requested ${requestedModel} but a different model ran`"
       >⚠</span>
       <span v-if="duration" class="cv-subagent-dur">{{ duration }}</span>
       <span
