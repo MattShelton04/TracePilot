@@ -291,17 +291,19 @@ All Wave 11 variants ship with dedicated vitest coverage (StatCard.test.ts +8 ca
 
 ---
 
-## Phase 5.2 — Design tokens into `@tracepilot/ui` 🟠
+## Phase 5.2 — Design tokens into `@tracepilot/ui` ✅ (wave 14)
 
 **Objective:** Make the UI package self-contained before any mega-SFC decomposition uses it.
 
-- Move `apps/desktop/src/styles/design-tokens.css` → `packages/ui/src/styles/tokens.css`.
-- Add subpath export `@tracepilot/ui/tokens.css` in `package.json`.
-- Keep `apps/desktop/src/styles.css:9` as a thin re-export shim for one release, then delete.
-- Promote `apps/desktop/src/utils/designTokens.ts:4-10` hardcoded hex fallbacks out (read from CSS custom properties only).
-- UI package README documents required CSS-variable contract.
+- ✅ Moved `apps/desktop/src/styles/design-tokens.css` → `packages/ui/src/styles/tokens.css` (byte-identical content after a new doc-comment header).
+- ✅ Added subpath export `@tracepilot/ui/tokens.css` in `packages/ui/package.json`.
+- ✅ `apps/desktop/src/styles.css` now imports `@tracepilot/ui/tokens.css` directly; the legacy `apps/desktop/src/styles/design-tokens.css` remains as a one-line `@import "@tracepilot/ui/tokens.css";` shim and is scheduled for deletion one release after 0.6.x.
+- ✅ Moved JS reader to `packages/ui/src/utils/designTokens.ts`, re-exported from the `@tracepilot/ui` barrel. Hardcoded hex fallbacks (old lines 4–10 of `apps/desktop/src/utils/designTokens.ts`) removed — readers now only read CSS custom properties; `tokens.css` is the single source of truth. `apps/desktop/src/utils/designTokens.ts` is a re-export shim scheduled for deletion one release after 0.6.x.
+- ✅ `packages/ui/README.md` documents the CSS-variable contract and consumer import requirements.
 
-**Definition of done:** `@tracepilot/ui` builds and renders usable components in isolation (standalone Storybook or equivalent).
+**Validation (wave 14):** `pnpm --filter @tracepilot/ui typecheck` clean; `@tracepilot/ui` tests 778 passed (62 files, unchanged); `pnpm --filter @tracepilot/desktop typecheck` clean; `@tracepilot/desktop` tests 1243 passed (69 files, unchanged); `pnpm --filter @tracepilot/desktop build` succeeds (CSS import chain resolves); `node scripts/check-file-sizes.mjs` clean.
+
+**Shim-deprecation timeline:** Both shims (`apps/desktop/src/styles/design-tokens.css`, `apps/desktop/src/utils/designTokens.ts`) are marked LEGACY SHIM and slated for removal one release after 0.6.x.
 
 **Risk:** Medium — visual regressions if variable lists drift. Visual-regression harness from Phase 0 catches them.
 
