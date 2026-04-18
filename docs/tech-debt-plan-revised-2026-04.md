@@ -382,7 +382,7 @@ Each decomposition extracts 3–6 children, moves CSS > 500 LOC to `styles/featu
 | SessionSearchView.vue | 1734 | move 1157 LOC CSS out; already has children |
 | OrchestratorMonitorView.vue | 1690 | OrchestratorStatsStrip, RunningJobsPanel, RecentJobsPanel |
 | SkillEditorView.vue | 1635 | SkillFrontmatterEditor, SkillAssetsPanel, SkillPreviewPane |
-| TaskCreateView.vue | 1566 | WizardStep1Preset, WizardStep2Variables, WizardStep3Submit, useTaskWizard |
+| ~~TaskCreateView.vue~~ ✅ | 1566 → 274 | WizardStep1Preset, WizardStep2Variables, WizardStep3Submit, useTaskWizard [^wave22] |
 | ExportView.vue | 1481 | ExportTab, ImportTab siblings under PageShell |
 | TaskDetailView.vue | 1441 | TaskHeader, TaskResultsPanel, TaskJobsPanel, TaskLogsPanel |
 | SdkSteeringPanel.vue | 1364 | SteeringControls, SteeringSessionsList, SteeringMessageEditor |
@@ -393,6 +393,8 @@ Each decomposition extracts 3–6 children, moves CSS > 500 LOC to `styles/featu
 | ModelComparisonView.vue | 1120 | ModelStatsGrid, ModelLeaderboard, ModelDetailDrawer |
 
 (`TurnWaterfallView`, `NestedSwimlanesView`, `ChatViewMode` from original plan still > 1000 LOC but below top 17 by ROI; included in same pass.)
+
+[^wave22]: Wave 22 — decomposed into `WizardStep1Preset`, `WizardStep2Variables`, `WizardStep3Submit` (under `apps/desktop/src/components/tasks/wizard/`) and the `useTaskWizard` composable (`apps/desktop/src/composables/useTaskWizard.ts`). View-level VRT is not yet available in this repo (Phase 0.9 covers components only), so wave-22 decomposition relied on unit tests for the composable, mount tests for each step (including a keyboard-focus advancement test on the step-1 Next button), and the existing typecheck + build gates in lieu of view-level visual regression. `@axe-core/playwright` is likewise deferred to a future wave. Subsequent wave should back-fill view-level VRT + a11y for the wizard shell before re-decomposing any sibling view.
 
 ### 4.3 Mega stores / composables
 

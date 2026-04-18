@@ -57,7 +57,6 @@ const ALLOWLIST = new Set([
   "apps/desktop/src/views/SessionSearchView.vue",
   "apps/desktop/src/views/tasks/OrchestratorMonitorView.vue",
   "apps/desktop/src/views/skills/SkillEditorView.vue",
-  "apps/desktop/src/views/tasks/TaskCreateView.vue",
   "apps/desktop/src/views/ExportView.vue",
   "apps/desktop/src/views/tasks/TaskDetailView.vue",
   "apps/desktop/src/components/conversation/SdkSteeringPanel.vue",
