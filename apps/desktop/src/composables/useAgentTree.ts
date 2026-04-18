@@ -202,7 +202,9 @@ export function useAgentTree() {
   const measuredCanvasHeight = ref<number>(0);
 
   function setNodeRef(id: string, el: Element | null) {
-    if (el instanceof HTMLElement) nodeRefs.value.set(id, el);
+    // Guard for SSR / test environments where HTMLElement is not defined.
+    if (typeof HTMLElement !== "undefined" && el instanceof HTMLElement)
+      nodeRefs.value.set(id, el);
     else nodeRefs.value.delete(id);
   }
 
