@@ -49,16 +49,11 @@ const BUDGETS = {
 // as files are split.
 const ALLOWLIST = new Set([
   // ── Vue SFCs (Phase 4 decomposition targets) ───────────────────
-  "apps/desktop/src/views/tasks/PresetManagerView.vue",
   "apps/desktop/src/views/orchestration/ConfigInjectorView.vue",
-  "apps/desktop/src/views/orchestration/WorktreeManagerView.vue",
   "apps/desktop/src/components/timeline/AgentTreeView.vue",
   "apps/desktop/src/views/orchestration/SessionLauncherView.vue",
   "apps/desktop/src/views/SessionSearchView.vue",
-  "apps/desktop/src/views/tasks/OrchestratorMonitorView.vue",
   "apps/desktop/src/views/skills/SkillEditorView.vue",
-  "apps/desktop/src/views/ExportView.vue",
-  "apps/desktop/src/views/tasks/TaskDetailView.vue",
   "apps/desktop/src/components/conversation/SdkSteeringPanel.vue",
   "apps/desktop/src/views/mcp/McpServerDetailView.vue",
   "apps/desktop/src/components/skills/SkillImportWizard.vue",

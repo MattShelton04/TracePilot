@@ -374,17 +374,17 @@ Each decomposition extracts 3–6 children, moves CSS > 500 LOC to `styles/featu
 
 | File | LOC | Target children |
 |---|---:|---|
-| PresetManagerView.vue | 2365 | PresetStatsStrip, PresetFilterBar, PresetGrid, PresetList, NewPresetModal, EditPresetModal, DeletePresetConfirm |
+| ~~PresetManagerView.vue~~ ✅ | 2365 | PresetStatsStrip, PresetFilterBar, PresetGrid, PresetList, NewPresetModal, EditPresetModal, DeletePresetConfirm [^wave23] |
 | ConfigInjectorView.vue | 2020 | ConfigInjectorAgentsTab, …GlobalTab, …VersionsTab, …BackupsTab (+ move `AGENT_META` to registry) |
-| WorktreeManagerView.vue | 1990 | CreateWorktreeModal, WorktreeDetailsPanel, RegisteredReposList |
+| WorktreeManagerView.vue | ~~1990 → 154~~ ✅ | WorktreeRepoSidebar, WorktreeToolbar, WorktreeList, WorktreeDetailPanel, CreateWorktreeModal, useWorktreeManager [^wave26] |
 | AgentTreeView.vue | 1928 | composables/useAgentTreeLayout, useAgentTreeKeyboard, pure agentTreeRender utilities |
 | SessionLauncherView.vue | 1855 | LauncherForm, LaunchTemplateList, LaunchTemplateFormModal |
 | SessionSearchView.vue | 1734 | move 1157 LOC CSS out; already has children |
-| OrchestratorMonitorView.vue | 1690 | OrchestratorStatsStrip, RunningJobsPanel, RecentJobsPanel |
+| ~~OrchestratorMonitorView.vue~~ ✅ | 1690 → 156 | OrchestratorHeaderBar, OrchestratorStatusHero, OrchestratorStatsGrid, ActiveTasksPanel, ActiveSubagentsPanel, CompletedSubagentsPanel, OrchestratorActivityFeed, OrchestratorHealthPanel, useOrchestratorMonitor [^wave27] |
 | SkillEditorView.vue | 1635 | SkillFrontmatterEditor, SkillAssetsPanel, SkillPreviewPane |
 | ~~TaskCreateView.vue~~ ✅ | 1566 → 274 | WizardStep1Preset, WizardStep2Variables, WizardStep3Submit, useTaskWizard [^wave22] |
-| ExportView.vue | 1481 | ExportTab, ImportTab siblings under PageShell |
-| TaskDetailView.vue | 1441 | TaskHeader, TaskResultsPanel, TaskJobsPanel, TaskLogsPanel |
+| ~~ExportView.vue~~ ✅ | 1481 → 47 | ExportTab, ImportTab siblings under PageShell [^wave24] |
+| ~~TaskDetailView.vue~~ ✅ | 1441 → 161 | TaskDetailHeader, TaskResultPanel, TaskContextPanel, TaskTimelinePanel, TaskSubagentPanel, TaskRawPanel, useTaskDetail [^wave25] |
 | SdkSteeringPanel.vue | 1364 | SteeringControls, SteeringSessionsList, SteeringMessageEditor |
 | McpServerDetailView.vue | 1360 | McpStatusCard, McpToolsList, McpConfigPanel |
 | SkillImportWizard.vue | 1350 | SkillImportSource, SkillImportPreview, SkillImportConfirm |
@@ -395,6 +395,10 @@ Each decomposition extracts 3–6 children, moves CSS > 500 LOC to `styles/featu
 (`TurnWaterfallView`, `NestedSwimlanesView`, `ChatViewMode` from original plan still > 1000 LOC but below top 17 by ROI; included in same pass.)
 
 [^wave22]: Wave 22 — decomposed into `WizardStep1Preset`, `WizardStep2Variables`, `WizardStep3Submit` (under `apps/desktop/src/components/tasks/wizard/`) and the `useTaskWizard` composable (`apps/desktop/src/composables/useTaskWizard.ts`). View-level VRT is not yet available in this repo (Phase 0.9 covers components only), so wave-22 decomposition relied on unit tests for the composable, mount tests for each step (including a keyboard-focus advancement test on the step-1 Next button), and the existing typecheck + build gates in lieu of view-level visual regression. `@axe-core/playwright` is likewise deferred to a future wave. Subsequent wave should back-fill view-level VRT + a11y for the wizard shell before re-decomposing any sibling view.
+
+[^wave26]: Wave 26 — `WorktreeManagerView.vue` (1990 LOC) decomposed into shell (154 LOC) + five children under `apps/desktop/src/components/worktree/` (`WorktreeRepoSidebar`, `WorktreeToolbar`, `WorktreeList`, `WorktreeDetailPanel`, `CreateWorktreeModal`) plus the `useWorktreeManager` composable owning selection/filter/confirm-delete/lock/prune/refresh flows. CSS (~838 LOC) extracted to `apps/desktop/src/styles/features/worktree-manager.css` (unscoped, imported by shell). No polling exists in this view, so `usePolling`/`useAutoRefresh` were not applicable. Tests: `WorktreeChildren.test.ts` (mount + event tests for all five children) and `useWorktreeManager.test.ts` (selection toggle, filter, confirm-abort, navigation, modal open).
+
+[^wave27]: Wave 27 — `OrchestratorMonitorView.vue` (1690 LOC) decomposed into shell (156 LOC) + eight children under `apps/desktop/src/components/tasks/monitor/` (`OrchestratorHeaderBar`, `OrchestratorStatusHero`, `OrchestratorStatsGrid`, `ActiveTasksPanel`, `ActiveSubagentsPanel`, `CompletedSubagentsPanel`, `OrchestratorActivityFeed`, `OrchestratorHealthPanel`) plus the `useOrchestratorMonitor` composable owning the 1-second `now` ticker, manual `useAutoRefresh` (view-side; store owns its own `usePolling` pair), health/hero/uptime derivations, model-picker state, and navigation helpers. CSS (~668 LOC) extracted to `apps/desktop/src/styles/features/orchestrator-monitor.css` (unscoped, imported by shell, namespaced under `.orchestrator-monitor-feature`; teleported model-picker uses prefixed `.orch-monitor-model-overlay` / `.orch-monitor-model-dropdown` classes so the body-level DOM still matches). The store already owned a `usePolling` pair (fast/slow cadence, pause-when-hidden), so view-level polling was NOT introduced — the manual `useAutoRefresh` keeps `enabled: ref(false)` and only drives the RefreshToolbar button, preserving pre-wave behaviour byte-for-byte. Tests: `OrchestratorMonitorChildren.test.ts` (one mount test per child, including header start/stop/refresh/model-select emissions) and `useOrchestratorMonitor.test.ts` (heartbeat color thresholds, state label transitions, elapsed/duration formatters, model-tier grouping).
 
 ### 4.3 Mega stores / composables
 
@@ -628,3 +632,9 @@ All metrics are generated by `scripts/generate-debt-metrics.mjs`, committed, and
 - **`TaskDb` handle:** `Arc<Mutex<Option<_>>>` → `ArcSwapOption<_>` at API surface.
 - **`TracePilotConfig` handle:** `Arc<Mutex<_>>` → `Arc<RwLock<_>>`.
 - **Migration framework:** `TaskDb` `task_meta` versioning → `schema_version` table (one-way migration).
+
+[^wave23]: Wave 23 — decomposed into PresetStatsStrip, PresetFilterBar, PresetGrid, PresetList, NewPresetModal, EditPresetModal, DeletePresetConfirm (plus `usePresetManager` composable and `preset-manager.css` feature stylesheet). View shell: 2070 LOC → 155 LOC.
+
+[^wave24]: Wave 24 — decomposed into `ExportTab` and `ImportTab` sibling children (under `apps/desktop/src/components/export/`) and moved the ~590 LOC of scoped CSS to `apps/desktop/src/styles/features/export.css`. No composable was extracted because the existing `useExportConfig`, `useExportPreview`, and `useImportFlow` composables already carry the shared state and each tab uses a disjoint subset. Shell now contains only the header + TabNav + tab routing. Mount tests for each child plus the view shell land in `components/export/__tests__/ExportChildren.test.ts`. Removed from `scripts/check-file-sizes.mjs` allow-list.
+
+[^wave25]: Wave 25 — decomposed into `TaskDetailHeader`, `TaskResultPanel`, `TaskContextPanel`, `TaskTimelinePanel`, `TaskSubagentPanel`, `TaskRawPanel` (under `apps/desktop/src/components/tasks/detail/`) plus a `useTaskDetail` composable (`apps/desktop/src/composables/useTaskDetail.ts`) that owns the shared task lookup, auto-refresh wiring (continues to use `@tracepilot/ui`'s `useAutoRefresh` — pause-when-hidden semantics preserved), cancel/retry/delete actions, clipboard helper, and timeline derivation. The ~630 LOC of scoped CSS moved to `apps/desktop/src/styles/features/task-detail.css`. Shell: 1441 LOC → 161 LOC. Tabs (Result/Context/Timeline/Subagent/Raw) unchanged; no modals existed to extract (delete flow already uses `useConfirmDialog`). Mount tests for each child land in `components/tasks/detail/__tests__/TaskDetailChildren.test.ts`; composable tests land in `composables/__tests__/useTaskDetail.test.ts`. Removed from `scripts/check-file-sizes.mjs` allow-list.
