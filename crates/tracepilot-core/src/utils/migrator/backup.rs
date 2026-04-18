@@ -44,7 +44,9 @@ pub fn backup_path_for(db_path: &Path, version: u32, backup_dir: Option<&Path>) 
 /// `std::fs::copy` so WAL-mode databases include all committed pages.
 /// Overwrites any pre-existing backup at the destination.
 pub(super) fn write_backup(conn: &Connection, dest_path: &Path) -> Result<(), BackupError> {
-    if let Some(parent) = dest_path.parent() && !parent.as_os_str().is_empty() {
+    if let Some(parent) = dest_path.parent()
+        && !parent.as_os_str().is_empty()
+    {
         std::fs::create_dir_all(parent).map_err(BackupError::Io)?;
     }
 
