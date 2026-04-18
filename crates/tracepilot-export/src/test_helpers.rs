@@ -120,6 +120,7 @@ pub fn simple_tool_call(name: &str, success: Option<bool>, is_subagent: bool) ->
         agent_display_name: None,
         agent_description: None,
         model: None,
+        requested_model: None,
         intention_summary: Some(format!("Run {}", name)),
         total_tokens: None,
         total_tool_calls: None,
