@@ -73,13 +73,15 @@ export function createIndexingSlice(deps: IndexingSliceDeps) {
         await safeListen(IPC_EVENTS.SEARCH_INDEXING_FINISHED, () => {
           searchIndexing.value = false;
           searchIndexingProgress.value = null;
-          // Only perform background operations if the search view is currently mounted
-          // to avoid unnecessary API calls when user is on a different screen
+          // Always invalidate — free variable reset, ensures next mount fetches fresh facets
+          // even if the user is not on the search page when indexing finishes.
+          deps.facets.invalidateFacetsCache();
+          // Only perform API calls if the search view is currently mounted.
           if (!deps.getViewMounted()) return;
 
           deps.facets.fetchStats();
           deps.facets.fetchFilterOptions();
-          deps.maintenance.fetchHealth();
+          deps.maintenance.fetchHealth(true);
           // Re-run current search if results are showing
           if (
             deps.query.hasQuery.value ||
@@ -104,6 +106,8 @@ export function createIndexingSlice(deps: IndexingSliceDeps) {
     deps.query.error.value = null;
     try {
       await rebuildSearchIndex();
+      // Invalidate facets cache so rebuild always fetches fresh counts
+      deps.facets.invalidateFacetsCache();
       await Promise.all([
         deps.facets.fetchStats(),
         deps.facets.fetchFacets(),
