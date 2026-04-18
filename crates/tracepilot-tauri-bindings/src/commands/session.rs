@@ -24,7 +24,14 @@ fn load_cached_typed_events(
     cache: &EventCache,
     session_id: &str,
     events_path: &Path,
-) -> Result<(Arc<Vec<tracepilot_core::parsing::events::TypedEvent>>, u64, Option<std::time::SystemTime>), BindingsError> {
+) -> Result<
+    (
+        Arc<Vec<tracepilot_core::parsing::events::TypedEvent>>,
+        u64,
+        Option<std::time::SystemTime>,
+    ),
+    BindingsError,
+> {
     let meta = std::fs::metadata(events_path).ok();
     let file_size = meta.as_ref().map_or(0, |m| m.len());
     let file_mtime = meta.and_then(|m| m.modified().ok());
@@ -247,7 +254,8 @@ pub async fn get_session_turns(
             (
                 lru.get(&session_id)
                     .filter(|cached| {
-                        cached.events_file_size == file_size && cached.events_file_mtime == file_mtime
+                        cached.events_file_size == file_size
+                            && cached.events_file_mtime == file_mtime
                     })
                     .map(|cached| cached.turns.clone()),
                 file_size,
@@ -675,8 +683,9 @@ mod tests {
             "2025-01-01T00:00:02.000Z",
         );
 
-        let (second, second_size, _second_mtime) = load_cached_typed_events(&cache, "session-a", &events_path)
-            .expect("reload after append");
+        let (second, second_size, _second_mtime) =
+            load_cached_typed_events(&cache, "session-a", &events_path)
+                .expect("reload after append");
 
         assert!(second_size > first_size);
         assert_eq!(second.len(), 3);

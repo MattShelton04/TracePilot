@@ -416,7 +416,10 @@ mod tests {
     fn job_invalid_id_fails() {
         let err = validate_job_id("not-a-uuid").unwrap_err();
         let msg = err.to_string();
-        assert!(msg.contains("job ID"), "error should say 'job ID', got: {msg}");
+        assert!(
+            msg.contains("job ID"),
+            "error should say 'job ID', got: {msg}"
+        );
     }
 
     // -- clamp_limit --------------------------------------------------------
@@ -513,21 +516,30 @@ mod tests {
     fn unix_range_swapped_fails() {
         let err = validate_unix_date_range(Some(1704153600), Some(1704067200)).unwrap_err();
         let msg = err.to_string();
-        assert!(msg.contains("date_from") && msg.contains("after"), "got: {msg}");
+        assert!(
+            msg.contains("date_from") && msg.contains("after"),
+            "got: {msg}"
+        );
     }
 
     #[test]
     fn unix_range_negative_from_fails() {
         let err = validate_unix_date_range(Some(-1), Some(1704067200)).unwrap_err();
         let msg = err.to_string();
-        assert!(msg.contains("negative") && msg.contains("date_from"), "got: {msg}");
+        assert!(
+            msg.contains("negative") && msg.contains("date_from"),
+            "got: {msg}"
+        );
     }
 
     #[test]
     fn unix_range_negative_to_fails() {
         let err = validate_unix_date_range(Some(1704067200), Some(-100)).unwrap_err();
         let msg = err.to_string();
-        assert!(msg.contains("negative") && msg.contains("date_to"), "got: {msg}");
+        assert!(
+            msg.contains("negative") && msg.contains("date_to"),
+            "got: {msg}"
+        );
     }
 
     #[test]
@@ -595,7 +607,10 @@ mod tests {
         let to = Some("2024-01-01T00:00:00Z".to_string());
         let err = validate_iso_date_range(&from, &to).unwrap_err();
         let msg = err.to_string();
-        assert!(msg.contains("from_date") && msg.contains("after"), "got: {msg}");
+        assert!(
+            msg.contains("from_date") && msg.contains("after"),
+            "got: {msg}"
+        );
     }
 
     #[test]

@@ -5951,6 +5951,7 @@ dependencies = [
  "tracepilot-core",
  "tracepilot-export",
  "tracing",
+ "url",
  "uuid",
  "walkdir",
 ]

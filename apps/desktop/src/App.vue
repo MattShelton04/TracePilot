@@ -20,6 +20,7 @@ import { useAlertWatcher } from "@/composables/useAlertWatcher";
 import { registerNotificationClickHandler } from "@/composables/useAlertDispatcher";
 import { resolveWindowRole, useWindowRole } from "@/composables/useWindowRole";
 import { useWhatsNew } from "@/composables/useWhatsNew";
+import { useWindowLifecycle } from "@/composables/useWindowLifecycle";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSessionsStore } from "@/stores/sessions";
 import { useSessionTabsStore } from "@/stores/sessionTabs";
@@ -41,7 +42,19 @@ const expectedSessionCount = ref(0);
 const showUpdateModal = ref(false);
 let alertInitDone = false;
 
-/** Idempotent: start alert watcher + notification handler + window lifecycle (main only) */
+// Window + event listener ownership lives in a dedicated composable so HMR
+// and window teardown can release the handles (Phase 1A.7).  MUST be invoked
+// synchronously from <script setup> so `onScopeDispose` attaches correctly
+// — the composable itself gates on `enabled` so it is cheap to install
+// unconditionally and takes effect once the window role resolves.
+useWindowLifecycle({
+  enabled: () => isMain(),
+  onPopupClosed: (sessionId) => {
+    tabStore.unregisterPopup(sessionId);
+  },
+});
+
+/** Idempotent: start alert watcher + notification handler (main only) */
 function initAlertSystem() {
   if (!isMain() || alertInitDone) return;
 
@@ -52,30 +65,7 @@ function initAlertSystem() {
     logInfo("[app] Alert system initialized successfully");
   } catch (e) {
     logError("[app] Alert system initialization failed:", e);
-    return;
   }
-
-  // Close all viewer windows when the main window is closed
-  import("@tauri-apps/api/window").then(({ getCurrentWindow, getAllWindows }) => {
-    const mainWin = getCurrentWindow();
-    mainWin.onCloseRequested(async (event) => {
-      event.preventDefault();
-      try {
-        const all = await getAllWindows();
-        await Promise.allSettled(
-          all.filter((w) => w.label.startsWith("viewer-")).map((w) => w.close()),
-        );
-      } catch { /* best-effort */ }
-      await mainWin.destroy();
-    });
-  }).catch(() => {});
-
-  // Listen for popup window close events to update monitored session set
-  import("@tauri-apps/api/event").then(({ listen }) => {
-    listen<{ sessionId: string }>("popup-session-closed", (event) => {
-      tabStore.unregisterPopup(event.payload.sessionId);
-    });
-  }).catch(() => {});
 }
 
 const {
@@ -128,6 +118,9 @@ onMounted(async () => {
   } catch {
     phase.value = "app";
     sessionsStore.fetchSessions();
+    // Even on config-read failure, the main window must still own its
+    // listeners — otherwise the close-cascade + popup cleanup never arms.
+    initAlertSystem();
     (window as unknown as Record<string, unknown>).__TRACEPILOT_READY__ = true;
   }
 });

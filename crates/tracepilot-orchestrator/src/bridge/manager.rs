@@ -3,17 +3,17 @@
 //! All SDK-specific code is behind `#[cfg(feature = "copilot-sdk")]`. When the
 //! feature is disabled every operation returns `BridgeError::NotAvailable`.
 
-use super::{
-    BridgeAuthStatus, BridgeConnectConfig, BridgeConnectionState, BridgeError, BridgeEvent,
-    BridgeMessagePayload, BridgeModelInfo, BridgeQuota, BridgeSessionConfig,
-    BridgeSessionInfo, BridgeSessionMode, BridgeStatus,
-};
 #[cfg(feature = "copilot-sdk")]
 use super::BridgeQuotaSnapshot;
+use super::{
+    BridgeAuthStatus, BridgeConnectConfig, BridgeConnectionState, BridgeError, BridgeEvent,
+    BridgeMessagePayload, BridgeModelInfo, BridgeQuota, BridgeSessionConfig, BridgeSessionInfo,
+    BridgeSessionMode, BridgeStatus,
+};
 #[cfg(feature = "copilot-sdk")]
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::{broadcast, RwLock};
+use tokio::sync::{RwLock, broadcast};
 #[cfg(feature = "copilot-sdk")]
 use tracing::{debug, info, warn};
 
@@ -44,9 +44,17 @@ impl BridgeManager {
     /// Create a new bridge manager. Returns the manager, a broadcast receiver
     /// for bridge events, and a broadcast receiver for status changes
     /// (both typically forwarded to Tauri IPC events).
-    pub fn new() -> (Self, broadcast::Receiver<BridgeEvent>, broadcast::Receiver<BridgeStatus>) {
+    pub fn new() -> (
+        Self,
+        broadcast::Receiver<BridgeEvent>,
+        broadcast::Receiver<BridgeStatus>,
+    ) {
         let (tx, rx) = broadcast::channel(512);
-        let (status_tx, status_rx) = broadcast::channel(16);
+        // Sized to 256 (was 16): status updates are tiny struct values; a
+        // slow subscriber under heavy reconnect activity used to hit
+        // `RecvError::Lagged` well before any UI catch-up window.
+        // See docs/tech-debt-plan-revised-2026-04.md Phase 1A.6.
+        let (status_tx, status_rx) = broadcast::channel(256);
         let manager = Self {
             state: BridgeConnectionState::Disconnected,
             error_message: None,
@@ -286,7 +294,10 @@ impl BridgeManager {
             });
         }
 
-        info!("Resuming session {} via SDK (cwd: {:?}, model: {:?})", session_id, working_directory, model);
+        info!(
+            "Resuming session {} via SDK (cwd: {:?}, model: {:?})",
+            session_id, working_directory, model
+        );
         let client = self.require_client()?;
 
         let mut resume_config = copilot_sdk::ResumeSessionConfig::default();
@@ -314,7 +325,10 @@ impl BridgeManager {
             })?;
 
         let sid = session.session_id().to_string();
-        info!("Session {} resumed successfully (returned ID: {})", session_id, sid);
+        info!(
+            "Session {} resumed successfully (returned ID: {})",
+            session_id, sid
+        );
         self.spawn_event_forwarder(&sid, &session);
         self.sessions.insert(sid.clone(), session);
 
@@ -433,7 +447,10 @@ impl BridgeManager {
             info!("Destroyed session {}", session_id);
         } else {
             // Not locally resumed — nothing to destroy
-            debug!("destroy_session: {} not in local session map, skipping", session_id);
+            debug!(
+                "destroy_session: {} not in local session map, skipping",
+                session_id
+            );
         }
         Ok(())
     }
@@ -740,10 +757,7 @@ impl BridgeManager {
     }
 
     #[cfg(feature = "copilot-sdk")]
-    fn require_session(
-        &self,
-        session_id: &str,
-    ) -> Result<&Arc<copilot_sdk::Session>, BridgeError> {
+    fn require_session(&self, session_id: &str) -> Result<&Arc<copilot_sdk::Session>, BridgeError> {
         self.sessions
             .get(session_id)
             .ok_or_else(|| BridgeError::SessionNotFound(session_id.to_string()))
@@ -771,10 +785,7 @@ impl BridgeManager {
                                 .unwrap_or(serde_json::Value::Null),
                         };
                         if tx.send(bridge_event).is_err() {
-                            debug!(
-                                "No bridge event receivers, stopping forwarder for {}",
-                                sid
-                            );
+                            debug!("No bridge event receivers, stopping forwarder for {}", sid);
                             break;
                         }
                     }
@@ -896,7 +907,7 @@ async fn raw_rpc_call(
 ) -> Result<serde_json::Value, BridgeError> {
     use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
     use tokio::net::TcpStream;
-    use tokio::time::{timeout, Duration};
+    use tokio::time::{Duration, timeout};
 
     const RPC_TIMEOUT: Duration = Duration::from_secs(10);
     const MAX_BODY_SIZE: usize = 10 * 1024 * 1024; // 10 MB
@@ -916,7 +927,11 @@ async fn raw_rpc_call(
 
     let mut stream = timeout(RPC_TIMEOUT, TcpStream::connect(&addr))
         .await
-        .map_err(|_| BridgeError::Sdk(format!("TCP connect to {addr}: timed out after {RPC_TIMEOUT:?}")))?
+        .map_err(|_| {
+            BridgeError::Sdk(format!(
+                "TCP connect to {addr}: timed out after {RPC_TIMEOUT:?}"
+            ))
+        })?
         .map_err(|e| BridgeError::Sdk(format!("TCP connect to {addr}: {e}")))?;
 
     let body = serde_json::json!({
@@ -1035,9 +1050,7 @@ mod tests {
     /// Helper: starts a minimal Content-Length framed JSON-RPC server that
     /// returns a canned response for the first request, then shuts down.
     #[cfg(feature = "copilot-sdk")]
-    async fn mock_jsonrpc_server(
-        response: serde_json::Value,
-    ) -> (tokio::net::TcpListener, String) {
+    async fn mock_jsonrpc_server(response: serde_json::Value) -> (tokio::net::TcpListener, String) {
         use tokio::net::TcpListener;
 
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -1199,12 +1212,7 @@ mod tests {
     #[tokio::test]
     async fn raw_rpc_call_connection_refused() {
         // Use a port that's extremely unlikely to be listening
-        let result = raw_rpc_call(
-            "127.0.0.1:1",
-            "test.method",
-            serde_json::json!({}),
-        )
-        .await;
+        let result = raw_rpc_call("127.0.0.1:1", "test.method", serde_json::json!({})).await;
 
         assert!(result.is_err());
         let err = result.unwrap_err().to_string();
@@ -1221,13 +1229,9 @@ mod tests {
         let (_keep, addr) = mock_jsonrpc_server(expected.clone()).await;
 
         let url_with_http = format!("http://{}", addr);
-        let result = raw_rpc_call(
-            &url_with_http,
-            "test.method",
-            serde_json::json!({}),
-        )
-        .await
-        .expect("should handle http:// prefix");
+        let result = raw_rpc_call(&url_with_http, "test.method", serde_json::json!({}))
+            .await
+            .expect("should handle http:// prefix");
 
         assert_eq!(result, expected);
     }
@@ -1239,13 +1243,9 @@ mod tests {
         let (_keep, addr) = mock_jsonrpc_server(expected.clone()).await;
 
         let url_with_ws = format!("ws://{}", addr);
-        let result = raw_rpc_call(
-            &url_with_ws,
-            "test.method",
-            serde_json::json!({}),
-        )
-        .await
-        .expect("should handle ws:// prefix");
+        let result = raw_rpc_call(&url_with_ws, "test.method", serde_json::json!({}))
+            .await
+            .expect("should handle ws:// prefix");
 
         assert_eq!(result, expected);
     }
@@ -1268,12 +1268,7 @@ mod tests {
             }
         });
 
-        let result = raw_rpc_call(
-            &addr.to_string(),
-            "test.method",
-            serde_json::json!({}),
-        )
-        .await;
+        let result = raw_rpc_call(&addr.to_string(), "test.method", serde_json::json!({})).await;
 
         assert!(result.is_err());
         let err = result.unwrap_err().to_string();

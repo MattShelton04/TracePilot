@@ -10,5 +10,6 @@ pub(crate) mod headers;
 pub mod health;
 pub mod import;
 pub mod types;
+pub mod url_policy;
 
 pub use error::McpError;

@@ -126,7 +126,7 @@ fn main() {
                     "skills_discover_github",
                     "skills_import_github_skill",
                     "skills_gh_auth_status",
-                     "skills_discover_local",
+                    "skills_discover_local",
                     "skills_discover_repos",
                     // Task system commands
                     "task_create",

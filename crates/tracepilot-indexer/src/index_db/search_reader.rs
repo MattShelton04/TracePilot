@@ -503,21 +503,19 @@ impl IndexDb {
 
     /// Get statistics about the search index.
     pub fn search_stats(&self) -> Result<SearchStats> {
-        let total_rows: i64 = self
-            .conn
-            .query_row("SELECT COUNT(*) FROM search_content", [], |row| row.get(0))?;
+        let total_rows: i64 =
+            self.conn
+                .query_row("SELECT COUNT(*) FROM search_content", [], |row| row.get(0))?;
 
-        let indexed_sessions: i64 = self
-            .conn
-            .query_row(
-                "SELECT COUNT(*) FROM sessions WHERE search_indexed_at IS NOT NULL",
-                [],
-                |row| row.get(0),
-            )?;
+        let indexed_sessions: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM sessions WHERE search_indexed_at IS NOT NULL",
+            [],
+            |row| row.get(0),
+        )?;
 
-        let total_sessions: i64 = self
-            .conn
-            .query_row("SELECT COUNT(*) FROM sessions", [], |row| row.get(0))?;
+        let total_sessions: i64 =
+            self.conn
+                .query_row("SELECT COUNT(*) FROM sessions", [], |row| row.get(0))?;
 
         let mut stmt = self.conn.prepare(
             "SELECT content_type, COUNT(*) FROM search_content GROUP BY content_type ORDER BY COUNT(*) DESC",
@@ -633,22 +631,20 @@ impl IndexDb {
 
     /// Get detailed FTS health information.
     pub fn fts_health(&self) -> Result<FtsHealthInfo> {
-        let total_content_rows: i64 = self
-            .conn
-            .query_row("SELECT COUNT(*) FROM search_content", [], |r| r.get(0))?;
-        let fts_index_rows: i64 = self
-            .conn
-            .query_row("SELECT COUNT(*) FROM search_fts", [], |r| r.get(0))?;
-        let indexed_sessions: i64 = self
-            .conn
-            .query_row(
-                "SELECT COUNT(*) FROM sessions WHERE search_indexed_at IS NOT NULL",
-                [],
-                |r| r.get(0),
-            )?;
-        let total_sessions: i64 = self
-            .conn
-            .query_row("SELECT COUNT(*) FROM sessions", [], |r| r.get(0))?;
+        let total_content_rows: i64 =
+            self.conn
+                .query_row("SELECT COUNT(*) FROM search_content", [], |r| r.get(0))?;
+        let fts_index_rows: i64 =
+            self.conn
+                .query_row("SELECT COUNT(*) FROM search_fts", [], |r| r.get(0))?;
+        let indexed_sessions: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM sessions WHERE search_indexed_at IS NOT NULL",
+            [],
+            |r| r.get(0),
+        )?;
+        let total_sessions: i64 =
+            self.conn
+                .query_row("SELECT COUNT(*) FROM sessions", [], |r| r.get(0))?;
         let pending_sessions = total_sessions - indexed_sessions;
         let in_sync = total_content_rows == fts_index_rows && pending_sessions == 0;
         let content_types: Vec<(String, i64)> = {
@@ -662,13 +658,11 @@ impl IndexDb {
             }
             content_types
         };
-        let db_size: i64 = self
-            .conn
-            .query_row(
-                "SELECT page_count * page_size FROM pragma_page_count(), pragma_page_size()",
-                [],
-                |r| r.get(0),
-            )?;
+        let db_size: i64 = self.conn.query_row(
+            "SELECT page_count * page_size FROM pragma_page_count(), pragma_page_size()",
+            [],
+            |r| r.get(0),
+        )?;
         Ok(FtsHealthInfo {
             total_content_rows,
             fts_index_rows,
@@ -1586,8 +1580,7 @@ mod tests {
 
         // Create an in-memory database with partial schema (missing tables)
         let conn = Connection::open_in_memory().unwrap();
-        conn.execute("CREATE TABLE sessions (id TEXT)", [])
-            .unwrap();
+        conn.execute("CREATE TABLE sessions (id TEXT)", []).unwrap();
         // Deliberately not creating search_content table
 
         let db = IndexDb { conn };

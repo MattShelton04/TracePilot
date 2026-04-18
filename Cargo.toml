@@ -52,3 +52,29 @@ lto = "thin"
 strip = true
 codegen-units = 1
 opt-level = 2
+
+# ───────────────────────────────────────────────────────────────
+# Workspace-wide lint configuration.
+# Rust 1.74+ honours these. Individual crates can still override
+# with their own [lints] block if needed, but the default posture
+# is strict.
+# ───────────────────────────────────────────────────────────────
+[workspace.lints.rust]
+unsafe_code = "forbid"
+# rust_2024_compatibility = "warn"  # edition is already 2024
+missing_debug_implementations = "allow"
+unused_must_use = "warn"
+
+[workspace.lints.clippy]
+# Opinionated tightening — raise to "deny" once the baseline is clean.
+unwrap_used = "warn"
+expect_used = "warn"
+print_stdout = "warn"
+print_stderr = "warn"
+dbg_macro = "warn"
+todo = "warn"
+unimplemented = "warn"
+# Guardrails against common footguns.
+map_err_ignore = "warn"
+needless_pass_by_value = "allow"
+module_name_repetitions = "allow"

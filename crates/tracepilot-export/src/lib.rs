@@ -29,9 +29,11 @@ pub mod markdown;
 pub(crate) mod test_helpers;
 
 // Re-export key types for ergonomic API usage.
-pub use document::{SessionArchive, PortableSession, SectionId};
+pub use document::{PortableSession, SectionId, SessionArchive};
 pub use error::{ExportError, Result};
-pub use options::{ContentDetailOptions, ExportFormat, ExportOptions, OutputTarget, RedactionOptions};
+pub use options::{
+    ContentDetailOptions, ExportFormat, ExportOptions, OutputTarget, RedactionOptions,
+};
 pub use render::{ExportFile, ExportRenderer};
 
 use std::path::Path;
@@ -58,10 +60,7 @@ fn apply_export_pipeline(
 /// Export a single session to the specified format.
 ///
 /// Returns one or more output files (most formats produce one; CSV produces multiple).
-pub fn export_session(
-    session_dir: &Path,
-    options: &ExportOptions,
-) -> Result<Vec<ExportFile>> {
+pub fn export_session(session_dir: &Path, options: &ExportOptions) -> Result<Vec<ExportFile>> {
     let mut archive = builder::build_session_archive(session_dir, options)?;
     apply_export_pipeline(&mut archive, options)
 }
@@ -101,4 +100,3 @@ pub fn preview_export(
         _ => Ok(content),
     }
 }
-

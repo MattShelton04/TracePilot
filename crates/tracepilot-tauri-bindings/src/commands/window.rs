@@ -30,9 +30,7 @@ pub async fn open_session_window(
     }
 
     // Pass full session ID via query param so the frontend can use it directly
-    let url = tauri::WebviewUrl::App(
-        format!("index.html?sessionId={}", session_id).into(),
-    );
+    let url = tauri::WebviewUrl::App(format!("index.html?sessionId={}", session_id).into());
 
     // Short ID for a readable title bar
     let short_id: String = session_id.chars().take(8).collect();
@@ -53,10 +51,7 @@ pub async fn open_session_window(
 
 /// Close a viewer window by its label.
 #[tauri::command]
-pub async fn close_session_window(
-    app: tauri::AppHandle,
-    label: String,
-) -> CmdResult<()> {
+pub async fn close_session_window(app: tauri::AppHandle, label: String) -> CmdResult<()> {
     use tauri::Manager;
 
     if let Some(window) = app.get_webview_window(&label) {

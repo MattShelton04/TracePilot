@@ -216,7 +216,10 @@ mod tests {
             if trimmed.is_empty() || trimmed.starts_with("//") {
                 continue;
             }
-            if let Some(raw) = trimmed.strip_prefix('"').and_then(|rest| rest.split('"').next()) {
+            if let Some(raw) = trimmed
+                .strip_prefix('"')
+                .and_then(|rest| rest.split('"').next())
+            {
                 events.push(raw.to_string());
             } else {
                 panic!(
@@ -229,8 +232,7 @@ mod tests {
         assert!(
             in_array && saw_array_end && !events.is_empty(),
             "failed to parse TRACEPILOT_KNOWN_EVENTS array from {} (in_array={in_array}, saw_array_end={saw_array_end}, events={})",
-            path.display()
-            ,
+            path.display(),
             events.len()
         );
         events

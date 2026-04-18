@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use std::io::Read;
 use std::path::Path;
 use std::process::{Child, Command, Output};
-use std::sync::{mpsc, Arc, Mutex};
+use std::sync::{Arc, Mutex, mpsc};
 use std::time::Duration;
 
 #[cfg(windows)]
@@ -80,22 +80,12 @@ fn execute_with_timeout(
 ) -> std::result::Result<(Vec<u8>, Vec<u8>, std::process::ExitStatus), OrchestratorError> {
     // Take the pipe handles before wrapping the child so the thread owns them.
     // Return an error if pipes weren't configured (defensive programming - should never happen).
-    let stdout_pipe = child
-        .stdout
-        .take()
-        .ok_or_else(|| {
-            OrchestratorError::Launch(
-                "stdout not piped: process was not configured correctly".into(),
-            )
-        })?;
-    let stderr_pipe = child
-        .stderr
-        .take()
-        .ok_or_else(|| {
-            OrchestratorError::Launch(
-                "stderr not piped: process was not configured correctly".into(),
-            )
-        })?;
+    let stdout_pipe = child.stdout.take().ok_or_else(|| {
+        OrchestratorError::Launch("stdout not piped: process was not configured correctly".into())
+    })?;
+    let stderr_pipe = child.stderr.take().ok_or_else(|| {
+        OrchestratorError::Launch("stderr not piped: process was not configured correctly".into())
+    })?;
     let stdout_rx = read_pipe_to_end(stdout_pipe, "stdout");
     let stderr_rx = read_pipe_to_end(stderr_pipe, "stderr");
 
@@ -103,10 +93,9 @@ fn execute_with_timeout(
     let child_shared = Arc::new(Mutex::new(child));
     let child_for_thread = Arc::clone(&child_shared);
 
-    let (tx, rx) = mpsc::channel::<std::result::Result<
-        (Vec<u8>, Vec<u8>, std::process::ExitStatus),
-        OrchestratorError,
-    >>();
+    let (tx, rx) = mpsc::channel::<
+        std::result::Result<(Vec<u8>, Vec<u8>, std::process::ExitStatus), OrchestratorError>,
+    >();
 
     std::thread::spawn(move || {
         let result = child_for_thread
@@ -117,12 +106,12 @@ fn execute_with_timeout(
                     .map_err(|e| OrchestratorError::launch_ctx("wait failed", e))
             })
             .and_then(|status| {
-                let stdout = stdout_rx
-                    .recv()
-                    .map_err(|_| OrchestratorError::Launch("stdout reader thread disconnected".into()))??;
-                let stderr = stderr_rx
-                    .recv()
-                    .map_err(|_| OrchestratorError::Launch("stderr reader thread disconnected".into()))??;
+                let stdout = stdout_rx.recv().map_err(|_| {
+                    OrchestratorError::Launch("stdout reader thread disconnected".into())
+                })??;
+                let stderr = stderr_rx.recv().map_err(|_| {
+                    OrchestratorError::Launch("stderr reader thread disconnected".into())
+                })??;
                 Ok((stdout, stderr, status))
             });
         let _ = tx.send(result);
@@ -209,10 +198,20 @@ pub fn run_hidden(
     }
 }
 
-/// Run a command string through a shell invisibly, capturing stdout and stderr.
+/// Run a shell script file invisibly, capturing stdout and stderr.
 ///
-/// On Windows, uses `powershell -Command` to ensure aliases and batch files are found.
-/// On Unix, uses `sh -c`.
+/// **WARNING — prefer [`run_hidden`] whenever possible.** Shell invocation
+/// is only appropriate when the command genuinely needs shell resolution
+/// (aliases, PATH lookup for built-in functions, or executing an explicit
+/// `.ps1`/`.sh` script). For everything else — and especially for any
+/// value that originated from user input — use [`run_hidden`] with an
+/// explicit `program` + argv slice.
+///
+/// This helper does **not** sanitise `full_command`; callers are
+/// responsible for ensuring it is not attacker-controlled. See the
+/// Phase 1A.4 audit in `docs/tech-debt-plan-revised-2026-04.md`.
+///
+/// On Windows, uses `powershell -Command`. On Unix, uses `sh -c`.
 ///
 /// If `timeout_secs` is `Some`, the process will be killed if it doesn't
 /// complete within that duration.
@@ -231,7 +230,9 @@ pub fn run_hidden_shell(
         cmd.creation_flags(CREATE_NO_WINDOW);
 
         match timeout_secs {
-            Some(timeout) => run_with_timeout(cmd, "powershell", &["-Command", full_command], timeout),
+            Some(timeout) => {
+                run_with_timeout(cmd, "powershell", &["-Command", full_command], timeout)
+            }
             None => cmd.output().map_err(Into::into),
         }
     }
@@ -370,13 +371,13 @@ pub fn spawn_detached_terminal(
 // ─── Windows: three-tier detached spawn ─────────────────────────────
 
 #[cfg(windows)]
-fn spawn_outside_job_win(
-    program: &str,
-    args: &[&str],
-    work_dir: &Path,
-) -> Result<u32> {
+fn spawn_outside_job_win(program: &str, args: &[&str], work_dir: &Path) -> Result<u32> {
     // Default to powershell if no program specified (e.g., "open terminal here")
-    let program = if program.is_empty() { "powershell" } else { program };
+    let program = if program.is_empty() {
+        "powershell"
+    } else {
+        program
+    };
 
     // Strategy 1: direct spawn with breakaway flag
     match Command::new(program)
@@ -389,7 +390,11 @@ fn spawn_outside_job_win(
         Err(e) if e.raw_os_error() == Some(5) => {
             tracing::debug!("CREATE_BREAKAWAY_FROM_JOB denied, falling back to WMI");
         }
-        Err(e) => return Err(OrchestratorError::Launch(format!("Failed to spawn terminal: {e}"))),
+        Err(e) => {
+            return Err(OrchestratorError::Launch(format!(
+                "Failed to spawn terminal: {e}"
+            )));
+        }
     }
 
     // Strategy 2: WMI Win32_Process.Create (runs via wmiprvse.exe, outside job)
@@ -582,8 +587,7 @@ impl<W: std::io::Write> Base64Encoder<W> {
     }
 
     fn encode_block(&mut self) -> std::io::Result<()> {
-        const CHARS: &[u8] =
-            b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
         let b = &self.buf;
         let out = match self.len {
             3 => [
@@ -637,8 +641,12 @@ impl<W: std::io::Write> std::io::Write for Base64Encoder<W> {
 /// Validate that an environment variable name contains only safe characters.
 /// Prevents shell injection via env var names in constructed commands.
 pub(crate) fn validate_env_var_name(name: &str) -> Result<()> {
-    crate::validation::validate_identifier(name, crate::validation::ENV_VAR_RULES, "Environment variable name")
-        .map_err(OrchestratorError::Launch)
+    crate::validation::validate_identifier(
+        name,
+        crate::validation::ENV_VAR_RULES,
+        "Environment variable name",
+    )
+    .map_err(OrchestratorError::Launch)
 }
 
 // ─── Shell quoting ──────────────────────────────────────────────────
@@ -749,7 +757,10 @@ mod tests {
 
         // Should NOT be a timeout error
         let err_msg = result.unwrap_err().to_string();
-        assert!(!err_msg.contains("timed out"), "Should not report timeout for quick failure");
+        assert!(
+            !err_msg.contains("timed out"),
+            "Should not report timeout for quick failure"
+        );
         assert!(err_msg.contains("failed"), "Should report command failure");
     }
 
@@ -769,7 +780,10 @@ mod tests {
     fn test_very_short_timeout() {
         // 1 second timeout should be enough for git --version
         let result = run_hidden("git", &["--version"], None, Some(1));
-        assert!(result.is_ok(), "Fast command should complete within 1s timeout");
+        assert!(
+            result.is_ok(),
+            "Fast command should complete within 1s timeout"
+        );
     }
 
     #[test]
@@ -784,9 +798,18 @@ mod tests {
         let err_msg = result.unwrap_err().to_string();
 
         // Verify error message contains key information
-        assert!(err_msg.contains("timed out"), "Error should mention timeout");
-        assert!(err_msg.contains("1s"), "Error should mention timeout duration");
-        assert!(err_msg.contains("Check system resources"), "Error should be actionable");
+        assert!(
+            err_msg.contains("timed out"),
+            "Error should mention timeout"
+        );
+        assert!(
+            err_msg.contains("1s"),
+            "Error should mention timeout duration"
+        );
+        assert!(
+            err_msg.contains("Check system resources"),
+            "Error should be actionable"
+        );
     }
 
     #[cfg(windows)]

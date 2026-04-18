@@ -20,8 +20,8 @@ mod validators;
 
 use std::num::NonZeroUsize;
 use std::sync::{Arc, Mutex};
-use tauri::Manager;
 use tauri::Emitter;
+use tauri::Manager;
 use tracepilot_orchestrator::bridge::manager::SharedBridgeManager;
 use types::{
     EventCache, ManifestLock, SearchSemaphore, SharedOrchestratorState, SharedTaskDb, TurnCache,
@@ -92,8 +92,7 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
                     loop {
                         match rx.recv().await {
                             Ok(status) => {
-                                let _ =
-                                    app_handle.emit(events::SDK_CONNECTION_CHANGED, &status);
+                                let _ = app_handle.emit(events::SDK_CONNECTION_CHANGED, &status);
                             }
                             Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
                             Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,

@@ -37,8 +37,7 @@ impl SchemaVersion {
 
     /// Check whether a file's `minimum_reader_version` is satisfied by `self`.
     pub fn satisfies_minimum(&self, minimum: &SchemaVersion) -> bool {
-        self.major > minimum.major
-            || (self.major == minimum.major && self.minor >= minimum.minor)
+        self.major > minimum.major || (self.major == minimum.major && self.minor >= minimum.minor)
     }
 }
 

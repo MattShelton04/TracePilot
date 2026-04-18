@@ -27,6 +27,7 @@ reqwest = { workspace = true }
 similar = "2"
 walkdir = "2"
 sha2 = "0.10"
+url = "2"
 
 copilot-sdk = { workspace = true, optional = true }
 

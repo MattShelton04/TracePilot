@@ -131,7 +131,17 @@ pub(super) fn query_model_distribution(
     let mut entries: Vec<(String, i64, i64, i64, i64, f64, i64, i64, bool)> = Vec::new();
     let mut grand_total: i64 = 0;
     for row in rows {
-        let (model, tokens, input_t, output_t, cache_read, cost, request_count, reasoning_sum, has_reasoning) = row?;
+        let (
+            model,
+            tokens,
+            input_t,
+            output_t,
+            cache_read,
+            cost,
+            request_count,
+            reasoning_sum,
+            has_reasoning,
+        ) = row?;
         grand_total += tokens;
         entries.push((
             model,
@@ -148,7 +158,17 @@ pub(super) fn query_model_distribution(
     Ok(entries
         .into_iter()
         .map(
-            |(model, tokens, input_t, output_t, cache_read, cost, request_count, reasoning_sum, has_reasoning)| {
+            |(
+                model,
+                tokens,
+                input_t,
+                output_t,
+                cache_read,
+                cost,
+                request_count,
+                reasoning_sum,
+                has_reasoning,
+            )| {
                 let percentage = if grand_total > 0 {
                     (tokens as f64 / grand_total as f64) * 100.0
                 } else {

@@ -147,10 +147,7 @@ pub async fn task_create_batch(
 }
 
 #[tauri::command]
-pub async fn task_get(
-    state: tauri::State<'_, SharedTaskDb>,
-    id: String,
-) -> CmdResult<Task> {
+pub async fn task_get(state: tauri::State<'_, SharedTaskDb>, id: String) -> CmdResult<Task> {
     crate::validators::validate_task_id(&id)?;
     with_task_db(&state, move |db| {
         tracepilot_orchestrator::task_db::operations::get_task(db.conn(), &id)
@@ -173,10 +170,7 @@ pub async fn task_list(
 }
 
 #[tauri::command]
-pub async fn task_cancel(
-    state: tauri::State<'_, SharedTaskDb>,
-    id: String,
-) -> CmdResult<()> {
+pub async fn task_cancel(state: tauri::State<'_, SharedTaskDb>, id: String) -> CmdResult<()> {
     crate::validators::validate_task_id(&id)?;
     with_task_db(&state, move |db| {
         tracepilot_orchestrator::task_db::operations::cancel_task(db.conn(), &id)
@@ -186,10 +180,7 @@ pub async fn task_cancel(
 }
 
 #[tauri::command]
-pub async fn task_retry(
-    state: tauri::State<'_, SharedTaskDb>,
-    id: String,
-) -> CmdResult<()> {
+pub async fn task_retry(state: tauri::State<'_, SharedTaskDb>, id: String) -> CmdResult<()> {
     crate::validators::validate_task_id(&id)?;
     with_task_db(&state, move |db| {
         tracepilot_orchestrator::task_db::operations::retry_task(db.conn(), &id)
@@ -199,10 +190,7 @@ pub async fn task_retry(
 }
 
 #[tauri::command]
-pub async fn task_delete(
-    state: tauri::State<'_, SharedTaskDb>,
-    id: String,
-) -> CmdResult<()> {
+pub async fn task_delete(state: tauri::State<'_, SharedTaskDb>, id: String) -> CmdResult<()> {
     crate::validators::validate_task_id(&id)?;
     with_task_db(&state, move |db| {
         tracepilot_orchestrator::task_db::operations::delete_task(db.conn(), &id)
@@ -212,9 +200,7 @@ pub async fn task_delete(
 }
 
 #[tauri::command]
-pub async fn task_stats(
-    state: tauri::State<'_, SharedTaskDb>,
-) -> CmdResult<TaskStats> {
+pub async fn task_stats(state: tauri::State<'_, SharedTaskDb>) -> CmdResult<TaskStats> {
     with_task_db(&state, move |db| {
         tracepilot_orchestrator::task_db::operations::get_task_stats(db.conn())
             .map_err(BindingsError::Orchestrator)
@@ -326,7 +312,8 @@ pub async fn task_orchestrator_health(
         .lock()
         .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?
         .clone();
-    let stale_secs = (cfg.tasks.poll_interval_seconds * cfg.tasks.heartbeat_stale_multiplier) as u64;
+    let stale_secs =
+        (cfg.tasks.poll_interval_seconds * cfg.tasks.heartbeat_stale_multiplier) as u64;
     tokio::task::spawn_blocking(move || {
         // Attempt session UUID discovery if handle exists but UUID is unknown
         if let Some(ref h) = handle {
@@ -675,9 +662,10 @@ pub async fn task_orchestrator_stop(
 
             if manifest_path.exists() {
                 // Best-effort: set shutdown flag so a still-alive process exits.
-                let _ = tracepilot_orchestrator::task_orchestrator::manifest::update_manifest_shutdown(
-                    &manifest_path,
-                );
+                let _ =
+                    tracepilot_orchestrator::task_orchestrator::manifest::update_manifest_shutdown(
+                        &manifest_path,
+                    );
             }
 
             // Clean up stale heartbeat so the next health check returns "stopped"
@@ -958,10 +946,7 @@ fn resolve_task_model(
 }
 
 /// Build minimal context when preset loading or full assembly fails.
-fn fallback_context(
-    task: &tracepilot_orchestrator::task_db::Task,
-    result_path: &str,
-) -> String {
+fn fallback_context(task: &tracepilot_orchestrator::task_db::Task, result_path: &str) -> String {
     format!(
         "# Task: {}\n\n**Type:** {}\n**Preset:** {}\n\n\
          ## Input Parameters\n\n```json\n{}\n```\n\n\

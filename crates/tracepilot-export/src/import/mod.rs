@@ -322,7 +322,9 @@ pub fn import_sessions(
 /// Uses a fresh UUID v4 so imported duplicates are indistinguishable from
 /// natively-created sessions.
 fn generate_duplicate_id(target_dir: &Path, reserved_ids: &HashSet<String>) -> Result<String> {
-    generate_duplicate_id_with(target_dir, reserved_ids, || uuid::Uuid::new_v4().to_string())
+    generate_duplicate_id_with(target_dir, reserved_ids, || {
+        uuid::Uuid::new_v4().to_string()
+    })
 }
 
 fn generate_duplicate_id_with<F>(
@@ -598,11 +600,13 @@ mod tests {
         let target = tempfile::tempdir().unwrap();
         let reserved = HashSet::from(["collision-id".to_string()]);
 
-        let err = generate_duplicate_id_with(target.path(), &reserved, || "collision-id".to_string())
-            .unwrap_err();
+        let err =
+            generate_duplicate_id_with(target.path(), &reserved, || "collision-id".to_string())
+                .unwrap_err();
 
-        assert!(err
-            .to_string()
-            .contains("failed to allocate a unique duplicate session ID"));
+        assert!(
+            err.to_string()
+                .contains("failed to allocate a unique duplicate session ID")
+        );
     }
 }

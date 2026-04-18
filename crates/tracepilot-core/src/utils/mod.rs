@@ -237,10 +237,7 @@ mod tests {
         assert_eq!(truncate_utf8_with_marker("🦀crab", 2, None), "");
         assert_eq!(truncate_utf8_with_marker("🦀crab", 2, Some("…")), "…");
         assert_eq!(truncate_utf8_with_marker("🦀crab", 4, Some("…")), "🦀…");
-        assert_eq!(
-            truncate_utf8_with_marker("🦀crab", 5, Some("…")),
-            "🦀c…"
-        );
+        assert_eq!(truncate_utf8_with_marker("🦀crab", 5, Some("…")), "🦀c…");
     }
 
     #[test]

@@ -7,12 +7,11 @@
 //!   - Querying quota, auth status, and models
 
 use crate::error::CmdResult;
+use tracepilot_orchestrator::bridge::manager::SharedBridgeManager;
 use tracepilot_orchestrator::bridge::{
     BridgeAuthStatus, BridgeConnectConfig, BridgeMessagePayload, BridgeModelInfo, BridgeQuota,
-    BridgeSessionConfig, BridgeSessionInfo, BridgeSessionMode, BridgeStatus,
-    DetectedUiServer,
+    BridgeSessionConfig, BridgeSessionInfo, BridgeSessionMode, BridgeStatus, DetectedUiServer,
 };
-use tracepilot_orchestrator::bridge::manager::SharedBridgeManager;
 
 // ─── Connection Lifecycle ─────────────────────────────────────────
 
@@ -36,9 +35,7 @@ pub async fn sdk_disconnect(
 }
 
 #[tauri::command]
-pub async fn sdk_status(
-    bridge: tauri::State<'_, SharedBridgeManager>,
-) -> CmdResult<BridgeStatus> {
+pub async fn sdk_status(bridge: tauri::State<'_, SharedBridgeManager>) -> CmdResult<BridgeStatus> {
     let mgr = bridge.read().await;
     Ok(mgr.status())
 }
@@ -204,11 +201,7 @@ pub async fn sdk_detect_ui_server() -> CmdResult<Vec<DetectedUiServer>> {
 }
 
 #[tauri::command]
-pub async fn sdk_launch_ui_server(
-    working_dir: Option<String>,
-) -> CmdResult<u32> {
-    let pid = tracepilot_orchestrator::bridge::manager::launch_ui_server(
-        working_dir.as_deref(),
-    )?;
+pub async fn sdk_launch_ui_server(working_dir: Option<String>) -> CmdResult<u32> {
+    let pid = tracepilot_orchestrator::bridge::manager::launch_ui_server(working_dir.as_deref())?;
     Ok(pid)
 }

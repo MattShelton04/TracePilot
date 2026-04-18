@@ -238,7 +238,19 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
     let mut model_distribution: Vec<ModelDistEntry> = model_tokens
         .into_iter()
         .map(
-            |(model, (input_t, output_t, cache_read, _cache_write, premium_req, request_count, reasoning_sum, has_reasoning))| {
+            |(
+                model,
+                (
+                    input_t,
+                    output_t,
+                    cache_read,
+                    _cache_write,
+                    premium_req,
+                    request_count,
+                    reasoning_sum,
+                    has_reasoning,
+                ),
+            )| {
                 let tokens = input_t + output_t;
                 let percentage = if total_model_tokens > 0 {
                     (tokens as f64 / total_model_tokens as f64) * 100.0
@@ -254,7 +266,11 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
                     cache_read_tokens: cache_read,
                     premium_requests: premium_req,
                     request_count,
-                    reasoning_tokens: if has_reasoning { Some(reasoning_sum) } else { None },
+                    reasoning_tokens: if has_reasoning {
+                        Some(reasoning_sum)
+                    } else {
+                        None
+                    },
                 }
             },
         )
