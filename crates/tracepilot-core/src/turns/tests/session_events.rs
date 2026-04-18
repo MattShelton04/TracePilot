@@ -549,6 +549,7 @@ fn session_events_serialization_round_trip() {
             summary: "Test error".to_string(),
             checkpoint_number: None,
         }],
+        system_messages: Vec::new(),
     };
 
     let json = serde_json::to_value(&turn).unwrap();

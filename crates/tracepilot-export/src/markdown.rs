@@ -376,6 +376,7 @@ mod tests {
                 summary: "Export stub located".into(),
                 checkpoint_number: None,
             }],
+            system_messages: vec![],
         }];
 
         let rendered = render_markdown(&summary, &turns);

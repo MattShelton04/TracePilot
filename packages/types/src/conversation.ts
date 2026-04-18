@@ -37,6 +37,10 @@ export interface ConversationTurn {
   attachments?: unknown[];
   /** Session-level events (errors, compactions, etc.) that occurred during this turn. */
   sessionEvents?: TurnSessionEvent[];
+  /** System message content(s) injected before this turn (from system.message events).
+   *  In auto-model-selection sessions (CLI v1.0.32+), one entry appears per turn.
+   *  May also appear after context compaction in other session modes. */
+  systemMessages?: string[];
 }
 
 /** Severity level for session events embedded in a conversation turn. */

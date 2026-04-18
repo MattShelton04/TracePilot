@@ -658,6 +658,58 @@ impl SubagentFailedBuilder {
 // Session Event Builders
 // ============================================================================
 
+/// Builder for system message events (system.message).
+#[must_use = "builders do nothing unless consumed"]
+pub struct SystemMessageBuilder {
+    content: Option<String>,
+    role: Option<String>,
+    name: Option<String>,
+}
+
+impl SystemMessageBuilder {
+    fn new(content: impl Into<String>) -> Self {
+        Self {
+            content: Some(content.into()),
+            role: Some("system".to_string()),
+            name: None,
+        }
+    }
+
+    fn new_empty() -> Self {
+        Self {
+            content: None,
+            role: None,
+            name: None,
+        }
+    }
+
+    pub fn role(mut self, role: impl Into<String>) -> Self {
+        self.role = Some(role.into());
+        self
+    }
+
+    pub fn name(mut self, name: impl Into<String>) -> Self {
+        self.name = Some(name.into());
+        self
+    }
+
+    fn build_data(self) -> SystemMessageData {
+        SystemMessageData {
+            content: self.content,
+            role: self.role,
+            name: self.name,
+            metadata: None,
+        }
+    }
+
+    fn into_event_builder(self) -> EventBuilder {
+        EventBuilder::new(
+            SessionEventType::SystemMessage,
+            TypedEventData::SystemMessage(self.build_data()),
+        )
+    }
+}
+
 /// Builder for session error events.
 #[must_use = "builders do nothing unless consumed"]
 pub struct SessionErrorBuilder {
@@ -986,6 +1038,16 @@ pub fn session_warning(message: impl Into<String>) -> SessionWarningBuilder {
     SessionWarningBuilder::new(message)
 }
 
+/// Create a system message builder.
+pub fn system_message(content: impl Into<String>) -> SystemMessageBuilder {
+    SystemMessageBuilder::new(content)
+}
+
+/// Create a system message builder with no content.
+pub fn system_message_empty() -> SystemMessageBuilder {
+    SystemMessageBuilder::new_empty()
+}
+
 /// Create a model change builder.
 pub fn model_change() -> ModelChangeBuilder {
     ModelChangeBuilder::new()
@@ -1043,6 +1105,7 @@ impl_event_builder_extensions!(SubagentCompletedBuilder);
 impl_event_builder_extensions!(SubagentFailedBuilder);
 impl_event_builder_extensions!(SessionErrorBuilder);
 impl_event_builder_extensions!(SessionWarningBuilder);
+impl_event_builder_extensions!(SystemMessageBuilder);
 impl_event_builder_extensions!(ModelChangeBuilder);
 impl_event_builder_extensions!(CompactionStartBuilder);
 impl_event_builder_extensions!(CompactionCompleteBuilder);

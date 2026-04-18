@@ -447,6 +447,7 @@ mod tests {
             transformed_user_message: None,
             attachments: None,
             session_events: vec![],
+            system_messages: vec![],
         }]);
         let mut archive = test_archive(session);
 
@@ -553,6 +554,7 @@ mod tests {
                 "content": "token: ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghij"
             })]),
             session_events: vec![],
+            system_messages: vec![],
         }]);
         let mut archive = test_archive(session);
 

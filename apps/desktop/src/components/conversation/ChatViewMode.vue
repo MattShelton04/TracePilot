@@ -44,6 +44,7 @@ import {
 import SubagentCard from "./SubagentCard.vue";
 import SubagentPanel from "./SubagentPanel.vue";
 import SdkSteeringPanel from "./SdkSteeringPanel.vue";
+import SystemMessagePanel from "./SystemMessagePanel.vue";
 
 // ─── Store & Route ────────────────────────────────────────────────
 
@@ -435,6 +436,14 @@ defineExpose({ revealEvent });
                 <div class="cv-gap-label">⋯ {{ gapCount(turn, ti) }} turns not shown</div>
                 <div class="cv-gap-line" />
               </div>
+
+              <!-- System message(s) — one per turn in auto-model sessions (CLI v1.0.32+) -->
+              <SystemMessagePanel
+                v-for="(msg, idx) in (turn.systemMessages ?? [])"
+                :key="`sysmsg-${turn.turnIndex}-${idx}`"
+                :content="msg"
+                :index="idx"
+              />
 
               <!-- Session events -->
               <SessionEventRow
