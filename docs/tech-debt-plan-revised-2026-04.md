@@ -462,23 +462,27 @@ Each decomposition extracts 3–6 children, moves CSS > 500 LOC to `styles/featu
 
 ## Phase 3-decomp — Large-file decomposition (backend) 🟡
 
-### 3-decomp.1 `commands/tasks.rs`
+### 3-decomp.1 `commands/tasks.rs` ✅ DONE (wave 43)[^wave43]
 
-- Split into `commands/tasks/{crud, jobs, orchestrator, ingest, presets}.rs` using glob re-exports (memory: Tauri command re-exports pattern).
-- Migrate remaining 5 `spawn_blocking { db.lock() … }` sites to `with_task_db`.
-- Move `is_process_alive` from this module to `orchestrator::process::is_alive`.
-- Unit tests per submodule.
+- ~~Split into `commands/tasks/{crud, jobs, orchestrator, ingest, presets}.rs` using glob re-exports (memory: Tauri command re-exports pattern).~~ Done — `tasks.rs` (961 LOC) decomposed into `commands/tasks/{crud, jobs, presets, orchestrator, orchestrator_start, ingest}.rs` + `mod.rs`, all ≤ 255 LOC, `pub use submod::*` pattern preserves `#[tauri::command]` hidden `__cmd__*` resolution. `tauri::generate_handler!` call in `lib.rs` unchanged.
+- Migrate remaining 5 `spawn_blocking { db.lock() … }` sites to `with_task_db`. _(deferred — touches shared-state ordering semantics; out of scope for pure split)_
+- Move `is_process_alive` from this module to `orchestrator::process::is_alive`. _(deferred — cross-crate move, separate wave)_
+- Unit tests per submodule. _(deferred — existing integration tests cover handlers; per-submodule units warrant their own wave)_
 
-### 3-decomp.2 `bridge/manager.rs`
+[^wave43]: Wave 43 — decomposed `commands/tasks.rs` (961 LOC) into 7 files under `commands/tasks/`, each ≤ 255 LOC. Shared helpers `resolve_task_model` and `fallback_context` moved into `mod.rs` as `pub(crate)`. Two orchestrator files (`orchestrator.rs` for health/stop/`is_process_alive`, `orchestrator_start.rs` for the large launch path) added to honour the ≤ 350 LOC-per-submodule budget. `tauri::generate_handler!` handler list unchanged. `cargo check`/`test` (159 passing)/`pnpm typecheck` all green; clippy gate passes for this crate (pre-existing failures in `tracepilot-core` are unrelated).
 
-- Split into `bridge/{lifecycle, raw_rpc, session_tasks, ui_server, tests}.rs`.
+### 3-decomp.2 `bridge/manager.rs` ✅ DONE (wave 44)[^wave44]
+
+- Split into `bridge/manager/{mod, lifecycle, raw_rpc, session_tasks, session_model, queries, ui_server, tests}.rs`.
 - Extract `launch_ui_server` to `ui_server.rs` using shared `process::run_hidden_stdout`.
-- Replace `cli_url: Option<String>` with `enum ConnectionMode { Stdio, Tcp { url } }`.
-- Audit `unlink_session`/`destroy_session` for `.abort()` on `event_tasks`; regression test.
+- Replace `cli_url: Option<String>` with `enum ConnectionMode { Stdio, Tcp { url } }`. _(deferred — public `BridgeStatus::connection_mode` remains a `String` in the IPC surface; the enum refactor is shape-change territory and warrants its own wave)_
+- Audit `unlink_session`/`destroy_session` for `.abort()` on `event_tasks`; regression test. _(deferred — both methods already call `event_tasks.remove(id).map(|h| h.abort())`; no new regression test added this wave)_
 
 **Definition of done:** No Rust file > 500 LOC (non-test) / 700 LOC (test); clippy clean at `-D warnings`; Windows + Linux CI green.
 
 **Risk:** Low — mechanical splits.
+
+[^wave44]: Wave 44 — decomposed `bridge/manager.rs` (1301 LOC incl. tests) into a directory module at `bridge/manager/` with eight files, each ≤ 347 LOC (`mod.rs` 198 holds the struct + constructor + accessors + private helpers; `lifecycle.rs` 109 for connect/disconnect; `session_tasks.rs` 347 for create/resume/send/abort/unlink/destroy/set-mode + `spawn_event_forwarder`; `session_model.rs` 97 split out to stay under the 400-LOC submodule cap because `set_session_model` carries the full raw-RPC TCP path; `queries.rs` 148 for list/quota/auth/cli-status/models; `raw_rpc.rs` 127 for Content-Length JSON-RPC framing; `ui_server.rs` 98 for foreground-session helpers + `launch_ui_server`; `tests.rs` 274 for all existing unit tests). Every submodule provides `impl BridgeManager` blocks so the public surface stays a single flat type — **all 24 public methods and the free `launch_ui_server` keep byte-identical signatures**. Fields are default-private (Rust privacy rules grant descendants access) and marked `pub(super)` for clarity. Preserved: `.creation_flags(0x08000000)` CMD-flash prevention on Windows (via `crate::process::spawn_detached_terminal`), SDK stdio-vs-cli_url distinction, `session.resume` never auto-called, `isActive` gate. `cargo check`/`test -p tracepilot-orchestrator` (17 bridge tests passing) and `cargo check -p tracepilot-tauri-bindings` all green; clippy on orchestrator only reports 3 pre-existing warnings carried byte-for-byte from the original file (`field_reassign_with_default` on `SessionConfig`, `collapsible_if` in `resume_session`). Core-crate clippy failures are unrelated.
 
 ---
 
