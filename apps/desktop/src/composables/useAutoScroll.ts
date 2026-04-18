@@ -81,16 +81,16 @@ export function useAutoScroll(options: AutoScrollOptions) {
     const el = containerRef.value;
     if (!el) return;
     const useSmooth = animated && !prefersReducedMotion.matches;
-    const behavior = useSmooth ? "smooth" : "auto";
-    // Guard: prevent scroll handler from disengaging during smooth animation
-    if (useSmooth) isProgrammaticScroll = true;
-    el.scrollTo({ top: el.scrollHeight, behavior });
+    el.scrollTo({ top: el.scrollHeight, behavior: useSmooth ? "smooth" : "auto" });
     isLockedToBottom.value = true;
     if (useSmooth) {
-      // Clear guard after animation completes (fallback timeout)
-      setTimeout(() => {
-        isProgrammaticScroll = false;
-      }, 500);
+      // Guard: suppress handleScroll's lock/unlock logic during smooth animation.
+      // Cleared position-based in handleScroll once the element reaches the bottom.
+      // Using scrollend is intentionally avoided here — an instant scroll fired by the
+      // data watcher (new message arriving mid-animation) would cancel the smooth scroll
+      // and trigger scrollend early, clearing the guard before we arrive at the bottom.
+      isProgrammaticScroll = true;
+      setTimeout(() => { isProgrammaticScroll = false; }, 2000); // safety fallback only
     }
   }
 
@@ -98,14 +98,11 @@ export function useAutoScroll(options: AutoScrollOptions) {
     const el = containerRef.value;
     if (!el) return;
     const useSmooth = animated && !prefersReducedMotion.matches;
-    const behavior = useSmooth ? "smooth" : "auto";
-    if (useSmooth) isProgrammaticScroll = true;
-    el.scrollTo({ top: 0, behavior });
+    el.scrollTo({ top: 0, behavior: useSmooth ? "smooth" : "auto" });
     isLockedToBottom.value = false;
     if (useSmooth) {
-      setTimeout(() => {
-        isProgrammaticScroll = false;
-      }, 500);
+      isProgrammaticScroll = true;
+      setTimeout(() => { isProgrammaticScroll = false; }, 2000);
     }
   }
 
@@ -120,8 +117,17 @@ export function useAutoScroll(options: AutoScrollOptions) {
       updateOverflow();
       showScrollToTop.value = el.scrollTop > 300;
 
-      // Skip lock/unlock logic during programmatic smooth scroll
-      if (isProgrammaticScroll) return;
+      // During a programmatic smooth scroll, suppress lock/unlock logic.
+      // Clear the guard once the element reaches its target position — this is
+      // more robust than scrollend, which can fire early if an instant data-update
+      // scroll interrupts the animation mid-way.
+      if (isProgrammaticScroll) {
+        const atTarget = isLockedToBottom.value
+          ? isNearBottom(el, engageThreshold)
+          : el.scrollTop <= engageThreshold;
+        if (atTarget) isProgrammaticScroll = false;
+        return;
+      }
 
       // Hysteresis: use tighter threshold to re-engage, wider to disengage
       if (isLockedToBottom.value) {
@@ -141,7 +147,8 @@ export function useAutoScroll(options: AutoScrollOptions) {
   // When data changes, auto-scroll if locked to bottom
   watch(watchSource, () => {
     if (!hasReceivedFirstData) {
-      // First data load — don't auto-scroll, just mark as initialized
+      // First data load — don't auto-scroll; update overflow/state so the ↓ FAB
+      // appears if needed. User must scroll to bottom to engage auto-scroll.
       hasReceivedFirstData = true;
       nextTick(() => recalculateState());
       return;

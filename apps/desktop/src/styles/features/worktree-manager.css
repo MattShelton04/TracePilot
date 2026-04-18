@@ -267,7 +267,7 @@
   max-width: 220px;
 }
 
-.search-icon {
+.wt-manager .search-icon {
   position: absolute;
   left: 8px;
   top: 50%;
@@ -276,7 +276,7 @@
   pointer-events: none;
 }
 
-.search-input {
+.wt-manager .search-input {
   width: 100%;
   padding: 5px 10px 5px 30px;
   font-size: 0.75rem;
@@ -289,11 +289,11 @@
   transition: border-color var(--transition-fast);
 }
 
-.search-input:focus {
+.wt-manager .search-input:focus {
   border-color: var(--accent-fg);
 }
 
-.search-input::placeholder {
+.wt-manager .search-input::placeholder {
   color: var(--text-placeholder);
 }
 
@@ -546,7 +546,7 @@
 }
 
 /* Status badge */
-.badge {
+.wt-manager .badge {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -558,19 +558,19 @@
   letter-spacing: 0.02em;
 }
 
-.badge-active {
+.wt-manager .badge-active {
   color: var(--success-fg);
   background: var(--success-subtle);
   border: 1px solid var(--success-muted);
 }
 
-.badge-stale {
+.wt-manager .badge-stale {
   color: var(--warning-fg);
   background: var(--warning-subtle);
   border: 1px solid var(--warning-muted);
 }
 
-.badge-locked {
+.wt-manager .badge-locked {
   color: var(--text-secondary);
   background: var(--neutral-muted);
   border: 1px solid var(--border-default);
@@ -720,7 +720,7 @@
 }
 
 /* ─── Buttons ─────────────────────────────────────────────────── */
-.btn {
+.wt-manager .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -738,44 +738,44 @@
   white-space: nowrap;
 }
 
-.btn:hover:not(:disabled) {
+.wt-manager .btn:hover:not(:disabled) {
   background: var(--neutral-subtle);
 }
 
-.btn:disabled {
+.wt-manager .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.btn-primary {
+.wt-manager .btn-primary {
   background: var(--accent-emphasis);
   color: var(--text-inverse);
   border-color: var(--accent-emphasis);
 }
 
-.btn-primary:hover:not(:disabled) {
+.wt-manager .btn-primary:hover:not(:disabled) {
   opacity: 0.9;
   background: var(--accent-emphasis);
 }
 
-.btn-sm {
+.wt-manager .btn-sm {
   padding: 4px 10px;
   font-size: 0.75rem;
 }
 
-.btn-danger {
+.wt-manager .btn-danger {
   background: var(--danger-emphasis);
   color: var(--text-inverse);
   border-color: var(--danger-emphasis);
 }
 
-.btn-danger:hover:not(:disabled) {
+.wt-manager .btn-danger:hover:not(:disabled) {
   opacity: 0.9;
   background: var(--danger-emphasis);
 }
 
 /* ─── Form Inputs ─────────────────────────────────────────────── */
-.form-input {
+.wt-manager .form-input {
   width: 100%;
   max-width: 100%;
   padding: 8px 12px;
@@ -791,20 +791,20 @@
   text-overflow: ellipsis;
 }
 
-.form-input:focus {
+.wt-manager .form-input:focus {
   border-color: var(--accent-fg);
 }
 
-.form-input::placeholder {
+.wt-manager .form-input::placeholder {
   color: var(--text-placeholder);
 }
 
-.form-input[readonly] {
+.wt-manager .form-input[readonly] {
   color: var(--text-tertiary);
   cursor: default;
 }
 
-.form-input--sm {
+.wt-manager .form-input--sm {
   padding: 5px 8px;
   font-size: 0.75rem;
 }
@@ -867,11 +867,11 @@
   border-top: 1px solid var(--border-default);
 }
 
-.form-group {
+.wt-manager .form-group {
   margin-bottom: 14px;
 }
 
-.form-label {
+.wt-manager .form-label {
   display: block;
   font-size: 0.75rem;
   font-weight: 600;
