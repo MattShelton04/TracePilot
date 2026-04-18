@@ -9,6 +9,6 @@ allowBuilds:
 # pinned per-package to avoid coupling unrelated apps to a single version bump.
 # Reference from a package.json as: "typescript": "catalog:" (default catalog).
 catalog:
-  typescript: "^5.8.0"
+  typescript: "^6.0.3"
   vitest: "^3.2.4"
   vue: "^3.5.0"
