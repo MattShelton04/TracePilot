@@ -7,6 +7,7 @@
 
 use crate::Result;
 use rusqlite::ToSql;
+use std::fmt::Write;
 
 /// Maximum rows per multi-row INSERT statement.
 ///
@@ -55,17 +56,21 @@ where
     }
 
     for chunk in items.chunks(BATCH_CHUNK_SIZE) {
-        let placeholders: String = (0..chunk.len())
-            .map(|i| {
-                let start = i * params_per_row + 1;
-                let p: String = (start..start + params_per_row)
-                    .map(|n| format!("?{n}"))
-                    .collect::<Vec<_>>()
-                    .join(",");
-                format!("({p})")
-            })
-            .collect::<Vec<_>>()
-            .join(",");
+        let mut placeholders = String::with_capacity(chunk.len() * (params_per_row * 5 + 3));
+        for i in 0..chunk.len() {
+            if i > 0 {
+                placeholders.push(',');
+            }
+            placeholders.push('(');
+            let start = i * params_per_row + 1;
+            for n in start..start + params_per_row {
+                if n > start {
+                    placeholders.push(',');
+                }
+                write!(&mut placeholders, "?{n}").unwrap();
+            }
+            placeholders.push(')');
+        }
 
         let sql = format!("{sql_prefix} {placeholders}");
         let mut stmt = conn.prepare(&sql)?;
