@@ -1,19 +1,19 @@
 /* ── Layout ──────────────────────────────────────────────────────────────── */
-.page-content {
+/* Scoped to .config-injector-page to prevent leaking into other views */
+.config-injector-page.page-content {
   height: 100%;
-  overflow-y: auto;
   background: var(--canvas-default);
   color: var(--text-primary);
 }
 
-.page-content-inner {
+.config-injector-page .page-content-inner {
   max-width: var(--content-max-width, 1600px);
   margin: 0 auto;
   padding: 24px 28px 48px;
 }
 
 /* ── Breadcrumb ──────────────────────────────────────────────────────────── */
-.breadcrumb {
+.config-injector-page .breadcrumb {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -21,15 +21,15 @@
   margin-bottom: 12px;
 }
 
-.breadcrumb-link {
+.config-injector-page .breadcrumb-link {
   color: var(--text-tertiary);
 }
 
-.breadcrumb-sep {
+.config-injector-page .breadcrumb-sep {
   color: var(--text-tertiary);
 }
 
-.breadcrumb-current {
+.config-injector-page .breadcrumb-current {
   color: var(--text-secondary);
 }
 
@@ -79,11 +79,11 @@
 }
 
 /* ── Banner Transition (used by warning banner & auto-saved hint) ────────── */
-.banner-enter-active, .banner-leave-active {
+.config-injector-page .banner-enter-active, .config-injector-page .banner-leave-active {
   transition: opacity 0.2s ease, max-height 0.2s ease;
   overflow: hidden;
 }
-.banner-enter-from, .banner-leave-to {
+.config-injector-page .banner-enter-from, .config-injector-page .banner-leave-to {
   opacity: 0;
   max-height: 0;
   margin-bottom: 0;
@@ -97,7 +97,7 @@
 }
 
 /* ── Loading ─────────────────────────────────────────────────────────────── */
-.loading-state {
+.config-injector-page .loading-state {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -108,7 +108,7 @@
 }
 
 /* ── Tab Panel ───────────────────────────────────────────────────────────── */
-.tab-panel {
+.config-injector-page .tab-panel {
   min-height: 400px;
 }
 
@@ -387,19 +387,19 @@
   gap: 18px;
 }
 
-.form-group {
+.config-injector-page .form-group {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.form-label {
+.config-injector-page .form-label {
   font-size: 0.8125rem;
   font-weight: 600;
   color: var(--text-secondary);
 }
 
-.form-hint {
+.config-injector-page .form-hint {
   display: block;
   font-size: 0.6875rem;
   color: var(--text-tertiary);
@@ -407,7 +407,7 @@
   margin-top: 1px;
 }
 
-.form-input {
+.config-injector-page .form-input {
   padding: 8px 12px;
   font-size: 0.875rem;
   color: var(--text-primary);
@@ -416,7 +416,7 @@
   border-radius: var(--radius-sm);
 }
 
-.form-input:focus {
+.config-injector-page .form-input:focus {
   outline: none;
   border-color: var(--accent-emphasis);
 }
@@ -704,7 +704,7 @@
   gap: 4px;
 }
 
-.badge {
+.config-injector-page .badge {
   display: inline-flex;
   padding: 1px 8px;
   font-size: 0.6875rem;
@@ -712,19 +712,19 @@
   border-radius: var(--radius-sm);
 }
 
-.badge--accent {
+.config-injector-page .badge--accent {
   background: var(--accent-subtle);
   color: var(--accent-fg);
   border: 1px solid var(--accent-muted);
 }
 
-.badge--success {
+.config-injector-page .badge--success {
   background: var(--success-subtle);
   color: var(--success-fg);
   border: 1px solid var(--success-muted);
 }
 
-.badge--danger {
+.config-injector-page .badge--danger {
   background: var(--danger-subtle);
   color: var(--danger-fg);
   border: 1px solid var(--danger-muted);

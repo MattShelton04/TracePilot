@@ -11,9 +11,9 @@ import ConfigInjectorAgentsTab from "@/components/configInjector/ConfigInjectorA
 import ConfigInjectorBackupsTab from "@/components/configInjector/ConfigInjectorBackupsTab.vue";
 import ConfigInjectorGlobalTab from "@/components/configInjector/ConfigInjectorGlobalTab.vue";
 import ConfigInjectorVersionsTab from "@/components/configInjector/ConfigInjectorVersionsTab.vue";
+import "@/styles/features/config-injector.css";
 import { ConfigInjectorKey, useConfigInjector } from "@/composables/useConfigInjector";
 import { type ConfigTab } from "@/stores/configInjector";
-import "@/styles/features/config-injector.css";
 
 const ctx = useConfigInjector();
 provide(ConfigInjectorKey, ctx);
@@ -50,7 +50,7 @@ const tabNavItems = computed(() =>
 </script>
 
 <template>
-  <div class="page-content">
+  <div class="page-content config-injector-page">
     <div class="page-content-inner">
       <ErrorAlert
         v-if="store.error"
@@ -99,3 +99,4 @@ const tabNavItems = computed(() =>
     </div>
   </div>
 </template>
+
