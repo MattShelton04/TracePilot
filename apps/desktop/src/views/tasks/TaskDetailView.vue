@@ -5,7 +5,9 @@ import {
   formatDuration,
   formatRelativeTime,
   LoadingSpinner,
+  PageShell,
   SectionPanel,
+  TabNav,
   useAutoRefresh,
   useConfirmDialog,
   useToast,
@@ -52,6 +54,15 @@ const tabDefs: Array<{ id: TabId; label: string; icon: string }> = [
   { id: "subagent", label: "Subagent", icon: "🤖" },
   { id: "raw", label: "Raw", icon: "{ }" },
 ];
+
+const tabNavItems = computed(() =>
+  tabDefs.map((t) => ({
+    name: t.id,
+    routeName: t.id,
+    label: t.label,
+    icon: t.icon,
+  })),
+);
 
 // ─── Computed Helpers ─────────────────────────────────────────────
 const canCancel = computed(() => {
@@ -316,10 +327,9 @@ watch(taskId, (newId) => {
 </script>
 
 <template>
-  <div class="page-content">
-    <div class="page-content-inner">
-      <!-- Top bar -->
-      <div class="detail-topbar">
+  <PageShell>
+    <!-- Top bar -->
+    <div class="detail-topbar">
         <button class="back-link" @click="goBack">
           <svg
             width="14"
@@ -422,20 +432,13 @@ watch(taskId, (newId) => {
         </div>
 
         <!-- Tab bar -->
-        <nav class="tab-bar" role="tablist" aria-label="Task detail tabs">
-          <button
-            v-for="tab in tabDefs"
-            :key="tab.id"
-            role="tab"
-            :aria-selected="activeTab === tab.id"
-            class="tab-item"
-            :class="{ active: activeTab === tab.id }"
-            @click="activeTab = tab.id"
-          >
-            <span class="tab-icon">{{ tab.icon }}</span>
-            {{ tab.label }}
-          </button>
-        </nav>
+        <TabNav
+          :tabs="tabNavItems"
+          :model-value="activeTab"
+          staggered
+          class="task-detail-tabs"
+          @update:model-value="(v) => (activeTab = v as TabId)"
+        />
 
         <!-- ─── Tab Panels ─── -->
         <div class="tab-panel">
@@ -763,8 +766,7 @@ watch(taskId, (newId) => {
           </div>
         </div>
       </template>
-    </div>
-  </div>
+  </PageShell>
 </template>
 
 <style scoped>
@@ -927,48 +929,9 @@ watch(taskId, (newId) => {
 }
 
 /* ─── Tab Bar ─── */
-.tab-bar {
-  display: flex;
-  gap: 2px;
-  border-bottom: 1px solid var(--border-default);
+.task-detail-tabs {
   margin-bottom: 20px;
   overflow-x: auto;
-}
-
-.tab-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 16px;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--text-tertiary);
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  white-space: nowrap;
-  margin-bottom: -1px;
-}
-
-.tab-item:hover {
-  color: var(--text-secondary);
-  background: var(--neutral-subtle);
-}
-
-.tab-item.active {
-  color: var(--text-primary);
-  border-bottom-color: var(--accent-fg);
-}
-
-.tab-icon {
-  font-size: 0.75rem;
-  opacity: 0.7;
-}
-
-.tab-item.active .tab-icon {
-  opacity: 1;
 }
 
 /* ─── Tab Panel ─── */

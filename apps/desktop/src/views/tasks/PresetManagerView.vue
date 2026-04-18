@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ContextSourceType, TaskPreset } from "@tracepilot/types";
-import { formatDate } from "@tracepilot/ui";
+import { formatDate, PageHeader, PageShell, SegmentedControl } from "@tracepilot/ui";
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import PresetDetailSlideover from "@/components/tasks/PresetDetailSlideover.vue";
@@ -22,6 +22,12 @@ const categoryFilter = ref<"all" | "builtin" | "custom">("all");
 const sortBy = ref<"name" | "newest" | "most-used">("name");
 const detailPreset = ref<TaskPreset | null>(null);
 const showDetail = ref(false);
+
+const categoryOptions = [
+  { value: "all", label: "All" },
+  { value: "builtin", label: "Built-in" },
+  { value: "custom", label: "Custom" },
+];
 
 // New preset form
 const newPresetName = ref("");
@@ -372,44 +378,40 @@ function renameConfigKey(
 </script>
 
 <template>
-  <div class="page-content">
-    <div class="page-content-inner">
-      <!-- Title Row -->
-      <div class="page-title-row">
-        <h1 class="page-title">
-          <span class="title-icon-tile">
-            <svg
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.5"
-              width="16"
-              height="16"
-            >
-              <rect x="2" y="2" width="12" height="12" rx="2" />
-              <path d="M5 6h6M5 8.5h4M5 11h2" />
-            </svg>
-          </span>
-          Task Presets
-        </h1>
-        <div class="title-actions">
-          <button class="btn btn--primary" @click="openNewPresetModal">
-            <svg
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              width="14"
-              height="14"
-            >
-              <line x1="8" y1="3" x2="8" y2="13" />
-              <line x1="3" y1="8" x2="13" y2="8" />
-            </svg>
-            New Preset
-          </button>
-        </div>
-      </div>
+  <PageShell>
+    <!-- Title Row -->
+    <PageHeader title="Task Presets" class="preset-manager-header">
+      <template #icon>
+        <svg
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          width="16"
+          height="16"
+        >
+          <rect x="2" y="2" width="12" height="12" rx="2" />
+          <path d="M5 6h6M5 8.5h4M5 11h2" />
+        </svg>
+      </template>
+      <template #actions>
+        <button class="btn btn--primary" @click="openNewPresetModal">
+          <svg
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            width="14"
+            height="14"
+          >
+            <line x1="8" y1="3" x2="8" y2="13" />
+            <line x1="3" y1="8" x2="13" y2="8" />
+          </svg>
+          New Preset
+        </button>
+      </template>
+    </PageHeader>
 
       <!-- Stats Strip -->
       <div class="stats-strip">
@@ -435,17 +437,13 @@ function renameConfigKey(
       </div>
 
       <!-- Category Pills -->
-      <div class="category-pills">
-        <button
-          v-for="cat in (['all', 'builtin', 'custom'] as const)"
-          :key="cat"
-          class="category-pill"
-          :class="{ 'category-pill--active': categoryFilter === cat }"
-          @click="categoryFilter = cat"
-        >
-          {{ cat === "all" ? "All" : cat === "builtin" ? "Built-in" : "Custom" }}
-        </button>
-      </div>
+      <SegmentedControl
+        :model-value="categoryFilter"
+        :options="categoryOptions"
+        rounded="pill"
+        class="category-segmented"
+        @update:model-value="(v) => (categoryFilter = v as typeof categoryFilter.value)"
+      />
 
       <!-- Filter Row -->
       <div class="filter-row">
@@ -1271,54 +1269,13 @@ function renameConfigKey(
         @edit="(p) => { openEditModal(p); closeDetail(); }"
         @delete="(p) => { confirmDelete(p); closeDetail(); }"
       />
-    </div>
-  </div>
+  </PageShell>
 </template>
 
 <style scoped>
-/* ── Title Row ───────────────────────────────────────────── */
-.page-title-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+/* ── Page Header ─────────────────────────────────────────── */
+.preset-manager-header {
   margin-bottom: 4px;
-}
-
-.page-title {
-  font-size: 1.375rem;
-  font-weight: 700;
-  letter-spacing: -0.025em;
-  color: var(--text-primary);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 0;
-  white-space: nowrap;
-}
-
-.title-icon-tile {
-  width: 30px;
-  height: 30px;
-  border-radius: var(--radius-md);
-  background: var(--accent-muted);
-  border: 1px solid var(--border-accent, var(--accent-fg));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--accent-fg);
-  flex-shrink: 0;
-}
-
-.title-icon-tile svg {
-  width: 16px;
-  height: 16px;
-}
-
-.title-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
 }
 
 /* ── Stats Strip ─────────────────────────────────────────── */
@@ -1980,36 +1937,9 @@ function renameConfigKey(
   border-color: var(--border-muted);
 }
 
-/* ── Category Pills ──────────────────────────────────────── */
-.category-pills {
-  display: flex;
-  gap: 4px;
+/* ── Category Pills (SegmentedControl rounded="pill") ────── */
+.category-segmented {
   margin: 12px 0 0;
-}
-
-.category-pill {
-  padding: 5px 12px;
-  border-radius: 9999px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  background: transparent;
-  border: 1px solid var(--border-default);
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  white-space: nowrap;
-  font-family: inherit;
-}
-
-.category-pill:hover {
-  background: var(--canvas-subtle);
-  color: var(--text-primary);
-}
-
-.category-pill--active {
-  background: var(--accent-muted);
-  color: var(--accent-fg);
-  border-color: var(--accent-fg);
 }
 
 /* ── Sort Filter ─────────────────────────────────────────── */

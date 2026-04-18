@@ -14,7 +14,10 @@ import {
   ErrorAlert,
   LoadingSpinner,
   normalizePath,
+  PageHeader,
   shortenPath,
+  StatCard,
+  TabNav,
   truncateText,
   useDismissable,
   useToast,
@@ -73,6 +76,19 @@ function tabCount(key: ConfigTab): number | null {
   if (key === "backups") return store.backups.length;
   return null;
 }
+
+const tabNavItems = computed(() =>
+  tabs.map((t) => {
+    const count = tabCount(t.key);
+    return {
+      name: t.key,
+      routeName: t.key,
+      label: t.label,
+      icon: t.emoji,
+      ...(count !== null ? { count } : {}),
+    };
+  }),
+);
 
 // ── Stat Cards (Agents Tab) ─────────────────────────────────────────────────
 const uniqueModelCount = computed(() => new Set(store.agents.map((a) => a.model)).size);
@@ -428,9 +444,7 @@ onMounted(() => {
       </nav>
 
       <!-- ── Page Header ── -->
-      <div class="page-header">
-        <h1 class="page-title">⚙️ Config Injector</h1>
-      </div>
+      <PageHeader title="⚙️ Config Injector" size="sm" class="config-injector-header" />
 
       <!-- ── Warning Banner ── -->
       <Transition name="banner">
@@ -445,20 +459,13 @@ onMounted(() => {
       </Transition>
 
       <!-- ── Tab Navigation ── -->
-      <nav class="tab-bar">
-        <button
-          v-for="tab in tabs"
-          :key="tab.key"
-          class="tab-btn"
-          :class="{ active: store.activeTab === tab.key }"
-          @click="store.activeTab = tab.key"
-        >
-          {{ tab.emoji }} {{ tab.label }}
-          <span v-if="tabCount(tab.key) !== null" class="tab-badge">
-            {{ tabCount(tab.key) }}
-          </span>
-        </button>
-      </nav>
+      <TabNav
+        :tabs="tabNavItems"
+        :model-value="store.activeTab"
+        staggered
+        class="config-injector-tabs"
+        @update:model-value="(v) => (store.activeTab = v as ConfigTab)"
+      />
 
       <!-- ── Loading State ── -->
       <div v-if="store.loading" class="loading-state">
@@ -472,22 +479,30 @@ onMounted(() => {
       <div v-if="!store.loading && store.activeTab === 'agents'" class="tab-panel">
         <!-- Stat Cards -->
         <div class="stat-grid">
-          <div class="stat-card stat-card--accent">
-            <span class="stat-value">{{ store.agents.length }}</span>
-            <span class="stat-label">Agent Definitions</span>
-          </div>
-          <div class="stat-card stat-card--done">
-            <span class="stat-value">{{ uniqueModelCount }}</span>
-            <span class="stat-label">Unique Models Used</span>
-          </div>
-          <div class="stat-card stat-card--warning">
-            <span class="stat-value">{{ premiumAgentCount }}</span>
-            <span class="stat-label">Premium Agents</span>
-          </div>
-          <div class="stat-card stat-card--success">
-            <span class="stat-value">{{ ALL_MODELS.length }}</span>
-            <span class="stat-label">Models Available</span>
-          </div>
+          <StatCard
+            :value="store.agents.length"
+            label="Agent Definitions"
+            color="accent"
+            label-style="uppercase"
+          />
+          <StatCard
+            :value="uniqueModelCount"
+            label="Unique Models Used"
+            color="done"
+            label-style="uppercase"
+          />
+          <StatCard
+            :value="premiumAgentCount"
+            label="Premium Agents"
+            color="warning"
+            label-style="uppercase"
+          />
+          <StatCard
+            :value="ALL_MODELS.length"
+            label="Models Available"
+            color="success"
+            label-style="uppercase"
+          />
         </div>
 
         <!-- Agent Grid -->
@@ -933,18 +948,9 @@ onMounted(() => {
   color: var(--text-secondary);
 }
 
-/* ── Page Header ─────────────────────────────────────────────────────────── */
-.page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+/* ── Config Injector Header ── (local margin override) */
+.config-injector-header {
   margin-bottom: 16px;
-}
-
-.page-title {
-  font-size: 1.25rem;
-  font-weight: 700;
-  margin: 0;
 }
 
 /* ── Warning Banner ──────────────────────────────────────────────────────── */
@@ -1001,49 +1007,8 @@ onMounted(() => {
 }
 
 /* ── Tab Bar ─────────────────────────────────────────────────────────────── */
-.tab-bar {
-  display: flex;
-  gap: 4px;
-  border-bottom: 1px solid var(--border-default);
+.config-injector-tabs {
   margin-bottom: 24px;
-}
-
-.tab-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  cursor: pointer;
-  transition: color var(--transition-fast), border-color var(--transition-fast);
-}
-
-.tab-btn:hover {
-  color: var(--text-primary);
-}
-
-.tab-btn.active {
-  color: var(--text-primary);
-  border-bottom-color: var(--accent-emphasis);
-}
-
-.tab-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  font-size: 0.6875rem;
-  font-weight: 700;
-  border-radius: var(--radius-full);
-  background: var(--accent-muted);
-  color: var(--accent-fg);
 }
 
 /* ── Loading ─────────────────────────────────────────────────────────────── */
@@ -1073,39 +1038,6 @@ onMounted(() => {
   gap: 14px;
   margin-bottom: 24px;
 }
-
-.stat-card {
-  padding: 16px 18px;
-  border-radius: var(--radius-lg);
-  background: var(--canvas-subtle);
-  border: 1px solid var(--border-muted);
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.stat-value {
-  font-size: 1.5rem;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-}
-
-.stat-label {
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-
-.stat-card--accent .stat-value { color: var(--accent-fg); }
-.stat-card--accent { border-color: var(--accent-muted); }
-.stat-card--done .stat-value { color: var(--done-fg); }
-.stat-card--done { border-color: var(--done-muted); }
-.stat-card--warning .stat-value { color: var(--warning-fg); }
-.stat-card--warning { border-color: var(--warning-muted); }
-.stat-card--success .stat-value { color: var(--success-fg); }
-.stat-card--success { border-color: var(--success-muted); }
 
 /* ── Agent Grid ── */
 .agent-grid {

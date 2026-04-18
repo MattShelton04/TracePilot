@@ -2,6 +2,7 @@
 import {
   ErrorState,
   LoadingSpinner,
+  PageShell,
   SearchInput,
   StatCard,
   useAutoRefresh,
@@ -56,10 +57,9 @@ const hasActiveFilters = computed(
 </script>
 
 <template>
-  <div class="page-content">
-    <div class="page-content-inner">
-      <!-- Title Row -->
-      <div class="page-title-row">
+  <PageShell>
+    <!-- Title Row -->
+    <div class="page-title-row">
         <h1 class="page-title">
           <span class="title-icon-tile">
             <svg
@@ -287,8 +287,7 @@ const hasActiveFilters = computed(
         v-if="!store.loading && !store.error && store.jobs.length > 0"
         :jobs="store.jobs"
       />
-    </div>
-  </div>
+  </PageShell>
 </template>
 
 <style scoped>

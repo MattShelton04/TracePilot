@@ -271,6 +271,20 @@ Revised list (audit overstated gap; these are the *actual* remaining adoption ga
 - `PageHeader` — adopt in `PresetManagerView`, `OrchestratorMonitorView`, `SessionLauncherView`, `ConfigInjectorView`.
 - CSS lint rule flags new usage of raw `.page-content` / `.stat-card` classes.
 
+**Wave 10 status (2026-04): PARTIAL. Wave 11 (2026-04): shared components extended with parity-preserving variants, adoption sweeps complete.**
+
+| Component | Adopted (W10+W11) | Skipped | Notes |
+|---|---:|---:|---|
+| `PageShell` | 13 | 3 | Skipped `ConfigInjectorView` (local `.page-content` padding override), `SessionListView` (template ref on outer wrapper drives drift animation), `McpServerDetailView` / `ExportView` not in scope (PageShell already wraps). |
+| `StatCard` | 3 | 1 | **Wave 11:** added `variant="plain"`, `accentColor`, `customValueClass`, `labelStyle="uppercase"` props. Adopted in `CodeImpactView` (gradient via `customValueClass`), `AnalyticsDashboardView` (4 incident cards via `variant="plain"` + `accentColor`), `ConfigInjectorView` (4 agent-tab cards via `labelStyle="uppercase"`). Skipped `TaskDashboardView` — already wraps shared StatCard, no hand-rolled cards remain. |
+| `TabNav` | 3 | 1 | **Wave 11:** added `icon` field on items, `variant="pill"`, `staggered` prop. Adopted in `ConfigInjectorView` (emoji icons + stagger), `TaskDetailView` (emoji icons + stagger), `ExportView` (pill variant). Skipped `McpServerDetailView` — no tab strip exists. |
+| `PageHeader` | 2 | 2 | **Wave 11:** added `inlineSubtitle`, `size="sm"\|"md"\|"lg"` props. Adopted in `PresetManagerView` (icon + actions slots), `SessionLauncherView` (`size="sm"`), `ConfigInjectorView` (`size="sm"`). Skipped `OrchestratorMonitorView` — header wrapped in `fade-section` with bespoke `page-header` layout (flex row, space-between) distinct from shared PageHeader (flex column, gap:10); wrapping in an outer div preserves fade-section but flips header layout, so skipped to avoid visual regression. `TaskDashboardView` already organises its title row via its own component — out of scope. |
+| `SegmentedControl` | 1 | 0 | **Wave 11:** added `rounded="square"\|"pill"` prop. Adopted in `PresetManagerView` category pills (`rounded="pill"`). |
+| `FilterSelect` | 0 | 1 | `PresetManagerView` uses bespoke `.tag-select` that styles the native `<select>` with custom chevron and height; shared `FilterSelect` has different max-width and border styling. |
+| `SearchInput` | 0 | 1 | `PresetManagerView` search box has custom container height/padding/icon placement distinct from shared SearchInput. |
+
+All Wave 11 variants ship with dedicated vitest coverage (StatCard.test.ts +8 cases, TabNav.extended.test.ts +5 cases, new PageHeader.test.ts and SegmentedControl.test.ts). `@tracepilot/ui` test suite: 778 passed (62 files). `@tracepilot/desktop` test suite: 1221 passed (66 files). `pnpm --filter @tracepilot/desktop typecheck` and `node scripts/check-file-sizes.mjs` both clean.
+
 **Definition of done:** Lint rule bans raw try/catch-in-store, raw `setInterval`, raw `.page-content`/`.stat-card` classes, raw storage key strings, raw route-path strings. No module-level mutable state outside Pinia.
 
 **Risk:** Low — mechanical substitutions, Vitest covers stores.

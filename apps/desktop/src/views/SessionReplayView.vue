@@ -7,7 +7,7 @@
  * renderers, agent grouping, reasoning blocks).
  */
 
-import { Badge, EmptyState, ErrorAlert, SessionCard, SkeletonLoader } from "@tracepilot/ui";
+import { Badge, EmptyState, ErrorAlert, PageShell, SessionCard, SkeletonLoader } from "@tracepilot/ui";
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import ModelSwitchBanner from "@/components/replay/ModelSwitchBanner.vue";
@@ -169,8 +169,7 @@ const totalToolCalls = computed(() =>
 </script>
 
 <template>
-  <div class="page-content">
-    <div class="page-content-inner">
+  <PageShell>
 
       <!-- ═════════════ NO SESSION ID → RECENT SESSIONS PICKER ═════════════ -->
       <template v-if="!sessionId">
@@ -357,8 +356,7 @@ const totalToolCalls = computed(() =>
           :current-step="controller.currentStep.value"
         />
       </template>
-    </div>
-  </div>
+  </PageShell>
 </template>
 
 <style scoped>

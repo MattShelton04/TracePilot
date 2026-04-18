@@ -11,6 +11,7 @@ import {
   MarkdownContent,
   PageShell,
   ProgressBar,
+  TabNav,
   useToast,
 } from "@tracepilot/ui";
 import { computed, onMounted, ref, watch } from "vue";
@@ -69,6 +70,11 @@ const importFlow = useImportFlow();
 
 type TabId = "export" | "import";
 const activeTab = ref<TabId>("export");
+
+const exportTabNavItems = [
+  { name: "export", routeName: "export", label: "Export" },
+  { name: "import", routeName: "import", label: "Import" },
+];
 
 // ── Session Sections Info (which sections actually have data) ─
 
@@ -259,22 +265,13 @@ function copiedToClipboard() {
       <header class="export-header">
         <div class="header-row">
           <h1>Export & Import</h1>
-          <div class="tab-pills">
-            <button
-              class="tab-pill"
-              :class="{ active: activeTab === 'export' }"
-              @click="activeTab = 'export'"
-            >
-              Export
-            </button>
-            <button
-              class="tab-pill"
-              :class="{ active: activeTab === 'import' }"
-              @click="activeTab = 'import'"
-            >
-              Import
-            </button>
-          </div>
+          <TabNav
+            :tabs="exportTabNavItems"
+            :model-value="activeTab"
+            variant="pill"
+            class="export-tab-nav"
+            @update:model-value="(v) => (activeTab = v as TabId)"
+          />
         </div>
         <p class="text-secondary">
           {{ activeTab === 'export'
@@ -805,35 +802,9 @@ function copiedToClipboard() {
   font-size: 0.8rem;
 }
 
-/* ── Tab Pills ─────────────────────────────────────────────── */
-.tab-pills {
-  display: flex;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-}
-.tab-pill {
-  flex: 1;
-  padding: 6px 16px;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  font-family: inherit;
-  background: var(--canvas-subtle);
-  color: var(--text-secondary);
-  border: none;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-.tab-pill:not(:last-child) {
-  border-right: 1px solid var(--border-default);
-}
-.tab-pill:hover {
-  color: var(--text-primary);
-}
-.tab-pill.active {
-  background: var(--accent-muted);
-  color: var(--accent-fg);
-  font-weight: 600;
+/* ── Export Tab Nav (pill variant) ─────────────────────────── */
+.export-tab-nav {
+  align-self: center;
 }
 
 /* ── Export Split Layout ───────────────────────────────────── */

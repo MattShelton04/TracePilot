@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { PageShell } from "@tracepilot/ui";
 import { computed, ref } from "vue";
 import SettingsAbout from "@/components/settings/SettingsAbout.vue";
 import SettingsAlerts from "@/components/settings/SettingsAlerts.vue";
@@ -25,8 +26,8 @@ const databaseSize = computed(() => dataStorageRef.value?.databaseSize ?? "—")
 </script>
 
 <template>
-  <div class="page-content">
-    <div class="page-content-inner settings-root">
+  <PageShell>
+    <div class="settings-root">
       <h1 class="page-title page-title-spaced">Settings</h1>
 
       <SettingsGeneral />
@@ -41,7 +42,7 @@ const databaseSize = computed(() => dataStorageRef.value?.databaseSize ?? "—")
       <SettingsSdk />
       <SettingsAbout :session-count="sessionCount" :database-size="databaseSize" />
     </div>
-  </div>
+  </PageShell>
 </template>
 
 <style scoped>

@@ -14,6 +14,7 @@ import {
   formatDuration,
   formatNumber,
   formatRate,
+  PageShell,
   SectionPanel,
   SkeletonLoader,
   toErrorMessage,
@@ -353,10 +354,9 @@ function exitLabel(m: ShutdownMetrics | null): string {
 </script>
 
 <template>
-  <div class="page-content">
-    <div class="page-content-inner">
-      <!-- Page Title -->
-      <div class="mb-4">
+  <PageShell>
+    <!-- Page Title -->
+    <div class="mb-4">
         <h1 class="page-title">Compare Sessions</h1>
         <p class="page-subtitle">Rich side-by-side session analysis with metric deltas and visual comparisons</p>
       </div>
@@ -683,8 +683,7 @@ function exitLabel(m: ShutdownMetrics | null): string {
           </div>
         </SectionPanel>
       </template>
-    </div>
-  </div>
+  </PageShell>
 </template>
 
 <style scoped>

@@ -4,6 +4,7 @@ import { DEFAULT_MODEL_ID, getTierLabel } from "@tracepilot/types";
 import {
   ErrorAlert,
   formatCost,
+  PageHeader,
   SearchableSelect,
   toErrorMessage,
   truncateText,
@@ -402,10 +403,12 @@ onUnmounted(() => {
       <!-- ═══════════════════ LEFT PANEL ═══════════════════ -->
       <main class="panel-left">
         <!-- Title -->
-        <header class="page-header">
-          <h1 class="page-title">Launch Session</h1>
-          <p class="page-subtitle">Configure and launch a new Copilot CLI session</p>
-        </header>
+        <PageHeader
+          title="Launch Session"
+          subtitle="Configure and launch a new Copilot CLI session"
+          size="sm"
+          class="session-launcher-header"
+        />
 
         <!-- Readiness banner -->
         <div v-if="store && !store.isReady && !store.loading" class="readiness-banner">
@@ -918,21 +921,8 @@ onUnmounted(() => {
 }
 
 /* ── Page Header ─────────────────────────────────────────────────── */
-.page-header {
+.session-launcher-header {
   margin-bottom: 24px;
-}
-
-.page-title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0;
-}
-
-.page-subtitle {
-  font-size: 0.8125rem;
-  color: var(--text-secondary);
-  margin: 4px 0 0;
 }
 
 /* ── Readiness Banner ────────────────────────────────────────────── */

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ErrorState, formatBytes, formatRelativeTime, LoadingOverlay } from "@tracepilot/ui";
+import { ErrorState, formatBytes, formatRelativeTime, LoadingOverlay, PageShell } from "@tracepilot/ui";
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useOrchestrationHomeStore } from "@/stores/orchestrationHome";
@@ -138,9 +138,8 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="page-content">
-    <div class="page-content-inner">
-      <LoadingOverlay :loading="store.loading" message="Loading dashboard…">
+  <PageShell>
+    <LoadingOverlay :loading="store.loading" message="Loading dashboard…">
         <ErrorState v-if="store.error" heading="Failed to load worktrees" :message="store.error" @retry="store.initialize()" />
 
         <!-- Main Content -->
@@ -305,8 +304,7 @@ onUnmounted(() => {
 
       </template>
       </LoadingOverlay>
-    </div>
-  </div>
+  </PageShell>
 </template>
 
 <style scoped>

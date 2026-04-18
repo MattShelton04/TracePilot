@@ -43,6 +43,7 @@ export { default as SkeletonLoader } from "./components/SkeletonLoader.vue";
 export { default as StatCard } from "./components/StatCard.vue";
 export { default as StatusIcon } from "./components/StatusIcon.vue";
 export { default as TabNav } from "./components/TabNav.vue";
+export type { TabNavItem } from "./components/TabNav.vue";
 export { default as TagList } from "./components/TagList.vue";
 export { default as TerminologyLegend } from "./components/TerminologyLegend.vue";
 export { default as ToastContainer } from "./components/ToastContainer.vue";

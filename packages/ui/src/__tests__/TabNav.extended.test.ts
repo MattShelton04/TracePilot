@@ -56,4 +56,52 @@ describe("TabNav ARIA and design system", () => {
     expect(buttons[1].attributes("aria-selected")).toBe("true");
     expect(buttons[0].attributes("aria-selected")).toBe("false");
   });
+
+  it("renders icon when tab has icon field", () => {
+    const iconTabs = [
+      { name: "a", routeName: "a", label: "Agents", icon: "🤖" },
+      { name: "b", routeName: "b", label: "Backups", icon: "💾" },
+    ];
+    const wrapper = mount(TabNav, { props: { tabs: iconTabs } });
+    const icons = wrapper.findAll(".tab-nav-icon");
+    expect(icons.length).toBe(2);
+    expect(icons[0].text()).toBe("🤖");
+    expect(icons[1].text()).toBe("💾");
+  });
+
+  it("omits icon span when tab has no icon", () => {
+    const wrapper = mount(TabNav, { props: { tabs } });
+    expect(wrapper.find(".tab-nav-icon").exists()).toBe(false);
+  });
+
+  it("variant=pill adds pill modifier classes", () => {
+    const wrapper = mount(TabNav, { props: { tabs, variant: "pill" } });
+    expect(wrapper.find(".tab-nav").classes()).toContain("tab-nav--pill");
+    const buttons = wrapper.findAll("button");
+    for (const btn of buttons) {
+      expect(btn.classes()).toContain("tab-nav-item--pill");
+    }
+  });
+
+  it("default variant does not apply pill classes", () => {
+    const wrapper = mount(TabNav, { props: { tabs } });
+    expect(wrapper.find(".tab-nav").classes()).not.toContain("tab-nav--pill");
+    expect(wrapper.findAll("button")[0].classes()).not.toContain("tab-nav-item--pill");
+  });
+
+  it("staggered=true sets --stagger CSS custom property per tab", () => {
+    const wrapper = mount(TabNav, { props: { tabs, staggered: true } });
+    const buttons = wrapper.findAll("button");
+    expect(buttons[0].attributes("style") ?? "").toContain("--stagger: 0ms");
+    expect(buttons[1].attributes("style") ?? "").toContain("--stagger: 50ms");
+    expect(buttons[2].attributes("style") ?? "").toContain("--stagger: 100ms");
+  });
+
+  it("staggered defaults to false (no --stagger style)", () => {
+    const wrapper = mount(TabNav, { props: { tabs } });
+    const buttons = wrapper.findAll("button");
+    for (const btn of buttons) {
+      expect(btn.attributes("style") ?? "").not.toContain("--stagger");
+    }
+  });
 });

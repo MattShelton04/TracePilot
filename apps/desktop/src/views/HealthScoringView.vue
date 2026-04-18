@@ -5,7 +5,7 @@
 
 import { getHealthScores } from "@tracepilot/client";
 import type { HealthScoringData } from "@tracepilot/types";
-import { ErrorState, HealthRing, LoadingOverlay, StatCard, toErrorMessage } from "@tracepilot/ui";
+import { ErrorState, HealthRing, LoadingOverlay, PageShell, StatCard, toErrorMessage } from "@tracepilot/ui";
 import { computed, onMounted, ref } from "vue";
 import StubBanner from "@/components/StubBanner.vue";
 
@@ -40,9 +40,8 @@ function severityLabel(severity: "warning" | "danger"): string {
 </script>
 
 <template>
-  <div class="page-content">
-    <div class="page-content-inner">
-      <StubBanner />
+  <PageShell>
+    <StubBanner />
       <!-- Error state -->
       <ErrorState v-if="error" heading="Failed to load health scores" :message="error" @retry="reload" />
 
@@ -119,8 +118,7 @@ function severityLabel(severity: "warning" | "danger"): string {
         </section>
       </template>
       </LoadingOverlay>
-    </div>
-  </div>
+  </PageShell>
 </template>
 
 <style scoped>

@@ -2,6 +2,7 @@
 import {
   ErrorState,
   LoadingSpinner,
+  PageShell,
   SectionPanel,
   StatCard,
   useAutoRefresh,
@@ -242,10 +243,9 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="page-content">
-    <div class="page-content-inner">
-      <!-- Header -->
-      <div class="page-header fade-section" style="--stagger: 0">
+  <PageShell>
+    <!-- Header -->
+    <div class="page-header fade-section" style="--stagger: 0">
         <h1 class="page-title">Orchestrator Monitor</h1>
         <div class="header-actions">
           <div
@@ -704,8 +704,7 @@ onUnmounted(() => {
           </div>
         </SectionPanel>
       </template>
-    </div>
-  </div>
+  </PageShell>
 </template>
 
 <style scoped>

@@ -77,4 +77,66 @@ describe("StatCard", () => {
     });
     expect(wrapper.text()).toContain("$12.50");
   });
+
+  it("variant=plain suppresses value color class", () => {
+    const wrapper = mount(StatCard, {
+      props: { value: 5, label: "Errors", variant: "plain" },
+    });
+    const value = wrapper.find(".stat-card-value");
+    expect(value.classes()).not.toContain("accent");
+    expect(value.classes()).not.toContain("success");
+    expect(value.classes()).not.toContain("warning");
+    expect(value.classes()).not.toContain("danger");
+    expect(value.classes()).not.toContain("done");
+  });
+
+  it("variant=plain still honors gradient", () => {
+    const wrapper = mount(StatCard, {
+      props: { value: 5, label: "Total", variant: "plain", gradient: true },
+    });
+    expect(wrapper.find(".stat-card-value").classes()).toContain("gradient-value");
+  });
+
+  it("applies accentColor as left border inline style", () => {
+    const wrapper = mount(StatCard, {
+      props: { value: 3, label: "Rate Limits", accentColor: "var(--warning-fg)" },
+    });
+    const style = wrapper.find(".stat-card").attributes("style") ?? "";
+    expect(style).toContain("border-left");
+    expect(style).toContain("var(--warning-fg)");
+  });
+
+  it("appends customValueClass to the value element", () => {
+    const wrapper = mount(StatCard, {
+      props: { value: "+42", label: "Lines", customValueClass: "lines-added-value" },
+    });
+    expect(wrapper.find(".stat-card-value").classes()).toContain("lines-added-value");
+  });
+
+  it("customValueClass applies alongside color class", () => {
+    const wrapper = mount(StatCard, {
+      props: { value: 1, label: "X", customValueClass: "custom", color: "success" },
+    });
+    const classes = wrapper.find(".stat-card-value").classes();
+    expect(classes).toContain("custom");
+    expect(classes).toContain("success");
+  });
+
+  it("labelStyle=uppercase adds modifier class to label", () => {
+    const wrapper = mount(StatCard, {
+      props: { value: 1, label: "Agents", labelStyle: "uppercase" },
+    });
+    expect(wrapper.find(".stat-card-label").classes()).toContain(
+      "stat-card-label--uppercase",
+    );
+  });
+
+  it("labelStyle defaults to default (no uppercase modifier)", () => {
+    const wrapper = mount(StatCard, {
+      props: { value: 1, label: "Agents" },
+    });
+    expect(wrapper.find(".stat-card-label").classes()).not.toContain(
+      "stat-card-label--uppercase",
+    );
+  });
 });

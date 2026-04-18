@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { PromptVariable, SessionListItem, TaskPreset } from "@tracepilot/types";
-import { ErrorState, LoadingSpinner, SectionPanel, useToast } from "@tracepilot/ui";
+import { ErrorState, LoadingSpinner, PageShell, SectionPanel, useToast } from "@tracepilot/ui";
 import { computed, onMounted, reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { usePresetsStore } from "@/stores/presets";
@@ -259,10 +259,9 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="page-content">
-    <div class="page-content-inner">
-      <!-- Header -->
-      <div class="wizard-header">
+  <PageShell>
+    <!-- Header -->
+    <div class="wizard-header">
         <button class="back-btn" @click="goBack" title="Go back">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
             <path
@@ -728,8 +727,7 @@ onMounted(async () => {
           </div>
         </Transition>
       </template>
-    </div>
-  </div>
+  </PageShell>
 </template>
 
 <style scoped>

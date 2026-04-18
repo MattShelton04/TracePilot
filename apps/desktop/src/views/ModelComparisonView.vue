@@ -6,6 +6,7 @@ import {
   formatNumber,
   formatPercent,
   LoadingOverlay,
+  PageShell,
   StatCard,
 } from "@tracepilot/ui";
 import { computed, ref, watch } from "vue";
@@ -415,10 +416,9 @@ const compareMetrics = computed<CompareMetric[]>(() => {
 </script>
 
 <template>
-  <div class="page-content">
-    <div class="page-content-inner">
-      <AnalyticsPageHeader title="Model Comparison" :subtitle="pageSubtitle" />
-      <LoadingOverlay :loading="loading" message="Loading model comparison…">
+  <PageShell>
+    <AnalyticsPageHeader title="Model Comparison" :subtitle="pageSubtitle" />
+    <LoadingOverlay :loading="loading" message="Loading model comparison…">
         <ErrorState v-if="store.analyticsError" heading="Failed to load model comparison" :message="store.analyticsError" @retry="store.fetchAnalytics({ force: true })" />
 
         <template v-else-if="data">
@@ -788,8 +788,7 @@ const compareMetrics = computed<CompareMetric[]>(() => {
           </template>
         </template>
       </LoadingOverlay>
-    </div>
-  </div>
+  </PageShell>
 </template>
 
 <style scoped>

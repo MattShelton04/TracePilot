@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { SkillImportResult } from "@tracepilot/types";
-import { PageHeader, useConfirmDialog } from "@tracepilot/ui";
+import { PageHeader, PageShell, useConfirmDialog } from "@tracepilot/ui";
 import { computed, onMounted, ref } from "vue";
 import SkillCard from "@/components/skills/SkillCard.vue";
 import SkillImportWizard from "@/components/skills/SkillImportWizard.vue";
@@ -70,9 +70,8 @@ async function handleDeleteSkill(dir: string) {
 </script>
 
 <template>
-  <div class="page-content">
-    <div class="page-content-inner">
-      <PageHeader title="Skills">
+  <PageShell>
+    <PageHeader title="Skills">
         <template #icon>
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16">
             <path d="M9 1L5 9h4l-2 6 6-8H9l2-6z"/>
@@ -240,8 +239,7 @@ async function handleDeleteSkill(dir: string) {
         @close="showImportWizard = false"
         @imported="handleImported"
       />
-    </div>
-  </div>
+  </PageShell>
 </template>
 
 <style scoped>
