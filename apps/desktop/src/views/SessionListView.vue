@@ -18,6 +18,7 @@ import RefreshToolbar from "@/components/RefreshToolbar.vue";
 import { useIndexingEvents } from "@/composables/useIndexingEvents";
 import { usePerfMonitor } from "@/composables/usePerfMonitor";
 import { ROUTE_NAMES } from "@/config/routes";
+import { pushRoute } from "@/router/navigation";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { type SortOption, useSessionsStore } from "@/stores/sessions";
@@ -128,7 +129,7 @@ function openSession(event: MouseEvent, sessionId: string, label: string) {
     return;
   }
   // Default click → route-based navigation (legacy)
-  router.push({ name: ROUTE_NAMES.sessionOverview, params: { id: sessionId } });
+  pushRoute(router, ROUTE_NAMES.sessionOverview, { params: { id: sessionId } });
 }
 </script>
 

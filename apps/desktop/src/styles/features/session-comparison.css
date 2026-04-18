@@ -328,6 +328,7 @@
   height: 10px;
   border-radius: 2px;
   flex-shrink: 0;
+  background: var(--swatch-color);
 }
 
 /* ── Tool Usage ── */

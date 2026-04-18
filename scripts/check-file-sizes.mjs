@@ -105,7 +105,6 @@ const ALLOWLIST = new Set([
 
   // ── TypeScript helpers ──────────────────────────────────────────
   "apps/cli/src/lib/version-analyzer.ts",
-  "packages/client/src/index.ts",
   "packages/client/src/mock/index.ts",
   "packages/ui/src/utils/syntaxHighlight.ts",
 

@@ -3,8 +3,7 @@ import { checkConfigExists, getConfig, saveConfig } from "@tracepilot/client";
 import { ConfirmDialog, ToastContainer } from "@tracepilot/ui";
 import { computed, onMounted, provide, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import ErrorBoundary from "@/components/ErrorBoundary.vue";
-import IndexingLoadingScreen from "@/components/IndexingLoadingScreen.vue";
+import ErrorBoundary from "@/components/ErrorBoundary.vue";import IndexingLoadingScreen from "@/components/IndexingLoadingScreen.vue";
 import AlertCenterDrawer from "@/components/layout/AlertCenterDrawer.vue";
 import AppSidebar from "@/components/layout/AppSidebar.vue";
 import BreadcrumbNav from "@/components/layout/BreadcrumbNav.vue";
@@ -15,12 +14,15 @@ import SetupWizard from "@/components/SetupWizard.vue";
 import UpdateInstructionsModal from "@/components/UpdateInstructionsModal.vue";
 import WhatsNewModal from "@/components/WhatsNewModal.vue";
 import { initAppVersion, useAppVersion } from "@/composables/useAppVersion";
+import { useBreadcrumbs } from "@/composables/useBreadcrumbs";
 import { runUpdateCheck } from "@/composables/useUpdateCheck";
 import { useAlertWatcher } from "@/composables/useAlertWatcher";
 import { registerNotificationClickHandler } from "@/composables/useAlertDispatcher";
 import { resolveWindowRole, useWindowRole } from "@/composables/useWindowRole";
 import { useWhatsNew } from "@/composables/useWhatsNew";
 import { useWindowLifecycle } from "@/composables/useWindowLifecycle";
+import { pushRoute } from "@/router/navigation";
+import { ROUTE_NAMES } from "@/config/routes";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSessionsStore } from "@/stores/sessions";
 import { useSessionTabsStore } from "@/stores/sessionTabs";
@@ -215,7 +217,7 @@ watch(
     if (tab && !isSessionRoute.value) {
       // Suppress the route watcher so it doesn't immediately deactivate
       suppressTabDeactivation = true;
-      router.push("/").finally(() => {
+      pushRoute(router, ROUTE_NAMES.sessions).finally(() => {
         suppressTabDeactivation = false;
       });
     }
@@ -224,43 +226,10 @@ watch(
 
 function onTabGoHome() {
   tabStore.deactivateAll();
-  router.push("/");
+  pushRoute(router, ROUTE_NAMES.sessions);
 }
 
-const breadcrumbs = computed(() => {
-  const crumbs: { label: string; to?: string }[] = [{ label: "Sessions", to: "/" }];
-
-  // Tab mode: breadcrumbs reflect the active tab
-  if (isTabViewActive.value) {
-    const tab = tabStore.activeTab!;
-    crumbs.push({ label: tab.label });
-    return crumbs;
-  }
-
-  if (route.name === "sessions" || route.name === "not-found") {
-    return [{ label: "Sessions" }];
-  }
-
-  // Session detail pages (legacy route mode)
-  if (route.params.id) {
-    const detail = sessionsStore.sessions.find((s) => s.id === route.params.id);
-    const sessionLabel =
-      detail?.summary?.slice(0, 40) || `Session ${String(route.params.id).slice(0, 8)}`;
-    crumbs.push({ label: sessionLabel, to: `/session/${route.params.id}/overview` });
-
-    if (route.meta?.title && route.meta.title !== "Session Detail") {
-      crumbs.push({ label: route.meta.title as string });
-    }
-    return crumbs;
-  }
-
-  // Top-level pages
-  if (route.meta?.title) {
-    return [{ label: route.meta.title as string }];
-  }
-
-  return crumbs;
-});
+const { breadcrumbs } = useBreadcrumbs(isTabViewActive);
 </script>
 
 <template>

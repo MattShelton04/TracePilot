@@ -59,14 +59,14 @@ const ctx = useModelComparisonContext();
               <th>Metric</th>
               <th>
                 <span class="model-name-cell">
-                  <span class="model-dot" :style="{ background: ctx.compareRowA?.color }" />
+                  <span class="model-dot" :style="{ '--model-color': ctx.compareRowA?.color }" />
                   {{ ctx.compareA }}
                 </span>
               </th>
               <th>Delta</th>
               <th>
                 <span class="model-name-cell">
-                  <span class="model-dot" :style="{ background: ctx.compareRowB?.color }" />
+                  <span class="model-dot" :style="{ '--model-color': ctx.compareRowB?.color }" />
                   {{ ctx.compareB }}
                 </span>
               </th>

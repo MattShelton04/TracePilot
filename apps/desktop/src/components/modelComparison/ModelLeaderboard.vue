@@ -112,7 +112,7 @@ const ctx = useModelComparisonContext();
           <tr v-for="row in ctx.displayRows" :key="row.model">
             <td>
               <span class="model-name-cell">
-                <span class="model-dot" :style="{ background: row.color }" />
+                <span class="model-dot" :style="{ '--model-color': row.color }" />
                 {{ row.model }}
               </span>
             </td>
@@ -126,7 +126,7 @@ const ctx = useModelComparisonContext();
                 <div class="inline-progress-bar">
                   <div
                     class="inline-progress-fill"
-                    :style="{ width: `${row.percentage}%`, background: row.color }"
+                    :style="{ '--fill-width': `${row.percentage}%`, '--model-color': row.color }"
                   />
                 </div>
               </div>

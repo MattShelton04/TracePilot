@@ -45,6 +45,7 @@
   border-radius: 50%;
   flex-shrink: 0;
   display: inline-block;
+  background: var(--model-color);
 }
 
 .model-comparison-feature .model-card-stats {
@@ -76,6 +77,8 @@
   height: 100%;
   border-radius: 3px;
   transition: width 0.3s ease;
+  width: var(--fill-width);
+  background: var(--model-color);
 }
 .model-comparison-feature .token-share-label {
   font-size: 0.6875rem;
@@ -151,6 +154,8 @@
   height: 100%;
   border-radius: 3px;
   transition: width 0.3s ease;
+  width: var(--fill-width);
+  background: var(--model-color);
 }
 
 /* ── Scrollable Sections ──────────────────────────────────── */
@@ -178,6 +183,7 @@
   height: 10px;
   border-radius: 50%;
   margin-right: 5px;
+  background: var(--model-color);
 }
 
 .model-comparison-feature .chart-placeholder {

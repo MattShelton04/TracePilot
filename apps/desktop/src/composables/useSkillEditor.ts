@@ -14,6 +14,7 @@ import {
 import { useRoute, useRouter } from "vue-router";
 import { browseForFile } from "@/composables/useBrowseDirectory";
 import { ROUTE_NAMES } from "@/config/routes";
+import { pushRoute } from "@/router/navigation";
 import { useSkillsStore } from "@/stores/skills";
 import { logWarn } from "@/utils/logger";
 import { parseSkillContent, serializeSkillContent } from "@/utils/skillFrontmatter";
@@ -186,7 +187,7 @@ export function useSkillEditor() {
     const ok = await store.deleteSkill(skillDir.value);
     deleting.value = false;
     if (ok) {
-      router.push({ name: ROUTE_NAMES.skillsManager });
+      pushRoute(router, ROUTE_NAMES.skillsManager);
     }
   }
 
@@ -285,7 +286,7 @@ export function useSkillEditor() {
   }
 
   function goBack() {
-    router.push({ name: ROUTE_NAMES.skillsManager });
+    pushRoute(router, ROUTE_NAMES.skillsManager);
   }
 
   // ─── Markdown toolbar ─────────────────────────────────────

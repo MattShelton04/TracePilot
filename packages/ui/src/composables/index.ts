@@ -3,6 +3,16 @@ export type {
   AsyncGuardToken,
 } from "./useAsyncGuard";
 export { useAsyncGuard } from "./useAsyncGuard";
+export type {
+  UseAsyncDataOptions,
+  UseAsyncDataReturn,
+} from "./useAsyncData";
+export { useAsyncData } from "./useAsyncData";
+export type {
+  CachedFetchOptions,
+  CachedFetchResult,
+} from "./useCachedFetch";
+export { useCachedFetch } from "./useCachedFetch";
 export type { AutoRefreshOptions } from "./useAutoRefresh";
 export { useAutoRefresh } from "./useAutoRefresh";
 export type {

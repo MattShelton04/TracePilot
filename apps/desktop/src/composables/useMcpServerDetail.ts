@@ -9,6 +9,7 @@ import {
 } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ROUTE_NAMES } from "@/config/routes";
+import { pushRoute } from "@/router/navigation";
 import { useMcpStore } from "@/stores/mcp";
 
 /**
@@ -154,7 +155,7 @@ export function useMcpServerDetail() {
     deleting.value = false;
     if (ok) {
       toastSuccess(`Server "${serverName.value}" removed`);
-      router.push({ name: ROUTE_NAMES.mcpManager });
+      pushRoute(router, ROUTE_NAMES.mcpManager);
     } else {
       toastError(store.error ?? "Failed to remove server");
     }
@@ -230,7 +231,7 @@ export function useMcpServerDetail() {
   }
 
   function goBack() {
-    router.push({ name: ROUTE_NAMES.mcpManager });
+    pushRoute(router, ROUTE_NAMES.mcpManager);
   }
 
   return {

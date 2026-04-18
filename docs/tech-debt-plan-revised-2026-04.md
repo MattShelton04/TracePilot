@@ -442,17 +442,17 @@ Each decomposition extracts 3–6 children, moves CSS > 500 LOC to `styles/featu
 | ~~stores/preferences.ts~~ | ~~548~~ | ✅ Slices: `uiPrefs`, `pricingPrefs`, `alertsPrefs`, `featureFlags` (Wave 42)[^wave42] |
 | useAlertWatcher.ts | 451 | Pinia store (done in 2.2) |
 
-### 4.4 Styling cleanup
+### 4.4 Styling cleanup — 🟡 PARTIAL (wave 47)[^wave47]
 
-- Replace static `:style="{ background: CHART_COLORS.x }"` with class + `--color` CSS custom property.
-- Remove hardcoded hex fallbacks (`SearchResultCard.vue`, `designTokens.ts:65-78`, `SearchGroupedResults.vue`, `App.vue:339`).
-- Drop `'unsafe-inline'` from Tauri CSP `style-src` (`tauri.conf.json:23-24`) once ≤ 10 `:style` remain; desktop smoke must stay green.
+- ~~Replace static `:style="{ background: CHART_COLORS.x }"` with class + `--color` CSS custom property.~~ _(wave 47 — highest-concentration SFCs migrated)_
+- ~~Remove hardcoded hex fallbacks (`SearchResultCard.vue`, `SearchGroupedResults.vue`).~~ _(wave 47; `designTokens.ts:65-78`, `App.vue:339` deferred — may be intentional defaults)_
+- Drop `'unsafe-inline'` from Tauri CSP `style-src` (`tauri.conf.json:23-24`) once ≤ 10 `:style` remain; desktop smoke must stay green. _(deferred — dedicated security wave)_
 
-### 4.5 Router improvements
+### 4.5 Router improvements — 🟡 PARTIAL (wave 47)[^wave47]
 
-- Adopt `ROUTES` registry + `pushRoute` helper across 10+ call sites.
-- Extract breadcrumb logic from `App.vue:237-270` into `useBreadcrumbs.ts`.
-- Extract bootstrap phase state-machine (`App.vue:39 AppPhase`) into `useBootstrapPhase()`.
+- ~~Adopt `ROUTES` registry + `pushRoute` helper across 10+ call sites.~~ _(wave 47 — `pushRoute` helper added at `router/navigation.ts`; 10 call sites migrated)_
+- ~~Extract breadcrumb logic from `App.vue:237-270` into `useBreadcrumbs.ts`.~~ _(wave 47)_
+- Extract bootstrap phase state-machine (`App.vue:39 AppPhase`) into `useBootstrapPhase()`. _(deferred — touches bootstrap, separate wave)_
 
 **Definition of done:** No Vue SFC > 1000 LOC; no style block > 500 LOC; all mega-SFC PRs pass visual-regression + a11y; CSP hardened.
 
@@ -484,6 +484,12 @@ Each decomposition extracts 3–6 children, moves CSS > 500 LOC to `styles/featu
 
 [^wave44]: Wave 44 — decomposed `bridge/manager.rs` (1301 LOC incl. tests) into a directory module at `bridge/manager/` with eight files, each ≤ 347 LOC (`mod.rs` 198 holds the struct + constructor + accessors + private helpers; `lifecycle.rs` 109 for connect/disconnect; `session_tasks.rs` 347 for create/resume/send/abort/unlink/destroy/set-mode + `spawn_event_forwarder`; `session_model.rs` 97 split out to stay under the 400-LOC submodule cap because `set_session_model` carries the full raw-RPC TCP path; `queries.rs` 148 for list/quota/auth/cli-status/models; `raw_rpc.rs` 127 for Content-Length JSON-RPC framing; `ui_server.rs` 98 for foreground-session helpers + `launch_ui_server`; `tests.rs` 274 for all existing unit tests). Every submodule provides `impl BridgeManager` blocks so the public surface stays a single flat type — **all 24 public methods and the free `launch_ui_server` keep byte-identical signatures**. Fields are default-private (Rust privacy rules grant descendants access) and marked `pub(super)` for clarity. Preserved: `.creation_flags(0x08000000)` CMD-flash prevention on Windows (via `crate::process::spawn_detached_terminal`), SDK stdio-vs-cli_url distinction, `session.resume` never auto-called, `isActive` gate. `cargo check`/`test -p tracepilot-orchestrator` (17 bridge tests passing) and `cargo check -p tracepilot-tauri-bindings` all green; clippy on orchestrator only reports 3 pre-existing warnings carried byte-for-byte from the original file (`field_reassign_with_default` on `SessionConfig`, `collapsible_if` in `resume_session`). Core-crate clippy failures are unrelated.
 
+[^wave45]: Wave 45 — decomposed `packages/client/src/index.ts` (798 LOC) into six domain modules plus a thin barrel, each well under the 350-LOC per-file cap: **`sessions.ts`** (111 LOC — `listSessions`, `getSessionDetail`, `getSessionIncidents`, `getSessionTurns`, `checkSessionFreshness`, `getSessionEvents`, `getSessionTodos`, `getSessionCheckpoints`, `getSessionPlan`, `getShutdownMetrics`, `searchSessions`, `getSessionSections`, `getToolResult`, `resumeSessionInTerminal`, `openSessionWindow`, `closeSessionWindow`), **`search.ts`** (104 LOC — FTS commands + the `FtsHealthInfo` and `ContextSnippet` interfaces kept at their original import paths via `export *`), **`analytics.ts`** (62 LOC — `getAnalytics`, `getToolAnalysis`, `getCodeImpact`, `getHealthScores`), **`export.ts`** (53 LOC — `exportSessions`, `previewExport`, `previewImport`, `importSessions`), **`config.ts`** (44 LOC — `checkConfigExists`, `getConfig`, `saveConfig`, `validateSessionDir`, `isSessionRunning`, `checkForUpdates`, `getInstallType`, `getGitInfo`), **`maint.ts`** (39 LOC — `reindexSessions`, `reindexSessionsFull`, `rebuildSearchIndex`, `getDbSize`, `getSessionCount`, `factoryReset`, `getLogPath`, `exportLogs`), **`tasks.ts`** (106 LOC — full `task_*` surface). The 280-line `getMockData` fallback map moved verbatim to `internal/mockData.ts` (328 LOC); a shared invoke instance lives in `internal/core.ts` (7 LOC) so every domain module reuses the same `createInvoke("Core", getMockData)` singleton. The new `index.ts` is a 24-line barrel that `export *`s the seven domain modules plus the pre-existing `mcp`/`orchestration`/`sdk`/`skills`/`commands`/IPC-perf re-exports and the `SessionHealth` type re-export — **the exported symbol set is identical to pre-split (all 69 direct exports plus the type re-exports verified byte-for-byte via a diff of `export` declarations)**. Also landed the `toRustOptional(v) => v ?? null` helper at `internal/optional.ts` and wired it into three quick-win call sites (`getSessionEvents`' `eventType`, `openSessionWindow`'s `sessionName`, `taskOrchestratorStart`'s `model`); the remaining 17-ish `?? null` sites are left for a follow-up wave. `getHealthScores` retained (not a no-op stub — `HealthScoringView.vue` consumes it) with a clarifying comment; `mcpListServers` tuple-wrapping, `AbortSignal`/timeout support, and the `window.__TRACEPILOT_IPC_PERF__` side-effect import explicitly deferred per task brief. Validation: `pnpm --filter @tracepilot/client typecheck` (only pre-existing `generated.drift.test.ts` errors — unchanged from baseline), `pnpm --filter @tracepilot/client test` (5/5 passing, including the IPC command contract), `pnpm --filter @tracepilot/desktop typecheck` (green — consumer surface preserved), `pnpm --filter @tracepilot/desktop test` (1624/1624 passing), `node scripts\check-file-sizes.mjs` (green; `packages/client/src/index.ts` removed from allowlist).
+
+[^wave46]: Wave 46 — safe subset of Plan §5.3 / §5.4 / §5.6. **§5.3** Promoted `apps/desktop/src/composables/useAsyncData.ts` (122 LOC) and `useCachedFetch.ts` (328 LOC) into `packages/ui/src/composables/`; the two desktop files are now thin re-export shims (≤ 15 LOC each) from `@tracepilot/ui` so every existing `@/composables/{useAsyncData,useCachedFetch}` call site keeps compiling — no mass-migration attempted. `useCachedFetch`'s defensive callback-error logging was swapped from the desktop-only `logError` (`@/utils/logger`) to `console.error` so the composable no longer depends on the desktop app; this preserves observable behaviour for existing tests (which spy on `console.error`) and keeps Tauri-only backend log dispatch out of the shared package. The `@tracepilot/ui` barrel (`packages/ui/src/index.ts`, 80 → 201 LOC) was converted from a mixed `export *` + explicit-named style to a fully explicit named style (renderers, composables, and nine util modules enumerated); `packages/ui/src/composables/index.ts` gained explicit re-exports for the two newly-promoted composables. **§5.4** `packages/types/package.json` gained `"sideEffects": false`; `packages/types/src/index.ts` replaced all 17 `export *` wildcards (plus the two already-explicit entries) with explicit named re-exports — **export set verified byte-for-byte via TS `getExportsOfModule` (215 exports before / 215 after, zero added / zero removed)**. `ipc-events.js`, `known-events.js`, and the `utils/formatters.js` re-export surface were preserved untouched. **§5.6** `"sideEffects": false` added to `packages/client/package.json` (no side-effect imports in its barrel). `packages/ui/package.json` uses `"sideEffects": ["**/*.css"]` because `tokens.css` is shipped via the `./tokens.css` subpath export (the main barrel itself has no CSS side-effects, but the CSS-in-subpath pattern makes `false` unsafe for future bundlers). Deferred (explicit non-goals per task brief): `useTheme`/`useKeyboard`/`useLocalStorage` (don't exist yet — deferred to a later wave), `useToast` provide/inject migration (behavioural), `markdown-it`/`dompurify` `peerDependenciesMeta.*.optional` (they are listed under `dependencies`, not `peerDependencies`, so the flag would be a no-op), `formatters.ts` back-compat shim removal (awaits call-site migration), `IPC_EVENTS` move to `@tracepilot/client`, manual-mirror deletion (awaits codegen), types invariant tests, package READMEs, subpath exports, and the `@tracepilot/config` drop-or-grow decision. Validation: `pnpm --filter @tracepilot/types typecheck` ✅, `pnpm --filter @tracepilot/ui typecheck` (vue-tsc) ✅, `pnpm --filter @tracepilot/desktop typecheck` ✅, `pnpm --filter @tracepilot/desktop test` (120 files / 1624 tests passing) ✅, `pnpm --filter @tracepilot/desktop build` ✅, `node scripts\check-file-sizes.mjs` (61 pre-existing allow-listed violations, no new violations) ✅. `pnpm -r typecheck` fails only in `packages/client`'s pre-existing `generated.drift.test.ts` drift check (unchanged from wave 45 baseline — out of scope).
+
+[^wave47]: Wave 47 — safe subset of Plan §4.4 + §4.5. **§4.4 Styling** Converted the highest-concentration dynamic-color inline styles to the `class + --custom-property` pattern across seven surfaces: `components/search/SearchResultCard.vue` (4 sites — `.ct-badge` now reads `--ct-bg`/`--ct-fg`; `.context-type-dot` reads `--dot-color`, falling back to `var(--text-tertiary)` so the previous `?? '#888'` hardcoded hex fallbacks could be removed), `components/search/SearchGroupedResults.vue` (1 `.ct-badge` site, same `--ct-bg`/`--ct-fg` pattern), the four `components/modelComparison/{ModelStatsGrid,ModelLeaderboard,ModelCharts,ModelCompareTable}.vue` files (7 sites total — `.model-dot`/`.legend-dot`/`.token-share-fill`/`.inline-progress-fill` now read `--model-color` and `--fill-width`, with the matching `width`/`background` declarations added once to `styles/features/model-comparison.css`), and `components/sessionComparison/ComparisonMetrics.vue` (2 `.donut-swatch` sites reading `--swatch-color`, backed by a single declaration in `styles/features/session-comparison.css`). Hex fallbacks in `designTokens.ts:65-78` and `App.vue:339` explicitly deferred — may be intentional defaults. **§4.5 Router** Added `apps/desktop/src/router/navigation.ts` exporting a typed `pushRoute(router, name, { params, query, hash, replace })` helper keyed to the existing `ROUTE_NAMES` registry (no new registry needed — `config/routes.ts` already exists), plus four vitest unit tests at `__tests__/router/pushRoute.test.ts`. Migrated 10 `router.push(...)` call sites to `pushRoute`: `App.vue` (×2 — both `router.push("/")` now named-route `ROUTE_NAMES.sessions`), `views/SessionListView.vue`, `views/SessionDetailView.vue`, `views/SessionReplayView.vue` (×2), `components/mcp/McpServerCard.vue`, `components/skills/SkillCard.vue` (also replaced the stringly-typed `name: "skill-editor"` with `ROUTE_NAMES.skillEditor`), `composables/useMcpServerDetail.ts` (×2), `composables/useSkillEditor.ts` (×2). Breadcrumb logic extracted from `App.vue:230-263` into `apps/desktop/src/composables/useBreadcrumbs.ts` (66 LOC); `App.vue` consumption is the expected one-liner `const { breadcrumbs } = useBreadcrumbs(isTabViewActive)`. Output labels, ordering, and `to` paths preserved byte-for-byte. **Explicit deferrals**: CSP `'unsafe-inline'` removal from `tauri.conf.json` (dedicated security-review wave), `designTokens.ts:65-78` + `App.vue:339` hex fallback cleanup (intentional defaults — separate review), `AppPhase` state-machine extraction (touches bootstrap lifecycle). Validation: `pnpm --filter @tracepilot/desktop typecheck` ✅, `pnpm --filter @tracepilot/desktop test` (121 files / 1628 tests passing — baseline 1624 + 4 new `pushRoute` tests) ✅, `pnpm --filter @tracepilot/desktop build` ✅, `node scripts\check-file-sizes.mjs` (61 pre-existing allow-listed violations, no new violations) ✅.
+
 ---
 
 ## Phase 3-polish — Generics, newtypes, polish 🟡
@@ -505,11 +511,11 @@ Each decomposition extracts 3–6 children, moves CSS > 500 LOC to `styles/featu
 
 ### 5.1 `@tracepilot/client`
 
-- Split `src/index.ts` (~798 LOC) into `src/{search,sessions,tasks,config,maint,export}.ts` using the per-domain pattern.
+- ~~Split `src/index.ts` (~798 LOC) into `src/{search,sessions,tasks,config,maint,export}.ts` using the per-domain pattern.~~ ✅ Wave 45[^wave45]
 - Move `FtsHealthInfo`, `ContextSnippet`, `SessionHealth` back to `@tracepilot/types/src/search.ts`.
 - Delete `getHealthScores` stub or guard behind `isTauri`.
 - Consistent mock fallback (`sdk.ts`, `mcp.ts`, `skills.ts`) — or extract all mocks into `@tracepilot/client-mocks` opt-in package.
-- `toRustOptional(v) => v ?? null` helper replaces 20+ `?? null`.
+- ~~`toRustOptional(v) => v ?? null` helper replaces 20+ `?? null`.~~ ✅ Wave 45[^wave45] (helper landed; quick-win call-site migration only — remaining `?? null` sites deferred)
 - `mcpListServers` returns `Record<string, McpServerConfig>` (wrap tuple response).
 - `AbortSignal`/timeout support in `createInvoke`.
 - Replace `window.__TRACEPILOT_IPC_PERF__` side-effect import with explicit `enablePerfTracing()`.
@@ -518,18 +524,18 @@ Each decomposition extracts 3–6 children, moves CSS > 500 LOC to `styles/featu
 
 ### 5.3 `@tracepilot/ui` (additional)
 
-- Promote `apps/desktop/src/composables/{useAsyncData, useCachedFetch}` → `packages/ui/src/composables/`.
+- ~~Promote `apps/desktop/src/composables/{useAsyncData, useCachedFetch}` → `packages/ui/src/composables/`.~~ ✅ Wave 46[^wave46]
 - Add `useTheme`, `useKeyboard`, `useLocalStorage` to UI composables.
 - Convert `useToast` from module-level singleton to `provide/inject`.
 - Remove `formatters.ts` back-compat shim after apps migrate.
 - Mark `markdown-it`/`dompurify` as **optional** peers.
-- Fix mixed barrel/named re-exports in `index.ts`.
+- ~~Fix mixed barrel/named re-exports in `index.ts`.~~ ✅ Wave 46[^wave46]
 - Keep `vue-router` peer (it **is** used by `TabNav.vue`, per reviewer correction).
 
 ### 5.4 `@tracepilot/types`
 
-- `"sideEffects": false`.
-- Replace `export *` ×17 in `index.ts:1-19` with named re-exports.
+- ~~`"sideEffects": false`.~~ ✅ Wave 46[^wave46]
+- ~~Replace `export *` ×17 in `index.ts:1-19` with named re-exports.~~ ✅ Wave 46[^wave46]
 - After Phase 1B.1 codegen, delete manual mirrors.
 - Add invariant tests for `tasks`, `session`, `models`, `conversation`.
 - Move `IPC_EVENTS` to `@tracepilot/client` (domain-coupled).
@@ -549,7 +555,7 @@ Each decomposition extracts 3–6 children, moves CSS > 500 LOC to `styles/featu
 ### 5.6 Packages general
 
 - README for every package (purpose, public API, tokens required for UI, mock policy for client).
-- `"sideEffects": false` where applicable.
+- ~~`"sideEffects": false` where applicable.~~ ✅ Wave 46[^wave46]
 - Subpath exports formalised.
 - Drop `@tracepilot/config` or grow it into a real shared preset package.
 

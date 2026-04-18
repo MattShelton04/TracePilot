@@ -25,7 +25,7 @@ const ctx = useModelComparisonContext();
         <template v-else>
           <div class="legend">
             <span v-for="rm in ctx.radarModels" :key="rm.model">
-              <span class="legend-dot" :style="{ background: rm.color }" />&nbsp;{{ rm.model }}
+              <span class="legend-dot" :style="{ '--model-color': rm.color }" />&nbsp;{{ rm.model }}
             </span>
           </div>
           <svg
@@ -106,7 +106,7 @@ const ctx = useModelComparisonContext();
         <template v-else>
           <div class="legend">
             <span v-for="row in ctx.modelRows" :key="row.model">
-              <span class="legend-dot" :style="{ background: row.color }" />&nbsp;{{ row.model }}
+              <span class="legend-dot" :style="{ '--model-color': row.color }" />&nbsp;{{ row.model }}
             </span>
           </div>
           <svg

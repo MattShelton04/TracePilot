@@ -108,7 +108,7 @@ const comp = useSessionComparisonContext();
           </svg>
           <div class="donut-legend">
             <div v-for="seg in comp.donutA" :key="seg.model" class="donut-legend-item">
-              <div class="donut-swatch" :style="{ background: seg.color }"></div>
+              <div class="donut-swatch" :style="{ '--swatch-color': seg.color }"></div>
               <span>{{ seg.model }} ({{ Math.round(seg.percentage * 100) }}%)</span>
             </div>
           </div>
@@ -136,7 +136,7 @@ const comp = useSessionComparisonContext();
           </svg>
           <div class="donut-legend">
             <div v-for="seg in comp.donutB" :key="seg.model" class="donut-legend-item">
-              <div class="donut-swatch" :style="{ background: seg.color }"></div>
+              <div class="donut-swatch" :style="{ '--swatch-color': seg.color }"></div>
               <span>{{ seg.model }} ({{ Math.round(seg.percentage * 100) }}%)</span>
             </div>
           </div>

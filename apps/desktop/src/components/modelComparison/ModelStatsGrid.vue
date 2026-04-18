@@ -18,7 +18,7 @@ const ctx = useModelComparisonContext();
   <div class="model-cards-row mb-4">
     <div v-for="row in ctx.modelRows" :key="row.model" class="model-card">
       <div class="model-card-name">
-        <span class="model-dot" :style="{ background: row.color }" />
+        <span class="model-dot" :style="{ '--model-color': row.color }" />
         <span class="model-card-name-text" :title="row.model">{{ row.model }}</span>
       </div>
       <div class="model-card-stats">
@@ -43,7 +43,7 @@ const ctx = useModelComparisonContext();
       <div class="token-share-bar">
         <div
           class="token-share-fill"
-          :style="{ width: `${row.percentage}%`, background: row.color }"
+          :style="{ '--fill-width': `${row.percentage}%`, '--model-color': row.color }"
         />
       </div>
       <div class="token-share-label">{{ formatPercent(row.percentage) }} of total tokens</div>
