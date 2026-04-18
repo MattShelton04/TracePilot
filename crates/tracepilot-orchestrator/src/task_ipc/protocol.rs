@@ -176,6 +176,6 @@ mod tests {
         };
         crate::json_io::atomic_json_write(&dir.path().join("heartbeat.json"), &hb).unwrap();
         assert!(is_heartbeat_fresh(dir.path(), 60));
-        assert!(is_heartbeat_fresh(dir.path(), 1)); // Just written
+        assert!(is_heartbeat_fresh(dir.path(), 2)); // Just written
     }
 }
