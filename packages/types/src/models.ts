@@ -46,6 +46,15 @@ export interface ModelDefinition {
 export const MODEL_REGISTRY: readonly ModelDefinition[] = [
   // ── Premium ──
   {
+    id: "claude-opus-4.7",
+    name: "Claude Opus 4.7",
+    tier: "premium",
+    inputPerM: 5.0,
+    cachedInputPerM: 0.5,
+    outputPerM: 25.0,
+    premiumRequests: 7.5,
+  },
+  {
     id: "claude-opus-4.6",
     name: "Claude Opus 4.6",
     tier: "premium",
@@ -58,9 +67,9 @@ export const MODEL_REGISTRY: readonly ModelDefinition[] = [
     id: "claude-opus-4.6-fast",
     name: "Claude Opus 4.6 Fast",
     tier: "premium",
-    inputPerM: 5.0,
-    cachedInputPerM: 0.5,
-    outputPerM: 25.0,
+    inputPerM: 30.0,
+    cachedInputPerM: 3.0,
+    outputPerM: 150.0,
     premiumRequests: 30,
   },
   {

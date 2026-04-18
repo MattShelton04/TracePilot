@@ -49,6 +49,15 @@ pub const MODEL_REGISTRY: &[ModelMetadata] = &[
         premium_requests: 0.33,
     },
     ModelMetadata {
+        id: "claude-opus-4.7",
+        name: "Claude Opus 4.7",
+        tier: "premium",
+        input_per_m: 5.0,
+        cached_input_per_m: 0.5,
+        output_per_m: 25.0,
+        premium_requests: 7.5,
+    },
+    ModelMetadata {
         id: "claude-opus-4.6",
         name: "Claude Opus 4.6",
         tier: "premium",
@@ -61,9 +70,9 @@ pub const MODEL_REGISTRY: &[ModelMetadata] = &[
         id: "claude-opus-4.6-fast",
         name: "Claude Opus 4.6 Fast",
         tier: "premium",
-        input_per_m: 5.0,
-        cached_input_per_m: 0.5,
-        output_per_m: 25.0,
+        input_per_m: 30.0,
+        cached_input_per_m: 3.0,
+        output_per_m: 150.0,
         premium_requests: 30.0,
     },
     ModelMetadata {
@@ -233,7 +242,7 @@ mod tests {
         for model in MODEL_REGISTRY {
             assert!(ids.insert(model.id), "duplicate model id: {}", model.id);
         }
-        assert_eq!(MODEL_REGISTRY.len(), 19);
+        assert_eq!(MODEL_REGISTRY.len(), 20);
     }
 
     #[test]
