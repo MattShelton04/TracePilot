@@ -7,6 +7,7 @@
 
 use crate::Result;
 use rusqlite::ToSql;
+use std::fmt::Write;
 
 /// Maximum rows per multi-row INSERT statement.
 ///
@@ -55,19 +56,28 @@ where
     }
 
     for chunk in items.chunks(BATCH_CHUNK_SIZE) {
-        let placeholders: String = (0..chunk.len())
-            .map(|i| {
-                let start = i * params_per_row + 1;
-                let p: String = (start..start + params_per_row)
-                    .map(|n| format!("?{n}"))
-                    .collect::<Vec<_>>()
-                    .join(",");
-                format!("({p})")
-            })
-            .collect::<Vec<_>>()
-            .join(",");
+        // Pre-allocate assuming ~4 chars per parameter ("?123" + ",") plus parens, plus prefix
+        let estimated_len = sql_prefix.len() + 1 + chunk.len() * (params_per_row * 5 + 3);
+        let mut sql = String::with_capacity(estimated_len);
+        sql.push_str(sql_prefix);
+        sql.push(' ');
 
-        let sql = format!("{sql_prefix} {placeholders}");
+        for i in 0..chunk.len() {
+            if i > 0 {
+                sql.push(',');
+            }
+            sql.push('(');
+
+            let start = i * params_per_row + 1;
+            for j in 0..params_per_row {
+                if j > 0 {
+                    sql.push(',');
+                }
+                write!(&mut sql, "?{}", start + j).expect("String formatting should not fail");
+            }
+            sql.push(')');
+        }
+
         let mut stmt = conn.prepare(&sql)?;
 
         let mut params: Vec<&'a dyn ToSql> = Vec::with_capacity(chunk.len() * params_per_row);
