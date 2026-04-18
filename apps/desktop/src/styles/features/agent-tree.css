@@ -281,6 +281,13 @@
   text-overflow: ellipsis;
 }
 
+.agent-tree-feature .agent-node-model-warn {
+  margin-left: 4px;
+  color: var(--color-warning, #e6a817);
+  cursor: default;
+  font-size: 0.75rem;
+}
+
 .agent-tree-feature .agent-node-meta {
   display: flex;
   align-items: center;
@@ -404,6 +411,12 @@
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.agent-tree-feature .detail-model-warn {
+  font-size: 0.75rem;
+  color: var(--color-warning, #e6a817);
+  cursor: default;
 }
 
 .agent-tree-feature .detail-label {

@@ -95,6 +95,13 @@ const model = computed(() => {
   return props.subagent.toolCall.model || toolArgString(args, "model") || "";
 });
 
+const requestedModel = computed(() => props.subagent?.toolCall.requestedModel || "");
+
+const modelMismatch = computed(() => {
+  const tc = props.subagent?.toolCall;
+  return !!tc?.isComplete && !!tc.model && !!tc.requestedModel && tc.model !== tc.requestedModel;
+});
+
 const description = computed(() => {
   if (!props.subagent) return "";
   const tc = props.subagent.toolCall;
@@ -289,6 +296,12 @@ function nestedSubagentDesc(tc: TurnToolCall): string {
 
       <!-- Scrollable body -->
       <div ref="scrollContainer" class="cv-panel-scroll">
+        <!-- Model mismatch warning banner -->
+        <div v-if="modelMismatch" class="cv-panel-model-warn">
+          <span class="cv-panel-model-warn-icon">⚠</span>
+          <span>Requested <code>{{ requestedModel }}</code> but ran as <code>{{ model }}</code></span>
+        </div>
+
         <!-- Description -->
         <div v-if="description" class="cv-panel-section">
           <div class="cv-panel-section-label">Description</div>
@@ -595,6 +608,34 @@ function nestedSubagentDesc(tc: TurnToolCall): string {
   overflow-y: auto;
   overflow-x: hidden;
   padding: 16px;
+}
+
+/* ── Model mismatch warning ───────────────────────────────────── */
+
+.cv-panel-model-warn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  margin-bottom: 12px;
+  border-radius: var(--radius-md);
+  background: var(--warning-subtle);
+  border: 1px solid color-mix(in srgb, var(--warning-fg) 30%, transparent);
+  font-size: 0.6875rem;
+  color: var(--warning-fg);
+  line-height: 1.4;
+}
+
+.cv-panel-model-warn code {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.625rem;
+  background: color-mix(in srgb, var(--warning-fg) 12%, transparent);
+  padding: 0 4px;
+  border-radius: var(--radius-sm);
+}
+
+.cv-panel-model-warn-icon {
+  flex-shrink: 0;
 }
 
 /* ── Sections ─────────────────────────────────────────────────── */

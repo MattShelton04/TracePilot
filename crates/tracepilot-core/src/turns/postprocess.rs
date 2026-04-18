@@ -22,17 +22,30 @@ pub(crate) fn infer_subagent_models(turns: &mut [ConversationTurn]) {
     let mut iterations = 0;
 
     loop {
-        let mut changed = false;
-        for turn in turns.iter_mut() {
-            // Build map: tool_call_id → first child model found
-            let mut child_models: HashMap<String, String> = HashMap::new();
+        // Build a session-wide map: tool_call_id → first child model found.
+        //
+        // IMPORTANT: this must scan ALL turns, not just the current turn. For background
+        // subagents, the main agent's turn ends before the subagent's child tool calls arrive,
+        // so the children live in later synthetic turns. A per-turn scan would miss them and
+        // incorrectly fall back to the requested args model, overwriting the authoritative
+        // actual model set by SubagentCompleted.
+        let mut child_models: HashMap<String, String> = HashMap::new();
+        for turn in turns.iter() {
             for tc in turn.tool_calls.iter() {
                 if let (Some(model), Some(parent_id)) = (&tc.model, &tc.parent_tool_call_id) {
+                    // First-child-wins: assumes all children of a given subagent
+                    // report the same model. If the CLI ever supports mid-subagent
+                    // model switching, this should be revisited (last-child or
+                    // most-common may be more accurate).
                     child_models
                         .entry(parent_id.clone())
                         .or_insert_with(|| model.clone());
                 }
             }
+        }
+
+        let mut changed = false;
+        for turn in turns.iter_mut() {
             // Propagate to subagents — prefer child model over parent's ToolExecComplete model
             for tc in turn.tool_calls.iter_mut() {
                 if tc.is_subagent
@@ -43,21 +56,10 @@ pub(crate) fn infer_subagent_models(turns: &mut [ConversationTurn]) {
                             tc.model = Some(model.clone());
                             changed = true;
                         }
-                    } else {
-                        // No child tool calls — fall back to model from arguments
-                        let args_model = tc
-                            .arguments
-                            .as_ref()
-                            .and_then(|a| a.get("model"))
-                            .and_then(|m| m.as_str())
-                            .map(|s| s.to_string());
-                        if let Some(ref m) = args_model
-                            && tc.model.as_deref() != Some(m.as_str())
-                        {
-                            tc.model = args_model;
-                            changed = true;
-                        }
                     }
+                    // No children and model is already set (from terminal event or ToolExecStart
+                    // args): leave as-is. `requested_model` tracks what was configured;
+                    // `model` should only be updated by observed events.
                 }
             }
         }

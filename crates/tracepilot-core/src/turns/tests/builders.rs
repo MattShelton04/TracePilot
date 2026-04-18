@@ -551,6 +551,7 @@ pub struct SubagentCompletedBuilder {
     tool_call_id: Option<String>,
     agent_name: Option<String>,
     agent_display_name: Option<String>,
+    model: Option<String>,
 }
 
 impl SubagentCompletedBuilder {
@@ -559,6 +560,7 @@ impl SubagentCompletedBuilder {
             tool_call_id: None,
             agent_name: Some(agent_name.into()),
             agent_display_name: None,
+            model: None,
         }
     }
 
@@ -572,13 +574,18 @@ impl SubagentCompletedBuilder {
         self
     }
 
+    pub fn model(mut self, model: impl Into<String>) -> Self {
+        self.model = Some(model.into());
+        self
+    }
+
     fn build_data(self) -> SubagentCompletedData {
         SubagentCompletedData {
             tool_call_id: self.tool_call_id,
             agent_name: self.agent_name,
             agent_display_name: self.agent_display_name,
             duration_ms: None,
-            model: None,
+            model: self.model,
             total_tokens: None,
             total_tool_calls: None,
         }

@@ -119,7 +119,14 @@ function lineColor(line: AgentTreeSvgLine): string {
           <span class="agent-node-name">{{ ln.node.displayName }}</span>
         </div>
 
-        <div v-if="ln.node.model" class="agent-node-model">{{ ln.node.model }}</div>
+        <div v-if="ln.node.model" class="agent-node-model">
+          {{ ln.node.model }}
+          <span
+            v-if="ln.node.status !== 'in-progress' && ln.node.requestedModel && ln.node.model !== ln.node.requestedModel"
+            class="agent-node-model-warn"
+            :title="`Requested ${ln.node.requestedModel} but a different model ran`"
+          >⚠</span>
+        </div>
 
         <div class="agent-node-meta">
           <span v-if="ctx.liveDuration(ln.node) != null">
