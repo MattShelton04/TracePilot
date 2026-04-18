@@ -21,8 +21,11 @@ use std::os::windows::process::CommandExt;
 const CREATE_NEW_CONSOLE: u32 = 0x00000010;
 #[cfg(windows)]
 const CREATE_BREAKAWAY_FROM_JOB: u32 = 0x01000000;
+/// Re-export of the cross-crate constant so existing
+/// `crate::process::CREATE_NO_WINDOW` references keep compiling.
+/// New code should import `tracepilot_core::constants::CREATE_NO_WINDOW`.
 #[cfg(windows)]
-pub(crate) const CREATE_NO_WINDOW: u32 = 0x08000000;
+pub(crate) use tracepilot_core::constants::CREATE_NO_WINDOW;
 
 // ─── Linux terminal emulator fallback list ──────────────────────────
 #[cfg(target_os = "linux")]
@@ -198,6 +201,65 @@ pub fn run_hidden(
     }
 }
 
+/// Run a command on Windows via `cmd.exe /c` to get PATHEXT / alias /
+/// batch-file resolution when direct `CreateProcess` fails.
+///
+/// **IMPORTANT — this is not an injection-safe escape hatch.** Windows
+/// fundamentally passes a single command-line string to `CreateProcess`,
+/// so `cmd.exe` will re-tokenise metacharacters (`&`, `|`, `>`, `<`, `^`)
+/// that appear anywhere in the joined command line. This helper is
+/// appropriate **only** when `program` and `args` come from a closed
+/// set of trusted, hardcoded values (e.g. the `check_system_deps` tool
+/// list). For anything touched by user input, use [`run_hidden`]
+/// directly with a validated argv, or reject the input upstream.
+///
+/// The benefit over the deprecated [`run_hidden_shell`] is that callers
+/// no longer have to `format!(\"{program} {args}\")` themselves — that
+/// anti-pattern is now contained inside the trust boundary of this one
+/// function, which at least documents the constraint explicitly.
+///
+/// On non-Windows platforms this is an error — the direct
+/// [`run_hidden`] exec already resolves via `PATH` on POSIX.
+pub fn run_hidden_via_cmd(
+    program: &str,
+    args: &[&str],
+    cwd: Option<&Path>,
+    timeout_secs: Option<u64>,
+) -> Result<Output> {
+    #[cfg(windows)]
+    {
+        // cmd.exe /c <program> <arg1> <arg2> ... — each argv element is
+        // forwarded to cmd, which performs PATHEXT + alias resolution on
+        // `program` but does NOT re-tokenise subsequent args. This gives
+        // us the resolution benefit of a shell without the injection
+        // surface of passing a single concatenated command string.
+        let mut argv = Vec::with_capacity(args.len() + 2);
+        argv.push("/c");
+        argv.push(program);
+        argv.extend_from_slice(args);
+
+        let mut cmd = Command::new("cmd");
+        cmd.args(&argv);
+        if let Some(dir) = cwd {
+            cmd.current_dir(dir);
+        }
+        cmd.creation_flags(CREATE_NO_WINDOW);
+
+        match timeout_secs {
+            Some(timeout) => run_with_timeout(cmd, "cmd", &argv, timeout),
+            None => cmd.output().map_err(Into::into),
+        }
+    }
+
+    #[cfg(not(windows))]
+    {
+        let _ = (program, args, cwd, timeout_secs);
+        Err(OrchestratorError::Launch(
+            "run_hidden_via_cmd is Windows-only; use run_hidden on POSIX".into(),
+        ))
+    }
+}
+
 /// Run a shell script file invisibly, capturing stdout and stderr.
 ///
 /// **WARNING — prefer [`run_hidden`] whenever possible.** Shell invocation
@@ -207,7 +269,17 @@ pub fn run_hidden(
 /// value that originated from user input — use [`run_hidden`] with an
 /// explicit `program` + argv slice.
 ///
-/// This helper does **not** sanitise `full_command`; callers are
+/// Run a command through a shell, with `full_command` interpreted as a
+/// shell script string.
+///
+/// **DEPRECATED — DO NOT USE FOR NEW CODE.** Use [`run_hidden`] with an
+/// explicit `(program, &[args])` argv whenever possible. If you need to
+/// resolve Windows aliases / `PATHEXT` extensions (batch files,
+/// PowerShell functions), use [`run_hidden_via_cmd`] which passes the
+/// program and arguments as separate argv entries to `cmd.exe /c`
+/// without concatenation.
+///
+/// This function does **not** sanitise `full_command`; callers are
 /// responsible for ensuring it is not attacker-controlled. See the
 /// Phase 1A.4 audit in `docs/tech-debt-plan-revised-2026-04.md`.
 ///
@@ -215,6 +287,9 @@ pub fn run_hidden(
 ///
 /// If `timeout_secs` is `Some`, the process will be killed if it doesn't
 /// complete within that duration.
+#[deprecated(
+    note = "prefer run_hidden with explicit argv; use run_hidden_via_cmd on Windows for alias/PATHEXT resolution"
+)]
 pub fn run_hidden_shell(
     full_command: &str,
     cwd: Option<&Path>,
@@ -735,6 +810,7 @@ mod tests {
         let result = run_hidden("sleep", &["10"], None, Some(1));
 
         #[cfg(windows)]
+        #[allow(deprecated)] // test-only; exercises the deprecated API's timeout path
         let result = run_hidden_shell("Start-Sleep -Seconds 10", None, Some(1));
 
         assert!(result.is_err());
@@ -792,6 +868,7 @@ mod tests {
         let result = run_hidden("sleep", &["5"], None, Some(1));
 
         #[cfg(windows)]
+        #[allow(deprecated)] // test-only; exercises the deprecated API's timeout path
         let result = run_hidden_shell("Start-Sleep -Seconds 5", None, Some(1));
 
         assert!(result.is_err());
@@ -810,6 +887,32 @@ mod tests {
             err_msg.contains("Check system resources"),
             "Error should be actionable"
         );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn test_run_hidden_via_cmd_resolves_aliases() {
+        // `where` is a cmd-builtin — direct CreateProcess can't find it, but
+        // cmd.exe /c can. This exercises the alias/PATHEXT fallback path.
+        let out = run_hidden_via_cmd("where", &["cmd"], None, Some(5));
+        assert!(
+            out.is_ok(),
+            "run_hidden_via_cmd should resolve cmd builtins"
+        );
+        let out = out.unwrap();
+        assert!(out.status.success());
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        assert!(
+            stdout.to_lowercase().contains("cmd.exe"),
+            "expected cmd path in stdout, got: {stdout}"
+        );
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn test_run_hidden_via_cmd_errors_on_posix() {
+        let result = run_hidden_via_cmd("true", &[], None, None);
+        assert!(result.is_err());
     }
 
     #[cfg(windows)]

@@ -118,11 +118,10 @@ async function clearCache() {
     await sessionsStore.fetchSessions();
     analyticsStore.$reset();
   } catch (e) {
-    const msg = toErrorMessage(e);
-    if (isAlreadyIndexingError(msg)) {
+    if (isAlreadyIndexingError(e)) {
       reindexResult.value = "Indexing already in progress…";
     } else {
-      reindexResult.value = `Error: ${msg}`;
+      reindexResult.value = `Error: ${toErrorMessage(e)}`;
     }
   } finally {
     clearing.value = false;
@@ -137,11 +136,10 @@ async function rebuildSearchIndex() {
     searchRebuildResult.value = `Indexed ${indexed} of ${total} sessions`;
     toast.success("Search index rebuilt successfully");
   } catch (e) {
-    const msg = toErrorMessage(e);
-    if (isAlreadyIndexingError(msg)) {
+    if (isAlreadyIndexingError(e)) {
       searchRebuildResult.value = "Search indexing already in progress…";
     } else {
-      searchRebuildResult.value = `Error: ${msg}`;
+      searchRebuildResult.value = `Error: ${toErrorMessage(e)}`;
     }
   } finally {
     searchRebuilding.value = false;

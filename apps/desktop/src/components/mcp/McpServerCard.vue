@@ -2,6 +2,7 @@
 import type { McpServerDetail } from "@tracepilot/types";
 import { computed } from "vue";
 import { useRouter } from "vue-router";
+import { ROUTE_NAMES } from "@/config/routes";
 import McpStatusDot from "./McpStatusDot.vue";
 
 const props = defineProps<{
@@ -67,7 +68,7 @@ const toggleLabel = computed(() => "Enabled");
 const toggleClass = computed(() => "toggle-active toggle-disabled");
 
 function navigateToDetail() {
-  router.push({ name: "mcp-server-detail", params: { name: props.server.name } });
+  router.push({ name: ROUTE_NAMES.mcpServerDetail, params: { name: props.server.name } });
 }
 
 function handleToggle(event: Event) {

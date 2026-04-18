@@ -17,6 +17,7 @@ import ReplayStepContent from "@/components/replay/ReplayStepContent.vue";
 import ReplayTransportBar from "@/components/replay/ReplayTransportBar.vue";
 import { useReplayController } from "@/composables/useReplayController";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
+import { ROUTE_NAMES } from "@/config/routes";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { useSessionsStore } from "@/stores/sessions";
@@ -44,7 +45,7 @@ const recentSessions = computed(() => {
 });
 
 function openReplay(id: string) {
-  router.push({ name: "replay", params: { id } });
+  router.push({ name: ROUTE_NAMES.replay, params: { id } });
 }
 
 // Tool result lazy loader
@@ -275,7 +276,7 @@ const totalToolCalls = computed(() =>
               <Badge v-if="totalToolCalls" variant="warning">{{ totalToolCalls }} tool calls</Badge>
             </div>
           </div>
-          <button class="back-btn" @click="router.push({ name: 'session-overview', params: { id: sessionId } })" title="Back to session detail">
+          <button class="back-btn" @click="router.push({ name: ROUTE_NAMES.sessionOverview, params: { id: sessionId } })" title="Back to session detail">
             ← Detail
           </button>
         </header>

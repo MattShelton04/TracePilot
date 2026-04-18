@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ROUTE_NAMES } from "@/config/routes";
 import { openInExplorer, openInTerminal } from "@tracepilot/client";
 import type { CreateWorktreeRequest, WorktreeDetails, WorktreeInfo } from "@tracepilot/types";
 import {
@@ -371,7 +372,7 @@ async function handleFetchRemote() {
 
 /* ─── Navigation ──────────────────────────────────────────────── */
 function navigateToSession(sessionId: string) {
-  router.push({ name: "session-overview", params: { id: sessionId } });
+  router.push({ name: ROUTE_NAMES.sessionOverview, params: { id: sessionId } });
 }
 
 function navigateToLauncher(wt: WorktreeInfo) {

@@ -100,7 +100,7 @@ pub struct LaunchConfig {
 }
 
 fn default_cli_command() -> String {
-    "copilot".to_string()
+    tracepilot_core::constants::DEFAULT_CLI_COMMAND.to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

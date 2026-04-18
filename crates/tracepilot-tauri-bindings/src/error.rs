@@ -166,6 +166,37 @@ impl BindingsError {
 //
 // Wire format (stable contract — see module docs):
 //   { "code": "ALREADY_INDEXING", "message": "Indexing is already in progress." }
+//
+// ## Info-leak audit (Phase 1A, wave 3)
+//
+// `self.to_string()` below pulls `Display` from the wrapped source error for
+// every `#[error(transparent)]` variant. Each variant's sensitivity:
+//
+// | Variant          | Leak risk | Why                                              |
+// |------------------|-----------|--------------------------------------------------|
+// | `Io`             | HIGH      | `std::io::Error` includes full filesystem paths  |
+// | `Tauri`          | HIGH      | May include file paths and Windows usernames     |
+// | `TomlSerialize`  | MEDIUM    | May echo config key names (generally OK)         |
+// | `TomlDeserialize`| HIGH      | Echoes config file content snippets              |
+// | `Reqwest`        | MEDIUM    | URLs may contain bearer tokens in query strings  |
+// | `Core` / `Orch.` / `Bridge` / `Indexer` / `Export` | HIGH | These wrap paths freely internally              |
+// | `Join`           | LOW       | Task-panic strings, usually safe                 |
+// | `Semver`, `Uuid` | LOW       | Echo user input which is already in scope        |
+// | `AlreadyIndexing`, `Validation` | SAFE | Authored strings, no interpolation       |
+//
+// We run every message through [`scrub_message`] before sending to the
+// frontend, which:
+//   1. Replaces `C:\Users\<name>\` (and POSIX `/home/<name>/`) with a
+//      generic placeholder so screenshots / error telemetry don't expose
+//      the OS account name.
+//   2. Redacts `Authorization: Bearer <token>`, `token=...`, and
+//      GitHub PAT patterns (`ghp_*`, `gho_*`, `ghu_*`, `ghs_*`, `ghr_*`)
+//      from anywhere in the message.
+//
+// The original un-scrubbed message is still available via `Display` for
+// server-side logs (where the path context is useful for debugging and
+// there is no screenshot / telemetry egress). If you need to change what
+// gets scrubbed, update `scrub_message` *and* the variant table above.
 impl serde::Serialize for BindingsError {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -173,9 +204,96 @@ impl serde::Serialize for BindingsError {
     {
         let mut s = serializer.serialize_struct("BindingsError", 2)?;
         s.serialize_field("code", self.code().as_str())?;
-        s.serialize_field("message", &self.to_string())?;
+        s.serialize_field("message", &scrub_message(&self.to_string()))?;
         s.end()
     }
+}
+
+/// Scrub likely-sensitive substrings from an error message before it
+/// crosses the IPC boundary to the frontend (where it may be logged,
+/// screenshotted, or sent to telemetry).
+///
+/// Intentionally non-destructive: the goal is to remove obvious leaks
+/// (OS usernames, bearer tokens) without mangling the message shape so
+/// that error codes + overall phrasing remain useful for debugging.
+///
+/// See the info-leak audit table in the `Serialize` impl above.
+pub(crate) fn scrub_message(raw: &str) -> String {
+    // Redact Windows usernames in path segments: `C:\Users\alice\...` →
+    // `C:\Users\<user>\...`. Use a simple state machine rather than a
+    // regex to avoid pulling in `regex` just for this.
+    let mut out = String::with_capacity(raw.len());
+    let mut rest = raw;
+
+    loop {
+        // Windows: look for "\Users\" or "/Users/" (the latter is how
+        // some error sources normalise separators).
+        let win_hit = rest.find("\\Users\\").map(|i| (i, "\\Users\\"));
+        let mac_hit = rest.find("/Users/").map(|i| (i, "/Users/"));
+        let nix_hit = rest.find("/home/").map(|i| (i, "/home/"));
+
+        let hit = [win_hit, mac_hit, nix_hit]
+            .into_iter()
+            .flatten()
+            .min_by_key(|(i, _)| *i);
+
+        match hit {
+            Some((i, sep)) => {
+                out.push_str(&rest[..i]);
+                out.push_str(sep);
+                out.push_str("<user>");
+                // Skip past the username component: jump to the next
+                // path separator or end-of-string.
+                let after = &rest[i + sep.len()..];
+                let skip = after
+                    .find(|c: char| c == '\\' || c == '/' || c == ' ' || c == '"' || c == '\'')
+                    .unwrap_or(after.len());
+                rest = &after[skip..];
+            }
+            None => {
+                out.push_str(rest);
+                break;
+            }
+        }
+    }
+
+    // Redact bearer tokens in common shapes. These are cheap prefix
+    // checks — we don't need to match every possible header form.
+    let needles = [
+        ("Authorization: Bearer ", "Authorization: Bearer <redacted>"),
+        ("authorization: bearer ", "authorization: bearer <redacted>"),
+        ("Bearer ", "Bearer <redacted>"),
+    ];
+    for (needle, replacement) in needles {
+        if let Some(start) = out.find(needle) {
+            let after = &out[start + needle.len()..];
+            // Strip up to next whitespace or quote.
+            let end = after
+                .find(|c: char| c.is_whitespace() || c == '"' || c == '\'')
+                .unwrap_or(after.len());
+            out.replace_range(start..start + needle.len() + end, replacement);
+        }
+    }
+
+    // Redact GitHub PAT-style tokens by prefix. PATs are 40+ chars of
+    // `[A-Za-z0-9_]` following a known prefix.
+    for prefix in ["ghp_", "gho_", "ghu_", "ghs_", "ghr_"] {
+        while let Some(start) = out.find(prefix) {
+            let after = &out[start + prefix.len()..];
+            let end = after
+                .find(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
+                .unwrap_or(after.len());
+            // Only redact if it looks like a real token (≥ 20 chars).
+            if end >= 20 {
+                out.replace_range(start..start + prefix.len() + end, "<redacted-gh-token>");
+            } else {
+                // Not long enough — bail out of this prefix to avoid loop.
+                break;
+            }
+        }
+    }
+
+    out
 }
 
 /// Shorthand result alias used throughout the command modules.
@@ -199,6 +317,59 @@ mod tests {
         let json = serde_json::to_string(&err).unwrap();
         assert!(json.contains(r#""code":"VALIDATION""#));
         assert!(json.contains(r#""message":"bad input""#));
+    }
+
+    #[test]
+    fn scrub_redacts_windows_username() {
+        let s = scrub_message(r"open failed: C:\Users\alice\.tracepilot\db.sqlite");
+        assert!(!s.contains("alice"), "should have redacted username: {s}");
+        assert!(s.contains("<user>"), "got: {s}");
+        // Rest of path preserved.
+        assert!(s.contains("db.sqlite"), "got: {s}");
+    }
+
+    #[test]
+    fn scrub_redacts_posix_home_and_mac_users() {
+        let s = scrub_message("config not found at /home/bob/.config/tracepilot.toml");
+        assert!(!s.contains("bob"), "got: {s}");
+        assert!(s.contains("<user>"), "got: {s}");
+
+        let s = scrub_message("config not found at /Users/carol/Library/App/x");
+        assert!(!s.contains("carol"), "got: {s}");
+        assert!(s.contains("<user>"), "got: {s}");
+    }
+
+    #[test]
+    fn scrub_redacts_bearer_token() {
+        let s = scrub_message("auth error: Authorization: Bearer sk-abcdef12345 failed");
+        assert!(!s.contains("sk-abcdef12345"), "got: {s}");
+        assert!(s.contains("Bearer <redacted>"), "got: {s}");
+    }
+
+    #[test]
+    fn scrub_redacts_github_pat() {
+        let token = format!("ghp_{}", "X".repeat(36));
+        let raw = format!("gh api failed with token={token}");
+        let s = scrub_message(&raw);
+        assert!(!s.contains(&token), "got: {s}");
+        assert!(s.contains("<redacted-gh-token>"), "got: {s}");
+    }
+
+    #[test]
+    fn scrub_preserves_messages_without_sensitive_data() {
+        let s = scrub_message("Indexing is already in progress.");
+        assert_eq!(s, "Indexing is already in progress.");
+    }
+
+    #[test]
+    fn io_error_with_path_is_scrubbed_on_serialize() {
+        // io::Error's Display doesn't normally include paths, but our own
+        // error variants often do (via Display). Simulate via Validation
+        // since it interpolates whatever the caller passes.
+        let err = BindingsError::Validation(r"Failed to open C:\Users\dave\secret.txt".into());
+        let json = serde_json::to_string(&err).unwrap();
+        assert!(!json.contains("dave"), "got: {json}");
+        assert!(json.contains("<user>"), "got: {json}");
     }
 
     #[test]

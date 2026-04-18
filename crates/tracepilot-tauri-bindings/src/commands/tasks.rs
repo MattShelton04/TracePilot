@@ -695,7 +695,7 @@ fn is_process_alive(pid: u32) -> bool {
             .args(["/NH", "/FI", &format!("PID eq {pid}")])
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::null())
-            .creation_flags(0x08000000) // CREATE_NO_WINDOW
+            .creation_flags(tracepilot_core::constants::CREATE_NO_WINDOW)
             .output()
             .map(|o| {
                 let out = String::from_utf8_lossy(&o.stdout);

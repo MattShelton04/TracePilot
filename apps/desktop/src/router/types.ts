@@ -1,4 +1,6 @@
 import "vue-router";
+import type { RouteName } from "@/config/routes";
+import type { SidebarId } from "@/config/sidebarIds";
 
 export type SidebarSection = "primary" | "advanced" | "orchestration" | "tasks" | "configuration";
 
@@ -17,11 +19,13 @@ declare module "vue-router" {
   interface RouteMeta {
     /** Page title for breadcrumbs/header */
     title?: string;
-    /** Sidebar nav item ID for active state */
-    sidebarId?: string;
+    /** Sidebar nav item ID for active state — narrowed to the canonical registry. */
+    sidebarId?: SidebarId;
     /** Feature flag key — route is blocked when flag is disabled */
     featureFlag?: string;
     /** Sidebar navigation metadata — routes with this appear in the sidebar */
     sidebar?: SidebarMeta;
+    /** Target route name when this record is redirected — typed against the registry. */
+    redirectTo?: RouteName;
   }
 }

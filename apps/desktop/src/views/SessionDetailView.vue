@@ -11,6 +11,7 @@ import { useRoute, useRouter } from "vue-router";
 import SessionDetailPanel from "@/components/session/SessionDetailPanel.vue";
 import { NAVIGATE_CHECKPOINT_KEY } from "@/composables/useCheckpointNavigation";
 import { usePerfMonitor } from "@/composables/usePerfMonitor";
+import { ROUTE_NAMES } from "@/config/routes";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import type { SessionDetailContext } from "@/composables/useSessionDetail";
 import type { Ref } from "vue";
@@ -37,8 +38,8 @@ watch(sessionId, (newId) => {
 // Checkpoint navigation (conversation → overview tab) for route mode
 provide(NAVIGATE_CHECKPOINT_KEY, (checkpointNumber: number) => {
   store.pendingCheckpointFocus = checkpointNumber;
-  if (route.name !== "session-overview") {
-    router.push({ name: "session-overview", params: { id: sessionId.value } });
+  if (route.name !== ROUTE_NAMES.sessionOverview) {
+    router.push({ name: ROUTE_NAMES.sessionOverview, params: { id: sessionId.value } });
   }
 });
 </script>

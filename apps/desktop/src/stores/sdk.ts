@@ -52,8 +52,8 @@ import { safeListen } from "@/utils/tauriEvents";
 import { logInfo, logWarn } from "@/utils/logger";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useWindowRole } from "@/composables/useWindowRole";
+import { MAX_SDK_EVENTS } from "@/config/tuning";
 
-const MAX_EVENTS = 500;
 const SDK_SETTINGS_KEY = "tracepilot:sdk-settings";
 
 interface SdkSettings {
@@ -412,7 +412,7 @@ export const useSdkStore = defineStore("sdk", () => {
           const current = recentEvents.value;
           const next = [...current, event.payload];
           // Keep bounded
-          recentEvents.value = next.length > MAX_EVENTS ? next.slice(-MAX_EVENTS) : next;
+          recentEvents.value = next.length > MAX_SDK_EVENTS ? next.slice(-MAX_SDK_EVENTS) : next;
         }),
         await safeListen<BridgeStatus>(IPC_EVENTS.SDK_CONNECTION_CHANGED, (event) => {
           applyStatus(event.payload);

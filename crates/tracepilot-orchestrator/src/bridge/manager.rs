@@ -13,12 +13,48 @@ use super::{
 #[cfg(feature = "copilot-sdk")]
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::sync::{RwLock, broadcast};
 #[cfg(feature = "copilot-sdk")]
 use tracing::{debug, info, warn};
 
 /// Shared bridge manager type for Tauri state.
 pub type SharedBridgeManager = Arc<RwLock<BridgeManager>>;
+
+/// Cumulative metrics for the bridge broadcast channels.
+///
+/// All counters are monotonic and crash-safe (atomics, not locks). Exposed
+/// as a snapshot via [`BridgeManager::metrics_snapshot`] so debug UI can
+/// surface broadcast-channel lag without taking any lock on the manager.
+///
+/// See [`docs/tech-debt-plan-revised-2026-04.md`](../../../../docs/tech-debt-plan-revised-2026-04.md)
+/// Phase 1A.6 — "Status broadcast channel sizing".
+#[derive(Debug, Default)]
+pub struct BridgeMetrics {
+    /// Number of SDK events successfully forwarded onto the `BridgeEvent`
+    /// broadcast channel.
+    pub events_forwarded: AtomicU64,
+    /// Cumulative count of *individual events* dropped because a broadcast
+    /// receiver lagged. Incremented by `n` each time the forwarder observes
+    /// `RecvError::Lagged(n)`.
+    pub events_dropped_due_to_lag: AtomicU64,
+    /// Number of distinct lag occurrences (independent of how many events
+    /// each occurrence dropped). Useful for alerting on "lag is happening
+    /// at all" vs "lag is huge".
+    pub lag_occurrences: AtomicU64,
+}
+
+/// Plain-data snapshot of [`BridgeMetrics`] for IPC / logging.
+///
+/// Serialised in camelCase for frontend consumption (matches the rest of the
+/// IPC DTOs; see `packages/types/src/sdk.ts::BridgeMetricsSnapshot`).
+#[derive(Debug, Clone, Copy, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BridgeMetricsSnapshot {
+    pub events_forwarded: u64,
+    pub events_dropped_due_to_lag: u64,
+    pub lag_occurrences: u64,
+}
 
 /// Manages the lifecycle of the Copilot SDK client connection.
 pub struct BridgeManager {
@@ -31,6 +67,7 @@ pub struct BridgeManager {
     cli_url: Option<String>,
     event_tx: broadcast::Sender<BridgeEvent>,
     status_tx: broadcast::Sender<BridgeStatus>,
+    metrics: Arc<BridgeMetrics>,
 
     #[cfg(feature = "copilot-sdk")]
     client: Option<copilot_sdk::Client>,
@@ -62,6 +99,7 @@ impl BridgeManager {
             cli_url: None,
             event_tx: tx,
             status_tx,
+            metrics: Arc::new(BridgeMetrics::default()),
             #[cfg(feature = "copilot-sdk")]
             client: None,
             #[cfg(feature = "copilot-sdk")]
@@ -70,6 +108,19 @@ impl BridgeManager {
             event_tasks: HashMap::new(),
         };
         (manager, rx, status_rx)
+    }
+
+    /// Point-in-time snapshot of broadcast-channel metrics. Cheap (a few
+    /// atomic loads) and takes no lock on the manager itself.
+    pub fn metrics_snapshot(&self) -> BridgeMetricsSnapshot {
+        BridgeMetricsSnapshot {
+            events_forwarded: self.metrics.events_forwarded.load(Ordering::Relaxed),
+            events_dropped_due_to_lag: self
+                .metrics
+                .events_dropped_due_to_lag
+                .load(Ordering::Relaxed),
+            lag_occurrences: self.metrics.lag_occurrences.load(Ordering::Relaxed),
+        }
     }
 
     /// Subscribe to bridge events (additional receivers beyond the initial one).
@@ -767,6 +818,7 @@ impl BridgeManager {
     #[cfg(feature = "copilot-sdk")]
     fn spawn_event_forwarder(&mut self, session_id: &str, session: &Arc<copilot_sdk::Session>) {
         let tx = self.event_tx.clone();
+        let metrics = Arc::clone(&self.metrics);
         let sid = session_id.to_string();
         let mut events = session.subscribe();
 
@@ -788,6 +840,7 @@ impl BridgeManager {
                             debug!("No bridge event receivers, stopping forwarder for {}", sid);
                             break;
                         }
+                        metrics.events_forwarded.fetch_add(1, Ordering::Relaxed);
                     }
                     Err(tokio::sync::broadcast::error::RecvError::Closed) => {
                         debug!("SDK event channel closed for session {}", sid);
@@ -795,6 +848,10 @@ impl BridgeManager {
                     }
                     Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
                         warn!("Bridge event receiver lagged by {} for session {}", n, sid);
+                        metrics
+                            .events_dropped_due_to_lag
+                            .fetch_add(n, Ordering::Relaxed);
+                        metrics.lag_occurrences.fetch_add(1, Ordering::Relaxed);
                     }
                 }
             }
@@ -816,7 +873,7 @@ pub fn launch_ui_server(working_dir: Option<&str>) -> Result<u32, BridgeError> {
         {
             use std::os::windows::process::CommandExt;
             std::process::Command::new("where")
-                .arg("copilot")
+                .arg(tracepilot_core::constants::DEFAULT_CLI_COMMAND)
                 .creation_flags(crate::process::CREATE_NO_WINDOW)
                 .output()
                 .ok()
@@ -830,12 +887,12 @@ pub fn launch_ui_server(working_dir: Option<&str>) -> Result<u32, BridgeError> {
                         None
                     }
                 })
-                .unwrap_or_else(|| "copilot".to_string())
+                .unwrap_or_else(|| tracepilot_core::constants::DEFAULT_CLI_COMMAND.to_string())
         }
         #[cfg(not(windows))]
         {
             std::process::Command::new("which")
-                .arg("copilot")
+                .arg(tracepilot_core::constants::DEFAULT_CLI_COMMAND)
                 .output()
                 .ok()
                 .and_then(|o| {
@@ -848,7 +905,7 @@ pub fn launch_ui_server(working_dir: Option<&str>) -> Result<u32, BridgeError> {
                         None
                     }
                 })
-                .unwrap_or_else(|| "copilot".to_string())
+                .unwrap_or_else(|| tracepilot_core::constants::DEFAULT_CLI_COMMAND.to_string())
         }
     };
 

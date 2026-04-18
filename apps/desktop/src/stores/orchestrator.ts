@@ -14,6 +14,7 @@ import type {
   OrchestratorHandle,
   OrchestratorState,
 } from "@tracepilot/types";
+import { DEFAULT_ORCHESTRATOR_MODEL } from "@tracepilot/types";
 import { toErrorMessage } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref, watch } from "vue";
@@ -22,9 +23,10 @@ import { toActivityEntries, type ActivityEntry } from "@/utils/orchestratorActiv
 
 export type { ActivityEntry } from "@/utils/orchestratorActivity";
 
-const POLL_FAST_MS = 5_000; // When running: full cycle every 5s
-const POLL_SLOW_MS = 15_000; // When idle: health-only check every 15s
-const DEFAULT_MODEL = "claude-haiku-4.5";
+import { POLL_FAST_MS, POLL_SLOW_MS } from "@/config/tuning";
+/** Single source of truth lives in `@tracepilot/types` and (on the Rust
+ * side) `tracepilot_core::constants::DEFAULT_ORCHESTRATOR_MODEL`. */
+const DEFAULT_MODEL = DEFAULT_ORCHESTRATOR_MODEL;
 const ACTIVITY_FEED_LIMIT = 30;
 
 

@@ -5,6 +5,7 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import McpConfigEditor from "@/components/mcp/McpConfigEditor.vue";
 import McpStatusDot from "@/components/mcp/McpStatusDot.vue";
+import { ROUTE_NAMES } from "@/config/routes";
 import { useMcpStore } from "@/stores/mcp";
 
 const route = useRoute();
@@ -139,7 +140,7 @@ async function handleDelete() {
   deleting.value = false;
   if (ok) {
     toastSuccess(`Server "${serverName.value}" removed`);
-    router.push({ name: "mcp-manager" });
+    router.push({ name: ROUTE_NAMES.mcpManager });
   } else {
     toastError(store.error ?? "Failed to remove server");
   }
@@ -205,7 +206,7 @@ async function handleSave() {
     editing.value = false;
     toastSuccess(`Server "${trimmedName}" updated`);
     if (nameChanged) {
-      router.replace({ name: "mcp-server-detail", params: { name: trimmedName } });
+      router.replace({ name: ROUTE_NAMES.mcpServerDetail, params: { name: trimmedName } });
     }
   } catch (err: unknown) {
     toastError(err instanceof Error ? err.message : "Save failed");
@@ -215,7 +216,7 @@ async function handleSave() {
 }
 
 function goBack() {
-  router.push({ name: "mcp-manager" });
+  router.push({ name: ROUTE_NAMES.mcpManager });
 }
 </script>
 

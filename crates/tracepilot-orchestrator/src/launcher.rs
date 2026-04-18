@@ -25,7 +25,7 @@ pub fn copilot_home() -> Result<std::path::PathBuf> {
 /// Check system dependencies (git, copilot CLI).
 pub fn check_dependencies(copilot_cmd: Option<&str>) -> SystemDependencies {
     let git = check_tool("git", &["--version"]);
-    let cmd = copilot_cmd.unwrap_or("copilot");
+    let cmd = copilot_cmd.unwrap_or(tracepilot_core::constants::DEFAULT_CLI_COMMAND);
     let copilot = check_tool(cmd, &["--version"]);
     let copilot_home_exists = tracepilot_core::utils::home_dir_opt()
         .map(|h| h.join(".copilot").exists())
@@ -375,12 +375,12 @@ fn check_tool(name: &str, args: &[&str]) -> (bool, Option<String>) {
         _ => {
             #[cfg(windows)]
             {
-                let full_cmd = if args.is_empty() {
-                    name.to_string()
-                } else {
-                    format!("{} {}", name, args.join(" "))
-                };
-                crate::process::run_hidden_shell(&full_cmd, None, Some(5)).ok()
+                // On Windows, some tools are batch files / PowerShell shims /
+                // aliases that `CreateProcess` can't find directly. Fall back
+                // to resolving them through `cmd.exe /c` — but pass the args
+                // as separate argv elements so nothing is re-tokenised as a
+                // shell metacharacter. See Phase 1A.4.
+                crate::process::run_hidden_via_cmd(name, args, None, Some(5)).ok()
             }
             #[cfg(not(windows))]
             None

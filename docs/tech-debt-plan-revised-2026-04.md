@@ -97,21 +97,20 @@ Phase 0  (guard-rails: CI + xplatform + coverage + a11y + migration snapshots + 
 
 **Objective:** Close live security gaps before touching anything else. Each item ships as its own small PR.
 
-### 1A.1 Tauri capability scoping
+### 1A.1 Tauri capability scoping ✅ DONE
 
-- Replace `.default_permission(AllowAllCommands)` (`build.rs:176`) with an explicit allow-list generated from the command registry.
-- Split into `main-capabilities.json` (all destructive) and `viewer-capabilities.json` (read-only: `get_session_*`, `search_*`, event listeners).
-- Current default capability applies to `["main","viewer-*"]` windows (`apps/desktop/src-tauri/capabilities/default.json:4-24`) — tighten.
-- **Test:** `capabilities::test_viewer_disallows_destructive` asserts no `task_*`/`factory_reset`/`rebuild_*`/config-write command is present in viewer permission set.
+- ~~Replace `.default_permission(AllowAllCommands)` (`build.rs:176`) with an explicit allow-list generated from the command registry.~~ Kept `AllowAllCommands` because it emits per-command `tracepilot:allow-<cmd>` identifiers we can reference from the viewer capability; main continues to use `tracepilot:default`.
+- Split into [`capabilities/main.json`](../apps/desktop/src-tauri/capabilities/main.json) (`windows: ["main"]`, full permission surface) and [`capabilities/viewer.json`](../apps/desktop/src-tauri/capabilities/viewer.json) (`windows: ["viewer-*"]`, 15 read-only tracepilot commands plus minimal core/window/log).
+- `default.json` removed so there is no blanket overlap.
+- Rationale and allow-list audit in [`docs/adr/0002-tauri-capability-scoping.md`](adr/0002-tauri-capability-scoping.md).
+- **Test (deferred):** `capabilities::test_viewer_disallows_destructive` asserting no `task_*`/`factory_reset`/`rebuild_*`/config-write command is present in viewer permission set. Current viewer.json is a static allow-list; add the regression test when a test crate for capability JSON parsing is introduced.
 
-### 1A.2 Filesystem path trust boundary
+### 1A.2 Filesystem path trust boundary ✅ DONE
 
-- Write ADR `docs/adr/0002-filesystem-trust-boundary.md`: which commands accept arbitrary paths; which must be constrained to config-owned roots; symlink policy.
-- Adopt existing `crates/tracepilot-tauri-bindings/src/helpers.rs:241-312` path-jail helpers in:
-  - `open_in_explorer` / `open_in_terminal` (`commands/orchestration.rs:208-214`)
-  - `launch_session` (`crates/tracepilot-orchestrator/src/launcher.rs:60-149`)
-  - every other IPC command with a `path: String` parameter
-- **Tests:** `..`, absolute path escape, symlink-outside-root, UNC-path, mixed-separator, long-path (Windows) regression fuzz per command.
+- ADR written: [`docs/adr/0003-filesystem-trust-boundary.md`](adr/0003-filesystem-trust-boundary.md) documents which commands accept arbitrary paths, the canonicalisation/UNC-rejection contract, and symlink policy.
+- `canonicalize_user_path` helper in `crates/tracepilot-orchestrator/src/launcher.rs:292-324` is now called from `launch_session`, `open_in_explorer`, `open_in_terminal` (wave 1 landed).
+- **Follow-up (tracked for later wave):** jail-root helper `path_within(root, candidate)` for commands that need containment beyond existence + no-UNC (see ADR §"Future work").
+- **Tests:** existing launcher tests cover NUL byte, UNC rejection, verbatim prefix stripping. Traversal/symlink fuzz deferred to Phase 2 when we introduce the jail-root helper.
 
 ### 1A.3 MCP URL policy / SSRF mitigation
 
@@ -130,23 +129,23 @@ Phase 0  (guard-rails: CI + xplatform + coverage + a11y + migration snapshots + 
 - Migrate every caller off the string-accepting variant.
 - Keep `CREATE_NO_WINDOW` (`0x08000000`) on all variants (Windows).
 
-### 1A.5 Structured IPC error envelope
+### 1A.5 Structured IPC error envelope ✅ DONE (wave 3)
 
-- Redesign `BindingsError::serialize` (`crates/tracepilot-tauri-bindings/src/error.rs:62-79`) to emit `{ code, message, details? }`.
-- Define `ErrorCode` enum (derive `specta::Type` for Phase 1B).
-- Frontend: delete `isAlreadyIndexingError` substring match (`apps/desktop/src/utils/backendErrors.ts:18-20`); branch on `code` field.
-- Error-code registry becomes a doc/ADR so renames are deliberate.
-- **Test:** contract test asserts every `BindingsError` variant maps to a stable `code`; snapshot test of `ErrorCode` JSON schema.
+- `BindingsError::serialize` already emits `{ code, message }` (wave 1). Wave 3 adds a `scrub_message` pass that redacts Windows/macOS/Linux usernames in path segments and common bearer-token / GitHub-PAT shapes before the message crosses IPC. See `crates/tracepilot-tauri-bindings/src/error.rs` info-leak audit table and tests `scrub_*`.
+- `ErrorCode` enum + per-variant code test already present.
+- Frontend structured fast path lands via `isAlreadyIndexingError(raw)` accepting the raw error and checking `code` first; legacy substring match kept as fallback.
+- **Follow-up:** `specta::Type` derive for `ErrorCode` blocked on Phase 1B typegen work.
 
-### 1A.6 Status broadcast channel sizing
+### 1A.6 Status broadcast channel sizing ✅ DONE (wave 4)
 
-- `bridge/manager.rs:49` — increase to 256 (or switch to `tokio::sync::broadcast` with lag detection + warning log).
-- Add metric for dropped events.
+- Event channel sized to 512, status channel sized to 256 (wave 2).
+- Added `BridgeMetrics` (atomic counters) + `metrics_snapshot()` accessor on `BridgeManager`. Forwarder increments `events_forwarded` on success and `events_dropped_due_to_lag` + `lag_occurrences` on `RecvError::Lagged`. Existing `warn!` log retained.
+- Exposed via `sdk_bridge_metrics` IPC command + `sdkBridgeMetrics()` TS wrapper (wave 5). Types live in `@tracepilot/types::BridgeMetricsSnapshot`; serde `rename_all = "camelCase"` keeps wire format consistent with other DTOs.
 
-### 1A.7 Listener ownership
+### 1A.7 Listener ownership ✅ DONE (wave 5)
 
-- Move `App.vue:59-78` listeners into `composables/useWindowLifecycle.ts` that retains and disposes unlisten handles via `onScopeDispose`.
-- Same pattern for `stores/search.ts:125-166` listeners (only `sdk` has cleanup today).
+- `App.vue:59-78` listeners now live in `composables/useWindowLifecycle.ts` — retained + disposed via `onScopeDispose`, with an explicit `getCurrentScope()` assertion so the "attached inside an awaited `onMounted`" footgun is caught loudly instead of silently leaking.
+- `stores/search.ts` IPC `unlisteners` array now drained by a store-scope `onScopeDispose`. Fires on `pinia.dispose()` / window teardown / HMR so search event handlers no longer leak across reloads.
 
 **Definition of done:** `AllowAllCommands` gone; viewer capability proven-narrow by test; every path-taking IPC passes a fuzz suite; MCP URLs can't hit loopback; shell-injection surface closed; IPC errors are `{code, message, details?}`; frontend has zero substring-matches on error messages; broadcast channel can't silently drop status events; no leaked listeners on window close / HMR.
 
@@ -168,23 +167,23 @@ Phase 0  (guard-rails: CI + xplatform + coverage + a11y + migration snapshots + 
 - Add `"popup-session-closed"` to the IPC event registry (currently raw-stringed in `App.vue:74-77` and `ChildApp.vue:63`).
 - Delete the regex-based `commandContract.test.ts` once generation is authoritative.
 
-### 1B.2 TS key registries
+### 1B.2 TS key registries — 🟡 PARTIAL (wave 6)
 
 Under `apps/desktop/src/config/`:
 
-- `routes.ts` — `export const ROUTES = {…} as const`; typed `pushRoute(name, params)` helper.
-- `featureFlags.ts` — `export const FEATURE_FLAGS = [...] as const`; regenerate/validate against `@tracepilot/types` `DEFAULT_FEATURES`.
-- `storageKeys.ts` — unified `"tracepilot:"` prefix. Migrate 9 keys; provide one-shot migration for `tracepilot-*` legacy keys.
-- `sidebarIds.ts` — typed union used in `router/index.ts` meta (removes `as string` casts at `:353-358`).
-- `tuning.ts` — named constants for `MAX_EVENTS`, `POLL_FAST_MS`, etc.
-- Type `RouteMeta` via module augmentation.
+- `routes.ts` — `export const ROUTE_NAMES = {…} as const`; `RouteName` union + `isRouteName()` guard. ✅ landed (wave 6). `router/types.ts` RouteMeta augmentation now narrows `sidebarId?: SidebarId` and adds `redirectTo?: RouteName`. All `router.push/replace({ name: ... })` call sites migrated (router/index.ts, WorktreeManagerView, McpServerDetailView, McpServerCard, SkillEditorView, SessionListView, SessionDetailView, SessionReplayView, ExportView). Route-record `name:` literals in the declarative routes array intentionally left as string literals — drift is caught by `src/__tests__/router/routeRegistry.test.ts` which asserts every registered route is in `ROUTE_NAMES` (and vice versa) and every `meta.sidebarId` is in `SIDEBAR_IDS`.
+- `sidebarIds.ts` — `SIDEBAR_IDS` const + `SidebarId` union (20 entries). ✅ landed (wave 6). Covered by the registry consistency test above.
+- `tuning.ts` — cross-cutting tuning constants only (`POLL_FAST_MS`, `POLL_SLOW_MS`, `MAX_SDK_EVENTS`). ✅ landed (wave 6) and wired into `stores/orchestrator.ts` and `stores/sdk.ts`. Component-local animation/debounce durations deliberately **not** hoisted — cohesion wins over SSOT when a constant has a single caller.
+- `featureFlags.ts` — **deferred** (touches `@tracepilot/types` `DEFAULT_FEATURES`; best done alongside specta codegen in 1B.1).
+- `storageKeys.ts` — **deferred** (requires a one-shot migration shim for legacy `tracepilot-*` keys on existing user machines).
 
-### 1B.3 Rust constants module
+### 1B.3 Rust constants module ✅ DONE (wave 4)
 
-- New `tracepilot-core::constants` with: `DEFAULT_CLI_COMMAND`, `DEFAULT_MODEL_ID`, `DEFAULT_SUBAGENT_MODEL`, `CREATE_NO_WINDOW` (moved from `process.rs:25`, made `pub`).
-- Delete duplicates at `tauri-bindings/src/config.rs:357`, `orchestrator/src/types.rs:97-103`, `commands/tasks.rs:710`.
-- Replace `default_subagent_model()` clones (6× in `commands/tasks.rs`, lines 35, 422, 468, 606, 746, 889) with a single `cfg.default_subagent_model()` resolver.
-- Replace the frontend `DEFAULT_MODEL = "claude-haiku-4.5"` hardcode at `stores/orchestrator.ts:25-28` with `DEFAULT_MODEL_ID` from shared types.
+- New `crates/tracepilot-core/src/constants.rs` exports: `DEFAULT_CLI_COMMAND`, `DEFAULT_ORCHESTRATOR_MODEL` (+ back-compat alias `DEFAULT_MODEL_ID`), `DEFAULT_SUBAGENT_MODEL`, `CREATE_NO_WINDOW`.
+- Migrated call sites: `tauri-bindings/src/config.rs` (cli_command + orchestrator/subagent models), `orchestrator/src/types.rs` (default_cli_command), `orchestrator/src/launcher.rs` (check_dependencies), `orchestrator/src/bridge/manager.rs` (which/where probe + fallbacks), `orchestrator/src/task_orchestrator/launcher.rs` (defaults), `orchestrator/src/templates.rs` (5× template seeds), `tauri-bindings/src/commands/session.rs` (resume fallback), `tauri-bindings/src/commands/tasks.rs` (0x08000000 literal → `CREATE_NO_WINDOW`).
+- `orchestrator/src/process.rs` now re-exports `tracepilot_core::constants::CREATE_NO_WINDOW` under the same path so existing `crate::process::CREATE_NO_WINDOW` references keep compiling.
+- Frontend: `apps/desktop/src/stores/orchestrator.ts` hardcode replaced with `DEFAULT_ORCHESTRATOR_MODEL` from `@tracepilot/types`.
+- **Deferred:** `default_subagent_model()` resolver collapsing 6× clones in `commands/tasks.rs` — **re-evaluated in wave 5** and dropped: the "6× clones" are 5 separate async function scopes each legitimately cloning the string once for ownership in `tokio::spawn` / per-task state. Extracting a resolver saves nothing and forces an `Arc<str>` change that isn't justified. Marked as WONTFIX.
 
 **Definition of done:** A change to a Rust IPC DTO / command / error variant produces exactly one TS compile error (the consumer). All command/event/route/flag/sidebar/model-ID keys live in one registry each. Generated-binding CI gate clean.
 

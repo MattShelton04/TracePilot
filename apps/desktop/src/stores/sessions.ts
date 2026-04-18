@@ -191,9 +191,8 @@ export const useSessionsStore = defineStore("sessions", () => {
         await indexingPromise;
         sessions.value = await refreshSessionsAfterIndex();
       } catch (e) {
-        const msg = toErrorMessage(e);
-        if (!isAlreadyIndexingError(msg)) {
-          error.value = msg;
+        if (!isAlreadyIndexingError(e)) {
+          error.value = toErrorMessage(e);
         }
       }
       return;
@@ -206,9 +205,8 @@ export const useSessionsStore = defineStore("sessions", () => {
       await indexingPromise;
       sessions.value = await refreshSessionsAfterIndex();
     } catch (e) {
-      const msg = toErrorMessage(e);
-      if (!isAlreadyIndexingError(msg)) {
-        error.value = msg;
+      if (!isAlreadyIndexingError(e)) {
+        error.value = toErrorMessage(e);
       }
     } finally {
       indexingPromise = null;

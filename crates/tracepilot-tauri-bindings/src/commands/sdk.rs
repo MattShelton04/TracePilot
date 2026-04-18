@@ -7,7 +7,7 @@
 //!   - Querying quota, auth status, and models
 
 use crate::error::CmdResult;
-use tracepilot_orchestrator::bridge::manager::SharedBridgeManager;
+use tracepilot_orchestrator::bridge::manager::{BridgeMetricsSnapshot, SharedBridgeManager};
 use tracepilot_orchestrator::bridge::{
     BridgeAuthStatus, BridgeConnectConfig, BridgeMessagePayload, BridgeModelInfo, BridgeQuota,
     BridgeSessionConfig, BridgeSessionInfo, BridgeSessionMode, BridgeStatus, DetectedUiServer,
@@ -204,4 +204,19 @@ pub async fn sdk_detect_ui_server() -> CmdResult<Vec<DetectedUiServer>> {
 pub async fn sdk_launch_ui_server(working_dir: Option<String>) -> CmdResult<u32> {
     let pid = tracepilot_orchestrator::bridge::manager::launch_ui_server(working_dir.as_deref())?;
     Ok(pid)
+}
+
+// ─── Observability ────────────────────────────────────────────────
+
+/// Point-in-time counters for the bridge broadcast channels.
+///
+/// Cheap (atomic loads only, no lock on the manager). Exposed for debug
+/// panels + ad-hoc troubleshooting of `RecvError::Lagged` events.
+/// See Phase 1A.6 in `docs/tech-debt-plan-revised-2026-04.md`.
+#[tauri::command]
+pub async fn sdk_bridge_metrics(
+    bridge: tauri::State<'_, SharedBridgeManager>,
+) -> CmdResult<BridgeMetricsSnapshot> {
+    let mgr = bridge.read().await;
+    Ok(mgr.metrics_snapshot())
 }

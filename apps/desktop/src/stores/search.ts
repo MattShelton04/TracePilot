@@ -21,7 +21,7 @@ import type {
 import { IPC_EVENTS } from "@tracepilot/types";
 import { toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
 import { defineStore } from "pinia";
-import { computed, nextTick, ref, watch } from "vue";
+import { computed, getCurrentScope, nextTick, onScopeDispose, ref, watch } from "vue";
 import { useRecentSearches } from "@/composables/useRecentSearches";
 import { useSearchClipboard } from "@/composables/useSearchClipboard";
 import { hasMeaningfulDateValue } from "@/utils/dateValidation";
@@ -122,8 +122,31 @@ export const useSearchStore = defineStore("search", () => {
     useSearchClipboard();
 
   // Global event listeners — initialized once, persist across route navigation
+  // but MUST be released on scope dispose so HMR + window teardown don't leak
+  // (Phase 1A.7).  Pinia setup stores run inside an effect scope owned by the
+  // Pinia instance, so `onScopeDispose` fires on `pinia.dispose()` / unmount.
   let listenersInitialized = false;
   const unlisteners: UnlistenFn[] = [];
+
+  function disposeListeners() {
+    while (unlisteners.length > 0) {
+      const u = unlisteners.pop();
+      try {
+        u?.();
+      } catch {
+        /* best-effort */
+      }
+    }
+    listenersInitialized = false;
+  }
+
+  if (getCurrentScope()) {
+    onScopeDispose(disposeListeners);
+  } else {
+    logWarn(
+      "[search] store created outside an effect scope; IPC listeners will NOT be released on teardown",
+    );
+  }
 
   async function initEventListeners() {
     if (listenersInitialized) return;

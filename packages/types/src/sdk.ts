@@ -62,6 +62,19 @@ export interface BridgeQuota {
   quotas: BridgeQuotaSnapshot[];
 }
 
+/**
+ * Point-in-time broadcast-channel counters from the orchestrator bridge.
+ *
+ * All values are cumulative (monotonic) for the lifetime of the bridge
+ * manager — diff two snapshots to derive rates. Wire-format is camelCase
+ * (serde `rename_all = "camelCase"`).
+ */
+export interface BridgeMetricsSnapshot {
+  eventsForwarded: number;
+  eventsDroppedDueToLag: number;
+  lagOccurrences: number;
+}
+
 export interface BridgeSessionInfo {
   sessionId: string;
   model: string | null;

@@ -26,6 +26,7 @@ import {
 } from "@/composables/useExportConfig";
 import { useExportPreview } from "@/composables/useExportPreview";
 import { useImportFlow } from "@/composables/useImportFlow";
+import { ROUTE_NAMES } from "@/config/routes";
 import { useSessionsStore } from "@/stores/sessions";
 import { logError, logInfo } from "@/utils/logger";
 import { openExternal } from "@/utils/openExternal";
@@ -768,7 +769,7 @@ function copiedToClipboard() {
             <button class="btn btn-secondary" @click="importFlow.reset">
               Import Another
             </button>
-            <button class="btn btn-primary" @click="router.push({ name: 'sessions' })">
+            <button class="btn btn-primary" @click="router.push({ name: ROUTE_NAMES.sessions })">
               View Sessions
             </button>
           </div>

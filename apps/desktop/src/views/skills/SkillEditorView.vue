@@ -6,6 +6,7 @@ import { useRoute, useRouter } from "vue-router";
 import SkillAssetsTree from "@/components/skills/SkillAssetsTree.vue";
 import SkillScopeBadge from "@/components/skills/SkillScopeBadge.vue";
 import { browseForFile } from "@/composables/useBrowseDirectory";
+import { ROUTE_NAMES } from "@/config/routes";
 import { useSkillsStore } from "@/stores/skills";
 import { logWarn } from "@/utils/logger";
 import { openExternal } from "@/utils/openExternal";
@@ -169,7 +170,7 @@ async function handleDelete() {
   const ok = await store.deleteSkill(skillDir.value);
   deleting.value = false;
   if (ok) {
-    router.push({ name: "skills-manager" });
+    router.push({ name: ROUTE_NAMES.skillsManager });
   }
 }
 
@@ -268,7 +269,7 @@ function handlePreviewClick(event: MouseEvent) {
 }
 
 function goBack() {
-  router.push({ name: "skills-manager" });
+  router.push({ name: ROUTE_NAMES.skillsManager });
 }
 
 // ─── Markdown toolbar ─────────────────────────────────────

@@ -72,7 +72,7 @@ impl Default for GeneralConfig {
     fn default() -> Self {
         Self {
             auto_index_on_launch: true,
-            cli_command: "copilot".to_string(),
+            cli_command: tracepilot_core::constants::DEFAULT_CLI_COMMAND.to_string(),
             setup_complete: false,
         }
     }
@@ -253,10 +253,10 @@ pub struct TasksConfig {
 }
 
 fn default_orchestrator_model() -> String {
-    "claude-haiku-4.5".to_string()
+    tracepilot_core::constants::DEFAULT_ORCHESTRATOR_MODEL.to_string()
 }
 fn default_subagent_model() -> String {
-    "claude-sonnet-4.6".to_string()
+    tracepilot_core::constants::DEFAULT_SUBAGENT_MODEL.to_string()
 }
 fn default_poll_interval() -> u32 {
     30
@@ -355,7 +355,7 @@ fn default_theme() -> String {
     "dark".to_string()
 }
 fn default_cli_command() -> String {
-    "copilot".to_string()
+    tracepilot_core::constants::DEFAULT_CLI_COMMAND.to_string()
 }
 fn default_auto_refresh_interval() -> u32 {
     5

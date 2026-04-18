@@ -493,7 +493,8 @@ pub async fn resume_session_in_terminal(
     // Validate UUID format (also prevents command injection via session_id)
     crate::validators::validate_session_id(&session_id)?;
 
-    let cli = cli_command.unwrap_or_else(|| "copilot".to_string());
+    let cli =
+        cli_command.unwrap_or_else(|| tracepilot_core::constants::DEFAULT_CLI_COMMAND.to_string());
 
     // Sanitize CLI command: allow only alphanumeric, hyphens, underscores, dots, slashes, spaces.
     // Colon is needed for Windows drive letters (e.g., C:\path\to\copilot).
