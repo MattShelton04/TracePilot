@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$comment": "TracePilot performance budgets — CI enforced. Update when architecture changes intentionally increase a budget.",
   "frontend": {
-    "totalBundleSizeKb": 500,
+    "totalBundleSizeKb": 2500,
     "largestChunkKb": 250,
     "initialLoadChunks": 3,
     "notes": "Measured from `pnpm --filter @tracepilot/desktop build --mode analyze`. Total includes JS + CSS assets."

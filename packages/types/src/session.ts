@@ -11,22 +11,22 @@
  */
 export interface SessionListItem {
   id: string;
-  summary?: string;
-  repository?: string;
-  branch?: string;
+  summary?: string | null;
+  repository?: string | null;
+  branch?: string | null;
   cwd?: string | null;
-  hostType?: string;
-  createdAt?: string;
-  updatedAt?: string;
-  eventCount?: number;
-  turnCount?: number;
-  currentModel?: string;
+  hostType?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  eventCount?: number | null;
+  turnCount?: number | null;
+  currentModel?: string | null;
   /** Whether this session is currently running (has an `inuse.*.lock` file). */
   isRunning: boolean;
-  errorCount?: number;
-  rateLimitCount?: number;
-  compactionCount?: number;
-  truncationCount?: number;
+  errorCount?: number | null;
+  rateLimitCount?: number | null;
+  compactionCount?: number | null;
+  truncationCount?: number | null;
 }
 
 /** A session incident (error, rate limit, compaction, or truncation). */
