@@ -242,7 +242,7 @@ mod tests {
         for model in MODEL_REGISTRY {
             assert!(ids.insert(model.id), "duplicate model id: {}", model.id);
         }
-        assert_eq!(MODEL_REGISTRY.len(), 19);
+        assert_eq!(MODEL_REGISTRY.len(), 20);
     }
 
     #[test]
