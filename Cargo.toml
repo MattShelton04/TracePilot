@@ -41,6 +41,13 @@ copilot-sdk = { git = "https://github.com/copilot-community-sdk/copilot-sdk-rust
 rayon = "1.10"
 dashmap = "6"
 
+# ── Rust ↔ TS contract codegen (Phase 1B.1 pilot) ────────────────
+# Locked to a compatible trio per tauri-specta release notes. Bump these
+# three together to avoid specta/tauri-specta API drift.
+specta = { version = "=2.0.0-rc.24", default-features = false }
+specta-typescript = { version = "=0.0.11" }
+tauri-specta = { version = "=2.0.0-rc.24", default-features = false }
+
 # Internal crates
 tracepilot-core = { path = "crates/tracepilot-core" }
 tracepilot-indexer = { path = "crates/tracepilot-indexer" }

@@ -26,7 +26,8 @@ use serde::ser::SerializeStruct;
 /// These are a **public contract** — changing a variant name is a breaking
 /// change for the desktop app. Add new variants instead of renaming existing
 /// ones. The discriminant is written to the IPC envelope as `code`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, specta::Type)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ErrorCode {
     // ── Infrastructure / plumbing ────────────────────────────────
     Io,
@@ -298,6 +299,32 @@ pub(crate) fn scrub_message(raw: &str) -> String {
 
 /// Shorthand result alias used throughout the command modules.
 pub(crate) type CmdResult<T> = Result<T, BindingsError>;
+
+// ── specta::Type forwarding for the Phase 1B.1 pilot ─────────────
+//
+// `BindingsError` wraps a handful of foreign error types (`std::io::Error`,
+// `tauri::Error`, etc.) that do not implement `specta::Type`, so we can't
+// derive `Type` directly. For codegen purposes the *only* shape the
+// frontend ever sees is the `{ code, message }` envelope produced by the
+// manual `Serialize` impl above. We surface that shape to specta via a
+// small proxy struct + a forwarding `Type` impl.
+//
+// This means `Result<T, BindingsError>` on a specta-annotated command
+// generates `Result<T, BindingsErrorIpc>` in `bindings.ts`, which is
+// exactly what consumers should pattern-match against.
+#[derive(serde::Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
+struct BindingsErrorIpc {
+    code: ErrorCode,
+    message: String,
+}
+
+impl specta::Type for BindingsError {
+    fn definition(types: &mut specta::Types) -> specta::datatype::DataType {
+        <BindingsErrorIpc as specta::Type>::definition(types)
+    }
+}
 
 #[cfg(test)]
 mod tests {

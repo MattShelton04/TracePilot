@@ -34,14 +34,18 @@ function loadPersistedTabs(): { tabs: SessionTab[]; activeId: string | null } {
         activeId: parsed.activeId ?? null,
       };
     }
-  } catch { /* ignore corrupt data */ }
+  } catch {
+    /* ignore corrupt data */
+  }
   return { tabs: [], activeId: null };
 }
 
 function persistTabs(tabs: SessionTab[], activeId: string | null) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ tabs, activeId }));
-  } catch { /* quota exceeded — best effort */ }
+  } catch {
+    /* quota exceeded — best effort */
+  }
 }
 
 export const useSessionTabsStore = defineStore("sessionTabs", () => {
@@ -50,14 +54,10 @@ export const useSessionTabsStore = defineStore("sessionTabs", () => {
   const activeTabId = ref<string | null>(persisted.activeId);
 
   // Auto-persist on changes
-  watch(
-    [tabs, activeTabId],
-    () => persistTabs(tabs.value, activeTabId.value),
-    { deep: true },
-  );
+  watch([tabs, activeTabId], () => persistTabs(tabs.value, activeTabId.value), { deep: true });
 
-  const activeTab = computed(() =>
-    tabs.value.find((t) => t.sessionId === activeTabId.value) ?? null,
+  const activeTab = computed(
+    () => tabs.value.find((t) => t.sessionId === activeTabId.value) ?? null,
   );
 
   const tabCount = computed(() => tabs.value.length);
@@ -159,10 +159,13 @@ export const useSessionTabsStore = defineStore("sessionTabs", () => {
   /** Move a tab to a new position (for drag-and-drop reordering). */
   function moveTab(fromIndex: number, toIndex: number) {
     if (
-      fromIndex < 0 || fromIndex >= tabs.value.length ||
-      toIndex < 0 || toIndex >= tabs.value.length ||
+      fromIndex < 0 ||
+      fromIndex >= tabs.value.length ||
+      toIndex < 0 ||
+      toIndex >= tabs.value.length ||
       fromIndex === toIndex
-    ) return;
+    )
+      return;
     const [moved] = tabs.value.splice(fromIndex, 1);
     tabs.value.splice(toIndex, 0, moved);
   }

@@ -19,16 +19,16 @@ import { toErrorMessage } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref, watch } from "vue";
 import { logWarn } from "@/utils/logger";
-import { toActivityEntries, type ActivityEntry } from "@/utils/orchestratorActivity";
+import { type ActivityEntry, toActivityEntries } from "@/utils/orchestratorActivity";
 
 export type { ActivityEntry } from "@/utils/orchestratorActivity";
 
 import { POLL_FAST_MS, POLL_SLOW_MS } from "@/config/tuning";
+
 /** Single source of truth lives in `@tracepilot/types` and (on the Rust
  * side) `tracepilot_core::constants::DEFAULT_ORCHESTRATOR_MODEL`. */
 const DEFAULT_MODEL = DEFAULT_ORCHESTRATOR_MODEL;
 const ACTIVITY_FEED_LIMIT = 30;
-
 
 export const useOrchestratorStore = defineStore("orchestrator", () => {
   // ─── State ────────────────────────────────────────────────────────

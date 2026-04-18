@@ -28,8 +28,22 @@ reqwest = { workspace = true }
 semver = { workspace = true }
 copilot-sdk = { workspace = true, optional = true }
 
+# Phase 1B.1 codegen pilot: specta derive on a tiny allow-list of types,
+# plus the TS emitter used by the `gen-bindings` binary. The derive macro
+# has zero runtime cost; `specta-typescript` is only pulled in by the
+# `gen-bindings` bin path and is never linked into `init()` today.
+specta = { workspace = true, features = ["derive"] }
+tauri-specta = { workspace = true, features = ["derive", "typescript"] }
+specta-typescript = { workspace = true }
+
 [dev-dependencies]
 rusqlite = { workspace = true }
 tempfile = "3"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 tracing-subscriber = { workspace = true }
+
+[build-dependencies]
+# Embeds a Windows application manifest advertising Common-Controls v6
+# so the `gen-bindings` codegen binary can load `comctl32.dll` imports
+# dragged in by the `tauri`/`wry` dep graph. No-op on non-Windows.
+embed-manifest = "1"

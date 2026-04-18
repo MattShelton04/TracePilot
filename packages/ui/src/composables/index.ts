@@ -21,8 +21,15 @@ export { useConfirmDialog } from "./useConfirmDialog";
 export type { ConversationSectionsReturn } from "./useConversationSections";
 export { useConversationSections } from "./useConversationSections";
 export { useDismissable } from "./useDismissable";
+export type { UseInflightPromiseReturn } from "./useInflightPromise";
+export { useInflightPromise } from "./useInflightPromise";
 export { useLiveDuration } from "./useLiveDuration";
+export type { UsePersistedRefOptions } from "./usePersistedRef";
+export { usePersistedRef } from "./usePersistedRef";
+export { useResizeHandle } from "./useResizeHandle";
 export { useSessionTabLoader } from "./useSessionTabLoader";
+export type { AsyncGuardLike, RunActionOptions } from "./useStoreHelpers";
+export { runAction, runMutation } from "./useStoreHelpers";
 export type {
   TimelineNavigationOptions,
   TimelineNavigationReturn,
@@ -31,6 +38,3 @@ export { useTimelineNavigation } from "./useTimelineNavigation";
 export type { Toast, ToastOptions } from "./useToast";
 export { useToast } from "./useToast";
 export { useToggleSet } from "./useToggleSet";
-export { useResizeHandle } from "./useResizeHandle";
-export type { AsyncGuardLike, RunActionOptions } from "./useStoreHelpers";
-export { runAction, runMutation } from "./useStoreHelpers";

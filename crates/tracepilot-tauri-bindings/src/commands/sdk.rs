@@ -214,6 +214,7 @@ pub async fn sdk_launch_ui_server(working_dir: Option<String>) -> CmdResult<u32>
 /// panels + ad-hoc troubleshooting of `RecvError::Lagged` events.
 /// See Phase 1A.6 in `docs/tech-debt-plan-revised-2026-04.md`.
 #[tauri::command]
+#[specta::specta]
 pub async fn sdk_bridge_metrics(
     bridge: tauri::State<'_, SharedBridgeManager>,
 ) -> CmdResult<BridgeMetricsSnapshot> {

@@ -15,12 +15,12 @@ import type {
   SessionTemplate,
   SystemDependencies,
 } from "@tracepilot/types";
-import { toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
+import { runMutation, toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import { logWarn } from "@/utils/logger";
-import { aggregateSettledErrors } from "@/utils/settleErrors";
 import { allSettledRecord } from "@/utils/settledRecord";
+import { aggregateSettledErrors } from "@/utils/settleErrors";
 
 export const useLauncherStore = defineStore("launcher", () => {
   const models = ref<ModelInfo[]>([]);
@@ -68,48 +68,38 @@ export const useLauncherStore = defineStore("launcher", () => {
   }
 
   async function launch(config: LaunchConfig): Promise<LaunchedSession | null> {
-    error.value = null;
-    try {
+    return runMutation(error, async () => {
       const session = await launchSessionApi(config);
       recentLaunches.value = [session, ...recentLaunches.value.slice(0, 9)];
       return session;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return null;
-    }
+    });
   }
 
   async function saveTemplate(template: SessionTemplate): Promise<boolean> {
-    try {
+    const ok = await runMutation(error, async () => {
       await saveTemplateApi(template);
       templates.value = await listSessionTemplates();
-      return true;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return false;
-    }
+      return true as const;
+    });
+    return ok ?? false;
   }
 
   async function deleteTemplate(id: string): Promise<boolean> {
-    try {
+    const ok = await runMutation(error, async () => {
       await deleteTemplateApi(id);
       templates.value = templates.value.filter((t) => t.id !== id);
-      return true;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return false;
-    }
+      return true as const;
+    });
+    return ok ?? false;
   }
 
   async function restoreDefaults(): Promise<boolean> {
-    try {
+    const ok = await runMutation(error, async () => {
       await restoreDefaultsApi();
       templates.value = await listSessionTemplates();
-      return true;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return false;
-    }
+      return true as const;
+    });
+    return ok ?? false;
   }
 
   async function incrementUsage(id: string): Promise<void> {

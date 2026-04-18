@@ -18,6 +18,9 @@ mod helpers;
 pub mod types;
 mod validators;
 
+#[doc(hidden)]
+pub mod specta_exports;
+
 use std::num::NonZeroUsize;
 use std::sync::{Arc, Mutex};
 use tauri::Emitter;

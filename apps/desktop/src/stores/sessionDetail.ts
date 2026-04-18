@@ -10,8 +10,12 @@
 import { defineStore } from "pinia";
 import { createSessionDetailInstance } from "@/composables/useSessionDetail";
 
-export { SESSION_DETAIL_KEY, injectSessionDetail, toSessionDetailContext } from "@/composables/useSessionDetail";
-export type { SessionDetailInstance, SessionDetailContext } from "@/composables/useSessionDetail";
+export type { SessionDetailContext, SessionDetailInstance } from "@/composables/useSessionDetail";
+export {
+  injectSessionDetail,
+  SESSION_DETAIL_KEY,
+  toSessionDetailContext,
+} from "@/composables/useSessionDetail";
 
 export const useSessionDetailStore = defineStore("sessionDetail", () => {
   return createSessionDetailInstance();

@@ -19,12 +19,12 @@ import type {
   CopilotVersion,
   MigrationDiff,
 } from "@tracepilot/types";
-import { toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
+import { runMutation, toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import { useToastStore } from "@/stores/toast";
-import { aggregateSettledErrors } from "@/utils/settleErrors";
 import { allSettledRecord } from "@/utils/settledRecord";
+import { aggregateSettledErrors } from "@/utils/settleErrors";
 
 export type ConfigTab = "agents" | "global" | "versions" | "backups";
 
@@ -87,17 +87,17 @@ export const useConfigInjectorStore = defineStore("configInjector", () => {
 
   async function saveAgent(): Promise<boolean> {
     if (!selectedAgent.value) return false;
+    const agent = selectedAgent.value;
     saving.value = true;
-    error.value = null;
     try {
-      await saveAgentApi(selectedAgent.value.filePath, editingYaml.value);
-      toastStore.success(`Saved ${selectedAgent.value.name} agent`);
-      // Reload agents to reflect changes
-      agents.value = await getAgentDefinitions();
-      return true;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return false;
+      const ok = await runMutation(error, async () => {
+        await saveAgentApi(agent.filePath, editingYaml.value);
+        toastStore.success(`Saved ${agent.name} agent`);
+        // Reload agents to reflect changes
+        agents.value = await getAgentDefinitions();
+        return true as const;
+      });
+      return ok ?? false;
     } finally {
       saving.value = false;
     }
@@ -105,15 +105,14 @@ export const useConfigInjectorStore = defineStore("configInjector", () => {
 
   async function saveGlobalConfig(config: Record<string, unknown>): Promise<boolean> {
     saving.value = true;
-    error.value = null;
     try {
-      await saveCopilotApi(config);
-      copilotConfig.value = await getCopilotConfig();
-      toastStore.success("Global config saved");
-      return true;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return false;
+      const ok = await runMutation(error, async () => {
+        await saveCopilotApi(config);
+        copilotConfig.value = await getCopilotConfig();
+        toastStore.success("Global config saved");
+        return true as const;
+      });
+      return ok ?? false;
     } finally {
       saving.value = false;
     }
@@ -134,27 +133,23 @@ export const useConfigInjectorStore = defineStore("configInjector", () => {
   }
 
   async function restoreBackup(backupPath: string, restoreTo: string): Promise<boolean> {
-    try {
+    const ok = await runMutation(error, async () => {
       await restoreBackupApi(backupPath, restoreTo);
       toastStore.success("Backup restored");
       await initialize(); // Reload everything
-      return true;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return false;
-    }
+      return true as const;
+    });
+    return ok ?? false;
   }
 
   async function deleteBackup(backupPath: string): Promise<boolean> {
-    try {
+    const ok = await runMutation(error, async () => {
       await deleteBackupApi(backupPath);
       backups.value = await listConfigBackups();
       toastStore.success("Backup deleted");
-      return true;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return false;
-    }
+      return true as const;
+    });
+    return ok ?? false;
   }
 
   async function loadMigrationDiffs(from: string, to: string) {
@@ -171,14 +166,12 @@ export const useConfigInjectorStore = defineStore("configInjector", () => {
   }
 
   async function migrateAgent(fileName: string, from: string, to: string): Promise<boolean> {
-    try {
+    const ok = await runMutation(error, async () => {
       await migrateAgentApi(fileName, from, to);
       toastStore.success(`Migrated ${fileName}`);
-      return true;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return false;
-    }
+      return true as const;
+    });
+    return ok ?? false;
   }
 
   return {

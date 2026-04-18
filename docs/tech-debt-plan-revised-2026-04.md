@@ -157,15 +157,21 @@ Phase 0  (guard-rails: CI + xplatform + coverage + a11y + migration snapshots + 
 
 **Objective:** Eliminate the drift surfaces (hand-mirrored command/event/route/flag registries).
 
-### 1B.1 Rust ↔ TS contract codegen
+### 1B.1 Rust ↔ TS contract codegen — 🟡 PARTIAL (wave 8 — infra + pilot)
 
-- Adopt `specta` + `tauri-specta`. Derive `specta::Type` on every DTO in `tauri-bindings/src/types.rs`, `tracepilot-core` public types, orchestrator shared types, and the new `ErrorCode` enum from 1A.5.
-- Wire `tauri-specta::collect_commands!` in `tauri-bindings/src/lib.rs` and emit to `packages/client/src/generated/{bindings,commands,events}.ts` at build time.
-- Replace the hand-maintained `packages/client/src/commands.ts` (authoritative location — not `packages/types/src/commands.ts` as the original plan incorrectly stated).
-- Generate TS discriminated union for `ErrorCode`.
-- CI job: `cargo run -p tauri-bindings --bin gen-bindings && git diff --exit-code`.
-- Add `"popup-session-closed"` to the IPC event registry (currently raw-stringed in `App.vue:74-77` and `ChildApp.vue:63`).
-- Delete the regex-based `commandContract.test.ts` once generation is authoritative.
+Infrastructure landed and a narrow pilot is generating cleanly. The bulk of
+the DTO sweep is deferred to subsequent waves. Full playbook:
+[`docs/specta-migration-guide.md`](./specta-migration-guide.md).
+
+- Adopt `specta` + `tauri-specta`. Derive `specta::Type` on every DTO in `tauri-bindings/src/types.rs`, `tracepilot-core` public types, orchestrator shared types, and the new `ErrorCode` enum from 1A.5. — 🟡 **PARTIAL**: workspace deps wired (`specta =2.0.0-rc.24`, `tauri-specta =2.0.0-rc.24`, `specta-typescript =0.0.11`); derives landed on `ErrorCode` (wire format verified against `backendErrors.ts`) and `BridgeMetricsSnapshot` only. Every other DTO **DEFERRED** to next wave — see migration guide for order of payoff.
+- Wire `tauri-specta::collect_commands!` in `tauri-bindings/src/lib.rs` and emit to `packages/client/src/generated/{bindings,commands,events}.ts` at build time. — 🟡 **PARTIAL**: `collect_commands!` lives in a hidden `specta_exports` module driven by a new `gen-bindings` binary; single emitted file `packages/client/src/generated/bindings.ts` covers the pilot command `sdk_bridge_metrics`. The builder is **NOT** wired into runtime `init()` yet — `tauri::generate_handler![...]` is still authoritative. Runtime cutover **DEFERRED** until every command is annotated (see migration guide "Plan: replacing `tauri::generate_handler!`").
+- Replace the hand-maintained `packages/client/src/commands.ts` (authoritative location — not `packages/types/src/commands.ts` as the original plan incorrectly stated). — **DEFERRED** (pilot explicitly does not touch `commands.ts`).
+- Generate TS discriminated union for `ErrorCode`. — ✅ **DONE**: `bindings.ts` emits `export type ErrorCode = "IO" | "TAURI" | … | "VALIDATION"` verbatim matching the legacy `as_str()` output.
+- CI job: `cargo run -p tauri-bindings --bin gen-bindings && git diff --exit-code`. — 🟡 **DOCUMENTED** in migration guide (§ "CI recommendation"), not yet wired into lefthook/GHA. `pnpm gen:bindings` script is in the root `package.json`.
+- Add `"popup-session-closed"` to the IPC event registry (currently raw-stringed in `App.vue:74-77` and `ChildApp.vue:63`). — **DEFERRED** (requires `tauri_specta::collect_events!` sub-wave; see migration guide).
+- Delete the regex-based `commandContract.test.ts` once generation is authoritative. — **DEFERRED** (retained until full command migration completes).
+
+**Wave-8 deliverables:** `docs/specta-migration-guide.md`; `crates/tracepilot-tauri-bindings/src/{specta_exports.rs, bin/gen-bindings.rs, build.rs}`; pilot derives on `ErrorCode` + `BridgeMetricsSnapshot`; checked-in `packages/client/src/generated/bindings.ts`; `pnpm gen:bindings` script.
 
 ### 1B.2 TS key registries — 🟡 PARTIAL (wave 6)
 
@@ -238,20 +244,21 @@ Under `apps/desktop/src/config/`:
 
 **Objective:** Use what exists. Zero new abstractions. Helper use must be **enforced by lint**, not just encouraged.
 
-### 2.1 Store error handling
+### 2.1 Store error handling — ✅ DONE (wave 7)
 
-- Mass-migrate 13 stores from manual `try/catch + toErrorMessage` to `runAction`/`runMutation` (`@tracepilot/ui`).
-- Codemod: `scripts/codemods/run-action.mjs`.
-- **Custom Biome rule** banning raw `try/catch` with `toErrorMessage` inside Pinia store actions.
-- Now that IPC errors carry `code` (Phase 1A.5), the rule can also enforce branch-on-code.
+- Mass-migrated try/catch-to-`runAction`/`runMutation` across 9 stores: **40 functions migrated, 28 deliberately left as-is** (non-mechanical catches: `logWarn`/`logError` side-effects, `allSettledRecord` flows, in-flight dedup promises, mixed success-null/error-null returns like `skills::getSkill`/`presets::getPreset`/`tasks::getTask`). Net ~-90 lines.
+- Stores covered: `worktrees.ts` (10/14), `mcp.ts` (10/10), `tasks.ts` (3/8), `configInjector.ts` (5/8), `launcher.ts` (4/5 — `initialize` intentionally skipped), `presets.ts` (3/4), `sessions.ts` (0/3 — all dedup/log cases), `orchestrator.ts` (0/2 — logWarn cases), `sdk.ts` (5/13 — rest have logWarn + extra state mutations).
+- `search.ts` and `orchestrationHome.ts` were correctly excluded up-front (non-standard error targets / complex guard-token threading).
+- Codemod script **not** checked in — migration was one-shot and the remaining non-mechanical cases don't benefit from a script.
+- **Custom Biome rule** banning raw `try/catch` with `toErrorMessage` inside store actions — **deferred**. The remaining un-migrated sites legitimately need manual catches, so a blanket rule would produce noise. A better future gate is a unit test asserting no *new* stores drift below a call-site-count threshold, but that's not worth building now.
 
-### 2.2 Composable adoption
+### 2.2 Composable adoption — 🟡 PARTIAL (wave 9)
 
-- `useAsyncData` (currently only imported by its own test — `composables/__tests__/useAsyncData.test.ts:3`): migrate the 13 `ref<T[]>([]) + loading + error` trios.
-- `useInflightPromise<T>()` (new in `@tracepilot/ui/composables`): replace 3 manual dedup promises in `sessions.ts`.
-- `usePersistedRef(key, default)` (new in `@tracepilot/ui/composables`): migrate `sdk.ts`, `alerts.ts`, `sessionTabs.ts`, `preferences.ts` persistence sites (uses `storageKeys.ts` from 1B.2).
-- Convert `useAlertWatcher` (`apps/desktop/src/composables/useAlertWatcher.ts:25-60`) from module-level mutable state to a Pinia store; remove `alertInitDone` guard from `App.vue:42-51`.
-- Wrap `App.vue:59,74` dynamic imports via `useWindowLifecycle.ts` (already shipped in 1A.7).
+- `useInflightPromise<T>()` ✅ landed in `@tracepilot/ui/composables` (wave 9) + 4 vitest cases. Adopted in `stores/sessions.ts` for all 3 manual dedup slots (`fetchPromise`, `indexingPromise`, `postIndexRefreshPromise`).
+- `usePersistedRef<T>(key, default, options?)` ✅ landed in `@tracepilot/ui/composables` (wave 9) + 5 vitest cases. Adopted in `stores/alerts.ts` (slice-cap preserved via custom serializer). Left as-is (by design): `sdk.ts` (persists object, exposes separate refs), `sessionTabs.ts` (same pattern), `preferences.ts` (has versioned/legacy key migration + write-through theme cache + mostly backed by `config.toml` not localStorage).
+- `useAsyncData` (existing `apps/desktop/src/composables/useAsyncData.ts`): sweep of ~13 `ref<T[]>([]) + loading + error` trios **deferred to wave 10** (too large for a single wave; needs per-store triage anyway).
+- Convert `useAlertWatcher` from module-level mutable state to a Pinia store: **deferred to wave 10** — behaviourally risky (dedup Sets/Maps must port correctly or alerts double-fire or silently drop).
+- Wrap `App.vue:59,74` dynamic imports via `useWindowLifecycle.ts`: **WONTFIX this phase** — trivial inline pattern; the lifecycle helper (shipped in wave 1A.7) already serves its primary purpose elsewhere.
 
 ### 2.3 Shared-component adoption
 

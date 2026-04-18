@@ -21,10 +21,9 @@ import type {
   McpSummary,
   McpTool,
 } from "@tracepilot/types";
-import { toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
+import { runAction, runMutation, useAsyncGuard } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
-import { logWarn } from "@/utils/logger";
 
 export const useMcpStore = defineStore("mcp", () => {
   // ─── State ────────────────────────────────────────────────────────
@@ -61,9 +60,7 @@ export const useMcpStore = defineStore("mcp", () => {
     }
 
     if (filterTags.value.length > 0) {
-      list = list.filter((s) =>
-        filterTags.value.some((tag) => s.config.tags?.includes(tag)),
-      );
+      list = list.filter((s) => filterTags.value.some((tag) => s.config.tags?.includes(tag)));
     }
 
     return list;
@@ -96,36 +93,30 @@ export const useMcpStore = defineStore("mcp", () => {
   // ─── Actions ──────────────────────────────────────────────────────
 
   async function loadServers() {
-    const token = loadGuard.start();
-    loading.value = true;
-    error.value = null;
-    try {
-      const entries = await mcpListServers();
-      if (!loadGuard.isValid(token)) return;
-
-      const map = new Map<string, McpServerDetail>();
-      for (const [name, config] of entries) {
-        const cached = healthResults.value.get(name);
-        map.set(name, {
-          name,
-          config,
-          health: cached?.result,
-          tools: cached?.tools ?? [],
-          totalTokens: cached?.tools?.reduce((sum, t) => sum + t.estimatedTokens, 0) ?? 0,
-        });
-      }
-      servers.value = map;
-    } catch (e) {
-      if (!loadGuard.isValid(token)) return;
-      error.value = toErrorMessage(e);
-    } finally {
-      if (loadGuard.isValid(token)) loading.value = false;
-    }
+    await runAction({
+      loading,
+      error,
+      guard: loadGuard,
+      action: () => mcpListServers(),
+      onSuccess: (entries) => {
+        const map = new Map<string, McpServerDetail>();
+        for (const [name, config] of entries) {
+          const cached = healthResults.value.get(name);
+          map.set(name, {
+            name,
+            config,
+            health: cached?.result,
+            tools: cached?.tools ?? [],
+            totalTokens: cached?.tools?.reduce((sum, t) => sum + t.estimatedTokens, 0) ?? 0,
+          });
+        }
+        servers.value = map;
+      },
+    });
   }
 
   async function addServer(name: string, config: McpServerConfig): Promise<boolean> {
-    error.value = null;
-    try {
+    const ok = await runMutation(error, async () => {
       await mcpAddServer(name, config);
       servers.value.set(name, {
         name,
@@ -133,16 +124,13 @@ export const useMcpStore = defineStore("mcp", () => {
         tools: [],
         totalTokens: 0,
       });
-      return true;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return false;
-    }
+      return true as const;
+    });
+    return ok ?? false;
   }
 
   async function updateServer(name: string, config: McpServerConfig): Promise<boolean> {
-    error.value = null;
-    try {
+    const ok = await runMutation(error, async () => {
       await mcpUpdateServer(name, config);
       const existing = servers.value.get(name);
       servers.value.set(name, {
@@ -152,32 +140,26 @@ export const useMcpStore = defineStore("mcp", () => {
         tools: existing?.tools ?? [],
         totalTokens: existing?.totalTokens ?? 0,
       });
-      return true;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return false;
-    }
+      return true as const;
+    });
+    return ok ?? false;
   }
 
   async function removeServer(name: string): Promise<boolean> {
-    error.value = null;
-    try {
+    const ok = await runMutation(error, async () => {
       await mcpRemoveServer(name);
       servers.value.delete(name);
       healthResults.value.delete(name);
       if (selectedServer.value === name) {
         selectedServer.value = null;
       }
-      return true;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return false;
-    }
+      return true as const;
+    });
+    return ok ?? false;
   }
 
   async function toggleServer(name: string): Promise<boolean> {
-    error.value = null;
-    try {
+    const result = await runMutation(error, async () => {
       const newEnabled = await mcpToggleServer(name);
       const existing = servers.value.get(name);
       if (existing) {
@@ -187,15 +169,12 @@ export const useMcpStore = defineStore("mcp", () => {
         });
       }
       return newEnabled;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return false;
-    }
+    });
+    return result ?? false;
   }
 
   async function checkHealth(): Promise<void> {
-    error.value = null;
-    try {
+    await runMutation(error, async () => {
       const results = await mcpCheckHealth();
       for (const [name, cached] of Object.entries(results)) {
         healthResults.value.set(name, cached);
@@ -209,14 +188,11 @@ export const useMcpStore = defineStore("mcp", () => {
           });
         }
       }
-    } catch (e) {
-      error.value = toErrorMessage(e);
-    }
+    });
   }
 
   async function checkServerHealth(name: string): Promise<McpHealthResultCached | null> {
-    error.value = null;
-    try {
+    return runMutation(error, async () => {
       const cached = await mcpCheckServerHealth(name);
       healthResults.value.set(name, cached);
       const existing = servers.value.get(name);
@@ -229,15 +205,11 @@ export const useMcpStore = defineStore("mcp", () => {
         });
       }
       return cached;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return null;
-    }
+    });
   }
 
   async function importFromFile(path: string): Promise<McpImportResult | null> {
-    error.value = null;
-    try {
+    return runMutation(error, async () => {
       const result = await mcpImportFromFile(path);
       // Persist each imported server into the config
       for (const [name, config] of Object.entries(result.servers)) {
@@ -245,10 +217,7 @@ export const useMcpStore = defineStore("mcp", () => {
       }
       await loadServers();
       return result;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return null;
-    }
+    });
   }
 
   async function importFromGitHub(
@@ -257,26 +226,13 @@ export const useMcpStore = defineStore("mcp", () => {
     path?: string,
     gitRef?: string,
   ): Promise<McpImportResult | null> {
-    error.value = null;
-    try {
-      const result = await mcpImportFromGitHub(owner, repo, path, gitRef);
-      return result;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return null;
-    }
+    return runMutation(error, () => mcpImportFromGitHub(owner, repo, path, gitRef));
   }
 
   async function computeDiff(
     incoming: Record<string, McpServerConfig>,
   ): Promise<McpConfigDiff | null> {
-    error.value = null;
-    try {
-      return await mcpComputeDiff(incoming);
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return null;
-    }
+    return runMutation(error, () => mcpComputeDiff(incoming));
   }
 
   function getServerDetail(name: string): McpServerDetail | undefined {

@@ -32,8 +32,8 @@ import {
 } from "@tracepilot/client";
 import type {
   BridgeAuthStatus,
-  BridgeConnectionState,
   BridgeConnectConfig,
+  BridgeConnectionState,
   BridgeEvent,
   BridgeMessagePayload,
   BridgeModelInfo,
@@ -45,14 +45,14 @@ import type {
   DetectedUiServer,
 } from "@tracepilot/types";
 import { IPC_EVENTS } from "@tracepilot/types";
-import { toErrorMessage } from "@tracepilot/ui";
+import { runMutation, toErrorMessage } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref, shallowRef, watch } from "vue";
-import { safeListen } from "@/utils/tauriEvents";
-import { logInfo, logWarn } from "@/utils/logger";
-import { usePreferencesStore } from "@/stores/preferences";
 import { useWindowRole } from "@/composables/useWindowRole";
 import { MAX_SDK_EVENTS } from "@/config/tuning";
+import { usePreferencesStore } from "@/stores/preferences";
+import { logInfo, logWarn } from "@/utils/logger";
+import { safeListen } from "@/utils/tauriEvents";
 
 const SDK_SETTINGS_KEY = "tracepilot:sdk-settings";
 
@@ -65,7 +65,9 @@ function loadSdkSettings(): SdkSettings {
   try {
     const raw = localStorage.getItem(SDK_SETTINGS_KEY);
     if (raw) return { cliUrl: "", logLevel: "info", ...JSON.parse(raw) };
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
   return { cliUrl: "", logLevel: "info" };
 }
 
@@ -117,15 +119,16 @@ export const useSdkStore = defineStore("sdk", () => {
   const isConnecting = computed(() => connecting.value || connectionState.value === "connecting");
   const hasError = computed(() => lastError.value !== null);
   const isTcpMode = computed(() => connectionMode.value === "tcp");
-  const isStdioMode = computed(() => connectionMode.value === "stdio" || connectionMode.value === null);
+  const isStdioMode = computed(
+    () => connectionMode.value === "stdio" || connectionMode.value === null,
+  );
 
-  const foregroundSession = computed(() =>
-    sessions.value.find((s) => s.sessionId === foregroundSessionId.value) ?? null,
+  const foregroundSession = computed(
+    () => sessions.value.find((s) => s.sessionId === foregroundSessionId.value) ?? null,
   );
 
   const sessionEvents = computed(() => {
-    return (sessionId: string) =>
-      recentEvents.value.filter((e) => e.sessionId === sessionId);
+    return (sessionId: string) => recentEvents.value.filter((e) => e.sessionId === sessionId);
   });
 
   // ─── Actions ──────────────────────────────────────────────────────
@@ -180,26 +183,28 @@ export const useSdkStore = defineStore("sdk", () => {
   /** Fetch sessions, models, and auth after connecting. Quota skipped (not all CLI versions support it). */
   async function hydrateAfterConnect() {
     logInfo("[sdk] Hydrating: fetching auth, models, sessions, version...");
-    await Promise.all([
-      fetchAuthStatus(),
-      fetchModels(),
-      fetchSessions(),
-      fetchVersionInfo(),
-    ]);
-    logInfo("[sdk] Hydration complete: auth=", authStatus.value?.isAuthenticated, "models=", models.value.length, "sessions=", sessions.value.length, "cli=", cliVersion.value);
+    await Promise.all([fetchAuthStatus(), fetchModels(), fetchSessions(), fetchVersionInfo()]);
+    logInfo(
+      "[sdk] Hydration complete: auth=",
+      authStatus.value?.isAuthenticated,
+      "models=",
+      models.value.length,
+      "sessions=",
+      sessions.value.length,
+      "cli=",
+      cliVersion.value,
+    );
   }
 
   async function disconnect() {
-    try {
+    await runMutation(lastError, async () => {
       await sdkDisconnect();
       connectionState.value = "disconnected";
       connectionMode.value = null;
       sessions.value = [];
       foregroundSessionId.value = null;
       activeSessions.value = 0;
-    } catch (e) {
-      lastError.value = toErrorMessage(e);
-    }
+    });
   }
 
   async function refreshStatus() {
@@ -240,7 +245,13 @@ export const useSdkStore = defineStore("sdk", () => {
   async function fetchSessions() {
     try {
       sessions.value = await sdkListSessions();
-      logInfo("[sdk] Sessions fetched:", sessions.value.length, "total,", sessions.value.filter(s => s.isActive).length, "active");
+      logInfo(
+        "[sdk] Sessions fetched:",
+        sessions.value.length,
+        "total,",
+        sessions.value.filter((s) => s.isActive).length,
+        "active",
+      );
     } catch (e) {
       logWarn("[sdk] Failed to fetch sessions", e);
     }
@@ -255,20 +266,28 @@ export const useSdkStore = defineStore("sdk", () => {
   }
 
   async function createSession(config: BridgeSessionConfig): Promise<BridgeSessionInfo | null> {
-    try {
+    return runMutation(lastError, async () => {
       const session = await sdkCreateSession(config);
       sessions.value = [...sessions.value, session];
       activeSessions.value = sessions.value.length;
       return session;
-    } catch (e) {
-      lastError.value = toErrorMessage(e);
-      return null;
-    }
+    });
   }
 
   /** Resume an existing session for steering (e.g. from --ui-server). */
-  async function resumeSession(sessionId: string, workingDirectory?: string, model?: string): Promise<BridgeSessionInfo | null> {
-    logInfo("[sdk] Resuming session:", sessionId, "cwd:", workingDirectory ?? "(none)", "model:", model ?? "(none)");
+  async function resumeSession(
+    sessionId: string,
+    workingDirectory?: string,
+    model?: string,
+  ): Promise<BridgeSessionInfo | null> {
+    logInfo(
+      "[sdk] Resuming session:",
+      sessionId,
+      "cwd:",
+      workingDirectory ?? "(none)",
+      "model:",
+      model ?? "(none)",
+    );
     try {
       const session = await sdkResumeSession(sessionId, workingDirectory, model);
       logInfo("[sdk] Resume result:", session);
@@ -300,9 +319,17 @@ export const useSdkStore = defineStore("sdk", () => {
     }
   }
 
-  async function sendMessage(sessionId: string, payload: BridgeMessagePayload): Promise<string | null> {
+  async function sendMessage(
+    sessionId: string,
+    payload: BridgeMessagePayload,
+  ): Promise<string | null> {
     sendingMessage.value = true;
-    logInfo("[sdk] Sending message to session:", sessionId, "prompt:", payload.prompt?.slice(0, 50));
+    logInfo(
+      "[sdk] Sending message to session:",
+      sessionId,
+      "prompt:",
+      payload.prompt?.slice(0, 50),
+    );
     try {
       const turnId = await sdkSendMessage(sessionId, payload);
       logInfo("[sdk] Message sent, turnId:", turnId);
@@ -318,11 +345,7 @@ export const useSdkStore = defineStore("sdk", () => {
   }
 
   async function abortSession(sessionId: string) {
-    try {
-      await sdkAbortSession(sessionId);
-    } catch (e) {
-      lastError.value = toErrorMessage(e);
-    }
+    await runMutation(lastError, () => sdkAbortSession(sessionId));
   }
 
   async function destroySession(sessionId: string) {
@@ -355,15 +378,11 @@ export const useSdkStore = defineStore("sdk", () => {
   }
 
   async function setSessionMode(sessionId: string, mode: BridgeSessionMode) {
-    try {
+    await runMutation(lastError, async () => {
       await sdkSetSessionMode(sessionId, mode);
       // Optimistic update
-      sessions.value = sessions.value.map((s) =>
-        s.sessionId === sessionId ? { ...s, mode } : s,
-      );
-    } catch (e) {
-      lastError.value = toErrorMessage(e);
-    }
+      sessions.value = sessions.value.map((s) => (s.sessionId === sessionId ? { ...s, mode } : s));
+    });
   }
 
   async function setSessionModel(sessionId: string, model: string, reasoningEffort?: string) {
@@ -371,9 +390,7 @@ export const useSdkStore = defineStore("sdk", () => {
       logInfo("[sdk] setSessionModel:", { sessionId, model, reasoningEffort });
       await sdkSetSessionModel(sessionId, model, reasoningEffort);
       logInfo("[sdk] setSessionModel succeeded — optimistically updating to:", model);
-      sessions.value = sessions.value.map((s) =>
-        s.sessionId === sessionId ? { ...s, model } : s,
-      );
+      sessions.value = sessions.value.map((s) => (s.sessionId === sessionId ? { ...s, model } : s));
     } catch (e) {
       logWarn("[sdk] setSessionModel failed:", e);
       lastError.value = toErrorMessage(e);
@@ -389,12 +406,10 @@ export const useSdkStore = defineStore("sdk", () => {
   }
 
   async function setForegroundSession(sessionId: string) {
-    try {
+    await runMutation(lastError, async () => {
       await sdkSetForegroundSession(sessionId);
       foregroundSessionId.value = sessionId;
-    } catch (e) {
-      lastError.value = toErrorMessage(e);
-    }
+    });
   }
 
   // ─── Event Listeners ──────────────────────────────────────────────
@@ -446,7 +461,11 @@ export const useSdkStore = defineStore("sdk", () => {
   // Auto-connect when copilotSdk feature is enabled
   const prefs = usePreferencesStore();
   async function autoConnect() {
-    if (prefs.isFeatureEnabled("copilotSdk") && connectionState.value === "disconnected" && !connecting.value) {
+    if (
+      prefs.isFeatureEnabled("copilotSdk") &&
+      connectionState.value === "disconnected" &&
+      !connecting.value
+    ) {
       logInfo("[sdk] Auto-connecting (copilotSdk feature enabled)...");
       await connect({
         cliUrl: savedCliUrl.value || undefined,
@@ -469,11 +488,16 @@ export const useSdkStore = defineStore("sdk", () => {
       const servers = await sdkDetectUiServer();
       detectedServers.value = servers;
       if (servers.length === 0) {
-        lastDetectMessage.value = "No running Copilot servers found. Launch one or start copilot --ui-server manually.";
+        lastDetectMessage.value =
+          "No running Copilot servers found. Launch one or start copilot --ui-server manually.";
       } else {
         lastDetectMessage.value = `Found ${servers.length} server${servers.length !== 1 ? "s" : ""}`;
       }
-      logInfo("[sdk] Detected UI servers:", servers.length, servers.map(s => s.address));
+      logInfo(
+        "[sdk] Detected UI servers:",
+        servers.length,
+        servers.map((s) => s.address),
+      );
       return servers;
     } catch (e) {
       logWarn("[sdk] UI server detection failed:", e);

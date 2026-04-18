@@ -48,7 +48,7 @@ pub struct BridgeMetrics {
 ///
 /// Serialised in camelCase for frontend consumption (matches the rest of the
 /// IPC DTOs; see `packages/types/src/sdk.ts::BridgeMetricsSnapshot`).
-#[derive(Debug, Clone, Copy, serde::Serialize)]
+#[derive(Debug, Clone, Copy, serde::Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct BridgeMetricsSnapshot {
     pub events_forwarded: u64,
