@@ -41,6 +41,12 @@ pub struct TurnReconstructor {
     /// Session events buffered while no turn is active.
     /// Flushed into the next real turn when one is opened.
     pending_session_events: Vec<TurnSessionEvent>,
+    /// System message contents buffered while no turn is active.
+    /// Flushed into the next real turn when one is opened.
+    pending_system_messages: Vec<String>,
+    /// Timestamp of the first pending system message — used as fallback when
+    /// building a synthetic turn in sessions that have no real turns.
+    pending_system_messages_ts: Option<DateTime<Utc>>,
 }
 
 const CURRENT_TURN_SENTINEL: usize = usize::MAX;
@@ -60,6 +66,8 @@ impl TurnReconstructor {
             tool_call_index: HashMap::new(),
             session_model: None,
             pending_session_events: Vec::new(),
+            pending_system_messages: Vec::new(),
+            pending_system_messages_ts: None,
         }
     }
 
@@ -80,6 +88,8 @@ impl TurnReconstructor {
                 turn.model = self.session_model.clone();
                 // Flush any session events that occurred between turns
                 turn.session_events.append(&mut self.pending_session_events);
+                // Flush any system messages that arrived before this turn
+                turn.system_messages.append(&mut self.pending_system_messages);
                 self.current_turn = Some(turn);
             }
 
@@ -539,6 +549,21 @@ impl TurnReconstructor {
                 );
             }
 
+            (SessionEventType::SystemMessage, TypedEventData::SystemMessage(data)) => {
+                if let Some(content) = &data.content
+                    && !content.trim().is_empty()
+                {
+                    let content = content.clone();
+                    if let Some(turn) = &mut self.current_turn {
+                        turn.system_messages.push(content);
+                    } else {
+                        self.pending_system_messages_ts =
+                            self.pending_system_messages_ts.or(event.raw.timestamp);
+                        self.pending_system_messages.push(content);
+                    }
+                }
+            }
+
             _ => {}
         }
     }
@@ -549,16 +574,19 @@ impl TurnReconstructor {
 
         // Attach any remaining buffered session events to the last turn,
         // or create a synthetic turn if no turns exist (e.g., failed-start sessions).
-        if !self.pending_session_events.is_empty() {
+        if !self.pending_session_events.is_empty() || !self.pending_system_messages.is_empty() {
             if let Some(last) = self.turns.last_mut() {
                 last.session_events.append(&mut self.pending_session_events);
+                last.system_messages.append(&mut self.pending_system_messages);
             } else {
                 let ts = self
                     .pending_session_events
                     .first()
-                    .and_then(|e| e.timestamp);
+                    .and_then(|e| e.timestamp)
+                    .or(self.pending_system_messages_ts);
                 let mut turn = new_turn(0, ts, None, None, None, None);
                 turn.session_events.append(&mut self.pending_session_events);
+                turn.system_messages.append(&mut self.pending_system_messages);
                 self.turns.push(turn);
             }
         }
@@ -612,6 +640,8 @@ impl TurnReconstructor {
             turn.model = self.session_model.clone();
             // Flush any session events that occurred while no turn was active
             turn.session_events.append(&mut self.pending_session_events);
+            // Flush any system messages that arrived before this turn
+            turn.system_messages.append(&mut self.pending_system_messages);
             self.current_turn = Some(turn);
         }
         self.current_turn
@@ -765,6 +795,7 @@ fn new_turn(
         transformed_user_message,
         attachments,
         session_events: Vec::new(),
+        system_messages: Vec::new(),
     }
 }
 
