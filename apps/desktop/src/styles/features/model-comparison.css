@@ -1,0 +1,332 @@
+/**
+ * Styles for ModelComparisonView.
+ *
+ * Extracted in Wave 33 from `views/ModelComparisonView.vue`. All selectors
+ * are namespaced under `.model-comparison-feature` (applied on the inner
+ * wrapper inside `PageShell`) to bound the cascade.
+ */
+
+/* ── Model Cards Row ──────────────────────────────────────── */
+.model-comparison-feature .model-cards-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.model-comparison-feature .model-card {
+  background: var(--canvas-overlay);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg, 12px);
+  padding: 16px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.model-comparison-feature .model-card:hover {
+  border-color: var(--border-accent, var(--chart-primary));
+  box-shadow: 0 0 0 1px var(--border-accent, var(--chart-primary));
+}
+
+.model-comparison-feature .model-card-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.model-comparison-feature .model-card-name-text {
+  font-weight: 600;
+  font-size: 0.8125rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-comparison-feature .model-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+.model-comparison-feature .model-card-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+  margin-bottom: 12px;
+}
+.model-comparison-feature .model-card-stat-label {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+.model-comparison-feature .model-card-stat-value {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.model-comparison-feature .token-share-bar {
+  height: 6px;
+  background: var(--neutral-muted, rgba(99, 102, 241, 0.08));
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+.model-comparison-feature .token-share-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+.model-comparison-feature .token-share-label {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+}
+
+/* ── Performance Matrix Table ─────────────────────────────── */
+.model-comparison-feature .matrix-table,
+.model-comparison-feature .compare-table {
+  table-layout: fixed;
+  width: 100%;
+}
+.model-comparison-feature .matrix-table td,
+.model-comparison-feature .compare-table td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-comparison-feature .sort-header {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.model-comparison-feature .sort-header:hover {
+  color: var(--accent-fg, var(--chart-primary-light));
+}
+.model-comparison-feature .sort-arrow {
+  font-size: 0.6rem;
+  margin-left: 4px;
+  opacity: 0.5;
+}
+.model-comparison-feature .sort-header:hover .sort-arrow {
+  opacity: 1;
+}
+
+.model-comparison-feature .num-cell {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.model-comparison-feature .model-name-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.model-comparison-feature .best-cell {
+  background: rgba(52, 211, 153, 0.08);
+  border-radius: 4px;
+  padding: 2px 6px;
+  margin: -2px -6px;
+  display: inline-block;
+  color: var(--chart-success);
+  font-weight: 600;
+}
+
+.model-comparison-feature .inline-progress {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+.model-comparison-feature .inline-progress-bar {
+  flex: 1;
+  height: 6px;
+  background: var(--neutral-muted, rgba(99, 102, 241, 0.08));
+  border-radius: 3px;
+  overflow: hidden;
+}
+.model-comparison-feature .inline-progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+/* ── Scrollable Sections ──────────────────────────────────── */
+.model-comparison-feature .scrollable-section {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+/* ── Charts ───────────────────────────────────────────────── */
+/* Shared chart styles (chart-svg, tooltip, overlay, etc.)
+   are in styles/chart-shared.css — imported globally via main.ts. */
+
+.model-comparison-feature .legend {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+  font-size: 0.75rem;
+  color: var(--text-secondary, #a1a1aa);
+  flex-wrap: wrap;
+}
+.model-comparison-feature .legend-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 5px;
+}
+
+.model-comparison-feature .chart-placeholder {
+  text-align: center;
+  padding: 40px 16px;
+  color: var(--text-tertiary);
+  font-size: 0.875rem;
+}
+
+.model-comparison-feature .scatter-hint {
+  text-align: center;
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  margin-top: 8px;
+}
+
+/* ── Side-by-Side Comparison ──────────────────────────────── */
+.model-comparison-feature .compare-selectors {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.model-comparison-feature .compare-vs {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.model-comparison-feature .compare-table th:nth-child(3),
+.model-comparison-feature .compare-table td:nth-child(3) {
+  text-align: center;
+  width: 100px;
+}
+
+.model-comparison-feature .compare-better {
+  background: rgba(52, 211, 153, 0.06);
+}
+
+.model-comparison-feature .delta-cell {
+  text-align: center !important;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+.model-comparison-feature .delta-up {
+  color: var(--chart-success);
+}
+.model-comparison-feature .delta-down {
+  color: var(--chart-danger);
+}
+.model-comparison-feature .delta-neutral {
+  color: var(--text-tertiary);
+}
+
+/* ── Toggle Controls ─────────────────────────────────────── */
+.model-comparison-feature .matrix-toggles {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.model-comparison-feature .norm-toggle,
+.model-comparison-feature .cost-toggle {
+  display: inline-flex;
+  background: var(--canvas-default);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  padding: 2px;
+  gap: 2px;
+}
+
+.model-comparison-feature .toggle-btn {
+  padding: 5px 14px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.model-comparison-feature .toggle-btn:hover {
+  color: var(--text-secondary);
+}
+
+.model-comparison-feature .toggle-btn.active {
+  background: var(--canvas-subtle);
+  color: var(--text-primary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+/* ── Extracted inline styles ─────────────────────────────── */
+.model-comparison-feature .panel-header-flex {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.model-comparison-feature .panel-body-flush {
+  padding: 0;
+}
+
+.model-comparison-feature .col-model {
+  width: 18%;
+}
+
+.model-comparison-feature .col-total {
+  width: 11%;
+}
+
+.model-comparison-feature .col-input {
+  width: 11%;
+}
+
+.model-comparison-feature .col-output {
+  width: 9%;
+}
+
+.model-comparison-feature .col-cached {
+  width: 9%;
+}
+
+.model-comparison-feature .col-share {
+  width: 13%;
+}
+
+.model-comparison-feature .col-prem-req {
+  width: 8%;
+}
+
+.model-comparison-feature .col-cache-hit {
+  width: 8%;
+}
+
+.model-comparison-feature .col-cost {
+  width: 8%;
+}
+
+.model-comparison-feature .col-quarter {
+  width: 25%;
+}
+
+.model-comparison-feature .metric-label {
+  font-weight: 500;
+}

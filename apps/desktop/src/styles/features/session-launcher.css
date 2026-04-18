@@ -1,0 +1,997 @@
+/*
+ * Feature stylesheet for SessionLauncherView (wave-29 decomposition).
+ *
+ * Contents extracted verbatim from SessionLauncherView.vue's <style scoped>
+ * block — selectors are unprefixed so child components can consume the same
+ * class names without scoped-hash drift. The view shell wraps its root in
+ * `.session-launcher-feature` to bound the cascade; the teleported context
+ * menu lives on <body> and uses its own `.session-launcher-ctx-menu` prefix.
+ */
+
+/* ── Shell & Layout ──────────────────────────────────────────────── */
+.session-launcher-feature .store-shell {
+  height: 100%;
+  overflow: hidden;
+}
+
+.session-launcher-feature .split-layout {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 0;
+  height: 100%;
+  min-height: 0;
+}
+
+/* ── Left Panel ──────────────────────────────────────────────────── */
+.session-launcher-feature .panel-left {
+  overflow-y: auto;
+  padding: 28px;
+  min-width: 0;
+}
+
+/* ── Right Panel ─────────────────────────────────────────────────── */
+.session-launcher-feature .panel-right {
+  background: var(--canvas-subtle);
+  border-left: 1px solid var(--border-default);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.session-launcher-feature .preview-inner {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  position: sticky;
+  top: 0;
+}
+
+.session-launcher-feature .preview-header {
+  padding: 16px 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+
+.session-launcher-feature .preview-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 20px 20px;
+}
+
+.session-launcher-feature .preview-footer {
+  flex-shrink: 0;
+  padding: 16px 20px;
+  border-top: 1px solid var(--border-default);
+  background: var(--canvas-default);
+  display: flex;
+  gap: 10px;
+}
+
+/* ── Page Header ─────────────────────────────────────────────────── */
+.session-launcher-feature .session-launcher-header {
+  margin-bottom: 24px;
+}
+
+/* ── Readiness Banner ────────────────────────────────────────────── */
+.session-launcher-feature .readiness-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  background: var(--warning-subtle, color-mix(in srgb, var(--warning-fg) 8%, transparent));
+  border: 1px solid var(--warning-muted);
+  border-radius: var(--radius-lg);
+  color: var(--warning-fg);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.session-launcher-feature .readiness-icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* ── Section blocks ──────────────────────────────────────────────── */
+.session-launcher-feature .section-block {
+  margin-bottom: 22px;
+}
+
+.session-launcher-feature .section-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  letter-spacing: 0.04em;
+  margin: 0 0 10px;
+}
+
+.session-launcher-feature .section-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.session-launcher-feature .tpl-restore-btn {
+  background: none;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: 0.6875rem;
+  padding: 2px 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin-bottom: 10px;
+}
+.session-launcher-feature .tpl-restore-btn:hover {
+  background: var(--canvas-subtle);
+  color: var(--text-primary);
+  border-color: var(--border-emphasis);
+}
+
+.session-launcher-feature .section-panel {
+  background: var(--canvas-subtle);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+}
+
+/* ── Template Cards ──────────────────────────────────────────────── */
+.session-launcher-feature .tpl-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.session-launcher-feature .tpl-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 12px 14px;
+  background: var(--canvas-subtle);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  color: inherit;
+  transition: border-color var(--transition-fast, 0.15s) ease,
+              box-shadow var(--transition-fast, 0.15s) ease,
+              background var(--transition-fast, 0.15s) ease;
+}
+
+.session-launcher-feature .tpl-card:hover {
+  border-color: var(--border-accent);
+  box-shadow: var(--shadow-sm);
+}
+
+.session-launcher-feature .tpl-card.selected {
+  border-color: var(--accent-emphasis);
+  background: var(--accent-subtle, color-mix(in srgb, var(--accent-emphasis) 8%, transparent));
+  box-shadow: 0 0 0 1px var(--accent-emphasis),
+              0 0 12px color-mix(in srgb, var(--accent-emphasis) 20%, transparent);
+}
+
+.session-launcher-feature .tpl-emoji {
+  font-size: 20px;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+
+.session-launcher-feature .tpl-name {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.session-launcher-feature .tpl-desc {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.session-launcher-feature .tpl-stats {
+  font-size: 0.5625rem;
+  color: var(--text-placeholder);
+  margin-top: 6px;
+}
+
+/* ── Form elements ───────────────────────────────────────────────── */
+.session-launcher-feature .form-grid-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.session-launcher-feature .form-group {
+  margin-bottom: 14px;
+}
+
+.session-launcher-feature .form-group:last-child {
+  margin-bottom: 0;
+}
+
+.session-launcher-feature .form-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  margin-bottom: 5px;
+}
+
+.session-launcher-feature .required {
+  color: var(--danger-fg);
+}
+
+.session-launcher-feature .form-input {
+  width: 100%;
+  padding: 7px 10px;
+  background: var(--canvas-default);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  font-family: inherit;
+  transition: border-color 0.15s ease;
+  box-sizing: border-box;
+}
+
+.session-launcher-feature .form-input:focus {
+  outline: none;
+  border-color: var(--accent-emphasis);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-emphasis) 25%, transparent);
+}
+
+.session-launcher-feature .form-input::placeholder {
+  color: var(--text-placeholder);
+}
+
+.session-launcher-feature .form-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23848d97' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+  cursor: pointer;
+}
+
+.session-launcher-feature .form-textarea {
+  resize: vertical;
+  min-height: 80px;
+  line-height: 1.5;
+}
+
+.session-launcher-feature .form-mono {
+  font-family: var(--font-mono, 'SF Mono', 'Fira Code', monospace);
+  font-size: 0.75rem;
+}
+
+/* ── Button Group (reasoning effort) ─────────────────────────────── */
+.session-launcher-feature .btn-group {
+  display: flex;
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.session-launcher-feature .btn-group-item {
+  flex: 1;
+  padding: 7px 0;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--text-secondary);
+  background: var(--canvas-default);
+  border: none;
+  border-right: 1px solid var(--border-default);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.session-launcher-feature .btn-group-item:last-child {
+  border-right: none;
+}
+
+.session-launcher-feature .btn-group-item:hover {
+  background: var(--canvas-subtle);
+}
+
+.session-launcher-feature .btn-group-item.active {
+  background: var(--accent-muted, color-mix(in srgb, var(--accent-emphasis) 15%, transparent));
+  color: var(--accent-fg);
+  font-weight: 600;
+}
+
+/* ── Advanced Options ────────────────────────────────────────────── */
+.session-launcher-feature .advanced-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  margin-bottom: 10px;
+  transition: color 0.15s ease;
+}
+
+.session-launcher-feature .advanced-trigger:hover {
+  color: var(--text-primary);
+}
+
+.session-launcher-feature .advanced-arrow {
+  display: inline-block;
+  font-size: 0.625rem;
+  transition: transform 0.2s ease;
+}
+
+.session-launcher-feature .advanced-arrow.open {
+  transform: rotate(90deg);
+}
+
+.session-launcher-feature .adv-panel {
+  margin-top: 0;
+}
+
+/* ── Toggle Switch ───────────────────────────────────────────────── */
+.session-launcher-feature .toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.session-launcher-feature .toggle-row-last {
+  border-bottom: none;
+}
+
+.session-launcher-feature .toggle-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.session-launcher-feature .toggle-label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.session-launcher-feature .toggle-desc {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+}
+
+.session-launcher-feature .toggle-switch {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  border-radius: 10px;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  background: var(--neutral-muted);
+  transition: background 0.2s ease;
+  flex-shrink: 0;
+}
+
+.session-launcher-feature .toggle-switch.on {
+  background: var(--accent-emphasis);
+}
+
+.session-launcher-feature .toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--text-primary);
+  transition: transform 0.2s ease;
+  box-shadow: var(--shadow-sm);
+}
+
+.session-launcher-feature .toggle-switch.on .toggle-thumb {
+  transform: translateX(16px);
+}
+
+/* ── Env Vars ────────────────────────────────────────────────────── */
+.session-launcher-feature .env-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.session-launcher-feature .env-key {
+  flex: 1;
+}
+
+.session-launcher-feature .env-val {
+  flex: 1.5;
+}
+
+.session-launcher-feature .env-remove {
+  padding: 4px 8px;
+  background: none;
+  border: none;
+  color: var(--danger-fg);
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border-radius: 4px;
+  transition: background 0.15s ease;
+  flex-shrink: 0;
+}
+
+.session-launcher-feature .env-remove:hover {
+  background: color-mix(in srgb, var(--danger-fg) 12%, transparent);
+}
+
+.session-launcher-feature .btn-add-var {
+  padding: 6px 12px;
+  background: none;
+  border: 1px dashed var(--border-default);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.session-launcher-feature .btn-add-var:hover {
+  color: var(--accent-fg);
+  border-color: var(--accent-fg);
+}
+
+/* ── Template Save ───────────────────────────────────────────────── */
+.session-launcher-feature .tpl-save-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+  margin-bottom: 10px;
+}
+
+.session-launcher-feature .tpl-save-checkbox {
+  accent-color: var(--accent-emphasis);
+}
+
+.session-launcher-feature .tpl-save-form {
+  margin-top: 0;
+}
+
+.session-launcher-feature .tpl-icon-input {
+  width: 60px;
+  text-align: center;
+  font-size: 1.25rem;
+  padding: 4px 8px;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────── */
+.session-launcher-feature .btn {
+  padding: 8px 16px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  font-family: inherit;
+  border-radius: 6px;
+  border: 1px solid var(--border-default);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.session-launcher-feature .btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.session-launcher-feature .btn-primary {
+  background: var(--accent-emphasis);
+  color: var(--text-inverse);
+  border-color: var(--accent-emphasis);
+}
+
+.session-launcher-feature .btn-primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.session-launcher-feature .btn-secondary {
+  background: var(--canvas-subtle);
+  color: var(--text-secondary);
+}
+
+.session-launcher-feature .btn-secondary:hover:not(:disabled) {
+  background: var(--canvas-inset);
+  color: var(--text-primary);
+}
+
+/* ── Footer Buttons ──────────────────────────────────────────────── */
+.session-launcher-feature .footer-btn {
+  flex: 1;
+}
+
+.session-launcher-feature .footer-btn-primary {
+  flex: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-emphasis);
+  color: var(--text-inverse);
+  border-color: var(--accent-emphasis);
+  font-weight: 600;
+  padding: 10px 16px;
+  font-size: 0.8125rem;
+  font-family: inherit;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+
+.session-launcher-feature .footer-btn-primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.session-launcher-feature .footer-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Metadata Grid ───────────────────────────────────────────────── */
+.session-launcher-feature .meta-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.session-launcher-feature .meta-card {
+  padding: 10px 12px;
+  background: var(--canvas-default);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.session-launcher-feature .meta-label {
+  font-size: 0.625rem;
+  color: var(--text-placeholder);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.session-launcher-feature .meta-value {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.session-launcher-feature .meta-value.accent {
+  color: var(--accent-fg);
+}
+
+.session-launcher-feature .meta-value.success {
+  color: var(--success-fg);
+}
+
+/* ── Config Summary ──────────────────────────────────────────────── */
+.session-launcher-feature .config-summary {
+  margin-bottom: 16px;
+}
+
+.session-launcher-feature .config-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 0.75rem;
+}
+
+.session-launcher-feature .config-row:last-child {
+  border-bottom: none;
+}
+
+.session-launcher-feature .config-key {
+  color: var(--text-tertiary);
+}
+
+.session-launcher-feature .config-val {
+  color: var(--text-primary);
+  font-weight: 500;
+  text-align: right;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Divider ─────────────────────────────────────────────────────── */
+.session-launcher-feature .preview-divider {
+  height: 1px;
+  background: var(--border-subtle);
+  margin: 4px 0 16px;
+}
+
+/* ── CLI Command ─────────────────────────────────────────────────── */
+.session-launcher-feature .cmd-section {
+  margin-bottom: 0;
+}
+
+.session-launcher-feature .cmd-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.session-launcher-feature .cmd-title {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  letter-spacing: 0.03em;
+}
+
+.session-launcher-feature .cmd-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: none;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  color: var(--text-tertiary);
+  font-size: 0.6875rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.session-launcher-feature .cmd-copy:hover {
+  color: var(--accent-fg);
+  border-color: var(--accent-fg);
+}
+
+.session-launcher-feature .cmd-block {
+  display: block;
+  padding: 12px 14px;
+  background: var(--canvas-inset);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  font-size: 0.6875rem;
+  font-family: var(--font-mono, 'SF Mono', 'Fira Code', monospace);
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-all;
+  line-height: 1.8;
+  margin: 0;
+}
+
+.session-launcher-feature .cmd-flag {
+  color: var(--accent-fg);
+}
+
+.session-launcher-feature .cmd-val {
+  color: var(--success-fg);
+}
+
+/* ── Template Card Actions ───────────────────────────────────────── */
+.session-launcher-feature .tpl-card-actions {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.session-launcher-feature .tpl-card:hover .tpl-card-actions {
+  opacity: 1;
+}
+
+.session-launcher-feature .tpl-action-btn {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 3px;
+  font-size: 0.5625rem;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  background: var(--canvas-default);
+  color: var(--text-tertiary);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.session-launcher-feature .tpl-action-btn:hover:not(:disabled) {
+  background: var(--canvas-inset);
+  color: var(--text-primary);
+}
+
+.session-launcher-feature .tpl-action-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.session-launcher-feature .tpl-delete-btn {
+  color: var(--danger-fg);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.session-launcher-feature .tpl-delete-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger-fg) 12%, transparent);
+  color: var(--danger-fg);
+}
+
+/* ── Template Delete Overlay ──────────────────────────────────────── */
+.session-launcher-feature .tpl-delete-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: color-mix(in srgb, var(--canvas-default) 92%, transparent);
+  backdrop-filter: blur(2px);
+  border-radius: var(--radius-lg);
+}
+
+.session-launcher-feature .tpl-delete-overlay-text {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--danger-fg);
+}
+
+.session-launcher-feature .tpl-delete-overlay-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.session-launcher-feature .tpl-confirm-yes,
+.session-launcher-feature .tpl-confirm-cancel {
+  padding: 3px 10px;
+  font-size: 0.6875rem;
+  font-family: inherit;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  cursor: pointer;
+  background: none;
+  font-weight: 500;
+}
+
+.session-launcher-feature .tpl-confirm-yes {
+  color: var(--danger-fg);
+  border-color: var(--danger-fg);
+}
+
+.session-launcher-feature .tpl-confirm-yes:hover {
+  background: color-mix(in srgb, var(--danger-fg) 12%, transparent);
+}
+
+.session-launcher-feature .tpl-confirm-cancel {
+  color: var(--text-secondary);
+}
+
+.session-launcher-feature .tpl-confirm-cancel:hover {
+  background: var(--canvas-subtle);
+}
+
+/* ── Fade Transition ─────────────────────────────────────────────── */
+.session-launcher-feature .fade-enter-active,
+.session-launcher-feature .fade-leave-active {
+  transition: opacity 0.15s ease;
+}
+
+.session-launcher-feature .fade-enter-from,
+.session-launcher-feature .fade-leave-to {
+  opacity: 0;
+}
+
+/* ── Skeleton Loading ────────────────────────────────────────────── */
+.session-launcher-feature .tpl-skeleton {
+  cursor: default;
+  animation: session-launcher-skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+.session-launcher-feature .skeleton-text {
+  display: block;
+  width: 70%;
+  height: 0.75rem;
+  background: var(--border-default);
+  border-radius: 3px;
+}
+
+@keyframes session-launcher-skeleton-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+/* ── Form Hint ───────────────────────────────────────────────────── */
+.session-launcher-feature .form-hint {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+  display: block;
+}
+
+/* ── Disabled Toggle ─────────────────────────────────────────────── */
+.session-launcher-feature .toggle-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.session-launcher-feature .toggle-disabled .toggle-switch {
+  cursor: not-allowed;
+}
+
+/* ── Worktree Options ────────────────────────────────────────────── */
+.session-launcher-feature .worktree-options {
+  padding: 0 0 0 16px;
+  border-left: 2px solid var(--border-default);
+  margin-left: 8px;
+}
+
+.session-launcher-feature .worktree-warning {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  margin-top: 6px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--warning-fg) 10%, transparent);
+  color: var(--warning-fg);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.session-launcher-feature .worktree-path-preview {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  margin-top: 6px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent-fg) 6%, transparent);
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+.session-launcher-feature .wt-preview-label { white-space: nowrap; }
+.session-launcher-feature .wt-preview-path {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-primary);
+  word-break: break-all;
+}
+
+/* ── Repo Picker ─────────────────────────────────────────────────── */
+.session-launcher-feature .repo-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.session-launcher-feature .repo-input-row {
+  display: flex;
+  gap: 6px;
+}
+
+.session-launcher-feature .repo-input-row .form-input {
+  flex: 1;
+}
+
+.session-launcher-feature .repo-browse-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.session-launcher-feature .repo-recent {
+  font-size: 0.75rem;
+}
+
+/* ── Context Menu (teleported to body) ───────────────────────────── */
+.session-launcher-ctx-menu {
+  position: fixed;
+  z-index: 2000;
+  min-width: 160px;
+  padding: 4px;
+  background: var(--canvas-default);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+}
+
+.session-launcher-ctx-menu .ctx-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s ease;
+}
+
+.session-launcher-ctx-menu .ctx-item:hover {
+  background: var(--canvas-subtle);
+}
+
+.session-launcher-ctx-menu .ctx-danger {
+  color: var(--danger-fg);
+}
+
+.session-launcher-ctx-menu .ctx-danger:hover {
+  background: color-mix(in srgb, var(--danger-fg) 10%, transparent);
+}
+
+/* ── Slide Transition ────────────────────────────────────────────── */
+.session-launcher-feature .slide-enter-active,
+.session-launcher-feature .slide-leave-active {
+  transition: opacity 0.2s ease, max-height 0.25s ease;
+  overflow: hidden;
+}
+
+.session-launcher-feature .slide-enter-from,
+.session-launcher-feature .slide-leave-to {
+  opacity: 0;
+  max-height: 0;
+}
+
+.session-launcher-feature .slide-enter-to,
+.session-launcher-feature .slide-leave-from {
+  max-height: 500px;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────── */
+@media (max-width: 860px) {
+  .session-launcher-feature .split-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .session-launcher-feature .panel-right {
+    border-left: none;
+    border-top: 1px solid var(--border-default);
+    height: auto;
+  }
+
+  .session-launcher-feature .preview-inner {
+    position: static;
+  }
+}
