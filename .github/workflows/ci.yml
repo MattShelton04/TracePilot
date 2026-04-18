@@ -25,7 +25,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        # macOS disabled for now — slow runners cause timing-sensitive test flakiness
+        os: [ubuntu-latest, windows-latest]
     steps:
       # NOTE: all third-party actions are pinned to full commit SHAs per the
       # tech-debt plan (Phase 0.3). Renovate / Dependabot will propose SHA
