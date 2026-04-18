@@ -11,4 +11,4 @@ allowBuilds:
 catalog:
   typescript: "^5.8.0"
   vitest: "^3.2.4"
-  vue: "^3.5.0"
+  vue: "^3.5.32"
