@@ -93,8 +93,6 @@ export interface TracePilotConfig {
     taskbarFlash: boolean;
     /** Play a sound when an alert fires. */
     soundEnabled: boolean;
-    /** Alert when a session agent finishes (completes or errors out). */
-    onSessionEnd: boolean;
     /** Alert when a session prompts the user via ask_user. */
     onAskUser: boolean;
     /** Alert when a session encounters an error. */

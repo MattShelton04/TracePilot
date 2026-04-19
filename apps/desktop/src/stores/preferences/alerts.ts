@@ -15,7 +15,6 @@ export function createAlertsSlice() {
   const alertsNativeNotifications = ref(true);
   const alertsTaskbarFlash = ref(true);
   const alertsSoundEnabled = ref(false);
-  const alertsOnSessionEnd = ref(true);
   const alertsOnAskUser = ref(true);
   const alertsOnSessionError = ref(false);
   const alertsCooldownSeconds = ref(20);
@@ -26,7 +25,6 @@ export function createAlertsSlice() {
     alertsNativeNotifications,
     alertsTaskbarFlash,
     alertsSoundEnabled,
-    alertsOnSessionEnd,
     alertsOnAskUser,
     alertsOnSessionError,
     alertsCooldownSeconds,

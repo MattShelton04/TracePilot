@@ -153,7 +153,6 @@ export function createDefaultConfig(
       nativeNotifications: true,
       taskbarFlash: true,
       soundEnabled: false,
-      onSessionEnd: true,
       onAskUser: true,
       onSessionError: false,
       cooldownSeconds: DEFAULT_ALERT_COOLDOWN_SECONDS,

@@ -26,12 +26,12 @@ function formatTime(ts: number): string {
 
 function iconForType(type: AlertEvent["type"]): string {
   switch (type) {
-    case "session-end":
-      return "✓";
     case "ask-user":
       return "💬";
     case "session-error":
       return "⚠";
+    case "test":
+      return "🔔";
   }
 }
 

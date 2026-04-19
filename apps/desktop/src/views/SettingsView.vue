@@ -2,7 +2,6 @@
 import { PageShell } from "@tracepilot/ui";
 import { computed, ref } from "vue";
 import SettingsAbout from "@/components/settings/SettingsAbout.vue";
-import SettingsAlerts from "@/components/settings/SettingsAlerts.vue";
 import SettingsAppearance from "@/components/settings/SettingsAppearance.vue";
 import SettingsDataStorage from "@/components/settings/SettingsDataStorage.vue";
 import SettingsExperimental from "@/components/settings/SettingsExperimental.vue";
@@ -37,7 +36,6 @@ const databaseSize = computed(() => dataStorageRef.value?.databaseSize ?? "—")
       <SettingsPricing />
       <SettingsToolVisualization />
       <SettingsUpdates />
-      <SettingsAlerts />
       <SettingsExperimental />
       <SettingsSdk />
       <SettingsAbout :session-count="sessionCount" :database-size="databaseSize" />

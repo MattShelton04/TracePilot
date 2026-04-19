@@ -13,7 +13,6 @@ describe("createAlertsSlice", () => {
     expect(slice.alertsNativeNotifications.value).toBe(true);
     expect(slice.alertsTaskbarFlash.value).toBe(true);
     expect(slice.alertsSoundEnabled.value).toBe(false);
-    expect(slice.alertsOnSessionEnd.value).toBe(true);
     expect(slice.alertsOnAskUser.value).toBe(true);
     expect(slice.alertsOnSessionError.value).toBe(false);
     expect(slice.alertsCooldownSeconds.value).toBe(20);

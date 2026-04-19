@@ -34,10 +34,14 @@ vi.mock("@/utils/logger", () => ({
 
 // ─── SDK store mock ─────────────────────────────────────────────
 // reactive() so Vue tracks property access inside watch() getters.
+const resumeSessionMock = vi.fn().mockResolvedValue(null);
 const sdkState = reactive({
   recentEvents: [] as BridgeEvent[],
   sessions: [] as Array<{ sessionId: string; workingDirectory?: string }>,
   connectionState: "connected" as "connected" | "disconnected",
+  isTcpMode: false,
+  isConnected: true,
+  resumeSession: resumeSessionMock,
 });
 
 vi.mock("@/stores/sdk", () => ({
@@ -102,6 +106,9 @@ describe("useAlertWatcher", () => {
     sdkState.recentEvents = [];
     sdkState.sessions = [];
     sdkState.connectionState = "connected";
+    sdkState.isTcpMode = false;
+    sdkState.isConnected = true;
+    resumeSessionMock.mockClear().mockResolvedValue(null);
 
     prefsState.alertsEnabled = true;
     prefsState.alertsOnAskUser = true;
@@ -410,6 +417,112 @@ describe("useAlertWatcher", () => {
       await nextTick();
 
       expect(dispatchAlertMock).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── TCP auto-resume ──────────────────────────────────────────────
+
+  describe("TCP auto-resume", () => {
+    it("auto-resumes sessions when connected in TCP mode", async () => {
+      sdkState.isTcpMode = true;
+      sdkState.isConnected = true;
+      sdkState.sessions = [{ sessionId: "tcp-session-1" }, { sessionId: "tcp-session-2" }];
+
+      const scope = effectScope();
+      scope.run(() => useAlertWatcher(makeRouter() as any));
+      await nextTick();
+
+      expect(resumeSessionMock).toHaveBeenCalledWith("tcp-session-1");
+      expect(resumeSessionMock).toHaveBeenCalledWith("tcp-session-2");
+      scope.stop();
+    });
+
+    it("does not auto-resume in stdio mode", async () => {
+      sdkState.isTcpMode = false;
+      sdkState.isConnected = true;
+      sdkState.sessions = [{ sessionId: "stdio-session-1" }];
+
+      const scope = effectScope();
+      scope.run(() => useAlertWatcher(makeRouter() as any));
+      await nextTick();
+
+      expect(resumeSessionMock).not.toHaveBeenCalled();
+      scope.stop();
+    });
+
+    it("does not auto-resume when alerts are disabled", async () => {
+      sdkState.isTcpMode = true;
+      sdkState.isConnected = true;
+      sdkState.sessions = [{ sessionId: "tcp-session-1" }];
+      prefsState.alertsEnabled = false;
+
+      const scope = effectScope();
+      scope.run(() => useAlertWatcher(makeRouter() as any));
+      await nextTick();
+
+      expect(resumeSessionMock).not.toHaveBeenCalled();
+      scope.stop();
+    });
+
+    it("auto-resumes new sessions that appear after init", async () => {
+      sdkState.isTcpMode = true;
+      sdkState.isConnected = true;
+      sdkState.sessions = [];
+
+      const scope = effectScope();
+      scope.run(() => useAlertWatcher(makeRouter() as any));
+      await nextTick();
+
+      expect(resumeSessionMock).not.toHaveBeenCalled();
+
+      // New session appears
+      sdkState.sessions = [{ sessionId: "new-tcp-session" }];
+      await nextTick();
+
+      expect(resumeSessionMock).toHaveBeenCalledWith("new-tcp-session");
+      scope.stop();
+    });
+
+    it("does not resume the same session twice", async () => {
+      sdkState.isTcpMode = true;
+      sdkState.isConnected = true;
+      sdkState.sessions = [{ sessionId: "tcp-session-1" }];
+
+      const scope = effectScope();
+      scope.run(() => useAlertWatcher(makeRouter() as any));
+      await nextTick();
+
+      // Sessions list updates but same session still present
+      sdkState.sessions = [...sdkState.sessions];
+      await nextTick();
+
+      expect(resumeSessionMock).toHaveBeenCalledTimes(1);
+      scope.stop();
+    });
+
+    it("resets auto-resumed set on SDK disconnect", async () => {
+      sdkState.isTcpMode = true;
+      sdkState.isConnected = true;
+      sdkState.sessions = [{ sessionId: "tcp-session-1" }];
+
+      const scope = effectScope();
+      scope.run(() => useAlertWatcher(makeRouter() as any));
+      await nextTick();
+
+      expect(resumeSessionMock).toHaveBeenCalledTimes(1);
+      resumeSessionMock.mockClear();
+
+      // Disconnect clears the auto-resumed set
+      sdkState.connectionState = "disconnected";
+      await nextTick();
+
+      // Reconnect — same session should be auto-resumed again
+      sdkState.connectionState = "connected";
+      sdkState.sessions = [...sdkState.sessions]; // trigger watcher
+      await nextTick();
+
+      expect(resumeSessionMock).toHaveBeenCalledWith("tcp-session-1");
+      scope.stop();
     });
   });
 });

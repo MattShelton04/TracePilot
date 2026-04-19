@@ -40,12 +40,12 @@ function recordCooldown(sessionId: string, type: AlertType) {
 // ── Severity mapping ─────────────────────────────────────────────
 function severityForType(type: AlertType): AlertSeverity {
   switch (type) {
-    case "session-end":
-      return "info";
     case "ask-user":
       return "warning";
     case "session-error":
       return "error";
+    case "test":
+      return "info";
   }
 }
 
@@ -177,6 +177,20 @@ export async function registerNotificationClickHandler() {
   }
 }
 
+// ── Focus detection ──────────────────────────────────────────────
+// Returns true if the TracePilot window is currently focused.
+// Defaults to false on error so that notifications are still sent in
+// test/browser environments where the Tauri API is unavailable.
+async function isWindowFocused(): Promise<boolean> {
+  try {
+    const { getCurrentWindow } = await import("@tauri-apps/api/window");
+    return await getCurrentWindow().isFocused();
+  } catch {
+    logWarn("[alerts] isFocused check failed — assuming unfocused");
+    return false;
+  }
+}
+
 // ── Main dispatch function ───────────────────────────────────────
 
 export interface DispatchAlertOptions {
@@ -189,8 +203,12 @@ export interface DispatchAlertOptions {
 
 /**
  * Dispatch an alert through all enabled channels.
- * Respects user preferences and per-session cooldown.
- * Returns the created AlertEvent, or null if suppressed by cooldown/disabled.
+ * Always records in alert history. Respects per-session cooldown for
+ * notification channels (toast, sound, taskbar flash, native notification).
+ * External channels (taskbar flash, native notification) are additionally
+ * suppressed when the app window is focused.
+ * Returns the created AlertEvent (always), or null if the master switch or
+ * type-specific toggle is off.
  */
 export function dispatchAlert(options: DispatchAlertOptions): AlertEvent | null {
   const prefs = usePreferencesStore();
@@ -200,26 +218,22 @@ export function dispatchAlert(options: DispatchAlertOptions): AlertEvent | null 
 
   // Check type-specific toggle
   switch (options.type) {
-    case "session-end":
-      if (!prefs.alertsOnSessionEnd) return null;
-      break;
     case "ask-user":
       if (!prefs.alertsOnAskUser) return null;
       break;
     case "session-error":
       if (!prefs.alertsOnSessionError) return null;
       break;
-  }
-
-  // Cooldown check
-  if (isCoolingDown(options.sessionId, options.type, prefs.alertsCooldownSeconds)) {
-    return null;
+    case "test":
+      // Test alerts always pass the type toggle
+      break;
   }
 
   const severity = severityForType(options.type);
   const alertsStore = useAlertsStore();
 
-  // Record in alert history
+  // Bug E fix: always record in alert history regardless of cooldown.
+  // Cooldown only gates notification channels (toast, sound, flash, native).
   const alert = alertsStore.push({
     type: options.type,
     severity,
@@ -229,30 +243,44 @@ export function dispatchAlert(options: DispatchAlertOptions): AlertEvent | null 
     body: options.body,
   });
 
-  // Record cooldown
-  recordCooldown(options.sessionId, options.type);
+  // Bug G fix: ask-user bypasses cooldown entirely — per-callKey dedup in
+  // the watcher is the definitive guard. Cooldown still protects session-error
+  // against notification spam from rapidly oscillating error counts.
+  const bypassCooldown = options.type === "ask-user" || options.type === "test";
+  const isOnCooldown =
+    !bypassCooldown &&
+    isCoolingDown(options.sessionId, options.type, prefs.alertsCooldownSeconds);
 
-  // Dispatch to channels (fire-and-forget)
+  if (!isOnCooldown) {
+    recordCooldown(options.sessionId, options.type);
+  }
+
   logInfo(`[alerts] Dispatching ${options.type} alert for session ${options.sessionId}`);
 
-  // Always show in-app toast
-  showToast(options.title, options.body, severity);
+  if (!isOnCooldown) {
+    // In-app toast — shows when not on cooldown (internal, not focus-gated)
+    showToast(options.title, options.body, severity);
 
-  // Sound
-  if (prefs.alertsSoundEnabled) {
-    playAlertSound(severity);
-  }
+    // Sound — always plays when enabled, not focus-gated (user preference)
+    if (prefs.alertsSoundEnabled) {
+      playAlertSound(severity);
+    }
 
-  // Taskbar flash
-  if (prefs.alertsTaskbarFlash) {
-    flashTaskbar(severity).catch((e) => logWarn("[alerts] Taskbar flash failed:", e));
-  }
-
-  // Native OS notification
-  if (prefs.alertsNativeNotifications) {
-    sendNativeNotification(options.title, options.body).catch((e) =>
-      logError("[alerts] Native notification failed:", e),
-    );
+    // Bug F fix: external channels (taskbar flash, native notification) are
+    // suppressed when the app window is focused — the user is already present.
+    void (async () => {
+      const focused = await isWindowFocused();
+      if (!focused) {
+        if (prefs.alertsTaskbarFlash) {
+          flashTaskbar(severity).catch((e) => logWarn("[alerts] Taskbar flash failed:", e));
+        }
+        if (prefs.alertsNativeNotifications) {
+          sendNativeNotification(options.title, options.body).catch((e) =>
+            logError("[alerts] Native notification failed:", e),
+          );
+        }
+      }
+    })();
   }
 
   return alert;
@@ -268,7 +296,7 @@ export function dispatchTestAlert(): AlertEvent {
   const alertsStore = useAlertsStore();
 
   const alert = alertsStore.push({
-    type: "session-end",
+    type: "test",
     severity: "info",
     sessionId: "test",
     sessionSummary: "Test Session",

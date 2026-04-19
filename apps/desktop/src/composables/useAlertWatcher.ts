@@ -209,6 +209,36 @@ export function useAlertWatcher(router: Router): () => void {
     { deep: false },
   );
 
+  // ── Auto-resume sessions in TCP mode ──────────────────────────
+  // In TCP (--ui-server) mode the SDK only dispatches `session.event`
+  // notifications to sessions it has "resumed" (i.e. sessions present in
+  // its internal sessions map). Without calling resumeSession() first,
+  // `session.idle` and `session.error` events are silently dropped at the
+  // SDK level and never reach `recentEvents`.
+  //
+  // Auto-resuming is safe in TCP mode: no new subprocess is spawned, no
+  // file is written — the `--ui-server` just registers TracePilot as a
+  // listener for that session. In stdio mode the SDK spawns its own private
+  // subprocess, so TracePilot-created sessions are already in the map and
+  // auto-resuming is never triggered (isTcpMode is false).
+  let autoResumedSessions = new Set<string>();
+
+  const stopAutoResumeWatch = watch(
+    () => [sdk.sessions, sdk.isTcpMode, sdk.isConnected, prefs.alertsEnabled] as const,
+    ([sessions, isTcpMode, isConnected, alertsEnabled]) => {
+      if (!isTcpMode || !isConnected || !alertsEnabled) return;
+      for (const session of sessions) {
+        if (!autoResumedSessions.has(session.sessionId)) {
+          autoResumedSessions.add(session.sessionId);
+          sdk.resumeSession(session.sessionId).catch((e: unknown) => {
+            logWarn(`[alert-watcher] Auto-resume for ${session.sessionId} failed:`, e);
+          });
+        }
+      }
+    },
+    { immediate: true },
+  );
+
   // On SDK disconnect, reset dedup state and re-seed the surviving buffer.
   // Re-seeding is critical: recentEvents is NOT cleared on disconnect, so
   // without re-seeding, the first post-reconnect event would cause the watcher
@@ -219,6 +249,7 @@ export function useAlertWatcher(router: Router): () => void {
     (state) => {
       if (state === "disconnected") {
         store.$reset();
+        autoResumedSessions = new Set();
         seedCurrentEvents();
         // Restore the captured route so scope filtering keeps working.
         store.setCapturedRoute(router.currentRoute.value);
@@ -232,6 +263,8 @@ export function useAlertWatcher(router: Router): () => void {
     stopEventsWatch();
     stopSdkSessionsWatch();
     stopConnectionWatch();
+    stopAutoResumeWatch();
+    autoResumedSessions = new Set();
     store.$reset();
   }
 

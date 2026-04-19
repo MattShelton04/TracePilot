@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { checkConfigExists, getConfig, saveConfig } from "@tracepilot/client";
 import { ConfirmDialog, ToastContainer } from "@tracepilot/ui";
-import { computed, onMounted, provide, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, provide, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import ErrorBoundary from "@/components/ErrorBoundary.vue";import IndexingLoadingScreen from "@/components/IndexingLoadingScreen.vue";
 import AlertCenterDrawer from "@/components/layout/AlertCenterDrawer.vue";
@@ -43,6 +43,13 @@ const phase = ref<AppPhase>("loading");
 const expectedSessionCount = ref(0);
 const showUpdateModal = ref(false);
 let alertInitDone = false;
+// Capture the cleanup function returned by useAlertWatcher so it can be
+// called from onBeforeUnmount, which is registered synchronously here
+// (before any await) to ensure it attaches to the active component scope.
+let alertCleanup: (() => void) | null = null;
+onBeforeUnmount(() => {
+  alertCleanup?.();
+});
 
 // Window + event listener ownership lives in a dedicated composable so HMR
 // and window teardown can release the handles (Phase 1A.7).  MUST be invoked
@@ -61,7 +68,7 @@ function initAlertSystem() {
   if (!isMain() || alertInitDone) return;
 
   try {
-    useAlertWatcher(router);
+    alertCleanup = useAlertWatcher(router);
     registerNotificationClickHandler();
     alertInitDone = true;
     logInfo("[app] Alert system initialized successfully");

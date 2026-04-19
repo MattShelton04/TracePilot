@@ -98,7 +98,6 @@ export const usePreferencesStore = defineStore("preferences", () => {
       alerts.alertsNativeNotifications.value = config.alerts.nativeNotifications ?? true;
       alerts.alertsTaskbarFlash.value = config.alerts.taskbarFlash ?? true;
       alerts.alertsSoundEnabled.value = config.alerts.soundEnabled ?? false;
-      alerts.alertsOnSessionEnd.value = config.alerts.onSessionEnd ?? true;
       alerts.alertsOnAskUser.value = config.alerts.onAskUser ?? true;
       alerts.alertsOnSessionError.value = config.alerts.onSessionError ?? false;
       alerts.alertsCooldownSeconds.value = config.alerts.cooldownSeconds ?? 20;
@@ -140,7 +139,6 @@ export const usePreferencesStore = defineStore("preferences", () => {
         nativeNotifications: alerts.alertsNativeNotifications.value,
         taskbarFlash: alerts.alertsTaskbarFlash.value,
         soundEnabled: alerts.alertsSoundEnabled.value,
-        onSessionEnd: alerts.alertsOnSessionEnd.value,
         onAskUser: alerts.alertsOnAskUser.value,
         onSessionError: alerts.alertsOnSessionError.value,
         cooldownSeconds: alerts.alertsCooldownSeconds.value,
@@ -256,7 +254,6 @@ export const usePreferencesStore = defineStore("preferences", () => {
       alerts.alertsNativeNotifications,
       alerts.alertsTaskbarFlash,
       alerts.alertsSoundEnabled,
-      alerts.alertsOnSessionEnd,
       alerts.alertsOnAskUser,
       alerts.alertsOnSessionError,
       alerts.alertsCooldownSeconds,

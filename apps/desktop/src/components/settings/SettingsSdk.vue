@@ -9,6 +9,7 @@
  */
 import { ActionButton, BtnGroup, FormInput, SectionPanel } from "@tracepilot/ui";
 import { computed, ref } from "vue";
+import SettingsAlerts from "./SettingsAlerts.vue";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSdkStore } from "@/stores/sdk";
 
@@ -398,6 +399,8 @@ function isActiveServer(address: string) {
         </div>
       </template>
     </SectionPanel>
+
+    <SettingsAlerts />
   </div>
 </template>
 
