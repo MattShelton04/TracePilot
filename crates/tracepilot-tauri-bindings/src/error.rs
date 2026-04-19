@@ -276,13 +276,24 @@ pub(crate) fn scrub_message(raw: &str) -> String {
         ("Bearer ", "Bearer <redacted>"),
     ];
     for (needle, replacement) in needles {
-        if let Some(start) = out.find(needle) {
-            let after = &out[start + needle.len()..];
-            // Strip up to next whitespace or quote.
-            let end = after
-                .find(|c: char| c.is_whitespace() || c == '"' || c == '\'')
-                .unwrap_or(after.len());
-            out.replace_range(start..start + needle.len() + end, replacement);
+        // Advance `cursor` past each replacement so we never re-scan the
+        // replacement text. This prevents an infinite loop when `replacement`
+        // itself contains `needle` (e.g. "Bearer <redacted>" contains "Bearer ").
+        let mut cursor = 0usize;
+        loop {
+            match out[cursor..].find(needle) {
+                None => break,
+                Some(rel) => {
+                    let start = cursor + rel;
+                    let after = &out[start + needle.len()..];
+                    let end = after
+                        .find(|c: char| c.is_whitespace() || c == '"' || c == '\'')
+                        .unwrap_or(after.len());
+                    out.replace_range(start..start + needle.len() + end, replacement);
+                    // Advance past the replacement so we never re-match it.
+                    cursor = start + replacement.len();
+                }
+            }
         }
     }
 
@@ -479,5 +490,19 @@ mod tests {
         // complete `match` on `BindingsError`, so adding a new variant
         // without updating the match is a build error. Constructing those
         // errors directly here would require cross-crate test helpers.
+    }
+
+    #[test]
+    fn scrub_redacts_multiple_bearer_tokens() {
+        // Both occurrences must be redacted.
+        // Also verifies no infinite loop: "Bearer <redacted>" contains "Bearer "
+        // which would cause an infinite loop if cursor is not advanced past each replacement.
+        let s = scrub_message(
+            "retry1: Authorization: Bearer tok-AAAA failed, retry2: Authorization: Bearer tok-BBBB failed",
+        );
+        assert!(!s.contains("tok-AAAA"), "first token leaked: {s}");
+        assert!(!s.contains("tok-BBBB"), "second token leaked: {s}");
+        let count = s.matches("Bearer <redacted>").count();
+        assert_eq!(count, 2, "expected 2 redactions, got {count}: {s}");
     }
 }

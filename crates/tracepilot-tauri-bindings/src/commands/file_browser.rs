@@ -81,6 +81,10 @@ pub struct SessionFileEntry {
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 /// Validate a relative file path: no `..`, not absolute, normalised separators.
+///
+/// Also rejects Windows device names (CON, NUL, COM1-9, LPT1-9, AUX, PRN) in
+/// any path component because the Windows kernel intercepts these regardless of
+/// directory context, which can cause hangs or unexpected I/O redirection.
 fn validate_relative_path(relative_path: &str) -> Result<(), BindingsError> {
     if relative_path.is_empty() {
         return Err(BindingsError::Validation(
@@ -98,11 +102,27 @@ fn validate_relative_path(relative_path: &str) -> Result<(), BindingsError> {
             "File path cannot be absolute".into(),
         ));
     }
-    // Reject traversal sequences
+    // Reject traversal sequences and Windows reserved device names.
     for component in relative_path.replace('\\', "/").split('/') {
         if component == ".." {
             return Err(BindingsError::Validation(
                 "File path cannot contain '..' (path traversal)".into(),
+            ));
+        }
+        // Strip any extension before checking: NUL.txt and CON.md are also reserved.
+        let stem = component.split('.').next().unwrap_or(component).to_uppercase();
+        let is_device = matches!(stem.as_str(), "CON" | "PRN" | "AUX" | "NUL")
+            || (stem.starts_with("COM")
+                && stem.len() == 4
+                && stem.as_bytes()[3].is_ascii_digit()
+                && stem.as_bytes()[3] != b'0')
+            || (stem.starts_with("LPT")
+                && stem.len() == 4
+                && stem.as_bytes()[3].is_ascii_digit()
+                && stem.as_bytes()[3] != b'0');
+        if is_device {
+            return Err(BindingsError::Validation(
+                "File path contains a reserved Windows device name".into(),
             ));
         }
     }
@@ -150,13 +170,37 @@ fn safe_session_file_path(
     Ok(canonical_file)
 }
 
+/// Maximum number of file entries returned by `session_list_files`.
+///
+/// Prevents the IPC payload from growing unbounded if a session directory
+/// somehow contains an unusually large number of files.
+const MAX_ENTRIES: usize = 2_000;
+
+/// Maximum directory recursion depth for `collect_entries`.
+///
+/// Session directories are shallow by design (≤ 3 levels). A hard cap
+/// prevents a maliciously constructed directory tree from stack-overflowing
+/// the blocking worker thread.
+const MAX_DEPTH: usize = 8;
+
 /// Recursively collect file entries from `dir`, building paths relative to `root`.
+///
+/// `depth` tracks the current recursion level; the call site passes 0.
 fn collect_entries(
     root: &Path,
     dir: &Path,
+    depth: usize,
     entries: &mut Vec<SessionFileEntry>,
 ) -> Result<(), BindingsError> {
+    if depth > MAX_DEPTH {
+        return Ok(()); // silently skip overly-deep trees
+    }
+
     for entry in std::fs::read_dir(dir)?.flatten() {
+        if entries.len() >= MAX_ENTRIES {
+            break; // cap reached — stop adding entries
+        }
+
         let name = entry.file_name().to_string_lossy().to_string();
 
         // Skip hidden files (dotfiles, e.g. `.git`).
@@ -184,6 +228,20 @@ fn collect_entries(
             .replace('\\', "/");
 
         if ft.is_dir() {
+            // TOCTOU mitigation: canonicalize before recursing. Between the
+            // file_type() check above and the read_dir() inside the recursive
+            // call, an attacker (e.g. an AI agent with write access to its
+            // own session dir) could replace the subdirectory with a symlink
+            // to an arbitrary location. Canonicalizing here collapses that
+            // race window — if the replacement has occurred the canonical
+            // path will point outside `root` and we skip the entry.
+            let canonical_subdir = match path.canonicalize() {
+                Ok(p) => p,
+                Err(_) => continue, // disappeared or permission denied — skip
+            };
+            if !canonical_subdir.starts_with(root) {
+                continue; // raced into an outside symlink — skip silently
+            }
             entries.push(SessionFileEntry {
                 path: relative.clone(),
                 name: name.clone(),
@@ -191,7 +249,7 @@ fn collect_entries(
                 is_directory: true,
                 file_type: SessionFileType::Binary, // unused for dirs
             });
-            collect_entries(root, &path, entries)?;
+            collect_entries(root, &canonical_subdir, depth + 1, entries)?;
         } else {
             let size = entry.metadata().map(|m| m.len()).unwrap_or(0);
             entries.push(SessionFileEntry {
@@ -232,7 +290,12 @@ pub async fn session_list_files(
         }
 
         let mut entries = Vec::new();
-        collect_entries(&session_dir, &session_dir, &mut entries)?;
+        // Canonicalize before walking so we have an authoritative prefix to
+        // verify subdirectories against (TOCTOU mitigation).
+        let canonical_dir = session_dir.canonicalize().map_err(|e| {
+            BindingsError::Validation(format!("Failed to resolve session dir: {e}"))
+        })?;
+        collect_entries(&canonical_dir, &canonical_dir, 0, &mut entries)?;
         entries.sort_by(|a, b| {
             // Directories first, then alphabetically by path
             b.is_directory
@@ -394,7 +457,9 @@ mod tests {
     fn make_session_dir(tmp: &TempDir) -> std::path::PathBuf {
         let dir = tmp.path().join("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
         std::fs::create_dir_all(&dir).unwrap();
-        dir
+        // Return the canonicalized path — collect_entries requires a canonical
+        // root so subdirectory prefix checks work correctly on all platforms.
+        dir.canonicalize().unwrap()
     }
 
     // ── SessionFileType classification ─────────────────────────
@@ -478,6 +543,59 @@ mod tests {
     }
 
     #[test]
+    fn relative_path_rejects_windows_device_names() {
+        // COM1-9 and LPT1-9 are reserved by Windows regardless of directory.
+        assert!(validate_relative_path("NUL").is_err());
+        assert!(validate_relative_path("CON").is_err());
+        assert!(validate_relative_path("PRN").is_err());
+        assert!(validate_relative_path("AUX").is_err());
+        assert!(validate_relative_path("COM1").is_err());
+        assert!(validate_relative_path("COM9").is_err());
+        assert!(validate_relative_path("LPT1").is_err());
+        // Extensions don't make them safe — NUL.txt is still NUL on Windows.
+        assert!(validate_relative_path("NUL.txt").is_err());
+        assert!(validate_relative_path("files/COM3.log").is_err());
+        // COM0 and LPT0 are NOT reserved — must not over-block.
+        assert!(validate_relative_path("COM0.txt").is_ok());
+        assert!(validate_relative_path("LPT0.txt").is_ok());
+        // Normal names must still pass.
+        assert!(validate_relative_path("events.jsonl").is_ok());
+        assert!(validate_relative_path("files/plan.md").is_ok());
+    }
+
+    #[test]
+    fn collect_entries_respects_entry_cap() {
+        let tmp = TempDir::new().unwrap();
+        let session_dir = make_session_dir(&tmp);
+        // Create MAX_ENTRIES + 10 files.
+        for i in 0..MAX_ENTRIES + 10 {
+            std::fs::write(session_dir.join(format!("file_{i}.txt")), "x").unwrap();
+        }
+        let mut entries = Vec::new();
+        collect_entries(&session_dir, &session_dir, 0, &mut entries).unwrap();
+        assert!(entries.len() <= MAX_ENTRIES, "entry cap exceeded: {}", entries.len());
+    }
+
+    #[test]
+    fn collect_entries_skips_beyond_max_depth() {
+        let tmp = TempDir::new().unwrap();
+        let session_dir = make_session_dir(&tmp);
+        // Build a directory chain exactly MAX_DEPTH + 1 levels deep.
+        let mut deep = session_dir.clone();
+        for _ in 0..=MAX_DEPTH {
+            deep = deep.join("sub");
+            std::fs::create_dir_all(&deep).unwrap();
+        }
+        std::fs::write(deep.join("deep.txt"), "too deep").unwrap();
+
+        let mut entries = Vec::new();
+        collect_entries(&session_dir, &session_dir, 0, &mut entries).unwrap();
+
+        let names: Vec<_> = entries.iter().map(|e| e.name.as_str()).collect();
+        assert!(!names.contains(&"deep.txt"), "file beyond max depth should be skipped");
+    }
+
+    #[test]
     fn relative_path_allows_nested() {
         assert!(validate_relative_path("files/plan.md").is_ok());
         assert!(validate_relative_path("files/subdir/notes.txt").is_ok());
@@ -518,7 +636,7 @@ mod tests {
         std::fs::write(files_dir.join("plan.md"), "# Plan").unwrap();
 
         let mut entries = Vec::new();
-        collect_entries(&session_dir, &session_dir, &mut entries).unwrap();
+        collect_entries(&session_dir, &session_dir, 0, &mut entries).unwrap();
 
         let names: Vec<_> = entries.iter().map(|e| e.name.as_str()).collect();
         assert!(names.contains(&"events.jsonl"));
@@ -535,7 +653,7 @@ mod tests {
         std::fs::write(session_dir.join("visible.txt"), "public").unwrap();
 
         let mut entries = Vec::new();
-        collect_entries(&session_dir, &session_dir, &mut entries).unwrap();
+        collect_entries(&session_dir, &session_dir, 0, &mut entries).unwrap();
 
         let names: Vec<_> = entries.iter().map(|e| e.name.as_str()).collect();
         assert!(!names.contains(&".hidden"));
@@ -551,7 +669,7 @@ mod tests {
         std::fs::write(sub.join("notes.md"), "# Notes").unwrap();
 
         let mut entries = Vec::new();
-        collect_entries(&session_dir, &session_dir, &mut entries).unwrap();
+        collect_entries(&session_dir, &session_dir, 0, &mut entries).unwrap();
 
         let file_entry = entries.iter().find(|e| e.name == "notes.md").unwrap();
         assert!(!file_entry.path.contains('\\'), "path should use forward slashes");
@@ -591,5 +709,35 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let session_dir = make_session_dir(&tmp);
         assert!(safe_session_file_path(&session_dir, "../other.db").is_err());
+    }
+
+    /// Regression test for the TOCTOU symlink race in collect_entries.
+    ///
+    /// On Unix we can create a symlink that points outside the session dir
+    /// and verify collect_entries skips it rather than following it.  On
+    /// Windows symlinks require elevation, so this test is cfg-gated.
+    #[test]
+    #[cfg(unix)]
+    fn collect_entries_skips_symlink_dir_outside_root() {
+        use std::os::unix::fs::symlink;
+
+        let tmp = TempDir::new().unwrap();
+        let session_dir = make_session_dir(&tmp);
+
+        // A directory *outside* the session dir that shouldn't be visited.
+        let outside_dir = tmp.path().join("outside");
+        std::fs::create_dir_all(&outside_dir).unwrap();
+        std::fs::write(outside_dir.join("secret.txt"), "secret").unwrap();
+
+        // Create a symlink inside the session dir pointing to outside_dir.
+        let symlink_path = session_dir.join("evil_link");
+        symlink(&outside_dir, &symlink_path).unwrap();
+
+        let mut entries = Vec::new();
+        collect_entries(&session_dir, &session_dir, 0, &mut entries).unwrap();
+
+        let names: Vec<_> = entries.iter().map(|e| e.name.as_str()).collect();
+        assert!(!names.contains(&"evil_link"), "symlink dir should be skipped: {names:?}");
+        assert!(!names.contains(&"secret.txt"), "file from outside root leaked: {names:?}");
     }
 }

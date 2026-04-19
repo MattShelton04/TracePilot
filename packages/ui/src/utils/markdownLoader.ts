@@ -35,7 +35,16 @@ export function ensureMarkdownReady(): Promise<void> {
       typographer: true,
       breaks: true,
     });
-    purifyFn = (dirty: string) => DOMPurify.sanitize(dirty);
+    purifyFn = (dirty: string) =>
+      DOMPurify.sanitize(dirty, {
+        // Reject data: URIs in src/href/action — inline SVG data URIs can
+        // contain executable content in some WebView contexts.
+        // Allows https, http, mailto, tel, relative refs, fragment anchors.
+        ALLOWED_URI_REGEXP:
+          /^(?:(?:https?|mailto|tel):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
+        // Ensure the result is always a document fragment, not a full page.
+        FORCE_BODY: true,
+      });
     mdReady.value = true;
   })();
   return loadPromise;

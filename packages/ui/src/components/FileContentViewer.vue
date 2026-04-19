@@ -30,6 +30,11 @@ const props = defineProps<{
   error?: string | null;
 }>();
 
+const emit = defineEmits<{
+  /** Re-emitted from MarkdownContent — parent handles OS open (Tauri). */
+  "open-external": [url: string];
+}>();
+
 const isMarkdown = computed(
   () =>
     props.fileType === "markdown" ||
@@ -237,9 +242,9 @@ function copyTableAsJson() {
 
       <div class="fcv__content">
         <!-- Markdown renderer -->
-        <MarkdownContent v-if="isMarkdown" :content="content" />
+        <MarkdownContent v-if="isMarkdown" :content="content" @open-external="(url) => emit('open-external', url)" />
 
-        <!-- Code / text renderer -->
+        <!-- Code / text renderer (maxLines caps very large files to prevent UI freeze) -->
         <CodeBlock
           v-else
           :code="content"
@@ -247,6 +252,7 @@ function copyTableAsJson() {
           :language="codeLanguage"
           :line-numbers="true"
           :show-language-badge="true"
+          :max-lines="5000"
         />
       </div>
     </template>
