@@ -181,6 +181,7 @@ export type {
   CodeChanges,
   HealthFlag,
   ModelMetricDetail,
+  SessionDbTable,
   SessionDetail,
   SessionFileEntry,
   SessionFileType,

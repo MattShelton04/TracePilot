@@ -180,3 +180,13 @@ export interface SessionFileEntry extends FileEntry {
   fileType: SessionFileType;
 }
 
+/** A single table's data returned from `session_read_sqlite`. */
+export interface SessionDbTable {
+  /** Table name. */
+  name: string;
+  /** Column names in the order they appear in the SELECT. */
+  columns: string[];
+  /** Rows; each row is a list of cell values (may be null). */
+  rows: (string | null)[][];
+}
+

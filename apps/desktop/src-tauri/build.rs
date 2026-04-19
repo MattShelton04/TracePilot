@@ -177,6 +177,7 @@ fn main() {
                     // File browser commands
                     "session_list_files",
                     "session_read_file",
+                    "session_read_sqlite",
                 ])
                 .default_permission(tauri_build::DefaultPermissionRule::AllowAllCommands),
         ),

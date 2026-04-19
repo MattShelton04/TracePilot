@@ -41,6 +41,11 @@ const props = defineProps<{
   activeSubTab?: string;
   /** Whether auto-refresh should be enabled (e.g. paused when tab not visible) */
   refreshEnabled?: boolean;
+  /**
+   * When true, the content area fills the remaining viewport height (no scroll).
+   * Used by full-height tabs like the Explorer.
+   */
+  fillContent?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -186,7 +191,7 @@ watch(isSessionActive, (active) => {
 </script>
 
 <template>
-  <PageShell>
+  <PageShell :fluid="fillContent" :class="{ 'explorer-mode': fillContent }">
     <!-- Loading state -->
     <div v-if="store.loading" style="padding-top: 8px;">
       <SkeletonLoader variant="text" :count="1" />

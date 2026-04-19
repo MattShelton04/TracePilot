@@ -1,0 +1,25 @@
+/* ── Session Explorer — fill-height layout ────────────────────────────────────
+ *
+ * When the Explorer tab is active, .page-content must become a flex column
+ * so that .detail-tab-content can grow to fill all remaining viewport height.
+ *
+ * Scoped to .explorer-mode (applied by SessionDetailPanel via :class binding)
+ * so no other session tabs are affected.
+ */
+
+.page-content.explorer-mode {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  /* Keep horizontal padding + top padding; bottom padding is handled by the content */
+  padding-bottom: 0;
+}
+
+.page-content.explorer-mode .detail-tab-content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding-top: 0;
+}

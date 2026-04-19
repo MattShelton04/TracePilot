@@ -1,5 +1,5 @@
-import type { SessionFileEntry, SessionFileType } from "@tracepilot/types";
-import { sessionListFiles, sessionReadFile } from "@tracepilot/client";
+import type { SessionDbTable, SessionFileEntry, SessionFileType } from "@tracepilot/types";
+import { sessionListFiles, sessionReadFile, sessionReadSqlite } from "@tracepilot/client";
 import { ref, watch } from "vue";
 
 export interface SessionFilesState {
@@ -11,6 +11,9 @@ export interface SessionFilesState {
   fileContent: string | null;
   fileContentLoading: boolean;
   fileContentError: string | null;
+  dbData: SessionDbTable[] | null;
+  dbDataLoading: boolean;
+  dbDataError: string | null;
   selectFile: (path: string, fileType: SessionFileType) => Promise<void>;
   reload: () => Promise<void>;
 }
@@ -33,6 +36,10 @@ export function useSessionFiles(
   const fileContentLoading = ref(false);
   const fileContentError = ref<string | null>(null);
 
+  const dbData = ref<SessionDbTable[] | null>(null);
+  const dbDataLoading = ref(false);
+  const dbDataError = ref<string | null>(null);
+
   // Monotonic counter used to discard results from superseded requests.
   let readSeq = 0;
 
@@ -45,6 +52,16 @@ export function useSessionFiles(
 
     try {
       files.value = await sessionListFiles(sessionId);
+
+      // Auto-open workspace.yaml if nothing is selected yet
+      if (!selectedPath.value) {
+        const workspace = files.value.find(
+          (f) => !f.isDirectory && (f.name === "workspace.yaml" || f.name === "workspace.yml"),
+        );
+        if (workspace) {
+          await selectFile(workspace.path, workspace.fileType);
+        }
+      }
     } catch (err) {
       filesError.value = err instanceof Error ? err.message : String(err);
       files.value = [];
@@ -61,10 +78,28 @@ export function useSessionFiles(
     selectedFileType.value = fileType;
     fileContent.value = null;
     fileContentError.value = null;
+    dbData.value = null;
+    dbDataError.value = null;
 
-    if (fileType === "sqlite" || fileType === "binary") {
-      // No content to load — the viewer will show a placeholder
+    if (fileType === "binary") {
       fileContentLoading.value = false;
+      return;
+    }
+
+    if (fileType === "sqlite") {
+      dbDataLoading.value = true;
+      const seq = ++readSeq;
+      try {
+        const result = await sessionReadSqlite(sessionId, path);
+        if (seq !== readSeq) return;
+        dbData.value = result;
+      } catch (err) {
+        if (seq !== readSeq) return;
+        dbDataError.value = err instanceof Error ? err.message : String(err);
+        dbData.value = null;
+      } finally {
+        if (seq === readSeq) dbDataLoading.value = false;
+      }
       return;
     }
 
@@ -97,6 +132,8 @@ export function useSessionFiles(
       selectedFileType.value = null;
       fileContent.value = null;
       fileContentError.value = null;
+      dbData.value = null;
+      dbDataError.value = null;
       if (id) void loadFiles();
     },
     { immediate: true },
@@ -126,6 +163,15 @@ export function useSessionFiles(
     },
     get fileContentError() {
       return fileContentError.value;
+    },
+    get dbData() {
+      return dbData.value;
+    },
+    get dbDataLoading() {
+      return dbDataLoading.value;
+    },
+    get dbDataError() {
+      return dbDataError.value;
     },
     selectFile,
     reload: loadFiles,

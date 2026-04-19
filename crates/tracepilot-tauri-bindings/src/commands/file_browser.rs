@@ -319,6 +319,74 @@ pub async fn session_read_file(
     })
 }
 
+/// Read all user tables from a SQLite database file within a session directory.
+///
+/// Returns at most `MAX_ROWS_PER_TABLE` rows per table to keep IPC payloads
+/// manageable. The file must be a `.db`, `.sqlite`, or `.sqlite3` file located
+/// inside the session directory (path traversal is rejected).
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(%session_id, %relative_path))]
+pub async fn session_read_sqlite(
+    state: tauri::State<'_, SharedConfig>,
+    session_id: String,
+    relative_path: String,
+) -> CmdResult<Vec<tracepilot_core::parsing::session_db::CustomTableInfo>> {
+    use tracepilot_core::parsing::session_db::{list_tables, read_custom_table};
+
+    crate::validators::validate_session_id(&session_id)?;
+
+    let session_state_dir = read_config(&state).session_state_dir();
+
+    blocking_cmd!({
+        let session_dir = session_state_dir.join(&session_id);
+        let file_path = safe_session_file_path(&session_dir, &relative_path)?;
+
+        if !file_path.exists() {
+            return Err(BindingsError::Validation(format!(
+                "File not found: {}",
+                relative_path
+            )));
+        }
+
+        // Only allow recognised SQLite extensions
+        let file_name = file_path
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_default();
+        if SessionFileType::from_name(&file_name) != SessionFileType::Sqlite {
+            return Err(BindingsError::Validation(format!(
+                "'{}' is not a SQLite database file",
+                relative_path
+            )));
+        }
+
+        let table_names = list_tables(&file_path).map_err(|e| {
+            BindingsError::Validation(format!("Failed to list tables: {}", e))
+        })?;
+
+        let mut tables = Vec::with_capacity(table_names.len());
+        for name in &table_names {
+            match read_custom_table(&file_path, name) {
+                Ok(mut info) => {
+                    // Cap rows to keep IPC payload manageable
+                    if info.rows.len() > MAX_SQLITE_ROWS_PER_TABLE {
+                        info.rows.truncate(MAX_SQLITE_ROWS_PER_TABLE);
+                    }
+                    tables.push(info);
+                }
+                Err(e) => {
+                    tracing::warn!("Skipping table '{}': {}", name, e);
+                }
+            }
+        }
+
+        Ok::<_, BindingsError>(tables)
+    })
+}
+
+/// Maximum number of rows returned per SQLite table.
+const MAX_SQLITE_ROWS_PER_TABLE: usize = 500;
+
 // ── Unit tests ───────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -488,5 +556,32 @@ mod tests {
             SessionFileType::from_name("session.db"),
             SessionFileType::Sqlite
         );
+    }
+
+    // ── session_read_sqlite path validation ────────────────────
+
+    #[test]
+    fn sqlite_rejects_non_db_extension() {
+        // We can't call the full async Tauri command without an AppHandle, but we
+        // can verify the path-security helpers reject what they should and that
+        // SessionFileType classification is correct so the command would reject
+        // a text file being passed as a SQLite path.
+        assert_ne!(SessionFileType::from_name("events.jsonl"), SessionFileType::Sqlite);
+        assert_ne!(SessionFileType::from_name("workspace.yaml"), SessionFileType::Sqlite);
+        assert_ne!(SessionFileType::from_name("notes.txt"), SessionFileType::Sqlite);
+    }
+
+    #[test]
+    fn sqlite_accepts_db_extensions() {
+        assert_eq!(SessionFileType::from_name("session.db"), SessionFileType::Sqlite);
+        assert_eq!(SessionFileType::from_name("data.sqlite"), SessionFileType::Sqlite);
+        assert_eq!(SessionFileType::from_name("store.sqlite3"), SessionFileType::Sqlite);
+    }
+
+    #[test]
+    fn sqlite_path_traversal_rejected() {
+        let tmp = TempDir::new().unwrap();
+        let session_dir = make_session_dir(&tmp);
+        assert!(safe_session_file_path(&session_dir, "../other.db").is_err());
     }
 }

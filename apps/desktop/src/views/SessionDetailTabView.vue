@@ -83,6 +83,7 @@ provide(NAVIGATE_CHECKPOINT_KEY, (checkpointNumber: number) => {
     :router="null"
     tab-mode="local"
     :active-sub-tab="activeSubTab"
+    :fill-content="activeSubTab === 'explorer'"
     :refresh-enabled="isTabVisible"
     @update:active-sub-tab="emit('update:activeSubTab', $event)"
     @update:is-active="onIsActiveChange"

@@ -5,11 +5,12 @@
  * Dispatches to:
  *  - MarkdownContent for `.md` / `markdown` files
  *  - CodeBlock for text-based files (json, jsonl, yaml, toml, text, etc.)
- *  - A database placeholder for SQLite files
+ *  - SqliteViewer for SQLite databases (table data)
+ *  - A placeholder for binary files
  *  - An empty state when no file is selected
  */
-import type { SessionFileType } from "@tracepilot/types";
-import { computed } from "vue";
+import type { SessionDbTable, SessionFileType } from "@tracepilot/types";
+import { computed, ref } from "vue";
 import CodeBlock from "./renderers/CodeBlock.vue";
 import MarkdownContent from "./MarkdownContent.vue";
 
@@ -20,6 +21,8 @@ const props = defineProps<{
   content?: string;
   /** Classified file type from the backend. */
   fileType?: SessionFileType;
+  /** SQLite table data returned by `session_read_sqlite`. */
+  dbData?: SessionDbTable[];
   /** Whether the file is currently loading. */
   loading?: boolean;
   /** Error message if loading failed. */
@@ -48,6 +51,10 @@ const fileName = computed(() => {
   if (!props.filePath) return null;
   return props.filePath.split("/").pop() ?? props.filePath;
 });
+
+// ── SQLite table tab state ─────────────────────────────────────────────────
+const activeTableIndex = ref(0);
+const activeTable = computed(() => props.dbData?.[activeTableIndex.value] ?? null);
 </script>
 
 <template>
@@ -77,19 +84,83 @@ const fileName = computed(() => {
       <span class="fcv__error-text">{{ error }}</span>
     </div>
 
-    <!-- SQLite placeholder -->
-    <div v-else-if="isSqlite" class="fcv__binary">
-      <svg class="fcv__binary-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-        <ellipse cx="12" cy="5" rx="9" ry="3"/>
-        <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
-        <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
-      </svg>
-      <p class="fcv__binary-title">SQLite Database</p>
-      <p class="fcv__binary-desc">
-        <strong>{{ fileName }}</strong> is a binary SQLite database file.<br>
-        Use an external tool (e.g. DB Browser for SQLite) to inspect its contents.
-      </p>
-    </div>
+    <!-- SQLite database viewer -->
+    <template v-else-if="isSqlite">
+      <!-- Has data -->
+      <template v-if="dbData && dbData.length > 0">
+        <div class="fcv__db-header">
+          <svg class="fcv__db-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <ellipse cx="12" cy="5" rx="9" ry="3"/>
+            <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+            <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+          </svg>
+          <span class="fcv__db-name">{{ fileName }}</span>
+          <span class="fcv__db-meta">{{ dbData.length }} {{ dbData.length === 1 ? 'table' : 'tables' }}</span>
+        </div>
+
+        <!-- Table tabs -->
+        <div class="fcv__db-tabs" role="tablist">
+          <button
+            v-for="(table, idx) in dbData"
+            :key="table.name"
+            class="fcv__db-tab"
+            :class="{ 'fcv__db-tab--active': activeTableIndex === idx }"
+            role="tab"
+            :aria-selected="activeTableIndex === idx"
+            @click="activeTableIndex = idx"
+          >
+            {{ table.name }}
+            <span class="fcv__db-tab-count">{{ table.rows.length }}</span>
+          </button>
+        </div>
+
+        <!-- Table content -->
+        <div v-if="activeTable" class="fcv__db-content">
+          <div v-if="activeTable.rows.length === 0" class="fcv__db-empty">
+            No rows in <strong>{{ activeTable.name }}</strong>
+          </div>
+          <div v-else class="fcv__db-table-wrap">
+            <table class="fcv__db-table">
+              <thead>
+                <tr>
+                  <th v-for="col in activeTable.columns" :key="col" class="fcv__db-th">{{ col }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(row, rIdx) in activeTable.rows" :key="rIdx" class="fcv__db-tr">
+                  <td v-for="(cell, cIdx) in row" :key="cIdx" class="fcv__db-td">
+                    <span v-if="cell === null" class="fcv__db-null">NULL</span>
+                    <span v-else>{{ cell }}</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </template>
+
+      <!-- Empty database -->
+      <div v-else-if="dbData && dbData.length === 0" class="fcv__binary">
+        <svg class="fcv__binary-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <ellipse cx="12" cy="5" rx="9" ry="3"/>
+          <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+          <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+        </svg>
+        <p class="fcv__binary-title">Empty Database</p>
+        <p class="fcv__binary-desc"><strong>{{ fileName }}</strong> contains no user tables.</p>
+      </div>
+
+      <!-- No data provided yet (fallback placeholder) -->
+      <div v-else class="fcv__binary">
+        <svg class="fcv__binary-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <ellipse cx="12" cy="5" rx="9" ry="3"/>
+          <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+          <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+        </svg>
+        <p class="fcv__binary-title">SQLite Database</p>
+        <p class="fcv__binary-desc"><strong>{{ fileName }}</strong></p>
+      </div>
+    </template>
 
     <!-- Binary file placeholder -->
     <div v-else-if="isBinary" class="fcv__binary">
@@ -266,5 +337,147 @@ const fileName = computed(() => {
 
 .fcv__content :deep(.markdown-content) {
   padding: 16px 20px;
+/* ── SQLite database viewer ──────────────────────────────── */
+.fcv__db-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--canvas-subtle);
+  flex-shrink: 0;
+}
+
+.fcv__db-icon {
+  width: 14px;
+  height: 14px;
+  color: var(--accent-fg);
+  flex-shrink: 0;
+}
+
+.fcv__db-name {
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fcv__db-meta {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.fcv__db-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 4px 8px 0;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--canvas-default);
+  flex-shrink: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.fcv__db-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.fcv__db-tab:hover {
+  color: var(--text-primary);
+  background: var(--canvas-subtle);
+}
+
+.fcv__db-tab--active {
+  color: var(--accent-fg);
+  border-bottom-color: var(--accent-fg);
+  font-weight: 500;
+}
+
+.fcv__db-tab-count {
+  font-size: 0.6875rem;
+  padding: 1px 5px;
+  border-radius: 99px;
+  background: var(--neutral-muted);
+  color: var(--text-secondary);
+}
+
+.fcv__db-content {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+}
+
+.fcv__db-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-size: 0.8125rem;
+  color: var(--text-tertiary);
+}
+
+.fcv__db-table-wrap {
+  overflow: auto;
+  padding: 0;
+}
+
+.fcv__db-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+}
+
+.fcv__db-th {
+  position: sticky;
+  top: 0;
+  padding: 7px 10px;
+  text-align: left;
+  font-weight: 600;
+  background: var(--canvas-subtle);
+  border-bottom: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  z-index: 1;
+}
+
+.fcv__db-tr:nth-child(even) {
+  background: var(--canvas-subtle);
+}
+
+.fcv__db-tr:hover {
+  background: var(--neutral-muted);
+}
+
+.fcv__db-td {
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--border-muted);
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: top;
+  color: var(--text-primary);
+}
+
+.fcv__db-null {
+  color: var(--text-tertiary);
+  font-style: italic;
 }
 </style>

@@ -51,6 +51,7 @@ provide(NAVIGATE_CHECKPOINT_KEY, (checkpointNumber: number) => {
     :session-id="sessionId"
     :router="router"
     :refresh-enabled="routeViewVisible"
+    :fill-content="route.name === ROUTE_NAMES.sessionExplorer"
     tab-mode="router"
   >
     <router-view :key="`${sessionId}-${String(route.name)}`" />

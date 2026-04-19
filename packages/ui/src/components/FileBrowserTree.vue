@@ -7,7 +7,7 @@
  * since both extend the shared base type.
  */
 import type { FileEntry } from "@tracepilot/types";
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 
 // Re-export the shared base type so consumers only need to import from here.
 export type { FileEntry as FileBrowserEntry };
@@ -17,6 +17,8 @@ const props = defineProps<{
   loading?: boolean;
   selectedPath?: string;
   title?: string;
+  /** Folders with more entries than this will be auto-collapsed on load. Default: no limit. */
+  autoCollapseThreshold?: number;
 }>();
 
 const emit = defineEmits<{
@@ -24,9 +26,37 @@ const emit = defineEmits<{
 }>();
 
 const collapsedFolders = ref<Set<string>>(new Set());
+// Track which folders the user has manually toggled so we don't reset them
+const userToggledFolders = ref<Set<string>>(new Set());
+
+// Auto-collapse large folders when entries change (unless user has toggled them)
+watch(
+  () => props.entries,
+  (entries) => {
+    if (!props.autoCollapseThreshold) return;
+    const folders: Record<string, number> = {};
+    for (const entry of entries) {
+      if (entry.isDirectory) continue;
+      const parts = entry.path.split("/");
+      if (parts.length > 1) {
+        const folder = parts.slice(0, -1).join("/");
+        folders[folder] = (folders[folder] ?? 0) + 1;
+      }
+    }
+    const next = new Set(collapsedFolders.value);
+    for (const [folder, count] of Object.entries(folders)) {
+      if (count > props.autoCollapseThreshold! && !userToggledFolders.value.has(folder)) {
+        next.add(folder);
+      }
+    }
+    collapsedFolders.value = next;
+  },
+  { immediate: true },
+);
 
 function toggleFolder(folder: string) {
   const next = new Set(collapsedFolders.value);
+  userToggledFolders.value = new Set(userToggledFolders.value).add(folder);
   if (next.has(folder)) {
     next.delete(folder);
   } else {

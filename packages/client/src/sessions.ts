@@ -2,6 +2,7 @@ import type {
   CheckpointEntry,
   EventsResponse,
   FreshnessResponse,
+  SessionDbTable,
   SessionDetail,
   SessionFileEntry,
   SessionIncident,
@@ -142,4 +143,12 @@ export async function sessionReadFile(
   relativePath: string,
 ): Promise<string> {
   return invoke<string>("session_read_file", { sessionId, relativePath });
+}
+
+/** Read all user tables from a SQLite database inside the session directory. */
+export async function sessionReadSqlite(
+  sessionId: string,
+  relativePath: string,
+): Promise<SessionDbTable[]> {
+  return invoke<SessionDbTable[]>("session_read_sqlite", { sessionId, relativePath });
 }
