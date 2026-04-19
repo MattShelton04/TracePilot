@@ -158,6 +158,8 @@ export interface CheckpointEntry {
 
 // ─── Session File Browser ─────────────────────────────────────────
 
+import type { FileEntry } from "./files";
+
 /**
  * Classified file type used by the frontend to choose a renderer.
  * Mirrors `SessionFileType` in `commands/file_browser.rs`.
@@ -173,15 +175,7 @@ export type SessionFileType =
   | "binary";
 
 /** A single entry (file or directory) in the session file tree. */
-export interface SessionFileEntry {
-  /** Relative path from the session directory root (forward-slash separated). */
-  path: string;
-  /** Filename or directory name. */
-  name: string;
-  /** File size in bytes (0 for directories). */
-  sizeBytes: number;
-  /** Whether this entry is a directory. */
-  isDirectory: boolean;
+export interface SessionFileEntry extends FileEntry {
   /** Classified type for frontend rendering decisions. */
   fileType: SessionFileType;
 }

@@ -2,21 +2,18 @@
 /**
  * FileBrowserTree — generic read-only collapsible file tree.
  *
- * Accepts any duck-typed entry with `path`, `name`, `sizeBytes`, and
- * `isDirectory`. Works with both `SkillAsset` (skill editor) and
- * `SessionFileEntry` (session explorer).
+ * Accepts any entry that satisfies `FileEntry` — works with both
+ * `SkillAsset` (skill editor) and `SessionFileEntry` (session explorer)
+ * since both extend the shared base type.
  */
+import type { FileEntry } from "@tracepilot/types";
 import { computed, ref } from "vue";
 
-export interface FileBrowserEntry {
-  path: string;
-  name: string;
-  sizeBytes: number;
-  isDirectory: boolean;
-}
+// Re-export the shared base type so consumers only need to import from here.
+export type { FileEntry as FileBrowserEntry };
 
 const props = defineProps<{
-  entries: readonly FileBrowserEntry[];
+  entries: readonly FileEntry[];
   loading?: boolean;
   selectedPath?: string;
   title?: string;
@@ -39,8 +36,8 @@ function toggleFolder(folder: string) {
 }
 
 const treeStructure = computed(() => {
-  const folders: Record<string, FileBrowserEntry[]> = {};
-  const rootFiles: FileBrowserEntry[] = [];
+  const folders: Record<string, FileEntry[]> = {};
+  const rootFiles: FileEntry[] = [];
 
   for (const entry of props.entries) {
     if (entry.isDirectory) continue;

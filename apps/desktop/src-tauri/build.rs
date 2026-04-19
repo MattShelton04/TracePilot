@@ -174,6 +174,9 @@ fn main() {
                     // Window management commands
                     "open_session_window",
                     "close_session_window",
+                    // File browser commands
+                    "session_list_files",
+                    "session_read_file",
                 ])
                 .default_permission(tauri_build::DefaultPermissionRule::AllowAllCommands),
         ),

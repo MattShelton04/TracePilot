@@ -5,8 +5,7 @@ every file type contained within sessions, and the TracePilot codebase context n
 design and implement a File Explorer UI.
 
 **Data sources:**
-- 5+ live sessions examined (`be2e97fd`, `ea181923`, `f89e1fe2`, `2a0a0593`, `f865680c`)
-- Total sessions on disk: **423** (UUID-named directories)
+- 5+ live sessions examined across multiple session directories
 - TracePilot codebase: `apps/desktop/src/`, `crates/`, `packages/`
 
 ---
@@ -16,8 +15,8 @@ design and implement a File Explorer UI.
 ### Top-Level Layout
 
 ```
-C:\Users\mattt\.copilot\session-state\
-└── <session-uuid>/                          # e.g. be2e97fd-b159-4c3c-bea8-0454187f79e3
+~/.copilot/session-state/
+└── <session-uuid>/                          # e.g. xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
     ├── events.jsonl                          # ALWAYS present — primary event log
     ├── workspace.yaml                        # ALWAYS present — session metadata
     ├── vscode.metadata.json                  # ALWAYS present — VS Code extension metadata
@@ -44,7 +43,7 @@ C:\Users\mattt\.copilot\session-state\
 
 | Metric | Value |
 |--------|-------|
-| Total session directories | 423 |
+| Total session directories | varies by user |
 | Naming convention | `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` (UUID v4) |
 | Active sessions | Identified by `inuse.<pid>.lock` presence |
 | `session.db` size range | 20 KB (minimal) – 61 KB (large sessions with custom tables) |
@@ -89,10 +88,10 @@ C:\Users\mattt\.copilot\session-state\
 - **Contents:** Session-level metadata written at start and updated as session progresses.
 - **Schema:**
   ```yaml
-  id: be2e97fd-b159-4c3c-bea8-0454187f79e3
-  cwd: C:\git\RepoClones\FurtherCopies\TracePilotAlpha
-  git_root: C:\git\RepoClones\FurtherCopies\TracePilotAlpha
-  repository: MattShelton04/TracePilot
+  id: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+  cwd: /path/to/repo
+  git_root: /path/to/repo
+  repository: owner/repo
   host_type: github
   branch: main
   summary: Surgical Tech Debt Fixes         # Human-readable session title
@@ -140,7 +139,7 @@ C:\Users\mattt\.copilot\session-state\
     PRIMARY KEY (todo_id, depends_on)
   );
   ```
-- **Schema (observed custom tables in session `2a0a0593`):**
+- **Schema (observed custom tables in a session with complex agent work):**
   ```sql
   -- Custom tables created by the agent for PR review tracking:
   pr_reviews    (pr_number, model, agent_id, verdict, confidence, summary, risk, status)
@@ -326,19 +325,19 @@ reconstruction.
 {
   "type": "session.start",
   "data": {
-    "sessionId": "be2e97fd-...",
+    "sessionId": "xxxxxxxx-...",
     "version": 1,
     "producer": "copilot-agent",
-    "copilotVersion": "1.0.32",
-    "startTime": "2026-04-19T07:01:33.144Z",
+    "copilotVersion": "1.0.x",
+    "startTime": "2026-01-01T00:00:00.000Z",
     "context": {
-      "cwd": "C:\\git\\TracePilot",
-      "gitRoot": "C:\\git\\TracePilot",
+      "cwd": "C:\\git\\your-repo",
+      "gitRoot": "C:\\git\\your-repo",
       "branch": "main",
-      "headCommit": "ab45f19a...",
-      "repository": "MattShelton04/TracePilot",
+      "headCommit": "abcdef12...",
+      "repository": "owner/repo",
       "hostType": "github",
-      "baseCommit": "ab45f19a..."
+      "baseCommit": "abcdef12..."
     },
     "alreadyInUse": false,
     "remoteSteerable": false
@@ -788,8 +787,8 @@ The top-level panel shown when a session is selected:
 ```
 ┌──────────────────────────────────────────────────────────┐
 │ 🏃 LIVE  Surgical Tech Debt Fixes                        │
-│ MattShelton04/TracePilot  •  main  •  2026-04-19 17:01   │
-│ C:\git\TracePilot                                        │
+│ owner/repo  •  main  •  2026-01-01 17:01                 │
+│ /path/to/repo                                            │
 │ ─────────────────────────────────────────────────────    │
 │ STATS                                                     │
 │ 142 events  •  3 turns  •  7 checkpoints  •  1 file      │
