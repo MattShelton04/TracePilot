@@ -11,9 +11,9 @@
  */
 import type { SessionDbTable, SessionFileType } from "@tracepilot/types";
 import { computed, ref, watch } from "vue";
-import CodeBlock from "./renderers/CodeBlock.vue";
-import MarkdownContent from "./MarkdownContent.vue";
 import { useClipboard } from "../composables/useClipboard";
+import MarkdownContent from "./MarkdownContent.vue";
+import CodeBlock from "./renderers/CodeBlock.vue";
 
 const props = defineProps<{
   /** Relative path within the session directory (for display + language detection). */
@@ -46,7 +46,7 @@ const isSqlite = computed(() => props.fileType === "sqlite");
 
 const isBinary = computed(() => props.fileType === "binary");
 
-const isJsonl= computed(() => props.fileType === "jsonl");
+const isJsonl = computed(() => props.fileType === "jsonl");
 
 const codeLanguage = computed(() => {
   if (isJsonl.value) return "json";
@@ -63,7 +63,12 @@ const activeTableIndex = ref(0);
 const activeTable = computed(() => props.dbData?.[activeTableIndex.value] ?? null);
 
 // Reset active tab whenever the dataset changes (e.g., user switches SQLite files)
-watch(() => props.dbData, () => { activeTableIndex.value = 0; });
+watch(
+  () => props.dbData,
+  () => {
+    activeTableIndex.value = 0;
+  },
+);
 
 // ── Copy to clipboard ──────────────────────────────────────────────────────
 const { copy: copyText, copied: textCopied } = useClipboard();
@@ -76,9 +81,7 @@ function copyFileContent() {
 function copyTableAsJson() {
   if (!activeTable.value) return;
   const { columns, rows } = activeTable.value;
-  const objects = rows.map((row) =>
-    Object.fromEntries(columns.map((col, i) => [col, row[i]])),
-  );
+  const objects = rows.map((row) => Object.fromEntries(columns.map((col, i) => [col, row[i]])));
   copyDb(JSON.stringify(objects, null, 2));
 }
 </script>
@@ -127,6 +130,7 @@ function copyTableAsJson() {
             class="fcv__copy-btn"
             :class="{ 'fcv__copy-btn--copied': dbCopied }"
             :title="dbCopied ? 'Copied!' : 'Copy table as JSON'"
+            :aria-label="dbCopied ? 'Copied!' : 'Copy table as JSON'"
             @click="copyTableAsJson"
           >
             <svg v-if="!dbCopied" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
@@ -228,6 +232,7 @@ function copyTableAsJson() {
           class="fcv__copy-btn"
           :class="{ 'fcv__copy-btn--copied': textCopied }"
           :title="textCopied ? 'Copied!' : 'Copy file contents'"
+          :aria-label="textCopied ? 'Copied!' : 'Copy file contents'"
           @click="copyFileContent"
         >
           <svg v-if="!textCopied" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
