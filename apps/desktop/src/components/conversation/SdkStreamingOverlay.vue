@@ -162,7 +162,7 @@ function elapsedMs(startedAt: number): string {
           v-for="choice in activeAskUser.choices"
           :key="choice"
           class="sdk-ask-user-choice"
-          :class="{ 'sdk-ask-user-choice--selected': answerText === choice }"
+          :class="{ 'sdk-ask-user-choice-active': answerText === choice }"
           :disabled="submitting"
           type="button"
           @click="selectChoice(choice)"
@@ -484,7 +484,7 @@ function elapsedMs(startedAt: number): string {
   color: var(--text-primary);
 }
 
-.sdk-ask-user-choice--selected {
+.sdk-ask-user-choice-active {
   border-color: var(--accent-emphasis);
   background: var(--accent-subtle);
   color: var(--accent-fg);
