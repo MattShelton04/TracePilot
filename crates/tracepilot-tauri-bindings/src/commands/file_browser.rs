@@ -47,9 +47,12 @@ impl SessionFileType {
                 Self::Text
             }
             _ => {
-                // Unknown extension — if it has no extension or is a well-known
-                // text format name, treat as text; otherwise binary.
-                if ext.is_empty() || name.to_lowercase() == "makefile" {
+                // Unknown extension — if the file has no dot at all (e.g.
+                // Makefile, Dockerfile, Gemfile, Procfile) treat it as text.
+                // Only fall back to Binary for extensions we genuinely don't
+                // recognise (e.g. compiled artefacts like `.exe`, `.so`).
+                let has_dot = name.contains('.');
+                if !has_dot {
                     Self::Text
                 } else {
                     Self::Binary
@@ -442,6 +445,17 @@ mod tests {
     fn file_type_binary_fallback() {
         assert_eq!(SessionFileType::from_name("archive.zip"), SessionFileType::Binary);
         assert_eq!(SessionFileType::from_name("image.png"), SessionFileType::Binary);
+    }
+
+    #[test]
+    fn file_type_dotless_names_are_text() {
+        // Dotless filenames (Dockerfile, Makefile, Gemfile, Procfile, etc.)
+        // should never be classified as Binary — they are always UTF-8 text.
+        assert_eq!(SessionFileType::from_name("Dockerfile"), SessionFileType::Text);
+        assert_eq!(SessionFileType::from_name("Makefile"), SessionFileType::Text);
+        assert_eq!(SessionFileType::from_name("Gemfile"), SessionFileType::Text);
+        assert_eq!(SessionFileType::from_name("Procfile"), SessionFileType::Text);
+        assert_eq!(SessionFileType::from_name("Rakefile"), SessionFileType::Text);
     }
 
     // ── validate_relative_path ─────────────────────────────────

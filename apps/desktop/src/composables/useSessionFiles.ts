@@ -85,6 +85,7 @@ export function useSessionFiles(
     selectedFileType.value = fileType;
     fileContent.value = null;
     fileContentError.value = null;
+    fileContentLoading.value = false;
     dbData.value = null;
     dbDataError.value = null;
 

@@ -111,6 +111,14 @@ function getFileIconType(name: string): FileIconType {
   if (ext === "log" || ext === "txt") return "log";
   return "generic";
 }
+
+const iconTypeByPath = computed(() => {
+  const map = new Map<string, FileIconType>();
+  for (const entry of props.entries) {
+    if (!entry.isDirectory) map.set(entry.path, getFileIconType(entry.name));
+  }
+  return map;
+});
 </script>
 
 <template>
@@ -138,40 +146,40 @@ function getFileIconType(name: string): FileIconType {
         @click="emit('viewFile', entry.path)"
         @keyup.enter="emit('viewFile', entry.path)"
       >
-        <svg class="fb-tree__file-icon" :class="`fb-tree__file-icon--${getFileIconType(entry.name)}`" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+        <svg class="fb-tree__file-icon" :class="`fb-tree__file-icon--${iconTypeByPath.get(entry.path) ?? 'generic'}`" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
           <!-- generic / default -->
-          <template v-if="getFileIconType(entry.name) === 'generic'">
+          <template v-if="(iconTypeByPath.get(entry.path) ?? 'generic') === 'generic'">
             <path d="M4 2h5l4 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/>
             <path d="M9 2v4h4"/>
           </template>
           <!-- markdown -->
-          <template v-else-if="getFileIconType(entry.name) === 'markdown'">
+          <template v-else-if="(iconTypeByPath.get(entry.path) ?? 'generic') === 'markdown'">
             <path d="M4 2h5l4 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/>
             <path d="M9 2v4h4"/>
             <path d="M5 9h6M5 11h4" stroke-width="1.1"/>
           </template>
           <!-- json / jsonl -->
-          <template v-else-if="getFileIconType(entry.name) === 'json'">
+          <template v-else-if="(iconTypeByPath.get(entry.path) ?? 'generic') === 'json'">
             <path d="M6 3c-1 0-1.5 1-1.5 2v1c0 .8-.5 1.2-.5 1.5s.5.7.5 1.5v1c0 1 .5 2 1.5 2"/>
             <path d="M10 3c1 0 1.5 1 1.5 2v1c0 .8.5 1.2.5 1.5s-.5.7-.5 1.5v1c0 1-.5 2-1.5 2"/>
           </template>
           <!-- yaml -->
-          <template v-else-if="getFileIconType(entry.name) === 'yaml'">
+          <template v-else-if="(iconTypeByPath.get(entry.path) ?? 'generic') === 'yaml'">
             <path d="M3 4h10M3 8h10M3 12h6"/>
           </template>
           <!-- toml -->
-          <template v-else-if="getFileIconType(entry.name) === 'toml'">
+          <template v-else-if="(iconTypeByPath.get(entry.path) ?? 'generic') === 'toml'">
             <path d="M3 3h10v10H3z"/>
             <path d="M3 7h10M7 3v10" stroke-width="1.1"/>
           </template>
           <!-- database -->
-          <template v-else-if="getFileIconType(entry.name) === 'database'">
+          <template v-else-if="(iconTypeByPath.get(entry.path) ?? 'generic') === 'database'">
             <ellipse cx="8" cy="5" rx="5" ry="1.8"/>
             <path d="M3 5v3c0 1 2.2 1.8 5 1.8s5-.8 5-1.8V5"/>
             <path d="M3 8v3c0 1 2.2 1.8 5 1.8s5-.8 5-1.8V8"/>
           </template>
           <!-- lock -->
-          <template v-else-if="getFileIconType(entry.name) === 'lock'">
+          <template v-else-if="(iconTypeByPath.get(entry.path) ?? 'generic') === 'lock'">
             <rect x="4" y="7" width="8" height="7" rx="1"/>
             <path d="M5.5 7V5a2.5 2.5 0 015 0v2"/>
           </template>
@@ -214,33 +222,33 @@ function getFileIconType(name: string): FileIconType {
             @click="emit('viewFile', entry.path)"
             @keyup.enter="emit('viewFile', entry.path)"
           >
-            <svg class="fb-tree__file-icon" :class="`fb-tree__file-icon--${getFileIconType(entry.name)}`" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
-              <template v-if="getFileIconType(entry.name) === 'generic'">
+            <svg class="fb-tree__file-icon" :class="`fb-tree__file-icon--${iconTypeByPath.get(entry.path) ?? 'generic'}`" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+              <template v-if="(iconTypeByPath.get(entry.path) ?? 'generic') === 'generic'">
                 <path d="M4 2h5l4 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/>
                 <path d="M9 2v4h4"/>
               </template>
-              <template v-else-if="getFileIconType(entry.name) === 'markdown'">
+              <template v-else-if="(iconTypeByPath.get(entry.path) ?? 'generic') === 'markdown'">
                 <path d="M4 2h5l4 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/>
                 <path d="M9 2v4h4"/>
                 <path d="M5 9h6M5 11h4" stroke-width="1.1"/>
               </template>
-              <template v-else-if="getFileIconType(entry.name) === 'json'">
+              <template v-else-if="(iconTypeByPath.get(entry.path) ?? 'generic') === 'json'">
                 <path d="M6 3c-1 0-1.5 1-1.5 2v1c0 .8-.5 1.2-.5 1.5s.5.7.5 1.5v1c0 1 .5 2 1.5 2"/>
                 <path d="M10 3c1 0 1.5 1 1.5 2v1c0 .8.5 1.2.5 1.5s-.5.7-.5 1.5v1c0 1-.5 2-1.5 2"/>
               </template>
-              <template v-else-if="getFileIconType(entry.name) === 'yaml'">
+              <template v-else-if="(iconTypeByPath.get(entry.path) ?? 'generic') === 'yaml'">
                 <path d="M3 4h10M3 8h10M3 12h6"/>
               </template>
-              <template v-else-if="getFileIconType(entry.name) === 'toml'">
+              <template v-else-if="(iconTypeByPath.get(entry.path) ?? 'generic') === 'toml'">
                 <path d="M3 3h10v10H3z"/>
                 <path d="M3 7h10M7 3v10" stroke-width="1.1"/>
               </template>
-              <template v-else-if="getFileIconType(entry.name) === 'database'">
+              <template v-else-if="(iconTypeByPath.get(entry.path) ?? 'generic') === 'database'">
                 <ellipse cx="8" cy="5" rx="5" ry="1.8"/>
                 <path d="M3 5v3c0 1 2.2 1.8 5 1.8s5-.8 5-1.8V5"/>
                 <path d="M3 8v3c0 1 2.2 1.8 5 1.8s5-.8 5-1.8V8"/>
               </template>
-              <template v-else-if="getFileIconType(entry.name) === 'lock'">
+              <template v-else-if="(iconTypeByPath.get(entry.path) ?? 'generic') === 'lock'">
                 <rect x="4" y="7" width="8" height="7" rx="1"/>
                 <path d="M5.5 7V5a2.5 2.5 0 015 0v2"/>
               </template>
