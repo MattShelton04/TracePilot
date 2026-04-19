@@ -25,6 +25,19 @@ export function isBackendErrorEnvelope(e: unknown): e is BackendErrorEnvelope {
 }
 
 /**
+ * Extract a raw message string from an unknown error value.
+ * Returns `null` when no recognisable type matches, so callers can distinguish
+ * "matched but empty message" from "unrecognised type" (the latter may warrant
+ * a `String(error)` fallback while the former should stay empty/null).
+ */
+function extractRawMessage(error: unknown): string | null {
+  if (typeof error === "string") return error;
+  if (isBackendErrorEnvelope(error)) return error.message;
+  if (error instanceof Error) return error.message;
+  return null;
+}
+
+/**
  * Extract the stable backend error code (e.g. `"ALREADY_INDEXING"`) from an
  * error value, or `null` if the value is not a structured backend error.
  *
@@ -53,14 +66,7 @@ export function getErrorCode(e: unknown): string | null {
 export function isAlreadyIndexingError(error: unknown): boolean {
   if (getErrorCode(error) === "ALREADY_INDEXING") return true;
 
-  const msg =
-    typeof error === "string"
-      ? error
-      : isBackendErrorEnvelope(error)
-        ? error.message
-        : error instanceof Error
-          ? error.message
-          : "";
+  const msg = extractRawMessage(error) ?? "";
 
   if (!msg) return false;
   if (msg === "ALREADY_INDEXING") return true;
@@ -80,14 +86,7 @@ export function isAlreadyIndexingError(error: unknown): boolean {
  * JSON / YAML / session parsing elsewhere in the Rust backend.
  */
 export function isSearchSyntaxError(error: unknown): boolean {
-  const msg =
-    typeof error === "string"
-      ? error
-      : isBackendErrorEnvelope(error)
-        ? error.message
-        : error instanceof Error
-          ? error.message
-          : "";
+  const msg = extractRawMessage(error) ?? "";
   return msg.includes("fts5: syntax error") || msg.includes("fts5 syntax error");
 }
 
@@ -108,14 +107,7 @@ export function toFriendlyErrorMessage(error: unknown): string | null {
     return "Indexing is already in progress. Please wait for the current index to complete.";
   }
 
-  const msg =
-    typeof error === "string"
-      ? error
-      : isBackendErrorEnvelope(error)
-        ? error.message
-        : error instanceof Error
-          ? error.message
-          : String(error);
+  const msg = extractRawMessage(error) ?? String(error);
 
   return msg || null;
 }
