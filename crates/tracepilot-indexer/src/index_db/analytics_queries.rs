@@ -21,7 +21,14 @@ impl IndexDb {
         let (where_clause, bind_values) =
             build_date_repo_filter(from_date, to_date, repo, hide_empty);
 
-        // Aggregate session-level stats
+        // Aggregate session-level stats.
+        //
+        // NOTE: These sums (`total_tokens`, `total_cost`, `total_premium_requests`) are
+        // session-lifetime values stored on the `sessions` row.  For a cross-day session that
+        // was last active on the final day of the filter window, its full lifetime total is
+        // included here even though the per-day charts (which use `session_segments`) are
+        // correctly clamped to the requested window.  For sessions that do not cross the
+        // window boundary the numbers are consistent.
         let agg_sql = format!(
             "SELECT COUNT(*), COALESCE(SUM(total_tokens), 0), COALESCE(SUM(total_cost), 0.0),
                     COALESCE(AVG(health_score), 0.0),
@@ -102,37 +109,63 @@ impl IndexDb {
                 ))
             })?;
 
-        // Tokens by day
+        // Tokens by day — clamp segment end_timestamp to the requested window to
+        // prevent segments from sessions that *overlap* the range from leaking
+        // data points outside the filter window.
+        let (day_where, day_values) = append_segment_date_filter(
+            &where_clause,
+            &bind_values,
+            from_date,
+            to_date,
+            "m.end_timestamp",
+        );
         let day_sql = format!(
             "SELECT date(m.end_timestamp) as d, COALESCE(SUM(m.total_tokens), 0)
              FROM session_segments m
              JOIN sessions s ON s.id = m.session_id
              {} AND d IS NOT NULL GROUP BY d ORDER BY d",
-            where_clause
+            day_where
         );
-        let refs = to_refs(&bind_values);
+        let refs = to_refs(&day_values);
         let token_usage_by_day = query_day_tokens(&self.conn, &day_sql, &refs)?;
 
-        // Activity (segments) by day — count segments by start date
+        // Activity (segments) by day — count segments by the day they *ended*.
+        // Using end_timestamp keeps the activity chart consistent with the token and cost
+        // charts (which also group by end_timestamp), so all three series agree on which
+        // day a segment belongs to.
+        let (sbd_where, sbd_values) = append_segment_date_filter(
+            &where_clause,
+            &bind_values,
+            from_date,
+            to_date,
+            "m.end_timestamp",
+        );
         let sbd_sql = format!(
-            "SELECT date(m.start_timestamp) as d, COUNT(*)
+            "SELECT date(m.end_timestamp) as d, COUNT(*)
              FROM session_segments m
              JOIN sessions s ON s.id = m.session_id
              {} AND d IS NOT NULL GROUP BY d ORDER BY d",
-            where_clause
+            sbd_where
         );
-        let refs = to_refs(&bind_values);
+        let refs = to_refs(&sbd_values);
         let activity_per_day = query_day_activity(&self.conn, &sbd_sql, &refs)?;
 
-        // Cost by day
+        // Cost by day — clamp segment end_timestamp to the requested window.
+        let (cbd_where, cbd_values) = append_segment_date_filter(
+            &where_clause,
+            &bind_values,
+            from_date,
+            to_date,
+            "m.end_timestamp",
+        );
         let cbd_sql = format!(
             "SELECT date(m.end_timestamp) as d, COALESCE(SUM(m.total_premium_requests), 0.0)
              FROM session_segments m
              JOIN sessions s ON s.id = m.session_id
              {} AND d IS NOT NULL GROUP BY d ORDER BY d",
-            where_clause
+            cbd_where
         );
-        let refs = to_refs(&bind_values);
+        let refs = to_refs(&cbd_values);
         let cost_by_day = query_day_cost(&self.conn, &cbd_sql, &refs)?;
 
         // Model distribution from session_model_metrics
@@ -212,7 +245,15 @@ impl IndexDb {
             0.0
         };
 
-        // Incidents by day
+        // Incidents by day.
+        //
+        // NOTE: Incident counts (`error_count`, `rate_limit_count`, etc.) are pre-aggregated
+        // on the session row with no per-segment or per-turn timestamps.  Incidents are
+        // therefore attributed to the session's *last-active* date
+        // (`COALESCE(updated_at, created_at)`), not to the exact day they occurred.  For
+        // single-day sessions this is exact; for long-running sessions that span the range
+        // boundary the chart date reflects when the session ended, not when each incident
+        // happened.  Fixing this would require storing per-incident timestamps (future work).
         let ibd_sql = format!(
             "SELECT date(COALESCE(s.updated_at, s.created_at)) as d,
                     COALESCE(SUM(s.error_count), 0),
