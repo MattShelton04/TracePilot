@@ -49,6 +49,11 @@ const activeTools = computed(() =>
 );
 const activeAskUser = computed(() => (live ? live.activeAskUser.value : null));
 
+/** True when connected to a --ui-server (TCP mode). ask_user responses must
+ *  be typed in the terminal in this mode — the SDK UserInputHandler is not
+ *  invoked by the CLI's TUI handler. */
+const isTcpMode = computed(() => sdk.connectionMode === "tcp");
+
 // ── ask_user response state ──────────────────────────────────────────────────
 
 const answerText = ref("");
@@ -156,63 +161,71 @@ function elapsedMs(startedAt: number): string {
         {{ activeAskUser.question }}
       </p>
 
-      <!-- Choice buttons — click to select or submit directly -->
-      <div v-if="activeAskUser.choices?.length" class="sdk-ask-user-choices" role="group" aria-label="Available choices">
-        <button
-          v-for="choice in activeAskUser.choices"
-          :key="choice"
-          class="sdk-ask-user-choice"
-          :class="{ 'sdk-ask-user-choice-active': answerText === choice }"
-          :disabled="submitting"
-          type="button"
-          @click="selectChoice(choice)"
-        >
-          {{ choice }}
-        </button>
-      </div>
+      <!-- TCP mode: handler not invoked by CLI TUI, user must answer in terminal -->
+      <p v-if="isTcpMode" class="sdk-ask-user-tcp-note">
+        ↳ Answer this prompt in your terminal
+      </p>
 
-      <!-- Freeform textarea — shown always when no choices, or when allowFreeform != false -->
-      <div
-        v-if="!activeAskUser.choices?.length || activeAskUser.allowFreeform !== false"
-        class="sdk-ask-user-input-row"
-      >
-        <textarea
-          v-model="answerText"
-          class="sdk-ask-user-textarea"
-          placeholder="Type your answer… (Ctrl+Enter to send)"
-          rows="2"
-          :disabled="submitting"
-          aria-label="Answer to Copilot's question"
-          @keydown="handleAnswerKeydown"
-        />
-        <button
-          class="sdk-ask-user-send"
-          :disabled="submitting || !answerText.trim()"
-          aria-label="Send answer"
-          @click="handleSubmitAnswer"
-        >
-          <span v-if="submitting" aria-hidden="true">⏳</span>
-          <span v-else aria-hidden="true">↵</span>
-          {{ submitting ? "Sending…" : "Send" }}
-        </button>
-      </div>
+      <!-- stdio mode: our UserInputHandler intercepts the request -->
+      <template v-else>
+        <!-- Choice buttons — click to select or submit directly -->
+        <div v-if="activeAskUser.choices?.length" class="sdk-ask-user-choices" role="group" aria-label="Available choices">
+          <button
+            v-for="choice in activeAskUser.choices"
+            :key="choice"
+            class="sdk-ask-user-choice"
+            :class="{ 'sdk-ask-user-choice-active': answerText === choice }"
+            :disabled="submitting"
+            type="button"
+            @click="selectChoice(choice)"
+          >
+            {{ choice }}
+          </button>
+        </div>
 
-      <!-- When only choices and no freeform: show send button separately -->
-      <div
-        v-else-if="activeAskUser.choices?.length && activeAskUser.allowFreeform === false"
-        class="sdk-ask-user-choice-send-row"
-      >
-        <button
-          class="sdk-ask-user-send"
-          :disabled="submitting || !answerText.trim()"
-          aria-label="Send selected answer"
-          @click="handleSubmitAnswer"
+        <!-- Freeform textarea — shown always when no choices, or when allowFreeform != false -->
+        <div
+          v-if="!activeAskUser.choices?.length || activeAskUser.allowFreeform !== false"
+          class="sdk-ask-user-input-row"
         >
-          <span v-if="submitting" aria-hidden="true">⏳</span>
-          <span v-else aria-hidden="true">↵</span>
-          {{ submitting ? "Sending…" : "Send" }}
-        </button>
-      </div>
+          <textarea
+            v-model="answerText"
+            class="sdk-ask-user-textarea"
+            placeholder="Type your answer… (Ctrl+Enter to send)"
+            rows="2"
+            :disabled="submitting"
+            aria-label="Answer to Copilot's question"
+            @keydown="handleAnswerKeydown"
+          />
+          <button
+            class="sdk-ask-user-send"
+            :disabled="submitting || !answerText.trim()"
+            aria-label="Send answer"
+            @click="handleSubmitAnswer"
+          >
+            <span v-if="submitting" aria-hidden="true">⏳</span>
+            <span v-else aria-hidden="true">↵</span>
+            {{ submitting ? "Sending…" : "Send" }}
+          </button>
+        </div>
+
+        <!-- When only choices and no freeform: show send button separately -->
+        <div
+          v-else-if="activeAskUser.choices?.length && activeAskUser.allowFreeform === false"
+          class="sdk-ask-user-choice-send-row"
+        >
+          <button
+            class="sdk-ask-user-send"
+            :disabled="submitting || !answerText.trim()"
+            aria-label="Send selected answer"
+            @click="handleSubmitAnswer"
+          >
+            <span v-if="submitting" aria-hidden="true">⏳</span>
+            <span v-else aria-hidden="true">↵</span>
+            {{ submitting ? "Sending…" : "Send" }}
+          </button>
+        </div>
+      </template>
     </div>
 
     <!-- Active tool indicators (ask_user excluded — shown as card above) -->
@@ -401,6 +414,13 @@ function elapsedMs(startedAt: number): string {
   font-size: 0.875rem;
   color: var(--text-primary);
   line-height: 1.5;
+}
+
+.sdk-ask-user-tcp-note {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--text-tertiary);
+  font-style: italic;
 }
 
 .sdk-ask-user-input-row {
