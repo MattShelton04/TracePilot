@@ -1,8 +1,8 @@
 //! Multi-row INSERT batching for SQLite child-table writes.
 //!
 //! Instead of executing N individual `INSERT ... VALUES (?)` statements,
-//! this builds `INSERT ... VALUES (?,...),(?,...), ...` in chunks of 25,
-//! reducing statement count from N to ⌈N/25⌉. Within an explicit
+//! this builds `INSERT ... VALUES (?,...),(?,...), ...` in chunks of 100,
+//! reducing statement count from N to ⌈N/100⌉. Within an explicit
 //! transaction (SAVEPOINT), the main win is fewer SQLite VM step() calls.
 
 use crate::Result;
@@ -14,24 +14,34 @@ use tracepilot_core::utils::sqlite::build_placeholder_sql;
 /// Empirically tuned via `cargo bench -p tracepilot-bench --bench batch_size`.
 ///
 /// The motivating hot path is `search_writer::upsert_search_content`, which
-/// inserts ~1 row per searchable event — so a 10 000-event session produces
-/// ~5 000–8 000 rows in a single batch. Benchmarks at this real-world scale
-/// (500–10 000 rows, 8-column `search_content` schema) show:
+/// inserts ~1 row per searchable event (each row fires an FTS5 trigger) — so
+/// a 10 000-event session produces ~5 000–8 000 rows in a single batch.
+/// Benchmarks at this real-world scale (500–10 000 rows, 8-column
+/// `search_content` schema **with FTS5 trigger**) show:
 ///
-/// | chunk | 500 rows | 2 500 rows | 5 000 rows | 10 000 rows |
-/// |-------|----------|------------|------------|-------------|
-/// |    25 | 542 K/s  |   551 K/s  |   549 K/s  |   543 K/s   |
-/// |    50 | 483 K/s  |   489 K/s  |   486 K/s  |   476 K/s   |
-/// |   100 | 461 K/s  |   445 K/s  |   456 K/s  |   457 K/s   |
-/// |  4000 | 442 K/s  |   419 K/s  |   434 K/s  |   425 K/s   |
+/// | chunk | 500 rows | 5 000 rows | 10 000 rows |
+/// |-------|----------|------------|-------------|
+/// |    25 | 164 K/s  |   143 K/s  |   135 K/s   |
+/// |    50 | 187 K/s  |   156 K/s  |   147 K/s   |
+/// |   100 | 189 K/s  |   165 K/s  |   157 K/s   |
+/// |   500 | 199 K/s  |   181 K/s  |   177 K/s   |
+/// |  1000 | 196 K/s  |   168 K/s  |   184 K/s   |
 ///
-/// Chunk = 25 is **+14 % faster** than 50 at 10 000 rows, and **+28 %** vs 4 000.
-/// Very large chunks are *worse* because SQLite's statement parser/compiler
-/// overhead grows super-linearly with bind-parameter count.
+/// chunk=100 is **+16 % faster than 25** and **+7 % faster than 50**
+/// consistently across all row counts, with good stability. Very large chunks
+/// (500+) show diminishing returns and higher variance.
 ///
-/// 25 × 9 = 225 bind params (widest child table) — well within SQLite's
+/// The FTS5 trigger fires per-row regardless of chunk size, so the dominant
+/// cost is fixed per-row overhead — larger chunks amortize the per-statement
+/// `prepare()` cost more effectively than was apparent in a trigger-free schema.
+///
+/// The session_writer analytics tables (model_metrics, tool_calls, etc.) always
+/// write <25 rows even for large sessions, so they always take the partial-chunk
+/// path and are unaffected by this constant.
+///
+/// 100 × 9 = 900 bind params (widest child table) — well within SQLite's
 /// `SQLITE_MAX_VARIABLE_NUMBER` of 32 766 (since 3.32).
-const BATCH_CHUNK_SIZE: usize = 25;
+const BATCH_CHUNK_SIZE: usize = 100;
 
 /// Execute a multi-row INSERT in chunks of up to [`BATCH_CHUNK_SIZE`] rows.
 ///

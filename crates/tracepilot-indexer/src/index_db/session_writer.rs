@@ -195,8 +195,8 @@ impl IndexDb {
             // ──────────────────────────────────────────────────────────────
             // INSERT child rows using multi-row VALUES batching
             // ──────────────────────────────────────────────────────────────
-            // Builds INSERT ... VALUES (...),(...),... in chunks of 25,
-            // reducing round-trips from N to ceil(N/25).
+            // Builds INSERT ... VALUES (...),(...),... in chunks of 100,
+            // reducing round-trips from N to ceil(N/100).
             // ──────────────────────────────────────────────────────────────
             use super::batch_insert::batched_insert;
 
