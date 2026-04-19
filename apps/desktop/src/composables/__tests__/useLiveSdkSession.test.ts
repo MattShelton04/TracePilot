@@ -28,6 +28,8 @@ import type { BridgeEvent } from "@tracepilot/types";
 // ─── SDK store mock ─────────────────────────────────────────────────────────
 const sdkState = reactive({
   recentEvents: [] as BridgeEvent[],
+  isConnected: true,
+  sessions: [] as Array<{ sessionId: string; isActive: boolean }>,
   sessionEvents(sessionId: string): BridgeEvent[] {
     return this.recentEvents.filter((e) => e.sessionId === sessionId);
   },
@@ -71,6 +73,8 @@ describe("useLiveSdkSession", () => {
     setupPinia();
     _seq = 0;
     sdkState.recentEvents = [];
+    sdkState.isConnected = true;
+    sdkState.sessions = [{ sessionId: SESSION_ID, isActive: true }];
   });
 
   // ── Streaming messages ───────────────────────────────────────────────────
@@ -657,6 +661,117 @@ describe("useLiveSdkSession", () => {
       await nextTick();
 
       expect(live.liveModel.value).toBeNull();
+      scope.stop();
+    });
+  });
+
+  describe("SDK linkage gating", () => {
+    it("isLinkedToSdk is true when connected and session is active", async () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => {
+        live = useLiveSdkSession(sessionIdRef);
+      });
+      await nextTick();
+
+      expect(live.isLinkedToSdk.value).toBe(true);
+      scope.stop();
+    });
+
+    it("isLinkedToSdk is false when SDK is not connected", async () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => {
+        live = useLiveSdkSession(sessionIdRef);
+      });
+
+      sdkState.isConnected = false;
+      await nextTick();
+
+      expect(live.isLinkedToSdk.value).toBe(false);
+      scope.stop();
+    });
+
+    it("isLinkedToSdk is false when session is not in sessions list", async () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => {
+        live = useLiveSdkSession(sessionIdRef);
+      });
+
+      sdkState.sessions = [];
+      await nextTick();
+
+      expect(live.isLinkedToSdk.value).toBe(false);
+      scope.stop();
+    });
+
+    it("isLinkedToSdk is false when session.isActive is false", async () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => {
+        live = useLiveSdkSession(sessionIdRef);
+      });
+
+      sdkState.sessions = [{ sessionId: SESSION_ID, isActive: false }];
+      await nextTick();
+
+      expect(live.isLinkedToSdk.value).toBe(false);
+      scope.stop();
+    });
+
+    it("flushes transient streaming state when SDK disconnects (prevents ghost thinking indicator)", async () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => {
+        live = useLiveSdkSession(sessionIdRef);
+      });
+
+      // Start a turn (agent is running)
+      push(makeEvent({ eventType: "assistant.turn_start", data: { turnId: "t1" } }));
+      await nextTick();
+      expect(live.isAgentRunning.value).toBe(true);
+
+      // SDK disconnects — session.idle never arrives
+      sdkState.isConnected = false;
+      await nextTick();
+
+      expect(live.isAgentRunning.value).toBe(false);
+      expect(live.activeTools.size).toBe(0);
+      scope.stop();
+    });
+
+    it("flushes transient state when session is removed from sessions list (unlink)", async () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => {
+        live = useLiveSdkSession(sessionIdRef);
+      });
+
+      // Agent starts a turn
+      push(makeEvent({ eventType: "assistant.turn_start", data: { turnId: "t1" } }));
+      push(makeEvent({
+        eventType: "tool.execution_start",
+        data: { toolCallId: "tc1", toolName: "read_file", input: {}, isPipelined: false },
+      }));
+      await nextTick();
+      expect(live.isAgentRunning.value).toBe(true);
+      expect(live.activeTools.size).toBe(1);
+
+      // User unlinks — sessions list becomes empty
+      sdkState.sessions = [];
+      await nextTick();
+
+      expect(live.isAgentRunning.value).toBe(false);
+      expect(live.activeTools.size).toBe(0);
+
+      // liveModel/tokenUsage should be preserved (persistent data)
       scope.stop();
     });
   });

@@ -135,6 +135,20 @@ export function useLiveSdkSession(sessionIdRef: Ref<string | null>) {
   // ── Dedup ────────────────────────────────────────────────────
   const seen = new WeakSet<object>();
 
+  // ── SDK linkage tracking ─────────────────────────────────────
+  /**
+   * True only when the SDK bridge is connected AND the current session
+   * is listed as active. Used to:
+   *   (a) gate the streaming overlay so it never shows for unlinked sessions
+   *   (b) flush all transient streaming state when the session unlinks/disconnects
+   *       so "Copilot is thinking…" can't persist after the agent stops
+   */
+  const isLinkedToSdk = computed(
+    () =>
+      sdk.isConnected &&
+      sdk.sessions.some((s) => s.sessionId === sessionIdRef.value && s.isActive === true),
+  );
+
   // ── Derived helpers ──────────────────────────────────────────
 
   /** True when there is any streaming content or active tools. */
@@ -329,7 +343,26 @@ export function useLiveSdkSession(sessionIdRef: Ref<string | null>) {
     }
   }
 
-  // ── Watcher ──────────────────────────────────────────────────
+  // ── Watchers ─────────────────────────────────────────────────
+
+  /**
+   * Flush all transient streaming state whenever the session is no longer
+   * linked to the SDK bridge (user unlinks, SDK disconnects, CLI process
+   * exits without sending session.idle). This prevents the "Copilot is
+   * thinking…" overlay from persisting after the agent has stopped.
+   *
+   * Persistent state (liveModel, tokenUsage, lastTurnStats) is kept so
+   * the command bar can still display it after the turn completes.
+   */
+  watch(isLinkedToSdk, (linked) => {
+    if (!linked) {
+      streamingMessages.clear();
+      streamingReasoning.clear();
+      activeTools.clear();
+      isAgentRunning.value = false;
+      activeTurnId.value = null;
+    }
+  });
 
   /** Reset all live state when navigating to a different session. */
   watch(sessionIdRef, () => {
@@ -389,6 +422,8 @@ export function useLiveSdkSession(sessionIdRef: Ref<string | null>) {
   }
 
   return {
+    // SDK linkage
+    isLinkedToSdk,
     // streaming
     streamingMessages,
     streamingReasoning,

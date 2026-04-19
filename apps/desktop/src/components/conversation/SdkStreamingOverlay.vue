@@ -19,6 +19,9 @@ const expandedReasoning = useToggleSet<string>();
 
 const hasContent = computed(() => {
   if (!live) return false;
+  // Only show when actually linked to the SDK — prevents "thinking" ghost
+  // persisting after disconnect or unlink.
+  if (!live.isLinkedToSdk.value) return false;
   return (
     live.streamingMessages.size > 0 ||
     live.streamingReasoning.size > 0 ||
@@ -107,7 +110,7 @@ function elapsedMs(startedAt: number): string {
 
     <!-- Idle indicator: agent running but no content yet -->
     <div
-      v-if="live.isAgentRunning.value && streamingMessages.length === 0 && streamingReasoning.length === 0 && activeTools.length === 0"
+      v-if="live.isLinkedToSdk.value && live.isAgentRunning.value && streamingMessages.length === 0 && streamingReasoning.length === 0 && activeTools.length === 0"
       class="sdk-stream-thinking"
     >
       <span class="sdk-stream-cursor" aria-hidden="true" />
