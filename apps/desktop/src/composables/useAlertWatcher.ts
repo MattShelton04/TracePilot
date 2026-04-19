@@ -86,6 +86,36 @@ function getSessionLabel(sessionId: string): string {
   return `Session ${sessionId.slice(0, 8)}`;
 }
 
+// ── Null-ID event key helper ─────────────────────────────────────
+
+/**
+ * Returns a stable dedup key for a BridgeEvent.
+ *
+ * When `event.id` is provided (the common case) it is used directly — it is
+ * the SDK's own unique identifier and is guaranteed stable.
+ *
+ * When `event.id` is null we fall back to a WeakMap-backed assignment so each
+ * distinct event *object* gets a unique key regardless of whether its
+ * `eventType` and `timestamp` fields happen to collide with another event (e.g.
+ * two rapid turns with second-precision timestamps).  The WeakMap lives inside
+ * the composable closure: event objects referenced by `sdk.recentEvents` are
+ * stable (the SDK appends via `[...current, newEvent]` — existing elements keep
+ * their identity), so the same object always maps to the same key.  When an
+ * event is eventually evicted from the sliding window its WeakMap entry is
+ * garbage-collected automatically.
+ */
+function makeGetEventKey() {
+  const cache = new WeakMap<object, string>();
+  let seq = 0;
+  return function getEventKey(event: { id: string | null; eventType: string; timestamp: string }): string {
+    if (event.id) return event.id;
+    if (cache.has(event)) return cache.get(event)!;
+    const key = `null:${++seq}:${event.eventType}:${event.timestamp}`;
+    cache.set(event, key);
+    return key;
+  };
+}
+
 // ── Composable entry point ───────────────────────────────────────
 
 /**
@@ -105,6 +135,9 @@ export function useAlertWatcher(router: Router): () => void {
     `[alert-watcher] Initializing (SDK mode) — alertsEnabled=${prefs.alertsEnabled}, scope=${prefs.alertsScope}, sdkConnected=${sdk.connectionState}`,
   );
 
+  // Per-composable-instance key helper — WeakMap lifetime is tied to this closure.
+  const getEventKey = makeGetEventKey();
+
   // Keep capturedRoute in sync for scope filtering.
   store.setCapturedRoute(router.currentRoute.value);
   const stopRouteWatch = watch(
@@ -115,25 +148,27 @@ export function useAlertWatcher(router: Router): () => void {
   // ── Seed existing events ─────────────────────────────────────
   // Mark all events currently buffered in recentEvents as already-seen so
   // we don't alert on events that arrived before the watcher initialized.
-  for (const event of sdk.recentEvents) {
-    const key = event.id ?? `${event.eventType}:${event.timestamp}`;
-    store.markSdkEventSeen(event.sessionId, key);
+  function seedCurrentEvents() {
+    for (const event of sdk.recentEvents) {
+      store.markSdkEventSeen(event.sessionId, getEventKey(event));
+    }
   }
+  seedCurrentEvents();
 
   // ── Watch for new SDK bridge events ─────────────────────────
   // The SDK store replaces the recentEvents array on each new event
   // ([...current, newEvent]), so this watcher fires on every incoming event.
   // Use a getter so Vue tracks the reactive store property correctly.
   const stopEventsWatch = watch(() => sdk.recentEvents, (events) => {
-    if (!prefs.alertsEnabled) return;
-
     for (const event of events) {
-      // Build a stable dedup key. Prefer the event's own ID; fall back to a
-      // composite that is still unique for the expected event types.
-      const key = event.id ?? `${event.eventType}:${event.timestamp}`;
+      const key = getEventKey(event);
 
       if (store.hasSeenSdkEvent(event.sessionId, key)) continue;
+      // Always mark as seen — even when alerts are disabled — so that
+      // re-enabling alerts doesn't produce a burst of stale notifications.
       store.markSdkEventSeen(event.sessionId, key);
+
+      if (!prefs.alertsEnabled) continue;
 
       // Ephemeral events are streaming fragments (not actionable state changes).
       if (event.ephemeral) continue;
@@ -174,13 +209,17 @@ export function useAlertWatcher(router: Router): () => void {
     { deep: false },
   );
 
-  // On SDK disconnect, reset all dedup state so a subsequent reconnect
-  // starts fresh (avoids missing events after reconnect).
+  // On SDK disconnect, reset dedup state and re-seed the surviving buffer.
+  // Re-seeding is critical: recentEvents is NOT cleared on disconnect, so
+  // without re-seeding, the first post-reconnect event would cause the watcher
+  // to iterate the full pre-disconnect buffer (now all "unseen") and fire
+  // stale alerts for every historical session.idle / session.error event.
   const stopConnectionWatch = watch(
     () => sdk.connectionState,
     (state) => {
       if (state === "disconnected") {
         store.$reset();
+        seedCurrentEvents();
         // Restore the captured route so scope filtering keeps working.
         store.setCapturedRoute(router.currentRoute.value);
       }
