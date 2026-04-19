@@ -121,6 +121,8 @@ export { useTimelineNavigation } from "./composables/useTimelineNavigation";
 export type { Toast, ToastOptions } from "./composables/useToast";
 export { useToast } from "./composables/useToast";
 export { useToggleSet } from "./composables/useToggleSet";
+export type { UseFileBrowserTreeOptions } from "./composables/useFileBrowserTree";
+export { useFileBrowserTree } from "./composables/useFileBrowserTree";
 
 // ── Utilities ──────────────────────────────────────────────────────
 export type { AgentSection, SubagentContent } from "./utils/agentGrouping";

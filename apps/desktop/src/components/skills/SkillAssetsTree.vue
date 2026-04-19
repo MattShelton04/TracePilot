@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { SkillAsset } from "@tracepilot/types";
-import { computed, nextTick, ref } from "vue";
+import { nextTick, ref, toRef } from "vue";
+import { useFileBrowserTree } from "@tracepilot/ui";
 
 const props = defineProps<{
   assets: SkillAsset[];
@@ -13,6 +14,9 @@ const emit = defineEmits<{
   viewAsset: [asset: SkillAsset];
   newFile: [name: string];
 }>();
+
+const { treeStructure, fileCount, collapsedFolders, toggleFolder, formatSize } =
+  useFileBrowserTree(toRef(props, "assets"));
 
 // ─── Inline new-file input ─────────────────────────────────
 const showNewFileInput = ref(false);
@@ -38,50 +42,9 @@ function cancelNewFile() {
 }
 
 function onNewFileBlur() {
-  // Slight delay so click on submit doesn't race with blur
   setTimeout(() => {
     if (showNewFileInput.value) cancelNewFile();
   }, 150);
-}
-
-// Recreate set on each toggle so Vue detects the change
-const collapsedFolders = ref<Set<string>>(new Set());
-
-function toggleFolder(folder: string) {
-  const next = new Set(collapsedFolders.value);
-  if (next.has(folder)) {
-    next.delete(folder);
-  } else {
-    next.add(folder);
-  }
-  collapsedFolders.value = next;
-}
-
-const treeStructure = computed(() => {
-  const folders: Record<string, SkillAsset[]> = {};
-  const rootFiles: SkillAsset[] = [];
-  for (const asset of props.assets) {
-    if (asset.isDirectory) continue;
-    const parts = asset.path.split(/[\\/]/);
-    if (parts.length > 1) {
-      const folder = parts.slice(0, -1).join("/");
-      if (!folders[folder]) folders[folder] = [];
-      folders[folder].push(asset);
-    } else {
-      rootFiles.push(asset);
-    }
-  }
-  return { rootFiles, folders };
-});
-
-const fileCount = computed(() =>
-  props.assets.filter((a) => !a.isDirectory).length,
-);
-
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 </script>
 

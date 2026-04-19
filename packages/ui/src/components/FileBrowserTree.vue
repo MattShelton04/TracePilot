@@ -7,7 +7,8 @@
  * since both extend the shared base type.
  */
 import type { FileEntry } from "@tracepilot/types";
-import { computed, ref, watch } from "vue";
+import { computed, toRef } from "vue";
+import { useFileBrowserTree } from "../composables/useFileBrowserTree";
 
 // Re-export the shared base type so consumers only need to import from here.
 export type { FileEntry as FileBrowserEntry };
@@ -25,78 +26,12 @@ const emit = defineEmits<{
   viewFile: [path: string];
 }>();
 
-const collapsedFolders = ref<Set<string>>(new Set());
-// Track which folders the user has manually toggled so we don't reset them
-const userToggledFolders = ref<Set<string>>(new Set());
-
-// Auto-collapse large folders when entries change (unless user has toggled them)
-watch(
-  () => props.entries,
-  (entries) => {
-    if (!props.autoCollapseThreshold) return;
-    const folders: Record<string, number> = {};
-    for (const entry of entries) {
-      if (entry.isDirectory) continue;
-      const parts = entry.path.split("/");
-      if (parts.length > 1) {
-        const folder = parts.slice(0, -1).join("/");
-        folders[folder] = (folders[folder] ?? 0) + 1;
-      }
-    }
-    const next = new Set(collapsedFolders.value);
-    for (const [folder, count] of Object.entries(folders)) {
-      if (count > props.autoCollapseThreshold! && !userToggledFolders.value.has(folder)) {
-        next.add(folder);
-      }
-    }
-    collapsedFolders.value = next;
-  },
-  { immediate: true },
-);
-
-function toggleFolder(folder: string) {
-  const next = new Set(collapsedFolders.value);
-  userToggledFolders.value = new Set(userToggledFolders.value).add(folder);
-  if (next.has(folder)) {
-    next.delete(folder);
-  } else {
-    next.add(folder);
-  }
-  collapsedFolders.value = next;
-}
-
-const treeStructure = computed(() => {
-  const folders: Record<string, FileEntry[]> = {};
-  const rootFiles: FileEntry[] = [];
-
-  for (const entry of props.entries) {
-    if (entry.isDirectory) continue;
-    const parts = entry.path.split("/");
-    if (parts.length > 1) {
-      const folder = parts.slice(0, -1).join("/");
-      if (!folders[folder]) folders[folder] = [];
-      folders[folder].push(entry);
-    } else {
-      rootFiles.push(entry);
-    }
-  }
-
-  // Sort entries within each folder alphabetically
-  rootFiles.sort((a, b) => a.name.localeCompare(b.name));
-  for (const key of Object.keys(folders)) {
-    folders[key].sort((a, b) => a.name.localeCompare(b.name));
-  }
-
-  return { rootFiles, folders };
-});
-
-const fileCount = computed(() => props.entries.filter((e) => !e.isDirectory).length);
-
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
+const { treeStructure, fileCount, collapsedFolders, toggleFolder, formatSize } =
+  useFileBrowserTree(toRef(props, "entries"), {
+    get autoCollapseThreshold() {
+      return props.autoCollapseThreshold;
+    },
+  });
 
 type FileIconType = "generic" | "markdown" | "json" | "yaml" | "database" | "lock" | "toml" | "log";
 
