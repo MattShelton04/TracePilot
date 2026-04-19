@@ -253,6 +253,7 @@ function copyTableAsJson() {
           :line-numbers="true"
           :show-language-badge="true"
           :max-lines="5000"
+          :fill-height="true"
         />
       </div>
     </template>

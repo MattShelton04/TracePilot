@@ -25,6 +25,12 @@ const props = withDefaults(
     maxLines?: number;
     /** Whether to show the language badge (default: true). */
     showLanguageBadge?: boolean;
+    /**
+     * When true the code block expands to fill its parent container and scrolling
+     * is delegated to the parent. When false (default) an internal max-height of
+     * 500px is applied so the block doesn't dominate inline conversation views.
+     */
+    fillHeight?: boolean;
   }>(),
   {
     lineNumbers: true,
@@ -80,7 +86,7 @@ function fileName(path: string): string {
       </span>
       <span v-if="showLanguageBadge" class="code-block-lang">{{ langDisplay }}</span>
     </div>
-    <div class="code-block-content">
+    <div class="code-block-content" :class="{ 'code-block-content--fill': fillHeight }">
       <table class="code-block-table" role="presentation">
         <tbody>
           <tr v-for="(lineHtml, i) in visibleLines" :key="i" class="code-line">
@@ -134,6 +140,10 @@ function fileName(path: string): string {
 .code-block-content {
   overflow: auto;
   max-height: 500px;
+}
+.code-block-content--fill {
+  max-height: none;
+  overflow: visible;
 }
 .code-block-table {
   border-collapse: collapse;

@@ -186,7 +186,7 @@ export interface SessionDbTable {
   name: string;
   /** Column names in the order they appear in the SELECT. */
   columns: string[];
-  /** Rows; each row is a list of cell values (may be null). */
-  rows: (string | null)[][];
+  /** Rows; each row is an ordered list of cell values aligned to `columns`. */
+  rows: (string | number | null)[][];
 }
 
