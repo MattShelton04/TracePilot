@@ -66,20 +66,17 @@ impl IndexDb {
     /// Table names are hardcoded constants (not dynamic) so there is no SQL
     /// injection risk.
     fn delete_child_rows(&self, session_id: &str) -> Result<()> {
-        const CHILD_TABLES: &[&str] = &[
-            "session_model_metrics",
-            "session_tool_calls",
-            "session_modified_files",
-            "session_activity",
-            "session_incidents",
-            "session_segments",
+        const DELETE_SQLS: &[&str] = &[
+            "DELETE FROM session_model_metrics WHERE session_id = ?1",
+            "DELETE FROM session_tool_calls WHERE session_id = ?1",
+            "DELETE FROM session_modified_files WHERE session_id = ?1",
+            "DELETE FROM session_activity WHERE session_id = ?1",
+            "DELETE FROM session_incidents WHERE session_id = ?1",
+            "DELETE FROM session_segments WHERE session_id = ?1",
         ];
 
-        for table in CHILD_TABLES {
-            self.conn.execute(
-                &format!("DELETE FROM {} WHERE session_id = ?1", table),
-                [session_id],
-            )?;
+        for sql in DELETE_SQLS {
+            self.conn.execute(sql, [session_id])?;
         }
         Ok(())
     }

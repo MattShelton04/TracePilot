@@ -7,48 +7,13 @@
 
 use crate::Result;
 use rusqlite::ToSql;
-use std::fmt::Write;
+use tracepilot_core::utils::sqlite::build_placeholder_sql;
 
 /// Maximum rows per multi-row INSERT statement.
 ///
 /// With 9 columns (the widest child table), 50 × 9 = 450 bind parameters,
 /// well within SQLite's `SQLITE_MAX_VARIABLE_NUMBER` (32 766 since 3.32).
 const BATCH_CHUNK_SIZE: usize = 50;
-
-/// Build a complete `INSERT … VALUES (…),(…)` SQL string into a single
-/// pre-allocated buffer.
-///
-/// Produces e.g. `"INSERT INTO t (a,b) VALUES (?1,?2),(?3,?4)"` for
-/// `sql_prefix = "INSERT INTO t (a,b) VALUES"`, `num_rows = 2`,
-/// `params_per_row = 2`.
-///
-/// Using a pre-allocated buffer and `fmt::Write` avoids all intermediate
-/// `String`/`Vec` heap allocations that a `.map().collect().join()` chain
-/// would produce (~600 allocations per chunk with 50 rows × 9 columns).
-fn build_placeholder_sql(sql_prefix: &str, num_rows: usize, params_per_row: usize) -> String {
-    // Each `?NNN` is at most 5 chars; add 1 for comma separator between params,
-    // 2 for `()` per row, 1 for comma separator between rows, plus prefix + space.
-    let mut sql = String::with_capacity(
-        sql_prefix.len() + 1 + num_rows * (params_per_row * 6 + 3),
-    );
-    sql.push_str(sql_prefix);
-    sql.push(' ');
-    for i in 0..num_rows {
-        if i > 0 {
-            sql.push(',');
-        }
-        sql.push('(');
-        let start = i * params_per_row + 1;
-        for n in start..start + params_per_row {
-            if n > start {
-                sql.push(',');
-            }
-            write!(&mut sql, "?{n}").expect("String write is infallible");
-        }
-        sql.push(')');
-    }
-    sql
-}
 
 /// Execute a multi-row INSERT in chunks of up to [`BATCH_CHUNK_SIZE`] rows.
 ///
