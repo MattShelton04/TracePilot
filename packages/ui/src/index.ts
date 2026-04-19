@@ -60,6 +60,7 @@ export {
 } from "./components/renderers/registry";
 export { default as RendererShell } from "./components/renderers/RendererShell.vue";
 export { default as ToolArgsRenderer } from "./components/renderers/ToolArgsRenderer.vue";
+export { default as ToolErrorDisplay } from "./components/renderers/ToolErrorDisplay.vue";
 export { default as ToolResultRenderer } from "./components/renderers/ToolResultRenderer.vue";
 
 // ── Composables ────────────────────────────────────────────────────

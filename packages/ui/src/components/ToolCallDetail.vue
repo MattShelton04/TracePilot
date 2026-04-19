@@ -3,6 +3,7 @@ import type { TurnToolCall } from "@tracepilot/types";
 import { computed } from "vue";
 import { formatDuration, formatTime } from "../utils/formatters";
 import ToolArgsRenderer from "./renderers/ToolArgsRenderer.vue";
+import ToolErrorDisplay from "./renderers/ToolErrorDisplay.vue";
 import ToolResultRenderer from "./renderers/ToolResultRenderer.vue";
 
 const props = defineProps<{
@@ -41,10 +42,7 @@ const isRichEnabled = computed(() => props.richEnabled !== false);
 <template>
   <div class="px-4 py-3 space-y-2" style="border-top: 1px solid var(--border-muted); background: var(--canvas-inset);">
     <!-- Error display -->
-    <div v-if="tc.error" class="rounded-md px-3 py-2" style="background: var(--danger-muted); border: 1px solid var(--danger-muted);">
-      <div class="text-[11px] font-semibold mb-1" style="color: var(--danger-fg);">Error</div>
-      <pre class="text-xs whitespace-pre-wrap overflow-x-auto break-words font-mono leading-relaxed" style="color: var(--text-primary);">{{ tc.error }}</pre>
-    </div>
+    <ToolErrorDisplay v-if="tc.error" :error="tc.error" />
 
     <!-- Metadata grid -->
     <div v-if="showMetadata !== false" class="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs">

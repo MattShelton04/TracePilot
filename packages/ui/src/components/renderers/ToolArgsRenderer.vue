@@ -10,7 +10,7 @@
 import type { TurnToolCall } from "@tracepilot/types";
 import { getToolArgs } from "@tracepilot/types";
 import { type Component, computed, ref } from "vue";
-import { getRendererEntry, hasResultRenderer, shouldHideArgsWithRichResult } from "./registry";
+import { getRendererEntry, hasResultRenderer, shouldAutoExpandArgs, shouldHideArgsWithRichResult } from "./registry";
 
 const props = defineProps<{
   tc: TurnToolCall;
@@ -18,7 +18,13 @@ const props = defineProps<{
   richEnabled: boolean;
 }>();
 
-const isOpen = ref(false);
+/**
+ * Start open when the registry marks this tool as auto-expanding its args
+ * (e.g. ask_user) and no result has arrived yet — saves the user a second click.
+ */
+const isOpen = ref(
+  shouldAutoExpandArgs(props.tc.toolName) && !props.tc.resultContent && !props.tc.isComplete,
+);
 
 const entry = computed(() => getRendererEntry(props.tc.toolName));
 

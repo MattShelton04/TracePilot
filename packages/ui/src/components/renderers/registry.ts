@@ -22,6 +22,12 @@ export interface RendererEntry {
   argsComponent?: Component;
   /** When true, hide args display entirely when rich result renderer is active. */
   hideArgsWithRichResult?: boolean;
+  /**
+   * When true, the args collapsible starts open when the tool has no result yet.
+   * Useful for interactive tools (e.g. ask_user) where the args ARE the content
+   * the user needs to see while waiting for a response.
+   */
+  autoExpandArgs?: boolean;
 }
 
 /**
@@ -86,6 +92,7 @@ const RENDERER_REGISTRY: Record<string, RendererEntry> = {
     resultComponent: defineAsyncComponent(() => import("./AskUserRenderer.vue")),
     argsComponent: defineAsyncComponent(() => import("./AskUserArgsRenderer.vue")),
     hideArgsWithRichResult: true,
+    autoExpandArgs: true,
   },
 };
 
@@ -115,4 +122,9 @@ export function hasArgsRenderer(toolName: string): boolean {
 /** Check if args should be hidden when rich result rendering is active. */
 export function shouldHideArgsWithRichResult(toolName: string): boolean {
   return !!RENDERER_REGISTRY[toolName]?.hideArgsWithRichResult;
+}
+
+/** Check if the args collapsible should start open when there is no result yet. */
+export function shouldAutoExpandArgs(toolName: string): boolean {
+  return !!RENDERER_REGISTRY[toolName]?.autoExpandArgs;
 }
