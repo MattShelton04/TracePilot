@@ -5,7 +5,7 @@ import {
   taskSavePreset,
 } from "@tracepilot/client";
 import type { TaskPreset } from "@tracepilot/types";
-import { runAction, runMutation, toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
+import { runAction, runMutation, useAsyncGuard } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 
@@ -73,16 +73,12 @@ export const usePresetsStore = defineStore("presets", () => {
   }
 
   async function getPreset(id: string): Promise<TaskPreset | null> {
-    error.value = null;
     selectedPreset.value = null;
-    try {
+    return runMutation(error, async () => {
       const preset = await taskGetPreset(id);
       selectedPreset.value = preset;
       return preset;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return null;
-    }
+    });
   }
 
   async function savePreset(preset: TaskPreset): Promise<boolean> {
