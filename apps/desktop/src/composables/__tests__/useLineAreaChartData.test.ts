@@ -35,12 +35,34 @@ describe("useLineAreaChartData", () => {
     });
 
     it("returns null when data has fewer points than minPoints", () => {
+      // With an explicit minPoints: 2 threshold, a single point should still return null.
+      const { chartData } = useLineAreaChartData({
+        data: ref(makePoints(1)),
+        layout,
+        accessor: (p) => p.tokens,
+        minPoints: 2,
+      });
+      expect(chartData.value).toBeNull();
+    });
+
+    it("renders a single data point by default (minPoints defaults to 1)", () => {
       const { chartData } = useLineAreaChartData({
         data: ref(makePoints(1)),
         layout,
         accessor: (p) => p.tokens,
       });
-      expect(chartData.value).toBeNull();
+      expect(chartData.value).not.toBeNull();
+      expect(chartData.value?.coords).toHaveLength(1);
+    });
+
+    it("centres a single data point horizontally", () => {
+      const { chartData } = useLineAreaChartData({
+        data: ref(makePoints(1)),
+        layout,
+        accessor: (p) => p.tokens,
+      });
+      const mid = layout.left + layout.width / 2;
+      expect(chartData.value!.coords[0].x).toBeCloseTo(mid);
     });
 
     it("returns null for empty array", () => {

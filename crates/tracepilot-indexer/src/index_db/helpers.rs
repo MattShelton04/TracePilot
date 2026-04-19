@@ -244,6 +244,40 @@ pub(super) fn compute_duration_stats(durations: &[u64]) -> ApiDurationStats {
 /// Returns the SQL fragment and appends the parameter to the provided vector.
 ///
 /// This is a pure function with no side effects other than appending to `params`.
+/// Append timestamp-range conditions for a specific column to an existing WHERE clause.
+///
+/// Per-day aggregation queries join `session_segments` and group by segment
+/// timestamps (e.g. `m.end_timestamp`).  Without this extra filter the
+/// session-level date guard (`build_date_repo_filter`) only restricts *which
+/// sessions* appear, but a session updated on the last day of the range can
+/// have segments on days well outside the window — those segment dates then
+/// leak into the chart as spurious data points.
+///
+/// This function appends `AND date(<col>) >= ?` / `AND date(<col>) <= ?`
+/// conditions and the matching bind values so the segment timestamps are
+/// clamped to the same window as the session filter.
+pub(super) fn append_segment_date_filter(
+    clause: &str,
+    values: &[String],
+    from_date: Option<&str>,
+    to_date: Option<&str>,
+    col: &str,
+) -> (String, Vec<String>) {
+    let mut new_clause = clause.to_string();
+    let mut new_values = values.to_vec();
+
+    if let Some(from) = from_date {
+        new_values.push(from.to_string());
+        new_clause.push_str(&format!(" AND date({col}) >= ?"));
+    }
+    if let Some(to) = to_date {
+        new_values.push(to.to_string());
+        new_clause.push_str(&format!(" AND date({col}) <= ?"));
+    }
+
+    (new_clause, new_values)
+}
+
 pub(super) fn build_eq_filter<T: ToSql + 'static>(
     column: &str,
     value: T,
@@ -463,6 +497,129 @@ mod tests {
             .expect("query4");
         assert_eq!(count4, 6, "expected all 6 sessions with no filter");
     }
+    /// Regression test: without `append_segment_date_filter`, a single-day query
+    /// incorrectly produces chart data for days outside the requested window.
+    ///
+    /// Scenario: session s1 was last updated on Apr 19 (→ passes the session
+    /// date filter for "Apr 19 only"), but its segments span Apr 15–19.
+    /// Without segment-level clamping the chart returns 3 distinct date rows
+    /// (Apr 15, Apr 17, Apr 19).  After applying `append_segment_date_filter`
+    /// only the Apr 19 row survives.
+    #[test]
+    fn test_segment_date_leakage_without_filter_and_fixed_with_append() {
+        use rusqlite::Connection;
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        conn.execute_batch(
+            "CREATE TABLE sessions (
+                id TEXT PRIMARY KEY,
+                created_at TEXT,
+                updated_at TEXT,
+                repository TEXT,
+                turn_count INTEGER
+            );
+            CREATE TABLE session_segments (
+                session_id TEXT NOT NULL,
+                start_timestamp TEXT NOT NULL,
+                end_timestamp TEXT NOT NULL,
+                total_tokens INTEGER DEFAULT 0
+            );
+            -- Session updated on Apr 19 — passes single-day filter
+            INSERT INTO sessions VALUES ('s1', '2026-04-15', '2026-04-19', NULL, 5);
+            -- Segments span Apr 15, Apr 17, Apr 19
+            INSERT INTO session_segments VALUES ('s1', '2026-04-15T10:00:00', '2026-04-15T11:00:00', 100);
+            INSERT INTO session_segments VALUES ('s1', '2026-04-17T10:00:00', '2026-04-17T11:00:00', 200);
+            INSERT INTO session_segments VALUES ('s1', '2026-04-19T10:00:00', '2026-04-19T11:00:00', 300);",
+        )
+        .expect("setup");
+
+        let from_date = Some("2026-04-19");
+        let to_date = Some("2026-04-19");
+
+        // ── BUG: session-level filter alone leaks segment data from prior days ──
+        let (where_clause, bind_values) =
+            build_date_repo_filter(from_date, to_date, None, false);
+        let buggy_sql = format!(
+            "SELECT date(m.end_timestamp) as d, SUM(m.total_tokens) \
+             FROM session_segments m \
+             JOIN sessions s ON s.id = m.session_id \
+             {where_clause} AND d IS NOT NULL GROUP BY d ORDER BY d"
+        );
+        let refs = to_refs(&bind_values);
+        let rows: Vec<(String, i64)> = execute_query_map(
+            &conn,
+            &buggy_sql,
+            refs.iter().copied(),
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .expect("buggy query");
+        // The bug: three days appear even though only Apr 19 was requested
+        assert_eq!(
+            rows.len(),
+            3,
+            "BUG: without segment filter, {rows:?} days should leak (3 expected to confirm bug)"
+        );
+
+        // ── FIX: append segment-level date clamp ──
+        let (fixed_where, fixed_values) = append_segment_date_filter(
+            &where_clause,
+            &bind_values,
+            from_date,
+            to_date,
+            "m.end_timestamp",
+        );
+        let fixed_sql = format!(
+            "SELECT date(m.end_timestamp) as d, SUM(m.total_tokens) \
+             FROM session_segments m \
+             JOIN sessions s ON s.id = m.session_id \
+             {fixed_where} AND d IS NOT NULL GROUP BY d ORDER BY d"
+        );
+        let refs2 = to_refs(&fixed_values);
+        let fixed_rows: Vec<(String, i64)> = execute_query_map(
+            &conn,
+            &fixed_sql,
+            refs2.iter().copied(),
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .expect("fixed query");
+
+        assert_eq!(fixed_rows.len(), 1, "fixed: only Apr 19 should appear");
+        assert_eq!(fixed_rows[0].0, "2026-04-19");
+        assert_eq!(fixed_rows[0].1, 300, "only Apr 19 segment tokens (300) expected");
+    }
+
+    /// Verify `append_segment_date_filter` placeholder count matches bind values.
+    #[test]
+    fn test_append_segment_date_filter_placeholder_count() {
+        type Case = (Option<&'static str>, Option<&'static str>, usize);
+        let cases: Vec<Case> = vec![
+            (None, None, 0),
+            (Some("2026-01-01"), None, 1),
+            (None, Some("2026-01-31"), 1),
+            (Some("2026-01-01"), Some("2026-01-31"), 2),
+        ];
+        for (from, to, extra_params) in cases {
+            // Start with a base clause that already has some params
+            let (base_clause, base_values) =
+                build_date_repo_filter(from, to, Some("myrepo"), false);
+            let base_q_count = base_clause.matches('?').count();
+
+            let (new_clause, new_values) =
+                append_segment_date_filter(&base_clause, &base_values, from, to, "m.end_timestamp");
+
+            let total_q = new_clause.matches('?').count();
+            assert_eq!(
+                total_q,
+                base_q_count + extra_params,
+                "placeholder count mismatch for from={from:?} to={to:?}"
+            );
+            assert_eq!(
+                new_values.len(),
+                base_values.len() + extra_params,
+                "bind value count mismatch for from={from:?} to={to:?}"
+            );
+        }
+    }
+
     #[test]
     fn test_execute_query_map_collects_rows() {
         let conn = Connection::open_in_memory().expect("in-memory db");
