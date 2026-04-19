@@ -87,7 +87,7 @@ pub async fn task_create(
 
                     // Serialize manifest writes to prevent TOCTOU races
                     let _manifest_guard = manifest_lock_clone.lock()
-                        .map_err(|_| BindingsError::Validation("manifest lock poisoned".into()))?;
+                        .map_err(|_| mutex_poisoned())?;
 
                     if let Err(e) = tracepilot_orchestrator::task_orchestrator::manifest::append_task_to_manifest(
                         &manifest_path,

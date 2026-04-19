@@ -4,7 +4,7 @@ use crate::blocking_cmd;
 use crate::config::{self, SharedConfig, TracePilotConfig};
 use crate::error::{BindingsError, CmdResult};
 use crate::helpers::{
-    copilot_home, read_config, remove_index_db_files, validate_path_within,
+    copilot_home, mutex_poisoned, read_config, remove_index_db_files, validate_path_within,
     validate_write_path_within,
 };
 use crate::types::ValidateSessionDirResult;
@@ -32,7 +32,7 @@ pub async fn save_config(
 
     let mut guard = state
         .write()
-        .map_err(|_| BindingsError::Validation("Config lock poisoned".into()))?;
+        .map_err(|_| mutex_poisoned())?;
     *guard = Some(config);
     Ok(())
 }
@@ -97,7 +97,7 @@ pub async fn factory_reset(state: tauri::State<'_, SharedConfig>) -> CmdResult<(
 
     let mut guard = state
         .write()
-        .map_err(|_| BindingsError::Validation("Config lock poisoned".into()))?;
+        .map_err(|_| mutex_poisoned())?;
     *guard = None;
     Ok(())
 }

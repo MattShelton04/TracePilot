@@ -145,7 +145,7 @@ pub async fn task_ingest_results(
                     if manifest_path.exists() {
                         // Serialize manifest writes to prevent TOCTOU races
                         let _manifest_guard = manifest_lock_clone.lock()
-                            .map_err(|_| BindingsError::Validation("manifest lock poisoned".into()))?;
+                            .map_err(|_| mutex_poisoned())?;
 
                         for retry_id in &retried_ids {
                             // Re-read the task to get current state
