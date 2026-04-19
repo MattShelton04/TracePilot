@@ -193,16 +193,13 @@ export const useTasksStore = defineStore("tasks", () => {
     priority?: string,
     maxRetries?: number,
   ): Promise<Task | null> {
-    error.value = null;
-    try {
-      const task = await taskCreate(taskType, presetId, inputParams, priority, maxRetries);
+    const task = await runMutation(error, async () => {
+      const t = await taskCreate(taskType, presetId, inputParams, priority, maxRetries);
       await refreshTasks();
-      return task;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      logError("[tasks] Failed to create task:", e);
-      return null;
-    }
+      return t;
+    });
+    if (task === null) logError("[tasks] Failed to create task:", error.value);
+    return task;
   }
 
   async function createBatch(
@@ -210,16 +207,13 @@ export const useTasksStore = defineStore("tasks", () => {
     jobName: string,
     presetId?: string,
   ): Promise<Job | null> {
-    error.value = null;
-    try {
-      const job = await taskCreateBatch(newTasks, jobName, presetId);
+    const job = await runMutation(error, async () => {
+      const j = await taskCreateBatch(newTasks, jobName, presetId);
       await refreshTasks();
-      return job;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      logError("[tasks] Failed to create batch:", e);
-      return null;
-    }
+      return j;
+    });
+    if (job === null) logError("[tasks] Failed to create batch:", error.value);
+    return job;
   }
 
   async function cancelTask(id: string): Promise<boolean> {
