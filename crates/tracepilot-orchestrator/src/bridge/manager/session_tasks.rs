@@ -12,7 +12,10 @@ use crate::bridge::BridgeEvent;
 #[cfg(feature = "copilot-sdk")]
 use std::sync::Arc;
 #[cfg(feature = "copilot-sdk")]
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicU64, Ordering};
+
+#[cfg(feature = "copilot-sdk")]
+static ASK_USER_COUNTER: AtomicU64 = AtomicU64::new(0);
 #[cfg(feature = "copilot-sdk")]
 use tracing::{debug, info, warn};
 
@@ -47,7 +50,7 @@ impl BridgeManager {
         let session_id = session.session_id().to_string();
 
         // Spawn event forwarding task
-        self.spawn_event_forwarder(&session_id, &session);
+        self.spawn_event_forwarder(&session_id, &session).await;
 
         self.sessions.insert(session_id.clone(), session);
 
@@ -136,7 +139,7 @@ impl BridgeManager {
             "Session {} resumed successfully (returned ID: {})",
             session_id, sid
         );
-        self.spawn_event_forwarder(&sid, &session);
+        self.spawn_event_forwarder(&sid, &session).await;
         self.sessions.insert(sid.clone(), session);
 
         // In TCP (--ui-server) mode, also set this as the foreground session so the
@@ -296,12 +299,20 @@ impl BridgeManager {
     }
 
     /// Spawn a tokio task that reads SDK events and forwards them as BridgeEvents.
+    ///
+    /// Registers the `ask_user` handler FIRST (awaited) so the handler is
+    /// guaranteed to be in place before any session events can arrive.
     #[cfg(feature = "copilot-sdk")]
-    pub(super) fn spawn_event_forwarder(
+    pub(super) async fn spawn_event_forwarder(
         &mut self,
         session_id: &str,
         session: &Arc<copilot_sdk::Session>,
     ) {
+        // Register the ask_user handler before starting the event forwarder.
+        // Awaiting ensures the write-lock on session.state completes before
+        // any incoming events (including userInput.request) can fire.
+        self.setup_user_input_handler(session_id, session).await;
+
         let tx = self.event_tx.clone();
         let metrics = Arc::clone(&self.metrics);
         let sid = session_id.to_string();
@@ -357,9 +368,6 @@ impl BridgeManager {
         });
 
         self.event_tasks.insert(session_id.to_string(), handle);
-
-        // Register the ask_user handler after spawning the event forwarder.
-        self.setup_user_input_handler(session_id, session);
     }
 
     /// Register a `UserInputHandler` on the session so that `ask_user` tool
@@ -376,8 +384,12 @@ impl BridgeManager {
     /// The handler is sync (`UserInputHandler` type alias), so
     /// `tokio::task::block_in_place` is used to bridge the sync/async boundary
     /// without blocking the async thread pool.
+    ///
+    /// This method is `async` so callers can `await` it and guarantee the
+    /// handler is registered before any session events (including
+    /// `userInput.request`) can arrive.
     #[cfg(feature = "copilot-sdk")]
-    fn setup_user_input_handler(
+    async fn setup_user_input_handler(
         &self,
         session_id: &str,
         session: &Arc<copilot_sdk::Session>,
@@ -385,44 +397,48 @@ impl BridgeManager {
         let pending = Arc::clone(&self.pending_user_inputs);
         let tx = self.event_tx.clone();
         let sid = session_id.to_string();
-        let session = Arc::clone(session);
 
-        tokio::spawn(async move {
-            session
-                .register_user_input_handler(move |req, _inv| {
-                    let (response_tx, response_rx) = tokio::sync::oneshot::channel::<String>();
-                    pending.lock().unwrap().insert(sid.clone(), response_tx);
+        session
+            .register_user_input_handler(move |req, _inv| {
+                let (response_tx, response_rx) = tokio::sync::oneshot::channel::<String>();
+                pending.lock().unwrap().insert(sid.clone(), response_tx);
 
-                    // Notify the frontend that a user input is needed.
-                    let _ = tx.send(BridgeEvent {
-                        session_id: sid.clone(),
-                        event_type: "userInput.request".to_string(),
-                        data: serde_json::json!({
-                            "question": req.question,
-                            "choices": req.choices,
-                            "allowFreeform": req.allow_freeform,
-                        }),
-                        timestamp: String::new(),
-                        id: None,
-                        parent_id: None,
-                        ephemeral: false,
-                    });
+                // Assign a unique invocation ID so the frontend can
+                // detect new ask_user calls even when the question is
+                // the same (stable watch key).
+                let invocation_id =
+                    ASK_USER_COUNTER.fetch_add(1, Ordering::Relaxed).to_string();
 
-                    // Block until the frontend delivers the answer (or the
-                    // session shuts down and the sender is dropped).
-                    let answer = tokio::task::block_in_place(|| {
-                        tokio::runtime::Handle::current()
-                            .block_on(response_rx)
-                            .unwrap_or_default()
-                    });
+                // Notify the frontend that a user input is needed.
+                let _ = tx.send(BridgeEvent {
+                    session_id: sid.clone(),
+                    event_type: "userInput.request".to_string(),
+                    data: serde_json::json!({
+                        "invocationId": invocation_id,
+                        "question": req.question,
+                        "choices": req.choices,
+                        "allowFreeform": req.allow_freeform,
+                    }),
+                    timestamp: String::new(),
+                    id: None,
+                    parent_id: None,
+                    ephemeral: false,
+                });
 
-                    copilot_sdk::UserInputResponse {
-                        answer,
-                        was_freeform: None,
-                    }
-                })
-                .await;
-        });
+                // Block until the frontend delivers the answer (or the
+                // session shuts down and the sender is dropped).
+                let answer = tokio::task::block_in_place(|| {
+                    tokio::runtime::Handle::current()
+                        .block_on(response_rx)
+                        .unwrap_or_default()
+                });
+
+                copilot_sdk::UserInputResponse {
+                    answer,
+                    was_freeform: None,
+                }
+            })
+            .await;
     }
 
     /// Deliver the user's answer to a pending `ask_user` call.
@@ -435,11 +451,25 @@ impl BridgeManager {
         session_id: &str,
         answer: String,
     ) -> Result<(), BridgeError> {
-        let mut pending = self.pending_user_inputs.lock().unwrap();
-        match pending.remove(session_id) {
+        let tx = {
+            let mut pending = self.pending_user_inputs.lock().unwrap();
+            pending.remove(session_id)
+        }; // lock dropped before any broadcast
+
+        match tx {
             Some(tx) => {
                 // Ignore send error — the handler may have timed out.
                 let _ = tx.send(answer);
+                // Notify the frontend so it can dismiss the ask_user card.
+                let _ = self.event_tx.send(BridgeEvent {
+                    session_id: session_id.to_string(),
+                    event_type: "userInput.resolved".to_string(),
+                    data: serde_json::Value::Null,
+                    timestamp: String::new(),
+                    id: None,
+                    parent_id: None,
+                    ephemeral: false,
+                });
                 Ok(())
             }
             None => Err(BridgeError::SessionNotFound(session_id.to_string())),

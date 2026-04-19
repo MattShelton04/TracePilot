@@ -77,6 +77,15 @@ export interface TruncationInfo {
   occurredAt: number;
 }
 
+/** Data from a pending `userInput.request` call (ask_user tool). */
+export interface PendingUserInput {
+  /** Unique ID per ask_user invocation — used as a stable watch key in the overlay. */
+  invocationId: string;
+  question: string | null;
+  choices: string[] | null;
+  allowFreeform: boolean | null;
+}
+
 export interface HandoffInfo {
   sourceType: "remote" | "local";
   repository: { owner: string; name: string; branch?: string } | null;
@@ -132,6 +141,12 @@ export function useLiveSdkSession(sessionIdRef: Ref<string | null>) {
   // ── Snapshot rewind ──────────────────────────────────────────
   const lastSnapshotRewind = ref<{ eventsRemoved: number } | null>(null);
 
+  // ── Pending ask_user ─────────────────────────────────────────
+  /** Set when the Copilot CLI sends a `userInput.request` RPC. Cleared on
+   *  `userInput.resolved` (after the answer is delivered) or when the
+   *  session disconnects / navigates away. */
+  const pendingUserInput = ref<PendingUserInput | null>(null);
+
   // ── Dedup ────────────────────────────────────────────────────
   // `let` so the watcher can reassign when sessionId changes (A→B→A replay).
   // Without this, returning to a previously-visited session would have all
@@ -163,14 +178,38 @@ export function useLiveSdkSession(sessionIdRef: Ref<string | null>) {
   /**
    * The first active `ask_user` tool call, or `null` if none is pending.
    * Used by `SdkStreamingOverlay` to show an inline response card.
+   *
+   * Priority: `userInput.request` BridgeEvent (emitted by our UserInputHandler)
+   * → `tool.execution_start` with toolName === "ask_user" (fallback for CLIs
+   * that emit this event type for the built-in ask_user tool).
    */
-  const activeAskUser = computed<{ toolCallId: string; question: string | null } | null>(() => {
+  const activeAskUser = computed<{
+    toolCallId: string;
+    question: string | null;
+    choices: string[] | null;
+    allowFreeform: boolean | null;
+  } | null>(() => {
+    // Primary: userInput.request from our registered UserInputHandler
+    if (pendingUserInput.value) {
+      return {
+        toolCallId: pendingUserInput.value.invocationId,
+        question: pendingUserInput.value.question,
+        choices: pendingUserInput.value.choices,
+        allowFreeform: pendingUserInput.value.allowFreeform,
+      };
+    }
+    // Fallback: tool.execution_start (some CLI versions emit this for ask_user)
     for (const tool of activeTools.values()) {
       if (tool.toolName === "ask_user") {
         const args = tool.arguments as Record<string, unknown> | null;
+        const choices = Array.isArray(args?.choices)
+          ? (args.choices as unknown[]).map(String)
+          : null;
         return {
           toolCallId: tool.toolCallId,
           question: typeof args?.question === "string" ? args.question : null,
+          choices,
+          allowFreeform: typeof args?.allowFreeform === "boolean" ? args.allowFreeform : null,
         };
       }
     }
@@ -367,6 +406,20 @@ export function useLiveSdkSession(sessionIdRef: Ref<string | null>) {
       case "tool.execution_complete":
         activeTools.delete(d.toolCallId);
         break;
+
+      // ── ask_user (userInput.request RPC intercepted by UserInputHandler) ──
+      case "userInput.request":
+        pendingUserInput.value = {
+          invocationId: String(d.invocationId ?? Date.now()),
+          question: typeof d.question === "string" ? d.question : null,
+          choices: Array.isArray(d.choices) ? (d.choices as unknown[]).map(String) : null,
+          allowFreeform: typeof d.allowFreeform === "boolean" ? d.allowFreeform : null,
+        };
+        break;
+
+      case "userInput.resolved":
+        pendingUserInput.value = null;
+        break;
     }
   }
 
@@ -388,6 +441,7 @@ export function useLiveSdkSession(sessionIdRef: Ref<string | null>) {
       activeTools.clear();
       isAgentRunning.value = false;
       activeTurnId.value = null;
+      pendingUserInput.value = null;
       // abortReason intentionally preserved: the auto-dismiss timer in
       // SdkLiveIndicators will clear it, and showing the reason after
       // disconnect is useful to the user.
@@ -417,6 +471,7 @@ export function useLiveSdkSession(sessionIdRef: Ref<string | null>) {
     lastTruncation.value = null;
     pendingHandoff.value = null;
     lastSnapshotRewind.value = null;
+    pendingUserInput.value = null;
   });
 
   watch(

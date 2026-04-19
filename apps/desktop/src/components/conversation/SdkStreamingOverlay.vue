@@ -79,7 +79,15 @@ function handleAnswerKeydown(e: KeyboardEvent) {
   }
 }
 
-// ── Reactive clock for elapsed time ─────────────────────────────────────────
+function selectChoice(choice: string) {
+  answerText.value = choice;
+  // If allowFreeform is explicitly false, submit immediately on choice click
+  if (activeAskUser.value?.allowFreeform === false) {
+    handleSubmitAnswer();
+  }
+}
+
+
 // Ticks every second while any tool is active, so elapsed times stay live.
 
 const now = ref(Date.now());
@@ -147,7 +155,27 @@ function elapsedMs(startedAt: number): string {
       <p v-if="activeAskUser.question" class="sdk-ask-user-question">
         {{ activeAskUser.question }}
       </p>
-      <div class="sdk-ask-user-input-row">
+
+      <!-- Choice buttons — click to select or submit directly -->
+      <div v-if="activeAskUser.choices?.length" class="sdk-ask-user-choices" role="group" aria-label="Available choices">
+        <button
+          v-for="choice in activeAskUser.choices"
+          :key="choice"
+          class="sdk-ask-user-choice"
+          :class="{ 'sdk-ask-user-choice--selected': answerText === choice }"
+          :disabled="submitting"
+          type="button"
+          @click="selectChoice(choice)"
+        >
+          {{ choice }}
+        </button>
+      </div>
+
+      <!-- Freeform textarea — shown always when no choices, or when allowFreeform != false -->
+      <div
+        v-if="!activeAskUser.choices?.length || activeAskUser.allowFreeform !== false"
+        class="sdk-ask-user-input-row"
+      >
         <textarea
           v-model="answerText"
           class="sdk-ask-user-textarea"
@@ -161,6 +189,23 @@ function elapsedMs(startedAt: number): string {
           class="sdk-ask-user-send"
           :disabled="submitting || !answerText.trim()"
           aria-label="Send answer"
+          @click="handleSubmitAnswer"
+        >
+          <span v-if="submitting" aria-hidden="true">⏳</span>
+          <span v-else aria-hidden="true">↵</span>
+          {{ submitting ? "Sending…" : "Send" }}
+        </button>
+      </div>
+
+      <!-- When only choices and no freeform: show send button separately -->
+      <div
+        v-else-if="activeAskUser.choices?.length && activeAskUser.allowFreeform === false"
+        class="sdk-ask-user-choice-send-row"
+      >
+        <button
+          class="sdk-ask-user-send"
+          :disabled="submitting || !answerText.trim()"
+          aria-label="Send selected answer"
           @click="handleSubmitAnswer"
         >
           <span v-if="submitting" aria-hidden="true">⏳</span>
@@ -414,9 +459,47 @@ function elapsedMs(startedAt: number): string {
   opacity: 0.85;
 }
 
+/* ── ask_user choices ────────────────────────────────────────────── */
 
+.sdk-ask-user-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
 
-.sdk-stream-thinking {
+.sdk-ask-user-choice {
+  padding: 5px 12px;
+  font-size: 0.8125rem;
+  font-family: inherit;
+  border: 1.5px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--canvas-default);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.sdk-ask-user-choice:hover:not(:disabled) {
+  border-color: var(--accent-emphasis);
+  color: var(--text-primary);
+}
+
+.sdk-ask-user-choice--selected {
+  border-color: var(--accent-emphasis);
+  background: var(--accent-subtle);
+  color: var(--accent-fg);
+  font-weight: 600;
+}
+
+.sdk-ask-user-choice:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sdk-ask-user-choice-send-row {
+  display: flex;
+  justify-content: flex-end;
+}
   display: flex;
   align-items: center;
   gap: 8px;
