@@ -12,13 +12,25 @@ use tracepilot_core::utils::sqlite::build_placeholder_sql;
 /// Maximum rows per multi-row INSERT statement.
 ///
 /// Empirically tuned via `cargo bench -p tracepilot-bench --bench batch_size`.
-/// With 9 columns (the widest child table), 25 × 9 = 225 bind parameters —
-/// well within SQLite's `SQLITE_MAX_VARIABLE_NUMBER` (32 766 since 3.32).
 ///
-/// Benchmarks across 50–1000 row workloads show chunk=25 consistently
-/// outperforms chunk=50 by ~4–10%, peaking at ~10% faster on 1 000-row
-/// sessions. Smaller chunks (10) lose that advantage through excess
-/// `prepare()` calls; larger chunks (100+) offer no benefit.
+/// The motivating hot path is `search_writer::upsert_search_content`, which
+/// inserts ~1 row per searchable event — so a 10 000-event session produces
+/// ~5 000–8 000 rows in a single batch. Benchmarks at this real-world scale
+/// (500–10 000 rows, 8-column `search_content` schema) show:
+///
+/// | chunk | 500 rows | 2 500 rows | 5 000 rows | 10 000 rows |
+/// |-------|----------|------------|------------|-------------|
+/// |    25 | 542 K/s  |   551 K/s  |   549 K/s  |   543 K/s   |
+/// |    50 | 483 K/s  |   489 K/s  |   486 K/s  |   476 K/s   |
+/// |   100 | 461 K/s  |   445 K/s  |   456 K/s  |   457 K/s   |
+/// |  4000 | 442 K/s  |   419 K/s  |   434 K/s  |   425 K/s   |
+///
+/// Chunk = 25 is **+14 % faster** than 50 at 10 000 rows, and **+28 %** vs 4 000.
+/// Very large chunks are *worse* because SQLite's statement parser/compiler
+/// overhead grows super-linearly with bind-parameter count.
+///
+/// 25 × 9 = 225 bind params (widest child table) — well within SQLite's
+/// `SQLITE_MAX_VARIABLE_NUMBER` of 32 766 (since 3.32).
 const BATCH_CHUNK_SIZE: usize = 25;
 
 /// Execute a multi-row INSERT in chunks of up to [`BATCH_CHUNK_SIZE`] rows.
