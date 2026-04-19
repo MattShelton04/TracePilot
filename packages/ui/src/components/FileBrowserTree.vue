@@ -97,6 +97,20 @@ function formatSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
+
+type FileIconType = "generic" | "markdown" | "json" | "yaml" | "database" | "lock" | "toml" | "log";
+
+function getFileIconType(name: string): FileIconType {
+  const ext = name.split(".").pop()?.toLowerCase() ?? "";
+  if (ext === "md" || ext === "mdx") return "markdown";
+  if (ext === "json" || ext === "jsonl") return "json";
+  if (ext === "yaml" || ext === "yml") return "yaml";
+  if (ext === "toml") return "toml";
+  if (ext === "db" || ext === "sqlite" || ext === "sqlite3") return "database";
+  if (ext === "lock" || ext === "pem" || ext === "crt") return "lock";
+  if (ext === "log" || ext === "txt") return "log";
+  return "generic";
+}
 </script>
 
 <template>
@@ -124,9 +138,49 @@ function formatSize(bytes: number): string {
         @click="emit('viewFile', entry.path)"
         @keyup.enter="emit('viewFile', entry.path)"
       >
-        <svg class="fb-tree__file-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round">
-          <path d="M4 2h5l4 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/>
-          <path d="M9 2v4h4"/>
+        <svg class="fb-tree__file-icon" :class="`fb-tree__file-icon--${getFileIconType(entry.name)}`" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+          <!-- generic / default -->
+          <template v-if="getFileIconType(entry.name) === 'generic'">
+            <path d="M4 2h5l4 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/>
+            <path d="M9 2v4h4"/>
+          </template>
+          <!-- markdown -->
+          <template v-else-if="getFileIconType(entry.name) === 'markdown'">
+            <path d="M4 2h5l4 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/>
+            <path d="M9 2v4h4"/>
+            <path d="M5 9h6M5 11h4" stroke-width="1.1"/>
+          </template>
+          <!-- json / jsonl -->
+          <template v-else-if="getFileIconType(entry.name) === 'json'">
+            <path d="M6 3c-1 0-1.5 1-1.5 2v1c0 .8-.5 1.2-.5 1.5s.5.7.5 1.5v1c0 1 .5 2 1.5 2"/>
+            <path d="M10 3c1 0 1.5 1 1.5 2v1c0 .8.5 1.2.5 1.5s-.5.7-.5 1.5v1c0 1-.5 2-1.5 2"/>
+          </template>
+          <!-- yaml -->
+          <template v-else-if="getFileIconType(entry.name) === 'yaml'">
+            <path d="M3 4h10M3 8h10M3 12h6"/>
+          </template>
+          <!-- toml -->
+          <template v-else-if="getFileIconType(entry.name) === 'toml'">
+            <path d="M3 3h10v10H3z"/>
+            <path d="M3 7h10M7 3v10" stroke-width="1.1"/>
+          </template>
+          <!-- database -->
+          <template v-else-if="getFileIconType(entry.name) === 'database'">
+            <ellipse cx="8" cy="5" rx="5" ry="1.8"/>
+            <path d="M3 5v3c0 1 2.2 1.8 5 1.8s5-.8 5-1.8V5"/>
+            <path d="M3 8v3c0 1 2.2 1.8 5 1.8s5-.8 5-1.8V8"/>
+          </template>
+          <!-- lock -->
+          <template v-else-if="getFileIconType(entry.name) === 'lock'">
+            <rect x="4" y="7" width="8" height="7" rx="1"/>
+            <path d="M5.5 7V5a2.5 2.5 0 015 0v2"/>
+          </template>
+          <!-- log / txt -->
+          <template v-else>
+            <path d="M4 2h5l4 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/>
+            <path d="M9 2v4h4"/>
+            <path d="M5 9h6M5 11h6M5 13h3" stroke-width="1.1"/>
+          </template>
         </svg>
         <span class="fb-tree__name">{{ entry.name }}</span>
         <span class="fb-tree__size">{{ formatSize(entry.sizeBytes) }}</span>
@@ -160,9 +214,41 @@ function formatSize(bytes: number): string {
             @click="emit('viewFile', entry.path)"
             @keyup.enter="emit('viewFile', entry.path)"
           >
-            <svg class="fb-tree__file-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round">
-              <path d="M4 2h5l4 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/>
-              <path d="M9 2v4h4"/>
+            <svg class="fb-tree__file-icon" :class="`fb-tree__file-icon--${getFileIconType(entry.name)}`" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+              <template v-if="getFileIconType(entry.name) === 'generic'">
+                <path d="M4 2h5l4 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/>
+                <path d="M9 2v4h4"/>
+              </template>
+              <template v-else-if="getFileIconType(entry.name) === 'markdown'">
+                <path d="M4 2h5l4 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/>
+                <path d="M9 2v4h4"/>
+                <path d="M5 9h6M5 11h4" stroke-width="1.1"/>
+              </template>
+              <template v-else-if="getFileIconType(entry.name) === 'json'">
+                <path d="M6 3c-1 0-1.5 1-1.5 2v1c0 .8-.5 1.2-.5 1.5s.5.7.5 1.5v1c0 1 .5 2 1.5 2"/>
+                <path d="M10 3c1 0 1.5 1 1.5 2v1c0 .8.5 1.2.5 1.5s-.5.7-.5 1.5v1c0 1-.5 2-1.5 2"/>
+              </template>
+              <template v-else-if="getFileIconType(entry.name) === 'yaml'">
+                <path d="M3 4h10M3 8h10M3 12h6"/>
+              </template>
+              <template v-else-if="getFileIconType(entry.name) === 'toml'">
+                <path d="M3 3h10v10H3z"/>
+                <path d="M3 7h10M7 3v10" stroke-width="1.1"/>
+              </template>
+              <template v-else-if="getFileIconType(entry.name) === 'database'">
+                <ellipse cx="8" cy="5" rx="5" ry="1.8"/>
+                <path d="M3 5v3c0 1 2.2 1.8 5 1.8s5-.8 5-1.8V5"/>
+                <path d="M3 8v3c0 1 2.2 1.8 5 1.8s5-.8 5-1.8V8"/>
+              </template>
+              <template v-else-if="getFileIconType(entry.name) === 'lock'">
+                <rect x="4" y="7" width="8" height="7" rx="1"/>
+                <path d="M5.5 7V5a2.5 2.5 0 015 0v2"/>
+              </template>
+              <template v-else>
+                <path d="M4 2h5l4 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/>
+                <path d="M9 2v4h4"/>
+                <path d="M5 9h6M5 11h6M5 13h3" stroke-width="1.1"/>
+              </template>
             </svg>
             <span class="fb-tree__name">{{ entry.name }}</span>
             <span class="fb-tree__size">{{ formatSize(entry.sizeBytes) }}</span>
@@ -322,9 +408,17 @@ function formatSize(bytes: number): string {
 }
 
 .fb-tree__item--selected .fb-tree__file-icon {
-  color: var(--accent-fg);
-  opacity: 0.8;
+  opacity: 0.9;
 }
+
+/* File-type icon accent colours */
+.fb-tree__file-icon--markdown { color: var(--accent-fg); opacity: 0.75; }
+.fb-tree__file-icon--json     { color: #d4a843; opacity: 0.85; }
+.fb-tree__file-icon--yaml     { color: #e8834e; opacity: 0.85; }
+.fb-tree__file-icon--toml     { color: #e8834e; opacity: 0.75; }
+.fb-tree__file-icon--database { color: #5b9bd5; opacity: 0.9; }
+.fb-tree__file-icon--lock     { color: var(--text-tertiary); opacity: 0.5; }
+.fb-tree__file-icon--log      { color: var(--text-tertiary); opacity: 0.55; }
 
 .fb-tree__name {
   flex: 1;
