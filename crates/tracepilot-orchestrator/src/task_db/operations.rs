@@ -1,5 +1,7 @@
 //! CRUD operations for the task database.
 
+use std::fmt::Write as _;
+
 use crate::error::{OrchestratorError, Result};
 use rusqlite::{Connection, params};
 use serde::de::DeserializeOwned;
@@ -104,38 +106,35 @@ pub fn list_tasks(conn: &Connection, filter: &TaskFilter) -> Result<Vec<Task>> {
     let mut param_values: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
 
     if let Some(status) = &filter.status {
-        sql.push_str(&format!(" AND status = ?{}", param_values.len() + 1));
+        write!(sql, " AND status = ?{}", param_values.len() + 1).expect("infallible");
         param_values.push(Box::new(status.as_str().to_string()));
     }
     if let Some(task_type) = &filter.task_type {
-        sql.push_str(&format!(" AND task_type = ?{}", param_values.len() + 1));
+        write!(sql, " AND task_type = ?{}", param_values.len() + 1).expect("infallible");
         param_values.push(Box::new(task_type.clone()));
     }
     if let Some(job_id) = &filter.job_id {
-        sql.push_str(&format!(" AND job_id = ?{}", param_values.len() + 1));
+        write!(sql, " AND job_id = ?{}", param_values.len() + 1).expect("infallible");
         param_values.push(Box::new(job_id.clone()));
     }
     if let Some(preset_id) = &filter.preset_id {
-        sql.push_str(&format!(" AND preset_id = ?{}", param_values.len() + 1));
+        write!(sql, " AND preset_id = ?{}", param_values.len() + 1).expect("infallible");
         param_values.push(Box::new(preset_id.clone()));
     }
 
     sql.push_str(" ORDER BY created_at DESC");
 
     if let Some(limit) = filter.limit {
-        sql.push_str(&format!(" LIMIT ?{}", param_values.len() + 1));
+        write!(sql, " LIMIT ?{}", param_values.len() + 1).expect("infallible");
         param_values.push(Box::new(limit));
     }
     if let Some(offset) = filter.offset {
-        sql.push_str(&format!(" OFFSET ?{}", param_values.len() + 1));
+        write!(sql, " OFFSET ?{}", param_values.len() + 1).expect("infallible");
         param_values.push(Box::new(offset));
     }
 
-    let params_refs: Vec<&dyn rusqlite::types::ToSql> =
-        param_values.iter().map(|p| p.as_ref()).collect();
-
     let mut stmt = conn.prepare(&sql)?;
-    let mut rows = stmt.query(params_refs.as_slice())?;
+    let mut rows = stmt.query(rusqlite::params_from_iter(param_values.iter().map(|p| p.as_ref())))?;
     let mut tasks = Vec::new();
 
     while let Some(row) = rows.next()? {
@@ -431,10 +430,8 @@ pub fn list_jobs(conn: &Connection, limit: Option<i64>) -> Result<Vec<Job>> {
         ),
     };
 
-    let params_refs: Vec<&dyn rusqlite::types::ToSql> =
-        param_values.iter().map(|p| p.as_ref()).collect();
     let mut stmt = conn.prepare(&sql)?;
-    let mut rows = stmt.query(params_refs.as_slice())?;
+    let mut rows = stmt.query(rusqlite::params_from_iter(param_values.iter().map(|p| p.as_ref())))?;
     let mut jobs = Vec::new();
 
     while let Some(row) = rows.next()? {

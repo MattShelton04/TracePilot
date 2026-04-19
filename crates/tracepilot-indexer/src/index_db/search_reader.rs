@@ -10,6 +10,7 @@
 
 use crate::Result;
 use rusqlite::{params_from_iter, types::ToSql};
+use tracepilot_core::utils::sqlite::build_in_placeholders;
 
 use super::IndexDb;
 use super::row_helpers::context_snippet_from_row;
@@ -163,7 +164,7 @@ impl SearchQueryBuilder {
         if values.is_empty() {
             return self;
         }
-        let placeholders = values.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+        let placeholders = build_in_placeholders(values.len());
         self.where_clauses
             .push(format!("{} IN ({})", column, placeholders));
         for val in values {
@@ -180,7 +181,7 @@ impl SearchQueryBuilder {
         if values.is_empty() {
             return self;
         }
-        let placeholders = values.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+        let placeholders = build_in_placeholders(values.len());
         self.where_clauses
             .push(format!("{} NOT IN ({})", column, placeholders));
         for val in values {
@@ -294,7 +295,12 @@ impl SearchQueryBuilder {
         // Build WHERE clause
         if !self.where_clauses.is_empty() {
             sql.push_str(" WHERE ");
-            sql.push_str(&self.where_clauses.join(" AND "));
+            for (i, clause) in self.where_clauses.iter().enumerate() {
+                if i > 0 {
+                    sql.push_str(" AND ");
+                }
+                sql.push_str(clause);
+            }
         } else {
             sql.push_str(" WHERE 1=1");
         }
@@ -359,9 +365,7 @@ impl IndexDb {
             .build();
 
         let mut stmt = self.conn.prepare(&sql)?;
-        let refs: Vec<&dyn ToSql> = params.iter().map(|p| p.as_ref()).collect();
-
-        let rows = stmt.query_map(params_from_iter(refs), map_search_result)?;
+        let rows = stmt.query_map(params_from_iter(params.iter().map(|p| p.as_ref())), map_search_result)?;
 
         let mut results = Vec::new();
         for row in rows {
@@ -380,10 +384,9 @@ impl IndexDb {
             .with_filters(filters)
             .build();
 
-        let refs: Vec<&dyn ToSql> = params.iter().map(|p| p.as_ref()).collect();
         let count: i64 = self
             .conn
-            .query_row(&sql, params_from_iter(refs), |row| row.get(0))?;
+            .query_row(&sql, params_from_iter(params.iter().map(|p| p.as_ref())), |row| row.get(0))?;
         Ok(count)
     }
 
@@ -472,8 +475,7 @@ impl IndexDb {
         let (sql, params) = builder.build();
 
         let mut stmt = self.conn.prepare(&sql)?;
-        let refs: Vec<&dyn ToSql> = params.iter().map(|p| p.as_ref()).collect();
-        let rows = stmt.query_map(params_from_iter(refs), |row| Ok((row.get(0)?, row.get(1)?)))?;
+        let rows = stmt.query_map(params_from_iter(params.iter().map(|p| p.as_ref())), |row| Ok((row.get(0)?, row.get(1)?)))?;
         let mut results = Vec::new();
         for row in rows {
             results.push(row?);
@@ -495,8 +497,7 @@ impl IndexDb {
                 .with_filters(filters)
                 .build();
 
-        let refs: Vec<&dyn ToSql> = params.iter().map(|p| p.as_ref()).collect();
-        Ok(self.conn.query_row(&sql, params_from_iter(refs), |row| {
+        Ok(self.conn.query_row(&sql, params_from_iter(params.iter().map(|p| p.as_ref())), |row| {
             Ok((row.get(0)?, row.get(1)?))
         })?)
     }
