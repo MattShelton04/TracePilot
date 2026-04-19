@@ -292,7 +292,7 @@ pub async fn session_read_file(
         // the TOCTOU window between a metadata() size check and the subsequent
         // read (relevant for active sessions where events.jsonl grows rapidly).
         use std::io::Read as _;
-        let mut file = std::fs::File::open(&file_path)?;
+        let file = std::fs::File::open(&file_path)?;
         let mut buf = Vec::new();
         // take(MAX + 1) lets us detect truncation without a separate metadata call.
         let n = file.take(MAX_READ_BYTES + 1).read_to_end(&mut buf)?;
