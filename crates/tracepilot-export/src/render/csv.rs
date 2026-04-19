@@ -268,26 +268,11 @@ fn render_model_metrics_csv(metrics: &ShutdownMetrics) -> Result<Vec<u8>> {
 
     for (model, detail) in models {
         let reqs = detail.requests.as_ref().and_then(|r| r.count).unwrap_or(0);
-        let input = detail
-            .usage
-            .as_ref()
-            .and_then(|u| u.input_tokens)
-            .unwrap_or(0);
-        let output = detail
-            .usage
-            .as_ref()
-            .and_then(|u| u.output_tokens)
-            .unwrap_or(0);
-        let cache_r = detail
-            .usage
-            .as_ref()
-            .and_then(|u| u.cache_read_tokens)
-            .unwrap_or(0);
-        let cache_w = detail
-            .usage
-            .as_ref()
-            .and_then(|u| u.cache_write_tokens)
-            .unwrap_or(0);
+        let usage = detail.usage.as_ref();
+        let input = usage.and_then(|u| u.input_tokens).unwrap_or(0);
+        let output = usage.and_then(|u| u.output_tokens).unwrap_or(0);
+        let cache_r = usage.and_then(|u| u.cache_read_tokens).unwrap_or(0);
+        let cache_w = usage.and_then(|u| u.cache_write_tokens).unwrap_or(0);
 
         writeln!(
             out,
