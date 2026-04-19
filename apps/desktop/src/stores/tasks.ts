@@ -13,7 +13,7 @@ import type { Job, NewTask, Task, TaskFilter, TaskStats } from "@tracepilot/type
 import { runMutation, toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
-import { logError, logWarn } from "@/utils/logger";
+import { logWarn } from "@/utils/logger";
 
 export type TaskSortOption = "newest" | "oldest" | "priority" | "status";
 
@@ -157,14 +157,10 @@ export const useTasksStore = defineStore("tasks", () => {
     selectedTask.value = null;
     try {
       const task = await taskGet(id);
-      if (getTaskGuard.isValid(token)) {
-        selectedTask.value = task;
-      }
+      if (getTaskGuard.isValid(token)) selectedTask.value = task;
       return task;
     } catch (e) {
-      if (getTaskGuard.isValid(token)) {
-        error.value = toErrorMessage(e);
-      }
+      if (getTaskGuard.isValid(token)) error.value = toErrorMessage(e);
       return null;
     }
   }
@@ -174,14 +170,10 @@ export const useTasksStore = defineStore("tasks", () => {
     const token = getTaskGuard.start();
     try {
       const task = await taskGet(id);
-      if (getTaskGuard.isValid(token)) {
-        selectedTask.value = task;
-      }
+      if (getTaskGuard.isValid(token)) selectedTask.value = task;
       return task;
     } catch (e) {
-      if (getTaskGuard.isValid(token)) {
-        error.value = toErrorMessage(e);
-      }
+      if (getTaskGuard.isValid(token)) error.value = toErrorMessage(e);
       return null;
     }
   }
@@ -193,16 +185,11 @@ export const useTasksStore = defineStore("tasks", () => {
     priority?: string,
     maxRetries?: number,
   ): Promise<Task | null> {
-    error.value = null;
-    try {
+    return runMutation(error, async () => {
       const task = await taskCreate(taskType, presetId, inputParams, priority, maxRetries);
       await refreshTasks();
       return task;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      logError("[tasks] Failed to create task:", e);
-      return null;
-    }
+    });
   }
 
   async function createBatch(
@@ -210,16 +197,11 @@ export const useTasksStore = defineStore("tasks", () => {
     jobName: string,
     presetId?: string,
   ): Promise<Job | null> {
-    error.value = null;
-    try {
+    return runMutation(error, async () => {
       const job = await taskCreateBatch(newTasks, jobName, presetId);
       await refreshTasks();
       return job;
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      logError("[tasks] Failed to create batch:", e);
-      return null;
-    }
+    });
   }
 
   async function cancelTask(id: string): Promise<boolean> {

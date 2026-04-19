@@ -572,7 +572,7 @@ fn row_to_job(row: &rusqlite::Row<'_>) -> Result<Job> {
 
 fn parse_json_field<T: DeserializeOwned>(field: &str, raw: &str) -> Result<T> {
     serde_json::from_str(raw)
-        .map_err(|e| OrchestratorError::Task(format!("Invalid JSON in {field}: {e}")))
+        .map_err(|e| OrchestratorError::task_ctx(format!("Invalid JSON in {field}"), e))
 }
 
 #[cfg(test)]

@@ -54,6 +54,11 @@ impl OrchestratorError {
     pub fn config_ctx(context: impl std::fmt::Display, source: impl std::fmt::Display) -> Self {
         OrchestratorError::Config(format!("{context}: {source}"))
     }
+
+    /// Construct a Task error with context and source error.
+    pub fn task_ctx(context: impl std::fmt::Display, source: impl std::fmt::Display) -> Self {
+        OrchestratorError::Task(format!("{context}: {source}"))
+    }
 }
 
 #[cfg(test)]
@@ -76,5 +81,14 @@ mod tests {
         assert!(msg.contains("Config error"));
         assert!(msg.contains("Invalid YAML"));
         assert!(msg.contains("unexpected token"));
+    }
+
+    #[test]
+    fn task_ctx_creates_formatted_error() {
+        let err = OrchestratorError::task_ctx("Invalid JSON in input_params", "unexpected end");
+        let msg = err.to_string();
+        assert!(msg.contains("Task error"));
+        assert!(msg.contains("Invalid JSON in input_params"));
+        assert!(msg.contains("unexpected end"));
     }
 }

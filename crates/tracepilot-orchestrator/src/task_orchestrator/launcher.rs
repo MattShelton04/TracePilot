@@ -118,12 +118,8 @@ pub fn launch_orchestrator(
     // 2. Write context files
     for (task_id, content) in context_contents {
         let context_path = jobs_dir.join(task_id).join("context.md");
-        std::fs::write(&context_path, content).map_err(|e| {
-            OrchestratorError::Task(format!(
-                "Failed to write context for task {}: {}",
-                task_id, e
-            ))
-        })?;
+        std::fs::write(&context_path, content)
+            .map_err(|e| OrchestratorError::task_ctx(format!("Failed to write context for task {task_id}"), e))?;
     }
 
     // 3. Generate and write manifest
@@ -158,9 +154,8 @@ pub fn launch_orchestrator(
 
     // 4b. Write prompt to file (avoids shell escaping issues with long prompts)
     let prompt_path = jobs_dir.join("orchestrator-prompt.md");
-    std::fs::write(&prompt_path, &prompt_text).map_err(|e| {
-        OrchestratorError::Task(format!("Failed to write orchestrator prompt: {}", e))
-    })?;
+    std::fs::write(&prompt_path, &prompt_text)
+        .map_err(|e| OrchestratorError::task_ctx("Failed to write orchestrator prompt", e))?;
 
     // 4c. Write initial heartbeat so the monitor shows "Running" immediately
     let heartbeat_path = jobs_dir.join("heartbeat.json");

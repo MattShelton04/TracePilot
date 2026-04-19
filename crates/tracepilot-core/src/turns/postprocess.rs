@@ -50,16 +50,11 @@ pub(crate) fn infer_subagent_models(turns: &mut [ConversationTurn]) {
             for tc in turn.tool_calls.iter_mut() {
                 if tc.is_subagent
                     && let Some(ref id) = tc.tool_call_id
+                    && let Some(model) = child_models.get(id)
+                    && tc.model.as_deref() != Some(model.as_str())
                 {
-                    if let Some(model) = child_models.get(id) {
-                        if tc.model.as_deref() != Some(model.as_str()) {
-                            tc.model = Some(model.clone());
-                            changed = true;
-                        }
-                    }
-                    // No children and model is already set (from terminal event or ToolExecStart
-                    // args): leave as-is. `requested_model` tracks what was configured;
-                    // `model` should only be updated by observed events.
+                    tc.model = Some(model.clone());
+                    changed = true;
                 }
             }
         }
