@@ -311,6 +311,21 @@ impl BridgeManager {
             loop {
                 match events.recv().await {
                     Ok(event) => {
+                        // SessionEventData uses default (externally-tagged) serde
+                        // serialization: { "VariantName": { ...fields } }.
+                        // Unwrap the outer tag so TypeScript receives the inner
+                        // field data directly (e.g. { messageId, deltaContent }).
+                        let serialized = serde_json::to_value(&event.data)
+                            .unwrap_or(serde_json::Value::Null);
+                        let data = match &serialized {
+                            serde_json::Value::Object(map) if map.len() == 1 => {
+                                map.values()
+                                    .next()
+                                    .cloned()
+                                    .unwrap_or(serde_json::Value::Null)
+                            }
+                            _ => serialized,
+                        };
                         let bridge_event = BridgeEvent {
                             session_id: sid.clone(),
                             event_type: event.event_type.clone(),
@@ -318,8 +333,7 @@ impl BridgeManager {
                             id: Some(event.id.clone()),
                             parent_id: event.parent_id.clone(),
                             ephemeral: event.ephemeral.unwrap_or(false),
-                            data: serde_json::to_value(&event.data)
-                                .unwrap_or(serde_json::Value::Null),
+                            data,
                         };
                         if tx.send(bridge_event).is_err() {
                             debug!("No bridge event receivers, stopping forwarder for {}", sid);

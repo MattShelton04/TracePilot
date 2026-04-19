@@ -109,6 +109,34 @@ describe("useLiveSdkSession", () => {
       scope.stop();
     });
 
+    it("accumulates message_delta even when ephemeral flag is false (routing by type, not flag)", async () => {
+      // The Rust bridge may not always set ephemeral=true on SDK delta events.
+      // Routing must work by event type alone.
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => {
+        live = useLiveSdkSession(sessionIdRef);
+      });
+
+      push(
+        makeEvent({
+          eventType: "assistant.message_delta",
+          ephemeral: false,
+          data: { messageId: "msg-nonflag", deltaContent: "streamed " },
+        }),
+        makeEvent({
+          eventType: "assistant.message_delta",
+          ephemeral: false,
+          data: { messageId: "msg-nonflag", deltaContent: "text" },
+        }),
+      );
+      await nextTick();
+
+      expect(live.streamingMessages.get("msg-nonflag")?.content).toBe("streamed text");
+      scope.stop();
+    });
+
     it("removes a streaming message when terminal assistant.message arrives", async () => {
       const sessionIdRef = ref(SESSION_ID);
       let live!: ReturnType<typeof useLiveSdkSession>;

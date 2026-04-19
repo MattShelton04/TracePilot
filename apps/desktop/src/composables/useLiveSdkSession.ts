@@ -189,48 +189,48 @@ export function useLiveSdkSession(sessionIdRef: Ref<string | null>) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const d = event.data as any;
 
-    // ── Ephemeral (streaming fragments) ──────────────────────
-    if (event.ephemeral) {
-      switch (event.eventType) {
-        case "assistant.message_delta": {
-          const existing = streamingMessages.get(d.messageId);
-          streamingMessages.set(d.messageId, {
-            content: (existing?.content ?? "") + (d.deltaContent ?? ""),
-            turnId: activeTurnId.value,
-            parentToolCallId: d.parentToolCallId ?? null,
-          });
-          break;
-        }
-        case "assistant.reasoning_delta": {
-          const existing = streamingReasoning.get(d.reasoningId);
-          streamingReasoning.set(d.reasoningId, {
-            content: (existing?.content ?? "") + (d.deltaContent ?? ""),
-            turnId: activeTurnId.value,
-          });
-          break;
-        }
-        case "tool.execution_progress": {
-          const tool = activeTools.get(d.toolCallId);
-          if (tool) {
-            activeTools.set(d.toolCallId, { ...tool, progressMessage: d.progressMessage ?? null });
-          }
-          break;
-        }
-        case "tool.execution_partial_result": {
-          const tool = activeTools.get(d.toolCallId);
-          if (tool) {
-            activeTools.set(d.toolCallId, {
-              ...tool,
-              partialOutput: tool.partialOutput + (d.partialOutput ?? ""),
-            });
-          }
-          break;
-        }
+    // Route purely by event type. We intentionally ignore event.ephemeral here:
+    // the SDK does not guarantee the ephemeral flag is set on all delta events,
+    // and routing by type is both simpler and more reliable.
+    switch (event.eventType) {
+      // ── Streaming fragments ───────────────────────────────────
+      case "assistant.message_delta": {
+        const existing = streamingMessages.get(d.messageId);
+        streamingMessages.set(d.messageId, {
+          content: (existing?.content ?? "") + (d.deltaContent ?? ""),
+          turnId: activeTurnId.value,
+          parentToolCallId: d.parentToolCallId ?? null,
+        });
+        return;
       }
-      return;
+      case "assistant.reasoning_delta": {
+        const existing = streamingReasoning.get(d.reasoningId);
+        streamingReasoning.set(d.reasoningId, {
+          content: (existing?.content ?? "") + (d.deltaContent ?? ""),
+          turnId: activeTurnId.value,
+        });
+        return;
+      }
+      case "tool.execution_progress": {
+        const tool = activeTools.get(d.toolCallId);
+        if (tool) {
+          activeTools.set(d.toolCallId, { ...tool, progressMessage: d.progressMessage ?? null });
+        }
+        return;
+      }
+      case "tool.execution_partial_result": {
+        const tool = activeTools.get(d.toolCallId);
+        if (tool) {
+          activeTools.set(d.toolCallId, {
+            ...tool,
+            partialOutput: tool.partialOutput + (d.partialOutput ?? ""),
+          });
+        }
+        return;
+      }
     }
 
-    // ── Non-ephemeral (terminal / structural events) ─────────
+    // ── Structural / terminal events ─────────────────────────
     switch (event.eventType) {
       case "assistant.turn_start":
         isAgentRunning.value = true;
