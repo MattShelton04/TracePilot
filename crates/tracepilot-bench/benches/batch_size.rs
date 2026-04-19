@@ -108,17 +108,37 @@ fn setup_search_db() -> Connection {
             session_id TEXT, content_type TEXT, turn_number INTEGER,
             event_index INTEGER, timestamp_unix INTEGER,
             tool_name TEXT, content TEXT, metadata_json TEXT
-        )",
+        );
+        -- Mirror the production FTS5 triggers so the benchmark measures the real cost.
+        -- FTS5 overhead is constant per-row regardless of chunk size, but omitting
+        -- triggers produces unrealistically fast INSERT numbers.
+        CREATE VIRTUAL TABLE search_fts USING fts5(content);
+        CREATE TRIGGER search_content_ai AFTER INSERT ON search_content BEGIN
+            INSERT INTO search_fts(rowid, content) VALUES (new.id, new.content);
+        END;",
     )
     .unwrap();
     conn
 }
 
+/// Mirror the production `batched_insert` code path exactly:
+/// - pre-build full-chunk SQL once (lazy, like production)
+/// - only rebuild SQL for the trailing partial chunk
+/// - use SAVEPOINT/RELEASE matching real transaction model
 fn run_search_batch(conn: &Connection, rows: &[SearchRow], chunk_size: usize) {
-    conn.execute_batch("BEGIN").unwrap();
+    conn.execute_batch("SAVEPOINT bench").unwrap();
+    let mut full_sql: Option<String> = None;
     for chunk in rows.chunks(chunk_size) {
-        let sql = build_placeholder_sql(SEARCH_SQL_PREFIX, chunk.len(), SEARCH_COLS);
-        let mut stmt = conn.prepare(&sql).unwrap();
+        let partial;
+        let sql: &str = if chunk.len() == chunk_size {
+            full_sql.get_or_insert_with(|| {
+                build_placeholder_sql(SEARCH_SQL_PREFIX, chunk_size, SEARCH_COLS)
+            })
+        } else {
+            partial = build_placeholder_sql(SEARCH_SQL_PREFIX, chunk.len(), SEARCH_COLS);
+            &partial
+        };
+        let mut stmt = conn.prepare(sql).unwrap();
         let mut params: Vec<&dyn ToSql> = Vec::with_capacity(chunk.len() * SEARCH_COLS);
         for (sid, ct, tn, ei, ts, tool, content, meta) in chunk {
             params.push(sid);
@@ -132,7 +152,7 @@ fn run_search_batch(conn: &Connection, rows: &[SearchRow], chunk_size: usize) {
         }
         stmt.execute(params_from_iter(params.iter().copied())).unwrap();
     }
-    conn.execute_batch("ROLLBACK").unwrap();
+    conn.execute_batch("ROLLBACK TO bench; RELEASE bench").unwrap();
 }
 
 // ── Benchmarks ───────────────────────────────────────────────────────────────
