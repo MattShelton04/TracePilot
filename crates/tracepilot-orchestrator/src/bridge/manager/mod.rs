@@ -89,6 +89,15 @@ pub struct BridgeManager {
     pub(super) sessions: HashMap<String, Arc<copilot_sdk::Session>>,
     #[cfg(feature = "copilot-sdk")]
     pub(super) event_tasks: HashMap<String, tokio::task::JoinHandle<()>>,
+    /// Pending ask_user responses, keyed by session ID.
+    ///
+    /// When the Copilot CLI sends a `userInput.request` RPC, our registered
+    /// `UserInputHandler` inserts a oneshot sender here and blocks until the
+    /// frontend calls `sdk_answer_user_input`. The sender is removed after the
+    /// response is delivered or dropped on session shutdown.
+    #[cfg(feature = "copilot-sdk")]
+    pub(super) pending_user_inputs:
+        Arc<std::sync::Mutex<HashMap<String, tokio::sync::oneshot::Sender<String>>>>,
 }
 
 impl BridgeManager {
@@ -120,6 +129,8 @@ impl BridgeManager {
             sessions: HashMap::new(),
             #[cfg(feature = "copilot-sdk")]
             event_tasks: HashMap::new(),
+            #[cfg(feature = "copilot-sdk")]
+            pending_user_inputs: Arc::new(std::sync::Mutex::new(HashMap::new())),
         };
         (manager, rx, status_rx)
     }

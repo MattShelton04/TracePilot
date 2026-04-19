@@ -171,6 +171,7 @@ fn main() {
                     "sdk_detect_ui_server",
                     "sdk_launch_ui_server",
                     "sdk_bridge_metrics",
+                    "sdk_answer_user_input",
                     // Window management commands
                     "open_session_window",
                     "close_session_window",

@@ -10,6 +10,7 @@
 
 import {
   sdkAbortSession,
+  sdkAnswerUserInput,
   sdkCreateSession,
   sdkDestroySession,
   sdkGetForegroundSession,
@@ -132,6 +133,17 @@ export function createMessagingSlice(deps: MessagingDeps) {
     await runMutation(lastError, () => sdkAbortSession(sessionId));
   }
 
+  async function answerUserInput(sessionId: string, answer: string) {
+    logInfo("[sdk] Answering ask_user for session:", sessionId);
+    try {
+      await sdkAnswerUserInput(sessionId, answer);
+      lastError.value = null;
+    } catch (e) {
+      lastError.value = toErrorMessage(e);
+      logWarn("[sdk] answerUserInput failed:", e);
+    }
+  }
+
   async function destroySession(sessionId: string) {
     logInfo("[sdk] Destroying session:", sessionId);
     try {
@@ -202,6 +214,7 @@ export function createMessagingSlice(deps: MessagingDeps) {
     resumeSession,
     sendMessage,
     abortSession,
+    answerUserInput,
     destroySession,
     unlinkSession,
     setSessionMode,

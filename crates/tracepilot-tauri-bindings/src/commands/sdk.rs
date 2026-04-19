@@ -206,6 +206,26 @@ pub async fn sdk_launch_ui_server(working_dir: Option<String>) -> CmdResult<u32>
     Ok(pid)
 }
 
+// ─── ask_user response ────────────────────────────────────────────
+
+/// Deliver the user's answer to a pending `ask_user` tool call.
+///
+/// The Copilot CLI sends a `userInput.request` JSON-RPC call when the agent
+/// uses the built-in `ask_user` tool. The bridge registers a `UserInputHandler`
+/// on every session that blocks until this command is called.
+///
+/// Returns an error if there is no pending `ask_user` for the given session
+/// (e.g. the user submitted after the CLI timed out or the session was reset).
+#[tauri::command]
+pub async fn sdk_answer_user_input(
+    bridge: tauri::State<'_, SharedBridgeManager>,
+    session_id: String,
+    answer: String,
+) -> CmdResult<()> {
+    let mgr = bridge.read().await;
+    mgr.respond_user_input(&session_id, answer).map_err(Into::into)
+}
+
 // ─── Observability ────────────────────────────────────────────────
 
 /// Point-in-time counters for the bridge broadcast channels.

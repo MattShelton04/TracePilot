@@ -68,6 +68,11 @@ export async function sdkAbortSession(sessionId: string): Promise<void> {
   return invoke<void>("sdk_abort_session", { sessionId });
 }
 
+/** Deliver the user's answer to a pending `ask_user` tool call. */
+export async function sdkAnswerUserInput(sessionId: string, answer: string): Promise<void> {
+  return invoke<void>("sdk_answer_user_input", { sessionId, answer });
+}
+
 export async function sdkDestroySession(sessionId: string): Promise<void> {
   return invoke<void>("sdk_destroy_session", { sessionId });
 }

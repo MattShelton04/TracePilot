@@ -186,6 +186,7 @@ export const useSdkStore = defineStore("sdk", () => {
     resumeSession: messaging.resumeSession,
     sendMessage: messaging.sendMessage,
     abortSession: messaging.abortSession,
+    answerUserInput: messaging.answerUserInput,
     destroySession: messaging.destroySession,
     unlinkSession: messaging.unlinkSession,
     setSessionMode: messaging.setSessionMode,

@@ -65,7 +65,7 @@ async function handleSubmitAnswer() {
   if (!sid || !answerText.value.trim() || submitting.value) return;
   submitting.value = true;
   try {
-    await sdk.sendMessage(sid, { prompt: answerText.value.trim() });
+    await sdk.answerUserInput(sid, answerText.value.trim());
     answerText.value = "";
   } finally {
     submitting.value = false;
@@ -143,9 +143,6 @@ function elapsedMs(startedAt: number): string {
       <div class="sdk-ask-user-header">
         <span class="sdk-ask-user-icon" aria-hidden="true">💬</span>
         <span class="sdk-ask-user-label">Copilot is asking</span>
-        <span v-if="live.isStdioMode" class="sdk-ask-user-mode-warning" title="In stdio mode the response is sent as a new message turn">
-          stdio mode
-        </span>
       </div>
       <p v-if="activeAskUser.question" class="sdk-ask-user-question">
         {{ activeAskUser.question }}
@@ -352,16 +349,6 @@ function elapsedMs(startedAt: number): string {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   flex: 1;
-}
-
-.sdk-ask-user-mode-warning {
-  font-size: 0.625rem;
-  font-weight: 500;
-  padding: 1px 6px;
-  border-radius: 99px;
-  background: var(--caution-subtle);
-  color: var(--caution-fg);
-  border: 1px solid var(--caution-muted);
 }
 
 .sdk-ask-user-question {

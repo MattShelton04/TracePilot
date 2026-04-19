@@ -357,5 +357,101 @@ impl BridgeManager {
         });
 
         self.event_tasks.insert(session_id.to_string(), handle);
+
+        // Register the ask_user handler after spawning the event forwarder.
+        self.setup_user_input_handler(session_id, session);
+    }
+
+    /// Register a `UserInputHandler` on the session so that `ask_user` tool
+    /// calls from the Copilot CLI are intercepted and surfaced to the frontend.
+    ///
+    /// When the CLI sends `userInput.request` the handler:
+    /// 1. Emits a `userInput.request` BridgeEvent carrying the question,
+    ///    choices, and allowFreeform — the frontend renders the ask_user card.
+    /// 2. Inserts a oneshot sender into `pending_user_inputs` keyed by the
+    ///    session ID.
+    /// 3. Blocks (via `block_in_place`) until the frontend calls
+    ///    `sdk_answer_user_input`, which resolves the oneshot.
+    ///
+    /// The handler is sync (`UserInputHandler` type alias), so
+    /// `tokio::task::block_in_place` is used to bridge the sync/async boundary
+    /// without blocking the async thread pool.
+    #[cfg(feature = "copilot-sdk")]
+    fn setup_user_input_handler(
+        &self,
+        session_id: &str,
+        session: &Arc<copilot_sdk::Session>,
+    ) {
+        let pending = Arc::clone(&self.pending_user_inputs);
+        let tx = self.event_tx.clone();
+        let sid = session_id.to_string();
+        let session = Arc::clone(session);
+
+        tokio::spawn(async move {
+            session
+                .register_user_input_handler(move |req, _inv| {
+                    let (response_tx, response_rx) = tokio::sync::oneshot::channel::<String>();
+                    pending.lock().unwrap().insert(sid.clone(), response_tx);
+
+                    // Notify the frontend that a user input is needed.
+                    let _ = tx.send(BridgeEvent {
+                        session_id: sid.clone(),
+                        event_type: "userInput.request".to_string(),
+                        data: serde_json::json!({
+                            "question": req.question,
+                            "choices": req.choices,
+                            "allowFreeform": req.allow_freeform,
+                        }),
+                        timestamp: String::new(),
+                        id: None,
+                        parent_id: None,
+                        ephemeral: false,
+                    });
+
+                    // Block until the frontend delivers the answer (or the
+                    // session shuts down and the sender is dropped).
+                    let answer = tokio::task::block_in_place(|| {
+                        tokio::runtime::Handle::current()
+                            .block_on(response_rx)
+                            .unwrap_or_default()
+                    });
+
+                    copilot_sdk::UserInputResponse {
+                        answer,
+                        was_freeform: None,
+                    }
+                })
+                .await;
+        });
+    }
+
+    /// Deliver the user's answer to a pending `ask_user` call.
+    ///
+    /// Returns `BridgeError::SessionNotFound` if there is no pending input
+    /// for the given session (i.e. no `ask_user` is currently waiting).
+    #[cfg(feature = "copilot-sdk")]
+    pub fn respond_user_input(
+        &self,
+        session_id: &str,
+        answer: String,
+    ) -> Result<(), BridgeError> {
+        let mut pending = self.pending_user_inputs.lock().unwrap();
+        match pending.remove(session_id) {
+            Some(tx) => {
+                // Ignore send error — the handler may have timed out.
+                let _ = tx.send(answer);
+                Ok(())
+            }
+            None => Err(BridgeError::SessionNotFound(session_id.to_string())),
+        }
+    }
+
+    #[cfg(not(feature = "copilot-sdk"))]
+    pub fn respond_user_input(
+        &self,
+        _session_id: &str,
+        _answer: String,
+    ) -> Result<(), BridgeError> {
+        Err(BridgeError::NotAvailable)
     }
 }
