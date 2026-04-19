@@ -169,6 +169,51 @@ describe("useAlertWatcher", () => {
       scope.stop();
     });
 
+    it("fires ask-user alert on userInput.request with question text", async () => {
+      const scope = effectScope();
+      scope.run(() => useAlertWatcher(makeRouter() as any));
+
+      sdkState.recentEvents = [
+        makeEvent({
+          eventType: "userInput.request",
+          data: { invocationId: "1", question: "Allow file access?", choices: null, allowFreeform: true },
+        }),
+      ];
+      await nextTick();
+
+      expect(dispatchAlertMock).toHaveBeenCalledOnce();
+      expect(dispatchAlertMock).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "ask-user", title: "Input Required", body: expect.stringContaining("Allow file access?") }),
+      );
+      scope.stop();
+    });
+
+    it("fires ask-user alert with fallback body when userInput.request has no question", async () => {
+      const scope = effectScope();
+      scope.run(() => useAlertWatcher(makeRouter() as any));
+
+      sdkState.recentEvents = [makeEvent({ eventType: "userInput.request", data: null })];
+      await nextTick();
+
+      expect(dispatchAlertMock).toHaveBeenCalledOnce();
+      expect(dispatchAlertMock).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "ask-user", title: "Input Required", body: expect.stringContaining("Your response is needed") }),
+      );
+      scope.stop();
+    });
+
+    it("does not fire ask-user alert on userInput.request when alertsOnAskUser is disabled", async () => {
+      prefsState.alertsOnAskUser = false;
+      const scope = effectScope();
+      scope.run(() => useAlertWatcher(makeRouter() as any));
+
+      sdkState.recentEvents = [makeEvent({ eventType: "userInput.request", data: { question: "Allow?" } })];
+      await nextTick();
+
+      expect(dispatchAlertMock).not.toHaveBeenCalled();
+      scope.stop();
+    });
+
     it("fires session-error alert on session.error", async () => {
       const scope = effectScope();
       scope.run(() => useAlertWatcher(makeRouter() as any));

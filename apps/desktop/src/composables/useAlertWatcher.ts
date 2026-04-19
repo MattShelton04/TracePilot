@@ -178,7 +178,20 @@ export function useAlertWatcher(router: Router): () => void {
 
       const label = getSessionLabel(event.sessionId);
 
-      if (event.eventType === "session.idle" && prefs.alertsOnAskUser) {
+      if (event.eventType === "userInput.request" && prefs.alertsOnAskUser) {
+        const d = event.data;
+        const question =
+          d !== null && typeof d === "object" && "question" in d && typeof (d as Record<string, unknown>).question === "string"
+            ? (d as Record<string, unknown>).question as string
+            : "Your response is needed";
+        logInfo(`[alert-watcher] userInput.request — alerting for ${event.sessionId}`);
+        dispatchAlert({
+          type: "ask-user",
+          sessionId: event.sessionId,
+          title: "Input Required",
+          body: `${label}: ${question}`,
+        });
+      } else if (event.eventType === "session.idle" && prefs.alertsOnAskUser) {
         logInfo(`[alert-watcher] session.idle — alerting for ${event.sessionId}`);
         dispatchAlert({
           type: "ask-user",
