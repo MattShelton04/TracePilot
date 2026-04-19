@@ -204,16 +204,25 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
             .collect();
 
         // Build the full PowerShell script with startup banner
-        // Append --interactive with PowerShell single-quote escaping for safe prompt handling
-        let interactive_suffix = if let Some(prompt) = &config.prompt {
-            let escaped_prompt = prompt.replace('\'', "''");
-            format!(" --interactive '{}'", escaped_prompt)
+        // Decode the prompt from Base64 (UTF-8) into a PS variable so that
+        // single quotes, double quotes, newlines, and other special characters
+        // all survive the PS5.1 → Win32 command-line argument-passing layer.
+        // - Base64 alphabet is [A-Za-z0-9+/=]: safe inside PS single-quoted strings.
+        // - `-replace '"','\"'` fixes PS5.1's Win32 encoding bug that strips bare `"`.
+        // - `-replace '\r?\n',' '` collapses newlines (Win32 args cannot contain them).
+        let (interactive_setup, interactive_flag) = if let Some(prompt) = &config.prompt {
+            let b64 = crate::process::encode_prompt_utf8_base64(prompt);
+            let setup = format!(
+                "$__tp_b=[System.Convert]::FromBase64String('{}');$__tp_r=[System.Text.Encoding]::UTF8.GetString($__tp_b);$__tp_e=($__tp_r -replace '\"','\\\"') -replace '\\r?\\n',' '; ",
+                b64
+            );
+            (setup, " --interactive $__tp_e".to_string())
         } else {
-            String::new()
+            (String::new(), String::new())
         };
         let ps_cmd = format!(
-            "{env_setup}$host.UI.RawUI.WindowTitle = 'Copilot Session'; Set-Location -LiteralPath '{}'; Write-Host 'Starting Copilot session in:' -ForegroundColor Cyan; Write-Host '  {}' -ForegroundColor White; Write-Host ''; {}{}{}",
-            escaped_dir, escaped_dir, checkout_step, copilot_cmd, interactive_suffix
+            "{env_setup}$host.UI.RawUI.WindowTitle = 'Copilot Session'; Set-Location -LiteralPath '{}'; Write-Host 'Starting Copilot session in:' -ForegroundColor Cyan; Write-Host '  {}' -ForegroundColor White; Write-Host ''; {}{}{}{}",
+            escaped_dir, escaped_dir, checkout_step, interactive_setup, copilot_cmd, interactive_flag
         );
 
         // Use -EncodedCommand (Base64 UTF-16LE) to avoid all escaping issues
@@ -232,10 +241,13 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
             .as_deref()
             .map(|c| format!("{} && ", c))
             .unwrap_or_default();
-        // Shell-escape prompt with single quotes for bash/zsh
+        // Base64-encode the prompt (UTF-8) and decode via shell command substitution.
+        // The Base64 alphabet [A-Za-z0-9+/=] is safe inside POSIX single-quoted strings
+        // AND inside AppleScript double-quoted strings, so no additional escaping is
+        // needed at any layer (shell or AppleScript).
         let interactive_suffix = if let Some(prompt) = &config.prompt {
-            let escaped_prompt = prompt.replace('\'', "'\\''");
-            format!(" --interactive '{}'", escaped_prompt)
+            let b64 = crate::process::encode_prompt_utf8_base64(prompt);
+            format!(" --interactive \"$(echo '{}' | base64 -d)\"", b64)
         } else {
             String::new()
         };
@@ -251,8 +263,8 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
             .map(|c| format!("{} && ", c))
             .unwrap_or_default();
         let interactive_suffix = if let Some(prompt) = &config.prompt {
-            let escaped_prompt = prompt.replace('\'', "'\\''");
-            format!(" --interactive '{}'", escaped_prompt)
+            let b64 = crate::process::encode_prompt_utf8_base64(prompt);
+            format!(" --interactive \"$(echo '{}' | base64 -d)\"", b64)
         } else {
             String::new()
         };

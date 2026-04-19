@@ -749,6 +749,40 @@ impl<W: std::io::Write> std::io::Write for Base64Encoder<W> {
     }
 }
 
+// ─── Base64 prompt encoding ─────────────────────────────────────────
+
+/// Base64-encode a prompt string (UTF-8 bytes) for safe embedding in shell/PS scripts.
+///
+/// The result contains only `[A-Za-z0-9+/=]` and therefore requires no escaping
+/// in PS single-quoted strings, POSIX single-quoted strings, or AppleScript
+/// double-quoted strings. Used by all platforms to safely pass `--interactive`
+/// prompts containing arbitrary characters (quotes, newlines, backslashes, etc.).
+pub(crate) fn encode_prompt_utf8_base64(s: &str) -> String {
+    const CHARS: &[u8] =
+        b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let bytes = s.as_bytes();
+    let mut out = Vec::with_capacity(4 * ((bytes.len() + 2) / 3));
+    for chunk in bytes.chunks(3) {
+        let b0 = chunk[0];
+        let b1 = if chunk.len() > 1 { chunk[1] } else { 0 };
+        let b2 = if chunk.len() > 2 { chunk[2] } else { 0 };
+        out.push(CHARS[(b0 >> 2) as usize]);
+        out.push(CHARS[((b0 & 0x03) << 4 | b1 >> 4) as usize]);
+        out.push(if chunk.len() > 1 {
+            CHARS[((b1 & 0x0f) << 2 | b2 >> 6) as usize]
+        } else {
+            b'='
+        });
+        out.push(if chunk.len() > 2 {
+            CHARS[(b2 & 0x3f) as usize]
+        } else {
+            b'='
+        });
+    }
+    // Safety: base64 output is always valid ASCII (subset of UTF-8)
+    String::from_utf8(out).expect("base64 output is always valid ASCII")
+}
+
 // ─── Environment variable name validation ───────────────────────────
 
 /// Validate that an environment variable name contains only safe characters.
