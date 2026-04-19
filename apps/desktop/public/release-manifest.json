@@ -1,6 +1,25 @@
 {
   "versions": [
     {
+      "version": "0.6.3",
+      "date": "2026-04-19",
+      "notes": {
+        "added": [
+          "Pop-out session windows: open any session in its own window by dragging a tab out of the strip or Ctrl+clicking a session. Multi-tab viewing with drag-to-reorder, keyboard nav, and persistent tab state",
+          "Session File Explorer: browse and view all files in a session's state directory in-app, with type-aware rendering for Markdown, code, JSONL, YAML, and more",
+          "System prompt visibility: system.message events (e.g. injected prompts) now appear as a collapsible panel in the conversation view",
+          "Structured checkpoint rendering: checkpoints render with collapsible sections and a redesigned compact vertical timeline; compaction events link directly to their checkpoint"
+        ],
+        "changed": [
+          "Session export now accessible by default from the session panel — no feature flag needed. New presets, raw zip export, and richer Markdown output",
+          "Performance: session event parsing is LRU-cached, reindex debounced, FTS health and facet results cached — noticeably faster navigation across views",
+          "Session launcher: complex prompts with quotes, backslashes, and newlines now work reliably on all platforms"
+        ],
+        "fixed": []
+      },
+      "requiresReindex": false
+    },
+    {
       "version": "0.6.2",
       "date": "2026-04-12",
       "notes": {
