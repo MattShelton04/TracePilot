@@ -160,6 +160,26 @@ export function useLiveSdkSession(sessionIdRef: Ref<string | null>) {
     () => streamingMessages.size > 0 || streamingReasoning.size > 0 || activeTools.size > 0 || isAgentRunning.value,
   );
 
+  /**
+   * The first active `ask_user` tool call, or `null` if none is pending.
+   * Used by `SdkStreamingOverlay` to show an inline response card.
+   */
+  const activeAskUser = computed<{ toolCallId: string; question: string | null } | null>(() => {
+    for (const tool of activeTools.values()) {
+      if (tool.toolName === "ask_user") {
+        const args = tool.arguments as Record<string, unknown> | null;
+        return {
+          toolCallId: tool.toolCallId,
+          question: typeof args?.question === "string" ? args.question : null,
+        };
+      }
+    }
+    return null;
+  });
+
+  /** The session ID this composable is tracking (read-only). */
+  const sessionId = computed(() => sessionIdRef.value);
+
   // ── Event processor ──────────────────────────────────────────
 
   function processEvent(event: BridgeEvent) {
@@ -464,6 +484,9 @@ export function useLiveSdkSession(sessionIdRef: Ref<string | null>) {
     lastSnapshotRewind,
     // derived
     hasLiveActivity,
+    activeAskUser,
+    sessionId,
+    isStdioMode: sdk.isStdioMode,
     // actions
     clearAbort,
     clearCompaction,

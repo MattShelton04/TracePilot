@@ -6,14 +6,21 @@
  * as they arrive from the SDK event stream. Disappears once session.idle
  * fires and the FS store picks up the committed turn.
  *
+ * When the agent calls `ask_user`, the generic tool row is replaced with a
+ * prominent question card + inline response input. Sending the answer calls
+ * `sdk.sendMessage` with the answer text. In stdio mode a warning is shown
+ * since the response mechanism may behave differently.
+ *
  * Injected from ChatViewMode via SdkLiveSessionKey.
  * Only visible when isAgentRunning is true or streaming messages exist.
  */
 import { MarkdownContent, ReasoningBlock, useToggleSet } from "@tracepilot/ui";
 import { computed, onUnmounted, ref, watch } from "vue";
 import { useSdkLiveSessionContext } from "@/composables/useLiveSdkSession";
+import { useSdkStore } from "@/stores/sdk";
 
 const live = useSdkLiveSessionContext();
+const sdk = useSdkStore();
 
 const expandedReasoning = useToggleSet<string>();
 
@@ -36,7 +43,41 @@ const hasContent = computed(() => {
 
 const streamingMessages = computed(() => (live ? [...live.streamingMessages.entries()] : []));
 const streamingReasoning = computed(() => (live ? [...live.streamingReasoning.entries()] : []));
-const activeTools = computed(() => (live ? [...live.activeTools.values()] : []));
+/** All active tools, excluding ask_user (rendered separately as a question card). */
+const activeTools = computed(() =>
+  live ? [...live.activeTools.values()].filter((t) => t.toolName !== "ask_user") : [],
+);
+const activeAskUser = computed(() => (live ? live.activeAskUser.value : null));
+
+// ── ask_user response state ──────────────────────────────────────────────────
+
+const answerText = ref("");
+const submitting = ref(false);
+
+// Clear stale answer whenever a new ask_user call starts.
+watch(
+  () => activeAskUser.value?.toolCallId,
+  () => { answerText.value = ""; },
+);
+
+async function handleSubmitAnswer() {
+  const sid = live?.sessionId.value;
+  if (!sid || !answerText.value.trim() || submitting.value) return;
+  submitting.value = true;
+  try {
+    await sdk.sendMessage(sid, { prompt: answerText.value.trim() });
+    answerText.value = "";
+  } finally {
+    submitting.value = false;
+  }
+}
+
+function handleAnswerKeydown(e: KeyboardEvent) {
+  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault();
+    handleSubmitAnswer();
+  }
+}
 
 // ── Reactive clock for elapsed time ─────────────────────────────────────────
 // Ticks every second while any tool is active, so elapsed times stay live.
@@ -97,7 +138,42 @@ function elapsedMs(startedAt: number): string {
       <MarkdownContent :content="msg.content" :render="false" />
     </div>
 
-    <!-- Active tool indicators -->
+    <!-- ask_user prompt card (replaces generic tool row for ask_user) -->
+    <div v-if="activeAskUser" class="sdk-ask-user-card" role="group" aria-label="Copilot is asking a question">
+      <div class="sdk-ask-user-header">
+        <span class="sdk-ask-user-icon" aria-hidden="true">💬</span>
+        <span class="sdk-ask-user-label">Copilot is asking</span>
+        <span v-if="live.isStdioMode" class="sdk-ask-user-mode-warning" title="In stdio mode the response is sent as a new message turn">
+          stdio mode
+        </span>
+      </div>
+      <p v-if="activeAskUser.question" class="sdk-ask-user-question">
+        {{ activeAskUser.question }}
+      </p>
+      <div class="sdk-ask-user-input-row">
+        <textarea
+          v-model="answerText"
+          class="sdk-ask-user-textarea"
+          placeholder="Type your answer… (Ctrl+Enter to send)"
+          rows="2"
+          :disabled="submitting"
+          aria-label="Answer to Copilot's question"
+          @keydown="handleAnswerKeydown"
+        />
+        <button
+          class="sdk-ask-user-send"
+          :disabled="submitting || !answerText.trim()"
+          aria-label="Send answer"
+          @click="handleSubmitAnswer"
+        >
+          <span v-if="submitting" aria-hidden="true">⏳</span>
+          <span v-else aria-hidden="true">↵</span>
+          {{ submitting ? "Sending…" : "Send" }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Active tool indicators (ask_user excluded — shown as card above) -->
     <div v-if="activeTools.length > 0" class="sdk-stream-tools" role="list">
       <div
         v-for="tool in activeTools"
@@ -116,7 +192,7 @@ function elapsedMs(startedAt: number): string {
 
     <!-- Idle indicator: turn active but no content flowing yet -->
     <div
-      v-if="live.isAgentRunning.value && streamingMessages.length === 0 && streamingReasoning.length === 0 && activeTools.length === 0"
+      v-if="live.isAgentRunning.value && streamingMessages.length === 0 && streamingReasoning.length === 0 && activeTools.length === 0 && !activeAskUser"
       class="sdk-stream-thinking"
     >
       <span class="sdk-stream-cursor" aria-hidden="true" />
@@ -245,7 +321,113 @@ function elapsedMs(startedAt: number): string {
   flex-shrink: 0;
 }
 
-/* ── Thinking placeholder ─────────────────────────────────────── */
+/* ── ask_user question card ───────────────────────────────────── */
+
+.sdk-ask-user-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  background: var(--canvas-subtle);
+  border: 1.5px solid var(--attention-emphasis);
+  border-radius: var(--radius-md);
+  animation: sdk-stream-fadein 0.15s ease-out;
+}
+
+.sdk-ask-user-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sdk-ask-user-icon {
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.sdk-ask-user-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--attention-fg);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  flex: 1;
+}
+
+.sdk-ask-user-mode-warning {
+  font-size: 0.625rem;
+  font-weight: 500;
+  padding: 1px 6px;
+  border-radius: 99px;
+  background: var(--caution-subtle);
+  color: var(--caution-fg);
+  border: 1px solid var(--caution-muted);
+}
+
+.sdk-ask-user-question {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.sdk-ask-user-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.sdk-ask-user-textarea {
+  flex: 1;
+  resize: none;
+  padding: 8px 10px;
+  font-size: 0.8125rem;
+  font-family: inherit;
+  line-height: 1.5;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--canvas-default);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.sdk-ask-user-textarea:focus {
+  border-color: var(--accent-emphasis);
+}
+
+.sdk-ask-user-textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.sdk-ask-user-send {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 14px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--accent-emphasis);
+  color: var(--fg-on-emphasis);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+  flex-shrink: 0;
+}
+
+.sdk-ask-user-send:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.sdk-ask-user-send:not(:disabled):hover {
+  opacity: 0.85;
+}
+
+
 
 .sdk-stream-thinking {
   display: flex;

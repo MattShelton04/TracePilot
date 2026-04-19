@@ -29,6 +29,7 @@ import type { BridgeEvent } from "@tracepilot/types";
 const sdkState = reactive({
   recentEvents: [] as BridgeEvent[],
   isConnected: true,
+  isStdioMode: false,
   sessions: [] as Array<{ sessionId: string; isActive: boolean }>,
   sessionEvents(sessionId: string): BridgeEvent[] {
     return this.recentEvents.filter((e) => e.sessionId === sessionId);
@@ -1039,6 +1040,97 @@ describe("useLiveSdkSession", () => {
       push(makeEvent({ eventType: "tool.execution_complete", data: { toolCallId: "tc1" } }));
       await nextTick();
       expect(live.hasLiveActivity.value).toBe(false);
+      scope.stop();
+    });
+  });
+
+  // ── activeAskUser ────────────────────────────────────────────────────────
+
+  describe("activeAskUser", () => {
+    it("is null when no tools are active", () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => { live = useLiveSdkSession(sessionIdRef); });
+
+      expect(live.activeAskUser.value).toBeNull();
+      scope.stop();
+    });
+
+    it("is null when only non-ask_user tools are active", async () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => { live = useLiveSdkSession(sessionIdRef); });
+
+      push(makeEvent({ eventType: "tool.execution_start", data: { toolCallId: "tc1", toolName: "read_file", arguments: {} } }));
+      await nextTick();
+
+      expect(live.activeAskUser.value).toBeNull();
+      scope.stop();
+    });
+
+    it("returns toolCallId and question when ask_user is active", async () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => { live = useLiveSdkSession(sessionIdRef); });
+
+      push(makeEvent({
+        eventType: "tool.execution_start",
+        data: { toolCallId: "au1", toolName: "ask_user", arguments: { question: "What is your name?" } },
+      }));
+      await nextTick();
+
+      expect(live.activeAskUser.value).toEqual({ toolCallId: "au1", question: "What is your name?" });
+      scope.stop();
+    });
+
+    it("returns null question when arguments lack a question field", async () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => { live = useLiveSdkSession(sessionIdRef); });
+
+      push(makeEvent({
+        eventType: "tool.execution_start",
+        data: { toolCallId: "au2", toolName: "ask_user", arguments: null },
+      }));
+      await nextTick();
+
+      expect(live.activeAskUser.value).toEqual({ toolCallId: "au2", question: null });
+      scope.stop();
+    });
+
+    it("returns null once ask_user tool completes", async () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => { live = useLiveSdkSession(sessionIdRef); });
+
+      push(makeEvent({ eventType: "tool.execution_start", data: { toolCallId: "au3", toolName: "ask_user", arguments: { question: "Ready?" } } }));
+      await nextTick();
+      expect(live.activeAskUser.value?.toolCallId).toBe("au3");
+
+      push(makeEvent({ eventType: "tool.execution_complete", data: { toolCallId: "au3" } }));
+      await nextTick();
+      expect(live.activeAskUser.value).toBeNull();
+      scope.stop();
+    });
+
+    it("returns first ask_user when multiple ask_user calls are somehow active simultaneously", async () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => { live = useLiveSdkSession(sessionIdRef); });
+
+      push(makeEvent({ eventType: "tool.execution_start", data: { toolCallId: "au4", toolName: "ask_user", arguments: { question: "First?" } } }));
+      push(makeEvent({ eventType: "tool.execution_start", data: { toolCallId: "au5", toolName: "ask_user", arguments: { question: "Second?" } } }));
+      await nextTick();
+
+      // Should return one of the two (both are valid; just not null)
+      expect(live.activeAskUser.value).not.toBeNull();
+      expect(["First?", "Second?"]).toContain(live.activeAskUser.value?.question);
       scope.stop();
     });
   });
