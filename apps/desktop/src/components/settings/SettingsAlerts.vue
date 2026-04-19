@@ -18,7 +18,8 @@ function handleTestAlert() {
         <div>
           <div class="setting-label">Enable alerts</div>
           <div class="setting-description">
-            Receive notifications when sessions complete, need input, or encounter errors.
+            Receive notifications from Copilot SDK-steered sessions when the agent needs input or
+            encounters errors. Requires the Copilot SDK integration to be enabled and connected.
           </div>
         </div>
         <FormSwitch v-model="prefs.alertsEnabled" aria-label="Enable alerts" />
@@ -29,7 +30,7 @@ function handleTestAlert() {
           <div>
             <div class="setting-label">Alert scope</div>
             <div class="setting-description">
-              Which sessions to monitor for alerts.
+              Which SDK-steered sessions to monitor for alerts.
             </div>
           </div>
           <select
@@ -48,19 +49,9 @@ function handleTestAlert() {
 
         <div class="setting-row">
           <div>
-            <div class="setting-label">Session completed</div>
-            <div class="setting-description">
-              Alert when a running session finishes.
-            </div>
-          </div>
-          <FormSwitch v-model="prefs.alertsOnSessionEnd" aria-label="Alert on session end" />
-        </div>
-
-        <div class="setting-row">
-          <div>
             <div class="setting-label">Agent needs input</div>
             <div class="setting-description">
-              Alert when a session agent calls <code>ask_user</code> and is waiting for your response.
+              Alert when the session agent finishes its turn and is waiting for your next message.
             </div>
           </div>
           <FormSwitch v-model="prefs.alertsOnAskUser" aria-label="Alert on ask_user" />
@@ -70,7 +61,7 @@ function handleTestAlert() {
           <div>
             <div class="setting-label">Session errors</div>
             <div class="setting-description">
-              Alert when a running session encounters new errors.
+              Alert when a running SDK-steered session encounters an error.
             </div>
           </div>
           <FormSwitch v-model="prefs.alertsOnSessionError" aria-label="Alert on session error" />
@@ -166,14 +157,6 @@ function handleTestAlert() {
   text-transform: uppercase;
   letter-spacing: 0.04em;
   padding: 8px 16px 2px;
-}
-
-code {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  background: var(--surface-secondary);
-  padding: 1px 5px;
-  border-radius: 3px;
 }
 
 .scope-select {

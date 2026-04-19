@@ -1,23 +1,20 @@
 // ─── Alert Watcher ────────────────────────────────────────────────
-// Monitors session state and fires alerts when notable events occur:
-//   - Session completion (isRunning transitions true → false)
-//   - ask_user tool calls in conversation turns
-//   - Session errors
+// Monitors the Copilot SDK bridge event stream and fires alerts when
+// notable events occur for SDK-steered sessions:
+//   - session.idle  → agent finished its turn, waiting for user input
+//   - session.error → session encountered an error
 //
-// This composable should be activated once in the main window (App.vue).
-// It watches the sessions store for running-state transitions and polls
-// active tab instances for new ask_user events.
-//
-// All dedup / baseline state lives in the alertWatcher Pinia store so it
-// is observable, testable, and resettable.
+// This composable must be activated once in the main window (App.vue).
+// It requires the Copilot SDK feature to be enabled and connected.
+// Non-SDK sessions are intentionally not monitored — file-system polling
+// cannot reliably infer "needs input" semantics.
 
-import { getSessionTurns } from "@tracepilot/client";
-import type { ConversationTurn } from "@tracepilot/types";
-import { onScopeDispose, watch } from "vue";
+import { getCurrentScope, onScopeDispose, watch } from "vue";
 import type { Router } from "vue-router";
 import { dispatchAlert } from "@/composables/useAlertDispatcher";
 import { useAlertWatcherStore } from "@/stores/alertWatcher";
 import { usePreferencesStore } from "@/stores/preferences";
+import { useSdkStore } from "@/stores/sdk";
 import { useSessionsStore } from "@/stores/sessions";
 import { useSessionTabsStore } from "@/stores/sessionTabs";
 import { logInfo, logWarn } from "@/utils/logger";
@@ -34,12 +31,10 @@ function getMonitoredSessionIds(): Set<string> {
   try {
     const tabStore = useSessionTabsStore();
 
-    // Session tabs
     for (const tab of tabStore.tabs) {
       ids.add(tab.sessionId);
     }
 
-    // Sessions open in popup (viewer) windows
     for (const sid of tabStore.popupSessionIds) {
       ids.add(sid);
     }
@@ -47,7 +42,6 @@ function getMonitoredSessionIds(): Set<string> {
     /* tab store not available */
   }
 
-  // Current route (captured during setup — safe to read from any context)
   const store = useAlertWatcherStore();
   const route = store.capturedRoute;
   if (route) {
@@ -61,229 +55,35 @@ function getMonitoredSessionIds(): Set<string> {
 }
 
 /**
- * Filter sessions based on alert scope preference.
- * "monitored" → only sessions in tabs/route view
- * "all" → all sessions (caller handles capping)
+ * Returns true if the given SDK session ID is within the user's alert scope.
  */
-function filterSessionsByScope<T extends { id: string }>(sessions: T[]): T[] {
+function isSdkSessionInScope(sessionId: string): boolean {
   const prefs = usePreferencesStore();
-  if (prefs.alertsScope === "all") {
-    return sessions;
-  }
-  const monitoredIds = getMonitoredSessionIds();
-  return sessions.filter((s) => monitoredIds.has(s.id));
+  if (prefs.alertsScope === "all") return true;
+  return getMonitoredSessionIds().has(sessionId);
 }
-
-// ── Session-end detection ────────────────────────────────────────
-
-function checkSessionEndAlerts(
-  sessions: Array<{ id: string; isRunning: boolean; summary?: string | null }>,
-) {
-  const prefs = usePreferencesStore();
-  const store = useAlertWatcherStore();
-
-  // Build the full set of currently running session IDs — used for pruning
-  // regardless of whether alerts are enabled or scoped.
-  const allRunning = new Set(sessions.filter((s) => s.isRunning).map((s) => s.id));
-
-  // Only dispatch alerts when enabled
-  if (prefs.alertsEnabled && prefs.alertsOnSessionEnd) {
-    const scopedSessions = filterSessionsByScope(sessions);
-
-    for (const session of scopedSessions) {
-      if (session.isRunning) continue;
-      if (!store.seenRunning(session.id)) continue;
-
-      const shortId = session.id.slice(0, 8);
-      const label = session.summary || `Session ${shortId}`;
-      logInfo(`[alert-watcher] Session ended: ${session.id}`);
-
-      dispatchAlert({
-        type: "session-end",
-        sessionId: session.id,
-        sessionSummary: session.summary ?? undefined,
-        title: "Session Completed",
-        body: label,
-      });
-    }
-  }
-
-  // Update tracking state — always use ALL running sessions, not scoped.
-  // This prevents pruneStaleEntries from evicting dedup keys for sessions
-  // that are running but out of scope.
-  store.replaceRunning(allRunning);
-  store.pruneStaleEntries(allRunning);
-}
-
-// ── ask_user detection ───────────────────────────────────────────
-
-function scanTurnsForAskUser(sessionId: string, turns: ConversationTurn[], summary?: string) {
-  const prefs = usePreferencesStore();
-  if (!prefs.alertsEnabled || !prefs.alertsOnAskUser) return;
-  const store = useAlertWatcherStore();
-
-  const lastCount = store.getLastTurnCount(sessionId);
-  store.setLastTurnCount(sessionId, turns.length);
-
-  // Only scan turns we haven't checked yet
-  const newTurns = turns.slice(lastCount);
-
-  for (const turn of newTurns) {
-    for (const tc of turn.toolCalls) {
-      if (tc.toolName !== "ask_user") continue;
-      // Prefix all keys with sessionId for reliable pruning.
-      // toolCallId is opaque — cannot extract sessionId from it.
-      const rawKey = tc.toolCallId ?? `${turn.turnIndex}:ask_user`;
-      const callKey = `${sessionId}:${rawKey}`;
-      if (store.hasAlertedAskUser(callKey)) continue;
-      store.markAskUserAlerted(callKey);
-
-      const shortId = sessionId.slice(0, 8);
-      const label = summary || `Session ${shortId}`;
-
-      dispatchAlert({
-        type: "ask-user",
-        sessionId,
-        sessionSummary: summary,
-        title: "Agent Needs Input",
-        body: `${label} is waiting for your response`,
-      });
-    }
-  }
-}
-
-// ── Error detection ──────────────────────────────────────────────
-
-function checkSessionErrorAlerts(
-  sessions: Array<{ id: string; isRunning: boolean; summary?: string | null; errorCount?: number | null }>,
-) {
-  const prefs = usePreferencesStore();
-  if (!prefs.alertsEnabled || !prefs.alertsOnSessionError) return;
-  const store = useAlertWatcherStore();
-
-  const scopedSessions = filterSessionsByScope(sessions);
-
-  for (const session of scopedSessions) {
-    if (!session.isRunning) continue;
-    const currentErrors = session.errorCount ?? 0;
-
-    if (!store.isErrorBaselineEstablished(session.id)) {
-      // First observation — record baseline, don't alert
-      store.establishErrorBaseline(session.id);
-      store.setLastErrorCount(session.id, currentErrors);
-      continue;
-    }
-
-    const lastErrors = store.getLastErrorCount(session.id);
-
-    if (currentErrors > lastErrors) {
-      const shortId = session.id.slice(0, 8);
-      const label = session.summary || `Session ${shortId}`;
-      const newErrors = currentErrors - lastErrors;
-
-      dispatchAlert({
-        type: "session-error",
-        sessionId: session.id,
-        sessionSummary: session.summary ?? undefined,
-        title: "Session Error",
-        body: `${label} encountered ${newErrors} new error${newErrors > 1 ? "s" : ""}`,
-      });
-    }
-
-    store.setLastErrorCount(session.id, currentErrors);
-  }
-}
-
-// ── Polling for ask_user in running sessions ─────────────────────
-
-let pollTimer: ReturnType<typeof setInterval> | null = null;
-
-async function pollRunningSessionsForAskUser() {
-  const prefs = usePreferencesStore();
-  if (!prefs.alertsEnabled || !prefs.alertsOnAskUser) return;
-  const store = useAlertWatcherStore();
-
-  // Prevent overlapping poll cycles or polls during seeding
-  if (store.askUserPollInFlight || store.seedInFlight) return;
-  store.askUserPollInFlight = true;
-
-  try {
-    const sessionsStore = useSessionsStore();
-
-    // Filter by scope — no hard cap. Each poll is a lightweight JSON fetch.
-    const allRunning = sessionsStore.sessions.filter((s) => s.isRunning);
-    const scopedRunning = filterSessionsByScope(allRunning);
-    logInfo(
-      `[alert-watcher] ask_user poll: ${allRunning.length} running, ${scopedRunning.length} in scope`,
-    );
-
-    for (const session of scopedRunning) {
-      try {
-        // Inline seeding: if we have no baseline for this session, record the
-        // current turn count and mark ALL existing ask_user calls as already-seen.
-        // Only ask_user events that appear in FUTURE turns will trigger alerts.
-        if (!store.hasTurnCount(session.id)) {
-          const result = await getSessionTurns(session.id);
-          store.setLastTurnCount(session.id, result.turns.length);
-          for (const turn of result.turns) {
-            for (const tc of turn.toolCalls) {
-              if (tc.toolName !== "ask_user") continue;
-              const rawKey = tc.toolCallId ?? `${turn.turnIndex}:ask_user`;
-              store.markAskUserAlerted(`${session.id}:${rawKey}`);
-            }
-          }
-          continue;
-        }
-        const result = await getSessionTurns(session.id);
-        scanTurnsForAskUser(session.id, result.turns, session.summary ?? undefined);
-      } catch (e) {
-        logWarn(`[alert-watcher] Failed to poll turns for ${session.id}:`, e);
-      }
-    }
-  } finally {
-    store.askUserPollInFlight = false;
-  }
-}
-
-// ── Turn baseline seeding ────────────────────────────────────────
 
 /**
- * Seed lastSeenTurnCount for all currently running sessions so that existing
- * ask_user calls from before app startup don't fire stale alerts.
+ * Returns a human-readable label for a session, preferring the TracePilot
+ * session summary, then the SDK working-directory basename, then a short ID.
  */
-async function seedTurnBaselines() {
-  const store = useAlertWatcherStore();
-  if (store.seedInFlight) return;
-  store.seedInFlight = true;
-
+function getSessionLabel(sessionId: string): string {
   try {
     const sessionsStore = useSessionsStore();
-    const allRunning = sessionsStore.sessions.filter((s) => s.isRunning);
-    const runningSessions = filterSessionsByScope(allRunning);
-
-    for (const session of runningSessions) {
-      if (store.hasTurnCount(session.id)) continue;
-
-      try {
-        const result = await getSessionTurns(session.id);
-        store.setLastTurnCount(session.id, result.turns.length);
-
-        // Mark ALL existing ask_user calls as already seen so only future
-        // events trigger alerts after app startup.
-        for (const turn of result.turns) {
-          for (const tc of turn.toolCalls) {
-            if (tc.toolName !== "ask_user") continue;
-            const rawKey = tc.toolCallId ?? `${turn.turnIndex}:ask_user`;
-            store.markAskUserAlerted(`${session.id}:${rawKey}`);
-          }
-        }
-      } catch (e) {
-        logWarn(`[alert-watcher] Failed to seed baseline for ${session.id}:`, e);
-      }
-    }
-  } finally {
-    store.seedInFlight = false;
+    const tracepilot = sessionsStore.sessions.find((s) => s.id === sessionId);
+    if (tracepilot?.summary) return tracepilot.summary;
+  } catch {
+    /* sessions store unavailable */
   }
+
+  const sdk = useSdkStore();
+  const sdkSession = sdk.sessions.find((s) => s.sessionId === sessionId);
+  if (sdkSession?.workingDirectory) {
+    const parts = sdkSession.workingDirectory.replace(/\\/g, "/").split("/").filter(Boolean);
+    if (parts.length) return parts[parts.length - 1];
+  }
+
+  return `Session ${sessionId.slice(0, 8)}`;
 }
 
 // ── Composable entry point ───────────────────────────────────────
@@ -293,106 +93,118 @@ async function seedTurnBaselines() {
  * @param router — Pass the Router captured during synchronous setup.
  *   `useRouter()` cannot be called here because this runs after `await`
  *   in `onMounted`, where Vue's component instance is no longer active.
- * Automatically cleans up on scope disposal.
+ * Returns a cleanup function. If called inside an active Vue effect scope,
+ * cleanup is also registered via onScopeDispose automatically.
  */
-export function useAlertWatcher(router: Router) {
-  const sessionsStore = useSessionsStore();
+export function useAlertWatcher(router: Router): () => void {
   const prefs = usePreferencesStore();
   const store = useAlertWatcherStore();
+  const sdk = useSdkStore();
 
   logInfo(
-    `[alert-watcher] Initializing — alertsEnabled=${prefs.alertsEnabled}, scope=${prefs.alertsScope}, sessions=${sessionsStore.sessions.length}, running=${sessionsStore.sessions.filter((s) => s.isRunning).length}`,
+    `[alert-watcher] Initializing (SDK mode) — alertsEnabled=${prefs.alertsEnabled}, scope=${prefs.alertsScope}, sdkConnected=${sdk.connectionState}`,
   );
 
+  // Keep capturedRoute in sync for scope filtering.
   store.setCapturedRoute(router.currentRoute.value);
-  // Keep capturedRoute in sync reactively
-  watch(
+  const stopRouteWatch = watch(
     () => router.currentRoute.value,
-    (r) => {
-      store.setCapturedRoute(r);
-    },
+    (r) => store.setCapturedRoute(r),
   );
 
-  // Initialize tracking from current state (don't alert on app startup)
-  for (const session of sessionsStore.sessions) {
-    if (session.isRunning) {
-      store.markRunning(session.id);
-    }
-    // Record baseline error counts — mark as established so the first
-    // real increase triggers an alert
-    if (session.errorCount) {
-      store.setLastErrorCount(session.id, session.errorCount);
-    }
-    store.establishErrorBaseline(session.id);
+  // ── Seed existing events ─────────────────────────────────────
+  // Mark all events currently buffered in recentEvents as already-seen so
+  // we don't alert on events that arrived before the watcher initialized.
+  for (const event of sdk.recentEvents) {
+    const key = event.id ?? `${event.eventType}:${event.timestamp}`;
+    store.markSdkEventSeen(event.sessionId, key);
   }
 
-  // Seed turn baselines — the prefs watcher below handles this
-  // via { immediate: true }, so no explicit call needed here.
+  // ── Watch for new SDK bridge events ─────────────────────────
+  // The SDK store replaces the recentEvents array on each new event
+  // ([...current, newEvent]), so this watcher fires on every incoming event.
+  // Use a getter so Vue tracks the reactive store property correctly.
+  const stopEventsWatch = watch(() => sdk.recentEvents, (events) => {
+    if (!prefs.alertsEnabled) return;
 
-  // Watch for session list changes → check for ended sessions + errors
-  const stopSessionWatch = watch(
-    () => sessionsStore.sessions,
+    for (const event of events) {
+      // Build a stable dedup key. Prefer the event's own ID; fall back to a
+      // composite that is still unique for the expected event types.
+      const key = event.id ?? `${event.eventType}:${event.timestamp}`;
+
+      if (store.hasSeenSdkEvent(event.sessionId, key)) continue;
+      store.markSdkEventSeen(event.sessionId, key);
+
+      // Ephemeral events are streaming fragments (not actionable state changes).
+      if (event.ephemeral) continue;
+
+      // Scope check — respect "monitored" vs "all" preference.
+      if (!isSdkSessionInScope(event.sessionId)) continue;
+
+      const label = getSessionLabel(event.sessionId);
+
+      if (event.eventType === "session.idle" && prefs.alertsOnAskUser) {
+        logInfo(`[alert-watcher] session.idle — alerting for ${event.sessionId}`);
+        dispatchAlert({
+          type: "ask-user",
+          sessionId: event.sessionId,
+          title: "Agent Waiting",
+          body: `${label} has finished and is waiting for your next message`,
+        });
+      } else if (event.eventType === "session.error" && prefs.alertsOnSessionError) {
+        logInfo(`[alert-watcher] session.error — alerting for ${event.sessionId}`);
+        dispatchAlert({
+          type: "session-error",
+          sessionId: event.sessionId,
+          title: "Session Error",
+          body: `${label} encountered an error`,
+        });
+      }
+    }
+  });
+
+  // Prune seen-event entries when the SDK session list shrinks so the
+  // dedup set doesn't grow unboundedly across a long app session.
+  const stopSdkSessionsWatch = watch(
+    () => sdk.sessions,
     (sessions) => {
-      checkSessionEndAlerts(sessions);
-      checkSessionErrorAlerts(sessions);
+      const activeIds = new Set(sessions.map((s) => s.sessionId));
+      store.pruneSdkEvents(activeIds);
     },
     { deep: false },
   );
 
-  // ── Periodic session refresh ─────────────────────────────────
-  // The session-end watcher only fires when the sessions array ref changes.
-  // Nothing else refreshes the list after startup, so we poll every 30s
-  // to detect isRunning transitions (agent finished / awaiting user).
-  let refreshTimer: ReturnType<typeof setInterval> | null = null;
-
-  function startRefreshPolling() {
-    stopRefreshPolling();
-    if (prefs.alertsEnabled) {
-      refreshTimer = setInterval(() => sessionsStore.refreshSessions(), 30_000);
-    }
-  }
-
-  function stopRefreshPolling() {
-    if (refreshTimer) {
-      clearInterval(refreshTimer);
-      refreshTimer = null;
-    }
-  }
-
-  // Poll open tabs for ask_user events every 10 seconds
-  function startPolling() {
-    stopPolling();
-    if (prefs.alertsEnabled && prefs.alertsOnAskUser) {
-      pollTimer = setInterval(pollRunningSessionsForAskUser, 10_000);
-    }
-  }
-
-  function stopPolling() {
-    if (pollTimer) {
-      clearInterval(pollTimer);
-      pollTimer = null;
-    }
-  }
-
-  // React to preference changes — start/stop polling
-  const stopPrefsWatch = watch(
-    () => [prefs.alertsEnabled, prefs.alertsOnAskUser, prefs.alertsScope],
-    () => {
-      startPolling();
-      startRefreshPolling();
-      // Re-seed baselines when scope changes (e.g. switching to "all")
-      seedTurnBaselines();
+  // On SDK disconnect, reset all dedup state so a subsequent reconnect
+  // starts fresh (avoids missing events after reconnect).
+  const stopConnectionWatch = watch(
+    () => sdk.connectionState,
+    (state) => {
+      if (state === "disconnected") {
+        store.$reset();
+        // Restore the captured route so scope filtering keeps working.
+        store.setCapturedRoute(router.currentRoute.value);
+      }
     },
-    { immediate: true },
   );
 
-  // Cleanup
-  onScopeDispose(() => {
-    stopSessionWatch();
-    stopPrefsWatch();
-    stopPolling();
-    stopRefreshPolling();
-    // Clear dedup state on scope disposal
+  // ── Cleanup ──────────────────────────────────────────────────
+  function cleanup() {
+    stopRouteWatch();
+    stopEventsWatch();
+    stopSdkSessionsWatch();
+    stopConnectionWatch();
     store.$reset();
-  });
+  }
+
+  const scope = getCurrentScope();
+  if (scope) {
+    onScopeDispose(cleanup);
+  } else {
+    logWarn(
+      "[alert-watcher] Initialized outside an active Vue effect scope. " +
+        "Cleanup will not run automatically — call the returned dispose function to clean up.",
+    );
+  }
+
+  return cleanup;
 }

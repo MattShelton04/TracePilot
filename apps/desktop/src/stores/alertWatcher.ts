@@ -1,123 +1,56 @@
 /**
- * Alert Watcher Store — owns the dedup / baseline state for the alert
- * watcher composable. The Sets and Maps here intentionally live outside
- * Vue's reactivity system (they are closure-owned, not exposed as refs)
- * because we only need high-water-mark / membership semantics; we never
- * want components to re-render on membership changes.
+ * Alert Watcher Store — owns the dedup state for the SDK-event-driven
+ * alert watcher composable.
  *
- * Exposed actions give the composable (and tests) a narrow, observable,
- * resettable surface over that state.
+ * State is intentionally closure-owned (not exposed as reactive refs) so
+ * that components never re-render on membership changes. Actions give the
+ * composable (and tests) a narrow, observable, resettable surface.
+ *
+ * All alert detection now happens via Copilot SDK bridge events
+ * (`session.idle`, `session.error`) forwarded through `useSdkStore`.
  */
 import { defineStore } from "pinia";
 import { type Ref, ref } from "vue";
 import type { RouteLocationNormalizedLoaded } from "vue-router";
 
 export interface AlertWatcherStore {
-  askUserPollInFlight: Ref<boolean>;
-  seedInFlight: Ref<boolean>;
   capturedRoute: Ref<RouteLocationNormalizedLoaded | null>;
-  seenRunning: (sessionId: string) => boolean;
-  markRunning: (sessionId: string) => void;
-  unmarkRunning: (sessionId: string) => void;
-  replaceRunning: (ids: Iterable<string>) => void;
-  hasTurnCount: (sessionId: string) => boolean;
-  getLastTurnCount: (sessionId: string) => number;
-  setLastTurnCount: (sessionId: string, n: number) => void;
-  hasAlertedAskUser: (callKey: string) => boolean;
-  markAskUserAlerted: (callKey: string) => void;
-  isErrorBaselineEstablished: (sessionId: string) => boolean;
-  establishErrorBaseline: (sessionId: string) => void;
-  getLastErrorCount: (sessionId: string) => number;
-  setLastErrorCount: (sessionId: string, n: number) => void;
-  pruneStaleEntries: (currentlyRunning: Set<string>) => void;
+  hasSeenSdkEvent: (sessionId: string, eventKey: string) => boolean;
+  markSdkEventSeen: (sessionId: string, eventKey: string) => void;
+  pruneSdkEvents: (activeSessions: Set<string>) => void;
   setCapturedRoute: (route: RouteLocationNormalizedLoaded | null) => void;
   $reset: () => void;
 }
 
 export const useAlertWatcherStore = defineStore("alertWatcher", (): AlertWatcherStore => {
-  // ── Non-reactive dedup state ──────────────────────────────────
-  // Closure-owned — not returned as refs, so Vue does not track them.
-  let previouslyRunning = new Set<string>();
-  let lastSeenTurnCount = new Map<string, number>();
-  let alertedAskUserCalls = new Set<string>();
-  let errorBaselineEstablished = new Set<string>();
-  let lastSeenErrorCount = new Map<string, number>();
-
-  // ── Reentrancy guards ─────────────────────────────────────────
-  const askUserPollInFlight = ref(false);
-  const seedInFlight = ref(false);
+  // Closure-owned dedup set for SDK bridge events.
+  // Keys are stored as "sessionId:eventKey" to allow pruning by session.
+  // UUID session IDs never contain ":", so splitting on the first ":" is safe.
+  let seenSdkEvents = new Set<string>();
 
   // ── Captured route ────────────────────────────────────────────
   const capturedRoute = ref<RouteLocationNormalizedLoaded | null>(null);
 
-  // ── Running-state transitions ─────────────────────────────────
-  function seenRunning(sessionId: string): boolean {
-    return previouslyRunning.has(sessionId);
-  }
-  function markRunning(sessionId: string): void {
-    previouslyRunning.add(sessionId);
-  }
-  function unmarkRunning(sessionId: string): void {
-    previouslyRunning.delete(sessionId);
-  }
-  function replaceRunning(ids: Iterable<string>): void {
-    previouslyRunning = new Set(ids);
+  // ── SDK event dedup ───────────────────────────────────────────
+  function hasSeenSdkEvent(sessionId: string, eventKey: string): boolean {
+    return seenSdkEvents.has(`${sessionId}:${eventKey}`);
   }
 
-  // ── Turn-count tracking ───────────────────────────────────────
-  function hasTurnCount(sessionId: string): boolean {
-    return lastSeenTurnCount.has(sessionId);
-  }
-  function getLastTurnCount(sessionId: string): number {
-    return lastSeenTurnCount.get(sessionId) ?? 0;
-  }
-  function setLastTurnCount(sessionId: string, n: number): void {
-    lastSeenTurnCount.set(sessionId, n);
+  function markSdkEventSeen(sessionId: string, eventKey: string): void {
+    seenSdkEvents.add(`${sessionId}:${eventKey}`);
   }
 
-  // ── ask_user dedup ────────────────────────────────────────────
-  function hasAlertedAskUser(callKey: string): boolean {
-    return alertedAskUserCalls.has(callKey);
-  }
-  function markAskUserAlerted(callKey: string): void {
-    alertedAskUserCalls.add(callKey);
-  }
-
-  // ── Error baseline + high-water mark ──────────────────────────
-  function isErrorBaselineEstablished(sessionId: string): boolean {
-    return errorBaselineEstablished.has(sessionId);
-  }
-  function establishErrorBaseline(sessionId: string): void {
-    errorBaselineEstablished.add(sessionId);
-  }
-  function getLastErrorCount(sessionId: string): number {
-    return lastSeenErrorCount.get(sessionId) ?? 0;
-  }
-  function setLastErrorCount(sessionId: string, n: number): void {
-    lastSeenErrorCount.set(sessionId, n);
-  }
-
-  // ── Stale-entry pruning ───────────────────────────────────────
   /**
-   * Remove tracking data for sessions that are no longer running.
-   * Prevents unbounded growth of the internal Maps/Sets.
+   * Remove seen-event entries for sessions no longer in `activeSessions`.
+   * Prevents unbounded growth as sessions come and go.
    */
-  function pruneStaleEntries(currentlyRunning: Set<string>): void {
-    for (const id of lastSeenTurnCount.keys()) {
-      if (!currentlyRunning.has(id)) {
-        lastSeenTurnCount.delete(id);
-      }
-    }
-    for (const id of lastSeenErrorCount.keys()) {
-      if (!currentlyRunning.has(id)) {
-        lastSeenErrorCount.delete(id);
-        errorBaselineEstablished.delete(id);
-      }
-    }
-    for (const key of alertedAskUserCalls) {
-      const sessionId = key.split(":")[0];
-      if (!currentlyRunning.has(sessionId)) {
-        alertedAskUserCalls.delete(key);
+  function pruneSdkEvents(activeSessions: Set<string>): void {
+    for (const key of seenSdkEvents) {
+      // Key format: "sessionId:rest" — sessionId is always a UUID (no colons).
+      const colonIdx = key.indexOf(":");
+      const sessionId = colonIdx >= 0 ? key.slice(0, colonIdx) : key;
+      if (!activeSessions.has(sessionId)) {
+        seenSdkEvents.delete(key);
       }
     }
   }
@@ -128,39 +61,17 @@ export const useAlertWatcherStore = defineStore("alertWatcher", (): AlertWatcher
   }
 
   // ── Reset ─────────────────────────────────────────────────────
-  /**
-   * Clear every internal Set/Map and reset all flags. Required for
-   * deterministic tests and for cleanup on composable scope disposal.
-   */
+  /** Clear all dedup state. Called on composable disposal and SDK disconnect. */
   function $reset(): void {
-    previouslyRunning = new Set();
-    lastSeenTurnCount = new Map();
-    alertedAskUserCalls = new Set();
-    errorBaselineEstablished = new Set();
-    lastSeenErrorCount = new Map();
-    askUserPollInFlight.value = false;
-    seedInFlight.value = false;
+    seenSdkEvents = new Set();
     capturedRoute.value = null;
   }
 
   return {
-    askUserPollInFlight,
-    seedInFlight,
     capturedRoute,
-    seenRunning,
-    markRunning,
-    unmarkRunning,
-    replaceRunning,
-    hasTurnCount,
-    getLastTurnCount,
-    setLastTurnCount,
-    hasAlertedAskUser,
-    markAskUserAlerted,
-    isErrorBaselineEstablished,
-    establishErrorBaseline,
-    getLastErrorCount,
-    setLastErrorCount,
-    pruneStaleEntries,
+    hasSeenSdkEvent,
+    markSdkEventSeen,
+    pruneSdkEvents,
     setCapturedRoute,
     $reset,
   };
