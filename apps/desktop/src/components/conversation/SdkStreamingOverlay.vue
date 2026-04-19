@@ -26,7 +26,11 @@ const hasContent = computed(() => {
     live.streamingMessages.size > 0 ||
     live.streamingReasoning.size > 0 ||
     live.activeTools.size > 0 ||
-    live.isAgentRunning.value
+    // Gate on activeTurnId (non-null means turn is in-flight).
+    // isAgentRunning stays true between turn_end and session.idle, but
+    // activeTurnId is cleared at turn_end — prevents "Copilot is thinking…"
+    // reappearing in that brief window.
+    (live.isAgentRunning.value && live.activeTurnId.value != null)
   );
 });
 
@@ -51,6 +55,7 @@ if (live) {
         ticker = null;
       }
     },
+    { immediate: true },
   );
 }
 
@@ -65,7 +70,7 @@ function elapsedMs(startedAt: number): string {
 </script>
 
 <template>
-  <div v-if="live && hasContent" class="sdk-stream-overlay">
+  <div v-if="live && hasContent" class="sdk-stream-overlay" aria-live="polite" aria-label="Copilot is responding">
     <!-- Streaming reasoning blocks (if any) -->
     <ReasoningBlock
       v-for="[id, r] in streamingReasoning"
@@ -108,9 +113,9 @@ function elapsedMs(startedAt: number): string {
       </div>
     </div>
 
-    <!-- Idle indicator: agent running but no content yet -->
+    <!-- Idle indicator: turn active but no content flowing yet -->
     <div
-      v-if="live.isLinkedToSdk.value && live.isAgentRunning.value && streamingMessages.length === 0 && streamingReasoning.length === 0 && activeTools.length === 0"
+      v-if="live.isAgentRunning.value && streamingMessages.length === 0 && streamingReasoning.length === 0 && activeTools.length === 0"
       class="sdk-stream-thinking"
     >
       <span class="sdk-stream-cursor" aria-hidden="true" />

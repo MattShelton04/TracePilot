@@ -50,11 +50,13 @@ const SESSION_ID = "session-live-1";
 let _seq = 0;
 
 function makeEvent(overrides: Partial<BridgeEvent> = {}): BridgeEvent {
+  const seq = ++_seq;
   return {
     sessionId: SESSION_ID,
     eventType: "session.idle",
-    timestamp: `2024-01-01T00:00:0${++_seq}Z`,
-    id: `evt-${_seq}`,
+    // Use a proper ISO-8601 timestamp that doesn't overflow at seq≥10.
+    timestamp: new Date(1704067200000 + seq * 1000).toISOString(),
+    id: `evt-${seq}`,
     parentId: null,
     ephemeral: false,
     data: null,
@@ -754,6 +756,16 @@ describe("useLiveSdkSession", () => {
         live = useLiveSdkSession(sessionIdRef);
       });
 
+      // Seed persistent state before the turn starts.
+      push(makeEvent({ eventType: "session.model_change", data: { newModel: "claude-opus-4" } }));
+      push(makeEvent({
+        eventType: "session.usage_info",
+        data: { currentTokens: 5000, tokenLimit: 10000, messagesLength: 20 },
+      }));
+      await nextTick();
+      expect(live.liveModel.value).toBe("claude-opus-4");
+      expect(live.tokenUsage.value).not.toBeNull();
+
       // Agent starts a turn
       push(makeEvent({ eventType: "assistant.turn_start", data: { turnId: "t1" } }));
       push(makeEvent({
@@ -768,10 +780,100 @@ describe("useLiveSdkSession", () => {
       sdkState.sessions = [];
       await nextTick();
 
+      // Transient state must be flushed
       expect(live.isAgentRunning.value).toBe(false);
       expect(live.activeTools.size).toBe(0);
+      expect(live.activeTurnId.value).toBeNull();
 
-      // liveModel/tokenUsage should be preserved (persistent data)
+      // Persistent state must be preserved (informational, user already saw it)
+      expect(live.liveModel.value).toBe("claude-opus-4");
+      expect(live.tokenUsage.value).not.toBeNull();
+      scope.stop();
+    });
+  });
+
+  describe("session ID change (A→B→A WeakSet replay)", () => {
+    it("replays session-A events after A→B→A navigation", async () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => {
+        live = useLiveSdkSession(sessionIdRef);
+      });
+
+      // Session A: receive a model_change event
+      push(makeEvent({ eventType: "session.model_change", data: { newModel: "model-A" } }));
+      await nextTick();
+      expect(live.liveModel.value).toBe("model-A");
+
+      // Navigate to session B
+      sdkState.sessions = [{ sessionId: "session-B", isActive: true }];
+      sessionIdRef.value = "session-B";
+      await nextTick();
+      expect(live.liveModel.value).toBeNull(); // state cleared
+
+      // Navigate back to session A
+      sdkState.sessions = [{ sessionId: SESSION_ID, isActive: true }];
+      sessionIdRef.value = SESSION_ID;
+      await nextTick();
+
+      // Without WeakSet reset, seen still has the old event objects
+      // and they would be skipped — liveModel would stay null.
+      expect(live.liveModel.value).toBe("model-A");
+      scope.stop();
+    });
+  });
+
+  describe("session.error event", () => {
+    it("clears streaming state and stops the agent on session.error", async () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => {
+        live = useLiveSdkSession(sessionIdRef);
+      });
+
+      push(makeEvent({ eventType: "assistant.turn_start", data: { turnId: "t1" } }));
+      push(makeEvent({
+        eventType: "assistant.message_delta",
+        ephemeral: true,
+        data: { messageId: "m1", deltaContent: "partial…" },
+      }));
+      push(makeEvent({
+        eventType: "tool.execution_start",
+        data: { toolCallId: "tc1", toolName: "bash", input: {}, isPipelined: false },
+      }));
+      await nextTick();
+      expect(live.isAgentRunning.value).toBe(true);
+      expect(live.streamingMessages.size).toBe(1);
+      expect(live.activeTools.size).toBe(1);
+
+      push(makeEvent({ eventType: "session.error", data: { message: "backend error" } }));
+      await nextTick();
+
+      expect(live.isAgentRunning.value).toBe(false);
+      expect(live.streamingMessages.size).toBe(0);
+      expect(live.streamingReasoning.size).toBe(0);
+      expect(live.activeTools.size).toBe(0);
+      scope.stop();
+    });
+  });
+
+  describe("isLinkedToSdk with null sessionId", () => {
+    it("returns false when sessionId is null", async () => {
+      const sessionIdRef = ref<string | null>(null);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => {
+        live = useLiveSdkSession(sessionIdRef);
+      });
+      await nextTick();
+
+      // sdk.sessions has an active session but the composable has no session ID
+      sdkState.sessions = [{ sessionId: SESSION_ID, isActive: true }];
+      await nextTick();
+
+      expect(live.isLinkedToSdk.value).toBe(false);
       scope.stop();
     });
   });

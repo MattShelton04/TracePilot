@@ -133,7 +133,11 @@ export function useLiveSdkSession(sessionIdRef: Ref<string | null>) {
   const lastSnapshotRewind = ref<{ eventsRemoved: number } | null>(null);
 
   // ── Dedup ────────────────────────────────────────────────────
-  const seen = new WeakSet<object>();
+  // `let` so the watcher can reassign when sessionId changes (A→B→A replay).
+  // Without this, returning to a previously-visited session would have all
+  // its events skipped — they're still in the old WeakSet and are silently
+  // deduplicated, leaving all reactive state permanently null.
+  let seen = new WeakSet<object>();
 
   // ── SDK linkage tracking ─────────────────────────────────────
   /**
@@ -290,7 +294,7 @@ export function useLiveSdkSession(sessionIdRef: Ref<string | null>) {
         break;
 
       case "session.usage_info":
-        if (d.tokenLimit && d.currentTokens != null) {
+        if (d.tokenLimit != null && d.tokenLimit > 0 && d.currentTokens != null) {
           tokenUsage.value = {
             currentTokens: d.currentTokens,
             tokenLimit: d.tokenLimit,
@@ -366,6 +370,9 @@ export function useLiveSdkSession(sessionIdRef: Ref<string | null>) {
 
   /** Reset all live state when navigating to a different session. */
   watch(sessionIdRef, () => {
+    // Reassign the WeakSet so events from the old session don't block
+    // replaying events if the user navigates back (A→B→A).
+    seen = new WeakSet<object>();
     streamingMessages.clear();
     streamingReasoning.clear();
     activeTools.clear();

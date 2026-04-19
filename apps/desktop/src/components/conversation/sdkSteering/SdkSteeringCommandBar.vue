@@ -59,7 +59,7 @@ function formatTokens(n: number | null): string {
 
       <div class="cb-actions">
         <button
-          :class="['cb-btn-abort', { visible: ctx.sdk.sendingMessage }]"
+          :class="['cb-btn-abort', { visible: ctx.sdk.sendingMessage || live?.isAgentRunning.value }]"
           title="Abort session"
           @click="ctx.handleAbort"
         >
@@ -121,7 +121,7 @@ function formatTokens(n: number | null): string {
       <!-- Per-turn stats chip (shown briefly after each turn completes) -->
       <div v-if="turnStats" class="cb-turn-stats" :title="`in:${formatTokens(turnStats.inputTokens)} out:${formatTokens(turnStats.outputTokens)} · ${formatDurationMs(turnStats.durationMs)}`">
         <span class="cb-turn-stat">{{ formatTokens(turnStats.outputTokens) }} tok</span>
-        <span v-if="turnStats.durationMs" class="cb-turn-stat">{{ formatDurationMs(turnStats.durationMs) }}</span>
+        <span v-if="turnStats.durationMs != null" class="cb-turn-stat">{{ formatDurationMs(turnStats.durationMs) }}</span>
       </div>
 
       <span class="cb-kbd-hint">

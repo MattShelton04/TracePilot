@@ -20,6 +20,7 @@ const live = useSdkLiveSessionContext();
 // Auto-dismiss abort chip after 4 s.
 let abortTimer: ReturnType<typeof setTimeout> | null = null;
 let truncationTimer: ReturnType<typeof setTimeout> | null = null;
+let compactionTimer: ReturnType<typeof setTimeout> | null = null;
 
 if (live) {
   watch(
@@ -41,11 +42,23 @@ if (live) {
       }
     },
   );
+
+  // Auto-dismiss the "Context compacted" banner after 6 s.
+  watch(
+    () => live.compaction.lastCompletedAt,
+    (v) => {
+      if (v != null) {
+        if (compactionTimer) clearTimeout(compactionTimer);
+        compactionTimer = setTimeout(() => live.clearCompaction(), 6000);
+      }
+    },
+  );
 }
 
 onUnmounted(() => {
   if (abortTimer) clearTimeout(abortTimer);
   if (truncationTimer) clearTimeout(truncationTimer);
+  if (compactionTimer) clearTimeout(compactionTimer);
 });
 
 function formatNumber(n: number | null): string {
