@@ -97,24 +97,24 @@ describe("useExportConfig", () => {
     it("applies the team preset — changes format and sections", () => {
       const { format, enabledSections, activePreset, applyPreset } = useExportConfig();
 
-      applyPreset("team");
+      applyPreset("minimal-team-log");
 
       expect(format.value).toBe("markdown");
-      const teamPreset = EXPORT_PRESETS.find((p) => p.id === "team")!;
-      expect([...enabledSections.value]).toEqual(expect.arrayContaining(teamPreset.sections));
-      expect(enabledSections.value.size).toBe(teamPreset.sections.length);
-      expect(activePreset.value).toBe("team");
+      const preset = EXPORT_PRESETS.find((p) => p.id === "minimal-team-log")!;
+      expect([...enabledSections.value]).toEqual(expect.arrayContaining(preset.sections));
+      expect(enabledSections.value.size).toBe(preset.sections.length);
+      expect(activePreset.value).toBe("minimal-team-log");
     });
 
     it("applies the analytics preset correctly", () => {
       const { format, enabledSections, activePreset, applyPreset } = useExportConfig();
 
-      applyPreset("analytics");
+      applyPreset("full-fidelity-backup");
 
-      expect(format.value).toBe("csv");
-      const preset = EXPORT_PRESETS.find((p) => p.id === "analytics")!;
+      expect(format.value).toBe("markdown");
+      const preset = EXPORT_PRESETS.find((p) => p.id === "full-fidelity-backup")!;
       expect(enabledSections.value.size).toBe(preset.sections.length);
-      expect(activePreset.value).toBe("analytics");
+      expect(activePreset.value).toBe("full-fidelity-backup");
     });
 
     it("is a no-op for non-existent preset", () => {
@@ -129,11 +129,11 @@ describe("useExportConfig", () => {
     it("does not clear activePreset via the format watcher", async () => {
       const { activePreset, applyPreset } = useExportConfig();
 
-      applyPreset("team");
+      applyPreset("minimal-team-log");
       // The format watcher fires asynchronously — must survive nextTick
       await nextTick();
 
-      expect(activePreset.value).toBe("team");
+      expect(activePreset.value).toBe("minimal-team-log");
     });
   });
 
@@ -184,7 +184,7 @@ describe("useExportConfig", () => {
     it("clears activePreset", () => {
       const { activePreset, selectAll, applyPreset } = useExportConfig();
 
-      applyPreset("team");
+      applyPreset("minimal-team-log");
       selectAll();
 
       expect(activePreset.value).toBeNull();
@@ -223,7 +223,7 @@ describe("useExportConfig", () => {
       } = useExportConfig();
 
       // Customize config
-      format.value = "csv";
+      format.value = "markdown";
       toggleSection("conversation"); // remove one section
 
       vi.setSystemTime(new Date("2026-06-15T12:00:00Z"));
@@ -233,7 +233,7 @@ describe("useExportConfig", () => {
       const preset = customPresets.value[0];
       expect(preset.label).toBe("My Report");
       expect(preset.icon).toBe("⭐");
-      expect(preset.format).toBe("csv");
+      expect(preset.format).toBe("markdown");
       expect(preset.sections).not.toContain("conversation");
       expect(preset.id).toMatch(/^custom-/);
     });
@@ -413,7 +413,7 @@ describe("useExportConfig", () => {
       const { format, activePreset } = useExportConfig();
       expect(activePreset.value).toBe("full");
 
-      format.value = "csv";
+      format.value = "markdown";
       await nextTick();
 
       expect(activePreset.value).toBeNull();
@@ -422,10 +422,10 @@ describe("useExportConfig", () => {
     it("does not clear activePreset when format changes via applyPreset", async () => {
       const { activePreset, applyPreset } = useExportConfig();
 
-      applyPreset("analytics"); // sets format to 'csv'
+      applyPreset("minimal-team-log"); // sets format to 'markdown'
       await nextTick();
 
-      expect(activePreset.value).toBe("analytics");
+      expect(activePreset.value).toBe("minimal-team-log");
     });
   });
 
@@ -454,7 +454,7 @@ describe("useExportConfig", () => {
 describe("exported constants", () => {
   it("EXPORT_PRESETS has expected built-in presets", () => {
     const ids = EXPORT_PRESETS.map((p) => p.id);
-    expect(ids).toEqual(["full", "team", "summary", "analytics", "agent-context"]);
+    expect(ids).toEqual(["full", "minimal-team-log", "agent-context", "full-fidelity-backup"]);
   });
 
   it("SECTION_GROUPS covers all sections", () => {
@@ -468,9 +468,8 @@ describe("exported constants", () => {
     }
   });
 
-  it("FORMAT_DESCRIPTIONS has entries for json, markdown, csv", () => {
+  it("FORMAT_DESCRIPTIONS has entries for json and markdown", () => {
     expect(FORMAT_DESCRIPTIONS).toHaveProperty("json");
     expect(FORMAT_DESCRIPTIONS).toHaveProperty("markdown");
-    expect(FORMAT_DESCRIPTIONS).toHaveProperty("csv");
   });
 });

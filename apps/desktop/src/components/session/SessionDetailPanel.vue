@@ -253,21 +253,30 @@ watch(isSessionActive, (active) => {
           </template>
 
           <button
-            v-if="prefs.isFeatureEnabled('sessionReplay') && router"
-            class="resume-btn"
-            @click="router!.push({ name: 'replay', params: { id: sessionId } })"
-            title="Open session in step-by-step replay view"
-          >
-            🎬 Replay
-          </button>
-
-          <button
             v-if="!isViewer()"
             class="resume-btn"
             @click="openSessionFolder"
             title="Open session state folder in file explorer"
           >
             📂 Open Folder
+          </button>
+
+          <button
+            v-if="!isViewer() && prefs.isFeatureEnabled('exportView') && router"
+            class="resume-btn"
+            :title="`Export session ${sessionId}`"
+            @click="router!.push({ name: 'export', query: { sessionId: resolvedSessionId } })"
+          >
+            📤 Export
+          </button>
+
+          <button
+            v-if="prefs.isFeatureEnabled('sessionReplay') && router"
+            class="resume-btn"
+            @click="router!.push({ name: 'replay', params: { id: sessionId } })"
+            title="Open session in step-by-step replay view"
+          >
+            🎬 Replay
           </button>
         </div>
 

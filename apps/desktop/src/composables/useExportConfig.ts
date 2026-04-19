@@ -21,6 +21,10 @@ export interface ExportPreset {
   description: string;
   format: ExportFormat;
   sections: SectionId[];
+  /** Optional content-detail overrides applied when this preset is activated. */
+  contentDetail?: Partial<ContentDetailOptions>;
+  /** Optional redaction overrides applied when this preset is activated. */
+  redaction?: Partial<RedactionOptions>;
 }
 
 export const EXPORT_PRESETS: readonly ExportPreset[] = [
@@ -33,37 +37,54 @@ export const EXPORT_PRESETS: readonly ExportPreset[] = [
     sections: [...ALL_SECTION_IDS],
   },
   {
-    id: "team",
-    label: "Team Report",
-    icon: "👥",
-    description: "Human-readable summary for sharing with teammates.",
+    id: "minimal-team-log",
+    label: "Minimal Team Log",
+    icon: "📝",
+    description:
+      "Conversation, plan and todos only — no raw tool arguments or subagent details. Ideal for sharing progress with teammates.",
     format: "markdown",
-    sections: ["conversation", "todos", "plan", "checkpoints", "metrics", "health"],
-  },
-  {
-    id: "summary",
-    label: "Summary",
-    icon: "📋",
-    description: "Brief overview — todos, plan, checkpoints, and metrics.",
-    format: "markdown",
-    sections: ["todos", "plan", "checkpoints", "metrics"],
-  },
-  {
-    id: "analytics",
-    label: "Analytics",
-    icon: "📊",
-    description: "Tabular metrics and events for spreadsheet analysis.",
-    format: "csv",
-    sections: ["metrics", "events", "health", "incidents"],
+    sections: ["conversation", "plan", "todos"],
+    contentDetail: {
+      includeToolDetails: false,
+      includeFullToolResults: false,
+      includeSubagentInternals: false,
+    },
+    redaction: { anonymizePaths: false, stripSecrets: false, stripPii: false },
   },
   {
     id: "agent-context",
     label: "Agent Context",
     icon: "🤖",
     description:
-      "Session summary for sharing with another AI — includes conversation, plan, and outcomes.",
+      "Session summary for sharing with another AI — includes conversation, plan, todos, and metrics.",
     format: "markdown",
     sections: ["conversation", "todos", "plan", "metrics", "health"],
+  },
+  {
+    id: "full-fidelity-backup",
+    label: "Full-Fidelity Backup",
+    icon: "🗄️",
+    description:
+      "Everything — all sections, full tool results, complete subagent conversation trees. The most complete record of a session.",
+    format: "markdown",
+    sections: [
+      "conversation",
+      "plan",
+      "todos",
+      "checkpoints",
+      "rewind_snapshots",
+      "metrics",
+      "health",
+      "incidents",
+      "events",
+      "parse_diagnostics",
+    ],
+    contentDetail: {
+      includeToolDetails: true,
+      includeFullToolResults: true,
+      includeSubagentInternals: true,
+    },
+    redaction: { anonymizePaths: false, stripSecrets: false, stripPii: false },
   },
 ] as const;
 
@@ -102,7 +123,6 @@ export const SECTION_ICONS: Record<SectionId, string> = {
 export const FORMAT_DESCRIPTIONS: Record<ExportFormat, string> = {
   json: "Full fidelity archive — lossless round-trip import/export.",
   markdown: "Human-readable summary — great for sharing in docs or PRs.",
-  csv: "Tabular data — ideal for spreadsheets and data analysis.",
 };
 
 // ── Composable ──────────────────────────────────────────────────
@@ -144,6 +164,12 @@ export function useExportConfig() {
     format.value = preset.format;
     enabledSections.value = new Set(preset.sections);
     activePreset.value = presetId;
+    if (preset.contentDetail) {
+      contentDetail.value = { ...contentDetail.value, ...preset.contentDetail };
+    }
+    if (preset.redaction) {
+      redaction.value = { ...redaction.value, ...preset.redaction };
+    }
     applyingPreset = false;
   }
 

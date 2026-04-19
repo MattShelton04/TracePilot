@@ -7,6 +7,7 @@ import { defineComponent, h, ref } from "vue";
 
 vi.mock("@tracepilot/client", () => ({
   exportSessions: vi.fn(),
+  exportSessionFolderZip: vi.fn(),
   getSessionSections: vi.fn().mockResolvedValue(null),
 }));
 
@@ -61,10 +62,11 @@ vi.mock("@/composables/useImportFlow", () => ({
   useImportFlow: () => defaultImportFlow,
 }));
 
-// Router stub - ImportTab calls useRouter()
+// Router stub - ExportTab calls useRoute(), ImportTab calls useRouter()
 const pushMock = vi.fn();
 vi.mock("vue-router", () => ({
   useRouter: () => ({ push: pushMock }),
+  useRoute: () => ({ query: {}, params: {} }),
 }));
 
 // ── Stub out the UI package for lightweight mounting ────────────

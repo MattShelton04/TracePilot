@@ -177,12 +177,13 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             // Logging commands (2)
             commands::logging::get_log_path,
             commands::logging::export_logs,
-            // Export / Import commands (5)
+            // Export / Import commands (6)
             commands::export_import::export_sessions,
             commands::export_import::preview_export,
             commands::export_import::get_session_sections,
             commands::export_import::preview_import,
             commands::export_import::import_sessions,
+            commands::export_import::export_session_folder_zip,
             // MCP commands (11)
             commands::mcp::mcp_list_servers,
             commands::mcp::mcp_get_server,

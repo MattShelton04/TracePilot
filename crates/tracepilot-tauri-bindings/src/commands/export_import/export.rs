@@ -1,8 +1,5 @@
-//! Tauri commands for session export and import.
-//!
-//! Wraps the `tracepilot-export` crate's builder, renderer, and import pipeline
-//! for IPC consumption. All heavy work runs inside `spawn_blocking` to keep the
-//! async runtime responsive.
+//! Structured session export commands — JSON / Markdown export, live preview,
+//! and section-availability detection.
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -11,11 +8,9 @@ use crate::blocking_cmd;
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
 use crate::helpers::{read_config, with_session_path};
-use crate::types::{
-    ExportPreviewResult, ExportSessionsResult, ImportIssue, ImportPreviewResult,
-    ImportSessionPreview, ImportSessionsResult, SessionSectionsInfo,
-};
+use crate::types::{ExportPreviewResult, ExportSessionsResult, SessionSectionsInfo};
 
+use tracepilot_core::parsing::session_db::list_tables;
 use tracepilot_export::SectionId;
 use tracepilot_export::options::{
     ContentDetailOptions, ExportFormat, ExportOptions, OutputTarget, RedactionOptions,
@@ -25,9 +20,9 @@ use tracepilot_export::options::{
 
 /// Build `ContentDetailOptions` and `RedactionOptions` from optional parameters.
 ///
-/// This centralizes the option-building logic used by both `export_sessions` and
+/// Centralises option-building logic used by both `export_sessions` and
 /// `preview_export`, ensuring consistent defaults across all export commands.
-fn build_export_detail_options(
+pub(super) fn build_export_detail_options(
     include_subagent_internals: Option<bool>,
     include_tool_details: Option<bool>,
     include_full_tool_results: Option<bool>,
@@ -48,6 +43,80 @@ fn build_export_detail_options(
     };
 
     (content_detail, redaction)
+}
+
+pub(super) fn parse_format(format: &str) -> CmdResult<ExportFormat> {
+    match format.to_lowercase().as_str() {
+        "json" => Ok(ExportFormat::Json),
+        "markdown" | "md" => Ok(ExportFormat::Markdown),
+        "csv" => Ok(ExportFormat::Csv),
+        other => Err(BindingsError::Validation(format!(
+            "Unknown export format: '{}'. Supported: json, markdown, csv",
+            other
+        ))),
+    }
+}
+
+pub(super) fn parse_sections(sections: &[String]) -> CmdResult<HashSet<SectionId>> {
+    if sections.is_empty() {
+        return Ok(HashSet::new());
+    }
+    let mut result = HashSet::new();
+    for s in sections {
+        let section = match s.to_lowercase().as_str() {
+            "conversation" => SectionId::Conversation,
+            "events" => SectionId::Events,
+            "todos" => SectionId::Todos,
+            "plan" => SectionId::Plan,
+            "checkpoints" => SectionId::Checkpoints,
+            "metrics" | "shutdownmetrics" => SectionId::Metrics,
+            "health" => SectionId::Health,
+            "incidents" => SectionId::Incidents,
+            "rewindsnapshots" | "rewind_snapshots" | "snapshots" => SectionId::RewindSnapshots,
+            "customtables" | "custom_tables" | "tables" => SectionId::CustomTables,
+            "parsediagnostics" | "parse_diagnostics" | "diagnostics" => SectionId::ParseDiagnostics,
+            unknown => {
+                return Err(BindingsError::Validation(format!(
+                    "Unknown section '{}'. Valid sections: conversation, events, todos, plan, \
+                     checkpoints, metrics, health, incidents, snapshots, tables, diagnostics",
+                    unknown
+                )));
+            }
+        };
+        result.insert(section);
+    }
+    Ok(result)
+}
+
+fn scan_events_for_incidents(events_path: &Path) -> bool {
+    use std::io::{BufRead, BufReader};
+    let Ok(file) = std::fs::File::open(events_path) else {
+        return false;
+    };
+    let reader = BufReader::new(file);
+    let incident_types = [
+        r#""type":"session.error""#,
+        r#""type":"session.warning""#,
+        r#""type":"session.compaction_complete""#,
+        r#""type":"session.truncation""#,
+    ];
+    for line in reader.lines().map_while(Result::ok) {
+        if incident_types.iter().any(|t| line.contains(t)) {
+            return true;
+        }
+    }
+    false
+}
+
+fn check_custom_tables(db_path: &Path) -> bool {
+    if !db_path.exists() {
+        return false;
+    }
+    let standard = ["todos", "todo_deps"];
+    match list_tables(db_path) {
+        Ok(names) => names.iter().any(|n| !standard.contains(&n.as_str())),
+        Err(_) => false,
+    }
 }
 
 // ── Export Commands ────────────────────────────────────────────────────────
@@ -96,7 +165,6 @@ pub async fn export_sessions(
             redaction,
         };
 
-        // Resolve session directories
         let session_paths: Vec<PathBuf> = session_ids
             .iter()
             .map(|id| {
@@ -105,8 +173,6 @@ pub async fn export_sessions(
             .collect::<std::result::Result<Vec<_>, _>>()?;
 
         let path_refs: Vec<&Path> = session_paths.iter().map(|p| p.as_path()).collect();
-
-        // Build archive and render
         let files = tracepilot_export::export_sessions_batch(&path_refs, &options)?;
 
         if files.is_empty() {
@@ -115,14 +181,11 @@ pub async fn export_sessions(
             ));
         }
 
-        // Write to destination
         let out = PathBuf::from(&output_path);
         if let Some(parent) = out.parent() {
             std::fs::create_dir_all(parent)?;
         }
 
-        // For multi-file exports (CSV, multi-session Markdown), write all files
-        // alongside the primary path in the same directory.
         let mut total_size: u64 = 0;
         if files.len() == 1 {
             std::fs::write(&out, &files[0].content)?;
@@ -165,8 +228,6 @@ pub async fn preview_export(
     strip_secrets: Option<bool>,
     strip_pii: Option<bool>,
 ) -> CmdResult<ExportPreviewResult> {
-    // Parse format and sections *before* entering spawn_blocking — these are
-    // validation-only steps that don't depend on the resolved session path.
     let export_format = parse_format(&format)?;
     let section_set = parse_sections(&sections)?;
 
@@ -191,7 +252,7 @@ pub async fn preview_export(
         let full_content = tracepilot_export::preview_export(
             &session_path,
             &options,
-            None, // No truncation — get full size for estimation
+            None,
         )?;
         let estimated_size = full_content.len();
 
@@ -248,158 +309,15 @@ pub async fn get_session_sections(
             has_plan,
             has_checkpoints,
             has_metrics,
-            has_health: false,
-            has_incidents: false,
+            has_health: has_events,
+            has_incidents: has_events && scan_events_for_incidents(&events_path),
             has_rewind_snapshots: session_path.join("rewind-snapshots").exists(),
-            has_custom_tables: false,
+            has_custom_tables: check_custom_tables(&db_path),
             event_count: summary.as_ref().and_then(|s| s.event_count),
             turn_count: summary.as_ref().and_then(|s| s.turn_count),
         })
     })
     .await
-}
-
-// ── Import Commands ───────────────────────────────────────────────────────
-
-/// Preview an import file — validate and show what would be imported.
-#[tauri::command]
-pub async fn preview_import(
-    state: tauri::State<'_, SharedConfig>,
-    file_path: String,
-) -> CmdResult<ImportPreviewResult> {
-    let cfg = read_config(&state);
-    let session_state_dir = cfg.session_state_dir();
-
-    blocking_cmd!({
-        let path = PathBuf::from(&file_path);
-
-        let preview = tracepilot_export::import::preview_import(&path, Some(&session_state_dir))?;
-
-        let needs_migration = matches!(
-            preview.migration_status,
-            tracepilot_export::import::MigrationStatus::Available { .. }
-        );
-
-        let issues: Vec<ImportIssue> = preview
-            .issues
-            .into_iter()
-            .map(|i| ImportIssue {
-                severity: match i.severity {
-                    tracepilot_export::import::IssueSeverity::Error => "error".into(),
-                    tracepilot_export::import::IssueSeverity::Warning => "warning".into(),
-                },
-                message: i.message,
-            })
-            .collect();
-
-        let sessions: Vec<ImportSessionPreview> = preview
-            .sessions
-            .into_iter()
-            .map(|s| ImportSessionPreview {
-                id: s.id,
-                summary: s.summary,
-                repository: s.repository,
-                created_at: None, // summary doesn't carry timestamps
-                section_count: s.available_sections.len(),
-                already_exists: s.already_exists,
-            })
-            .collect();
-
-        Ok::<_, crate::error::BindingsError>(ImportPreviewResult {
-            valid: preview.can_import,
-            issues,
-            sessions,
-            schema_version: preview.schema_version.to_string(),
-            needs_migration,
-        })
-    })
-}
-
-/// Import sessions from a `.tpx.json` file.
-#[tauri::command]
-pub async fn import_sessions(
-    state: tauri::State<'_, SharedConfig>,
-    file_path: String,
-    conflict_strategy: Option<String>,
-    session_filter: Option<Vec<String>>,
-    dry_run: Option<bool>,
-) -> CmdResult<ImportSessionsResult> {
-    if let Some(ref ids) = session_filter {
-        crate::validators::validate_session_id_list(ids)?;
-    }
-
-    let cfg = read_config(&state);
-    let session_state_dir = cfg.session_state_dir();
-
-    let strategy = match conflict_strategy.as_deref() {
-        Some("replace") => tracepilot_export::import::ConflictStrategy::Replace,
-        Some("duplicate") => tracepilot_export::import::ConflictStrategy::Duplicate,
-        _ => tracepilot_export::import::ConflictStrategy::Skip,
-    };
-
-    blocking_cmd!({
-        let path = PathBuf::from(&file_path);
-
-        let options = tracepilot_export::import::ImportOptions {
-            conflict_strategy: strategy,
-            session_filter: session_filter.unwrap_or_default(),
-            dry_run: dry_run.unwrap_or(false),
-        };
-
-        let result =
-            tracepilot_export::import::import_sessions(&path, &session_state_dir, &options)?;
-
-        Ok::<_, crate::error::BindingsError>(ImportSessionsResult {
-            imported_count: result.imported.len(),
-            skipped_count: result.skipped.len(),
-            warnings: result.warnings,
-        })
-    })
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────
-
-fn parse_format(format: &str) -> CmdResult<ExportFormat> {
-    match format.to_lowercase().as_str() {
-        "json" => Ok(ExportFormat::Json),
-        "markdown" | "md" => Ok(ExportFormat::Markdown),
-        "csv" => Ok(ExportFormat::Csv),
-        other => Err(BindingsError::Validation(format!(
-            "Unknown export format: '{}'. Supported: json, markdown, csv",
-            other
-        ))),
-    }
-}
-
-fn parse_sections(sections: &[String]) -> CmdResult<HashSet<SectionId>> {
-    if sections.is_empty() {
-        return Ok(HashSet::new());
-    }
-    let mut result = HashSet::new();
-    for s in sections {
-        let section = match s.to_lowercase().as_str() {
-            "conversation" => SectionId::Conversation,
-            "events" => SectionId::Events,
-            "todos" => SectionId::Todos,
-            "plan" => SectionId::Plan,
-            "checkpoints" => SectionId::Checkpoints,
-            "metrics" | "shutdownmetrics" => SectionId::Metrics,
-            "health" => SectionId::Health,
-            "incidents" => SectionId::Incidents,
-            "rewindsnapshots" | "rewind_snapshots" | "snapshots" => SectionId::RewindSnapshots,
-            "customtables" | "custom_tables" | "tables" => SectionId::CustomTables,
-            "parsediagnostics" | "parse_diagnostics" | "diagnostics" => SectionId::ParseDiagnostics,
-            unknown => {
-                return Err(BindingsError::Validation(format!(
-                    "Unknown section '{}'. Valid sections: conversation, events, todos, plan, \
-                     checkpoints, metrics, health, incidents, snapshots, tables, diagnostics",
-                    unknown
-                )));
-            }
-        };
-        result.insert(section);
-    }
-    Ok(result)
 }
 
 #[cfg(test)]

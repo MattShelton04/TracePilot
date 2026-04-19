@@ -193,6 +193,10 @@ fn redact_turn(
         redact_string(&mut event.summary, patterns, stats);
     }
 
+    for msg in &mut turn.system_messages {
+        redact_string(msg, patterns, stats);
+    }
+
     // Attachments are stored as arbitrary JSON (file paths, code snippets, etc.)
     if let Some(attachments) = &mut turn.attachments {
         for attachment in attachments.iter_mut() {
