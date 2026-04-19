@@ -249,16 +249,38 @@ fn write_turn(md: &mut String, turn: &ConversationTurn) {
                 .duration_ms
                 .map(|d| format!("{}ms", d))
                 .unwrap_or_else(|| "—".to_string());
-            let summary = tool
-                .intention_summary
-                .as_deref()
-                .or(tool.args_summary.as_deref())
-                .unwrap_or("—");
 
             let name = if tool.is_subagent {
-                format!("🤖 {}", tool.tool_name)
+                let display = tool.agent_display_name.as_deref().unwrap_or(&tool.tool_name);
+                format!("🤖 {}", display)
             } else {
                 tool.tool_name.clone()
+            };
+
+            // For subagents, enrich the summary column with model + usage stats.
+            let summary = if tool.is_subagent {
+                let base = tool
+                    .intention_summary
+                    .as_deref()
+                    .or(tool.args_summary.as_deref())
+                    .unwrap_or("—");
+                let mut parts: Vec<String> = vec![base.to_string()];
+                if let Some(model) = tool.model.as_deref() {
+                    parts.push(model.to_string());
+                }
+                if let Some(tok) = tool.total_tokens {
+                    parts.push(format!("{} tok", tok));
+                }
+                if let Some(calls) = tool.total_tool_calls {
+                    parts.push(format!("{} calls", calls));
+                }
+                parts.join(" · ")
+            } else {
+                tool.intention_summary
+                    .as_deref()
+                    .or(tool.args_summary.as_deref())
+                    .unwrap_or("—")
+                    .to_string()
             };
 
             let _ = writeln!(md, "| {} | {} | {} | {} |", name, status, duration, summary);
@@ -273,7 +295,40 @@ fn write_turn(md: &mut String, turn: &ConversationTurn) {
             .collect();
         if !detailed_tools.is_empty() {
             for tool in detailed_tools {
-                let _ = writeln!(md, "#### 🔧 {}\n", tool.tool_name);
+                if tool.is_subagent {
+                    // Subagent: richer heading + stats metadata
+                    let display =
+                        tool.agent_display_name.as_deref().unwrap_or(&tool.tool_name);
+                    let _ = writeln!(md, "#### 🤖 {}\n", display);
+
+                    // Stats line: model · tokens · tool calls
+                    let mut stats: Vec<String> = Vec::new();
+                    if let Some(model) = tool.model.as_deref() {
+                        if let Some(req) = tool.requested_model.as_deref()
+                            && req != model
+                        {
+                            stats.push(format!("{} (requested: {})", model, req));
+                        } else {
+                            stats.push(model.to_string());
+                        }
+                    }
+                    if let Some(tok) = tool.total_tokens {
+                        stats.push(format!("{} tokens", tok));
+                    }
+                    if let Some(calls) = tool.total_tool_calls {
+                        stats.push(format!("{} tool calls", calls));
+                    }
+                    if !stats.is_empty() {
+                        let _ = writeln!(md, "*{}*\n", stats.join(" · "));
+                    }
+
+                    if let Some(desc) = tool.agent_description.as_deref() {
+                        let _ = writeln!(md, "{}\n", desc);
+                    }
+                } else {
+                    let _ = writeln!(md, "#### 🔧 {}\n", tool.tool_name);
+                }
+
                 if let Some(args) = &tool.arguments {
                     md.push_str("**Arguments:**\n\n");
                     let _ = writeln!(md, "```json\n{}\n```\n", args);
@@ -330,13 +385,13 @@ fn write_todos(md: &mut String, todos: &TodoExport) {
         }
     }
 
-    // Dependency graph if present
     if !todos.deps.is_empty() {
         md.push_str("\n**Dependencies:**\n");
         for dep in &todos.deps {
             let _ = writeln!(md, "- {} → {}", dep.todo_id, dep.depends_on);
         }
     }
+
     md.push('\n');
 }
 
@@ -601,6 +656,7 @@ fn write_block(md: &mut String, label: &str, text: &str) {
 mod tests {
     use super::*;
     use crate::test_helpers::{minimal_session, simple_turn, test_archive};
+    use tracepilot_core::models::TurnToolCall;
 
     #[test]
     fn renders_metadata_table() {
@@ -672,6 +728,7 @@ mod tests {
         let text = files[0].as_text().unwrap();
         assert!(text.contains("[x] **setup**: Project setup"));
         assert!(text.contains("[ ] **impl**: Implementation"));
+        assert!(text.contains("**Dependencies:**"));
         assert!(text.contains("impl → setup"));
     }
 
@@ -735,7 +792,58 @@ mod tests {
         let text = files[0].as_text().unwrap();
         assert!(text.contains("**Tool Calls**"));
         assert!(text.contains("write_file"));
-        assert!(text.contains("🤖 task")); // subagent icon
+        // Subagent falls back to tool_name when agent_display_name is absent
+        assert!(text.contains("🤖 task"));
+    }
+
+    #[test]
+    fn renders_subagent_with_rich_metadata() {
+        let mut session = minimal_session();
+        let mut turn = simple_turn(0, "Explore the codebase", "Done!", None);
+        turn.tool_calls = vec![TurnToolCall {
+            tool_call_id: Some("tc_1".into()),
+            parent_tool_call_id: None,
+            tool_name: "task".into(),
+            event_index: None,
+            arguments: Some(serde_json::json!({"description": "Find all bugs"})),
+            success: Some(true),
+            error: None,
+            started_at: None,
+            completed_at: None,
+            duration_ms: Some(4500),
+            mcp_server_name: None,
+            mcp_tool_name: None,
+            is_complete: true,
+            is_subagent: true,
+            agent_display_name: Some("Explore Agent".into()),
+            agent_description: Some("Fast agent for codebase exploration".into()),
+            model: Some("claude-haiku-4.5".into()),
+            requested_model: None,
+            intention_summary: Some("Find all TODO markers".into()),
+            total_tokens: Some(1240),
+            total_tool_calls: Some(8),
+            result_content: Some("Found 3 TODOs".into()),
+            args_summary: None,
+        }];
+        session.conversation = Some(vec![turn]);
+
+        let archive = test_archive(session);
+        let files = MarkdownRenderer.render(&archive).unwrap();
+        let text = files[0].as_text().unwrap();
+
+        // Summary table: uses agent_display_name + enriched summary
+        assert!(text.contains("🤖 Explore Agent"));
+        assert!(text.contains("Find all TODO markers"));
+        assert!(text.contains("claude-haiku-4.5"));
+        assert!(text.contains("1240 tok"));
+        assert!(text.contains("8 calls"));
+
+        // Detail block: richer heading + stats
+        assert!(text.contains("#### 🤖 Explore Agent"));
+        assert!(text.contains("1240 tokens"));
+        assert!(text.contains("8 tool calls"));
+        assert!(text.contains("Fast agent for codebase exploration"));
+        assert!(text.contains("Found 3 TODOs"));
     }
 
     #[test]
@@ -801,5 +909,40 @@ mod tests {
         assert!(text.contains("my_data"));
         assert!(text.contains("foo"));
         assert!(text.contains("bar"));
+    }
+
+    #[test]
+    fn renders_todos_with_dep_list() {
+        let mut session = minimal_session();
+        session.todos = Some(TodoExport {
+            items: vec![
+                TodoItemExport {
+                    id: "setup".to_string(),
+                    title: "Project setup".to_string(),
+                    description: None,
+                    status: "done".to_string(),
+                    created_at: None,
+                    updated_at: None,
+                },
+                TodoItemExport {
+                    id: "impl".to_string(),
+                    title: "Implementation".to_string(),
+                    description: None,
+                    status: "in_progress".to_string(),
+                    created_at: None,
+                    updated_at: None,
+                },
+            ],
+            deps: vec![
+                TodoDepExport { todo_id: "impl".to_string(), depends_on: "setup".to_string() },
+            ],
+        });
+
+        let archive = test_archive(session);
+        let files = MarkdownRenderer.render(&archive).unwrap();
+        let text = files[0].as_text().unwrap();
+
+        assert!(text.contains("**Dependencies:**"));
+        assert!(text.contains("impl → setup"));
     }
 }

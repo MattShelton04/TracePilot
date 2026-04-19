@@ -94,6 +94,7 @@ fn main() {
                     "get_session_sections",
                     "preview_import",
                     "import_sessions",
+                    "export_session_folder_zip",
                     // MCP commands
                     "mcp_list_servers",
                     "mcp_get_server",

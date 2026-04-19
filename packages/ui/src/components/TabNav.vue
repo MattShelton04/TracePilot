@@ -129,12 +129,41 @@ function handleKeydown(e: KeyboardEvent, index: number) {
 </template>
 
 <style scoped>
-.tab-nav-item--pill {
-  border-radius: 999px;
-}
+/* ── Pill variant ─────────────────────────────────────────── */
 .tab-nav--pill {
   border-bottom: none;
 }
+.tab-nav-item--pill {
+  border-bottom: none;
+  padding: 5px 16px;
+  background: var(--canvas-subtle);
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+}
+.tab-nav-item--pill:not(:first-child) {
+  border-left: none;
+}
+.tab-nav-item--pill:first-child {
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+}
+.tab-nav-item--pill:last-child {
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+/* Active state — must override global .tab-nav-item.active (border-bottom-color + ::after) */
+.tab-nav-item--pill.active {
+  background: var(--accent-subtle);
+  border-color: var(--accent-muted);
+  border-bottom-color: var(--accent-muted);
+  color: var(--accent-fg);
+}
+.tab-nav-item--pill.active::after {
+  display: none;
+}
+.tab-nav-item--pill:hover:not(.active) {
+  background: var(--neutral-subtle);
+  color: var(--text-primary);
+}
+
 .tab-nav-icon {
   display: inline-flex;
   align-items: center;

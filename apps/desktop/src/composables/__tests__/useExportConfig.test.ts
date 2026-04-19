@@ -7,13 +7,13 @@ describe("useExportConfig", () => {
   it("keeps activePreset when applying a preset", async () => {
     const config = useExportConfig();
 
-    config.applyPreset("summary");
+    config.applyPreset("minimal-team-log");
     await nextTick();
 
-    const summaryPreset = EXPORT_PRESETS.find((p) => p.id === "summary");
-    expect(config.activePreset.value).toBe("summary");
-    expect(config.format.value).toBe(summaryPreset?.format);
-    expect(new Set(config.sectionsArray.value)).toEqual(new Set(summaryPreset?.sections ?? []));
+    const preset = EXPORT_PRESETS.find((p) => p.id === "minimal-team-log");
+    expect(config.activePreset.value).toBe("minimal-team-log");
+    expect(config.format.value).toBe(preset?.format);
+    expect(new Set(config.sectionsArray.value)).toEqual(new Set(preset?.sections ?? []));
   });
 
   it("clears activePreset when format changes manually", async () => {
@@ -22,7 +22,7 @@ describe("useExportConfig", () => {
     config.applyPreset("full");
     await nextTick();
 
-    config.format.value = "csv";
+    config.format.value = "markdown";
     await nextTick();
 
     expect(config.activePreset.value).toBeNull();

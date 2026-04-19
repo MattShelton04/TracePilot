@@ -208,10 +208,25 @@ const formattedPreviewContent = computed(() => {
 
 // ── Format Options ──────────────────────────────────────────
 
-const formatOptions: { value: ExportFormat; label: string }[] = [
+type DisplayFormat = ExportFormat | "zip";
+
+/** Combined format value: wraps format + rawZipMode as a single selection. */
+const displayFormat = computed<DisplayFormat>({
+  get: () => (rawZipMode.value ? "zip" : format.value),
+  set: (v: DisplayFormat) => {
+    if (v === "zip") {
+      rawZipMode.value = true;
+    } else {
+      rawZipMode.value = false;
+      format.value = v as ExportFormat;
+    }
+  },
+});
+
+const formatOptions: { value: DisplayFormat; label: string }[] = [
   { value: "json", label: "JSON" },
   { value: "markdown", label: "Markdown" },
-  { value: "csv", label: "CSV" },
+  { value: "zip", label: "Raw Zip" },
 ];
 
 // ── Selected Session Info ───────────────────────────────────
@@ -339,7 +354,7 @@ function copiedToClipboard() {
         <button class="btn btn-primary btn-sm" :disabled="!newPresetName.trim()" @click="handleSavePreset">
           Save
         </button>
-        <button class="link-btn" @click="showSavePreset = false">Cancel</button>
+        <button class="btn btn-sm" @click="showSavePreset = false">Cancel</button>
       </div>
 
       <!-- Session Selector (searchable) -->
@@ -391,16 +406,7 @@ function copiedToClipboard() {
       <!-- Format -->
       <section class="config-section">
         <h3 class="config-section-title">Format</h3>
-        <BtnGroup v-model="format" :options="formatOptions" @update:model-value="rawZipMode = false" />
-        <button
-          class="raw-zip-btn"
-          :class="{ active: rawZipMode }"
-          type="button"
-          title="Export the raw session folder as a zip archive"
-          @click="rawZipMode = !rawZipMode"
-        >
-          📦 Raw Zip (session folder)
-        </button>
+        <BtnGroup v-model="displayFormat" :options="formatOptions" />
         <p v-if="rawZipMode" class="format-desc-text">
           Raw zip of the session folder — all files exactly as stored on disk. No rendering or filtering.
         </p>
