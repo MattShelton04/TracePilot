@@ -135,52 +135,18 @@ pub async fn reindex_sessions(
 
     // Phase 2: Kick off search content indexing in background (non-blocking).
     if result.as_ref().map(|r| r.is_ok()).unwrap_or(false) {
-        let search_permit = search_semaphore.0.clone().try_acquire_owned();
-        if let Ok(search_permit) = search_permit {
-            let cfg2 = read_config(&state);
-            let session_state_dir2 = cfg2.session_state_dir();
-            let index_path2 = cfg2.index_db_path();
-            let app2 = app.clone();
-            tokio::task::spawn_blocking(move || {
-                let _permit = search_permit;
-                let start = std::time::Instant::now();
-                let _ = app2.emit(crate::events::SEARCH_INDEXING_STARTED, ());
-                match tracepilot_indexer::reindex_search_content(
-                    &session_state_dir2,
-                    &index_path2,
-                    |progress| {
-                        let _ = app2.emit(
-                            crate::events::SEARCH_INDEXING_PROGRESS,
-                            serde_json::json!({
-                                "current": progress.current,
-                                "total": progress.total
-                            }),
-                        );
-                    },
-                    || false,
-                ) {
-                    Ok((indexed, skipped)) => {
-                        tracing::debug!(
-                            indexed,
-                            skipped,
-                            elapsed_ms = start.elapsed().as_millis(),
-                            "reindex_sessions Phase 2 wall time"
-                        );
-                        let _ = app2.emit(
-                            crate::events::SEARCH_INDEXING_FINISHED,
-                            serde_json::json!({"success": true}),
-                        );
-                    }
-                    Err(e) => {
-                        tracing::warn!(error = %e, "Phase 2 search indexing failed");
-                        let _ = app2.emit(
-                            crate::events::SEARCH_INDEXING_FINISHED,
-                            serde_json::json!({"success": false, "error": e.to_string()}),
-                        );
-                    }
-                }
-            });
-        }
+        let cfg2 = read_config(&state);
+        spawn_search_content_phase2(
+            search_semaphore.0.clone(),
+            cfg2.session_state_dir(),
+            cfg2.index_db_path(),
+            app.clone(),
+            "reindex_sessions Phase 2 wall time",
+            "Phase 2 search indexing failed",
+            |sdir, ipath, on_progress| {
+                tracepilot_indexer::reindex_search_content(sdir, ipath, on_progress, || false)
+            },
+        );
     }
 
     result?
@@ -230,52 +196,18 @@ pub async fn reindex_sessions_full(
 
     // Phase 2: search content rebuild
     if result.as_ref().map(|r| r.is_ok()).unwrap_or(false) {
-        let search_permit = search_semaphore.0.clone().try_acquire_owned();
-        if let Ok(search_permit) = search_permit {
-            let cfg2 = read_config(&state);
-            let session_state_dir2 = cfg2.session_state_dir();
-            let index_path2 = cfg2.index_db_path();
-            let app2 = app.clone();
-            tokio::task::spawn_blocking(move || {
-                let _permit = search_permit;
-                let start = std::time::Instant::now();
-                let _ = app2.emit(crate::events::SEARCH_INDEXING_STARTED, ());
-                match tracepilot_indexer::rebuild_search_content(
-                    &session_state_dir2,
-                    &index_path2,
-                    |progress| {
-                        let _ = app2.emit(
-                            crate::events::SEARCH_INDEXING_PROGRESS,
-                            serde_json::json!({
-                                "current": progress.current,
-                                "total": progress.total
-                            }),
-                        );
-                    },
-                    || false,
-                ) {
-                    Ok((indexed, skipped)) => {
-                        tracing::debug!(
-                            indexed,
-                            skipped,
-                            elapsed_ms = start.elapsed().as_millis(),
-                            "rebuild_search_index Phase 2 wall time"
-                        );
-                        let _ = app2.emit(
-                            crate::events::SEARCH_INDEXING_FINISHED,
-                            serde_json::json!({"success": true}),
-                        );
-                    }
-                    Err(e) => {
-                        tracing::warn!(error = %e, "Phase 2 search rebuild failed");
-                        let _ = app2.emit(
-                            crate::events::SEARCH_INDEXING_FINISHED,
-                            serde_json::json!({"success": false, "error": e.to_string()}),
-                        );
-                    }
-                }
-            });
-        }
+        let cfg2 = read_config(&state);
+        spawn_search_content_phase2(
+            search_semaphore.0.clone(),
+            cfg2.session_state_dir(),
+            cfg2.index_db_path(),
+            app.clone(),
+            "rebuild_search_index Phase 2 wall time",
+            "Phase 2 search rebuild failed",
+            |sdir, ipath, on_progress| {
+                tracepilot_indexer::rebuild_search_content(sdir, ipath, on_progress, || false)
+            },
+        );
     }
 
     result?
@@ -586,4 +518,68 @@ pub async fn get_result_context(
         let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&cfg.index_db_path())?;
         db.get_result_context(result_id, radius.unwrap_or(2))
     })
+}
+
+// ---------------------------------------------------------------------------
+// Internal helpers
+// ---------------------------------------------------------------------------
+
+/// Acquires the search semaphore and spawns a background `spawn_blocking` task
+/// that runs a Phase 2 search-content job. The caller supplies `search_fn` so
+/// that both `reindex_sessions` and `reindex_sessions_full` share identical
+/// orchestration: semaphore guard, event emission, and logging.
+fn spawn_search_content_phase2<F>(
+    search_semaphore: std::sync::Arc<tokio::sync::Semaphore>,
+    session_state_dir: std::path::PathBuf,
+    index_path: std::path::PathBuf,
+    app: tauri::AppHandle,
+    debug_label: &'static str,
+    warn_label: &'static str,
+    search_fn: F,
+) where
+    F: FnOnce(
+            &std::path::Path,
+            &std::path::Path,
+            &mut dyn FnMut(&tracepilot_indexer::SearchIndexingProgress),
+        ) -> tracepilot_indexer::Result<(usize, usize)>
+        + Send
+        + 'static,
+{
+    let Ok(permit) = search_semaphore.try_acquire_owned() else {
+        return;
+    };
+    tokio::task::spawn_blocking(move || {
+        let _permit = permit;
+        let start = std::time::Instant::now();
+        let _ = app.emit(crate::events::SEARCH_INDEXING_STARTED, ());
+        match search_fn(&session_state_dir, &index_path, &mut |progress| {
+            let _ = app.emit(
+                crate::events::SEARCH_INDEXING_PROGRESS,
+                serde_json::json!({
+                    "current": progress.current,
+                    "total": progress.total
+                }),
+            );
+        }) {
+            Ok((indexed, skipped)) => {
+                tracing::debug!(
+                    indexed,
+                    skipped,
+                    elapsed_ms = start.elapsed().as_millis(),
+                    "{}", debug_label
+                );
+                let _ = app.emit(
+                    crate::events::SEARCH_INDEXING_FINISHED,
+                    serde_json::json!({"success": true}),
+                );
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, "{}", warn_label);
+                let _ = app.emit(
+                    crate::events::SEARCH_INDEXING_FINISHED,
+                    serde_json::json!({"success": false, "error": e.to_string()}),
+                );
+            }
+        }
+    });
 }
