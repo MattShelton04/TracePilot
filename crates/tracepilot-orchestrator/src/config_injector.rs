@@ -3,6 +3,7 @@
 use crate::error::{OrchestratorError, Result};
 use crate::types::{AgentDefinition, BackupDiffPreview, BackupEntry, ConfigDiff, CopilotConfig};
 use std::path::{Path, PathBuf};
+use tracepilot_core::utils::backup::BackupStore;
 
 /// Read all agent definitions for a given Copilot version.
 pub fn read_agent_definitions(version_dir: &Path) -> Result<Vec<AgentDefinition>> {
@@ -103,7 +104,8 @@ pub fn create_backup(file_path: &Path, backup_dir: &Path, label: &str) -> Result
         )));
     }
 
-    std::fs::create_dir_all(backup_dir)?;
+    let store = BackupStore::new(backup_dir);
+    store.ensure_dir()?;
 
     let timestamp = chrono::Utc::now().format("%Y%m%d-%H%M%S%.3f");
     let file_stem = file_path.file_stem().unwrap_or_default().to_string_lossy();
@@ -112,27 +114,25 @@ pub fn create_backup(file_path: &Path, backup_dir: &Path, label: &str) -> Result
     } else {
         format!("{}-{}-{}", file_stem, label, timestamp)
     };
-    let backup_path = backup_dir.join(&backup_name);
 
-    std::fs::copy(file_path, &backup_path)?;
+    let backup_path = store.write_copy(file_path, &backup_name)?;
     let meta = std::fs::metadata(&backup_path)?;
-
     let created_at = chrono::Utc::now().to_rfc3339();
 
-    // Write sidecar metadata so list_backups can recover source_path
+    // Write sidecar metadata atomically so a crash never leaves the backup
+    // file without a discoverable sidecar.
     let sidecar_path = backup_dir.join(format!("{}.meta.json", backup_name));
+    let sidecar_tmp = sidecar_path.with_extension("tmp");
     let sidecar = serde_json::json!({
         "source_path": file_path.to_string_lossy(),
         "label": label,
         "original_filename": file_path.file_name().unwrap_or_default().to_string_lossy(),
     });
-    std::fs::write(
-        &sidecar_path,
-        serde_json::to_string_pretty(&sidecar).unwrap_or_default(),
-    )?;
+    std::fs::write(&sidecar_tmp, serde_json::to_string_pretty(&sidecar)?)?;
+    std::fs::rename(&sidecar_tmp, &sidecar_path)?;
 
     Ok(BackupEntry {
-        id: uuid::Uuid::new_v4().to_string(),
+        id: backup_path.to_string_lossy().to_string(),
         label: label.to_string(),
         source_path: file_path.to_string_lossy().to_string(),
         backup_path: backup_path.to_string_lossy().to_string(),
@@ -143,30 +143,28 @@ pub fn create_backup(file_path: &Path, backup_dir: &Path, label: &str) -> Result
 
 /// List existing backups.
 pub fn list_backups(backup_dir: &Path) -> Result<Vec<BackupEntry>> {
-    if !backup_dir.exists() {
-        return Ok(Vec::new());
-    }
+    let store = BackupStore::new(backup_dir);
+    let files = store.list_by_mtime()?;
 
-    let mut entries = Vec::new();
-    for entry in std::fs::read_dir(backup_dir)? {
-        let entry = entry?;
-        let path = entry.path();
-        // Skip sidecar metadata files
-        if path.extension().and_then(|e| e.to_str()) == Some("json") {
-            continue;
-        }
-        if path.is_file() {
-            let meta = std::fs::metadata(&path)?;
-            let file_name = path
+    let mut entries: Vec<BackupEntry> = files
+        .into_iter()
+        .filter(|f| {
+            // Skip sidecar metadata files.
+            f.path.extension().and_then(|e| e.to_str()) != Some("json")
+        })
+        .map(|f| {
+            let file_name = f
+                .path
                 .file_name()
                 .unwrap_or_default()
                 .to_string_lossy()
                 .to_string();
 
-            // Try to read sidecar metadata
+            // Try to read sidecar metadata.
             let sidecar_path = backup_dir.join(format!("{}.meta.json", file_name));
             let (source_path, label) = if sidecar_path.exists() {
-                let sidecar_content = std::fs::read_to_string(&sidecar_path).unwrap_or_default();
+                let sidecar_content =
+                    std::fs::read_to_string(&sidecar_path).unwrap_or_default();
                 let sidecar: serde_json::Value =
                     serde_json::from_str(&sidecar_content).unwrap_or_default();
                 (
@@ -185,20 +183,17 @@ pub fn list_backups(backup_dir: &Path) -> Result<Vec<BackupEntry>> {
                 (String::new(), file_name.clone())
             };
 
-            entries.push(BackupEntry {
-                id: uuid::Uuid::new_v4().to_string(),
+            BackupEntry {
+                id: f.path.to_string_lossy().to_string(),
                 label,
                 source_path,
-                backup_path: path.to_string_lossy().to_string(),
-                created_at: meta
-                    .modified()
-                    .ok()
-                    .map(|t| chrono::DateTime::<chrono::Utc>::from(t).to_rfc3339())
-                    .unwrap_or_default(),
-                size_bytes: meta.len(),
-            });
-        }
-    }
+                backup_path: f.path.to_string_lossy().to_string(),
+                created_at: chrono::DateTime::<chrono::Utc>::from(f.modified)
+                    .to_rfc3339(),
+                size_bytes: f.size_bytes,
+            }
+        })
+        .collect();
 
     entries.sort_by(|a, b| b.created_at.cmp(&a.created_at));
     Ok(entries)
@@ -207,42 +202,17 @@ pub fn list_backups(backup_dir: &Path) -> Result<Vec<BackupEntry>> {
 /// Delete a backup file and its sidecar metadata.
 /// The backup_path must reside within the expected backup directory.
 pub fn delete_backup(backup_path: &Path) -> Result<()> {
-    if !backup_path.exists() {
-        return Err(OrchestratorError::NotFound(format!(
-            "Backup file not found: {}",
-            backup_path.display()
-        )));
-    }
-
-    // Validate path is within the backup directory
     let expected_dir = backup_dir()?;
-    let canonical_backup = backup_path.canonicalize().map_err(|e| {
-        OrchestratorError::Io(std::io::Error::new(std::io::ErrorKind::InvalidInput, e))
-    })?;
-    let canonical_dir = expected_dir.canonicalize().unwrap_or(expected_dir);
-    if !canonical_backup.starts_with(&canonical_dir) {
-        return Err(OrchestratorError::NotFound(
-            "Path is outside the backup directory".to_string(),
-        ));
-    }
-
-    // Remove the backup file
-    std::fs::remove_file(backup_path)?;
-
-    // Remove sidecar metadata if it exists
-    let file_name = backup_path
-        .file_name()
-        .unwrap_or_default()
-        .to_string_lossy();
-    if let Some(parent) = backup_path.parent() {
-        let sidecar_path = parent.join(format!("{}.meta.json", file_name));
-        let _ = std::fs::remove_file(sidecar_path);
-    }
-
+    let store = BackupStore::new(expected_dir);
+    store.delete_file(backup_path)?;
     Ok(())
 }
 
 /// Restore a backup file to its original location.
+///
+/// `backup_path` is validated by the Tauri command layer before this call.
+/// This function only performs the atomic write; path-traversal checks are
+/// the responsibility of the caller.
 pub fn restore_backup(backup_path: &Path, restore_to: &Path) -> Result<()> {
     if !backup_path.exists() {
         return Err(OrchestratorError::NotFound(format!(
@@ -257,15 +227,14 @@ pub fn restore_backup(backup_path: &Path, restore_to: &Path) -> Result<()> {
         ));
     }
 
-    // Atomic write
     if let Some(parent) = restore_to.parent() {
         std::fs::create_dir_all(parent)?;
-        let temp_path = parent.join(format!(
+        let tmp = parent.join(format!(
             ".restore-tmp-{}",
             restore_to.file_name().unwrap_or_default().to_string_lossy()
         ));
-        std::fs::copy(backup_path, &temp_path)?;
-        std::fs::rename(&temp_path, restore_to)?;
+        std::fs::copy(backup_path, &tmp)?;
+        std::fs::rename(&tmp, restore_to)?;
     } else {
         std::fs::copy(backup_path, restore_to)?;
     }
@@ -380,10 +349,10 @@ fn parse_agent_yaml(path: &Path) -> Result<Option<AgentDefinition>> {
     }))
 }
 
-/// Get the backup directory for TracePilot config backups.
+/// Get the backup directory for TracePilot agent/config backups.
 pub fn backup_dir() -> Result<PathBuf> {
     let home = crate::launcher::copilot_home()?;
-    Ok(home.join("tracepilot").join("backups"))
+    Ok(home.join("tracepilot").join("backups").join("agents"))
 }
 
 #[cfg(test)]
@@ -422,7 +391,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let file = dir.path().join("test.yaml");
         fs::write(&file, "test content").unwrap();
-        let backup_dir = dir.path().join("backups");
+        let backup_dir = dir.path().join("backups").join("agents");
 
         let backup = create_backup(&file, &backup_dir, "test-label").unwrap();
         assert!(!backup.id.is_empty());
@@ -433,13 +402,38 @@ mod tests {
     }
 
     #[test]
+    fn test_create_backup_writes_sidecar() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("coding-agent.yaml");
+        fs::write(&file, "name: coding-agent").unwrap();
+        let backup_dir = dir.path().join("backups").join("agents");
+
+        let entry = create_backup(&file, &backup_dir, "pre-migrate").unwrap();
+        assert!(entry.backup_path.contains("pre-migrate"));
+
+        // Sidecar must exist alongside the backup.
+        let sidecar = std::path::PathBuf::from(&entry.backup_path)
+            .with_file_name(format!(
+                "{}.meta.json",
+                std::path::PathBuf::from(&entry.backup_path)
+                    .file_name()
+                    .unwrap()
+                    .to_string_lossy()
+            ));
+        assert!(sidecar.exists(), "sidecar metadata file should be created");
+        let sidecar_val: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&sidecar).unwrap()).unwrap();
+        assert_eq!(sidecar_val["label"], "pre-migrate");
+    }
+
+    #[test]
     fn test_restore_backup() {
         let dir = tempfile::tempdir().unwrap();
-        let original = dir.path().join("original.yaml");
-        let backup = dir.path().join("backup.yaml");
-        let restore_target = dir.path().join("restored.yaml");
+        let backup_dir = dir.path().join("backups").join("agents");
+        fs::create_dir_all(&backup_dir).unwrap();
 
-        fs::write(&original, "original content").unwrap();
+        let backup = backup_dir.join("backup.yaml");
+        let restore_target = dir.path().join("restored.yaml");
         fs::write(&backup, "backup content").unwrap();
 
         restore_backup(&backup, &restore_target).unwrap();

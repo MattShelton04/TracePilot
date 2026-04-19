@@ -433,10 +433,15 @@ pub(super) static INDEX_DB_PLAN: MigrationPlan = MigrationPlan {
 /// Run all pending schema migrations in order.
 ///
 /// `db_path` is `None` for in-memory databases (tests); otherwise backups
-/// are written alongside the DB as `{db}.pre-v{N}.bak` per applied version.
+/// are written to `{db_parent}/backups/database/` as `{db}.pre-v{N}.bak`
+/// per applied version.
 pub(super) fn run_migrations(conn: &mut Connection, db_path: Option<&Path>) -> Result<()> {
+    let backup_dir = db_path
+        .and_then(|p| p.parent())
+        .map(|parent| parent.join("backups").join("database"));
     let opts = MigratorOptions {
         backup: db_path.is_some(),
+        backup_dir,
         ..Default::default()
     };
     core_run_migrations(conn, db_path, &INDEX_DB_PLAN, &opts).map_err(map_migration_err)?;

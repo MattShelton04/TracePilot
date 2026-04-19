@@ -42,6 +42,21 @@ pub enum OrchestratorError {
     Export(#[from] tracepilot_export::ExportError),
 }
 
+impl From<tracepilot_core::utils::backup::BackupError> for OrchestratorError {
+    fn from(e: tracepilot_core::utils::backup::BackupError) -> Self {
+        use tracepilot_core::utils::backup::BackupError;
+        match e {
+            BackupError::Io(source) => OrchestratorError::Io(source),
+            BackupError::PathEscape => {
+                OrchestratorError::NotFound("Path is outside the backup directory".to_string())
+            }
+            BackupError::NotFound(path) => {
+                OrchestratorError::NotFound(format!("Backup not found: {}", path.display()))
+            }
+        }
+    }
+}
+
 pub type Result<T> = std::result::Result<T, OrchestratorError>;
 
 impl OrchestratorError {
