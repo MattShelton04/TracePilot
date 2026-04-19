@@ -134,10 +134,13 @@ export function mapToLineCoords<T>(
 ): (T & ChartCoord)[] {
   if (data.length === 0) return [];
   const effectiveMax = max ?? Math.max(...data.map(accessor), 1);
-  const step = data.length > 1 ? layout.width / (data.length - 1) : layout.width;
+  // A single point is centred horizontally; multiple points are evenly spaced
+  // from the left edge to the right edge.
+  const isSingle = data.length === 1;
+  const step = isSingle ? 0 : layout.width / (data.length - 1);
   return data.map((item, i) => ({
     ...item,
-    x: layout.left + i * step,
+    x: isSingle ? layout.left + layout.width / 2 : layout.left + i * step,
     y: layout.bottom - (accessor(item) / effectiveMax) * layout.height,
   }));
 }

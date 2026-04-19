@@ -209,10 +209,11 @@ describe("mapToLineCoords", () => {
     expect(mapToLineCoords([], layout, () => 0)).toEqual([]);
   });
 
-  it("handles single data point", () => {
+  it("centres a single data point horizontally", () => {
     const coords = mapToLineCoords([{ v: 5 }], layout, (d) => d.v, 10);
     expect(coords).toHaveLength(1);
-    expect(coords[0].x).toBeCloseTo(layout.left);
+    // Single point should be at the horizontal centre of the chart area, not the left edge.
+    expect(coords[0].x).toBeCloseTo(layout.left + layout.width / 2);
   });
 
   it("uses floor of 1 for auto-max to avoid division issues with all-zero data", () => {

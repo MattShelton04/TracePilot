@@ -20,7 +20,7 @@ export interface UseLineAreaChartDataOptions<T> {
   layout: ChartLayout;
   /** Extract the numeric Y value from each data point. */
   accessor: (item: T) => number;
-  /** Minimum number of data points required to render a chart (default: 2). */
+  /** Minimum number of data points required to render a chart (default: 1). */
   minPoints?: number;
   /** Number of Y-axis tick marks to generate (default: 5). */
   yTicks?: number;
@@ -68,7 +68,7 @@ export function useLineAreaChartData<T extends { date: string }>(
     data,
     layout,
     accessor,
-    minPoints = 2,
+    minPoints = 1,
     yTicks = 5,
     yFormatter = (v: number) => String(v),
     maxFloor = 1,
