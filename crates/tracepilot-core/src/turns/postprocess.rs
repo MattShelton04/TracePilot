@@ -46,7 +46,10 @@ pub(crate) fn infer_subagent_models(turns: &mut [ConversationTurn]) {
 
         let mut changed = false;
         for turn in turns.iter_mut() {
-            // Propagate to subagents — prefer child model over parent's ToolExecComplete model
+            // Propagate to subagents — prefer child model over parent's ToolExecComplete model.
+            // When a subagent id is absent from child_models (no children resolved yet or model
+            // already set from an observed event) we leave tc.model as-is: `requested_model`
+            // tracks configuration; `model` must only be updated by observed SDK events.
             for tc in turn.tool_calls.iter_mut() {
                 if tc.is_subagent
                     && let Some(ref id) = tc.tool_call_id
