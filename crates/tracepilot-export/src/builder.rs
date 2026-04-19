@@ -607,10 +607,24 @@ fn build_custom_tables(
     for name in custom_names {
         match read_custom_table(&db_path, &name) {
             Ok(info) => {
+                // Convert ordered Vec<Vec<Value>> rows back to HashMap for the
+                // export document format (markdown renderer and redactor access
+                // values by column name).
+                let rows = info
+                    .rows
+                    .into_iter()
+                    .map(|row_vec| {
+                        info.columns
+                            .iter()
+                            .cloned()
+                            .zip(row_vec)
+                            .collect::<std::collections::HashMap<_, _>>()
+                    })
+                    .collect();
                 tables.push(CustomTableExport {
                     name: info.name,
                     columns: info.columns,
-                    rows: info.rows,
+                    rows,
                 });
             }
             Err(e) => {

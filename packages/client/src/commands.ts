@@ -175,6 +175,10 @@ export const IPC_COMMANDS = [
   // Window management
   "open_session_window",
   "close_session_window",
+  // File browser
+  "session_list_files",
+  "session_read_file",
+  "session_read_sqlite",
 ] as const;
 
 export type CommandName = (typeof IPC_COMMANDS)[number];

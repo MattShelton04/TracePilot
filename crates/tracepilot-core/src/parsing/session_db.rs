@@ -6,7 +6,6 @@
 use crate::error::Result;
 use crate::utils::sqlite::{open_readonly_if_exists, table_exists};
 use serde::Serialize;
-use std::collections::HashMap;
 use std::path::Path;
 
 /// A todo item from the `todos` table.
@@ -30,12 +29,16 @@ pub struct TodoDep {
 }
 
 /// Schema and rows for an arbitrary table discovered at runtime.
+///
+/// `rows` is a parallel array to `columns`: each inner `Vec` contains one
+/// value per column in the same order as `columns`. This matches the
+/// `SessionDbTable` TypeScript interface on the frontend.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CustomTableInfo {
     pub name: String,
     pub columns: Vec<String>,
-    pub rows: Vec<HashMap<String, serde_json::Value>>,
+    pub rows: Vec<Vec<serde_json::Value>>,
 }
 
 /// Read all todo items from a session database (opened read-only).
@@ -100,7 +103,7 @@ pub fn list_tables(db_path: &Path) -> Result<Vec<String>> {
     };
 
     let mut stmt =
-        conn.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")?;
+        conn.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")?;
     let tables = stmt
         .query_map([], |row| row.get::<_, String>(0))?
         .collect::<std::result::Result<Vec<_>, _>>()?;
@@ -140,18 +143,16 @@ pub fn read_custom_table(db_path: &Path, table_name: &str) -> Result<CustomTable
         .query_map([], |row| row.get::<_, String>(1))?
         .collect::<std::result::Result<Vec<_>, _>>()?;
 
-    // Read all rows
+    // Read all rows — build each row as an ordered Vec aligned to `columns`.
     let mut select_stmt = conn.prepare(&format!("SELECT * FROM \"{}\"", safe_name))?;
     let mut rows = Vec::new();
 
     let mut result_rows = select_stmt.query([])?;
     while let Some(row) = result_rows.next()? {
-        let mut map = HashMap::new();
-        for (i, col_name) in columns.iter().enumerate() {
-            let val = sqlite_value_to_json(row, i);
-            map.insert(col_name.clone(), val);
-        }
-        rows.push(map);
+        let row_values: Vec<serde_json::Value> = (0..columns.len())
+            .map(|i| sqlite_value_to_json(row, i))
+            .collect();
+        rows.push(row_values);
     }
 
     Ok(CustomTableInfo {
@@ -251,20 +252,17 @@ mod tests {
         assert_eq!(info.columns, vec!["name", "value", "count"]);
         assert_eq!(info.rows.len(), 3);
 
-        // First row
-        assert_eq!(
-            info.rows[0]["name"],
-            serde_json::Value::String("latency".to_string())
-        );
-        assert_eq!(info.rows[0]["count"], serde_json::json!(100));
+        // Rows are ordered vecs aligned to columns: [name, value, count]
+        assert_eq!(info.rows[0][0], serde_json::Value::String("latency".to_string()));
+        assert_eq!(info.rows[0][2], serde_json::json!(100));
 
         // Check real value
-        let val = info.rows[0]["value"].as_f64().unwrap();
+        let val = info.rows[0][1].as_f64().unwrap();
         assert!((val - 42.5).abs() < f64::EPSILON);
 
         // Null row
-        assert_eq!(info.rows[2]["value"], serde_json::Value::Null);
-        assert_eq!(info.rows[2]["count"], serde_json::Value::Null);
+        assert_eq!(info.rows[2][1], serde_json::Value::Null);
+        assert_eq!(info.rows[2][2], serde_json::Value::Null);
     }
 
     #[test]

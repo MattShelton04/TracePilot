@@ -7,7 +7,7 @@ defineProps<{
 
 <template>
   <div class="page-content">
-    <div :class="fluid ? undefined : 'page-content-inner'">
+    <div :class="fluid ? 'page-content-fluid' : 'page-content-inner'">
       <slot />
     </div>
   </div>

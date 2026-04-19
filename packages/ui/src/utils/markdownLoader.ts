@@ -35,7 +35,19 @@ export function ensureMarkdownReady(): Promise<void> {
       typographer: true,
       breaks: true,
     });
-    purifyFn = (dirty: string) => DOMPurify.sanitize(dirty);
+    purifyFn = (dirty: string) =>
+      DOMPurify.sanitize(dirty, {
+        // Reject data: URIs and protocol-relative URLs (//host) in src/href/action.
+        // The original [^a-z] branch allowed any non-letter character as a URL
+        // start, which includes '/' — meaning //evil.com/img.png would pass.
+        // The negative lookahead (?!\/) prevents protocol-relative matches while
+        // still allowing fragment anchors (#id), relative paths (./x), and
+        // absolute-path refs (/path) which also start with non-letter characters.
+        ALLOWED_URI_REGEXP:
+          /^(?:(?:https?|mailto|tel):|(?!\/\/)[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
+        // Ensure the result is always a document fragment, not a full page.
+        FORCE_BODY: true,
+      });
     mdReady.value = true;
   })();
   return loadPromise;

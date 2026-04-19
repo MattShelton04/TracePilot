@@ -36,12 +36,7 @@ export interface SkillSummary {
 }
 
 /** An asset file in a skill directory. */
-export interface SkillAsset {
-  path: string;
-  name: string;
-  sizeBytes: number;
-  isDirectory: boolean;
-}
+export type SkillAsset = import("./files.js").FileEntry;
 
 /** Token budget summary across all skills. */
 export interface SkillTokenBudget {

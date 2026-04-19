@@ -56,6 +56,8 @@ const ALLOWLIST = new Set([
   "apps/desktop/src/components/conversation/SubagentPanel.vue",
 
   // ── Rust god-modules (Phase 4 decomposition targets) ───────────
+  // TODO: split ErrorCode variants into domain submodules when BindingsError grows further
+  "crates/tracepilot-tauri-bindings/src/error.rs",
   "crates/tracepilot-indexer/src/index_db/search_reader.rs",
   "crates/tracepilot-orchestrator/src/bridge/manager.rs",
   "crates/tracepilot-indexer/src/index_db/mod.rs",

@@ -41,6 +41,11 @@ const props = defineProps<{
   activeSubTab?: string;
   /** Whether auto-refresh should be enabled (e.g. paused when tab not visible) */
   refreshEnabled?: boolean;
+  /**
+   * When true, the content area fills the remaining viewport height (no scroll).
+   * Used by full-height tabs like the Explorer.
+   */
+  fillContent?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -130,6 +135,7 @@ const routerTabs = [
   { name: "todos", routeName: "session-todos", label: "Todos" },
   { name: "metrics", routeName: "session-metrics", label: "Metrics" },
   { name: "token-flow", routeName: "session-token-flow", label: "Token Flow" },
+  { name: "explorer", routeName: "session-explorer", label: "Explorer" },
   { name: "timeline", routeName: "session-timeline", label: "Timeline" },
 ];
 
@@ -141,6 +147,7 @@ const localTabs = [
   { name: "todos", routeName: "todos", label: "Todos" },
   { name: "metrics", routeName: "metrics", label: "Metrics" },
   { name: "token-flow", routeName: "token-flow", label: "Token Flow" },
+  { name: "explorer", routeName: "explorer", label: "Explorer" },
   { name: "timeline", routeName: "timeline", label: "Timeline" },
 ];
 
@@ -184,7 +191,7 @@ watch(isSessionActive, (active) => {
 </script>
 
 <template>
-  <PageShell>
+  <PageShell :fluid="fillContent" :class="{ 'explorer-mode': fillContent }">
     <!-- Loading state -->
     <div v-if="store.loading" style="padding-top: 8px;">
       <SkeletonLoader variant="text" :count="1" />

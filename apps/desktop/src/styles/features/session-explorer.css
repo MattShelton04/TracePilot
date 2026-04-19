@@ -1,0 +1,46 @@
+/* ── Session Explorer — fill-height layout ────────────────────────────────────
+ *
+ * When the Explorer tab is active, .page-content must become a flex column
+ * so that .detail-tab-content can grow to fill all remaining viewport height.
+ *
+ * Scoped to .explorer-mode (applied by SessionDetailPanel via :class binding)
+ * so no other session tabs are affected.
+ */
+
+.page-content.explorer-mode {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 0;
+}
+
+/*
+ * PageShell renders a .page-content-fluid wrapper div in fluid mode (no
+ * max-width constraint). Make it a flex column so the height chain reaches
+ * .detail-tab-content without relying on an anonymous > div selector.
+ */
+.page-content.explorer-mode .page-content-fluid {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+/*
+ * .detail-actions uses position:sticky which requires an overflow:auto/scroll
+ * ancestor. In explorer mode all ancestors have overflow:hidden, so sticky
+ * silently breaks. The actions bar is always visible at the top of the flex
+ * column anyway, so we can safely revert to static positioning here.
+ */
+.page-content.explorer-mode .detail-actions {
+  position: static;
+}
+
+.page-content.explorer-mode .detail-tab-content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding-top: 0;
+}

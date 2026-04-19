@@ -155,3 +155,38 @@ export interface CheckpointEntry {
   filename: string;
   content?: string;
 }
+
+// ─── Session File Browser ─────────────────────────────────────────
+
+import type { FileEntry } from "./files.js";
+
+/**
+ * Classified file type used by the frontend to choose a renderer.
+ * Mirrors `SessionFileType` in `commands/file_browser.rs`.
+ */
+export type SessionFileType =
+  | "markdown"
+  | "jsonl"
+  | "json"
+  | "yaml"
+  | "toml"
+  | "sqlite"
+  | "text"
+  | "binary";
+
+/** A single entry (file or directory) in the session file tree. */
+export interface SessionFileEntry extends FileEntry {
+  /** Classified type for frontend rendering decisions. */
+  fileType: SessionFileType;
+}
+
+/** A single table's data returned from `session_read_sqlite`. */
+export interface SessionDbTable {
+  /** Table name. */
+  name: string;
+  /** Column names in the order they appear in the SELECT. */
+  columns: string[];
+  /** Rows; each row is an ordered list of cell values aligned to `columns`. */
+  rows: (string | number | null)[][];
+}
+

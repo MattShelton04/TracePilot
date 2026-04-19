@@ -53,3 +53,7 @@ export { useTimelineNavigation } from "./useTimelineNavigation";
 export type { Toast, ToastOptions } from "./useToast";
 export { useToast } from "./useToast";
 export { useToggleSet } from "./useToggleSet";
+export type {
+  UseFileBrowserTreeOptions,
+} from "./useFileBrowserTree";
+export { useFileBrowserTree } from "./useFileBrowserTree";

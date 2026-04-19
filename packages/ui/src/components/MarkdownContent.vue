@@ -50,8 +50,12 @@ function handleLinkClick(event: MouseEvent) {
       const id = href.slice(1).toLowerCase();
       const container = event.currentTarget as HTMLElement;
 
+      // CSS.escape prevents SyntaxError if the id contains characters that
+      // are invalid in a CSS selector (e.g. double-quotes from decoded HTML).
+      const escapedId = CSS.escape(id);
+
       // 1. Try to find by ID (standard)
-      let element = container.querySelector(`[id="${id}"], a[name="${id}"]`);
+      let element = container.querySelector(`[id="${escapedId}"], a[name="${escapedId}"]`);
 
       // 2. If not found, try to find a header that matches the slug
       if (!element) {
@@ -85,6 +89,11 @@ function handleLinkClick(event: MouseEvent) {
       // External link - emit event for parent to handle (opens in external browser in Tauri)
       event.preventDefault();
       emit("open-external", href);
+    } else if (href) {
+      // Block all other hrefs (relative paths, mailto:, tel:, data:, custom
+      // schemes) to prevent the Tauri WebView from navigating away from the
+      // app or opening unexpected OS handlers from session file content.
+      event.preventDefault();
     }
   }
 }

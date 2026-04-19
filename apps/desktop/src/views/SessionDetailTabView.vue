@@ -24,6 +24,7 @@ const innerTabComponents: Record<string, ReturnType<typeof defineAsyncComponent>
   todos: defineAsyncComponent(() => import("@/views/tabs/TodosTab.vue")),
   metrics: defineAsyncComponent(() => import("@/views/tabs/MetricsTab.vue")),
   "token-flow": defineAsyncComponent(() => import("@/views/tabs/TokenFlowTab.vue")),
+  explorer: defineAsyncComponent(() => import("@/views/tabs/ExplorerTab.vue")),
   timeline: defineAsyncComponent(() => import("@/views/SessionTimelineView.vue")),
 };
 
@@ -82,6 +83,7 @@ provide(NAVIGATE_CHECKPOINT_KEY, (checkpointNumber: number) => {
     :router="null"
     tab-mode="local"
     :active-sub-tab="activeSubTab"
+    :fill-content="activeSubTab === 'explorer'"
     :refresh-enabled="isTabVisible"
     @update:active-sub-tab="emit('update:activeSubTab', $event)"
     @update:is-active="onIsActiveChange"

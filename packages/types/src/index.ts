@@ -81,6 +81,9 @@ export type {
 // ── ipc-events.js ──────────────────────────────────────────────────
 export { IPC_EVENTS } from "./ipc-events.js";
 
+// ── files.js ───────────────────────────────────────────────────────
+export type { FileEntry } from "./files.js";
+
 // ── known-events.js ────────────────────────────────────────────────
 export { TRACEPILOT_KNOWN_EVENTS, type TracePilotKnownEvent } from "./known-events.js";
 
@@ -178,7 +181,10 @@ export type {
   CodeChanges,
   HealthFlag,
   ModelMetricDetail,
+  SessionDbTable,
   SessionDetail,
+  SessionFileEntry,
+  SessionFileType,
   SessionHealth,
   SessionIncident,
   SessionListItem,
