@@ -34,6 +34,7 @@ export const useTasksStore = defineStore("tasks", () => {
   const sortBy = ref<TaskSortOption>("newest");
 
   const loadGuard = useAsyncGuard();
+  const refreshGuard = useAsyncGuard();
   const getTaskGuard = useAsyncGuard();
 
   // ─── Computed ─────────────────────────────────────────────────────
@@ -113,7 +114,9 @@ export const useTasksStore = defineStore("tasks", () => {
         error.value = toErrorMessage(e);
       } finally {
         fetchTasksPromise = null;
-        if (loadGuard.isValid(token)) loading.value = false;
+        // Only clear loading when there is no concurrent silent refresh still in-flight,
+        // so the spinner does not disappear while refreshTasks is still pending.
+        if (loadGuard.isValid(token) && refreshTasksPromise === null) loading.value = false;
       }
     })();
     return fetchTasksPromise;
@@ -122,7 +125,7 @@ export const useTasksStore = defineStore("tasks", () => {
   /** Silent refresh — no loading state change. */
   async function refreshTasks() {
     if (refreshTasksPromise) return refreshTasksPromise;
-    const token = loadGuard.start();
+    const token = refreshGuard.start();
     refreshTasksPromise = (async () => {
       try {
         const [taskResult, statsResult, jobsResult] = await Promise.all([
@@ -130,18 +133,19 @@ export const useTasksStore = defineStore("tasks", () => {
           taskStats(),
           taskListJobs(),
         ]);
-        if (!loadGuard.isValid(token)) return;
+        if (!refreshGuard.isValid(token)) return;
         tasks.value = taskResult;
         stats.value = statsResult;
         jobs.value = jobsResult;
         error.value = null;
       } catch (e) {
-        if (loadGuard.isValid(token)) {
+        if (refreshGuard.isValid(token)) {
           logWarn("[tasks] Silent refresh failed:", e);
         }
       } finally {
         refreshTasksPromise = null;
-        if (loadGuard.isValid(token)) loading.value = false;
+        // If fetchTasks already finished while we were running, clear the spinner it left open.
+        if (fetchTasksPromise === null && loading.value) loading.value = false;
       }
     })();
     return refreshTasksPromise;
