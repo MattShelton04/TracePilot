@@ -203,14 +203,11 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
             .map(|(k, v)| format!("$env:{} = '{}'; ", k, v.replace('\'', "''")))
             .collect();
 
-        // Build the full PowerShell script with startup banner
-        // Append --interactive with PowerShell single-quote escaping for safe prompt handling
-        let interactive_suffix = if let Some(prompt) = &config.prompt {
-            let escaped_prompt = prompt.replace('\'', "''");
-            format!(" --interactive '{}'", escaped_prompt)
-        } else {
-            String::new()
-        };
+        // `--% ` stops PS argument processing; win32_quote_arg applies MSVCRT rules
+        // so CommandLineToArgvW reconstructs the exact original prompt.
+        let interactive_suffix = config.prompt.as_deref()
+            .map(|p| format!(" --% --interactive {}", crate::process::win32_quote_arg(p)))
+            .unwrap_or_default();
         let ps_cmd = format!(
             "{env_setup}$host.UI.RawUI.WindowTitle = 'Copilot Session'; Set-Location -LiteralPath '{}'; Write-Host 'Starting Copilot session in:' -ForegroundColor Cyan; Write-Host '  {}' -ForegroundColor White; Write-Host ''; {}{}{}",
             escaped_dir, escaped_dir, checkout_step, copilot_cmd, interactive_suffix
@@ -226,36 +223,20 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
         )?
     };
 
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     let pid = {
         let checkout_prefix = checkout_cmd
             .as_deref()
             .map(|c| format!("{} && ", c))
             .unwrap_or_default();
-        // Shell-escape prompt with single quotes for bash/zsh
-        let interactive_suffix = if let Some(prompt) = &config.prompt {
-            let escaped_prompt = prompt.replace('\'', "'\\''");
-            format!(" --interactive '{}'", escaped_prompt)
-        } else {
-            String::new()
-        };
-        let full_cmd = format!("{}{}{}", checkout_prefix, copilot_cmd, interactive_suffix);
-        let envs_ref = if envs.is_empty() { None } else { Some(&envs) };
-        crate::process::spawn_detached_terminal(&full_cmd, &[], &work_dir, envs_ref)?
-    };
-
-    #[cfg(target_os = "linux")]
-    let pid = {
-        let checkout_prefix = checkout_cmd
-            .as_deref()
-            .map(|c| format!("{} && ", c))
+        // Base64 chars are safe in POSIX single-quoted strings and AppleScript
+        // double-quoted strings; the shell decodes the prompt at runtime.
+        let interactive_suffix = config.prompt.as_deref()
+            .map(|p| format!(
+                " --interactive \"$(echo '{}' | base64 -d)\"",
+                crate::process::encode_prompt_utf8_base64(p)
+            ))
             .unwrap_or_default();
-        let interactive_suffix = if let Some(prompt) = &config.prompt {
-            let escaped_prompt = prompt.replace('\'', "'\\''");
-            format!(" --interactive '{}'", escaped_prompt)
-        } else {
-            String::new()
-        };
         let full_cmd = format!("{}{}{}", checkout_prefix, copilot_cmd, interactive_suffix);
         let envs_ref = if envs.is_empty() { None } else { Some(&envs) };
         crate::process::spawn_detached_terminal(&full_cmd, &[], &work_dir, envs_ref)?

@@ -749,6 +749,56 @@ impl<W: std::io::Write> std::io::Write for Base64Encoder<W> {
     }
 }
 
+// ─── Windows Win32 argument quoting ─────────────────────────────────
+
+/// Quote a string as a single Win32 command-line argument (MSVCRT rules).
+/// Backslashes before `"` or at end-of-string are doubled; `"` is escaped as `\"`;
+/// newlines are collapsed to a space. Used with PS's `--% ` stop-parsing token.
+#[cfg(windows)]
+pub(crate) fn win32_quote_arg(s: &str) -> String {
+    let s = s.replace(['\r', '\n'], " ");
+    let mut out = String::from('"');
+    let mut bs: u32 = 0;
+    for c in s.chars() {
+        match c {
+            '\\' => bs += 1,
+            '"' => {
+                (0..bs * 2).for_each(|_| out.push('\\'));
+                out.push_str("\\\"");
+                bs = 0;
+            }
+            c => {
+                (0..bs).for_each(|_| out.push('\\'));
+                out.push(c);
+                bs = 0;
+            }
+        }
+    }
+    (0..bs * 2).for_each(|_| out.push('\\')); // double trailing backslashes
+    out.push('"');
+    out
+}
+
+// ─── Base64 prompt encoding (macOS / Linux) ──────────────────────────
+
+/// Base64-encode a prompt (UTF-8). Output is `[A-Za-z0-9+/=]` — safe inside
+/// POSIX single-quoted strings and AppleScript double-quoted strings with no
+/// further escaping. Decoded at runtime via `$(echo '...' | base64 -d)`.
+pub(crate) fn encode_prompt_utf8_base64(s: &str) -> String {
+    const C: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut o = Vec::with_capacity(4 * ((s.len() + 2) / 3));
+    for c in s.as_bytes().chunks(3) {
+        let (b0, b1, b2) = (c[0], c.get(1).copied().unwrap_or(0), c.get(2).copied().unwrap_or(0));
+        o.extend_from_slice(&[
+            C[(b0 >> 2) as usize],
+            C[((b0 & 3) << 4 | b1 >> 4) as usize],
+            if c.len() > 1 { C[((b1 & 0xf) << 2 | b2 >> 6) as usize] } else { b'=' },
+            if c.len() > 2 { C[(b2 & 0x3f) as usize] } else { b'=' },
+        ]);
+    }
+    String::from_utf8(o).expect("base64 is ASCII")
+}
+
 // ─── Environment variable name validation ───────────────────────────
 
 /// Validate that an environment variable name contains only safe characters.
@@ -1035,6 +1085,53 @@ mod tests {
             .map(|c| char::from_u32(c as u32).unwrap_or('?'))
             .collect();
         assert_eq!(decoded, cmd);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn test_win32_quote_arg_plain() {
+        assert_eq!(win32_quote_arg("hello"), "\"hello\"");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn test_win32_quote_arg_with_spaces() {
+        assert_eq!(win32_quote_arg("hello world"), "\"hello world\"");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn test_win32_quote_arg_double_quotes() {
+        // He said "hi" → "He said \"hi\""
+        assert_eq!(win32_quote_arg(r#"He said "hi""#), r#""He said \"hi\"""#);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn test_win32_quote_arg_backslash_before_quote() {
+        // a\"b → "a\\\"b"  (backslash before quote: double the backslash, escape the quote)
+        assert_eq!(win32_quote_arg(r#"a\"b"#), r#""a\\\"b""#);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn test_win32_quote_arg_trailing_backslash() {
+        // "hello\" → "hello\\"  (trailing backslash doubled before closing quote)
+        assert_eq!(win32_quote_arg("hello\\"), "\"hello\\\\\"");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn test_win32_quote_arg_newlines_collapsed() {
+        assert_eq!(win32_quote_arg("line1\nline2"), "\"line1 line2\"");
+        assert_eq!(win32_quote_arg("line1\r\nline2"), "\"line1  line2\"");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn test_win32_quote_arg_single_quotes() {
+        // Single quotes need no escaping in Win32 args
+        assert_eq!(win32_quote_arg("it's fine"), "\"it's fine\"");
     }
 
     #[test]
