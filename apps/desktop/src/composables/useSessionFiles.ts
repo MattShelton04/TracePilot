@@ -40,18 +40,24 @@ export function useSessionFiles(
   const dbDataLoading = ref(false);
   const dbDataError = ref<string | null>(null);
 
-  // Monotonic counter used to discard results from superseded requests.
+  // Monotonic counters used to discard results from superseded requests.
   let readSeq = 0;
+  let loadSeq = 0;
 
   async function loadFiles() {
     const sessionId = getSessionId();
     if (!sessionId) return;
 
+    const seq = ++loadSeq;
     filesLoading.value = true;
     filesError.value = null;
 
     try {
-      files.value = await sessionListFiles(sessionId);
+      const result = await sessionListFiles(sessionId);
+      // Discard if session changed while we were awaiting
+      if (seq !== loadSeq) return;
+
+      files.value = result;
 
       // Auto-open workspace.yaml if nothing is selected yet
       if (!selectedPath.value) {
@@ -63,10 +69,11 @@ export function useSessionFiles(
         }
       }
     } catch (err) {
+      if (seq !== loadSeq) return;
       filesError.value = err instanceof Error ? err.message : String(err);
       files.value = [];
     } finally {
-      filesLoading.value = false;
+      if (seq === loadSeq) filesLoading.value = false;
     }
   }
 

@@ -15,11 +15,11 @@
 }
 
 /*
- * PageShell always renders an inner <div> around the slot even in fluid mode
- * (it just lacks the page-content-inner class). This rule makes that anonymous
- * wrapper a flex column so the height chain reaches .detail-tab-content.
+ * PageShell renders a .page-content-fluid wrapper div in fluid mode (no
+ * max-width constraint). Make it a flex column so the height chain reaches
+ * .detail-tab-content without relying on an anonymous > div selector.
  */
-.page-content.explorer-mode > div {
+.page-content.explorer-mode .page-content-fluid {
   display: flex;
   flex-direction: column;
   flex: 1;

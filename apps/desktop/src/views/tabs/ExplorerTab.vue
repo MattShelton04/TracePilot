@@ -3,7 +3,7 @@ import "@/styles/features/session-explorer.css";
 import type { SessionFileType } from "@tracepilot/types";
 import { useAutoRefresh } from "@tracepilot/ui";
 import { FileBrowserTree, FileContentViewer } from "@tracepilot/ui";
-import { computed, ref } from "vue";
+import { computed, onBeforeUnmount, ref } from "vue";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { useSessionFiles } from "@/composables/useSessionFiles";
 import { usePreferencesStore } from "@/stores/preferences";
@@ -23,6 +23,8 @@ async function onViewFile(path: string) {
 const treeWidth = ref(240);
 const isDragging = ref(false);
 
+let activeDragCleanup: (() => void) | null = null;
+
 function startDrag(e: MouseEvent) {
   isDragging.value = true;
   const startX = e.clientX;
@@ -36,11 +38,22 @@ function startDrag(e: MouseEvent) {
     isDragging.value = false;
     window.removeEventListener("mousemove", onMove);
     window.removeEventListener("mouseup", onUp);
+    activeDragCleanup = null;
   }
+
+  activeDragCleanup = () => {
+    isDragging.value = false;
+    window.removeEventListener("mousemove", onMove);
+    window.removeEventListener("mouseup", onUp);
+  };
 
   window.addEventListener("mousemove", onMove);
   window.addEventListener("mouseup", onUp);
 }
+
+onBeforeUnmount(() => {
+  activeDragCleanup?.();
+});
 
 // ── Auto-refresh ────────────────────────────────────────────────────────────
 useAutoRefresh({

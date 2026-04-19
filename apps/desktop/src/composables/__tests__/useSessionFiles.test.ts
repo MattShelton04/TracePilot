@@ -5,10 +5,12 @@ import { defineComponent, h } from "vue";
 // ── Mock IPC client ─────────────────────────────────────────────────────────
 const mockSessionListFiles = vi.fn();
 const mockSessionReadFile = vi.fn();
+const mockSessionReadSqlite = vi.fn();
 
 vi.mock("@tracepilot/client", () => ({
   sessionListFiles: (...args: unknown[]) => mockSessionListFiles(...args),
   sessionReadFile: (...args: unknown[]) => mockSessionReadFile(...args),
+  sessionReadSqlite: (...args: unknown[]) => mockSessionReadSqlite(...args),
 }));
 
 import { useSessionFiles } from "../useSessionFiles";
@@ -97,6 +99,7 @@ describe("useSessionFiles", () => {
     mockSessionListFiles.mockResolvedValue([
       { path: "session.db", name: "session.db", sizeBytes: 4096, isDirectory: false, fileType: "sqlite" },
     ]);
+    mockSessionReadSqlite.mockResolvedValue([]);
 
     const { instance } = mountComposable("test-session-id");
     await new Promise<void>((resolve) => setTimeout(resolve, 50));
@@ -104,9 +107,45 @@ describe("useSessionFiles", () => {
     await instance.selectFile("session.db", "sqlite");
 
     expect(mockSessionReadFile).not.toHaveBeenCalled();
+    expect(mockSessionReadSqlite).toHaveBeenCalledWith("test-session-id", "session.db");
     expect(instance.selectedPath).toBe("session.db");
     expect(instance.fileContent).toBeNull();
     expect(instance.fileContentError).toBeNull();
+    expect(instance.dbDataError).toBeNull();
+  });
+
+  it("loads SQLite table data when selectFile is called with sqlite type", async () => {
+    const fakeTables = [
+      { name: "todos", columns: ["id", "title", "status"], rows: [["1", "Fix bug", "done"]] },
+    ];
+    mockSessionListFiles.mockResolvedValue([
+      { path: "session.db", name: "session.db", sizeBytes: 4096, isDirectory: false, fileType: "sqlite" },
+    ]);
+    mockSessionReadSqlite.mockResolvedValue(fakeTables);
+
+    const { instance } = mountComposable("test-session-id");
+    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+
+    await instance.selectFile("session.db", "sqlite");
+
+    expect(mockSessionReadSqlite).toHaveBeenCalledWith("test-session-id", "session.db");
+    expect(instance.dbData).toEqual(fakeTables);
+    expect(instance.dbDataLoading).toBe(false);
+    expect(instance.dbDataError).toBeNull();
+  });
+
+  it("records dbDataError when SQLite read fails", async () => {
+    mockSessionListFiles.mockResolvedValue([]);
+    mockSessionReadSqlite.mockRejectedValue(new Error("SQLite error"));
+
+    const { instance } = mountComposable("test-session-id");
+    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+
+    await instance.selectFile("session.db", "sqlite");
+
+    expect(instance.dbData).toBeNull();
+    expect(instance.dbDataError).toBe("SQLite error");
+    expect(instance.dbDataLoading).toBe(false);
   });
 
   it("does not call sessionReadFile for binary files", async () => {

@@ -288,32 +288,26 @@ pub async fn session_read_file(
             )));
         }
 
-        let size = file_path.metadata().map(|m| m.len()).unwrap_or(0);
-
-        if size > MAX_READ_BYTES {
-            // Read only the first MAX_READ_BYTES to avoid large IPC payloads
-            use std::io::Read as _;
-            let mut file = std::fs::File::open(&file_path)?;
-            let mut buf = vec![0u8; MAX_READ_BYTES as usize];
-            let read = file.read(&mut buf)?;
-            buf.truncate(read);
-            let mut content = String::from_utf8_lossy(&buf).into_owned();
-            content.push_str(&format!(
-                "\n\n[... file truncated — showing {}/{} bytes ...]",
-                MAX_READ_BYTES, size
-            ));
-            return Ok(content);
+        // Open the file once and read through a size-limited handle to close
+        // the TOCTOU window between a metadata() size check and the subsequent
+        // read (relevant for active sessions where events.jsonl grows rapidly).
+        use std::io::Read as _;
+        let mut file = std::fs::File::open(&file_path)?;
+        let mut buf = Vec::new();
+        // take(MAX + 1) lets us detect truncation without a separate metadata call.
+        let n = file.take(MAX_READ_BYTES + 1).read_to_end(&mut buf)?;
+        let truncated = n > MAX_READ_BYTES as usize;
+        if truncated {
+            buf.truncate(MAX_READ_BYTES as usize);
         }
 
-        let content = std::fs::read_to_string(&file_path).or_else(|e| {
-            if e.kind() == std::io::ErrorKind::InvalidData {
-                // Not valid UTF-8 — read as lossy
-                let bytes = std::fs::read(&file_path)?;
-                Ok::<_, std::io::Error>(String::from_utf8_lossy(&bytes).into_owned())
-            } else {
-                Err(e)
-            }
-        })?;
+        let mut content = String::from_utf8_lossy(&buf).into_owned();
+        if truncated {
+            content.push_str(&format!(
+                "\n\n[... file truncated — showing first {} bytes ...]",
+                MAX_READ_BYTES
+            ));
+        }
 
         Ok::<_, BindingsError>(content)
     })

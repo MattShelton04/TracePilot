@@ -10,7 +10,7 @@
  *  - An empty state when no file is selected
  */
 import type { SessionDbTable, SessionFileType } from "@tracepilot/types";
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import CodeBlock from "./renderers/CodeBlock.vue";
 import MarkdownContent from "./MarkdownContent.vue";
 import { useClipboard } from "../composables/useClipboard";
@@ -56,6 +56,9 @@ const fileName = computed(() => {
 // ── SQLite table tab state ─────────────────────────────────────────────────
 const activeTableIndex = ref(0);
 const activeTable = computed(() => props.dbData?.[activeTableIndex.value] ?? null);
+
+// Reset active tab whenever the dataset changes (e.g., user switches SQLite files)
+watch(() => props.dbData, () => { activeTableIndex.value = 0; });
 
 // ── Copy to clipboard ──────────────────────────────────────────────────────
 const { copy: copyText, copied: textCopied } = useClipboard();
