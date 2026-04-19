@@ -31,7 +31,7 @@ import type {
   SkillScope,
   SkillSummary,
 } from "@tracepilot/types";
-import { runAction, runMutation, toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
+import { runAction, runMutation, useAsyncGuard } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import { logWarn } from "@/utils/logger";
@@ -261,13 +261,7 @@ export const useSkillsStore = defineStore("skills", () => {
     path?: string,
     gitRef?: string,
   ): Promise<GitHubSkillPreview[]> {
-    error.value = null;
-    try {
-      return await skillsDiscoverGitHub(owner, repo, path, gitRef);
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return [];
-    }
+    return (await runMutation(error, () => skillsDiscoverGitHub(owner, repo, path, gitRef))) ?? [];
   }
 
   async function importGitHubSkill(
@@ -286,23 +280,11 @@ export const useSkillsStore = defineStore("skills", () => {
   }
 
   async function discoverLocal(dir: string): Promise<LocalSkillPreview[]> {
-    error.value = null;
-    try {
-      return await skillsDiscoverLocal(dir);
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return [];
-    }
+    return (await runMutation(error, () => skillsDiscoverLocal(dir))) ?? [];
   }
 
   async function discoverRepos(repos: [string, string][]): Promise<RepoSkillsResult[]> {
-    error.value = null;
-    try {
-      return await skillsDiscoverRepos(repos);
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      return [];
-    }
+    return (await runMutation(error, () => skillsDiscoverRepos(repos))) ?? [];
   }
 
   return {

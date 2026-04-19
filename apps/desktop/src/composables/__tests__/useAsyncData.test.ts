@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
-import { useAsyncData } from "../useAsyncData";
+import { useAsyncData } from "@tracepilot/ui";
 
 describe("useAsyncData", () => {
   beforeEach(() => {
