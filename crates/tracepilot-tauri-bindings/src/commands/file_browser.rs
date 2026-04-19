@@ -95,6 +95,11 @@ pub struct SessionFileEntry {
 /// Also rejects Windows device names (CON, NUL, COM1-9, LPT1-9, AUX, PRN) in
 /// any path component because the Windows kernel intercepts these regardless of
 /// directory context, which can cause hangs or unexpected I/O redirection.
+///
+/// Rejects drive-relative Windows paths like `C:relative` which do not start
+/// with `/` or `\` and therefore bypass the standard absolute-path checks, but
+/// which cause `session_dir.join("C:relative")` to silently redirect to a
+/// different volume on Windows.
 fn validate_relative_path(relative_path: &str) -> Result<(), BindingsError> {
     if relative_path.is_empty() {
         return Err(BindingsError::Validation(
@@ -112,6 +117,14 @@ fn validate_relative_path(relative_path: &str) -> Result<(), BindingsError> {
             "File path cannot be absolute".into(),
         ));
     }
+    // Reject drive-relative paths like `C:relative` — these don't start with
+    // `/` or `\` and Path::is_absolute() returns false, yet session_dir.join()
+    // on Windows silently redirects to that drive's current directory.
+    if relative_path.contains(':') {
+        return Err(BindingsError::Validation(
+            "File path cannot contain a colon (drive specifier)".into(),
+        ));
+    }
     // Reject traversal sequences and Windows reserved device names.
     for component in relative_path.replace('\\', "/").split('/') {
         if component == ".." {
@@ -121,15 +134,15 @@ fn validate_relative_path(relative_path: &str) -> Result<(), BindingsError> {
         }
         // Strip any extension before checking: NUL.txt and CON.md are also reserved.
         let stem = component.split('.').next().unwrap_or(component).to_uppercase();
+        // COM1-COM9, COM10+, LPT1-LPT9, LPT10+ are all reserved on Windows.
+        // COM0 and LPT0 are NOT reserved — excluded by `!= "0"` check.
+        let digit_suffix_is_nonzero = |prefix: &str| -> bool {
+            let suffix = &stem[prefix.len()..];
+            !suffix.is_empty() && suffix.chars().all(|c| c.is_ascii_digit()) && suffix != "0"
+        };
         let is_device = matches!(stem.as_str(), "CON" | "PRN" | "AUX" | "NUL")
-            || (stem.starts_with("COM")
-                && stem.len() == 4
-                && stem.as_bytes()[3].is_ascii_digit()
-                && stem.as_bytes()[3] != b'0')
-            || (stem.starts_with("LPT")
-                && stem.len() == 4
-                && stem.as_bytes()[3].is_ascii_digit()
-                && stem.as_bytes()[3] != b'0');
+            || (stem.starts_with("COM") && stem.len() >= 4 && digit_suffix_is_nonzero("COM"))
+            || (stem.starts_with("LPT") && stem.len() >= 4 && digit_suffix_is_nonzero("LPT"));
         if is_device {
             return Err(BindingsError::Validation(
                 "File path contains a reserved Windows device name".into(),
@@ -352,6 +365,18 @@ pub async fn session_read_file(
             )));
         }
 
+        // Re-canonicalize after the exists() check to close the TOCTOU window:
+        // between safe_session_file_path (which skips canonicalization for
+        // non-existent files) and here, the path could have been replaced with
+        // a symlink pointing outside the session directory.
+        let canonical_dir = session_dir.canonicalize()?;
+        let file_path = file_path.canonicalize()?;
+        if !file_path.starts_with(&canonical_dir) {
+            return Err(BindingsError::Validation(
+                "File path escapes session directory".into(),
+            ));
+        }
+
         if file_path.is_dir() {
             return Err(BindingsError::Validation(format!(
                 "'{}' is a directory, not a file",
@@ -359,11 +384,16 @@ pub async fn session_read_file(
             )));
         }
 
-        // Refuse to read binary formats
+        // Refuse to read binary formats or hidden dotfiles.
         let file_name = file_path
             .file_name()
             .map(|n| n.to_string_lossy().to_string())
             .unwrap_or_default();
+        if file_name.starts_with('.') {
+            return Err(BindingsError::Validation(
+                "Hidden files cannot be read".into(),
+            ));
+        }
         if SessionFileType::from_name(&file_name) == SessionFileType::Binary
             || SessionFileType::from_name(&file_name) == SessionFileType::Sqlite
         {
@@ -433,11 +463,26 @@ pub async fn session_read_sqlite(
             )));
         }
 
-        // Only allow recognised SQLite extensions
+        // Re-canonicalize after exists() to close the TOCTOU window (same
+        // rationale as session_read_file above).
+        let canonical_dir = session_dir.canonicalize()?;
+        let file_path = file_path.canonicalize()?;
+        if !file_path.starts_with(&canonical_dir) {
+            return Err(BindingsError::Validation(
+                "File path escapes session directory".into(),
+            ));
+        }
+
+        // Only allow recognised SQLite extensions; reject hidden files.
         let file_name = file_path
             .file_name()
             .map(|n| n.to_string_lossy().to_string())
             .unwrap_or_default();
+        if file_name.starts_with('.') {
+            return Err(BindingsError::Validation(
+                "Hidden files cannot be read".into(),
+            ));
+        }
         if SessionFileType::from_name(&file_name) != SessionFileType::Sqlite {
             return Err(BindingsError::Validation(format!(
                 "'{}' is not a SQLite database file",
@@ -445,9 +490,13 @@ pub async fn session_read_sqlite(
             )));
         }
 
-        let table_names = list_tables(&file_path).map_err(|e| {
-            BindingsError::Validation(format!("Failed to list tables: {}", e))
-        })?;
+        // Cap table count to prevent a crafted .db with thousands of tables
+        // from producing a multi-gigabyte IPC payload.
+        let table_names: Vec<_> = list_tables(&file_path)
+            .map_err(|e| BindingsError::Validation(format!("Failed to list tables: {}", e)))?
+            .into_iter()
+            .take(MAX_SQLITE_TABLES)
+            .collect();
 
         let mut tables = Vec::with_capacity(table_names.len());
         for name in &table_names {
@@ -471,6 +520,13 @@ pub async fn session_read_sqlite(
 
 /// Maximum number of rows returned per SQLite table.
 const MAX_SQLITE_ROWS_PER_TABLE: usize = 500;
+
+/// Maximum number of tables returned by `session_read_sqlite`.
+///
+/// A crafted SQLite file with thousands of tables could produce a multi-gigabyte
+/// IPC payload (tables × rows × row size). 50 tables is generous for any real
+/// session database while being several orders of magnitude below the attack threshold.
+const MAX_SQLITE_TABLES: usize = 50;
 
 // ── Unit tests ───────────────────────────────────────────────────────────────
 
@@ -584,14 +640,16 @@ mod tests {
 
     #[test]
     fn relative_path_rejects_windows_device_names() {
-        // COM1-9 and LPT1-9 are reserved by Windows regardless of directory.
+        // COM1-9, COM10+, LPT1-9, LPT10+ are reserved by Windows.
         assert!(validate_relative_path("NUL").is_err());
         assert!(validate_relative_path("CON").is_err());
         assert!(validate_relative_path("PRN").is_err());
         assert!(validate_relative_path("AUX").is_err());
         assert!(validate_relative_path("COM1").is_err());
         assert!(validate_relative_path("COM9").is_err());
+        assert!(validate_relative_path("COM10").is_err());
         assert!(validate_relative_path("LPT1").is_err());
+        assert!(validate_relative_path("LPT10").is_err());
         // Extensions don't make them safe — NUL.txt is still NUL on Windows.
         assert!(validate_relative_path("NUL.txt").is_err());
         assert!(validate_relative_path("files/COM3.log").is_err());
@@ -601,6 +659,15 @@ mod tests {
         // Normal names must still pass.
         assert!(validate_relative_path("events.jsonl").is_ok());
         assert!(validate_relative_path("files/plan.md").is_ok());
+    }
+
+    #[test]
+    fn relative_path_rejects_drive_relative_paths() {
+        // Drive-relative paths like C:relative bypass starts_with('/') and
+        // Path::is_absolute() but cause session_dir.join() to redirect drives.
+        assert!(validate_relative_path("C:relative").is_err());
+        assert!(validate_relative_path("D:secret.txt").is_err());
+        assert!(validate_relative_path("files/C:escape").is_err());
     }
 
     #[test]
