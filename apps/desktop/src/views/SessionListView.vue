@@ -131,6 +131,12 @@ function openSession(event: MouseEvent, sessionId: string, label: string) {
   // Default click → route-based navigation (legacy)
   pushRoute(router, ROUTE_NAMES.sessionOverview, { params: { id: sessionId } });
 }
+
+/** Navigate to the Export tab with this session pre-selected. */
+function exportSession(event: MouseEvent, sessionId: string) {
+  event.stopPropagation();
+  pushRoute(router, ROUTE_NAMES.export, { query: { sessionId, preset: "team" } });
+}
 </script>
 
 <template>
@@ -257,7 +263,16 @@ function openSession(event: MouseEvent, sessionId: string, label: string) {
                 {{ session.compactionCount }}
               </span>
             </div>
-            <span class="card-time-new" :title="session.updatedAt ?? undefined">{{ formatRelativeTime(session.updatedAt) }}</span>
+            <div class="card-footer-right">
+              <span class="card-time-new" :title="session.updatedAt ?? undefined">{{ formatRelativeTime(session.updatedAt) }}</span>
+              <button
+                class="export-card-btn"
+                title="Export session"
+                @click="exportSession($event, session.id)"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -486,6 +501,40 @@ function openSession(event: MouseEvent, sessionId: string, label: string) {
 .active-badge {
   flex-shrink: 0;
   font-size: 0.625rem;
+}
+
+.card-footer-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.export-card-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm, 4px);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.session-card-new:hover .export-card-btn,
+.session-card-new:focus-within .export-card-btn {
+  opacity: 1;
+}
+
+.export-card-btn:hover {
+  background: var(--bg-subtle, rgba(255,255,255,0.06));
+  border-color: var(--border-default);
+  color: var(--text-primary);
 }
 
 /* --- Loading States --- */

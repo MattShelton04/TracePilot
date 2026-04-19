@@ -76,6 +76,9 @@ fn render_session(session: &PortableSession, archive: &SessionArchive) -> String
     if let Some(todos) = &session.todos {
         write_todos(&mut md, todos);
     }
+    if let Some(rewind) = &session.rewind_snapshots {
+        write_rewind_snapshots(&mut md, rewind);
+    }
     if let Some(checkpoints) = &session.checkpoints {
         write_checkpoints(&mut md, checkpoints);
     }
@@ -87,6 +90,9 @@ fn render_session(session: &PortableSession, archive: &SessionArchive) -> String
     }
     if let Some(incidents) = &session.incidents {
         write_incidents(&mut md, incidents);
+    }
+    if let Some(tables) = &session.custom_tables {
+        write_custom_tables(&mut md, tables);
     }
     if let Some(events) = &session.events {
         write_events_summary(&mut md, events);
@@ -511,6 +517,72 @@ fn write_diagnostics(md: &mut String, diag: &ParseDiagnosticsExport) {
     md.push('\n');
 }
 
+fn write_rewind_snapshots(md: &mut String, rewind: &RewindIndex) {
+    if rewind.snapshots.is_empty() {
+        return;
+    }
+    let _ = writeln!(md, "## Rewind Snapshots\n");
+    let _ = writeln!(md, "| # | Snapshot ID | Timestamp | Files | Branch | Message |");
+    let _ = writeln!(md, "|---|-------------|-----------|-------|--------|---------|");
+    for (i, snap) in rewind.snapshots.iter().enumerate() {
+        let ts = snap.timestamp.as_deref().unwrap_or("—");
+        let files = snap.file_count.map(|n| n.to_string()).unwrap_or_else(|| "—".to_string());
+        let branch = snap.git_branch.as_deref().unwrap_or("—");
+        let msg = snap.user_message.as_deref().unwrap_or("—");
+        let msg_truncated = if msg.len() > 50 { &msg[..msg.floor_char_boundary(50)] } else { msg };
+        let _ = writeln!(md, "| {} | `{}` | {} | {} | {} | {} |",
+            i + 1,
+            &snap.snapshot_id[..snap.snapshot_id.len().min(8)],
+            ts,
+            files,
+            branch,
+            msg_truncated
+        );
+    }
+    md.push('\n');
+}
+
+fn write_custom_tables(md: &mut String, tables: &[CustomTableExport]) {
+    if tables.is_empty() {
+        return;
+    }
+    let _ = writeln!(md, "## Custom Tables\n");
+    for table in tables {
+        let _ = writeln!(md, "### {}\n", table.name);
+        if table.rows.is_empty() {
+            let _ = writeln!(md, "*Empty table*\n");
+            continue;
+        }
+        // Header row
+        let _ = write!(md, "|");
+        for col in &table.columns {
+            let _ = write!(md, " {} |", col);
+        }
+        let _ = writeln!(md);
+        // Separator
+        let _ = write!(md, "|");
+        for _ in &table.columns {
+            let _ = write!(md, "---|");
+        }
+        let _ = writeln!(md);
+        // Data rows
+        for row in &table.rows {
+            let _ = write!(md, "|");
+            for col in &table.columns {
+                let val = row.get(col)
+                    .map(|v| match v {
+                        serde_json::Value::String(s) => s.clone(),
+                        other => other.to_string(),
+                    })
+                    .unwrap_or_default();
+                let _ = write!(md, " {} |", val);
+            }
+            let _ = writeln!(md);
+        }
+        md.push('\n');
+    }
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 fn format_dt(dt: &DateTime<Utc>) -> String {
@@ -677,5 +749,57 @@ mod tests {
 
         let text = files[0].as_text().unwrap();
         assert!(text.contains("_No conversation turns recorded._"));
+    }
+
+    #[test]
+    fn renders_rewind_snapshots() {
+        use tracepilot_core::parsing::rewind_snapshots::{RewindIndex, RewindSnapshot};
+
+        let mut session = minimal_session();
+        session.rewind_snapshots = Some(RewindIndex {
+            version: 1,
+            snapshots: vec![RewindSnapshot {
+                snapshot_id: "snap0001".to_string(),
+                event_id: None,
+                user_message: Some("Fix the bug".to_string()),
+                timestamp: Some("2025-01-01T00:00:00Z".to_string()),
+                file_count: Some(3),
+                git_commit: None,
+                git_branch: Some("main".to_string()),
+            }],
+        });
+
+        let archive = test_archive(session);
+        let renderer = MarkdownRenderer;
+        let files = renderer.render(&archive).unwrap();
+
+        let text = files[0].as_text().unwrap();
+        assert!(text.contains("## Rewind Snapshots"));
+        assert!(text.contains("snap0001"));
+    }
+
+    #[test]
+    fn renders_custom_tables() {
+        use std::collections::HashMap;
+
+        let mut session = minimal_session();
+        session.custom_tables = Some(vec![CustomTableExport {
+            name: "my_data".to_string(),
+            columns: vec!["key".to_string(), "value".to_string()],
+            rows: vec![HashMap::from([
+                ("key".to_string(), serde_json::Value::String("foo".to_string())),
+                ("value".to_string(), serde_json::Value::String("bar".to_string())),
+            ])],
+        }]);
+
+        let archive = test_archive(session);
+        let renderer = MarkdownRenderer;
+        let files = renderer.render(&archive).unwrap();
+
+        let text = files[0].as_text().unwrap();
+        assert!(text.contains("## Custom Tables"));
+        assert!(text.contains("my_data"));
+        assert!(text.contains("foo"));
+        assert!(text.contains("bar"));
     }
 }

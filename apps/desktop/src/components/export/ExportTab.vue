@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { exportSessions, getSessionSections } from "@tracepilot/client";
+import { exportSessions, exportSessionFolderZip, getSessionSections } from "@tracepilot/client";
 import type { ExportFormat, SectionId, SessionSectionsInfo } from "@tracepilot/types";
 import { SECTION_LABELS } from "@tracepilot/types";
 import {
@@ -12,6 +12,7 @@ import {
   useToast,
 } from "@tracepilot/ui";
 import { computed, onMounted, ref, watch } from "vue";
+import { useRoute } from "vue-router";
 import { browseForSavePath } from "@/composables/useBrowseDirectory";
 import {
   type ExportPreset,
@@ -27,6 +28,7 @@ import { openExternal } from "@/utils/openExternal";
 
 // ── Stores & Composables ─────────────────────────────────────
 
+const route = useRoute();
 const sessionsStore = useSessionsStore();
 const { success: toastSuccess, error: toastError } = useToast();
 
@@ -75,9 +77,15 @@ async function loadSectionsInfo(sessionId: string) {
 // ── Export Action ────────────────────────────────────────────
 
 const exporting = ref(false);
+const rawZipMode = ref(false);
 
 async function handleExport() {
   if (!selectedSessionId.value) return;
+
+  if (rawZipMode.value) {
+    await handleRawZipExport();
+    return;
+  }
 
   const ext = format.value === "json" ? "tpx.json" : format.value === "markdown" ? "md" : "csv";
 
@@ -130,6 +138,38 @@ async function handleExport() {
 }
 
 // ── Preview View Toggle ─────────────────────────────────────
+
+async function handleRawZipExport() {
+  const session = selectedSession.value;
+  const slug =
+    (session?.summary || session?.repository || "")
+      .replace(/[^\w\s-]/g, "")
+      .trim()
+      .replace(/\s+/g, "-")
+      .toLowerCase()
+      .slice(0, 60) || "session-export";
+  const timestamp = new Date().toISOString().slice(0, 16).replace(/[T:]/g, "-");
+  const defaultName = `${slug}-${timestamp}.zip`;
+
+  const outputPath = await browseForSavePath({
+    title: "Save zip archive as",
+    defaultPath: defaultName,
+    filters: [{ name: "ZIP Archive", extensions: ["zip"] }],
+  });
+  if (!outputPath) return;
+
+  exporting.value = true;
+  try {
+    await exportSessionFolderZip(selectedSessionId.value, outputPath);
+    toastSuccess("Session folder exported as zip");
+    logInfo(`[export] Raw zip saved to ${outputPath}`);
+  } catch (err) {
+    logError("[export] Raw zip failed:", err);
+    toastError(err instanceof Error ? err.message : "Export failed");
+  } finally {
+    exporting.value = false;
+  }
+}
 
 type PreviewView = "raw" | "rendered";
 const previewView = ref<PreviewView>("raw");
@@ -206,7 +246,22 @@ function selectSession(id: string) {
 
 onMounted(() => {
   sessionsStore.fetchSessions();
-  if (selectedSessionId.value) {
+
+  // Handle navigation from session list (sessionId + optional preset in query)
+  const querySessionId = Array.isArray(route.query.sessionId)
+    ? route.query.sessionId[0]
+    : route.query.sessionId;
+  const queryPreset = Array.isArray(route.query.preset)
+    ? route.query.preset[0]
+    : route.query.preset;
+
+  if (querySessionId) {
+    selectedSessionId.value = querySessionId;
+    loadSectionsInfo(querySessionId);
+    if (queryPreset) {
+      applyPreset(queryPreset);
+    }
+  } else if (selectedSessionId.value) {
     loadSectionsInfo(selectedSessionId.value);
   }
 });
@@ -336,12 +391,24 @@ function copiedToClipboard() {
       <!-- Format -->
       <section class="config-section">
         <h3 class="config-section-title">Format</h3>
-        <BtnGroup v-model="format" :options="formatOptions" />
-        <p class="format-desc-text">{{ FORMAT_DESCRIPTIONS[format] }}</p>
+        <BtnGroup v-model="format" :options="formatOptions" @update:model-value="rawZipMode = false" />
+        <button
+          class="raw-zip-btn"
+          :class="{ active: rawZipMode }"
+          type="button"
+          title="Export the raw session folder as a zip archive"
+          @click="rawZipMode = !rawZipMode"
+        >
+          📦 Raw Zip (session folder)
+        </button>
+        <p v-if="rawZipMode" class="format-desc-text">
+          Raw zip of the session folder — all files exactly as stored on disk. No rendering or filtering.
+        </p>
+        <p v-else class="format-desc-text">{{ FORMAT_DESCRIPTIONS[format] }}</p>
       </section>
 
-      <!-- Content Sections -->
-      <section class="config-section">
+      <!-- Content Sections (hidden in raw zip mode) -->
+      <section v-if="!rawZipMode" class="config-section">
         <div class="section-title-row">
           <h3 class="config-section-title">Content Sections</h3>
           <span class="section-actions">
@@ -375,7 +442,7 @@ function copiedToClipboard() {
       </section>
 
       <!-- Detail Level -->
-      <section v-if="enabledSections.has('conversation')" class="config-section">
+      <section v-if="!rawZipMode && enabledSections.has('conversation')" class="config-section">
         <h3 class="config-section-title">Detail Level</h3>
         <div class="toggle-row">
           <span class="toggle-row-icon">🤖</span>
@@ -416,7 +483,7 @@ function copiedToClipboard() {
       </section>
 
       <!-- Privacy / Redaction -->
-      <section class="config-section">
+      <section v-if="!rawZipMode" class="config-section">
         <h3 class="config-section-title">Privacy</h3>
         <div class="toggle-row">
           <span class="toggle-row-icon">📁</span>
@@ -460,18 +527,18 @@ function copiedToClipboard() {
       <div class="export-actions">
         <button
           class="btn btn-primary btn-export"
-          :disabled="!selectedSessionId || exporting || sectionsArray.length === 0"
+          :disabled="!selectedSessionId || exporting || (!rawZipMode && sectionsArray.length === 0)"
           @click="handleExport"
         >
           <template v-if="exporting">
             <span class="spinner" /> Exporting…
           </template>
           <template v-else>
-            Export
+            {{ rawZipMode ? 'Export Zip' : 'Export' }}
           </template>
         </button>
         <div class="export-footer-row">
-          <span v-if="preview" class="text-tertiary">
+          <span v-if="!rawZipMode && preview" class="text-tertiary">
             ~{{ formatBytes(preview.estimatedSizeBytes) }}
           </span>
         </div>

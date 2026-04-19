@@ -21,6 +21,8 @@ use tracepilot_export::options::{
     ContentDetailOptions, ExportFormat, ExportOptions, OutputTarget, RedactionOptions,
 };
 
+use tracepilot_core::parsing::session_db::list_tables;
+
 // ── Helper Functions ──────────────────────────────────────────────────────
 
 /// Build `ContentDetailOptions` and `RedactionOptions` from optional parameters.
@@ -248,10 +250,10 @@ pub async fn get_session_sections(
             has_plan,
             has_checkpoints,
             has_metrics,
-            has_health: false,
-            has_incidents: false,
+            has_health: has_events,
+            has_incidents: has_events && scan_events_for_incidents(&events_path),
             has_rewind_snapshots: session_path.join("rewind-snapshots").exists(),
-            has_custom_tables: false,
+            has_custom_tables: check_custom_tables(&db_path),
             event_count: summary.as_ref().and_then(|s| s.event_count),
             turn_count: summary.as_ref().and_then(|s| s.turn_count),
         })
@@ -260,6 +262,40 @@ pub async fn get_session_sections(
 }
 
 // ── Import Commands ───────────────────────────────────────────────────────
+
+/// Scan events.jsonl for incident-type events without fully parsing every line.
+fn scan_events_for_incidents(events_path: &std::path::Path) -> bool {
+    use std::io::{BufRead, BufReader};
+    let Ok(file) = std::fs::File::open(events_path) else {
+        return false;
+    };
+    let reader = BufReader::new(file);
+    let incident_types = [
+        r#""type":"session.error""#,
+        r#""type":"session.warning""#,
+        r#""type":"session.compaction_complete""#,
+        r#""type":"session.truncation""#,
+    ];
+    for line in reader.lines().map_while(Result::ok) {
+        if incident_types.iter().any(|t| line.contains(t)) {
+            return true;
+        }
+    }
+    false
+}
+
+/// Check whether session.db contains any non-standard tables.
+fn check_custom_tables(db_path: &std::path::Path) -> bool {
+    if !db_path.exists() {
+        return false;
+    }
+    let standard = ["todos", "todo_deps"];
+    match list_tables(db_path) {
+        Ok(names) => names.iter().any(|n| !standard.contains(&n.as_str())),
+        Err(_) => false,
+    }
+}
+
 
 /// Preview an import file — validate and show what would be imported.
 #[tauri::command]
@@ -355,6 +391,70 @@ pub async fn import_sessions(
             warnings: result.warnings,
         })
     })
+}
+
+/// Export a session folder as a raw zip archive.
+///
+/// All files in the session directory are zipped verbatim using Deflate
+/// compression and written to `dest_path`.
+#[tauri::command]
+pub async fn export_session_folder_zip(
+    state: tauri::State<'_, SharedConfig>,
+    session_id: String,
+    dest_path: String,
+) -> CmdResult<()> {
+    with_session_path(&state, session_id, move |session_path| {
+        use std::io::Write as _;
+
+        let dest = PathBuf::from(&dest_path);
+        if let Some(parent) = dest.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+
+        let file = std::fs::File::create(&dest)?;
+        let mut zip = zip::ZipWriter::new(file);
+        let options = zip::write::SimpleFileOptions::default()
+            .compression_method(zip::CompressionMethod::Deflated);
+
+        for entry in walkdir::WalkDir::new(&session_path).follow_links(false) {
+            let entry = entry.map_err(|e| {
+                BindingsError::Io(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    e.to_string(),
+                ))
+            })?;
+            let path = entry.path();
+            let relative = path
+                .strip_prefix(&session_path)
+                .map_err(|e| BindingsError::Validation(e.to_string()))?;
+
+            // Skip the root entry itself
+            if relative == Path::new("") {
+                continue;
+            }
+
+            let zip_name = relative.to_string_lossy().replace('\\', "/");
+
+            if path.is_dir() {
+                zip.add_directory(&zip_name, options).map_err(|e| {
+                    BindingsError::Io(std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
+                })?;
+            } else {
+                let content = std::fs::read(path)?;
+                zip.start_file(&zip_name, options).map_err(|e| {
+                    BindingsError::Io(std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
+                })?;
+                zip.write_all(&content)?;
+            }
+        }
+
+        zip.finish().map_err(|e| {
+            BindingsError::Io(std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
+        })?;
+
+        Ok(())
+    })
+    .await
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────

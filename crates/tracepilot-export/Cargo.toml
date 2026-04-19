@@ -22,3 +22,7 @@ once_cell = "1"
 [dev-dependencies]
 tempfile = { workspace = true }
 tracepilot-test-support = { path = "../tracepilot-test-support" }
+
+[[example]]
+name = "spike_real_session"
+path = "examples/spike_real_session.rs"

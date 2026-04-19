@@ -21,6 +21,10 @@ export interface ExportPreset {
   description: string;
   format: ExportFormat;
   sections: SectionId[];
+  /** Optional content-detail overrides applied when this preset is activated. */
+  contentDetail?: Partial<ContentDetailOptions>;
+  /** Optional redaction overrides applied when this preset is activated. */
+  redaction?: Partial<RedactionOptions>;
 }
 
 export const EXPORT_PRESETS: readonly ExportPreset[] = [
@@ -64,6 +68,47 @@ export const EXPORT_PRESETS: readonly ExportPreset[] = [
       "Session summary for sharing with another AI — includes conversation, plan, and outcomes.",
     format: "markdown",
     sections: ["conversation", "todos", "plan", "metrics", "health"],
+  },
+  {
+    id: "minimal-team-log",
+    label: "Minimal Team Log",
+    icon: "📝",
+    description:
+      "Conversation, plan and todos only — no raw tool arguments or subagent details. Ideal for sharing progress with teammates.",
+    format: "markdown",
+    sections: ["conversation", "plan", "todos"],
+    contentDetail: {
+      includeToolDetails: false,
+      includeFullToolResults: false,
+      includeSubagentInternals: false,
+    },
+    redaction: { anonymizePaths: false, stripSecrets: false, stripPii: false },
+  },
+  {
+    id: "full-fidelity-backup",
+    label: "Full-Fidelity Backup",
+    icon: "🗄️",
+    description:
+      "Everything — all sections, full tool results, complete subagent conversation trees. The most complete record of a session.",
+    format: "markdown",
+    sections: [
+      "conversation",
+      "plan",
+      "todos",
+      "checkpoints",
+      "rewind_snapshots",
+      "metrics",
+      "health",
+      "incidents",
+      "events",
+      "parse_diagnostics",
+    ],
+    contentDetail: {
+      includeToolDetails: true,
+      includeFullToolResults: true,
+      includeSubagentInternals: true,
+    },
+    redaction: { anonymizePaths: false, stripSecrets: false, stripPii: false },
   },
 ] as const;
 
@@ -144,6 +189,12 @@ export function useExportConfig() {
     format.value = preset.format;
     enabledSections.value = new Set(preset.sections);
     activePreset.value = presetId;
+    if (preset.contentDetail) {
+      contentDetail.value = { ...contentDetail.value, ...preset.contentDetail };
+    }
+    if (preset.redaction) {
+      redaction.value = { ...redaction.value, ...preset.redaction };
+    }
     applyingPreset = false;
   }
 
