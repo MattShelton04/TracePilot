@@ -13,6 +13,7 @@ import type { SessionDbTable, SessionFileType } from "@tracepilot/types";
 import { computed, ref } from "vue";
 import CodeBlock from "./renderers/CodeBlock.vue";
 import MarkdownContent from "./MarkdownContent.vue";
+import { useClipboard } from "../composables/useClipboard";
 
 const props = defineProps<{
   /** Relative path within the session directory (for display + language detection). */
@@ -55,6 +56,23 @@ const fileName = computed(() => {
 // ── SQLite table tab state ─────────────────────────────────────────────────
 const activeTableIndex = ref(0);
 const activeTable = computed(() => props.dbData?.[activeTableIndex.value] ?? null);
+
+// ── Copy to clipboard ──────────────────────────────────────────────────────
+const { copy: copyText, copied: textCopied } = useClipboard();
+const { copy: copyDb, copied: dbCopied } = useClipboard();
+
+function copyFileContent() {
+  if (props.content !== undefined) copyText(props.content);
+}
+
+function copyTableAsJson() {
+  if (!activeTable.value) return;
+  const { columns, rows } = activeTable.value;
+  const objects = rows.map((row) =>
+    Object.fromEntries(columns.map((col, i) => [col, row[i]])),
+  );
+  copyDb(JSON.stringify(objects, null, 2));
+}
 </script>
 
 <template>
@@ -96,6 +114,21 @@ const activeTable = computed(() => props.dbData?.[activeTableIndex.value] ?? nul
           </svg>
           <span class="fcv__db-name">{{ fileName }}</span>
           <span class="fcv__db-meta">{{ dbData.length }} {{ dbData.length === 1 ? 'table' : 'tables' }}</span>
+          <button
+            v-if="activeTable"
+            class="fcv__copy-btn"
+            :class="{ 'fcv__copy-btn--copied': dbCopied }"
+            :title="dbCopied ? 'Copied!' : 'Copy table as JSON'"
+            @click="copyTableAsJson"
+          >
+            <svg v-if="!dbCopied" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="5" y="5" width="9" height="10" rx="1"/>
+              <path d="M11 5V3a1 1 0 00-1-1H3a1 1 0 00-1 1v9a1 1 0 001 1h2"/>
+            </svg>
+            <svg v-else viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 8 6.5 12 13 4"/>
+            </svg>
+          </button>
         </div>
 
         <!-- Table tabs -->
@@ -183,6 +216,20 @@ const activeTable = computed(() => props.dbData?.[activeTableIndex.value] ?? nul
           <path d="M9 2v4h4"/>
         </svg>
         <span class="fcv__file-name">{{ filePath }}</span>
+        <button
+          class="fcv__copy-btn"
+          :class="{ 'fcv__copy-btn--copied': textCopied }"
+          :title="textCopied ? 'Copied!' : 'Copy file contents'"
+          @click="copyFileContent"
+        >
+          <svg v-if="!textCopied" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="5" y="5" width="9" height="10" rx="1"/>
+            <path d="M11 5V3a1 1 0 00-1-1H3a1 1 0 00-1 1v9a1 1 0 001 1h2"/>
+          </svg>
+          <svg v-else viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 8 6.5 12 13 4"/>
+          </svg>
+        </button>
       </div>
 
       <div class="fcv__content">
@@ -298,6 +345,38 @@ const activeTable = computed(() => props.dbData?.[activeTableIndex.value] ?? nul
 
 .fcv__error-text {
   line-height: 1.4;
+}
+
+/* ── Copy button ─────────────────────────────────────────── */
+.fcv__copy-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  margin-left: auto;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.fcv__copy-btn svg {
+  width: 13px;
+  height: 13px;
+}
+
+.fcv__copy-btn:hover {
+  color: var(--text-primary);
+  background: var(--neutral-muted);
+}
+
+.fcv__copy-btn--copied {
+  color: var(--success-fg, #2da44e);
 }
 
 /* ── File header ─────────────────────────────────────────── */

@@ -26,6 +26,10 @@
     "tracepilot:allow-get-tool-result",
     "tracepilot:allow-check-config-exists",
     "tracepilot:allow-get-config",
-    "tracepilot:allow-close-session-window"
+    "tracepilot:allow-close-session-window",
+
+    "tracepilot:allow-session-list-files",
+    "tracepilot:allow-session-read-file",
+    "tracepilot:allow-session-read-sqlite"
   ]
 }

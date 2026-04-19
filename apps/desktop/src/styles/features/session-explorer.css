@@ -11,8 +11,19 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  /* Keep horizontal padding + top padding; bottom padding is handled by the content */
   padding-bottom: 0;
+}
+
+/*
+ * PageShell always renders an inner <div> around the slot even in fluid mode
+ * (it just lacks the page-content-inner class). This rule makes that anonymous
+ * wrapper a flex column so the height chain reaches .detail-tab-content.
+ */
+.page-content.explorer-mode > div {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 .page-content.explorer-mode .detail-tab-content {
