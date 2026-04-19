@@ -500,6 +500,8 @@ function elapsedMs(startedAt: number): string {
   display: flex;
   justify-content: flex-end;
 }
+
+.sdk-stream-thinking {
   display: flex;
   align-items: center;
   gap: 8px;
