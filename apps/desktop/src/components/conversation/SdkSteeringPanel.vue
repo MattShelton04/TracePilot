@@ -13,6 +13,7 @@
  */
 import { provide, toRef } from "vue";
 import { useSdkSteering, SdkSteeringKey } from "@/composables/useSdkSteering";
+import SdkLiveIndicators from "./sdkSteering/SdkLiveIndicators.vue";
 import SdkSteeringCommandBar from "./sdkSteering/SdkSteeringCommandBar.vue";
 import SdkSteeringDisconnectedCard from "./sdkSteering/SdkSteeringDisconnectedCard.vue";
 import SdkSteeringLinkPrompt from "./sdkSteering/SdkSteeringLinkPrompt.vue";
@@ -42,6 +43,9 @@ provide(SdkSteeringKey, ctx);
   <div v-if="ctx.isVisible" class="cb-wrapper sdk-steering-feature">
     <SdkSteeringSentLog />
     <SdkSteeringSessionLabel />
+
+    <!-- Live event banners (abort, compaction, truncation, handoff, rewind) -->
+    <SdkLiveIndicators v-if="ctx.isLinked" />
 
     <!-- Inline error banner -->
     <div v-if="ctx.inlineError" class="cb-error-banner" @click="ctx.clearError">

@@ -16,4 +16,4 @@ export const POLL_SLOW_MS = 15_000;
 
 // ─── SDK event stream ────────────────────────────────────────────
 /** Max `recentEvents` retained in the SDK store — older ones get trimmed. */
-export const MAX_SDK_EVENTS = 500;
+export const MAX_SDK_EVENTS = 2000;

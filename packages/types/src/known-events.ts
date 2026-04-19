@@ -51,6 +51,19 @@ export const TRACEPILOT_KNOWN_EVENTS = [
   "session.handoff",
   "session.import_legacy",
   "session.remote_steerable_changed",
+  // Live streaming / ephemeral events
+  "assistant.message_delta",
+  "assistant.reasoning_delta",
+  "assistant.intent",
+  "assistant.usage",
+  "tool.execution_progress",
+  "tool.execution_partial_result",
+  "session.usage_info",
+  "session.snapshot_rewind",
+  "pending_messages.modified",
+  // Protocol v3
+  "external_tool.requested",
+  "permission.requested",
 ] as const;
 
 export type TracePilotKnownEvent = (typeof TRACEPILOT_KNOWN_EVENTS)[number];

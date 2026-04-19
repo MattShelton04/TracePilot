@@ -693,6 +693,55 @@
   opacity: 1;
 }
 
+/* ─── Token budget meter ───────────────────────── */
+.cb-token-meter {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: 4px;
+}
+.cb-token-track {
+  width: 48px;
+  height: 4px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 99px;
+  overflow: hidden;
+}
+.cb-token-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width var(--transition-normal);
+}
+.cb-token-fill.cb-token--ok      { background: var(--success-fg); }
+.cb-token-fill.cb-token--warning { background: var(--warning-fg); }
+.cb-token-fill.cb-token--danger  { background: var(--danger-fg); }
+.cb-token-label {
+  font-size: 0.5625rem;
+  font-weight: 600;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  letter-spacing: 0.02em;
+}
+.cb-token-label.cb-token--ok      { color: var(--success-fg); }
+.cb-token-label.cb-token--warning { color: var(--warning-fg); }
+.cb-token-label.cb-token--danger  { color: var(--danger-fg); }
+
+/* ─── Per-turn stats chip ──────────────────────── */
+.cb-turn-stats {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: 4px;
+}
+.cb-turn-stat {
+  font-size: 0.5625rem;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  color: var(--text-placeholder);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
 /* ── Teleported model-picker dropdown (body-level) ─────────────── */
 .cb-model-dropdown-portal {
   overflow-y: auto;

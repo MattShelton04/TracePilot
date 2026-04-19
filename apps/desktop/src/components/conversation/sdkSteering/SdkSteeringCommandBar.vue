@@ -1,7 +1,40 @@
 <script setup lang="ts">
+import { computed } from "vue";
 import { useSdkSteeringContext } from "@/composables/useSdkSteering";
+import { useSdkLiveSessionContext } from "@/composables/useLiveSdkSession";
 
 const ctx = useSdkSteeringContext();
+const live = useSdkLiveSessionContext();
+
+/** Use live model (from session.model_change events) if available, fall back to steering ctx. */
+const displayModel = computed(() => live?.liveModel.value ?? ctx.currentModel ?? "model");
+
+/** Token usage ratio 0–1, or null when unknown. */
+const tokenRatio = computed(() => live?.tokenUsage.value?.ratio ?? null);
+const tokenPct = computed(() => tokenRatio.value != null ? Math.round(tokenRatio.value * 100) : null);
+
+/** Colour tier for the token meter. */
+const tokenMeterClass = computed(() => {
+  const r = tokenRatio.value;
+  if (r == null) return "";
+  if (r >= 0.85) return "danger";
+  if (r >= 0.65) return "warning";
+  return "ok";
+});
+
+/** Per-turn stats from the last assistant.usage event. */
+const turnStats = computed(() => live?.lastTurnStats.value ?? null);
+
+function formatDurationMs(ms: number | null): string {
+  if (ms == null) return "";
+  return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
+}
+
+function formatTokens(n: number | null): string {
+  if (n == null) return "?";
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
+  return String(n);
+}
 </script>
 
 <template>
@@ -46,7 +79,7 @@ const ctx = useSdkSteeringContext();
       </div>
     </div>
 
-    <!-- Toolbar: mode pills + model selector + kbd hint -->
+    <!-- Toolbar: mode pills + model selector + token meter + kbd hint -->
     <div class="cb-toolbar">
       <div class="cb-mode-pills">
         <button
@@ -66,8 +99,29 @@ const ctx = useSdkSteeringContext();
         :title="'Model is set when linking. Unlink and re-link to change it.'"
       >
         <span class="cb-model-btn disabled">
-          <span class="cb-model-name">{{ ctx.currentModel ?? 'model' }}</span>
+          <span class="cb-model-name">{{ displayModel }}</span>
         </span>
+      </div>
+
+      <!-- Token budget meter (shown when session.usage_info has been received) -->
+      <div
+        v-if="tokenPct != null"
+        class="cb-token-meter"
+        :title="`Context: ${tokenPct}% used`"
+      >
+        <div class="cb-token-track">
+          <div
+            :class="['cb-token-fill', `cb-token--${tokenMeterClass}`]"
+            :style="{ width: `${tokenPct}%` }"
+          />
+        </div>
+        <span :class="['cb-token-label', `cb-token--${tokenMeterClass}`]">{{ tokenPct }}%</span>
+      </div>
+
+      <!-- Per-turn stats chip (shown briefly after each turn completes) -->
+      <div v-if="turnStats" class="cb-turn-stats" :title="`in:${formatTokens(turnStats.inputTokens)} out:${formatTokens(turnStats.outputTokens)} · ${formatDurationMs(turnStats.durationMs)}`">
+        <span class="cb-turn-stat">{{ formatTokens(turnStats.outputTokens) }} tok</span>
+        <span v-if="turnStats.durationMs" class="cb-turn-stat">{{ formatDurationMs(turnStats.durationMs) }}</span>
       </div>
 
       <span class="cb-kbd-hint">

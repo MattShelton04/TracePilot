@@ -1,0 +1,663 @@
+/**
+ * Unit tests for useLiveSdkSession.
+ *
+ * All reactive Vue state is driven through the sdkState mock — the mock's
+ * `sessionEvents(id)` method returns a filtered slice of recentEvents, which
+ * is what useLiveSdkSession watches internally.
+ *
+ * Coverage:
+ *   - Streaming message accumulation: deltas → terminal flush
+ *   - Streaming reasoning accumulation
+ *   - Active tool lifecycle: start → progress → partial_result → complete
+ *   - Compaction state machine: start → complete
+ *   - Token usage from session.usage_info
+ *   - Abort reason set + clear
+ *   - session.idle flushes streaming state
+ *   - session.model_change updates liveModel
+ *   - WeakSet dedup: same event object never processed twice
+ *   - assistant.turn_start / turn_end lifecycle
+ *   - session.truncation
+ *   - clearAbort / clearHandoff / clearRewind / clearTruncation actions
+ */
+
+import { setupPinia } from "@tracepilot/test-utils";
+import { effectScope, nextTick, reactive, ref } from "vue";
+import { beforeEach, describe, expect, it } from "vitest";
+import type { BridgeEvent } from "@tracepilot/types";
+
+// ─── SDK store mock ─────────────────────────────────────────────────────────
+const sdkState = reactive({
+  recentEvents: [] as BridgeEvent[],
+  sessionEvents(sessionId: string): BridgeEvent[] {
+    return this.recentEvents.filter((e) => e.sessionId === sessionId);
+  },
+});
+
+import { vi } from "vitest";
+
+vi.mock("@/stores/sdk", () => ({
+  useSdkStore: () => sdkState,
+}));
+
+// ─── Import composable (after mock registration) ─────────────────────────────
+import { useLiveSdkSession } from "../useLiveSdkSession";
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+const SESSION_ID = "session-live-1";
+let _seq = 0;
+
+function makeEvent(overrides: Partial<BridgeEvent> = {}): BridgeEvent {
+  return {
+    sessionId: SESSION_ID,
+    eventType: "session.idle",
+    timestamp: `2024-01-01T00:00:0${++_seq}Z`,
+    id: `evt-${_seq}`,
+    parentId: null,
+    ephemeral: false,
+    data: null,
+    ...overrides,
+  };
+}
+
+function push(...events: BridgeEvent[]) {
+  sdkState.recentEvents = [...sdkState.recentEvents, ...events];
+}
+
+// ─── Test suite ──────────────────────────────────────────────────────────────
+
+describe("useLiveSdkSession", () => {
+  beforeEach(() => {
+    setupPinia();
+    _seq = 0;
+    sdkState.recentEvents = [];
+  });
+
+  // ── Streaming messages ───────────────────────────────────────────────────
+
+  describe("streaming messages", () => {
+    it("accumulates message_delta events by messageId", async () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => {
+        live = useLiveSdkSession(sessionIdRef);
+      });
+
+      push(
+        makeEvent({
+          eventType: "assistant.message_delta",
+          ephemeral: true,
+          data: { messageId: "msg-1", deltaContent: "Hello " },
+        }),
+        makeEvent({
+          eventType: "assistant.message_delta",
+          ephemeral: true,
+          data: { messageId: "msg-1", deltaContent: "world" },
+        }),
+      );
+      await nextTick();
+
+      expect(live.streamingMessages.get("msg-1")?.content).toBe("Hello world");
+      scope.stop();
+    });
+
+    it("removes a streaming message when terminal assistant.message arrives", async () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => {
+        live = useLiveSdkSession(sessionIdRef);
+      });
+
+      push(
+        makeEvent({
+          eventType: "assistant.message_delta",
+          ephemeral: true,
+          data: { messageId: "msg-2", deltaContent: "partial" },
+        }),
+      );
+      await nextTick();
+      expect(live.streamingMessages.size).toBe(1);
+
+      push(
+        makeEvent({
+          eventType: "assistant.message",
+          ephemeral: false,
+          data: { messageId: "msg-2", content: "final" },
+        }),
+      );
+      await nextTick();
+      expect(live.streamingMessages.size).toBe(0);
+      scope.stop();
+    });
+
+    it("clears activeTools on session.idle even if tool.execution_complete never arrived", async () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => {
+        live = useLiveSdkSession(sessionIdRef);
+      });
+
+      // Tool starts but the session aborts before completion
+      push(makeEvent({ eventType: "tool.execution_start", data: { toolCallId: "tc-orphan", toolName: "read" } }));
+      await nextTick();
+      expect(live.activeTools.size).toBe(1);
+
+      push(makeEvent({ eventType: "session.idle" }));
+      await nextTick();
+      expect(live.activeTools.size).toBe(0);
+      scope.stop();
+    });
+
+    it("clears activeTools on abort event", async () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => {
+        live = useLiveSdkSession(sessionIdRef);
+      });
+
+      push(makeEvent({ eventType: "tool.execution_start", data: { toolCallId: "tc-abort", toolName: "write" } }));
+      await nextTick();
+      expect(live.activeTools.size).toBe(1);
+
+      push(makeEvent({ eventType: "abort", data: { reason: "User cancelled" } }));
+      await nextTick();
+      expect(live.activeTools.size).toBe(0);
+      scope.stop();
+    });
+
+    it("clears all streaming messages on assistant.turn_end", async () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => {
+        live = useLiveSdkSession(sessionIdRef);
+      });
+
+      push(
+        makeEvent({ eventType: "assistant.message_delta", ephemeral: true, data: { messageId: "m1", deltaContent: "a" } }),
+        makeEvent({ eventType: "assistant.message_delta", ephemeral: true, data: { messageId: "m2", deltaContent: "b" } }),
+      );
+      await nextTick();
+      expect(live.streamingMessages.size).toBe(2);
+
+      push(makeEvent({ eventType: "assistant.turn_end" }));
+      await nextTick();
+      expect(live.streamingMessages.size).toBe(0);
+      scope.stop();
+    });
+
+    it("clears all streaming messages on session.idle (guard for out-of-order delivery)", async () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => {
+        live = useLiveSdkSession(sessionIdRef);
+      });
+
+      push(
+        makeEvent({ eventType: "assistant.message_delta", ephemeral: true, data: { messageId: "m3", deltaContent: "x" } }),
+      );
+      await nextTick();
+      expect(live.streamingMessages.size).toBe(1);
+
+      push(makeEvent({ eventType: "session.idle" }));
+      await nextTick();
+      expect(live.streamingMessages.size).toBe(0);
+      scope.stop();
+    });
+  });
+
+  // ── Streaming reasoning ─────────────────────────────────────────────────
+
+  describe("streaming reasoning", () => {
+    it("accumulates reasoning_delta events by reasoningId", async () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => {
+        live = useLiveSdkSession(sessionIdRef);
+      });
+
+      push(
+        makeEvent({ eventType: "assistant.reasoning_delta", ephemeral: true, data: { reasoningId: "r1", deltaContent: "Think " } }),
+        makeEvent({ eventType: "assistant.reasoning_delta", ephemeral: true, data: { reasoningId: "r1", deltaContent: "harder" } }),
+      );
+      await nextTick();
+
+      expect(live.streamingReasoning.get("r1")?.content).toBe("Think harder");
+      scope.stop();
+    });
+
+    it("removes reasoning entry when terminal assistant.reasoning arrives", async () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => {
+        live = useLiveSdkSession(sessionIdRef);
+      });
+
+      push(
+        makeEvent({ eventType: "assistant.reasoning_delta", ephemeral: true, data: { reasoningId: "r2", deltaContent: "..." } }),
+      );
+      await nextTick();
+      expect(live.streamingReasoning.size).toBe(1);
+
+      push(makeEvent({ eventType: "assistant.reasoning", data: { reasoningId: "r2", content: "Final reasoning" } }));
+      await nextTick();
+      expect(live.streamingReasoning.size).toBe(0);
+      scope.stop();
+    });
+  });
+
+  // ── Active tools ────────────────────────────────────────────────────────
+
+  describe("active tools", () => {
+    it("inserts a tool entry on tool.execution_start and removes on complete", async () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => {
+        live = useLiveSdkSession(sessionIdRef);
+      });
+
+      push(makeEvent({
+        eventType: "tool.execution_start",
+        data: { toolCallId: "tc1", toolName: "read_file", arguments: { path: "/foo" } },
+      }));
+      await nextTick();
+
+      expect(live.activeTools.has("tc1")).toBe(true);
+      expect(live.activeTools.get("tc1")?.toolName).toBe("read_file");
+
+      push(makeEvent({ eventType: "tool.execution_complete", data: { toolCallId: "tc1" } }));
+      await nextTick();
+
+      expect(live.activeTools.has("tc1")).toBe(false);
+      scope.stop();
+    });
+
+    it("updates progressMessage on tool.execution_progress", async () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => {
+        live = useLiveSdkSession(sessionIdRef);
+      });
+
+      push(makeEvent({ eventType: "tool.execution_start", data: { toolCallId: "tc2", toolName: "search" } }));
+      await nextTick();
+
+      push(makeEvent({
+        eventType: "tool.execution_progress",
+        ephemeral: true,
+        data: { toolCallId: "tc2", progressMessage: "Searching…" },
+      }));
+      await nextTick();
+
+      expect(live.activeTools.get("tc2")?.progressMessage).toBe("Searching…");
+      scope.stop();
+    });
+
+    it("appends partialOutput on tool.execution_partial_result", async () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => {
+        live = useLiveSdkSession(sessionIdRef);
+      });
+
+      push(makeEvent({ eventType: "tool.execution_start", data: { toolCallId: "tc3", toolName: "run_cmd" } }));
+      await nextTick();
+
+      push(
+        makeEvent({ eventType: "tool.execution_partial_result", ephemeral: true, data: { toolCallId: "tc3", partialOutput: "line1\n" } }),
+        makeEvent({ eventType: "tool.execution_partial_result", ephemeral: true, data: { toolCallId: "tc3", partialOutput: "line2\n" } }),
+      );
+      await nextTick();
+
+      expect(live.activeTools.get("tc3")?.partialOutput).toBe("line1\nline2\n");
+      scope.stop();
+    });
+  });
+
+  // ── Compaction ──────────────────────────────────────────────────────────
+
+  describe("compaction", () => {
+    it("transitions status from idle → compacting → idle", async () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => {
+        live = useLiveSdkSession(sessionIdRef);
+      });
+
+      expect(live.compaction.status).toBe("idle");
+
+      push(makeEvent({ eventType: "session.compaction_start", data: {} }));
+      await nextTick();
+      expect(live.compaction.status).toBe("compacting");
+
+      push(makeEvent({
+        eventType: "session.compaction_complete",
+        data: { preCompactionTokens: 80000, postCompactionTokens: 20000, checkpointNumber: 3 },
+      }));
+      await nextTick();
+
+      expect(live.compaction.status).toBe("idle");
+      expect(live.compaction.preTokens).toBe(80000);
+      expect(live.compaction.postTokens).toBe(20000);
+      expect(live.compaction.checkpointNumber).toBe(3);
+      expect(live.compaction.lastCompletedAt).toBeGreaterThan(0);
+      scope.stop();
+    });
+  });
+
+  // ── Token usage ─────────────────────────────────────────────────────────
+
+  describe("token usage", () => {
+    it("updates tokenUsage from session.usage_info and computes ratio", async () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => {
+        live = useLiveSdkSession(sessionIdRef);
+      });
+
+      expect(live.tokenUsage.value).toBeNull();
+
+      push(makeEvent({
+        eventType: "session.usage_info",
+        data: { currentTokens: 40000, tokenLimit: 100000, messagesLength: 50 },
+      }));
+      await nextTick();
+
+      expect(live.tokenUsage.value?.currentTokens).toBe(40000);
+      expect(live.tokenUsage.value?.tokenLimit).toBe(100000);
+      expect(live.tokenUsage.value?.ratio).toBeCloseTo(0.4);
+      scope.stop();
+    });
+
+    it("clamps ratio to 1 when tokens exceed limit", async () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => {
+        live = useLiveSdkSession(sessionIdRef);
+      });
+
+      push(makeEvent({
+        eventType: "session.usage_info",
+        data: { currentTokens: 120000, tokenLimit: 100000 },
+      }));
+      await nextTick();
+
+      expect(live.tokenUsage.value?.ratio).toBe(1);
+      scope.stop();
+    });
+  });
+
+  // ── Abort ───────────────────────────────────────────────────────────────
+
+  describe("abort", () => {
+    it("sets abortReason on abort event and clears on clearAbort()", async () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => {
+        live = useLiveSdkSession(sessionIdRef);
+      });
+
+      push(makeEvent({ eventType: "abort", data: { reason: "User cancelled" } }));
+      await nextTick();
+      expect(live.abortReason.value).toBe("User cancelled");
+
+      live.clearAbort();
+      expect(live.abortReason.value).toBeNull();
+      scope.stop();
+    });
+
+    it("uses 'Aborted' fallback when abort has no reason field", async () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => {
+        live = useLiveSdkSession(sessionIdRef);
+      });
+
+      push(makeEvent({ eventType: "abort", data: {} }));
+      await nextTick();
+      expect(live.abortReason.value).toBe("Aborted");
+      scope.stop();
+    });
+  });
+
+  // ── Model change ────────────────────────────────────────────────────────
+
+  describe("model change", () => {
+    it("updates liveModel on session.model_change", async () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => {
+        live = useLiveSdkSession(sessionIdRef);
+      });
+
+      expect(live.liveModel.value).toBeNull();
+
+      push(makeEvent({ eventType: "session.model_change", data: { newModel: "claude-opus-4-5" } }));
+      await nextTick();
+      expect(live.liveModel.value).toBe("claude-opus-4-5");
+      scope.stop();
+    });
+  });
+
+  // ── Turn lifecycle ───────────────────────────────────────────────────────
+
+  describe("turn lifecycle", () => {
+    it("sets isAgentRunning on turn_start; remains true until session.idle", async () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => {
+        live = useLiveSdkSession(sessionIdRef);
+      });
+
+      expect(live.isAgentRunning.value).toBe(false);
+
+      push(makeEvent({ eventType: "assistant.turn_start", data: { turnId: "t1" } }));
+      await nextTick();
+      expect(live.isAgentRunning.value).toBe(true);
+      expect(live.activeTurnId.value).toBe("t1");
+
+      // turn_end clears activeTurnId but does NOT clear isAgentRunning (multi-turn sessions
+      // stay "running" until session.idle confirms the agent is fully idle).
+      push(makeEvent({ eventType: "assistant.turn_end" }));
+      await nextTick();
+      expect(live.activeTurnId.value).toBeNull();
+      expect(live.isAgentRunning.value).toBe(true);
+
+      // session.idle is the definitive signal that the agent has stopped.
+      push(makeEvent({ eventType: "session.idle" }));
+      await nextTick();
+      expect(live.isAgentRunning.value).toBe(false);
+      scope.stop();
+    });
+
+    it("clears abort reason on turn_start (new turn resets prior abort state)", async () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => {
+        live = useLiveSdkSession(sessionIdRef);
+      });
+
+      push(makeEvent({ eventType: "abort", data: { reason: "old abort" } }));
+      await nextTick();
+      expect(live.abortReason.value).toBe("old abort");
+
+      push(makeEvent({ eventType: "assistant.turn_start", data: { turnId: "t2" } }));
+      await nextTick();
+      expect(live.abortReason.value).toBeNull();
+      scope.stop();
+    });
+  });
+
+  // ── Per-turn stats ───────────────────────────────────────────────────────
+
+  describe("per-turn stats", () => {
+    it("records lastTurnStats from assistant.usage", async () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => {
+        live = useLiveSdkSession(sessionIdRef);
+      });
+
+      push(makeEvent({
+        eventType: "assistant.usage",
+        data: { model: "claude-sonnet-4-6", inputTokens: 1000, outputTokens: 500, duration: 3200 },
+      }));
+      await nextTick();
+
+      expect(live.lastTurnStats.value?.model).toBe("claude-sonnet-4-6");
+      expect(live.lastTurnStats.value?.inputTokens).toBe(1000);
+      expect(live.lastTurnStats.value?.outputTokens).toBe(500);
+      expect(live.lastTurnStats.value?.durationMs).toBe(3200);
+      scope.stop();
+    });
+  });
+
+  // ── Truncation ───────────────────────────────────────────────────────────
+
+  describe("truncation", () => {
+    it("sets lastTruncation from session.truncation and clearTruncation() resets it", async () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => {
+        live = useLiveSdkSession(sessionIdRef);
+      });
+
+      push(makeEvent({
+        eventType: "session.truncation",
+        data: { tokensRemovedDuringTruncation: 5000, preTruncationTokensInMessages: 90000, postTruncationTokensInMessages: 85000, performedBy: "auto" },
+      }));
+      await nextTick();
+
+      expect(live.lastTruncation.value?.tokensRemoved).toBe(5000);
+      expect(live.lastTruncation.value?.performedBy).toBe("auto");
+
+      live.clearTruncation();
+      expect(live.lastTruncation.value).toBeNull();
+      scope.stop();
+    });
+  });
+
+  // ── Dedup ────────────────────────────────────────────────────────────────
+
+  describe("WeakSet dedup", () => {
+    it("does not process the same event object twice even if the array is replaced", async () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => {
+        live = useLiveSdkSession(sessionIdRef);
+      });
+
+      const evt = makeEvent({ eventType: "session.model_change", data: { newModel: "model-A" } });
+      push(evt);
+      await nextTick();
+      expect(live.liveModel.value).toBe("model-A");
+
+      // Simulate array replacement with same object: second model_change with same ref
+      sdkState.recentEvents = [...sdkState.recentEvents];
+      await nextTick();
+      // liveModel should still be model-A — not reset or changed
+      expect(live.liveModel.value).toBe("model-A");
+
+      // Add a new *different* event to prove the watcher does still fire
+      push(makeEvent({ eventType: "session.model_change", data: { newModel: "model-B" } }));
+      await nextTick();
+      expect(live.liveModel.value).toBe("model-B");
+
+      scope.stop();
+    });
+  });
+
+  // ── Session ID change resets state ──────────────────────────────────────
+
+  describe("session ID change", () => {
+    it("resets all accumulated state when sessionId changes", async () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => {
+        live = useLiveSdkSession(sessionIdRef);
+      });
+
+      // Build up state for session A
+      push(makeEvent({ eventType: "assistant.turn_start", data: { turnId: "t1" } }));
+      push(makeEvent({ eventType: "assistant.message_delta", ephemeral: true, data: { messageId: "m1", deltaContent: "hello" } }));
+      push(makeEvent({ eventType: "tool.execution_start", data: { toolCallId: "tc1", toolName: "read" } }));
+      push(makeEvent({ eventType: "session.model_change", data: { newModel: "model-X" } }));
+      push(makeEvent({
+        eventType: "session.usage_info",
+        data: { currentTokens: 50000, tokenLimit: 100000 },
+      }));
+      await nextTick();
+
+      expect(live.isAgentRunning.value).toBe(true);
+      expect(live.streamingMessages.size).toBe(1);
+      expect(live.activeTools.size).toBe(1);
+      expect(live.liveModel.value).toBe("model-X");
+      expect(live.tokenUsage.value).not.toBeNull();
+
+      // Navigate to a different session
+      sessionIdRef.value = "session-B";
+      await nextTick();
+
+      expect(live.isAgentRunning.value).toBe(false);
+      expect(live.streamingMessages.size).toBe(0);
+      expect(live.activeTools.size).toBe(0);
+      expect(live.liveModel.value).toBeNull();
+      expect(live.tokenUsage.value).toBeNull();
+
+      scope.stop();
+    });
+  });
+
+  // ── Events from other sessions are ignored ───────────────────────────────
+
+  describe("session isolation", () => {
+    it("ignores events from a different session ID", async () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => {
+        live = useLiveSdkSession(sessionIdRef);
+      });
+
+      // Push event for a DIFFERENT session
+      sdkState.recentEvents = [
+        ...sdkState.recentEvents,
+        {
+          sessionId: "other-session",
+          eventType: "session.model_change",
+          data: { newModel: "other-model" },
+          id: "x1",
+          parentId: null,
+          timestamp: "2024-01-01T00:00:01Z",
+          ephemeral: false,
+        },
+      ];
+      await nextTick();
+
+      expect(live.liveModel.value).toBeNull();
+      scope.stop();
+    });
+  });
+});

@@ -21,12 +21,14 @@ import {
   useConversationSections,
   useToggleSet,
 } from "@tracepilot/ui";
-import { computed, nextTick, onMounted, onUnmounted, ref } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, provide, ref } from "vue";
 import { useRoute } from "vue-router";
 import SessionEventRow from "@/components/conversation/SessionEventRow.vue";
+import SdkStreamingOverlay from "@/components/conversation/SdkStreamingOverlay.vue";
 import { useCrossTurnSubagents } from "@/composables/useCrossTurnSubagents";
 import { useSubagentPanel } from "@/composables/useSubagentPanel";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
+import { useLiveSdkSession, SdkLiveSessionKey } from "@/composables/useLiveSdkSession";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { useWindowRole } from "@/composables/useWindowRole";
@@ -54,6 +56,13 @@ const { isViewer } = useWindowRole();
 const route = useRoute();
 const turns = computed(() => store.turns);
 const renderMd = computed(() => preferences.isFeatureEnabled("renderMarkdown"));
+
+// ─── Live SDK session (event stream) ─────────────────────────────
+// Provides streaming messages, active tools, compaction state etc.
+// to both SdkStreamingOverlay (inline) and SdkSteeringPanel (via inject).
+
+const liveSession = useLiveSdkSession(computed(() => store.sessionId));
+provide(SdkLiveSessionKey, liveSession);
 
 // ─── Cross-turn subagent data ─────────────────────────────────────
 
@@ -632,6 +641,9 @@ defineExpose({ revealEvent });
                 </div>
               </div>
             </template>
+
+            <!-- Live streaming overlay — shows in-flight messages from the SDK event stream -->
+            <SdkStreamingOverlay />
           </div>
         </div>
       </div>
