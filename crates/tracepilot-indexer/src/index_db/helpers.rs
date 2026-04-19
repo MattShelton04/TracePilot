@@ -5,6 +5,10 @@ use rusqlite::{Connection, params_from_iter, types::ToSql};
 
 use tracepilot_core::analytics::types::*;
 
+/// Raw row type returned by model-distribution queries before the `i64` sentinel
+/// for `has_reasoning` is converted to `bool`.
+type ModelDistRawRow = (String, i64, i64, i64, i64, f64, i64, i64, bool);
+
 /// Build a WHERE clause for date range + repo filtering on the sessions table.
 ///
 /// Returns `(where_clause, bind_values)` where `where_clause` starts with
@@ -128,7 +132,7 @@ pub(super) fn query_model_distribution(
             row.get::<_, i64>(8)?,
         ))
     })?;
-    let mut entries: Vec<(String, i64, i64, i64, i64, f64, i64, i64, bool)> = Vec::new();
+    let mut entries: Vec<ModelDistRawRow> = Vec::new();
     let mut grand_total: i64 = 0;
     for row in rows {
         let (
