@@ -64,14 +64,14 @@ impl TaskDb {
         }
 
         let mut conn = Connection::open(path).map_err(|e| {
-            OrchestratorError::Task(format!(
-                "Failed to open task database at {}: {e}",
-                path.display()
-            ))
+            OrchestratorError::task_ctx(
+                format!("Failed to open task database at {}", path.display()),
+                e,
+            )
         })?;
 
         tracepilot_core::utils::sqlite::configure_connection(&conn)
-            .map_err(|e| OrchestratorError::Task(format!("Failed to set task DB pragmas: {e}")))?;
+            .map_err(|e| OrchestratorError::task_ctx("Failed to set task DB pragmas", e))?;
 
         Self::run_migrations(&mut conn, Some(path))?;
 
@@ -98,9 +98,8 @@ impl TaskDb {
     /// Run schema migrations through the shared framework, honouring the legacy
     /// `task_meta`-based version tracking used by pre-framework databases.
     fn run_migrations(conn: &mut Connection, db_path: Option<&Path>) -> Result<()> {
-        bootstrap_legacy_schema_version(conn).map_err(|e| {
-            OrchestratorError::Task(format!("Legacy schema_version bootstrap failed: {e}"))
-        })?;
+        bootstrap_legacy_schema_version(conn)
+            .map_err(|e| OrchestratorError::task_ctx("Legacy schema_version bootstrap failed", e))?;
 
         let opts = MigratorOptions {
             backup: db_path.is_some(),
