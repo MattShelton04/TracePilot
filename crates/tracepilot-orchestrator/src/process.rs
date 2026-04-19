@@ -751,88 +751,52 @@ impl<W: std::io::Write> std::io::Write for Base64Encoder<W> {
 
 // ─── Windows Win32 argument quoting ─────────────────────────────────
 
-/// Quote a string as a single Win32 command-line argument (MSVCRT convention).
-///
-/// Used with PowerShell's `--% ` stop-parsing token so that PS never touches
-/// the value and `CommandLineToArgvW` receives it directly. Rules:
-/// - Backslashes before a `"` are doubled, then the `"` is escaped as `\"`
-/// - Trailing backslashes (before the closing `"`) are doubled
-/// - Newlines/carriage-returns are collapsed to a space (Win32 args are single-line)
-/// - The result is always wrapped in double-quotes
+/// Quote a string as a single Win32 command-line argument (MSVCRT rules).
+/// Backslashes before `"` or at end-of-string are doubled; `"` is escaped as `\"`;
+/// newlines are collapsed to a space. Used with PS's `--% ` stop-parsing token.
 #[cfg(windows)]
 pub(crate) fn win32_quote_arg(s: &str) -> String {
-    let s: String = s
-        .chars()
-        .map(|c| if c == '\r' || c == '\n' { ' ' } else { c })
-        .collect();
-    let chars: Vec<char> = s.chars().collect();
-    let mut out = String::with_capacity(s.len() + 2);
-    out.push('"');
-    let mut i = 0;
-    while i < chars.len() {
-        let mut n_bs = 0;
-        while i < chars.len() && chars[i] == '\\' {
-            i += 1;
-            n_bs += 1;
-        }
-        if i == chars.len() {
-            // Trailing backslashes — double before closing quote
-            for _ in 0..n_bs * 2 {
-                out.push('\\');
+    let s = s.replace(['\r', '\n'], " ");
+    let mut out = String::from('"');
+    let mut bs: u32 = 0;
+    for c in s.chars() {
+        match c {
+            '\\' => bs += 1,
+            '"' => {
+                (0..bs * 2).for_each(|_| out.push('\\'));
+                out.push_str("\\\"");
+                bs = 0;
             }
-            break;
-        } else if chars[i] == '"' {
-            // Backslashes immediately before a quote — double, then escape the quote
-            for _ in 0..n_bs * 2 {
-                out.push('\\');
+            c => {
+                (0..bs).for_each(|_| out.push('\\'));
+                out.push(c);
+                bs = 0;
             }
-            out.push_str("\\\"");
-            i += 1;
-        } else {
-            // Ordinary character — backslashes are literal
-            for _ in 0..n_bs {
-                out.push('\\');
-            }
-            out.push(chars[i]);
-            i += 1;
         }
     }
+    (0..bs * 2).for_each(|_| out.push('\\')); // double trailing backslashes
     out.push('"');
     out
 }
 
-// ─── Base64 prompt encoding ─────────────────────────────────────────
+// ─── Base64 prompt encoding (macOS / Linux) ──────────────────────────
 
-/// Base64-encode a prompt string (UTF-8 bytes) for safe embedding in shell/PS scripts.
-///
-/// The result contains only `[A-Za-z0-9+/=]` and therefore requires no escaping
-/// in PS single-quoted strings, POSIX single-quoted strings, or AppleScript
-/// double-quoted strings. Used by macOS/Linux to safely pass `--interactive`
-/// prompts containing arbitrary characters (quotes, newlines, backslashes, etc.).
+/// Base64-encode a prompt (UTF-8). Output is `[A-Za-z0-9+/=]` — safe inside
+/// POSIX single-quoted strings and AppleScript double-quoted strings with no
+/// further escaping. Decoded at runtime via `$(echo '...' | base64 -d)`.
 pub(crate) fn encode_prompt_utf8_base64(s: &str) -> String {
-    const CHARS: &[u8] =
-        b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let bytes = s.as_bytes();
-    let mut out = Vec::with_capacity(4 * ((bytes.len() + 2) / 3));
-    for chunk in bytes.chunks(3) {
-        let b0 = chunk[0];
-        let b1 = if chunk.len() > 1 { chunk[1] } else { 0 };
-        let b2 = if chunk.len() > 2 { chunk[2] } else { 0 };
-        out.push(CHARS[(b0 >> 2) as usize]);
-        out.push(CHARS[((b0 & 0x03) << 4 | b1 >> 4) as usize]);
-        out.push(if chunk.len() > 1 {
-            CHARS[((b1 & 0x0f) << 2 | b2 >> 6) as usize]
-        } else {
-            b'='
-        });
-        out.push(if chunk.len() > 2 {
-            CHARS[(b2 & 0x3f) as usize]
-        } else {
-            b'='
-        });
+    const C: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut o = Vec::with_capacity(4 * ((s.len() + 2) / 3));
+    for c in s.as_bytes().chunks(3) {
+        let (b0, b1, b2) = (c[0], c.get(1).copied().unwrap_or(0), c.get(2).copied().unwrap_or(0));
+        o.extend_from_slice(&[
+            C[(b0 >> 2) as usize],
+            C[((b0 & 3) << 4 | b1 >> 4) as usize],
+            if c.len() > 1 { C[((b1 & 0xf) << 2 | b2 >> 6) as usize] } else { b'=' },
+            if c.len() > 2 { C[(b2 & 0x3f) as usize] } else { b'=' },
+        ]);
     }
-    // Safety: base64 output is always valid ASCII (subset of UTF-8)
-    String::from_utf8(out).expect("base64 output is always valid ASCII")
+    String::from_utf8(o).expect("base64 is ASCII")
 }
 
 // ─── Environment variable name validation ───────────────────────────
