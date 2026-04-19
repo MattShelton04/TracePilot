@@ -11,6 +11,7 @@ dhat-heap = ["tracepilot-core/dhat-heap"]
 [dependencies]
 tracepilot-core = { workspace = true }
 tracepilot-indexer = { workspace = true }
+rusqlite = { workspace = true }
 serde_json = { workspace = true }
 chrono = { workspace = true }
 uuid = { workspace = true }
@@ -29,4 +30,8 @@ harness = false
 
 [[bench]]
 name = "indexer"
+harness = false
+
+[[bench]]
+name = "batch_size"
 harness = false

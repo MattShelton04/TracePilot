@@ -1,8 +1,8 @@
 //! Multi-row INSERT batching for SQLite child-table writes.
 //!
 //! Instead of executing N individual `INSERT ... VALUES (?)` statements,
-//! this builds `INSERT ... VALUES (?,...),(?,...), ...` in chunks of 50,
-//! reducing statement count from N to ⌈N/50⌉. Within an explicit
+//! this builds `INSERT ... VALUES (?,...),(?,...), ...` in chunks of 25,
+//! reducing statement count from N to ⌈N/25⌉. Within an explicit
 //! transaction (SAVEPOINT), the main win is fewer SQLite VM step() calls.
 
 use crate::Result;
@@ -11,9 +11,15 @@ use tracepilot_core::utils::sqlite::build_placeholder_sql;
 
 /// Maximum rows per multi-row INSERT statement.
 ///
-/// With 9 columns (the widest child table), 50 × 9 = 450 bind parameters,
+/// Empirically tuned via `cargo bench -p tracepilot-bench --bench batch_size`.
+/// With 9 columns (the widest child table), 25 × 9 = 225 bind parameters —
 /// well within SQLite's `SQLITE_MAX_VARIABLE_NUMBER` (32 766 since 3.32).
-const BATCH_CHUNK_SIZE: usize = 50;
+///
+/// Benchmarks across 50–1000 row workloads show chunk=25 consistently
+/// outperforms chunk=50 by ~4–10%, peaking at ~10% faster on 1 000-row
+/// sessions. Smaller chunks (10) lose that advantage through excess
+/// `prepare()` calls; larger chunks (100+) offer no benefit.
+const BATCH_CHUNK_SIZE: usize = 25;
 
 /// Execute a multi-row INSERT in chunks of up to [`BATCH_CHUNK_SIZE`] rows.
 ///
