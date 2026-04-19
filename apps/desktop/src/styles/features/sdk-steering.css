@@ -513,6 +513,7 @@
 .cb-model-selector {
   position: relative;
   margin-left: 4px;
+  min-width: 0;
 }
 .cb-model-btn {
   display: inline-flex;
@@ -536,6 +537,10 @@
 .cb-model-name {
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 0.625rem;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Keyboard hint */

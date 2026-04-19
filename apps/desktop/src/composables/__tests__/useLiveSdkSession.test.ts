@@ -184,15 +184,21 @@ describe("useLiveSdkSession", () => {
       });
 
       push(
+        makeEvent({ eventType: "assistant.turn_start", data: { turnId: "t-end-1" } }),
         makeEvent({ eventType: "assistant.message_delta", ephemeral: true, data: { messageId: "m1", deltaContent: "a" } }),
         makeEvent({ eventType: "assistant.message_delta", ephemeral: true, data: { messageId: "m2", deltaContent: "b" } }),
       );
       await nextTick();
       expect(live.streamingMessages.size).toBe(2);
+      expect(live.isAgentRunning.value).toBe(true);
 
       push(makeEvent({ eventType: "assistant.turn_end" }));
       await nextTick();
+      // streaming cleared, activeTurnId cleared, but isAgentRunning stays true until session.idle
       expect(live.streamingMessages.size).toBe(0);
+      expect(live.streamingReasoning.size).toBe(0);
+      expect(live.activeTurnId.value).toBeNull();
+      expect(live.isAgentRunning.value).toBe(true);
       scope.stop();
     });
 
@@ -420,6 +426,8 @@ describe("useLiveSdkSession", () => {
       push(makeEvent({ eventType: "abort", data: { reason: "User cancelled" } }));
       await nextTick();
       expect(live.abortReason.value).toBe("User cancelled");
+      expect(live.isAgentRunning.value).toBe(false);
+      expect(live.activeTurnId.value).toBeNull();
 
       live.clearAbort();
       expect(live.abortReason.value).toBeNull();
@@ -437,6 +445,7 @@ describe("useLiveSdkSession", () => {
       push(makeEvent({ eventType: "abort", data: {} }));
       await nextTick();
       expect(live.abortReason.value).toBe("Aborted");
+      expect(live.activeTurnId.value).toBeNull();
       scope.stop();
     });
   });
@@ -533,6 +542,12 @@ describe("useLiveSdkSession", () => {
       expect(live.lastTurnStats.value?.inputTokens).toBe(1000);
       expect(live.lastTurnStats.value?.outputTokens).toBe(500);
       expect(live.lastTurnStats.value?.durationMs).toBe(3200);
+
+      // Stats are cleared when a new turn starts (so command bar doesn't show stale data)
+      push(makeEvent({ eventType: "assistant.turn_start", data: { turnId: "t-new" } }));
+      await nextTick();
+      expect(live.lastTurnStats.value).toBeNull();
+
       scope.stop();
     });
   });
@@ -852,6 +867,7 @@ describe("useLiveSdkSession", () => {
       await nextTick();
 
       expect(live.isAgentRunning.value).toBe(false);
+      expect(live.activeTurnId.value).toBeNull();
       expect(live.streamingMessages.size).toBe(0);
       expect(live.streamingReasoning.size).toBe(0);
       expect(live.activeTools.size).toBe(0);
@@ -874,6 +890,155 @@ describe("useLiveSdkSession", () => {
       await nextTick();
 
       expect(live.isLinkedToSdk.value).toBe(false);
+      scope.stop();
+    });
+  });
+
+  // ── Handoff ─────────────────────────────────────────────────────────────
+
+  describe("handoff", () => {
+    it("sets pendingHandoff on session.handoff and clearHandoff() resets it", async () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => {
+        live = useLiveSdkSession(sessionIdRef);
+      });
+
+      expect(live.pendingHandoff.value).toBeNull();
+
+      push(makeEvent({
+        eventType: "session.handoff",
+        data: {
+          sourceType: "remote",
+          repository: { owner: "acme", name: "repo", branch: "main" },
+          summary: "Handing off task",
+          remoteSessionId: "remote-123",
+        },
+      }));
+      await nextTick();
+
+      expect(live.pendingHandoff.value?.sourceType).toBe("remote");
+      expect(live.pendingHandoff.value?.repository?.owner).toBe("acme");
+      expect(live.pendingHandoff.value?.summary).toBe("Handing off task");
+
+      live.clearHandoff();
+      expect(live.pendingHandoff.value).toBeNull();
+      scope.stop();
+    });
+
+    it("handles session.handoff with no repository info", async () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => {
+        live = useLiveSdkSession(sessionIdRef);
+      });
+
+      push(makeEvent({
+        eventType: "session.handoff",
+        data: { sourceType: "local", repository: null, summary: null, remoteSessionId: null },
+      }));
+      await nextTick();
+
+      expect(live.pendingHandoff.value?.repository).toBeNull();
+      scope.stop();
+    });
+  });
+
+  // ── Snapshot rewind ──────────────────────────────────────────────────────
+
+  describe("snapshot rewind", () => {
+    it("sets lastSnapshotRewind on session.snapshot_rewind and clearRewind() resets it", async () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => {
+        live = useLiveSdkSession(sessionIdRef);
+      });
+
+      expect(live.lastSnapshotRewind.value).toBeNull();
+
+      push(makeEvent({
+        eventType: "session.snapshot_rewind",
+        data: { eventsRemoved: 12 },
+      }));
+      await nextTick();
+
+      expect(live.lastSnapshotRewind.value?.eventsRemoved).toBe(12);
+
+      live.clearRewind();
+      expect(live.lastSnapshotRewind.value).toBeNull();
+      scope.stop();
+    });
+  });
+
+  // ── hasLiveActivity derived ──────────────────────────────────────────────
+
+  describe("hasLiveActivity", () => {
+    it("is false initially", async () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => {
+        live = useLiveSdkSession(sessionIdRef);
+      });
+
+      expect(live.hasLiveActivity.value).toBe(false);
+      scope.stop();
+    });
+
+    it("is true when the agent is running", async () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => {
+        live = useLiveSdkSession(sessionIdRef);
+      });
+
+      push(makeEvent({ eventType: "assistant.turn_start", data: { turnId: "t1" } }));
+      await nextTick();
+      expect(live.hasLiveActivity.value).toBe(true);
+
+      push(makeEvent({ eventType: "session.idle" }));
+      await nextTick();
+      expect(live.hasLiveActivity.value).toBe(false);
+      scope.stop();
+    });
+
+    it("is true when streaming messages are present", async () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => {
+        live = useLiveSdkSession(sessionIdRef);
+      });
+
+      push(makeEvent({
+        eventType: "assistant.message_delta",
+        ephemeral: true,
+        data: { messageId: "m1", deltaContent: "hi" },
+      }));
+      await nextTick();
+      expect(live.hasLiveActivity.value).toBe(true);
+      scope.stop();
+    });
+
+    it("is true while a tool is executing", async () => {
+      const sessionIdRef = ref(SESSION_ID);
+      let live!: ReturnType<typeof useLiveSdkSession>;
+      const scope = effectScope();
+      scope.run(() => {
+        live = useLiveSdkSession(sessionIdRef);
+      });
+
+      push(makeEvent({ eventType: "tool.execution_start", data: { toolCallId: "tc1", toolName: "bash" } }));
+      await nextTick();
+      expect(live.hasLiveActivity.value).toBe(true);
+
+      push(makeEvent({ eventType: "tool.execution_complete", data: { toolCallId: "tc1" } }));
+      await nextTick();
+      expect(live.hasLiveActivity.value).toBe(false);
       scope.stop();
     });
   });

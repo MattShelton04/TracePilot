@@ -216,6 +216,7 @@ export function useLiveSdkSession(sessionIdRef: Ref<string | null>) {
         isAgentRunning.value = true;
         activeTurnId.value = d.turnId ?? null;
         abortReason.value = null;
+        lastTurnStats.value = null; // clear stale stats so command bar doesn't show prior-turn data
         break;
 
       case "assistant.message":
@@ -259,6 +260,7 @@ export function useLiveSdkSession(sessionIdRef: Ref<string | null>) {
 
       case "session.error":
         isAgentRunning.value = false;
+        activeTurnId.value = null;
         streamingMessages.clear();
         streamingReasoning.clear();
         activeTools.clear();
@@ -267,6 +269,7 @@ export function useLiveSdkSession(sessionIdRef: Ref<string | null>) {
       case "abort":
         abortReason.value = d.reason ?? "Aborted";
         isAgentRunning.value = false;
+        activeTurnId.value = null;
         streamingMessages.clear();
         streamingReasoning.clear();
         activeTools.clear();
@@ -365,6 +368,9 @@ export function useLiveSdkSession(sessionIdRef: Ref<string | null>) {
       activeTools.clear();
       isAgentRunning.value = false;
       activeTurnId.value = null;
+      // abortReason intentionally preserved: the auto-dismiss timer in
+      // SdkLiveIndicators will clear it, and showing the reason after
+      // disconnect is useful to the user.
     }
   });
 
@@ -413,6 +419,8 @@ export function useLiveSdkSession(sessionIdRef: Ref<string | null>) {
   }
 
   function clearCompaction() {
+    // Only lastCompletedAt controls banner visibility; preTokens/postTokens
+    // are intentionally kept — they'll be overwritten by the next compaction_complete.
     compaction.lastCompletedAt = null;
   }
 

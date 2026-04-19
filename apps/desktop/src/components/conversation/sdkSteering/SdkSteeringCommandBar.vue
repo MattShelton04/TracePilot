@@ -50,9 +50,10 @@ function formatTokens(n: number | null): string {
           :ref="ctx.setInputEl"
           v-model="ctx.prompt"
           class="cb-input"
+          aria-label="Message to steer session"
           placeholder="Send a message to steer the session…"
           rows="1"
-          :disabled="ctx.sdk.sendingMessage"
+          :disabled="ctx.sdk.sendingMessage || live?.compaction.status === 'compacting'"
           @keydown="ctx.handleKeydown"
         />
       </div>
@@ -60,6 +61,7 @@ function formatTokens(n: number | null): string {
       <div class="cb-actions">
         <button
           :class="['cb-btn-abort', { visible: ctx.sdk.sendingMessage || live?.isAgentRunning.value }]"
+          aria-label="Abort session"
           title="Abort session"
           @click="ctx.handleAbort"
         >
@@ -69,6 +71,7 @@ function formatTokens(n: number | null): string {
         <button
           :class="['cb-btn-send', { 'has-text': ctx.hasText }]"
           :disabled="!ctx.hasText || ctx.sdk.sendingMessage"
+          aria-label="Send message"
           title="Send (Ctrl+Enter)"
           @click="ctx.handleSend"
         >
@@ -86,6 +89,7 @@ function formatTokens(n: number | null): string {
           v-for="m in ctx.modes"
           :key="m.value"
           :class="['cb-mode-pill', { active: ctx.currentMode === m.value }]"
+          :aria-pressed="ctx.currentMode === m.value"
           :title="m.label"
           @click="ctx.handleModeChange(m.value)"
         >
@@ -118,8 +122,8 @@ function formatTokens(n: number | null): string {
         <span :class="['cb-token-label', `cb-token--${tokenMeterClass}`]">{{ tokenPct }}%</span>
       </div>
 
-      <!-- Per-turn stats chip (shown briefly after each turn completes) -->
-      <div v-if="turnStats" class="cb-turn-stats" :title="`in:${formatTokens(turnStats.inputTokens)} out:${formatTokens(turnStats.outputTokens)} · ${formatDurationMs(turnStats.durationMs)}`">
+      <!-- Per-turn stats chip (shown after each turn completes, hidden while a new turn is active) -->
+      <div v-if="turnStats && !live?.isAgentRunning.value" class="cb-turn-stats" :title="`in:${formatTokens(turnStats.inputTokens)} out:${formatTokens(turnStats.outputTokens)} · ${formatDurationMs(turnStats.durationMs)}`">
         <span class="cb-turn-stat">{{ formatTokens(turnStats.outputTokens) }} tok</span>
         <span v-if="turnStats.durationMs != null" class="cb-turn-stat">{{ formatDurationMs(turnStats.durationMs) }}</span>
       </div>

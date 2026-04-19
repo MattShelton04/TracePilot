@@ -74,7 +74,7 @@ function formatNumber(n: number | null): string {
     <div v-if="live.abortReason.value" class="sdk-live-banner abort" @click="live.clearAbort()">
       <span class="sdk-live-banner-icon">⏹</span>
       <span class="sdk-live-banner-text">Aborted: {{ live.abortReason.value }}</span>
-      <button class="sdk-live-banner-dismiss" title="Dismiss">✕</button>
+      <button class="sdk-live-banner-dismiss" title="Dismiss" aria-label="Dismiss abort notification" @click.stop="live.clearAbort()">✕</button>
     </div>
 
     <!-- Compaction in progress -->
@@ -99,7 +99,7 @@ function formatNumber(n: number | null): string {
           ({{ formatNumber(live.compaction.preTokens) }} → {{ formatNumber(live.compaction.postTokens) }} tokens)
         </template>
       </span>
-      <button class="sdk-live-banner-dismiss" title="Dismiss">✕</button>
+      <button class="sdk-live-banner-dismiss" title="Dismiss" aria-label="Dismiss compaction notice" @click.stop="live.clearCompaction()">✕</button>
     </div>
 
     <!-- Truncation warning -->
@@ -112,7 +112,7 @@ function formatNumber(n: number | null): string {
       <span class="sdk-live-banner-text">
         Context truncated — {{ formatNumber(live.lastTruncation.value.tokensRemoved) }} tokens removed
       </span>
-      <button class="sdk-live-banner-dismiss" title="Dismiss">✕</button>
+      <button class="sdk-live-banner-dismiss" title="Dismiss" aria-label="Dismiss truncation notice" @click.stop="live.clearTruncation()">✕</button>
     </div>
 
     <!-- Handoff notice -->
@@ -134,7 +134,7 @@ function formatNumber(n: number | null): string {
           </code>
         </template>
       </span>
-      <button class="sdk-live-banner-dismiss" title="Dismiss">✕</button>
+      <button class="sdk-live-banner-dismiss" title="Dismiss" aria-label="Dismiss handoff notice" @click.stop="live.clearHandoff()">✕</button>
     </div>
 
     <!-- Snapshot rewind notice -->
@@ -147,7 +147,7 @@ function formatNumber(n: number | null): string {
       <span class="sdk-live-banner-text">
         Rewound {{ live.lastSnapshotRewind.value.eventsRemoved }} events
       </span>
-      <button class="sdk-live-banner-dismiss" title="Dismiss">✕</button>
+      <button class="sdk-live-banner-dismiss" title="Dismiss" aria-label="Dismiss rewind notice" @click.stop="live.clearRewind()">✕</button>
     </div>
   </template>
 </template>

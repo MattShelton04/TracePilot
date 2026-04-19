@@ -98,18 +98,19 @@ function elapsedMs(startedAt: number): string {
     </div>
 
     <!-- Active tool indicators -->
-    <div v-if="activeTools.length > 0" class="sdk-stream-tools">
+    <div v-if="activeTools.length > 0" class="sdk-stream-tools" role="list">
       <div
         v-for="tool in activeTools"
         :key="tool.toolCallId"
         class="sdk-stream-tool"
+        role="listitem"
       >
         <span class="sdk-stream-tool-icon" aria-hidden="true">🔧</span>
         <span class="sdk-stream-tool-name">{{ tool.mcpToolName ?? tool.toolName }}</span>
         <span v-if="tool.progressMessage" class="sdk-stream-tool-progress">
           {{ tool.progressMessage }}
         </span>
-        <span class="sdk-stream-tool-elapsed">{{ elapsedMs(tool.startedAt) }}</span>
+        <span class="sdk-stream-tool-elapsed" aria-hidden="true">{{ elapsedMs(tool.startedAt) }}</span>
       </div>
     </div>
 
@@ -130,7 +131,6 @@ function elapsedMs(startedAt: number): string {
   flex-direction: column;
   gap: 8px;
   padding: 16px 0 4px;
-  opacity: 0.92;
 }
 
 /* ── Streaming bubble ─────────────────────────────────────────── */
@@ -259,6 +259,12 @@ function elapsedMs(startedAt: number): string {
 .sdk-stream-thinking-text {
   font-style: italic;
   animation: sdk-stream-pulse 1.6s ease-in-out infinite;
+}
+
+/* Delay the thinking indicator so it only appears if content hasn't
+   arrived within 200ms — avoids a flash for fast responses. */
+.sdk-stream-thinking {
+  animation: sdk-stream-fadein 0.1s ease-out 200ms both;
 }
 
 @keyframes sdk-stream-pulse {
