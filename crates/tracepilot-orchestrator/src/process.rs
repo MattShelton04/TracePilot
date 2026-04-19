@@ -749,13 +749,65 @@ impl<W: std::io::Write> std::io::Write for Base64Encoder<W> {
     }
 }
 
+// ─── Windows Win32 argument quoting ─────────────────────────────────
+
+/// Quote a string as a single Win32 command-line argument (MSVCRT convention).
+///
+/// Used with PowerShell's `--% ` stop-parsing token so that PS never touches
+/// the value and `CommandLineToArgvW` receives it directly. Rules:
+/// - Backslashes before a `"` are doubled, then the `"` is escaped as `\"`
+/// - Trailing backslashes (before the closing `"`) are doubled
+/// - Newlines/carriage-returns are collapsed to a space (Win32 args are single-line)
+/// - The result is always wrapped in double-quotes
+#[cfg(windows)]
+pub(crate) fn win32_quote_arg(s: &str) -> String {
+    let s: String = s
+        .chars()
+        .map(|c| if c == '\r' || c == '\n' { ' ' } else { c })
+        .collect();
+    let chars: Vec<char> = s.chars().collect();
+    let mut out = String::with_capacity(s.len() + 2);
+    out.push('"');
+    let mut i = 0;
+    while i < chars.len() {
+        let mut n_bs = 0;
+        while i < chars.len() && chars[i] == '\\' {
+            i += 1;
+            n_bs += 1;
+        }
+        if i == chars.len() {
+            // Trailing backslashes — double before closing quote
+            for _ in 0..n_bs * 2 {
+                out.push('\\');
+            }
+            break;
+        } else if chars[i] == '"' {
+            // Backslashes immediately before a quote — double, then escape the quote
+            for _ in 0..n_bs * 2 {
+                out.push('\\');
+            }
+            out.push_str("\\\"");
+            i += 1;
+        } else {
+            // Ordinary character — backslashes are literal
+            for _ in 0..n_bs {
+                out.push('\\');
+            }
+            out.push(chars[i]);
+            i += 1;
+        }
+    }
+    out.push('"');
+    out
+}
+
 // ─── Base64 prompt encoding ─────────────────────────────────────────
 
 /// Base64-encode a prompt string (UTF-8 bytes) for safe embedding in shell/PS scripts.
 ///
 /// The result contains only `[A-Za-z0-9+/=]` and therefore requires no escaping
 /// in PS single-quoted strings, POSIX single-quoted strings, or AppleScript
-/// double-quoted strings. Used by all platforms to safely pass `--interactive`
+/// double-quoted strings. Used by macOS/Linux to safely pass `--interactive`
 /// prompts containing arbitrary characters (quotes, newlines, backslashes, etc.).
 pub(crate) fn encode_prompt_utf8_base64(s: &str) -> String {
     const CHARS: &[u8] =
@@ -1069,6 +1121,53 @@ mod tests {
             .map(|c| char::from_u32(c as u32).unwrap_or('?'))
             .collect();
         assert_eq!(decoded, cmd);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn test_win32_quote_arg_plain() {
+        assert_eq!(win32_quote_arg("hello"), "\"hello\"");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn test_win32_quote_arg_with_spaces() {
+        assert_eq!(win32_quote_arg("hello world"), "\"hello world\"");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn test_win32_quote_arg_double_quotes() {
+        // He said "hi" → "He said \"hi\""
+        assert_eq!(win32_quote_arg(r#"He said "hi""#), r#""He said \"hi\"""#);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn test_win32_quote_arg_backslash_before_quote() {
+        // a\"b → "a\\\"b"  (backslash before quote: double the backslash, escape the quote)
+        assert_eq!(win32_quote_arg(r#"a\"b"#), r#""a\\\"b""#);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn test_win32_quote_arg_trailing_backslash() {
+        // "hello\" → "hello\\"  (trailing backslash doubled before closing quote)
+        assert_eq!(win32_quote_arg("hello\\"), "\"hello\\\\\"");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn test_win32_quote_arg_newlines_collapsed() {
+        assert_eq!(win32_quote_arg("line1\nline2"), "\"line1 line2\"");
+        assert_eq!(win32_quote_arg("line1\r\nline2"), "\"line1  line2\"");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn test_win32_quote_arg_single_quotes() {
+        // Single quotes need no escaping in Win32 args
+        assert_eq!(win32_quote_arg("it's fine"), "\"it's fine\"");
     }
 
     #[test]
