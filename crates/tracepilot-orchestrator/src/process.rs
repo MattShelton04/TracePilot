@@ -784,6 +784,7 @@ pub(crate) fn win32_quote_arg(s: &str) -> String {
 /// Base64-encode a prompt (UTF-8). Output is `[A-Za-z0-9+/=]` — safe inside
 /// POSIX single-quoted strings and AppleScript double-quoted strings with no
 /// further escaping. Decoded at runtime via `$(echo '...' | base64 -d)`.
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 pub(crate) fn encode_prompt_utf8_base64(s: &str) -> String {
     const C: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut o = Vec::with_capacity(4 * ((s.len() + 2) / 3));
