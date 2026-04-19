@@ -101,8 +101,12 @@ impl TaskDb {
         bootstrap_legacy_schema_version(conn)
             .map_err(|e| OrchestratorError::task_ctx("Legacy schema_version bootstrap failed", e))?;
 
+        let backup_dir = db_path
+            .and_then(|p| p.parent())
+            .map(|parent| parent.join("backups").join("database"));
         let opts = MigratorOptions {
             backup: db_path.is_some(),
+            backup_dir,
             ..Default::default()
         };
         let report =

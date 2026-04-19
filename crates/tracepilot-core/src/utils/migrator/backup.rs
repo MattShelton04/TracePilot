@@ -5,6 +5,7 @@
 //! connections.
 
 use super::types::MigrationError;
+use crate::utils::backup::BackupStore;
 use rusqlite::Connection;
 use std::path::{Path, PathBuf};
 
@@ -42,7 +43,9 @@ pub fn backup_path_for(db_path: &Path, version: u32, backup_dir: Option<&Path>) 
 ///
 /// Uses `rusqlite::backup::Backup` (SQLite online backup API) rather than
 /// `std::fs::copy` so WAL-mode databases include all committed pages.
-/// Overwrites any pre-existing backup at the destination.
+/// Writes to a `.bak.tmp` sibling first, then atomically renames to
+/// `dest_path` — so any pre-existing backup is never removed before the
+/// new one is safely on disk.
 pub(super) fn write_backup(conn: &Connection, dest_path: &Path) -> Result<(), BackupError> {
     if let Some(parent) = dest_path.parent()
         && !parent.as_os_str().is_empty()
@@ -50,11 +53,12 @@ pub(super) fn write_backup(conn: &Connection, dest_path: &Path) -> Result<(), Ba
         std::fs::create_dir_all(parent).map_err(BackupError::Io)?;
     }
 
-    if dest_path.exists() {
-        std::fs::remove_file(dest_path).map_err(BackupError::Io)?;
-    }
+    // Use a sibling temp file so the rename that follows is always same-filesystem.
+    let tmp_path = dest_path.with_extension("bak.tmp");
+    // Remove any leftover temp from a previous aborted attempt (best-effort).
+    let _ = std::fs::remove_file(&tmp_path);
 
-    let mut dest = Connection::open(dest_path).map_err(BackupError::Sqlite)?;
+    let mut dest = Connection::open(&tmp_path).map_err(BackupError::Sqlite)?;
     {
         let backup = rusqlite::backup::Backup::new(conn, &mut dest).map_err(BackupError::Sqlite)?;
         backup
@@ -62,6 +66,9 @@ pub(super) fn write_backup(conn: &Connection, dest_path: &Path) -> Result<(), Ba
             .map_err(BackupError::Sqlite)?;
     }
     dest.close().map_err(|(_, e)| BackupError::Sqlite(e))?;
+
+    // Atomic clobber: renames over dest_path on both Unix and Windows.
+    std::fs::rename(&tmp_path, dest_path).map_err(BackupError::Io)?;
     Ok(())
 }
 
@@ -78,36 +85,8 @@ pub(super) fn prune_backups(db_path: &Path, backup_dir: Option<&Path>, keep: usi
         Some(s) => s.to_string(),
         None => return,
     };
+
+    let store = BackupStore::new(dir);
     let prefix = format!("{}.pre-v", db_stem);
-
-    let read_dir = match std::fs::read_dir(&dir) {
-        Ok(r) => r,
-        Err(_) => return,
-    };
-
-    let mut entries: Vec<(std::time::SystemTime, PathBuf)> = Vec::new();
-    for entry in read_dir.flatten() {
-        let name = entry.file_name();
-        let Some(name_str) = name.to_str() else {
-            continue;
-        };
-        if !name_str.starts_with(&prefix) || !name_str.ends_with(".bak") {
-            continue;
-        }
-        if let Ok(meta) = entry.metadata() {
-            let mtime = meta.modified().unwrap_or(std::time::SystemTime::UNIX_EPOCH);
-            entries.push((mtime, entry.path()));
-        }
-    }
-
-    if entries.len() <= keep {
-        return;
-    }
-
-    entries.sort_by_key(|b| std::cmp::Reverse(b.0));
-    for (_, path) in entries.into_iter().skip(keep) {
-        if let Err(e) = std::fs::remove_file(&path) {
-            tracing::warn!(path = %path.display(), error = %e, "Failed to prune old backup");
-        }
-    }
+    store.prune_by_mtime(&prefix, ".bak", keep);
 }

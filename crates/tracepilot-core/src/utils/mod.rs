@@ -6,6 +6,7 @@
 //! - [`truncate_utf8_with_marker()`] - Same, with optional marker suffix
 //! - [`truncate_string_utf8()`] - In-place version for owned strings
 
+pub mod backup;
 pub mod cache;
 pub mod log_sanitize;
 pub mod migrator;

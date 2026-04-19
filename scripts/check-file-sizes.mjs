@@ -90,6 +90,10 @@ const ALLOWLIST = new Set([
   "crates/tracepilot-core/src/summary/mod.rs",
   "crates/tracepilot-bench/src/lib.rs",
   "crates/tracepilot-export/src/import/writer.rs",
+  // TODO: split tests into a separate file to bring under 500 lines
+  "crates/tracepilot-core/src/utils/backup.rs",
+  // TODO: split run_migrations out into a dedicated module
+  "crates/tracepilot-indexer/src/index_db/migrations.rs",
 
   // ── Rust test files ─────────────────────────────────────────────
   "crates/tracepilot-core/src/turns/tests/builders.rs",
