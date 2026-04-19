@@ -14,6 +14,22 @@ use rusqlite::{params_from_iter, types::ToSql};
 use super::IndexDb;
 use super::row_helpers::context_snippet_from_row;
 
+/// Build a `?, ?, ...` placeholder string for SQL `IN (…)` / `NOT IN (…)` clauses.
+///
+/// Uses a pre-allocated buffer to avoid the intermediate `Vec<&str>` and `String`
+/// that `.map(|_| "?").collect::<Vec<_>>().join(", ")` would produce.
+fn build_in_placeholders(n: usize) -> String {
+    // Each element is "?" (1 char) + ", " (2 chars) except the last.
+    let mut s = String::with_capacity(n * 3);
+    for i in 0..n {
+        if i > 0 {
+            s.push_str(", ");
+        }
+        s.push('?');
+    }
+    s
+}
+
 /// A single search result with context for display and deep-linking.
 #[derive(Debug, Clone)]
 pub struct SearchResult {
@@ -163,7 +179,7 @@ impl SearchQueryBuilder {
         if values.is_empty() {
             return self;
         }
-        let placeholders = values.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+        let placeholders = build_in_placeholders(values.len());
         self.where_clauses
             .push(format!("{} IN ({})", column, placeholders));
         for val in values {
@@ -180,7 +196,7 @@ impl SearchQueryBuilder {
         if values.is_empty() {
             return self;
         }
-        let placeholders = values.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+        let placeholders = build_in_placeholders(values.len());
         self.where_clauses
             .push(format!("{} NOT IN ({})", column, placeholders));
         for val in values {

@@ -1,3 +1,0 @@
-## 2025-02-18 - Optimized SQL placeholder string generation in SQLite batch inserts
-**Learning:** Generating dynamically sized arrays for SQLite bind variables using functional chaining (`.map().collect().join()`) in a loop causes excessive intermediate heap allocations, which becomes a bottleneck in hot code paths like batch inserting rows.
-**Action:** When generating large dynamic SQL placeholder strings (e.g., `(?,?), (?,?)`), avoid intermediate collection and string allocations. Pre-allocate a `String` with an estimated capacity using `String::with_capacity()`, and append directly to the buffer using `std::fmt::Write::write!`.

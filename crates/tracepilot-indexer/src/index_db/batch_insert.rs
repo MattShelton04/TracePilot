@@ -15,6 +15,41 @@ use std::fmt::Write;
 /// well within SQLite's `SQLITE_MAX_VARIABLE_NUMBER` (32 766 since 3.32).
 const BATCH_CHUNK_SIZE: usize = 50;
 
+/// Build a complete `INSERT … VALUES (…),(…)` SQL string into a single
+/// pre-allocated buffer.
+///
+/// Produces e.g. `"INSERT INTO t (a,b) VALUES (?1,?2),(?3,?4)"` for
+/// `sql_prefix = "INSERT INTO t (a,b) VALUES"`, `num_rows = 2`,
+/// `params_per_row = 2`.
+///
+/// Using a pre-allocated buffer and `fmt::Write` avoids all intermediate
+/// `String`/`Vec` heap allocations that a `.map().collect().join()` chain
+/// would produce (~600 allocations per chunk with 50 rows × 9 columns).
+fn build_placeholder_sql(sql_prefix: &str, num_rows: usize, params_per_row: usize) -> String {
+    // Each `?NNN` is at most 5 chars; add 1 for comma separator between params,
+    // 2 for `()` per row, 1 for comma separator between rows, plus prefix + space.
+    let mut sql = String::with_capacity(
+        sql_prefix.len() + 1 + num_rows * (params_per_row * 6 + 3),
+    );
+    sql.push_str(sql_prefix);
+    sql.push(' ');
+    for i in 0..num_rows {
+        if i > 0 {
+            sql.push(',');
+        }
+        sql.push('(');
+        let start = i * params_per_row + 1;
+        for n in start..start + params_per_row {
+            if n > start {
+                sql.push(',');
+            }
+            write!(&mut sql, "?{n}").expect("String write is infallible");
+        }
+        sql.push(')');
+    }
+    sql
+}
+
 /// Execute a multi-row INSERT in chunks of up to [`BATCH_CHUNK_SIZE`] rows.
 ///
 /// `sql_prefix` is everything up to (but not including) the first VALUES
@@ -55,30 +90,20 @@ where
         return Ok(());
     }
 
+    // All full-sized chunks share the same SQL shape — build it once.
+    // Only the (optional) trailing partial chunk needs a different string.
+    let full_sql = build_placeholder_sql(sql_prefix, BATCH_CHUNK_SIZE, params_per_row);
+
     for chunk in items.chunks(BATCH_CHUNK_SIZE) {
-        // Pre-allocate assuming ~4 chars per parameter ("?123" + ",") plus parens, plus prefix
-        let estimated_len = sql_prefix.len() + 1 + chunk.len() * (params_per_row * 5 + 3);
-        let mut sql = String::with_capacity(estimated_len);
-        sql.push_str(sql_prefix);
-        sql.push(' ');
+        let partial;
+        let sql: &str = if chunk.len() == BATCH_CHUNK_SIZE {
+            &full_sql
+        } else {
+            partial = build_placeholder_sql(sql_prefix, chunk.len(), params_per_row);
+            &partial
+        };
 
-        for i in 0..chunk.len() {
-            if i > 0 {
-                sql.push(',');
-            }
-            sql.push('(');
-
-            let start = i * params_per_row + 1;
-            for j in 0..params_per_row {
-                if j > 0 {
-                    sql.push(',');
-                }
-                write!(&mut sql, "?{}", start + j).expect("String formatting should not fail");
-            }
-            sql.push(')');
-        }
-
-        let mut stmt = conn.prepare(&sql)?;
+        let mut stmt = conn.prepare(sql)?;
 
         let mut params: Vec<&'a dyn ToSql> = Vec::with_capacity(chunk.len() * params_per_row);
         for item in chunk {
@@ -95,6 +120,18 @@ where
 mod tests {
     use super::*;
     use rusqlite::Connection;
+
+    #[test]
+    fn build_placeholder_sql_single_row_single_col() {
+        let sql = build_placeholder_sql("INSERT INTO t (v) VALUES", 1, 1);
+        assert_eq!(sql, "INSERT INTO t (v) VALUES (?1)");
+    }
+
+    #[test]
+    fn build_placeholder_sql_multi_row_multi_col() {
+        let sql = build_placeholder_sql("INSERT INTO t (a,b) VALUES", 2, 2);
+        assert_eq!(sql, "INSERT INTO t (a,b) VALUES (?1,?2),(?3,?4)");
+    }
 
     #[test]
     fn empty_items_is_noop() {
