@@ -1,6 +1,6 @@
 {
   "name": "@tracepilot/ui",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "private": true,
   "description": "Shared Vue UI components for TracePilot",
   "author": "Matt Shelton (@MattShelton04)",

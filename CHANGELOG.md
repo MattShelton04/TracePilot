@@ -7,6 +7,25 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-04-19
+
+### Added
+- **Pop-out session windows** — open any session in its own dedicated window by dragging a tab out of the strip, or Ctrl+clicking a session in the list. Multi-tab session viewing with drag-to-reorder, keyboard navigation, context menu, and tab state persisted across restarts
+- **Session File Explorer** — new Explorer tab in session detail lets you browse and view all files inside a session's state directory directly in the app, with type-aware rendering for Markdown, code, JSONL, YAML, TOML, and more; binary and SQLite files shown as placeholders; path traversal protected
+- **System prompt visibility** — `system.message` events (e.g. injected system prompts) now appear as a collapsible panel above session events in the conversation view
+- **Structured checkpoint rendering** — checkpoints with the standard XML schema now render with collapsible sections, section icons, and a raw/structured toggle; the checkpoint list is redesigned as a compact vertical timeline with expand-all; compaction events link directly to their associated checkpoint
+
+### Changed
+- **Session export now on by default** — the Export button is now accessible directly from the session detail panel without enabling a feature flag; new presets (Full Archive, Minimal Team Log, Agent Context, Full-Fidelity Backup), raw zip export option, and richer subagent metadata in Markdown output
+- **Session indexing performance** — session event parsing now uses an LRU cache (keyed on file size + mtime) to eliminate redundant re-parses; reindex is debounced within a 2-minute window; FTS health and browse-facet results are cached, significantly reducing latency when navigating between views
+- **Reduced SQLite allocation pressure** — SQL placeholder string generation now uses a single pre-allocated buffer instead of hundreds of heap allocations per batch; search filter helpers updated to match
+- **Session launcher supports complex prompts** — the `--interactive` prompt argument is now reliably encoded on all platforms using PowerShell stop-parsing / Base64 decode, supporting prompts with quotes, backslashes, and newlines that previously caused launch failures
+- **Tech debt: major codebase decomposition** — IPC hardening and Tauri capability scoping (main vs viewer windows), `runAction`/`runMutation` codemod across all 14 Pinia stores, `tauri-specta` type binding generation, `PageShell` layout adoption across 13 views, and comprehensive security hardening in the Rust backend (input validation, error scrubbing, safe path handling)
+
+### Fixed
+- Subagent model attribution corrected; a warning badge is shown when a subagent's reported model doesn't match the session model
+- Rich tool rendering compatibility with real session data; several display regressions resolved
+
 ## [0.6.2] - 2026-04-12
 
 ### Added
