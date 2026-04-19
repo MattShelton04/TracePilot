@@ -15,7 +15,7 @@ import type {
   OrchestratorState,
 } from "@tracepilot/types";
 import { DEFAULT_ORCHESTRATOR_MODEL } from "@tracepilot/types";
-import { toErrorMessage, usePolling } from "@tracepilot/ui";
+import { runMutation, toErrorMessage, usePolling } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref, watch } from "vue";
 import { logWarn } from "@/utils/logger";
@@ -98,7 +98,7 @@ export const useOrchestratorStore = defineStore("orchestrator", () => {
       error.value = null;
     } catch (e) {
       logWarn("[orchestrator] Health check failed:", e);
-      error.value = e instanceof Error ? e.message : String(e);
+      error.value = toErrorMessage(e);
     }
   }
 
@@ -231,33 +231,27 @@ export const useOrchestratorStore = defineStore("orchestrator", () => {
   /** Launch the orchestrator. Uses selectedModel unless overridden. */
   async function startOrchestrator(model?: string) {
     starting.value = true;
-    error.value = null;
-    try {
+    const ok = await runMutation(error, async () => {
       handle.value = await taskOrchestratorStart(model ?? selectedModel.value);
       await checkHealth();
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      logWarn("[orchestrator] Start failed:", e);
-    } finally {
-      starting.value = false;
-    }
+      return true as const;
+    });
+    starting.value = false;
+    if (!ok) logWarn("[orchestrator] Start failed");
   }
 
   /** Gracefully stop the orchestrator via manifest shutdown flag. */
   async function stopOrchestrator() {
     stopping.value = true;
-    error.value = null;
-    try {
+    const ok = await runMutation(error, async () => {
       await taskOrchestratorStop();
       handle.value = null;
       attribution.value = null;
       await checkHealth();
-    } catch (e) {
-      error.value = toErrorMessage(e);
-      logWarn("[orchestrator] Stop failed:", e);
-    } finally {
-      stopping.value = false;
-    }
+      return true as const;
+    });
+    stopping.value = false;
+    if (!ok) logWarn("[orchestrator] Stop failed");
   }
 
   return {
