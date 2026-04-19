@@ -1,0 +1,3 @@
+## 2024-04-19 - Cache Prepared Statements for Batch Inserts
+**Learning:** In Rust's `rusqlite`, repeatedly calling `conn.prepare(sql)` for batch operations inside a loop has significant overhead because it recompiles the SQLite statement each time, even if the SQL string was pre-computed and cached. For multi-row inserts where the chunk size (and thus the SQL string) is constant, you must cache the `rusqlite::Statement` object itself to get the full performance benefit.
+**Action:** Always cache the `Statement` object instead of just the `String` query when performing large batch insertions with static chunk sizes. For trailing partial chunks, fallback to dynamic preparation.

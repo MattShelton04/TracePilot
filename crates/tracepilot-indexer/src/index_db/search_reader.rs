@@ -365,7 +365,10 @@ impl IndexDb {
             .build();
 
         let mut stmt = self.conn.prepare(&sql)?;
-        let rows = stmt.query_map(params_from_iter(params.iter().map(|p| p.as_ref())), map_search_result)?;
+        let rows = stmt.query_map(
+            params_from_iter(params.iter().map(|p| p.as_ref())),
+            map_search_result,
+        )?;
 
         let mut results = Vec::new();
         for row in rows {
@@ -384,9 +387,11 @@ impl IndexDb {
             .with_filters(filters)
             .build();
 
-        let count: i64 = self
-            .conn
-            .query_row(&sql, params_from_iter(params.iter().map(|p| p.as_ref())), |row| row.get(0))?;
+        let count: i64 = self.conn.query_row(
+            &sql,
+            params_from_iter(params.iter().map(|p| p.as_ref())),
+            |row| row.get(0),
+        )?;
         Ok(count)
     }
 
@@ -475,7 +480,9 @@ impl IndexDb {
         let (sql, params) = builder.build();
 
         let mut stmt = self.conn.prepare(&sql)?;
-        let rows = stmt.query_map(params_from_iter(params.iter().map(|p| p.as_ref())), |row| Ok((row.get(0)?, row.get(1)?)))?;
+        let rows = stmt.query_map(params_from_iter(params.iter().map(|p| p.as_ref())), |row| {
+            Ok((row.get(0)?, row.get(1)?))
+        })?;
         let mut results = Vec::new();
         for row in rows {
             results.push(row?);
@@ -497,9 +504,11 @@ impl IndexDb {
                 .with_filters(filters)
                 .build();
 
-        Ok(self.conn.query_row(&sql, params_from_iter(params.iter().map(|p| p.as_ref())), |row| {
-            Ok((row.get(0)?, row.get(1)?))
-        })?)
+        Ok(self.conn.query_row(
+            &sql,
+            params_from_iter(params.iter().map(|p| p.as_ref())),
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )?)
     }
 
     /// Get statistics about the search index.

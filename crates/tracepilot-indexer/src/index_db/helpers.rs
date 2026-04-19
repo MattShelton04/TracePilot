@@ -540,8 +540,7 @@ mod tests {
         let to_date = Some("2026-04-19");
 
         // ── BUG: session-level filter alone leaks segment data from prior days ──
-        let (where_clause, bind_values) =
-            build_date_repo_filter(from_date, to_date, None, false);
+        let (where_clause, bind_values) = build_date_repo_filter(from_date, to_date, None, false);
         let buggy_sql = format!(
             "SELECT date(m.end_timestamp) as d, SUM(m.total_tokens) \
              FROM session_segments m \
@@ -549,13 +548,11 @@ mod tests {
              {where_clause} AND d IS NOT NULL GROUP BY d ORDER BY d"
         );
         let refs = to_refs(&bind_values);
-        let rows: Vec<(String, i64)> = execute_query_map(
-            &conn,
-            &buggy_sql,
-            refs.iter().copied(),
-            |row| Ok((row.get(0)?, row.get(1)?)),
-        )
-        .expect("buggy query");
+        let rows: Vec<(String, i64)> =
+            execute_query_map(&conn, &buggy_sql, refs.iter().copied(), |row| {
+                Ok((row.get(0)?, row.get(1)?))
+            })
+            .expect("buggy query");
         // The bug: three days appear even though only Apr 19 was requested
         assert_eq!(
             rows.len(),
@@ -578,17 +575,18 @@ mod tests {
              {fixed_where} AND d IS NOT NULL GROUP BY d ORDER BY d"
         );
         let refs2 = to_refs(&fixed_values);
-        let fixed_rows: Vec<(String, i64)> = execute_query_map(
-            &conn,
-            &fixed_sql,
-            refs2.iter().copied(),
-            |row| Ok((row.get(0)?, row.get(1)?)),
-        )
-        .expect("fixed query");
+        let fixed_rows: Vec<(String, i64)> =
+            execute_query_map(&conn, &fixed_sql, refs2.iter().copied(), |row| {
+                Ok((row.get(0)?, row.get(1)?))
+            })
+            .expect("fixed query");
 
         assert_eq!(fixed_rows.len(), 1, "fixed: only Apr 19 should appear");
         assert_eq!(fixed_rows[0].0, "2026-04-19");
-        assert_eq!(fixed_rows[0].1, 300, "only Apr 19 segment tokens (300) expected");
+        assert_eq!(
+            fixed_rows[0].1, 300,
+            "only Apr 19 segment tokens (300) expected"
+        );
     }
 
     /// Verify `append_segment_date_filter` placeholder count matches bind values.
