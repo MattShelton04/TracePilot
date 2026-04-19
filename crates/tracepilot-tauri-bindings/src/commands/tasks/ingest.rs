@@ -2,7 +2,7 @@
 
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
-use crate::helpers::{get_or_init_task_db, read_config};
+use crate::helpers::{get_or_init_task_db, mutex_poisoned, read_config};
 use crate::types::SharedTaskDb;
 
 use super::resolve_task_model;
@@ -29,7 +29,7 @@ pub async fn task_ingest_results(
         let task_ids = {
             let db_guard = db
                 .lock()
-                .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
+                .map_err(|_| mutex_poisoned())?;
             let task_db = db_guard
                 .as_ref()
                 .ok_or_else(|| BindingsError::Validation("TaskDb not init".into()))?;
@@ -75,7 +75,7 @@ pub async fn task_ingest_results(
         // Phase 3: Re-acquire lock for DB writes only
         let db_guard = db
             .lock()
-            .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
+            .map_err(|_| mutex_poisoned())?;
         let task_db = db_guard
             .as_ref()
             .ok_or_else(|| BindingsError::Validation("TaskDb not init".into()))?;

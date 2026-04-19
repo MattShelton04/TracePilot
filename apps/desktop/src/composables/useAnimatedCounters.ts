@@ -19,23 +19,18 @@ export function useAnimatedCounters() {
   const currentEvents = ref(0);
   const currentRepos = ref(0);
 
+  function lerpToward(current: { value: number }, target: { value: number }, rate: number) {
+    current.value += (target.value - current.value) * rate;
+    if (Math.abs(target.value - current.value) < 0.5) current.value = target.value;
+  }
+
   /** Lerp all counters toward their targets. Call once per animation frame. */
   function lerpCounters() {
     const rate = 0.15;
-    currentSessions.value += (targetSessions.value - currentSessions.value) * rate;
-    currentTokens.value += (targetTokens.value - currentTokens.value) * rate;
-    currentEvents.value += (targetEvents.value - currentEvents.value) * rate;
-    currentRepos.value += (targetRepos.value - currentRepos.value) * rate;
-
-    // Snap when close
-    if (Math.abs(targetSessions.value - currentSessions.value) < 0.5)
-      currentSessions.value = targetSessions.value;
-    if (Math.abs(targetTokens.value - currentTokens.value) < 0.5)
-      currentTokens.value = targetTokens.value;
-    if (Math.abs(targetEvents.value - currentEvents.value) < 0.5)
-      currentEvents.value = targetEvents.value;
-    if (Math.abs(targetRepos.value - currentRepos.value) < 0.5)
-      currentRepos.value = targetRepos.value;
+    lerpToward(currentSessions, targetSessions, rate);
+    lerpToward(currentTokens, targetTokens, rate);
+    lerpToward(currentEvents, targetEvents, rate);
+    lerpToward(currentRepos, targetRepos, rate);
   }
 
   const displaySessions = computed(() => String(Math.round(currentSessions.value)));

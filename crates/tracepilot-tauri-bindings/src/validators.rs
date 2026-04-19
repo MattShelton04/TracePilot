@@ -127,7 +127,17 @@ pub(crate) fn validate_session_id_list(session_ids: &[String]) -> CmdResult<()> 
     Ok(())
 }
 
-// ── Task-ID validation ────────────────────────────────────────────────────
+// ── Task-ID / Job-ID validation ───────────────────────────────────────────
+
+fn validate_uuid_id(id: &str, label: &str) -> CmdResult<()> {
+    uuid::Uuid::parse_str(id).map_err(|_| {
+        BindingsError::Validation(format!(
+            "Invalid {label} format: expected UUID, got '{}'",
+            truncate_for_display(id, 64)
+        ))
+    })?;
+    Ok(())
+}
 
 /// Validate that a task ID is a well-formed UUID.
 ///
@@ -138,13 +148,7 @@ pub(crate) fn validate_session_id_list(session_ids: &[String]) -> CmdResult<()> 
 /// * fast rejection without database I/O
 /// * defence-in-depth regardless of downstream checks
 pub(crate) fn validate_task_id(task_id: &str) -> CmdResult<()> {
-    uuid::Uuid::parse_str(task_id).map_err(|_| {
-        BindingsError::Validation(format!(
-            "Invalid task ID format: expected UUID, got '{}'",
-            truncate_for_display(task_id, 64)
-        ))
-    })?;
-    Ok(())
+    validate_uuid_id(task_id, "task ID")
 }
 
 /// Validate a job ID (UUID format, same as task IDs).
@@ -152,13 +156,7 @@ pub(crate) fn validate_task_id(task_id: &str) -> CmdResult<()> {
 /// Jobs share the same UUID identifier format as tasks. This wrapper provides
 /// a correctly-worded error message when validating the `job_id` parameter.
 pub(crate) fn validate_job_id(job_id: &str) -> CmdResult<()> {
-    uuid::Uuid::parse_str(job_id).map_err(|_| {
-        BindingsError::Validation(format!(
-            "Invalid job ID format: expected UUID, got '{}'",
-            truncate_for_display(job_id, 64)
-        ))
-    })?;
-    Ok(())
+    validate_uuid_id(job_id, "job ID")
 }
 
 // ── Date validation ───────────────────────────────────────────────────────

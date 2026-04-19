@@ -51,7 +51,7 @@ export type BridgeMetricsSnapshot = {
  *  change for the desktop app. Add new variants instead of renaming existing
  *  ones. The discriminant is written to the IPC envelope as `code`.
  */
-export type ErrorCode = "IO" | "TAURI" | "NETWORK" | "JOIN" | "PARSE" | "SERIALIZATION" | "CORE" | "ORCHESTRATOR" | "BRIDGE" | "INDEXER" | "EXPORT" | "ALREADY_INDEXING" | "VALIDATION";
+export type ErrorCode = "IO" | "TAURI" | "NETWORK" | "JOIN" | "PARSE" | "SERIALIZATION" | "INTERNAL" | "CORE" | "ORCHESTRATOR" | "BRIDGE" | "INDEXER" | "EXPORT" | "ALREADY_INDEXING" | "VALIDATION";
 
 export type FreshnessResponse = {
 	eventsFileSize: number,

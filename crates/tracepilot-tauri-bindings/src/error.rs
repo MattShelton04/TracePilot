@@ -36,6 +36,7 @@ pub enum ErrorCode {
     Join,
     Parse,
     Serialization,
+    Internal,
 
     // ── Domain: core ─────────────────────────────────────────────
     Core,
@@ -66,6 +67,7 @@ impl ErrorCode {
             Self::Join => "JOIN",
             Self::Parse => "PARSE",
             Self::Serialization => "SERIALIZATION",
+            Self::Internal => "INTERNAL",
             Self::Core => "CORE",
             Self::Orchestrator => "ORCHESTRATOR",
             Self::Bridge => "BRIDGE",
@@ -139,6 +141,13 @@ pub enum BindingsError {
     /// Input validation failed (user-facing message).
     #[error("{0}")]
     Validation(String),
+
+    /// Server-side infrastructure failure (mutex poison, invariant violation).
+    ///
+    /// Not caused by user input — always indicates a bug or panic in the
+    /// server. Serialises as `{"code": "INTERNAL", "message": "..."}`.
+    #[error("{0}")]
+    Internal(String),
 }
 
 impl BindingsError {
@@ -158,6 +167,7 @@ impl BindingsError {
             Self::TomlSerialize(_) | Self::TomlDeserialize(_) => ErrorCode::Serialization,
             Self::AlreadyIndexing => ErrorCode::AlreadyIndexing,
             Self::Validation(_) => ErrorCode::Validation,
+            Self::Internal(_) => ErrorCode::Internal,
         }
     }
 }
@@ -183,7 +193,7 @@ impl BindingsError {
 // | `Core` / `Orch.` / `Bridge` / `Indexer` / `Export` | HIGH | These wrap paths freely internally              |
 // | `Join`           | LOW       | Task-panic strings, usually safe                 |
 // | `Semver`, `Uuid` | LOW       | Echo user input which is already in scope        |
-// | `AlreadyIndexing`, `Validation` | SAFE | Authored strings, no interpolation       |
+// | `AlreadyIndexing`, `Validation`, `Internal` | SAFE | Authored strings, no interpolation  |
 //
 // We run every message through [`scrub_message`] before sending to the
 // frontend, which:
@@ -408,6 +418,7 @@ mod tests {
             ErrorCode::Join,
             ErrorCode::Parse,
             ErrorCode::Serialization,
+            ErrorCode::Internal,
             ErrorCode::Core,
             ErrorCode::Orchestrator,
             ErrorCode::Bridge,
@@ -456,6 +467,10 @@ mod tests {
         assert_eq!(
             BindingsError::Validation("x".into()).code().as_str(),
             "VALIDATION"
+        );
+        assert_eq!(
+            BindingsError::Internal("mutex poisoned".into()).code().as_str(),
+            "INTERNAL"
         );
 
         // NOTE: the *_ctx transparent variants (Core, Orchestrator, Bridge,

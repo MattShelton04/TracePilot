@@ -4,7 +4,7 @@
 
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
-use crate::helpers::read_config;
+use crate::helpers::{mutex_poisoned, read_config};
 use crate::types::SharedTaskDb;
 
 #[tauri::command]
@@ -20,7 +20,7 @@ pub async fn task_orchestrator_health(
     let db = std::sync::Arc::clone(&*task_db);
     let handle = orch_state
         .lock()
-        .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?
+        .map_err(|_| mutex_poisoned())?
         .clone();
     let stale_secs =
         (cfg.tasks.poll_interval_seconds * cfg.tasks.heartbeat_stale_multiplier) as u64;
@@ -46,7 +46,7 @@ pub async fn task_orchestrator_health(
                     }
                     let mut guard = orch_state_clone
                         .lock()
-                        .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
+                        .map_err(|_| mutex_poisoned())?;
                     if let Some(ref mut stored) = *guard {
                         stored.session_uuid = Some(uuid);
                     }
@@ -57,7 +57,7 @@ pub async fn task_orchestrator_health(
         // Read the (possibly just-updated) handle for session UUID + path
         let current_handle = orch_state_clone
             .lock()
-            .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?
+            .map_err(|_| mutex_poisoned())?
             .clone();
 
         let mut result = tracepilot_orchestrator::task_recovery::check_orchestrator_health(
@@ -92,7 +92,7 @@ pub async fn task_orchestrator_stop(
     tokio::task::spawn_blocking(move || {
         let mut guard = orch_state_clone
             .lock()
-            .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
+            .map_err(|_| mutex_poisoned())?;
 
         if let Some(handle) = guard.as_ref() {
             // Normal path: we have the in-memory handle with manifest path + PID.

@@ -2,7 +2,7 @@
 
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
-use crate::helpers::{get_or_init_task_db, read_config, with_task_db};
+use crate::helpers::{get_or_init_task_db, mutex_poisoned, read_config, with_task_db};
 use crate::types::SharedTaskDb;
 use tracepilot_orchestrator::task_db::types::*;
 
@@ -32,7 +32,7 @@ pub async fn task_create(
     let default_model = cfg.tasks.default_subagent_model.clone();
 
     tokio::task::spawn_blocking(move || {
-        let guard = db.lock().map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
+        let guard = db.lock().map_err(|_| mutex_poisoned())?;
         let db = guard.as_ref().ok_or_else(|| BindingsError::Validation("TaskDb not init".into()))?;
         let new_task = NewTask {
             task_type,
