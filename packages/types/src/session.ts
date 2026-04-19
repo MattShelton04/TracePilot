@@ -158,7 +158,7 @@ export interface CheckpointEntry {
 
 // ─── Session File Browser ─────────────────────────────────────────
 
-import type { FileEntry } from "./files";
+import type { FileEntry } from "./files.js";
 
 /**
  * Classified file type used by the frontend to choose a renderer.
