@@ -47,15 +47,25 @@ impl SessionFileType {
                 Self::Text
             }
             _ => {
-                // Unknown extension — if the file has no dot at all (e.g.
-                // Makefile, Dockerfile, Gemfile, Procfile) treat it as text.
-                // Only fall back to Binary for extensions we genuinely don't
-                // recognise (e.g. compiled artefacts like `.exe`, `.so`).
-                let has_dot = name.contains('.');
-                if !has_dot {
-                    Self::Text
-                } else {
+                // Unknown extension — prefer Text unless the extension is a
+                // known binary format. This keeps common agent-produced files
+                // (.cfg, .ini, .conf, .diff, .patch, .bak) readable by default.
+                //
+                // Files without any dot (Dockerfile, Makefile, Gemfile, etc.)
+                // are always text.
+                let known_binary = matches!(
+                    ext,
+                    "zip" | "gz" | "tar" | "bz2" | "xz" | "7z" | "rar"
+                        | "exe" | "dll" | "so" | "dylib" | "bin"
+                        | "png" | "jpg" | "jpeg" | "gif" | "webp" | "bmp" | "ico" | "tiff"
+                        | "mp3" | "mp4" | "wav" | "ogg" | "flac" | "mkv" | "avi"
+                        | "pdf" | "doc" | "docx" | "xls" | "xlsx" | "ppt" | "pptx"
+                        | "wasm" | "class" | "pyc" | "o" | "a" | "lib"
+                );
+                if known_binary {
                     Self::Binary
+                } else {
+                    Self::Text
                 }
             }
         }
@@ -143,10 +153,24 @@ fn safe_session_file_path(
     let canonical_dir = session_dir.canonicalize()?;
 
     // For the file path: if it exists, canonicalize it; if not, check the parent.
-    let canonical_file = if joined.exists() {
-        joined.canonicalize()?
+    if joined.exists() {
+        let canonical_file = joined.canonicalize()?;
+        if !canonical_file.starts_with(&canonical_dir) {
+            return Err(BindingsError::Validation(
+                "File path escapes session directory".into(),
+            ));
+        }
+        Ok(canonical_file)
     } else {
-        // File doesn't exist — verify the parent stays within session dir.
+        // File doesn't exist — verify the parent's canonical form is within
+        // the session directory. Return `joined` un-canonicalized; the caller
+        // must check `file_path.exists()` before opening it (which they do).
+        //
+        // NOTE: we do NOT apply a final `joined.starts_with(canonical_dir)`
+        // check here because `joined` is non-canonical (built from potentially
+        // symlinked session_state_dir), so comparing it against canonical_dir
+        // would produce false "escapes" rejections on symlinked config paths.
+        // The canonical-parent check below is the authoritative guard.
         let parent = joined.parent().unwrap_or(&joined);
         let canonical_parent = if parent.exists() {
             parent.canonicalize()?
@@ -158,16 +182,8 @@ fn safe_session_file_path(
                 "File path escapes session directory".into(),
             ));
         }
-        joined
-    };
-
-    if !canonical_file.starts_with(&canonical_dir) {
-        return Err(BindingsError::Validation(
-            "File path escapes session directory".into(),
-        ));
+        Ok(joined)
     }
-
-    Ok(canonical_file)
 }
 
 /// Maximum number of file entries returned by `session_list_files`.
@@ -282,18 +298,21 @@ pub async fn session_list_files(
 
     blocking_cmd!({
         let session_dir = session_state_dir.join(&session_id);
-        if !session_dir.exists() {
-            return Err(BindingsError::Validation(format!(
-                "Session directory not found: {}",
-                session_id
-            )));
-        }
 
         let mut entries = Vec::new();
         // Canonicalize before walking so we have an authoritative prefix to
         // verify subdirectories against (TOCTOU mitigation).
+        // Drop the separate `exists()` precheck — let `canonicalize()` fail
+        // with NotFound to eliminate the race window between the two calls.
         let canonical_dir = session_dir.canonicalize().map_err(|e| {
-            BindingsError::Validation(format!("Failed to resolve session dir: {e}"))
+            if e.kind() == std::io::ErrorKind::NotFound {
+                BindingsError::Validation(format!(
+                    "Session directory not found: {}",
+                    session_id
+                ))
+            } else {
+                BindingsError::Validation(format!("Failed to resolve session dir: {e}"))
+            }
         })?;
         collect_entries(&canonical_dir, &canonical_dir, 0, &mut entries)?;
         entries.sort_by(|a, b| {
@@ -365,6 +384,12 @@ pub async fn session_read_file(
         let truncated = n > MAX_READ_BYTES as usize;
         if truncated {
             buf.truncate(MAX_READ_BYTES as usize);
+            // Walk back to the last valid UTF-8 boundary so we don't split a
+            // multi-byte codepoint at the cut point (continuation bytes have
+            // the high bits 0b10xxxxxx, i.e. (byte & 0xC0) == 0x80).
+            while !buf.is_empty() && (buf[buf.len() - 1] & 0xC0 == 0x80) {
+                buf.pop();
+            }
         }
 
         let mut content = String::from_utf8_lossy(&buf).into_owned();
@@ -508,8 +533,23 @@ mod tests {
 
     #[test]
     fn file_type_binary_fallback() {
+        // Known binary formats are always Binary.
         assert_eq!(SessionFileType::from_name("archive.zip"), SessionFileType::Binary);
         assert_eq!(SessionFileType::from_name("image.png"), SessionFileType::Binary);
+        assert_eq!(SessionFileType::from_name("app.exe"), SessionFileType::Binary);
+        assert_eq!(SessionFileType::from_name("lib.dll"), SessionFileType::Binary);
+    }
+
+    #[test]
+    fn file_type_unknown_extension_defaults_to_text() {
+        // Unknown extensions are treated as Text (not Binary) so that common
+        // agent-produced files (.cfg, .ini, .conf, .diff, .patch, .bak) are
+        // readable in the file viewer instead of being blocked.
+        assert_eq!(SessionFileType::from_name("config.cfg"), SessionFileType::Text);
+        assert_eq!(SessionFileType::from_name("settings.ini"), SessionFileType::Text);
+        assert_eq!(SessionFileType::from_name("server.conf"), SessionFileType::Text);
+        assert_eq!(SessionFileType::from_name("changes.diff"), SessionFileType::Text);
+        assert_eq!(SessionFileType::from_name("notes.bak"), SessionFileType::Text);
     }
 
     #[test]

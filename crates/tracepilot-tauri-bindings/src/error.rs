@@ -299,18 +299,35 @@ pub(crate) fn scrub_message(raw: &str) -> String {
 
     // Redact GitHub PAT-style tokens by prefix. PATs are 40+ chars of
     // `[A-Za-z0-9_]` following a known prefix.
+    //
+    // Use cursor-advance pattern (same as the Bearer block above) to correctly
+    // handle multiple tokens per prefix: the old `while let` + `break` pattern
+    // would silently skip all remaining real tokens after the first short
+    // non-token match (e.g. a variable named `ghp_tmp` would cause all real
+    // PATs that follow it to go unredacted).
     for prefix in ["ghp_", "gho_", "ghu_", "ghs_", "ghr_"] {
-        while let Some(start) = out.find(prefix) {
-            let after = &out[start + prefix.len()..];
-            let end = after
-                .find(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
-                .unwrap_or(after.len());
-            // Only redact if it looks like a real token (≥ 20 chars).
-            if end >= 20 {
-                out.replace_range(start..start + prefix.len() + end, "<redacted-gh-token>");
-            } else {
-                // Not long enough — bail out of this prefix to avoid loop.
-                break;
+        let replacement = "<redacted-gh-token>";
+        let mut cursor = 0usize;
+        loop {
+            match out[cursor..].find(prefix) {
+                None => break,
+                Some(rel) => {
+                    let start = cursor + rel;
+                    let after = &out[start + prefix.len()..];
+                    let end = after
+                        .find(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
+                        .unwrap_or(after.len());
+                    if end >= 20 {
+                        out.replace_range(
+                            start..start + prefix.len() + end,
+                            replacement,
+                        );
+                        cursor = start + replacement.len();
+                    } else {
+                        // Short match (not a real token) — skip past it.
+                        cursor = start + prefix.len() + end;
+                    }
+                }
             }
         }
     }
@@ -504,5 +521,20 @@ mod tests {
         assert!(!s.contains("tok-BBBB"), "second token leaked: {s}");
         let count = s.matches("Bearer <redacted>").count();
         assert_eq!(count, 2, "expected 2 redactions, got {count}: {s}");
+    }
+
+    #[test]
+    fn scrub_redacts_pat_after_short_match() {
+        // A short non-token match (< 20 chars) must NOT cause subsequent real
+        // PATs to be skipped. The old `while let` + `break` pattern would exit
+        // the loop after the first short match, leaking tokens that follow it.
+        let real_token = "ghp_AAAABBBBCCCCDDDDEEEEFFFFGGGGHHHH"; // 36 chars — real PAT
+        let msg = format!("debug: ghp_tmp short, real: {real_token}");
+        let s = scrub_message(&msg);
+        assert!(!s.contains(real_token), "real PAT leaked after short match: {s}");
+        assert!(
+            s.contains("<redacted-gh-token>"),
+            "no redaction found: {s}"
+        );
     }
 }
