@@ -5951,6 +5951,7 @@ version = "0.6.2"
 dependencies = [
  "chrono",
  "criterion",
+ "rusqlite",
  "serde_json",
  "tempfile",
  "tracepilot-core",
