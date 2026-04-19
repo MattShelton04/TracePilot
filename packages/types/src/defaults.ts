@@ -56,7 +56,7 @@ export const DEFAULT_ALERT_COOLDOWN_SECONDS = 20;
  * MUST match `crates/tracepilot-tauri-bindings/src/config.rs` FeaturesConfig::default().
  */
 export const DEFAULT_FEATURES: TracePilotConfig["features"] = {
-  exportView: false,
+  exportView: true,
   healthScoring: false,
   sessionReplay: false,
   renderMarkdown: true,

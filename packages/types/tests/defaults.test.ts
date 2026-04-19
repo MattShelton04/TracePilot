@@ -111,7 +111,7 @@ describe("createDefaultConfig", () => {
     expect(config.paths.indexDbPath).toBe("");
     expect(config.general.cliCommand).toBe(DEFAULT_CLI_COMMAND);
     expect(config.ui.hideEmptySessions).toBe(true);
-    expect(config.features.exportView).toBe(false);
+    expect(config.features.exportView).toBe(true);
 
     // Check that non-overridden sections remain at default
     expect(config.pricing.costPerPremiumRequest).toBe(DEFAULT_COST_PER_PREMIUM_REQUEST);

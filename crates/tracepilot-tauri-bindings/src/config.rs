@@ -187,7 +187,7 @@ pub struct FeaturesConfig {
 impl Default for FeaturesConfig {
     fn default() -> Self {
         Self {
-            export_view: false,
+            export_view: true,
             health_scoring: false,
             session_replay: false,
             render_markdown: true,
