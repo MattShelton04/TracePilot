@@ -240,7 +240,7 @@ function copyTableAsJson() {
         </button>
       </div>
 
-      <div class="fcv__content">
+      <div class="fcv__content" :class="{ 'fcv__content--fill': !isMarkdown }">
         <!-- Markdown renderer -->
         <MarkdownContent v-if="isMarkdown" :content="content" @open-external="(url) => emit('open-external', url)" />
 
@@ -421,8 +421,17 @@ function copyTableAsJson() {
 /* ── Content area ────────────────────────────────────────── */
 .fcv__content {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 0;
+}
+
+/* When a CodeBlock owns the scroll (fill-height mode), this container must
+   not scroll itself — it just passes the bounded height down to the child. */
+.fcv__content--fill {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .fcv__content :deep(.markdown-content) {

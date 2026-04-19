@@ -79,7 +79,7 @@ function fileName(path: string): string {
 </script>
 
 <template>
-  <div class="code-block" :data-language="lang">
+  <div class="code-block" :class="{ 'code-block--fill': fillHeight }" :data-language="lang">
     <div v-if="filePath || showLanguageBadge" class="code-block-header">
       <span v-if="filePath" class="code-block-path" :title="filePath">
         {{ fileName(filePath) }}
@@ -113,6 +113,14 @@ function fileName(path: string): string {
   background: var(--canvas-default);
   overflow: hidden;
 }
+/* Fill-height mode: become a flex column so the content area can take all
+   remaining height from the parent and handle its own scroll. */
+.code-block--fill {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
 .code-block-header {
   display: flex;
   align-items: center;
@@ -141,9 +149,13 @@ function fileName(path: string): string {
   overflow: auto;
   max-height: 500px;
 }
+/* Fill mode: take all available height from the flex parent and scroll
+   in both directions (long lines → horizontal, tall files → vertical). */
 .code-block-content--fill {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
   max-height: none;
-  overflow: visible;
 }
 .code-block-table {
   border-collapse: collapse;
