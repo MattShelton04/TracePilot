@@ -9,6 +9,15 @@ use tracing::warn;
 
 pub(crate) const MAX_CHECKPOINT_CONTENT_BYTES: usize = 50 * 1024;
 
+/// Returns a [`BindingsError`] for a poisoned mutex guard.
+///
+/// A poisoned mutex indicates a thread panicked while holding the lock —
+/// an infrastructure failure, not a user input error. Serialises as
+/// `{"code": "INTERNAL", "message": "mutex poisoned"}`.
+pub(crate) fn mutex_poisoned() -> BindingsError {
+    BindingsError::Internal("mutex poisoned".into())
+}
+
 /// Successfully opened index database with a precomputed session count.
 pub(crate) struct OpenIndexDb {
     pub db: tracepilot_indexer::index_db::IndexDb,
@@ -92,7 +101,7 @@ pub(crate) fn get_or_init_task_db(
 ) -> Result<crate::types::SharedTaskDb, BindingsError> {
     let mut guard = state
         .lock()
-        .map_err(|_| BindingsError::Validation("TaskDb mutex poisoned".into()))?;
+        .map_err(|_| BindingsError::Internal("TaskDb mutex poisoned".into()))?;
     if guard.is_none() {
         let path = tracepilot_orchestrator::task_db::TaskDb::default_path()
             .map_err(|e| BindingsError::Validation(format!("Cannot resolve task DB path: {e}")))?;
@@ -123,7 +132,7 @@ where
     tokio::task::spawn_blocking(move || {
         let guard = db
             .lock()
-            .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
+            .map_err(|_| mutex_poisoned())?;
         let db = guard
             .as_ref()
             .ok_or_else(|| BindingsError::Validation("TaskDb not init".into()))?;

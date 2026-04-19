@@ -4,7 +4,7 @@
 
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
-use crate::helpers::{get_or_init_task_db, read_config};
+use crate::helpers::{get_or_init_task_db, mutex_poisoned, read_config};
 use crate::types::SharedTaskDb;
 
 use super::{fallback_context, resolve_task_model};
@@ -25,7 +25,7 @@ pub async fn task_orchestrator_start(
     {
         let guard = orch_state
             .lock()
-            .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
+            .map_err(|_| mutex_poisoned())?;
         if guard.is_some() {
             return Err(BindingsError::Validation(
                 "Orchestrator is already running. Stop it first.".into(),
@@ -67,7 +67,7 @@ pub async fn task_orchestrator_start(
         let pending_tasks = {
             let db_guard = db
                 .lock()
-                .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
+                .map_err(|_| mutex_poisoned())?;
             let task_db = db_guard
                 .as_ref()
                 .ok_or_else(|| BindingsError::Validation("TaskDb not init".into()))?;
@@ -172,7 +172,7 @@ pub async fn task_orchestrator_start(
         {
             let db_guard = db
                 .lock()
-                .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
+                .map_err(|_| mutex_poisoned())?;
             if let Some(task_db) = db_guard.as_ref() {
                 for task in &pending_tasks {
                     if let Err(e) = tracepilot_orchestrator::task_db::operations::update_task_status(
@@ -197,7 +197,7 @@ pub async fn task_orchestrator_start(
         // Store handle
         let mut guard = orch_state_clone
             .lock()
-            .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
+            .map_err(|_| mutex_poisoned())?;
         *guard = Some(handle.clone());
         drop(guard);
 
@@ -207,7 +207,7 @@ pub async fn task_orchestrator_start(
         {
             let db_guard = db
                 .lock()
-                .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
+                .map_err(|_| mutex_poisoned())?;
             if let Some(task_db) = db_guard.as_ref() {
                 let filter = tracepilot_orchestrator::task_db::types::TaskFilter {
                     status: Some(tracepilot_orchestrator::task_db::types::TaskStatus::Pending),

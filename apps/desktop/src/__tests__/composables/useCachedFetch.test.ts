@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useCachedFetch } from "@/composables/useCachedFetch";
+import { useCachedFetch } from "@tracepilot/ui";
 import { createDeferred } from "@tracepilot/test-utils";
 
 describe("useCachedFetch", () => {
