@@ -179,6 +179,8 @@ export type {
   HealthFlag,
   ModelMetricDetail,
   SessionDetail,
+  SessionFileEntry,
+  SessionFileType,
   SessionHealth,
   SessionIncident,
   SessionListItem,

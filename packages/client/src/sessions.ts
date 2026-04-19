@@ -3,6 +3,7 @@ import type {
   EventsResponse,
   FreshnessResponse,
   SessionDetail,
+  SessionFileEntry,
   SessionIncident,
   SessionListItem,
   SessionPlan,
@@ -126,4 +127,19 @@ export async function openSessionWindow(sessionId: string, sessionName?: string)
  */
 export async function closeSessionWindow(label: string): Promise<void> {
   return invoke<void>("close_session_window", { label });
+}
+
+// ── Session file browser ───────────────────────────────────────────
+
+/** List all files and directories in the session's state directory. */
+export async function sessionListFiles(sessionId: string): Promise<SessionFileEntry[]> {
+  return invoke<SessionFileEntry[]>("session_list_files", { sessionId });
+}
+
+/** Read the text content of a file at `relativePath` inside the session directory. */
+export async function sessionReadFile(
+  sessionId: string,
+  relativePath: string,
+): Promise<string> {
+  return invoke<string>("session_read_file", { sessionId, relativePath });
 }
