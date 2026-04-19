@@ -100,7 +100,7 @@ pub fn list_tables(db_path: &Path) -> Result<Vec<String>> {
     };
 
     let mut stmt =
-        conn.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")?;
+        conn.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")?;
     let tables = stmt
         .query_map([], |row| row.get::<_, String>(0))?
         .collect::<std::result::Result<Vec<_>, _>>()?;

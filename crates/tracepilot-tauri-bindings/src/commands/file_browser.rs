@@ -132,8 +132,16 @@ fn validate_relative_path(relative_path: &str) -> Result<(), BindingsError> {
                 "File path cannot contain '..' (path traversal)".into(),
             ));
         }
+        // Windows strips trailing spaces and periods from path components at
+        // the kernel level, so `CON ` and `NUL.` are treated identically to
+        // `CON` and `NUL`. Trim both before the device-name check.
+        let component_trimmed = component.trim_end_matches(|c| c == ' ' || c == '.');
         // Strip any extension before checking: NUL.txt and CON.md are also reserved.
-        let stem = component.split('.').next().unwrap_or(component).to_uppercase();
+        let stem = component_trimmed
+            .split('.')
+            .next()
+            .unwrap_or(component_trimmed)
+            .to_uppercase();
         // COM1-COM9, COM10+, LPT1-LPT9, LPT10+ are all reserved on Windows.
         // COM0 and LPT0 are NOT reserved — excluded by `!= "0"` check.
         let digit_suffix_is_nonzero = |prefix: &str| -> bool {
@@ -250,11 +258,14 @@ fn collect_entries(
         }
 
         let path = entry.path();
-        let relative = path
-            .strip_prefix(root)
-            .unwrap_or(&path)
-            .to_string_lossy()
-            .replace('\\', "/");
+        let relative = match path.strip_prefix(root) {
+            Ok(rel) => rel.to_string_lossy().replace('\\', "/"),
+            // strip_prefix should never fail since path descends from root,
+            // but if it does (e.g. OS path normalisation discrepancy) skip
+            // the entry rather than falling back to the absolute path, which
+            // would leak the OS username and full filesystem layout.
+            Err(_) => continue,
+        };
 
         if ft.is_dir() {
             // TOCTOU mitigation: canonicalize before recursing. Between the
@@ -653,6 +664,11 @@ mod tests {
         // Extensions don't make them safe — NUL.txt is still NUL on Windows.
         assert!(validate_relative_path("NUL.txt").is_err());
         assert!(validate_relative_path("files/COM3.log").is_err());
+        // Trailing spaces and periods are stripped by Windows kernel — must be
+        // caught before the device name check (e.g. "CON " → CON, "NUL." → NUL).
+        assert!(validate_relative_path("CON ").is_err());
+        assert!(validate_relative_path("NUL.").is_err());
+        assert!(validate_relative_path("COM1 ").is_err());
         // COM0 and LPT0 are NOT reserved — must not over-block.
         assert!(validate_relative_path("COM0.txt").is_ok());
         assert!(validate_relative_path("LPT0.txt").is_ok());
