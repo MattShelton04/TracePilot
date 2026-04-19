@@ -337,6 +337,8 @@ const activeTable = computed(() => props.dbData?.[activeTableIndex.value] ?? nul
 
 .fcv__content :deep(.markdown-content) {
   padding: 16px 20px;
+}
+
 /* ── SQLite database viewer ──────────────────────────────── */
 .fcv__db-header {
   display: flex;
