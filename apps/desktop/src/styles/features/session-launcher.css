@@ -9,6 +9,19 @@
  */
 
 /* ── Shell & Layout ──────────────────────────────────────────────── */
+
+/*
+ * The decomposition introduced a new `.session-launcher-feature` wrapper
+ * around the original `.store-shell` root. This element is a direct child
+ * of the flex-column `.main-content` layout, so it must participate in
+ * flex sizing to fill the available viewport height. Without this the inner
+ * `height: 100%` chain on `.store-shell` / `.split-layout` resolves to 0.
+ */
+.session-launcher-feature {
+  flex: 1;
+  min-height: 0;
+}
+
 .session-launcher-feature .store-shell {
   height: 100%;
   overflow: hidden;
