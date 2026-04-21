@@ -2,7 +2,7 @@
 
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
-use crate::helpers::{get_or_init_task_db, mutex_poisoned, read_config, with_task_db};
+use crate::helpers::{mutex_poisoned, read_config, with_task_db};
 use crate::types::SharedTaskDb;
 use tracepilot_orchestrator::task_db::types::*;
 
@@ -21,7 +21,6 @@ pub async fn task_create(
     max_retries: Option<i32>,
 ) -> CmdResult<Task> {
     crate::validators::validate_preset_id(&preset_id)?;
-    let db = get_or_init_task_db(&state)?;
     let cfg = read_config(&config);
     let orch_state_clone = std::sync::Arc::clone(&*orch_state);
     let manifest_lock_clone = std::sync::Arc::clone(&*manifest_lock);
@@ -31,9 +30,7 @@ pub async fn task_create(
     let session_state_dir = cfg.session_state_dir();
     let default_model = cfg.tasks.default_subagent_model.clone();
 
-    tokio::task::spawn_blocking(move || {
-        let guard = db.lock().map_err(|_| mutex_poisoned())?;
-        let db = guard.as_ref().ok_or_else(|| BindingsError::Validation("TaskDb not init".into()))?;
+    with_task_db(&state, move |db| {
         let new_task = NewTask {
             task_type,
             preset_id,
@@ -115,7 +112,7 @@ pub async fn task_create(
 
         Ok(task)
     })
-    .await?
+    .await
 }
 
 #[tauri::command]
