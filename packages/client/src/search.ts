@@ -1,9 +1,19 @@
 import type {
+  ContextSnippet,
+  FtsHealthInfo,
   SearchFacetsResponse,
   SearchFilters,
   SearchResultsResponse,
   SearchStatsResponse,
 } from "@tracepilot/types";
+
+/**
+ * Re-exported from `@tracepilot/types` for back-compat. New call sites
+ * should import `FtsHealthInfo` and `ContextSnippet` directly from
+ * `@tracepilot/types`; existing consumers of `@tracepilot/client` can
+ * continue to import them from here until they migrate.
+ */
+export type { ContextSnippet, FtsHealthInfo } from "@tracepilot/types";
 
 import { invoke } from "./internal/core.js";
 
@@ -80,29 +90,9 @@ export async function ftsOptimize(): Promise<string> {
   return invoke<string>("fts_optimize");
 }
 
-/** FTS health information. */
-export interface FtsHealthInfo {
-  totalContentRows: number;
-  ftsIndexRows: number;
-  indexedSessions: number;
-  totalSessions: number;
-  pendingSessions: number;
-  inSync: boolean;
-  contentTypes: [string, number][];
-  dbSizeBytes: number;
-}
-
 /** Get detailed FTS health information. */
 export async function ftsHealth(): Promise<FtsHealthInfo> {
   return invoke<FtsHealthInfo>("fts_health");
-}
-
-/** Adjacent context snippet around a search result. */
-export interface ContextSnippet {
-  contentType: string;
-  turnNumber: number | null;
-  toolName: string | null;
-  preview: string;
 }
 
 /** Get surrounding context for a search result (adjacent rows). */

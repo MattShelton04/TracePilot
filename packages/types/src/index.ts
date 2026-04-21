@@ -165,6 +165,8 @@ export type {
 
 // ── search.js ──────────────────────────────────────────────────────
 export type {
+  ContextSnippet,
+  FtsHealthInfo,
   IndexingProgressPayload,
   SearchContentType,
   SearchFacetsResponse,
