@@ -72,7 +72,6 @@ const ALLOWLIST = new Set([
   "crates/tracepilot-export/src/builder.rs",
   "crates/tracepilot-orchestrator/src/templates.rs",
   "crates/tracepilot-export/src/redaction/mod.rs",
-  "crates/tracepilot-export/src/render/markdown.rs",
   "crates/tracepilot-export/src/import/validator.rs",
   "crates/tracepilot-orchestrator/src/worktrees.rs",
   "crates/tracepilot-export/src/import/mod.rs",

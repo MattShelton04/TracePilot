@@ -21,10 +21,6 @@ pub mod redaction;
 pub mod render;
 pub mod schema;
 
-// Legacy modules — kept for backward compatibility until Phase A2.
-pub mod json;
-pub mod markdown;
-
 #[cfg(test)]
 pub(crate) mod test_helpers;
 

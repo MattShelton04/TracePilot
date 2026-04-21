@@ -6006,7 +6006,6 @@ dependencies = [
 name = "tracepilot-export"
 version = "0.6.3"
 dependencies = [
- "anyhow",
  "chrono",
  "once_cell",
  "regex",
