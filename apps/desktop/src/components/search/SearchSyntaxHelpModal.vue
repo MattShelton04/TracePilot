@@ -10,7 +10,7 @@ defineEmits<{ close: [] }>();
         <div class="syntax-help-modal">
           <div class="syntax-help-header">
             <h3>Search Syntax Guide</h3>
-            <button class="syntax-help-close" @click="$emit('close')">✕</button>
+            <button class="syntax-help-close" aria-label="Close" @click="$emit('close')">✕</button>
           </div>
           <div class="syntax-help-body">
             <section class="syntax-section">

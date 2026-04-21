@@ -101,7 +101,7 @@ const FAST_MODELS = getModelsByTier("fast").map((m) => m.id);
           <div class="folder-list">
             <div v-for="(folder, i) in editTrustedFolders" :key="i" class="folder-item">
               <span class="folder-path">{{ folder }}</span>
-              <button class="btn-icon-sm" title="Remove" @click="removeFolder(i)">✕</button>
+              <button class="btn-icon-sm" title="Remove folder" aria-label="Remove folder" @click="removeFolder(i)">✕</button>
             </div>
             <EmptyState v-if="!editTrustedFolders.length" compact message="No trusted folders configured." />
           </div>
