@@ -58,7 +58,6 @@ const ALLOWLIST = new Set([
   // ── Rust god-modules (Phase 4 decomposition targets) ───────────
   // TODO: split ErrorCode variants into domain submodules when BindingsError grows further
   "crates/tracepilot-tauri-bindings/src/error.rs",
-  "crates/tracepilot-indexer/src/index_db/search_reader.rs",
   "crates/tracepilot-orchestrator/src/bridge/manager.rs",
   "crates/tracepilot-indexer/src/index_db/mod.rs",
   // TODO(wave-2): decompose — see Phase 4 of docs/archive/2026-04/tech-debt-plan-revised-2026-04.md
