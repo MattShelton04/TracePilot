@@ -74,39 +74,47 @@ pub(crate) fn batched_insert<'a, T, F>(
     sql_prefix: &str,
     params_per_row: usize,
     items: &'a [T],
-    to_params: F,
+    mut to_params: F,
 ) -> Result<()>
 where
-    F: for<'b> Fn(&'a T, &'b mut Vec<&'a dyn ToSql>),
+    F: for<'b> FnMut(&'a T, &'b mut Vec<&'a dyn ToSql>),
 {
     if items.is_empty() {
         return Ok(());
     }
 
-    // All full-sized chunks share the same SQL shape — build it lazily on first
-    // use so sessions with < BATCH_CHUNK_SIZE rows (most analytics tables) pay
-    // zero allocation for the full-chunk string they never use.
-    let mut full_sql: Option<String> = None;
+    // Cache the prepared statement for full chunks.
+    // Re-preparing the same 100-row statement inside the loop is a major bottleneck
+    // when writing thousands of rows. Caching it here bypasses `sqlite3_prepare_v2`
+    // for everything except the final partial chunk.
+    let mut full_stmt_cache: Option<rusqlite::Statement<'_>> = None;
 
     for chunk in items.chunks(BATCH_CHUNK_SIZE) {
-        let partial;
-        let sql: &str = if chunk.len() == BATCH_CHUNK_SIZE {
-            full_sql.get_or_insert_with(|| {
-                build_placeholder_sql(sql_prefix, BATCH_CHUNK_SIZE, params_per_row)
-            })
+        if chunk.len() == BATCH_CHUNK_SIZE {
+            if full_stmt_cache.is_none() {
+                let sql = build_placeholder_sql(sql_prefix, BATCH_CHUNK_SIZE, params_per_row);
+                full_stmt_cache = Some(conn.prepare(&sql)?);
+            }
+            let stmt = full_stmt_cache.as_mut().unwrap();
+
+            let mut params: Vec<&'a dyn ToSql> = Vec::with_capacity(chunk.len() * params_per_row);
+            for item in chunk {
+                to_params(item, &mut params);
+            }
+
+            stmt.execute(rusqlite::params_from_iter(params))?;
         } else {
-            partial = build_placeholder_sql(sql_prefix, chunk.len(), params_per_row);
-            &partial
-        };
+            // Partial chunk logic remains dynamic to avoid polluting SQLite's statement cache
+            let sql = build_placeholder_sql(sql_prefix, chunk.len(), params_per_row);
+            let mut stmt = conn.prepare(&sql)?;
 
-        let mut stmt = conn.prepare(sql)?;
+            let mut params: Vec<&'a dyn ToSql> = Vec::with_capacity(chunk.len() * params_per_row);
+            for item in chunk {
+                to_params(item, &mut params);
+            }
 
-        let mut params: Vec<&'a dyn ToSql> = Vec::with_capacity(chunk.len() * params_per_row);
-        for item in chunk {
-            to_params(item, &mut params);
+            stmt.execute(rusqlite::params_from_iter(params))?;
         }
-
-        stmt.execute(rusqlite::params_from_iter(params))?;
     }
 
     Ok(())
