@@ -1,49 +1,29 @@
 <script setup lang="ts">
-import type {
-  AttributedMessage,
-  ConversationTurn,
-  TurnToolCall,
-} from "@tracepilot/types";
-import { getToolArgs, toolArgString } from "@tracepilot/types";
-import {
-  formatArgsSummary,
-  formatDuration,
-  formatNumber,
-  formatTime,
-  getAgentColor,
-  getAgentIcon,
-  inferAgentTypeFromToolCall,
-  MarkdownContent,
-  ReasoningBlock,
-  ToolCallItem,
-  toolIcon,
-  truncateText,
-  useConversationSections,
-  useToggleSet,
-} from "@tracepilot/ui";
-import { computed, nextTick, onMounted, onUnmounted, ref } from "vue";
+import type { ConversationTurn } from "@tracepilot/types";
+import { useConversationSections } from "@tracepilot/ui";
+import { useToggleSet } from "@tracepilot/ui";
+import { computed, nextTick, ref } from "vue";
 import { useRoute } from "vue-router";
+import GapIndicator from "@/components/conversation/chat/GapIndicator.vue";
+import TurnBlock from "@/components/conversation/chat/TurnBlock.vue";
+import UserMessageAnchor from "@/components/conversation/chat/UserMessageAnchor.vue";
 import SessionEventRow from "@/components/conversation/SessionEventRow.vue";
+import { useChatViewPanelOffset } from "@/composables/useChatViewPanelOffset";
 import { useCrossTurnSubagents } from "@/composables/useCrossTurnSubagents";
+import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
+import { useSubagentCompletions } from "@/composables/useSubagentCompletions";
 import { useSubagentPanel } from "@/composables/useSubagentPanel";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
-import { usePreferencesStore } from "@/stores/preferences";
-import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { useWindowRole } from "@/composables/useWindowRole";
+import { usePreferencesStore } from "@/stores/preferences";
 import {
-  COLLAPSE_THRESHOLD,
-  countRegularTools,
-  getCollapsedToolNames,
   getMainMessages,
   getMainReasoning,
-  MAX_VISIBLE_TOOLS,
   segmentToolCalls,
-  type ToolGroupItem,
   type ToolSegment,
 } from "./chatViewUtils";
-import SubagentCard from "./SubagentCard.vue";
-import SubagentPanel from "./SubagentPanel.vue";
 import SdkSteeringPanel from "./SdkSteeringPanel.vue";
+import SubagentPanel from "./SubagentPanel.vue";
 import SystemMessagePanel from "./SystemMessagePanel.vue";
 
 // ─── Store & Route ────────────────────────────────────────────────
@@ -90,54 +70,7 @@ const cvRootEl = ref<HTMLElement | null>(null);
 
 // ─── Panel top offset (fixed position below sticky action bar) ────
 
-const panelTopPx = ref(0);
-let pageScrollEl: HTMLElement | null = null;
-
-function updatePanelTop() {
-  const cvRoot = cvRootEl.value;
-  if (!cvRoot) return;
-  const cvRect = cvRoot.getBoundingClientRect();
-
-  // Find the sticky action bar (.detail-actions) — it sticks at top of scroll area
-  const actionsEl = document.querySelector(".detail-actions") as HTMLElement | null;
-  const actionsBottom = actionsEl ? actionsEl.getBoundingClientRect().bottom : 0;
-
-  // Panel top = whichever is lower: cv-root top or sticky bar bottom
-  panelTopPx.value = Math.max(cvRect.top, actionsBottom);
-
-  // Compute breakout offsets so .cv-root can extend beyond .page-content-inner
-  // when the panel is open, without affecting sibling elements (toolbar, badges, etc.)
-  const pc = cvRoot.closest(".page-content") as HTMLElement | null;
-  const pci = cvRoot.closest(".page-content-inner") as HTMLElement | null;
-  if (pc && pci) {
-    const pcStyle = getComputedStyle(pc);
-    const padL = parseFloat(pcStyle.paddingLeft) || 0;
-    const padR = parseFloat(pcStyle.paddingRight) || 0;
-    const pcContentWidth = pc.clientWidth - padL - padR;
-    const pciWidth = pci.offsetWidth;
-    const sideGap = Math.max(0, (pcContentWidth - pciWidth) / 2);
-    cvRoot.style.setProperty("--breakout-left", `${sideGap}px`);
-    // Extend right through page-content padding so content meets the panel edge
-    cvRoot.style.setProperty("--breakout-right", `${sideGap + padR}px`);
-  }
-}
-
-onMounted(() => {
-  updatePanelTop();
-  window.addEventListener("resize", updatePanelTop);
-  // Listen to scroll on the page-content container (the page scroller)
-  pageScrollEl = cvRootEl.value?.closest(".page-content") as HTMLElement | null;
-  if (pageScrollEl) {
-    pageScrollEl.addEventListener("scroll", updatePanelTop, { passive: true });
-  }
-});
-
-onUnmounted(() => {
-  window.removeEventListener("resize", updatePanelTop);
-  if (pageScrollEl) {
-    pageScrollEl.removeEventListener("scroll", updatePanelTop);
-  }
-});
+const { panelTopPx } = useChatViewPanelOffset(cvRootEl);
 
 // ─── Computed helpers ─────────────────────────────────────────────
 
@@ -155,7 +88,7 @@ function gapCount(turn: ConversationTurn, ti: number): number {
 
 interface TurnRenderData {
   reasoning: string[];
-  messages: AttributedMessage[];
+  messages: ReturnType<typeof getMainMessages>;
   segments: ToolSegment[];
 }
 
@@ -189,141 +122,14 @@ const toolCallTurnIndex = computed(() => {
   return map;
 });
 
-// ─── Progressive disclosure ───────────────────────────────────────
+// ─── Subagent completions + turn colors ───────────────────────────
 
-function shouldCollapse(items: ToolGroupItem[]): boolean {
-  return countRegularTools(items) > MAX_VISIBLE_TOOLS + COLLAPSE_THRESHOLD;
-}
-
-function isItemVisible(
-  item: ToolGroupItem,
-  items: ToolGroupItem[],
-  itemIndex: number,
-  groupKey: string,
-): boolean {
-  // Pills (intent, ask-user) are always visible
-  if (item.type !== "tool") return true;
-  // If group is expanded, everything visible
-  if (expandedGroups.has(groupKey)) return true;
-  // If no collapse needed, everything visible
-  if (!shouldCollapse(items)) return true;
-  // Count regular tools up to this index
-  let toolIdx = 0;
-  for (let i = 0; i <= itemIndex; i++) {
-    if (items[i].type === "tool") toolIdx++;
-  }
-  return toolIdx <= MAX_VISIBLE_TOOLS;
-}
-
-function hiddenToolCount(items: ToolGroupItem[]): number {
-  return countRegularTools(items) - MAX_VISIBLE_TOOLS;
-}
-
-// ─── Intent pill helpers ──────────────────────────────────────────
-// Note: uses || (not ??) so empty strings also fall through to the "…"
-// placeholder — a blank display label is never desirable in the UI.
-
-function intentLabel(tc: TurnToolCall): string {
-  return toolArgString(getToolArgs(tc), "intent") || "…";
-}
-
-// ─── Subagent completion tracking ─────────────────────────────────
-// Maps turnIndex → subagent toolCallIds whose LAST read_agent appears in that turn.
-// Only one pill per subagent, positioned at the final read.
-// Bridge: read_agent uses agent_name (e.g. "explore-rust-backend") while
-// subagentMap is keyed by toolCallId (e.g. "tooluse_QVH..."). The launch
-// tool call's arguments.name provides the bridge.
-
-function parseAgentNameFromReadAgent(tc: TurnToolCall): string | null {
-  try {
-    const args = typeof tc.arguments === "string" ? JSON.parse(tc.arguments) : getToolArgs(tc);
-    const candidates = [args?.agent_id, args?.agent_name, args?.name];
-    for (const candidate of candidates) {
-      if (typeof candidate === "string" && candidate.trim().length > 0) {
-        return candidate;
-      }
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-/** Reverse map: possible read_agent identifiers → subagentMap toolCallId */
-const agentNameToToolCallId = computed(() => {
-  const map = new Map<string, string>();
-  for (const [toolCallId, sa] of subagentMap.value) {
-    const args = getToolArgs(sa.toolCall);
-    const identifiers = [args.name, args.agent_id, args.agent_name, sa.toolCall.toolCallId];
-    for (const identifier of identifiers) {
-      if (typeof identifier === "string" && identifier.trim().length > 0) {
-        map.set(identifier, toolCallId);
-      }
-    }
-  }
-  return map;
-});
-
-const completionsByTurn = computed(() => {
-  const lastReadByAgent = new Map<string, number>(); // toolCallId → turnIndex
-
-  for (const turn of turns.value) {
-    for (const tc of turn.toolCalls) {
-      if (tc.toolName === "read_agent" && !tc.parentToolCallId) {
-        const agentName = parseAgentNameFromReadAgent(tc);
-        if (agentName) {
-          const toolCallId = agentNameToToolCallId.value.get(agentName);
-          if (toolCallId) {
-            lastReadByAgent.set(toolCallId, turn.turnIndex);
-          }
-        }
-      }
-    }
-  }
-
-  const byTurn = new Map<number, string[]>();
-  for (const [toolCallId, turnIdx] of lastReadByAgent) {
-    const sa = subagentMap.value.get(toolCallId);
-    if (sa?.toolCall.isComplete) {
-      const list = byTurn.get(turnIdx) ?? [];
-      list.push(toolCallId);
-      byTurn.set(turnIdx, list);
-    }
-  }
-  return byTurn;
-});
-
-function completionLabel(toolCallId: string): string {
-  const sa = subagentMap.value.get(toolCallId);
-  if (sa) {
-    const agentType = inferAgentTypeFromToolCall(sa.toolCall);
-    const label = agentType.charAt(0).toUpperCase() + agentType.slice(1);
-    return `${label} agent ${sa.toolCall.success === false ? "failed" : "completed"}`;
-  }
-  return "Agent completed";
-}
-
-// ─── ToolCallItem helpers ─────────────────────────────────────────
-
-function tcProps(turn: ConversationTurn, tc: TurnToolCall) {
-  const idx = findToolCallIndex(turn, tc);
-  const key = `${turn.turnIndex}-${idx}`;
-  return {
-    tc,
-    variant: "compact" as const,
-    argsSummary: getArgsSummary(turn.turnIndex, idx),
-    expanded: expandedToolDetails.has(key),
-    fullResult: tc.toolCallId ? fullResults.get(tc.toolCallId) : undefined,
-    loadingFullResult: tc.toolCallId ? loadingResults.has(tc.toolCallId) : false,
-    failedFullResult: tc.toolCallId ? failedResults.has(tc.toolCallId) : false,
-    richEnabled: preferences.isRichRenderingEnabled(tc.toolName),
-  };
-}
-
-function toggleToolDetail(turn: ConversationTurn, tc: TurnToolCall) {
-  const idx = findToolCallIndex(turn, tc);
-  expandedToolDetails.toggle(`${turn.turnIndex}-${idx}`);
-}
+const { completionsByTurn, completionLabel, subagentTurnColors } = useSubagentCompletions(
+  turns,
+  subagentMap,
+  allSubagents,
+  toolCallTurnIndex,
+);
 
 /** When a steering message is sent, force-refresh turns to pick up new events faster. */
 function handleSteeringMessage(_prompt: string) {
@@ -331,24 +137,6 @@ function handleSteeringMessage(_prompt: string) {
   // but we also trigger an immediate refreshAll here for good measure.
   store.refreshAll();
 }
-
-// ─── Subagent turn colors ─────────────────────────────────────────
-
-/** Map turnIndex → agent color for turns that have subagent-owned content */
-const subagentTurnColors = computed(() => {
-  const map = new Map<number, string>();
-  for (const sa of allSubagents.value) {
-    const color = getAgentColor(inferAgentTypeFromToolCall(sa.toolCall));
-    map.set(sa.turnIndex, color);
-    for (const ct of sa.childTools) {
-      if (ct.toolCallId) {
-        const turnIdx = toolCallTurnIndex.value.get(ct.toolCallId);
-        if (turnIdx != null) map.set(turnIdx, color);
-      }
-    }
-  }
-  return map;
-});
 
 // ─── Deep-link: revealEvent ───────────────────────────────────────
 
@@ -431,11 +219,7 @@ defineExpose({ revealEvent });
           <div class="cv-stream">
             <template v-for="(turn, ti) in turns" :key="turn.turnIndex">
               <!-- Gap indicator -->
-              <div v-if="showGap(turn, ti)" class="cv-gap">
-                <div class="cv-gap-line" />
-                <div class="cv-gap-label">⋯ {{ gapCount(turn, ti) }} turns not shown</div>
-                <div class="cv-gap-line" />
-              </div>
+              <GapIndicator v-if="showGap(turn, ti)" :count="gapCount(turn, ti)" />
 
               <!-- System message(s) — one per turn in auto-model sessions (CLI v1.0.32+) -->
               <SystemMessagePanel
@@ -453,184 +237,37 @@ defineExpose({ revealEvent });
               />
 
               <!-- User message anchor -->
-              <div
+              <UserMessageAnchor
                 v-if="turn.userMessage"
-                class="cv-user-anchor"
-                :data-event-idx="turn.eventIndex != null ? turn.eventIndex : undefined"
-              >
-                <div class="cv-user-header">
-                  <span class="cv-user-avatar" aria-hidden="true">👤</span>
-                  <span class="cv-user-name">User</span>
-                  <span class="cv-user-turn">T{{ turn.turnIndex }}</span>
-                  <span v-if="turn.timestamp" class="cv-user-time">
-                    {{ formatTime(turn.timestamp) }}
-                  </span>
-                </div>
-                <div class="cv-user-body">
-                  <MarkdownContent :content="turn.userMessage" :render="renderMd" />
-                </div>
-              </div>
+                :content="turn.userMessage"
+                :turn-index="turn.turnIndex"
+                :timestamp="turn.timestamp"
+                :event-index="turn.eventIndex"
+                :render-markdown="renderMd"
+              />
 
               <!-- Turn block with timeline line -->
-              <div
-                class="cv-turn-block"
-                :data-turn="`T${turn.turnIndex}`"
-                :data-turn-idx="turn.turnIndex"
-                :style="subagentTurnColors.get(turn.turnIndex) ? { borderLeft: `3px solid ${subagentTurnColors.get(turn.turnIndex)}`, paddingLeft: '12px' } : {}"
-              >
-                <!-- Main reasoning -->
-                <ReasoningBlock
-                  v-for="(reasoning, rIdx) in renderDataFor(turn).reasoning"
-                  :key="`r-${turn.turnIndex}-${rIdx}`"
-                  :reasoning="[reasoning]"
-                  :expanded="expandedReasoning.has(`${turn.turnIndex}-main-${rIdx}`)"
-                  @toggle="expandedReasoning.toggle(`${turn.turnIndex}-main-${rIdx}`)"
-                />
-
-                <!-- Main messages -->
-                <div
-                  v-for="(msg, mIdx) in renderDataFor(turn).messages"
-                  :key="`m-${turn.turnIndex}-${mIdx}`"
-                  class="cv-agent-bubble"
-                >
-                  <div class="cv-agent-bubble-header">
-                    <span class="cv-agent-avatar" aria-hidden="true">🤖</span>
-                    <span class="cv-agent-name">Copilot</span>
-                    <span v-if="turn.timestamp" class="cv-agent-time">
-                      {{ formatTime(turn.timestamp) }}
-                    </span>
-                  </div>
-                  <MarkdownContent :content="msg.content" :render="renderMd" />
-                </div>
-
-                <!-- Tool segments -->
-                <template
-                  v-for="(segment, sIdx) in renderDataFor(turn).segments"
-                  :key="`seg-${turn.turnIndex}-${sIdx}`"
-                >
-                  <!-- Tool group -->
-                  <template v-if="segment.type === 'tool-group'">
-                    <div
-                      class="cv-tool-group"
-                      :data-collapse-key="`${turn.turnIndex}-group-${sIdx}`"
-                    >
-                      <template v-for="(item, iIdx) in segment.items" :key="iIdx">
-                        <!-- Intent pill -->
-                        <div
-                          v-if="item.type === 'intent'"
-                          class="cv-intent-pill"
-                          :data-event-idx="item.toolCall.eventIndex != null ? item.toolCall.eventIndex : undefined"
-                        >
-                          <span class="cv-pill-icon" aria-hidden="true">🎯</span>
-                          <span class="cv-pill-label">{{ intentLabel(item.toolCall) }}</span>
-                        </div>
-
-                        <!-- Read-agent row -->
-                        <ToolCallItem
-                          v-else-if="item.type === 'read-agent'"
-                          :data-event-idx="item.toolCall.eventIndex != null ? item.toolCall.eventIndex : undefined"
-                          v-bind="tcProps(turn, item.toolCall)"
-                          @toggle="toggleToolDetail(turn, item.toolCall)"
-                          @load-full-result="handleLoadFullResult"
-                          @retry-full-result="handleRetryResult"
-                        />
-
-                        <!-- Ask-user (rich renderer) -->
-                        <ToolCallItem
-                          v-else-if="item.type === 'ask-user'"
-                          :data-event-idx="item.toolCall.eventIndex != null ? item.toolCall.eventIndex : undefined"
-                          v-bind="tcProps(turn, item.toolCall)"
-                          @toggle="toggleToolDetail(turn, item.toolCall)"
-                          @load-full-result="handleLoadFullResult"
-                          @retry-full-result="handleRetryResult"
-                        />
-
-                        <!-- Regular tool row (with progressive disclosure) -->
-                        <ToolCallItem
-                          v-else-if="item.type === 'tool'"
-                          v-show="isItemVisible(item, segment.items, iIdx, `${turn.turnIndex}-group-${sIdx}`)"
-                          :data-event-idx="item.toolCall.eventIndex != null ? item.toolCall.eventIndex : undefined"
-                          v-bind="tcProps(turn, item.toolCall)"
-                          @toggle="toggleToolDetail(turn, item.toolCall)"
-                          @load-full-result="handleLoadFullResult"
-                          @retry-full-result="handleRetryResult"
-                        />
-                      </template>
-
-                      <!-- Collapse toggle -->
-                      <button
-                        v-if="shouldCollapse(segment.items) && !expandedGroups.has(`${turn.turnIndex}-group-${sIdx}`)"
-                        class="cv-collapsed-toggle"
-                        :aria-expanded="false"
-                        @click="expandedGroups.toggle(`${turn.turnIndex}-group-${sIdx}`)"
-                      >
-                        <span class="cv-collapsed-toggle-label">
-                          Show {{ hiddenToolCount(segment.items) }} more tools
-                        </span>
-                        <span class="cv-collapsed-toggle-tags">
-                          <span
-                            v-for="name in getCollapsedToolNames(segment.items, MAX_VISIBLE_TOOLS)"
-                            :key="name"
-                            class="cv-collapsed-tag"
-                          >{{ name }}</span>
-                        </span>
-                      </button>
-
-                      <button
-                        v-if="shouldCollapse(segment.items) && expandedGroups.has(`${turn.turnIndex}-group-${sIdx}`)"
-                        class="cv-collapsed-toggle"
-                        :aria-expanded="true"
-                        @click="expandedGroups.toggle(`${turn.turnIndex}-group-${sIdx}`)"
-                      >
-                        <span class="cv-collapsed-toggle-label">Show fewer tools</span>
-                      </button>
-                    </div>
-                  </template>
-
-                  <!-- Subagent group -->
-                  <template v-if="segment.type === 'subagent-group'">
-                    <div
-                      v-if="segment.subagents.length > 1"
-                      class="cv-parallel-header"
-                      aria-hidden="true"
-                    >
-                      ⚡ {{ segment.subagents.length }} agents launched in parallel
-                    </div>
-                    <div :class="{ 'cv-parallel-stack': segment.subagents.length > 1 }">
-                      <div
-                        v-for="sa in segment.subagents"
-                        :key="sa.toolCallId"
-                        :data-event-idx="sa.eventIndex != null ? sa.eventIndex : undefined"
-                        :data-agent-id="sa.toolCallId"
-                      >
-                        <SubagentCard
-                          :tool-call="sa"
-                          :child-tool-count="subagentMap.get(sa.toolCallId!)?.childTools.length ?? 0"
-                          :selected="panel.selectedAgentId.value === sa.toolCallId"
-                          @select="panel.selectSubagent"
-                        />
-                      </div>
-                    </div>
-                  </template>
-                </template>
-
-                <!-- Subagent completion pills (at the turn of their final read_agent) -->
-                <div
-                  v-for="agentId in (completionsByTurn.get(turn.turnIndex) ?? [])"
-                  :key="`complete-${agentId}`"
-                  :class="['cv-subagent-complete-pill', subagentMap.get(agentId)?.toolCall.success === false ? 'failed' : 'completed']"
-                  role="button"
-                  tabindex="0"
-                  @click="panel.selectSubagent(agentId)"
-                  @keydown.enter="panel.selectSubagent(agentId)"
-                >
-                  <span class="cv-pill-icon" aria-hidden="true">{{ subagentMap.get(agentId)?.toolCall.success === false ? '✗' : '✓' }}</span>
-                  <span class="cv-pill-label">{{ completionLabel(agentId) }}</span>
-                  <span v-if="subagentMap.get(agentId)?.toolCall.durationMs" class="cv-pill-duration">
-                    {{ formatDuration(subagentMap.get(agentId)!.toolCall.durationMs!) }}
-                  </span>
-                </div>
-              </div>
+              <TurnBlock
+                :turn="turn"
+                :render-data="renderDataFor(turn)"
+                :subagent-map="subagentMap"
+                :completion-ids="completionsByTurn.get(turn.turnIndex) ?? []"
+                :turn-color="subagentTurnColors.get(turn.turnIndex)"
+                :selected-agent-id="panel.selectedAgentId.value"
+                :render-markdown="renderMd"
+                :expanded-reasoning="expandedReasoning"
+                :expanded-groups="expandedGroups"
+                :expanded-tool-details="expandedToolDetails"
+                :full-results="fullResults"
+                :loading-results="loadingResults"
+                :failed-results="failedResults"
+                :completion-label="completionLabel"
+                :find-tool-call-index="findToolCallIndex"
+                :get-args-summary="getArgsSummary"
+                @load-full-result="handleLoadFullResult"
+                @retry-full-result="handleRetryResult"
+                @select-subagent="panel.selectSubagent"
+              />
             </template>
           </div>
         </div>
@@ -709,298 +346,6 @@ defineExpose({ revealEvent });
   gap: 0;
 }
 
-/* ─── Gap indicator ────────────────────────────────────────────── */
-
-.cv-gap {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 0;
-}
-
-.cv-gap-line {
-  flex: 1;
-  height: 0;
-  border-top: 1px dashed var(--border-muted, #484f58);
-}
-
-.cv-gap-label {
-  font-size: 12px;
-  color: var(--text-placeholder, #6e7681);
-  white-space: nowrap;
-  user-select: none;
-}
-
-/* ─── User message anchor ──────────────────────────────────────── */
-
-.cv-user-anchor {
-  border-left: 3px solid var(--accent-emphasis, #1f6feb);
-  background: var(--canvas-subtle, #161b22);
-  border-radius: 0 var(--radius-md, 8px) var(--radius-md, 8px) 0;
-  padding: 12px 16px;
-  margin: 12px 0 4px;
-}
-
-.cv-user-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.cv-user-avatar {
-  font-size: 16px;
-  flex-shrink: 0;
-}
-
-.cv-user-name {
-  font-weight: 600;
-  font-size: 13px;
-  color: var(--accent-fg, #58a6ff);
-}
-
-.cv-user-turn {
-  font-size: 11px;
-  font-family: "JetBrains Mono", monospace;
-  color: var(--text-placeholder, #6e7681);
-}
-
-.cv-user-time {
-  margin-left: auto;
-  font-size: 11px;
-  color: var(--text-placeholder, #6e7681);
-}
-
-.cv-user-body {
-  position: relative;
-  background: var(--accent-subtle, rgba(56, 139, 253, 0.08));
-  border: 1px solid var(--accent-muted, rgba(56, 139, 253, 0.15));
-  border-radius: var(--radius-md, 8px);
-  padding: 12px 16px;
-  font-size: 13px;
-  line-height: 1.55;
-  color: var(--text-primary, #c9d1d9);
-  overflow-wrap: break-word;
-}
-
-/* ─── Turn block + timeline ────────────────────────────────────── */
-
-.cv-turn-block {
-  position: relative;
-  padding-left: 20px;
-  padding-top: 4px;
-  padding-bottom: 8px;
-}
-
-.cv-turn-block::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 7px;
-  width: 1px;
-  background: var(--border-muted, #484f58);
-  pointer-events: none;
-}
-
-.cv-turn-block::before {
-  content: attr(data-turn);
-  position: absolute;
-  left: -2px;
-  top: 8px;
-  font-size: 10px;
-  font-family: "JetBrains Mono", monospace;
-  color: var(--text-placeholder, #6e7681);
-  background: var(--canvas-default, #0d1117);
-  padding: 0 3px;
-  border-radius: var(--radius-sm, 4px);
-  opacity: 0;
-  transition: opacity var(--transition-fast, 0.1s) ease;
-  z-index: 1;
-  pointer-events: none;
-}
-
-.cv-turn-block:hover::before {
-  opacity: 1;
-}
-
-/* ─── Agent bubble ─────────────────────────────────────────────── */
-
-.cv-agent-bubble {
-  background: var(--canvas-subtle, #161b22);
-  border-radius: var(--radius-md, 8px);
-  padding: 12px 16px;
-  margin: 6px 0;
-}
-
-.cv-agent-bubble-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-secondary, #8b949e);
-  margin-bottom: 6px;
-}
-
-.cv-agent-avatar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  min-width: 22px;
-  border-radius: var(--radius-full, 100px);
-  background: var(--neutral-subtle, rgba(110, 118, 129, 0.1));
-  font-size: 13px;
-  line-height: 1;
-}
-
-.cv-agent-name {
-  font-weight: 600;
-}
-
-.cv-agent-time {
-  margin-left: auto;
-  font-size: 11px;
-  color: var(--text-placeholder, #6e7681);
-  font-weight: 400;
-}
-
-/* ─── Tool group ───────────────────────────────────────────────── */
-
-.cv-tool-group {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin: 4px 0;
-}
-
-/* ─── Intent pill ──────────────────────────────────────────────── */
-
-.cv-intent-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 10px;
-  background: var(--accent-subtle, rgba(56, 139, 253, 0.1));
-  border: 1px solid var(--accent-muted, rgba(56, 139, 253, 0.2));
-  border-radius: var(--radius-full, 100px);
-  font-size: 12px;
-  color: var(--accent-fg, #58a6ff);
-  max-width: 100%;
-  margin: 2px 0;
-}
-
-.cv-intent-pill .cv-pill-icon {
-  flex-shrink: 0;
-  font-size: 13px;
-}
-
-.cv-intent-pill .cv-pill-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* ─── Subagent completion pill ─────────────────────────────────── */
-
-.cv-subagent-complete-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 12px;
-  border-radius: 999px;
-  font-size: 12px;
-  cursor: pointer;
-  margin: 4px 0;
-  transition: filter 0.15s ease;
-}
-
-.cv-subagent-complete-pill:hover {
-  filter: brightness(1.15);
-}
-
-.cv-subagent-complete-pill.completed {
-  background: var(--success-subtle, rgba(63, 185, 80, 0.1));
-  color: var(--success-fg, #3fb950);
-}
-
-.cv-subagent-complete-pill.failed {
-  background: var(--danger-subtle, rgba(248, 81, 73, 0.1));
-  color: var(--danger-fg, #f85149);
-}
-
-.cv-subagent-complete-pill .cv-pill-duration {
-  opacity: 0.7;
-  font-size: 11px;
-}
-
-/* ─── Parallel subagent layout ─────────────────────────────────── */
-
-.cv-parallel-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--warning-fg, #d29922);
-  padding: 6px 0 2px;
-  user-select: none;
-}
-
-.cv-parallel-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  border-left: 2px solid var(--warning-emphasis, #d29922);
-  padding-left: 12px;
-  margin-left: 4px;
-}
-
-/* ─── Collapse toggle ──────────────────────────────────────────── */
-
-.cv-collapsed-toggle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 6px 10px;
-  background: var(--canvas-inset, #010409);
-  border: 1px dashed var(--border-muted, #484f58);
-  border-radius: var(--radius-sm, 4px);
-  color: var(--accent-fg, #58a6ff);
-  font-size: 12px;
-  cursor: pointer;
-  transition: background var(--transition-fast, 0.1s) ease;
-}
-
-.cv-collapsed-toggle:hover {
-  background: var(--accent-subtle, rgba(56, 139, 253, 0.1));
-}
-
-.cv-collapsed-toggle-label {
-  white-space: nowrap;
-  font-weight: 500;
-}
-
-.cv-collapsed-toggle-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  overflow: hidden;
-}
-
-.cv-collapsed-tag {
-  display: inline-block;
-  padding: 1px 6px;
-  background: var(--neutral-subtle, rgba(110, 118, 129, 0.1));
-  border-radius: var(--radius-sm, 4px);
-  font-family: "JetBrains Mono", monospace;
-  font-size: 10px;
-  color: var(--text-tertiary, #484f58);
-  white-space: nowrap;
-}
-
 /* ─── Deep-link highlight animation ────────────────────────────── */
 
 @keyframes cv-flash {
@@ -1015,7 +360,8 @@ defineExpose({ revealEvent });
   }
 }
 
-.cv-highlight {
+.cv-highlight,
+:deep(.cv-highlight) {
   animation: cv-flash 2s ease-out 2;
   border-radius: var(--radius-sm, 4px);
 }

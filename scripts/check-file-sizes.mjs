@@ -49,9 +49,6 @@ const BUDGETS = {
 // as files are split.
 const ALLOWLIST = new Set([
   // ── Vue SFCs (Phase 4 decomposition targets) ───────────────────
-  "apps/desktop/src/components/conversation/ChatViewMode.vue",
-  // TODO: extract model-mismatch warning + tool-call list into sub-components
-  "apps/desktop/src/components/conversation/SubagentPanel.vue",
 
   // ── Rust god-modules (Phase 4 decomposition targets) ───────────
   // TODO: split ErrorCode variants into domain submodules when BindingsError grows further
