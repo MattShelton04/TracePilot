@@ -100,7 +100,7 @@ export const useMcpStore = defineStore("mcp", () => {
       action: () => mcpListServers(),
       onSuccess: (entries) => {
         const map = new Map<string, McpServerDetail>();
-        for (const [name, config] of entries) {
+        for (const [name, config] of Object.entries(entries)) {
           const cached = healthResults.value.get(name);
           map.set(name, {
             name,

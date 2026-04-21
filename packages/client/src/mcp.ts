@@ -13,9 +13,12 @@ const invoke = createInvoke("MCP");
 // -- Server CRUD --
 
 export async function mcpListServers(): Promise<
-  [string, McpServerConfig][]
+  Record<string, McpServerConfig>
 > {
-  return invoke<[string, McpServerConfig][]>("mcp_list_servers");
+  const entries = await invoke<[string, McpServerConfig][]>(
+    "mcp_list_servers",
+  );
+  return Object.fromEntries(entries);
 }
 
 export async function mcpGetServer(name: string): Promise<McpServerConfig> {

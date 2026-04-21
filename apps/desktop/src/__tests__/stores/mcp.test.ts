@@ -210,10 +210,10 @@ describe("useMcpStore", () => {
   // ── loadServers ────────────────────────────────────────────
   describe("loadServers", () => {
     it("populates servers map on success", async () => {
-      mockMcpListServers.mockResolvedValue([
-        ["filesystem", FIXTURE_CONFIG],
-        ["github", FIXTURE_CONFIG_B],
-      ]);
+      mockMcpListServers.mockResolvedValue({
+        filesystem: FIXTURE_CONFIG,
+        github: FIXTURE_CONFIG_B,
+      });
       const store = useMcpStore();
 
       await store.loadServers();
@@ -226,7 +226,7 @@ describe("useMcpStore", () => {
     });
 
     it("sets loading to true during fetch", async () => {
-      mockMcpListServers.mockResolvedValue([]);
+      mockMcpListServers.mockResolvedValue({});
       const store = useMcpStore();
 
       const promise = store.loadServers();
@@ -236,7 +236,7 @@ describe("useMcpStore", () => {
     });
 
     it("merges cached health results into new server entries", async () => {
-      mockMcpListServers.mockResolvedValue([["filesystem", FIXTURE_CONFIG]]);
+      mockMcpListServers.mockResolvedValue({ filesystem: FIXTURE_CONFIG });
       const store = useMcpStore();
 
       // Pre-populate health cache
@@ -261,10 +261,10 @@ describe("useMcpStore", () => {
     });
 
     it("discards stale response when newer load is in progress", async () => {
-      const firstDeferred = createDeferred<[string, McpServerConfig][]>();
+      const firstDeferred = createDeferred<Record<string, McpServerConfig>>();
       mockMcpListServers
         .mockReturnValueOnce(firstDeferred.promise)
-        .mockResolvedValueOnce([["github", FIXTURE_CONFIG_B]]);
+        .mockResolvedValueOnce({ github: FIXTURE_CONFIG_B });
 
       const store = useMcpStore();
 
@@ -278,7 +278,7 @@ describe("useMcpStore", () => {
       expect(store.servers.has("github")).toBe(true);
 
       // Now resolve first call — should be discarded
-      firstDeferred.resolve([["filesystem", FIXTURE_CONFIG]]);
+      firstDeferred.resolve({ filesystem: FIXTURE_CONFIG });
       await call1;
       await flushPromises();
       // Servers should still be from call2 (stale result discarded)
@@ -287,7 +287,7 @@ describe("useMcpStore", () => {
     });
 
     it("clears error before loading", async () => {
-      mockMcpListServers.mockResolvedValue([]);
+      mockMcpListServers.mockResolvedValue({});
       const store = useMcpStore();
       store.error = "previous error";
 
@@ -297,7 +297,7 @@ describe("useMcpStore", () => {
     });
 
     it("new servers default to empty tools and zero tokens when no cached health", async () => {
-      mockMcpListServers.mockResolvedValue([["filesystem", FIXTURE_CONFIG]]);
+      mockMcpListServers.mockResolvedValue({ filesystem: FIXTURE_CONFIG });
       const store = useMcpStore();
 
       await store.loadServers();
@@ -589,7 +589,7 @@ describe("useMcpStore", () => {
     it("returns import result on success", async () => {
       mockMcpImportFromFile.mockResolvedValue(FIXTURE_IMPORT_RESULT);
       mockMcpAddServer.mockResolvedValue(undefined);
-      mockMcpListServers.mockResolvedValue([]);
+      mockMcpListServers.mockResolvedValue({});
       const store = useMcpStore();
 
       const result = await store.importFromFile("/path/to/mcp.json");
