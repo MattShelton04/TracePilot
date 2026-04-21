@@ -13,7 +13,7 @@
 
 | Metric | Start | Now | Δ |
 |---|---:|---:|---|
-| Desktop Vitest tests | 1,255 | **1,628** | **+373** |
+| Desktop Vitest tests | 1,255 | **1,659** | **+404** |
 | Mega-SFCs > 1,000 LOC | 17 | **0** | **−17** |
 | Mega stores/composables > 500 LOC (frontend) | 5 | **0** | **−5** |
 | `scripts/check-file-sizes.mjs` allowlist entries | ~85 | **61** | **−24** |
@@ -97,6 +97,23 @@ Wave 46.
 - **Wave 48** — `cliff.toml` status header; dropped implicit `pnpm install` from root `start`; `pnpm-workspace.yaml` catalog (`typescript`, `vitest`, `vue`); Rust `sha2`, `tauri`, `tempfile` hoisted to `[workspace.dependencies]`; CI bundle-analysis + benchmark workflows now **hard-fail** on budget breach (`::warning::` → `::error::` + `exit 1`); `scripts/README.md` index.
 - **Wave 49** — `sanitize_error_msg` promoted from `mcp/health.rs` to `tracepilot_core::utils::log_sanitize` (+3 tests); `#[tracing::instrument(skip_all, level=debug, err, fields(...))]` added to 10 highest-traffic Tauri command handlers.
 
+### Phase 7 — Deferred items swept (waves 50–62) ✅
+- **Wave 50** — `with_task_db` adoption: migrated `task_create` in `commands/tasks/crud.rs`. Audit of the other 4 candidate sites (ingest/orchestrator) found they deliberately drop the lock between phases to keep I/O off the mutex — left as-is with rationale in the commit body. Deferred-list language was overstated; the helper is only applicable to single-lock-scope closures.
+- **Wave 51** — Moved `is_process_alive(pid)` from `commands/tasks/orchestrator.rs` to `tracepilot_orchestrator::process::is_alive`; added unix self-PID liveness test. Windows `CREATE_NO_WINDOW` preserved.
+- **Wave 52** — `mcpListServers()` returns `Record<string, McpServerConfig>` (wrapped at the TS boundary via `Object.fromEntries`; Rust payload unchanged).
+- **Wave 53** — `createInvoke`/`invokePlugin` accept optional `{ signal?: AbortSignal; timeoutMs?: number }`. Uses `AbortSignal.timeout` + `AbortSignal.any`; documents that the underlying Tauri call cannot be cancelled — we short-circuit the JS-side await only. +5 tests.
+- **Wave 54** — `FtsHealthInfo`, `ContextSnippet` moved to `packages/types/src/search.ts`; `SessionHealth` re-exported from the same module for convenience. `@tracepilot/client` re-exports the two types for back-compat so consumers need not migrate in this wave.
+- **Wave 55** — `useBootstrapPhase()` composable extracted from `App.vue` (333 → 215 LOC). Owns `AppPhase` state + `onMounted` bootstrap + setup/indexing handlers + version check + idempotent alert system init. `useWindowLifecycle` stays synchronous in `App.vue <script setup>` per Vue 3 `onScopeDispose` rule.
+- **Wave 60** — `window.__TRACEPILOT_IPC_PERF__` is no longer installed as a module side-effect. Explicit `enablePerfTracing()` / `disablePerfTracing()` exports are called once from `apps/desktop/src/main.ts` during bootstrap. E2E scripts and the app-automation skill continue to work unchanged (they read after `page.goto`, which always follows bootstrap). +5 tests.
+- **Wave 61** — Hoisted `tauri-plugin-{dialog,log,notification,opener,process,updater}` to `[workspace.dependencies]`. Converted diverging `tokio` (`["rt","sync"]` + `["macros","rt-multi-thread"]`) and `uuid = "1"` in `tracepilot-tauri-bindings` to `{ workspace = true }` (features now `["full"]` + `["v4","serde"]` — additive only, no functional regression; `cargo tree -d` clean for all three).
+- **Wave 62** — Docs reorg, safe subset: renamed `SECURITY_AUDIT_REPORT.md` → `security-audit-report.md`; moved 11 superseded tech-debt artifacts into `docs/archive/2026-04/`; updated `docs/README.md` with an alphabetical index + subdirectories table; updated 18 internal cross-references across 10 files. Full `architecture/`/`guides/`/`plans/` restructuring + ADRs + prototype removal remain deferred.
+
+**Sweep outcomes that were no-ops** (pre-existing state already matched the plan): `useAsyncData`/`useCachedFetch` desktop shims already gone (Wave 57); `formatters.ts` back-compat shim already gone (Wave 58).
+
+**Sweep items blocked for design review**:
+- `useToast` module-singleton → `provide/inject` — blocks `useToastStore` (wraps `useToast()` inside `defineStore`, which runs outside component setup where `inject()` is unavailable). Module singleton is the correct pattern for this codebase's multi-window model; recommend closing as wontfix unless a cross-window toast de-duplication requirement emerges.
+- `perf-budget.json` IPC thresholds → `tracepilot-bench` — the bench crate has no IPC benchmark today (parsing/analytics/indexer/batch_size only). Wiring requires building a new IPC bench harness; separate scope from a threshold-wiring task.
+
 ---
 
 ## What's deferred — roadmap for the next passes
@@ -106,28 +123,28 @@ Grouped by theme. Each bullet is its own future wave; all were intentionally ski
 ### Security & CSP
 - **Remove `'unsafe-inline'`** from `style-src` in `apps/desktop/src-tauri/tauri.conf.json` once inline styles are < 10. Requires a final styling sweep + CSP-breakage smoke pass.
 - **Remove hex fallbacks** in `designTokens.ts:65-78` and `App.vue:339` — unclear whether intentional defaults.
-- **Harden migration paths** — currently 5 call sites in the Tauri bindings still do `spawn_blocking { db.lock() … }` instead of the canonical `with_task_db` helper.
+- ~~**Harden migration paths**~~ — ✅ landed in Wave 50 (scope right-sized: only 1 site actually fit `with_task_db`).
 
 ### Backend architectural polish
 - `cli_url: Option<String>` → `enum ConnectionMode { Stdio, Tcp { url } }` and surface the enum across the `BridgeStatus::connection_mode` IPC payload. Shape-change territory.
-- Move `is_process_alive` from `commands/tasks/orchestrator.rs` to `orchestrator::process::is_alive` (cross-crate).
+- ~~Move `is_process_alive`~~ — ✅ landed in Wave 51.
 - Deep propagation of `SessionId`/`PresetId`/`SkillName` newtypes past the IPC validation boundary into internal APIs.
 - Regression tests for `unlink_session`/`destroy_session` `.abort()` on `event_tasks`.
 - Per-submodule unit tests for `commands/tasks/*` (integration tests currently cover handlers).
 
 ### Frontend architectural polish
-- **`AppPhase` bootstrap state-machine extraction** from `App.vue:30` into `useBootstrapPhase()`.
-- **`useToast`** from module-level singleton → `provide/inject`.
-- **`formatters.ts` back-compat shim** removal after migrating call sites.
+- ~~**`AppPhase` bootstrap state-machine extraction**~~ — ✅ landed in Wave 55.
+- ~~**`useToast`** from module-level singleton → `provide/inject`~~ — ❌ wontfix (Wave 56 investigation): incompatible with `useToastStore` wrapping `useToast()` inside `defineStore`.
+- ~~**`formatters.ts` back-compat shim**~~ — ✅ already removed (verified in Wave 58).
 - **New UI composables**: `useTheme`, `useKeyboard`, `useLocalStorage` (green-field).
-- **Call-site migration** of `@/composables/{useAsyncData,useCachedFetch}` → `@tracepilot/ui` (shims in place; batch rename pending).
+- ~~**Call-site migration** of `@/composables/{useAsyncData,useCachedFetch}`~~ — ✅ already complete (verified in Wave 57).
 
 ### IPC / client ergonomics (plan §5.1 deferrals)
-- `mcpListServers` returns `Record<string, McpServerConfig>` (wrap tuple response).
-- `AbortSignal` / timeout support in `createInvoke`.
-- Replace `window.__TRACEPILOT_IPC_PERF__` side-effect import with explicit `enablePerfTracing()`.
+- ~~`mcpListServers` returns `Record<string, McpServerConfig>`~~ — ✅ landed in Wave 52.
+- ~~`AbortSignal` / timeout support in `createInvoke`~~ — ✅ landed in Wave 53.
+- ~~Replace `window.__TRACEPILOT_IPC_PERF__` side-effect import~~ — ✅ landed in Wave 60.
 - Unify mock fallback across `sdk.ts`/`mcp.ts`/`skills.ts`, or extract mocks into opt-in `@tracepilot/client-mocks`.
-- Move `FtsHealthInfo`/`ContextSnippet`/`SessionHealth` to `@tracepilot/types/src/search.ts`.
+- ~~Move `FtsHealthInfo`/`ContextSnippet`/`SessionHealth` to `@tracepilot/types/src/search.ts`~~ — ✅ landed in Wave 54.
 
 ### Types / codegen (plan §5.4 deferrals)
 - Post-Phase-1B.1 codegen expansion: delete manual Rust↔TS type mirrors.
@@ -152,7 +169,7 @@ Grouped by theme. Each bullet is its own future wave; all were intentionally ski
 - Consolidate 13 `scripts/e2e/*.mjs` into Playwright tests under `tests/e2e/`.
 
 ### Dependency hygiene (plan §6.6 deferrals)
-- Finish Rust workspace hoisting for `tokio`, `uuid`, `tauri-plugin-*` (features currently diverge across crates).
+- ~~Finish Rust workspace hoisting for `tokio`, `uuid`, `tauri-plugin-*`~~ — ✅ landed in Wave 61.
 - Migrate more packages to the new `pnpm-workspace.yaml` `catalog:` entries.
 - Vendor `copilot-sdk` or switch to upstream release tag when available.
 
@@ -178,9 +195,18 @@ Grouped by theme. Each bullet is its own future wave; all were intentionally ski
 
 ---
 
-## Commit log (latest 27 waves)
+## Commit log (latest waves)
 
 ```
+5d890e00 Wave 62: Docs reorg (safe subset) — archive superseded tech-debt docs
+780d0e59 Wave 61: Hoist tokio/uuid/tauri-plugin-* to workspace dependencies
+01f6f18d Wave 60: Replace __TRACEPILOT_IPC_PERF__ side-effect with enablePerfTracing()
+c6ba8207 Wave 55: Extract AppPhase bootstrap into useBootstrapPhase()
+0c9b22cf Wave 54: Move FTS search types to @tracepilot/types/src/search.ts
+898b6168 Wave 53: AbortSignal + timeout support in createInvoke
+b85d4a9a Wave 52: mcpListServers returns Record<string, McpServerConfig>
+57ed8625 Wave 51: Move is_process_alive → orchestrator::process::is_alive
+cf1bac64 Wave 50: Harden migration paths — adopt with_task_db helper
 270ed93f Wave 49: Phase 6.2 observability (safe subset)
 69d0c9b4 Wave 48: Phase 6 polish (6.1, 6.3, 6.5, 6.6 safe subset)
 791b951d Wave 47: Styling + router cleanup (Phase 4.4 + 4.5 safe subset)
