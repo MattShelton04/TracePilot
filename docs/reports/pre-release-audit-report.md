@@ -381,9 +381,9 @@ Several docs contain statements that are now false:
 | Doc | False Claim | Reality |
 |-----|------------|---------|
 | `versioning-updates-release-strategy.md:59-70` | "No CHANGELOG.md, no .github/workflows/" | Both exist |
-| `tech-debt-report.md:580-585` | "No CI/CD pipeline exists" | CI exists (incomplete) |
-| `tech-debt-report.md:572` | "apps/cli/dist/ committed to git" | Not tracked currently |
-| `tech-debt-report.md:625` | "No LICENSE file" | LICENSE exists (GPL-3.0) |
+| `archive/2026-04/tech-debt-report.md:580-585` | "No CI/CD pipeline exists" | CI exists (incomplete) |
+| `archive/2026-04/tech-debt-report.md:572` | "apps/cli/dist/ committed to git" | Not tracked currently |
+| `archive/2026-04/tech-debt-report.md:625` | "No LICENSE file" | LICENSE exists (GPL-3.0) |
 | CLI `README.md:8-10` | `search` "coming soon" | Implemented |
 | CLI `README.md` | Missing `resume`, `index`, `versions` docs | Commands exist |
 

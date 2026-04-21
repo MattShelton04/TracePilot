@@ -144,4 +144,4 @@ Negative / accepted:
   (`canonicalize_user_path`, `launch_session`, `open_in_explorer`,
   `open_in_terminal`).
 - ADR 0002 — Tauri capability scoping (main vs viewer).
-- `docs/tech-debt-plan-revised-2026-04.md` Phase 1A.2.
+- `docs/archive/2026-04/tech-debt-plan-revised-2026-04.md` Phase 1A.2.

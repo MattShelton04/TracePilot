@@ -2,9 +2,9 @@
 
 **Branch:** `Matt/General_Improvements` (51 commits ahead of `main`, `519 files changed, +57,287 / −35,192`)
 **Scope:** Autonomous, wave-based remediation of the TracePilot monorepo driven by the plan documents
-[`tech-debt-plan-revised-2026-04.md`](./tech-debt-plan-revised-2026-04.md) +
-[`tech-debt-audit-2026-04.md`](./tech-debt-audit-2026-04.md) +
-[`tech-debt-review-consolidation-2026-04.md`](./tech-debt-review-consolidation-2026-04.md).
+[`tech-debt-plan-revised-2026-04.md`](./archive/2026-04/tech-debt-plan-revised-2026-04.md) +
+[`tech-debt-audit-2026-04.md`](./archive/2026-04/tech-debt-audit-2026-04.md) +
+[`tech-debt-review-consolidation-2026-04.md`](./archive/2026-04/tech-debt-review-consolidation-2026-04.md).
 **Status:** Staged locally; **nothing pushed, merged, or stashed**. Held for the author's final review.
 
 ---
@@ -161,7 +161,7 @@ Grouped by theme. Each bullet is its own future wave; all were intentionally ski
 - Regroup under `architecture/`, `guides/`, `plans/`, `reports/`, `research/`, `design/`, `archive/`.
 - Generated `docs/README.md` index.
 - Fix `2026-*` future-dated reports.
-- Rename `SECURITY_AUDIT_REPORT.md` → lowercase-hyphenated.
+- Rename `SECURITY_AUDIT_REPORT.md` → lowercase-hyphenated. ✅ (Wave 62 — now `security-audit-report.md`.)
 - Move `docs/design/prototypes/` (~2.5 MB HTML) out of the repo.
 - ADRs 0001–0006 (platforms, FS trust boundary, CLI runtime, specta, structured IPC errors, migration policy).
 

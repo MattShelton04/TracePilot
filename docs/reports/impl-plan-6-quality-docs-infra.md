@@ -136,9 +136,9 @@ const richEnabled = computed(() => props.richRendering ?? false);   // default f
 
 | File | Change |
 |------|--------|
-| `docs/tech-debt-report.md:580-585` | Update CI/CD section to reflect that CI exists |
-| `docs/tech-debt-report.md:572` | Remove claim about `apps/cli/dist/` being tracked |
-| `docs/tech-debt-report.md:625` | Remove claim about no LICENSE file |
+| `docs/archive/2026-04/tech-debt-report.md:580-585` | Update CI/CD section to reflect that CI exists |
+| `docs/archive/2026-04/tech-debt-report.md:572` | Remove claim about `apps/cli/dist/` being tracked |
+| `docs/archive/2026-04/tech-debt-report.md:625` | Remove claim about no LICENSE file |
 | `docs/versioning-updates-release-strategy.md:59-70` | Update to reflect CHANGELOG and workflows exist |
 | `apps/cli/README.md` | Update `search` from "coming soon" to documented, add `resume`/`index`/`versions` docs |
 
@@ -191,13 +191,13 @@ Priority order:
 ## Current
 - [Implementation Phases](implementation-phases.md) — Feature roadmap and status
 - [Architecture](architecture-decisions.md) — System design decisions
-- [Security Audit](SECURITY_AUDIT_REPORT.md) — Security findings and status
+- [Security Audit](security-audit-report.md) — Security findings and status
 
 ## Reports
 - [Pre-Release Audit](reports/pre-release-audit-report.md) — Comprehensive codebase audit
 
 ## Historical / Research
-- [Tech Debt Report](tech-debt-report.md) — Original audit (partially stale)
+- [Tech Debt Report](archive/2026-04/tech-debt-report.md) — Original audit (partially stale)
 - [Copilot SDK Deep Dive](copilot-sdk-deep-dive.md) — Research notes
 - ...
 ```

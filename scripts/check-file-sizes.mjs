@@ -16,7 +16,7 @@
  *   node scripts/check-file-sizes.mjs             # check (CI)
  *   node scripts/check-file-sizes.mjs --list      # print current violations
  *
- * See: docs/tech-debt-plan-revised-2026-04.md § Phase 0.11
+ * See: docs/archive/2026-04/tech-debt-plan-revised-2026-04.md § Phase 0.11
  */
 
 import { execSync } from "node:child_process";
@@ -61,7 +61,7 @@ const ALLOWLIST = new Set([
   "crates/tracepilot-indexer/src/index_db/search_reader.rs",
   "crates/tracepilot-orchestrator/src/bridge/manager.rs",
   "crates/tracepilot-indexer/src/index_db/mod.rs",
-  // TODO(wave-2): decompose — see Phase 4 of docs/tech-debt-plan-revised-2026-04.md
+  // TODO(wave-2): decompose — see Phase 4 of docs/archive/2026-04/tech-debt-plan-revised-2026-04.md
   "crates/tracepilot-indexer/src/index_db/helpers.rs",
   "crates/tracepilot-orchestrator/src/skills/import.rs",
   "crates/tracepilot-core/src/parsing/events.rs",
@@ -219,5 +219,5 @@ for (const v of nonAllowed.sort((a, b) => b.lines - a.lines)) {
 console.error("\nOptions:");
 console.error("  1. Split the file (preferred).");
 console.error("  2. Add the path to ALLOWLIST in scripts/check-file-sizes.mjs with a TODO and owner.");
-console.error("\nSee docs/tech-debt-plan-revised-2026-04.md § Phase 4 for decomposition targets.");
+console.error("\nSee docs/archive/2026-04/tech-debt-plan-revised-2026-04.md § Phase 4 for decomposition targets.");
 process.exit(1);

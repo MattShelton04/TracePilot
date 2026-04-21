@@ -26,7 +26,7 @@ Until wave 15 each database carried its own hand-rolled migration runner:
   user with a half-upgraded database and no supported recovery path.
 - Neither runner used a **transaction wrapper** consistently across steps.
 
-The tech-debt plan (`docs/tech-debt-plan-revised-2026-04.md` §3-safety.1)
+The tech-debt plan (`docs/archive/2026-04/tech-debt-plan-revised-2026-04.md` §3-safety.1)
 called for unifying both runners behind a shared `Migrator`, standardising on
 one `schema_version` convention, adding pre-migration backups, and documenting
 the policy in an ADR.
