@@ -49,7 +49,6 @@ const BUDGETS = {
 // as files are split.
 const ALLOWLIST = new Set([
   // ── Vue SFCs (Phase 4 decomposition targets) ───────────────────
-  "apps/desktop/src/components/timeline/TurnWaterfallView.vue",
   "apps/desktop/src/components/timeline/NestedSwimlanesView.vue",
   "apps/desktop/src/components/conversation/ChatViewMode.vue",
   // TODO: extract model-mismatch warning + tool-call list into sub-components
