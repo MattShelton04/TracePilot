@@ -11,6 +11,7 @@ import type { SessionHealth } from "@tracepilot/types";
 
 // IPC performance instrumentation utilities
 export { clearIpcPerfLog, getIpcPerfLog } from "./invoke.js";
+export type { InvokeFn, InvokeOptions } from "./invoke.js";
 
 export * from "./sessions.js";
 export * from "./search.js";
