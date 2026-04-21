@@ -63,7 +63,6 @@ const ALLOWLIST = new Set([
   "crates/tracepilot-indexer/src/index_db/helpers.rs",
   "crates/tracepilot-tauri-bindings/src/commands/tasks.rs",
   "crates/tracepilot-indexer/src/lib.rs",
-  "crates/tracepilot-orchestrator/src/mcp/health.rs",
   "crates/tracepilot-tauri-bindings/src/config.rs",
   "crates/tracepilot-tauri-bindings/src/helpers.rs",
   "crates/tracepilot-indexer/src/index_db/session_writer.rs",
