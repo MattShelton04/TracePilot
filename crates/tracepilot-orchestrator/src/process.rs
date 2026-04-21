@@ -843,11 +843,49 @@ pub fn spawn_outside_job(
     spawn_detached_terminal(program, args, work_dir, None)
 }
 
+/// Check if a process with the given PID is still alive (portable, no extra deps).
+pub fn is_alive(pid: u32) -> bool {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        // Use tasklist to check if the PID exists
+        std::process::Command::new("tasklist")
+            .args(["/NH", "/FI", &format!("PID eq {pid}")])
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::null())
+            .creation_flags(tracepilot_core::constants::CREATE_NO_WINDOW)
+            .output()
+            .map(|o| {
+                let out = String::from_utf8_lossy(&o.stdout);
+                // tasklist returns "INFO: No tasks..." when PID doesn't exist
+                !out.contains("No tasks") && out.contains(&pid.to_string())
+            })
+            .unwrap_or(false)
+    }
+    #[cfg(unix)]
+    {
+        // signal 0 checks process existence without killing it
+        std::process::Command::new("kill")
+            .args(["-0", &pid.to_string()])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false)
+    }
+}
+
 // ─── Tests ──────────────────────────────────────────────────────────
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(unix)]
+    #[test]
+    fn test_is_alive_self_pid() {
+        assert!(is_alive(std::process::id()));
+    }
 
     #[test]
     fn test_run_hidden_captures_stdout() {
