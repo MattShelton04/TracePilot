@@ -467,7 +467,7 @@ fn spawn_and_initialize(
     args: &[String],
     env: &HashMap<String, String>,
 ) -> Result<(Vec<McpTool>, u64), McpError> {
-    use std::process::{Command, Stdio};
+    use std::process::Stdio;
 
     /// RAII guard that ensures the child process is always killed and reaped,
     /// even on early `?`-returns from `write_jsonrpc` or pipe setup.
@@ -480,18 +480,12 @@ fn spawn_and_initialize(
 
     let start = Instant::now();
 
-    let mut cmd = Command::new(command);
+    let mut cmd = crate::process::hidden_std_command(command);
     cmd.args(args)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .envs(env);
-
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        cmd.creation_flags(crate::process::CREATE_NO_WINDOW);
-    }
 
     let mut child = cmd
         .spawn()

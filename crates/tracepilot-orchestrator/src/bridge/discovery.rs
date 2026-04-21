@@ -41,8 +41,6 @@ pub async fn detect_ui_servers() -> Vec<DetectedUiServer> {
 /// Windows: Use PowerShell Get-CimInstance + Get-NetTCPConnection
 #[cfg(target_os = "windows")]
 async fn detect_windows() -> Vec<DetectedUiServer> {
-    use tokio::process::Command;
-
     // PowerShell one-liner that finds copilot processes with --ui-server or --server
     // in their command line, then resolves their listening TCP ports.
     let script = r#"
@@ -62,9 +60,8 @@ Get-CimInstance Win32_Process | Where-Object {
 $results | ConvertTo-Json -Compress
 "#;
 
-    let output = match Command::new("powershell")
+    let output = match crate::process::hidden_command("powershell")
         .args(["-NoProfile", "-NonInteractive", "-Command", script])
-        .creation_flags(crate::process::CREATE_NO_WINDOW)
         .output()
         .await
     {
