@@ -1,0 +1,3 @@
+## 2024-04-21 - SQLite Batch Insert Parameter Generation Bottleneck
+**Learning:** In Rust's `rusqlite` handling of large multi-row INSERTs, generating strings with explicit parameter numbers (`?1, ?2`) via `std::fmt::Write` creates extreme overhead for massive batches. Because SQLite's batch insert parameters are naturally sequential when executed with `.execute(rusqlite::params_from_iter(params))`, falling back to anonymous bindings (`?`) allows using simple byte pushes (`String::push('?')`), avoiding all integer formatting and `write!` macro calls.
+**Action:** Always prefer anonymous `?` placeholders over indexed `?N` placeholders when programmatically generating large SQL query strings for batch execution where parameter order is guaranteed to be strictly sequential.
