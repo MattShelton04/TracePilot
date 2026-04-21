@@ -1,0 +1,259 @@
+//! TracePilot configuration — loaded from `~/.copilot/tracepilot/config.toml`.
+//!
+//! The top-level [`TracePilotConfig`] aggregates a handful of per-concern
+//! sub-configs (paths, UI, pricing, features, tasks, alerts, …) which live in
+//! dedicated sibling modules. Re-exports below preserve the pre-split public
+//! API byte-for-byte.
+
+use crate::error::BindingsError;
+use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, RwLock};
+
+mod alerts;
+mod defaults;
+mod features;
+mod general;
+mod logging;
+mod paths;
+mod pricing;
+mod tasks;
+mod tool_rendering;
+mod ui;
+
+#[cfg(test)]
+mod tests;
+
+pub use alerts::AlertsConfig;
+pub use features::FeaturesConfig;
+pub use general::GeneralConfig;
+pub use logging::LoggingConfig;
+pub use paths::PathsConfig;
+pub use pricing::{ModelPriceEntry, PricingConfig};
+pub use tasks::TasksConfig;
+pub use tool_rendering::ToolRenderingConfig;
+pub use ui::UiConfig;
+
+/// The canonical config file location.
+fn config_dir() -> Option<PathBuf> {
+    home_dir().map(|h| h.join(".copilot").join("tracepilot"))
+}
+
+pub fn config_file_path() -> Option<PathBuf> {
+    config_dir().map(|d| d.join("config.toml"))
+}
+
+fn home_dir() -> Option<PathBuf> {
+    tracepilot_core::utils::home_dir_opt()
+}
+
+/// Top-level configuration.
+///
+/// Note: `rename_all = "camelCase"` ensures JSON (Tauri IPC) uses camelCase to
+/// match the TypeScript `TracePilotConfig` type.  The TOML file on disk will
+/// also use camelCase keys — this is intentional so a single struct serves both
+/// serialization targets without a separate DTO layer.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TracePilotConfig {
+    pub version: u32,
+    pub paths: PathsConfig,
+    #[serde(default)]
+    pub general: GeneralConfig,
+    #[serde(default)]
+    pub ui: UiConfig,
+    #[serde(default)]
+    pub pricing: PricingConfig,
+    #[serde(default)]
+    pub tool_rendering: ToolRenderingConfig,
+    #[serde(default)]
+    pub features: FeaturesConfig,
+    #[serde(default)]
+    pub logging: LoggingConfig,
+    #[serde(default)]
+    pub tasks: TasksConfig,
+    #[serde(default)]
+    pub alerts: AlertsConfig,
+}
+
+impl Default for TracePilotConfig {
+    fn default() -> Self {
+        // home_dir() can fail if env vars are missing; use empty strings as
+        // sentinel values — the setup wizard will prompt the user for paths.
+        let home = home_dir().unwrap_or_default();
+        Self {
+            version: 5,
+            paths: PathsConfig {
+                session_state_dir: home
+                    .join(".copilot")
+                    .join("session-state")
+                    .to_string_lossy()
+                    .to_string(),
+                index_db_path: home
+                    .join(".copilot")
+                    .join("tracepilot")
+                    .join("index.db")
+                    .to_string_lossy()
+                    .to_string(),
+            },
+            general: GeneralConfig::default(),
+            ui: UiConfig::default(),
+            pricing: PricingConfig::default(),
+            tool_rendering: ToolRenderingConfig::default(),
+            features: FeaturesConfig::default(),
+            logging: LoggingConfig::default(),
+            tasks: TasksConfig::default(),
+            alerts: AlertsConfig::default(),
+        }
+    }
+}
+
+impl TracePilotConfig {
+    /// Current schema version. Bump this when adding migrations.
+    pub const CURRENT_VERSION: u32 = 5;
+
+    /// Apply any pending migrations to bring the config up to the current version.
+    /// Returns true if any migrations were applied.
+    pub fn migrate(&mut self) -> bool {
+        let original = self.version;
+
+        // Migration from v1 → v2: added features.render_markdown (handled by serde default)
+        if self.version < 2 {
+            self.version = 2;
+            tracing::info!("Migrated config from v1 → v2");
+        }
+
+        // Migration from v2 → v3: backfill setupComplete for existing installs.
+        // The setupComplete field was added without a migration, so existing configs
+        // deserialize with setup_complete=false even though setup was already done.
+        if self.version < 3 {
+            if !self.general.setup_complete {
+                let db_exists = std::path::Path::new(&self.paths.index_db_path).exists();
+                if db_exists {
+                    self.general.setup_complete = true;
+                    tracing::info!("Backfilled setupComplete=true (index DB exists)");
+                }
+            }
+            self.version = 3;
+            tracing::info!("Migrated config from v2 → v3");
+        }
+
+        // Future migrations go here:
+        // if self.version < 5 { ... self.version = 5; }
+
+        // Migration from v3 → v4: added tasks config section (handled by serde default).
+        if self.version < 4 {
+            self.version = 4;
+            tracing::info!("Migrated config from v3 → v4 (added tasks config)");
+        }
+
+        // Migration from v4 → v5: added alerts config section (handled by serde default).
+        if self.version < 5 {
+            self.version = 5;
+            tracing::info!("Migrated config from v4 → v5 (added alerts config)");
+        }
+
+        self.version != original
+    }
+
+    /// Load config from the standard location, or return None if it doesn't exist.
+    /// Applies pending migrations and auto-saves if the version was bumped.
+    pub fn load() -> Option<Self> {
+        let path = config_file_path()?;
+        match Self::load_from(&path) {
+            Ok(mut config) => {
+                tracing::info!(path = %path.display(), version = config.version, "Loaded config.toml");
+                if config.migrate() {
+                    tracing::info!(new_version = config.version, "Config migrated — saving");
+                    if let Err(e) = config.save_to(&path) {
+                        tracing::warn!(error = %e, "Failed to save migrated config");
+                    }
+                }
+                Some(config)
+            }
+            Err(BindingsError::Io(ref io_err)) if io_err.kind() == std::io::ErrorKind::NotFound => {
+                // Config file doesn't exist yet — normal on first run.
+                None
+            }
+            Err(e) => {
+                tracing::warn!(
+                    path = %path.display(),
+                    error = %e,
+                    "Failed to load config.toml; using defaults"
+                );
+                None
+            }
+        }
+    }
+
+    /// Read and parse a config file from an arbitrary path.
+    ///
+    /// Unlike [`load()`](Self::load) this does **not** apply migrations or
+    /// auto-save.  It is the low-level "read + deserialize" primitive used by
+    /// `load()` and available directly for testing.
+    pub fn load_from(path: &Path) -> Result<Self, BindingsError> {
+        let content = std::fs::read_to_string(path)?;
+        let config = toml::from_str::<Self>(&content)?;
+        Ok(config)
+    }
+
+    /// Save config to the standard location.
+    pub fn save(&self) -> Result<(), BindingsError> {
+        let path = config_file_path().ok_or_else(|| {
+            BindingsError::Validation("Cannot determine home directory for config file".into())
+        })?;
+        self.save_to(&path)
+    }
+
+    /// Write the config to an arbitrary path, creating parent directories as
+    /// needed.
+    ///
+    /// This is the low-level "serialize + write" primitive used by [`save()`](Self::save)
+    /// and available directly for testing.
+    ///
+    /// Note: this is **not** atomic — a crash mid-write could leave a truncated
+    /// file.  A future improvement could use write-to-temp + rename for
+    /// crash-safety.
+    pub fn save_to(&self, path: &Path) -> Result<(), BindingsError> {
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let content = toml::to_string_pretty(self)?;
+        std::fs::write(path, content)?;
+        Ok(())
+    }
+
+    pub fn session_state_dir(&self) -> PathBuf {
+        PathBuf::from(&self.paths.session_state_dir)
+    }
+
+    pub fn index_db_path(&self) -> PathBuf {
+        PathBuf::from(&self.paths.index_db_path)
+    }
+
+    /// Path to the task presets directory (derived from copilot home).
+    pub fn presets_dir(&self) -> PathBuf {
+        // Presets live alongside the index DB: ~/.copilot/tracepilot/presets/
+        PathBuf::from(&self.paths.index_db_path)
+            .parent()
+            .unwrap_or_else(|| std::path::Path::new("."))
+            .join("presets")
+    }
+
+    /// Path to the jobs directory for orchestrator IPC.
+    pub fn jobs_dir(&self) -> PathBuf {
+        // Jobs dir: ~/.copilot/tracepilot/jobs/
+        PathBuf::from(&self.paths.index_db_path)
+            .parent()
+            .unwrap_or_else(|| std::path::Path::new("."))
+            .join("jobs")
+    }
+}
+
+/// Thread-safe shared config state for Tauri managed state.
+pub type SharedConfig = Arc<RwLock<Option<TracePilotConfig>>>;
+
+pub fn create_shared_config() -> SharedConfig {
+    let config = TracePilotConfig::load();
+    Arc::new(RwLock::new(config))
+}
