@@ -49,12 +49,55 @@ export function clearIpcPerfLog(): void {
   ipcPerfLog.length = 0;
 }
 
-// Expose on window for automation / skill access (mirrors __TRACEPILOT_PERF__)
-if (typeof window !== "undefined") {
-  (window as unknown as Record<string, unknown>).__TRACEPILOT_IPC_PERF__ = {
-    getIpcPerfLog,
-    clearIpcPerfLog,
-  };
+// ---------------------------------------------------------------------------
+// Explicit opt-in for window-level IPC perf hook
+// ---------------------------------------------------------------------------
+
+/**
+ * Shape of the hook installed on `window.__TRACEPILOT_IPC_PERF__` when
+ * `enablePerfTracing()` is called. Mirrors the automation skill contract.
+ */
+export interface IpcPerfHook {
+  getIpcPerfLog: typeof getIpcPerfLog;
+  clearIpcPerfLog: typeof clearIpcPerfLog;
+}
+
+type PerfTarget = typeof globalThis & { __TRACEPILOT_IPC_PERF__?: IpcPerfHook };
+
+function resolveDefaultTarget(): PerfTarget {
+  if (typeof window !== "undefined") {
+    return window as unknown as PerfTarget;
+  }
+  return globalThis as PerfTarget;
+}
+
+function hasIpcPerfContract(value: unknown): value is IpcPerfHook {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as IpcPerfHook).getIpcPerfLog === "function" &&
+    typeof (value as IpcPerfHook).clearIpcPerfLog === "function"
+  );
+}
+
+/**
+ * Install `__TRACEPILOT_IPC_PERF__` on `target` (defaults to `window` if
+ * available, else `globalThis`). Idempotent: if an existing hook already
+ * satisfies the contract, it is left untouched.
+ *
+ * The desktop app bootstrap calls this once so e2e automation and devtools
+ * can read the IPC perf buffer at `window.__TRACEPILOT_IPC_PERF__`.
+ */
+export function enablePerfTracing(target: PerfTarget = resolveDefaultTarget()): void {
+  if (hasIpcPerfContract(target.__TRACEPILOT_IPC_PERF__)) {
+    return;
+  }
+  target.__TRACEPILOT_IPC_PERF__ = { getIpcPerfLog, clearIpcPerfLog };
+}
+
+/** Remove the `__TRACEPILOT_IPC_PERF__` hook from `target`. Useful for test cleanup. */
+export function disablePerfTracing(target: PerfTarget = resolveDefaultTarget()): void {
+  delete target.__TRACEPILOT_IPC_PERF__;
 }
 
 // ---------------------------------------------------------------------------
