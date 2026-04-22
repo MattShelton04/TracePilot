@@ -465,3 +465,19 @@ actionable so a future engineer can pick them up.
 - **Proposed change**: Pick one contract for the whole client surface. Either (a) have wrappers delegate to `commands.x()` and translate the discriminated union back into throws for backwards compatibility, or (b) expose the `{ status }` union to consumers and migrate every call-site. Option (a) preserves call-sites; option (b) gives stronger typing at the cost of a large fan-out refactor.
 - **Risk / why deferred**: Behaviour-preserving refactor touching every domain module + a large number of Vue components. Needs a dedicated wave after the `collect_events!` + `invoke_handler` cutovers so the end-state is coherent.
 - **Effort**: L
+
+### w99 — Auto-generate TS IPC_COMMANDS registry from the Rust manifest
+
+- **Area**: `packages/client/src/commands.ts::IPC_COMMANDS` + `crates/tracepilot-tauri-bindings/src/ipc_command_names.rs`.
+- **Observation**: w99 established `IPC_COMMAND_NAMES` as the Rust source of truth and emits `packages/client/src/generated/ipc-commands.json`. `IPC_COMMANDS` in TypeScript is still hand-maintained and merely verified-for-equality by the contract test. Two lists mean an engineer touching the surface still has to edit both sides and run `pnpm gen:bindings` — the test catches drift but doesn't prevent it.
+- **Proposed change**: Have `gen-bindings` also emit `packages/client/src/generated/ipcCommands.ts` (`export const IPC_COMMANDS = [...] as const`) and re-export it from `packages/client/src/commands.ts`. Then delete the equality test (it becomes a tautology) in favour of the `generated.drift.test.ts` staleness check already in place.
+- **Risk / why deferred**: Requires renaming `CommandName` type exports (downstream `apps/desktop` imports) and a workspace-wide import audit; also needs a decision on whether the generated TS file should live in `packages/client/src/generated/` (same directory as `bindings.ts`) or be merged into it. Out of scope for a 'replace regex test' wave.
+- **Effort**: S
+
+### w99 — Shared IPC contract check still parses `lib.rs` source text
+
+- **Area**: `crates/tracepilot-tauri-bindings/src/lib.rs` (`ipc_manifest_tests::generate_handler_matches_manifest`).
+- **Observation**: The Rust-side unit test added in w99 still `include_str!`'s `lib.rs` and does line-by-line parsing of the `tauri::generate_handler![]` block to extract command names. It's deterministic and dependency-free, but it's effectively the same shape of regex-ish check the TS test used to do — just relocated to Rust. If a future refactor moves the handler list into a macro or multiple files, the parser breaks.
+- **Proposed change**: Once specta coverage in `specta_exports.rs` reaches 100% of commands (currently ~7/165), remove the `generate_handler!` invocation entirely and rely on `builder.mount_events(...)` / `builder.invoke_handler(builder.invoke_handler())` from `tauri-specta`. At that point `IPC_COMMAND_NAMES` and the specta builder share a single list and no source parsing is needed.
+- **Risk / why deferred**: Blocked on the broader specta migration (master plan Phase 1B.*); w99's scope was the TS-side test only.
+- **Effort**: M

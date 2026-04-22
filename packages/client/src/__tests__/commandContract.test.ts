@@ -3,58 +3,68 @@ import { describe, expect, it } from "vitest";
 
 import { IPC_COMMANDS } from "../commands.js";
 
-function parseBuildRsCommands(): Set<string> {
-  const buildRsPath = new URL("../../../../apps/desktop/src-tauri/build.rs", import.meta.url);
-  const contents = readFileSync(buildRsPath, "utf8");
-  const blockMatch = contents.match(/commands\(&\[(.*?)\]\)/s);
-  if (!blockMatch) {
-    throw new Error("Failed to locate command list in build.rs");
-  }
-
-  const commands = Array.from(blockMatch[1].matchAll(/"([^"]+)"/g), (m) => m[1]);
-  return new Set(commands);
-}
-
-function parseLibRsCommands(): Set<string> {
-  const libRsPath = new URL(
-    "../../../../crates/tracepilot-tauri-bindings/src/lib.rs",
+/**
+ * IPC command contract — TS ↔ Rust equality.
+ *
+ * The Rust side is the single source of truth (see
+ * `crates/tracepilot-tauri-bindings/src/ipc_command_names.rs`). The
+ * `gen-bindings` bin serialises that list to
+ * `packages/client/src/generated/ipc-commands.json` (sorted, stable
+ * encoding). This test asserts the TS-side `IPC_COMMANDS` registry is a
+ * byte-for-byte match of that manifest.
+ *
+ * Wave 99: replaced the previous regex-based scrape of `build.rs` /
+ * `lib.rs` with this deterministic equality check. The Rust-internal
+ * `generate_handler![]` ↔ `IPC_COMMAND_NAMES` check now lives as a unit
+ * test in the bindings crate (`ipc_manifest_tests`).
+ */
+function loadGeneratedManifest(): string[] {
+  const manifestPath = new URL(
+    "../generated/ipc-commands.json",
     import.meta.url,
   );
-  const contents = readFileSync(libRsPath, "utf8");
-  const blockMatch = contents.match(/generate_handler!\s*\[(.*?)\]/s);
-  if (!blockMatch) {
-    throw new Error("Failed to locate generate_handler command list in lib.rs");
+  const raw = readFileSync(manifestPath, "utf8");
+  const parsed: unknown = JSON.parse(raw);
+  if (!Array.isArray(parsed) || !parsed.every((v) => typeof v === "string")) {
+    throw new Error(
+      "ipc-commands.json is malformed — run `pnpm gen:bindings` to regenerate.",
+    );
   }
-
-  const commands = Array.from(
-    blockMatch[1].matchAll(/commands::[a-z_]+::([a-z0-9_]+)\s*,/gi),
-    (m) => m[1],
-  );
-  return new Set(commands);
+  return [...(parsed as string[])].sort();
 }
 
 describe("IPC command contract", () => {
-  const buildCommands = parseBuildRsCommands();
-  const libCommands = parseLibRsCommands();
-  const clientCommands = new Set<string>(IPC_COMMANDS);
+  it("matches the generated manifest emitted by `pnpm gen:bindings`", () => {
+    const generated = loadGeneratedManifest();
+    const client = [...IPC_COMMANDS].sort();
 
-  it("ensures all client commands are registered in the build allowlist", () => {
-    const missingInBuild = IPC_COMMANDS.filter((cmd) => !buildCommands.has(cmd));
-    expect(missingInBuild).toEqual([]);
+    if (
+      generated.length !== client.length ||
+      generated.some((name, idx) => name !== client[idx])
+    ) {
+      const genSet = new Set(generated);
+      const clientSet = new Set(client);
+      const missingInClient = generated.filter((n) => !clientSet.has(n));
+      const missingInRust = client.filter((n) => !genSet.has(n));
+      const hint = [
+        "IPC_COMMANDS (packages/client/src/commands.ts) is out of sync with the Rust manifest.",
+        "To fix:",
+        "  1. Update `crates/tracepilot-tauri-bindings/src/ipc_command_names.rs`.",
+        "  2. Update the matching entry in `lib.rs`'s `tauri::generate_handler![]`.",
+        "  3. Run `pnpm gen:bindings` to regenerate `packages/client/src/generated/ipc-commands.json`.",
+        "  4. Add/remove the matching name in `packages/client/src/commands.ts::IPC_COMMANDS`.",
+        `Missing in IPC_COMMANDS (present in Rust): ${JSON.stringify(missingInClient)}`,
+        `Missing in Rust manifest (present in TS):   ${JSON.stringify(missingInRust)}`,
+      ].join("\n");
+      expect.fail(hint);
+    }
+
+    expect(client).toEqual(generated);
   });
 
-  it("ensures all build-allowed commands are declared in IPC_COMMANDS", () => {
-    const missingInClient = Array.from(buildCommands).filter((cmd) => !clientCommands.has(cmd));
-    expect(missingInClient).toEqual([]);
-  });
-
-  it("ensures runtime handler commands are included in the build allowlist", () => {
-    const missingInBuild = Array.from(libCommands).filter((cmd) => !buildCommands.has(cmd));
-    expect(missingInBuild).toEqual([]);
-  });
-
-  it("ensures build allowlist commands are registered in the runtime handler", () => {
-    const missingInLib = Array.from(buildCommands).filter((cmd) => !libCommands.has(cmd));
-    expect(missingInLib).toEqual([]);
+  it("contains no duplicates on either side", () => {
+    const generated = loadGeneratedManifest();
+    expect(new Set(generated).size).toBe(generated.length);
+    expect(new Set(IPC_COMMANDS).size).toBe(IPC_COMMANDS.length);
   });
 });

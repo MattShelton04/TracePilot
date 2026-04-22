@@ -16,8 +16,11 @@ pub mod config;
 pub mod error;
 pub mod events;
 mod helpers;
+pub mod ipc_command_names;
 pub mod types;
 mod validators;
+
+pub use ipc_command_names::IPC_COMMAND_NAMES;
 
 #[doc(hidden)]
 pub mod specta_exports;
@@ -279,4 +282,79 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::window::close_session_window,
         ])
         .build()
+}
+
+#[cfg(test)]
+mod ipc_manifest_tests {
+    use super::IPC_COMMAND_NAMES;
+
+    /// Extract every `commands::<module>::<name>,` invoked inside this file's
+    /// `tauri::generate_handler![]` block and assert the set matches the
+    /// single-source-of-truth constant. Any new command registered via
+    /// `generate_handler!` without a corresponding entry in
+    /// `ipc_command_names.rs` (or vice-versa) fails the build of this crate
+    /// loudly, with an actionable mismatch message.
+    ///
+    /// This is the Rust-side half of the IPC contract; the TS side is
+    /// enforced by `packages/client/src/__tests__/commandContract.test.ts`
+    /// via the emitted `packages/client/src/generated/ipc-commands.json`
+    /// manifest.
+    #[test]
+    fn generate_handler_matches_manifest() {
+        let source = include_str!("lib.rs");
+
+        let start_marker = "tauri::generate_handler![";
+        let start = source
+            .find(start_marker)
+            .expect("could not locate generate_handler! block in lib.rs");
+        let after_start = start + start_marker.len();
+        let end_offset = source[after_start..]
+            .find("])")
+            .expect("could not locate end of generate_handler! block");
+        let block = &source[after_start..after_start + end_offset];
+
+        let mut registered: Vec<String> = Vec::new();
+        for raw_line in block.lines() {
+            let line = raw_line.trim();
+            if line.is_empty() || line.starts_with("//") {
+                continue;
+            }
+            let entry = line.trim_end_matches(',').trim();
+            if entry.is_empty() {
+                continue;
+            }
+            let name = entry
+                .rsplit("::")
+                .next()
+                .expect("handler entry must contain `::`");
+            assert!(
+                !name.is_empty(),
+                "empty command name parsed from generate_handler entry: {raw_line:?}"
+            );
+            registered.push(name.to_string());
+        }
+        registered.sort();
+        registered.dedup_by(|a, b| a == b);
+
+        let mut manifest: Vec<String> =
+            IPC_COMMAND_NAMES.iter().map(|s| (*s).to_string()).collect();
+        manifest.sort();
+
+        if registered != manifest {
+            let registered_set: std::collections::BTreeSet<_> = registered.iter().collect();
+            let manifest_set: std::collections::BTreeSet<_> = manifest.iter().collect();
+            let only_in_handler: Vec<_> =
+                registered_set.difference(&manifest_set).collect();
+            let only_in_manifest: Vec<_> =
+                manifest_set.difference(&registered_set).collect();
+            panic!(
+                "generate_handler![] and IPC_COMMAND_NAMES disagree. \
+                 Update `crates/tracepilot-tauri-bindings/src/ipc_command_names.rs` \
+                 and/or the `generate_handler!` block in `lib.rs`, then run \
+                 `pnpm gen:bindings` to refresh `packages/client/src/generated/ipc-commands.json`.\n\
+                 Only in generate_handler!: {only_in_handler:?}\n\
+                 Only in IPC_COMMAND_NAMES:  {only_in_manifest:?}"
+            );
+        }
+    }
 }
