@@ -292,9 +292,8 @@ pub fn build_placeholder_sql(sql_prefix: &str, num_rows: usize, params_per_row: 
     // Each row adds "(", ")" and "," between rows = 3 chars.
     // However, the last item in rows and params doesn't have a trailing comma,
     // so the exact row contribution formula is: num_rows * (params_per_row * 2 + 2) - 1.
-    let mut sql = String::with_capacity(
-        sql_prefix.len() + 1 + num_rows * (params_per_row * 2 + 2) - 1,
-    );
+    let mut sql =
+        String::with_capacity(sql_prefix.len() + 1 + num_rows * (params_per_row * 2 + 2) - 1);
     sql.push_str(sql_prefix);
     sql.push(' ');
     for i in 0..num_rows {
