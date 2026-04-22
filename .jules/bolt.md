@@ -1,0 +1,3 @@
+## 2024-05-18 - Avoid integer formatting overhead in rusqlite dynamic queries
+**Learning:** When dynamically generating large SQL placeholder strings in Rust for batch inserts with `rusqlite`, using anonymous sequential bindings (`?`) with simple byte pushes (e.g., `String::push('?')`) is significantly faster than using indexed parameters (`?1`, `?2`) with `std::fmt::Write` (`write!`). This optimization completely eliminates integer formatting overhead, resulting in a measurable performance increase for batch operations.
+**Action:** Use anonymous parameter bindings `?` when dynamically building batch insert queries in Rust rather than writing indexed parameters unless indexed parameters are explicitly required for the use case.

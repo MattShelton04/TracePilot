@@ -120,13 +120,13 @@ mod tests {
     #[test]
     fn build_placeholder_sql_single_row_single_col() {
         let sql = build_placeholder_sql("INSERT INTO t (v) VALUES", 1, 1);
-        assert_eq!(sql, "INSERT INTO t (v) VALUES (?1)");
+        assert_eq!(sql, "INSERT INTO t (v) VALUES (?)");
     }
 
     #[test]
     fn build_placeholder_sql_multi_row_multi_col() {
         let sql = build_placeholder_sql("INSERT INTO t (a,b) VALUES", 2, 2);
-        assert_eq!(sql, "INSERT INTO t (a,b) VALUES (?1,?2),(?3,?4)");
+        assert_eq!(sql, "INSERT INTO t (a,b) VALUES (?,?),(?,?)");
     }
 
     #[test]
