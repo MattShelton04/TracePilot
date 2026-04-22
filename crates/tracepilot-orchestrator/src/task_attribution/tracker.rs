@@ -67,14 +67,12 @@ pub fn build_attribution(events: &[TypedEvent]) -> AttributionSnapshot {
     // Phase 1: build toolCallId → custom_name map from task tool invocations
     let mut tool_call_names: HashMap<String, String> = HashMap::new();
     for event in events {
-        if let TypedEventData::ToolExecutionStart(ref data) = event.typed_data {
-            if data.tool_name.as_deref() == Some("task") {
-                if let (Some(call_id), Some(args)) = (&data.tool_call_id, &data.arguments) {
-                    if let Some(name) = args.get("name").and_then(|v| v.as_str()) {
-                        tool_call_names.insert(call_id.clone(), name.to_string());
-                    }
-                }
-            }
+        if let TypedEventData::ToolExecutionStart(ref data) = event.typed_data
+            && data.tool_name.as_deref() == Some("task")
+            && let (Some(call_id), Some(args)) = (&data.tool_call_id, &data.arguments)
+            && let Some(name) = args.get("name").and_then(|v| v.as_str())
+        {
+            tool_call_names.insert(call_id.clone(), name.to_string());
         }
     }
 
@@ -93,20 +91,20 @@ pub fn build_attribution(events: &[TypedEvent]) -> AttributionSnapshot {
                     .and_then(|id| tool_call_names.get(id).cloned())
                     .or_else(|| data.agent_name.clone());
 
-                if let Some(ref name) = custom_name {
-                    if let Some(task_id) = extract_task_id(name) {
-                        agents.insert(
-                            task_id.to_string(),
-                            TrackedSubagent {
-                                task_id: task_id.to_string(),
-                                agent_name: name.clone(),
-                                status: SubagentStatus::Running,
-                                started_at: timestamp,
-                                completed_at: None,
-                                error: None,
-                            },
-                        );
-                    }
+                if let Some(ref name) = custom_name
+                    && let Some(task_id) = extract_task_id(name)
+                {
+                    agents.insert(
+                        task_id.to_string(),
+                        TrackedSubagent {
+                            task_id: task_id.to_string(),
+                            agent_name: name.clone(),
+                            status: SubagentStatus::Running,
+                            started_at: timestamp,
+                            completed_at: None,
+                            error: None,
+                        },
+                    );
                 }
             }
             TypedEventData::SubagentCompleted(data) => {
@@ -116,24 +114,24 @@ pub fn build_attribution(events: &[TypedEvent]) -> AttributionSnapshot {
                     .and_then(|id| tool_call_names.get(id).cloned())
                     .or_else(|| data.agent_name.clone());
 
-                if let Some(ref name) = custom_name {
-                    if let Some(task_id) = extract_task_id(name) {
-                        if let Some(agent) = agents.get_mut(task_id) {
-                            agent.status = SubagentStatus::Completed;
-                            agent.completed_at = timestamp;
-                        } else {
-                            agents.insert(
-                                task_id.to_string(),
-                                TrackedSubagent {
-                                    task_id: task_id.to_string(),
-                                    agent_name: name.clone(),
-                                    status: SubagentStatus::Completed,
-                                    started_at: None,
-                                    completed_at: timestamp,
-                                    error: None,
-                                },
-                            );
-                        }
+                if let Some(ref name) = custom_name
+                    && let Some(task_id) = extract_task_id(name)
+                {
+                    if let Some(agent) = agents.get_mut(task_id) {
+                        agent.status = SubagentStatus::Completed;
+                        agent.completed_at = timestamp;
+                    } else {
+                        agents.insert(
+                            task_id.to_string(),
+                            TrackedSubagent {
+                                task_id: task_id.to_string(),
+                                agent_name: name.clone(),
+                                status: SubagentStatus::Completed,
+                                started_at: None,
+                                completed_at: timestamp,
+                                error: None,
+                            },
+                        );
                     }
                 }
             }
@@ -144,25 +142,25 @@ pub fn build_attribution(events: &[TypedEvent]) -> AttributionSnapshot {
                     .and_then(|id| tool_call_names.get(id).cloned())
                     .or_else(|| data.agent_name.clone());
 
-                if let Some(ref name) = custom_name {
-                    if let Some(task_id) = extract_task_id(name) {
-                        if let Some(agent) = agents.get_mut(task_id) {
-                            agent.status = SubagentStatus::Failed;
-                            agent.completed_at = timestamp;
-                            agent.error = data.error.clone();
-                        } else {
-                            agents.insert(
-                                task_id.to_string(),
-                                TrackedSubagent {
-                                    task_id: task_id.to_string(),
-                                    agent_name: name.clone(),
-                                    status: SubagentStatus::Failed,
-                                    started_at: None,
-                                    completed_at: timestamp,
-                                    error: data.error.clone(),
-                                },
-                            );
-                        }
+                if let Some(ref name) = custom_name
+                    && let Some(task_id) = extract_task_id(name)
+                {
+                    if let Some(agent) = agents.get_mut(task_id) {
+                        agent.status = SubagentStatus::Failed;
+                        agent.completed_at = timestamp;
+                        agent.error = data.error.clone();
+                    } else {
+                        agents.insert(
+                            task_id.to_string(),
+                            TrackedSubagent {
+                                task_id: task_id.to_string(),
+                                agent_name: name.clone(),
+                                status: SubagentStatus::Failed,
+                                started_at: None,
+                                completed_at: timestamp,
+                                error: data.error.clone(),
+                            },
+                        );
                     }
                 }
             }

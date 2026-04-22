@@ -63,12 +63,11 @@ pub async fn list_sessions(
             };
 
             // Apply CWD exclusion filter (same logic as SQL path in session_reader)
-            if let Some(ref prefix) = exclude_cwd_normalized {
-                if let Some(ref cwd) = item.cwd {
-                    if cwd.replace('\\', "/").starts_with(prefix.as_str()) {
-                        continue;
-                    }
-                }
+            if let Some(ref prefix) = exclude_cwd_normalized
+                && let Some(ref cwd) = item.cwd
+                && cwd.replace('\\', "/").starts_with(prefix.as_str())
+            {
+                continue;
             }
 
             if repo

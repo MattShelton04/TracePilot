@@ -1,9 +1,7 @@
 //! Tool execution and subagent lifecycle handlers.
 
 use crate::models::conversation::TurnToolCall;
-use crate::models::event_types::{
-    SubagentStartedData, ToolExecCompleteData, ToolExecStartData,
-};
+use crate::models::event_types::{SubagentStartedData, ToolExecCompleteData, ToolExecStartData};
 use crate::parsing::events::TypedEvent;
 
 use super::super::utils::{duration_ms, extract_result_preview, json_value_to_string};
@@ -104,8 +102,7 @@ impl TurnReconstructor {
             // timing. Don't let ToolExecComplete set completed_at/duration_ms
             // — it reflects the wrapper tool, not the subagent's actual runtime.
             if !tool_call.is_subagent {
-                if tool_call.completed_at.is_none()
-                    || event.raw.timestamp > tool_call.completed_at
+                if tool_call.completed_at.is_none() || event.raw.timestamp > tool_call.completed_at
                 {
                     tool_call.completed_at = event.raw.timestamp;
                     tool_call.duration_ms =
@@ -150,8 +147,7 @@ impl TurnReconstructor {
                     .unwrap_or(false);
                 if !is_subagent
                     && !parent_is_subagent
-                    && let Some(turn) =
-                        self.find_owning_turn_mut(data.tool_call_id.as_deref())
+                    && let Some(turn) = self.find_owning_turn_mut(data.tool_call_id.as_deref())
                     && turn.model.is_none()
                 {
                     turn.model = Some(model.clone());

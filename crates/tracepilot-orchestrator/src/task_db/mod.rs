@@ -89,8 +89,9 @@ impl TaskDb {
     /// Run schema migrations through the shared framework, honouring the legacy
     /// `task_meta`-based version tracking used by pre-framework databases.
     fn run_migrations(conn: &mut Connection, db_path: Option<&Path>) -> Result<()> {
-        bootstrap_legacy_schema_version(conn)
-            .map_err(|e| OrchestratorError::task_ctx("Legacy schema_version bootstrap failed", e))?;
+        bootstrap_legacy_schema_version(conn).map_err(|e| {
+            OrchestratorError::task_ctx("Legacy schema_version bootstrap failed", e)
+        })?;
 
         let backup_dir = db_path
             .and_then(|p| p.parent())

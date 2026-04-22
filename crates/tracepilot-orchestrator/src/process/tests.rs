@@ -1,5 +1,5 @@
-use super::*;
 use super::timeout::execute_with_timeout;
+use super::*;
 use std::process::Command;
 
 #[cfg(unix)]

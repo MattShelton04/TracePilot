@@ -221,15 +221,30 @@ pub(super) fn write_rewind_snapshots(md: &mut String, rewind: &RewindIndex) {
         return;
     }
     let _ = writeln!(md, "## Rewind Snapshots\n");
-    let _ = writeln!(md, "| # | Snapshot ID | Timestamp | Files | Branch | Message |");
-    let _ = writeln!(md, "|---|-------------|-----------|-------|--------|---------|");
+    let _ = writeln!(
+        md,
+        "| # | Snapshot ID | Timestamp | Files | Branch | Message |"
+    );
+    let _ = writeln!(
+        md,
+        "|---|-------------|-----------|-------|--------|---------|"
+    );
     for (i, snap) in rewind.snapshots.iter().enumerate() {
         let ts = snap.timestamp.as_deref().unwrap_or("—");
-        let files = snap.file_count.map(|n| n.to_string()).unwrap_or_else(|| "—".to_string());
+        let files = snap
+            .file_count
+            .map(|n| n.to_string())
+            .unwrap_or_else(|| "—".to_string());
         let branch = snap.git_branch.as_deref().unwrap_or("—");
         let msg = snap.user_message.as_deref().unwrap_or("—");
-        let msg_truncated = if msg.len() > 50 { &msg[..msg.floor_char_boundary(50)] } else { msg };
-        let _ = writeln!(md, "| {} | `{}` | {} | {} | {} | {} |",
+        let msg_truncated = if msg.len() > 50 {
+            &msg[..msg.floor_char_boundary(50)]
+        } else {
+            msg
+        };
+        let _ = writeln!(
+            md,
+            "| {} | `{}` | {} | {} | {} | {} |",
             i + 1,
             &snap.snapshot_id[..snap.snapshot_id.len().min(8)],
             ts,
@@ -265,7 +280,8 @@ pub(super) fn write_custom_tables(md: &mut String, tables: &[CustomTableExport])
         for row in &table.rows {
             let _ = write!(md, "|");
             for col in &table.columns {
-                let val = row.get(col)
+                let val = row
+                    .get(col)
                     .map(|v| match v {
                         serde_json::Value::String(s) => s.clone(),
                         other => other.to_string(),

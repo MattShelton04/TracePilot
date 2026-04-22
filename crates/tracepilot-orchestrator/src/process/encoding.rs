@@ -140,12 +140,24 @@ pub(crate) fn encode_prompt_utf8_base64(s: &str) -> String {
     const C: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut o = Vec::with_capacity(4 * ((s.len() + 2) / 3));
     for c in s.as_bytes().chunks(3) {
-        let (b0, b1, b2) = (c[0], c.get(1).copied().unwrap_or(0), c.get(2).copied().unwrap_or(0));
+        let (b0, b1, b2) = (
+            c[0],
+            c.get(1).copied().unwrap_or(0),
+            c.get(2).copied().unwrap_or(0),
+        );
         o.extend_from_slice(&[
             C[(b0 >> 2) as usize],
             C[((b0 & 3) << 4 | b1 >> 4) as usize],
-            if c.len() > 1 { C[((b1 & 0xf) << 2 | b2 >> 6) as usize] } else { b'=' },
-            if c.len() > 2 { C[(b2 & 0x3f) as usize] } else { b'=' },
+            if c.len() > 1 {
+                C[((b1 & 0xf) << 2 | b2 >> 6) as usize]
+            } else {
+                b'='
+            },
+            if c.len() > 2 {
+                C[(b2 & 0x3f) as usize]
+            } else {
+                b'='
+            },
         ]);
     }
     String::from_utf8(o).expect("base64 is ASCII")

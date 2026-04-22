@@ -12,6 +12,9 @@ pub(super) fn system_time_to_unix_millis(time: Option<SystemTime>) -> Option<i64
         .map(|d| d.as_millis() as i64)
 }
 
+// Tuple return is ad-hoc and deliberately local to this helper; factoring it
+// into a `type` alias would obscure the call site without reducing churn.
+#[allow(clippy::type_complexity)]
 pub(super) fn load_cached_typed_events(
     cache: &EventCache,
     session_id: &str,

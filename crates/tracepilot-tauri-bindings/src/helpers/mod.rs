@@ -33,9 +33,7 @@ pub(crate) struct OpenIndexDb {
     pub session_count: usize,
 }
 
-pub(crate) use cache::{
-    indexed_session_to_list_item, load_summary_list_item, read_config,
-};
+pub(crate) use cache::{indexed_session_to_list_item, load_summary_list_item, read_config};
 pub(crate) use db::{
     get_or_init_task_db, open_index_db, remove_index_db_files, with_session_path, with_task_db,
 };

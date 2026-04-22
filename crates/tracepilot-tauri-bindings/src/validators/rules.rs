@@ -78,13 +78,13 @@ pub(crate) fn validate_unix_date_range(
     }
 
     // Validate range ordering
-    if let (Some(from), Some(to)) = (date_from, date_to) {
-        if from > to {
-            return Err(BindingsError::Validation(format!(
-                "Invalid date range: date_from ({}) is after date_to ({})",
-                from, to
-            )));
-        }
+    if let (Some(from), Some(to)) = (date_from, date_to)
+        && from > to
+    {
+        return Err(BindingsError::Validation(format!(
+            "Invalid date range: date_from ({}) is after date_to ({})",
+            from, to
+        )));
     }
     Ok(())
 }
@@ -147,12 +147,12 @@ pub(crate) fn validate_iso_date_range(
     };
 
     // Validate range ordering
-    if let (Some(from), Some(to)) = (from_parsed, to_parsed) {
-        if from > to {
-            return Err(BindingsError::Validation(
-                "Invalid date range: from_date is after to_date".to_string(),
-            ));
-        }
+    if let (Some(from), Some(to)) = (from_parsed, to_parsed)
+        && from > to
+    {
+        return Err(BindingsError::Validation(
+            "Invalid date range: from_date is after to_date".to_string(),
+        ));
     }
     Ok(())
 }

@@ -2,8 +2,7 @@
 
 use super::security::{collect_entries, safe_session_file_path};
 use super::types::{
-    SessionFileEntry, SessionFileType, MAX_READ_BYTES, MAX_SQLITE_ROWS_PER_TABLE,
-    MAX_SQLITE_TABLES,
+    MAX_READ_BYTES, MAX_SQLITE_ROWS_PER_TABLE, MAX_SQLITE_TABLES, SessionFileEntry, SessionFileType,
 };
 use crate::blocking_cmd;
 use crate::config::SharedConfig;
@@ -34,10 +33,7 @@ pub async fn session_list_files(
         // with NotFound to eliminate the race window between the two calls.
         let canonical_dir = session_dir.canonicalize().map_err(|e| {
             if e.kind() == std::io::ErrorKind::NotFound {
-                BindingsError::Validation(format!(
-                    "Session directory not found: {}",
-                    session_id
-                ))
+                BindingsError::Validation(format!("Session directory not found: {}", session_id))
             } else {
                 BindingsError::Validation(format!("Failed to resolve session dir: {e}"))
             }

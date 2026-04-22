@@ -74,8 +74,7 @@ pub async fn mcp_toggle_server(name: String) -> CmdResult<bool> {
 pub async fn mcp_check_health()
 -> CmdResult<HashMap<String, tracepilot_orchestrator::mcp::health::McpHealthResultCached>> {
     let config =
-        tokio::task::spawn_blocking(|| tracepilot_orchestrator::mcp::config::load_config())
-            .await??;
+        tokio::task::spawn_blocking(tracepilot_orchestrator::mcp::config::load_config).await??;
 
     let results =
         tracepilot_orchestrator::mcp::health::check_all_servers(&config.mcp_servers).await;

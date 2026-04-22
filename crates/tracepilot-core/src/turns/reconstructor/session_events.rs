@@ -39,11 +39,7 @@ impl TurnReconstructor {
         );
     }
 
-    pub(super) fn handle_session_warning(
-        &mut self,
-        event: &TypedEvent,
-        data: &SessionWarningData,
-    ) {
+    pub(super) fn handle_session_warning(&mut self, event: &TypedEvent, data: &SessionWarningData) {
         let summary = data
             .message
             .as_deref()

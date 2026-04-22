@@ -35,7 +35,10 @@ fn system_message_before_first_turn_is_flushed_into_it() {
 
     let turns = reconstruct_turns(&events);
     assert_eq!(turns.len(), 1);
-    assert_eq!(turns[0].system_messages, vec!["You are a helpful assistant."]);
+    assert_eq!(
+        turns[0].system_messages,
+        vec!["You are a helpful assistant."]
+    );
 }
 
 #[test]
@@ -54,7 +57,10 @@ fn system_message_during_turn_attaches_directly() {
 
     let turns = reconstruct_turns(&events);
     assert_eq!(turns.len(), 1);
-    assert_eq!(turns[0].system_messages, vec!["You are a coding assistant."]);
+    assert_eq!(
+        turns[0].system_messages,
+        vec!["You are a coding assistant."]
+    );
 }
 
 #[test]
@@ -235,8 +241,7 @@ fn system_message_serializes_when_present() {
     let turns = reconstruct_turns(&events);
     let json = serde_json::to_value(&turns[0]).unwrap();
     assert_eq!(
-        json["systemMessages"][0],
-        "You are a helpful assistant.",
+        json["systemMessages"][0], "You are a helpful assistant.",
         "systemMessages should appear in JSON when present"
     );
 }

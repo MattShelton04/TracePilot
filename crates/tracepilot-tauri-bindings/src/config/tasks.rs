@@ -3,8 +3,9 @@
 use serde::{Deserialize, Serialize};
 
 use super::defaults::{
-    default_context_budget_tokens, default_heartbeat_stale_multiplier, default_max_concurrent_tasks,
-    default_max_retries, default_orchestrator_model, default_poll_interval, default_subagent_model,
+    default_context_budget_tokens, default_heartbeat_stale_multiplier,
+    default_max_concurrent_tasks, default_max_retries, default_orchestrator_model,
+    default_poll_interval, default_subagent_model,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

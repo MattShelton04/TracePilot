@@ -10,6 +10,9 @@ use super::fallback_context;
 
 #[tauri::command]
 #[tracing::instrument(skip_all, err, fields(%preset_id, %task_type))]
+// Tauri command signatures are fixed by the IPC contract (state handles +
+// user params); compressing into a struct would be a breaking API change.
+#[allow(clippy::too_many_arguments)]
 pub async fn task_create(
     state: tauri::State<'_, SharedTaskDb>,
     config: tauri::State<'_, SharedConfig>,
@@ -44,9 +47,10 @@ pub async fn task_create(
 
         // If orchestrator is running, hot-add this task to the manifest so it
         // gets picked up on the next poll cycle without requiring a restart.
-        if let Ok(orch_guard) = orch_state_clone.lock() {
-            if let Some(handle) = orch_guard.as_ref() {
-                let manifest_path = std::path::PathBuf::from(&handle.manifest_path);
+        if let Ok(orch_guard) = orch_state_clone.lock()
+            && let Some(handle) = orch_guard.as_ref()
+        {
+            let manifest_path = std::path::PathBuf::from(&handle.manifest_path);
                 if manifest_path.exists() {
                     let task_dir = jobs_dir.join(&task.id);
                     if let Err(e) = std::fs::create_dir_all(&task_dir) {
@@ -106,19 +110,18 @@ pub async fn task_create(
                         ) {
                             tracing::warn!(task_id = %task.id, error = %e, "Failed to mark hot-added task in_progress");
                         }
-                        if let Some(ref sid) = handle.session_uuid {
-                            if let Err(e) = tracepilot_orchestrator::task_db::operations::set_orchestrator_session_id(
+                        if let Some(ref sid) = handle.session_uuid
+                            && let Err(e) = tracepilot_orchestrator::task_db::operations::set_orchestrator_session_id(
                                 db.conn(),
                                 sid,
-                            ) {
-                                tracing::warn!(task_id = %task.id, error = %e, "Failed to bind orchestrator session id");
-                            }
+                            )
+                        {
+                            tracing::warn!(task_id = %task.id, error = %e, "Failed to bind orchestrator session id");
                         }
                         tracing::info!(task_id = %task.id, "Hot-added task to running orchestrator manifest");
                     }
                 }
             }
-        }
 
         Ok(task)
     })

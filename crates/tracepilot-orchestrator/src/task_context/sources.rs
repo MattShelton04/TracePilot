@@ -126,10 +126,10 @@ fn assemble_session_export_fallback(
     if let Some(repo) = &summary.repository {
         lines.push(format!("- Repository: {}", repo));
     }
-    if let Some(metrics) = &summary.shutdown_metrics {
-        if let Some(model) = &metrics.current_model {
-            lines.push(format!("- Model: {}", model));
-        }
+    if let Some(metrics) = &summary.shutdown_metrics
+        && let Some(model) = &metrics.current_model
+    {
+        lines.push(format!("- Model: {}", model));
     }
     lines.push(String::new());
 
@@ -195,10 +195,10 @@ fn assemble_session_analytics(params: &serde_json::Value, data_dir: &Path) -> Re
     if let Some(repo) = &summary.repository {
         lines.push(format!("- Repository: {}", repo));
     }
-    if let Some(metrics) = &summary.shutdown_metrics {
-        if let Some(model) = &metrics.current_model {
-            lines.push(format!("- Model: {}", model));
-        }
+    if let Some(metrics) = &summary.shutdown_metrics
+        && let Some(model) = &metrics.current_model
+    {
+        lines.push(format!("- Model: {}", model));
     }
     if let Some(start) = &summary.created_at {
         lines.push(format!("- Started: {}", start));
@@ -291,21 +291,21 @@ fn resolve_digest_window(
     use chrono::{NaiveDate, TimeZone, Utc};
 
     // Try target_date (daily)
-    if let Some(date_str) = params.get("target_date").and_then(|v| v.as_str()) {
-        if let Ok(date) = NaiveDate::parse_from_str(date_str, "%Y-%m-%d") {
-            let start = Utc.from_utc_datetime(&date.and_hms_opt(0, 0, 0).unwrap());
-            let end = start + chrono::Duration::hours(24);
-            return (start, end, 24);
-        }
+    if let Some(date_str) = params.get("target_date").and_then(|v| v.as_str())
+        && let Ok(date) = NaiveDate::parse_from_str(date_str, "%Y-%m-%d")
+    {
+        let start = Utc.from_utc_datetime(&date.and_hms_opt(0, 0, 0).unwrap());
+        let end = start + chrono::Duration::hours(24);
+        return (start, end, 24);
     }
 
     // Try week_start_date (weekly)
-    if let Some(date_str) = params.get("week_start_date").and_then(|v| v.as_str()) {
-        if let Ok(date) = NaiveDate::parse_from_str(date_str, "%Y-%m-%d") {
-            let start = Utc.from_utc_datetime(&date.and_hms_opt(0, 0, 0).unwrap());
-            let end = start + chrono::Duration::hours(168);
-            return (start, end, 168);
-        }
+    if let Some(date_str) = params.get("week_start_date").and_then(|v| v.as_str())
+        && let Ok(date) = NaiveDate::parse_from_str(date_str, "%Y-%m-%d")
+    {
+        let start = Utc.from_utc_datetime(&date.and_hms_opt(0, 0, 0).unwrap());
+        let end = start + chrono::Duration::hours(168);
+        return (start, end, 168);
     }
 
     // Fall back to window_hours from now
@@ -367,22 +367,23 @@ fn assemble_multi_session_digest(
         Vec::new();
     for disc in &discovered {
         // Cheap filesystem-level pre-filter: skip directories clearly too old
-        if let Ok(meta) = std::fs::metadata(&disc.path) {
-            if let Ok(modified) = meta.modified() {
-                let mtime: chrono::DateTime<chrono::Utc> = modified.into();
-                if mtime < fs_cutoff {
-                    continue;
-                }
+        if let Ok(meta) = std::fs::metadata(&disc.path)
+            && let Ok(modified) = meta.modified()
+        {
+            let mtime: chrono::DateTime<chrono::Utc> = modified.into();
+            if mtime < fs_cutoff {
+                continue;
             }
         }
 
         match tracepilot_core::summary::load_session_summary(&disc.path) {
             Ok(summary) => {
                 let session_time = summary.updated_at.or(summary.created_at);
-                if let Some(ts) = session_time {
-                    if ts >= cutoff && ts < end {
-                        sessions_in_window.push(summary);
-                    }
+                if let Some(ts) = session_time
+                    && ts >= cutoff
+                    && ts < end
+                {
+                    sessions_in_window.push(summary);
                 }
             }
             Err(e) => {
@@ -430,10 +431,10 @@ fn assemble_multi_session_digest(
         if let Some(repo) = &summary.repository {
             repos.insert(repo.clone());
         }
-        if let Some(metrics) = &summary.shutdown_metrics {
-            if let Some(model) = &metrics.current_model {
-                models.insert(model.clone());
-            }
+        if let Some(metrics) = &summary.shutdown_metrics
+            && let Some(model) = &metrics.current_model
+        {
+            models.insert(model.clone());
         }
     }
 

@@ -19,39 +19,33 @@ pub async fn task_orchestrator_health(
     let session_state_dir = cfg.session_state_dir();
     let orch_state_clone = std::sync::Arc::clone(&*orch_state);
     let db = std::sync::Arc::clone(&*task_db);
-    let handle = orch_state
-        .lock()
-        .map_err(|_| mutex_poisoned())?
-        .clone();
+    let handle = orch_state.lock().map_err(|_| mutex_poisoned())?.clone();
     let stale_secs =
         (cfg.tasks.poll_interval_seconds * cfg.tasks.heartbeat_stale_multiplier) as u64;
     tokio::task::spawn_blocking(move || {
         // Attempt session UUID discovery if handle exists but UUID is unknown
-        if let Some(ref h) = handle {
-            if h.session_uuid.is_none() {
-                if let Some(uuid) = tracepilot_orchestrator::task_orchestrator::discover_session_uuid(
-                    &session_state_dir,
-                    h.pid,
-                    &h.launched_at,
-                ) {
-                    // Set orchestrator_session_id on active tasks
-                    if let Ok(db_guard) = db.lock() {
-                        if let Some(task_db) = db_guard.as_ref() {
-                            if let Err(e) = tracepilot_orchestrator::task_db::operations::set_orchestrator_session_id(
-                                task_db.conn(),
-                                &uuid,
-                            ) {
-                                tracing::warn!(error = %e, "Failed to set orchestrator_session_id on tasks");
-                            }
-                        }
-                    }
-                    let mut guard = orch_state_clone
-                        .lock()
-                        .map_err(|_| mutex_poisoned())?;
-                    if let Some(ref mut stored) = *guard {
-                        stored.session_uuid = Some(uuid);
-                    }
-                }
+        if let Some(ref h) = handle
+            && h.session_uuid.is_none()
+            && let Some(uuid) = tracepilot_orchestrator::task_orchestrator::discover_session_uuid(
+                &session_state_dir,
+                h.pid,
+                &h.launched_at,
+            )
+        {
+            // Set orchestrator_session_id on active tasks
+            if let Ok(db_guard) = db.lock()
+                && let Some(task_db) = db_guard.as_ref()
+                && let Err(e) =
+                    tracepilot_orchestrator::task_db::operations::set_orchestrator_session_id(
+                        task_db.conn(),
+                        &uuid,
+                    )
+            {
+                tracing::warn!(error = %e, "Failed to set orchestrator_session_id on tasks");
+            }
+            let mut guard = orch_state_clone.lock().map_err(|_| mutex_poisoned())?;
+            if let Some(ref mut stored) = *guard {
+                stored.session_uuid = Some(uuid);
             }
         }
 
@@ -92,9 +86,7 @@ pub async fn task_orchestrator_stop(
     let jobs_dir = cfg.jobs_dir();
 
     tokio::task::spawn_blocking(move || {
-        let mut guard = orch_state_clone
-            .lock()
-            .map_err(|_| mutex_poisoned())?;
+        let mut guard = orch_state_clone.lock().map_err(|_| mutex_poisoned())?;
 
         if let Some(handle) = guard.as_ref() {
             // Normal path: we have the in-memory handle with manifest path + PID.

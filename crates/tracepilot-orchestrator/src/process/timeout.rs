@@ -170,12 +170,14 @@ pub(crate) async fn run_async_with_limits(
 
     let fut = async move {
         let mut child = cmd.spawn()?;
-        let stdout = child.stdout.take().ok_or_else(|| {
-            std::io::Error::other("stdout not piped")
-        })?;
-        let stderr = child.stderr.take().ok_or_else(|| {
-            std::io::Error::other("stderr not piped")
-        })?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| std::io::Error::other("stdout not piped"))?;
+        let stderr = child
+            .stderr
+            .take()
+            .ok_or_else(|| std::io::Error::other("stderr not piped"))?;
 
         // Drain both pipes concurrently with per-stream caps. The inner
         // block owns the `Take`-wrapped readers; when the cap fires (or

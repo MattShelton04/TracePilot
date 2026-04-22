@@ -502,3 +502,39 @@ actionable so a future engineer can pick them up.
 - **Proposed change**: Split `TurnSessionEvent` into a discriminated union `{ eventType: "session.compaction_complete"; checkpointNumber?: number } | { eventType: string; ...}`; add an `isCompactionTurnEvent(evt): evt is CompactionTurnSessionEvent` narrow helper. Replace the non-null assertion with the narrowed type.
 - **Risk / why deferred**: Requires auditing every `TurnSessionEvent` construction site (turn reducer, mock data, tests) to tag each event. Low risk but touches many files; deferred to keep w100 surgical.
 - **Effort**: S
+
+
+### w101 — `#[allow(clippy::needless_question_mark)]` on `blocking_cmd!` macro
+- **Area**: `crates/tracepilot-tauri-bindings/src/commands/blocking_helper.rs`.
+- **Observation**: The `blocking_cmd!` macro expands to `Ok(spawn_blocking(...).await??)`. Clippy sees a macro-local `Ok(...?)` and suggests dropping the wrap, but the `?` operators are doing `From::from` conversion from `JoinError` and the callsite-specific error type into the command's `CmdResult<T>`. Removing the wrap would force every call site to already return the exact matching `Result<T, E>`.
+- **Proposed change**: If `spawn_blocking` gets a dedicated thin wrapper type with a custom `Try` impl (or we land a unified `CmdError` across all commands) this allow can be removed.
+- **Risk / why deferred**: Cosmetic; macro is widely used and correct today.
+- **Effort**: S
+
+### w101 — `#[allow(clippy::should_implement_trait)]` on `TaskStatus::from_str` / `JobStatus::from_str`
+- **Area**: `crates/tracepilot-orchestrator/src/task_db/types.rs`.
+- **Observation**: Both enums expose inherent `from_str(&str) -> Option<Self>` helpers. Implementing `std::str::FromStr` would force a `Result<Self, E>` signature, losing the `Option` contract that call sites rely on (`db_row.get(col).ok().and_then(TaskStatus::from_str)`).
+- **Proposed change**: Offer `FromStr` *alongside* the inherent method (with an `InvalidStatus` error type) once a call site actually wants `?`-style parsing. Then deprecate the `Option` helper.
+- **Risk / why deferred**: Behaviour-preserving but cross-cutting — every consumer of `from_str` needs auditing. Out of scope for the clippy-gate wave.
+- **Effort**: S
+
+### w101 — `#[allow(clippy::too_many_arguments)]` on Tauri command signatures
+- **Area**: `crates/tracepilot-tauri-bindings/src/commands/tasks/crud.rs` (`task_create`, 9 args), `crates/tracepilot-tauri-bindings/src/commands/search.rs` (`facets_cache_key`, 8 args).
+- **Observation**: Tauri commands receive `State<'_, ...>` handles plus user params; the IPC contract (and the TypeScript bindings generated via specta) pin the argument names and ordering. Collapsing into a params struct would be a breaking IPC change.
+- **Proposed change**: When the command-generation story allows bundling state handles implicitly (or when we reshape the IPC surface as part of a broader refactor), these allows can come off.
+- **Risk / why deferred**: Breaking change to the frontend bindings — not worth it for a lint.
+- **Effort**: M
+
+### w101 — `#[allow(clippy::type_complexity)]` on `load_cached_typed_events`
+- **Area**: `crates/tracepilot-tauri-bindings/src/commands/session/shared.rs`.
+- **Observation**: Return type is a 3-tuple `(Arc<Vec<TypedEvent>>, u64, Option<SystemTime>)`; factoring into a `type` alias would hide locally-meaningful semantics (cached events + file size + mtime) without any reuse.
+- **Proposed change**: Introduce a named `struct CachedTypedEvents` if a second caller ever needs the tuple.
+- **Risk / why deferred**: Cosmetic; single-call-site.
+- **Effort**: S
+
+### w101 — `cargo clippy` not yet gated for `tracepilot-desktop`
+- **Area**: `.github/workflows/ci.yml`.
+- **Observation**: CI now runs `cargo clippy --workspace --exclude tracepilot-desktop --all-targets -- -D warnings`. The desktop crate still pulls in `tauri::generate_context!` output plus Tauri-specific generated code that has its own lint posture.
+- **Proposed change**: Audit `tracepilot-desktop` under `-D warnings`, add targeted allows in `main.rs` around the `generate_context!` site, then drop the `--exclude`.
+- **Risk / why deferred**: Not required to make the other ~13 crates hard-fail on warnings. Low urgency.
+- **Effort**: S

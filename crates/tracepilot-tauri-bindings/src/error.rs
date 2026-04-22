@@ -257,7 +257,7 @@ pub(crate) fn scrub_message(raw: &str) -> String {
                 // path separator or end-of-string.
                 let after = &rest[i + sep.len()..];
                 let skip = after
-                    .find(|c: char| c == '\\' || c == '/' || c == ' ' || c == '"' || c == '\'')
+                    .find(['\\', '/', ' ', '"', '\''])
                     .unwrap_or(after.len());
                 rest = &after[skip..];
             }
@@ -318,10 +318,7 @@ pub(crate) fn scrub_message(raw: &str) -> String {
                         .find(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
                         .unwrap_or(after.len());
                     if end >= 20 {
-                        out.replace_range(
-                            start..start + prefix.len() + end,
-                            replacement,
-                        );
+                        out.replace_range(start..start + prefix.len() + end, replacement);
                         cursor = start + replacement.len();
                     } else {
                         // Short match (not a real token) — skip past it.
@@ -469,7 +466,7 @@ mod tests {
     fn every_variant_maps_to_stable_code() {
         // Infrastructure / plumbing ------------------------------
         assert_eq!(
-            BindingsError::Io(std::io::Error::new(std::io::ErrorKind::Other, "x"))
+            BindingsError::Io(std::io::Error::other("x"))
                 .code()
                 .as_str(),
             "IO"
@@ -497,7 +494,9 @@ mod tests {
             "VALIDATION"
         );
         assert_eq!(
-            BindingsError::Internal("mutex poisoned".into()).code().as_str(),
+            BindingsError::Internal("mutex poisoned".into())
+                .code()
+                .as_str(),
             "INTERNAL"
         );
 
@@ -531,10 +530,10 @@ mod tests {
         let real_token = "ghp_AAAABBBBCCCCDDDDEEEEFFFFGGGGHHHH"; // 36 chars — real PAT
         let msg = format!("debug: ghp_tmp short, real: {real_token}");
         let s = scrub_message(&msg);
-        assert!(!s.contains(real_token), "real PAT leaked after short match: {s}");
         assert!(
-            s.contains("<redacted-gh-token>"),
-            "no redaction found: {s}"
+            !s.contains(real_token),
+            "real PAT leaked after short match: {s}"
         );
+        assert!(s.contains("<redacted-gh-token>"), "no redaction found: {s}");
     }
 }

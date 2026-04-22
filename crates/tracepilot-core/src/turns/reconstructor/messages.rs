@@ -31,15 +31,12 @@ impl TurnReconstructor {
         // Flush any session events that occurred between turns
         turn.session_events.append(&mut self.pending_session_events);
         // Flush any system messages that arrived before this turn
-        turn.system_messages.append(&mut self.pending_system_messages);
+        turn.system_messages
+            .append(&mut self.pending_system_messages);
         self.current_turn = Some(turn);
     }
 
-    pub(super) fn handle_assistant_turn_start(
-        &mut self,
-        event: &TypedEvent,
-        data: &TurnStartData,
-    ) {
+    pub(super) fn handle_assistant_turn_start(&mut self, event: &TypedEvent, data: &TurnStartData) {
         let turn = self.ensure_current_turn(event.raw.timestamp);
         if turn.turn_id.is_none() {
             turn.turn_id = data.turn_id.clone();

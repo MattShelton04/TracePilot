@@ -96,11 +96,7 @@ pub async fn check_single_server(name: &str, config: &McpServerConfig) -> McpHea
     }
 }
 
-pub(super) fn make_error_result(
-    name: &str,
-    start: Instant,
-    error: &str,
-) -> McpHealthResultCached {
+pub(super) fn make_error_result(name: &str, start: Instant, error: &str) -> McpHealthResultCached {
     McpHealthResultCached {
         result: McpHealthResult {
             server_name: name.to_string(),

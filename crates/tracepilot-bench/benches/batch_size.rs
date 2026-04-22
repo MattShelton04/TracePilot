@@ -23,8 +23,7 @@ use tracepilot_core::utils::sqlite::build_placeholder_sql;
 
 // ── session_writer schema (9 cols, small row counts) ────────────────────────
 
-const SESSION_SQL_PREFIX: &str =
-    "INSERT INTO turns (session_id,turn_index,role,content,ts,model,tokens_in,tokens_out,cost) VALUES";
+const SESSION_SQL_PREFIX: &str = "INSERT INTO turns (session_id,turn_index,role,content,ts,model,tokens_in,tokens_out,cost) VALUES";
 const SESSION_COLS: usize = 9;
 
 type SessionRow = (i64, i64, String, String, i64, String, i64, i64, f64);
@@ -63,11 +62,18 @@ fn run_session_batch(conn: &Connection, rows: &[SessionRow], chunk_size: usize) 
         let mut stmt = conn.prepare(&sql).unwrap();
         let mut params: Vec<&dyn ToSql> = Vec::with_capacity(chunk.len() * SESSION_COLS);
         for (sid, ti, role, content, ts, model, tin, tout, cost) in chunk {
-            params.push(sid); params.push(ti); params.push(role);
-            params.push(content); params.push(ts); params.push(model);
-            params.push(tin); params.push(tout); params.push(cost);
+            params.push(sid);
+            params.push(ti);
+            params.push(role);
+            params.push(content);
+            params.push(ts);
+            params.push(model);
+            params.push(tin);
+            params.push(tout);
+            params.push(cost);
         }
-        stmt.execute(params_from_iter(params.iter().copied())).unwrap();
+        stmt.execute(params_from_iter(params.iter().copied()))
+            .unwrap();
     }
     conn.execute_batch("ROLLBACK").unwrap();
 }
@@ -79,13 +85,21 @@ fn run_session_batch(conn: &Connection, rows: &[SessionRow], chunk_size: usize) 
 //
 // Max chunk size for 8 cols: 32766 / 8 = 4095 rows.
 
-const SEARCH_SQL_PREFIX: &str =
-    "INSERT INTO search_content \
+const SEARCH_SQL_PREFIX: &str = "INSERT INTO search_content \
      (session_id, content_type, turn_number, event_index, \
       timestamp_unix, tool_name, content, metadata_json) VALUES";
 const SEARCH_COLS: usize = 8;
 
-type SearchRow = (String, &'static str, Option<i64>, i64, Option<i64>, Option<String>, String, Option<String>);
+type SearchRow = (
+    String,
+    &'static str,
+    Option<i64>,
+    i64,
+    Option<i64>,
+    Option<String>,
+    String,
+    Option<String>,
+);
 
 fn make_search_row(i: i64) -> SearchRow {
     (
@@ -95,7 +109,10 @@ fn make_search_row(i: i64) -> SearchRow {
         i,
         Some(1_700_000_000 + i),
         Some("read_file".to_owned()),
-        format!("Extracted content for event {} with some realistic length text here", i),
+        format!(
+            "Extracted content for event {} with some realistic length text here",
+            i
+        ),
         None,
     )
 }
@@ -143,16 +160,30 @@ fn run_search_batch(conn: &Connection, rows: &[SearchRow], chunk_size: usize) {
         for (sid, ct, tn, ei, ts, tool, content, meta) in chunk {
             params.push(sid);
             params.push(ct as &dyn ToSql);
-            match tn { Some(n) => params.push(n), None => params.push(&rusqlite::types::Null) }
+            match tn {
+                Some(n) => params.push(n),
+                None => params.push(&rusqlite::types::Null),
+            }
             params.push(ei);
-            match ts { Some(n) => params.push(n), None => params.push(&rusqlite::types::Null) }
-            match tool { Some(s) => params.push(s), None => params.push(&rusqlite::types::Null) }
+            match ts {
+                Some(n) => params.push(n),
+                None => params.push(&rusqlite::types::Null),
+            }
+            match tool {
+                Some(s) => params.push(s),
+                None => params.push(&rusqlite::types::Null),
+            }
             params.push(content);
-            match meta { Some(s) => params.push(s), None => params.push(&rusqlite::types::Null) }
+            match meta {
+                Some(s) => params.push(s),
+                None => params.push(&rusqlite::types::Null),
+            }
         }
-        stmt.execute(params_from_iter(params.iter().copied())).unwrap();
+        stmt.execute(params_from_iter(params.iter().copied()))
+            .unwrap();
     }
-    conn.execute_batch("ROLLBACK TO bench; RELEASE bench").unwrap();
+    conn.execute_batch("ROLLBACK TO bench; RELEASE bench")
+        .unwrap();
 }
 
 // ── Benchmarks ───────────────────────────────────────────────────────────────

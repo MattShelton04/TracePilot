@@ -30,9 +30,7 @@ pub async fn save_config(
     let cfg = config.clone();
     tokio::task::spawn_blocking(move || cfg.save()).await??;
 
-    let mut guard = state
-        .write()
-        .map_err(|_| mutex_poisoned())?;
+    let mut guard = state.write().map_err(|_| mutex_poisoned())?;
     *guard = Some(config);
     Ok(())
 }
@@ -96,9 +94,7 @@ pub async fn factory_reset(state: tauri::State<'_, SharedConfig>) -> CmdResult<(
     })
     .await??;
 
-    let mut guard = state
-        .write()
-        .map_err(|_| mutex_poisoned())?;
+    let mut guard = state.write().map_err(|_| mutex_poisoned())?;
     *guard = None;
     Ok(())
 }

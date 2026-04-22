@@ -260,7 +260,7 @@ mod tests {
     fn test_add_in_filter_single_value() {
         let builder = SearchQueryBuilder::new("SELECT *", false);
         let (sql, params) = builder
-            .add_in_filter("col", &vec!["value1".to_string()])
+            .add_in_filter("col", &["value1".to_string()])
             .build();
 
         assert!(sql.contains("col IN (?)"));
@@ -273,7 +273,7 @@ mod tests {
         let (sql, params) = builder
             .add_in_filter(
                 "col",
-                &vec!["val1".to_string(), "val2".to_string(), "val3".to_string()],
+                &["val1".to_string(), "val2".to_string(), "val3".to_string()],
             )
             .build();
 
@@ -296,7 +296,7 @@ mod tests {
     fn test_add_not_in_filter_single_value() {
         let builder = SearchQueryBuilder::new("SELECT *", false);
         let (sql, params) = builder
-            .add_not_in_filter("col", &vec!["exclude1".to_string()])
+            .add_not_in_filter("col", &["exclude1".to_string()])
             .build();
 
         assert!(sql.contains("col NOT IN (?)"));
@@ -307,7 +307,7 @@ mod tests {
     fn test_add_not_in_filter_multiple_values() {
         let builder = SearchQueryBuilder::new("SELECT *", false);
         let (sql, params) = builder
-            .add_not_in_filter("col", &vec!["exc1".to_string(), "exc2".to_string()])
+            .add_not_in_filter("col", &["exc1".to_string(), "exc2".to_string()])
             .build();
 
         assert!(sql.contains("col NOT IN (?, ?)"));
@@ -329,12 +329,9 @@ mod tests {
     fn test_combined_in_filters() {
         let builder = SearchQueryBuilder::new("SELECT *", false);
         let (sql, params) = builder
-            .add_in_filter("col1", &vec!["a".to_string()])
-            .add_not_in_filter("col2", &vec!["b".to_string(), "c".to_string()])
-            .add_in_filter(
-                "col3",
-                &vec!["d".to_string(), "e".to_string(), "f".to_string()],
-            )
+            .add_in_filter("col1", &["a".to_string()])
+            .add_not_in_filter("col2", &["b".to_string(), "c".to_string()])
+            .add_in_filter("col3", &["d".to_string(), "e".to_string(), "f".to_string()])
             .build();
 
         assert!(sql.contains("col1 IN (?)"));

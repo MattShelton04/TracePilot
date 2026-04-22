@@ -9,7 +9,14 @@
 /// Expands to `Ok(tokio::task::spawn_blocking(move || expr).await??)`.
 #[macro_export]
 macro_rules! blocking_cmd {
-    ($expr:expr) => {
-        Ok(tokio::task::spawn_blocking(move || $expr).await??)
-    };
+    ($expr:expr) => {{
+        // `Ok(...??)` is required: the inner `?`s convert `JoinError` and the
+        // call-site-specific error type (via `From`/`Into`) into the command's
+        // `CmdResult<T>` error. Removing the wrap would force every call site
+        // to already return the exact same error type.
+        #[allow(clippy::needless_question_mark)]
+        {
+            Ok(tokio::task::spawn_blocking(move || $expr).await??)
+        }
+    }};
 }

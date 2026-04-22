@@ -91,14 +91,15 @@ jobs:
       # ── Lint + format (Linux only — single source of truth) ─
       - name: Rust format check
         if: runner.os == 'Linux'
-        # Informational only — formatting churn across rustfmt versions is non-blocking
-        continue-on-error: true
+        # Wave 101: rustfmt drift is now a hard failure workspace-wide.
         run: cargo fmt --all -- --check
 
       - name: Rust lint (clippy)
         if: runner.os == 'Linux'
-        # Warnings only — not blocking, to avoid chasing lint churn across Rust versions
-        run: cargo clippy --workspace --exclude tracepilot-desktop --all-targets
+        # Wave 101: clippy warnings are a hard failure for workspace crates
+        # (excluding tracepilot-desktop, which still pulls in tauri's generated
+        # context and is gated separately).
+        run: cargo clippy --workspace --exclude tracepilot-desktop --all-targets -- -D warnings
 
       - name: Frontend lint (biome)
         if: runner.os == 'Linux'

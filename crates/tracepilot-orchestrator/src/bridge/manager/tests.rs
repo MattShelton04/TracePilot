@@ -344,18 +344,16 @@ async fn unlink_session_is_noop_when_not_tracked() {
     let sid_other = "sess-other".to_string();
     let (handle_other, mut rx_other) = spawn_abort_sentinel();
     mgr.event_tasks.insert(sid_other.clone(), handle_other);
-    mgr.sessions.insert(sid_other.clone(), stub_session(&sid_other));
+    mgr.sessions
+        .insert(sid_other.clone(), stub_session(&sid_other));
 
     mgr.unlink_session("sess-does-not-exist");
 
     assert_eq!(mgr.sessions.len(), 1, "untracked unlink must not touch map");
     assert_eq!(mgr.event_tasks.len(), 1);
     // The unrelated task must still be alive (sender not dropped).
-    let still_alive = tokio::time::timeout(
-        std::time::Duration::from_millis(100),
-        &mut rx_other,
-    )
-    .await;
+    let still_alive =
+        tokio::time::timeout(std::time::Duration::from_millis(100), &mut rx_other).await;
     assert!(still_alive.is_err(), "unrelated task must not be aborted");
 }
 
@@ -370,7 +368,9 @@ async fn destroy_session_aborts_event_task_and_invokes_session_destroy() {
     mgr.event_tasks.insert(sid.clone(), handle);
     mgr.sessions.insert(sid.clone(), session);
 
-    mgr.destroy_session(&sid).await.expect("destroy should succeed");
+    mgr.destroy_session(&sid)
+        .await
+        .expect("destroy should succeed");
 
     assert!(mgr.sessions.is_empty());
     assert!(mgr.event_tasks.is_empty());

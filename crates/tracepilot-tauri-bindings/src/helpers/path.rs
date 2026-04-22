@@ -42,10 +42,9 @@ pub(crate) fn validate_path_within(path: &str, dir: &std::path::Path) -> CmdResu
         )));
     }
     let canonical = normalize_canonicalized(p.canonicalize()?);
-    let canonical_dir = normalize_canonicalized(
-        dir.canonicalize()
-            .map_err(|e| BindingsError::Validation(format!("Cannot resolve allowed directory: {e}")))?,
-    );
+    let canonical_dir = normalize_canonicalized(dir.canonicalize().map_err(|e| {
+        BindingsError::Validation(format!("Cannot resolve allowed directory: {e}"))
+    })?);
     if !canonical.starts_with(&canonical_dir) {
         return Err(BindingsError::Validation(
             "Path is outside the allowed directory".into(),
@@ -79,10 +78,9 @@ pub(crate) fn validate_write_path_within(path: &str, dir: &std::path::Path) -> C
             parent.display()
         )));
     }
-    let canonical_dir = normalize_canonicalized(
-        dir.canonicalize()
-            .map_err(|e| BindingsError::Validation(format!("Cannot resolve allowed directory: {e}")))?,
-    );
+    let canonical_dir = normalize_canonicalized(dir.canonicalize().map_err(|e| {
+        BindingsError::Validation(format!("Cannot resolve allowed directory: {e}"))
+    })?);
 
     // If the target already exists (overwrite or symlink), canonicalize the full
     // path to ensure symlinks don't escape the allowed directory.

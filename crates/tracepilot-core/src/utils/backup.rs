@@ -167,11 +167,7 @@ impl BackupStore {
 
     /// List files whose names start with `prefix` and end with `suffix`,
     /// sorted newest-first by mtime.
-    pub fn list_matching(
-        &self,
-        prefix: &str,
-        suffix: &str,
-    ) -> BackupResult<Vec<BackupFile>> {
+    pub fn list_matching(&self, prefix: &str, suffix: &str) -> BackupResult<Vec<BackupFile>> {
         let all = self.list_by_mtime()?;
         Ok(all
             .into_iter()
@@ -403,13 +399,14 @@ mod tests {
 
         let db_files = store.list_matching("index.db.pre-v", ".bak").unwrap();
         assert_eq!(db_files.len(), 2);
-        assert!(db_files.iter().all(|f| f
-            .path
-            .file_name()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .ends_with(".bak")));
+        assert!(db_files.iter().all(|f| {
+            f.path
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .ends_with(".bak")
+        }));
     }
 
     // ── contains / guard ────────────────────────────────────────
@@ -438,7 +435,10 @@ mod tests {
         store.ensure_dir().unwrap();
         let outside = tmp.path().join("outside");
         fs::write(&outside, b"").unwrap();
-        assert!(matches!(store.guard(&outside), Err(BackupError::PathEscape)));
+        assert!(matches!(
+            store.guard(&outside),
+            Err(BackupError::PathEscape)
+        ));
     }
 
     // ── restore_to ──────────────────────────────────────────────
@@ -559,7 +559,12 @@ mod tests {
             .map(|e| e.file_name().to_string_lossy().to_string())
             .collect();
 
-        assert_eq!(remaining.len(), 5, "should retain 5 newest: {:?}", remaining);
+        assert_eq!(
+            remaining.len(),
+            5,
+            "should retain 5 newest: {:?}",
+            remaining
+        );
         // The 5 newest are v3–v7 (highest timestamps).
         for v in 3..=7 {
             assert!(

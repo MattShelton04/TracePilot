@@ -120,8 +120,9 @@ pub fn launch_orchestrator(
     // 2. Write context files
     for (task_id, content) in context_contents {
         let context_path = jobs_dir.join(task_id).join("context.md");
-        std::fs::write(&context_path, content)
-            .map_err(|e| OrchestratorError::task_ctx(format!("Failed to write context for task {task_id}"), e))?;
+        std::fs::write(&context_path, content).map_err(|e| {
+            OrchestratorError::task_ctx(format!("Failed to write context for task {task_id}"), e)
+        })?;
     }
 
     // 3. Generate and write manifest
@@ -314,10 +315,8 @@ pub fn discover_session_uuid(
             })
             .unwrap_or(false);
 
-        if has_lock {
-            if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                candidates.push((name.to_string(), dir_time));
-            }
+        if has_lock && let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+            candidates.push((name.to_string(), dir_time));
         }
     }
 

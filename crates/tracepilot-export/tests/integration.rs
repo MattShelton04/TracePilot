@@ -983,7 +983,10 @@ fn redaction_covers_system_messages() {
     let archive: SessionArchive = serde_json::from_slice(&files[0].content).unwrap();
     let session = &archive.sessions[0];
 
-    let turns = session.conversation.as_ref().expect("conversation should be present");
+    let turns = session
+        .conversation
+        .as_ref()
+        .expect("conversation should be present");
     assert!(!turns.is_empty(), "should have at least one turn");
 
     let first_turn = &turns[0];

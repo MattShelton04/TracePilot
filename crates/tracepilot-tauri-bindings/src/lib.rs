@@ -71,30 +71,31 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             {
                 let bridge_for_events = shared_bridge.clone();
                 let app_handle = app.clone();
-                tauri::async_runtime::spawn(
-                    tracing::Instrument::instrument(
-                        async move {
-                            let rx = bridge_for_events.read().await.subscribe();
-                            broadcast::forward_broadcast(rx, app_handle, events::SDK_BRIDGE_EVENT).await;
-                        },
-                        tracing::info_span!("bridge_event_forwarder"),
-                    ),
-                );
+                tauri::async_runtime::spawn(tracing::Instrument::instrument(
+                    async move {
+                        let rx = bridge_for_events.read().await.subscribe();
+                        broadcast::forward_broadcast(rx, app_handle, events::SDK_BRIDGE_EVENT)
+                            .await;
+                    },
+                    tracing::info_span!("bridge_event_forwarder"),
+                ));
             }
             // Spawn status change forwarding task.
             {
                 let bridge_for_status = shared_bridge.clone();
                 let app_handle = app.clone();
-                tauri::async_runtime::spawn(
-                    tracing::Instrument::instrument(
-                        async move {
-                            let rx = bridge_for_status.read().await.subscribe_status();
-                            broadcast::forward_broadcast(rx, app_handle, events::SDK_CONNECTION_CHANGED)
-                                .await;
-                        },
-                        tracing::info_span!("bridge_status_forwarder"),
-                    ),
-                );
+                tauri::async_runtime::spawn(tracing::Instrument::instrument(
+                    async move {
+                        let rx = bridge_for_status.read().await.subscribe_status();
+                        broadcast::forward_broadcast(
+                            rx,
+                            app_handle,
+                            events::SDK_CONNECTION_CHANGED,
+                        )
+                        .await;
+                    },
+                    tracing::info_span!("bridge_status_forwarder"),
+                ));
             }
             app.manage(shared_bridge);
 
@@ -343,10 +344,8 @@ mod ipc_manifest_tests {
         if registered != manifest {
             let registered_set: std::collections::BTreeSet<_> = registered.iter().collect();
             let manifest_set: std::collections::BTreeSet<_> = manifest.iter().collect();
-            let only_in_handler: Vec<_> =
-                registered_set.difference(&manifest_set).collect();
-            let only_in_manifest: Vec<_> =
-                manifest_set.difference(&registered_set).collect();
+            let only_in_handler: Vec<_> = registered_set.difference(&manifest_set).collect();
+            let only_in_manifest: Vec<_> = manifest_set.difference(&registered_set).collect();
             panic!(
                 "generate_handler![] and IPC_COMMAND_NAMES disagree. \
                  Update `crates/tracepilot-tauri-bindings/src/ipc_command_names.rs` \

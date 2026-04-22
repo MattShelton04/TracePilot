@@ -20,10 +20,10 @@ pub fn validate_skill_dir(skill_dir: &Path) -> Result<(), SkillsError> {
 
     // Check global skills root
     if let Ok(global) = global_skills_dir() {
-        if let Ok(global_canon) = global.canonicalize() {
-            if canonical.starts_with(&global_canon) {
-                return Ok(());
-            }
+        if let Ok(global_canon) = global.canonicalize()
+            && canonical.starts_with(&global_canon)
+        {
+            return Ok(());
         }
         // Also check non-canonical in case dir doesn't exist yet
         if canonical.starts_with(&global) {
@@ -34,12 +34,11 @@ pub fn validate_skill_dir(skill_dir: &Path) -> Result<(), SkillsError> {
     // Check if it's under a repo .copilot/skills/ directory
     // Walk up to find a .copilot/skills pattern
     for ancestor in canonical.ancestors() {
-        if ancestor.ends_with("skills") {
-            if let Some(parent) = ancestor.parent() {
-                if parent.ends_with(".copilot") || parent.ends_with(".github") {
-                    return Ok(());
-                }
-            }
+        if ancestor.ends_with("skills")
+            && let Some(parent) = ancestor.parent()
+            && (parent.ends_with(".copilot") || parent.ends_with(".github"))
+        {
+            return Ok(());
         }
     }
 

@@ -73,7 +73,10 @@ fn write_turn(md: &mut String, turn: &ConversationTurn) {
                 .unwrap_or_else(|| "—".to_string());
 
             let name = if tool.is_subagent {
-                let display = tool.agent_display_name.as_deref().unwrap_or(&tool.tool_name);
+                let display = tool
+                    .agent_display_name
+                    .as_deref()
+                    .unwrap_or(&tool.tool_name);
                 format!("🤖 {}", display)
             } else {
                 tool.tool_name.clone()
@@ -116,8 +119,10 @@ fn write_turn(md: &mut String, turn: &ConversationTurn) {
         if !detailed_tools.is_empty() {
             for tool in detailed_tools {
                 if tool.is_subagent {
-                    let display =
-                        tool.agent_display_name.as_deref().unwrap_or(&tool.tool_name);
+                    let display = tool
+                        .agent_display_name
+                        .as_deref()
+                        .unwrap_or(&tool.tool_name);
                     let _ = writeln!(md, "#### 🤖 {}\n", display);
 
                     let mut stats: Vec<String> = Vec::new();

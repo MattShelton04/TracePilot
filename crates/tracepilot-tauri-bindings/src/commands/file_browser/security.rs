@@ -53,7 +53,7 @@ pub(super) fn validate_relative_path(relative_path: &str) -> Result<(), Bindings
         // Windows strips trailing spaces and periods from path components at
         // the kernel level, so `CON ` and `NUL.` are treated identically to
         // `CON` and `NUL`. Trim both before the device-name check.
-        let component_trimmed = component.trim_end_matches(|c| c == ' ' || c == '.');
+        let component_trimmed = component.trim_end_matches([' ', '.']);
         // Strip any extension before checking: NUL.txt and CON.md are also reserved.
         let stem = component_trimmed
             .split('.')
@@ -360,7 +360,10 @@ mod tests {
         collect_entries(&session_dir, &session_dir, 0, &mut entries).unwrap();
 
         let file_entry = entries.iter().find(|e| e.name == "notes.md").unwrap();
-        assert!(!file_entry.path.contains('\\'), "path should use forward slashes");
+        assert!(
+            !file_entry.path.contains('\\'),
+            "path should use forward slashes"
+        );
         assert_eq!(file_entry.path, "files/notes.md");
     }
 
@@ -373,7 +376,11 @@ mod tests {
         }
         let mut entries = Vec::new();
         collect_entries(&session_dir, &session_dir, 0, &mut entries).unwrap();
-        assert!(entries.len() <= MAX_ENTRIES, "entry cap exceeded: {}", entries.len());
+        assert!(
+            entries.len() <= MAX_ENTRIES,
+            "entry cap exceeded: {}",
+            entries.len()
+        );
     }
 
     #[test]
@@ -391,7 +398,10 @@ mod tests {
         collect_entries(&session_dir, &session_dir, 0, &mut entries).unwrap();
 
         let names: Vec<_> = entries.iter().map(|e| e.name.as_str()).collect();
-        assert!(!names.contains(&"deep.txt"), "file beyond max depth should be skipped");
+        assert!(
+            !names.contains(&"deep.txt"),
+            "file beyond max depth should be skipped"
+        );
     }
 
     /// Regression test for the TOCTOU symlink race in collect_entries.
@@ -418,7 +428,13 @@ mod tests {
         collect_entries(&session_dir, &session_dir, 0, &mut entries).unwrap();
 
         let names: Vec<_> = entries.iter().map(|e| e.name.as_str()).collect();
-        assert!(!names.contains(&"evil_link"), "symlink dir should be skipped: {names:?}");
-        assert!(!names.contains(&"secret.txt"), "file from outside root leaked: {names:?}");
+        assert!(
+            !names.contains(&"evil_link"),
+            "symlink dir should be skipped: {names:?}"
+        );
+        assert!(
+            !names.contains(&"secret.txt"),
+            "file from outside root leaked: {names:?}"
+        );
     }
 }

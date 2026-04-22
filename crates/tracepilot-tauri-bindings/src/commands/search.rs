@@ -25,6 +25,10 @@ use tokio::sync::Semaphore;
 static FACETS_CACHE: LazyLock<TtlCache<u64, SearchFacetsResponse>> =
     LazyLock::new(|| TtlCache::new(Duration::from_secs(60)));
 
+// Cache-key helper: argument set mirrors the IPC command's filter surface and
+// each value is independently hashed; grouping them in a struct would duplicate
+// the same fields with no clarity win.
+#[allow(clippy::too_many_arguments)]
 fn facets_cache_key(
     query: &Option<String>,
     content_types: &Option<Vec<String>>,
@@ -569,7 +573,8 @@ fn spawn_search_content_phase2<F>(
                     indexed,
                     skipped,
                     elapsed_ms = start.elapsed().as_millis(),
-                    "{}", debug_label
+                    "{}",
+                    debug_label
                 );
                 emit_best_effort(
                     &app,

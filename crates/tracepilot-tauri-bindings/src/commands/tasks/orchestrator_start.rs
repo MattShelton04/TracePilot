@@ -24,9 +24,7 @@ pub async fn task_orchestrator_start(
 
     // Check if already running
     {
-        let guard = orch_state
-            .lock()
-            .map_err(|_| mutex_poisoned())?;
+        let guard = orch_state.lock().map_err(|_| mutex_poisoned())?;
         if guard.is_some() {
             return Err(BindingsError::Validation(
                 "Orchestrator is already running. Stop it first.".into(),
@@ -190,14 +188,15 @@ pub async fn task_orchestrator_start(
                         tracing::warn!(task_id = %task.id, error = %e, "Failed to mark task in_progress");
                     }
                     // Persist context hash for dedup index enforcement
-                    if let Some((_, _, Some(hash))) = context_results.iter().find(|(id, _, _)| id == &task.id) {
-                        if let Err(e) = tracepilot_orchestrator::task_db::operations::set_context_hash(
+                    if let Some((_, _, Some(hash))) =
+                        context_results.iter().find(|(id, _, _)| id == &task.id)
+                        && let Err(e) = tracepilot_orchestrator::task_db::operations::set_context_hash(
                             task_db.conn(),
                             &task.id,
                             hash,
-                        ) {
-                            tracing::warn!(task_id = %task.id, error = %e, "Failed to persist context hash");
-                        }
+                        )
+                    {
+                        tracing::warn!(task_id = %task.id, error = %e, "Failed to persist context hash");
                     }
                 }
             }

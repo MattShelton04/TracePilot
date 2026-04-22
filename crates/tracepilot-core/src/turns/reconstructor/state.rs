@@ -55,7 +55,8 @@ impl TurnReconstructor {
             // Flush any session events that occurred while no turn was active
             turn.session_events.append(&mut self.pending_session_events);
             // Flush any system messages that arrived before this turn
-            turn.system_messages.append(&mut self.pending_system_messages);
+            turn.system_messages
+                .append(&mut self.pending_system_messages);
             self.current_turn = Some(turn);
         }
         self.current_turn

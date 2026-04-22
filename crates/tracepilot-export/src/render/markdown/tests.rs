@@ -244,8 +244,14 @@ fn renders_custom_tables() {
         name: "my_data".to_string(),
         columns: vec!["key".to_string(), "value".to_string()],
         rows: vec![HashMap::from([
-            ("key".to_string(), serde_json::Value::String("foo".to_string())),
-            ("value".to_string(), serde_json::Value::String("bar".to_string())),
+            (
+                "key".to_string(),
+                serde_json::Value::String("foo".to_string()),
+            ),
+            (
+                "value".to_string(),
+                serde_json::Value::String("bar".to_string()),
+            ),
         ])],
     }]);
 
@@ -282,9 +288,10 @@ fn renders_todos_with_dep_list() {
                 updated_at: None,
             },
         ],
-        deps: vec![
-            TodoDepExport { todo_id: "impl".to_string(), depends_on: "setup".to_string() },
-        ],
+        deps: vec![TodoDepExport {
+            todo_id: "impl".to_string(),
+            depends_on: "setup".to_string(),
+        }],
     });
 
     let archive = test_archive(session);

@@ -28,10 +28,9 @@ pub fn atomic_json_write<T: Serialize>(path: &Path, value: &T) -> Result<()> {
     {
         if path.exists() {
             let bak = path.with_extension("json.bak");
-            std::fs::rename(path, &bak).map_err(|e| {
+            std::fs::rename(path, &bak).inspect_err(|_e| {
                 // best-effort: clean up the tmp so we don't leak it; primary error still propagates.
                 let _: std::io::Result<()> = std::fs::remove_file(&tmp);
-                e
             })?;
             if let Err(e) = std::fs::rename(&tmp, path) {
                 // best-effort: restore the original from .bak since the primary write failed.

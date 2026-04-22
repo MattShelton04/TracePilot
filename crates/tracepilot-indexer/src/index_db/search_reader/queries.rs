@@ -161,10 +161,9 @@ impl IndexDb {
         let (sql, params) = builder.build();
 
         let mut stmt = self.conn.prepare(&sql)?;
-        let rows = stmt.query_map(
-            params_from_iter(params.iter().map(|p| p.as_ref())),
-            |row| Ok((row.get(0)?, row.get(1)?)),
-        )?;
+        let rows = stmt.query_map(params_from_iter(params.iter().map(|p| p.as_ref())), |row| {
+            Ok((row.get(0)?, row.get(1)?))
+        })?;
         let mut results = Vec::new();
         for row in rows {
             results.push(row?);

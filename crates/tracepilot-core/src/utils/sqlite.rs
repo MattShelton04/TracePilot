@@ -245,7 +245,10 @@ pub fn row_count(conn: &Connection, table_name: &str) -> Option<i64> {
 /// ```
 #[must_use]
 pub fn build_in_placeholders(n: usize) -> String {
-    debug_assert!(n > 0, "build_in_placeholders requires n > 0; n=0 produces empty string that makes IN () invalid SQL");
+    debug_assert!(
+        n > 0,
+        "build_in_placeholders requires n > 0; n=0 produces empty string that makes IN () invalid SQL"
+    );
     // Each element is "?" (1 char) + ", " (2 chars) except the last → n*3 max.
     let mut s = String::with_capacity(n * 3);
     for i in 0..n {
@@ -280,7 +283,10 @@ pub fn build_in_placeholders(n: usize) -> String {
 #[must_use]
 pub fn build_placeholder_sql(sql_prefix: &str, num_rows: usize, params_per_row: usize) -> String {
     debug_assert!(num_rows > 0, "build_placeholder_sql requires num_rows > 0");
-    debug_assert!(params_per_row > 0, "build_placeholder_sql requires params_per_row > 0");
+    debug_assert!(
+        params_per_row > 0,
+        "build_placeholder_sql requires params_per_row > 0"
+    );
     use std::fmt::Write;
     // SQLite max bind parameter is ?32766 (5 digits). Each param slot is
     // "?NNNNN" (up to 6 chars) + "," separator = 7 chars. Each row adds "(", ")"

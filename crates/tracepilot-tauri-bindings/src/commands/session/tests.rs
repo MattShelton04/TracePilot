@@ -119,8 +119,7 @@ fn load_cached_typed_events_invalidates_stale_entries_when_file_changes() {
     );
 
     let (second, second_size, _second_mtime) =
-        load_cached_typed_events(&cache, "session-a", &events_path)
-            .expect("reload after append");
+        load_cached_typed_events(&cache, "session-a", &events_path).expect("reload after append");
 
     assert!(second_size > first_size);
     assert_eq!(second.len(), 3);

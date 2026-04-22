@@ -337,18 +337,18 @@ pub fn seed_builtin_presets(dir: &Path) -> Result<()> {
             tracing::info!(id = %preset.id, "Seeded built-in preset");
         } else {
             // Upgrade stale built-in presets when the code version is newer
-            if let Ok(existing) = crate::json_io::atomic_json_read_opt::<TaskPreset>(&path) {
-                if let Some(existing) = existing {
-                    if existing.builtin && existing.version < preset.version {
-                        save_preset(dir, preset)?;
-                        tracing::info!(
-                            id = %preset.id,
-                            from_version = existing.version,
-                            to_version = preset.version,
-                            "Upgraded built-in preset"
-                        );
-                    }
-                }
+            if let Ok(existing) = crate::json_io::atomic_json_read_opt::<TaskPreset>(&path)
+                && let Some(existing) = existing
+                && existing.builtin
+                && existing.version < preset.version
+            {
+                save_preset(dir, preset)?;
+                tracing::info!(
+                    id = %preset.id,
+                    from_version = existing.version,
+                    to_version = preset.version,
+                    "Upgraded built-in preset"
+                );
             }
         }
     }
@@ -357,17 +357,16 @@ pub fn seed_builtin_presets(dir: &Path) -> Result<()> {
     let removed_builtins = ["session-review"];
     for id in &removed_builtins {
         let path = preset_path(dir, id);
-        if path.exists() {
-            if let Ok(existing) = crate::json_io::atomic_json_read_opt::<TaskPreset>(&path) {
-                if existing.map_or(false, |p| p.builtin) {
-                    // best-effort: a failed removal just means the deprecated preset
-                    // remains; next startup will try again.
-                    if let Err(e) = std::fs::remove_file(&path) {
-                        tracing::debug!(id = %id, error = %e, "Failed to remove deprecated built-in preset");
-                    } else {
-                        tracing::info!(id = %id, "Removed deprecated built-in preset");
-                    }
-                }
+        if path.exists()
+            && let Ok(existing) = crate::json_io::atomic_json_read_opt::<TaskPreset>(&path)
+            && existing.is_some_and(|p| p.builtin)
+        {
+            // best-effort: a failed removal just means the deprecated preset
+            // remains; next startup will try again.
+            if let Err(e) = std::fs::remove_file(&path) {
+                tracing::debug!(id = %id, error = %e, "Failed to remove deprecated built-in preset");
+            } else {
+                tracing::info!(id = %id, "Removed deprecated built-in preset");
             }
         }
     }

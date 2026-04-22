@@ -253,7 +253,10 @@ mod tests {
         assert_eq!(info.rows.len(), 3);
 
         // Rows are ordered vecs aligned to columns: [name, value, count]
-        assert_eq!(info.rows[0][0], serde_json::Value::String("latency".to_string()));
+        assert_eq!(
+            info.rows[0][0],
+            serde_json::Value::String("latency".to_string())
+        );
         assert_eq!(info.rows[0][2], serde_json::json!(100));
 
         // Check real value

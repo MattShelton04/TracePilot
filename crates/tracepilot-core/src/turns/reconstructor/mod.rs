@@ -183,7 +183,8 @@ impl TurnReconstructor {
         if !self.pending_session_events.is_empty() || !self.pending_system_messages.is_empty() {
             if let Some(last) = self.turns.last_mut() {
                 last.session_events.append(&mut self.pending_session_events);
-                last.system_messages.append(&mut self.pending_system_messages);
+                last.system_messages
+                    .append(&mut self.pending_system_messages);
             } else {
                 let ts = self
                     .pending_session_events
@@ -192,7 +193,8 @@ impl TurnReconstructor {
                     .or(self.pending_system_messages_ts);
                 let mut turn = new_turn(0, ts, None, None, None, None);
                 turn.session_events.append(&mut self.pending_session_events);
-                turn.system_messages.append(&mut self.pending_system_messages);
+                turn.system_messages
+                    .append(&mut self.pending_system_messages);
                 self.turns.push(turn);
             }
         }

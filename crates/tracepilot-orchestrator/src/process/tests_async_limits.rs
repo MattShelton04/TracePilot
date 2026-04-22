@@ -62,10 +62,9 @@ async fn test_run_async_with_limits_nonzero_exit_is_not_error() {
     let mut cmd = hidden_command("git");
     cmd.arg("this-is-not-a-valid-subcommand-xyz");
 
-    let (_stdout, stderr, status) =
-        run_async_with_limits(cmd, Duration::from_secs(10), 64 * 1024)
-            .await
-            .expect("spawn should succeed even though git exits non-zero");
+    let (_stdout, stderr, status) = run_async_with_limits(cmd, Duration::from_secs(10), 64 * 1024)
+        .await
+        .expect("spawn should succeed even though git exits non-zero");
     assert!(!status.success(), "git rejected invalid subcommand");
     let err_text = String::from_utf8_lossy(&stderr);
     assert!(

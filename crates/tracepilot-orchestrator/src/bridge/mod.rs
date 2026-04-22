@@ -43,17 +43,13 @@ pub enum BridgeError {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[derive(Default)]
 pub enum BridgeConnectionState {
+    #[default]
     Disconnected,
     Connecting,
     Connected,
     Error,
-}
-
-impl Default for BridgeConnectionState {
-    fn default() -> Self {
-        Self::Disconnected
-    }
 }
 
 // ─── Session Mode ─────────────────────────────────────────────────

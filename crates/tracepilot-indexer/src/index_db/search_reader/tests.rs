@@ -1,8 +1,8 @@
 //! Cross-module tests for `search_reader`: SearchQueryBuilder feature tests
 //! and `IndexDb` integration tests for search, stats, and FTS health.
 
+use super::SearchFilters;
 use super::query_builder::SearchQueryBuilder;
-use super::{SearchFilters};
 use crate::index_db::IndexDb;
 
 /// Build an IndexDb backed by an in-memory SQLite connection using the provided schema/data.

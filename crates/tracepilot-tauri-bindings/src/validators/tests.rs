@@ -1,7 +1,7 @@
 //! Tests for `validators` — split across id/path/rules seams.
 
-use super::*;
 use super::rules::truncate_for_display;
+use super::*;
 
 // -- validate_session_id ------------------------------------------------
 
