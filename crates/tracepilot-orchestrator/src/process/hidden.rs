@@ -28,6 +28,7 @@ use super::timeout::{execute_with_timeout, run_with_timeout, spawn_captured_chil
 /// every call site — the goal is to keep the `CREATE_NO_WINDOW` flag
 /// applied consistently across the workspace.
 pub fn hidden_command(program: &str) -> tokio::process::Command {
+    #[allow(unused_mut)]
     let mut cmd = tokio::process::Command::new(program);
     #[cfg(windows)]
     {
@@ -38,6 +39,7 @@ pub fn hidden_command(program: &str) -> tokio::process::Command {
 
 /// Synchronous (`std::process::Command`) variant of [`hidden_command`].
 pub fn hidden_std_command(program: &str) -> Command {
+    #[allow(unused_mut)]
     let mut cmd = Command::new(program);
     #[cfg(windows)]
     {

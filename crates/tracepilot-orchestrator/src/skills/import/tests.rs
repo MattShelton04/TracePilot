@@ -332,7 +332,8 @@ fn atomic_dir_install_returns_duplicate_when_dest_exists() {
 #[test]
 fn import_from_local_no_partial_state_on_unreadable_source() {
     let src = TempDir::new().unwrap();
-    let _dst = TempDir::new().unwrap();
+    #[allow(unused_variables)]
+    let dst = TempDir::new().unwrap();
 
     write_test_skill(src.path());
     // Create a subdirectory that will fail to copy due to permissions
