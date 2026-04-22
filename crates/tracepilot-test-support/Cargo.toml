@@ -6,6 +6,8 @@ edition.workspace = true
 publish = false
 
 [dependencies]
-# Fixture helpers only need std. Consumers that want analytics/export
-# builders can depend on the relevant internal crate directly;
-# feature-gated internal deps are added here when those migrations land.
+# Fixture helpers only need std + tempfile (test-only crate pinned via the
+# workspace). Consumers that want analytics/export builders can depend on
+# the relevant internal crate directly; feature-gated internal deps are
+# added here when those migrations land.
+tempfile = { workspace = true }

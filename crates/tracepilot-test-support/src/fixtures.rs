@@ -5,7 +5,9 @@
 //! them here keeps the fixture strings in a single source of truth.
 
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+
+use tempfile::TempDir;
 
 /// Sample `workspace.yaml` content with all optional fields populated.
 pub fn full_workspace_yaml() -> &'static str {
@@ -81,6 +83,34 @@ pub fn create_checkpoints(session_dir: &Path) {
         "# Checkpoint 2\nAdded authentication",
     )
     .expect("write cp2.md");
+}
+
+/// Create a fresh temp directory containing a single `workspace.yaml`
+/// populated with `yaml`.
+///
+/// Returns the `TempDir` guard (which must be kept alive for the duration
+/// of the test — dropping it cleans up the directory) and the path to the
+/// session directory (equal to `temp_dir.path()`).
+///
+/// Use this for tests that only care about workspace metadata, where
+/// `events.jsonl`/`checkpoints/` would only add noise.
+pub fn workspace_only_temp_dir(yaml: &str) -> (TempDir, PathBuf) {
+    let dir = tempfile::tempdir().expect("create temp dir");
+    fs::write(dir.path().join("workspace.yaml"), yaml).expect("write workspace.yaml");
+    let path = dir.path().to_path_buf();
+    (dir, path)
+}
+
+/// Create a fresh temp directory populated by [`create_full_session`] —
+/// `workspace.yaml` (full), `events.jsonl`, `plan.md`, and `checkpoints/`.
+///
+/// Returns the `TempDir` guard and the session path. The guard must be
+/// kept alive for the duration of the test.
+pub fn full_session_temp_dir() -> (TempDir, PathBuf) {
+    let dir = tempfile::tempdir().expect("create temp dir");
+    create_full_session(dir.path());
+    let path = dir.path().to_path_buf();
+    (dir, path)
 }
 
 /// Write `workspace.yaml`, `events.jsonl`, `plan.md`, and a populated

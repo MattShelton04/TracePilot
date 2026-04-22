@@ -1,5 +1,5 @@
+import { setupPinia } from "@tracepilot/test-utils";
 import { mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, h, ref } from "vue";
 
@@ -107,7 +107,7 @@ import ExportTab from "../ExportTab.vue";
 import ImportTab from "../ImportTab.vue";
 
 beforeEach(() => {
-  setActivePinia(createPinia());
+  setupPinia();
   defaultImportFlow.step.value = "select";
   defaultImportFlow.error.value = null;
   defaultImportFlow.preview.value = null;

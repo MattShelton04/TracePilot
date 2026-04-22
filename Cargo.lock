@@ -6098,6 +6098,9 @@ dependencies = [
 [[package]]
 name = "tracepilot-test-support"
 version = "0.6.3"
+dependencies = [
+ "tempfile",
+]
 
 [[package]]
 name = "tracing"

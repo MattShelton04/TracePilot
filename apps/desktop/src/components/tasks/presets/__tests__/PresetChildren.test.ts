@@ -1,6 +1,6 @@
+import { setupPinia } from "@tracepilot/test-utils";
 import type { TaskPreset } from "@tracepilot/types";
 import { mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import DeletePresetConfirm from "../DeletePresetConfirm.vue";
 import EditPresetModal from "../EditPresetModal.vue";
@@ -51,7 +51,7 @@ const helperProps = {
 };
 
 beforeEach(() => {
-  setActivePinia(createPinia());
+  setupPinia();
 });
 
 describe("PresetStatsStrip", () => {

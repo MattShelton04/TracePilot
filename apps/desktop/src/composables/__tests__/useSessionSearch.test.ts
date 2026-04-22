@@ -1,5 +1,5 @@
+import { setupPinia } from "@tracepilot/test-utils";
 import { mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, h, ref } from "vue";
 
@@ -98,7 +98,7 @@ function runComposable() {
 }
 
 beforeEach(() => {
-  setActivePinia(createPinia());
+  setupPinia();
   storeState.contentTypes.splice(0, storeState.contentTypes.length);
   storeState.excludeContentTypes.splice(0, storeState.excludeContentTypes.length);
   storeState.repository = null;

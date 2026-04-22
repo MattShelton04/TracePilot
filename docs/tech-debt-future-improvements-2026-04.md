@@ -1019,3 +1019,32 @@ actionable so a future engineer can pick them up.
 - **Proposed change**: when the first non-indexing gate is needed, (a) rename the type, (b) move it to a crate both bindings and orchestrator can depend on without cycles (likely `tracepilot-core`), (c) add a new named accessor. Until then, the current crate-local registry is correct.
 - **Risk / why deferred**: speculative — there's no concrete caller today. Adding the shared crate now would be premature abstraction.
 - **Effort**: S (when triggered)
+
+
+### w127 — FI-w127-promote-archive-builders-to-test-support
+- **Area**: `crates/tracepilot-export/src/test_helpers.rs` (`test_archive`, `minimal_session`, `simple_turn`, `simple_tool_call`).
+- **Observation**: the export archive builders are currently `pub` but only consumed inside `tracepilot-export`'s own tests. Nothing blocks promoting them to `tracepilot-test-support::builders::export` behind a feature flag (`features = ["export"]` gating a `tracepilot-export` dep). w127 declined the move because it would introduce the first workspace-crate dep on `tracepilot-test-support` and requires a `[features]` table + dev-dep-cycle validation (`tracepilot-export` dev-depends on `tracepilot-test-support`; the reverse normal-dep is a Cargo-allowed cycle through cfg(test) but needs to be proven on CI).
+- **Proposed change**: (a) add `[features] export = ["dep:tracepilot-export"]` to `tracepilot-test-support`, (b) `pub mod builders::export` that re-exports the current helpers, (c) delete `tracepilot-export/src/test_helpers.rs` and update in-crate call sites. Do the same for `tracepilot-core/src/analytics/test_helpers.rs` and `tracepilot-core/src/turns/tests/builders.rs` once the pattern is proven.
+- **Risk / why deferred**: untested dev-dep cycle pattern for this workspace; low immediate value since the builders are only used inside one crate each. Revisit once a second crate needs them.
+- **Effort**: M
+
+### w127 — FI-w127-promote-event-builders-to-test-support
+- **Area**: `crates/tracepilot-core/src/testing.rs` (`make_raw_event`, `make_typed_event`, `temp_session`).
+- **Observation**: `tracepilot-core::testing` is `pub` and re-usable across crates, but nothing outside `tracepilot-core` currently imports it (`tracepilot-export` re-implements event JSON inline in `fixtures.rs`). `temp_session` also duplicates the `tempfile::tempdir() + write workspace.yaml` composition now exposed by `tracepilot_test_support::fixtures::workspace_only_temp_dir`.
+- **Proposed change**: rewrite `temp_session` on top of `workspace_only_temp_dir` (or move it into `tracepilot-test-support` outright under an `events` feature gating a `tracepilot-core` dep) to collapse the duplication. At that point, also consider having `tracepilot-test-support::fixtures::sample_events_jsonl` generate its JSON via `make_raw_event` rather than hand-written strings.
+- **Risk / why deferred**: same dev-dep-cycle exploration as the archive-builders FI above — bundling both into one wave is cleaner.
+- **Effort**: S
+
+### w127 — FI-w127-promote-client-mock-to-test-utils
+- **Area**: `apps/desktop/src/__tests__/mocks/client.ts` (`createClientMock`, inlined `IPC_EVENTS` registry).
+- **Observation**: `createClientMock` is used by ~15 desktop test files through a `vi.mock("@tracepilot/client", async () => { const { createClientMock } = await import("../mocks/client"); ... })` pattern. It is not consumed outside `apps/desktop`, but its shape is generic enough to live in `@tracepilot/test-utils`. Migration requires `@tracepilot/test-utils` to pick up a dev-peer on `@tracepilot/client` (currently forbidden by the "no production-code dep" constraint — `@tracepilot/client` is the production Tauri binding layer).
+- **Proposed change**: introduce `@tracepilot/test-utils/src/clientMock.ts` exporting a **type-generic** `createClientMock<T>(overrides: Partial<T>)` plus a `makeIpcEventsRegistry()` helper, so consumers supply the concrete type and the mock has zero runtime `@tracepilot/client` dep. Migrate the desktop `__tests__/mocks/client.ts` to re-export from the shared package.
+- **Risk / why deferred**: the `IPC_EVENTS` registry is duplicated by value between `packages/client/src/events.ts` and the mock — a contract test pinning the two would be prudent before centralising. Out of scope for w127.
+- **Effort**: S-M
+
+### w127 — FI-w127-migrate-remaining-tempdir-callsites
+- **Area**: `crates/tracepilot-export/src/import/mod.rs` (`~30` uses of `tempfile::tempdir().unwrap()` paired with bespoke archive construction), `crates/tracepilot-orchestrator/*`, `crates/tracepilot-indexer/src/index_db/tests/*`.
+- **Observation**: w127 consolidated the `tempfile::tempdir() + create_full_session` pattern in `tracepilot-export/tests/integration.rs` (60+ sites collapsed to two named helpers). The import-side tests don't use `create_full_session` — they build archive bytes in memory — so they need a different helper (`archive_temp_dir(archive_bytes: &[u8]) -> (TempDir, PathBuf)`). The indexer/orchestrator tempdir callsites are one-shots and don't justify a dedicated helper yet.
+- **Proposed change**: when the next import-pipeline wave lands, add `tracepilot_test_support::fixtures::archive_temp_dir` + `extract_temp_dir` helpers and migrate `import/mod.rs` tests in a single sweep.
+- **Risk / why deferred**: low-value before other import-pipeline churn; migrating now would be a pure-style change.
+- **Effort**: S
