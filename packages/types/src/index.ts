@@ -78,9 +78,6 @@ export type {
   SessionSectionsInfo,
 } from "./export.js";
 
-// ── ipc-events.js ──────────────────────────────────────────────────
-export { IPC_EVENTS } from "./ipc-events.js";
-
 // ── files.js ───────────────────────────────────────────────────────
 export type { FileEntry } from "./files.js";
 

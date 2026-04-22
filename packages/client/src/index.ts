@@ -32,4 +32,5 @@ export * from "./orchestration.js";
 export * from "./sdk.js";
 export * from "./skills.js";
 export { IPC_COMMANDS, type CommandName } from "./commands.js";
+export { IPC_EVENTS, type IpcEventName } from "./events.js";
 export type { SessionHealth };

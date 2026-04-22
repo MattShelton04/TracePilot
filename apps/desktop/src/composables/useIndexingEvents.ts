@@ -1,6 +1,6 @@
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import type { IndexingProgressPayload } from "@tracepilot/types";
-import { IPC_EVENTS } from "@tracepilot/types";
+import { IPC_EVENTS } from "@tracepilot/client";
 import { onBeforeUnmount } from "vue";
 import { safeListen } from "@/utils/tauriEvents";
 

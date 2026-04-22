@@ -17,9 +17,8 @@
  */
 
 import type { UnlistenFn } from "@tauri-apps/api/event";
-import { sdkDisconnect } from "@tracepilot/client";
+import { IPC_EVENTS, sdkDisconnect } from "@tracepilot/client";
 import type { BridgeEvent, BridgeStatus } from "@tracepilot/types";
-import { IPC_EVENTS } from "@tracepilot/types";
 import { defineStore } from "pinia";
 import { watch } from "vue";
 import { useWindowRole } from "@/composables/useWindowRole";

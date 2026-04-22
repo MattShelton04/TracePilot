@@ -311,3 +311,36 @@ actionable so a future engineer can pick them up.
 - **Proposed change**: Add a `max_bytes` parameter to `execute_with_timeout` (and plumb through `run_with_timeout` / `run_hidden_stdout_timeout`) that wraps the pipe reader in a `std::io::Read::take` limit. For the no-timeout path (`run_hidden`), either migrate it onto a shared implementation or leave a documented caveat that unbounded callers must trust their child.
 - **Risk / why deferred**: ~27 call sites of `run_hidden*` each already chose their own (untyped) trust level; adding a required cap breaks the ergonomic signature. Better as a dedicated wave that lands a `HiddenSpawnOptions` builder once and sweeps callers. Composable with the w84 `HiddenCommand` newtype FI.
 - **Effort**: M
+
+
+### w90 — Back-compat re-export in `@tracepilot/types` deferred (dep-cycle)
+
+- **Area**: `packages/types/src/index.ts`, `packages/client/src/events.ts`.
+- **Observation**: The plan entry for w90 proposed a back-compat re-export of `IPC_EVENTS` from `@tracepilot/types` after the move to `@tracepilot/client`. Implementing that would require `@tracepilot/types` to import from `@tracepilot/client`, but `@tracepilot/client` already depends on `@tracepilot/types` (see `packages/client/package.json`). Re-exporting would create a dependency cycle between the two workspace packages.
+- **Proposed change**: No back-compat shim. All current consumers (`apps/desktop` ×3) were migrated in this wave; `apps/cli` and `packages/*` have no references. If an external consumer ever needs `IPC_EVENTS` from `@tracepilot/types` again, split the constant into a third leaf package (e.g. `@tracepilot/ipc-protocol`) that both `types` and `client` can depend on without cycle.
+- **Risk / why deferred**: Creating a new package for a single 8-entry const would trade one clean move for three package.json / tsconfig touch-points. Revisit only if a non-desktop consumer appears.
+- **Effort**: S
+
+### w90 — Raw `emit("popup-session-closed", …)` in `ChildApp.vue`
+
+- **Area**: `apps/desktop/src/ChildApp.vue:60-64`.
+- **Observation**: After moving `IPC_EVENTS` into `@tracepilot/client` the remaining stringly-typed event in the TS tree is the `"popup-session-closed"` emit on popup unmount. It is not a Rust-emitted event (TS → TS only, between the popup webview and the main window listener) so it is not listed in `crates/tracepilot-tauri-bindings/src/events.rs`.
+- **Proposed change**: Add a `WINDOW_POPUP_SESSION_CLOSED` entry to `IPC_EVENTS` (or a sibling `UI_EVENTS` registry if we want to keep the Rust-side wire-events pure) and migrate both the emit site and the listener. This is already earmarked for w94 (see plan §w94, final bullet).
+- **Risk / why deferred**: Non-trivial — the listener lives in the main window's window-lifecycle composable and the registry split (Rust-emitted vs UI-internal) is a design choice worth deciding once rather than by accident.
+- **Effort**: S
+
+### w90 — Rust-side `events.rs` parity pin test
+
+- **Area**: `crates/tracepilot-tauri-bindings/src/events.rs` ↔ `packages/client/src/events.ts`.
+- **Observation**: `IPC_EVENTS` now lives alongside `IPC_COMMANDS` in `@tracepilot/client`, and the latter has a Vitest contract pin (`packages/client/src/__tests__/commandContract.test.ts`) that parses `build.rs` / `lib.rs` to keep the TS and Rust command lists in lockstep. `IPC_EVENTS` has no equivalent pin — the comment header in both files is the only drift guard.
+- **Proposed change**: Extend `commandContract.test.ts` (or add a sibling `eventContract.test.ts`) that parses `crates/tracepilot-tauri-bindings/src/events.rs` for `pub const <NAME>: &str = "..."` items and asserts every Rust event has a matching `IPC_EVENTS[<NAME>]` value, and vice versa.
+- **Risk / why deferred**: Mechanical but needs a stable regex against the Rust file's current hand-formatted layout (the file has irregular whitespace/block comments as of w90 — visible in the existing multi-line run-together `pub const` lines). Worth a small cleanup pass on the Rust file first.
+- **Effort**: S
+
+### w90 — Desktop test double duplicates `IPC_EVENTS` literals
+
+- **Area**: `apps/desktop/src/__tests__/mocks/client.ts`.
+- **Observation**: The central `createClientMock` helper now inlines a byte-for-byte copy of `IPC_EVENTS` because it is imported from inside the `vi.mock("@tracepilot/client", …)` factory — importing `IPC_EVENTS` from the real module at that point would re-enter the in-flight mock and resolve to `undefined`. This duplicates the 8-string registry in test code.
+- **Proposed change**: Either (a) extract `IPC_EVENTS` into its own terminal module with zero transitive `@tracepilot/client` imports (e.g. `packages/client/src/events.ts` today — consumers could `vi.importActual` from the file subpath if the package exports map is expanded), or (b) add the proposed `eventContract` test above so drift is loud. Option (b) is cheaper.
+- **Risk / why deferred**: Low — inline constants are 8 lines and colocated with a sync-comment. Promote only once we have a second test-side duplication of a client constant.
+- **Effort**: S

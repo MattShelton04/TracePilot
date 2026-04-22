@@ -1,7 +1,6 @@
 import type { UnlistenFn } from "@tauri-apps/api/event";
-import { rebuildSearchIndex } from "@tracepilot/client";
+import { IPC_EVENTS, rebuildSearchIndex } from "@tracepilot/client";
 import type { SearchIndexingProgress } from "@tracepilot/types";
-import { IPC_EVENTS } from "@tracepilot/types";
 import { toErrorMessage } from "@tracepilot/ui";
 import { getCurrentScope, onScopeDispose, ref } from "vue";
 import { logWarn } from "@/utils/logger";
