@@ -1,9 +1,24 @@
 //! TracePilot configuration — loaded from `~/.copilot/tracepilot/config.toml`.
 //!
 //! The top-level [`TracePilotConfig`] aggregates a handful of per-concern
-//! sub-configs (paths, UI, pricing, features, tasks, alerts, …) which live in
-//! dedicated sibling modules. Re-exports below preserve the pre-split public
-//! API byte-for-byte.
+//! sub-configs which live in dedicated sibling modules. Re-exports below
+//! preserve the pre-split public API byte-for-byte.
+//!
+//! Sub-config roster (keep each sibling file < 200 LOC):
+//! - [`PathsConfig`] — on-disk locations (index DB, session-state dir).
+//! - [`GeneralConfig`] — CLI command, setup-complete flag, misc top-level.
+//! - [`UiConfig`] — theme, refresh cadence, favourite-model list, scaling.
+//! - [`PricingConfig`] — model-pricing table + premium-request cost.
+//! - [`ToolRenderingConfig`] — per-tool render toggles.
+//! - [`FeaturesConfig`] — feature-flag booleans exposed to the frontend.
+//! - [`LoggingConfig`] — log-level wiring.
+//! - [`TasksConfig`] — AI orchestrator/subagent knobs.
+//! - [`AlertsConfig`] — notification/toast/sound preferences.
+//!
+//! Wire-format rule: every sub-config must carry `#[serde(default)]` on its
+//! field in [`TracePilotConfig`] so missing TOML sections round-trip cleanly.
+//! Add new sub-configs behind a default-bearing field and bump
+//! `CURRENT_VERSION` with a no-op migration entry.
 
 use crate::error::BindingsError;
 use serde::{Deserialize, Serialize};

@@ -958,3 +958,32 @@ actionable so a future engineer can pick them up.
 - **Proposed change**: move `TEST_ENV_LOCK` into `mod test_support { #[cfg(test)] pub(crate) fn env_guard() -> MutexGuard<'static, ()> { ... } }`. Call sites become `let _g = crate::test_support::env_guard();` which is grep-able and documents intent.
 - **Risk / why deferred**: out of scope for a visibility-only wave; touches every test that uses the lock. Batch with w127 (test-helper consolidation).
 - **Effort**: S
+
+### w125 — FI-w125-disk-vs-ipc-config-split: separate on-disk config from IPC DTO
+- **Area**: `crates/tracepilot-tauri-bindings/src/config/mod.rs`.
+- **Observation**: `TracePilotConfig` currently serves double duty — both TOML persistence (`config.toml`) and the IPC/TS type surfaced to the frontend.  This couples migrations and wire format together: any field added for UI state must also be serialized to disk (and vice versa), and the `camelCase` serde rename is a compromise that makes the TOML file subtly non-idiomatic (TOML convention is snake_case).  The original w125 plan called for this split explicitly.
+- **Proposed change**: introduce a `TracePilotConfigDisk` (snake_case keys) that is the canonical on-disk form, and a thin `TracePilotConfigDto` (camelCase) for IPC.  `From`/`TryFrom` bridges handle conversion; migrations live on the disk type.  Old TOML files continue to read because every field is `#[serde(default)]` or has an explicit default fn.
+- **Risk / why deferred**: requires a dedicated wave — migration story non-trivial (existing camelCase TOML files must still deserialize), every `read_config`/`save_config` call site touched, and the TypeScript `TracePilotConfig` type must remain wire-compatible.  Non-trivial test matrix.
+- **Effort**: L
+
+### w125 — FI-w125-paths-config-helpers: move derived-path helpers onto `PathsConfig`
+- **Area**: `crates/tracepilot-tauri-bindings/src/config/mod.rs:226-250` (`session_state_dir`, `index_db_path`, `presets_dir`, `jobs_dir`) plus ~40 call sites under `commands/`.
+- **Observation**: Four `PathBuf`-returning accessors live on `TracePilotConfig` but only read `self.paths.*` — they naturally belong on `PathsConfig`.  The wrappers exist because `presets_dir()` and `jobs_dir()` derive their values from `index_db_path`'s parent, so historically the composition lived one level up.
+- **Proposed change**: move all four helpers onto `PathsConfig` (pure functions of `&self`), keep the `TracePilotConfig` methods as one-line delegates for backward compat, then migrate call sites in a follow-up to drop the delegates.  Alternatively drop the delegates immediately and touch ~40 call sites in one wave.
+- **Risk / why deferred**: ~40 call-site migration is mechanical but noisy and not scoped to a config-area wave.  Consider batching with other `commands/` cleanups.
+- **Effort**: S (helper move) + M (call-site sweep)
+
+### w125 — FI-w125-shared-defaults-extraction: promote `defaults.rs` helpers to `tracepilot-core`
+- **Area**: `crates/tracepilot-tauri-bindings/src/config/defaults.rs`.
+- **Observation**: Several `default_*` helpers (`default_cli_command`, `default_orchestrator_model`, `default_subagent_model`) already delegate to `tracepilot_core::constants`.  Others (`default_poll_interval`, `default_max_concurrent_tasks`, `default_context_budget_tokens`) are orchestrator-domain values duplicated between this crate and `tracepilot-orchestrator` defaults.
+- **Proposed change**: move every default numeric constant that describes orchestrator behaviour into `tracepilot_core::constants` (or a new `tracepilot_core::defaults` module) and have both `config/defaults.rs` and orchestrator code reference the single source.  Removes the risk of drift between the configured default and the orchestrator's own fallback.
+- **Risk / why deferred**: cross-crate refactor; needs careful audit to confirm orchestrator and bindings agree on each value today before flattening.  Low urgency — values are already in sync.
+- **Effort**: S
+
+### w125 — FI-w125-known-wire-format-fixture: add a checked-in `config.toml` golden file
+- **Area**: `crates/tracepilot-tauri-bindings/src/config/tests.rs`.
+- **Observation**: Current tests cover `Default -> TOML -> Default` round-trip and a hand-written v1 migration fixture, but there is no *real* pre-release `config.toml` checked in as a golden to guard against accidental wire-format regressions (e.g. a `rename_all` tweak, a renamed field without `#[serde(alias)]`).
+- **Proposed change**: capture a verbatim `config.toml` from a shipping build under `crates/tracepilot-tauri-bindings/tests/fixtures/config_v5.toml`, add a test that deserializes it and asserts key fields, and update the fixture every time `CURRENT_VERSION` bumps (keeping the previous one around for the migration test matrix).
+- **Risk / why deferred**: needs a real config dump from a non-dev machine to avoid embedding dev-specific paths.  Also wants a convention for how many historical versions to keep.
+- **Effort**: S
+
