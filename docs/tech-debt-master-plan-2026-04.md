@@ -414,8 +414,8 @@ Remaining (deferred — v-model-style emit bridges where a child `@update:foo` h
 ### w125 — Config struct split
 - `config.rs:24-27` — split disk-TOML shape from IPC-visible shape. Needs a migration for existing configs (backwards-read-only, forwards-write-new).
 
-### w126 — `Semaphore` singleton unification
-- Two `Semaphore` singletons for indexing (`lib.rs:36-39`) unified behind a named enum `IndexingConcurrencyGate { Sessions, Files }`.
+### w126 — `Semaphore` singleton unification ✅
+- Two `Semaphore` singletons for indexing (`lib.rs:36-39`) unified behind `IndexingSemaphores` (new `concurrency` module) — see wave 126 commit. Permit counts preserved (1/1). Tracing on acquire/release. `SearchSemaphore` newtype removed. Future-improvement candidates (config-driven limits, metrics, fairness, cross-crate registry) logged in `tech-debt-future-improvements-2026-04.md`.
 
 ### w127 — Test-helper consolidation
 - `core/src/turns/tests/builders.rs` (954) + `export/src/test_helpers.rs` (122) + `core/src/analytics/test_helpers.rs` (157) promoted into the existing `tracepilot-test-support` crate. `.expect()` over-use in `export/tests/integration.rs` scrubbed.

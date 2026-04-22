@@ -103,9 +103,6 @@ pub struct SearchStatsResponse {
     pub content_type_counts: Vec<(String, i64)>,
 }
 
-/// Newtype for the search indexing semaphore (separate from main indexing).
-pub struct SearchSemaphore(pub Arc<tokio::sync::Semaphore>);
-
 #[derive(Debug, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionListItem {

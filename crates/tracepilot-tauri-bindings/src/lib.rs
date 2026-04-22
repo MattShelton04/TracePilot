@@ -12,6 +12,7 @@
 pub(crate) mod broadcast;
 pub(crate) mod cache;
 mod commands;
+pub mod concurrency;
 pub mod config;
 pub mod error;
 pub mod events;
@@ -25,12 +26,11 @@ pub use ipc_command_names::IPC_COMMAND_NAMES;
 #[doc(hidden)]
 pub mod specta_exports;
 
+use concurrency::IndexingSemaphores;
 use std::sync::{Arc, Mutex};
 use tauri::Manager;
 use tracepilot_orchestrator::bridge::manager::SharedBridgeManager;
-use types::{
-    EventCache, ManifestLock, SearchSemaphore, SharedOrchestratorState, SharedTaskDb, TurnCache,
-};
+use types::{EventCache, ManifestLock, SharedOrchestratorState, SharedTaskDb, TurnCache};
 
 const SESSION_CACHE_CAPACITY: usize = 10;
 
@@ -38,10 +38,7 @@ const SESSION_CACHE_CAPACITY: usize = 10;
 pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
     tauri::plugin::Builder::new("tracepilot")
         .setup(|app, _api| {
-            app.manage(std::sync::Arc::new(tokio::sync::Semaphore::new(1)));
-            app.manage(SearchSemaphore(std::sync::Arc::new(
-                tokio::sync::Semaphore::new(1),
-            )));
+            app.manage(Arc::new(IndexingSemaphores::new()));
             let turn_cache: TurnCache =
                 Arc::new(Mutex::new(cache::build_session_lru(SESSION_CACHE_CAPACITY)));
             app.manage(turn_cache);

@@ -987,3 +987,35 @@ actionable so a future engineer can pick them up.
 - **Risk / why deferred**: needs a real config dump from a non-dev machine to avoid embedding dev-specific paths.  Also wants a convention for how many historical versions to keep.
 - **Effort**: S
 
+
+### w126 — FI-w126-config-driven-indexing-permits
+
+- **Area**: `crates/tracepilot-tauri-bindings/src/concurrency.rs` + `TracePilotConfig`.
+- **Observation**: `SESSION_REINDEX_PERMITS` / `SEARCH_CONTENT_PERMITS` are compile-time constants. Heavy-usage installs might benefit from (say) 2 concurrent search-content indexers on fast NVMe hardware, while low-power machines might prefer 1 and explicit queuing.
+- **Proposed change**: promote the two constants to `TracePilotConfig::runtime` (or a new `concurrency` config subsection) with sane defaults (= today's values) and a validation clamp, then plumb through `IndexingSemaphores::from_config`.
+- **Risk / why deferred**: needs a config-schema bump (w125 already touched config struct shape) and UI surface for the new settings. Out of scope for w126 which was byte-for-byte permit preservation.
+- **Effort**: M
+
+### w126 — FI-w126-semaphore-metrics-exposition
+
+- **Area**: `crates/tracepilot-tauri-bindings/src/concurrency.rs`.
+- **Observation**: The new `acquire_traced` helper emits `tracing::debug!` on acquire / busy, but there's no counter or histogram that lets us answer "how often does the UI hit AlreadyIndexing?" without scraping logs.
+- **Proposed change**: if/when the workspace gains a metrics backend (`metrics` crate, OTLP, Prometheus), add `indexing_gate_acquire_total{gate,result}` and `indexing_gate_wait_seconds` bucketed by gate. Until then the tracing debug line is sufficient for local diagnosis.
+- **Risk / why deferred**: no metrics dep in the workspace today — introducing one is a cross-cutting decision, not a w126 concern.
+- **Effort**: M
+
+### w126 — FI-w126-fairness-and-queueing
+
+- **Area**: `crates/tracepilot-tauri-bindings/src/commands/search.rs` (`reindex_sessions`, `rebuild_search_index`).
+- **Observation**: All three commands call `try_acquire_*` and surface `AlreadyIndexing` on contention. There's no queuing — a user who clicks "Reindex" during an in-flight reindex simply gets an error. For long reindexes that is the right behaviour (spamming would pile up duplicate work), but a single queued-next slot might improve UX.
+- **Proposed change**: expose an `acquire_sessions_or_queue_one` variant that uses `Semaphore::acquire_owned` with a bounded wait (e.g. 30s) behind a feature flag; keep `try_acquire` as default. Revisit after metrics land.
+- **Risk / why deferred**: changes user-visible behaviour (blocking vs instant-fail); also risks long-running IPC calls that tie up a Tauri worker. Needs product input.
+- **Effort**: M
+
+### w126 — FI-w126-extend-registry-to-cross-crate-limits
+
+- **Area**: `crates/tracepilot-orchestrator/*` (bridge spawn, MCP calls, SDK bridge).
+- **Observation**: w126's audit found **zero** `tokio::sync::Semaphore` instances outside `tracepilot-tauri-bindings` — the orchestrator currently uses task-budget helpers (w86 `run_async_with_limits`) and `RwLock`s rather than explicit semaphores. If a future wave introduces a real MCP-call or bridge-spawn bound (e.g. to cap concurrent tool invocations), the `IndexingSemaphores` registry pattern should be generalised (rename to `ConcurrencyGates` and move to `tracepilot-core` or a new shared crate) before wiring the new gate, so we don't recreate the pre-w126 fragmentation.
+- **Proposed change**: when the first non-indexing gate is needed, (a) rename the type, (b) move it to a crate both bindings and orchestrator can depend on without cycles (likely `tracepilot-core`), (c) add a new named accessor. Until then, the current crate-local registry is correct.
+- **Risk / why deferred**: speculative — there's no concrete caller today. Adding the shared crate now would be premature abstraction.
+- **Effort**: S (when triggered)

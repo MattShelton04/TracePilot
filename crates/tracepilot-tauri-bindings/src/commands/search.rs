@@ -2,6 +2,7 @@
 
 use crate::blocking_cmd;
 use crate::cache::TtlCache;
+use crate::concurrency::IndexingSemaphores;
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
 use crate::helpers::{
@@ -9,14 +10,13 @@ use crate::helpers::{
     remove_index_db_files,
 };
 use crate::types::{
-    SearchFacetsResponse, SearchResultItem, SearchResultsResponse, SearchSemaphore,
-    SearchStatsResponse, SessionListItem,
+    SearchFacetsResponse, SearchResultItem, SearchResultsResponse, SearchStatsResponse,
+    SessionListItem,
 };
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, LazyLock};
 use std::time::Duration;
-use tokio::sync::Semaphore;
 
 // ---------------------------------------------------------------------------
 // Facets TTL cache (P1 perf fix)
@@ -86,14 +86,12 @@ pub async fn search_sessions(
 #[tracing::instrument(skip_all)]
 pub async fn reindex_sessions(
     state: tauri::State<'_, SharedConfig>,
-    semaphore: tauri::State<'_, Arc<Semaphore>>,
-    search_semaphore: tauri::State<'_, SearchSemaphore>,
+    gates: tauri::State<'_, Arc<IndexingSemaphores>>,
     app: tauri::AppHandle,
 ) -> CmdResult<(usize, usize)> {
-    let permit = match semaphore.inner().clone().try_acquire_owned() {
-        Ok(permit) => permit,
-        Err(_) => return Err(BindingsError::AlreadyIndexing),
-    };
+    let permit = gates
+        .try_acquire_sessions()
+        .map_err(|_| BindingsError::AlreadyIndexing)?;
 
     let cfg = read_config(&state);
     let session_state_dir = cfg.session_state_dir();
@@ -141,7 +139,7 @@ pub async fn reindex_sessions(
     if result.as_ref().map(|r| r.is_ok()).unwrap_or(false) {
         let cfg2 = read_config(&state);
         spawn_search_content_phase2(
-            search_semaphore.0.clone(),
+            gates.inner().clone(),
             cfg2.session_state_dir(),
             cfg2.index_db_path(),
             app.clone(),
@@ -160,14 +158,12 @@ pub async fn reindex_sessions(
 #[tauri::command]
 pub async fn reindex_sessions_full(
     state: tauri::State<'_, SharedConfig>,
-    semaphore: tauri::State<'_, Arc<Semaphore>>,
-    search_semaphore: tauri::State<'_, SearchSemaphore>,
+    gates: tauri::State<'_, Arc<IndexingSemaphores>>,
     app: tauri::AppHandle,
 ) -> CmdResult<(usize, usize)> {
-    let permit = match semaphore.inner().clone().try_acquire_owned() {
-        Ok(permit) => permit,
-        Err(_) => return Err(BindingsError::AlreadyIndexing),
-    };
+    let permit = gates
+        .try_acquire_sessions()
+        .map_err(|_| BindingsError::AlreadyIndexing)?;
 
     let cfg = read_config(&state);
     let session_state_dir = cfg.session_state_dir();
@@ -202,7 +198,7 @@ pub async fn reindex_sessions_full(
     if result.as_ref().map(|r| r.is_ok()).unwrap_or(false) {
         let cfg2 = read_config(&state);
         spawn_search_content_phase2(
-            search_semaphore.0.clone(),
+            gates.inner().clone(),
             cfg2.session_state_dir(),
             cfg2.index_db_path(),
             app.clone(),
@@ -425,17 +421,15 @@ pub async fn get_search_tool_names(
 #[tauri::command]
 pub async fn rebuild_search_index(
     state: tauri::State<'_, SharedConfig>,
-    semaphore: tauri::State<'_, Arc<Semaphore>>,
-    search_semaphore: tauri::State<'_, SearchSemaphore>,
+    gates: tauri::State<'_, Arc<IndexingSemaphores>>,
     app: tauri::AppHandle,
 ) -> CmdResult<(usize, usize)> {
-    if semaphore.inner().available_permits() == 0 {
+    if gates.sessions_available() == 0 {
         return Err(BindingsError::AlreadyIndexing);
     }
-    let permit = match search_semaphore.0.clone().try_acquire_owned() {
-        Ok(permit) => permit,
-        Err(_) => return Err(BindingsError::AlreadyIndexing),
-    };
+    let permit = gates
+        .try_acquire_search()
+        .map_err(|_| BindingsError::AlreadyIndexing)?;
 
     let cfg = read_config(&state);
     let session_state_dir = cfg.session_state_dir();
@@ -535,7 +529,7 @@ pub async fn get_result_context(
 /// that both `reindex_sessions` and `reindex_sessions_full` share identical
 /// orchestration: semaphore guard, event emission, and logging.
 fn spawn_search_content_phase2<F>(
-    search_semaphore: std::sync::Arc<tokio::sync::Semaphore>,
+    gates: std::sync::Arc<IndexingSemaphores>,
     session_state_dir: std::path::PathBuf,
     index_path: std::path::PathBuf,
     app: tauri::AppHandle,
@@ -551,7 +545,7 @@ fn spawn_search_content_phase2<F>(
         + Send
         + 'static,
 {
-    let Ok(permit) = search_semaphore.try_acquire_owned() else {
+    let Ok(permit) = gates.try_acquire_search() else {
         return;
     };
     tokio::task::spawn_blocking(move || {
