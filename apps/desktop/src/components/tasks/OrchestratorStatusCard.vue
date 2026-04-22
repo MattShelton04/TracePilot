@@ -2,6 +2,8 @@
 import type { TaskStats } from "@tracepilot/types";
 import { computed, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
+import { ROUTE_NAMES } from "@/config/routes";
+import { pushRoute } from "@/router/navigation";
 import { useOrchestratorStore } from "@/stores/orchestrator";
 
 const props = defineProps<{
@@ -147,13 +149,13 @@ const taskProgress = computed(() => {
     </div>
     <div v-if="orchestrator.error" class="orch-error">{{ orchestrator.error }}</div>
     <div class="orch-card-footer">
-      <button class="orch-monitor-link" @click="router.push('/tasks/monitor')">
+      <button class="orch-monitor-link" @click="pushRoute(router, ROUTE_NAMES.taskMonitor)">
         Open Monitor →
       </button>
       <button
         v-if="orchestrator.sessionUuid"
         class="orch-monitor-link"
-        @click="router.push(`/session/${orchestrator.sessionUuid}/overview`)"
+        @click="pushRoute(router, ROUTE_NAMES.sessionOverview, { params: { id: orchestrator.sessionUuid } })"
       >
         View Session →
       </button>

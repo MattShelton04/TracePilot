@@ -212,7 +212,7 @@ describe("useOrchestratorMonitor computeds", () => {
     await nextTick();
 
     api().viewTask("task-1");
-    expect(pushMock).toHaveBeenCalledWith({ path: "/tasks/task-1" });
+    expect(pushMock).toHaveBeenCalledWith({ name: "task-detail", params: { taskId: "task-1" } });
 
     wrapper.unmount();
   });

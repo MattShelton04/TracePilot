@@ -110,7 +110,7 @@ describe("usePresetManager", () => {
   it("runTask pushes route with presetId", () => {
     const mgr = usePresetManager();
     mgr.runTask(makePreset({ id: "xyz" }));
-    expect(routerPush).toHaveBeenCalledWith({ path: "/tasks/new", query: { presetId: "xyz" } });
+    expect(routerPush).toHaveBeenCalledWith({ name: "task-create", query: { presetId: "xyz" } });
   });
 
   it("taskTypeColorClass maps known types", () => {

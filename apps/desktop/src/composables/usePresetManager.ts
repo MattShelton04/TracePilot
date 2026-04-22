@@ -1,6 +1,8 @@
 import type { TaskPreset } from "@tracepilot/types";
 import { computed, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
+import { ROUTE_NAMES } from "@/config/routes";
+import { pushRoute } from "@/router/navigation";
 import { usePresetsStore } from "@/stores/presets";
 
 export type PresetViewMode = "grid" | "list";
@@ -95,7 +97,7 @@ export function usePresetManager() {
 
   // ── Actions ─────────────────────────────────────────────────
   function runTask(preset: TaskPreset) {
-    router.push({ path: "/tasks/new", query: { presetId: preset.id } });
+    pushRoute(router, ROUTE_NAMES.taskCreate, { query: { presetId: preset.id } });
   }
 
   async function duplicatePreset(preset: TaskPreset) {

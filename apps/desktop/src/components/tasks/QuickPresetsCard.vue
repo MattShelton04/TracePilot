@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { TaskPreset } from "@tracepilot/types";
 import { useRouter } from "vue-router";
+import { ROUTE_NAMES } from "@/config/routes";
+import { pushRoute } from "@/router/navigation";
 
 defineProps<{
   presets: TaskPreset[];
@@ -13,7 +15,7 @@ const router = useRouter();
   <div class="quick-presets-card">
     <div class="quick-presets-header">
       <span class="quick-presets-title">Quick Presets</span>
-      <button class="quick-presets-link" @click="router.push('/tasks/presets')">
+      <button class="quick-presets-link" @click="pushRoute(router, ROUTE_NAMES.taskPresets)">
         Manage →
       </button>
     </div>
@@ -29,7 +31,7 @@ const router = useRouter();
         v-for="preset in presets.slice(0, 6)"
         :key="preset.id"
         class="quick-preset-card"
-        @click="router.push({ path: '/tasks/new', query: { presetId: preset.id } })"
+        @click="pushRoute(router, ROUTE_NAMES.taskCreate, { query: { presetId: preset.id } })"
       >
         <div class="quick-preset-icon">
           <svg v-if="preset.taskType === 'session_summary'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

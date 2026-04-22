@@ -4,6 +4,8 @@ import { nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import SearchPaletteResults from "@/components/search/SearchPaletteResults.vue";
 import { useSearchPaletteSearch } from "@/composables/useSearchPaletteSearch";
+import { ROUTE_NAMES } from "@/config/routes";
+import { pushRoute } from "@/router/navigation";
 import { shouldIgnoreGlobalShortcut } from "@/utils/keyboardShortcuts";
 
 // ── Router ───────────────────────────────────────────────────
@@ -63,12 +65,14 @@ function close() {
 
 // ── Navigation ───────────────────────────────────────────────
 function navigateToResult(result: SearchResult) {
-  const path = `/session/${result.sessionId}/conversation`;
   const routeQuery: Record<string, string> = {};
   if (result.turnNumber != null) routeQuery.turn = String(result.turnNumber);
   if (result.eventIndex != null) routeQuery.event = String(result.eventIndex);
   close();
-  router.push({ path, query: routeQuery });
+  pushRoute(router, ROUTE_NAMES.sessionConversation, {
+    params: { id: result.sessionId },
+    query: routeQuery,
+  });
 }
 
 function selectCurrent() {

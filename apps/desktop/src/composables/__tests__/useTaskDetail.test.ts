@@ -180,7 +180,7 @@ describe("useTaskDetail composable", () => {
     await wrapper.vm.detail.handleDelete();
     expect(confirmMock).toHaveBeenCalled();
     expect(tasksStoreMock.deleteTask).toHaveBeenCalledWith("task-1");
-    expect(mockRouterPush).toHaveBeenCalledWith("/tasks");
+    expect(mockRouterPush).toHaveBeenCalledWith({ name: "tasks" });
     expect(toastSuccess).toHaveBeenCalledWith("Task deleted");
     wrapper.unmount();
   });

@@ -1,42 +1,52 @@
 <script setup lang="ts">
 import { useRouter } from "vue-router";
+import { ROUTE_NAMES, type RouteName } from "@/config/routes";
+import { pushRoute } from "@/router/navigation";
 
 const router = useRouter();
 
-const quickActions = [
+interface QuickAction {
+  emoji: string;
+  title: string;
+  desc: string;
+  to: RouteName | null;
+  disabled: boolean;
+}
+
+const quickActions: QuickAction[] = [
   {
     emoji: "🚀",
     title: "Launch Session",
     desc: "Start a new Copilot CLI session",
-    to: "/orchestration/launcher",
+    to: ROUTE_NAMES.sessionLauncher,
     disabled: false,
   },
   {
     emoji: "📊",
     title: "Open Mission Control",
     desc: "Real-time session dashboard",
-    to: "",
+    to: null,
     disabled: true,
   },
   {
     emoji: "🔧",
     title: "Configure Agents",
     desc: "Edit agent definitions & configs",
-    to: "/orchestration/config",
+    to: ROUTE_NAMES.configInjector,
     disabled: false,
   },
   {
     emoji: "🌳",
     title: "Manage Worktrees",
     desc: "Create, list, and prune worktrees",
-    to: "/orchestration/worktrees",
+    to: ROUTE_NAMES.worktreeManager,
     disabled: false,
   },
 ];
 
-function navigateAction(action: (typeof quickActions)[0]) {
+function navigateAction(action: QuickAction) {
   if (!action.disabled && action.to) {
-    router.push(action.to);
+    pushRoute(router, action.to);
   }
 }
 </script>

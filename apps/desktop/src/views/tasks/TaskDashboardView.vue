@@ -14,6 +14,8 @@ import QuickPresetsCard from "@/components/tasks/QuickPresetsCard.vue";
 import RecentJobsTable from "@/components/tasks/RecentJobsTable.vue";
 import RefreshToolbar from "@/components/RefreshToolbar.vue";
 import TaskCard from "@/components/tasks/TaskCard.vue";
+import { ROUTE_NAMES } from "@/config/routes";
+import { pushRoute } from "@/router/navigation";
 import { useOrchestratorStore } from "@/stores/orchestrator";
 import { usePresetsStore } from "@/stores/presets";
 import { useTasksStore } from "@/stores/tasks";
@@ -42,11 +44,11 @@ onMounted(() => {
 });
 
 function navigateToTask(taskId: string) {
-  router.push(`/tasks/${taskId}`);
+  pushRoute(router, ROUTE_NAMES.taskDetail, { params: { taskId } });
 }
 
 function navigateToNewTask() {
-  router.push("/tasks/new");
+  pushRoute(router, ROUTE_NAMES.taskCreate);
 }
 
 const hasActiveFilters = computed(

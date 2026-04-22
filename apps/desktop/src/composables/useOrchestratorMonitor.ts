@@ -1,6 +1,8 @@
 import { useAutoRefresh } from "@tracepilot/ui";
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
+import { ROUTE_NAMES } from "@/config/routes";
+import { pushRoute } from "@/router/navigation";
 import { useOrchestratorStore } from "@/stores/orchestrator";
 import { taskTitle, useTasksStore } from "@/stores/tasks";
 
@@ -171,12 +173,12 @@ export function useOrchestratorMonitor() {
   function viewSession() {
     const uuid = orchestrator.sessionUuid;
     if (uuid) {
-      router.push({ path: `/session/${uuid}/overview` });
+      pushRoute(router, ROUTE_NAMES.sessionOverview, { params: { id: uuid } });
     }
   }
 
   function viewTask(taskId: string) {
-    router.push({ path: `/tasks/${taskId}` });
+    pushRoute(router, ROUTE_NAMES.taskDetail, { params: { taskId } });
   }
 
   // ── Model picker ────────────────────────────────────────────

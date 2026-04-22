@@ -386,3 +386,19 @@ actionable so a future engineer can pick them up.
 - **Proposed change**: Add `runSilent(action, logLabel)` to `@tracepilot/ui` that wraps try/catch + `logWarn` with zero error-ref dependency. Low priority — each site is 3 lines.
 - **Risk / why deferred**: Trivial helper, minimal payoff versus reading the inlined version.
 - **Effort**: S
+
+### w93 — Feature-flag registry relocation to `@tracepilot/types`
+
+- **Area**: `apps/desktop/src/config/featureFlags.ts`, `packages/types/src/defaults.ts`, `packages/types/src/index.ts`.
+- **Observation**: The typed `FeatureFlag` union + `FEATURE_FLAGS` registry live in `apps/desktop/src/config/featureFlags.ts` and derive from `DEFAULT_FEATURES` in `@tracepilot/types`. The master plan (w93) proposed moving the registry itself into `packages/types/src/featureFlags.ts` so non-desktop consumers (CLI, future packages) can import the same union without a desktop-app dependency. Deferring: the `@tracepilot/desktop`-only consumers today mean the relocation is pure plumbing with zero behaviour change but touches every FE call-site import path.
+- **Proposed change**: Add `packages/types/src/featureFlags.ts` exporting `FEATURE_FLAGS`/`FeatureFlag`/`isFeatureFlag` derived from `DEFAULT_FEATURES`, re-export from `packages/types/src/index.ts`, then re-point `apps/desktop/src/config/featureFlags.ts` to a thin re-export (or delete and migrate imports). Migrate any remaining `Record<string, boolean>` typings in `stores/preferences.ts:featureFlags` and `stores/preferences/featureFlags.ts` to `Record<FeatureFlag, boolean>`.
+- **Risk / why deferred**: Pure plumbing, import-churn PR — held because the current registry is already type-safe at every call site audited in w93 (no ad-hoc boolean env / localStorage flags found outside it).
+- **Effort**: S
+
+### w93 — `stores/preferences/featureFlags.ts` slice typed as `Record<string, boolean>`
+
+- **Area**: `apps/desktop/src/stores/preferences/featureFlags.ts:14`, `apps/desktop/src/stores/preferences.ts:91,134`.
+- **Observation**: The internal `featureFlags` ref is typed `Record<string, boolean>` to tolerate config migrations seeding unknown keys. `isFeatureEnabled(flag: FeatureFlag)` narrows readers, but the store still permits writes to arbitrary string keys — a soft escape hatch that lets new flags skip the `DEFAULT_FEATURES` / `FeaturesConfig` registry.
+- **Proposed change**: After the relocation above, tighten the ref to `Record<FeatureFlag, boolean>` (or `Partial<Record<FeatureFlag, boolean>>`) and funnel migration-time writes through a single `setFlag(flag: FeatureFlag, value)` helper that drops unknown keys with `logWarn`. Add a vitest invariant asserting the store rejects `"__synthetic_test_flag"` writes in non-test builds.
+- **Risk / why deferred**: Changes the test shape (`featureFlags.test.ts:14` currently asserts a synthetic key survives) and may mask real-world migration paths from older configs. Needs a paired migration audit.
+- **Effort**: S

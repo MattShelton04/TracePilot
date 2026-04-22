@@ -195,7 +195,7 @@ describe("useTaskWizard", () => {
       "Task created successfully",
       expect.any(Object),
     );
-    expect(mockRouterPush).toHaveBeenCalledWith("/tasks");
+    expect(mockRouterPush).toHaveBeenCalledWith({ name: "tasks" });
   });
 
   it("handleSubmit with navigateToDetail routes to task detail", async () => {
@@ -203,7 +203,7 @@ describe("useTaskWizard", () => {
     const w = wrapper.vm.wizard;
     w.selectPreset(makePreset({ id: "p1", taskType: "" }));
     await w.handleSubmit(true);
-    expect(mockRouterPush).toHaveBeenCalledWith("/tasks/task-123");
+    expect(mockRouterPush).toHaveBeenCalledWith({ name: "task-detail", params: { taskId: "task-123" } });
   });
 
   it("handleSubmit reports error toast when store returns null", async () => {

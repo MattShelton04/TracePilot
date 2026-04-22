@@ -6,6 +6,8 @@ import {
 } from "@tracepilot/ui";
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { ROUTE_NAMES } from "@/config/routes";
+import { pushRoute } from "@/router/navigation";
 import { useTasksStore } from "@/stores/tasks";
 
 export type TaskDetailTabId =
@@ -287,14 +289,14 @@ export function useTaskDetail() {
     const ok = await store.deleteTask(task.value.id);
     if (ok) {
       toast.success("Task deleted");
-      router.push("/tasks");
+      pushRoute(router, ROUTE_NAMES.tasks);
     } else {
       toast.error(store.error ?? "Failed to delete task");
     }
   }
 
   function goBack() {
-    router.push("/tasks");
+    pushRoute(router, ROUTE_NAMES.tasks);
   }
 
   onMounted(() => {

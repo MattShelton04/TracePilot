@@ -2,6 +2,8 @@ import type { PromptVariable, SessionListItem, TaskPreset } from "@tracepilot/ty
 import { useToast } from "@tracepilot/ui";
 import { computed, onMounted, reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { ROUTE_NAMES } from "@/config/routes";
+import { pushRoute } from "@/router/navigation";
 import { usePresetsStore } from "@/stores/presets";
 import { useSessionsStore } from "@/stores/sessions";
 import { useTasksStore } from "@/stores/tasks";
@@ -189,7 +191,11 @@ export function useTaskWizard() {
 
       if (task) {
         toastSuccess("Task created successfully", { duration: 3000 });
-        router.push(navigateToDetail ? `/tasks/${task.id}` : "/tasks");
+        if (navigateToDetail) {
+          pushRoute(router, ROUTE_NAMES.taskDetail, { params: { taskId: task.id } });
+        } else {
+          pushRoute(router, ROUTE_NAMES.tasks);
+        }
       } else {
         toastError(tasksStore.error ?? "Failed to create task", { duration: 5000 });
       }
@@ -201,7 +207,7 @@ export function useTaskWizard() {
   }
 
   function cancelToTasksList() {
-    router.push("/tasks");
+    pushRoute(router, ROUTE_NAMES.tasks);
   }
 
   function reloadPresets() {
