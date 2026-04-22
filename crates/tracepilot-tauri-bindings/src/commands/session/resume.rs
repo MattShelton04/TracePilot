@@ -7,6 +7,7 @@ use crate::helpers::read_config;
 
 /// Open a new terminal window and run the configured CLI resume command.
 #[tauri::command]
+#[tracing::instrument(skip(state, cli_command), err, fields(%session_id))]
 pub async fn resume_session_in_terminal(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,

@@ -10,6 +10,7 @@ use crate::types::SharedTaskDb;
 use super::{fallback_context, resolve_task_model};
 
 #[tauri::command]
+#[tracing::instrument(skip_all, err, fields(model = model.as_deref().unwrap_or("")))]
 pub async fn task_orchestrator_start(
     config: tauri::State<'_, SharedConfig>,
     task_db: tauri::State<'_, SharedTaskDb>,

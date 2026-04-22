@@ -85,6 +85,7 @@ pub async fn get_session_incidents(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, level = "debug", err, fields(%session_id))]
 pub async fn get_shutdown_metrics(
     state: tauri::State<'_, SharedConfig>,
     cache: tauri::State<'_, EventCache>,

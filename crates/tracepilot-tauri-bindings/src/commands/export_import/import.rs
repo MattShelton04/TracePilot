@@ -10,6 +10,7 @@ use crate::types::{ImportIssue, ImportPreviewResult, ImportSessionPreview, Impor
 
 /// Preview an import file — validate and show what would be imported.
 #[tauri::command]
+#[tracing::instrument(skip_all, level = "debug", err)]
 pub async fn preview_import(
     state: tauri::State<'_, SharedConfig>,
     file_path: String,
@@ -64,6 +65,7 @@ pub async fn preview_import(
 
 /// Import sessions from a `.tpx.json` file.
 #[tauri::command]
+#[tracing::instrument(skip_all, err, fields(conflict = conflict_strategy.as_deref().unwrap_or("skip"), dry_run = dry_run.unwrap_or(false)))]
 pub async fn import_sessions(
     state: tauri::State<'_, SharedConfig>,
     file_path: String,

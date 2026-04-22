@@ -9,6 +9,7 @@ use tracepilot_orchestrator::task_db::types::*;
 use super::fallback_context;
 
 #[tauri::command]
+#[tracing::instrument(skip_all, err, fields(%preset_id, %task_type))]
 pub async fn task_create(
     state: tauri::State<'_, SharedTaskDb>,
     config: tauri::State<'_, SharedConfig>,
@@ -125,6 +126,7 @@ pub async fn task_create(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, err, fields(%job_name, task_count = tasks.len()))]
 pub async fn task_create_batch(
     state: tauri::State<'_, SharedTaskDb>,
     tasks: Vec<NewTask>,
@@ -161,6 +163,7 @@ pub async fn task_get(state: tauri::State<'_, SharedTaskDb>, id: String) -> CmdR
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, level = "debug", err)]
 pub async fn task_list(
     state: tauri::State<'_, SharedTaskDb>,
     filter: Option<TaskFilter>,
@@ -207,6 +210,7 @@ pub async fn task_delete(state: tauri::State<'_, SharedTaskDb>, id: String) -> C
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, level = "debug", err)]
 pub async fn task_stats(state: tauri::State<'_, SharedTaskDb>) -> CmdResult<TaskStats> {
     with_task_db(&state, move |db| {
         tracepilot_orchestrator::task_db::operations::get_task_stats(db.conn())

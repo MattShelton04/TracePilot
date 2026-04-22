@@ -10,6 +10,7 @@ use super::resolve_task_model;
 /// Scan the jobs directory for completed task results and ingest them into the DB.
 /// Returns the number of tasks that were successfully ingested.
 #[tauri::command]
+#[tracing::instrument(skip_all, err)]
 pub async fn task_ingest_results(
     config: tauri::State<'_, SharedConfig>,
     task_db: tauri::State<'_, SharedTaskDb>,
@@ -189,6 +190,7 @@ pub async fn task_ingest_results(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip(config, session_path), err, fields(path_len = session_path.len()))]
 pub async fn task_attribution(
     config: tauri::State<'_, SharedConfig>,
     session_path: String,

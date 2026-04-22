@@ -5,6 +5,7 @@ use crate::error::{BindingsError, CmdResult};
 use crate::helpers::read_config;
 
 #[tauri::command]
+#[tracing::instrument(skip_all, level = "debug", err)]
 pub async fn task_list_presets(
     config: tauri::State<'_, SharedConfig>,
 ) -> CmdResult<Vec<tracepilot_orchestrator::presets::types::TaskPreset>> {
@@ -18,6 +19,7 @@ pub async fn task_list_presets(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip(config), level = "debug", err, fields(preset_id = %id))]
 pub async fn task_get_preset(
     config: tauri::State<'_, SharedConfig>,
     id: String,
@@ -33,6 +35,7 @@ pub async fn task_get_preset(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip(config, preset), err, fields(preset_id = %preset.id))]
 pub async fn task_save_preset(
     config: tauri::State<'_, SharedConfig>,
     preset: tracepilot_orchestrator::presets::types::TaskPreset,
@@ -48,6 +51,7 @@ pub async fn task_save_preset(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip(config), err, fields(preset_id = %id))]
 pub async fn task_delete_preset(
     config: tauri::State<'_, SharedConfig>,
     id: String,

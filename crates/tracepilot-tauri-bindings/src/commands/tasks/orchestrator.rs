@@ -8,6 +8,7 @@ use crate::helpers::{mutex_poisoned, read_config};
 use crate::types::SharedTaskDb;
 
 #[tauri::command]
+#[tracing::instrument(skip_all, err)]
 pub async fn task_orchestrator_health(
     config: tauri::State<'_, SharedConfig>,
     task_db: tauri::State<'_, SharedTaskDb>,
@@ -81,6 +82,7 @@ pub async fn task_orchestrator_health(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, err)]
 pub async fn task_orchestrator_stop(
     config: tauri::State<'_, SharedConfig>,
     orch_state: tauri::State<'_, crate::types::SharedOrchestratorState>,

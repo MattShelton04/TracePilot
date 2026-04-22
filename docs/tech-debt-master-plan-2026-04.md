@@ -122,6 +122,13 @@ Propagate `SessionId`, `PresetId`, `SkillName`, `RepoId` past the IPC validation
 - Regression test for `unlink_session` / `destroy_session` calling `.abort()` on every entry of `event_tasks`.
 - Tests live in `bridge/manager/tests.rs`.
 
+### w85 — `tracing::instrument` expansion — FI
+- Landed 74 `#[tracing::instrument]` attrs on Tauri command handlers (mcp: 11, sdk: 14, skills: 14, orchestration: 12, tasks: 15, export_import: 5, session misc: 3). All pre-existing instrumented handlers preserved.
+- **FI — orchestrator crate public methods**: `bridge::manager::BridgeManager`, `skills::manager`, `presets::io`, `mcp::config/health/import`, `task_db::operations`, `task_orchestrator::*` were not swept. These are called through instrumented Tauri commands, so the command-level spans already give correlation; deeper spans are an OpenTelemetry-export follow-up.
+- **FI — long-running background tasks**: bridge event pumps (`BridgeManager` internal spawned tasks), MCP health monitor, task orchestrator poll loop — none instrumented. Needs explicit root spans tied to session/PID so long-lived telemetry is queryable.
+- **FI — span linking**: cross-process correlation between Tauri commands and the spawned orchestrator subprocess uses no trace context propagation today. A future OTLP export + `traceparent` environment variable hand-off would close this.
+- **FI — remaining uninstrumented handlers**: `logging.rs` (2), `window.rs` (2), `state.rs` minor getters (3), `analytics_executor.rs`, `config_cmds.rs` (most), `search.rs` (some), `file_browser` writes, `tasks::crud::task_get/list/stats` variants already covered. Can be swept in a follow-up.
+
 ### w85 — `tracing::instrument` expansion
 - Add `#[tracing::instrument(skip_all, level=debug, err, fields(…))]` to every `commands::*` handler that currently lacks one (~140 handlers). Use a script-assisted codemod, then review.
 

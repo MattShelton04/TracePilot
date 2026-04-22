@@ -11,6 +11,7 @@ use crate::helpers::with_session_path;
 /// All files in the session directory are zipped verbatim using Deflate
 /// compression and written to `dest_path`.
 #[tauri::command]
+#[tracing::instrument(skip_all, err, fields(%session_id))]
 pub async fn export_session_folder_zip(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,

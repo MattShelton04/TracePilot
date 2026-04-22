@@ -123,6 +123,7 @@ fn check_custom_tables(db_path: &Path) -> bool {
 
 /// Export one or more sessions to the requested format and write to `output_path`.
 #[tauri::command]
+#[tracing::instrument(skip_all, err, fields(%format, session_count = session_ids.len(), section_count = sections.len()))]
 #[allow(clippy::too_many_arguments)]
 pub async fn export_sessions(
     state: tauri::State<'_, SharedConfig>,
@@ -214,6 +215,7 @@ pub async fn export_sessions(
 
 /// Generate a preview of the export output (for the live preview panel).
 #[tauri::command]
+#[tracing::instrument(skip_all, level = "debug", err, fields(%session_id, %format))]
 #[allow(clippy::too_many_arguments)]
 pub async fn preview_export(
     state: tauri::State<'_, SharedConfig>,

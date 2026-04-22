@@ -93,6 +93,7 @@ pub async fn get_session_events(
 
 /// Lazy-load the full result payload for a specific tool call.
 #[tauri::command]
+#[tracing::instrument(skip_all, level = "debug", err, fields(%session_id, %tool_call_id))]
 pub async fn get_tool_result(
     state: tauri::State<'_, SharedConfig>,
     cache: tauri::State<'_, EventCache>,
