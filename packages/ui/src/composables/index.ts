@@ -33,7 +33,16 @@ export { useConversationSections } from "./useConversationSections";
 export { useDismissable } from "./useDismissable";
 export type { UseInflightPromiseReturn } from "./useInflightPromise";
 export { useInflightPromise } from "./useInflightPromise";
+export type {
+  KeyHandler,
+  KeyTarget,
+  UseKeyboardOptions,
+  UseShortcutOptions,
+} from "./useKeyboard";
+export { matchesCombo, useKeydown, useShortcut } from "./useKeyboard";
 export { useLiveDuration } from "./useLiveDuration";
+export type { UseLocalStorageOptions } from "./useLocalStorage";
+export { useLocalStorage } from "./useLocalStorage";
 export type { UsePersistedRefOptions } from "./usePersistedRef";
 export { usePersistedRef } from "./usePersistedRef";
 export type {
@@ -45,6 +54,13 @@ export { useResizeHandle } from "./useResizeHandle";
 export { useSessionTabLoader } from "./useSessionTabLoader";
 export type { AsyncGuardLike, RunActionOptions } from "./useStoreHelpers";
 export { runAction, runMutation } from "./useStoreHelpers";
+export type {
+  EffectiveTheme,
+  ThemePreference,
+  UseThemeOptions,
+  UseThemeReturn,
+} from "./useTheme";
+export { useTheme } from "./useTheme";
 export type {
   TimelineNavigationOptions,
   TimelineNavigationReturn,

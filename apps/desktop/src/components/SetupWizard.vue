@@ -2,8 +2,8 @@
 import { getConfig, saveConfig, validateSessionDir } from "@tracepilot/client";
 import type { TracePilotConfig, ValidateSessionDirResult } from "@tracepilot/types";
 import { createDefaultConfig } from "@tracepilot/types";
-import { toErrorMessage } from "@tracepilot/ui";
-import { computed, nextTick, onMounted, onUnmounted, ref } from "vue";
+import { toErrorMessage, useKeydown } from "@tracepilot/ui";
+import { computed, nextTick, onMounted, ref } from "vue";
 import WizardStepDatabase from "@/components/wizard/WizardStepDatabase.vue";
 import WizardStepFeatures from "@/components/wizard/WizardStepFeatures.vue";
 import WizardStepReady from "@/components/wizard/WizardStepReady.vue";
@@ -143,9 +143,10 @@ async function finishSetup() {
 }
 
 // ── Lifecycle ──────────────────────────────────────────────────
+useKeydown(onKeydown, { target: document });
+
 onMounted(async () => {
   prefersReducedMotion.value = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  document.addEventListener("keydown", onKeydown);
 
   try {
     const config = await getConfig();
@@ -159,10 +160,6 @@ onMounted(async () => {
 
   await nextTick();
   validateDir();
-});
-
-onUnmounted(() => {
-  document.removeEventListener("keydown", onKeydown);
 });
 </script>
 

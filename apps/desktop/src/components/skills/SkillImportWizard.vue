@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { SkillImportResult } from "@tracepilot/types";
-import { onBeforeUnmount, onMounted, provide } from "vue";
+import { useShortcut } from "@tracepilot/ui";
+import { provide } from "vue";
 import SkillImportStep1Local from "@/components/skills/import-wizard/SkillImportStep1Local.vue";
 import SkillImportStep2GitHub from "@/components/skills/import-wizard/SkillImportStep2GitHub.vue";
 import SkillImportStep3File from "@/components/skills/import-wizard/SkillImportStep3File.vue";
@@ -22,20 +23,7 @@ const wizard = useSkillImportWizard({
 
 provide(SkillImportWizardKey, wizard);
 
-function handleKeydown(ev: KeyboardEvent) {
-  if (ev.key === "Escape") {
-    ev.preventDefault();
-    emit("close");
-  }
-}
-
-onMounted(() => {
-  window.addEventListener("keydown", handleKeydown);
-});
-
-onBeforeUnmount(() => {
-  window.removeEventListener("keydown", handleKeydown);
-});
+useShortcut("Escape", () => emit("close"));
 </script>
 
 <template>

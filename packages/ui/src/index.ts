@@ -102,7 +102,16 @@ export { useConversationSections } from "./composables/useConversationSections";
 export { useDismissable } from "./composables/useDismissable";
 export type { UseInflightPromiseReturn } from "./composables/useInflightPromise";
 export { useInflightPromise } from "./composables/useInflightPromise";
+export type {
+  KeyHandler,
+  KeyTarget,
+  UseKeyboardOptions,
+  UseShortcutOptions,
+} from "./composables/useKeyboard";
+export { matchesCombo, useKeydown, useShortcut } from "./composables/useKeyboard";
 export { useLiveDuration } from "./composables/useLiveDuration";
+export type { UseLocalStorageOptions } from "./composables/useLocalStorage";
+export { useLocalStorage } from "./composables/useLocalStorage";
 export type { UsePersistedRefOptions } from "./composables/usePersistedRef";
 export { usePersistedRef } from "./composables/usePersistedRef";
 export type {
@@ -114,6 +123,13 @@ export { useResizeHandle } from "./composables/useResizeHandle";
 export { useSessionTabLoader } from "./composables/useSessionTabLoader";
 export type { AsyncGuardLike, RunActionOptions } from "./composables/useStoreHelpers";
 export { runAction, runMutation } from "./composables/useStoreHelpers";
+export type {
+  EffectiveTheme,
+  ThemePreference,
+  UseThemeOptions,
+  UseThemeReturn,
+} from "./composables/useTheme";
+export { useTheme } from "./composables/useTheme";
 export type {
   TimelineNavigationOptions,
   TimelineNavigationReturn,

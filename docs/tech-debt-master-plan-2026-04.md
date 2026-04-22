@@ -157,6 +157,21 @@ Propagate `SessionId`, `PresetId`, `SkillName`, `RepoId` past the IPC validation
 - `useKeyboard()` — global shortcut manager (register/unregister/scope). Replaces ad-hoc `window.addEventListener('keydown', …)` sprinkles.
 - `useLocalStorage()` — type-safe wrapper over `storageKeys` registry; replaces the 4 local reimplementations (§4.3 of the audit) and `usePersistedRef` if appropriate.
 
+### w88 — New UI composables — FI
+Landed three generic composables in `packages/ui/src/composables/` — `useTheme` (light/dark/system + `prefers-color-scheme`), `useKeyboard` (`useShortcut`, `useKeydown`, `matchesCombo` — `Mod` / `Ctrl` / `Shift` / `Alt` / `Meta` parsing, `onScopeDispose` sync-before-await), and `useLocalStorage` (shallow-ref, cross-tab `storage` event sync, pluggable serializer). 5 call-site migrations landed:
+- `apps/desktop/src/components/skills/SkillImportWizard.vue` — Escape via `useShortcut`.
+- `apps/desktop/src/components/SetupWizard.vue` — wizard `onKeydown` wired via `useKeydown({ target: document })`.
+- `apps/desktop/src/composables/useSubagentPanel.ts` — three `useShortcut` bindings (Escape / ArrowLeft / ArrowRight) gated by `when`.
+- `apps/desktop/src/components/UpdateBanner.vue` — `dismissedVersion` via `useLocalStorage` (raw-string serializer, `flush: "sync"`).
+- `apps/desktop/src/components/layout/AppSidebar.vue` — same treatment for its separate `dismissedVersion` ref.
+
+Remaining callers that could adopt these composables (logged as FI, not actioned to keep diff surgical):
+- **Keyboard (4 call sites still using raw `addEventListener("keydown", …)`):** `apps/desktop/src/components/SearchPalette.vue` (Cmd/Ctrl+K global + palette-scoped arrow/enter/tab), `apps/desktop/src/composables/useSearchKeyboardNavigation.ts` (capture-phase arrows — would need `useKeydown({ capture: true })`), `apps/desktop/src/composables/useSkillEditor.ts` (Cmd/Ctrl+S save), `apps/desktop/src/views/SessionReplayView.vue` (replay-controller dispatch). The two capture-phase / delegated cases need extra care around editable-target filtering semantics.
+- **localStorage (4 call sites still hand-rolling reads/writes):** `apps/desktop/src/composables/useRecentSearches.ts` (needs array-validation serializer; tests assert `setItem` calls synchronously), `apps/desktop/src/stores/sdk/settings.ts` (explicit manual-save contract preserved per existing comment), `apps/desktop/src/stores/sessionTabs.ts` (multi-field tuple with gated hydration), `apps/desktop/src/stores/preferences/ui.ts` / `apps/desktop/src/stores/preferences.ts` (theme write-through cache + ephemeral last-viewed/last-seen refs — coupled to hydration gate).
+- **Theme:** app currently owns theme inside `stores/preferences/ui.ts` backed by `config.toml` via the backend. `useTheme` is intentionally *not* wired there — adopting it would require rethinking the hydration / write-through cache pipeline and the two-value (light/dark only) store schema. Logged for a follow-up that explicitly plans the system-theme UX change.
+- **`usePersistedRef` vs `useLocalStorage`:** both coexist; `usePersistedRef` uses deep watch on plain `Ref`, while `useLocalStorage` uses `shallowRef` + cross-tab sync. Consolidation deferred until we audit which deep-watch call sites rely on nested-mutation persistence.
+
+
 ### w89 — Mock-fallback unification
 - Extract `packages/client/src/internal/mockData.ts` (~29 KB) into opt-in `@tracepilot/client-mocks` subpackage, or a dynamic import behind `import.meta.env.DEV`.
 - Standardise mock fallback across `sdk.ts` / `mcp.ts` / `skills.ts` / the rest via `createInvokeWithMock(commandName, mockFn)`.

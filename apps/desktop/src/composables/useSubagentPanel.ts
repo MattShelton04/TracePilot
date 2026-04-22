@@ -1,5 +1,5 @@
-import { type ComputedRef, computed, onBeforeUnmount, onMounted, type Ref, ref, watch } from "vue";
-import { shouldIgnoreGlobalShortcut } from "@/utils/keyboardShortcuts";
+import { useShortcut } from "@tracepilot/ui";
+import { type ComputedRef, computed, type Ref, ref, watch } from "vue";
 import type { SubagentFullData } from "./useCrossTurnSubagents";
 
 /**
@@ -57,24 +57,10 @@ export function useSubagentPanel(
     }
   }
 
-  function handleKeydown(e: KeyboardEvent) {
-    if (!isPanelOpen.value) return;
-    if (shouldIgnoreGlobalShortcut(e)) return;
-
-    if (e.key === "Escape") {
-      closePanel();
-      e.preventDefault();
-    } else if (e.key === "ArrowLeft") {
-      navigatePrev();
-      e.preventDefault();
-    } else if (e.key === "ArrowRight") {
-      navigateNext();
-      e.preventDefault();
-    }
-  }
-
-  onMounted(() => document.addEventListener("keydown", handleKeydown));
-  onBeforeUnmount(() => document.removeEventListener("keydown", handleKeydown));
+  const panelOpen = () => isPanelOpen.value;
+  useShortcut("Escape", closePanel, { target: document, when: panelOpen });
+  useShortcut("ArrowLeft", navigatePrev, { target: document, when: panelOpen });
+  useShortcut("ArrowRight", navigateNext, { target: document, when: panelOpen });
 
   // Auto-close panel when selected subagent disappears (e.g. session switch)
   watch(selectedIndex, (idx) => {
