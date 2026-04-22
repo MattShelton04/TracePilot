@@ -200,6 +200,15 @@ Remaining fallback sites logged as FI (not actioned to keep diff surgical):
 ### w90 — `IPC_EVENTS` moves to `@tracepilot/client`
 `IPC_EVENTS` is a domain runtime constant; audit §5.3. Move from `@tracepilot/types` to `@tracepilot/client/events.ts`. Back-compat re-export in types.
 
+### w91 — Inline-style + hex-fallback sweep — FI
+34 inline `:style=`/`style=` bindings across 5 files moved to scoped classes (`ToolAnalysisView`, `TodosTab`, `OverviewTab`, `HealthScoringView`, `SessionLauncherConfig`). A shared `.tabular-nums` utility was added to `apps/desktop/src/styles/utilities.css`.
+
+Remaining:
+- **~184 inline style occurrences** still in `apps/desktop/src/**/*.vue` (down from ~218). The majority are genuinely dynamic (computed widths, tooltip x/y, chart bar geometry, agent-tree transforms, `:style="{ '--dot-color': … }"` CSS-var injections) and are acceptable. A second sweep could target the remaining static `font-size`/`margin`/`padding` one-liners in `SearchResultCard.vue`, `ConversationTab.vue`, `CodeImpactView.vue`, `SessionLauncherConfig.vue`-adjacent components (`SessionLauncherAdvanced`, `SessionLauncherPreview`, `SessionLauncherSaveTemplate`).
+- **Hex fallbacks inside `var(--name, #hex)`** — 93 occurrences across Vue SFC `<style>` blocks (e.g. `TurnBlock.vue`, `SessionEventRow.vue`, `UserMessageAnchor.vue`, `SystemMessagePanel.vue`, `CheckpointTimeline.vue`, `SetupWizard.vue`). These are GitHub-Primer-flavoured defensive defaults (`#484f58`, `#6e7681`, `#0d1117`, `#161b22`, `#8b949e`, `#3fb950`, `#f85149`, `#58a6ff`). They're harmless when tokens are defined, but duplicate the palette. Recommend a follow-up wave to strip the fallback once `tokens.css` is guaranteed to load before SFC styles (it already is — the fallbacks predate that guarantee).
+- **`CHART_COLORS.success`/`CHART_COLORS.danger` inline bindings** in `ToolAnalysisView.vue` legend dots and `CodeImpactView.vue` legend dots. These are module constants imported from a JS file; they could be surfaced as CSS custom properties (`--chart-success`, `--chart-danger`) on `:root`, after which the bindings become `:class`-driven. Deferred — requires a single source-of-truth decision (JS module vs CSS token) that cuts across charts/tokens.
+- **CSP `style-src 'unsafe-inline'` blocker (w108)** remains open until all truly-static inline bindings are eliminated.
+
 ### w91 — Remaining inline-style sweep
 - Reduce 137 `:style=` bindings to < 40 (the genuinely dynamic ones like `transform: translate(${x}px,${y}px)`). Static-token bindings become CSS custom properties on the root class.
 - Remove 6 hex-fallback palettes in `designTokens.ts:65-78`, `SearchResultCard.vue`, `AgentTreeView.vue`, chart utils.

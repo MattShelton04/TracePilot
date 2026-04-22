@@ -175,8 +175,8 @@ function retryLoadSection(section: string) {
       <!-- Session Summary -->
       <SectionPanel title="Session Summary">
         <p v-if="summaryText" class="summary-prose">{{ summaryText }}</p>
-        <p v-else class="summary-prose" style="font-style: italic;">No summary available.</p>
-        <dl class="def-list" style="margin-top: 14px;">
+        <p v-else class="summary-prose summary-prose--empty">No summary available.</p>
+        <dl class="def-list def-list--spaced">
           <dt>API Duration</dt>
           <dd>{{ formatDuration(metrics?.totalApiDurationMs) }}</dd>
           <dt>Current Model</dt>
@@ -189,9 +189,9 @@ function retryLoadSection(section: string) {
           <template v-if="metrics?.codeChanges">
             <dt>Code Changes</dt>
             <dd>
-              <span style="color: var(--success-fg); font-weight: 600;">+{{ metrics.codeChanges.linesAdded ?? 0 }}</span>
-              <span style="color: var(--text-tertiary);"> / </span>
-              <span style="color: var(--danger-fg); font-weight: 600;">−{{ metrics.codeChanges.linesRemoved ?? 0 }}</span>
+              <span class="lines-added">+{{ metrics.codeChanges.linesAdded ?? 0 }}</span>
+              <span class="lines-sep"> / </span>
+              <span class="lines-removed">−{{ metrics.codeChanges.linesRemoved ?? 0 }}</span>
             </dd>
           </template>
         </dl>
@@ -201,7 +201,7 @@ function retryLoadSection(section: string) {
     <!-- Incidents -->
     <div class="card mb-6">
       <div class="flex items-center gap-2 mb-3">
-        <h3 style="margin: 0; font-size: 0.875rem; font-weight: 600;">Incidents</h3>
+        <h3 class="incidents-heading">Incidents</h3>
         <Badge :variant="incidents.length > 0 ? 'warning' : 'neutral'">{{ incidents.length }}</Badge>
       </div>
       <div v-if="incidents.length > 0" class="incidents-list">
@@ -244,7 +244,7 @@ function retryLoadSection(section: string) {
           </div>
         </div>
       </div>
-      <p v-else class="text-muted" style="font-size: 0.875rem; margin: 0;">
+      <p v-else class="text-muted incidents-empty">
         No incidents recorded for this session.
       </p>
     </div>
@@ -291,6 +291,39 @@ function retryLoadSection(section: string) {
 
 
 <style scoped>
+.summary-prose--empty {
+  font-style: italic;
+}
+
+.def-list--spaced {
+  margin-top: 14px;
+}
+
+.lines-added {
+  color: var(--success-fg);
+  font-weight: 600;
+}
+
+.lines-sep {
+  color: var(--text-tertiary);
+}
+
+.lines-removed {
+  color: var(--danger-fg);
+  font-weight: 600;
+}
+
+.incidents-heading {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.incidents-empty {
+  font-size: 0.875rem;
+  margin: 0;
+}
+
 .incidents-list {
   display: flex;
   flex-direction: column;
