@@ -149,7 +149,7 @@ function openSession(event: MouseEvent, sessionId: string, label: string) {
             :value="store.sortBy"
             class="filter-select"
             aria-label="Sort sessions"
-            @change="store.sortBy = ($event.target as HTMLSelectElement).value as SortOption"
+            @change="store.setSortBy(($event.target as HTMLSelectElement).value as SortOption)"
           >
             <option v-for="opt in sortOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
           </select>

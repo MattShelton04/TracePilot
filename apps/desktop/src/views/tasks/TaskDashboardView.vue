@@ -273,11 +273,7 @@ const hasActiveFilters = computed(
         <div v-if="hasActiveFilters" class="empty-state__actions">
           <button
             class="btn btn--secondary"
-            @click="
-              store.searchQuery = '';
-              store.filterStatus = 'all';
-              store.filterType = 'all';
-            "
+            @click="store.resetFilters()"
           >
             Clear Filters
           </button>

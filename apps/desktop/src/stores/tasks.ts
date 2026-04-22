@@ -249,6 +249,12 @@ export const useTasksStore = defineStore("tasks", () => {
     return ok ?? false;
   }
 
+  function resetFilters() {
+    searchQuery.value = "";
+    filterStatus.value = "all";
+    filterType.value = "all";
+  }
+
   return {
     // State
     tasks,
@@ -276,6 +282,7 @@ export const useTasksStore = defineStore("tasks", () => {
     cancelTask,
     retryTask,
     deleteTask,
+    resetFilters,
   };
 });
 

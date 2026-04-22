@@ -229,6 +229,24 @@ Remaining:
 - 5 verified sites where `store.error = …`/`store.x = …` is assigned from a component. Replace each with a store action.
 - Promote to a biome rule or a vitest invariant.
 
+### w95 — Store-mutation-from-component clean-up — FI
+29 direct-mutation sites migrated to new tightly-scoped store actions across 13 files. New actions:
+- `skills`: `clearError()`, `setFilterScope(scope)`
+- `mcp`: `clearError()`, `setSearchQuery(q)`
+- `worktrees`: `clearError()`, `setCurrentRepoPath(path)`
+- `presets`: `clearError()`, `setError(msg)`, `setSearchQuery(q)`, `setFilterTag(tag)`
+- `configInjector`: `clearError()`, `setActiveTab(tab)`
+- `launcher`: `clearError()`
+- `sessions`: `setSortBy(option)`
+- `tasks`: `resetFilters()`
+- `search/query`: `clearError()`, `setDateRange(from, to)`
+- `sessionDetail` composable: `focusCheckpoint(n)`
+
+Remaining (deferred — v-model-style emit bridges where a child `@update:foo` handler writes a value straight into a store ref; migrating these to setters is mechanical but adds setter bloat without changing semantics — a codemod + biome-rule wave is more efficient):
+- `apps/desktop/src/views/SessionSearchView.vue:65,67,80,81,82,182` — `@update:query`, `@update:sort-by`, `@clear-repository`, `@clear-tool-name`, `@clear-session-id`, `@update:result-view-mode` all write `store.<field> = $event` directly. These are pass-throughs from dumb presenter components; the search store already exposes a `clearFilters()` action but per-field setters are not yet present.
+- `apps/desktop/src/components/search/SearchFilterSidebar.vue:162,181` — `@change` handlers on `<select>` elements write `store.repository` / `store.toolName` directly (null-coalesced from the raw DOM value). Would need `setRepository(r)` / `setToolName(t)` setters or a generic `setFilter(k, v)` — not added in this wave to avoid bloating the query slice.
+- Recommend: a future wave ships a biome rule `no-store-mutation-in-sfc` (forbid `store.<x> = …` / `store.$patch(...)` inside `.vue`) plus a codemod that auto-generates `setX` actions for any exposed ref. That turns this from a recurring manual sweep into an enforced invariant.
+
 ### w96 — `shallowRef` adoption for large reactive arrays
 - `turns`, `events`, `results`, `facets` in `useSessionDetail.ts` and `stores/search.ts`. Safe because we always replace the array; never mutate indices.
 - Add a micro-bench gate (existing `tracepilot-bench` or a vitest perf test) to quantify the win.

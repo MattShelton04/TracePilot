@@ -92,7 +92,7 @@ watch(
   () => props.modelValue,
   async (show) => {
     if (!show) return;
-    store.error = null;
+    store.clearError();
     newBranch.value = "";
     newBaseBranch.value = "";
     newTargetDir.value = "";
@@ -100,7 +100,7 @@ watch(
     createModalRepoPath.value = props.lockedRepoPath ?? props.initialRepoPath ?? "";
 
     if (props.lockedRepoPath) {
-      store.currentRepoPath = props.lockedRepoPath;
+      store.setCurrentRepoPath(props.lockedRepoPath);
     }
     const repoPath = createModalRepoPath.value;
     if (repoPath) {

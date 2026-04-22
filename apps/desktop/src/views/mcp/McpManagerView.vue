@@ -22,7 +22,7 @@ onMounted(async () => {
 const searchInput = computed({
   get: () => store.searchQuery,
   set: (v: string) => {
-    store.searchQuery = v;
+    store.setSearchQuery(v);
   },
 });
 
@@ -180,7 +180,7 @@ async function handleImport() {
     <!-- Error -->
     <div v-if="store.error" class="error-banner">
       <span>{{ store.error }}</span>
-      <button class="error-dismiss" @click="store.error = null">×</button>
+      <button class="error-dismiss" @click="store.clearError()">×</button>
     </div>
 
     <!-- Loading -->

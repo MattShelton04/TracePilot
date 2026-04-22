@@ -354,6 +354,14 @@ export const useWorktreesStore = defineStore("worktrees", () => {
     }
   }
 
+  function clearError() {
+    error.value = null;
+  }
+
+  function setCurrentRepoPath(path: string) {
+    currentRepoPath.value = path;
+  }
+
   return {
     // State
     worktrees,
@@ -396,5 +404,7 @@ export const useWorktreesStore = defineStore("worktrees", () => {
     sortedRegisteredRepos,
     // Sort
     setSortBy,
+    clearError,
+    setCurrentRepoPath,
   };
 });

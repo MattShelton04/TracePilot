@@ -136,6 +136,15 @@ export function createQuerySlice() {
     page.value = 1;
   }
 
+  function clearError() {
+    error.value = null;
+  }
+
+  function setDateRange(from: string | null, to: string | null) {
+    dateFrom.value = from;
+    dateTo.value = to;
+  }
+
   function setPage(p: number) {
     page.value = Math.max(1, Math.min(p, totalPages.value || 1));
   }
@@ -180,6 +189,8 @@ export function createQuerySlice() {
     parseDateRange,
     clearSearchResults,
     clearFilters,
+    clearError,
+    setDateRange,
     setPage,
     nextPage,
     prevPage,

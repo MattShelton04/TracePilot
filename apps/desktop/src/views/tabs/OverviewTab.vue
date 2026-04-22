@@ -283,7 +283,7 @@ function retryLoadSection(section: string) {
         ref="timelineRef"
         :checkpoints="store.checkpoints"
         :focus-number="store.pendingCheckpointFocus"
-        @update:focus-number="store.pendingCheckpointFocus = $event"
+        @update:focus-number="store.focusCheckpoint($event)"
       />
     </SectionPanel>
   </div>

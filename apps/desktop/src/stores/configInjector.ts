@@ -178,6 +178,14 @@ export const useConfigInjectorStore = defineStore("configInjector", () => {
     return ok ?? false;
   }
 
+  function clearError() {
+    error.value = null;
+  }
+
+  function setActiveTab(tab: ConfigTab) {
+    activeTab.value = tab;
+  }
+
   return {
     activeTab,
     agents,
@@ -202,5 +210,7 @@ export const useConfigInjectorStore = defineStore("configInjector", () => {
     deleteBackup,
     loadMigrationDiffs,
     migrateAgent,
+    clearError,
+    setActiveTab,
   };
 });

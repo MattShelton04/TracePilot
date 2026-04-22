@@ -287,6 +287,14 @@ export const useSkillsStore = defineStore("skills", () => {
     return (await runMutation(error, () => skillsDiscoverRepos(repos))) ?? [];
   }
 
+  function clearError() {
+    error.value = null;
+  }
+
+  function setFilterScope(scope: "all" | SkillScope) {
+    filterScope.value = scope;
+  }
+
   return {
     // State
     skills,
@@ -324,5 +332,7 @@ export const useSkillsStore = defineStore("skills", () => {
     importGitHubSkill,
     discoverLocal,
     discoverRepos,
+    clearError,
+    setFilterScope,
   };
 });

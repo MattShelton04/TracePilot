@@ -38,7 +38,7 @@ watch(sessionId, (newId) => {
 
 // Checkpoint navigation (conversation → overview tab) for route mode
 provide(NAVIGATE_CHECKPOINT_KEY, (checkpointNumber: number) => {
-  store.pendingCheckpointFocus = checkpointNumber;
+  store.focusCheckpoint(checkpointNumber);
   if (route.name !== ROUTE_NAMES.sessionOverview) {
     pushRoute(router, ROUTE_NAMES.sessionOverview, { params: { id: sessionId.value } });
   }

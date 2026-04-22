@@ -71,7 +71,7 @@ function onIsActiveChange(active: boolean) {
 
 // ── Checkpoint navigation (conversation → overview tab) ─────────
 provide(NAVIGATE_CHECKPOINT_KEY, (checkpointNumber: number) => {
-  store.pendingCheckpointFocus = checkpointNumber;
+  store.focusCheckpoint(checkpointNumber);
   emit("update:activeSubTab", "overview");
 });
 </script>

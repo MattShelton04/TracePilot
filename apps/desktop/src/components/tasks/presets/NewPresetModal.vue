@@ -46,7 +46,7 @@ async function handleCreatePreset() {
 
   const existing = store.presets.find((p) => p.id === presetId.value);
   if (existing) {
-    store.error = `A preset with ID "${presetId.value}" already exists.`;
+    store.setError(`A preset with ID "${presetId.value}" already exists.`);
     return;
   }
 

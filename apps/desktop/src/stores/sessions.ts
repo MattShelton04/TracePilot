@@ -247,6 +247,10 @@ export const useSessionsStore = defineStore("sessions", () => {
     }
   }
 
+  function setSortBy(option: SortOption) {
+    sortBy.value = option;
+  }
+
   return {
     sessions,
     loading,
@@ -265,5 +269,6 @@ export const useSessionsStore = defineStore("sessions", () => {
     refreshSessions,
     reindex,
     ensureIndex,
+    setSortBy,
   };
 });

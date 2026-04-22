@@ -239,6 +239,14 @@ export const useMcpStore = defineStore("mcp", () => {
     return servers.value.get(name);
   }
 
+  function clearError() {
+    error.value = null;
+  }
+
+  function setSearchQuery(q: string) {
+    searchQuery.value = q;
+  }
+
   return {
     // State
     servers,
@@ -267,5 +275,7 @@ export const useMcpStore = defineStore("mcp", () => {
     importFromGitHub,
     computeDiff,
     getServerDetail,
+    clearError,
+    setSearchQuery,
   };
 });

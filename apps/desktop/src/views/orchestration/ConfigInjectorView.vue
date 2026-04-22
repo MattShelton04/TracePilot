@@ -57,7 +57,7 @@ const tabNavItems = computed(() =>
         :message="store.error"
         variant="banner"
         dismissible
-        @dismiss="store.error = null"
+        @dismiss="store.clearError()"
       />
 
       <nav class="breadcrumb">
@@ -84,7 +84,7 @@ const tabNavItems = computed(() =>
         :model-value="store.activeTab"
         staggered
         class="config-injector-tabs"
-        @update:model-value="(v) => (store.activeTab = v as ConfigTab)"
+        @update:model-value="(v) => store.setActiveTab(v as ConfigTab)"
       />
 
       <div v-if="store.loading" class="loading-state">
