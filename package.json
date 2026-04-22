@@ -28,7 +28,8 @@
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "gen:bindings": "cargo run -p tracepilot-tauri-bindings --bin gen-bindings",
-    "clean": "pnpm -r clean"
+    "clean": "pnpm -r clean",
+    "prepare": "lefthook install || exit 0"
   },
   "engines": {
     "node": ">=20",

@@ -601,3 +601,28 @@ actionable so a future engineer can pick them up.
 - **Proposed change**: Scope the markdown preview under a dedicated class and move d3 inline-style writes behind CSS custom properties so the cascade handles them.
 - **Risk / why deferred**: Requires design review; touches the skill editor preview pipeline.
 - **Effort**: M
+
+
+### w103 — Add opt-in pre-push unit-test hook
+
+- **Area**: `lefthook.yml` (`pre-push`)
+- **Observation**: `pnpm --filter @tracepilot/desktop test` currently runs ~45s end-to-end, which is too slow to wire unconditionally into `pre-push` without annoying developers who push frequently. Wave 103 therefore deliberately left `pre-push` at typecheck + rustfmt-all + filesize only.
+- **Proposed change**: Once the vitest suite is sharded / parallelised to <15s (e.g. by splitting stores/composables out of the `apps/desktop` project, or running `--changed` against `origin/main`), add a `test` command to `pre-push` using `vitest related {push_files}` semantics.
+- **Risk / why deferred**: Performance — a 45s pre-push hook trains developers to `--no-verify`, defeating the gate. Needs a fast-path first.
+- **Effort**: M
+
+### w103 — `commit-msg` conventional-commit check extracted to a script file
+
+- **Area**: `lefthook.yml` (`commit-msg.conventional-commit`) — **done in w103**
+- **Observation**: The hook used to be a ~400-char `node -e` one-liner embedded in YAML. Under lefthook ≥2.1 it was passed to node in a way that left only `const` in the eval string (`SyntaxError: Unexpected end of input`) — the commit-msg gate was effectively broken on Windows.
+- **Proposed change**: Extracted to `scripts/check-commit-msg.mjs`, invoked via `node scripts/check-commit-msg.mjs {1}`. Follow-up (deferred): add a small vitest covering pass/fail regex cases.
+- **Risk / why deferred**: Extraction itself was in-scope for w103 (blocked the gate); only the follow-up test is deferred.
+- **Effort**: S
+
+### w103 — Per-file `rustfmt` in pre-commit duplicates workspace `rustfmt.toml`
+
+- **Area**: `lefthook.yml` (`pre-commit.rustfmt`)
+- **Observation**: The hook passes `--edition 2024` explicitly because `rustfmt` invoked on a single file path does not always auto-discover the workspace `rustfmt.toml` when run from a subdirectory. Today `rustfmt.toml` sets `edition = "2024"` too, so the two sources of truth agree — but they can drift.
+- **Proposed change**: Either drop `--edition` from the hook once rustfmt auto-discovery is reliable on Windows, or teach `rustfmt.toml` to be the sole source and assert equality in a CI sanity check.
+- **Risk / why deferred**: Low; cosmetic. Catching drift is better done at the CI level.
+- **Effort**: S
