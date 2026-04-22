@@ -244,6 +244,229 @@ async fn raw_rpc_call_parses_ws_prefix() {
     assert_eq!(result, expected);
 }
 
+// ─── w84: SDK subprocess hygiene — session_tasks lifecycle ─────────
+//
+// These tests lock in behaviour around aborting forwarder tasks and
+// treating `resume_session` as idempotent when the caller is already
+// tracking a session. They fabricate stub `copilot_sdk::Session`
+// handles with a tracked `invoke_fn` so we can assert which JSON-RPC
+// methods the manager drives without spawning a real CLI subprocess.
+
+#[cfg(feature = "copilot-sdk")]
+fn stub_session(id: &str) -> std::sync::Arc<copilot_sdk::Session> {
+    std::sync::Arc::new(copilot_sdk::Session::new(
+        id.to_string(),
+        None,
+        |_method, _params| Box::pin(async { Ok(serde_json::Value::Null) }),
+    ))
+}
+
+#[cfg(feature = "copilot-sdk")]
+type InvokeLog = std::sync::Arc<std::sync::Mutex<Vec<String>>>;
+
+#[cfg(feature = "copilot-sdk")]
+fn stub_session_with_log(id: &str) -> (std::sync::Arc<copilot_sdk::Session>, InvokeLog) {
+    let log: InvokeLog = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let log_for_closure = std::sync::Arc::clone(&log);
+    let session = std::sync::Arc::new(copilot_sdk::Session::new(
+        id.to_string(),
+        None,
+        move |method, _params| {
+            let method = method.to_string();
+            let log = std::sync::Arc::clone(&log_for_closure);
+            Box::pin(async move {
+                log.lock().unwrap().push(method);
+                Ok(serde_json::Value::Null)
+            })
+        },
+    ));
+    (session, log)
+}
+
+/// Spawn a forever-pending tokio task that holds a oneshot sender as a
+/// drop-guard. When the task is aborted, the sender is dropped, and the
+/// returned receiver resolves with `Err(RecvError)` — giving the test a
+/// deterministic, sleep-free signal that the abort actually ran.
+#[cfg(feature = "copilot-sdk")]
+fn spawn_abort_sentinel() -> (
+    tokio::task::JoinHandle<()>,
+    tokio::sync::oneshot::Receiver<()>,
+) {
+    let (tx, rx) = tokio::sync::oneshot::channel::<()>();
+    let handle = tokio::spawn(async move {
+        // Hold the sender so it is dropped iff the task is dropped (i.e. aborted).
+        let _guard = tx;
+        std::future::pending::<()>().await;
+    });
+    (handle, rx)
+}
+
+#[cfg(feature = "copilot-sdk")]
+#[tokio::test]
+async fn unlink_session_aborts_event_task_and_clears_maps() {
+    let (mut mgr, _rx, _status_rx) = BridgeManager::new();
+    let sid = "sess-unlink".to_string();
+
+    let (handle, rx) = spawn_abort_sentinel();
+    mgr.event_tasks.insert(sid.clone(), handle);
+    mgr.sessions.insert(sid.clone(), stub_session(&sid));
+
+    mgr.unlink_session(&sid);
+
+    assert!(
+        mgr.sessions.is_empty(),
+        "sessions map must be cleared after unlink"
+    );
+    assert!(
+        mgr.event_tasks.is_empty(),
+        "event_tasks map must be cleared after unlink"
+    );
+
+    // The forwarder task must actually have been aborted — wait for the
+    // drop-guard sender to fire (deterministic; no real sleep required).
+    let drop_observed = tokio::time::timeout(std::time::Duration::from_millis(500), rx).await;
+    assert!(
+        drop_observed.is_ok(),
+        "event forwarder task was not aborted within 500ms"
+    );
+    assert!(
+        drop_observed.unwrap().is_err(),
+        "expected sender to be dropped (task cancelled), not completed"
+    );
+}
+
+#[cfg(feature = "copilot-sdk")]
+#[tokio::test]
+async fn unlink_session_is_noop_when_not_tracked() {
+    let (mut mgr, _rx, _status_rx) = BridgeManager::new();
+
+    // Insert an unrelated entry to prove nothing else is touched.
+    let sid_other = "sess-other".to_string();
+    let (handle_other, mut rx_other) = spawn_abort_sentinel();
+    mgr.event_tasks.insert(sid_other.clone(), handle_other);
+    mgr.sessions.insert(sid_other.clone(), stub_session(&sid_other));
+
+    mgr.unlink_session("sess-does-not-exist");
+
+    assert_eq!(mgr.sessions.len(), 1, "untracked unlink must not touch map");
+    assert_eq!(mgr.event_tasks.len(), 1);
+    // The unrelated task must still be alive (sender not dropped).
+    let still_alive = tokio::time::timeout(
+        std::time::Duration::from_millis(100),
+        &mut rx_other,
+    )
+    .await;
+    assert!(still_alive.is_err(), "unrelated task must not be aborted");
+}
+
+#[cfg(feature = "copilot-sdk")]
+#[tokio::test]
+async fn destroy_session_aborts_event_task_and_invokes_session_destroy() {
+    let (mut mgr, _rx, _status_rx) = BridgeManager::new();
+    let sid = "sess-destroy".to_string();
+
+    let (session, log) = stub_session_with_log(&sid);
+    let (handle, rx) = spawn_abort_sentinel();
+    mgr.event_tasks.insert(sid.clone(), handle);
+    mgr.sessions.insert(sid.clone(), session);
+
+    mgr.destroy_session(&sid).await.expect("destroy should succeed");
+
+    assert!(mgr.sessions.is_empty());
+    assert!(mgr.event_tasks.is_empty());
+
+    // SDK-side destroy RPC must have been driven.
+    let calls = log.lock().unwrap().clone();
+    assert!(
+        calls.iter().any(|m| m == "session.destroy"),
+        "expected session.destroy RPC, saw: {calls:?}"
+    );
+
+    let drop_observed = tokio::time::timeout(std::time::Duration::from_millis(500), rx).await;
+    assert!(
+        drop_observed.is_ok() && drop_observed.unwrap().is_err(),
+        "event forwarder task must be aborted on destroy"
+    );
+}
+
+#[cfg(feature = "copilot-sdk")]
+#[tokio::test]
+async fn destroy_session_is_noop_when_not_tracked() {
+    let (mut mgr, _rx, _status_rx) = BridgeManager::new();
+    // No entries inserted — destroy must silently succeed and not invoke SDK.
+    mgr.destroy_session("sess-missing")
+        .await
+        .expect("destroy of unknown session must be Ok");
+    assert!(mgr.sessions.is_empty());
+    assert!(mgr.event_tasks.is_empty());
+}
+
+#[cfg(feature = "copilot-sdk")]
+#[tokio::test]
+async fn resume_session_is_idempotent_when_already_tracked() {
+    let (mut mgr, _rx, _status_rx) = BridgeManager::new();
+    let sid = "sess-resume".to_string();
+
+    // Pre-populate the tracked session; `client` stays `None`. The early
+    // cached-return branch must fire before any `require_client()` call,
+    // otherwise this test would produce `BridgeError::NotConnected`.
+    let (session, log) = stub_session_with_log(&sid);
+    mgr.sessions.insert(sid.clone(), session);
+
+    let info = mgr
+        .resume_session(&sid, Some("/tmp/work"), Some("gpt-5"))
+        .await
+        .expect("cached resume must succeed without a live client");
+
+    assert_eq!(info.session_id, sid);
+    assert!(info.is_active);
+    assert_eq!(info.working_directory.as_deref(), Some("/tmp/work"));
+    assert_eq!(info.model.as_deref(), Some("gpt-5"));
+    assert_eq!(
+        mgr.sessions.len(),
+        1,
+        "idempotent resume must not duplicate sessions"
+    );
+    assert!(
+        log.lock().unwrap().is_empty(),
+        "idempotent resume must not issue any SDK RPC"
+    );
+}
+
+#[cfg(feature = "copilot-sdk")]
+#[tokio::test]
+async fn abort_session_drives_session_abort_rpc() {
+    let (mut mgr, _rx, _status_rx) = BridgeManager::new();
+    let sid = "sess-abort".to_string();
+    let (session, log) = stub_session_with_log(&sid);
+    mgr.sessions.insert(sid.clone(), session);
+
+    mgr.abort_session(&sid)
+        .await
+        .expect("abort_session should succeed with stub");
+
+    let calls = log.lock().unwrap().clone();
+    assert_eq!(
+        calls,
+        vec!["session.abort".to_string()],
+        "abort_session must drive exactly one session.abort RPC"
+    );
+}
+
+#[cfg(feature = "copilot-sdk")]
+#[tokio::test]
+async fn abort_session_unknown_id_returns_session_not_found() {
+    let (mgr, _rx, _status_rx) = BridgeManager::new();
+    let err = mgr
+        .abort_session("sess-missing")
+        .await
+        .expect_err("abort of unknown session must error");
+    assert!(
+        matches!(err, BridgeError::SessionNotFound(ref s) if s == "sess-missing"),
+        "expected SessionNotFound, got {err:?}"
+    );
+}
+
 #[cfg(feature = "copilot-sdk")]
 #[tokio::test]
 async fn raw_rpc_call_rejects_oversized_body() {
