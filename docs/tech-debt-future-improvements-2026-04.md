@@ -714,3 +714,24 @@ actionable so a future engineer can pick them up.
 - **Proposed change**: (a) add a unit test that reads `dist/index.html` after `pnpm --filter @tracepilot/desktop build` and asserts every `<script>` has a `src=` (no inline bodies); (b) add a snapshot test of the `tauri.conf.json` `csp` string so any change must be deliberate and reviewed; (c) longer-term, a Playwright/Tauri smoke that opens each route and listens for `securitypolicyviolation` events on `window`.
 - **Risk / why deferred**: Security-adjacent test infra; wants its own wave alongside w108's deeper refactor so the smoke test can prove the stricter CSP works.
 - **Effort**: S (static tests) / M (Playwright)
+
+### w110 — Property-based path-traversal testing with proptest
+- **Area**: `crates/tracepilot-tauri-bindings/src/validators/path.rs` and `helpers/path.rs`.
+- **Observation**: Current validator tests are example-based (hand-picked `..`, `\\server\share`, `\0`, etc.). A dedicated `proptest` strategy generating arbitrary mixes of path separators, UTF-8 codepoints, control bytes and Windows device-name variants would give far stronger coverage of the `validate_path_segment` / `validate_path_within` seams, especially for subtle Windows edge cases (trailing dots/spaces, NTFS alternate data streams via `:`, 8.3 short names).
+- **Proposed change**: add `proptest` as a dev-dependency on `tracepilot-tauri-bindings` and encode two invariants: (1) any input containing `..` / `/` / `\\` / `\0` is rejected; (2) any accepted input joined onto a trusted parent canonicalises back to inside that parent. Gate behind a `proptest` feature so default `cargo test` stays fast.
+- **Risk / why deferred**: adds a dev-dep and 1-2s per CI run; non-trivial to write strategies that shrink well. Deferred to a wave that can also add proptest to a few adjacent validators for consistency.
+- **Effort**: M
+
+### w110 — Symlink-resolving validator that works before the file exists
+- **Area**: `crates/tracepilot-tauri-bindings/src/helpers/path.rs`.
+- **Observation**: `validate_write_path_within` canonicalises the *parent* when the target does not yet exist. An attacker who can race-create a symlink as the parent between validation and open would defeat the check (classic TOCTOU). We partially mitigate in the file-browser by re-canonicalising after `exists()`, but the generic helper cannot.
+- **Proposed change**: adopt `openat2(RESOLVE_NO_SYMLINKS|RESOLVE_BENEATH)` on Linux and `NtCreateFile` + `OBJ_DONT_REPARSE` on Windows so validation + open is a single, atomic syscall. Fall back to the current two-step canonicalise for platforms without the primitive.
+- **Risk / why deferred**: requires unsafe FFI on Windows and kernel ≥5.6 on Linux; significant surface area for a modest hardening over current behaviour (which already blocks the common cases). Deferred because current TOCTOU windows are short and the attacker needs write access to the session dir.
+- **Effort**: L
+
+### w110 — Windows UNC / extended-length / verbatim-path hardening
+- **Area**: `crates/tracepilot-tauri-bindings/src/helpers/path.rs::normalize_canonicalized`.
+- **Observation**: `normalize_canonicalized` strips the `\\?\` prefix only for drive-rooted paths and leaves UNC paths alone. Other Windows extended-length forms (`\\?\UNC\` vs `\\.\` device namespace, forward-slash vs backslash normalisation) are not exhaustively tested. An adversarial path like `\\.\GLOBALROOT\...` would be rejected today (it doesn't canonicalise to anywhere under copilot_home) but we don't have a regression test for that specifically.
+- **Proposed change**: add an explicit allow-list of accepted Windows path prefixes and reject `\\.\` device paths, `\\?\GLOBALROOT\`, and NT object-namespace paths up front, before canonicalize. Add tests covering each of these.
+- **Risk / why deferred**: low-probability attack surface; would need Windows-only test fixtures. Batch with the broader UNC test matrix when a dedicated Windows QA wave runs.
+- **Effort**: S

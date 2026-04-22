@@ -388,3 +388,80 @@ fn iso_range_mixed_formats_passes() {
     let to = Some("2024-12-31T23:59:59Z".to_string());
     assert!(validate_iso_date_range(&from, &to).is_ok());
 }
+
+// -- validate_path_segment ----------------------------------------------
+//
+// Defence-in-depth checks for single path segments that flow into
+// `parent.join(value)`. All of these must reject at the boundary so that
+// no filesystem operation sees a traversal/injection attempt.
+
+#[test]
+fn path_segment_accepts_plain_name() {
+    assert!(super::validate_path_segment("2.0.0", "Version").is_ok());
+    assert!(super::validate_path_segment("agent.yaml", "file_name").is_ok());
+    assert!(super::validate_path_segment("my-preset_1", "file_name").is_ok());
+}
+
+#[test]
+fn path_segment_rejects_empty() {
+    let err = super::validate_path_segment("", "Version").unwrap_err();
+    assert!(err.to_string().contains("cannot be empty"));
+}
+
+#[test]
+fn path_segment_rejects_null_byte() {
+    let err = super::validate_path_segment("ok\0bad", "file_name").unwrap_err();
+    assert!(err.to_string().contains("NULL"));
+}
+
+#[test]
+fn path_segment_rejects_dotdot_traversal() {
+    assert!(super::validate_path_segment("..", "Version").is_err());
+    assert!(super::validate_path_segment("../etc", "Version").is_err());
+    assert!(super::validate_path_segment("foo..bar", "Version").is_err());
+}
+
+#[test]
+fn path_segment_rejects_forward_slash() {
+    let err = super::validate_path_segment("nested/name", "Version").unwrap_err();
+    assert!(err.to_string().contains("path separators"));
+}
+
+#[test]
+fn path_segment_rejects_backslash() {
+    let err = super::validate_path_segment("nested\\name", "Version").unwrap_err();
+    assert!(err.to_string().contains("path separators"));
+}
+
+#[test]
+fn path_segment_rejects_absolute_unix_path() {
+    // `/etc/passwd` starts with `/`, which is caught by the path-separator
+    // check; also covered by Path::is_absolute.
+    let err = super::validate_path_segment("/etc/passwd", "file_name").unwrap_err();
+    let msg = err.to_string();
+    assert!(msg.contains("path separators") || msg.contains("absolute path"));
+}
+
+#[cfg(windows)]
+#[test]
+fn path_segment_rejects_windows_unc_path() {
+    // UNC paths like `\\server\share` start with a backslash and are
+    // also recognised as absolute by Path::is_absolute on Windows.
+    assert!(super::validate_path_segment(r"\\server\share", "file_name").is_err());
+    assert!(super::validate_path_segment(r"\\?\C:\Windows", "file_name").is_err());
+}
+
+#[cfg(windows)]
+#[test]
+fn path_segment_rejects_windows_drive_path() {
+    // Drive-qualified absolute paths — Path::is_absolute returns true on
+    // Windows even when no leading slash is present.
+    let err = super::validate_path_segment(r"C:\Windows", "file_name").unwrap_err();
+    assert!(err.to_string().contains("path separators"));
+}
+
+#[test]
+fn path_segment_carries_context_in_error() {
+    let err = super::validate_path_segment("", "from_version").unwrap_err();
+    assert!(err.to_string().contains("from_version"));
+}

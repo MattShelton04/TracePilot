@@ -69,3 +69,24 @@ pub(crate) fn validate_asset_name(name: &str) -> CmdResult<()> {
     tracepilot_orchestrator::skills::assets::validate_asset_name(name)
         .map_err(|e| BindingsError::Validation(e.to_string()))
 }
+
+/// Validate a single path segment supplied by the frontend (file name, version
+/// directory, etc.) before it is joined onto a trusted parent directory.
+///
+/// Rejects empty strings, NULL bytes, `..`, path separators (`/` and `\`), and
+/// absolute paths — the same defensive checks enforced by
+/// [`tracepilot_orchestrator::validation::validate_identifier`] under
+/// `SKILL_NAME_RULES` (no character whitelist, so `.` etc. are allowed).
+///
+/// Use this for inputs that name a single sub-directory or file within a
+/// known-safe parent (e.g. `copilot_home/pkg/universal/<version>`), where
+/// `validate_path_within` is overkill because the target path does not yet
+/// exist.
+pub(crate) fn validate_path_segment(value: &str, context: &str) -> CmdResult<()> {
+    tracepilot_orchestrator::validation::validate_identifier(
+        value,
+        tracepilot_orchestrator::validation::SKILL_NAME_RULES,
+        context,
+    )
+    .map_err(BindingsError::Validation)
+}

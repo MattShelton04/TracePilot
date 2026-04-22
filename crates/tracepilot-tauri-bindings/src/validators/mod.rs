@@ -21,7 +21,8 @@ pub(crate) use id::{
     validate_task_id,
 };
 pub(crate) use path::{
-    validate_asset_name, validate_preset_id, validate_skill_name, validate_template_id,
+    validate_asset_name, validate_path_segment, validate_preset_id, validate_skill_name,
+    validate_template_id,
 };
 pub(crate) use rules::{
     MAX_EVENTS_PAGE_LIMIT, clamp_limit, validate_iso_date_range, validate_unix_date_range,
