@@ -777,3 +777,36 @@ actionable so a future engineer can pick them up.
 - **Proposed change**: Add a `scripts/check-adr.mjs` that validates each `docs/adr/NNNN-*.md` has the required headings (Context, Decision, Consequences, Alternatives considered), parses `Date:` and `Status:`, and asserts it's listed in `docs/adr/README.md`. Wire into CI.
 - **Risk / why deferred**: Minor new tooling + a CI job; out of scope for the docs-only Wave 115.
 - **Effort**: S
+
+
+### w128 — Rustdoc front-page polish for workspace crates
+
+- **Area**: crates/*/src/lib.rs.
+- **Observation**: Several crates (`tracepilot-bench`, `tracepilot-test-support`, `tracepilot-indexer`, `tracepilot-orchestrator`) have a one-line crate docstring or none, so `cargo doc` rendering is thin. Only `tracepilot-core` and `tracepilot-export` currently ship a meaningful front page.
+- **Proposed change**: Expand each `//!` block with a short architecture overview + a doctested usage snippet, matching the `tracepilot-core` style. Consider a workspace-level `#![deny(rustdoc::broken_intra_doc_links)]` once front pages are in place.
+- **Risk / why deferred**: Wave 128 is README-focused; expanding crate-level rustdoc without new tests risks doc-test churn and is a separate editorial pass.
+- **Effort**: M
+
+### w128 — Typedoc setup for TypeScript workspace packages
+
+- **Area**: `packages/client`, `packages/types`, `packages/ui`, `packages/test-utils`.
+- **Observation**: README files now enumerate the public API, but there is no generated reference. Consumers and new contributors have no hyperlinked docs for the ~150 exported names in `@tracepilot/client` + `@tracepilot/types`.
+- **Proposed change**: Add a minimal `typedoc` config at the workspace root that ingests each package's `src/index.ts` and emits markdown under `docs/api/<package>/`. Wire to a `pnpm docs` script; optionally publish via GitHub Pages in a follow-up.
+- **Risk / why deferred**: Introduces a new dev-dep and a docs site scope decision (Pages? `docs/`? external?). Out of scope for the docs-only Wave 128.
+- **Effort**: M
+
+### w128 — CI doc-lint for broken markdown cross-references
+
+- **Area**: `scripts/`, `.github/workflows/`.
+- **Observation**: Package READMEs link heavily into `docs/adr/NNNN-*.md` and sibling package READMEs with relative paths. Nothing verifies those links resolve — a rename of any ADR silently breaks every reference.
+- **Proposed change**: Add a `scripts/check-doc-links.mjs` that walks `**/README.md` and `docs/**/*.md`, extracts relative markdown links, and asserts each target exists (and, for anchors, that the heading exists). Run in CI alongside `check-file-sizes.mjs`.
+- **Risk / why deferred**: Small new script + CI job; out of scope for the docs-only Wave 128 but the obvious next step.
+- **Effort**: S
+
+### w128 — Per-package `docs/` subfolders for long-form notes
+
+- **Area**: `packages/*`, `crates/*`.
+- **Observation**: Some packages (`@tracepilot/ui`, `tracepilot-core`) have content in the README that is really reference material (token list, event pipeline). Once READMEs grow past ~150 lines they stop being skimmable.
+- **Proposed change**: Introduce a convention: `README.md` stays short; deeper notes go in `packages/<name>/docs/*.md` (or `crates/<name>/docs/*.md`) linked from the README. Rehome the `@tracepilot/ui` token list and the `tracepilot-core` event-pipeline notes as the first move.
+- **Risk / why deferred**: Editorial refactor; benefits compound as docs grow but not urgent. Revisit when the next crate README would otherwise exceed the 150-line guideline.
+- **Effort**: M
