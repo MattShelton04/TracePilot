@@ -248,8 +248,14 @@ Remaining (deferred — v-model-style emit bridges where a child `@update:foo` h
 - Recommend: a future wave ships a biome rule `no-store-mutation-in-sfc` (forbid `store.<x> = …` / `store.$patch(...)` inside `.vue`) plus a codemod that auto-generates `setX` actions for any exposed ref. That turns this from a recurring manual sweep into an enforced invariant.
 
 ### w96 — `shallowRef` adoption for large reactive arrays
-- `turns`, `events`, `results`, `facets` in `useSessionDetail.ts` and `stores/search.ts`. Safe because we always replace the array; never mutate indices.
-- Add a micro-bench gate (existing `tracepilot-bench` or a vitest perf test) to quantify the win.
+- Landed: migrated 17 sites to `shallowRef` across session detail, sessions, tasks, skills, worktrees (`branches`), search query slice (`results`, `contentTypes`, `excludeContentTypes`), and search facets slice (`stats`, `facets`, `availableRepositories`, `availableToolNames`).
+- Remaining (deferred — would break surgical/deep-mutation semantics a future refactor needs to resolve):
+  - `composables/session/useSessionTurnsRefresh.ts::turns` — `mergeTurns` intentionally mutates `existing[i] = next` and `existing.push(...)` to preserve object identity on unchanged turns (keeps Vue's `v-for :key` + memoized turn components from re-rendering). Migrating would require rewriting `mergeTurns` to emit a new array and relying on `:key` stability alone; the trade-off (more allocations per refresh vs. fewer reactive-dep dirtying) should be benchmarked.
+  - `stores/worktrees.ts::worktrees` — `hydrateDiskUsageBatch`, `lockWorktree`, and `unlockWorktree` splice individual items via `worktrees.value[idx] = { ...worktrees.value[idx], ... }`. Requires refactoring to wholesale replacement (cheap here, but couples unrelated call sites).
+  - `stores/worktrees.ts::registeredRepos` — `toggleFavourite` deep-mutates `repo.favourite = newState` on an object inside the array. Move to a replace-by-index pattern first.
+  - `stores/mcp.ts::servers` / `::healthResults` — backing value is a `Map`; `loadServers`/`addServer`/`updateServer`/`removeServer`/`toggleServer`/`checkHealth` all call `.set()`/`.delete()` on `.value`. `shallowRef<Map>` wouldn't notify on those mutations — would need the actions to replace the map wholesale (e.g. `servers.value = new Map(servers.value).set(...)`), which is a bigger ergonomic shift.
+  - `composables/useSessionDetail.ts::loaded` — backing value is a `Set` mutated via `.add/.delete/.clear`, same caveat as above.
+- Future work: add a micro-bench (existing `tracepilot-bench` or a vitest perf test) to quantify the win before tackling `turns`, which is the highest-impact remaining site.
 
 ### w97 — Visibility-gated polling
 - Every `usePolling()` call that re-polls more than once per 5s should pause when `document.visibilityState === 'hidden'`. Extend `usePolling` rather than every caller.

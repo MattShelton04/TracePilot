@@ -2,7 +2,7 @@ import { listSessions, reindexSessions } from "@tracepilot/client";
 import type { SessionListItem } from "@tracepilot/types";
 import { runAction, toErrorMessage, useInflightPromise } from "@tracepilot/ui";
 import { defineStore } from "pinia";
-import { computed, ref } from "vue";
+import { computed, ref, shallowRef } from "vue";
 import { isAlreadyIndexingError } from "@/utils/backendErrors";
 import { logError, logWarn } from "@/utils/logger";
 import { usePreferencesStore } from "./preferences";
@@ -26,7 +26,8 @@ export const useSessionsStore = defineStore("sessions", () => {
   /** Minimum interval between ensureIndex calls (2 min). Explicit user-triggered reindex ignores this. */
   const MIN_INDEX_INTERVAL_MS = 2 * 60 * 1000;
 
-  const sessions = ref<SessionListItem[]>([]);
+  // shallowRef: session list is always replaced wholesale (never index-mutated).
+  const sessions = shallowRef<SessionListItem[]>([]);
   const loading = ref(false);
   const indexing = ref(false);
   const error = ref<string | null>(null);

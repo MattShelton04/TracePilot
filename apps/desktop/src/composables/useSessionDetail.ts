@@ -30,7 +30,7 @@ import {
 import type { EventsResponse, SessionDetail } from "@tracepilot/types";
 import { toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
 import type { InjectionKey, UnwrapNestedRefs } from "vue";
-import { inject, reactive, ref } from "vue";
+import { inject, reactive, ref, shallowRef } from "vue";
 import { logDebug, logError, logWarn } from "@/utils/logger";
 import { createSessionCache } from "./session/cache";
 import {
@@ -53,8 +53,9 @@ const REFRESH_THROTTLE_MS = 5_000;
  */
 export function createSessionDetailInstance() {
   const sessionId = ref<string | null>(null);
-  const detail = ref<SessionDetail | null>(null);
-  const events = ref<EventsResponse | null>(null);
+  // shallowRef: these large immutable payloads are always replaced wholesale.
+  const detail = shallowRef<SessionDetail | null>(null);
+  const events = shallowRef<EventsResponse | null>(null);
 
   const loading = ref(false);
   const error = ref<string | null>(null);

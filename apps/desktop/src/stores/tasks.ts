@@ -12,7 +12,7 @@ import {
 import type { Job, NewTask, Task, TaskFilter, TaskStats } from "@tracepilot/types";
 import { runAction, runMutation, toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
 import { defineStore } from "pinia";
-import { computed, ref } from "vue";
+import { computed, ref, shallowRef } from "vue";
 import { logWarn } from "@/utils/logger";
 
 export type TaskSortOption = "newest" | "oldest" | "priority" | "status";
@@ -22,10 +22,11 @@ export type TaskSortOption = "newest" | "oldest" | "priority" | "status";
 
 export const useTasksStore = defineStore("tasks", () => {
   // ─── State ────────────────────────────────────────────────────────
-  const tasks = ref<Task[]>([]);
-  const jobs = ref<Job[]>([]);
-  const stats = ref<TaskStats | null>(null);
-  const selectedTask = ref<Task | null>(null);
+  // shallowRef: list/object replaced wholesale on every fetch/refresh.
+  const tasks = shallowRef<Task[]>([]);
+  const jobs = shallowRef<Job[]>([]);
+  const stats = shallowRef<TaskStats | null>(null);
+  const selectedTask = shallowRef<Task | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
   const searchQuery = ref("");

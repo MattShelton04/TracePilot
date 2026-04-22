@@ -23,7 +23,7 @@ import type {
 } from "@tracepilot/types";
 import { runAction, runMutation, toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
 import { defineStore } from "pinia";
-import { computed, ref } from "vue";
+import { computed, ref, shallowRef } from "vue";
 import { logWarn } from "@/utils/logger";
 import { aggregateSettledErrors } from "@/utils/settleErrors";
 
@@ -33,7 +33,8 @@ const HYDRATION_CONCURRENCY = 4;
 export const useWorktreesStore = defineStore("worktrees", () => {
   // ─── State ────────────────────────────────────────────────────────
   const worktrees = ref<WorktreeInfo[]>([]);
-  const branches = ref<string[]>([]);
+  // shallowRef: branch list is always replaced wholesale.
+  const branches = shallowRef<string[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);
   const currentRepoPath = ref("");

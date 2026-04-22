@@ -6,7 +6,7 @@ import {
 } from "@tracepilot/client";
 import type { SearchFacetsResponse, SearchStatsResponse } from "@tracepilot/types";
 import { useAsyncGuard } from "@tracepilot/ui";
-import { ref } from "vue";
+import { ref, shallowRef } from "vue";
 import { logWarn } from "@/utils/logger";
 import type { QuerySlice } from "./query";
 
@@ -24,12 +24,13 @@ export interface FacetOverrides {
  * or when concurrent indexing/rebuild operations trigger parallel fetches.
  */
 export function createFacetsSlice(q: QuerySlice) {
-  const stats = ref<SearchStatsResponse | null>(null);
-  const facets = ref<SearchFacetsResponse | null>(null);
+  // shallowRef: these payloads are immutable snapshots replaced wholesale.
+  const stats = shallowRef<SearchStatsResponse | null>(null);
+  const facets = shallowRef<SearchFacetsResponse | null>(null);
   const statsLoading = ref(false);
 
-  const availableRepositories = ref<string[]>([]);
-  const availableToolNames = ref<string[]>([]);
+  const availableRepositories = shallowRef<string[]>([]);
+  const availableToolNames = shallowRef<string[]>([]);
 
   const facetGuard = useAsyncGuard();
   const statsGuard = useAsyncGuard();
