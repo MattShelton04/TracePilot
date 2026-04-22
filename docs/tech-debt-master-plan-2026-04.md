@@ -140,6 +140,14 @@ Propagate `SessionId`, `PresetId`, `SkillName`, `RepoId` past the IPC validation
 - Hoist `std::fs::create_dir_all` etc. out of the `SharedOrchestratorState.lock()` critical section in `commands/tasks/orchestrator_start.rs`.
 - Audit `BridgeManager` lock usage: switch `.write()` → `.read()` where the op is read-only.
 
+### w87 — Async discipline cleanup — FI
+- Landed in commit: (1) `orchestrator_start.rs` rescan now uses 3-phase pattern (DB lock → drop → fs+manifest I/O outside lock → re-acquire DB lock only for status updates), matching the pattern already used in `ingest.rs`. (2) `tracing::Instrument::instrument` wrapping on the two `tauri::async_runtime::spawn` bridge forwarders in `lib.rs::init` (bridge_event_forwarder / bridge_status_forwarder spans), and on `spawn_event_forwarder` in `bridge/manager/session_tasks.rs` (sdk_event_forwarder span with session_id field).
+- **FI — `get_or_init_task_db` → `tokio::sync::OnceCell`**: `SharedTaskDb` is `Arc<std::sync::Mutex<Option<TaskDb>>>`; migrating to `Arc<OnceCell<Arc<Mutex<TaskDb>>>>` (or similar) touches `types.rs`, `helpers/db.rs::with_task_db`, `get_or_init_task_db`, and 3+ command files. Current init path is cold (one-time) so the contention win is limited; deferred as a follow-up for when async init becomes load-bearing.
+- **FI — `BridgeManager` `.read()` vs `.write()` audit**: `SharedBridgeManager` is a `tokio::sync::RwLock`. Many callers acquire `.write()` reflexively (e.g., read-only queries in `commands/sdk.rs`). Short-term the `RwLock` is uncontested; a surgical `.read()` sweep would reduce serialization under future SDK load but requires checking each method takes `&self` not `&mut self`.
+- **FI — `ingest.rs` nested manifest+DB lock**: `task_ingest_results` holds both `db.lock()` and `manifest_lock.lock()` while calling `std::fs::remove_file` and `append_task_to_manifest`. Within `spawn_blocking` today so not an async issue, but the DB lock could be dropped before manifest work to let concurrent DB reads proceed. Low priority (retry path, cold).
+- **FI — `config_injector` / `templates` using `std::fs` instead of `tokio::fs`**: All call sites run through `blocking_cmd!`, so correctness is fine. Migrating to `tokio::fs` would let the runtime batch I/O but at the cost of losing the simple synchronous read-modify-write pattern. Not a net win without profiling evidence.
+- **FI — `is_alive` poll loop in `task_orchestrator_stop`**: `std::thread::sleep(300ms)` × 10 inside `spawn_blocking`. Works, but a `tokio::time::sleep` in a fully async rewrite would free the blocking worker. Defer until the command migrates off `spawn_blocking`.
+
 ---
 
 ## Phase 11 — Frontend architectural polish

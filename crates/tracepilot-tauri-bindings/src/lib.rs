@@ -68,20 +68,30 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             {
                 let bridge_for_events = shared_bridge.clone();
                 let app_handle = app.clone();
-                tauri::async_runtime::spawn(async move {
-                    let rx = bridge_for_events.read().await.subscribe();
-                    broadcast::forward_broadcast(rx, app_handle, events::SDK_BRIDGE_EVENT).await;
-                });
+                tauri::async_runtime::spawn(
+                    tracing::Instrument::instrument(
+                        async move {
+                            let rx = bridge_for_events.read().await.subscribe();
+                            broadcast::forward_broadcast(rx, app_handle, events::SDK_BRIDGE_EVENT).await;
+                        },
+                        tracing::info_span!("bridge_event_forwarder"),
+                    ),
+                );
             }
             // Spawn status change forwarding task.
             {
                 let bridge_for_status = shared_bridge.clone();
                 let app_handle = app.clone();
-                tauri::async_runtime::spawn(async move {
-                    let rx = bridge_for_status.read().await.subscribe_status();
-                    broadcast::forward_broadcast(rx, app_handle, events::SDK_CONNECTION_CHANGED)
-                        .await;
-                });
+                tauri::async_runtime::spawn(
+                    tracing::Instrument::instrument(
+                        async move {
+                            let rx = bridge_for_status.read().await.subscribe_status();
+                            broadcast::forward_broadcast(rx, app_handle, events::SDK_CONNECTION_CHANGED)
+                                .await;
+                        },
+                        tracing::info_span!("bridge_status_forwarder"),
+                    ),
+                );
             }
             app.manage(shared_bridge);
 
