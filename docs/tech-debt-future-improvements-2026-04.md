@@ -810,3 +810,31 @@ actionable so a future engineer can pick them up.
 - **Proposed change**: Introduce a convention: `README.md` stays short; deeper notes go in `packages/<name>/docs/*.md` (or `crates/<name>/docs/*.md`) linked from the README. Rehome the `@tracepilot/ui` token list and the `tracepilot-core` event-pipeline notes as the first move.
 - **Risk / why deferred**: Editorial refactor; benefits compound as docs grow but not urgent. Revisit when the next crate README would otherwise exceed the 150-line guideline.
 - **Effort**: M
+
+### w121 — Wire `perf-budget.json` IPC budgets into CI
+- **Area**: `.github/workflows/`, `scripts/`, `crates/tracepilot-bench/`.
+- **Observation**: Wave 121 landed the `ipc_hot_path` Criterion bench and recorded baselines in `crates/tracepilot-bench/BASELINE.md`, but nothing enforces the budgets in `perf-budget.json` (`ipc.*Ms`). A regression would slip through until someone manually re-ran the bench.
+- **Proposed change**: Add a `scripts/check-ipc-budget.mjs` (or equivalent) that parses Criterion's JSON output (`target/criterion/**/estimates.json`), maps each benchmark group to an `ipc.*Ms` key, and fails if the P95 exceeds the budget. Wire it into the existing perf CI job so the bench runs on every PR.
+- **Risk / why deferred**: Criterion runtimes are noisy on shared CI hardware; needs either a dedicated runner or generous tolerance bands. Budget mapping also needs one-time curation.
+- **Effort**: M
+
+### w121 — End-to-end Tauri IPC bench harness
+- **Area**: `apps/desktop/`, `crates/tracepilot-bench/`.
+- **Observation**: `ipc_hot_path` benches the Rust service layer directly (`IndexDb::list_sessions_filtered` etc.) because wiring the full Tauri runtime + webview + IPC bridge from Criterion is infeasible on headless CI. That means the bench misses bridge serialization framing, permission checks, and `AppState` lock contention.
+- **Proposed change**: Build a dedicated `apps/desktop`-level harness (Tauri mock runner or `tauri::test`) that spins up a real `AppHandle` against an in-memory DB and invokes commands via `invoke_handler`. Report the delta vs the pure-Rust baseline so we can quantify bridge overhead.
+- **Risk / why deferred**: Needs Tauri 2 test harness + careful teardown; cross-platform (macOS/Windows/Linux) runners required. Significant scope.
+- **Effort**: L
+
+### w121 — Flame-graph capture for IPC hot paths
+- **Area**: `crates/tracepilot-bench/`, `docs/`.
+- **Observation**: Baselines in `BASELINE.md` tell us *what* is slow but not *why*. When a regression does hit, contributors will want a ready-made way to capture flame graphs for the same fixtures the bench uses.
+- **Proposed change**: Add a `just bench-flamegraph` (or `scripts/bench-flamegraph.ps1`) wrapper that runs `cargo bench --bench ipc_hot_path` under `cargo-flamegraph` (or `samply` on Windows) and drops SVGs into `target/flamegraphs/`. Document in the README.
+- **Risk / why deferred**: Requires an external profiler dependency; not portable to all CI runners. Optional developer tool, not a gate.
+- **Effort**: S
+
+### w121 — Bench additional IPC commands not yet covered
+- **Area**: `crates/tracepilot-bench/benches/ipc_hot_path.rs`.
+- **Observation**: `perf-budget.json` lists `getSessionDetailMs`, `getSessionTurnsMs`, `reindexSessionsMs`, `checkSystemDepsMs`, `getShutdownMetricsMs` and `getWorktreeDiskUsageMs`. Most are already measured transitively (`parsing`, `indexer` benches) or depend on filesystem side effects (`worktree`, `checkSystemDeps`) which are out of scope for a pure Rust bench. Still, a single consolidated bench file mapping each budget key to a named Criterion group would make CI diff-vs-budget trivial.
+- **Proposed change**: Extend `ipc_hot_path.rs` with groups whose names match the budget keys verbatim (`ipc_listSessionsMs` etc.) so the CI script from the first FI entry can blindly join on name. The side-effect commands (`checkSystemDeps`, `getWorktreeDiskUsage`) may need a `bench-support` cfg-gated helper to inject fakes rather than hitting the real filesystem.
+- **Risk / why deferred**: Requires a small amount of `cfg(any(test, feature = "bench"))` surface on tauri-bindings; deferred to avoid scope creep in w121.
+- **Effort**: M

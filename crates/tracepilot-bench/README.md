@@ -23,11 +23,33 @@ cargo doc -p tracepilot-bench --no-deps --open
 ```bash
 cargo bench -p tracepilot-bench                          # run every bench
 cargo bench -p tracepilot-bench -- session_scan          # filter by name
+cargo bench -p tracepilot-bench --bench ipc_hot_path     # IPC hot-path only
 cargo bench -p tracepilot-bench --features dhat-heap     # heap profile
 ```
 
 Profiling output (`dhat-heap.json`) can be loaded in the
 [dh_view](https://nnethercote.github.io/dh_view/dh_view.html) viewer.
+
+## IPC hot-path harness (w121)
+
+The `ipc_hot_path` bench measures the Rust service-layer functions that back
+the hottest Tauri IPC commands (`list_sessions`, `search_content`, `facets`,
+`fts_health`, `get_tool_analysis`, `get_code_impact`, plus the serialization
+leg of `get_analytics`). Each case maps 1:1 to a key under `ipc.*` in
+`perf-budget.json`.
+
+The Tauri runtime is intentionally **not** involved: benches call the pure
+`IndexDb` methods directly against a freshly built, read-only DB. That isolates
+backend latency from the IPC bridge and keeps benches reproducible on CI
+runners without a display server. End-to-end measurement through the real
+bridge is tracked as a future improvement in
+`docs/tech-debt-future-improvements-2026-04.md`.
+
+Baselines captured in [`BASELINE.md`](./BASELINE.md). Compare the P95 (upper
+bound of the Criterion `time:` interval) against the matching `ipc.*Ms` budget
+— any regression that pushes a number within 2× of budget is worth
+investigating. Current numbers are in microseconds, budgets in milliseconds,
+so there is ample headroom.
 
 ## Workspace dependencies
 
@@ -44,6 +66,7 @@ Profiling output (`dhat-heap.json`) can be loaded in the
 
 - `src/lib.rs` — deterministic session fixture generators.
 - `benches/` — Criterion benchmark harnesses (one `*.rs` per scenario).
+- `BASELINE.md` — recorded IPC hot-path numbers (see `ipc_hot_path` bench).
 
 ## Related
 
