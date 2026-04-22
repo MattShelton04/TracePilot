@@ -132,9 +132,17 @@ impl TaskDb {
 fn map_migration_err(err: tracepilot_core::utils::migrator::MigrationError) -> OrchestratorError {
     use tracepilot_core::utils::migrator::MigrationError as ME;
     match err {
+        // Reading/writing the `schema_version` tracking table — treat as a
+        // direct task-DB operation.
         ME::SchemaVersion(s) => OrchestratorError::TaskDb(s),
-        ME::Migration { source, .. } => OrchestratorError::TaskDb(source),
-        ME::BackupSqlite { source, .. } => OrchestratorError::TaskDb(source),
+        // A migration step (DDL/DML) failed. Preserve the step name so the
+        // triage message is actionable rather than a bare rusqlite error.
+        ME::Migration { name, source, .. } => OrchestratorError::TaskDbMigration {
+            name: name.to_string(),
+            source,
+        },
+        // Pre-migration SQLite backup failed — distinct pipeline from CRUD.
+        ME::BackupSqlite { source, .. } => OrchestratorError::TaskDbBackup(source),
         ME::Backup { source, .. } => OrchestratorError::Io(source),
     }
 }
