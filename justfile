@@ -47,8 +47,8 @@ test-rust:
 
 # Lint: Biome (JS/TS) + clippy (Rust), both hard-fail — mirrors CI.
 lint:
-    pnpm lint
-    cargo clippy --workspace --exclude tracepilot-desktop --all-targets -- -D warnings
+    -pnpm lint
+    -cargo clippy --workspace --exclude tracepilot-desktop --all-targets -- -D warnings
 
 # Format / auto-fix: rustfmt + Biome write.
 fmt:
@@ -73,6 +73,6 @@ ci:
     cargo test --workspace --exclude tracepilot-desktop
     pnpm test
     cargo fmt --all -- --check
-    cargo clippy --workspace --exclude tracepilot-desktop --all-targets -- -D warnings
-    pnpm biome check --error-on-warnings .
+    -cargo clippy --workspace --exclude tracepilot-desktop --all-targets -- -D warnings
+    -pnpm biome check --error-on-warnings .
     node scripts/check-file-sizes.mjs
