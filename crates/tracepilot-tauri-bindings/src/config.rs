@@ -525,15 +525,10 @@ impl TracePilotConfig {
     /// This is the low-level "serialize + write" primitive used by [`save()`](Self::save)
     /// and available directly for testing.
     ///
-    /// Note: this is **not** atomic — a crash mid-write could leave a truncated
-    /// file.  A future improvement could use write-to-temp + rename for
-    /// crash-safety.
+    /// Uses atomic write-to-temp-then-rename to prevent data loss on crash.
     pub fn save_to(&self, path: &Path) -> Result<(), BindingsError> {
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
         let content = toml::to_string_pretty(self)?;
-        std::fs::write(path, content)?;
+        tracepilot_orchestrator::json_io::atomic_write_str(path, &content)?;
         Ok(())
     }
 

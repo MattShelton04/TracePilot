@@ -31,14 +31,6 @@ fn registry_path() -> Result<PathBuf> {
     Ok(dir.join("repo-registry.json"))
 }
 
-/// Ensure the parent directory exists.
-fn ensure_dir(path: &Path) -> Result<()> {
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-    Ok(())
-}
-
 /// Read the registry from disk. Returns empty registry if file doesn't exist.
 fn read_registry() -> Result<RegistryFile> {
     let path = registry_path()?;
@@ -54,21 +46,9 @@ fn read_registry() -> Result<RegistryFile> {
 }
 
 /// Write the registry to disk atomically (write to temp, then rename).
-/// On Windows, removes the target first since rename doesn't overwrite.
 fn write_registry(registry: &RegistryFile) -> Result<()> {
     let path = registry_path()?;
-    ensure_dir(&path)?;
-
-    let json = serde_json::to_string_pretty(registry)?;
-    let temp_path = path.with_extension("json.tmp");
-    std::fs::write(&temp_path, &json)?;
-
-    // On Windows, rename fails if target exists; remove first
-    if path.exists() {
-        let _ = std::fs::remove_file(&path);
-    }
-    std::fs::rename(&temp_path, &path)?;
-    Ok(())
+    crate::json_io::atomic_json_write(&path, registry)
 }
 
 /// Normalize a path for deduplication. On Windows, lowercases for
