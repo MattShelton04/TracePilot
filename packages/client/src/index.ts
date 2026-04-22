@@ -15,6 +15,7 @@ export {
   disablePerfTracing,
   enablePerfTracing,
   getIpcPerfLog,
+  isTauri,
 } from "./invoke.js";
 export type { InvokeFn, InvokeOptions, IpcPerfHook } from "./invoke.js";
 

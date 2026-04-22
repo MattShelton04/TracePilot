@@ -1,8 +1,5 @@
 import type { EventCallback, UnlistenFn } from "@tauri-apps/api/event";
-
-function isTauri(): boolean {
-  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-}
+import { isTauri } from "@/lib/mocks";
 
 /**
  * Browser-safe wrapper around Tauri's `listen()`.

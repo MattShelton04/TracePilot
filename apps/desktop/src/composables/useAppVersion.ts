@@ -1,4 +1,5 @@
 import { ref } from "vue";
+import { isTauri } from "@/lib/mocks";
 import { logWarn } from "@/utils/logger";
 
 const appVersion = ref("dev");
@@ -8,18 +9,14 @@ export async function initAppVersion(): Promise<void> {
   if (initialized) return;
   initialized = true;
 
+  if (!isTauri()) return;
+
   try {
-    const { isTauri } = await import("@tauri-apps/api/core");
-    if (isTauri()) {
-      const { getVersion } = await import("@tauri-apps/api/app");
-      appVersion.value = await getVersion();
-    }
+    const { getVersion } = await import("@tauri-apps/api/app");
+    appVersion.value = await getVersion();
   } catch (e) {
-    // Outside Tauri context (browser-only dev mode) — keep 'dev'
-    logWarn(
-      "[useAppVersion] Failed to get version (likely outside Tauri context), keeping 'dev'",
-      e,
-    );
+    // Tauri app plugin unavailable — keep 'dev'
+    logWarn("[useAppVersion] Failed to get version, keeping 'dev'", e);
   }
 }
 

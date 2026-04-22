@@ -177,6 +177,26 @@ Remaining callers that could adopt these composables (logged as FI, not actioned
 - Standardise mock fallback across `sdk.ts` / `mcp.ts` / `skills.ts` / the rest via `createInvokeWithMock(commandName, mockFn)`.
 - Kills `getHealthScores` STUB; replace with real invoke or deprecate.
 
+### w89 — Mock-fallback unification — FI
+Landed central `apps/desktop/src/lib/mocks/index.ts` with three helpers — `isTauri()` (mirrors `@tracepilot/client`'s check but with zero dependency on the client package so test vi.mocks stay simple), `maybeMock(mockValue, tauriFn)` (Tauri-vs-browser branch, with eager-or-lazy mock producer), and `promptForPath(title, defaultPath?)` (prompt-based fallback for the Tauri `open`/`save` dialog plugins, with null-byte/control-char sanitisation). Also exported `isTauri` from `@tracepilot/client` (previously only internal to `invoke.ts`). 6 call-site migrations landed:
+- `apps/desktop/src/utils/tauriEvents.ts` — drop local `isTauri()`, import from `@/lib/mocks`.
+- `apps/desktop/src/utils/openExternal.ts` — replace dynamic `import("@tauri-apps/api/core")` `isTauri` with synchronous `@/lib/mocks` check; keeps the opener-plugin dynamic import so it still tree-shakes.
+- `apps/desktop/src/utils/logger.ts` — replace hand-rolled `"__TAURI_INTERNALS__" in window` with `isTauri()` from `@/lib/mocks` (still cached at module eval to preserve existing test semantics).
+- `apps/desktop/src/composables/useAppVersion.ts` — drop dynamic `import("@tauri-apps/api/core")` for the isTauri check; guard upfront with `isTauri()` from `@/lib/mocks`.
+- `apps/desktop/src/composables/useImportFlow.ts` — `browseFile` uses `isTauri()` + `promptForPath()` (removes duplicated `prompt()`/trim logic).
+- `apps/desktop/src/composables/useBrowseDirectory.ts` — all three dialog helpers (`browseForDirectory`, `browseForSavePath`, `browseForFile`) consolidated onto `isTauri()` + `promptForPath()`; drops the local `sanitizePath` helper (its control-char / trim logic now lives in `promptForPath`).
+
+Remaining fallback sites logged as FI (not actioned to keep diff surgical):
+- **`apps/desktop/src/composables/useWindowRole.ts`** — uses a try/catch around `import("@tauri-apps/api/webviewWindow")` as an implicit isTauri check. Could short-circuit with `isTauri()` upfront to avoid the dynamic-import failure path in browser/Storybook, but the try/catch also legitimately protects against a Tauri-context webviewWindow failure.
+- **`apps/desktop/src/composables/useAlertDispatcher.ts`** — four dynamic `import("@tauri-apps/*")` call-sites (`api/window`, `plugin-notification` ×2, `api/window` ×2) guarded only by outer `isTauri()` checks in helper code; folding into `maybeMock(...)` would simplify the branching but needs a per-callsite audit of the fall-through behaviour.
+- **`apps/desktop/src/composables/useAutoUpdate.ts`** — `check` / `relaunch` dynamic imports behind isTauri checks elsewhere in the file; ripe for `maybeMock` conversion when w94 lands.
+- **`apps/desktop/src/composables/useWindowLifecycle.ts`** — parallel dynamic imports of `@tauri-apps/api/window` + `@tauri-apps/api/event`; candidate for a `maybeMock` + destructure pattern.
+- **`apps/desktop/src/ChildApp.vue` (×2)** — two dynamic `@tauri-apps/api/window` imports inside component methods that could route through `@/lib/mocks`.
+- **`apps/desktop/src/components/settings/SettingsLogging.vue`** — direct `import("@tauri-apps/api/core").invoke` call rather than going through `@tracepilot/client` (overlaps with w94's 25-site sweep).
+- **`apps/desktop/src/__tests__/composables/useImportFlow.test.ts:87`** — test-only `delete window.__TAURI_INTERNALS__` poke. Left as-is; expressing that intent through the central helper would require stubbing `@/lib/mocks`, which fights vitest's module cache for little gain.
+- **`packages/client` mock-data dead-weight** — the original w89 bullet (dynamic import behind `import.meta.env.DEV`, `@tracepilot/client-mocks` subpackage, `getHealthScores` STUB) is still unaddressed. The 29 KB `internal/mockData.ts` remains bundled even in the production Tauri build because `createInvoke` holds a direct reference to `getMockData`. Deferred — it's a ~60-line refactor that touches every domain module and warrants its own wave.
+
+
 ### w90 — `IPC_EVENTS` moves to `@tracepilot/client`
 `IPC_EVENTS` is a domain runtime constant; audit §5.3. Move from `@tracepilot/types` to `@tracepilot/client/events.ts`. Back-compat re-export in types.
 
