@@ -18,8 +18,10 @@ use tracepilot_core::utils::sanitize_error_msg;
 
 /// Kill a child process and reap it to prevent zombie accumulation.
 fn kill_and_reap(child: &mut Child) {
-    let _ = child.kill();
-    let _ = child.wait();
+    // best-effort: the child may already have exited, in which case kill/wait
+    // return errors we cannot act on (and don't want to surface as noise).
+    let _: std::io::Result<()> = child.kill();
+    let _: std::io::Result<std::process::ExitStatus> = child.wait();
 }
 
 /// Check a stdio-based MCP server by spawning the process and sending

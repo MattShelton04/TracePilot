@@ -63,9 +63,10 @@ fn write_registry(registry: &RegistryFile) -> Result<()> {
     let temp_path = path.with_extension("json.tmp");
     std::fs::write(&temp_path, &json)?;
 
-    // On Windows, rename fails if target exists; remove first
+    // On Windows, rename fails if target exists; remove first (best-effort: the
+    // rename below will surface the real error if the target still exists).
     if path.exists() {
-        let _ = std::fs::remove_file(&path);
+        let _: std::io::Result<()> = std::fs::remove_file(&path);
     }
     std::fs::rename(&temp_path, &path)?;
     Ok(())

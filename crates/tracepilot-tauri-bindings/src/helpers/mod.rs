@@ -39,5 +39,5 @@ pub(crate) use cache::{
 pub(crate) use db::{
     get_or_init_task_db, open_index_db, remove_index_db_files, with_session_path, with_task_db,
 };
-pub(crate) use emit::emit_indexing_progress;
+pub(crate) use emit::{emit_best_effort, emit_indexing_progress};
 pub(crate) use path::{copilot_home, validate_path_within, validate_write_path_within};

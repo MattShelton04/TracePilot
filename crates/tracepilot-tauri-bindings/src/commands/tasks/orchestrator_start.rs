@@ -190,11 +190,13 @@ pub async fn task_orchestrator_start(
                     }
                     // Persist context hash for dedup index enforcement
                     if let Some((_, _, Some(hash))) = context_results.iter().find(|(id, _, _)| id == &task.id) {
-                        let _ = tracepilot_orchestrator::task_db::operations::set_context_hash(
+                        if let Err(e) = tracepilot_orchestrator::task_db::operations::set_context_hash(
                             task_db.conn(),
                             &task.id,
                             hash,
-                        );
+                        ) {
+                            tracing::warn!(task_id = %task.id, error = %e, "Failed to persist context hash");
+                        }
                     }
                 }
             }
@@ -230,10 +232,15 @@ pub async fn task_orchestrator_start(
                             continue;
                         }
                         let task_dir = jobs_dir_for_rescan.join(&task.id);
-                        let _ = std::fs::create_dir_all(&task_dir);
+                        if let Err(e) = std::fs::create_dir_all(&task_dir) {
+                            tracing::warn!(task_id = %task.id, path = %task_dir.display(), error = %e, "Failed to create straggler task dir");
+                            continue;
+                        }
                         let result_path = task_dir.join("result.json").to_string_lossy().to_string();
                         let content = fallback_context(task, &result_path);
-                        let _ = std::fs::write(task_dir.join("context.md"), &content);
+                        if let Err(e) = std::fs::write(task_dir.join("context.md"), &content) {
+                            tracing::warn!(task_id = %task.id, error = %e, "Failed to write fallback context.md for straggler");
+                        }
 
                         let model = resolve_task_model(
                             &presets_dir,
@@ -248,11 +255,13 @@ pub async fn task_orchestrator_start(
                             &manifest_task,
                         ).is_ok() {
                             // Mark straggler as in_progress so results can be ingested
-                            let _ = tracepilot_orchestrator::task_db::operations::update_task_status(
+                            if let Err(e) = tracepilot_orchestrator::task_db::operations::update_task_status(
                                 task_db.conn(),
                                 &task.id,
                                 tracepilot_orchestrator::task_db::types::TaskStatus::InProgress,
-                            );
+                            ) {
+                                tracing::warn!(task_id = %task.id, error = %e, "Failed to mark straggler task in_progress");
+                            }
                         }
                     }
                 }

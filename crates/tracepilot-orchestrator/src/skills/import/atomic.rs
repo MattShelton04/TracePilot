@@ -65,8 +65,8 @@ where
     match populate(&staging_dir) {
         Ok(value) => {
             std::fs::rename(&staging_dir, &final_dir).map_err(|e| {
-                // Best-effort cleanup of the staging directory.
-                let _ = std::fs::remove_dir_all(&staging_dir);
+                // Best-effort cleanup of the staging directory; the primary error propagates.
+                let _: std::io::Result<()> = std::fs::remove_dir_all(&staging_dir);
                 // If the final directory appeared between our exists() check
                 // and the rename (TOCTOU race), report as duplicate.
                 if final_dir.exists() {
@@ -81,7 +81,8 @@ where
             Ok((final_dir, value))
         }
         Err(e) => {
-            let _ = std::fs::remove_dir_all(&staging_dir);
+            // Best-effort cleanup of the staging directory on populate failure.
+            let _: std::io::Result<()> = std::fs::remove_dir_all(&staging_dir);
             Err(e)
         }
     }

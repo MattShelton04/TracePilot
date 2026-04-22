@@ -117,7 +117,8 @@ pub async fn task_orchestrator_stop(
             // Clean up heartbeat after stop so health immediately reports "stopped".
             let heartbeat_path = jobs_dir.join("heartbeat.json");
             if heartbeat_path.exists() {
-                let _ = std::fs::remove_file(&heartbeat_path);
+                // best-effort: if removal fails, the next health check will simply see a stale file.
+                let _: std::io::Result<()> = std::fs::remove_file(&heartbeat_path);
             }
         } else {
             // Fallback: handle lost (app restarted) — try manifest in jobs_dir.
@@ -127,7 +128,7 @@ pub async fn task_orchestrator_stop(
 
             if manifest_path.exists() {
                 // Best-effort: set shutdown flag so a still-alive process exits.
-                let _ =
+                let _: Result<(), _> =
                     tracepilot_orchestrator::task_orchestrator::manifest::update_manifest_shutdown(
                         &manifest_path,
                     );
@@ -136,12 +137,14 @@ pub async fn task_orchestrator_stop(
             // Clean up stale heartbeat so the next health check returns "stopped"
             // instead of staying stuck on "stale" forever.
             if heartbeat_path.exists() {
-                let _ = std::fs::remove_file(&heartbeat_path);
+                // best-effort: stale-file cleanup.
+                let _: std::io::Result<()> = std::fs::remove_file(&heartbeat_path);
             }
 
             // Also remove manifest to fully reset state.
             if manifest_path.exists() {
-                let _ = std::fs::remove_file(&manifest_path);
+                // best-effort: stale-file cleanup.
+                let _: std::io::Result<()> = std::fs::remove_file(&manifest_path);
             }
         }
 

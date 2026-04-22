@@ -331,8 +331,13 @@ impl IndexDb {
                 Ok(index_info)
             }
             Err(e) => {
-                let _ = self.conn.execute_batch("ROLLBACK TO upsert_session");
-                let _ = self.conn.execute_batch("RELEASE upsert_session");
+                // best-effort rollback/release: the primary error `e` is propagated regardless.
+                if let Err(rb_err) = self.conn.execute_batch("ROLLBACK TO upsert_session") {
+                    tracing::warn!(error = %rb_err, "ROLLBACK TO upsert_session failed");
+                }
+                if let Err(rel_err) = self.conn.execute_batch("RELEASE upsert_session") {
+                    tracing::warn!(error = %rel_err, "RELEASE upsert_session failed");
+                }
                 Err(e)
             }
         }
@@ -442,7 +447,9 @@ impl IndexDb {
                 Ok(count)
             }
             Err(e) => {
-                let _ = self.conn.execute_batch("ROLLBACK");
+                if let Err(rb_err) = self.conn.execute_batch("ROLLBACK") {
+                    tracing::warn!(error = %rb_err, "ROLLBACK after prune_deleted failed");
+                }
                 Err(e)
             }
         }

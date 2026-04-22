@@ -172,8 +172,13 @@ impl IndexDb {
                 Ok(count)
             }
             Err(e) => {
-                let _ = self.conn.execute_batch("ROLLBACK TO upsert_search");
-                let _ = self.conn.execute_batch("RELEASE upsert_search");
+                // best-effort rollback/release: the primary error `e` is propagated regardless.
+                if let Err(rb_err) = self.conn.execute_batch("ROLLBACK TO upsert_search") {
+                    tracing::warn!(error = %rb_err, "ROLLBACK TO upsert_search failed");
+                }
+                if let Err(rel_err) = self.conn.execute_batch("RELEASE upsert_search") {
+                    tracing::warn!(error = %rel_err, "RELEASE upsert_search failed");
+                }
                 Err(e)
             }
         }
@@ -294,9 +299,11 @@ impl IndexDb {
             Ok(total_inserted)
         })();
 
-        // Helper: restore FTS triggers (idempotent via IF NOT EXISTS)
+        // Helper: restore FTS triggers (idempotent via IF NOT EXISTS).
+        // Trigger recreation is best-effort: if it fails, the next writer call will
+        // also fail and surface the root cause loudly via `?` propagation.
         let restore_triggers = |conn: &rusqlite::Connection| {
-            let _ = conn.execute_batch(
+            if let Err(e) = conn.execute_batch(
                 "CREATE TRIGGER IF NOT EXISTS search_content_ai AFTER INSERT ON search_content BEGIN
                     INSERT INTO search_fts(rowid, content) VALUES (new.id, new.content);
                  END;
@@ -309,7 +316,9 @@ impl IndexDb {
                         VALUES ('delete', old.id, old.content);
                     INSERT INTO search_fts(rowid, content) VALUES (new.id, new.content);
                  END;",
-            );
+            ) {
+                tracing::warn!(error = %e, "Failed to restore FTS triggers after bulk write rollback");
+            }
         };
 
         match result {
@@ -318,7 +327,9 @@ impl IndexDb {
                 // If it does, ROLLBACK and restore triggers before returning the error —
                 // otherwise the dangling transaction would silently eat any fallback writes.
                 if let Err(commit_err) = self.conn.execute_batch("COMMIT") {
-                    let _ = self.conn.execute_batch("ROLLBACK");
+                    if let Err(rb_err) = self.conn.execute_batch("ROLLBACK") {
+                        tracing::warn!(error = %rb_err, "ROLLBACK after failed COMMIT failed");
+                    }
                     restore_triggers(&self.conn);
                     return Err(commit_err.into());
                 }
@@ -331,7 +342,9 @@ impl IndexDb {
                 Ok(count)
             }
             Err(e) => {
-                let _ = self.conn.execute_batch("ROLLBACK");
+                if let Err(rb_err) = self.conn.execute_batch("ROLLBACK") {
+                    tracing::warn!(error = %rb_err, "ROLLBACK after bulk write failure failed");
+                }
                 restore_triggers(&self.conn);
                 Err(e)
             }

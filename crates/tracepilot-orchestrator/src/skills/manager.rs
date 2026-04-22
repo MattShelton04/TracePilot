@@ -163,8 +163,17 @@ pub fn rename_skill(skill_dir: &Path, new_name: &SkillName) -> Result<PathBuf, S
 
     // Now rename the directory — if this fails, the old dir still has valid content
     if let Err(e) = std::fs::rename(skill_dir, &new_dir) {
-        // Rollback: restore original SKILL.md content
-        let _ = std::fs::write(&skill_path, &content);
+        // Rollback: restore original SKILL.md content. If this fails, the on-disk
+        // SKILL.md will have the new name but the directory retains the old name —
+        // surface the rollback failure via tracing so an operator can fix it.
+        if let Err(rb_err) = std::fs::write(&skill_path, &content) {
+            tracing::error!(
+                path = %skill_path.display(),
+                rollback_error = %rb_err,
+                original_error = %e,
+                "Failed to roll back SKILL.md after rename failure — manual cleanup may be required"
+            );
+        }
         return Err(e.into());
     }
 

@@ -56,7 +56,7 @@ pub(super) fn write_backup(conn: &Connection, dest_path: &Path) -> Result<(), Ba
     // Use a sibling temp file so the rename that follows is always same-filesystem.
     let tmp_path = dest_path.with_extension("bak.tmp");
     // Remove any leftover temp from a previous aborted attempt (best-effort).
-    let _ = std::fs::remove_file(&tmp_path);
+    let _: std::io::Result<()> = std::fs::remove_file(&tmp_path);
 
     let mut dest = Connection::open(&tmp_path).map_err(BackupError::Sqlite)?;
     {

@@ -156,9 +156,9 @@ pub async fn task_ingest_results(
                                 let task_dir = jobs_dir.join(&task.id);
 
                                 // Clean up old result/status files so the orchestrator
-                                // treats it as a fresh task
-                                let _ = std::fs::remove_file(task_dir.join("result.json"));
-                                let _ = std::fs::remove_file(task_dir.join("status.json"));
+                                // treats it as a fresh task (best-effort: missing-file is fine).
+                                let _: std::io::Result<()> = std::fs::remove_file(task_dir.join("result.json"));
+                                let _: std::io::Result<()> = std::fs::remove_file(task_dir.join("status.json"));
 
                                 let manifest_task = tracepilot_orchestrator::task_orchestrator::manifest::ManifestTask::from_task(
                                     &task,

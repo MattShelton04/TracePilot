@@ -30,7 +30,8 @@ where
             .read_to_end(&mut buf)
             .map(|_| buf)
             .map_err(|e| OrchestratorError::launch_ctx(format!("Failed to read {label}"), e));
-        let _ = tx.send(result);
+        // best-effort: caller may have timed out and dropped the receiver.
+        let _: std::result::Result<(), std::sync::mpsc::SendError<_>> = tx.send(result);
     });
     rx
 }
@@ -88,7 +89,9 @@ pub(super) fn execute_with_timeout(
                 })??;
                 Ok((stdout, stderr, status))
             });
-        let _ = tx.send(result);
+        // best-effort: if the main thread has already hit recv_timeout, the
+        // receiver will be dropped and this send becomes a no-op.
+        let _: std::result::Result<(), std::sync::mpsc::SendError<_>> = tx.send(result);
     });
 
     match rx.recv_timeout(Duration::from_secs(timeout_secs)) {

@@ -5,7 +5,8 @@ use crate::cache::TtlCache;
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
 use crate::helpers::{
-    emit_indexing_progress, indexed_session_to_list_item, read_config, remove_index_db_files,
+    emit_best_effort, emit_indexing_progress, indexed_session_to_list_item, read_config,
+    remove_index_db_files,
 };
 use crate::types::{
     SearchFacetsResponse, SearchResultItem, SearchResultsResponse, SearchSemaphore,
@@ -15,7 +16,6 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, LazyLock};
 use std::time::Duration;
-use tauri::Emitter;
 use tokio::sync::Semaphore;
 
 // ---------------------------------------------------------------------------
@@ -96,7 +96,7 @@ pub async fn reindex_sessions(
     let index_path = cfg.index_db_path();
     let app_handle = app.clone();
 
-    let _ = app.emit(crate::events::INDEXING_STARTED, ());
+    emit_best_effort(&app, crate::events::INDEXING_STARTED, ());
 
     let result = tokio::task::spawn_blocking(move || {
         let _permit = permit;
@@ -128,7 +128,7 @@ pub async fn reindex_sessions(
     })
     .await;
 
-    let _ = app.emit(crate::events::INDEXING_FINISHED, ());
+    emit_best_effort(&app, crate::events::INDEXING_FINISHED, ());
 
     // Invalidate facets cache after reindex.
     invalidate_facets_cache();
@@ -170,7 +170,7 @@ pub async fn reindex_sessions_full(
     let index_path = cfg.index_db_path();
     let app_handle = app.clone();
 
-    let _ = app.emit(crate::events::INDEXING_STARTED, ());
+    emit_best_effort(&app, crate::events::INDEXING_STARTED, ());
 
     let result = tokio::task::spawn_blocking(move || {
         let _permit = permit;
@@ -189,7 +189,7 @@ pub async fn reindex_sessions_full(
     })
     .await;
 
-    let _ = app.emit(crate::events::INDEXING_FINISHED, ());
+    emit_best_effort(&app, crate::events::INDEXING_FINISHED, ());
 
     // Invalidate facets cache after full reindex.
     invalidate_facets_cache();
@@ -438,7 +438,7 @@ pub async fn rebuild_search_index(
     let index_path = cfg.index_db_path();
     let app_handle = app.clone();
 
-    let _ = app.emit(crate::events::SEARCH_INDEXING_STARTED, ());
+    emit_best_effort(&app, crate::events::SEARCH_INDEXING_STARTED, ());
 
     let result = tokio::task::spawn_blocking(move || {
         let _permit = permit;
@@ -446,7 +446,8 @@ pub async fn rebuild_search_index(
             &session_state_dir,
             &index_path,
             |progress| {
-                let _ = app_handle.emit(
+                emit_best_effort(
+                    &app_handle,
                     crate::events::SEARCH_INDEXING_PROGRESS,
                     serde_json::json!({
                         "current": progress.current,
@@ -464,7 +465,8 @@ pub async fn rebuild_search_index(
     if success {
         invalidate_facets_cache();
     }
-    let _ = app.emit(
+    emit_best_effort(
+        &app,
         crate::events::SEARCH_INDEXING_FINISHED,
         serde_json::json!({"success": success}),
     );
@@ -551,9 +553,10 @@ fn spawn_search_content_phase2<F>(
     tokio::task::spawn_blocking(move || {
         let _permit = permit;
         let start = std::time::Instant::now();
-        let _ = app.emit(crate::events::SEARCH_INDEXING_STARTED, ());
+        emit_best_effort(&app, crate::events::SEARCH_INDEXING_STARTED, ());
         match search_fn(&session_state_dir, &index_path, &mut |progress| {
-            let _ = app.emit(
+            emit_best_effort(
+                &app,
                 crate::events::SEARCH_INDEXING_PROGRESS,
                 serde_json::json!({
                     "current": progress.current,
@@ -568,14 +571,16 @@ fn spawn_search_content_phase2<F>(
                     elapsed_ms = start.elapsed().as_millis(),
                     "{}", debug_label
                 );
-                let _ = app.emit(
+                emit_best_effort(
+                    &app,
                     crate::events::SEARCH_INDEXING_FINISHED,
                     serde_json::json!({"success": true}),
                 );
             }
             Err(e) => {
                 tracing::warn!(error = %e, "{}", warn_label);
-                let _ = app.emit(
+                emit_best_effort(
+                    &app,
                     crate::events::SEARCH_INDEXING_FINISHED,
                     serde_json::json!({"success": false, "error": e.to_string()}),
                 );

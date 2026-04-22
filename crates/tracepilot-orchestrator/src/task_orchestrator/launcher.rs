@@ -84,11 +84,13 @@ pub fn prepare_jobs_dir(jobs_dir: &Path, task_ids: &[String]) -> Result<()> {
     for task_id in task_ids {
         let task_dir = jobs_dir.join(task_id);
         std::fs::create_dir_all(&task_dir)?;
-        // Clean stale IPC files so a restarted orchestrator doesn't ingest old results
+        // Clean stale IPC files so a restarted orchestrator doesn't ingest old results.
         for stale_file in &["result.json", "status.json"] {
             let path = task_dir.join(stale_file);
             if path.exists() {
-                let _ = std::fs::remove_file(&path);
+                // best-effort: a stale file that can't be removed will be overwritten
+                // by the next write, so this failure is tolerable.
+                let _: std::io::Result<()> = std::fs::remove_file(&path);
             }
         }
     }
@@ -170,7 +172,8 @@ pub fn launch_orchestrator(
         tracing::warn!(error = %e, "Failed to write initial heartbeat file");
     } else if let Err(e) = std::fs::rename(&tmp_heartbeat, &heartbeat_path) {
         tracing::warn!(error = %e, "Failed to rename initial heartbeat file");
-        let _ = std::fs::remove_file(&tmp_heartbeat);
+        // best-effort: clean up the temp so we don't leak it on disk.
+        let _: std::io::Result<()> = std::fs::remove_file(&tmp_heartbeat);
     }
 
     // 5. Launch via spawn_detached_terminal (reuse existing launcher infra)

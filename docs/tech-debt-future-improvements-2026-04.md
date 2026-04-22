@@ -238,3 +238,11 @@ actionable so a future engineer can pick them up.
 - **Proposed change**: If a second caller ever needs atomic directory install, extract to `tracepilot_core::utils::atomic::install_dir` generic over the error type (with a duplicate-detection closure / sentinel). In parallel, promote `atomic_json_write` (8 callers) to `core::utils::atomic::write_file` — it is already error-type agnostic via `std::io::Error`.
 - **Risk / why deferred**: Still single-use for `atomic_dir_install`; `atomic_json_write` move would fan out across 8 callers and 3 modules. Better as a dedicated wave.
 - **Effort**: M
+
+
+### w82 — Residual `let _` sites and Mutex migration
+- **Area**: `crates/tracepilot-export/src/render/markdown/{header,turns,footer}.rs` (~55 `let _ = writeln!(md, ...)` / `write!(md, ...)` sites, one macro suppression in `crates/tracepilot-core/src/utils/sqlite.rs`, two test-only `lock().unwrap()` sites, and the broader `std::sync::Mutex` → `parking_lot::Mutex` migration proposed in the master plan (w82).
+- **Observation**: The Markdown renderer writes `fmt::Result` values that are infallible when the sink is `String`; the current `let _ =` pattern is idiomatic but noisy. The `parking_lot::Mutex` migration was scoped out because `parking_lot` is not yet a workspace dependency and adding it touches `SharedTaskDb` / `SharedOrchestratorState` / `ManifestLock` call sites across the `tauri-bindings` and `orchestrator` crates (≈ 30 sites), each of which currently surfaces `mutex_poisoned()` via `BindingsError`. Both items need a coordinated design decision.
+- **Proposed change**: (a) Replace the renderer sites with `md.write_fmt(format_args!(...))?` inside a helper that returns `fmt::Result`, or bulk-accept the style via an `#[allow(clippy::let_underscore_must_use)]` on the module; (b) land `parking_lot` as an explicit follow-up wave that also deletes the `mutex_poisoned()` helper and simplifies the surrounding `.map_err(|_| mutex_poisoned())?` sites.
+- **Risk / why deferred**: (a) is pure cosmetics (zero-behaviour, ~55 sites). (b) changes the error surface of every command that currently reports `BindingsError::InternalMutexPoisoned` — safer as a dedicated wave with its own review.
+- **Effort**: S (renderer) + M (parking_lot migration)

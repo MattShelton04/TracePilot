@@ -29,10 +29,12 @@ pub fn ensure_schema_version_table(conn: &Connection) -> rusqlite::Result<()> {
     };
     if !has_applied_at {
         // ALTER can fail on exotic older variants; ignore errors so the table
-        // remains usable with the bare `version` column.
-        let _ = conn.execute_batch(
+        // remains usable with the bare `version` column. Logged at debug for observability.
+        if let Err(e) = conn.execute_batch(
             "ALTER TABLE schema_version ADD COLUMN applied_at TEXT DEFAULT (datetime('now'))",
-        );
+        ) {
+            tracing::debug!(error = %e, "ALTER schema_version ADD COLUMN applied_at skipped");
+        }
     }
     Ok(())
 }

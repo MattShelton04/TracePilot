@@ -360,8 +360,13 @@ pub fn seed_builtin_presets(dir: &Path) -> Result<()> {
         if path.exists() {
             if let Ok(existing) = crate::json_io::atomic_json_read_opt::<TaskPreset>(&path) {
                 if existing.map_or(false, |p| p.builtin) {
-                    let _ = std::fs::remove_file(&path);
-                    tracing::info!(id = %id, "Removed deprecated built-in preset");
+                    // best-effort: a failed removal just means the deprecated preset
+                    // remains; next startup will try again.
+                    if let Err(e) = std::fs::remove_file(&path) {
+                        tracing::debug!(id = %id, error = %e, "Failed to remove deprecated built-in preset");
+                    } else {
+                        tracing::info!(id = %id, "Removed deprecated built-in preset");
+                    }
                 }
             }
         }

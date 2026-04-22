@@ -250,7 +250,7 @@ impl BackupStore {
         if let Some(parent) = path.parent() {
             let file_name = path.file_name().unwrap_or_default().to_string_lossy();
             let sidecar = parent.join(format!("{}.meta.json", file_name));
-            let _ = std::fs::remove_file(sidecar);
+            let _: std::io::Result<()> = std::fs::remove_file(sidecar);
         }
 
         Ok(())

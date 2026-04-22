@@ -48,7 +48,10 @@ pub async fn task_create(
                 let manifest_path = std::path::PathBuf::from(&handle.manifest_path);
                 if manifest_path.exists() {
                     let task_dir = jobs_dir.join(&task.id);
-                    let _ = std::fs::create_dir_all(&task_dir);
+                    if let Err(e) = std::fs::create_dir_all(&task_dir) {
+                        tracing::warn!(task_id = %task.id, path = %task_dir.display(), error = %e, "Failed to create hot-add task dir");
+                        return Ok(task);
+                    }
 
                     // Assemble context file for the new task
                     let result_file = task_dir.join("result.json");
@@ -76,7 +79,9 @@ pub async fn task_create(
                     };
 
                     let context_path = task_dir.join("context.md");
-                    let _ = std::fs::write(&context_path, &content);
+                    if let Err(e) = std::fs::write(&context_path, &content) {
+                        tracing::warn!(task_id = %task.id, error = %e, "Failed to write hot-add context.md");
+                    }
 
                     let manifest_task = tracepilot_orchestrator::task_orchestrator::manifest::ManifestTask::from_task(
                         &task, &resolved_model, &jobs_dir,
@@ -93,16 +98,20 @@ pub async fn task_create(
                         tracing::warn!(task_id = %task.id, error = %e, "Failed to hot-add task to manifest");
                     } else {
                         // Mark task as in_progress and bind to the running orchestrator session
-                        let _ = tracepilot_orchestrator::task_db::operations::update_task_status(
+                        if let Err(e) = tracepilot_orchestrator::task_db::operations::update_task_status(
                             db.conn(),
                             &task.id,
                             tracepilot_orchestrator::task_db::types::TaskStatus::InProgress,
-                        );
+                        ) {
+                            tracing::warn!(task_id = %task.id, error = %e, "Failed to mark hot-added task in_progress");
+                        }
                         if let Some(ref sid) = handle.session_uuid {
-                            let _ = tracepilot_orchestrator::task_db::operations::set_orchestrator_session_id(
+                            if let Err(e) = tracepilot_orchestrator::task_db::operations::set_orchestrator_session_id(
                                 db.conn(),
                                 sid,
-                            );
+                            ) {
+                                tracing::warn!(task_id = %task.id, error = %e, "Failed to bind orchestrator session id");
+                            }
                         }
                         tracing::info!(task_id = %task.id, "Hot-added task to running orchestrator manifest");
                     }

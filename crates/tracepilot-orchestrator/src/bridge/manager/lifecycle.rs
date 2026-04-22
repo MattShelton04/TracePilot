@@ -18,7 +18,11 @@ impl BridgeManager {
         // If already connected, auto-disconnect first (idempotent reconnect).
         if self.state == BridgeConnectionState::Connected {
             info!("Already connected — disconnecting before reconnect");
-            let _ = self.disconnect().await;
+            if let Err(e) = self.disconnect().await {
+                // best-effort: reconnect proceeds even if the previous disconnect
+                // surfaced an error — the new connect() reinitialises all state.
+                tracing::debug!(error = %e, "disconnect-before-reconnect returned error (ignored)");
+            }
         }
 
         self.state = BridgeConnectionState::Connecting;

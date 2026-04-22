@@ -1,7 +1,22 @@
 //! Tauri event payload construction.
 
 use crate::types::IndexingProgressPayload;
+use serde::Serialize;
 use tauri::Emitter;
+
+/// Emit a Tauri event as best-effort: failures are logged at `debug` level.
+///
+/// Emit can fail if no webview is listening (e.g. window closed mid-operation).
+/// Such failures are expected and non-fatal, hence debug-level logging rather than warn.
+pub(crate) fn emit_best_effort<P: Serialize + Clone>(
+    app: &tauri::AppHandle,
+    event: &'static str,
+    payload: P,
+) {
+    if let Err(e) = app.emit(event, payload) {
+        tracing::debug!(error = %e, event, "Tauri event emit failed (no listener)");
+    }
+}
 
 /// Convert an `IndexingProgress` from the indexer into our Tauri event payload and emit it.
 pub(crate) fn emit_indexing_progress(
@@ -22,5 +37,5 @@ pub(crate) fn emit_indexing_progress(
         total_events: progress.running_events,
         total_repos: progress.running_repos,
     };
-    let _ = app.emit(crate::events::INDEXING_PROGRESS, payload);
+    emit_best_effort(app, crate::events::INDEXING_PROGRESS, payload);
 }
