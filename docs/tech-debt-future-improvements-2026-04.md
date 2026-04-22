@@ -108,3 +108,51 @@ actionable so a future engineer can pick them up.
 - **Proposed change**: Introduce a single `chartPalettes.ts` that exports named semantic palettes (`semantic`, `donut`, `sankey`) derived from one source of truth; rewrite `sankeyModelColor` to consume the semantic palette by role rather than by colour name.
 - **Risk / why deferred**: Visual-regression risk — model colours are load-bearing in the sankey hover state. Needs a snapshot test pass before consolidating.
 - **Effort**: M
+
+### w77 — PresetDetailSlideover teleport styles live in an unscoped sibling .css
+
+- **Area**: `apps/desktop/src/components/tasks/presetDetail/preset-detail.css` (imported via `<style src>` from `PresetDetailSlideover.vue`)
+- **Observation**: The decomposed slideover re-teleports to `<body>`, so styles were extracted to a sibling `.css` imported unscoped (preserving the original selectors like `.preset-slideover .badge--type`). The per-child `<style scoped>` convention is therefore deliberately skipped for this tree. Class names are unique to the slideover today, but that's only enforced by convention — a future contributor adding `.badge` or `.tag-pill` elsewhere in `apps/desktop` could get accidental style bleed.
+- **Proposed change**: Either (a) migrate the slideover markup out of `Teleport` and into a normal stacking context so scoped styles work per-child, or (b) prefix every selector in `preset-detail.css` with `.preset-slideover` (currently only the badge/btn/tag-pill rules are qualified) so the unscoped file can't leak if class names are reused.
+- **Risk / why deferred**: (a) changes z-index / click-outside / a11y semantics; (b) is mechanical but still a non-trivial CSS rewrite and unrelated to the decomposition itself.
+- **Effort**: S (option b) / M (option a)
+
+### w77 — PresetDetailSection generic wrapper has no default slot typing
+
+- **Area**: `apps/desktop/src/components/tasks/presetDetail/PresetDetailSection.vue`
+- **Observation**: The shared collapsible wrapper exposes a `title: string` prop plus `expanded: boolean` and a `toggle` event, but the default slot is untyped. Four siblings (`PresetPromptSection`, `PresetContextSection`, `PresetOutputSection`, `PresetExecutionSection`) all pass literal emoji-prefixed titles and render their own body content inside — none share markup across sections. A weakly-typed slot means future section additions won't get compiler help when section contracts evolve.
+- **Proposed change**: Add a `<slots>` JSDoc block or `defineSlots<{ default: () => VNode[] }>()`; consider turning the icon prefix into a dedicated `icon` prop/slot so the four sibling components stop hard-coding emoji in their titles (design-system consistency).
+- **Risk / why deferred**: Pure polish; no behaviour change in the wave.
+- **Effort**: S
+
+### w77 — PresetDetailSlideover props still allow a `null` preset
+
+- **Area**: `apps/desktop/src/components/tasks/PresetDetailSlideover.vue` (public prop surface)
+- **Observation**: The parent keeps the original `preset: TaskPreset | null` + `visible: boolean` prop shape for zero-behaviour-change, but the children (`PresetDetailHeader`, `Preset*Section`, `PresetDetailFooter`) require a non-null `preset`. The parent narrows via `v-if="visible && preset"`, but the double-gated state is awkward and `visible=true, preset=null` is representable but meaningless.
+- **Proposed change**: Collapse the two props into a single `preset: TaskPreset | null` where `null` means "hidden"; update `PresetManagerView.vue` to stop passing `visible` separately and rely on presence of the preset.
+- **Risk / why deferred**: Touches `PresetManagerView.vue` and the `usePresetManager` composable (which drives `showDetail`/`detailPreset`). Out of scope for a pure decomposition wave.
+- **Effort**: S
+
+### w77 — McpAddServerModal form reactive is passed as a prop and mutated in children
+
+- **Area**: `apps/desktop/src/components/mcp/addServer/AddServerBasicFields.vue`, `AddServerEnvPairs.vue`, `AddServerAdvanced.vue`, `useAddServerForm.ts`
+- **Observation**: The decomposition passes the `reactive<AddServerForm>()` returned from `useAddServerForm` as a `form` prop into three child components which then write to its fields (`form.transport = opt.value`, `form.scope = 'global'`, `v-model="form.name"`). This works because Vue only shallow-readonly-wraps the props object, not the nested reactive; however it's the first place in `apps/desktop` where a child mutates a prop-borne reactive. Future contributors may not expect writes to propagate, and linters/reviewers may flag it as a prop mutation.
+- **Proposed change**: Switch to `provide`/`inject` for the form state (create a `useAddServerFormContext` pair), or split the form into per-field `defineModel()` bindings for each child so mutations look like explicit two-way bindings.
+- **Risk / why deferred**: `provide`/`inject` is a structural change; `defineModel` explosion would grow child LOC. Both are out of scope for a zero-behaviour decomposition.
+- **Effort**: M
+
+### w77 — `McpAddServerModal` validate() still accepts the legacy `streamable-http` transport
+
+- **Area**: `apps/desktop/src/components/mcp/addServer/useAddServerForm.ts` (`validate`)
+- **Observation**: The URL-required branch checks `form.transport === "sse" || form.transport === "http" || form.transport === "streamable-http"`, but `transportOptions` only offers `stdio | sse | http` (per the MCP 2025 spec comment), and `McpTransport` no longer includes `streamable-http` in some code paths. The literal is preserved byte-for-byte from the original but is dead: the UI cannot set this value, so the third `||` branch never fires.
+- **Proposed change**: Drop the `streamable-http` literal from the union check, or add it back to `transportOptions` if the legacy transport is still meant to be supported for programmatic imports. Either way, synchronise the check with the option list.
+- **Risk / why deferred**: Touches validation semantics; requires product decision on whether `streamable-http` stays a first-class transport. Out of scope for decomposition.
+- **Effort**: S
+
+### w77 — `handleSubmit` is marked `async` but never awaits
+
+- **Area**: `apps/desktop/src/components/mcp/addServer/useAddServerForm.ts` (`handleSubmit`)
+- **Observation**: The submit handler sets `submitting.value = true`, emits `submit`, and sets `submitting.value = false` synchronously on the same tick. The `async` keyword was preserved byte-for-byte from the original but is misleading — the disabled state toggles on-off within a single microtask so the "Adding…" button label is effectively unreachable. The original behaviour is preserved in this wave (zero-change), but the real intent was presumably "disable the button until the parent finishes persisting".
+- **Proposed change**: Have `McpManagerView.vue` pass an async `onSubmit` callback (or a promise) that the modal awaits before clearing `submitting`; alternatively drop `submitting` state entirely and let the parent unmount the modal on success.
+- **Risk / why deferred**: Behaviour change — the submit flow would become async and the parent contract would shift. Needs a coordinated edit with `McpManagerView.vue`.
+- **Effort**: M
