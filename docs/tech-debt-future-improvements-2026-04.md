@@ -481,3 +481,24 @@ actionable so a future engineer can pick them up.
 - **Proposed change**: Once specta coverage in `specta_exports.rs` reaches 100% of commands (currently ~7/165), remove the `generate_handler!` invocation entirely and rely on `builder.mount_events(...)` / `builder.invoke_handler(builder.invoke_handler())` from `tauri-specta`. At that point `IPC_COMMAND_NAMES` and the specta builder share a single list and no source parsing is needed.
 - **Risk / why deferred**: Blocked on the broader specta migration (master plan Phase 1B.*); w99's scope was the TS-side test only.
 - **Effort**: M
+
+### w100 ÔÇö Extend `narrowSessionEvent` coverage to remaining KNOWN event types
+- **Area**: `packages/types/src/session-event-payloads.ts`.
+- **Observation**: w100 introduced `NarrowedSessionEventPayload` with five tagged variants (`tool.execution_start`, `subagent.{started,completed,failed}`, `assistant.message`) plus a catch-all `unknown`. `TRACEPILOT_KNOWN_EVENTS` lists ~40 event types; the remainder (`session.*` lifecycle, `tool.execution_complete`, `user.message`, `assistant.turn_{start,end}`, `assistant.reasoning`, `hook.{start,end}`, `skill.invoked`, etc.) still flow through the `unknown` branch and require ad-hoc `isRecord`/`readString` narrowing at call sites.
+- **Proposed change**: Flesh out the discriminated union with one variant per `TRACEPILOT_KNOWN_EVENT`, each typed to the fields the Rust backend actually emits (see `crates/tracepilot-core/src/models/event_types/`). Drive call-site migration from `SessionEvent.data` -> `narrowSessionEvent(event)` in `toolRenderer`, `turnReducer`, replay transform, etc. Eventually `SessionEvent.data` can be narrowed to `NarrowedSessionEventPayload` itself (current wire shape preserved, just typed tighter).
+- **Risk / why deferred**: Requires field-level schema work against Rust sources (keeping the TS union in sync), plus refactoring every `event.data` consumer. Out of scope for w100's 3-subsystem budget.
+- **Effort**: L
+
+### w100 ÔÇö Narrow `BridgeEvent.data` via tagged union
+- **Area**: `packages/types/src/sdk.ts` (`BridgeEvent`), `apps/desktop/src/stores/sdk/connection.ts` (`recentEvents`).
+- **Observation**: `BridgeEvent` still declares `data: unknown`. No UI consumer currently reads `.data` (`recentEvents` is filtered by `sessionId` and rendered as a counter), so the lack of narrowing is latent debt rather than an active bug. The orchestrator bridge on the Rust side (`crates/tracepilot-orchestrator/src/bridge/mod.rs`) emits a fixed set of event kinds with stable payloads.
+- **Proposed change**: Mirror the Rust `BridgeEvent` variants as a TS discriminated union keyed on `eventType` (same pattern as `NarrowedSessionEventPayload`). Expose `narrowBridgeEvent(ev)` and migrate any future UI that inspects payloads (e.g. a live SDK activity panel) to the tagged form.
+- **Risk / why deferred**: Nothing consumes the payload today, so the refactor is purely anticipatory. Add when the first consumer arrives to avoid premature abstraction.
+- **Effort**: M
+
+### w100 ÔÇö Discriminated `TurnSessionEvent` (remove `checkpointNumber!` non-null assertion)
+- **Area**: `packages/types/src/conversation.ts` (`TurnSessionEvent`), `apps/desktop/src/components/conversation/SessionEventRow.vue`.
+- **Observation**: `TurnSessionEvent` declares `checkpointNumber?: number` as optional on all variants, even though it is only ever populated for `session.compaction_complete` events. `SessionEventRow.vue` uses `event.checkpointNumber!` (non-null assertion) inside the compaction branch because TS cannot narrow the optional field through the `isCompaction(event)` guard.
+- **Proposed change**: Split `TurnSessionEvent` into a discriminated union `{ eventType: "session.compaction_complete"; checkpointNumber?: number } | { eventType: string; ...}`; add an `isCompactionTurnEvent(evt): evt is CompactionTurnSessionEvent` narrow helper. Replace the non-null assertion with the narrowed type.
+- **Risk / why deferred**: Requires auditing every `TurnSessionEvent` construction site (turn reducer, mock data, tests) to tag each event. Low risk but touches many files; deferred to keep w100 surgical.
+- **Effort**: S

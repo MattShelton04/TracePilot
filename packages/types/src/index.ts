@@ -250,6 +250,18 @@ export type {
   VariableType,
 } from "./tasks.js";
 
+// ── session-event-payloads.js ──────────────────────────────────────
+export { narrowSessionEvent } from "./session-event-payloads.js";
+export type {
+  AssistantMessagePayload,
+  NarrowedSessionEventPayload,
+  SubagentCompletedPayload,
+  SubagentFailedPayload,
+  SubagentStartedPayload,
+  ToolExecutionStartPayload,
+  UnknownSessionEventPayload,
+} from "./session-event-payloads.js";
+
 // ── tool-args.js ───────────────────────────────────────────────────
 export { getToolArgs, toolArgString } from "./tool-args.js";
 export type { ToolArgs } from "./tool-args.js";

@@ -1,4 +1,5 @@
 import type { SessionEvent } from "@tracepilot/types";
+import { narrowSessionEvent } from "@tracepilot/types";
 import { logWarn } from "@/utils/logger";
 
 export interface ActivityEntry {
@@ -8,10 +9,6 @@ export interface ActivityEntry {
   label: string;
   detail: string;
   eventType: string;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function readString(value: unknown): string {
@@ -28,65 +25,69 @@ function fileNameFromPath(path: string): string {
 
 function mapEvent(event: SessionEvent, index: number): ActivityEntry | null {
   const timestamp = readString(event.timestamp);
-  const data = isRecord(event.data) ? event.data : {};
+  const payload = narrowSessionEvent(event);
 
   let icon = "📋";
   let label = event.eventType;
   let detail = "";
 
-  switch (event.eventType) {
+  switch (payload.kind) {
     case "tool.execution_start": {
-      const tool = readString(data.toolName) || "unknown";
-      const args = isRecord(data.arguments) ? data.arguments : {};
+      const { toolName, arguments: args } = payload;
 
-      if (tool === "task") {
+      if (toolName === "task") {
         icon = "🚀";
         label = "Dispatched subagent";
         detail = readString(args.name) || "task";
-      } else if (tool === "powershell" || tool === "bash") {
+      } else if (toolName === "powershell" || toolName === "bash") {
         icon = "💻";
-        label = `Running ${tool}`;
+        label = `Running ${toolName}`;
         detail = truncate(readString(args.command), 80);
-      } else if (tool === "view" || tool === "read") {
+      } else if (toolName === "view" || toolName === "read") {
         icon = "📖";
         label = "Reading file";
         detail = fileNameFromPath(readString(args.path));
-      } else if (tool === "create" || tool === "edit") {
+      } else if (toolName === "create" || toolName === "edit") {
         icon = "✏️";
-        label = `Writing file (${tool})`;
+        label = `Writing file (${toolName})`;
         detail = fileNameFromPath(readString(args.path));
-      } else if (tool === "read_agent") {
+      } else if (toolName === "read_agent") {
         icon = "👁️";
         label = "Checking subagent";
         detail = readString(args.agent_id);
       } else {
         icon = "🔧";
-        label = `Tool: ${tool}`;
+        label = `Tool: ${toolName}`;
       }
       break;
     }
     case "subagent.started":
       icon = "▶️";
       label = "Subagent started";
-      detail = readString(data.agentName);
+      detail = payload.agentName;
       break;
     case "subagent.completed":
       icon = "✅";
       label = "Subagent completed";
-      detail = readString(data.agentName);
+      detail = payload.agentName;
       break;
     case "subagent.failed":
       icon = "❌";
       label = "Subagent failed";
-      detail = readString(data.error) || readString(data.agentName);
+      detail = payload.error || payload.agentName;
       break;
     case "assistant.message":
       icon = "🤖";
       label = "Orchestrator thinking";
-      detail = truncate(readString(data.content), 100);
+      detail = truncate(payload.content, 100);
       break;
-    default:
+    case "unknown":
       return null;
+    default: {
+      const _exhaustive: never = payload;
+      void _exhaustive;
+      return null;
+    }
   }
 
   return {
