@@ -141,7 +141,7 @@ impl BridgeManager {
 
         // In TCP (--ui-server) mode, also set this as the foreground session so the
         // CLI's TUI knows about it. This is a best-effort operation — ignore errors.
-        if self.connection_mode.as_deref() == Some("tcp") {
+        if self.connection_mode == Some(crate::bridge::ConnectionMode::Tcp) {
             if let Some(client) = &self.client {
                 match client.set_foreground_session_id(&sid).await {
                     Ok(_) => info!("Set foreground session to {} (--ui-server)", sid),

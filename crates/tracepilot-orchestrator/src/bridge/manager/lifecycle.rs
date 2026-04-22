@@ -3,7 +3,7 @@
 //! an existing `copilot --ui-server`) modes.
 
 use super::BridgeManager;
-use crate::bridge::{BridgeConnectConfig, BridgeConnectionState, BridgeError};
+use crate::bridge::{BridgeConnectConfig, BridgeConnectionState, BridgeError, ConnectionMode};
 
 #[cfg(feature = "copilot-sdk")]
 use tracing::{info, warn};
@@ -25,8 +25,11 @@ impl BridgeManager {
         self.error_message = None;
 
         // Track connection mode based on config
-        let is_tcp = config.cli_url.is_some();
-        self.connection_mode = Some(if is_tcp { "tcp" } else { "stdio" }.to_string());
+        self.connection_mode = Some(if config.cli_url.is_some() {
+            ConnectionMode::Tcp
+        } else {
+            ConnectionMode::Stdio
+        });
         self.cli_url = config.cli_url.clone();
 
         let mut builder = copilot_sdk::Client::builder();

@@ -133,6 +133,23 @@ actionable so a future engineer can pick them up.
 - **Risk / why deferred**: Touches `PresetManagerView.vue` and the `usePresetManager` composable (which drives `showDetail`/`detailPreset`). Out of scope for a pure decomposition wave.
 - **Effort**: S
 
+### w79 — `BridgeConnectConfig::cli_url` still stringly-typed
+
+- **Area**: `crates/tracepilot-orchestrator/src/bridge/mod.rs` (`BridgeConnectConfig`)
+- **Observation**: Wave 79 introduced `ConnectionMode { Stdio, Tcp }` internally but the *input* config `BridgeConnectConfig` still uses `cli_url: Option<String>` as the implicit mode selector. The master plan (w79) envisaged `ConnectionMode { Stdio, Tcp { url: String } }` carrying the URL in the `Tcp` variant; that was deferred to keep the IPC shape (and FE callsites in `apps/desktop/src/stores/sdk/**`) untouched this wave.
+- **Proposed change**: Add a `connection_mode: Option<ConnectionMode>` input field (with URL payload on `Tcp`) and migrate callers; retain `cli_url` as a `#[serde(alias)]`-ed compatibility shim for one release, then drop.
+- **Risk / why deferred**: Changes the IPC input DTO — must land alongside coordinated FE changes (`connection.ts`, `SettingsSdk.vue`, `useAddServerForm.ts` doesn't apply but sdk bridge store does). Out of scope for a zero-wire-change wave.
+- **Effort**: M
+
+### w79 — `McpTransport` wire value is `"http"` but TS type still lists `"streamable-http"`
+
+- **Area**: `packages/types/src/mcp.ts` (`McpTransport`) vs `crates/tracepilot-orchestrator/src/mcp/types.rs` (`McpTransport`)
+- **Observation**: The Rust enum serialises as `"http"` and accepts `"streamable-http"` / `"streamable"` / `"local"` only as deserialisation aliases. The TS union, however, still enumerates every historical spelling as if they were equal first-class values. New TS code can therefore assign `"streamable-http"` to fields that the backend will echo back as `"http"`, causing needless branching (e.g. `McpServerDetailConnection.vue`, `useAddServerForm.ts` both fan out on all three).
+- **Proposed change**: Narrow the TS union to `"stdio" | "sse" | "http"`, add a one-shot normaliser at the IPC boundary for the aliases, and drop the legacy branches in the FE. Coordinate with any persisted user config that may still contain the old spelling (migration on read).
+- **Risk / why deferred**: Behavioural change at the boundary; needs a config-migration check and touches many Vue files. w79 is strict zero-FE-schema-change.
+- **Effort**: M
+
+
 ### w77 — McpAddServerModal form reactive is passed as a prop and mutated in children
 
 - **Area**: `apps/desktop/src/components/mcp/addServer/AddServerBasicFields.vue`, `AddServerEnvPairs.vue`, `AddServerAdvanced.vue`, `useAddServerForm.ts`
@@ -180,3 +197,4 @@ actionable so a future engineer can pick them up.
 - **Proposed change**: Extract mock data + icon mapping into `useOrchestrationActivityFeed()` (or into `useOrchestrationHomeStore` itself so real + mock feed go through the same getter). Returns `feedItems` / `iconFor(type)` / `labelFor(type)`.
 - **Risk / why deferred**: The stale-timestamp behaviour is pre-existing and probably never observable (timestamps are rendered via `formatRelativeTime` which is already coarse), but any refactor would change *when* the mock dates are instantiated. Out of wave-78 scope.
 - **Effort**: S
+

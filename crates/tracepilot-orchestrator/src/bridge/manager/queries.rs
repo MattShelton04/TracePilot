@@ -114,7 +114,7 @@ impl BridgeManager {
             #[cfg(not(feature = "copilot-sdk"))]
             active_sessions: 0,
             error: self.error_message.clone(),
-            connection_mode: self.connection_mode.clone(),
+            connection_mode: self.connection_mode,
         })
     }
 
