@@ -156,3 +156,27 @@ actionable so a future engineer can pick them up.
 - **Proposed change**: Have `McpManagerView.vue` pass an async `onSubmit` callback (or a promise) that the modal awaits before clearing `submitting`; alternatively drop `submitting` state entirely and let the parent unmount the modal on success.
 - **Risk / why deferred**: Behaviour change — the submit flow would become async and the parent contract would shift. Needs a coordinated edit with `McpManagerView.vue`.
 - **Effort**: M
+
+### w78 — OrchestrationHome children re-inject the pinia store individually
+
+- **Area**: `apps/desktop/src/views/orchestration/home/*.vue`
+- **Observation**: After decomposition, four of the five children (`OrchestrationHeroStats`, `OrchestrationActivityFeed`, `OrchestrationSystemHealth`, and indirectly the parent) each call `useOrchestrationHomeStore()` directly. This keeps the prop surface minimal but couples every child to the store's concrete identity, making it harder to reuse them (e.g., on a future read-only `MissionControl` page backed by a different store).
+- **Proposed change**: Introduce a small `provide`/`inject` key (`OrchestrationHomeContextKey`) exposing just the subset each child actually reads (`activeSessions`, `totalSessions`, `registeredRepos`, `worktreeCount`, `staleWorktreeCount`, `totalDiskUsage`, `activityFeed`, `systemDeps`). Children then become store-agnostic.
+- **Risk / why deferred**: Wave 78 is strict zero-behaviour-change decomposition; adding a provide/inject contract would widen the diff and warrants a companion test fixture that doesn't need a real pinia instance.
+- **Effort**: S
+
+### w78 — Budget hero tile dead code should be removed or wired up
+
+- **Area**: `apps/desktop/src/views/orchestration/home/OrchestrationHeroStats.vue`
+- **Observation**: The wired budget tile is commented out; in its place is an `N/A` placeholder. The commented block still references `budgetPercent` (hard-coded `62`) and `budgetBarClass` that no longer exist in the component, plus `.budget-bar` / `.budget-bar-fill` scoped CSS that is now unused. This was preserved verbatim during decomposition to avoid behaviour change, but it is dead weight.
+- **Proposed change**: Either (a) delete the commented markup and the `.budget-bar*` CSS rules, or (b) surface a real `budgetPercent` from `useOrchestrationHomeStore` and replace the `N/A` placeholder tile with the live tile.
+- **Risk / why deferred**: (a) is low-risk but product may want the placeholder kept as a visual promise; (b) needs a budget data source that doesn't exist yet.
+- **Effort**: S
+
+### w78 — Activity feed mock data is embedded in the presentation child
+
+- **Area**: `apps/desktop/src/views/orchestration/home/OrchestrationActivityFeed.vue`
+- **Observation**: The mock feed array (`mock-1` … `mock-4`) and the `feedIconClass` / `feedIconLabel` maps live inside the presentation component. This forces the component to know about both the backend activity-feed shape and the design-system icon mapping, and the mock is evaluated at module load so timestamps are computed once when the view is first imported (not each render). The behaviour matches pre-decomposition exactly.
+- **Proposed change**: Extract mock data + icon mapping into `useOrchestrationActivityFeed()` (or into `useOrchestrationHomeStore` itself so real + mock feed go through the same getter). Returns `feedItems` / `iconFor(type)` / `labelFor(type)`.
+- **Risk / why deferred**: The stale-timestamp behaviour is pre-existing and probably never observable (timestamps are rendered via `formatRelativeTime` which is already coarse), but any refactor would change *when* the mock dates are instantiated. Out of wave-78 scope.
+- **Effort**: S
