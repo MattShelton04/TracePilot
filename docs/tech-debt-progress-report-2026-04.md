@@ -195,9 +195,83 @@ Grouped by theme. Each bullet is its own future wave; all were intentionally ski
 
 ---
 
+## Phase 8 — Rust module decomposition (waves 63–71) ✅
+
+Every file > 900 LOC under `crates/` split into focused submodules with public APIs preserved byte-for-byte.
+
+| Wave | File | Before | After |
+|---|---|---:|---:|
+| 63 | `search_reader.rs` | 1408 | split into 6 |
+| 64 | `process.rs` | 1150 | 6 files + `hidden_command` helper |
+| 65 | `index_db/mod.rs` | 1060 | submodules; `open_readonly` delegated to core |
+| 66 | `events.rs` | 935 | 5 files |
+| 67 | `skills/import.rs` | 918 | 6 files |
+| 68 | `mcp/health.rs` | 823 | 5 files |
+| 69 | indexer `lib.rs` | 840 | `indexing/` tree |
+| 70 | `render/markdown.rs` | — | split; legacy `markdown.rs`/`json.rs` deleted; workspace now `anyhow`-free |
+| 71 | reconstructor, config, helpers, validators, commands/session | — | batch decomp |
+
+## Phase 9 — Vue SFC decomposition (waves 72–78) ✅
+
+Every remaining SFC > 600 LOC decomposed. Parent target < 400 LOC; children ≤ 400.
+
+| Wave | Parent | Before → After | Notes |
+|---|---|---|---|
+| 72 | `TurnWaterfallView.vue` | 967 → 301 | + composable + CSS |
+| 73 | `NestedSwimlanesView.vue` | 942 → 222 | per-child scoped CSS |
+| 74 | `ChatViewMode.vue` + `SubagentPanel.vue` | 1022 → 368 / 1007 → 300 | + 3 composables |
+| 75 | `SearchPalette.vue` + `SetupWizard.vue` | 805 → 376 / 674 → 366 | per-wizard-step scoped CSS |
+| 76 | `AnalyticsDashboardView` + `TokenFlowTab` + `MetricsTab` | 764 → 117 / 736 → 109 / 625 → 89 | + Sankey/metrics composables |
+| 77 | `PresetDetailSlideover` + `McpAddServerModal` | 766 → 69 / 764 → 82 | |
+| 78 | `OrchestrationHomeView.vue` | 703 → 58 | `useLiveClock` composable |
+
+## Phase 10 — Backend polish (waves 79–87) ✅
+
+| Wave | Scope |
+|---|---|
+| 79 | `ConnectionMode` enum with serde aliases (wire-compat preserved) |
+| 80 | Newtype propagation: `PresetId`, `SkillName`, `SessionId` through orchestrator/bindings |
+| 81 | `attach_slow_query_profiler!` macro consolidating index+tasks DB profiling |
+| 82 | `emit_best_effort` helper (13 sites), rollback-error logging (9), annotated best-effort cleanups |
+| 83 | `OrchestratorError::TaskDbMigration` + `TaskDbBackup` variants with `#[source]` |
+| 84 | 7 deterministic tests for BridgeManager abort/destroy/resume/unlink idempotence |
+| 85 | 74 `#[tracing::instrument]` attrs across Tauri command handlers |
+| 86 | `run_async_with_limits` helper: bounded capture + timeout; hardened bridge discovery probes |
+| 87 | Scoped-lock rescan (`orchestrator_start.rs`), instrumented spawn sites |
+
+Identified-but-deferred improvements (35+ entries) live in
+[`tech-debt-future-improvements-2026-04.md`](./tech-debt-future-improvements-2026-04.md).
+
 ## Commit log (latest waves)
 
 ```
+bf972c70 Wave 87: Async discipline cleanup
+7916958d Wave 86: Harden hidden-shell launch sites
+d632eaf6 Wave 85: Expand tracing::instrument coverage (74 attrs)
+23f1236d Wave 84: SDK subprocess hygiene tests
+e6d3f767 Wave 83: Error-variant hardening (TaskDbMigration/Backup)
+febe5f5a Wave 82: Mutex-poison + let _ hygiene
+8cf540e9 Wave 81: Rust duplication removal (slow-query macro)
+e4476859 Wave 80: Deeper newtype propagation
+15e9c110 Wave 79: ConnectionMode enum
+f28c65aa Wave 78: Decompose OrchestrationHomeView.vue
+bda657a0 Wave 77: Decompose PresetDetailSlideover + McpAddServerModal
+9ea73bde Wave 76: Decompose Analytics views
+0873c329 Wave 75: Decompose SearchPalette + SetupWizard
+6f9f269  Wave 74: Decompose ChatViewMode + SubagentPanel
+a06bdf27 Wave 73: Decompose NestedSwimlanesView.vue
+0b808bf3 Wave 72: Decompose TurnWaterfallView.vue
+537c99fc Wave 71: Batch decomp (reconstructor/config/helpers/validators/session)
+42f950f5 Wave 70: Decompose render/markdown.rs; delete legacy
+5500fd19 Wave 69: Decompose indexer lib.rs
+03a3c9e4 Wave 68: Decompose mcp/health.rs
+874f08ee Wave 67: Decompose skills/import.rs
+e7af0dfa Wave 66: Decompose events.rs
+d60c3456 Wave 65: Decompose index_db/mod.rs
+d3c25d07 Wave 64: Decompose process.rs
+8f002b9c Wave 63: Decompose search_reader.rs
+c6163b09 docs: seed tech-debt future-improvements log
+4f2478a3 docs: tech-debt master plan (waves 63–130)
 5d890e00 Wave 62: Docs reorg (safe subset) — archive superseded tech-debt docs
 780d0e59 Wave 61: Hoist tokio/uuid/tauri-plugin-* to workspace dependencies
 01f6f18d Wave 60: Replace __TRACEPILOT_IPC_PERF__ side-effect with enablePerfTracing()
