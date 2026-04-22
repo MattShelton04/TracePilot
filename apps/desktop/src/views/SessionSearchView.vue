@@ -17,9 +17,7 @@ import { useSessionSearch } from "@/composables/useSessionSearch";
 import "@/styles/features/session-search.css";
 
 const heroRef = ref<InstanceType<typeof SessionSearchHero> | null>(null);
-const searchInputRef = computed<HTMLInputElement | null>(
-  () => heroRef.value?.inputRef ?? null,
-);
+const searchInputRef = computed<HTMLInputElement | null>(() => heroRef.value?.inputRef ?? null);
 
 const {
   store,
@@ -106,7 +104,7 @@ const {
             <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm-.75 3.75a.75.75 0 0 1 1.5 0v3.5a.75.75 0 0 1-1.5 0v-3.5zM8 11a1 1 0 1 1 0 2 1 1 0 0 1 0-2z" />
           </svg>
           <span>{{ friendlyError }}</span>
-          <button class="filter-clear-btn" @click="store.error = null">Dismiss</button>
+          <button class="filter-clear-btn" @click="store.clearError()">Dismiss</button>
         </div>
 
         <div v-if="store.loading" class="search-main-scroll">

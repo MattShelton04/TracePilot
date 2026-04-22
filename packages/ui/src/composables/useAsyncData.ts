@@ -62,12 +62,7 @@ export function useAsyncData<TData, TParams extends unknown[]>(
   asyncFn: (...params: TParams) => Promise<TData>,
   options: UseAsyncDataOptions<TData, TParams> = {},
 ): UseAsyncDataReturn<TData, TParams> {
-  const {
-    initialData = null,
-    immediate = false,
-    onError = toErrorMessage,
-    onSuccess,
-  } = options;
+  const { initialData = null, immediate = false, onError = toErrorMessage, onSuccess } = options;
 
   const data = ref<TData | null>(initialData) as Ref<TData | null>;
   const loading = ref(false);

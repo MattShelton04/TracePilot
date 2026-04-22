@@ -33,13 +33,14 @@ import type {
 } from "@tracepilot/types";
 import { runAction, runMutation, useAsyncGuard } from "@tracepilot/ui";
 import { defineStore } from "pinia";
-import { computed, ref } from "vue";
+import { computed, ref, shallowRef } from "vue";
 import { logWarn } from "@/utils/logger";
 
 export const useSkillsStore = defineStore("skills", () => {
   // ─── State ────────────────────────────────────────────────────────
-  const skills = ref<SkillSummary[]>([]);
-  const selectedSkill = ref<Skill | null>(null);
+  // shallowRef: list/object replaced wholesale; never index-mutated.
+  const skills = shallowRef<SkillSummary[]>([]);
+  const selectedSkill = shallowRef<Skill | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
   const searchQuery = ref("");
@@ -287,6 +288,14 @@ export const useSkillsStore = defineStore("skills", () => {
     return (await runMutation(error, () => skillsDiscoverRepos(repos))) ?? [];
   }
 
+  function clearError() {
+    error.value = null;
+  }
+
+  function setFilterScope(scope: "all" | SkillScope) {
+    filterScope.value = scope;
+  }
+
   return {
     // State
     skills,
@@ -324,5 +333,7 @@ export const useSkillsStore = defineStore("skills", () => {
     importGitHubSkill,
     discoverLocal,
     discoverRepos,
+    clearError,
+    setFilterScope,
   };
 });

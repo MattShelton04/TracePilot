@@ -79,31 +79,26 @@ function setDatePreset(preset: string) {
   switch (preset) {
     case "today": {
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      store.dateFrom = today.toISOString();
-      store.dateTo = null;
+      store.setDateRange(today.toISOString(), null);
       break;
     }
     case "week": {
       const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      store.dateFrom = weekAgo.toISOString();
-      store.dateTo = null;
+      store.setDateRange(weekAgo.toISOString(), null);
       break;
     }
     case "month": {
       const monthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-      store.dateFrom = monthAgo.toISOString();
-      store.dateTo = null;
+      store.setDateRange(monthAgo.toISOString(), null);
       break;
     }
     case "3months": {
       const threeMonths = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
-      store.dateFrom = threeMonths.toISOString();
-      store.dateTo = null;
+      store.setDateRange(threeMonths.toISOString(), null);
       break;
     }
     default:
-      store.dateFrom = null;
-      store.dateTo = null;
+      store.setDateRange(null, null);
   }
 }
 </script>

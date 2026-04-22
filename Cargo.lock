@@ -6006,7 +6006,6 @@ dependencies = [
 name = "tracepilot-export"
 version = "0.6.3"
 dependencies = [
- "anyhow",
  "chrono",
  "once_cell",
  "regex",
@@ -6070,7 +6069,6 @@ version = "0.6.3"
 dependencies = [
  "anyhow",
  "chrono",
- "copilot-sdk",
  "embed-manifest",
  "lru",
  "reqwest 0.12.28",
@@ -6100,6 +6098,9 @@ dependencies = [
 [[package]]
 name = "tracepilot-test-support"
 version = "0.6.3"
+dependencies = [
+ "tempfile",
+]
 
 [[package]]
 name = "tracing"

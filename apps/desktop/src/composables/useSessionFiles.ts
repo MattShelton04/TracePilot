@@ -1,5 +1,5 @@
-import type { SessionDbTable, SessionFileEntry, SessionFileType } from "@tracepilot/types";
 import { sessionListFiles, sessionReadFile, sessionReadSqlite } from "@tracepilot/client";
+import type { SessionDbTable, SessionFileEntry, SessionFileType } from "@tracepilot/types";
 import { ref, watch } from "vue";
 
 export interface SessionFilesState {
@@ -23,9 +23,7 @@ export interface SessionFilesState {
  *
  * @param getSessionId - reactive getter for the current session ID
  */
-export function useSessionFiles(
-  getSessionId: () => string | null | undefined,
-): SessionFilesState {
+export function useSessionFiles(getSessionId: () => string | null | undefined): SessionFilesState {
   const files = ref<SessionFileEntry[]>([]);
   const filesLoading = ref(false);
   const filesError = ref<string | null>(null);

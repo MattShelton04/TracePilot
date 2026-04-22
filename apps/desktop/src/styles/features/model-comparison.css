@@ -18,7 +18,9 @@
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg, 12px);
   padding: 16px;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 .model-comparison-feature .model-card:hover {
   border-color: var(--border-accent, var(--chart-primary));
@@ -226,6 +228,7 @@
 }
 
 .model-comparison-feature .delta-cell {
+  /* biome-ignore lint/complexity/noImportantStyles: overrides the generic .dx-table td text-align. */
   text-align: center !important;
   font-size: 0.8125rem;
   font-weight: 500;

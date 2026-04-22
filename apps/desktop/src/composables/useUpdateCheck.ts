@@ -1,6 +1,5 @@
 import { getVersion } from "@tauri-apps/api/app";
-import { checkForUpdates } from "@tracepilot/client";
-import type { UpdateCheckResult } from "@tracepilot/types";
+import { checkForUpdates, type UpdateCheckResult } from "@tracepilot/client";
 import { toErrorMessage } from "@tracepilot/ui";
 import { ref } from "vue";
 import { STORAGE_KEYS } from "@/config/storageKeys";

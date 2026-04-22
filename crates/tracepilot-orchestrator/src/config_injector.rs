@@ -163,8 +163,7 @@ pub fn list_backups(backup_dir: &Path) -> Result<Vec<BackupEntry>> {
             // Try to read sidecar metadata.
             let sidecar_path = backup_dir.join(format!("{}.meta.json", file_name));
             let (source_path, label) = if sidecar_path.exists() {
-                let sidecar_content =
-                    std::fs::read_to_string(&sidecar_path).unwrap_or_default();
+                let sidecar_content = std::fs::read_to_string(&sidecar_path).unwrap_or_default();
                 let sidecar: serde_json::Value =
                     serde_json::from_str(&sidecar_content).unwrap_or_default();
                 (
@@ -188,8 +187,7 @@ pub fn list_backups(backup_dir: &Path) -> Result<Vec<BackupEntry>> {
                 label,
                 source_path,
                 backup_path: f.path.to_string_lossy().to_string(),
-                created_at: chrono::DateTime::<chrono::Utc>::from(f.modified)
-                    .to_rfc3339(),
+                created_at: chrono::DateTime::<chrono::Utc>::from(f.modified).to_rfc3339(),
                 size_bytes: f.size_bytes,
             }
         })
@@ -412,14 +410,13 @@ mod tests {
         assert!(entry.backup_path.contains("pre-migrate"));
 
         // Sidecar must exist alongside the backup.
-        let sidecar = std::path::PathBuf::from(&entry.backup_path)
-            .with_file_name(format!(
-                "{}.meta.json",
-                std::path::PathBuf::from(&entry.backup_path)
-                    .file_name()
-                    .unwrap()
-                    .to_string_lossy()
-            ));
+        let sidecar = std::path::PathBuf::from(&entry.backup_path).with_file_name(format!(
+            "{}.meta.json",
+            std::path::PathBuf::from(&entry.backup_path)
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
+        ));
         assert!(sidecar.exists(), "sidecar metadata file should be created");
         let sidecar_val: serde_json::Value =
             serde_json::from_str(&fs::read_to_string(&sidecar).unwrap()).unwrap();

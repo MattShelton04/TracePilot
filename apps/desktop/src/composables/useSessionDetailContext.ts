@@ -6,10 +6,11 @@
  *
  * Both paths return an auto-unwrapped reactive interface (no .value needed).
  */
+
+import { inject } from "vue";
 import type { SessionDetailContext } from "@/composables/useSessionDetail";
 import { SESSION_DETAIL_KEY } from "@/composables/useSessionDetail";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
-import { inject } from "vue";
 
 export function useSessionDetailContext(): SessionDetailContext {
   // Try inject first (tab mode provides a reactive-wrapped instance)

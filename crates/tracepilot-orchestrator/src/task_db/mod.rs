@@ -4,7 +4,7 @@
 //! The orchestrator agent communicates via file-based IPC, not direct DB access.
 
 pub mod operations;
-pub mod schema;
+pub(crate) mod schema;
 pub mod types;
 
 use crate::error::{OrchestratorError, Result};
@@ -75,16 +75,7 @@ impl TaskDb {
 
         Self::run_migrations(&mut conn, Some(path))?;
 
-        #[cfg(debug_assertions)]
-        conn.profile(Some(|query: &str, duration: std::time::Duration| {
-            if duration.as_millis() > 10 {
-                tracing::warn!(
-                    duration_ms = duration.as_millis(),
-                    query = %query.chars().take(200).collect::<String>(),
-                    "Slow task DB query"
-                );
-            }
-        }));
+        tracepilot_core::attach_slow_query_profiler!(&mut conn, "tasks");
 
         Ok(Self { conn })
     }
@@ -98,8 +89,9 @@ impl TaskDb {
     /// Run schema migrations through the shared framework, honouring the legacy
     /// `task_meta`-based version tracking used by pre-framework databases.
     fn run_migrations(conn: &mut Connection, db_path: Option<&Path>) -> Result<()> {
-        bootstrap_legacy_schema_version(conn)
-            .map_err(|e| OrchestratorError::task_ctx("Legacy schema_version bootstrap failed", e))?;
+        bootstrap_legacy_schema_version(conn).map_err(|e| {
+            OrchestratorError::task_ctx("Legacy schema_version bootstrap failed", e)
+        })?;
 
         let backup_dir = db_path
             .and_then(|p| p.parent())
@@ -141,9 +133,17 @@ impl TaskDb {
 fn map_migration_err(err: tracepilot_core::utils::migrator::MigrationError) -> OrchestratorError {
     use tracepilot_core::utils::migrator::MigrationError as ME;
     match err {
+        // Reading/writing the `schema_version` tracking table — treat as a
+        // direct task-DB operation.
         ME::SchemaVersion(s) => OrchestratorError::TaskDb(s),
-        ME::Migration { source, .. } => OrchestratorError::TaskDb(source),
-        ME::BackupSqlite { source, .. } => OrchestratorError::TaskDb(source),
+        // A migration step (DDL/DML) failed. Preserve the step name so the
+        // triage message is actionable rather than a bare rusqlite error.
+        ME::Migration { name, source, .. } => OrchestratorError::TaskDbMigration {
+            name: name.to_string(),
+            source,
+        },
+        // Pre-migration SQLite backup failed — distinct pipeline from CRUD.
+        ME::BackupSqlite { source, .. } => OrchestratorError::TaskDbBackup(source),
         ME::Backup { source, .. } => OrchestratorError::Io(source),
     }
 }

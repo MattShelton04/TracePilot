@@ -3,15 +3,9 @@
  * Falls back to browser prompt() when running outside Tauri (dev mode).
  */
 
+import { isTauri, promptForPath } from "@/lib/mocks";
+import { tauriDialogOpen, tauriDialogSave } from "@/lib/tauri";
 import { logWarn } from "@/utils/logger";
-
-/** Strip null bytes and control characters from user-provided paths. */
-function sanitizePath(raw: string | null): string | null {
-  if (!raw) return null;
-  // biome-ignore lint/suspicious/noControlCharactersInRegex: intentionally stripping control chars for path sanitization
-  const cleaned = raw.replace(/[\x00-\x1f]/g, "").trim();
-  return cleaned || null;
-}
 
 /**
  * Opens a native directory picker dialog (Tauri) or falls back to prompt().
@@ -21,22 +15,22 @@ export async function browseForDirectory(options?: {
   title?: string;
   defaultPath?: string;
 }): Promise<string | null> {
-  if (!("__TAURI_INTERNALS__" in window)) {
-    const input = prompt(options?.title ?? "Select directory:", options?.defaultPath ?? "");
-    return sanitizePath(input);
+  const title = options?.title ?? "Select directory:";
+  const defaultPath = options?.defaultPath ?? "";
+
+  if (!isTauri()) {
+    return promptForPath(title, defaultPath);
   }
   try {
-    const { open } = await import("@tauri-apps/plugin-dialog");
-    const selected = await open({
+    const selected = await tauriDialogOpen({
       directory: true,
       title: options?.title ?? "Select directory",
       defaultPath: options?.defaultPath,
     });
-    return selected ?? null;
+    return typeof selected === "string" ? selected : null;
   } catch (e) {
     logWarn("[useBrowseDirectory] Tauri directory dialog failed, falling back to prompt", e);
-    const input = prompt(options?.title ?? "Select directory:", options?.defaultPath ?? "");
-    return sanitizePath(input);
+    return promptForPath(title, defaultPath);
   }
 }
 
@@ -49,22 +43,22 @@ export async function browseForSavePath(options?: {
   defaultPath?: string;
   filters?: Array<{ name: string; extensions: string[] }>;
 }): Promise<string | null> {
-  if (!("__TAURI_INTERNALS__" in window)) {
-    const input = prompt(options?.title ?? "Select file path:", options?.defaultPath ?? "");
-    return sanitizePath(input);
+  const title = options?.title ?? "Select file path:";
+  const defaultPath = options?.defaultPath ?? "";
+
+  if (!isTauri()) {
+    return promptForPath(title, defaultPath);
   }
   try {
-    const { save } = await import("@tauri-apps/plugin-dialog");
-    const selected = await save({
+    const selected = await tauriDialogSave({
       title: options?.title ?? "Choose file location",
       defaultPath: options?.defaultPath,
       filters: options?.filters,
     });
-    return selected ?? null;
+    return selected;
   } catch (e) {
     logWarn("[useBrowseDirectory] Tauri save dialog failed, falling back to prompt", e);
-    const input = prompt(options?.title ?? "Select file path:", options?.defaultPath ?? "");
-    return sanitizePath(input);
+    return promptForPath(title, defaultPath);
   }
 }
 
@@ -77,13 +71,14 @@ export async function browseForFile(options?: {
   defaultPath?: string;
   filters?: Array<{ name: string; extensions: string[] }>;
 }): Promise<string | null> {
-  if (!("__TAURI_INTERNALS__" in window)) {
-    const input = prompt(options?.title ?? "Select file:", options?.defaultPath ?? "");
-    return sanitizePath(input);
+  const title = options?.title ?? "Select file:";
+  const defaultPath = options?.defaultPath ?? "";
+
+  if (!isTauri()) {
+    return promptForPath(title, defaultPath);
   }
   try {
-    const { open } = await import("@tauri-apps/plugin-dialog");
-    const result = await open({
+    const result = await tauriDialogOpen({
       title: options?.title ?? "Select file",
       defaultPath: options?.defaultPath,
       filters: options?.filters,
@@ -91,13 +86,10 @@ export async function browseForFile(options?: {
       multiple: false,
     });
     if (typeof result === "string") return result;
-    if (result && typeof result === "object" && "length" in result) {
-      return (result as string[])[0] ?? null;
-    }
+    if (Array.isArray(result)) return result[0] ?? null;
     return null;
   } catch (e) {
     logWarn("[useBrowseDirectory] Tauri file picker dialog failed, falling back to prompt", e);
-    const input = prompt(options?.title ?? "Select file:", options?.defaultPath ?? "");
-    return sanitizePath(input);
+    return promptForPath(title, defaultPath);
   }
 }

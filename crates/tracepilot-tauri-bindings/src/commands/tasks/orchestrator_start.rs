@@ -10,6 +10,7 @@ use crate::types::SharedTaskDb;
 use super::{fallback_context, resolve_task_model};
 
 #[tauri::command]
+#[tracing::instrument(skip_all, err, fields(model = model.as_deref().unwrap_or("")))]
 pub async fn task_orchestrator_start(
     config: tauri::State<'_, SharedConfig>,
     task_db: tauri::State<'_, SharedTaskDb>,
@@ -23,9 +24,7 @@ pub async fn task_orchestrator_start(
 
     // Check if already running
     {
-        let guard = orch_state
-            .lock()
-            .map_err(|_| mutex_poisoned())?;
+        let guard = orch_state.lock().map_err(|_| mutex_poisoned())?;
         if guard.is_some() {
             return Err(BindingsError::Validation(
                 "Orchestrator is already running. Stop it first.".into(),
@@ -91,7 +90,13 @@ pub async fn task_orchestrator_start(
         // Resolve model per-task: use preset model_override if set, else global default
         let resolved_models: Vec<String> = pending_tasks
             .iter()
-            .map(|task| resolve_task_model(&presets_dir, &task.preset_id, &default_subagent_model))
+            .map(|task| {
+                resolve_task_model(
+                    &presets_dir,
+                    &tracepilot_core::ids::PresetId::from_validated(&task.preset_id),
+                    &default_subagent_model,
+                )
+            })
             .collect();
 
         // Assemble context OUTSIDE the DB lock (may involve expensive I/O)
@@ -105,7 +110,7 @@ pub async fn task_orchestrator_start(
 
                 let (content, hash) = match tracepilot_orchestrator::presets::io::get_preset(
                     &presets_dir,
-                    &task.preset_id,
+                    &tracepilot_core::ids::PresetId::from_validated(&task.preset_id),
                 ) {
                     Ok(preset) => {
                         match tracepilot_orchestrator::task_context::assemble_task_context(
@@ -183,12 +188,15 @@ pub async fn task_orchestrator_start(
                         tracing::warn!(task_id = %task.id, error = %e, "Failed to mark task in_progress");
                     }
                     // Persist context hash for dedup index enforcement
-                    if let Some((_, _, Some(hash))) = context_results.iter().find(|(id, _, _)| id == &task.id) {
-                        let _ = tracepilot_orchestrator::task_db::operations::set_context_hash(
+                    if let Some((_, _, Some(hash))) =
+                        context_results.iter().find(|(id, _, _)| id == &task.id)
+                        && let Err(e) = tracepilot_orchestrator::task_db::operations::set_context_hash(
                             task_db.conn(),
                             &task.id,
                             hash,
-                        );
+                        )
+                    {
+                        tracing::warn!(task_id = %task.id, error = %e, "Failed to persist context hash");
                     }
                 }
             }
@@ -204,7 +212,11 @@ pub async fn task_orchestrator_start(
         // Rescan for any tasks created during the launch window (between
         // initial query and handle-store). These would have been committed
         // to the DB but missed by hot-add since the handle wasn't set yet.
-        {
+        //
+        // Phase 1: Quick DB-locked snapshot of straggler list.
+        // Phase 2: fs I/O + manifest append OUTSIDE the DB lock.
+        // Phase 3: Re-acquire DB lock to mark promoted stragglers in_progress.
+        let stragglers: Vec<tracepilot_orchestrator::task_db::types::Task> = {
             let db_guard = db
                 .lock()
                 .map_err(|_| mutex_poisoned())?;
@@ -213,36 +225,63 @@ pub async fn task_orchestrator_start(
                     status: Some(tracepilot_orchestrator::task_db::types::TaskStatus::Pending),
                     ..Default::default()
                 };
-                if let Ok(stragglers) = tracepilot_orchestrator::task_db::operations::list_tasks(
+                tracepilot_orchestrator::task_db::operations::list_tasks(
                     task_db.conn(),
                     &filter,
-                ) {
-                    let manifest_path = std::path::PathBuf::from(&handle.manifest_path);
-                    for task in &stragglers {
-                        // Skip tasks we already included in the initial manifest
-                        if pending_tasks.iter().any(|p| p.id == task.id) {
-                            continue;
-                        }
-                        let task_dir = jobs_dir_for_rescan.join(&task.id);
-                        let _ = std::fs::create_dir_all(&task_dir);
-                        let result_path = task_dir.join("result.json").to_string_lossy().to_string();
-                        let content = fallback_context(task, &result_path);
-                        let _ = std::fs::write(task_dir.join("context.md"), &content);
+                )
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|t| !pending_tasks.iter().any(|p| p.id == t.id))
+                .collect()
+            } else {
+                Vec::new()
+            }
+        }; // db_guard dropped — DB is free for other operations during fs I/O
 
-                        let model = resolve_task_model(&presets_dir, &task.preset_id, &default_subagent_model);
-                        let manifest_task = tracepilot_orchestrator::task_orchestrator::manifest::ManifestTask::from_task(
-                            task, &model, &jobs_dir_for_rescan,
-                        );
-                        if tracepilot_orchestrator::task_orchestrator::manifest::append_task_to_manifest(
-                            &manifest_path,
-                            &manifest_task,
-                        ).is_ok() {
-                            // Mark straggler as in_progress so results can be ingested
-                            let _ = tracepilot_orchestrator::task_db::operations::update_task_status(
-                                task_db.conn(),
-                                &task.id,
-                                tracepilot_orchestrator::task_db::types::TaskStatus::InProgress,
-                            );
+        if !stragglers.is_empty() {
+            let manifest_path = std::path::PathBuf::from(&handle.manifest_path);
+            let mut promoted_ids: Vec<String> = Vec::with_capacity(stragglers.len());
+
+            for task in &stragglers {
+                let task_dir = jobs_dir_for_rescan.join(&task.id);
+                if let Err(e) = std::fs::create_dir_all(&task_dir) {
+                    tracing::warn!(task_id = %task.id, path = %task_dir.display(), error = %e, "Failed to create straggler task dir");
+                    continue;
+                }
+                let result_path = task_dir.join("result.json").to_string_lossy().to_string();
+                let content = fallback_context(task, &result_path);
+                if let Err(e) = std::fs::write(task_dir.join("context.md"), &content) {
+                    tracing::warn!(task_id = %task.id, error = %e, "Failed to write fallback context.md for straggler");
+                }
+
+                let model = resolve_task_model(
+                    &presets_dir,
+                    &tracepilot_core::ids::PresetId::from_validated(&task.preset_id),
+                    &default_subagent_model,
+                );
+                let manifest_task = tracepilot_orchestrator::task_orchestrator::manifest::ManifestTask::from_task(
+                    task, &model, &jobs_dir_for_rescan,
+                );
+                if tracepilot_orchestrator::task_orchestrator::manifest::append_task_to_manifest(
+                    &manifest_path,
+                    &manifest_task,
+                ).is_ok() {
+                    promoted_ids.push(task.id.clone());
+                }
+            }
+
+            if !promoted_ids.is_empty() {
+                let db_guard = db
+                    .lock()
+                    .map_err(|_| mutex_poisoned())?;
+                if let Some(task_db) = db_guard.as_ref() {
+                    for id in &promoted_ids {
+                        if let Err(e) = tracepilot_orchestrator::task_db::operations::update_task_status(
+                            task_db.conn(),
+                            id,
+                            tracepilot_orchestrator::task_db::types::TaskStatus::InProgress,
+                        ) {
+                            tracing::warn!(task_id = %id, error = %e, "Failed to mark straggler task in_progress");
                         }
                     }
                 }

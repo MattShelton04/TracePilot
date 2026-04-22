@@ -97,7 +97,7 @@ pub fn get_task(conn: &Connection, id: &str) -> Result<Task> {
         return Err(OrchestratorError::NotFound(format!("Task not found: {id}")));
     };
 
-    row_to_task(&row)
+    row_to_task(row)
 }
 
 /// List tasks with optional filters.
@@ -134,11 +134,13 @@ pub fn list_tasks(conn: &Connection, filter: &TaskFilter) -> Result<Vec<Task>> {
     }
 
     let mut stmt = conn.prepare(&sql)?;
-    let mut rows = stmt.query(rusqlite::params_from_iter(param_values.iter().map(|p| p.as_ref())))?;
+    let mut rows = stmt.query(rusqlite::params_from_iter(
+        param_values.iter().map(|p| p.as_ref()),
+    ))?;
     let mut tasks = Vec::new();
 
     while let Some(row) = rows.next()? {
-        tasks.push(row_to_task(&row)?);
+        tasks.push(row_to_task(row)?);
     }
 
     Ok(tasks)
@@ -213,7 +215,7 @@ pub fn store_task_result(conn: &Connection, result: &TaskResult) -> Result<()> {
     let result_parsed = result
         .result_parsed
         .as_ref()
-        .map(|v| serde_json::to_string(v))
+        .map(serde_json::to_string)
         .transpose()?;
 
     let rows = conn.execute(
@@ -414,7 +416,7 @@ pub fn get_job(conn: &Connection, id: &str) -> Result<Job> {
         return Err(OrchestratorError::NotFound(format!("Job not found: {id}")));
     };
 
-    row_to_job(&row)
+    row_to_job(row)
 }
 
 /// List all jobs, newest first.
@@ -431,11 +433,13 @@ pub fn list_jobs(conn: &Connection, limit: Option<i64>) -> Result<Vec<Job>> {
     };
 
     let mut stmt = conn.prepare(&sql)?;
-    let mut rows = stmt.query(rusqlite::params_from_iter(param_values.iter().map(|p| p.as_ref())))?;
+    let mut rows = stmt.query(rusqlite::params_from_iter(
+        param_values.iter().map(|p| p.as_ref()),
+    ))?;
     let mut jobs = Vec::new();
 
     while let Some(row) = rows.next()? {
-        jobs.push(row_to_job(&row)?);
+        jobs.push(row_to_job(row)?);
     }
 
     Ok(jobs)

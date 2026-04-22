@@ -8,6 +8,8 @@ import { importSessions, previewImport } from "@tracepilot/client";
 import type { ConflictStrategy, ImportPreviewResult, ImportResult } from "@tracepilot/types";
 import { toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
 import { type ComputedRef, computed, onBeforeUnmount, type Ref, ref } from "vue";
+import { isTauri, promptForPath } from "@/lib/mocks";
+import { tauriDialogOpen } from "@/lib/tauri";
 import { logError, logInfo } from "@/utils/logger";
 
 // ── Step Type ──────────────────────────────────────────────────
@@ -116,15 +118,14 @@ export function useImportFlow(): ImportFlowState {
 
   async function browseFile(): Promise<void> {
     // Non-Tauri fallback
-    if (!("__TAURI_INTERNALS__" in window)) {
-      const input = prompt("Enter .tpx.json file path:");
-      if (input) await selectFile(input.trim());
+    if (!isTauri()) {
+      const path = promptForPath("Enter .tpx.json file path:");
+      if (path) await selectFile(path);
       return;
     }
 
     try {
-      const { open } = await import("@tauri-apps/plugin-dialog");
-      const selected = await open({
+      const selected = await tauriDialogOpen({
         title: "Select TracePilot export file",
         filters: [{ name: "TracePilot Export", extensions: ["json"] }],
       });
@@ -134,8 +135,8 @@ export function useImportFlow(): ImportFlowState {
     } catch (e) {
       // Dialog failed — fall back to prompt
       logError("[useImportFlow] File dialog failed, falling back to prompt:", e);
-      const input = prompt("Enter .tpx.json file path:");
-      if (input) await selectFile(input.trim());
+      const path = promptForPath("Enter .tpx.json file path:");
+      if (path) await selectFile(path);
     }
   }
 

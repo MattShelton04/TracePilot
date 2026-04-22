@@ -41,6 +41,19 @@
           }
         }
       }
+    },
+    {
+      "includes": ["**/__tests__/**", "**/*.test.ts", "**/*.spec.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noNonNullAssertion": "off"
+          },
+          "suspicious": {
+            "noExplicitAny": "off"
+          }
+        }
+      }
     }
   ],
   "files": {
@@ -54,7 +67,9 @@
       "!docs/design/prototypes",
       "!docs/presentation",
       "!docs/theme-prototypes",
-      "!**/gen/schemas"
+      "!**/gen/schemas",
+      "!packages/client/src/generated",
+      "!apps/desktop/src/components/search/search-palette-results.css"
     ]
   },
   "css": {

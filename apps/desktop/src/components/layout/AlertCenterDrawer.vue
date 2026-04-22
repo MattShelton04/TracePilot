@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ActionButton } from "@tracepilot/ui";
 import { computed } from "vue";
-import { useAlertsStore, type AlertEvent } from "@/stores/alerts";
+import { type AlertEvent, useAlertsStore } from "@/stores/alerts";
 import { useSessionTabsStore } from "@/stores/sessionTabs";
 
 const alertsStore = useAlertsStore();
@@ -21,7 +21,12 @@ function formatTime(ts: number): string {
   if (isToday) {
     return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   }
-  return d.toLocaleDateString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleDateString([], {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function iconForType(type: AlertEvent["type"]): string {
@@ -42,7 +47,10 @@ function severityClass(severity: AlertEvent["severity"]): string {
 function handleAlertClick(alert: AlertEvent) {
   alertsStore.markRead(alert.id);
   if (alert.sessionId && alert.sessionId !== "test") {
-    tabStore.openTab(alert.sessionId, alert.sessionSummary ?? `Session ${alert.sessionId.slice(0, 8)}`);
+    tabStore.openTab(
+      alert.sessionId,
+      alert.sessionSummary ?? `Session ${alert.sessionId.slice(0, 8)}`,
+    );
   }
 }
 

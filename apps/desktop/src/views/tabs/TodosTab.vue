@@ -103,7 +103,7 @@ function getTodoTitle(id: string): string {
             <span class="text-[0.8125rem] font-semibold text-[var(--text-primary)]">
               {{ completedCount }}/{{ todos.length }} completed
             </span>
-            <span class="text-[0.8125rem] font-semibold text-[var(--success-fg)]" style="font-variant-numeric: tabular-nums;">
+            <span class="text-[0.8125rem] font-semibold text-[var(--success-fg)] tabular-nums">
               {{ Math.round(progressPercent) }}%
             </span>
           </div>
@@ -164,18 +164,18 @@ function getTodoTitle(id: string): string {
           <template v-for="(todo, index) in todos" :key="todo.id">
             <div
               class="todo-item"
-              :style="index === todos.length - 1 ? 'border-bottom: none' : ''"
+              :class="{ 'todo-item--last': index === todos.length - 1 }"
             >
               <StatusIcon
                 :status="todo.status as 'done' | 'in_progress' | 'blocked' | 'pending'"
-                style="width: 18px; height: 18px; margin-top: 1px;"
+                class="todo-status-icon"
               />
               <div class="min-w-0 flex-1">
                 <div class="flex items-center gap-2 flex-wrap">
                   <span class="todo-title">{{ todo.title }}</span>
                   <Badge
                     :variant="statusBadgeVariant(todo.status)"
-                    style="font-size: 0.5625rem; padding: 1px 6px;"
+                    class="todo-status-badge"
                   >
                     {{ todo.status.replace('_', ' ') }}
                   </Badge>
@@ -184,12 +184,12 @@ function getTodoTitle(id: string): string {
                   {{ todo.description }}
                 </div>
                 <div v-if="getDependencies(todo.id).length > 0" class="todo-deps">
-                  <span style="font-size: 0.5625rem; color: var(--text-placeholder); margin-right: 2px;">depends on:</span>
+                  <span class="todo-deps-label">depends on:</span>
                   <Badge
                     v-for="depId in getDependencies(todo.id)"
                     :key="depId"
                     variant="neutral"
-                    style="font-size: 0.5625rem;"
+                    class="todo-dep-badge"
                   >
                     {{ getTodoTitle(depId) }}
                   </Badge>
@@ -277,6 +277,31 @@ function getTodoTitle(id: string): string {
   padding: 12px 14px;
   border-bottom: 1px solid var(--border-subtle);
   align-items: flex-start;
+}
+
+.todo-item--last {
+  border-bottom: none;
+}
+
+.todo-status-icon {
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+}
+
+.todo-status-badge {
+  font-size: 0.5625rem;
+  padding: 1px 6px;
+}
+
+.todo-deps-label {
+  font-size: 0.5625rem;
+  color: var(--text-placeholder);
+  margin-right: 2px;
+}
+
+.todo-dep-badge {
+  font-size: 0.5625rem;
 }
 
 .todo-title {

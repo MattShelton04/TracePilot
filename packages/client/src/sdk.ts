@@ -19,9 +19,7 @@ const invoke = createInvoke("SDK");
 
 // ─── Connection ───────────────────────────────────────────────────
 
-export async function sdkConnect(
-  config: BridgeConnectConfig,
-): Promise<BridgeStatus> {
+export async function sdkConnect(config: BridgeConnectConfig): Promise<BridgeStatus> {
   return invoke<BridgeStatus>("sdk_connect", { config });
 }
 
@@ -39,9 +37,7 @@ export async function sdkCliStatus(): Promise<BridgeStatus> {
 
 // ─── Sessions ─────────────────────────────────────────────────────
 
-export async function sdkCreateSession(
-  config: BridgeSessionConfig,
-): Promise<BridgeSessionInfo> {
+export async function sdkCreateSession(config: BridgeSessionConfig): Promise<BridgeSessionInfo> {
   return invoke<BridgeSessionInfo>("sdk_create_session", { config });
 }
 
@@ -77,10 +73,7 @@ export async function sdkUnlinkSession(sessionId: string): Promise<void> {
   return invoke<void>("sdk_unlink_session", { sessionId });
 }
 
-export async function sdkSetSessionMode(
-  sessionId: string,
-  mode: BridgeSessionMode,
-): Promise<void> {
+export async function sdkSetSessionMode(sessionId: string, mode: BridgeSessionMode): Promise<void> {
   return invoke<void>("sdk_set_session_mode", { sessionId, mode });
 }
 
@@ -100,9 +93,7 @@ export async function sdkGetForegroundSession(): Promise<string | null> {
   return invoke<string | null>("sdk_get_foreground_session");
 }
 
-export async function sdkSetForegroundSession(
-  sessionId: string,
-): Promise<void> {
+export async function sdkSetForegroundSession(sessionId: string): Promise<void> {
   return invoke<void>("sdk_set_foreground_session", { sessionId });
 }
 

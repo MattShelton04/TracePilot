@@ -78,7 +78,10 @@ function makeWizardStub(overrides: Record<string, unknown> = {}) {
 
 describe("WizardStep1Preset", () => {
   it("renders preset cards and calls selectPreset on click", async () => {
-    const presets = [makePreset({ id: "p1", name: "First" }), makePreset({ id: "p2", name: "Second", builtin: true })];
+    const presets = [
+      makePreset({ id: "p1", name: "First" }),
+      makePreset({ id: "p2", name: "Second", builtin: true }),
+    ];
     const wizard = makeWizardStub({ filteredPresets: presets, canAdvanceStep1: false });
     const wrapper = mount(WizardStep1Preset, { props: { wizard: wizard as never } });
     expect(wrapper.findAll(".preset-card")).toHaveLength(2);

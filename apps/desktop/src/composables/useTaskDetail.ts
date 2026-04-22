@@ -1,19 +1,11 @@
-import {
-  formatDuration,
-  useAutoRefresh,
-  useConfirmDialog,
-  useToast,
-} from "@tracepilot/ui";
+import { formatDuration, useAutoRefresh, useConfirmDialog, useToast } from "@tracepilot/ui";
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { ROUTE_NAMES } from "@/config/routes";
+import { pushRoute } from "@/router/navigation";
 import { useTasksStore } from "@/stores/tasks";
 
-export type TaskDetailTabId =
-  | "result"
-  | "context"
-  | "timeline"
-  | "subagent"
-  | "raw";
+export type TaskDetailTabId = "result" | "context" | "timeline" | "subagent" | "raw";
 
 export interface TimelineEvent {
   label: string;
@@ -278,8 +270,7 @@ export function useTaskDetail() {
     const { confirmed } = await confirm({
       title: "Delete Task",
       message:
-        "Are you sure you want to permanently delete this task?" +
-        " This action cannot be undone.",
+        "Are you sure you want to permanently delete this task?" + " This action cannot be undone.",
       variant: "danger",
       confirmLabel: "Yes, Delete",
     });
@@ -287,14 +278,14 @@ export function useTaskDetail() {
     const ok = await store.deleteTask(task.value.id);
     if (ok) {
       toast.success("Task deleted");
-      router.push("/tasks");
+      pushRoute(router, ROUTE_NAMES.tasks);
     } else {
       toast.error(store.error ?? "Failed to delete task");
     }
   }
 
   function goBack() {
-    router.push("/tasks");
+    pushRoute(router, ROUTE_NAMES.tasks);
   }
 
   onMounted(() => {

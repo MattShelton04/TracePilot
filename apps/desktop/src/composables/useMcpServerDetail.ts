@@ -1,12 +1,6 @@
 import type { McpServerConfig, McpServerDetail } from "@tracepilot/types";
 import { useToast } from "@tracepilot/ui";
-import {
-  computed,
-  inject,
-  type InjectionKey,
-  onMounted,
-  ref,
-} from "vue";
+import { computed, type InjectionKey, inject, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
@@ -106,9 +100,7 @@ export function useMcpServerDetail() {
     if (!toolSearch.value) return tools;
     const q = toolSearch.value.toLowerCase();
     return tools.filter(
-      (t) =>
-        t.name.toLowerCase().includes(q) ||
-        (t.description ?? "").toLowerCase().includes(q),
+      (t) => t.name.toLowerCase().includes(q) || (t.description ?? "").toLowerCase().includes(q),
     );
   });
 
@@ -275,16 +267,13 @@ export function useMcpServerDetail() {
 
 export type UseMcpServerDetailReturn = ReturnType<typeof useMcpServerDetail>;
 
-export const McpServerDetailKey: InjectionKey<UseMcpServerDetailReturn> = Symbol(
-  "McpServerDetailContext",
-);
+export const McpServerDetailKey: InjectionKey<UseMcpServerDetailReturn> =
+  Symbol("McpServerDetailContext");
 
 export function useMcpServerDetailContext(): UseMcpServerDetailReturn {
   const ctx = inject(McpServerDetailKey);
   if (!ctx) {
-    throw new Error(
-      "useMcpServerDetailContext must be used within a McpServerDetailView shell",
-    );
+    throw new Error("useMcpServerDetailContext must be used within a McpServerDetailView shell");
   }
   return ctx;
 }

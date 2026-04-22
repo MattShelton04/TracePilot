@@ -29,7 +29,9 @@ export function createLaneEllipseLayer(deps: LaneEllipseDeps): LaneEllipseLayer 
     const svg = deps.svgRef.value;
     if (!svg) return;
 
-    laneEllipses.forEach((el) => el.remove());
+    laneEllipses.forEach((el) => {
+      el.remove();
+    });
     laneEllipses = [];
 
     LANES.forEach((lane) => {
@@ -68,7 +70,9 @@ export function createLaneEllipseLayer(deps: LaneEllipseDeps): LaneEllipseLayer 
   }
 
   function setOpacity(opacity: string) {
-    laneEllipses.forEach((el) => el.setAttribute("stroke-opacity", opacity));
+    laneEllipses.forEach((el) => {
+      el.setAttribute("stroke-opacity", opacity);
+    });
   }
 
   function updatePositions() {
@@ -93,7 +97,9 @@ export function createLaneEllipseLayer(deps: LaneEllipseDeps): LaneEllipseLayer 
   }
 
   function clear() {
-    laneEllipses.forEach((el) => el.remove());
+    laneEllipses.forEach((el) => {
+      el.remove();
+    });
     laneEllipses = [];
   }
 

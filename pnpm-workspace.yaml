@@ -4,11 +4,21 @@ packages:
 allowBuilds:
   better-sqlite3: true
   esbuild: true
-# Shared dependency versions (Plan §6.6 / Wave 48).
-# Only deps shared by 3+ workspace packages are catalogued here; the rest stay
-# pinned per-package to avoid coupling unrelated apps to a single version bump.
+# Shared dependency versions (Plan §6.6 / Waves 48 & 104).
+# Deps shared by 2+ workspace packages are pinned centrally here so a single
+# bump updates every consumer. Per-package deps stay local to avoid coupling
+# unrelated workspaces to a single version.
 # Reference from a package.json as: "typescript": "catalog:" (default catalog).
 catalog:
+  "@fontsource-variable/inter": "^5.2.8"
+  "@tauri-apps/api": "^2.5.0"
+  "@types/node": "^22.0.0"
+  "@vitejs/plugin-vue": "^5.2.4"
+  "@vue/test-utils": "^2.4.6"
+  jsdom: "^28.1.0"
+  tsx: "^4.21.0"
   typescript: "^5.8.0"
+  vite: "^6.3.0"
   vitest: "^3.2.4"
   vue: "^3.5.0"
+  vue-tsc: "^2.2.0"

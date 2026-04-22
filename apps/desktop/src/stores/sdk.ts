@@ -17,17 +17,16 @@
  */
 
 import type { UnlistenFn } from "@tauri-apps/api/event";
-import { sdkDisconnect } from "@tracepilot/client";
+import { IPC_EVENTS, sdkDisconnect } from "@tracepilot/client";
 import type { BridgeEvent, BridgeStatus } from "@tracepilot/types";
-import { IPC_EVENTS } from "@tracepilot/types";
 import { defineStore } from "pinia";
 import { watch } from "vue";
 import { useWindowRole } from "@/composables/useWindowRole";
 import { MAX_SDK_EVENTS } from "@/config/tuning";
+import { usePreferencesStore } from "@/stores/preferences";
 import { createConnectionSlice } from "@/stores/sdk/connection";
 import { createMessagingSlice } from "@/stores/sdk/messaging";
 import { createSettingsSlice } from "@/stores/sdk/settings";
-import { usePreferencesStore } from "@/stores/preferences";
 import { logInfo, logWarn } from "@/utils/logger";
 import { safeListen } from "@/utils/tauriEvents";
 

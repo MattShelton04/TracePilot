@@ -2,7 +2,7 @@
 
 **Generated**: 2026-04-11
 **Last updated**: 2026-07-23 — All phases complete
-**Source**: [tech-debt-consolidation-report.md](./tech-debt-consolidation-report.md)
+**Source**: [tech-debt-consolidation-report.md](./archive/2026-04/tech-debt-consolidation-report.md)
 **Status**: ✅ **Implementation complete.** See §9 of the report for full status and commit references.
 **Scope**: 4 phases + backlog, 25 tasks total — 23 completed, 1 dropped, 1 deferred
 

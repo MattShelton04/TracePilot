@@ -1,6 +1,6 @@
 import * as client from "@tracepilot/client";
-import { createDefaultConfig } from "@tracepilot/types";
 import { setupPinia } from "@tracepilot/test-utils";
+import { createDefaultConfig } from "@tracepilot/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import { BASE_FONT_SIZE_PX, usePreferencesStore } from "../../stores/preferences";

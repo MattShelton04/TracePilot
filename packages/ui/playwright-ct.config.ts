@@ -1,6 +1,6 @@
+import * as path from "node:path";
 import { defineConfig, devices } from "@playwright/experimental-ct-vue";
 import vue from "@vitejs/plugin-vue";
-import * as path from "node:path";
 
 /**
  * Playwright Component Test config for @tracepilot/ui visual regression harness.

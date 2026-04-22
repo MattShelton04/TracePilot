@@ -43,12 +43,15 @@ export async function runAction<T>(opts: RunActionOptions<T>): Promise<void> {
   try {
     const result = await opts.action();
 
+    // biome-ignore lint/style/noNonNullAssertion: caller contract — guard is required when token is provided.
     if (token !== undefined && !opts.guard!.isValid(token)) return;
     opts.onSuccess(result);
   } catch (e) {
+    // biome-ignore lint/style/noNonNullAssertion: caller contract — guard is required when token is provided.
     if (token !== undefined && !opts.guard!.isValid(token)) return;
     opts.error.value = toErrorMessage(e);
   } finally {
+    // biome-ignore lint/style/noNonNullAssertion: caller contract — guard is required when token is provided.
     if (token === undefined || opts.guard!.isValid(token)) {
       opts.loading.value = false;
     }

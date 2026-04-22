@@ -1,6 +1,6 @@
 import type { SearchContentType, SearchResult } from "@tracepilot/types";
 import { toErrorMessage } from "@tracepilot/ui";
-import { computed, ref } from "vue";
+import { computed, ref, shallowRef } from "vue";
 import { hasMeaningfulDateValue } from "@/utils/dateValidation";
 
 export interface SessionGroup {
@@ -27,8 +27,9 @@ export interface ParsedDateRange {
 export function createQuerySlice() {
   // ── Query state ──────────────────────────────────────────────
   const query = ref("");
-  const contentTypes = ref<SearchContentType[]>([]);
-  const excludeContentTypes = ref<SearchContentType[]>([]);
+  // shallowRef: filter arrays replaced wholesale via clearFilters / setters.
+  const contentTypes = shallowRef<SearchContentType[]>([]);
+  const excludeContentTypes = shallowRef<SearchContentType[]>([]);
   const repository = ref<string | null>(null);
   const toolName = ref<string | null>(null);
   const dateFrom = ref<string | null>(null);
@@ -39,7 +40,8 @@ export function createQuerySlice() {
   const pageSize = ref(50);
 
   // ── Results state ────────────────────────────────────────────
-  const results = ref<SearchResult[]>([]);
+  // shallowRef: results are always replaced wholesale after every search.
+  const results = shallowRef<SearchResult[]>([]);
   const totalCount = ref(0);
   const hasMore = ref(false);
   const latencyMs = ref(0);
@@ -136,6 +138,15 @@ export function createQuerySlice() {
     page.value = 1;
   }
 
+  function clearError() {
+    error.value = null;
+  }
+
+  function setDateRange(from: string | null, to: string | null) {
+    dateFrom.value = from;
+    dateTo.value = to;
+  }
+
   function setPage(p: number) {
     page.value = Math.max(1, Math.min(p, totalPages.value || 1));
   }
@@ -180,6 +191,8 @@ export function createQuerySlice() {
     parseDateRange,
     clearSearchResults,
     clearFilters,
+    clearError,
+    setDateRange,
     setPage,
     nextPage,
     prevPage,

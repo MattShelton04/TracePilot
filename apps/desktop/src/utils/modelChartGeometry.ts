@@ -46,9 +46,7 @@ export function radarLabelPos(idx: number): { x: number; y: number; anchor: stri
 }
 
 export function scatterX(tokens: number, maxT: number): number {
-  return (
-    SCATTER_PAD.left + (tokens / maxT) * (SCATTER_W - SCATTER_PAD.left - SCATTER_PAD.right)
-  );
+  return SCATTER_PAD.left + (tokens / maxT) * (SCATTER_W - SCATTER_PAD.left - SCATTER_PAD.right);
 }
 
 export function scatterY(cost: number, maxC: number): number {

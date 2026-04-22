@@ -10,6 +10,7 @@ use std::path::Path;
 use tracing::warn;
 
 #[tauri::command]
+#[specta::specta]
 pub async fn get_db_size(state: tauri::State<'_, SharedConfig>) -> CmdResult<u64> {
     let index_path = read_config(&state).index_db_path();
 
@@ -21,17 +22,20 @@ pub async fn get_db_size(state: tauri::State<'_, SharedConfig>) -> CmdResult<u64
 /// Check if a session is currently running by looking for `inuse.*.lock` files.
 #[tauri::command]
 #[tracing::instrument(skip_all, level = "debug", err, fields(session_id = %session_id))]
+#[specta::specta]
 pub async fn is_session_running(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,
 ) -> CmdResult<bool> {
-    with_session_path(&state, session_id, |path| {
+    let sid = crate::validators::validate_session_id(&session_id)?;
+    with_session_path(&state, sid, |path| {
         Ok(tracepilot_core::session::discovery::has_lock_file(&path))
     })
     .await
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn get_session_count(state: tauri::State<'_, SharedConfig>) -> CmdResult<usize> {
     let cfg = read_config(&state);
     let index_path = cfg.index_db_path();
@@ -49,6 +53,7 @@ pub async fn get_session_count(state: tauri::State<'_, SharedConfig>) -> CmdResu
 
 /// Returns the installation type: "source", "installed", or "portable".
 #[tauri::command]
+#[specta::specta]
 pub fn get_install_type() -> String {
     let appimage_env = std::env::var_os("APPIMAGE");
     let exe = std::env::current_exe().ok();
@@ -68,6 +73,7 @@ fn detect_install_type(exe: Option<&Path>, appimage_env: Option<&OsStr>) -> Inst
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn check_for_updates() -> CmdResult<UpdateCheckResult> {
     let current_str = env!("CARGO_PKG_VERSION");
     let current = semver::Version::parse(current_str)?;
@@ -128,6 +134,7 @@ pub async fn check_for_updates() -> CmdResult<UpdateCheckResult> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn get_git_info() -> GitInfo {
     // Run git commands off the async runtime thread and enforce a short timeout
     // so a hung git binary (e.g., waiting for credentials) cannot stall the UI.

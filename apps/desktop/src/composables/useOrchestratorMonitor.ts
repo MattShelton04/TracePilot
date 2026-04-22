@@ -1,6 +1,8 @@
-import { useAutoRefresh } from "@tracepilot/ui";
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { useAutoRefresh, useVisibilityGatedPoll } from "@tracepilot/ui";
+import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
+import { ROUTE_NAMES } from "@/config/routes";
+import { pushRoute } from "@/router/navigation";
 import { useOrchestratorStore } from "@/stores/orchestrator";
 import { taskTitle, useTasksStore } from "@/stores/tasks";
 
@@ -55,7 +57,13 @@ export function useOrchestratorMonitor() {
   const router = useRouter();
 
   const now = ref(Date.now());
-  let tickTimer: ReturnType<typeof setInterval> | null = null;
+  const tickPoll = useVisibilityGatedPoll(
+    () => {
+      now.value = Date.now();
+    },
+    1000,
+    { immediate: false },
+  );
 
   const healthExpanded = ref(false);
   const autoRefreshEnabled = ref(true);
@@ -171,12 +179,12 @@ export function useOrchestratorMonitor() {
   function viewSession() {
     const uuid = orchestrator.sessionUuid;
     if (uuid) {
-      router.push({ path: `/session/${uuid}/overview` });
+      pushRoute(router, ROUTE_NAMES.sessionOverview, { params: { id: uuid } });
     }
   }
 
   function viewTask(taskId: string) {
-    router.push({ path: `/tasks/${taskId}` });
+    pushRoute(router, ROUTE_NAMES.taskDetail, { params: { taskId } });
   }
 
   // ── Model picker ────────────────────────────────────────────
@@ -232,13 +240,7 @@ export function useOrchestratorMonitor() {
     orchestrator.refresh();
     orchestrator.loadModels();
     tasksStore.fetchTasks();
-    tickTimer = setInterval(() => {
-      now.value = Date.now();
-    }, 1000);
-  });
-
-  onUnmounted(() => {
-    if (tickTimer) clearInterval(tickTimer);
+    tickPoll.start();
   });
 
   return {

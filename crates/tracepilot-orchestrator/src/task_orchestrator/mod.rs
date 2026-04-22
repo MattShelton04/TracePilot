@@ -3,9 +3,9 @@
 //! Responsible for spinning up the Copilot CLI orchestrator session that
 //! continuously polls for tasks and delegates to subagents.
 
-pub mod launcher;
+pub(crate) mod launcher;
 pub mod manifest;
-pub mod prompt;
+pub(crate) mod prompt;
 
 pub use launcher::*;
 pub use manifest::{ManifestInput, ManifestTask, TaskManifest};

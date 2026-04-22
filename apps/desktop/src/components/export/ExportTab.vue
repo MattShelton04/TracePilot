@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { exportSessions, exportSessionFolderZip, getSessionSections } from "@tracepilot/client";
+import { exportSessionFolderZip, exportSessions, getSessionSections } from "@tracepilot/client";
 import type { ExportFormat, SectionId, SessionSectionsInfo } from "@tracepilot/types";
 import { SECTION_LABELS } from "@tracepilot/types";
 import {

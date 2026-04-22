@@ -12,12 +12,14 @@
  * It renders a single SessionDetailTabView for the session ID
  * encoded in the window label (e.g. "viewer-abc12345").
  */
+import { emit } from "@tauri-apps/api/event";
 import { ErrorAlert, PageShell, ToastContainer } from "@tracepilot/ui";
 import { computed, onMounted, onUnmounted, ref } from "vue";
-import SessionDetailTabView from "@/views/SessionDetailTabView.vue";
+import { getCurrentTauriWindow } from "@/lib/tauri";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSessionsStore } from "@/stores/sessions";
 import { logError } from "@/utils/logger";
+import SessionDetailTabView from "@/views/SessionDetailTabView.vue";
 
 const props = defineProps<{
   sessionId: string;
@@ -55,29 +57,34 @@ onMounted(async () => {
 });
 
 // Notify main window when this popup closes so it can update monitored set.
-// Uses synchronous event emission for reliability — async imports may not
+// Uses a top-level static import for reliability — async imports may not
 // complete before the webview tears down during native window close.
-import { emit } from "@tauri-apps/api/event";
-
 onUnmounted(() => {
   emit("popup-session-closed", { sessionId: props.sessionId }).catch(() => {});
 });
 
 async function updateWindowTitle() {
   try {
-    const { getCurrentWindow } = await import("@tauri-apps/api/window");
+    const win = await getCurrentTauriWindow();
+    if (!win) return;
     const label = sessionLabel.value;
-    await getCurrentWindow().setTitle(`TracePilot — ${label}`);
-  } catch { /* best-effort — title bar still shows label in-app */ }
+    await win.setTitle(`TracePilot — ${label}`);
+  } catch {
+    /* best-effort — title bar still shows label in-app */
+  }
 }
 
 async function closeWindow() {
   try {
-    const { getCurrentWindow } = await import("@tauri-apps/api/window");
-    await getCurrentWindow().close();
+    const win = await getCurrentTauriWindow();
+    if (win) {
+      await win.close();
+      return;
+    }
   } catch {
-    window.close();
+    /* fall through to browser close */
   }
+  window.close();
 }
 </script>
 

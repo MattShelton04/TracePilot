@@ -2,7 +2,6 @@ import type {
   AttributionSnapshot,
   ExportPreviewResult,
   FreshnessResponse,
-  GitInfo,
   HealthCheckResult,
   ImportPreviewResult,
   ImportResult,
@@ -16,11 +15,13 @@ import type {
   TaskPreset,
   TaskStats,
   TurnsResponse,
-  UpdateCheckResult,
 } from "@tracepilot/types";
 import { createDefaultConfig } from "@tracepilot/types";
 
+import type { GitInfo, UpdateCheckResult } from "../generated/bindings.js";
+
 import type { ContextSnippet, FtsHealthInfo } from "../search.js";
+
 // Note: the import above is `type`-only, so there is no runtime cycle with
 // `search.ts` which imports the shared `invoke` helper from `./internal/core.js`.
 
@@ -103,7 +104,7 @@ export async function getMockData<T>(cmd: string, args?: Record<string, unknown>
       },
     }),
     save_config: undefined,
-    validate_session_dir: { valid: true, sessionCount: 47 },
+    validate_session_dir: { valid: true, sessionCount: 47, error: null },
     get_db_size: 44564480,
     get_session_count: 47,
     factory_reset: undefined,

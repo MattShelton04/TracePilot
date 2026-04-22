@@ -12,6 +12,7 @@
  *   - anything else     → WindowRole.Main (safe fallback)
  */
 import { ref } from "vue";
+import { getCurrentTauriWebviewWindow } from "@/lib/tauri";
 
 export type WindowRole = "main" | "viewer" | "monitor";
 
@@ -31,8 +32,13 @@ export async function resolveWindowRole(): Promise<void> {
   resolved = true;
 
   try {
-    const { getCurrentWebviewWindow } = await import("@tauri-apps/api/webviewWindow");
-    const win = getCurrentWebviewWindow();
+    const win = await getCurrentTauriWebviewWindow();
+    if (!win) {
+      // Browser dev mode or Tauri API not available — default to main
+      role.value = "main";
+      windowLabel.value = "main";
+      return;
+    }
     windowLabel.value = win.label;
 
     if (win.label.startsWith("viewer-")) {
@@ -47,7 +53,7 @@ export async function resolveWindowRole(): Promise<void> {
       role.value = "main";
     }
   } catch {
-    // Browser dev mode or Tauri API not available — default to main
+    // Tauri API threw unexpectedly — default to main
     role.value = "main";
     windowLabel.value = "main";
   }

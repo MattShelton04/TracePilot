@@ -22,15 +22,11 @@
  * const sd = injectSessionDetail();
  * ```
  */
-import {
-  getSessionDetail,
-  getSessionEvents,
-  getSessionTurns,
-} from "@tracepilot/client";
+import { getSessionDetail, getSessionEvents, getSessionTurns } from "@tracepilot/client";
 import type { EventsResponse, SessionDetail } from "@tracepilot/types";
 import { toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
 import type { InjectionKey, UnwrapNestedRefs } from "vue";
-import { inject, reactive, ref } from "vue";
+import { inject, reactive, ref, shallowRef } from "vue";
 import { logDebug, logError, logWarn } from "@/utils/logger";
 import { createSessionCache } from "./session/cache";
 import {
@@ -53,8 +49,9 @@ const REFRESH_THROTTLE_MS = 5_000;
  */
 export function createSessionDetailInstance() {
   const sessionId = ref<string | null>(null);
-  const detail = ref<SessionDetail | null>(null);
-  const events = ref<EventsResponse | null>(null);
+  // shallowRef: these large immutable payloads are always replaced wholesale.
+  const detail = shallowRef<SessionDetail | null>(null);
+  const events = shallowRef<EventsResponse | null>(null);
 
   const loading = ref(false);
   const error = ref<string | null>(null);
@@ -253,6 +250,10 @@ export function createSessionDetailInstance() {
   // ── Cross-tab navigation: checkpoint focus ─────────────────────────
   const pendingCheckpointFocus = ref<number | null>(null);
 
+  function focusCheckpoint(checkpointNumber: number | null) {
+    pendingCheckpointFocus.value = checkpointNumber;
+  }
+
   return {
     sessionId,
     detail,
@@ -275,6 +276,7 @@ export function createSessionDetailInstance() {
     metricsError: sections.metricsSection.error,
     incidentsError: sections.incidentsSection.error,
     pendingCheckpointFocus,
+    focusCheckpoint,
     loadDetail,
     loadTurns: turnsRefresh.loadTurns,
     loadEvents,
@@ -300,16 +302,13 @@ export type SessionDetailInstance = ReturnType<typeof createSessionDetailInstanc
 export type SessionDetailContext = UnwrapNestedRefs<SessionDetailInstance>;
 
 /** Vue injection key for per-tab session detail instances (reactive-wrapped). */
-export const SESSION_DETAIL_KEY: InjectionKey<SessionDetailContext> =
-  Symbol("sessionDetail");
+export const SESSION_DETAIL_KEY: InjectionKey<SessionDetailContext> = Symbol("sessionDetail");
 
 /**
  * Wrap a raw composable instance in reactive() for provide/inject.
  * This ensures refs are auto-unwrapped, matching Pinia store behavior.
  */
-export function toSessionDetailContext(
-  instance: SessionDetailInstance,
-): SessionDetailContext {
+export function toSessionDetailContext(instance: SessionDetailInstance): SessionDetailContext {
   return reactive(instance);
 }
 
@@ -322,7 +321,7 @@ export function injectSessionDetail(): SessionDetailContext {
   if (!instance) {
     throw new Error(
       "[useSessionDetail] No session detail instance provided. " +
-      "Ensure this component is a descendant of a SessionDetailView or similar provider.",
+        "Ensure this component is a descendant of a SessionDetailView or similar provider.",
     );
   }
   return instance;

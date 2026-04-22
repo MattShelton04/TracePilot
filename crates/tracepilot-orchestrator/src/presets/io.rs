@@ -6,6 +6,7 @@
 use crate::error::{OrchestratorError, Result};
 use crate::json_io;
 use std::path::{Path, PathBuf};
+use tracepilot_core::ids::PresetId;
 
 use super::types::TaskPreset;
 
@@ -82,7 +83,14 @@ pub fn list_presets(dir: &Path) -> Result<Vec<TaskPreset>> {
 }
 
 /// Get a single preset by ID.
-pub fn get_preset(dir: &Path, id: &str) -> Result<TaskPreset> {
+///
+/// Accepts a validated [`PresetId`] to make the "this identifier has been
+/// format-checked" invariant visible in the type system. The inner
+/// [`validate_preset_id`] call remains as defence-in-depth against
+/// callers that construct a [`PresetId`] from an untrusted source via
+/// `from_validated` — never break the path-traversal guarantee.
+pub fn get_preset(dir: &Path, id: &PresetId) -> Result<TaskPreset> {
+    let id = id.as_str();
     validate_preset_id(id)?;
     let path = preset_path(dir, id);
     json_io::atomic_json_read_opt::<TaskPreset>(&path)?
@@ -97,7 +105,8 @@ pub fn save_preset(dir: &Path, preset: &TaskPreset) -> Result<()> {
 }
 
 /// Delete a preset by ID. Built-in presets cannot be deleted.
-pub fn delete_preset(dir: &Path, id: &str) -> Result<()> {
+pub fn delete_preset(dir: &Path, id: &PresetId) -> Result<()> {
+    let id = id.as_str();
     validate_preset_id(id)?;
     let path = preset_path(dir, id);
     if !path.exists() {
@@ -131,8 +140,8 @@ pub fn delete_preset(dir: &Path, id: &str) -> Result<()> {
 }
 
 /// Check if a preset exists.
-pub fn preset_exists(dir: &Path, id: &str) -> bool {
-    preset_path(dir, id).exists()
+pub fn preset_exists(dir: &Path, id: &PresetId) -> bool {
+    preset_path(dir, id.as_str()).exists()
 }
 
 /// Seed built-in presets if they don't already exist on disk.
@@ -328,18 +337,18 @@ pub fn seed_builtin_presets(dir: &Path) -> Result<()> {
             tracing::info!(id = %preset.id, "Seeded built-in preset");
         } else {
             // Upgrade stale built-in presets when the code version is newer
-            if let Ok(existing) = crate::json_io::atomic_json_read_opt::<TaskPreset>(&path) {
-                if let Some(existing) = existing {
-                    if existing.builtin && existing.version < preset.version {
-                        save_preset(dir, preset)?;
-                        tracing::info!(
-                            id = %preset.id,
-                            from_version = existing.version,
-                            to_version = preset.version,
-                            "Upgraded built-in preset"
-                        );
-                    }
-                }
+            if let Ok(existing) = crate::json_io::atomic_json_read_opt::<TaskPreset>(&path)
+                && let Some(existing) = existing
+                && existing.builtin
+                && existing.version < preset.version
+            {
+                save_preset(dir, preset)?;
+                tracing::info!(
+                    id = %preset.id,
+                    from_version = existing.version,
+                    to_version = preset.version,
+                    "Upgraded built-in preset"
+                );
             }
         }
     }
@@ -348,12 +357,16 @@ pub fn seed_builtin_presets(dir: &Path) -> Result<()> {
     let removed_builtins = ["session-review"];
     for id in &removed_builtins {
         let path = preset_path(dir, id);
-        if path.exists() {
-            if let Ok(existing) = crate::json_io::atomic_json_read_opt::<TaskPreset>(&path) {
-                if existing.map_or(false, |p| p.builtin) {
-                    let _ = std::fs::remove_file(&path);
-                    tracing::info!(id = %id, "Removed deprecated built-in preset");
-                }
+        if path.exists()
+            && let Ok(existing) = crate::json_io::atomic_json_read_opt::<TaskPreset>(&path)
+            && existing.is_some_and(|p| p.builtin)
+        {
+            // best-effort: a failed removal just means the deprecated preset
+            // remains; next startup will try again.
+            if let Err(e) = std::fs::remove_file(&path) {
+                tracing::debug!(id = %id, error = %e, "Failed to remove deprecated built-in preset");
+            } else {
+                tracing::info!(id = %id, "Removed deprecated built-in preset");
             }
         }
     }
@@ -420,9 +433,10 @@ mod tests {
         let preset = make_preset("test-preset");
         save_preset(&presets_path, &preset).unwrap();
 
-        assert!(preset_exists(&presets_path, "test-preset"));
+        let pid = PresetId::from_validated("test-preset");
+        assert!(preset_exists(&presets_path, &pid));
 
-        let loaded = get_preset(&presets_path, "test-preset").unwrap();
+        let loaded = get_preset(&presets_path, &pid).unwrap();
         assert_eq!(loaded.id, "test-preset");
         assert_eq!(loaded.name, "Test Preset test-preset");
 
@@ -430,8 +444,8 @@ mod tests {
         // 1 test preset + 3 seeded built-in presets
         assert_eq!(all.len(), 4);
 
-        delete_preset(&presets_path, "test-preset").unwrap();
-        assert!(!preset_exists(&presets_path, "test-preset"));
+        delete_preset(&presets_path, &pid).unwrap();
+        assert!(!preset_exists(&presets_path, &pid));
 
         // Built-ins remain
         let remaining = list_presets(&presets_path).unwrap();
@@ -441,7 +455,7 @@ mod tests {
     #[test]
     fn test_invalid_preset_id() {
         let dir = TempDir::new().unwrap();
-        let result = get_preset(dir.path(), "../../../etc/passwd");
+        let result = get_preset(dir.path(), &PresetId::from_validated("../../../etc/passwd"));
         assert!(result.is_err());
     }
 }

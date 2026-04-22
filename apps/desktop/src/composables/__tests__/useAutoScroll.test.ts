@@ -1,6 +1,6 @@
 import { flushPromises } from "@vue/test-utils";
-import { createApp, ref } from "vue";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createApp, ref } from "vue";
 import { useAutoScroll } from "../useAutoScroll";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -18,14 +18,22 @@ function withSetup<T>(fn: () => T): { result: T; unmount: () => void } {
   const root = document.createElement("div");
   document.body.appendChild(root);
   app.mount(root);
-  return { result, unmount: () => { app.unmount(); root.remove(); } };
+  return {
+    result,
+    unmount: () => {
+      app.unmount();
+      root.remove();
+    },
+  };
 }
 
 /** Create a jsdom div with controllable scroll geometry and a spy on scrollTo. */
-function makeScrollEl(opts: { scrollHeight?: number; clientHeight?: number; scrollTop?: number } = {}) {
+function makeScrollEl(
+  opts: { scrollHeight?: number; clientHeight?: number; scrollTop?: number } = {},
+) {
   const el = document.createElement("div");
   let _scrollHeight = opts.scrollHeight ?? 1000;
-  let _clientHeight = opts.clientHeight ?? 500;
+  const _clientHeight = opts.clientHeight ?? 500;
   let _scrollTop = opts.scrollTop ?? 0;
 
   Object.defineProperty(el, "scrollHeight", { configurable: true, get: () => _scrollHeight });
@@ -33,7 +41,9 @@ function makeScrollEl(opts: { scrollHeight?: number; clientHeight?: number; scro
   Object.defineProperty(el, "scrollTop", {
     configurable: true,
     get: () => _scrollTop,
-    set: (v: number) => { _scrollTop = v; },
+    set: (v: number) => {
+      _scrollTop = v;
+    },
   });
 
   const scrollSpy = vi.fn((scrollOpts: ScrollToOptions) => {
@@ -43,8 +53,12 @@ function makeScrollEl(opts: { scrollHeight?: number; clientHeight?: number; scro
 
   return {
     el,
-    setScrollHeight: (v: number) => { _scrollHeight = v; },
-    setScrollTop: (v: number) => { _scrollTop = v; },
+    setScrollHeight: (v: number) => {
+      _scrollHeight = v;
+    },
+    setScrollTop: (v: number) => {
+      _scrollTop = v;
+    },
     scrollSpy,
   };
 }
@@ -70,11 +84,14 @@ beforeEach(() => {
     return rafQueue.length;
   });
   vi.stubGlobal("cancelAnimationFrame", vi.fn());
-  vi.stubGlobal("matchMedia", vi.fn(() => ({
-    matches: false, // prefers-reduced-motion: no → smooth scrolls are used
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-  })));
+  vi.stubGlobal(
+    "matchMedia",
+    vi.fn(() => ({
+      matches: false, // prefers-reduced-motion: no → smooth scrolls are used
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    })),
+  );
 });
 
 afterEach(() => {
@@ -276,9 +293,7 @@ describe("useAutoScroll", () => {
       result.scrollToBottom();
 
       expect(result.isLockedToBottom.value).toBe(true);
-      expect(state.scrollSpy).toHaveBeenCalledWith(
-        expect.objectContaining({ top: 1000 }),
-      );
+      expect(state.scrollSpy).toHaveBeenCalledWith(expect.objectContaining({ top: 1000 }));
       unmount();
     });
 
@@ -304,7 +319,12 @@ describe("useAutoScroll", () => {
       const state = makeScrollEl({ scrollHeight: 1000, clientHeight: 500, scrollTop: 0 });
       const containerRef = ref<HTMLElement | null>(state.el);
       const { result, unmount } = withSetup(() =>
-        useAutoScroll({ containerRef, watchSource: ref(0), engageThreshold: 24, disengageThreshold: 80 }),
+        useAutoScroll({
+          containerRef,
+          watchSource: ref(0),
+          engageThreshold: 24,
+          disengageThreshold: 80,
+        }),
       );
 
       result.scrollToBottom(); // guard active
@@ -358,9 +378,7 @@ describe("useAutoScroll", () => {
       result.scrollToTop();
 
       expect(result.isLockedToBottom.value).toBe(false);
-      expect(state.scrollSpy).toHaveBeenCalledWith(
-        expect.objectContaining({ top: 0 }),
-      );
+      expect(state.scrollSpy).toHaveBeenCalledWith(expect.objectContaining({ top: 0 }));
       unmount();
     });
   });
@@ -422,9 +440,7 @@ describe("useAutoScroll", () => {
       const containerRef = ref<HTMLElement | null>(state.el);
       const spy = vi.spyOn(state.el, "removeEventListener");
 
-      const { unmount } = withSetup(() =>
-        useAutoScroll({ containerRef, watchSource: ref(0) }),
-      );
+      const { unmount } = withSetup(() => useAutoScroll({ containerRef, watchSource: ref(0) }));
       unmount();
 
       expect(spy).toHaveBeenCalledWith("scroll", expect.any(Function));

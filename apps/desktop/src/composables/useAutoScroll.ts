@@ -90,7 +90,9 @@ export function useAutoScroll(options: AutoScrollOptions) {
       // data watcher (new message arriving mid-animation) would cancel the smooth scroll
       // and trigger scrollend early, clearing the guard before we arrive at the bottom.
       isProgrammaticScroll = true;
-      setTimeout(() => { isProgrammaticScroll = false; }, 2000); // safety fallback only
+      setTimeout(() => {
+        isProgrammaticScroll = false;
+      }, 2000); // safety fallback only
     }
   }
 
@@ -102,7 +104,9 @@ export function useAutoScroll(options: AutoScrollOptions) {
     isLockedToBottom.value = false;
     if (useSmooth) {
       isProgrammaticScroll = true;
-      setTimeout(() => { isProgrammaticScroll = false; }, 2000);
+      setTimeout(() => {
+        isProgrammaticScroll = false;
+      }, 2000);
     }
   }
 

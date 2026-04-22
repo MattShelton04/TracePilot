@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { SectionPanel } from "@tracepilot/ui";
 import type { Task } from "@tracepilot/types";
+import { SectionPanel } from "@tracepilot/ui";
 import TaskStatusBadge from "@/components/tasks/TaskStatusBadge.vue";
 import TaskTypeBadge from "@/components/tasks/TaskTypeBadge.vue";
 
@@ -16,9 +16,7 @@ defineProps<{
   elapsedSince: (iso: string | null) => string;
 }>();
 
-const emit = defineEmits<{
-  (e: "view-task", id: string): void;
-}>();
+const emit = defineEmits<(e: "view-task", id: string) => void>();
 </script>
 
 <template>

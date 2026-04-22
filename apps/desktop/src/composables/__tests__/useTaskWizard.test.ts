@@ -1,5 +1,5 @@
-import type { TaskPreset } from "@tracepilot/types";
 import { setupPinia } from "@tracepilot/test-utils";
+import type { TaskPreset } from "@tracepilot/types";
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, nextTick } from "vue";
@@ -103,9 +103,9 @@ describe("useTaskWizard", () => {
     sessionsStoreMock.sessions = [];
     sessionsStoreMock.fetchSessions = vi.fn();
     tasksStoreMock.error = null;
-    tasksStoreMock.createTask = vi.fn<(...args: unknown[]) => Promise<TaskLike>>(
-      async () => ({ id: "task-123" }),
-    );
+    tasksStoreMock.createTask = vi.fn<(...args: unknown[]) => Promise<TaskLike>>(async () => ({
+      id: "task-123",
+    }));
     mockRouteQuery = {};
   });
 
@@ -191,11 +191,8 @@ describe("useTaskWizard", () => {
       "normal",
       3,
     );
-    expect(toastSuccess).toHaveBeenCalledWith(
-      "Task created successfully",
-      expect.any(Object),
-    );
-    expect(mockRouterPush).toHaveBeenCalledWith("/tasks");
+    expect(toastSuccess).toHaveBeenCalledWith("Task created successfully", expect.any(Object));
+    expect(mockRouterPush).toHaveBeenCalledWith({ name: "tasks" });
   });
 
   it("handleSubmit with navigateToDetail routes to task detail", async () => {
@@ -203,13 +200,14 @@ describe("useTaskWizard", () => {
     const w = wrapper.vm.wizard;
     w.selectPreset(makePreset({ id: "p1", taskType: "" }));
     await w.handleSubmit(true);
-    expect(mockRouterPush).toHaveBeenCalledWith("/tasks/task-123");
+    expect(mockRouterPush).toHaveBeenCalledWith({
+      name: "task-detail",
+      params: { taskId: "task-123" },
+    });
   });
 
   it("handleSubmit reports error toast when store returns null", async () => {
-    tasksStoreMock.createTask = vi.fn<(...args: unknown[]) => Promise<TaskLike>>(
-      async () => null,
-    );
+    tasksStoreMock.createTask = vi.fn<(...args: unknown[]) => Promise<TaskLike>>(async () => null);
     tasksStoreMock.error = "boom";
     const wrapper = mount(TestHost);
     const w = wrapper.vm.wizard;

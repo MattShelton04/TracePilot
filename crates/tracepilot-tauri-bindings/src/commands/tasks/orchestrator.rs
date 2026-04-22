@@ -8,6 +8,7 @@ use crate::helpers::{mutex_poisoned, read_config};
 use crate::types::SharedTaskDb;
 
 #[tauri::command]
+#[tracing::instrument(skip_all, err)]
 pub async fn task_orchestrator_health(
     config: tauri::State<'_, SharedConfig>,
     task_db: tauri::State<'_, SharedTaskDb>,
@@ -18,39 +19,33 @@ pub async fn task_orchestrator_health(
     let session_state_dir = cfg.session_state_dir();
     let orch_state_clone = std::sync::Arc::clone(&*orch_state);
     let db = std::sync::Arc::clone(&*task_db);
-    let handle = orch_state
-        .lock()
-        .map_err(|_| mutex_poisoned())?
-        .clone();
+    let handle = orch_state.lock().map_err(|_| mutex_poisoned())?.clone();
     let stale_secs =
         (cfg.tasks.poll_interval_seconds * cfg.tasks.heartbeat_stale_multiplier) as u64;
     tokio::task::spawn_blocking(move || {
         // Attempt session UUID discovery if handle exists but UUID is unknown
-        if let Some(ref h) = handle {
-            if h.session_uuid.is_none() {
-                if let Some(uuid) = tracepilot_orchestrator::task_orchestrator::discover_session_uuid(
-                    &session_state_dir,
-                    h.pid,
-                    &h.launched_at,
-                ) {
-                    // Set orchestrator_session_id on active tasks
-                    if let Ok(db_guard) = db.lock() {
-                        if let Some(task_db) = db_guard.as_ref() {
-                            if let Err(e) = tracepilot_orchestrator::task_db::operations::set_orchestrator_session_id(
-                                task_db.conn(),
-                                &uuid,
-                            ) {
-                                tracing::warn!(error = %e, "Failed to set orchestrator_session_id on tasks");
-                            }
-                        }
-                    }
-                    let mut guard = orch_state_clone
-                        .lock()
-                        .map_err(|_| mutex_poisoned())?;
-                    if let Some(ref mut stored) = *guard {
-                        stored.session_uuid = Some(uuid);
-                    }
-                }
+        if let Some(ref h) = handle
+            && h.session_uuid.is_none()
+            && let Some(uuid) = tracepilot_orchestrator::task_orchestrator::discover_session_uuid(
+                &session_state_dir,
+                h.pid,
+                &h.launched_at,
+            )
+        {
+            // Set orchestrator_session_id on active tasks
+            if let Ok(db_guard) = db.lock()
+                && let Some(task_db) = db_guard.as_ref()
+                && let Err(e) =
+                    tracepilot_orchestrator::task_db::operations::set_orchestrator_session_id(
+                        task_db.conn(),
+                        &uuid,
+                    )
+            {
+                tracing::warn!(error = %e, "Failed to set orchestrator_session_id on tasks");
+            }
+            let mut guard = orch_state_clone.lock().map_err(|_| mutex_poisoned())?;
+            if let Some(ref mut stored) = *guard {
+                stored.session_uuid = Some(uuid);
             }
         }
 
@@ -81,6 +76,7 @@ pub async fn task_orchestrator_health(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, err)]
 pub async fn task_orchestrator_stop(
     config: tauri::State<'_, SharedConfig>,
     orch_state: tauri::State<'_, crate::types::SharedOrchestratorState>,
@@ -90,9 +86,7 @@ pub async fn task_orchestrator_stop(
     let jobs_dir = cfg.jobs_dir();
 
     tokio::task::spawn_blocking(move || {
-        let mut guard = orch_state_clone
-            .lock()
-            .map_err(|_| mutex_poisoned())?;
+        let mut guard = orch_state_clone.lock().map_err(|_| mutex_poisoned())?;
 
         if let Some(handle) = guard.as_ref() {
             // Normal path: we have the in-memory handle with manifest path + PID.
@@ -108,7 +102,7 @@ pub async fn task_orchestrator_stop(
             drop(guard);
 
             for _ in 0..10 {
-                if !is_process_alive(pid) {
+                if !tracepilot_orchestrator::process::is_alive(pid) {
                     break;
                 }
                 std::thread::sleep(std::time::Duration::from_millis(300));
@@ -117,7 +111,8 @@ pub async fn task_orchestrator_stop(
             // Clean up heartbeat after stop so health immediately reports "stopped".
             let heartbeat_path = jobs_dir.join("heartbeat.json");
             if heartbeat_path.exists() {
-                let _ = std::fs::remove_file(&heartbeat_path);
+                // best-effort: if removal fails, the next health check will simply see a stale file.
+                let _: std::io::Result<()> = std::fs::remove_file(&heartbeat_path);
             }
         } else {
             // Fallback: handle lost (app restarted) — try manifest in jobs_dir.
@@ -127,7 +122,7 @@ pub async fn task_orchestrator_stop(
 
             if manifest_path.exists() {
                 // Best-effort: set shutdown flag so a still-alive process exits.
-                let _ =
+                let _: Result<(), _> =
                     tracepilot_orchestrator::task_orchestrator::manifest::update_manifest_shutdown(
                         &manifest_path,
                     );
@@ -136,48 +131,18 @@ pub async fn task_orchestrator_stop(
             // Clean up stale heartbeat so the next health check returns "stopped"
             // instead of staying stuck on "stale" forever.
             if heartbeat_path.exists() {
-                let _ = std::fs::remove_file(&heartbeat_path);
+                // best-effort: stale-file cleanup.
+                let _: std::io::Result<()> = std::fs::remove_file(&heartbeat_path);
             }
 
             // Also remove manifest to fully reset state.
             if manifest_path.exists() {
-                let _ = std::fs::remove_file(&manifest_path);
+                // best-effort: stale-file cleanup.
+                let _: std::io::Result<()> = std::fs::remove_file(&manifest_path);
             }
         }
 
         Ok(())
     })
     .await?
-}
-
-/// Check if a process with the given PID is still alive (portable, no extra deps).
-fn is_process_alive(pid: u32) -> bool {
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        // Use tasklist to check if the PID exists
-        std::process::Command::new("tasklist")
-            .args(["/NH", "/FI", &format!("PID eq {pid}")])
-            .stdout(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::null())
-            .creation_flags(tracepilot_core::constants::CREATE_NO_WINDOW)
-            .output()
-            .map(|o| {
-                let out = String::from_utf8_lossy(&o.stdout);
-                // tasklist returns "INFO: No tasks..." when PID doesn't exist
-                !out.contains("No tasks") && out.contains(&pid.to_string())
-            })
-            .unwrap_or(false)
-    }
-    #[cfg(unix)]
-    {
-        // signal 0 checks process existence without killing it
-        std::process::Command::new("kill")
-            .args(["-0", &pid.to_string()])
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status()
-            .map(|s| s.success())
-            .unwrap_or(false)
-    }
 }

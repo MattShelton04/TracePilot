@@ -13,12 +13,14 @@ fn mcp<T>(r: Result<T, tracepilot_orchestrator::mcp::McpError>) -> Result<T, Orc
 // -- Server CRUD --
 
 #[tauri::command]
+#[tracing::instrument(level = "debug", err)]
 pub async fn mcp_list_servers()
 -> CmdResult<Vec<(String, tracepilot_orchestrator::mcp::types::McpServerConfig)>> {
     blocking_cmd!(tracepilot_orchestrator::mcp::config::list_servers())
 }
 
 #[tauri::command]
+#[tracing::instrument(level = "debug", err, fields(server = %name))]
 pub async fn mcp_get_server(
     name: String,
 ) -> CmdResult<tracepilot_orchestrator::mcp::types::McpServerConfig> {
@@ -26,6 +28,7 @@ pub async fn mcp_get_server(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip(config), err, fields(server = %name))]
 pub async fn mcp_add_server(
     name: String,
     config: tracepilot_orchestrator::mcp::types::McpServerConfig,
@@ -36,6 +39,7 @@ pub async fn mcp_add_server(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip(config), err, fields(server = %name))]
 pub async fn mcp_update_server(
     name: String,
     config: tracepilot_orchestrator::mcp::types::McpServerConfig,
@@ -46,6 +50,7 @@ pub async fn mcp_update_server(
 }
 
 #[tauri::command]
+#[tracing::instrument(err, fields(server = %name))]
 pub async fn mcp_remove_server(
     name: String,
 ) -> CmdResult<tracepilot_orchestrator::mcp::types::McpServerConfig> {
@@ -55,6 +60,7 @@ pub async fn mcp_remove_server(
 }
 
 #[tauri::command]
+#[tracing::instrument(err, fields(server = %name))]
 pub async fn mcp_toggle_server(name: String) -> CmdResult<bool> {
     blocking_cmd!(mcp(tracepilot_orchestrator::mcp::config::toggle_server(
         &name
@@ -64,11 +70,11 @@ pub async fn mcp_toggle_server(name: String) -> CmdResult<bool> {
 // -- Health checks --
 
 #[tauri::command]
+#[tracing::instrument(err)]
 pub async fn mcp_check_health()
 -> CmdResult<HashMap<String, tracepilot_orchestrator::mcp::health::McpHealthResultCached>> {
     let config =
-        tokio::task::spawn_blocking(|| tracepilot_orchestrator::mcp::config::load_config())
-            .await??;
+        tokio::task::spawn_blocking(tracepilot_orchestrator::mcp::config::load_config).await??;
 
     let results =
         tracepilot_orchestrator::mcp::health::check_all_servers(&config.mcp_servers).await;
@@ -76,6 +82,7 @@ pub async fn mcp_check_health()
 }
 
 #[tauri::command]
+#[tracing::instrument(err, fields(server = %name))]
 pub async fn mcp_check_server_health(
     name: String,
 ) -> CmdResult<tracepilot_orchestrator::mcp::health::McpHealthResultCached> {
@@ -92,6 +99,7 @@ pub async fn mcp_check_server_health(
 // -- Import --
 
 #[tauri::command]
+#[tracing::instrument(skip(path), err, fields(path_len = path.len()))]
 pub async fn mcp_import_from_file(
     path: String,
 ) -> CmdResult<tracepilot_orchestrator::mcp::import::McpImportResult> {
@@ -101,6 +109,7 @@ pub async fn mcp_import_from_file(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip(path), err, fields(%owner, %repo, git_ref = git_ref.as_deref().unwrap_or("")))]
 pub async fn mcp_import_from_github(
     owner: String,
     repo: String,
@@ -120,6 +129,7 @@ pub async fn mcp_import_from_github(
 // -- Diff --
 
 #[tauri::command]
+#[tracing::instrument(skip(incoming), err, fields(incoming_count = incoming.len()))]
 pub async fn mcp_compute_diff(
     incoming: HashMap<String, tracepilot_orchestrator::mcp::types::McpServerConfig>,
 ) -> CmdResult<tracepilot_orchestrator::mcp::diff::McpConfigDiff> {

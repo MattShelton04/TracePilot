@@ -174,7 +174,7 @@ const successFailureChart = computed(() => {
           <!-- Tool Usage Table -->
           <div class="section-panel mb-4">
             <div class="section-panel-header">Tool Usage Breakdown</div>
-            <div class="section-panel-body scrollable-section" style="padding: 0;">
+            <div class="section-panel-body scrollable-section tool-table-body">
               <table class="data-table" aria-label="Tool usage breakdown">
                 <thead>
                   <tr>
@@ -186,15 +186,15 @@ const successFailureChart = computed(() => {
                 </thead>
                 <tbody>
                   <tr v-for="tool in sortedTools" :key="tool.name">
-                    <td style="font-weight: 600;">{{ tool.name }}</td>
-                    <td style="font-variant-numeric: tabular-nums;">{{ formatNumberFull(tool.callCount) }}</td>
+                    <td class="tool-name-cell">{{ tool.name }}</td>
+                    <td class="tabular-nums">{{ formatNumberFull(tool.callCount) }}</td>
                     <td>
-                      <div style="font-variant-numeric: tabular-nums;">{{ formatRate(tool.successRate) }}</div>
-                      <div class="progress-bar" style="margin-top: 4px; width: 120px;">
+                      <div class="tabular-nums">{{ formatRate(tool.successRate) }}</div>
+                      <div class="progress-bar tool-success-bar">
                         <div class="progress-bar-fill" :style="{ width: formatRate(tool.successRate) }" />
                       </div>
                     </td>
-                    <td style="font-variant-numeric: tabular-nums;">{{ formatDuration(tool.avgDurationMs) }}</td>
+                    <td class="tabular-nums">{{ formatDuration(tool.avgDurationMs) }}</td>
                   </tr>
                 </tbody>
               </table>
@@ -377,6 +377,24 @@ const successFailureChart = computed(() => {
   height: 10px;
   border-radius: 50%;
   margin-right: 5px;
+}
+
+/* ── Tool Usage Table ──────────────────────────────────────── */
+.tool-table-body {
+  padding: 0;
+}
+
+.tool-name-cell {
+  font-weight: 600;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.tool-success-bar {
+  margin-top: 4px;
+  width: 120px;
 }
 
 /* Shared chart styles (tooltip, overlay, bar, svg, etc.)

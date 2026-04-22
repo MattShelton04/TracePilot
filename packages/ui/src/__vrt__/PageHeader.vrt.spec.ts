@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/experimental-ct-vue";
+import { expect, test } from "@playwright/experimental-ct-vue";
 import PageHeader from "../components/PageHeader.vue";
 import { SNAPSHOT_OPTS } from "./index";
 

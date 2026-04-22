@@ -1,5 +1,5 @@
+import { makeTurn, makeTurnToolCall, setupPinia } from "@tracepilot/test-utils";
 import { mount } from "@vue/test-utils";
-import { setupPinia, makeTurn, makeTurnToolCall } from "@tracepilot/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import NestedSwimlanesView from "../../../components/timeline/NestedSwimlanesView.vue";

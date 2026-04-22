@@ -15,8 +15,8 @@
  * v-for), freeing their composable and DOM resources.
  */
 import { computed } from "vue";
-import SessionDetailTabView from "@/views/SessionDetailTabView.vue";
 import { useSessionTabsStore } from "@/stores/sessionTabs";
+import SessionDetailTabView from "@/views/SessionDetailTabView.vue";
 
 const tabStore = useSessionTabsStore();
 

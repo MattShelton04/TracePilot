@@ -114,8 +114,13 @@ async function runDiagnostics() {
 
     diagAppend("Connecting to SDK...");
     try {
-      await sdk.connect({ cliUrl: cliUrl.value || undefined, logLevel: logLevel.value || undefined });
-      diagAppend(`✅ Connected! State: ${sdk.connectionState}, Mode: ${sdk.connectionMode ?? "unknown"}`);
+      await sdk.connect({
+        cliUrl: cliUrl.value || undefined,
+        logLevel: logLevel.value || undefined,
+      });
+      diagAppend(
+        `✅ Connected! State: ${sdk.connectionState}, Mode: ${sdk.connectionMode ?? "unknown"}`,
+      );
     } catch (e) {
       diagAppend(`❌ Connect failed: ${e instanceof Error ? e.message : String(e)}`);
       return;
@@ -123,9 +128,11 @@ async function runDiagnostics() {
 
     diagAppend("Fetching auth status...");
     await sdk.fetchAuthStatus();
-    diagAppend(sdk.authStatus
-      ? `✅ Auth: ${sdk.authStatus.isAuthenticated ? "authenticated" : "NOT authenticated"} (${sdk.authStatus.login ?? "no login"})`
-      : "⚠️ Auth status: null");
+    diagAppend(
+      sdk.authStatus
+        ? `✅ Auth: ${sdk.authStatus.isAuthenticated ? "authenticated" : "NOT authenticated"} (${sdk.authStatus.login ?? "no login"})`
+        : "⚠️ Auth status: null",
+    );
 
     diagAppend("Fetching models...");
     await sdk.fetchModels();
@@ -137,7 +144,9 @@ async function runDiagnostics() {
 
     diagAppend("Fetching bridge status...");
     await sdk.refreshStatus();
-    diagAppend(`✅ Status: state=${sdk.connectionState}, active=${sdk.activeSessions}, cli=${sdk.cliVersion ?? "unknown"}`);
+    diagAppend(
+      `✅ Status: state=${sdk.connectionState}, active=${sdk.activeSessions}, cli=${sdk.cliVersion ?? "unknown"}`,
+    );
 
     diagAppend("─── Diagnostics complete ───");
   } catch (e) {
@@ -153,7 +162,7 @@ const connectionLabel = computed(() => {
   if (sdk.isConnecting) return "Connecting…";
   if (!sdk.isConnected) return "Disconnected";
   const parts = ["Connected"];
-  if (sdk.connectionMode === "tcp") parts.push("TCP · " + (cliUrl.value || "?"));
+  if (sdk.connectionMode === "tcp") parts.push(`TCP · ${cliUrl.value || "?"}`);
   else parts.push("Stdio");
   if (sdk.cliVersion) parts[1] += ` · CLI ${sdk.cliVersion}`;
   return parts.join(" · ");
@@ -161,7 +170,7 @@ const connectionLabel = computed(() => {
 
 const sessionCountLabel = computed(() => {
   const total = sdk.sessions.length;
-  const active = sdk.sessions.filter(s => s.isActive).length;
+  const active = sdk.sessions.filter((s) => s.isActive).length;
   if (total === 0) return "No sessions";
   if (active === 0) return `${total} session${total !== 1 ? "s" : ""}`;
   return `${active} active / ${total} total`;

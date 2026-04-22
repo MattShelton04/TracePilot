@@ -16,6 +16,7 @@ use tracepilot_orchestrator::bridge::{
 // ─── Connection Lifecycle ─────────────────────────────────────────
 
 #[tauri::command]
+#[tracing::instrument(skip(bridge, config), err)]
 pub async fn sdk_connect(
     bridge: tauri::State<'_, SharedBridgeManager>,
     config: BridgeConnectConfig,
@@ -26,6 +27,7 @@ pub async fn sdk_connect(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip(bridge), err)]
 pub async fn sdk_disconnect(
     bridge: tauri::State<'_, SharedBridgeManager>,
 ) -> CmdResult<BridgeStatus> {
@@ -41,6 +43,7 @@ pub async fn sdk_status(bridge: tauri::State<'_, SharedBridgeManager>) -> CmdRes
 }
 
 #[tauri::command]
+#[tracing::instrument(skip(bridge), level = "debug", err)]
 pub async fn sdk_cli_status(
     bridge: tauri::State<'_, SharedBridgeManager>,
 ) -> CmdResult<BridgeStatus> {
@@ -51,6 +54,7 @@ pub async fn sdk_cli_status(
 // ─── Session Management ───────────────────────────────────────────
 
 #[tauri::command]
+#[tracing::instrument(skip(bridge, config), err)]
 pub async fn sdk_create_session(
     bridge: tauri::State<'_, SharedBridgeManager>,
     config: BridgeSessionConfig,
@@ -60,6 +64,7 @@ pub async fn sdk_create_session(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip(bridge, working_directory), err, fields(%session_id, model = model.as_deref().unwrap_or("")))]
 pub async fn sdk_resume_session(
     bridge: tauri::State<'_, SharedBridgeManager>,
     session_id: String,
@@ -73,6 +78,7 @@ pub async fn sdk_resume_session(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip(bridge, payload), err, fields(%session_id))]
 pub async fn sdk_send_message(
     bridge: tauri::State<'_, SharedBridgeManager>,
     session_id: String,
@@ -85,6 +91,7 @@ pub async fn sdk_send_message(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip(bridge), err, fields(%session_id))]
 pub async fn sdk_abort_session(
     bridge: tauri::State<'_, SharedBridgeManager>,
     session_id: String,
@@ -94,6 +101,7 @@ pub async fn sdk_abort_session(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip(bridge), err, fields(%session_id))]
 pub async fn sdk_destroy_session(
     bridge: tauri::State<'_, SharedBridgeManager>,
     session_id: String,
@@ -103,6 +111,7 @@ pub async fn sdk_destroy_session(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip(bridge), level = "debug", err, fields(%session_id))]
 pub async fn sdk_unlink_session(
     bridge: tauri::State<'_, SharedBridgeManager>,
     session_id: String,
@@ -113,6 +122,7 @@ pub async fn sdk_unlink_session(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip(bridge, mode), err, fields(%session_id))]
 pub async fn sdk_set_session_mode(
     bridge: tauri::State<'_, SharedBridgeManager>,
     session_id: String,
@@ -125,6 +135,7 @@ pub async fn sdk_set_session_mode(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip(bridge), err, fields(%session_id, %model))]
 pub async fn sdk_set_session_model(
     bridge: tauri::State<'_, SharedBridgeManager>,
     session_id: String,
@@ -182,6 +193,7 @@ pub async fn sdk_get_foreground_session(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip(bridge), level = "debug", err, fields(%session_id))]
 pub async fn sdk_set_foreground_session(
     bridge: tauri::State<'_, SharedBridgeManager>,
     session_id: String,
@@ -195,12 +207,14 @@ pub async fn sdk_set_foreground_session(
 // ─── UI Server Detection ──────────────────────────────────────────
 
 #[tauri::command]
+#[tracing::instrument(err)]
 pub async fn sdk_detect_ui_server() -> CmdResult<Vec<DetectedUiServer>> {
     let servers = tracepilot_orchestrator::bridge::detect_ui_servers().await;
     Ok(servers)
 }
 
 #[tauri::command]
+#[tracing::instrument(skip(working_dir), err, fields(has_working_dir = working_dir.is_some()))]
 pub async fn sdk_launch_ui_server(working_dir: Option<String>) -> CmdResult<u32> {
     let pid = tracepilot_orchestrator::bridge::manager::launch_ui_server(working_dir.as_deref())?;
     Ok(pid)

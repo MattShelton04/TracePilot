@@ -1,6 +1,6 @@
+import { setupPinia } from "@tracepilot/test-utils";
 import type { TaskPreset } from "@tracepilot/types";
 import { mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import DeletePresetConfirm from "../DeletePresetConfirm.vue";
 import EditPresetModal from "../EditPresetModal.vue";
@@ -43,13 +43,15 @@ const helperProps = {
   variableCount: (p: TaskPreset) => p.prompt?.variables?.length ?? 0,
   truncate: (t: string, m: number) => (t.length <= m ? t : `${t.slice(0, m)}…`),
   displayTags: (tags: string[]) =>
-    tags.length <= 3 ? { visible: tags, extra: 0 } : { visible: tags.slice(0, 3), extra: tags.length - 3 },
+    tags.length <= 3
+      ? { visible: tags, extra: 0 }
+      : { visible: tags.slice(0, 3), extra: tags.length - 3 },
   taskTypeColorClass: () => "type-color-accent",
   infoLine: () => "—",
 };
 
 beforeEach(() => {
-  setActivePinia(createPinia());
+  setupPinia();
 });
 
 describe("PresetStatsStrip", () => {
@@ -156,9 +158,7 @@ describe("NewPresetModal", () => {
       props: { open: true },
       attachTo: document.body,
     });
-    const createBtn = wrapper
-      .findAll(".btn--primary")
-      .find((b) => b.text().includes("Create"))!;
+    const createBtn = wrapper.findAll(".btn--primary").find((b) => b.text().includes("Create"))!;
     expect((createBtn.element as HTMLButtonElement).disabled).toBe(true);
     await wrapper.find('input[type="text"]').setValue("My Preset");
     expect((createBtn.element as HTMLButtonElement).disabled).toBe(false);
@@ -184,9 +184,7 @@ describe("EditPresetModal", () => {
       attachTo: document.body,
     });
     expect(wrapper.text()).toContain("Edit: Preset One");
-    const saveBtn = wrapper
-      .findAll(".btn--primary")
-      .find((b) => b.text().includes("Save"))!;
+    const saveBtn = wrapper.findAll(".btn--primary").find((b) => b.text().includes("Save"))!;
     await saveBtn.trigger("click");
     expect(wrapper.emitted("save")?.[0]?.[0]).toMatchObject({ id: "p1" });
     wrapper.unmount();

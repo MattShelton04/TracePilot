@@ -10,7 +10,12 @@
 import type { TurnToolCall } from "@tracepilot/types";
 import { getToolArgs } from "@tracepilot/types";
 import { type Component, computed, ref } from "vue";
-import { getRendererEntry, hasResultRenderer, shouldAutoExpandArgs, shouldHideArgsWithRichResult } from "./registry";
+import {
+  getRendererEntry,
+  hasResultRenderer,
+  shouldAutoExpandArgs,
+  shouldHideArgsWithRichResult,
+} from "./registry";
 
 const props = defineProps<{
   tc: TurnToolCall;

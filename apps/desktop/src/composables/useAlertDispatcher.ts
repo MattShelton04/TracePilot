@@ -3,6 +3,7 @@
 // user preferences: in-app toast, taskbar flash, native OS
 // notifications, and sound. Respects per-session cooldown to prevent spam.
 
+import { getCurrentTauriWindow } from "@/lib/tauri";
 import type { AlertEvent, AlertSeverity, AlertType } from "@/stores/alerts";
 import { useAlertsStore } from "@/stores/alerts";
 import { usePreferencesStore } from "@/stores/preferences";
@@ -52,8 +53,8 @@ function severityForType(type: AlertType): AlertSeverity {
 // ── Channel: Taskbar flash ───────────────────────────────────────
 async function flashTaskbar(severity: AlertSeverity) {
   try {
-    const { getCurrentWindow } = await import("@tauri-apps/api/window");
-    const win = getCurrentWindow();
+    const win = await getCurrentTauriWindow();
+    if (!win) return;
     // UserAttentionType: Critical=1 (flashes until clicked), Informational=2 (brief flash)
     const attentionType = severity === "error" ? 1 : 2;
     await win.requestUserAttention(attentionType);
@@ -68,8 +69,9 @@ async function flashTaskbar(severity: AlertSeverity) {
 // instead of the TracePilot icon. Production builds use the correct icon.
 async function sendNativeNotification(title: string, body: string) {
   try {
-    const { isPermissionGranted, requestPermission, sendNotification } =
-      await import("@tauri-apps/plugin-notification");
+    const { isPermissionGranted, requestPermission, sendNotification } = await import(
+      "@tauri-apps/plugin-notification"
+    );
 
     let granted = await isPermissionGranted();
     if (!granted) {
@@ -100,7 +102,8 @@ function playAlertSound(severity: AlertSeverity) {
     }
 
     // Two-tone chime: frequency varies by severity
-    const freqs = severity === "error" ? [440, 330] : severity === "warning" ? [660, 550] : [880, 660];
+    const freqs =
+      severity === "error" ? [440, 330] : severity === "warning" ? [660, 550] : [880, 660];
     const now = ctx.currentTime;
 
     for (let i = 0; i < freqs.length; i++) {
@@ -160,8 +163,8 @@ export async function registerNotificationClickHandler() {
 
     await onAction(async () => {
       try {
-        const { getCurrentWindow } = await import("@tauri-apps/api/window");
-        const win = getCurrentWindow();
+        const win = await getCurrentTauriWindow();
+        if (!win) return;
         await win.unminimize();
         await win.setFocus();
       } catch {

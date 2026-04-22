@@ -1,13 +1,17 @@
+import type { BridgeEvent, BridgeSessionInfo } from "@tracepilot/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
-import type { BridgeEvent, BridgeSessionInfo } from "@tracepilot/types";
 
 vi.mock("@tracepilot/client", () => ({
   sdkAbortSession: vi.fn(async () => {}),
-  sdkCreateSession: vi.fn(async () => ({ sessionId: "new-s", isActive: true }) as BridgeSessionInfo),
+  sdkCreateSession: vi.fn(
+    async () => ({ sessionId: "new-s", isActive: true }) as BridgeSessionInfo,
+  ),
   sdkDestroySession: vi.fn(async () => {}),
   sdkGetForegroundSession: vi.fn(async () => "fg-1"),
-  sdkResumeSession: vi.fn(async (sid: string) => ({ sessionId: sid, isActive: true }) as BridgeSessionInfo),
+  sdkResumeSession: vi.fn(
+    async (sid: string) => ({ sessionId: sid, isActive: true }) as BridgeSessionInfo,
+  ),
   sdkSendMessage: vi.fn(async () => "turn-1"),
   sdkSetForegroundSession: vi.fn(async () => {}),
   sdkSetSessionMode: vi.fn(async () => {}),
@@ -55,7 +59,10 @@ describe("createMessagingSlice", () => {
   });
 
   it("resumeSession patches isActive on the original id when backend returns a new id", async () => {
-    const original: BridgeSessionInfo = { sessionId: "orig-id", isActive: false } as BridgeSessionInfo;
+    const original: BridgeSessionInfo = {
+      sessionId: "orig-id",
+      isActive: false,
+    } as BridgeSessionInfo;
     (client.sdkResumeSession as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       sessionId: "new-id",
       isActive: true,
@@ -86,7 +93,10 @@ describe("createMessagingSlice", () => {
       { sessionId: "s1", isActive: true, mode: "chat" } as unknown as BridgeSessionInfo,
     ]);
     const slice = createMessagingSlice(deps);
-    await slice.setSessionMode("s1", "agent" as unknown as Parameters<typeof slice.setSessionMode>[1]);
+    await slice.setSessionMode(
+      "s1",
+      "agent" as unknown as Parameters<typeof slice.setSessionMode>[1],
+    );
     expect(deps.sessions.value[0].mode).toBe("agent");
   });
 

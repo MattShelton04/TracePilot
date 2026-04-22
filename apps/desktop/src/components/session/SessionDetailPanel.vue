@@ -154,7 +154,8 @@ const localTabs = [
 const tabs = computed(() => {
   const base = props.tabMode === "local" ? localTabs : routerTabs;
   return base.map((t) => {
-    if (t.name === "conversation") return { ...t, count: props.store.detail?.turnCount ?? undefined };
+    if (t.name === "conversation")
+      return { ...t, count: props.store.detail?.turnCount ?? undefined };
     if (t.name === "events") return { ...t, count: props.store.detail?.eventCount ?? undefined };
     return t;
   });
@@ -176,11 +177,14 @@ onMounted(async () => {
 
 // When the underlying session changes (e.g. tab switches that reuse the panel),
 // re-load detail data and re-check running state.
-watch(() => props.sessionId, (newId) => {
-  isSessionActive.value = false;
-  props.store.loadDetail(newId);
-  checkRunning();
-});
+watch(
+  () => props.sessionId,
+  (newId) => {
+    isSessionActive.value = false;
+    props.store.loadDetail(newId);
+    checkRunning();
+  },
+);
 
 watch(isSessionActive, (active) => {
   if (!active) {

@@ -1,11 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { STORAGE_KEYS } from "@/config/storageKeys";
-import {
-  applyContentMaxWidth,
-  applyUiScale,
-  BASE_FONT_SIZE_PX,
-  createUiSlice,
-} from "../ui";
+import { applyContentMaxWidth, applyUiScale, BASE_FONT_SIZE_PX, createUiSlice } from "../ui";
 
 describe("createUiSlice", () => {
   beforeEach(() => {

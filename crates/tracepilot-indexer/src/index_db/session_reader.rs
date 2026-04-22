@@ -74,7 +74,10 @@ impl IndexDb {
         }
 
         let mut stmt = self.conn.prepare(&sql)?;
-        let rows = stmt.query_map(params_from_iter(query_params.iter().map(|p| p.as_ref())), indexed_session_from_row)?;
+        let rows = stmt.query_map(
+            params_from_iter(query_params.iter().map(|p| p.as_ref())),
+            indexed_session_from_row,
+        )?;
 
         let mut sessions = Vec::new();
         for row in rows {

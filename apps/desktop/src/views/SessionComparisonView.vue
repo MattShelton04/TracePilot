@@ -4,10 +4,7 @@ import { provide } from "vue";
 import ComparisonCharts from "@/components/sessionComparison/ComparisonCharts.vue";
 import ComparisonHeader from "@/components/sessionComparison/ComparisonHeader.vue";
 import ComparisonMetrics from "@/components/sessionComparison/ComparisonMetrics.vue";
-import {
-  SessionComparisonKey,
-  useSessionComparison,
-} from "@/composables/useSessionComparison";
+import { SessionComparisonKey, useSessionComparison } from "@/composables/useSessionComparison";
 import "@/styles/features/session-comparison.css";
 
 const comp = useSessionComparison();

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { useLocalStorage } from "@tracepilot/ui";
+import { computed } from "vue";
 import { useRoute } from "vue-router";
 import LogoIcon from "@/components/icons/LogoIcon.vue";
 import SdkStatusIndicator from "@/components/layout/SdkStatusIndicator.vue";
@@ -45,7 +46,10 @@ function toggleTheme() {
   prefsStore.theme = currentTheme.value === "dark" ? "light" : "dark";
 }
 
-const dismissedVersion = ref(localStorage.getItem(DISMISSED_KEY));
+const dismissedVersion = useLocalStorage<string | null>(DISMISSED_KEY, null, {
+  serializer: { read: (raw) => raw, write: (v) => v ?? "" },
+  flush: "sync",
+});
 
 const hasUpdate = computed(() => {
   if (updateResult.value?.hasUpdate !== true) return false;
@@ -54,9 +58,7 @@ const hasUpdate = computed(() => {
 
 function dismissUpdate() {
   if (updateResult.value?.latestVersion) {
-    const version = updateResult.value.latestVersion;
-    localStorage.setItem(DISMISSED_KEY, version);
-    dismissedVersion.value = version;
+    dismissedVersion.value = updateResult.value.latestVersion;
   }
 }
 

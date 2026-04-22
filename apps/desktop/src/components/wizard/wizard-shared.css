@@ -1,0 +1,88 @@
+/*
+ * Shared wizard step styles. Consumed via `<style scoped src="./wizard-shared.css">`
+ * from each WizardStep*.vue component so the data-v-* scoping attribute is
+ * applied per-child — avoiding collisions with any global `.btn-accent` /
+ * `.slide` / etc. classnames elsewhere in the app.
+ */
+
+.slide {
+  min-width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 24px;
+}
+
+.slide-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 16px;
+  max-width: 560px;
+  width: 100%;
+}
+
+.slide-title {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  outline: none;
+}
+
+.btn-accent {
+  padding: 10px 28px;
+  background: var(--accent-emphasis);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md, 8px);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 180ms ease,
+    opacity 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.btn-accent:hover:not(:disabled) {
+  background: var(--accent-emphasis);
+}
+
+.btn-accent:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-lg {
+  padding: 14px 36px;
+  font-size: 1rem;
+}
+
+.btn-glow {
+  box-shadow: 0 0 30px rgba(99, 102, 241, 0.25);
+}
+
+.btn-glow:hover:not(:disabled) {
+  box-shadow: 0 0 40px rgba(99, 102, 241, 0.4);
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--border-default, rgba(255, 255, 255, 0.1));
+  border-top-color: var(--accent-fg);
+  border-radius: 50%;
+  animation: spin 600ms linear infinite;
+}
+
+.spinner-white {
+  border-color: rgba(255, 255, 255, 0.25);
+  border-top-color: white;
+}
+
+.btn-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}

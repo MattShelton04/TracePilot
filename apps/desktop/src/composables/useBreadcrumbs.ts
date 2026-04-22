@@ -1,4 +1,4 @@
-import { computed, type ComputedRef } from "vue";
+import { type ComputedRef, computed } from "vue";
 import { useRoute } from "vue-router";
 import { useSessionsStore } from "@/stores/sessions";
 import { useSessionTabsStore } from "@/stores/sessionTabs";
@@ -19,9 +19,9 @@ export interface Breadcrumb {
  * @param isTabViewActive Reactive flag indicating the session tab view is
  *   currently covering the router-view (shared App-level state).
  */
-export function useBreadcrumbs(
-  isTabViewActive: ComputedRef<boolean>,
-): { breadcrumbs: ComputedRef<Breadcrumb[]> } {
+export function useBreadcrumbs(isTabViewActive: ComputedRef<boolean>): {
+  breadcrumbs: ComputedRef<Breadcrumb[]>;
+} {
   const route = useRoute();
   const sessionsStore = useSessionsStore();
   const tabStore = useSessionTabsStore();
@@ -31,6 +31,7 @@ export function useBreadcrumbs(
 
     // Tab mode: breadcrumbs reflect the active tab
     if (isTabViewActive.value) {
+      // biome-ignore lint/style/noNonNullAssertion: isTabViewActive is true implies tabStore.activeTab is set.
       const tab = tabStore.activeTab!;
       crumbs.push({ label: tab.label });
       return crumbs;

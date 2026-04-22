@@ -19,7 +19,9 @@ const copied = ref(false);
 async function copyContent() {
   await navigator.clipboard.writeText(props.content);
   copied.value = true;
-  setTimeout(() => { copied.value = false; }, 1500);
+  setTimeout(() => {
+    copied.value = false;
+  }, 1500);
 }
 
 // Track expanded state per section (overview expanded by default)
@@ -47,6 +49,7 @@ function collapseAll() {
 
 const availableSections = computed<SectionMeta[]>(() => {
   if (!sections.value) return [];
+  // biome-ignore lint/style/noNonNullAssertion: guarded by the `if (!sections.value)` early-return immediately above.
   return SECTION_DEFS.filter((d) => sections.value![d.key]);
 });
 
@@ -54,9 +57,7 @@ function sectionContent(key: keyof CheckpointSections): string {
   return sections.value?.[key] ?? "";
 }
 
-const allExpanded = computed(() =>
-  availableSections.value.every((d) => expanded.value.has(d.key)),
-);
+const allExpanded = computed(() => availableSections.value.every((d) => expanded.value.has(d.key)));
 </script>
 
 <template>

@@ -18,25 +18,31 @@ tauri = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
-tauri-plugin-dialog = "2.6.0"
-tauri-plugin-log = "2"
-tauri-plugin-notification = "2"
-tauri-plugin-opener = "2"
-tauri-plugin-process = "2"
-tauri-plugin-updater = "2"
+tauri-plugin-dialog = { workspace = true }
+tauri-plugin-log = { workspace = true }
+tauri-plugin-notification = { workspace = true }
+tauri-plugin-opener = { workspace = true }
+tauri-plugin-process = { workspace = true }
+tauri-plugin-updater = { workspace = true }
 log = "0.4"
 console-subscriber = { version = "0.4", optional = true }
 
+# ── Cargo features ───────────────────────────────────────────────
+# `copilot-sdk` (default) — forwards to
+#   `tracepilot-tauri-bindings/copilot-sdk`, which pulls in the full
+#   SDK bridge chain (bindings → orchestrator → copilot-sdk git dep).
+#   Disable with `--no-default-features` to produce a shippable
+#   binary whose SDK bridge commands return `BridgeError::NotAvailable`.
+# `tokio-console` (opt-in) — enables `console-subscriber` for async
+#   task debugging. Replaces the `tauri-plugin-log` tracing bridge,
+#   so Rust log output goes to tokio-console instead of the Tauri
+#   log file. Use only for async profiling, not general debugging.
+#   Build:   cargo tauri dev --features tokio-console
+#   Connect: tokio-console http://127.0.0.1:6669
 [features]
-# Enable tokio-console for async task debugging.
-# NOTE: This replaces the tauri-plugin-log tracing bridge — Rust log output
-# will go to tokio-console instead of the Tauri log file. Use only for
-# async task profiling, not general debugging.
-# Build: cargo tauri dev --features tokio-console
-# Connect: tokio-console http://127.0.0.1:6669
-tokio-console = ["dep:console-subscriber"]
-copilot-sdk = ["tracepilot-tauri-bindings/copilot-sdk"]
 default = ["copilot-sdk"]
+copilot-sdk = ["tracepilot-tauri-bindings/copilot-sdk"]
+tokio-console = ["dep:console-subscriber"]
 
 [[bin]]
 name = "tracepilot-desktop"

@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/experimental-ct-vue";
+import { expect, test } from "@playwright/experimental-ct-vue";
 import TabNav from "../components/TabNav.vue";
 import { SNAPSHOT_OPTS } from "./index";
 

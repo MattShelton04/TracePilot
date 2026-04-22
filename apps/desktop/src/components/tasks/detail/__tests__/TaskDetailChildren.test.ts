@@ -1,12 +1,10 @@
-import type { Task } from "@tracepilot/types";
 import { setupPinia } from "@tracepilot/test-utils";
+import type { Task } from "@tracepilot/types";
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@tracepilot/ui", async () => {
-  const actual = await vi.importActual<Record<string, unknown>>(
-    "@tracepilot/ui",
-  );
+  const actual = await vi.importActual<Record<string, unknown>>("@tracepilot/ui");
   return {
     ...actual,
     useToast: () => ({

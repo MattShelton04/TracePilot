@@ -5,12 +5,20 @@
 pre-commit:
   parallel: true
   commands:
+    # Biome: lint + format check on staged JS/TS/Vue/JSON.
+    # Auto-generated bindings are excluded (also honoured by biome.json).
     biome:
       glob: "*.{ts,tsx,vue,js,jsx,json}"
-      run: npx @biomejs/biome check --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
+      exclude: "packages/client/src/generated/.*"
+      run: npx @biomejs/biome check --error-on-warnings --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
+    # rustfmt on staged .rs files only — per-file invocation avoids a full
+    # `cargo fmt --all` sweep on every commit.
     rustfmt:
       glob: "*.rs"
-      run: cargo fmt --all -- --check {staged_files}
+      run: rustfmt --check --edition 2024 {staged_files}
+    # File-size guard-rails — fast (<300ms) full-repo enumeration.
+    filesize:
+      run: node scripts/check-file-sizes.mjs
 
 # Heavier checks that shouldn't block every commit but should run before
 # sharing work with the remote. Skip with `git push --no-verify` if urgent.
@@ -18,7 +26,7 @@ pre-push:
   parallel: true
   commands:
     typecheck:
-      run: pnpm -r --filter "./apps/*" --filter "./packages/*" typecheck
+      run: pnpm typecheck
     rustfmt-all:
       run: cargo fmt --all -- --check
     filesize:
@@ -27,7 +35,7 @@ pre-push:
 commit-msg:
   commands:
     conventional-commit:
-      run: node -e "const msg=require('fs').readFileSync('{1}','utf8').trim();if(!/^(feat|fix|perf|refactor|chore|docs|style|test|ci|build)(\(.+\))?:\s.+/.test(msg)){console.error('ERROR: Commit message must follow Conventional Commits format\n  Format: <type>(<optional scope>): <description>\n  Types: feat, fix, perf, refactor, chore, docs, style, test, ci, build');process.exit(1)}"
+      run: node scripts/check-commit-msg.mjs {1}
 
 # Named "fix" bundle — run manually with `lefthook run fix` for a one-shot
 # auto-fix pass. Intentionally NOT wired to any git hook.

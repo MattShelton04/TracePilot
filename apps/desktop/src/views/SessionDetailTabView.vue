@@ -11,8 +11,12 @@
  */
 import { computed, defineAsyncComponent, provide, watch } from "vue";
 import SessionDetailPanel from "@/components/session/SessionDetailPanel.vue";
-import { createSessionDetailInstance, SESSION_DETAIL_KEY, toSessionDetailContext } from "@/composables/useSessionDetail";
 import { NAVIGATE_CHECKPOINT_KEY } from "@/composables/useCheckpointNavigation";
+import {
+  createSessionDetailInstance,
+  SESSION_DETAIL_KEY,
+  toSessionDetailContext,
+} from "@/composables/useSessionDetail";
 import { useWindowRole } from "@/composables/useWindowRole";
 import { useSessionTabsStore } from "@/stores/sessionTabs";
 
@@ -71,7 +75,7 @@ function onIsActiveChange(active: boolean) {
 
 // ── Checkpoint navigation (conversation → overview tab) ─────────
 provide(NAVIGATE_CHECKPOINT_KEY, (checkpointNumber: number) => {
-  store.pendingCheckpointFocus = checkpointNumber;
+  store.focusCheckpoint(checkpointNumber);
   emit("update:activeSubTab", "overview");
 });
 </script>

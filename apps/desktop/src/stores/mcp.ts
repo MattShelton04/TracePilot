@@ -3,7 +3,6 @@ import {
   mcpCheckHealth,
   mcpCheckServerHealth,
   mcpComputeDiff,
-  mcpGetServer,
   mcpImportFromFile,
   mcpImportFromGitHub,
   mcpListServers,
@@ -13,13 +12,11 @@ import {
 } from "@tracepilot/client";
 import type {
   McpConfigDiff,
-  McpHealthResult,
   McpHealthResultCached,
   McpImportResult,
   McpServerConfig,
   McpServerDetail,
   McpSummary,
-  McpTool,
 } from "@tracepilot/types";
 import { runAction, runMutation, useAsyncGuard } from "@tracepilot/ui";
 import { defineStore } from "pinia";
@@ -100,7 +97,7 @@ export const useMcpStore = defineStore("mcp", () => {
       action: () => mcpListServers(),
       onSuccess: (entries) => {
         const map = new Map<string, McpServerDetail>();
-        for (const [name, config] of entries) {
+        for (const [name, config] of Object.entries(entries)) {
           const cached = healthResults.value.get(name);
           map.set(name, {
             name,
@@ -239,6 +236,14 @@ export const useMcpStore = defineStore("mcp", () => {
     return servers.value.get(name);
   }
 
+  function clearError() {
+    error.value = null;
+  }
+
+  function setSearchQuery(q: string) {
+    searchQuery.value = q;
+  }
+
   return {
     // State
     servers,
@@ -267,5 +272,7 @@ export const useMcpStore = defineStore("mcp", () => {
     importFromGitHub,
     computeDiff,
     getServerDetail,
+    clearError,
+    setSearchQuery,
   };
 });

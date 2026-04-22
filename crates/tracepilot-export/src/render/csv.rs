@@ -343,7 +343,7 @@ mod tests {
         let renderer = CsvRenderer;
         let files = renderer.render(&archive).unwrap();
 
-        assert!(files.len() >= 1);
+        assert!(!files.is_empty());
         assert!(files[0].filename.ends_with("-summary.csv"));
 
         let text = files[0].as_text().unwrap();

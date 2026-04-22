@@ -1,3 +1,4 @@
+import { createDeferred, setupPinia } from "@tracepilot/test-utils";
 import type {
   AgentDefinition,
   BackupEntry,
@@ -5,7 +6,6 @@ import type {
   CopilotVersion,
   MigrationDiff,
 } from "@tracepilot/types";
-import { setupPinia, createDeferred } from "@tracepilot/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useConfigInjectorStore } from "@/stores/configInjector";
 
@@ -301,7 +301,9 @@ describe("useConfigInjectorStore", () => {
       mockGetActiveCopilotVersion
         .mockResolvedValueOnce(FIXTURE_ACTIVE_VERSION)
         .mockResolvedValueOnce(freshActive);
-      mockListConfigBackups.mockResolvedValueOnce(FIXTURE_BACKUPS).mockResolvedValueOnce(freshBackups);
+      mockListConfigBackups
+        .mockResolvedValueOnce(FIXTURE_BACKUPS)
+        .mockResolvedValueOnce(freshBackups);
 
       const store = useConfigInjectorStore();
       const first = store.initialize();
@@ -637,7 +639,9 @@ describe("useConfigInjectorStore", () => {
         },
       ];
 
-      mockGetMigrationDiffs.mockReturnValueOnce(slowDiffs.promise).mockResolvedValueOnce(freshDiffs);
+      mockGetMigrationDiffs
+        .mockReturnValueOnce(slowDiffs.promise)
+        .mockResolvedValueOnce(freshDiffs);
 
       const store = useConfigInjectorStore();
       const first = store.loadMigrationDiffs("1.0.0", "1.0.1");

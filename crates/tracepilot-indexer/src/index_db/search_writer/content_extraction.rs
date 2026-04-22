@@ -173,10 +173,8 @@ pub fn extract_search_content(session_id: &str, events: &[TypedEvent]) -> Vec<Se
         match &event.typed_data {
             // TurnStart opens a turn if none is open (mirrors ensure_current_turn).
             // After a TurnEnd closes a turn, the next TurnStart begins a new one.
-            TypedEventData::TurnStart(_) => {
-                if ensure_turn(&mut current_turn, &mut turn_is_open) {
-                    flush_pending(&mut pending_session_rows, &mut rows, current_turn);
-                }
+            TypedEventData::TurnStart(_) if ensure_turn(&mut current_turn, &mut turn_is_open) => {
+                flush_pending(&mut pending_session_rows, &mut rows, current_turn);
             }
 
             TypedEventData::UserMessage(d) => {

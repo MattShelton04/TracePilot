@@ -1,3 +1,4 @@
+import { setupPinia } from "@tracepilot/test-utils";
 import type {
   AgentDefinition,
   BackupEntry,
@@ -5,10 +6,9 @@ import type {
   CopilotVersion,
   MigrationDiff,
 } from "@tracepilot/types";
-import { setupPinia } from "@tracepilot/test-utils";
 import { mount } from "@vue/test-utils";
-import { computed, defineComponent, h, provide, reactive, ref } from "vue";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { computed, defineComponent, h, provide, reactive, ref } from "vue";
 
 vi.mock("@tracepilot/ui", async () => {
   const actual = await vi.importActual<Record<string, unknown>>("@tracepilot/ui");
@@ -60,8 +60,22 @@ function makeCtx(overrides: Partial<UseConfigInjectorReturn> = {}): UseConfigInj
         raw: {},
       } as CopilotConfig,
       versions: [
-        { version: "1.0.0", isActive: true, isComplete: true, hasCustomizations: false, lockCount: 0, path: "/p" } as CopilotVersion,
-        { version: "1.1.0", isActive: false, isComplete: true, hasCustomizations: true, lockCount: 1, path: "/p2" } as CopilotVersion,
+        {
+          version: "1.0.0",
+          isActive: true,
+          isComplete: true,
+          hasCustomizations: false,
+          lockCount: 0,
+          path: "/p",
+        } as CopilotVersion,
+        {
+          version: "1.1.0",
+          isActive: false,
+          isComplete: true,
+          hasCustomizations: true,
+          lockCount: 1,
+          path: "/p2",
+        } as CopilotVersion,
       ],
       activeVersion: null,
       backups: [] as BackupEntry[],

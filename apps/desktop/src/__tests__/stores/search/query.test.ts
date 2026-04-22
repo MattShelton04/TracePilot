@@ -1,5 +1,5 @@
-import { effectScope } from "vue";
 import { describe, expect, it } from "vitest";
+import { effectScope } from "vue";
 import { createQuerySlice } from "../../../stores/search/query";
 
 function inScope<T>(fn: () => T): { value: T; dispose: () => void } {

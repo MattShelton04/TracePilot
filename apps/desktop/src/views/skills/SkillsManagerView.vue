@@ -39,11 +39,7 @@ function formatTokensWithCommas(n: number): string {
 async function handleCreateSkill() {
   if (!newSkillName.value.trim()) return;
   creating.value = true;
-  const dir = await store.createSkill(
-    newSkillName.value.trim(),
-    newSkillDesc.value.trim(),
-    "",
-  );
+  const dir = await store.createSkill(newSkillName.value.trim(), newSkillDesc.value.trim(), "");
   creating.value = false;
   if (dir) {
     showNewSkillModal.value = false;
@@ -53,7 +49,7 @@ async function handleCreateSkill() {
 }
 
 function handleImported(_result: SkillImportResult) {
-  store.error = null;
+  store.clearError();
   showImportWizard.value = false;
 }
 
@@ -78,13 +74,13 @@ async function handleDeleteSkill(dir: string) {
           </svg>
         </template>
         <template #actions>
-          <button class="btn btn--ghost" @click="store.error = null; showImportWizard = true">
+          <button class="btn btn--ghost" @click="store.clearError(); showImportWizard = true">
             <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
               <path d="M8 2v8M4 6l4-4 4 4" /><path d="M2 12v2h12v-2" />
             </svg>
             Import
           </button>
-          <button class="btn btn--primary" @click="store.error = null; showNewSkillModal = true">
+          <button class="btn btn--primary" @click="store.clearError(); showNewSkillModal = true">
             <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="14" height="14">
               <line x1="8" y1="3" x2="8" y2="13" /><line x1="3" y1="8" x2="13" y2="8" />
             </svg>
@@ -139,15 +135,15 @@ async function handleDeleteSkill(dir: string) {
         <div class="scope-segmented">
           <button
             :class="['scope-seg-btn', { active: store.filterScope === 'all' }]"
-            @click="store.filterScope = 'all'"
+            @click="store.setFilterScope('all')"
           >All</button>
           <button
             :class="['scope-seg-btn', { active: store.filterScope === 'global' }]"
-            @click="store.filterScope = 'global'"
+            @click="store.setFilterScope('global')"
           >Global</button>
           <button
             :class="['scope-seg-btn', { active: store.filterScope === 'repository' }]"
-            @click="store.filterScope = 'repository'"
+            @click="store.setFilterScope('repository')"
           >Project</button>
         </div>
 
@@ -189,8 +185,8 @@ async function handleDeleteSkill(dir: string) {
           {{ store.searchQuery ? "Try a different search term" : "Create your first skill or import one to get started" }}
         </p>
         <div class="empty-state__actions">
-          <button class="btn btn--primary" @click="store.error = null; showNewSkillModal = true">Create Skill</button>
-          <button class="btn btn--secondary" @click="store.error = null; showImportWizard = true">Import</button>
+          <button class="btn btn--primary" @click="store.clearError(); showNewSkillModal = true">Create Skill</button>
+          <button class="btn btn--secondary" @click="store.clearError(); showImportWizard = true">Import</button>
         </div>
       </div>
 

@@ -1,7 +1,7 @@
 //! Tauri IPC event name constants.
 //!
 //! Centralises event names emitted from Rust commands and listened to
-//! on the TypeScript side.  Keep in sync with `packages/types/src/ipc-events.ts`.
+//! on the TypeScript side.  Keep in sync with `packages/client/src/events.ts`.
 
 /// Indexing lifecycle events (full index).
 pub const INDEXING_STARTED: &str = "indexing-started";

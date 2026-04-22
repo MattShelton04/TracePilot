@@ -2,6 +2,10 @@
 // Types for the full-text search (FTS) index: content types, results,
 // filters, facets, statistics, and indexing progress events.
 
+// Re-exported for convenience — `SessionHealth` is the authoritative
+// definition and lives in ./session.js alongside other session types.
+export type { SessionHealth } from "./session.js";
+
 /** Content types that can be indexed for full-text search. */
 export type SearchContentType =
   | "user_message"
@@ -78,6 +82,26 @@ export interface SearchStatsResponse {
 export interface SearchIndexingProgress {
   current: number;
   total: number;
+}
+
+/** FTS health information. */
+export interface FtsHealthInfo {
+  totalContentRows: number;
+  ftsIndexRows: number;
+  indexedSessions: number;
+  totalSessions: number;
+  pendingSessions: number;
+  inSync: boolean;
+  contentTypes: [string, number][];
+  dbSizeBytes: number;
+}
+
+/** Adjacent context snippet around a search result. */
+export interface ContextSnippet {
+  contentType: string;
+  turnNumber: number | null;
+  toolName: string | null;
+  preview: string;
 }
 
 // ─── Indexing Progress ────────────────────────────────────────────

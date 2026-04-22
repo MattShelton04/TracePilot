@@ -1,3 +1,4 @@
+import { enablePerfTracing } from "@tracepilot/client";
 import { ensureMarkdownReady, toErrorMessage } from "@tracepilot/ui";
 import { createPinia } from "pinia";
 import { createApp } from "vue";
@@ -8,6 +9,11 @@ import { runStorageKeyMigrations } from "./config/storageKeysMigration";
 import router from "./router";
 import "./styles.css";
 import { initLogging, logError } from "./utils/logger";
+
+// Expose `window.__TRACEPILOT_IPC_PERF__` for e2e automation and devtools
+// access to the IPC perf ring buffer. Explicit opt-in (Wave 60) — the client
+// package no longer installs this hook as a module side-effect.
+enablePerfTracing();
 
 // Run any pending localStorage key migrations before the cached-theme read
 // or any store setup so all downstream code sees canonical keys.

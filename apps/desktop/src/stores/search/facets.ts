@@ -6,7 +6,7 @@ import {
 } from "@tracepilot/client";
 import type { SearchFacetsResponse, SearchStatsResponse } from "@tracepilot/types";
 import { useAsyncGuard } from "@tracepilot/ui";
-import { ref } from "vue";
+import { ref, shallowRef } from "vue";
 import { logWarn } from "@/utils/logger";
 import type { QuerySlice } from "./query";
 
@@ -24,12 +24,13 @@ export interface FacetOverrides {
  * or when concurrent indexing/rebuild operations trigger parallel fetches.
  */
 export function createFacetsSlice(q: QuerySlice) {
-  const stats = ref<SearchStatsResponse | null>(null);
-  const facets = ref<SearchFacetsResponse | null>(null);
+  // shallowRef: these payloads are immutable snapshots replaced wholesale.
+  const stats = shallowRef<SearchStatsResponse | null>(null);
+  const facets = shallowRef<SearchFacetsResponse | null>(null);
   const statsLoading = ref(false);
 
-  const availableRepositories = ref<string[]>([]);
-  const availableToolNames = ref<string[]>([]);
+  const availableRepositories = shallowRef<string[]>([]);
+  const availableToolNames = shallowRef<string[]>([]);
 
   const facetGuard = useAsyncGuard();
   const statsGuard = useAsyncGuard();
@@ -53,8 +54,7 @@ export function createFacetsSlice(q: QuerySlice) {
       const ct = overrides?.contentTypes ?? q.contentTypes.value;
       const repo = overrides?.repo ?? q.repository.value;
       const tool = overrides?.tool ?? q.toolName.value;
-      const session =
-        overrides?.session !== undefined ? overrides.session : q.sessionId.value;
+      const session = overrides?.session !== undefined ? overrides.session : q.sessionId.value;
 
       // Skip re-fetch for unfiltered browse-mode calls when results are already fresh.
       // Filter-scoped fetches (after a search) always run to reflect the current query.

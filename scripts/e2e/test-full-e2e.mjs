@@ -1,5 +1,5 @@
 // Full E2E integration test: create task → start orchestrator → verify processing
-import { connect, ipc, navigateTo, startConsoleCapture } from './connect.mjs';
+import { connect, ipc, navigateTo, startConsoleCapture } from "./connect.mjs";
 
 async function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
@@ -12,8 +12,8 @@ function log(msg) {
 
 async function run() {
   log("Connecting to TracePilot...");
-  const { browser, page, context, port } = await connect();
-  const capture = startConsoleCapture(page);
+  const { browser, page } = await connect();
+  startConsoleCapture(page);
 
   let passed = 0;
   let failed = 0;
@@ -157,7 +157,10 @@ async function run() {
     const errorsPreOrch = capture
       .getLogs()
       .filter((l) => l.type === "error" && !l.text.includes("reindex"));
-    assert(errorsPreOrch.length === 0, `No console errors before orchestrator (got ${errorsPreOrch.length})`);
+    assert(
+      errorsPreOrch.length === 0,
+      `No console errors before orchestrator (got ${errorsPreOrch.length})`,
+    );
 
     // ═══════════════════════════════════════════════════════
     // PHASE 8: Start orchestrator
@@ -185,9 +188,9 @@ async function run() {
       const jobsDir = orchHandle.jobsDir;
 
       // Check manifest exists
-      const manifestExists = await page.evaluate(async (path) => {
+      const _manifestExists = await page.evaluate(async (path) => {
         try {
-          const result = await window.__TAURI_INTERNALS__.invoke("plugin:tracepilot|get_log_path");
+          const _result = await window.__TAURI_INTERNALS__.invoke("plugin:tracepilot|get_log_path");
           // Can't directly check FS from browser, but we can verify the path
           return path && path.length > 0;
         } catch {
@@ -195,7 +198,10 @@ async function run() {
         }
       }, orchHandle.manifestPath);
       assert(jobsDir.length > 0, `Jobs dir path is set: ${jobsDir}`);
-      assert(orchHandle.manifestPath.endsWith("manifest.json"), "Manifest path ends with manifest.json");
+      assert(
+        orchHandle.manifestPath.endsWith("manifest.json"),
+        "Manifest path ends with manifest.json",
+      );
 
       // ═══════════════════════════════════════════════════════
       // PHASE 10: Verify tasks moved to in_progress
@@ -299,8 +305,8 @@ async function run() {
       const maxWait = 180;
       const pollInterval = 10;
       let elapsed = 0;
-      let taskDone = false;
-      let taskFailed = false;
+      let _taskDone = false;
+      let _taskFailed = false;
 
       while (elapsed < maxWait) {
         await sleep(pollInterval * 1000);
@@ -315,14 +321,14 @@ async function run() {
         );
 
         if (currentSummary?.status === "done" || currentSummary?.status === "failed") {
-          taskDone = currentSummary.status === "done";
-          taskFailed = currentSummary.status === "failed";
+          _taskDone = currentSummary.status === "done";
+          _taskFailed = currentSummary.status === "failed";
           break;
         }
         if (currentDigest?.status === "done" || currentDigest?.status === "failed") {
           // At least one task reached terminal state
-          taskDone = currentDigest.status === "done";
-          taskFailed = currentDigest.status === "failed";
+          _taskDone = currentDigest.status === "done";
+          _taskFailed = currentDigest.status === "failed";
           if (currentSummary?.status === "done" || currentSummary?.status === "failed") break;
         }
 
@@ -359,8 +365,7 @@ async function run() {
       const summaryTerminal = ["done", "failed"].includes(finalSummary?.status);
       const digestTerminal = ["done", "failed"].includes(finalDigest?.status);
       const anyProcessed = summaryTerminal || digestTerminal;
-      const stillPending =
-        finalSummary?.status === "pending" && finalDigest?.status === "pending";
+      const stillPending = finalSummary?.status === "pending" && finalDigest?.status === "pending";
 
       assert(
         !stillPending,

@@ -14,7 +14,8 @@ const sdkMock = {
   sessions: [] as Array<{ sessionId: string; isActive: boolean; mode?: string; model?: string }>,
   models: [] as Array<{ id: string; name?: string }>,
   resumeSession: vi.fn(
-    async (_sid: string, _cwd?: string, _model?: string) => ({ sessionId: "resolved-123" }) as { sessionId: string } | null,
+    async (_sid: string, _cwd?: string, _model?: string) =>
+      ({ sessionId: "resolved-123" }) as { sessionId: string } | null,
   ),
   sendMessage: vi.fn(async (_sid: string, _p: { prompt: string }) => "turn-1" as string | null),
   setSessionMode: vi.fn(async () => {}),
@@ -63,7 +64,14 @@ function mountHarness(
   // Register provide so the key type is exercised.
   wrapper.vm.$options; // no-op reference
   void SdkSteeringKey;
-  return { wrapper, sessionIdRef, sessionCwdRef, get ctx() { return holder.ctx!; } };
+  return {
+    wrapper,
+    sessionIdRef,
+    sessionCwdRef,
+    get ctx() {
+      return holder.ctx!;
+    },
+  };
 }
 
 beforeEach(() => {
@@ -165,9 +173,7 @@ describe("useSdkSteering — mode / abort / shutdown / connect", () => {
       sdkMock.lastError = "JSON-RPC error -32601 Unhandled method";
     });
     await ctx.handleModeChange("autopilot");
-    expect(ctx.sessionError).toBe(
-      "Mode switching not supported by this CLI version.",
-    );
+    expect(ctx.sessionError).toBe("Mode switching not supported by this CLI version.");
   });
 
   it("handleAbort forwards to sdk.abortSession when linked", async () => {
@@ -203,9 +209,7 @@ describe("useSdkSteering — sessionId watcher resets state (w1)", () => {
     ctx.resolvedSessionId = "resolved-x";
     ctx.pendingModel = "gpt-4";
     ctx.showModelPicker = true;
-    ctx.sentMessages = [
-      { id: 1, text: "x", timestamp: 0, status: "sent" },
-    ];
+    ctx.sentMessages = [{ id: 1, text: "x", timestamp: 0, status: "sent" }];
     sid.value = "sess-B";
     await new Promise((r) => setTimeout(r, 0));
     expect(ctx.userLinked).toBe(false);

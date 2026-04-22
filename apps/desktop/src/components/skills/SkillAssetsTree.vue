@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { SkillAsset } from "@tracepilot/types";
-import { nextTick, ref, toRef } from "vue";
 import { useFileBrowserTree } from "@tracepilot/ui";
+import { nextTick, ref, toRef } from "vue";
 
 const props = defineProps<{
   assets: SkillAsset[];
@@ -15,8 +15,9 @@ const emit = defineEmits<{
   newFile: [name: string];
 }>();
 
-const { treeStructure, fileCount, collapsedFolders, toggleFolder, formatSize } =
-  useFileBrowserTree(toRef(props, "assets"));
+const { treeStructure, fileCount, collapsedFolders, toggleFolder, formatSize } = useFileBrowserTree(
+  toRef(props, "assets"),
+);
 
 // ─── Inline new-file input ─────────────────────────────────
 const showNewFileInput = ref(false);

@@ -62,7 +62,10 @@ describe("isAlreadyIndexingError", () => {
   // ── Structured envelope form (new in Phase 1A.5) ──
   it("matches the structured envelope with code=ALREADY_INDEXING", () => {
     expect(
-      isAlreadyIndexingError({ code: "ALREADY_INDEXING", message: "Indexing is already in progress." }),
+      isAlreadyIndexingError({
+        code: "ALREADY_INDEXING",
+        message: "Indexing is already in progress.",
+      }),
     ).toBe(true);
   });
   it("also matches the current backend message via the substring fallback", () => {
@@ -79,9 +82,7 @@ describe("isAlreadyIndexingError", () => {
     // `"ALREADY_INDEXING"` as a validation error. The fallback still
     // catches those; but code === "VALIDATION" alone is NOT treated as
     // ALREADY_INDEXING (see the test directly above).
-    expect(
-      isAlreadyIndexingError({ code: "VALIDATION", message: "already indexing" }),
-    ).toBe(true);
+    expect(isAlreadyIndexingError({ code: "VALIDATION", message: "already indexing" })).toBe(true);
   });
 });
 

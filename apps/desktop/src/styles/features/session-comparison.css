@@ -91,7 +91,7 @@
 }
 
 .session-comparison-feature .summary-card::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 0;
@@ -157,10 +157,22 @@
   font-variant-numeric: tabular-nums;
 }
 
-.session-comparison-feature .col-val-a { text-align: right; width: 30%; }
-.session-comparison-feature .col-metric { text-align: center; width: 20%; }
-.session-comparison-feature .col-val-b { text-align: left; width: 30%; }
-.session-comparison-feature .col-delta { text-align: center; width: 20%; }
+.session-comparison-feature .col-val-a {
+  text-align: right;
+  width: 30%;
+}
+.session-comparison-feature .col-metric {
+  text-align: center;
+  width: 20%;
+}
+.session-comparison-feature .col-val-b {
+  text-align: left;
+  width: 30%;
+}
+.session-comparison-feature .col-delta {
+  text-align: center;
+  width: 20%;
+}
 
 .session-comparison-feature .delta-table .metric-name {
   color: var(--text-secondary);
@@ -186,9 +198,15 @@
   font-size: 0.75rem;
 }
 
-.session-comparison-feature .delta-positive { color: var(--success-fg); }
-.session-comparison-feature .delta-negative { color: var(--danger-fg); }
-.session-comparison-feature .delta-neutral { color: var(--text-tertiary); }
+.session-comparison-feature .delta-positive {
+  color: var(--success-fg);
+}
+.session-comparison-feature .delta-negative {
+  color: var(--danger-fg);
+}
+.session-comparison-feature .delta-neutral {
+  color: var(--text-tertiary);
+}
 
 /* ── Chart Grid ── */
 .session-comparison-feature .chart-grid-2 {
@@ -282,7 +300,7 @@
   font-size: 0.625rem;
   font-weight: 600;
   color: var(--text-inverse);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: "JetBrains Mono", monospace;
   white-space: nowrap;
   position: relative;
   z-index: 1;
@@ -297,7 +315,7 @@
   font-size: 0.625rem;
   font-weight: 600;
   color: var(--text-secondary);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: "JetBrains Mono", monospace;
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -352,8 +370,12 @@
   border-radius: 2px;
 }
 
-.session-comparison-feature .swatch-a { background: var(--chart-primary); }
-.session-comparison-feature .swatch-b { background: var(--chart-secondary); }
+.session-comparison-feature .swatch-a {
+  background: var(--chart-primary);
+}
+.session-comparison-feature .swatch-b {
+  background: var(--chart-secondary);
+}
 
 .session-comparison-feature .tool-row {
   display: flex;
@@ -368,7 +390,7 @@
   color: var(--text-secondary);
   text-align: right;
   flex-shrink: 0;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: "JetBrains Mono", monospace;
 }
 
 .session-comparison-feature .tool-bars {
@@ -387,13 +409,17 @@
   font-size: 0.625rem;
   font-weight: 600;
   color: var(--text-inverse);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: "JetBrains Mono", monospace;
   transition: width 500ms ease;
   min-width: 20px;
 }
 
-.session-comparison-feature .tool-bar-a { background: linear-gradient(90deg, var(--chart-primary), var(--chart-primary-light)); }
-.session-comparison-feature .tool-bar-b { background: linear-gradient(90deg, var(--done-fg), var(--chart-secondary)); }
+.session-comparison-feature .tool-bar-a {
+  background: linear-gradient(90deg, var(--chart-primary), var(--chart-primary-light));
+}
+.session-comparison-feature .tool-bar-b {
+  background: linear-gradient(90deg, var(--done-fg), var(--chart-secondary));
+}
 
 /* ── Waveform ── */
 .session-comparison-feature .waveform-container {
@@ -412,8 +438,12 @@
   transition: height 300ms ease;
 }
 
-.session-comparison-feature .waveform-bar-a { background: linear-gradient(180deg, var(--chart-primary-light), var(--chart-primary)); }
-.session-comparison-feature .waveform-bar-b { background: linear-gradient(180deg, var(--chart-secondary), var(--done-fg)); }
+.session-comparison-feature .waveform-bar-a {
+  background: linear-gradient(180deg, var(--chart-primary-light), var(--chart-primary));
+}
+.session-comparison-feature .waveform-bar-b {
+  background: linear-gradient(180deg, var(--chart-secondary), var(--done-fg));
+}
 
 /* ── Timeline ── */
 .session-comparison-feature .timeline-desc {
@@ -432,8 +462,12 @@
   margin-bottom: 4px;
 }
 
-.session-comparison-feature .label-a { color: var(--accent-fg); }
-.session-comparison-feature .label-b { color: var(--done-fg); }
+.session-comparison-feature .label-a {
+  color: var(--accent-fg);
+}
+.session-comparison-feature .label-b {
+  color: var(--done-fg);
+}
 
 .session-comparison-feature .mini-timeline-row {
   display: flex;

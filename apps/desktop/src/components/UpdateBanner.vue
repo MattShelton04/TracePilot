@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { useLocalStorage } from "@tracepilot/ui";
+import { computed } from "vue";
 import { useUpdateCheck } from "@/composables/useUpdateCheck";
 import { STORAGE_KEYS } from "@/config/storageKeys";
 
@@ -10,7 +11,10 @@ const emit = defineEmits<{
 
 const { updateResult } = useUpdateCheck();
 
-const dismissedVersion = ref(localStorage.getItem(STORAGE_KEYS.dismissedUpdate));
+const dismissedVersion = useLocalStorage<string | null>(STORAGE_KEYS.dismissedUpdate, null, {
+  serializer: { read: (raw) => raw, write: (v) => v ?? "" },
+  flush: "sync",
+});
 
 const visible = computed(() => {
   if (!updateResult.value?.hasUpdate) return false;
@@ -19,9 +23,7 @@ const visible = computed(() => {
 
 function dismiss() {
   if (updateResult.value?.latestVersion) {
-    const version = updateResult.value.latestVersion;
-    localStorage.setItem(STORAGE_KEYS.dismissedUpdate, version);
-    dismissedVersion.value = version;
+    dismissedVersion.value = updateResult.value.latestVersion;
   }
   emit("dismiss");
 }

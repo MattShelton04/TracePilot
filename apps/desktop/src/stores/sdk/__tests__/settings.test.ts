@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { createSettingsSlice, loadSdkSettings, saveSdkSettings } from "../settings";
 import { STORAGE_KEYS } from "@/config/storageKeys";
+import { createSettingsSlice, loadSdkSettings, saveSdkSettings } from "../settings";
 
 const KEY = STORAGE_KEYS.sdkSettings;
 

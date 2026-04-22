@@ -1,5 +1,5 @@
 import { formatCost, formatNumber, formatPercent } from "@tracepilot/ui";
-import { computed, inject, type InjectionKey, reactive, ref, watch } from "vue";
+import { computed, type InjectionKey, inject, reactive, ref, watch } from "vue";
 import { useAnalyticsPage } from "@/composables/useAnalyticsPage";
 import { usePreferencesStore } from "@/stores/preferences";
 import { MODEL_PALETTE } from "@/utils/chartColors";
@@ -325,7 +325,7 @@ export function useModelComparison() {
     return formatNumber(value);
   }
 
-// ── Radar chart (top 3 by tokens) ────────────────────────────
+  // ── Radar chart (top 3 by tokens) ────────────────────────────
   const radarModels = computed(() => {
     return [...modelRows.value].sort((a, b) => b.tokens - a.tokens).slice(0, 3);
   });
@@ -433,16 +433,13 @@ export function useModelComparison() {
 
 export type ModelComparisonContext = ReturnType<typeof useModelComparison>;
 
-export const ModelComparisonKey: InjectionKey<ModelComparisonContext> = Symbol(
-  "ModelComparisonContext",
-);
+export const ModelComparisonKey: InjectionKey<ModelComparisonContext> =
+  Symbol("ModelComparisonContext");
 
 export function useModelComparisonContext(): ModelComparisonContext {
   const ctx = inject(ModelComparisonKey);
   if (!ctx) {
-    throw new Error(
-      "useModelComparisonContext must be used within a ModelComparisonView shell",
-    );
+    throw new Error("useModelComparisonContext must be used within a ModelComparisonView shell");
   }
   return ctx;
 }

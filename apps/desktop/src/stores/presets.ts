@@ -102,6 +102,22 @@ export const usePresetsStore = defineStore("presets", () => {
     return ok ?? false;
   }
 
+  function clearError() {
+    error.value = null;
+  }
+
+  function setError(message: string) {
+    error.value = message;
+  }
+
+  function setSearchQuery(q: string) {
+    searchQuery.value = q;
+  }
+
+  function setFilterTag(tag: string) {
+    filterTag.value = tag;
+  }
+
   return {
     // State
     presets,
@@ -122,5 +138,9 @@ export const usePresetsStore = defineStore("presets", () => {
     getPreset,
     savePreset,
     deletePreset,
+    clearError,
+    setError,
+    setSearchQuery,
+    setFilterTag,
   };
 });

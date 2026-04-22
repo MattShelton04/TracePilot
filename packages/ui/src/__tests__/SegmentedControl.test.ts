@@ -48,9 +48,7 @@ describe("SegmentedControl", () => {
     const wrapper = mount(SegmentedControl, {
       props: { modelValue: "all", options },
     });
-    expect(wrapper.find(".segmented-control").classes()).not.toContain(
-      "segmented-control--pill",
-    );
+    expect(wrapper.find(".segmented-control").classes()).not.toContain("segmented-control--pill");
     for (const btn of wrapper.findAll("button")) {
       expect(btn.classes()).not.toContain("segment-btn--pill");
     }
@@ -60,9 +58,7 @@ describe("SegmentedControl", () => {
     const wrapper = mount(SegmentedControl, {
       props: { modelValue: "all", options, rounded: "pill" },
     });
-    expect(wrapper.find(".segmented-control").classes()).toContain(
-      "segmented-control--pill",
-    );
+    expect(wrapper.find(".segmented-control").classes()).toContain("segmented-control--pill");
     for (const btn of wrapper.findAll("button")) {
       expect(btn.classes()).toContain("segment-btn--pill");
     }
@@ -72,8 +68,6 @@ describe("SegmentedControl", () => {
     const wrapper = mount(SegmentedControl, {
       props: { modelValue: "all", options, rounded: "square" },
     });
-    expect(wrapper.find(".segmented-control").classes()).not.toContain(
-      "segmented-control--pill",
-    );
+    expect(wrapper.find(".segmented-control").classes()).not.toContain("segmented-control--pill");
   });
 });

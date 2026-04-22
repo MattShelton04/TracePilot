@@ -1,6 +1,6 @@
+import type { BridgeStatus, DetectedUiServer } from "@tracepilot/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
-import type { BridgeStatus, DetectedUiServer } from "@tracepilot/types";
 
 const defaultStatus: BridgeStatus = {
   state: "connected",

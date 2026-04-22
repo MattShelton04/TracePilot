@@ -5,7 +5,14 @@
 
 import { getHealthScores } from "@tracepilot/client";
 import type { HealthScoringData } from "@tracepilot/types";
-import { ErrorState, HealthRing, LoadingOverlay, PageShell, StatCard, toErrorMessage } from "@tracepilot/ui";
+import {
+  ErrorState,
+  HealthRing,
+  LoadingOverlay,
+  PageShell,
+  StatCard,
+  toErrorMessage,
+} from "@tracepilot/ui";
 import { computed, onMounted, ref } from "vue";
 import StubBanner from "@/components/StubBanner.vue";
 
@@ -50,7 +57,7 @@ function severityLabel(severity: "warning" | "danger"): string {
         <!-- Hero Section: Large Health Ring + Stat Cards -->
         <section class="health-hero" aria-label="Overall health summary">
           <HealthRing :score="data.overallScore" size="lg" />
-          <div class="grid-4" style="flex: 1;">
+          <div class="grid-4 health-hero-stats">
             <StatCard :value="data.healthyCount" label="Healthy" color="success" />
             <StatCard :value="data.attentionCount" label="Needs Attention" color="warning" />
             <StatCard :value="data.criticalCount" label="Critical" color="danger" />
@@ -62,7 +69,7 @@ function severityLabel(severity: "warning" | "danger"): string {
         <section
           v-if="data.attentionSessions.length"
           aria-label="Sessions needing attention"
-          style="margin-bottom: 24px;"
+          class="attention-section"
         >
           <div class="grid-3">
             <div
@@ -71,7 +78,7 @@ function severityLabel(severity: "warning" | "danger"): string {
               class="attention-card card card-interactive"
             >
               <HealthRing :score="session.score" size="sm" />
-              <div style="flex: 1; min-width: 0;">
+              <div class="attention-card-body">
                 <div class="attention-card-name">{{ session.sessionName }}</div>
                 <div class="attention-card-flags">
                   {{ session.flags.length }} flag{{ session.flags.length !== 1 ? 's' : '' }} raised
@@ -101,17 +108,17 @@ function severityLabel(severity: "warning" | "danger"): string {
             <thead>
               <tr>
                 <th>Flag</th>
-                <th style="text-align: right;">Count</th>
+                <th class="col-right">Count</th>
                 <th>Severity</th>
                 <th>Description</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="flag in data.healthFlags" :key="flag.name">
-                <td style="font-weight: 600;">{{ flag.name }}</td>
-                <td style="text-align: right; font-variant-numeric: tabular-nums;">{{ flag.count }}</td>
+                <td class="flag-name-cell">{{ flag.name }}</td>
+                <td class="col-right tabular-nums">{{ flag.count }}</td>
                 <td><span :class="severityBadgeClass(flag.severity)">{{ severityLabel(flag.severity) }}</span></td>
-                <td style="color: var(--text-tertiary);">{{ flag.description }}</td>
+                <td class="flag-desc-cell">{{ flag.description }}</td>
               </tr>
             </tbody>
           </table>
@@ -129,11 +136,40 @@ function severityLabel(severity: "warning" | "danger"): string {
   margin-bottom: 24px;
 }
 
+.health-hero-stats {
+  flex: 1;
+}
+
+.attention-section {
+  margin-bottom: 24px;
+}
+
 .attention-card {
   display: flex;
   align-items: center;
   gap: 14px;
   padding: 14px 16px;
+}
+
+.attention-card-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.col-right {
+  text-align: right;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.flag-name-cell {
+  font-weight: 600;
+}
+
+.flag-desc-cell {
+  color: var(--text-tertiary);
 }
 
 .attention-card-name {

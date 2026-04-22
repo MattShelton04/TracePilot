@@ -1,5 +1,5 @@
-import { effectScope } from "vue";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { effectScope } from "vue";
 import { createFacetsSlice } from "../../../stores/search/facets";
 import { createIndexingSlice } from "../../../stores/search/indexing";
 import { createMaintenanceSlice } from "../../../stores/search/maintenance";
@@ -38,10 +38,12 @@ vi.mock("@/utils/logger", () => ({
 function setup(opts?: { viewMounted?: boolean }) {
   const scope = effectScope();
   const listeners = new Map<string, (ev: { payload: unknown }) => void>();
-  safeListenMock.mockImplementation(async (name: string, cb: (ev: { payload: unknown }) => void) => {
-    listeners.set(name, cb);
-    return () => listeners.delete(name);
-  });
+  safeListenMock.mockImplementation(
+    async (name: string, cb: (ev: { payload: unknown }) => void) => {
+      listeners.set(name, cb);
+      return () => listeners.delete(name);
+    },
+  );
 
   const built = scope.run(() => {
     const q = createQuerySlice();

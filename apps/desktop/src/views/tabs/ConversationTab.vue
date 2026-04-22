@@ -28,17 +28,15 @@ import { nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { type RouteLocationNormalizedLoaded, useRoute } from "vue-router";
 import ChatViewMode from "@/components/conversation/ChatViewMode.vue";
 import { useAutoScroll } from "@/composables/useAutoScroll";
+import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
 import { useWindowRole } from "@/composables/useWindowRole";
 import { usePreferencesStore } from "@/stores/preferences";
-import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 
 const { isViewer } = useWindowRole();
 // useRoute() returns undefined when no router is installed (child windows).
 // We provide an empty-query stub to avoid property-access crashes.
-const route: Pick<RouteLocationNormalizedLoaded, "query"> = isViewer()
-  ? { query: {} }
-  : useRoute();
+const route: Pick<RouteLocationNormalizedLoaded, "query"> = isViewer() ? { query: {} } : useRoute();
 const store = useSessionDetailContext();
 const preferences = usePreferencesStore();
 const expandedToolDetails = useToggleSet<string>();
@@ -64,8 +62,9 @@ const { getSections, getArgsSummary, findToolCallIndex, totalToolCalls, totalDur
 const scrollContainer = ref<HTMLElement | null>(null);
 const conversationRoot = ref<HTMLElement | null>(null);
 onMounted(() => {
-  scrollContainer.value = conversationRoot.value?.closest(".page-content") as HTMLElement | null
-    ?? document.querySelector(".page-content");
+  scrollContainer.value =
+    (conversationRoot.value?.closest(".page-content") as HTMLElement | null) ??
+    document.querySelector(".page-content");
 });
 const { isLockedToBottom, showScrollToTop, hasOverflow, scrollToBottom, scrollToTop } =
   useAutoScroll({

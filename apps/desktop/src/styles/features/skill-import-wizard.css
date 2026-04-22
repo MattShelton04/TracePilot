@@ -481,7 +481,9 @@
 }
 
 @keyframes skillImportSpin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .skill-import-wizard-root .gh-scan-spinner {

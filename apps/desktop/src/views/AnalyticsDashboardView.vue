@@ -1,38 +1,32 @@
 <script setup lang="ts">
 import {
-  ChartFrame,
-  computeBarWidth,
   computeGridLines,
   createChartLayout,
   ErrorState,
-  formatCost,
-  formatDateMedium,
-  formatDateShort,
-  formatDuration,
-  formatNumber,
-  formatNumberFull,
-  formatPercent,
-  generateXLabels,
-  generateYLabels,
   LoadingOverlay,
   PageShell,
-  SectionPanel,
-  StatCard,
   useChartTooltip,
 } from "@tracepilot/ui";
-import { computed, ref, watch } from "vue";
-import { RouterLink } from "vue-router";
+import { computed } from "vue";
 import AnalyticsPageHeader from "@/components/AnalyticsPageHeader.vue";
-import LineAreaChart from "@/components/charts/LineAreaChart.vue";
+import AnalyticsCacheHealthRow from "@/components/analytics/AnalyticsCacheHealthRow.vue";
+import AnalyticsDistributionRow from "@/components/analytics/AnalyticsDistributionRow.vue";
+import AnalyticsIncidentChart from "@/components/analytics/AnalyticsIncidentChart.vue";
+import AnalyticsMetricPanels from "@/components/analytics/AnalyticsMetricPanels.vue";
+import AnalyticsStatsGrids from "@/components/analytics/AnalyticsStatsGrids.vue";
+import AnalyticsTokenActivityRow from "@/components/analytics/AnalyticsTokenActivityRow.vue";
 import { useAnalyticsPage } from "@/composables/useAnalyticsPage";
-import { useIncidentChartData } from "@/composables/useIncidentChartData";
-import { useLineAreaChartData } from "@/composables/useLineAreaChartData";
 import { usePerfMonitor } from "@/composables/usePerfMonitor";
+import { useRenderBudget } from "@/composables/useRenderBudget";
 import { usePreferencesStore } from "@/stores/preferences";
-import { CHART_COLORS, DONUT_PALETTE } from "@/utils/chartColors";
 
 const prefs = usePreferencesStore();
 usePerfMonitor("AnalyticsDashboardView");
+useRenderBudget({
+  key: "render.analyticsDashboardViewMs",
+  budgetMs: 180,
+  label: "AnalyticsDashboardView",
+});
 const { tooltip, dismissTooltip, onChartMouseMove, onChartClick } = useChartTooltip();
 const { store } = useAnalyticsPage("fetchAnalytics");
 
@@ -45,7 +39,6 @@ const pageSubtitle = computed(() => {
   return `Aggregate metrics across ${allPrefix}${data.value?.totalSessions ?? 0} sessions${repoSuffix}`;
 });
 
-// ── Cost computations ────────────────────────────────────────
 const copilotCost = computed(() => {
   if (!data.value) return 0;
   return data.value.totalPremiumRequests * prefs.costPerPremiumRequest;
@@ -60,14 +53,10 @@ const totalWholesaleCost = computed(() => {
   );
 });
 
-// ── Chart constants ──────────────────────────────────────────
 const chartLayout = createChartLayout(55, 490, 20, 175);
-const { left: CHART_LEFT, bottom: CHART_BOTTOM, width: CHART_W, height: CHART_H } = chartLayout;
 const GRID_ROWS = 4;
-
 const gridLines = computed(() => computeGridLines(chartLayout, GRID_ROWS));
 
-// ── Dynamic aria-label based on time range ───────────────────
 const timeRangeLabel = computed(() => {
   const tr = store.selectedTimeRange;
   if (tr === "7d") return "the past 7 days";
@@ -85,106 +74,6 @@ const timeRangeLabel = computed(() => {
   }
   return "all time";
 });
-
-// ── Token Usage Line/Area Chart ──────────────────────────────
-const { chartData: tokenChart } = useLineAreaChartData({
-  data: computed(() => data.value?.tokenUsageByDay ?? null),
-  layout: chartLayout,
-  accessor: (p) => p.tokens,
-  yFormatter: formatNumber,
-});
-
-// ── Session Activity Per Day Bar Chart ───────────────────────
-const activityChart = computed(() => {
-  if (!data.value) return null;
-  const pts = data.value.activityPerDay;
-  if (pts.length === 0) return null;
-  const max = Math.max(...pts.map((p) => p.count), 1);
-  const spacing = CHART_W / pts.length;
-  const barW = computeBarWidth(CHART_W, pts.length);
-
-  const bars = pts.map((p, i) => {
-    const x = CHART_LEFT + i * spacing + (spacing - barW) / 2;
-    const h = (p.count / max) * CHART_H;
-    return { x, y: CHART_BOTTOM - h, width: barW, height: h, date: p.date, count: p.count };
-  });
-  const yLabels = generateYLabels(max, chartLayout, 5, (v) => String(Math.round(v)));
-  const xLabels = generateXLabels(
-    pts,
-    (_, i) => CHART_LEFT + i * spacing + spacing / 2,
-    (p) => formatDateShort(p.date),
-  );
-  return { bars, yLabels, xLabels };
-});
-
-// ── Model Distribution Donut ─────────────────────────────────
-const DONUT_COLORS = DONUT_PALETTE;
-const DONUT_R = 56;
-const DONUT_C = 2 * Math.PI * DONUT_R; // ~351.86
-
-const donutSegments = computed(() => {
-  if (!data.value) return [];
-  let offset = 0;
-  return data.value.modelDistribution.map((m, i) => {
-    const dash = (m.percentage / 100) * DONUT_C;
-    const seg = {
-      dash,
-      gap: DONUT_C - dash,
-      offset: -offset,
-      color: DONUT_COLORS[i % DONUT_COLORS.length],
-      model: m.model,
-      pct: m.percentage,
-      tokens: m.inputTokens + m.outputTokens,
-    };
-    offset += dash;
-    return seg;
-  });
-});
-
-const hoveredDonut = ref<number | null>(null);
-
-const activeDonutSegment = computed(() =>
-  hoveredDonut.value !== null && hoveredDonut.value < donutSegments.value.length
-    ? donutSegments.value[hoveredDonut.value]
-    : null,
-);
-
-// Reset hover when underlying data changes
-watch(donutSegments, () => {
-  hoveredDonut.value = null;
-});
-
-// ── Cost Trend Area Chart ────────────────────────────────────
-const costPoints = computed(
-  () =>
-    data.value?.costByDay.map((p) => ({
-      date: p.date,
-      cost: p.cost * prefs.costPerPremiumRequest,
-    })) ?? null,
-);
-
-const { chartData: costChart } = useLineAreaChartData({
-  data: costPoints,
-  layout: chartLayout,
-  accessor: (p) => p.cost,
-  yTicks: 4,
-  yFormatter: formatCost,
-  maxFloor: 0.01,
-});
-
-// ── Incident trend chart ─────────────────────────────────────
-const incidentNormalize = ref(false);
-
-const {
-  chartData: incidentChart,
-  gridLines: incidentGridLines,
-  formatTooltip: formatIncidentTooltip,
-} = useIncidentChartData({
-  incidents: computed(() => data.value?.incidentsByDay ?? null),
-  activity: computed(() => data.value?.activityPerDay ?? null),
-  normalize: incidentNormalize,
-  layout: chartLayout,
-});
 </script>
 
 <template>
@@ -192,646 +81,43 @@ const {
     <AnalyticsPageHeader title="Analytics Dashboard" :subtitle="pageSubtitle" />
     <LoadingOverlay :loading="loading" message="Loading analytics…">
       <ErrorState v-if="store.analyticsError" heading="Failed to load analytics" :message="store.analyticsError" @retry="store.fetchAnalytics({ force: true })" />
-        <template v-else-if="data">
-
-          <!-- Stats Row -->
-          <div class="grid-5 mb-4">
-            <StatCard :value="formatNumberFull(data.totalSessions)" label="Total Sessions" />
-            <StatCard :value="formatNumber(data.totalTokens)" label="Total Tokens" :gradient="true" />
-            <StatCard :value="formatCost(copilotCost)" label="Copilot Cost" color="warning" />
-            <StatCard :value="formatCost(totalWholesaleCost)" label="Wholesale Cost" color="done" tooltip="Estimated cost if this usage went through direct API access instead of GitHub Copilot, based on per-model token pricing configured in Settings." />
-            <StatCard :value="formatPercent(data.averageHealthScore * 100)" label="Avg Health Score" color="warning" />
-          </div>
-
-          <!-- Incident Stats -->
-          <div class="grid-4 mb-4">
-            <StatCard
-              class="stat-card--incident-error"
-              variant="plain"
-              accent-color="var(--danger-fg)"
-              :value="formatNumberFull(data.sessionsWithErrors)"
-              label="Sessions with Errors"
-            />
-            <StatCard
-              class="stat-card--incident-ratelimit"
-              variant="plain"
-              accent-color="var(--warning-fg)"
-              :value="formatNumberFull(data.totalRateLimits)"
-              label="Total Rate Limits"
-            />
-            <StatCard
-              class="stat-card--incident-compaction"
-              variant="plain"
-              accent-color="var(--chart-secondary)"
-              :value="formatNumberFull(data.totalCompactions)"
-              label="Total Compactions"
-            />
-            <StatCard
-              class="stat-card--incident-truncation"
-              variant="plain"
-              accent-color="var(--text-tertiary)"
-              :value="formatNumberFull(data.totalTruncations)"
-              label="Total Truncations"
-            />
-          </div>
-
-          <!-- API Duration Stats + Productivity Metrics -->
-          <div class="grid-2 mb-4" v-if="data.apiDurationStats || data.productivityMetrics">
-            <SectionPanel v-if="data.apiDurationStats" title="API Duration">
-                <div class="metric-grid">
-                  <div class="metric-item">
-                    <span class="metric-value">{{ formatDuration(data.apiDurationStats.avgMs) }}</span>
-                    <span class="metric-label">Average</span>
-                  </div>
-                  <div class="metric-item">
-                    <span class="metric-value">{{ formatDuration(data.apiDurationStats.medianMs) }}</span>
-                    <span class="metric-label">Median</span>
-                  </div>
-                  <div class="metric-item">
-                    <span class="metric-value">{{ formatDuration(data.apiDurationStats.p95Ms) }}</span>
-                    <span class="metric-label">P95</span>
-                  </div>
-                  <div class="metric-item">
-                    <span class="metric-value">{{ formatDuration(data.apiDurationStats.minMs) }}</span>
-                    <span class="metric-label">Min</span>
-                  </div>
-                  <div class="metric-item">
-                    <span class="metric-value">{{ formatDuration(data.apiDurationStats.maxMs) }}</span>
-                    <span class="metric-label">Max</span>
-                  </div>
-                  <div class="metric-item">
-                    <span class="metric-value">{{ formatNumberFull(data.apiDurationStats.totalSessionsWithDuration) }}</span>
-                    <span class="metric-label">Sessions w/ Data</span>
-                  </div>
-                </div>
-            </SectionPanel>
-            <SectionPanel v-if="data.productivityMetrics" title="Productivity Metrics">
-                <div class="metric-grid">
-                  <div class="metric-item">
-                    <span class="metric-value">{{ data.productivityMetrics.avgTurnsPerSession.toFixed(1) }}</span>
-                    <span class="metric-label">Avg Turns / Session</span>
-                  </div>
-                  <div class="metric-item">
-                    <span class="metric-value">{{ data.productivityMetrics.avgToolCallsPerTurn.toFixed(1) }}</span>
-                    <span class="metric-label">Avg Tool Calls / Turn</span>
-                  </div>
-                  <div class="metric-item">
-                    <span class="metric-value">{{ formatNumber(data.productivityMetrics.avgTokensPerTurn) }}</span>
-                    <span class="metric-label">Avg Tokens / Turn</span>
-                  </div>
-                  <div class="metric-item" :title="'Average tokens processed per second of API wait time — a measure of model throughput across all sessions.'">
-                    <span class="metric-value">{{ formatNumber(data.productivityMetrics.avgTokensPerApiSecond) }}</span>
-                    <span class="metric-label">Tokens / API Second</span>
-                  </div>
-                  <div class="metric-item" :title="'Average context compactions per session — based on all sessions in the current filter. Higher values indicate sessions hitting context limits frequently.'">
-                    <span class="metric-value">{{ data.totalSessions > 0 ? (data.totalCompactions / data.totalSessions).toFixed(1) : '0' }}</span>
-                    <span class="metric-label">Avg Compactions / Session</span>
-                  </div>
-                </div>
-            </SectionPanel>
-          </div>
-
-          <!-- Row 1: Token Usage + Session Activity Per Day -->
-          <div class="grid-2 mb-4">
-            <!-- Token Usage Over Time -->
-            <SectionPanel title="Token Usage Over Time">
-                <LineAreaChart
-                  v-if="tokenChart"
-                  :chart-data="tokenChart"
-                  :chart-layout="chartLayout"
-                  :grid-lines="gridLines"
-                  :tooltip="tooltip"
-                  chart-id="tokens"
-                  :ariaLabel="`Line chart showing token usage over ${timeRangeLabel}`"
-                  :color="CHART_COLORS.primary"
-                  :color-light="CHART_COLORS.primaryLight"
-                  @mousemove="onChartMouseMove($event, tokenChart.coords, (i) => `${formatDateMedium(tokenChart!.coords[i].date)} — ${formatNumberFull(tokenChart!.coords[i].tokens)} tokens`, 'tokens', '.chart-frame')"
-                  @click="onChartClick($event, tokenChart.coords, (i) => `${formatDateMedium(tokenChart!.coords[i].date)} — ${formatNumberFull(tokenChart!.coords[i].tokens)} tokens`, 'tokens', '.chart-frame')"
-                  @dismiss-tooltip="dismissTooltip"
-                />
-            </SectionPanel>
-
-            <!-- Session Activity Per Day -->
-            <SectionPanel title="Session Activity Per Day">
-                <ChartFrame
-                  v-if="activityChart"
-                  :chart-layout="chartLayout"
-                  :grid-lines="gridLines"
-                  :y-labels="activityChart.yLabels"
-                  :x-labels="activityChart.xLabels"
-                  :ariaLabel="`Bar chart showing session activity per day over ${timeRangeLabel}`"
-                  chart-id="activity"
-                  :tooltip="tooltip"
-                  @mousemove="onChartMouseMove($event, activityChart.bars.map(b => ({ x: b.x + b.width / 2, date: b.date })), (i) => `${formatDateMedium(activityChart!.bars[i].date)} — ${activityChart!.bars[i].count} activit${activityChart!.bars[i].count !== 1 ? 'ies' : 'y'}`, 'activity', '.chart-frame')"
-                  @click="onChartClick($event, activityChart.bars.map(b => ({ x: b.x + b.width / 2, date: b.date })), (i) => `${formatDateMedium(activityChart!.bars[i].date)} — ${activityChart!.bars[i].count} activit${activityChart!.bars[i].count !== 1 ? 'ies' : 'y'}`, 'activity', '.chart-frame')"
-                  @dismiss-tooltip="dismissTooltip"
-                >
-                  <template #defs>
-                    <linearGradient id="sessionBarGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" :stop-color="CHART_COLORS.primaryLight" />
-                      <stop offset="100%" :stop-color="CHART_COLORS.primary" />
-                    </linearGradient>
-                  </template>
-                  <!-- Bars -->
-                  <rect
-                    v-for="(bar, bi) in activityChart.bars"
-                    :key="`sb-${bi}`"
-                    :x="bar.x"
-                    :y="bar.y"
-                    :width="bar.width"
-                    :height="bar.height"
-                    rx="3"
-                    fill="url(#sessionBarGrad)"
-                    class="chart-bar"
-                    :class="{ 'chart-bar--active': tooltip.chartId === 'activity' && tooltip.highlightIndex === bi }"
-                  />
-                </ChartFrame>
-            </SectionPanel>
-          </div>
-
-          <!-- Row 2: Model Distribution + Cost Trend -->
-          <div class="grid-2 mb-4">
-            <!-- Model Distribution (Donut) -->
-            <SectionPanel title="Model Distribution">
-              <template #actions>
-                <router-link :to="{ name: 'model-comparison' }" class="more-info-link">More Info →</router-link>
-              </template>
-              <div class="donut-panel-body">
-                <svg viewBox="0 0 160 160" width="160" height="160" role="img" aria-label="Donut chart showing token distribution by model">
-                  <circle
-                    v-for="(seg, si) in donutSegments"
-                    :key="`ds-${si}`"
-                    cx="80"
-                    cy="80"
-                    :r="DONUT_R"
-                    fill="none"
-                    :stroke="seg.color"
-                    :stroke-width="hoveredDonut === si ? 22 : 18"
-                    :stroke-dasharray="`${seg.dash} ${seg.gap}`"
-                    :stroke-dashoffset="seg.offset"
-                    transform="rotate(-90 80 80)"
-                    class="donut-segment"
-                    @mouseenter="hoveredDonut = si"
-                    @mouseleave="hoveredDonut = null"
-                  />
-                  <text x="80" y="76" text-anchor="middle" font-size="20" font-weight="700" fill="currentColor" class="donut-center-value">
-                    {{ activeDonutSegment ? formatNumber(activeDonutSegment.tokens) : formatNumber(data.totalTokens) }}
-                  </text>
-                  <text x="80" y="92" text-anchor="middle" font-size="9" fill="currentColor" class="donut-center-label">
-                    {{ activeDonutSegment ? activeDonutSegment.model : 'total tokens' }}
-                  </text>
-                </svg>
-                <div class="donut-legend">
-                  <div
-                    v-for="(m, si) in data.modelDistribution"
-                    :key="`dl-${si}`"
-                    class="donut-legend-item"
-                    :class="{ 'donut-legend-item--active': hoveredDonut === si }"
-                    @mouseenter="hoveredDonut = si"
-                    @mouseleave="hoveredDonut = null"
-                  >
-                    <span class="donut-legend-dot" :style="{ background: DONUT_COLORS[si % DONUT_COLORS.length] }" />
-                    <span>{{ m.model }}</span>
-                    <span class="donut-legend-pct">{{ m.percentage.toFixed(0) }}%</span>
-                    <span class="donut-legend-requests" :title="`${formatNumberFull(m.requestCount)} API requests`">{{ formatNumberFull(m.requestCount) }} req</span>
-                  </div>
-                </div>
-              </div>
-            </SectionPanel>
-
-            <!-- Cost Trend -->
-            <SectionPanel title="Cost Trend">
-                <LineAreaChart
-                  v-if="costChart"
-                  :chart-data="costChart"
-                  :chart-layout="chartLayout"
-                  :grid-lines="gridLines"
-                  :tooltip="tooltip"
-                  chart-id="cost"
-                  :ariaLabel="`Area chart showing daily cost trend over ${timeRangeLabel}`"
-                  :color="CHART_COLORS.primary"
-                  :color-light="CHART_COLORS.primaryLight"
-                  :gradient-opacity="0.35"
-                  @mousemove="onChartMouseMove($event, costChart.coords, (i) => `${formatDateMedium(costChart!.coords[i].date)} — ${formatCost(costChart!.coords[i].cost)}`, 'cost', '.chart-frame')"
-                  @click="onChartClick($event, costChart.coords, (i) => `${formatDateMedium(costChart!.coords[i].date)} — ${formatCost(costChart!.coords[i].cost)}`, 'cost', '.chart-frame')"
-                  @dismiss-tooltip="dismissTooltip"
-                />
-            </SectionPanel>
-          </div>
-          <!-- Row 3: Cache Efficiency + Session Health Distribution -->
-          <div class="grid-2 mb-4" v-if="data.cacheStats || data.healthDistribution">
-            <!-- Cache Efficiency -->
-            <SectionPanel v-if="data.cacheStats" title="Cache Efficiency">
-                <div class="cache-hit-rate" :title="`${data.cacheStats.cacheHitRate.toFixed(1)}% of input tokens were served from the prompt cache`">
-                  <div class="cache-hit-rate-label">
-                    <span>Cache Hit Rate</span>
-                    <strong>{{ data.cacheStats.cacheHitRate.toFixed(1) }}%</strong>
-                  </div>
-                  <div class="cache-progress-track">
-                    <div
-                      class="cache-progress-fill"
-                      :style="{ width: `${Math.min(data.cacheStats.cacheHitRate, 100)}%` }"
-                      :class="{
-                        'cache-progress-fill--high': data.cacheStats.cacheHitRate >= 50,
-                        'cache-progress-fill--mid': data.cacheStats.cacheHitRate >= 20 && data.cacheStats.cacheHitRate < 50,
-                        'cache-progress-fill--low': data.cacheStats.cacheHitRate < 20,
-                      }"
-                    />
-                  </div>
-                </div>
-                <div class="metric-grid mt-3">
-                  <div class="metric-item">
-                    <span class="metric-value accent">{{ formatNumber(data.cacheStats.totalCacheReadTokens) }}</span>
-                    <span class="metric-label">Cached Tokens</span>
-                  </div>
-                  <div class="metric-item">
-                    <span class="metric-value">{{ formatNumber(data.cacheStats.nonCachedInputTokens) }}</span>
-                    <span class="metric-label">Fresh Input Tokens</span>
-                  </div>
-                  <div class="metric-item">
-                    <span class="metric-value">{{ formatNumber(data.cacheStats.totalInputTokens) }}</span>
-                    <span class="metric-label">Total Input Tokens</span>
-                  </div>
-                </div>
-            </SectionPanel>
-
-            <!-- Session Health Distribution -->
-            <SectionPanel v-if="data.healthDistribution" title="Session Health Distribution">
-                <div class="health-dist-grid">
-                  <div class="health-dist-card health-dist-card--healthy" :title="`${data.healthDistribution.healthyCount} sessions with health score ≥ 0.8`">
-                    <span class="health-dist-count">{{ data.healthDistribution.healthyCount }}</span>
-                    <span class="health-dist-label">Healthy</span>
-                    <span class="health-dist-sub">score ≥ 0.8</span>
-                  </div>
-                  <div class="health-dist-card health-dist-card--attention" :title="`${data.healthDistribution.attentionCount} sessions with health score between 0.5 and 0.8`">
-                    <span class="health-dist-count">{{ data.healthDistribution.attentionCount }}</span>
-                    <span class="health-dist-label">Attention</span>
-                    <span class="health-dist-sub">0.5 – 0.8</span>
-                  </div>
-                  <div class="health-dist-card health-dist-card--critical" :title="`${data.healthDistribution.criticalCount} sessions with health score below 0.5`">
-                    <span class="health-dist-count">{{ data.healthDistribution.criticalCount }}</span>
-                    <span class="health-dist-label">Critical</span>
-                    <span class="health-dist-sub">score &lt; 0.5</span>
-                  </div>
-                </div>
-            </SectionPanel>
-          </div>
-
-          <!-- Incidents Over Time (full-width, polished chart) -->
-          <SectionPanel v-if="incidentChart" title="Incidents Over Time" class="mb-4">
-            <template #actions>
-              <label class="incident-normalize-toggle" title="Show incidents per session per day for a normalized view">
-                <input type="checkbox" v-model="incidentNormalize" />
-                <span>Per Session</span>
-              </label>
-            </template>
-              <ChartFrame
-                :chart-layout="chartLayout"
-                :grid-lines="incidentGridLines"
-                :y-labels="incidentChart.yLabels"
-                :x-labels="incidentChart.xLabels"
-                :ariaLabel="`Stacked bar chart showing incidents over time${incidentNormalize ? ' (normalized per session)' : ''}`"
-                chart-id="incidents"
-                :tooltip="tooltip"
-                @mousemove="onChartMouseMove($event, incidentChart.bars, (i) => formatIncidentTooltip(incidentChart!.bars[i]), 'incidents', '.chart-frame')"
-                @click="onChartClick($event, incidentChart.bars, (i) => formatIncidentTooltip(incidentChart!.bars[i]), 'incidents', '.chart-frame')"
-                @dismiss-tooltip="dismissTooltip"
-              >
-                <!-- Stacked bars -->
-                <g v-for="(bar, i) in incidentChart.bars" :key="`ib-${i}`">
-                  <!-- Truncations (bottom) -->
-                  <rect
-                    v-if="bar.truncRect.h > 0.5"
-                    :x="bar.x - incidentChart.barW / 2"
-                    :y="bar.truncRect.y"
-                    :width="incidentChart.barW"
-                    :height="bar.truncRect.h"
-                    fill="var(--text-tertiary, #71717a)"
-                    rx="1"
-                    class="chart-bar"
-                    :class="{ 'chart-bar--active': tooltip.chartId === 'incidents' && tooltip.highlightIndex === i }"
-                  />
-                  <!-- Compactions -->
-                  <rect
-                    v-if="bar.compRect.h > 0.5"
-                    :x="bar.x - incidentChart.barW / 2"
-                    :y="bar.compRect.y"
-                    :width="incidentChart.barW"
-                    :height="bar.compRect.h"
-                    fill="var(--chart-secondary)"
-                    rx="1"
-                    class="chart-bar"
-                    :class="{ 'chart-bar--active': tooltip.chartId === 'incidents' && tooltip.highlightIndex === i }"
-                  />
-                  <!-- Other Errors -->
-                  <rect
-                    v-if="bar.otherRect.h > 0.5"
-                    :x="bar.x - incidentChart.barW / 2"
-                    :y="bar.otherRect.y"
-                    :width="incidentChart.barW"
-                    :height="bar.otherRect.h"
-                    fill="var(--danger-fg)"
-                    rx="1"
-                    class="chart-bar"
-                    :class="{ 'chart-bar--active': tooltip.chartId === 'incidents' && tooltip.highlightIndex === i }"
-                  />
-                  <!-- Rate Limits (top) -->
-                  <rect
-                    v-if="bar.rlRect.h > 0.5"
-                    :x="bar.x - incidentChart.barW / 2"
-                    :y="bar.rlRect.y"
-                    :width="incidentChart.barW"
-                    :height="bar.rlRect.h"
-                    fill="var(--warning-fg)"
-                    rx="1"
-                    class="chart-bar"
-                    :class="{ 'chart-bar--active': tooltip.chartId === 'incidents' && tooltip.highlightIndex === i }"
-                  />
-                </g>
-
-                <template #footer>
-                  <!-- Legend -->
-                  <div class="incident-chart-legend">
-                    <span class="legend-item"><span class="legend-dot" style="background: var(--warning-fg);"></span> Rate Limits</span>
-                    <span class="legend-item"><span class="legend-dot" style="background: var(--danger-fg);"></span> Other Errors</span>
-                    <span class="legend-item"><span class="legend-dot" style="background: var(--chart-secondary);"></span> Compactions</span>
-                    <span class="legend-item"><span class="legend-dot" style="background: var(--text-tertiary);"></span> Truncations</span>
-                  </div>
-                </template>
-              </ChartFrame>
-          </SectionPanel>
-
+      <template v-else-if="data">
+        <AnalyticsStatsGrids
+          :data="data"
+          :copilot-cost="copilotCost"
+          :total-wholesale-cost="totalWholesaleCost"
+        />
+        <AnalyticsMetricPanels :data="data" />
+        <AnalyticsTokenActivityRow
+          :data="data"
+          :chart-layout="chartLayout"
+          :grid-lines="gridLines"
+          :time-range-label="timeRangeLabel"
+          :tooltip="tooltip"
+          :on-chart-mouse-move="onChartMouseMove"
+          :on-chart-click="onChartClick"
+          :dismiss-tooltip="dismissTooltip"
+        />
+        <AnalyticsDistributionRow
+          :data="data"
+          :chart-layout="chartLayout"
+          :grid-lines="gridLines"
+          :time-range-label="timeRangeLabel"
+          :tooltip="tooltip"
+          :on-chart-mouse-move="onChartMouseMove"
+          :on-chart-click="onChartClick"
+          :dismiss-tooltip="dismissTooltip"
+        />
+        <AnalyticsCacheHealthRow :data="data" />
+        <AnalyticsIncidentChart
+          :data="data"
+          :chart-layout="chartLayout"
+          :tooltip="tooltip"
+          :on-chart-mouse-move="onChartMouseMove"
+          :on-chart-click="onChartClick"
+          :dismiss-tooltip="dismissTooltip"
+        />
       </template>
     </LoadingOverlay>
   </PageShell>
 </template>
-
-<style scoped>
-.metric-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-  padding: 18px;
-}
-
-.metric-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-
-.metric-value {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  font-variant-numeric: tabular-nums;
-}
-
-.metric-label {
-  font-size: 0.75rem;
-  color: var(--text-tertiary);
-  text-align: center;
-}
-
-.gradient-value {
-  background: linear-gradient(135deg, var(--chart-primary), var(--chart-secondary));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.donut-panel-body {
-  display: flex;
-  align-items: center;
-  gap: 24px;
-  padding: 18px;
-}
-
-.donut-legend {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.donut-legend-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.8125rem;
-  color: var(--text-secondary);
-  cursor: default;
-  transition: color var(--transition-fast, 0.15s);
-}
-
-.donut-legend-item--active {
-  color: var(--text-primary);
-}
-
-.donut-legend-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 2px;
-  flex-shrink: 0;
-}
-
-.donut-legend-pct {
-  margin-left: auto;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  color: var(--text-tertiary);
-  min-width: 36px;
-  text-align: right;
-}
-
-.donut-center-value {
-  fill: var(--text-primary);
-}
-
-.donut-center-label {
-  fill: var(--text-tertiary);
-}
-
-.donut-segment {
-  cursor: default;
-  transition: stroke-width 0.15s ease;
-}
-
-/* ── Chart interaction styles ─────────────────────────────────── */
-/* Shared chart styles (tooltip, overlay, bar, grid, axis, label, etc.)
-   are in styles/chart-shared.css — imported globally via main.ts. */
-
-.more-info-link {
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-  text-decoration: none;
-  cursor: pointer;
-  transition: color 0.15s;
-}
-.more-info-link:hover {
-  color: var(--accent-primary);
-}
-
-/* ── Model distribution legend request count ──────────────────── */
-.donut-legend-requests {
-  font-size: 0.7rem;
-  color: var(--text-tertiary);
-  font-variant-numeric: tabular-nums;
-  min-width: 52px;
-  text-align: right;
-}
-
-/* ── Cache Efficiency ─────────────────────────────────────────── */
-.cache-hit-rate {
-  padding: 18px 18px 0;
-}
-
-.cache-hit-rate-label {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  font-size: 0.8125rem;
-  color: var(--text-secondary);
-  margin-bottom: 8px;
-}
-
-.stat-card--incident-error {
-  background: color-mix(in srgb, var(--danger-fg) 6%, var(--canvas-subtle));
-}
-
-.stat-card--incident-ratelimit {
-  background: color-mix(in srgb, var(--warning-fg) 6%, var(--canvas-subtle));
-}
-
-.stat-card--incident-compaction {
-  background: color-mix(in srgb, var(--chart-secondary) 6%, var(--canvas-subtle));
-}
-
-.stat-card--incident-truncation {
-  background: color-mix(in srgb, var(--text-tertiary) 6%, var(--canvas-subtle));
-}
-
-.incident-chart-legend {
-  display: flex;
-  gap: 20px;
-  justify-content: center;
-  padding: 10px 0 6px;
-  font-size: 0.8125rem;
-  color: var(--text-secondary);
-  flex-wrap: wrap;
-}
-
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.legend-dot {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
-  flex-shrink: 0;
-}
-
-.incident-normalize-toggle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-  cursor: pointer;
-  user-select: none;
-}
-
-.incident-normalize-toggle input {
-  accent-color: var(--accent-primary);
-  cursor: pointer;
-}
-
-.cache-hit-rate-label strong {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.cache-progress-track {
-  height: 8px;
-  border-radius: 4px;
-  background: var(--border-subtle);
-  box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
-  overflow: hidden;
-}
-
-.cache-progress-fill {
-  height: 100%;
-  border-radius: 4px;
-  transition: width 0.4s ease;
-}
-
-.cache-progress-fill--high  { background: linear-gradient(90deg, var(--chart-success), var(--chart-success-light)); }
-.cache-progress-fill--mid   { background: linear-gradient(90deg, var(--chart-warning), var(--chart-warning-light)); }
-.cache-progress-fill--low   { background: linear-gradient(90deg, var(--chart-danger), var(--chart-danger-light)); }
-
-.mt-3 {
-  margin-top: 0;
-}
-
-/* ── Session Health Distribution ─────────────────────────────── */
-.health-dist-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  padding: 18px;
-}
-
-.health-dist-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 16px 8px;
-  border-radius: 10px;
-  border: 1px solid transparent;
-}
-
-.health-dist-card--healthy {
-  background: var(--success-subtle);
-  border-color: var(--success-muted);
-}
-
-.health-dist-card--attention {
-  background: var(--warning-subtle);
-  border-color: var(--warning-muted);
-}
-
-.health-dist-card--critical {
-  background: var(--danger-subtle);
-  border-color: var(--danger-muted);
-}
-
-.health-dist-count {
-  font-size: 1.75rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-}
-
-.health-dist-card--healthy .health-dist-count  { color: var(--chart-success); }
-.health-dist-card--attention .health-dist-count { color: var(--chart-warning); }
-.health-dist-card--critical .health-dist-count  { color: var(--chart-danger); }
-
-.health-dist-label {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.health-dist-sub {
-  font-size: 0.6875rem;
-  color: var(--text-tertiary);
-}
-</style>

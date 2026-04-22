@@ -25,12 +25,14 @@ impl BridgeManager {
     ) -> Result<BridgeSessionInfo, BridgeError> {
         let client = self.require_client()?;
 
-        let mut session_config = copilot_sdk::SessionConfig::default();
-        session_config.model = config.model.clone();
-        session_config.working_directory = config.working_directory.clone();
-        session_config.reasoning_effort = config.reasoning_effort.clone();
-        session_config.agent = config.agent.clone();
-        session_config.client_name = Some("tracepilot".to_string());
+        let mut session_config = copilot_sdk::SessionConfig {
+            model: config.model.clone(),
+            working_directory: config.working_directory.clone(),
+            reasoning_effort: config.reasoning_effort.clone(),
+            agent: config.agent.clone(),
+            client_name: Some("tracepilot".to_string()),
+            ..copilot_sdk::SessionConfig::default()
+        };
 
         if let Some(msg) = &config.system_message {
             session_config.system_message = Some(copilot_sdk::SystemMessageConfig {
@@ -141,12 +143,12 @@ impl BridgeManager {
 
         // In TCP (--ui-server) mode, also set this as the foreground session so the
         // CLI's TUI knows about it. This is a best-effort operation — ignore errors.
-        if self.connection_mode.as_deref() == Some("tcp") {
-            if let Some(client) = &self.client {
-                match client.set_foreground_session_id(&sid).await {
-                    Ok(_) => info!("Set foreground session to {} (--ui-server)", sid),
-                    Err(e) => debug!("set_foreground_session best-effort failed: {}", e),
-                }
+        if self.connection_mode == Some(crate::bridge::ConnectionMode::Tcp)
+            && let Some(client) = &self.client
+        {
+            match client.set_foreground_session_id(&sid).await {
+                Ok(_) => info!("Set foreground session to {} (--ui-server)", sid),
+                Err(e) => debug!("set_foreground_session best-effort failed: {}", e),
             }
         }
 
@@ -307,40 +309,43 @@ impl BridgeManager {
         let sid = session_id.to_string();
         let mut events = session.subscribe();
 
-        let handle = tokio::spawn(async move {
-            loop {
-                match events.recv().await {
-                    Ok(event) => {
-                        let bridge_event = BridgeEvent {
-                            session_id: sid.clone(),
-                            event_type: event.event_type.clone(),
-                            timestamp: event.timestamp.clone(),
-                            id: Some(event.id.clone()),
-                            parent_id: event.parent_id.clone(),
-                            ephemeral: event.ephemeral.unwrap_or(false),
-                            data: serde_json::to_value(&event.data)
-                                .unwrap_or(serde_json::Value::Null),
-                        };
-                        if tx.send(bridge_event).is_err() {
-                            debug!("No bridge event receivers, stopping forwarder for {}", sid);
+        let handle = tokio::spawn(tracing::Instrument::instrument(
+            async move {
+                loop {
+                    match events.recv().await {
+                        Ok(event) => {
+                            let bridge_event = BridgeEvent {
+                                session_id: sid.clone(),
+                                event_type: event.event_type.clone(),
+                                timestamp: event.timestamp.clone(),
+                                id: Some(event.id.clone()),
+                                parent_id: event.parent_id.clone(),
+                                ephemeral: event.ephemeral.unwrap_or(false),
+                                data: serde_json::to_value(&event.data)
+                                    .unwrap_or(serde_json::Value::Null),
+                            };
+                            if tx.send(bridge_event).is_err() {
+                                debug!("No bridge event receivers, stopping forwarder for {}", sid);
+                                break;
+                            }
+                            metrics.events_forwarded.fetch_add(1, Ordering::Relaxed);
+                        }
+                        Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                            debug!("SDK event channel closed for session {}", sid);
                             break;
                         }
-                        metrics.events_forwarded.fetch_add(1, Ordering::Relaxed);
-                    }
-                    Err(tokio::sync::broadcast::error::RecvError::Closed) => {
-                        debug!("SDK event channel closed for session {}", sid);
-                        break;
-                    }
-                    Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
-                        warn!("Bridge event receiver lagged by {} for session {}", n, sid);
-                        metrics
-                            .events_dropped_due_to_lag
-                            .fetch_add(n, Ordering::Relaxed);
-                        metrics.lag_occurrences.fetch_add(1, Ordering::Relaxed);
+                        Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                            warn!("Bridge event receiver lagged by {} for session {}", n, sid);
+                            metrics
+                                .events_dropped_due_to_lag
+                                .fetch_add(n, Ordering::Relaxed);
+                            metrics.lag_occurrences.fetch_add(1, Ordering::Relaxed);
+                        }
                     }
                 }
-            }
-        });
+            },
+            tracing::info_span!("sdk_event_forwarder", session_id = %session_id),
+        ));
 
         self.event_tasks.insert(session_id.to_string(), handle);
     }

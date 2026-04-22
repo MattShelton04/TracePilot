@@ -19,6 +19,7 @@ fn check_skill_dir(skill_dir: &str) -> Result<(), tracepilot_orchestrator::skill
 // -- Discovery --
 
 #[tauri::command]
+#[tracing::instrument(skip(repo_root), err)]
 pub async fn skills_list_all(
     repo_root: Option<String>,
 ) -> CmdResult<Vec<tracepilot_orchestrator::skills::types::SkillSummary>> {
@@ -30,6 +31,7 @@ pub async fn skills_list_all(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip(skill_dir), level = "debug", err)]
 pub async fn skills_get_skill(
     skill_dir: String,
 ) -> CmdResult<tracepilot_orchestrator::skills::types::Skill> {
@@ -42,10 +44,11 @@ pub async fn skills_get_skill(
 // -- CRUD --
 
 #[tauri::command]
+#[tracing::instrument(skip(description, body), err, fields(%name, body_len = body.len()))]
 pub async fn skills_create(name: String, description: String, body: String) -> CmdResult<String> {
-    crate::validators::validate_skill_name(&name)?;
+    let sn = crate::validators::validate_skill_name(&name)?;
     blocking_cmd!(sk(tracepilot_orchestrator::skills::manager::create_skill(
-        &name,
+        &sn,
         &description,
         &body
     )
@@ -53,6 +56,7 @@ pub async fn skills_create(name: String, description: String, body: String) -> C
 }
 
 #[tauri::command]
+#[tracing::instrument(skip(skill_dir, frontmatter, body), err, fields(body_len = body.len()))]
 pub async fn skills_update(
     skill_dir: String,
     frontmatter: tracepilot_orchestrator::skills::types::SkillFrontmatter,
@@ -68,6 +72,7 @@ pub async fn skills_update(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip(skill_dir, raw_content), err, fields(raw_len = raw_content.len()))]
 pub async fn skills_update_raw(skill_dir: String, raw_content: String) -> CmdResult<()> {
     blocking_cmd!(sk(check_skill_dir(&skill_dir).and_then(|_| {
         tracepilot_orchestrator::skills::manager::update_skill_raw(
@@ -78,6 +83,7 @@ pub async fn skills_update_raw(skill_dir: String, raw_content: String) -> CmdRes
 }
 
 #[tauri::command]
+#[tracing::instrument(skip(skill_dir), err)]
 pub async fn skills_delete(skill_dir: String) -> CmdResult<()> {
     blocking_cmd!(sk(check_skill_dir(&skill_dir).and_then(|_| {
         tracepilot_orchestrator::skills::manager::delete_skill(std::path::Path::new(&skill_dir))
@@ -85,24 +91,26 @@ pub async fn skills_delete(skill_dir: String) -> CmdResult<()> {
 }
 
 #[tauri::command]
+#[tracing::instrument(skip(skill_dir), err, fields(%new_name))]
 pub async fn skills_rename(skill_dir: String, new_name: String) -> CmdResult<String> {
-    crate::validators::validate_skill_name(&new_name)?;
+    let sn = crate::validators::validate_skill_name(&new_name)?;
     blocking_cmd!(sk(check_skill_dir(&skill_dir).and_then(|_| {
         tracepilot_orchestrator::skills::manager::rename_skill(
             std::path::Path::new(&skill_dir),
-            &new_name,
+            &sn,
         )
         .map(|p| p.to_string_lossy().to_string())
     })))
 }
 
 #[tauri::command]
+#[tracing::instrument(skip(skill_dir), err, fields(%new_name))]
 pub async fn skills_duplicate(skill_dir: String, new_name: String) -> CmdResult<String> {
-    crate::validators::validate_skill_name(&new_name)?;
+    let sn = crate::validators::validate_skill_name(&new_name)?;
     blocking_cmd!(sk(check_skill_dir(&skill_dir).and_then(|_| {
         tracepilot_orchestrator::skills::manager::duplicate_skill(
             std::path::Path::new(&skill_dir),
-            &new_name,
+            &sn,
         )
         .map(|p| p.to_string_lossy().to_string())
     })))
@@ -120,6 +128,7 @@ pub async fn skills_list_assets(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip(skill_dir, content), err, fields(%asset_name, bytes = content.len()))]
 pub async fn skills_add_asset(
     skill_dir: String,
     asset_name: String,
@@ -136,6 +145,7 @@ pub async fn skills_add_asset(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip(skill_dir, source_path), err, fields(%asset_name))]
 pub async fn skills_copy_asset_from(
     skill_dir: String,
     asset_name: String,
@@ -152,6 +162,7 @@ pub async fn skills_copy_asset_from(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip(skill_dir), err, fields(%asset_name))]
 pub async fn skills_remove_asset(skill_dir: String, asset_name: String) -> CmdResult<()> {
     crate::validators::validate_asset_name(&asset_name)?;
     blocking_cmd!(sk(check_skill_dir(&skill_dir).and_then(|_| {
@@ -197,6 +208,7 @@ fn resolve_skills_dest(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip(source_dir, repo_root), err, fields(scope = scope.as_deref().unwrap_or("global")))]
 pub async fn skills_import_local(
     source_dir: String,
     scope: Option<String>,
@@ -216,6 +228,7 @@ pub async fn skills_import_local(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip(file_path, repo_root), err, fields(scope = scope.as_deref().unwrap_or("global")))]
 pub async fn skills_import_file(
     file_path: String,
     scope: Option<String>,
@@ -235,6 +248,7 @@ pub async fn skills_import_file(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip(skill_path, repo_root), err, fields(%owner, %repo, scope = scope.as_deref().unwrap_or("global")))]
 pub async fn skills_import_github(
     owner: String,
     repo: String,

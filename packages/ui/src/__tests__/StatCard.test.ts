@@ -126,17 +126,13 @@ describe("StatCard", () => {
     const wrapper = mount(StatCard, {
       props: { value: 1, label: "Agents", labelStyle: "uppercase" },
     });
-    expect(wrapper.find(".stat-card-label").classes()).toContain(
-      "stat-card-label--uppercase",
-    );
+    expect(wrapper.find(".stat-card-label").classes()).toContain("stat-card-label--uppercase");
   });
 
   it("labelStyle defaults to default (no uppercase modifier)", () => {
     const wrapper = mount(StatCard, {
       props: { value: 1, label: "Agents" },
     });
-    expect(wrapper.find(".stat-card-label").classes()).not.toContain(
-      "stat-card-label--uppercase",
-    );
+    expect(wrapper.find(".stat-card-label").classes()).not.toContain("stat-card-label--uppercase");
   });
 });

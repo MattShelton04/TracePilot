@@ -145,7 +145,16 @@ Session indexing is split into metadata upsert (fast, synchronous) and content e
 A single `home_dir_opt()` helper in `tracepilot-core::utils` resolves `USERPROFILE` (Windows) or `HOME` (Unix), used by all crates that need the Copilot home path.
 
 ### Content Security Policy
-The Tauri webview runs with a restrictive CSP: `default-src 'self'`, explicit allowlists for `img-src`, `connect-src`, and `style-src 'unsafe-inline'` (required for Vue scoped styles).
+The Tauri webview runs with a restrictive CSP:
+
+- `default-src 'self'` — only app-bundled resources by default.
+- `script-src 'self'` — no inline scripts, no `eval`; Vite emits module scripts only.
+- `script-src-attr 'none'` — blocks inline event handlers (`onclick=`, etc.).
+- `style-src 'self' 'unsafe-inline'` — `'unsafe-inline'` retained because Vue's reactive `:style` bindings emit inline `style=` attributes at runtime. Tracked for removal by w91 (inline-style sweep) + w108 follow-up.
+- `img-src 'self' data:`, `font-src 'self' data:` — local assets + base64 data URIs.
+- `connect-src 'self' https://github.com https://api.github.com` — Tauri IPC + GitHub API for the updater.
+- `object-src 'none'`, `frame-src 'none'`, `frame-ancestors 'none'` — no plugins, no embedded frames, and the app cannot be framed by other origins.
+- `base-uri 'self'`, `form-action 'self'`, `worker-src 'self'` — pin base URL, restrict form submissions, and scope worker sources.
 
 ### Capability Trimming
 Tauri plugin permissions are set to minimum required (e.g., `dialog:allow-open`, `dialog:allow-save`) rather than using broad defaults.

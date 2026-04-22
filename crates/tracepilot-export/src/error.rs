@@ -58,7 +58,7 @@ impl ExportError {
         }
     }
 
-    /// Wrap an anyhow error as a session data error.
+    /// Wrap a `Display`-able error as a session data error.
     pub fn session_data(err: impl std::fmt::Display) -> Self {
         Self::SessionData {
             message: err.to_string(),

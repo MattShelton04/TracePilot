@@ -49,8 +49,10 @@ pub(crate) fn write_session_to_id(
     let write_result = write_session_files(session, archive, &staging_dir, target_session_id);
 
     if let Err(err) = write_result {
-        // Rollback: clean up staging directory on failure
-        let _ = fs::remove_dir_all(&staging_dir);
+        // Rollback: best-effort cleanup of staging on write failure.
+        if let Err(rm_err) = fs::remove_dir_all(&staging_dir) {
+            tracing::warn!(path = %staging_dir.display(), error = %rm_err, "Failed to clean up staging dir after import write failure");
+        }
         return Err(err);
     }
 
@@ -61,26 +63,40 @@ pub(crate) fn write_session_to_id(
         let backup_dir = target_parent.join(format!(".import-backup-{}", target_session_id));
         // Clean up any leftover backup from a previous failed attempt
         if backup_dir.exists() {
-            let _ = fs::remove_dir_all(&backup_dir);
+            // best-effort: stale leftover cleanup.
+            let _: std::io::Result<()> = fs::remove_dir_all(&backup_dir);
         }
         // Step 1: move existing aside to backup
         fs::rename(&final_dir, &backup_dir).map_err(|e| ExportError::io(&final_dir, e))?;
         // Step 2: move staging into place
         match fs::rename(&staging_dir, &final_dir) {
             Ok(()) => {
-                // Step 3: clean up backup
-                let _ = fs::remove_dir_all(&backup_dir);
+                // Step 3: clean up backup (best-effort; if it fails, a future import will clean it).
+                if let Err(rm_err) = fs::remove_dir_all(&backup_dir) {
+                    tracing::debug!(path = %backup_dir.display(), error = %rm_err, "Post-import backup cleanup failed");
+                }
             }
             Err(e) => {
-                // Rollback: restore backup
-                let _ = fs::rename(&backup_dir, &final_dir);
-                let _ = fs::remove_dir_all(&staging_dir);
+                // Rollback: restore backup. If restore fails, original data is in `backup_dir` —
+                // log loudly so an operator can recover manually.
+                if let Err(rb_err) = fs::rename(&backup_dir, &final_dir) {
+                    tracing::error!(
+                        final_dir = %final_dir.display(),
+                        backup_dir = %backup_dir.display(),
+                        rollback_error = %rb_err,
+                        "Failed to restore backup after staging rename failure — manual recovery may be required"
+                    );
+                }
+                if let Err(rm_err) = fs::remove_dir_all(&staging_dir) {
+                    tracing::debug!(path = %staging_dir.display(), error = %rm_err, "Staging cleanup after rollback failed");
+                }
                 return Err(ExportError::io(&final_dir, e));
             }
         }
     } else {
         fs::rename(&staging_dir, &final_dir).map_err(|e| {
-            let _ = fs::remove_dir_all(&staging_dir);
+            // best-effort staging cleanup; primary error still propagates.
+            let _: std::io::Result<()> = fs::remove_dir_all(&staging_dir);
             ExportError::io(&final_dir, e)
         })?;
     }
@@ -353,7 +369,9 @@ fn write_session_db(todos: &TodoExport, dir: &Path) -> Result<()> {
                 })?;
         }
         Err(e) => {
-            let _ = conn.execute_batch("ROLLBACK");
+            if let Err(rb_err) = conn.execute_batch("ROLLBACK") {
+                tracing::warn!(error = %rb_err, "ROLLBACK during session import failed");
+            }
             return Err(e);
         }
     }

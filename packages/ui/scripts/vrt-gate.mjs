@@ -12,8 +12,8 @@
  *   node scripts/vrt-gate.mjs --update     # refresh baselines
  */
 import { spawnSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pkgRoot = resolve(here, "..");

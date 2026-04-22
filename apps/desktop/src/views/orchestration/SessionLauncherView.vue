@@ -57,7 +57,7 @@ const { store, contextMenuTpl, deleteContextTemplate, closeContextMenu } = ctx;
             </span>
           </div>
 
-          <ErrorAlert v-if="store.error" :message="store.error" variant="banner" dismissible @dismiss="store.error = null" />
+          <ErrorAlert v-if="store.error" :message="store.error" variant="banner" dismissible @dismiss="store.clearError()" />
 
           <SessionLauncherTemplates />
           <SessionLauncherConfig />

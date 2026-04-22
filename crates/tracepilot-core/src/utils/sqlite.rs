@@ -78,6 +78,47 @@ pub fn open_readonly(db_path: &Path) -> Result<Connection> {
     })
 }
 
+/// Attach a debug-only slow-query profiler to a SQLite connection.
+///
+/// In debug builds, logs any query that takes longer than 10ms via
+/// `tracing::warn!` with the given `label` attached to disambiguate which
+/// database the slow query belongs to (e.g. `"index"`, `"tasks"`). In
+/// release builds this is a compile-time no-op so there is no runtime cost.
+///
+/// Consolidates the duplicated `conn.profile(...)` blocks that previously
+/// lived in `tracepilot-indexer` and `tracepilot-orchestrator`.
+///
+/// Implemented as a macro because `rusqlite::Connection::profile` accepts
+/// only a non-capturing `fn` pointer; the macro inlines a dedicated
+/// monomorphic callback per call-site with the literal label baked in.
+///
+/// # Arguments
+/// * `$conn` - Mutable reference to an open SQLite connection
+/// * `$label` - String literal tag recorded on every slow-query log line
+#[macro_export]
+macro_rules! attach_slow_query_profiler {
+    ($conn:expr, $label:literal) => {{
+        #[cfg(debug_assertions)]
+        {
+            fn __tracepilot_slow_query_cb(query: &str, duration: ::std::time::Duration) {
+                if duration.as_millis() > 10 {
+                    ::tracing::warn!(
+                        duration_ms = duration.as_millis(),
+                        query = %query.chars().take(200).collect::<::std::string::String>(),
+                        db = $label,
+                        "Slow SQL query"
+                    );
+                }
+            }
+            $conn.profile(::std::option::Option::Some(__tracepilot_slow_query_cb));
+        }
+        #[cfg(not(debug_assertions))]
+        {
+            let _ = (&$conn, $label);
+        }
+    }};
+}
+
 /// Open a SQLite database read-only, returning `None` if the file doesn't exist.
 ///
 /// This is a common pattern for optional databases. Returns an error only if
@@ -204,7 +245,10 @@ pub fn row_count(conn: &Connection, table_name: &str) -> Option<i64> {
 /// ```
 #[must_use]
 pub fn build_in_placeholders(n: usize) -> String {
-    debug_assert!(n > 0, "build_in_placeholders requires n > 0; n=0 produces empty string that makes IN () invalid SQL");
+    debug_assert!(
+        n > 0,
+        "build_in_placeholders requires n > 0; n=0 produces empty string that makes IN () invalid SQL"
+    );
     // Each element is "?" (1 char) + ", " (2 chars) except the last → n*3 max.
     let mut s = String::with_capacity(n * 3);
     for i in 0..n {
@@ -239,7 +283,10 @@ pub fn build_in_placeholders(n: usize) -> String {
 #[must_use]
 pub fn build_placeholder_sql(sql_prefix: &str, num_rows: usize, params_per_row: usize) -> String {
     debug_assert!(num_rows > 0, "build_placeholder_sql requires num_rows > 0");
-    debug_assert!(params_per_row > 0, "build_placeholder_sql requires params_per_row > 0");
+    debug_assert!(
+        params_per_row > 0,
+        "build_placeholder_sql requires params_per_row > 0"
+    );
     use std::fmt::Write;
     // SQLite max bind parameter is ?32766 (5 digits). Each param slot is
     // "?NNNNN" (up to 6 chars) + "," separator = 7 chars. Each row adds "(", ")"

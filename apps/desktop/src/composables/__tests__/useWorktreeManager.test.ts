@@ -1,8 +1,8 @@
-import type { WorktreeInfo } from "@tracepilot/types";
 import { setupPinia } from "@tracepilot/test-utils";
+import type { WorktreeInfo } from "@tracepilot/types";
 import { mount } from "@vue/test-utils";
-import { defineComponent, h, nextTick } from "vue";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { defineComponent, h, nextTick } from "vue";
 
 const toastSuccess = vi.fn();
 const toastError = vi.fn();
@@ -62,7 +62,9 @@ const storeState: {
 const loadRegisteredRepos = vi.fn().mockResolvedValue(undefined);
 const loadAllWorktrees = vi.fn().mockResolvedValue(undefined);
 const loadBranches = vi.fn().mockResolvedValue(undefined);
-const fetchWorktreeDetails = vi.fn().mockResolvedValue({ uncommittedCount: 0, ahead: 0, behind: 0 });
+const fetchWorktreeDetails = vi
+  .fn()
+  .mockResolvedValue({ uncommittedCount: 0, ahead: 0, behind: 0 });
 const deleteWorktree = vi.fn().mockResolvedValue(true);
 const lockWorktree = vi.fn().mockResolvedValue(true);
 const unlockWorktree = vi.fn().mockResolvedValue(true);
@@ -97,7 +99,12 @@ function harness() {
     },
   });
   const wrapper = mount(Cmp);
-  return { wrapper, get api() { return api; } };
+  return {
+    wrapper,
+    get api() {
+      return api;
+    },
+  };
 }
 
 function makeWt(overrides: Partial<WorktreeInfo> = {}): WorktreeInfo {

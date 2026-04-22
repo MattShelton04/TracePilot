@@ -216,7 +216,8 @@ export function useCachedFetch<TData, TParams = void>(
           loaded.add(cacheKey);
         }
 
-        const isActive = activeKey === cacheKey && activeGeneration === gen && activeEpoch === epoch;
+        const isActive =
+          activeKey === cacheKey && activeGeneration === gen && activeEpoch === epoch;
         if (isActive) {
           data.value = result as TData;
           error.value = null;
@@ -237,7 +238,8 @@ export function useCachedFetch<TData, TParams = void>(
         if (epoch !== resetEpoch || gen !== keyGenerations.get(cacheKey)) return undefined;
 
         const errorMsg = toErrorMessage(e);
-        const isActive = activeKey === cacheKey && activeGeneration === gen && activeEpoch === epoch;
+        const isActive =
+          activeKey === cacheKey && activeGeneration === gen && activeEpoch === epoch;
         if (isActive) {
           error.value = errorMsg;
 

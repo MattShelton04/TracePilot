@@ -39,7 +39,10 @@ const form = reactive<{
   headerPairs: [],
 });
 
-const showUrl = computed(() => form.transport === "sse" || form.transport === "http" || form.transport === "streamable-http");
+const showUrl = computed(
+  () =>
+    form.transport === "sse" || form.transport === "http" || form.transport === "streamable-http",
+);
 
 function syncFromProps() {
   form.command = props.config.command ?? "";
@@ -103,18 +106,27 @@ function emitUpdate() {
   const config: McpServerConfig = {
     command: form.command || undefined,
     args: form.args
-      ? form.args.split(",").map((s) => s.trim()).filter(Boolean)
+      ? form.args
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
       : undefined,
     env: Object.keys(env).length > 0 ? env : undefined,
     url: form.url || undefined,
     type: form.transport as McpTransport,
     headers: Object.keys(headers).length > 0 ? headers : undefined,
     tools: form.tools
-      ? form.tools.split(",").map((s) => s.trim()).filter(Boolean)
+      ? form.tools
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
       : undefined,
     description: form.description || undefined,
     tags: form.tags
-      ? form.tags.split(",").map((s) => s.trim()).filter(Boolean)
+      ? form.tags
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
       : undefined,
     enabled: props.config.enabled,
   };

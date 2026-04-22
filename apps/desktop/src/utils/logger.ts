@@ -1,4 +1,6 @@
-const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+import { isTauri as checkIsTauri } from "@/lib/mocks";
+
+const isTauri = checkIsTauri();
 
 let tauriLog: typeof import("@tauri-apps/plugin-log") | null = null;
 

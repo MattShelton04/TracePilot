@@ -28,19 +28,19 @@ const {
     <div class="section-panel">
       <div class="form-grid-2col">
         <div class="form-group">
-          <div style="display: flex; justify-content: space-between; align-items: flex-end;">
-            <label class="form-label" style="margin-bottom: 0;">Repository <span class="required">*</span></label>
+          <div class="form-label-row">
+            <label class="form-label form-label--inline">Repository <span class="required">*</span></label>
             <button
               v-if="repoPath"
               type="button"
-              style="background: none; border: none; font-size: 0.75rem; color: var(--accent-fg); cursor: pointer;"
+              class="link-btn"
               :disabled="fetchingRemote"
               @click="handleFetchRemote"
             >
               {{ fetchingRemote ? 'Fetching...' : 'Fetch Latest From Remote' }}
             </button>
           </div>
-          <div class="repo-picker" style="margin-top: 6px;">
+          <div class="repo-picker repo-picker--spaced">
             <select
               v-if="worktreeStore.registeredRepos.length || prefsStore.recentRepoPaths.length"
               class="form-input form-select repo-recent"
@@ -69,18 +69,18 @@ const {
           </div>
         </div>
         <div class="form-group">
-          <div style="display: flex; justify-content: space-between; align-items: flex-end;">
-            <label class="form-label" style="margin-bottom: 0;">Branch</label>
+          <div class="form-label-row">
+            <label class="form-label form-label--inline">Branch</label>
             <button
               v-if="defaultBranch && branch !== defaultBranch"
               type="button"
-              style="background: none; border: none; font-size: 0.75rem; color: var(--accent-fg); cursor: pointer;"
+              class="link-btn"
               @click="resetBranch"
             >
               Reset to Default
             </button>
           </div>
-          <div style="margin-top: 6px;">
+          <div class="branch-select-wrap">
             <SearchableSelect
               v-model="branch"
               :options="worktreeStore.branches"
@@ -121,3 +121,28 @@ const {
     </div>
   </section>
 </template>
+
+<style scoped>
+.form-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.form-label--inline {
+  margin-bottom: 0;
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  font-size: 0.75rem;
+  color: var(--accent-fg);
+  cursor: pointer;
+}
+
+.repo-picker--spaced,
+.branch-select-wrap {
+  margin-top: 6px;
+}
+</style>

@@ -91,13 +91,19 @@ export function createConnectionSlice(deps: ConnectionDeps) {
   }
 
   async function fetchAuthStatus() {
-    try { authStatus.value = await sdkGetAuthStatus(); }
-    catch (e) { logWarn("[sdk] Failed to fetch auth status", e); }
+    try {
+      authStatus.value = await sdkGetAuthStatus();
+    } catch (e) {
+      logWarn("[sdk] Failed to fetch auth status", e);
+    }
   }
 
   async function fetchQuota() {
-    try { quota.value = await sdkGetQuota(); }
-    catch { quota.value = null; }
+    try {
+      quota.value = await sdkGetQuota();
+    } catch {
+      quota.value = null;
+    }
   }
 
   async function fetchSessions() {
@@ -116,8 +122,11 @@ export function createConnectionSlice(deps: ConnectionDeps) {
   }
 
   async function fetchModels() {
-    try { models.value = await sdkListModels(); }
-    catch (e) { logWarn("[sdk] Failed to fetch models", e); }
+    try {
+      models.value = await sdkListModels();
+    } catch (e) {
+      logWarn("[sdk] Failed to fetch models", e);
+    }
   }
 
   async function hydrateAfterConnect() {
@@ -171,13 +180,19 @@ export function createConnectionSlice(deps: ConnectionDeps) {
   }
 
   async function refreshStatus() {
-    try { applyStatus(await sdkStatus()); }
-    catch (e) { logWarn("[sdk] Failed to refresh status", e); }
+    try {
+      applyStatus(await sdkStatus());
+    } catch (e) {
+      logWarn("[sdk] Failed to refresh status", e);
+    }
   }
 
   async function checkCliStatus() {
-    try { applyStatus(await sdkCliStatus()); }
-    catch (e) { logWarn("[sdk] Failed to check CLI status", e); }
+    try {
+      applyStatus(await sdkCliStatus());
+    } catch (e) {
+      logWarn("[sdk] Failed to check CLI status", e);
+    }
   }
 
   async function detectUiServer(): Promise<DetectedUiServer[]> {
@@ -201,7 +216,7 @@ export function createConnectionSlice(deps: ConnectionDeps) {
     } catch (e) {
       logWarn("[sdk] UI server detection failed:", e);
       detectedServers.value = [];
-      lastDetectMessage.value = "Detection failed — " + toErrorMessage(e);
+      lastDetectMessage.value = `Detection failed — ${toErrorMessage(e)}`;
       return [];
     } finally {
       detecting.value = false;

@@ -1,6 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useCachedFetch } from "@tracepilot/ui";
 import { createDeferred } from "@tracepilot/test-utils";
+import { useCachedFetch } from "@tracepilot/ui";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("useCachedFetch", () => {
   beforeEach(() => {
@@ -315,8 +315,7 @@ describe("useCachedFetch", () => {
     });
 
     it("prevents stale error writes", async () => {
-      const resolvers: Array<{ resolve: (v: unknown) => void; reject: (e: unknown) => void }> =
-        [];
+      const resolvers: Array<{ resolve: (v: unknown) => void; reject: (e: unknown) => void }> = [];
       const fetcher = vi.fn(
         () =>
           new Promise((resolve, reject) => {
@@ -567,8 +566,7 @@ describe("useCachedFetch", () => {
     });
 
     it("does not call onError for stale requests", async () => {
-      const resolvers: Array<{ resolve: (v: unknown) => void; reject: (e: unknown) => void }> =
-        [];
+      const resolvers: Array<{ resolve: (v: unknown) => void; reject: (e: unknown) => void }> = [];
       const fetcher = vi.fn(
         () =>
           new Promise((resolve, reject) => {

@@ -73,6 +73,7 @@ fn generate_frontmatter_yaml(fm: &SkillFrontmatter) -> String {
 }
 
 /// Create a default SKILL.md template for a new skill.
+#[allow(dead_code)]
 pub fn create_template(name: &str, description: &str) -> String {
     let fm = SkillFrontmatter {
         name: name.to_string(),

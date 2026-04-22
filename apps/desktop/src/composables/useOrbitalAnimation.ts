@@ -14,8 +14,8 @@
 import { computed, type Ref, reactive, ref } from "vue";
 import { createConnectionManager } from "@/composables/orbitalConnections";
 import {
-  createAmbientParticles as spawnAmbientParticles,
   createLaneEllipseLayer,
+  createAmbientParticles as spawnAmbientParticles,
 } from "@/composables/orbitalDomLayers";
 import { createOrbitNodeFactory } from "@/composables/orbitalNodeFactory";
 import {
@@ -27,9 +27,9 @@ import {
   type Phase,
 } from "@/utils/orbitalGeometry";
 
+export type { Phase } from "@/utils/orbitalGeometry";
 // ── Re-exports (back-compat with IndexingLoadingScreen) ────────────────────
 export { DISCOVERING_MESSAGES, LANES, PHASE_LABELS } from "@/utils/orbitalGeometry";
-export type { Phase } from "@/utils/orbitalGeometry";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -74,8 +74,14 @@ export interface OrbitalAnimationOptions {
 const NODE_X_OFFSET = 4;
 
 export function useOrbitalAnimation(options: OrbitalAnimationOptions) {
-  const { orbitalFieldRef, svgLayerRef, ambientContainerRef, phase, prefersReducedMotion, onFrame } =
-    options;
+  const {
+    orbitalFieldRef,
+    svgLayerRef,
+    ambientContainerRef,
+    phase,
+    prefersReducedMotion,
+    onFrame,
+  } = options;
 
   // ── Reactive state ─────────────────────────────────────────────────────
   const nodes = reactive<OrbitNode[]>([]);
@@ -111,7 +117,13 @@ export function useOrbitalAnimation(options: OrbitalAnimationOptions) {
   }
 
   function getOrbitalPos(angle: number, laneIdx: number) {
-    return computeOrbitalPos(angle, LANES[laneIdx], centerX.value, centerY.value, scaleFactor.value);
+    return computeOrbitalPos(
+      angle,
+      LANES[laneIdx],
+      centerX.value,
+      centerY.value,
+      scaleFactor.value,
+    );
   }
 
   const nodeFactory = createOrbitNodeFactory({

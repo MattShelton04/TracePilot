@@ -7,11 +7,7 @@
 
 // ─── Connection State ─────────────────────────────────────────────
 
-export type BridgeConnectionState =
-  | "disconnected"
-  | "connecting"
-  | "connected"
-  | "error";
+export type BridgeConnectionState = "disconnected" | "connecting" | "connected" | "error";
 
 // ─── Session Mode ─────────────────────────────────────────────────
 

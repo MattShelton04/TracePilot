@@ -10,6 +10,7 @@ use super::resolve_task_model;
 /// Scan the jobs directory for completed task results and ingest them into the DB.
 /// Returns the number of tasks that were successfully ingested.
 #[tauri::command]
+#[tracing::instrument(skip_all, err)]
 pub async fn task_ingest_results(
     config: tauri::State<'_, SharedConfig>,
     task_db: tauri::State<'_, SharedTaskDb>,
@@ -100,33 +101,32 @@ pub async fn task_ingest_results(
 
                     // Auto-retry: if the task failed and has retries remaining,
                     // reset it to pending so the orchestrator picks it up again.
-                    if result.status == tracepilot_orchestrator::task_db::types::TaskStatus::Failed {
-                        if let Ok(task) = tracepilot_orchestrator::task_db::operations::get_task(
+                    if result.status == tracepilot_orchestrator::task_db::types::TaskStatus::Failed
+                        && let Ok(task) = tracepilot_orchestrator::task_db::operations::get_task(
+                            task_db.conn(),
+                            &result.task_id,
+                        )
+                        && task.attempt_count < task.max_retries
+                    {
+                        match tracepilot_orchestrator::task_db::operations::retry_task(
                             task_db.conn(),
                             &result.task_id,
                         ) {
-                            if task.attempt_count < task.max_retries {
-                                match tracepilot_orchestrator::task_db::operations::retry_task(
-                                    task_db.conn(),
-                                    &result.task_id,
-                                ) {
-                                    Ok(()) => {
-                                        retried_ids.push(result.task_id.clone());
-                                        tracing::info!(
-                                            task_id = %result.task_id,
-                                            attempt = task.attempt_count + 1,
-                                            max = task.max_retries,
-                                            "Auto-retrying failed task"
-                                        );
-                                    }
-                                    Err(e) => {
-                                        tracing::warn!(
-                                            task_id = %result.task_id,
-                                            error = %e,
-                                            "Auto-retry failed"
-                                        );
-                                    }
-                                }
+                            Ok(()) => {
+                                retried_ids.push(result.task_id.clone());
+                                tracing::info!(
+                                    task_id = %result.task_id,
+                                    attempt = task.attempt_count + 1,
+                                    max = task.max_retries,
+                                    "Auto-retrying failed task"
+                                );
+                            }
+                            Err(e) => {
+                                tracing::warn!(
+                                    task_id = %result.task_id,
+                                    error = %e,
+                                    "Auto-retry failed"
+                                );
                             }
                         }
                     }
@@ -138,11 +138,12 @@ pub async fn task_ingest_results(
         }
 
         // Hot-add retried tasks back to the manifest so the orchestrator picks them up
-        if !retried_ids.is_empty() {
-            if let Ok(orch_guard) = orch_state_clone.lock() {
-                if let Some(handle) = orch_guard.as_ref() {
-                    let manifest_path = std::path::PathBuf::from(&handle.manifest_path);
-                    if manifest_path.exists() {
+        if !retried_ids.is_empty()
+            && let Ok(orch_guard) = orch_state_clone.lock()
+            && let Some(handle) = orch_guard.as_ref()
+        {
+            let manifest_path = std::path::PathBuf::from(&handle.manifest_path);
+            if manifest_path.exists() {
                         // Serialize manifest writes to prevent TOCTOU races
                         let _manifest_guard = manifest_lock_clone.lock()
                             .map_err(|_| mutex_poisoned())?;
@@ -156,13 +157,17 @@ pub async fn task_ingest_results(
                                 let task_dir = jobs_dir.join(&task.id);
 
                                 // Clean up old result/status files so the orchestrator
-                                // treats it as a fresh task
-                                let _ = std::fs::remove_file(task_dir.join("result.json"));
-                                let _ = std::fs::remove_file(task_dir.join("status.json"));
+                                // treats it as a fresh task (best-effort: missing-file is fine).
+                                let _: std::io::Result<()> = std::fs::remove_file(task_dir.join("result.json"));
+                                let _: std::io::Result<()> = std::fs::remove_file(task_dir.join("status.json"));
 
                                 let manifest_task = tracepilot_orchestrator::task_orchestrator::manifest::ManifestTask::from_task(
                                     &task,
-                                    &resolve_task_model(&presets_dir, &task.preset_id, &default_subagent_model),
+                                    &resolve_task_model(
+                                        &presets_dir,
+                                        &tracepilot_core::ids::PresetId::from_validated(&task.preset_id),
+                                        &default_subagent_model,
+                                    ),
                                     &jobs_dir,
                                 );
 
@@ -175,8 +180,6 @@ pub async fn task_ingest_results(
                             }
                         }
                     }
-                }
-            }
         }
 
         Ok(ingested_count)
@@ -185,6 +188,7 @@ pub async fn task_ingest_results(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip(config, session_path), err, fields(path_len = session_path.len()))]
 pub async fn task_attribution(
     config: tauri::State<'_, SharedConfig>,
     session_path: String,

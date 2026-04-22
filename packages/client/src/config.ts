@@ -1,10 +1,6 @@
-import type {
-  GitInfo,
-  TracePilotConfig,
-  UpdateCheckResult,
-  ValidateSessionDirResult,
-} from "@tracepilot/types";
+import type { TracePilotConfig } from "@tracepilot/types";
 
+import type { GitInfo, UpdateCheckResult, ValidateSessionDirResult } from "./generated/bindings.js";
 import { invoke } from "./internal/core.js";
 import { isTauri } from "./invoke.js";
 
@@ -28,7 +24,7 @@ export async function saveConfig(config: TracePilotConfig): Promise<void> {
 
 /** Validate a session state directory path. */
 export async function validateSessionDir(path: string): Promise<ValidateSessionDirResult> {
-  if (!isTauri()) return { valid: true, sessionCount: 47 };
+  if (!isTauri()) return { valid: true, sessionCount: 47, error: null };
   return invoke<ValidateSessionDirResult>("validate_session_dir", { path });
 }
 

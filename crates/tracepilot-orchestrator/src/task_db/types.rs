@@ -30,6 +30,9 @@ impl TaskStatus {
         }
     }
 
+    // Intentional inherent method: returns `Option<Self>` rather than the
+    // `Result<Self, Err>` that `std::str::FromStr` mandates.
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
             "pending" => Some(Self::Pending),
@@ -81,6 +84,9 @@ impl JobStatus {
         }
     }
 
+    // Intentional inherent method: returns `Option<Self>` rather than the
+    // `Result<Self, Err>` that `std::str::FromStr` mandates.
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
             "pending" => Some(Self::Pending),

@@ -1,5 +1,5 @@
-import { effectScope } from "vue";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { effectScope } from "vue";
 import { createMaintenanceSlice } from "../../../stores/search/maintenance";
 
 const mockFtsHealth = vi.fn();

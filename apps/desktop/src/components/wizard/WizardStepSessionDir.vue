@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ValidateSessionDirResult } from "@tracepilot/types";
+import type { ValidateSessionDirResult } from "@tracepilot/client";
 
 defineProps<{
   sessionDir: string;
@@ -82,3 +82,27 @@ const emit = defineEmits<{
     </div>
   </div>
 </template>
+
+<style scoped src="./wizard-shared.css"></style>
+<style scoped src="./wizard-form.css"></style>
+
+<style scoped>
+.validation-area {
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.validation-msg {
+  font-size: 0.8125rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.validation-msg.success { color: var(--success-fg); }
+.validation-msg.warning { color: var(--warning-fg); }
+.validation-msg.error { color: var(--danger-fg); }
+.validation-msg.validating { color: var(--text-tertiary); }
+</style>

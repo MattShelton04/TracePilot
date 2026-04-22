@@ -1,6 +1,6 @@
 import { getToolResult } from "@tracepilot/client";
-import { reactive, watch } from "vue";
 import { useAsyncGuard } from "@tracepilot/ui";
+import { reactive, watch } from "vue";
 import { formatObjectResult } from "@/utils/formatResult";
 import { logError } from "@/utils/logger";
 

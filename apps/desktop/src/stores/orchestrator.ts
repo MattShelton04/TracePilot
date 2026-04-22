@@ -15,7 +15,7 @@ import type {
   OrchestratorState,
 } from "@tracepilot/types";
 import { DEFAULT_ORCHESTRATOR_MODEL } from "@tracepilot/types";
-import { runMutation, toErrorMessage, usePolling } from "@tracepilot/ui";
+import { runMutation, usePolling } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref, watch } from "vue";
 import { logWarn } from "@/utils/logger";
@@ -92,14 +92,15 @@ export const useOrchestratorStore = defineStore("orchestrator", () => {
   // ─── Actions ──────────────────────────────────────────────────────
 
   async function checkHealth() {
-    try {
-      const result = await taskOrchestratorHealth();
-      health.value = result;
-      error.value = null;
-    } catch (e) {
-      logWarn("[orchestrator] Health check failed:", e);
-      error.value = toErrorMessage(e);
-    }
+    await runMutation(error, async () => {
+      try {
+        health.value = await taskOrchestratorHealth();
+      } catch (e) {
+        logWarn("[orchestrator] Health check failed:", e);
+        throw e;
+      }
+      return true as const;
+    });
   }
 
   /** Load available models from the backend and set initial model from config. */

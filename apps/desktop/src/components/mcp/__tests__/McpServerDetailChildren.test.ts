@@ -1,13 +1,8 @@
-import type {
-  McpHealthResult,
-  McpServerConfig,
-  McpServerDetail,
-  McpTool,
-} from "@tracepilot/types";
 import { setupPinia } from "@tracepilot/test-utils";
+import type { McpHealthResult, McpServerConfig, McpServerDetail, McpTool } from "@tracepilot/types";
 import { mount } from "@vue/test-utils";
-import { defineComponent, h, provide, reactive, ref } from "vue";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { defineComponent, h, provide, reactive, ref } from "vue";
 
 vi.mock("@tracepilot/ui", async () => {
   const actual = await vi.importActual<Record<string, unknown>>("@tracepilot/ui");
@@ -73,9 +68,7 @@ function makeDetail(overrides: Partial<McpServerDetail> = {}): McpServerDetail {
   } as McpServerDetail;
 }
 
-function makeCtx(
-  overrides: Partial<UseMcpServerDetailReturn> = {},
-): UseMcpServerDetailReturn {
+function makeCtx(overrides: Partial<UseMcpServerDetailReturn> = {}): UseMcpServerDetailReturn {
   const detail = makeDetail();
   const base = {
     store: reactive({ loading: false, error: null, serverList: [] }),

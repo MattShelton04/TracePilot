@@ -16,12 +16,12 @@
  *   node scripts/check-file-sizes.mjs             # check (CI)
  *   node scripts/check-file-sizes.mjs --list      # print current violations
  *
- * See: docs/tech-debt-plan-revised-2026-04.md § Phase 0.11
+ * See: docs/archive/2026-04/tech-debt-plan-revised-2026-04.md § Phase 0.11
  */
 
 import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { extname, posix, relative, sep } from "node:path";
+import { extname, sep } from "node:path";
 
 const REPO_ROOT = new URL("..", import.meta.url).pathname.replace(/^\/([A-Z]:)/, "$1");
 
@@ -42,44 +42,25 @@ const BUDGETS = {
 // Populate this list by running `node scripts/check-file-sizes.mjs --list`
 // after the first CI run and committing the output, then removing entries
 // as files are split.
-// Existing violations at the point of enabling this guard. New violations
-// are fatal; existing ones are accepted but must only shrink over time.
-// Populate this list by running `node scripts/check-file-sizes.mjs --list`
-// after the first CI run and committing the output, then removing entries
-// as files are split.
 const ALLOWLIST = new Set([
   // ── Vue SFCs (Phase 4 decomposition targets) ───────────────────
-  "apps/desktop/src/components/timeline/TurnWaterfallView.vue",
-  "apps/desktop/src/components/timeline/NestedSwimlanesView.vue",
-  "apps/desktop/src/components/conversation/ChatViewMode.vue",
-  // TODO: extract model-mismatch warning + tool-call list into sub-components
-  "apps/desktop/src/components/conversation/SubagentPanel.vue",
+
+  // ── TS stores (Wave 102 — biome formatter expansion) ───────────
+  // TODO(w102): decompose try/catch helpers; expanded past budget by biome 2.4 formatter.
+  "apps/desktop/src/stores/sdk/connection.ts",
 
   // ── Rust god-modules (Phase 4 decomposition targets) ───────────
-  // TODO: split ErrorCode variants into domain submodules when BindingsError grows further
+  // TODO(FI-w123-error-variants): split ErrorCode variants into domain submodules when BindingsError grows further
   "crates/tracepilot-tauri-bindings/src/error.rs",
-  "crates/tracepilot-indexer/src/index_db/search_reader.rs",
   "crates/tracepilot-orchestrator/src/bridge/manager.rs",
-  "crates/tracepilot-indexer/src/index_db/mod.rs",
-  // TODO(wave-2): decompose — see Phase 4 of docs/tech-debt-plan-revised-2026-04.md
+  // TODO(wave-2): decompose — see Phase 4 of docs/archive/2026-04/tech-debt-plan-revised-2026-04.md
   "crates/tracepilot-indexer/src/index_db/helpers.rs",
-  "crates/tracepilot-orchestrator/src/skills/import.rs",
-  "crates/tracepilot-core/src/parsing/events.rs",
   "crates/tracepilot-tauri-bindings/src/commands/tasks.rs",
-  "crates/tracepilot-indexer/src/lib.rs",
-  "crates/tracepilot-orchestrator/src/process.rs",
-  "crates/tracepilot-orchestrator/src/mcp/health.rs",
-  "crates/tracepilot-tauri-bindings/src/config.rs",
-  "crates/tracepilot-tauri-bindings/src/helpers.rs",
   "crates/tracepilot-indexer/src/index_db/session_writer.rs",
-  "crates/tracepilot-core/src/turns/reconstructor.rs",
-  "crates/tracepilot-tauri-bindings/src/validators.rs",
   "crates/tracepilot-orchestrator/src/task_db/operations.rs",
-  "crates/tracepilot-tauri-bindings/src/commands/session.rs",
   "crates/tracepilot-export/src/builder.rs",
   "crates/tracepilot-orchestrator/src/templates.rs",
   "crates/tracepilot-export/src/redaction/mod.rs",
-  "crates/tracepilot-export/src/render/markdown.rs",
   "crates/tracepilot-export/src/import/validator.rs",
   "crates/tracepilot-orchestrator/src/worktrees.rs",
   "crates/tracepilot-export/src/import/mod.rs",
@@ -92,9 +73,9 @@ const ALLOWLIST = new Set([
   "crates/tracepilot-core/src/summary/mod.rs",
   "crates/tracepilot-bench/src/lib.rs",
   "crates/tracepilot-export/src/import/writer.rs",
-  // TODO: split tests into a separate file to bring under 500 lines
+  // TODO(FI-w123-backup-tests): split tests into a separate file to bring under 500 lines
   "crates/tracepilot-core/src/utils/backup.rs",
-  // TODO: split run_migrations out into a dedicated module
+  // TODO(FI-w123-migrations-module): split run_migrations out into a dedicated module
   "crates/tracepilot-indexer/src/index_db/migrations.rs",
 
   // ── Rust test files ─────────────────────────────────────────────
@@ -212,12 +193,18 @@ if (nonAllowed.length === 0) {
   process.exit(0);
 }
 
-console.error(`✗ file-size guard-rail: ${nonAllowed.length} file(s) exceed budget and are not allow-listed:\n`);
+console.error(
+  `✗ file-size guard-rail: ${nonAllowed.length} file(s) exceed budget and are not allow-listed:\n`,
+);
 for (const v of nonAllowed.sort((a, b) => b.lines - a.lines)) {
   console.error(`  ${v.path}  ${v.lines} > ${v.budget}  (${v.key})`);
 }
 console.error("\nOptions:");
 console.error("  1. Split the file (preferred).");
-console.error("  2. Add the path to ALLOWLIST in scripts/check-file-sizes.mjs with a TODO and owner.");
-console.error("\nSee docs/tech-debt-plan-revised-2026-04.md § Phase 4 for decomposition targets.");
+console.error(
+  "  2. Add the path to ALLOWLIST in scripts/check-file-sizes.mjs with a TODO and owner.",
+);
+console.error(
+  "\nSee docs/archive/2026-04/tech-debt-plan-revised-2026-04.md § Phase 4 for decomposition targets.",
+);
 process.exit(1);

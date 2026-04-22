@@ -13,12 +13,9 @@ export type {
 
 // ── config.js ──────────────────────────────────────────────────────
 export type {
-  GitInfo,
   ModelPriceEntry,
   ReleaseManifestEntry,
   TracePilotConfig,
-  UpdateCheckResult,
-  ValidateSessionDirResult,
 } from "./config.js";
 
 // ── conversation.js ────────────────────────────────────────────────
@@ -53,12 +50,6 @@ export {
   DEFAULT_SUBAGENT_MODEL,
   DEFAULT_UI_SCALE,
 } from "./defaults.js";
-
-// ── export.js ──────────────────────────────────────────────────────
-export {
-  ALL_SECTION_IDS,
-  SECTION_LABELS,
-} from "./export.js";
 export type {
   ComparisonResult,
   ConflictStrategy,
@@ -77,9 +68,11 @@ export type {
   SectionId,
   SessionSectionsInfo,
 } from "./export.js";
-
-// ── ipc-events.js ──────────────────────────────────────────────────
-export { IPC_EVENTS } from "./ipc-events.js";
+// ── export.js ──────────────────────────────────────────────────────
+export {
+  ALL_SECTION_IDS,
+  SECTION_LABELS,
+} from "./export.js";
 
 // ── files.js ───────────────────────────────────────────────────────
 export type { FileEntry } from "./files.js";
@@ -104,7 +97,7 @@ export type {
   McpTool,
   McpTransport,
 } from "./mcp.js";
-
+export type { ModelDefinition, ModelTier } from "./models.js";
 // ── models.js ──────────────────────────────────────────────────────
 export {
   DEFAULT_FAVOURITE_MODELS,
@@ -118,7 +111,6 @@ export {
   getTierLabel,
   MODEL_REGISTRY,
 } from "./models.js";
-export type { ModelDefinition, ModelTier } from "./models.js";
 
 // ── orchestration.js ───────────────────────────────────────────────
 export type {
@@ -165,6 +157,8 @@ export type {
 
 // ── search.js ──────────────────────────────────────────────────────
 export type {
+  ContextSnippet,
+  FtsHealthInfo,
   IndexingProgressPayload,
   SearchContentType,
   SearchFacetsResponse,
@@ -193,10 +187,20 @@ export type {
   ShutdownMetrics,
   TodoDep,
   TodoItem,
-  TodosResponse,
   TodoStatus,
+  TodosResponse,
 } from "./session.js";
-
+export type {
+  AssistantMessagePayload,
+  NarrowedSessionEventPayload,
+  SubagentCompletedPayload,
+  SubagentFailedPayload,
+  SubagentStartedPayload,
+  ToolExecutionStartPayload,
+  UnknownSessionEventPayload,
+} from "./session-event-payloads.js";
+// ── session-event-payloads.js ──────────────────────────────────────
+export { narrowSessionEvent } from "./session-event-payloads.js";
 // ── skills.js ──────────────────────────────────────────────────────
 export type {
   GhAuthInfo,
@@ -212,13 +216,6 @@ export type {
   SkillTokenBudget,
   SkillTokenEntry,
 } from "./skills.js";
-
-// ── tasks.js ───────────────────────────────────────────────────────
-export {
-  DEFAULT_ORCHESTRATOR_CONFIG,
-  isTerminalStatus,
-  TERMINAL_TASK_STATUSES,
-} from "./tasks.js";
 export type {
   AttributionSnapshot,
   ContextFormat,
@@ -253,14 +250,18 @@ export type {
   ValidationMode,
   VariableType,
 } from "./tasks.js";
-
+// ── tasks.js ───────────────────────────────────────────────────────
+export {
+  DEFAULT_ORCHESTRATOR_CONFIG,
+  isTerminalStatus,
+  TERMINAL_TASK_STATUSES,
+} from "./tasks.js";
+export type { ToolArgs } from "./tool-args.js";
 // ── tool-args.js ───────────────────────────────────────────────────
 export { getToolArgs, toolArgString } from "./tool-args.js";
-export type { ToolArgs } from "./tool-args.js";
-
+export type { RichRenderableToolName, ToolRenderingPreferences } from "./tool-rendering.js";
 // ── tool-rendering.js ──────────────────────────────────────────────
 export { DEFAULT_TOOL_RENDERING_PREFS } from "./tool-rendering.js";
-export type { RichRenderableToolName, ToolRenderingPreferences } from "./tool-rendering.js";
 
 // ── utils/formatters.js ────────────────────────────────────────────
 export {

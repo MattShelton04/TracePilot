@@ -1,6 +1,6 @@
+import { setupPinia } from "@tracepilot/test-utils";
 import type { ConversationTurn, TurnToolCall } from "@tracepilot/types";
 import { mount } from "@vue/test-utils";
-import { setupPinia } from "@tracepilot/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, nextTick } from "vue";
 import { useSessionDetailStore } from "@/stores/sessionDetail";

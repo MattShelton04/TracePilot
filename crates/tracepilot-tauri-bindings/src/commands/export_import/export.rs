@@ -123,6 +123,7 @@ fn check_custom_tables(db_path: &Path) -> bool {
 
 /// Export one or more sessions to the requested format and write to `output_path`.
 #[tauri::command]
+#[tracing::instrument(skip_all, err, fields(%format, session_count = session_ids.len(), section_count = sections.len()))]
 #[allow(clippy::too_many_arguments)]
 pub async fn export_sessions(
     state: tauri::State<'_, SharedConfig>,
@@ -214,6 +215,7 @@ pub async fn export_sessions(
 
 /// Generate a preview of the export output (for the live preview panel).
 #[tauri::command]
+#[tracing::instrument(skip_all, level = "debug", err, fields(%session_id, %format))]
 #[allow(clippy::too_many_arguments)]
 pub async fn preview_export(
     state: tauri::State<'_, SharedConfig>,
@@ -230,8 +232,9 @@ pub async fn preview_export(
 ) -> CmdResult<ExportPreviewResult> {
     let export_format = parse_format(&format)?;
     let section_set = parse_sections(&sections)?;
+    let sid = crate::validators::validate_session_id(&session_id)?;
 
-    with_session_path(&state, session_id, move |session_path| {
+    with_session_path(&state, sid, move |session_path| {
         let (content_detail, redaction) = build_export_detail_options(
             include_subagent_internals,
             include_tool_details,
@@ -249,11 +252,7 @@ pub async fn preview_export(
             redaction,
         };
 
-        let full_content = tracepilot_export::preview_export(
-            &session_path,
-            &options,
-            None,
-        )?;
+        let full_content = tracepilot_export::preview_export(&session_path, &options, None)?;
         let estimated_size = full_content.len();
 
         let content = match max_bytes.or(Some(512 * 1024)) {
@@ -281,7 +280,8 @@ pub async fn get_session_sections(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,
 ) -> CmdResult<SessionSectionsInfo> {
-    with_session_path(&state, session_id.clone(), move |session_path| {
+    let sid = crate::validators::validate_session_id(&session_id)?;
+    with_session_path(&state, sid, move |session_path| {
         let events_path = session_path.join("events.jsonl");
         let db_path = session_path.join("session.db");
         let plan_path = session_path.join("plan.md");
@@ -359,13 +359,13 @@ mod tests {
             Some(true),
         );
 
-        assert_eq!(content.include_subagent_internals, false);
-        assert_eq!(content.include_tool_details, false);
-        assert_eq!(content.include_full_tool_results, true);
+        assert!(!content.include_subagent_internals);
+        assert!(!content.include_tool_details);
+        assert!(content.include_full_tool_results);
 
-        assert_eq!(redaction.anonymize_paths, true);
-        assert_eq!(redaction.strip_secrets, true);
-        assert_eq!(redaction.strip_pii, true);
+        assert!(redaction.anonymize_paths);
+        assert!(redaction.strip_secrets);
+        assert!(redaction.strip_pii);
     }
 
     #[test]
@@ -373,13 +373,13 @@ mod tests {
         let (content, redaction) =
             build_export_detail_options(Some(false), None, None, None, Some(true), None);
 
-        assert_eq!(content.include_subagent_internals, false); // overridden
-        assert_eq!(content.include_tool_details, true); // default
-        assert_eq!(content.include_full_tool_results, false); // default
+        assert!(!content.include_subagent_internals); // overridden
+        assert!(content.include_tool_details); // default
+        assert!(!content.include_full_tool_results); // default
 
-        assert_eq!(redaction.anonymize_paths, false); // default
-        assert_eq!(redaction.strip_secrets, true); // overridden
-        assert_eq!(redaction.strip_pii, false); // default
+        assert!(!redaction.anonymize_paths); // default
+        assert!(redaction.strip_secrets); // overridden
+        assert!(!redaction.strip_pii); // default
     }
 
     #[test]

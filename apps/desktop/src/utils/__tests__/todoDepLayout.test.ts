@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
 import type { TodoItem } from "@tracepilot/types";
+import { describe, expect, it } from "vitest";
 import {
   computeEdgePaths,
   computeLayout,
@@ -86,13 +86,10 @@ describe("todoDepLayout.computeEdgePaths", () => {
   });
 
   it("emits a cubic bezier d-attribute for valid edges", () => {
-    const paths = computeEdgePaths(
-      [{ from: "a", to: "b" }],
-      {
-        a: { x: 0, y: 0, w: 10, h: 10 },
-        b: { x: 0, y: 40, w: 10, h: 10 },
-      },
-    );
+    const paths = computeEdgePaths([{ from: "a", to: "b" }], {
+      a: { x: 0, y: 0, w: 10, h: 10 },
+      b: { x: 0, y: 40, w: 10, h: 10 },
+    });
     expect(paths).toHaveLength(1);
     expect(paths[0].d).toMatch(/^M5,10 C5,/);
     expect(paths[0].id).toBe("edge-0");

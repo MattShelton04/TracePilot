@@ -1,6 +1,6 @@
+import { createDeferred, setupPinia } from "@tracepilot/test-utils";
 import type { TodosResponse } from "@tracepilot/types";
 import { flushPromises, mount } from "@vue/test-utils";
-import { setupPinia, createDeferred } from "@tracepilot/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import TodosTab from "../../views/tabs/TodosTab.vue";

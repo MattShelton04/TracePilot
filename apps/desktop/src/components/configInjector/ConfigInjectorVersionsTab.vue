@@ -2,13 +2,8 @@
 import { EmptyState } from "@tracepilot/ui";
 import { useConfigInjectorContext } from "@/composables/useConfigInjector";
 
-const {
-  store,
-  migrationFrom,
-  migrationTo,
-  handleLoadDiffs,
-  handleMigrateAgent,
-} = useConfigInjectorContext();
+const { store, migrationFrom, migrationTo, handleLoadDiffs, handleMigrateAgent } =
+  useConfigInjectorContext();
 </script>
 
 <template>

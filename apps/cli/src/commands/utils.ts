@@ -8,8 +8,8 @@ import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { formatTokens } from "@tracepilot/types";
 import yaml from "js-yaml";
-import { CliError } from "../utils/errorHandler.js";
 import { getSessionStateDir } from "../lib/session-path.js";
+import { CliError } from "../utils/errorHandler.js";
 
 // Re-export for convenience
 export { formatTokens, getSessionStateDir };
@@ -23,9 +23,7 @@ export async function requireSessionStateDir(): Promise<string> {
   try {
     const stats = await stat(dir);
     if (!stats.isDirectory()) {
-      throw new CliError(
-        `Expected Copilot session directory at ${dir}, but found a file instead.`,
-      );
+      throw new CliError(`Expected Copilot session directory at ${dir}, but found a file instead.`);
     }
   } catch (err) {
     const code = (err as NodeJS.ErrnoException)?.code;
@@ -59,8 +57,7 @@ export async function findSession(partialId: string): Promise<string> {
   }
 
   const matches = sessionIds.filter((e) => e.startsWith(partialId));
-  if (matches.length === 0)
-    throw new CliError(`No session matching "${partialId}" in ${baseDir}`);
+  if (matches.length === 0) throw new CliError(`No session matching "${partialId}" in ${baseDir}`);
   if (matches.length > 1)
     throw new CliError(
       `Ambiguous ID "${partialId}" — matches: ${matches.slice(0, 5).join(", ")}${matches.length > 5 ? ` (+${matches.length - 5} more)` : ""}`,

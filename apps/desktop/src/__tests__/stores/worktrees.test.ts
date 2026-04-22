@@ -1,3 +1,4 @@
+import { createDeferred, setupPinia } from "@tracepilot/test-utils";
 import type {
   CreateWorktreeRequest,
   PruneResult,
@@ -6,7 +7,6 @@ import type {
   WorktreeInfo,
 } from "@tracepilot/types";
 import { flushPromises } from "@vue/test-utils";
-import { setupPinia, createDeferred } from "@tracepilot/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useWorktreesStore } from "../../stores/worktrees";
 

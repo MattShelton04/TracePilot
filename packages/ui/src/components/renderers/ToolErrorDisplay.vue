@@ -70,10 +70,7 @@ const parsed = computed((): ParsedError => {
   // ── Text error: split headline from detail ───────────────────────
   const lines = raw.split("\n");
   const firstLine = lines[0].trim();
-  const rest = lines
-    .slice(1)
-    .join("\n")
-    .trim();
+  const rest = lines.slice(1).join("\n").trim();
 
   if (rest) {
     return {
@@ -88,10 +85,7 @@ const parsed = computed((): ParsedError => {
 });
 
 const hasDetail = computed(
-  () =>
-    !!parsed.value.detail ||
-    parsed.value.fields.length > 0 ||
-    !!parsed.value.jsonFormatted,
+  () => !!parsed.value.detail || parsed.value.fields.length > 0 || !!parsed.value.jsonFormatted,
 );
 </script>
 

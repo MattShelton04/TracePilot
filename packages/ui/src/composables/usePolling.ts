@@ -1,4 +1,4 @@
-import { getCurrentScope, onScopeDispose, ref, type Ref, watch } from "vue";
+import { getCurrentScope, onScopeDispose, type Ref, ref, watch } from "vue";
 
 export interface UsePollingOptions {
   /** Poll interval in ms. Required. */
@@ -7,6 +7,12 @@ export interface UsePollingOptions {
   immediate?: boolean;
   /** Pause polling while document is hidden (default true). */
   pauseWhenHidden?: boolean;
+  /**
+   * When the document becomes visible again, fire an immediate tick before
+   * re-arming the interval. Only meaningful when `pauseWhenHidden` is true.
+   * Default true — this keeps UI state fresh after a long idle period.
+   */
+  triggerOnRegain?: boolean;
   /** Pause polling when this ref is false (e.g. intersection observer). */
   active?: Ref<boolean>;
   /** Swallow errors from fn and continue (default true). Set false to let errors escape. */
@@ -43,6 +49,7 @@ export function usePolling(
     intervalMs,
     immediate = true,
     pauseWhenHidden = true,
+    triggerOnRegain = true,
     active,
     swallowErrors = true,
     onError,
@@ -105,6 +112,11 @@ export function usePolling(
     if (document.hidden) {
       clearTimer();
     } else {
+      // On regain: fire an immediate tick (configurable) before re-arming
+      // the interval so UI state isn't stuck at its pre-hide snapshot.
+      if (triggerOnRegain && canRun()) {
+        void trigger();
+      }
       scheduleTimer();
     }
   }

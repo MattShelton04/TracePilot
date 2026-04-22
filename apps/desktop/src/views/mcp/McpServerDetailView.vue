@@ -6,10 +6,7 @@ import McpServerDetailHeader from "@/components/mcp/McpServerDetailHeader.vue";
 import McpServerDetailHealth from "@/components/mcp/McpServerDetailHealth.vue";
 import McpServerDetailMetadata from "@/components/mcp/McpServerDetailMetadata.vue";
 import McpServerDetailTools from "@/components/mcp/McpServerDetailTools.vue";
-import {
-  McpServerDetailKey,
-  useMcpServerDetail,
-} from "@/composables/useMcpServerDetail";
+import { McpServerDetailKey, useMcpServerDetail } from "@/composables/useMcpServerDetail";
 import "@/styles/features/mcp-server-detail.css";
 
 const ctx = useMcpServerDetail();

@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import "@/styles/features/session-explorer.css";
 import type { SessionFileType } from "@tracepilot/types";
-import { useAutoRefresh } from "@tracepilot/ui";
-import { FileBrowserTree, FileContentViewer } from "@tracepilot/ui";
+import { FileBrowserTree, FileContentViewer, useAutoRefresh } from "@tracepilot/ui";
 import { computed, onBeforeUnmount, ref } from "vue";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { useSessionFiles } from "@/composables/useSessionFiles";

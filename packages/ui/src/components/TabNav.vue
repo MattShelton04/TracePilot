@@ -44,9 +44,8 @@ const router = props.modelValue === undefined ? useRouter() : undefined;
 /** True when TabNav is controlled by v-model (local mode) */
 const isLocalMode = computed(() => props.modelValue !== undefined);
 
-const activeTab = computed(() =>
-  isLocalMode.value ? props.modelValue! : (route?.name as string),
-);
+// biome-ignore lint/style/noNonNullAssertion: activeTab path is guarded by isLocalMode (modelValue defined) / global route (route.name populated by router).
+const activeTab = computed(() => (isLocalMode.value ? props.modelValue! : (route?.name as string)));
 
 // Track which tab has tabindex="0" — follows keyboard focus, resets on route change
 const focusedIndex = ref(0);
@@ -66,6 +65,7 @@ function navigate(routeName: string) {
   if (isLocalMode.value) {
     emit("update:modelValue", routeName);
   } else {
+    // biome-ignore lint/style/noNonNullAssertion: non-local mode implies useRouter()/useRoute() returned valid refs above.
     router!.push({ name: routeName, params: route!.params });
   }
 }

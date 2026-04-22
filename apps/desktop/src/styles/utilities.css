@@ -168,6 +168,9 @@
 .opacity-50 {
   opacity: 0.5;
 }
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
 
 /* ============================
    ACCESSIBILITY

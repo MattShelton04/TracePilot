@@ -85,7 +85,9 @@ export function createConnectionManager(svgRef: {
   }
 
   function clear() {
-    connections.forEach((c) => c.el.remove());
+    connections.forEach((c) => {
+      c.el.remove();
+    });
     connections.length = 0;
   }
 

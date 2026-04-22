@@ -67,15 +67,8 @@ export function buildAgentTreeLayout<N extends LayoutNodeInput>(
   rootChildren: N[],
   config: AgentTreeLayoutConfig = DEFAULT_AGENT_TREE_LAYOUT_CONFIG,
 ): AgentTreeLayoutResult<N> {
-  const {
-    rootWidth,
-    childWidth,
-    rowGap,
-    colGap,
-    maxPerRow,
-    rootNodeHeight,
-    childNodeHeight,
-  } = config;
+  const { rootWidth, childWidth, rowGap, colGap, maxPerRow, rootNodeHeight, childNodeHeight } =
+    config;
 
   interface FlatChild {
     node: N;
@@ -122,9 +115,7 @@ export function buildAgentTreeLayout<N extends LayoutNodeInput>(
 
   const rootX = (totalWidth - rootWidth) / 2;
   const rootY = 20;
-  const nodes: AgentTreeLayoutNode<N>[] = [
-    { node: root, x: rootX, y: rootY, width: rootWidth },
-  ];
+  const nodes: AgentTreeLayoutNode<N>[] = [{ node: root, x: rootX, y: rootY, width: rootWidth }];
 
   const nodeCenters = new Map<string, { cx: number; bottomY: number }>();
   nodeCenters.set(root.id, {

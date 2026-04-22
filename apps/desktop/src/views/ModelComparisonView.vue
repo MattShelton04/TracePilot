@@ -6,10 +6,7 @@ import ModelCharts from "@/components/modelComparison/ModelCharts.vue";
 import ModelCompareTable from "@/components/modelComparison/ModelCompareTable.vue";
 import ModelLeaderboard from "@/components/modelComparison/ModelLeaderboard.vue";
 import ModelStatsGrid from "@/components/modelComparison/ModelStatsGrid.vue";
-import {
-  ModelComparisonKey,
-  useModelComparison,
-} from "@/composables/useModelComparison";
+import { ModelComparisonKey, useModelComparison } from "@/composables/useModelComparison";
 import "@/styles/features/model-comparison.css";
 
 const ctx = useModelComparison();

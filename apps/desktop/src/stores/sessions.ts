@@ -1,8 +1,8 @@
 import { listSessions, reindexSessions } from "@tracepilot/client";
 import type { SessionListItem } from "@tracepilot/types";
-import { toErrorMessage, useInflightPromise } from "@tracepilot/ui";
+import { runAction, toErrorMessage, useInflightPromise } from "@tracepilot/ui";
 import { defineStore } from "pinia";
-import { computed, ref } from "vue";
+import { computed, ref, shallowRef } from "vue";
 import { isAlreadyIndexingError } from "@/utils/backendErrors";
 import { logError, logWarn } from "@/utils/logger";
 import { usePreferencesStore } from "./preferences";
@@ -26,7 +26,8 @@ export const useSessionsStore = defineStore("sessions", () => {
   /** Minimum interval between ensureIndex calls (2 min). Explicit user-triggered reindex ignores this. */
   const MIN_INDEX_INTERVAL_MS = 2 * 60 * 1000;
 
-  const sessions = ref<SessionListItem[]>([]);
+  // shallowRef: session list is always replaced wholesale (never index-mutated).
+  const sessions = shallowRef<SessionListItem[]>([]);
   const loading = ref(false);
   const indexing = ref(false);
   const error = ref<string | null>(null);
@@ -146,16 +147,15 @@ export const useSessionsStore = defineStore("sessions", () => {
   async function fetchSessions() {
     const existing = fetchInflight.current();
     if (existing) return existing;
-    loading.value = true;
-    error.value = null;
     return fetchInflight.run(async () => {
-      try {
-        sessions.value = await fetchAllSessions();
-      } catch (e) {
-        error.value = toErrorMessage(e);
-      } finally {
-        loading.value = false;
-      }
+      await runAction({
+        loading,
+        error,
+        action: fetchAllSessions,
+        onSuccess: (result) => {
+          sessions.value = result;
+        },
+      });
     });
   }
 
@@ -248,6 +248,10 @@ export const useSessionsStore = defineStore("sessions", () => {
     }
   }
 
+  function setSortBy(option: SortOption) {
+    sortBy.value = option;
+  }
+
   return {
     sessions,
     loading,
@@ -266,5 +270,6 @@ export const useSessionsStore = defineStore("sessions", () => {
     refreshSessions,
     reindex,
     ensureIndex,
+    setSortBy,
   };
 });

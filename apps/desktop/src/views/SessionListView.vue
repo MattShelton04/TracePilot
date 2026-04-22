@@ -17,6 +17,7 @@ import { useRouter } from "vue-router";
 import RefreshToolbar from "@/components/RefreshToolbar.vue";
 import { useIndexingEvents } from "@/composables/useIndexingEvents";
 import { usePerfMonitor } from "@/composables/usePerfMonitor";
+import { useRenderBudget } from "@/composables/useRenderBudget";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
 import { usePreferencesStore } from "@/stores/preferences";
@@ -27,6 +28,7 @@ import { useSessionTabsStore } from "@/stores/sessionTabs";
 const router = useRouter();
 const store = useSessionsStore();
 usePerfMonitor("SessionListView");
+useRenderBudget({ key: "render.sessionListViewMs", budgetMs: 120, label: "SessionListView" });
 const detailStore = useSessionDetailStore();
 const prefs = usePreferencesStore();
 const tabStore = useSessionTabsStore();
@@ -149,7 +151,7 @@ function openSession(event: MouseEvent, sessionId: string, label: string) {
             :value="store.sortBy"
             class="filter-select"
             aria-label="Sort sessions"
-            @change="store.sortBy = ($event.target as HTMLSelectElement).value as SortOption"
+            @change="store.setSortBy(($event.target as HTMLSelectElement).value as SortOption)"
           >
             <option v-for="opt in sortOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
           </select>

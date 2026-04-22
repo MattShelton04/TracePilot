@@ -13,7 +13,7 @@
 
 #[cfg(feature = "copilot-sdk")]
 use super::BridgeError;
-use super::{BridgeConnectionState, BridgeEvent, BridgeStatus};
+use super::{BridgeConnectionState, BridgeEvent, BridgeStatus, ConnectionMode};
 #[cfg(feature = "copilot-sdk")]
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -74,8 +74,8 @@ pub struct BridgeMetricsSnapshot {
 pub struct BridgeManager {
     pub(super) state: BridgeConnectionState,
     pub(super) error_message: Option<String>,
-    /// "stdio" or "tcp" — tracks how we connected.
-    pub(super) connection_mode: Option<String>,
+    /// Tracks how we connected: stdio subprocess vs TCP `--ui-server`.
+    pub(super) connection_mode: Option<ConnectionMode>,
     /// TCP server URL when in TCP mode — used for raw JSON-RPC calls
     /// that bypass the SDK (workaround for upstream method name bugs).
     pub(super) cli_url: Option<String>,
@@ -169,7 +169,7 @@ impl BridgeManager {
             #[cfg(not(feature = "copilot-sdk"))]
             active_sessions: 0,
             error: self.error_message.clone(),
-            connection_mode: self.connection_mode.clone(),
+            connection_mode: self.connection_mode,
         }
     }
 
@@ -178,7 +178,10 @@ impl BridgeManager {
     /// Broadcast the current status to all status subscribers.
     #[allow(dead_code)] // Used in feature-gated connect/disconnect paths
     pub(super) fn emit_status_change(&self) {
-        let _ = self.status_tx.send(self.status());
+        // best-effort: broadcast tolerates zero subscribers.
+        if self.status_tx.send(self.status()).is_err() {
+            tracing::trace!("no status subscribers");
+        }
     }
 
     #[cfg(feature = "copilot-sdk")]

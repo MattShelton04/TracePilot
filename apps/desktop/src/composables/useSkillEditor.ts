@@ -2,8 +2,8 @@ import type { SkillAsset, SkillFrontmatter } from "@tracepilot/types";
 import { useConfirmDialog, useResizeHandle } from "@tracepilot/ui";
 import {
   computed,
-  inject,
   type InjectionKey,
+  inject,
   nextTick,
   onMounted,
   onUnmounted,

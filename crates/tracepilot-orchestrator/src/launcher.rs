@@ -205,7 +205,9 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
 
         // `--% ` stops PS argument processing; win32_quote_arg applies MSVCRT rules
         // so CommandLineToArgvW reconstructs the exact original prompt.
-        let interactive_suffix = config.prompt.as_deref()
+        let interactive_suffix = config
+            .prompt
+            .as_deref()
             .map(|p| format!(" --% --interactive {}", crate::process::win32_quote_arg(p)))
             .unwrap_or_default();
         let ps_cmd = format!(
@@ -231,11 +233,15 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
             .unwrap_or_default();
         // Base64 chars are safe in POSIX single-quoted strings and AppleScript
         // double-quoted strings; the shell decodes the prompt at runtime.
-        let interactive_suffix = config.prompt.as_deref()
-            .map(|p| format!(
-                " --interactive \"$(echo '{}' | base64 -d)\"",
-                crate::process::encode_prompt_utf8_base64(p)
-            ))
+        let interactive_suffix = config
+            .prompt
+            .as_deref()
+            .map(|p| {
+                format!(
+                    " --interactive \"$(echo '{}' | base64 -d)\"",
+                    crate::process::encode_prompt_utf8_base64(p)
+                )
+            })
             .unwrap_or_default();
         let full_cmd = format!("{}{}{}", checkout_prefix, copilot_cmd, interactive_suffix);
         let envs_ref = if envs.is_empty() { None } else { Some(&envs) };

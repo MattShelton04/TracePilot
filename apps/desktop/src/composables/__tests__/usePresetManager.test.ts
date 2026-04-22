@@ -1,5 +1,5 @@
+import { setupPinia } from "@tracepilot/test-utils";
 import type { TaskPreset } from "@tracepilot/types";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 
@@ -53,7 +53,7 @@ function makePreset(overrides: Partial<TaskPreset> = {}): TaskPreset {
 }
 
 beforeEach(() => {
-  setActivePinia(createPinia());
+  setupPinia();
   savePresetMock.mockReset().mockResolvedValue(true);
   deletePresetMock.mockReset().mockResolvedValue(true);
   routerPush.mockReset();
@@ -110,7 +110,7 @@ describe("usePresetManager", () => {
   it("runTask pushes route with presetId", () => {
     const mgr = usePresetManager();
     mgr.runTask(makePreset({ id: "xyz" }));
-    expect(routerPush).toHaveBeenCalledWith({ path: "/tasks/new", query: { presetId: "xyz" } });
+    expect(routerPush).toHaveBeenCalledWith({ name: "task-create", query: { presetId: "xyz" } });
   });
 
   it("taskTypeColorClass maps known types", () => {

@@ -1,14 +1,8 @@
 <script setup lang="ts">
 import { useMcpServerDetailContext } from "@/composables/useMcpServerDetail";
 
-const {
-  editing,
-  configToolFilters,
-  configHeaders,
-  envEntries,
-  revealedKeys,
-  toggleReveal,
-} = useMcpServerDetailContext();
+const { editing, configToolFilters, configHeaders, envEntries, revealedKeys, toggleReveal } =
+  useMcpServerDetailContext();
 </script>
 
 <template>

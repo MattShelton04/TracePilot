@@ -35,3 +35,7 @@ harness = false
 [[bench]]
 name = "batch_size"
 harness = false
+
+[[bench]]
+name = "ipc_hot_path"
+harness = false

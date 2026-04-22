@@ -2,9 +2,9 @@
 //! [`BridgeManager`] plus the free `launch_ui_server` function that spawns a
 //! visible terminal running `copilot --ui-server` for the user to attach to.
 //!
-//! The Windows spawner uses `creation_flags(0x08000000)` (CREATE_NO_WINDOW)
-//! via `crate::process::spawn_detached_terminal` to prevent a CMD flash — see
-//! repo memory on Windows detached-terminal conventions.
+//! The Windows spawner uses `CREATE_NO_WINDOW` (via `crate::process::hidden_command`
+//! / `spawn_detached_terminal`) to prevent a CMD flash — see repo memory on
+//! Windows detached-terminal conventions.
 
 use super::BridgeManager;
 use crate::bridge::BridgeError;

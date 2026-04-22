@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { SectionPanel } from "@tracepilot/ui";
 import type { Task } from "@tracepilot/types";
+import { SectionPanel } from "@tracepilot/ui";
 import TaskStatusBadge from "@/components/tasks/TaskStatusBadge.vue";
 
 interface Props {

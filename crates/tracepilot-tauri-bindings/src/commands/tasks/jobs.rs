@@ -6,6 +6,7 @@ use crate::types::SharedTaskDb;
 use tracepilot_orchestrator::task_db::types::Job;
 
 #[tauri::command]
+#[tracing::instrument(skip_all, level = "debug", err)]
 pub async fn task_list_jobs(
     state: tauri::State<'_, SharedTaskDb>,
     limit: Option<i64>,
@@ -18,6 +19,7 @@ pub async fn task_list_jobs(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip(state), err, fields(%job_id))]
 pub async fn task_cancel_job(
     state: tauri::State<'_, SharedTaskDb>,
     job_id: String,

@@ -33,7 +33,7 @@ export async function allSettledRecord<T extends Record<string, PromiseLike<unkn
   // Object.entries iterations (extraction and reconstruction).
   const entries = Object.entries(tasks) as [keyof T & string, PromiseLike<unknown>][];
   const results = await Promise.allSettled(entries.map(([, p]) => p));
-  return Object.fromEntries(
-    entries.map(([key], i) => [key, results[i]]),
-  ) as { [K in keyof T]: PromiseSettledResult<Awaited<T[K]>> };
+  return Object.fromEntries(entries.map(([key], i) => [key, results[i]])) as {
+    [K in keyof T]: PromiseSettledResult<Awaited<T[K]>>;
+  };
 }

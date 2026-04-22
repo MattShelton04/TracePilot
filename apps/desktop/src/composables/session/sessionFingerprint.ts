@@ -6,11 +6,7 @@
  * meaningfully changed between refreshes. Extracted from useSessionDetail so
  * they can be unit-tested in isolation.
  */
-import type {
-  AttributedMessage,
-  ConversationTurn,
-  TurnToolCall,
-} from "@tracepilot/types";
+import type { AttributedMessage, ConversationTurn, TurnToolCall } from "@tracepilot/types";
 
 /** FNV-1a-ish 32-bit text hash (unsigned). */
 export function hashText(value: string): number {
@@ -24,17 +20,11 @@ export function hashText(value: string): number {
 
 export type EventsFingerprint = { size: number; mtime: number | null };
 
-export function buildEventsFingerprint(
-  size: number,
-  mtime?: number | null,
-): EventsFingerprint {
+export function buildEventsFingerprint(size: number, mtime?: number | null): EventsFingerprint {
   return { size, mtime: mtime ?? null };
 }
 
-export function isSameEventsFingerprint(
-  a: EventsFingerprint,
-  b: EventsFingerprint,
-): boolean {
+export function isSameEventsFingerprint(a: EventsFingerprint, b: EventsFingerprint): boolean {
   return a.size === b.size && a.mtime === b.mtime;
 }
 
@@ -104,9 +94,7 @@ export function turnFingerprint(turn: ConversationTurn): string {
  * next merge: always the last turn, plus any turn containing an in-flight
  * subagent tool call.
  */
-export function computeDeepCompareIndexes(
-  turnList: ConversationTurn[],
-): Set<number> {
+export function computeDeepCompareIndexes(turnList: ConversationTurn[]): Set<number> {
   const indexes = new Set<number>();
   if (turnList.length > 0) {
     indexes.add(turnList.length - 1);

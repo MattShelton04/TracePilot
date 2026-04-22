@@ -1,6 +1,6 @@
+import { setupPinia } from "@tracepilot/test-utils";
 import type { AnalyticsData, CodeImpactData, ToolAnalysisData } from "@tracepilot/types";
 import { flushPromises, mount } from "@vue/test-utils";
-import { setupPinia } from "@tracepilot/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // ── Mock client ───────────────────────────────────────────────

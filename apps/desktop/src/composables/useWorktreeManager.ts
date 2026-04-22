@@ -1,10 +1,10 @@
-import { ROUTE_NAMES } from "@/config/routes";
 import { openInExplorer, openInTerminal } from "@tracepilot/client";
 import type { WorktreeDetails, WorktreeInfo } from "@tracepilot/types";
 import { useConfirmDialog, useToast } from "@tracepilot/ui";
 import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { browseForDirectory } from "@/composables/useBrowseDirectory";
+import { ROUTE_NAMES } from "@/config/routes";
 import { useWorktreesStore } from "@/stores/worktrees";
 
 /**

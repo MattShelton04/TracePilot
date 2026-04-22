@@ -18,8 +18,8 @@ use crate::models::conversation::{
 use crate::models::event_types::{
     AbortData, AssistantReasoningData, ModelChangeData, PlanChangedData, SessionEventType,
     SessionModeChangedData, SessionResumeData, SessionStartData, SessionTruncationData,
-    SubagentCompletedData, SubagentStartedData, ToolExecCompleteData,
-    ToolExecStartData, TurnEndData, TurnStartData, UserMessageData,
+    SubagentCompletedData, SubagentStartedData, ToolExecCompleteData, ToolExecStartData,
+    TurnEndData, TurnStartData, UserMessageData,
 };
 use crate::parsing::events::{RawEvent, TypedEvent, TypedEventData};
 use chrono::Utc;

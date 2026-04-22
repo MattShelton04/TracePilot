@@ -1,5 +1,5 @@
-import { ftsHealth, ftsIntegrityCheck, ftsOptimize } from "@tracepilot/client";
 import type { FtsHealthInfo } from "@tracepilot/client";
+import { ftsHealth, ftsIntegrityCheck, ftsOptimize } from "@tracepilot/client";
 import { toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
 import { ref } from "vue";
 

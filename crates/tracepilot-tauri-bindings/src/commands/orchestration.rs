@@ -16,6 +16,7 @@ static SYSTEM_DEPS_CACHE: LazyLock<TtlCache<String, tracepilot_orchestrator::Sys
     LazyLock::new(|| TtlCache::new(Duration::from_secs(60)));
 
 #[tauri::command]
+#[tracing::instrument(skip(state), level = "debug", err)]
 pub async fn check_system_deps(
     state: tauri::State<'_, SharedConfig>,
 ) -> CmdResult<tracepilot_orchestrator::SystemDependencies> {
@@ -43,6 +44,7 @@ pub async fn check_system_deps(
 // -- Worktree commands --
 
 #[tauri::command]
+#[tracing::instrument(skip(repo_path), err)]
 pub async fn list_worktrees(
     repo_path: String,
 ) -> CmdResult<Vec<tracepilot_orchestrator::WorktreeInfo>> {
@@ -52,6 +54,7 @@ pub async fn list_worktrees(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip(request), err)]
 pub async fn create_worktree(
     request: tracepilot_orchestrator::CreateWorktreeRequest,
 ) -> CmdResult<tracepilot_orchestrator::WorktreeInfo> {
@@ -61,6 +64,7 @@ pub async fn create_worktree(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip(repo_path, worktree_path), err, fields(force))]
 pub async fn remove_worktree(
     repo_path: String,
     worktree_path: String,
@@ -74,6 +78,7 @@ pub async fn remove_worktree(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip(repo_path), err)]
 pub async fn prune_worktrees(repo_path: String) -> CmdResult<tracepilot_orchestrator::PruneResult> {
     blocking_cmd!(tracepilot_orchestrator::worktrees::prune_worktrees(
         std::path::Path::new(&repo_path)
@@ -140,6 +145,7 @@ pub async fn get_default_branch(repo_path: String) -> CmdResult<String> {
 }
 
 #[tauri::command]
+#[tracing::instrument(skip(repo_path, branch), err, fields(has_branch = branch.is_some()))]
 pub async fn fetch_remote(repo_path: String, branch: Option<String>) -> CmdResult<String> {
     blocking_cmd!(tracepilot_orchestrator::worktrees::fetch_remote(
         std::path::Path::new(&repo_path),
@@ -150,11 +156,13 @@ pub async fn fetch_remote(repo_path: String, branch: Option<String>) -> CmdResul
 // -- Repository Registry commands --
 
 #[tauri::command]
+#[tracing::instrument(level = "debug", err)]
 pub async fn list_registered_repos() -> CmdResult<Vec<tracepilot_orchestrator::RegisteredRepo>> {
     blocking_cmd!(tracepilot_orchestrator::repo_registry::list_registered_repos())
 }
 
 #[tauri::command]
+#[tracing::instrument(skip(path), err)]
 pub async fn add_registered_repo(
     path: String,
 ) -> CmdResult<tracepilot_orchestrator::RegisteredRepo> {
@@ -165,16 +173,19 @@ pub async fn add_registered_repo(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip(path), err)]
 pub async fn remove_registered_repo(path: String) -> CmdResult<()> {
     blocking_cmd!(tracepilot_orchestrator::repo_registry::remove_repo(&path))
 }
 
 #[tauri::command]
+#[tracing::instrument(skip(path), err)]
 pub async fn toggle_repo_favourite(path: String) -> CmdResult<bool> {
     blocking_cmd!(tracepilot_orchestrator::repo_registry::toggle_repo_favourite(&path))
 }
 
 #[tauri::command]
+#[tracing::instrument(skip(state), err)]
 pub async fn discover_repos_from_sessions(
     state: tauri::State<'_, SharedConfig>,
 ) -> CmdResult<Vec<tracepilot_orchestrator::RegisteredRepo>> {
@@ -197,6 +208,7 @@ pub async fn discover_repos_from_sessions(
 // -- Launcher commands --
 
 #[tauri::command]
+#[tracing::instrument(skip(config), err)]
 pub async fn launch_session(
     config: tracepilot_orchestrator::LaunchConfig,
 ) -> CmdResult<tracepilot_orchestrator::LaunchedSession> {

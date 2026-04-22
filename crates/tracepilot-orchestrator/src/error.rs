@@ -28,6 +28,21 @@ pub enum OrchestratorError {
     Task(String),
     #[error("Task database error: {0}")]
     TaskDb(#[from] rusqlite::Error),
+    /// Task DB schema migration step failed. Preserves the migration step name
+    /// for operator triage (otherwise bucketed into the generic `TaskDb`
+    /// variant, which misattributes migrator-framework failures to everyday
+    /// CRUD operations).
+    #[error("Task DB migration '{name}' failed: {source}")]
+    TaskDbMigration {
+        name: String,
+        #[source]
+        source: rusqlite::Error,
+    },
+    /// SQLite backup performed before a task-DB migration failed. Distinct
+    /// from `TaskDb` because the failure is in the backup pipeline, not in
+    /// application-level CRUD.
+    #[error("Task DB pre-migration backup failed: {0}")]
+    TaskDbBackup(#[source] rusqlite::Error),
     #[error("Preset error: {0}")]
     Preset(String),
     #[error("Core error: {0}")]
@@ -105,5 +120,31 @@ mod tests {
         assert!(msg.contains("Task error"));
         assert!(msg.contains("Invalid JSON in input_params"));
         assert!(msg.contains("unexpected end"));
+    }
+
+    #[test]
+    fn task_db_migration_variant_preserves_step_name() {
+        use std::error::Error;
+        let source = rusqlite::Error::InvalidQuery;
+        let err = OrchestratorError::TaskDbMigration {
+            name: "add_col".into(),
+            source,
+        };
+        let msg = err.to_string();
+        assert!(msg.contains("Task DB migration"));
+        assert!(msg.contains("'add_col'"));
+        // Source chain preserved for server-side tracing.
+        assert!(err.source().is_some());
+    }
+
+    #[test]
+    fn task_db_backup_variant_is_distinct_from_taskdb() {
+        let err = OrchestratorError::TaskDbBackup(rusqlite::Error::InvalidQuery);
+        assert!(matches!(err, OrchestratorError::TaskDbBackup(_)));
+        assert!(
+            err.to_string().contains("pre-migration backup"),
+            "expected distinct backup phrasing, got: {}",
+            err
+        );
     }
 }

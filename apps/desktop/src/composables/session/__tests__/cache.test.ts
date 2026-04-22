@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { createSessionCache } from "@/composables/session/cache";
 import type { CachedSession } from "@/composables/session/cache";
+import { createSessionCache } from "@/composables/session/cache";
 
 const makeEntry = (id: string): CachedSession =>
   ({

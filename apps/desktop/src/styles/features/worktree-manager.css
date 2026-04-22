@@ -70,7 +70,7 @@
 }
 
 .tree-item--active::before {
-  content: '';
+  content: "";
   position: absolute;
   left: 0;
   top: 0;
@@ -150,7 +150,10 @@
   border-radius: var(--radius-sm);
   cursor: pointer;
   opacity: 0;
-  transition: opacity var(--transition-fast), color var(--transition-fast), background var(--transition-fast);
+  transition:
+    opacity var(--transition-fast),
+    color var(--transition-fast),
+    background var(--transition-fast);
 }
 
 .tree-item:hover .tree-remove-btn {
@@ -430,7 +433,7 @@
 }
 
 .wt-row--selected::before {
-  content: '';
+  content: "";
   position: absolute;
   left: 0;
   top: 0;
@@ -440,7 +443,7 @@
 }
 
 .wt-row--stale:not(.wt-row--selected)::before {
-  content: '';
+  content: "";
   position: absolute;
   left: 0;
   top: 0;
@@ -490,7 +493,7 @@
 .wt-row-path {
   font-size: 0.6875rem;
   color: var(--text-tertiary);
-  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-family: "SF Mono", "Fira Code", "Consolas", monospace;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -504,7 +507,7 @@
 .session-link {
   color: var(--accent-fg);
   cursor: pointer;
-  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-family: "SF Mono", "Fira Code", "Consolas", monospace;
   font-size: 0.6875rem;
 }
 
@@ -612,7 +615,9 @@
   color: var(--text-tertiary);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: background var(--transition-fast), color var(--transition-fast);
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
 }
 
 .icon-btn:hover {
@@ -708,7 +713,7 @@
 }
 
 .detail-item-value--mono {
-  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-family: "SF Mono", "Fira Code", "Consolas", monospace;
   font-size: 0.75rem;
 }
 
@@ -734,7 +739,10 @@
   background: transparent;
   color: var(--text-primary);
   cursor: pointer;
-  transition: background var(--transition-fast), border-color var(--transition-fast), opacity var(--transition-fast);
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    opacity var(--transition-fast);
   white-space: nowrap;
 }
 
@@ -810,7 +818,7 @@
 }
 
 .form-input--mono {
-  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-family: "SF Mono", "Fira Code", "Consolas", monospace;
   font-size: 0.75rem;
 }
 

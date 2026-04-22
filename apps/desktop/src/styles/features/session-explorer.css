@@ -25,7 +25,7 @@
   flex: 1;
   min-height: 0;
 }
-
+
 /*
  * .detail-actions uses position:sticky which requires an overflow:auto/scroll
  * ancestor. In explorer mode all ancestors have overflow:hidden, so sticky

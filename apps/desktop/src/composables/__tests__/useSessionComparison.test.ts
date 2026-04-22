@@ -1,5 +1,5 @@
-import type { ConversationTurn, SessionDetail, ShutdownMetrics } from "@tracepilot/types";
 import { setupPinia } from "@tracepilot/test-utils";
+import type { ConversationTurn, SessionDetail, ShutdownMetrics } from "@tracepilot/types";
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
@@ -22,23 +22,16 @@ vi.mock("@/stores/preferences", () => ({
 }));
 
 const clientMock = {
-  getSessionDetail: vi.fn(
-    async (id: string) => ({ id, summary: id } as SessionDetail),
-  ),
-  getShutdownMetrics: vi.fn(
-    async (_id: string) => null as ShutdownMetrics | null,
-  ),
+  getSessionDetail: vi.fn(async (id: string) => ({ id, summary: id }) as SessionDetail),
+  getShutdownMetrics: vi.fn(async (_id: string) => null as ShutdownMetrics | null),
   getSessionTurns: vi.fn(async (_id: string) => ({
     turns: [] as ConversationTurn[],
   })),
 };
 vi.mock("@tracepilot/client", () => ({
-  getSessionDetail: (...args: unknown[]) =>
-    clientMock.getSessionDetail(...(args as [string])),
-  getShutdownMetrics: (...args: unknown[]) =>
-    clientMock.getShutdownMetrics(...(args as [string])),
-  getSessionTurns: (...args: unknown[]) =>
-    clientMock.getSessionTurns(...(args as [string])),
+  getSessionDetail: (...args: unknown[]) => clientMock.getSessionDetail(...(args as [string])),
+  getShutdownMetrics: (...args: unknown[]) => clientMock.getShutdownMetrics(...(args as [string])),
+  getSessionTurns: (...args: unknown[]) => clientMock.getSessionTurns(...(args as [string])),
 }));
 
 // Import AFTER mocks
@@ -68,7 +61,7 @@ describe("useSessionComparison", () => {
     sessionsStoreMock.sessions = [];
     sessionsStoreMock.fetchSessions = vi.fn(async () => {});
     clientMock.getSessionDetail = vi.fn(
-      async (id: string) => ({ id, summary: id } as SessionDetail),
+      async (id: string) => ({ id, summary: id }) as SessionDetail,
     );
     clientMock.getShutdownMetrics = vi.fn(async (_id: string) => null);
     clientMock.getSessionTurns = vi.fn(async (_id: string) => ({ turns: [] }));

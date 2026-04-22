@@ -12,15 +12,14 @@ use tracepilot_export::document::*;
 use tracepilot_export::options::*;
 use tracepilot_export::*;
 use tracepilot_test_support::fixtures::{
-    create_full_session, full_workspace_yaml, minimal_workspace_yaml,
+    full_session_temp_dir, full_workspace_yaml, minimal_workspace_yaml, workspace_only_temp_dir,
 };
 
 // ── Tests ──────────────────────────────────────────────────────────────────
 
 #[test]
 fn export_full_session_json() {
-    let dir = tempfile::tempdir().unwrap();
-    create_full_session(dir.path());
+    let (dir, _) = full_session_temp_dir();
 
     let options = ExportOptions::all(ExportFormat::Json);
     let files = export_session(dir.path(), &options).unwrap();
@@ -41,8 +40,7 @@ fn export_full_session_json() {
 
 #[test]
 fn export_includes_conversation() {
-    let dir = tempfile::tempdir().unwrap();
-    create_full_session(dir.path());
+    let (dir, _) = full_session_temp_dir();
 
     let options = ExportOptions::all(ExportFormat::Json);
     let files = export_session(dir.path(), &options).unwrap();
@@ -68,8 +66,7 @@ fn export_includes_conversation() {
 
 #[test]
 fn export_includes_raw_events() {
-    let dir = tempfile::tempdir().unwrap();
-    create_full_session(dir.path());
+    let (dir, _) = full_session_temp_dir();
 
     let options = ExportOptions::all(ExportFormat::Json);
     let files = export_session(dir.path(), &options).unwrap();
@@ -85,8 +82,7 @@ fn export_includes_raw_events() {
 
 #[test]
 fn export_includes_plan() {
-    let dir = tempfile::tempdir().unwrap();
-    create_full_session(dir.path());
+    let (dir, _) = full_session_temp_dir();
 
     let options = ExportOptions::all(ExportFormat::Json);
     let files = export_session(dir.path(), &options).unwrap();
@@ -100,8 +96,7 @@ fn export_includes_plan() {
 
 #[test]
 fn export_includes_checkpoints() {
-    let dir = tempfile::tempdir().unwrap();
-    create_full_session(dir.path());
+    let (dir, _) = full_session_temp_dir();
 
     let options = ExportOptions::all(ExportFormat::Json);
     let files = export_session(dir.path(), &options).unwrap();
@@ -127,8 +122,7 @@ fn export_includes_checkpoints() {
 
 #[test]
 fn export_includes_shutdown_metrics() {
-    let dir = tempfile::tempdir().unwrap();
-    create_full_session(dir.path());
+    let (dir, _) = full_session_temp_dir();
 
     let options = ExportOptions::all(ExportFormat::Json);
     let files = export_session(dir.path(), &options).unwrap();
@@ -146,8 +140,7 @@ fn export_includes_shutdown_metrics() {
 
 #[test]
 fn export_includes_health() {
-    let dir = tempfile::tempdir().unwrap();
-    create_full_session(dir.path());
+    let (dir, _) = full_session_temp_dir();
 
     let options = ExportOptions::all(ExportFormat::Json);
     let files = export_session(dir.path(), &options).unwrap();
@@ -161,8 +154,7 @@ fn export_includes_health() {
 
 #[test]
 fn export_section_filtering() {
-    let dir = tempfile::tempdir().unwrap();
-    create_full_session(dir.path());
+    let (dir, _) = full_session_temp_dir();
 
     // Only include conversation and plan
     let mut sections = HashSet::new();
@@ -194,8 +186,7 @@ fn export_section_filtering() {
 
 #[test]
 fn export_minimal_options() {
-    let dir = tempfile::tempdir().unwrap();
-    create_full_session(dir.path());
+    let (dir, _) = full_session_temp_dir();
 
     let options = ExportOptions::minimal(ExportFormat::Json);
     let files = export_session(dir.path(), &options).unwrap();
@@ -215,8 +206,7 @@ fn export_minimal_options() {
 
 #[test]
 fn export_sharing_preset() {
-    let dir = tempfile::tempdir().unwrap();
-    create_full_session(dir.path());
+    let (dir, _) = full_session_temp_dir();
 
     let options = ExportOptions::sharing(ExportFormat::Json);
     let files = export_session(dir.path(), &options).unwrap();
@@ -236,8 +226,7 @@ fn export_sharing_preset() {
 
 #[test]
 fn export_minimal_session() {
-    let dir = tempfile::tempdir().unwrap();
-    fs::write(dir.path().join("workspace.yaml"), minimal_workspace_yaml()).unwrap();
+    let (dir, _) = workspace_only_temp_dir(minimal_workspace_yaml());
 
     let options = ExportOptions::all(ExportFormat::Json);
     let files = export_session(dir.path(), &options).unwrap();
@@ -265,8 +254,7 @@ fn export_missing_workspace_returns_error() {
 
 #[test]
 fn export_header_has_correct_fields() {
-    let dir = tempfile::tempdir().unwrap();
-    create_full_session(dir.path());
+    let (dir, _) = full_session_temp_dir();
 
     let options = ExportOptions::all(ExportFormat::Json);
     let files = export_session(dir.path(), &options).unwrap();
@@ -281,8 +269,7 @@ fn export_header_has_correct_fields() {
 
 #[test]
 fn export_options_record_reflects_config() {
-    let dir = tempfile::tempdir().unwrap();
-    create_full_session(dir.path());
+    let (dir, _) = full_session_temp_dir();
 
     let mut sections = HashSet::new();
     sections.insert(SectionId::Conversation);
@@ -317,8 +304,7 @@ fn export_options_record_reflects_config() {
 
 #[test]
 fn json_round_trip_preserves_data() {
-    let dir = tempfile::tempdir().unwrap();
-    create_full_session(dir.path());
+    let (dir, _) = full_session_temp_dir();
 
     // Export
     let options = ExportOptions::all(ExportFormat::Json);
@@ -347,8 +333,7 @@ fn json_round_trip_preserves_data() {
 
 #[test]
 fn preview_export_returns_truncated_content() {
-    let dir = tempfile::tempdir().unwrap();
-    create_full_session(dir.path());
+    let (dir, _) = full_session_temp_dir();
 
     let options = ExportOptions::all(ExportFormat::Json);
     let preview = preview_export(dir.path(), &options, Some(500)).unwrap();
@@ -359,8 +344,7 @@ fn preview_export_returns_truncated_content() {
 
 #[test]
 fn preview_export_returns_full_content_when_no_limit() {
-    let dir = tempfile::tempdir().unwrap();
-    create_full_session(dir.path());
+    let (dir, _) = full_session_temp_dir();
 
     let options = ExportOptions::all(ExportFormat::Json);
     let preview = preview_export(dir.path(), &options, None).unwrap();
@@ -371,10 +355,8 @@ fn preview_export_returns_full_content_when_no_limit() {
 
 #[test]
 fn batch_export_multiple_sessions() {
-    let dir1 = tempfile::tempdir().unwrap();
+    let (dir1, _) = full_session_temp_dir();
     let dir2 = tempfile::tempdir().unwrap();
-
-    create_full_session(dir1.path());
     fs::write(
         dir2.path().join("workspace.yaml"),
         "id: second-session\nsummary: Session 2\n",
@@ -393,8 +375,7 @@ fn batch_export_multiple_sessions() {
 
 #[test]
 fn metadata_counts_are_populated() {
-    let dir = tempfile::tempdir().unwrap();
-    create_full_session(dir.path());
+    let (dir, _) = full_session_temp_dir();
 
     let options = ExportOptions::all(ExportFormat::Json);
     let files = export_session(dir.path(), &options).unwrap();
@@ -410,8 +391,7 @@ fn metadata_counts_are_populated() {
 
 #[test]
 fn export_markdown_full_session() {
-    let dir = tempfile::tempdir().unwrap();
-    create_full_session(dir.path());
+    let (dir, _) = full_session_temp_dir();
 
     let options = ExportOptions::all(ExportFormat::Markdown);
     let files = export_session(dir.path(), &options).unwrap();
@@ -431,8 +411,7 @@ fn export_markdown_full_session() {
 
 #[test]
 fn export_markdown_includes_conversation() {
-    let dir = tempfile::tempdir().unwrap();
-    create_full_session(dir.path());
+    let (dir, _) = full_session_temp_dir();
 
     let options = ExportOptions::all(ExportFormat::Markdown);
     let files = export_session(dir.path(), &options).unwrap();
@@ -445,8 +424,7 @@ fn export_markdown_includes_conversation() {
 
 #[test]
 fn export_markdown_includes_plan() {
-    let dir = tempfile::tempdir().unwrap();
-    create_full_session(dir.path());
+    let (dir, _) = full_session_temp_dir();
 
     let options = ExportOptions::all(ExportFormat::Markdown);
     let files = export_session(dir.path(), &options).unwrap();
@@ -458,8 +436,7 @@ fn export_markdown_includes_plan() {
 
 #[test]
 fn export_markdown_includes_tool_calls() {
-    let dir = tempfile::tempdir().unwrap();
-    create_full_session(dir.path());
+    let (dir, _) = full_session_temp_dir();
 
     let options = ExportOptions::all(ExportFormat::Markdown);
     let files = export_session(dir.path(), &options).unwrap();
@@ -471,8 +448,7 @@ fn export_markdown_includes_tool_calls() {
 
 #[test]
 fn export_markdown_includes_metrics() {
-    let dir = tempfile::tempdir().unwrap();
-    create_full_session(dir.path());
+    let (dir, _) = full_session_temp_dir();
 
     let options = ExportOptions::all(ExportFormat::Markdown);
     let files = export_session(dir.path(), &options).unwrap();
@@ -484,8 +460,7 @@ fn export_markdown_includes_metrics() {
 
 #[test]
 fn export_markdown_includes_checkpoints() {
-    let dir = tempfile::tempdir().unwrap();
-    create_full_session(dir.path());
+    let (dir, _) = full_session_temp_dir();
 
     let options = ExportOptions::all(ExportFormat::Markdown);
     let files = export_session(dir.path(), &options).unwrap();
@@ -497,8 +472,7 @@ fn export_markdown_includes_checkpoints() {
 
 #[test]
 fn export_markdown_preview() {
-    let dir = tempfile::tempdir().unwrap();
-    create_full_session(dir.path());
+    let (dir, _) = full_session_temp_dir();
 
     let options = ExportOptions::all(ExportFormat::Markdown);
     let preview = preview_export(dir.path(), &options, Some(200)).unwrap();
@@ -511,8 +485,7 @@ fn export_markdown_preview() {
 
 #[test]
 fn export_csv_produces_multiple_files() {
-    let dir = tempfile::tempdir().unwrap();
-    create_full_session(dir.path());
+    let (dir, _) = full_session_temp_dir();
 
     let options = ExportOptions::all(ExportFormat::Csv);
     let files = export_session(dir.path(), &options).unwrap();
@@ -532,8 +505,7 @@ fn export_csv_produces_multiple_files() {
 
 #[test]
 fn export_csv_summary_has_session_data() {
-    let dir = tempfile::tempdir().unwrap();
-    create_full_session(dir.path());
+    let (dir, _) = full_session_temp_dir();
 
     let options = ExportOptions::all(ExportFormat::Csv);
     let files = export_session(dir.path(), &options).unwrap();
@@ -549,8 +521,7 @@ fn export_csv_summary_has_session_data() {
 
 #[test]
 fn export_csv_conversation_has_turns() {
-    let dir = tempfile::tempdir().unwrap();
-    create_full_session(dir.path());
+    let (dir, _) = full_session_temp_dir();
 
     let options = ExportOptions::all(ExportFormat::Csv);
     let files = export_session(dir.path(), &options).unwrap();
@@ -566,8 +537,7 @@ fn export_csv_conversation_has_turns() {
 
 #[test]
 fn export_csv_tools_has_entries() {
-    let dir = tempfile::tempdir().unwrap();
-    create_full_session(dir.path());
+    let (dir, _) = full_session_temp_dir();
 
     let options = ExportOptions::all(ExportFormat::Csv);
     let files = export_session(dir.path(), &options).unwrap();
@@ -580,8 +550,7 @@ fn export_csv_tools_has_entries() {
 
 #[test]
 fn export_csv_events_has_all_event_types() {
-    let dir = tempfile::tempdir().unwrap();
-    create_full_session(dir.path());
+    let (dir, _) = full_session_temp_dir();
 
     let options = ExportOptions::all(ExportFormat::Csv);
     let files = export_session(dir.path(), &options).unwrap();
@@ -597,8 +566,7 @@ fn export_csv_events_has_all_event_types() {
 
 #[test]
 fn export_csv_model_metrics() {
-    let dir = tempfile::tempdir().unwrap();
-    create_full_session(dir.path());
+    let (dir, _) = full_session_temp_dir();
 
     let options = ExportOptions::all(ExportFormat::Csv);
     let files = export_session(dir.path(), &options).unwrap();
@@ -611,8 +579,7 @@ fn export_csv_model_metrics() {
 
 #[test]
 fn export_csv_minimal_session() {
-    let dir = tempfile::tempdir().unwrap();
-    fs::write(dir.path().join("workspace.yaml"), minimal_workspace_yaml()).unwrap();
+    let (dir, _) = workspace_only_temp_dir(minimal_workspace_yaml());
 
     let options = ExportOptions::minimal(ExportFormat::Csv);
     let files = export_session(dir.path(), &options).unwrap();
@@ -628,10 +595,8 @@ use tracepilot_export::import::{ConflictStrategy, ImportOptions, import_sessions
 
 #[test]
 fn round_trip_export_import_preserves_metadata() {
-    let source = tempfile::tempdir().unwrap();
+    let (source, _) = full_session_temp_dir();
     let target = tempfile::tempdir().unwrap();
-
-    create_full_session(source.path());
 
     // Export
     let export_opts = ExportOptions::all(ExportFormat::Json);
@@ -656,10 +621,8 @@ fn round_trip_export_import_preserves_metadata() {
 
 #[test]
 fn round_trip_preserves_events() {
-    let source = tempfile::tempdir().unwrap();
+    let (source, _) = full_session_temp_dir();
     let target = tempfile::tempdir().unwrap();
-
-    create_full_session(source.path());
 
     // Export with events
     let export_opts = ExportOptions::all(ExportFormat::Json);
@@ -686,10 +649,8 @@ fn round_trip_preserves_events() {
 
 #[test]
 fn round_trip_preserves_plan() {
-    let source = tempfile::tempdir().unwrap();
+    let (source, _) = full_session_temp_dir();
     let target = tempfile::tempdir().unwrap();
-
-    create_full_session(source.path());
 
     let export_opts = ExportOptions::all(ExportFormat::Json);
     let files = export_session(source.path(), &export_opts).unwrap();
@@ -713,10 +674,8 @@ fn round_trip_preserves_plan() {
 
 #[test]
 fn round_trip_preserves_checkpoints() {
-    let source = tempfile::tempdir().unwrap();
+    let (source, _) = full_session_temp_dir();
     let target = tempfile::tempdir().unwrap();
-
-    create_full_session(source.path());
 
     let export_opts = ExportOptions::all(ExportFormat::Json);
     let files = export_session(source.path(), &export_opts).unwrap();
@@ -740,10 +699,8 @@ fn round_trip_preserves_checkpoints() {
 
 #[test]
 fn import_preview_shows_session_info() {
-    let source = tempfile::tempdir().unwrap();
+    let (source, _) = full_session_temp_dir();
     let target = tempfile::tempdir().unwrap();
-
-    create_full_session(source.path());
 
     let export_opts = ExportOptions::all(ExportFormat::Json);
     let files = export_session(source.path(), &export_opts).unwrap();
@@ -759,10 +716,8 @@ fn import_preview_shows_session_info() {
 
 #[test]
 fn import_conflict_skip() {
-    let source = tempfile::tempdir().unwrap();
+    let (source, _) = full_session_temp_dir();
     let target = tempfile::tempdir().unwrap();
-
-    create_full_session(source.path());
 
     let export_opts = ExportOptions::all(ExportFormat::Json);
     let files = export_session(source.path(), &export_opts).unwrap();
@@ -796,10 +751,8 @@ fn import_conflict_skip() {
 
 #[test]
 fn import_conflict_duplicate() {
-    let source = tempfile::tempdir().unwrap();
+    let (source, _) = full_session_temp_dir();
     let target = tempfile::tempdir().unwrap();
-
-    create_full_session(source.path());
 
     let export_opts = ExportOptions::all(ExportFormat::Json);
     let files = export_session(source.path(), &export_opts).unwrap();
@@ -841,10 +794,8 @@ fn import_conflict_duplicate() {
 
 #[test]
 fn import_session_filter() {
-    let source = tempfile::tempdir().unwrap();
+    let (source, _) = full_session_temp_dir();
     let target = tempfile::tempdir().unwrap();
-
-    create_full_session(source.path());
 
     let export_opts = ExportOptions::all(ExportFormat::Json);
     let files = export_session(source.path(), &export_opts).unwrap();
@@ -870,8 +821,7 @@ fn import_session_filter() {
 
 #[test]
 fn export_skips_rewind_snapshots_on_malformed_index() {
-    let dir = tempfile::tempdir().unwrap();
-    fs::write(dir.path().join("workspace.yaml"), full_workspace_yaml()).unwrap();
+    let (dir, _) = workspace_only_temp_dir(full_workspace_yaml());
 
     // Write invalid JSON to force a parse error in parse_rewind_index
     let rewind_dir = dir.path().join("rewind-snapshots");
@@ -900,8 +850,7 @@ fn export_skips_rewind_snapshots_on_malformed_index() {
 
 #[test]
 fn export_skips_checkpoints_on_unreadable_index() {
-    let dir = tempfile::tempdir().unwrap();
-    fs::write(dir.path().join("workspace.yaml"), full_workspace_yaml()).unwrap();
+    let (dir, _) = workspace_only_temp_dir(full_workspace_yaml());
 
     // Make checkpoints/index.md a directory — reading it as a file causes an I/O error
     let cp_index_path = dir.path().join("checkpoints").join("index.md");
@@ -921,8 +870,7 @@ fn export_skips_checkpoints_on_unreadable_index() {
 
 #[test]
 fn export_skips_plan_on_unreadable_file() {
-    let dir = tempfile::tempdir().unwrap();
-    fs::write(dir.path().join("workspace.yaml"), full_workspace_yaml()).unwrap();
+    let (dir, _) = workspace_only_temp_dir(full_workspace_yaml());
 
     // Make plan.md a directory — reading it as a file causes an I/O error
     fs::create_dir_all(dir.path().join("plan.md")).unwrap();
@@ -944,8 +892,7 @@ fn export_skips_plan_on_unreadable_file() {
 #[test]
 fn redaction_covers_system_messages() {
     // Write a session with a system.message event containing a Windows-style path
-    let dir = tempfile::tempdir().unwrap();
-    fs::write(dir.path().join("workspace.yaml"), full_workspace_yaml()).unwrap();
+    let (dir, _) = workspace_only_temp_dir(full_workspace_yaml());
 
     let events = concat!(
         r#"{"type":"session.start","data":{"sessionId":"test-session-id","version":"1.0","producer":"copilot-cli","context":{"cwd":"/test","branch":"main","repository":"user/repo","hostType":"cli"}},"id":"evt-1","timestamp":"2026-03-10T07:14:50.780Z","parentId":null}"#,
@@ -983,7 +930,10 @@ fn redaction_covers_system_messages() {
     let archive: SessionArchive = serde_json::from_slice(&files[0].content).unwrap();
     let session = &archive.sessions[0];
 
-    let turns = session.conversation.as_ref().expect("conversation should be present");
+    let turns = session
+        .conversation
+        .as_ref()
+        .expect("conversation should be present");
     assert!(!turns.is_empty(), "should have at least one turn");
 
     let first_turn = &turns[0];

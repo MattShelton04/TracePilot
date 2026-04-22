@@ -103,9 +103,6 @@ pub struct SearchStatsResponse {
     pub content_type_counts: Vec<(String, i64)>,
 }
 
-/// Newtype for the search indexing semaphore (separate from main indexing).
-pub struct SearchSemaphore(pub Arc<tokio::sync::Semaphore>);
-
 #[derive(Debug, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionListItem {
@@ -166,7 +163,7 @@ pub struct TodosResponse {
     pub deps: Vec<tracepilot_core::parsing::session_db::TodoDep>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ValidateSessionDirResult {
     pub valid: bool,
@@ -174,7 +171,7 @@ pub struct ValidateSessionDirResult {
     pub error: Option<String>,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Clone, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateCheckResult {
     pub current_version: String,
@@ -184,7 +181,7 @@ pub struct UpdateCheckResult {
     pub published_at: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct GitInfo {
     pub commit_hash: Option<String>,

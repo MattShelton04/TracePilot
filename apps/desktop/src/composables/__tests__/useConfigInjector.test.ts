@@ -1,8 +1,8 @@
-import type { AgentDefinition, CopilotConfig } from "@tracepilot/types";
 import { setupPinia } from "@tracepilot/test-utils";
+import type { AgentDefinition, CopilotConfig } from "@tracepilot/types";
 import { mount } from "@vue/test-utils";
-import { defineComponent, h } from "vue";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { defineComponent, h } from "vue";
 
 vi.mock("@tracepilot/ui", async () => {
   const actual = await vi.importActual<Record<string, unknown>>("@tracepilot/ui");
@@ -69,7 +69,7 @@ vi.mock("@/stores/configInjector", () => ({
   }),
 }));
 
-import { useConfigInjector, TOOLS_COLLAPSE_LIMIT } from "../useConfigInjector";
+import { TOOLS_COLLAPSE_LIMIT, useConfigInjector } from "../useConfigInjector";
 
 function harness() {
   let api!: ReturnType<typeof useConfigInjector>;
@@ -80,7 +80,12 @@ function harness() {
     },
   });
   const wrapper = mount(Cmp);
-  return { wrapper, get api() { return api; } };
+  return {
+    wrapper,
+    get api() {
+      return api;
+    },
+  };
 }
 
 function makeAgent(overrides: Partial<AgentDefinition> = {}): AgentDefinition {

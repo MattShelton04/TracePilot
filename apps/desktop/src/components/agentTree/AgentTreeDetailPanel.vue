@@ -3,6 +3,7 @@ import {
   Badge,
   EmptyState,
   ExpandChevron,
+  formatArgsSummary,
   formatDuration,
   formatLiveDuration,
   formatNumber,
@@ -13,7 +14,6 @@ import {
   ToolResultRenderer,
   toolIcon,
   truncateText,
-  formatArgsSummary,
 } from "@tracepilot/ui";
 import { useAgentTreeContext } from "@/composables/useAgentTree";
 

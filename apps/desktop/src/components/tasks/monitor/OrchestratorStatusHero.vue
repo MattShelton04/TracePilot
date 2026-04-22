@@ -12,9 +12,7 @@ defineProps<{
   error: string | null;
 }>();
 
-const emit = defineEmits<{
-  (e: "view-session"): void;
-}>();
+const emit = defineEmits<(e: "view-session") => void>();
 </script>
 
 <template>

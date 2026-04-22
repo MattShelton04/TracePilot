@@ -152,10 +152,12 @@ pub fn prepare_restart(
     // Release stale claimed/in_progress tasks
     let released = crate::task_db::operations::release_stale_tasks(conn, stale_minutes)?;
 
-    // Remove old heartbeat
+    // Remove old heartbeat (best-effort: stale file does not block restart).
     let heartbeat_path = jobs_dir.join("heartbeat.json");
-    if heartbeat_path.exists() {
-        let _ = std::fs::remove_file(&heartbeat_path);
+    if heartbeat_path.exists()
+        && let Err(e) = std::fs::remove_file(&heartbeat_path)
+    {
+        tracing::debug!(path = %heartbeat_path.display(), error = %e, "heartbeat cleanup failed");
     }
 
     if released > 0 {

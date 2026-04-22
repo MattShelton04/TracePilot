@@ -1,7 +1,7 @@
 import type { TodoDep, TodoItem } from "@tracepilot/types";
 import { mount } from "@vue/test-utils";
-import { defineComponent, h, ref } from "vue";
 import { describe, expect, it } from "vitest";
+import { defineComponent, h, ref } from "vue";
 
 import { useTodoDependencyGraph } from "@/composables/useTodoDependencyGraph";
 
@@ -29,10 +29,7 @@ function mountHost(todos: TodoItem[], deps: TodoDep[]) {
 
 describe("useTodoDependencyGraph", () => {
   it("derives filteredTodos from activeStatuses and toggling respects 'at least one' invariant", () => {
-    const { getCtx } = mountHost(
-      [t("a", "done"), t("b", "in_progress"), t("c", "blocked")],
-      [],
-    );
+    const { getCtx } = mountHost([t("a", "done"), t("b", "in_progress"), t("c", "blocked")], []);
     const ctx = getCtx();
     expect(ctx.filteredTodos.value).toHaveLength(3);
 

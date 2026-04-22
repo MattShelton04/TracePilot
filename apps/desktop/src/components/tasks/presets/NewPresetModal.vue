@@ -7,9 +7,7 @@ const props = defineProps<{
   open: boolean;
 }>();
 
-const emit = defineEmits<{
-  (e: "update:open", v: boolean): void;
-}>();
+const emit = defineEmits<(e: "update:open", v: boolean) => void>();
 
 const store = usePresetsStore();
 
@@ -46,7 +44,7 @@ async function handleCreatePreset() {
 
   const existing = store.presets.find((p) => p.id === presetId.value);
   if (existing) {
-    store.error = `A preset with ID "${presetId.value}" already exists.`;
+    store.setError(`A preset with ID "${presetId.value}" already exists.`);
     return;
   }
 

@@ -8,10 +8,7 @@ import TaskRawPanel from "@/components/tasks/detail/TaskRawPanel.vue";
 import TaskResultPanel from "@/components/tasks/detail/TaskResultPanel.vue";
 import TaskSubagentPanel from "@/components/tasks/detail/TaskSubagentPanel.vue";
 import TaskTimelinePanel from "@/components/tasks/detail/TaskTimelinePanel.vue";
-import {
-  type TaskDetailTabId,
-  useTaskDetail,
-} from "@/composables/useTaskDetail";
+import { type TaskDetailTabId, useTaskDetail } from "@/composables/useTaskDetail";
 import "@/styles/features/task-detail.css";
 
 const {

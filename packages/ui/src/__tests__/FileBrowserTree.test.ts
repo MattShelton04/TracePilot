@@ -1,7 +1,7 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it } from "vitest";
-import FileBrowserTree from "../components/FileBrowserTree.vue";
 import type { FileBrowserEntry } from "../components/FileBrowserTree.vue";
+import FileBrowserTree from "../components/FileBrowserTree.vue";
 
 const rootEntries: FileBrowserEntry[] = [
   { path: "events.jsonl", name: "events.jsonl", sizeBytes: 1024, isDirectory: false },

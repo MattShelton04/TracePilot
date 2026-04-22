@@ -114,6 +114,10 @@ export const useLauncherStore = defineStore("launcher", () => {
     }
   }
 
+  function clearError() {
+    error.value = null;
+  }
+
   return {
     models,
     templates,
@@ -129,5 +133,6 @@ export const useLauncherStore = defineStore("launcher", () => {
     deleteTemplate,
     restoreDefaults,
     incrementUsage,
+    clearError,
   };
 });

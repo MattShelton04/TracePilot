@@ -30,14 +30,13 @@ pub async fn save_config(
     let cfg = config.clone();
     tokio::task::spawn_blocking(move || cfg.save()).await??;
 
-    let mut guard = state
-        .write()
-        .map_err(|_| mutex_poisoned())?;
+    let mut guard = state.write().map_err(|_| mutex_poisoned())?;
     *guard = Some(config);
     Ok(())
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn validate_session_dir(path: String) -> CmdResult<ValidateSessionDirResult> {
     blocking_cmd!({
         let dir = std::path::PathBuf::from(&path);
@@ -95,9 +94,7 @@ pub async fn factory_reset(state: tauri::State<'_, SharedConfig>) -> CmdResult<(
     })
     .await??;
 
-    let mut guard = state
-        .write()
-        .map_err(|_| mutex_poisoned())?;
+    let mut guard = state.write().map_err(|_| mutex_poisoned())?;
     *guard = None;
     Ok(())
 }
@@ -106,6 +103,9 @@ pub async fn factory_reset(state: tauri::State<'_, SharedConfig>) -> CmdResult<(
 pub async fn get_agent_definitions(
     version: Option<String>,
 ) -> CmdResult<Vec<tracepilot_orchestrator::AgentDefinition>> {
+    if let Some(ref v) = version {
+        crate::validators::validate_path_segment(v, "Version")?;
+    }
     blocking_cmd!({
         let home = copilot_home()?;
         let version_dir = if let Some(v) = version {
@@ -270,6 +270,8 @@ pub async fn get_migration_diffs(
     from_version: String,
     to_version: String,
 ) -> CmdResult<Vec<tracepilot_orchestrator::MigrationDiff>> {
+    crate::validators::validate_path_segment(&from_version, "from_version")?;
+    crate::validators::validate_path_segment(&to_version, "to_version")?;
     blocking_cmd!({
         let home = copilot_home()?;
         Ok::<_, crate::error::BindingsError>(
@@ -288,6 +290,9 @@ pub async fn migrate_agent_definition(
     from_version: String,
     to_version: String,
 ) -> CmdResult<()> {
+    crate::validators::validate_path_segment(&file_name, "file_name")?;
+    crate::validators::validate_path_segment(&from_version, "from_version")?;
+    crate::validators::validate_path_segment(&to_version, "to_version")?;
     blocking_cmd!({
         let home = copilot_home()?;
         Ok::<_, crate::error::BindingsError>(

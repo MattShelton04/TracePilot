@@ -5,7 +5,7 @@
 //! session steering, and quota monitoring. When disabled, the bridge degrades
 //! gracefully and all SDK operations return `BridgeError::NotAvailable`.
 
-pub mod discovery;
+mod discovery;
 pub mod manager;
 
 use serde::{Deserialize, Serialize};
@@ -43,17 +43,13 @@ pub enum BridgeError {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[derive(Default)]
 pub enum BridgeConnectionState {
+    #[default]
     Disconnected,
     Connecting,
     Connected,
     Error,
-}
-
-impl Default for BridgeConnectionState {
-    fn default() -> Self {
-        Self::Disconnected
-    }
 }
 
 // ─── Session Mode ─────────────────────────────────────────────────
@@ -83,6 +79,42 @@ pub struct BridgeEvent {
 
 // ─── Status / Info Types ──────────────────────────────────────────
 
+/// How the bridge is connected to the Copilot CLI.
+///
+/// Introduced in wave 79 of the tech-debt effort (see
+/// `docs/tech-debt-master-plan-2026-04.md` Phase 10 / w79) to replace the
+/// previous stringly-typed `Option<String>` carrying magic `"stdio"` / `"tcp"`
+/// values. Serialisation is kebab-case so the wire format is byte-for-byte
+/// identical to the pre-enum representation — frontends continue to receive
+/// `"stdio"` or `"tcp"` as a JSON string (nested in `Option`).
+///
+/// A `#[serde(alias)]` keeps the hyphenated legacy spelling `"std-io"`
+/// tolerated (unused today, defensive against external callers). The
+/// richer `Tcp { url: String }` variant envisaged in the plan is deferred
+/// to a future wave to avoid any IPC-shape churn.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ConnectionMode {
+    Stdio,
+    Tcp,
+}
+
+impl ConnectionMode {
+    /// Stable wire string (kept as a helper for log lines and raw comparisons).
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            ConnectionMode::Stdio => "stdio",
+            ConnectionMode::Tcp => "tcp",
+        }
+    }
+}
+
+impl std::fmt::Display for ConnectionMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BridgeStatus {
@@ -92,9 +124,10 @@ pub struct BridgeStatus {
     pub protocol_version: Option<u32>,
     pub active_sessions: usize,
     pub error: Option<String>,
-    /// "stdio" when SDK spawns a private CLI subprocess, "tcp" when connected
-    /// to an existing `copilot --ui-server` via `cli_url`.
-    pub connection_mode: Option<String>,
+    /// [`ConnectionMode::Stdio`] when the SDK spawns a private CLI subprocess,
+    /// [`ConnectionMode::Tcp`] when connected to an existing
+    /// `copilot --ui-server` via `cli_url`.
+    pub connection_mode: Option<ConnectionMode>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -205,11 +238,36 @@ mod tests {
             protocol_version: Some(1),
             active_sessions: 2,
             error: None,
-            connection_mode: Some("stdio".into()),
+            connection_mode: Some(ConnectionMode::Stdio),
         };
         let json = serde_json::to_string(&status).unwrap();
         assert!(json.contains("connected"));
         assert!(json.contains("sdkAvailable"));
+        // Wire format must remain a bare "stdio" string for FE compat.
+        assert!(
+            json.contains(r#""connectionMode":"stdio""#),
+            "expected unchanged wire format, got: {json}"
+        );
+    }
+
+    #[test]
+    fn connection_mode_wire_format_is_stable() {
+        assert_eq!(
+            serde_json::to_string(&ConnectionMode::Stdio).unwrap(),
+            r#""stdio""#
+        );
+        assert_eq!(
+            serde_json::to_string(&ConnectionMode::Tcp).unwrap(),
+            r#""tcp""#
+        );
+        assert_eq!(
+            serde_json::from_str::<ConnectionMode>(r#""stdio""#).unwrap(),
+            ConnectionMode::Stdio
+        );
+        assert_eq!(
+            serde_json::from_str::<ConnectionMode>(r#""tcp""#).unwrap(),
+            ConnectionMode::Tcp
+        );
     }
 
     #[test]
