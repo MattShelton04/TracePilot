@@ -426,8 +426,9 @@ Remaining (deferred — v-model-style emit bridges where a child `@update:foo` h
 ### w129 — `@tracepilot/config` decision
 - Either grow it (add `tsconfig` presets, biome configs) or document as a `tsconfig` holder only + remove the plural "presets" claim from its README.
 
-### w130 — `syntaxHighlight.ts` (688 LOC) evaluation
+### w130 — `syntaxHighlight.ts` (688 LOC) evaluation ✅
 - Hand-rolled regex highlighter is a drift hazard. Evaluate replacement with `shiki` or `highlight.js` (bundle-cost vs correctness). Wave lands the evaluation doc + a feature-flagged swap if the numbers work.
+- **Outcome (w130)**: evaluated. Kept bespoke tokenizer — 10.13 kB raw / 2.96 kB gzip, zero external deps, 33 language aliases across 13 rule sets, already memoized at module load and via Vue `computed`. Swap to shiki would grow the bundle by ~2 orders of magnitude for marginal visual gain, with no current feature (editor, diagnostics overlay) justifying the cost. Documented in `docs/syntax-highlighting.md`; five follow-ups captured as `FI-w130-*` (shiki migration, theme-aware tokenization, streaming markdown pipeline, highlight LRU, alias telemetry).
 
 ---
 
