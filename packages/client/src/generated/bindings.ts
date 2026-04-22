@@ -24,6 +24,15 @@ export const commands = {
 	listSessions: (limit: number | null, repo: string | null, branch: string | null, hideEmpty: boolean | null, hideOrchestrator: boolean | null) => typedError<SessionListItem[], BindingsErrorIpc>(__TAURI_INVOKE("list_sessions", { limit, repo, branch, hideEmpty, hideOrchestrator })),
 	// Lightweight freshness probe— returns just the events.jsonl file size.
 	checkSessionFreshness: (sessionId: string) => typedError<FreshnessResponse, BindingsErrorIpc>(__TAURI_INVOKE("check_session_freshness", { sessionId })),
+	getDbSize: () => typedError<number, BindingsErrorIpc>(__TAURI_INVOKE("get_db_size")),
+	getSessionCount: () => typedError<number, BindingsErrorIpc>(__TAURI_INVOKE("get_session_count")),
+	// Check if a session is currently running by looking for `inuse.*.lock` files.
+	isSessionRunning: (sessionId: string) => typedError<boolean, BindingsErrorIpc>(__TAURI_INVOKE("is_session_running", { sessionId })),
+	// Returns the installation type: "source", "installed", or "portable".
+	getInstallType: () => __TAURI_INVOKE<string>("get_install_type"),
+	checkForUpdates: () => typedError<UpdateCheckResult, BindingsErrorIpc>(__TAURI_INVOKE("check_for_updates")),
+	getGitInfo: () => __TAURI_INVOKE<GitInfo>("get_git_info"),
+	validateSessionDir: (path: string) => typedError<ValidateSessionDirResult, BindingsErrorIpc>(__TAURI_INVOKE("validate_session_dir", { path })),
 };
 
 /* Types */
@@ -58,6 +67,11 @@ export type FreshnessResponse = {
 	eventsFileMtime: number | null,
 };
 
+export type GitInfo = {
+	commitHash: string | null,
+	branch: string | null,
+};
+
 export type SessionListItem = {
 	id: string,
 	summary: string | null,
@@ -76,6 +90,20 @@ export type SessionListItem = {
 	rateLimitCount: number | null,
 	compactionCount: number | null,
 	truncationCount: number | null,
+};
+
+export type UpdateCheckResult = {
+	currentVersion: string,
+	latestVersion: string | null,
+	hasUpdate: boolean,
+	releaseUrl: string | null,
+	publishedAt: string | null,
+};
+
+export type ValidateSessionDirResult = {
+	valid: boolean,
+	sessionCount: number,
+	error: string | null,
 };
 
 /* Tauri Specta runtime */

@@ -38,6 +38,7 @@ pub async fn save_config(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn validate_session_dir(path: String) -> CmdResult<ValidateSessionDirResult> {
     blocking_cmd!({
         let dir = std::path::PathBuf::from(&path);

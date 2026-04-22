@@ -1,10 +1,12 @@
 # Specta / tauri-specta migration guide
 
-> Phase 1B.1 pilot status: **🟡 PARTIAL (wave 21)** — codegen infrastructure
+> Phase 1B.1 pilot status: **🟡 PARTIAL (wave 98)** — codegen infrastructure
 > landed in wave 8; additional session-listing DTOs were migrated in wave
-> 21. The bulk of the Rust ↔ TS contract is still hand-maintained in
-> `packages/types/` and `packages/client/src/commands.ts`. This guide is
-> the playbook for expanding coverage in subsequent waves.
+> 21; wave 98 added the state/system subsystem (update + git + DB-size +
+> session-count + install-type + validate-session-dir). The bulk of the
+> Rust ↔ TS contract is still hand-maintained in `packages/types/` and
+> `packages/client/src/commands.ts`. This guide is the playbook for
+> expanding coverage in subsequent waves.
 
 ## What landed in this wave
 
@@ -60,6 +62,32 @@ Drift between generated + hand-written is caught at compile-time by
 `packages/client/src/__tests__/generated.drift.test.ts`.
 
 **Running totals:** 3 types + 3 commands in the allow-list (was 2 + 1).
+
+### Generated as of wave 98 (state/system batch)
+
+Annotated additively without touching the runtime `tauri::generate_handler!`
+registry. These DTOs + commands now round-trip through specta, and the
+hand-written mirrors in `packages/types/src/config.ts` have been deleted
+outright (consumers import the generated shapes from `@tracepilot/client`):
+
+| Rust symbol | Location | Notes |
+| --- | --- | --- |
+| `UpdateCheckResult` struct | `crates/tracepilot-tauri-bindings/src/types.rs` | `#[derive(..., specta::Type)]` |
+| `GitInfo` struct | `crates/tracepilot-tauri-bindings/src/types.rs` | `#[derive(..., specta::Type)]` |
+| `ValidateSessionDirResult` struct | `crates/tracepilot-tauri-bindings/src/types.rs` | `#[derive(..., specta::Type)]`; hand-written mirror's `error?: string` is now `error: string \| null` (generated form). The `if (result.error)` truthy check in `SetupWizard.vue` works identically with either shape. |
+| `get_db_size` command | `crates/tracepilot-tauri-bindings/src/commands/state.rs` | `#[specta::specta]` |
+| `get_session_count` command | same | `#[specta::specta]` |
+| `is_session_running` command | same | `#[specta::specta]` (attribute **after** `#[tracing::instrument(..., fields(%session_id))]` — see troubleshooting) |
+| `get_install_type` command | same | `#[specta::specta]` on a sync fn |
+| `check_for_updates` command | same | `#[specta::specta]` |
+| `get_git_info` command | same | `#[specta::specta]` |
+| `validate_session_dir` command | `crates/tracepilot-tauri-bindings/src/commands/config_cmds.rs` | `#[specta::specta]` (co-located DTO lives in `types.rs`) |
+
+Wire-format check: `git diff packages/client/src/generated/bindings.ts`
+before committing. For this wave, no existing generated line changed —
+commands + types were appended only.
+
+**Running totals:** 6 types + 10 commands in the allow-list (was 3 + 3).
 
 #### DTOs needing per-field overrides (deferred)
 
@@ -214,11 +242,11 @@ from Rust. In rough order of payoff (widest fan-out first):
 | --- | --- |
 | `session.ts` | `tracepilot-core::SessionHeader`, `ConversationTurn`, `TypedEvent` and friends; `SessionListItem` ✅ migrated wave 21 |
 | `search.ts` | `tracepilot-indexer::SearchHit`, facet DTOs, FTS health |
-| `sdk.ts` | `tracepilot-orchestrator::bridge::{BridgeStatus, BridgeSessionInfo, BridgeModelInfo, BridgeQuota, BridgeAuthStatus, DetectedUiServer, BridgeConnectConfig, BridgeSessionConfig, BridgeSessionMode, BridgeMessagePayload}` + `BridgeMetricsSnapshot` (✅ migrated this wave) |
+| `sdk.ts` | `tracepilot-orchestrator::bridge::{BridgeStatus, BridgeSessionInfo, BridgeModelInfo, BridgeQuota, BridgeAuthStatus, DetectedUiServer, BridgeConnectConfig, BridgeSessionConfig, BridgeSessionMode, BridgeMessagePayload}` + `BridgeMetricsSnapshot` (✅ migrated wave 21) |
 | `tasks.ts` | `tracepilot-orchestrator::task_orchestrator::*` task/job/preset DTOs |
 | `orchestration.ts` | Worktree, repo, launcher, system-dep DTOs |
 | `analytics.ts` | `tracepilot-core` analytics rollups |
-| `config.ts` | `TracePilotConfig`, agent defs, copilot config, backups, templates |
+| `config.ts` | `TracePilotConfig`, agent defs, copilot config, backups, templates; `UpdateCheckResult` / `GitInfo` / `ValidateSessionDirResult` ✅ migrated wave 98 (now generated) |
 | `export.ts` | Export/import preview + result DTOs |
 | `mcp.ts` | MCP server DTOs |
 | `skills.ts` | Skill definitions, asset descriptors |
@@ -262,6 +290,7 @@ pre-push:
 
 ## Troubleshooting
 
+- **`error: expected an expression` on a `#[tracing::instrument(..., fields(foo = %foo))]`-decorated command** when you add `#[specta::specta]`: place the specta attribute **after** `tracing::instrument` (i.e. below it in source order). Specta's macro re-reads the remaining attribute list and chokes on the `%` / `?` tracing sigils in `fields(...)`. Order in `state::is_session_running` for a concrete example.
 - **`STATUS_ENTRYPOINT_NOT_FOUND` when running the bin on Windows**:
   the `embed-manifest` build-dep should prevent this. If it resurfaces
   (e.g. after a tauri major upgrade pulls in new comctl32 symbols),

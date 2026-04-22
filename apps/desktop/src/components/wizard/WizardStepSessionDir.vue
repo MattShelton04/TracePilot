@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ValidateSessionDirResult } from "@tracepilot/types";
+import type { ValidateSessionDirResult } from "@tracepilot/client";
 
 defineProps<{
   sessionDir: string;

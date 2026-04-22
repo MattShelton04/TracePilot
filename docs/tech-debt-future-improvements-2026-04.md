@@ -443,3 +443,25 @@ actionable so a future engineer can pick them up.
 - **Proposed change**: Either (a) pre-warm the event module at `onMounted` time via `void tauriListen('__noop__', () => {}).then(un => un?.())`, then switch to `tauriEmit` in the teardown path; or (b) expose a `preloadTauriEvent()` helper from `@/lib/tauri/event.ts` that call-sites can fire-and-forget during mount.
 - **Risk / why deferred**: Behaviour-preserving — the static import guarantees the plugin code is resident before teardown. Moving to dynamic without a pre-warm would be a regression on a reliability-critical path.
 - **Effort**: S
+
+
+### w98 — `tauri_specta::collect_events!` for IPC event payloads
+- **Area**: `crates/tracepilot-tauri-bindings/src/events.rs`, `types.rs` (`IndexingProgressPayload`), `packages/client/src/events.ts`.
+- **Observation**: Event names + payload shapes are still hand-mirrored between Rust (`events.rs` string constants + `helpers/emit.rs` calling `emit_best_effort` with `&IndexingProgressPayload`) and TS (`IPC_EVENTS` in `packages/client/src/events.ts`). Wave 98 deliberately skipped this because flipping to `#[derive(tauri_specta::Event)]` changes the default event name (derived from the type name) and the emit code path — both are wire-compat sensitive. The `"popup-session-closed"` string-raw event referenced in `App.vue`/`ChildApp.vue` is in the same boat.
+- **Proposed change**: Introduce `collect_events!` in `specta_exports.rs`, derive `tauri_specta::Event` on `IndexingProgressPayload` (and a new empty struct for lifecycle events), fix the event name with `#[specta(rename = "indexing-progress")]`, and update `emit_best_effort` → `IndexingProgressPayload.emit(&app)`. Generate TS-side `events.indexingProgress.listen(...)` helpers.
+- **Risk / why deferred**: Event-rename is a breaking IPC wire change if `rename` isn't pinned correctly; `emit()` semantics differ subtly from `emit_all()` around targeted windows. Needs a dedicated wave with before/after capture of every `listen()` call-site.
+- **Effort**: M
+
+### w98 — Flip `tauri::generate_handler!` to `Builder::invoke_handler()` once coverage is complete
+- **Area**: `crates/tracepilot-tauri-bindings/src/lib.rs:100` (the `generate_handler![…]` block), `apps/desktop/src-tauri/build.rs` (command allowlist), `packages/client/src/commands.ts` (hand-written command-name registry).
+- **Observation**: Today every newly-annotated command is registered twice — once in the runtime `generate_handler!` block and once in `collect_commands!` inside `specta_exports.rs`. The two must be kept in sync by hand (the `commandContract.test.ts` regex guard protects the desktop-side allowlist ↔ lib.rs pairing but **not** the specta list). The migration guide already calls out the intended end-state (`Builder::invoke_handler(...)`).
+- **Proposed change**: Once every `#[tauri::command]` handler also carries `#[specta::specta]`, follow the "Plan: replacing `tauri::generate_handler!`" section of `docs/specta-migration-guide.md` in a single atomic wave — swap the runtime registry to `builder.build()`'s `invoke_handler`, drop the desktop `build.rs` allowlist (or derive it from specta), delete `packages/client/src/commands.ts` + `commandContract.test.ts`.
+- **Risk / why deferred**: Requires 100% command coverage first; partial switchover is worse than either end state because it duplicates registration surface. Large fan-out into every IPC call-site.
+- **Effort**: L
+
+### w98 — Hand-written IPC wrappers still wrap generated commands
+- **Area**: `packages/client/src/config.ts`, `packages/client/src/maint.ts`, `packages/client/src/sessions.ts` (plus every other file under `packages/client/src/*.ts`).
+- **Observation**: Wave 98 migrated the **DTO types** to be generated but left the wrapper *functions* (`checkForUpdates()`, `getGitInfo()`, `validateSessionDir()`, `getDbSize()`, `getSessionCount()`, `isSessionRunning()`, `getInstallType()`) hand-written on top of the shared `invoke()` helper. The generated `commands.checkForUpdates()` in `packages/client/src/generated/bindings.ts` returns a `{ status: "ok", data } | { status: "error", error }` discriminated union, whereas the hand-written wrappers throw on error and return `T` directly — two incompatible error-handling contracts.
+- **Proposed change**: Pick one contract for the whole client surface. Either (a) have wrappers delegate to `commands.x()` and translate the discriminated union back into throws for backwards compatibility, or (b) expose the `{ status }` union to consumers and migrate every call-site. Option (a) preserves call-sites; option (b) gives stronger typing at the cost of a large fan-out refactor.
+- **Risk / why deferred**: Behaviour-preserving refactor touching every domain module + a large number of Vue components. Needs a dedicated wave after the `collect_events!` + `invoke_handler` cutovers so the end-state is coherent.
+- **Effort**: L

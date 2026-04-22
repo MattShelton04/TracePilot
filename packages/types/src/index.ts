@@ -13,12 +13,9 @@ export type {
 
 // ── config.js ──────────────────────────────────────────────────────
 export type {
-  GitInfo,
   ModelPriceEntry,
   ReleaseManifestEntry,
   TracePilotConfig,
-  UpdateCheckResult,
-  ValidateSessionDirResult,
 } from "./config.js";
 
 // ── conversation.js ────────────────────────────────────────────────

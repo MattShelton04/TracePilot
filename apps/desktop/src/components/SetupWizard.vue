@@ -1,6 +1,11 @@
 <script setup lang="ts">
-import { getConfig, saveConfig, validateSessionDir } from "@tracepilot/client";
-import type { TracePilotConfig, ValidateSessionDirResult } from "@tracepilot/types";
+import {
+  getConfig,
+  saveConfig,
+  validateSessionDir,
+  type ValidateSessionDirResult,
+} from "@tracepilot/client";
+import type { TracePilotConfig } from "@tracepilot/types";
 import { createDefaultConfig } from "@tracepilot/types";
 import { toErrorMessage, useKeydown } from "@tracepilot/ui";
 import { computed, nextTick, onMounted, ref } from "vue";

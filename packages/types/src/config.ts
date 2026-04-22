@@ -104,30 +104,6 @@ export interface TracePilotConfig {
   };
 }
 
-/** Result from validating a session directory */
-export interface ValidateSessionDirResult {
-  valid: boolean;
-  sessionCount: number;
-  error?: string;
-}
-
-// ─── Update & Git Types ───────────────────────────────────────────
-
-/** Result from checking for a newer TracePilot release. */
-export interface UpdateCheckResult {
-  currentVersion: string;
-  latestVersion: string | null;
-  hasUpdate: boolean;
-  releaseUrl: string | null;
-  publishedAt: string | null;
-}
-
-/** Git metadata for the running TracePilot instance. */
-export interface GitInfo {
-  commitHash: string | null;
-  branch: string | null;
-}
-
 /** A single entry in the release manifest used by the What's New modal. */
 export interface ReleaseManifestEntry {
   version: string;
