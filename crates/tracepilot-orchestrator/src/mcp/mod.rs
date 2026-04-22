@@ -5,11 +5,11 @@
 
 pub mod config;
 pub mod diff;
-pub mod error;
+mod error;
 pub(crate) mod headers;
 pub mod health;
 pub mod import;
 pub mod types;
-pub mod url_policy;
+pub(crate) mod url_policy;
 
 pub use error::McpError;

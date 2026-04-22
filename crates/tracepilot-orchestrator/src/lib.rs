@@ -4,9 +4,9 @@
 //! version management, repository registry, and session templates.
 
 pub mod config_injector;
-pub mod error;
+mod error;
 pub mod github;
-pub mod json_io;
+pub(crate) mod json_io;
 pub mod launcher;
 pub mod mcp;
 pub mod models;
@@ -21,8 +21,8 @@ pub mod task_ipc;
 pub mod task_orchestrator;
 pub mod task_recovery;
 pub mod templates;
-pub mod tokens;
-pub mod types;
+pub(crate) mod tokens;
+mod types;
 pub mod validation;
 pub mod version_manager;
 pub mod worktrees;

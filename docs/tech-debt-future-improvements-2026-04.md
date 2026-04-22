@@ -929,3 +929,32 @@ actionable so a future engineer can pick them up.
 - **Proposed change**: Split into `migrations/mod.rs` (public surface + `run_migrations`) and `migrations/steps.rs` (individual migration functions + registry). Keep the public function signatures stable.
 - **Risk / why deferred**: Migration code is high-blast-radius — any reordering or renaming risks schema drift on existing dev databases. Needs dedicated attention and a migration-replay smoke test, not a drive-by.
 - **Effort**: M
+
+
+### w124 — `cargo-public-api` snapshot in CI for orchestrator
+- **Area**: CI (`.github/workflows/*`) + `crates/tracepilot-orchestrator`.
+- **Observation**: After tightening the `pub` surface in w124, there is no automated guard against future waves accidentally re-exporting internals. A fresh `pub mod foo;` or `pub use bar::*;` added by a feature PR would re-introduce the coupling risk this wave eliminated.
+- **Proposed change**: add `cargo public-api --diff-git-checkouts origin/main HEAD` (or `cargo-semver-checks`) as a CI gate on the orchestrator crate. Commit a `public-api.txt` snapshot to the repo; failures on diff get a human review prompt rather than auto-block.
+- **Risk / why deferred**: adds a new CI tool + a maintenance artefact. Low risk but wants a dedicated CI wave rather than piggybacking on a code-only wave.
+- **Effort**: S
+
+### w124 — Apply same pub-surface audit to `tracepilot-tauri-bindings` and `tracepilot-core`
+- **Area**: `crates/tracepilot-tauri-bindings/src/lib.rs`, `crates/tracepilot-core/src/lib.rs`.
+- **Observation**: w124 only tightened `tracepilot-orchestrator`. The bindings crate re-exports most of its `commands::*` modules as `pub`, and `tracepilot-core` exposes many helpers (`utils::*`, `turns::*`) that are only used within the same crate or in test-support code.
+- **Proposed change**: repeat the w124 methodology — list top-level `pub mod` / `pub use`, grep downstream crates, downgrade anything unused externally to `pub(crate)` or `pub(super)`. Specifically audit: bindings `commands::*`, bindings `validators::*`, core `utils::*`, core `turns::tests::builders` (which w127 plans to relocate anyway).
+- **Risk / why deferred**: bindings is closer to the Tauri `invoke_handler` glue so some "dead" items may actually be referenced by `#[tauri::command]` attribute macros in ways that escape grep. Each crate needs its own careful pass.
+- **Effort**: M
+
+### w124 — Stability-policy doc for `tracepilot-*` crates
+- **Area**: `docs/` (new file, e.g. `docs/crate-stability-policy.md`).
+- **Observation**: Nothing documents which crates are intended to be consumed internally only vs. published. Contributors have no guidance on when to use `pub` vs `pub(crate)`, when to add a re-export to the top-level `lib.rs`, or which crates are candidates for extraction. The w124 downgrades were driven by a one-off grep audit rather than a written rule.
+- **Proposed change**: write a short policy: (a) all crates under `crates/` are internal to the workspace until further notice; (b) default visibility should be the narrowest that compiles (`pub(crate)` > `pub(super)` > `pub`); (c) new `pub use foo::*;` at the crate root requires a justification in the PR; (d) each crate's `lib.rs` should have a header comment listing its public-facing modules.
+- **Risk / why deferred**: policy-only change needs review from a couple of maintainers; low urgency.
+- **Effort**: S
+
+### w124 — Relocate `TEST_ENV_LOCK` into a dedicated test-support module
+- **Area**: `crates/tracepilot-orchestrator/src/lib.rs:36`.
+- **Observation**: The top-level `TEST_ENV_LOCK` is `#[cfg(test)] pub(crate) static`, which works but makes it easy to accidentally sprinkle env-var-mutating tests across the crate that reach for this lock implicitly. Pattern would be cleaner as a named `test_support` inner module with an `env_guard()` helper that returns an RAII guard.
+- **Proposed change**: move `TEST_ENV_LOCK` into `mod test_support { #[cfg(test)] pub(crate) fn env_guard() -> MutexGuard<'static, ()> { ... } }`. Call sites become `let _g = crate::test_support::env_guard();` which is grep-able and documents intent.
+- **Risk / why deferred**: out of scope for a visibility-only wave; touches every test that uses the lock. Batch with w127 (test-helper consolidation).
+- **Effort**: S

@@ -4,7 +4,7 @@
 //! The orchestrator agent communicates via file-based IPC, not direct DB access.
 
 pub mod operations;
-pub mod schema;
+pub(crate) mod schema;
 pub mod types;
 
 use crate::error::{OrchestratorError, Result};

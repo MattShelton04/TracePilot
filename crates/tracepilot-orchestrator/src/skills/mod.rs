@@ -5,11 +5,11 @@
 
 pub mod assets;
 pub mod discovery;
-pub mod error;
+mod error;
 pub mod import;
 pub mod manager;
-pub mod parser;
+pub(crate) mod parser;
 pub mod types;
-pub mod writer;
+pub(crate) mod writer;
 
 pub use error::SkillsError;

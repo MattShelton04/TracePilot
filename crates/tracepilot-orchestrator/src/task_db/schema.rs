@@ -1,6 +1,7 @@
 //! SQL schema definitions for the task database.
 
 /// Schema version for migrations.
+#[allow(dead_code)]
 pub const SCHEMA_VERSION: i32 = 2;
 
 /// Initial schema DDL.
