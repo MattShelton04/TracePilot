@@ -13,6 +13,7 @@
 
 import { getSessionTurns } from "@tracepilot/client";
 import type { ConversationTurn } from "@tracepilot/types";
+import { useVisibilityGatedPoll } from "@tracepilot/ui";
 import { onScopeDispose, watch } from "vue";
 import type { Router } from "vue-router";
 import { dispatchAlert } from "@/composables/useAlertDispatcher";
@@ -196,8 +197,6 @@ function checkSessionErrorAlerts(
 
 // ── Polling for ask_user in running sessions ─────────────────────
 
-let pollTimer: ReturnType<typeof setInterval> | null = null;
-
 async function pollRunningSessionsForAskUser() {
   const prefs = usePreferencesStore();
   if (!prefs.alertsEnabled || !prefs.alertsOnAskUser) return;
@@ -343,35 +342,40 @@ export function useAlertWatcher(router: Router) {
   // The session-end watcher only fires when the sessions array ref changes.
   // Nothing else refreshes the list after startup, so we poll every 30s
   // to detect isRunning transitions (agent finished / awaiting user).
-  let refreshTimer: ReturnType<typeof setInterval> | null = null;
+  //
+  // Visibility-gated: pauses while the window is hidden; an immediate
+  // catch-up tick fires on regain so ended sessions are detected promptly.
+  const refreshPoll = useVisibilityGatedPoll(
+    () => sessionsStore.refreshSessions(),
+    30_000,
+    { immediate: false },
+  );
 
   function startRefreshPolling() {
-    stopRefreshPolling();
+    refreshPoll.stop();
     if (prefs.alertsEnabled) {
-      refreshTimer = setInterval(() => sessionsStore.refreshSessions(), 30_000);
+      refreshPoll.start();
     }
   }
 
   function stopRefreshPolling() {
-    if (refreshTimer) {
-      clearInterval(refreshTimer);
-      refreshTimer = null;
-    }
+    refreshPoll.stop();
   }
 
-  // Poll open tabs for ask_user events every 10 seconds
+  // Poll open tabs for ask_user events every 10 seconds — visibility-gated.
+  const askUserPoll = useVisibilityGatedPoll(pollRunningSessionsForAskUser, 10_000, {
+    immediate: false,
+  });
+
   function startPolling() {
-    stopPolling();
+    askUserPoll.stop();
     if (prefs.alertsEnabled && prefs.alertsOnAskUser) {
-      pollTimer = setInterval(pollRunningSessionsForAskUser, 10_000);
+      askUserPoll.start();
     }
   }
 
   function stopPolling() {
-    if (pollTimer) {
-      clearInterval(pollTimer);
-      pollTimer = null;
-    }
+    askUserPoll.stop();
   }
 
   // React to preference changes — start/stop polling

@@ -86,7 +86,14 @@ describe("usePolling", () => {
 
   it("respects pauseWhenHidden: pauses on hidden, resumes on visible", async () => {
     const fn = vi.fn().mockResolvedValue(undefined);
-    const { start } = usePolling(fn, { intervalMs: 1000, immediate: false });
+    // Opt out of regain catch-up tick to keep the legacy "resume=1 tick per
+    // interval" semantics under test here. Regain-trigger behaviour has its
+    // own test in useVisibilityGatedPoll.test.ts.
+    const { start } = usePolling(fn, {
+      intervalMs: 1000,
+      immediate: false,
+      triggerOnRegain: false,
+    });
     start();
 
     fireVisibilityChange(true);

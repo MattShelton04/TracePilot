@@ -260,6 +260,22 @@ Remaining (deferred — v-model-style emit bridges where a child `@update:foo` h
 ### w97 — Visibility-gated polling
 - Every `usePolling()` call that re-polls more than once per 5s should pause when `document.visibilityState === 'hidden'`. Extend `usePolling` rather than every caller.
 
+### w97 — Visibility-gated polling — FI
+- Landed: added `useVisibilityGatedPoll(fn, intervalMs, options?)` thin wrapper around `usePolling` in `packages/ui/src/composables/useVisibilityGatedPoll.ts`; extended `usePolling` with a `triggerOnRegain` option (default `true`) that fires an immediate catch-up tick before re-arming the interval on `visibilitychange → visible`. Migrated 5 pollers off raw `setInterval`:
+  - `apps/desktop/src/composables/useLiveClock.ts` — 1s clock tick.
+  - `apps/desktop/src/composables/useOrchestratorMonitor.ts::tickTimer` — 1s uptime/elapsed clock.
+  - `apps/desktop/src/components/tasks/OrchestratorStatusCard.vue::_uptimeClock` — 1s uptime ticker.
+  - `apps/desktop/src/composables/useAlertWatcher.ts::refreshTimer` — 30s session refresh (also promoted the module-level `pollTimer` to a scope-local `useVisibilityGatedPoll` instance, removing a latent multi-instance leak).
+  - `apps/desktop/src/composables/useAlertWatcher.ts::pollTimer` — 10s ask_user poll.
+- Orchestrator store `fastPoll`/`slowPoll` already run under `usePolling` with `pauseWhenHidden: true`; they now also pick up `triggerOnRegain` behaviour for free (no call-site change).
+- Tests: `packages/ui/src/composables/__tests__/useVisibilityGatedPoll.test.ts` (7 new tests — signature smoke-check, leading edge, hidden-pause, regain-catch-up, `triggerOnRegain: false` opt-out, scope disposal, plus a `usePolling` default-behaviour check); existing `src/__tests__/usePolling.test.ts::respects pauseWhenHidden` updated to opt out of the new regain trigger so its pre-existing "1 tick per interval" assertion still holds.
+- Remaining timers intentionally **not** gated (UX or correctness reasons):
+  - `apps/desktop/src/components/IndexingLoadingScreen.vue::discoveringIntervalId` (2s discovering-message cycle) — purely a visual copy rotator on a modal splash the user is actively watching; pausing would freeze the message on whatever the last render was and only resume mid-cycle, which is the opposite of the intended "app is working" signal. Also runs for at most the indexing window.
+  - `apps/desktop/src/composables/useImportFlow.ts::activeProgressTimer` (300ms simulated import progress) — synthetic progress bar driven while a user-initiated import is in-flight; pausing would leave progress stuck at an apparent 0–90%. The import itself completes in the background regardless of visibility; the timer only paints UI.
+  - `useAutoRefresh` already has its own `visibilitychange` listener (predates this composable); left as-is — a follow-up wave should fold `useAutoRefresh` onto `useVisibilityGatedPoll` once its "manual refresh resets the clock" behaviour is ported (currently unique to `useAutoRefresh` and not worth bundling into the polling primitive).
+  - Cross-window sync / Tauri event listeners (`useIndexingEvents`, SDK session subscriptions, etc.) are event-driven, not interval-driven — visibility gating would only mask fresh events, not save CPU.
+- Future work: audit `setTimeout` recurrences in `packages/ui` (e.g. `useToast` auto-dismiss) for the same treatment; they're event-scoped one-shots today but a future "idle-batch" pass may benefit.
+
 ---
 
 ## Phase 12 — Types / codegen expansion

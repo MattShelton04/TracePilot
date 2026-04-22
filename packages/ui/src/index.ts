@@ -119,6 +119,8 @@ export type {
   UsePollingOptions,
 } from "./composables/usePolling";
 export { usePolling } from "./composables/usePolling";
+export type { UseVisibilityGatedPollOptions } from "./composables/useVisibilityGatedPoll";
+export { useVisibilityGatedPoll } from "./composables/useVisibilityGatedPoll";
 export { useResizeHandle } from "./composables/useResizeHandle";
 export { useSessionTabLoader } from "./composables/useSessionTabLoader";
 export type { AsyncGuardLike, RunActionOptions } from "./composables/useStoreHelpers";

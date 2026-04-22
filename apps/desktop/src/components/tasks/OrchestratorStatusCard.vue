@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { TaskStats } from "@tracepilot/types";
-import { computed, onUnmounted, ref } from "vue";
+import { useVisibilityGatedPoll } from "@tracepilot/ui";
+import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
@@ -43,8 +44,14 @@ const stateColorClass = computed(() => {
 });
 
 const nowMs = ref(Date.now());
-const _uptimeClock = setInterval(() => { nowMs.value = Date.now(); }, 1000);
-onUnmounted(() => clearInterval(_uptimeClock));
+const uptimeClock = useVisibilityGatedPoll(
+  () => {
+    nowMs.value = Date.now();
+  },
+  1000,
+  { immediate: false },
+);
+onMounted(() => uptimeClock.start());
 
 const orchUptime = computed(() => {
   if (!orchestrator.handle?.launchedAt) return null;

@@ -50,6 +50,8 @@ export type {
   UsePollingOptions,
 } from "./usePolling";
 export { usePolling } from "./usePolling";
+export type { UseVisibilityGatedPollOptions } from "./useVisibilityGatedPoll";
+export { useVisibilityGatedPoll } from "./useVisibilityGatedPoll";
 export { useResizeHandle } from "./useResizeHandle";
 export { useSessionTabLoader } from "./useSessionTabLoader";
 export type { AsyncGuardLike, RunActionOptions } from "./useStoreHelpers";
