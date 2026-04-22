@@ -57,3 +57,14 @@ function onPathInput(e: Event) {
     </div>
   </div>
 </template>
+
+<style scoped src="./wizard-shared.css"></style>
+<style scoped src="./wizard-form.css"></style>
+
+<style scoped>
+.form-note {
+  font-size: 0.75rem;
+  color: var(--text-tertiary, #71717a);
+  margin-top: -4px;
+}
+</style>

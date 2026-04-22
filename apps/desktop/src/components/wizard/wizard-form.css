@@ -1,0 +1,77 @@
+/*
+ * Shared form-field styles for WizardStepSessionDir + WizardStepDatabase.
+ * Imported via `<style scoped src="./wizard-form.css">` so data-v-* scoping
+ * is applied per-child.
+ */
+
+.form-icon {
+  font-size: 48px;
+  margin-bottom: 4px;
+}
+
+.slide-desc {
+  font-size: 0.875rem;
+  color: var(--text-secondary, #a1a1aa);
+  line-height: 1.5;
+  max-width: 440px;
+}
+
+.path-input-group {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  max-width: 480px;
+}
+
+.path-input {
+  flex: 1;
+  padding: 10px 14px;
+  background: var(--canvas-subtle, #111113);
+  border: 1px solid var(--border-default, rgba(255, 255, 255, 0.10));
+  border-radius: var(--radius-md, 8px);
+  color: var(--text-primary, #fafafa);
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.8125rem;
+  outline: none;
+  transition: border-color 180ms ease;
+}
+
+.path-input:focus {
+  border-color: var(--accent-emphasis);
+  box-shadow: 0 0 0 2px var(--accent-subtle, rgba(99, 102, 241, 0.10));
+}
+
+.btn-browse {
+  padding: 10px 16px;
+  background: var(--canvas-subtle, #111113);
+  border: 1px solid var(--border-default, rgba(255, 255, 255, 0.10));
+  border-radius: var(--radius-md, 8px);
+  color: var(--text-secondary, #a1a1aa);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 180ms ease, border-color 180ms ease;
+}
+
+.btn-browse:hover {
+  background: var(--canvas-raised, #1c1c1f);
+  border-color: var(--border-accent, rgba(99, 102, 241, 0.5));
+}
+
+.btn-reset-path {
+  padding: 10px 12px;
+  background: none;
+  border: 1px solid var(--border-default, rgba(255, 255, 255, 0.10));
+  border-radius: var(--radius-md, 8px);
+  color: var(--text-tertiary, #71717a);
+  font-size: 1rem;
+  cursor: pointer;
+  transition: color 180ms ease, border-color 180ms ease, background 180ms ease;
+  line-height: 1;
+}
+
+.btn-reset-path:hover {
+  color: var(--warning-fg);
+  border-color: rgba(251, 191, 36, 0.4);
+  background: rgba(251, 191, 36, 0.06);
+}
