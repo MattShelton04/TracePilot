@@ -60,7 +60,6 @@ actionable so a future engineer can pick them up.
 - **Risk / why deferred**: Refactor worth doing but adds a new provide/inject key or prop-object convention; better tackled alongside the `useSearchPaletteSearch` API cleanup above.
 - **Effort**: S
 
-
 ### w76 — Analytics dashboard tooltip context is prop-drilled
 
 - **Area**: `apps/desktop/src/views/AnalyticsDashboardView.vue` and every `components/analytics/Analytics*Row.vue` child
@@ -198,7 +197,6 @@ actionable so a future engineer can pick them up.
 - **Risk / why deferred**: The stale-timestamp behaviour is pre-existing and probably never observable (timestamps are rendered via `formatRelativeTime` which is already coarse), but any refactor would change *when* the mock dates are instantiated. Out of wave-78 scope.
 - **Effort**: S
 
-
 ### w80 — SessionId propagation into tracepilot-core discovery + indexer
 
 - **Area**: `crates/tracepilot-core/src/session/discovery.rs` (`resolve_session_path`, `resolve_session_path_in`), `crates/tracepilot-indexer/src/index_db/{session_reader,session_writer,search_writer}.rs`, `crates/tracepilot-orchestrator/src/task_context/sources.rs`.
@@ -231,7 +229,6 @@ actionable so a future engineer can pick them up.
 - **Risk / why deferred**: Requires deciding the shape (single `owner/name` string vs. two fields) and adding IPC validation, which is larger than a single-commit wave.
 - **Effort**: M
 
-
 ### w81 — atomic_dir_install promotion to core::utils::atomic
 - **Area**: `crates/tracepilot-orchestrator/src/skills/import/atomic.rs` and a hypothetical new `tracepilot_core::utils::atomic` module.
 - **Observation**: Wave 81 audit confirmed `atomic_dir_install` still has a single-module scope (`skills/import/{local,github,file,tests}.rs`). The master plan entry (w81) proposed folding `atomic_json_write` + `atomic_dir_install` behind `core::utils::atomic::{write_file, install_dir}`, but `atomic_dir_install` surfaces the skills-domain `SkillsError::DuplicateSkill` variant, which cannot be hoisted into core without either genericising the error type or leaking `SkillsError` across crate boundaries.
@@ -239,14 +236,12 @@ actionable so a future engineer can pick them up.
 - **Risk / why deferred**: Still single-use for `atomic_dir_install`; `atomic_json_write` move would fan out across 8 callers and 3 modules. Better as a dedicated wave.
 - **Effort**: M
 
-
 ### w82 — Residual `let _` sites and Mutex migration
 - **Area**: `crates/tracepilot-export/src/render/markdown/{header,turns,footer}.rs` (~55 `let _ = writeln!(md, ...)` / `write!(md, ...)` sites, one macro suppression in `crates/tracepilot-core/src/utils/sqlite.rs`, two test-only `lock().unwrap()` sites, and the broader `std::sync::Mutex` → `parking_lot::Mutex` migration proposed in the master plan (w82).
 - **Observation**: The Markdown renderer writes `fmt::Result` values that are infallible when the sink is `String`; the current `let _ =` pattern is idiomatic but noisy. The `parking_lot::Mutex` migration was scoped out because `parking_lot` is not yet a workspace dependency and adding it touches `SharedTaskDb` / `SharedOrchestratorState` / `ManifestLock` call sites across the `tauri-bindings` and `orchestrator` crates (≈ 30 sites), each of which currently surfaces `mutex_poisoned()` via `BindingsError`. Both items need a coordinated design decision.
 - **Proposed change**: (a) Replace the renderer sites with `md.write_fmt(format_args!(...))?` inside a helper that returns `fmt::Result`, or bulk-accept the style via an `#[allow(clippy::let_underscore_must_use)]` on the module; (b) land `parking_lot` as an explicit follow-up wave that also deletes the `mutex_poisoned()` helper and simplifies the surrounding `.map_err(|_| mutex_poisoned())?` sites.
 - **Risk / why deferred**: (a) is pure cosmetics (zero-behaviour, ~55 sites). (b) changes the error surface of every command that currently reports `BindingsError::InternalMutexPoisoned` — safer as a dedicated wave with its own review.
 - **Effort**: S (renderer) + M (parking_lot migration)
-
 
 ### w83 — Remaining string-payload error variants (pragmatic catch-alls)
 - **Area**:
@@ -311,7 +306,6 @@ actionable so a future engineer can pick them up.
 - **Proposed change**: Add a `max_bytes` parameter to `execute_with_timeout` (and plumb through `run_with_timeout` / `run_hidden_stdout_timeout`) that wraps the pipe reader in a `std::io::Read::take` limit. For the no-timeout path (`run_hidden`), either migrate it onto a shared implementation or leave a documented caveat that unbounded callers must trust their child.
 - **Risk / why deferred**: ~27 call sites of `run_hidden*` each already chose their own (untyped) trust level; adding a required cap breaks the ergonomic signature. Better as a dedicated wave that lands a `HiddenSpawnOptions` builder once and sweeps callers. Composable with the w84 `HiddenCommand` newtype FI.
 - **Effort**: M
-
 
 ### w90 — Back-compat re-export in `@tracepilot/types` deferred (dep-cycle)
 
@@ -444,7 +438,6 @@ actionable so a future engineer can pick them up.
 - **Risk / why deferred**: Behaviour-preserving — the static import guarantees the plugin code is resident before teardown. Moving to dynamic without a pre-warm would be a regression on a reliability-critical path.
 - **Effort**: S
 
-
 ### w98 — `tauri_specta::collect_events!` for IPC event payloads
 - **Area**: `crates/tracepilot-tauri-bindings/src/events.rs`, `types.rs` (`IndexingProgressPayload`), `packages/client/src/events.ts`.
 - **Observation**: Event names + payload shapes are still hand-mirrored between Rust (`events.rs` string constants + `helpers/emit.rs` calling `emit_best_effort` with `&IndexingProgressPayload`) and TS (`IPC_EVENTS` in `packages/client/src/events.ts`). Wave 98 deliberately skipped this because flipping to `#[derive(tauri_specta::Event)]` changes the default event name (derived from the type name) and the emit code path — both are wire-compat sensitive. The `"popup-session-closed"` string-raw event referenced in `App.vue`/`ChildApp.vue` is in the same boat.
@@ -502,7 +495,6 @@ actionable so a future engineer can pick them up.
 - **Proposed change**: Split `TurnSessionEvent` into a discriminated union `{ eventType: "session.compaction_complete"; checkpointNumber?: number } | { eventType: string; ...}`; add an `isCompactionTurnEvent(evt): evt is CompactionTurnSessionEvent` narrow helper. Replace the non-null assertion with the narrowed type.
 - **Risk / why deferred**: Requires auditing every `TurnSessionEvent` construction site (turn reducer, mock data, tests) to tag each event. Low risk but touches many files; deferred to keep w100 surgical.
 - **Effort**: S
-
 
 ### w101 — `#[allow(clippy::needless_question_mark)]` on `blocking_cmd!` macro
 - **Area**: `crates/tracepilot-tauri-bindings/src/commands/blocking_helper.rs`.
@@ -602,7 +594,6 @@ actionable so a future engineer can pick them up.
 - **Risk / why deferred**: Requires design review; touches the skill editor preview pipeline.
 - **Effort**: M
 
-
 ### w103 — Add opt-in pre-push unit-test hook
 
 - **Area**: `lefthook.yml` (`pre-push`)
@@ -660,3 +651,24 @@ actionable so a future engineer can pick them up.
 - **Effort**: S
 
 
+
+### w104 — Unified version-policy script for catalog drift detection
+- **Area**: `scripts/` (new) + `pnpm-workspace.yaml`.
+- **Observation**: After hoisting 12 deps into the default pnpm catalog, nothing prevents a future contributor from re-introducing a per-package pin (e.g. bumping `vitest` in one package.json). A small script could scan every `package.json` for any dep that also appears in the catalog and flag direct version strings as drift.
+- **Proposed change**: Add `scripts/check-catalog-drift.mjs` that reads `pnpm-workspace.yaml` plus every `package.json`, failing CI if a catalogued dep is pinned directly anywhere. Wire into `pnpm lint` or a new `check:catalog` script.
+- **Risk / why deferred**: Adds a new gate — worth its own wave with team sign-off rather than tacking onto the catalog adoption.
+- **Effort**: S
+
+### w104 — Renovate / Dependabot catalog support
+- **Area**: `.github/` renovate or dependabot config.
+- **Observation**: Renovate added native `pnpm` catalog support relatively recently; Dependabot still does not understand catalog entries and will stop opening PRs for the 12 hoisted deps. This silently freezes upgrade cadence.
+- **Proposed change**: Evaluate switching to Renovate (preset `config:recommended` + `pnpm` manager) or confirm Dependabot coverage and document the gap. Either way, the chosen bot should be able to bump `pnpm-workspace.yaml` directly.
+- **Risk / why deferred**: Requires choosing between bots and configuring the winner — larger scope than the catalog refactor itself.
+- **Effort**: M
+
+### w104 — Further catalog opportunities (peerDependencies, single-user deps)
+- **Area**: `packages/test-utils/package.json`, `packages/ui/package.json`.
+- **Observation**: `test-utils` declares `vue` / `pinia` as peerDependencies with hard-coded ranges, and `ui` has `vue-router` as both a peer (`^4.0.0`) and a devDep (`^4.6.4`). pnpm catalogs work in peerDependencies too, and unifying these would ensure the peer range always tracks the consumer's pinned version. Additionally, deps currently used by only one workspace (`pinia`, `@tauri-apps/plugin-*`, `@playwright/test`) could still benefit from catalogs if a second consumer arrives.
+- **Proposed change**: Migrate peerDeps to `catalog:` references where the exact range is intentional; set up a named catalog (`catalog:tauri`) if more plugins land; revisit single-consumer deps each wave.
+- **Risk / why deferred**: Peer-dep semantics differ slightly — touching them risks changing the resolution surface for downstream consumers; deserves explicit validation.
+- **Effort**: S
