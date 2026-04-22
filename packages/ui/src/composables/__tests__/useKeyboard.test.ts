@@ -15,18 +15,12 @@ describe("matchesCombo", () => {
   });
 
   it("matches modifier combos", () => {
-    expect(
-      matchesCombo(
-        new KeyboardEvent("keydown", { key: "k", ctrlKey: true }),
-        "Ctrl+K",
-      ),
-    ).toBe(true);
-    expect(
-      matchesCombo(
-        new KeyboardEvent("keydown", { key: "k", metaKey: true }),
-        "Meta+K",
-      ),
-    ).toBe(true);
+    expect(matchesCombo(new KeyboardEvent("keydown", { key: "k", ctrlKey: true }), "Ctrl+K")).toBe(
+      true,
+    );
+    expect(matchesCombo(new KeyboardEvent("keydown", { key: "k", metaKey: true }), "Meta+K")).toBe(
+      true,
+    );
   });
 
   it("supports key aliases (Esc, Space, Up, Return)", () => {

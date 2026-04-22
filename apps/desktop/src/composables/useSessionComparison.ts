@@ -12,14 +12,7 @@ import {
   formatRate,
   toErrorMessage,
 } from "@tracepilot/ui";
-import {
-  computed,
-  inject,
-  type InjectionKey,
-  onMounted,
-  reactive,
-  ref,
-} from "vue";
+import { computed, type InjectionKey, inject, onMounted, reactive, ref } from "vue";
 import {
   copilotCost,
   filesModified,
@@ -201,10 +194,7 @@ export function useSessionComparison() {
 
   const canCompare = computed(
     () =>
-      selectedA.value &&
-      selectedB.value &&
-      selectedA.value !== selectedB.value &&
-      !loading.value,
+      selectedA.value && selectedB.value && selectedA.value !== selectedB.value && !loading.value,
   );
 
   async function runComparison() {

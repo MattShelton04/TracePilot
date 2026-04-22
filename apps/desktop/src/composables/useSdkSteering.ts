@@ -1,14 +1,6 @@
 import type { BridgeSessionMode } from "@tracepilot/types";
-import type { CSSProperties, ComponentPublicInstance, InjectionKey, Ref } from "vue";
-import {
-  computed,
-  inject,
-  nextTick,
-  onBeforeUnmount,
-  reactive,
-  ref,
-  watch,
-} from "vue";
+import type { ComponentPublicInstance, CSSProperties, InjectionKey, Ref } from "vue";
+import { computed, inject, nextTick, onBeforeUnmount, reactive, ref, watch } from "vue";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSdkStore } from "@/stores/sdk";
@@ -90,9 +82,7 @@ export function useSdkSteering(options: UseSdkSteeringOptions) {
   let sentIdCounter = 0;
 
   function updateSentMessage(id: number, update: Partial<SentMessage>) {
-    sentMessages.value = sentMessages.value.map((m) =>
-      m.id === id ? { ...m, ...update } : m,
-    );
+    sentMessages.value = sentMessages.value.map((m) => (m.id === id ? { ...m, ...update } : m));
   }
 
   function autoRemoveSent(id: number, delayMs: number) {
@@ -107,9 +97,7 @@ export function useSdkSteering(options: UseSdkSteeringOptions) {
   /** The actual session ID used by the SDK (may differ from props.sessionId after resume). */
   const resolvedSessionId = ref<string | null>(null);
 
-  const effectiveSessionId = computed(
-    () => resolvedSessionId.value ?? sessionIdRef.value,
-  );
+  const effectiveSessionId = computed(() => resolvedSessionId.value ?? sessionIdRef.value);
 
   // ─── Computed ────────────────────────────────────────────────
   const isEnabled = computed(() => prefs.isFeatureEnabled("copilotSdk"));
@@ -161,14 +149,10 @@ export function useSdkSteering(options: UseSdkSteeringOptions) {
   });
 
   /** Panel is visible whenever SDK is connected and feature is on (even if session isn't linked yet). */
-  const isVisible = computed(
-    () => isEnabled.value && sdk.isConnected && !!sessionIdRef.value,
-  );
+  const isVisible = computed(() => isEnabled.value && sdk.isConnected && !!sessionIdRef.value);
 
   /** Whether the session is actively linked AND the user wants to steer it. */
-  const isLinked = computed(
-    () => userLinked.value && linkedSession.value?.isActive === true,
-  );
+  const isLinked = computed(() => userLinked.value && linkedSession.value?.isActive === true);
 
   const modes: { value: BridgeSessionMode; label: string; icon: string }[] = [
     { value: "interactive", label: "Ask", icon: "💬" },
@@ -176,9 +160,7 @@ export function useSdkSteering(options: UseSdkSteeringOptions) {
     { value: "autopilot", label: "Auto", icon: "🚀" },
   ];
 
-  const currentMode = computed(
-    () => linkedSession.value?.mode ?? "interactive",
-  );
+  const currentMode = computed(() => linkedSession.value?.mode ?? "interactive");
 
   /** Model inferred from existing chat turns when SDK session doesn't provide one. */
   const inferredModel = computed(() => {
@@ -190,9 +172,7 @@ export function useSdkSteering(options: UseSdkSteeringOptions) {
     return null;
   });
 
-  const currentModel = computed(
-    () => linkedSession.value?.model ?? inferredModel.value ?? null,
-  );
+  const currentModel = computed(() => linkedSession.value?.model ?? inferredModel.value ?? null);
 
   const hasText = computed(() => prompt.value.trim().length > 0);
 
@@ -229,7 +209,11 @@ export function useSdkSteering(options: UseSdkSteeringOptions) {
     resuming.value = true;
     sessionError.value = null;
     try {
-      const result = await sdk.resumeSession(sid, sessionCwdRef.value, pendingModel.value ?? undefined);
+      const result = await sdk.resumeSession(
+        sid,
+        sessionCwdRef.value,
+        pendingModel.value ?? undefined,
+      );
       if (!result) {
         sessionError.value = friendlyError(sdk.lastError ?? "Could not link session");
       } else {
@@ -309,6 +293,7 @@ export function useSdkSteering(options: UseSdkSteeringOptions) {
     const msg: SentMessage = { id, text, timestamp: Date.now(), status: "sending" };
     sentMessages.value = [msg, ...sentMessages.value].slice(0, MAX_SENT_LOG);
 
+    // biome-ignore lint/style/noNonNullAssertion: guarded by isLinked.value check in handleSendMessage above.
     const turnId = await sdk.sendMessage(effectiveSessionId.value!, { prompt: text });
     if (turnId !== null) {
       updateSentMessage(id, { status: "sent", turnId });
@@ -333,6 +318,7 @@ export function useSdkSteering(options: UseSdkSteeringOptions) {
     if (!sessionIdRef.value || !isLinked.value) return;
     sessionError.value = null;
     sdk.lastError = null;
+    // biome-ignore lint/style/noNonNullAssertion: early-return above ensures sessionIdRef/isLinked are set.
     await sdk.setSessionMode(effectiveSessionId.value!, mode);
     const err = sdk.lastError as string | null;
     if (err) {
@@ -350,6 +336,7 @@ export function useSdkSteering(options: UseSdkSteeringOptions) {
   async function handleAbort() {
     if (!sessionIdRef.value || !isLinked.value) return;
     sessionError.value = null;
+    // biome-ignore lint/style/noNonNullAssertion: early-return above ensures sessionIdRef/isLinked are set.
     await sdk.abortSession(effectiveSessionId.value!);
     scheduleRefresh(500);
   }
@@ -455,8 +442,7 @@ export function useSdkSteering(options: UseSdkSteeringOptions) {
 
 export type SdkSteeringContext = ReturnType<typeof useSdkSteering>;
 
-export const SdkSteeringKey: InjectionKey<SdkSteeringContext> =
-  Symbol("SdkSteeringContext");
+export const SdkSteeringKey: InjectionKey<SdkSteeringContext> = Symbol("SdkSteeringContext");
 
 export function useSdkSteeringContext(): SdkSteeringContext {
   const ctx = inject(SdkSteeringKey, null);

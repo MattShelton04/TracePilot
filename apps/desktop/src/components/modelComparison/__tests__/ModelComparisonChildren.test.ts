@@ -1,15 +1,15 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import { defineComponent, h, provide, reactive } from "vue";
-import ModelCharts from "../ModelCharts.vue";
-import ModelCompareTable from "../ModelCompareTable.vue";
-import ModelLeaderboard from "../ModelLeaderboard.vue";
-import ModelStatsGrid from "../ModelStatsGrid.vue";
 import {
   type ModelComparisonContext,
   ModelComparisonKey,
   type ModelRow,
 } from "@/composables/useModelComparison";
+import ModelCharts from "../ModelCharts.vue";
+import ModelCompareTable from "../ModelCompareTable.vue";
+import ModelLeaderboard from "../ModelLeaderboard.vue";
+import ModelStatsGrid from "../ModelStatsGrid.vue";
 
 // ── Mocks ──────────────────────────────────────────────────────────────
 vi.mock("@/stores/preferences", () => ({
@@ -36,9 +36,7 @@ function makeRow(overrides: Partial<ModelRow> = {}): ModelRow {
   };
 }
 
-function makeCtxStub(
-  overrides: Partial<ModelComparisonContext> = {},
-): ModelComparisonContext {
+function makeCtxStub(overrides: Partial<ModelComparisonContext> = {}): ModelComparisonContext {
   const base = {
     store: { analyticsError: null, fetchAnalytics: vi.fn() },
     loading: false,

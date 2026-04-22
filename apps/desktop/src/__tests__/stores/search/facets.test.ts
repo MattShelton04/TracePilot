@@ -1,5 +1,5 @@
-import { effectScope } from "vue";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { effectScope } from "vue";
 import { createFacetsSlice } from "../../../stores/search/facets";
 import { createQuerySlice } from "../../../stores/search/query";
 

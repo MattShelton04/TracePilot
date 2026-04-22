@@ -138,10 +138,7 @@ export async function sessionListFiles(sessionId: string): Promise<SessionFileEn
 }
 
 /** Read the text content of a file at `relativePath` inside the session directory. */
-export async function sessionReadFile(
-  sessionId: string,
-  relativePath: string,
-): Promise<string> {
+export async function sessionReadFile(sessionId: string, relativePath: string): Promise<string> {
   return invoke<string>("session_read_file", { sessionId, relativePath });
 }
 

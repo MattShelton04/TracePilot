@@ -1,5 +1,5 @@
-import { effectScope } from "vue";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { effectScope } from "vue";
 import { usePolling } from "../usePolling";
 import { useVisibilityGatedPoll } from "../useVisibilityGatedPoll";
 

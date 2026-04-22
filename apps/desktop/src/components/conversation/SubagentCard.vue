@@ -48,12 +48,7 @@ const requestedModel = computed(() => props.toolCall.requestedModel || "");
 
 const modelMismatch = computed(() => {
   const tc = props.toolCall;
-  return (
-    tc.isComplete &&
-    !!tc.model &&
-    !!tc.requestedModel &&
-    tc.model !== tc.requestedModel
-  );
+  return tc.isComplete && !!tc.model && !!tc.requestedModel && tc.model !== tc.requestedModel;
 });
 
 const duration = computed(() => {

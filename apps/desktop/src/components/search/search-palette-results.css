@@ -10,8 +10,12 @@
   padding: 6px 0;
   scroll-behavior: smooth;
 }
-.palette-results::-webkit-scrollbar { width: 5px; }
-.palette-results::-webkit-scrollbar-track { background: transparent; }
+.palette-results::-webkit-scrollbar {
+  width: 5px;
+}
+.palette-results::-webkit-scrollbar-track {
+  background: transparent;
+}
 .palette-results::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.08);
   border-radius: 3px;
@@ -247,6 +251,10 @@
   animation: shimmer 1.6s ease-in-out infinite;
 }
 @keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }

@@ -12,7 +12,7 @@
  * presentational and dispatch back through the composable.
  */
 import { provide, toRef } from "vue";
-import { useSdkSteering, SdkSteeringKey } from "@/composables/useSdkSteering";
+import { SdkSteeringKey, useSdkSteering } from "@/composables/useSdkSteering";
 import SdkSteeringCommandBar from "./sdkSteering/SdkSteeringCommandBar.vue";
 import SdkSteeringDisconnectedCard from "./sdkSteering/SdkSteeringDisconnectedCard.vue";
 import SdkSteeringLinkPrompt from "./sdkSteering/SdkSteeringLinkPrompt.vue";

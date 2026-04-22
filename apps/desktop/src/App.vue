@@ -2,7 +2,8 @@
 import { ConfirmDialog, ToastContainer } from "@tracepilot/ui";
 import { computed, provide, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import ErrorBoundary from "@/components/ErrorBoundary.vue";import IndexingLoadingScreen from "@/components/IndexingLoadingScreen.vue";
+import ErrorBoundary from "@/components/ErrorBoundary.vue";
+import IndexingLoadingScreen from "@/components/IndexingLoadingScreen.vue";
 import AlertCenterDrawer from "@/components/layout/AlertCenterDrawer.vue";
 import AppSidebar from "@/components/layout/AppSidebar.vue";
 import BreadcrumbNav from "@/components/layout/BreadcrumbNav.vue";
@@ -15,10 +16,10 @@ import WhatsNewModal from "@/components/WhatsNewModal.vue";
 import { useBootstrapPhase } from "@/composables/useBootstrapPhase";
 import { useBreadcrumbs } from "@/composables/useBreadcrumbs";
 import { useWhatsNew } from "@/composables/useWhatsNew";
-import { useWindowRole } from "@/composables/useWindowRole";
 import { useWindowLifecycle } from "@/composables/useWindowLifecycle";
-import { pushRoute } from "@/router/navigation";
+import { useWindowRole } from "@/composables/useWindowRole";
 import { ROUTE_NAMES } from "@/config/routes";
+import { pushRoute } from "@/router/navigation";
 import { useSessionTabsStore } from "@/stores/sessionTabs";
 import { openExternal } from "@/utils/openExternal";
 

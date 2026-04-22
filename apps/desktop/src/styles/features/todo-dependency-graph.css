@@ -42,14 +42,36 @@
   opacity: 0.5;
   user-select: none;
 }
-.todo-graph-root .filter-chip:hover { opacity: 0.75; }
-.todo-graph-root .filter-chip.active { opacity: 1; }
-.todo-graph-root .filter-chip.active.done { background: var(--success-subtle); border-color: var(--success-fg); color: var(--success-fg); }
-.todo-graph-root .filter-chip.active.in_progress { background: var(--accent-subtle); border-color: var(--accent-fg); color: var(--accent-fg); }
-.todo-graph-root .filter-chip.active.pending { background: var(--neutral-subtle); border-color: var(--border-default); color: var(--neutral-fg); }
-.todo-graph-root .filter-chip.active.blocked { background: var(--danger-subtle); border-color: var(--danger-fg); color: var(--danger-fg); }
+.todo-graph-root .filter-chip:hover {
+  opacity: 0.75;
+}
+.todo-graph-root .filter-chip.active {
+  opacity: 1;
+}
+.todo-graph-root .filter-chip.active.done {
+  background: var(--success-subtle);
+  border-color: var(--success-fg);
+  color: var(--success-fg);
+}
+.todo-graph-root .filter-chip.active.in_progress {
+  background: var(--accent-subtle);
+  border-color: var(--accent-fg);
+  color: var(--accent-fg);
+}
+.todo-graph-root .filter-chip.active.pending {
+  background: var(--neutral-subtle);
+  border-color: var(--border-default);
+  color: var(--neutral-fg);
+}
+.todo-graph-root .filter-chip.active.blocked {
+  background: var(--danger-subtle);
+  border-color: var(--danger-fg);
+  color: var(--danger-fg);
+}
 
-.todo-graph-root .filter-icon { font-size: 0.75rem; }
+.todo-graph-root .filter-icon {
+  font-size: 0.75rem;
+}
 .todo-graph-root .filter-count {
   font-size: 0.5625rem;
   background: rgba(255, 255, 255, 0.06);
@@ -80,13 +102,17 @@
   color: var(--text-primary);
   outline: none;
   width: 180px;
-  transition: border-color 0.15s, width 0.2s;
+  transition:
+    border-color 0.15s,
+    width 0.2s;
 }
 .todo-graph-root .search-input:focus {
   border-color: var(--accent-fg);
   width: 220px;
 }
-.todo-graph-root .search-input::placeholder { color: var(--text-placeholder); }
+.todo-graph-root .search-input::placeholder {
+  color: var(--text-placeholder);
+}
 .todo-graph-root .search-clear {
   position: absolute;
   right: 6px;
@@ -99,7 +125,9 @@
   border-radius: var(--radius-sm);
   transition: color 0.15s;
 }
-.todo-graph-root .search-clear:hover { color: var(--text-primary); }
+.todo-graph-root .search-clear:hover {
+  color: var(--text-primary);
+}
 
 /* Cycle warning */
 .todo-graph-root .cycle-warning {
@@ -129,7 +157,9 @@
   touch-action: none;
   user-select: none;
 }
-.todo-graph-root .graph-viewport:active { cursor: grabbing; }
+.todo-graph-root .graph-viewport:active {
+  cursor: grabbing;
+}
 .todo-graph-root .graph-transform {
   transform-origin: 0 0;
   transition: transform 0.1s ease;
@@ -175,42 +205,100 @@
 }
 
 /* Node styles */
-.todo-graph-root .dag-node { cursor: pointer; transition: opacity 0.2s ease; }
-.todo-graph-root .dag-node:hover .node-rect { filter: brightness(1.2); }
-.todo-graph-root .dag-node.selected .node-rect { stroke-width: 2.5; filter: brightness(1.3); }
-.todo-graph-root .dag-node.selected { opacity: 1 !important; }
-.todo-graph-root .dag-node.faded { opacity: 0.25; }
-.todo-graph-root .dag-node.highlighted { opacity: 1; }
-.todo-graph-root .dag-node.search-match { opacity: 1; }
-.todo-graph-root .dag-node.search-dim { opacity: 0.15; }
-.todo-graph-root .done-node { opacity: 0.7; }
+.todo-graph-root .dag-node {
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+.todo-graph-root .dag-node:hover .node-rect {
+  filter: brightness(1.2);
+}
+.todo-graph-root .dag-node.selected .node-rect {
+  stroke-width: 2.5;
+  filter: brightness(1.3);
+}
+.todo-graph-root .dag-node.selected {
+  /* biome-ignore lint/complexity/noImportantStyles: must beat .dag-node.faded / .dag-node.search-dim which both have equal specificity. */
+  opacity: 1 !important;
+}
+.todo-graph-root .dag-node.faded {
+  opacity: 0.25;
+}
+.todo-graph-root .dag-node.highlighted {
+  opacity: 1;
+}
+.todo-graph-root .dag-node.search-match {
+  opacity: 1;
+}
+.todo-graph-root .dag-node.search-dim {
+  opacity: 0.15;
+}
+.todo-graph-root .done-node {
+  opacity: 0.7;
+}
 
+/* biome-ignore lint/style/noDescendingSpecificity: base .node-rect shape follows the state-modifier rules (selected/faded) intentionally. */
 .todo-graph-root .node-rect {
   rx: 8;
   ry: 8;
   stroke-width: 1.5;
-  transition: filter 0.2s ease, stroke-width 0.2s ease;
+  transition:
+    filter 0.2s ease,
+    stroke-width 0.2s ease;
 }
-.todo-graph-root .node-rect.done { fill: var(--success-subtle); stroke: var(--success-fg); }
-.todo-graph-root .node-rect.in_progress { fill: var(--accent-subtle); stroke: var(--accent-fg); }
-.todo-graph-root .node-rect.pending { fill: var(--neutral-subtle); stroke: var(--border-emphasis); }
-.todo-graph-root .node-rect.blocked { fill: var(--danger-subtle); stroke: var(--danger-fg); }
+.todo-graph-root .node-rect.done {
+  fill: var(--success-subtle);
+  stroke: var(--success-fg);
+}
+.todo-graph-root .node-rect.in_progress {
+  fill: var(--accent-subtle);
+  stroke: var(--accent-fg);
+}
+.todo-graph-root .node-rect.pending {
+  fill: var(--neutral-subtle);
+  stroke: var(--border-emphasis);
+}
+.todo-graph-root .node-rect.blocked {
+  fill: var(--danger-subtle);
+  stroke: var(--danger-fg);
+}
 
-.todo-graph-root .node-title { font-size: 11px; font-weight: 600; fill: var(--text-primary); }
-.todo-graph-root .node-desc { font-size: 9.5px; fill: var(--text-tertiary); }
-.todo-graph-root .node-status-icon { font-size: 12px; }
+.todo-graph-root .node-title {
+  font-size: 11px;
+  font-weight: 600;
+  fill: var(--text-primary);
+}
+.todo-graph-root .node-desc {
+  font-size: 9.5px;
+  fill: var(--text-tertiary);
+}
+.todo-graph-root .node-status-icon {
+  font-size: 12px;
+}
 
 /* Edge styles */
 .todo-graph-root .dag-edge {
   fill: none;
   stroke-width: 1.5;
-  transition: stroke 0.2s ease, opacity 0.2s ease;
+  transition:
+    stroke 0.2s ease,
+    opacity 0.2s ease;
 }
-.todo-graph-root .dag-edge.faded { opacity: 0.1; }
-.todo-graph-root .dag-edge.highlighted { stroke-width: 2.5; opacity: 1; }
-.todo-graph-root .dag-edge.search-dim { opacity: 0.08; }
-.todo-graph-root .dag-edge.search-match { stroke-width: 2; }
-.todo-graph-root .edge-arrow { transition: fill 0.2s ease; }
+.todo-graph-root .dag-edge.faded {
+  opacity: 0.1;
+}
+.todo-graph-root .dag-edge.highlighted {
+  stroke-width: 2.5;
+  opacity: 1;
+}
+.todo-graph-root .dag-edge.search-dim {
+  opacity: 0.08;
+}
+.todo-graph-root .dag-edge.search-match {
+  stroke-width: 2;
+}
+.todo-graph-root .edge-arrow {
+  transition: fill 0.2s ease;
+}
 
 /* Legend bar */
 .todo-graph-root .legend-bar {
@@ -239,10 +327,23 @@
   border-radius: 4px;
   border: 1.5px solid;
 }
-.todo-graph-root .legend-swatch.done { background: var(--success-subtle); border-color: var(--success-fg); }
-.todo-graph-root .legend-swatch.in_progress { background: var(--accent-subtle); border-color: var(--accent-fg); }
-.todo-graph-root .legend-swatch.pending { background: var(--neutral-subtle); border-color: var(--border-default); }
-.todo-graph-root .legend-swatch.blocked { background: var(--danger-subtle); border-color: var(--danger-fg); border-style: dashed; }
+.todo-graph-root .legend-swatch.done {
+  background: var(--success-subtle);
+  border-color: var(--success-fg);
+}
+.todo-graph-root .legend-swatch.in_progress {
+  background: var(--accent-subtle);
+  border-color: var(--accent-fg);
+}
+.todo-graph-root .legend-swatch.pending {
+  background: var(--neutral-subtle);
+  border-color: var(--border-default);
+}
+.todo-graph-root .legend-swatch.blocked {
+  background: var(--danger-subtle);
+  border-color: var(--danger-fg);
+  border-style: dashed;
+}
 
 /* Detail panel */
 .todo-graph-root .detail-panel {
@@ -276,10 +377,22 @@
   font-weight: 500;
   text-transform: capitalize;
 }
-.todo-graph-root .detail-badge.done { background: var(--success-subtle); color: var(--success-fg); }
-.todo-graph-root .detail-badge.in_progress { background: var(--accent-subtle); color: var(--accent-fg); }
-.todo-graph-root .detail-badge.pending { background: var(--neutral-subtle); color: var(--neutral-fg); }
-.todo-graph-root .detail-badge.blocked { background: var(--danger-subtle); color: var(--danger-fg); }
+.todo-graph-root .detail-badge.done {
+  background: var(--success-subtle);
+  color: var(--success-fg);
+}
+.todo-graph-root .detail-badge.in_progress {
+  background: var(--accent-subtle);
+  color: var(--accent-fg);
+}
+.todo-graph-root .detail-badge.pending {
+  background: var(--neutral-subtle);
+  color: var(--neutral-fg);
+}
+.todo-graph-root .detail-badge.blocked {
+  background: var(--danger-subtle);
+  color: var(--danger-fg);
+}
 
 .todo-graph-root .detail-panel-body {
   padding: 16px;
@@ -328,7 +441,9 @@
   border-radius: var(--radius-sm);
 }
 .todo-graph-root .dep-empty {
+  /* biome-ignore lint/complexity/noImportantStyles: overrides node-specific colour applied by sibling rules. */
   color: var(--text-placeholder) !important;
+  /* biome-ignore lint/complexity/noImportantStyles: overrides node-specific background applied by sibling rules. */
   background: none !important;
 }
 .todo-graph-root .close-detail {
@@ -341,17 +456,36 @@
   font-size: 14px;
   transition: color 0.15s;
 }
-.todo-graph-root .close-detail:hover { color: var(--text-primary); }
+.todo-graph-root .close-detail:hover {
+  color: var(--text-primary);
+}
 
 @media (max-width: 900px) {
-  .todo-graph-root .detail-panel-body { grid-template-columns: 1fr; }
-  .todo-graph-root .graph-toolbar { flex-direction: column; align-items: stretch; }
-  .todo-graph-root .search-box { margin-left: 0; }
-  .todo-graph-root .search-input { width: 100%; }
-  .todo-graph-root .search-input:focus { width: 100%; }
+  .todo-graph-root .detail-panel-body {
+    grid-template-columns: 1fr;
+  }
+  .todo-graph-root .graph-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .todo-graph-root .search-box {
+    margin-left: 0;
+  }
+  .todo-graph-root .search-input {
+    width: 100%;
+  }
+  .todo-graph-root .search-input:focus {
+    width: 100%;
+  }
 }
 
 @keyframes todoDepFadeIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { SectionPanel } from "@tracepilot/ui";
 import type { Task } from "@tracepilot/types";
+import { SectionPanel } from "@tracepilot/ui";
 import PriorityBadge from "@/components/tasks/PriorityBadge.vue";
 import TaskTypeBadge from "@/components/tasks/TaskTypeBadge.vue";
 import { formatValue, isSimpleValue } from "@/composables/useTaskDetail";

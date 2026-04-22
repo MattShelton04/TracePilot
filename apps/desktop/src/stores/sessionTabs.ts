@@ -87,7 +87,7 @@ export const useSessionTabsStore = defineStore("sessionTabs", () => {
 
     tabs.value.push({
       sessionId,
-      label: label ?? sessionId.slice(0, 8) + "…",
+      label: label ?? `${sessionId.slice(0, 8)}…`,
       activeSubTab: DEFAULT_SUB_TAB,
     });
     activeTabId.value = sessionId;

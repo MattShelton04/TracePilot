@@ -21,7 +21,7 @@
 
 import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { extname, posix, relative, sep } from "node:path";
+import { extname, sep } from "node:path";
 
 const REPO_ROOT = new URL("..", import.meta.url).pathname.replace(/^\/([A-Z]:)/, "$1");
 
@@ -49,6 +49,10 @@ const BUDGETS = {
 // as files are split.
 const ALLOWLIST = new Set([
   // ── Vue SFCs (Phase 4 decomposition targets) ───────────────────
+
+  // ── TS stores (Wave 102 — biome formatter expansion) ───────────
+  // TODO(w102): decompose try/catch helpers; expanded past budget by biome 2.4 formatter.
+  "apps/desktop/src/stores/sdk/connection.ts",
 
   // ── Rust god-modules (Phase 4 decomposition targets) ───────────
   // TODO: split ErrorCode variants into domain submodules when BindingsError grows further
@@ -194,12 +198,18 @@ if (nonAllowed.length === 0) {
   process.exit(0);
 }
 
-console.error(`✗ file-size guard-rail: ${nonAllowed.length} file(s) exceed budget and are not allow-listed:\n`);
+console.error(
+  `✗ file-size guard-rail: ${nonAllowed.length} file(s) exceed budget and are not allow-listed:\n`,
+);
 for (const v of nonAllowed.sort((a, b) => b.lines - a.lines)) {
   console.error(`  ${v.path}  ${v.lines} > ${v.budget}  (${v.key})`);
 }
 console.error("\nOptions:");
 console.error("  1. Split the file (preferred).");
-console.error("  2. Add the path to ALLOWLIST in scripts/check-file-sizes.mjs with a TODO and owner.");
-console.error("\nSee docs/archive/2026-04/tech-debt-plan-revised-2026-04.md § Phase 4 for decomposition targets.");
+console.error(
+  "  2. Add the path to ALLOWLIST in scripts/check-file-sizes.mjs with a TODO and owner.",
+);
+console.error(
+  "\nSee docs/archive/2026-04/tech-debt-plan-revised-2026-04.md § Phase 4 for decomposition targets.",
+);
 process.exit(1);

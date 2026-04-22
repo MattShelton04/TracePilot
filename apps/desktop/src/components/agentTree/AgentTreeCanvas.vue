@@ -6,7 +6,7 @@ import {
   getAgentColor,
   STATUS_ICONS,
 } from "@tracepilot/ui";
-import { useAgentTreeContext, type AgentNode } from "@/composables/useAgentTree";
+import { type AgentNode, useAgentTreeContext } from "@/composables/useAgentTree";
 import type { AgentTreeSvgLine } from "@/utils/agentTreeLayout";
 
 const ctx = useAgentTreeContext();

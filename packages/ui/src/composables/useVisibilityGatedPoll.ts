@@ -1,8 +1,4 @@
-import {
-  usePolling,
-  type UsePollingControls,
-  type UsePollingOptions,
-} from "./usePolling";
+import { type UsePollingControls, type UsePollingOptions, usePolling } from "./usePolling";
 
 /**
  * Options for `useVisibilityGatedPoll` — a subset of `UsePollingOptions`

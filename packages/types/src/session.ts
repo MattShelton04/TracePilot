@@ -189,4 +189,3 @@ export interface SessionDbTable {
   /** Rows; each row is an ordered list of cell values aligned to `columns`. */
   rows: (string | number | null)[][];
 }
-

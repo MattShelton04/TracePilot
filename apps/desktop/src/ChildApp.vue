@@ -15,11 +15,11 @@
 import { emit } from "@tauri-apps/api/event";
 import { ErrorAlert, PageShell, ToastContainer } from "@tracepilot/ui";
 import { computed, onMounted, onUnmounted, ref } from "vue";
-import SessionDetailTabView from "@/views/SessionDetailTabView.vue";
 import { getCurrentTauriWindow } from "@/lib/tauri";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSessionsStore } from "@/stores/sessions";
 import { logError } from "@/utils/logger";
+import SessionDetailTabView from "@/views/SessionDetailTabView.vue";
 
 const props = defineProps<{
   sessionId: string;
@@ -69,7 +69,9 @@ async function updateWindowTitle() {
     if (!win) return;
     const label = sessionLabel.value;
     await win.setTitle(`TracePilot — ${label}`);
-  } catch { /* best-effort — title bar still shows label in-app */ }
+  } catch {
+    /* best-effort — title bar still shows label in-app */
+  }
 }
 
 async function closeWindow() {

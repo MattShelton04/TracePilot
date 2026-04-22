@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { CreateWorktreeRequest, WorktreeInfo } from "@tracepilot/types";
-import { SearchableSelect, LoadingSpinner, useToast } from "@tracepilot/ui";
+import { LoadingSpinner, SearchableSelect, useToast } from "@tracepilot/ui";
 import { computed, ref, watch } from "vue";
 import { useGitRepository } from "@/composables/useGitRepository";
 import { usePreferencesStore } from "@/stores/preferences";

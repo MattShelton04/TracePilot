@@ -32,8 +32,7 @@ const statsActive = computed(() => store.summary.healthyServers);
 const statsError = computed(
   () =>
     store.serverList.filter(
-      (s) =>
-        s.health?.status === "unreachable" || s.health?.status === "degraded",
+      (s) => s.health?.status === "unreachable" || s.health?.status === "degraded",
     ).length,
 );
 
@@ -86,7 +85,9 @@ async function handleImport() {
   if (!path) return;
   const result = await store.importFromFile(path);
   if (result) {
-    toastSuccess(`Imported ${Object.keys(result.servers).length} server(s) from ${result.sourceLabel}`);
+    toastSuccess(
+      `Imported ${Object.keys(result.servers).length} server(s) from ${result.sourceLabel}`,
+    );
     if (result.warnings.length > 0) {
       for (const w of result.warnings) {
         toastError(w);

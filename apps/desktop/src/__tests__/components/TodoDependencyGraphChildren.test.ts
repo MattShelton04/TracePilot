@@ -1,7 +1,7 @@
 import type { TodoDep, TodoItem } from "@tracepilot/types";
 import { mount } from "@vue/test-utils";
-import { defineComponent, h, provide, ref } from "vue";
 import { describe, expect, it } from "vitest";
+import { defineComponent, h, provide, ref } from "vue";
 
 import TodoDepDetailSlideover from "@/components/todoDependencyGraph/TodoDepDetailSlideover.vue";
 import TodoDepGraphEdge from "@/components/todoDependencyGraph/TodoDepGraphEdge.vue";
@@ -27,7 +27,7 @@ function makeProvider(todos: TodoItem[], deps: TodoDep[]) {
       TodoDepDetailSlideover,
     },
     props: ["slotName"],
-    setup(props, { slots }) {
+    setup(_props, { slots }) {
       const todosRef = ref(todos);
       const depsRef = ref(deps);
       const ctx = useTodoDependencyGraph({ todos: todosRef, deps: depsRef });
@@ -39,10 +39,7 @@ function makeProvider(todos: TodoItem[], deps: TodoDep[]) {
 
 describe("TodoDependencyGraph children", () => {
   it("TodoDepGraphToolbar renders a chip per status with counts and toggles", async () => {
-    const Provider = makeProvider(
-      [t("a", "done"), t("b", "done"), t("c", "pending")],
-      [],
-    );
+    const Provider = makeProvider([t("a", "done"), t("b", "done"), t("c", "pending")], []);
     const wrapper = mount(Provider, {
       slots: { default: () => h(TodoDepGraphToolbar) },
     });
@@ -57,8 +54,7 @@ describe("TodoDependencyGraph children", () => {
     const Provider = makeProvider([todo], []);
     const wrapper = mount(Provider, {
       slots: {
-        default: () =>
-          h("svg", {}, [h(TodoDepGraphNode, { todo })]),
+        default: () => h("svg", {}, [h(TodoDepGraphNode, { todo })]),
       },
     });
     expect(wrapper.find("g.dag-node").exists()).toBe(true);

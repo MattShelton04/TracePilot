@@ -1,8 +1,8 @@
-import type { WorktreeDetails, WorktreeInfo } from "@tracepilot/types";
 import { setupPinia } from "@tracepilot/test-utils";
+import type { WorktreeDetails, WorktreeInfo } from "@tracepilot/types";
 import { mount } from "@vue/test-utils";
-import { nextTick } from "vue";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { nextTick } from "vue";
 
 vi.mock("@tracepilot/ui", async () => {
   const actual = await vi.importActual<Record<string, unknown>>("@tracepilot/ui");

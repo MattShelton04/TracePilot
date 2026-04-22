@@ -9,10 +9,10 @@ import {
 } from "@tracepilot/ui";
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
+import RefreshToolbar from "@/components/RefreshToolbar.vue";
 import OrchestratorStatusCard from "@/components/tasks/OrchestratorStatusCard.vue";
 import QuickPresetsCard from "@/components/tasks/QuickPresetsCard.vue";
 import RecentJobsTable from "@/components/tasks/RecentJobsTable.vue";
-import RefreshToolbar from "@/components/RefreshToolbar.vue";
 import TaskCard from "@/components/tasks/TaskCard.vue";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
@@ -55,7 +55,6 @@ const hasActiveFilters = computed(
   () =>
     store.searchQuery.trim() !== "" || store.filterStatus !== "all" || store.filterType !== "all",
 );
-
 </script>
 
 <template>

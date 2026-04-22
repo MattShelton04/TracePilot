@@ -538,3 +538,66 @@ actionable so a future engineer can pick them up.
 - **Proposed change**: Audit `tracepilot-desktop` under `-D warnings`, add targeted allows in `main.rs` around the `generate_context!` site, then drop the `--exclude`.
 - **Risk / why deferred**: Not required to make the other ~13 crates hard-fail on warnings. Low urgency.
 - **Effort**: S
+### w102 — Store non-null assertions in SdkSteering composable
+
+- **Area**: `apps/desktop/src/composables/useSdkSteering.ts`
+- **Observation**: `effectiveSessionId.value!` appears 3× on hot steering paths. Each is currently guarded by a preceding `isLinked.value`/`sessionIdRef.value` early-return, but the coupling is implicit and suppressed via `biome-ignore`.
+- **Proposed change**: Introduce a `requireSessionId()` helper (or narrow `effectiveSessionId` to `ComputedRef<string>` via a type guard) so callers get compiler-enforced non-null guarantees.
+- **Risk / why deferred**: Touches the steering store contract; safer as a follow-up with targeted tests.
+- **Effort**: S
+
+### w102 — TabNav dual-mode (v-model vs router) coupling
+
+- **Area**: `packages/ui/src/components/TabNav.vue`
+- **Observation**: `router!`/`route!`/`props.modelValue!` rely on `isLocalMode` branches but the compiler cannot see the correlation; three `biome-ignore` comments paper over it.
+- **Proposed change**: Split into `<TabNavLocal>` (v-model) and `<TabNavRouter>` (router-driven) with a thin re-export wrapper. Each variant has a single, type-safe contract.
+- **Risk / why deferred**: Public component in `@tracepilot/ui`; would change public API and requires sweep across desktop call sites.
+- **Effort**: M
+
+### w102 — `useStoreHelpers.runGuarded` optional-guard contract
+
+- **Area**: `packages/ui/src/composables/useStoreHelpers.ts`
+- **Observation**: `opts.guard!` is dereferenced 3× inside a `token !== undefined` branch. The invariant ("guard must be provided whenever token is") is implicit.
+- **Proposed change**: Encode as a discriminated-union overload: `{ token: Token; guard: Guard } | { token?: undefined; guard?: undefined }`.
+- **Risk / why deferred**: Touches a helper used by multiple stores; needs fan-out audit and store signature updates.
+- **Effort**: S
+
+### w102 — Connection store `try/catch` helpers inflate line count
+
+- **Area**: `apps/desktop/src/stores/sdk/connection.ts`
+- **Observation**: Six `try { x = await y(); } catch (e) { logWarn(...) }` blocks each expand to 5 lines post-biome-format, pushing the file from 292 → 307 and past the `ts.store` 300-line budget. Currently allow-listed.
+- **Proposed change**: Extract a local `swallowLog<T>(label, fn)` helper and inline the assignments; trims ~15 lines and restores budget headroom.
+- **Risk / why deferred**: Risk of subtly changing error-logging semantics; best paired with a store-wide test pass.
+- **Effort**: S
+
+### w102 — Orbital DOM layer forEach → for-of
+
+- **Area**: `apps/desktop/src/composables/orbitalDomLayers.ts`, `orbitalConnections.ts`
+- **Observation**: Fixed biome `useIterableCallbackReturn` by wrapping single-expression arrows in block bodies. A `for...of` loop would be equivalent and often more idiomatic for pure side-effect iteration.
+- **Proposed change**: Replace `.forEach((el) => { el.remove(); });` blocks with `for (const el of ...) { el.remove(); }`.
+- **Risk / why deferred**: Stylistic; no behavioural impact.
+- **Effort**: S
+
+### w102 — `search-palette-results.css` excluded from biome
+
+- **Area**: `apps/desktop/src/components/search/search-palette-results.css`
+- **Observation**: Uses Vue's `:deep()` pseudo from an external `.css` file imported via `<style scoped src="...">`. Biome cannot parse this outside a `.vue` SFC, so the file is now excluded from biome check.
+- **Proposed change**: Inline this CSS into `SearchPaletteResults.vue`'s `<style scoped>` block (or rename/retarget the `:deep()` rule to an unscoped class) so the file can re-enter the biome check.
+- **Risk / why deferred**: Minor cross-cutting change; wants a visual-regression check.
+- **Effort**: S
+
+### w102 — Test suppressions for `noNonNullAssertion` + `noExplicitAny`
+
+- **Area**: `biome.json` overrides
+- **Observation**: Wave 102 added a blanket override disabling `noNonNullAssertion` and `noExplicitAny` under `**/__tests__/**`, `**/*.test.ts`, `**/*.spec.ts` to keep CI hard-fail feasible. ~130 test assertions use `!` and ~10 use `any` for mock shapes.
+- **Proposed change**: Replace `!` with `expect(x).toBeDefined()` or type-safe factories; replace `any` with `unknown`/explicit `Mock<...>` types.
+- **Risk / why deferred**: Breadth (~140 call sites). Purely quality-of-life; tests are green.
+- **Effort**: L
+
+### w102 — `!important` CSS hotspots
+
+- **Area**: `apps/desktop/src/styles/features/{skill-editor,todo-dependency-graph,model-comparison,waterfall}.css`
+- **Observation**: 9 `!important` declarations suppressed with reasons. Most exist to override either globally-scoped markdown styles or inline styles set by d3.
+- **Proposed change**: Scope the markdown preview under a dedicated class and move d3 inline-style writes behind CSS custom properties so the cascade handles them.
+- **Risk / why deferred**: Requires design review; touches the skill editor preview pipeline.
+- **Effort**: M

@@ -25,9 +25,7 @@ describe("enablePerfTracing / disablePerfTracing", () => {
 
   it("does not install the hook as a module side-effect", () => {
     // Fresh import above should not have mutated globalThis.
-    expect(
-      (globalThis as PerfTarget).__TRACEPILOT_IPC_PERF__,
-    ).toBeUndefined();
+    expect((globalThis as PerfTarget).__TRACEPILOT_IPC_PERF__).toBeUndefined();
   });
 
   it("installs the hook on an explicit target", () => {

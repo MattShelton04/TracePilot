@@ -188,11 +188,7 @@
 }
 
 .agent-tree-feature .agent-node--main {
-  background: linear-gradient(
-    135deg,
-    var(--canvas-raised) 0%,
-    rgba(99, 102, 241, 0.08) 100%
-  );
+  background: linear-gradient(135deg, var(--canvas-raised) 0%, rgba(99, 102, 241, 0.08) 100%);
 }
 
 .agent-tree-feature .agent-node--in-progress {
@@ -212,8 +208,13 @@
 }
 
 @keyframes agent-tree-node-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.3); }
-  50% { box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1); }
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+  }
 }
 
 .agent-tree-feature .agent-node:focus-visible {
@@ -313,8 +314,13 @@
 }
 
 @keyframes agent-tree-pulse-in-progress {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
 }
 
 /* Detail Panel */

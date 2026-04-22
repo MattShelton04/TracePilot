@@ -14,12 +14,11 @@
 // Add to this file whenever a new DTO graduates to specta-derived
 // generation. See `docs/specta-migration-guide.md`.
 
-import { describe, it } from "vitest";
-
 import type {
   FreshnessResponse as HandFreshnessResponse,
   SessionListItem as HandSessionListItem,
 } from "@tracepilot/types";
+import { describe, it } from "vitest";
 
 import type {
   FreshnessResponse as GenFreshnessResponse,

@@ -118,7 +118,7 @@
 }
 
 .skill-editor-feature .status-modified::before {
-  content: '';
+  content: "";
   width: 6px;
   height: 6px;
   border-radius: 50%;
@@ -127,8 +127,13 @@
 }
 
 @keyframes pulse-dot {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
 }
 
 .skill-editor-feature .kbd-hint {
@@ -335,7 +340,7 @@
 }
 
 .skill-editor-feature .frontmatter-card::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 0;
@@ -612,7 +617,7 @@
 }
 
 .skill-editor-feature .preview-frontmatter::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 0;
@@ -681,37 +686,41 @@
   line-height: 1.7;
 }
 
-.skill-editor-feature .preview-markdown  h1 {
+.skill-editor-feature .preview-markdown h1 {
   font-size: 1.375rem;
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--text-primary);
+  /* biome-ignore lint/complexity/noImportantStyles: overrides `.markdown h1 { margin }` defaults applied globally. */
   margin: 0 0 16px !important;
   padding-bottom: 10px;
   border-bottom: 1px solid var(--border-default);
 }
 
-.skill-editor-feature .preview-markdown  h2 {
+.skill-editor-feature .preview-markdown h2 {
   font-size: 1rem;
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--accent-fg);
+  /* biome-ignore lint/complexity/noImportantStyles: overrides `.markdown h2 { margin }` defaults applied globally. */
   margin: 24px 0 10px !important;
 }
 
-.skill-editor-feature .preview-markdown  ul,
-.skill-editor-feature .preview-markdown  ol {
+.skill-editor-feature .preview-markdown ul,
+.skill-editor-feature .preview-markdown ol {
+  /* biome-ignore lint/complexity/noImportantStyles: overrides `.markdown ul/ol` padding from global prose styles. */
   padding-left: 20px !important;
+  /* biome-ignore lint/complexity/noImportantStyles: overrides `.markdown ul/ol` margin from global prose styles. */
   margin: 8px 0 !important;
 }
 
-.skill-editor-feature .preview-markdown  li {
+.skill-editor-feature .preview-markdown li {
   font-size: 0.875rem;
   line-height: 1.8;
   color: var(--text-secondary);
 }
 
-.skill-editor-feature .preview-markdown  code {
+.skill-editor-feature .preview-markdown code {
   font-family: var(--font-mono);
   font-size: 0.75rem;
   background: var(--neutral-subtle);
@@ -720,7 +729,7 @@
   color: var(--accent-fg);
 }
 
-.skill-editor-feature .preview-markdown  pre {
+.skill-editor-feature .preview-markdown pre {
   background: var(--canvas-inset);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
@@ -733,19 +742,19 @@
   overflow-x: auto;
 }
 
-.skill-editor-feature .preview-markdown  pre code {
+.skill-editor-feature .preview-markdown pre code {
   background: none;
   padding: 0;
   color: inherit;
 }
 
-.skill-editor-feature .preview-markdown  p {
+.skill-editor-feature .preview-markdown p {
   font-size: 0.875rem;
   color: var(--text-secondary);
   line-height: 1.7;
 }
 
-.skill-editor-feature .preview-markdown  a {
+.skill-editor-feature .preview-markdown a {
   color: var(--accent-fg);
   text-decoration: none;
   cursor: pointer;
@@ -753,7 +762,7 @@
   transition: border-color var(--transition-fast);
 }
 
-.skill-editor-feature .preview-markdown  a:hover {
+.skill-editor-feature .preview-markdown a:hover {
   border-bottom-color: var(--accent-fg);
 }
 
@@ -863,7 +872,9 @@
   padding: 2px 4px;
   border-radius: 4px;
   opacity: 0;
-  transition: opacity var(--transition-fast), color var(--transition-fast);
+  transition:
+    opacity var(--transition-fast),
+    color var(--transition-fast);
 }
 
 .skill-editor-feature .asset-file:hover .asset-remove {

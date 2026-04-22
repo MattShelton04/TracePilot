@@ -77,7 +77,8 @@ export function migrateFromLocalStorage(config: TracePilotConfig): TracePilotCon
     // Migrate ephemeral fields
     if (old.lastViewedSession)
       localStorage.setItem(STORAGE_KEYS.lastSession, old.lastViewedSession);
-    if (old.lastSeenVersion) localStorage.setItem(STORAGE_KEYS.lastSeenVersion, old.lastSeenVersion);
+    if (old.lastSeenVersion)
+      localStorage.setItem(STORAGE_KEYS.lastSeenVersion, old.lastSeenVersion);
   } catch (e) {
     // Corrupt localStorage — leave key in place; it'll be retried next launch
     logWarn("[preferences] Failed to migrate legacy preferences", e);

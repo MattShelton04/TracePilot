@@ -61,7 +61,7 @@ export function useTheme(options: UseThemeOptions = {}): UseThemeReturn {
   const theme = useLocalStorage<ThemePreference>(storageKey, defaultTheme, {
     serializer: {
       read: (raw) => {
-        const parsed = raw.startsWith("\"") ? (JSON.parse(raw) as string) : raw;
+        const parsed = raw.startsWith('"') ? (JSON.parse(raw) as string) : raw;
         return (VALID as readonly string[]).includes(parsed)
           ? (parsed as ThemePreference)
           : defaultTheme;
@@ -84,12 +84,14 @@ export function useTheme(options: UseThemeOptions = {}): UseThemeReturn {
         onScopeDispose(() => mql.removeEventListener("change", onChange));
       }
     } else if (typeof (mql as unknown as { addListener?: unknown }).addListener === "function") {
-      (mql as unknown as { addListener: (cb: (e: MediaQueryListEvent) => void) => void })
-        .addListener(onChange);
+      (
+        mql as unknown as { addListener: (cb: (e: MediaQueryListEvent) => void) => void }
+      ).addListener(onChange);
       if (getCurrentScope()) {
         onScopeDispose(() => {
-          (mql as unknown as { removeListener: (cb: (e: MediaQueryListEvent) => void) => void })
-            .removeListener(onChange);
+          (
+            mql as unknown as { removeListener: (cb: (e: MediaQueryListEvent) => void) => void }
+          ).removeListener(onChange);
         });
       }
     }

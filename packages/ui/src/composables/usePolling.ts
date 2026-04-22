@@ -1,4 +1,4 @@
-import { getCurrentScope, onScopeDispose, ref, type Ref, watch } from "vue";
+import { getCurrentScope, onScopeDispose, type Ref, ref, watch } from "vue";
 
 export interface UsePollingOptions {
   /** Poll interval in ms. Required. */

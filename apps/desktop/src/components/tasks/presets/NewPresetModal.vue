@@ -7,9 +7,7 @@ const props = defineProps<{
   open: boolean;
 }>();
 
-const emit = defineEmits<{
-  (e: "update:open", v: boolean): void;
-}>();
+const emit = defineEmits<(e: "update:open", v: boolean) => void>();
 
 const store = usePresetsStore();
 

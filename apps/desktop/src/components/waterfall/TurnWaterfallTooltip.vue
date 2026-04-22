@@ -20,7 +20,9 @@ const displayName = computed(() => {
   return tc.toolName;
 });
 
-const argsSummary = computed(() => formatArgsSummary(props.row.call.arguments, props.row.call.toolName));
+const argsSummary = computed(() =>
+  formatArgsSummary(props.row.call.arguments, props.row.call.toolName),
+);
 </script>
 
 <template>

@@ -5,7 +5,7 @@ import {
   hashText,
   isSameEventsFingerprint,
   messageFingerprint,
-  toolCallFingerprint,
+  type toolCallFingerprint,
   turnFingerprint,
 } from "@/composables/session/sessionFingerprint";
 
@@ -60,22 +60,13 @@ describe("events fingerprint", () => {
 
   it("equality is structural", () => {
     expect(
-      isSameEventsFingerprint(
-        buildEventsFingerprint(5, 1),
-        buildEventsFingerprint(5, 1),
-      ),
+      isSameEventsFingerprint(buildEventsFingerprint(5, 1), buildEventsFingerprint(5, 1)),
     ).toBe(true);
     expect(
-      isSameEventsFingerprint(
-        buildEventsFingerprint(5, 1),
-        buildEventsFingerprint(5, 2),
-      ),
+      isSameEventsFingerprint(buildEventsFingerprint(5, 1), buildEventsFingerprint(5, 2)),
     ).toBe(false);
     expect(
-      isSameEventsFingerprint(
-        buildEventsFingerprint(1, null),
-        buildEventsFingerprint(2, null),
-      ),
+      isSameEventsFingerprint(buildEventsFingerprint(1, null), buildEventsFingerprint(2, null)),
     ).toBe(false);
   });
 });

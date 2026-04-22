@@ -85,9 +85,7 @@ export function useTaskWizard() {
     );
   });
 
-  const variables = computed<PromptVariable[]>(
-    () => selectedPreset.value?.prompt.variables ?? [],
-  );
+  const variables = computed<PromptVariable[]>(() => selectedPreset.value?.prompt.variables ?? []);
 
   const contextSourcesCount = (preset: TaskPreset): number => preset.context.sources.length;
 
@@ -249,9 +247,7 @@ export function useTaskWizard() {
       const q = query.toLowerCase();
       sessionSearchResults[variableName] = sessionsStore.sessions
         .filter(
-          (s) =>
-            (s.summary ?? "").toLowerCase().includes(q) ||
-            s.id.toLowerCase().includes(q),
+          (s) => (s.summary ?? "").toLowerCase().includes(q) || s.id.toLowerCase().includes(q),
         )
         .slice(0, 20);
     }, 150);

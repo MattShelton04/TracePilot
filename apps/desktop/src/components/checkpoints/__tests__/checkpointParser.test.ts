@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  isStructuredCheckpoint,
-  parseCheckpointSections,
-  SECTION_DEFS,
-} from "../checkpointParser";
+import { isStructuredCheckpoint, parseCheckpointSections, SECTION_DEFS } from "../checkpointParser";
 
 const STRUCTURED_CONTENT = `<overview>
 The user wants multi-window support for TracePilot. This includes concurrent session viewing.

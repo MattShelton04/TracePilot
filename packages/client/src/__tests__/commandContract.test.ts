@@ -19,16 +19,11 @@ import { IPC_COMMANDS } from "../commands.js";
  * test in the bindings crate (`ipc_manifest_tests`).
  */
 function loadGeneratedManifest(): string[] {
-  const manifestPath = new URL(
-    "../generated/ipc-commands.json",
-    import.meta.url,
-  );
+  const manifestPath = new URL("../generated/ipc-commands.json", import.meta.url);
   const raw = readFileSync(manifestPath, "utf8");
   const parsed: unknown = JSON.parse(raw);
   if (!Array.isArray(parsed) || !parsed.every((v) => typeof v === "string")) {
-    throw new Error(
-      "ipc-commands.json is malformed — run `pnpm gen:bindings` to regenerate.",
-    );
+    throw new Error("ipc-commands.json is malformed — run `pnpm gen:bindings` to regenerate.");
   }
   return [...(parsed as string[])].sort();
 }
@@ -38,10 +33,7 @@ describe("IPC command contract", () => {
     const generated = loadGeneratedManifest();
     const client = [...IPC_COMMANDS].sort();
 
-    if (
-      generated.length !== client.length ||
-      generated.some((name, idx) => name !== client[idx])
-    ) {
+    if (generated.length !== client.length || generated.some((name, idx) => name !== client[idx])) {
       const genSet = new Set(generated);
       const clientSet = new Set(client);
       const missingInClient = generated.filter((n) => !clientSet.has(n));

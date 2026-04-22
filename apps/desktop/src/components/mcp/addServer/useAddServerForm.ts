@@ -22,12 +22,14 @@ export interface AddServerForm {
 export const transportOptions: { value: McpTransport; label: string; tooltip: string }[] = [
   { value: "stdio", label: "Stdio", tooltip: "Local subprocess — communicates via stdin/stdout" },
   { value: "sse", label: "SSE", tooltip: "Server-Sent Events — legacy remote transport" },
-  { value: "http", label: "HTTP", tooltip: "Streamable HTTP — modern remote transport (MCP 2025 spec)" },
+  {
+    value: "http",
+    label: "HTTP",
+    tooltip: "Streamable HTTP — modern remote transport (MCP 2025 spec)",
+  },
 ];
 
-export function useAddServerForm(
-  emit: (name: string, config: McpServerConfig) => void,
-) {
+export function useAddServerForm(emit: (name: string, config: McpServerConfig) => void) {
   const submitting = ref(false);
   const validationError = ref("");
   const showAdvanced = ref(false);
@@ -94,7 +96,12 @@ export function useAddServerForm(
       return false;
     }
 
-    if ((form.transport === "sse" || form.transport === "http" || form.transport === "streamable-http") && !form.url.trim()) {
+    if (
+      (form.transport === "sse" ||
+        form.transport === "http" ||
+        form.transport === "streamable-http") &&
+      !form.url.trim()
+    ) {
       validationError.value = "URL is required for SSE/HTTP transport.";
       return false;
     }

@@ -1,15 +1,13 @@
 <script setup lang="ts">
-import { SectionPanel } from "@tracepilot/ui";
 import type { Task } from "@tracepilot/types";
+import { SectionPanel } from "@tracepilot/ui";
 
 interface Props {
   task: Task;
   copiedSection: string | null;
 }
 
-const emit = defineEmits<{
-  (e: "copy", text: string, section: string): void;
-}>();
+const emit = defineEmits<(e: "copy", text: string, section: string) => void>();
 
 defineProps<Props>();
 

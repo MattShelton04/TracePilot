@@ -1,25 +1,29 @@
 import type { ConversationTurn, TurnToolCall } from "@tracepilot/types";
-import { buildSubagentContentIndex, useLiveDuration, useTimelineNavigation } from "@tracepilot/ui";
-import { computed, inject, nextTick, provide, ref, watch, type InjectionKey } from "vue";
+import {
+  buildSubagentContentIndex,
+  extractPrompt,
+  useLiveDuration,
+  useTimelineNavigation,
+} from "@tracepilot/ui";
+import { computed, type InjectionKey, inject, nextTick, provide, ref, watch } from "vue";
 import { useParallelAgentDetection } from "@/composables/useParallelAgentDetection";
 import { useTimelineToolState } from "@/composables/useTimelineToolState";
 import {
-  bezierPath as bezierPathUtil,
-  buildAgentTreeLayout,
-  DEFAULT_AGENT_TREE_LAYOUT_CONFIG,
-  type AgentTreeLayoutResult,
-  type AgentTreeSvgLine,
-} from "@/utils/agentTreeLayout";
-import {
+  type AgentNode,
+  type AgentTreeBuilderContext,
   buildPaginatedTree,
   buildUnifiedTree,
   findAgentNode,
-  treeHasInProgress,
-  type AgentNode,
-  type AgentTreeBuilderContext,
   type TreeData,
+  treeHasInProgress,
 } from "@/utils/agentTreeBuilder";
-import { extractPrompt } from "@tracepilot/ui";
+import {
+  type AgentTreeLayoutResult,
+  type AgentTreeSvgLine,
+  bezierPath as bezierPathUtil,
+  buildAgentTreeLayout,
+  DEFAULT_AGENT_TREE_LAYOUT_CONFIG,
+} from "@/utils/agentTreeLayout";
 
 export type { AgentNode, TreeData } from "@/utils/agentTreeBuilder";
 export type AgentTreeLayout = AgentTreeLayoutResult<AgentNode>;
@@ -203,8 +207,7 @@ export function useAgentTree() {
 
   function setNodeRef(id: string, el: Element | null) {
     // Guard for SSR / test environments where HTMLElement is not defined.
-    if (typeof HTMLElement !== "undefined" && el instanceof HTMLElement)
-      nodeRefs.value.set(id, el);
+    if (typeof HTMLElement !== "undefined" && el instanceof HTMLElement) nodeRefs.value.set(id, el);
     else nodeRefs.value.delete(id);
   }
 

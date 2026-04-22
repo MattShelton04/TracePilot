@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { formatDate, formatRelativeTime } from "@tracepilot/ui";
 import type { Task } from "@tracepilot/types";
+import { formatDate, formatRelativeTime } from "@tracepilot/ui";
 import type { TimelineEvent } from "@/composables/useTaskDetail";
 
 interface Props {

@@ -1,10 +1,10 @@
 import type { ConversationTurn, TurnToolCall } from "@tracepilot/types";
-import type { SessionDetailContext } from "@/composables/useSessionDetail";
 import { useToggleSet } from "@tracepilot/ui";
 import type { ComputedRef, Ref } from "vue";
 import { computed, ref, watch } from "vue";
-import { usePreferencesStore } from "@/stores/preferences";
+import type { SessionDetailContext } from "@/composables/useSessionDetail";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
+import { usePreferencesStore } from "@/stores/preferences";
 import { useToolResultLoader } from "./useToolResultLoader";
 
 /**

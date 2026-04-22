@@ -141,11 +141,26 @@
   border: 1px solid color-mix(in srgb, var(--type-color, var(--accent-fg)) 20%, transparent);
 }
 
-.preset-manager .type-color-accent { --type-color: var(--accent-fg); color: var(--accent-fg); }
-.preset-manager .type-color-success { --type-color: var(--success-fg); color: var(--success-fg); }
-.preset-manager .type-color-warning { --type-color: var(--warning-fg); color: var(--warning-fg); }
-.preset-manager .type-color-danger { --type-color: var(--danger-fg); color: var(--danger-fg); }
-.preset-manager .type-color-info { --type-color: var(--accent-fg); color: var(--accent-fg); }
+.preset-manager .type-color-accent {
+  --type-color: var(--accent-fg);
+  color: var(--accent-fg);
+}
+.preset-manager .type-color-success {
+  --type-color: var(--success-fg);
+  color: var(--success-fg);
+}
+.preset-manager .type-color-warning {
+  --type-color: var(--warning-fg);
+  color: var(--warning-fg);
+}
+.preset-manager .type-color-danger {
+  --type-color: var(--danger-fg);
+  color: var(--danger-fg);
+}
+.preset-manager .type-color-info {
+  --type-color: var(--accent-fg);
+  color: var(--accent-fg);
+}
 
 .preset-manager .badge--version {
   background: var(--accent-muted);

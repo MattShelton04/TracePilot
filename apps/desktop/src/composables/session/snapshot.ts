@@ -2,8 +2,9 @@
  * Snapshot helpers that bridge the live session-detail composable state with
  * the on-demand {@link CachedSession} records stored in the LRU cache.
  */
-import type { SessionDetail } from "@tracepilot/types";
+
 import type { getSessionTurns } from "@tracepilot/client";
+import type { SessionDetail } from "@tracepilot/types";
 import type { Ref } from "vue";
 import type { CachedSession } from "./cache";
 import { buildEventsFingerprint } from "./sessionFingerprint";
@@ -52,10 +53,7 @@ export function buildPrefetchedCachedSession(
   } satisfies CachedSession;
 }
 
-export function restoreFromCachedSession(
-  ctx: SnapshotContext,
-  cached: CachedSession,
-) {
+export function restoreFromCachedSession(ctx: SnapshotContext, cached: CachedSession) {
   ctx.detail.value = cached.detail;
   ctx.turnsRefresh.replaceTurns(cached.turns);
   ctx.turnsRefresh.setEventsFingerprint(cached.eventsFingerprint);

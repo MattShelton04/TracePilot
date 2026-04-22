@@ -26,12 +26,14 @@ const emit = defineEmits<{
   viewFile: [path: string];
 }>();
 
-const { treeStructure, fileCount, collapsedFolders, toggleFolder, formatSize } =
-  useFileBrowserTree(toRef(props, "entries"), {
+const { treeStructure, fileCount, collapsedFolders, toggleFolder, formatSize } = useFileBrowserTree(
+  toRef(props, "entries"),
+  {
     get autoCollapseThreshold() {
       return props.autoCollapseThreshold;
     },
-  });
+  },
+);
 
 type FileIconType = "generic" | "markdown" | "json" | "yaml" | "database" | "lock" | "toml" | "log";
 

@@ -12,9 +12,7 @@ describe("createFeatureFlagsSlice", () => {
     }
     // Mutation must not leak into the shared DEFAULT_FEATURES object.
     slice.featureFlags.value.__synthetic_test_flag = true;
-    expect(
-      (DEFAULT_FEATURES as Record<string, boolean>).__synthetic_test_flag,
-    ).toBeUndefined();
+    expect((DEFAULT_FEATURES as Record<string, boolean>).__synthetic_test_flag).toBeUndefined();
   });
 
   it("isFeatureEnabled returns false for unknown flags", () => {

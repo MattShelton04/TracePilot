@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { EmptyState } from "@tracepilot/ui";
-import AgentTreeToolbar from "@/components/agentTree/AgentTreeToolbar.vue";
 import AgentTreeCanvas from "@/components/agentTree/AgentTreeCanvas.vue";
 import AgentTreeDetailPanel from "@/components/agentTree/AgentTreeDetailPanel.vue";
+import AgentTreeToolbar from "@/components/agentTree/AgentTreeToolbar.vue";
 import { provideAgentTree, useAgentTree } from "@/composables/useAgentTree";
 import "@/styles/features/agent-tree.css";
 

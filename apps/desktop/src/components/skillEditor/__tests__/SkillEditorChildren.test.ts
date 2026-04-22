@@ -1,13 +1,13 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
-import { defineComponent, h, provide, reactive, ref } from "vue";
+import { defineComponent, h, provide, reactive } from "vue";
+import { type SkillEditorContext, SkillEditorKey } from "@/composables/useSkillEditor";
 import SkillAssetPreviewModal from "../SkillAssetPreviewModal.vue";
 import SkillEditorMarkdownEditor from "../SkillEditorMarkdownEditor.vue";
 import SkillEditorMetadataForm from "../SkillEditorMetadataForm.vue";
 import SkillEditorPreviewPane from "../SkillEditorPreviewPane.vue";
 import SkillEditorStatusBar from "../SkillEditorStatusBar.vue";
 import SkillEditorTopBar from "../SkillEditorTopBar.vue";
-import { SkillEditorKey, type SkillEditorContext } from "@/composables/useSkillEditor";
 
 vi.mock("@tracepilot/ui", async () => {
   const actual = await vi.importActual<Record<string, unknown>>("@tracepilot/ui");
@@ -16,7 +16,7 @@ vi.mock("@tracepilot/ui", async () => {
     MarkdownContent: {
       name: "MarkdownContent",
       props: ["content"],
-      template: "<div class=\"md-stub\">{{ content }}</div>",
+      template: '<div class="md-stub">{{ content }}</div>',
     },
   };
 });
@@ -183,7 +183,11 @@ describe("SkillEditorPreviewPane", () => {
 
 describe("SkillEditorStatusBar", () => {
   it("shows directory and last-saved display", () => {
-    const ctx = makeCtx({ lastSavedDisplay: "Just saved", totalLineCount: 42, byteCount: 999 } as never);
+    const ctx = makeCtx({
+      lastSavedDisplay: "Just saved",
+      totalLineCount: 42,
+      byteCount: 999,
+    } as never);
     const wrapper = mountWithCtx(SkillEditorStatusBar, ctx);
     expect(wrapper.text()).toContain("my-skill/SKILL.md");
     expect(wrapper.text()).toContain("Just saved");

@@ -1,5 +1,5 @@
-import { ensureMarkdownReady, toErrorMessage } from "@tracepilot/ui";
 import { enablePerfTracing } from "@tracepilot/client";
+import { ensureMarkdownReady, toErrorMessage } from "@tracepilot/ui";
 import { createPinia } from "pinia";
 import { createApp } from "vue";
 import App from "./App.vue";

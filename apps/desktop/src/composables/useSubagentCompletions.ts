@@ -1,7 +1,7 @@
 import type { ConversationTurn, TurnToolCall } from "@tracepilot/types";
 import { getToolArgs } from "@tracepilot/types";
 import { getAgentColor, inferAgentTypeFromToolCall } from "@tracepilot/ui";
-import { computed, type ComputedRef } from "vue";
+import { type ComputedRef, computed } from "vue";
 import type { SubagentFullData } from "@/composables/useCrossTurnSubagents";
 
 /**

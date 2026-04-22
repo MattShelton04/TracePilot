@@ -39,8 +39,12 @@ const { chartData: tokenChart } = useLineAreaChartData({
 const activityChart = computed(() => {
   const pts = props.data.activityPerDay;
   if (pts.length === 0) return null;
-  const { left: CHART_LEFT, bottom: CHART_BOTTOM, width: CHART_W, height: CHART_H } =
-    props.chartLayout;
+  const {
+    left: CHART_LEFT,
+    bottom: CHART_BOTTOM,
+    width: CHART_W,
+    height: CHART_H,
+  } = props.chartLayout;
   const max = Math.max(...pts.map((p) => p.count), 1);
   const spacing = CHART_W / pts.length;
   const barW = computeBarWidth(CHART_W, pts.length);

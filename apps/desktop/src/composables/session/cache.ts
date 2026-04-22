@@ -38,9 +38,7 @@ export interface SessionCache {
  * Creates an LRU-bounded session cache. Most-recently set/accessed entries
  * stay; once `maxSize` is exceeded the least-recently-used entry is evicted.
  */
-export function createSessionCache(
-  maxSize: number = DEFAULT_SESSION_CACHE_SIZE,
-): SessionCache {
+export function createSessionCache(maxSize: number = DEFAULT_SESSION_CACHE_SIZE): SessionCache {
   const map = new Map<string, CachedSession>();
 
   return {

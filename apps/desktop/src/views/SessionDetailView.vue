@@ -6,16 +6,17 @@
  * rendering to SessionDetailPanel. Inner tab content is provided via
  * router-view (child routes).
  */
+
+import type { Ref } from "vue";
 import { computed, inject, provide, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import SessionDetailPanel from "@/components/session/SessionDetailPanel.vue";
 import { NAVIGATE_CHECKPOINT_KEY } from "@/composables/useCheckpointNavigation";
 import { usePerfMonitor } from "@/composables/usePerfMonitor";
+import type { SessionDetailContext } from "@/composables/useSessionDetail";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
-import type { SessionDetailContext } from "@/composables/useSessionDetail";
-import type { Ref } from "vue";
 
 const route = useRoute();
 const router = useRouter();

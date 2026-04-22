@@ -39,11 +39,11 @@ import {
 } from "@/stores/preferences/ui";
 import { logWarn } from "@/utils/logger";
 
+export type { ModelWholesalePrice } from "@/stores/preferences/pricing";
+export { DEFAULT_WHOLESALE_PRICES } from "@/stores/preferences/pricing";
 // ── Public re-exports (back-compat) ─────────────────────────────
 export type { ThemeOption } from "@/stores/preferences/ui";
 export { BASE_FONT_SIZE_PX } from "@/stores/preferences/ui";
-export type { ModelWholesalePrice } from "@/stores/preferences/pricing";
-export { DEFAULT_WHOLESALE_PRICES } from "@/stores/preferences/pricing";
 
 export const usePreferencesStore = defineStore("preferences", () => {
   const ui = createUiSlice();

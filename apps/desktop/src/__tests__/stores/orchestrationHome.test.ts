@@ -1,3 +1,4 @@
+import { setupPinia } from "@tracepilot/test-utils";
 import type {
   CopilotVersion,
   RegisteredRepo,
@@ -5,7 +6,6 @@ import type {
   SystemDependencies,
   WorktreeInfo,
 } from "@tracepilot/types";
-import { setupPinia } from "@tracepilot/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useOrchestrationHomeStore } from "@/stores/orchestrationHome";
 

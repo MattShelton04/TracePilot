@@ -1,7 +1,7 @@
 import { setupPinia } from "@tracepilot/test-utils";
 import { mount } from "@vue/test-utils";
-import { defineComponent, h, nextTick, reactive } from "vue";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { defineComponent, h, nextTick, reactive } from "vue";
 
 const pushMock = vi.fn();
 
@@ -78,8 +78,7 @@ vi.mock("@/stores/tasks", () => ({
     tasks: [{ id: "task-1", inputParams: { title: "My Task" }, taskType: "analysis" }],
     fetchTasks: vi.fn(),
   }),
-  taskTitle: (t: { inputParams?: { title?: string }; id: string }) =>
-    t.inputParams?.title ?? t.id,
+  taskTitle: (t: { inputParams?: { title?: string }; id: string }) => t.inputParams?.title ?? t.id,
 }));
 
 import {
@@ -180,16 +179,36 @@ describe("useOrchestratorMonitor computeds", () => {
     const { wrapper, api } = mountComposable();
     await nextTick();
 
-    orchestratorState.health = { health: "healthy", heartbeatAgeSecs: 10, lastCycle: 1, activeTasks: [] };
+    orchestratorState.health = {
+      health: "healthy",
+      heartbeatAgeSecs: 10,
+      lastCycle: 1,
+      activeTasks: [],
+    };
     expect(api().heartbeatColor.value).toBe("success");
 
-    orchestratorState.health = { health: "healthy", heartbeatAgeSecs: 45, lastCycle: 1, activeTasks: [] };
+    orchestratorState.health = {
+      health: "healthy",
+      heartbeatAgeSecs: 45,
+      lastCycle: 1,
+      activeTasks: [],
+    };
     expect(api().heartbeatColor.value).toBe("warning");
 
-    orchestratorState.health = { health: "stale", heartbeatAgeSecs: 120, lastCycle: 1, activeTasks: [] };
+    orchestratorState.health = {
+      health: "stale",
+      heartbeatAgeSecs: 120,
+      lastCycle: 1,
+      activeTasks: [],
+    };
     expect(api().heartbeatColor.value).toBe("danger");
 
-    orchestratorState.health = { health: "unknown", heartbeatAgeSecs: null, lastCycle: null, activeTasks: [] };
+    orchestratorState.health = {
+      health: "unknown",
+      heartbeatAgeSecs: null,
+      lastCycle: null,
+      activeTasks: [],
+    };
     expect(api().heartbeatColor.value).toBe("danger");
 
     wrapper.unmount();

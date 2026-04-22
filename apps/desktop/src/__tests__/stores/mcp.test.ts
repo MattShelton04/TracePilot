@@ -1,3 +1,4 @@
+import { createDeferred, setupPinia } from "@tracepilot/test-utils";
 import type {
   McpConfigDiff,
   McpHealthResult,
@@ -8,7 +9,6 @@ import type {
   McpTool,
 } from "@tracepilot/types";
 import { flushPromises } from "@vue/test-utils";
-import { setupPinia, createDeferred } from "@tracepilot/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useMcpStore } from "../../stores/mcp";
 
@@ -908,9 +908,7 @@ describe("useMcpStore", () => {
       expect(updated?.tools).toHaveLength(2);
       expect(updated?.totalTokens).toBe(350);
       // serverList is derived from the same reactive Map
-      expect(store.serverList.find((s) => s.name === "filesystem")?.health?.status).toBe(
-        "healthy",
-      );
+      expect(store.serverList.find((s) => s.name === "filesystem")?.health?.status).toBe("healthy");
     });
 
     it("sortedServers updates after toggleServer() modifying a nested config property", async () => {
@@ -930,13 +928,26 @@ describe("useMcpStore", () => {
     it("serverList updates for all servers after checkHealth() bulk-updates via loop", async () => {
       const multiHealthResults: Record<string, McpHealthResultCached> = {
         filesystem: FIXTURE_CACHED,
-        github: { result: { ...FIXTURE_HEALTH, serverName: "github", status: "unreachable" }, tools: [] },
+        github: {
+          result: { ...FIXTURE_HEALTH, serverName: "github", status: "unreachable" },
+          tools: [],
+        },
       };
       mockMcpCheckHealth.mockResolvedValue(multiHealthResults);
       const store = useMcpStore();
       // Seed without health data
-      store.servers.set("filesystem", { name: "filesystem", config: FIXTURE_CONFIG, tools: [], totalTokens: 0 });
-      store.servers.set("github", { name: "github", config: FIXTURE_CONFIG_B, tools: [], totalTokens: 0 });
+      store.servers.set("filesystem", {
+        name: "filesystem",
+        config: FIXTURE_CONFIG,
+        tools: [],
+        totalTokens: 0,
+      });
+      store.servers.set("github", {
+        name: "github",
+        config: FIXTURE_CONFIG_B,
+        tools: [],
+        totalTokens: 0,
+      });
 
       await store.checkHealth();
 

@@ -1,24 +1,24 @@
 import type { TodoDep, TodoItem } from "@tracepilot/types";
 import {
   computed,
+  type InjectionKey,
   inject,
   nextTick,
   onMounted,
   onUnmounted,
+  type Ref,
   ref,
   watch,
-  type InjectionKey,
-  type Ref,
 } from "vue";
+import { STATUSES, type StatusColor } from "@/components/todoDependencyGraph/constants";
 import { getStatusColors } from "@/utils/designTokens";
-import { buildTodoRelations } from "@/utils/todoStats";
 import {
   computeEdgePaths,
   computeLayout,
   computeViewBox,
   type LayoutEdge,
 } from "@/utils/todoDepLayout";
-import { STATUSES, type StatusColor } from "@/components/todoDependencyGraph/constants";
+import { buildTodoRelations } from "@/utils/todoStats";
 
 const ZOOM_MIN = 0.05;
 const ZOOM_MAX = 5.0;
@@ -31,9 +31,8 @@ export interface UseTodoDependencyGraphOptions {
 
 export type TodoDependencyGraphContext = ReturnType<typeof useTodoDependencyGraph>;
 
-export const TodoDependencyGraphKey: InjectionKey<TodoDependencyGraphContext> = Symbol(
-  "TodoDependencyGraphKey",
-);
+export const TodoDependencyGraphKey: InjectionKey<TodoDependencyGraphContext> =
+  Symbol("TodoDependencyGraphKey");
 
 export function useTodoDependencyGraphContext(): TodoDependencyGraphContext {
   const ctx = inject(TodoDependencyGraphKey);
@@ -174,8 +173,7 @@ export function useTodoDependencyGraph(options: UseTodoDependencyGraphOptions) {
     return base.map((p) => {
       const targetTodo = filteredTodos.value.find((t) => t.id === p.to);
       const status = targetTodo?.status || "pending";
-      const color =
-        statusColor.value[status]?.stroke ?? statusColor.value.pending.stroke;
+      const color = statusColor.value[status]?.stroke ?? statusColor.value.pending.stroke;
       return { ...p, color, status };
     });
   });
@@ -230,9 +228,7 @@ export function useTodoDependencyGraph(options: UseTodoDependencyGraphOptions) {
 
   function edgeOpacity(edge: LayoutEdge): number {
     if (searchMatchIds.value) {
-      return searchMatchIds.value.has(edge.from) || searchMatchIds.value.has(edge.to)
-        ? 0.6
-        : 0.08;
+      return searchMatchIds.value.has(edge.from) || searchMatchIds.value.has(edge.to) ? 0.6 : 0.08;
     }
     const activeId = hoveredNodeId.value ?? selectedNodeId.value;
     if (!activeId) return 0.35;
@@ -253,9 +249,7 @@ export function useTodoDependencyGraph(options: UseTodoDependencyGraphOptions) {
   }
 
   const selectedTodo = computed(() =>
-    selectedNodeId.value
-      ? (todos.value.find((t) => t.id === selectedNodeId.value) ?? null)
-      : null,
+    selectedNodeId.value ? (todos.value.find((t) => t.id === selectedNodeId.value) ?? null) : null,
   );
 
   function getDependencies(todoId: string): TodoItem[] {

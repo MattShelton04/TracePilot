@@ -1,9 +1,9 @@
-import { setupPinia, makeTurn, makeTurnToolCall } from "@tracepilot/test-utils";
+import { makeTurn, makeTurnToolCall, setupPinia } from "@tracepilot/test-utils";
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, nextTick } from "vue";
-import { useAgentTree } from "../useAgentTree";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
+import { useAgentTree } from "../useAgentTree";
 
 vi.mock("@tracepilot/client", async () => {
   const { createClientMock } = await import("../../__tests__/mocks/client");
@@ -42,9 +42,7 @@ describe("useAgentTree", () => {
       makeTurn({ turnIndex: 0, toolCalls: [makeTurnToolCall({ isSubagent: false })] }),
       makeTurn({
         turnIndex: 1,
-        toolCalls: [
-          makeTurnToolCall({ isSubagent: true, toolCallId: "s1" }),
-        ],
+        toolCalls: [makeTurnToolCall({ isSubagent: true, toolCallId: "s1" })],
       }),
       makeTurn({ turnIndex: 2, toolCalls: [makeTurnToolCall({ isSubagent: false })] }),
     ];
@@ -119,15 +117,11 @@ describe("useAgentTree", () => {
     store.turns = [
       makeTurn({
         turnIndex: 0,
-        toolCalls: [
-          makeTurnToolCall({ isSubagent: true, toolCallId: "a", agentDisplayName: "A" }),
-        ],
+        toolCalls: [makeTurnToolCall({ isSubagent: true, toolCallId: "a", agentDisplayName: "A" })],
       }),
       makeTurn({
         turnIndex: 1,
-        toolCalls: [
-          makeTurnToolCall({ isSubagent: true, toolCallId: "b", agentDisplayName: "B" }),
-        ],
+        toolCalls: [makeTurnToolCall({ isSubagent: true, toolCallId: "b", agentDisplayName: "B" })],
       }),
     ];
 

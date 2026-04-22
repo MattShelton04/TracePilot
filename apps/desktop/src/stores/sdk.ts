@@ -23,10 +23,10 @@ import { defineStore } from "pinia";
 import { watch } from "vue";
 import { useWindowRole } from "@/composables/useWindowRole";
 import { MAX_SDK_EVENTS } from "@/config/tuning";
+import { usePreferencesStore } from "@/stores/preferences";
 import { createConnectionSlice } from "@/stores/sdk/connection";
 import { createMessagingSlice } from "@/stores/sdk/messaging";
 import { createSettingsSlice } from "@/stores/sdk/settings";
-import { usePreferencesStore } from "@/stores/preferences";
 import { logInfo, logWarn } from "@/utils/logger";
 import { safeListen } from "@/utils/tauriEvents";
 

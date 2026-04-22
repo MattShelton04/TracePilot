@@ -2,8 +2,8 @@
 import {
   getConfig,
   saveConfig,
-  validateSessionDir,
   type ValidateSessionDirResult,
+  validateSessionDir,
 } from "@tracepilot/client";
 import type { TracePilotConfig } from "@tracepilot/types";
 import { createDefaultConfig } from "@tracepilot/types";

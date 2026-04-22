@@ -2,13 +2,13 @@ import type { ConversationTurn, SessionDetail, ShutdownMetrics } from "@tracepil
 import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import { defineComponent, h, provide, reactive } from "vue";
+import {
+  type SessionComparisonContext,
+  SessionComparisonKey,
+} from "@/composables/useSessionComparison";
 import ComparisonCharts from "../ComparisonCharts.vue";
 import ComparisonHeader from "../ComparisonHeader.vue";
 import ComparisonMetrics from "../ComparisonMetrics.vue";
-import {
-  SessionComparisonKey,
-  type SessionComparisonContext,
-} from "@/composables/useSessionComparison";
 
 // ── Mocks ──────────────────────────────────────────────────────────────
 vi.mock("@/stores/sessions", () => ({

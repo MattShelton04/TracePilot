@@ -1,16 +1,16 @@
 <script setup lang="ts">
 import type { TodoDep, TodoItem } from "@tracepilot/types";
 import { provide, toRef } from "vue";
-import {
-  TodoDependencyGraphKey,
-  useTodoDependencyGraph,
-} from "@/composables/useTodoDependencyGraph";
+import { STATUSES } from "@/components/todoDependencyGraph/constants";
 import TodoDepDetailSlideover from "@/components/todoDependencyGraph/TodoDepDetailSlideover.vue";
 import TodoDepGraphEdge from "@/components/todoDependencyGraph/TodoDepGraphEdge.vue";
 import TodoDepGraphLegend from "@/components/todoDependencyGraph/TodoDepGraphLegend.vue";
 import TodoDepGraphNode from "@/components/todoDependencyGraph/TodoDepGraphNode.vue";
 import TodoDepGraphToolbar from "@/components/todoDependencyGraph/TodoDepGraphToolbar.vue";
-import { STATUSES } from "@/components/todoDependencyGraph/constants";
+import {
+  TodoDependencyGraphKey,
+  useTodoDependencyGraph,
+} from "@/composables/useTodoDependencyGraph";
 import "@/styles/features/todo-dependency-graph.css";
 
 const props = defineProps<{

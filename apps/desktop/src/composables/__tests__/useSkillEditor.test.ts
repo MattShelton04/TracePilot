@@ -12,7 +12,9 @@ vi.mock("vue-router", () => ({
   useRouter: () => routerMock,
 }));
 
-const confirmMock = vi.fn<(opts?: unknown) => Promise<{ confirmed: boolean }>>(async () => ({ confirmed: true }));
+const confirmMock = vi.fn<(opts?: unknown) => Promise<{ confirmed: boolean }>>(async () => ({
+  confirmed: true,
+}));
 vi.mock("@tracepilot/ui", async () => {
   const actual = await vi.importActual<Record<string, unknown>>("@tracepilot/ui");
   return {
@@ -73,7 +75,12 @@ function mountHarness() {
     },
   });
   const wrapper = mount(Harness);
-  return { wrapper, get ctx() { return ctxHolder.ctx!; } };
+  return {
+    wrapper,
+    get ctx() {
+      return ctxHolder.ctx!;
+    },
+  };
 }
 
 beforeEach(() => {

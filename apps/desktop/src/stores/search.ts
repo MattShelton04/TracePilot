@@ -15,8 +15,8 @@ import { createQuerySlice } from "./search/query";
 export type { RecentSearch } from "@/composables/useRecentSearches";
 export type { ParsedQualifiers } from "@/utils/parseQualifiers";
 export { parseQualifiers } from "@/utils/parseQualifiers";
-export type { SessionGroup } from "./search/query";
 export type { FacetOverrides } from "./search/facets";
+export type { SessionGroup } from "./search/query";
 
 /** Content-type presets for the browse-mode quick filters. */
 export const BROWSE_PRESETS = {

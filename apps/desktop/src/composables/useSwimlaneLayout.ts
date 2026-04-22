@@ -1,6 +1,6 @@
 import type { ConversationTurn, TurnToolCall } from "@tracepilot/types";
 import { formatArgsSummary, formatDuration } from "@tracepilot/ui";
-import { computed, type ComputedRef, type Ref } from "vue";
+import { type ComputedRef, computed, type Ref } from "vue";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                             */

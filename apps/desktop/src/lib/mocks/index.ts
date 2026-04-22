@@ -53,9 +53,7 @@ export async function maybeMock<T>(
   if (isTauri()) {
     return tauriFn();
   }
-  return typeof mockValue === "function"
-    ? await (mockValue as () => T | Promise<T>)()
-    : mockValue;
+  return typeof mockValue === "function" ? await (mockValue as () => T | Promise<T>)() : mockValue;
 }
 
 /**

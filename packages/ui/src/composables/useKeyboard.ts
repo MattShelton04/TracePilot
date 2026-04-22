@@ -72,7 +72,10 @@ function normaliseKey(key: string): string {
  * app behaviour around `shouldIgnoreGlobalShortcut`).
  */
 export function matchesCombo(event: KeyboardEvent, combo: string): boolean {
-  const parts = combo.split("+").map((p) => p.trim()).filter((p) => p.length > 0);
+  const parts = combo
+    .split("+")
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0);
   if (parts.length === 0) return false;
   const rawKey = parts.pop();
   if (!rawKey) return false;

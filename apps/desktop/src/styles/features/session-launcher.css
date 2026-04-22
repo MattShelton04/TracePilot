@@ -175,9 +175,10 @@
   text-align: left;
   font-family: inherit;
   color: inherit;
-  transition: border-color var(--transition-fast, 0.15s) ease,
-              box-shadow var(--transition-fast, 0.15s) ease,
-              background var(--transition-fast, 0.15s) ease;
+  transition:
+    border-color var(--transition-fast, 0.15s) ease,
+    box-shadow var(--transition-fast, 0.15s) ease,
+    background var(--transition-fast, 0.15s) ease;
 }
 
 .session-launcher-feature .tpl-card:hover {
@@ -188,8 +189,9 @@
 .session-launcher-feature .tpl-card.selected {
   border-color: var(--accent-emphasis);
   background: var(--accent-subtle, color-mix(in srgb, var(--accent-emphasis) 8%, transparent));
-  box-shadow: 0 0 0 1px var(--accent-emphasis),
-              0 0 12px color-mix(in srgb, var(--accent-emphasis) 20%, transparent);
+  box-shadow:
+    0 0 0 1px var(--accent-emphasis),
+    0 0 12px color-mix(in srgb, var(--accent-emphasis) 20%, transparent);
 }
 
 .session-launcher-feature .tpl-emoji {
@@ -288,7 +290,7 @@
 }
 
 .session-launcher-feature .form-mono {
-  font-family: var(--font-mono, 'SF Mono', 'Fira Code', monospace);
+  font-family: var(--font-mono, "SF Mono", "Fira Code", monospace);
   font-size: 0.75rem;
 }
 
@@ -311,7 +313,9 @@
   border: none;
   border-right: 1px solid var(--border-default);
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 }
 
 .session-launcher-feature .btn-group-item:last-child {
@@ -468,7 +472,9 @@
   font-size: 0.75rem;
   font-family: inherit;
   cursor: pointer;
-  transition: color 0.15s ease, border-color 0.15s ease;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .session-launcher-feature .btn-add-var:hover {
@@ -513,7 +519,10 @@
   border-radius: 6px;
   border: 1px solid var(--border-default);
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .session-launcher-feature .btn:disabled {
@@ -682,7 +691,9 @@
   font-size: 0.6875rem;
   font-family: inherit;
   cursor: pointer;
-  transition: color 0.15s ease, border-color 0.15s ease;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .session-launcher-feature .cmd-copy:hover {
@@ -697,7 +708,7 @@
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
   font-size: 0.6875rem;
-  font-family: var(--font-mono, 'SF Mono', 'Fira Code', monospace);
+  font-family: var(--font-mono, "SF Mono", "Fira Code", monospace);
   color: var(--text-primary);
   white-space: pre-wrap;
   word-break: break-all;
@@ -742,7 +753,9 @@
   line-height: 1;
   background: var(--canvas-default);
   color: var(--text-tertiary);
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 }
 
 .session-launcher-feature .tpl-action-btn:hover:not(:disabled) {
@@ -847,8 +860,13 @@
 }
 
 @keyframes session-launcher-skeleton-pulse {
-  0%, 100% { opacity: 0.5; }
-  50% { opacity: 1; }
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
 /* ── Form Hint ───────────────────────────────────────────────────── */
@@ -900,7 +918,9 @@
   color: var(--text-secondary);
   font-size: 12px;
 }
-.session-launcher-feature .wt-preview-label { white-space: nowrap; }
+.session-launcher-feature .wt-preview-label {
+  white-space: nowrap;
+}
 .session-launcher-feature .wt-preview-path {
   font-family: var(--font-mono);
   font-size: 11px;
@@ -977,7 +997,9 @@
 /* ── Slide Transition ────────────────────────────────────────────── */
 .session-launcher-feature .slide-enter-active,
 .session-launcher-feature .slide-leave-active {
-  transition: opacity 0.2s ease, max-height 0.25s ease;
+  transition:
+    opacity 0.2s ease,
+    max-height 0.25s ease;
   overflow: hidden;
 }
 

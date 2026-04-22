@@ -1,8 +1,8 @@
-import type { ModelInfo, SessionTemplate } from "@tracepilot/types";
 import { setupPinia } from "@tracepilot/test-utils";
+import type { ModelInfo, SessionTemplate } from "@tracepilot/types";
 import { mount } from "@vue/test-utils";
-import { computed, defineComponent, h, provide, reactive, ref } from "vue";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { computed, defineComponent, h, provide, reactive, ref } from "vue";
 
 vi.mock("@tracepilot/ui", async () => {
   const actual = await vi.importActual<Record<string, unknown>>("@tracepilot/ui");

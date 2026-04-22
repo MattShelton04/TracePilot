@@ -7,7 +7,14 @@
  * renderers, agent grouping, reasoning blocks).
  */
 
-import { Badge, EmptyState, ErrorAlert, PageShell, SessionCard, SkeletonLoader } from "@tracepilot/ui";
+import {
+  Badge,
+  EmptyState,
+  ErrorAlert,
+  PageShell,
+  SessionCard,
+  SkeletonLoader,
+} from "@tracepilot/ui";
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import ModelSwitchBanner from "@/components/replay/ModelSwitchBanner.vue";
@@ -16,11 +23,11 @@ import ReplaySidebar from "@/components/replay/ReplaySidebar.vue";
 import ReplayStepContent from "@/components/replay/ReplayStepContent.vue";
 import ReplayTransportBar from "@/components/replay/ReplayTransportBar.vue";
 import { useReplayController } from "@/composables/useReplayController";
+import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
 import { usePreferencesStore } from "@/stores/preferences";
-import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { useSessionsStore } from "@/stores/sessions";
 import { turnsToReplaySteps } from "@/utils/replayTransform";
 

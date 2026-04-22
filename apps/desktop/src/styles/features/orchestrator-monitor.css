@@ -148,11 +148,20 @@
   border-radius: var(--radius-sm);
 }
 .orchestrator-monitor-feature .tier-fast,
-.orch-monitor-model-dropdown .tier-fast     { background: var(--success-subtle); color: var(--success-fg); }
+.orch-monitor-model-dropdown .tier-fast {
+  background: var(--success-subtle);
+  color: var(--success-fg);
+}
 .orchestrator-monitor-feature .tier-standard,
-.orch-monitor-model-dropdown .tier-standard { background: var(--accent-subtle); color: var(--accent-fg); }
+.orch-monitor-model-dropdown .tier-standard {
+  background: var(--accent-subtle);
+  color: var(--accent-fg);
+}
 .orchestrator-monitor-feature .tier-premium,
-.orch-monitor-model-dropdown .tier-premium  { background: var(--warning-subtle); color: var(--warning-fg); }
+.orch-monitor-model-dropdown .tier-premium {
+  background: var(--warning-subtle);
+  color: var(--warning-fg);
+}
 
 .orchestrator-monitor-feature .model-picker-chevron {
   transition: transform 0.2s;
@@ -217,7 +226,9 @@
   border: none;
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: background 0.1s, color 0.1s;
+  transition:
+    background 0.1s,
+    color 0.1s;
 }
 .orch-monitor-model-dropdown .model-option:hover {
   background: var(--canvas-subtle);
@@ -305,10 +316,18 @@
 }
 
 /* State color mapping */
-.orchestrator-monitor-feature .state-healthy { --state-color: var(--success-fg); }
-.orchestrator-monitor-feature .state-stale   { --state-color: var(--warning-fg); }
-.orchestrator-monitor-feature .state-stopped { --state-color: var(--neutral-emphasis); }
-.orchestrator-monitor-feature .state-active  { --state-color: var(--accent-fg); }
+.orchestrator-monitor-feature .state-healthy {
+  --state-color: var(--success-fg);
+}
+.orchestrator-monitor-feature .state-stale {
+  --state-color: var(--warning-fg);
+}
+.orchestrator-monitor-feature .state-stopped {
+  --state-color: var(--neutral-emphasis);
+}
+.orchestrator-monitor-feature .state-active {
+  --state-color: var(--accent-fg);
+}
 
 .orchestrator-monitor-feature .status-ring-progress {
   transition:

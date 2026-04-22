@@ -22,7 +22,13 @@ describe("createPricingSlice", () => {
     const slice = createPricingSlice();
     slice.modelWholesalePrices.value = [
       { model: "gpt-4", inputPerM: 1, cachedInputPerM: 0.1, outputPerM: 2, premiumRequests: 1 },
-      { model: "gpt-4-turbo", inputPerM: 3, cachedInputPerM: 0.3, outputPerM: 4, premiumRequests: 2 },
+      {
+        model: "gpt-4-turbo",
+        inputPerM: 3,
+        cachedInputPerM: 0.3,
+        outputPerM: 4,
+        premiumRequests: 2,
+      },
     ];
     const match = slice.getWholesalePrice("gpt-4-turbo-2024-04-09");
     expect(match?.model).toBe("gpt-4-turbo");

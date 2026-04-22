@@ -4,9 +4,9 @@
  * Searches workspace.yaml metadata and user messages in events.jsonl.
  */
 
-import chalk from "chalk";
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
+import chalk from "chalk";
 import { handleValidationError, wrapCommand } from "../utils/errorHandler.js";
 import {
   fileExists,

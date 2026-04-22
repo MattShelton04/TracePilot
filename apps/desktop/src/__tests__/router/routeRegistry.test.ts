@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import router from "@/router";
-import { ROUTE_NAMES, isRouteName } from "@/config/routes";
+import { isRouteName, ROUTE_NAMES } from "@/config/routes";
 import { SIDEBAR_IDS } from "@/config/sidebarIds";
+import router from "@/router";
 
 describe("route registry consistency", () => {
   it("every registered router name is present in ROUTE_NAMES", () => {
@@ -25,9 +25,10 @@ describe("route registry consistency", () => {
 
     const orphaned = Object.values(ROUTE_NAMES).filter((name) => !registeredNames.has(name));
 
-    expect(orphaned, `ROUTE_NAMES entries without a matching route: ${orphaned.join(", ")}`).toEqual(
-      [],
-    );
+    expect(
+      orphaned,
+      `ROUTE_NAMES entries without a matching route: ${orphaned.join(", ")}`,
+    ).toEqual([]);
   });
 
   it("every route's sidebarId is present in SIDEBAR_IDS", () => {

@@ -63,9 +63,7 @@ export function useMetricsTabData(
   const totalCacheReadTokens = computed(() =>
     modelEntries.value.reduce((sum, m) => sum + m.cacheReadTokens, 0),
   );
-  const totalRequests = computed(() =>
-    modelEntries.value.reduce((sum, m) => sum + m.requests, 0),
-  );
+  const totalRequests = computed(() => modelEntries.value.reduce((sum, m) => sum + m.requests, 0));
 
   const hasReasoningData = computed(() =>
     modelEntries.value.some((m) => m.reasoningTokens != null),

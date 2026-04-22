@@ -1,12 +1,5 @@
 <script setup lang="ts">
-import {
-  Badge,
-  DataTable,
-  formatCost,
-  formatNumber,
-  SectionPanel,
-  TokenBar,
-} from "@tracepilot/ui";
+import { Badge, DataTable, formatCost, formatNumber, SectionPanel, TokenBar } from "@tracepilot/ui";
 import { computed } from "vue";
 import type { MetricsModelEntry } from "@/composables/useMetricsTabData";
 

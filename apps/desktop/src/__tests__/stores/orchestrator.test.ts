@@ -1,5 +1,5 @@
-import type { EventsResponse, HealthCheckResult } from "@tracepilot/types";
 import { setupPinia } from "@tracepilot/test-utils";
+import type { EventsResponse, HealthCheckResult } from "@tracepilot/types";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useOrchestratorStore } from "@/stores/orchestrator";
 

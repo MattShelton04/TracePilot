@@ -27,9 +27,7 @@ export interface WindowLifecycleOptions {
  * The returned `dispose` function is an escape hatch for tests / manual
  * teardown. Under normal component use you should not need to call it.
  */
-export function useWindowLifecycle(
-  options: WindowLifecycleOptions = {},
-): () => void {
+export function useWindowLifecycle(options: WindowLifecycleOptions = {}): () => void {
   const disposers: Array<() => void | Promise<void>> = [];
 
   const dispose = () => {
@@ -88,9 +86,7 @@ export function useWindowLifecycle(
         try {
           const all = await getAllTauriWindows();
           await Promise.allSettled(
-            all
-              .filter((w) => w.label.startsWith("viewer-"))
-              .map((w) => w.close()),
+            all.filter((w) => w.label.startsWith("viewer-")).map((w) => w.close()),
           );
         } catch {
           /* best-effort */

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
+import type { Router } from "vue-router";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
-import type { Router } from "vue-router";
 
 function makeRouter() {
   const push = vi.fn().mockResolvedValue(undefined);

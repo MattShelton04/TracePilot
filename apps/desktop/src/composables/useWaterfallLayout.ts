@@ -1,10 +1,5 @@
 import type { ConversationTurn, TurnToolCall } from "@tracepilot/types";
-import {
-  detectParallelIds,
-  formatDuration,
-  type TimeSpanItem,
-  toTimeSpan,
-} from "@tracepilot/ui";
+import { detectParallelIds, formatDuration, type TimeSpanItem, toTimeSpan } from "@tracepilot/ui";
 
 export interface WaterfallRow {
   call: TurnToolCall;
@@ -55,9 +50,7 @@ export function computeTimelineSpanMs(
     ...turn.toolCalls,
     ...allToolCalls.filter(
       (tc) =>
-        tc.parentToolCallId &&
-        subagentIds.has(tc.parentToolCallId) &&
-        !turn.toolCalls.includes(tc),
+        tc.parentToolCallId && subagentIds.has(tc.parentToolCallId) && !turn.toolCalls.includes(tc),
     ),
   ];
 

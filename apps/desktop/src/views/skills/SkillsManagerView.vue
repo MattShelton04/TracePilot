@@ -39,11 +39,7 @@ function formatTokensWithCommas(n: number): string {
 async function handleCreateSkill() {
   if (!newSkillName.value.trim()) return;
   creating.value = true;
-  const dir = await store.createSkill(
-    newSkillName.value.trim(),
-    newSkillDesc.value.trim(),
-    "",
-  );
+  const dir = await store.createSkill(newSkillName.value.trim(), newSkillDesc.value.trim(), "");
   creating.value = false;
   if (dir) {
     showNewSkillModal.value = false;

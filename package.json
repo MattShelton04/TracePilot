@@ -22,7 +22,7 @@
     "build:cli": "pnpm --filter @tracepilot/cli build",
     "cli": "tsx apps/cli/src/index.ts",
     "tauri": "pnpm --filter @tracepilot/desktop tauri",
-    "lint": "biome check .",
+    "lint": "biome check --error-on-warnings .",
     "lint:fix": "biome check --fix .",
     "format": "biome format --write .",
     "typecheck": "pnpm -r typecheck",

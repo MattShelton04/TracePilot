@@ -17,9 +17,6 @@
  * the w94 FI log for the remaining scattered plugins.
  */
 
-export { tauriEmit, tauriListen } from "./event";
-export { getAllTauriWindows, getCurrentTauriWindow, type TauriWindow } from "./window";
-export { getCurrentTauriWebviewWindow } from "./webviewWindow";
 export { getTauriAppVersion } from "./app";
 export {
   type OpenDialogOptions,
@@ -27,3 +24,6 @@ export {
   tauriDialogOpen,
   tauriDialogSave,
 } from "./dialog";
+export { tauriEmit, tauriListen } from "./event";
+export { getCurrentTauriWebviewWindow } from "./webviewWindow";
+export { getAllTauriWindows, getCurrentTauriWindow, type TauriWindow } from "./window";

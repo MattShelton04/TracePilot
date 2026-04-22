@@ -156,7 +156,12 @@ function scanTurnsForAskUser(sessionId: string, turns: ConversationTurn[], summa
 // ── Error detection ──────────────────────────────────────────────
 
 function checkSessionErrorAlerts(
-  sessions: Array<{ id: string; isRunning: boolean; summary?: string | null; errorCount?: number | null }>,
+  sessions: Array<{
+    id: string;
+    isRunning: boolean;
+    summary?: string | null;
+    errorCount?: number | null;
+  }>,
 ) {
   const prefs = usePreferencesStore();
   if (!prefs.alertsEnabled || !prefs.alertsOnSessionError) return;
@@ -345,11 +350,9 @@ export function useAlertWatcher(router: Router) {
   //
   // Visibility-gated: pauses while the window is hidden; an immediate
   // catch-up tick fires on regain so ended sessions are detected promptly.
-  const refreshPoll = useVisibilityGatedPoll(
-    () => sessionsStore.refreshSessions(),
-    30_000,
-    { immediate: false },
-  );
+  const refreshPoll = useVisibilityGatedPoll(() => sessionsStore.refreshSessions(), 30_000, {
+    immediate: false,
+  });
 
   function startRefreshPolling() {
     refreshPoll.stop();

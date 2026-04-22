@@ -136,7 +136,13 @@ export interface PromptVariable {
   default: string | null;
 }
 
-export type VariableType = "string" | "number" | "boolean" | "session_ref" | "session_list" | "date";
+export type VariableType =
+  | "string"
+  | "number"
+  | "boolean"
+  | "session_ref"
+  | "session_list"
+  | "date";
 
 export interface PresetContext {
   sources: ContextSource[];

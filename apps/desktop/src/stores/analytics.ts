@@ -1,8 +1,8 @@
 import { getAnalytics, getCodeImpact, getToolAnalysis } from "@tracepilot/client";
 import type { AnalyticsData, CodeImpactData, ToolAnalysisData } from "@tracepilot/types";
+import { useCachedFetch } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref, watch } from "vue";
-import { useCachedFetch } from "@tracepilot/ui";
 import { usePreferencesStore } from "./preferences";
 import { useSessionsStore } from "./sessions";
 

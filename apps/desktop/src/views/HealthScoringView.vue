@@ -5,7 +5,14 @@
 
 import { getHealthScores } from "@tracepilot/client";
 import type { HealthScoringData } from "@tracepilot/types";
-import { ErrorState, HealthRing, LoadingOverlay, PageShell, StatCard, toErrorMessage } from "@tracepilot/ui";
+import {
+  ErrorState,
+  HealthRing,
+  LoadingOverlay,
+  PageShell,
+  StatCard,
+  toErrorMessage,
+} from "@tracepilot/ui";
 import { computed, onMounted, ref } from "vue";
 import StubBanner from "@/components/StubBanner.vue";
 

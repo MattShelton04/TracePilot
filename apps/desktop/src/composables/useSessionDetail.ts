@@ -22,11 +22,7 @@
  * const sd = injectSessionDetail();
  * ```
  */
-import {
-  getSessionDetail,
-  getSessionEvents,
-  getSessionTurns,
-} from "@tracepilot/client";
+import { getSessionDetail, getSessionEvents, getSessionTurns } from "@tracepilot/client";
 import type { EventsResponse, SessionDetail } from "@tracepilot/types";
 import { toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
 import type { InjectionKey, UnwrapNestedRefs } from "vue";
@@ -306,16 +302,13 @@ export type SessionDetailInstance = ReturnType<typeof createSessionDetailInstanc
 export type SessionDetailContext = UnwrapNestedRefs<SessionDetailInstance>;
 
 /** Vue injection key for per-tab session detail instances (reactive-wrapped). */
-export const SESSION_DETAIL_KEY: InjectionKey<SessionDetailContext> =
-  Symbol("sessionDetail");
+export const SESSION_DETAIL_KEY: InjectionKey<SessionDetailContext> = Symbol("sessionDetail");
 
 /**
  * Wrap a raw composable instance in reactive() for provide/inject.
  * This ensures refs are auto-unwrapped, matching Pinia store behavior.
  */
-export function toSessionDetailContext(
-  instance: SessionDetailInstance,
-): SessionDetailContext {
+export function toSessionDetailContext(instance: SessionDetailInstance): SessionDetailContext {
   return reactive(instance);
 }
 
@@ -328,7 +321,7 @@ export function injectSessionDetail(): SessionDetailContext {
   if (!instance) {
     throw new Error(
       "[useSessionDetail] No session detail instance provided. " +
-      "Ensure this component is a descendant of a SessionDetailView or similar provider.",
+        "Ensure this component is a descendant of a SessionDetailView or similar provider.",
     );
   }
   return instance;

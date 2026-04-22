@@ -28,8 +28,7 @@ import type {
   BridgeSessionMode,
 } from "@tracepilot/types";
 import { runMutation, toErrorMessage } from "@tracepilot/ui";
-import { computed, type Ref } from "vue";
-import { ref } from "vue";
+import { computed, type Ref, ref } from "vue";
 import { logInfo, logWarn } from "@/utils/logger";
 
 export interface MessagingDeps {

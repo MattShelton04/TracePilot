@@ -27,10 +27,10 @@
   flex: 1;
   padding: 10px 14px;
   background: var(--canvas-subtle, #111113);
-  border: 1px solid var(--border-default, rgba(255, 255, 255, 0.10));
+  border: 1px solid var(--border-default, rgba(255, 255, 255, 0.1));
   border-radius: var(--radius-md, 8px);
   color: var(--text-primary, #fafafa);
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-family: "JetBrains Mono", "Fira Code", monospace;
   font-size: 0.8125rem;
   outline: none;
   transition: border-color 180ms ease;
@@ -38,19 +38,21 @@
 
 .path-input:focus {
   border-color: var(--accent-emphasis);
-  box-shadow: 0 0 0 2px var(--accent-subtle, rgba(99, 102, 241, 0.10));
+  box-shadow: 0 0 0 2px var(--accent-subtle, rgba(99, 102, 241, 0.1));
 }
 
 .btn-browse {
   padding: 10px 16px;
   background: var(--canvas-subtle, #111113);
-  border: 1px solid var(--border-default, rgba(255, 255, 255, 0.10));
+  border: 1px solid var(--border-default, rgba(255, 255, 255, 0.1));
   border-radius: var(--radius-md, 8px);
   color: var(--text-secondary, #a1a1aa);
   font-size: 0.8125rem;
   cursor: pointer;
   white-space: nowrap;
-  transition: background 180ms ease, border-color 180ms ease;
+  transition:
+    background 180ms ease,
+    border-color 180ms ease;
 }
 
 .btn-browse:hover {
@@ -61,12 +63,15 @@
 .btn-reset-path {
   padding: 10px 12px;
   background: none;
-  border: 1px solid var(--border-default, rgba(255, 255, 255, 0.10));
+  border: 1px solid var(--border-default, rgba(255, 255, 255, 0.1));
   border-radius: var(--radius-md, 8px);
   color: var(--text-tertiary, #71717a);
   font-size: 1rem;
   cursor: pointer;
-  transition: color 180ms ease, border-color 180ms ease, background 180ms ease;
+  transition:
+    color 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease;
   line-height: 1;
 }
 

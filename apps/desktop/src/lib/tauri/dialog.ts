@@ -27,9 +27,7 @@ export async function tauriDialogOpen(
  * Open the native file save dialog. Must only be called inside Tauri;
  * guard with `isTauri()` first.
  */
-export async function tauriDialogSave(
-  options?: SaveDialogOptions,
-): Promise<string | null> {
+export async function tauriDialogSave(options?: SaveDialogOptions): Promise<string | null> {
   const { save } = await import("@tauri-apps/plugin-dialog");
   return (await save(options)) ?? null;
 }

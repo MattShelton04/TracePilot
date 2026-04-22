@@ -24,10 +24,7 @@ describe("agentTreeLayout", () => {
 
   it("emits one bezier line per parent→child relationship (BFS layered)", () => {
     const root: N = { id: "main" };
-    const children: N[] = [
-      { id: "a", children: [{ id: "a1" }, { id: "a2" }] },
-      { id: "b" },
-    ];
+    const children: N[] = [{ id: "a", children: [{ id: "a1" }, { id: "a2" }] }, { id: "b" }];
     const result = buildAgentTreeLayout(root, children);
     // main→a, main→b, a→a1, a→a2
     expect(result.lines).toHaveLength(4);

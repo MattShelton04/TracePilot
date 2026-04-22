@@ -1,10 +1,10 @@
 <script setup lang="ts">
+import type { Task } from "@tracepilot/types";
 import { formatDate } from "@tracepilot/ui";
 import PriorityBadge from "@/components/tasks/PriorityBadge.vue";
 import TaskStatusBadge from "@/components/tasks/TaskStatusBadge.vue";
 import TaskTypeBadge from "@/components/tasks/TaskTypeBadge.vue";
 import { taskTitle } from "@/stores/tasks";
-import type { Task } from "@tracepilot/types";
 
 interface Props {
   task: Task;

@@ -9,9 +9,9 @@ import {
 } from "@tracepilot/ui";
 import SubagentGroupSegment from "@/components/conversation/chat/SubagentGroupSegment.vue";
 import ToolGroupSegment from "@/components/conversation/chat/ToolGroupSegment.vue";
+import type { ToolSegment } from "@/components/conversation/chatViewUtils";
 import type { SubagentFullData } from "@/composables/useCrossTurnSubagents";
 import { usePreferencesStore } from "@/stores/preferences";
-import type { ToolSegment } from "@/components/conversation/chatViewUtils";
 
 type ToggleSet = ReturnType<typeof useToggleSet<string>>;
 

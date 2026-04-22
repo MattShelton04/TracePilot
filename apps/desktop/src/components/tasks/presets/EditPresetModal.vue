@@ -51,11 +51,7 @@ function removeConfigKey(src: { config: Record<string, unknown> }, key: string) 
   delete src.config[key];
 }
 
-function renameConfigKey(
-  src: { config: Record<string, unknown> },
-  oldKey: string,
-  newKey: string,
-) {
+function renameConfigKey(src: { config: Record<string, unknown> }, oldKey: string, newKey: string) {
   if (oldKey === newKey || !newKey.trim()) return;
   const val = src.config[oldKey];
   delete src.config[oldKey];

@@ -1,5 +1,5 @@
+import { createDeferred, setupPinia } from "@tracepilot/test-utils";
 import type { ModelInfo, SessionTemplate, SystemDependencies } from "@tracepilot/types";
-import { setupPinia, createDeferred } from "@tracepilot/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useLauncherStore } from "../../stores/launcher";
 

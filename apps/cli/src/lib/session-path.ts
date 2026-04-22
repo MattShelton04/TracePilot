@@ -21,8 +21,7 @@ function expandHome(path: string, home: string): string {
 export function getSessionStateDir(): string {
   const home = homedir();
   const override =
-    process.env[TRACEPILOT_SESSION_DIR_ENV]?.trim() ||
-    process.env[COPILOT_SESSION_DIR_ENV]?.trim();
+    process.env[TRACEPILOT_SESSION_DIR_ENV]?.trim() || process.env[COPILOT_SESSION_DIR_ENV]?.trim();
 
   if (override) {
     return resolve(expandHome(override, home));

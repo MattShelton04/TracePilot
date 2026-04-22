@@ -11,14 +11,10 @@ const emit = defineEmits<{
 
 const { updateResult } = useUpdateCheck();
 
-const dismissedVersion = useLocalStorage<string | null>(
-  STORAGE_KEYS.dismissedUpdate,
-  null,
-  {
-    serializer: { read: (raw) => raw, write: (v) => v ?? "" },
-    flush: "sync",
-  },
-);
+const dismissedVersion = useLocalStorage<string | null>(STORAGE_KEYS.dismissedUpdate, null, {
+  serializer: { read: (raw) => raw, write: (v) => v ?? "" },
+  flush: "sync",
+});
 
 const visible = computed(() => {
   if (!updateResult.value?.hasUpdate) return false;

@@ -1,6 +1,6 @@
 import type { TurnToolCall } from "@tracepilot/types";
 import { formatArgsSummary } from "@tracepilot/ui";
-import { computed, type ComputedRef } from "vue";
+import { type ComputedRef, computed } from "vue";
 import type { SubagentFullData } from "@/composables/useCrossTurnSubagents";
 
 export type ActivityPillType = "intent" | "memory" | "read_agent";

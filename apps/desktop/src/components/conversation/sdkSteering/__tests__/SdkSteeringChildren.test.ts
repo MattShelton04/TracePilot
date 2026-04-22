@@ -1,15 +1,12 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import { defineComponent, h, provide, reactive } from "vue";
+import { type SdkSteeringContext, SdkSteeringKey } from "@/composables/useSdkSteering";
 import SdkSteeringCommandBar from "../SdkSteeringCommandBar.vue";
 import SdkSteeringDisconnectedCard from "../SdkSteeringDisconnectedCard.vue";
 import SdkSteeringLinkPrompt from "../SdkSteeringLinkPrompt.vue";
 import SdkSteeringSentLog from "../SdkSteeringSentLog.vue";
 import SdkSteeringSessionLabel from "../SdkSteeringSessionLabel.vue";
-import {
-  SdkSteeringKey,
-  type SdkSteeringContext,
-} from "@/composables/useSdkSteering";
 
 function makeCtx(overrides: Partial<SdkSteeringContext> = {}): SdkSteeringContext {
   const base = {
@@ -101,9 +98,7 @@ describe("SdkSteeringSentLog", () => {
 
   it("renders a sending row with the prompt text", () => {
     const ctx = makeCtx({
-      sentMessages: [
-        { id: 1, text: "hello world", timestamp: Date.now(), status: "sending" },
-      ],
+      sentMessages: [{ id: 1, text: "hello world", timestamp: Date.now(), status: "sending" }],
     } as never);
     const wrapper = mountWithCtx(SdkSteeringSentLog, ctx);
     expect(wrapper.find(".cb-sent-item").exists()).toBe(true);

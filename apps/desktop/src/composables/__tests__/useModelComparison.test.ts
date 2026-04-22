@@ -50,13 +50,15 @@ function mountHook() {
   return { wrapper, comp: wrapper.vm.comp };
 }
 
-function seedDistribution(rows: Array<{
-  model: string;
-  inputTokens: number;
-  outputTokens: number;
-  cacheReadTokens: number;
-  premiumRequests: number;
-}>) {
+function seedDistribution(
+  rows: Array<{
+    model: string;
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadTokens: number;
+    premiumRequests: number;
+  }>,
+) {
   analyticsStoreMock.analytics = { modelDistribution: rows };
 }
 
@@ -79,15 +81,25 @@ describe("useModelComparison", () => {
     expect(comp.sortDir).toBe("desc");
     expect(comp.modelRows).toEqual([]);
     expect(comp.modelCount).toBe(0);
-    expect(comp.pageSubtitle).toBe(
-      "Performance and cost metrics across all models",
-    );
+    expect(comp.pageSubtitle).toBe("Performance and cost metrics across all models");
   });
 
   it("builds modelRows with percentage, cacheHitRate, cost, copilotCost", () => {
     seedDistribution([
-      { model: "gpt-4", inputTokens: 1000, outputTokens: 500, cacheReadTokens: 200, premiumRequests: 2 },
-      { model: "gpt-5", inputTokens: 3000, outputTokens: 500, cacheReadTokens: 300, premiumRequests: 5 },
+      {
+        model: "gpt-4",
+        inputTokens: 1000,
+        outputTokens: 500,
+        cacheReadTokens: 200,
+        premiumRequests: 2,
+      },
+      {
+        model: "gpt-5",
+        inputTokens: 3000,
+        outputTokens: 500,
+        cacheReadTokens: 300,
+        premiumRequests: 5,
+      },
     ]);
     const { comp } = mountHook();
     expect(comp.modelRows).toHaveLength(2);
@@ -128,8 +140,20 @@ describe("useModelComparison", () => {
 
   it("displayRows switches between raw / per-10m-tokens / share", () => {
     seedDistribution([
-      { model: "a", inputTokens: 5_000_000, outputTokens: 5_000_000, cacheReadTokens: 0, premiumRequests: 10 },
-      { model: "b", inputTokens: 5_000_000, outputTokens: 5_000_000, cacheReadTokens: 0, premiumRequests: 10 },
+      {
+        model: "a",
+        inputTokens: 5_000_000,
+        outputTokens: 5_000_000,
+        cacheReadTokens: 0,
+        premiumRequests: 10,
+      },
+      {
+        model: "b",
+        inputTokens: 5_000_000,
+        outputTokens: 5_000_000,
+        cacheReadTokens: 0,
+        premiumRequests: 10,
+      },
     ]);
     const { comp } = mountHook();
     // raw: tokens = 10_000_000 for each
@@ -167,8 +191,20 @@ describe("useModelComparison", () => {
 
   it("radar + scatter helpers produce valid coordinates", () => {
     seedDistribution([
-      { model: "a", inputTokens: 1000, outputTokens: 500, cacheReadTokens: 200, premiumRequests: 2 },
-      { model: "b", inputTokens: 2000, outputTokens: 500, cacheReadTokens: 500, premiumRequests: 3 },
+      {
+        model: "a",
+        inputTokens: 1000,
+        outputTokens: 500,
+        cacheReadTokens: 200,
+        premiumRequests: 2,
+      },
+      {
+        model: "b",
+        inputTokens: 2000,
+        outputTokens: 500,
+        cacheReadTokens: 500,
+        premiumRequests: 3,
+      },
     ]);
     const { comp } = mountHook();
     const vals = comp.radarValues(comp.modelRows[0]);

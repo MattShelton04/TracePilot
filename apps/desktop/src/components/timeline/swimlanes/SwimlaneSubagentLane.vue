@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { TurnToolCall } from "@tracepilot/types";
+import type { ConversationTurn, TurnToolCall } from "@tracepilot/types";
 import {
   ExpandChevron,
   formatLiveDuration,
@@ -15,7 +15,6 @@ import {
   toolTooltip,
   turnMaxDuration,
 } from "@/composables/useSwimlaneLayout";
-import type { ConversationTurn } from "@tracepilot/types";
 
 const props = defineProps<{
   agent: TurnToolCall;

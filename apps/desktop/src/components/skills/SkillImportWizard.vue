@@ -5,10 +5,7 @@ import { provide } from "vue";
 import SkillImportStep1Local from "@/components/skills/import-wizard/SkillImportStep1Local.vue";
 import SkillImportStep2GitHub from "@/components/skills/import-wizard/SkillImportStep2GitHub.vue";
 import SkillImportStep3File from "@/components/skills/import-wizard/SkillImportStep3File.vue";
-import {
-  SkillImportWizardKey,
-  useSkillImportWizard,
-} from "@/composables/useSkillImportWizard";
+import { SkillImportWizardKey, useSkillImportWizard } from "@/composables/useSkillImportWizard";
 import "@/styles/features/skill-import-wizard.css";
 
 const emit = defineEmits<{

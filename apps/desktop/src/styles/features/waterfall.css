@@ -40,7 +40,9 @@
   padding: 4px 10px;
   font-size: 0.8125rem;
   cursor: pointer;
-  transition: background var(--transition-fast), color var(--transition-fast);
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
   white-space: nowrap;
 }
 .nav-btn:hover:not(:disabled) {
@@ -215,7 +217,9 @@
   height: 28px;
   cursor: pointer;
   border-left: 2px solid transparent;
-  transition: background var(--transition-fast), border-color var(--transition-fast);
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast);
 }
 .wf-row:hover,
 .wf-row.hovered {
@@ -291,6 +295,7 @@
   transition: opacity var(--transition-fast);
 }
 .wf-row:hover .bar {
+  /* biome-ignore lint/complexity/noImportantStyles: overrides inline `style="opacity"` set by d3 during render. */
   opacity: 1 !important;
 }
 

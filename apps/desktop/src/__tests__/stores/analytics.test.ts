@@ -1,5 +1,5 @@
-import type { AnalyticsData, CodeImpactData, ToolAnalysisData } from "@tracepilot/types";
 import { setupPinia } from "@tracepilot/test-utils";
+import type { AnalyticsData, CodeImpactData, ToolAnalysisData } from "@tracepilot/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useAnalyticsStore } from "../../stores/analytics";
 

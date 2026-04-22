@@ -10,9 +10,10 @@
  *  - Pointer-based drag to reorder tabs (reliable in WebView2)
  *  - Drag a tab out of the strip to pop it into its own window
  */
+
+import { openSessionWindow } from "@tracepilot/client";
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { useSessionTabsStore } from "@/stores/sessionTabs";
-import { openSessionWindow } from "@tracepilot/client";
 import { logError } from "@/utils/logger";
 
 const props = defineProps<{
@@ -52,17 +53,21 @@ const tabs = computed(() => tabStore.tabs);
 const activeTabId = computed(() => tabStore.activeTabId);
 
 // Trim tabRefs to match current tab count (prevents stale DOM refs on close)
-watch(tabs, () => { tabRefs.value.length = tabs.value.length; });
+watch(tabs, () => {
+  tabRefs.value.length = tabs.value.length;
+});
 
 /** Home pill is "active" only when no tab is selected AND we're on a session route */
-const isHomeActive = computed(
-  () => activeTabId.value === null && (props.isSessionRoute ?? true),
-);
+const isHomeActive = computed(() => activeTabId.value === null && (props.isSessionRoute ?? true));
 
-watch(activeTabId, (id) => {
-  const idx = tabs.value.findIndex((t) => t.sessionId === id);
-  if (idx >= 0) focusedIndex.value = idx;
-}, { immediate: true });
+watch(
+  activeTabId,
+  (id) => {
+    const idx = tabs.value.findIndex((t) => t.sessionId === id);
+    if (idx >= 0) focusedIndex.value = idx;
+  },
+  { immediate: true },
+);
 
 function activate(sessionId: string) {
   tabStore.activateTab(sessionId);
@@ -174,9 +179,10 @@ function onPointerMove(event: PointerEvent) {
       break;
     }
   }
-  insertionIndex.value = targetIdx === dragIndex.value || targetIdx === dragIndex.value + 1
-    ? null // no visual indicator when over the same position
-    : targetIdx;
+  insertionIndex.value =
+    targetIdx === dragIndex.value || targetIdx === dragIndex.value + 1
+      ? null // no visual indicator when over the same position
+      : targetIdx;
 }
 
 function onPointerUp(event: PointerEvent) {

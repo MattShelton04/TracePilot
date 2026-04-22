@@ -59,9 +59,6 @@ export async function importSessions(config: ImportConfig): Promise<ImportResult
 }
 
 /** Export a session folder as a raw zip archive. */
-export async function exportSessionFolderZip(
-  sessionId: string,
-  destPath: string,
-): Promise<void> {
+export async function exportSessionFolderZip(sessionId: string, destPath: string): Promise<void> {
   return invoke("export_session_folder_zip", { sessionId, destPath });
 }

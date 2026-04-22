@@ -1,17 +1,6 @@
-import type {
-  GitHubSkillPreview,
-  LocalSkillPreview,
-  SkillImportResult,
-} from "@tracepilot/types";
+import type { GitHubSkillPreview, LocalSkillPreview, SkillImportResult } from "@tracepilot/types";
 import { toErrorMessage } from "@tracepilot/ui";
-import {
-  computed,
-  inject,
-  type InjectionKey,
-  onMounted,
-  reactive,
-  ref,
-} from "vue";
+import { computed, type InjectionKey, inject, onMounted, reactive, ref } from "vue";
 import { browseForDirectory, browseForFile } from "@/composables/useBrowseDirectory";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSkillsStore } from "@/stores/skills";
@@ -446,9 +435,7 @@ export const SkillImportWizardKey: InjectionKey<SkillImportWizardContext> = Symb
 export function useSkillImportWizardContext(): SkillImportWizardContext {
   const ctx = inject(SkillImportWizardKey);
   if (!ctx) {
-    throw new Error(
-      "useSkillImportWizardContext must be used within a SkillImportWizard shell",
-    );
+    throw new Error("useSkillImportWizardContext must be used within a SkillImportWizard shell");
   }
   return ctx;
 }

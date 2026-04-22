@@ -3,7 +3,6 @@ import {
   mcpCheckHealth,
   mcpCheckServerHealth,
   mcpComputeDiff,
-  mcpGetServer,
   mcpImportFromFile,
   mcpImportFromGitHub,
   mcpListServers,
@@ -13,13 +12,11 @@ import {
 } from "@tracepilot/client";
 import type {
   McpConfigDiff,
-  McpHealthResult,
   McpHealthResultCached,
   McpImportResult,
   McpServerConfig,
   McpServerDetail,
   McpSummary,
-  McpTool,
 } from "@tracepilot/types";
 import { runAction, runMutation, useAsyncGuard } from "@tracepilot/ui";
 import { defineStore } from "pinia";

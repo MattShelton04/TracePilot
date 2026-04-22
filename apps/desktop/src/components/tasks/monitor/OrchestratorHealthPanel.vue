@@ -9,9 +9,7 @@ defineProps<{
   truncateError: (err: string | null, len?: number) => string;
 }>();
 
-const emit = defineEmits<{
-  (e: "toggle"): void;
-}>();
+const emit = defineEmits<(e: "toggle") => void>();
 </script>
 
 <template>

@@ -6,7 +6,7 @@
  * place.
  */
 import type { FileEntry } from "@tracepilot/types";
-import { computed, ref, watch, type Ref } from "vue";
+import { computed, type Ref, ref, watch } from "vue";
 
 export interface UseFileBrowserTreeOptions {
   /** Folders with more files than this are auto-collapsed on load. */
@@ -35,6 +35,7 @@ export function useFileBrowserTree(
       }
       const next = new Set(collapsedFolders.value);
       for (const [folder, count] of Object.entries(counts)) {
+        // biome-ignore lint/style/noNonNullAssertion: this branch only runs when autoCollapseThreshold was provided by the caller.
         if (count > options.autoCollapseThreshold! && !userToggledFolders.value.has(folder)) {
           next.add(folder);
         }

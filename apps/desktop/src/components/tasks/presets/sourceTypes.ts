@@ -21,8 +21,7 @@ export const SOURCE_TYPES: SourceTypeInfo[] = [
   {
     value: "session_export",
     label: "Session Export",
-    description:
-      "Full structured export of a session (conversation, plan, todos, metrics, etc.)",
+    description: "Full structured export of a session (conversation, plan, todos, metrics, etc.)",
     requiresSession: true,
     configSchema: [
       {
@@ -90,8 +89,7 @@ export const SOURCE_TYPES: SourceTypeInfo[] = [
   {
     value: "multi_session_digest",
     label: "Multi-Session Digest",
-    description:
-      "Combined summary of sessions within a time window (daily/weekly)",
+    description: "Combined summary of sessions within a time window (daily/weekly)",
     requiresSession: false,
     configSchema: [
       {
@@ -123,9 +121,7 @@ export function getSourceType(typeValue: string): SourceTypeInfo | undefined {
   return SOURCE_TYPES.find((s) => s.value === typeValue);
 }
 
-export function makeDefaultSourceConfig(
-  info: SourceTypeInfo,
-): Record<string, unknown> {
+export function makeDefaultSourceConfig(info: SourceTypeInfo): Record<string, unknown> {
   const config: Record<string, unknown> = {};
   for (const field of info.configSchema) {
     config[field.key] = field.default;

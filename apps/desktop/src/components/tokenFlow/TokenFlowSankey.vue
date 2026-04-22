@@ -1,11 +1,7 @@
 <script setup lang="ts">
 import { formatNumber } from "@tracepilot/ui";
 import { computed, ref } from "vue";
-import {
-  SANKEY_LAYOUT,
-  type SankeyLink,
-  type SankeyNode,
-} from "@/composables/useSankeyLayout";
+import { SANKEY_LAYOUT, type SankeyLink, type SankeyNode } from "@/composables/useSankeyLayout";
 
 const props = defineProps<{
   sankeyData: { nodes: SankeyNode[]; links: SankeyLink[] };

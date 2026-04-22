@@ -1,20 +1,20 @@
 <script setup lang="ts">
 import {
-  createChartLayout,
   computeGridLines,
+  createChartLayout,
   ErrorState,
   LoadingOverlay,
   PageShell,
   useChartTooltip,
 } from "@tracepilot/ui";
 import { computed } from "vue";
+import AnalyticsPageHeader from "@/components/AnalyticsPageHeader.vue";
 import AnalyticsCacheHealthRow from "@/components/analytics/AnalyticsCacheHealthRow.vue";
 import AnalyticsDistributionRow from "@/components/analytics/AnalyticsDistributionRow.vue";
 import AnalyticsIncidentChart from "@/components/analytics/AnalyticsIncidentChart.vue";
 import AnalyticsMetricPanels from "@/components/analytics/AnalyticsMetricPanels.vue";
 import AnalyticsStatsGrids from "@/components/analytics/AnalyticsStatsGrids.vue";
 import AnalyticsTokenActivityRow from "@/components/analytics/AnalyticsTokenActivityRow.vue";
-import AnalyticsPageHeader from "@/components/AnalyticsPageHeader.vue";
 import { useAnalyticsPage } from "@/composables/useAnalyticsPage";
 import { usePerfMonitor } from "@/composables/usePerfMonitor";
 import { usePreferencesStore } from "@/stores/preferences";

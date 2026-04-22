@@ -1,6 +1,6 @@
 import { type ComputedRef, computed } from "vue";
-import { getChartColors, getSemanticColors } from "@/utils/designTokens";
 import type { ModelEntry } from "@/composables/useTokenFlowData";
+import { getChartColors, getSemanticColors } from "@/utils/designTokens";
 
 export interface SankeyNode {
   id: string;

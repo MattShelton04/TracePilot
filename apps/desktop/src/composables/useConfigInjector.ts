@@ -2,7 +2,7 @@ import { previewBackupRestore } from "@tracepilot/client";
 import type { AgentDefinition } from "@tracepilot/types";
 import { DEFAULT_PREMIUM_MODEL_ID } from "@tracepilot/types";
 import { normalizePath, useToast } from "@tracepilot/ui";
-import { computed, inject, type InjectionKey, onMounted, reactive, ref, watch } from "vue";
+import { computed, type InjectionKey, inject, onMounted, reactive, ref, watch } from "vue";
 import { useConfigInjectorStore } from "@/stores/configInjector";
 
 export interface DiffLine {
@@ -145,7 +145,8 @@ export function useConfigInjector() {
 
   function removeFolder(index: number) {
     editTrustedFolders.value.splice(index, 1);
-  }  const configDiffLines = computed<BackupDiffData>(() => {
+  }
+  const configDiffLines = computed<BackupDiffData>(() => {
     if (!store.copilotConfig) return { left: [], right: [] };
     const current = {
       model: store.copilotConfig.model ?? "",

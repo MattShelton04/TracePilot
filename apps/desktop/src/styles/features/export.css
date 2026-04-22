@@ -447,7 +447,7 @@
   color: var(--text-primary);
   white-space: pre-wrap;
   word-break: break-word;
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-family: "JetBrains Mono", "Fira Code", monospace;
 }
 .export-feature .preview-footer {
   display: flex;
@@ -674,7 +674,9 @@
 
 /* ── Spinner ───────────────────────────────────────────────── */
 @keyframes export-view-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 .export-feature .spinner {
   display: inline-block;

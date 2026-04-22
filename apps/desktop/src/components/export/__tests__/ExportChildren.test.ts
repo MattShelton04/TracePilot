@@ -102,9 +102,9 @@ vi.mock("@tracepilot/ui", () => {
   };
 });
 
+import ExportView from "@/views/ExportView.vue";
 import ExportTab from "../ExportTab.vue";
 import ImportTab from "../ImportTab.vue";
-import ExportView from "@/views/ExportView.vue";
 
 beforeEach(() => {
   setActivePinia(createPinia());

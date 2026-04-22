@@ -1,9 +1,6 @@
 <script setup lang="ts">
 import { EmptyState, formatNumber, SectionPanel } from "@tracepilot/ui";
-import {
-  donutSegments,
-  useSessionComparisonContext,
-} from "@/composables/useSessionComparison";
+import { donutSegments, useSessionComparisonContext } from "@/composables/useSessionComparison";
 
 const comp = useSessionComparisonContext();
 </script>

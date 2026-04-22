@@ -1,6 +1,6 @@
+import { createDeferred, setupPinia } from "@tracepilot/test-utils";
 import type { Skill, SkillAsset, SkillImportResult, SkillSummary } from "@tracepilot/types";
 import { flushPromises } from "@vue/test-utils";
-import { setupPinia, createDeferred } from "@tracepilot/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useSkillsStore } from "../../stores/skills";
 

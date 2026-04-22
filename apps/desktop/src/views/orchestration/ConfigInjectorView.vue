@@ -1,11 +1,5 @@
 <script setup lang="ts">
-import {
-  ErrorAlert,
-  LoadingSpinner,
-  PageHeader,
-  TabNav,
-  useDismissable,
-} from "@tracepilot/ui";
+import { ErrorAlert, LoadingSpinner, PageHeader, TabNav, useDismissable } from "@tracepilot/ui";
 import { computed, provide } from "vue";
 import ConfigInjectorAgentsTab from "@/components/configInjector/ConfigInjectorAgentsTab.vue";
 import ConfigInjectorBackupsTab from "@/components/configInjector/ConfigInjectorBackupsTab.vue";

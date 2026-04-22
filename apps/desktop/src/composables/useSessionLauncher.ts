@@ -3,8 +3,8 @@ import { DEFAULT_MODEL_ID, getTierLabel } from "@tracepilot/types";
 import { formatCost, useClipboard, useConfirmDialog, useToast } from "@tracepilot/ui";
 import {
   computed,
-  inject,
   type InjectionKey,
+  inject,
   onMounted,
   onUnmounted,
   reactive,
@@ -58,9 +58,7 @@ export function useSessionLauncher() {
   const baseBranch = ref("");
 
   // ── Derived ─────────────────────────────────────────────────────────
-  const selectedModelInfo = computed(() =>
-    store.models.find((m) => m.id === selectedModel.value),
-  );
+  const selectedModelInfo = computed(() => store.models.find((m) => m.id === selectedModel.value));
 
   const selectedTemplateName = computed(() => {
     if (!selectedTemplateId.value) return "Custom";

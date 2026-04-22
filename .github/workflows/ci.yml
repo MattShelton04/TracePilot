@@ -103,9 +103,10 @@ jobs:
 
       - name: Frontend lint (biome)
         if: runner.os == 'Linux'
-        # Warnings only — biome formatting churn is non-blocking
-        continue-on-error: true
-        run: pnpm lint
+        # Wave 102: biome warnings + errors are now a hard failure. Any new
+        # lint finding must be fixed or suppressed with a targeted
+        # `biome-ignore <rule>: <reason>` comment in the same PR.
+        run: pnpm biome check --error-on-warnings .
 
       # ── File-size guard-rails ───────────────────────────────
       - name: File size budgets

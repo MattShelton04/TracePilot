@@ -1,5 +1,5 @@
-import type { TrackedSubagent } from "@tracepilot/types";
 import { setupPinia } from "@tracepilot/test-utils";
+import type { TrackedSubagent } from "@tracepilot/types";
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 

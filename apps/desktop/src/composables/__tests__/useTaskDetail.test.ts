@@ -1,5 +1,5 @@
-import type { Task } from "@tracepilot/types";
 import { setupPinia } from "@tracepilot/test-utils";
+import type { Task } from "@tracepilot/types";
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
@@ -15,9 +15,7 @@ const toastSuccess = vi.fn();
 const toastError = vi.fn();
 const confirmMock = vi.fn(async () => ({ confirmed: true }));
 vi.mock("@tracepilot/ui", async () => {
-  const actual = await vi.importActual<Record<string, unknown>>(
-    "@tracepilot/ui",
-  );
+  const actual = await vi.importActual<Record<string, unknown>>("@tracepilot/ui");
   return {
     ...actual,
     useToast: () => ({
@@ -49,12 +47,7 @@ vi.mock("@/stores/tasks", async (importOriginal) => {
   };
 });
 
-import {
-  computeTimelineEvents,
-  formatValue,
-  isSimpleValue,
-  useTaskDetail,
-} from "../useTaskDetail";
+import { computeTimelineEvents, formatValue, isSimpleValue, useTaskDetail } from "../useTaskDetail";
 
 function makeTask(overrides: Partial<Task> = {}): Task {
   return {

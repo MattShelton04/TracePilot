@@ -1,5 +1,5 @@
+import { makeTurn, makeTurnToolCall, setupPinia } from "@tracepilot/test-utils";
 import { mount } from "@vue/test-utils";
-import { setupPinia, makeTurn, makeTurnToolCall } from "@tracepilot/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import AgentTreeView from "../../../components/timeline/AgentTreeView.vue";
@@ -119,9 +119,7 @@ describe("AgentTreeView — wave 37 child components & keyboard", () => {
     store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agentTc] })];
 
     const wrapper = mountView();
-    const node = wrapper
-      .findAll(".agent-node")
-      .find((n) => n.text().includes("Keyboard Agent"))!;
+    const node = wrapper.findAll(".agent-node").find((n) => n.text().includes("Keyboard Agent"))!;
     await node.trigger("keydown", { key: "Enter" });
     await nextTick();
     expect(wrapper.find(".detail-panel").exists()).toBe(true);
@@ -137,9 +135,7 @@ describe("AgentTreeView — wave 37 child components & keyboard", () => {
     store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agentTc] })];
 
     const wrapper = mountView();
-    const node = wrapper
-      .findAll(".agent-node")
-      .find((n) => n.text().includes("Space Agent"))!;
+    const node = wrapper.findAll(".agent-node").find((n) => n.text().includes("Space Agent"))!;
     await node.trigger("keydown", { key: " " });
     await nextTick();
     expect(wrapper.find(".detail-panel").exists()).toBe(true);
@@ -156,9 +152,7 @@ describe("AgentTreeView — wave 37 child components & keyboard", () => {
 
     const wrapper = mountView();
     // Select node first
-    const node = wrapper
-      .findAll(".agent-node")
-      .find((n) => n.text().includes("Esc Agent"))!;
+    const node = wrapper.findAll(".agent-node").find((n) => n.text().includes("Esc Agent"))!;
     await node.trigger("click");
     await nextTick();
     expect(wrapper.find(".detail-panel").exists()).toBe(true);
@@ -223,9 +217,7 @@ describe("AgentTreeView — wave 37 child components & keyboard", () => {
 
     const wrapper = mountView();
     // Jump to last turn via the toolbar button
-    const latestBtn = wrapper
-      .findAll(".turn-nav-btn")
-      .find((b) => b.text().includes("Latest"))!;
+    const latestBtn = wrapper.findAll(".turn-nav-btn").find((b) => b.text().includes("Latest"))!;
     await latestBtn.trigger("click");
     await nextTick();
     expect(wrapper.text()).toContain("Turn B");
@@ -259,9 +251,7 @@ describe("AgentTreeView — wave 37 child components & keyboard", () => {
     ];
 
     const wrapper = mountView();
-    const unifiedBtn = wrapper
-      .findAll(".view-mode-btn")
-      .find((b) => b.text().includes("Unified"))!;
+    const unifiedBtn = wrapper.findAll(".view-mode-btn").find((b) => b.text().includes("Unified"))!;
     await unifiedBtn.trigger("click");
     await nextTick();
 

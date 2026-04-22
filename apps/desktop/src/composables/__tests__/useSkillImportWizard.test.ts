@@ -1,5 +1,5 @@
-import type { LocalSkillPreview, SkillImportResult } from "@tracepilot/types";
 import { setupPinia } from "@tracepilot/test-utils";
+import type { LocalSkillPreview, SkillImportResult } from "@tracepilot/types";
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
@@ -9,12 +9,12 @@ const skillsStoreMock = {
   error: null as string | null,
   discoverLocal: vi.fn<(dir: string) => Promise<LocalSkillPreview[]>>(async () => []),
   discoverGitHub: vi.fn(async () => [] as LocalSkillPreview[]),
-  importLocal: vi.fn<
-    (dir: string, scope?: string) => Promise<SkillImportResult | null>
-  >(async () => null),
-  importFile: vi.fn<
-    (path: string, scope?: string) => Promise<SkillImportResult | null>
-  >(async () => null),
+  importLocal: vi.fn<(dir: string, scope?: string) => Promise<SkillImportResult | null>>(
+    async () => null,
+  ),
+  importFile: vi.fn<(path: string, scope?: string) => Promise<SkillImportResult | null>>(
+    async () => null,
+  ),
   importGitHub: vi.fn(async () => null as SkillImportResult | null),
   importGitHubSkill: vi.fn(async () => null as SkillImportResult | null),
 };
@@ -140,10 +140,7 @@ describe("useSkillImportWizard", () => {
   });
 
   it("toggleLocalSkill and toggleAllLocalSkills manage selection", async () => {
-    const previews = [
-      makeLocalPreview({ path: "/a" }),
-      makeLocalPreview({ path: "/b" }),
-    ];
+    const previews = [makeLocalPreview({ path: "/a" }), makeLocalPreview({ path: "/b" })];
     skillsStoreMock.discoverLocal = vi.fn(async () => previews);
     const { wizard } = mountWizard();
     wizard.localDir = "/repo";
@@ -166,12 +163,7 @@ describe("useSkillImportWizard", () => {
     expect(wizard.ghRepo).toBe("tools");
     expect(wizard.ghRef).toBe("main");
     expect(wizard.ghPath).toBe("skills");
-    expect(skillsStoreMock.discoverGitHub).toHaveBeenCalledWith(
-      "acme",
-      "tools",
-      "skills",
-      "main",
-    );
+    expect(skillsStoreMock.discoverGitHub).toHaveBeenCalledWith("acme", "tools", "skills", "main");
   });
 
   it("scanGitHub reports a parse error on unparseable input", async () => {

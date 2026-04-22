@@ -60,13 +60,8 @@ const turns = computed(() => store.turns);
 /*  Layout (pure math/grouping)                                       */
 /* ------------------------------------------------------------------ */
 
-const {
-  groupedPhases,
-  allAgentToolCalls,
-  nestedTools,
-  directTools,
-  countNestedTools,
-} = useSwimlaneLayout(turns, allToolCalls);
+const { groupedPhases, allAgentToolCalls, nestedTools, directTools, countNestedTools } =
+  useSwimlaneLayout(turns, allToolCalls);
 
 /* ------------------------------------------------------------------ */
 /*  Live-ticking for in-progress subagents                            */

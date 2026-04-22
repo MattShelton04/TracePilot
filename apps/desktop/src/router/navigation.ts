@@ -1,9 +1,4 @@
-import type {
-  LocationQueryRaw,
-  NavigationFailure,
-  RouteParamsRaw,
-  Router,
-} from "vue-router";
+import type { LocationQueryRaw, NavigationFailure, RouteParamsRaw, Router } from "vue-router";
 import { ROUTE_NAMES, type RouteName } from "@/config/routes";
 
 /**
@@ -24,6 +19,7 @@ export function pushRoute(
   router: Router,
   name: RouteName,
   options: PushRouteOptions = {},
+  // biome-ignore lint/suspicious/noConfusingVoidType: matches Vue Router's `router.push/replace` return type.
 ): Promise<NavigationFailure | void | undefined> {
   const { params, query, hash, replace } = options;
   const location = {

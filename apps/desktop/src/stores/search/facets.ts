@@ -54,8 +54,7 @@ export function createFacetsSlice(q: QuerySlice) {
       const ct = overrides?.contentTypes ?? q.contentTypes.value;
       const repo = overrides?.repo ?? q.repository.value;
       const tool = overrides?.tool ?? q.toolName.value;
-      const session =
-        overrides?.session !== undefined ? overrides.session : q.sessionId.value;
+      const session = overrides?.session !== undefined ? overrides.session : q.sessionId.value;
 
       // Skip re-fetch for unfiltered browse-mode calls when results are already fresh.
       // Filter-scoped fetches (after a search) always run to reflect the current query.

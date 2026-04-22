@@ -2,14 +2,14 @@ import type { GitHubSkillPreview, LocalSkillPreview } from "@tracepilot/types";
 import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import { defineComponent, h, provide, reactive } from "vue";
+import {
+  type SkillImportWizardContext,
+  SkillImportWizardKey,
+} from "@/composables/useSkillImportWizard";
 import SkillImportWizard from "../../SkillImportWizard.vue";
 import SkillImportStep1Local from "../SkillImportStep1Local.vue";
 import SkillImportStep2GitHub from "../SkillImportStep2GitHub.vue";
 import SkillImportStep3File from "../SkillImportStep3File.vue";
-import {
-  SkillImportWizardKey,
-  type SkillImportWizardContext,
-} from "@/composables/useSkillImportWizard";
 
 // ── Mocks for shell-level (full-mount) tests ───────────────────────────
 vi.mock("@/stores/skills", () => ({
@@ -42,7 +42,9 @@ vi.mock("@/composables/useBrowseDirectory", () => ({
 vi.mock("@/styles/features/skill-import-wizard.css", () => ({}));
 
 // ── Shared stub builder ────────────────────────────────────────────────
-function makeWizardStub(overrides: Partial<SkillImportWizardContext> = {}): SkillImportWizardContext {
+function makeWizardStub(
+  overrides: Partial<SkillImportWizardContext> = {},
+): SkillImportWizardContext {
   const base = {
     worktreeStore: { registeredRepos: [] as Array<{ name: string; path: string }> },
     prefsStore: { recentRepoPaths: [] as string[] },

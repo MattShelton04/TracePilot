@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { SectionPanel } from "@tracepilot/ui";
 import type { TrackedSubagent } from "@tracepilot/types";
+import { SectionPanel } from "@tracepilot/ui";
 
 defineProps<{
   agents: TrackedSubagent[];
@@ -10,9 +10,7 @@ defineProps<{
   durationBetween: (start: string | null, end: string | null) => string;
 }>();
 
-const emit = defineEmits<{
-  (e: "view-task", id: string): void;
-}>();
+const emit = defineEmits<(e: "view-task", id: string) => void>();
 </script>
 
 <template>

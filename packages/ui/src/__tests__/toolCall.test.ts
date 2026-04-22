@@ -101,7 +101,7 @@ describe("formatArgsSummary", () => {
     expect(formatArgsSummary({ command: "ls -la" }, "powershell")).toBe("ls -la");
 
     const longCommand = "a".repeat(200);
-    const expectedTruncated = "a".repeat(150) + "…";
+    const expectedTruncated = `${"a".repeat(150)}…`;
     expect(formatArgsSummary({ command: longCommand }, "powershell")).toBe(expectedTruncated);
   });
 

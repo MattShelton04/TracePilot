@@ -420,7 +420,9 @@
 
 .result-card:hover {
   border-color: var(--border-accent);
-  box-shadow: var(--shadow-md), 0 0 0 1px var(--border-glow);
+  box-shadow:
+    var(--shadow-md),
+    0 0 0 1px var(--border-glow);
 }
 
 .result-header {
@@ -850,6 +852,7 @@
   flex-shrink: 0;
 }
 
+/* biome-ignore lint/style/noDescendingSpecificity: base .facet-label styles follow the dotted-indicator rule intentionally for readability of grouped facet rules. */
 .facet-label {
   flex: 1;
   font-size: 0.6875rem;
@@ -989,7 +992,9 @@
   padding: 0;
   margin-left: 2px;
   opacity: 0.6;
-  transition: opacity var(--transition-fast), background var(--transition-fast);
+  transition:
+    opacity var(--transition-fast),
+    background var(--transition-fast);
 }
 
 .filter-chip-remove:hover {

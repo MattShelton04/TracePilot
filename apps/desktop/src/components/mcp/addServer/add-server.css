@@ -16,8 +16,12 @@
 }
 
 @keyframes backdropIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .add-modal {
@@ -27,7 +31,10 @@
   background: var(--canvas-overlay);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-lg), 0 0 0 1px var(--border-glow), 0 0 80px rgba(99, 102, 241, 0.06);
+  box-shadow:
+    var(--shadow-lg),
+    0 0 0 1px var(--border-glow),
+    0 0 80px rgba(99, 102, 241, 0.06);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -35,8 +42,14 @@
 }
 
 @keyframes modalIn {
-  from { opacity: 0; transform: translateY(12px) scale(0.97); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .modal-header-wrap {
@@ -113,8 +126,13 @@
   overflow-y: auto;
 }
 
-.custom-form-col::-webkit-scrollbar { width: 5px; }
-.custom-form-col::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: var(--radius-full); }
+.custom-form-col::-webkit-scrollbar {
+  width: 5px;
+}
+.custom-form-col::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: var(--radius-full);
+}
 
 .custom-preview-col {
   width: 320px;
@@ -435,6 +453,13 @@
 }
 
 @media (max-width: 700px) {
-  .custom-layout { flex-direction: column; }
-  .custom-preview-col { width: auto; min-width: 0; border-left: none; border-top: 1px solid var(--border-default); }
+  .custom-layout {
+    flex-direction: column;
+  }
+  .custom-preview-col {
+    width: auto;
+    min-width: 0;
+    border-left: none;
+    border-top: 1px solid var(--border-default);
+  }
 }

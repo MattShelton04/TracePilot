@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { PageHeader, PageShell } from "@tracepilot/ui";
 import { onMounted } from "vue";
+import PresetDetailSlideover from "@/components/tasks/PresetDetailSlideover.vue";
 import DeletePresetConfirm from "@/components/tasks/presets/DeletePresetConfirm.vue";
 import EditPresetModal from "@/components/tasks/presets/EditPresetModal.vue";
 import NewPresetModal from "@/components/tasks/presets/NewPresetModal.vue";
@@ -8,7 +9,6 @@ import PresetFilterBar from "@/components/tasks/presets/PresetFilterBar.vue";
 import PresetGrid from "@/components/tasks/presets/PresetGrid.vue";
 import PresetList from "@/components/tasks/presets/PresetList.vue";
 import PresetStatsStrip from "@/components/tasks/presets/PresetStatsStrip.vue";
-import PresetDetailSlideover from "@/components/tasks/PresetDetailSlideover.vue";
 import { usePresetManager } from "@/composables/usePresetManager";
 import "@/styles/features/preset-manager.css";
 

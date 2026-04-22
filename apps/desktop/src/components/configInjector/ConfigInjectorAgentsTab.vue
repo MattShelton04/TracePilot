@@ -1,14 +1,9 @@
 <script setup lang="ts">
 import type { AgentDefinition } from "@tracepilot/types";
-import {
-  getAllModelIds,
-  getModelsByTier,
-  getModelTier,
-  getTierLabel,
-} from "@tracepilot/types";
+import { getAllModelIds, getModelsByTier, getModelTier, getTierLabel } from "@tracepilot/types";
 import { EmptyState, StatCard, truncateText } from "@tracepilot/ui";
 import { computed } from "vue";
-import { useConfigInjectorContext, TOOLS_COLLAPSE_LIMIT } from "@/composables/useConfigInjector";
+import { TOOLS_COLLAPSE_LIMIT, useConfigInjectorContext } from "@/composables/useConfigInjector";
 import { agentMeta } from "./agentMeta";
 
 const ctx = useConfigInjectorContext();

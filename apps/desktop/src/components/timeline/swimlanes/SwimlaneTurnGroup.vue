@@ -5,12 +5,12 @@ import {
   ExpandChevron,
   formatDuration,
   getToolStatusColor,
-  toolIcon,
   ToolDetailPanel,
+  toolIcon,
   truncateText,
 } from "@tracepilot/ui";
-import { computed } from "vue";
 import type { Ref } from "vue";
+import { computed } from "vue";
 import {
   agentKey,
   barWidthPct,

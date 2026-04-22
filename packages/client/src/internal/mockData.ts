@@ -21,6 +21,7 @@ import { createDefaultConfig } from "@tracepilot/types";
 import type { GitInfo, UpdateCheckResult } from "../generated/bindings.js";
 
 import type { ContextSnippet, FtsHealthInfo } from "../search.js";
+
 // Note: the import above is `type`-only, so there is no runtime cycle with
 // `search.ts` which imports the shared `invoke` helper from `./internal/core.js`.
 

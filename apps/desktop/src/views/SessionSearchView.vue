@@ -17,9 +17,7 @@ import { useSessionSearch } from "@/composables/useSessionSearch";
 import "@/styles/features/session-search.css";
 
 const heroRef = ref<InstanceType<typeof SessionSearchHero> | null>(null);
-const searchInputRef = computed<HTMLInputElement | null>(
-  () => heroRef.value?.inputRef ?? null,
-);
+const searchInputRef = computed<HTMLInputElement | null>(() => heroRef.value?.inputRef ?? null);
 
 const {
   store,

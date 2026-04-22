@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { ConversationTurn } from "@tracepilot/types";
-import { useConversationSections } from "@tracepilot/ui";
-import { useToggleSet } from "@tracepilot/ui";
+import { useConversationSections, useToggleSet } from "@tracepilot/ui";
 import { computed, nextTick, ref } from "vue";
 import { useRoute } from "vue-router";
 import GapIndicator from "@/components/conversation/chat/GapIndicator.vue";
@@ -162,7 +161,8 @@ function revealEvent(turnIndex: number, eventIndex?: number) {
   const root = cvRootEl.value;
   if (!root) return;
 
-  const elId = eventIndex != null ? `[data-event-idx="${eventIndex}"]` : `[data-turn-idx="${turnIndex}"]`;
+  const elId =
+    eventIndex != null ? `[data-event-idx="${eventIndex}"]` : `[data-turn-idx="${turnIndex}"]`;
   let el = root.querySelector<HTMLElement>(elId);
 
   // If event not in DOM, check if it belongs to a subagent and open the panel

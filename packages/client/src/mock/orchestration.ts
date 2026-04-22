@@ -159,9 +159,11 @@ export const ORCHESTRATION_MOCK_DATA: Record<string, unknown> = {
   get_agent_definitions: [
     {
       name: "explore",
-      filePath: "C:\\Users\\mattt\\.copilot\\pkg\\universal\\1.0.9\\definitions\\explore.agent.yaml",
+      filePath:
+        "C:\\Users\\mattt\\.copilot\\pkg\\universal\\1.0.9\\definitions\\explore.agent.yaml",
       model: "claude-haiku-4.5",
-      description: "Fast agent specialized for exploring codebases and answering questions about code.",
+      description:
+        "Fast agent specialized for exploring codebases and answering questions about code.",
       tools: ["grep", "glob", "view", "bash"],
       promptExcerpt: "Fast agent specialized for exploring codebases...",
       rawYaml:
@@ -189,7 +191,8 @@ export const ORCHESTRATION_MOCK_DATA: Record<string, unknown> = {
     },
     {
       name: "research",
-      filePath: "C:\\Users\\mattt\\.copilot\\pkg\\universal\\1.0.9\\definitions\\research.agent.yaml",
+      filePath:
+        "C:\\Users\\mattt\\.copilot\\pkg\\universal\\1.0.9\\definitions\\research.agent.yaml",
       model: "claude-sonnet-4.6",
       description: "Deep research agent for complex multi-step analysis and investigation.",
       tools: ["bash", "grep", "glob", "view", "web_search", "web_fetch"],

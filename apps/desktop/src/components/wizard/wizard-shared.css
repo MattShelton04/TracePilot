@@ -39,7 +39,10 @@
   font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 180ms ease, opacity 180ms ease, box-shadow 180ms ease;
+  transition:
+    background 180ms ease,
+    opacity 180ms ease,
+    box-shadow 180ms ease;
 }
 
 .btn-accent:hover:not(:disabled) {
@@ -67,7 +70,7 @@
 .spinner {
   width: 14px;
   height: 14px;
-  border: 2px solid var(--border-default, rgba(255, 255, 255, 0.10));
+  border: 2px solid var(--border-default, rgba(255, 255, 255, 0.1));
   border-top-color: var(--accent-fg);
   border-radius: 50%;
   animation: spin 600ms linear infinite;

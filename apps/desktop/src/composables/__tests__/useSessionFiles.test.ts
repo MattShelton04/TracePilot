@@ -52,8 +52,20 @@ describe("useSessionFiles", () => {
 
   it("loads files when sessionId is provided", async () => {
     const fakeEntries = [
-      { path: "events.jsonl", name: "events.jsonl", sizeBytes: 1024, isDirectory: false, fileType: "jsonl" },
-      { path: "workspace.yaml", name: "workspace.yaml", sizeBytes: 256, isDirectory: false, fileType: "yaml" },
+      {
+        path: "events.jsonl",
+        name: "events.jsonl",
+        sizeBytes: 1024,
+        isDirectory: false,
+        fileType: "jsonl",
+      },
+      {
+        path: "workspace.yaml",
+        name: "workspace.yaml",
+        sizeBytes: 256,
+        isDirectory: false,
+        fileType: "yaml",
+      },
     ];
     mockSessionListFiles.mockResolvedValue(fakeEntries);
 
@@ -80,7 +92,13 @@ describe("useSessionFiles", () => {
 
   it("loads file content when selectFile is called with a text type", async () => {
     mockSessionListFiles.mockResolvedValue([
-      { path: "workspace.yaml", name: "workspace.yaml", sizeBytes: 100, isDirectory: false, fileType: "yaml" },
+      {
+        path: "workspace.yaml",
+        name: "workspace.yaml",
+        sizeBytes: 100,
+        isDirectory: false,
+        fileType: "yaml",
+      },
     ]);
     mockSessionReadFile.mockResolvedValue("cwd: /home/user\n");
 
@@ -97,7 +115,13 @@ describe("useSessionFiles", () => {
 
   it("does not call sessionReadFile for sqlite files", async () => {
     mockSessionListFiles.mockResolvedValue([
-      { path: "session.db", name: "session.db", sizeBytes: 4096, isDirectory: false, fileType: "sqlite" },
+      {
+        path: "session.db",
+        name: "session.db",
+        sizeBytes: 4096,
+        isDirectory: false,
+        fileType: "sqlite",
+      },
     ]);
     mockSessionReadSqlite.mockResolvedValue([]);
 
@@ -119,7 +143,13 @@ describe("useSessionFiles", () => {
       { name: "todos", columns: ["id", "title", "status"], rows: [["1", "Fix bug", "done"]] },
     ];
     mockSessionListFiles.mockResolvedValue([
-      { path: "session.db", name: "session.db", sizeBytes: 4096, isDirectory: false, fileType: "sqlite" },
+      {
+        path: "session.db",
+        name: "session.db",
+        sizeBytes: 4096,
+        isDirectory: false,
+        fileType: "sqlite",
+      },
     ]);
     mockSessionReadSqlite.mockResolvedValue(fakeTables);
 
@@ -174,14 +204,24 @@ describe("useSessionFiles", () => {
 
   it("resets state when sessionId changes", async () => {
     const firstEntries = [
-      { path: "events.jsonl", name: "events.jsonl", sizeBytes: 500, isDirectory: false, fileType: "jsonl" },
+      {
+        path: "events.jsonl",
+        name: "events.jsonl",
+        sizeBytes: 500,
+        isDirectory: false,
+        fileType: "jsonl",
+      },
     ];
     const secondEntries = [
-      { path: "workspace.yaml", name: "workspace.yaml", sizeBytes: 100, isDirectory: false, fileType: "yaml" },
+      {
+        path: "workspace.yaml",
+        name: "workspace.yaml",
+        sizeBytes: 100,
+        isDirectory: false,
+        fileType: "yaml",
+      },
     ];
-    mockSessionListFiles
-      .mockResolvedValueOnce(firstEntries)
-      .mockResolvedValueOnce(secondEntries);
+    mockSessionListFiles.mockResolvedValueOnce(firstEntries).mockResolvedValueOnce(secondEntries);
     mockSessionReadFile.mockResolvedValue("# Notes\n");
 
     // Mount with first session
@@ -218,12 +258,14 @@ describe("useSessionFiles", () => {
 
     let resolveA!: (v: string) => void;
     let resolveB!: (v: string) => void;
-    const promiseA = new Promise<string>((r) => { resolveA = r; });
-    const promiseB = new Promise<string>((r) => { resolveB = r; });
+    const promiseA = new Promise<string>((r) => {
+      resolveA = r;
+    });
+    const promiseB = new Promise<string>((r) => {
+      resolveB = r;
+    });
 
-    mockSessionReadFile
-      .mockReturnValueOnce(promiseA)
-      .mockReturnValueOnce(promiseB);
+    mockSessionReadFile.mockReturnValueOnce(promiseA).mockReturnValueOnce(promiseB);
 
     const { instance } = mountComposable("test-session-id");
     await new Promise<void>((resolve) => setTimeout(resolve, 50));
@@ -247,11 +289,29 @@ describe("useSessionFiles", () => {
 
   it("reload re-fetches files for the current session", async () => {
     const initialEntries = [
-      { path: "plan.md", name: "plan.md", sizeBytes: 200, isDirectory: false, fileType: "markdown" },
+      {
+        path: "plan.md",
+        name: "plan.md",
+        sizeBytes: 200,
+        isDirectory: false,
+        fileType: "markdown",
+      },
     ];
     const reloadedEntries = [
-      { path: "plan.md", name: "plan.md", sizeBytes: 300, isDirectory: false, fileType: "markdown" },
-      { path: "notes.md", name: "notes.md", sizeBytes: 100, isDirectory: false, fileType: "markdown" },
+      {
+        path: "plan.md",
+        name: "plan.md",
+        sizeBytes: 300,
+        isDirectory: false,
+        fileType: "markdown",
+      },
+      {
+        path: "notes.md",
+        name: "notes.md",
+        sizeBytes: 100,
+        isDirectory: false,
+        fileType: "markdown",
+      },
     ];
     mockSessionListFiles
       .mockResolvedValueOnce(initialEntries)

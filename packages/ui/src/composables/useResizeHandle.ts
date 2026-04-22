@@ -4,11 +4,7 @@ import { onMounted, onUnmounted, ref } from "vue";
  * Composable for resizable split-panel layout.
  * Returns reactive `leftWidth` (percentage) and mouse handlers.
  */
-export function useResizeHandle(options?: {
-  minPct?: number;
-  maxPct?: number;
-  initial?: number;
-}) {
+export function useResizeHandle(options?: { minPct?: number; maxPct?: number; initial?: number }) {
   const min = options?.minPct ?? 20;
   const max = options?.maxPct ?? 80;
   const leftWidth = ref(options?.initial ?? 50);

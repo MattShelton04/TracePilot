@@ -177,7 +177,6 @@ describe("useAlertWatcherStore", () => {
       store.setLastErrorCount("s1", 2);
       store.askUserPollInFlight = true;
       store.seedInFlight = true;
-      // biome-ignore lint/suspicious/noExplicitAny: minimal fake route for test
       store.setCapturedRoute({ params: { id: "s1" } } as any);
 
       store.$reset();

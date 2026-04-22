@@ -6,9 +6,9 @@
  * drive state + the rAF loop.
  */
 
+import type { Ref } from "vue";
 import type { ConnectionManager } from "@/composables/orbitalConnections";
 import type { OrbitNode, RepoLegendItem } from "@/composables/useOrbitalAnimation";
-import type { Ref } from "vue";
 import {
   assignLane,
   getRepoPalette,

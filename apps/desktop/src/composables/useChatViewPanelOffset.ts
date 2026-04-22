@@ -1,4 +1,4 @@
-import { onMounted, onUnmounted, ref, type Ref } from "vue";
+import { onMounted, onUnmounted, type Ref, ref } from "vue";
 
 /**
  * Tracks the correct top offset for the fixed-position subagent panel so it
