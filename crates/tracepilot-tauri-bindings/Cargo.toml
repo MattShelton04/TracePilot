@@ -4,9 +4,19 @@ description = "Tauri IPC command layer bridging the frontend to tracepilot-core"
 version.workspace = true
 edition.workspace = true
 
+# ── Cargo features ───────────────────────────────────────────────
+# `copilot-sdk` — forwards to `tracepilot-orchestrator/copilot-sdk`,
+#   which in turn gates the `copilot-sdk` git dependency and all
+#   bridge code that talks to the Copilot CLI via JSON-RPC. This
+#   crate itself does NOT reference the `copilot_sdk` types directly;
+#   everything goes through orchestrator's `BridgeManager`. The
+#   feature is default-on so standard builds ship the SDK bridge;
+#   `--no-default-features` yields a shippable binary whose bridge
+#   methods return `BridgeError::NotAvailable`. See
+#   `docs/copilot-sdk-usage.md` for the full feature chain.
 [features]
 default = ["copilot-sdk"]
-copilot-sdk = ["tracepilot-orchestrator/copilot-sdk", "dep:copilot-sdk"]
+copilot-sdk = ["tracepilot-orchestrator/copilot-sdk"]
 
 [dependencies]
 tracepilot-core = { workspace = true }
@@ -26,7 +36,6 @@ uuid = { workspace = true }
 lru = "0.12"
 reqwest = { workspace = true }
 semver = { workspace = true }
-copilot-sdk = { workspace = true, optional = true }
 walkdir = "2"
 zip = { version = "4", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 

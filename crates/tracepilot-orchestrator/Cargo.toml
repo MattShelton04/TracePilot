@@ -4,6 +4,14 @@ description = "Orchestration capabilities: worktrees, session launching, config 
 version.workspace = true
 edition.workspace = true
 
+# ── Cargo features ───────────────────────────────────────────────
+# `copilot-sdk` — enables the optional `copilot-sdk` git dependency
+#   plus all `#[cfg(feature = "copilot-sdk")]`-gated bridge code in
+#   `src/bridge/manager/`. Default-on so normal builds include the
+#   SDK bridge. `--no-default-features` compiles every bridge method
+#   as a stub that returns `BridgeError::NotAvailable`, so the crate
+#   stays shippable without the external git dep (useful for air-
+#   gapped CI or bisecting SDK regressions).
 [features]
 default = ["copilot-sdk"]
 copilot-sdk = ["dep:copilot-sdk"]

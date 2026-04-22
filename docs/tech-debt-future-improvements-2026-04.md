@@ -672,3 +672,24 @@ actionable so a future engineer can pick them up.
 - **Proposed change**: Migrate peerDeps to `catalog:` references where the exact range is intentional; set up a named catalog (`catalog:tauri`) if more plugins land; revisit single-consumer deps each wave.
 - **Risk / why deferred**: Peer-dep semantics differ slightly — touching them risks changing the resolution surface for downstream consumers; deserves explicit validation.
 - **Effort**: S
+
+### w105 — Re-evaluate default-on `copilot-sdk` feature
+- **Area**: `crates/tracepilot-orchestrator/Cargo.toml`, `crates/tracepilot-tauri-bindings/Cargo.toml`, `apps/desktop/src-tauri/Cargo.toml`.
+- **Observation**: The `copilot-sdk` feature is default-on everywhere and pulls a git dependency (`copilot-community-sdk/copilot-sdk-rust` @ `2946ba1`). All shipping builds include it, and CI never exercises the `--no-default-features` path. The `#[cfg(not(feature = "copilot-sdk"))]` stubs in `bridge/manager/*` are therefore an untested alternate reality.
+- **Proposed change**: Either (a) add an explicit CI job that builds `tracepilot-orchestrator --no-default-features` so the stubs stay honest, or (b) drop the feature entirely, delete the ~20 stub branches, and hard-require the SDK. Option (b) removes a ~3x multiplier from the feature-matrix of `bridge/manager/`.
+- **Risk / why deferred**: Product decision — do we want an SDK-less build path for air-gapped/bisect scenarios? If yes, option (a); if no, option (b). Either way is breaking-ish for out-of-tree consumers.
+- **Effort**: S (option a) / M (option b)
+
+### w105 — No workspace lint on unused optional deps
+- **Area**: Cargo feature hygiene across `crates/`.
+- **Observation**: `tracepilot-tauri-bindings` had `copilot-sdk = { workspace = true, optional = true }` plus `"dep:copilot-sdk"` in its feature list despite the crate never importing `copilot_sdk::*` (the SDK is used transitively via `tracepilot-orchestrator`). This only surfaced by grepping `use copilot_sdk`. Cargo has no built-in warning for optional deps that are declared but unused in the crate's own source.
+- **Proposed change**: Add a pre-commit or CI script that, for each crate, intersects `[dependencies.*]` with `use <crate>::` references (normalising `-` → `_`) and flags mismatches. Run in `lefthook` pre-push.
+- **Risk / why deferred**: Script-complexity — has to understand re-exports and macro-generated `use`s. Nice-to-have, not urgent.
+- **Effort**: M
+
+### w105 — No local `tracepilot-copilot-sdk` crate exists
+- **Area**: Workspace layout vs. tech-debt master plan.
+- **Observation**: The w105 plan entry targets a `tracepilot-copilot-sdk` crate that doesn't exist in this workspace — the SDK is an external git dependency consumed by `tracepilot-orchestrator` and forwarded through `tracepilot-tauri-bindings` → `tracepilot-desktop`. The wave therefore operated on the `copilot-sdk` *feature chain* rather than an SDK crate.
+- **Proposed change**: Update `docs/tech-debt-master-plan-2026-04.md` so future waves reference the actual crate names (`tracepilot-orchestrator` for bridge/SDK concerns). Alternatively, extract the `bridge/manager/` module into its own `tracepilot-copilot-sdk-bridge` crate to match the intent of the plan.
+- **Risk / why deferred**: Doc-only fix is cheap; the extraction is a multi-wave refactor touching every `#[cfg(feature = "copilot-sdk")]` site.
+- **Effort**: S (doc) / L (extraction)

@@ -6069,7 +6069,6 @@ version = "0.6.3"
 dependencies = [
  "anyhow",
  "chrono",
- "copilot-sdk",
  "embed-manifest",
  "lru",
  "reqwest 0.12.28",
