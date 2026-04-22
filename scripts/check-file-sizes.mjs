@@ -42,11 +42,6 @@ const BUDGETS = {
 // Populate this list by running `node scripts/check-file-sizes.mjs --list`
 // after the first CI run and committing the output, then removing entries
 // as files are split.
-// Existing violations at the point of enabling this guard. New violations
-// are fatal; existing ones are accepted but must only shrink over time.
-// Populate this list by running `node scripts/check-file-sizes.mjs --list`
-// after the first CI run and committing the output, then removing entries
-// as files are split.
 const ALLOWLIST = new Set([
   // ── Vue SFCs (Phase 4 decomposition targets) ───────────────────
 
@@ -55,7 +50,7 @@ const ALLOWLIST = new Set([
   "apps/desktop/src/stores/sdk/connection.ts",
 
   // ── Rust god-modules (Phase 4 decomposition targets) ───────────
-  // TODO: split ErrorCode variants into domain submodules when BindingsError grows further
+  // TODO(FI-w123-error-variants): split ErrorCode variants into domain submodules when BindingsError grows further
   "crates/tracepilot-tauri-bindings/src/error.rs",
   "crates/tracepilot-orchestrator/src/bridge/manager.rs",
   // TODO(wave-2): decompose — see Phase 4 of docs/archive/2026-04/tech-debt-plan-revised-2026-04.md
@@ -78,9 +73,9 @@ const ALLOWLIST = new Set([
   "crates/tracepilot-core/src/summary/mod.rs",
   "crates/tracepilot-bench/src/lib.rs",
   "crates/tracepilot-export/src/import/writer.rs",
-  // TODO: split tests into a separate file to bring under 500 lines
+  // TODO(FI-w123-backup-tests): split tests into a separate file to bring under 500 lines
   "crates/tracepilot-core/src/utils/backup.rs",
-  // TODO: split run_migrations out into a dedicated module
+  // TODO(FI-w123-migrations-module): split run_migrations out into a dedicated module
   "crates/tracepilot-indexer/src/index_db/migrations.rs",
 
   // ── Rust test files ─────────────────────────────────────────────

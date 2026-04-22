@@ -905,3 +905,27 @@ actionable so a future engineer can pick them up.
 - **Proposed change**: Once the deterministic fixture work (entry above) is done, add a Playwright CT project that mounts top-level views with a mocked Tauri IPC transport (stub `window.__TAURI_INTERNALS__.invoke` to return fixture payloads) and snapshots key variants. Keep it off default CI until a Linux baseline job exists, same policy as the current VRT harness.
 - **Risk / why deferred**: Needs the IPC mock layer plus deterministic fixtures; otherwise baselines will churn on every unrelated data change.
 - **Effort**: L
+
+### w123 — FI-w123-error-variants: split ErrorCode variants into domain submodules
+
+- **Area**: `crates/tracepilot-tauri-bindings/src/error.rs` (allow-listed in `scripts/check-file-sizes.mjs:59`).
+- **Observation**: `BindingsError`/`ErrorCode` is a flat enum that has grown past the 500-line Rust budget and keeps accreting variants per IPC surface (tasks, search, sessions, worktrees, skills, MCP, etc.). New variants land without a natural home, which makes the file harder to review and risks clippy churn on every wave.
+- **Proposed change**: Decompose `ErrorCode` into per-domain submodules (e.g. `error/tasks.rs`, `error/search.rs`, `error/worktrees.rs`) re-exported from `error.rs`. Keep the top-level `BindingsError` facade stable so downstream crates and the TS bindings are not disturbed.
+- **Risk / why deferred**: Mechanical but large surface — `ErrorCode` is touched by every bindings command and is serialized to the frontend. Needs a dedicated wave to avoid merge conflicts and to re-run the TS binding generator.
+- **Effort**: M
+
+### w123 — FI-w123-backup-tests: extract backup tests to a sibling file
+
+- **Area**: `crates/tracepilot-core/src/utils/backup.rs` (allow-listed in `scripts/check-file-sizes.mjs:82`).
+- **Observation**: The module exceeds the 500-line non-test Rust budget primarily because of an inline `#[cfg(test)] mod tests` block. Production code alone is well under budget.
+- **Proposed change**: Move the inline tests to `crates/tracepilot-core/src/utils/backup/tests.rs` (or a sibling `tests.rs` via `#[path]`) and drop the allow-list entry. Zero behaviour change expected.
+- **Risk / why deferred**: Trivial but touches test-only code — out of scope for a TODO-sweep wave. Batch with other `tests.rs` extractions to minimise churn.
+- **Effort**: S
+
+### w123 — FI-w123-migrations-module: extract `run_migrations` into a dedicated module
+
+- **Area**: `crates/tracepilot-indexer/src/index_db/migrations.rs` (allow-listed in `scripts/check-file-sizes.mjs:84`).
+- **Observation**: `migrations.rs` bundles the migration registry, individual migration bodies, and the `run_migrations` orchestrator in a single file that is over budget. The orchestrator logic (ordering, schema-version probing, transactionality) is distinct from the migration definitions and tested differently.
+- **Proposed change**: Split into `migrations/mod.rs` (public surface + `run_migrations`) and `migrations/steps.rs` (individual migration functions + registry). Keep the public function signatures stable.
+- **Risk / why deferred**: Migration code is high-blast-radius — any reordering or renaming risks schema drift on existing dev databases. Needs dedicated attention and a migration-replay smoke test, not a drive-by.
+- **Effort**: M
