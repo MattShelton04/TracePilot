@@ -230,3 +230,11 @@ actionable so a future engineer can pick them up.
 - **Proposed change**: Add `RepoId` newtype (with validated `owner/name` invariants matching GitHub's rules) to `tracepilot-core::ids`, a validator helper in `tracepilot-tauri-bindings::validators`, and propagate into the skills/GitHub modules.
 - **Risk / why deferred**: Requires deciding the shape (single `owner/name` string vs. two fields) and adding IPC validation, which is larger than a single-commit wave.
 - **Effort**: M
+
+
+### w81 — atomic_dir_install promotion to core::utils::atomic
+- **Area**: `crates/tracepilot-orchestrator/src/skills/import/atomic.rs` and a hypothetical new `tracepilot_core::utils::atomic` module.
+- **Observation**: Wave 81 audit confirmed `atomic_dir_install` still has a single-module scope (`skills/import/{local,github,file,tests}.rs`). The master plan entry (w81) proposed folding `atomic_json_write` + `atomic_dir_install` behind `core::utils::atomic::{write_file, install_dir}`, but `atomic_dir_install` surfaces the skills-domain `SkillsError::DuplicateSkill` variant, which cannot be hoisted into core without either genericising the error type or leaking `SkillsError` across crate boundaries.
+- **Proposed change**: If a second caller ever needs atomic directory install, extract to `tracepilot_core::utils::atomic::install_dir` generic over the error type (with a duplicate-detection closure / sentinel). In parallel, promote `atomic_json_write` (8 callers) to `core::utils::atomic::write_file` — it is already error-type agnostic via `std::io::Error`.
+- **Risk / why deferred**: Still single-use for `atomic_dir_install`; `atomic_json_write` move would fan out across 8 callers and 3 modules. Better as a dedicated wave.
+- **Effort**: M

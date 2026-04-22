@@ -1,12 +1,12 @@
 //! Atomic staging + rename primitive used by every skill importer.
 //!
-//! TODO(w81): Consider lifting this into `tracepilot_core::utils::atomic`
-//! alongside other atomic fs helpers. Currently left in `skills/` because the
-//! helper is not genuinely generic — it surfaces [`SkillsError::DuplicateSkill`]
-//! (a skills-domain variant) and is only wired to callers that already depend
-//! on `SkillsError`. Moving to core would either require genericising over
-//! the error type (awkward given the domain-specific duplicate variant) or
-//! leaking `SkillsError` into core.
+//! NOTE(w81 audit): Evaluated for promotion to `tracepilot_core::utils::atomic`
+//! and **deliberately left in place**. All four callers (`local`, `github`,
+//! `file`, tests) live under `skills/import/`, so the helper is still
+//! single-module-scope. Promotion would require either genericising over the
+//! error type (awkward given the domain-specific [`SkillsError::DuplicateSkill`]
+//! variant) or leaking `SkillsError` into core. Revisit if a second module
+//! ever needs an atomic directory install.
 
 use crate::skills::error::SkillsError;
 use std::path::{Path, PathBuf};

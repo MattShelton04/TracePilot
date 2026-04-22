@@ -75,16 +75,7 @@ impl TaskDb {
 
         Self::run_migrations(&mut conn, Some(path))?;
 
-        #[cfg(debug_assertions)]
-        conn.profile(Some(|query: &str, duration: std::time::Duration| {
-            if duration.as_millis() > 10 {
-                tracing::warn!(
-                    duration_ms = duration.as_millis(),
-                    query = %query.chars().take(200).collect::<String>(),
-                    "Slow task DB query"
-                );
-            }
-        }));
+        tracepilot_core::attach_slow_query_profiler!(&mut conn, "tasks");
 
         Ok(Self { conn })
     }

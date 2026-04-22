@@ -31,18 +31,7 @@ impl IndexDb {
 
         let mut db = Self { conn };
 
-        // Debug-only: log slow SQL queries (>10ms) via tracing
-        #[cfg(debug_assertions)]
-        db.conn
-            .profile(Some(|query: &str, duration: std::time::Duration| {
-                if duration.as_millis() > 10 {
-                    tracing::warn!(
-                        duration_ms = duration.as_millis(),
-                        query = %query.chars().take(200).collect::<String>(),
-                        "Slow SQL query"
-                    );
-                }
-            }));
+        tracepilot_core::attach_slow_query_profiler!(&mut db.conn, "index");
 
         Ok(db)
     }
