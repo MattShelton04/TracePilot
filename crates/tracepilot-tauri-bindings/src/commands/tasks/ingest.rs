@@ -162,7 +162,11 @@ pub async fn task_ingest_results(
 
                                 let manifest_task = tracepilot_orchestrator::task_orchestrator::manifest::ManifestTask::from_task(
                                     &task,
-                                    &resolve_task_model(&presets_dir, &task.preset_id, &default_subagent_model),
+                                    &resolve_task_model(
+                                        &presets_dir,
+                                        &tracepilot_core::ids::PresetId::from_validated(&task.preset_id),
+                                        &default_subagent_model,
+                                    ),
                                     &jobs_dir,
                                 );
 

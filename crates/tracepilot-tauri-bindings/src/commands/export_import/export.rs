@@ -230,8 +230,9 @@ pub async fn preview_export(
 ) -> CmdResult<ExportPreviewResult> {
     let export_format = parse_format(&format)?;
     let section_set = parse_sections(&sections)?;
+    let sid = crate::validators::validate_session_id(&session_id)?;
 
-    with_session_path(&state, session_id, move |session_path| {
+    with_session_path(&state, sid, move |session_path| {
         let (content_detail, redaction) = build_export_detail_options(
             include_subagent_internals,
             include_tool_details,
@@ -281,7 +282,8 @@ pub async fn get_session_sections(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,
 ) -> CmdResult<SessionSectionsInfo> {
-    with_session_path(&state, session_id.clone(), move |session_path| {
+    let sid = crate::validators::validate_session_id(&session_id)?;
+    with_session_path(&state, sid, move |session_path| {
         let events_path = session_path.join("events.jsonl");
         let db_path = session_path.join("session.db");
         let plan_path = session_path.join("plan.md");

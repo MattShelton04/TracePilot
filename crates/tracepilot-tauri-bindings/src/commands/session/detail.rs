@@ -90,10 +90,11 @@ pub async fn get_shutdown_metrics(
     cache: tauri::State<'_, EventCache>,
     session_id: String,
 ) -> CmdResult<Option<tracepilot_core::models::event_types::ShutdownData>> {
+    let sid = crate::validators::validate_session_id(&session_id)?;
     let cache = cache.inner().clone();
     let cache_session_id = session_id.clone();
 
-    with_session_path(&state, session_id, move |path| {
+    with_session_path(&state, sid, move |path| {
         let events_path = path.join("events.jsonl");
         let (events, _, _) = load_cached_typed_events(&cache, &cache_session_id, &events_path)?;
         Ok(

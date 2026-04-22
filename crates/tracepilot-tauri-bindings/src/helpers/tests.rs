@@ -160,24 +160,6 @@ fn remove_index_files_succeeds_when_no_files_exist() {
 }
 
 #[tokio::test]
-async fn with_session_path_rejects_invalid_session_id() {
-    let dir = tempfile::tempdir().unwrap();
-    let state = make_shared_config(dir.path().to_str().unwrap());
-
-    let result = with_session_path(&state, "nonexistent-session-id".into(), |_path| {
-        Ok("should not reach here".to_string())
-    })
-    .await;
-
-    assert!(result.is_err(), "invalid UUID should produce an error");
-    let err_msg = result.unwrap_err().to_string();
-    assert!(
-        err_msg.contains("Invalid session ID format"),
-        "error should be a validation error: {err_msg}"
-    );
-}
-
-#[tokio::test]
 async fn with_session_path_propagates_missing_session_error() {
     let dir = tempfile::tempdir().unwrap();
     let state = make_shared_config(dir.path().to_str().unwrap());
@@ -185,7 +167,7 @@ async fn with_session_path_propagates_missing_session_error() {
     // Valid UUID that doesn't exist on disk
     let result = with_session_path(
         &state,
-        "00000000-0000-0000-0000-000000000000".into(),
+        tracepilot_core::ids::SessionId::from_validated("00000000-0000-0000-0000-000000000000"),
         |_path| Ok("should not reach here".to_string()),
     )
     .await;
@@ -208,9 +190,11 @@ async fn with_session_path_runs_closure_on_resolved_path() {
 
     let state = make_shared_config(dir.path().to_str().unwrap());
 
-    let result = with_session_path(&state, session_id.into(), |path| {
-        Ok(path.to_string_lossy().to_string())
-    })
+    let result = with_session_path(
+        &state,
+        tracepilot_core::ids::SessionId::from_validated(session_id),
+        |path| Ok(path.to_string_lossy().to_string()),
+    )
     .await;
 
     assert!(
@@ -234,9 +218,11 @@ async fn with_session_path_propagates_closure_error() {
 
     let state = make_shared_config(dir.path().to_str().unwrap());
 
-    let result: CmdResult<()> = with_session_path(&state, session_id.into(), |_path| {
-        Err(BindingsError::Validation("deliberate test error".into()))
-    })
+    let result: CmdResult<()> = with_session_path(
+        &state,
+        tracepilot_core::ids::SessionId::from_validated(session_id),
+        |_path| Err(BindingsError::Validation("deliberate test error".into())),
+    )
     .await;
 
     assert!(result.is_err());

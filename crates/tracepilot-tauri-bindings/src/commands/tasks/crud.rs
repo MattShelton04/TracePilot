@@ -56,7 +56,7 @@ pub async fn task_create(
 
                     let (content, resolved_model) = match tracepilot_orchestrator::presets::io::get_preset(
                         &presets_dir,
-                        &task.preset_id,
+                        &tracepilot_core::ids::PresetId::from_validated(&task.preset_id),
                     ) {
                         Ok(preset) => {
                             let model = preset.execution.model_override.clone()

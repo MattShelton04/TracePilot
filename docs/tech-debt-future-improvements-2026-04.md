@@ -198,3 +198,35 @@ actionable so a future engineer can pick them up.
 - **Risk / why deferred**: The stale-timestamp behaviour is pre-existing and probably never observable (timestamps are rendered via `formatRelativeTime` which is already coarse), but any refactor would change *when* the mock dates are instantiated. Out of wave-78 scope.
 - **Effort**: S
 
+
+### w80 — SessionId propagation into tracepilot-core discovery + indexer
+
+- **Area**: `crates/tracepilot-core/src/session/discovery.rs` (`resolve_session_path`, `resolve_session_path_in`), `crates/tracepilot-indexer/src/index_db/{session_reader,session_writer,search_writer}.rs`, `crates/tracepilot-orchestrator/src/task_context/sources.rs`.
+- **Observation**: Wave 80 propagated `SessionId` into the `with_session_path` boundary in `tracepilot-tauri-bindings` but stopped there. The core discovery helpers still accept `session_id_prefix: &str` (deliberate: they also accept *prefixes*, not full UUIDs, so a single newtype does not model both shapes). `IndexDb::{get_session_path, get_session_incidents, needs_reindex}`, `search_writer::needs_search_reindex`/`index_session_search`, `session_writer::delete_child_rows`, and the orchestrator `task_context::sources::*_extractor` calls all still take `&str`.
+- **Proposed change**: Introduce a `SessionIdRef` or split `SessionId` vs `SessionIdPrefix` newtype, then propagate through the indexer + orchestrator.  Or leave `&str` at the indexer boundary and only convert `.as_str()` at call sites that already hold a `SessionId`.
+- **Risk / why deferred**: Large fan-out across 3 crates; prefix vs full-UUID semantics need a design decision.
+- **Effort**: L
+
+### w80 — SessionId into cached-events helper
+
+- **Area**: `crates/tracepilot-tauri-bindings/src/commands/session/shared.rs` (`load_cached_typed_events`) and callers in `detail.rs`/`events.rs`/`turns.rs`.
+- **Observation**: `load_cached_typed_events(cache, session_id: &str, events_path: &Path)` still takes a raw `&str`. Callers currently keep a `cache_session_id: String` beside the `SessionId` we now obtain from the validator, which is slightly redundant.
+- **Proposed change**: Change the helper to `session_id: &SessionId` and replace the duplicated `cache_session_id` clone with a reference to the newtype captured in the outer scope (requires threading the `SessionId` through the `with_session_path` closure, which currently consumes it).
+- **Risk / why deferred**: `with_session_path` takes `SessionId` by value and moves it into the blocking closure; to also give callers a `&SessionId` for the event cache they need either a `.clone()` or a small restructure. Tractable but non-trivial.
+- **Effort**: S
+
+### w80 — PresetId/SkillName into task DB + task_orchestrator
+
+- **Area**: `crates/tracepilot-orchestrator/src/task_db/{operations,types}.rs`, `crates/tracepilot-orchestrator/src/task_orchestrator/manifest.rs`, `crates/tracepilot-orchestrator/src/skills/{discovery,assets,import}.rs`.
+- **Observation**: Task rows carry `preset_id: String`; the bindings wrap via `PresetId::from_validated(&task.preset_id)` at each use site (`tasks/crud.rs`, `tasks/ingest.rs`, `tasks/orchestrator_start.rs`). `presets::io::save_preset` still takes `&TaskPreset` whose `.id` is raw `String`. Skills helpers `assets::{add_asset, read_asset, …}` and `import::*` accept `&str` asset / skill names.
+- **Proposed change**: Hydrate `Task` rows with a `PresetId` field (or a `preset_id()` accessor returning `&PresetId`); thread `&PresetId` through `save_preset` via a new `preset.id()` accessor on `TaskPreset`. Mirror for `SkillName` in `assets`/`import`.
+- **Risk / why deferred**: Mechanical but wide — touches DB row mapping, manifest serde, and every task-orchestrator call site. Out of scope for a surgical wave-80.
+- **Effort**: M
+
+### w80 — RepoId newtype not yet introduced
+
+- **Area**: `crates/tracepilot-core/src/ids.rs` (add), `crates/tracepilot-orchestrator/src/skills/import.rs` (`discover_repo_skills`), `crates/tracepilot-indexer/src/index_db` (`repo`-typed columns), `crates/tracepilot-tauri-bindings/src/commands/skills.rs` (`skills_import_github` / `skills_discover_github`).
+- **Observation**: The w80 plan entry mentions `RepoId` but no such newtype exists in `tracepilot-core`. Repo identifiers are still raw `(owner: String, repo: String)` tuples.
+- **Proposed change**: Add `RepoId` newtype (with validated `owner/name` invariants matching GitHub's rules) to `tracepilot-core::ids`, a validator helper in `tracepilot-tauri-bindings::validators`, and propagate into the skills/GitHub modules.
+- **Risk / why deferred**: Requires deciding the shape (single `owner/name` string vs. two fields) and adding IPC validation, which is larger than a single-commit wave.
+- **Effort**: M

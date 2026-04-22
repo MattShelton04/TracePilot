@@ -6,6 +6,7 @@ use crate::skills::parser::parse_skill_md;
 use crate::skills::types::{Skill, SkillFrontmatter, SkillScope};
 use crate::skills::writer::write_skill_md;
 use std::path::{Path, PathBuf};
+use tracepilot_core::ids::SkillName;
 
 /// Validate that a skill_dir path is contained within a known skills root
 /// (global `~/.copilot/skills/` or repo `.copilot/skills/`).
@@ -49,7 +50,18 @@ pub fn validate_skill_dir(skill_dir: &Path) -> Result<(), SkillsError> {
 }
 
 /// Create a new skill in the global skills directory.
-pub fn create_skill(name: &str, description: &str, body: &str) -> Result<PathBuf, SkillsError> {
+///
+/// Takes a validated [`SkillName`] so the invariant "this name has been
+/// format-checked" rides along in the type. The internal
+/// [`validate_skill_name`] call remains as defence-in-depth against
+/// callers that construct a [`SkillName`] via `from_validated` from an
+/// untrusted source.
+pub fn create_skill(
+    name: &SkillName,
+    description: &str,
+    body: &str,
+) -> Result<PathBuf, SkillsError> {
+    let name = name.as_str();
     validate_skill_name(name)?;
     let dir = global_skills_dir().map_err(|e| match e {
         crate::error::OrchestratorError::Io(io_err) => SkillsError::IoSource(io_err),
@@ -122,7 +134,8 @@ fn validate_skill_name(name: &str) -> Result<(), SkillsError> {
 }
 
 /// Rename a skill (updates both directory name and frontmatter name).
-pub fn rename_skill(skill_dir: &Path, new_name: &str) -> Result<PathBuf, SkillsError> {
+pub fn rename_skill(skill_dir: &Path, new_name: &SkillName) -> Result<PathBuf, SkillsError> {
+    let new_name = new_name.as_str();
     validate_skill_name(new_name)?;
 
     let skill_path = skill_dir.join("SKILL.md");
@@ -159,7 +172,8 @@ pub fn rename_skill(skill_dir: &Path, new_name: &str) -> Result<PathBuf, SkillsE
 }
 
 /// Duplicate a skill with a new name.
-pub fn duplicate_skill(skill_dir: &Path, new_name: &str) -> Result<PathBuf, SkillsError> {
+pub fn duplicate_skill(skill_dir: &Path, new_name: &SkillName) -> Result<PathBuf, SkillsError> {
+    let new_name = new_name.as_str();
     validate_skill_name(new_name)?;
 
     let skill = load_skill(&skill_dir.join("SKILL.md"), SkillScope::Global)?;
@@ -291,7 +305,7 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let skill_dir = setup_skill(dir.path(), "old-name");
 
-        let new_dir = rename_skill(&skill_dir, "new-name").unwrap();
+        let new_dir = rename_skill(&skill_dir, &SkillName::from_validated("new-name")).unwrap();
         assert!(!skill_dir.exists());
         assert!(new_dir.exists());
 
@@ -305,7 +319,7 @@ mod tests {
         setup_skill(dir.path(), "skill-a");
         let skill_b = setup_skill(dir.path(), "skill-b");
 
-        let result = rename_skill(&skill_b, "skill-a");
+        let result = rename_skill(&skill_b, &SkillName::from_validated("skill-a"));
         assert!(result.is_err());
 
         // Verify original was NOT corrupted
@@ -320,17 +334,17 @@ mod tests {
     fn rename_rejects_path_traversal() {
         let dir = TempDir::new().unwrap();
         let skill_dir = setup_skill(dir.path(), "safe-skill");
-        assert!(rename_skill(&skill_dir, "../escape").is_err());
-        assert!(rename_skill(&skill_dir, "foo/bar").is_err());
-        assert!(rename_skill(&skill_dir, "").is_err());
+        assert!(rename_skill(&skill_dir, &SkillName::from_validated("../escape")).is_err());
+        assert!(rename_skill(&skill_dir, &SkillName::from_validated("foo/bar")).is_err());
+        assert!(rename_skill(&skill_dir, &SkillName::from_validated("")).is_err());
     }
 
     #[test]
     fn duplicate_rejects_path_traversal() {
         let dir = TempDir::new().unwrap();
         let skill_dir = setup_skill(dir.path(), "original-safe");
-        assert!(duplicate_skill(&skill_dir, "../escape").is_err());
-        assert!(duplicate_skill(&skill_dir, "foo\\bar").is_err());
+        assert!(duplicate_skill(&skill_dir, &SkillName::from_validated("../escape")).is_err());
+        assert!(duplicate_skill(&skill_dir, &SkillName::from_validated("foo\\bar")).is_err());
     }
 
     #[test]
@@ -339,7 +353,7 @@ mod tests {
         let original = setup_skill(dir.path(), "original");
         std::fs::write(original.join("helper.py"), "# helper script").unwrap();
 
-        let copy = duplicate_skill(&original, "copy").unwrap();
+        let copy = duplicate_skill(&original, &SkillName::from_validated("copy")).unwrap();
         assert!(copy.exists());
         assert!(copy.join("SKILL.md").exists());
         assert!(copy.join("helper.py").exists());
@@ -374,7 +388,7 @@ mod tests {
 
     #[test]
     fn create_skill_rejects_path_traversal() {
-        let result = create_skill("../escape", "desc", "body");
+        let result = create_skill(&SkillName::from_validated("../escape"), "desc", "body");
         assert!(result.is_err());
         // validate_skill_name catches this — either as path separator or invalid chars
         let err = result.unwrap_err().to_string();

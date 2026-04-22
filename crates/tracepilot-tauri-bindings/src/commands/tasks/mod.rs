@@ -30,7 +30,7 @@ pub use presets::*;
 /// needs to be hot-added or retried into a running orchestrator manifest.
 pub(crate) fn resolve_task_model(
     presets_dir: &std::path::Path,
-    preset_id: &str,
+    preset_id: &tracepilot_core::ids::PresetId,
     default_model: &str,
 ) -> String {
     tracepilot_orchestrator::presets::io::get_preset(presets_dir, preset_id)

@@ -91,7 +91,13 @@ pub async fn task_orchestrator_start(
         // Resolve model per-task: use preset model_override if set, else global default
         let resolved_models: Vec<String> = pending_tasks
             .iter()
-            .map(|task| resolve_task_model(&presets_dir, &task.preset_id, &default_subagent_model))
+            .map(|task| {
+                resolve_task_model(
+                    &presets_dir,
+                    &tracepilot_core::ids::PresetId::from_validated(&task.preset_id),
+                    &default_subagent_model,
+                )
+            })
             .collect();
 
         // Assemble context OUTSIDE the DB lock (may involve expensive I/O)
@@ -105,7 +111,7 @@ pub async fn task_orchestrator_start(
 
                 let (content, hash) = match tracepilot_orchestrator::presets::io::get_preset(
                     &presets_dir,
-                    &task.preset_id,
+                    &tracepilot_core::ids::PresetId::from_validated(&task.preset_id),
                 ) {
                     Ok(preset) => {
                         match tracepilot_orchestrator::task_context::assemble_task_context(
@@ -229,7 +235,11 @@ pub async fn task_orchestrator_start(
                         let content = fallback_context(task, &result_path);
                         let _ = std::fs::write(task_dir.join("context.md"), &content);
 
-                        let model = resolve_task_model(&presets_dir, &task.preset_id, &default_subagent_model);
+                        let model = resolve_task_model(
+                            &presets_dir,
+                            &tracepilot_core::ids::PresetId::from_validated(&task.preset_id),
+                            &default_subagent_model,
+                        );
                         let manifest_task = tracepilot_orchestrator::task_orchestrator::manifest::ManifestTask::from_task(
                             task, &model, &jobs_dir_for_rescan,
                         );

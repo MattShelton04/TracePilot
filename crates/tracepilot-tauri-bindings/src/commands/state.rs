@@ -25,7 +25,8 @@ pub async fn is_session_running(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,
 ) -> CmdResult<bool> {
-    with_session_path(&state, session_id, |path| {
+    let sid = crate::validators::validate_session_id(&session_id)?;
+    with_session_path(&state, sid, |path| {
         Ok(tracepilot_core::session::discovery::has_lock_file(&path))
     })
     .await

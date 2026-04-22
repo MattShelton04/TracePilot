@@ -43,9 +43,9 @@ pub async fn skills_get_skill(
 
 #[tauri::command]
 pub async fn skills_create(name: String, description: String, body: String) -> CmdResult<String> {
-    crate::validators::validate_skill_name(&name)?;
+    let sn = crate::validators::validate_skill_name(&name)?;
     blocking_cmd!(sk(tracepilot_orchestrator::skills::manager::create_skill(
-        &name,
+        &sn,
         &description,
         &body
     )
@@ -86,11 +86,11 @@ pub async fn skills_delete(skill_dir: String) -> CmdResult<()> {
 
 #[tauri::command]
 pub async fn skills_rename(skill_dir: String, new_name: String) -> CmdResult<String> {
-    crate::validators::validate_skill_name(&new_name)?;
+    let sn = crate::validators::validate_skill_name(&new_name)?;
     blocking_cmd!(sk(check_skill_dir(&skill_dir).and_then(|_| {
         tracepilot_orchestrator::skills::manager::rename_skill(
             std::path::Path::new(&skill_dir),
-            &new_name,
+            &sn,
         )
         .map(|p| p.to_string_lossy().to_string())
     })))
@@ -98,11 +98,11 @@ pub async fn skills_rename(skill_dir: String, new_name: String) -> CmdResult<Str
 
 #[tauri::command]
 pub async fn skills_duplicate(skill_dir: String, new_name: String) -> CmdResult<String> {
-    crate::validators::validate_skill_name(&new_name)?;
+    let sn = crate::validators::validate_skill_name(&new_name)?;
     blocking_cmd!(sk(check_skill_dir(&skill_dir).and_then(|_| {
         tracepilot_orchestrator::skills::manager::duplicate_skill(
             std::path::Path::new(&skill_dir),
-            &new_name,
+            &sn,
         )
         .map(|p| p.to_string_lossy().to_string())
     })))

@@ -16,7 +16,8 @@ pub async fn export_session_folder_zip(
     session_id: String,
     dest_path: String,
 ) -> CmdResult<()> {
-    with_session_path(&state, session_id, move |session_path| {
+    let sid = crate::validators::validate_session_id(&session_id)?;
+    with_session_path(&state, sid, move |session_path| {
         let dest = PathBuf::from(&dest_path);
         if let Some(parent) = dest.parent() {
             std::fs::create_dir_all(parent)?;

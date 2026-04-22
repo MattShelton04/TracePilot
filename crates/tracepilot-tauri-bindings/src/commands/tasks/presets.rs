@@ -22,11 +22,11 @@ pub async fn task_get_preset(
     config: tauri::State<'_, SharedConfig>,
     id: String,
 ) -> CmdResult<tracepilot_orchestrator::presets::types::TaskPreset> {
-    crate::validators::validate_preset_id(&id)?;
+    let pid = crate::validators::validate_preset_id(&id)?;
     let cfg = read_config(&config);
     let presets_dir = cfg.presets_dir();
     tokio::task::spawn_blocking(move || {
-        tracepilot_orchestrator::presets::io::get_preset(&presets_dir, &id)
+        tracepilot_orchestrator::presets::io::get_preset(&presets_dir, &pid)
             .map_err(BindingsError::Orchestrator)
     })
     .await?
@@ -52,11 +52,11 @@ pub async fn task_delete_preset(
     config: tauri::State<'_, SharedConfig>,
     id: String,
 ) -> CmdResult<()> {
-    crate::validators::validate_preset_id(&id)?;
+    let pid = crate::validators::validate_preset_id(&id)?;
     let cfg = read_config(&config);
     let presets_dir = cfg.presets_dir();
     tokio::task::spawn_blocking(move || {
-        tracepilot_orchestrator::presets::io::delete_preset(&presets_dir, &id)
+        tracepilot_orchestrator::presets::io::delete_preset(&presets_dir, &pid)
             .map_err(BindingsError::Orchestrator)
     })
     .await?

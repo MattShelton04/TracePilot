@@ -14,7 +14,8 @@ pub async fn check_session_freshness(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,
 ) -> CmdResult<FreshnessResponse> {
-    with_session_path(&state, session_id, |path| {
+    let sid = crate::validators::validate_session_id(&session_id)?;
+    with_session_path(&state, sid, |path| {
         let meta = std::fs::metadata(path.join("events.jsonl")).ok();
         let file_size = meta.as_ref().map_or(0, |m| m.len());
         let file_mtime = meta.and_then(|m| m.modified().ok());
@@ -38,10 +39,11 @@ pub async fn get_session_events(
 ) -> CmdResult<EventsResponse> {
     // Clamp explicit limit to a safe upper bound; None preserves "return all".
     let limit = crate::validators::clamp_limit(limit, crate::validators::MAX_EVENTS_PAGE_LIMIT);
+    let sid = crate::validators::validate_session_id(&session_id)?;
     let cache = cache.inner().clone();
     let cache_session_id = session_id.clone();
 
-    with_session_path(&state, session_id, move |path| {
+    with_session_path(&state, sid, move |path| {
         let events_path = path.join("events.jsonl");
         let (all_events, _, _) = load_cached_typed_events(&cache, &cache_session_id, &events_path)?;
 
@@ -97,10 +99,11 @@ pub async fn get_tool_result(
     session_id: String,
     tool_call_id: String,
 ) -> CmdResult<Option<serde_json::Value>> {
+    let sid = crate::validators::validate_session_id(&session_id)?;
     let cache = cache.inner().clone();
     let cache_session_id = session_id.clone();
 
-    with_session_path(&state, session_id, move |path| {
+    with_session_path(&state, sid, move |path| {
         let events_path = path.join("events.jsonl");
         let (events, _, _) = load_cached_typed_events(&cache, &cache_session_id, &events_path)?;
 

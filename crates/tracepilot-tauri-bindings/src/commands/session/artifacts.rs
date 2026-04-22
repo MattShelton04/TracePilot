@@ -11,7 +11,8 @@ pub async fn get_session_todos(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,
 ) -> CmdResult<TodosResponse> {
-    with_session_path(&state, session_id, |path| {
+    let sid = crate::validators::validate_session_id(&session_id)?;
+    with_session_path(&state, sid, |path| {
         let db_path = path.join("session.db");
         let todos = tracepilot_core::parsing::session_db::read_todos(&db_path)?;
         let deps = tracepilot_core::parsing::session_db::read_todo_deps(&db_path)?;
@@ -26,7 +27,8 @@ pub async fn get_session_checkpoints(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,
 ) -> CmdResult<Vec<tracepilot_core::parsing::checkpoints::CheckpointEntry>> {
-    with_session_path(&state, session_id, |path| {
+    let sid = crate::validators::validate_session_id(&session_id)?;
+    with_session_path(&state, sid, |path| {
         let mut checkpoints = tracepilot_core::parsing::checkpoints::parse_checkpoints(&path)?
             .map(|index| index.checkpoints)
             .unwrap_or_default();
@@ -48,7 +50,8 @@ pub async fn get_session_plan(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,
 ) -> CmdResult<Option<serde_json::Value>> {
-    with_session_path(&state, session_id, |path| {
+    let sid = crate::validators::validate_session_id(&session_id)?;
+    with_session_path(&state, sid, |path| {
         let plan_path = path.join("plan.md");
         if !plan_path.exists() {
             return Ok(None);
