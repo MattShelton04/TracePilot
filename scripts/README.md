@@ -16,7 +16,7 @@ Keep this index in sync when scripts are added, renamed, or removed.
 | `dev.ps1` | Launch `pnpm tauri dev` with sensible local defaults (Windows). |
 | `pgo-build.ps1` / `pgo-build.sh` | Two-phase profile-guided optimisation build of the Rust workspace. |
 | `validate-session-versions.py` | Verify `supported-copilot-versions.json` covers the Copilot CLI session schema fixtures under `packages/test-utils/fixtures/`. |
-| `e2e/` | Standalone Playwright-over-CDP end-to-end scenarios driving the running Tauri app (launched via `pnpm tauri dev`). Each `*.mjs` file is a self-contained scenario; run with `node scripts/e2e/<scenario>.mjs`. |
+| `e2e/` | Standalone Playwright-over-CDP end-to-end scenarios driving the running Tauri app (launched via `pnpm tauri dev`). Each `*.mjs` file is a self-contained scenario; run with `node scripts/e2e/<scenario>.mjs`. See `docs/testing.md` for the canonical test-pyramid guide. |
 
 ## Conventions
 
@@ -30,7 +30,10 @@ Keep this index in sync when scripts are added, renamed, or removed.
 
 ## Deferred
 
-A `justfile` mirroring the `.ps1` scripts, a Node/TS port of
-`validate-session-versions.py`, and consolidation of `scripts/e2e/*.mjs` into
-`tests/e2e/` Playwright specs are tracked under Plan §6.3 and remain out of
-scope for the current wave.
+A `justfile` mirroring the `.ps1` scripts and a Node/TS port of
+`validate-session-versions.py` are tracked under Plan §6.3 and remain out
+of scope for the current wave. Consolidating `scripts/e2e/*.mjs` into a
+`tests/e2e/*.spec.ts` Playwright project was evaluated in Wave 106 and
+explicitly deferred — the `tracepilot-app-automation` skill is the canonical
+E2E path (see `docs/testing.md`); follow-up items live in
+`docs/tech-debt-future-improvements-2026-04.md` (w106).

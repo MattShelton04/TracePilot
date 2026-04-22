@@ -873,3 +873,35 @@ actionable so a future engineer can pick them up.
 - **Proposed change**: Instrument a telemetry opt-in (or developer-only local aggregator) that records actual P50/P95 over a week of dogfooding, then tighten the budgets to 1.5× measured P95 per the project's convention for IPC budgets.
 - **Risk / why deferred**: Requires telemetry plumbing or a structured local log sink; product decision needed on whether to ship opt-in telemetry.
 - **Effort**: M
+
+### w106 — Consolidate `scripts/e2e/*.mjs` one-off scenarios
+
+- **Area**: `scripts/e2e/test-*.mjs` (10 historical scenario scripts: `test-three-fixes`, `test-tasks`, `test-task-views`, `test-task-system`, `test-stale-presets`, `test-review-fixes`, `test-observability`, `test-multi-fix`, `test-full-e2e`, `test-fixes-batch2`, `test-final-review`).
+- **Observation**: Ten of the thirteen `.mjs` files under `scripts/e2e/` are one-off scenarios authored during specific bug-fix waves. They share boilerplate (connect → navigate → assert → report) but each re-implements its own loop, reporting shape, and failure surface. Discoverability is poor (no top-level index), and the names no longer describe current flows.
+- **Proposed change**: Audit each `test-*.mjs`, drop anything whose flow is already covered by `smoke-test.mjs` or component Vitest, and fold the remainder into a single `scripts/e2e/scenarios/` directory with a shared `runScenario({ name, steps })` harness that standardises reporting + screenshot naming. A follow-up wave can then port the harness to a `playwright.config.ts` if CI ever grows a dedicated e2e runner.
+- **Risk / why deferred**: Wave 106 is docs-only per the pragmatic alternative — touching these scripts risks breaking ad-hoc dev workflows that are undocumented. Needs an owner who remembers the intent of each `test-*` file.
+- **Effort**: M
+
+### w106 — Deterministic E2E fixture set
+
+- **Area**: `scripts/e2e/fixtures/` (currently a placeholder README).
+- **Observation**: All E2E scenarios run against the developer's real `~/.copilot/session-state/` contents. Assertions are therefore either count-agnostic (`sessionCards > 0`) or implicitly tied to the author's local data, which makes them flaky across machines and impossible to gate in CI.
+- **Proposed change**: Ship a sealed fixture bundle under `scripts/e2e/fixtures/sessions/` plus an `import_sessions` IPC seed step, and add a `--fixture` flag to `connect.mjs` that points the app at a temporary session-state directory. Scenarios that need a specific shape (large session, tool-call heavy, incident-heavy) can opt into named fixtures.
+- **Risk / why deferred**: Requires either (a) an app-level override for the session-state path (currently hard-coded per OS config) or (b) a reliable `factory_reset` + `import_sessions` round-trip that is idempotent. Both are product-surface changes.
+- **Effort**: L
+
+### w106 — Wire a non-blocking E2E job to CI
+
+- **Area**: `.github/workflows/` (no e2e job today), `scripts/e2e/smoke-test.mjs`.
+- **Observation**: The smoke test is runnable locally on Windows but there is no CI surface that exercises the real Tauri build. Regressions in IPC startup or `__TRACEPILOT_READY__` timing only surface during manual release testing.
+- **Proposed change**: Add a Windows runner job (`windows-latest`) that builds the desktop app in release mode, launches it via `scripts/e2e/launch.ps1 -Build`, runs `smoke-test.mjs`, and uploads the JSON report + screenshots as artefacts. Keep it `continue-on-error: true` initially so flake does not block merges. Gate on success only once P95 runtime is < 5 min and flake rate is < 1%.
+- **Risk / why deferred**: Windows CI minutes are expensive, WebView2 availability on hosted runners is inconsistent (needs explicit install step), and the fixture problem above means assertions are host-dependent.
+- **Effort**: L
+
+### w106 — View-level VRT once fixture story lands
+
+- **Area**: `packages/ui/src/__vrt__/` (component-only today), `apps/desktop/src/views/`.
+- **Observation**: VRT is scoped to leaf components. Views like `SessionListView`, `AnalyticsDashboardView`, and `SessionDetailView` carry the bulk of layout risk during decomposition waves but have no pixel-diff gate.
+- **Proposed change**: Once the deterministic fixture work (entry above) is done, add a Playwright CT project that mounts top-level views with a mocked Tauri IPC transport (stub `window.__TAURI_INTERNALS__.invoke` to return fixture payloads) and snapshots key variants. Keep it off default CI until a Linux baseline job exists, same policy as the current VRT harness.
+- **Risk / why deferred**: Needs the IPC mock layer plus deterministic fixtures; otherwise baselines will churn on every unrelated data change.
+- **Effort**: L
