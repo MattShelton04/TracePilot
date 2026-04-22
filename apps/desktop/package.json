@@ -31,7 +31,7 @@
     "@tracepilot/ui": "workspace:*",
     "pinia": "^3.0.4",
     "vue": "catalog:",
-    "vue-router": "^4.5.0"
+    "vue-router": "^5.0.6"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.1",
