@@ -3,8 +3,25 @@
 //! When the user runs `copilot --ui-server` in a terminal, it starts a background
 //! TCP JSON-RPC server on a random port. This module detects those processes and
 //! extracts their listening ports so TracePilot can connect automatically.
+//!
+//! All probes run hidden (no flashing console on Windows via `hidden_command` →
+//! `CREATE_NO_WINDOW`) and are bounded by a wall-clock timeout plus a per-stream
+//! capture cap (see `crate::process::run_async_with_limits`). A hostile or hung
+//! probe target therefore cannot hang the detection flow nor exhaust memory —
+//! failures degrade to an empty result set.
 
 use serde::Serialize;
+use std::time::Duration;
+
+/// Hard wall-clock deadline for any single external probe command. Process
+/// listing / port-resolution tools should complete well inside this; anything
+/// slower indicates a stuck child we want to reap rather than wait on.
+const PROBE_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// Per-stream capture cap. Process listings on pathological machines can
+/// legitimately run to a few hundred KB; 1 MiB is well over the real-world
+/// ceiling while still protecting against a hostile child that floods stdout.
+const PROBE_MAX_BYTES: u64 = 1024 * 1024;
 
 /// A detected `copilot --ui-server` process with its listening address.
 #[derive(Debug, Clone, Serialize)]
@@ -60,28 +77,28 @@ Get-CimInstance Win32_Process | Where-Object {
 $results | ConvertTo-Json -Compress
 "#;
 
-    let output = match crate::process::hidden_command("powershell")
-        .args(["-NoProfile", "-NonInteractive", "-Command", script])
-        .output()
-        .await
-    {
-        Ok(o) => o,
-        Err(e) => {
-            tracing::debug!("Failed to run PowerShell for UI server detection: {}", e);
-            return vec![];
-        }
-    };
+    let mut cmd = crate::process::hidden_command("powershell");
+    cmd.args(["-NoProfile", "-NonInteractive", "-Command", script]);
 
-    if !output.status.success() {
+    let (stdout, stderr, status) =
+        match crate::process::run_async_with_limits(cmd, PROBE_TIMEOUT, PROBE_MAX_BYTES).await {
+            Ok(triple) => triple,
+            Err(e) => {
+                tracing::debug!("Failed to run PowerShell for UI server detection: {}", e);
+                return vec![];
+            }
+        };
+
+    if !status.success() {
         tracing::debug!(
             "PowerShell detection exited with {}: {}",
-            output.status,
-            String::from_utf8_lossy(&output.stderr)
+            status,
+            String::from_utf8_lossy(&stderr)
         );
         return vec![];
     }
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stdout = String::from_utf8_lossy(&stdout);
     let trimmed = stdout.trim();
     if trimmed.is_empty() || trimmed == "null" {
         return vec![];
@@ -128,19 +145,19 @@ fn parse_powershell_output(json: &str) -> Vec<DetectedUiServer> {
 /// macOS: Use `ps` + `lsof` to find processes and their listening ports.
 #[cfg(target_os = "macos")]
 async fn detect_unix(_tool: &str) -> Vec<DetectedUiServer> {
-    use tokio::process::Command;
-
     // Step 1: Find copilot processes with ui-server or --server in args
-    let ps_output = match Command::new("ps")
-        .args(["ax", "-o", "pid,command"])
-        .output()
-        .await
-    {
-        Ok(o) => o,
-        Err(_) => return vec![],
-    };
+    let mut ps_cmd = tokio::process::Command::new("ps");
+    ps_cmd.args(["ax", "-o", "pid,command"]);
+    let (ps_stdout, _ps_stderr, ps_status) =
+        match crate::process::run_async_with_limits(ps_cmd, PROBE_TIMEOUT, PROBE_MAX_BYTES).await {
+            Ok(t) => t,
+            Err(_) => return vec![],
+        };
+    if !ps_status.success() {
+        return vec![];
+    }
 
-    let ps_text = String::from_utf8_lossy(&ps_output.stdout);
+    let ps_text = String::from_utf8_lossy(&ps_stdout);
     let pids: Vec<u32> = ps_text
         .lines()
         .filter(|line| {
@@ -158,16 +175,17 @@ async fn detect_unix(_tool: &str) -> Vec<DetectedUiServer> {
     // Step 2: For each PID, use lsof to find listening TCP ports
     let mut results = vec![];
     for pid in pids {
-        let lsof_output = match Command::new("lsof")
-            .args(["-nP", "-iTCP", "-sTCP:LISTEN", "-a", "-p", &pid.to_string()])
-            .output()
-            .await
-        {
-            Ok(o) => o,
-            Err(_) => continue,
-        };
+        let mut lsof_cmd = tokio::process::Command::new("lsof");
+        lsof_cmd.args(["-nP", "-iTCP", "-sTCP:LISTEN", "-a", "-p", &pid.to_string()]);
+        let (lsof_stdout, _, _) =
+            match crate::process::run_async_with_limits(lsof_cmd, PROBE_TIMEOUT, PROBE_MAX_BYTES)
+                .await
+            {
+                Ok(t) => t,
+                Err(_) => continue,
+            };
 
-        let lsof_text = String::from_utf8_lossy(&lsof_output.stdout);
+        let lsof_text = String::from_utf8_lossy(&lsof_stdout);
         for line in lsof_text.lines().skip(1) {
             // lsof output: COMMAND PID USER FD TYPE DEVICE SIZE/OFF NODE NAME
             // NAME looks like: *:12345 or 127.0.0.1:12345
@@ -192,19 +210,19 @@ async fn detect_unix(_tool: &str) -> Vec<DetectedUiServer> {
 /// Linux: Use /proc filesystem + `ss` for port discovery.
 #[cfg(target_os = "linux")]
 async fn detect_linux() -> Vec<DetectedUiServer> {
-    use tokio::process::Command;
-
     // Step 1: Find copilot processes via ps
-    let ps_output = match Command::new("ps")
-        .args(["ax", "-o", "pid,command"])
-        .output()
-        .await
-    {
-        Ok(o) => o,
-        Err(_) => return vec![],
-    };
+    let mut ps_cmd = tokio::process::Command::new("ps");
+    ps_cmd.args(["ax", "-o", "pid,command"]);
+    let (ps_stdout, _, ps_status) =
+        match crate::process::run_async_with_limits(ps_cmd, PROBE_TIMEOUT, PROBE_MAX_BYTES).await {
+            Ok(t) => t,
+            Err(_) => return vec![],
+        };
+    if !ps_status.success() {
+        return vec![];
+    }
 
-    let ps_text = String::from_utf8_lossy(&ps_output.stdout);
+    let ps_text = String::from_utf8_lossy(&ps_stdout);
     let pids: Vec<u32> = ps_text
         .lines()
         .filter(|line| {
@@ -222,16 +240,17 @@ async fn detect_linux() -> Vec<DetectedUiServer> {
     // Step 2: Use ss to find listening ports per PID
     let mut results = vec![];
     for pid in pids {
-        let ss_output = match Command::new("ss")
-            .args(["-tlnp", "--no-header"])
-            .output()
-            .await
-        {
-            Ok(o) => o,
-            Err(_) => continue,
-        };
+        let mut ss_cmd = tokio::process::Command::new("ss");
+        ss_cmd.args(["-tlnp", "--no-header"]);
+        let (ss_stdout, _, _) =
+            match crate::process::run_async_with_limits(ss_cmd, PROBE_TIMEOUT, PROBE_MAX_BYTES)
+                .await
+            {
+                Ok(t) => t,
+                Err(_) => continue,
+            };
 
-        let ss_text = String::from_utf8_lossy(&ss_output.stdout);
+        let ss_text = String::from_utf8_lossy(&ss_stdout);
         let pid_pattern = format!("pid={}", pid);
         for line in ss_text.lines() {
             if line.contains(&pid_pattern) {

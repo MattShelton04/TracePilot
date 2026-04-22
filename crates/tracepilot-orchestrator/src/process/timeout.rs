@@ -9,6 +9,7 @@ use std::io::Read;
 use std::process::{Child, Command, Output};
 use std::sync::{Arc, Mutex, mpsc};
 use std::time::Duration;
+use tokio::io::AsyncReadExt;
 
 /// Internal helper: spawn a command with stdout/stderr piped.
 pub(super) fn spawn_captured_child(mut cmd: Command, program: &str) -> Result<Child> {
@@ -138,5 +139,72 @@ pub(super) fn run_with_timeout(
                 Err(e)
             }
         }
+    }
+}
+
+/// Async variant: spawn a [`tokio::process::Command`] with a wall-clock
+/// timeout and per-stream capture caps. Designed for async "hidden" probe
+/// launch sites (e.g. `bridge::discovery`) where the probed process may
+/// misbehave (hang, flood stdout) and must not be allowed to hang the
+/// caller nor exhaust memory.
+///
+/// Policy:
+/// - stdout/stderr are piped with `std::process::Stdio::piped()`.
+/// - Each stream is drained with an `AsyncReadExt::take(max_bytes)` limit,
+///   so a hostile child that writes unbounded output cannot OOM us —
+///   excess bytes remain buffered in the kernel pipe until the child is
+///   reaped (or killed on drop).
+/// - `kill_on_drop(true)` is set so that if the timeout fires (or the
+///   caller's task is cancelled) the spawned child is terminated rather
+///   than orphaned.
+/// - The returned error is `ErrorKind::TimedOut` when the wall-clock
+///   deadline expires; other errors propagate from spawn / IO.
+pub(crate) async fn run_async_with_limits(
+    mut cmd: tokio::process::Command,
+    timeout: Duration,
+    max_bytes: u64,
+) -> std::io::Result<(Vec<u8>, Vec<u8>, std::process::ExitStatus)> {
+    cmd.stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .kill_on_drop(true);
+
+    let fut = async move {
+        let mut child = cmd.spawn()?;
+        let stdout = child.stdout.take().ok_or_else(|| {
+            std::io::Error::other("stdout not piped")
+        })?;
+        let stderr = child.stderr.take().ok_or_else(|| {
+            std::io::Error::other("stderr not piped")
+        })?;
+
+        // Drain both pipes concurrently with per-stream caps. The inner
+        // block owns the `Take`-wrapped readers; when the cap fires (or
+        // the child closes the pipes), the block exits and drops those
+        // readers, which drops the underlying `ChildStdout`/`ChildStderr`
+        // and closes our read ends of the pipes. Any child wedged trying
+        // to write past the cap then unblocks with EPIPE / ERROR_BROKEN_PIPE
+        // and exits, allowing `child.wait()` below to complete promptly.
+        let mut out_buf: Vec<u8> = Vec::new();
+        let mut err_buf: Vec<u8> = Vec::new();
+        let (o_res, e_res) = {
+            let mut stdout_capped = stdout.take(max_bytes);
+            let mut stderr_capped = stderr.take(max_bytes);
+            tokio::join!(
+                stdout_capped.read_to_end(&mut out_buf),
+                stderr_capped.read_to_end(&mut err_buf),
+            )
+        };
+        o_res?;
+        e_res?;
+        let status = child.wait().await?;
+        std::io::Result::Ok((out_buf, err_buf, status))
+    };
+
+    match tokio::time::timeout(timeout, fut).await {
+        Ok(r) => r,
+        Err(_) => Err(std::io::Error::new(
+            std::io::ErrorKind::TimedOut,
+            format!("command timed out after {:?}", timeout),
+        )),
     }
 }
