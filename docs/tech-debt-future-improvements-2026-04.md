@@ -693,3 +693,24 @@ actionable so a future engineer can pick them up.
 - **Proposed change**: Update `docs/tech-debt-master-plan-2026-04.md` so future waves reference the actual crate names (`tracepilot-orchestrator` for bridge/SDK concerns). Alternatively, extract the `bridge/manager/` module into its own `tracepilot-copilot-sdk-bridge` crate to match the intent of the plan.
 - **Risk / why deferred**: Doc-only fix is cheap; the extraction is a multi-wave refactor touching every `#[cfg(feature = "copilot-sdk")]` site.
 - **Effort**: S (doc) / L (extraction)
+
+### w108 — `style-src 'unsafe-inline'` still required
+- **Area**: `apps/desktop/src-tauri/tauri.conf.json` (`app.security.csp`) + ~130 `:style=` bindings across `apps/desktop/src/**/*.vue`.
+- **Observation**: Vue's reactive `:style="{ ... }"` bindings compile to direct `element.style.*` assignments *and* Vue also serialises the bound values into the element's `style` attribute for SSR/hydration parity. Browsers enforce `style-src` against any inline `style=` attribute, so the CSP must keep `'unsafe-inline'` until every `:style=` binding is gone. w91 reduced the count substantially but dynamic cases remain (Sankey widths, agent-tree transforms, chart fills, timeline offsets).
+- **Proposed change**: Convert remaining `:style` bindings to class-plus-CSS-custom-property form: static token → utility class, dynamic numeric → `style="--x: 42"` via a CSS variable the scoped stylesheet consumes. Once `grep -rn ':style=' apps/desktop/src | wc -l` is 0, drop `'unsafe-inline'` from `style-src` and add a Playwright smoke test that fails on any `SecurityPolicyViolation` event.
+- **Risk / why deferred**: Behaviour-equivalence refactor across ~50 components; needs its own wave. Also note `'unsafe-inline'` on `style-src` (but not `script-src`) is generally considered low-severity — it enables style injection but not code execution.
+- **Effort**: L
+
+### w108 — Nonce-based CSP for even stricter style policy
+- **Area**: `apps/desktop/src-tauri/tauri.conf.json` + Tauri runtime CSP injection.
+- **Observation**: Tauri supports CSP nonce injection (`__TAURI_CSP_NONCE__`) that allows switching `'unsafe-inline'` to `'nonce-<random>'` for each window load. This would be a stronger mitigation than removing `:style` bindings because any future regression is automatically blocked.
+- **Proposed change**: Switch to `style-src 'self' 'nonce-{nonce}'` and configure Tauri's `dangerousDisableAssetCspModification` + `csp` nonce flow. Requires either server-side HTML templating or Vite plugin that injects the nonce into every `<style>` block — not trivial for runtime-generated inline style attributes from Vue, which cannot carry a nonce.
+- **Risk / why deferred**: Inline `style=` attributes on arbitrary elements (which is what Vue `:style` produces) cannot be nonced — only `<style>` elements can. So nonces alone don't solve the w91/w108 problem; the refactor above is still the real fix.
+- **Effort**: M (nonces on `<style>` tags) / L (combined with w91 refactor)
+
+### w108 — Add Playwright CSP-violation guard
+- **Area**: `apps/desktop/tests/` (no e2e harness yet for CSP) + CI.
+- **Observation**: Current CI has no regression guard against someone adding an inline `<script>` in `index.html` or re-introducing `'unsafe-inline'` in `script-src`. A single commit could silently weaken the CSP.
+- **Proposed change**: (a) add a unit test that reads `dist/index.html` after `pnpm --filter @tracepilot/desktop build` and asserts every `<script>` has a `src=` (no inline bodies); (b) add a snapshot test of the `tauri.conf.json` `csp` string so any change must be deliberate and reviewed; (c) longer-term, a Playwright/Tauri smoke that opens each route and listens for `securitypolicyviolation` events on `window`.
+- **Risk / why deferred**: Security-adjacent test infra; wants its own wave alongside w108's deeper refactor so the smoke test can prove the stricter CSP works.
+- **Effort**: S (static tests) / M (Playwright)
