@@ -19,7 +19,7 @@ import type {
   CopilotVersion,
   MigrationDiff,
 } from "@tracepilot/types";
-import { runMutation, toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
+import { runAction, runMutation, toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import { useToastStore } from "@/stores/toast";
@@ -119,17 +119,19 @@ export const useConfigInjectorStore = defineStore("configInjector", () => {
   }
 
   async function createBackup(filePath: string, label: string, silent = false): Promise<boolean> {
-    try {
+    // Silent-mode backups (invoked before destructive operations) must not
+    // surface errors in the shared `error` ref — use a throwaway ref so the
+    // mutation runs through `runMutation` without mutating user-visible state.
+    const target = silent ? ref<string | null>(null) : error;
+    const ok = await runMutation(target, async () => {
       await createBackupApi(filePath, label);
       backups.value = await listConfigBackups();
       if (!silent) {
         toastStore.success("Backup created");
       }
-      return true;
-    } catch (e) {
-      if (!silent) error.value = toErrorMessage(e);
-      return false;
-    }
+      return true as const;
+    });
+    return ok ?? false;
   }
 
   async function restoreBackup(backupPath: string, restoreTo: string): Promise<boolean> {
@@ -152,17 +154,19 @@ export const useConfigInjectorStore = defineStore("configInjector", () => {
     return ok ?? false;
   }
 
+  // Dummy loading ref for runAction calls that don't expose a loading state.
+  const migrationLoading = ref(false);
+
   async function loadMigrationDiffs(from: string, to: string) {
-    const token = migrationGuard.start();
-    error.value = null;
-    try {
-      const diffs = await getMigrationDiffs(from, to);
-      if (!migrationGuard.isValid(token)) return;
-      migrationDiffs.value = diffs;
-    } catch (e) {
-      if (!migrationGuard.isValid(token)) return;
-      error.value = toErrorMessage(e);
-    }
+    await runAction({
+      loading: migrationLoading,
+      error,
+      guard: migrationGuard,
+      action: () => getMigrationDiffs(from, to),
+      onSuccess: (diffs) => {
+        migrationDiffs.value = diffs;
+      },
+    });
   }
 
   async function migrateAgent(fileName: string, from: string, to: string): Promise<boolean> {

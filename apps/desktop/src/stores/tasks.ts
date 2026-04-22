@@ -10,7 +10,7 @@ import {
   taskStats,
 } from "@tracepilot/client";
 import type { Job, NewTask, Task, TaskFilter, TaskStats } from "@tracepilot/types";
-import { runMutation, toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
+import { runAction, runMutation, toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import { logWarn } from "@/utils/logger";
@@ -151,31 +151,45 @@ export const useTasksStore = defineStore("tasks", () => {
     return refreshTasksPromise;
   }
 
+  // Dummy loading ref — getTask/refreshTask are called from a detail view
+  // that already owns its own visibility state, so the shared `loading` ref
+  // must not toggle here (would flicker the list-level skeleton).
+  const getTaskLoading = ref(false);
+
   async function getTask(id: string): Promise<Task | null> {
-    const token = getTaskGuard.start();
-    error.value = null;
     selectedTask.value = null;
-    try {
-      const task = await taskGet(id);
-      if (getTaskGuard.isValid(token)) selectedTask.value = task;
-      return task;
-    } catch (e) {
-      if (getTaskGuard.isValid(token)) error.value = toErrorMessage(e);
-      return null;
-    }
+    let fetched: Task | null = null;
+    await runAction({
+      loading: getTaskLoading,
+      error,
+      guard: getTaskGuard,
+      action: async () => {
+        fetched = await taskGet(id);
+        return fetched;
+      },
+      onSuccess: (task) => {
+        selectedTask.value = task;
+      },
+    });
+    return fetched;
   }
 
   /** Refresh the selected task without nulling it first (avoids UI flash). */
   async function refreshTask(id: string): Promise<Task | null> {
-    const token = getTaskGuard.start();
-    try {
-      const task = await taskGet(id);
-      if (getTaskGuard.isValid(token)) selectedTask.value = task;
-      return task;
-    } catch (e) {
-      if (getTaskGuard.isValid(token)) error.value = toErrorMessage(e);
-      return null;
-    }
+    let fetched: Task | null = null;
+    await runAction({
+      loading: getTaskLoading,
+      error,
+      guard: getTaskGuard,
+      action: async () => {
+        fetched = await taskGet(id);
+        return fetched;
+      },
+      onSuccess: (task) => {
+        selectedTask.value = task;
+      },
+    });
+    return fetched;
   }
 
   async function createTask(

@@ -344,3 +344,45 @@ actionable so a future engineer can pick them up.
 - **Proposed change**: Either (a) extract `IPC_EVENTS` into its own terminal module with zero transitive `@tracepilot/client` imports (e.g. `packages/client/src/events.ts` today — consumers could `vi.importActual` from the file subpath if the package exports map is expanded), or (b) add the proposed `eventContract` test above so drift is loud. Option (b) is cheaper.
 - **Risk / why deferred**: Low — inline constants are 8 lines and colocated with a sync-comment. Promote only once we have a second test-side duplication of a client constant.
 - **Effort**: S
+
+### w92 — Launcher/configInjector `initialize()` settled-aggregation pattern
+- **Area**: `apps/desktop/src/stores/launcher.ts`, `configInjector.ts`, `orchestrationHome.ts`.
+- **Observation**: These stores' `initialize()` / `doFetch()` use `allSettledRecord` + `aggregateSettledErrors` to compose partial-success error strings, and set individual ref values from each settled slot. `runMutation` / `runAction` can't express this: a rejected slot does not throw, and the error ref is set from an aggregator, not from a caught exception.
+- **Proposed change**: Introduce a `runSettled` helper in `@tracepilot/ui` that takes a settled-record schema `{ key: () => Promise<T> }`, applies per-key `onFulfilled` setters, and collapses rejections via a pluggable aggregator into `error`. Only worth doing once a fourth caller appears (threshold heuristic).
+- **Risk / why deferred**: Over-abstraction risk — the current three call-sites each have slightly different sequencing (fast/slow path split in `orchestrationHome`), so a single helper would need a staged/phased option.
+- **Effort**: M
+
+### w92 — `sessions.ts` reindex: `isAlreadyIndexingError` filter
+- **Area**: `apps/desktop/src/stores/sessions.ts` (`reindex`).
+- **Observation**: The reindex path swallows `isAlreadyIndexingError` (treating it as benign) and only surfaces other exceptions via `error.value`. `runMutation` writes every caught error unconditionally, so the benign class would become user-visible.
+- **Proposed change**: Extend `runMutation` with an `onError` callback that can return `"swallow"` / `"surface"` (or accept a predicate `isBenign?: (e) => boolean`). That also subsumes the `RunMutationOptions` overload already referenced in stored project memory.
+- **Risk / why deferred**: API design — needs a second benign-filter caller to justify; alternative is a per-store `suppressBenign` helper.
+- **Effort**: S
+
+### w92 — `tasks.ts::fetchTasks` — dual-spinner coordination with `refreshTasks`
+- **Area**: `apps/desktop/src/stores/tasks.ts`.
+- **Observation**: `fetchTasks` intentionally defers clearing `loading` when a silent `refreshTasks` is still in flight (avoids spinner flashing). `runAction` clears loading unconditionally in its `finally`, which would regress the UX.
+- **Proposed change**: Add a `shouldClearLoading?: () => boolean` option to `runAction`, or expose the guard-token so the caller can skip the finally clear.
+- **Risk / why deferred**: Low — change touches the shared helper, needs tests.
+- **Effort**: S
+
+### w92 — `worktrees.ts` loadWorktrees/loadAllWorktrees token forwarding
+- **Area**: `apps/desktop/src/stores/worktrees.ts`.
+- **Observation**: These actions pass the `loadGuard` token to an async `hydrateDiskUsageBatch(..., token)` so the hydration step can abort on staleness. `runAction` creates and owns its own token internally, so a migrated `onSuccess` has no way to forward it.
+- **Proposed change**: Expose the validated token (or a `stillValid()` closure) to the `onSuccess` callback — e.g. `onSuccess(result, ctx)` with `ctx.isValid()`.
+- **Risk / why deferred**: Touches helper public shape; best done alongside the `onError` extension above.
+- **Effort**: S
+
+### w92 — `search.ts::executeSearch` date-parse early-return path
+- **Area**: `apps/desktop/src/stores/search.ts`.
+- **Observation**: Inside the `try` block, a date-parse failure sets `q.error.value` from a returned string (not a thrown exception) and early-returns after clearing results + facets. `runAction` can't express a success-path early-exit that writes to `error`.
+- **Proposed change**: Throw a typed `DateRangeError` from `parseDateRange` and let `runAction` catch it; side-effects (`clearSearchResults` + facets reset) move to a try/finally wrapper or an `onError` callback on the helper.
+- **Risk / why deferred**: Needs `parseDateRange` contract change + `onError` support in helpers.
+- **Effort**: S
+
+### w92 — Silent-log-only actions stay manual
+- **Area**: `orchestrator.ts` (`loadModels`, `refreshAttribution`, `refreshActivity`, `ingestResults`), `worktrees.ts::loadBranches/fetchWorktreeDetails`, `launcher.ts::incrementUsage`, `sessions.ts::refreshSessions/ensureIndex`, `configInjector.ts::initialize` inner config read.
+- **Observation**: These intentionally log-and-swallow (`logWarn`) without touching `error.value` — they are background/optional operations whose failure must not surface in the UI. `runMutation` always writes to the supplied error ref, so migrating would regress UX.
+- **Proposed change**: Add `runSilent(action, logLabel)` to `@tracepilot/ui` that wraps try/catch + `logWarn` with zero error-ref dependency. Low priority — each site is 3 lines.
+- **Risk / why deferred**: Trivial helper, minimal payoff versus reading the inlined version.
+- **Effort**: S

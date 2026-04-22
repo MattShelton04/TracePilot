@@ -1,6 +1,6 @@
 import { listSessions, reindexSessions } from "@tracepilot/client";
 import type { SessionListItem } from "@tracepilot/types";
-import { toErrorMessage, useInflightPromise } from "@tracepilot/ui";
+import { runAction, toErrorMessage, useInflightPromise } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import { isAlreadyIndexingError } from "@/utils/backendErrors";
@@ -146,16 +146,15 @@ export const useSessionsStore = defineStore("sessions", () => {
   async function fetchSessions() {
     const existing = fetchInflight.current();
     if (existing) return existing;
-    loading.value = true;
-    error.value = null;
     return fetchInflight.run(async () => {
-      try {
-        sessions.value = await fetchAllSessions();
-      } catch (e) {
-        error.value = toErrorMessage(e);
-      } finally {
-        loading.value = false;
-      }
+      await runAction({
+        loading,
+        error,
+        action: fetchAllSessions,
+        onSuccess: (result) => {
+          sessions.value = result;
+        },
+      });
     });
   }
 

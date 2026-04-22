@@ -1,7 +1,7 @@
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { IPC_EVENTS, rebuildSearchIndex } from "@tracepilot/client";
 import type { SearchIndexingProgress } from "@tracepilot/types";
-import { toErrorMessage } from "@tracepilot/ui";
+import { runMutation } from "@tracepilot/ui";
 import { getCurrentScope, onScopeDispose, ref } from "vue";
 import { logWarn } from "@/utils/logger";
 import { safeListen } from "@/utils/tauriEvents";
@@ -102,25 +102,25 @@ export function createIndexingSlice(deps: IndexingSliceDeps) {
   async function rebuild() {
     if (rebuilding.value || searchIndexing.value) return;
     rebuilding.value = true;
-    deps.query.error.value = null;
     try {
-      await rebuildSearchIndex();
-      // Invalidate facets cache so rebuild always fetches fresh counts
-      deps.facets.invalidateFacetsCache();
-      await Promise.all([
-        deps.facets.fetchStats(),
-        deps.facets.fetchFacets(),
-        deps.facets.fetchFilterOptions(),
-      ]);
-      if (
-        deps.query.hasQuery.value ||
-        deps.query.hasActiveFilters.value ||
-        deps.query.hasResults.value
-      ) {
-        await deps.executeSearch();
-      }
-    } catch (e) {
-      deps.query.error.value = toErrorMessage(e);
+      await runMutation(deps.query.error, async () => {
+        await rebuildSearchIndex();
+        // Invalidate facets cache so rebuild always fetches fresh counts
+        deps.facets.invalidateFacetsCache();
+        await Promise.all([
+          deps.facets.fetchStats(),
+          deps.facets.fetchFacets(),
+          deps.facets.fetchFilterOptions(),
+        ]);
+        if (
+          deps.query.hasQuery.value ||
+          deps.query.hasActiveFilters.value ||
+          deps.query.hasResults.value
+        ) {
+          await deps.executeSearch();
+        }
+        return true as const;
+      });
     } finally {
       rebuilding.value = false;
     }
