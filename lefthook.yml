@@ -26,7 +26,7 @@ pre-push:
   parallel: true
   commands:
     typecheck:
-      run: pnpm -r --filter "./apps/*" --filter "./packages/*" typecheck
+      run: pnpm typecheck
     rustfmt-all:
       run: cargo fmt --all -- --check
     filesize:

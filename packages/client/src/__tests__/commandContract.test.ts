@@ -36,7 +36,7 @@ describe("IPC command contract", () => {
     if (generated.length !== client.length || generated.some((name, idx) => name !== client[idx])) {
       const genSet = new Set(generated);
       const clientSet = new Set(client);
-      const missingInClient = generated.filter((n) => !clientSet.has(n));
+      const missingInClient = generated.filter((n) => !clientSet.has(n as never));
       const missingInRust = client.filter((n) => !genSet.has(n));
       const hint = [
         "IPC_COMMANDS (packages/client/src/commands.ts) is out of sync with the Rust manifest.",
