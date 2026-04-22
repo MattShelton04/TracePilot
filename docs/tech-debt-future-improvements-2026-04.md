@@ -735,3 +735,45 @@ actionable so a future engineer can pick them up.
 - **Proposed change**: add an explicit allow-list of accepted Windows path prefixes and reject `\\.\` device paths, `\\?\GLOBALROOT\`, and NT object-namespace paths up front, before canonicalize. Add tests covering each of these.
 - **Risk / why deferred**: low-probability attack surface; would need Windows-only test fixtures. Batch with the broader UNC test matrix when a dedicated Windows QA wave runs.
 - **Effort**: S
+
+### w115 — ADR-0007: Skill model (discovery, loading, invocation)
+- **Area**: `crates/tracepilot-orchestrator/src/skills`, `apps/desktop/src/stores/skills.ts`.
+- **Observation**: The skill model (`UserSkill` vs `ProjectSkill`, discovery precedence, runner lifecycle, sandboxing policy) is substantial and currently only documented by the code itself plus ad-hoc notes. Wave 115 landed 0001-0006 but skills deserved their own ADR.
+- **Proposed change**: Write ADR-0007 covering skill discovery (dirs walked + precedence), manifest schema, runner lifecycle (`hidden_command` + timeouts per ADR-0004), and failure isolation guarantees.
+- **Risk / why deferred**: Wave 115 scope was the six foundational ADRs; adding a seventh would have pushed the wave past the 200-line-per-ADR budget and delayed the index.
+- **Effort**: M
+
+### w115 — ADR-0008: MCP hosting model
+- **Area**: `crates/tracepilot-orchestrator/src/mcp`.
+- **Observation**: MCP (Model Context Protocol) server hosting — how servers are declared, started, probed for health, crashed-server restart policy, stdio vs SSE transport selection — is a cross-cutting architectural concern without a dedicated ADR. The `mcp::error` sub-enum (ADR-0005) hints at a non-trivial taxonomy that isn't captured in prose.
+- **Proposed change**: Write ADR-0008 covering server lifecycle, transport choice, version negotiation, and how MCP tool invocations surface through the IPC contract.
+- **Risk / why deferred**: MCP hosting is still evolving upstream; an ADR written today would need revision when the spec moves. Write once the spec stabilises.
+- **Effort**: M
+
+### w115 — ADR-0009: Bridge lifecycle + discovery
+- **Area**: `crates/tracepilot-orchestrator/src/bridge`.
+- **Observation**: The bridge (session discovery, UI server, manager state) has its own lifecycle — startup ordering, reconnection, broadcast-channel fan-out (`sdk_bridge_metrics` in generated bindings), `RecvError::Lagged` handling. All of this is embedded in module docs but not captured as a single architectural decision.
+- **Proposed change**: ADR-0009 documenting the bridge state machine, broadcast channel capacity choices, lag-recovery policy, and shutdown ordering guarantees.
+- **Risk / why deferred**: Requires a day's archaeology across `bridge/manager/`, `bridge/discovery.rs`, `bridge/manager/ui_server.rs`. Scoped for a dedicated wave.
+- **Effort**: M
+
+### w115 — ADR for UI routing / window model
+- **Area**: `apps/desktop/src/router`, multi-window plumbing.
+- **Observation**: Window-per-session vs single-window-with-tabs was decided implicitly by the multi-window-architecture doc but never lifted into an ADR. Router conventions (route naming, guards, lazy chunks) are similarly informal.
+- **Proposed change**: ADR covering the window model (single main + spawned auxiliary windows), router structure, and how stores interact with multiple windows (shared vs per-window state).
+- **Risk / why deferred**: Multi-window plumbing is still stabilising; premature ADR would need superseding.
+- **Effort**: M
+
+### w115 — ADR for build/release pipeline + signing
+- **Area**: `.github/workflows/release.yml`, `tauri.conf.json`, `cliff.toml`.
+- **Observation**: Release artefacts, signing/notarisation, auto-updater feed format, SLSA provenance (planned in w112) — these are architectural in the sense that they shape downstream consumers' trust model. No ADR captures them today.
+- **Proposed change**: Once w111–w113 land, write an ADR capturing the final release pipeline, artefact formats, and the updater contract.
+- **Risk / why deferred**: Blocked on w111 (multi-OS) + w112 (SBOM/SLSA) + w113 (git-cliff). Write after those ship.
+- **Effort**: S (mostly documenting what's there)
+
+### w115 — ADR template linter / CI gate
+- **Area**: `scripts/`, `docs/adr/`.
+- **Observation**: Nothing enforces that new ADRs follow the template, have a status line, or appear in the index. Drift is predictable.
+- **Proposed change**: Add a `scripts/check-adr.mjs` that validates each `docs/adr/NNNN-*.md` has the required headings (Context, Decision, Consequences, Alternatives considered), parses `Date:` and `Status:`, and asserts it's listed in `docs/adr/README.md`. Wire into CI.
+- **Risk / why deferred**: Minor new tooling + a CI job; out of scope for the docs-only Wave 115.
+- **Effort**: S
