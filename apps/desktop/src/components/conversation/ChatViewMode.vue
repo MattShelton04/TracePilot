@@ -9,6 +9,7 @@ import UserMessageAnchor from "@/components/conversation/chat/UserMessageAnchor.
 import SessionEventRow from "@/components/conversation/SessionEventRow.vue";
 import { useChatViewPanelOffset } from "@/composables/useChatViewPanelOffset";
 import { useCrossTurnSubagents } from "@/composables/useCrossTurnSubagents";
+import { useRenderBudget } from "@/composables/useRenderBudget";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { useSubagentCompletions } from "@/composables/useSubagentCompletions";
 import { useSubagentPanel } from "@/composables/useSubagentPanel";
@@ -28,6 +29,8 @@ import SystemMessagePanel from "./SystemMessagePanel.vue";
 // ─── Store & Route ────────────────────────────────────────────────
 
 const store = useSessionDetailContext();
+
+useRenderBudget({ key: "render.chatViewModeMs", budgetMs: 200, label: "ChatViewMode" });
 const preferences = usePreferencesStore();
 const { isViewer } = useWindowRole();
 const route = useRoute();

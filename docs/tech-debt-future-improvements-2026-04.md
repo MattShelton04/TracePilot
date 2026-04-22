@@ -838,3 +838,38 @@ actionable so a future engineer can pick them up.
 - **Proposed change**: Extend `ipc_hot_path.rs` with groups whose names match the budget keys verbatim (`ipc_listSessionsMs` etc.) so the CI script from the first FI entry can blindly join on name. The side-effect commands (`checkSystemDeps`, `getWorktreeDiskUsage`) may need a `bench-support` cfg-gated helper to inject fakes rather than hitting the real filesystem.
 - **Risk / why deferred**: Requires a small amount of `cfg(any(test, feature = "bench"))` surface on tauri-bindings; deferred to avoid scope creep in w121.
 - **Effort**: M
+
+### w122 — Playwright perf e2e for render budgets
+- **Area**: `apps/desktop/`, `e2e/` (new).
+- **Observation**: `useRenderBudget` only warns in DEV; there is no CI gate that fails a PR when a view regresses past its budget. We currently rely on a developer noticing the console warning locally.
+- **Proposed change**: Add a Playwright suite that boots the dev server with a fixed seed corpus, navigates to each budgeted view, captures `performance.getEntriesByName` (once we emit user-timing marks — see next entry), and asserts P95 < budget over N runs. Wire into CI as a nightly job to keep PR latency low.
+- **Risk / why deferred**: New test infra (Playwright not currently a dep), runner cost, and flakiness on shared CI hardware requires careful sizing of N and variance budgets.
+- **Effort**: L
+
+### w122 — Emit user-timing marks from `useRenderBudget`
+- **Area**: `apps/desktop/src/composables/useRenderBudget.ts`.
+- **Observation**: The composable measures via `performance.now()` deltas but does not `performance.mark`/`measure`. That means the Chrome DevTools Performance panel and the Vue DevTools profiler cannot correlate a budget breach with the actual flame graph without manual clicking.
+- **Proposed change**: Emit `performance.mark(${key}:mounted)` at `onMounted` and `performance.measure(key, start, end)` after the double-rAF. Guard behind the same DEV flag. Opens the door for the Playwright e2e above to read the measures directly instead of parsing console output.
+- **Risk / why deferred**: Tiny DEV-only change but we wanted to keep w122 strictly additive and scope-minimal while the instrumentation pattern stabilises.
+- **Effort**: S
+
+### w122 — Long-task observer + TBT tracking
+- **Area**: `apps/desktop/src/composables/useRenderBudget.ts` (or a new sibling composable).
+- **Observation**: Render-to-paint is a coarse metric. A view that paints in 100ms but blocks the main thread for a 250ms long task afterward (e.g. deferred Sankey layout) feels worse than the budget suggests and won't trip any of the w122 warnings.
+- **Proposed change**: Subscribe to `PerformanceObserver({ type: 'longtask', buffered: true })` while a budgeted view is mounted and attribute attribution-windowed long tasks back to that view. Compute Total Blocking Time (TBT) between mount and a configurable quiet-period (e.g. 2s) and warn if TBT exceeds a new `render.*TbtMs` budget.
+- **Risk / why deferred**: `PerformanceObserver('longtask')` is Chromium-only; Tauri uses the system webview which on macOS is WKWebView (no long-task API). Needs capability detection + platform-aware budgets.
+- **Effort**: M
+
+### w122 — Largest Contentful Paint (LCP) tracking per route
+- **Area**: `apps/desktop/src/router/`, `apps/desktop/src/composables/`.
+- **Observation**: Mount-to-first-paint is not the same as LCP. Views that render a skeleton synchronously (`SessionListView` in particular) will clear the render budget trivially while the user still waits 600ms+ for the real content to stream in via `useAutoRefresh`.
+- **Proposed change**: Add a route-scoped LCP tracker using `PerformanceObserver({ type: 'largest-contentful-paint', buffered: true })`, reset on `router.afterEach`, and compare against per-route `route.*LcpMs` budget keys. Emit a single summary on route leave rather than a warn-per-breach to avoid console spam during HMR.
+- **Risk / why deferred**: LCP semantics are tricky for SPAs; needs careful definition of "route-scoped LCP start" (router `beforeEach` vs `onMounted`) and platform support (see long-task entry).
+- **Effort**: M
+
+### w122 — Budget values are hand-tuned, not measured
+- **Area**: `perf-budget.json` (`render.*`), `crates/tracepilot-bench/README.md`.
+- **Observation**: The initial render budgets added in w122 (120–200ms) are educated guesses based on the developer's local machine. They haven't been validated against a percentile of real-world runs on slower hardware (low-end Windows laptops, older Intel macOS).
+- **Proposed change**: Instrument a telemetry opt-in (or developer-only local aggregator) that records actual P50/P95 over a week of dogfooding, then tighten the budgets to 1.5× measured P95 per the project's convention for IPC budgets.
+- **Risk / why deferred**: Requires telemetry plumbing or a structured local log sink; product decision needed on whether to ship opt-in telemetry.
+- **Effort**: M

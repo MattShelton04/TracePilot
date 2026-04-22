@@ -23,6 +23,14 @@
     "ftsHealthMs": 200,
     "notes": "Measured on a corpus of ~100 sessions. These are P95 targets. Cached IPC calls (checkSystemDeps, getWorktreeDiskUsage, getSearchFacets) assume warm cache."
   },
+  "render": {
+    "sessionListViewMs": 120,
+    "chatViewModeMs": 200,
+    "analyticsDashboardViewMs": 180,
+    "orchestrationHomeViewMs": 150,
+    "tokenFlowTabMs": 180,
+    "notes": "Time from component `onMounted` to the second `requestAnimationFrame` callback (first paint commit). Dev-only `useRenderBudget` composable in `apps/desktop/src/composables/useRenderBudget.ts` emits a `console.warn` when the measured delta exceeds the budget. Production builds compile out all instrumentation via `import.meta.env.DEV`."
+  },
   "rust": {
     "parseEventsJsonl100kbNs": 5000000,
     "computeAnalytics100sessionsNs": 10000000,

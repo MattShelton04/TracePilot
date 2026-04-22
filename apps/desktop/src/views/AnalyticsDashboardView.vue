@@ -17,10 +17,16 @@ import AnalyticsStatsGrids from "@/components/analytics/AnalyticsStatsGrids.vue"
 import AnalyticsTokenActivityRow from "@/components/analytics/AnalyticsTokenActivityRow.vue";
 import { useAnalyticsPage } from "@/composables/useAnalyticsPage";
 import { usePerfMonitor } from "@/composables/usePerfMonitor";
+import { useRenderBudget } from "@/composables/useRenderBudget";
 import { usePreferencesStore } from "@/stores/preferences";
 
 const prefs = usePreferencesStore();
 usePerfMonitor("AnalyticsDashboardView");
+useRenderBudget({
+  key: "render.analyticsDashboardViewMs",
+  budgetMs: 180,
+  label: "AnalyticsDashboardView",
+});
 const { tooltip, dismissTooltip, onChartMouseMove, onChartClick } = useChartTooltip();
 const { store } = useAnalyticsPage("fetchAnalytics");
 

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ErrorState, LoadingOverlay, PageShell } from "@tracepilot/ui";
 import { onMounted } from "vue";
+import { useRenderBudget } from "@/composables/useRenderBudget";
 import { useOrchestrationHomeStore } from "@/stores/orchestrationHome";
 import OrchestrationActivityFeed from "./home/OrchestrationActivityFeed.vue";
 import OrchestrationHeroStats from "./home/OrchestrationHeroStats.vue";
@@ -9,6 +10,12 @@ import OrchestrationQuickActions from "./home/OrchestrationQuickActions.vue";
 import OrchestrationSystemHealth from "./home/OrchestrationSystemHealth.vue";
 
 const store = useOrchestrationHomeStore();
+
+useRenderBudget({
+  key: "render.orchestrationHomeViewMs",
+  budgetMs: 150,
+  label: "OrchestrationHomeView",
+});
 
 onMounted(() => {
   store.initialize();

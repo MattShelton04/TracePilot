@@ -68,6 +68,27 @@ so there is ample headroom.
 - `benches/` — Criterion benchmark harnesses (one `*.rs` per scenario).
 - `BASELINE.md` — recorded IPC hot-path numbers (see `ipc_hot_path` bench).
 
+## Frontend render budgets (w122)
+
+While this crate covers Rust/IPC budgets, complementary **frontend render
+budgets** live under `render.*` in `perf-budget.json` and are enforced
+passively at runtime by the `useRenderBudget` composable
+(`apps/desktop/src/composables/useRenderBudget.ts`).
+
+| Budget key                         | View                         | Budget |
+| ---------------------------------- | ---------------------------- | ------ |
+| `render.sessionListViewMs`         | `SessionListView.vue`        | 120ms  |
+| `render.chatViewModeMs`            | `ChatViewMode.vue`           | 200ms  |
+| `render.analyticsDashboardViewMs`  | `AnalyticsDashboardView.vue` | 180ms  |
+| `render.orchestrationHomeViewMs`   | `OrchestrationHomeView.vue`  | 150ms  |
+| `render.tokenFlowTabMs`            | `TokenFlowTab.vue`           | 180ms  |
+
+The composable times from Vue's `onMounted` to the second nested
+`requestAnimationFrame` (i.e. the first paint commit) and emits a
+`console.warn` in DEV when the budget is exceeded. Production bundles
+tree-shake the instrumentation away via `import.meta.env.DEV`; QA can
+opt in at runtime in a shipped build by setting `window.__tracepilot_perf`.
+
 ## Related
 
 - Budgets: `perf-budget.json` at the repo root.

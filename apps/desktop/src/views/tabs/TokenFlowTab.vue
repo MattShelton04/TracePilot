@@ -4,6 +4,7 @@ import { computed } from "vue";
 import TokenFlowLegend from "@/components/tokenFlow/TokenFlowLegend.vue";
 import TokenFlowSankey from "@/components/tokenFlow/TokenFlowSankey.vue";
 import TokenFlowStats from "@/components/tokenFlow/TokenFlowStats.vue";
+import { useRenderBudget } from "@/composables/useRenderBudget";
 import { SANKEY_COLORS, useSankeyLayout } from "@/composables/useSankeyLayout";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { useTokenFlowData } from "@/composables/useTokenFlowData";
@@ -11,6 +12,8 @@ import { usePreferencesStore } from "@/stores/preferences";
 
 const store = useSessionDetailContext();
 const prefs = usePreferencesStore();
+
+useRenderBudget({ key: "render.tokenFlowTabMs", budgetMs: 180, label: "TokenFlowTab" });
 
 useSessionTabLoader(
   () => store.sessionId,
