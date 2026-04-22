@@ -402,3 +402,44 @@ actionable so a future engineer can pick them up.
 - **Proposed change**: After the relocation above, tighten the ref to `Record<FeatureFlag, boolean>` (or `Partial<Record<FeatureFlag, boolean>>`) and funnel migration-time writes through a single `setFlag(flag: FeatureFlag, value)` helper that drops unknown keys with `logWarn`. Add a vitest invariant asserting the store rejects `"__synthetic_test_flag"` writes in non-test builds.
 - **Risk / why deferred**: Changes the test shape (`featureFlags.test.ts:14` currently asserts a synthetic key survives) and may mask real-world migration paths from older configs. Needs a paired migration audit.
 - **Effort**: S
+### w94 — plugin-updater / plugin-process scattered imports
+- **Area**: `apps/desktop/src/composables/useAutoUpdate.ts:55,84`.
+- **Observation**: Single-file consumers of `@tauri-apps/plugin-updater` (`check`) and `@tauri-apps/plugin-process` (`relaunch`). Each is called exactly once, gated by `installType === 'installed'` rather than `isTauri()`. Not migrated in w94 because a gateway for a single call-site is pure indirection.
+- **Proposed change**: Fold into `@/lib/tauri/updater.ts` (`tauriCheckForUpdate`) and `@/lib/tauri/process.ts` (`tauriRelaunch`) if/when a second consumer appears. Alternatively inline `isTauri()` check + `maybeMock`.
+- **Risk / why deferred**: Low — cosmetic, single call-site. Would add modules for no dedup win until the plugins grow a second consumer.
+- **Effort**: S
+
+### w94 — plugin-opener scattered import
+- **Area**: `apps/desktop/src/utils/openExternal.ts:36`.
+- **Observation**: Single-use dynamic `@tauri-apps/plugin-opener` (`openUrl`) inside `openExternal`. Already well-scoped — `isTauri()` guard + try/catch + `window.open` fallback all live in one 45-line module.
+- **Proposed change**: If a second caller emerges (e.g. in-app `file://` handler), lift to `@/lib/tauri/opener.ts`. Otherwise leave as-is.
+- **Risk / why deferred**: Zero value in moving a single-use import behind a gateway.
+- **Effort**: S
+
+### w94 — plugin-log scattered import
+- **Area**: `apps/desktop/src/utils/logger.ts:5,9`.
+- **Observation**: `logger.ts` caches `typeof import('@tauri-apps/plugin-log')` in a module-level `tauriLog` ref and lazily loads it via `ensureLog()`. The cache + the `debug`/`info`/`warn`/`error`/`trace` facade are all tightly coupled to this single import. Not migrated in w94 because the logger is a hot-path foundational module — any indirection risks re-adding the first-import cost on every synchronous `logInfo` call.
+- **Proposed change**: If centralisation is desired, expose `@/lib/tauri/log.ts` returning the already-cached handle (`loadTauriLog()`) and have `logger.ts` delegate. Benefit is marginal; cost is an extra indirection per log call.
+- **Risk / why deferred**: Foundational module, hot path, already correctly guarded. Logged for completeness only.
+- **Effort**: S
+
+### w94 — plugin-notification scattered imports
+- **Area**: `apps/desktop/src/composables/useAlertDispatcher.ts:72,151`.
+- **Observation**: Two dynamic `@tauri-apps/plugin-notification` imports — one for `isPermissionGranted`/`requestPermission`/`sendNotification` in `sendNativeNotification`, one for `onAction`/`registerActionTypes` in `registerNotificationClickHandler`. Both are guarded by try/catch rather than `isTauri()`. Not folded into the w94 gateway because the notification surface is larger (permission flow, action registration) and warrants its own module.
+- **Proposed change**: Add `@/lib/tauri/notification.ts` exposing `ensureNotificationPermission`, `sendTauriNotification(title, body, opts)`, `registerTauriNotificationAction({ id, title, onAction })`. Collapses the two call-sites + wraps the permission-grant dance once.
+- **Risk / why deferred**: Requires a small API design pass so we don't just re-export the plugin 1:1. Safe to defer until a second caller appears.
+- **Effort**: S
+
+### w94 — SettingsLogging.vue bypasses @tracepilot/client
+- **Area**: `apps/desktop/src/components/settings/SettingsLogging.vue:32`.
+- **Observation**: `openLogDirectory()` calls `tauriInvoke('plugin:tracepilot|open_in_explorer', …)` via a dynamic `@tauri-apps/api/core` import rather than going through a typed wrapper in `@tracepilot/client`. Two issues: (a) it bypasses the `createInvoke` / mock fallback machinery, (b) it's the last remaining desktop-app dynamic import of `@tauri-apps/api/core` (the only legitimate one lives in `packages/client/src/invoke.ts`). Not migrated in w94 because it also carries a command-name string that should graduate to an `IPC_COMMANDS` entry first.
+- **Proposed change**: Add `openInExplorer(path)` to `@tracepilot/client` (`packages/client/src/os.ts` or similar) backed by `createInvoke('plugin:tracepilot|open_in_explorer')` + a registry entry. Migrate the call-site.
+- **Risk / why deferred**: Needs a small backend-command registry touch; separate concern from the Tauri-gateway sweep.
+- **Effort**: S
+
+### w94 — ChildApp.vue static emit import retained for teardown reliability
+- **Area**: `apps/desktop/src/ChildApp.vue:1` (top-level `import { emit } from '@tauri-apps/api/event'`).
+- **Observation**: Unlike every other call-site touched in w94, this one remains a **static** import (not routed through `tauriEmit` in `@/lib/tauri/event.ts`). The original comment — `async imports may not complete before the webview tears down during native window close` — explains why: during `onUnmounted` on the viewer window, a dynamic `await import('@tauri-apps/api/event')` can race the native window close and drop the `popup-session-closed` event, leaving the main window's monitored-set stale.
+- **Proposed change**: Either (a) pre-warm the event module at `onMounted` time via `void tauriListen('__noop__', () => {}).then(un => un?.())`, then switch to `tauriEmit` in the teardown path; or (b) expose a `preloadTauriEvent()` helper from `@/lib/tauri/event.ts` that call-sites can fire-and-forget during mount.
+- **Risk / why deferred**: Behaviour-preserving — the static import guarantees the plugin code is resident before teardown. Moving to dynamic without a pre-warm would be a regression on a reliability-critical path.
+- **Effort**: S

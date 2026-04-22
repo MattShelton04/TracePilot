@@ -1,7 +1,5 @@
 import { getCurrentScope, onScopeDispose } from "vue";
-
-type WindowApi = typeof import("@tauri-apps/api/window");
-type EventApi = typeof import("@tauri-apps/api/event");
+import { getAllTauriWindows, getCurrentTauriWindow, tauriListen } from "@/lib/tauri";
 
 export interface WindowLifecycleOptions {
   /** Gate: only attach listeners when this returns true. Evaluated once. */
@@ -75,15 +73,11 @@ export function useWindowLifecycle(
 
   void (async () => {
     try {
-      const [{ getCurrentWindow, getAllWindows }, { listen }] = (await Promise.all([
-        import("@tauri-apps/api/window"),
-        import("@tauri-apps/api/event"),
-      ])) as [WindowApi, EventApi];
-
+      const mainWin = await getCurrentTauriWindow();
       if (cancelled) return;
+      if (!mainWin) return; // Browser / non-Tauri — nothing to attach.
 
       // ── Main-window close → cascade close viewer windows ───────
-      const mainWin = getCurrentWindow();
       const unlistenClose = await mainWin.onCloseRequested(async (event) => {
         event.preventDefault();
         try {
@@ -92,7 +86,7 @@ export function useWindowLifecycle(
           /* best-effort — don't block destroy */
         }
         try {
-          const all = await getAllWindows();
+          const all = await getAllTauriWindows();
           await Promise.allSettled(
             all
               .filter((w) => w.label.startsWith("viewer-"))
@@ -111,7 +105,7 @@ export function useWindowLifecycle(
 
       // ── Popup session close → update monitored session set ─────
       if (options.onPopupClosed) {
-        const unlistenPopup = await listen<{ sessionId: string }>(
+        const unlistenPopup = await tauriListen<{ sessionId: string }>(
           "popup-session-closed",
           (event) => {
             options.onPopupClosed?.(event.payload.sessionId);

@@ -7,6 +7,7 @@ import type { AlertEvent, AlertSeverity, AlertType } from "@/stores/alerts";
 import { useAlertsStore } from "@/stores/alerts";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useToastStore } from "@/stores/toast";
+import { getCurrentTauriWindow } from "@/lib/tauri";
 import { logError, logInfo, logWarn } from "@/utils/logger";
 
 // ── Cooldown tracking ────────────────────────────────────────────
@@ -52,8 +53,8 @@ function severityForType(type: AlertType): AlertSeverity {
 // ── Channel: Taskbar flash ───────────────────────────────────────
 async function flashTaskbar(severity: AlertSeverity) {
   try {
-    const { getCurrentWindow } = await import("@tauri-apps/api/window");
-    const win = getCurrentWindow();
+    const win = await getCurrentTauriWindow();
+    if (!win) return;
     // UserAttentionType: Critical=1 (flashes until clicked), Informational=2 (brief flash)
     const attentionType = severity === "error" ? 1 : 2;
     await win.requestUserAttention(attentionType);
@@ -160,8 +161,8 @@ export async function registerNotificationClickHandler() {
 
     await onAction(async () => {
       try {
-        const { getCurrentWindow } = await import("@tauri-apps/api/window");
-        const win = getCurrentWindow();
+        const win = await getCurrentTauriWindow();
+        if (!win) return;
         await win.unminimize();
         await win.setFocus();
       } catch {

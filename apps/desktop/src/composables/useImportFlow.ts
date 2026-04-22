@@ -9,6 +9,7 @@ import type { ConflictStrategy, ImportPreviewResult, ImportResult } from "@trace
 import { toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
 import { type ComputedRef, computed, onBeforeUnmount, type Ref, ref } from "vue";
 import { isTauri, promptForPath } from "@/lib/mocks";
+import { tauriDialogOpen } from "@/lib/tauri";
 import { logError, logInfo } from "@/utils/logger";
 
 // ── Step Type ──────────────────────────────────────────────────
@@ -124,8 +125,7 @@ export function useImportFlow(): ImportFlowState {
     }
 
     try {
-      const { open } = await import("@tauri-apps/plugin-dialog");
-      const selected = await open({
+      const selected = await tauriDialogOpen({
         title: "Select TracePilot export file",
         filters: [{ name: "TracePilot Export", extensions: ["json"] }],
       });
