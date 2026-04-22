@@ -1,0 +1,3 @@
+## 2026-04-22 - Optimizing SQLite Batch Inserts in Rust
+**Learning:** When performing `rusqlite` batch operations with chunked data arrays in Rust, explicitly caching the prepared `rusqlite::Statement` object (rather than just the SQL string) for full-sized chunks avoids the overhead of recompiling the statement inside a loop. This is critical for performance on large batches (e.g., thousands of rows).
+**Action:** Use type inference (e.g., `let mut full_stmt = None;`) rather than explicit typing (`Option<rusqlite::Statement>`) to initialize the cache and avoid lifetime compilation errors related to the `Connection` reference. Use dynamic `prepare()` for the final smaller chunk where the string length varies to avoid polluting the SQLite statement cache.
