@@ -14,6 +14,7 @@ import { computed, ref, watch } from "vue";
 import { useClipboard } from "../composables/useClipboard";
 import MarkdownContent from "./MarkdownContent.vue";
 import CodeBlock from "./renderers/CodeBlock.vue";
+import SqliteTableView from "./SqliteTableView.vue";
 
 const props = defineProps<{
   /** Relative path within the session directory (for display + language detection). */
@@ -160,26 +161,7 @@ function copyTableAsJson() {
 
         <!-- Table content -->
         <div v-if="activeTable" class="fcv__db-content">
-          <div v-if="activeTable.rows.length === 0" class="fcv__db-empty">
-            No rows in <strong>{{ activeTable.name }}</strong>
-          </div>
-          <div v-else class="fcv__db-table-wrap">
-            <table class="fcv__db-table">
-              <thead>
-                <tr>
-                  <th v-for="col in activeTable.columns" :key="col" class="fcv__db-th">{{ col }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(row, rIdx) in activeTable.rows" :key="rIdx" class="fcv__db-tr">
-                  <td v-for="(cell, cIdx) in row" :key="cIdx" class="fcv__db-td">
-                    <span v-if="cell === null" class="fcv__db-null">NULL</span>
-                    <span v-else>{{ cell }}</span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          <SqliteTableView :key="activeTable.name" :table="activeTable" />
         </div>
       </template>
 
@@ -523,8 +505,10 @@ function copyTableAsJson() {
 
 .fcv__db-content {
   flex: 1;
-  overflow: auto;
+  overflow: hidden;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .fcv__db-empty {

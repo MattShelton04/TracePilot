@@ -188,4 +188,29 @@ export interface SessionDbTable {
   columns: string[];
   /** Rows; each row is an ordered list of cell values aligned to `columns`. */
   rows: (string | number | null)[][];
+  /** Column schema metadata from `PRAGMA table_info`. */
+  columnInfo: SessionDbColumn[];
+  /** Indexes on the table, from `PRAGMA index_list` + `PRAGMA index_info`. */
+  indexes: SessionDbIndex[];
+}
+
+/** A single column's schema metadata. */
+export interface SessionDbColumn {
+  name: string;
+  /** Declared type (may be empty for typeless columns). */
+  typeName: string;
+  /** True when `NOT NULL` was declared. */
+  notnull: boolean;
+  /** Primary-key position (0 if not a PK column; 1-based for composite PKs). */
+  pk: number;
+  /** Declared default expression, if any. */
+  defaultValue: string | null;
+}
+
+/** Metadata for a single index on a table. */
+export interface SessionDbIndex {
+  name: string;
+  unique: boolean;
+  /** Column names the index covers, in index order. */
+  columns: string[];
 }

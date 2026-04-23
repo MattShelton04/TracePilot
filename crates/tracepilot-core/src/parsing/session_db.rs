@@ -39,6 +39,35 @@ pub struct CustomTableInfo {
     pub name: String,
     pub columns: Vec<String>,
     pub rows: Vec<Vec<serde_json::Value>>,
+    /// Column schema (names, types, PK, nullability, defaults) from `PRAGMA table_info`.
+    pub column_info: Vec<ColumnSchema>,
+    /// Index metadata from `PRAGMA index_list` + `PRAGMA index_info`.
+    pub indexes: Vec<IndexSchema>,
+}
+
+/// A single column's schema metadata, sourced from `PRAGMA table_info`.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ColumnSchema {
+    pub name: String,
+    /// Declared type (may be empty for typeless columns).
+    pub type_name: String,
+    /// True when `NOT NULL` was declared.
+    pub notnull: bool,
+    /// Primary-key position (0 if not a PK column; 1-based otherwise for composite PKs).
+    pub pk: i64,
+    /// Declared default expression, if any.
+    pub default_value: Option<String>,
+}
+
+/// Index metadata from `PRAGMA index_list` + `PRAGMA index_info`.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IndexSchema {
+    pub name: String,
+    pub unique: bool,
+    /// Column names the index covers, in index order.
+    pub columns: Vec<String>,
 }
 
 /// Read all todo items from a session database (opened read-only).
@@ -125,6 +154,8 @@ pub fn read_custom_table(db_path: &Path, table_name: &str) -> Result<CustomTable
             name: table_name.to_string(),
             columns: Vec::new(),
             rows: Vec::new(),
+            column_info: Vec::new(),
+            indexes: Vec::new(),
         });
     };
 
@@ -133,15 +164,53 @@ pub fn read_custom_table(db_path: &Path, table_name: &str) -> Result<CustomTable
             name: table_name.to_string(),
             columns: Vec::new(),
             rows: Vec::new(),
+            column_info: Vec::new(),
+            indexes: Vec::new(),
         });
     }
 
     // Discover columns via PRAGMA — escape table name for safe SQL interpolation
     let safe_name = table_name.replace('"', "\"\"");
     let mut pragma_stmt = conn.prepare(&format!("PRAGMA table_info(\"{}\")", safe_name))?;
-    let columns: Vec<String> = pragma_stmt
-        .query_map([], |row| row.get::<_, String>(1))?
+    // PRAGMA table_info columns: cid, name, type, notnull, dflt_value, pk
+    let column_info: Vec<ColumnSchema> = pragma_stmt
+        .query_map([], |row| {
+            Ok(ColumnSchema {
+                name: row.get::<_, String>(1)?,
+                type_name: row.get::<_, Option<String>>(2)?.unwrap_or_default(),
+                notnull: row.get::<_, i64>(3)? != 0,
+                default_value: row.get::<_, Option<String>>(4)?,
+                pk: row.get::<_, i64>(5)?,
+            })
+        })?
         .collect::<std::result::Result<Vec<_>, _>>()?;
+    let columns: Vec<String> = column_info.iter().map(|c| c.name.clone()).collect();
+
+    // Discover indexes via PRAGMA index_list + PRAGMA index_info.
+    let mut indexes: Vec<IndexSchema> = Vec::new();
+    {
+        let mut idx_list_stmt = conn.prepare(&format!("PRAGMA index_list(\"{}\")", safe_name))?;
+        // index_list columns: seq, name, unique, origin, partial
+        let idx_rows: Vec<(String, bool)> = idx_list_stmt
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(1)?, row.get::<_, i64>(2)? != 0))
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        for (idx_name, unique) in idx_rows {
+            let safe_idx = idx_name.replace('"', "\"\"");
+            let mut info_stmt = conn.prepare(&format!("PRAGMA index_info(\"{}\")", safe_idx))?;
+            // index_info columns: seqno, cid, name
+            let cols: Vec<String> = info_stmt
+                .query_map([], |row| row.get::<_, Option<String>>(2))?
+                .filter_map(|r| r.ok().flatten())
+                .collect();
+            indexes.push(IndexSchema {
+                name: idx_name,
+                unique,
+                columns: cols,
+            });
+        }
+    }
 
     // Read all rows — build each row as an ordered Vec aligned to `columns`.
     let mut select_stmt = conn.prepare(&format!("SELECT * FROM \"{}\"", safe_name))?;
@@ -159,6 +228,8 @@ pub fn read_custom_table(db_path: &Path, table_name: &str) -> Result<CustomTable
         name: table_name.to_string(),
         columns,
         rows,
+        column_info,
+        indexes,
     })
 }
 
@@ -284,6 +355,51 @@ mod tests {
         let info = read_custom_table(&db_path, "nonexistent").unwrap();
         assert!(info.columns.is_empty());
         assert!(info.rows.is_empty());
+    }
+
+    #[test]
+    fn test_read_custom_table_includes_schema_and_indexes() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("schema.db");
+        let conn = Connection::open(&db_path).unwrap();
+        conn.execute_batch(
+            "CREATE TABLE items (
+                id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL,
+                qty REAL DEFAULT 1.0
+            );
+            CREATE UNIQUE INDEX idx_items_name ON items(name);
+            CREATE INDEX idx_items_qty ON items(qty);
+            ",
+        )
+        .unwrap();
+        drop(conn);
+
+        let info = read_custom_table(&db_path, "items").unwrap();
+        assert_eq!(info.column_info.len(), 3);
+        let id_col = info.column_info.iter().find(|c| c.name == "id").unwrap();
+        assert_eq!(id_col.pk, 1);
+        assert_eq!(id_col.type_name, "INTEGER");
+        let name_col = info.column_info.iter().find(|c| c.name == "name").unwrap();
+        assert!(name_col.notnull);
+        assert_eq!(name_col.pk, 0);
+        let qty_col = info.column_info.iter().find(|c| c.name == "qty").unwrap();
+        assert_eq!(qty_col.default_value.as_deref(), Some("1.0"));
+        assert!(!qty_col.notnull);
+
+        let unique_idx = info
+            .indexes
+            .iter()
+            .find(|i| i.name == "idx_items_name")
+            .unwrap();
+        assert!(unique_idx.unique);
+        assert_eq!(unique_idx.columns, vec!["name".to_string()]);
+        let non_unique = info
+            .indexes
+            .iter()
+            .find(|i| i.name == "idx_items_qty")
+            .unwrap();
+        assert!(!non_unique.unique);
     }
 
     #[test]
