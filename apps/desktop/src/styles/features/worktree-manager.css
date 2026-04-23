@@ -650,7 +650,7 @@
 }
 
 /* ─── Detail Panel ────────────────────────────────────────────── */
-.detail-panel {
+.wt-detail-panel {
   border-top: 1px solid var(--border-default);
   background: var(--canvas-subtle);
   max-height: 0;
@@ -659,7 +659,7 @@
   flex-shrink: 0;
 }
 
-.detail-panel--open {
+.wt-detail-panel--open {
   max-height: 500px;
 }
 

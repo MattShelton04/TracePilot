@@ -21,7 +21,7 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div class="detail-panel" :class="{ 'detail-panel--open': worktree }">
+  <div class="wt-detail-panel" :class="{ 'wt-detail-panel--open': worktree }">
     <template v-if="worktree">
       <div class="detail-header">
         <div class="detail-header-left">
