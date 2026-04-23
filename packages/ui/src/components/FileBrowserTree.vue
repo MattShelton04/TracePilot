@@ -399,10 +399,10 @@ const iconTypeByPath = computed(() => {
     box-shadow: inset 2px 0 0 transparent;
   }
 }
-/* Selected takes precedence over the fade background */
-.fb-tree__item--selected.fb-tree__item--new {
-  animation: none;
-}
+/* Note: when an item is both --selected and --new we still want the flash
+   to play (content-updated open file). The animation transitions to
+   `background: transparent` at 100%, after which the --new class is
+   removed and the selected background takes over again. */
 
 /* File-type icon accent colours */
 .fb-tree__file-icon--markdown { color: var(--accent-fg); opacity: 0.75; }
