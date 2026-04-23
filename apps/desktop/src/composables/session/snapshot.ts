@@ -30,6 +30,7 @@ export function buildCachedSessionSnapshot(
     plan: ctx.sections.planSection.data.value,
     shutdownMetrics: ctx.sections.metricsSection.data.value,
     incidents: ctx.sections.incidentsSection.data.value,
+    todos: ctx.sections.todosSection.data.value,
     loadedSections: new Set(ctx.loaded.value),
   } satisfies CachedSession;
 }
@@ -49,6 +50,7 @@ export function buildPrefetchedCachedSession(
     plan: null,
     shutdownMetrics: null,
     incidents: [],
+    todos: null,
     loadedSections: new Set(["detail", "turns"]),
   } satisfies CachedSession;
 }
@@ -61,5 +63,6 @@ export function restoreFromCachedSession(ctx: SnapshotContext, cached: CachedSes
   ctx.sections.planSection.data.value = cached.plan;
   ctx.sections.metricsSection.data.value = cached.shutdownMetrics;
   ctx.sections.incidentsSection.data.value = cached.incidents;
+  ctx.sections.todosSection.data.value = cached.todos;
   ctx.loaded.value = new Set(cached.loadedSections);
 }

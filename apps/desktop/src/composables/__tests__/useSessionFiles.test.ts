@@ -327,4 +327,78 @@ describe("useSessionFiles", () => {
     expect(instance.files).toEqual(reloadedEntries);
     expect(mockSessionListFiles).toHaveBeenCalledTimes(2);
   });
+
+  it("silent reload does not toggle filesLoading and flags newly-added paths", async () => {
+    // BUG 1 regression: the file list used to flash + scroll to the top on
+    // every auto-refresh because loadFiles toggled filesLoading=true, which
+    // unmounted the list. Silent reload must keep the DOM stable.
+    const first = [
+      { path: "a.md", name: "a.md", sizeBytes: 1, isDirectory: false, fileType: "markdown" },
+    ];
+    const second = [
+      { path: "a.md", name: "a.md", sizeBytes: 1, isDirectory: false, fileType: "markdown" },
+      { path: "b.md", name: "b.md", sizeBytes: 2, isDirectory: false, fileType: "markdown" },
+    ];
+    mockSessionListFiles.mockResolvedValueOnce(first).mockResolvedValueOnce(second);
+
+    const { instance } = mountComposable("sess-1");
+    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+
+    // Observe filesLoading during reload — must never flip to true.
+    let sawLoading = false;
+    const reloadPromise = instance.reload();
+    // Sample immediately after calling reload (before the fetch resolves).
+    if (instance.filesLoading) sawLoading = true;
+    await reloadPromise;
+
+    expect(sawLoading).toBe(false);
+    expect(instance.filesLoading).toBe(false);
+    expect(instance.files).toEqual(second);
+    // New file is flagged for the green-fade highlight.
+    expect(Array.from(instance.newFilePaths)).toEqual(["b.md"]);
+
+    // Acknowledgement clears the transient highlight.
+    instance.ackNewPaths();
+    expect(instance.newFilePaths.size).toBe(0);
+  });
+
+  it("silent reload refetches open file content and records contentChangedAt", async () => {
+    // BUG 1 tail: when a file is open in the viewer and an agent edits it on
+    // disk, auto-refresh should show the new content without a manual re-click.
+    const entries = [
+      {
+        path: "plan.md",
+        name: "plan.md",
+        sizeBytes: 10,
+        isDirectory: false,
+        fileType: "markdown",
+      },
+    ];
+    mockSessionListFiles.mockResolvedValue(entries);
+    mockSessionReadFile
+      .mockResolvedValueOnce("v1")
+      .mockResolvedValueOnce("v2") // silent refetch
+      .mockResolvedValueOnce("v2"); // no-op silent refetch — unchanged
+
+    const { instance } = mountComposable("sess-1");
+    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+
+    await instance.selectFile("plan.md", "markdown");
+    expect(instance.fileContent).toBe("v1");
+    expect(instance.contentChangedAt).toBeNull();
+
+    await instance.reload();
+    // Allow the fire-and-forget silent refetch kicked off inside loadFiles.
+    await new Promise<void>((resolve) => setTimeout(resolve, 20));
+    expect(instance.fileContent).toBe("v2");
+    expect(instance.contentChangedAt).not.toBeNull();
+
+    instance.ackContentChanged();
+    expect(instance.contentChangedAt).toBeNull();
+
+    // No-op refetch — same content, no pulse.
+    await instance.reload();
+    await new Promise<void>((resolve) => setTimeout(resolve, 20));
+    expect(instance.contentChangedAt).toBeNull();
+  });
 });

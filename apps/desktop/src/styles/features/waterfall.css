@@ -365,7 +365,7 @@
 }
 
 /* ── Pinned detail panel (positioned via ToolDetailPanel component) ── */
-.detail-panel {
+.waterfall-root .detail-panel {
   margin-top: 8px;
 }
 

@@ -139,10 +139,9 @@ export function useSessionSearch(options: UseSessionSearchOptions) {
   // ── Content type tri-state toggle ─────────────────────────────
   // States: 'off' (not filtered) → 'include' → 'exclude' → 'off'
   function removeContentTypeFilter(ct: SearchContentType) {
-    const incIdx = store.contentTypes.indexOf(ct);
-    if (incIdx >= 0) store.contentTypes.splice(incIdx, 1);
-    const excIdx = store.excludeContentTypes.indexOf(ct);
-    if (excIdx >= 0) store.excludeContentTypes.splice(excIdx, 1);
+    // shallowRef: replace wholesale so the store's filter watcher fires.
+    store.contentTypes = store.contentTypes.filter((t) => t !== ct);
+    store.excludeContentTypes = store.excludeContentTypes.filter((t) => t !== ct);
   }
 
   // Active filter chips: collect all active include/exclude filters

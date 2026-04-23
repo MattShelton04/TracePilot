@@ -14,6 +14,7 @@ import { computed, ref, watch } from "vue";
 import { useClipboard } from "../composables/useClipboard";
 import MarkdownContent from "./MarkdownContent.vue";
 import CodeBlock from "./renderers/CodeBlock.vue";
+import SqliteTableView from "./SqliteTableView.vue";
 
 const props = defineProps<{
   /** Relative path within the session directory (for display + language detection). */
@@ -62,13 +63,47 @@ const fileName = computed(() => {
 const activeTableIndex = ref(0);
 const activeTable = computed(() => props.dbData?.[activeTableIndex.value] ?? null);
 
-// Reset active tab whenever the dataset changes (e.g., user switches SQLite files)
+/**
+ * Track the selected table by name so silent auto-refresh (which replaces
+ * `dbData` with a new array) doesn't reset the user back to index 0. When
+ * the dataset changes, re-locate the previously selected table in the new
+ * payload; fall back to index 0 only if it no longer exists.
+ */
+const activeTableName = ref<string | null>(null);
 watch(
   () => props.dbData,
-  () => {
-    activeTableIndex.value = 0;
+  (next, prev) => {
+    if (!next || next.length === 0) {
+      activeTableIndex.value = 0;
+      activeTableName.value = null;
+      return;
+    }
+    const prevName = activeTableName.value ?? prev?.[activeTableIndex.value]?.name ?? null;
+    let nextIdx = prevName ? next.findIndex((t) => t.name === prevName) : -1;
+    if (nextIdx < 0) {
+      // Prefer the `todos` table on first load when present — it's by far the
+      // most commonly inspected table in the session.db, and alphabetical
+      // ordering happens to put `todo_deps` ahead of `todos`.
+      const todosIdx = next.findIndex((t) => t.name === "todos");
+      nextIdx = todosIdx >= 0 ? todosIdx : 0;
+    }
+    activeTableIndex.value = nextIdx;
+    activeTableName.value = next[activeTableIndex.value]?.name ?? null;
   },
+  { immediate: true },
 );
+
+function selectTable(idx: number) {
+  activeTableIndex.value = idx;
+  activeTableName.value = props.dbData?.[idx]?.name ?? null;
+}
+
+// Data / Schema toggle — lifted out of SqliteTableView so the segmented
+// control can render inline with the table-tabs strip (one header row,
+// not two). Preserved across silent auto-refresh.
+type SqliteViewMode = "data" | "schema";
+const sqliteViewMode = ref<SqliteViewMode>("data");
+const activeTableHasSchema = computed(() => (activeTable.value?.columnInfo?.length ?? 0) > 0);
 
 // ── Copy to clipboard ──────────────────────────────────────────────────────
 const { copy: copyText, copied: textCopied } = useClipboard();
@@ -142,7 +177,7 @@ function copyTableAsJson() {
           </button>
         </div>
 
-        <!-- Table tabs -->
+        <!-- Table tabs (left) + Data/Schema toggle (right) -->
         <div class="fcv__db-tabs" role="tablist">
           <button
             v-for="(table, idx) in dbData"
@@ -151,35 +186,47 @@ function copyTableAsJson() {
             :class="{ 'fcv__db-tab--active': activeTableIndex === idx }"
             role="tab"
             :aria-selected="activeTableIndex === idx"
-            @click="activeTableIndex = idx"
+            @click="selectTable(idx)"
           >
             {{ table.name }}
             <span class="fcv__db-tab-count">{{ table.rows.length }}</span>
           </button>
+          <div class="fcv__db-tabs-spacer" />
+          <div
+            v-if="activeTable"
+            class="fcv__db-view-toggle"
+            role="radiogroup"
+            aria-label="Table view mode"
+          >
+            <button
+              class="fcv__db-view-btn"
+              :class="{ 'fcv__db-view-btn--active': sqliteViewMode === 'data' }"
+              role="radio"
+              :aria-checked="sqliteViewMode === 'data'"
+              @click="sqliteViewMode = 'data'"
+            >
+              Data
+            </button>
+            <button
+              v-if="activeTableHasSchema"
+              class="fcv__db-view-btn"
+              :class="{ 'fcv__db-view-btn--active': sqliteViewMode === 'schema' }"
+              role="radio"
+              :aria-checked="sqliteViewMode === 'schema'"
+              @click="sqliteViewMode = 'schema'"
+            >
+              Schema
+            </button>
+          </div>
         </div>
 
         <!-- Table content -->
         <div v-if="activeTable" class="fcv__db-content">
-          <div v-if="activeTable.rows.length === 0" class="fcv__db-empty">
-            No rows in <strong>{{ activeTable.name }}</strong>
-          </div>
-          <div v-else class="fcv__db-table-wrap">
-            <table class="fcv__db-table">
-              <thead>
-                <tr>
-                  <th v-for="col in activeTable.columns" :key="col" class="fcv__db-th">{{ col }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(row, rIdx) in activeTable.rows" :key="rIdx" class="fcv__db-tr">
-                  <td v-for="(cell, cIdx) in row" :key="cIdx" class="fcv__db-td">
-                    <span v-if="cell === null" class="fcv__db-null">NULL</span>
-                    <span v-else>{{ cell }}</span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          <SqliteTableView
+            :key="filePath"
+            v-model:view-mode="sqliteViewMode"
+            :table="activeTable"
+          />
         </div>
       </template>
 
@@ -399,6 +446,8 @@ function copyTableAsJson() {
   align-items: center;
   gap: 7px;
   padding: 8px 12px;
+  height: 36px;
+  box-sizing: border-box;
   border-bottom: 1px solid var(--border-default);
   background: var(--canvas-subtle);
   flex-shrink: 0;
@@ -447,6 +496,8 @@ function copyTableAsJson() {
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
+  height: 36px;
+  box-sizing: border-box;
   border-bottom: 1px solid var(--border-default);
   background: var(--canvas-subtle);
   flex-shrink: 0;
@@ -477,6 +528,7 @@ function copyTableAsJson() {
 
 .fcv__db-tabs {
   display: flex;
+  align-items: stretch;
   gap: 2px;
   padding: 4px 8px 0;
   border-bottom: 1px solid var(--border-default);
@@ -484,6 +536,46 @@ function copyTableAsJson() {
   flex-shrink: 0;
   overflow-x: auto;
   scrollbar-width: thin;
+}
+
+.fcv__db-tabs-spacer {
+  flex: 1 1 auto;
+  min-width: 8px;
+}
+
+.fcv__db-view-toggle {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  margin: 2px 0 4px;
+  background: var(--surface-secondary, var(--canvas-subtle));
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  align-self: center;
+  flex-shrink: 0;
+}
+
+.fcv__db-view-btn {
+  padding: 3px 10px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.fcv__db-view-btn:hover:not(.fcv__db-view-btn--active) {
+  color: var(--text-primary);
+  background: var(--canvas-inset, var(--canvas-subtle));
+}
+
+.fcv__db-view-btn--active {
+  background: var(--accent-emphasis, var(--accent-fg));
+  color: var(--text-on-emphasis, #fff);
 }
 
 .fcv__db-tab {
@@ -525,6 +617,8 @@ function copyTableAsJson() {
   flex: 1;
   overflow: auto;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .fcv__db-empty {

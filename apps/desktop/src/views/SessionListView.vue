@@ -33,7 +33,9 @@ const detailStore = useSessionDetailStore();
 const prefs = usePreferencesStore();
 const tabStore = useSessionTabsStore();
 const { refreshing, refresh } = useAutoRefresh({
-  onRefresh: () => store.ensureIndex(),
+  // Auto-refresh bypasses the ensureIndex throttle so new sessions that land
+  // on disk between navigations are picked up without requiring Ctrl+R.
+  onRefresh: () => store.ensureIndex({ force: true }),
   enabled: computed(() => prefs.autoRefreshEnabled),
   intervalSeconds: computed(() => prefs.autoRefreshIntervalSeconds),
 });

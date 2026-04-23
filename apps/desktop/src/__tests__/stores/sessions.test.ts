@@ -196,4 +196,48 @@ describe("useSessionsStore", () => {
     expect(store.error).toBeNull();
     expect(store.indexing).toBe(false);
   });
+
+  it("ensureIndex throttles repeat reindexes but still refreshes the list", async () => {
+    mockReindexSessions.mockResolvedValue([3, 10]);
+    mockListSessions.mockResolvedValue([MOCK_SESSION]);
+    const store = useSessionsStore();
+
+    // First call — reindex runs, list fetched.
+    await store.ensureIndex();
+    expect(mockReindexSessions).toHaveBeenCalledTimes(1);
+    expect(mockListSessions).toHaveBeenCalledTimes(1);
+
+    // Second call immediately — within throttle window.
+    const UPDATED = { ...MOCK_SESSION, id: "new-session" };
+    mockListSessions.mockResolvedValue([MOCK_SESSION, UPDATED]);
+    await store.ensureIndex();
+
+    // Reindex is throttled (not re-run)...
+    expect(mockReindexSessions).toHaveBeenCalledTimes(1);
+    // ...but the session list IS still refreshed so new sessions that appeared
+    // between navigations are picked up without requiring Ctrl+R.
+    expect(mockListSessions).toHaveBeenCalledTimes(2);
+    expect(store.sessions).toHaveLength(2);
+  });
+
+  it("ensureIndex({ force: true }) bypasses the throttle on every call", async () => {
+    mockReindexSessions.mockResolvedValue([3, 10]);
+    mockListSessions.mockResolvedValue([MOCK_SESSION]);
+    const store = useSessionsStore();
+
+    // First call — reindex runs.
+    await store.ensureIndex();
+    expect(mockReindexSessions).toHaveBeenCalledTimes(1);
+
+    // Immediate force call bypasses the 2-minute nav throttle and reindexes
+    // again — this is the auto-refresh tick that must pick up new on-disk
+    // sessions without waiting for Ctrl+R.
+    await store.ensureIndex({ force: true });
+    expect(mockReindexSessions).toHaveBeenCalledTimes(2);
+
+    // Subsequent force ticks keep reindexing — we trade a cheap reindex
+    // per tick for guaranteed freshness of the session list.
+    await store.ensureIndex({ force: true });
+    expect(mockReindexSessions).toHaveBeenCalledTimes(3);
+  });
 });

@@ -205,6 +205,26 @@ describe("useSearchStore – scheduling", () => {
     expect(store.loading).toBe(false);
   });
 
+  it("triggers an immediate search when contentTypes is replaced (no query change)", async () => {
+    // Regression: shallowRef filter arrays must be replaced wholesale (not
+    // mutated via splice/push) for the filter watcher in stores/search.ts
+    // to fire. If the sidebar falls back to splice/push, filter toggles
+    // won't re-run the search until the query changes — the bug this
+    // test guards against.
+    const store = useSearchStore();
+
+    // Replace the array wholesale, the way the sidebar now does.
+    store.contentTypes = ["tool_call"];
+
+    await vi.runAllTimersAsync();
+    await nextTick();
+    await Promise.resolve();
+
+    expect(mockSearchContent).toHaveBeenCalledTimes(1);
+    const [, options] = mockSearchContent.mock.calls[0];
+    expect(options.contentTypes).toEqual(["tool_call"]);
+  });
+
   it("passes unix timestamps for valid date range", async () => {
     const store = useSearchStore();
     store.dateFrom = "2025-01-01T00:00:00.000Z";

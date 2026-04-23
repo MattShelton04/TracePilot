@@ -53,6 +53,7 @@ export { default as SegmentedControl } from "./components/SegmentedControl.vue";
 export { default as SessionCard } from "./components/SessionCard.vue";
 export { default as SessionList } from "./components/SessionList.vue";
 export { default as SkeletonLoader } from "./components/SkeletonLoader.vue";
+export { default as SqliteTableView } from "./components/SqliteTableView.vue";
 export { default as StatCard } from "./components/StatCard.vue";
 export { default as StatusIcon } from "./components/StatusIcon.vue";
 export type { TabNavItem } from "./components/TabNav.vue";

@@ -216,8 +216,16 @@ export const useSessionsStore = defineStore("sessions", () => {
    * Throttled to at most once per MIN_INDEX_INTERVAL_MS to prevent redundant
    * reindexes when the user navigates back to the session list. The periodic
    * auto-refresh and explicit user-triggered reindex are unaffected.
+   *
+   * When `opts.force` is true (periodic auto-refresh path), the throttle is
+   * bypassed entirely so new sessions that land on disk show up on the
+   * next tick without requiring a Ctrl+R or tab-away/back. The reindex
+   * itself is incremental and cheap (~sub-second on typical session
+   * collections); coalescing is handled upstream via `indexInflight` so
+   * a genuinely concurrent reindex won't be duplicated.
    */
-  async function ensureIndex() {
+  async function ensureIndex(opts: { force?: boolean } = {}) {
+    const force = opts.force ?? false;
     const existingIndex = indexInflight.current();
     if (existingIndex) {
       try {
@@ -235,8 +243,15 @@ export const useSessionsStore = defineStore("sessions", () => {
       return;
     }
 
-    // Skip if we indexed recently — avoids 479ms reindexSessions on every re-navigation.
-    if (Date.now() - lastIndexedAt < MIN_INDEX_INTERVAL_MS) return;
+    // Navigation path: skip reindex if we indexed recently (2min). The
+    // force path (periodic auto-refresh) bypasses the throttle entirely so
+    // newly-created sessions on disk become visible on the next tick.
+    // Either way, still silently refresh the list so sessions indexed by
+    // another process become visible.
+    if (!force && Date.now() - lastIndexedAt < MIN_INDEX_INTERVAL_MS) {
+      await refreshSessions();
+      return;
+    }
 
     try {
       await indexInflight.run(() => reindexSessions());

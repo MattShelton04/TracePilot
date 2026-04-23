@@ -2,7 +2,7 @@
 import "@/styles/features/session-explorer.css";
 import type { SessionFileType } from "@tracepilot/types";
 import { FileBrowserTree, FileContentViewer, useAutoRefresh } from "@tracepilot/ui";
-import { computed, onBeforeUnmount, ref } from "vue";
+import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { useSessionFiles } from "@/composables/useSessionFiles";
 import { usePreferencesStore } from "@/stores/preferences";
@@ -55,10 +55,64 @@ onBeforeUnmount(() => {
 });
 
 // ── Auto-refresh ────────────────────────────────────────────────────────────
+// Silent refresh: the composable defaults `reload()` to silent=true so the
+// file list / viewer DOM stays mounted and scroll position survives.
 useAutoRefresh({
   onRefresh: () => sessionFiles.reload(),
   enabled: computed(() => prefs.autoRefreshEnabled),
   intervalSeconds: computed(() => prefs.autoRefreshIntervalSeconds),
+});
+
+// ── New-file highlight (bonus) ─────────────────────────────────────────────
+// Clear the transient highlight set AFTER the fade has fully completed so
+// the class removal can't interrupt the animation mid-frame. Matches the
+// 1.1s keyframes in FileBrowserTree.vue (+ small safety buffer).
+const NEW_PATH_FADE_MS = 1200;
+let newPathTimer: ReturnType<typeof setTimeout> | null = null;
+let viewerPulseTimer: ReturnType<typeof setTimeout> | null = null;
+
+watch(
+  () => sessionFiles.newFilePaths,
+  (set) => {
+    if (set.size === 0) return;
+    if (newPathTimer) clearTimeout(newPathTimer);
+    newPathTimer = setTimeout(() => {
+      sessionFiles.ackNewPaths();
+      newPathTimer = null;
+    }, NEW_PATH_FADE_MS);
+  },
+);
+const highlightedPaths = computed(() => {
+  // Union: newly-appeared files + the selected file when its content was just
+  // updated on disk (so the tree entry also flashes alongside the viewer
+  // border — a single cohesive "something updated" cue).
+  const base = sessionFiles.newFilePaths;
+  const selected = sessionFiles.selectedPath;
+  if (!viewerChanged.value || !selected) return base;
+  if (base.has(selected)) return base;
+  const union = new Set<string>(base);
+  union.add(selected);
+  return union;
+});
+
+// Clear content-changed highlight shortly after it flips so the viewer pulse fades.
+const CONTENT_FADE_MS = 1100;
+watch(
+  () => sessionFiles.contentChangedAt,
+  (ts) => {
+    if (!ts) return;
+    if (viewerPulseTimer) clearTimeout(viewerPulseTimer);
+    viewerPulseTimer = setTimeout(() => {
+      sessionFiles.ackContentChanged();
+      viewerPulseTimer = null;
+    }, CONTENT_FADE_MS);
+  },
+);
+const viewerChanged = computed(() => sessionFiles.contentChangedAt !== null);
+
+onBeforeUnmount(() => {
+  if (newPathTimer) clearTimeout(newPathTimer);
+  if (viewerPulseTimer) clearTimeout(viewerPulseTimer);
 });
 </script>
 
@@ -69,6 +123,7 @@ useAutoRefresh({
         :entries="sessionFiles.files"
         :loading="sessionFiles.filesLoading"
         :selected-path="sessionFiles.selectedPath ?? undefined"
+        :highlighted-paths="highlightedPaths"
         title="Session Files"
         :auto-collapse-threshold="10"
         @view-file="onViewFile"
@@ -82,7 +137,7 @@ useAutoRefresh({
       @mousedown.prevent="startDrag"
     />
 
-    <div class="explorer-tab__viewer">
+    <div class="explorer-tab__viewer" :class="{ 'explorer-tab__viewer--changed': viewerChanged }">
       <FileContentViewer
         :file-path="sessionFiles.selectedPath ?? undefined"
         :content="sessionFiles.fileContent ?? undefined"
@@ -144,5 +199,25 @@ useAutoRefresh({
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  position: relative;
+}
+
+/* Bonus: briefly highlight the viewer when the currently-open file's
+   content was updated on disk by an auto-refresh. Pure inset ring — no
+   layout shift. Uses the success colour so the cue reads as "new content
+   landed" rather than "this is selected" (which already uses the accent). */
+.explorer-tab__viewer--changed::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 2px var(--success-fg);
+  opacity: 0;
+  animation: explorer-viewer-pulse 1.1s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes explorer-viewer-pulse {
+  0%   { opacity: 0.7; }
+  55%  { opacity: 0.3; }
+  100% { opacity: 0; }
 }
 </style>

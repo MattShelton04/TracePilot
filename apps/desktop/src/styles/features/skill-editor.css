@@ -14,10 +14,18 @@
    ═══════════════════════════════════════════════════════════ */
 
 /* ── Shell ──────────────────────────────────────────────── */
+.skill-editor-feature {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+}
 .skill-editor-feature .editor-shell {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  flex: 1 1 auto;
+  min-height: 0;
   background: var(--canvas-default);
   color: var(--text-primary);
   overflow: hidden;

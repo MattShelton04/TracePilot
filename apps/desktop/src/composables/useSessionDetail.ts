@@ -123,10 +123,15 @@ export function createSessionDetailInstance() {
     if (cached) {
       restoreFromCachedSession(snapshotCtx, cached);
       loading.value = false;
+      // Events are paginated and always refetched on the events tab
+      // (they manage their own fingerprint/cursor), so clear them here.
       events.value = null;
       loaded.value.delete("events");
-      sections.todosSection.data.value = null;
-      loaded.value.delete("todos");
+      // NOTE: todos are now cached alongside other sections. The subsequent
+      // `void refreshAll()` below will refresh them via refreshLoaded when
+      // "todos" is present in loadedSections, so we no longer need the
+      // ad-hoc `todos = null; loaded.delete("todos")` reset that previously
+      // caused new/updated todos to be missed until the Todos tab re-mounted.
 
       const lastFetched = lastFetchTimestamp.get(id) ?? 0;
       const shouldRefresh = Date.now() - lastFetched > REFRESH_THROTTLE_MS;

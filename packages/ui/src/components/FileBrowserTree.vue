@@ -20,6 +20,13 @@ const props = defineProps<{
   title?: string;
   /** Folders with more entries than this will be auto-collapsed on load. Default: no limit. */
   autoCollapseThreshold?: number;
+  /**
+   * Paths to briefly highlight as newly-added (e.g. green fade-in) — used by
+   * the session explorer to indicate files that appeared on auto-refresh.
+   * The set is expected to be cleared by the parent after the animation
+   * duration; the class simply reflects current membership.
+   */
+  highlightedPaths?: ReadonlySet<string>;
 }>();
 
 const emit = defineEmits<{
@@ -77,7 +84,10 @@ const iconTypeByPath = computed(() => {
         v-for="entry in treeStructure.rootFiles"
         :key="entry.path"
         class="fb-tree__item"
-        :class="{ 'fb-tree__item--selected': selectedPath === entry.path }"
+        :class="{
+          'fb-tree__item--selected': selectedPath === entry.path,
+          'fb-tree__item--new': highlightedPaths?.has(entry.path),
+        }"
         role="button"
         tabindex="0"
         @click="emit('viewFile', entry.path)"
@@ -153,7 +163,10 @@ const iconTypeByPath = computed(() => {
             v-for="entry in folderEntries"
             :key="entry.path"
             class="fb-tree__item fb-tree__item--nested"
-            :class="{ 'fb-tree__item--selected': selectedPath === entry.path }"
+            :class="{
+              'fb-tree__item--selected': selectedPath === entry.path,
+              'fb-tree__item--new': highlightedPaths?.has(entry.path),
+            }"
             role="button"
             tabindex="0"
             @click="emit('viewFile', entry.path)"
@@ -213,7 +226,11 @@ const iconTypeByPath = computed(() => {
 }
 
 .fb-tree__header {
-  padding: 10px 12px 8px;
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  height: 36px;
+  box-sizing: border-box;
   border-bottom: 1px solid var(--border-default);
   flex-shrink: 0;
 }
@@ -318,6 +335,8 @@ const iconTypeByPath = computed(() => {
 
 /* ── File row ────────────────────────────────────────────── */
 .fb-tree__item {
+  position: relative;
+  isolation: isolate;
   display: flex;
   align-items: center;
   gap: 7px;
@@ -355,6 +374,39 @@ const iconTypeByPath = computed(() => {
 .fb-tree__item--selected .fb-tree__file-icon {
   opacity: 0.9;
 }
+
+/* ── New-file highlight (auto-refresh) ──────────────────────────────── */
+/* Newly-appeared and content-updated files flash green so auto-refresh
+   changes are visible at a glance.
+
+   Implementation: an absolutely-positioned ::before overlay inherits the
+   row's border-radius and animates ONLY its opacity. Animating the row's
+   own background/box-shadow produces sub-pixel rasterisation residue on
+   rounded corners (Chromium promotes the row to a compositor layer for
+   the shadow animation and can leave dithered green specks on tile
+   boundaries when the layer is discarded). An opacity-only animation on
+   a dedicated pseudo-element avoids touching the row's own paint region
+   entirely, so nothing can be left behind when the class is removed. */
+.fb-tree__item--new::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--success-muted);
+  box-shadow: inset 3px 0 0 var(--success-fg);
+  pointer-events: none;
+  opacity: 1;
+  animation: fb-tree-new-fade 1.1s ease-out forwards;
+}
+@keyframes fb-tree-new-fade {
+  0%, 55% { opacity: 1; }
+  100%    { opacity: 0; }
+}
+/* When an item is both --selected and --new we still want the flash to
+   play. The overlay sits above the selected background (z-order of
+   ::before inside a positioned parent) and fades to opacity:0, leaving
+   the selected pill intact. */
 
 /* File-type icon accent colours */
 .fb-tree__file-icon--markdown { color: var(--accent-fg); opacity: 0.75; }
