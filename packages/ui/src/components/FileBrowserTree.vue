@@ -335,6 +335,8 @@ const iconTypeByPath = computed(() => {
 
 /* ── File row ────────────────────────────────────────────── */
 .fb-tree__item {
+  position: relative;
+  isolation: isolate;
   display: flex;
   align-items: center;
   gap: 7px;
@@ -374,35 +376,37 @@ const iconTypeByPath = computed(() => {
 }
 
 /* ── New-file highlight (auto-refresh) ──────────────────────────────── */
-/* Pure background + inset-shadow fade — no size / border / margin change
-   so the list doesn't layout-shift when entries gain/lose the class.
-   Uses accent colour (matches the selected-state pill) rather than raw
-   green so the cue feels consistent with the rest of the app chrome. */
-/* Newly-appeared files (and content-updated ones) briefly flash green so
-   auto-refresh changes are visible at a glance. Kept to background +
-   inset box-shadow so the list doesn't layout-shift when entries gain /
-   lose the class. Uses --success-fg to read as "new content arrived". */
-.fb-tree__item--new {
-  animation: fb-tree-new-fade 1.2s ease-out;
+/* Newly-appeared and content-updated files flash green so auto-refresh
+   changes are visible at a glance.
+
+   Implementation: an absolutely-positioned ::before overlay inherits the
+   row's border-radius and animates ONLY its opacity. Animating the row's
+   own background/box-shadow produces sub-pixel rasterisation residue on
+   rounded corners (Chromium promotes the row to a compositor layer for
+   the shadow animation and can leave dithered green specks on tile
+   boundaries when the layer is discarded). An opacity-only animation on
+   a dedicated pseudo-element avoids touching the row's own paint region
+   entirely, so nothing can be left behind when the class is removed. */
+.fb-tree__item--new::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--success-muted);
+  box-shadow: inset 3px 0 0 var(--success-fg);
+  pointer-events: none;
+  opacity: 1;
+  animation: fb-tree-new-fade 1.1s ease-out forwards;
 }
 @keyframes fb-tree-new-fade {
-  0% {
-    background: var(--success-muted);
-    box-shadow: inset 3px 0 0 var(--success-fg);
-  }
-  70% {
-    background: var(--success-muted);
-    box-shadow: inset 3px 0 0 var(--success-fg);
-  }
-  100% {
-    background: transparent;
-    box-shadow: inset 3px 0 0 transparent;
-  }
+  0%, 55% { opacity: 1; }
+  100%    { opacity: 0; }
 }
-/* Note: when an item is both --selected and --new we still want the flash
-   to play (content-updated open file). The animation transitions to
-   `background: transparent` at 100%, after which the --new class is
-   removed and the selected background takes over again. */
+/* When an item is both --selected and --new we still want the flash to
+   play. The overlay sits above the selected background (z-order of
+   ::before inside a positioned parent) and fades to opacity:0, leaving
+   the selected pill intact. */
 
 /* File-type icon accent colours */
 .fb-tree__file-icon--markdown { color: var(--accent-fg); opacity: 0.75; }

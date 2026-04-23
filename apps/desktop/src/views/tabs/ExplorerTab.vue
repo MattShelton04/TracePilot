@@ -64,8 +64,10 @@ useAutoRefresh({
 });
 
 // ── New-file highlight (bonus) ─────────────────────────────────────────────
-// Clear the transient highlight set after the fade so the animation can play.
-const NEW_PATH_FADE_MS = 1100;
+// Clear the transient highlight set AFTER the fade has fully completed so
+// the class removal can't interrupt the animation mid-frame. Matches the
+// 1.1s keyframes in FileBrowserTree.vue (+ small safety buffer).
+const NEW_PATH_FADE_MS = 1200;
 let newPathTimer: ReturnType<typeof setTimeout> | null = null;
 let viewerPulseTimer: ReturnType<typeof setTimeout> | null = null;
 
