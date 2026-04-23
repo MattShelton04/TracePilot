@@ -1,0 +1,3 @@
+## 2025-02-12 - Reusing prepared statements in rusqlite tight loops
+**Learning:** In tight loops, `rusqlite::Connection::prepare` incurs a significant cost if the statement structure hasn't changed. In `batched_insert` in the index db, a 100-batch insert inside a loop was re-preparing the exact same 900-parameter SQL string over and over.
+**Action:** Always consider caching the `Option<rusqlite::Statement>` when building large batched queries with identical shapes in tight loops, pulling initialization out of the loop and mutating it or executing it internally. Ensure it doesn't violate borrow rules by dynamically binding values rather than keeping string references in it.
