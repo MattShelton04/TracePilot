@@ -79,8 +79,15 @@ watch(
       return;
     }
     const prevName = activeTableName.value ?? prev?.[activeTableIndex.value]?.name ?? null;
-    const nextIdx = prevName ? next.findIndex((t) => t.name === prevName) : -1;
-    activeTableIndex.value = nextIdx >= 0 ? nextIdx : 0;
+    let nextIdx = prevName ? next.findIndex((t) => t.name === prevName) : -1;
+    if (nextIdx < 0) {
+      // Prefer the `todos` table on first load when present — it's by far the
+      // most commonly inspected table in the session.db, and alphabetical
+      // ordering happens to put `todo_deps` ahead of `todos`.
+      const todosIdx = next.findIndex((t) => t.name === "todos");
+      nextIdx = todosIdx >= 0 ? todosIdx : 0;
+    }
+    activeTableIndex.value = nextIdx;
     activeTableName.value = next[activeTableIndex.value]?.name ?? null;
   },
   { immediate: true },
