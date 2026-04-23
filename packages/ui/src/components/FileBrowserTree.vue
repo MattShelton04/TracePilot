@@ -20,6 +20,13 @@ const props = defineProps<{
   title?: string;
   /** Folders with more entries than this will be auto-collapsed on load. Default: no limit. */
   autoCollapseThreshold?: number;
+  /**
+   * Paths to briefly highlight as newly-added (e.g. green fade-in) — used by
+   * the session explorer to indicate files that appeared on auto-refresh.
+   * The set is expected to be cleared by the parent after the animation
+   * duration; the class simply reflects current membership.
+   */
+  highlightedPaths?: ReadonlySet<string>;
 }>();
 
 const emit = defineEmits<{
@@ -77,7 +84,10 @@ const iconTypeByPath = computed(() => {
         v-for="entry in treeStructure.rootFiles"
         :key="entry.path"
         class="fb-tree__item"
-        :class="{ 'fb-tree__item--selected': selectedPath === entry.path }"
+        :class="{
+          'fb-tree__item--selected': selectedPath === entry.path,
+          'fb-tree__item--new': highlightedPaths?.has(entry.path),
+        }"
         role="button"
         tabindex="0"
         @click="emit('viewFile', entry.path)"
@@ -153,7 +163,10 @@ const iconTypeByPath = computed(() => {
             v-for="entry in folderEntries"
             :key="entry.path"
             class="fb-tree__item fb-tree__item--nested"
-            :class="{ 'fb-tree__item--selected': selectedPath === entry.path }"
+            :class="{
+              'fb-tree__item--selected': selectedPath === entry.path,
+              'fb-tree__item--new': highlightedPaths?.has(entry.path),
+            }"
             role="button"
             tabindex="0"
             @click="emit('viewFile', entry.path)"
@@ -354,6 +367,22 @@ const iconTypeByPath = computed(() => {
 
 .fb-tree__item--selected .fb-tree__file-icon {
   opacity: 0.9;
+}
+
+/* ── New-file highlight (auto-refresh) ──────────────────────────────── */
+/* Pure background fade — no size / border / margin change so the list
+   doesn't layout-shift when entries gain/lose the class. */
+.fb-tree__item--new {
+  animation: fb-tree-new-fade 1.6s ease-out;
+}
+@keyframes fb-tree-new-fade {
+  0%   { background: color-mix(in srgb, var(--success-fg) 28%, transparent); }
+  60%  { background: color-mix(in srgb, var(--success-fg) 12%, transparent); }
+  100% { background: transparent; }
+}
+/* Selected takes precedence over the fade background */
+.fb-tree__item--selected.fb-tree__item--new {
+  animation: none;
 }
 
 /* File-type icon accent colours */

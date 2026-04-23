@@ -216,8 +216,15 @@ export const useSessionsStore = defineStore("sessions", () => {
    * Throttled to at most once per MIN_INDEX_INTERVAL_MS to prevent redundant
    * reindexes when the user navigates back to the session list. The periodic
    * auto-refresh and explicit user-triggered reindex are unaffected.
+   *
+   * When `opts.force` is true (periodic auto-refresh path), the throttle is
+   * bypassed so new sessions that landed on disk show up without requiring
+   * a Ctrl+R or tab-away/back. When `opts.force` is false (navigation path)
+   * and the throttle skips the reindex, we still run a silent list refresh
+   * so a recently-indexed session that wasn't in memory yet appears.
    */
-  async function ensureIndex() {
+  async function ensureIndex(opts: { force?: boolean } = {}) {
+    const force = opts.force ?? false;
     const existingIndex = indexInflight.current();
     if (existingIndex) {
       try {
@@ -235,8 +242,14 @@ export const useSessionsStore = defineStore("sessions", () => {
       return;
     }
 
-    // Skip if we indexed recently — avoids 479ms reindexSessions on every re-navigation.
-    if (Date.now() - lastIndexedAt < MIN_INDEX_INTERVAL_MS) return;
+    // Skip reindex if we indexed recently — avoids 479ms reindexSessions on every
+    // re-navigation. Still refresh the list so new sessions indexed by another
+    // process (e.g. a running agent's own reindex) become visible without a manual
+    // Ctrl+R.
+    if (!force && Date.now() - lastIndexedAt < MIN_INDEX_INTERVAL_MS) {
+      await refreshSessions();
+      return;
+    }
 
     try {
       await indexInflight.run(() => reindexSessions());

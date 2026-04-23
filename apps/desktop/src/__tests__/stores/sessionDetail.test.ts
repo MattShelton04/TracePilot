@@ -594,7 +594,7 @@ describe("useSessionDetailStore", () => {
       expect(mockGetSessionIncidents).toHaveBeenCalledWith(SESSION_ID);
     });
 
-    it("does not background-refresh events or todos on cache hit", async () => {
+    it("background-refreshes todos but not events on cache hit", async () => {
       const store = useSessionDetailStore();
       await fullyLoadSession(store, SESSION_ID);
       await store.loadTodos();
@@ -612,14 +612,18 @@ describe("useSessionDetailStore", () => {
       mockGetSessionPlan.mockResolvedValue(FIXTURE_PLAN);
       mockGetShutdownMetrics.mockResolvedValue(FIXTURE_METRICS);
       mockGetSessionIncidents.mockResolvedValue(FIXTURE_INCIDENTS);
+      mockGetSessionTodos.mockResolvedValue({ todos: [{ id: "fresh" }], deps: [] });
       mockCheckSessionFreshness.mockResolvedValue(ZERO_FRESHNESS);
 
       await store.loadDetail(SESSION_ID);
       await new Promise((r) => setTimeout(r, 50));
 
-      // Events and todos should NOT be refreshed in background
+      // Todos IS refreshed so agents writing new todos while cached are picked up
+      // (regression: previously the cache-hit path deleted todos from `loaded`
+      //  which caused the background refreshAll to skip todos entirely).
+      expect(mockGetSessionTodos).toHaveBeenCalledWith(SESSION_ID);
+      // Events remain paginated / not auto-refreshed (they manage their own cursor).
       expect(mockGetSessionEvents).not.toHaveBeenCalled();
-      expect(mockGetSessionTodos).not.toHaveBeenCalled();
     });
 
     it("sets section error refs when background refresh fails on cache hit", async () => {

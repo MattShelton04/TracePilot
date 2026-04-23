@@ -11,6 +11,7 @@ const makeEntry = (id: string): CachedSession =>
     plan: null,
     shutdownMetrics: null,
     incidents: [],
+    todos: null,
     loadedSections: new Set(["detail"]),
   }) as CachedSession;
 

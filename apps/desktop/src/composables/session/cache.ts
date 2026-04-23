@@ -10,6 +10,7 @@ import type {
   SessionIncident,
   SessionPlan,
   ShutdownMetrics,
+  TodosResponse,
 } from "@tracepilot/types";
 import type { EventsFingerprint } from "./sessionFingerprint";
 
@@ -21,6 +22,7 @@ export interface CachedSession {
   plan: SessionPlan | null;
   shutdownMetrics: ShutdownMetrics | null;
   incidents: SessionIncident[];
+  todos: TodosResponse | null;
   loadedSections: Set<string>;
 }
 

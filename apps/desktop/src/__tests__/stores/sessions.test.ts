@@ -196,4 +196,40 @@ describe("useSessionsStore", () => {
     expect(store.error).toBeNull();
     expect(store.indexing).toBe(false);
   });
+
+  it("ensureIndex throttles repeat reindexes but still refreshes the list", async () => {
+    mockReindexSessions.mockResolvedValue([3, 10]);
+    mockListSessions.mockResolvedValue([MOCK_SESSION]);
+    const store = useSessionsStore();
+
+    // First call — reindex runs, list fetched.
+    await store.ensureIndex();
+    expect(mockReindexSessions).toHaveBeenCalledTimes(1);
+    expect(mockListSessions).toHaveBeenCalledTimes(1);
+
+    // Second call immediately — within throttle window.
+    const UPDATED = { ...MOCK_SESSION, id: "new-session" };
+    mockListSessions.mockResolvedValue([MOCK_SESSION, UPDATED]);
+    await store.ensureIndex();
+
+    // Reindex is throttled (not re-run)...
+    expect(mockReindexSessions).toHaveBeenCalledTimes(1);
+    // ...but the session list IS still refreshed so new sessions that appeared
+    // between navigations are picked up without requiring Ctrl+R.
+    expect(mockListSessions).toHaveBeenCalledTimes(2);
+    expect(store.sessions).toHaveLength(2);
+  });
+
+  it("ensureIndex({ force: true }) bypasses throttle (auto-refresh path)", async () => {
+    mockReindexSessions.mockResolvedValue([3, 10]);
+    mockListSessions.mockResolvedValue([MOCK_SESSION]);
+    const store = useSessionsStore();
+
+    await store.ensureIndex();
+    expect(mockReindexSessions).toHaveBeenCalledTimes(1);
+
+    // Forced refresh should reindex again even within the throttle window.
+    await store.ensureIndex({ force: true });
+    expect(mockReindexSessions).toHaveBeenCalledTimes(2);
+  });
 });
