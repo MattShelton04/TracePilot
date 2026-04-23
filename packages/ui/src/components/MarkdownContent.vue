@@ -151,13 +151,38 @@ function handleLinkClick(event: MouseEvent) {
 :deep(h3) { font-size: 1rem; }
 :deep(h4) { font-size: 0.875rem; }
 
+/*
+ * Lists: the global `* { padding: 0; margin: 0 }` reset in apps/desktop
+ * strips the default padding that browsers use to make room for list
+ * markers (which render at `list-style-position: outside` by default and
+ * would otherwise be clipped). We restore enough padding for markers and
+ * set `list-style` explicitly so any ancestor rule that sets
+ * `list-style: none` can't accidentally wipe out bullets/numbers.
+ */
 :deep(ul), :deep(ol) {
   margin: 0 0 0.75rem 0 !important;
-  padding-left: 1.25rem !important;
+  padding-left: 1.5rem !important;
+}
+
+:deep(ul) {
+  list-style: disc outside !important;
+}
+
+:deep(ol) {
+  list-style: decimal outside !important;
+}
+
+:deep(ul ul) {
+  list-style: circle outside !important;
+}
+
+:deep(ul ul ul) {
+  list-style: square outside !important;
 }
 
 :deep(li) {
   margin-bottom: 0.125rem !important;
+  display: list-item !important;
 }
 
 :deep(li p) {

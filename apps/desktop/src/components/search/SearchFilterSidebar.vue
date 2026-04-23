@@ -42,24 +42,26 @@ function getContentTypeState(ct: SearchContentType): FilterState {
 
 function cycleContentType(ct: SearchContentType) {
   const state = getContentTypeState(ct);
-  const incIdx = store.contentTypes.indexOf(ct);
-  if (incIdx >= 0) store.contentTypes.splice(incIdx, 1);
-  const excIdx = store.excludeContentTypes.indexOf(ct);
-  if (excIdx >= 0) store.excludeContentTypes.splice(excIdx, 1);
+  // shallowRef: mutate via wholesale replacement so the store watcher fires.
+  const nextInclude = store.contentTypes.filter((t) => t !== ct);
+  const nextExclude = store.excludeContentTypes.filter((t) => t !== ct);
 
   if (state === "off") {
-    store.contentTypes.push(ct);
+    nextInclude.push(ct);
   } else if (state === "include") {
-    store.excludeContentTypes.push(ct);
+    nextExclude.push(ct);
   }
+
+  store.contentTypes = nextInclude;
+  store.excludeContentTypes = nextExclude;
 }
 
 function toggleAllContentTypes() {
   if (store.contentTypes.length > 0 || store.excludeContentTypes.length > 0) {
-    store.contentTypes.splice(0);
-    store.excludeContentTypes.splice(0);
+    store.contentTypes = [];
+    store.excludeContentTypes = [];
   } else {
-    store.contentTypes.splice(0, store.contentTypes.length, ...visibleContentTypes.value);
+    store.contentTypes = [...visibleContentTypes.value];
   }
 }
 
