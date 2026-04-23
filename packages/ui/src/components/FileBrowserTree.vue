@@ -383,20 +383,20 @@ const iconTypeByPath = computed(() => {
    inset box-shadow so the list doesn't layout-shift when entries gain /
    lose the class. Uses --success-fg to read as "new content arrived". */
 .fb-tree__item--new {
-  animation: fb-tree-new-fade 1.1s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: fb-tree-new-fade 1.2s ease-out;
 }
 @keyframes fb-tree-new-fade {
   0% {
-    background: color-mix(in srgb, var(--success-fg) 28%, transparent);
-    box-shadow: inset 2px 0 0 var(--success-fg);
+    background: var(--success-muted);
+    box-shadow: inset 3px 0 0 var(--success-fg);
   }
-  60% {
-    background: color-mix(in srgb, var(--success-fg) 12%, transparent);
-    box-shadow: inset 2px 0 0 color-mix(in srgb, var(--success-fg) 65%, transparent);
+  70% {
+    background: var(--success-muted);
+    box-shadow: inset 3px 0 0 var(--success-fg);
   }
   100% {
     background: transparent;
-    box-shadow: inset 2px 0 0 transparent;
+    box-shadow: inset 3px 0 0 transparent;
   }
 }
 /* Note: when an item is both --selected and --new we still want the flash

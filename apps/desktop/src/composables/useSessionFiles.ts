@@ -64,6 +64,11 @@ export function useSessionFiles(getSessionId: () => string | null | undefined): 
   const newFilePaths = ref<Set<string>>(new Set());
   const contentChangedAt = ref<number | null>(null);
   let knownPaths: Set<string> = new Set();
+  // Track size-per-path so a size change (the common signal for "agent wrote
+  // to this file") can flash the entry even when it isn't the selected file.
+  // Imperfect vs mtime — a same-size rewrite won't flag — but catches the
+  // dominant append/save case without requiring a Rust-side schema change.
+  let knownSizes: Map<string, number> = new Map();
   let hasInitialLoad = false;
 
   // Monotonic counters used to discard results from superseded requests.
@@ -90,18 +95,25 @@ export function useSessionFiles(getSessionId: () => string | null | undefined): 
       // Discard if session changed while we were awaiting
       if (seq !== loadSeq) return;
 
-      // Detect newly-appeared paths for the bonus highlight. Skip on the very
-      // first load so every file isn't flagged as "new".
+      // Detect newly-appeared paths and size-changed paths for the bonus
+      // highlight. Skip on the very first load so every file isn't flagged.
       if (hasInitialLoad) {
         const nextNew = new Set<string>();
         for (const entry of result) {
-          if (!entry.isDirectory && !knownPaths.has(entry.path)) {
+          if (entry.isDirectory) continue;
+          if (!knownPaths.has(entry.path)) {
             nextNew.add(entry.path);
+          } else {
+            const prevSize = knownSizes.get(entry.path);
+            if (prevSize !== undefined && prevSize !== entry.sizeBytes) {
+              nextNew.add(entry.path);
+            }
           }
         }
         if (nextNew.size > 0) newFilePaths.value = nextNew;
       }
       knownPaths = new Set(result.filter((e) => !e.isDirectory).map((e) => e.path));
+      knownSizes = new Map(result.filter((e) => !e.isDirectory).map((e) => [e.path, e.sizeBytes]));
       hasInitialLoad = true;
 
       files.value = result;
@@ -237,6 +249,7 @@ export function useSessionFiles(getSessionId: () => string | null | undefined): 
       dbData.value = null;
       dbDataError.value = null;
       knownPaths = new Set();
+      knownSizes = new Map();
       newFilePaths.value = new Set();
       contentChangedAt.value = null;
       hasInitialLoad = false;
