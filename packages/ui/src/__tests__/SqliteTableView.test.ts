@@ -51,15 +51,16 @@ describe("SqliteTableView", () => {
     expect(empty.text()).toContain("todo_deps");
   });
 
-  it("exposes Data and Schema tabs, Schema lists columns + indexes", async () => {
-    const wrapper = mount(SqliteTableView, { props: { table: emptyTable } });
+  it("respects the viewMode v-model to switch between Data and Schema", async () => {
+    const wrapper = mount(SqliteTableView, {
+      props: { table: emptyTable, viewMode: "data" },
+    });
 
-    const modes = wrapper.findAll(".stv__mode");
-    expect(modes.length).toBe(2);
-    expect(modes[0].text()).toContain("Data");
-    expect(modes[1].text()).toContain("Schema");
+    // Default: data wrap visible, no schema wrap.
+    expect(wrapper.find(".stv__data-wrap").exists()).toBe(true);
+    expect(wrapper.find(".stv__schema-wrap").exists()).toBe(false);
 
-    await modes[1].trigger("click");
+    await wrapper.setProps({ viewMode: "schema" });
     expect(wrapper.find(".stv__schema-wrap").exists()).toBe(true);
     // Column names in schema
     expect(wrapper.text()).toContain("todo_id");

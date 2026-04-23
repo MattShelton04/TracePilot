@@ -17,12 +17,18 @@ import { computed, ref, watch } from "vue";
 import { useClipboard } from "../composables/useClipboard";
 import ModalDialog from "./ModalDialog.vue";
 
+export type SqliteViewMode = "data" | "schema";
+
 const props = defineProps<{
   table: SessionDbTable;
 }>();
 
-type ViewMode = "data" | "schema";
-const viewMode = ref<ViewMode>("data");
+/**
+ * View mode (Data/Schema) is a v-model so the parent can render the
+ * segmented-control toggle alongside the table-tabs strip instead of
+ * duplicating a second header row inside this component.
+ */
+const viewMode = defineModel<SqliteViewMode>("viewMode", { default: "data" });
 
 // ── Column widths ────────────────────────────────────────────────────
 // Per-table width map (pixel values). Kept across tab-switches via the
@@ -118,34 +124,19 @@ function copyExpanded() {
 const hasSchema = computed(
   () => props.table.columnInfo !== undefined && props.table.columnInfo.length > 0,
 );
+
+// If the current view is "schema" but the newly-selected table has no schema
+// metadata (shouldn't normally happen, but be defensive), fall back to data.
+watch(
+  () => [hasSchema.value, viewMode.value] as const,
+  ([has, mode]) => {
+    if (!has && mode === "schema") viewMode.value = "data";
+  },
+);
 </script>
 
 <template>
   <div class="stv">
-    <!-- View-mode toggle -->
-    <div class="stv__modes" role="tablist">
-      <button
-        class="stv__mode"
-        :class="{ 'stv__mode--active': viewMode === 'data' }"
-        role="tab"
-        :aria-selected="viewMode === 'data'"
-        @click="viewMode = 'data'"
-      >
-        Data
-        <span class="stv__mode-count">{{ table.rows.length }}</span>
-      </button>
-      <button
-        v-if="hasSchema"
-        class="stv__mode"
-        :class="{ 'stv__mode--active': viewMode === 'schema' }"
-        role="tab"
-        :aria-selected="viewMode === 'schema'"
-        @click="viewMode = 'schema'"
-      >
-        Schema
-      </button>
-    </div>
-
     <!-- Data view -->
     <div v-if="viewMode === 'data'" class="stv__data-wrap">
       <table class="stv__table">
@@ -281,50 +272,6 @@ const hasSchema = computed(
   overflow: hidden;
 }
 
-.stv__modes {
-  display: flex;
-  gap: 2px;
-  padding: 4px 8px 0;
-  border-bottom: 1px solid var(--border-default);
-  background: var(--canvas-default);
-  flex-shrink: 0;
-}
-
-.stv__mode {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 10px;
-  border: none;
-  border-bottom: 2px solid transparent;
-  background: none;
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-  cursor: pointer;
-  white-space: nowrap;
-  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-  transition: color var(--transition-fast), background var(--transition-fast);
-}
-
-.stv__mode:hover {
-  color: var(--text-primary);
-  background: var(--canvas-subtle);
-}
-
-.stv__mode--active {
-  color: var(--accent-fg);
-  border-bottom-color: var(--accent-fg);
-  font-weight: 500;
-}
-
-.stv__mode-count {
-  font-size: 0.6875rem;
-  padding: 1px 5px;
-  border-radius: 99px;
-  background: var(--neutral-muted);
-  color: var(--text-secondary);
-}
-
 .stv__data-wrap,
 .stv__schema-wrap {
   flex: 1;
@@ -350,11 +297,16 @@ const hasSchema = computed(
 }
 
 .stv__table {
+  /* min-width: 100% lets empty / narrow tables fill the pane so the grid
+     doesn't collapse to a tiny block on the left. With `table-layout: fixed`
+     the browser distributes any surplus width across columns. When the sum
+     of column widths exceeds the container, horizontal scrolling on
+     .stv__data-wrap kicks in. */
+  min-width: 100%;
   border-collapse: collapse;
   font-size: 0.75rem;
   font-family: var(--font-mono);
   table-layout: fixed;
-  /* width auto — follows <colgroup> sum so horizontal scroll reflects widths */
 }
 
 .stv__schema-table {

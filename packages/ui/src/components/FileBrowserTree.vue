@@ -226,7 +226,11 @@ const iconTypeByPath = computed(() => {
 }
 
 .fb-tree__header {
-  padding: 10px 12px 8px;
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  min-height: 36px;
+  box-sizing: border-box;
   border-bottom: 1px solid var(--border-default);
   flex-shrink: 0;
 }
@@ -370,15 +374,26 @@ const iconTypeByPath = computed(() => {
 }
 
 /* ── New-file highlight (auto-refresh) ──────────────────────────────── */
-/* Pure background fade — no size / border / margin change so the list
-   doesn't layout-shift when entries gain/lose the class. */
+/* Pure background + inset-shadow fade — no size / border / margin change
+   so the list doesn't layout-shift when entries gain/lose the class.
+   Uses accent colour (matches the selected-state pill) rather than raw
+   green so the cue feels consistent with the rest of the app chrome. */
 .fb-tree__item--new {
-  animation: fb-tree-new-fade 1.6s ease-out;
+  animation: fb-tree-new-fade 1.1s cubic-bezier(0.16, 1, 0.3, 1);
 }
 @keyframes fb-tree-new-fade {
-  0%   { background: color-mix(in srgb, var(--success-fg) 28%, transparent); }
-  60%  { background: color-mix(in srgb, var(--success-fg) 12%, transparent); }
-  100% { background: transparent; }
+  0% {
+    background: color-mix(in srgb, var(--accent-fg) 18%, transparent);
+    box-shadow: inset 2px 0 0 var(--accent-fg);
+  }
+  60% {
+    background: color-mix(in srgb, var(--accent-fg) 7%, transparent);
+    box-shadow: inset 2px 0 0 color-mix(in srgb, var(--accent-fg) 55%, transparent);
+  }
+  100% {
+    background: transparent;
+    box-shadow: inset 2px 0 0 transparent;
+  }
 }
 /* Selected takes precedence over the fade background */
 .fb-tree__item--selected.fb-tree__item--new {

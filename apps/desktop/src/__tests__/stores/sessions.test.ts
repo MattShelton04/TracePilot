@@ -220,29 +220,24 @@ describe("useSessionsStore", () => {
     expect(store.sessions).toHaveLength(2);
   });
 
-  it("ensureIndex({ force: true }) bypasses the long nav-throttle but has its own short throttle", async () => {
-    vi.useFakeTimers();
-    try {
-      mockReindexSessions.mockResolvedValue([3, 10]);
-      mockListSessions.mockResolvedValue([MOCK_SESSION]);
-      const store = useSessionsStore();
+  it("ensureIndex({ force: true }) bypasses the throttle on every call", async () => {
+    mockReindexSessions.mockResolvedValue([3, 10]);
+    mockListSessions.mockResolvedValue([MOCK_SESSION]);
+    const store = useSessionsStore();
 
-      await store.ensureIndex();
-      expect(mockReindexSessions).toHaveBeenCalledTimes(1);
+    // First call — reindex runs.
+    await store.ensureIndex();
+    expect(mockReindexSessions).toHaveBeenCalledTimes(1);
 
-      // Within the 20s force-throttle window the list is still refreshed,
-      // but the expensive reindex is skipped.
-      await store.ensureIndex({ force: true });
-      expect(mockReindexSessions).toHaveBeenCalledTimes(1);
-      expect(mockListSessions.mock.calls.length).toBeGreaterThanOrEqual(2);
+    // Immediate force call bypasses the 2-minute nav throttle and reindexes
+    // again — this is the auto-refresh tick that must pick up new on-disk
+    // sessions without waiting for Ctrl+R.
+    await store.ensureIndex({ force: true });
+    expect(mockReindexSessions).toHaveBeenCalledTimes(2);
 
-      // Past the force-throttle window: reindex runs again, bypassing the
-      // 2-minute navigation throttle.
-      vi.advanceTimersByTime(20_001);
-      await store.ensureIndex({ force: true });
-      expect(mockReindexSessions).toHaveBeenCalledTimes(2);
-    } finally {
-      vi.useRealTimers();
-    }
+    // Subsequent force ticks keep reindexing — we trade a cheap reindex
+    // per tick for guaranteed freshness of the session list.
+    await store.ensureIndex({ force: true });
+    expect(mockReindexSessions).toHaveBeenCalledTimes(3);
   });
 });

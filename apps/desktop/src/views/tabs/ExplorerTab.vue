@@ -64,8 +64,8 @@ useAutoRefresh({
 });
 
 // ── New-file highlight (bonus) ─────────────────────────────────────────────
-// Clear the transient highlight set after ~1.6s so the CSS fade can play.
-const NEW_PATH_FADE_MS = 1600;
+// Clear the transient highlight set after the fade so the animation can play.
+const NEW_PATH_FADE_MS = 1100;
 let newPathTimer: ReturnType<typeof setTimeout> | null = null;
 let viewerPulseTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -83,7 +83,7 @@ watch(
 const highlightedPaths = computed(() => sessionFiles.newFilePaths);
 
 // Clear content-changed highlight shortly after it flips so the viewer pulse fades.
-const CONTENT_FADE_MS = 1600;
+const CONTENT_FADE_MS = 1100;
 watch(
   () => sessionFiles.contentChangedAt,
   (ts) => {
@@ -191,19 +191,20 @@ onBeforeUnmount(() => {
 
 /* Bonus: briefly highlight the viewer when the currently-open file's
    content was updated on disk by an auto-refresh. Pure outline pulse — no
-   layout shift. */
+   layout shift. Uses the accent colour (softer than success-green) to
+   feel like a premium "something updated" cue rather than a status flag. */
 .explorer-tab__viewer--changed::after {
   content: "";
   position: absolute;
   inset: 0;
   pointer-events: none;
-  box-shadow: inset 0 0 0 2px var(--success-fg);
+  box-shadow: inset 0 0 0 2px var(--accent-fg);
   opacity: 0;
-  animation: explorer-viewer-pulse 1.6s ease-out;
+  animation: explorer-viewer-pulse 1.1s cubic-bezier(0.16, 1, 0.3, 1);
 }
 @keyframes explorer-viewer-pulse {
-  0%   { opacity: 0.45; }
-  60%  { opacity: 0.18; }
+  0%   { opacity: 0.32; }
+  55%  { opacity: 0.12; }
   100% { opacity: 0; }
 }
 </style>
