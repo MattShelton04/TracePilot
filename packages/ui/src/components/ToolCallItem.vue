@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { TurnToolCall } from "@tracepilot/types";
-import { computed } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import { formatDuration } from "../utils/formatters";
 import { categoryColor, formatArgsSummary, toolCategory, toolIcon } from "../utils/toolCall";
 import ExpandChevron from "./ExpandChevron.vue";
@@ -31,10 +31,52 @@ const emit = defineEmits<{
 const summary = computed(
   () => props.argsSummary ?? formatArgsSummary(props.tc.arguments, props.tc.toolName),
 );
+
+// ── Keep expanded detail in view ───────────────────────────────────
+// When the user expands a tool-call detail, the newly-revealed content can
+// extend past the scroll container's viewport. If the header is currently
+// visible (user is looking at this row), nudge the container so the detail
+// fits. If the user is scrolled far away, do nothing — don't fight them.
+const rootEl = ref<HTMLElement | null>(null);
+
+function findScrollContainer(el: HTMLElement): HTMLElement | null {
+  let cur: HTMLElement | null = el.parentElement;
+  while (cur && cur !== document.body) {
+    const style = getComputedStyle(cur);
+    if (/auto|scroll|overlay/.test(style.overflowY)) {
+      if (cur.scrollHeight > cur.clientHeight) return cur;
+    }
+    cur = cur.parentElement;
+  }
+  return null;
+}
+
+watch(
+  () => props.expanded,
+  (val, prev) => {
+    // Only on a genuine false → true transition (user-initiated expand).
+    if (!val || prev) return;
+    void nextTick(() => {
+      const root = rootEl.value;
+      if (!root) return;
+      const container = findScrollContainer(root);
+      if (!container) return;
+      const cRect = container.getBoundingClientRect();
+      const eRect = root.getBoundingClientRect();
+      // User is scrolled far away from this row — leave their scroll alone.
+      if (eRect.bottom < cRect.top || eRect.top > cRect.bottom) return;
+      // Expanded content doesn't extend past the bottom — nothing to do.
+      if (eRect.bottom <= cRect.bottom) return;
+      const overflow = eRect.bottom - cRect.bottom + 8;
+      container.scrollBy({ top: overflow, behavior: "smooth" });
+    });
+  },
+);
 </script>
 
 <template>
   <div
+    ref="rootEl"
     class="rounded-lg border overflow-hidden"
     :style="tc.success === false ? 'border-color: var(--danger-muted);' : 'border-color: var(--border-muted);'"
   >
