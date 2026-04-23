@@ -44,6 +44,8 @@ const widths = computed(() => {
   return props.table.columns.map(() => DEFAULT_WIDTH);
 });
 
+const totalWidth = computed(() => widths.value.reduce((sum, w) => sum + w, 0));
+
 watch(
   () => props.table.name,
   (name) => {
@@ -139,7 +141,7 @@ watch(
   <div class="stv">
     <!-- Data view -->
     <div v-if="viewMode === 'data'" class="stv__data-wrap">
-      <table class="stv__table">
+      <table class="stv__table" :style="{ width: `max(${totalWidth}px, 100%)` }">
         <colgroup>
           <col v-for="(_col, idx) in table.columns" :key="idx" :style="{ width: `${widths[idx]}px` }" />
         </colgroup>
@@ -298,12 +300,11 @@ watch(
 }
 
 .stv__table {
-  /* min-width: 100% lets empty / narrow tables fill the pane so the grid
-     doesn't collapse to a tiny block on the left. With `table-layout: fixed`
-     the browser distributes any surplus width across columns. When the sum
-     of column widths exceeds the container, horizontal scrolling on
-     .stv__data-wrap kicks in. */
-  min-width: 100%;
+  /* Table width is set inline to `max(totalWidthPx, 100%)` so the grid fills
+     the pane when columns are narrow but grows (and horizontally scrolls) when
+     the user resizes a column wider than the container. With `table-layout:
+     fixed`, `min-width: 100%` alone would cause the browser to redistribute
+     surplus width across columns and silently swallow resizes. */
   border-collapse: collapse;
   font-size: 0.75rem;
   font-family: var(--font-mono);
@@ -362,7 +363,11 @@ watch(
   background: var(--canvas-subtle);
 }
 
-.stv__tr:hover {
+/* Hover + click affordances only make sense in the data view, where rows are
+   real records and cells open the detail modal on click. The schema view uses
+   the same .stv__tr / .stv__td classes for consistent spacing but its cells
+   are read-only metadata, so scope these rules to .stv__data-wrap. */
+.stv__data-wrap .stv__tr:hover {
   background: var(--neutral-muted);
 }
 
@@ -374,14 +379,17 @@ watch(
   white-space: nowrap;
   vertical-align: top;
   color: var(--text-primary);
-  cursor: pointer;
 }
 
 .stv__td--name {
   font-weight: 500;
 }
 
-.stv__td:hover {
+.stv__data-wrap .stv__td {
+  cursor: pointer;
+}
+
+.stv__data-wrap .stv__td:hover {
   background: var(--accent-muted, var(--neutral-muted));
 }
 
