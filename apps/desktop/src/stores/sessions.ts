@@ -25,6 +25,13 @@ export const useSessionsStore = defineStore("sessions", () => {
   let lastIndexedAt = 0;
   /** Minimum interval between ensureIndex calls (2 min). Explicit user-triggered reindex ignores this. */
   const MIN_INDEX_INTERVAL_MS = 2 * 60 * 1000;
+  /**
+   * Minimum interval for the force path (periodic auto-refresh).
+   * Without this, the 5s session-list auto-refresh would run a ~500ms
+   * reindex every 5s in perpetuity. 20s keeps new sessions visible quickly
+   * while cutting background CPU by 4x.
+   */
+  const MIN_INDEX_FORCE_INTERVAL_MS = 20 * 1000;
 
   // shallowRef: session list is always replaced wholesale (never index-mutated).
   const sessions = shallowRef<SessionListItem[]>([]);
@@ -242,11 +249,13 @@ export const useSessionsStore = defineStore("sessions", () => {
       return;
     }
 
-    // Skip reindex if we indexed recently — avoids 479ms reindexSessions on every
-    // re-navigation. Still refresh the list so new sessions indexed by another
-    // process (e.g. a running agent's own reindex) become visible without a manual
-    // Ctrl+R.
-    if (!force && Date.now() - lastIndexedAt < MIN_INDEX_INTERVAL_MS) {
+    // Skip reindex if we indexed recently. The navigation path uses a long
+    // throttle (MIN_INDEX_INTERVAL_MS); the force path (periodic auto-refresh)
+    // uses a shorter one so new on-disk sessions still appear quickly without
+    // paying the reindex cost every tick. Either way, still silently refresh
+    // the list so sessions indexed by another process become visible.
+    const throttleMs = force ? MIN_INDEX_FORCE_INTERVAL_MS : MIN_INDEX_INTERVAL_MS;
+    if (Date.now() - lastIndexedAt < throttleMs) {
       await refreshSessions();
       return;
     }

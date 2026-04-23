@@ -220,16 +220,29 @@ describe("useSessionsStore", () => {
     expect(store.sessions).toHaveLength(2);
   });
 
-  it("ensureIndex({ force: true }) bypasses throttle (auto-refresh path)", async () => {
-    mockReindexSessions.mockResolvedValue([3, 10]);
-    mockListSessions.mockResolvedValue([MOCK_SESSION]);
-    const store = useSessionsStore();
+  it("ensureIndex({ force: true }) bypasses the long nav-throttle but has its own short throttle", async () => {
+    vi.useFakeTimers();
+    try {
+      mockReindexSessions.mockResolvedValue([3, 10]);
+      mockListSessions.mockResolvedValue([MOCK_SESSION]);
+      const store = useSessionsStore();
 
-    await store.ensureIndex();
-    expect(mockReindexSessions).toHaveBeenCalledTimes(1);
+      await store.ensureIndex();
+      expect(mockReindexSessions).toHaveBeenCalledTimes(1);
 
-    // Forced refresh should reindex again even within the throttle window.
-    await store.ensureIndex({ force: true });
-    expect(mockReindexSessions).toHaveBeenCalledTimes(2);
+      // Within the 20s force-throttle window the list is still refreshed,
+      // but the expensive reindex is skipped.
+      await store.ensureIndex({ force: true });
+      expect(mockReindexSessions).toHaveBeenCalledTimes(1);
+      expect(mockListSessions.mock.calls.length).toBeGreaterThanOrEqual(2);
+
+      // Past the force-throttle window: reindex runs again, bypassing the
+      // 2-minute navigation throttle.
+      vi.advanceTimersByTime(20_001);
+      await store.ensureIndex({ force: true });
+      expect(mockReindexSessions).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

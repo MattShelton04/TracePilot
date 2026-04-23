@@ -1,8 +1,9 @@
+import type { SessionDbTable } from "@tracepilot/types";
 import { mount } from "@vue/test-utils";
 import { describe, expect, it } from "vitest";
 import SqliteTableView from "../components/SqliteTableView.vue";
 
-const emptyTable = {
+const emptyTable: SessionDbTable = {
   name: "todo_deps",
   columns: ["todo_id", "depends_on"],
   rows: [],
@@ -13,9 +14,9 @@ const emptyTable = {
   indexes: [
     { name: "sqlite_autoindex_todo_deps_1", unique: true, columns: ["todo_id", "depends_on"] },
   ],
-} as const;
+};
 
-const populatedTable = {
+const populatedTable: SessionDbTable = {
   name: "todos",
   columns: ["id", "title", "status"],
   rows: [
@@ -32,7 +33,7 @@ const populatedTable = {
     { name: "status", typeName: "TEXT", notnull: false, pk: 0, defaultValue: "'pending'" },
   ],
   indexes: [],
-} as const;
+};
 
 describe("SqliteTableView", () => {
   it("renders column headers even for an empty table and shows empty-state row", () => {

@@ -67,7 +67,12 @@ export function useSessionFiles(getSessionId: () => string | null | undefined): 
   let hasInitialLoad = false;
 
   // Monotonic counters used to discard results from superseded requests.
+  // `readSeq` tracks user-initiated selectFile() calls (which own the loading
+  // flags). `silentSeq` tracks background silentRefetchSelected() calls; kept
+  // separate so a silent refetch started mid-selectFile() cannot preempt the
+  // user call's sequence guard and leave loading flags stuck `true`.
   let readSeq = 0;
+  let silentSeq = 0;
   let loadSeq = 0;
 
   async function loadFiles(opts: { silent?: boolean } = {}) {
@@ -137,25 +142,25 @@ export function useSessionFiles(getSessionId: () => string | null | undefined): 
     if (!sessionId || !path) return;
     if (fileType === "binary") return;
 
-    const seq = ++readSeq;
+    const seq = ++silentSeq;
     try {
       if (fileType === "sqlite") {
         const result = await sessionReadSqlite(sessionId, path);
-        if (seq !== readSeq) return;
+        if (seq !== silentSeq || selectedPath.value !== path) return;
         // Replace wholesale — SqliteViewer reacts to the prop change.
         dbData.value = result;
         dbDataError.value = null;
         return;
       }
       const result = await sessionReadFile(sessionId, path);
-      if (seq !== readSeq) return;
+      if (seq !== silentSeq || selectedPath.value !== path) return;
       if (result !== fileContent.value) {
         fileContent.value = result;
         contentChangedAt.value = Date.now();
       }
       fileContentError.value = null;
     } catch (err) {
-      if (seq !== readSeq) return;
+      if (seq !== silentSeq || selectedPath.value !== path) return;
       // Silent refresh failures should not clobber existing content — only
       // surface the error so the user sees a hint but keeps the stale view.
       if (fileType === "sqlite") {
