@@ -1,0 +1,3 @@
+## 2026-04-20 - Statement caching on dynamic loop iterations for batch inserts
+**Learning:** For batch bulk inserts with explicit large dynamically formed tuple inputs via `params`, we cache the prepared `rusqlite::Statement` rather than re-preparing a cached static `String` containing the full parameterized query. Caching statement objects outside `chunks()` mitigates repeated compilation overhead in tight multi-row insert loops using `rusqlite`.
+**Action:** Always verify if SQLite `Statement` preparation can be pulled outside of dynamically processed loops where queries are generated iteratively.
