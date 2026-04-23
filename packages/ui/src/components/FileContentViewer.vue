@@ -439,7 +439,7 @@ function copyTableAsJson() {
   align-items: center;
   gap: 7px;
   padding: 8px 12px;
-  min-height: 36px;
+  height: 36px;
   box-sizing: border-box;
   border-bottom: 1px solid var(--border-default);
   background: var(--canvas-subtle);
@@ -489,7 +489,7 @@ function copyTableAsJson() {
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  min-height: 36px;
+  height: 36px;
   box-sizing: border-box;
   border-bottom: 1px solid var(--border-default);
   background: var(--canvas-subtle);
@@ -608,7 +608,7 @@ function copyTableAsJson() {
 
 .fcv__db-content {
   flex: 1;
-  overflow: hidden;
+  overflow: auto;
   min-height: 0;
   display: flex;
   flex-direction: column;

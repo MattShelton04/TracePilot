@@ -267,16 +267,17 @@ watch(
 .stv {
   display: flex;
   flex-direction: column;
-  flex: 1;
   min-height: 0;
-  overflow: hidden;
 }
 
 .stv__data-wrap,
 .stv__schema-wrap {
-  flex: 1;
-  overflow: auto;
-  min-height: 0;
+  /* Horizontal-only scroll so the scrollbar sits directly below the table
+     rows, not pinned to the bottom of the pane. Vertical scroll is owned
+     by the parent (.fcv__db-content), so tall tables still scroll. */
+  overflow-x: auto;
+  overflow-y: visible;
+  width: 100%;
 }
 
 .stv__schema-wrap {

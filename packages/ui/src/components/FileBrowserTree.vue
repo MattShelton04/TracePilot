@@ -229,7 +229,7 @@ const iconTypeByPath = computed(() => {
   display: flex;
   align-items: center;
   padding: 8px 12px;
-  min-height: 36px;
+  height: 36px;
   box-sizing: border-box;
   border-bottom: 1px solid var(--border-default);
   flex-shrink: 0;
