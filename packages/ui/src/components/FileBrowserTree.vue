@@ -378,17 +378,21 @@ const iconTypeByPath = computed(() => {
    so the list doesn't layout-shift when entries gain/lose the class.
    Uses accent colour (matches the selected-state pill) rather than raw
    green so the cue feels consistent with the rest of the app chrome. */
+/* Newly-appeared files (and content-updated ones) briefly flash green so
+   auto-refresh changes are visible at a glance. Kept to background +
+   inset box-shadow so the list doesn't layout-shift when entries gain /
+   lose the class. Uses --success-fg to read as "new content arrived". */
 .fb-tree__item--new {
   animation: fb-tree-new-fade 1.1s cubic-bezier(0.16, 1, 0.3, 1);
 }
 @keyframes fb-tree-new-fade {
   0% {
-    background: color-mix(in srgb, var(--accent-fg) 18%, transparent);
-    box-shadow: inset 2px 0 0 var(--accent-fg);
+    background: color-mix(in srgb, var(--success-fg) 28%, transparent);
+    box-shadow: inset 2px 0 0 var(--success-fg);
   }
   60% {
-    background: color-mix(in srgb, var(--accent-fg) 7%, transparent);
-    box-shadow: inset 2px 0 0 color-mix(in srgb, var(--accent-fg) 55%, transparent);
+    background: color-mix(in srgb, var(--success-fg) 12%, transparent);
+    box-shadow: inset 2px 0 0 color-mix(in srgb, var(--success-fg) 65%, transparent);
   }
   100% {
     background: transparent;

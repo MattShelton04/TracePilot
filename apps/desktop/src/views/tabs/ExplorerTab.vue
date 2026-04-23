@@ -80,7 +80,18 @@ watch(
     }, NEW_PATH_FADE_MS);
   },
 );
-const highlightedPaths = computed(() => sessionFiles.newFilePaths);
+const highlightedPaths = computed(() => {
+  // Union: newly-appeared files + the selected file when its content was just
+  // updated on disk (so the tree entry also flashes alongside the viewer
+  // border — a single cohesive "something updated" cue).
+  const base = sessionFiles.newFilePaths;
+  const selected = sessionFiles.selectedPath;
+  if (!viewerChanged.value || !selected) return base;
+  if (base.has(selected)) return base;
+  const union = new Set<string>(base);
+  union.add(selected);
+  return union;
+});
 
 // Clear content-changed highlight shortly after it flips so the viewer pulse fades.
 const CONTENT_FADE_MS = 1100;
@@ -190,21 +201,21 @@ onBeforeUnmount(() => {
 }
 
 /* Bonus: briefly highlight the viewer when the currently-open file's
-   content was updated on disk by an auto-refresh. Pure outline pulse — no
-   layout shift. Uses the accent colour (softer than success-green) to
-   feel like a premium "something updated" cue rather than a status flag. */
+   content was updated on disk by an auto-refresh. Pure inset ring — no
+   layout shift. Uses the success colour so the cue reads as "new content
+   landed" rather than "this is selected" (which already uses the accent). */
 .explorer-tab__viewer--changed::after {
   content: "";
   position: absolute;
   inset: 0;
   pointer-events: none;
-  box-shadow: inset 0 0 0 2px var(--accent-fg);
+  box-shadow: inset 0 0 0 2px var(--success-fg);
   opacity: 0;
   animation: explorer-viewer-pulse 1.1s cubic-bezier(0.16, 1, 0.3, 1);
 }
 @keyframes explorer-viewer-pulse {
-  0%   { opacity: 0.32; }
-  55%  { opacity: 0.12; }
+  0%   { opacity: 0.7; }
+  55%  { opacity: 0.3; }
   100% { opacity: 0; }
 }
 </style>
