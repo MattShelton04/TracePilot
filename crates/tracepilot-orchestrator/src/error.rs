@@ -26,23 +26,12 @@ pub enum OrchestratorError {
     Registry(String),
     #[error("Task error: {0}")]
     Task(String),
-    #[error("Task database error: {0}")]
-    TaskDb(#[from] rusqlite::Error),
-    /// Task DB schema migration step failed. Preserves the migration step name
-    /// for operator triage (otherwise bucketed into the generic `TaskDb`
-    /// variant, which misattributes migrator-framework failures to everyday
-    /// CRUD operations).
-    #[error("Task DB migration '{name}' failed: {source}")]
-    TaskDbMigration {
-        name: String,
-        #[source]
-        source: rusqlite::Error,
-    },
-    /// SQLite backup performed before a task-DB migration failed. Distinct
-    /// from `TaskDb` because the failure is in the backup pipeline, not in
-    /// application-level CRUD.
-    #[error("Task DB pre-migration backup failed: {0}")]
-    TaskDbBackup(#[source] rusqlite::Error),
+    /// Task-database errors grouped into a domain sub-enum
+    /// ([`crate::task_db::TaskDbError`]) so query / schema / migration /
+    /// backup failures each carry their own typed `#[source]` instead of
+    /// being flattened into a single bucket (FU-12, rolls up w83 FI).
+    #[error(transparent)]
+    TaskDb(#[from] crate::task_db::TaskDbError),
     #[error("Preset error: {0}")]
     Preset(String),
     #[error("Core error: {0}")]
@@ -55,6 +44,16 @@ pub enum OrchestratorError {
     Bridge(#[from] crate::bridge::BridgeError),
     #[error("Export error: {0}")]
     Export(#[from] tracepilot_export::ExportError),
+}
+
+/// Preserve the historical `?`-on-`rusqlite::Error` ergonomics across the
+/// task-DB call sites. The outer variant now routes through
+/// [`crate::task_db::TaskDbError`] so the source is tagged as a CRUD
+/// query rather than landing in a flat bucket (FU-12).
+impl From<rusqlite::Error> for OrchestratorError {
+    fn from(e: rusqlite::Error) -> Self {
+        OrchestratorError::TaskDb(crate::task_db::TaskDbError::Query(e))
+    }
 }
 
 impl From<tracepilot_core::utils::backup::BackupError> for OrchestratorError {
@@ -126,10 +125,10 @@ mod tests {
     fn task_db_migration_variant_preserves_step_name() {
         use std::error::Error;
         let source = rusqlite::Error::InvalidQuery;
-        let err = OrchestratorError::TaskDbMigration {
+        let err = OrchestratorError::TaskDb(crate::task_db::TaskDbError::Migration {
             name: "add_col".into(),
             source,
-        };
+        });
         let msg = err.to_string();
         assert!(msg.contains("Task DB migration"));
         assert!(msg.contains("'add_col'"));
@@ -138,13 +137,27 @@ mod tests {
     }
 
     #[test]
-    fn task_db_backup_variant_is_distinct_from_taskdb() {
-        let err = OrchestratorError::TaskDbBackup(rusqlite::Error::InvalidQuery);
-        assert!(matches!(err, OrchestratorError::TaskDbBackup(_)));
+    fn task_db_backup_variant_is_distinct_from_query() {
+        let err = OrchestratorError::TaskDb(crate::task_db::TaskDbError::Backup(
+            rusqlite::Error::InvalidQuery,
+        ));
+        assert!(matches!(
+            err,
+            OrchestratorError::TaskDb(crate::task_db::TaskDbError::Backup(_))
+        ));
         assert!(
             err.to_string().contains("pre-migration backup"),
             "expected distinct backup phrasing, got: {}",
             err
         );
+    }
+
+    #[test]
+    fn rusqlite_error_routes_through_task_db_query() {
+        let err: OrchestratorError = rusqlite::Error::InvalidQuery.into();
+        assert!(matches!(
+            err,
+            OrchestratorError::TaskDb(crate::task_db::TaskDbError::Query(_))
+        ));
     }
 }

@@ -189,7 +189,7 @@ pub struct GitInfo {
 }
 
 /// Enriched indexing progress payload emitted via Tauri events.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct IndexingProgressPayload {
     pub current: usize,

@@ -5,6 +5,7 @@ use rusqlite::params;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
+use tracepilot_core::ids::SessionId;
 use tracepilot_core::parsing::events::TypedEventData;
 
 use super::IndexDb;
@@ -346,7 +347,11 @@ impl IndexDb {
     /// Determine whether the session should be re-indexed.
     ///
     /// Checks workspace.yaml mtime, events.jsonl mtime+size, and analytics_version.
-    pub fn needs_reindex(&self, session_id: &str, session_path: &Path) -> bool {
+    ///
+    /// Accepts a validated [`SessionId`] so callers cannot accidentally pass a
+    /// task/job ID or some other opaque string.
+    pub fn needs_reindex(&self, session_id: &SessionId, session_path: &Path) -> bool {
+        let session_id = session_id.as_str();
         let current_ws_mtime = get_workspace_mtime(session_path);
         let current_events = get_events_mtime_and_size(session_path);
 

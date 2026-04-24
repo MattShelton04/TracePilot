@@ -4,25 +4,21 @@
 
 use super::BridgeManager;
 use crate::bridge::{
-    BridgeError, BridgeMessagePayload, BridgeSessionConfig, BridgeSessionInfo, BridgeSessionMode,
+    BridgeError, BridgeEvent, BridgeMessagePayload, BridgeSessionConfig, BridgeSessionInfo,
+    BridgeSessionMode,
 };
 
-#[cfg(feature = "copilot-sdk")]
-use crate::bridge::BridgeEvent;
-#[cfg(feature = "copilot-sdk")]
 use std::sync::Arc;
-#[cfg(feature = "copilot-sdk")]
 use std::sync::atomic::Ordering;
-#[cfg(feature = "copilot-sdk")]
 use tracing::{debug, info, warn};
 
 impl BridgeManager {
     /// Create a new Copilot session via the SDK.
-    #[cfg(feature = "copilot-sdk")]
     pub async fn create_session(
         &mut self,
         config: BridgeSessionConfig,
     ) -> Result<BridgeSessionInfo, BridgeError> {
+        self.check_preference_enabled()?;
         let client = self.require_client()?;
 
         let mut session_config = copilot_sdk::SessionConfig {
@@ -64,14 +60,6 @@ impl BridgeManager {
         })
     }
 
-    #[cfg(not(feature = "copilot-sdk"))]
-    pub async fn create_session(
-        &mut self,
-        _config: BridgeSessionConfig,
-    ) -> Result<BridgeSessionInfo, BridgeError> {
-        Err(BridgeError::NotAvailable)
-    }
-
     /// Resume an existing session by ID (for `--ui-server` mode steering).
     /// Attaches to the session, starts event forwarding, and caches the handle
     /// so subsequent steering calls (send_message, abort, etc.) work.
@@ -82,14 +70,15 @@ impl BridgeManager {
     /// ("Session file is corrupted at line N") even though the JSON is valid.
     /// This is NOT actual file corruption — it's a schema version mismatch.
     /// TracePilot's own parsers handle these differences gracefully.
-    #[cfg(feature = "copilot-sdk")]
     pub async fn resume_session(
         &mut self,
         session_id: &str,
         working_directory: Option<&str>,
         model: Option<&str>,
     ) -> Result<BridgeSessionInfo, BridgeError> {
-        // Already tracked — no-op.
+        // Already tracked — no-op. This branch runs *before* the preference
+        // check so sessions resumed prior to the user toggling the pref off
+        // remain steerable (documented on `BridgeError::DisabledByPreference`).
         if self.sessions.contains_key(session_id) {
             debug!("Session {} already resumed — returning cached", session_id);
             return Ok(BridgeSessionInfo {
@@ -103,6 +92,7 @@ impl BridgeManager {
             });
         }
 
+        self.check_preference_enabled()?;
         info!(
             "Resuming session {} via SDK (cwd: {:?}, model: {:?})",
             session_id, working_directory, model
@@ -163,18 +153,7 @@ impl BridgeManager {
         })
     }
 
-    #[cfg(not(feature = "copilot-sdk"))]
-    pub async fn resume_session(
-        &mut self,
-        _session_id: &str,
-        _working_directory: Option<&str>,
-        _model: Option<&str>,
-    ) -> Result<BridgeSessionInfo, BridgeError> {
-        Err(BridgeError::NotAvailable)
-    }
-
     /// Send a message to an existing SDK session (steering).
-    #[cfg(feature = "copilot-sdk")]
     pub async fn send_message(
         &self,
         session_id: &str,
@@ -197,17 +176,7 @@ impl BridgeManager {
             .map_err(|e| BridgeError::Sdk(e.to_string()))
     }
 
-    #[cfg(not(feature = "copilot-sdk"))]
-    pub async fn send_message(
-        &self,
-        _session_id: &str,
-        _payload: BridgeMessagePayload,
-    ) -> Result<String, BridgeError> {
-        Err(BridgeError::NotAvailable)
-    }
-
     /// Abort the current turn in a session.
-    #[cfg(feature = "copilot-sdk")]
     pub async fn abort_session(&self, session_id: &str) -> Result<(), BridgeError> {
         let session = self.require_session(session_id)?;
         session
@@ -216,15 +185,9 @@ impl BridgeManager {
             .map_err(|e| BridgeError::Sdk(e.to_string()))
     }
 
-    #[cfg(not(feature = "copilot-sdk"))]
-    pub async fn abort_session(&self, _session_id: &str) -> Result<(), BridgeError> {
-        Err(BridgeError::NotAvailable)
-    }
-
     /// Unlink a session from the bridge WITHOUT destroying it on the SDK side.
     /// The session stays alive in the subprocess — no `session.shutdown` event is written.
     /// This allows safe re-linking without triggering Zod re-validation.
-    #[cfg(feature = "copilot-sdk")]
     pub fn unlink_session(&mut self, session_id: &str) {
         if self.sessions.remove(session_id).is_some() {
             if let Some(task) = self.event_tasks.remove(session_id) {
@@ -236,13 +199,9 @@ impl BridgeManager {
         }
     }
 
-    #[cfg(not(feature = "copilot-sdk"))]
-    pub fn unlink_session(&mut self, _session_id: &str) {}
-
     /// Destroy a resumed session, releasing its resources.
     /// Removes it from the local session map and cancels the event forwarder.
     /// This writes a `session.shutdown` event to events.jsonl.
-    #[cfg(feature = "copilot-sdk")]
     pub async fn destroy_session(&mut self, session_id: &str) -> Result<(), BridgeError> {
         if let Some(session) = self.sessions.remove(session_id) {
             // Cancel the event forwarder task
@@ -264,13 +223,7 @@ impl BridgeManager {
         Ok(())
     }
 
-    #[cfg(not(feature = "copilot-sdk"))]
-    pub async fn destroy_session(&mut self, _session_id: &str) -> Result<(), BridgeError> {
-        Err(BridgeError::NotAvailable)
-    }
-
     /// Change the session mode (interactive / plan / autopilot).
-    #[cfg(feature = "copilot-sdk")]
     pub async fn set_session_mode(
         &self,
         session_id: &str,
@@ -288,17 +241,7 @@ impl BridgeManager {
             .map_err(|e| BridgeError::Sdk(e.to_string()))
     }
 
-    #[cfg(not(feature = "copilot-sdk"))]
-    pub async fn set_session_mode(
-        &self,
-        _session_id: &str,
-        _mode: BridgeSessionMode,
-    ) -> Result<(), BridgeError> {
-        Err(BridgeError::NotAvailable)
-    }
-
     /// Spawn a tokio task that reads SDK events and forwards them as BridgeEvents.
-    #[cfg(feature = "copilot-sdk")]
     pub(super) fn spawn_event_forwarder(
         &mut self,
         session_id: &str,

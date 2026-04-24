@@ -113,7 +113,7 @@ pub async fn task_create(
                         if let Some(ref sid) = handle.session_uuid
                             && let Err(e) = tracepilot_orchestrator::task_db::operations::set_orchestrator_session_id(
                                 db.conn(),
-                                sid,
+                                &tracepilot_core::ids::SessionId::from_validated(sid.clone()),
                             )
                         {
                             tracing::warn!(task_id = %task.id, error = %e, "Failed to bind orchestrator session id");

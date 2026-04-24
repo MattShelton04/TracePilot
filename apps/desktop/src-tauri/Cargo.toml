@@ -28,11 +28,7 @@ log = "0.4"
 console-subscriber = { version = "0.4", optional = true }
 
 # ── Cargo features ───────────────────────────────────────────────
-# `copilot-sdk` (default) — forwards to
-#   `tracepilot-tauri-bindings/copilot-sdk`, which pulls in the full
-#   SDK bridge chain (bindings → orchestrator → copilot-sdk git dep).
-#   Disable with `--no-default-features` to produce a shippable
-#   binary whose SDK bridge commands return `BridgeError::NotAvailable`.
+# The Copilot SDK is always compiled in — see ADR-0007.
 # `tokio-console` (opt-in) — enables `console-subscriber` for async
 #   task debugging. Replaces the `tauri-plugin-log` tracing bridge,
 #   so Rust log output goes to tokio-console instead of the Tauri
@@ -40,8 +36,6 @@ console-subscriber = { version = "0.4", optional = true }
 #   Build:   cargo tauri dev --features tokio-console
 #   Connect: tokio-console http://127.0.0.1:6669
 [features]
-default = ["copilot-sdk"]
-copilot-sdk = ["tracepilot-tauri-bindings/copilot-sdk"]
 tokio-console = ["dep:console-subscriber"]
 
 [[bin]]

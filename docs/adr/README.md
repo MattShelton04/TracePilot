@@ -21,6 +21,9 @@ Foundational architecture (0001–0006):
 | [0004](0004-background-process-discipline.md) | Background process discipline (Windows `CREATE_NO_WINDOW`, `hidden_command`) | Accepted |
 | [0005](0005-error-model-thiserror-per-crate.md) | Error model — `thiserror` enums per crate, no `anyhow` in production code | Accepted |
 | [0006](0006-frontend-state-pinia-run-helpers.md) | Frontend state — Pinia stores with `runAction` / `runMutation`, no direct mutations | Accepted |
+| [0007](0007-copilot-sdk-always-on.md) | Copilot SDK always compiled in, gated at runtime by user preference | Accepted |
+| [0008](0008-mcp-server-hosting-model.md) | MCP server hosting model (configuration ownership, SSRF policy, on-demand probes) | Accepted |
+| [0009](0009-bridge-lifecycle.md) | Copilot bridge lifecycle (connection state machine, session cache, `DisabledByPreference` guard) | Accepted |
 
 Policy ADRs (0010–0013):
 

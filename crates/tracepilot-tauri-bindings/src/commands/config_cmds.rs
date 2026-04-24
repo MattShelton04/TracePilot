@@ -10,6 +10,7 @@ use crate::helpers::{
 use crate::types::ValidateSessionDirResult;
 
 #[tauri::command]
+#[specta::specta]
 pub async fn check_config_exists() -> CmdResult<bool> {
     blocking_cmd!(Ok::<_, BindingsError>(
         config::config_file_path().is_some_and(|p| p.exists())
@@ -70,6 +71,7 @@ pub async fn validate_session_dir(path: String) -> CmdResult<ValidateSessionDirR
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn factory_reset(state: tauri::State<'_, SharedConfig>) -> CmdResult<()> {
     let cfg = read_config(&state);
     let index_path = cfg.index_db_path();
@@ -121,6 +123,7 @@ pub async fn get_agent_definitions(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn save_agent_definition(file_path: String, yaml_content: String) -> CmdResult<()> {
     blocking_cmd!({
         let home = copilot_home()?;
@@ -320,17 +323,20 @@ pub async fn save_session_template(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn delete_session_template(id: String) -> CmdResult<()> {
     crate::validators::validate_template_id(&id)?;
     blocking_cmd!(tracepilot_orchestrator::templates::delete_template(&id))
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn restore_default_templates() -> CmdResult<()> {
     blocking_cmd!(tracepilot_orchestrator::templates::restore_all_default_templates())
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn increment_template_usage(id: String) -> CmdResult<()> {
     crate::validators::validate_template_id(&id)?;
     blocking_cmd!(tracepilot_orchestrator::templates::increment_usage(&id))

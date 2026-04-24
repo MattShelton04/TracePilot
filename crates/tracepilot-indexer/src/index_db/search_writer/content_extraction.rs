@@ -127,7 +127,14 @@ const SKIP_RESULT_ONLY_TOOLS: &[&str] = &["store_memory", "report_intent", "task
 /// Extract searchable content rows from a session's typed events.
 /// This is a pure function with no database interaction — safe to call
 /// outside of a transaction to avoid holding locks during CPU work.
-pub fn extract_search_content(session_id: &str, events: &[TypedEvent]) -> Vec<SearchContentRow> {
+///
+/// Accepts a validated [`SessionId`](tracepilot_core::ids::SessionId) so
+/// callers cannot accidentally stamp rows with a task/job identifier.
+pub fn extract_search_content(
+    session_id: &tracepilot_core::ids::SessionId,
+    events: &[TypedEvent],
+) -> Vec<SearchContentRow> {
+    let session_id = session_id.as_str();
     let mut rows = Vec::with_capacity(events.len() / 2);
     // Track turn number matching the reconstructor's turnIndex (0-based).
     // The reconstructor creates new turns on: UserMessage (always), and

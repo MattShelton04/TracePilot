@@ -11,7 +11,6 @@ use crate::bridge::BridgeError;
 
 impl BridgeManager {
     /// Get the foreground session ID from a `copilot --ui-server` instance.
-    #[cfg(feature = "copilot-sdk")]
     pub async fn get_foreground_session(&self) -> Result<Option<String>, BridgeError> {
         let client = self.require_client()?;
         let resp = client
@@ -21,13 +20,7 @@ impl BridgeManager {
         Ok(resp.session_id)
     }
 
-    #[cfg(not(feature = "copilot-sdk"))]
-    pub async fn get_foreground_session(&self) -> Result<Option<String>, BridgeError> {
-        Err(BridgeError::NotAvailable)
-    }
-
     /// Set the foreground session ID (switches which session the TUI displays).
-    #[cfg(feature = "copilot-sdk")]
     pub async fn set_foreground_session(&self, session_id: &str) -> Result<(), BridgeError> {
         let client = self.require_client()?;
         client
@@ -35,11 +28,6 @@ impl BridgeManager {
             .await
             .map_err(|e| BridgeError::Sdk(e.to_string()))?;
         Ok(())
-    }
-
-    #[cfg(not(feature = "copilot-sdk"))]
-    pub async fn set_foreground_session(&self, _session_id: &str) -> Result<(), BridgeError> {
-        Err(BridgeError::NotAvailable)
     }
 }
 

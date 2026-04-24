@@ -38,13 +38,12 @@ Top-level modules in `src/lib.rs`:
 
 ## Features
 
-| Feature       | Default | Purpose                                                           |
-| ------------- | ------- | ----------------------------------------------------------------- |
-| `copilot-sdk` | on      | Enables the `copilot-sdk` git dep + bridge implementation         |
-
-With `--no-default-features`, every bridge method returns
-`BridgeError::NotAvailable` — useful for air-gapped CI and bisecting SDK
-regressions. The bridge API shape is identical either way.
+This crate has no Cargo features. The `copilot-sdk` dependency is a required,
+non-optional workspace dep — the Copilot SDK bridge is always compiled in
+(see [ADR-0007](../../docs/adr/0007-copilot-sdk-always-on.md)). The SDK
+surface is gated at *runtime* via `FeaturesConfig.copilot_sdk`, read through
+a [`CopilotSdkEnabledReader`](src/bridge/mod.rs) injected into
+[`BridgeManager`](src/bridge/manager/mod.rs) at plugin setup.
 
 ## Workspace dependencies
 
@@ -54,8 +53,8 @@ regressions. The bridge API shape is identical either way.
 
 - `src/lib.rs` — module declarations + re-exports.
 - `src/error.rs` — `OrchestratorError` + `Result` alias.
-- `src/bridge/` — Copilot SDK bridge; `manager/` contains
-  `#[cfg(feature = "copilot-sdk")]`-gated code paths.
+- `src/bridge/` — Copilot SDK bridge; `manager/` holds the `BridgeManager`
+  lifecycle + steering logic, always compiled.
 - `src/task_*/` — task orchestration submodules (DB, context, IPC, recovery, attribution, orchestrator).
 - `src/worktrees.rs`, `src/launcher.rs`, `src/mcp/` — domain modules.
 
@@ -65,3 +64,25 @@ regressions. The bridge API shape is identical either way.
 - [0004 — Background process discipline](../../docs/adr/0004-background-process-discipline.md)
 - [0005 — Error model](../../docs/adr/0005-error-model-thiserror-per-crate.md)
 - [0012 — Filesystem trust boundary](../../docs/adr/0012-filesystem-trust-boundary.md)
+
+## Public-API drift guard (FU-10)
+
+A lightweight grep-based guard checks that the top-level public surface
+of `src/lib.rs` doesn't grow accidentally. The baseline lives in
+[`public-api-baseline.txt`](./public-api-baseline.txt) and is enforced
+by `scripts/check-public-api.mjs` (wired into `just ci`, `just
+public-api-check`, and the lefthook pre-commit hook when `src/lib.rs`
+is staged).
+
+When a root-level `pub mod` / `pub use` change is intentional,
+regenerate the baseline and commit the diff:
+
+```bash
+node scripts/check-public-api.mjs --update
+```
+
+Reviewers should treat every diff to this file as a load-bearing API
+change: prefer `pub(crate)` or `pub(super)` wherever the item isn't
+consumed from outside the crate. This is a deliberately shallow
+alternative to `cargo-public-api`; graduate if cross-crate API
+stability ever becomes a hard requirement.

@@ -64,7 +64,10 @@ pub fn create_skill(
     validate_skill_name(name)?;
     let dir = global_skills_dir().map_err(|e| match e {
         crate::error::OrchestratorError::Io(io_err) => SkillsError::IoSource(io_err),
-        other => SkillsError::Io(other.to_string()),
+        other => SkillsError::io_ctx(
+            "Failed to resolve global skills dir",
+            std::io::Error::other(other.to_string()),
+        ),
     })?;
     let skill_dir = dir.join(name);
 

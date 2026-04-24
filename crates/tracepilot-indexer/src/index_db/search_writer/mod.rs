@@ -18,6 +18,7 @@ use super::batch_insert::batched_insert;
 use crate::Result;
 use rusqlite::params;
 use std::path::Path;
+use tracepilot_core::ids::SessionId;
 
 use super::IndexDb;
 
@@ -44,7 +45,8 @@ pub struct SearchContentRow {
 
 impl IndexDb {
     /// Check whether a session needs its search content re-indexed.
-    pub fn needs_search_reindex(&self, session_id: &str, session_path: &Path) -> bool {
+    pub fn needs_search_reindex(&self, session_id: &SessionId, session_path: &Path) -> bool {
+        let session_id = session_id.as_str();
         let current_events = super::types::get_events_mtime_and_size(session_path);
 
         let stored: Option<super::types::StalenessRow> = self
@@ -108,9 +110,10 @@ impl IndexDb {
     /// Deletes existing content and inserts new rows, all within a transaction.
     pub fn upsert_search_content(
         &self,
-        session_id: &str,
+        session_id: &SessionId,
         rows: &[SearchContentRow],
     ) -> Result<usize> {
+        let session_id = session_id.as_str();
         self.conn.execute_batch("SAVEPOINT upsert_search")?;
 
         let result = (|| -> Result<usize> {
@@ -210,7 +213,7 @@ impl IndexDb {
     /// **Not suitable for single-session updates** — use `upsert_search_content` for that.
     pub fn bulk_write_search_content(
         &self,
-        session_rows: &[(String, Vec<SearchContentRow>)],
+        session_rows: &[(SessionId, Vec<SearchContentRow>)],
     ) -> Result<usize> {
         let total_start = std::time::Instant::now();
         self.conn.execute_batch("BEGIN")?;

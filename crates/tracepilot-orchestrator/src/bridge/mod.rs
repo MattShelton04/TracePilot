@@ -1,9 +1,13 @@
 //! Copilot SDK bridge — unified interface for SDK and CLI-spawn modes.
 //!
-//! When the `copilot-sdk` Cargo feature is enabled, the bridge connects to the
-//! Copilot CLI via JSON-RPC (either stdio or TCP) for real-time event streaming,
-//! session steering, and quota monitoring. When disabled, the bridge degrades
-//! gracefully and all SDK operations return `BridgeError::NotAvailable`.
+//! The Copilot SDK is always compiled into the binary (ADR-0007). Runtime
+//! availability is gated by the `FeaturesConfig.copilot_sdk` user
+//! preference via a reader installed into [`BridgeManager`] at plugin
+//! setup; when the preference is off, bridge start paths (`connect`,
+//! `create_session`, fresh `resume_session`) return
+//! [`BridgeError::DisabledByPreference`]. Previously-tracked sessions
+//! remain steerable so a user who toggles the preference off mid-flight
+//! doesn't lose work in progress.
 
 mod discovery;
 pub mod manager;
@@ -11,14 +15,25 @@ pub mod manager;
 use serde::{Deserialize, Serialize};
 
 pub use discovery::{DetectedUiServer, detect_ui_servers};
-pub use manager::BridgeManager;
+pub use manager::{BridgeManager, CopilotSdkEnabledReader};
 
 // ─── Error Types ──────────────────────────────────────────────────
 
 #[derive(Debug, thiserror::Error)]
 pub enum BridgeError {
+    /// Compiled-in SDK is unreachable for some reason other than the
+    /// user preference. Retained for forward compatibility; not
+    /// produced today because the SDK is always-on (ADR-0007).
     #[error("Copilot SDK feature is not enabled")]
     NotAvailable,
+
+    /// The user has the runtime `copilotSdk` preference toggled off, so
+    /// the bridge refuses to start a new SDK conversation. Existing
+    /// tracked sessions (created before the pref flipped) are not
+    /// invalidated — steering calls like `send_message` / `abort` still
+    /// succeed for sessions already in the manager's session map.
+    #[error("Copilot SDK bridge is disabled by user preference")]
+    DisabledByPreference,
 
     #[error("Not connected to Copilot CLI")]
     NotConnected,
@@ -119,7 +134,14 @@ impl std::fmt::Display for ConnectionMode {
 #[serde(rename_all = "camelCase")]
 pub struct BridgeStatus {
     pub state: BridgeConnectionState,
+    /// Always `true` since the Copilot SDK is compiled in unconditionally
+    /// (ADR-0007). Retained for wire-format stability with the frontend.
     pub sdk_available: bool,
+    /// Reflects the current `FeaturesConfig.copilot_sdk` runtime preference.
+    /// When `false`, bridge start paths refuse with
+    /// [`BridgeError::DisabledByPreference`]. Frontend uses this to display
+    /// accurate state without duplicating the preference read.
+    pub enabled_by_preference: bool,
     pub cli_version: Option<String>,
     pub protocol_version: Option<u32>,
     pub active_sessions: usize,
@@ -234,6 +256,7 @@ mod tests {
         let status = BridgeStatus {
             state: BridgeConnectionState::Connected,
             sdk_available: true,
+            enabled_by_preference: true,
             cli_version: Some("1.0.24".into()),
             protocol_version: Some(1),
             active_sessions: 2,
@@ -243,6 +266,10 @@ mod tests {
         let json = serde_json::to_string(&status).unwrap();
         assert!(json.contains("connected"));
         assert!(json.contains("sdkAvailable"));
+        assert!(
+            json.contains("enabledByPreference"),
+            "expected enabledByPreference field: {json}"
+        );
         // Wire format must remain a bare "stdio" string for FE compat.
         assert!(
             json.contains(r#""connectionMode":"stdio""#),

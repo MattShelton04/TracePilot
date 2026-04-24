@@ -19,6 +19,7 @@ use specta_typescript::Typescript;
 use tauri_specta::Builder;
 
 use crate::error::ErrorCode;
+use crate::types::IndexingProgressPayload;
 use tracepilot_orchestrator::bridge::manager::BridgeMetricsSnapshot;
 
 const HEADER: &str = "\
@@ -49,9 +50,21 @@ pub fn export(out_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
             crate::commands::state::get_git_info,
             // wave 98 — config validation (co-located DTO with state types)
             crate::commands::config_cmds::validate_session_dir,
+            // FU-14 — expanded specta coverage (primitives-only batch)
+            crate::commands::config_cmds::check_config_exists,
+            crate::commands::config_cmds::factory_reset,
+            crate::commands::config_cmds::save_agent_definition,
+            crate::commands::config_cmds::delete_session_template,
+            crate::commands::config_cmds::restore_default_templates,
+            crate::commands::config_cmds::increment_template_usage,
+            crate::commands::logging::get_log_path,
+            crate::commands::logging::export_logs,
+            crate::commands::mcp::mcp_toggle_server,
+            crate::commands::orchestration::is_git_repo,
         ])
         .typ::<ErrorCode>()
-        .typ::<BridgeMetricsSnapshot>();
+        .typ::<BridgeMetricsSnapshot>()
+        .typ::<IndexingProgressPayload>();
 
     if let Some(parent) = out_path.parent() {
         std::fs::create_dir_all(parent)?;

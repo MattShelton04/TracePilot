@@ -3,7 +3,6 @@
 //! each submodule's line-count budget in check (Wave 44).
 
 use super::BridgeManager;
-#[cfg(feature = "copilot-sdk")]
 use crate::bridge::BridgeQuotaSnapshot;
 use crate::bridge::{
     BridgeAuthStatus, BridgeError, BridgeModelInfo, BridgeQuota, BridgeSessionInfo, BridgeStatus,
@@ -13,7 +12,6 @@ impl BridgeManager {
     /// List all sessions known to the SDK client.
     /// Sessions that have been resumed locally are marked `is_active: true`.
     /// Others are listed from the CLI's session metadata (may not be resumable).
-    #[cfg(feature = "copilot-sdk")]
     pub async fn list_sessions(&self) -> Result<Vec<BridgeSessionInfo>, BridgeError> {
         let client = self.require_client()?;
         let sessions = client
@@ -38,13 +36,7 @@ impl BridgeManager {
             .collect())
     }
 
-    #[cfg(not(feature = "copilot-sdk"))]
-    pub async fn list_sessions(&self) -> Result<Vec<BridgeSessionInfo>, BridgeError> {
-        Err(BridgeError::NotAvailable)
-    }
-
     /// Get quota information.
-    #[cfg(feature = "copilot-sdk")]
     pub async fn get_quota(&self) -> Result<BridgeQuota, BridgeError> {
         let client = self.require_client()?;
         let result = client
@@ -67,13 +59,7 @@ impl BridgeManager {
         })
     }
 
-    #[cfg(not(feature = "copilot-sdk"))]
-    pub async fn get_quota(&self) -> Result<BridgeQuota, BridgeError> {
-        Err(BridgeError::NotAvailable)
-    }
-
     /// Get authentication status.
-    #[cfg(feature = "copilot-sdk")]
     pub async fn get_auth_status(&self) -> Result<BridgeAuthStatus, BridgeError> {
         let client = self.require_client()?;
         let result = client
@@ -90,13 +76,7 @@ impl BridgeManager {
         })
     }
 
-    #[cfg(not(feature = "copilot-sdk"))]
-    pub async fn get_auth_status(&self) -> Result<BridgeAuthStatus, BridgeError> {
-        Err(BridgeError::NotAvailable)
-    }
-
     /// Get SDK / CLI version info.
-    #[cfg(feature = "copilot-sdk")]
     pub async fn get_cli_status(&self) -> Result<BridgeStatus, BridgeError> {
         let client = self.require_client()?;
         let result = client
@@ -107,24 +87,16 @@ impl BridgeManager {
         Ok(BridgeStatus {
             state: self.state,
             sdk_available: true,
+            enabled_by_preference: self.is_enabled_by_preference(),
             cli_version: Some(result.version),
             protocol_version: Some(result.protocol_version),
-            #[cfg(feature = "copilot-sdk")]
             active_sessions: self.sessions.len(),
-            #[cfg(not(feature = "copilot-sdk"))]
-            active_sessions: 0,
             error: self.error_message.clone(),
             connection_mode: self.connection_mode,
         })
     }
 
-    #[cfg(not(feature = "copilot-sdk"))]
-    pub async fn get_cli_status(&self) -> Result<BridgeStatus, BridgeError> {
-        Err(BridgeError::NotAvailable)
-    }
-
     /// List available models.
-    #[cfg(feature = "copilot-sdk")]
     pub async fn list_models(&self) -> Result<Vec<BridgeModelInfo>, BridgeError> {
         let client = self.require_client()?;
         let models = client
@@ -139,10 +111,5 @@ impl BridgeManager {
                 name: Some(m.name),
             })
             .collect())
-    }
-
-    #[cfg(not(feature = "copilot-sdk"))]
-    pub async fn list_models(&self) -> Result<Vec<BridgeModelInfo>, BridgeError> {
-        Err(BridgeError::NotAvailable)
     }
 }

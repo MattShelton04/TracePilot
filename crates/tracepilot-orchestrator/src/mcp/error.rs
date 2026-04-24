@@ -19,12 +19,6 @@ pub enum McpError {
     /// Configuration file I/O error (with custom message).
     #[error("MCP config error: {0}")]
     Config(String),
-    /// JSON serialization/deserialization error (with custom message).
-    #[error("MCP JSON error: {0}")]
-    Json(String),
-    /// Network/HTTP error.
-    #[error("MCP network error: {0}")]
-    Network(String),
     /// I/O error with preserved source chain.
     #[error("MCP I/O error: {0}")]
     IoSource(#[from] std::io::Error),
@@ -93,18 +87,6 @@ mod tests {
     fn display_config() {
         let err = McpError::Config("permission denied".into());
         assert!(err.to_string().contains("permission denied"));
-    }
-
-    #[test]
-    fn display_json() {
-        let err = McpError::Json("unexpected token".into());
-        assert!(err.to_string().contains("unexpected token"));
-    }
-
-    #[test]
-    fn display_network() {
-        let err = McpError::Network("connection refused".into());
-        assert!(err.to_string().contains("connection refused"));
     }
 
     #[test]

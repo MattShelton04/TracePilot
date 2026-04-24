@@ -61,6 +61,7 @@ pub async fn mcp_remove_server(
 
 #[tauri::command]
 #[tracing::instrument(err, fields(server = %name))]
+#[specta::specta]
 pub async fn mcp_toggle_server(name: String) -> CmdResult<bool> {
     blocking_cmd!(mcp(tracepilot_orchestrator::mcp::config::toggle_server(
         &name

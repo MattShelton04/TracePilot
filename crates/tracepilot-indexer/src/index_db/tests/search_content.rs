@@ -3,6 +3,7 @@
 use super::common::write_session;
 use crate::index_db::IndexDb;
 use crate::index_db::search_writer::SearchContentRow;
+use tracepilot_core::ids::SessionId;
 
 #[test]
 fn test_bulk_write_search_content_produces_searchable_fts() {
@@ -45,7 +46,7 @@ fn test_bulk_write_search_content_produces_searchable_fts() {
         },
     ];
 
-    let session_rows = vec![(session_id.to_string(), rows)];
+    let session_rows = vec![(SessionId::from_validated(session_id), rows)];
     let inserted = db.bulk_write_search_content(&session_rows).unwrap();
     assert_eq!(inserted, 2);
 
@@ -78,7 +79,9 @@ fn test_bulk_write_search_content_produces_searchable_fts() {
         content: "incremental upsert after bulk write".to_string(),
         metadata_json: None,
     }];
-    let upserted = db.upsert_search_content(session_id, &extra_row).unwrap();
+    let upserted = db
+        .upsert_search_content(&SessionId::from_validated(session_id), &extra_row)
+        .unwrap();
     assert_eq!(upserted, 1);
 
     // Verify the new row is searchable via trigger-based FTS

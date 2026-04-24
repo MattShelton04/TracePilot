@@ -185,7 +185,9 @@ fn test_incident_indexing_and_retrieval() {
 
     // Verify individual incident rows
     let incidents = db
-        .get_session_incidents("aaaa1111-1111-1111-1111-111111111111")
+        .get_session_incidents(&tracepilot_core::ids::SessionId::from_validated(
+            "aaaa1111-1111-1111-1111-111111111111",
+        ))
         .unwrap();
     assert_eq!(incidents.len(), 4, "should have 4 incident rows");
 

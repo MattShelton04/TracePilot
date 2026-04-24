@@ -29,6 +29,7 @@ pub mod specta_exports;
 use concurrency::IndexingSemaphores;
 use std::sync::{Arc, Mutex};
 use tauri::Manager;
+use tracepilot_orchestrator::bridge::CopilotSdkEnabledReader;
 use tracepilot_orchestrator::bridge::manager::SharedBridgeManager;
 use types::{EventCache, ManifestLock, SharedOrchestratorState, SharedTaskDb, TurnCache};
 
@@ -64,6 +65,27 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
                 tracepilot_orchestrator::bridge::BridgeManager::new();
             let shared_bridge: SharedBridgeManager =
                 Arc::new(tokio::sync::RwLock::new(bridge_manager));
+
+            // Runtime preference guard (ADR-0007): wire the bridge manager to
+            // read the user's `FeaturesConfig.copilot_sdk` toggle so start
+            // paths return `DisabledByPreference` when the user opts out.
+            // Defaults to `false` (disabled) if the config isn't loaded yet
+            // or the RwLock is poisoned — never panics.
+            {
+                let shared_config = app.state::<crate::config::SharedConfig>().inner().clone();
+                let reader: CopilotSdkEnabledReader = Arc::new(move || {
+                    shared_config
+                        .read()
+                        .ok()
+                        .and_then(|g| g.as_ref().map(|c| c.features.copilot_sdk))
+                        .unwrap_or(false)
+                });
+                let bridge_for_pref = shared_bridge.clone();
+                tauri::async_runtime::block_on(async move {
+                    bridge_for_pref.write().await.set_preference_reader(reader);
+                });
+            }
+
             // Spawn event forwarding task: reads bridge events and emits Tauri IPC events.
             {
                 let bridge_for_events = shared_bridge.clone();

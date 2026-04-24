@@ -21,7 +21,7 @@ fn dirs_path() -> PathBuf {
 /// A discovered session directory with its UUID and path.
 #[derive(Debug, Clone)]
 pub struct DiscoveredSession {
-    pub id: String,
+    pub id: crate::ids::SessionId,
     pub path: PathBuf,
     pub has_workspace_yaml: bool,
     pub has_events_jsonl: bool,
@@ -59,7 +59,7 @@ pub fn discover_sessions(base_dir: &Path) -> Result<Vec<DiscoveredSession>> {
             .unwrap_or_default();
 
         let id = match uuid::Uuid::parse_str(id_str) {
-            Ok(u) => u.to_string(),
+            Ok(u) => crate::ids::SessionId::from_validated(u.to_string()),
             Err(_) => continue,
         };
 
@@ -160,7 +160,7 @@ pub fn resolve_session_path_in(session_id_prefix: &str, base_dir: &Path) -> Resu
     let sessions = discover_sessions(base_dir)?;
     let matches: Vec<_> = sessions
         .iter()
-        .filter(|s| s.id.starts_with(session_id_prefix))
+        .filter(|s| s.id.as_str().starts_with(session_id_prefix))
         .collect();
     match matches.len() {
         0 => Err(TracePilotError::SessionNotFound(
@@ -200,7 +200,10 @@ mod tests {
 
         let sessions = discover_sessions(tmp.path()).unwrap();
         assert_eq!(sessions.len(), 1);
-        assert_eq!(sessions[0].id, "c86fe369-c858-4d91-81da-203c5e276e33");
+        assert_eq!(
+            sessions[0].id.as_str(),
+            "c86fe369-c858-4d91-81da-203c5e276e33"
+        );
         assert!(sessions[0].has_workspace_yaml);
     }
 

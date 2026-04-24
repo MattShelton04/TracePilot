@@ -16,9 +16,6 @@ pub enum SkillsError {
     /// Frontmatter validation error.
     #[error("Frontmatter validation error: {0}")]
     FrontmatterValidation(String),
-    /// File I/O error (with custom message).
-    #[error("Skills I/O error: {0}")]
-    Io(String),
     /// Import error.
     #[error("Skills import error: {0}")]
     Import(String),
@@ -28,15 +25,23 @@ pub enum SkillsError {
     /// GitHub operation error.
     #[error("Skills GitHub error: {0}")]
     GitHub(String),
-    /// YAML serialization error (with custom message).
-    #[error("Skills YAML error: {0}")]
-    Yaml(String),
     /// Path traversal / containment violation.
     #[error("Path not allowed: {0}")]
     PathTraversal(String),
-    /// I/O error with preserved source chain.
+    /// I/O error with preserved source chain. Catches `?` on bare
+    /// [`std::io::Error`].
     #[error("Skills I/O error: {0}")]
     IoSource(#[from] std::io::Error),
+    /// I/O error with operation context. Preferred over the bare
+    /// [`Self::IoSource`] variant at call sites that already know the
+    /// target path / operation, so the message + source chain stay
+    /// structured (FU-12 rollup of the old `Io(String)` bucket).
+    #[error("Skills I/O error ({context}): {source}")]
+    IoContext {
+        context: String,
+        #[source]
+        source: std::io::Error,
+    },
     /// YAML error with preserved source chain.
     #[error("Skills YAML error: {0}")]
     YamlSource(#[from] serde_yml::Error),
@@ -46,6 +51,17 @@ impl SkillsError {
     /// Construct a GitHub error with context and source error.
     pub fn github_ctx(context: impl std::fmt::Display, source: impl std::fmt::Display) -> Self {
         SkillsError::GitHub(format!("{context}: {source}"))
+    }
+
+    /// Construct an I/O error with operation context, preserving the
+    /// original `io::Error` as the `#[source]` chain. Prefer this over
+    /// `SkillsError::IoSource` when the call site already carries useful
+    /// operation context (e.g. "Failed to create staging directory").
+    pub fn io_ctx(context: impl Into<String>, source: std::io::Error) -> Self {
+        SkillsError::IoContext {
+            context: context.into(),
+            source,
+        }
     }
 }
 
@@ -86,9 +102,16 @@ mod tests {
     }
 
     #[test]
-    fn display_io() {
-        let err = SkillsError::Io("disk full".into());
-        assert!(err.to_string().contains("disk full"));
+    fn display_io_context_preserves_context_and_source() {
+        use std::error::Error;
+        let err = SkillsError::io_ctx(
+            "Failed to create staging dir",
+            std::io::Error::new(std::io::ErrorKind::PermissionDenied, "denied"),
+        );
+        let msg = err.to_string();
+        assert!(msg.contains("Failed to create staging dir"));
+        assert!(msg.contains("denied"));
+        assert!(err.source().is_some());
     }
 
     #[test]
@@ -107,12 +130,6 @@ mod tests {
     fn display_github() {
         let err = SkillsError::GitHub("rate limited".into());
         assert!(err.to_string().contains("rate limited"));
-    }
-
-    #[test]
-    fn display_yaml() {
-        let err = SkillsError::Yaml("bad indent".into());
-        assert!(err.to_string().contains("bad indent"));
     }
 
     #[test]

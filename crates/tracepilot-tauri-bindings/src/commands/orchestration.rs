@@ -100,6 +100,7 @@ pub async fn get_worktree_disk_usage(path: String) -> CmdResult<u64> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn is_git_repo(path: String) -> CmdResult<bool> {
     Ok(tokio::task::spawn_blocking(move || {
         tracepilot_orchestrator::worktrees::is_git_repo(std::path::Path::new(&path))

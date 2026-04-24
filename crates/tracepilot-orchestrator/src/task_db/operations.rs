@@ -200,12 +200,19 @@ pub fn update_task_status(conn: &Connection, id: &str, status: TaskStatus) -> Re
 }
 
 /// Set the orchestrator session ID on in-progress tasks that don't have one yet.
-pub fn set_orchestrator_session_id(conn: &Connection, session_id: &str) -> Result<()> {
+///
+/// Accepts a validated [`SessionId`](tracepilot_core::ids::SessionId) so
+/// callers cannot accidentally pass a task or job identifier through the
+/// orchestrator-session slot.
+pub fn set_orchestrator_session_id(
+    conn: &Connection,
+    session_id: &tracepilot_core::ids::SessionId,
+) -> Result<()> {
     conn.execute(
         "UPDATE tasks SET orchestrator_session_id = ?1
          WHERE status IN ('in_progress', 'claimed')
            AND (orchestrator_session_id IS NULL OR orchestrator_session_id = '')",
-        params![session_id],
+        params![session_id.as_str()],
     )?;
     Ok(())
 }

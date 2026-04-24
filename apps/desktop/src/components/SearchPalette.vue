@@ -126,7 +126,7 @@ function handlePaletteKeydown(e: KeyboardEvent) {
     case "Tab": {
       // Focus trap: cycle through focusable elements within the palette
       e.preventDefault();
-      const dialog = (e.target as HTMLElement).closest(".palette-dialog");
+      const dialog = (e.target as HTMLElement).closest(".palette-modal");
       if (!dialog) break;
       const focusable = Array.from(
         dialog.querySelectorAll<HTMLElement>(

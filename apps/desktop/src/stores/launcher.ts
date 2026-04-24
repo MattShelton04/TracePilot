@@ -15,7 +15,7 @@ import type {
   SessionTemplate,
   SystemDependencies,
 } from "@tracepilot/types";
-import { runMutation, toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
+import { runAction, runMutation, useAsyncGuard } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import { logWarn } from "@/utils/logger";
@@ -45,26 +45,23 @@ export const useLauncherStore = defineStore("launcher", () => {
   });
 
   async function initialize() {
-    const token = initializeGuard.start();
-    loading.value = true;
-    error.value = null;
-    try {
-      const settled = await allSettledRecord({
-        deps: checkSystemDeps(),
-        models: getAvailableModels(),
-        templates: listSessionTemplates(),
-      });
-      if (!initializeGuard.isValid(token)) return;
-      if (settled.deps.status === "fulfilled") systemDeps.value = settled.deps.value;
-      if (settled.models.status === "fulfilled") models.value = settled.models.value;
-      if (settled.templates.status === "fulfilled") templates.value = settled.templates.value;
-      error.value = aggregateSettledErrors(Object.values(settled));
-    } catch (e) {
-      if (!initializeGuard.isValid(token)) return;
-      error.value = toErrorMessage(e);
-    } finally {
-      if (initializeGuard.isValid(token)) loading.value = false;
-    }
+    await runAction({
+      loading,
+      error,
+      guard: initializeGuard,
+      action: () =>
+        allSettledRecord({
+          deps: checkSystemDeps(),
+          models: getAvailableModels(),
+          templates: listSessionTemplates(),
+        }),
+      onSuccess: (settled) => {
+        if (settled.deps.status === "fulfilled") systemDeps.value = settled.deps.value;
+        if (settled.models.status === "fulfilled") models.value = settled.models.value;
+        if (settled.templates.status === "fulfilled") templates.value = settled.templates.value;
+        error.value = aggregateSettledErrors(Object.values(settled));
+      },
+    });
   }
 
   async function launch(config: LaunchConfig): Promise<LaunchedSession | null> {

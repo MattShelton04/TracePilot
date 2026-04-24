@@ -3,9 +3,12 @@
 //! Separate from `index.db` to avoid write contention. Single-writer (Tauri app).
 //! The orchestrator agent communicates via file-based IPC, not direct DB access.
 
+pub mod error;
 pub mod operations;
 pub(crate) mod schema;
 pub mod types;
+
+pub use error::TaskDbError;
 
 use crate::error::{OrchestratorError, Result};
 use rusqlite::Connection;
@@ -133,17 +136,17 @@ impl TaskDb {
 fn map_migration_err(err: tracepilot_core::utils::migrator::MigrationError) -> OrchestratorError {
     use tracepilot_core::utils::migrator::MigrationError as ME;
     match err {
-        // Reading/writing the `schema_version` tracking table — treat as a
-        // direct task-DB operation.
-        ME::SchemaVersion(s) => OrchestratorError::TaskDb(s),
+        // Reading/writing the `schema_version` tracking table — distinct
+        // from everyday CRUD so framework faults are not mis-triaged.
+        ME::SchemaVersion(s) => OrchestratorError::TaskDb(TaskDbError::Schema(s)),
         // A migration step (DDL/DML) failed. Preserve the step name so the
         // triage message is actionable rather than a bare rusqlite error.
-        ME::Migration { name, source, .. } => OrchestratorError::TaskDbMigration {
+        ME::Migration { name, source, .. } => OrchestratorError::TaskDb(TaskDbError::Migration {
             name: name.to_string(),
             source,
-        },
+        }),
         // Pre-migration SQLite backup failed — distinct pipeline from CRUD.
-        ME::BackupSqlite { source, .. } => OrchestratorError::TaskDbBackup(source),
+        ME::BackupSqlite { source, .. } => OrchestratorError::TaskDb(TaskDbError::Backup(source)),
         ME::Backup { source, .. } => OrchestratorError::Io(source),
     }
 }

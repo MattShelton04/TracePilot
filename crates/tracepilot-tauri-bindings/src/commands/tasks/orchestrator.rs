@@ -38,7 +38,7 @@ pub async fn task_orchestrator_health(
                 && let Err(e) =
                     tracepilot_orchestrator::task_db::operations::set_orchestrator_session_id(
                         task_db.conn(),
-                        &uuid,
+                        &tracepilot_core::ids::SessionId::from_validated(uuid.clone()),
                     )
             {
                 tracing::warn!(error = %e, "Failed to set orchestrator_session_id on tasks");

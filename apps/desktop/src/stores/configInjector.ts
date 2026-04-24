@@ -19,7 +19,7 @@ import type {
   CopilotVersion,
   MigrationDiff,
 } from "@tracepilot/types";
-import { runAction, runMutation, toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
+import { runAction, runMutation, useAsyncGuard } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import { useToastStore } from "@/stores/toast";
@@ -50,34 +50,28 @@ export const useConfigInjectorStore = defineStore("configInjector", () => {
   const activeVersionStr = computed(() => activeVersion.value?.version ?? "unknown");
 
   async function initialize() {
-    const token = initGuard.start();
-    loading.value = true;
-    error.value = null;
-    try {
-      const settled = await allSettledRecord({
-        agents: getAgentDefinitions(),
-        config: getCopilotConfig(),
-        versions: discoverCopilotVersions(),
-        active: getActiveCopilotVersion(),
-        backups: listConfigBackups(),
-      });
-      if (!initGuard.isValid(token)) return;
+    await runAction({
+      loading,
+      error,
+      guard: initGuard,
+      action: () =>
+        allSettledRecord({
+          agents: getAgentDefinitions(),
+          config: getCopilotConfig(),
+          versions: discoverCopilotVersions(),
+          active: getActiveCopilotVersion(),
+          backups: listConfigBackups(),
+        }),
+      onSuccess: (settled) => {
+        if (settled.agents.status === "fulfilled") agents.value = settled.agents.value;
+        if (settled.config.status === "fulfilled") copilotConfig.value = settled.config.value;
+        if (settled.versions.status === "fulfilled") versions.value = settled.versions.value;
+        if (settled.active.status === "fulfilled") activeVersion.value = settled.active.value;
+        if (settled.backups.status === "fulfilled") backups.value = settled.backups.value;
 
-      if (settled.agents.status === "fulfilled") agents.value = settled.agents.value;
-      if (settled.config.status === "fulfilled") copilotConfig.value = settled.config.value;
-      if (settled.versions.status === "fulfilled") versions.value = settled.versions.value;
-      if (settled.active.status === "fulfilled") activeVersion.value = settled.active.value;
-      if (settled.backups.status === "fulfilled") backups.value = settled.backups.value;
-
-      error.value = aggregateSettledErrors(Object.values(settled));
-    } catch (e) {
-      if (!initGuard.isValid(token)) return;
-      error.value = toErrorMessage(e);
-    } finally {
-      if (initGuard.isValid(token)) {
-        loading.value = false;
-      }
-    }
+        error.value = aggregateSettledErrors(Object.values(settled));
+      },
+    });
   }
 
   function selectAgent(agent: AgentDefinition) {

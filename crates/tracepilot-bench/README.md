@@ -93,3 +93,31 @@ opt in at runtime in a shipped build by setting `window.__tracepilot_perf`.
 
 - Budgets: `perf-budget.json` at the repo root.
 - File-size guard-rails: `scripts/check-file-sizes.mjs`.
+
+## Flamegraph profiling (FU-07)
+
+Flamegraph a single Criterion bench with:
+
+```bash
+just bench-flamegraph ipc_hot_path
+```
+
+Output lands in `target/flamegraphs/<bench>.svg`. The recipe is an opt-in
+dev tool wrapper — **not** a workspace dependency — so install
+`cargo-flamegraph` yourself:
+
+```bash
+cargo install flamegraph
+```
+
+Platform notes:
+
+- **Linux** — requires `perf` (`apt install linux-tools-$(uname -r)`).
+- **macOS** — uses `dtrace`; may require disabling SIP for kernel probes.
+- **Windows** — `cargo flamegraph` support is experimental. Prefer
+  [`samply`](https://github.com/mstange/samply)
+  (`cargo install samply`) for a cross-platform equivalent; on macOS,
+  `cargo install cargo-instruments` hooks into Xcode Instruments.
+
+The recipe prints a helpful install hint (and exits 0) when the tool is
+missing, so it's safe to run speculatively.

@@ -5,12 +5,14 @@ use crate::error::{BindingsError, CmdResult};
 use tauri::Manager;
 
 #[tauri::command]
+#[specta::specta]
 pub async fn get_log_path(app: tauri::AppHandle) -> CmdResult<String> {
     let log_dir = app.path().app_log_dir()?;
     Ok(log_dir.to_string_lossy().to_string())
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn export_logs(app: tauri::AppHandle, destination: String) -> CmdResult<String> {
     let log_dir = app.path().app_log_dir()?;
 

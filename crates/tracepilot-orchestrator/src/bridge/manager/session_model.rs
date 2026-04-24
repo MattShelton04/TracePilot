@@ -4,11 +4,8 @@
 //! keep `session_tasks.rs` under the 400-LOC cap.
 
 use super::BridgeManager;
-use crate::bridge::BridgeError;
-
-#[cfg(feature = "copilot-sdk")]
 use super::raw_rpc::raw_rpc_call;
-#[cfg(feature = "copilot-sdk")]
+use crate::bridge::BridgeError;
 use tracing::{info, warn};
 
 impl BridgeManager {
@@ -18,7 +15,6 @@ impl BridgeManager {
     /// name (`session.model.switchTo`). The upstream Rust SDK has a bug where it
     /// sends `session.model.switch_to` (snake_case) which the CLI doesn't recognize.
     /// See: docs/copilot-sdk-rpc-method-bug.md
-    #[cfg(feature = "copilot-sdk")]
     pub async fn set_session_model(
         &self,
         session_id: &str,
@@ -83,15 +79,5 @@ impl BridgeManager {
             .set_model(model, opts)
             .await
             .map_err(|e| BridgeError::Sdk(e.to_string()))
-    }
-
-    #[cfg(not(feature = "copilot-sdk"))]
-    pub async fn set_session_model(
-        &self,
-        _session_id: &str,
-        _model: &str,
-        _reasoning_effort: Option<String>,
-    ) -> Result<(), BridgeError> {
-        Err(BridgeError::NotAvailable)
     }
 }
