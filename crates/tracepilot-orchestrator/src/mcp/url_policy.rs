@@ -2,9 +2,9 @@
 //!
 //! MCP server URLs are user-configured and are reached from the TracePilot
 //! process via `reqwest`. Without a policy, a malicious or accidental
-//! configuration could point at `http://169.254.169.254/` (cloud metadata),
-//! `http://127.0.0.1:8080/` (co-resident services), or private RFC1918
-//! addresses — a classic Server-Side Request Forgery (SSRF) shape.
+//! configuration could point at `http://169.254.169.254/` (cloud metadata)
+//! or private RFC1918 addresses — a classic Server-Side Request Forgery
+//! (SSRF) shape.
 //!
 //! This module validates URLs before they're handed to the HTTP client.
 //!
@@ -12,17 +12,18 @@
 //!
 //! By default we reject:
 //!   - non-`http(s)` schemes
-//!   - IP-literal hosts that resolve to loopback / link-local / private /
-//!     multicast / unspecified addresses
+//!   - IP-literal hosts that resolve to link-local / private / multicast /
+//!     unspecified / CGNAT / ULA addresses
 //!   - hostnames whose *first* DNS resolution is to one of the blocked
 //!     ranges (best-effort; not a substitute for per-request re-resolution)
 //!
 //! Accepts:
-//!   - public-IP HTTPS URLs
-//!   - public-IP HTTP URLs
-//!
-//! A future iteration will add an allow-list escape hatch so power users
-//! can opt specific loopback URLs in via config.
+//!   - public-IP HTTP(S) URLs
+//!   - **loopback addresses** (`127.0.0.0/8`, `::1`, `localhost`): MCP
+//!     servers are commonly run locally (CLI helpers, containerised tools,
+//!     VS Code / Claude-Desktop-style companions). The SSRF risk on a
+//!     single-user desktop app pointing at its own loopback is materially
+//!     lower than a web service, so loopback is permitted.
 //!
 //! ## Known limitations
 //!
@@ -47,8 +48,6 @@ pub enum UrlPolicyError {
     BadScheme { scheme: String },
     #[error("URL has no host component")]
     MissingHost,
-    #[error("Loopback addresses are not permitted: {host}")]
-    Loopback { host: String },
     #[error("Private / link-local / multicast / unspecified addresses are not permitted: {host}")]
     PrivateOrReserved { host: String },
 }
@@ -124,13 +123,13 @@ fn classify_ip(ip: IpAddr, host: &str) -> Result<(), UrlPolicyError> {
     // Normalise IPv4-mapped (`::ffff:a.b.c.d`) and IPv4-compatible
     // (`::a.b.c.d`) IPv6 addresses down to IPv4 before classification so
     // an attacker can't bypass the V4 checks by wrapping a private address
-    // in a V6 literal (e.g. `http://[::ffff:127.0.0.1]/`).
+    // in a V6 literal (e.g. `http://[::ffff:10.0.0.1]/`).
     let ip = normalise_v6_to_v4(ip);
 
+    // Loopback is permitted — MCP servers are commonly run locally on
+    // `127.0.0.1` / `::1` / `localhost`.
     if ip.is_loopback() {
-        return Err(UrlPolicyError::Loopback {
-            host: host.to_string(),
-        });
+        return Ok(());
     }
     if ip.is_unspecified() || ip.is_multicast() {
         return Err(UrlPolicyError::PrivateOrReserved {
@@ -227,19 +226,11 @@ mod tests {
     }
 
     #[test]
-    fn rejects_loopback() {
-        assert!(matches!(
-            validate_mcp_url("http://127.0.0.1:8080/"),
-            Err(UrlPolicyError::Loopback { .. })
-        ));
-        assert!(matches!(
-            validate_mcp_url("http://[::1]:8080/"),
-            Err(UrlPolicyError::Loopback { .. })
-        ));
-        assert!(matches!(
-            validate_mcp_url("http://localhost:8080/"),
-            Err(UrlPolicyError::Loopback { .. })
-        ));
+    fn accepts_loopback() {
+        // Loopback is permitted — common MCP deployment shape.
+        assert!(validate_mcp_url("http://127.0.0.1:8080/").is_ok());
+        assert!(validate_mcp_url("http://[::1]:8080/").is_ok());
+        assert!(validate_mcp_url("http://localhost:8080/").is_ok());
     }
 
     #[test]
@@ -294,11 +285,9 @@ mod tests {
     }
 
     #[test]
-    fn rejects_ipv4_mapped_ipv6_loopback() {
-        assert!(matches!(
-            validate_mcp_url("http://[::ffff:127.0.0.1]/"),
-            Err(UrlPolicyError::Loopback { .. })
-        ));
+    fn accepts_ipv4_mapped_ipv6_loopback() {
+        // IPv4-mapped loopback normalises to 127.0.0.1, which is allowed.
+        assert!(validate_mcp_url("http://[::ffff:127.0.0.1]/").is_ok());
     }
 
     #[test]

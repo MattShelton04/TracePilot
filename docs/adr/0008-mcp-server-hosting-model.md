@@ -63,20 +63,24 @@ trusts whatever it's told to dial.
 
 4. **HTTP probes enforce a URL policy on every hop.** Before any request
    fires, `url_policy::validate_mcp_url_async` rejects:
-   non-`http(s)` schemes; IP-literal hosts in loopback / private /
-   link-local / broadcast / multicast / unspecified / CGNAT ranges;
-   IPv6 ULAs; hostnames whose first DNS resolution lands in any of the
-   above. **IPv4-mapped (`::ffff:a.b.c.d`) and IPv4-compatible
-   (`::a.b.c.d`) IPv6 literals are normalised to IPv4 before
-   classification** so `http://[::ffff:127.0.0.1]/` cannot slip past
-   the V4 checks — this class of bypass was closed after initial
+   non-`http(s)` schemes; IP-literal hosts in private / link-local /
+   broadcast / multicast / unspecified / CGNAT ranges; IPv6 ULAs;
+   hostnames whose first DNS resolution lands in any of the above.
+   **Loopback (`127.0.0.0/8`, `::1`, `localhost`) is permitted** —
+   local MCP servers (CLI helpers, containerised tools) are a
+   first-class MCP deployment shape, and the SSRF risk on a
+   single-user desktop app targeting its own loopback is materially
+   lower than on a web service. **IPv4-mapped (`::ffff:a.b.c.d`) and
+   IPv4-compatible (`::a.b.c.d`) IPv6 literals are normalised to IPv4
+   before classification** so `http://[::ffff:10.0.0.1]/` cannot slip
+   past the V4 checks — this class of bypass was closed after initial
    triage and the gap is now covered by dedicated regression tests in
    `url_policy::tests`.
 
 5. **Redirect chains re-enter the policy.** `check_http_server`
    installs a custom `reqwest::redirect::Policy` that re-validates
    every redirect target against the same `validate_mcp_url` and caps
-   the chain at 5 hops. A hostile 302 to `http://127.0.0.1/` is
+   the chain at 5 hops. A hostile 302 to a private RFC1918 address is
    therefore rejected even though the initial URL was public.
 
 6. **Error taxonomy.** `McpError` (see ADR-0005) enumerates the failure
@@ -129,11 +133,14 @@ trusts whatever it's told to dial.
    wave 1 in favour of explicit frontend-driven probes; avoids a whole
    class of "stale cache vs live state" bugs until we have concrete
    product requirements for freshness. Can be reintroduced if needed.
-3. **Block all loopback + private URLs unconditionally with no escape
-   hatch.** Current behaviour, but a documented future iteration will
-   add an explicit per-server allow-list flag for power users who
-   genuinely want to target `127.0.0.1` (e.g. local dev servers). Deferred
-   so the default is conservative.
+3. **Permit loopback + RFC1918 unconditionally.** Rejected for RFC1918:
+   a malicious MCP config could still probe home-router admin panels
+   or corporate intranets. Loopback alone is permitted (wave 2 above)
+   because the threat model on a single-user desktop app reaching its
+   own loopback is materially weaker than reaching arbitrary private
+   network peers. A future iteration may add an explicit per-server
+   allow-list flag for power users who genuinely want to target an
+   RFC1918 address.
 4. **Skip the URL policy and rely on the HTTP client / OS.** Rejected:
    `reqwest` has no SSRF opinion, the OS never will, and the attack
    surface (user-supplied URLs) warrants a first-class classifier.
