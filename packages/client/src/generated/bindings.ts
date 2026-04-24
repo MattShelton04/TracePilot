@@ -33,6 +33,16 @@ export const commands = {
 	checkForUpdates: () => typedError<UpdateCheckResult, BindingsErrorIpc>(__TAURI_INVOKE("check_for_updates")),
 	getGitInfo: () => __TAURI_INVOKE<GitInfo>("get_git_info"),
 	validateSessionDir: (path: string) => typedError<ValidateSessionDirResult, BindingsErrorIpc>(__TAURI_INVOKE("validate_session_dir", { path })),
+	checkConfigExists: () => typedError<boolean, BindingsErrorIpc>(__TAURI_INVOKE("check_config_exists")),
+	factoryReset: () => typedError<null, BindingsErrorIpc>(__TAURI_INVOKE("factory_reset")),
+	saveAgentDefinition: (filePath: string, yamlContent: string) => typedError<null, BindingsErrorIpc>(__TAURI_INVOKE("save_agent_definition", { filePath, yamlContent })),
+	deleteSessionTemplate: (id: string) => typedError<null, BindingsErrorIpc>(__TAURI_INVOKE("delete_session_template", { id })),
+	restoreDefaultTemplates: () => typedError<null, BindingsErrorIpc>(__TAURI_INVOKE("restore_default_templates")),
+	incrementTemplateUsage: (id: string) => typedError<null, BindingsErrorIpc>(__TAURI_INVOKE("increment_template_usage", { id })),
+	getLogPath: () => typedError<string, BindingsErrorIpc>(__TAURI_INVOKE("get_log_path")),
+	exportLogs: (destination: string) => typedError<string, BindingsErrorIpc>(__TAURI_INVOKE("export_logs", { destination })),
+	mcpToggleServer: (name: string) => typedError<boolean, BindingsErrorIpc>(__TAURI_INVOKE("mcp_toggle_server", { name })),
+	isGitRepo: (path: string) => typedError<boolean, BindingsErrorIpc>(__TAURI_INVOKE("is_git_repo", { path })),
 };
 
 /* Types */
@@ -70,6 +80,23 @@ export type FreshnessResponse = {
 export type GitInfo = {
 	commitHash: string | null,
 	branch: string | null,
+};
+
+// Enriched indexing progress payload emitted via Tauri events.
+export type IndexingProgressPayload = {
+	current: number,
+	total: number,
+	// Per-session info (None if this session was skipped or failed).
+	sessionRepo: string | null,
+	sessionBranch: string | null,
+	sessionModel: string | null,
+	sessionTokens: number,
+	sessionEvents: number,
+	sessionTurns: number,
+	// Running totals across all indexed sessions so far.
+	totalTokens: number,
+	totalEvents: number,
+	totalRepos: number,
 };
 
 export type SessionListItem = {
