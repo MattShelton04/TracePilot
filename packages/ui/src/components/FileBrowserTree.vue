@@ -146,6 +146,7 @@ const iconTypeByPath = computed(() => {
         <button
           class="fb-tree__folder"
           :aria-expanded="!collapsedFolders.has(String(folder))"
+          :aria-label="(!collapsedFolders.has(String(folder)) ? 'Collapse folder ' : 'Expand folder ') + folder"
           @click="toggleFolder(String(folder))"
         >
           <span class="fb-tree__chevron">
