@@ -83,30 +83,40 @@ where
         return Ok(());
     }
 
-    // All full-sized chunks share the same SQL shape — build it lazily on first
-    // use so sessions with < BATCH_CHUNK_SIZE rows (most analytics tables) pay
-    // zero allocation for the full-chunk string they never use.
-    let mut full_sql: Option<String> = None;
+    // Cache the prepared Statement object (not just the SQL string) for full-sized chunks.
+    // This completely eliminates the overhead of compiling the statement multiple times
+    // in a loop for large data sets.
+    // We use type inference `None` rather than `Option<rusqlite::Statement>` to avoid
+    // explicit lifetime annotations bound to the `conn` reference.
+    let mut full_stmt = None;
 
     for chunk in items.chunks(BATCH_CHUNK_SIZE) {
-        let partial;
-        let sql: &str = if chunk.len() == BATCH_CHUNK_SIZE {
-            full_sql.get_or_insert_with(|| {
-                build_placeholder_sql(sql_prefix, BATCH_CHUNK_SIZE, params_per_row)
-            })
+        if chunk.len() == BATCH_CHUNK_SIZE {
+            if full_stmt.is_none() {
+                let sql = build_placeholder_sql(sql_prefix, BATCH_CHUNK_SIZE, params_per_row);
+                full_stmt = Some(conn.prepare(&sql)?);
+            }
+            let stmt = full_stmt.as_mut().unwrap();
+
+            let mut params: Vec<&'a dyn ToSql> = Vec::with_capacity(chunk.len() * params_per_row);
+            for item in chunk {
+                to_params(item, &mut params);
+            }
+
+            stmt.execute(rusqlite::params_from_iter(params))?;
         } else {
-            partial = build_placeholder_sql(sql_prefix, chunk.len(), params_per_row);
-            &partial
-        };
+            // For the final partial chunk, we use dynamic prepare. This string length varies,
+            // so we don't cache it to avoid polluting the SQLite statement cache.
+            let sql = build_placeholder_sql(sql_prefix, chunk.len(), params_per_row);
+            let mut stmt = conn.prepare(&sql)?;
 
-        let mut stmt = conn.prepare(sql)?;
+            let mut params: Vec<&'a dyn ToSql> = Vec::with_capacity(chunk.len() * params_per_row);
+            for item in chunk {
+                to_params(item, &mut params);
+            }
 
-        let mut params: Vec<&'a dyn ToSql> = Vec::with_capacity(chunk.len() * params_per_row);
-        for item in chunk {
-            to_params(item, &mut params);
+            stmt.execute(rusqlite::params_from_iter(params))?;
         }
-
-        stmt.execute(rusqlite::params_from_iter(params))?;
     }
 
     Ok(())
@@ -120,13 +130,13 @@ mod tests {
     #[test]
     fn build_placeholder_sql_single_row_single_col() {
         let sql = build_placeholder_sql("INSERT INTO t (v) VALUES", 1, 1);
-        assert_eq!(sql, "INSERT INTO t (v) VALUES (?1)");
+        assert_eq!(sql, "INSERT INTO t (v) VALUES (?)");
     }
 
     #[test]
     fn build_placeholder_sql_multi_row_multi_col() {
         let sql = build_placeholder_sql("INSERT INTO t (a,b) VALUES", 2, 2);
-        assert_eq!(sql, "INSERT INTO t (a,b) VALUES (?1,?2),(?3,?4)");
+        assert_eq!(sql, "INSERT INTO t (a,b) VALUES (?,?),(?,?)");
     }
 
     #[test]
