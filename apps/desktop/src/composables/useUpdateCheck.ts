@@ -1,8 +1,8 @@
-import { getVersion } from "@tauri-apps/api/app";
 import { checkForUpdates, type UpdateCheckResult } from "@tracepilot/client";
 import { toErrorMessage } from "@tracepilot/ui";
 import { ref } from "vue";
 import { STORAGE_KEYS } from "@/config/storageKeys";
+import { getTauriAppVersion } from "@/lib/tauri/app";
 import { logWarn } from "@/utils/logger";
 
 const CACHE_KEY = STORAGE_KEYS.updateCheck;
@@ -14,7 +14,8 @@ export const updateCheckError = ref<string | null>(null);
 
 async function getCurrentVersion(): Promise<string> {
   try {
-    return await getVersion();
+    const version = await getTauriAppVersion();
+    return version ?? "dev";
   } catch (e) {
     logWarn("[useUpdateCheck] Failed to get version from Tauri, defaulting to 'dev'", e);
     return "dev";
