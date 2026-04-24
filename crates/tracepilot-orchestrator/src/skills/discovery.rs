@@ -56,10 +56,10 @@ pub fn discover_in_directory(
     let mut summaries = Vec::new();
 
     let entries = std::fs::read_dir(dir).map_err(|e| {
-        SkillsError::Io(format!(
-            "Failed to read skills directory {}: {e}",
-            dir.display()
-        ))
+        SkillsError::io_ctx(
+            format!("Failed to read skills directory {}", dir.display()),
+            e,
+        )
     })?;
 
     for entry in entries.flatten() {

@@ -47,19 +47,19 @@ where
     let staging_dir = dest_parent.join(&staging_name);
 
     std::fs::create_dir_all(dest_parent).map_err(|e| {
-        SkillsError::Io(format!(
-            "Failed to create destination parent for '{}': {e}",
-            skill_name
-        ))
+        SkillsError::io_ctx(
+            format!("Failed to create destination parent for '{skill_name}'"),
+            e,
+        )
     })?;
 
     // Use create_dir (not create_dir_all) so a collision is detected as
     // an error rather than silently sharing a directory.
     std::fs::create_dir(&staging_dir).map_err(|e| {
-        SkillsError::Io(format!(
-            "Failed to create staging directory for '{}': {e}",
-            skill_name
-        ))
+        SkillsError::io_ctx(
+            format!("Failed to create staging directory for '{skill_name}'"),
+            e,
+        )
     })?;
 
     match populate(&staging_dir) {
@@ -72,10 +72,7 @@ where
                 if final_dir.exists() {
                     SkillsError::DuplicateSkill(skill_name.to_string())
                 } else {
-                    SkillsError::Io(format!(
-                        "Failed to finalize import of '{}': {e}",
-                        skill_name
-                    ))
+                    SkillsError::io_ctx(format!("Failed to finalize import of '{skill_name}'"), e)
                 }
             })?;
             Ok((final_dir, value))
