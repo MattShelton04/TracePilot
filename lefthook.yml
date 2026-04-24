@@ -27,6 +27,14 @@ pre-commit:
     adr:
       glob: "docs/adr/*.md"
       run: node scripts/check-adr.mjs
+    # CSP regression guard — only when the Tauri config is staged.
+    csp:
+      glob: "apps/desktop/src-tauri/tauri.conf.json"
+      run: node scripts/check-csp.mjs
+    # Public-API drift guard for tracepilot-orchestrator (FU-10).
+    public-api:
+      glob: "crates/tracepilot-orchestrator/src/lib.rs"
+      run: node scripts/check-public-api.mjs
 
 # Heavier checks that shouldn't block every commit but should run before
 # sharing work with the remote. Skip with `git push --no-verify` if urgent.

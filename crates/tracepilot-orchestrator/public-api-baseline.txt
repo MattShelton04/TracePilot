@@ -1,0 +1,28 @@
+# Public API baseline for tracepilot-orchestrator (FU-10 guard).
+# Regenerated via `node scripts/check-public-api.mjs --update`.
+# Any diff against this file should be reviewed; prefer narrower
+# visibility (`pub(crate)` / `pub(super)`) unless the item must be
+# consumed from outside the crate.
+mod bridge
+mod config_injector
+mod github
+mod launcher
+mod mcp
+mod models
+mod presets
+mod process
+mod repo_registry
+mod skills
+mod task_attribution
+mod task_context
+mod task_db
+mod task_ipc
+mod task_orchestrator
+mod task_recovery
+mod templates
+mod validation
+mod version_manager
+mod worktrees
+use error::OrchestratorError
+use error::Result
+use types::*

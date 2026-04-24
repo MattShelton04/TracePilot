@@ -64,3 +64,25 @@ a [`CopilotSdkEnabledReader`](src/bridge/mod.rs) injected into
 - [0004 — Background process discipline](../../docs/adr/0004-background-process-discipline.md)
 - [0005 — Error model](../../docs/adr/0005-error-model-thiserror-per-crate.md)
 - [0012 — Filesystem trust boundary](../../docs/adr/0012-filesystem-trust-boundary.md)
+
+## Public-API drift guard (FU-10)
+
+A lightweight grep-based guard checks that the top-level public surface
+of `src/lib.rs` doesn't grow accidentally. The baseline lives in
+[`public-api-baseline.txt`](./public-api-baseline.txt) and is enforced
+by `scripts/check-public-api.mjs` (wired into `just ci`, `just
+public-api-check`, and the lefthook pre-commit hook when `src/lib.rs`
+is staged).
+
+When a root-level `pub mod` / `pub use` change is intentional,
+regenerate the baseline and commit the diff:
+
+```bash
+node scripts/check-public-api.mjs --update
+```
+
+Reviewers should treat every diff to this file as a load-bearing API
+change: prefer `pub(crate)` or `pub(super)` wherever the item isn't
+consumed from outside the crate. This is a deliberately shallow
+alternative to `cargo-public-api`; graduate if cross-crate API
+stability ever becomes a hard requirement.

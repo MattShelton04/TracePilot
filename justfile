@@ -79,8 +79,28 @@ ci:
     node scripts/check-doc-links.mjs
     node scripts/check-adr.mjs
     node scripts/check-catalog-drift.mjs
+    node scripts/check-csp.mjs
+    node scripts/check-public-api.mjs
 
 # Docs-only lints (fast, no deps).
 check-docs:
     node scripts/check-doc-links.mjs
     node scripts/check-adr.mjs
+
+# CSP static regression guard (FU-02) — fails if tauri.conf.json weakens CSP.
+check-csp:
+    node scripts/check-csp.mjs
+
+# Public-API drift guard for tracepilot-orchestrator (FU-10).
+# Regenerate the baseline with `node scripts/check-public-api.mjs --update`
+# when a change to `crates/tracepilot-orchestrator/src/lib.rs` is deliberate.
+public-api-check:
+    node scripts/check-public-api.mjs
+
+# Flamegraph a single criterion bench (FU-07).
+# `cargo flamegraph` is an opt-in dev tool (install separately with
+# `cargo install flamegraph`). Linux needs `perf`, macOS needs `dtrace`;
+# on Windows consider `samply` as a cross-platform alternative.
+# Usage: `just bench-flamegraph ipc_hot_path`
+bench-flamegraph BENCH:
+    pwsh.exe -NoLogo -NoProfile -File scripts/bench-flamegraph.ps1 {{BENCH}}
