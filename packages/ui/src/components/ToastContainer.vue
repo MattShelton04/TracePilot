@@ -57,7 +57,7 @@ function onAction(action: { label: string; onClick: () => void }, id: string) {
           </button>
         </div>
 
-        <button class="toast-dismiss" aria-label="Dismiss" @click="dismiss(t.id)">✕</button>
+        <button class="toast-dismiss" aria-label="Dismiss" @click="dismiss(t.id)"><span aria-hidden="true">✕</span></button>
 
         <div
           v-if="t.duration > 0"
