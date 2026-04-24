@@ -66,6 +66,18 @@ describe("createConnectionSlice", () => {
     expect(slice.connecting.value).toBe(false);
   });
 
+  it("connect treats DisabledByPreference as disconnected (not an error)", async () => {
+    (client.sdkConnect as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new Error("Copilot SDK bridge is disabled by user preference"),
+    );
+    const slice = createConnectionSlice(makeDeps());
+    const ok = await slice.connect({});
+    expect(ok).toBe(false);
+    expect(slice.connectionState.value).toBe("disconnected");
+    expect(slice.lastError.value).toBeNull();
+    expect(slice.connecting.value).toBe(false);
+  });
+
   it("disconnect resets sessions/mode and fires onDisconnect hook atomically", async () => {
     const deps = makeDeps();
     const slice = createConnectionSlice(deps);

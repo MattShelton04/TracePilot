@@ -159,13 +159,27 @@ export function createConnectionSlice(deps: ConnectionDeps) {
       }
       return false;
     } catch (e) {
-      lastError.value = toErrorMessage(e);
+      const msg = toErrorMessage(e);
+      if (isDisabledByPreferenceError(msg)) {
+        // Expected state when the user has toggled the SDK off — not an error.
+        // Leave connectionState as `disconnected` and don't surface a red banner.
+        lastError.value = null;
+        connectionState.value = "disconnected";
+        logInfo("[sdk] Connect skipped — disabled by user preference");
+        return false;
+      }
+      lastError.value = msg;
       connectionState.value = "error";
       logWarn("[sdk] Connect failed:", e);
       return false;
     } finally {
       connecting.value = false;
     }
+  }
+
+  function isDisabledByPreferenceError(msg: string | null | undefined): boolean {
+    if (!msg) return false;
+    return msg.toLowerCase().includes("disabled by user preference");
   }
 
   async function disconnect() {
