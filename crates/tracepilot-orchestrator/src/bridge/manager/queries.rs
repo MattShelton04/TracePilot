@@ -91,7 +91,7 @@ impl BridgeManager {
             cli_version: Some(result.version),
             protocol_version: Some(result.protocol_version),
             active_sessions: self.sessions.len(),
-            error: None,
+            error: self.error_message.clone(),
             connection_mode: self.connection_mode,
         })
     }
