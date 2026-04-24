@@ -106,7 +106,7 @@ function scanBuiltIndexHtml() {
   }
   const html = readFileSync(DIST_HTML, "utf8");
   // Match <script ...>BODY</script> where BODY is non-empty and non-whitespace.
-  const rx = /<script\b([^>]*)>([\s\S]*?)<\/script>/gi;
+  const rx = /<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi;
   const offenders = [];
   let m;
   while ((m = rx.exec(html)) !== null) {
