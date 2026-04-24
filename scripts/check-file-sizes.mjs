@@ -73,8 +73,6 @@ const ALLOWLIST = new Set([
   "crates/tracepilot-core/src/summary/mod.rs",
   "crates/tracepilot-bench/src/lib.rs",
   "crates/tracepilot-export/src/import/writer.rs",
-  // TODO(FI-w123-backup-tests): split tests into a separate file to bring under 500 lines
-  "crates/tracepilot-core/src/utils/backup.rs",
   // TODO(FI-w123-migrations-module): split run_migrations out into a dedicated module
   "crates/tracepilot-indexer/src/index_db/migrations.rs",
 

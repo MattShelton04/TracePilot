@@ -618,12 +618,12 @@ actionable so a future engineer can pick them up.
 - **Risk / why deferred**: Low; cosmetic. Catching drift is better done at the CI level.
 - **Effort**: S
 
-### w107 — `pnpm typecheck` is broken on `main` (pre-existing)
+### w107 — `pnpm typecheck` is broken on `main` (pre-existing) — ✅ RESOLVED
 
 - **Area**: `packages/client/src/__tests__/commandContract.test.ts:39`
 - **Observation**: `pnpm typecheck` (and therefore `just typecheck`) fails with `TS2345: Argument of type 'string' is not assignable to parameter of type '"list_sessions" | ...'`. The test passes a plain `string` where the new command-name union is expected. This was already broken before w107 (the justfile recipe just surfaces it).
 - **Proposed change**: Narrow the test's iteration variable to `CommandName` (or cast via `as CommandName`) so the contract test compiles against the generated bindings.
-- **Risk / why deferred**: Out of scope for a scripting-only wave — needs a deliberate decision on whether `commandContract.test.ts` should be re-generated or re-typed. Blocks `just ci` / `just typecheck` being fully green until fixed.
+- **Resolution**: Wave 99 rewrote `commandContract.test.ts` to read a generated JSON manifest (`packages/client/src/generated/ipc-commands.json`) via `readFileSync` and iterate `string[]` against the `IPC_COMMANDS` tuple — no typed-union narrowing happens at that call site. Verified on `Matt/Further_tech_debt_abc` (FU-01): `pnpm -r --filter "./apps/*" --filter "./packages/*" typecheck` exits 0.
 - **Effort**: S
 
 ### w107 — `just` is not yet a documented prerequisite
