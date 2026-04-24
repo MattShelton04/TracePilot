@@ -4,6 +4,7 @@ use crate::Result;
 use rusqlite::{params_from_iter, types::ToSql};
 use std::collections::HashSet;
 use std::path::PathBuf;
+use tracepilot_core::ids::SessionId;
 
 use super::IndexDb;
 use super::row_helpers::*;
@@ -106,12 +107,15 @@ impl IndexDb {
     }
 
     /// Get a session's filesystem path from the index.
-    pub fn get_session_path(&self, session_id: &str) -> Result<Option<PathBuf>> {
+    ///
+    /// Accepts a validated [`SessionId`]; internal queries bind the inner
+    /// string as a SQL parameter so prefix lookups are not supported here.
+    pub fn get_session_path(&self, session_id: &SessionId) -> Result<Option<PathBuf>> {
         let path: Option<String> = self
             .conn
             .query_row(
                 "SELECT path FROM sessions WHERE id = ?1",
-                [session_id],
+                [session_id.as_str()],
                 |row| row.get(0),
             )
             .ok();
@@ -169,12 +173,12 @@ impl IndexDb {
     }
 
     /// Query incidents for a specific session.
-    pub fn get_session_incidents(&self, session_id: &str) -> Result<Vec<IndexedIncident>> {
+    pub fn get_session_incidents(&self, session_id: &SessionId) -> Result<Vec<IndexedIncident>> {
         let mut stmt = self.conn.prepare(
             "SELECT event_type, source_event_type, timestamp, severity, summary, detail_json
              FROM session_incidents WHERE session_id = ?1 ORDER BY timestamp",
         )?;
-        let rows = stmt.query_map([session_id], indexed_incident_from_row)?;
+        let rows = stmt.query_map([session_id.as_str()], indexed_incident_from_row)?;
         let mut result = Vec::new();
         for row in rows {
             result.push(row?);

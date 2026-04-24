@@ -5,7 +5,12 @@
 
 use super::SearchContentRow;
 use super::content_extraction::extract_search_content;
+use tracepilot_core::ids::SessionId;
 use tracepilot_core::utils::truncate_utf8;
+
+fn sid() -> SessionId {
+    SessionId::from_validated("s1")
+}
 
 // ── truncate_utf8 tests ─────────────────────────────────────
 
@@ -186,7 +191,7 @@ fn turn_numbers_single_user_message_turn() {
         assistant_message("Hi there!"),
         assistant_turn_end(),
     ];
-    let rows = extract_search_content("s1", &events);
+    let rows = extract_search_content(&sid(), &events);
     assert!(!rows.is_empty());
     for row in &rows {
         assert_eq!(
@@ -218,7 +223,7 @@ fn turn_numbers_multiple_assistant_cycles() {
         assistant_message("All done!"),            // turn 2
         assistant_turn_end(),                      // turn 2 closes
     ];
-    let rows = extract_search_content("s1", &events);
+    let rows = extract_search_content(&sid(), &events);
     let map = turn_map(&rows);
 
     // First cycle: user_message + assistant_message + tool_call = turn 0
@@ -247,7 +252,7 @@ fn turn_numbers_synthetic_turn_before_user_message() {
         assistant_message("OK!"),         // turn 1
         assistant_turn_end(),             // turn 1 closes
     ];
-    let rows = extract_search_content("s1", &events);
+    let rows = extract_search_content(&sid(), &events);
     let map = turn_map(&rows);
 
     assert_eq!(map[0], (Some(0), "assistant_message")); // synthetic turn 0
@@ -267,7 +272,7 @@ fn turn_numbers_abort_closes_turn() {
         assistant_message("Recovered"),  // turn 1
         assistant_turn_end(),            // turn 1 closes
     ];
-    let rows = extract_search_content("s1", &events);
+    let rows = extract_search_content(&sid(), &events);
     let map = turn_map(&rows);
 
     assert_eq!(map[0], (Some(0), "user_message"));
@@ -288,7 +293,7 @@ fn turn_numbers_user_message_after_turn_end() {
         assistant_message("Response 2"), // turn 1
         assistant_turn_end(),            // closes turn 1
     ];
-    let rows = extract_search_content("s1", &events);
+    let rows = extract_search_content(&sid(), &events);
     let map = turn_map(&rows);
 
     assert_eq!(map[0], (Some(0), "user_message"));
@@ -310,7 +315,7 @@ fn turn_numbers_many_cycles_produces_high_turn_numbers() {
         events.push(assistant_turn_end());
     }
 
-    let rows = extract_search_content("s1", &events);
+    let rows = extract_search_content(&sid(), &events);
 
     // User message is turn 0
     assert_eq!(rows[0].turn_number, Some(0));
@@ -347,7 +352,7 @@ fn turn_numbers_reasoning_opens_turn() {
         assistant_turn_end(),
         reasoning("More thinking after turn end"), // opens turn 1
     ];
-    let rows = extract_search_content("s1", &events);
+    let rows = extract_search_content(&sid(), &events);
     let map = turn_map(&rows);
 
     assert_eq!(map[0], (Some(0), "user_message"));
@@ -378,7 +383,7 @@ fn turn_numbers_match_reconstructor() {
     ];
 
     let turns = reconstruct_turns(&events);
-    let rows = extract_search_content("s1", &events);
+    let rows = extract_search_content(&sid(), &events);
 
     // The reconstructor should produce 3 turns: [0, 1, 2]
     assert_eq!(turns.len(), 3);
@@ -410,7 +415,7 @@ fn turn_numbers_consecutive_user_messages() {
         assistant_message("Response"),
         assistant_turn_end(),
     ];
-    let rows = extract_search_content("s1", &events);
+    let rows = extract_search_content(&sid(), &events);
     let map = turn_map(&rows);
 
     assert_eq!(map[0], (Some(0), "user_message"));
@@ -432,7 +437,7 @@ fn turn_numbers_tool_complete_uses_start_turn() {
         assistant_message("Done"),                   // turn 1
         assistant_turn_end(),
     ];
-    let rows = extract_search_content("s1", &events);
+    let rows = extract_search_content(&sid(), &events);
     let map = turn_map(&rows);
 
     assert_eq!(map[0], (Some(0), "user_message"));
@@ -456,7 +461,7 @@ fn session_error_between_turns_assigned_to_next_turn() {
         assistant_message("Retrying..."), // turn 1
         assistant_turn_end(),
     ];
-    let rows = extract_search_content("s1", &events);
+    let rows = extract_search_content(&sid(), &events);
     let map = turn_map(&rows);
 
     assert_eq!(map[0], (Some(0), "user_message"));
@@ -476,7 +481,7 @@ fn session_error_within_turn_assigned_to_current_turn() {
         assistant_message("Continuing..."),
         assistant_turn_end(),
     ];
-    let rows = extract_search_content("s1", &events);
+    let rows = extract_search_content(&sid(), &events);
     let map = turn_map(&rows);
 
     assert_eq!(map[0], (Some(0), "user_message"));
@@ -495,7 +500,7 @@ fn session_error_before_any_turn_gets_none() {
         assistant_message("OK"),
         assistant_turn_end(),
     ];
-    let rows = extract_search_content("s1", &events);
+    let rows = extract_search_content(&sid(), &events);
     let map = turn_map(&rows);
 
     // The early error should be flushed to turn 0 (when user message opens it)
@@ -515,7 +520,7 @@ fn trailing_session_error_after_last_turn_gets_none() {
         assistant_turn_end(),
         session_error("final error"), // after last turn, no more turns
     ];
-    let rows = extract_search_content("s1", &events);
+    let rows = extract_search_content(&sid(), &events);
 
     // user_message + assistant_message = turn 0
     assert_eq!(rows[0].turn_number, Some(0));

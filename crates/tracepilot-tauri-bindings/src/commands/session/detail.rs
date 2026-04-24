@@ -60,14 +60,14 @@ pub async fn get_session_incidents(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,
 ) -> CmdResult<Vec<SessionIncidentItem>> {
-    crate::validators::validate_session_id(&session_id)?;
+    let sid = crate::validators::validate_session_id(&session_id)?;
 
     let cfg = read_config(&state);
     let index_path = cfg.index_db_path();
 
     blocking_cmd!({
         let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
-        let incidents = db.get_session_incidents(&session_id)?;
+        let incidents = db.get_session_incidents(&sid)?;
         Ok::<_, BindingsError>(
             incidents
                 .into_iter()

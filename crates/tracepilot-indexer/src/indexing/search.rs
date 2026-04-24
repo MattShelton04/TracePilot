@@ -106,7 +106,10 @@ pub fn reindex_search_content(
 
     if prepared_count >= BULK_THRESHOLD {
         // Bulk path: collect all valid rows, write without triggers, rebuild FTS
-        let bulk_data: Vec<(String, Vec<index_db::search_writer::SearchContentRow>)> = prepared
+        let bulk_data: Vec<(
+            tracepilot_core::ids::SessionId,
+            Vec<index_db::search_writer::SearchContentRow>,
+        )> = prepared
             .into_iter()
             .filter_map(|(id, content)| content.map(|rows| (id, rows)))
             .collect();

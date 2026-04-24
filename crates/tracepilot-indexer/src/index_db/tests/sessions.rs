@@ -5,6 +5,11 @@ use super::common::{write_session, write_session_with_tools};
 use crate::index_db::IndexDb;
 use std::collections::HashSet;
 use std::{fs, thread, time::Duration};
+use tracepilot_core::ids::SessionId;
+
+fn sid(s: &str) -> SessionId {
+    SessionId::from_validated(s)
+}
 
 #[test]
 fn test_migrations_run_once() {
@@ -144,7 +149,7 @@ fn test_needs_reindex_uses_workspace_mtime() {
     );
 
     db.upsert_session(&session_dir).unwrap();
-    assert!(!db.needs_reindex(session_id, &session_dir));
+    assert!(!db.needs_reindex(&sid(session_id), &session_dir));
 
     thread::sleep(Duration::from_millis(1100));
     fs::write(
@@ -160,7 +165,7 @@ updated_at: "2026-03-11T07:15:00Z"
     )
     .unwrap();
 
-    assert!(db.needs_reindex(session_id, &session_dir));
+    assert!(db.needs_reindex(&sid(session_id), &session_dir));
 }
 
 #[test]
@@ -284,7 +289,7 @@ fn test_needs_reindex_events_mtime_change() {
         write_session_with_tools(tmp.path(), session_id, "org/repo", "2026-03-10T07:15:00Z");
 
     db.upsert_session(&session_dir).unwrap();
-    assert!(!db.needs_reindex(session_id, &session_dir));
+    assert!(!db.needs_reindex(&sid(session_id), &session_dir));
 
     // Simulate a resumed session: append to events.jsonl
     thread::sleep(Duration::from_millis(1100));
@@ -297,7 +302,7 @@ fn test_needs_reindex_events_mtime_change() {
     fs::write(&events_path, events).unwrap();
 
     assert!(
-        db.needs_reindex(session_id, &session_dir),
+        db.needs_reindex(&sid(session_id), &session_dir),
         "should detect events.jsonl change"
     );
 }
@@ -317,7 +322,7 @@ fn test_needs_reindex_analytics_version_bump() {
         "world",
     );
     db.upsert_session(&session_dir).unwrap();
-    assert!(!db.needs_reindex(session_id, &session_dir));
+    assert!(!db.needs_reindex(&sid(session_id), &session_dir));
 
     // Manually set analytics_version to 0 → should trigger reindex
     db.conn
@@ -327,7 +332,7 @@ fn test_needs_reindex_analytics_version_bump() {
         )
         .unwrap();
     assert!(
-        db.needs_reindex(session_id, &session_dir),
+        db.needs_reindex(&sid(session_id), &session_dir),
         "should detect stale analytics_version"
     );
 }
@@ -348,11 +353,11 @@ fn test_get_session_path() {
     );
     db.upsert_session(&session_dir).unwrap();
 
-    let path = db.get_session_path(session_id).unwrap();
+    let path = db.get_session_path(&sid(session_id)).unwrap();
     assert!(path.is_some());
     assert_eq!(path.unwrap(), session_dir);
 
-    let missing = db.get_session_path("nonexistent").unwrap();
+    let missing = db.get_session_path(&sid("nonexistent")).unwrap();
     assert!(missing.is_none());
 }
 

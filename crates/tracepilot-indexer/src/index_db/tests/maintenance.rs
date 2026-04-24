@@ -46,8 +46,11 @@ fn test_maintenance_force_runs_without_error() {
         content: "hello world maintenance test".to_string(),
         metadata_json: None,
     }];
-    db.upsert_search_content("maint-1111-1111-1111-111111111111", &rows)
-        .unwrap();
+    db.upsert_search_content(
+        &tracepilot_core::ids::SessionId::from_validated("maint-1111-1111-1111-111111111111"),
+        &rows,
+    )
+    .unwrap();
 
     // maintenance_force bypasses the time gate
     db.maintenance_force();
