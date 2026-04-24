@@ -19,6 +19,14 @@ pre-commit:
     # File-size guard-rails — fast (<300ms) full-repo enumeration.
     filesize:
       run: node scripts/check-file-sizes.mjs
+    # Doc-link lint on staged markdown only. Full sweep runs in `just ci`.
+    doc-links:
+      glob: "*.md"
+      run: node scripts/check-doc-links.mjs {staged_files}
+    # ADR template lint — cheap, run full set since there are <20 ADRs.
+    adr:
+      glob: "docs/adr/*.md"
+      run: node scripts/check-adr.mjs
 
 # Heavier checks that shouldn't block every commit but should run before
 # sharing work with the remote. Skip with `git push --no-verify` if urgent.

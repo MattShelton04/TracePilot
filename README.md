@@ -345,6 +345,10 @@ How you update depends on how you installed TracePilot:
 
 ## Development
 
+### Task runner (just)
+
+Common developer commands are wrapped in a root [`justfile`](justfile). Install [`just`](https://github.com/casey/just) (e.g. `winget install Casey.Just`) and run `just --list` to discover recipes. `just ci` runs the same gates CI runs so you can reproduce a CI failure locally in one command.
+
 ### Logging & Diagnostics
 
 TracePilot uses [`tauri-plugin-log`](https://v2.tauri.app/plugin/logging/) for structured logging across both the Rust backend and Vue frontend.
