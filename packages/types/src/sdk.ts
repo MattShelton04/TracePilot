@@ -29,7 +29,10 @@ export interface BridgeEvent {
 
 export interface BridgeStatus {
   state: BridgeConnectionState;
+  /** Always `true` — the Copilot SDK is now compiled into every build (ADR-0007). Retained for wire-format stability. */
   sdkAvailable: boolean;
+  /** Mirrors the runtime `FeaturesConfig.copilot_sdk` preference. When `false`, bridge start paths refuse with `DisabledByPreference`. */
+  enabledByPreference: boolean;
   cliVersion: string | null;
   protocolVersion: number | null;
   activeSessions: number;

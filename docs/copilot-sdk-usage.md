@@ -56,7 +56,7 @@ TracePilot integrates the community [Copilot SDK for Rust](https://github.com/co
 │  │  bridge/manager.rs ← BridgeManager          │ │
 │  │  bridge/mod.rs     ← types, errors, events  │ │
 │  └──────────────┬──────────────────────────────┘ │
-│                 │ #[cfg(feature = "copilot-sdk")] │
+│                 │  (always compiled — ADR-0007)  │
 │  ┌──────────────┴──────────────────────────────┐ │
 │  │  copilot-sdk crate (community Rust SDK)     │ │
 │  │  → Client → Session → EventSubscription     │ │
@@ -88,29 +88,42 @@ TracePilot integrates the community [Copilot SDK for Rust](https://github.com/co
 
 ## Feature Gating
 
-The SDK is behind a **Cargo feature flag** (`copilot-sdk`) and a **runtime feature flag** (`copilotSdk`).
+The Copilot SDK is **always compiled into the binary** (ADR-0007). A single
+runtime preference (`FeaturesConfig.copilot_sdk`, surfaced as **Settings →
+Experimental → Copilot SDK**) controls both the UI surface area and the
+backend bridge start paths.
 
-### Cargo Feature Chain
+### Runtime Preference Guard
 
-```
-tracepilot-desktop/copilot-sdk
-  → tracepilot-tauri-bindings/copilot-sdk
-    → tracepilot-orchestrator/copilot-sdk
-      → copilot-sdk crate (git dependency)
-```
+The `BridgeManager` owns an injected reader that consults the preference
+every time it is about to start new SDK work. When the preference is off:
 
-### Without the Feature
+- `connect()`, `create_session()` and fresh `resume_session()` return
+  [`BridgeError::DisabledByPreference`](../crates/tracepilot-orchestrator/src/bridge/mod.rs).
+- `BridgeStatus.enabledByPreference` is `false` (but `sdkAvailable` stays
+  `true` — the SDK is compiled in).
+- Existing tracked sessions remain steerable. This is deliberate: flipping
+  the toggle off mid-flight must not strand work in progress.
+  `send_message`, `abort_session`, `set_session_mode/model`,
+  `destroy_session` and `unlink_session` are **not** gated.
+- The cached-return branch of `resume_session` fires before the guard, so
+  a session already in the manager's session map is always resolvable.
 
-When compiled **without** `copilot-sdk`, all bridge methods return sensible fallbacks:
-- `connect()` → error "SDK not available"
-- `status()` → `{ state: "disconnected", sdkAvailable: false, ... }`
-- All other methods → `BridgeError::NotAvailable`
+### Frontend Behaviour
 
-This means the binary is **always shippable** — the feature flag only adds the SDK dependency.
+`copilotSdk` is a Pinia-backed user preference. When it is off, the SDK UI
+(`SettingsSdk.vue`, `SdkSteeringPanel.vue`, `SdkStatusIndicator.vue`,
+steering composables) is hidden and auto-connect is skipped in
+`stores/sdk.ts`. The frontend consumes `enabledByPreference` from
+`BridgeStatus` for an authoritative signal rather than duplicating the
+preference read.
 
-### Runtime Feature Flag
+### Historical Note
 
-Even with the Cargo feature enabled, the UI only shows SDK controls when `copilotSdk` is toggled on in Settings → Experimental.
+Prior to ADR-0007 the Cargo feature `copilot-sdk` was optional and gated
+the bridge implementation at compile time, yielding a stub that returned
+`BridgeError::NotAvailable` from every method. That path is gone; the
+`NotAvailable` variant is retained only for wire-format stability.
 
 ## Setup & Prerequisites
 
@@ -159,16 +172,13 @@ TracePilot can detect running `copilot --ui-server` or `copilot --server` proces
 
 Click "Detect UI Server" in Settings or use "Detect & Connect" for one-click discovery + connection.
 
-### Building with SDK Enabled
+### Building
 
-The SDK is **included by default** in all builds. No special flags needed:
+The SDK is compiled into every build — there is no opt-out flag (ADR-0007).
+To disable at runtime, toggle **Settings → Experimental → Copilot SDK** off.
 
 ```bash
-# Standard build (SDK included)
 cargo build
-
-# Build without SDK (opt out)
-cargo build --no-default-features
 ```
 
 ## Connecting
@@ -366,13 +376,10 @@ await sdk.setSessionMode(sessionId, "autopilot");
 The SDK is **enabled by default** in all crates. No special flags required:
 
 ```bash
-# Standard builds include the SDK
+# Standard builds always include the SDK (ADR-0007 — no opt-out flag).
 cargo build
 cargo build --release
 cd apps/desktop && cargo tauri dev
-
-# To opt out (exclude SDK):
-cargo build --no-default-features
 ```
 
 ## Testing
@@ -422,7 +429,8 @@ pnpm tauri dev
 
 | Issue | Solution |
 |---|---|
-| "SDK not available" error | Ensure default features are not disabled (`--no-default-features`) |
+| "SDK not available" error | Should not occur — the SDK is always compiled in (ADR-0007). If you see this from older logs, rebuild on `main`. |
+| "Copilot SDK bridge is disabled by user preference" | Enable **Settings → Experimental → Copilot SDK**. Existing sessions remain steerable even while the toggle is off. |
 | Can't connect | Ensure Copilot CLI is installed and on PATH (`copilot --version`) |
 | No steering panel | Enable `copilotSdk` feature flag in Settings → Experimental |
 | Auth errors | Run `gh auth login` to authenticate |

@@ -1,7 +1,11 @@
 //! BridgeManager — owns the Copilot SDK client lifecycle and forwards events.
 //!
-//! All SDK-specific code is behind `#[cfg(feature = "copilot-sdk")]`. When the
-//! feature is disabled every operation returns `BridgeError::NotAvailable`.
+//! The Copilot SDK is always compiled in (see ADR-0007). Bridge start paths
+//! (`connect`, `create_session`, fresh `resume_session`) are gated at runtime
+//! by the `FeaturesConfig.copilot_sdk` user preference, read via the optional
+//! [`CopilotSdkEnabledReader`] injected through [`BridgeManager::set_preference_reader`].
+//! When the preference is off, those methods return
+//! [`BridgeError::DisabledByPreference`] instead of touching the SDK.
 //!
 //! This module was split into a directory module in Wave 44 of the tech-debt
 //! effort (see `docs/tech-debt-plan-revised-2026-04.md` §3). The struct
@@ -11,10 +15,7 @@
 //! contributes an `impl BridgeManager` block so the public API remains a single
 //! flat surface from the caller's point of view.
 
-#[cfg(feature = "copilot-sdk")]
-use super::BridgeError;
-use super::{BridgeConnectionState, BridgeEvent, BridgeStatus, ConnectionMode};
-#[cfg(feature = "copilot-sdk")]
+use super::{BridgeConnectionState, BridgeError, BridgeEvent, BridgeStatus, ConnectionMode};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -27,6 +28,8 @@ mod session_model;
 mod session_tasks;
 mod ui_server;
 
+#[cfg(test)]
+mod preference_tests;
 #[cfg(test)]
 mod tests;
 
@@ -70,6 +73,16 @@ pub struct BridgeMetricsSnapshot {
     pub lag_occurrences: u64,
 }
 
+/// Callable that reads the current `FeaturesConfig.copilot_sdk` runtime
+/// preference. Injected into [`BridgeManager`] at plugin setup so the
+/// manager can short-circuit start paths with [`BridgeError::DisabledByPreference`]
+/// when the user toggle is off.
+///
+/// Left unset during unit tests (and in any non-Tauri consumer), in which
+/// case [`BridgeManager::is_enabled_by_preference`] defaults to `true` —
+/// i.e. the guard is a no-op. Real runtime callers MUST wire one up.
+pub type CopilotSdkEnabledReader = Arc<dyn Fn() -> bool + Send + Sync>;
+
 /// Manages the lifecycle of the Copilot SDK client connection.
 pub struct BridgeManager {
     pub(super) state: BridgeConnectionState,
@@ -83,11 +96,11 @@ pub struct BridgeManager {
     pub(super) status_tx: broadcast::Sender<BridgeStatus>,
     pub(super) metrics: Arc<BridgeMetrics>,
 
-    #[cfg(feature = "copilot-sdk")]
+    /// Runtime feature-preference reader. See [`CopilotSdkEnabledReader`].
+    pub(super) pref_reader: Option<CopilotSdkEnabledReader>,
+
     pub(super) client: Option<copilot_sdk::Client>,
-    #[cfg(feature = "copilot-sdk")]
     pub(super) sessions: HashMap<String, Arc<copilot_sdk::Session>>,
-    #[cfg(feature = "copilot-sdk")]
     pub(super) event_tasks: HashMap<String, tokio::task::JoinHandle<()>>,
 }
 
@@ -114,14 +127,41 @@ impl BridgeManager {
             event_tx: tx,
             status_tx,
             metrics: Arc::new(BridgeMetrics::default()),
-            #[cfg(feature = "copilot-sdk")]
+            pref_reader: None,
             client: None,
-            #[cfg(feature = "copilot-sdk")]
             sessions: HashMap::new(),
-            #[cfg(feature = "copilot-sdk")]
             event_tasks: HashMap::new(),
         };
         (manager, rx, status_rx)
+    }
+
+    /// Install the runtime preference reader. See [`CopilotSdkEnabledReader`].
+    ///
+    /// This is intended to be called once immediately after [`Self::new`], by
+    /// the Tauri plugin setup. It replaces any previously-set reader.
+    pub fn set_preference_reader(&mut self, reader: CopilotSdkEnabledReader) {
+        self.pref_reader = Some(reader);
+    }
+
+    /// Current value of the runtime `FeaturesConfig.copilot_sdk` preference.
+    ///
+    /// Defaults to `true` when no reader has been installed (unit tests /
+    /// non-Tauri consumers) so the existing happy-path behaviour is
+    /// preserved. Real runtime callers install a reader in plugin setup.
+    pub fn is_enabled_by_preference(&self) -> bool {
+        match &self.pref_reader {
+            Some(r) => r(),
+            None => true,
+        }
+    }
+
+    /// Short-circuit helper used by bridge start paths.
+    pub(super) fn check_preference_enabled(&self) -> Result<(), BridgeError> {
+        if self.is_enabled_by_preference() {
+            Ok(())
+        } else {
+            Err(BridgeError::DisabledByPreference)
+        }
     }
 
     /// Point-in-time snapshot of broadcast-channel metrics. Cheap (a few
@@ -152,9 +192,11 @@ impl BridgeManager {
         self.state
     }
 
-    /// Whether the SDK Cargo feature is compiled in.
+    /// Whether the SDK is compiled into the binary. Always `true` since
+    /// the Cargo feature was made always-on (ADR-0007); retained so the
+    /// IPC wire contract `BridgeStatus.sdkAvailable` stays byte-stable.
     pub fn is_sdk_available(&self) -> bool {
-        cfg!(feature = "copilot-sdk")
+        true
     }
 
     /// Snapshot of bridge status.
@@ -162,12 +204,10 @@ impl BridgeManager {
         BridgeStatus {
             state: self.state,
             sdk_available: self.is_sdk_available(),
+            enabled_by_preference: self.is_enabled_by_preference(),
             cli_version: None,
             protocol_version: None,
-            #[cfg(feature = "copilot-sdk")]
             active_sessions: self.sessions.len(),
-            #[cfg(not(feature = "copilot-sdk"))]
-            active_sessions: 0,
             error: self.error_message.clone(),
             connection_mode: self.connection_mode,
         }
@@ -176,7 +216,6 @@ impl BridgeManager {
     // ─── Internal Helpers ─────────────────────────────────────────
 
     /// Broadcast the current status to all status subscribers.
-    #[allow(dead_code)] // Used in feature-gated connect/disconnect paths
     pub(super) fn emit_status_change(&self) {
         // best-effort: broadcast tolerates zero subscribers.
         if self.status_tx.send(self.status()).is_err() {
@@ -184,12 +223,10 @@ impl BridgeManager {
         }
     }
 
-    #[cfg(feature = "copilot-sdk")]
     pub(super) fn require_client(&self) -> Result<&copilot_sdk::Client, BridgeError> {
         self.client.as_ref().ok_or(BridgeError::NotConnected)
     }
 
-    #[cfg(feature = "copilot-sdk")]
     pub(super) fn require_session(
         &self,
         session_id: &str,

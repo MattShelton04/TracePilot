@@ -38,13 +38,12 @@ Top-level modules in `src/lib.rs`:
 
 ## Features
 
-| Feature       | Default | Purpose                                                           |
-| ------------- | ------- | ----------------------------------------------------------------- |
-| `copilot-sdk` | on      | Enables the `copilot-sdk` git dep + bridge implementation         |
-
-With `--no-default-features`, every bridge method returns
-`BridgeError::NotAvailable` — useful for air-gapped CI and bisecting SDK
-regressions. The bridge API shape is identical either way.
+This crate has no Cargo features. The `copilot-sdk` dependency is a required,
+non-optional workspace dep — the Copilot SDK bridge is always compiled in
+(see [ADR-0007](../../docs/adr/0007-copilot-sdk-always-on.md)). The SDK
+surface is gated at *runtime* via `FeaturesConfig.copilot_sdk`, read through
+a [`CopilotSdkEnabledReader`](src/bridge/mod.rs) injected into
+[`BridgeManager`](src/bridge/manager/mod.rs) at plugin setup.
 
 ## Workspace dependencies
 
@@ -54,8 +53,8 @@ regressions. The bridge API shape is identical either way.
 
 - `src/lib.rs` — module declarations + re-exports.
 - `src/error.rs` — `OrchestratorError` + `Result` alias.
-- `src/bridge/` — Copilot SDK bridge; `manager/` contains
-  `#[cfg(feature = "copilot-sdk")]`-gated code paths.
+- `src/bridge/` — Copilot SDK bridge; `manager/` holds the `BridgeManager`
+  lifecycle + steering logic, always compiled.
 - `src/task_*/` — task orchestration submodules (DB, context, IPC, recovery, attribution, orchestrator).
 - `src/worktrees.rs`, `src/launcher.rs`, `src/mcp/` — domain modules.
 

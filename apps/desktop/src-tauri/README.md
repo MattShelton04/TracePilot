@@ -12,8 +12,10 @@ loads the Vue frontend from [`../src/`](../src/).
 - Install `tracepilot_tauri_bindings::init()` — the plugin that contributes all
   IPC commands, event forwarders, and managed state (bridge manager, caches,
   task DB, orchestrator state).
-- Gate the optional `copilot-sdk` feature (forwarded to the bindings crate)
-  and the `tokio-console` feature (async task debugging).
+- Expose the `tokio-console` feature (async task debugging). The Copilot SDK
+  is always compiled in — see
+  [ADR-0007](../../../docs/adr/0007-copilot-sdk-always-on.md) — and gated at
+  runtime by `FeaturesConfig.copilot_sdk`.
 
 This crate deliberately contains **no IPC handler logic** — handlers live in
 `crates/tracepilot-tauri-bindings`. See ADR
@@ -23,11 +25,10 @@ This crate deliberately contains **no IPC handler logic** — handlers live in
 
 | Feature         | Default | Purpose                                                         |
 | --------------- | ------- | --------------------------------------------------------------- |
-| `copilot-sdk`   | on      | Forwards to `tracepilot-tauri-bindings/copilot-sdk`             |
 | `tokio-console` | off     | Replaces log bridge with `console-subscriber` for async tracing |
 
-`--no-default-features` produces a shippable binary whose SDK bridge commands
-return `BridgeError::NotAvailable`.
+The former `copilot-sdk` feature was removed in ADR-0007 — the Copilot SDK
+is unconditionally compiled into every build and gated at runtime instead.
 
 ## Layout
 
@@ -50,7 +51,6 @@ return `BridgeError::NotAvailable`.
 ```bash
 pnpm --filter @tracepilot/desktop tauri dev            # dev
 pnpm --filter @tracepilot/desktop tauri build          # release bundle
-cargo build -p tracepilot-desktop --no-default-features
 ```
 
 ## Supported platforms

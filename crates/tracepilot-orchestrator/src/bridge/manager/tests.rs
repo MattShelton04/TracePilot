@@ -1,29 +1,21 @@
 use super::*;
-use crate::bridge::{BridgeConnectConfig, BridgeConnectionState, BridgeError};
+use crate::bridge::{BridgeConnectionState, BridgeError};
 
 #[test]
 fn manager_reports_sdk_availability() {
     let (mgr, _rx, _status_rx) = BridgeManager::new();
-    // Availability depends on compile-time feature
+    // SDK is always compiled in (ADR-0007).
     let status = mgr.status();
     assert_eq!(status.state, BridgeConnectionState::Disconnected);
     assert_eq!(status.active_sessions, 0);
-}
-
-#[tokio::test]
-async fn connect_without_feature_returns_not_available() {
-    let (mut mgr, _rx, _status_rx) = BridgeManager::new();
-    if !mgr.is_sdk_available() {
-        let result = mgr
-            .connect(BridgeConnectConfig {
-                cli_url: None,
-                cwd: None,
-                log_level: None,
-                github_token: None,
-            })
-            .await;
-        assert!(matches!(result, Err(BridgeError::NotAvailable)));
-    }
+    assert!(
+        status.sdk_available,
+        "sdk_available is now always true (ADR-0007)"
+    );
+    assert!(
+        status.enabled_by_preference,
+        "default reader (none installed) yields enabled=true"
+    );
 }
 
 #[test]
@@ -37,7 +29,6 @@ fn manager_new_has_no_cli_url() {
 
 /// Helper: starts a minimal Content-Length framed JSON-RPC server that
 /// returns a canned response for the first request, then shuts down.
-#[cfg(feature = "copilot-sdk")]
 async fn mock_jsonrpc_server(response: serde_json::Value) -> (tokio::net::TcpListener, String) {
     use tokio::net::TcpListener;
 
@@ -93,7 +84,6 @@ async fn mock_jsonrpc_server(response: serde_json::Value) -> (tokio::net::TcpLis
 }
 
 /// Helper: starts a JSON-RPC server that returns an error.
-#[cfg(feature = "copilot-sdk")]
 async fn mock_jsonrpc_error_server(code: i64, message: &str) -> String {
     use tokio::net::TcpListener;
 
@@ -141,8 +131,6 @@ async fn mock_jsonrpc_error_server(code: i64, message: &str) -> String {
 
     addr
 }
-
-#[cfg(feature = "copilot-sdk")]
 #[tokio::test]
 async fn raw_rpc_call_success_returns_result() {
     use super::raw_rpc::raw_rpc_call;
@@ -159,8 +147,6 @@ async fn raw_rpc_call_success_returns_result() {
 
     assert_eq!(result, expected);
 }
-
-#[cfg(feature = "copilot-sdk")]
 #[tokio::test]
 async fn raw_rpc_call_null_result() {
     use super::raw_rpc::raw_rpc_call;
@@ -176,8 +162,6 @@ async fn raw_rpc_call_null_result() {
 
     assert_eq!(result, serde_json::Value::Null);
 }
-
-#[cfg(feature = "copilot-sdk")]
 #[tokio::test]
 async fn raw_rpc_call_error_response() {
     use super::raw_rpc::raw_rpc_call;
@@ -198,8 +182,6 @@ async fn raw_rpc_call_error_response() {
         "error should contain message: {err}"
     );
 }
-
-#[cfg(feature = "copilot-sdk")]
 #[tokio::test]
 async fn raw_rpc_call_connection_refused() {
     use super::raw_rpc::raw_rpc_call;
@@ -213,8 +195,6 @@ async fn raw_rpc_call_connection_refused() {
         "error should mention TCP connect: {err}"
     );
 }
-
-#[cfg(feature = "copilot-sdk")]
 #[tokio::test]
 async fn raw_rpc_call_parses_http_prefix() {
     use super::raw_rpc::raw_rpc_call;
@@ -228,8 +208,6 @@ async fn raw_rpc_call_parses_http_prefix() {
 
     assert_eq!(result, expected);
 }
-
-#[cfg(feature = "copilot-sdk")]
 #[tokio::test]
 async fn raw_rpc_call_parses_ws_prefix() {
     use super::raw_rpc::raw_rpc_call;
@@ -251,8 +229,6 @@ async fn raw_rpc_call_parses_ws_prefix() {
 // tracking a session. They fabricate stub `copilot_sdk::Session`
 // handles with a tracked `invoke_fn` so we can assert which JSON-RPC
 // methods the manager drives without spawning a real CLI subprocess.
-
-#[cfg(feature = "copilot-sdk")]
 fn stub_session(id: &str) -> std::sync::Arc<copilot_sdk::Session> {
     std::sync::Arc::new(copilot_sdk::Session::new(
         id.to_string(),
@@ -260,11 +236,7 @@ fn stub_session(id: &str) -> std::sync::Arc<copilot_sdk::Session> {
         |_method, _params| Box::pin(async { Ok(serde_json::Value::Null) }),
     ))
 }
-
-#[cfg(feature = "copilot-sdk")]
 type InvokeLog = std::sync::Arc<std::sync::Mutex<Vec<String>>>;
-
-#[cfg(feature = "copilot-sdk")]
 fn stub_session_with_log(id: &str) -> (std::sync::Arc<copilot_sdk::Session>, InvokeLog) {
     let log: InvokeLog = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
     let log_for_closure = std::sync::Arc::clone(&log);
@@ -287,7 +259,6 @@ fn stub_session_with_log(id: &str) -> (std::sync::Arc<copilot_sdk::Session>, Inv
 /// drop-guard. When the task is aborted, the sender is dropped, and the
 /// returned receiver resolves with `Err(RecvError)` — giving the test a
 /// deterministic, sleep-free signal that the abort actually ran.
-#[cfg(feature = "copilot-sdk")]
 fn spawn_abort_sentinel() -> (
     tokio::task::JoinHandle<()>,
     tokio::sync::oneshot::Receiver<()>,
@@ -300,8 +271,6 @@ fn spawn_abort_sentinel() -> (
     });
     (handle, rx)
 }
-
-#[cfg(feature = "copilot-sdk")]
 #[tokio::test]
 async fn unlink_session_aborts_event_task_and_clears_maps() {
     let (mut mgr, _rx, _status_rx) = BridgeManager::new();
@@ -334,8 +303,6 @@ async fn unlink_session_aborts_event_task_and_clears_maps() {
         "expected sender to be dropped (task cancelled), not completed"
     );
 }
-
-#[cfg(feature = "copilot-sdk")]
 #[tokio::test]
 async fn unlink_session_is_noop_when_not_tracked() {
     let (mut mgr, _rx, _status_rx) = BridgeManager::new();
@@ -356,8 +323,6 @@ async fn unlink_session_is_noop_when_not_tracked() {
         tokio::time::timeout(std::time::Duration::from_millis(100), &mut rx_other).await;
     assert!(still_alive.is_err(), "unrelated task must not be aborted");
 }
-
-#[cfg(feature = "copilot-sdk")]
 #[tokio::test]
 async fn destroy_session_aborts_event_task_and_invokes_session_destroy() {
     let (mut mgr, _rx, _status_rx) = BridgeManager::new();
@@ -388,8 +353,6 @@ async fn destroy_session_aborts_event_task_and_invokes_session_destroy() {
         "event forwarder task must be aborted on destroy"
     );
 }
-
-#[cfg(feature = "copilot-sdk")]
 #[tokio::test]
 async fn destroy_session_is_noop_when_not_tracked() {
     let (mut mgr, _rx, _status_rx) = BridgeManager::new();
@@ -400,8 +363,6 @@ async fn destroy_session_is_noop_when_not_tracked() {
     assert!(mgr.sessions.is_empty());
     assert!(mgr.event_tasks.is_empty());
 }
-
-#[cfg(feature = "copilot-sdk")]
 #[tokio::test]
 async fn resume_session_is_idempotent_when_already_tracked() {
     let (mut mgr, _rx, _status_rx) = BridgeManager::new();
@@ -432,8 +393,6 @@ async fn resume_session_is_idempotent_when_already_tracked() {
         "idempotent resume must not issue any SDK RPC"
     );
 }
-
-#[cfg(feature = "copilot-sdk")]
 #[tokio::test]
 async fn abort_session_drives_session_abort_rpc() {
     let (mut mgr, _rx, _status_rx) = BridgeManager::new();
@@ -452,8 +411,6 @@ async fn abort_session_drives_session_abort_rpc() {
         "abort_session must drive exactly one session.abort RPC"
     );
 }
-
-#[cfg(feature = "copilot-sdk")]
 #[tokio::test]
 async fn abort_session_unknown_id_returns_session_not_found() {
     let (mgr, _rx, _status_rx) = BridgeManager::new();
@@ -466,8 +423,6 @@ async fn abort_session_unknown_id_returns_session_not_found() {
         "expected SessionNotFound, got {err:?}"
     );
 }
-
-#[cfg(feature = "copilot-sdk")]
 #[tokio::test]
 async fn raw_rpc_call_rejects_oversized_body() {
     use super::raw_rpc::raw_rpc_call;

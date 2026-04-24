@@ -13,139 +13,106 @@ import { invoke as __TAURI_INVOKE } from "@tauri-apps/api/core";
 
 /** Commands */
 export const commands = {
-  /**
-   *  Point-in-time counters for the bridge broadcast channels.
-   *
-   *  Cheap (atomic loads only, no lock on the manager). Exposed for debug
-   *  panels + ad-hoc troubleshooting of `RecvError::Lagged` events.
-   *  See Phase 1A.6 in `docs/tech-debt-plan-revised-2026-04.md`.
-   */
-  sdkBridgeMetrics: () =>
-    typedError<BridgeMetricsSnapshot, BindingsErrorIpc>(__TAURI_INVOKE("sdk_bridge_metrics")),
-  listSessions: (
-    limit: number | null,
-    repo: string | null,
-    branch: string | null,
-    hideEmpty: boolean | null,
-    hideOrchestrator: boolean | null,
-  ) =>
-    typedError<SessionListItem[], BindingsErrorIpc>(
-      __TAURI_INVOKE("list_sessions", { limit, repo, branch, hideEmpty, hideOrchestrator }),
-    ),
-  // Lightweight freshness probe— returns just the events.jsonl file size.
-  checkSessionFreshness: (sessionId: string) =>
-    typedError<FreshnessResponse, BindingsErrorIpc>(
-      __TAURI_INVOKE("check_session_freshness", { sessionId }),
-    ),
-  getDbSize: () => typedError<number, BindingsErrorIpc>(__TAURI_INVOKE("get_db_size")),
-  getSessionCount: () => typedError<number, BindingsErrorIpc>(__TAURI_INVOKE("get_session_count")),
-  // Check if a session is currently running by looking for `inuse.*.lock` files.
-  isSessionRunning: (sessionId: string) =>
-    typedError<boolean, BindingsErrorIpc>(__TAURI_INVOKE("is_session_running", { sessionId })),
-  // Returns the installation type: "source", "installed", or "portable".
-  getInstallType: () => __TAURI_INVOKE<string>("get_install_type"),
-  checkForUpdates: () =>
-    typedError<UpdateCheckResult, BindingsErrorIpc>(__TAURI_INVOKE("check_for_updates")),
-  getGitInfo: () => __TAURI_INVOKE<GitInfo>("get_git_info"),
-  validateSessionDir: (path: string) =>
-    typedError<ValidateSessionDirResult, BindingsErrorIpc>(
-      __TAURI_INVOKE("validate_session_dir", { path }),
-    ),
+	/**
+	 *  Point-in-time counters for the bridge broadcast channels.
+	 * 
+	 *  Cheap (atomic loads only, no lock on the manager). Exposed for debug
+	 *  panels + ad-hoc troubleshooting of `RecvError::Lagged` events.
+	 *  See Phase 1A.6 in `docs/tech-debt-plan-revised-2026-04.md`.
+	 */
+	sdkBridgeMetrics: () => typedError<BridgeMetricsSnapshot, BindingsErrorIpc>(__TAURI_INVOKE("sdk_bridge_metrics")),
+	listSessions: (limit: number | null, repo: string | null, branch: string | null, hideEmpty: boolean | null, hideOrchestrator: boolean | null) => typedError<SessionListItem[], BindingsErrorIpc>(__TAURI_INVOKE("list_sessions", { limit, repo, branch, hideEmpty, hideOrchestrator })),
+	// Lightweight freshness probe— returns just the events.jsonl file size.
+	checkSessionFreshness: (sessionId: string) => typedError<FreshnessResponse, BindingsErrorIpc>(__TAURI_INVOKE("check_session_freshness", { sessionId })),
+	getDbSize: () => typedError<number, BindingsErrorIpc>(__TAURI_INVOKE("get_db_size")),
+	getSessionCount: () => typedError<number, BindingsErrorIpc>(__TAURI_INVOKE("get_session_count")),
+	// Check if a session is currently running by looking for `inuse.*.lock` files.
+	isSessionRunning: (sessionId: string) => typedError<boolean, BindingsErrorIpc>(__TAURI_INVOKE("is_session_running", { sessionId })),
+	// Returns the installation type: "source", "installed", or "portable".
+	getInstallType: () => __TAURI_INVOKE<string>("get_install_type"),
+	checkForUpdates: () => typedError<UpdateCheckResult, BindingsErrorIpc>(__TAURI_INVOKE("check_for_updates")),
+	getGitInfo: () => __TAURI_INVOKE<GitInfo>("get_git_info"),
+	validateSessionDir: (path: string) => typedError<ValidateSessionDirResult, BindingsErrorIpc>(__TAURI_INVOKE("validate_session_dir", { path })),
 };
 
 /* Types */
 export type BindingsErrorIpc = {
-  code: ErrorCode;
-  message: string;
+	code: ErrorCode,
+	message: string,
 };
 
 /**
  *  Plain-data snapshot of [`BridgeMetrics`] for IPC / logging.
- *
+ * 
  *  Serialised in camelCase for frontend consumption (matches the rest of the
  *  IPC DTOs; see `packages/types/src/sdk.ts::BridgeMetricsSnapshot`).
  */
 export type BridgeMetricsSnapshot = {
-  eventsForwarded: number;
-  eventsDroppedDueToLag: number;
-  lagOccurrences: number;
+	eventsForwarded: number,
+	eventsDroppedDueToLag: number,
+	lagOccurrences: number,
 };
 
 /**
  *  Stable error-code identifiers surfaced to the frontend.
- *
+ * 
  *  These are a **public contract** — changing a variant name is a breaking
  *  change for the desktop app. Add new variants instead of renaming existing
  *  ones. The discriminant is written to the IPC envelope as `code`.
  */
-export type ErrorCode =
-  | "IO"
-  | "TAURI"
-  | "NETWORK"
-  | "JOIN"
-  | "PARSE"
-  | "SERIALIZATION"
-  | "INTERNAL"
-  | "CORE"
-  | "ORCHESTRATOR"
-  | "BRIDGE"
-  | "INDEXER"
-  | "EXPORT"
-  | "ALREADY_INDEXING"
-  | "VALIDATION";
+export type ErrorCode = "IO" | "TAURI" | "NETWORK" | "JOIN" | "PARSE" | "SERIALIZATION" | "INTERNAL" | "CORE" | "ORCHESTRATOR" | "BRIDGE" | "INDEXER" | "EXPORT" | "ALREADY_INDEXING" | "VALIDATION";
 
 export type FreshnessResponse = {
-  eventsFileSize: number;
-  eventsFileMtime: number | null;
+	eventsFileSize: number,
+	eventsFileMtime: number | null,
 };
 
 export type GitInfo = {
-  commitHash: string | null;
-  branch: string | null;
+	commitHash: string | null,
+	branch: string | null,
 };
 
 export type SessionListItem = {
-  id: string;
-  summary: string | null;
-  repository: string | null;
-  branch: string | null;
-  cwd: string | null;
-  hostType: string | null;
-  createdAt: string | null;
-  updatedAt: string | null;
-  eventCount: number | null;
-  turnCount: number | null;
-  currentModel: string | null;
-  // Whether this session is currently running (has an `inuse.*.lock` file).
-  isRunning: boolean;
-  errorCount: number | null;
-  rateLimitCount: number | null;
-  compactionCount: number | null;
-  truncationCount: number | null;
+	id: string,
+	summary: string | null,
+	repository: string | null,
+	branch: string | null,
+	cwd: string | null,
+	hostType: string | null,
+	createdAt: string | null,
+	updatedAt: string | null,
+	eventCount: number | null,
+	turnCount: number | null,
+	currentModel: string | null,
+	// Whether this session is currently running (has an `inuse.*.lock` file).
+	isRunning: boolean,
+	errorCount: number | null,
+	rateLimitCount: number | null,
+	compactionCount: number | null,
+	truncationCount: number | null,
 };
 
 export type UpdateCheckResult = {
-  currentVersion: string;
-  latestVersion: string | null;
-  hasUpdate: boolean;
-  releaseUrl: string | null;
-  publishedAt: string | null;
+	currentVersion: string,
+	latestVersion: string | null,
+	hasUpdate: boolean,
+	releaseUrl: string | null,
+	publishedAt: string | null,
 };
 
 export type ValidateSessionDirResult = {
-  valid: boolean;
-  sessionCount: number;
-  error: string | null;
+	valid: boolean,
+	sessionCount: number,
+	error: string | null,
 };
 
 /* Tauri Specta runtime */
-async function typedError<T, E>(
-  result: Promise<T>,
-): Promise<{ status: "ok"; data: T } | { status: "error"; error: E }> {
-  try {
-    return { status: "ok", data: await result };
-  } catch (e) {
-    if (e instanceof Error) throw e;
-    return { status: "error", error: e as any };
-  }
+async function typedError<T, E>(result: Promise<T>): Promise<{ status: "ok"; data: T } | { status: "error"; error: E }> {
+    try {
+        return { status: "ok", data: await result };
+    } catch (e) {
+        if (e instanceof Error) throw e;
+        return { status: "error", error: e as any };
+    }
 }
+

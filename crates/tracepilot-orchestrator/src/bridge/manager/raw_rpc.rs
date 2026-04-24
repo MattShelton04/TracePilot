@@ -5,8 +5,6 @@
 //! Uses LSP-style `Content-Length` framing (the same framing the CLI uses
 //! for stdio and `--ui-server` transports).
 
-#![cfg(feature = "copilot-sdk")]
-
 use crate::bridge::BridgeError;
 use tracing::debug;
 

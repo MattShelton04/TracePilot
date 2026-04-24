@@ -4,17 +4,11 @@ description = "Orchestration capabilities: worktrees, session launching, config 
 version.workspace = true
 edition.workspace = true
 
-# ── Cargo features ───────────────────────────────────────────────
-# `copilot-sdk` — enables the optional `copilot-sdk` git dependency
-#   plus all `#[cfg(feature = "copilot-sdk")]`-gated bridge code in
-#   `src/bridge/manager/`. Default-on so normal builds include the
-#   SDK bridge. `--no-default-features` compiles every bridge method
-#   as a stub that returns `BridgeError::NotAvailable`, so the crate
-#   stays shippable without the external git dep (useful for air-
-#   gapped CI or bisecting SDK regressions).
-[features]
-default = ["copilot-sdk"]
-copilot-sdk = ["dep:copilot-sdk"]
+# The `copilot-sdk` git dependency is always compiled in — see
+# ADR-0007. Availability at runtime is gated by the
+# `FeaturesConfig.copilot_sdk` user preference via a reader threaded
+# into `BridgeManager`; when the preference is off, bridge start
+# methods return `BridgeError::DisabledByPreference`.
 
 [dependencies]
 serde = { workspace = true }
@@ -37,7 +31,7 @@ walkdir = "2"
 sha2 = { workspace = true }
 url = "2"
 
-copilot-sdk = { workspace = true, optional = true }
+copilot-sdk = { workspace = true }
 
 # Phase 1B.1 codegen pilot: derive `specta::Type` on `BridgeMetricsSnapshot`
 # so tauri-specta can emit a TS mirror. Zero runtime cost.

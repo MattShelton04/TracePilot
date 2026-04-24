@@ -5,7 +5,6 @@
 use super::BridgeManager;
 use crate::bridge::{BridgeConnectConfig, BridgeConnectionState, BridgeError, ConnectionMode};
 
-#[cfg(feature = "copilot-sdk")]
 use tracing::{info, warn};
 
 impl BridgeManager {
@@ -13,8 +12,9 @@ impl BridgeManager {
     ///
     /// If `config.cli_url` is set, connects to an existing `copilot --ui-server`.
     /// Otherwise, spawns a new CLI process via stdio.
-    #[cfg(feature = "copilot-sdk")]
     pub async fn connect(&mut self, config: BridgeConnectConfig) -> Result<(), BridgeError> {
+        self.check_preference_enabled()?;
+
         // If already connected, auto-disconnect first (idempotent reconnect).
         if self.state == BridgeConnectionState::Connected {
             info!("Already connected — disconnecting before reconnect");
@@ -80,13 +80,7 @@ impl BridgeManager {
         Ok(())
     }
 
-    #[cfg(not(feature = "copilot-sdk"))]
-    pub async fn connect(&mut self, _config: BridgeConnectConfig) -> Result<(), BridgeError> {
-        Err(BridgeError::NotAvailable)
-    }
-
     /// Disconnect from the Copilot CLI, stopping all sessions.
-    #[cfg(feature = "copilot-sdk")]
     pub async fn disconnect(&mut self) -> Result<(), BridgeError> {
         for (_, handle) in self.event_tasks.drain() {
             handle.abort();
@@ -106,11 +100,6 @@ impl BridgeManager {
         self.cli_url = None;
         self.emit_status_change();
         info!("Copilot SDK bridge disconnected");
-        Ok(())
-    }
-
-    #[cfg(not(feature = "copilot-sdk"))]
-    pub async fn disconnect(&mut self) -> Result<(), BridgeError> {
         Ok(())
     }
 }

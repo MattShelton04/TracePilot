@@ -40,9 +40,11 @@ Commands are organised by domain under `commands/`:
 
 ## Features
 
-| Feature       | Default | Purpose                                                          |
-| ------------- | ------- | ---------------------------------------------------------------- |
-| `copilot-sdk` | on      | Forwards to `tracepilot-orchestrator/copilot-sdk`                |
+This crate has no Cargo features — the Copilot SDK is always compiled in
+(see [ADR-0007](../../docs/adr/0007-copilot-sdk-always-on.md)). Runtime
+gating is handled by the `FeaturesConfig.copilot_sdk` preference; this
+crate wires a `CopilotSdkEnabledReader` into `BridgeManager` during plugin
+setup so bridge start paths respect the user's toggle.
 
 This crate never references `copilot_sdk` types directly — everything goes
 through `orchestrator::bridge::manager::BridgeManager`.
