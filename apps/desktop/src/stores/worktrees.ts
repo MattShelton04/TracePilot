@@ -21,7 +21,7 @@ import type {
   WorktreeDetails,
   WorktreeInfo,
 } from "@tracepilot/types";
-import { runAction, runMutation, toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
+import { runAction, runMutation, useAsyncGuard } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref, shallowRef } from "vue";
 import { logWarn } from "@/utils/logger";
@@ -110,64 +110,59 @@ export const useWorktreesStore = defineStore("worktrees", () => {
   // ─── Worktree Actions ─────────────────────────────────────────────
 
   async function loadWorktrees(repoPath: string) {
-    const token = loadGuard.start();
-    loading.value = true;
-    error.value = null;
     currentRepoPath.value = repoPath;
-    try {
-      const result = await listWorktrees(repoPath);
-      if (!loadGuard.isValid(token)) return; // stale response — discard
-      worktrees.value = result;
-      void hydrateDiskUsageBatch([...result], token);
-    } catch (e) {
-      if (!loadGuard.isValid(token)) return;
-      error.value = toErrorMessage(e);
-    } finally {
-      if (loadGuard.isValid(token)) loading.value = false;
-    }
+    await runAction({
+      loading,
+      error,
+      guard: loadGuard,
+      action: () => listWorktrees(repoPath),
+      onSuccess: (result) => {
+        worktrees.value = result;
+        void hydrateDiskUsageBatch([...result], loadGuard.current());
+      },
+    });
   }
 
   async function loadAllWorktrees() {
-    const token = loadGuard.start();
-    loading.value = true;
-    error.value = null;
-    try {
-      // Snapshot repos and fire all requests in parallel for faster loading.
-      // This matches the Promise.allSettled pattern used by orchestrationHome,
-      // configInjector, and launcher stores.
-      const repos = [...registeredRepos.value];
-      const results = await Promise.allSettled(repos.map((repo) => listWorktrees(repo.path)));
-      if (!loadGuard.isValid(token)) return;
-
-      const allWorktrees: WorktreeInfo[] = [];
-      for (let i = 0; i < results.length; i++) {
-        const result = results[i];
-        if (result.status === "fulfilled") {
-          allWorktrees.push(...result.value);
-        } else {
-          // Skip repos that fail (e.g., deleted from disk)
-          logWarn("[worktrees] Failed to load worktrees for repo", {
-            repo: repos[i].path,
-            error: result.reason,
-          });
+    await runAction({
+      loading,
+      error,
+      guard: loadGuard,
+      action: () => {
+        // Snapshot repos and fire all requests in parallel for faster loading.
+        // This matches the Promise.allSettled pattern used by orchestrationHome,
+        // configInjector, and launcher stores.
+        const repos = [...registeredRepos.value];
+        return Promise.allSettled(repos.map((repo) => listWorktrees(repo.path))).then(
+          (results) => ({ repos, results }),
+        );
+      },
+      onSuccess: ({ repos, results }) => {
+        const allWorktrees: WorktreeInfo[] = [];
+        for (let i = 0; i < results.length; i++) {
+          const result = results[i];
+          if (result.status === "fulfilled") {
+            allWorktrees.push(...result.value);
+          } else {
+            // Skip repos that fail (e.g., deleted from disk)
+            logWarn("[worktrees] Failed to load worktrees for repo", {
+              repo: repos[i].path,
+              error: result.reason,
+            });
+          }
         }
-      }
 
-      // Only surface a user-visible error when every repo failed — partial
-      // failures are already warn-logged above and don't block the UI.
-      // Note: a repo that succeeds with [] worktrees is not a failure.
-      if (repos.length > 0 && results.every((r) => r.status === "rejected")) {
-        error.value = aggregateSettledErrors(results);
-      }
+        // Only surface a user-visible error when every repo failed — partial
+        // failures are already warn-logged above and don't block the UI.
+        // Note: a repo that succeeds with [] worktrees is not a failure.
+        if (repos.length > 0 && results.every((r) => r.status === "rejected")) {
+          error.value = aggregateSettledErrors(results);
+        }
 
-      worktrees.value = allWorktrees;
-      void hydrateDiskUsageBatch([...allWorktrees], token);
-    } catch (e) {
-      if (!loadGuard.isValid(token)) return;
-      error.value = toErrorMessage(e);
-    } finally {
-      if (loadGuard.isValid(token)) loading.value = false;
-    }
+        worktrees.value = allWorktrees;
+        void hydrateDiskUsageBatch([...allWorktrees], loadGuard.current());
+      },
+    });
   }
 
   const branchGuard = useAsyncGuard();
