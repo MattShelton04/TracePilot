@@ -1,0 +1,1347 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Subagent Panel — Prototype C · Tabbed Workspace</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+@import url("../shared/design-system-c.css");
+
+html, body { height: 100%; }
+body {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: var(--canvas-default);
+  color: var(--text-primary);
+  overflow: hidden;
+}
+
+/* Workspace shell */
+.shell {
+  display: grid;
+  grid-template-rows: auto auto auto 1fr;
+  height: 100vh;
+}
+
+/* ── Sticky header w/ breadcrumbs ── */
+.ws-header {
+  position: sticky; top: 0; z-index: 30;
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--border-default);
+  background: rgba(9, 9, 11, 0.85);
+  backdrop-filter: blur(12px);
+}
+[data-theme="light"] .ws-header { background: rgba(255,255,255,0.85); }
+
+.brand-icon {
+  width: 28px; height: 28px; border-radius: 8px;
+  background: var(--gradient-accent);
+  display: grid; place-items: center;
+  color: white; font-weight: 700; font-size: 12px;
+  flex-shrink: 0;
+}
+
+.bc {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.8125rem;
+  color: var(--text-tertiary);
+  flex-wrap: wrap;
+}
+.bc a {
+  color: var(--text-secondary);
+  text-decoration: none;
+  padding: 3px 7px;
+  border-radius: 5px;
+  transition: background 140ms;
+}
+.bc a:hover { background: var(--canvas-overlay); color: var(--text-primary); }
+.bc .here {
+  color: var(--text-primary);
+  font-weight: 500;
+  padding: 3px 8px;
+  background: var(--accent-subtle);
+  border-radius: 5px;
+}
+.bc .sep { color: var(--text-placeholder); }
+.bc .turn-pill {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.72rem;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: var(--canvas-overlay);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-muted);
+}
+
+.spacer { flex: 1; }
+.iconbtn {
+  appearance: none; cursor: pointer;
+  background: transparent;
+  border: 1px solid var(--border-muted);
+  color: var(--text-secondary);
+  padding: 6px 10px;
+  border-radius: 7px;
+  font-size: 0.75rem;
+  display: inline-flex; align-items: center; gap: 6px;
+  transition: all 140ms ease;
+}
+.iconbtn:hover { background: var(--canvas-overlay); color: var(--text-primary); border-color: var(--border-default); }
+.iconbtn.danger { color: var(--danger-fg); border-color: rgba(251,113,133,0.3); }
+
+.kbd {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 18px; height: 18px; padding: 0 4px;
+  border-radius: 4px;
+  background: var(--canvas-inset);
+  border: 1px solid var(--border-muted);
+  color: var(--text-tertiary);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.65rem;
+}
+
+/* ── Hero strip (compact) ── */
+.hero-strip {
+  display: flex; align-items: center; gap: 16px;
+  padding: 18px 24px 14px;
+  background:
+    radial-gradient(800px 300px at 0% 0%, rgba(99,102,241,0.06), transparent 60%),
+    var(--canvas-default);
+  border-bottom: 1px solid var(--border-muted);
+}
+.hero-glyph {
+  width: 44px; height: 44px;
+  border-radius: 11px;
+  display: grid; place-items: center;
+  background: var(--accent-muted);
+  color: var(--accent-fg);
+  border: 1px solid var(--border-accent);
+  flex-shrink: 0;
+}
+.hero-glyph.t-explore { background: rgba(56,189,248,0.12); color: #38bdf8; border-color: rgba(56,189,248,0.25); }
+.hero-glyph.t-general { background: rgba(167,139,250,0.14); color: var(--done-fg); border-color: rgba(167,139,250,0.25); }
+.hero-glyph.t-review  { background: rgba(251,113,133,0.12); color: var(--danger-fg); border-color: rgba(251,113,133,0.25); }
+.hero-glyph.t-main    { background: rgba(52,211,153,0.12); color: var(--success-fg); border-color: rgba(52,211,153,0.25); }
+
+.hero-meta { flex: 1; min-width: 0; }
+.hero-name {
+  font-size: 1.125rem; font-weight: 600;
+  letter-spacing: -0.015em;
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 4px;
+}
+.hero-desc {
+  font-size: 0.8125rem; color: var(--text-secondary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.hero-stats {
+  display: flex; align-items: center; gap: 16px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+.hero-stats .stat {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 1px;
+}
+.hero-stats .stat .lab {
+  font-size: 0.62rem; color: var(--text-tertiary);
+  letter-spacing: 0.06em; text-transform: uppercase;
+}
+.hero-stats .stat .v {
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+.chip-status {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.7rem; font-weight: 500;
+  background: var(--canvas-overlay);
+}
+.chip-status.completed { background: var(--success-muted); color: var(--success-fg); border: 1px solid rgba(52,211,153,0.25); }
+.chip-status.in-progress { background: var(--warning-muted); color: var(--warning-fg); border: 1px solid rgba(251,191,36,0.25); }
+.chip-status.failed { background: var(--danger-muted); color: var(--danger-fg); border: 1px solid rgba(251,113,133,0.3); }
+.chip-status .pulse {
+  width: 6px; height: 6px; border-radius: 999px; background: currentColor;
+}
+.chip-status.in-progress .pulse {
+  animation: pulse 1.4s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.25); }
+}
+
+/* ── Mini timeline ── */
+.timeline-wrap {
+  padding: 0 24px 12px;
+  border-bottom: 1px solid var(--border-muted);
+}
+.timeline {
+  position: relative;
+  height: 56px;
+  background: var(--canvas-subtle);
+  border: 1px solid var(--border-muted);
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.timeline-axis {
+  flex: 1;
+  position: relative;
+  margin: 8px 12px 6px;
+  background:
+    repeating-linear-gradient(90deg, var(--border-muted) 0 1px, transparent 1px 25%);
+  border-radius: 4px;
+  background-color: var(--canvas-inset);
+}
+.timeline-bar {
+  position: absolute;
+  top: 4px; bottom: 4px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: filter 140ms;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; color: rgba(0,0,0,0.7);
+  font-weight: 600;
+}
+.timeline-bar:hover { filter: brightness(1.2); outline: 2px solid rgba(255,255,255,0.4); }
+.timeline-bar.t-grep { background: #38bdf8; }
+.timeline-bar.t-view { background: var(--success-fg); }
+.timeline-bar.t-edit { background: var(--warning-fg); }
+.timeline-bar.t-pill { background: var(--accent-fg); height: 6px; top: 50%; transform: translateY(-50%); border-radius: 999px; min-width: 6px; }
+.timeline-bar.t-agent { background: var(--done-fg); }
+.timeline-bar.t-fail { background: var(--danger-fg); }
+.timeline-bar.t-pending {
+  background: var(--warning-muted);
+  border: 1px dashed var(--warning-fg);
+  animation: stripes 1s linear infinite;
+}
+@keyframes stripes { 0% { background-position: 0 0; } 100% { background-position: 8px 0; } }
+
+.timeline-labels {
+  display: flex; justify-content: space-between;
+  padding: 0 12px 6px;
+  font-size: 0.6rem;
+  color: var(--text-tertiary);
+  font-family: "JetBrains Mono", monospace;
+}
+
+.timeline-legend {
+  display: flex; gap: 12px;
+  font-size: 0.65rem;
+  color: var(--text-tertiary);
+  align-items: center;
+  margin-top: 6px;
+}
+.timeline-legend .key {
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.timeline-legend .swatch {
+  width: 8px; height: 8px; border-radius: 2px;
+}
+
+/* ── Tabs ── */
+.tabs {
+  display: flex;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--canvas-default);
+  position: sticky; top: 0;
+  gap: 2px;
+}
+.tab {
+  appearance: none; cursor: pointer;
+  background: transparent; border: none;
+  color: var(--text-secondary);
+  font-size: 0.8125rem; font-weight: 500;
+  padding: 12px 16px;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  display: inline-flex; align-items: center; gap: 8px;
+  transition: all 140ms ease;
+}
+.tab:hover { color: var(--text-primary); }
+.tab.active {
+  color: var(--accent-fg);
+  border-bottom-color: var(--accent-fg);
+}
+.tab .count {
+  background: var(--canvas-overlay);
+  color: var(--text-tertiary);
+  border: 1px solid var(--border-muted);
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 500;
+}
+.tab.active .count { background: var(--accent-muted); color: var(--accent-fg); border-color: var(--border-accent); }
+
+/* ── Body ── */
+.ws-body {
+  overflow: auto;
+  padding: 24px;
+  scroll-behavior: smooth;
+}
+.tabpane { display: none; }
+.tabpane.active { display: block; animation: fadeIn 200ms ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Cards reused */
+.card {
+  background: var(--canvas-subtle);
+  border: 1px solid var(--border-muted);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.card-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+.card-head .right { margin-left: auto; }
+.card-body { padding: 14px; }
+
+.banner {
+  display: flex; gap: 10px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border-muted);
+  background: var(--canvas-subtle);
+  font-size: 0.8125rem;
+  margin-bottom: 16px;
+}
+.banner.warning { background: var(--warning-subtle); border-color: rgba(251,191,36,0.3); }
+.banner.danger { background: var(--danger-subtle); border-color: rgba(251,113,133,0.3); }
+.banner svg { flex-shrink: 0; margin-top: 2px; }
+.banner code { font-family: "JetBrains Mono", monospace; background: rgba(0,0,0,0.25); padding: 1px 5px; border-radius: 4px; font-size: 0.78rem; }
+
+.kv-row {
+  display: grid; grid-template-columns: 110px 1fr; gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--border-muted);
+  font-size: 0.8125rem;
+}
+.kv-row:last-child { border-bottom: none; }
+.kv-row .k {
+  font-size: 0.7rem; color: var(--text-tertiary);
+  letter-spacing: 0.04em; text-transform: uppercase;
+  font-weight: 500;
+}
+.kv-row .v { color: var(--text-primary); font-variant-numeric: tabular-nums; word-break: break-word; }
+.kv-row .v .mono { font-family: "JetBrains Mono", monospace; font-size: 0.78rem; }
+.kv-row .v code { font-family: "JetBrains Mono", monospace; background: rgba(0,0,0,0.25); padding: 1px 5px; border-radius: 4px; font-size: 0.78rem; }
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.stat-card {
+  background: var(--canvas-subtle);
+  border: 1px solid var(--border-muted);
+  border-radius: 10px;
+  padding: 14px;
+}
+.stat-card .lab {
+  font-size: 0.65rem;
+  color: var(--text-tertiary);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.stat-card .v {
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.stat-card .sub {
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+.prompt-body, .output-body {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+.output-body { font-family: "JetBrains Mono", monospace; font-size: 0.78rem; }
+
+.failure-card { border-color: rgba(251,113,133,0.3); background: var(--danger-subtle); }
+.failure-card .card-head { color: var(--danger-fg); }
+.failure-card pre { font-family: "JetBrains Mono", monospace; font-size: 0.78rem; white-space: pre-wrap; color: var(--text-primary); }
+
+/* Activity stream */
+.stream {
+  position: relative;
+  padding-left: 22px;
+}
+.stream::before {
+  content: ''; position: absolute;
+  left: 9px; top: 6px; bottom: 6px;
+  width: 1px;
+  background: var(--border-muted);
+}
+.stream-row {
+  position: relative;
+  margin-bottom: 6px;
+  border-radius: 8px;
+}
+.stream-row::before {
+  content: '';
+  position: absolute;
+  left: -17px; top: 14px;
+  width: 7px; height: 7px;
+  border-radius: 999px;
+  background: var(--accent-fg);
+  border: 2px solid var(--canvas-default);
+  z-index: 1;
+}
+.stream-row.reasoning::before { background: var(--done-fg); }
+.stream-row.message::before { background: var(--success-fg); }
+.stream-row.pill::before { background: var(--warning-fg); }
+.stream-row.nested::before { background: #38bdf8; }
+.stream-row.fail::before { background: var(--danger-fg); }
+.stream-row.pending::before { background: var(--warning-fg); }
+
+.stream-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.stream-head:hover { background: var(--canvas-overlay); }
+.stream-row.expanded .stream-head { background: var(--canvas-overlay); }
+.stream-icon {
+  width: 22px; height: 22px;
+  display: grid; place-items: center;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+.stream-tool {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.stream-args {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.stream-right {
+  display: flex; align-items: center; gap: 8px;
+  margin-left: auto;
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.stream-time {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.68rem;
+  color: var(--text-placeholder);
+}
+.stream-body {
+  display: none;
+  margin: 4px 0 12px 32px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-muted);
+  border-radius: 8px;
+  background: var(--canvas-default);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+.stream-row.expanded > .stream-body { display: block; }
+.stream-body pre {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.75rem;
+  background: var(--canvas-inset);
+  border: 1px solid var(--border-muted);
+  border-radius: 6px;
+  padding: 10px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-top: 8px;
+  max-height: 280px; overflow: auto;
+}
+
+.status-ok { color: var(--success-fg); }
+.status-fail { color: var(--danger-fg); }
+.status-pending { color: var(--warning-fg); }
+.spin { animation: spin 1.2s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.agent-badge {
+  font-size: 0.65rem;
+  background: var(--accent-muted);
+  color: var(--accent-fg);
+  border: 1px solid var(--border-accent);
+  padding: 1px 7px;
+  border-radius: 999px;
+}
+.pill-badge {
+  font-size: 0.65rem;
+  background: var(--warning-muted);
+  color: var(--warning-fg);
+  border: 1px solid rgba(251,191,36,0.3);
+  padding: 1px 7px;
+  border-radius: 999px;
+}
+
+.row-message {
+  margin: 16px 0;
+  padding: 14px 16px;
+  border: 1px solid var(--border-muted);
+  background: var(--canvas-subtle);
+  border-radius: 10px;
+}
+.row-message .lab {
+  font-size: 0.65rem;
+  font-weight: 600; letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--success-fg);
+  margin-bottom: 6px;
+}
+.row-message .content {
+  font-size: 0.8125rem; color: var(--text-primary); line-height: 1.6;
+}
+
+/* Filter bar */
+.filter-bar {
+  display: flex; gap: 6px; align-items: center;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.filter-bar input {
+  flex: 1;
+  min-width: 200px;
+  background: var(--canvas-subtle);
+  border: 1px solid var(--border-muted);
+  color: var(--text-primary);
+  padding: 7px 10px;
+  border-radius: 7px;
+  font-size: 0.8125rem;
+}
+.filter-bar input::placeholder { color: var(--text-placeholder); }
+.filter-bar input:focus { outline: none; border-color: var(--border-accent); box-shadow: 0 0 0 3px var(--accent-subtle); }
+.filter-chip {
+  appearance: none;
+  background: var(--canvas-subtle);
+  border: 1px solid var(--border-muted);
+  color: var(--text-secondary);
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem; font-weight: 500;
+  cursor: pointer;
+}
+.filter-chip:hover { color: var(--text-primary); border-color: var(--border-default); }
+.filter-chip.active { background: var(--accent-muted); color: var(--accent-fg); border-color: var(--border-accent); }
+
+/* Reasoning blocks list */
+.reasoning-block {
+  background: var(--canvas-subtle);
+  border-left: 3px solid var(--done-fg);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  line-height: 1.65;
+}
+.reasoning-block .head {
+  font-size: 0.65rem;
+  font-weight: 600; letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--done-fg);
+  margin-bottom: 8px;
+  display: flex; align-items: center; gap: 6px;
+}
+
+/* Raw view */
+.raw-pre {
+  background: var(--canvas-inset);
+  border: 1px solid var(--border-muted);
+  border-radius: 8px;
+  padding: 16px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  white-space: pre;
+  overflow: auto;
+  max-height: 70vh;
+  line-height: 1.55;
+}
+.raw-pre .k { color: var(--accent-fg); }
+.raw-pre .s { color: var(--success-fg); }
+.raw-pre .n { color: var(--warning-fg); }
+
+/* Empty state */
+.empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-tertiary);
+  font-size: 0.875rem;
+}
+.empty .icon { font-size: 32px; opacity: 0.5; margin-bottom: 12px; }
+
+.load-full-btn {
+  appearance: none;
+  background: var(--accent-muted);
+  border: 1px solid var(--border-accent);
+  color: var(--accent-fg);
+  font-size: 0.72rem; font-weight: 500;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-top: 10px;
+  display: inline-flex; gap: 6px; align-items: center;
+}
+.load-full-btn:hover { background: rgba(99,102,241,0.22); }
+
+/* Switcher */
+.switcher {
+  position: fixed; right: 16px; bottom: 16px;
+  z-index: 60;
+  background: var(--canvas-overlay);
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  padding: 8px;
+  display: flex; gap: 4px;
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(12px);
+}
+.switcher button {
+  appearance: none; cursor: pointer;
+  background: transparent; border: 1px solid transparent;
+  color: var(--text-secondary);
+  font-size: 0.72rem; font-weight: 500;
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+.switcher button:hover { background: var(--canvas-raised); color: var(--text-primary); }
+.switcher button.active { background: var(--accent-muted); color: var(--accent-fg); border-color: var(--border-accent); }
+.switcher .label {
+  font-size: 0.65rem; color: var(--text-tertiary);
+  text-transform: uppercase; letter-spacing: 0.08em;
+  padding: 6px 6px 6px 8px;
+  border-right: 1px solid var(--border-muted);
+}
+
+.ticking { font-variant-numeric: tabular-nums; }
+
+/* Tooltip for timeline */
+.tl-tooltip {
+  position: absolute;
+  background: var(--canvas-raised);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.72rem;
+  color: var(--text-primary);
+  box-shadow: var(--shadow-md);
+  pointer-events: none;
+  z-index: 100;
+  display: none;
+  white-space: nowrap;
+}
+
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- Sticky header -->
+  <header class="ws-header">
+    <div class="brand-icon">TP</div>
+    <nav class="bc">
+      <a href="#">Sessions</a>
+      <span class="sep">/</span>
+      <span class="turn-pill">turn 3</span>
+      <span class="sep">/</span>
+      <a href="#" id="bc-parent" style="display: none;">Main Agent</a>
+      <span class="sep" id="bc-parent-sep" style="display: none;">/</span>
+      <span class="here" id="bc-here">Explore Agent</span>
+    </nav>
+    <div class="spacer"></div>
+    <button class="iconbtn" title="Previous (←)"><span class="kbd">←</span></button>
+    <button class="iconbtn" title="Next (→)"><span class="kbd">→</span></button>
+    <button class="iconbtn" title="Close (Esc)">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      <span class="kbd">Esc</span>
+    </button>
+    <button class="iconbtn" onclick="toggleTheme()">Theme</button>
+  </header>
+
+  <!-- Hero strip -->
+  <section class="hero-strip">
+    <div class="hero-glyph t-explore" id="hero-glyph">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    </div>
+    <div class="hero-meta">
+      <div class="hero-name">
+        <span id="hero-name">Explore Agent</span>
+        <span class="chip-status completed" id="hero-status"><span class="pulse"></span><span id="hero-status-text">Completed</span></span>
+      </div>
+      <div class="hero-desc" id="hero-desc">Find auth flows in the codebase</div>
+    </div>
+    <div class="hero-stats">
+      <div class="stat"><span class="lab">Duration</span><span class="v ticking" id="hero-dur">14.3s</span></div>
+      <div class="stat"><span class="lab">Tools</span><span class="v" id="hero-tools">7</span></div>
+      <div class="stat"><span class="lab">Tokens</span><span class="v" id="hero-tokens">8,421</span></div>
+      <div class="stat"><span class="lab">Model</span><span class="v" id="hero-model" style="font-family: 'JetBrains Mono', monospace; font-size: 0.78rem;">claude-sonnet-4.6</span></div>
+    </div>
+  </section>
+
+  <!-- Timeline -->
+  <section class="timeline-wrap">
+    <div class="timeline">
+      <div class="timeline-axis" id="timeline-axis"></div>
+      <div class="timeline-labels">
+        <span>0ms</span>
+        <span id="tl-mid">~7s</span>
+        <span id="tl-end">14.3s</span>
+      </div>
+    </div>
+    <div class="timeline-legend">
+      <span class="key"><span class="swatch" style="background: #38bdf8;"></span>grep</span>
+      <span class="key"><span class="swatch" style="background: var(--success-fg);"></span>view</span>
+      <span class="key"><span class="swatch" style="background: var(--warning-fg);"></span>edit</span>
+      <span class="key"><span class="swatch" style="background: var(--accent-fg);"></span>pill</span>
+      <span class="key"><span class="swatch" style="background: var(--done-fg);"></span>nested agent</span>
+      <span class="key"><span class="swatch" style="background: var(--danger-fg);"></span>failed</span>
+    </div>
+  </section>
+
+  <!-- Tabs -->
+  <nav class="tabs">
+    <button class="tab active" data-tab="overview" onclick="switchTab('overview')">Overview</button>
+    <button class="tab" data-tab="activity" onclick="switchTab('activity')">Activity <span class="count" id="ct-activity">7</span></button>
+    <button class="tab" data-tab="tools" onclick="switchTab('tools')">Tools <span class="count" id="ct-tools">7</span></button>
+    <button class="tab" data-tab="reasoning" onclick="switchTab('reasoning')">Reasoning <span class="count" id="ct-reasoning">2</span></button>
+    <button class="tab" data-tab="raw" onclick="switchTab('raw')">Raw</button>
+  </nav>
+
+  <!-- Body -->
+  <main class="ws-body">
+    <div id="banner-slot"></div>
+
+    <div class="tabpane active" id="tab-overview"></div>
+    <div class="tabpane" id="tab-activity"></div>
+    <div class="tabpane" id="tab-tools"></div>
+    <div class="tabpane" id="tab-reasoning"></div>
+    <div class="tabpane" id="tab-raw"></div>
+  </main>
+</div>
+
+<div class="tl-tooltip" id="tl-tt"></div>
+
+<div class="switcher" role="tablist" aria-label="Example subagent">
+  <span class="label">EXAMPLE</span>
+  <button class="active" data-example="A" onclick="loadExample('A')">A · Healthy</button>
+  <button data-example="B" onclick="loadExample('B')">B · In progress</button>
+  <button data-example="C" onclick="loadExample('C')">C · Failed</button>
+  <button data-example="M" onclick="loadExample('M')">Main agent</button>
+</div>
+
+<script>
+// ───── Seed data (with relative timing for timeline) ─────
+const EXAMPLES = {
+  A: {
+    type: "explore", typeShort: "explore",
+    name: "Explore Agent", id: "tool_call_abc",
+    description: "Find auth flows in the codebase",
+    status: "completed", statusText: "Completed",
+    model: "claude-sonnet-4.6", requestedModel: "claude-sonnet-4.6", modelSubstituted: false,
+    durationMs: 14320, tokens: 8421, toolCount: 7,
+    turnIndex: 3, sourceTurnIndex: null, isCrossTurnParent: false, isMainAgent: false,
+    parent: null,
+    prompt: "Locate the JWT verification middleware in this codebase. Identify where the signature is verified, how expiry is enforced, and where unauthenticated requests are rejected.\n\nGrep first for `jwt.verify` and `verifyToken`, then read matching files. Return file paths and a brief summary. Don't propose code changes.",
+    output: "Done — found the middleware at **src/auth/middleware.ts:42**. Token expiry maps to a 401 via the central error handler in src/server/errors.ts:18. Public routes are filtered out by the `PUBLIC_PATHS` set.",
+    result: "Found `verifyJwt` in src/auth/middleware.ts:42.\n\n- Signature verified using HS256 against `process.env.JWT_SECRET`.\n- Expiry enforced by jsonwebtoken; throws `TokenExpiredError`, mapped to 401 by errors.ts:18.\n- Unauthenticated routes filtered by PUBLIC_PATHS in middleware.ts:11.\n\n…[truncated]",
+    error: null,
+    reasoning: [
+      "Need to grep for jwt.verify or verifyToken to find the middleware. Then read matching files to confirm and capture line numbers.",
+      "Confirmed signature path. Should also surface where expiry maps to a status code so the caller has the full picture."
+    ],
+    activities: [
+      { kind: "reasoning", t: 0, content: "Need to grep for jwt.verify or verifyToken to find the middleware. Then read matching files to confirm and capture line numbers." },
+      { kind: "tool", t: 200, len: 1500, tool: "grep", args: { pattern: "jwt.verify|verifyToken", glob: "**/*.{ts,js}" }, durationMs: 24, status: "ok",
+        result: "src/auth/middleware.ts:42:  const decoded = jwt.verify(token, secret);\nsrc/auth/middleware.ts:67:  return verifyToken(req.headers.authorization);\nsrc/server/errors.ts:18:  if (err instanceof TokenExpiredError) ...",
+        meta: { callId: "tc_grep_001", started: "14:32:08.124" }, viz: "grep" },
+      { kind: "pill", t: 1900, pillType: "intent", label: "Locating JWT verification middleware", meta: { callId: "tc_intent_002" } },
+      { kind: "tool", t: 2400, len: 1500, tool: "view", args: { path: "src/auth/middleware.ts" }, durationMs: 12, status: "ok",
+        result: "1. import jwt from 'jsonwebtoken';\n2. import type { Request, Response, NextFunction } from 'express';\n3.\n4. const PUBLIC_PATHS = new Set([…]);\n…",
+        meta: { callId: "tc_view_003" }, viz: "view" },
+      { kind: "reasoning", t: 4500, content: "Confirmed signature path. Should also surface where expiry maps to a status code so the caller has the full picture." },
+      { kind: "tool", t: 5000, len: 1200, tool: "view", args: { path: "src/server/errors.ts", view_range: [1, 60] }, durationMs: 9, status: "ok",
+        result: "1. export class TokenExpiredError extends Error { … }\n2. export function errorMiddleware(err, req, res, next) {\n3.   if (err instanceof TokenExpiredError) return res.status(401).json({…});\n…",
+        meta: { callId: "tc_view_004" }, viz: "view" },
+      { kind: "pill", t: 7800, pillType: "memory", label: "JWT verification lives in src/auth/middleware.ts", meta: { callId: "tc_mem_005" } },
+      { kind: "tool", t: 8400, len: 1500, tool: "grep", args: { pattern: "PUBLIC_PATHS", glob: "**/*.ts" }, durationMs: 14, status: "ok",
+        result: "src/auth/middleware.ts:4\nsrc/auth/middleware.ts:11",
+        meta: { callId: "tc_grep_006" }, viz: "grep" },
+      { kind: "pill", t: 11000, pillType: "read_agent", label: "Read agent agent_xyz status", meta: { callId: "tc_read_007" } },
+      { kind: "message", t: 13500, content: "Done — found the middleware at **src/auth/middleware.ts:42**. Token expiry maps to a 401 via the central error handler in src/server/errors.ts:18. Public routes are filtered out by the `PUBLIC_PATHS` set." },
+    ],
+  },
+
+  B: {
+    type: "general", typeShort: "general-purpose",
+    name: "Refactor Helper", id: "tool_call_xyz",
+    description: "Refactor the auth middleware to use async/await consistently",
+    status: "in-progress", statusText: "Running",
+    model: "claude-sonnet-4.5", requestedModel: "claude-sonnet-4.5", modelSubstituted: false,
+    durationMs: 47200, tokens: 3104, toolCount: 5,
+    turnIndex: 4, sourceTurnIndex: 2, isCrossTurnParent: true, isMainAgent: false,
+    parent: { name: "Main Agent", turn: 2 },
+    prompt: "Refactor src/auth/middleware.ts to use async/await consistently. Some helpers still use callbacks (`jwt.verify(token, secret, (err, decoded) => …)`). Convert them to promise-based usage. Don't change the public API.",
+    output: "",
+    result: "",
+    error: null,
+    reasoning: [
+      "Plan: 1) read the current middleware file, 2) identify callback-style usages, 3) propose patches converting to await jwt.verify via promisify or jose, 4) verify with grep that no other call sites use callback form."
+    ],
+    activities: [
+      { kind: "reasoning", t: 0, content: "Plan: 1) read the current middleware file, 2) identify callback-style usages, 3) propose patches converting to await jwt.verify via promisify or jose, 4) verify with grep that no other call sites use callback form." },
+      { kind: "tool", t: 1200, len: 4000, tool: "view", args: { path: "src/auth/middleware.ts" }, durationMs: 11, status: "ok", result: "(file shown)", meta: { callId: "tc_b001" }, viz: "view" },
+      { kind: "tool", t: 8400, len: 4000, tool: "grep", args: { pattern: "jwt.verify\\(", glob: "**/*.ts" }, durationMs: 18, status: "ok", result: "src/auth/middleware.ts:42\nsrc/auth/legacy.ts:22", meta: { callId: "tc_b002" }, viz: "grep" },
+      { kind: "pill", t: 14000, pillType: "intent", label: "Converting callback jwt.verify to promise form", meta: { callId: "tc_b003" } },
+      { kind: "tool", t: 16000, len: 5000, tool: "view", args: { path: "src/auth/legacy.ts" }, durationMs: 9, status: "ok", result: "(file shown)", meta: { callId: "tc_b004" }, viz: "view" },
+      { kind: "tool", t: 28000, len: 19200, tool: "edit", args: { path: "src/auth/middleware.ts" }, durationMs: null, status: "pending", meta: { callId: "tc_b005" }, viz: "pending" },
+    ],
+  },
+
+  C: {
+    type: "review", typeShort: "code-review",
+    name: "Code Reviewer", id: "tool_call_def",
+    description: "Review the auth middleware change",
+    status: "failed", statusText: "Failed",
+    model: "claude-haiku-4.5", requestedModel: "claude-opus-4.7", modelSubstituted: true,
+    durationMs: 3120, tokens: 412, toolCount: 0,
+    turnIndex: 5, sourceTurnIndex: null, isCrossTurnParent: false, isMainAgent: false,
+    parent: null,
+    prompt: "Review the changes I just made to src/auth/middleware.ts. Look for subtle async bugs, token validation edge cases, and inconsistencies between new and old code paths. Return must-fix issues only — skip nits.",
+    output: "",
+    result: "",
+    error: "Rate limit exceeded for opus tier — substituted with haiku and request still failed.\n\nTraceback:\n  at ModelGateway.invoke (gateway.ts:88:14)\n  at SubagentRunner.run (runner.ts:212:9)\n  at processTicksAndRejections (node:internal/process/task_queues:95:5)",
+    reasoning: [],
+    activities: [],
+  },
+
+  M: {
+    type: "main", typeShort: "main",
+    name: "Main Agent", id: "turn_3",
+    description: "Orchestrating the explore + refactor flow for turn 3",
+    status: "completed", statusText: "Completed",
+    model: "claude-sonnet-4.6", requestedModel: "claude-sonnet-4.6", modelSubstituted: false,
+    durationMs: 62100, tokens: 14238, toolCount: 6,
+    turnIndex: 3, sourceTurnIndex: null, isCrossTurnParent: false, isMainAgent: true,
+    parent: null,
+    prompt: null,
+    output: "Located the middleware. Started a refactor helper to migrate callback-style JWT calls. I'll surface its result when it finishes.",
+    result: "",
+    error: null,
+    reasoning: [
+      "User wants to find auth flows. I'll spawn an explore subagent rather than grep myself — that keeps my context clean for the follow-up."
+    ],
+    activities: [
+      { kind: "reasoning", t: 0, content: "User wants to find auth flows. I'll spawn an explore subagent rather than grep myself — that keeps my context clean for the follow-up." },
+      { kind: "pill", t: 800, pillType: "intent", label: "Spawning explore subagent for auth lookup", meta: { callId: "tc_m001" } },
+      { kind: "nested", t: 1200, len: 14320, agentName: "Explore Agent", durationMs: 14320, status: "ok", nestedId: "A", meta: { callId: "tool_call_abc" }, viz: "agent" },
+      { kind: "tool", t: 16500, len: 800, tool: "view", args: { path: "src/auth/middleware.ts", view_range: [40, 80] }, durationMs: 8, status: "ok", result: "(snippet)", meta: { callId: "tc_m003" }, viz: "view" },
+      { kind: "pill", t: 18000, pillType: "memory", label: "Auth uses HS256 with PUBLIC_PATHS allow-list", meta: { callId: "tc_m004" } },
+      { kind: "nested", t: 20000, len: 42000, agentName: "Refactor Helper", durationMs: null, status: "pending", nestedId: "B", meta: { callId: "tool_call_xyz" }, viz: "pending" },
+      { kind: "nested", t: 22000, len: 3120, agentName: "Code Reviewer", durationMs: 3120, status: "fail", nestedId: "C", meta: { callId: "tool_call_def" }, viz: "fail" },
+      { kind: "message", t: 60000, content: "Located the middleware. Started a refactor helper to migrate callback-style JWT calls. I'll surface its result when it finishes." },
+    ],
+  },
+};
+
+let currentKey = "A";
+let currentTab = "overview";
+let activityFilter = "all";
+let liveInterval = null;
+
+function fmtDuration(ms) {
+  if (ms == null) return "—";
+  if (ms < 1000) return `${ms}ms`;
+  const s = ms / 1000;
+  if (s < 60) return `${s.toFixed(1)}s`;
+  const m = Math.floor(s / 60);
+  const rs = Math.floor(s % 60);
+  return `${m}m ${rs}s`;
+}
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+}
+function fmtMd(s) {
+  return escapeHtml(s).replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>").replace(/`([^`]+)`/g, '<code style="font-family:JetBrains Mono,monospace;background:rgba(0,0,0,0.25);padding:1px 5px;border-radius:4px;font-size:0.85em;">$1</code>');
+}
+function fmtArgs(args) {
+  if (!args) return "";
+  return Object.entries(args).map(([k, v]) => `${k}=${typeof v === "string" ? `"${v}"` : JSON.stringify(v)}`).join(" ");
+}
+function toolIcon(name, isAgent) {
+  if (isAgent) return '🤖';
+  const map = { grep: '🔍', view: '👁', edit: '✎', report_intent: '📋', store_memory: '🧠', read_agent: '📥' };
+  return map[name] || '⚙';
+}
+function statusIconHtml(status) {
+  if (status === "ok") return '<span class="status-ok">✓</span>';
+  if (status === "fail") return '<span class="status-fail">✗</span>';
+  return '<span class="status-pending spin">◐</span>';
+}
+
+function loadExample(key) {
+  currentKey = key;
+  const ex = EXAMPLES[key];
+
+  document.querySelectorAll(".switcher button[data-example]").forEach(b => {
+    b.classList.toggle("active", b.dataset.example === key);
+  });
+
+  // Hero
+  document.getElementById("hero-glyph").className = "hero-glyph t-" + ex.type;
+  document.getElementById("hero-name").textContent = ex.name;
+  document.getElementById("hero-desc").textContent = ex.description || "";
+  document.getElementById("hero-tools").textContent = ex.toolCount;
+  document.getElementById("hero-tokens").textContent = ex.tokens?.toLocaleString() ?? "—";
+  document.getElementById("hero-model").textContent = ex.model || "—";
+  document.getElementById("hero-status").className = "chip-status " + ex.status;
+  document.getElementById("hero-status-text").textContent = ex.statusText;
+
+  if (liveInterval) { clearInterval(liveInterval); liveInterval = null; }
+  let liveMs = ex.durationMs;
+  const setDur = () => document.getElementById("hero-dur").textContent = fmtDuration(liveMs);
+  setDur();
+  if (ex.status === "in-progress") {
+    liveInterval = setInterval(() => { liveMs += 1000; setDur(); document.getElementById("tl-end").textContent = fmtDuration(liveMs); document.getElementById("tl-mid").textContent = "~" + fmtDuration(liveMs / 2); }, 1000);
+  }
+
+  // Breadcrumbs
+  document.getElementById("bc-here").textContent = ex.name;
+  if (ex.parent) {
+    document.getElementById("bc-parent").style.display = "";
+    document.getElementById("bc-parent-sep").style.display = "";
+    document.getElementById("bc-parent").textContent = ex.parent.name;
+  } else {
+    document.getElementById("bc-parent").style.display = "none";
+    document.getElementById("bc-parent-sep").style.display = "none";
+  }
+
+  // Tab counts
+  document.getElementById("ct-activity").textContent = ex.activities.length;
+  document.getElementById("ct-tools").textContent = ex.activities.filter(a => a.kind === "tool" || a.kind === "nested" || a.kind === "pill").length;
+  document.getElementById("ct-reasoning").textContent = ex.reasoning.length;
+
+  // Banners
+  const bs = document.getElementById("banner-slot");
+  let bh = "";
+  if (ex.modelSubstituted) {
+    bh += `<div class="banner warning">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+      <div><strong>Model substituted.</strong> Requested <code>${ex.requestedModel}</code> but ran as <code>${ex.model}</code>.</div>
+    </div>`;
+  }
+  if (ex.isCrossTurnParent) {
+    bh += `<div class="banner">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h13l-3-3M21 17H8l3 3"/></svg>
+      <div>Cross-turn agent — launched in <strong>turn ${ex.sourceTurnIndex}</strong>, activity continues to stream into turn ${ex.turnIndex}.</div>
+    </div>`;
+  }
+  bs.innerHTML = bh;
+
+  // Timeline
+  renderTimeline(ex);
+
+  // Render all panes
+  renderOverview(ex);
+  renderActivity(ex);
+  renderTools(ex);
+  renderReasoning(ex);
+  renderRaw(ex);
+}
+
+function renderTimeline(ex) {
+  const axis = document.getElementById("timeline-axis");
+  axis.innerHTML = "";
+  const total = ex.durationMs || 1000;
+  document.getElementById("tl-end").textContent = fmtDuration(total);
+  document.getElementById("tl-mid").textContent = "~" + fmtDuration(total / 2);
+
+  ex.activities.forEach(a => {
+    if (a.kind === "reasoning" || a.kind === "message") return;
+    const left = (a.t / total) * 100;
+    const len = a.len ? Math.max(2, (a.len / total) * 100) : 1.2;
+    const bar = document.createElement("div");
+    let cls = "timeline-bar t-" + (a.viz || "view");
+    if (a.kind === "pill") cls = "timeline-bar t-pill";
+    if (a.status === "fail") cls = "timeline-bar t-fail";
+    if (a.status === "pending") cls = "timeline-bar t-pending";
+    bar.className = cls;
+    bar.style.left = left + "%";
+    bar.style.width = len + "%";
+    const label = a.kind === "nested" ? a.agentName : a.kind === "pill" ? a.pillType : a.tool;
+    bar.title = `${label} · @${fmtDuration(a.t)} · ${fmtDuration(a.durationMs)}`;
+    bar.addEventListener("mouseenter", e => showTip(e, `<strong>${escapeHtml(label)}</strong><br/>start: ${fmtDuration(a.t)} · dur: ${fmtDuration(a.durationMs)}`));
+    bar.addEventListener("mousemove", moveTip);
+    bar.addEventListener("mouseleave", hideTip);
+    bar.addEventListener("click", () => {
+      switchTab("activity");
+      // scroll to corresponding row
+      setTimeout(() => {
+        const row = document.querySelector(`[data-act-key="${a.meta?.callId}"]`);
+        if (row) {
+          row.classList.add("expanded");
+          row.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 50);
+    });
+    axis.appendChild(bar);
+  });
+}
+
+function showTip(e, html) {
+  const t = document.getElementById("tl-tt");
+  t.innerHTML = html;
+  t.style.display = "block";
+  moveTip(e);
+}
+function moveTip(e) {
+  const t = document.getElementById("tl-tt");
+  t.style.left = (e.clientX + 12) + "px";
+  t.style.top = (e.clientY - 32) + "px";
+}
+function hideTip() { document.getElementById("tl-tt").style.display = "none"; }
+
+function renderOverview(ex) {
+  const pane = document.getElementById("tab-overview");
+  const parts = [];
+
+  parts.push(`
+    <div class="summary-grid">
+      <div class="stat-card"><div class="lab">Status</div><div class="v">${ex.statusText}</div><div class="sub">${ex.isCrossTurnParent ? "cross-turn" : "single-turn"}</div></div>
+      <div class="stat-card"><div class="lab">Duration</div><div class="v ticking">${fmtDuration(ex.durationMs)}</div><div class="sub">${ex.status === "in-progress" ? "live" : "final"}</div></div>
+      <div class="stat-card"><div class="lab">Tools</div><div class="v">${ex.toolCount}</div><div class="sub">${ex.activities.filter(a => a.kind === "tool" || a.kind === "nested").length} observed</div></div>
+      <div class="stat-card"><div class="lab">Tokens</div><div class="v">${ex.tokens?.toLocaleString() ?? "—"}</div><div class="sub">aggregate</div></div>
+    </div>
+  `);
+
+  if (ex.error) {
+    parts.push(`
+      <div class="card failure-card">
+        <div class="card-head">⨯ Failure reason</div>
+        <div class="card-body"><pre>${escapeHtml(ex.error)}</pre></div>
+      </div>
+    `);
+  }
+
+  if (ex.prompt) {
+    parts.push(`
+      <div class="card">
+        <div class="card-head">Prompt <span class="right" style="color: var(--text-tertiary); text-transform: none; letter-spacing: 0; font-weight: 400;">${ex.prompt.length} chars</span></div>
+        <div class="card-body"><div class="prompt-body">${escapeHtml(ex.prompt)}</div></div>
+      </div>
+    `);
+  }
+
+  if (ex.output) {
+    parts.push(`
+      <div class="card">
+        <div class="card-head">Output</div>
+        <div class="card-body"><div class="prompt-body">${fmtMd(ex.output)}</div></div>
+      </div>
+    `);
+  }
+
+  if (ex.result) {
+    const truncated = ex.result.includes("…[truncated]");
+    parts.push(`
+      <div class="card">
+        <div class="card-head">Result <span class="right" style="color: var(--text-tertiary); text-transform: none; font-weight: 400;">parent tool-call</span></div>
+        <div class="card-body">
+          <div class="output-body">${escapeHtml(ex.result)}</div>
+          ${truncated ? `<button class="load-full-btn" onclick="alert('Would dispatch loadFullResult(${JSON.stringify(ex.id)})')">＋ Load full result</button>` : ""}
+        </div>
+      </div>
+    `);
+  }
+
+  parts.push(`
+    <div class="card">
+      <div class="card-head">Identity</div>
+      <div class="card-body">
+        <div class="kv-row"><span class="k">Type</span><span class="v">${ex.typeShort}${ex.isMainAgent ? " (orchestrator)" : ""}</span></div>
+        <div class="kv-row"><span class="k">Call ID</span><span class="v"><span class="mono">${ex.id}</span></span></div>
+        <div class="kv-row"><span class="k">Model</span><span class="v"><span class="mono">${ex.model || "—"}</span>${ex.modelSubstituted ? ` <em style="color: var(--warning-fg); font-style: normal; margin-left: 6px;">⚠ requested ${ex.requestedModel}</em>` : ""}</span></div>
+        <div class="kv-row"><span class="k">Turn</span><span class="v">turn ${ex.turnIndex}${ex.sourceTurnIndex ? ` (launched in turn ${ex.sourceTurnIndex})` : ""}</span></div>
+      </div>
+    </div>
+  `);
+
+  pane.innerHTML = parts.join("");
+}
+
+function renderActivity(ex) {
+  const pane = document.getElementById("tab-activity");
+  if (ex.activities.length === 0) {
+    pane.innerHTML = `<div class="empty"><div class="icon">·</div>No activity recorded.</div>`;
+    return;
+  }
+
+  const filterBar = `
+    <div class="filter-bar">
+      <input type="text" placeholder="Filter activity by tool name, content…" oninput="filterActivity(this.value)" />
+      <button class="filter-chip ${activityFilter === 'all' ? 'active' : ''}" onclick="setActivityFilter('all')">All</button>
+      <button class="filter-chip ${activityFilter === 'tool' ? 'active' : ''}" onclick="setActivityFilter('tool')">Tools</button>
+      <button class="filter-chip ${activityFilter === 'reasoning' ? 'active' : ''}" onclick="setActivityFilter('reasoning')">Reasoning</button>
+      <button class="filter-chip ${activityFilter === 'pill' ? 'active' : ''}" onclick="setActivityFilter('pill')">Pills</button>
+      <button class="filter-chip ${activityFilter === 'nested' ? 'active' : ''}" onclick="setActivityFilter('nested')">Nested agents</button>
+    </div>
+  `;
+
+  const stream = ex.activities.map(renderStreamRow).join("");
+  pane.innerHTML = filterBar + `<div class="stream" id="stream-list">${stream}</div>`;
+  applyActivityFilter();
+}
+
+function renderStreamRow(a) {
+  const t = `<span class="stream-time">@${fmtDuration(a.t)}</span>`;
+  if (a.kind === "reasoning") {
+    return `
+      <div class="stream-row reasoning" data-kind="reasoning" data-content="${escapeHtml(a.content)}">
+        <div class="stream-head" onclick="this.parentElement.classList.toggle('expanded')">
+          <span class="stream-icon">💭</span>
+          <span class="stream-tool" style="font-family: Inter, sans-serif; font-style: italic; color: var(--done-fg);">Thinking…</span>
+          <span class="stream-args">${escapeHtml(a.content.slice(0, 110))}${a.content.length > 110 ? "…" : ""}</span>
+          <span class="stream-right">${t}</span>
+        </div>
+        <div class="stream-body">${escapeHtml(a.content)}</div>
+      </div>
+    `;
+  }
+  if (a.kind === "pill") {
+    return `
+      <div class="stream-row pill" data-kind="pill" data-content="${escapeHtml(a.label)}" data-act-key="${a.meta?.callId}">
+        <div class="stream-head">
+          <span class="stream-icon">${toolIcon(a.pillType === 'intent' ? 'report_intent' : a.pillType === 'memory' ? 'store_memory' : 'read_agent')}</span>
+          <span class="pill-badge">${a.pillType.replace('_', ' ')}</span>
+          <span class="stream-tool" style="color: var(--warning-fg);">${escapeHtml(a.label)}</span>
+          <span class="stream-right">${t}</span>
+        </div>
+      </div>
+    `;
+  }
+  if (a.kind === "message") {
+    return `
+      <div class="row-message" data-kind="message" data-content="${escapeHtml(a.content)}">
+        <div class="lab">✓ Final message · @${fmtDuration(a.t)}</div>
+        <div class="content">${fmtMd(a.content)}</div>
+      </div>
+    `;
+  }
+  if (a.kind === "nested") {
+    return `
+      <div class="stream-row nested ${a.status === 'fail' ? 'fail' : ''} ${a.status === 'pending' ? 'pending' : ''}" data-kind="nested" data-content="${escapeHtml(a.agentName)}" data-act-key="${a.meta?.callId}">
+        <div class="stream-head" onclick="loadExample('${a.nestedId}')">
+          <span class="stream-icon">🤖</span>
+          <span class="stream-tool" style="color: var(--accent-fg);">${escapeHtml(a.agentName)}</span>
+          <span class="agent-badge">subagent → open</span>
+          <span class="stream-args">nested invocation</span>
+          <span class="stream-right">
+            ${a.durationMs != null ? `<span>${fmtDuration(a.durationMs)}</span>` : `<span class="status-pending">running…</span>`}
+            ${statusIconHtml(a.status)}
+            ${t}
+          </span>
+        </div>
+      </div>
+    `;
+  }
+  // tool
+  const truncated = a.result && a.result.includes("…[truncated]");
+  return `
+    <div class="stream-row tool ${a.status === 'fail' ? 'fail' : ''} ${a.status === 'pending' ? 'pending' : ''}" data-kind="tool" data-content="${escapeHtml(a.tool + ' ' + (fmtArgs(a.args) || ''))}" data-act-key="${a.meta?.callId}">
+      <div class="stream-head" onclick="this.parentElement.classList.toggle('expanded')">
+        <span class="stream-icon">${toolIcon(a.tool)}</span>
+        <span class="stream-tool">${a.tool}</span>
+        <span class="stream-args">${escapeHtml(fmtArgs(a.args))}</span>
+        <span class="stream-right">
+          ${a.durationMs != null ? `<span>${fmtDuration(a.durationMs)}</span>` : `<span class="status-pending">running…</span>`}
+          ${statusIconHtml(a.status)}
+          ${t}
+        </span>
+      </div>
+      <div class="stream-body">
+        <div style="font-size: 0.7rem; color: var(--text-tertiary); margin-bottom: 6px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600;">Arguments</div>
+        <pre>${escapeHtml(JSON.stringify(a.args, null, 2))}</pre>
+        ${a.result ? `<div style="font-size: 0.7rem; color: var(--text-tertiary); margin: 10px 0 6px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600;">Result${truncated ? ' (truncated)' : ''}</div><pre>${escapeHtml(a.result)}</pre>${truncated ? `<button class="load-full-btn" onclick="event.stopPropagation(); alert('Would dispatch loadFullResult(${JSON.stringify(a.meta?.callId)})')">＋ Load full result</button>` : ""}` : `<div style="margin-top: 8px; color: var(--text-tertiary); font-style: italic;">Call still in flight.</div>`}
+      </div>
+    </div>
+  `;
+}
+
+function setActivityFilter(f) { activityFilter = f; renderActivity(EXAMPLES[currentKey]); }
+
+function filterActivity(query) {
+  const q = query.toLowerCase().trim();
+  document.querySelectorAll("#stream-list [data-content]").forEach(el => {
+    const c = el.dataset.content.toLowerCase();
+    el.style.display = (!q || c.includes(q)) ? "" : "none";
+  });
+}
+function applyActivityFilter() {
+  document.querySelectorAll("#stream-list [data-kind]").forEach(el => {
+    if (activityFilter === "all") { el.style.display = ""; return; }
+    el.style.display = el.dataset.kind === activityFilter ? "" : "none";
+  });
+}
+
+function renderTools(ex) {
+  const pane = document.getElementById("tab-tools");
+  const tools = ex.activities.filter(a => a.kind === "tool" || a.kind === "nested" || a.kind === "pill");
+  if (!tools.length) {
+    pane.innerHTML = `<div class="empty"><div class="icon">∅</div>No tool calls.</div>`;
+    return;
+  }
+  const heading = ex.isMainAgent ? "Tools & Agents" : "Tool Calls";
+  const rows = tools.map((a, i) => {
+    if (a.kind === "pill") {
+      return `
+        <div class="stream-row pill" style="padding-left: 0;">
+          <div class="stream-head">
+            <span style="width: 22px; text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--text-tertiary);">${i + 1}.</span>
+            <span class="stream-icon">${toolIcon(a.pillType === 'intent' ? 'report_intent' : a.pillType === 'memory' ? 'store_memory' : 'read_agent')}</span>
+            <span class="pill-badge">${a.pillType.replace('_', ' ')}</span>
+            <span class="stream-tool" style="color: var(--warning-fg);">${escapeHtml(a.label)}</span>
+            <span class="stream-right"><span class="stream-time">@${fmtDuration(a.t)}</span></span>
+          </div>
+        </div>`;
+    }
+    if (a.kind === "nested") {
+      return `
+        <div class="stream-row nested" style="padding-left: 0;">
+          <div class="stream-head" onclick="loadExample('${a.nestedId}')">
+            <span style="width: 22px; text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--text-tertiary);">${i + 1}.</span>
+            <span class="stream-icon">🤖</span>
+            <span class="stream-tool" style="color: var(--accent-fg);">${escapeHtml(a.agentName)}</span>
+            <span class="agent-badge">agent</span>
+            <span class="stream-right">
+              ${a.durationMs != null ? `<span>${fmtDuration(a.durationMs)}</span>` : `<span class="status-pending">running…</span>`}
+              ${statusIconHtml(a.status)}
+            </span>
+          </div>
+        </div>`;
+    }
+    const truncated = a.result && a.result.includes("…[truncated]");
+    return `
+      <div class="stream-row tool" style="padding-left: 0;">
+        <div class="stream-head" onclick="this.parentElement.classList.toggle('expanded')">
+          <span style="width: 22px; text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--text-tertiary);">${i + 1}.</span>
+          <span class="stream-icon">${toolIcon(a.tool)}</span>
+          <span class="stream-tool">${a.tool}</span>
+          <span class="stream-args">${escapeHtml(fmtArgs(a.args))}</span>
+          <span class="stream-right">
+            ${a.durationMs != null ? `<span>${fmtDuration(a.durationMs)}</span>` : `<span class="status-pending">running…</span>`}
+            ${statusIconHtml(a.status)}
+          </span>
+        </div>
+        <div class="stream-body">
+          <pre>${escapeHtml(JSON.stringify(a.args, null, 2))}</pre>
+          ${a.result ? `<pre>${escapeHtml(a.result)}</pre>${truncated ? `<button class="load-full-btn" onclick="event.stopPropagation(); alert('Would dispatch loadFullResult')">＋ Load full result</button>` : ""}` : ""}
+        </div>
+      </div>`;
+  }).join("");
+
+  pane.innerHTML = `
+    <div class="card">
+      <div class="card-head">${heading} <span class="right" style="text-transform: none; letter-spacing: 0; font-weight: 400; color: var(--text-tertiary);">${tools.length} call${tools.length > 1 ? "s" : ""}</span></div>
+      <div class="card-body" style="padding: 0;">${rows}</div>
+    </div>
+  `;
+}
+
+function renderReasoning(ex) {
+  const pane = document.getElementById("tab-reasoning");
+  if (!ex.reasoning.length) {
+    pane.innerHTML = `<div class="empty"><div class="icon">💭</div>No reasoning blocks recorded.</div>`;
+    return;
+  }
+  pane.innerHTML = ex.reasoning.map((r, i) => `
+    <div class="reasoning-block">
+      <div class="head">💭 Reasoning block ${i + 1}</div>
+      <div>${escapeHtml(r)}</div>
+    </div>
+  `).join("");
+}
+
+function renderRaw(ex) {
+  const pane = document.getElementById("tab-raw");
+  const json = JSON.stringify({
+    id: ex.id, type: ex.typeShort, status: ex.status,
+    model: ex.model, requestedModel: ex.requestedModel, modelSubstituted: ex.modelSubstituted,
+    durationMs: ex.durationMs, totalTokens: ex.tokens, totalToolCalls: ex.toolCount,
+    turnIndex: ex.turnIndex, sourceTurnIndex: ex.sourceTurnIndex, isCrossTurnParent: ex.isCrossTurnParent,
+    isMainAgent: ex.isMainAgent,
+    prompt: ex.prompt, resultContent: ex.result, error: ex.error,
+    messages: ex.output ? [ex.output] : [],
+    reasoning: ex.reasoning,
+    childTools: ex.activities.filter(a => a.kind === "tool" || a.kind === "nested").map(a => ({
+      toolCallId: a.meta?.callId, toolName: a.tool || "task",
+      arguments: a.args, durationMs: a.durationMs, success: a.status === "ok",
+      isSubagent: a.kind === "nested", agentDisplayName: a.agentName,
+    })),
+  }, null, 2);
+  // simple syntax tint
+  const tinted = escapeHtml(json)
+    .replace(/(&quot;[^&]*?&quot;)(?=:)/g, '<span class="k">$1</span>')
+    .replace(/: (&quot;[^&]*&quot;)/g, ': <span class="s">$1</span>')
+    .replace(/: (-?\d+\.?\d*)/g, ': <span class="n">$1</span>')
+    .replace(/: (true|false|null)/g, ': <span class="n">$1</span>');
+  pane.innerHTML = `<pre class="raw-pre">${tinted}</pre>`;
+}
+
+function switchTab(name) {
+  currentTab = name;
+  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === name));
+  document.querySelectorAll(".tabpane").forEach(p => p.classList.toggle("active", p.id === "tab-" + name));
+}
+
+function toggleTheme() {
+  const r = document.documentElement;
+  r.dataset.theme = r.dataset.theme === "light" ? "dark" : "light";
+}
+
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowLeft") {
+    const tabs = ["overview", "activity", "tools", "reasoning", "raw"];
+    const i = tabs.indexOf(currentTab);
+    if (i > 0) switchTab(tabs[i - 1]);
+  }
+  if (e.key === "ArrowRight") {
+    const tabs = ["overview", "activity", "tools", "reasoning", "raw"];
+    const i = tabs.indexOf(currentTab);
+    if (i < tabs.length - 1) switchTab(tabs[i + 1]);
+  }
+});
+
+loadExample("A");
+</script>
+</body>
+</html>

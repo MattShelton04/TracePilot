@@ -6,36 +6,29 @@ defineProps<{
   hasNext: boolean;
 }>();
 
-const emit = defineEmits<{
-  prev: [];
-  next: [];
-}>();
+const emit = defineEmits<{ prev: []; next: [] }>();
 </script>
 
 <template>
-  <div class="cv-panel-nav">
+  <div class="sap-nav">
     <button
-      class="cv-panel-nav-btn"
+      class="sap-nav-btn"
       :disabled="!hasPrev"
       aria-label="Previous subagent"
       @click="emit('prev')"
-    >
-      ◀ Prev
-    </button>
-    <span class="cv-panel-nav-pos">{{ currentIndex + 1 }} / {{ totalCount }}</span>
+    >◀ Prev</button>
+    <span class="sap-nav-pos">{{ currentIndex + 1 }} / {{ totalCount }}</span>
     <button
-      class="cv-panel-nav-btn"
+      class="sap-nav-btn"
       :disabled="!hasNext"
       aria-label="Next subagent"
       @click="emit('next')"
-    >
-      Next ▶
-    </button>
+    >Next ▶</button>
   </div>
 </template>
 
 <style scoped>
-.cv-panel-nav {
+.sap-nav {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -44,8 +37,7 @@ const emit = defineEmits<{
   background: var(--canvas-inset);
   flex-shrink: 0;
 }
-
-.cv-panel-nav-btn {
+.sap-nav-btn {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -59,21 +51,7 @@ const emit = defineEmits<{
   transition: background var(--transition-fast), color var(--transition-fast),
     border-color var(--transition-fast);
 }
-
-.cv-panel-nav-btn:hover:not(:disabled) {
-  background: var(--neutral-subtle);
-  color: var(--text-primary);
-  border-color: var(--border-default);
-}
-
-.cv-panel-nav-btn:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
-.cv-panel-nav-pos {
-  font-size: 0.6875rem;
-  color: var(--text-tertiary);
-  font-variant-numeric: tabular-nums;
-}
+.sap-nav-btn:hover:not(:disabled) { background: var(--neutral-subtle); color: var(--text-primary); }
+.sap-nav-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.sap-nav-pos { font-size: 0.6875rem; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
 </style>

@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Subagent Panel — Prototype A · Refined Stream</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+@import url("../shared/design-system-c.css");
+
+/* ───────── Page chrome (fake desktop backdrop) ───────── */
+html, body { height: 100%; }
+body {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: var(--canvas-default);
+  color: var(--text-primary);
+  overflow: hidden;
+}
+.app {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  height: 100vh;
+}
+.fake-sidebar {
+  background: var(--canvas-subtle);
+  border-right: 1px solid var(--border-default);
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.fake-sidebar .brand {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 8px 18px;
+}
+.fake-sidebar .brand-icon {
+  width: 26px; height: 26px; border-radius: 7px;
+  background: var(--gradient-accent);
+  display: grid; place-items: center;
+  color: white; font-weight: 700; font-size: 12px;
+  box-shadow: 0 2px 8px rgba(99,102,241,0.35);
+}
+.fake-sidebar .brand-name { font-weight: 700; letter-spacing: -0.02em; }
+.fake-sidebar .nav-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  cursor: default;
+}
+.fake-sidebar .nav-item.active {
+  background: var(--accent-muted);
+  color: var(--accent-fg);
+}
+
+.fake-main {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(1200px 600px at 20% -10%, rgba(99,102,241,0.06), transparent 60%),
+    radial-gradient(800px 400px at 90% 110%, rgba(167,139,250,0.05), transparent 60%),
+    var(--canvas-default);
+}
+.fake-conversation {
+  position: absolute; inset: 0;
+  padding: 80px 64px;
+  display: flex; flex-direction: column; gap: 16px;
+  max-width: 760px;
+  opacity: 0.55;
+  filter: saturate(0.7);
+  pointer-events: none;
+}
+.fake-msg {
+  border: 1px solid var(--border-default);
+  background: var(--canvas-subtle);
+  border-radius: 10px;
+  padding: 14px 16px;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+.fake-msg.user { background: var(--accent-subtle); border-color: var(--border-accent); color: var(--text-primary); }
+.fake-toprow {
+  position: absolute; top: 16px; left: 64px; right: 480px;
+  display: flex; align-items: center; gap: 12px;
+  opacity: 0.7;
+}
+.fake-toprow .dot { width: 10px; height: 10px; border-radius: 999px; background: var(--neutral-muted); }
+.fake-toprow .crumb { font-size: 0.75rem; color: var(--text-tertiary); }
+
+/* ───────── Slide-out panel ───────── */
+.panel {
+  position: fixed;
+  top: 0; right: 0; bottom: 0;
+  width: min(560px, 46vw);
+  background:
+    linear-gradient(180deg, rgba(99,102,241,0.04), transparent 240px),
+    var(--canvas-subtle);
+  border-left: 1px solid var(--border-default);
+  box-shadow: -24px 0 60px -20px rgba(0,0,0,0.6);
+  display: flex; flex-direction: column;
+  z-index: 50;
+  animation: slideIn 320ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+@keyframes slideIn {
+  from { transform: translateX(40px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+/* Header */
+.panel-header {
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid var(--border-muted);
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
+}
+.panel-header-row1 {
+  display: flex; align-items: center; gap: 12px;
+}
+.agent-glyph {
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  display: grid; place-items: center;
+  font-size: 16px;
+  background: var(--accent-muted);
+  color: var(--accent-fg);
+  border: 1px solid var(--border-accent);
+  flex-shrink: 0;
+}
+.agent-glyph.t-explore { background: rgba(56,189,248,0.12); color: #38bdf8; border-color: rgba(56,189,248,0.25); }
+.agent-glyph.t-general { background: rgba(167,139,250,0.14); color: var(--done-fg); border-color: rgba(167,139,250,0.25); }
+.agent-glyph.t-review  { background: rgba(251,113,133,0.12); color: var(--danger-fg); border-color: rgba(251,113,133,0.25); }
+.agent-glyph.t-main    { background: rgba(52,211,153,0.12); color: var(--success-fg); border-color: rgba(52,211,153,0.25); }
+
+.agent-title-block {
+  display: flex; flex-direction: column; gap: 2px;
+  flex: 1; min-width: 0;
+}
+.agent-title {
+  font-size: 1rem; font-weight: 600; letter-spacing: -0.01em;
+  color: var(--text-primary);
+  display: flex; align-items: center; gap: 8px;
+}
+.agent-subtitle {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+}
+.agent-subtitle .dot { width: 3px; height: 3px; border-radius: 999px; background: currentColor; opacity: 0.5; }
+
+.iconbtn {
+  appearance: none; border: 1px solid transparent; background: transparent;
+  width: 32px; height: 32px; border-radius: 8px;
+  color: var(--text-tertiary);
+  display: grid; place-items: center; cursor: pointer;
+  transition: all 140ms ease;
+}
+.iconbtn:hover { background: var(--canvas-overlay); color: var(--text-primary); border-color: var(--border-muted); }
+
+.panel-header-row2 {
+  display: flex; align-items: center; gap: 6px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 0.7rem; font-weight: 500;
+  background: var(--canvas-overlay);
+  border: 1px solid var(--border-muted);
+  color: var(--text-secondary);
+}
+.chip-status.completed { background: var(--success-muted); color: var(--success-fg); border-color: rgba(52,211,153,0.25); }
+.chip-status.in-progress { background: var(--warning-muted); color: var(--warning-fg); border-color: rgba(251,191,36,0.25); }
+.chip-status.failed { background: var(--danger-muted); color: var(--danger-fg); border-color: rgba(251,113,133,0.3); }
+.chip-status .pulse {
+  width: 6px; height: 6px; border-radius: 999px; background: currentColor;
+}
+.chip-status.in-progress .pulse {
+  animation: pulse 1.4s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+.kbd {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 18px; height: 18px; padding: 0 4px;
+  border-radius: 4px;
+  background: var(--canvas-inset);
+  border: 1px solid var(--border-muted);
+  color: var(--text-tertiary);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.65rem;
+}
+
+/* Body scroll */
+.panel-body {
+  flex: 1; overflow: auto;
+  padding: 22px 22px 60px;
+  scroll-behavior: smooth;
+}
+
+/* Section anchors (subtle) */
+.section-anchor {
+  display: flex; align-items: center; gap: 10px;
+  margin: 28px 0 12px;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  color: var(--text-tertiary);
+}
+.section-anchor::after {
+  content: ''; flex: 1; height: 1px;
+  background: linear-gradient(90deg, var(--border-muted), transparent);
+}
+.section-anchor:first-child { margin-top: 0; }
+.section-anchor .count {
+  background: var(--canvas-overlay);
+  color: var(--text-secondary);
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  letter-spacing: 0;
+  text-transform: none;
+  border: 1px solid var(--border-muted);
+}
+
+/* Description */
+.description {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 4px;
+}
+.source-row {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  font-style: italic;
+  margin-top: 6px;
+}
+.source-row b { color: var(--text-secondary); font-style: normal; font-weight: 500; }
+
+/* Banner */
+.banner {
+  display: flex; gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--warning-subtle);
+  border: 1px solid rgba(251,191,36,0.3);
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  margin-bottom: 16px;
+}
+.banner.danger { background: var(--danger-subtle); border-color: rgba(251,113,133,0.3); }
+.banner svg { flex-shrink: 0; margin-top: 2px; }
+.banner code {
+  font-family: "JetBrains Mono", monospace;
+  background: rgba(0,0,0,0.3);
+  padding: 1px 5px; border-radius: 4px;
+  font-size: 0.75rem;
+}
+
+/* Collapsibles */
+.collapsible {
+  border: 1px solid var(--border-muted);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--canvas-default);
+  margin-bottom: 12px;
+  transition: border-color 180ms ease;
+}
+.collapsible:hover { border-color: var(--border-default); }
+.collapsible-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  user-select: none;
+  background: linear-gradient(180deg, rgba(255,255,255,0.015), transparent);
+}
+.collapsible-head .chev {
+  transition: transform 200ms ease;
+  color: var(--text-tertiary);
+}
+.collapsible.open .collapsible-head .chev { transform: rotate(90deg); }
+.collapsible-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+.collapsible-meta { margin-left: auto; font-size: 0.7rem; color: var(--text-tertiary); }
+.collapsible-body {
+  padding: 0 14px;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 280ms cubic-bezier(0.4, 0, 0.2, 1), padding 280ms ease;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+}
+.collapsible.open .collapsible-body { max-height: 800px; padding: 0 14px 14px; }
+.collapsible.output .collapsible-body { font-family: "JetBrains Mono", monospace; font-size: 0.75rem; }
+
+/* Activity stream */
+.stream {
+  position: relative;
+  padding-left: 22px;
+}
+.stream::before {
+  content: ''; position: absolute;
+  left: 9px; top: 6px; bottom: 6px;
+  width: 1px;
+  background: linear-gradient(180deg, transparent, var(--border-muted) 12px, var(--border-muted) calc(100% - 12px), transparent);
+}
+.row {
+  position: relative;
+  margin-bottom: 6px;
+  border-radius: 8px;
+  transition: background-color 140ms ease;
+}
+.row::before {
+  content: '';
+  position: absolute;
+  left: -17px;
+  top: 14px;
+  width: 7px; height: 7px;
+  border-radius: 999px;
+  background: var(--canvas-subtle);
+  border: 2px solid var(--border-default);
+  z-index: 1;
+}
+.row.tool::before { background: var(--accent-fg); border-color: rgba(99,102,241,0.3); box-shadow: 0 0 0 3px var(--canvas-subtle); }
+.row.reasoning::before { background: var(--done-fg); border-color: rgba(167,139,250,0.3); }
+.row.message::before { background: var(--success-fg); border-color: rgba(52,211,153,0.3); }
+.row.pill::before { background: var(--warning-fg); border-color: rgba(251,191,36,0.3); }
+.row.nested::before { background: #38bdf8; border-color: rgba(56,189,248,0.3); }
+
+.row-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+.row-head:hover { background: var(--canvas-overlay); }
+.row.expanded > .row-head { background: var(--canvas-overlay); }
+
+.row-icon {
+  width: 22px; height: 22px;
+  display: grid; place-items: center;
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+}
+.row-tool-name {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.row-args {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.row-args .arg-key { color: var(--text-tertiary); }
+.row-args .arg-val { color: var(--text-secondary); font-family: "JetBrains Mono", monospace; }
+
+.row-right {
+  margin-left: auto;
+  display: flex; align-items: center; gap: 8px;
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
+}
+.row-status { width: 14px; display: grid; place-items: center; }
+.row-status.ok { color: var(--success-fg); }
+.row-status.fail { color: var(--danger-fg); }
+.row-status.pending { color: var(--warning-fg); }
+.spin { animation: spin 1.2s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.row-body {
+  display: none;
+  margin: 4px 0 12px 32px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-muted);
+  border-radius: 8px;
+  background: var(--canvas-default);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  animation: fadeIn 200ms ease;
+}
+@keyframes fadeIn { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: translateY(0); } }
+.row.expanded > .row-body { display: block; }
+.row-body pre {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.72rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--canvas-inset);
+  border: 1px solid var(--border-muted);
+  border-radius: 6px;
+  padding: 10px;
+  margin-top: 8px;
+  color: var(--text-secondary);
+}
+.row-body .kv { display: grid; grid-template-columns: 90px 1fr; gap: 4px 10px; font-size: 0.72rem; }
+.row-body .kv dt { color: var(--text-tertiary); }
+.row-body .kv dd { color: var(--text-secondary); font-family: "JetBrains Mono", monospace; word-break: break-all; }
+
+.load-full-btn {
+  appearance: none; cursor: pointer;
+  background: var(--accent-muted);
+  border: 1px solid var(--border-accent);
+  color: var(--accent-fg);
+  font-size: 0.72rem; font-weight: 500;
+  padding: 6px 10px;
+  border-radius: 6px;
+  margin-top: 8px;
+  display: inline-flex; align-items: center; gap: 6px;
+  transition: all 140ms ease;
+}
+.load-full-btn:hover { background: rgba(99,102,241,0.22); }
+
+/* Pills */
+.row.pill .row-head {
+  background: var(--warning-subtle);
+  border: 1px solid rgba(251,191,36,0.18);
+}
+.pill-tag {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--warning-fg);
+  background: rgba(251,191,36,0.12);
+  padding: 2px 7px;
+  border-radius: 999px;
+}
+.row.pill .row-tool-name { color: var(--warning-fg); }
+
+/* Reasoning row */
+.row.reasoning .row-head {
+  background: var(--done-subtle);
+  border: 1px solid rgba(167,139,250,0.18);
+}
+.row.reasoning .row-icon { color: var(--done-fg); }
+.row.reasoning .row-tool-name { color: var(--done-fg); font-family: "Inter", sans-serif; font-style: italic; }
+
+/* Message row (final assistant message) */
+.row.message {
+  margin-top: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--border-muted);
+  border-radius: 10px;
+  background: var(--canvas-default);
+}
+.row.message .msg-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--success-fg);
+  margin-bottom: 6px;
+}
+.row.message .msg-content {
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+  line-height: 1.6;
+}
+.row.message::before { top: 18px; }
+
+/* Nested subagent */
+.row.nested .row-head {
+  border: 1px solid var(--border-accent);
+  background: var(--accent-subtle);
+}
+.row.nested .row-tool-name { color: var(--accent-fg); }
+.row.nested .nested-link { font-size: 0.65rem; color: var(--accent-fg); margin-left: 4px; }
+
+/* Failure block */
+.failure-block {
+  border: 1px solid rgba(251,113,133,0.3);
+  background: var(--danger-subtle);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+.failure-block .lab {
+  font-size: 0.65rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--danger-fg);
+  margin-bottom: 8px;
+  display: flex; align-items: center; gap: 6px;
+}
+.failure-block pre {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.75rem;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+}
+
+/* Footer nav */
+.panel-footer {
+  border-top: 1px solid var(--border-muted);
+  background: linear-gradient(0deg, rgba(0,0,0,0.2), transparent);
+  padding: 10px 16px;
+  display: flex; align-items: center; gap: 10px;
+}
+.nav-btn {
+  appearance: none;
+  background: var(--canvas-overlay);
+  border: 1px solid var(--border-muted);
+  color: var(--text-secondary);
+  padding: 6px 12px;
+  border-radius: 7px;
+  font-size: 0.75rem; font-weight: 500;
+  cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px;
+  transition: all 140ms ease;
+}
+.nav-btn:hover:not(:disabled) { background: var(--canvas-raised); color: var(--text-primary); border-color: var(--border-default); }
+.nav-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.nav-counter {
+  flex: 1; text-align: center;
+  font-size: 0.72rem; color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.kbd-hints {
+  display: flex; gap: 6px;
+  font-size: 0.7rem; color: var(--text-tertiary);
+  align-items: center;
+}
+
+/* Example switcher pinned bottom-left */
+.switcher {
+  position: fixed; left: 16px; bottom: 16px;
+  z-index: 60;
+  background: var(--canvas-overlay);
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  padding: 8px;
+  display: flex; gap: 4px;
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(12px);
+}
+.switcher button {
+  appearance: none; cursor: pointer;
+  background: transparent; border: 1px solid transparent;
+  color: var(--text-secondary);
+  font-size: 0.72rem; font-weight: 500;
+  padding: 6px 10px;
+  border-radius: 6px;
+  transition: all 140ms ease;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.switcher button:hover { background: var(--canvas-raised); color: var(--text-primary); }
+.switcher button.active {
+  background: var(--accent-muted);
+  color: var(--accent-fg);
+  border-color: var(--border-accent);
+}
+.switcher .label {
+  font-size: 0.65rem; color: var(--text-tertiary);
+  text-transform: uppercase; letter-spacing: 0.08em;
+  padding: 6px 6px 6px 8px;
+  border-right: 1px solid var(--border-muted);
+  margin-right: 2px;
+}
+
+.theme-toggle {
+  position: fixed; right: 16px; bottom: 16px;
+  z-index: 60;
+  background: var(--canvas-overlay);
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 0.72rem;
+  cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px;
+  box-shadow: var(--shadow-md);
+}
+.theme-toggle:hover { color: var(--text-primary); }
+
+/* Live duration ticker */
+.ticking { font-variant-numeric: tabular-nums; }
+
+/* Mode label badge */
+.mode-pill {
+  position: fixed; top: 16px; right: calc(min(560px, 46vw) + 16px);
+  z-index: 70;
+  font-size: 0.72rem;
+  background: var(--canvas-overlay);
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  padding: 6px 10px;
+  border-radius: 999px;
+  display: inline-flex; align-items: center; gap: 8px;
+  box-shadow: var(--shadow-md);
+}
+.mode-pill .accent { color: var(--accent-fg); font-weight: 600; }
+.mode-pill a { color: var(--text-link); text-decoration: none; }
+
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside class="fake-sidebar" aria-hidden="true">
+    <div class="brand">
+      <div class="brand-icon">TP</div>
+      <div class="brand-name">TracePilot</div>
+    </div>
+    <div class="nav-item active">💬 Sessions</div>
+    <div class="nav-item">🌳 Agent Tree</div>
+    <div class="nav-item">📊 Token Timeline</div>
+    <div class="nav-item">🔁 Replay</div>
+    <div class="nav-item">⚙️ Settings</div>
+  </aside>
+
+  <main class="fake-main">
+    <div class="fake-toprow">
+      <div class="dot"></div>
+      <div class="crumb">Session · 2025-01-14 · Turn 3 of 7</div>
+    </div>
+    <div class="fake-conversation">
+      <div class="fake-msg user">Find the JWT verification middleware in our codebase and explain how token expiry is handled.</div>
+      <div class="fake-msg">I'll spin up an explore subagent to locate the relevant files…</div>
+      <div class="fake-msg">⏳ Explore Agent · running…</div>
+    </div>
+  </main>
+</div>
+
+<div class="mode-pill">
+  Prototype A · <span class="accent">Refined Stream</span> ·
+  <a href="index.html">↩ back</a>
+</div>
+
+<!-- Slide-out panel -->
+<aside class="panel" id="panel" role="dialog" aria-label="Subagent detail">
+  <header class="panel-header">
+    <div class="panel-header-row1">
+      <div class="agent-glyph t-explore" id="agent-glyph">
+        <!-- Inline icon -->
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+      </div>
+      <div class="agent-title-block">
+        <div class="agent-title">
+          <span id="agent-name">Explore Agent</span>
+        </div>
+        <div class="agent-subtitle">
+          <span id="agent-type-label">explore</span>
+          <span class="dot"></span>
+          <span id="agent-model">claude-sonnet-4.6</span>
+          <span class="dot"></span>
+          <span>Turn <span id="agent-turn">3</span></span>
+        </div>
+      </div>
+      <button class="iconbtn" title="Close (Esc)" onclick="alert('would close panel')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+      </button>
+    </div>
+    <div class="panel-header-row2">
+      <span class="chip chip-status completed" id="chip-status">
+        <span class="pulse"></span>
+        <span id="chip-status-text">Completed</span>
+      </span>
+      <span class="chip" id="chip-duration">⏱ <span class="ticking" id="duration-text">14.3s</span></span>
+      <span class="chip" id="chip-tokens">🎯 8,421 tokens</span>
+      <span class="chip" id="chip-tools">🛠 7 tools</span>
+    </div>
+  </header>
+
+  <div class="panel-body" id="panel-body"><!-- populated by JS --></div>
+
+  <footer class="panel-footer">
+    <button class="nav-btn" id="prev-btn" onclick="navigate(-1)">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+      Prev
+    </button>
+    <div class="nav-counter"><span id="nav-counter">1</span> of 3</div>
+    <div class="kbd-hints">
+      <span class="kbd">Esc</span><span class="kbd">←</span><span class="kbd">→</span>
+    </div>
+    <button class="nav-btn" id="next-btn" onclick="navigate(1)">
+      Next
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+    </button>
+  </footer>
+</aside>
+
+<div class="switcher" role="tablist" aria-label="Example subagent">
+  <span class="label">EXAMPLE</span>
+  <button class="active" data-example="A" onclick="loadExample('A')">A · Healthy</button>
+  <button data-example="B" onclick="loadExample('B')">B · In progress</button>
+  <button data-example="C" onclick="loadExample('C')">C · Failed</button>
+  <button data-example="M" onclick="loadExample('M')">Main agent</button>
+</div>
+
+<button class="theme-toggle" onclick="toggleTheme()">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+  Theme
+</button>
+
+<script>
+// ────────── Seed data ──────────
+const EXAMPLES = {
+  A: {
+    type: "explore",
+    typeLabel: "explore",
+    name: "Explore Agent",
+    description: "Find auth flows in the codebase",
+    status: "completed",
+    statusText: "Completed",
+    model: "claude-sonnet-4.6",
+    requestedModel: "claude-sonnet-4.6",
+    modelSubstituted: false,
+    durationMs: 14320,
+    tokens: 8421,
+    toolCount: 7,
+    turnIndex: 3,
+    sourceTurnIndex: null,
+    isCrossTurnParent: false,
+    isMainAgent: false,
+    prompt: "Locate the JWT verification middleware in this codebase. I want to understand:\n\n1. Where the token signature is verified.\n2. How expiry is enforced (`exp` claim handling).\n3. Where unauthenticated requests are rejected.\n\nGrep first for `jwt.verify` and `verifyToken`. Then read the matching files. Return the file paths and a brief summary of how auth is wired up. Don't propose code changes — research only.",
+    output: "Found `verifyJwt` in src/auth/middleware.ts:42.\n\n- Signature verified using HS256 against `process.env.JWT_SECRET`.\n- Expiry enforced by jsonwebtoken; throws `TokenExpiredError` which is mapped to a 401 by the error middleware in src/server/errors.ts:18.\n- Unauthenticated routes are filtered out in src/auth/middleware.ts:11 via the `PUBLIC_PATHS` set.\n\n…[truncated]",
+    error: null,
+    activities: [
+      { kind: "reasoning", content: "Need to grep for jwt.verify or verifyToken to find the middleware. Then read matching files." },
+      { kind: "tool", tool: "grep", args: { pattern: "jwt.verify|verifyToken", glob: "**/*.{ts,js}" }, durationMs: 24, status: "ok",
+        result: "src/auth/middleware.ts:42:  const decoded = jwt.verify(token, secret);\nsrc/auth/middleware.ts:67:  return verifyToken(req.headers.authorization);\nsrc/server/errors.ts:18:  if (err instanceof TokenExpiredError) ..." },
+      { kind: "pill", pillType: "intent", label: "Locating JWT verification middleware" },
+      { kind: "tool", tool: "view", args: { path: "src/auth/middleware.ts" }, durationMs: 12, status: "ok",
+        result: "1. import jwt from 'jsonwebtoken';\n2. import type { Request, Response, NextFunction } from 'express';\n…" },
+      { kind: "tool", tool: "view", args: { path: "src/server/errors.ts", view_range: [1, 60] }, durationMs: 9, status: "ok",
+        result: "1. export class TokenExpiredError extends Error { … }\n…" },
+      { kind: "pill", pillType: "memory", label: "JWT verification lives in src/auth/middleware.ts" },
+      { kind: "message", content: "Done — found the middleware at **src/auth/middleware.ts:42**. Token expiry maps to a 401 via the central error handler in src/server/errors.ts:18. Public routes are filtered out by `PUBLIC_PATHS`." },
+    ],
+  },
+  B: {
+    type: "general",
+    typeLabel: "general-purpose",
+    name: "Refactor Helper",
+    description: "Refactor the auth middleware to use async/await consistently",
+    status: "in-progress",
+    statusText: "Running",
+    model: "claude-sonnet-4.5",
+    requestedModel: "claude-sonnet-4.5",
+    modelSubstituted: false,
+    durationMs: 47200,
+    tokens: 3104,
+    toolCount: 5,
+    turnIndex: 4,
+    sourceTurnIndex: 2,
+    isCrossTurnParent: true,
+    isMainAgent: false,
+    prompt: "Refactor src/auth/middleware.ts to use async/await consistently. Some helpers still use callbacks (`jwt.verify(token, secret, (err, decoded) => …)`). Convert them to promise-based usage. Don't change the public API.",
+    output: "",
+    error: null,
+    activities: [
+      { kind: "reasoning", content: "Plan: 1) read the current middleware file, 2) identify callback-style usages, 3) propose patches converting to await jwt.verify via promisify or jose, 4) verify with grep that no other call sites use callback form." },
+      { kind: "tool", tool: "view", args: { path: "src/auth/middleware.ts" }, durationMs: 11, status: "ok",
+        result: "(file shown)" },
+      { kind: "tool", tool: "grep", args: { pattern: "jwt.verify\\(", glob: "**/*.ts" }, durationMs: 18, status: "ok",
+        result: "src/auth/middleware.ts:42\nsrc/auth/legacy.ts:22" },
+      { kind: "pill", pillType: "intent", label: "Converting callback jwt.verify to promise form" },
+      { kind: "tool", tool: "edit", args: { path: "src/auth/middleware.ts" }, durationMs: null, status: "pending",
+        result: null },
+    ],
+  },
+  C: {
+    type: "review",
+    typeLabel: "code-review",
+    name: "Code Reviewer",
+    description: "Review the auth middleware change",
+    status: "failed",
+    statusText: "Failed",
+    model: "claude-haiku-4.5",
+    requestedModel: "claude-opus-4.7",
+    modelSubstituted: true,
+    durationMs: 3120,
+    tokens: 412,
+    toolCount: 0,
+    turnIndex: 5,
+    sourceTurnIndex: null,
+    isCrossTurnParent: false,
+    isMainAgent: false,
+    prompt: "Review the changes I just made to src/auth/middleware.ts. Look for:\n\n- Subtle async bugs (lost stack traces, unhandled rejections)\n- Token validation edge cases\n- Inconsistencies between the new and old code paths.\n\nReturn a list of must-fix issues only — skip nits.",
+    output: "",
+    error: "Rate limit exceeded for opus tier — substituted with haiku and request still failed.\n\nTraceback:\n  at ModelGateway.invoke (gateway.ts:88:14)\n  at SubagentRunner.run (runner.ts:212:9)\n  at processTicksAndRejections (node:internal/process/task_queues:95:5)",
+    activities: [],
+  },
+  M: {
+    type: "main",
+    typeLabel: "main agent",
+    name: "Main Agent (Turn 3)",
+    description: "Orchestrating the explore + refactor flow",
+    status: "completed",
+    statusText: "Completed",
+    model: "claude-sonnet-4.6",
+    requestedModel: "claude-sonnet-4.6",
+    modelSubstituted: false,
+    durationMs: 62100,
+    tokens: 14238,
+    toolCount: 4,
+    turnIndex: 3,
+    sourceTurnIndex: null,
+    isCrossTurnParent: false,
+    isMainAgent: true,
+    prompt: null,
+    output: "",
+    error: null,
+    activities: [
+      { kind: "reasoning", content: "User wants to find auth flows. I'll spawn an explore subagent rather than grep myself — that keeps my context clean for the follow-up." },
+      { kind: "pill", pillType: "intent", label: "Spawning explore subagent for auth lookup" },
+      { kind: "nested", tool: "task", args: { name: "explore" }, agentName: "Explore Agent", durationMs: 14320, status: "ok",
+        nestedId: "A" },
+      { kind: "tool", tool: "view", args: { path: "src/auth/middleware.ts", view_range: [40, 80] }, durationMs: 8, status: "ok",
+        result: "(snippet)" },
+      { kind: "nested", tool: "task", args: { name: "general-purpose" }, agentName: "Refactor Helper", durationMs: 47200, status: "pending",
+        nestedId: "B" },
+      { kind: "message", content: "Located the middleware. Started a refactor helper to migrate callback-style JWT calls. I'll surface its result when it finishes." },
+    ],
+  },
+};
+
+const ORDER = ["A", "B", "C", "M"];
+let currentKey = "A";
+let liveInterval = null;
+
+// ────────── Helpers ──────────
+function fmtDuration(ms) {
+  if (ms == null) return "—";
+  if (ms < 1000) return `${ms}ms`;
+  const s = ms / 1000;
+  if (s < 60) return `${s.toFixed(1)}s`;
+  const m = Math.floor(s / 60);
+  const rs = Math.floor(s % 60);
+  return `${m}m ${rs}s`;
+}
+function fmtArgs(args) {
+  if (!args) return "";
+  return Object.entries(args).map(([k, v]) => {
+    const val = typeof v === "string" ? `"${v}"` : JSON.stringify(v);
+    return `<span class="arg-key">${k}</span>=<span class="arg-val">${escapeHtml(val)}</span>`;
+  }).join(" ");
+}
+function escapeHtml(s) {
+  return String(s).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+}
+function toolIcon(name) {
+  const map = {
+    grep: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
+    view: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>',
+    edit: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4Z"/></svg>',
+    task: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>',
+  };
+  return map[name] || '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>';
+}
+function pillIcon(type) {
+  const map = {
+    intent: "📋",
+    memory: "🧠",
+    read_agent: "📥",
+  };
+  return map[type] || "•";
+}
+
+// ────────── Render ──────────
+function loadExample(key) {
+  currentKey = key;
+  const ex = EXAMPLES[key];
+  document.querySelectorAll(".switcher button[data-example]").forEach(b => {
+    b.classList.toggle("active", b.dataset.example === key);
+  });
+
+  // Header
+  document.getElementById("agent-name").textContent = ex.name;
+  document.getElementById("agent-type-label").textContent = ex.typeLabel;
+  document.getElementById("agent-model").textContent = ex.model || "—";
+  document.getElementById("agent-turn").textContent = ex.turnIndex;
+
+  const glyph = document.getElementById("agent-glyph");
+  glyph.className = "agent-glyph t-" + ex.type;
+
+  // Status chip
+  const chipStatus = document.getElementById("chip-status");
+  chipStatus.className = "chip chip-status " + ex.status;
+  document.getElementById("chip-status-text").textContent = ex.statusText;
+
+  // Duration ticker
+  if (liveInterval) { clearInterval(liveInterval); liveInterval = null; }
+  let liveMs = ex.durationMs;
+  const setDur = () => document.getElementById("duration-text").textContent = fmtDuration(liveMs);
+  setDur();
+  if (ex.status === "in-progress") {
+    liveInterval = setInterval(() => {
+      liveMs += 1000;
+      setDur();
+    }, 1000);
+  }
+
+  document.getElementById("chip-tokens").innerHTML = "🎯 " + (ex.tokens?.toLocaleString() || "—") + " tokens";
+  document.getElementById("chip-tools").innerHTML = "🛠 " + ex.toolCount + (ex.isMainAgent ? " tools & agents" : " tools");
+
+  // Nav
+  const idx = ORDER.indexOf(key);
+  document.getElementById("nav-counter").textContent = (idx + 1);
+  document.getElementById("prev-btn").disabled = idx === 0;
+  document.getElementById("next-btn").disabled = idx === ORDER.length - 1;
+
+  // Body
+  renderBody(ex);
+}
+
+function navigate(delta) {
+  const idx = ORDER.indexOf(currentKey);
+  const next = Math.max(0, Math.min(ORDER.length - 1, idx + delta));
+  loadExample(ORDER[next]);
+}
+
+function renderBody(ex) {
+  const body = document.getElementById("panel-body");
+  const parts = [];
+
+  // Model substitution banner
+  if (ex.modelSubstituted) {
+    parts.push(`
+      <div class="banner danger">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+        <div>
+          <strong>Model substituted.</strong> Requested <code>${ex.requestedModel}</code> but ran as <code>${ex.model}</code>.
+        </div>
+      </div>
+    `);
+  }
+
+  // Description / source
+  if (ex.description) {
+    parts.push(`<div class="section-anchor">Overview</div>`);
+    parts.push(`<div class="description">${escapeHtml(ex.description)}</div>`);
+  }
+  if (ex.isCrossTurnParent && ex.sourceTurnIndex != null) {
+    parts.push(`<div class="source-row">↳ Launched in <b>turn ${ex.sourceTurnIndex}</b>, results streamed into turn ${ex.turnIndex}.</div>`);
+  }
+
+  // Failure block
+  if (ex.status === "failed" && ex.error) {
+    parts.push(`
+      <div class="section-anchor">Failure</div>
+      <div class="failure-block">
+        <div class="lab">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+          Failure reason
+        </div>
+        <pre>${escapeHtml(ex.error)}</pre>
+      </div>
+    `);
+  }
+
+  // Prompt
+  if (ex.prompt) {
+    parts.push(`<div class="section-anchor">Prompt</div>`);
+    parts.push(`
+      <div class="collapsible open" data-collapsible>
+        <div class="collapsible-head" onclick="toggleCollapse(this.parentElement)">
+          <svg class="chev" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+          <span class="collapsible-label">Prompt</span>
+          <span class="collapsible-meta">${ex.prompt.length.toLocaleString()} chars</span>
+        </div>
+        <div class="collapsible-body">${escapeHtml(ex.prompt)}</div>
+      </div>
+    `);
+  }
+
+  // Output
+  if (ex.output) {
+    parts.push(`<div class="section-anchor">Output</div>`);
+    const truncated = ex.output.includes("…[truncated]");
+    parts.push(`
+      <div class="collapsible output" data-collapsible>
+        <div class="collapsible-head" onclick="toggleCollapse(this.parentElement)">
+          <svg class="chev" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+          <span class="collapsible-label">Output</span>
+          <span class="collapsible-meta">${truncated ? "truncated" : ex.output.length + " chars"}</span>
+        </div>
+        <div class="collapsible-body">${escapeHtml(ex.output)}${truncated ? `<br/><button class="load-full-btn" onclick="alert('Would dispatch loadFullResult(toolCallId)')"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg> Load full result</button>` : ""}</div>
+      </div>
+    `);
+  }
+
+  // Activity
+  if (ex.activities.length > 0) {
+    const heading = ex.isMainAgent ? "Tools & Agents" : "Activity";
+    parts.push(`<div class="section-anchor">${heading} <span class="count">${ex.activities.length}</span></div>`);
+    parts.push(`<div class="stream">`);
+    ex.activities.forEach((a, i) => parts.push(renderRow(a, i)));
+    parts.push(`</div>`);
+  } else if (ex.status === "in-progress" && !ex.activities.length) {
+    parts.push(`<div class="section-anchor">Activity</div><div style="color: var(--text-tertiary); font-size: 0.8125rem; padding: 8px 0;">Waiting for first activity…</div>`);
+  }
+
+  body.innerHTML = parts.join("");
+  body.scrollTop = 0;
+}
+
+function renderRow(a, i) {
+  if (a.kind === "reasoning") {
+    return `
+      <div class="row reasoning" data-row>
+        <div class="row-head" onclick="toggleRow(this.parentElement)">
+          <div class="row-icon">💭</div>
+          <span class="row-tool-name">Thinking…</span>
+          <span class="row-args">${escapeHtml(a.content.slice(0, 90))}${a.content.length > 90 ? "…" : ""}</span>
+          <div class="row-right">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+          </div>
+        </div>
+        <div class="row-body">${escapeHtml(a.content)}</div>
+      </div>
+    `;
+  }
+  if (a.kind === "pill") {
+    return `
+      <div class="row pill" data-row>
+        <div class="row-head">
+          <div class="row-icon">${pillIcon(a.pillType)}</div>
+          <span class="pill-tag">${a.pillType.replace("_", " ")}</span>
+          <span class="row-tool-name">${escapeHtml(a.label)}</span>
+        </div>
+      </div>
+    `;
+  }
+  if (a.kind === "message") {
+    return `
+      <div class="row message" data-row>
+        <div class="msg-label">✓ Final message</div>
+        <div class="msg-content">${escapeHtml(a.content).replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")}</div>
+      </div>
+    `;
+  }
+  if (a.kind === "nested") {
+    const statusIcon = a.status === "ok"
+      ? '<svg class="row-status ok" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
+      : a.status === "fail"
+        ? '<svg class="row-status fail" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>'
+        : '<svg class="row-status pending spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.22-8.56"/></svg>';
+    return `
+      <div class="row nested" data-row>
+        <div class="row-head" onclick="loadExample('${a.nestedId}')" title="Open nested subagent">
+          <div class="row-icon">${toolIcon("task")}</div>
+          <span class="row-tool-name">${escapeHtml(a.agentName)}</span>
+          <span class="nested-link">→ open</span>
+          <span class="row-args">subagent</span>
+          <div class="row-right">
+            ${a.durationMs != null ? `<span>${fmtDuration(a.durationMs)}</span>` : ""}
+            ${statusIcon}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  // tool
+  const statusIcon = a.status === "ok"
+    ? '<svg class="row-status ok" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
+    : a.status === "fail"
+      ? '<svg class="row-status fail" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>'
+      : '<svg class="row-status pending spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.22-8.56"/></svg>';
+  return `
+    <div class="row tool" data-row>
+      <div class="row-head" onclick="toggleRow(this.parentElement)">
+        <div class="row-icon">${toolIcon(a.tool)}</div>
+        <span class="row-tool-name">${a.tool}</span>
+        <span class="row-args">${fmtArgs(a.args)}</span>
+        <div class="row-right">
+          ${a.durationMs != null ? `<span>${fmtDuration(a.durationMs)}</span>` : `<span style="color: var(--warning-fg);">running…</span>`}
+          ${statusIcon}
+        </div>
+      </div>
+      <div class="row-body">
+        <dl class="kv">
+          <dt>Tool</dt><dd>${a.tool}</dd>
+          ${a.args ? Object.entries(a.args).map(([k, v]) => `<dt>${k}</dt><dd>${escapeHtml(JSON.stringify(v))}</dd>`).join("") : ""}
+          ${a.durationMs != null ? `<dt>Duration</dt><dd>${fmtDuration(a.durationMs)}</dd>` : ""}
+        </dl>
+        ${a.result ? `<pre>${escapeHtml(a.result)}</pre>` : `<div style="color: var(--text-tertiary); font-style: italic; margin-top: 8px;">No result yet — call still in flight.</div>`}
+      </div>
+    </div>
+  `;
+}
+
+function toggleRow(el) { el.classList.toggle("expanded"); }
+function toggleCollapse(el) { el.classList.toggle("open"); }
+
+function toggleTheme() {
+  const r = document.documentElement;
+  r.dataset.theme = r.dataset.theme === "light" ? "dark" : "light";
+}
+
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") return; // do nothing in prototype
+  if (e.key === "ArrowLeft") navigate(-1);
+  if (e.key === "ArrowRight") navigate(1);
+});
+
+loadExample("A");
+</script>
+</body>
+</html>
