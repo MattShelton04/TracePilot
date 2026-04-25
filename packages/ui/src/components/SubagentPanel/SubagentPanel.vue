@@ -104,6 +104,11 @@ watch(
         @update:expanded="promptExpanded = $event"
       />
 
+      <div v-if="view.status === 'failed' && view.error" class="sap-section sap-failure">
+        <div class="sap-section-label sap-failure-title">❌ Failure Reason</div>
+        <pre class="sap-failure-body">{{ view.error }}</pre>
+      </div>
+
       <SubagentCollapsibleBlock
         v-if="view.resultContent"
         label="Output"
@@ -161,4 +166,7 @@ watch(
 .sap-section { margin: 0; }
 .sap-section-label { font-size: 0.6875rem; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
 .sap-description { font-size: 0.8125rem; color: var(--text-secondary); line-height: 1.5; margin: 0; }
+.sap-failure { background: var(--danger-subtle); border: 1px solid color-mix(in srgb, var(--danger-fg) 30%, transparent); border-radius: var(--radius-md); padding: 10px 12px; }
+.sap-failure-title { color: var(--danger-fg); }
+.sap-failure-body { font-family: "JetBrains Mono", monospace; font-size: 0.75rem; color: var(--danger-fg); white-space: pre-wrap; word-break: break-word; margin: 0; }
 </style>

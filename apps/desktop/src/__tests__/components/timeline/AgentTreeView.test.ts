@@ -834,7 +834,7 @@ describe("AgentTreeView", () => {
     const detailPanel = wrapper.find(".detail-panel");
     expect(detailPanel.exists()).toBe(true);
     // Should show status as failed
-    expect(detailPanel.text()).toContain("failed");
+    expect(detailPanel.text().toLowerCase()).toContain("failed");
     // Should show failure reason section
     expect(detailPanel.find(".detail-failure").exists()).toBe(true);
     expect(detailPanel.find(".detail-failure-body").text()).toContain("connection timeout");

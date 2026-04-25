@@ -1,18 +1,12 @@
 <script setup lang="ts">
-// Sections body — agent-tree style sectioned layout (Description, Source row,
-// Prompt, Info grid, Failure, Output, Result, Reasoning toggle, Tool list).
-// Pure props/events — no app-store imports.
+// Sections body — agent-tree style sectioned layout (Description, Source,
+// Prompt, Failure, Output, Reasoning toggle, Tool list). Pure props/events
+// — no app-store imports. Header carries status/duration/model/tokens, so
+// no separate info grid here.
 import type { TurnToolCall } from "@tracepilot/types";
 import { computed } from "vue";
 import { useToggleSet } from "../../composables/useToggleSet";
-import { STATUS_ICONS } from "../../utils/agentTypes";
-import {
-  formatDuration,
-  formatLiveDuration,
-  formatNumber,
-  formatTime,
-  truncateText,
-} from "../../utils/formatters";
+import { formatDuration, formatTime, truncateText } from "../../utils/formatters";
 import { formatArgsSummary, toolIcon } from "../../utils/toolCall";
 import Badge from "../Badge.vue";
 import EmptyState from "../EmptyState.vue";
@@ -47,13 +41,19 @@ function richEnabled(toolName: string): boolean {
   return props.isRichRenderingEnabled ? props.isRichRenderingEnabled(toolName) : true;
 }
 
-const trimmedMessages = computed(() => props.view.messages.filter((m) => m.trim()));
-const messagesText = computed(() => trimmedMessages.value.join(""));
-const isOutputLong = computed(() => messagesText.value.length > 500);
+// Output: prefer the parent tool's resultContent (canonical for Task subagents)
+// and fall back to the agent's own message stream when no tool result exists.
+const outputMessages = computed<string[]>(() => {
+  const trimmed = props.view.messages.filter((m) => m.trim());
+  if (props.view.resultContent?.trim()) {
+    return [props.view.resultContent];
+  }
+  return trimmed;
+});
+const hasOutput = computed(() => outputMessages.value.length > 0);
+const isOutputLong = computed(() => outputMessages.value.join("").length > 500);
 
 const headerTools = computed(() => (props.view.isMainAgent ? "Tools & Agents" : "Tool Calls"));
-
-const liveDur = computed(() => props.liveDurationMs ?? props.view.durationMs);
 
 function isResultLoaded(tc: TurnToolCall): boolean {
   return !!(tc.toolCallId && props.fullResults.has(tc.toolCallId));
@@ -87,63 +87,32 @@ function onToolClick(tc: TurnToolCall, idx: number) {
 <template>
   <div class="sap-sections">
     <!-- Description -->
-    <div v-if="view.description" class="sap-info-row">
-      <span class="sap-label">Description</span>
-      <span class="sap-value">{{ view.description }}</span>
+    <div v-if="view.description" class="sap-section">
+      <div class="sap-section-label">Description</div>
+      <p class="sap-description">{{ view.description }}</p>
     </div>
 
     <!-- Cross-turn source -->
-    <div v-if="view.isCrossTurnParent && view.sourceTurnIndex != null" class="sap-info-row">
-      <span class="sap-label">Source</span>
-      <span class="sap-value sap-italic">Launched in turn {{ view.sourceTurnIndex }}</span>
+    <div v-if="view.isCrossTurnParent && view.sourceTurnIndex != null" class="sap-section">
+      <div class="sap-section-label">Source</div>
+      <p class="sap-description sap-italic">Launched in turn {{ view.sourceTurnIndex }}</p>
     </div>
 
     <!-- Prompt -->
     <div v-if="view.prompt" class="sap-section">
-      <h4 class="sap-section-title">Prompt</h4>
+      <div class="sap-section-label">Prompt</div>
       <MarkdownContent :content="view.prompt" :render="renderMarkdown" max-height="200px" />
-    </div>
-
-    <!-- Info grid -->
-    <div class="sap-info-grid">
-      <div class="sap-info-item">
-        <span class="sap-label">Status</span>
-        <Badge
-          :variant="view.status === 'completed' ? 'success' : view.status === 'failed' ? 'danger' : 'warning'"
-        >
-          {{ STATUS_ICONS[view.status] }} {{ view.status }}
-        </Badge>
-      </div>
-      <div class="sap-info-item">
-        <span class="sap-label">Duration</span>
-        <span class="sap-value">{{ formatLiveDuration(liveDur ?? 0) || "—" }}</span>
-      </div>
-      <div class="sap-info-item">
-        <span class="sap-label">Tools</span>
-        <span class="sap-value">{{ view.toolCount }}</span>
-      </div>
-      <div v-if="view.model" class="sap-info-item">
-        <span class="sap-label">Model</span>
-        <Badge variant="done">{{ view.model }}</Badge>
-        <span v-if="view.modelSubstituted" class="sap-model-warn"
-          :title="`Requested ${view.requestedModel} but a different model ran`"
-        >⚠ substituted</span>
-      </div>
-      <div v-if="view.totalTokens" class="sap-info-item">
-        <span class="sap-label">Tokens</span>
-        <span class="sap-value">{{ formatNumber(view.totalTokens) }}</span>
-      </div>
     </div>
 
     <!-- Failure -->
     <div v-if="view.status === 'failed' && view.error" class="sap-section sap-failure detail-failure">
-      <h4 class="sap-section-title sap-failure-title">❌ Failure Reason</h4>
+      <div class="sap-section-label sap-failure-title">❌ Failure Reason</div>
       <pre class="sap-failure-body detail-failure-body">{{ view.error }}</pre>
     </div>
 
-    <!-- Output (assistant messages) -->
-    <div v-if="trimmedMessages.length > 0" class="sap-section">
-      <h4 class="sap-section-title">Output</h4>
+    <!-- Output (assistant messages or parent tool resultContent — they're the same for Task subagents) -->
+    <div v-if="hasOutput" class="sap-section">
+      <div class="sap-section-label">Output</div>
       <div
         class="sap-output detail-output"
         :class="{
@@ -152,7 +121,7 @@ function onToolClick(tc: TurnToolCall, idx: number) {
         }"
       >
         <MarkdownContent
-          v-for="(msg, idx) in trimmedMessages"
+          v-for="(msg, idx) in outputMessages"
           :key="`output-msg-${idx}`"
           class="sap-output-message"
           :content="msg"
@@ -162,24 +131,6 @@ function onToolClick(tc: TurnToolCall, idx: number) {
       <button v-if="isOutputLong" class="sap-output-toggle output-toggle" @click="outputExpanded.toggle(view.id)">
         {{ outputExpanded.has(view.id) ? "▲ Show less" : "▼ Show more" }}
       </button>
-    </div>
-
-    <!-- Result (parent tool result; not shown for main-agent views) -->
-    <div
-      v-if="!view.isMainAgent && view.toolCallRef && (view.toolCallRef.resultContent || isResultLoaded(view.toolCallRef))"
-      class="sap-section"
-    >
-      <h4 class="sap-section-title">Result</h4>
-      <div class="sap-output">
-        <ToolResultRenderer
-          :tc="view.toolCallRef"
-          :content="resultContentOf(view.toolCallRef)"
-          :rich-enabled="richEnabled(view.toolCallRef.toolName)"
-          :is-truncated="isResultTruncated(view.toolCallRef)"
-          :loading="isResultLoading(view.toolCallRef)"
-          @load-full="view.toolCallRef!.toolCallId && emit('load-full-result', view.toolCallRef!.toolCallId)"
-        />
-      </div>
     </div>
 
     <!-- Reasoning -->
@@ -281,16 +232,13 @@ function onToolClick(tc: TurnToolCall, idx: number) {
 
 <style scoped>
 .sap-sections { padding: 12px 16px; display: flex; flex-direction: column; gap: 12px; }
+.sap-section { padding: 0; margin: 0; }
+.sap-section-label { font-size: 0.6875rem; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
+.sap-description { font-size: 0.8125rem; color: var(--text-secondary); line-height: 1.5; margin: 0; }
+.sap-italic { font-style: italic; }
 .sap-label { font-size: 0.6875rem; font-weight: 500; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.04em; }
 .sap-value { font-size: 0.8125rem; color: var(--text-primary); }
-.sap-italic { font-style: italic; color: var(--text-secondary); }
 .sap-mono { font-family: "JetBrains Mono", monospace; font-size: 0.75rem; }
-.sap-info-row { display: flex; gap: 8px; align-items: baseline; }
-.sap-section { padding: 0; }
-.sap-section-title { font-size: 0.6875rem; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.04em; margin: 0 0 6px; }
-.sap-info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; padding: 10px 0; border-top: 1px solid var(--border-muted); border-bottom: 1px solid var(--border-muted); }
-.sap-info-item { display: flex; flex-direction: column; gap: 4px; }
-.sap-info-item .sap-model-warn { font-size: 0.6875rem; color: var(--warning-fg); }
 
 .sap-failure { background: var(--danger-subtle); border: 1px solid color-mix(in srgb, var(--danger-fg) 30%, transparent); border-radius: var(--radius-md); padding: 10px 12px; }
 .sap-failure-title { color: var(--danger-fg); }

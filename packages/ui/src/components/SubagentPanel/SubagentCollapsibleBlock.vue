@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { truncateText } from "../../utils/formatters";
 import MarkdownContent from "../MarkdownContent.vue";
 
 const props = defineProps<{
@@ -15,9 +14,6 @@ const props = defineProps<{
 const emit = defineEmits<{ "update:expanded": [value: boolean] }>();
 
 const isLong = computed(() => props.content.length > props.threshold);
-const displayContent = computed(() =>
-  isLong.value && !props.expanded ? truncateText(props.content, props.threshold) : props.content,
-);
 </script>
 
 <template>
@@ -41,7 +37,7 @@ const displayContent = computed(() =>
         { collapsed: isLong && !expanded },
       ]"
     >
-      <MarkdownContent :content="displayContent" :render="renderMarkdown" />
+      <MarkdownContent :content="content" :render="renderMarkdown" />
     </div>
   </div>
 </template>
