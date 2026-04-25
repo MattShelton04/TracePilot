@@ -93,7 +93,6 @@ const ALLOWLIST = new Set([
   // ── TypeScript helpers ──────────────────────────────────────────
   "apps/cli/src/lib/version-analyzer.ts",
   "packages/client/src/mock/index.ts",
-  "packages/ui/src/utils/syntaxHighlight.ts",
 
   // ── Test files (allow-listed; not a Phase 4 priority) ──────────
   "apps/desktop/src/__tests__/stores/worktrees.test.ts",
