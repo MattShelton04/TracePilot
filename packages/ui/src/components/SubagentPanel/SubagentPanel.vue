@@ -57,13 +57,11 @@ const headerDuration = computed(() => {
 
 // Local state — collapsibles in stream mode. Keyed by view.id so they reset on switch.
 const promptExpanded = ref(true);
-const resultExpanded = ref(false);
 
 watch(
   () => props.view.id,
   () => {
     promptExpanded.value = true;
-    resultExpanded.value = false;
   },
 );
 </script>
@@ -108,17 +106,6 @@ watch(
         <div class="sap-section-label sap-failure-title">❌ Failure Reason</div>
         <pre class="sap-failure-body">{{ view.error }}</pre>
       </div>
-
-      <SubagentCollapsibleBlock
-        v-if="view.resultContent"
-        label="Output"
-        :content="view.resultContent"
-        :threshold="400"
-        :expanded="resultExpanded"
-        variant="output"
-        :render-markdown="renderMarkdown"
-        @update:expanded="resultExpanded = $event"
-      />
 
       <SubagentActivityStream
         :activities="view.activities"

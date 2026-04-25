@@ -35,22 +35,27 @@ const emit = defineEmits<{
   "select-subagent": [toolCallId: string];
 }>();
 
-const expandedReasoning = ref<Set<string>>(new Set());
+const collapsedReasoning = ref<Set<string>>(new Set());
 const expandedToolDetails = useToggleSet<string>();
+
+function isReasoningExpanded(key: string): boolean {
+  // Default: reasoning blocks are expanded. Users can collapse individually.
+  return !collapsedReasoning.value.has(key);
+}
 
 watch(
   () => props.agentKey,
   () => {
-    expandedReasoning.value = new Set();
+    collapsedReasoning.value = new Set();
     expandedToolDetails.clear();
   },
 );
 
 function toggleReasoning(key: string) {
-  const next = new Set(expandedReasoning.value);
+  const next = new Set(collapsedReasoning.value);
   if (next.has(key)) next.delete(key);
   else next.add(key);
-  expandedReasoning.value = next;
+  collapsedReasoning.value = next;
 }
 
 function reasoningPreview(content: string): string {
@@ -89,20 +94,20 @@ function richEnabled(toolName: string): boolean {
         <div v-if="item.kind === 'reasoning'" class="sap-reasoning">
           <button
             class="sap-reasoning-toggle"
-            :aria-expanded="expandedReasoning.has(item.key)"
+            :aria-expanded="isReasoningExpanded(item.key)"
             aria-label="Toggle reasoning block"
             @click="toggleReasoning(item.key)"
           >
-            <span :class="['sap-chevron', { open: expandedReasoning.has(item.key) }]">▸</span>
+            <span :class="['sap-chevron', { open: isReasoningExpanded(item.key) }]">▸</span>
             <span class="sap-reasoning-icon">💭</span>
-            <span class="sap-reasoning-label">Thinking…</span>
+            <span class="sap-reasoning-label">Thinking</span>
             <span
-              v-if="!expandedReasoning.has(item.key)"
+              v-if="!isReasoningExpanded(item.key)"
               class="sap-reasoning-preview"
             >{{ reasoningPreview(item.content) }}</span>
           </button>
           <div
-            v-if="expandedReasoning.has(item.key)"
+            v-if="isReasoningExpanded(item.key)"
             class="sap-reasoning-content"
           >{{ item.content }}</div>
         </div>

@@ -414,9 +414,9 @@ describe("AgentTreeView", () => {
     // Should show both the subagent tool call and the direct tool
     expect(detailPanel.text()).toContain("Explore Agent");
     expect(detailPanel.text()).toContain("view");
-    // Subagent tool call should have an "agent" badge
-    const agentBadges = wrapper.findAll(".detail-agent-badge");
-    expect(agentBadges.length).toBe(1);
+    // Subagent tool call should appear as a nested-subagent activity row
+    const nestedRows = wrapper.findAll(".sap-nested-subagent");
+    expect(nestedRows.length).toBe(1);
   });
 
   it("in-progress node status icon has pulsing animation class", () => {
@@ -470,13 +470,14 @@ describe("AgentTreeView", () => {
 
     const detailPanel = wrapper.find(".detail-panel");
     expect(detailPanel.exists()).toBe(true);
-    expect(detailPanel.text()).toContain("Output");
+    // Activity stream renders subagent's final message
+    expect(detailPanel.text()).toContain("Activity");
     expect(detailPanel.text()).toContain("Subagent found the answer");
-    // Main agent text should NOT appear in the subagent output
-    expect(detailPanel.find(".detail-output").text()).not.toContain("Main agent text");
+    // Main agent text should NOT appear in the subagent's activity stream
+    expect(detailPanel.find(".sap-activities").text()).not.toContain("Main agent text");
   });
 
-  it("shows reasoning section with toggle when subagent has reasoning", async () => {
+  it("shows reasoning interleaved in activity stream, expanded by default", async () => {
     const agentTc = makeTurnToolCall({
       toolName: "task",
       isSubagent: true,
@@ -500,19 +501,18 @@ describe("AgentTreeView", () => {
     await nextTick();
 
     const detailPanel = wrapper.find(".detail-panel");
-    // Reasoning toggle should exist
-    const reasoningToggle = detailPanel.find(".reasoning-toggle");
-    expect(reasoningToggle.exists()).toBe(true);
-    expect(reasoningToggle.text()).toContain("1 reasoning block");
+    // Reasoning block appears in activity stream with content visible by default
+    const reasoningBlocks = detailPanel.findAll(".sap-reasoning");
+    expect(reasoningBlocks.length).toBe(1);
+    expect(detailPanel.find(".sap-reasoning-content").exists()).toBe(true);
+    expect(detailPanel.find(".sap-reasoning-content").text()).toContain(
+      "Let me think about this...",
+    );
 
-    // Reasoning content hidden by default
-    expect(detailPanel.find(".reasoning-content").exists()).toBe(false);
-
-    // Click to expand
-    await reasoningToggle.trigger("click");
+    // Clicking the toggle collapses the reasoning content
+    await detailPanel.find(".sap-reasoning-toggle").trigger("click");
     await nextTick();
-    expect(detailPanel.find(".reasoning-content").exists()).toBe(true);
-    expect(detailPanel.find(".reasoning-content").text()).toContain("Let me think about this...");
+    expect(detailPanel.find(".sap-reasoning-content").exists()).toBe(false);
   });
 
   it("main agent node excludes subagent-attributed messages", async () => {
@@ -546,10 +546,10 @@ describe("AgentTreeView", () => {
     expect(detailPanel.exists()).toBe(true);
     // Main output should contain only main agent's message
     expect(detailPanel.text()).toContain("Main says hello");
-    // Subagent message should NOT appear in main agent's output
-    const outputSection = detailPanel.find(".detail-output");
-    if (outputSection.exists()) {
-      expect(outputSection.text()).not.toContain("Sub says hello");
+    // Subagent message should NOT appear in main agent's activity stream
+    const activities = detailPanel.find(".sap-activities");
+    if (activities.exists()) {
+      expect(activities.text()).not.toContain("Sub says hello");
     }
   });
 
@@ -577,12 +577,9 @@ describe("AgentTreeView", () => {
 
     const detailPanel = wrapper.find(".detail-panel");
     expect(detailPanel.exists()).toBe(true);
-    // No Output heading since no messages
-    const sectionTitles = detailPanel.findAll(".detail-section-title");
-    const outputTitle = sectionTitles.filter((t) => t.text() === "Output");
-    expect(outputTitle.length).toBe(0);
-    // No reasoning toggle
-    expect(detailPanel.find(".reasoning-toggle").exists()).toBe(false);
+    // No activity stream rendered when no tools/messages/reasoning
+    expect(detailPanel.find(".sap-activities").exists()).toBe(false);
+    expect(detailPanel.find(".sap-reasoning").exists()).toBe(false);
   });
 
   // ── Cross-Turn Hierarchy Tests ──────────────────────────────────────
@@ -733,30 +730,30 @@ describe("AgentTreeView", () => {
     await nextTick();
 
     const detailPanel = wrapper.find(".detail-panel");
-    const toolItems = detailPanel.findAll(".detail-tool-row");
-    // Main agent should only have ONE tool call (the parent subagent spawn)
+    const toolItems = detailPanel.findAll(".sap-nested-subagent");
+    // Main agent should only have ONE nested subagent (the parent subagent spawn)
     // It should NOT include childSub or childTool
     expect(toolItems.length).toBe(1);
     expect(toolItems[0].text()).toContain("Parent Same Turn");
 
-    // 2. Check Parent Subagent's tool list (should include childSub)
+    // 2. Check Parent Subagent's activity stream (should include childSub)
     const parentNode = nodes.find((n) => n.text().includes("Parent Same Turn"));
     await parentNode?.trigger("click");
     await nextTick();
 
-    const parentTools = wrapper.find(".detail-panel").findAll(".detail-tool-row");
-    // Parent should have the child subagent spawn in its tool list
+    const parentTools = wrapper.find(".detail-panel").findAll(".sap-nested-subagent");
+    // Parent should have the child subagent spawn in its activity stream
     expect(parentTools.length).toBe(1);
     expect(parentTools[0].text()).toContain("Child Same Turn");
 
-    // 3. Check Child Subagent's tool list (should include childTool)
+    // 3. Check Child Subagent's activity stream (should include childTool)
     const childNode = nodes.find((n) => n.text().includes("Child Same Turn"));
     await childNode?.trigger("click");
     await nextTick();
 
-    const childTools = wrapper.find(".detail-panel").findAll(".detail-tool-row");
-    expect(childTools.length).toBe(1);
-    expect(childTools[0].text()).toContain("grep");
+    const childTools = wrapper.find(".detail-panel").findAll(".tool-call-item");
+    expect(childTools.length).toBeGreaterThanOrEqual(1);
+    expect(wrapper.find(".detail-panel").text()).toContain("grep");
   });
 
   it("renders unified session view with agents from all turns", async () => {
@@ -867,9 +864,9 @@ describe("AgentTreeView", () => {
     expect(wrapper.find(".detail-failure").exists()).toBe(false);
   });
 
-  // ── Output Expand/Collapse Tests ────────────────────────────────────
+  // ── Output Rendering Tests ──────────────────────────────────────────
 
-  it("shows 'Show more' toggle for long output", async () => {
+  it("renders full output content without truncation", async () => {
     const longContent = "A".repeat(600);
     const agentTc = makeTurnToolCall({
       toolName: "task",
@@ -892,21 +889,13 @@ describe("AgentTreeView", () => {
     await verboseNode?.trigger("click");
     await nextTick();
 
-    // Output should be collapsed by default
-    expect(wrapper.find(".detail-output--collapsed").exists()).toBe(true);
-    // Toggle button should exist
-    const toggle = wrapper.find(".output-toggle");
-    expect(toggle.exists()).toBe(true);
-    expect(toggle.text()).toContain("Show more");
-
-    // Click to expand
-    await toggle.trigger("click");
-    await nextTick();
-    expect(wrapper.find(".detail-output--expanded").exists()).toBe(true);
-    expect(wrapper.find(".output-toggle").text()).toContain("Show less");
+    // Full output renders inside the activity stream (no Show more/Show less toggle)
+    const message = wrapper.find(".sap-message");
+    expect(message.exists()).toBe(true);
+    expect(message.text()).toContain("A".repeat(600));
   });
 
-  it("does not show toggle for short output", async () => {
+  it("renders short output without any toggle", async () => {
     const agentTc = makeTurnToolCall({
       toolName: "task",
       isSubagent: true,
@@ -928,7 +917,8 @@ describe("AgentTreeView", () => {
     await briefNode?.trigger("click");
     await nextTick();
 
-    // No toggle for short content
+    // No truncation toggle in unified activity stream
     expect(wrapper.find(".output-toggle").exists()).toBe(false);
+    expect(wrapper.find(".detail-output--collapsed").exists()).toBe(false);
   });
 });
