@@ -47,7 +47,7 @@ const displayContent = computed(() =>
 </template>
 
 <style scoped>
-.sap-section { margin-bottom: 16px; }
+.sap-section { margin: 0; }
 .sap-section-label { font-size: 0.6875rem; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
 .sap-section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
 .sap-toggle { display: inline-flex; align-items: center; gap: 4px; border: none; background: transparent; color: var(--accent-fg); font-size: 0.6875rem; cursor: pointer; padding: 2px 6px; border-radius: var(--radius-sm); transition: background var(--transition-fast); }

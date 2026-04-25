@@ -161,7 +161,7 @@ function richEnabled(toolName: string): boolean {
 </template>
 
 <style scoped>
-.sap-section { margin-bottom: 16px; }
+.sap-section { margin: 0; }
 .sap-divider { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
 .sap-divider::after { content: ""; flex: 1; height: 1px; background: var(--border-muted); }
 .sap-divider-label { font-size: 0.6875rem; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }

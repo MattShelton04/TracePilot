@@ -157,8 +157,8 @@ watch(
 </template>
 
 <style scoped>
-.sap-stream-body { display: flex; flex-direction: column; }
-.sap-section { margin-bottom: 16px; }
+.sap-stream-body { padding: 12px 16px; display: flex; flex-direction: column; gap: 12px; }
+.sap-section { margin: 0; }
 .sap-section-label { font-size: 0.6875rem; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
 .sap-description { font-size: 0.8125rem; color: var(--text-secondary); line-height: 1.5; margin: 0; }
 </style>

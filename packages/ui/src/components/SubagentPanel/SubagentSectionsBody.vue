@@ -285,10 +285,10 @@ function onToolClick(tc: TurnToolCall, idx: number) {
 .sap-value { font-size: 0.8125rem; color: var(--text-primary); }
 .sap-italic { font-style: italic; color: var(--text-secondary); }
 .sap-mono { font-family: "JetBrains Mono", monospace; font-size: 0.75rem; }
-.sap-info-row { display: flex; gap: 8px; align-items: baseline; padding: 4px 0; }
-.sap-section { padding: 6px 0; }
-.sap-section-title { font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; margin: 0 0 6px; }
-.sap-info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; padding: 8px 0; border-top: 1px solid var(--border-muted); border-bottom: 1px solid var(--border-muted); }
+.sap-info-row { display: flex; gap: 8px; align-items: baseline; }
+.sap-section { padding: 0; }
+.sap-section-title { font-size: 0.6875rem; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.04em; margin: 0 0 6px; }
+.sap-info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; padding: 10px 0; border-top: 1px solid var(--border-muted); border-bottom: 1px solid var(--border-muted); }
 .sap-info-item { display: flex; flex-direction: column; gap: 4px; }
 .sap-info-item .sap-model-warn { font-size: 0.6875rem; color: var(--warning-fg); }
 
@@ -309,7 +309,7 @@ function onToolClick(tc: TurnToolCall, idx: number) {
 .sap-reasoning-content { padding: 8px 12px; background: var(--canvas-inset); border-radius: var(--radius-md); border: 1px solid var(--border-muted); font-size: 0.8125rem; color: var(--text-secondary); line-height: 1.55; }
 .sap-reasoning-divider { border: none; border-top: 1px dashed var(--border-muted); margin: 10px 0; }
 
-.sap-tools { padding-top: 6px; }
+.sap-tools { padding: 0; }
 .sap-tools-heading { font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; margin: 0 0 8px; display: flex; align-items: center; gap: 6px; }
 .sap-tools-count { color: var(--text-tertiary); font-weight: 400; }
 .sap-tools-list { display: flex; flex-direction: column; gap: 4px; }
