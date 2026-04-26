@@ -44,16 +44,6 @@ const uniqueModelCount = computed(() => new Set(store.agents.map((a) => a.model)
 const premiumAgentCount = computed(
   () => store.agents.filter((a: AgentDefinition) => PREMIUM_MODELS.includes(a.model)).length,
 );
-// Sum of premium-request weight across all agents — informational stat that
-// reflects "cost shape" without nudging towards more expensive models.
-const totalPremiumWeight = computed(() => {
-  let total = 0;
-  for (const agent of store.agents) {
-    const def = getModelsByTier("premium").find((m) => m.id === agent.model);
-    if (def) total += def.premiumRequests;
-  }
-  return Number(total.toFixed(2));
-});
 </script>
 
 <template>
@@ -76,12 +66,6 @@ const totalPremiumWeight = computed(() => {
         :value="`${premiumAgentCount} / ${store.agents.length}`"
         label="On Premium Models"
         color="warning"
-        label-style="uppercase"
-      />
-      <StatCard
-        :value="totalPremiumWeight"
-        label="Total Premium Weight"
-        color="success"
         label-style="uppercase"
       />
     </div>

@@ -296,7 +296,10 @@
 }
 
 .batch-model-select {
-  min-width: 180px;
+  flex: 0 0 auto;
+  width: 200px;
+  max-width: 220px;
+  min-width: 0;
   font-size: 0.8125rem;
 }
 
