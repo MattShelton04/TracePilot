@@ -86,7 +86,9 @@ pub mod testing;
 pub use error::{Result, TracePilotError};
 pub use ids::{PresetId, SessionId, SkillName};
 pub use models::{ConversationTurn, SessionEvent, SessionSummary, ShutdownMetrics, TurnToolCall};
-pub use session::discovery::{discover_sessions, resolve_session_path};
+pub use session::discovery::{
+    discover_sessions, resolve_session_path, resolve_session_path_direct,
+};
 pub use summary::{SessionLoadResult, load_session_summary, load_session_summary_with_events};
 pub use turns::{TurnStats, reconstruct_turns, turn_stats};
 

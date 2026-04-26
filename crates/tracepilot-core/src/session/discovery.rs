@@ -154,8 +154,6 @@ pub fn resolve_session_path(session_id_prefix: &str) -> Result<PathBuf> {
     resolve_session_path_in(session_id_prefix, &default_session_state_dir())
 }
 
-/// Resolve a session ID (full or partial prefix) to its directory path,
-/// searching within the given base directory.
 /// Resolve a session path directly from a full session UUID without scanning.
 ///
 /// Session IDs in the IPC layer are always full UUIDs (not prefixes), so we
@@ -175,6 +173,8 @@ pub fn resolve_session_path_direct(session_id: &str, base_dir: &Path) -> Result<
     Ok(path)
 }
 
+/// Resolve a session ID (full or partial prefix) to its directory path,
+/// searching within the given base directory.
 pub fn resolve_session_path_in(session_id_prefix: &str, base_dir: &Path) -> Result<PathBuf> {
     let sessions = discover_sessions(base_dir)?;
     let matches: Vec<_> = sessions
