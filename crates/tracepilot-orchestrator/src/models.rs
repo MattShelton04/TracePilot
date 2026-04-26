@@ -58,6 +58,15 @@ pub const MODEL_REGISTRY: &[ModelMetadata] = &[
         premium_requests: 7.5,
     },
     ModelMetadata {
+        id: "gpt-5.5",
+        name: "GPT-5.5",
+        tier: "premium",
+        input_per_m: 5.0,
+        cached_input_per_m: 0.5,
+        output_per_m: 30.0,
+        premium_requests: 7.5,
+    },
+    ModelMetadata {
         id: "claude-opus-4.6",
         name: "Claude Opus 4.6",
         tier: "premium",
@@ -242,7 +251,7 @@ mod tests {
         for model in MODEL_REGISTRY {
             assert!(ids.insert(model.id), "duplicate model id: {}", model.id);
         }
-        assert_eq!(MODEL_REGISTRY.len(), 20);
+        assert_eq!(MODEL_REGISTRY.len(), 21);
     }
 
     #[test]
