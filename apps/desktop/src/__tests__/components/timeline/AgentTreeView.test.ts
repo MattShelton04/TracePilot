@@ -833,8 +833,8 @@ describe("AgentTreeView", () => {
     // Should show status as failed
     expect(detailPanel.text().toLowerCase()).toContain("failed");
     // Should show failure reason section
-    expect(detailPanel.find(".detail-failure").exists()).toBe(true);
-    expect(detailPanel.find(".detail-failure-body").text()).toContain("connection timeout");
+    expect(detailPanel.find(".sap-failure").exists()).toBe(true);
+    expect(detailPanel.find(".sap-failure-body").text()).toContain("connection timeout");
   });
 
   it("does not show failure reason for completed subagents", async () => {
@@ -861,7 +861,7 @@ describe("AgentTreeView", () => {
     await okNode?.trigger("click");
     await nextTick();
 
-    expect(wrapper.find(".detail-failure").exists()).toBe(false);
+    expect(wrapper.find(".sap-failure").exists()).toBe(false);
   });
 
   // ── Output Rendering Tests ──────────────────────────────────────────
@@ -890,7 +890,7 @@ describe("AgentTreeView", () => {
     await nextTick();
 
     // Full output renders inside the standalone Output section (no Show more/Show less toggle)
-    const output = wrapper.find(".sap-output");
+    const output = wrapper.find(".sap-block");
     expect(output.exists()).toBe(true);
     expect(output.text()).toContain("A".repeat(600));
   });

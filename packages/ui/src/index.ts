@@ -60,21 +60,15 @@ export type {
   SubagentActivityInput,
   SubagentActivityItem,
   SubagentActivityPillType,
-  SubagentPanelDisplay,
   SubagentStatus,
   SubagentType,
   SubagentView,
 } from "./components/SubagentPanel";
-// ── Subagent panel (shared, dispatcher + body components) ─────────
+// ── Subagent panel (shared, single body) ─────────
 export {
   buildSubagentActivities,
-  SubagentActivityStream,
-  SubagentCollapsibleBlock,
-  SubagentModelWarning,
   SubagentPanel,
-  SubagentPanelHeader,
   SubagentPanelNav,
-  SubagentSectionsBody,
 } from "./components/SubagentPanel";
 export type { TabNavItem } from "./components/TabNav.vue";
 export { default as TabNav } from "./components/TabNav.vue";

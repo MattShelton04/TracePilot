@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Host wrapper: inline detail panel skin around the shared <SubagentPanel display="sections" />.
+// Host wrapper: inline detail panel skin around the shared <SubagentPanel />.
 // Reads the agent-tree context for selection, prefs, and tool-result loader.
 import { SubagentPanel } from "@tracepilot/ui";
 import { computed } from "vue";
@@ -29,7 +29,6 @@ function onSelectSubagent(toolCallId: string) {
     <div v-if="view" class="detail-panel">
       <SubagentPanel
         :view="view"
-        display="sections"
         :live-duration-ms="liveMs"
         :render-markdown="renderMd"
         :is-rich-rendering-enabled="isRich"

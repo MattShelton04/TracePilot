@@ -1,9 +1,12 @@
 # Subagent Panel — Design & Consolidation
 
-> Status: **Proposal / In progress** — supersedes the duplicated panels at
+> Status: **Implemented (single unified body)** — supersedes the duplicated panels at
 > `apps/desktop/src/components/conversation/SubagentPanel.vue` and
 > `apps/desktop/src/components/agentTree/AgentTreeDetailPanel.vue`.
-> Authored as part of the Wave‑X UI consolidation pass.
+> The original plan called for two display modes (`stream` / `sections`); after
+> implementation review they had converged so closely that the dispatcher and the
+> second body component were collapsed away. There is now **one** body — both hosts
+> render identical content. The host wrappers above are now thin chrome only.
 
 ## 1. Motivation
 
@@ -174,68 +177,61 @@ The conversation adapter passes `SubagentFullData` fields directly. The agent-tr
 
 ```
 packages/ui/src/components/SubagentPanel/
-  SubagentPanel.vue              # public dispatcher; picks body by `display` prop
-  SubagentStreamBody.vue         # stream-mode body
-  SubagentSectionsBody.vue       # sections-mode body
-  SubagentPanelHeader.vue        # icon + name + meta + close
-  SubagentPanelMetaGrid.vue      # status / duration / tokens / model / tools (sections only)
-  SubagentPanelModelWarning.vue
-  SubagentPanelCollapsibleBlock.vue
-  SubagentPanelActivityStream.vue   # stream-mode rows; pure leaf
-  SubagentPanelToolList.vue         # sections-mode expandable tools list; pure leaf
-  types.ts
+  SubagentPanel.vue              # the unified body (single template; no display dispatcher)
+  SubagentPanelHeader.vue        # icon + name + meta + close (internal)
+  SubagentModelWarning.vue       # internal
+  SubagentCollapsibleBlock.vue   # internal — used for Prompt + Output
+  SubagentActivityStream.vue     # internal — chronological reasoning ⇢ tools ⇢ pills ⇢ messages
+  SubagentPanelNav.vue           # public — prev/next footer (used by slide-out only)
+  activities.ts                  # buildSubagentActivities (public)
+  types.ts                       # SubagentView, SubagentActivityItem, etc.
   index.ts
 ```
 
-A **dispatcher pattern** keeps mode-specific logic out of leaf components: `SubagentPanel.vue` selects between `SubagentStreamBody` and `SubagentSectionsBody`. Shared primitives (`Header`, `ModelWarning`, `CollapsibleBlock`) are imported by both bodies.
+There is no display-mode dispatcher and no second body component. The original
+`stream`/`sections` split was removed after the two modes converged structurally —
+keeping them around invited drift (sections kept losing model warnings, stream kept
+losing the cross-turn source row, etc.). A single body cannot drift.
 
 ```vue
 <SubagentPanel
-  :subagent="view"
-  :display="'stream' | 'sections'"
+  :view="view"
+  :live-duration-ms="liveMs"
   :render-markdown="prefs.renderMd"
+  :is-rich-rendering-enabled="(toolName) => prefs.isRichRenderingEnabled(toolName)"
   :full-results="loader.fullResults"
   :loading-results="loader.loadingResults"
   :failed-results="loader.failedResults"
-  :is-rich-rendering-enabled="(toolName) => prefs.isRichRenderingEnabled(toolName)"
   @close="..."
   @load-full-result="loader.loadFullResult($event)"
   @retry-full-result="loader.retryFullResult($event)"
   @select-subagent="hostSelectSubagent($event)"
->
-  <template #nav> <!-- prev/next, inline status, etc. --> </template>
-  <template #footer> <!-- e.g. open-in-new-window --> </template>
-</SubagentPanel>
+/>
 ```
 
-> No `usePreferencesStore` import inside `packages/ui` — the conversation host injects `renderMarkdown` and `isRichRenderingEnabled` via props.
+> No `usePreferencesStore` import inside `packages/ui` — hosts inject `renderMarkdown` and `isRichRenderingEnabled` via props.
 >
 > `@select-subagent` carries the nested-subagent `toolCallId`. Hosts decide what to do — conversation host calls `panel.selectSubagent(id)`; agent-tree host calls `ctx.selectNode(id)`. The shared component never navigates.
 
-### 4.1 Display modes
+### 4.1 Body layout (single mode)
 
-| Mode | What renders |
-|---|---|
-| `stream` *(conversation default)* | Header → optional model-warning → Description (if any) → Prompt collapsible → Output collapsible (`resultContent`) → Activity stream (chronological) |
-| `sections` *(agent-tree default)* | Header → optional model-warning → Description → cross-turn-source row (if any) → Prompt block → meta grid → Failure pre (if failed) → Output (concatenated `messages`) → Result (`resultContent` via `ToolResultRenderer`) → Reasoning toggle (concatenated `reasoning[]`) → Tool & Agents list with per-row expansion |
+Header → optional model-warning → Description (intent-summary or description) → cross-turn Source row (when applicable) → Prompt collapsible → Failure block (when failed) → Output collapsible (joined messages or `resultContent`) → chronological Activity stream (reasoning / tools / pills / nested subagents).
 
-The two modes share **all** sub-components; only the section ordering and which pieces render differs. We deliberately avoid a `both` mode — the two presentations target different mental models (timeline vs report) and would be confusing if combined.
+Both hosts render exactly this. Per-row expansion within the activity stream keys on a stable activity-item `key`, not a display index, so streaming inserts do not smear expansion state.
 
 ### 4.2 Container chrome — host responsibility
 
 `<SubagentPanel>` is **content only**: no `position: fixed`, no transition, no width clamps. Container chrome lives in two thin host wrappers:
 
-- `apps/desktop/src/components/conversation/ConversationSubagentPanel.vue`
-  - Provides slide-out container (`<Transition name="cv-panel">`, fixed positioning, top offset, prev/next nav slot, Esc/←/→ shortcuts via `useShortcut`).
-  - Builds `SubagentView` from `SubagentFullData`.
+- `apps/desktop/src/components/conversation/SubagentPanel.vue`
+  - Provides slide-out container (`<Transition name="cv-panel">`, fixed positioning, top offset, prev/next nav slot, Esc/←/→ shortcuts).
+  - Builds `SubagentView` from `SubagentFullData` via `fromSubagentFullData`.
   - Owns its own `useToolResultLoader`.
-  - Passes `display="stream"`.
 
-- `apps/desktop/src/components/agentTree/AgentTreeSubagentPanel.vue`
+- `apps/desktop/src/components/agentTree/AgentTreeDetailPanel.vue`
   - Inline `<Transition name="detail-panel">` matching today's behaviour.
   - Reads `useAgentTreeContext()` for the selected `AgentNode` and the existing tool-result loader.
-  - Builds `SubagentView` from `AgentNode`.
-  - Passes `display="sections"`.
+  - Builds `SubagentView` from `AgentNode` via `fromAgentNode`.
 
 This split keeps `<SubagentPanel>` framework-only (no `useShortcut`, no fixed positioning, no app-store coupling) so it remains a pure `packages/ui` citizen.
 

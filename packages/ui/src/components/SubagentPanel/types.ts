@@ -44,7 +44,6 @@ export interface SubagentView {
   completedAt?: string;
   totalTokens?: number;
   totalToolCalls?: number;
-  toolCount: number;
 
   turnIndex?: number;
   sourceTurnIndex?: number;
@@ -52,15 +51,11 @@ export interface SubagentView {
   parallelGroupLabel?: string;
 
   prompt?: string;
-  resultContent?: string;
+  /** Joined final messages (full content) shown in the Output section. */
+  output?: string;
   error?: string;
-  messages: string[];
-  reasoning: string[];
-  childTools: TurnToolCall[];
   activities: SubagentActivityItem[];
 
   toolCallRef?: TurnToolCall;
   isMainAgent: boolean;
 }
-
-export type SubagentPanelDisplay = "stream" | "sections";

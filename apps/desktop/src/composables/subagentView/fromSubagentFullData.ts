@@ -31,6 +31,12 @@ export function fromSubagentFullData(sa: SubagentFullData): SubagentView {
     childReasoning,
   });
 
+  const joined = sa.childMessages
+    .map((m) => m.content)
+    .filter((c) => c && c.trim().length > 0)
+    .join("\n\n");
+  const output = joined || tc.resultContent || undefined;
+
   return {
     id,
     type,
@@ -50,17 +56,13 @@ export function fromSubagentFullData(sa: SubagentFullData): SubagentView {
     completedAt: tc.completedAt ?? undefined,
     totalTokens: tc.totalTokens ?? undefined,
     totalToolCalls: tc.totalToolCalls ?? undefined,
-    toolCount: sa.childTools.length,
     turnIndex: sa.turnIndex,
     sourceTurnIndex: undefined,
     isCrossTurnParent: false,
     parallelGroupLabel: undefined,
     prompt: toolArgString(args, "prompt") || undefined,
-    resultContent: tc.resultContent || undefined,
+    output,
     error: tc.error || undefined,
-    messages: sa.childMessages.map((m) => m.content),
-    reasoning: sa.childReasoning.map((r) => r.content),
-    childTools: sa.childTools,
     activities,
     toolCallRef: tc,
     isMainAgent: false,

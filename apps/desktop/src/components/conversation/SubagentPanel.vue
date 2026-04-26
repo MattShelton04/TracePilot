@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Host wrapper: slide-out chrome around the shared <SubagentPanel display="stream" />.
+// Host wrapper: slide-out chrome around the shared <SubagentPanel />.
 // Owns the slide transition, the scrollable container, the prev/next nav footer
 // and the per-session tool-result loader.
 import { SubagentPanel, SubagentPanelNav } from "@tracepilot/ui";
@@ -58,7 +58,6 @@ watch(
       <div ref="scrollContainer" class="cv-panel-scroll">
         <SubagentPanel
           :view="view"
-          display="stream"
           :render-markdown="renderMd"
           :is-rich-rendering-enabled="isRich"
           :full-results="fullResults"
