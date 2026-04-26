@@ -19,61 +19,36 @@ export interface SubagentActivityInput {
  * sorted by event index when available. Final assistant messages are NOT
  * included here — hosts render them in a separate "Output" section.
  *
- * Sort key strategy:
- *  - Items with `eventIndex` use that as their primary sort key (chronological).
- *  - Items missing `eventIndex` fall back to a positional zip (reasoning[i] just
- *    before tool[i]) so older sessions still produce sensible output.
+ * Items with `eventIndex` use that as their primary sort key. Missing indices
+ * fall back to MAX_SAFE_INTEGER so they sort to the end in input order
+ * (reasoning before tools), which is the safe default for legacy data.
  */
 export function buildSubagentActivities(input: SubagentActivityInput): SubagentActivityItem[] {
   const items: SubagentActivityItem[] = [];
 
-  const reasoningHasIndex = input.childReasoning.some((r) => typeof r.eventIndex === "number");
-  const toolsHaveIndex = input.childTools.some((t) => typeof t.eventIndex === "number");
-  const useEventIndex = reasoningHasIndex && toolsHaveIndex;
-
-  // Stable ordinal counter to preserve original order when event indices collide.
+  // Stable ordinal counter to preserve input order when event indices collide
+  // (or are absent). Reasoning ordinals come first so a reasoning event tying
+  // an event index with a tool call sorts just before that tool call.
   let ordinal = 0;
   const nextOrdinal = () => ordinal++;
 
-  if (useEventIndex) {
-    for (let i = 0; i < input.childReasoning.length; i++) {
-      const r = input.childReasoning[i];
-      const sortKey = (r.eventIndex ?? Number.MAX_SAFE_INTEGER) + nextOrdinal() * 1e-6;
-      items.push({
-        kind: "reasoning",
-        key: `reasoning:${input.parentId}:${i}`,
-        sortKey,
-        content: r.content,
-        agentName: r.agentDisplayName,
-      });
-    }
+  for (let i = 0; i < input.childReasoning.length; i++) {
+    const r = input.childReasoning[i];
+    const sortKey = (r.eventIndex ?? Number.MAX_SAFE_INTEGER) + nextOrdinal() * 1e-6;
+    items.push({
+      kind: "reasoning",
+      key: `reasoning:${input.parentId}:${i}`,
+      sortKey,
+      content: r.content,
+      agentName: r.agentDisplayName,
+    });
+  }
 
-    for (let i = 0; i < input.childTools.length; i++) {
-      const tc = input.childTools[i];
-      const idKey = tc.toolCallId ?? `t:${input.parentId}:${i}`;
-      const sortKey = (tc.eventIndex ?? Number.MAX_SAFE_INTEGER) + nextOrdinal() * 1e-6;
-      pushToolActivity(items, tc, idKey, sortKey);
-    }
-  } else {
-    // Positional zip fallback for sessions without event indices.
-    const maxPaired = Math.max(input.childReasoning.length, input.childTools.length);
-    for (let i = 0; i < maxPaired; i++) {
-      const r = input.childReasoning[i];
-      if (r) {
-        items.push({
-          kind: "reasoning",
-          key: `reasoning:${input.parentId}:${i}`,
-          sortKey: i,
-          content: r.content,
-          agentName: r.agentDisplayName,
-        });
-      }
-      const tc = input.childTools[i];
-      if (tc) {
-        const idKey = tc.toolCallId ?? `t:${input.parentId}:${i}`;
-        pushToolActivity(items, tc, idKey, i + 0.5);
-      }
-    }
+  for (let i = 0; i < input.childTools.length; i++) {
+    const tc = input.childTools[i];
+    const idKey = tc.toolCallId ?? `t:${input.parentId}:${i}`;
+    const sortKey = (tc.eventIndex ?? Number.MAX_SAFE_INTEGER) + nextOrdinal() * 1e-6;
+    pushToolActivity(items, tc, idKey, sortKey);
   }
 
   items.sort((a, b) => a.sortKey - b.sortKey);

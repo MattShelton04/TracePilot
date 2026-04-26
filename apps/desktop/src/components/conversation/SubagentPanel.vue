@@ -24,6 +24,7 @@ const emit = defineEmits<{
   close: [];
   prev: [];
   next: [];
+  "select-subagent": [toolCallId: string];
 }>();
 
 const preferences = usePreferencesStore();
@@ -66,6 +67,7 @@ watch(
           @close="emit('close')"
           @load-full-result="loadFullResult"
           @retry-full-result="retryFullResult"
+          @select-subagent="emit('select-subagent', $event)"
         />
       </div>
 
