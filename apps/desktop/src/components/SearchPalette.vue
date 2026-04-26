@@ -200,7 +200,7 @@ onUnmounted(() => {
               aria-label="Clear search"
               @click="query = ''"
             >
-              ✕
+              <span aria-hidden="true">✕</span>
             </button>
             <kbd class="kbd">ESC</kbd>
           </div>
