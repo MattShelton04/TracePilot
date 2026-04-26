@@ -386,7 +386,7 @@ watch(isSessionActive, (active) => {
   margin-bottom: 24px;
   position: sticky;
   top: 0;
-  z-index: 20;
+  z-index: 60;
   background: rgba(24, 24, 27, 0.7);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
