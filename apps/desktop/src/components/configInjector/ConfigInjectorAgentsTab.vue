@@ -2,7 +2,7 @@
 import type { AgentDefinition } from "@tracepilot/types";
 import { getAllModelIds, getModelsByTier, getModelTier, getTierLabel } from "@tracepilot/types";
 import { EmptyState, StatCard, truncateText } from "@tracepilot/ui";
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { TOOLS_COLLAPSE_LIMIT, useConfigInjectorContext } from "@/composables/useConfigInjector";
 import { agentMeta } from "./agentMeta";
 
@@ -15,9 +15,8 @@ const {
   autoSavedAgent,
   agentModels,
   onAgentModelSelect,
-  upgradeAgent,
-  batchUpgrading,
-  upgradeAllToOpus,
+  batchApplying,
+  setAllAgentsToModel,
   resetAllDefaults,
 } = ctx;
 
@@ -25,6 +24,13 @@ const ALL_MODELS = getAllModelIds();
 const PREMIUM_MODELS = getModelsByTier("premium").map((m) => m.id);
 const STANDARD_MODELS = getModelsByTier("standard").map((m) => m.id);
 const FAST_MODELS = getModelsByTier("fast").map((m) => m.id);
+
+// Default the batch picker to GPT-5.4 — neutral, non-"premium-upgrade"
+// framing. Users can pick any other model from the dropdown.
+const DEFAULT_BATCH_MODEL = "gpt-5.4";
+const batchTargetModel = ref<string>(
+  ALL_MODELS.includes(DEFAULT_BATCH_MODEL) ? DEFAULT_BATCH_MODEL : (ALL_MODELS[0] ?? ""),
+);
 
 function modelTier(model: string): "premium" | "standard" | "fast" {
   return getModelTier(model);
@@ -38,6 +44,16 @@ const uniqueModelCount = computed(() => new Set(store.agents.map((a) => a.model)
 const premiumAgentCount = computed(
   () => store.agents.filter((a: AgentDefinition) => PREMIUM_MODELS.includes(a.model)).length,
 );
+// Sum of premium-request weight across all agents — informational stat that
+// reflects "cost shape" without nudging towards more expensive models.
+const totalPremiumWeight = computed(() => {
+  let total = 0;
+  for (const agent of store.agents) {
+    const def = getModelsByTier("premium").find((m) => m.id === agent.model);
+    if (def) total += def.premiumRequests;
+  }
+  return Number(total.toFixed(2));
+});
 </script>
 
 <template>
@@ -57,14 +73,14 @@ const premiumAgentCount = computed(
         label-style="uppercase"
       />
       <StatCard
-        :value="premiumAgentCount"
-        label="Premium Agents"
+        :value="`${premiumAgentCount} / ${store.agents.length}`"
+        label="On Premium Models"
         color="warning"
         label-style="uppercase"
       />
       <StatCard
-        :value="ALL_MODELS.length"
-        label="Models Available"
+        :value="totalPremiumWeight"
+        label="Total Premium Weight"
         color="success"
         label-style="uppercase"
       />
@@ -136,16 +152,6 @@ const premiumAgentCount = computed(
               <option v-for="m in FAST_MODELS" :key="m" :value="m">{{ m }}</option>
             </optgroup>
           </select>
-
-          <button
-            v-if="modelTier(agentModels[agent.filePath] ?? agent.model) !== 'premium'"
-            class="btn-upgrade"
-            :disabled="store.saving"
-            @click="upgradeAgent(agent)"
-          >
-            ⬆ Upgrade
-          </button>
-          <span v-else class="premium-active-badge">✓ Premium</span>
           <Transition name="banner">
             <span v-if="autoSavedAgent === agent.filePath" class="auto-saved-hint">(auto-saved)</span>
           </Transition>
@@ -157,13 +163,29 @@ const premiumAgentCount = computed(
 
     <!-- Batch Actions -->
     <div v-if="store.agents.length" class="batch-actions">
-      <span class="batch-label">Batch action:</span>
-      <button
-        class="btn-gradient"
-        :disabled="store.saving || batchUpgrading"
-        @click="upgradeAllToOpus"
+      <span class="batch-label">Set all agents to:</span>
+      <select
+        v-model="batchTargetModel"
+        class="form-input batch-model-select"
+        :disabled="store.saving || batchApplying"
+        aria-label="Batch target model"
       >
-        {{ batchUpgrading ? 'Upgrading…' : '⬆ Upgrade All to Opus 4.6' }}
+        <optgroup label="Premium">
+          <option v-for="m in PREMIUM_MODELS" :key="m" :value="m">{{ m }}</option>
+        </optgroup>
+        <optgroup label="Standard">
+          <option v-for="m in STANDARD_MODELS" :key="m" :value="m">{{ m }}</option>
+        </optgroup>
+        <optgroup label="Fast / Cheap">
+          <option v-for="m in FAST_MODELS" :key="m" :value="m">{{ m }}</option>
+        </optgroup>
+      </select>
+      <button
+        class="btn btn-sm"
+        :disabled="store.saving || batchApplying || !batchTargetModel"
+        @click="setAllAgentsToModel(batchTargetModel)"
+      >
+        {{ batchApplying ? 'Applying…' : 'Apply' }}
       </button>
       <button
         class="btn btn-sm"

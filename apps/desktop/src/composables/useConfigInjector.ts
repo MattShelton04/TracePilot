@@ -1,6 +1,5 @@
 import { previewBackupRestore } from "@tracepilot/client";
 import type { AgentDefinition } from "@tracepilot/types";
-import { DEFAULT_PREMIUM_MODEL_ID } from "@tracepilot/types";
 import { normalizePath, useToast } from "@tracepilot/ui";
 import { computed, type InjectionKey, inject, onMounted, reactive, ref, watch } from "vue";
 import { useConfigInjectorStore } from "@/stores/configInjector";
@@ -88,23 +87,23 @@ export function useConfigInjector() {
     }
   }
 
-  async function upgradeAgent(agent: AgentDefinition) {
-    agentModels.value[agent.filePath] = DEFAULT_PREMIUM_MODEL_ID;
-    await handleModelChange(agent, DEFAULT_PREMIUM_MODEL_ID);
+  async function setAgentModel(agent: AgentDefinition, modelId: string) {
+    agentModels.value[agent.filePath] = modelId;
+    await handleModelChange(agent, modelId);
   }
 
-  const batchUpgrading = ref(false);
+  const batchApplying = ref(false);
 
-  async function upgradeAllToOpus() {
-    batchUpgrading.value = true;
+  async function setAllAgentsToModel(modelId: string) {
+    batchApplying.value = true;
     try {
-      const toUpgrade = store.agents.filter((a) => a.model !== DEFAULT_PREMIUM_MODEL_ID);
-      for (const agent of toUpgrade) {
-        agentModels.value[agent.filePath] = DEFAULT_PREMIUM_MODEL_ID;
-        await handleModelChange(agent, DEFAULT_PREMIUM_MODEL_ID);
+      const toChange = store.agents.filter((a) => a.model !== modelId);
+      for (const agent of toChange) {
+        agentModels.value[agent.filePath] = modelId;
+        await handleModelChange(agent, modelId);
       }
     } finally {
-      batchUpgrading.value = false;
+      batchApplying.value = false;
     }
   }
 
@@ -359,9 +358,9 @@ export function useConfigInjector() {
     // agent model state
     agentModels,
     onAgentModelSelect,
-    upgradeAgent,
-    batchUpgrading,
-    upgradeAllToOpus,
+    setAgentModel,
+    batchApplying,
+    setAllAgentsToModel,
     resetAllDefaults,
     // global config
     editModel,

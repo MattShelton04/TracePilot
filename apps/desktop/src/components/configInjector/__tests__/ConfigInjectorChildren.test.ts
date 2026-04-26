@@ -105,9 +105,9 @@ function makeCtx(overrides: Partial<UseConfigInjectorReturn> = {}): UseConfigInj
     autoSavedAgent: ref<string | null>(null),
     agentModels: ref<Record<string, string>>({ [agent.filePath]: agent.model }),
     onAgentModelSelect: vi.fn(),
-    upgradeAgent: vi.fn(),
-    batchUpgrading: ref(false),
-    upgradeAllToOpus: vi.fn(),
+    setAgentModel: vi.fn(),
+    batchApplying: ref(false),
+    setAllAgentsToModel: vi.fn(),
     resetAllDefaults: vi.fn(),
     editModel: ref("claude-sonnet-4.5"),
     editReasoningEffort: ref("medium"),
@@ -166,11 +166,13 @@ describe("ConfigInjectorAgentsTab", () => {
     expect(wrapper.text()).toContain("explore");
   });
 
-  it("invokes upgradeAllToOpus when batch button clicked", async () => {
+  it("invokes setAllAgentsToModel when batch Apply button clicked", async () => {
     const ctx = makeCtx();
     const wrapper = mount(wrap(ConfigInjectorAgentsTab, ctx));
-    await wrapper.find(".btn-gradient").trigger("click");
-    expect(ctx.upgradeAllToOpus).toHaveBeenCalled();
+    // Pick the Apply button — it's the first non-select button inside batch-actions.
+    const buttons = wrapper.find(".batch-actions").findAll("button");
+    await buttons[0]!.trigger("click");
+    expect(ctx.setAllAgentsToModel).toHaveBeenCalled();
   });
 });
 

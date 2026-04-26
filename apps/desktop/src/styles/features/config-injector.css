@@ -295,43 +295,9 @@
   font-size: 0.8125rem;
 }
 
-.btn-upgrade {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 12px;
+.batch-model-select {
+  min-width: 180px;
   font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--text-inverse);
-  background: linear-gradient(135deg, var(--done-emphasis), var(--done-fg));
-  border: none;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  white-space: nowrap;
-  transition: filter var(--transition-fast);
-}
-
-.btn-upgrade:hover:not(:disabled) {
-  filter: brightness(1.15);
-}
-
-.btn-upgrade:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.premium-active-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--done-fg);
-  background: var(--done-subtle);
-  border: 1px solid var(--done-muted);
-  border-radius: var(--radius-sm);
-  white-space: nowrap;
 }
 
 /* ── Batch Actions ── */
