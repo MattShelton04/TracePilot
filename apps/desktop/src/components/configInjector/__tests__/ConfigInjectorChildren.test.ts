@@ -161,7 +161,10 @@ describe("ConfigInjectorAgentsTab", () => {
     const ctx = makeCtx();
     const wrapper = mount(wrap(ConfigInjectorAgentsTab, ctx));
     expect(wrapper.findAll(".agent-card")).toHaveLength(1);
-    expect(wrapper.findAll(".stat-grid > *")).toHaveLength(4);
+    // Three stat cards: Agent Definitions / Unique Models / On Premium Models.
+    // The previous fourth card (Total Premium Weight) was removed because it
+    // conflated agent count with billing units and didn't drive any decision.
+    expect(wrapper.findAll(".stat-grid > *")).toHaveLength(3);
     expect(wrapper.find(".batch-actions").exists()).toBe(true);
     expect(wrapper.text()).toContain("explore");
   });
