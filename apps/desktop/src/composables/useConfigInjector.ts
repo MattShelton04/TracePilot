@@ -1,6 +1,5 @@
 import { previewBackupRestore } from "@tracepilot/client";
 import type { AgentDefinition } from "@tracepilot/types";
-import { DEFAULT_PREMIUM_MODEL_ID } from "@tracepilot/types";
 import { normalizePath, useToast } from "@tracepilot/ui";
 import { computed, type InjectionKey, inject, onMounted, reactive, ref, watch } from "vue";
 import { useConfigInjectorStore } from "@/stores/configInjector";
@@ -88,23 +87,23 @@ export function useConfigInjector() {
     }
   }
 
-  async function upgradeAgent(agent: AgentDefinition) {
-    agentModels.value[agent.filePath] = DEFAULT_PREMIUM_MODEL_ID;
-    await handleModelChange(agent, DEFAULT_PREMIUM_MODEL_ID);
+  async function setAgentModel(agent: AgentDefinition, modelId: string) {
+    agentModels.value[agent.filePath] = modelId;
+    await handleModelChange(agent, modelId);
   }
 
-  const batchUpgrading = ref(false);
+  const batchApplying = ref(false);
 
-  async function upgradeAllToOpus() {
-    batchUpgrading.value = true;
+  async function setAllAgentsToModel(modelId: string) {
+    batchApplying.value = true;
     try {
-      const toUpgrade = store.agents.filter((a) => a.model !== DEFAULT_PREMIUM_MODEL_ID);
-      for (const agent of toUpgrade) {
-        agentModels.value[agent.filePath] = DEFAULT_PREMIUM_MODEL_ID;
-        await handleModelChange(agent, DEFAULT_PREMIUM_MODEL_ID);
+      const toChange = store.agents.filter((a) => a.model !== modelId);
+      for (const agent of toChange) {
+        agentModels.value[agent.filePath] = modelId;
+        await handleModelChange(agent, modelId);
       }
     } finally {
-      batchUpgrading.value = false;
+      batchApplying.value = false;
     }
   }
 
@@ -129,9 +128,10 @@ export function useConfigInjector() {
       editModel.value = store.copilotConfig.model ?? "";
       editReasoningEffort.value = store.copilotConfig.reasoningEffort ?? "";
       editTrustedFolders.value = [...(store.copilotConfig.trustedFolders ?? [])];
+      // Prefer typed fields; fall back to `raw` for older backend versions.
       const raw = store.copilotConfig.raw ?? {};
-      editShowReasoning.value = Boolean(raw.showReasoning);
-      editRenderMarkdown.value = raw.renderMarkdown !== false;
+      editShowReasoning.value = store.copilotConfig.showReasoning ?? Boolean(raw.showReasoning);
+      editRenderMarkdown.value = store.copilotConfig.renderMarkdown ?? raw.renderMarkdown !== false;
     }
   }
 
@@ -175,7 +175,15 @@ export function useConfigInjector() {
 
   const hasConfigChanges = computed(() => configDiffLines.value.left.some((l) => l.changed));
 
+  /**
+   * Surfaces backend-reported parse failures of `~/.copilot/{config,settings}.json`.
+   * When set, the UI should show a banner and gate destructive operations.
+   */
+  const configParseError = computed(() => store.copilotConfig?.parseError ?? null);
+  const configSettingsPath = computed(() => store.copilotConfig?.settingsPath ?? "");
+
   function handleSaveGlobalConfig() {
+    if (configParseError.value) return;
     store.saveGlobalConfig({
       model: editModel.value,
       reasoningEffort: editReasoningEffort.value,
@@ -213,6 +221,10 @@ export function useConfigInjector() {
         files.push({
           label: "📋 Global Config (config.json)",
           path: `${copilotHome}${sep}config.json`,
+        });
+        files.push({
+          label: "⚙️ User Settings (settings.json)",
+          path: `${copilotHome}${sep}settings.json`,
         });
       }
     }
@@ -346,9 +358,9 @@ export function useConfigInjector() {
     // agent model state
     agentModels,
     onAgentModelSelect,
-    upgradeAgent,
-    batchUpgrading,
-    upgradeAllToOpus,
+    setAgentModel,
+    batchApplying,
+    setAllAgentsToModel,
     resetAllDefaults,
     // global config
     editModel,
@@ -362,6 +374,8 @@ export function useConfigInjector() {
     removeFolder,
     configDiffLines,
     hasConfigChanges,
+    configParseError,
+    configSettingsPath,
     handleSaveGlobalConfig,
     // migration
     migrationFrom,

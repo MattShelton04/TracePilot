@@ -295,43 +295,12 @@
   font-size: 0.8125rem;
 }
 
-.btn-upgrade {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 12px;
+.batch-model-select {
+  flex: 0 0 auto;
+  width: 200px;
+  max-width: 220px;
+  min-width: 0;
   font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--text-inverse);
-  background: linear-gradient(135deg, var(--done-emphasis), var(--done-fg));
-  border: none;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  white-space: nowrap;
-  transition: filter var(--transition-fast);
-}
-
-.btn-upgrade:hover:not(:disabled) {
-  filter: brightness(1.15);
-}
-
-.btn-upgrade:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.premium-active-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--done-fg);
-  background: var(--done-subtle);
-  border: 1px solid var(--done-muted);
-  border-radius: var(--radius-sm);
-  white-space: nowrap;
 }
 
 /* ── Batch Actions ── */
@@ -383,6 +352,30 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
+}
+
+.config-parse-error {
+  border: 1px solid var(--color-danger, #c0392b);
+  background: var(--color-danger-bg, rgba(192, 57, 43, 0.08));
+  color: var(--color-danger-text, #c0392b);
+  padding: 12px 14px;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.config-parse-error code {
+  font-size: 0.75rem;
+  background: rgba(0, 0, 0, 0.05);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.config-parse-error__hint {
+  margin: 0;
+  color: var(--text-secondary);
 }
 
 .config-form {

@@ -215,8 +215,12 @@ export const ORCHESTRATION_MOCK_DATA: Record<string, unknown> = {
   get_copilot_config: {
     model: "claude-sonnet-4.6",
     reasoningEffort: undefined,
+    showReasoning: true,
+    renderMarkdown: true,
+    disabledSkills: [],
     trustedFolders: ["C:\\git"],
     raw: { model: "claude-sonnet-4.6", trustedFolders: ["C:\\git"] },
+    settingsPath: "C:\\Users\\mock\\.copilot\\settings.json",
   } satisfies CopilotConfig,
 
   list_config_backups: [

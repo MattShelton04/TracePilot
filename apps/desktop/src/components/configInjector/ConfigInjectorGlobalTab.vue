@@ -15,6 +15,8 @@ const {
   removeFolder,
   configDiffLines,
   hasConfigChanges,
+  configParseError,
+  configSettingsPath,
   handleSaveGlobalConfig,
 } = useConfigInjectorContext();
 
@@ -26,6 +28,18 @@ const FAST_MODELS = getModelsByTier("fast").map((m) => m.id);
 <template>
   <div class="tab-panel">
     <div class="global-layout">
+      <!-- Parse-error banner: surfaced when ~/.copilot/{config,settings}.json
+           cannot be parsed. Saving is gated until the underlying file is
+           fixed so we never silently overwrite invalid user data. -->
+      <div v-if="configParseError" class="config-parse-error" role="alert">
+        <strong>⚠️ Copilot settings file could not be parsed.</strong>
+        <p>{{ configParseError }}</p>
+        <p v-if="configSettingsPath" class="config-parse-error__hint">
+          Edit <code>{{ configSettingsPath }}</code> to fix the syntax, then reload.
+          Saving is disabled to avoid clobbering existing data.
+        </p>
+      </div>
+
       <!-- Config Form -->
       <div class="config-form">
         <!-- Default Model -->
@@ -119,7 +133,7 @@ const FAST_MODELS = getModelsByTier("fast").map((m) => m.id);
         <!-- Save Button -->
         <button
           class="btn btn-primary"
-          :disabled="store.saving || !hasConfigChanges"
+          :disabled="store.saving || !hasConfigChanges || !!configParseError"
           @click="handleSaveGlobalConfig"
         >
           {{ store.saving ? 'Saving…' : '💾 Save Config' }}

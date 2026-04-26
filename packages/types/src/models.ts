@@ -55,6 +55,15 @@ export const MODEL_REGISTRY: readonly ModelDefinition[] = [
     premiumRequests: 7.5,
   },
   {
+    id: "gpt-5.5",
+    name: "GPT-5.5",
+    tier: "premium",
+    inputPerM: 5.0,
+    cachedInputPerM: 0.5,
+    outputPerM: 30.0,
+    premiumRequests: 7.5,
+  },
+  {
     id: "claude-opus-4.6",
     name: "Claude Opus 4.6",
     tier: "premium",

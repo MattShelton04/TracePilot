@@ -139,8 +139,19 @@ pub struct AgentDefinition {
 pub struct CopilotConfig {
     pub model: Option<String>,
     pub reasoning_effort: Option<String>,
+    pub show_reasoning: Option<bool>,
+    pub render_markdown: Option<bool>,
+    pub disabled_skills: Vec<String>,
     pub trusted_folders: Vec<String>,
+    /// Merged JSON view (settings.json on top of config.json). Retained for
+    /// fields TracePilot does not yet model explicitly.
     pub raw: serde_json::Value,
+    /// Path of the user-settings file we read/write (~/.copilot/settings.json
+    /// for newer CLI versions, ~/.copilot/config.json for legacy fallback).
+    pub settings_path: String,
+    /// Set when `settings.json` and/or `config.json` could not be parsed.
+    /// Frontend should surface this and disable destructive writes.
+    pub parse_error: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

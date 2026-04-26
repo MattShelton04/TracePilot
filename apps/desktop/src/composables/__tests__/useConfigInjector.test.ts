@@ -163,7 +163,9 @@ describe("useConfigInjector", () => {
       model: "claude-sonnet-4.5",
       reasoningEffort: "high",
       trustedFolders: ["/a", "/b"],
+      disabledSkills: [],
       raw: { showReasoning: true, renderMarkdown: false },
+      settingsPath: "/home/user/.copilot/settings.json",
     } as CopilotConfig;
     const { api, wrapper } = harness();
     api.syncGlobalFields();
