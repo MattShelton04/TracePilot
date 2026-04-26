@@ -6,31 +6,31 @@ import { onMounted, onUnmounted, type Ref, ref } from "vue";
  * breakout margins so the chat column can extend past `.page-content-inner`
  * when the panel is open (without nudging sibling layout elements).
  *
- * Returns `panelTopPx` for binding on the panel, and wires window + page
- * scroll listeners to `cvRootEl` for lifecycle-managed updates.
+ * Returns `panelTopPx` for binding on the panel.
  *
  * Performance notes:
- *  - The scroll handler only does two `getBoundingClientRect()` reads and a
- *    single ref write; cached element lookups avoid repeated `querySelector`
- *    + `closest` walks.
- *  - The breakout-margin calculation (which calls `getComputedStyle` and
- *    sets CSS custom properties) only runs on mount and on resize, since
- *    those values do not change during scroll.
- *  - The scroll handler is rAF-throttled so multiple scroll events within a
- *    frame coalesce into one DOM update.
+ *  - The panel is `position: fixed` and its `top` controls its height
+ *    (`height = viewport - top` because `bottom: 0`). Updating `top` on every
+ *    scroll forces a layout/paint of the panel's (often very large) descendant
+ *    tree every frame. With huge sessions (200k+ DOM nodes nearby) this drove
+ *    300ms long tasks per scroll near the top of the page.
+ *  - We now debounce the update so `panelTopPx` only changes when the user
+ *    *stops* scrolling (~80ms idle). During active scroll the panel keeps its
+ *    last known position — visually a tiny lag relative to the action bar at
+ *    the very top of the page, but no per-frame thrash.
+ *  - Breakout-margin work (`getComputedStyle` + CSS-var writes) only runs on
+ *    mount and on resize.
  */
 export function useChatViewPanelOffset(cvRootEl: Ref<HTMLElement | null>) {
   const panelTopPx = ref(0);
 
-  // Cached DOM references — resolved on mount (or lazily on first scroll if
-  // not yet present, e.g. if .detail-actions mounts after this composable).
   let actionsEl: HTMLElement | null = null;
   let pageScrollEl: HTMLElement | null = null;
   let pageContent: HTMLElement | null = null;
   let pageContentInner: HTMLElement | null = null;
 
-  let rafHandle = 0;
-  let scrollPending = false;
+  let scrollDebounceHandle: ReturnType<typeof setTimeout> | null = null;
+  const SCROLL_IDLE_MS = 80;
 
   function resolveCachedEls() {
     const cvRoot = cvRootEl.value;
@@ -53,7 +53,7 @@ export function useChatViewPanelOffset(cvRootEl: Ref<HTMLElement | null>) {
 
     const cvRect = cvRoot.getBoundingClientRect();
     const actionsBottom = actionsEl ? actionsEl.getBoundingClientRect().bottom : 0;
-    const next = Math.max(cvRect.top, actionsBottom);
+    const next = Math.round(Math.max(cvRect.top, actionsBottom));
 
     if (next !== panelTopPx.value) {
       panelTopPx.value = next;
@@ -75,12 +75,11 @@ export function useChatViewPanelOffset(cvRootEl: Ref<HTMLElement | null>) {
   }
 
   function onScroll() {
-    if (scrollPending) return;
-    scrollPending = true;
-    rafHandle = requestAnimationFrame(() => {
-      scrollPending = false;
+    if (scrollDebounceHandle !== null) clearTimeout(scrollDebounceHandle);
+    scrollDebounceHandle = setTimeout(() => {
+      scrollDebounceHandle = null;
       updatePanelTop();
-    });
+    }, SCROLL_IDLE_MS);
   }
 
   function onResize() {
@@ -100,7 +99,7 @@ export function useChatViewPanelOffset(cvRootEl: Ref<HTMLElement | null>) {
   });
 
   onUnmounted(() => {
-    if (rafHandle) cancelAnimationFrame(rafHandle);
+    if (scrollDebounceHandle !== null) clearTimeout(scrollDebounceHandle);
     window.removeEventListener("resize", onResize);
     if (pageScrollEl) {
       pageScrollEl.removeEventListener("scroll", onScroll);
