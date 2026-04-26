@@ -13,7 +13,6 @@ import {
   inferAgentTypeFromToolCall,
 } from "../../utils/agentTypes";
 import { formatDuration } from "../../utils/formatters";
-import MarkdownContent from "../MarkdownContent.vue";
 import ToolCallItem from "../ToolCallItem.vue";
 import type { SubagentActivityItem, SubagentActivityPillType } from "./types";
 
@@ -156,10 +155,6 @@ function richEnabled(toolName: string): boolean {
             {{ nestedSubagentDesc(item.toolCall) }}
           </div>
         </button>
-
-        <div v-else-if="item.kind === 'message'" class="sap-message">
-          <MarkdownContent :content="item.content" :render="renderMarkdown" />
-        </div>
       </template>
     </div>
   </div>
@@ -187,8 +182,6 @@ function richEnabled(toolName: string): boolean {
 .sap-pill--intent { color: var(--accent-fg); background: var(--accent-subtle); }
 .sap-pill--memory { color: var(--done-fg); background: var(--done-subtle); }
 .sap-pill--read_agent { color: var(--success-fg); background: var(--success-subtle); }
-.sap-message { padding: 10px 12px; background: var(--canvas-inset); border-radius: var(--radius-md); border: 1px solid var(--border-muted); font-size: 0.8125rem; color: var(--text-primary); line-height: 1.55; }
-.sap-message :deep(.markdown-content) { font-size: inherit; line-height: inherit; }
 .sap-nested-subagent { display: block; width: 100%; text-align: left; border: none; padding: 0; cursor: pointer; border-radius: var(--radius-md, 8px); background: var(--canvas-inset, #010409); overflow: hidden; margin: 2px 0; transition: background var(--transition-fast); }
 .sap-nested-subagent:hover { background: var(--neutral-subtle); }
 .sap-nested-header { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-left: 3px solid var(--accent-fg); font-size: 0.75rem; font-weight: 600; color: var(--text-primary); }

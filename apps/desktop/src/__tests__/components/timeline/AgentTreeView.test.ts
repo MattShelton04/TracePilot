@@ -470,11 +470,11 @@ describe("AgentTreeView", () => {
 
     const detailPanel = wrapper.find(".detail-panel");
     expect(detailPanel.exists()).toBe(true);
-    // Activity stream renders subagent's final message
-    expect(detailPanel.text()).toContain("Activity");
+    // Output section renders subagent's final message
+    expect(detailPanel.text()).toContain("Output");
     expect(detailPanel.text()).toContain("Subagent found the answer");
-    // Main agent text should NOT appear in the subagent's activity stream
-    expect(detailPanel.find(".sap-activities").text()).not.toContain("Main agent text");
+    // Main agent text should NOT appear anywhere in the subagent's panel
+    expect(detailPanel.text()).not.toContain("Main agent text");
   });
 
   it("shows reasoning interleaved in activity stream, expanded by default", async () => {
@@ -889,10 +889,10 @@ describe("AgentTreeView", () => {
     await verboseNode?.trigger("click");
     await nextTick();
 
-    // Full output renders inside the activity stream (no Show more/Show less toggle)
-    const message = wrapper.find(".sap-message");
-    expect(message.exists()).toBe(true);
-    expect(message.text()).toContain("A".repeat(600));
+    // Full output renders inside the standalone Output section (no Show more/Show less toggle)
+    const output = wrapper.find(".sap-output");
+    expect(output.exists()).toBe(true);
+    expect(output.text()).toContain("A".repeat(600));
   });
 
   it("renders short output without any toggle", async () => {

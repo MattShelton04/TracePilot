@@ -19,7 +19,6 @@ export type SubagentActivityItem =
       label: string;
       toolCall: TurnToolCall;
     }
-  | { kind: "message"; key: string; sortKey: number; content: string; agentName?: string }
   | { kind: "nested-subagent"; key: string; sortKey: number; toolCall: TurnToolCall };
 
 export interface SubagentView {

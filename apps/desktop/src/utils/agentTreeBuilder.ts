@@ -7,7 +7,7 @@
  * construction can be reasoned about and tested independently of the component.
  */
 
-import type { ConversationTurn, TurnToolCall } from "@tracepilot/types";
+import type { AttributedMessage, ConversationTurn, TurnToolCall } from "@tracepilot/types";
 import {
   agentStatusFromToolCall,
   inferAgentTypeFromToolCall,
@@ -30,8 +30,8 @@ export interface AgentNode {
   toolCallRef?: TurnToolCall;
   children?: AgentNode[];
   parallelGroup?: string;
-  messages: string[];
-  reasoning: string[];
+  messages: AttributedMessage[];
+  reasoning: AttributedMessage[];
   isCrossTurnParent?: boolean;
   sourceTurnIndex?: number;
 }
@@ -147,12 +147,12 @@ export function buildPaginatedTree(
     : "completed";
 
   const knownSubagentIds = ctx.allSubagentIds;
-  const mainMessages = turn.assistantMessages
-    .filter((m) => !m.parentToolCallId || !knownSubagentIds.has(m.parentToolCallId))
-    .map((m) => m.content);
-  const mainReasoning = (turn.reasoningTexts ?? [])
-    .filter((r) => !r.parentToolCallId || !knownSubagentIds.has(r.parentToolCallId))
-    .map((r) => r.content);
+  const mainMessages = turn.assistantMessages.filter(
+    (m) => !m.parentToolCallId || !knownSubagentIds.has(m.parentToolCallId),
+  );
+  const mainReasoning = (turn.reasoningTexts ?? []).filter(
+    (r) => !r.parentToolCallId || !knownSubagentIds.has(r.parentToolCallId),
+  );
 
   const root: AgentNode = {
     id: "main",
@@ -211,14 +211,14 @@ export function buildUnifiedTree(
 
   const knownSubagentIds = ctx.allSubagentIds;
   const mainMessages = allTurns.flatMap((t) =>
-    t.assistantMessages
-      .filter((m) => !m.parentToolCallId || !knownSubagentIds.has(m.parentToolCallId))
-      .map((m) => m.content),
+    t.assistantMessages.filter(
+      (m) => !m.parentToolCallId || !knownSubagentIds.has(m.parentToolCallId),
+    ),
   );
   const mainReasoning = allTurns.flatMap((t) =>
-    (t.reasoningTexts ?? [])
-      .filter((r) => !r.parentToolCallId || !knownSubagentIds.has(r.parentToolCallId))
-      .map((r) => r.content),
+    (t.reasoningTexts ?? []).filter(
+      (r) => !r.parentToolCallId || !knownSubagentIds.has(r.parentToolCallId),
+    ),
   );
 
   const lastTurn = allTurns[allTurns.length - 1];

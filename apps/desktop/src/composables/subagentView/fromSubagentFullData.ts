@@ -19,19 +19,15 @@ export function fromSubagentFullData(sa: SubagentFullData): SubagentView {
 
   const id = tc.toolCallId ?? sa.agentId;
 
-  const childMessages = sa.childMessages.map((m) => ({
-    content: m.content,
-    agentDisplayName: m.agentDisplayName,
-  }));
   const childReasoning = sa.childReasoning.map((r) => ({
     content: r.content,
     agentDisplayName: r.agentDisplayName,
+    eventIndex: r.eventIndex,
   }));
 
   const activities = buildSubagentActivities({
     parentId: id,
     childTools: sa.childTools,
-    childMessages,
     childReasoning,
   });
 

@@ -415,6 +415,7 @@ mod tests {
                 content: "Token: ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghij".into(),
                 parent_tool_call_id: None,
                 agent_display_name: None,
+                event_index: None,
             }],
             model: None,
             timestamp: None,

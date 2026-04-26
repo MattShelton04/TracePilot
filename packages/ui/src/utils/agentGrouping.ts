@@ -264,17 +264,17 @@ function buildMainSection(turn: ConversationTurn): AgentSection {
 
 /** Aggregated output content for a single subagent across all turns. */
 export interface SubagentContent {
-  messages: string[];
-  reasoning: string[];
+  messages: AttributedMessage[];
+  reasoning: AttributedMessage[];
 }
 
 /**
  * Build a session-wide index of subagent output content.
  *
  * Aggregates assistant messages and reasoning texts across ALL turns,
- * attributed to each subagent via `parentToolCallId`. This handles the
- * cross-turn case where a subagent launches in turn N but produces
- * output in turn N+1 (or later).
+ * attributed to each subagent via `parentToolCallId`. Preserves
+ * `eventIndex` on each entry so downstream renderers can sort
+ * chronologically across the entire event stream.
  *
  * @returns Map from subagent toolCallId → aggregated content.
  */
@@ -299,7 +299,7 @@ export function buildSubagentContentIndex(turns: ConversationTurn[]): Map<string
           entry = { messages: [], reasoning: [] };
           map.set(msg.parentToolCallId, entry);
         }
-        entry.messages.push(msg.content);
+        entry.messages.push(msg);
       }
     }
     for (const r of turn.reasoningTexts ?? []) {
@@ -309,7 +309,7 @@ export function buildSubagentContentIndex(turns: ConversationTurn[]): Map<string
           entry = { messages: [], reasoning: [] };
           map.set(r.parentToolCallId, entry);
         }
-        entry.reasoning.push(r.content);
+        entry.reasoning.push(r);
       }
     }
   }

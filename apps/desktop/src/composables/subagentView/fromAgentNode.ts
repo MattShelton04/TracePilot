@@ -26,13 +26,16 @@ export function fromAgentNode(
     node.status !== "in-progress" && !!model && !!requestedModel && model !== requestedModel;
 
   // Re-build activities for stream-mode use even though agent-tree primarily uses sections mode.
-  // childTools = node.toolCalls; messages/reasoning are plain strings.
-  const childMessages = node.messages.map((content) => ({ content }));
-  const childReasoning = node.reasoning.map((content) => ({ content }));
+  // Reasoning entries carry eventIndex (preserved from AttributedMessage), so the
+  // activity builder can sort chronologically across reasoning + tool calls.
+  const childReasoning = node.reasoning.map((r) => ({
+    content: r.content,
+    agentDisplayName: r.agentDisplayName,
+    eventIndex: r.eventIndex,
+  }));
   const activities = buildSubagentActivities({
     parentId: node.id,
     childTools: node.toolCalls,
-    childMessages,
     childReasoning,
   });
 
@@ -59,8 +62,8 @@ export function fromAgentNode(
     prompt,
     resultContent: tc?.resultContent || undefined,
     error: tc?.error || undefined,
-    messages: node.messages,
-    reasoning: node.reasoning,
+    messages: node.messages.map((m) => m.content),
+    reasoning: node.reasoning.map((r) => r.content),
     childTools: node.toolCalls,
     activities,
     toolCallRef: tc,

@@ -6,6 +6,7 @@
 import { computed, ref, watch } from "vue";
 import { getAgentColor, getAgentIcon } from "../../utils/agentTypes";
 import { formatDuration, formatLiveDuration } from "../../utils/formatters";
+import MarkdownContent from "../MarkdownContent.vue";
 import SubagentActivityStream from "./SubagentActivityStream.vue";
 import SubagentCollapsibleBlock from "./SubagentCollapsibleBlock.vue";
 import SubagentModelWarning from "./SubagentModelWarning.vue";
@@ -58,6 +59,14 @@ const headerDuration = computed(() => {
 // Local state — collapsibles in stream mode. Keyed by view.id so they reset on switch.
 const promptExpanded = ref(true);
 
+// Joined child messages — full content (untruncated). Falls back to
+// resultContent for older sessions where messages aren't aggregated.
+const outputContent = computed(() => {
+  const joined = props.view.messages.filter((m) => m && m.trim().length > 0).join("\n\n");
+  if (joined) return joined;
+  return props.view.resultContent ?? "";
+});
+
 watch(
   () => props.view.id,
   () => {
@@ -107,7 +116,15 @@ watch(
         <pre class="sap-failure-body">{{ view.error }}</pre>
       </div>
 
+      <div v-if="outputContent" class="sap-section">
+        <div class="sap-section-label">Output</div>
+        <div class="sap-output">
+          <MarkdownContent :content="outputContent" :render="renderMarkdown" />
+        </div>
+      </div>
+
       <SubagentActivityStream
+        v-if="view.activities.length > 0"
         :activities="view.activities"
         :agent-key="view.id"
         :render-markdown="renderMarkdown"
@@ -156,4 +173,6 @@ watch(
 .sap-failure { background: var(--danger-subtle); border: 1px solid color-mix(in srgb, var(--danger-fg) 30%, transparent); border-radius: var(--radius-md); padding: 10px 12px; }
 .sap-failure-title { color: var(--danger-fg); }
 .sap-failure-body { font-family: "JetBrains Mono", monospace; font-size: 0.75rem; color: var(--danger-fg); white-space: pre-wrap; word-break: break-word; margin: 0; }
+.sap-output { font-size: 0.8125rem; color: var(--text-primary); line-height: 1.55; padding: 10px 12px; background: var(--canvas-inset); border: 1px solid var(--border-muted); border-radius: var(--radius-md); }
+.sap-output :deep(.markdown-content) { font-size: inherit; line-height: inherit; }
 </style>
