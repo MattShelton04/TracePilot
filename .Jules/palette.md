@@ -1,0 +1,3 @@
+## 2024-04-26 - Icon-only Button Accessibility
+**Learning:** Icon-only buttons used in lists and detail panels (like those using `.icon-btn` classes for worktree actions) frequently lack explicit `aria-label` attributes, relying solely on `title` tooltips which can result in poor screen reader experiences.
+**Action:** Always verify that components with `title` attributes (or `.icon-btn` classes) also possess an explicit `aria-label` for proper keyboard/screen reader accessibility. Ensure the labels dynamically update if the button's state changes (e.g. dynamic titles like "Lock Worktree" vs "Unlock Worktree").
