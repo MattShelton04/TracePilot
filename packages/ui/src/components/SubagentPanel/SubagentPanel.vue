@@ -53,16 +53,16 @@ const headerDuration = computed(() => {
   return formatDuration(ms ?? 0);
 });
 
-const promptExpanded = ref(true);
-const outputExpanded = ref(true);
+const promptExpanded = ref(false);
+const outputExpanded = ref(false);
 
 const descriptionText = computed(() => props.view.intentSummary || props.view.description || "");
 
 watch(
   () => props.view.id,
   () => {
-    promptExpanded.value = true;
-    outputExpanded.value = true;
+    promptExpanded.value = false;
+    outputExpanded.value = false;
   },
 );
 </script>
