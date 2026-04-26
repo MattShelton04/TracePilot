@@ -61,6 +61,9 @@ function statusClass(s: SubagentStatus): string {
   border-bottom: 1px solid var(--border-default);
   background: var(--canvas-inset);
   flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 2;
 }
 .sap-close {
   display: flex;
