@@ -129,9 +129,10 @@ export function useConfigInjector() {
       editModel.value = store.copilotConfig.model ?? "";
       editReasoningEffort.value = store.copilotConfig.reasoningEffort ?? "";
       editTrustedFolders.value = [...(store.copilotConfig.trustedFolders ?? [])];
+      // Prefer typed fields; fall back to `raw` for older backend versions.
       const raw = store.copilotConfig.raw ?? {};
-      editShowReasoning.value = Boolean(raw.showReasoning);
-      editRenderMarkdown.value = raw.renderMarkdown !== false;
+      editShowReasoning.value = store.copilotConfig.showReasoning ?? Boolean(raw.showReasoning);
+      editRenderMarkdown.value = store.copilotConfig.renderMarkdown ?? raw.renderMarkdown !== false;
     }
   }
 
@@ -175,7 +176,15 @@ export function useConfigInjector() {
 
   const hasConfigChanges = computed(() => configDiffLines.value.left.some((l) => l.changed));
 
+  /**
+   * Surfaces backend-reported parse failures of `~/.copilot/{config,settings}.json`.
+   * When set, the UI should show a banner and gate destructive operations.
+   */
+  const configParseError = computed(() => store.copilotConfig?.parseError ?? null);
+  const configSettingsPath = computed(() => store.copilotConfig?.settingsPath ?? "");
+
   function handleSaveGlobalConfig() {
+    if (configParseError.value) return;
     store.saveGlobalConfig({
       model: editModel.value,
       reasoningEffort: editReasoningEffort.value,
@@ -213,6 +222,10 @@ export function useConfigInjector() {
         files.push({
           label: "📋 Global Config (config.json)",
           path: `${copilotHome}${sep}config.json`,
+        });
+        files.push({
+          label: "⚙️ User Settings (settings.json)",
+          path: `${copilotHome}${sep}settings.json`,
         });
       }
     }
@@ -362,6 +375,8 @@ export function useConfigInjector() {
     removeFolder,
     configDiffLines,
     hasConfigChanges,
+    configParseError,
+    configSettingsPath,
     handleSaveGlobalConfig,
     // migration
     migrationFrom,

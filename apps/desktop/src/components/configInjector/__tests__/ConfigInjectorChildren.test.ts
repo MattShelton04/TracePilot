@@ -57,7 +57,9 @@ function makeCtx(overrides: Partial<UseConfigInjectorReturn> = {}): UseConfigInj
         model: "claude-sonnet-4.5",
         reasoningEffort: "medium",
         trustedFolders: [],
+        disabledSkills: [],
         raw: {},
+        settingsPath: "/home/user/.copilot/settings.json",
       } as CopilotConfig,
       versions: [
         {

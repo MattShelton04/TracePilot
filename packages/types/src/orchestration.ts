@@ -95,8 +95,18 @@ export interface AgentDefinition {
 export interface CopilotConfig {
   model?: string;
   reasoningEffort?: string;
+  showReasoning?: boolean;
+  renderMarkdown?: boolean;
+  disabledSkills: string[];
   trustedFolders: string[];
   raw: Record<string, unknown>;
+  /** Absolute path of the file user settings are written to. */
+  settingsPath: string;
+  /**
+   * Populated when settings.json or config.json could not be parsed. UI
+   * should surface a banner and disable destructive writes when set.
+   */
+  parseError?: string;
 }
 
 export interface BackupEntry {

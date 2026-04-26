@@ -80,10 +80,12 @@ const FIXTURE_CONFIG: CopilotConfig = {
   model: "claude-sonnet-4.6",
   reasoningEffort: "high",
   trustedFolders: ["/home/user/projects"],
+  disabledSkills: [],
   raw: {
     model: "claude-sonnet-4.6",
     reasoningEffort: "high",
   },
+  settingsPath: "/home/user/.copilot/settings.json",
 };
 
 const FIXTURE_VERSIONS: CopilotVersion[] = [

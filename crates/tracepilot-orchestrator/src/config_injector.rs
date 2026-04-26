@@ -1,7 +1,20 @@
 //! Copilot CLI config injection and management.
+//!
+//! Copilot CLI history note: prior to 2026-04 user settings (model,
+//! reasoningEffort, trustedFolders, …) lived in `~/.copilot/config.json`. From
+//! 2026-04 onward user settings moved to `~/.copilot/settings.json` and
+//! `config.json` became internal CLI state (now prefixed with `// …` comments
+//! and therefore not valid JSON).
+//!
+//! `read_copilot_config` reads both files and merges them, tolerating `//`
+//! line comments, so TracePilot works against either layout. Writes always
+//! target `settings.json` (the new location); we never modify `config.json`.
+
+mod copilot_config;
+pub use copilot_config::{CONFIG_FILE, SETTINGS_FILE, read_copilot_config, write_copilot_config};
 
 use crate::error::{OrchestratorError, Result};
-use crate::types::{AgentDefinition, BackupDiffPreview, BackupEntry, ConfigDiff, CopilotConfig};
+use crate::types::{AgentDefinition, BackupDiffPreview, BackupEntry, ConfigDiff};
 use std::path::{Path, PathBuf};
 use tracepilot_core::utils::backup::BackupStore;
 
@@ -30,40 +43,6 @@ pub fn read_agent_definitions(version_dir: &Path) -> Result<Vec<AgentDefinition>
     Ok(agents)
 }
 
-/// Read the global Copilot CLI config file.
-pub fn read_copilot_config(copilot_home: &Path) -> Result<CopilotConfig> {
-    let config_path = copilot_home.join("config.json");
-    if !config_path.exists() {
-        return Ok(CopilotConfig {
-            model: None,
-            reasoning_effort: None,
-            trusted_folders: Vec::new(),
-            raw: serde_json::Value::Object(serde_json::Map::new()),
-        });
-    }
-
-    let content = std::fs::read_to_string(&config_path)?;
-    let raw: serde_json::Value = serde_json::from_str(&content)?;
-
-    Ok(CopilotConfig {
-        model: raw.get("model").and_then(|v| v.as_str()).map(String::from),
-        reasoning_effort: raw
-            .get("reasoningEffort")
-            .and_then(|v| v.as_str())
-            .map(String::from),
-        trusted_folders: raw
-            .get("trustedFolders")
-            .and_then(|v| v.as_array())
-            .map(|a| {
-                a.iter()
-                    .filter_map(|v| v.as_str().map(String::from))
-                    .collect()
-            })
-            .unwrap_or_default(),
-        raw,
-    })
-}
-
 /// Write an updated agent definition YAML to disk.
 /// Uses atomic write (write to temp then rename) for safety.
 pub fn write_agent_definition(path: &Path, yaml_content: &str) -> Result<()> {
@@ -81,17 +60,6 @@ pub fn write_agent_definition(path: &Path, yaml_content: &str) -> Result<()> {
 
     std::fs::write(&temp_path, yaml_content)?;
     std::fs::rename(&temp_path, path)?;
-    Ok(())
-}
-
-/// Write the global Copilot config.json file.
-pub fn write_copilot_config(copilot_home: &Path, config: &serde_json::Value) -> Result<()> {
-    let config_path = copilot_home.join("config.json");
-    let temp_path = copilot_home.join(".config.json.tmp");
-
-    let content = serde_json::to_string_pretty(config)?;
-    std::fs::write(&temp_path, &content)?;
-    std::fs::rename(&temp_path, &config_path)?;
     Ok(())
 }
 
