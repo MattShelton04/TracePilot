@@ -156,6 +156,25 @@ pub fn resolve_session_path(session_id_prefix: &str) -> Result<PathBuf> {
 
 /// Resolve a session ID (full or partial prefix) to its directory path,
 /// searching within the given base directory.
+/// Resolve a session path directly from a full session UUID without scanning.
+///
+/// Session IDs in the IPC layer are always full UUIDs (not prefixes), so we
+/// can construct the path directly without the `discover_sessions()` overhead.
+/// This is used by all hot-path commands (get_session_detail, get_session_turns,
+/// etc.) to avoid expensive directory scans on every request.
+///
+/// Returns `SessionNotFound` if the directory doesn't exist (the session hasn't
+/// been materialized yet), not if the UUID format is invalid — callers validate
+/// UUIDs separately.
+#[tracing::instrument(skip_all, fields(session_id = %session_id))]
+pub fn resolve_session_path_direct(session_id: &str, base_dir: &Path) -> Result<PathBuf> {
+    let path = base_dir.join(session_id);
+    if !path.exists() {
+        return Err(TracePilotError::SessionNotFound(session_id.to_string()));
+    }
+    Ok(path)
+}
+
 pub fn resolve_session_path_in(session_id_prefix: &str, base_dir: &Path) -> Result<PathBuf> {
     let sessions = discover_sessions(base_dir)?;
     let matches: Vec<_> = sessions

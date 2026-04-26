@@ -26,7 +26,7 @@ export interface CachedSession {
   loadedSections: Set<string>;
 }
 
-export const DEFAULT_SESSION_CACHE_SIZE = 10;
+export const DEFAULT_SESSION_CACHE_SIZE = 30;
 
 export interface SessionCache {
   set(id: string, cached: CachedSession): void;

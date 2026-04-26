@@ -378,3 +378,24 @@ pub fn parse_typed_events(path: &Path) -> Result<ParsedEvents> {
         diagnostics,
     })
 }
+
+/// Parse `events.jsonl` if it exists, returning `Ok(None)` if it does not.
+///
+/// Many session directories exist on disk (with `workspace.yaml`, `checkpoints/`,
+/// `files/`, …) without an `events.jsonl` — e.g. freshly-created sessions, or
+/// sessions whose event log was cleaned up. Callers in best-effort contexts
+/// (prefetch, shutdown metrics, attribution scans) should treat that as "no
+/// events" rather than a hard error. Other I/O errors (permission denied,
+/// not-a-file, …) are still surfaced.
+#[tracing::instrument(skip_all, fields(path = %path.display()))]
+pub fn parse_typed_events_if_exists(path: &Path) -> Result<Option<ParsedEvents>> {
+    match std::fs::metadata(path) {
+        Ok(_) => parse_typed_events(path).map(Some),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(crate::error::TracePilotError::io_context(
+            "Failed to stat",
+            path.display(),
+            e,
+        )),
+    }
+}

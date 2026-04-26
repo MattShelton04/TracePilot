@@ -29,7 +29,9 @@ mod typed;
 
 pub use aggregate::{extract_combined_shutdown_data, extract_session_start};
 pub use raw::RawEvent;
-pub use typed::{ParsedEvents, TypedEvent, TypedEventData, parse_typed_events};
+pub use typed::{
+    ParsedEvents, TypedEvent, TypedEventData, parse_typed_events, parse_typed_events_if_exists,
+};
 
 #[cfg(test)]
 pub(crate) use typed::typed_data_from_raw;

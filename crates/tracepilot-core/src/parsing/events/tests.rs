@@ -2,7 +2,7 @@
 
 use super::aggregate::{extract_combined_shutdown_data, extract_session_start};
 use super::raw::parse_events_jsonl;
-use super::typed::{TypedEventData, parse_typed_events};
+use super::typed::{TypedEventData, parse_typed_events, parse_typed_events_if_exists};
 use crate::models::event_types::SessionEventType;
 use std::io::Write;
 
@@ -46,6 +46,23 @@ fn test_parse_raw_events() {
     assert_eq!(events[4].event_type, "tool.execution_start");
     assert_eq!(events[7].event_type, "session.shutdown");
     assert_eq!(events[0].id.as_deref(), Some("evt-1"));
+}
+
+#[test]
+fn test_parse_typed_events_if_exists_returns_none_for_missing_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("events.jsonl");
+    assert!(!path.exists());
+    let parsed = parse_typed_events_if_exists(&path).unwrap();
+    assert!(parsed.is_none());
+}
+
+#[test]
+fn test_parse_typed_events_if_exists_returns_some_for_present_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = write_sample_file(&dir);
+    let parsed = parse_typed_events_if_exists(&path).unwrap().unwrap();
+    assert_eq!(parsed.events.len(), 8);
 }
 
 #[test]

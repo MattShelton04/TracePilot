@@ -33,7 +33,14 @@ use tracepilot_orchestrator::bridge::CopilotSdkEnabledReader;
 use tracepilot_orchestrator::bridge::manager::SharedBridgeManager;
 use types::{EventCache, ManifestLock, SharedOrchestratorState, SharedTaskDb, TurnCache};
 
-const SESSION_CACHE_CAPACITY: usize = 10;
+/// Capacity (in sessions) for the per-process EventCache and TurnCache LRUs.
+///
+/// Sized to comfortably hold the prefetched window (`PREFETCH_LIMIT` in
+/// `SessionListView.vue`) plus a few "currently-open" tabs, so navigating
+/// back to the session list never re-parses events for a recently-viewed
+/// session — and a webview Ctrl+R refresh stays cheap because the Rust
+/// process (and these caches) survives the reload.
+const SESSION_CACHE_CAPACITY: usize = 30;
 
 /// Build the Tauri plugin that registers all IPC commands.
 pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
