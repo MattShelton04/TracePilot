@@ -1,0 +1,3 @@
+## 2025-04-26 - [Optimize Batch Insert Compilation]
+**Learning:** In `rusqlite` batched inserts chunking large inputs, compiling the exact same SQL placeholder string inside the chunk loop causes measurable overhead because `stmt.execute(...)` does not preserve the cached prepared statement between chunks when dynamically reconstructed via string concatenation, polluting the cache.
+**Action:** Always pre-allocate and cache the prepared `rusqlite::Statement` instance (`conn.prepare()`) outside or lazily inside the loop for full-sized chunks. Fallback to dynamic compilation only for the very last fractional chunk.

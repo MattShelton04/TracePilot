@@ -83,30 +83,30 @@ where
         return Ok(());
     }
 
-    // All full-sized chunks share the same SQL shape — build it lazily on first
-    // use so sessions with < BATCH_CHUNK_SIZE rows (most analytics tables) pay
-    // zero allocation for the full-chunk string they never use.
-    let mut full_sql: Option<String> = None;
+    // Cache the prepared statement for full-sized chunks to avoid recompiling
+    // the statement on every loop iteration. The final smaller chunk uses
+    // a dynamic prepare() to avoid polluting the SQLite statement cache.
+    let mut full_stmt = None;
 
     for chunk in items.chunks(BATCH_CHUNK_SIZE) {
-        let partial;
-        let sql: &str = if chunk.len() == BATCH_CHUNK_SIZE {
-            full_sql.get_or_insert_with(|| {
-                build_placeholder_sql(sql_prefix, BATCH_CHUNK_SIZE, params_per_row)
-            })
-        } else {
-            partial = build_placeholder_sql(sql_prefix, chunk.len(), params_per_row);
-            &partial
-        };
-
-        let mut stmt = conn.prepare(sql)?;
-
         let mut params: Vec<&'a dyn ToSql> = Vec::with_capacity(chunk.len() * params_per_row);
         for item in chunk {
             to_params(item, &mut params);
         }
 
-        stmt.execute(rusqlite::params_from_iter(params))?;
+        if chunk.len() == BATCH_CHUNK_SIZE {
+            if full_stmt.is_none() {
+                let sql = build_placeholder_sql(sql_prefix, BATCH_CHUNK_SIZE, params_per_row);
+                full_stmt = Some(conn.prepare(&sql)?);
+            }
+            if let Some(stmt) = full_stmt.as_mut() {
+                stmt.execute(rusqlite::params_from_iter(params))?;
+            }
+        } else {
+            let sql = build_placeholder_sql(sql_prefix, chunk.len(), params_per_row);
+            let mut stmt = conn.prepare(&sql)?;
+            stmt.execute(rusqlite::params_from_iter(params))?;
+        }
     }
 
     Ok(())
