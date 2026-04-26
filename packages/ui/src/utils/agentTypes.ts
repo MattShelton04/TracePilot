@@ -8,13 +8,20 @@
 import type { TurnToolCall } from "@tracepilot/types";
 import { getToolArgs, toolArgString } from "@tracepilot/types";
 
-export type AgentType = "main" | "explore" | "general-purpose" | "code-review" | "task";
+export type AgentType =
+  | "main"
+  | "explore"
+  | "general-purpose"
+  | "code-review"
+  | "rubber-duck"
+  | "task";
 
 export const AGENT_COLORS: Record<AgentType, string> = {
   main: "var(--agent-color-main)",
   explore: "var(--agent-color-explore)",
   "general-purpose": "var(--agent-color-general-purpose)",
   "code-review": "var(--agent-color-code-review)",
+  "rubber-duck": "var(--agent-color-rubber-duck)",
   task: "var(--agent-color-task)",
 };
 
@@ -23,6 +30,7 @@ export const AGENT_ICONS: Record<AgentType, string> = {
   explore: "🔍",
   "general-purpose": "🛠️",
   "code-review": "🔎",
+  "rubber-duck": "🦆",
   task: "📋",
 };
 
@@ -41,12 +49,20 @@ export const STATUS_ICONS: Record<AgentStatus, string> = {
 export function inferAgentType(displayName?: string, toolName?: string, args?: unknown): AgentType {
   const name = (displayName ?? toolName ?? "").toLowerCase();
   if (name.includes("explore")) return "explore";
+  if (name.includes("rubber-duck") || name.includes("rubber duck") || name.includes("rubberduck"))
+    return "rubber-duck";
   if (name.includes("code-review") || name.includes("code review")) return "code-review";
   if (name.includes("general") || name.includes("general-purpose")) return "general-purpose";
   if (args && typeof args === "object") {
     const a = getToolArgs({ arguments: args });
     const agentType = toolArgString(a, "agent_type").toLowerCase();
     if (agentType.includes("explore")) return "explore";
+    if (
+      agentType.includes("rubber-duck") ||
+      agentType.includes("rubber_duck") ||
+      agentType.includes("rubberduck")
+    )
+      return "rubber-duck";
     if (agentType.includes("code-review") || agentType.includes("code_review"))
       return "code-review";
     if (agentType.includes("general")) return "general-purpose";

@@ -149,6 +149,7 @@
   --agent-color-explore: #22d3ee;
   --agent-color-general-purpose: #a78bfa;
   --agent-color-code-review: #f472b6;
+  --agent-color-rubber-duck: #fde047;
   --agent-color-task: #fbbf24;
 
   /* --- Chart Colors --- */
@@ -275,6 +276,7 @@
   --agent-color-explore: #0891b2;
   --agent-color-general-purpose: #7c3aed;
   --agent-color-code-review: #db2777;
+  --agent-color-rubber-duck: #ca8a04;
   --agent-color-task: #d97706;
 
   /* --- Syntax Highlighting (slightly deeper for light bg) --- */

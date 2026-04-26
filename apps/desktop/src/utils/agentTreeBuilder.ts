@@ -16,7 +16,7 @@ import {
 
 export interface AgentNode {
   id: string;
-  type: "main" | "explore" | "general-purpose" | "code-review" | "task";
+  type: "main" | "explore" | "general-purpose" | "code-review" | "rubber-duck" | "task";
   displayName: string;
   description?: string;
   model?: string;

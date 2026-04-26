@@ -4,7 +4,13 @@ import type { TurnToolCall } from "@tracepilot/types";
 
 export type SubagentStatus = "in-progress" | "completed" | "failed";
 
-export type SubagentType = "main" | "explore" | "general-purpose" | "code-review" | "task";
+export type SubagentType =
+  | "main"
+  | "explore"
+  | "general-purpose"
+  | "code-review"
+  | "rubber-duck"
+  | "task";
 
 export type SubagentActivityPillType = "intent" | "memory" | "read_agent";
 

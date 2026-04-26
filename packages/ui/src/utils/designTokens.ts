@@ -93,6 +93,7 @@ export function getAgentColors() {
     explore: getDesignToken("--agent-color-explore"),
     generalPurpose: getDesignToken("--agent-color-general-purpose"),
     codeReview: getDesignToken("--agent-color-code-review"),
+    rubberDuck: getDesignToken("--agent-color-rubber-duck"),
     task: getDesignToken("--agent-color-task"),
   } as const;
 }
