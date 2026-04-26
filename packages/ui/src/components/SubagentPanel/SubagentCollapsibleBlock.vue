@@ -22,11 +22,12 @@ const toggle = () => emit("update:expanded", !props.expanded);
       <div class="sap-section-label">{{ label }}</div>
       <button
         v-if="isLong(content, threshold)"
-        class="sap-header-chevron"
+        class="sap-header-toggle"
         :aria-expanded="expanded"
         :aria-label="`${expanded ? 'Collapse' : 'Expand'} ${label.toLowerCase()}`"
         @click="toggle"
       >
+        <span>{{ expanded ? "Collapse" : "Expand" }}</span>
         <span :class="['sap-chevron', { open: expanded }]">▸</span>
       </button>
     </div>
@@ -69,9 +70,9 @@ const toggle = () => emit("update:expanded", !props.expanded);
 .sap-section-label { font-size: 0.6875rem; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
 .sap-section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
 
-.sap-header-chevron { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0; border: none; background: transparent; color: var(--text-tertiary); cursor: pointer; border-radius: var(--radius-sm); transition: background var(--transition-fast), color var(--transition-fast); }
-.sap-header-chevron:hover { background: var(--accent-subtle); color: var(--accent-fg); }
-.sap-header-chevron:focus-visible { outline: 2px solid var(--accent-fg); outline-offset: 2px; }
+.sap-header-toggle { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border: 1px solid var(--border-muted); background: transparent; color: var(--text-secondary); cursor: pointer; border-radius: 999px; font-size: 0.7rem; font-weight: 500; line-height: 1; transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast); }
+.sap-header-toggle:hover { background: var(--accent-subtle); color: var(--accent-fg); border-color: var(--accent-fg); }
+.sap-header-toggle:focus-visible { outline: 2px solid var(--accent-fg); outline-offset: 2px; }
 .sap-chevron { display: inline-block; font-size: 11px; line-height: 1; transition: transform var(--transition-fast); }
 .sap-chevron.open { transform: rotate(90deg); }
 
