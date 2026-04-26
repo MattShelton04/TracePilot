@@ -12,6 +12,11 @@ export const AGENT_META: Readonly<Record<string, AgentMeta>> = Object.freeze({
     colorVar: "--success-emphasis",
     motto: "High signal-to-noise reviewer",
   },
+  "rubber-duck": {
+    emoji: "🦆",
+    colorVar: "--agent-color-rubber-duck",
+    motto: "Pragmatic feedback partner",
+  },
   research: { emoji: "🔬", colorVar: "--done-emphasis", motto: "Deep analysis specialist" },
   "configure-copilot": {
     emoji: "⚙️",

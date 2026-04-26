@@ -18,7 +18,7 @@ export function useChatViewPanelOffset(cvRootEl: Ref<HTMLElement | null>) {
     if (!cvRoot) return;
     const cvRect = cvRoot.getBoundingClientRect();
 
-    // Find the sticky action bar (.detail-actions) — it sticks at top of scroll area
+    // Find the sticky action bar (.detail-actions) ÔÇö it sticks at top of scroll area
     const actionsEl = document.querySelector(".detail-actions") as HTMLElement | null;
     const actionsBottom = actionsEl ? actionsEl.getBoundingClientRect().bottom : 0;
 

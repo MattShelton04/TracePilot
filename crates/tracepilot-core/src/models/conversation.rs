@@ -17,6 +17,10 @@ pub struct AttributedMessage {
     pub parent_tool_call_id: Option<String>,
     /// Denormalized display name of the owning agent (e.g. "Explore Agent").
     pub agent_display_name: Option<String>,
+    /// Index of the originating event in the session event stream.
+    /// Used for chronologically interleaving messages/reasoning with tool calls.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub event_index: Option<usize>,
 }
 
 /// Severity level for session events embedded in a conversation turn.

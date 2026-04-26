@@ -151,6 +151,7 @@ pub(super) fn make_turn_with_tools(tool_calls: Vec<TurnToolCall>) -> Conversatio
             content: "response".to_string(),
             parent_tool_call_id: None,
             agent_display_name: None,
+            event_index: None,
         }],
         model: Some("model".to_string()),
         timestamp: None,

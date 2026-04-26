@@ -56,6 +56,20 @@ export { default as SkeletonLoader } from "./components/SkeletonLoader.vue";
 export { default as SqliteTableView } from "./components/SqliteTableView.vue";
 export { default as StatCard } from "./components/StatCard.vue";
 export { default as StatusIcon } from "./components/StatusIcon.vue";
+export type {
+  SubagentActivityInput,
+  SubagentActivityItem,
+  SubagentActivityPillType,
+  SubagentStatus,
+  SubagentType,
+  SubagentView,
+} from "./components/SubagentPanel";
+// ── Subagent panel (shared, single body) ─────────
+export {
+  buildSubagentActivities,
+  SubagentPanel,
+  SubagentPanelNav,
+} from "./components/SubagentPanel";
 export type { TabNavItem } from "./components/TabNav.vue";
 export { default as TabNav } from "./components/TabNav.vue";
 export { default as TagList } from "./components/TagList.vue";

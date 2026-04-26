@@ -27,8 +27,15 @@ function makeToolCall(overrides: Partial<TurnToolCall> = {}): TurnToolCall {
 // ---------------------------------------------------------------------------
 
 describe("AGENT_COLORS", () => {
-  it("has entries for all five agent types", () => {
-    const types: AgentType[] = ["main", "explore", "general-purpose", "code-review", "task"];
+  it("has entries for all agent types", () => {
+    const types: AgentType[] = [
+      "main",
+      "explore",
+      "general-purpose",
+      "code-review",
+      "rubber-duck",
+      "task",
+    ];
     for (const t of types) {
       expect(AGENT_COLORS[t]).toMatch(/^var\(--agent-color-/);
     }
@@ -36,8 +43,15 @@ describe("AGENT_COLORS", () => {
 });
 
 describe("AGENT_ICONS", () => {
-  it("has entries for all five agent types", () => {
-    const types: AgentType[] = ["main", "explore", "general-purpose", "code-review", "task"];
+  it("has entries for all agent types", () => {
+    const types: AgentType[] = [
+      "main",
+      "explore",
+      "general-purpose",
+      "code-review",
+      "rubber-duck",
+      "task",
+    ];
     for (const t of types) {
       expect(AGENT_ICONS[t]).toBeTruthy();
     }
@@ -67,6 +81,16 @@ describe("inferAgentType", () => {
 
   it("returns 'code-review' for display name containing 'code review' (space)", () => {
     expect(inferAgentType("Code Review")).toBe("code-review");
+  });
+
+  it("returns 'rubber-duck' for display name containing 'rubber-duck'", () => {
+    expect(inferAgentType("Rubber-Duck Agent")).toBe("rubber-duck");
+    expect(inferAgentType("Rubber Duck")).toBe("rubber-duck");
+  });
+
+  it("infers 'rubber-duck' from args.agent_type", () => {
+    expect(inferAgentType(undefined, "task", { agent_type: "rubber-duck" })).toBe("rubber-duck");
+    expect(inferAgentType(undefined, "task", { agent_type: "rubber_duck" })).toBe("rubber-duck");
   });
 
   it("returns 'general-purpose' for display name containing 'general'", () => {

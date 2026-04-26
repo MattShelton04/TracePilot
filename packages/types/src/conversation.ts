@@ -9,6 +9,9 @@ export interface AttributedMessage {
   parentToolCallId?: string;
   /** Denormalized display name of the owning agent (e.g. "Explore Agent"). */
   agentDisplayName?: string;
+  /** Index of the originating event in the session event stream.
+   *  Used for chronologically interleaving messages/reasoning with tool calls. */
+  eventIndex?: number;
 }
 
 /** A conversation turn */

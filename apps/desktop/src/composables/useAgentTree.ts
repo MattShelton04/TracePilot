@@ -267,8 +267,39 @@ export function useAgentTree() {
   }
 
   function selectNode(id: string) {
-    selectedNodeId.value = selectedNodeId.value === id ? null : id;
-    expandedToolCalls.clear();
+    if (selectedNodeId.value === id) {
+      selectedNodeId.value = null;
+      expandedToolCalls.clear();
+      return;
+    }
+
+    // In paginated mode the tree only renders the current turn; when the caller
+    // passes a toolCallId for a subagent in another turn (common for nested
+    // subagents launched from cross-turn fan-out) we switch turns first.
+    let needsSwitch = false;
+    if (viewMode.value === "paginated" && treeData.value) {
+      const inCurrent = findAgentNode(treeData.value, id);
+      if (!inCurrent) {
+        const containingIdx = agentTurns.value.findIndex((t) =>
+          t.toolCalls.some((tc) => tc.toolCallId === id || tc.parentToolCallId === id),
+        );
+        if (containingIdx >= 0 && containingIdx !== agentTurnIndex.value) {
+          agentJumpTo(containingIdx);
+          needsSwitch = true;
+        }
+      }
+    }
+
+    if (needsSwitch) {
+      // The agentTurnIndex watcher clears selectedNodeId; set after it flushes.
+      nextTick(() => {
+        selectedNodeId.value = id;
+        expandedToolCalls.clear();
+      });
+    } else {
+      selectedNodeId.value = id;
+      expandedToolCalls.clear();
+    }
   }
 
   function closeDetail() {

@@ -293,6 +293,7 @@ defineExpose({ revealEvent });
       @close="panel.closePanel"
       @prev="panel.navigatePrev"
       @next="panel.navigateNext"
+      @select-subagent="panel.selectSubagent"
     />
   </div>
 </template>

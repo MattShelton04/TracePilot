@@ -1,19 +1,16 @@
 <script setup lang="ts">
-defineProps<{
-  requestedModel: string;
-  model: string;
-}>();
+defineProps<{ requestedModel: string; model: string }>();
 </script>
 
 <template>
-  <div class="cv-panel-model-warn">
-    <span class="cv-panel-model-warn-icon">⚠</span>
+  <div class="sap-model-warn">
+    <span class="sap-model-warn-icon">⚠</span>
     <span>Requested <code>{{ requestedModel }}</code> but ran as <code>{{ model }}</code></span>
   </div>
 </template>
 
 <style scoped>
-.cv-panel-model-warn {
+.sap-model-warn {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -26,16 +23,12 @@ defineProps<{
   color: var(--warning-fg);
   line-height: 1.4;
 }
-
-.cv-panel-model-warn code {
+.sap-model-warn code {
   font-family: "JetBrains Mono", monospace;
   font-size: 0.625rem;
   background: color-mix(in srgb, var(--warning-fg) 12%, transparent);
   padding: 0 4px;
   border-radius: var(--radius-sm);
 }
-
-.cv-panel-model-warn-icon {
-  flex-shrink: 0;
-}
+.sap-model-warn-icon { flex-shrink: 0; }
 </style>

@@ -85,6 +85,7 @@ pub fn simple_turn(
             content: assistant_msg.to_string(),
             parent_tool_call_id: None,
             agent_display_name: None,
+            event_index: None,
         }],
         model: model.map(|m| m.to_string()),
         timestamp: None,

@@ -302,8 +302,8 @@ describe("buildSubagentContentIndex", () => {
     const index = buildSubagentContentIndex(turns);
     expect(index.size).toBe(1);
     const content = index.get("sub-1")!;
-    expect(content.messages).toEqual(["sub output"]);
-    expect(content.reasoning).toEqual(["sub thinking"]);
+    expect(content.messages.map((m) => m.content)).toEqual(["sub output"]);
+    expect(content.reasoning.map((r) => r.content)).toEqual(["sub thinking"]);
   });
 
   it("aggregates content across multiple turns (cross-turn attribution)", () => {
@@ -321,8 +321,8 @@ describe("buildSubagentContentIndex", () => {
     ];
     const index = buildSubagentContentIndex(turns);
     const content = index.get("sub-1")!;
-    expect(content.messages).toEqual(["early output", "late output"]);
-    expect(content.reasoning).toEqual(["late reasoning"]);
+    expect(content.messages.map((m) => m.content)).toEqual(["early output", "late output"]);
+    expect(content.reasoning.map((r) => r.content)).toEqual(["late reasoning"]);
   });
 
   it("separates content for multiple subagents", () => {
@@ -340,8 +340,8 @@ describe("buildSubagentContentIndex", () => {
     ];
     const index = buildSubagentContentIndex(turns);
     expect(index.size).toBe(2);
-    expect(index.get("sub-a")?.messages).toEqual(["from agent A"]);
-    expect(index.get("sub-b")?.messages).toEqual(["from agent B"]);
+    expect(index.get("sub-a")?.messages.map((m) => m.content)).toEqual(["from agent A"]);
+    expect(index.get("sub-b")?.messages.map((m) => m.content)).toEqual(["from agent B"]);
   });
 
   it("excludes messages without parentToolCallId (main agent messages)", () => {
@@ -355,7 +355,7 @@ describe("buildSubagentContentIndex", () => {
       }),
     ];
     const index = buildSubagentContentIndex(turns);
-    expect(index.get("sub-1")?.messages).toEqual(["sub says"]);
+    expect(index.get("sub-1")?.messages.map((m) => m.content)).toEqual(["sub says"]);
   });
 
   it("excludes orphan parentToolCallIds that don't match any subagent", () => {
@@ -370,7 +370,7 @@ describe("buildSubagentContentIndex", () => {
     ];
     const index = buildSubagentContentIndex(turns);
     expect(index.size).toBe(1);
-    expect(index.get("sub-1")?.messages).toEqual(["valid msg"]);
+    expect(index.get("sub-1")?.messages.map((m) => m.content)).toEqual(["valid msg"]);
     expect(index.has("unknown-id")).toBe(false);
   });
 });

@@ -88,7 +88,7 @@ impl TurnReconstructor {
                 self.handle_assistant_turn_start(event, data);
             }
             (SessionEventType::AssistantMessage, TypedEventData::AssistantMessage(data)) => {
-                self.handle_assistant_message(event, data);
+                self.handle_assistant_message(event, event_index, data);
             }
             (SessionEventType::ToolExecutionStart, TypedEventData::ToolExecutionStart(data)) => {
                 self.handle_tool_execution_start(event, event_index, data);
@@ -136,7 +136,7 @@ impl TurnReconstructor {
                 self.finalize_current_turn(false, event.raw.timestamp);
             }
             (SessionEventType::AssistantReasoning, TypedEventData::AssistantReasoning(data)) => {
-                self.handle_assistant_reasoning(event, data);
+                self.handle_assistant_reasoning(event, event_index, data);
             }
             (SessionEventType::SessionError, TypedEventData::SessionError(data)) => {
                 self.handle_session_error(event, data);

@@ -4,20 +4,13 @@ import {
   formatLiveDuration,
   formatNumber,
   getAgentColor,
+  getAgentIcon,
   STATUS_ICONS,
 } from "@tracepilot/ui";
 import { type AgentNode, useAgentTreeContext } from "@/composables/useAgentTree";
 import type { AgentTreeSvgLine } from "@/utils/agentTreeLayout";
 
 const ctx = useAgentTreeContext();
-
-const AGENT_TYPE_ICONS: Record<string, string> = {
-  explore: "🔍",
-  "general-purpose": "🛠",
-  "code-review": "🔎",
-  task: "⚡",
-  main: "🤖",
-};
 
 function lineClass(line: AgentTreeSvgLine) {
   const node = ctx.layout.value?.nodes.find((n) => n.node.id === line.childId)?.node;
@@ -115,7 +108,7 @@ function lineColor(line: AgentTreeSvgLine): string {
         </div>
 
         <div class="agent-node-header">
-          <span class="agent-node-icon">{{ AGENT_TYPE_ICONS[ln.node.type] ?? "🤖" }}</span>
+          <span class="agent-node-icon">{{ getAgentIcon(ln.node.type) }}</span>
           <span class="agent-node-name">{{ ln.node.displayName }}</span>
         </div>
 

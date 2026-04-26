@@ -49,6 +49,7 @@ impl TurnReconstructor {
     pub(super) fn handle_assistant_message(
         &mut self,
         event: &TypedEvent,
+        event_index: usize,
         data: &AssistantMessageData,
     ) {
         let turn = self.ensure_current_turn(event.raw.timestamp);
@@ -62,6 +63,7 @@ impl TurnReconstructor {
                 content: content.clone(),
                 parent_tool_call_id: data.parent_tool_call_id.clone(),
                 agent_display_name: None, // resolved in finalize()
+                event_index: Some(event_index),
             });
         }
         if let Some(reasoning) = &data.reasoning_text
@@ -71,6 +73,7 @@ impl TurnReconstructor {
                 content: reasoning.clone(),
                 parent_tool_call_id: data.parent_tool_call_id.clone(),
                 agent_display_name: None, // resolved in finalize()
+                event_index: Some(event_index),
             });
         }
         if let Some(tokens) = data.output_tokens {
@@ -102,6 +105,7 @@ impl TurnReconstructor {
     pub(super) fn handle_assistant_reasoning(
         &mut self,
         event: &TypedEvent,
+        event_index: usize,
         data: &AssistantReasoningData,
     ) {
         if let Some(content) = &data.content
@@ -112,6 +116,7 @@ impl TurnReconstructor {
                 content: content.clone(),
                 parent_tool_call_id: None,
                 agent_display_name: None,
+                event_index: Some(event_index),
             });
         }
     }
