@@ -35,7 +35,7 @@ where
     let session_state_dir = read_config(state).session_state_dir();
 
     tokio::task::spawn_blocking(move || {
-        let path = tracepilot_core::session::discovery::resolve_session_path_in(
+        let path = tracepilot_core::session::discovery::resolve_session_path_direct(
             session_id.as_str(),
             &session_state_dir,
         )?;

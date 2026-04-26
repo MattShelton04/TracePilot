@@ -127,6 +127,26 @@ fn load_cached_typed_events_invalidates_stale_entries_when_file_changes() {
 }
 
 #[test]
+fn load_cached_typed_events_returns_empty_when_file_missing() {
+    // A session directory may exist (checkpoints/files/workspace.yaml) without
+    // an events.jsonl yet — e.g. freshly-created sessions or sessions whose
+    // event log was cleaned up. Best-effort callers (prefetch, shutdown
+    // metrics) should get empty events rather than a "Failed to open" error.
+    let dir = tempfile::tempdir().expect("failed to create temp dir");
+    let events_path = dir.path().join("events.jsonl");
+    assert!(!events_path.exists());
+
+    let cache = event_cache(2);
+    let (events, file_size, file_mtime) =
+        load_cached_typed_events(&cache, "session-missing", &events_path)
+            .expect("missing file should not error");
+
+    assert!(events.is_empty());
+    assert_eq!(file_size, 0);
+    assert!(file_mtime.is_none());
+}
+
+#[test]
 fn load_cached_typed_events_recovers_from_poisoned_mutex() {
     let (_dir, session_path) = temp_session(&[
         ("session.start", serde_json::json!({ "cwd": "/repo" })),

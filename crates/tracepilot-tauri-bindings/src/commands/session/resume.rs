@@ -34,8 +34,10 @@ pub async fn resume_session_in_terminal(
     let session_state_dir = read_config(&state).session_state_dir();
     let sid = session_id.clone();
     let session_cwd = tokio::task::spawn_blocking(move || {
-        let session_path =
-            tracepilot_core::session::discovery::resolve_session_path_in(&sid, &session_state_dir)?;
+        let session_path = tracepilot_core::session::discovery::resolve_session_path_direct(
+            &sid,
+            &session_state_dir,
+        )?;
         let workspace_path = session_path.join("workspace.yaml");
         let metadata = tracepilot_core::parsing::workspace::parse_workspace_yaml(&workspace_path)?;
         Ok::<Option<std::path::PathBuf>, BindingsError>(metadata.cwd.map(std::path::PathBuf::from))

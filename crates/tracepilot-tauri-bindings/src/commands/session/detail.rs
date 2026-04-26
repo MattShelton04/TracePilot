@@ -21,7 +21,7 @@ pub async fn get_session_detail(
     let event_cache = event_cache.inner().clone();
 
     blocking_cmd!({
-        let path = tracepilot_core::session::discovery::resolve_session_path_in(
+        let path = tracepilot_core::session::discovery::resolve_session_path_direct(
             &session_id,
             &session_state_dir,
         )?;

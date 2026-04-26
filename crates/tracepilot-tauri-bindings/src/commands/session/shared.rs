@@ -48,8 +48,16 @@ pub(super) fn load_cached_typed_events(
         return Ok((events, file_size, file_mtime));
     }
 
-    let events =
-        Arc::new(tracepilot_core::parsing::events::parse_typed_events(events_path)?.events);
+    // Some sessions exist in the index (and on disk as a directory) but have
+    // no events.jsonl yet — e.g. a freshly-created session, or a session whose
+    // event log was cleaned up. `parse_typed_events_if_exists` returns
+    // `Ok(None)` for that case so best-effort callers (prefetch, shutdown
+    // metrics) don't surface noise as "Failed to open" errors.
+    let events = Arc::new(
+        tracepilot_core::parsing::events::parse_typed_events_if_exists(events_path)?
+            .map(|p| p.events)
+            .unwrap_or_default(),
+    );
 
     if let Ok(mut lru) = cache.lock() {
         lru.put(

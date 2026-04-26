@@ -59,12 +59,13 @@ function prefetchTopSessions() {
   // (via createSessionDetailInstance) have their own cache and won't benefit
   // from this prefetch. This is acceptable — tabs do their own data loading
   // on open, and this optimization still speeds up route-based navigation.
-  const PREFETCH_LIMIT = 5;
-  const MAX_TURN_COUNT = 500;
+  // Single-user deployment: prefetch generously to maximise cache hits on
+  // navigation. The backend now skips sessions whose events.jsonl is missing,
+  // and the typed-event cache is keyed by (size, mtime) so re-prefetch is cheap.
+  const PREFETCH_LIMIT = 25;
   const top = store.sessions
     .slice()
     .sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""))
-    .filter((s) => !s.turnCount || s.turnCount <= MAX_TURN_COUNT)
     .slice(0, PREFETCH_LIMIT);
   for (const session of top) {
     detailStore.prefetchSession(session.id);
