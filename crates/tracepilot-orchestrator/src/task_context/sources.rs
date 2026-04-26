@@ -55,7 +55,7 @@ fn assemble_session_export(
 ) -> Result<String> {
     let session_id = require_session_id(params)?;
     let session_path =
-        tracepilot_core::session::discovery::resolve_session_path_in(session_id, data_dir)?;
+        tracepilot_core::session::discovery::resolve_session_path_direct(session_id, data_dir)?;
 
     // ── Build section set ──────────────────────────────────────────────
     let sections: HashSet<tracepilot_export::SectionId> =
@@ -110,7 +110,7 @@ fn assemble_session_export_fallback(
 ) -> Result<String> {
     let session_id = require_session_id(params)?;
     let session_path =
-        tracepilot_core::session::discovery::resolve_session_path_in(session_id, data_dir)?;
+        tracepilot_core::session::discovery::resolve_session_path_direct(session_id, data_dir)?;
 
     let load_result = tracepilot_core::summary::load_session_summary_with_events(&session_path)?;
     let summary = &load_result.summary;
@@ -180,7 +180,7 @@ fn parse_section_id(name: &str) -> Option<tracepilot_export::SectionId> {
 fn assemble_session_analytics(params: &serde_json::Value, data_dir: &Path) -> Result<String> {
     let session_id = require_session_id(params)?;
     let session_path =
-        tracepilot_core::session::discovery::resolve_session_path_in(session_id, data_dir)?;
+        tracepilot_core::session::discovery::resolve_session_path_direct(session_id, data_dir)?;
 
     let summary = tracepilot_core::summary::load_session_summary(&session_path)?;
 
@@ -227,7 +227,7 @@ fn assemble_session_health(params: &serde_json::Value) -> Result<String> {
 fn assemble_session_todos(params: &serde_json::Value, data_dir: &Path) -> Result<String> {
     let session_id = require_session_id(params)?;
     let session_path =
-        tracepilot_core::session::discovery::resolve_session_path_in(session_id, data_dir)?;
+        tracepilot_core::session::discovery::resolve_session_path_direct(session_id, data_dir)?;
 
     let plan_path = session_path.join("plan.md");
     if plan_path.exists() {

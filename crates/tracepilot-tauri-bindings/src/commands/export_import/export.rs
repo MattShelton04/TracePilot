@@ -169,7 +169,10 @@ pub async fn export_sessions(
         let session_paths: Vec<PathBuf> = session_ids
             .iter()
             .map(|id| {
-                tracepilot_core::session::discovery::resolve_session_path_in(id, &session_state_dir)
+                tracepilot_core::session::discovery::resolve_session_path_direct(
+                    id,
+                    &session_state_dir,
+                )
             })
             .collect::<std::result::Result<Vec<_>, _>>()?;
 
