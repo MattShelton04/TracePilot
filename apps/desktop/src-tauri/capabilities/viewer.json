@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/windows-schema.json",
   "identifier": "viewer",
-  "description": "Read-only permission set for viewer (pop-out session detail) windows. Phase 1A.1 of the tech-debt plan: before this split, viewer-* windows inherited the main capability and could invoke destructive commands (factory_reset, save_config, sdk_send_message, launch_session, skills_*, mcp_*, task_*, etc.). This capability whitelists only the read-only session-viewing commands actually reached from ChildApp.vue → SessionDetailTabView.vue → tab components. Intentionally missing: dialog, opener, process, updater, notification, and any tracepilot write/launch/delete/sdk/mcp/skills/task command. See docs/adr/0002-tauri-capability-scoping.md.",
+  "description": "Permission set for viewer (pop-out session detail) windows. Originally read-only (Phase 1A.1 of tech-debt plan), now also allowlists SDK steering commands so popouts can drive their session — same single-Client backend, single-user app. Still excludes: dialog, opener, process, updater, notification, factory_reset, save_config, launch_session, skills_*, mcp_*, task_* (those remain main-window only). See docs/adr/0002-tauri-capability-scoping.md.",
   "windows": ["viewer-*"],
   "permissions": [
     "core:default",
@@ -30,6 +30,22 @@
 
     "tracepilot:allow-session-list-files",
     "tracepilot:allow-session-read-file",
-    "tracepilot:allow-session-read-sqlite"
+    "tracepilot:allow-session-read-sqlite",
+
+    "tracepilot:allow-sdk-status",
+    "tracepilot:allow-sdk-hydrate",
+    "tracepilot:allow-sdk-list-sessions",
+    "tracepilot:allow-sdk-list-models",
+    "tracepilot:allow-sdk-get-auth-status",
+    "tracepilot:allow-sdk-get-quota",
+    "tracepilot:allow-sdk-get-foreground-session",
+    "tracepilot:allow-sdk-set-foreground-session",
+    "tracepilot:allow-sdk-resume-session",
+    "tracepilot:allow-sdk-send-message",
+    "tracepilot:allow-sdk-abort-session",
+    "tracepilot:allow-sdk-destroy-session",
+    "tracepilot:allow-sdk-unlink-session",
+    "tracepilot:allow-sdk-set-session-mode",
+    "tracepilot:allow-sdk-set-session-model"
   ]
 }

@@ -8,7 +8,7 @@
  *   3. Advanced — log level, diagnostics, raw state
  */
 import { ActionButton, BtnGroup, FormInput, SectionPanel } from "@tracepilot/ui";
-import { computed, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { ROUTE_NAMES } from "@/config/routes";
 import { usePreferencesStore } from "@/stores/preferences";
@@ -22,6 +22,8 @@ const router = useRouter();
 
 const isEnabled = computed(() => prefs.isFeatureEnabled("copilotSdk"));
 const showAdvanced = ref(false);
+const tcpConnectError = ref<string | null>(null);
+let refreshTimer: ReturnType<typeof setInterval> | null = null;
 
 // ─── Mode selection (local UI state, drives what connect() does) ────────
 // "stdio" = isolated subprocess, "tcp" = connect to existing server
@@ -34,6 +36,7 @@ const modeOptions = [
 
 function handleModeChange(mode: string) {
   selectedMode.value = mode as "stdio" | "tcp";
+  tcpConnectError.value = null;
   if (mode === "stdio") {
     sdk.updateSettings("", sdk.savedLogLevel);
     // If connected in TCP mode, disconnect (user explicitly chose stdio)
@@ -56,6 +59,19 @@ const logLevel = computed({
 // ─── Handlers ───────────────────────────────────────────────────────────
 
 async function handleConnect() {
+  tcpConnectError.value = null;
+  if (selectedMode.value === "tcp" && !cliUrl.value.trim()) {
+    const servers = await sdk.detectUiServer();
+    if (servers.length === 1) {
+      await sdk.connectToServer(servers[0].address);
+      return;
+    }
+    tcpConnectError.value =
+      servers.length > 1
+        ? "Select one detected --ui-server instance before connecting."
+        : "TCP mode requires a running copilot --ui-server. Launch one, detect it, or enter its host:port.";
+    return;
+  }
   await sdk.connect({
     cliUrl: cliUrl.value || undefined,
     logLevel: logLevel.value || undefined,
@@ -86,8 +102,42 @@ async function handleStopServer(pid: number) {
 }
 
 async function refreshAll() {
-  await Promise.all([sdk.hydrate(), sdk.fetchAuthStatus(), sdk.fetchQuota(), sdk.fetchModels()]);
+  await Promise.all([
+    sdk.hydrate(),
+    sdk.fetchAuthStatus(),
+    sdk.fetchQuota(),
+    sdk.fetchModels(),
+    sdk.fetchSessions(),
+  ]);
+  syncModeFromBackend();
 }
+
+function syncModeFromBackend() {
+  if (sdk.connectionMode === "tcp") {
+    selectedMode.value = "tcp";
+  } else if (sdk.connectionMode === "stdio") {
+    selectedMode.value = "stdio";
+  } else {
+    selectedMode.value = sdk.savedCliUrl ? "tcp" : "stdio";
+  }
+}
+
+onMounted(() => {
+  void refreshAll();
+  refreshTimer = setInterval(() => void refreshAll(), 10_000);
+});
+
+onUnmounted(() => {
+  if (refreshTimer) {
+    clearInterval(refreshTimer);
+    refreshTimer = null;
+  }
+});
+
+watch(
+  () => sdk.connectionMode,
+  () => syncModeFromBackend(),
+);
 
 // ─── Diagnostics ────────────────────────────────────────────────────────
 
@@ -239,6 +289,9 @@ async function openSession(rowId: string) {
             <template v-if="sdk.isConnected">
               <span class="sdk-stat"> · {{ sessionCountLabel }}</span>
               <span class="sdk-stat"> · {{ sdk.models.length }} models</span>
+            </template>
+            <template v-if="tcpConnectError">
+              <span class="sdk-stat sdk-stat--error"> · {{ tcpConnectError }}</span>
             </template>
           </div>
         </div>
@@ -535,6 +588,9 @@ async function openSession(rowId: string) {
 
 .sdk-stat {
   color: var(--text-tertiary);
+}
+.sdk-stat--error {
+  color: var(--danger-fg);
 }
 
 /* ─── Mode actions ───────────────────────────── */

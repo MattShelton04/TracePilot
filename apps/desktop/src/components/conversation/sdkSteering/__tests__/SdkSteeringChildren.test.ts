@@ -18,6 +18,8 @@ function makeCtx(overrides: Partial<SdkSteeringContext> = {}): SdkSteeringContex
       connectionMode: "stdio" as const,
       connectionState: "connected" as const,
       sendingMessage: false,
+      sendingByIds: new Set<string>(),
+      isSending: vi.fn((_sid: string | null | undefined) => false),
       lastError: null as string | null,
       sessions: [] as unknown[],
       models: [] as Array<{ id: string; name?: string }>,
@@ -56,6 +58,7 @@ function makeCtx(overrides: Partial<SdkSteeringContext> = {}): SdkSteeringContex
     inferredModel: null,
     liveState: null as SessionLiveState | null,
     hasText: false,
+    sending: false,
     shortSessionId: "sess-1",
     inlineError: null,
     modes: [
@@ -161,8 +164,7 @@ describe("SdkSteeringCommandBar", () => {
   });
 
   it("abort button invokes handleAbort when visible", async () => {
-    const ctx = makeCtx();
-    ctx.sdk.sendingMessage = true;
+    const ctx = makeCtx({ sending: true });
     const wrapper = mountWithCtx(SdkSteeringCommandBar, ctx);
     await wrapper.find(".cb-btn-abort").trigger("click");
     expect(ctx.handleAbort).toHaveBeenCalled();
@@ -229,8 +231,10 @@ describe("SdkSteeringLiveState", () => {
     });
     const wrapper = mountWithCtx(SdkSteeringLiveState, ctx);
     expect(wrapper.text()).toContain("Waiting for permission");
-    expect(wrapper.text()).toContain("Streaming assistant text");
-    expect(wrapper.text()).toContain("Reasoning stream");
+    // Streaming assistant + reasoning text now render in the main chat,
+    // not in the steering panel — the panel only shows tools/notices/usage.
+    expect(wrapper.text()).not.toContain("Streaming assistant text");
+    expect(wrapper.text()).not.toContain("Reasoning stream");
     expect(wrapper.text()).toContain("Clarify migration scope");
     expect(wrapper.text()).toContain("Client only");
     expect(wrapper.text()).toContain("Answer in Copilot CLI");

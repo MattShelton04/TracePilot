@@ -62,6 +62,7 @@ export function useSessionLauncher() {
   const baseBranch = ref("");
 
   const selectedModelInfo = computed(() => store.models.find((m) => m.id === selectedModel.value));
+  const sdkFeatureEnabled = computed(() => prefsStore.isFeatureEnabled("copilotSdk"));
 
   const selectedTemplateName = computed(() => {
     if (!selectedTemplateId.value) return "Custom";
@@ -172,6 +173,7 @@ export function useSessionLauncher() {
   const canLaunch = computed(() => {
     if (!repoPath.value.trim() || store.loading) return false;
     if (createWorktree.value && !branch.value.trim()) return false;
+    if (launchConfig.value.launchMode === "sdk" && !sdkFeatureEnabled.value) return false;
     return true;
   });
 
@@ -280,16 +282,11 @@ export function useSessionLauncher() {
     envVars.splice(idx, 1);
   }
 
-  async function handleLaunch(asHeadless = false) {
+  async function handleLaunch() {
     if (!canLaunch.value || launching.value) return;
     launching.value = true;
     store.error = null;
     const cfg = { ...launchConfig.value };
-    if (asHeadless) {
-      cfg.headless = true;
-      cfg.uiServer = false;
-      cfg.launchMode = "sdk";
-    }
     try {
       if (cfg.repoPath) prefsStore.addRecentRepoPath(cfg.repoPath);
       const session = await store.launch(cfg);
@@ -459,6 +456,7 @@ export function useSessionLauncher() {
     cliCommandParts,
     worktreePreviewPath,
     estimatedCost,
+    sdkFeatureEnabled,
     canLaunch,
     hasDismissedDefaults,
     // helpers

@@ -62,6 +62,12 @@ export const useSdkStore = defineStore("sdk", () => {
     try {
       unlisteners.push(
         await safeListen<BridgeEvent>(IPC_EVENTS.SDK_BRIDGE_EVENT, (event) => {
+          // Live-streaming deltas only render in TCP mode. Stdio sends only the
+          // final `assistant.message`, so accumulating it would duplicate the
+          // persisted turn (placeholder + final render at the same time).
+          if (connection.isTcpMode.value) {
+            messaging.applyBridgeEvent(event.payload);
+          }
           const current = connection.recentEvents.value;
           const next = [...current, event.payload];
           connection.recentEvents.value =
@@ -112,6 +118,16 @@ export const useSdkStore = defineStore("sdk", () => {
 
   if (isMain()) {
     setTimeout(() => autoConnect(), 500);
+  } else {
+    // Child/popout windows: don't connect a second bridge, but DO hydrate
+    // the in-memory snapshot from the backend so steering UI (sessions,
+    // live state, models) renders immediately. After this, broadcast
+    // events keep the snapshot up to date.
+    setTimeout(() => {
+      connection.hydrate().catch(() => {
+        /* best-effort — events will still flow once the bridge connects */
+      });
+    }, 100);
   }
 
   async function disconnect() {
@@ -165,6 +181,9 @@ export const useSdkStore = defineStore("sdk", () => {
     // State (messaging)
     foregroundSessionId: messaging.foregroundSessionId,
     sendingMessage: messaging.sendingMessage,
+    sendingByIds: messaging.sendingByIds,
+    liveTurnsBySessionId: messaging.liveTurnsBySessionId,
+    isSending: messaging.isSending,
 
     // Computed
     isConnected: connection.isConnected,
@@ -196,6 +215,7 @@ export const useSdkStore = defineStore("sdk", () => {
     createSession: messaging.createSession,
     resumeSession: messaging.resumeSession,
     sendMessage: messaging.sendMessage,
+    clearLiveTurn: messaging.clearLiveTurn,
     abortSession: messaging.abortSession,
     destroySession: messaging.destroySession,
     unlinkSession: messaging.unlinkSession,

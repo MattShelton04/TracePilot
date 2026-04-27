@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ConversationTurn } from "@tracepilot/types";
 import { useConversationSections, useToggleSet } from "@tracepilot/ui";
-import { computed, nextTick, ref } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import GapIndicator from "@/components/conversation/chat/GapIndicator.vue";
 import TurnBlock from "@/components/conversation/chat/TurnBlock.vue";
@@ -14,8 +14,8 @@ import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { useSubagentCompletions } from "@/composables/useSubagentCompletions";
 import { useSubagentPanel } from "@/composables/useSubagentPanel";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
-import { useWindowRole } from "@/composables/useWindowRole";
 import { usePreferencesStore } from "@/stores/preferences";
+import { useSdkStore } from "@/stores/sdk";
 import {
   getMainMessages,
   getMainReasoning,
@@ -29,12 +29,62 @@ import SystemMessagePanel from "./SystemMessagePanel.vue";
 // ─── Store & Route ────────────────────────────────────────────────
 
 const store = useSessionDetailContext();
+const sdk = useSdkStore();
 
 useRenderBudget({ key: "render.chatViewModeMs", budgetMs: 200, label: "ChatViewMode" });
 const preferences = usePreferencesStore();
-const { isViewer } = useWindowRole();
 const route = useRoute();
-const turns = computed(() => store.turns);
+const persistedTurns = computed(() => store.turns);
+
+const liveConversationTurn = computed<ConversationTurn | null>(() => {
+  const sessionId = store.sessionId;
+  if (!sessionId) return null;
+  const live = sdk.liveTurnsBySessionId[sessionId];
+  if (!live) return null;
+  const liveText = live.assistantText.trim();
+  const liveReasoning = live.reasoningText.trim();
+  if (!liveText && !liveReasoning) return null;
+
+  // Hide the placeholder once the streamed text is already in the most
+  // recent persisted turn. Content-based check is the simplest robust
+  // dedup: we don't depend on bridge ids matching session.jsonl turn ids,
+  // and it's evaluated synchronously inside the computed so there's no
+  // post-render race when auto-refresh and streaming overlap.
+  if (liveText) {
+    const last = persistedTurns.value[persistedTurns.value.length - 1];
+    const persisted = (last?.assistantMessages ?? [])
+      .map((m) => m.content)
+      .join("")
+      .trim();
+    if (persisted?.startsWith(liveText)) return null;
+  }
+
+  const last = persistedTurns.value[persistedTurns.value.length - 1];
+  return {
+    turnIndex: (last?.turnIndex ?? 0) + 1,
+    turnId: live.turnId ?? undefined,
+    assistantMessages: liveText ? [{ content: live.assistantText }] : [],
+    reasoningTexts: liveReasoning ? [{ content: live.reasoningText }] : [],
+    toolCalls: [],
+    timestamp: live.updatedAt,
+    isComplete: false,
+  };
+});
+
+const turns = computed(() => {
+  const liveTurn = liveConversationTurn.value;
+  return liveTurn ? [...persistedTurns.value, liveTurn] : persistedTurns.value;
+});
+
+// Free the live entry from the store once it's been hidden by the dedup
+// above (post-render, just to release memory and reset for next turn).
+watch(
+  () => liveConversationTurn.value === null && !!sdk.liveTurnsBySessionId[store.sessionId ?? ""],
+  (shouldClear) => {
+    const sessionId = store.sessionId;
+    if (sessionId && shouldClear) sdk.clearLiveTurn(sessionId);
+  },
+);
 const renderMd = computed(() => preferences.isFeatureEnabled("renderMarkdown"));
 const emit = defineEmits<{
   messageSent: [prompt: string];
@@ -42,7 +92,7 @@ const emit = defineEmits<{
 
 // ─── Cross-turn subagent data ─────────────────────────────────────
 
-const { subagentMap, allSubagents } = useCrossTurnSubagents(turns);
+const { subagentMap, allSubagents } = useCrossTurnSubagents(persistedTurns);
 
 // ─── Panel state ──────────────────────────────────────────────────
 
@@ -66,7 +116,7 @@ const {
 
 // ─── Conversation sections (for tool call index) ─────────────────
 
-const { findToolCallIndex, getArgsSummary } = useConversationSections(() => store.turns);
+const { findToolCallIndex, getArgsSummary } = useConversationSections(() => turns.value);
 
 // ─── Scroll ───────────────────────────────────────────────────────
 
@@ -281,8 +331,7 @@ defineExpose({ revealEvent });
       </div>
 
       <!-- SDK Steering Panel (appears at bottom of chat when SDK is active) -->
-      <!-- Viewer windows are read-only; steering commands aren't allowlisted in viewer.json -->
-      <SdkSteeringPanel v-if="!isViewer()" :session-id="store.sessionId" :session-cwd="store.detail?.cwd ?? undefined" @message-sent="handleSteeringMessage" />
+      <SdkSteeringPanel :session-id="store.sessionId" :session-cwd="store.detail?.cwd ?? undefined" @message-sent="handleSteeringMessage" />
     </div>
 
     <!-- Subagent panel (fixed viewport-sticky, below header) -->

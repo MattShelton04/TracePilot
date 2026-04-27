@@ -113,6 +113,7 @@ vi.mock("@/stores/preferences", () => ({
     costPerPremiumRequest: 0.04,
     addRecentRepoPath: vi.fn(),
     getPremiumRequests: () => 1,
+    isFeatureEnabled: () => true,
   }),
 }));
 

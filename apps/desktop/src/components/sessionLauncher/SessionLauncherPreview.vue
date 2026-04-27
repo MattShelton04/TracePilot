@@ -19,7 +19,10 @@ const {
   handleLaunch,
   copyCommand,
   tierLabel,
+  sdkFeatureEnabled,
 } = useSessionLauncherContext();
+
+const sdkDisabledHint = "Enable copilotSdk in Settings → Experimental";
 </script>
 
 <template>
@@ -101,12 +104,15 @@ const {
       </div>
 
       <div class="preview-footer">
-        <button class="btn btn-secondary footer-btn" @click="handleLaunch(true)" :disabled="!canLaunch">
-          Launch Headless
-        </button>
-        <button class="btn btn-primary footer-btn-primary" @click="handleLaunch(false)" :disabled="!canLaunch">
+        <!-- The advanced SDK toggle is the single source of truth; this footer only launches the current preview. -->
+        <button
+          class="btn btn-primary footer-btn-primary"
+          @click="() => handleLaunch()"
+          :disabled="!canLaunch"
+          :title="headless && !sdkFeatureEnabled ? sdkDisabledHint : undefined"
+        >
           <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="margin-right: 6px"><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Zm4.879-2.773 4.264 2.559a.25.25 0 0 1 0 .428l-4.264 2.559A.25.25 0 0 1 6 10.559V5.442a.25.25 0 0 1 .379-.215Z"/></svg>
-          {{ store.loading ? 'Launching…' : 'Launch Session' }}
+          {{ store.loading ? 'Launching…' : headless ? 'Launch SDK Session' : 'Launch Session' }}
         </button>
       </div>
     </div>

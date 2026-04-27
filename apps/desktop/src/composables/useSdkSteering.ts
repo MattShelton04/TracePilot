@@ -183,6 +183,10 @@ export function useSdkSteering(options: UseSdkSteeringOptions) {
 
   const hasText = computed(() => prompt.value.trim().length > 0);
 
+  /** True only while THIS session is mid-send — multiple concurrent sessions
+   * (popouts, tabs) can each send independently without disabling each other. */
+  const sending = computed(() => sdk.isSending(effectiveSessionId.value));
+
   const shortSessionId = computed(() => {
     const id = sessionIdRef.value;
     if (!id) return null;
@@ -436,6 +440,7 @@ export function useSdkSteering(options: UseSdkSteeringOptions) {
     inferredModel,
     liveState,
     hasText,
+    sending,
     shortSessionId,
     inlineError,
     modes,

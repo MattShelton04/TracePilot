@@ -17,7 +17,22 @@ const {
   addEnvVar,
   removeEnvVar,
   clearTemplateSelection,
+  sdkFeatureEnabled,
 } = useSessionLauncherContext();
+
+const sdkDisabledHint = "Enable copilotSdk in Settings → Experimental";
+
+function toggleHeadless() {
+  if (!sdkFeatureEnabled.value) return;
+  headless.value = !headless.value;
+  clearTemplateSelection();
+}
+
+function toggleUiServer() {
+  if (!sdkFeatureEnabled.value || headless.value) return;
+  uiServer.value = !uiServer.value;
+  clearTemplateSelection();
+}
 </script>
 
 <template>
@@ -91,7 +106,9 @@ const {
             :class="{ on: headless }"
             role="switch"
             :aria-checked="headless"
-            @click="headless = !headless; clearTemplateSelection()"
+            :disabled="!sdkFeatureEnabled"
+            :title="!sdkFeatureEnabled ? sdkDisabledHint : undefined"
+            @click="toggleHeadless"
           >
             <span class="toggle-thumb" />
           </button>
@@ -107,8 +124,9 @@ const {
             :class="{ on: uiServer && !headless }"
             role="switch"
             :aria-checked="uiServer && !headless"
-            :disabled="headless"
-            @click="uiServer = !uiServer; clearTemplateSelection()"
+            :disabled="headless || !sdkFeatureEnabled"
+            :title="!sdkFeatureEnabled ? sdkDisabledHint : undefined"
+            @click="toggleUiServer"
           >
             <span class="toggle-thumb" />
           </button>
