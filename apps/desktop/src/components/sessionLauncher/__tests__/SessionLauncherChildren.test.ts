@@ -86,6 +86,7 @@ function makeCtx(overrides: Partial<UseSessionLauncherReturn> = {}): UseSessionL
       costPerPremiumRequest: 0.04,
       addRecentRepoPath: vi.fn(),
       getPremiumRequests: () => 1,
+      isFeatureEnabled: () => true,
     }),
     worktreeStore: reactive({
       registeredRepos: [],
@@ -125,6 +126,7 @@ function makeCtx(overrides: Partial<UseSessionLauncherReturn> = {}): UseSessionL
     cliCommandParts: computed(() => [{ flag: "copilot" }] as { flag: string; value?: string }[]),
     worktreePreviewPath: computed(() => ""),
     estimatedCost: computed(() => "Free"),
+    sdkFeatureEnabled: computed(() => true),
     canLaunch: computed(() => true),
     hasDismissedDefaults: computed(() => false),
     tierLabel: (t: string) => t,
@@ -236,6 +238,21 @@ describe("SessionLauncherAdvanced", () => {
     expect(ctx.clearTemplateSelection).toHaveBeenCalled();
   });
 
+  it("disables SDK launch toggles when the copilotSdk feature is off", async () => {
+    const ctx = makeCtx({ sdkFeatureEnabled: computed(() => false) } as never);
+    ctx.showAdvanced.value = true;
+    const wrapper = mount(wrap(SessionLauncherAdvanced, ctx));
+    const toggles = wrapper.findAll(".toggle-switch");
+
+    expect(toggles[2].attributes("disabled")).toBeDefined();
+    expect(toggles[2].attributes("title")).toBe("Enable copilotSdk in Settings → Experimental");
+    await toggles[2].trigger("click");
+
+    expect(ctx.headless.value).toBe(false);
+    expect(ctx.clearTemplateSelection).not.toHaveBeenCalled();
+    expect(toggles[3].attributes("disabled")).toBeDefined();
+  });
+
   it("flips terminal --ui-server mode when its toggle switch is clicked", async () => {
     const ctx = makeCtx();
     ctx.showAdvanced.value = true;
@@ -287,14 +304,14 @@ describe("SessionLauncherPreview", () => {
     const ctx = makeCtx();
     const wrapper = mount(wrap(SessionLauncherPreview, ctx));
     await wrapper.find(".footer-btn-primary").trigger("click");
-    expect(ctx.handleLaunch).toHaveBeenCalledWith(false);
+    expect(ctx.handleLaunch).toHaveBeenCalledWith();
   });
 
-  it("invokes headless SDK launch from the footer secondary button", async () => {
-    const ctx = makeCtx();
+  it("uses the SDK toggle as source of truth for the footer launch label", () => {
+    const ctx = makeCtx({ headless: ref(true) } as never);
     const wrapper = mount(wrap(SessionLauncherPreview, ctx));
-    await wrapper.find(".footer-btn").trigger("click");
-    expect(ctx.handleLaunch).toHaveBeenCalledWith(true);
+    expect(wrapper.find(".footer-btn").exists()).toBe(false);
+    expect(wrapper.find(".footer-btn-primary").text()).toContain("Launch SDK Session");
   });
 
   it("invokes copyCommand from the Copy button", async () => {
