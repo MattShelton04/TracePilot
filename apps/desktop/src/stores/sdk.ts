@@ -62,7 +62,12 @@ export const useSdkStore = defineStore("sdk", () => {
     try {
       unlisteners.push(
         await safeListen<BridgeEvent>(IPC_EVENTS.SDK_BRIDGE_EVENT, (event) => {
-          messaging.applyBridgeEvent(event.payload);
+          // Live-streaming deltas only render in TCP mode. Stdio sends only the
+          // final `assistant.message`, so accumulating it would duplicate the
+          // persisted turn (placeholder + final render at the same time).
+          if (connection.isTcpMode.value) {
+            messaging.applyBridgeEvent(event.payload);
+          }
           const current = connection.recentEvents.value;
           const next = [...current, event.payload];
           connection.recentEvents.value =
