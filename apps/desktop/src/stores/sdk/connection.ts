@@ -33,6 +33,7 @@ import type {
   DetectedUiServer,
   SdkRecoveryDecision,
   SdkRegistryRecord,
+  SessionLiveState,
 } from "@tracepilot/types";
 import { runMutation, toErrorMessage } from "@tracepilot/ui";
 import { computed, ref, shallowRef } from "vue";
@@ -63,6 +64,7 @@ export function createConnectionSlice(deps: ConnectionDeps) {
   const bridgeMetrics = ref<BridgeMetricsSnapshot | null>(null);
   const registrySessions = ref<SdkRegistryRecord[]>([]);
   const recoveryDecisions = ref<SdkRecoveryDecision[]>([]);
+  const sessionStatesById = shallowRef<Record<string, SessionLiveState>>({});
   const recentEvents = shallowRef<BridgeEvent[]>([]);
   const detectedServers = ref<DetectedUiServer[]>([]);
   const detecting = ref(false);
@@ -85,6 +87,13 @@ export function createConnectionSlice(deps: ConnectionDeps) {
     activeSessions.value = status.activeSessions;
     lastError.value = status.error ?? null;
     connectionMode.value = status.connectionMode ?? null;
+  }
+
+  function applySessionState(state: SessionLiveState) {
+    sessionStatesById.value = {
+      ...sessionStatesById.value,
+      [state.sessionId]: state,
+    };
   }
 
   async function fetchVersionInfo() {
@@ -156,6 +165,9 @@ export function createConnectionSlice(deps: ConnectionDeps) {
       const snapshot = await sdkHydrate();
       applyStatus(snapshot.status);
       sessions.value = snapshot.sessions;
+      sessionStatesById.value = Object.fromEntries(
+        (snapshot.sessionStates ?? []).map((state) => [state.sessionId, state]),
+      );
       registrySessions.value = snapshot.registrySessions;
       recoveryDecisions.value = snapshot.recovery;
       activeSessions.value = snapshot.sessions.length;
@@ -211,6 +223,7 @@ export function createConnectionSlice(deps: ConnectionDeps) {
       connectionState.value = "disconnected";
       connectionMode.value = null;
       sessions.value = [];
+      sessionStatesById.value = {};
       registrySessions.value = [];
       recoveryDecisions.value = [];
       bridgeMetrics.value = null;
@@ -319,6 +332,7 @@ export function createConnectionSlice(deps: ConnectionDeps) {
     bridgeMetrics,
     registrySessions,
     recoveryDecisions,
+    sessionStatesById,
     recentEvents,
     detectedServers,
     detecting,
@@ -330,6 +344,7 @@ export function createConnectionSlice(deps: ConnectionDeps) {
     isTcpMode,
     isStdioMode,
     applyStatus,
+    applySessionState,
     connect,
     disconnect,
     refreshStatus,

@@ -112,6 +112,23 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             }
             // Spawn status change forwarding task.
             {
+                let bridge_for_state = shared_bridge.clone();
+                let app_handle = app.clone();
+                tauri::async_runtime::spawn(tracing::Instrument::instrument(
+                    async move {
+                        let rx = bridge_for_state.read().await.subscribe_session_state();
+                        broadcast::forward_broadcast(
+                            rx,
+                            app_handle,
+                            events::SDK_SESSION_STATE_CHANGED,
+                        )
+                        .await;
+                    },
+                    tracing::info_span!("bridge_session_state_forwarder"),
+                ));
+            }
+            // Spawn status change forwarding task.
+            {
                 let bridge_for_status = shared_bridge.clone();
                 let app_handle = app.clone();
                 tauri::async_runtime::spawn(tracing::Instrument::instrument(
@@ -291,6 +308,8 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::sdk::sdk_disconnect,
             commands::sdk::sdk_status,
             commands::sdk::sdk_hydrate,
+            commands::sdk::sdk_get_session_state,
+            commands::sdk::sdk_list_session_states,
             commands::sdk::sdk_cli_status,
             commands::sdk::sdk_create_session,
             commands::sdk::sdk_resume_session,

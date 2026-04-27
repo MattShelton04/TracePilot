@@ -7,7 +7,7 @@ use crate::bridge::BridgeQuotaSnapshot;
 use crate::bridge::registry::{RecoveryDecision, RegistryRecord};
 use crate::bridge::{
     BridgeAuthStatus, BridgeError, BridgeHydrationSnapshot, BridgeModelInfo, BridgeQuota,
-    BridgeSessionInfo, BridgeStatus,
+    BridgeSessionInfo, BridgeStatus, SessionLiveState,
 };
 
 impl BridgeManager {
@@ -44,9 +44,18 @@ impl BridgeManager {
             status: self.status(),
             sessions: self.tracked_sessions(),
             metrics: self.metrics_snapshot(),
+            session_states: self.live_state.list(),
             registry_sessions,
             recovery,
         }
+    }
+
+    pub fn get_session_state(&self, session_id: &str) -> Option<SessionLiveState> {
+        self.live_state.get(session_id)
+    }
+
+    pub fn list_session_states(&self) -> Vec<SessionLiveState> {
+        self.live_state.list()
     }
 
     /// List all sessions known to the SDK client.

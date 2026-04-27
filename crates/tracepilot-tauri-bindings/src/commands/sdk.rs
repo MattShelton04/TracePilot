@@ -12,7 +12,7 @@ use tracepilot_orchestrator::bridge::registry::{RecoveryDecision, RegistryRecord
 use tracepilot_orchestrator::bridge::{
     BridgeAuthStatus, BridgeConnectConfig, BridgeHydrationSnapshot, BridgeMessagePayload,
     BridgeModelInfo, BridgeQuota, BridgeSessionConfig, BridgeSessionInfo, BridgeSessionMode,
-    BridgeStatus, DetectedUiServer,
+    BridgeStatus, DetectedUiServer, SessionLiveState,
 };
 
 // ─── Connection Lifecycle ─────────────────────────────────────────
@@ -50,6 +50,23 @@ pub async fn sdk_hydrate(
 ) -> CmdResult<BridgeHydrationSnapshot> {
     let mgr = bridge.read().await;
     Ok(mgr.hydrate())
+}
+
+#[tauri::command]
+pub async fn sdk_get_session_state(
+    bridge: tauri::State<'_, SharedBridgeManager>,
+    session_id: String,
+) -> CmdResult<Option<SessionLiveState>> {
+    let mgr = bridge.read().await;
+    Ok(mgr.get_session_state(&session_id))
+}
+
+#[tauri::command]
+pub async fn sdk_list_session_states(
+    bridge: tauri::State<'_, SharedBridgeManager>,
+) -> CmdResult<Vec<SessionLiveState>> {
+    let mgr = bridge.read().await;
+    Ok(mgr.list_session_states())
 }
 
 #[tauri::command]

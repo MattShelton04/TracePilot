@@ -24,6 +24,7 @@ vi.mock("@tracepilot/client", () => ({
     status: defaultStatus,
     sessions: [],
     metrics: { eventsForwarded: 0, eventsDroppedDueToLag: 0, lagOccurrences: 0 },
+    sessionStates: [],
     registrySessions: [],
     recovery: [],
   })),
@@ -110,6 +111,24 @@ describe("createConnectionSlice", () => {
         eventsDroppedDueToLag: 0,
         lagOccurrences: 0,
       },
+      sessionStates: [
+        {
+          sessionId: "tracked-1",
+          status: "idle",
+          currentTurnId: null,
+          assistantText: "ready",
+          reasoningText: "",
+          tools: [],
+          usage: null,
+          pendingPermission: null,
+          pendingUserInput: null,
+          lastEventId: null,
+          lastEventType: null,
+          lastEventTimestamp: null,
+          lastError: null,
+          reducerWarnings: [],
+        },
+      ],
       registrySessions: [
         {
           sessionId: "tracked-1",
@@ -157,6 +176,7 @@ describe("createConnectionSlice", () => {
     expect(status?.state).toBe("connected");
     expect(slice.isConnected.value).toBe(true);
     expect(slice.sessions.value).toEqual([{ sessionId: "tracked-1", isActive: true }]);
+    expect(slice.sessionStatesById.value["tracked-1"]?.assistantText).toBe("ready");
     expect(slice.registrySessions.value).toHaveLength(1);
     expect(slice.recoveryDecisions.value[0]?.shouldAutoResume).toBe(false);
     expect(slice.bridgeMetrics.value?.eventsForwarded).toBe(2);

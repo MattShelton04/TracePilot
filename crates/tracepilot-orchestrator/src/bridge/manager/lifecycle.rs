@@ -3,6 +3,7 @@
 //! an existing `copilot --ui-server`) modes.
 
 use super::BridgeManager;
+use crate::bridge::live_state::SessionRuntimeStatus;
 use crate::bridge::registry::RuntimeSessionState;
 use crate::bridge::{BridgeConnectConfig, BridgeConnectionState, BridgeError, ConnectionMode};
 
@@ -99,6 +100,9 @@ impl BridgeManager {
             handle.abort();
         }
         self.sessions.clear();
+        for session_id in &active_session_ids {
+            self.mark_live_session_status(session_id, SessionRuntimeStatus::Unknown, None);
+        }
         if let Err(err) = self.with_registry(|registry| {
             for session_id in &active_session_ids {
                 registry.mark_runtime(session_id, RuntimeSessionState::Unknown, None)?;

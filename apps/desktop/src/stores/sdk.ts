@@ -18,7 +18,7 @@
 
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { IPC_EVENTS } from "@tracepilot/client";
-import type { BridgeEvent, BridgeStatus } from "@tracepilot/types";
+import type { BridgeEvent, BridgeStatus, SessionLiveState } from "@tracepilot/types";
 import { defineStore } from "pinia";
 import { watch } from "vue";
 import { useWindowRole } from "@/composables/useWindowRole";
@@ -69,6 +69,9 @@ export const useSdkStore = defineStore("sdk", () => {
         }),
         await safeListen<BridgeStatus>(IPC_EVENTS.SDK_CONNECTION_CHANGED, (event) => {
           connection.applyStatus(event.payload);
+        }),
+        await safeListen<SessionLiveState>(IPC_EVENTS.SDK_SESSION_STATE_CHANGED, (event) => {
+          connection.applySessionState(event.payload);
         }),
       );
     } catch (e) {
@@ -145,6 +148,7 @@ export const useSdkStore = defineStore("sdk", () => {
     bridgeMetrics: connection.bridgeMetrics,
     registrySessions: connection.registrySessions,
     recoveryDecisions: connection.recoveryDecisions,
+    sessionStatesById: connection.sessionStatesById,
     recentEvents: connection.recentEvents,
     detectedServers: connection.detectedServers,
     detecting: connection.detecting,

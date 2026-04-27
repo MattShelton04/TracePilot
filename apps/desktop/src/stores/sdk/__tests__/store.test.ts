@@ -17,6 +17,7 @@ vi.mock("@tracepilot/client", () => ({
   IPC_EVENTS: {
     SDK_BRIDGE_EVENT: "sdk://event",
     SDK_CONNECTION_CHANGED: "sdk://status",
+    SDK_SESSION_STATE_CHANGED: "sdk://session-state",
   },
   sdkConnect: vi.fn(async () => connectedStatus),
   sdkCliStatus: vi.fn(async () => connectedStatus),
@@ -30,6 +31,24 @@ vi.mock("@tracepilot/client", () => ({
     status: connectedStatus,
     sessions: [{ sessionId: "tracked-1", isActive: true }],
     metrics: { eventsForwarded: 0, eventsDroppedDueToLag: 0, lagOccurrences: 0 },
+    sessionStates: [
+      {
+        sessionId: "tracked-1",
+        status: "running",
+        currentTurnId: null,
+        assistantText: "hello",
+        reasoningText: "",
+        tools: [],
+        usage: null,
+        pendingPermission: null,
+        pendingUserInput: null,
+        lastEventId: "evt-1",
+        lastEventType: "assistant.message_delta",
+        lastEventTimestamp: "2026-04-27T00:00:00Z",
+        lastError: null,
+        reducerWarnings: [],
+      },
+    ],
     registrySessions: [],
     recovery: [],
   })),
@@ -86,6 +105,43 @@ describe("useSdkStore lifecycle hydration", () => {
     expect(client.sdkConnect).not.toHaveBeenCalled();
     expect(store.connectionState).toBe("connected");
     expect(store.sessions).toEqual([{ sessionId: "tracked-1", isActive: true }]);
+    expect(store.sessionStatesById["tracked-1"]?.assistantText).toBe("hello");
+  });
+
+  it("updates sessionStatesById from compact state-change events", async () => {
+    const listeners = new Map<string, (event: { payload: unknown }) => void>();
+    const tauriEvents = await import("@/utils/tauriEvents");
+    (tauriEvents.safeListen as ReturnType<typeof vi.fn>).mockImplementation(
+      async (name: string, handler: (event: { payload: unknown }) => void) => {
+        listeners.set(name, handler);
+        return () => {};
+      },
+    );
+
+    const store = useSdkStore();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    listeners.get("sdk://session-state")?.({
+      payload: {
+        sessionId: "live-2",
+        status: "idle",
+        currentTurnId: "turn-2",
+        assistantText: "done",
+        reasoningText: "",
+        tools: [],
+        usage: null,
+        pendingPermission: null,
+        pendingUserInput: null,
+        lastEventId: "evt-2",
+        lastEventType: "session.idle",
+        lastEventTimestamp: "2026-04-27T00:00:01Z",
+        lastError: null,
+        reducerWarnings: [],
+      },
+    });
+
+    expect(store.sessionStatesById["live-2"]?.status).toBe("idle");
   });
 
   it("does not register beforeunload disconnect lifecycle", () => {

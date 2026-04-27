@@ -17,6 +17,7 @@ export const IPC_EVENTS = {
   SEARCH_INDEXING_PROGRESS: "search-indexing-progress",
   SEARCH_INDEXING_FINISHED: "search-indexing-finished",
   SDK_BRIDGE_EVENT: "sdk-bridge-event",
+  SDK_SESSION_STATE_CHANGED: "sdk-session-state-changed",
   SDK_CONNECTION_CHANGED: "sdk-connection-changed",
 } as const;
 

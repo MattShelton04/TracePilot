@@ -10,6 +10,8 @@ pub const INDEXING_FINISHED: &str = "indexing-finished";
 
 /// Copilot SDK IPC event (bridge event forwarding).
 pub const SDK_BRIDGE_EVENT: &str = "sdk-bridge-event";
+/// Compact SDK session live-state changed.
+pub const SDK_SESSION_STATE_CHANGED: &str = "sdk-session-state-changed";
 /// SDK connection state changed.
 pub const SDK_CONNECTION_CHANGED: &str = "sdk-connection-changed";
 

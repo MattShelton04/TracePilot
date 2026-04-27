@@ -15,6 +15,7 @@ import type {
   DetectedUiServer,
   SdkRecoveryDecision,
   SdkRegistryRecord,
+  SessionLiveState,
 } from "@tracepilot/types";
 import { createInvoke } from "./invoke.js";
 
@@ -36,6 +37,14 @@ export async function sdkStatus(): Promise<BridgeStatus> {
 
 export async function sdkHydrate(): Promise<BridgeHydrationSnapshot> {
   return invoke<BridgeHydrationSnapshot>("sdk_hydrate");
+}
+
+export async function sdkGetSessionState(sessionId: string): Promise<SessionLiveState | null> {
+  return invoke<SessionLiveState | null>("sdk_get_session_state", { sessionId });
+}
+
+export async function sdkListSessionStates(): Promise<SessionLiveState[]> {
+  return invoke<SessionLiveState[]>("sdk_list_session_states");
 }
 
 export async function sdkCliStatus(): Promise<BridgeStatus> {

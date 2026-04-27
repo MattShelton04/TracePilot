@@ -154,11 +154,15 @@ export type {
   BridgeSessionMode,
   BridgeStatus,
   DetectedUiServer,
+  PendingRequestSummary,
   SdkDesiredSessionState,
   SdkRecoveryDecision,
   SdkRegistryRecord,
   SdkRuntimeSessionState,
   SdkSessionOrigin,
+  SessionLiveState,
+  SessionRuntimeStatus,
+  ToolProgressSummary,
 } from "./sdk.js";
 
 // ── search.js ──────────────────────────────────────────────────────
