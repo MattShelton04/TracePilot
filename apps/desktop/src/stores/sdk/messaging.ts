@@ -41,7 +41,25 @@ export interface MessagingDeps {
 export function createMessagingSlice(deps: MessagingDeps) {
   const { sessions, activeSessions, lastError, recentEvents } = deps;
 
-  const sendingMessage = ref(false);
+  /**
+   * Per-session "sending" tracking. A session is in `sendingByIds` from the
+   * moment `sendMessage` is called until the IPC promise settles. Multiple
+   * sessions can be sending concurrently — keying by sessionId prevents one
+   * busy session from disabling steering UI in unrelated sessions/popouts.
+   */
+  const sendingByIds = ref<Set<string>>(new Set());
+  /** Backward-compat: true if ANY session is currently sending. */
+  const sendingMessage = computed(() => sendingByIds.value.size > 0);
+  function isSending(sessionId: string | null | undefined): boolean {
+    return !!sessionId && sendingByIds.value.has(sessionId);
+  }
+  function markSending(sessionId: string, on: boolean) {
+    const next = new Set(sendingByIds.value);
+    if (on) next.add(sessionId);
+    else next.delete(sessionId);
+    sendingByIds.value = next;
+  }
+
   const foregroundSessionId = ref<string | null>(null);
 
   const foregroundSession = computed(
@@ -114,7 +132,7 @@ export function createMessagingSlice(deps: MessagingDeps) {
     sessionId: string,
     payload: BridgeMessagePayload,
   ): Promise<string | null> {
-    sendingMessage.value = true;
+    markSending(sessionId, true);
     logInfo(
       "[sdk] Sending message to session:",
       sessionId,
@@ -131,7 +149,7 @@ export function createMessagingSlice(deps: MessagingDeps) {
       logWarn("[sdk] Send message failed:", e);
       return null;
     } finally {
-      sendingMessage.value = false;
+      markSending(sessionId, false);
     }
   }
 
@@ -201,6 +219,8 @@ export function createMessagingSlice(deps: MessagingDeps) {
 
   return {
     sendingMessage,
+    sendingByIds,
+    isSending,
     foregroundSessionId,
     foregroundSession,
     sessionEvents,

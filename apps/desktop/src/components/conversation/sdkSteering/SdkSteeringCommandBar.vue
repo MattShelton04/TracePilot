@@ -19,14 +19,14 @@ const ctx = useSdkSteeringContext();
           class="cb-input"
           placeholder="Send a message to steer the session…"
           rows="1"
-          :disabled="ctx.sdk.sendingMessage"
+          :disabled="ctx.sending"
           @keydown="ctx.handleKeydown"
         />
       </div>
 
       <div class="cb-actions">
         <button
-          :class="['cb-btn-abort', { visible: ctx.sdk.sendingMessage }]"
+          :class="['cb-btn-abort', { visible: ctx.sending }]"
           title="Abort session"
           @click="ctx.handleAbort"
         >
@@ -35,7 +35,7 @@ const ctx = useSdkSteeringContext();
 
         <button
           :class="['cb-btn-send', { 'has-text': ctx.hasText }]"
-          :disabled="!ctx.hasText || ctx.sdk.sendingMessage"
+          :disabled="!ctx.hasText || ctx.sending"
           title="Send (Ctrl+Enter)"
           @click="ctx.handleSend"
         >

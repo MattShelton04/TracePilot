@@ -11,6 +11,8 @@ const sdkMock = {
   connectionMode: "stdio" as const,
   connectionState: "connected" as const,
   sendingMessage: false,
+  sendingByIds: new Set<string>(),
+  isSending: vi.fn((_sid: string | null | undefined) => false),
   lastError: null as string | null,
   sessionStatesById: {} as Record<string, SessionLiveState>,
   sessions: [] as Array<{ sessionId: string; isActive: boolean; mode?: string; model?: string }>,
@@ -105,6 +107,7 @@ beforeEach(() => {
   sdkMock.isConnecting = false;
   sdkMock.isTcpMode = false;
   sdkMock.sendingMessage = false;
+  sdkMock.isSending = vi.fn((_sid: string | null | undefined) => false);
   sdkMock.lastError = null;
   sdkMock.sessionStatesById = reactive<Record<string, SessionLiveState>>({});
   sdkMock.sessions = [];

@@ -77,15 +77,18 @@ describe("createMessagingSlice session cache isolation", () => {
     vi.clearAllMocks();
   });
 
-  it("sendMessage toggles sendingMessage and clears lastError on success", async () => {
+  it("sendMessage toggles per-session sending and clears lastError on success", async () => {
     const { slice, lastError } = makeSlice();
     lastError.value = "stale";
 
     const pending = slice.sendMessage("sdk-A", { prompt: "hi" });
+    expect(slice.isSending("sdk-A")).toBe(true);
+    expect(slice.isSending("sdk-B")).toBe(false);
     expect(slice.sendingMessage.value).toBe(true);
     const turnId = await pending;
 
     expect(turnId).toBe("turn-1");
+    expect(slice.isSending("sdk-A")).toBe(false);
     expect(slice.sendingMessage.value).toBe(false);
     expect(lastError.value).toBeNull();
   });

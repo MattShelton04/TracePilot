@@ -112,6 +112,16 @@ export const useSdkStore = defineStore("sdk", () => {
 
   if (isMain()) {
     setTimeout(() => autoConnect(), 500);
+  } else {
+    // Child/popout windows: don't connect a second bridge, but DO hydrate
+    // the in-memory snapshot from the backend so steering UI (sessions,
+    // live state, models) renders immediately. After this, broadcast
+    // events keep the snapshot up to date.
+    setTimeout(() => {
+      connection.hydrate().catch(() => {
+        /* best-effort — events will still flow once the bridge connects */
+      });
+    }, 100);
   }
 
   async function disconnect() {
@@ -165,6 +175,8 @@ export const useSdkStore = defineStore("sdk", () => {
     // State (messaging)
     foregroundSessionId: messaging.foregroundSessionId,
     sendingMessage: messaging.sendingMessage,
+    sendingByIds: messaging.sendingByIds,
+    isSending: messaging.isSending,
 
     // Computed
     isConnected: connection.isConnected,
