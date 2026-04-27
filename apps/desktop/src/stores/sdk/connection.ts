@@ -89,6 +89,10 @@ export function createConnectionSlice(deps: ConnectionDeps) {
     connectionMode.value = status.connectionMode ?? null;
   }
 
+  function countActiveSessions(nextSessions: BridgeSessionInfo[]): number {
+    return nextSessions.filter((session) => session.isActive).length;
+  }
+
   function applySessionState(state: SessionLiveState) {
     sessionStatesById.value = {
       ...sessionStatesById.value,
@@ -125,6 +129,7 @@ export function createConnectionSlice(deps: ConnectionDeps) {
   async function fetchSessions() {
     try {
       sessions.value = await sdkListSessions();
+      activeSessions.value = countActiveSessions(sessions.value);
       logInfo(
         "[sdk] Sessions fetched:",
         sessions.value.length,
@@ -170,7 +175,7 @@ export function createConnectionSlice(deps: ConnectionDeps) {
       );
       registrySessions.value = snapshot.registrySessions;
       recoveryDecisions.value = snapshot.recovery;
-      activeSessions.value = snapshot.sessions.length;
+      activeSessions.value = countActiveSessions(snapshot.sessions);
       bridgeMetrics.value = snapshot.metrics;
       return snapshot.status;
     } catch (e) {

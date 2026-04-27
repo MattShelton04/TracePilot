@@ -105,7 +105,10 @@ describe("createConnectionSlice", () => {
   it("hydrate applies backend status and tracked sessions without connecting", async () => {
     (client.sdkHydrate as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       status: { ...defaultStatus, activeSessions: 1 },
-      sessions: [{ sessionId: "tracked-1", isActive: true }],
+      sessions: [
+        { sessionId: "tracked-1", isActive: true },
+        { sessionId: "tracked-2", isActive: false },
+      ],
       metrics: {
         eventsForwarded: 2,
         eventsDroppedDueToLag: 0,
@@ -175,12 +178,80 @@ describe("createConnectionSlice", () => {
     const status = await slice.hydrate();
     expect(status?.state).toBe("connected");
     expect(slice.isConnected.value).toBe(true);
-    expect(slice.sessions.value).toEqual([{ sessionId: "tracked-1", isActive: true }]);
+    expect(slice.sessions.value).toEqual([
+      { sessionId: "tracked-1", isActive: true },
+      { sessionId: "tracked-2", isActive: false },
+    ]);
+    expect(slice.activeSessions.value).toBe(1);
     expect(slice.sessionStatesById.value["tracked-1"]?.assistantText).toBe("ready");
     expect(slice.registrySessions.value).toHaveLength(1);
     expect(slice.recoveryDecisions.value[0]?.shouldAutoResume).toBe(false);
     expect(slice.bridgeMetrics.value?.eventsForwarded).toBe(2);
     expect(client.sdkConnect).not.toHaveBeenCalled();
+  });
+
+  it("applySessionState keeps simultaneous SDK sessions isolated", () => {
+    const slice = createConnectionSlice(makeDeps());
+
+    slice.applySessionState({
+      sessionId: "sdk-A",
+      status: "running",
+      currentTurnId: "turn-A",
+      assistantText: "alpha",
+      reasoningText: "",
+      tools: [],
+      usage: null,
+      pendingPermission: null,
+      pendingUserInput: null,
+      lastEventId: "evt-A1",
+      lastEventType: "assistant.message_delta",
+      lastEventTimestamp: "2026-04-27T00:00:00Z",
+      lastError: null,
+      reducerWarnings: [],
+    });
+    slice.applySessionState({
+      sessionId: "sdk-B",
+      status: "waiting_for_input",
+      currentTurnId: "turn-B",
+      assistantText: "bravo",
+      reasoningText: "",
+      tools: [],
+      usage: null,
+      pendingPermission: null,
+      pendingUserInput: {
+        requestId: "input-B",
+        kind: "ask_user",
+        summary: "Need input",
+        payload: null,
+        requestedAt: "2026-04-27T00:00:01Z",
+      },
+      lastEventId: "evt-B1",
+      lastEventType: "ask_user.requested",
+      lastEventTimestamp: "2026-04-27T00:00:01Z",
+      lastError: null,
+      reducerWarnings: [],
+    });
+    slice.applySessionState({
+      sessionId: "sdk-A",
+      status: "idle",
+      currentTurnId: "turn-A",
+      assistantText: "alpha done",
+      reasoningText: "",
+      tools: [],
+      usage: null,
+      pendingPermission: null,
+      pendingUserInput: null,
+      lastEventId: "evt-A2",
+      lastEventType: "session.idle",
+      lastEventTimestamp: "2026-04-27T00:00:02Z",
+      lastError: null,
+      reducerWarnings: [],
+    });
+
+    expect(slice.sessionStatesById.value["sdk-A"]?.status).toBe("idle");
+    expect(slice.sessionStatesById.value["sdk-A"]?.assistantText).toBe("alpha done");
+    expect(slice.sessionStatesById.value["sdk-B"]?.status).toBe("waiting_for_input");
+    expect(slice.sessionStatesById.value["sdk-B"]?.assistantText).toBe("bravo");
   });
 
   it("detectAndConnect returns false when no servers found", async () => {

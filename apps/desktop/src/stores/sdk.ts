@@ -114,13 +114,21 @@ export const useSdkStore = defineStore("sdk", () => {
     setTimeout(() => autoConnect(), 500);
   }
 
+  async function disconnect() {
+    if (!isMain()) {
+      logInfo("[sdk] Ignoring disconnect request from non-main window");
+      return;
+    }
+    await connection.disconnect();
+  }
+
   // Disconnect SDK when the feature toggle is turned off.
   watch(
     () => prefs.isFeatureEnabled("copilotSdk"),
     (enabled) => {
       if (isMain() && !enabled && connection.connectionState.value !== "disconnected") {
         logInfo("[sdk] Feature toggle disabled — disconnecting SDK bridge");
-        connection.disconnect();
+        disconnect();
       }
     },
   );
@@ -170,7 +178,7 @@ export const useSdkStore = defineStore("sdk", () => {
 
     // Actions (connection)
     connect: connection.connect,
-    disconnect: connection.disconnect,
+    disconnect,
     autoConnect,
     hydrate: connection.hydrate,
     refreshStatus: connection.refreshStatus,

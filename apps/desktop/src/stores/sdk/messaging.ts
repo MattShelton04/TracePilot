@@ -52,11 +52,34 @@ export function createMessagingSlice(deps: MessagingDeps) {
     return (sessionId: string) => recentEvents.value.filter((e) => e.sessionId === sessionId);
   });
 
+  function activeSessionCount(nextSessions = sessions.value): number {
+    return nextSessions.filter((s) => s.isActive).length;
+  }
+
+  function upsertSession(session: BridgeSessionInfo) {
+    const idx = sessions.value.findIndex((s) => s.sessionId === session.sessionId);
+    const next = [...sessions.value];
+    if (idx >= 0) {
+      next[idx] = session;
+    } else {
+      next.push(session);
+    }
+    sessions.value = next;
+    activeSessions.value = activeSessionCount(next);
+  }
+
+  function markSessionInactive(sessionId: string) {
+    const next = sessions.value.map((s) =>
+      s.sessionId === sessionId ? { ...s, isActive: false } : s,
+    );
+    sessions.value = next;
+    activeSessions.value = activeSessionCount(next);
+  }
+
   async function createSession(config: BridgeSessionConfig): Promise<BridgeSessionInfo | null> {
     return runMutation(lastError, async () => {
       const session = await sdkCreateSession(config);
-      sessions.value = [...sessions.value, session];
-      activeSessions.value = sessions.value.length;
+      upsertSession(session);
       return session;
     });
   }
@@ -78,22 +101,7 @@ export function createMessagingSlice(deps: MessagingDeps) {
       const session = await sdkResumeSession(sessionId, workingDirectory, model);
       logInfo("[sdk] Resume result:", session);
       lastError.value = null;
-      const idx = sessions.value.findIndex((s) => s.sessionId === session.sessionId);
-      if (idx >= 0) {
-        const updated = [...sessions.value];
-        updated[idx] = session;
-        sessions.value = updated;
-      } else {
-        sessions.value = [...sessions.value, session];
-      }
-      if (session.sessionId !== sessionId) {
-        const origIdx = sessions.value.findIndex((s) => s.sessionId === sessionId);
-        if (origIdx >= 0) {
-          const updated = [...sessions.value];
-          updated[origIdx] = { ...updated[origIdx], isActive: true };
-          sessions.value = updated;
-        }
-      }
+      upsertSession(session);
       return session;
     } catch (e) {
       lastError.value = toErrorMessage(e);
@@ -135,9 +143,7 @@ export function createMessagingSlice(deps: MessagingDeps) {
     logInfo("[sdk] Destroying session:", sessionId);
     try {
       await sdkDestroySession(sessionId);
-      sessions.value = sessions.value.map((s) =>
-        s.sessionId === sessionId ? { ...s, isActive: false } : s,
-      );
+      markSessionInactive(sessionId);
       lastError.value = null;
       logInfo("[sdk] Session destroyed:", sessionId);
     } catch (e) {
@@ -150,6 +156,7 @@ export function createMessagingSlice(deps: MessagingDeps) {
     logInfo("[sdk] Unlinking session:", sessionId);
     try {
       await sdkUnlinkSession(sessionId);
+      markSessionInactive(sessionId);
       lastError.value = null;
       logInfo("[sdk] Session unlinked:", sessionId);
     } catch (e) {

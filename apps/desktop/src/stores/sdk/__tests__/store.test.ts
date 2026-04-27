@@ -13,6 +13,10 @@ const connectedStatus: BridgeStatus = {
   connectionMode: "stdio",
 };
 
+const windowRoleMock = vi.hoisted(() => ({
+  isMain: true,
+}));
+
 vi.mock("@tracepilot/client", () => ({
   IPC_EVENTS: {
     SDK_BRIDGE_EVENT: "sdk://event",
@@ -67,7 +71,7 @@ vi.mock("@tracepilot/client", () => ({
 }));
 
 vi.mock("@/composables/useWindowRole", () => ({
-  useWindowRole: () => ({ isMain: () => true }),
+  useWindowRole: () => ({ isMain: () => windowRoleMock.isMain }),
 }));
 
 vi.mock("@/stores/preferences", () => ({
@@ -90,6 +94,7 @@ describe("useSdkStore lifecycle hydration", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
+    windowRoleMock.isMain = true;
     setActivePinia(createPinia());
     localStorage.clear();
   });
@@ -148,5 +153,12 @@ describe("useSdkStore lifecycle hydration", () => {
     const addEventListener = vi.spyOn(window, "addEventListener");
     useSdkStore();
     expect(addEventListener).not.toHaveBeenCalledWith("beforeunload", expect.any(Function));
+  });
+
+  it("ignores explicit disconnect requests from non-main windows", async () => {
+    windowRoleMock.isMain = false;
+    const store = useSdkStore();
+    await store.disconnect();
+    expect(client.sdkDisconnect).not.toHaveBeenCalled();
   });
 });

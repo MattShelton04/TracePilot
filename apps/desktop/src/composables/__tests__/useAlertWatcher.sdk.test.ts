@@ -229,6 +229,43 @@ describe("SDK alert watcher", () => {
     expect(mocks.dispatchAlert).toHaveBeenCalledTimes(1);
   });
 
+  it("checks multiple SDK states independently when alert scope is all sessions", () => {
+    mocks.prefs.alertsScope = "all";
+
+    checkSdkSessionStateAlerts({
+      "sdk-1": makeState({
+        sessionId: "sdk-1",
+        status: "waiting_for_input",
+        pendingUserInput: {
+          requestId: "input-1",
+          kind: "ask_user",
+          summary: null,
+          payload: null,
+          requestedAt: "2026-04-27T00:00:01Z",
+        },
+      }),
+      "sdk-2": makeState({
+        sessionId: "sdk-2",
+        status: "waiting_for_permission",
+        pendingPermission: {
+          requestId: "perm-2",
+          kind: "tool_permission",
+          summary: null,
+          payload: null,
+          requestedAt: "2026-04-27T00:00:02Z",
+        },
+      }),
+    });
+
+    expect(mocks.dispatchAlert).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "sdk-user-input-required", sessionId: "sdk-1" }),
+    );
+    expect(mocks.dispatchAlert).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "sdk-permission-required", sessionId: "sdk-2" }),
+    );
+    expect(mocks.dispatchAlert).toHaveBeenCalledTimes(2);
+  });
+
   it("does not alert for unrelated non-monitored or unknown state", () => {
     checkSdkSessionStateAlerts({
       "sdk-2": makeState({

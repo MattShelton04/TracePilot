@@ -1,7 +1,7 @@
 import type { SessionLiveState } from "@tracepilot/types";
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { defineComponent, h, ref } from "vue";
+import { defineComponent, h, reactive, ref } from "vue";
 
 // ─── Mocks ──────────────────────────────────────────────────────
 const sdkMock = {
@@ -49,6 +49,29 @@ vi.mock("@/utils/logger", () => ({
 // Import after mocks
 import { SdkSteeringKey, useSdkSteering } from "../useSdkSteering";
 
+function makeLiveState(
+  sessionId: string,
+  overrides: Partial<SessionLiveState> = {},
+): SessionLiveState {
+  return {
+    sessionId,
+    status: "running",
+    currentTurnId: null,
+    assistantText: "",
+    reasoningText: "",
+    tools: [],
+    usage: null,
+    pendingPermission: null,
+    pendingUserInput: null,
+    lastEventId: null,
+    lastEventType: null,
+    lastEventTimestamp: null,
+    lastError: null,
+    reducerWarnings: [],
+    ...overrides,
+  };
+}
+
 function mountHarness(
   sessionIdRef = ref<string | null>("sess-A"),
   sessionCwdRef = ref<string | undefined>(undefined),
@@ -83,7 +106,7 @@ beforeEach(() => {
   sdkMock.isTcpMode = false;
   sdkMock.sendingMessage = false;
   sdkMock.lastError = null;
-  sdkMock.sessionStatesById = {};
+  sdkMock.sessionStatesById = reactive<Record<string, SessionLiveState>>({});
   sdkMock.sessions = [];
   sdkMock.models = [];
   detailMock.turns = [];
@@ -243,26 +266,46 @@ describe("useSdkSteering — unlink is pure state reset (no IPC)", () => {
 
 describe("useSdkSteering — live state selection", () => {
   it("exposes the compact live state for the current SDK session", () => {
-    sdkMock.sessionStatesById = {
-      "sess-A": {
-        sessionId: "sess-A",
-        status: "running",
-        currentTurnId: "turn-live",
-        assistantText: "live assistant delta",
-        reasoningText: "live reasoning delta",
-        tools: [],
-        usage: null,
-        pendingPermission: null,
-        pendingUserInput: null,
-        lastEventId: "evt-live",
-        lastEventType: "assistant.message_delta",
-        lastEventTimestamp: "2026-04-27T00:00:00Z",
-        lastError: null,
-        reducerWarnings: [],
-      },
-    };
+    sdkMock.sessionStatesById["sess-A"] = makeLiveState("sess-A", {
+      currentTurnId: "turn-live",
+      assistantText: "live assistant delta",
+      reasoningText: "live reasoning delta",
+      lastEventId: "evt-live",
+      lastEventType: "assistant.message_delta",
+      lastEventTimestamp: "2026-04-27T00:00:00Z",
+    });
     const { ctx } = mountHarness(ref("sess-A"));
     expect(ctx.liveState?.assistantText).toBe("live assistant delta");
     expect(ctx.liveState?.reasoningText).toBe("live reasoning delta");
+  });
+
+  it("keeps two steering panels bound to their own live states as each session changes", async () => {
+    sdkMock.sessionStatesById["sess-A"] = makeLiveState("sess-A", {
+      assistantText: "alpha",
+    });
+    sdkMock.sessionStatesById["sess-B"] = makeLiveState("sess-B", {
+      assistantText: "bravo",
+    });
+
+    const panelA = mountHarness(ref("sess-A"));
+    const panelB = mountHarness(ref("sess-B"));
+
+    expect(panelA.ctx.liveState?.assistantText).toBe("alpha");
+    expect(panelB.ctx.liveState?.assistantText).toBe("bravo");
+
+    sdkMock.sessionStatesById["sess-A"] = makeLiveState("sess-A", {
+      status: "idle",
+      assistantText: "alpha done",
+    });
+    sdkMock.sessionStatesById["sess-B"] = makeLiveState("sess-B", {
+      status: "waiting_for_permission",
+      assistantText: "bravo waiting",
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(panelA.ctx.liveState?.status).toBe("idle");
+    expect(panelA.ctx.liveState?.assistantText).toBe("alpha done");
+    expect(panelB.ctx.liveState?.status).toBe("waiting_for_permission");
+    expect(panelB.ctx.liveState?.assistantText).toBe("bravo waiting");
   });
 });
