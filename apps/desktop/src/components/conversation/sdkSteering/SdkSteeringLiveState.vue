@@ -26,8 +26,6 @@ const statusLabel = computed(() => {
   return statusMeta[status]?.label ?? status;
 });
 const statusTone = computed(() => statusMeta[live.value?.status ?? "unknown"]?.tone ?? "muted");
-const hasAssistant = computed(() => (live.value?.assistantText.trim().length ?? 0) > 0);
-const hasReasoning = computed(() => (live.value?.reasoningText.trim().length ?? 0) > 0);
 const visibleTools = computed(() => live.value?.tools ?? []);
 const usageRows = computed(() => formatUsageRows(live.value?.usage ?? null));
 const hasDiagnostics = computed(
@@ -221,16 +219,6 @@ function isScalarUsageValue(value: unknown): boolean {
         </div>
       </article>
     </div>
-
-    <div v-if="hasAssistant" class="cb-live-block cb-live-block--assistant">
-      <div class="cb-live-block-label">Assistant</div>
-      <p class="cb-live-text">{{ live.assistantText }}</p>
-    </div>
-
-    <details v-if="hasReasoning" class="cb-live-reasoning">
-      <summary>Reasoning stream</summary>
-      <p class="cb-live-text">{{ live.reasoningText }}</p>
-    </details>
 
     <div v-if="visibleTools.length > 0" class="cb-live-tools">
       <div class="cb-live-block-label">Tools</div>
