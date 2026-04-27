@@ -213,7 +213,7 @@ describe("SdkSteeringLiveState", () => {
           requestId: "input-1",
           kind: "user_input",
           summary: "Clarify migration scope",
-          payload: null,
+          payload: { choices: ["Client only", "Full stack"] },
           requestedAt: "2026-04-27T00:00:01Z",
         },
         pendingPermission: {
@@ -232,7 +232,10 @@ describe("SdkSteeringLiveState", () => {
     expect(wrapper.text()).toContain("Streaming assistant text");
     expect(wrapper.text()).toContain("Reasoning stream");
     expect(wrapper.text()).toContain("Clarify migration scope");
+    expect(wrapper.text()).toContain("Client only");
+    expect(wrapper.text()).toContain("Answer in Copilot CLI");
     expect(wrapper.text()).toContain("Allow file edit");
+    expect(wrapper.text()).toContain("Approve or deny in Copilot CLI");
     expect(wrapper.text()).toContain("Reducer saw a terminal error");
     expect(wrapper.text()).toContain("Unknown event shape");
   });

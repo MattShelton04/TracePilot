@@ -36,8 +36,68 @@ const hasDiagnostics = computed(
 const warningCount = computed(() => live.value?.reducerWarnings.length ?? 0);
 const showPanel = computed(() => !!live.value);
 
-function requestLabel(request: PendingRequestSummary): string {
-  return request.summary?.trim() || request.kind || "SDK request";
+function requestTitle(request: PendingRequestSummary, fallback: string): string {
+  return request.summary?.trim() || requestDetail(request) || fallback;
+}
+
+function requestDetail(request: PendingRequestSummary): string | null {
+  const payload = payloadRecord(request);
+  if (!payload) return null;
+  return (
+    stringValue(payload.question) ??
+    stringValue(payload.prompt) ??
+    stringValue(payload.message) ??
+    stringValue(payload.command) ??
+    stringValue(payload.path) ??
+    stringValue(payload.toolName) ??
+    stringValue(payload.tool) ??
+    stringValue(payload.name) ??
+    null
+  );
+}
+
+function requestKindLabel(request: PendingRequestSummary): string {
+  return request.kind ? humanizeKey(request.kind) : "SDK request";
+}
+
+function requestChoices(request: PendingRequestSummary): string[] {
+  const payload = payloadRecord(request);
+  const choices = payload?.choices;
+  if (!Array.isArray(choices)) return [];
+  return choices
+    .map((choice) => stringValue(choice))
+    .filter((choice): choice is string => !!choice);
+}
+
+function requestMeta(request: PendingRequestSummary): string[] {
+  const meta = [requestKindLabel(request)];
+  if (request.requestId) meta.push(`Request ${shortId(request.requestId)}`);
+  return meta;
+}
+
+function requestHint(kind: "input" | "permission"): string {
+  return kind === "input"
+    ? "Answer in Copilot CLI or the --ui-server terminal. TracePilot is showing the live SDK request, but in-app replies are not wired yet."
+    : "Approve or deny in Copilot CLI or the --ui-server terminal. TracePilot is showing the live SDK request, but in-app approval is not wired yet.";
+}
+
+function payloadRecord(request: PendingRequestSummary): Record<string, unknown> | null {
+  return request.payload && typeof request.payload === "object" && !Array.isArray(request.payload)
+    ? (request.payload as Record<string, unknown>)
+    : null;
+}
+
+function stringValue(value: unknown): string | null {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed || null;
+  }
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return null;
+}
+
+function shortId(value: string): string {
+  return value.length > 12 ? `${value.slice(0, 12)}…` : value;
 }
 
 function toolTitle(tool: ToolProgressSummary): string {
@@ -131,14 +191,35 @@ function isScalarUsageValue(value: unknown): boolean {
     </header>
 
     <div v-if="live.pendingUserInput || live.pendingPermission" class="cb-live-notices">
-      <div v-if="live.pendingUserInput" class="cb-live-notice cb-live-notice--input">
-        <strong>Input needed</strong>
-        <span>{{ requestLabel(live.pendingUserInput) }}</span>
-      </div>
-      <div v-if="live.pendingPermission" class="cb-live-notice cb-live-notice--permission">
-        <strong>Permission needed</strong>
-        <span>{{ requestLabel(live.pendingPermission) }}</span>
-      </div>
+      <article v-if="live.pendingUserInput" class="cb-live-request cb-live-request--input">
+        <div class="cb-live-request-mark">?</div>
+        <div class="cb-live-request-body">
+          <div class="cb-live-request-kicker">
+            <strong>Input needed</strong>
+            <span v-for="item in requestMeta(live.pendingUserInput)" :key="item">{{ item }}</span>
+          </div>
+          <div class="cb-live-request-title">
+            {{ requestTitle(live.pendingUserInput, "The SDK session is waiting for your response.") }}
+          </div>
+          <div v-if="requestChoices(live.pendingUserInput).length > 0" class="cb-live-request-choices">
+            <span v-for="choice in requestChoices(live.pendingUserInput)" :key="choice">{{ choice }}</span>
+          </div>
+          <div class="cb-live-request-hint">{{ requestHint("input") }}</div>
+        </div>
+      </article>
+      <article v-if="live.pendingPermission" class="cb-live-request cb-live-request--permission">
+        <div class="cb-live-request-mark">!</div>
+        <div class="cb-live-request-body">
+          <div class="cb-live-request-kicker">
+            <strong>Permission required</strong>
+            <span v-for="item in requestMeta(live.pendingPermission)" :key="item">{{ item }}</span>
+          </div>
+          <div class="cb-live-request-title">
+            {{ requestTitle(live.pendingPermission, "The SDK session is waiting for approval.") }}
+          </div>
+          <div class="cb-live-request-hint">{{ requestHint("permission") }}</div>
+        </div>
+      </article>
     </div>
 
     <div v-if="hasAssistant" class="cb-live-block cb-live-block--assistant">

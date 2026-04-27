@@ -90,10 +90,17 @@ fn permission_and_external_tool_requests_are_pending() {
 fn user_input_request_is_pending() {
     let store = LiveStateStore::new();
     let state = store.apply_event(&event(
-        "tool.user_requested",
-        json!({"toolName": "ask_user", "prompt": "choose"}),
+        "user_input.requested",
+        json!({"requestId": "u1", "question": "choose", "choices": ["yes", "no"]}),
     ));
     assert_eq!(state.status, SessionRuntimeStatus::WaitingForInput);
+    assert_eq!(
+        state
+            .pending_user_input
+            .as_ref()
+            .and_then(|p| p.request_id.as_deref()),
+        Some("u1")
+    );
     assert_eq!(
         state
             .pending_user_input

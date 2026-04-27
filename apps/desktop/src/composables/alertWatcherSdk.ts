@@ -64,6 +64,16 @@ function summarizeSdkSession(state: SessionLiveState): { label: string; summary?
   };
 }
 
+function requestMatter(
+  pending: SessionLiveState["pendingUserInput"] | SessionLiveState["pendingPermission"],
+  fallback: string,
+): string {
+  const summary = pending?.summary?.trim();
+  if (summary) return summary;
+  const kind = pending?.kind?.trim();
+  return kind ? `${fallback} (${kind})` : fallback;
+}
+
 function getTrackedSdkSessionIds(): Set<string> {
   try {
     return new Set(useSdkStore().sessions.map((session) => session.sessionId));
@@ -82,12 +92,12 @@ function dispatchSdkStateAlert(state: SessionLiveState, type: SdkStateAlertType)
       type,
       sessionId: state.sessionId,
       sessionSummary: summary,
-      title: "SDK Session Needs Input",
-      body: `${label} is waiting for your response${
-        pending?.summary ? `: ${pending.summary}` : ""
-      }`,
+      title: label,
+      body: `Input needed: ${requestMatter(pending, "Waiting for your response")}`,
       metadata: {
         source: "copilot-sdk",
+        sessionLabel: label,
+        requestSummary: pending?.summary,
         requestId: pending?.requestId,
         requestKind: pending?.kind,
       },
@@ -100,12 +110,12 @@ function dispatchSdkStateAlert(state: SessionLiveState, type: SdkStateAlertType)
       type,
       sessionId: state.sessionId,
       sessionSummary: summary,
-      title: "SDK Permission Required",
-      body: `${label} is waiting for permission${
-        pending?.summary ? `: ${pending.summary}` : pending?.kind ? ` (${pending.kind})` : ""
-      }`,
+      title: label,
+      body: `Permission required: ${requestMatter(pending, "Waiting for approval")}`,
       metadata: {
         source: "copilot-sdk",
+        sessionLabel: label,
+        requestSummary: pending?.summary,
         requestId: pending?.requestId,
         requestKind: pending?.kind,
       },
@@ -118,8 +128,8 @@ function dispatchSdkStateAlert(state: SessionLiveState, type: SdkStateAlertType)
       type,
       sessionId: state.sessionId,
       sessionSummary: summary,
-      title: "SDK Session Error",
-      body: state.lastError ? `${label}: ${state.lastError}` : `${label} encountered an error`,
+      title: label,
+      body: state.lastError ? `SDK error: ${state.lastError}` : "SDK session encountered an error",
       metadata: {
         source: "copilot-sdk",
         lastEventId: state.lastEventId,
@@ -133,8 +143,8 @@ function dispatchSdkStateAlert(state: SessionLiveState, type: SdkStateAlertType)
     type,
     sessionId: state.sessionId,
     sessionSummary: summary,
-    title: "SDK Session Idle",
-    body: `${label} is idle`,
+    title: label,
+    body: "SDK session is idle",
     metadata: {
       source: "copilot-sdk",
       lastEventId: state.lastEventId,

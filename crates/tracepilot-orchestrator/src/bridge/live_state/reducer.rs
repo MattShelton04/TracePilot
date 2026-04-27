@@ -165,7 +165,9 @@ fn request_summary(event: &BridgeEvent, kind: &str) -> PendingRequestSummary {
         kind: kind.to_string(),
         summary: string_field(
             &event.data,
-            &["summary", "message", "prompt", "toolName", "name"],
+            &[
+                "summary", "question", "message", "prompt", "toolName", "name",
+            ],
         ),
         payload: event.data.clone(),
         requested_at: event.timestamp.clone(),

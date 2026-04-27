@@ -106,8 +106,14 @@ describe("SDK alert watcher", () => {
         type: "sdk-user-input-required",
         sessionId: "sdk-1",
         sessionSummary: "Refactor SDK alerts",
-        body: "Refactor SDK alerts is waiting for your response: Need guidance",
-        metadata: expect.objectContaining({ requestId: "input-1", requestKind: "ask_user" }),
+        title: "Refactor SDK alerts",
+        body: "Input needed: Need guidance",
+        metadata: expect.objectContaining({
+          sessionLabel: "Refactor SDK alerts",
+          requestSummary: "Need guidance",
+          requestId: "input-1",
+          requestKind: "ask_user",
+        }),
       }),
     );
   });
@@ -131,8 +137,11 @@ describe("SDK alert watcher", () => {
         type: "sdk-permission-required",
         sessionId: "sdk-1",
         sessionSummary: "Refactor SDK alerts",
-        body: "Refactor SDK alerts is waiting for permission: Approve tool",
+        title: "Refactor SDK alerts",
+        body: "Permission required: Approve tool",
         metadata: expect.objectContaining({
+          sessionLabel: "Refactor SDK alerts",
+          requestSummary: "Approve tool",
           requestId: "perm-1",
           requestKind: "tool_permission",
         }),
@@ -155,7 +164,8 @@ describe("SDK alert watcher", () => {
         type: "sdk-session-error",
         sessionId: "sdk-1",
         sessionSummary: "Refactor SDK alerts",
-        body: "Refactor SDK alerts: bridge failed",
+        title: "Refactor SDK alerts",
+        body: "SDK error: bridge failed",
       }),
     );
   });
