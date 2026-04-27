@@ -176,6 +176,63 @@ const sessionCountLabel = computed(() => {
   return `${active} active / ${total} total`;
 });
 
+const sessionRows = computed(() => {
+  const rows = new Map<
+    string,
+    {
+      id: string;
+      shortId: string;
+      origin: string;
+      model: string;
+      cwd: string;
+      lifecycle: string;
+      liveStatus: string;
+      isActive: boolean;
+      isForeground: boolean;
+    }
+  >();
+
+  for (const session of sdk.sessions) {
+    const registry = sdk.registrySessions.find((record) => record.sessionId === session.sessionId);
+    const live = sdk.sessionStatesById[session.sessionId];
+    rows.set(session.sessionId, {
+      id: session.sessionId,
+      shortId: shortId(session.sessionId),
+      origin: registry?.origin ?? "runtime",
+      model: session.model ?? registry?.model ?? "default",
+      cwd: session.workingDirectory ?? registry?.workingDirectory ?? "-",
+      lifecycle: session.isActive ? "active" : (registry?.runtimeState ?? "tracked"),
+      liveStatus: live?.status ?? "-",
+      isActive: session.isActive,
+      isForeground: sdk.foregroundSessionId === session.sessionId,
+    });
+  }
+
+  for (const registry of sdk.registrySessions) {
+    if (rows.has(registry.sessionId)) continue;
+    const live = sdk.sessionStatesById[registry.sessionId];
+    rows.set(registry.sessionId, {
+      id: registry.sessionId,
+      shortId: shortId(registry.sessionId),
+      origin: registry.origin,
+      model: registry.model ?? "default",
+      cwd: registry.workingDirectory ?? "-",
+      lifecycle: registry.runtimeState ?? registry.desiredState,
+      liveStatus: live?.status ?? "-",
+      isActive: registry.runtimeState === "running",
+      isForeground: sdk.foregroundSessionId === registry.sessionId,
+    });
+  }
+
+  return Array.from(rows.values()).sort((a, b) => Number(b.isActive) - Number(a.isActive));
+});
+
+const hasSessionRows = computed(() => sessionRows.value.length > 0);
+
+function shortId(id: string): string {
+  return id.length > 12 ? `${id.slice(0, 8)}...` : id;
+}
+
 /** True when the user's selected mode is TCP (or has a CLI URL set). */
 const isTcpSelected = computed(() => selectedMode.value === "tcp" || !!cliUrl.value);
 
@@ -341,6 +398,39 @@ function isActiveServer(address: string) {
           </div>
         </div>
       </template>
+
+      <!-- ─── SDK Sessions / process visibility ─────── -->
+      <div class="sdk-divider" />
+      <div class="sdk-subsection-title">SDK Sessions & Processes</div>
+
+      <div class="sdk-lifecycle-note">
+        <strong>Unlink</strong> removes TracePilot's steering handle and keeps the SDK-owned
+        session alive. <strong>Shutdown</strong> asks the SDK/CLI to stop that session. The
+        bridge itself is one process/transport; stdio child PIDs are owned by the SDK, while
+        TCP <code>--ui-server</code> PIDs appear under detected servers.
+      </div>
+
+      <div v-if="hasSessionRows" class="sdk-session-list" data-testid="sdk-session-list">
+        <div v-for="row in sessionRows" :key="row.id" class="sdk-session-item">
+          <div class="sdk-session-main">
+            <span :class="['sdk-session-dot', row.isActive ? 'sdk-session-dot--active' : '']" />
+            <span class="sdk-session-id" :title="row.id">{{ row.shortId }}</span>
+            <span v-if="row.isForeground" class="sdk-session-badge">Foreground</span>
+            <span class="sdk-session-badge sdk-session-badge--muted">{{ row.origin }}</span>
+          </div>
+          <div class="sdk-session-meta">
+            <span>{{ row.lifecycle }}</span>
+            <span>{{ row.liveStatus }}</span>
+            <span>{{ row.model }}</span>
+            <span :title="row.cwd">{{ row.cwd }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div v-else class="sdk-empty-state" data-testid="sdk-session-list-empty">
+        No SDK sessions are currently tracked. Connect the bridge, link a session, or launch a
+        headless SDK session to populate this list.
+      </div>
 
       <!-- ─── Advanced (collapsible) ───────────────── -->
       <div class="sdk-divider" />
@@ -512,6 +602,107 @@ function isActiveServer(address: string) {
   font-size: 0.8125rem;
   color: var(--text-tertiary);
   padding: 4px 0;
+}
+
+/* ─── Session/process monitor ───────────────────── */
+.sdk-lifecycle-note {
+  margin: 6px 12px 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-md);
+  background:
+    linear-gradient(135deg, rgba(99, 102, 241, 0.08), transparent 55%),
+    var(--canvas-subtle);
+  color: var(--text-tertiary);
+  font-size: 0.75rem;
+  line-height: 1.55;
+}
+
+.sdk-lifecycle-note strong {
+  color: var(--text-secondary);
+}
+
+.sdk-session-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 12px 6px;
+}
+
+.sdk-session-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.sdk-session-main,
+.sdk-session-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.sdk-session-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--text-placeholder);
+  flex-shrink: 0;
+}
+
+.sdk-session-dot--active {
+  background: var(--success-fg);
+  box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.12);
+}
+
+.sdk-session-id {
+  color: var(--text-primary);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.sdk-session-badge {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--accent-muted);
+  color: var(--accent-fg);
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sdk-session-badge--muted {
+  background: var(--neutral-subtle);
+  color: var(--text-tertiary);
+}
+
+.sdk-session-meta {
+  color: var(--text-tertiary);
+  font-size: 0.6875rem;
+}
+
+.sdk-session-meta span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sdk-empty-state {
+  margin: 0 12px 6px;
+  padding: 10px 12px;
+  border: 1px dashed var(--border-muted);
+  border-radius: var(--radius-md);
+  color: var(--text-tertiary);
+  font-size: 0.75rem;
+  line-height: 1.5;
 }
 
 /* ─── URL input ──────────────────────────────── */

@@ -780,6 +780,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  overflow: hidden;
 }
 .cb-live-header,
 .cb-live-title,
@@ -792,6 +793,7 @@
 .cb-live-header {
   justify-content: space-between;
   gap: 10px;
+  min-width: 0;
 }
 .cb-live-title {
   gap: 7px;
@@ -799,6 +801,7 @@
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.01em;
+  min-width: 0;
 }
 .cb-live-pulse {
   width: 7px;
@@ -828,6 +831,8 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  min-width: 0;
+  flex-shrink: 0;
 }
 .cb-live-turn {
   max-width: 120px;
@@ -839,8 +844,7 @@
   text-transform: none;
 }
 .cb-live-notices,
-.cb-live-tools,
-.cb-live-diagnostics {
+.cb-live-tools {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -880,6 +884,7 @@
   font-size: 0.75rem;
   line-height: 1.55;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 .cb-live-reasoning {
   border-radius: var(--radius-md);
@@ -912,6 +917,10 @@
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 0.6875rem;
   font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .cb-live-tool-status {
   color: var(--text-tertiary);
@@ -948,6 +957,7 @@
   font-size: 0.625rem;
   line-height: 1.45;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 .cb-live-usage {
   display: flex;
@@ -961,15 +971,48 @@
   border-radius: 999px;
   color: var(--text-tertiary);
   font-size: 0.625rem;
+  min-width: 0;
+  max-width: 100%;
 }
 .cb-live-usage-pill strong {
   color: var(--text-secondary);
   font-family: "JetBrains Mono", ui-monospace, monospace;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cb-live-diagnostics {
+  border-radius: var(--radius-md);
+  background: rgba(148, 163, 184, 0.06);
+  color: var(--text-tertiary);
+  font-size: 0.6875rem;
+}
+.cb-live-diagnostics summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.cb-live-diag-count {
+  min-width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(251, 191, 36, 0.12);
+  color: var(--warning-fg);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.5625rem;
 }
 .cb-live-diag {
+  margin: 0 8px 6px;
   padding: 6px 8px;
   border-radius: var(--radius-sm);
   font-size: 0.6875rem;
+  overflow-wrap: anywhere;
 }
 .cb-live-diag--error {
   color: var(--danger-fg);

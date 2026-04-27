@@ -33,6 +33,7 @@ const usageRows = computed(() => formatUsageRows(live.value?.usage ?? null));
 const hasDiagnostics = computed(
   () => !!live.value?.lastError || (live.value?.reducerWarnings.length ?? 0) > 0,
 );
+const warningCount = computed(() => live.value?.reducerWarnings.length ?? 0);
 const showPanel = computed(() => !!live.value);
 
 function requestLabel(request: PendingRequestSummary): string {
@@ -66,7 +67,11 @@ function formatUsageRows(usage: unknown): Array<{ key: string; value: string }> 
     return usage == null ? [] : [{ key: "usage", value: formatPreview(usage) }];
   }
 
-  const record = usage as Record<string, unknown>;
+  const outer = usage as Record<string, unknown>;
+  const record =
+    outer.usage && typeof outer.usage === "object" && !Array.isArray(outer.usage)
+      ? (outer.usage as Record<string, unknown>)
+      : outer;
   const preferred = [
     "inputTokens",
     "outputTokens",
@@ -80,10 +85,12 @@ function formatUsageRows(usage: unknown): Array<{ key: string; value: string }> 
     "cache_write_tokens",
     "reasoning_tokens",
     "total_tokens",
+    "duration",
+    "model",
   ];
   const keys = preferred.filter((key) => record[key] != null);
   const selected =
-    keys.length > 0 ? keys : Object.keys(record).filter((key) => record[key] != null);
+    keys.length > 0 ? keys : Object.keys(record).filter((key) => isScalarUsageValue(record[key]));
 
   return selected.slice(0, 8).map((key) => ({
     key: humanizeKey(key),
@@ -99,9 +106,14 @@ function humanizeKey(key: string): string {
 }
 
 function formatUsageValue(value: unknown): string {
+  if (typeof value === "boolean") return value ? "yes" : "no";
   return typeof value === "number" && Number.isFinite(value)
     ? new Intl.NumberFormat().format(value)
     : formatPreview(value);
+}
+
+function isScalarUsageValue(value: unknown): boolean {
+  return ["string", "number", "boolean"].includes(typeof value);
 }
 </script>
 
@@ -161,11 +173,16 @@ function formatUsageValue(value: unknown): string {
       </span>
     </div>
 
-    <div v-if="hasDiagnostics" class="cb-live-diagnostics">
+    <details v-if="hasDiagnostics" class="cb-live-diagnostics">
+      <summary>
+        <span v-if="live.lastError">SDK stream issue</span>
+        <span v-else>Parser notes</span>
+        <span v-if="warningCount > 0" class="cb-live-diag-count">{{ warningCount }}</span>
+      </summary>
       <div v-if="live.lastError" class="cb-live-diag cb-live-diag--error">{{ live.lastError }}</div>
       <div v-for="warning in live.reducerWarnings" :key="warning" class="cb-live-diag cb-live-diag--warning">
         {{ warning }}
       </div>
-    </div>
+    </details>
   </section>
 </template>

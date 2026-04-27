@@ -71,7 +71,8 @@ fn append_text(state: &mut SessionLiveState, event: &BridgeEvent, kind: TextKind
             TextKind::Assistant => state.assistant_text.push_str(&delta),
             TextKind::Reasoning => state.reasoning_text.push_str(&delta),
         },
-        None => warn(state, event, "missing text delta"),
+        None if event.event_type.ends_with("_delta") => warn(state, event, "missing text delta"),
+        None => {}
     }
 }
 
@@ -194,6 +195,16 @@ fn number_field(value: &Value, keys: &[&str]) -> Option<f64> {
 
 fn warn(state: &mut SessionLiveState, event: &BridgeEvent, warning: &str) {
     let msg = format!("{}: {}", event.event_type, warning);
-    state.last_error = Some(msg.clone());
-    state.reducer_warnings.push(msg);
+    if !state
+        .reducer_warnings
+        .iter()
+        .any(|existing| existing == &msg)
+    {
+        state.reducer_warnings.push(msg);
+    }
+    const MAX_REDUCER_WARNINGS: usize = 8;
+    if state.reducer_warnings.len() > MAX_REDUCER_WARNINGS {
+        let overflow = state.reducer_warnings.len() - MAX_REDUCER_WARNINGS;
+        state.reducer_warnings.drain(0..overflow);
+    }
 }

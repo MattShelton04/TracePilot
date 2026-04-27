@@ -4,6 +4,8 @@ import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, h, ref } from "vue";
 
+const routerPush = vi.hoisted(() => vi.fn());
+
 vi.mock("@tracepilot/ui", async () => {
   const actual = await vi.importActual<Record<string, unknown>>("@tracepilot/ui");
   return {
@@ -28,6 +30,7 @@ vi.mock("@tracepilot/client", () => ({
 
 vi.mock("vue-router", () => ({
   useRoute: () => ({ query: {} }),
+  useRouter: () => ({ push: routerPush }),
 }));
 
 vi.mock("@/composables/useBrowseDirectory", () => ({
@@ -167,6 +170,8 @@ function harness() {
 
 beforeEach(() => {
   setupPinia();
+  routerPush.mockReset();
+  routerPush.mockResolvedValue(undefined);
   storeState.templates = [];
   storeState.models = [];
   storeState.recentLaunches = [];
@@ -286,6 +291,10 @@ describe("useSessionLauncher", () => {
     );
     expect(sdkActions.hydrate).toHaveBeenCalled();
     expect(sdkActions.setForegroundSession).toHaveBeenCalledWith("sdk-123");
+    expect(routerPush).toHaveBeenCalledWith({
+      name: "session-overview",
+      params: { id: "sdk-123" },
+    });
     wrapper.unmount();
   });
 

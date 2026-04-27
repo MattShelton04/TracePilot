@@ -11,9 +11,10 @@ import {
   ref,
   watch,
 } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { browseForDirectory } from "@/composables/useBrowseDirectory";
 import { useGitRepository } from "@/composables/useGitRepository";
+import { ROUTE_NAMES } from "@/config/routes";
 import { useLauncherStore } from "@/stores/launcher";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSdkStore } from "@/stores/sdk";
@@ -32,6 +33,7 @@ export function useSessionLauncher() {
   const prefsStore = usePreferencesStore();
   const worktreeStore = useWorktreesStore();
   const route = useRoute();
+  const router = useRouter();
   const launching = ref(false);
   const { success: toastSuccess, error: toastError } = useToast();
   const { confirm } = useConfirmDialog();
@@ -294,6 +296,10 @@ export function useSessionLauncher() {
           const sdkStore = useSdkStore();
           await sdkStore.hydrate();
           await sdkStore.setForegroundSession(session.sdkSessionId);
+          await router.push({
+            name: ROUTE_NAMES.sessionOverview,
+            params: { id: session.sdkSessionId },
+          });
         }
         // Track template usage if one was selected
         if (selectedTemplateId.value) {

@@ -128,14 +128,21 @@ fn malformed_known_payload_records_warning_without_panicking() {
         json!({"unexpected": true}),
     ));
     assert_eq!(state.assistant_text, "");
-    assert!(
-        state
-            .last_error
-            .as_deref()
-            .unwrap_or("")
-            .contains("missing text delta")
-    );
+    assert_eq!(state.last_error, None);
     assert_eq!(state.reducer_warnings.len(), 1);
+}
+
+#[test]
+fn full_message_events_without_text_are_metadata_only() {
+    let store = LiveStateStore::new();
+    let state = store.apply_event(&event(
+        "assistant.message",
+        json!({"messageId": "msg-1", "role": "assistant"}),
+    ));
+    assert_eq!(state.status, SessionRuntimeStatus::Running);
+    assert_eq!(state.assistant_text, "");
+    assert!(state.reducer_warnings.is_empty());
+    assert_eq!(state.last_error, None);
 }
 
 #[test]
