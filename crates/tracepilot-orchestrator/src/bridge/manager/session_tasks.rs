@@ -271,8 +271,11 @@ impl BridgeManager {
                                 id: Some(event.id.clone()),
                                 parent_id: event.parent_id.clone(),
                                 ephemeral: event.ephemeral.unwrap_or(false),
-                                data: serde_json::to_value(&event.data)
-                                    .unwrap_or(serde_json::Value::Null),
+                                // The SDK's `SessionEventData` enum is externally tagged, so
+                                // `to_value(&event.data)` produces `{"AssistantMessageDelta": {...}}`.
+                                // Flatten the single-variant wrapper so frontend reducers (and our
+                                // live-state reducer) can read fields like `deltaContent` directly.
+                                data: flatten_event_data(&event.data),
                             };
                             let state = live_state.apply_event(&bridge_event);
                             if state_tx.send(state).is_err() {
@@ -325,5 +328,64 @@ impl BridgeManager {
             resume_error: None,
             is_remote: false,
         }
+    }
+}
+
+/// Flatten the externally-tagged `SessionEventData` enum into its inner payload.
+///
+/// `SessionEventData::AssistantMessageDelta(data)` serializes by default as
+/// `{"AssistantMessageDelta": {"messageId": "...", "deltaContent": "..."}}`.
+/// Both our live-state reducer and frontend stores expect the inner object's
+/// fields at the top level (e.g. `event.data.deltaContent`), so we strip the
+/// single-key wrapper here. Non-object payloads or `Unknown(Value::Null)` are
+/// passed through unchanged.
+fn flatten_event_data(data: &copilot_sdk::SessionEventData) -> serde_json::Value {
+    let value = serde_json::to_value(data).unwrap_or(serde_json::Value::Null);
+    match value {
+        serde_json::Value::Object(map) if map.len() == 1 => map
+            .into_iter()
+            .next()
+            .map(|(_, inner)| inner)
+            .unwrap_or(serde_json::Value::Null),
+        other => other,
+    }
+}
+
+#[cfg(test)]
+mod flatten_tests {
+    use super::flatten_event_data;
+    use copilot_sdk::{AssistantMessageDeltaData, AssistantTurnStartData, SessionEventData};
+
+    #[test]
+    fn flattens_assistant_message_delta() {
+        let data = SessionEventData::AssistantMessageDelta(AssistantMessageDeltaData {
+            message_id: "m1".into(),
+            delta_content: "hello".into(),
+            total_response_size_bytes: None,
+            parent_tool_call_id: None,
+        });
+        let v = flatten_event_data(&data);
+        assert_eq!(
+            v.get("deltaContent").and_then(|v| v.as_str()),
+            Some("hello")
+        );
+        assert_eq!(v.get("messageId").and_then(|v| v.as_str()), Some("m1"));
+        assert!(v.get("AssistantMessageDelta").is_none());
+    }
+
+    #[test]
+    fn flattens_assistant_turn_start() {
+        let data = SessionEventData::AssistantTurnStart(AssistantTurnStartData {
+            turn_id: "t1".into(),
+        });
+        let v = flatten_event_data(&data);
+        assert_eq!(v.get("turnId").and_then(|v| v.as_str()), Some("t1"));
+    }
+
+    #[test]
+    fn passes_through_unknown_null() {
+        let data = SessionEventData::Unknown(serde_json::Value::Null);
+        let v = flatten_event_data(&data);
+        assert!(v.is_null());
     }
 }
