@@ -99,9 +99,19 @@ function warn(name, details = "") {
 }
 
 function fail(name, error) {
-  results.tests.push({ name, status: "fail", error: String(error?.message ?? error) });
+  results.tests.push({ name, status: "fail", error: formatError(error) });
   results.summary.failed++;
-  console.error(`  ❌ ${name} — ${error?.message ?? error}`);
+  console.error(`  ❌ ${name} — ${formatError(error)}`);
+}
+
+function formatError(error) {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === "string") return error;
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
 }
 
 async function test(name, fn) {
@@ -199,6 +209,10 @@ async function main() {
 
     if (args.realSdk) {
       await test("Connect SDK bridge", async () => {
+        if (hydration?.status?.state === "connected") {
+          const status = hydration.status;
+          return `already connected: ${status.connectionMode ?? "unknown"}${status.cliVersion ? ` · CLI ${status.cliVersion}` : ""}`;
+        }
         const status = await ipc(page, "sdk_connect", {
           config: {
             cliUrl: args.cliUrl ?? null,
