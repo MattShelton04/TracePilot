@@ -7,6 +7,24 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 
 ## [Unreleased]
 
+## [0.6.4] - 2026-04-27
+
+### Added
+- **GPT-5.5 model support** in the model registry and config injector
+- **Bespoke syntax highlighter overhaul** — correct Rust lifetimes, TS template literals and regex-vs-division, JSX/TSX, YAML anchors; ReDoS-hardened with a bounded LRU cache
+
+### Changed
+- **Copilot CLI 2026-04 `settings.json` migration support** — config injector reads both `settings.json` and the legacy commented `config.json`, surfaces parse errors, and only writes user-editable keys back
+- **Improved Copilot SDK integration** — bridge survives app reloads, pop-out windows can drive their own session, and assistant/reasoning deltas stream live in chat; clicking a system notification opens the matching session
+- **More aggressive session preloading** — direct UUID path resolution eliminates redundant directory scans (was running 6× per prefetch); session caches grow from 10 → 30 to match the prefetch window
+- **Tech debt** — continued backend module decomposition, typed `SessionId` newtype across hot paths, consolidated error taxonomy, expanded typed Tauri bindings, and new CI checks (CSP, doc links, ADRs, public-API baseline)
+
+### Fixed
+- Markdown bullets and numbered lists now render in chat (a global CSS reset was stripping list markers)
+- Session File Explorer no longer flashes or scroll-jumps on auto-refresh; new sessions and todos are picked up between reindexes
+- SQLite session-DB viewer: added Schema tab, resizable columns, cell-expand modal, and always-on headers for empty tables
+- Subagent Panel consolidated into a single unified view with a chronological reasoning + tool activity stream
+
 ## [0.6.3] - 2026-04-19
 
 ### Added

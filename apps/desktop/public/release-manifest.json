@@ -1,6 +1,29 @@
 {
   "versions": [
     {
+      "version": "0.6.4",
+      "date": "2026-04-27",
+      "notes": {
+        "added": [
+          "GPT-5.5 model support in the model registry and config injector",
+          "Pop-out window session steering: Copilot SDK controls now work in pop-out viewers with per-session state, and clicking a notification opens the matching session",
+          "Syntax highlighter overhaul: correct Rust lifetimes, TS template literals and regex-vs-division, JSX/TSX, YAML anchors; ReDoS-hardened with an LRU cache"
+        ],
+        "changed": [
+          "Adapts to the Copilot CLI 2026-04 settings.json migration — no more parse errors in the global config tab",
+          "Better Copilot SDK integration: bridge survives app reloads, pop-outs hydrate from the backend, and streaming deltas render live in chat",
+          "More aggressive session preloading: direct UUID path resolution and session caches grown from 10 → 30",
+          "Markdown bullets and numbered lists now render correctly in chat",
+          "Subagent Panel unified into a single chronological reasoning + tool activity view"
+        ],
+        "fixed": [
+          "Session File Explorer no longer flashes or scroll-jumps on auto-refresh; new sessions and todos picked up between reindexes",
+          "SQLite session-DB viewer: schema tab, resizable columns, cell-expand modal, and always-on headers for empty tables"
+        ]
+      },
+      "requiresReindex": false
+    },
+    {
       "version": "0.6.3",
       "date": "2026-04-19",
       "notes": {
