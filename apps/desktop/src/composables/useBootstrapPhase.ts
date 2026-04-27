@@ -7,6 +7,8 @@ import { initAppVersion, useAppVersion } from "@/composables/useAppVersion";
 import { runUpdateCheck } from "@/composables/useUpdateCheck";
 import { useWhatsNew } from "@/composables/useWhatsNew";
 import { resolveWindowRole, useWindowRole } from "@/composables/useWindowRole";
+import { ROUTE_NAMES } from "@/config/routes";
+import { pushRoute } from "@/router/navigation";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSessionsStore } from "@/stores/sessions";
 import { logError, logInfo } from "@/utils/logger";
@@ -31,7 +33,11 @@ export function useBootstrapPhase() {
 
     try {
       useAlertWatcher(router);
-      registerNotificationClickHandler();
+      registerNotificationClickHandler(async (sessionId) => {
+        await pushRoute(router, ROUTE_NAMES.sessionConversation, {
+          params: { id: sessionId },
+        });
+      });
       alertInitDone = true;
       logInfo("[app] Alert system initialized successfully");
     } catch (e) {

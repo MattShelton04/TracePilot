@@ -3,7 +3,7 @@
 // user preferences: in-app toast, taskbar flash, native OS
 // notifications, and sound. Respects per-session cooldown to prevent spam.
 
-import { getCurrentTauriWindow } from "@/lib/tauri";
+import { getAllTauriWindows, getCurrentTauriWindow } from "@/lib/tauri";
 import type { AlertEvent, AlertSeverity, AlertType } from "@/stores/alerts";
 import { useAlertsStore } from "@/stores/alerts";
 import { usePreferencesStore } from "@/stores/preferences";
@@ -82,7 +82,20 @@ async function isAppFocused(): Promise<boolean> {
 // Uses @tauri-apps/plugin-notification for reliable OS notifications.
 // Note: In dev mode, Windows may show the terminal icon (PowerShell/WT)
 // instead of the TracePilot icon. Production builds use the correct icon.
-async function sendNativeNotification(title: string, body: string) {
+
+/**
+ * Tracks the most-recently-fired notification → sessionId so the click
+ * handler (registerNotificationClickHandler) can navigate to the right
+ * session. Single-user app, so "last fired" matches the click ~always.
+ */
+let lastNotifiedSessionId: string | null = null;
+
+/** Test-only: reset the last-notified tracker. */
+export function __resetLastNotifiedSessionId() {
+  lastNotifiedSessionId = null;
+}
+
+async function sendNativeNotification(title: string, body: string, sessionId?: string) {
   try {
     const { isPermissionGranted, requestPermission, sendNotification } = await import(
       "@tauri-apps/plugin-notification"
@@ -94,6 +107,7 @@ async function sendNativeNotification(title: string, body: string) {
       granted = permission === "granted";
     }
     if (granted) {
+      if (sessionId) lastNotifiedSessionId = sessionId;
       sendNotification({ title, body, sound: "default", actionTypeId: "tracepilot-alert" });
     }
   } catch (e) {
@@ -165,6 +179,7 @@ async function dispatchAttentionChannels(
   body: string,
   severity: AlertSeverity,
   options: AttentionChannelOptions,
+  sessionId?: string,
 ) {
   if (await isAppFocused()) {
     logInfo("[alerts] App is focused; skipping sound, taskbar flash, and native notification");
@@ -180,19 +195,54 @@ async function dispatchAttentionChannels(
   }
 
   if (options.nativeNotificationsEnabled) {
-    await sendNativeNotification(title, body);
+    await sendNativeNotification(title, body, sessionId);
   }
 }
 
 // ── Focus window on notification click ───────────────────────────
 let notificationListenerRegistered = false;
 
+type NotificationNavigator = (sessionId: string) => Promise<void> | void;
+
+/**
+ * Try to focus an existing popout window (`viewer-<sessionId>`) for
+ * the given session. Returns true if a popout was found + focused.
+ */
+async function focusViewerWindowFor(sessionId: string): Promise<boolean> {
+  try {
+    const all = await getAllTauriWindows();
+    const target = all.find((w) => w.label === `viewer-${sessionId}`);
+    if (!target) return false;
+    await target.unminimize().catch(() => {});
+    await target.setFocus();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function focusMainWindow() {
+  try {
+    const win = await getCurrentTauriWindow();
+    if (!win) return;
+    await win.unminimize().catch(() => {});
+    await win.setFocus();
+  } catch {
+    // Focus attempt failed — not critical
+  }
+}
+
 /**
  * Register action types and a click listener for native notifications.
  * Must be called once at startup so that `onAction` fires when the user
  * clicks a TracePilot notification.
+ *
+ * `navigator` (optional): invoked with the sessionId of the most-recent
+ * notification when the user clicks one and no popout for that session
+ * is open. Typically wires `pushRoute(router, sessionConversation, …)`
+ * so the main window jumps to the alerted session.
  */
-export async function registerNotificationClickHandler() {
+export async function registerNotificationClickHandler(navigator?: NotificationNavigator) {
   if (notificationListenerRegistered) return;
 
   try {
@@ -207,13 +257,21 @@ export async function registerNotificationClickHandler() {
     ]);
 
     await onAction(async () => {
-      try {
-        const win = await getCurrentTauriWindow();
-        if (!win) return;
-        await win.unminimize();
-        await win.setFocus();
-      } catch {
-        // Focus attempt failed — not critical
+      const sessionId = lastNotifiedSessionId;
+      // 1. If the user has popped this session out, focus the popout —
+      //    that's where they expect to land.
+      if (sessionId && (await focusViewerWindowFor(sessionId))) {
+        return;
+      }
+      // 2. Otherwise focus main window and (if we have a session and a
+      //    navigator) navigate to the session.
+      await focusMainWindow();
+      if (sessionId && navigator) {
+        try {
+          await navigator(sessionId);
+        } catch (e) {
+          logWarn("[alerts] Notification navigator failed:", e);
+        }
       }
     });
 
@@ -295,11 +353,17 @@ export function dispatchAlert(options: DispatchAlertOptions): AlertEvent | null 
   // Always show in-app toast
   showToast(options.title, options.body, severity);
 
-  dispatchAttentionChannels(options.title, options.body, severity, {
-    soundEnabled: prefs.alertsSoundEnabled,
-    taskbarFlashEnabled: prefs.alertsTaskbarFlash,
-    nativeNotificationsEnabled: prefs.alertsNativeNotifications,
-  }).catch((e) => logError("[alerts] Attention channel dispatch failed:", e));
+  dispatchAttentionChannels(
+    options.title,
+    options.body,
+    severity,
+    {
+      soundEnabled: prefs.alertsSoundEnabled,
+      taskbarFlashEnabled: prefs.alertsTaskbarFlash,
+      nativeNotificationsEnabled: prefs.alertsNativeNotifications,
+    },
+    options.sessionId,
+  ).catch((e) => logError("[alerts] Attention channel dispatch failed:", e));
 
   return alert;
 }
