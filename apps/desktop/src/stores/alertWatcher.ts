@@ -25,6 +25,11 @@ export interface AlertWatcherStore {
   setLastTurnCount: (sessionId: string, n: number) => void;
   hasAlertedAskUser: (callKey: string) => boolean;
   markAskUserAlerted: (callKey: string) => void;
+  hasAlertedSdkState: (stateKey: string) => boolean;
+  markSdkStateAlerted: (stateKey: string) => void;
+  getLastSdkStatus: (sessionId: string) => string | null;
+  setLastSdkStatus: (sessionId: string, status: string) => void;
+  pruneSdkEntries: (activeSdkSessions: Set<string>) => void;
   isErrorBaselineEstablished: (sessionId: string) => boolean;
   establishErrorBaseline: (sessionId: string) => void;
   getLastErrorCount: (sessionId: string) => number;
@@ -40,6 +45,8 @@ export const useAlertWatcherStore = defineStore("alertWatcher", (): AlertWatcher
   let previouslyRunning = new Set<string>();
   let lastSeenTurnCount = new Map<string, number>();
   let alertedAskUserCalls = new Set<string>();
+  let alertedSdkStateKeys = new Set<string>();
+  let lastSeenSdkStatus = new Map<string, string>();
   let errorBaselineEstablished = new Set<string>();
   let lastSeenErrorCount = new Map<string, number>();
 
@@ -81,6 +88,33 @@ export const useAlertWatcherStore = defineStore("alertWatcher", (): AlertWatcher
   }
   function markAskUserAlerted(callKey: string): void {
     alertedAskUserCalls.add(callKey);
+  }
+
+  // ── SDK live-state dedup ────────────────────────────────────────
+  function hasAlertedSdkState(stateKey: string): boolean {
+    return alertedSdkStateKeys.has(stateKey);
+  }
+  function markSdkStateAlerted(stateKey: string): void {
+    alertedSdkStateKeys.add(stateKey);
+  }
+  function getLastSdkStatus(sessionId: string): string | null {
+    return lastSeenSdkStatus.get(sessionId) ?? null;
+  }
+  function setLastSdkStatus(sessionId: string, status: string): void {
+    lastSeenSdkStatus.set(sessionId, status);
+  }
+  function pruneSdkEntries(activeSdkSessions: Set<string>): void {
+    for (const id of lastSeenSdkStatus.keys()) {
+      if (!activeSdkSessions.has(id)) {
+        lastSeenSdkStatus.delete(id);
+      }
+    }
+    for (const key of alertedSdkStateKeys) {
+      const sessionId = key.split(":")[0];
+      if (sessionId !== "sdk-bridge" && !activeSdkSessions.has(sessionId)) {
+        alertedSdkStateKeys.delete(key);
+      }
+    }
   }
 
   // ── Error baseline + high-water mark ──────────────────────────
@@ -136,6 +170,8 @@ export const useAlertWatcherStore = defineStore("alertWatcher", (): AlertWatcher
     previouslyRunning = new Set();
     lastSeenTurnCount = new Map();
     alertedAskUserCalls = new Set();
+    alertedSdkStateKeys = new Set();
+    lastSeenSdkStatus = new Map();
     errorBaselineEstablished = new Set();
     lastSeenErrorCount = new Map();
     askUserPollInFlight.value = false;
@@ -156,6 +192,11 @@ export const useAlertWatcherStore = defineStore("alertWatcher", (): AlertWatcher
     setLastTurnCount,
     hasAlertedAskUser,
     markAskUserAlerted,
+    hasAlertedSdkState,
+    markSdkStateAlerted,
+    getLastSdkStatus,
+    setLastSdkStatus,
+    pruneSdkEntries,
     isErrorBaselineEstablished,
     establishErrorBaseline,
     getLastErrorCount,

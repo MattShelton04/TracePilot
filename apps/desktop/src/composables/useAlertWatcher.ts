@@ -16,64 +16,17 @@ import type { ConversationTurn } from "@tracepilot/types";
 import { useVisibilityGatedPoll } from "@tracepilot/ui";
 import { onScopeDispose, watch } from "vue";
 import type { Router } from "vue-router";
+import { filterSessionsByScope } from "@/composables/alertWatcherScope";
+import {
+  checkSdkBridgeMetricsAlerts,
+  checkSdkSessionStateAlerts,
+} from "@/composables/alertWatcherSdk";
 import { dispatchAlert } from "@/composables/useAlertDispatcher";
 import { useAlertWatcherStore } from "@/stores/alertWatcher";
 import { usePreferencesStore } from "@/stores/preferences";
+import { useSdkStore } from "@/stores/sdk";
 import { useSessionsStore } from "@/stores/sessions";
-import { useSessionTabsStore } from "@/stores/sessionTabs";
 import { logInfo, logWarn } from "@/utils/logger";
-
-// ── Monitored session resolution ─────────────────────────────────
-
-/**
- * Returns the set of session IDs the user is actively monitoring.
- * "Monitored" means: open in a tab, or currently viewed via route.
- */
-function getMonitoredSessionIds(): Set<string> {
-  const ids = new Set<string>();
-
-  try {
-    const tabStore = useSessionTabsStore();
-
-    // Session tabs
-    for (const tab of tabStore.tabs) {
-      ids.add(tab.sessionId);
-    }
-
-    // Sessions open in popup (viewer) windows
-    for (const sid of tabStore.popupSessionIds) {
-      ids.add(sid);
-    }
-  } catch {
-    /* tab store not available */
-  }
-
-  // Current route (captured during setup — safe to read from any context)
-  const store = useAlertWatcherStore();
-  const route = store.capturedRoute;
-  if (route) {
-    const routeId = route.params?.id;
-    if (typeof routeId === "string" && routeId) {
-      ids.add(routeId);
-    }
-  }
-
-  return ids;
-}
-
-/**
- * Filter sessions based on alert scope preference.
- * "monitored" → only sessions in tabs/route view
- * "all" → all sessions (caller handles capping)
- */
-function filterSessionsByScope<T extends { id: string }>(sessions: T[]): T[] {
-  const prefs = usePreferencesStore();
-  if (prefs.alertsScope === "all") {
-    return sessions;
-  }
-  const monitoredIds = getMonitoredSessionIds();
-  return sessions.filter((s) => monitoredIds.has(s.id));
-}
 
 // ── Session-end detection ────────────────────────────────────────
 
@@ -301,6 +254,7 @@ async function seedTurnBaselines() {
  */
 export function useAlertWatcher(router: Router) {
   const sessionsStore = useSessionsStore();
+  const sdkStore = useSdkStore();
   const prefs = usePreferencesStore();
   const store = useAlertWatcherStore();
 
@@ -330,6 +284,8 @@ export function useAlertWatcher(router: Router) {
     store.establishErrorBaseline(session.id);
   }
 
+  checkSdkSessionStateAlerts(sdkStore.sessionStatesById, { baselineOnly: true });
+
   // Seed turn baselines — the prefs watcher below handles this
   // via { immediate: true }, so no explicit call needed here.
 
@@ -339,6 +295,22 @@ export function useAlertWatcher(router: Router) {
     (sessions) => {
       checkSessionEndAlerts(sessions);
       checkSessionErrorAlerts(sessions);
+    },
+    { deep: false },
+  );
+
+  const stopSdkSessionWatch = watch(
+    () => sdkStore.sessionStatesById,
+    (statesById) => {
+      checkSdkSessionStateAlerts(statesById);
+    },
+    { deep: false },
+  );
+
+  const stopSdkMetricsWatch = watch(
+    () => sdkStore.bridgeMetrics,
+    (metrics) => {
+      checkSdkBridgeMetricsAlerts(metrics);
     },
     { deep: false },
   );
@@ -396,6 +368,8 @@ export function useAlertWatcher(router: Router) {
   // Cleanup
   onScopeDispose(() => {
     stopSessionWatch();
+    stopSdkSessionWatch();
+    stopSdkMetricsWatch();
     stopPrefsWatch();
     stopPolling();
     stopRefreshPolling();

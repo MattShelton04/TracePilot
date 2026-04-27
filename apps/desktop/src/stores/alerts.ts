@@ -8,7 +8,15 @@ import { computed, ref } from "vue";
 import { STORAGE_KEYS } from "@/config/storageKeys";
 
 /** Alert event types that trigger notifications. */
-export type AlertType = "session-end" | "ask-user" | "session-error";
+export type AlertType =
+  | "session-end"
+  | "ask-user"
+  | "session-error"
+  | "sdk-user-input-required"
+  | "sdk-permission-required"
+  | "sdk-session-error"
+  | "sdk-session-idle"
+  | "sdk-event-lag";
 
 /** Severity used for visual treatment in the alert center. */
 export type AlertSeverity = "info" | "warning" | "error";
@@ -20,6 +28,7 @@ export interface AlertEvent {
   severity: AlertSeverity;
   sessionId: string;
   sessionSummary?: string;
+  metadata?: Record<string, unknown>;
   title: string;
   body: string;
   timestamp: number;

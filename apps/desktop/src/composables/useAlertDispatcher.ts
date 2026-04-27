@@ -44,9 +44,15 @@ function severityForType(type: AlertType): AlertSeverity {
     case "session-end":
       return "info";
     case "ask-user":
+    case "sdk-user-input-required":
+    case "sdk-permission-required":
       return "warning";
     case "session-error":
+    case "sdk-session-error":
+    case "sdk-event-lag":
       return "error";
+    case "sdk-session-idle":
+      return "info";
   }
 }
 
@@ -186,6 +192,7 @@ export interface DispatchAlertOptions {
   type: AlertType;
   sessionId: string;
   sessionSummary?: string;
+  metadata?: Record<string, unknown>;
   title: string;
   body: string;
 }
@@ -207,10 +214,17 @@ export function dispatchAlert(options: DispatchAlertOptions): AlertEvent | null 
       if (!prefs.alertsOnSessionEnd) return null;
       break;
     case "ask-user":
+    case "sdk-user-input-required":
+    case "sdk-permission-required":
       if (!prefs.alertsOnAskUser) return null;
       break;
     case "session-error":
+    case "sdk-session-error":
+    case "sdk-event-lag":
       if (!prefs.alertsOnSessionError) return null;
+      break;
+    case "sdk-session-idle":
+      if (!prefs.alertsOnSessionEnd) return null;
       break;
   }
 
@@ -228,6 +242,7 @@ export function dispatchAlert(options: DispatchAlertOptions): AlertEvent | null 
     severity,
     sessionId: options.sessionId,
     sessionSummary: options.sessionSummary,
+    metadata: options.metadata,
     title: options.title,
     body: options.body,
   });
