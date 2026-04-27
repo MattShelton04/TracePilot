@@ -269,11 +269,13 @@ describe("useSessionLauncher", () => {
     const { api, wrapper } = harness();
     api.selectedModel.value = "claude-sonnet-4.5";
     api.autoApprove.value = true;
+    api.uiServer.value = true;
     api.prompt.value = "do it";
     const parts = api.cliCommandParts.value;
     const flags = parts.map((p) => p.flag);
     expect(flags).toContain("--model");
     expect(flags).toContain("--allow-all");
+    expect(flags).toContain("--ui-server");
     expect(flags).toContain("--reasoning-effort");
     expect(flags).toContain("--interactive");
     wrapper.unmount();

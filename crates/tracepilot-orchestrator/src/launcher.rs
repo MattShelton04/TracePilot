@@ -119,6 +119,10 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
         args.push("--allow-all".to_string());
     }
 
+    if config.ui_server {
+        args.push("--ui-server".to_string());
+    }
+
     if let Some(effort) = &config.reasoning_effort {
         args.push("--reasoning-effort".to_string());
         args.push(effort.clone());

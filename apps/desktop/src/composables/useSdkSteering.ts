@@ -73,6 +73,7 @@ export function useSdkSteering(options: UseSdkSteeringOptions) {
   const prompt = ref("");
   const inputEl = ref<HTMLTextAreaElement | null>(null);
   const userLinked = ref(false);
+  const userUnlinked = ref(false);
   /** Model chosen by user before linking — passed to ResumeSessionConfig.model */
   const pendingModel = ref<string | null>(null);
   const showModelPicker = ref(false);
@@ -152,7 +153,8 @@ export function useSdkSteering(options: UseSdkSteeringOptions) {
   const isVisible = computed(() => isEnabled.value && sdk.isConnected && !!sessionIdRef.value);
 
   /** Whether the session is actively linked AND the user wants to steer it. */
-  const isLinked = computed(() => userLinked.value && linkedSession.value?.isActive === true);
+  const hasActiveSdkHandle = computed(() => linkedSession.value?.isActive === true);
+  const isLinked = computed(() => hasActiveSdkHandle.value && !userUnlinked.value);
 
   const modes: { value: BridgeSessionMode; label: string; icon: string }[] = [
     { value: "interactive", label: "Ask", icon: "💬" },
@@ -201,12 +203,14 @@ export function useSdkSteering(options: UseSdkSteeringOptions) {
     if (existing?.isActive) {
       resolvedSessionId.value = sid;
       userLinked.value = true;
+      userUnlinked.value = false;
       return true;
     }
     if (resolvedSessionId.value) {
       const resolved = sdk.sessions.find((s) => s.sessionId === resolvedSessionId.value);
       if (resolved?.isActive) {
         userLinked.value = true;
+        userUnlinked.value = false;
         return true;
       }
     }
@@ -224,6 +228,7 @@ export function useSdkSteering(options: UseSdkSteeringOptions) {
       } else {
         resolvedSessionId.value = result.sessionId;
         userLinked.value = true;
+        userUnlinked.value = false;
         logInfo("[sdk] Session linked for steering:", result.sessionId);
       }
       return result !== null;
@@ -243,6 +248,7 @@ export function useSdkSteering(options: UseSdkSteeringOptions) {
   // w1: Reset resolved ID when session changes (see top-of-file ordering note).
   watch(sessionIdRef, () => {
     userLinked.value = false;
+    userUnlinked.value = false;
     resolvedSessionId.value = null;
     sessionError.value = null;
     sentMessages.value = [];
@@ -349,6 +355,7 @@ export function useSdkSteering(options: UseSdkSteeringOptions) {
   /** Unlink — purely Vue state reset. Session stays alive in bridge + subprocess. */
   function handleUnlinkSession() {
     userLinked.value = false;
+    userUnlinked.value = true;
     resolvedSessionId.value = null;
     sessionError.value = null;
     sentMessages.value = [];
@@ -362,6 +369,7 @@ export function useSdkSteering(options: UseSdkSteeringOptions) {
     sessionError.value = null;
     await sdk.destroySession(sid);
     userLinked.value = false;
+    userUnlinked.value = false;
     resolvedSessionId.value = null;
     sentMessages.value = [];
     logInfo("[sdk] Session shut down:", sid);
@@ -408,6 +416,7 @@ export function useSdkSteering(options: UseSdkSteeringOptions) {
     prompt,
     inputEl,
     userLinked,
+    userUnlinked,
     pendingModel,
     showModelPicker,
     sentMessages,
@@ -418,6 +427,7 @@ export function useSdkSteering(options: UseSdkSteeringOptions) {
     isEnabled,
     isVisible,
     isLinked,
+    hasActiveSdkHandle,
     linkedSession,
     effectiveSessionId,
     modelPickerStyle,

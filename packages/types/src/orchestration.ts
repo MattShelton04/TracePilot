@@ -65,6 +65,8 @@ export interface LaunchConfig {
   envVars: Record<string, string>;
   createWorktree: boolean;
   autoApprove: boolean;
+  /** Terminal launches include `--ui-server` so TracePilot can connect via TCP. */
+  uiServer?: boolean;
   /** terminal opens the configured CLI; sdk creates a headless Copilot SDK bridge session. */
   launchMode?: LaunchMode;
   /** CLI command to use (e.g. "copilot", "gh copilot-cli"). Defaults to "copilot". */

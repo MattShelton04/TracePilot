@@ -8,6 +8,7 @@ const {
   autoApprove,
   createWorktree,
   headless,
+  uiServer,
   baseBranch,
   branch,
   worktreePreviewPath,
@@ -91,6 +92,23 @@ const {
             role="switch"
             :aria-checked="headless"
             @click="headless = !headless; clearTemplateSelection()"
+          >
+            <span class="toggle-thumb" />
+          </button>
+        </div>
+
+        <div class="toggle-row toggle-row-last">
+          <div class="toggle-info">
+            <span class="toggle-label">Launch with --ui-server</span>
+            <span class="toggle-desc">Expose terminal-launched sessions to TracePilot's TCP SDK bridge</span>
+          </div>
+          <button
+            class="toggle-switch"
+            :class="{ on: uiServer && !headless }"
+            role="switch"
+            :aria-checked="uiServer && !headless"
+            :disabled="headless"
+            @click="uiServer = !uiServer; clearTemplateSelection()"
           >
             <span class="toggle-thumb" />
           </button>

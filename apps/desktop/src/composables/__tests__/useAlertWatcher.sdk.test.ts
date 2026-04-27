@@ -5,6 +5,7 @@ import { useAlertWatcherStore } from "@/stores/alertWatcher";
 
 const mocks = vi.hoisted(() => ({
   dispatchAlert: vi.fn(),
+  refreshSessions: vi.fn(),
   prefs: {
     alertsEnabled: true,
     alertsScope: "monitored" as "monitored" | "all",
@@ -43,6 +44,7 @@ vi.mock("@/stores/sdk", () => ({
 
 vi.mock("@/stores/sessions", () => ({
   useSessionsStore: () => ({
+    refreshSessions: mocks.refreshSessions,
     sessions: [
       { id: "sdk-1", summary: "Refactor SDK alerts" },
       { id: "sdk-2", summary: "Review TCP bridge" },
@@ -76,6 +78,7 @@ describe("SDK alert watcher", () => {
   beforeEach(() => {
     setupPinia();
     mocks.dispatchAlert.mockReset();
+    mocks.refreshSessions.mockReset();
     mocks.prefs.alertsEnabled = true;
     mocks.prefs.alertsScope = "monitored";
     mocks.prefs.alertsOnAskUser = true;
@@ -175,6 +178,7 @@ describe("SDK alert watcher", () => {
         sessionId: "sdk-1",
       }),
     );
+    expect(mocks.refreshSessions).toHaveBeenCalledTimes(1);
   });
 
   it("emits an event-lag alert from bridge metrics", () => {

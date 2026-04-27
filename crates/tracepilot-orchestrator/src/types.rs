@@ -95,6 +95,8 @@ pub struct LaunchConfig {
     #[serde(default)]
     pub auto_approve: bool,
     #[serde(default)]
+    pub ui_server: bool,
+    #[serde(default)]
     pub launch_mode: LaunchMode,
     /// The CLI command to use (e.g. "copilot", "gh copilot-cli"). Defaults to "copilot".
     #[serde(default = "default_cli_command")]

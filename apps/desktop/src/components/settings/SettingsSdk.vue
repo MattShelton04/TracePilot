@@ -9,11 +9,16 @@
  */
 import { ActionButton, BtnGroup, FormInput, SectionPanel } from "@tracepilot/ui";
 import { computed, ref } from "vue";
+import { useRouter } from "vue-router";
+import { ROUTE_NAMES } from "@/config/routes";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSdkStore } from "@/stores/sdk";
+import { useSessionsStore } from "@/stores/sessions";
 
 const prefs = usePreferencesStore();
 const sdk = useSdkStore();
+const sessionsStore = useSessionsStore();
+const router = useRouter();
 
 const isEnabled = computed(() => prefs.isFeatureEnabled("copilotSdk"));
 const showAdvanced = ref(false);
@@ -176,13 +181,17 @@ const sessionRows = computed(() => {
   return sdk.sessions
     .map((session) => {
       const live = sdk.sessionStatesById[session.sessionId];
+      const summary = sessionsStore.sessions
+        .find((s) => s.id === session.sessionId)
+        ?.summary?.trim();
       return {
         id: session.sessionId,
         shortId: shortId(session.sessionId),
-        model: session.model ?? "default",
-        cwd: session.workingDirectory ?? "-",
-        lifecycle: "active",
-        liveStatus: live?.status ?? "-",
+        title: summary || `SDK session ${shortId(session.sessionId)}`,
+        summary: summary || null,
+        model: session.model ?? null,
+        cwd: session.workingDirectory ?? null,
+        liveStatus: live?.status ?? "tracked",
         isActive: session.isActive,
         isForeground: sdk.foregroundSessionId === session.sessionId,
       };
@@ -202,6 +211,13 @@ const isTcpSelected = computed(() => selectedMode.value === "tcp" || !!cliUrl.va
 /** True when currently connected to this specific server address. */
 function isActiveServer(address: string) {
   return sdk.isConnected && cliUrl.value === address;
+}
+
+async function openSession(rowId: string) {
+  await router.push({
+    name: ROUTE_NAMES.sessionConversation,
+    params: { id: rowId },
+  });
 }
 </script>
 
@@ -386,19 +402,27 @@ function isActiveServer(address: string) {
       </div>
 
       <div v-if="hasSessionRows" class="sdk-session-list" data-testid="sdk-session-list">
-        <div v-for="row in sessionRows" :key="row.id" class="sdk-session-item">
+        <button
+          v-for="row in sessionRows"
+          :key="row.id"
+          class="sdk-session-item"
+          type="button"
+          :title="`Open ${row.title}`"
+          @click="openSession(row.id)"
+        >
           <div class="sdk-session-main">
-              <span class="sdk-session-dot sdk-session-dot--active" />
+            <span class="sdk-session-dot sdk-session-dot--active" />
+            <span class="sdk-session-title">{{ row.title }}</span>
             <span class="sdk-session-id" :title="row.id">{{ row.shortId }}</span>
             <span v-if="row.isForeground" class="sdk-session-badge">Foreground</span>
           </div>
           <div class="sdk-session-meta">
-            <span>{{ row.lifecycle }}</span>
-            <span>{{ row.liveStatus }}</span>
-            <span>{{ row.model }}</span>
-            <span :title="row.cwd">{{ row.cwd }}</span>
+            <span>Status: {{ row.liveStatus.replaceAll('_', ' ') }}</span>
+            <span v-if="row.model">Model: {{ row.model }}</span>
+            <span v-if="row.cwd" :title="row.cwd">cwd: {{ row.cwd }}</span>
+            <span class="sdk-session-open">Open conversation →</span>
           </div>
-        </div>
+        </button>
       </div>
 
       <div v-else class="sdk-empty-state" data-testid="sdk-session-list-empty">
@@ -635,10 +659,29 @@ function isActiveServer(address: string) {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  width: 100%;
   padding: 10px 12px;
   border: 1px solid var(--border-muted);
   border-radius: var(--radius-md);
   background: rgba(255, 255, 255, 0.025);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    background var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.sdk-session-item:hover {
+  border-color: var(--accent-muted);
+  background: rgba(99, 102, 241, 0.08);
+  transform: translateY(-1px);
+}
+
+.sdk-session-item:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 .sdk-session-main,
@@ -662,10 +705,20 @@ function isActiveServer(address: string) {
   box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.12);
 }
 
-.sdk-session-id {
+.sdk-session-title {
   color: var(--text-primary);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8125rem;
+  font-weight: 650;
+}
+
+.sdk-session-id {
+  color: var(--text-tertiary);
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   font-weight: 600;
 }
 
@@ -688,6 +741,12 @@ function isActiveServer(address: string) {
 .sdk-session-meta {
   color: var(--text-tertiary);
   font-size: 0.6875rem;
+}
+
+.sdk-session-open {
+  margin-left: auto;
+  color: var(--accent-fg);
+  font-weight: 600;
 }
 
 .sdk-session-meta span {

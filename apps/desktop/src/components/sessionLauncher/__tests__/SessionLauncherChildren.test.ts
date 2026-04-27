@@ -100,6 +100,7 @@ function makeCtx(overrides: Partial<UseSessionLauncherReturn> = {}): UseSessionL
     createWorktree: ref(false),
     autoApprove: ref(false),
     headless: ref(false),
+    uiServer: ref(false),
     reasoningEffort: ref<"low" | "medium" | "high">("medium"),
     prompt: ref(""),
     customInstructions: ref(""),
@@ -232,6 +233,16 @@ describe("SessionLauncherAdvanced", () => {
     const toggles = wrapper.findAll(".toggle-switch");
     await toggles[2].trigger("click");
     expect(ctx.headless.value).toBe(true);
+    expect(ctx.clearTemplateSelection).toHaveBeenCalled();
+  });
+
+  it("flips terminal --ui-server mode when its toggle switch is clicked", async () => {
+    const ctx = makeCtx();
+    ctx.showAdvanced.value = true;
+    const wrapper = mount(wrap(SessionLauncherAdvanced, ctx));
+    const toggles = wrapper.findAll(".toggle-switch");
+    await toggles[3].trigger("click");
+    expect(ctx.uiServer.value).toBe(true);
     expect(ctx.clearTemplateSelection).toHaveBeenCalled();
   });
 

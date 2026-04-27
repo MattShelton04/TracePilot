@@ -138,6 +138,14 @@ describe("useSdkSteering — linkSession (user-triggered resume)", () => {
     expect(ctx.resolvedSessionId).toBe("sess-A");
   });
 
+  it("treats a bridge-tracked session as linked after navigation back", () => {
+    sdkMock.sessions = [{ sessionId: "sess-A", isActive: true }];
+    const { ctx } = mountHarness();
+    expect(ctx.hasActiveSdkHandle).toBe(true);
+    expect(ctx.isLinked).toBe(true);
+    expect(sdkMock.resumeSession).not.toHaveBeenCalled();
+  });
+
   it("surfaces friendly error when resume returns null", async () => {
     sdkMock.resumeSession.mockResolvedValueOnce(null);
     sdkMock.lastError = "Session file is corrupted at line 42";
@@ -232,6 +240,7 @@ describe("useSdkSteering — sessionId watcher resets state (w1)", () => {
     const sid = ref<string | null>("sess-A");
     const { ctx } = mountHarness(sid);
     ctx.userLinked = true;
+    ctx.userUnlinked = true;
     ctx.resolvedSessionId = "resolved-x";
     ctx.pendingModel = "gpt-4";
     ctx.showModelPicker = true;
@@ -239,6 +248,7 @@ describe("useSdkSteering — sessionId watcher resets state (w1)", () => {
     sid.value = "sess-B";
     await new Promise((r) => setTimeout(r, 0));
     expect(ctx.userLinked).toBe(false);
+    expect(ctx.userUnlinked).toBe(false);
     expect(ctx.resolvedSessionId).toBeNull();
     expect(ctx.pendingModel).toBeNull();
     expect(ctx.showModelPicker).toBe(false);
@@ -261,6 +271,8 @@ describe("useSdkSteering — unlink is pure state reset (no IPC)", () => {
     expect(sdkMock.resumeSession.mock.calls.length).toBe(before.resume);
     expect(sdkMock.sendMessage.mock.calls.length).toBe(before.send);
     expect(ctx.userLinked).toBe(false);
+    expect(ctx.userUnlinked).toBe(true);
+    expect(ctx.isLinked).toBe(false);
   });
 });
 

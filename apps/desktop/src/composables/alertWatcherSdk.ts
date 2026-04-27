@@ -48,6 +48,14 @@ function getSessionSummary(sessionId: string): string | undefined {
   }
 }
 
+function refreshSessionListFromSdkState() {
+  try {
+    void useSessionsStore().refreshSessions();
+  } catch {
+    // Store may be unavailable in narrow unit-test contexts.
+  }
+}
+
 function summarizeSdkSession(state: SessionLiveState): { label: string; summary?: string } {
   const summary = getSessionSummary(state.sessionId);
   return {
@@ -164,6 +172,10 @@ export function checkSdkSessionStateAlerts(
       }
       store.setLastSdkStatus(state.sessionId, state.status);
       continue;
+    }
+
+    if (state.status === "idle" && previousStatus !== null && previousStatus !== "idle") {
+      refreshSessionListFromSdkState();
     }
 
     if (

@@ -36,6 +36,9 @@ const { isViewer } = useWindowRole();
 const route = useRoute();
 const turns = computed(() => store.turns);
 const renderMd = computed(() => preferences.isFeatureEnabled("renderMarkdown"));
+const emit = defineEmits<{
+  messageSent: [prompt: string];
+}>();
 
 // ─── Cross-turn subagent data ─────────────────────────────────────
 
@@ -138,6 +141,7 @@ function handleSteeringMessage(_prompt: string) {
   // The steering panel already schedules its own refreshes (800ms + 3s),
   // but we also trigger an immediate refreshAll here for good measure.
   store.refreshAll();
+  emit("messageSent", _prompt);
 }
 
 // ─── Deep-link: revealEvent ───────────────────────────────────────
