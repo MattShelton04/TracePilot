@@ -1,0 +1,61 @@
+const registryRecord = {
+  sessionId: "tracked-1",
+  origin: "manual-link",
+  connectionMode: "stdio",
+  cliUrl: null,
+  workingDirectory: "C:\\work",
+  model: "gpt-5.5",
+  reasoningEffort: null,
+  agent: null,
+  desiredState: "tracked",
+  runtimeState: "unknown",
+  linkedAt: "2026-04-27T00:00:00Z",
+  lastSeenAt: "2026-04-27T00:00:00Z",
+  lastEventId: null,
+  lastError: null,
+};
+
+export const hydratedBridgeState = {
+  status: {
+    state: "connected",
+    sdkAvailable: true,
+    enabledByPreference: true,
+    cliVersion: "1.0.0",
+    protocolVersion: 1,
+    activeSessions: 1,
+    error: null,
+    connectionMode: "stdio",
+  },
+  sessions: [
+    { sessionId: "tracked-1", isActive: true },
+    { sessionId: "tracked-2", isActive: false },
+  ],
+  metrics: { eventsForwarded: 2, eventsDroppedDueToLag: 0, lagOccurrences: 0 },
+  sessionStates: [
+    {
+      sessionId: "tracked-1",
+      status: "idle",
+      currentTurnId: null,
+      assistantText: "ready",
+      reasoningText: "",
+      tools: [],
+      usage: null,
+      pendingPermission: null,
+      pendingUserInput: null,
+      lastEventId: null,
+      lastEventType: null,
+      lastEventTimestamp: null,
+      lastError: null,
+      reducerWarnings: [],
+    },
+  ],
+  registrySessions: [registryRecord],
+  recovery: [
+    {
+      sessionId: "tracked-1",
+      shouldAutoResume: false,
+      reason: "origin requires explicit user action",
+      record: registryRecord,
+    },
+  ],
+};

@@ -32,10 +32,12 @@ vi.mock("@tracepilot/client", () => ({
   sdkListModels: vi.fn(async () => []),
   sdkListSessions: vi.fn(async () => []),
   sdkStatus: vi.fn(async () => defaultStatus),
+  sdkStopUiServer: vi.fn(async () => {}),
 }));
 
 import * as client from "@tracepilot/client";
 import { createConnectionSlice } from "../connection";
+import { hydratedBridgeState } from "./connection.fixtures";
 
 function makeDeps() {
   const savedCliUrl = ref("");
@@ -103,77 +105,7 @@ describe("createConnectionSlice", () => {
   });
 
   it("hydrate applies backend status and tracked sessions without connecting", async () => {
-    (client.sdkHydrate as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      status: { ...defaultStatus, activeSessions: 1 },
-      sessions: [
-        { sessionId: "tracked-1", isActive: true },
-        { sessionId: "tracked-2", isActive: false },
-      ],
-      metrics: {
-        eventsForwarded: 2,
-        eventsDroppedDueToLag: 0,
-        lagOccurrences: 0,
-      },
-      sessionStates: [
-        {
-          sessionId: "tracked-1",
-          status: "idle",
-          currentTurnId: null,
-          assistantText: "ready",
-          reasoningText: "",
-          tools: [],
-          usage: null,
-          pendingPermission: null,
-          pendingUserInput: null,
-          lastEventId: null,
-          lastEventType: null,
-          lastEventTimestamp: null,
-          lastError: null,
-          reducerWarnings: [],
-        },
-      ],
-      registrySessions: [
-        {
-          sessionId: "tracked-1",
-          origin: "manual-link",
-          connectionMode: "stdio",
-          cliUrl: null,
-          workingDirectory: "C:\\work",
-          model: "gpt-5.5",
-          reasoningEffort: null,
-          agent: null,
-          desiredState: "tracked",
-          runtimeState: "unknown",
-          linkedAt: "2026-04-27T00:00:00Z",
-          lastSeenAt: "2026-04-27T00:00:00Z",
-          lastEventId: null,
-          lastError: null,
-        },
-      ],
-      recovery: [
-        {
-          sessionId: "tracked-1",
-          shouldAutoResume: false,
-          reason: "origin requires explicit user action",
-          record: {
-            sessionId: "tracked-1",
-            origin: "manual-link",
-            connectionMode: "stdio",
-            cliUrl: null,
-            workingDirectory: "C:\\work",
-            model: "gpt-5.5",
-            reasoningEffort: null,
-            agent: null,
-            desiredState: "tracked",
-            runtimeState: "unknown",
-            linkedAt: "2026-04-27T00:00:00Z",
-            lastSeenAt: "2026-04-27T00:00:00Z",
-            lastEventId: null,
-            lastError: null,
-          },
-        },
-      ],
-    });
+    (client.sdkHydrate as ReturnType<typeof vi.fn>).mockResolvedValueOnce(hydratedBridgeState);
     const slice = createConnectionSlice(makeDeps());
     const status = await slice.hydrate();
     expect(status?.state).toBe("connected");
@@ -270,6 +202,16 @@ describe("createConnectionSlice", () => {
     await slice.detectAndConnect();
     expect(deps.updateSettings).toHaveBeenCalledWith("tcp://a:1", "info");
     expect(client.sdkConnect).toHaveBeenCalledWith({ cliUrl: "tcp://a:1", logLevel: "info" });
+  });
+
+  it("stopUiServer stops by PID and refreshes detected servers", async () => {
+    (client.sdkDetectUiServer as ReturnType<typeof vi.fn>).mockResolvedValueOnce([]);
+    const slice = createConnectionSlice(makeDeps());
+    const ok = await slice.stopUiServer(42);
+    expect(ok).toBe(true);
+    expect(client.sdkStopUiServer).toHaveBeenCalledWith(42);
+    expect(slice.stoppingServerPid.value).toBeNull();
+    expect(slice.detectedServers.value).toEqual([]);
   });
 
   it("applyStatus maps all BridgeStatus fields including connectionMode", () => {

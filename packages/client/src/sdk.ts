@@ -156,6 +156,10 @@ export async function sdkLaunchUiServer(workingDir?: string): Promise<number> {
   return invoke<number>("sdk_launch_ui_server", { workingDir: workingDir ?? null });
 }
 
+export async function sdkStopUiServer(pid: number): Promise<void> {
+  return invoke<void>("sdk_stop_ui_server", { pid });
+}
+
 // ─── Observability ────────────────────────────────────────────────
 
 /**

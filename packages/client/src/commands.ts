@@ -178,6 +178,7 @@ export const IPC_COMMANDS = [
   "sdk_set_foreground_session",
   "sdk_detect_ui_server",
   "sdk_launch_ui_server",
+  "sdk_stop_ui_server",
   "sdk_bridge_metrics",
   // Window management
   "open_session_window",

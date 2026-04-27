@@ -19,6 +19,7 @@ import {
   sdkListModels,
   sdkListSessions,
   sdkStatus,
+  sdkStopUiServer,
 } from "@tracepilot/client";
 import type {
   BridgeAuthStatus,
@@ -70,6 +71,7 @@ export function createConnectionSlice(deps: ConnectionDeps) {
   const detecting = ref(false);
   const lastDetectMessage = ref<string | null>(null);
   const launching = ref(false);
+  const stoppingServerPid = ref<number | null>(null);
 
   const isConnected = computed(() => connectionState.value === "connected");
   const isConnecting = computed(() => connecting.value || connectionState.value === "connecting");
@@ -321,6 +323,25 @@ export function createConnectionSlice(deps: ConnectionDeps) {
     }
   }
 
+  async function stopUiServer(pid: number): Promise<boolean> {
+    stoppingServerPid.value = pid;
+    try {
+      await sdkStopUiServer(pid);
+      detectedServers.value = detectedServers.value.filter((server) => server.pid !== pid);
+      if (connectionState.value === "connected") {
+        await refreshStatus();
+      }
+      return true;
+    } catch (e) {
+      lastError.value = toErrorMessage(e);
+      logWarn("[sdk] Failed to stop UI server:", e);
+      return false;
+    } finally {
+      stoppingServerPid.value = null;
+      await detectUiServer();
+    }
+  }
+
   return {
     connectionState,
     sdkAvailable,
@@ -343,6 +364,7 @@ export function createConnectionSlice(deps: ConnectionDeps) {
     detecting,
     lastDetectMessage,
     launching,
+    stoppingServerPid,
     isConnected,
     isConnecting,
     hasError,
@@ -365,6 +387,7 @@ export function createConnectionSlice(deps: ConnectionDeps) {
     detectAndConnect,
     connectToServer,
     launchUiServer,
+    stopUiServer,
   };
 }
 

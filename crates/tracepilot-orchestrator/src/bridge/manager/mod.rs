@@ -43,7 +43,7 @@ mod session_tasks_tests;
 #[cfg(test)]
 mod tests;
 
-pub use ui_server::launch_ui_server;
+pub use ui_server::{launch_ui_server, stop_ui_server};
 
 /// Shared bridge manager type for Tauri state.
 pub type SharedBridgeManager = Arc<RwLock<BridgeManager>>;

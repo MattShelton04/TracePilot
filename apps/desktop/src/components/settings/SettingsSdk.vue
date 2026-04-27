@@ -76,6 +76,10 @@ async function handleLaunchServer() {
   await sdk.launchUiServer();
 }
 
+async function handleStopServer(pid: number) {
+  await sdk.stopUiServer(pid);
+}
+
 async function refreshAll() {
   await Promise.all([
     sdk.refreshStatus(),
@@ -177,57 +181,36 @@ const sessionCountLabel = computed(() => {
 });
 
 const sessionRows = computed(() => {
-  const rows = new Map<
-    string,
-    {
-      id: string;
-      shortId: string;
-      origin: string;
-      model: string;
-      cwd: string;
-      lifecycle: string;
-      liveStatus: string;
-      isActive: boolean;
-      isForeground: boolean;
-    }
-  >();
-
-  for (const session of sdk.sessions) {
-    const registry = sdk.registrySessions.find((record) => record.sessionId === session.sessionId);
-    const live = sdk.sessionStatesById[session.sessionId];
-    rows.set(session.sessionId, {
-      id: session.sessionId,
-      shortId: shortId(session.sessionId),
-      origin: registry?.origin ?? "runtime",
-      model: session.model ?? registry?.model ?? "default",
-      cwd: session.workingDirectory ?? registry?.workingDirectory ?? "-",
-      lifecycle: session.isActive ? "active" : (registry?.runtimeState ?? "tracked"),
-      liveStatus: live?.status ?? "-",
-      isActive: session.isActive,
-      isForeground: sdk.foregroundSessionId === session.sessionId,
-    });
-  }
-
-  for (const registry of sdk.registrySessions) {
-    if (rows.has(registry.sessionId)) continue;
-    const live = sdk.sessionStatesById[registry.sessionId];
-    rows.set(registry.sessionId, {
-      id: registry.sessionId,
-      shortId: shortId(registry.sessionId),
-      origin: registry.origin,
-      model: registry.model ?? "default",
-      cwd: registry.workingDirectory ?? "-",
-      lifecycle: registry.runtimeState ?? registry.desiredState,
-      liveStatus: live?.status ?? "-",
-      isActive: registry.runtimeState === "running",
-      isForeground: sdk.foregroundSessionId === registry.sessionId,
-    });
-  }
-
-  return Array.from(rows.values()).sort((a, b) => Number(b.isActive) - Number(a.isActive));
+  return sdk.sessions
+    .map((session) => {
+      const registry = sdk.registrySessions.find(
+        (record) => record.sessionId === session.sessionId,
+      );
+      const live = sdk.sessionStatesById[session.sessionId];
+      return {
+        id: session.sessionId,
+        shortId: shortId(session.sessionId),
+        origin: registry?.origin ?? "runtime",
+        model: session.model ?? registry?.model ?? "default",
+        cwd: session.workingDirectory ?? registry?.workingDirectory ?? "-",
+        lifecycle: session.isActive ? "active" : (registry?.runtimeState ?? "tracked"),
+        liveStatus: live?.status ?? "-",
+        isActive: session.isActive,
+        isForeground: sdk.foregroundSessionId === session.sessionId,
+      };
+    })
+    .sort((a, b) => Number(b.isActive) - Number(a.isActive));
 });
 
 const hasSessionRows = computed(() => sessionRows.value.length > 0);
+const registrySummary = computed(() => {
+  const total = sdk.registrySessions.length;
+  if (total === 0) return "No durable registry records";
+  const recovery = sdk.recoveryDecisions.filter((decision) => decision.shouldAutoResume).length;
+  return `${total} durable registry record${total === 1 ? "" : "s"} hidden from this active view${
+    recovery > 0 ? ` · ${recovery} recovery candidate${recovery === 1 ? "" : "s"}` : ""
+  }`;
+});
 
 function shortId(id: string): string {
   return id.length > 12 ? `${id.slice(0, 8)}...` : id;
@@ -350,20 +333,32 @@ function isActiveServer(address: string) {
         <!-- Detected servers list -->
         <div v-if="sdk.detectedServers.length > 0 || sdk.lastDetectMessage" class="setting-row setting-row-stacked">
           <div v-if="sdk.detectedServers.length > 0" class="sdk-detected-list">
-            <button
+            <div
               v-for="server in sdk.detectedServers"
               :key="server.pid"
               class="sdk-detected-item"
               :class="{ 'sdk-detected-item--active': isActiveServer(server.address) }"
-              :disabled="isActiveServer(server.address)"
-              @click="handleConnectToServer(server.address)"
             >
-              <span class="sdk-detected-addr">{{ server.address }}</span>
+              <button
+                class="sdk-detected-connect"
+                :disabled="isActiveServer(server.address)"
+                @click="handleConnectToServer(server.address)"
+              >
+                <span class="sdk-detected-addr">{{ server.address }}</span>
+              </button>
               <span class="sdk-detected-meta">
                 <span class="sdk-detected-pid">PID {{ server.pid }}</span>
                 <span v-if="isActiveServer(server.address)" class="sdk-detected-badge">● Connected</span>
+                <button
+                  class="sdk-stop-server"
+                  :disabled="sdk.stoppingServerPid === server.pid"
+                  title="Stop this copilot --ui-server process"
+                  @click.stop="handleStopServer(server.pid)"
+                >
+                  {{ sdk.stoppingServerPid === server.pid ? "Stopping…" : "Stop" }}
+                </button>
               </span>
-            </button>
+            </div>
           </div>
           <div v-else-if="sdk.lastDetectMessage" class="sdk-detect-msg">
             {{ sdk.lastDetectMessage }}
@@ -428,9 +423,11 @@ function isActiveServer(address: string) {
       </div>
 
       <div v-else class="sdk-empty-state" data-testid="sdk-session-list-empty">
-        No SDK sessions are currently tracked. Connect the bridge, link a session, or launch a
-        headless SDK session to populate this list.
+        No SDK sessions are active in this bridge process. Connect the bridge, link a session, or
+        launch a headless SDK session to populate this list.
       </div>
+
+      <div class="sdk-registry-summary">{{ registrySummary }}</div>
 
       <!-- ─── Advanced (collapsible) ───────────────── -->
       <div class="sdk-divider" />
@@ -562,12 +559,11 @@ function isActiveServer(address: string) {
   background: var(--canvas-subtle);
   border: 1px solid var(--border-muted);
   border-radius: var(--radius-md);
-  cursor: pointer;
   transition: all var(--transition-fast);
   font-size: 0.8125rem;
   color: var(--text-primary);
 }
-.sdk-detected-item:hover:not(:disabled) {
+.sdk-detected-item:hover {
   background: var(--accent-subtle);
   border-color: var(--accent-emphasis);
 }
@@ -576,8 +572,18 @@ function isActiveServer(address: string) {
   border-color: var(--accent-emphasis);
   cursor: default;
 }
-.sdk-detected-item:disabled {
-  opacity: 1; /* keep visible, just not clickable */
+.sdk-detected-connect {
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.sdk-detected-connect:disabled {
+  cursor: default;
+  opacity: 1;
 }
 .sdk-detected-addr {
   font-family: 'JetBrains Mono', monospace;
@@ -597,6 +603,25 @@ function isActiveServer(address: string) {
   font-size: 0.6875rem;
   color: var(--success-fg);
   font-weight: 500;
+}
+.sdk-stop-server {
+  padding: 2px 7px;
+  border: 1px solid var(--danger-muted);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--danger-fg);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.sdk-stop-server:hover:not(:disabled) {
+  background: rgba(251, 113, 133, 0.1);
+  border-color: var(--danger-emphasis);
+}
+.sdk-stop-server:disabled {
+  opacity: 0.6;
+  cursor: wait;
 }
 .sdk-detect-msg {
   font-size: 0.8125rem;
@@ -703,6 +728,11 @@ function isActiveServer(address: string) {
   color: var(--text-tertiary);
   font-size: 0.75rem;
   line-height: 1.5;
+}
+.sdk-registry-summary {
+  padding: 0 12px 8px;
+  color: var(--text-tertiary);
+  font-size: 0.6875rem;
 }
 
 /* ─── URL input ──────────────────────────────── */

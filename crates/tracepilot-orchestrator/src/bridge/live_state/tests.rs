@@ -121,7 +121,7 @@ fn tool_progress_is_compacted_by_tool_call_id() {
 }
 
 #[test]
-fn malformed_known_payload_records_warning_without_panicking() {
+fn missing_delta_payload_is_metadata_only() {
     let store = LiveStateStore::new();
     let state = store.apply_event(&event(
         "assistant.message_delta",
@@ -129,7 +129,7 @@ fn malformed_known_payload_records_warning_without_panicking() {
     ));
     assert_eq!(state.assistant_text, "");
     assert_eq!(state.last_error, None);
-    assert_eq!(state.reducer_warnings.len(), 1);
+    assert!(state.reducer_warnings.is_empty());
 }
 
 #[test]
@@ -143,6 +143,17 @@ fn full_message_events_without_text_are_metadata_only() {
     assert_eq!(state.assistant_text, "");
     assert!(state.reducer_warnings.is_empty());
     assert_eq!(state.last_error, None);
+}
+
+#[test]
+fn nested_delta_payload_appends_assistant_text() {
+    let store = LiveStateStore::new();
+    let state = store.apply_event(&event(
+        "assistant.message_delta",
+        json!({"event": {"message": {"deltaContent": "nested hi"}}}),
+    ));
+    assert_eq!(state.assistant_text, "nested hi");
+    assert!(state.reducer_warnings.is_empty());
 }
 
 #[test]

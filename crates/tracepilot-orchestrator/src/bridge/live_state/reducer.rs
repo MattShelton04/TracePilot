@@ -71,7 +71,6 @@ fn append_text(state: &mut SessionLiveState, event: &BridgeEvent, kind: TextKind
             TextKind::Assistant => state.assistant_text.push_str(&delta),
             TextKind::Reasoning => state.reasoning_text.push_str(&delta),
         },
-        None if event.event_type.ends_with("_delta") => warn(state, event, "missing text delta"),
         None => {}
     }
 }
@@ -186,11 +185,33 @@ fn string_field(value: &Value, keys: &[&str]) -> Option<String> {
         .and_then(|m| m.get("content"))
         .and_then(Value::as_str)
         .map(str::to_string)
+        .or_else(|| recursive_string_field(value, keys, 0))
 }
 
 fn number_field(value: &Value, keys: &[&str]) -> Option<f64> {
     keys.iter()
         .find_map(|key| value.get(*key).and_then(Value::as_f64))
+}
+
+fn recursive_string_field(value: &Value, keys: &[&str], depth: usize) -> Option<String> {
+    if depth > 4 {
+        return None;
+    }
+    match value {
+        Value::Object(map) => {
+            for key in keys {
+                if let Some(s) = map.get(*key).and_then(Value::as_str) {
+                    return Some(s.to_string());
+                }
+            }
+            map.values()
+                .find_map(|child| recursive_string_field(child, keys, depth + 1))
+        }
+        Value::Array(items) => items
+            .iter()
+            .find_map(|child| recursive_string_field(child, keys, depth + 1)),
+        _ => None,
+    }
 }
 
 fn warn(state: &mut SessionLiveState, event: &BridgeEvent, warning: &str) {

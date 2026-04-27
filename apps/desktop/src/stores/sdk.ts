@@ -162,6 +162,7 @@ export const useSdkStore = defineStore("sdk", () => {
     detecting: connection.detecting,
     lastDetectMessage: connection.lastDetectMessage,
     launching: connection.launching,
+    stoppingServerPid: connection.stoppingServerPid,
 
     // State (messaging)
     foregroundSessionId: messaging.foregroundSessionId,
@@ -191,6 +192,7 @@ export const useSdkStore = defineStore("sdk", () => {
     detectAndConnect: connection.detectAndConnect,
     connectToServer: connection.connectToServer,
     launchUiServer: connection.launchUiServer,
+    stopUiServer: connection.stopUiServer,
 
     // Actions (messaging)
     createSession: messaging.createSession,

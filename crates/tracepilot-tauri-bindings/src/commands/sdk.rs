@@ -289,6 +289,14 @@ pub async fn sdk_launch_ui_server(working_dir: Option<String>) -> CmdResult<u32>
     Ok(pid)
 }
 
+#[tauri::command]
+#[tracing::instrument(err, fields(pid))]
+pub async fn sdk_stop_ui_server(pid: u32) -> CmdResult<()> {
+    tracepilot_orchestrator::bridge::manager::stop_ui_server(pid)
+        .await
+        .map_err(Into::into)
+}
+
 // ─── Observability ────────────────────────────────────────────────
 
 /// Point-in-time counters for the bridge broadcast channels.

@@ -7,7 +7,11 @@
 //! Windows detached-terminal conventions.
 
 use super::BridgeManager;
-use crate::bridge::BridgeError;
+use crate::bridge::{BridgeError, detect_ui_servers};
+use std::time::Duration;
+
+const STOP_TIMEOUT: Duration = Duration::from_secs(5);
+const STOP_MAX_BYTES: u64 = 64 * 1024;
 
 impl BridgeManager {
     /// Get the foreground session ID from a `copilot --ui-server` instance.
@@ -82,5 +86,51 @@ pub fn launch_ui_server(working_dir: Option<&str>) -> Result<u32, BridgeError> {
         let cmd = format!("{} --ui-server", copilot_path);
         crate::process::spawn_detached_terminal(&cmd, &[], &work_dir, None)
             .map_err(|e| BridgeError::Sdk(format!("Failed to launch UI server: {e}")))
+    }
+}
+
+/// Stop a detected `copilot --ui-server` process by PID.
+///
+/// The PID must be present in the current detection result so TracePilot cannot
+/// be used as a generic process killer.
+pub async fn stop_ui_server(pid: u32) -> Result<(), BridgeError> {
+    let detected = detect_ui_servers().await;
+    if !detected.iter().any(|server| server.pid == pid) {
+        return Err(BridgeError::Sdk(format!(
+            "Refusing to stop PID {pid}: it is not a detected copilot --ui-server process"
+        )));
+    }
+
+    #[cfg(windows)]
+    let cmd = {
+        let mut cmd = crate::process::hidden_command("powershell");
+        cmd.args([
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            &format!("Stop-Process -Id {pid} -ErrorAction Stop"),
+        ]);
+        cmd
+    };
+
+    #[cfg(not(windows))]
+    let cmd = {
+        let mut cmd = crate::process::hidden_command("kill");
+        cmd.args(["-TERM", &pid.to_string()]);
+        cmd
+    };
+
+    let (_stdout, stderr, status) =
+        crate::process::run_async_with_limits(cmd, STOP_TIMEOUT, STOP_MAX_BYTES)
+            .await
+            .map_err(|e| BridgeError::Sdk(format!("Failed to stop UI server PID {pid}: {e}")))?;
+
+    if status.success() {
+        Ok(())
+    } else {
+        Err(BridgeError::Sdk(format!(
+            "Failed to stop UI server PID {pid}: {}",
+            String::from_utf8_lossy(&stderr).trim()
+        )))
     }
 }

@@ -52,6 +52,7 @@ function parseArgs(argv) {
     repoPath: process.cwd(),
     realSdk: false,
     headlessLaunch: false,
+    tcpServerCycle: false,
     keepSessions: false,
     cliUrl: undefined,
   };
@@ -61,6 +62,7 @@ function parseArgs(argv) {
     if (arg === "--help" || arg === "-h") parsed.help = true;
     else if (arg === "--real-sdk") parsed.realSdk = true;
     else if (arg === "--headless-launch") parsed.headlessLaunch = true;
+    else if (arg === "--tcp-server-cycle") parsed.tcpServerCycle = true;
     else if (arg === "--keep-sessions") parsed.keepSessions = true;
     else if (arg === "--port") parsed.port = Number.parseInt(argv[++i], 10);
     else if (arg === "--screenshot-dir") parsed.screenshotDir = argv[++i];
@@ -78,6 +80,7 @@ function printHelp() {
 Options:
   --real-sdk            Create real SDK sessions and send a short test prompt.
   --headless-launch     Also exercise launch_session with launchMode=sdk/headless.
+  --tcp-server-cycle    Launch, connect to, send through, and stop copilot --ui-server.
   --repo-path <path>    Working repo for real SDK/headless tests. Default: cwd.
   --cli-url <host:port> Connect via a running copilot --ui-server instead of stdio.
   --keep-sessions       Do not destroy sessions created by this script.
@@ -306,6 +309,10 @@ async function main() {
           return launched.sdkSessionId;
         });
       }
+
+      if (args.tcpServerCycle) {
+        await runTcpServerCycle(page);
+      }
     }
 
     results.telemetry = await collectTelemetry(page, context);
@@ -330,6 +337,94 @@ async function main() {
   }
 
   if (results.summary.failed > 0) process.exit(1);
+}
+
+async function runTcpServerCycle(page) {
+  let server = null;
+  let tcpSessionId = null;
+
+  await test("TCP server cycle: launch and detect --ui-server", async () => {
+    await ipc(page, "sdk_disconnect").catch(() => null);
+    const beforeServers = await ipc(page, "sdk_detect_ui_server").catch(() => []);
+    const launchedPid = await ipc(page, "sdk_launch_ui_server", { workingDir: args.repoPath });
+    server = await waitForDetectedServer(page, launchedPid, beforeServers);
+    return `${server.address} PID ${server.pid}`;
+  });
+
+  await test("TCP server cycle: connect", async () => {
+    const status = await ipc(page, "sdk_connect", {
+      config: {
+        cliUrl: server.address,
+        cwd: args.repoPath,
+        logLevel: "info",
+        githubToken: null,
+      },
+    });
+    if (status.state !== "connected" || status.connectionMode !== "tcp") {
+      throw new Error(`Expected tcp connection, got ${JSON.stringify(status)}`);
+    }
+    return server.address;
+  });
+
+  await test("TCP server cycle: send without parser notes", async () => {
+    const session = await createSdkSession(page, args.repoPath);
+    tcpSessionId = session.sessionId;
+    const turnId = await ipc(page, "sdk_send_message", {
+      sessionId: session.sessionId,
+      payload: {
+        prompt:
+          "TracePilot TCP SDK usability test: reply with one short sentence confirming TCP mode is responsive.",
+      },
+    });
+    const state = await waitForSessionState(
+      page,
+      session.sessionId,
+      (state) => Boolean(state.lastEventType) || state.status === "idle",
+    );
+    if (state.reducerWarnings?.some((warning) => warning.includes("missing text delta"))) {
+      throw new Error(`Unexpected parser notes: ${state.reducerWarnings.join("; ")}`);
+    }
+    return `turn ${turnId}`;
+  });
+
+  await test("TCP server cycle: stop detected --ui-server", async () => {
+    if (tcpSessionId) {
+      await ipc(page, "sdk_destroy_session", { sessionId: tcpSessionId });
+      results.createdSessions = results.createdSessions.filter((id) => id !== tcpSessionId);
+    }
+    await ipc(page, "sdk_disconnect").catch(() => null);
+    await ipc(page, "sdk_stop_ui_server", { pid: server.pid });
+    const remaining = await waitForServerToDisappear(page, server.pid);
+    return `stopped PID ${server.pid}; ${remaining.length} server(s) remain`;
+  });
+}
+
+async function waitForDetectedServer(page, launchedPid, beforeServers = [], timeoutMs = 30000) {
+  const start = Date.now();
+  let servers = [];
+  const existingPids = new Set(beforeServers.map((server) => server.pid));
+  while (Date.now() - start < timeoutMs) {
+    servers = await ipc(page, "sdk_detect_ui_server");
+    const server =
+      servers.find((candidate) => candidate.pid === launchedPid) ??
+      servers.find((candidate) => !existingPids.has(candidate.pid));
+    if (server) return server;
+    await page.waitForTimeout(1500);
+  }
+  throw new Error(
+    `Timed out detecting launched UI server PID ${launchedPid}; saw ${JSON.stringify(servers)}`,
+  );
+}
+
+async function waitForServerToDisappear(page, pid, timeoutMs = 15000) {
+  const start = Date.now();
+  let servers = [];
+  while (Date.now() - start < timeoutMs) {
+    servers = await ipc(page, "sdk_detect_ui_server");
+    if (!servers.some((candidate) => candidate.pid === pid)) return servers;
+    await page.waitForTimeout(1000);
+  }
+  throw new Error(`UI server PID ${pid} was still detected after stop`);
 }
 
 main().catch((error) => {
