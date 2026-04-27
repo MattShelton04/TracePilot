@@ -231,8 +231,10 @@ describe("SdkSteeringLiveState", () => {
     });
     const wrapper = mountWithCtx(SdkSteeringLiveState, ctx);
     expect(wrapper.text()).toContain("Waiting for permission");
-    expect(wrapper.text()).toContain("Streaming assistant text");
-    expect(wrapper.text()).toContain("Reasoning stream");
+    // Streaming assistant + reasoning text now render in the main chat,
+    // not in the steering panel — the panel only shows tools/notices/usage.
+    expect(wrapper.text()).not.toContain("Streaming assistant text");
+    expect(wrapper.text()).not.toContain("Reasoning stream");
     expect(wrapper.text()).toContain("Clarify migration scope");
     expect(wrapper.text()).toContain("Client only");
     expect(wrapper.text()).toContain("Answer in Copilot CLI");
