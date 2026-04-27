@@ -89,7 +89,11 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
                 });
                 let bridge_for_pref = shared_bridge.clone();
                 tauri::async_runtime::block_on(async move {
-                    bridge_for_pref.write().await.set_preference_reader(reader);
+                    let mut bridge = bridge_for_pref.write().await;
+                    bridge.set_preference_reader(reader);
+                    if let Err(err) = bridge.init_default_registry() {
+                        tracing::warn!(error = %err, "Failed to initialize SDK session registry");
+                    }
                 });
             }
 
@@ -294,6 +298,10 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::sdk::sdk_abort_session,
             commands::sdk::sdk_destroy_session,
             commands::sdk::sdk_unlink_session,
+            commands::sdk::sdk_list_registry_sessions,
+            commands::sdk::sdk_registry_recovery,
+            commands::sdk::sdk_forget_registry_session,
+            commands::sdk::sdk_prune_registry,
             commands::sdk::sdk_set_session_mode,
             commands::sdk::sdk_set_session_model,
             commands::sdk::sdk_list_sessions,

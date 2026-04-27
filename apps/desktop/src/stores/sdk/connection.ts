@@ -31,6 +31,8 @@ import type {
   BridgeSessionInfo,
   BridgeStatus,
   DetectedUiServer,
+  SdkRecoveryDecision,
+  SdkRegistryRecord,
 } from "@tracepilot/types";
 import { runMutation, toErrorMessage } from "@tracepilot/ui";
 import { computed, ref, shallowRef } from "vue";
@@ -59,6 +61,8 @@ export function createConnectionSlice(deps: ConnectionDeps) {
   const sessions = ref<BridgeSessionInfo[]>([]);
   const models = ref<BridgeModelInfo[]>([]);
   const bridgeMetrics = ref<BridgeMetricsSnapshot | null>(null);
+  const registrySessions = ref<SdkRegistryRecord[]>([]);
+  const recoveryDecisions = ref<SdkRecoveryDecision[]>([]);
   const recentEvents = shallowRef<BridgeEvent[]>([]);
   const detectedServers = ref<DetectedUiServer[]>([]);
   const detecting = ref(false);
@@ -152,6 +156,8 @@ export function createConnectionSlice(deps: ConnectionDeps) {
       const snapshot = await sdkHydrate();
       applyStatus(snapshot.status);
       sessions.value = snapshot.sessions;
+      registrySessions.value = snapshot.registrySessions;
+      recoveryDecisions.value = snapshot.recovery;
       activeSessions.value = snapshot.sessions.length;
       bridgeMetrics.value = snapshot.metrics;
       return snapshot.status;
@@ -205,6 +211,8 @@ export function createConnectionSlice(deps: ConnectionDeps) {
       connectionState.value = "disconnected";
       connectionMode.value = null;
       sessions.value = [];
+      registrySessions.value = [];
+      recoveryDecisions.value = [];
       bridgeMetrics.value = null;
       deps.onDisconnect?.();
       activeSessions.value = 0;
@@ -309,6 +317,8 @@ export function createConnectionSlice(deps: ConnectionDeps) {
     sessions,
     models,
     bridgeMetrics,
+    registrySessions,
+    recoveryDecisions,
     recentEvents,
     detectedServers,
     detecting,

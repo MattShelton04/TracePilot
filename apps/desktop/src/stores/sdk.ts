@@ -143,6 +143,8 @@ export const useSdkStore = defineStore("sdk", () => {
     sessions: connection.sessions,
     models: connection.models,
     bridgeMetrics: connection.bridgeMetrics,
+    registrySessions: connection.registrySessions,
+    recoveryDecisions: connection.recoveryDecisions,
     recentEvents: connection.recentEvents,
     detectedServers: connection.detectedServers,
     detecting: connection.detecting,

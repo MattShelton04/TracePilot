@@ -30,6 +30,8 @@ vi.mock("@tracepilot/client", () => ({
     status: connectedStatus,
     sessions: [{ sessionId: "tracked-1", isActive: true }],
     metrics: { eventsForwarded: 0, eventsDroppedDueToLag: 0, lagOccurrences: 0 },
+    registrySessions: [],
+    recovery: [],
   })),
   sdkLaunchUiServer: vi.fn(async () => 42),
   sdkListModels: vi.fn(async () => []),

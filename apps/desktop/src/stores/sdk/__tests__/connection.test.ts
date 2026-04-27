@@ -5,12 +5,13 @@ import { ref } from "vue";
 const defaultStatus: BridgeStatus = {
   state: "connected",
   sdkAvailable: true,
+  enabledByPreference: true,
   cliVersion: "1.0.0",
   protocolVersion: 1,
   activeSessions: 0,
   error: null,
   connectionMode: "stdio",
-} as unknown as BridgeStatus;
+};
 
 vi.mock("@tracepilot/client", () => ({
   sdkCliStatus: vi.fn(async () => defaultStatus),
@@ -23,6 +24,8 @@ vi.mock("@tracepilot/client", () => ({
     status: defaultStatus,
     sessions: [],
     metrics: { eventsForwarded: 0, eventsDroppedDueToLag: 0, lagOccurrences: 0 },
+    registrySessions: [],
+    recovery: [],
   })),
   sdkLaunchUiServer: vi.fn(async () => 42),
   sdkListModels: vi.fn(async () => []),
@@ -107,12 +110,55 @@ describe("createConnectionSlice", () => {
         eventsDroppedDueToLag: 0,
         lagOccurrences: 0,
       },
+      registrySessions: [
+        {
+          sessionId: "tracked-1",
+          origin: "manual-link",
+          connectionMode: "stdio",
+          cliUrl: null,
+          workingDirectory: "C:\\work",
+          model: "gpt-5.5",
+          reasoningEffort: null,
+          agent: null,
+          desiredState: "tracked",
+          runtimeState: "unknown",
+          linkedAt: "2026-04-27T00:00:00Z",
+          lastSeenAt: "2026-04-27T00:00:00Z",
+          lastEventId: null,
+          lastError: null,
+        },
+      ],
+      recovery: [
+        {
+          sessionId: "tracked-1",
+          shouldAutoResume: false,
+          reason: "origin requires explicit user action",
+          record: {
+            sessionId: "tracked-1",
+            origin: "manual-link",
+            connectionMode: "stdio",
+            cliUrl: null,
+            workingDirectory: "C:\\work",
+            model: "gpt-5.5",
+            reasoningEffort: null,
+            agent: null,
+            desiredState: "tracked",
+            runtimeState: "unknown",
+            linkedAt: "2026-04-27T00:00:00Z",
+            lastSeenAt: "2026-04-27T00:00:00Z",
+            lastEventId: null,
+            lastError: null,
+          },
+        },
+      ],
     });
     const slice = createConnectionSlice(makeDeps());
     const status = await slice.hydrate();
     expect(status?.state).toBe("connected");
     expect(slice.isConnected.value).toBe(true);
     expect(slice.sessions.value).toEqual([{ sessionId: "tracked-1", isActive: true }]);
+    expect(slice.registrySessions.value).toHaveLength(1);
+    expect(slice.recoveryDecisions.value[0]?.shouldAutoResume).toBe(false);
     expect(slice.bridgeMetrics.value?.eventsForwarded).toBe(2);
     expect(client.sdkConnect).not.toHaveBeenCalled();
   });
@@ -140,12 +186,13 @@ describe("createConnectionSlice", () => {
     slice.applyStatus({
       state: "connecting",
       sdkAvailable: false,
+      enabledByPreference: true,
       cliVersion: "2.0.0",
       protocolVersion: 2,
       activeSessions: 3,
       error: "warn",
       connectionMode: "tcp",
-    } as unknown as BridgeStatus);
+    });
     expect(slice.connectionState.value).toBe("connecting");
     expect(slice.sdkAvailable.value).toBe(false);
     expect(slice.cliVersion.value).toBe("2.0.0");

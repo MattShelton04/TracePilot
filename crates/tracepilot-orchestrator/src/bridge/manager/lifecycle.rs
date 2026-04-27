@@ -3,6 +3,7 @@
 //! an existing `copilot --ui-server`) modes.
 
 use super::BridgeManager;
+use crate::bridge::registry::RuntimeSessionState;
 use crate::bridge::{BridgeConnectConfig, BridgeConnectionState, BridgeError, ConnectionMode};
 
 use tracing::{info, warn};
@@ -85,6 +86,7 @@ impl BridgeManager {
 
         self.client = Some(client);
         self.state = BridgeConnectionState::Connected;
+        self.auto_resume_recoverable_sessions().await;
         self.emit_status_change();
         info!("Copilot SDK bridge connected");
         Ok(())
@@ -92,10 +94,19 @@ impl BridgeManager {
 
     /// Disconnect from the Copilot CLI, stopping all sessions.
     pub async fn disconnect(&mut self) -> Result<(), BridgeError> {
+        let active_session_ids: Vec<String> = self.sessions.keys().cloned().collect();
         for (_, handle) in self.event_tasks.drain() {
             handle.abort();
         }
         self.sessions.clear();
+        if let Err(err) = self.with_registry(|registry| {
+            for session_id in &active_session_ids {
+                registry.mark_runtime(session_id, RuntimeSessionState::Unknown, None)?;
+            }
+            Ok(())
+        }) {
+            warn!(error = %err, "Failed to mark SDK registry sessions unknown on disconnect");
+        }
 
         if let Some(client) = self.client.take() {
             let errors = client.stop().await;

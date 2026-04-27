@@ -1,4 +1,7 @@
 use super::*;
+use crate::bridge::registry::{
+    DesiredSessionState, RegistryUpsert, RuntimeSessionState, SessionOrigin,
+};
 use crate::bridge::{BridgeConnectionState, BridgeError};
 
 #[test]
@@ -23,6 +26,38 @@ fn manager_new_has_no_cli_url() {
     let (mgr, _rx, _status_rx) = BridgeManager::new();
     assert!(mgr.cli_url.is_none());
     assert!(mgr.connection_mode.is_none());
+}
+
+#[test]
+fn hydrate_exposes_registry_recovery_without_resuming_manual_links() {
+    let (mut mgr, _rx, _status_rx) = BridgeManager::new();
+    mgr.init_memory_registry().unwrap();
+    mgr.with_registry(|registry| {
+        registry.upsert(RegistryUpsert {
+            session_id: "manual-session".to_string(),
+            origin: SessionOrigin::ManualLink,
+            connection_mode: Some("stdio".to_string()),
+            cli_url: None,
+            working_directory: Some("C:\\work".to_string()),
+            model: Some("gpt-5.5".to_string()),
+            reasoning_effort: None,
+            agent: None,
+            desired_state: DesiredSessionState::Tracked,
+            runtime_state: RuntimeSessionState::Running,
+            last_error: None,
+        })
+    })
+    .unwrap();
+
+    let snapshot = mgr.hydrate();
+
+    assert_eq!(snapshot.registry_sessions.len(), 1);
+    assert_eq!(
+        snapshot.registry_sessions[0].runtime_state,
+        RuntimeSessionState::Unknown
+    );
+    assert_eq!(snapshot.recovery.len(), 1);
+    assert!(!snapshot.recovery[0].should_auto_resume);
 }
 
 // ─── raw_rpc_call tests ───────────────────────────────────────────

@@ -79,6 +79,38 @@ export interface BridgeHydrationSnapshot {
   /** Sessions currently tracked by this bridge manager, not all historical CLI sessions. */
   sessions: BridgeSessionInfo[];
   metrics: BridgeMetricsSnapshot;
+  /** Durable SDK registry records loaded from SQLite. */
+  registrySessions: SdkRegistryRecord[];
+  /** Conservative startup recovery decisions for tracked registry records. */
+  recovery: SdkRecoveryDecision[];
+}
+
+export type SdkSessionOrigin = "manual-link" | "launcher-sdk" | "tracepilot-sdk";
+export type SdkDesiredSessionState = "tracked" | "unlinked" | "destroyed" | "do-not-rehydrate";
+export type SdkRuntimeSessionState = "running" | "shutdown" | "unknown" | "error";
+
+export interface SdkRegistryRecord {
+  sessionId: string;
+  origin: SdkSessionOrigin;
+  connectionMode: string | null;
+  cliUrl: string | null;
+  workingDirectory: string | null;
+  model: string | null;
+  reasoningEffort: string | null;
+  agent: string | null;
+  desiredState: SdkDesiredSessionState;
+  runtimeState: SdkRuntimeSessionState;
+  linkedAt: string;
+  lastSeenAt: string;
+  lastEventId: string | null;
+  lastError: string | null;
+}
+
+export interface SdkRecoveryDecision {
+  sessionId: string;
+  shouldAutoResume: boolean;
+  reason: string;
+  record: SdkRegistryRecord;
 }
 
 export interface BridgeSessionInfo {
