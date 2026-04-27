@@ -3,7 +3,7 @@
 use crate::error::{OrchestratorError, Result};
 use crate::models;
 use crate::types::{
-    CreateWorktreeRequest, LaunchConfig, LaunchedSession, ModelInfo, SystemDependencies,
+    CreateWorktreeRequest, LaunchConfig, LaunchMode, LaunchedSession, ModelInfo, SystemDependencies,
 };
 use crate::worktrees;
 use std::process::Command;
@@ -57,6 +57,12 @@ fn validate_model(model: &str) -> Result<()> {
 /// NOTE: The returned `pid` is the PID of the **terminal wrapper process**, not
 /// the Copilot session itself. It is informational only.
 pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
+    if config.launch_mode == LaunchMode::Sdk || config.headless {
+        return Err(OrchestratorError::Launch(
+            "SDK/headless launches must use the async SDK launcher path".into(),
+        ));
+    }
+
     // Phase 1A.2: canonicalize repo path + reject UNC/network paths.
     let repo = canonicalize_user_path(&config.repo_path)?;
 
@@ -253,7 +259,17 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
         worktree_path,
         command: copilot_cmd,
         launched_at: chrono::Utc::now().to_rfc3339(),
+        launch_mode: LaunchMode::Terminal,
+        sdk_session_id: None,
     })
+}
+
+/// Launch a Copilot SDK-owned headless session.
+pub async fn launch_sdk_session(
+    config: &LaunchConfig,
+    bridge: &mut crate::bridge::BridgeManager,
+) -> Result<LaunchedSession> {
+    crate::launcher_sdk::launch_sdk_session(config, bridge).await
 }
 
 /// Canonicalize a user-supplied path and reject attack shapes.
@@ -276,7 +292,7 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
 /// "path must exist on the local filesystem and must not be a network
 /// share"; callers that need stricter jailing must add their own root
 /// check against the returned canonical path.
-fn canonicalize_user_path(path: &str) -> Result<std::path::PathBuf> {
+pub(crate) fn canonicalize_user_path(path: &str) -> Result<std::path::PathBuf> {
     if path.as_bytes().contains(&0) {
         return Err(OrchestratorError::Launch("Path contains a NUL byte".into()));
     }

@@ -88,6 +88,15 @@ vi.mock("@/stores/launcher", () => ({
     ),
 }));
 
+const sdkActions = {
+  hydrate: vi.fn().mockResolvedValue(undefined),
+  setForegroundSession: vi.fn().mockResolvedValue(undefined),
+};
+
+vi.mock("@/stores/sdk", () => ({
+  useSdkStore: () => sdkActions,
+}));
+
 vi.mock("@/stores/preferences", () => ({
   usePreferencesStore: () => ({
     recentRepoPaths: [],
@@ -131,6 +140,7 @@ function makeTemplate(overrides: Partial<SessionTemplate> = {}): SessionTemplate
       customInstructions: "",
       envVars: { FOO: "bar" },
       cliCommand: "copilot",
+      launchMode: "terminal",
     },
     createdAt: "2026-01-01T00:00:00Z",
     usageCount: 0,
@@ -163,6 +173,9 @@ beforeEach(() => {
   storeState.loading = false;
   storeState.error = null;
   Object.values(storeActions).forEach((fn) => {
+    fn.mockClear?.();
+  });
+  Object.values(sdkActions).forEach((fn) => {
     fn.mockClear?.();
   });
 });
@@ -251,6 +264,28 @@ describe("useSessionLauncher", () => {
     expect(flags).toContain("--allow-all");
     expect(flags).toContain("--reasoning-effort");
     expect(flags).toContain("--interactive");
+    wrapper.unmount();
+  });
+
+  it("headless mode uses the SDK launch path and foregrounds the SDK session", async () => {
+    const { api, wrapper } = harness();
+    api.repoPath.value = "C:\\repo";
+    api.headless.value = true;
+    storeActions.launch.mockResolvedValueOnce({
+      pid: 0,
+      command: "Copilot SDK bridge session in C:\\repo",
+      launchedAt: "2026-01-01T00:00:00Z",
+      launchMode: "sdk",
+      sdkSessionId: "sdk-123",
+    });
+
+    await api.handleLaunch();
+
+    expect(storeActions.launch).toHaveBeenCalledWith(
+      expect.objectContaining({ launchMode: "sdk", headless: true }),
+    );
+    expect(sdkActions.hydrate).toHaveBeenCalled();
+    expect(sdkActions.setForegroundSession).toHaveBeenCalledWith("sdk-123");
     wrapper.unmount();
   });
 

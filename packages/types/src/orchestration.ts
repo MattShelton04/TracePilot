@@ -51,6 +51,8 @@ export interface RegisteredRepo {
 
 // ─── Launcher Types ───────────────────────────────────────────────
 
+export type LaunchMode = "terminal" | "sdk";
+
 export interface LaunchConfig {
   repoPath: string;
   branch?: string;
@@ -63,6 +65,8 @@ export interface LaunchConfig {
   envVars: Record<string, string>;
   createWorktree: boolean;
   autoApprove: boolean;
+  /** terminal opens the configured CLI; sdk creates a headless Copilot SDK bridge session. */
+  launchMode?: LaunchMode;
   /** CLI command to use (e.g. "copilot", "gh copilot-cli"). Defaults to "copilot". */
   cliCommand?: string;
 }
@@ -72,6 +76,8 @@ export interface LaunchedSession {
   worktreePath?: string;
   command: string;
   launchedAt: string;
+  launchMode: LaunchMode;
+  sdkSessionId?: string;
 }
 
 export interface ModelInfo {

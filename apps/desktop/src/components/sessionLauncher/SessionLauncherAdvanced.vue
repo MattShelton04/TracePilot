@@ -7,6 +7,7 @@ const {
   showAdvanced,
   autoApprove,
   createWorktree,
+  headless,
   baseBranch,
   branch,
   worktreePreviewPath,
@@ -79,17 +80,17 @@ const {
             </div>
           </div>
         </Transition>
-        <div class="toggle-row toggle-row-last toggle-disabled" title="Coming Soon…">
+        <div class="toggle-row toggle-row-last">
           <div class="toggle-info">
-            <span class="toggle-label">Headless Mode</span>
-            <span class="toggle-desc">Coming Soon…</span>
+            <span class="toggle-label">Copilot SDK Headless</span>
+            <span class="toggle-desc">Create an SDK-owned session without opening a terminal</span>
           </div>
           <button
             class="toggle-switch"
+            :class="{ on: headless }"
             role="switch"
-            :aria-checked="false"
-            disabled
-            title="Coming Soon…"
+            :aria-checked="headless"
+            @click="headless = !headless; clearTemplateSelection()"
           >
             <span class="toggle-thumb" />
           </button>

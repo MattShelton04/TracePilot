@@ -39,6 +39,8 @@ mod live_state_tests;
 #[cfg(test)]
 mod preference_tests;
 #[cfg(test)]
+mod session_tasks_tests;
+#[cfg(test)]
 mod tests;
 
 pub use ui_server::launch_ui_server;

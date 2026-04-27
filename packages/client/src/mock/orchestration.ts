@@ -141,6 +141,7 @@ export const ORCHESTRATION_MOCK_DATA: Record<string, unknown> = {
     pid: 12345,
     command: "copilot --model claude-opus-4.6",
     launchedAt: ts(0),
+    launchMode: "terminal",
   } satisfies LaunchedSession,
 
   get_available_models: [

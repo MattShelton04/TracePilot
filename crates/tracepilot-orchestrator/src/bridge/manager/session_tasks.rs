@@ -22,6 +22,24 @@ impl BridgeManager {
         &mut self,
         config: BridgeSessionConfig,
     ) -> Result<BridgeSessionInfo, BridgeError> {
+        self.create_session_with_origin(config, SessionOrigin::ManualLink)
+            .await
+    }
+
+    /// Create a new Copilot session owned by TracePilot's launcher.
+    pub async fn create_launcher_session(
+        &mut self,
+        config: BridgeSessionConfig,
+    ) -> Result<BridgeSessionInfo, BridgeError> {
+        self.create_session_with_origin(config, SessionOrigin::LauncherSdk)
+            .await
+    }
+
+    async fn create_session_with_origin(
+        &mut self,
+        config: BridgeSessionConfig,
+        origin: SessionOrigin,
+    ) -> Result<BridgeSessionInfo, BridgeError> {
         self.check_preference_enabled()?;
         let client = self.require_client()?;
 
@@ -46,33 +64,7 @@ impl BridgeManager {
             .await
             .map_err(|e| BridgeError::Sdk(e.to_string()))?;
 
-        let session_id = session.session_id().to_string();
-
-        // Spawn event forwarding task
-        self.spawn_event_forwarder(&session_id, &session);
-        self.mark_live_session_status(&session_id, SessionRuntimeStatus::Running, None);
-
-        self.sessions.insert(session_id.clone(), session);
-        self.persist_session_link(
-            &session_id,
-            SessionOrigin::ManualLink,
-            config.working_directory.clone(),
-            config.model.clone(),
-            config.reasoning_effort.clone(),
-            config.agent.clone(),
-            RuntimeSessionState::Running,
-            None,
-        );
-
-        Ok(BridgeSessionInfo {
-            session_id,
-            model: config.model,
-            working_directory: config.working_directory,
-            mode: Some(BridgeSessionMode::Interactive),
-            is_active: true,
-            resume_error: None,
-            is_remote: false,
-        })
+        Ok(self.track_created_session(session, config, origin))
     }
 
     /// Resume an existing session by ID (for `--ui-server` mode steering).
@@ -393,6 +385,40 @@ impl BridgeManager {
         };
         if let Err(err) = self.with_registry(|registry| registry.upsert(record)) {
             warn!(error = %err, session_id, "Failed to persist SDK session registry link");
+        }
+    }
+
+    pub(super) fn track_created_session(
+        &mut self,
+        session: Arc<copilot_sdk::Session>,
+        config: BridgeSessionConfig,
+        origin: SessionOrigin,
+    ) -> BridgeSessionInfo {
+        let session_id = session.session_id().to_string();
+
+        self.spawn_event_forwarder(&session_id, &session);
+        self.mark_live_session_status(&session_id, SessionRuntimeStatus::Running, None);
+
+        self.sessions.insert(session_id.clone(), session);
+        self.persist_session_link(
+            &session_id,
+            origin,
+            config.working_directory.clone(),
+            config.model.clone(),
+            config.reasoning_effort.clone(),
+            config.agent.clone(),
+            RuntimeSessionState::Running,
+            None,
+        );
+
+        BridgeSessionInfo {
+            session_id,
+            model: config.model,
+            working_directory: config.working_directory,
+            mode: Some(BridgeSessionMode::Interactive),
+            is_active: true,
+            resume_error: None,
+            is_remote: false,
         }
     }
 

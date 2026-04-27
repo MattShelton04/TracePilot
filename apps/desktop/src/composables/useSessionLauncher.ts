@@ -16,6 +16,7 @@ import { browseForDirectory } from "@/composables/useBrowseDirectory";
 import { useGitRepository } from "@/composables/useGitRepository";
 import { useLauncherStore } from "@/stores/launcher";
 import { usePreferencesStore } from "@/stores/preferences";
+import { useSdkStore } from "@/stores/sdk";
 import { useWorktreesStore } from "@/stores/worktrees";
 
 /**
@@ -110,6 +111,7 @@ export function useSessionLauncher() {
     headless: headless.value,
     createWorktree: createWorktree.value,
     autoApprove: autoApprove.value,
+    launchMode: headless.value ? "sdk" : "terminal",
     envVars: envVarsRecord.value,
     cliCommand: prefsStore.cliCommand || "copilot",
   }));
@@ -117,6 +119,9 @@ export function useSessionLauncher() {
   const effectiveCli = computed(() => prefsStore.cliCommand || "copilot");
 
   const cliCommand = computed(() => {
+    if (launchConfig.value.launchMode === "sdk") {
+      return "Copilot SDK bridge (headless session)";
+    }
     const parts = [effectiveCli.value];
     if (launchConfig.value.model) parts.push(`--model ${launchConfig.value.model}`);
     if (launchConfig.value.autoApprove) parts.push("--allow-all");
@@ -129,6 +134,9 @@ export function useSessionLauncher() {
   });
 
   const cliCommandParts = computed<{ flag: string; value?: string }[]>(() => {
+    if (launchConfig.value.launchMode === "sdk") {
+      return [{ flag: "Copilot SDK bridge" }, { flag: "headless session" }];
+    }
     const parts: { flag: string; value?: string }[] = [{ flag: effectiveCli.value }];
     if (launchConfig.value.model) {
       parts.push({ flag: "--model", value: launchConfig.value.model });
@@ -274,17 +282,25 @@ export function useSessionLauncher() {
     launching.value = true;
     store.error = null;
     const cfg = { ...launchConfig.value };
-    if (asHeadless) cfg.headless = true;
+    if (asHeadless) {
+      cfg.headless = true;
+      cfg.launchMode = "sdk";
+    }
     try {
       if (cfg.repoPath) prefsStore.addRecentRepoPath(cfg.repoPath);
       const session = await store.launch(cfg);
       if (session) {
+        if (session.sdkSessionId) {
+          const sdkStore = useSdkStore();
+          await sdkStore.hydrate();
+          await sdkStore.setForegroundSession(session.sdkSessionId);
+        }
         // Track template usage if one was selected
         if (selectedTemplateId.value) {
           store.incrementUsage(selectedTemplateId.value);
         }
-        toastSuccess(`PID ${session.pid}`, {
-          title: "Session launched",
+        toastSuccess(session.sdkSessionId ? session.sdkSessionId : `PID ${session.pid}`, {
+          title: session.sdkSessionId ? "SDK session launched" : "Session launched",
           description:
             session.command +
             (session.worktreePath ? `\n📂 Worktree: ${session.worktreePath}` : ""),

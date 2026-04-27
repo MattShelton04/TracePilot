@@ -209,10 +209,17 @@ pub async fn discover_repos_from_sessions(
 // -- Launcher commands --
 
 #[tauri::command]
-#[tracing::instrument(skip(config), err)]
+#[tracing::instrument(skip(bridge, config), err)]
 pub async fn launch_session(
+    bridge: tauri::State<'_, tracepilot_orchestrator::bridge::manager::SharedBridgeManager>,
     config: tracepilot_orchestrator::LaunchConfig,
 ) -> CmdResult<tracepilot_orchestrator::LaunchedSession> {
+    if config.launch_mode == tracepilot_orchestrator::LaunchMode::Sdk || config.headless {
+        let mut mgr = bridge.write().await;
+        return tracepilot_orchestrator::launcher::launch_sdk_session(&config, &mut mgr)
+            .await
+            .map_err(Into::into);
+    }
     blocking_cmd!(tracepilot_orchestrator::launcher::launch_session(&config))
 }
 
