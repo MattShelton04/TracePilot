@@ -1,6 +1,6 @@
 {
   "name": "@tracepilot/test-utils",
-  "version": "0.6.3",
+  "version": "0.6.4",
   "private": true,
   "description": "Shared test utilities for TracePilot packages",
   "author": "Matt Shelton (@MattShelton04)",
