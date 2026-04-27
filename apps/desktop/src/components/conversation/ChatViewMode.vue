@@ -35,63 +35,54 @@ useRenderBudget({ key: "render.chatViewModeMs", budgetMs: 200, label: "ChatViewM
 const preferences = usePreferencesStore();
 const route = useRoute();
 const persistedTurns = computed(() => store.turns);
+
 const liveConversationTurn = computed<ConversationTurn | null>(() => {
   const sessionId = store.sessionId;
   if (!sessionId) return null;
   const live = sdk.liveTurnsBySessionId[sessionId];
-  if (!live || (!live.assistantText.trim() && !live.reasoningText.trim())) return null;
-  if (live.turnId && persistedTurns.value.some((turn) => turn.turnId === live.turnId)) {
-    return null;
+  if (!live) return null;
+  const liveText = live.assistantText.trim();
+  const liveReasoning = live.reasoningText.trim();
+  if (!liveText && !liveReasoning) return null;
+
+  // Hide the placeholder once the streamed text is already in the most
+  // recent persisted turn. Content-based check is the simplest robust
+  // dedup: we don't depend on bridge ids matching session.jsonl turn ids,
+  // and it's evaluated synchronously inside the computed so there's no
+  // post-render race when auto-refresh and streaming overlap.
+  if (liveText) {
+    const last = persistedTurns.value[persistedTurns.value.length - 1];
+    const persisted = (last?.assistantMessages ?? [])
+      .map((m) => m.content)
+      .join("")
+      .trim();
+    if (persisted?.startsWith(liveText)) return null;
   }
+
   const last = persistedTurns.value[persistedTurns.value.length - 1];
   return {
     turnIndex: (last?.turnIndex ?? 0) + 1,
     turnId: live.turnId ?? undefined,
-    assistantMessages: live.assistantText.trim() ? [{ content: live.assistantText }] : [],
-    reasoningTexts: live.reasoningText.trim() ? [{ content: live.reasoningText }] : [],
+    assistantMessages: liveText ? [{ content: live.assistantText }] : [],
+    reasoningTexts: liveReasoning ? [{ content: live.reasoningText }] : [],
     toolCalls: [],
     timestamp: live.updatedAt,
     isComplete: false,
   };
 });
+
 const turns = computed(() => {
   const liveTurn = liveConversationTurn.value;
   return liveTurn ? [...persistedTurns.value, liveTurn] : persistedTurns.value;
 });
+
+// Free the live entry from the store once it's been hidden by the dedup
+// above (post-render, just to release memory and reset for next turn).
 watch(
-  () =>
-    [
-      store.sessionId,
-      persistedTurns.value.length,
-      sdk.liveTurnsBySessionId[store.sessionId ?? ""]?.turnId,
-    ] as const,
-  (next, prev) => {
+  () => liveConversationTurn.value === null && !!sdk.liveTurnsBySessionId[store.sessionId ?? ""],
+  (shouldClear) => {
     const sessionId = store.sessionId;
-    if (!sessionId) return;
-    const live = sdk.liveTurnsBySessionId[sessionId];
-    if (!live) return;
-
-    // Primary dedup: persisted turn shares the live turn's id.
-    if (live.turnId && persistedTurns.value.some((turn) => turn.turnId === live.turnId)) {
-      sdk.clearLiveTurn(sessionId);
-      return;
-    }
-
-    // Fallback dedup: the persisted-turn count grew while a live turn was
-    // active. Only one assistant turn streams at a time, so any newly
-    // persisted turn carrying assistant content must be that turn — even if
-    // the bridge event id we recorded as `turnId` doesn't match the SDK's
-    // canonical turn id stored on disk. This catches double-render races
-    // when an auto-refresh lands between the final delta and dedup.
-    const prevLen = prev?.[1];
-    const nextLen = next?.[1];
-    if (typeof prevLen === "number" && typeof nextLen === "number" && nextLen > prevLen) {
-      const latest = persistedTurns.value[persistedTurns.value.length - 1];
-      const hasAssistant = (latest?.assistantMessages?.length ?? 0) > 0;
-      if (hasAssistant) {
-        sdk.clearLiveTurn(sessionId);
-      }
-    }
+    if (sessionId && shouldClear) sdk.clearLiveTurn(sessionId);
   },
 );
 const renderMd = computed(() => preferences.isFeatureEnabled("renderMarkdown"));
