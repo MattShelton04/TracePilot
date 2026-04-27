@@ -62,6 +62,7 @@ export const useSdkStore = defineStore("sdk", () => {
     try {
       unlisteners.push(
         await safeListen<BridgeEvent>(IPC_EVENTS.SDK_BRIDGE_EVENT, (event) => {
+          messaging.applyBridgeEvent(event.payload);
           const current = connection.recentEvents.value;
           const next = [...current, event.payload];
           connection.recentEvents.value =
@@ -176,6 +177,7 @@ export const useSdkStore = defineStore("sdk", () => {
     foregroundSessionId: messaging.foregroundSessionId,
     sendingMessage: messaging.sendingMessage,
     sendingByIds: messaging.sendingByIds,
+    liveTurnsBySessionId: messaging.liveTurnsBySessionId,
     isSending: messaging.isSending,
 
     // Computed
@@ -208,6 +210,7 @@ export const useSdkStore = defineStore("sdk", () => {
     createSession: messaging.createSession,
     resumeSession: messaging.resumeSession,
     sendMessage: messaging.sendMessage,
+    clearLiveTurn: messaging.clearLiveTurn,
     abortSession: messaging.abortSession,
     destroySession: messaging.destroySession,
     unlinkSession: messaging.unlinkSession,

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ConversationTurn } from "@tracepilot/types";
 import { useConversationSections, useToggleSet } from "@tracepilot/ui";
-import { computed, nextTick, ref } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import GapIndicator from "@/components/conversation/chat/GapIndicator.vue";
 import TurnBlock from "@/components/conversation/chat/TurnBlock.vue";
@@ -15,6 +15,7 @@ import { useSubagentCompletions } from "@/composables/useSubagentCompletions";
 import { useSubagentPanel } from "@/composables/useSubagentPanel";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
 import { usePreferencesStore } from "@/stores/preferences";
+import { useSdkStore } from "@/stores/sdk";
 import {
   getMainMessages,
   getMainReasoning,
@@ -28,11 +29,50 @@ import SystemMessagePanel from "./SystemMessagePanel.vue";
 // ─── Store & Route ────────────────────────────────────────────────
 
 const store = useSessionDetailContext();
+const sdk = useSdkStore();
 
 useRenderBudget({ key: "render.chatViewModeMs", budgetMs: 200, label: "ChatViewMode" });
 const preferences = usePreferencesStore();
 const route = useRoute();
-const turns = computed(() => store.turns);
+const persistedTurns = computed(() => store.turns);
+const liveConversationTurn = computed<ConversationTurn | null>(() => {
+  const sessionId = store.sessionId;
+  if (!sessionId) return null;
+  const live = sdk.liveTurnsBySessionId[sessionId];
+  if (!live || (!live.assistantText.trim() && !live.reasoningText.trim())) return null;
+  if (live.turnId && persistedTurns.value.some((turn) => turn.turnId === live.turnId)) {
+    return null;
+  }
+  const last = persistedTurns.value[persistedTurns.value.length - 1];
+  return {
+    turnIndex: (last?.turnIndex ?? 0) + 1,
+    turnId: live.turnId ?? undefined,
+    assistantMessages: live.assistantText.trim() ? [{ content: live.assistantText }] : [],
+    reasoningTexts: live.reasoningText.trim() ? [{ content: live.reasoningText }] : [],
+    toolCalls: [],
+    timestamp: live.updatedAt,
+    isComplete: false,
+  };
+});
+const turns = computed(() => {
+  const liveTurn = liveConversationTurn.value;
+  return liveTurn ? [...persistedTurns.value, liveTurn] : persistedTurns.value;
+});
+watch(
+  () => [
+    store.sessionId,
+    persistedTurns.value.length,
+    sdk.liveTurnsBySessionId[store.sessionId ?? ""]?.turnId,
+  ],
+  () => {
+    const sessionId = store.sessionId;
+    if (!sessionId) return;
+    const live = sdk.liveTurnsBySessionId[sessionId];
+    if (live?.turnId && persistedTurns.value.some((turn) => turn.turnId === live.turnId)) {
+      sdk.clearLiveTurn(sessionId);
+    }
+  },
+);
 const renderMd = computed(() => preferences.isFeatureEnabled("renderMarkdown"));
 const emit = defineEmits<{
   messageSent: [prompt: string];
@@ -40,7 +80,7 @@ const emit = defineEmits<{
 
 // ─── Cross-turn subagent data ─────────────────────────────────────
 
-const { subagentMap, allSubagents } = useCrossTurnSubagents(turns);
+const { subagentMap, allSubagents } = useCrossTurnSubagents(persistedTurns);
 
 // ─── Panel state ──────────────────────────────────────────────────
 
@@ -64,7 +104,7 @@ const {
 
 // ─── Conversation sections (for tool call index) ─────────────────
 
-const { findToolCallIndex, getArgsSummary } = useConversationSections(() => store.turns);
+const { findToolCallIndex, getArgsSummary } = useConversationSections(() => turns.value);
 
 // ─── Scroll ───────────────────────────────────────────────────────
 

@@ -60,7 +60,11 @@ function makeSlice(initialSessions: BridgeSessionInfo[] = []) {
   return { slice, sessions, activeSessions, lastError };
 }
 
-function makeEvent(sessionId: string, eventType: string): BridgeEvent {
+function makeEvent(
+  sessionId: string,
+  eventType: string,
+  data: Record<string, unknown> = {},
+): BridgeEvent {
   return {
     sessionId,
     eventType,
@@ -68,7 +72,7 @@ function makeEvent(sessionId: string, eventType: string): BridgeEvent {
     id: null,
     parentId: null,
     ephemeral: false,
-    data: {},
+    data,
   };
 }
 
@@ -170,5 +174,34 @@ describe("createMessagingSlice session cache isolation", () => {
 
     expect(slice.sessionEvents.value("sdk-A")).toHaveLength(2);
     expect(slice.sessionEvents.value("sdk-B")).toHaveLength(1);
+  });
+
+  it("accumulates assistant and reasoning deltas into per-session live turns", () => {
+    const { slice } = makeSlice();
+
+    slice.applyBridgeEvent(makeEvent("sdk-A", "assistant.turn_start", { turnId: "turn-A" }));
+    slice.applyBridgeEvent(
+      makeEvent("sdk-A", "assistant.reasoning_delta", { deltaContent: "thinking " }),
+    );
+    slice.applyBridgeEvent(
+      makeEvent("sdk-A", "assistant.message_delta", { deltaContent: "hello " }),
+    );
+    slice.applyBridgeEvent(
+      makeEvent("sdk-B", "assistant.message_delta", { deltaContent: "other" }),
+    );
+    slice.applyBridgeEvent(
+      makeEvent("sdk-A", "assistant.message_delta", { deltaContent: "world" }),
+    );
+
+    expect(slice.liveTurnsBySessionId.value["sdk-A"]).toMatchObject({
+      sessionId: "sdk-A",
+      turnId: "turn-A",
+      reasoningText: "thinking ",
+      assistantText: "hello world",
+    });
+    expect(slice.liveTurnsBySessionId.value["sdk-B"]?.assistantText).toBe("other");
+
+    slice.clearLiveTurn("sdk-A");
+    expect(slice.liveTurnsBySessionId.value["sdk-A"]).toBeUndefined();
   });
 });

@@ -30,6 +30,7 @@ import type {
 import { runMutation, toErrorMessage } from "@tracepilot/ui";
 import { computed, type Ref, ref } from "vue";
 import { logInfo, logWarn } from "@/utils/logger";
+import { createLiveTurnAccumulator } from "./liveTurns";
 
 export interface MessagingDeps {
   sessions: Ref<BridgeSessionInfo[]>;
@@ -61,6 +62,7 @@ export function createMessagingSlice(deps: MessagingDeps) {
   }
 
   const foregroundSessionId = ref<string | null>(null);
+  const liveTurns = createLiveTurnAccumulator();
 
   const foregroundSession = computed(
     () => sessions.value.find((s) => s.sessionId === foregroundSessionId.value) ?? null,
@@ -162,6 +164,7 @@ export function createMessagingSlice(deps: MessagingDeps) {
     try {
       await sdkDestroySession(sessionId);
       markSessionInactive(sessionId);
+      liveTurns.clearLiveTurn(sessionId);
       lastError.value = null;
       logInfo("[sdk] Session destroyed:", sessionId);
     } catch (e) {
@@ -175,6 +178,7 @@ export function createMessagingSlice(deps: MessagingDeps) {
     try {
       await sdkUnlinkSession(sessionId);
       markSessionInactive(sessionId);
+      liveTurns.clearLiveTurn(sessionId);
       lastError.value = null;
       logInfo("[sdk] Session unlinked:", sessionId);
     } catch (e) {
@@ -220,7 +224,10 @@ export function createMessagingSlice(deps: MessagingDeps) {
   return {
     sendingMessage,
     sendingByIds,
+    liveTurnsBySessionId: liveTurns.liveTurnsBySessionId,
     isSending,
+    applyBridgeEvent: liveTurns.applyBridgeEvent,
+    clearLiveTurn: liveTurns.clearLiveTurn,
     foregroundSessionId,
     foregroundSession,
     sessionEvents,
