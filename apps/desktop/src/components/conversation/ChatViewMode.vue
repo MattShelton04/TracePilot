@@ -59,17 +59,38 @@ const turns = computed(() => {
   return liveTurn ? [...persistedTurns.value, liveTurn] : persistedTurns.value;
 });
 watch(
-  () => [
-    store.sessionId,
-    persistedTurns.value.length,
-    sdk.liveTurnsBySessionId[store.sessionId ?? ""]?.turnId,
-  ],
-  () => {
+  () =>
+    [
+      store.sessionId,
+      persistedTurns.value.length,
+      sdk.liveTurnsBySessionId[store.sessionId ?? ""]?.turnId,
+    ] as const,
+  (next, prev) => {
     const sessionId = store.sessionId;
     if (!sessionId) return;
     const live = sdk.liveTurnsBySessionId[sessionId];
-    if (live?.turnId && persistedTurns.value.some((turn) => turn.turnId === live.turnId)) {
+    if (!live) return;
+
+    // Primary dedup: persisted turn shares the live turn's id.
+    if (live.turnId && persistedTurns.value.some((turn) => turn.turnId === live.turnId)) {
       sdk.clearLiveTurn(sessionId);
+      return;
+    }
+
+    // Fallback dedup: the persisted-turn count grew while a live turn was
+    // active. Only one assistant turn streams at a time, so any newly
+    // persisted turn carrying assistant content must be that turn — even if
+    // the bridge event id we recorded as `turnId` doesn't match the SDK's
+    // canonical turn id stored on disk. This catches double-render races
+    // when an auto-refresh lands between the final delta and dedup.
+    const prevLen = prev?.[1];
+    const nextLen = next?.[1];
+    if (typeof prevLen === "number" && typeof nextLen === "number" && nextLen > prevLen) {
+      const latest = persistedTurns.value[persistedTurns.value.length - 1];
+      const hasAssistant = (latest?.assistantMessages?.length ?? 0) > 0;
+      if (hasAssistant) {
+        sdk.clearLiveTurn(sessionId);
+      }
     }
   },
 );

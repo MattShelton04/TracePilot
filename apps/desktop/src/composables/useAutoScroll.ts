@@ -174,11 +174,38 @@ export function useAutoScroll(options: AutoScrollOptions) {
     });
   }
 
+  // Observe scrollHeight growth so streaming/dynamic content (e.g. SDK live
+  // deltas) keeps us pinned to the bottom when locked, without needing the
+  // caller to plumb every reactive source into `watchSource`.
+  let resizeObserver: ResizeObserver | null = null;
+  function maintainLock() {
+    if (!hasReceivedFirstData) return;
+    if (!isLockedToBottom.value) return;
+    if (hasActiveTextSelection()) return;
+    const el = containerRef.value;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: "auto" });
+  }
+  function attachResizeObserver(el: HTMLElement) {
+    resizeObserver?.disconnect();
+    if (typeof ResizeObserver === "undefined") return;
+    resizeObserver = new ResizeObserver(() => {
+      updateOverflow();
+      maintainLock();
+    });
+    resizeObserver.observe(el);
+    // Also observe the first content child to catch height growth when the
+    // container itself is fixed-height (e.g. flex parents).
+    const child = el.firstElementChild;
+    if (child instanceof HTMLElement) resizeObserver.observe(child);
+  }
+
   // Handle container element changes (rebinding listeners)
   watch(containerRef, (el, prev) => {
     if (prev) prev.removeEventListener("scroll", handleScroll);
     if (el) {
       el.addEventListener("scroll", handleScroll, { passive: true });
+      attachResizeObserver(el);
       recalculateState();
     }
   });
@@ -187,12 +214,15 @@ export function useAutoScroll(options: AutoScrollOptions) {
     const el = containerRef.value;
     if (el) {
       el.addEventListener("scroll", handleScroll, { passive: true });
+      attachResizeObserver(el);
       recalculateState();
     }
   });
 
   onBeforeUnmount(() => {
     containerRef.value?.removeEventListener("scroll", handleScroll);
+    resizeObserver?.disconnect();
+    resizeObserver = null;
     if (rafId !== null) {
       cancelAnimationFrame(rafId);
       rafId = null;

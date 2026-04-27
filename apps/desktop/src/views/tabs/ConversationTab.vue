@@ -32,14 +32,12 @@ import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
 import { useWindowRole } from "@/composables/useWindowRole";
 import { usePreferencesStore } from "@/stores/preferences";
-import { useSdkStore } from "@/stores/sdk";
 
 const { isViewer } = useWindowRole();
 // useRoute() returns undefined when no router is installed (child windows).
 // We provide an empty-query stub to avoid property-access crashes.
 const route: Pick<RouteLocationNormalizedLoaded, "query"> = isViewer() ? { query: {} } : useRoute();
 const store = useSessionDetailContext();
-const sdk = useSdkStore();
 const preferences = usePreferencesStore();
 const expandedToolDetails = useToggleSet<string>();
 const expandedReasoning = useToggleSet<string>();
@@ -71,14 +69,7 @@ onMounted(() => {
 const { isLockedToBottom, showScrollToTop, hasOverflow, scrollToBottom, scrollToTop } =
   useAutoScroll({
     containerRef: scrollContainer,
-    watchSource: () => {
-      // Combine persisted-turn version with live SDK delta length so streaming
-      // text updates keep the view pinned to the bottom when locked.
-      const sid = store.sessionId;
-      const live = sid ? sdk.liveTurnsBySessionId[sid] : null;
-      const liveLen = live ? live.assistantText.length + live.reasoningText.length : 0;
-      return `${store.turnsVersion}:${liveLen}`;
-    },
+    watchSource: () => store.turnsVersion,
     viewModeSource: () => activeView.value,
   });
 
