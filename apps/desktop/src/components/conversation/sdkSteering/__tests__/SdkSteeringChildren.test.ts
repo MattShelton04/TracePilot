@@ -1,3 +1,4 @@
+import type { SessionLiveState } from "@tracepilot/types";
 import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import { defineComponent, h, provide, reactive } from "vue";
@@ -5,6 +6,7 @@ import { type SdkSteeringContext, SdkSteeringKey } from "@/composables/useSdkSte
 import SdkSteeringCommandBar from "../SdkSteeringCommandBar.vue";
 import SdkSteeringDisconnectedCard from "../SdkSteeringDisconnectedCard.vue";
 import SdkSteeringLinkPrompt from "../SdkSteeringLinkPrompt.vue";
+import SdkSteeringLiveState from "../SdkSteeringLiveState.vue";
 import SdkSteeringSentLog from "../SdkSteeringSentLog.vue";
 import SdkSteeringSessionLabel from "../SdkSteeringSessionLabel.vue";
 
@@ -52,6 +54,7 @@ function makeCtx(overrides: Partial<SdkSteeringContext> = {}): SdkSteeringContex
     currentMode: "interactive" as const,
     currentModel: "gpt-4",
     inferredModel: null,
+    liveState: null as SessionLiveState | null,
     hasText: false,
     shortSessionId: "sess-1",
     inlineError: null,
@@ -172,5 +175,93 @@ describe("SdkSteeringDisconnectedCard", () => {
     const wrapper = mountWithCtx(SdkSteeringDisconnectedCard, ctx);
     await wrapper.find(".cb-btn-connect").trigger("click");
     expect(ctx.handleConnect).toHaveBeenCalled();
+  });
+});
+
+function makeLiveState(overrides: Partial<SessionLiveState> = {}): SessionLiveState {
+  return {
+    sessionId: "sess-1",
+    status: "running",
+    currentTurnId: "turn-1",
+    assistantText: "Streaming assistant text",
+    reasoningText: "Reasoning through the next step",
+    tools: [],
+    usage: null,
+    pendingPermission: null,
+    pendingUserInput: null,
+    lastEventId: "evt-1",
+    lastEventType: "assistant.message_delta",
+    lastEventTimestamp: "2026-04-27T00:00:00Z",
+    lastError: null,
+    reducerWarnings: [],
+    ...overrides,
+  };
+}
+
+describe("SdkSteeringLiveState", () => {
+  it("renders nothing until a live SDK state is available", () => {
+    const ctx = makeCtx();
+    const wrapper = mountWithCtx(SdkSteeringLiveState, ctx);
+    expect(wrapper.find(".cb-live").exists()).toBe(false);
+  });
+
+  it("renders streamed assistant, reasoning, pending requests, and diagnostics", () => {
+    const ctx = makeCtx({
+      liveState: makeLiveState({
+        status: "waiting_for_permission",
+        pendingUserInput: {
+          requestId: "input-1",
+          kind: "user_input",
+          summary: "Clarify migration scope",
+          payload: null,
+          requestedAt: "2026-04-27T00:00:01Z",
+        },
+        pendingPermission: {
+          requestId: "perm-1",
+          kind: "tool_permission",
+          summary: "Allow file edit",
+          payload: { tool: "edit" },
+          requestedAt: "2026-04-27T00:00:02Z",
+        },
+        lastError: "Reducer saw a terminal error",
+        reducerWarnings: ["Unknown event shape"],
+      }),
+    });
+    const wrapper = mountWithCtx(SdkSteeringLiveState, ctx);
+    expect(wrapper.text()).toContain("Waiting for permission");
+    expect(wrapper.text()).toContain("Streaming assistant text");
+    expect(wrapper.text()).toContain("Reasoning stream");
+    expect(wrapper.text()).toContain("Clarify migration scope");
+    expect(wrapper.text()).toContain("Allow file edit");
+    expect(wrapper.text()).toContain("Reducer saw a terminal error");
+    expect(wrapper.text()).toContain("Unknown event shape");
+  });
+
+  it("renders tool progress, partial output, and token usage", () => {
+    const ctx = makeCtx({
+      liveState: makeLiveState({
+        assistantText: "",
+        reasoningText: "",
+        tools: [
+          {
+            toolCallId: "tool-1",
+            toolName: "apply_patch",
+            status: "running",
+            message: "Editing SdkSteeringLiveState.vue",
+            progress: 0.42,
+            partialResult: { content: "patched 2 files" },
+            updatedAt: "2026-04-27T00:00:03Z",
+          },
+        ],
+        usage: { inputTokens: 1200, outputTokens: 345, reasoningTokens: 67 },
+      }),
+    });
+    const wrapper = mountWithCtx(SdkSteeringLiveState, ctx);
+    expect(wrapper.text()).toContain("apply_patch");
+    expect(wrapper.text()).toContain("Editing SdkSteeringLiveState.vue");
+    expect(wrapper.text()).toContain("patched 2 files");
+    expect(wrapper.text()).toContain("Input Tokens");
+    expect(wrapper.text()).toContain("1,200");
+    expect(wrapper.text()).toContain("Reasoning Tokens");
   });
 });

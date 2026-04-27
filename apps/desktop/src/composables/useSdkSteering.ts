@@ -1,4 +1,4 @@
-import type { BridgeSessionMode } from "@tracepilot/types";
+import type { BridgeSessionMode, SessionLiveState } from "@tracepilot/types";
 import type { ComponentPublicInstance, CSSProperties, InjectionKey, Ref } from "vue";
 import { computed, inject, nextTick, onBeforeUnmount, reactive, ref, watch } from "vue";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
@@ -173,6 +173,11 @@ export function useSdkSteering(options: UseSdkSteeringOptions) {
   });
 
   const currentModel = computed(() => linkedSession.value?.model ?? inferredModel.value ?? null);
+
+  const liveState = computed((): SessionLiveState | null => {
+    const sid = effectiveSessionId.value;
+    return sid ? (sdk.sessionStatesById[sid] ?? null) : null;
+  });
 
   const hasText = computed(() => prompt.value.trim().length > 0);
 
@@ -419,6 +424,7 @@ export function useSdkSteering(options: UseSdkSteeringOptions) {
     currentMode,
     currentModel,
     inferredModel,
+    liveState,
     hasText,
     shortSessionId,
     inlineError,

@@ -767,3 +767,226 @@
   color: var(--text-placeholder, #52525b);
   text-align: center;
 }
+
+/* ─── Live SDK stream panel ─────────────────────── */
+.cb-live {
+  margin-bottom: 6px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--accent-emphasis) 18%, var(--border-default));
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(135deg, rgba(99, 102, 241, 0.08), transparent 44%), var(--canvas-overlay);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cb-live-header,
+.cb-live-title,
+.cb-live-status,
+.cb-live-tool-head,
+.cb-live-usage-pill {
+  display: flex;
+  align-items: center;
+}
+.cb-live-header {
+  justify-content: space-between;
+  gap: 10px;
+}
+.cb-live-title {
+  gap: 7px;
+  color: var(--text-primary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.cb-live-pulse {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--text-placeholder);
+}
+.cb-live-pulse--running {
+  background: var(--success-fg);
+  box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.12);
+  animation: cb-live-breathe 1.4s ease-in-out infinite;
+}
+.cb-live-pulse--waiting {
+  background: var(--warning-fg);
+  box-shadow: 0 0 0 4px rgba(251, 191, 36, 0.1);
+}
+.cb-live-pulse--error {
+  background: var(--danger-fg);
+}
+.cb-live-pulse--idle {
+  background: var(--accent-fg);
+}
+.cb-live-status {
+  gap: 6px;
+  color: var(--text-tertiary);
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.cb-live-turn {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-placeholder);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  text-transform: none;
+}
+.cb-live-notices,
+.cb-live-tools,
+.cb-live-diagnostics {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cb-live-notice {
+  display: flex;
+  gap: 8px;
+  padding: 7px 9px;
+  border-radius: var(--radius-md);
+  font-size: 0.6875rem;
+  line-height: 1.4;
+}
+.cb-live-notice--input {
+  color: var(--accent-fg);
+  background: rgba(99, 102, 241, 0.1);
+}
+.cb-live-notice--permission {
+  color: var(--warning-fg);
+  background: rgba(251, 191, 36, 0.1);
+}
+.cb-live-block {
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.035);
+}
+.cb-live-block-label {
+  margin-bottom: 4px;
+  color: var(--text-tertiary);
+  font-size: 0.5625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+.cb-live-text {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+.cb-live-reasoning {
+  border-radius: var(--radius-md);
+  background: rgba(148, 163, 184, 0.08);
+  color: var(--text-tertiary);
+  font-size: 0.6875rem;
+}
+.cb-live-reasoning summary {
+  padding: 7px 10px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.cb-live-reasoning .cb-live-text {
+  padding: 0 10px 9px;
+  color: var(--text-tertiary);
+  font-size: 0.6875rem;
+}
+.cb-live-tool {
+  padding: 8px 10px;
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-md);
+  background: rgba(0, 0, 0, 0.12);
+}
+.cb-live-tool-head {
+  justify-content: space-between;
+  gap: 10px;
+}
+.cb-live-tool-name {
+  color: var(--text-secondary);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+.cb-live-tool-status {
+  color: var(--text-tertiary);
+  font-size: 0.5625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.cb-live-tool-message {
+  margin-top: 4px;
+  color: var(--text-tertiary);
+  font-size: 0.6875rem;
+  line-height: 1.45;
+}
+.cb-live-progress {
+  height: 3px;
+  margin-top: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+.cb-live-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent-emphasis);
+}
+.cb-live-tool-output {
+  max-height: 120px;
+  margin: 7px 0 0;
+  overflow: auto;
+  color: var(--text-secondary);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.625rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+.cb-live-usage {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.cb-live-usage-pill {
+  gap: 5px;
+  padding: 3px 7px;
+  border: 1px solid var(--border-muted);
+  border-radius: 999px;
+  color: var(--text-tertiary);
+  font-size: 0.625rem;
+}
+.cb-live-usage-pill strong {
+  color: var(--text-secondary);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
+.cb-live-diag {
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 0.6875rem;
+}
+.cb-live-diag--error {
+  color: var(--danger-fg);
+  background: rgba(251, 113, 133, 0.08);
+}
+.cb-live-diag--warning {
+  color: var(--warning-fg);
+  background: rgba(251, 191, 36, 0.08);
+}
+@keyframes cb-live-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(0.7);
+    opacity: 0.7;
+  }
+}

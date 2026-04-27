@@ -1,3 +1,4 @@
+import type { SessionLiveState } from "@tracepilot/types";
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, h, ref } from "vue";
@@ -11,6 +12,7 @@ const sdkMock = {
   connectionState: "connected" as const,
   sendingMessage: false,
   lastError: null as string | null,
+  sessionStatesById: {} as Record<string, SessionLiveState>,
   sessions: [] as Array<{ sessionId: string; isActive: boolean; mode?: string; model?: string }>,
   models: [] as Array<{ id: string; name?: string }>,
   resumeSession: vi.fn(
@@ -81,6 +83,7 @@ beforeEach(() => {
   sdkMock.isTcpMode = false;
   sdkMock.sendingMessage = false;
   sdkMock.lastError = null;
+  sdkMock.sessionStatesById = {};
   sdkMock.sessions = [];
   sdkMock.models = [];
   detailMock.turns = [];
@@ -235,5 +238,31 @@ describe("useSdkSteering — unlink is pure state reset (no IPC)", () => {
     expect(sdkMock.resumeSession.mock.calls.length).toBe(before.resume);
     expect(sdkMock.sendMessage.mock.calls.length).toBe(before.send);
     expect(ctx.userLinked).toBe(false);
+  });
+});
+
+describe("useSdkSteering — live state selection", () => {
+  it("exposes the compact live state for the current SDK session", () => {
+    sdkMock.sessionStatesById = {
+      "sess-A": {
+        sessionId: "sess-A",
+        status: "running",
+        currentTurnId: "turn-live",
+        assistantText: "live assistant delta",
+        reasoningText: "live reasoning delta",
+        tools: [],
+        usage: null,
+        pendingPermission: null,
+        pendingUserInput: null,
+        lastEventId: "evt-live",
+        lastEventType: "assistant.message_delta",
+        lastEventTimestamp: "2026-04-27T00:00:00Z",
+        lastError: null,
+        reducerWarnings: [],
+      },
+    };
+    const { ctx } = mountHarness(ref("sess-A"));
+    expect(ctx.liveState?.assistantText).toBe("live assistant delta");
+    expect(ctx.liveState?.reasoningText).toBe("live reasoning delta");
   });
 });
