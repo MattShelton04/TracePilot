@@ -6,9 +6,8 @@
 //!   - Sending messages (steering)
 //!   - Querying quota, auth status, and models
 
-use crate::error::{BindingsError, CmdResult};
+use crate::error::CmdResult;
 use tracepilot_orchestrator::bridge::manager::{BridgeMetricsSnapshot, SharedBridgeManager};
-use tracepilot_orchestrator::bridge::registry::{RecoveryDecision, RegistryRecord};
 use tracepilot_orchestrator::bridge::{
     BridgeAuthStatus, BridgeConnectConfig, BridgeHydrationSnapshot, BridgeMessagePayload,
     BridgeModelInfo, BridgeQuota, BridgeSessionConfig, BridgeSessionInfo, BridgeSessionMode,
@@ -146,48 +145,6 @@ pub async fn sdk_unlink_session(
     let mut mgr = bridge.write().await;
     mgr.unlink_session(&session_id);
     Ok(())
-}
-
-#[tauri::command]
-pub async fn sdk_list_registry_sessions(
-    bridge: tauri::State<'_, SharedBridgeManager>,
-) -> CmdResult<Vec<RegistryRecord>> {
-    let mgr = bridge.read().await;
-    mgr.list_registry_sessions().map_err(Into::into)
-}
-
-#[tauri::command]
-pub async fn sdk_registry_recovery(
-    bridge: tauri::State<'_, SharedBridgeManager>,
-) -> CmdResult<Vec<RecoveryDecision>> {
-    let mgr = bridge.read().await;
-    mgr.registry_recovery_decisions().map_err(Into::into)
-}
-
-#[tauri::command]
-#[tracing::instrument(skip(bridge), level = "debug", err, fields(%session_id))]
-pub async fn sdk_forget_registry_session(
-    bridge: tauri::State<'_, SharedBridgeManager>,
-    session_id: String,
-) -> CmdResult<bool> {
-    let mgr = bridge.read().await;
-    mgr.forget_registry_session(&session_id).map_err(Into::into)
-}
-
-#[tauri::command]
-#[tracing::instrument(skip(bridge), level = "debug", err)]
-pub async fn sdk_prune_registry(
-    bridge: tauri::State<'_, SharedBridgeManager>,
-    older_than_days: Option<i64>,
-) -> CmdResult<usize> {
-    let older_than_days = older_than_days.unwrap_or(30);
-    if older_than_days < 0 {
-        return Err(BindingsError::Validation(
-            "olderThanDays must be zero or greater".to_string(),
-        ));
-    }
-    let mgr = bridge.read().await;
-    mgr.prune_registry(older_than_days).map_err(Into::into)
 }
 
 #[tauri::command]

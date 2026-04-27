@@ -198,7 +198,7 @@ async function main() {
     let hydration = null;
     await test("SDK hydration IPC responds", async () => {
       hydration = await ipc(page, "sdk_hydrate");
-      return `${hydration.status.state}, ${hydration.sessions.length} runtime sessions, ${hydration.registrySessions.length} registry rows`;
+      return `${hydration.status.state}, ${hydration.sessions.length} runtime sessions`;
     });
 
     await test("SDK session list UI has an explicit state", async () => {

@@ -4,7 +4,6 @@
 
 use super::BridgeManager;
 use crate::bridge::BridgeQuotaSnapshot;
-use crate::bridge::registry::{RecoveryDecision, RegistryRecord};
 use crate::bridge::{
     BridgeAuthStatus, BridgeError, BridgeHydrationSnapshot, BridgeModelInfo, BridgeQuota,
     BridgeSessionInfo, BridgeStatus, SessionLiveState,
@@ -29,24 +28,11 @@ impl BridgeManager {
 
     /// Return a no-side-effect snapshot for renderer hydration after reload.
     pub fn hydrate(&self) -> BridgeHydrationSnapshot {
-        self.mark_stale_registry_sessions_unknown();
-        let (registry_sessions, recovery) = match self
-            .with_registry(|registry| Ok((registry.list()?, registry.recovery_decisions()?)))
-        {
-            Ok(Some(snapshot)) => snapshot,
-            Ok(None) => (Vec::new(), Vec::new()),
-            Err(err) => {
-                tracing::warn!(error = %err, "Failed to read SDK registry during hydrate");
-                (Vec::new(), Vec::new())
-            }
-        };
         BridgeHydrationSnapshot {
             status: self.status(),
             sessions: self.tracked_sessions(),
             metrics: self.metrics_snapshot(),
             session_states: self.live_state.list(),
-            registry_sessions,
-            recovery,
         }
     }
 
@@ -143,40 +129,5 @@ impl BridgeManager {
                 name: Some(m.name),
             })
             .collect())
-    }
-
-    pub fn list_registry_sessions(&self) -> Result<Vec<RegistryRecord>, BridgeError> {
-        match self.with_registry(|registry| registry.list()) {
-            Ok(Some(records)) => Ok(records),
-            Ok(None) => Ok(Vec::new()),
-            Err(err) => Err(err),
-        }
-    }
-
-    pub fn registry_recovery_decisions(&self) -> Result<Vec<RecoveryDecision>, BridgeError> {
-        self.mark_stale_registry_sessions_unknown();
-        match self.with_registry(|registry| registry.recovery_decisions()) {
-            Ok(Some(decisions)) => Ok(decisions),
-            Ok(None) => Ok(Vec::new()),
-            Err(err) => Err(err),
-        }
-    }
-
-    pub fn forget_registry_session(&self, session_id: &str) -> Result<bool, BridgeError> {
-        match self.with_registry(|registry| registry.forget(session_id)) {
-            Ok(Some(forgotten)) => Ok(forgotten),
-            Ok(None) => Ok(false),
-            Err(err) => Err(err),
-        }
-    }
-
-    pub fn prune_registry(&self, older_than_days: i64) -> Result<usize, BridgeError> {
-        match self
-            .with_registry(|registry| registry.prune_terminal_older_than_days(older_than_days))
-        {
-            Ok(Some(pruned)) => Ok(pruned),
-            Ok(None) => Ok(0),
-            Err(err) => Err(err),
-        }
     }
 }

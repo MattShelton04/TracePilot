@@ -4,12 +4,9 @@
 
 use super::BridgeManager;
 use crate::bridge::live_state::SessionRuntimeStatus;
-use crate::bridge::registry::{
-    DesiredSessionState, RegistryUpsert, RuntimeSessionState, SessionOrigin,
-};
 use crate::bridge::{
     BridgeError, BridgeEvent, BridgeMessagePayload, BridgeSessionConfig, BridgeSessionInfo,
-    BridgeSessionMode, ConnectionMode,
+    BridgeSessionMode,
 };
 
 use std::sync::Arc;
@@ -22,8 +19,7 @@ impl BridgeManager {
         &mut self,
         config: BridgeSessionConfig,
     ) -> Result<BridgeSessionInfo, BridgeError> {
-        self.create_session_with_origin(config, SessionOrigin::ManualLink)
-            .await
+        self.create_session_inner(config).await
     }
 
     /// Create a new Copilot session owned by TracePilot's launcher.
@@ -31,14 +27,12 @@ impl BridgeManager {
         &mut self,
         config: BridgeSessionConfig,
     ) -> Result<BridgeSessionInfo, BridgeError> {
-        self.create_session_with_origin(config, SessionOrigin::LauncherSdk)
-            .await
+        self.create_session_inner(config).await
     }
 
-    async fn create_session_with_origin(
+    async fn create_session_inner(
         &mut self,
         config: BridgeSessionConfig,
-        origin: SessionOrigin,
     ) -> Result<BridgeSessionInfo, BridgeError> {
         self.check_preference_enabled()?;
         let client = self.require_client()?;
@@ -64,7 +58,7 @@ impl BridgeManager {
             .await
             .map_err(|e| BridgeError::Sdk(e.to_string()))?;
 
-        Ok(self.track_created_session(session, config, origin))
+        Ok(self.track_created_session(session, config))
     }
 
     /// Resume an existing session by ID (for `--ui-server` mode steering).
@@ -88,16 +82,6 @@ impl BridgeManager {
         // remain steerable (documented on `BridgeError::DisabledByPreference`).
         if self.sessions.contains_key(session_id) {
             debug!("Session {} already resumed — returning cached", session_id);
-            self.persist_session_link(
-                session_id,
-                SessionOrigin::ManualLink,
-                working_directory.map(String::from),
-                model.map(String::from),
-                None,
-                None,
-                RuntimeSessionState::Running,
-                None,
-            );
             self.mark_live_session_status(session_id, SessionRuntimeStatus::Running, None);
             return Ok(BridgeSessionInfo {
                 session_id: session_id.to_string(),
@@ -149,16 +133,6 @@ impl BridgeManager {
         self.spawn_event_forwarder(&sid, &session);
         self.mark_live_session_status(&sid, SessionRuntimeStatus::Running, None);
         self.sessions.insert(sid.clone(), session);
-        self.persist_session_link(
-            &sid,
-            SessionOrigin::ManualLink,
-            working_directory.map(String::from),
-            model.map(String::from),
-            None,
-            None,
-            RuntimeSessionState::Running,
-            None,
-        );
 
         // In TCP (--ui-server) mode, also set this as the foreground session so the
         // CLI's TUI knows about it. This is a best-effort operation — ignore errors.
@@ -226,11 +200,6 @@ impl BridgeManager {
         } else {
             debug!("unlink_session: {} not in local session map", session_id);
         }
-        self.mark_session_desired(
-            session_id,
-            DesiredSessionState::Unlinked,
-            RuntimeSessionState::Unknown,
-        );
         self.mark_live_session_status(session_id, SessionRuntimeStatus::Unknown, None);
     }
 
@@ -255,11 +224,6 @@ impl BridgeManager {
                 session_id
             );
         }
-        self.mark_session_desired(
-            session_id,
-            DesiredSessionState::Destroyed,
-            RuntimeSessionState::Shutdown,
-        );
         self.mark_live_session_status(session_id, SessionRuntimeStatus::Shutdown, None);
         Ok(())
     }
@@ -340,44 +304,10 @@ impl BridgeManager {
         self.event_tasks.insert(session_id.to_string(), handle);
     }
 
-    fn persist_session_link(
-        &self,
-        session_id: &str,
-        origin: SessionOrigin,
-        working_directory: Option<String>,
-        model: Option<String>,
-        reasoning_effort: Option<String>,
-        agent: Option<String>,
-        runtime_state: RuntimeSessionState,
-        last_error: Option<String>,
-    ) {
-        let connection_mode = self
-            .connection_mode
-            .map(ConnectionMode::as_str)
-            .map(String::from);
-        let record = RegistryUpsert {
-            session_id: session_id.to_string(),
-            origin,
-            connection_mode,
-            cli_url: self.cli_url.clone(),
-            working_directory,
-            model,
-            reasoning_effort,
-            agent,
-            desired_state: DesiredSessionState::Tracked,
-            runtime_state,
-            last_error,
-        };
-        if let Err(err) = self.with_registry(|registry| registry.upsert(record)) {
-            warn!(error = %err, session_id, "Failed to persist SDK session registry link");
-        }
-    }
-
     pub(super) fn track_created_session(
         &mut self,
         session: Arc<copilot_sdk::Session>,
         config: BridgeSessionConfig,
-        origin: SessionOrigin,
     ) -> BridgeSessionInfo {
         let session_id = session.session_id().to_string();
 
@@ -385,16 +315,6 @@ impl BridgeManager {
         self.mark_live_session_status(&session_id, SessionRuntimeStatus::Running, None);
 
         self.sessions.insert(session_id.clone(), session);
-        self.persist_session_link(
-            &session_id,
-            origin,
-            config.working_directory.clone(),
-            config.model.clone(),
-            config.reasoning_effort.clone(),
-            config.agent.clone(),
-            RuntimeSessionState::Running,
-            None,
-        );
 
         BridgeSessionInfo {
             session_id,
@@ -404,73 +324,6 @@ impl BridgeManager {
             is_active: true,
             resume_error: None,
             is_remote: false,
-        }
-    }
-
-    fn mark_session_desired(
-        &self,
-        session_id: &str,
-        desired_state: DesiredSessionState,
-        runtime_state: RuntimeSessionState,
-    ) {
-        if let Err(err) = self.with_registry(|registry| {
-            registry.mark_desired(session_id, desired_state, runtime_state)
-        }) {
-            warn!(error = %err, session_id, "Failed to persist SDK session desired state");
-        }
-    }
-
-    pub(super) async fn auto_resume_recoverable_sessions(&mut self) {
-        let decisions = match self.with_registry(|registry| registry.recovery_decisions()) {
-            Ok(Some(decisions)) => decisions,
-            Ok(None) => return,
-            Err(err) => {
-                warn!(error = %err, "Failed to read SDK registry recovery decisions");
-                return;
-            }
-        };
-
-        for decision in decisions.into_iter().filter(|d| d.should_auto_resume) {
-            if self.sessions.contains_key(&decision.session_id) {
-                continue;
-            }
-            let record = decision.record;
-            match self
-                .resume_session(
-                    &record.session_id,
-                    record.working_directory.as_deref(),
-                    record.model.as_deref(),
-                )
-                .await
-            {
-                Ok(_) => {
-                    self.persist_session_link(
-                        &record.session_id,
-                        record.origin,
-                        record.working_directory,
-                        record.model,
-                        record.reasoning_effort,
-                        record.agent,
-                        RuntimeSessionState::Running,
-                        None,
-                    );
-                    info!(session_id = %record.session_id, "Auto-resumed SDK session");
-                }
-                Err(err) => {
-                    let msg = err.to_string();
-                    warn!(session_id = %record.session_id, error = %msg, "SDK auto-resume failed");
-                    self.persist_session_link(
-                        &record.session_id,
-                        record.origin,
-                        record.working_directory,
-                        record.model,
-                        record.reasoning_effort,
-                        record.agent,
-                        RuntimeSessionState::Error,
-                        Some(msg),
-                    );
-                }
-            }
         }
     }
 }

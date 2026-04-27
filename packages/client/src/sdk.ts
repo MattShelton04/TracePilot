@@ -13,8 +13,6 @@ import type {
   BridgeSessionMode,
   BridgeStatus,
   DetectedUiServer,
-  SdkRecoveryDecision,
-  SdkRegistryRecord,
   SessionLiveState,
 } from "@tracepilot/types";
 import { createInvoke } from "./invoke.js";
@@ -87,22 +85,6 @@ export async function sdkDestroySession(sessionId: string): Promise<void> {
 /** Unlink a session from the bridge without destroying it (no shutdown event written). */
 export async function sdkUnlinkSession(sessionId: string): Promise<void> {
   return invoke<void>("sdk_unlink_session", { sessionId });
-}
-
-export async function sdkListRegistrySessions(): Promise<SdkRegistryRecord[]> {
-  return invoke<SdkRegistryRecord[]>("sdk_list_registry_sessions");
-}
-
-export async function sdkRegistryRecovery(): Promise<SdkRecoveryDecision[]> {
-  return invoke<SdkRecoveryDecision[]>("sdk_registry_recovery");
-}
-
-export async function sdkForgetRegistrySession(sessionId: string): Promise<boolean> {
-  return invoke<boolean>("sdk_forget_registry_session", { sessionId });
-}
-
-export async function sdkPruneRegistry(olderThanDays = 30): Promise<number> {
-  return invoke<number>("sdk_prune_registry", { olderThanDays });
 }
 
 export async function sdkSetSessionMode(sessionId: string, mode: BridgeSessionMode): Promise<void> {

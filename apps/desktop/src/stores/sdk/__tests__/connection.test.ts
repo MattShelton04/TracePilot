@@ -25,8 +25,6 @@ vi.mock("@tracepilot/client", () => ({
     sessions: [],
     metrics: { eventsForwarded: 0, eventsDroppedDueToLag: 0, lagOccurrences: 0 },
     sessionStates: [],
-    registrySessions: [],
-    recovery: [],
   })),
   sdkLaunchUiServer: vi.fn(async () => 42),
   sdkListModels: vi.fn(async () => []),
@@ -116,8 +114,6 @@ describe("createConnectionSlice", () => {
     ]);
     expect(slice.activeSessions.value).toBe(1);
     expect(slice.sessionStatesById.value["tracked-1"]?.assistantText).toBe("ready");
-    expect(slice.registrySessions.value).toHaveLength(1);
-    expect(slice.recoveryDecisions.value[0]?.shouldAutoResume).toBe(false);
     expect(slice.bridgeMetrics.value?.eventsForwarded).toBe(2);
     expect(client.sdkConnect).not.toHaveBeenCalled();
   });

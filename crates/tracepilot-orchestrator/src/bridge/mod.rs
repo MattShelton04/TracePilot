@@ -12,7 +12,6 @@
 mod discovery;
 pub mod live_state;
 pub mod manager;
-pub mod registry;
 
 use serde::{Deserialize, Serialize};
 
@@ -55,9 +54,6 @@ pub enum BridgeError {
 
     #[error("Timeout: {0}")]
     Timeout(String),
-
-    #[error("Registry error: {0}")]
-    Registry(String),
 }
 
 // ─── Connection State ─────────────────────────────────────────────
@@ -169,8 +165,6 @@ pub struct BridgeHydrationSnapshot {
     pub sessions: Vec<BridgeSessionInfo>,
     pub metrics: manager::BridgeMetricsSnapshot,
     pub session_states: Vec<live_state::SessionLiveState>,
-    pub registry_sessions: Vec<registry::RegistryRecord>,
-    pub recovery: Vec<registry::RecoveryDecision>,
 }
 
 #[derive(Debug, Clone, Serialize)]

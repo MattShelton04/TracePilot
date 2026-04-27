@@ -1,5 +1,4 @@
 use super::*;
-use crate::bridge::registry::{DesiredSessionState, RuntimeSessionState, SessionOrigin};
 use crate::bridge::{BridgeMessagePayload, BridgeSessionConfig, ConnectionMode};
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -34,9 +33,8 @@ fn recording_session(
 }
 
 #[tokio::test]
-async fn track_created_launcher_session_persists_launcher_origin() {
+async fn track_created_session_records_runtime_handle_only() {
     let (mut mgr, _rx, _status_rx) = BridgeManager::new();
-    mgr.init_memory_registry().unwrap();
     mgr.connection_mode = Some(ConnectionMode::Stdio);
 
     let info = mgr.track_created_session(
@@ -48,20 +46,12 @@ async fn track_created_launcher_session_persists_launcher_origin() {
             reasoning_effort: Some("medium".to_string()),
             agent: Some("reviewer".to_string()),
         },
-        SessionOrigin::LauncherSdk,
     );
 
     assert_eq!(info.session_id, "launcher-session");
     assert_eq!(mgr.sessions.len(), 1);
-    let records = mgr
-        .with_registry(|registry| registry.list())
-        .unwrap()
-        .unwrap();
-    assert_eq!(records.len(), 1);
-    assert_eq!(records[0].origin, SessionOrigin::LauncherSdk);
-    assert_eq!(records[0].desired_state, DesiredSessionState::Tracked);
-    assert_eq!(records[0].runtime_state, RuntimeSessionState::Running);
-    assert_eq!(records[0].working_directory.as_deref(), Some("C:\\repo"));
+    assert_eq!(info.working_directory.as_deref(), Some("C:\\repo"));
+    assert_eq!(info.model.as_deref(), Some("gpt-5.4"));
 }
 
 #[tokio::test]

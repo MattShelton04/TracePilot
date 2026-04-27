@@ -3,6 +3,8 @@ import { filterSdkStatesByScope } from "@/composables/alertWatcherScope";
 import { dispatchAlert } from "@/composables/useAlertDispatcher";
 import { useAlertWatcherStore } from "@/stores/alertWatcher";
 import { usePreferencesStore } from "@/stores/preferences";
+import { useSdkStore } from "@/stores/sdk";
+import { useSessionsStore } from "@/stores/sessions";
 
 type SdkStateAlertType =
   | "sdk-user-input-required"
@@ -32,12 +34,38 @@ function sdkTransitionKey(sessionId: string, type: string, state: SessionLiveSta
   return [sessionId, type, state.lastEventId ?? state.lastEventTimestamp ?? state.status].join(":");
 }
 
-function summarizeSdkSession(state: SessionLiveState): string {
+function fallbackSdkSessionLabel(state: SessionLiveState): string {
   return `SDK session ${state.sessionId.slice(0, 8)}`;
 }
 
+function getSessionSummary(sessionId: string): string | undefined {
+  try {
+    const match = useSessionsStore().sessions.find((session) => session.id === sessionId);
+    const summary = match?.summary?.trim();
+    return summary || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function summarizeSdkSession(state: SessionLiveState): { label: string; summary?: string } {
+  const summary = getSessionSummary(state.sessionId);
+  return {
+    label: summary ?? fallbackSdkSessionLabel(state),
+    summary,
+  };
+}
+
+function getTrackedSdkSessionIds(): Set<string> {
+  try {
+    return new Set(useSdkStore().sessions.map((session) => session.sessionId));
+  } catch {
+    return new Set();
+  }
+}
+
 function dispatchSdkStateAlert(state: SessionLiveState, type: SdkStateAlertType) {
-  const label = summarizeSdkSession(state);
+  const { label, summary } = summarizeSdkSession(state);
   const pending =
     type === "sdk-user-input-required" ? state.pendingUserInput : state.pendingPermission;
 
@@ -45,9 +73,11 @@ function dispatchSdkStateAlert(state: SessionLiveState, type: SdkStateAlertType)
     dispatchAlert({
       type,
       sessionId: state.sessionId,
-      sessionSummary: label,
+      sessionSummary: summary,
       title: "SDK Session Needs Input",
-      body: `${label} is waiting for your response`,
+      body: `${label} is waiting for your response${
+        pending?.summary ? `: ${pending.summary}` : ""
+      }`,
       metadata: {
         source: "copilot-sdk",
         requestId: pending?.requestId,
@@ -61,9 +91,11 @@ function dispatchSdkStateAlert(state: SessionLiveState, type: SdkStateAlertType)
     dispatchAlert({
       type,
       sessionId: state.sessionId,
-      sessionSummary: label,
+      sessionSummary: summary,
       title: "SDK Permission Required",
-      body: `${label} is waiting for permission${pending?.kind ? ` (${pending.kind})` : ""}`,
+      body: `${label} is waiting for permission${
+        pending?.summary ? `: ${pending.summary}` : pending?.kind ? ` (${pending.kind})` : ""
+      }`,
       metadata: {
         source: "copilot-sdk",
         requestId: pending?.requestId,
@@ -77,7 +109,7 @@ function dispatchSdkStateAlert(state: SessionLiveState, type: SdkStateAlertType)
     dispatchAlert({
       type,
       sessionId: state.sessionId,
-      sessionSummary: label,
+      sessionSummary: summary,
       title: "SDK Session Error",
       body: state.lastError ? `${label}: ${state.lastError}` : `${label} encountered an error`,
       metadata: {
@@ -92,7 +124,7 @@ function dispatchSdkStateAlert(state: SessionLiveState, type: SdkStateAlertType)
   dispatchAlert({
     type,
     sessionId: state.sessionId,
-    sessionSummary: label,
+    sessionSummary: summary,
     title: "SDK Session Idle",
     body: `${label} is idle`,
     metadata: {
@@ -109,7 +141,8 @@ export function checkSdkSessionStateAlerts(
 ) {
   const prefs = usePreferencesStore();
   const store = useAlertWatcherStore();
-  const allStates = Object.values(statesById);
+  const trackedIds = getTrackedSdkSessionIds();
+  const allStates = Object.values(statesById).filter((state) => trackedIds.has(state.sessionId));
   store.pruneSdkEntries(new Set(allStates.map((state) => state.sessionId)));
   const states = filterSdkStatesByScope(allStates);
 

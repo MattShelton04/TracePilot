@@ -53,8 +53,6 @@ vi.mock("@tracepilot/client", () => ({
         reducerWarnings: [],
       },
     ],
-    registrySessions: [],
-    recovery: [],
   })),
   sdkLaunchUiServer: vi.fn(async () => 42),
   sdkListModels: vi.fn(async () => []),

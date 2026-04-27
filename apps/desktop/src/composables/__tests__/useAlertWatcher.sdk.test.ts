@@ -14,21 +14,6 @@ const mocks = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("@tracepilot/client", () => ({
-  getSessionTurns: vi.fn(),
-}));
-
-vi.mock("@tracepilot/ui", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@tracepilot/ui")>();
-  return {
-    ...actual,
-    useVisibilityGatedPoll: () => ({
-      start: vi.fn(),
-      stop: vi.fn(),
-    }),
-  };
-});
-
 vi.mock("@/composables/useAlertDispatcher", () => ({
   dispatchAlert: mocks.dispatchAlert,
 }));
@@ -47,8 +32,21 @@ vi.mock("@/stores/sessionTabs", () => ({
 vi.mock("@/stores/sdk", () => ({
   useSdkStore: () => ({
     foregroundSessionId: null,
+    sessions: [
+      { sessionId: "sdk-1", isActive: true },
+      { sessionId: "sdk-2", isActive: true },
+    ],
     sessionStatesById: {},
     bridgeMetrics: null,
+  }),
+}));
+
+vi.mock("@/stores/sessions", () => ({
+  useSessionsStore: () => ({
+    sessions: [
+      { id: "sdk-1", summary: "Refactor SDK alerts" },
+      { id: "sdk-2", summary: "Review TCP bridge" },
+    ],
   }),
 }));
 
@@ -104,6 +102,8 @@ describe("SDK alert watcher", () => {
       expect.objectContaining({
         type: "sdk-user-input-required",
         sessionId: "sdk-1",
+        sessionSummary: "Refactor SDK alerts",
+        body: "Refactor SDK alerts is waiting for your response: Need guidance",
         metadata: expect.objectContaining({ requestId: "input-1", requestKind: "ask_user" }),
       }),
     );
@@ -127,6 +127,8 @@ describe("SDK alert watcher", () => {
       expect.objectContaining({
         type: "sdk-permission-required",
         sessionId: "sdk-1",
+        sessionSummary: "Refactor SDK alerts",
+        body: "Refactor SDK alerts is waiting for permission: Approve tool",
         metadata: expect.objectContaining({
           requestId: "perm-1",
           requestKind: "tool_permission",
@@ -149,7 +151,8 @@ describe("SDK alert watcher", () => {
       expect.objectContaining({
         type: "sdk-session-error",
         sessionId: "sdk-1",
-        body: expect.stringContaining("bridge failed"),
+        sessionSummary: "Refactor SDK alerts",
+        body: "Refactor SDK alerts: bridge failed",
       }),
     );
   });
@@ -273,6 +276,26 @@ describe("SDK alert watcher", () => {
         status: "unknown",
         pendingUserInput: {
           requestId: "input-2",
+          kind: "ask_user",
+          summary: null,
+          payload: null,
+          requestedAt: "2026-04-27T00:00:01Z",
+        },
+      }),
+    });
+
+    expect(mocks.dispatchAlert).not.toHaveBeenCalled();
+  });
+
+  it("ignores live states that are not tracked by the SDK bridge", () => {
+    mocks.prefs.alertsScope = "all";
+
+    checkSdkSessionStateAlerts({
+      "untracked-sdk": makeState({
+        sessionId: "untracked-sdk",
+        status: "waiting_for_input",
+        pendingUserInput: {
+          requestId: "input-untracked",
           kind: "ask_user",
           summary: null,
           payload: null,

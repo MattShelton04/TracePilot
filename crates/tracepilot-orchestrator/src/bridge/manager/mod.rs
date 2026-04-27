@@ -17,11 +17,8 @@
 
 use super::live_state::{LiveStateStore, SessionLiveState, SessionRuntimeStatus};
 use super::{BridgeConnectionState, BridgeError, BridgeEvent, BridgeStatus, ConnectionMode};
-use crate::bridge::registry::SessionRegistry;
 use std::collections::HashMap;
-use std::path::Path;
 use std::sync::Arc;
-use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::sync::{RwLock, broadcast};
 
@@ -118,7 +115,6 @@ pub struct BridgeManager {
     pub(super) client: Option<copilot_sdk::Client>,
     pub(super) sessions: HashMap<String, Arc<copilot_sdk::Session>>,
     pub(super) event_tasks: HashMap<String, tokio::task::JoinHandle<()>>,
-    pub(super) registry: Option<Arc<Mutex<SessionRegistry>>>,
 }
 
 impl BridgeManager {
@@ -152,33 +148,8 @@ impl BridgeManager {
             client: None,
             sessions: HashMap::new(),
             event_tasks: HashMap::new(),
-            registry: None,
         };
         (manager, rx, status_rx)
-    }
-
-    /// Open or create the persistent SDK session registry.
-    pub fn init_registry(&mut self, path: &Path) -> Result<(), BridgeError> {
-        let registry = SessionRegistry::open_or_create(path)
-            .map_err(|e| BridgeError::Registry(e.to_string()))?;
-        self.registry = Some(Arc::new(Mutex::new(registry)));
-        self.mark_stale_registry_sessions_unknown();
-        Ok(())
-    }
-
-    /// Open the default registry path under the TracePilot Copilot home.
-    pub fn init_default_registry(&mut self) -> Result<(), BridgeError> {
-        let path =
-            SessionRegistry::default_path().map_err(|e| BridgeError::Registry(e.to_string()))?;
-        self.init_registry(&path)
-    }
-
-    #[cfg(test)]
-    pub fn init_memory_registry(&mut self) -> Result<(), BridgeError> {
-        let registry =
-            SessionRegistry::in_memory().map_err(|e| BridgeError::Registry(e.to_string()))?;
-        self.registry = Some(Arc::new(Mutex::new(registry)));
-        Ok(())
     }
 
     /// Install the runtime preference reader. See [`CopilotSdkEnabledReader`].
@@ -307,27 +278,5 @@ impl BridgeManager {
         self.sessions
             .get(session_id)
             .ok_or_else(|| BridgeError::SessionNotFound(session_id.to_string()))
-    }
-
-    pub(super) fn with_registry<T>(
-        &self,
-        f: impl FnOnce(&SessionRegistry) -> crate::Result<T>,
-    ) -> Result<Option<T>, BridgeError> {
-        let Some(registry) = &self.registry else {
-            return Ok(None);
-        };
-        let guard = registry
-            .lock()
-            .map_err(|_| BridgeError::Registry("SDK session registry mutex poisoned".into()))?;
-        f(&guard)
-            .map(Some)
-            .map_err(|e| BridgeError::Registry(e.to_string()))
-    }
-
-    pub(super) fn mark_stale_registry_sessions_unknown(&self) {
-        let active = self.sessions.keys().cloned().collect();
-        if let Err(err) = self.with_registry(|registry| registry.mark_unknown_except(&active)) {
-            tracing::warn!(error = %err, "Failed to mark stale SDK registry sessions unknown");
-        }
     }
 }

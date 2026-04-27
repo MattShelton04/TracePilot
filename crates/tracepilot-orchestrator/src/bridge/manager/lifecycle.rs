@@ -4,7 +4,6 @@
 
 use super::BridgeManager;
 use crate::bridge::live_state::SessionRuntimeStatus;
-use crate::bridge::registry::RuntimeSessionState;
 use crate::bridge::{BridgeConnectConfig, BridgeConnectionState, BridgeError, ConnectionMode};
 
 use tracing::{info, warn};
@@ -87,7 +86,6 @@ impl BridgeManager {
 
         self.client = Some(client);
         self.state = BridgeConnectionState::Connected;
-        self.auto_resume_recoverable_sessions().await;
         self.emit_status_change();
         info!("Copilot SDK bridge connected");
         Ok(())
@@ -102,14 +100,6 @@ impl BridgeManager {
         self.sessions.clear();
         for session_id in &active_session_ids {
             self.mark_live_session_status(session_id, SessionRuntimeStatus::Unknown, None);
-        }
-        if let Err(err) = self.with_registry(|registry| {
-            for session_id in &active_session_ids {
-                registry.mark_runtime(session_id, RuntimeSessionState::Unknown, None)?;
-            }
-            Ok(())
-        }) {
-            warn!(error = %err, "Failed to mark SDK registry sessions unknown on disconnect");
         }
 
         if let Some(client) = self.client.take() {

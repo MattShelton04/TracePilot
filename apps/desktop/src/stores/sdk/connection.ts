@@ -32,8 +32,6 @@ import type {
   BridgeSessionInfo,
   BridgeStatus,
   DetectedUiServer,
-  SdkRecoveryDecision,
-  SdkRegistryRecord,
   SessionLiveState,
 } from "@tracepilot/types";
 import { runMutation, toErrorMessage } from "@tracepilot/ui";
@@ -63,8 +61,6 @@ export function createConnectionSlice(deps: ConnectionDeps) {
   const sessions = ref<BridgeSessionInfo[]>([]);
   const models = ref<BridgeModelInfo[]>([]);
   const bridgeMetrics = ref<BridgeMetricsSnapshot | null>(null);
-  const registrySessions = ref<SdkRegistryRecord[]>([]);
-  const recoveryDecisions = ref<SdkRecoveryDecision[]>([]);
   const sessionStatesById = shallowRef<Record<string, SessionLiveState>>({});
   const recentEvents = shallowRef<BridgeEvent[]>([]);
   const detectedServers = ref<DetectedUiServer[]>([]);
@@ -175,8 +171,6 @@ export function createConnectionSlice(deps: ConnectionDeps) {
       sessionStatesById.value = Object.fromEntries(
         (snapshot.sessionStates ?? []).map((state) => [state.sessionId, state]),
       );
-      registrySessions.value = snapshot.registrySessions;
-      recoveryDecisions.value = snapshot.recovery;
       activeSessions.value = countActiveSessions(snapshot.sessions);
       bridgeMetrics.value = snapshot.metrics;
       return snapshot.status;
@@ -231,8 +225,6 @@ export function createConnectionSlice(deps: ConnectionDeps) {
       connectionMode.value = null;
       sessions.value = [];
       sessionStatesById.value = {};
-      registrySessions.value = [];
-      recoveryDecisions.value = [];
       bridgeMetrics.value = null;
       deps.onDisconnect?.();
       activeSessions.value = 0;
@@ -356,8 +348,6 @@ export function createConnectionSlice(deps: ConnectionDeps) {
     sessions,
     models,
     bridgeMetrics,
-    registrySessions,
-    recoveryDecisions,
     sessionStatesById,
     recentEvents,
     detectedServers,

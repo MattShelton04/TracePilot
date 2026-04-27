@@ -175,16 +175,12 @@ const sessionCountLabel = computed(() => {
 const sessionRows = computed(() => {
   return sdk.sessions
     .map((session) => {
-      const registry = sdk.registrySessions.find(
-        (record) => record.sessionId === session.sessionId,
-      );
       const live = sdk.sessionStatesById[session.sessionId];
       return {
         id: session.sessionId,
         shortId: shortId(session.sessionId),
-        origin: registry?.origin ?? "runtime",
-        model: session.model ?? registry?.model ?? "default",
-        cwd: session.workingDirectory ?? registry?.workingDirectory ?? "-",
+        model: session.model ?? "default",
+        cwd: session.workingDirectory ?? "-",
         lifecycle: "active",
         liveStatus: live?.status ?? "-",
         isActive: session.isActive,
@@ -195,14 +191,6 @@ const sessionRows = computed(() => {
 });
 
 const hasSessionRows = computed(() => sessionRows.value.length > 0);
-const registrySummary = computed(() => {
-  const total = sdk.registrySessions.length;
-  if (total === 0) return "No recovery metadata";
-  const recovery = sdk.recoveryDecisions.filter((decision) => decision.shouldAutoResume).length;
-  return `${total} recovery metadata record${total === 1 ? "" : "s"} (not active sessions)${
-    recovery > 0 ? ` · ${recovery} recovery candidate${recovery === 1 ? "" : "s"}` : ""
-  }`;
-});
 
 function shortId(id: string): string {
   return id.length > 12 ? `${id.slice(0, 8)}...` : id;
@@ -403,7 +391,6 @@ function isActiveServer(address: string) {
               <span class="sdk-session-dot sdk-session-dot--active" />
             <span class="sdk-session-id" :title="row.id">{{ row.shortId }}</span>
             <span v-if="row.isForeground" class="sdk-session-badge">Foreground</span>
-            <span class="sdk-session-badge sdk-session-badge--muted">{{ row.origin }}</span>
           </div>
           <div class="sdk-session-meta">
             <span>{{ row.lifecycle }}</span>
@@ -478,7 +465,6 @@ function isActiveServer(address: string) {
             <div><span class="diag-key">cliVersion:</span> {{ sdk.cliVersion ?? "null" }}</div>
             <div><span class="diag-key">activeSessions:</span> {{ sdk.activeSessions }}</div>
             <div><span class="diag-key">trackedSessions:</span> {{ sdk.sessions.length }}</div>
-            <div><span class="diag-key">recoveryMetadata:</span> {{ registrySummary }}</div>
             <div><span class="diag-key">models.length:</span> {{ sdk.models.length }}</div>
             <div><span class="diag-key">detectedServers:</span> {{ sdk.detectedServers.length }}</div>
           </div>
@@ -720,12 +706,6 @@ function isActiveServer(address: string) {
   font-size: 0.75rem;
   line-height: 1.5;
 }
-.sdk-registry-summary {
-  padding: 0 12px 8px;
-  color: var(--text-tertiary);
-  font-size: 0.6875rem;
-}
-
 /* ─── URL input ──────────────────────────────── */
 .sdk-url-row {
   display: flex;

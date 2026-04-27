@@ -69,6 +69,15 @@ async function flashTaskbar(severity: AlertSeverity) {
   }
 }
 
+async function isAppFocused(): Promise<boolean> {
+  try {
+    const win = await getCurrentTauriWindow();
+    return Boolean(await win?.isFocused());
+  } catch {
+    return false;
+  }
+}
+
 // ── Channel: Native notification ─────────────────────────────────
 // Uses @tauri-apps/plugin-notification for reliable OS notifications.
 // Note: In dev mode, Windows may show the terminal icon (PowerShell/WT)
@@ -142,6 +151,36 @@ function showToast(title: string, body: string, severity: AlertSeverity) {
     default:
       toast.info(message, { duration: 5000 });
       break;
+  }
+}
+
+interface AttentionChannelOptions {
+  soundEnabled: boolean;
+  taskbarFlashEnabled: boolean;
+  nativeNotificationsEnabled: boolean;
+}
+
+async function dispatchAttentionChannels(
+  title: string,
+  body: string,
+  severity: AlertSeverity,
+  options: AttentionChannelOptions,
+) {
+  if (await isAppFocused()) {
+    logInfo("[alerts] App is focused; skipping sound, taskbar flash, and native notification");
+    return;
+  }
+
+  if (options.soundEnabled) {
+    playAlertSound(severity);
+  }
+
+  if (options.taskbarFlashEnabled) {
+    await flashTaskbar(severity);
+  }
+
+  if (options.nativeNotificationsEnabled) {
+    await sendNativeNotification(title, body);
   }
 }
 
@@ -256,22 +295,11 @@ export function dispatchAlert(options: DispatchAlertOptions): AlertEvent | null 
   // Always show in-app toast
   showToast(options.title, options.body, severity);
 
-  // Sound
-  if (prefs.alertsSoundEnabled) {
-    playAlertSound(severity);
-  }
-
-  // Taskbar flash
-  if (prefs.alertsTaskbarFlash) {
-    flashTaskbar(severity).catch((e) => logWarn("[alerts] Taskbar flash failed:", e));
-  }
-
-  // Native OS notification
-  if (prefs.alertsNativeNotifications) {
-    sendNativeNotification(options.title, options.body).catch((e) =>
-      logError("[alerts] Native notification failed:", e),
-    );
-  }
+  dispatchAttentionChannels(options.title, options.body, severity, {
+    soundEnabled: prefs.alertsSoundEnabled,
+    taskbarFlashEnabled: prefs.alertsTaskbarFlash,
+    nativeNotificationsEnabled: prefs.alertsNativeNotifications,
+  }).catch((e) => logError("[alerts] Attention channel dispatch failed:", e));
 
   return alert;
 }

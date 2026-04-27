@@ -1,20 +1,3 @@
-const registryRecord = {
-  sessionId: "tracked-1",
-  origin: "manual-link",
-  connectionMode: "stdio",
-  cliUrl: null,
-  workingDirectory: "C:\\work",
-  model: "gpt-5.5",
-  reasoningEffort: null,
-  agent: null,
-  desiredState: "tracked",
-  runtimeState: "unknown",
-  linkedAt: "2026-04-27T00:00:00Z",
-  lastSeenAt: "2026-04-27T00:00:00Z",
-  lastEventId: null,
-  lastError: null,
-};
-
 export const hydratedBridgeState = {
   status: {
     state: "connected",
@@ -47,15 +30,6 @@ export const hydratedBridgeState = {
       lastEventTimestamp: null,
       lastError: null,
       reducerWarnings: [],
-    },
-  ],
-  registrySessions: [registryRecord],
-  recovery: [
-    {
-      sessionId: "tracked-1",
-      shouldAutoResume: false,
-      reason: "origin requires explicit user action",
-      record: registryRecord,
     },
   ],
 };
