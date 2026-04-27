@@ -2,10 +2,10 @@
  * SDK messaging / session-steering slice.
  *
  * Owns per-session steering actions (send message, abort, resume, create,
- * destroy, unlink, set-mode, set-model, foreground selection) plus the
- * `sendingMessage` flag. Does **not** trigger `session.resume` implicitly —
- * resumption remains an explicit opt-in (see repo memory on SDK session
- * steering pitfalls).
+ * destroy, unlink, set-mode, set-model, foreground selection) plus a
+ * global `sendingMessage` flag (TODO: make per-session). Does **not** trigger
+ * `session.resume` implicitly — resumption remains an explicit opt-in (see
+ * repo memory on SDK session steering pitfalls).
  */
 
 import {

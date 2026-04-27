@@ -5,6 +5,7 @@ use serde_json::{Value, json};
 const MAX_TEXT_PREVIEW_CHARS: usize = 16 * 1024;
 const MAX_TOOLS: usize = 32;
 const MAX_PARTIAL_RESULT_CHARS: usize = 2048;
+const MAX_REDUCER_WARNINGS: usize = 8;
 
 pub fn apply_event(state: &mut SessionLiveState, event: &BridgeEvent) {
     state.last_event_id = event.id.clone();
@@ -89,12 +90,15 @@ fn start_turn(state: &mut SessionLiveState) {
     state.pending_permission = None;
     state.pending_user_input = None;
     state.last_error = None;
+    state.reducer_warnings.clear();
 }
 
 fn record_error(state: &mut SessionLiveState, event: &BridgeEvent) {
     state.status = SessionRuntimeStatus::Error;
-    state.last_error = string_field(&event.data, &["message", "error", "details"])
-        .or_else(|| Some(event.data.to_string()));
+    state.last_error = Some(
+        string_field(&event.data, &["message", "error", "details"])
+            .unwrap_or_else(|| event.data.to_string()),
+    );
 }
 
 fn upsert_tool(state: &mut SessionLiveState, event: &BridgeEvent, fallback_status: &str) {
@@ -251,7 +255,7 @@ fn compact_partial_result(value: &Value) -> Value {
             json!({ "truncated": true, "preview": truncate_string(s, MAX_PARTIAL_RESULT_CHARS) })
         }
         Value::String(_) | Value::Null | Value::Bool(_) | Value::Number(_) => value.clone(),
-        _ => match serde_json::to_string(value) {
+        Value::Array(_) | Value::Object(_) => match serde_json::to_string(value) {
             Ok(serialized) if serialized.len() > MAX_PARTIAL_RESULT_CHARS => {
                 json!({ "truncated": true, "preview": truncate_string(&serialized, MAX_PARTIAL_RESULT_CHARS) })
             }
@@ -282,7 +286,6 @@ fn warn(state: &mut SessionLiveState, event: &BridgeEvent, warning: &str) {
     {
         state.reducer_warnings.push(msg);
     }
-    const MAX_REDUCER_WARNINGS: usize = 8;
     if state.reducer_warnings.len() > MAX_REDUCER_WARNINGS {
         let overflow = state.reducer_warnings.len() - MAX_REDUCER_WARNINGS;
         state.reducer_warnings.drain(0..overflow);

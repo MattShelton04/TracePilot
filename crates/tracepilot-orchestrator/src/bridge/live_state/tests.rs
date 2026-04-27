@@ -240,3 +240,21 @@ fn unknown_event_only_updates_metadata() {
     assert_eq!(state.status, SessionRuntimeStatus::Unknown);
     assert_eq!(state.last_event_type.as_deref(), Some("custom.event"));
 }
+
+#[test]
+fn turn_start_clears_reducer_warnings() {
+    let store = LiveStateStore::new();
+    // Trigger a warning by sending a malformed tool event
+    let mut state = store.apply_event(&event("tool.execution_start", json!("not an object")));
+    assert!(
+        !state.reducer_warnings.is_empty(),
+        "Expected warning to be recorded"
+    );
+
+    // Start a new turn
+    state = store.apply_event(&event("assistant.turn_start", json!({"turnId": "turn-2"})));
+    assert!(
+        state.reducer_warnings.is_empty(),
+        "Expected warnings to be cleared on turn_start"
+    );
+}
