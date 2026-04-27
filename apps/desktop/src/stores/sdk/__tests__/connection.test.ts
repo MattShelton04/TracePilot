@@ -19,6 +19,11 @@ vi.mock("@tracepilot/client", () => ({
   sdkDisconnect: vi.fn(async () => {}),
   sdkGetAuthStatus: vi.fn(async () => null),
   sdkGetQuota: vi.fn(async () => null),
+  sdkHydrate: vi.fn(async () => ({
+    status: defaultStatus,
+    sessions: [],
+    metrics: { eventsForwarded: 0, eventsDroppedDueToLag: 0, lagOccurrences: 0 },
+  })),
   sdkLaunchUiServer: vi.fn(async () => 42),
   sdkListModels: vi.fn(async () => []),
   sdkListSessions: vi.fn(async () => []),
@@ -91,6 +96,25 @@ describe("createConnectionSlice", () => {
     expect(slice.sessions.value).toHaveLength(0);
     expect(slice.activeSessions.value).toBe(0);
     expect(deps.onDisconnect).toHaveBeenCalledOnce();
+  });
+
+  it("hydrate applies backend status and tracked sessions without connecting", async () => {
+    (client.sdkHydrate as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      status: { ...defaultStatus, activeSessions: 1 },
+      sessions: [{ sessionId: "tracked-1", isActive: true }],
+      metrics: {
+        eventsForwarded: 2,
+        eventsDroppedDueToLag: 0,
+        lagOccurrences: 0,
+      },
+    });
+    const slice = createConnectionSlice(makeDeps());
+    const status = await slice.hydrate();
+    expect(status?.state).toBe("connected");
+    expect(slice.isConnected.value).toBe(true);
+    expect(slice.sessions.value).toEqual([{ sessionId: "tracked-1", isActive: true }]);
+    expect(slice.bridgeMetrics.value?.eventsForwarded).toBe(2);
+    expect(client.sdkConnect).not.toHaveBeenCalled();
   });
 
   it("detectAndConnect returns false when no servers found", async () => {

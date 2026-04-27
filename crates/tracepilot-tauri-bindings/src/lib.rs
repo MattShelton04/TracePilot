@@ -282,10 +282,11 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::tasks::task_orchestrator_stop,
             commands::tasks::task_ingest_results,
             commands::tasks::task_attribution,
-            // SDK bridge commands (15)
+            // SDK bridge commands
             commands::sdk::sdk_connect,
             commands::sdk::sdk_disconnect,
             commands::sdk::sdk_status,
+            commands::sdk::sdk_hydrate,
             commands::sdk::sdk_cli_status,
             commands::sdk::sdk_create_session,
             commands::sdk::sdk_resume_session,

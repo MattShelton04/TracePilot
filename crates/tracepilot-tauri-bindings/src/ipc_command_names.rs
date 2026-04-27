@@ -184,6 +184,7 @@ pub const IPC_COMMAND_NAMES: &[&str] = &[
     "sdk_connect",
     "sdk_disconnect",
     "sdk_status",
+    "sdk_hydrate",
     "sdk_cli_status",
     "sdk_create_session",
     "sdk_resume_session",

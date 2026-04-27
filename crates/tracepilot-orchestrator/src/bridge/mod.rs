@@ -152,6 +152,18 @@ pub struct BridgeStatus {
     pub connection_mode: Option<ConnectionMode>,
 }
 
+/// Renderer hydration snapshot for the SDK bridge.
+///
+/// `sessions` contains only sessions currently tracked by this process'
+/// [`BridgeManager`], not the CLI's historical session list.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BridgeHydrationSnapshot {
+    pub status: BridgeStatus,
+    pub sessions: Vec<BridgeSessionInfo>,
+    pub metrics: manager::BridgeMetricsSnapshot,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BridgeAuthStatus {

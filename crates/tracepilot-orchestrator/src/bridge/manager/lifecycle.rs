@@ -8,33 +8,43 @@ use crate::bridge::{BridgeConnectConfig, BridgeConnectionState, BridgeError, Con
 use tracing::{info, warn};
 
 impl BridgeManager {
+    fn requested_connection_mode(config: &BridgeConnectConfig) -> ConnectionMode {
+        if config.cli_url.is_some() {
+            ConnectionMode::Tcp
+        } else {
+            ConnectionMode::Stdio
+        }
+    }
+
+    fn is_same_connection_config(&self, config: &BridgeConnectConfig) -> bool {
+        self.connection_mode == Some(Self::requested_connection_mode(config))
+            && self.cli_url.as_deref() == config.cli_url.as_deref()
+            && self.connection_cwd.as_deref() == config.cwd.as_deref()
+    }
+
     /// Connect to the Copilot CLI via the SDK.
     ///
     /// If `config.cli_url` is set, connects to an existing `copilot --ui-server`.
     /// Otherwise, spawns a new CLI process via stdio.
     pub async fn connect(&mut self, config: BridgeConnectConfig) -> Result<(), BridgeError> {
-        self.check_preference_enabled()?;
-
-        // If already connected, auto-disconnect first (idempotent reconnect).
         if self.state == BridgeConnectionState::Connected {
-            info!("Already connected — disconnecting before reconnect");
-            if let Err(e) = self.disconnect().await {
-                // best-effort: reconnect proceeds even if the previous disconnect
-                // surfaced an error — the new connect() reinitialises all state.
-                tracing::debug!(error = %e, "disconnect-before-reconnect returned error (ignored)");
+            if self.is_same_connection_config(&config) {
+                info!("Already connected with matching SDK bridge config — keeping connection");
+                self.emit_status_change();
+                return Ok(());
             }
+            return Err(BridgeError::AlreadyConnected);
         }
+
+        self.check_preference_enabled()?;
 
         self.state = BridgeConnectionState::Connecting;
         self.error_message = None;
 
-        // Track connection mode based on config
-        self.connection_mode = Some(if config.cli_url.is_some() {
-            ConnectionMode::Tcp
-        } else {
-            ConnectionMode::Stdio
-        });
+        // Track connection identity for idempotent renderer hydration.
+        self.connection_mode = Some(Self::requested_connection_mode(&config));
         self.cli_url = config.cli_url.clone();
+        self.connection_cwd = config.cwd.clone();
 
         let mut builder = copilot_sdk::Client::builder();
 
@@ -98,6 +108,7 @@ impl BridgeManager {
         self.error_message = None;
         self.connection_mode = None;
         self.cli_url = None;
+        self.connection_cwd = None;
         self.emit_status_change();
         info!("Copilot SDK bridge disconnected");
         Ok(())

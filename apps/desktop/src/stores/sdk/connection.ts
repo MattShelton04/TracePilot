@@ -14,6 +14,7 @@ import {
   sdkDisconnect,
   sdkGetAuthStatus,
   sdkGetQuota,
+  sdkHydrate,
   sdkLaunchUiServer,
   sdkListModels,
   sdkListSessions,
@@ -24,6 +25,7 @@ import type {
   BridgeConnectConfig,
   BridgeConnectionState,
   BridgeEvent,
+  BridgeMetricsSnapshot,
   BridgeModelInfo,
   BridgeQuota,
   BridgeSessionInfo,
@@ -56,6 +58,7 @@ export function createConnectionSlice(deps: ConnectionDeps) {
   const quota = ref<BridgeQuota | null>(null);
   const sessions = ref<BridgeSessionInfo[]>([]);
   const models = ref<BridgeModelInfo[]>([]);
+  const bridgeMetrics = ref<BridgeMetricsSnapshot | null>(null);
   const recentEvents = shallowRef<BridgeEvent[]>([]);
   const detectedServers = ref<DetectedUiServer[]>([]);
   const detecting = ref(false);
@@ -144,6 +147,20 @@ export function createConnectionSlice(deps: ConnectionDeps) {
     );
   }
 
+  async function hydrate(): Promise<BridgeStatus | null> {
+    try {
+      const snapshot = await sdkHydrate();
+      applyStatus(snapshot.status);
+      sessions.value = snapshot.sessions;
+      activeSessions.value = snapshot.sessions.length;
+      bridgeMetrics.value = snapshot.metrics;
+      return snapshot.status;
+    } catch (e) {
+      logWarn("[sdk] Failed to hydrate bridge state", e);
+      return null;
+    }
+  }
+
   async function connect(config: BridgeConnectConfig = {}): Promise<boolean> {
     connecting.value = true;
     lastError.value = null;
@@ -188,6 +205,7 @@ export function createConnectionSlice(deps: ConnectionDeps) {
       connectionState.value = "disconnected";
       connectionMode.value = null;
       sessions.value = [];
+      bridgeMetrics.value = null;
       deps.onDisconnect?.();
       activeSessions.value = 0;
     });
@@ -290,6 +308,7 @@ export function createConnectionSlice(deps: ConnectionDeps) {
     quota,
     sessions,
     models,
+    bridgeMetrics,
     recentEvents,
     detectedServers,
     detecting,
@@ -311,6 +330,7 @@ export function createConnectionSlice(deps: ConnectionDeps) {
     fetchModels,
     fetchVersionInfo,
     hydrateAfterConnect,
+    hydrate,
     detectUiServer,
     detectAndConnect,
     connectToServer,

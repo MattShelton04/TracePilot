@@ -5,10 +5,36 @@
 use super::BridgeManager;
 use crate::bridge::BridgeQuotaSnapshot;
 use crate::bridge::{
-    BridgeAuthStatus, BridgeError, BridgeModelInfo, BridgeQuota, BridgeSessionInfo, BridgeStatus,
+    BridgeAuthStatus, BridgeError, BridgeHydrationSnapshot, BridgeModelInfo, BridgeQuota,
+    BridgeSessionInfo, BridgeStatus,
 };
 
 impl BridgeManager {
+    /// Return sessions currently tracked by this manager.
+    pub fn tracked_sessions(&self) -> Vec<BridgeSessionInfo> {
+        self.sessions
+            .keys()
+            .map(|session_id| BridgeSessionInfo {
+                session_id: session_id.clone(),
+                model: None,
+                working_directory: None,
+                mode: None,
+                is_active: true,
+                resume_error: None,
+                is_remote: false,
+            })
+            .collect()
+    }
+
+    /// Return a no-side-effect snapshot for renderer hydration after reload.
+    pub fn hydrate(&self) -> BridgeHydrationSnapshot {
+        BridgeHydrationSnapshot {
+            status: self.status(),
+            sessions: self.tracked_sessions(),
+            metrics: self.metrics_snapshot(),
+        }
+    }
+
     /// List all sessions known to the SDK client.
     /// Sessions that have been resumed locally are marked `is_active: true`.
     /// Others are listed from the CLI's session metadata (may not be resumable).

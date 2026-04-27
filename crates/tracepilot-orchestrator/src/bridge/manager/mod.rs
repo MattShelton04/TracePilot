@@ -29,6 +29,8 @@ mod session_tasks;
 mod ui_server;
 
 #[cfg(test)]
+mod lifecycle_tests;
+#[cfg(test)]
 mod preference_tests;
 #[cfg(test)]
 mod tests;
@@ -92,6 +94,10 @@ pub struct BridgeManager {
     /// TCP server URL when in TCP mode — used for raw JSON-RPC calls
     /// that bypass the SDK (workaround for upstream method name bugs).
     pub(super) cli_url: Option<String>,
+    /// Working directory used for the active connection. Stored to make
+    /// renderer re-hydration reconnect attempts idempotent without retaining
+    /// secrets such as GitHub tokens.
+    pub(super) connection_cwd: Option<String>,
     pub(super) event_tx: broadcast::Sender<BridgeEvent>,
     pub(super) status_tx: broadcast::Sender<BridgeStatus>,
     pub(super) metrics: Arc<BridgeMetrics>,
@@ -124,6 +130,7 @@ impl BridgeManager {
             error_message: None,
             connection_mode: None,
             cli_url: None,
+            connection_cwd: None,
             event_tx: tx,
             status_tx,
             metrics: Arc::new(BridgeMetrics::default()),

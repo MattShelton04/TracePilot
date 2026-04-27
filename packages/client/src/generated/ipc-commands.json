@@ -106,6 +106,7 @@
   "sdk_get_auth_status",
   "sdk_get_foreground_session",
   "sdk_get_quota",
+  "sdk_hydrate",
   "sdk_launch_ui_server",
   "sdk_list_models",
   "sdk_list_sessions",

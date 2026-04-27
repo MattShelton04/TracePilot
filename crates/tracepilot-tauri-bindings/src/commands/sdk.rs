@@ -9,8 +9,9 @@
 use crate::error::CmdResult;
 use tracepilot_orchestrator::bridge::manager::{BridgeMetricsSnapshot, SharedBridgeManager};
 use tracepilot_orchestrator::bridge::{
-    BridgeAuthStatus, BridgeConnectConfig, BridgeMessagePayload, BridgeModelInfo, BridgeQuota,
-    BridgeSessionConfig, BridgeSessionInfo, BridgeSessionMode, BridgeStatus, DetectedUiServer,
+    BridgeAuthStatus, BridgeConnectConfig, BridgeHydrationSnapshot, BridgeMessagePayload,
+    BridgeModelInfo, BridgeQuota, BridgeSessionConfig, BridgeSessionInfo, BridgeSessionMode,
+    BridgeStatus, DetectedUiServer,
 };
 
 // ─── Connection Lifecycle ─────────────────────────────────────────
@@ -40,6 +41,14 @@ pub async fn sdk_disconnect(
 pub async fn sdk_status(bridge: tauri::State<'_, SharedBridgeManager>) -> CmdResult<BridgeStatus> {
     let mgr = bridge.read().await;
     Ok(mgr.status())
+}
+
+#[tauri::command]
+pub async fn sdk_hydrate(
+    bridge: tauri::State<'_, SharedBridgeManager>,
+) -> CmdResult<BridgeHydrationSnapshot> {
+    let mgr = bridge.read().await;
+    Ok(mgr.hydrate())
 }
 
 #[tauri::command]

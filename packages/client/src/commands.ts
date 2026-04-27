@@ -154,6 +154,7 @@ export const IPC_COMMANDS = [
   "sdk_connect",
   "sdk_disconnect",
   "sdk_status",
+  "sdk_hydrate",
   "sdk_cli_status",
   "sdk_create_session",
   "sdk_resume_session",

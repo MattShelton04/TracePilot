@@ -143,6 +143,7 @@ export type {
   BridgeConnectConfig,
   BridgeConnectionState,
   BridgeEvent,
+  BridgeHydrationSnapshot,
   BridgeMessagePayload,
   BridgeMetricsSnapshot,
   BridgeModelInfo,

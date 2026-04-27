@@ -74,6 +74,13 @@ export interface BridgeMetricsSnapshot {
   lagOccurrences: number;
 }
 
+export interface BridgeHydrationSnapshot {
+  status: BridgeStatus;
+  /** Sessions currently tracked by this bridge manager, not all historical CLI sessions. */
+  sessions: BridgeSessionInfo[];
+  metrics: BridgeMetricsSnapshot;
+}
+
 export interface BridgeSessionInfo {
   sessionId: string;
   model: string | null;

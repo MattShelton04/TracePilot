@@ -3,6 +3,7 @@
 import type {
   BridgeAuthStatus,
   BridgeConnectConfig,
+  BridgeHydrationSnapshot,
   BridgeMessagePayload,
   BridgeMetricsSnapshot,
   BridgeModelInfo,
@@ -29,6 +30,10 @@ export async function sdkDisconnect(): Promise<void> {
 
 export async function sdkStatus(): Promise<BridgeStatus> {
   return invoke<BridgeStatus>("sdk_status");
+}
+
+export async function sdkHydrate(): Promise<BridgeHydrationSnapshot> {
+  return invoke<BridgeHydrationSnapshot>("sdk_hydrate");
 }
 
 export async function sdkCliStatus(): Promise<BridgeStatus> {

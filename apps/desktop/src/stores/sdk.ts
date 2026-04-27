@@ -17,7 +17,7 @@
  */
 
 import type { UnlistenFn } from "@tauri-apps/api/event";
-import { IPC_EVENTS, sdkDisconnect } from "@tracepilot/client";
+import { IPC_EVENTS } from "@tracepilot/client";
 import type { BridgeEvent, BridgeStatus } from "@tracepilot/types";
 import { defineStore } from "pinia";
 import { watch } from "vue";
@@ -84,20 +84,16 @@ export const useSdkStore = defineStore("sdk", () => {
 
   initEventListeners();
 
-  // Disconnect when browser window unloads (app close / refresh).
-  // Only the main window owns the SDK connection lifecycle.
   const { isMain } = useWindowRole();
-  if (typeof window !== "undefined") {
-    window.addEventListener("beforeunload", () => {
-      if (isMain() && connection.connectionState.value === "connected") {
-        sdkDisconnect().catch(() => {});
-      }
-    });
-  }
 
   // Auto-connect when copilotSdk feature is enabled
   const prefs = usePreferencesStore();
   async function autoConnect() {
+    const hydratedStatus = await connection.hydrate();
+    if (hydratedStatus?.state === "connected") {
+      logInfo("[sdk] Backend bridge already connected; using hydrated state");
+      return;
+    }
     if (
       prefs.isFeatureEnabled("copilotSdk") &&
       connection.connectionState.value === "disconnected" &&
@@ -119,7 +115,7 @@ export const useSdkStore = defineStore("sdk", () => {
   watch(
     () => prefs.isFeatureEnabled("copilotSdk"),
     (enabled) => {
-      if (!enabled && connection.connectionState.value !== "disconnected") {
+      if (isMain() && !enabled && connection.connectionState.value !== "disconnected") {
         logInfo("[sdk] Feature toggle disabled — disconnecting SDK bridge");
         connection.disconnect();
       }
@@ -146,6 +142,7 @@ export const useSdkStore = defineStore("sdk", () => {
     quota: connection.quota,
     sessions: connection.sessions,
     models: connection.models,
+    bridgeMetrics: connection.bridgeMetrics,
     recentEvents: connection.recentEvents,
     detectedServers: connection.detectedServers,
     detecting: connection.detecting,
@@ -169,6 +166,7 @@ export const useSdkStore = defineStore("sdk", () => {
     connect: connection.connect,
     disconnect: connection.disconnect,
     autoConnect,
+    hydrate: connection.hydrate,
     refreshStatus: connection.refreshStatus,
     checkCliStatus: connection.checkCliStatus,
     fetchAuthStatus: connection.fetchAuthStatus,
