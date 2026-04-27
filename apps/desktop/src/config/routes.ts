@@ -11,7 +11,6 @@
  */
 export const ROUTE_NAMES = {
   sessions: "sessions",
-  sessionDetail: "session-detail",
   sessionOverview: "session-overview",
   sessionConversation: "session-conversation",
   sessionEvents: "session-events",
