@@ -1,7 +1,7 @@
 /**
  * SDK connection slice. Owns connection lifecycle (connect/disconnect,
  * status, UI server detect/launch) and caches hydrated after connect
- * (auth, quota, sessions, models, recent events).
+ * (auth, quota, tracked sessions, models, recent events).
  *
  * IPC semantics preserved: `session.resume` is never implicitly invoked;
  * `isActive` gating lives with the explicit `resumeSession` (messaging slice).
@@ -133,9 +133,9 @@ export function createConnectionSlice(deps: ConnectionDeps) {
       sessions.value = await sdkListSessions();
       activeSessions.value = countActiveSessions(sessions.value);
       logInfo(
-        "[sdk] Sessions fetched:",
+        "[sdk] Tracked sessions fetched:",
         sessions.value.length,
-        "total,",
+        "tracked,",
         sessions.value.filter((s) => s.isActive).length,
         "active",
       );

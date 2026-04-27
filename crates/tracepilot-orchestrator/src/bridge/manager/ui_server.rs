@@ -104,12 +104,14 @@ pub async fn stop_ui_server(pid: u32) -> Result<(), BridgeError> {
     #[cfg(windows)]
     let cmd = {
         let mut cmd = crate::process::hidden_command("powershell");
-        cmd.args([
-            "-NoProfile",
-            "-NonInteractive",
-            "-Command",
-            &format!("Stop-Process -Id {pid} -ErrorAction Stop"),
-        ]);
+        let script = format!(
+            "$p = Get-CimInstance Win32_Process -Filter \"ProcessId = {pid}\"; \
+             if (-not $p -or $p.Name -notmatch 'copilot' -or $p.CommandLine -notmatch '(ui-server|--server)') {{ \
+               throw 'PID {pid} is no longer a copilot --ui-server process' \
+             }}; \
+             Stop-Process -Id {pid} -ErrorAction Stop"
+        );
+        cmd.args(["-NoProfile", "-NonInteractive", "-Command", &script]);
         cmd
     };
 

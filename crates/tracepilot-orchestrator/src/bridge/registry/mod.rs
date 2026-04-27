@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS sdk_session_registry (
 CREATE INDEX IF NOT EXISTS idx_sdk_session_registry_desired
     ON sdk_session_registry(desired_state, runtime_state);
 "#;
+const SCHEMA_VERSION: i64 = 1;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -166,6 +167,7 @@ impl SessionRegistry {
             .map_err(|e| OrchestratorError::task_ctx("Failed to set registry DB pragmas", e))?;
         conn.execute_batch(SCHEMA)
             .map_err(|e| OrchestratorError::task_ctx("Failed to migrate SDK registry", e))?;
+        migrate_user_version(&conn)?;
         Ok(Self { conn })
     }
 
@@ -257,29 +259,6 @@ impl SessionRegistry {
                 ],
             )
             .map_err(|e| OrchestratorError::task_ctx("Failed to update SDK desired state", e))?;
-        Ok(())
-    }
-
-    pub fn mark_event(
-        &self,
-        session_id: &str,
-        event_id: Option<&str>,
-        event_type: &str,
-    ) -> Result<()> {
-        let state = if event_type == "session.shutdown" || event_type.ends_with(".shutdown") {
-            RuntimeSessionState::Shutdown
-        } else {
-            RuntimeSessionState::Running
-        };
-        self.conn
-            .execute(
-                "UPDATE sdk_session_registry
-                 SET runtime_state = ?1, last_seen_at = ?2,
-                     last_event_id = COALESCE(?3, last_event_id)
-                 WHERE session_id = ?4",
-                params![state.as_str(), now(), event_id, session_id],
-            )
-            .map_err(|e| OrchestratorError::task_ctx("Failed to update SDK event marker", e))?;
         Ok(())
     }
 
@@ -375,6 +354,17 @@ impl SessionRegistry {
             .optional()
             .map_err(|e| OrchestratorError::task_ctx("Failed to read SDK registry timestamp", e))
     }
+}
+
+fn migrate_user_version(conn: &Connection) -> Result<()> {
+    let version: i64 = conn
+        .query_row("PRAGMA user_version", [], |row| row.get(0))
+        .map_err(|e| OrchestratorError::task_ctx("Failed to read SDK registry version", e))?;
+    if version == 0 {
+        conn.pragma_update(None, "user_version", SCHEMA_VERSION)
+            .map_err(|e| OrchestratorError::task_ctx("Failed to set SDK registry version", e))?;
+    }
+    Ok(())
 }
 
 fn row_to_record(row: &rusqlite::Row<'_>) -> rusqlite::Result<RegistryRecord> {

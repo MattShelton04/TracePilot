@@ -1,6 +1,10 @@
 use super::{PendingRequestSummary, SessionLiveState, SessionRuntimeStatus, ToolProgressSummary};
 use crate::bridge::BridgeEvent;
-use serde_json::Value;
+use serde_json::{Value, json};
+
+const MAX_TEXT_PREVIEW_CHARS: usize = 16 * 1024;
+const MAX_TOOLS: usize = 32;
+const MAX_PARTIAL_RESULT_CHARS: usize = 2048;
 
 pub fn apply_event(state: &mut SessionLiveState, event: &BridgeEvent) {
     state.last_event_id = event.id.clone();
@@ -11,7 +15,8 @@ pub fn apply_event(state: &mut SessionLiveState, event: &BridgeEvent) {
     }
 
     match event.event_type.as_str() {
-        "assistant.turn_start" | "user.message" => state.status = SessionRuntimeStatus::Running,
+        "assistant.turn_start" => start_turn(state),
+        "user.message" => state.status = SessionRuntimeStatus::Running,
         "assistant.message" | "assistant.message_delta" => {
             append_text(state, event, TextKind::Assistant)
         }
@@ -53,7 +58,7 @@ enum TextKind {
 
 fn append_text(state: &mut SessionLiveState, event: &BridgeEvent, kind: TextKind) {
     state.status = SessionRuntimeStatus::Running;
-    match string_field(
+    match event_text_field(
         &event.data,
         &[
             "deltaContent",
@@ -68,11 +73,22 @@ fn append_text(state: &mut SessionLiveState, event: &BridgeEvent, kind: TextKind
         ],
     ) {
         Some(delta) => match kind {
-            TextKind::Assistant => state.assistant_text.push_str(&delta),
-            TextKind::Reasoning => state.reasoning_text.push_str(&delta),
+            TextKind::Assistant => append_capped(&mut state.assistant_text, &delta),
+            TextKind::Reasoning => append_capped(&mut state.reasoning_text, &delta),
         },
         None => {}
     }
+}
+
+fn start_turn(state: &mut SessionLiveState) {
+    state.status = SessionRuntimeStatus::Running;
+    state.assistant_text.clear();
+    state.reasoning_text.clear();
+    state.tools.clear();
+    state.usage = None;
+    state.pending_permission = None;
+    state.pending_user_input = None;
+    state.last_error = None;
 }
 
 fn record_error(state: &mut SessionLiveState, event: &BridgeEvent) {
@@ -107,7 +123,7 @@ fn upsert_tool(state: &mut SessionLiveState, event: &BridgeEvent, fallback_statu
         .or_else(|| event.data.get("partial_result"))
         .or_else(|| event.data.get("partial_output"))
         .or_else(|| event.data.get("result"))
-        .cloned();
+        .map(compact_partial_result);
     let summary = ToolProgressSummary {
         tool_call_id: tool_call_id.clone(),
         tool_name,
@@ -134,6 +150,10 @@ fn upsert_tool(state: &mut SessionLiveState, event: &BridgeEvent, fallback_statu
         return;
     }
     state.tools.push(summary);
+    if state.tools.len() > MAX_TOOLS {
+        let overflow = state.tools.len() - MAX_TOOLS;
+        state.tools.drain(0..overflow);
+    }
 }
 
 fn request_summary(event: &BridgeEvent, kind: &str) -> PendingRequestSummary {
@@ -185,7 +205,25 @@ fn string_field(value: &Value, keys: &[&str]) -> Option<String> {
         .and_then(|m| m.get("content"))
         .and_then(Value::as_str)
         .map(str::to_string)
-        .or_else(|| recursive_string_field(value, keys, 0))
+}
+
+fn event_text_field(value: &Value, keys: &[&str]) -> Option<String> {
+    string_field(value, keys)
+        .or_else(|| string_at_any_key_path(value, &["message"], keys))
+        .or_else(|| string_at_any_key_path(value, &["event", "message"], keys))
+        .or_else(|| string_at_any_key_path(value, &["event", "delta"], keys))
+        .or_else(|| string_at_any_key_path(value, &["data", "message"], keys))
+        .or_else(|| string_at_any_key_path(value, &["data", "delta"], keys))
+}
+
+fn string_at_any_key_path(value: &Value, path: &[&str], keys: &[&str]) -> Option<String> {
+    let mut current = value;
+    for segment in path {
+        current = current.get(*segment)?;
+    }
+    keys.iter()
+        .find_map(|key| current.get(*key).and_then(Value::as_str))
+        .map(str::to_string)
 }
 
 fn number_field(value: &Value, keys: &[&str]) -> Option<f64> {
@@ -193,25 +231,44 @@ fn number_field(value: &Value, keys: &[&str]) -> Option<f64> {
         .find_map(|key| value.get(*key).and_then(Value::as_f64))
 }
 
-fn recursive_string_field(value: &Value, keys: &[&str], depth: usize) -> Option<String> {
-    if depth > 4 {
-        return None;
+fn append_capped(target: &mut String, delta: &str) {
+    target.push_str(delta);
+    if target.len() <= MAX_TEXT_PREVIEW_CHARS {
+        return;
     }
+    let mut start = target.len().saturating_sub(MAX_TEXT_PREVIEW_CHARS);
+    while start < target.len() && !target.is_char_boundary(start) {
+        start += 1;
+    }
+    target.drain(..start);
+}
+
+fn compact_partial_result(value: &Value) -> Value {
     match value {
-        Value::Object(map) => {
-            for key in keys {
-                if let Some(s) = map.get(*key).and_then(Value::as_str) {
-                    return Some(s.to_string());
-                }
-            }
-            map.values()
-                .find_map(|child| recursive_string_field(child, keys, depth + 1))
+        Value::String(s) if s.len() > MAX_PARTIAL_RESULT_CHARS => {
+            json!({ "truncated": true, "preview": truncate_string(s, MAX_PARTIAL_RESULT_CHARS) })
         }
-        Value::Array(items) => items
-            .iter()
-            .find_map(|child| recursive_string_field(child, keys, depth + 1)),
-        _ => None,
+        Value::String(_) | Value::Null | Value::Bool(_) | Value::Number(_) => value.clone(),
+        _ => match serde_json::to_string(value) {
+            Ok(serialized) if serialized.len() > MAX_PARTIAL_RESULT_CHARS => {
+                json!({ "truncated": true, "preview": truncate_string(&serialized, MAX_PARTIAL_RESULT_CHARS) })
+            }
+            _ => value.clone(),
+        },
     }
+}
+
+fn truncate_string(value: &str, max_len: usize) -> String {
+    if value.len() <= max_len {
+        return value.to_string();
+    }
+    let end = value
+        .char_indices()
+        .map(|(idx, _)| idx)
+        .take_while(|idx| *idx <= max_len)
+        .last()
+        .unwrap_or(0);
+    format!("{}…", &value[..end])
 }
 
 fn warn(state: &mut SessionLiveState, event: &BridgeEvent, warning: &str) {

@@ -18,6 +18,7 @@ import { ROUTE_NAMES } from "@/config/routes";
 import { useLauncherStore } from "@/stores/launcher";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSdkStore } from "@/stores/sdk";
+import { useSessionsStore } from "@/stores/sessions";
 import { useWorktreesStore } from "@/stores/worktrees";
 
 /**
@@ -294,8 +295,15 @@ export function useSessionLauncher() {
       if (session) {
         if (session.sdkSessionId) {
           const sdkStore = useSdkStore();
-          await sdkStore.hydrate();
-          await sdkStore.setForegroundSession(session.sdkSessionId);
+          const sessionsStore = useSessionsStore();
+          try {
+            await sdkStore.hydrate();
+            await sdkStore.setForegroundSession(session.sdkSessionId);
+            void sessionsStore.fetchSessions();
+          } catch (e) {
+            const message = e instanceof Error ? e.message : String(e);
+            toastError(`SDK session launched, but TracePilot could not refresh it: ${message}`);
+          }
           await router.push({
             name: ROUTE_NAMES.sessionOverview,
             params: { id: session.sdkSessionId },

@@ -95,9 +95,15 @@ const sdkActions = {
   hydrate: vi.fn().mockResolvedValue(undefined),
   setForegroundSession: vi.fn().mockResolvedValue(undefined),
 };
+const sessionsActions = {
+  fetchSessions: vi.fn().mockResolvedValue(undefined),
+};
 
 vi.mock("@/stores/sdk", () => ({
   useSdkStore: () => sdkActions,
+}));
+vi.mock("@/stores/sessions", () => ({
+  useSessionsStore: () => sessionsActions,
 }));
 
 vi.mock("@/stores/preferences", () => ({
@@ -183,6 +189,7 @@ beforeEach(() => {
   Object.values(sdkActions).forEach((fn) => {
     fn.mockClear?.();
   });
+  sessionsActions.fetchSessions.mockClear();
 });
 
 describe("useSessionLauncher", () => {
@@ -291,6 +298,7 @@ describe("useSessionLauncher", () => {
     );
     expect(sdkActions.hydrate).toHaveBeenCalled();
     expect(sdkActions.setForegroundSession).toHaveBeenCalledWith("sdk-123");
+    expect(sessionsActions.fetchSessions).toHaveBeenCalled();
     expect(routerPush).toHaveBeenCalledWith({
       name: "session-overview",
       params: { id: "sdk-123" },

@@ -81,13 +81,7 @@ async function handleStopServer(pid: number) {
 }
 
 async function refreshAll() {
-  await Promise.all([
-    sdk.refreshStatus(),
-    sdk.fetchAuthStatus(),
-    sdk.fetchQuota(),
-    sdk.fetchSessions(),
-    sdk.fetchModels(),
-  ]);
+  await Promise.all([sdk.hydrate(), sdk.fetchAuthStatus(), sdk.fetchQuota(), sdk.fetchModels()]);
 }
 
 // ─── Diagnostics ────────────────────────────────────────────────────────
@@ -106,7 +100,7 @@ async function runDiagnostics() {
 
   try {
     diagAppend(`State: ${sdk.connectionState}, SDK available: ${sdk.sdkAvailable}`);
-    diagAppend(`Sessions in store: ${sdk.sessions.length}, Models: ${sdk.models.length}`);
+    diagAppend(`Tracked sessions: ${sdk.sessions.length}, Models: ${sdk.models.length}`);
 
     diagAppend("Scanning for running copilot --ui-server instances...");
     const servers = await sdk.detectUiServer();
@@ -142,9 +136,9 @@ async function runDiagnostics() {
     await sdk.fetchModels();
     diagAppend(`✅ Models: ${sdk.models.length} available`);
 
-    diagAppend("Fetching sessions...");
+    diagAppend("Fetching tracked sessions...");
     await sdk.fetchSessions();
-    diagAppend(`✅ Sessions: ${sdk.sessions.length} found`);
+    diagAppend(`✅ Tracked sessions: ${sdk.sessions.length} active in this bridge`);
 
     diagAppend("Fetching bridge status...");
     await sdk.refreshStatus();
@@ -173,11 +167,9 @@ const connectionLabel = computed(() => {
 });
 
 const sessionCountLabel = computed(() => {
-  const total = sdk.sessions.length;
-  const active = sdk.sessions.filter((s) => s.isActive).length;
-  if (total === 0) return "No sessions";
-  if (active === 0) return `${total} session${total !== 1 ? "s" : ""}`;
-  return `${active} active / ${total} total`;
+  const active = sdk.sessions.length;
+  if (active === 0) return "No tracked sessions";
+  return `${active} tracked session${active === 1 ? "" : "s"}`;
 });
 
 const sessionRows = computed(() => {
@@ -193,7 +185,7 @@ const sessionRows = computed(() => {
         origin: registry?.origin ?? "runtime",
         model: session.model ?? registry?.model ?? "default",
         cwd: session.workingDirectory ?? registry?.workingDirectory ?? "-",
-        lifecycle: session.isActive ? "active" : (registry?.runtimeState ?? "tracked"),
+        lifecycle: "active",
         liveStatus: live?.status ?? "-",
         isActive: session.isActive,
         isForeground: sdk.foregroundSessionId === session.sessionId,
@@ -205,9 +197,9 @@ const sessionRows = computed(() => {
 const hasSessionRows = computed(() => sessionRows.value.length > 0);
 const registrySummary = computed(() => {
   const total = sdk.registrySessions.length;
-  if (total === 0) return "No durable registry records";
+  if (total === 0) return "No recovery metadata";
   const recovery = sdk.recoveryDecisions.filter((decision) => decision.shouldAutoResume).length;
-  return `${total} durable registry record${total === 1 ? "" : "s"} hidden from this active view${
+  return `${total} recovery metadata record${total === 1 ? "" : "s"} (not active sessions)${
     recovery > 0 ? ` · ${recovery} recovery candidate${recovery === 1 ? "" : "s"}` : ""
   }`;
 });
@@ -408,7 +400,7 @@ function isActiveServer(address: string) {
       <div v-if="hasSessionRows" class="sdk-session-list" data-testid="sdk-session-list">
         <div v-for="row in sessionRows" :key="row.id" class="sdk-session-item">
           <div class="sdk-session-main">
-            <span :class="['sdk-session-dot', row.isActive ? 'sdk-session-dot--active' : '']" />
+              <span class="sdk-session-dot sdk-session-dot--active" />
             <span class="sdk-session-id" :title="row.id">{{ row.shortId }}</span>
             <span v-if="row.isForeground" class="sdk-session-badge">Foreground</span>
             <span class="sdk-session-badge sdk-session-badge--muted">{{ row.origin }}</span>
@@ -426,8 +418,6 @@ function isActiveServer(address: string) {
         No SDK sessions are active in this bridge process. Connect the bridge, link a session, or
         launch a headless SDK session to populate this list.
       </div>
-
-      <div class="sdk-registry-summary">{{ registrySummary }}</div>
 
       <!-- ─── Advanced (collapsible) ───────────────── -->
       <div class="sdk-divider" />
@@ -487,7 +477,8 @@ function isActiveServer(address: string) {
             <div><span class="diag-key">sdkAvailable:</span> {{ sdk.sdkAvailable }}</div>
             <div><span class="diag-key">cliVersion:</span> {{ sdk.cliVersion ?? "null" }}</div>
             <div><span class="diag-key">activeSessions:</span> {{ sdk.activeSessions }}</div>
-            <div><span class="diag-key">sessions.length:</span> {{ sdk.sessions.length }}</div>
+            <div><span class="diag-key">trackedSessions:</span> {{ sdk.sessions.length }}</div>
+            <div><span class="diag-key">recoveryMetadata:</span> {{ registrySummary }}</div>
             <div><span class="diag-key">models.length:</span> {{ sdk.models.length }}</div>
             <div><span class="diag-key">detectedServers:</span> {{ sdk.detectedServers.length }}</div>
           </div>

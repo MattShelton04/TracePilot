@@ -252,6 +252,20 @@ async function main() {
         return `${firstSession.sessionId.slice(0, 8)}… and ${secondSession.sessionId.slice(0, 8)}…`;
       });
 
+      await test("SDK session list is tracked sessions only", async () => {
+        const sessions = await ipc(page, "sdk_list_sessions");
+        const ids = new Set(sessions.map((session) => session.sessionId));
+        if (!ids.has(firstSession.sessionId) || !ids.has(secondSession.sessionId)) {
+          throw new Error(`Tracked sessions missing created ids: ${JSON.stringify(sessions)}`);
+        }
+        if (sessions.some((session) => session.isActive !== true)) {
+          throw new Error(
+            `Historical/inactive session leaked into tracked list: ${JSON.stringify(sessions)}`,
+          );
+        }
+        return `${sessions.length} tracked session(s)`;
+      });
+
       await test("Send real prompt to first SDK session", async () => {
         const turnId = await ipc(page, "sdk_send_message", {
           sessionId: firstSession.sessionId,

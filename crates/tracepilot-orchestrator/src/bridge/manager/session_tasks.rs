@@ -292,7 +292,6 @@ impl BridgeManager {
         let state_tx = self.state_tx.clone();
         let live_state = Arc::clone(&self.live_state);
         let metrics = Arc::clone(&self.metrics);
-        let registry = self.registry.clone();
         let sid = session_id.to_string();
         let mut events = session.subscribe();
 
@@ -319,20 +318,6 @@ impl BridgeManager {
                                 metrics.events_forwarded.fetch_add(1, Ordering::Relaxed);
                             } else {
                                 debug!("No bridge event receivers for {}", sid);
-                            }
-                            if let Some(registry) = &registry {
-                                match registry.lock() {
-                                    Ok(guard) => {
-                                        if let Err(err) = guard.mark_event(
-                                            &sid,
-                                            Some(event.id.as_str()),
-                                            event.event_type.as_str(),
-                                        ) {
-                                            warn!(error = %err, session_id = %sid, "Failed to update SDK registry event marker");
-                                        }
-                                    }
-                                    Err(_) => warn!("SDK registry mutex poisoned"),
-                                }
                             }
                         }
                         Err(tokio::sync::broadcast::error::RecvError::Closed) => {

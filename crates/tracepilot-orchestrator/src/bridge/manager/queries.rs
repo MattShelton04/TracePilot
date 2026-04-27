@@ -58,31 +58,14 @@ impl BridgeManager {
         self.live_state.list()
     }
 
-    /// List all sessions known to the SDK client.
-    /// Sessions that have been resumed locally are marked `is_active: true`.
-    /// Others are listed from the CLI's session metadata (may not be resumable).
+    /// List sessions currently tracked by this bridge process.
+    ///
+    /// The SDK client's `list_sessions()` returns the user's full Copilot CLI
+    /// history from disk, which is useful for a future explicit "browse and
+    /// resume" picker but wrong for runtime/process visibility.
     pub async fn list_sessions(&self) -> Result<Vec<BridgeSessionInfo>, BridgeError> {
-        let client = self.require_client()?;
-        let sessions = client
-            .list_sessions()
-            .await
-            .map_err(|e| BridgeError::Sdk(e.to_string()))?;
-
-        Ok(sessions
-            .into_iter()
-            .map(|m| {
-                let is_resumed = self.sessions.contains_key(&m.session_id);
-                BridgeSessionInfo {
-                    session_id: m.session_id,
-                    model: None,
-                    working_directory: None,
-                    mode: None,
-                    is_active: is_resumed,
-                    resume_error: None,
-                    is_remote: m.is_remote,
-                }
-            })
-            .collect())
+        self.require_client()?;
+        Ok(self.tracked_sessions())
     }
 
     /// Get quota information.
