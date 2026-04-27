@@ -31,7 +31,6 @@ const routes: RouteRecordRaw[] = [
   },
   {
     path: "/session/:id",
-    name: "session-detail",
     component: SessionDetailView,
     meta: {
       title: "Session Detail",

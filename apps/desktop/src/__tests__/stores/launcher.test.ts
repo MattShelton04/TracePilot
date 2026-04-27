@@ -448,6 +448,7 @@ describe("useLauncherStore", () => {
         pid: 12345,
         command: "copilot --model=claude-opus-4.6",
         launchedAt: "2025-01-01T00:00:00Z",
+        launchMode: "terminal",
       };
       mockLaunchSession.mockResolvedValue(mockSession);
 
@@ -471,12 +472,14 @@ describe("useLauncherStore", () => {
         pid: i,
         command: `cmd-${i}`,
         launchedAt: "2025-01-01T00:00:00Z",
+        launchMode: "terminal" as const,
       }));
 
       const mockSession = {
         pid: 99,
         command: "copilot",
         launchedAt: "2025-01-01T00:00:00Z",
+        launchMode: "terminal",
       };
       mockLaunchSession.mockResolvedValue(mockSession);
 

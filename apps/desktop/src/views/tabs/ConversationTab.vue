@@ -73,6 +73,10 @@ const { isLockedToBottom, showScrollToTop, hasOverflow, scrollToBottom, scrollTo
     viewModeSource: () => activeView.value,
   });
 
+function handleChatSteeringMessage() {
+  nextTick(() => scrollToBottom(false));
+}
+
 // Scroll to a specific element when navigated from search.
 const activeTimers: ReturnType<typeof setTimeout>[] = [];
 let activeObserver: IntersectionObserver | null = null;
@@ -268,7 +272,11 @@ function retryLoadTurns() {
     <EmptyState v-if="store.turns.length === 0 && !store.turnsError" message="No conversation turns found." />
 
     <!-- ═══════════════ CHAT VIEW ═══════════════ -->
-    <ChatViewMode v-else-if="activeView === 'chat'" ref="chatViewRef" />
+    <ChatViewMode
+      v-else-if="activeView === 'chat'"
+      ref="chatViewRef"
+      @message-sent="handleChatSteeringMessage"
+    />
 
     <!-- ═══════════════ COMPACT VIEW ═══════════════ -->
     <div v-else-if="activeView === 'compact'" class="turn-group">

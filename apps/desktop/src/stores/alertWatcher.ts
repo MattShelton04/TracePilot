@@ -13,23 +13,12 @@ import { type Ref, ref } from "vue";
 import type { RouteLocationNormalizedLoaded } from "vue-router";
 
 export interface AlertWatcherStore {
-  askUserPollInFlight: Ref<boolean>;
-  seedInFlight: Ref<boolean>;
   capturedRoute: Ref<RouteLocationNormalizedLoaded | null>;
-  seenRunning: (sessionId: string) => boolean;
-  markRunning: (sessionId: string) => void;
-  unmarkRunning: (sessionId: string) => void;
-  replaceRunning: (ids: Iterable<string>) => void;
-  hasTurnCount: (sessionId: string) => boolean;
-  getLastTurnCount: (sessionId: string) => number;
-  setLastTurnCount: (sessionId: string, n: number) => void;
-  hasAlertedAskUser: (callKey: string) => boolean;
-  markAskUserAlerted: (callKey: string) => void;
-  isErrorBaselineEstablished: (sessionId: string) => boolean;
-  establishErrorBaseline: (sessionId: string) => void;
-  getLastErrorCount: (sessionId: string) => number;
-  setLastErrorCount: (sessionId: string, n: number) => void;
-  pruneStaleEntries: (currentlyRunning: Set<string>) => void;
+  hasAlertedSdkState: (stateKey: string) => boolean;
+  markSdkStateAlerted: (stateKey: string) => void;
+  getLastSdkStatus: (sessionId: string) => string | null;
+  setLastSdkStatus: (sessionId: string, status: string) => void;
+  pruneSdkEntries: (activeSdkSessions: Set<string>) => void;
   setCapturedRoute: (route: RouteLocationNormalizedLoaded | null) => void;
   $reset: () => void;
 }
@@ -37,87 +26,35 @@ export interface AlertWatcherStore {
 export const useAlertWatcherStore = defineStore("alertWatcher", (): AlertWatcherStore => {
   // ── Non-reactive dedup state ──────────────────────────────────
   // Closure-owned — not returned as refs, so Vue does not track them.
-  let previouslyRunning = new Set<string>();
-  let lastSeenTurnCount = new Map<string, number>();
-  let alertedAskUserCalls = new Set<string>();
-  let errorBaselineEstablished = new Set<string>();
-  let lastSeenErrorCount = new Map<string, number>();
-
-  // ── Reentrancy guards ─────────────────────────────────────────
-  const askUserPollInFlight = ref(false);
-  const seedInFlight = ref(false);
+  let alertedSdkStateKeys = new Set<string>();
+  let lastSeenSdkStatus = new Map<string, string>();
 
   // ── Captured route ────────────────────────────────────────────
   const capturedRoute = ref<RouteLocationNormalizedLoaded | null>(null);
 
-  // ── Running-state transitions ─────────────────────────────────
-  function seenRunning(sessionId: string): boolean {
-    return previouslyRunning.has(sessionId);
+  // ── SDK live-state dedup ────────────────────────────────────────
+  function hasAlertedSdkState(stateKey: string): boolean {
+    return alertedSdkStateKeys.has(stateKey);
   }
-  function markRunning(sessionId: string): void {
-    previouslyRunning.add(sessionId);
+  function markSdkStateAlerted(stateKey: string): void {
+    alertedSdkStateKeys.add(stateKey);
   }
-  function unmarkRunning(sessionId: string): void {
-    previouslyRunning.delete(sessionId);
+  function getLastSdkStatus(sessionId: string): string | null {
+    return lastSeenSdkStatus.get(sessionId) ?? null;
   }
-  function replaceRunning(ids: Iterable<string>): void {
-    previouslyRunning = new Set(ids);
+  function setLastSdkStatus(sessionId: string, status: string): void {
+    lastSeenSdkStatus.set(sessionId, status);
   }
-
-  // ── Turn-count tracking ───────────────────────────────────────
-  function hasTurnCount(sessionId: string): boolean {
-    return lastSeenTurnCount.has(sessionId);
-  }
-  function getLastTurnCount(sessionId: string): number {
-    return lastSeenTurnCount.get(sessionId) ?? 0;
-  }
-  function setLastTurnCount(sessionId: string, n: number): void {
-    lastSeenTurnCount.set(sessionId, n);
-  }
-
-  // ── ask_user dedup ────────────────────────────────────────────
-  function hasAlertedAskUser(callKey: string): boolean {
-    return alertedAskUserCalls.has(callKey);
-  }
-  function markAskUserAlerted(callKey: string): void {
-    alertedAskUserCalls.add(callKey);
-  }
-
-  // ── Error baseline + high-water mark ──────────────────────────
-  function isErrorBaselineEstablished(sessionId: string): boolean {
-    return errorBaselineEstablished.has(sessionId);
-  }
-  function establishErrorBaseline(sessionId: string): void {
-    errorBaselineEstablished.add(sessionId);
-  }
-  function getLastErrorCount(sessionId: string): number {
-    return lastSeenErrorCount.get(sessionId) ?? 0;
-  }
-  function setLastErrorCount(sessionId: string, n: number): void {
-    lastSeenErrorCount.set(sessionId, n);
-  }
-
-  // ── Stale-entry pruning ───────────────────────────────────────
-  /**
-   * Remove tracking data for sessions that are no longer running.
-   * Prevents unbounded growth of the internal Maps/Sets.
-   */
-  function pruneStaleEntries(currentlyRunning: Set<string>): void {
-    for (const id of lastSeenTurnCount.keys()) {
-      if (!currentlyRunning.has(id)) {
-        lastSeenTurnCount.delete(id);
+  function pruneSdkEntries(activeSdkSessions: Set<string>): void {
+    for (const id of lastSeenSdkStatus.keys()) {
+      if (!activeSdkSessions.has(id)) {
+        lastSeenSdkStatus.delete(id);
       }
     }
-    for (const id of lastSeenErrorCount.keys()) {
-      if (!currentlyRunning.has(id)) {
-        lastSeenErrorCount.delete(id);
-        errorBaselineEstablished.delete(id);
-      }
-    }
-    for (const key of alertedAskUserCalls) {
+    for (const key of alertedSdkStateKeys) {
       const sessionId = key.split(":")[0];
-      if (!currentlyRunning.has(sessionId)) {
-        alertedAskUserCalls.delete(key);
+      if (sessionId !== "sdk-bridge" && !activeSdkSessions.has(sessionId)) {
+        alertedSdkStateKeys.delete(key);
       }
     }
   }
@@ -133,34 +70,18 @@ export const useAlertWatcherStore = defineStore("alertWatcher", (): AlertWatcher
    * deterministic tests and for cleanup on composable scope disposal.
    */
   function $reset(): void {
-    previouslyRunning = new Set();
-    lastSeenTurnCount = new Map();
-    alertedAskUserCalls = new Set();
-    errorBaselineEstablished = new Set();
-    lastSeenErrorCount = new Map();
-    askUserPollInFlight.value = false;
-    seedInFlight.value = false;
+    alertedSdkStateKeys = new Set();
+    lastSeenSdkStatus = new Map();
     capturedRoute.value = null;
   }
 
   return {
-    askUserPollInFlight,
-    seedInFlight,
     capturedRoute,
-    seenRunning,
-    markRunning,
-    unmarkRunning,
-    replaceRunning,
-    hasTurnCount,
-    getLastTurnCount,
-    setLastTurnCount,
-    hasAlertedAskUser,
-    markAskUserAlerted,
-    isErrorBaselineEstablished,
-    establishErrorBaseline,
-    getLastErrorCount,
-    setLastErrorCount,
-    pruneStaleEntries,
+    hasAlertedSdkState,
+    markSdkStateAlerted,
+    getLastSdkStatus,
+    setLastSdkStatus,
+    pruneSdkEntries,
     setCapturedRoute,
     $reset,
   };

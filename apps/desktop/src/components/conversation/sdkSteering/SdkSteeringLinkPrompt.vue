@@ -18,11 +18,15 @@ const ctx = useSdkSteeringContext();
   <!-- Not-linked state: show link prompt with optional model picker -->
   <div v-else class="cb-link-prompt">
     <div class="cb-link-info">
-      <div class="cb-link-title">Link for Steering</div>
+      <div class="cb-link-title">
+        {{ ctx.hasActiveSdkHandle ? 'Steering Paused' : 'Link for Steering' }}
+      </div>
       <div class="cb-link-desc">
-        {{ ctx.sdk.connectionMode === 'tcp'
-          ? 'Attach to this session on the shared server. You can steer alongside the terminal CLI.'
-          : 'This spawns a separate CLI subprocess. For simultaneous terminal use, connect via --ui-server (TCP mode) in Settings instead.' }}
+        {{ ctx.hasActiveSdkHandle
+          ? 'This session is already linked in the SDK bridge. Resume steering without starting another SDK process.'
+          : ctx.sdk.connectionMode === 'tcp'
+            ? 'Attach to this session on the shared server. You can steer alongside the terminal CLI.'
+            : 'This spawns a separate CLI subprocess. For simultaneous terminal use, connect via --ui-server (TCP mode) in Settings instead.' }}
       </div>
     </div>
     <div class="cb-link-actions">
@@ -75,7 +79,7 @@ const ctx = useSdkSteeringContext();
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
           <path d="M10 2h4v4" /><path d="M14 2L8 8" /><path d="M12 9v4a1 1 0 01-1 1H3a1 1 0 01-1-1V5a1 1 0 011-1h4" />
         </svg>
-        Link Session
+        {{ ctx.hasActiveSdkHandle ? 'Resume Steering' : 'Link Session' }}
       </button>
     </div>
   </div>

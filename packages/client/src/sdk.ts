@@ -3,6 +3,7 @@
 import type {
   BridgeAuthStatus,
   BridgeConnectConfig,
+  BridgeHydrationSnapshot,
   BridgeMessagePayload,
   BridgeMetricsSnapshot,
   BridgeModelInfo,
@@ -12,6 +13,7 @@ import type {
   BridgeSessionMode,
   BridgeStatus,
   DetectedUiServer,
+  SessionLiveState,
 } from "@tracepilot/types";
 import { createInvoke } from "./invoke.js";
 
@@ -29,6 +31,18 @@ export async function sdkDisconnect(): Promise<void> {
 
 export async function sdkStatus(): Promise<BridgeStatus> {
   return invoke<BridgeStatus>("sdk_status");
+}
+
+export async function sdkHydrate(): Promise<BridgeHydrationSnapshot> {
+  return invoke<BridgeHydrationSnapshot>("sdk_hydrate");
+}
+
+export async function sdkGetSessionState(sessionId: string): Promise<SessionLiveState | null> {
+  return invoke<SessionLiveState | null>("sdk_get_session_state", { sessionId });
+}
+
+export async function sdkListSessionStates(): Promise<SessionLiveState[]> {
+  return invoke<SessionLiveState[]>("sdk_list_session_states");
 }
 
 export async function sdkCliStatus(): Promise<BridgeStatus> {
@@ -122,6 +136,10 @@ export async function sdkDetectUiServer(): Promise<DetectedUiServer[]> {
 
 export async function sdkLaunchUiServer(workingDir?: string): Promise<number> {
   return invoke<number>("sdk_launch_ui_server", { workingDir: workingDir ?? null });
+}
+
+export async function sdkStopUiServer(pid: number): Promise<void> {
+  return invoke<void>("sdk_stop_ui_server", { pid });
 }
 
 // ─── Observability ────────────────────────────────────────────────

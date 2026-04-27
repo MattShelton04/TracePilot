@@ -94,9 +94,21 @@ pub struct LaunchConfig {
     pub create_worktree: bool,
     #[serde(default)]
     pub auto_approve: bool,
+    #[serde(default)]
+    pub ui_server: bool,
+    #[serde(default)]
+    pub launch_mode: LaunchMode,
     /// The CLI command to use (e.g. "copilot", "gh copilot-cli"). Defaults to "copilot".
     #[serde(default = "default_cli_command")]
     pub cli_command: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum LaunchMode {
+    #[default]
+    Terminal,
+    Sdk,
 }
 
 fn default_cli_command() -> String {
@@ -110,6 +122,8 @@ pub struct LaunchedSession {
     pub worktree_path: Option<String>,
     pub command: String,
     pub launched_at: String,
+    pub launch_mode: LaunchMode,
+    pub sdk_session_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

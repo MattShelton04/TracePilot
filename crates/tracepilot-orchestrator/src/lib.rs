@@ -8,6 +8,7 @@ mod error;
 pub mod github;
 pub(crate) mod json_io;
 pub mod launcher;
+mod launcher_sdk;
 pub mod mcp;
 pub mod models;
 pub mod presets;

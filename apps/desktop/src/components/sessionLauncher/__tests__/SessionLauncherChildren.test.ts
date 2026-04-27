@@ -50,6 +50,7 @@ function makeTemplate(overrides: Partial<SessionTemplate> = {}): SessionTemplate
       autoApprove: false,
       envVars: {},
       cliCommand: "copilot",
+      launchMode: "terminal",
     },
     createdAt: "2026-01-01T00:00:00Z",
     usageCount: 3,
@@ -99,6 +100,7 @@ function makeCtx(overrides: Partial<UseSessionLauncherReturn> = {}): UseSessionL
     createWorktree: ref(false),
     autoApprove: ref(false),
     headless: ref(false),
+    uiServer: ref(false),
     reasoningEffort: ref<"low" | "medium" | "high">("medium"),
     prompt: ref(""),
     customInstructions: ref(""),
@@ -224,6 +226,26 @@ describe("SessionLauncherAdvanced", () => {
     expect(ctx.autoApprove.value).toBe(true);
   });
 
+  it("flips SDK headless mode when its toggle switch is clicked", async () => {
+    const ctx = makeCtx();
+    ctx.showAdvanced.value = true;
+    const wrapper = mount(wrap(SessionLauncherAdvanced, ctx));
+    const toggles = wrapper.findAll(".toggle-switch");
+    await toggles[2].trigger("click");
+    expect(ctx.headless.value).toBe(true);
+    expect(ctx.clearTemplateSelection).toHaveBeenCalled();
+  });
+
+  it("flips terminal --ui-server mode when its toggle switch is clicked", async () => {
+    const ctx = makeCtx();
+    ctx.showAdvanced.value = true;
+    const wrapper = mount(wrap(SessionLauncherAdvanced, ctx));
+    const toggles = wrapper.findAll(".toggle-switch");
+    await toggles[3].trigger("click");
+    expect(ctx.uiServer.value).toBe(true);
+    expect(ctx.clearTemplateSelection).toHaveBeenCalled();
+  });
+
   it("invokes addEnvVar from the + Add Variable button", async () => {
     const ctx = makeCtx();
     ctx.showAdvanced.value = true;
@@ -266,6 +288,13 @@ describe("SessionLauncherPreview", () => {
     const wrapper = mount(wrap(SessionLauncherPreview, ctx));
     await wrapper.find(".footer-btn-primary").trigger("click");
     expect(ctx.handleLaunch).toHaveBeenCalledWith(false);
+  });
+
+  it("invokes headless SDK launch from the footer secondary button", async () => {
+    const ctx = makeCtx();
+    const wrapper = mount(wrap(SessionLauncherPreview, ctx));
+    await wrapper.find(".footer-btn").trigger("click");
+    expect(ctx.handleLaunch).toHaveBeenCalledWith(true);
   });
 
   it("invokes copyCommand from the Copy button", async () => {

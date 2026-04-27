@@ -44,9 +44,15 @@ function severityForType(type: AlertType): AlertSeverity {
     case "session-end":
       return "info";
     case "ask-user":
+    case "sdk-user-input-required":
+    case "sdk-permission-required":
       return "warning";
     case "session-error":
+    case "sdk-session-error":
+    case "sdk-event-lag":
       return "error";
+    case "sdk-session-idle":
+      return "info";
   }
 }
 
@@ -60,6 +66,15 @@ async function flashTaskbar(severity: AlertSeverity) {
     await win.requestUserAttention(attentionType);
   } catch {
     // Not in Tauri environment or window API unavailable
+  }
+}
+
+async function isAppFocused(): Promise<boolean> {
+  try {
+    const win = await getCurrentTauriWindow();
+    return Boolean(await win?.isFocused());
+  } catch {
+    return false;
   }
 }
 
@@ -139,6 +154,36 @@ function showToast(title: string, body: string, severity: AlertSeverity) {
   }
 }
 
+interface AttentionChannelOptions {
+  soundEnabled: boolean;
+  taskbarFlashEnabled: boolean;
+  nativeNotificationsEnabled: boolean;
+}
+
+async function dispatchAttentionChannels(
+  title: string,
+  body: string,
+  severity: AlertSeverity,
+  options: AttentionChannelOptions,
+) {
+  if (await isAppFocused()) {
+    logInfo("[alerts] App is focused; skipping sound, taskbar flash, and native notification");
+    return;
+  }
+
+  if (options.soundEnabled) {
+    playAlertSound(severity);
+  }
+
+  if (options.taskbarFlashEnabled) {
+    await flashTaskbar(severity);
+  }
+
+  if (options.nativeNotificationsEnabled) {
+    await sendNativeNotification(title, body);
+  }
+}
+
 // ── Focus window on notification click ───────────────────────────
 let notificationListenerRegistered = false;
 
@@ -186,6 +231,7 @@ export interface DispatchAlertOptions {
   type: AlertType;
   sessionId: string;
   sessionSummary?: string;
+  metadata?: Record<string, unknown>;
   title: string;
   body: string;
 }
@@ -207,10 +253,17 @@ export function dispatchAlert(options: DispatchAlertOptions): AlertEvent | null 
       if (!prefs.alertsOnSessionEnd) return null;
       break;
     case "ask-user":
+    case "sdk-user-input-required":
+    case "sdk-permission-required":
       if (!prefs.alertsOnAskUser) return null;
       break;
     case "session-error":
+    case "sdk-session-error":
+    case "sdk-event-lag":
       if (!prefs.alertsOnSessionError) return null;
+      break;
+    case "sdk-session-idle":
+      if (!prefs.alertsOnSessionEnd) return null;
       break;
   }
 
@@ -228,6 +281,7 @@ export function dispatchAlert(options: DispatchAlertOptions): AlertEvent | null 
     severity,
     sessionId: options.sessionId,
     sessionSummary: options.sessionSummary,
+    metadata: options.metadata,
     title: options.title,
     body: options.body,
   });
@@ -241,22 +295,11 @@ export function dispatchAlert(options: DispatchAlertOptions): AlertEvent | null 
   // Always show in-app toast
   showToast(options.title, options.body, severity);
 
-  // Sound
-  if (prefs.alertsSoundEnabled) {
-    playAlertSound(severity);
-  }
-
-  // Taskbar flash
-  if (prefs.alertsTaskbarFlash) {
-    flashTaskbar(severity).catch((e) => logWarn("[alerts] Taskbar flash failed:", e));
-  }
-
-  // Native OS notification
-  if (prefs.alertsNativeNotifications) {
-    sendNativeNotification(options.title, options.body).catch((e) =>
-      logError("[alerts] Native notification failed:", e),
-    );
-  }
+  dispatchAttentionChannels(options.title, options.body, severity, {
+    soundEnabled: prefs.alertsSoundEnabled,
+    taskbarFlashEnabled: prefs.alertsTaskbarFlash,
+    nativeNotificationsEnabled: prefs.alertsNativeNotifications,
+  }).catch((e) => logError("[alerts] Attention channel dispatch failed:", e));
 
   return alert;
 }

@@ -9,11 +9,16 @@
  */
 import { ActionButton, BtnGroup, FormInput, SectionPanel } from "@tracepilot/ui";
 import { computed, ref } from "vue";
+import { useRouter } from "vue-router";
+import { ROUTE_NAMES } from "@/config/routes";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSdkStore } from "@/stores/sdk";
+import { useSessionsStore } from "@/stores/sessions";
 
 const prefs = usePreferencesStore();
 const sdk = useSdkStore();
+const sessionsStore = useSessionsStore();
+const router = useRouter();
 
 const isEnabled = computed(() => prefs.isFeatureEnabled("copilotSdk"));
 const showAdvanced = ref(false);
@@ -76,14 +81,12 @@ async function handleLaunchServer() {
   await sdk.launchUiServer();
 }
 
+async function handleStopServer(pid: number) {
+  await sdk.stopUiServer(pid);
+}
+
 async function refreshAll() {
-  await Promise.all([
-    sdk.refreshStatus(),
-    sdk.fetchAuthStatus(),
-    sdk.fetchQuota(),
-    sdk.fetchSessions(),
-    sdk.fetchModels(),
-  ]);
+  await Promise.all([sdk.hydrate(), sdk.fetchAuthStatus(), sdk.fetchQuota(), sdk.fetchModels()]);
 }
 
 // ─── Diagnostics ────────────────────────────────────────────────────────
@@ -102,7 +105,7 @@ async function runDiagnostics() {
 
   try {
     diagAppend(`State: ${sdk.connectionState}, SDK available: ${sdk.sdkAvailable}`);
-    diagAppend(`Sessions in store: ${sdk.sessions.length}, Models: ${sdk.models.length}`);
+    diagAppend(`Tracked sessions: ${sdk.sessions.length}, Models: ${sdk.models.length}`);
 
     diagAppend("Scanning for running copilot --ui-server instances...");
     const servers = await sdk.detectUiServer();
@@ -138,9 +141,9 @@ async function runDiagnostics() {
     await sdk.fetchModels();
     diagAppend(`✅ Models: ${sdk.models.length} available`);
 
-    diagAppend("Fetching sessions...");
+    diagAppend("Fetching tracked sessions...");
     await sdk.fetchSessions();
-    diagAppend(`✅ Sessions: ${sdk.sessions.length} found`);
+    diagAppend(`✅ Tracked sessions: ${sdk.sessions.length} active in this bridge`);
 
     diagAppend("Fetching bridge status...");
     await sdk.refreshStatus();
@@ -169,12 +172,38 @@ const connectionLabel = computed(() => {
 });
 
 const sessionCountLabel = computed(() => {
-  const total = sdk.sessions.length;
-  const active = sdk.sessions.filter((s) => s.isActive).length;
-  if (total === 0) return "No sessions";
-  if (active === 0) return `${total} session${total !== 1 ? "s" : ""}`;
-  return `${active} active / ${total} total`;
+  const active = sdk.sessions.length;
+  if (active === 0) return "No tracked sessions";
+  return `${active} tracked session${active === 1 ? "" : "s"}`;
 });
+
+const sessionRows = computed(() => {
+  return sdk.sessions
+    .map((session) => {
+      const live = sdk.sessionStatesById[session.sessionId];
+      const summary = sessionsStore.sessions
+        .find((s) => s.id === session.sessionId)
+        ?.summary?.trim();
+      return {
+        id: session.sessionId,
+        shortId: shortId(session.sessionId),
+        title: summary || `SDK session ${shortId(session.sessionId)}`,
+        summary: summary || null,
+        model: session.model ?? null,
+        cwd: session.workingDirectory ?? null,
+        liveStatus: live?.status ?? "tracked",
+        isActive: session.isActive,
+        isForeground: sdk.foregroundSessionId === session.sessionId,
+      };
+    })
+    .sort((a, b) => Number(b.isActive) - Number(a.isActive));
+});
+
+const hasSessionRows = computed(() => sessionRows.value.length > 0);
+
+function shortId(id: string): string {
+  return id.length > 12 ? `${id.slice(0, 8)}...` : id;
+}
 
 /** True when the user's selected mode is TCP (or has a CLI URL set). */
 const isTcpSelected = computed(() => selectedMode.value === "tcp" || !!cliUrl.value);
@@ -182,6 +211,13 @@ const isTcpSelected = computed(() => selectedMode.value === "tcp" || !!cliUrl.va
 /** True when currently connected to this specific server address. */
 function isActiveServer(address: string) {
   return sdk.isConnected && cliUrl.value === address;
+}
+
+async function openSession(rowId: string) {
+  await router.push({
+    name: ROUTE_NAMES.sessionConversation,
+    params: { id: rowId },
+  });
 }
 </script>
 
@@ -293,20 +329,32 @@ function isActiveServer(address: string) {
         <!-- Detected servers list -->
         <div v-if="sdk.detectedServers.length > 0 || sdk.lastDetectMessage" class="setting-row setting-row-stacked">
           <div v-if="sdk.detectedServers.length > 0" class="sdk-detected-list">
-            <button
+            <div
               v-for="server in sdk.detectedServers"
               :key="server.pid"
               class="sdk-detected-item"
               :class="{ 'sdk-detected-item--active': isActiveServer(server.address) }"
-              :disabled="isActiveServer(server.address)"
-              @click="handleConnectToServer(server.address)"
             >
-              <span class="sdk-detected-addr">{{ server.address }}</span>
+              <button
+                class="sdk-detected-connect"
+                :disabled="isActiveServer(server.address)"
+                @click="handleConnectToServer(server.address)"
+              >
+                <span class="sdk-detected-addr">{{ server.address }}</span>
+              </button>
               <span class="sdk-detected-meta">
                 <span class="sdk-detected-pid">PID {{ server.pid }}</span>
                 <span v-if="isActiveServer(server.address)" class="sdk-detected-badge">● Connected</span>
+                <button
+                  class="sdk-stop-server"
+                  :disabled="sdk.stoppingServerPid === server.pid"
+                  title="Stop this copilot --ui-server process"
+                  @click.stop="handleStopServer(server.pid)"
+                >
+                  {{ sdk.stoppingServerPid === server.pid ? "Stopping…" : "Stop" }}
+                </button>
               </span>
-            </button>
+            </div>
           </div>
           <div v-else-if="sdk.lastDetectMessage" class="sdk-detect-msg">
             {{ sdk.lastDetectMessage }}
@@ -341,6 +389,46 @@ function isActiveServer(address: string) {
           </div>
         </div>
       </template>
+
+      <!-- ─── SDK Sessions / process visibility ─────── -->
+      <div class="sdk-divider" />
+      <div class="sdk-subsection-title">SDK Sessions & Processes</div>
+
+      <div class="sdk-lifecycle-note">
+        <strong>Unlink</strong> removes TracePilot's steering handle and keeps the SDK-owned
+        session alive. <strong>Shutdown</strong> asks the SDK/CLI to stop that session. The
+        bridge itself is one process/transport; stdio child PIDs are owned by the SDK, while
+        TCP <code>--ui-server</code> PIDs appear under detected servers.
+      </div>
+
+      <div v-if="hasSessionRows" class="sdk-session-list" data-testid="sdk-session-list">
+        <button
+          v-for="row in sessionRows"
+          :key="row.id"
+          class="sdk-session-item"
+          type="button"
+          :title="`Open ${row.title}`"
+          @click="openSession(row.id)"
+        >
+          <div class="sdk-session-main">
+            <span class="sdk-session-dot sdk-session-dot--active" />
+            <span class="sdk-session-title">{{ row.title }}</span>
+            <span class="sdk-session-id" :title="row.id">{{ row.shortId }}</span>
+            <span v-if="row.isForeground" class="sdk-session-badge">Foreground</span>
+          </div>
+          <div class="sdk-session-meta">
+            <span>Status: {{ row.liveStatus.replaceAll('_', ' ') }}</span>
+            <span v-if="row.model">Model: {{ row.model }}</span>
+            <span v-if="row.cwd" :title="row.cwd">cwd: {{ row.cwd }}</span>
+            <span class="sdk-session-open">Open conversation →</span>
+          </div>
+        </button>
+      </div>
+
+      <div v-else class="sdk-empty-state" data-testid="sdk-session-list-empty">
+        No SDK sessions are active in this bridge process. Connect the bridge, link a session, or
+        launch a headless SDK session to populate this list.
+      </div>
 
       <!-- ─── Advanced (collapsible) ───────────────── -->
       <div class="sdk-divider" />
@@ -400,7 +488,7 @@ function isActiveServer(address: string) {
             <div><span class="diag-key">sdkAvailable:</span> {{ sdk.sdkAvailable }}</div>
             <div><span class="diag-key">cliVersion:</span> {{ sdk.cliVersion ?? "null" }}</div>
             <div><span class="diag-key">activeSessions:</span> {{ sdk.activeSessions }}</div>
-            <div><span class="diag-key">sessions.length:</span> {{ sdk.sessions.length }}</div>
+            <div><span class="diag-key">trackedSessions:</span> {{ sdk.sessions.length }}</div>
             <div><span class="diag-key">models.length:</span> {{ sdk.models.length }}</div>
             <div><span class="diag-key">detectedServers:</span> {{ sdk.detectedServers.length }}</div>
           </div>
@@ -472,12 +560,11 @@ function isActiveServer(address: string) {
   background: var(--canvas-subtle);
   border: 1px solid var(--border-muted);
   border-radius: var(--radius-md);
-  cursor: pointer;
   transition: all var(--transition-fast);
   font-size: 0.8125rem;
   color: var(--text-primary);
 }
-.sdk-detected-item:hover:not(:disabled) {
+.sdk-detected-item:hover {
   background: var(--accent-subtle);
   border-color: var(--accent-emphasis);
 }
@@ -486,8 +573,18 @@ function isActiveServer(address: string) {
   border-color: var(--accent-emphasis);
   cursor: default;
 }
-.sdk-detected-item:disabled {
-  opacity: 1; /* keep visible, just not clickable */
+.sdk-detected-connect {
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.sdk-detected-connect:disabled {
+  cursor: default;
+  opacity: 1;
 }
 .sdk-detected-addr {
   font-family: 'JetBrains Mono', monospace;
@@ -508,12 +605,166 @@ function isActiveServer(address: string) {
   color: var(--success-fg);
   font-weight: 500;
 }
+.sdk-stop-server {
+  padding: 2px 7px;
+  border: 1px solid var(--danger-muted);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--danger-fg);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.sdk-stop-server:hover:not(:disabled) {
+  background: rgba(251, 113, 133, 0.1);
+  border-color: var(--danger-emphasis);
+}
+.sdk-stop-server:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
 .sdk-detect-msg {
   font-size: 0.8125rem;
   color: var(--text-tertiary);
   padding: 4px 0;
 }
 
+/* ─── Session/process monitor ───────────────────── */
+.sdk-lifecycle-note {
+  margin: 6px 12px 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-md);
+  background:
+    linear-gradient(135deg, rgba(99, 102, 241, 0.08), transparent 55%),
+    var(--canvas-subtle);
+  color: var(--text-tertiary);
+  font-size: 0.75rem;
+  line-height: 1.55;
+}
+
+.sdk-lifecycle-note strong {
+  color: var(--text-secondary);
+}
+
+.sdk-session-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 12px 6px;
+}
+
+.sdk-session-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.025);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    background var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.sdk-session-item:hover {
+  border-color: var(--accent-muted);
+  background: rgba(99, 102, 241, 0.08);
+  transform: translateY(-1px);
+}
+
+.sdk-session-item:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.sdk-session-main,
+.sdk-session-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.sdk-session-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--text-placeholder);
+  flex-shrink: 0;
+}
+
+.sdk-session-dot--active {
+  background: var(--success-fg);
+  box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.12);
+}
+
+.sdk-session-title {
+  color: var(--text-primary);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8125rem;
+  font-weight: 650;
+}
+
+.sdk-session-id {
+  color: var(--text-tertiary);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+.sdk-session-badge {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--accent-muted);
+  color: var(--accent-fg);
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sdk-session-badge--muted {
+  background: var(--neutral-subtle);
+  color: var(--text-tertiary);
+}
+
+.sdk-session-meta {
+  color: var(--text-tertiary);
+  font-size: 0.6875rem;
+}
+
+.sdk-session-open {
+  margin-left: auto;
+  color: var(--accent-fg);
+  font-weight: 600;
+}
+
+.sdk-session-meta span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sdk-empty-state {
+  margin: 0 12px 6px;
+  padding: 10px 12px;
+  border: 1px dashed var(--border-muted);
+  border-radius: var(--radius-md);
+  color: var(--text-tertiary);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
 /* ─── URL input ──────────────────────────────── */
 .sdk-url-row {
   display: flex;

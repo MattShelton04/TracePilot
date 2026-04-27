@@ -10,11 +10,13 @@
 //! doesn't lose work in progress.
 
 mod discovery;
+pub mod live_state;
 pub mod manager;
 
 use serde::{Deserialize, Serialize};
 
 pub use discovery::{DetectedUiServer, detect_ui_servers};
+pub use live_state::{SessionLiveState, SessionRuntimeStatus};
 pub use manager::{BridgeManager, CopilotSdkEnabledReader};
 
 // ─── Error Types ──────────────────────────────────────────────────
@@ -150,6 +152,19 @@ pub struct BridgeStatus {
     /// [`ConnectionMode::Tcp`] when connected to an existing
     /// `copilot --ui-server` via `cli_url`.
     pub connection_mode: Option<ConnectionMode>,
+}
+
+/// Renderer hydration snapshot for the SDK bridge.
+///
+/// `sessions` contains only sessions currently tracked by this process'
+/// [`BridgeManager`], not the CLI's historical session list.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BridgeHydrationSnapshot {
+    pub status: BridgeStatus,
+    pub sessions: Vec<BridgeSessionInfo>,
+    pub metrics: manager::BridgeMetricsSnapshot,
+    pub session_states: Vec<live_state::SessionLiveState>,
 }
 
 #[derive(Debug, Clone, Serialize)]

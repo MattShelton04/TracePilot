@@ -11,11 +11,14 @@ import {
   ref,
   watch,
 } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { browseForDirectory } from "@/composables/useBrowseDirectory";
 import { useGitRepository } from "@/composables/useGitRepository";
+import { ROUTE_NAMES } from "@/config/routes";
 import { useLauncherStore } from "@/stores/launcher";
 import { usePreferencesStore } from "@/stores/preferences";
+import { useSdkStore } from "@/stores/sdk";
+import { useSessionsStore } from "@/stores/sessions";
 import { useWorktreesStore } from "@/stores/worktrees";
 
 /**
@@ -31,18 +34,19 @@ export function useSessionLauncher() {
   const prefsStore = usePreferencesStore();
   const worktreeStore = useWorktreesStore();
   const route = useRoute();
+  const router = useRouter();
   const launching = ref(false);
   const { success: toastSuccess, error: toastError } = useToast();
   const { confirm } = useConfirmDialog();
   const { copy: copyToClipboard } = useClipboard();
 
-  // ── Form state ──────────────────────────────────────────────────────
   const repoPath = ref("");
   const branch = ref("");
   const selectedModel = ref("");
   const createWorktree = ref(false);
   const autoApprove = ref(false);
   const headless = ref(false);
+  const uiServer = ref(false);
   const reasoningEffort = ref<"low" | "medium" | "high">("medium");
   const prompt = ref("");
   const customInstructions = ref("");
@@ -57,7 +61,6 @@ export function useSessionLauncher() {
 
   const baseBranch = ref("");
 
-  // ── Derived ─────────────────────────────────────────────────────────
   const selectedModelInfo = computed(() => store.models.find((m) => m.id === selectedModel.value));
 
   const selectedTemplateName = computed(() => {
@@ -73,7 +76,6 @@ export function useSessionLauncher() {
     return rec;
   });
 
-  // ── Git repository operations ───────────────────────────────────────
   const {
     defaultBranch,
     fetchingRemote,
@@ -110,6 +112,8 @@ export function useSessionLauncher() {
     headless: headless.value,
     createWorktree: createWorktree.value,
     autoApprove: autoApprove.value,
+    uiServer: !headless.value && uiServer.value,
+    launchMode: headless.value ? "sdk" : "terminal",
     envVars: envVarsRecord.value,
     cliCommand: prefsStore.cliCommand || "copilot",
   }));
@@ -117,9 +121,13 @@ export function useSessionLauncher() {
   const effectiveCli = computed(() => prefsStore.cliCommand || "copilot");
 
   const cliCommand = computed(() => {
+    if (launchConfig.value.launchMode === "sdk") {
+      return "Copilot SDK bridge (headless session)";
+    }
     const parts = [effectiveCli.value];
     if (launchConfig.value.model) parts.push(`--model ${launchConfig.value.model}`);
     if (launchConfig.value.autoApprove) parts.push("--allow-all");
+    if (launchConfig.value.uiServer) parts.push("--ui-server");
     if (launchConfig.value.reasoningEffort)
       parts.push(`--reasoning-effort ${launchConfig.value.reasoningEffort}`);
     if (launchConfig.value.prompt) {
@@ -129,11 +137,15 @@ export function useSessionLauncher() {
   });
 
   const cliCommandParts = computed<{ flag: string; value?: string }[]>(() => {
+    if (launchConfig.value.launchMode === "sdk") {
+      return [{ flag: "Copilot SDK bridge" }, { flag: "headless session" }];
+    }
     const parts: { flag: string; value?: string }[] = [{ flag: effectiveCli.value }];
     if (launchConfig.value.model) {
       parts.push({ flag: "--model", value: launchConfig.value.model });
     }
     if (launchConfig.value.autoApprove) parts.push({ flag: "--allow-all" });
+    if (launchConfig.value.uiServer) parts.push({ flag: "--ui-server" });
     if (launchConfig.value.reasoningEffort) {
       parts.push({ flag: "--reasoning-effort", value: launchConfig.value.reasoningEffort });
     }
@@ -189,7 +201,6 @@ export function useSessionLauncher() {
     return name.replace(/^(\p{Emoji_Presentation}|\p{Extended_Pictographic})\s*/u, "");
   }
 
-  // ── Actions ─────────────────────────────────────────────────────────
   function applyTemplate(tplId: string) {
     if (selectedTemplateId.value === tplId) {
       selectedTemplateId.value = null;
@@ -198,7 +209,6 @@ export function useSessionLauncher() {
     const tpl = store.templates.find((t: SessionTemplate) => t.id === tplId);
     if (!tpl) return;
     selectedTemplateId.value = tplId;
-    // Only override repoPath if the template specifies one
     if (tpl.config.repoPath) {
       repoPath.value = tpl.config.repoPath;
     }
@@ -208,6 +218,7 @@ export function useSessionLauncher() {
     baseBranch.value = tpl.config.baseBranch ?? "";
     autoApprove.value = tpl.config.autoApprove;
     headless.value = tpl.config.headless;
+    uiServer.value = tpl.config.uiServer ?? false;
     reasoningEffort.value = (tpl.config.reasoningEffort as "low" | "medium" | "high") ?? "medium";
     prompt.value = tpl.config.prompt ?? "";
     customInstructions.value = tpl.config.customInstructions ?? "";
@@ -274,17 +285,36 @@ export function useSessionLauncher() {
     launching.value = true;
     store.error = null;
     const cfg = { ...launchConfig.value };
-    if (asHeadless) cfg.headless = true;
+    if (asHeadless) {
+      cfg.headless = true;
+      cfg.uiServer = false;
+      cfg.launchMode = "sdk";
+    }
     try {
       if (cfg.repoPath) prefsStore.addRecentRepoPath(cfg.repoPath);
       const session = await store.launch(cfg);
       if (session) {
-        // Track template usage if one was selected
+        if (session.sdkSessionId) {
+          const sdkStore = useSdkStore();
+          const sessionsStore = useSessionsStore();
+          try {
+            await sdkStore.hydrate();
+            await sdkStore.setForegroundSession(session.sdkSessionId);
+            void sessionsStore.fetchSessions();
+          } catch (e) {
+            const message = e instanceof Error ? e.message : String(e);
+            toastError(`SDK session launched, but TracePilot could not refresh it: ${message}`);
+          }
+          await router.push({
+            name: ROUTE_NAMES.sessionOverview,
+            params: { id: session.sdkSessionId },
+          });
+        }
         if (selectedTemplateId.value) {
           store.incrementUsage(selectedTemplateId.value);
         }
-        toastSuccess(`PID ${session.pid}`, {
-          title: "Session launched",
+        toastSuccess(session.sdkSessionId ? session.sdkSessionId : `PID ${session.pid}`, {
+          title: session.sdkSessionId ? "SDK session launched" : "Session launched",
           description:
             session.command +
             (session.worktreePath ? `\n📂 Worktree: ${session.worktreePath}` : ""),
@@ -401,6 +431,7 @@ export function useSessionLauncher() {
     createWorktree,
     autoApprove,
     headless,
+    uiServer,
     reasoningEffort,
     prompt,
     customInstructions,

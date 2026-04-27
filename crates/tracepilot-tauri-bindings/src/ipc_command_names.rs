@@ -184,6 +184,9 @@ pub const IPC_COMMAND_NAMES: &[&str] = &[
     "sdk_connect",
     "sdk_disconnect",
     "sdk_status",
+    "sdk_hydrate",
+    "sdk_get_session_state",
+    "sdk_list_session_states",
     "sdk_cli_status",
     "sdk_create_session",
     "sdk_resume_session",
@@ -201,6 +204,7 @@ pub const IPC_COMMAND_NAMES: &[&str] = &[
     "sdk_set_foreground_session",
     "sdk_detect_ui_server",
     "sdk_launch_ui_server",
+    "sdk_stop_ui_server",
     "sdk_bridge_metrics",
     // Window management
     "open_session_window",

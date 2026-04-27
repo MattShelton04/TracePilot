@@ -5,35 +5,53 @@
 use super::BridgeManager;
 use crate::bridge::BridgeQuotaSnapshot;
 use crate::bridge::{
-    BridgeAuthStatus, BridgeError, BridgeModelInfo, BridgeQuota, BridgeSessionInfo, BridgeStatus,
+    BridgeAuthStatus, BridgeError, BridgeHydrationSnapshot, BridgeModelInfo, BridgeQuota,
+    BridgeSessionInfo, BridgeStatus, SessionLiveState,
 };
 
 impl BridgeManager {
-    /// List all sessions known to the SDK client.
-    /// Sessions that have been resumed locally are marked `is_active: true`.
-    /// Others are listed from the CLI's session metadata (may not be resumable).
-    pub async fn list_sessions(&self) -> Result<Vec<BridgeSessionInfo>, BridgeError> {
-        let client = self.require_client()?;
-        let sessions = client
-            .list_sessions()
-            .await
-            .map_err(|e| BridgeError::Sdk(e.to_string()))?;
-
-        Ok(sessions
-            .into_iter()
-            .map(|m| {
-                let is_resumed = self.sessions.contains_key(&m.session_id);
-                BridgeSessionInfo {
-                    session_id: m.session_id,
-                    model: None,
-                    working_directory: None,
-                    mode: None,
-                    is_active: is_resumed,
-                    resume_error: None,
-                    is_remote: m.is_remote,
-                }
+    /// Return sessions currently tracked by this manager.
+    pub fn tracked_sessions(&self) -> Vec<BridgeSessionInfo> {
+        self.sessions
+            .keys()
+            .map(|session_id| BridgeSessionInfo {
+                session_id: session_id.clone(),
+                model: None,
+                working_directory: None,
+                mode: None,
+                is_active: true,
+                resume_error: None,
+                is_remote: false,
             })
-            .collect())
+            .collect()
+    }
+
+    /// Return a no-side-effect snapshot for renderer hydration after reload.
+    pub fn hydrate(&self) -> BridgeHydrationSnapshot {
+        BridgeHydrationSnapshot {
+            status: self.status(),
+            sessions: self.tracked_sessions(),
+            metrics: self.metrics_snapshot(),
+            session_states: self.live_state.list(),
+        }
+    }
+
+    pub fn get_session_state(&self, session_id: &str) -> Option<SessionLiveState> {
+        self.live_state.get(session_id)
+    }
+
+    pub fn list_session_states(&self) -> Vec<SessionLiveState> {
+        self.live_state.list()
+    }
+
+    /// List sessions currently tracked by this bridge process.
+    ///
+    /// The SDK client's `list_sessions()` returns the user's full Copilot CLI
+    /// history from disk, which is useful for a future explicit "browse and
+    /// resume" picker but wrong for runtime/process visibility.
+    pub async fn list_sessions(&self) -> Result<Vec<BridgeSessionInfo>, BridgeError> {
+        self.require_client()?;
+        Ok(self.tracked_sessions())
     }
 
     /// Get quota information.

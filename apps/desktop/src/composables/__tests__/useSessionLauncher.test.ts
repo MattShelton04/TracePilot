@@ -4,6 +4,8 @@ import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, h, ref } from "vue";
 
+const routerPush = vi.hoisted(() => vi.fn());
+
 vi.mock("@tracepilot/ui", async () => {
   const actual = await vi.importActual<Record<string, unknown>>("@tracepilot/ui");
   return {
@@ -28,6 +30,7 @@ vi.mock("@tracepilot/client", () => ({
 
 vi.mock("vue-router", () => ({
   useRoute: () => ({ query: {} }),
+  useRouter: () => ({ push: routerPush }),
 }));
 
 vi.mock("@/composables/useBrowseDirectory", () => ({
@@ -88,6 +91,21 @@ vi.mock("@/stores/launcher", () => ({
     ),
 }));
 
+const sdkActions = {
+  hydrate: vi.fn().mockResolvedValue(undefined),
+  setForegroundSession: vi.fn().mockResolvedValue(undefined),
+};
+const sessionsActions = {
+  fetchSessions: vi.fn().mockResolvedValue(undefined),
+};
+
+vi.mock("@/stores/sdk", () => ({
+  useSdkStore: () => sdkActions,
+}));
+vi.mock("@/stores/sessions", () => ({
+  useSessionsStore: () => sessionsActions,
+}));
+
 vi.mock("@/stores/preferences", () => ({
   usePreferencesStore: () => ({
     recentRepoPaths: [],
@@ -131,6 +149,7 @@ function makeTemplate(overrides: Partial<SessionTemplate> = {}): SessionTemplate
       customInstructions: "",
       envVars: { FOO: "bar" },
       cliCommand: "copilot",
+      launchMode: "terminal",
     },
     createdAt: "2026-01-01T00:00:00Z",
     usageCount: 0,
@@ -157,6 +176,8 @@ function harness() {
 
 beforeEach(() => {
   setupPinia();
+  routerPush.mockReset();
+  routerPush.mockResolvedValue(undefined);
   storeState.templates = [];
   storeState.models = [];
   storeState.recentLaunches = [];
@@ -165,6 +186,10 @@ beforeEach(() => {
   Object.values(storeActions).forEach((fn) => {
     fn.mockClear?.();
   });
+  Object.values(sdkActions).forEach((fn) => {
+    fn.mockClear?.();
+  });
+  sessionsActions.fetchSessions.mockClear();
 });
 
 describe("useSessionLauncher", () => {
@@ -244,13 +269,42 @@ describe("useSessionLauncher", () => {
     const { api, wrapper } = harness();
     api.selectedModel.value = "claude-sonnet-4.5";
     api.autoApprove.value = true;
+    api.uiServer.value = true;
     api.prompt.value = "do it";
     const parts = api.cliCommandParts.value;
     const flags = parts.map((p) => p.flag);
     expect(flags).toContain("--model");
     expect(flags).toContain("--allow-all");
+    expect(flags).toContain("--ui-server");
     expect(flags).toContain("--reasoning-effort");
     expect(flags).toContain("--interactive");
+    wrapper.unmount();
+  });
+
+  it("headless mode uses the SDK launch path and foregrounds the SDK session", async () => {
+    const { api, wrapper } = harness();
+    api.repoPath.value = "C:\\repo";
+    api.headless.value = true;
+    storeActions.launch.mockResolvedValueOnce({
+      pid: 0,
+      command: "Copilot SDK bridge session in C:\\repo",
+      launchedAt: "2026-01-01T00:00:00Z",
+      launchMode: "sdk",
+      sdkSessionId: "sdk-123",
+    });
+
+    await api.handleLaunch();
+
+    expect(storeActions.launch).toHaveBeenCalledWith(
+      expect.objectContaining({ launchMode: "sdk", headless: true }),
+    );
+    expect(sdkActions.hydrate).toHaveBeenCalled();
+    expect(sdkActions.setForegroundSession).toHaveBeenCalledWith("sdk-123");
+    expect(sessionsActions.fetchSessions).toHaveBeenCalled();
+    expect(routerPush).toHaveBeenCalledWith({
+      name: "session-overview",
+      params: { id: "sdk-123" },
+    });
     wrapper.unmount();
   });
 

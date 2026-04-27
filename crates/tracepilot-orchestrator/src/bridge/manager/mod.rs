@@ -15,6 +15,7 @@
 //! contributes an `impl BridgeManager` block so the public API remains a single
 //! flat surface from the caller's point of view.
 
+use super::live_state::{LiveStateStore, SessionLiveState, SessionRuntimeStatus};
 use super::{BridgeConnectionState, BridgeError, BridgeEvent, BridgeStatus, ConnectionMode};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -29,11 +30,17 @@ mod session_tasks;
 mod ui_server;
 
 #[cfg(test)]
+mod lifecycle_tests;
+#[cfg(test)]
+mod live_state_tests;
+#[cfg(test)]
 mod preference_tests;
+#[cfg(test)]
+mod session_tasks_tests;
 #[cfg(test)]
 mod tests;
 
-pub use ui_server::launch_ui_server;
+pub use ui_server::{launch_ui_server, stop_ui_server};
 
 /// Shared bridge manager type for Tauri state.
 pub type SharedBridgeManager = Arc<RwLock<BridgeManager>>;
@@ -92,9 +99,15 @@ pub struct BridgeManager {
     /// TCP server URL when in TCP mode — used for raw JSON-RPC calls
     /// that bypass the SDK (workaround for upstream method name bugs).
     pub(super) cli_url: Option<String>,
+    /// Working directory used for the active connection. Stored to make
+    /// renderer re-hydration reconnect attempts idempotent without retaining
+    /// secrets such as GitHub tokens.
+    pub(super) connection_cwd: Option<String>,
     pub(super) event_tx: broadcast::Sender<BridgeEvent>,
+    pub(super) state_tx: broadcast::Sender<SessionLiveState>,
     pub(super) status_tx: broadcast::Sender<BridgeStatus>,
     pub(super) metrics: Arc<BridgeMetrics>,
+    pub(super) live_state: Arc<LiveStateStore>,
 
     /// Runtime feature-preference reader. See [`CopilotSdkEnabledReader`].
     pub(super) pref_reader: Option<CopilotSdkEnabledReader>,
@@ -114,6 +127,7 @@ impl BridgeManager {
         broadcast::Receiver<BridgeStatus>,
     ) {
         let (tx, rx) = broadcast::channel(512);
+        let (state_tx, _state_rx) = broadcast::channel(512);
         // Sized to 256 (was 16): status updates are tiny struct values; a
         // slow subscriber under heavy reconnect activity used to hit
         // `RecvError::Lagged` well before any UI catch-up window.
@@ -124,9 +138,12 @@ impl BridgeManager {
             error_message: None,
             connection_mode: None,
             cli_url: None,
+            connection_cwd: None,
             event_tx: tx,
+            state_tx,
             status_tx,
             metrics: Arc::new(BridgeMetrics::default()),
+            live_state: Arc::new(LiveStateStore::new()),
             pref_reader: None,
             client: None,
             sessions: HashMap::new(),
@@ -182,6 +199,11 @@ impl BridgeManager {
         self.event_tx.subscribe()
     }
 
+    /// Subscribe to compact per-session live state changes.
+    pub fn subscribe_session_state(&self) -> broadcast::Receiver<SessionLiveState> {
+        self.state_tx.subscribe()
+    }
+
     /// Subscribe to bridge status changes.
     pub fn subscribe_status(&self) -> broadcast::Receiver<BridgeStatus> {
         self.status_tx.subscribe()
@@ -221,6 +243,28 @@ impl BridgeManager {
         if self.status_tx.send(self.status()).is_err() {
             tracing::trace!("no status subscribers");
         }
+    }
+
+    #[cfg(test)]
+    pub(super) fn reduce_and_emit_session_state(&self, event: &BridgeEvent) -> SessionLiveState {
+        let state = self.live_state.apply_event(event);
+        if self.state_tx.send(state.clone()).is_err() {
+            tracing::trace!("no SDK session-state subscribers");
+        }
+        state
+    }
+
+    pub(super) fn mark_live_session_status(
+        &self,
+        session_id: &str,
+        status: SessionRuntimeStatus,
+        last_error: Option<String>,
+    ) -> SessionLiveState {
+        let state = self.live_state.mark_status(session_id, status, last_error);
+        if self.state_tx.send(state.clone()).is_err() {
+            tracing::trace!("no SDK session-state subscribers");
+        }
+        state
     }
 
     pub(super) fn require_client(&self) -> Result<&copilot_sdk::Client, BridgeError> {

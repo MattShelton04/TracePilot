@@ -25,6 +25,50 @@ export interface BridgeEvent {
   data: unknown;
 }
 
+export type SessionRuntimeStatus =
+  | "idle"
+  | "running"
+  | "waiting_for_input"
+  | "waiting_for_permission"
+  | "error"
+  | "shutdown"
+  | "unknown";
+
+export interface ToolProgressSummary {
+  toolCallId: string | null;
+  toolName: string | null;
+  status: string;
+  message: string | null;
+  progress: number | null;
+  partialResult: unknown | null;
+  updatedAt: string;
+}
+
+export interface PendingRequestSummary {
+  requestId: string | null;
+  kind: string;
+  summary: string | null;
+  payload: unknown;
+  requestedAt: string;
+}
+
+export interface SessionLiveState {
+  sessionId: string;
+  status: SessionRuntimeStatus;
+  currentTurnId: string | null;
+  assistantText: string;
+  reasoningText: string;
+  tools: ToolProgressSummary[];
+  usage: unknown | null;
+  pendingPermission: PendingRequestSummary | null;
+  pendingUserInput: PendingRequestSummary | null;
+  lastEventId: string | null;
+  lastEventType: string | null;
+  lastEventTimestamp: string | null;
+  lastError: string | null;
+  reducerWarnings: string[];
+}
+
 // ─── Status / Info Types ──────────────────────────────────────────
 
 export interface BridgeStatus {
@@ -72,6 +116,15 @@ export interface BridgeMetricsSnapshot {
   eventsForwarded: number;
   eventsDroppedDueToLag: number;
   lagOccurrences: number;
+}
+
+export interface BridgeHydrationSnapshot {
+  status: BridgeStatus;
+  /** Sessions currently tracked by this bridge manager, not all historical CLI sessions. */
+  sessions: BridgeSessionInfo[];
+  metrics: BridgeMetricsSnapshot;
+  /** Backend-owned compact live SDK session states keyed server-side by session ID. */
+  sessionStates: SessionLiveState[];
 }
 
 export interface BridgeSessionInfo {

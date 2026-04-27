@@ -143,6 +143,7 @@ export type {
   BridgeConnectConfig,
   BridgeConnectionState,
   BridgeEvent,
+  BridgeHydrationSnapshot,
   BridgeMessagePayload,
   BridgeMetricsSnapshot,
   BridgeModelInfo,
@@ -153,6 +154,10 @@ export type {
   BridgeSessionMode,
   BridgeStatus,
   DetectedUiServer,
+  PendingRequestSummary,
+  SessionLiveState,
+  SessionRuntimeStatus,
+  ToolProgressSummary,
 } from "./sdk.js";
 
 // ── search.js ──────────────────────────────────────────────────────

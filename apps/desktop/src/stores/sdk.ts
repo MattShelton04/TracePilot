@@ -17,8 +17,8 @@
  */
 
 import type { UnlistenFn } from "@tauri-apps/api/event";
-import { IPC_EVENTS, sdkDisconnect } from "@tracepilot/client";
-import type { BridgeEvent, BridgeStatus } from "@tracepilot/types";
+import { IPC_EVENTS } from "@tracepilot/client";
+import type { BridgeEvent, BridgeStatus, SessionLiveState } from "@tracepilot/types";
 import { defineStore } from "pinia";
 import { watch } from "vue";
 import { useWindowRole } from "@/composables/useWindowRole";
@@ -70,6 +70,9 @@ export const useSdkStore = defineStore("sdk", () => {
         await safeListen<BridgeStatus>(IPC_EVENTS.SDK_CONNECTION_CHANGED, (event) => {
           connection.applyStatus(event.payload);
         }),
+        await safeListen<SessionLiveState>(IPC_EVENTS.SDK_SESSION_STATE_CHANGED, (event) => {
+          connection.applySessionState(event.payload);
+        }),
       );
     } catch (e) {
       logWarn("[sdk] Failed to initialize event listeners (not in Tauri environment)", e);
@@ -84,20 +87,16 @@ export const useSdkStore = defineStore("sdk", () => {
 
   initEventListeners();
 
-  // Disconnect when browser window unloads (app close / refresh).
-  // Only the main window owns the SDK connection lifecycle.
   const { isMain } = useWindowRole();
-  if (typeof window !== "undefined") {
-    window.addEventListener("beforeunload", () => {
-      if (isMain() && connection.connectionState.value === "connected") {
-        sdkDisconnect().catch(() => {});
-      }
-    });
-  }
 
   // Auto-connect when copilotSdk feature is enabled
   const prefs = usePreferencesStore();
   async function autoConnect() {
+    const hydratedStatus = await connection.hydrate();
+    if (hydratedStatus?.state === "connected") {
+      logInfo("[sdk] Backend bridge already connected; using hydrated state");
+      return;
+    }
     if (
       prefs.isFeatureEnabled("copilotSdk") &&
       connection.connectionState.value === "disconnected" &&
@@ -115,13 +114,21 @@ export const useSdkStore = defineStore("sdk", () => {
     setTimeout(() => autoConnect(), 500);
   }
 
+  async function disconnect() {
+    if (!isMain()) {
+      logInfo("[sdk] Ignoring disconnect request from non-main window");
+      return;
+    }
+    await connection.disconnect();
+  }
+
   // Disconnect SDK when the feature toggle is turned off.
   watch(
     () => prefs.isFeatureEnabled("copilotSdk"),
     (enabled) => {
-      if (!enabled && connection.connectionState.value !== "disconnected") {
+      if (isMain() && !enabled && connection.connectionState.value !== "disconnected") {
         logInfo("[sdk] Feature toggle disabled — disconnecting SDK bridge");
-        connection.disconnect();
+        disconnect();
       }
     },
   );
@@ -146,11 +153,14 @@ export const useSdkStore = defineStore("sdk", () => {
     quota: connection.quota,
     sessions: connection.sessions,
     models: connection.models,
+    bridgeMetrics: connection.bridgeMetrics,
+    sessionStatesById: connection.sessionStatesById,
     recentEvents: connection.recentEvents,
     detectedServers: connection.detectedServers,
     detecting: connection.detecting,
     lastDetectMessage: connection.lastDetectMessage,
     launching: connection.launching,
+    stoppingServerPid: connection.stoppingServerPid,
 
     // State (messaging)
     foregroundSessionId: messaging.foregroundSessionId,
@@ -167,8 +177,9 @@ export const useSdkStore = defineStore("sdk", () => {
 
     // Actions (connection)
     connect: connection.connect,
-    disconnect: connection.disconnect,
+    disconnect,
     autoConnect,
+    hydrate: connection.hydrate,
     refreshStatus: connection.refreshStatus,
     checkCliStatus: connection.checkCliStatus,
     fetchAuthStatus: connection.fetchAuthStatus,
@@ -179,6 +190,7 @@ export const useSdkStore = defineStore("sdk", () => {
     detectAndConnect: connection.detectAndConnect,
     connectToServer: connection.connectToServer,
     launchUiServer: connection.launchUiServer,
+    stopUiServer: connection.stopUiServer,
 
     // Actions (messaging)
     createSession: messaging.createSession,

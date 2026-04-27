@@ -89,7 +89,8 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
                 });
                 let bridge_for_pref = shared_bridge.clone();
                 tauri::async_runtime::block_on(async move {
-                    bridge_for_pref.write().await.set_preference_reader(reader);
+                    let mut bridge = bridge_for_pref.write().await;
+                    bridge.set_preference_reader(reader);
                 });
             }
 
@@ -104,6 +105,23 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
                             .await;
                     },
                     tracing::info_span!("bridge_event_forwarder"),
+                ));
+            }
+            // Spawn status change forwarding task.
+            {
+                let bridge_for_state = shared_bridge.clone();
+                let app_handle = app.clone();
+                tauri::async_runtime::spawn(tracing::Instrument::instrument(
+                    async move {
+                        let rx = bridge_for_state.read().await.subscribe_session_state();
+                        broadcast::forward_broadcast(
+                            rx,
+                            app_handle,
+                            events::SDK_SESSION_STATE_CHANGED,
+                        )
+                        .await;
+                    },
+                    tracing::info_span!("bridge_session_state_forwarder"),
                 ));
             }
             // Spawn status change forwarding task.
@@ -282,10 +300,13 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::tasks::task_orchestrator_stop,
             commands::tasks::task_ingest_results,
             commands::tasks::task_attribution,
-            // SDK bridge commands (15)
+            // SDK bridge commands
             commands::sdk::sdk_connect,
             commands::sdk::sdk_disconnect,
             commands::sdk::sdk_status,
+            commands::sdk::sdk_hydrate,
+            commands::sdk::sdk_get_session_state,
+            commands::sdk::sdk_list_session_states,
             commands::sdk::sdk_cli_status,
             commands::sdk::sdk_create_session,
             commands::sdk::sdk_resume_session,
@@ -303,6 +324,7 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::sdk::sdk_set_foreground_session,
             commands::sdk::sdk_detect_ui_server,
             commands::sdk::sdk_launch_ui_server,
+            commands::sdk::sdk_stop_ui_server,
             commands::sdk::sdk_bridge_metrics,
             // Window management commands (2)
             commands::window::open_session_window,

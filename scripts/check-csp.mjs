@@ -101,7 +101,9 @@ function scanBuiltIndexHtml() {
   // Best-effort inline-script scan. If dist/index.html is missing we say so
   // and move on — first-time contributors may not have built the app yet.
   if (!existsSync(DIST_HTML)) {
-    console.log("• skipped dist/index.html scan (run `pnpm --filter @tracepilot/desktop build` to enable)");
+    console.log(
+      "• skipped dist/index.html scan (run `pnpm --filter @tracepilot/desktop build` to enable)",
+    );
     return [];
   }
   const html = readFileSync(DIST_HTML, "utf8");

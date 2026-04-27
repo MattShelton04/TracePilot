@@ -3,6 +3,7 @@
 //! forwarder that feeds the bridge's broadcast channel.
 
 use super::BridgeManager;
+use crate::bridge::live_state::SessionRuntimeStatus;
 use crate::bridge::{
     BridgeError, BridgeEvent, BridgeMessagePayload, BridgeSessionConfig, BridgeSessionInfo,
     BridgeSessionMode,
@@ -15,6 +16,21 @@ use tracing::{debug, info, warn};
 impl BridgeManager {
     /// Create a new Copilot session via the SDK.
     pub async fn create_session(
+        &mut self,
+        config: BridgeSessionConfig,
+    ) -> Result<BridgeSessionInfo, BridgeError> {
+        self.create_session_inner(config).await
+    }
+
+    /// Create a new Copilot session owned by TracePilot's launcher.
+    pub async fn create_launcher_session(
+        &mut self,
+        config: BridgeSessionConfig,
+    ) -> Result<BridgeSessionInfo, BridgeError> {
+        self.create_session_inner(config).await
+    }
+
+    async fn create_session_inner(
         &mut self,
         config: BridgeSessionConfig,
     ) -> Result<BridgeSessionInfo, BridgeError> {
@@ -42,22 +58,7 @@ impl BridgeManager {
             .await
             .map_err(|e| BridgeError::Sdk(e.to_string()))?;
 
-        let session_id = session.session_id().to_string();
-
-        // Spawn event forwarding task
-        self.spawn_event_forwarder(&session_id, &session);
-
-        self.sessions.insert(session_id.clone(), session);
-
-        Ok(BridgeSessionInfo {
-            session_id,
-            model: config.model,
-            working_directory: config.working_directory,
-            mode: Some(BridgeSessionMode::Interactive),
-            is_active: true,
-            resume_error: None,
-            is_remote: false,
-        })
+        Ok(self.track_created_session(session, config))
     }
 
     /// Resume an existing session by ID (for `--ui-server` mode steering).
@@ -81,6 +82,7 @@ impl BridgeManager {
         // remain steerable (documented on `BridgeError::DisabledByPreference`).
         if self.sessions.contains_key(session_id) {
             debug!("Session {} already resumed — returning cached", session_id);
+            self.mark_live_session_status(session_id, SessionRuntimeStatus::Running, None);
             return Ok(BridgeSessionInfo {
                 session_id: session_id.to_string(),
                 model: model.map(String::from),
@@ -129,6 +131,7 @@ impl BridgeManager {
             session_id, sid
         );
         self.spawn_event_forwarder(&sid, &session);
+        self.mark_live_session_status(&sid, SessionRuntimeStatus::Running, None);
         self.sessions.insert(sid.clone(), session);
 
         // In TCP (--ui-server) mode, also set this as the foreground session so the
@@ -197,6 +200,7 @@ impl BridgeManager {
         } else {
             debug!("unlink_session: {} not in local session map", session_id);
         }
+        self.mark_live_session_status(session_id, SessionRuntimeStatus::Unknown, None);
     }
 
     /// Destroy a resumed session, releasing its resources.
@@ -220,6 +224,7 @@ impl BridgeManager {
                 session_id
             );
         }
+        self.mark_live_session_status(session_id, SessionRuntimeStatus::Shutdown, None);
         Ok(())
     }
 
@@ -248,6 +253,8 @@ impl BridgeManager {
         session: &Arc<copilot_sdk::Session>,
     ) {
         let tx = self.event_tx.clone();
+        let state_tx = self.state_tx.clone();
+        let live_state = Arc::clone(&self.live_state);
         let metrics = Arc::clone(&self.metrics);
         let sid = session_id.to_string();
         let mut events = session.subscribe();
@@ -267,11 +274,15 @@ impl BridgeManager {
                                 data: serde_json::to_value(&event.data)
                                     .unwrap_or(serde_json::Value::Null),
                             };
-                            if tx.send(bridge_event).is_err() {
-                                debug!("No bridge event receivers, stopping forwarder for {}", sid);
-                                break;
+                            let state = live_state.apply_event(&bridge_event);
+                            if state_tx.send(state).is_err() {
+                                debug!("No SDK session-state receivers for {}", sid);
                             }
-                            metrics.events_forwarded.fetch_add(1, Ordering::Relaxed);
+                            if tx.send(bridge_event).is_ok() {
+                                metrics.events_forwarded.fetch_add(1, Ordering::Relaxed);
+                            } else {
+                                debug!("No bridge event receivers for {}", sid);
+                            }
                         }
                         Err(tokio::sync::broadcast::error::RecvError::Closed) => {
                             debug!("SDK event channel closed for session {}", sid);
@@ -291,5 +302,28 @@ impl BridgeManager {
         ));
 
         self.event_tasks.insert(session_id.to_string(), handle);
+    }
+
+    pub(super) fn track_created_session(
+        &mut self,
+        session: Arc<copilot_sdk::Session>,
+        config: BridgeSessionConfig,
+    ) -> BridgeSessionInfo {
+        let session_id = session.session_id().to_string();
+
+        self.spawn_event_forwarder(&session_id, &session);
+        self.mark_live_session_status(&session_id, SessionRuntimeStatus::Running, None);
+
+        self.sessions.insert(session_id.clone(), session);
+
+        BridgeSessionInfo {
+            session_id,
+            model: config.model,
+            working_directory: config.working_directory,
+            mode: Some(BridgeSessionMode::Interactive),
+            is_active: true,
+            resume_error: None,
+            is_remote: false,
+        }
     }
 }

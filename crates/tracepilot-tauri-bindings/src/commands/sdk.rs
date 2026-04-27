@@ -9,8 +9,9 @@
 use crate::error::CmdResult;
 use tracepilot_orchestrator::bridge::manager::{BridgeMetricsSnapshot, SharedBridgeManager};
 use tracepilot_orchestrator::bridge::{
-    BridgeAuthStatus, BridgeConnectConfig, BridgeMessagePayload, BridgeModelInfo, BridgeQuota,
-    BridgeSessionConfig, BridgeSessionInfo, BridgeSessionMode, BridgeStatus, DetectedUiServer,
+    BridgeAuthStatus, BridgeConnectConfig, BridgeHydrationSnapshot, BridgeMessagePayload,
+    BridgeModelInfo, BridgeQuota, BridgeSessionConfig, BridgeSessionInfo, BridgeSessionMode,
+    BridgeStatus, DetectedUiServer, SessionLiveState,
 };
 
 // ─── Connection Lifecycle ─────────────────────────────────────────
@@ -40,6 +41,31 @@ pub async fn sdk_disconnect(
 pub async fn sdk_status(bridge: tauri::State<'_, SharedBridgeManager>) -> CmdResult<BridgeStatus> {
     let mgr = bridge.read().await;
     Ok(mgr.status())
+}
+
+#[tauri::command]
+pub async fn sdk_hydrate(
+    bridge: tauri::State<'_, SharedBridgeManager>,
+) -> CmdResult<BridgeHydrationSnapshot> {
+    let mgr = bridge.read().await;
+    Ok(mgr.hydrate())
+}
+
+#[tauri::command]
+pub async fn sdk_get_session_state(
+    bridge: tauri::State<'_, SharedBridgeManager>,
+    session_id: String,
+) -> CmdResult<Option<SessionLiveState>> {
+    let mgr = bridge.read().await;
+    Ok(mgr.get_session_state(&session_id))
+}
+
+#[tauri::command]
+pub async fn sdk_list_session_states(
+    bridge: tauri::State<'_, SharedBridgeManager>,
+) -> CmdResult<Vec<SessionLiveState>> {
+    let mgr = bridge.read().await;
+    Ok(mgr.list_session_states())
 }
 
 #[tauri::command]
@@ -218,6 +244,14 @@ pub async fn sdk_detect_ui_server() -> CmdResult<Vec<DetectedUiServer>> {
 pub async fn sdk_launch_ui_server(working_dir: Option<String>) -> CmdResult<u32> {
     let pid = tracepilot_orchestrator::bridge::manager::launch_ui_server(working_dir.as_deref())?;
     Ok(pid)
+}
+
+#[tauri::command]
+#[tracing::instrument(err, fields(pid))]
+pub async fn sdk_stop_ui_server(pid: u32) -> CmdResult<()> {
+    tracepilot_orchestrator::bridge::manager::stop_ui_server(pid)
+        .await
+        .map_err(Into::into)
 }
 
 // ─── Observability ────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 /**
  * SDK connection slice. Owns connection lifecycle (connect/disconnect,
  * status, UI server detect/launch) and caches hydrated after connect
- * (auth, quota, sessions, models, recent events).
+ * (auth, quota, tracked sessions, models, recent events).
  *
  * IPC semantics preserved: `session.resume` is never implicitly invoked;
  * `isActive` gating lives with the explicit `resumeSession` (messaging slice).
@@ -14,21 +14,25 @@ import {
   sdkDisconnect,
   sdkGetAuthStatus,
   sdkGetQuota,
+  sdkHydrate,
   sdkLaunchUiServer,
   sdkListModels,
   sdkListSessions,
   sdkStatus,
+  sdkStopUiServer,
 } from "@tracepilot/client";
 import type {
   BridgeAuthStatus,
   BridgeConnectConfig,
   BridgeConnectionState,
   BridgeEvent,
+  BridgeMetricsSnapshot,
   BridgeModelInfo,
   BridgeQuota,
   BridgeSessionInfo,
   BridgeStatus,
   DetectedUiServer,
+  SessionLiveState,
 } from "@tracepilot/types";
 import { runMutation, toErrorMessage } from "@tracepilot/ui";
 import { computed, ref, shallowRef } from "vue";
@@ -56,11 +60,14 @@ export function createConnectionSlice(deps: ConnectionDeps) {
   const quota = ref<BridgeQuota | null>(null);
   const sessions = ref<BridgeSessionInfo[]>([]);
   const models = ref<BridgeModelInfo[]>([]);
+  const bridgeMetrics = ref<BridgeMetricsSnapshot | null>(null);
+  const sessionStatesById = shallowRef<Record<string, SessionLiveState>>({});
   const recentEvents = shallowRef<BridgeEvent[]>([]);
   const detectedServers = ref<DetectedUiServer[]>([]);
   const detecting = ref(false);
   const lastDetectMessage = ref<string | null>(null);
   const launching = ref(false);
+  const stoppingServerPid = ref<number | null>(null);
 
   const isConnected = computed(() => connectionState.value === "connected");
   const isConnecting = computed(() => connecting.value || connectionState.value === "connecting");
@@ -78,6 +85,17 @@ export function createConnectionSlice(deps: ConnectionDeps) {
     activeSessions.value = status.activeSessions;
     lastError.value = status.error ?? null;
     connectionMode.value = status.connectionMode ?? null;
+  }
+
+  function countActiveSessions(nextSessions: BridgeSessionInfo[]): number {
+    return nextSessions.filter((session) => session.isActive).length;
+  }
+
+  function applySessionState(state: SessionLiveState) {
+    sessionStatesById.value = {
+      ...sessionStatesById.value,
+      [state.sessionId]: state,
+    };
   }
 
   async function fetchVersionInfo() {
@@ -109,10 +127,11 @@ export function createConnectionSlice(deps: ConnectionDeps) {
   async function fetchSessions() {
     try {
       sessions.value = await sdkListSessions();
+      activeSessions.value = countActiveSessions(sessions.value);
       logInfo(
-        "[sdk] Sessions fetched:",
+        "[sdk] Tracked sessions fetched:",
         sessions.value.length,
-        "total,",
+        "tracked,",
         sessions.value.filter((s) => s.isActive).length,
         "active",
       );
@@ -142,6 +161,23 @@ export function createConnectionSlice(deps: ConnectionDeps) {
       "cli=",
       cliVersion.value,
     );
+  }
+
+  async function hydrate(): Promise<BridgeStatus | null> {
+    try {
+      const snapshot = await sdkHydrate();
+      applyStatus(snapshot.status);
+      sessions.value = snapshot.sessions;
+      sessionStatesById.value = Object.fromEntries(
+        (snapshot.sessionStates ?? []).map((state) => [state.sessionId, state]),
+      );
+      activeSessions.value = countActiveSessions(snapshot.sessions);
+      bridgeMetrics.value = snapshot.metrics;
+      return snapshot.status;
+    } catch (e) {
+      logWarn("[sdk] Failed to hydrate bridge state", e);
+      return null;
+    }
   }
 
   async function connect(config: BridgeConnectConfig = {}): Promise<boolean> {
@@ -188,6 +224,8 @@ export function createConnectionSlice(deps: ConnectionDeps) {
       connectionState.value = "disconnected";
       connectionMode.value = null;
       sessions.value = [];
+      sessionStatesById.value = {};
+      bridgeMetrics.value = null;
       deps.onDisconnect?.();
       activeSessions.value = 0;
     });
@@ -277,6 +315,25 @@ export function createConnectionSlice(deps: ConnectionDeps) {
     }
   }
 
+  async function stopUiServer(pid: number): Promise<boolean> {
+    stoppingServerPid.value = pid;
+    try {
+      await sdkStopUiServer(pid);
+      detectedServers.value = detectedServers.value.filter((server) => server.pid !== pid);
+      if (connectionState.value === "connected") {
+        await refreshStatus();
+      }
+      return true;
+    } catch (e) {
+      lastError.value = toErrorMessage(e);
+      logWarn("[sdk] Failed to stop UI server:", e);
+      return false;
+    } finally {
+      stoppingServerPid.value = null;
+      await detectUiServer();
+    }
+  }
+
   return {
     connectionState,
     sdkAvailable,
@@ -290,17 +347,21 @@ export function createConnectionSlice(deps: ConnectionDeps) {
     quota,
     sessions,
     models,
+    bridgeMetrics,
+    sessionStatesById,
     recentEvents,
     detectedServers,
     detecting,
     lastDetectMessage,
     launching,
+    stoppingServerPid,
     isConnected,
     isConnecting,
     hasError,
     isTcpMode,
     isStdioMode,
     applyStatus,
+    applySessionState,
     connect,
     disconnect,
     refreshStatus,
@@ -311,10 +372,12 @@ export function createConnectionSlice(deps: ConnectionDeps) {
     fetchModels,
     fetchVersionInfo,
     hydrateAfterConnect,
+    hydrate,
     detectUiServer,
     detectAndConnect,
     connectToServer,
     launchUiServer,
+    stopUiServer,
   };
 }
 

@@ -34,9 +34,16 @@ function iconForType(type: AlertEvent["type"]): string {
     case "session-end":
       return "✓";
     case "ask-user":
+    case "sdk-user-input-required":
       return "💬";
+    case "sdk-permission-required":
+      return "🔐";
     case "session-error":
+    case "sdk-session-error":
+    case "sdk-event-lag":
       return "⚠";
+    case "sdk-session-idle":
+      return "✓";
   }
 }
 
@@ -46,7 +53,7 @@ function severityClass(severity: AlertEvent["severity"]): string {
 
 function handleAlertClick(alert: AlertEvent) {
   alertsStore.markRead(alert.id);
-  if (alert.sessionId && alert.sessionId !== "test") {
+  if (alert.sessionId && alert.sessionId !== "test" && alert.sessionId !== "sdk-bridge") {
     tabStore.openTab(
       alert.sessionId,
       alert.sessionSummary ?? `Session ${alert.sessionId.slice(0, 8)}`,
