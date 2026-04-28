@@ -4,7 +4,10 @@ use serde_json::{Value, json};
 
 const MAX_TEXT_PREVIEW_CHARS: usize = 16 * 1024;
 const MAX_TOOLS: usize = 32;
-const MAX_PARTIAL_RESULT_CHARS: usize = 2048;
+// 64 KiB lets us stream meaningfully long shell/powershell stdout into the live
+// preview without losing earlier chunks; once the SDK emits
+// `tool.execution_complete` the persisted result takes over from disk.
+pub(super) const MAX_PARTIAL_RESULT_CHARS: usize = 64 * 1024;
 const MAX_REDUCER_WARNINGS: usize = 8;
 
 pub fn apply_event(state: &mut SessionLiveState, event: &BridgeEvent) {
@@ -18,12 +21,10 @@ pub fn apply_event(state: &mut SessionLiveState, event: &BridgeEvent) {
     match event.event_type.as_str() {
         "assistant.turn_start" => start_turn(state),
         "user.message" => state.status = SessionRuntimeStatus::Running,
-        "assistant.message" | "assistant.message_delta" => {
-            append_text(state, event, TextKind::Assistant)
-        }
-        "assistant.reasoning" | "assistant.reasoning_delta" => {
-            append_text(state, event, TextKind::Reasoning)
-        }
+        "assistant.message_delta" => append_delta(state, event, TextKind::Assistant),
+        "assistant.reasoning_delta" => append_delta(state, event, TextKind::Reasoning),
+        "assistant.message" => apply_full_text(state, event, TextKind::Assistant),
+        "assistant.reasoning" => apply_full_text(state, event, TextKind::Reasoning),
         "assistant.usage" | "session.usage_info" => state.usage = Some(event.data.clone()),
         "session.idle" | "assistant.turn_end" => state.status = SessionRuntimeStatus::Idle,
         "session.shutdown" => state.status = SessionRuntimeStatus::Shutdown,
@@ -57,9 +58,14 @@ enum TextKind {
     Reasoning,
 }
 
-fn append_text(state: &mut SessionLiveState, event: &BridgeEvent, kind: TextKind) {
+/// Apply an `assistant.message_delta` / `assistant.reasoning_delta` event by
+/// appending only the incremental delta payload. The SDK emits `deltaContent`
+/// (camelCase of `delta_content`); we accept a few aliases used by alternative
+/// servers but never read `content` here — that field is the FULL message and
+/// belongs to the non-delta event.
+fn append_delta(state: &mut SessionLiveState, event: &BridgeEvent, kind: TextKind) {
     state.status = SessionRuntimeStatus::Running;
-    match event_text_field(
+    if let Some(delta) = event_text_field(
         &event.data,
         &[
             "deltaContent",
@@ -67,17 +73,46 @@ fn append_text(state: &mut SessionLiveState, event: &BridgeEvent, kind: TextKind
             "chunkContent",
             "chunk_content",
             "delta",
-            "text",
+        ],
+    ) {
+        match kind {
+            TextKind::Assistant => append_capped(&mut state.assistant_text, &delta),
+            TextKind::Reasoning => append_capped(&mut state.reasoning_text, &delta),
+        }
+    }
+}
+
+/// Apply a final `assistant.message` / `assistant.reasoning` event. Carries the
+/// full `content`. Many sessions stream deltas first and then send the final
+/// event with `content == accumulated deltas`; appending it would duplicate the
+/// text. We REPLACE only when the final content is strictly longer than what we
+/// already accumulated (i.e. the deltas did not cover the whole message — for
+/// example when delta streaming was suppressed). Otherwise we keep the
+/// streamed text.
+fn apply_full_text(state: &mut SessionLiveState, event: &BridgeEvent, kind: TextKind) {
+    state.status = SessionRuntimeStatus::Running;
+    let Some(content) = event_text_field(
+        &event.data,
+        &[
             "content",
+            "chunkContent",
+            "chunk_content",
+            "text",
             "message",
             "value",
         ],
-    ) {
-        Some(delta) => match kind {
-            TextKind::Assistant => append_capped(&mut state.assistant_text, &delta),
-            TextKind::Reasoning => append_capped(&mut state.reasoning_text, &delta),
-        },
-        None => {}
+    ) else {
+        return;
+    };
+    let target = match kind {
+        TextKind::Assistant => &mut state.assistant_text,
+        TextKind::Reasoning => &mut state.reasoning_text,
+    };
+    // Replace only if the final content is longer than the accumulated text;
+    // otherwise the deltas already produced the final text.
+    if content.chars().count() > target.chars().count() {
+        target.clear();
+        append_capped(target, &content);
     }
 }
 
@@ -120,21 +155,24 @@ fn upsert_tool(state: &mut SessionLiveState, event: &BridgeEvent, fallback_statu
         ],
     );
     let progress = number_field(&event.data, &["percent", "progress", "percentage"]);
-    let partial_result = event
+    // Treat the final-completion `result` separately from in-flight
+    // `partial_output`: completion replaces the live preview, but partials are
+    // merged so we don't lose earlier streamed output if a server emits
+    // incremental chunks (some do, some send cumulative snapshots).
+    let partial_payload = event
         .data
         .get("partialResult")
         .or_else(|| event.data.get("partialOutput"))
         .or_else(|| event.data.get("partial_result"))
-        .or_else(|| event.data.get("partial_output"))
-        .or_else(|| event.data.get("result"))
-        .map(compact_partial_result);
+        .or_else(|| event.data.get("partial_output"));
+    let final_result = event.data.get("result");
     let summary = ToolProgressSummary {
         tool_call_id: tool_call_id.clone(),
         tool_name,
         status,
         message,
         progress,
-        partial_result,
+        partial_result: None, // Filled in by the merge step below.
         updated_at: event.timestamp.clone(),
     };
     if let Some(id) = tool_call_id
@@ -147,17 +185,68 @@ fn upsert_tool(state: &mut SessionLiveState, event: &BridgeEvent, fallback_statu
         existing.status = summary.status;
         existing.message = summary.message.or_else(|| existing.message.clone());
         existing.progress = summary.progress.or(existing.progress);
-        existing.partial_result = summary
-            .partial_result
-            .or_else(|| existing.partial_result.clone());
+        if let Some(result) = final_result {
+            existing.partial_result = Some(compact_partial_result(result));
+        } else if let Some(incoming) = partial_payload {
+            existing.partial_result = Some(merge_partial_result(
+                existing.partial_result.as_ref(),
+                incoming,
+            ));
+        }
         existing.updated_at = summary.updated_at;
         return;
+    }
+    let mut summary = summary;
+    if let Some(result) = final_result {
+        summary.partial_result = Some(compact_partial_result(result));
+    } else if let Some(incoming) = partial_payload {
+        summary.partial_result = Some(merge_partial_result(None, incoming));
     }
     state.tools.push(summary);
     if state.tools.len() > MAX_TOOLS {
         let overflow = state.tools.len() - MAX_TOOLS;
         state.tools.drain(0..overflow);
     }
+}
+
+/// Merge a streamed partial-output payload into the previous one.
+///
+/// SDK servers vary: some emit `partial_output` as the *cumulative* snapshot,
+/// others as *incremental* deltas. We don't want to lose history in the
+/// incremental case (the previous behaviour, which always replaced, dropped
+/// earlier stdout) or to produce duplicate suffixes in the cumulative case.
+///
+/// Strategy when both old and new are strings:
+/// * If `new.starts_with(old)` — new is a cumulative snapshot that extends old; keep `new`.
+/// * If `old.starts_with(new)` — new is a re-send of an earlier prefix; keep `old`.
+/// * Otherwise — treat new as an incremental chunk and append.
+///
+/// For non-string payloads (objects/arrays produced by structured tools) we
+/// keep the latest snapshot — those are typically replacement payloads.
+fn merge_partial_result(existing: Option<&Value>, incoming: &Value) -> Value {
+    let incoming_compacted = compact_partial_result(incoming);
+    let Some(existing) = existing else {
+        return incoming_compacted;
+    };
+    // The existing payload may already be a compacted `{truncated, preview}`
+    // object from a prior over-cap merge. Treat its `preview` as the
+    // accumulated string so further incremental chunks keep extending it
+    // instead of clobbering the preview with the new chunk alone.
+    let old_str = existing.as_str().or_else(|| compacted_preview(existing));
+    let (Some(old_str), Some(new_str)) = (old_str, incoming.as_str()) else {
+        return incoming_compacted;
+    };
+    let merged = if new_str.starts_with(old_str) {
+        new_str.to_string()
+    } else if old_str.starts_with(new_str) {
+        old_str.to_string()
+    } else {
+        let mut s = String::with_capacity(old_str.len() + new_str.len());
+        s.push_str(old_str);
+        s.push_str(new_str);
+        s
+    };
+    compact_partial_result(&Value::String(merged))
 }
 
 fn request_summary(event: &BridgeEvent, kind: &str) -> PendingRequestSummary {
@@ -264,17 +353,29 @@ fn compact_partial_result(value: &Value) -> Value {
     }
 }
 
+/// Extract the `preview` string from a compacted `{truncated: true, preview}`
+/// object so cap-crossing incremental merges keep extending the accumulated
+/// stdout rather than replacing it with only the latest chunk.
+fn compacted_preview(value: &Value) -> Option<&str> {
+    let obj = value.as_object()?;
+    if obj.get("truncated").and_then(Value::as_bool) != Some(true) {
+        return None;
+    }
+    obj.get("preview").and_then(Value::as_str)
+}
+
+/// Keep only the trailing `max_len` characters of `value`. For streaming
+/// stdout/tool output the tail is what the user is actively watching, so we
+/// drop the *oldest* bytes when over the cap rather than the latest ones.
 fn truncate_string(value: &str, max_len: usize) -> String {
     if value.len() <= max_len {
         return value.to_string();
     }
-    let end = value
-        .char_indices()
-        .map(|(idx, _)| idx)
-        .take_while(|idx| *idx <= max_len)
-        .last()
-        .unwrap_or(0);
-    format!("{}…", &value[..end])
+    let mut start = value.len().saturating_sub(max_len);
+    while start < value.len() && !value.is_char_boundary(start) {
+        start += 1;
+    }
+    format!("…{}", &value[start..])
 }
 
 fn warn(state: &mut SessionLiveState, event: &BridgeEvent, warning: &str) {

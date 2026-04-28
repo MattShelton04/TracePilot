@@ -1,6 +1,7 @@
 use super::*;
 use crate::bridge::BridgeEvent;
-use serde_json::json;
+use crate::bridge::live_state::reducer::MAX_PARTIAL_RESULT_CHARS;
+use serde_json::{Value, json};
 
 fn event(event_type: &str, data: serde_json::Value) -> BridgeEvent {
     BridgeEvent {
@@ -204,7 +205,8 @@ fn live_text_preview_is_bounded() {
 #[test]
 fn tool_summaries_and_partial_results_are_bounded() {
     let store = LiveStateStore::new();
-    let large = "x".repeat(3 * 1024);
+    // Exceed the 64 KiB partial-result cap with a single jumbo payload.
+    let large = "x".repeat(80 * 1024);
     let mut state = store.apply_event(&event(
         "tool.execution_partial_result",
         json!({"toolCallId": "t0", "partialOutput": large}),
@@ -257,4 +259,190 @@ fn turn_start_clears_reducer_warnings() {
         state.reducer_warnings.is_empty(),
         "Expected warnings to be cleared on turn_start"
     );
+}
+
+// ─── Regression: deltas + final assistant.message must NOT duplicate text ───
+//
+// Pinned Copilot SDK emits `assistant.message_delta` with `deltaContent`
+// followed by a final `assistant.message` event carrying the FULL `content`.
+// Earlier reducer logic appended both, producing duplicated streamed text in
+// the live preview.
+#[test]
+fn assistant_message_final_after_deltas_does_not_duplicate_text() {
+    let store = LiveStateStore::new();
+    store.apply_event(&event(
+        "assistant.message_delta",
+        json!({"messageId": "m1", "deltaContent": "Hello "}),
+    ));
+    store.apply_event(&event(
+        "assistant.message_delta",
+        json!({"messageId": "m1", "deltaContent": "world"}),
+    ));
+    let state = store.apply_event(&event(
+        "assistant.message",
+        json!({"messageId": "m1", "content": "Hello world"}),
+    ));
+    assert_eq!(state.assistant_text, "Hello world");
+}
+
+#[test]
+fn assistant_reasoning_final_after_deltas_does_not_duplicate_text() {
+    let store = LiveStateStore::new();
+    store.apply_event(&event(
+        "assistant.reasoning_delta",
+        json!({"reasoningId": "r1", "deltaContent": "thinking "}),
+    ));
+    store.apply_event(&event(
+        "assistant.reasoning_delta",
+        json!({"reasoningId": "r1", "deltaContent": "hard"}),
+    ));
+    let state = store.apply_event(&event(
+        "assistant.reasoning",
+        json!({"reasoningId": "r1", "content": "thinking hard"}),
+    ));
+    assert_eq!(state.reasoning_text, "thinking hard");
+}
+
+/// When deltas were suppressed (e.g. server emitted only the final message)
+/// the final `content` must populate the live preview so the user sees it.
+#[test]
+fn assistant_message_without_deltas_populates_text() {
+    let store = LiveStateStore::new();
+    let state = store.apply_event(&event(
+        "assistant.message",
+        json!({"messageId": "m1", "content": "Standalone full message"}),
+    ));
+    assert_eq!(state.assistant_text, "Standalone full message");
+}
+
+/// `assistant.message_delta` must NOT pick up the `content` field. (Some
+/// callers historically logged the full content under `content` on deltas;
+/// treating that as a delta produced runaway duplication.)
+#[test]
+fn assistant_message_delta_ignores_content_field() {
+    let store = LiveStateStore::new();
+    let state = store.apply_event(&event(
+        "assistant.message_delta",
+        // No deltaContent — just a stale `content` field. We must ignore it.
+        json!({"messageId": "m1", "content": "irrelevant"}),
+    ));
+    assert_eq!(state.assistant_text, "");
+}
+
+// ─── Tool partial-output streaming regression ───────────────────────────────
+
+/// Cumulative partial_output snapshots (each event extends the previous):
+/// the live tool entry should carry the latest snapshot, never duplicated.
+#[test]
+fn tool_partial_result_handles_cumulative_snapshots() {
+    let store = LiveStateStore::new();
+    store.apply_event(&event(
+        "tool.execution_partial_result",
+        json!({"toolCallId": "t1", "partialOutput": "line 1\n"}),
+    ));
+    let state = store.apply_event(&event(
+        "tool.execution_partial_result",
+        json!({"toolCallId": "t1", "partialOutput": "line 1\nline 2\n"}),
+    ));
+    assert_eq!(
+        state.tools[0]
+            .partial_result
+            .as_ref()
+            .and_then(Value::as_str),
+        Some("line 1\nline 2\n")
+    );
+}
+
+/// Incremental partial_output chunks (each event is a delta): they must be
+/// concatenated, not lost like the old `replace`-based code did.
+#[test]
+fn tool_partial_result_accumulates_incremental_chunks() {
+    let store = LiveStateStore::new();
+    store.apply_event(&event(
+        "tool.execution_partial_result",
+        json!({"toolCallId": "t1", "partialOutput": "line 1\n"}),
+    ));
+    let state = store.apply_event(&event(
+        "tool.execution_partial_result",
+        // not a prefix of "line 1\n" — treated as an incremental delta
+        json!({"toolCallId": "t1", "partialOutput": "line 2\n"}),
+    ));
+    assert_eq!(
+        state.tools[0]
+            .partial_result
+            .as_ref()
+            .and_then(Value::as_str),
+        Some("line 1\nline 2\n")
+    );
+}
+
+/// Final `result` from `tool.execution_complete` should replace the streamed
+/// partial output (the persisted tool result will take over from disk).
+#[test]
+fn tool_complete_result_replaces_partial_preview() {
+    let store = LiveStateStore::new();
+    store.apply_event(&event(
+        "tool.execution_partial_result",
+        json!({"toolCallId": "t1", "partialOutput": "streaming…"}),
+    ));
+    let state = store.apply_event(&event(
+        "tool.execution_complete",
+        json!({"toolCallId": "t1", "success": true, "result": "final output"}),
+    ));
+    assert_eq!(
+        state.tools[0]
+            .partial_result
+            .as_ref()
+            .and_then(Value::as_str),
+        Some("final output")
+    );
+    assert_eq!(state.tools[0].status, "complete");
+}
+
+/// Regression: when accumulated incremental partial output crosses the
+/// `MAX_PARTIAL_RESULT_CHARS` cap, the reducer compacts it to
+/// `{truncated: true, preview: ...}`. The next incremental string chunk must
+/// continue extending that preview rather than replacing it with only the
+/// new chunk (which would lose the entire stdout history).
+#[test]
+fn tool_partial_result_extends_preview_after_cap() {
+    let store = LiveStateStore::new();
+    let big = "a".repeat(MAX_PARTIAL_RESULT_CHARS - 100);
+    store.apply_event(&event(
+        "tool.execution_partial_result",
+        json!({"toolCallId": "t1", "partialOutput": big}),
+    ));
+    // Push past the cap; the stored value is now a compacted preview object.
+    let state_mid = store.apply_event(&event(
+        "tool.execution_partial_result",
+        json!({"toolCallId": "t1", "partialOutput": "X".repeat(500)}),
+    ));
+    let preview_mid = state_mid.tools[0]
+        .partial_result
+        .as_ref()
+        .and_then(|v| v.as_object())
+        .and_then(|o| o.get("preview"))
+        .and_then(Value::as_str)
+        .unwrap()
+        .to_string();
+    assert!(preview_mid.contains("XXXXX"));
+
+    // Next incremental chunk must keep extending the accumulated preview's
+    // tail — i.e., the reducer must not clobber it with just "Z...".
+    let state = store.apply_event(&event(
+        "tool.execution_partial_result",
+        json!({"toolCallId": "t1", "partialOutput": "Z".repeat(50)}),
+    ));
+    let preview = state.tools[0]
+        .partial_result
+        .as_ref()
+        .and_then(|v| v.as_object())
+        .and_then(|o| o.get("preview"))
+        .and_then(Value::as_str)
+        .unwrap();
+    assert!(
+        preview.contains("XXXXX"),
+        "preview should still contain prior X chunk after cap-crossing merge: {preview:?}"
+    );
+    assert!(preview.ends_with(&"Z".repeat(50)));
 }

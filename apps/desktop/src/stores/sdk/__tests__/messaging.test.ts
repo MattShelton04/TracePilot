@@ -204,4 +204,76 @@ describe("createMessagingSlice session cache isolation", () => {
     slice.clearLiveTurn("sdk-A");
     expect(slice.liveTurnsBySessionId.value["sdk-A"]).toBeUndefined();
   });
+
+  it("does not duplicate text when a final assistant.message arrives after deltas", () => {
+    const { slice } = makeSlice();
+
+    slice.applyBridgeEvent(makeEvent("sdk-A", "assistant.turn_start", { turnId: "turn-A" }));
+    slice.applyBridgeEvent(
+      makeEvent("sdk-A", "assistant.message_delta", { deltaContent: "hello " }),
+    );
+    slice.applyBridgeEvent(
+      makeEvent("sdk-A", "assistant.message_delta", { deltaContent: "world" }),
+    );
+    // Final event with the FULL content — must NOT be appended on top.
+    slice.applyBridgeEvent(makeEvent("sdk-A", "assistant.message", { content: "hello world" }));
+
+    expect(slice.liveTurnsBySessionId.value["sdk-A"]?.assistantText).toBe("hello world");
+  });
+
+  it("does not duplicate reasoning when a final assistant.reasoning arrives after deltas", () => {
+    const { slice } = makeSlice();
+
+    slice.applyBridgeEvent(makeEvent("sdk-A", "assistant.turn_start", { turnId: "turn-A" }));
+    slice.applyBridgeEvent(
+      makeEvent("sdk-A", "assistant.reasoning_delta", { deltaContent: "thinking " }),
+    );
+    slice.applyBridgeEvent(
+      makeEvent("sdk-A", "assistant.reasoning_delta", { deltaContent: "deeply" }),
+    );
+    slice.applyBridgeEvent(
+      makeEvent("sdk-A", "assistant.reasoning", { content: "thinking deeply" }),
+    );
+
+    expect(slice.liveTurnsBySessionId.value["sdk-A"]?.reasoningText).toBe("thinking deeply");
+  });
+
+  it("ignores stray `content` field on delta events", () => {
+    const { slice } = makeSlice();
+
+    slice.applyBridgeEvent(makeEvent("sdk-A", "assistant.turn_start", { turnId: "turn-A" }));
+    // A misbehaving server might attach `content` to a delta event. We must
+    // ignore it — only deltaContent counts.
+    slice.applyBridgeEvent(makeEvent("sdk-A", "assistant.message_delta", { content: "STRAY" }));
+    slice.applyBridgeEvent(makeEvent("sdk-A", "assistant.message_delta", { deltaContent: "ok" }));
+
+    expect(slice.liveTurnsBySessionId.value["sdk-A"]?.assistantText).toBe("ok");
+  });
+
+  it("populates assistant.message even when no deltas arrived first", () => {
+    const { slice } = makeSlice();
+
+    slice.applyBridgeEvent(makeEvent("sdk-A", "assistant.turn_start", { turnId: "turn-A" }));
+    slice.applyBridgeEvent(makeEvent("sdk-A", "assistant.message", { content: "complete answer" }));
+
+    expect(slice.liveTurnsBySessionId.value["sdk-A"]?.assistantText).toBe("complete answer");
+  });
+
+  it("accepts the `delta` field alias on message and reasoning delta events", () => {
+    // Some SDK servers emit `{ delta: "..." }` rather than `{ deltaContent }`.
+    // The Rust reducer accepts this alias; the frontend live-turn accumulator
+    // must too, otherwise the chat live preview never updates until a final
+    // `assistant.message` arrives.
+    const { slice } = makeSlice();
+
+    slice.applyBridgeEvent(makeEvent("sdk-A", "assistant.turn_start", { turnId: "turn-A" }));
+    slice.applyBridgeEvent(makeEvent("sdk-A", "assistant.message_delta", { delta: "hello " }));
+    slice.applyBridgeEvent(makeEvent("sdk-A", "assistant.message_delta", { delta: "world" }));
+    slice.applyBridgeEvent(makeEvent("sdk-A", "assistant.reasoning_delta", { delta: "think " }));
+    slice.applyBridgeEvent(makeEvent("sdk-A", "assistant.reasoning_delta", { delta: "more" }));
+
+    const live = slice.liveTurnsBySessionId.value["sdk-A"];
+    expect(live?.assistantText).toBe("hello world");
+    expect(live?.reasoningText).toBe("think more");
+  });
 });

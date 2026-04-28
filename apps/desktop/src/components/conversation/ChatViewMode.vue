@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import type { ConversationTurn } from "@tracepilot/types";
-import { useConversationSections, useToggleSet } from "@tracepilot/ui";
-import { computed, nextTick, ref, watch } from "vue";
+import {
+  LIVE_TOOL_PARTIAL_OUTPUT_KEY,
+  useConversationSections,
+  useToggleSet,
+} from "@tracepilot/ui";
+import { computed, nextTick, provide, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import GapIndicator from "@/components/conversation/chat/GapIndicator.vue";
 import TurnBlock from "@/components/conversation/chat/TurnBlock.vue";
@@ -86,6 +90,35 @@ watch(
   },
 );
 const renderMd = computed(() => preferences.isFeatureEnabled("renderMarkdown"));
+
+// Live partial output (streaming stdout from in-flight tool calls), keyed
+// by toolCallId. Sourced from the SDK live-state reducer's per-session
+// `ToolProgressSummary[]`. Provided into the tool-detail tree via injection
+// so it surfaces inline on the persisted tool call without prop-drilling.
+const liveToolPartialOutputs = computed<Map<string, string>>(() => {
+  const sessionId = store.sessionId;
+  const map = new Map<string, string>();
+  if (!sessionId) return map;
+  const state = sdk.sessionStatesById[sessionId];
+  if (!state) return map;
+  for (const tool of state.tools ?? []) {
+    if (!tool.toolCallId || tool.partialResult == null) continue;
+    const text =
+      typeof tool.partialResult === "string"
+        ? tool.partialResult
+        : (() => {
+            try {
+              return JSON.stringify(tool.partialResult, null, 2);
+            } catch {
+              return String(tool.partialResult);
+            }
+          })();
+    if (text.length > 0) map.set(tool.toolCallId, text);
+  }
+  return map;
+});
+provide(LIVE_TOOL_PARTIAL_OUTPUT_KEY, liveToolPartialOutputs);
+
 const emit = defineEmits<{
   messageSent: [prompt: string];
 }>();

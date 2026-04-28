@@ -37,8 +37,18 @@ export function useAutoScroll(options: AutoScrollOptions) {
   const hasOverflow = ref(false);
 
   let rafId: number | null = null;
-  // Guard flag: prevents scroll handler from disengaging lock during programmatic smooth scrolls
+  // Guard flag: prevents scroll handler from disengaging lock during
+  // *any* programmatic scroll (smooth OR instant). Without guarding instant
+  // scrolls, fast-streaming content can grow `scrollHeight` between our
+  // `scrollTo` landing and the resulting `scroll` event reaching us — at
+  // which point the post-scroll position may be >disengageThreshold from
+  // the new bottom and the lock would erroneously flip off. This was the
+  // root cause of popout-window auto-scroll dropping its lock during SDK
+  // live streaming.
   let isProgrammaticScroll = false;
+  // Programmatic-scroll safety-clear timer. Cleared early when the position
+  // check confirms we landed at the target.
+  let programmaticScrollClearTimer: ReturnType<typeof setTimeout> | null = null;
   // Skip auto-scroll on the first data change (initial load should not snap to bottom)
   let hasReceivedFirstData = false;
 
@@ -77,23 +87,24 @@ export function useAutoScroll(options: AutoScrollOptions) {
     }
   }
 
+  function armProgrammaticScrollGuard(safetyMs = 1500) {
+    isProgrammaticScroll = true;
+    if (programmaticScrollClearTimer) clearTimeout(programmaticScrollClearTimer);
+    programmaticScrollClearTimer = setTimeout(() => {
+      isProgrammaticScroll = false;
+      programmaticScrollClearTimer = null;
+    }, safetyMs);
+  }
+
   function scrollToBottom(animated = true) {
     const el = containerRef.value;
     if (!el) return;
     const useSmooth = animated && !prefersReducedMotion.matches;
     el.scrollTo({ top: el.scrollHeight, behavior: useSmooth ? "smooth" : "auto" });
     isLockedToBottom.value = true;
-    if (useSmooth) {
-      // Guard: suppress handleScroll's lock/unlock logic during smooth animation.
-      // Cleared position-based in handleScroll once the element reaches the bottom.
-      // Using scrollend is intentionally avoided here — an instant scroll fired by the
-      // data watcher (new message arriving mid-animation) would cancel the smooth scroll
-      // and trigger scrollend early, clearing the guard before we arrive at the bottom.
-      isProgrammaticScroll = true;
-      setTimeout(() => {
-        isProgrammaticScroll = false;
-      }, 2000); // safety fallback only
-    }
+    // Guard for both smooth (animation runs) and instant (resulting scroll
+    // event may land after content grew further during streaming).
+    armProgrammaticScrollGuard(useSmooth ? 2000 : 250);
   }
 
   function scrollToTop(animated = true) {
@@ -102,12 +113,7 @@ export function useAutoScroll(options: AutoScrollOptions) {
     const useSmooth = animated && !prefersReducedMotion.matches;
     el.scrollTo({ top: 0, behavior: useSmooth ? "smooth" : "auto" });
     isLockedToBottom.value = false;
-    if (useSmooth) {
-      isProgrammaticScroll = true;
-      setTimeout(() => {
-        isProgrammaticScroll = false;
-      }, 2000);
-    }
+    armProgrammaticScrollGuard(useSmooth ? 2000 : 250);
   }
 
   function handleScroll() {
@@ -129,7 +135,13 @@ export function useAutoScroll(options: AutoScrollOptions) {
         const atTarget = isLockedToBottom.value
           ? isNearBottom(el, engageThreshold)
           : el.scrollTop <= engageThreshold;
-        if (atTarget) isProgrammaticScroll = false;
+        if (atTarget) {
+          isProgrammaticScroll = false;
+          if (programmaticScrollClearTimer) {
+            clearTimeout(programmaticScrollClearTimer);
+            programmaticScrollClearTimer = null;
+          }
+        }
         return;
       }
 
@@ -162,6 +174,7 @@ export function useAutoScroll(options: AutoScrollOptions) {
       nextTick(() => {
         const el = containerRef.value;
         if (!el) return;
+        armProgrammaticScrollGuard(250);
         el.scrollTo({ top: el.scrollHeight, behavior: "auto" });
       });
     }
@@ -184,6 +197,7 @@ export function useAutoScroll(options: AutoScrollOptions) {
     if (hasActiveTextSelection()) return;
     const el = containerRef.value;
     if (!el) return;
+    armProgrammaticScrollGuard(250);
     el.scrollTo({ top: el.scrollHeight, behavior: "auto" });
   }
   function attachResizeObserver(el: HTMLElement) {
@@ -226,6 +240,10 @@ export function useAutoScroll(options: AutoScrollOptions) {
     if (rafId !== null) {
       cancelAnimationFrame(rafId);
       rafId = null;
+    }
+    if (programmaticScrollClearTimer) {
+      clearTimeout(programmaticScrollClearTimer);
+      programmaticScrollClearTimer = null;
     }
   });
 

@@ -120,6 +120,13 @@ function formatPreview(value: unknown): string {
   return `${rendered.slice(0, 1200)}…`;
 }
 
+// Streaming tool stdout (e.g. shell/powershell) is truncated server-side
+// (`MAX_PARTIAL_RESULT_CHARS` in the live-state reducer). Don't add another
+// frontend-side cap that would chop it again.
+function formatToolPartial(value: unknown): string {
+  return formatObjectResult(value).replace(/\s+$/u, "");
+}
+
 function formatUsageRows(usage: unknown): Array<{ key: string; value: string }> {
   if (!usage || typeof usage !== "object" || Array.isArray(usage)) {
     return usage == null ? [] : [{ key: "usage", value: formatPreview(usage) }];
@@ -231,7 +238,7 @@ function isScalarUsageValue(value: unknown): boolean {
         <div v-if="progressLabel(tool.progress)" class="cb-live-progress" :aria-label="`Tool progress ${progressLabel(tool.progress)}`">
           <span :style="progressStyle(tool.progress)" />
         </div>
-        <pre v-if="tool.partialResult != null" class="cb-live-tool-output">{{ formatPreview(tool.partialResult) }}</pre>
+        <pre v-if="tool.partialResult != null" class="cb-live-tool-output">{{ formatToolPartial(tool.partialResult) }}</pre>
       </article>
     </div>
 

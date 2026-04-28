@@ -79,6 +79,7 @@ export { default as TokenBar } from "./components/TokenBar.vue";
 export { default as ToolCallDetail } from "./components/ToolCallDetail.vue";
 export { default as ToolCallItem } from "./components/ToolCallItem.vue";
 export { default as ToolDetailPanel } from "./components/ToolDetailPanel.vue";
+export { LIVE_TOOL_PARTIAL_OUTPUT_KEY } from "./composables/liveToolPartialOutput";
 export type {
   UseAsyncDataOptions,
   UseAsyncDataReturn,

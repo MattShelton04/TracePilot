@@ -61,7 +61,16 @@ export function createLiveTurnAccumulator() {
     }
 
     if (event.eventType === "assistant.message_delta") {
-      const delta = stringField(event.data, ["deltaContent", "delta_content", "content"]);
+      // IMPORTANT: do NOT fall back to `content` for delta events. The SDK
+      // emits a separate `assistant.message` event with the FULL content;
+      // accepting `content` as a delta produces duplicated streamed text.
+      const delta = stringField(event.data, [
+        "deltaContent",
+        "delta_content",
+        "chunkContent",
+        "chunk_content",
+        "delta",
+      ]);
       if (!delta) return;
       const turn = currentLiveTurn(event);
       upsertLiveTurn({
@@ -74,7 +83,13 @@ export function createLiveTurnAccumulator() {
     }
 
     if (event.eventType === "assistant.reasoning_delta") {
-      const delta = stringField(event.data, ["deltaContent", "delta_content", "content"]);
+      const delta = stringField(event.data, [
+        "deltaContent",
+        "delta_content",
+        "chunkContent",
+        "chunk_content",
+        "delta",
+      ]);
       if (!delta) return;
       const turn = currentLiveTurn(event);
       upsertLiveTurn({
@@ -90,10 +105,32 @@ export function createLiveTurnAccumulator() {
       const content = stringField(event.data, ["content", "chunkContent", "chunk_content"]);
       if (!content) return;
       const turn = currentLiveTurn(event);
+      // Replace only when the final content is longer than the accumulated
+      // delta text. Otherwise the deltas already produced the final text and
+      // overwriting with the same payload would still be a no-op, but skipping
+      // avoids a wasted render and protects against any out-of-order replays
+      // where a partial `content` could shrink the visible text.
+      const next = content.length > turn.assistantText.length ? content : turn.assistantText;
       upsertLiveTurn({
         ...turn,
         turnId: turn.turnId ?? event.parentId,
-        assistantText: content,
+        assistantText: next,
+        updatedAt: event.timestamp,
+      });
+      return;
+    }
+
+    if (event.eventType === "assistant.reasoning") {
+      // Final reasoning event carries the full content. Same dedup strategy
+      // as `assistant.message` above.
+      const content = stringField(event.data, ["content", "chunkContent", "chunk_content"]);
+      if (!content) return;
+      const turn = currentLiveTurn(event);
+      const next = content.length > turn.reasoningText.length ? content : turn.reasoningText;
+      upsertLiveTurn({
+        ...turn,
+        turnId: turn.turnId ?? event.parentId,
+        reasoningText: next,
         updatedAt: event.timestamp,
       });
     }
