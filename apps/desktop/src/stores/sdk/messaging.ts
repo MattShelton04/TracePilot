@@ -119,22 +119,10 @@ export function createMessagingSlice(deps: MessagingDeps) {
     model?: string,
   ): Promise<BridgeSessionInfo | null> {
     const pending = resumeInFlight.get(sessionId);
-    if (pending) {
-      logInfo("[sdk] resumeSession already in flight for", sessionId, "— reusing promise");
-      return pending;
-    }
-    logInfo(
-      "[sdk] Resuming session:",
-      sessionId,
-      "cwd:",
-      workingDirectory ?? "(none)",
-      "model:",
-      model ?? "(none)",
-    );
+    if (pending) return pending;
     const promise = (async () => {
       try {
         const session = await sdkResumeSession(sessionId, workingDirectory, model);
-        logInfo("[sdk] Resume result:", session);
         lastError.value = null;
         upsertSession(session);
         return session;
@@ -160,10 +148,7 @@ export function createMessagingSlice(deps: MessagingDeps) {
     // drop the duplicate. Without this, double-clicks / Ctrl+Enter races /
     // an Enter handler firing alongside a click can produce two SDK sends
     // for the same prompt before `prompt.value = ""` clears in the caller.
-    if (sendingByIds.value.has(sessionId)) {
-      logWarn("[sdk] sendMessage dropped — already sending for", sessionId);
-      return null;
-    }
+    if (sendingByIds.value.has(sessionId)) return null;
     markSending(sessionId, true);
     logInfo(
       "[sdk] Sending message to session:",
