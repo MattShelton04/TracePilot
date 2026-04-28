@@ -1,6 +1,7 @@
 import type { TurnToolCall } from "@tracepilot/types";
 import { mount } from "@vue/test-utils";
 import { describe, expect, it } from "vitest";
+import { getRendererEntry } from "../components/renderers/registry";
 import ToolResultRenderer from "../components/renderers/ToolResultRenderer.vue";
 
 function makeTc(overrides: Partial<TurnToolCall> = {}): TurnToolCall {
@@ -46,5 +47,10 @@ describe("ToolResultRenderer", () => {
     });
     // No RendererShell should appear for empty content
     expect(wrapper.find(".renderer-shell").exists()).toBe(false);
+  });
+
+  it("registers apply_patch and rg rich renderers", () => {
+    expect(getRendererEntry("apply_patch")?.resultComponent).toBeTruthy();
+    expect(getRendererEntry("rg")?.resultComponent).toBeTruthy();
   });
 });

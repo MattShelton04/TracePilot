@@ -40,7 +40,14 @@ const activeComponent = computed<Component | null>(() => {
 
 const hasArgs = computed(() => {
   const a = getToolArgs(props.tc);
-  return Object.keys(a).length > 0;
+  if (Object.keys(a).length > 0) return true;
+
+  const raw = props.tc.arguments;
+  if (raw == null) return false;
+  if (Array.isArray(raw)) return raw.length > 0;
+  if (typeof raw === "object") return false;
+  if (typeof raw === "string") return raw.length > 0;
+  return true;
 });
 
 const formattedJson = computed(() => {
@@ -50,7 +57,11 @@ const formattedJson = computed(() => {
 
 const argsRecord = computed(() => getToolArgs(props.tc));
 
-const argsKeyCount = computed(() => Object.keys(argsRecord.value).length);
+const argsKeyCount = computed(() => {
+  const count = Object.keys(argsRecord.value).length;
+  if (count > 0) return count;
+  return hasArgs.value ? 1 : 0;
+});
 
 /** True when the rich result renderer already shows the args info AND a result exists. */
 const shouldHideCompletely = computed(
@@ -58,7 +69,7 @@ const shouldHideCompletely = computed(
     props.richEnabled &&
     shouldHideArgsWithRichResult(props.tc.toolName) &&
     hasResultRenderer(props.tc.toolName) &&
-    (!!props.tc.resultContent || props.tc.isComplete === true),
+    !!props.tc.resultContent,
 );
 </script>
 
