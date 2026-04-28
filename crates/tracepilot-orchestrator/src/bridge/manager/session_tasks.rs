@@ -77,16 +77,6 @@ impl BridgeManager {
         working_directory: Option<&str>,
         model: Option<&str>,
     ) -> Result<BridgeSessionInfo, BridgeError> {
-        let bt = std::backtrace::Backtrace::force_capture();
-        info!(
-            target: "tracepilot::sdk_diag",
-            "[sdk-diag] resume_session session={} cwd={:?} model={:?} already_tracked={}\n  backtrace:\n{}",
-            session_id,
-            working_directory,
-            model,
-            self.sessions.contains_key(session_id),
-            bt,
-        );
         // Already tracked — no-op. This branch runs *before* the preference
         // check so sessions resumed prior to the user toggling the pref off
         // remain steerable (documented on `BridgeError::DisabledByPreference`).
@@ -173,17 +163,6 @@ impl BridgeManager {
         payload: BridgeMessagePayload,
     ) -> Result<String, BridgeError> {
         let session = self.require_session(session_id)?;
-        let prompt_preview: String = payload.prompt.chars().take(60).collect();
-        let bt = std::backtrace::Backtrace::force_capture();
-        info!(
-            target: "tracepilot::sdk_diag",
-            "[sdk-diag] send_message session={} mode={:?} prompt_chars={} preview={:?}\n  backtrace:\n{}",
-            session_id,
-            payload.mode,
-            payload.prompt.chars().count(),
-            prompt_preview,
-            bt,
-        );
 
         let opts = copilot_sdk::MessageOptions {
             prompt: payload.prompt,
@@ -298,7 +277,6 @@ impl BridgeManager {
                                 // live-state reducer) can read fields like `deltaContent` directly.
                                 data: flatten_event_data(&event.data),
                             };
-                            log_sdk_diag_event(&sid, &bridge_event);
                             let state = live_state.apply_event(&bridge_event);
                             if state_tx.send(state).is_err() {
                                 debug!("No SDK session-state receivers for {}", sid);
@@ -351,55 +329,6 @@ impl BridgeManager {
             is_remote: false,
         }
     }
-}
-
-/// TEMPORARY diagnostic logging for the SDK live-stream bug investigation
-/// (PR #536 follow-up). Logs every assistant.* / session.* / tool.execution_*
-/// event at info! level with a stable `[sdk-diag]` prefix users can grep in
-/// `Tracepilot.txt`. Includes a short content preview, message/turn IDs, and
-/// the event broadcast `id` so we can detect duplicates in the stream.
-///
-/// TODO(#536-followup): remove once the garbled-stream / double-send /
-/// duplicate-resume root causes are resolved.
-fn log_sdk_diag_event(session_id: &str, event: &BridgeEvent) {
-    let et = event.event_type.as_str();
-    let interesting = et.starts_with("assistant.")
-        || et.starts_with("session.")
-        || et.starts_with("tool.execution_")
-        || et == "user_input.requested"
-        || et == "user_input.resolved";
-    if !interesting {
-        return;
-    }
-    fn s(v: &serde_json::Value, k: &str) -> Option<String> {
-        v.get(k).and_then(|x| x.as_str()).map(|s| s.to_string())
-    }
-    fn preview(v: &serde_json::Value, k: &str) -> Option<String> {
-        v.get(k).and_then(|x| x.as_str()).map(|s| {
-            let n = s.chars().count().min(80);
-            let truncated: String = s.chars().take(n).collect();
-            format!(
-                "{:?}{}",
-                truncated,
-                if n < s.chars().count() { "…" } else { "" }
-            )
-        })
-    }
-    let d = &event.data;
-    info!(
-        target: "tracepilot::sdk_diag",
-        "[sdk-diag] event session={} type={} id={:?} parent={:?} msgId={:?} reasoningId={:?} toolCallId={:?} delta={} content={} chunk={}",
-        session_id,
-        et,
-        event.id.as_deref().unwrap_or("-"),
-        event.parent_id.as_deref().unwrap_or("-"),
-        s(d, "messageId").as_deref().unwrap_or("-"),
-        s(d, "reasoningId").as_deref().unwrap_or("-"),
-        s(d, "toolCallId").as_deref().unwrap_or("-"),
-        preview(d, "deltaContent").as_deref().unwrap_or("-"),
-        preview(d, "content").as_deref().unwrap_or("-"),
-        preview(d, "chunkContent").as_deref().unwrap_or("-"),
-    );
 }
 
 /// Flatten the externally-tagged `SessionEventData` enum into its inner payload.

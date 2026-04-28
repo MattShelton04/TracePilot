@@ -104,25 +104,25 @@ export function createMessagingSlice(deps: MessagingDeps) {
     });
   }
 
+  /**
+   * Per-session in-flight resume tracking. Multiple rapid `resumeSession()`
+   * invocations for the same `sessionId` (e.g. linkSession fired twice from
+   * a re-render or a popout window's mount race) are coalesced onto the
+   * same underlying SDK promise, preventing duplicate `session.resume`
+   * subprocess calls.
+   */
+  const resumeInFlight = new Map<string, Promise<BridgeSessionInfo | null>>();
+
   async function resumeSession(
     sessionId: string,
     workingDirectory?: string,
     model?: string,
   ): Promise<BridgeSessionInfo | null> {
-    // TEMPORARY diagnostic — capture stack to identify which caller resumes
-    // a session that's already active (PR #536 follow-up).
-    const existing = sessions.value.find((s) => s.sessionId === sessionId);
-    const stack = new Error("sdk-diag-stack").stack ?? "(no stack)";
-    logInfo(
-      "[sdk-diag] resumeSession call session=",
-      sessionId,
-      "alreadyTracked=",
-      Boolean(existing),
-      "alreadyActive=",
-      Boolean(existing?.isActive),
-      "\n  stack:",
-      stack,
-    );
+    const pending = resumeInFlight.get(sessionId);
+    if (pending) {
+      logInfo("[sdk] resumeSession already in flight for", sessionId, "— reusing promise");
+      return pending;
+    }
     logInfo(
       "[sdk] Resuming session:",
       sessionId,
@@ -131,16 +131,24 @@ export function createMessagingSlice(deps: MessagingDeps) {
       "model:",
       model ?? "(none)",
     );
+    const promise = (async () => {
+      try {
+        const session = await sdkResumeSession(sessionId, workingDirectory, model);
+        logInfo("[sdk] Resume result:", session);
+        lastError.value = null;
+        upsertSession(session);
+        return session;
+      } catch (e) {
+        lastError.value = toErrorMessage(e);
+        logWarn("[sdk] Resume failed:", e);
+        return null;
+      }
+    })();
+    resumeInFlight.set(sessionId, promise);
     try {
-      const session = await sdkResumeSession(sessionId, workingDirectory, model);
-      logInfo("[sdk] Resume result:", session);
-      lastError.value = null;
-      upsertSession(session);
-      return session;
-    } catch (e) {
-      lastError.value = toErrorMessage(e);
-      logWarn("[sdk] Resume failed:", e);
-      return null;
+      return await promise;
+    } finally {
+      resumeInFlight.delete(sessionId);
     }
   }
 
@@ -148,20 +156,15 @@ export function createMessagingSlice(deps: MessagingDeps) {
     sessionId: string,
     payload: BridgeMessagePayload,
   ): Promise<string | null> {
+    // Idempotency guard: if a send is already in flight for this session,
+    // drop the duplicate. Without this, double-clicks / Ctrl+Enter races /
+    // an Enter handler firing alongside a click can produce two SDK sends
+    // for the same prompt before `prompt.value = ""` clears in the caller.
+    if (sendingByIds.value.has(sessionId)) {
+      logWarn("[sdk] sendMessage dropped — already sending for", sessionId);
+      return null;
+    }
     markSending(sessionId, true);
-    // TEMPORARY diagnostic — capture the JS call stack so we can identify
-    // any duplicate sendMessage calls (PR #536 follow-up).
-    const stack = new Error("sdk-diag-stack").stack ?? "(no stack)";
-    logInfo(
-      "[sdk-diag] sendMessage call session=",
-      sessionId,
-      "prompt_len=",
-      payload.prompt?.length ?? 0,
-      "preview=",
-      payload.prompt?.slice(0, 60),
-      "\n  stack:",
-      stack,
-    );
     logInfo(
       "[sdk] Sending message to session:",
       sessionId,
@@ -170,7 +173,6 @@ export function createMessagingSlice(deps: MessagingDeps) {
     );
     try {
       const turnId = await sdkSendMessage(sessionId, payload);
-      logInfo("[sdk-diag] sendMessage result session=", sessionId, "turnId=", turnId);
       logInfo("[sdk] Message sent, turnId:", turnId);
       lastError.value = null;
       return turnId;
