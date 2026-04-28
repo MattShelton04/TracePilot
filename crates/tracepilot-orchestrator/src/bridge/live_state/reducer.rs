@@ -1,4 +1,7 @@
-use super::{PendingRequestSummary, SessionLiveState, SessionRuntimeStatus, ToolProgressSummary};
+use super::{
+    PendingDelta, PendingRequestSummary, SessionLiveState, SessionRuntimeStatus,
+    ToolProgressSummary,
+};
 use crate::bridge::BridgeEvent;
 use serde_json::{Value, json};
 
@@ -9,6 +12,10 @@ const MAX_TOOLS: usize = 32;
 // `tool.execution_complete` the persisted result takes over from disk.
 pub(super) const MAX_PARTIAL_RESULT_CHARS: usize = 64 * 1024;
 const MAX_REDUCER_WARNINGS: usize = 8;
+// Reorder window for delta events. Pinned Copilot SDK `tokio::spawn`s a fresh
+// task per notification so adjacent deltas can race into `event_tx.send` in
+// non-source order. Mirror the frontend `DELTA_REORDER_WINDOW`.
+const DELTA_REORDER_WINDOW: usize = 4;
 
 pub fn apply_event(state: &mut SessionLiveState, event: &BridgeEvent) {
     state.last_event_id = event.id.clone();
@@ -59,13 +66,12 @@ enum TextKind {
 }
 
 /// Apply an `assistant.message_delta` / `assistant.reasoning_delta` event by
-/// appending only the incremental delta payload. The SDK emits `deltaContent`
-/// (camelCase of `delta_content`); we accept a few aliases used by alternative
-/// servers but never read `content` here — that field is the FULL message and
-/// belongs to the non-delta event.
+/// inserting its delta payload into a small reorder buffer keyed by
+/// `event.timestamp`, then committing entries that drop out of the window.
+/// The visible `*_text` is recomputed as `committed + pending sorted joined`.
 fn append_delta(state: &mut SessionLiveState, event: &BridgeEvent, kind: TextKind) {
     state.status = SessionRuntimeStatus::Running;
-    if let Some(delta) = event_text_field(
+    let Some(delta) = event_text_field(
         &event.data,
         &[
             "deltaContent",
@@ -74,21 +80,60 @@ fn append_delta(state: &mut SessionLiveState, event: &BridgeEvent, kind: TextKin
             "chunk_content",
             "delta",
         ],
-    ) {
-        match kind {
-            TextKind::Assistant => append_capped(&mut state.assistant_text, &delta),
-            TextKind::Reasoning => append_capped(&mut state.reasoning_text, &delta),
+    ) else {
+        return;
+    };
+    let incoming = PendingDelta {
+        delta,
+        timestamp: event.timestamp.clone(),
+    };
+    let (committed, pending, visible) = match kind {
+        TextKind::Assistant => (
+            &mut state.assistant_committed,
+            &mut state.assistant_pending,
+            &mut state.assistant_text,
+        ),
+        TextKind::Reasoning => (
+            &mut state.reasoning_committed,
+            &mut state.reasoning_pending,
+            &mut state.reasoning_text,
+        ),
+    };
+    insert_pending_sorted(pending, incoming);
+    while pending.len() > DELTA_REORDER_WINDOW {
+        let drained = pending.remove(0);
+        append_capped(committed, &drained.delta);
+    }
+    rebuild_visible(committed, pending, visible);
+}
+
+fn insert_pending_sorted(pending: &mut Vec<PendingDelta>, incoming: PendingDelta) {
+    // Stable insertion in ascending timestamp order.
+    let pos = pending
+        .iter()
+        .position(|p| incoming.timestamp < p.timestamp)
+        .unwrap_or(pending.len());
+    pending.insert(pos, incoming);
+}
+
+fn rebuild_visible(committed: &str, pending: &[PendingDelta], visible: &mut String) {
+    visible.clear();
+    visible.push_str(committed);
+    for p in pending {
+        visible.push_str(&p.delta);
+    }
+    if visible.len() > MAX_TEXT_PREVIEW_CHARS {
+        let mut start = visible.len().saturating_sub(MAX_TEXT_PREVIEW_CHARS);
+        while start < visible.len() && !visible.is_char_boundary(start) {
+            start += 1;
         }
+        visible.drain(..start);
     }
 }
 
-/// Apply a final `assistant.message` / `assistant.reasoning` event. Carries the
-/// full `content`. Many sessions stream deltas first and then send the final
-/// event with `content == accumulated deltas`; appending it would duplicate the
-/// text. We REPLACE only when the final content is strictly longer than what we
-/// already accumulated (i.e. the deltas did not cover the whole message — for
-/// example when delta streaming was suppressed). Otherwise we keep the
-/// streamed text.
+/// Apply a final `assistant.message` / `assistant.reasoning` event. Drains the
+/// reorder buffer into `committed`, then snap-replaces if the canonical
+/// `content` is longer than what we accumulated (covers tail garble).
 fn apply_full_text(state: &mut SessionLiveState, event: &BridgeEvent, kind: TextKind) {
     state.status = SessionRuntimeStatus::Running;
     let Some(content) = event_text_field(
@@ -104,22 +149,38 @@ fn apply_full_text(state: &mut SessionLiveState, event: &BridgeEvent, kind: Text
     ) else {
         return;
     };
-    let target = match kind {
-        TextKind::Assistant => &mut state.assistant_text,
-        TextKind::Reasoning => &mut state.reasoning_text,
+    let (committed, pending, visible) = match kind {
+        TextKind::Assistant => (
+            &mut state.assistant_committed,
+            &mut state.assistant_pending,
+            &mut state.assistant_text,
+        ),
+        TextKind::Reasoning => (
+            &mut state.reasoning_committed,
+            &mut state.reasoning_pending,
+            &mut state.reasoning_text,
+        ),
     };
-    // Replace only if the final content is longer than the accumulated text;
-    // otherwise the deltas already produced the final text.
-    if content.chars().count() > target.chars().count() {
-        target.clear();
-        append_capped(target, &content);
+    // Drain pending into committed.
+    for p in pending.drain(..) {
+        append_capped(committed, &p.delta);
     }
+    // Snap-replace if the final content is longer (in chars).
+    if content.chars().count() > committed.chars().count() {
+        committed.clear();
+        append_capped(committed, &content);
+    }
+    rebuild_visible(committed, pending, visible);
 }
 
 fn start_turn(state: &mut SessionLiveState) {
     state.status = SessionRuntimeStatus::Running;
     state.assistant_text.clear();
     state.reasoning_text.clear();
+    state.assistant_committed.clear();
+    state.reasoning_committed.clear();
+    state.assistant_pending.clear();
+    state.reasoning_pending.clear();
     state.tools.clear();
     state.usage = None;
     state.pending_permission = None;
