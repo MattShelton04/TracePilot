@@ -21,12 +21,13 @@ pub fn apply_event(state: &mut SessionLiveState, event: &BridgeEvent) {
     state.last_event_id = event.id.clone();
     state.last_event_type = Some(event.event_type.clone());
     state.last_event_timestamp = Some(event.timestamp.clone());
-    if let Some(turn_id) = turn_id(event) {
-        state.current_turn_id = Some(turn_id);
-    }
+    // NOTE: `current_turn_id` is updated ONLY by `assistant.turn_start` (in
+    // `start_turn`). Updating it from every event would let a late delta from
+    // a previous turn flip the active-turn pointer back, contaminating the
+    // new turn's text. See `tests_reorder::previous_turn_delta_is_isolated`.
 
     match event.event_type.as_str() {
-        "assistant.turn_start" => start_turn(state),
+        "assistant.turn_start" => start_turn(state, event),
         "user.message" => state.status = SessionRuntimeStatus::Running,
         "assistant.message_delta" => append_delta(state, event, TextKind::Assistant),
         "assistant.reasoning_delta" => append_delta(state, event, TextKind::Reasoning),
@@ -71,6 +72,18 @@ enum TextKind {
 /// The visible `*_text` is recomputed as `committed + pending sorted joined`.
 fn append_delta(state: &mut SessionLiveState, event: &BridgeEvent, kind: TextKind) {
     state.status = SessionRuntimeStatus::Running;
+    if !belongs_to_active_turn(state, event) {
+        return;
+    }
+    let finalized = match kind {
+        TextKind::Assistant => state.assistant_finalized,
+        TextKind::Reasoning => state.reasoning_finalized,
+    };
+    if finalized {
+        // Final event already drained + snap-replaced this stream. A late
+        // delta would re-corrupt the canonical text — drop it.
+        return;
+    }
     let Some(delta) = event_text_field(
         &event.data,
         &[
@@ -136,6 +149,9 @@ fn rebuild_visible(committed: &str, pending: &[PendingDelta], visible: &mut Stri
 /// `content` is longer than what we accumulated (covers tail garble).
 fn apply_full_text(state: &mut SessionLiveState, event: &BridgeEvent, kind: TextKind) {
     state.status = SessionRuntimeStatus::Running;
+    if !belongs_to_active_turn(state, event) {
+        return;
+    }
     let Some(content) = event_text_field(
         &event.data,
         &[
@@ -171,16 +187,41 @@ fn apply_full_text(state: &mut SessionLiveState, event: &BridgeEvent, kind: Text
         append_capped(committed, &content);
     }
     rebuild_visible(committed, pending, visible);
+    // Mark this stream finalized so any straggler delta arriving after the
+    // canonical text is dropped instead of re-corrupting it.
+    match kind {
+        TextKind::Assistant => state.assistant_finalized = true,
+        TextKind::Reasoning => state.reasoning_finalized = true,
+    }
 }
 
-fn start_turn(state: &mut SessionLiveState) {
+/// Returns true if `event` belongs to the currently active turn (or no active
+/// turn has been observed yet, in which case we accept everything to remain
+/// permissive on connection-attach / reattach paths).
+fn belongs_to_active_turn(state: &SessionLiveState, event: &BridgeEvent) -> bool {
+    let Some(active) = state.current_turn_id.as_deref() else {
+        return true;
+    };
+    let event_turn = turn_id(event);
+    match event_turn.as_deref() {
+        Some(t) => t == active,
+        // Event has no parent/turn id of its own — accept it on the active
+        // turn (deltas/finals without parentId can't be cross-turn anyway).
+        None => true,
+    }
+}
+
+fn start_turn(state: &mut SessionLiveState, event: &BridgeEvent) {
     state.status = SessionRuntimeStatus::Running;
+    state.current_turn_id = turn_id(event);
     state.assistant_text.clear();
     state.reasoning_text.clear();
     state.assistant_committed.clear();
     state.reasoning_committed.clear();
     state.assistant_pending.clear();
     state.reasoning_pending.clear();
+    state.assistant_finalized = false;
+    state.reasoning_finalized = false;
     state.tools.clear();
     state.usage = None;
     state.pending_permission = None;

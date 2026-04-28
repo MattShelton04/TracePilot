@@ -75,6 +75,13 @@ pub struct SessionLiveState {
     pub(super) assistant_pending: Vec<PendingDelta>,
     #[serde(skip)]
     pub(super) reasoning_pending: Vec<PendingDelta>,
+    /// Set once `assistant.message` / `assistant.reasoning` has been applied
+    /// for the active turn. Late deltas after finalization are dropped to
+    /// avoid re-corrupting the canonical text. Cleared by `assistant.turn_start`.
+    #[serde(skip)]
+    pub(super) assistant_finalized: bool,
+    #[serde(skip)]
+    pub(super) reasoning_finalized: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -104,6 +111,8 @@ impl SessionLiveState {
             reasoning_committed: String::new(),
             assistant_pending: Vec::new(),
             reasoning_pending: Vec::new(),
+            assistant_finalized: false,
+            reasoning_finalized: false,
         }
     }
 }

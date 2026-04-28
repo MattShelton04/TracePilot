@@ -24,7 +24,11 @@ fn message_delta_appends_assistant_text() {
     ));
     assert_eq!(state.status, SessionRuntimeStatus::Running);
     assert_eq!(state.assistant_text, "hi");
-    assert_eq!(state.current_turn_id.as_deref(), Some("turn-1"));
+    // `current_turn_id` is only set by `assistant.turn_start`. A delta with
+    // no preceding turn_start does NOT set the active turn — this prevents a
+    // late delta from a previous turn from re-establishing it after a new
+    // turn has rotated.
+    assert_eq!(state.current_turn_id, None);
 }
 
 #[test]

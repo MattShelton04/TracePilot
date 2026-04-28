@@ -36,6 +36,24 @@ function at(
   };
 }
 
+function atP(
+  sessionId: string,
+  eventType: string,
+  timestamp: string,
+  parentId: string,
+  data: Record<string, unknown> = {},
+): BridgeEvent {
+  return {
+    sessionId,
+    eventType,
+    timestamp,
+    id: null,
+    parentId,
+    ephemeral: false,
+    data,
+  };
+}
+
 describe("liveTurns reorder buffer", () => {
   it("reorders out-of-order deltas using event timestamp", () => {
     // Repro for the SDK race: pinned Copilot Rust SDK `tokio::spawn`s a fresh
@@ -100,5 +118,70 @@ describe("liveTurns reorder buffer", () => {
       }),
     );
     expect(slice.liveTurnsBySessionId.value["sdk-A"]?.reasoningText).toBe("AB");
+  });
+
+  it("ignores delta events that arrive after assistant.message finalizes the stream", () => {
+    // Late delta after canonical text would re-corrupt it (e.g. the same
+    // SDK race could deliver one straggler post-final). Once finalized, the
+    // reducer must drop subsequent deltas for that turn.
+    const slice = makeSlice();
+    slice.applyBridgeEvent(at("sdk-A", "assistant.turn_start", "2026-04-27T00:00:00.000Z"));
+    slice.applyBridgeEvent(
+      at("sdk-A", "assistant.message_delta", "2026-04-27T00:00:00.001Z", {
+        deltaContent: "hello ",
+      }),
+    );
+    slice.applyBridgeEvent(
+      at("sdk-A", "assistant.message", "2026-04-27T00:00:00.010Z", {
+        content: "hello world",
+      }),
+    );
+    // Straggler delta arriving AFTER the final event:
+    slice.applyBridgeEvent(
+      at("sdk-A", "assistant.message_delta", "2026-04-27T00:00:00.002Z", {
+        deltaContent: "world",
+      }),
+    );
+    expect(slice.liveTurnsBySessionId.value["sdk-A"]?.assistantText).toBe("hello world");
+  });
+
+  it("drops deltas whose parentId disagrees with the active turn", () => {
+    // Cross-turn contamination repro: a previous-turn delta arrives after the
+    // next assistant.turn_start. With only sessionId-based routing it would
+    // be applied to the new turn's buffer; the parentId guard prevents that.
+    const slice = makeSlice();
+    slice.applyBridgeEvent(
+      atP("sdk-A", "assistant.turn_start", "2026-04-27T00:00:00.000Z", "turn-1", {
+        turnId: "turn-1",
+      }),
+    );
+    slice.applyBridgeEvent(
+      atP("sdk-A", "assistant.message_delta", "2026-04-27T00:00:00.001Z", "turn-1", {
+        deltaContent: "first ",
+      }),
+    );
+    slice.applyBridgeEvent(
+      atP("sdk-A", "assistant.message", "2026-04-27T00:00:00.010Z", "turn-1", {
+        content: "first turn",
+      }),
+    );
+    slice.applyBridgeEvent(
+      atP("sdk-A", "assistant.turn_start", "2026-04-27T00:00:01.000Z", "turn-2", {
+        turnId: "turn-2",
+      }),
+    );
+    slice.applyBridgeEvent(
+      atP("sdk-A", "assistant.message_delta", "2026-04-27T00:00:01.001Z", "turn-2", {
+        deltaContent: "second",
+      }),
+    );
+    // Late straggler from the PREVIOUS turn arriving after rotation:
+    slice.applyBridgeEvent(
+      atP("sdk-A", "assistant.message_delta", "2026-04-27T00:00:00.002Z", "turn-1", {
+        deltaContent: "STRAGGLER",
+      }),
+    );
+    expect(slice.liveTurnsBySessionId.value["sdk-A"]?.assistantText).toBe("second");
+    expect(slice.liveTurnsBySessionId.value["sdk-A"]?.turnId).toBe("turn-2");
   });
 });

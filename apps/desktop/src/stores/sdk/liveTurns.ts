@@ -29,6 +29,10 @@ export interface SdkLiveTurn {
   /** Internal: pending deltas, sorted ascending by timestamp. */
   assistantPending: PendingDelta[];
   reasoningPending: PendingDelta[];
+  /** Set once `assistant.message` / `assistant.reasoning` lands; late deltas
+   * arriving after the canonical text are dropped to avoid re-corrupting it. */
+  assistantFinalized: boolean;
+  reasoningFinalized: boolean;
   updatedAt: string;
 }
 
@@ -95,6 +99,8 @@ export function createLiveTurnAccumulator() {
       reasoningCommitted: "",
       assistantPending: [],
       reasoningPending: [],
+      assistantFinalized: false,
+      reasoningFinalized: false,
       updatedAt: event.timestamp,
     };
   }
@@ -117,6 +123,14 @@ export function createLiveTurnAccumulator() {
     liveTurnsBySessionId.value = next;
   }
 
+  /** Drop late events whose parentId disagrees with the active turn (so a
+   * straggler delta from a previous turn cannot contaminate the next one). */
+  function isStaleEvent(turn: SdkLiveTurn, event: BridgeEvent): boolean {
+    if (!turn.turnId) return false;
+    if (!event.parentId) return false;
+    return turn.turnId !== event.parentId;
+  }
+
   function applyBridgeEvent(event: BridgeEvent) {
     if (event.eventType === "assistant.turn_start") {
       const turnId = stringField(event.data, ["turnId", "turn_id"]) ?? event.id;
@@ -137,6 +151,8 @@ export function createLiveTurnAccumulator() {
       ]);
       if (!delta) return;
       const turn = currentLiveTurn(event);
+      if (turn.assistantFinalized) return;
+      if (isStaleEvent(turn, event)) return;
       const applied = applyDeltaWithReorder(turn.assistantCommitted, turn.assistantPending, {
         delta,
         timestamp: event.timestamp,
@@ -162,6 +178,8 @@ export function createLiveTurnAccumulator() {
       ]);
       if (!delta) return;
       const turn = currentLiveTurn(event);
+      if (turn.reasoningFinalized) return;
+      if (isStaleEvent(turn, event)) return;
       const applied = applyDeltaWithReorder(turn.reasoningCommitted, turn.reasoningPending, {
         delta,
         timestamp: event.timestamp,
@@ -181,6 +199,7 @@ export function createLiveTurnAccumulator() {
       const content = stringField(event.data, ["content", "chunkContent", "chunk_content"]);
       if (!content) return;
       const turn = currentLiveTurn(event);
+      if (isStaleEvent(turn, event)) return;
       // Snap-replace: drain pending into committed; keep whichever is longer
       // (the final `content` typically equals concat of deltas, but acts as a
       // self-heal when the tail of the reorder buffer is still garbled).
@@ -192,6 +211,7 @@ export function createLiveTurnAccumulator() {
         assistantCommitted: next,
         assistantPending: [],
         assistantText: next,
+        assistantFinalized: true,
         updatedAt: event.timestamp,
       });
       return;
@@ -203,6 +223,7 @@ export function createLiveTurnAccumulator() {
       const content = stringField(event.data, ["content", "chunkContent", "chunk_content"]);
       if (!content) return;
       const turn = currentLiveTurn(event);
+      if (isStaleEvent(turn, event)) return;
       const drained = turn.reasoningCommitted + joinPending(turn.reasoningPending);
       const next = content.length > drained.length ? content : drained;
       upsertLiveTurn({
@@ -211,6 +232,7 @@ export function createLiveTurnAccumulator() {
         reasoningCommitted: next,
         reasoningPending: [],
         reasoningText: next,
+        reasoningFinalized: true,
         updatedAt: event.timestamp,
       });
     }

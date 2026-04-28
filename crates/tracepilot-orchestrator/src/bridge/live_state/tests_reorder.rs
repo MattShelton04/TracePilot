@@ -81,3 +81,101 @@ fn out_of_order_reasoning_deltas_are_reordered() {
     ));
     assert_eq!(state.reasoning_text, "AB");
 }
+
+/// Late deltas arriving AFTER `assistant.message` finalizes the stream must
+/// be dropped — appending them would re-corrupt the canonical text.
+#[test]
+fn late_delta_after_finalize_is_ignored() {
+    let store = LiveStateStore::new();
+    // Establish a turn so subsequent events are accepted onto it.
+    store.apply_event(&BridgeEvent {
+        session_id: "s1".into(),
+        event_type: "assistant.turn_start".into(),
+        timestamp: "2026-04-27T00:00:00.000Z".into(),
+        id: Some("turn-1".into()),
+        parent_id: Some("turn-1".into()),
+        ephemeral: false,
+        data: json!({"turnId": "turn-1"}),
+    });
+    store.apply_event(&event_at(
+        "assistant.message_delta",
+        "2026-04-27T00:00:00.001Z",
+        json!({"deltaContent": "hello "}),
+    ));
+    store.apply_event(&event_at(
+        "assistant.message",
+        "2026-04-27T00:00:00.010Z",
+        json!({"content": "hello world"}),
+    ));
+    let state = store.apply_event(&event_at(
+        "assistant.message_delta",
+        "2026-04-27T00:00:00.002Z",
+        json!({"deltaContent": "world"}),
+    ));
+    assert_eq!(state.assistant_text, "hello world");
+}
+
+/// A previous-turn delta that arrives after the next `assistant.turn_start`
+/// must be rejected — its parent_id no longer matches the active turn.
+#[test]
+fn previous_turn_delta_is_isolated_after_rotation() {
+    let store = LiveStateStore::new();
+    let turn1_start = BridgeEvent {
+        session_id: "s1".into(),
+        event_type: "assistant.turn_start".into(),
+        timestamp: "2026-04-27T00:00:00.000Z".into(),
+        id: Some("turn-1".into()),
+        parent_id: Some("turn-1".into()),
+        ephemeral: false,
+        data: json!({"turnId": "turn-1"}),
+    };
+    store.apply_event(&turn1_start);
+    store.apply_event(&BridgeEvent {
+        session_id: "s1".into(),
+        event_type: "assistant.message_delta".into(),
+        timestamp: "2026-04-27T00:00:00.001Z".into(),
+        id: Some("d1".into()),
+        parent_id: Some("turn-1".into()),
+        ephemeral: false,
+        data: json!({"deltaContent": "first "}),
+    });
+    store.apply_event(&BridgeEvent {
+        session_id: "s1".into(),
+        event_type: "assistant.message".into(),
+        timestamp: "2026-04-27T00:00:00.010Z".into(),
+        id: Some("m1".into()),
+        parent_id: Some("turn-1".into()),
+        ephemeral: false,
+        data: json!({"content": "first turn"}),
+    });
+    store.apply_event(&BridgeEvent {
+        session_id: "s1".into(),
+        event_type: "assistant.turn_start".into(),
+        timestamp: "2026-04-27T00:00:01.000Z".into(),
+        id: Some("turn-2".into()),
+        parent_id: Some("turn-2".into()),
+        ephemeral: false,
+        data: json!({"turnId": "turn-2"}),
+    });
+    store.apply_event(&BridgeEvent {
+        session_id: "s1".into(),
+        event_type: "assistant.message_delta".into(),
+        timestamp: "2026-04-27T00:00:01.001Z".into(),
+        id: Some("d2".into()),
+        parent_id: Some("turn-2".into()),
+        ephemeral: false,
+        data: json!({"deltaContent": "second"}),
+    });
+    // Straggler from the PREVIOUS turn arriving after rotation:
+    let state = store.apply_event(&BridgeEvent {
+        session_id: "s1".into(),
+        event_type: "assistant.message_delta".into(),
+        timestamp: "2026-04-27T00:00:00.002Z".into(),
+        id: Some("d1-late".into()),
+        parent_id: Some("turn-1".into()),
+        ephemeral: false,
+        data: json!({"deltaContent": "STRAGGLER"}),
+    });
+    assert_eq!(state.assistant_text, "second");
+    assert_eq!(state.current_turn_id.as_deref(), Some("turn-2"));
+}
