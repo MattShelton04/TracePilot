@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import type { ConversationTurn } from "@tracepilot/types";
-import { useConversationSections, useToggleSet } from "@tracepilot/ui";
-import { computed, nextTick, ref, watch } from "vue";
+import {
+  LIVE_TOOL_PARTIAL_OUTPUT_KEY,
+  useConversationSections,
+  useToggleSet,
+} from "@tracepilot/ui";
+import { computed, nextTick, provide, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import GapIndicator from "@/components/conversation/chat/GapIndicator.vue";
 import TurnBlock from "@/components/conversation/chat/TurnBlock.vue";
@@ -50,16 +54,19 @@ const liveConversationTurn = computed<ConversationTurn | null>(() => {
   // dedup: we don't depend on bridge ids matching session.jsonl turn ids,
   // and it's evaluated synchronously inside the computed so there's no
   // post-render race when auto-refresh and streaming overlap.
-  if (liveText) {
-    const last = persistedTurns.value[persistedTurns.value.length - 1];
-    const persisted = (last?.assistantMessages ?? [])
-      .map((m) => m.content)
-      .join("")
-      .trim();
-    if (persisted?.startsWith(liveText)) return null;
-  }
-
   const last = persistedTurns.value[persistedTurns.value.length - 1];
+  const persistedAssistant = (last?.assistantMessages ?? [])
+    .map((m) => m.content)
+    .join("")
+    .trim();
+  const persistedReasoning = (last?.reasoningTexts ?? [])
+    .map((r) => r.content)
+    .join("")
+    .trim();
+  const assistantSuperseded = liveText ? persistedAssistant.startsWith(liveText) : true;
+  const reasoningSuperseded = liveReasoning ? persistedReasoning.startsWith(liveReasoning) : true;
+  if (assistantSuperseded && reasoningSuperseded) return null;
+
   return {
     turnIndex: (last?.turnIndex ?? 0) + 1,
     turnId: live.turnId ?? undefined,
@@ -86,6 +93,35 @@ watch(
   },
 );
 const renderMd = computed(() => preferences.isFeatureEnabled("renderMarkdown"));
+
+// Live partial output (streaming stdout from in-flight tool calls), keyed
+// by toolCallId. Sourced from the SDK live-state reducer's per-session
+// `ToolProgressSummary[]`. Provided into the tool-detail tree via injection
+// so it surfaces inline on the persisted tool call without prop-drilling.
+const liveToolPartialOutputs = computed<Map<string, string>>(() => {
+  const sessionId = store.sessionId;
+  const map = new Map<string, string>();
+  if (!sessionId) return map;
+  const state = sdk.sessionStatesById[sessionId];
+  if (!state) return map;
+  for (const tool of state.tools ?? []) {
+    if (!tool.toolCallId || tool.partialResult == null) continue;
+    const text =
+      typeof tool.partialResult === "string"
+        ? tool.partialResult
+        : (() => {
+            try {
+              return JSON.stringify(tool.partialResult, null, 2);
+            } catch {
+              return String(tool.partialResult);
+            }
+          })();
+    if (text.length > 0) map.set(tool.toolCallId, text);
+  }
+  return map;
+});
+provide(LIVE_TOOL_PARTIAL_OUTPUT_KEY, liveToolPartialOutputs);
+
 const emit = defineEmits<{
   messageSent: [prompt: string];
 }>();
@@ -104,6 +140,12 @@ const expandedReasoning = useToggleSet<string>();
 const expandedGroups = useToggleSet<string>();
 const expandedToolDetails = useToggleSet<string>();
 
+const isSdkSteered = computed<boolean>(() => {
+  const sid = store.sessionId;
+  if (!sid) return false;
+  return sdk.sessionStatesById[sid] != null || sdk.liveTurnsBySessionId[sid] != null;
+});
+
 // ─── Tool result loader ───────────────────────────────────────────
 
 const {
@@ -117,6 +159,26 @@ const {
 // ─── Conversation sections (for tool call index) ─────────────────
 
 const { findToolCallIndex, getArgsSummary } = useConversationSections(() => turns.value);
+
+// Auto-expand in-progress tool calls so users can watch live progress
+// without an extra click. Once added, the key stays in the set across
+// completion (so the panel stays open until the user manually collapses).
+watch(
+  turns,
+  (currentTurns) => {
+    for (const turn of currentTurns) {
+      const calls = turn.toolCalls ?? [];
+      for (const tc of calls) {
+        if (tc.isComplete !== false) continue;
+        const idx = findToolCallIndex(turn, tc);
+        if (idx < 0) continue;
+        const key = `${turn.turnIndex}-${idx}`;
+        if (!expandedToolDetails.has(key)) expandedToolDetails.add(key);
+      }
+    }
+  },
+  { immediate: true, deep: false },
+);
 
 // ─── Scroll ───────────────────────────────────────────────────────
 
@@ -162,6 +224,28 @@ const turnRenderData = computed(() => {
 function renderDataFor(turn: ConversationTurn): TurnRenderData {
   return turnRenderData.value.get(turn.turnIndex) ?? { reasoning: [], messages: [], segments: [] };
 }
+
+// Auto-expand reasoning blocks once per turn for SDK-steered sessions so
+// streaming "thinking" content is visible without an extra click and stays
+// expanded after the turn finalizes (same turnIndex carries the toggle).
+// We track which keys we've auto-seeded so a user-initiated collapse isn't
+// re-opened on the next render.
+const autoExpandedReasoningKeys = new Set<string>();
+watch(
+  [turnRenderData, isSdkSteered],
+  ([renderMap, steered]) => {
+    if (!steered) return;
+    for (const [turnIndex, data] of renderMap) {
+      for (let rIdx = 0; rIdx < data.reasoning.length; rIdx++) {
+        const key = `${turnIndex}-main-${rIdx}`;
+        if (autoExpandedReasoningKeys.has(key)) continue;
+        autoExpandedReasoningKeys.add(key);
+        if (!expandedReasoning.has(key)) expandedReasoning.toggle(key);
+      }
+    }
+  },
+  { immediate: true },
+);
 
 // ─── toolCallId → turnIndex index (O(1) lookups) ─────────────────
 

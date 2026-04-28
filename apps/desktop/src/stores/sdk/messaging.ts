@@ -104,29 +104,39 @@ export function createMessagingSlice(deps: MessagingDeps) {
     });
   }
 
+  /**
+   * Per-session in-flight resume tracking. Multiple rapid `resumeSession()`
+   * invocations for the same `sessionId` (e.g. linkSession fired twice from
+   * a re-render or a popout window's mount race) are coalesced onto the
+   * same underlying SDK promise, preventing duplicate `session.resume`
+   * subprocess calls.
+   */
+  const resumeInFlight = new Map<string, Promise<BridgeSessionInfo | null>>();
+
   async function resumeSession(
     sessionId: string,
     workingDirectory?: string,
     model?: string,
   ): Promise<BridgeSessionInfo | null> {
-    logInfo(
-      "[sdk] Resuming session:",
-      sessionId,
-      "cwd:",
-      workingDirectory ?? "(none)",
-      "model:",
-      model ?? "(none)",
-    );
+    const pending = resumeInFlight.get(sessionId);
+    if (pending) return pending;
+    const promise = (async () => {
+      try {
+        const session = await sdkResumeSession(sessionId, workingDirectory, model);
+        lastError.value = null;
+        upsertSession(session);
+        return session;
+      } catch (e) {
+        lastError.value = toErrorMessage(e);
+        logWarn("[sdk] Resume failed:", e);
+        return null;
+      }
+    })();
+    resumeInFlight.set(sessionId, promise);
     try {
-      const session = await sdkResumeSession(sessionId, workingDirectory, model);
-      logInfo("[sdk] Resume result:", session);
-      lastError.value = null;
-      upsertSession(session);
-      return session;
-    } catch (e) {
-      lastError.value = toErrorMessage(e);
-      logWarn("[sdk] Resume failed:", e);
-      return null;
+      return await promise;
+    } finally {
+      resumeInFlight.delete(sessionId);
     }
   }
 
@@ -134,6 +144,11 @@ export function createMessagingSlice(deps: MessagingDeps) {
     sessionId: string,
     payload: BridgeMessagePayload,
   ): Promise<string | null> {
+    // Idempotency guard: if a send is already in flight for this session,
+    // drop the duplicate. Without this, double-clicks / Ctrl+Enter races /
+    // an Enter handler firing alongside a click can produce two SDK sends
+    // for the same prompt before `prompt.value = ""` clears in the caller.
+    if (sendingByIds.value.has(sessionId)) return null;
     markSending(sessionId, true);
     logInfo(
       "[sdk] Sending message to session:",

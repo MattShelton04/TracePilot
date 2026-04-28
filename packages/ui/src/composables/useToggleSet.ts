@@ -9,6 +9,7 @@ export function useToggleSet<T = string>(): {
   set: Ref<Set<T>>;
   toggle: (key: T) => void;
   has: (key: T) => boolean;
+  add: (key: T) => void;
   clear: () => void;
 } {
   const set = ref<Set<T>>(new Set()) as Ref<Set<T>>;
@@ -25,9 +26,13 @@ export function useToggleSet<T = string>(): {
     return set.value.has(key);
   }
 
+  function add(key: T) {
+    set.value.add(key);
+  }
+
   function clear() {
     set.value.clear();
   }
 
-  return { set, toggle, has, clear };
+  return { set, toggle, has, add, clear };
 }

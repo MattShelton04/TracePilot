@@ -301,6 +301,10 @@ export function useSdkSteering(options: UseSdkSteeringOptions) {
   async function handleSend() {
     const text = prompt.value.trim();
     if (!text || !sessionIdRef.value || !isLinked.value) return;
+    // Avoid creating an optimistic "sending" row that would otherwise be
+    // orphaned when the messaging slice's idempotency guard drops a duplicate
+    // call (e.g. Send double-tap or Ctrl+Enter racing a click).
+    if (sdk.isSending(effectiveSessionId.value)) return;
 
     sessionError.value = null;
 

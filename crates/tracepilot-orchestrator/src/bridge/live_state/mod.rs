@@ -61,6 +61,33 @@ pub struct SessionLiveState {
     pub last_event_timestamp: Option<String>,
     pub last_error: Option<String>,
     pub reducer_warnings: Vec<String>,
+    /// Drained-out-of-buffer prefix of `assistant_text`. Internal bookkeeping
+    /// for the timestamp-based reorder buffer; not serialized over the wire.
+    #[serde(skip)]
+    pub(super) assistant_committed: String,
+    #[serde(skip)]
+    pub(super) reasoning_committed: String,
+    /// Pending message deltas, sorted ascending by `event.timestamp`. Pinned
+    /// Copilot SDK `tokio::spawn`s a fresh task per `session.event` notification
+    /// so adjacent deltas can race; we hold the most recent few here and sort
+    /// before committing.
+    #[serde(skip)]
+    pub(super) assistant_pending: Vec<PendingDelta>,
+    #[serde(skip)]
+    pub(super) reasoning_pending: Vec<PendingDelta>,
+    /// Set once `assistant.message` / `assistant.reasoning` has been applied
+    /// for the active turn. Late deltas after finalization are dropped to
+    /// avoid re-corrupting the canonical text. Cleared by `assistant.turn_start`.
+    #[serde(skip)]
+    pub(super) assistant_finalized: bool,
+    #[serde(skip)]
+    pub(super) reasoning_finalized: bool,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub(super) struct PendingDelta {
+    pub delta: String,
+    pub timestamp: String,
 }
 
 impl SessionLiveState {
@@ -80,9 +107,17 @@ impl SessionLiveState {
             last_event_timestamp: None,
             last_error: None,
             reducer_warnings: Vec::new(),
+            assistant_committed: String::new(),
+            reasoning_committed: String::new(),
+            assistant_pending: Vec::new(),
+            reasoning_pending: Vec::new(),
+            assistant_finalized: false,
+            reasoning_finalized: false,
         }
     }
 }
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_reorder;
