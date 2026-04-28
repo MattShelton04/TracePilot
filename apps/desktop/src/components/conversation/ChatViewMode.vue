@@ -54,16 +54,19 @@ const liveConversationTurn = computed<ConversationTurn | null>(() => {
   // dedup: we don't depend on bridge ids matching session.jsonl turn ids,
   // and it's evaluated synchronously inside the computed so there's no
   // post-render race when auto-refresh and streaming overlap.
-  if (liveText) {
-    const last = persistedTurns.value[persistedTurns.value.length - 1];
-    const persisted = (last?.assistantMessages ?? [])
-      .map((m) => m.content)
-      .join("")
-      .trim();
-    if (persisted?.startsWith(liveText)) return null;
-  }
-
   const last = persistedTurns.value[persistedTurns.value.length - 1];
+  const persistedAssistant = (last?.assistantMessages ?? [])
+    .map((m) => m.content)
+    .join("")
+    .trim();
+  const persistedReasoning = (last?.reasoningTexts ?? [])
+    .map((r) => r.content)
+    .join("")
+    .trim();
+  const assistantSuperseded = liveText ? persistedAssistant.startsWith(liveText) : true;
+  const reasoningSuperseded = liveReasoning ? persistedReasoning.startsWith(liveReasoning) : true;
+  if (assistantSuperseded && reasoningSuperseded) return null;
+
   return {
     turnIndex: (last?.turnIndex ?? 0) + 1,
     turnId: live.turnId ?? undefined,
