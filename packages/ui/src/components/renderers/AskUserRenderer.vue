@@ -1,11 +1,17 @@
 <script setup lang="ts">
 /**
- * AskUserRenderer — renders ask_user tool results showing the question,
- * available choices, and which option was selected (or freeform response).
- * Question text is rendered as markdown since it often contains formatting.
+ * AskUserRenderer — renders ask_user prompts and responses.
+ * Supports both legacy question/choices args and the newer message/requestedSchema form.
  */
 import { computed } from "vue";
 import MarkdownContent from "../MarkdownContent.vue";
+import {
+  askUserChoices,
+  askUserFields,
+  askUserPrompt,
+  formatAskUserValue,
+  parseAskUserResponseValues,
+} from "./askUserSchema";
 import RendererShell from "./RendererShell.vue";
 
 const props = defineProps<{
@@ -18,15 +24,9 @@ const emit = defineEmits<{
   "load-full": [];
 }>();
 
-const question = computed(() =>
-  typeof props.args?.question === "string" ? props.args.question : null,
-);
-
-const choices = computed<string[]>(() =>
-  Array.isArray(props.args?.choices) ? (props.args.choices as string[]) : [],
-);
-
-const allowFreeform = computed(() => props.args?.allow_freeform !== false);
+const question = computed(() => askUserPrompt(props.args));
+const choices = computed(() => askUserChoices(props.args));
+const fields = computed(() => askUserFields(props.args));
 
 /** The user's response (the tool result content). */
 const response = computed(() => props.content?.trim() ?? "");
@@ -62,6 +62,22 @@ const selectedChoiceIdx = computed(() => {
 const isFreeformResponse = computed(
   () => choices.value.length > 0 && selectedChoiceIdx.value === -1,
 );
+
+const schemaResponseValues = computed(() =>
+  parseAskUserResponseValues(response.value, fields.value),
+);
+
+function responseForField(fieldName: string): unknown | undefined {
+  return schemaResponseValues.value.find((item) => item.field.name === fieldName)?.value;
+}
+
+function isSelectedEnumValue(fieldName: string, enumValue: string): boolean {
+  const submitted = responseForField(fieldName);
+  return (
+    submitted !== undefined &&
+    formatAskUserValue(submitted).trim().toLowerCase() === enumValue.trim().toLowerCase()
+  );
+}
 </script>
 
 <template>
@@ -76,6 +92,49 @@ const isFreeformResponse = computed(
       <div v-if="question" class="askuser-question-bar">
         <span class="askuser-q-icon">❓</span>
         <MarkdownContent class="askuser-q-text" :content="question" :render="true" />
+      </div>
+
+      <div v-if="fields.length > 0" class="askuser-schema-section">
+        <div
+          v-for="field in fields"
+          :key="field.name"
+          :class="[
+            'askuser-schema-field',
+            { 'askuser-schema-field--answered': responseForField(field.name) !== undefined },
+          ]"
+        >
+          <div class="askuser-schema-field-head">
+            <span class="askuser-schema-field-title">{{ field.title }}</span>
+            <span class="askuser-schema-field-type">{{ field.type }}</span>
+            <span v-if="field.required" class="askuser-schema-required">Required</span>
+            <span v-if="responseForField(field.name) !== undefined" class="askuser-schema-selected">
+              Submitted
+            </span>
+          </div>
+          <p v-if="field.description" class="askuser-schema-description">{{ field.description }}</p>
+          <div v-if="field.enumValues.length > 0" class="askuser-schema-enum">
+            <span
+              v-for="value in field.enumValues"
+              :key="value"
+              :class="[
+                'askuser-schema-enum-pill',
+                { 'askuser-schema-enum-pill--selected': isSelectedEnumValue(field.name, value) },
+              ]"
+            >
+              {{ value }}
+              <span v-if="isSelectedEnumValue(field.name, value)" class="askuser-schema-check">✓</span>
+            </span>
+          </div>
+          <div v-if="field.defaultValue !== undefined" class="askuser-schema-default">
+            Default: {{ formatAskUserValue(field.defaultValue) }}
+          </div>
+          <div v-if="responseForField(field.name) !== undefined" class="askuser-schema-submitted">
+            <span class="askuser-schema-submitted-label">Response</span>
+            <span class="askuser-schema-submitted-value">
+              {{ formatAskUserValue(responseForField(field.name)) }}
+            </span>
+          </div>
+        </div>
       </div>
 
       <!-- Choices with selection indicator -->
@@ -94,7 +153,10 @@ const isFreeformResponse = computed(
       </div>
 
       <!-- Freeform response (when no choices, or typed custom response) -->
-      <div v-if="response && (choices.length === 0 || isFreeformResponse)" class="askuser-freeform">
+      <div
+        v-if="response && schemaResponseValues.length === 0 && (choices.length === 0 || isFreeformResponse)"
+        class="askuser-freeform"
+      >
         <div class="askuser-freeform-label">
           <span v-if="isFreeformResponse">✏️ Custom response:</span>
           <span v-else>💬 Response:</span>
@@ -170,6 +232,111 @@ const isFreeformResponse = computed(
   color: var(--accent-fg, #818cf8);
   text-transform: uppercase;
   letter-spacing: 0.03em;
+}
+.askuser-schema-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-muted);
+  background:
+    linear-gradient(135deg, rgba(99, 102, 241, 0.06), transparent 38%),
+    var(--canvas-default);
+}
+.askuser-schema-field {
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-sm, 6px);
+  padding: 8px 10px;
+  background: var(--canvas-inset);
+}
+.askuser-schema-field-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.askuser-schema-field-title {
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+.askuser-schema-field-type,
+.askuser-schema-required,
+.askuser-schema-enum-pill {
+  border-radius: 9999px;
+  padding: 1px 6px;
+  font-size: 0.625rem;
+  font-weight: 700;
+}
+.askuser-schema-field-type {
+  color: var(--accent-fg, #818cf8);
+  background: var(--accent-muted, rgba(99, 102, 241, 0.14));
+}
+.askuser-schema-required {
+  color: var(--warning-fg, #fbbf24);
+  background: rgba(251, 191, 36, 0.14);
+}
+.askuser-schema-selected {
+  border-radius: 9999px;
+  padding: 1px 6px;
+  color: var(--success-fg, #34d399);
+  background: rgba(52, 211, 153, 0.14);
+  font-size: 0.625rem;
+  font-weight: 700;
+}
+.askuser-schema-field--answered {
+  border-color: rgba(52, 211, 153, 0.34);
+  background:
+    linear-gradient(135deg, rgba(52, 211, 153, 0.08), transparent 42%),
+    var(--canvas-inset);
+}
+.askuser-schema-description,
+.askuser-schema-default {
+  margin: 6px 0 0;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+.askuser-schema-enum {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 7px;
+}
+.askuser-schema-enum-pill {
+  border: 1px solid var(--border-muted);
+  color: var(--text-secondary);
+  background: var(--canvas-default);
+}
+.askuser-schema-enum-pill--selected {
+  border-color: rgba(52, 211, 153, 0.5);
+  color: var(--success-fg, #34d399);
+  background: rgba(52, 211, 153, 0.12);
+}
+.askuser-schema-check {
+  margin-left: 4px;
+}
+.askuser-schema-submitted {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 8px;
+  padding: 7px 8px;
+  border: 1px solid rgba(52, 211, 153, 0.24);
+  border-radius: var(--radius-sm, 6px);
+  background: rgba(52, 211, 153, 0.07);
+}
+.askuser-schema-submitted-label {
+  color: var(--text-tertiary);
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.askuser-schema-submitted-value {
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 .askuser-freeform {
   padding: 8px 12px;

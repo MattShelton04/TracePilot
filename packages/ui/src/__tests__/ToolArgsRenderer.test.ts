@@ -1,6 +1,6 @@
 import type { TurnToolCall } from "@tracepilot/types";
-import { mount } from "@vue/test-utils";
-import { describe, expect, it } from "vitest";
+import { flushPromises, mount } from "@vue/test-utils";
+import { describe, expect, it, vi } from "vitest";
 import ToolArgsRenderer from "../components/renderers/ToolArgsRenderer.vue";
 
 function makeTc(overrides: Partial<TurnToolCall> = {}): TurnToolCall {
@@ -56,5 +56,34 @@ describe("ToolArgsRenderer", () => {
       },
     });
     expect(wrapper.find(".tool-args-json").exists()).toBe(false);
+  });
+
+  it("renders scalar string args for tools with rich args renderers", async () => {
+    const patch = [
+      "*** Begin Patch",
+      "*** Update File: src/app.ts",
+      "@@",
+      "-old",
+      "+new",
+      "*** End Patch",
+    ].join("\n");
+
+    const wrapper = mount(ToolArgsRenderer, {
+      props: {
+        tc: makeTc({
+          toolName: "apply_patch",
+          arguments: patch,
+          isComplete: false,
+        }),
+        richEnabled: true,
+      },
+    });
+
+    await vi.dynamicImportSettled();
+    await flushPromises();
+
+    expect(wrapper.find(".patch-renderer").exists()).toBe(true);
+    expect(wrapper.text()).toContain("src/app.ts");
+    expect(wrapper.find(".args-toggle-count").text()).toBe("1");
   });
 });

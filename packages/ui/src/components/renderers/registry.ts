@@ -55,6 +55,10 @@ const RENDERER_REGISTRY: Record<string, RendererEntry> = {
     label: "Grep (Search Results)",
     resultComponent: defineAsyncComponent(() => import("./GrepResultRenderer.vue")),
   },
+  rg: {
+    label: "Ripgrep (Search Results)",
+    resultComponent: defineAsyncComponent(() => import("./GrepResultRenderer.vue")),
+  },
   glob: {
     label: "Glob (File Tree)",
     resultComponent: defineAsyncComponent(() => import("./GlobTreeRenderer.vue")),
@@ -91,6 +95,13 @@ const RENDERER_REGISTRY: Record<string, RendererEntry> = {
     label: "Ask User (Q&A)",
     resultComponent: defineAsyncComponent(() => import("./AskUserRenderer.vue")),
     argsComponent: defineAsyncComponent(() => import("./AskUserArgsRenderer.vue")),
+    hideArgsWithRichResult: true,
+    autoExpandArgs: true,
+  },
+  apply_patch: {
+    label: "Apply Patch (Diff View)",
+    resultComponent: defineAsyncComponent(() => import("./ApplyPatchRenderer.vue")),
+    argsComponent: defineAsyncComponent(() => import("./ApplyPatchArgsRenderer.vue")),
     hideArgsWithRichResult: true,
     autoExpandArgs: true,
   },

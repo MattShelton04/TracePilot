@@ -8,6 +8,7 @@ export type RichRenderableToolName =
   | "view"
   | "create"
   | "grep"
+  | "rg"
   | "glob"
   | "powershell"
   | "read_powershell"
@@ -19,7 +20,8 @@ export type RichRenderableToolName =
   | "web_search"
   | "web_fetch"
   | "store_memory"
-  | "report_intent";
+  | "report_intent"
+  | "apply_patch";
 
 /** User preferences for tool rendering: global toggle + per-tool overrides. */
 export interface ToolRenderingPreferences {
