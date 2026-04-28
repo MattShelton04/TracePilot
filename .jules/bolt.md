@@ -1,0 +1,3 @@
+## 2025-02-12 - SQLite Batch Insert Placeholders Optimization
+**Learning:** The previous implementation of `build_placeholder_sql` used indexed parameters (e.g. `?1, ?2`) and `write!` macros to format strings, which introduces integer formatting overhead in memory. When batching thousands of objects for SQLite inserts, this string allocation inside a double loop has measurable overhead. Using sequential bindings (`?`) with direct string pushing is roughly 4-5x faster while satisfying SQLite parameter limits.
+**Action:** When dynamically generating large SQL placeholder strings in Rust for batch inserts, use anonymous sequential bindings (`?`) with simple byte pushes instead of `write!` or indexed parameters to eliminate string formatting overhead.

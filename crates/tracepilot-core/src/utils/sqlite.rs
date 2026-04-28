@@ -277,7 +277,7 @@ pub fn build_in_placeholders(n: usize) -> String {
 /// use tracepilot_core::utils::sqlite::build_placeholder_sql;
 /// assert_eq!(
 ///     build_placeholder_sql("INSERT INTO t (a,b) VALUES", 2, 2),
-///     "INSERT INTO t (a,b) VALUES (?1,?2),(?3,?4)",
+///     "INSERT INTO t (a,b) VALUES (?,?),(?,?)",
 /// );
 /// ```
 #[must_use]
@@ -287,14 +287,11 @@ pub fn build_placeholder_sql(sql_prefix: &str, num_rows: usize, params_per_row: 
         params_per_row > 0,
         "build_placeholder_sql requires params_per_row > 0"
     );
-    use std::fmt::Write;
-    // SQLite max bind parameter is ?32766 (5 digits). Each param slot is
-    // "?NNNNN" (up to 6 chars) + "," separator = 7 chars. Each row adds "(", ")"
-    // and "," between rows = 3 chars. Capacity is a tight upper bound.
-    let total_params = num_rows * params_per_row;
-    let param_digits = total_params.checked_ilog10().unwrap_or(0) as usize + 1;
+
+    // Memory allocation size estimation:
+    // sql_prefix + ' ' + num_rows * ( '(' + '?,' per param + '),' per row )
     let mut sql = String::with_capacity(
-        sql_prefix.len() + 1 + num_rows * (params_per_row * (param_digits + 2) + 3),
+        sql_prefix.len() + 1 + num_rows * (params_per_row * 2 + 2),
     );
     sql.push_str(sql_prefix);
     sql.push(' ');
@@ -303,12 +300,11 @@ pub fn build_placeholder_sql(sql_prefix: &str, num_rows: usize, params_per_row: 
             sql.push(',');
         }
         sql.push('(');
-        let start = i * params_per_row + 1;
-        for n in start..start + params_per_row {
-            if n > start {
+        for n in 0..params_per_row {
+            if n > 0 {
                 sql.push(',');
             }
-            write!(&mut sql, "?{n}").expect("String write is infallible");
+            sql.push('?');
         }
         sql.push(')');
     }
