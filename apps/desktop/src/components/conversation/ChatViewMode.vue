@@ -137,6 +137,12 @@ const expandedReasoning = useToggleSet<string>();
 const expandedGroups = useToggleSet<string>();
 const expandedToolDetails = useToggleSet<string>();
 
+const isSdkSteered = computed<boolean>(() => {
+  const sid = store.sessionId;
+  if (!sid) return false;
+  return sdk.sessionStatesById[sid] != null || sdk.liveTurnsBySessionId[sid] != null;
+});
+
 // ─── Tool result loader ───────────────────────────────────────────
 
 const {
@@ -195,6 +201,28 @@ const turnRenderData = computed(() => {
 function renderDataFor(turn: ConversationTurn): TurnRenderData {
   return turnRenderData.value.get(turn.turnIndex) ?? { reasoning: [], messages: [], segments: [] };
 }
+
+// Auto-expand reasoning blocks once per turn for SDK-steered sessions so
+// streaming "thinking" content is visible without an extra click and stays
+// expanded after the turn finalizes (same turnIndex carries the toggle).
+// We track which keys we've auto-seeded so a user-initiated collapse isn't
+// re-opened on the next render.
+const autoExpandedReasoningKeys = new Set<string>();
+watch(
+  [turnRenderData, isSdkSteered],
+  ([renderMap, steered]) => {
+    if (!steered) return;
+    for (const [turnIndex, data] of renderMap) {
+      for (let rIdx = 0; rIdx < data.reasoning.length; rIdx++) {
+        const key = `${turnIndex}-main-${rIdx}`;
+        if (autoExpandedReasoningKeys.has(key)) continue;
+        autoExpandedReasoningKeys.add(key);
+        if (!expandedReasoning.has(key)) expandedReasoning.toggle(key);
+      }
+    }
+  },
+  { immediate: true },
+);
 
 // ─── toolCallId → turnIndex index (O(1) lookups) ─────────────────
 

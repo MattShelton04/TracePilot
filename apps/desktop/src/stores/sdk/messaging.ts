@@ -109,6 +109,20 @@ export function createMessagingSlice(deps: MessagingDeps) {
     workingDirectory?: string,
     model?: string,
   ): Promise<BridgeSessionInfo | null> {
+    // TEMPORARY diagnostic — capture stack to identify which caller resumes
+    // a session that's already active (PR #536 follow-up).
+    const existing = sessions.value.find((s) => s.sessionId === sessionId);
+    const stack = new Error("sdk-diag-stack").stack ?? "(no stack)";
+    logInfo(
+      "[sdk-diag] resumeSession call session=",
+      sessionId,
+      "alreadyTracked=",
+      Boolean(existing),
+      "alreadyActive=",
+      Boolean(existing?.isActive),
+      "\n  stack:",
+      stack,
+    );
     logInfo(
       "[sdk] Resuming session:",
       sessionId,
@@ -135,6 +149,19 @@ export function createMessagingSlice(deps: MessagingDeps) {
     payload: BridgeMessagePayload,
   ): Promise<string | null> {
     markSending(sessionId, true);
+    // TEMPORARY diagnostic — capture the JS call stack so we can identify
+    // any duplicate sendMessage calls (PR #536 follow-up).
+    const stack = new Error("sdk-diag-stack").stack ?? "(no stack)";
+    logInfo(
+      "[sdk-diag] sendMessage call session=",
+      sessionId,
+      "prompt_len=",
+      payload.prompt?.length ?? 0,
+      "preview=",
+      payload.prompt?.slice(0, 60),
+      "\n  stack:",
+      stack,
+    );
     logInfo(
       "[sdk] Sending message to session:",
       sessionId,
@@ -143,6 +170,7 @@ export function createMessagingSlice(deps: MessagingDeps) {
     );
     try {
       const turnId = await sdkSendMessage(sessionId, payload);
+      logInfo("[sdk-diag] sendMessage result session=", sessionId, "turnId=", turnId);
       logInfo("[sdk] Message sent, turnId:", turnId);
       lastError.value = null;
       return turnId;

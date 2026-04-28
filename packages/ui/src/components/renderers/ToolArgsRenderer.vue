@@ -24,11 +24,16 @@ const props = defineProps<{
 }>();
 
 /**
- * Start open when the registry marks this tool as auto-expanding its args
- * (e.g. ask_user) and no result has arrived yet — saves the user a second click.
+ * Start open when:
+ *  - the registry marks this tool as auto-expanding its args (e.g. ask_user)
+ *    and no result has arrived yet, OR
+ *  - the tool is currently streaming (no result yet, not complete) so the
+ *    user can watch the parameters as they're filled in.
  */
 const isOpen = ref(
-  shouldAutoExpandArgs(props.tc.toolName) && !props.tc.resultContent && !props.tc.isComplete,
+  !props.tc.resultContent &&
+    props.tc.isComplete !== true &&
+    (shouldAutoExpandArgs(props.tc.toolName) || props.tc.isComplete === false),
 );
 
 const entry = computed(() => getRendererEntry(props.tc.toolName));

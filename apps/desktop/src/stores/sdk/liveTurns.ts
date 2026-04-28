@@ -49,6 +49,28 @@ export function createLiveTurnAccumulator() {
   }
 
   function applyBridgeEvent(event: BridgeEvent) {
+    // TEMPORARY diagnostic logging — see PR #536 follow-up. Logs every
+    // assistant.* / session.* / tool.execution_* event the frontend live-turn
+    // accumulator sees, so we can diff against the bridge-side `[sdk-diag]`
+    // log to spot duplicates / out-of-order delivery.
+    const et = event.eventType;
+    if (
+      et.startsWith("assistant.") ||
+      et.startsWith("session.") ||
+      et.startsWith("tool.execution_")
+    ) {
+      const d = (event.data ?? {}) as Record<string, unknown>;
+      const preview = (k: string): string => {
+        const v = d[k];
+        if (typeof v !== "string") return "-";
+        return JSON.stringify(v.length > 80 ? `${v.slice(0, 80)}…` : v);
+      };
+      // eslint-disable-next-line no-console
+      console.info(
+        `[sdk-diag] frontend event session=${event.sessionId} type=${et} id=${event.id ?? "-"} parent=${event.parentId ?? "-"} msgId=${(d.messageId as string) ?? "-"} reasoningId=${(d.reasoningId as string) ?? "-"} delta=${preview("deltaContent")} content=${preview("content")} chunk=${preview("chunkContent")}`,
+      );
+    }
+
     if (event.eventType === "assistant.turn_start") {
       upsertLiveTurn({
         sessionId: event.sessionId,
