@@ -160,6 +160,26 @@ const {
 
 const { findToolCallIndex, getArgsSummary } = useConversationSections(() => turns.value);
 
+// Auto-expand in-progress tool calls so users can watch live progress
+// without an extra click. Once added, the key stays in the set across
+// completion (so the panel stays open until the user manually collapses).
+watch(
+  turns,
+  (currentTurns) => {
+    for (const turn of currentTurns) {
+      const calls = turn.toolCalls ?? [];
+      for (const tc of calls) {
+        if (tc.isComplete !== false) continue;
+        const idx = findToolCallIndex(turn, tc);
+        if (idx < 0) continue;
+        const key = `${turn.turnIndex}-${idx}`;
+        if (!expandedToolDetails.has(key)) expandedToolDetails.add(key);
+      }
+    }
+  },
+  { immediate: true, deep: false },
+);
+
 // ─── Scroll ───────────────────────────────────────────────────────
 
 const scrollEl = ref<HTMLElement | null>(null);
