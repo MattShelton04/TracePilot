@@ -165,6 +165,12 @@ describe("createDefaultConfig", () => {
       "C:\\Users\\me\\.copilot\\session-state",
     );
     expect(deriveSessionStateDir("/home/me/.copilot/")).toBe("/home/me/.copilot/session-state");
+    expect(deriveIndexDbPath(`/tmp/tracepilot${"/".repeat(1000)}`)).toBe(
+      "/tmp/tracepilot/index.db",
+    );
+    expect(deriveSessionStateDir(`C:\\Users\\me\\.copilot${"\\".repeat(1000)}`)).toBe(
+      "C:\\Users\\me\\.copilot\\session-state",
+    );
   });
 
   it("should override primitive fields successfully", () => {
