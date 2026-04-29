@@ -37,7 +37,7 @@ toml = "0.8"
 tempfile = "3"
 sha2 = "0.10"
 tauri = { version = "2", features = [] }
-tauri-plugin-dialog = "2.6.0"
+tauri-plugin-dialog = "2.7.0"
 tauri-plugin-log = "2"
 tauri-plugin-notification = "2"
 tauri-plugin-opener = "2"
@@ -47,7 +47,7 @@ strum = { version = "0.27", features = ["derive"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 semver = "1"
 copilot-sdk = { git = "https://github.com/copilot-community-sdk/copilot-sdk-rust.git", rev = "2946ba1", package = "copilot-sdk" }
-rayon = "1.10"
+rayon = "1.12"
 dashmap = "6"
 
 # ── Rust ↔ TS contract codegen (Phase 1B.1 pilot) ────────────────
