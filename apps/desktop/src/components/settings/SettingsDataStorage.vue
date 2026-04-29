@@ -56,7 +56,6 @@ const pathSettingsDirty = computed(
 const pathChangesBlocked = computed(() => isIndexing.value || searchRebuilding.value);
 const databaseSize = ref("—");
 const indexedSessionCount = ref(0);
-const sessionValidation = ref<string | null>(null);
 const pathsSaving = ref(false);
 const reindexResult = ref<string | null>(null);
 const resetting = ref(false);
@@ -124,7 +123,6 @@ async function browseCopilotHome() {
   });
   if (selected) {
     copilotHome.value = selected;
-    await persistPaths({ revalidateSessionDir: true });
   }
 }
 
@@ -139,7 +137,6 @@ async function browseTracePilotHome() {
   });
   if (selected) {
     tracepilotHome.value = selected;
-    await persistPaths({ revalidateSessionDir: false });
   }
 }
 
@@ -150,15 +147,12 @@ async function persistPaths(options: { revalidateSessionDir: boolean }) {
   }
   pathsSaving.value = true;
   try {
-    sessionValidation.value = null;
     if (options.revalidateSessionDir || copilotHome.value !== savedCopilotHome.value) {
       const result = await validateSessionDir(sessionsDirectory.value);
       if (!result.valid) {
-        sessionValidation.value = result.error ?? "Session directory is not valid.";
-        toast.error(sessionValidation.value);
+        toast.error(result.error ?? "Derived Copilot sessions directory is not valid.");
         return;
       }
-      sessionValidation.value = `Found ${result.sessionCount} session${result.sessionCount === 1 ? "" : "s"}`;
     }
 
     const config = await getConfig();
@@ -267,21 +261,6 @@ defineExpose({ databaseSize, indexedSessionCount });
 
       <div class="setting-row">
         <div class="setting-info">
-          <div class="setting-label">Sessions directory</div>
-          <div class="setting-description">
-            Derived from Copilot home.
-          </div>
-        </div>
-        <span class="setting-value-display setting-value-path">{{ sessionsDirectory }}</span>
-      </div>
-      <div v-if="sessionValidation" class="setting-row setting-row-compact">
-        <div class="setting-info">
-          <div class="setting-description">{{ sessionValidation }}</div>
-        </div>
-      </div>
-
-      <div class="setting-row">
-        <div class="setting-info">
           <div class="setting-label">TracePilot data directory</div>
           <div class="setting-description">
             App-owned directory for the index database, task data, presets, and backups.
@@ -299,7 +278,7 @@ defineExpose({ databaseSize, indexedSessionCount });
         <div class="setting-info">
           <div class="setting-label">Index database path</div>
           <div class="setting-description">
-            Derived from the TracePilot data directory.
+            Preview of the database path that will be saved when you apply changes.
           </div>
         </div>
         <span class="setting-value-display setting-value-path">{{ databasePath }}</span>
@@ -308,7 +287,7 @@ defineExpose({ databaseSize, indexedSessionCount });
       <div class="setting-row setting-row-compact">
         <div class="setting-info">
           <div class="setting-description">
-            Manual path edits are applied only when you save. Browsing a directory applies the selected path immediately.
+            Path edits and browsed directories are saved only when you apply changes.
           </div>
         </div>
         <div class="setting-actions">
