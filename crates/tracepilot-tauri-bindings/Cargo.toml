@@ -24,7 +24,7 @@ anyhow = { workspace = true }
 tauri = { workspace = true }
 tokio = { workspace = true }
 uuid = { workspace = true }
-lru = "0.12"
+lru = "0.18"
 reqwest = { workspace = true }
 semver = { workspace = true }
 walkdir = "2"
