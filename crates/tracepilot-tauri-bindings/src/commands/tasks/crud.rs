@@ -34,7 +34,7 @@ pub async fn task_create(
     let session_state_dir = cfg.session_state_dir();
     let default_model = cfg.tasks.default_subagent_model.clone();
 
-    with_task_db(&state, move |db| {
+    with_task_db(&state, &config, move |db| {
         let new_task = NewTask {
             task_type,
             preset_id,
@@ -132,6 +132,7 @@ pub async fn task_create(
 #[tracing::instrument(skip_all, err, fields(%job_name, task_count = tasks.len()))]
 pub async fn task_create_batch(
     state: tauri::State<'_, SharedTaskDb>,
+    config: tauri::State<'_, SharedConfig>,
     tasks: Vec<NewTask>,
     job_name: String,
     preset_id: Option<String>,
@@ -142,7 +143,7 @@ pub async fn task_create_batch(
     for task in &tasks {
         crate::validators::validate_preset_id(&task.preset_id)?;
     }
-    with_task_db(&state, move |db| {
+    with_task_db(&state, &config, move |db| {
         tracepilot_orchestrator::task_db::operations::create_task_batch(
             db.conn(),
             &tasks,
@@ -156,9 +157,13 @@ pub async fn task_create_batch(
 
 #[tauri::command]
 #[tracing::instrument(skip_all, level = "debug", err, fields(task_id = %id))]
-pub async fn task_get(state: tauri::State<'_, SharedTaskDb>, id: String) -> CmdResult<Task> {
+pub async fn task_get(
+    state: tauri::State<'_, SharedTaskDb>,
+    config: tauri::State<'_, SharedConfig>,
+    id: String,
+) -> CmdResult<Task> {
     crate::validators::validate_task_id(&id)?;
-    with_task_db(&state, move |db| {
+    with_task_db(&state, &config, move |db| {
         tracepilot_orchestrator::task_db::operations::get_task(db.conn(), &id)
             .map_err(BindingsError::Orchestrator)
     })
@@ -169,10 +174,11 @@ pub async fn task_get(state: tauri::State<'_, SharedTaskDb>, id: String) -> CmdR
 #[tracing::instrument(skip_all, level = "debug", err)]
 pub async fn task_list(
     state: tauri::State<'_, SharedTaskDb>,
+    config: tauri::State<'_, SharedConfig>,
     filter: Option<TaskFilter>,
 ) -> CmdResult<Vec<Task>> {
     let f = filter.unwrap_or_default();
-    with_task_db(&state, move |db| {
+    with_task_db(&state, &config, move |db| {
         tracepilot_orchestrator::task_db::operations::list_tasks(db.conn(), &f)
             .map_err(BindingsError::Orchestrator)
     })
@@ -181,9 +187,13 @@ pub async fn task_list(
 
 #[tauri::command]
 #[tracing::instrument(skip_all, level = "debug", err, fields(task_id = %id))]
-pub async fn task_cancel(state: tauri::State<'_, SharedTaskDb>, id: String) -> CmdResult<()> {
+pub async fn task_cancel(
+    state: tauri::State<'_, SharedTaskDb>,
+    config: tauri::State<'_, SharedConfig>,
+    id: String,
+) -> CmdResult<()> {
     crate::validators::validate_task_id(&id)?;
-    with_task_db(&state, move |db| {
+    with_task_db(&state, &config, move |db| {
         tracepilot_orchestrator::task_db::operations::cancel_task(db.conn(), &id)
             .map_err(BindingsError::Orchestrator)
     })
@@ -192,9 +202,13 @@ pub async fn task_cancel(state: tauri::State<'_, SharedTaskDb>, id: String) -> C
 
 #[tauri::command]
 #[tracing::instrument(skip_all, level = "debug", err, fields(task_id = %id))]
-pub async fn task_retry(state: tauri::State<'_, SharedTaskDb>, id: String) -> CmdResult<()> {
+pub async fn task_retry(
+    state: tauri::State<'_, SharedTaskDb>,
+    config: tauri::State<'_, SharedConfig>,
+    id: String,
+) -> CmdResult<()> {
     crate::validators::validate_task_id(&id)?;
-    with_task_db(&state, move |db| {
+    with_task_db(&state, &config, move |db| {
         tracepilot_orchestrator::task_db::operations::retry_task(db.conn(), &id)
             .map_err(BindingsError::Orchestrator)
     })
@@ -203,9 +217,13 @@ pub async fn task_retry(state: tauri::State<'_, SharedTaskDb>, id: String) -> Cm
 
 #[tauri::command]
 #[tracing::instrument(skip_all, level = "debug", err, fields(task_id = %id))]
-pub async fn task_delete(state: tauri::State<'_, SharedTaskDb>, id: String) -> CmdResult<()> {
+pub async fn task_delete(
+    state: tauri::State<'_, SharedTaskDb>,
+    config: tauri::State<'_, SharedConfig>,
+    id: String,
+) -> CmdResult<()> {
     crate::validators::validate_task_id(&id)?;
-    with_task_db(&state, move |db| {
+    with_task_db(&state, &config, move |db| {
         tracepilot_orchestrator::task_db::operations::delete_task(db.conn(), &id)
             .map_err(BindingsError::Orchestrator)
     })
@@ -214,8 +232,11 @@ pub async fn task_delete(state: tauri::State<'_, SharedTaskDb>, id: String) -> C
 
 #[tauri::command]
 #[tracing::instrument(skip_all, level = "debug", err)]
-pub async fn task_stats(state: tauri::State<'_, SharedTaskDb>) -> CmdResult<TaskStats> {
-    with_task_db(&state, move |db| {
+pub async fn task_stats(
+    state: tauri::State<'_, SharedTaskDb>,
+    config: tauri::State<'_, SharedConfig>,
+) -> CmdResult<TaskStats> {
+    with_task_db(&state, &config, move |db| {
         tracepilot_orchestrator::task_db::operations::get_task_stats(db.conn())
             .map_err(BindingsError::Orchestrator)
     })

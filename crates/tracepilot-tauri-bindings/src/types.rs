@@ -1,13 +1,37 @@
 //! Shared DTO types returned by Tauri IPC commands.
 
 use serde::Serialize;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 // ── Shared TaskDb Handle ────────────────────────────────────────────
 
 /// Thread-safe shared handle to the task database.
 /// Lazily initialized on first use (config must be available for the path).
-pub type SharedTaskDb = Arc<Mutex<Option<tracepilot_orchestrator::task_db::TaskDb>>>;
+pub type SharedTaskDb = Arc<Mutex<Option<TaskDbHandle>>>;
+
+pub struct TaskDbHandle {
+    path: PathBuf,
+    db: tracepilot_orchestrator::task_db::TaskDb,
+}
+
+impl TaskDbHandle {
+    pub(crate) fn new(path: PathBuf, db: tracepilot_orchestrator::task_db::TaskDb) -> Self {
+        Self { path, db }
+    }
+
+    pub(crate) fn path(&self) -> &Path {
+        &self.path
+    }
+}
+
+impl std::ops::Deref for TaskDbHandle {
+    type Target = tracepilot_orchestrator::task_db::TaskDb;
+
+    fn deref(&self) -> &Self::Target {
+        &self.db
+    }
+}
 
 // ── Shared Orchestrator State ──────────────────────────────────────
 

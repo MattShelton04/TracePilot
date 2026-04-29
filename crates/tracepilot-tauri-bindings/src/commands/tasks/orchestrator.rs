@@ -4,7 +4,7 @@
 
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
-use crate::helpers::{mutex_poisoned, read_config};
+use crate::helpers::{get_or_init_task_db, mutex_poisoned, read_config};
 use crate::types::SharedTaskDb;
 
 #[tauri::command]
@@ -18,7 +18,7 @@ pub async fn task_orchestrator_health(
     let jobs_dir = cfg.jobs_dir();
     let session_state_dir = cfg.session_state_dir();
     let orch_state_clone = std::sync::Arc::clone(&*orch_state);
-    let db = std::sync::Arc::clone(&*task_db);
+    let db = get_or_init_task_db(&task_db, &config)?;
     let handle = orch_state.lock().map_err(|_| mutex_poisoned())?.clone();
     let stale_secs =
         (cfg.tasks.poll_interval_seconds * cfg.tasks.heartbeat_stale_multiplier) as u64;

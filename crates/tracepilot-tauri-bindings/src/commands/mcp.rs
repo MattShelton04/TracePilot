@@ -1,7 +1,9 @@
 //! MCP Tauri commands (11 commands).
 
 use crate::blocking_cmd;
+use crate::config::SharedConfig;
 use crate::error::CmdResult;
+use crate::helpers::read_config;
 use std::collections::HashMap;
 use tracepilot_orchestrator::OrchestratorError;
 
@@ -14,57 +16,73 @@ fn mcp<T>(r: Result<T, tracepilot_orchestrator::mcp::McpError>) -> Result<T, Orc
 
 #[tauri::command]
 #[tracing::instrument(level = "debug", err)]
-pub async fn mcp_list_servers()
--> CmdResult<Vec<(String, tracepilot_orchestrator::mcp::types::McpServerConfig)>> {
-    blocking_cmd!(tracepilot_orchestrator::mcp::config::list_servers())
+pub async fn mcp_list_servers(
+    state: tauri::State<'_, SharedConfig>,
+) -> CmdResult<Vec<(String, tracepilot_orchestrator::mcp::types::McpServerConfig)>> {
+    let home = read_config(&state).copilot_home();
+    blocking_cmd!(tracepilot_orchestrator::mcp::config::list_servers_in(&home))
 }
 
 #[tauri::command]
 #[tracing::instrument(level = "debug", err, fields(server = %name))]
 pub async fn mcp_get_server(
+    state: tauri::State<'_, SharedConfig>,
     name: String,
 ) -> CmdResult<tracepilot_orchestrator::mcp::types::McpServerConfig> {
-    blocking_cmd!(mcp(tracepilot_orchestrator::mcp::config::get_server(&name)))
+    let home = read_config(&state).copilot_home();
+    blocking_cmd!(mcp(tracepilot_orchestrator::mcp::config::get_server_in(
+        &home, &name
+    )))
 }
 
 #[tauri::command]
 #[tracing::instrument(skip(config), err, fields(server = %name))]
 pub async fn mcp_add_server(
+    state: tauri::State<'_, SharedConfig>,
     name: String,
     config: tracepilot_orchestrator::mcp::types::McpServerConfig,
 ) -> CmdResult<()> {
-    blocking_cmd!(mcp(tracepilot_orchestrator::mcp::config::add_server(
-        &name, config
+    let home = read_config(&state).copilot_home();
+    blocking_cmd!(mcp(tracepilot_orchestrator::mcp::config::add_server_in(
+        &home, &name, config
     )))
 }
 
 #[tauri::command]
 #[tracing::instrument(skip(config), err, fields(server = %name))]
 pub async fn mcp_update_server(
+    state: tauri::State<'_, SharedConfig>,
     name: String,
     config: tracepilot_orchestrator::mcp::types::McpServerConfig,
 ) -> CmdResult<()> {
-    blocking_cmd!(mcp(tracepilot_orchestrator::mcp::config::update_server(
-        &name, config
+    let home = read_config(&state).copilot_home();
+    blocking_cmd!(mcp(tracepilot_orchestrator::mcp::config::update_server_in(
+        &home, &name, config
     )))
 }
 
 #[tauri::command]
 #[tracing::instrument(err, fields(server = %name))]
 pub async fn mcp_remove_server(
+    state: tauri::State<'_, SharedConfig>,
     name: String,
 ) -> CmdResult<tracepilot_orchestrator::mcp::types::McpServerConfig> {
-    blocking_cmd!(mcp(tracepilot_orchestrator::mcp::config::remove_server(
-        &name
+    let home = read_config(&state).copilot_home();
+    blocking_cmd!(mcp(tracepilot_orchestrator::mcp::config::remove_server_in(
+        &home, &name
     )))
 }
 
 #[tauri::command]
 #[tracing::instrument(err, fields(server = %name))]
 #[specta::specta]
-pub async fn mcp_toggle_server(name: String) -> CmdResult<bool> {
-    blocking_cmd!(mcp(tracepilot_orchestrator::mcp::config::toggle_server(
-        &name
+pub async fn mcp_toggle_server(
+    state: tauri::State<'_, SharedConfig>,
+    name: String,
+) -> CmdResult<bool> {
+    let home = read_config(&state).copilot_home();
+    blocking_cmd!(mcp(tracepilot_orchestrator::mcp::config::toggle_server_in(
+        &home, &name
     )))
 }
 
@@ -72,10 +90,14 @@ pub async fn mcp_toggle_server(name: String) -> CmdResult<bool> {
 
 #[tauri::command]
 #[tracing::instrument(err)]
-pub async fn mcp_check_health()
--> CmdResult<HashMap<String, tracepilot_orchestrator::mcp::health::McpHealthResultCached>> {
-    let config =
-        tokio::task::spawn_blocking(tracepilot_orchestrator::mcp::config::load_config).await??;
+pub async fn mcp_check_health(
+    state: tauri::State<'_, SharedConfig>,
+) -> CmdResult<HashMap<String, tracepilot_orchestrator::mcp::health::McpHealthResultCached>> {
+    let home = read_config(&state).copilot_home();
+    let config = tokio::task::spawn_blocking(move || {
+        tracepilot_orchestrator::mcp::config::load_config_in(&home)
+    })
+    .await??;
 
     let results =
         tracepilot_orchestrator::mcp::health::check_all_servers(&config.mcp_servers).await;
@@ -85,10 +107,12 @@ pub async fn mcp_check_health()
 #[tauri::command]
 #[tracing::instrument(err, fields(server = %name))]
 pub async fn mcp_check_server_health(
+    state: tauri::State<'_, SharedConfig>,
     name: String,
 ) -> CmdResult<tracepilot_orchestrator::mcp::health::McpHealthResultCached> {
+    let home = read_config(&state).copilot_home();
     let config = tokio::task::spawn_blocking(move || {
-        mcp(tracepilot_orchestrator::mcp::config::get_server(&name).map(|c| (name, c)))
+        mcp(tracepilot_orchestrator::mcp::config::get_server_in(&home, &name).map(|c| (name, c)))
     })
     .await??;
 
@@ -132,10 +156,12 @@ pub async fn mcp_import_from_github(
 #[tauri::command]
 #[tracing::instrument(skip(incoming), err, fields(incoming_count = incoming.len()))]
 pub async fn mcp_compute_diff(
+    state: tauri::State<'_, SharedConfig>,
     incoming: HashMap<String, tracepilot_orchestrator::mcp::types::McpServerConfig>,
 ) -> CmdResult<tracepilot_orchestrator::mcp::diff::McpConfigDiff> {
+    let home = read_config(&state).copilot_home();
     blocking_cmd!({
-        let config = tracepilot_orchestrator::mcp::config::load_config()?;
+        let config = tracepilot_orchestrator::mcp::config::load_config_in(&home)?;
         Ok::<_, OrchestratorError>(tracepilot_orchestrator::mcp::diff::compute_diff(
             &config.mcp_servers,
             &incoming,

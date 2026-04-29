@@ -12,3 +12,17 @@ export const TRACEPILOT_BACKUPS_PLACEHOLDER = `${TRACEPILOT_HOME_PLACEHOLDER}/ba
 
 export const DEFAULT_GIT_COMMAND = "git";
 export const DEFAULT_GH_COMMAND = "gh";
+
+export function deriveIndexDbPath(tracepilotHome: string): string {
+  const trimmed = tracepilotHome.trim();
+  if (!trimmed) return "";
+  const separator = trimmed.includes("\\") ? "\\" : "/";
+  return `${trimmed.replace(/[\\/]+$/, "")}${separator}index.db`;
+}
+
+export function deriveSessionStateDir(copilotHome: string): string {
+  const trimmed = copilotHome.trim();
+  if (!trimmed) return "";
+  const separator = trimmed.includes("\\") ? "\\" : "/";
+  return `${trimmed.replace(/[\\/]+$/, "")}${separator}session-state`;
+}

@@ -40,7 +40,7 @@ pub async fn task_orchestrator_start(
     }
 
     let cfg = read_config(&config);
-    let db = get_or_init_task_db(&task_db)?;
+    let db = get_or_init_task_db(&task_db, &config)?;
     let orch_state_clone = std::sync::Arc::clone(&*orch_state);
 
     let orchestrator_model = model.unwrap_or_else(|| cfg.tasks.orchestrator_model.clone());

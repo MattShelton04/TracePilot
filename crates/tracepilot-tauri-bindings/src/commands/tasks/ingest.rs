@@ -21,7 +21,7 @@ pub async fn task_ingest_results(
     let jobs_dir = cfg.jobs_dir();
     let presets_dir = cfg.presets_dir();
     let default_subagent_model = cfg.tasks.default_subagent_model.clone();
-    let db = get_or_init_task_db(&task_db)?;
+    let db = get_or_init_task_db(&task_db, &config)?;
     let orch_state_clone = std::sync::Arc::clone(&*orch_state);
     let manifest_lock_clone = std::sync::Arc::clone(&*manifest_lock);
 

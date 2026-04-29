@@ -5,7 +5,7 @@
 //! preserve the pre-split public API byte-for-byte.
 //!
 //! Sub-config roster (keep each sibling file < 200 LOC):
-//! - [`PathsConfig`] — on-disk locations (index DB, session-state dir).
+//! - [`PathsConfig`] — on-disk roots (Copilot home, TracePilot home, session-state dir).
 //! - [`GeneralConfig`] — CLI command, setup-complete flag, misc top-level.
 //! - [`UiConfig`] — theme, refresh cadence, favourite-model list, scaling.
 //! - [`PricingConfig`] — model-pricing table + premium-request cost.
@@ -92,15 +92,17 @@ impl Default for TracePilotConfig {
         // sentinel values — the setup wizard will prompt the user for paths.
         let copilot_paths =
             tracepilot_core::paths::CopilotPaths::from_user_home(home_dir().unwrap_or_default());
-        let paths = copilot_paths.tracepilot();
+        let tracepilot_paths = copilot_paths.tracepilot();
         Self {
-            version: 5,
+            version: Self::CURRENT_VERSION,
             paths: PathsConfig {
+                copilot_home: copilot_paths.home().to_string_lossy().to_string(),
+                tracepilot_home: tracepilot_paths.root().to_string_lossy().to_string(),
                 session_state_dir: copilot_paths
                     .session_state_dir()
                     .to_string_lossy()
                     .to_string(),
-                index_db_path: paths.index_db().to_string_lossy().to_string(),
+                index_db_path: tracepilot_paths.index_db().to_string_lossy().to_string(),
             },
             general: GeneralConfig::default(),
             ui: UiConfig::default(),
@@ -116,7 +118,7 @@ impl Default for TracePilotConfig {
 
 impl TracePilotConfig {
     /// Current schema version. Bump this when adding migrations.
-    pub const CURRENT_VERSION: u32 = 5;
+    pub const CURRENT_VERSION: u32 = 6;
 
     /// Apply any pending migrations to bring the config up to the current version.
     /// Returns true if any migrations were applied.
@@ -157,6 +159,17 @@ impl TracePilotConfig {
         if self.version < 5 {
             self.version = 5;
             tracing::info!("Migrated config from v4 → v5 (added alerts config)");
+        }
+
+        // Migration from v5 → v6: make Copilot home and TracePilot home explicit.
+        // Existing custom indexDbPath values seed tracepilotHome from their
+        // parent, then indexDbPath becomes the derived compatibility field.
+        if self.version < 6 {
+            self.normalize_paths();
+            self.version = 6;
+            tracing::info!("Migrated config from v5 → v6 (explicit path homes)");
+        } else {
+            self.normalize_paths();
         }
 
         self.version != original
@@ -208,7 +221,9 @@ impl TracePilotConfig {
         let path = config_file_path().ok_or_else(|| {
             BindingsError::Validation("Cannot determine home directory for config file".into())
         })?;
-        self.save_to(&path)
+        let mut normalized = self.clone();
+        normalized.normalize_paths();
+        normalized.save_to(&path)
     }
 
     /// Write the config to an arbitrary path, creating parent directories as
@@ -230,16 +245,33 @@ impl TracePilotConfig {
     }
 
     pub fn session_state_dir(&self) -> PathBuf {
-        PathBuf::from(&self.paths.session_state_dir)
+        if self.paths.session_state_dir.trim().is_empty() {
+            self.derived_session_state_dir()
+        } else {
+            PathBuf::from(&self.paths.session_state_dir)
+        }
+    }
+
+    pub fn copilot_home(&self) -> PathBuf {
+        PathBuf::from(&self.paths.copilot_home)
+    }
+
+    pub fn tracepilot_home(&self) -> PathBuf {
+        PathBuf::from(&self.paths.tracepilot_home)
     }
 
     pub fn index_db_path(&self) -> PathBuf {
-        PathBuf::from(&self.paths.index_db_path)
+        self.tracepilot_root_paths().index_db()
     }
 
-    /// Path to the task presets directory (derived from copilot home).
+    /// Path to the task presets directory (derived from TracePilot home).
     pub fn presets_dir(&self) -> PathBuf {
         self.tracepilot_root_paths().presets_dir()
+    }
+
+    /// Path to the task database (derived from TracePilot home).
+    pub fn task_db_path(&self) -> PathBuf {
+        self.tracepilot_root_paths().tasks_db()
     }
 
     /// Path to the jobs directory for orchestrator IPC.
@@ -248,11 +280,43 @@ impl TracePilotConfig {
     }
 
     fn tracepilot_root_paths(&self) -> tracepilot_core::paths::TracePilotPaths {
-        let root = PathBuf::from(&self.paths.index_db_path)
-            .parent()
-            .map(Path::to_path_buf)
-            .unwrap_or_else(|| PathBuf::from("."));
-        tracepilot_core::paths::TracePilotPaths::from_root(root)
+        tracepilot_core::paths::TracePilotPaths::from_root(self.tracepilot_home())
+    }
+
+    fn derived_session_state_dir(&self) -> PathBuf {
+        tracepilot_core::paths::CopilotPaths::from_home(&self.paths.copilot_home)
+            .session_state_dir()
+    }
+
+    pub fn normalize_paths(&mut self) {
+        let defaults = Self::default();
+        if self.paths.copilot_home.trim().is_empty() {
+            self.paths.copilot_home = defaults.paths.copilot_home;
+        }
+
+        if self.paths.tracepilot_home.trim().is_empty() {
+            let legacy_parent = PathBuf::from(&self.paths.index_db_path)
+                .parent()
+                .filter(|p| !p.as_os_str().is_empty())
+                .map(Path::to_path_buf);
+            self.paths.tracepilot_home = legacy_parent
+                .unwrap_or_else(|| {
+                    tracepilot_core::paths::CopilotPaths::from_home(&self.paths.copilot_home)
+                        .tracepilot()
+                        .root()
+                        .to_path_buf()
+                })
+                .to_string_lossy()
+                .to_string();
+        }
+
+        if self.paths.session_state_dir.trim().is_empty() {
+            self.paths.session_state_dir = self
+                .derived_session_state_dir()
+                .to_string_lossy()
+                .to_string();
+        }
+        self.paths.index_db_path = self.index_db_path().to_string_lossy().to_string();
     }
 }
 

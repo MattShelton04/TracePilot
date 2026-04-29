@@ -2,7 +2,7 @@
 
 use crate::error::{OrchestratorError, Result};
 use crate::types::SessionTemplate;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Maximum size for a single template JSON file (1 MB).
 const MAX_TEMPLATE_SIZE: u64 = 1_048_576;
@@ -16,9 +16,15 @@ fn validate_template_id(id: &str) -> Result<()> {
 
 /// Default templates storage path.
 pub fn templates_dir() -> Result<PathBuf> {
-    let dir = tracepilot_core::paths::CopilotPaths::from_home(crate::launcher::copilot_home()?)
+    let root = tracepilot_core::paths::CopilotPaths::from_home(crate::launcher::copilot_home()?)
         .tracepilot()
-        .templates_dir();
+        .root()
+        .to_path_buf();
+    templates_dir_in(&root)
+}
+
+pub fn templates_dir_in(tracepilot_home: &Path) -> Result<PathBuf> {
+    let dir = tracepilot_core::paths::TracePilotPaths::from_root(tracepilot_home).templates_dir();
     std::fs::create_dir_all(&dir)?;
     Ok(dir)
 }
@@ -26,6 +32,10 @@ pub fn templates_dir() -> Result<PathBuf> {
 /// Path to the file tracking which default templates have been dismissed.
 fn dismissed_defaults_path() -> Result<PathBuf> {
     Ok(templates_dir()?.join("dismissed_defaults.json"))
+}
+
+fn dismissed_defaults_path_in(tracepilot_home: &Path) -> Result<PathBuf> {
+    Ok(templates_dir_in(tracepilot_home)?.join("dismissed_defaults.json"))
 }
 
 /// Read the set of dismissed default template IDs.
@@ -43,7 +53,24 @@ fn read_dismissed_defaults() -> Vec<String> {
             return Vec::new();
         }
     };
+    read_dismissed_defaults_from_path(&path)
+}
 
+fn read_dismissed_defaults_in(tracepilot_home: &Path) -> Vec<String> {
+    let path = match dismissed_defaults_path_in(tracepilot_home) {
+        Ok(p) => p,
+        Err(e) => {
+            tracing::warn!(
+                error = %e,
+                "Failed to get dismissed defaults path"
+            );
+            return Vec::new();
+        }
+    };
+    read_dismissed_defaults_from_path(&path)
+}
+
+fn read_dismissed_defaults_from_path(path: &Path) -> Vec<String> {
     if !path.exists() {
         return Vec::new();
     }
@@ -76,42 +103,71 @@ fn read_dismissed_defaults() -> Vec<String> {
 }
 
 /// Write the set of dismissed default template IDs.
-fn write_dismissed_defaults(ids: &[String]) -> Result<()> {
-    let path = dismissed_defaults_path()?;
+fn write_dismissed_defaults_in(tracepilot_home: &Path, ids: &[String]) -> Result<()> {
+    let path = dismissed_defaults_path_in(tracepilot_home)?;
+    write_dismissed_defaults_to_path(ids, &path)
+}
+
+fn write_dismissed_defaults_to_path(ids: &[String], path: &Path) -> Result<()> {
     let content = serde_json::to_string_pretty(ids)?;
-    std::fs::write(&path, content)?;
+    std::fs::write(path, content)?;
     Ok(())
 }
 
 /// Dismiss a default template so it no longer appears.
 pub fn dismiss_default_template(id: &str) -> Result<()> {
+    let root = tracepilot_core::paths::CopilotPaths::from_home(crate::launcher::copilot_home()?)
+        .tracepilot()
+        .root()
+        .to_path_buf();
+    dismiss_default_template_in(&root, id)
+}
+
+pub fn dismiss_default_template_in(tracepilot_home: &Path, id: &str) -> Result<()> {
     let defaults = default_templates();
     if !defaults.iter().any(|t| t.id == id) {
         return Err(OrchestratorError::NotFound(format!(
             "Not a default template: {id}"
         )));
     }
-    let mut dismissed = read_dismissed_defaults();
+    let mut dismissed = read_dismissed_defaults_in(tracepilot_home);
     if !dismissed.contains(&id.to_string()) {
         dismissed.push(id.to_string());
-        write_dismissed_defaults(&dismissed)?;
+        write_dismissed_defaults_in(tracepilot_home, &dismissed)?;
     }
     Ok(())
 }
 
 /// Restore a previously dismissed default template.
 pub fn restore_default_template(id: &str) -> Result<()> {
-    let mut dismissed = read_dismissed_defaults();
+    let root = tracepilot_core::paths::CopilotPaths::from_home(crate::launcher::copilot_home()?)
+        .tracepilot()
+        .root()
+        .to_path_buf();
+    restore_default_template_in(&root, id)
+}
+
+pub fn restore_default_template_in(tracepilot_home: &Path, id: &str) -> Result<()> {
+    let mut dismissed = read_dismissed_defaults_in(tracepilot_home);
     dismissed.retain(|d| d != id);
-    write_dismissed_defaults(&dismissed)?;
+    write_dismissed_defaults_in(tracepilot_home, &dismissed)?;
     Ok(())
 }
 
 /// Restore all dismissed default templates at once.
 pub fn restore_all_default_templates() -> Result<()> {
     let path = dismissed_defaults_path()?;
+    restore_all_default_templates_at_path(&path)
+}
+
+pub fn restore_all_default_templates_in(tracepilot_home: &Path) -> Result<()> {
+    let path = dismissed_defaults_path_in(tracepilot_home)?;
+    restore_all_default_templates_at_path(&path)
+}
+
+fn restore_all_default_templates_at_path(path: &Path) -> Result<()> {
     if path.exists() {
-        std::fs::remove_file(&path)?;
+        std::fs::remove_file(path)?;
     }
     Ok(())
 }
@@ -122,9 +178,23 @@ pub fn has_dismissed_defaults() -> bool {
     !dismissed.is_empty()
 }
 
+pub fn has_dismissed_defaults_in(tracepilot_home: &Path) -> bool {
+    let dismissed = read_dismissed_defaults_in(tracepilot_home);
+    !dismissed.is_empty()
+}
+
 /// List all saved templates.
 pub fn list_templates() -> Result<Vec<SessionTemplate>> {
     let dir = templates_dir()?;
+    list_templates_from_dir(&dir)
+}
+
+pub fn list_templates_in(tracepilot_home: &Path) -> Result<Vec<SessionTemplate>> {
+    let dir = templates_dir_in(tracepilot_home)?;
+    list_templates_from_dir(&dir)
+}
+
+fn list_templates_from_dir(dir: &Path) -> Result<Vec<SessionTemplate>> {
     let mut templates = Vec::new();
 
     if !dir.exists() {
@@ -175,6 +245,14 @@ pub fn list_templates() -> Result<Vec<SessionTemplate>> {
 
 /// Save a new template.
 pub fn save_template(template: &SessionTemplate) -> Result<()> {
+    let root = tracepilot_core::paths::CopilotPaths::from_home(crate::launcher::copilot_home()?)
+        .tracepilot()
+        .root()
+        .to_path_buf();
+    save_template_in(&root, template)
+}
+
+pub fn save_template_in(tracepilot_home: &Path, template: &SessionTemplate) -> Result<()> {
     validate_template_id(&template.id)?;
 
     // Prevent collision with internal metadata file
@@ -184,7 +262,7 @@ pub fn save_template(template: &SessionTemplate) -> Result<()> {
         ));
     }
 
-    let dir = templates_dir()?;
+    let dir = templates_dir_in(tracepilot_home)?;
     let path = dir.join(format!("{}.json", template.id));
     let temp = dir.join(format!(".{}.json.tmp", template.id));
 
@@ -196,6 +274,14 @@ pub fn save_template(template: &SessionTemplate) -> Result<()> {
 
 /// Delete a template by ID. For default templates, this dismisses them instead.
 pub fn delete_template(id: &str) -> Result<()> {
+    let root = tracepilot_core::paths::CopilotPaths::from_home(crate::launcher::copilot_home()?)
+        .tracepilot()
+        .root()
+        .to_path_buf();
+    delete_template_in(&root, id)
+}
+
+pub fn delete_template_in(tracepilot_home: &Path, id: &str) -> Result<()> {
     validate_template_id(id)?;
 
     // Prevent accidental deletion of internal metadata file
@@ -209,9 +295,9 @@ pub fn delete_template(id: &str) -> Result<()> {
     let defaults = default_templates();
     if defaults.iter().any(|t| t.id == id) {
         // Dismiss first to avoid data loss if the file delete succeeds but dismiss fails
-        dismiss_default_template(id)?;
+        dismiss_default_template_in(tracepilot_home, id)?;
         // Then remove any user override file if it exists
-        let dir = templates_dir()?;
+        let dir = templates_dir_in(tracepilot_home)?;
         let path = dir.join(format!("{id}.json"));
         if path.exists() {
             std::fs::remove_file(&path)?;
@@ -219,7 +305,7 @@ pub fn delete_template(id: &str) -> Result<()> {
         return Ok(());
     }
 
-    let dir = templates_dir()?;
+    let dir = templates_dir_in(tracepilot_home)?;
     let path = dir.join(format!("{id}.json"));
     if !path.exists() {
         return Err(OrchestratorError::NotFound(format!(
@@ -233,9 +319,17 @@ pub fn delete_template(id: &str) -> Result<()> {
 /// Increment usage count for a template.
 /// For default templates that haven't been saved yet, creates a user override.
 pub fn increment_usage(id: &str) -> Result<()> {
+    let root = tracepilot_core::paths::CopilotPaths::from_home(crate::launcher::copilot_home()?)
+        .tracepilot()
+        .root()
+        .to_path_buf();
+    increment_usage_in(&root, id)
+}
+
+pub fn increment_usage_in(tracepilot_home: &Path, id: &str) -> Result<()> {
     validate_template_id(id)?;
 
-    let dir = templates_dir()?;
+    let dir = templates_dir_in(tracepilot_home)?;
     let path = dir.join(format!("{id}.json"));
 
     let mut template = if path.exists() {
@@ -254,7 +348,7 @@ pub fn increment_usage(id: &str) -> Result<()> {
     };
 
     template.usage_count += 1;
-    save_template(&template)?;
+    save_template_in(tracepilot_home, &template)?;
     Ok(())
 }
 
@@ -328,13 +422,21 @@ pub fn default_templates() -> Vec<SessionTemplate> {
 
 /// Return all templates (non-dismissed defaults + user-saved).
 pub fn all_templates() -> Result<Vec<SessionTemplate>> {
-    let dismissed = read_dismissed_defaults();
+    let root = tracepilot_core::paths::CopilotPaths::from_home(crate::launcher::copilot_home()?)
+        .tracepilot()
+        .root()
+        .to_path_buf();
+    all_templates_in(&root)
+}
+
+pub fn all_templates_in(tracepilot_home: &Path) -> Result<Vec<SessionTemplate>> {
+    let dismissed = read_dismissed_defaults_in(tracepilot_home);
     let mut templates: Vec<SessionTemplate> = default_templates()
         .into_iter()
         .filter(|t| !dismissed.contains(&t.id))
         .collect();
 
-    let user_templates = list_templates()?;
+    let user_templates = list_templates_in(tracepilot_home)?;
 
     // User templates override defaults with same ID
     for ut in user_templates {

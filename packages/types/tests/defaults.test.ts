@@ -20,6 +20,8 @@ import {
 import { DEFAULT_FAVOURITE_MODELS } from "../src/models.js";
 import {
   COPILOT_SESSION_STATE_DIR_PLACEHOLDER,
+  deriveIndexDbPath,
+  deriveSessionStateDir,
   TRACEPILOT_INDEX_DB_PLACEHOLDER,
 } from "../src/paths.js";
 
@@ -27,6 +29,8 @@ describe("createDefaultConfig", () => {
   const expectedDefaults = {
     version: CONFIG_VERSION,
     paths: {
+      copilotHome: "",
+      tracepilotHome: "",
       sessionStateDir: "",
       indexDbPath: "",
     },
@@ -113,6 +117,8 @@ describe("createDefaultConfig", () => {
 
     // Check that other values in overridden sections remain at default
     expect(config.paths.indexDbPath).toBe("");
+    expect(config.paths.copilotHome).toBe("");
+    expect(config.paths.tracepilotHome).toBe("");
     expect(config.general.cliCommand).toBe(DEFAULT_CLI_COMMAND);
     expect(config.ui.hideEmptySessions).toBe(true);
     expect(config.features.exportView).toBe(false);
@@ -149,6 +155,16 @@ describe("createDefaultConfig", () => {
   it("path placeholders track the documented default locations", () => {
     expect(COPILOT_SESSION_STATE_DIR_PLACEHOLDER).toBe("~/.copilot/session-state");
     expect(TRACEPILOT_INDEX_DB_PLACEHOLDER).toBe("~/.copilot/tracepilot/index.db");
+    expect(deriveIndexDbPath("C:\\Users\\me\\.copilot\\tracepilot")).toBe(
+      "C:\\Users\\me\\.copilot\\tracepilot\\index.db",
+    );
+    expect(deriveIndexDbPath("/home/me/.copilot/tracepilot/")).toBe(
+      "/home/me/.copilot/tracepilot/index.db",
+    );
+    expect(deriveSessionStateDir("C:\\Users\\me\\.copilot")).toBe(
+      "C:\\Users\\me\\.copilot\\session-state",
+    );
+    expect(deriveSessionStateDir("/home/me/.copilot/")).toBe("/home/me/.copilot/session-state");
   });
 
   it("should override primitive fields successfully", () => {

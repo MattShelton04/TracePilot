@@ -7,8 +7,12 @@ import {
 } from "@tracepilot/client";
 import type { TracePilotConfig } from "@tracepilot/types";
 import {
+  COPILOT_HOME_PLACEHOLDER,
   COPILOT_SESSION_STATE_DIR_PLACEHOLDER,
   createDefaultConfig,
+  deriveIndexDbPath,
+  deriveSessionStateDir,
+  TRACEPILOT_HOME_PLACEHOLDER,
   TRACEPILOT_INDEX_DB_PLACEHOLDER,
 } from "@tracepilot/types";
 import { toErrorMessage, useKeydown } from "@tracepilot/ui";
@@ -19,7 +23,7 @@ import WizardStepReady from "@/components/wizard/WizardStepReady.vue";
 import WizardStepSessionDir from "@/components/wizard/WizardStepSessionDir.vue";
 import WizardStepWelcome from "@/components/wizard/WizardStepWelcome.vue";
 import { useAppVersion } from "@/composables/useAppVersion";
-import { browseForDirectory, browseForSavePath } from "@/composables/useBrowseDirectory";
+import { browseForDirectory } from "@/composables/useBrowseDirectory";
 import { useWizardNavigation } from "@/composables/useWizardNavigation";
 import { logError } from "@/utils/logger";
 
@@ -45,13 +49,18 @@ const { currentStep, transitionDuration, goTo, next, onKeydown } = useWizardNavi
 // Fallback defaults for dev mode (outside Tauri). In production the backend
 // returns absolute paths via getConfig() which replace these on mount.
 const FALLBACK_SESSION_DIR = COPILOT_SESSION_STATE_DIR_PLACEHOLDER;
+const FALLBACK_COPILOT_HOME = COPILOT_HOME_PLACEHOLDER;
+const FALLBACK_TRACEPILOT_HOME = TRACEPILOT_HOME_PLACEHOLDER;
 const FALLBACK_DB_PATH = TRACEPILOT_INDEX_DB_PLACEHOLDER;
 
 const defaultSessionDir = ref(FALLBACK_SESSION_DIR);
-const defaultDbPath = ref(FALLBACK_DB_PATH);
+const defaultCopilotHome = ref(FALLBACK_COPILOT_HOME);
+const defaultTracePilotHome = ref(FALLBACK_TRACEPILOT_HOME);
 
-const sessionDir = ref(FALLBACK_SESSION_DIR);
-const dbPath = ref(FALLBACK_DB_PATH);
+const copilotHome = ref(FALLBACK_COPILOT_HOME);
+const sessionDir = computed(() => deriveSessionStateDir(copilotHome.value) || FALLBACK_SESSION_DIR);
+const tracepilotHome = ref(FALLBACK_TRACEPILOT_HOME);
+const dbPath = computed(() => deriveIndexDbPath(tracepilotHome.value) || FALLBACK_DB_PATH);
 
 // ── Validation state ───────────────────────────────────────────
 const validating = ref(false);
@@ -89,23 +98,23 @@ async function validateDir() {
 }
 
 // ── Browse (Tauri dialog) ──────────────────────────────────────
-async function browseSessionDir() {
+async function browseCopilotHome() {
   const selected = await browseForDirectory({
-    title: "Select session-state directory",
-    defaultPath: sessionDir.value,
+    title: "Select Copilot home directory",
+    defaultPath: copilotHome.value,
   });
   if (selected) {
-    sessionDir.value = selected;
+    copilotHome.value = selected;
     await validateDir();
   }
 }
 
 async function browseDbPath() {
-  const selected = await browseForSavePath({
-    title: "Choose database location",
-    defaultPath: dbPath.value,
+  const selected = await browseForDirectory({
+    title: "Choose TracePilot data directory",
+    defaultPath: tracepilotHome.value,
   });
-  if (selected) dbPath.value = selected;
+  if (selected) tracepilotHome.value = selected;
 }
 
 // ── Skip setup ─────────────────────────────────────────────────
@@ -115,14 +124,14 @@ async function skipSetup() {
 
 // ── Reset to defaults ──────────────────────────────────────────
 function resetSessionDir() {
-  sessionDir.value = defaultSessionDir.value;
+  copilotHome.value = defaultCopilotHome.value;
   validationResult.value = null;
   validationError.value = "";
   validateDir();
 }
 
 function resetDbPath() {
-  dbPath.value = defaultDbPath.value;
+  tracepilotHome.value = defaultTracePilotHome.value;
 }
 
 // ── Finish setup ───────────────────────────────────────────────
@@ -134,8 +143,10 @@ async function finishSetup() {
   try {
     const config: TracePilotConfig = createDefaultConfig({
       paths: {
+        copilotHome: copilotHome.value.trim(),
         sessionStateDir: sessionDir.value.trim(),
-        indexDbPath: dbPath.value.trim(),
+        tracepilotHome: tracepilotHome.value.trim(),
+        indexDbPath: dbPath.value,
       },
       general: {
         autoIndexOnLaunch: true,
@@ -159,10 +170,11 @@ onMounted(async () => {
 
   try {
     const config = await getConfig();
-    sessionDir.value = config.paths.sessionStateDir;
-    dbPath.value = config.paths.indexDbPath;
+    copilotHome.value = config.paths.copilotHome;
+    tracepilotHome.value = config.paths.tracepilotHome;
     defaultSessionDir.value = config.paths.sessionStateDir;
-    defaultDbPath.value = config.paths.indexDbPath;
+    defaultCopilotHome.value = config.paths.copilotHome;
+    defaultTracePilotHome.value = config.paths.tracepilotHome;
   } catch {
     // Defaults are fine (dev mode / outside Tauri)
   }
@@ -197,24 +209,27 @@ onMounted(async () => {
         <WizardStepFeatures :active="currentStep === 1" @next="next" />
 
         <WizardStepSessionDir
+          :copilot-home="copilotHome"
           :session-dir="sessionDir"
+          :default-copilot-home="defaultCopilotHome"
           :default-session-dir="defaultSessionDir"
           :validating="validating"
           :validation-result="validationResult"
           :validation-error="validationError"
           :can-continue="canContinueSlide3"
           @next="next"
-          @update:session-dir="sessionDir = $event"
+          @update:copilot-home="copilotHome = $event"
           @validate="validateDir"
-          @browse="browseSessionDir"
+          @browse="browseCopilotHome"
           @reset="resetSessionDir"
         />
 
         <WizardStepDatabase
+          :tracepilot-home="tracepilotHome"
           :db-path="dbPath"
-          :default-db-path="defaultDbPath"
+          :default-tracepilot-home="defaultTracePilotHome"
           @next="next"
-          @update:db-path="dbPath = $event"
+          @update:tracepilot-home="tracepilotHome = $event"
           @browse="browseDbPath"
           @reset="resetDbPath"
         />

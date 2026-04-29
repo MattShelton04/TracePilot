@@ -1,11 +1,7 @@
-//! Filesystem path validation & copilot-home resolution.
+//! Filesystem path validation.
 
 use crate::error::{BindingsError, CmdResult};
 use std::path::PathBuf;
-
-pub(crate) fn copilot_home() -> CmdResult<std::path::PathBuf> {
-    Ok(tracepilot_orchestrator::launcher::copilot_home()?)
-}
 
 /// Strip the `\\?\` extended-length path prefix that `std::fs::canonicalize`
 /// adds on Windows for drive-rooted paths (e.g. `\\?\C:\...` → `C:\...`).
