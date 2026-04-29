@@ -1,4 +1,4 @@
-//! Discover sessions stored under `~/.copilot/session-state/{UUID}/`.
+//! Discover sessions stored under the configured Copilot session-state root.
 
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
@@ -10,12 +10,7 @@ const STALE_LOCK_THRESHOLD: Duration = Duration::from_secs(24 * 60 * 60); // 24 
 
 /// Default location for Copilot CLI session state.
 pub fn default_session_state_dir() -> PathBuf {
-    let home = dirs_path();
-    home.join(".copilot").join("session-state")
-}
-
-fn dirs_path() -> PathBuf {
-    crate::utils::home_dir()
+    crate::paths::default_session_state_dir()
 }
 
 /// A discovered session directory with its UUID and path.

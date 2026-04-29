@@ -16,8 +16,8 @@ use crate::types::CopilotConfig;
 
 /// Name of the user-settings file introduced by Copilot CLI in 2026-04.
 /// Older versions kept user settings in `config.json`.
-pub const SETTINGS_FILE: &str = "settings.json";
-pub const CONFIG_FILE: &str = "config.json";
+pub const SETTINGS_FILE: &str = tracepilot_core::paths::COPILOT_SETTINGS_FILE;
+pub const CONFIG_FILE: &str = tracepilot_core::paths::COPILOT_CONFIG_FILE;
 
 /// Keys that TracePilot considers user-editable. These are the only keys we
 /// will write into `settings.json` from the global config tab. Everything

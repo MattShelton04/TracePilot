@@ -19,7 +19,13 @@ export interface ModelPriceEntry {
 export interface TracePilotConfig {
   version: number;
   paths: {
+    /** Copilot CLI home directory. Defaults to ~/.copilot. */
+    copilotHome: string;
+    /** TracePilot-owned data directory. Defaults to {copilotHome}/tracepilot. */
+    tracepilotHome: string;
+    /** Derived compatibility field: {copilotHome}/session-state. */
     sessionStateDir: string;
+    /** Derived compatibility field: {tracepilotHome}/index.db. */
     indexDbPath: string;
   };
   general: {

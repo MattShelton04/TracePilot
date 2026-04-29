@@ -63,6 +63,7 @@ pub mod health;
 pub mod ids;
 pub mod models;
 pub mod parsing;
+pub mod paths;
 pub mod session;
 pub mod summary;
 pub mod turns;

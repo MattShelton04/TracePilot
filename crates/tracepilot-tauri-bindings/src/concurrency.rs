@@ -68,6 +68,11 @@ impl IndexingSemaphores {
         self.sessions.available_permits()
     }
 
+    /// Remaining permits on the search-content gate.
+    pub fn search_available(&self) -> usize {
+        self.search.available_permits()
+    }
+
     /// Try to acquire the session-reindex gate without blocking.
     /// Returns an owned permit so it can outlive the handler frame.
     pub fn try_acquire_sessions(&self) -> Result<OwnedSemaphorePermit, TryAcquireError> {

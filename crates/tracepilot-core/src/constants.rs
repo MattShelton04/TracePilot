@@ -14,6 +14,12 @@
 /// user preferences via `TracePilotConfig.cli_command`.
 pub const DEFAULT_CLI_COMMAND: &str = "copilot";
 
+/// Default executable name for Git.
+pub const DEFAULT_GIT_COMMAND: &str = "git";
+
+/// Default executable name for the GitHub CLI.
+pub const DEFAULT_GH_COMMAND: &str = "gh";
+
 /// Default model ID used by the task orchestrator itself (the session
 /// that plans and dispatches subagents). Matches the frontend
 /// `DEFAULT_MODEL` hard-coded in `stores/orchestrator.ts`.

@@ -84,21 +84,25 @@ fn checkout_branch_for_sdk(
     branch: &str,
     base_branch: Option<&str>,
 ) -> Result<()> {
-    let status = crate::process::hidden_std_command("git")
-        .args(["checkout", branch])
-        .current_dir(repo)
-        .status()
-        .map_err(|e| OrchestratorError::launch_ctx("Failed to run git checkout", e))?;
+    let status =
+        crate::process::hidden_std_command(tracepilot_core::constants::DEFAULT_GIT_COMMAND)
+            .args(["checkout", branch])
+            .current_dir(repo)
+            .status()
+            .map_err(|e| OrchestratorError::launch_ctx("Failed to run git checkout", e))?;
     if status.success() {
         return Ok(());
     }
 
     let base = base_branch.unwrap_or("origin/main");
-    let create_status = crate::process::hidden_std_command("git")
-        .args(["checkout", "-b", branch, base])
-        .current_dir(repo)
-        .status()
-        .map_err(|e| OrchestratorError::launch_ctx("Failed to create branch for SDK launch", e))?;
+    let create_status =
+        crate::process::hidden_std_command(tracepilot_core::constants::DEFAULT_GIT_COMMAND)
+            .args(["checkout", "-b", branch, base])
+            .current_dir(repo)
+            .status()
+            .map_err(|e| {
+                OrchestratorError::launch_ctx("Failed to create branch for SDK launch", e)
+            })?;
     if create_status.success() {
         Ok(())
     } else {

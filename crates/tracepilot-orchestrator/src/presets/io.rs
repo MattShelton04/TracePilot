@@ -20,8 +20,9 @@ const MAX_PRESET_SIZE: u64 = 1_048_576;
 /// library / CLI usage only.
 #[allow(dead_code)]
 pub fn presets_dir() -> Result<PathBuf> {
-    let home = crate::launcher::copilot_home()?;
-    let dir = home.join("tracepilot").join("task-presets");
+    let dir = tracepilot_core::paths::CopilotPaths::from_home(crate::launcher::copilot_home()?)
+        .tracepilot()
+        .task_presets_dir();
     std::fs::create_dir_all(&dir)?;
     Ok(dir)
 }

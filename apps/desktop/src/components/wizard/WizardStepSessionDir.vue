@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import type { ValidateSessionDirResult } from "@tracepilot/client";
+import { COPILOT_HOME_PLACEHOLDER } from "@tracepilot/types";
 
 defineProps<{
+  copilotHome: string;
   sessionDir: string;
+  defaultCopilotHome: string;
   defaultSessionDir: string;
   validating: boolean;
   validationResult: ValidateSessionDirResult | null;
@@ -12,7 +15,7 @@ defineProps<{
 
 const emit = defineEmits<{
   next: [];
-  "update:sessionDir": [value: string];
+  "update:copilotHome": [value: string];
   validate: [];
   browse: [];
   reset: [];
@@ -23,31 +26,33 @@ const emit = defineEmits<{
   <div class="slide">
     <div class="slide-content slide-form">
       <div class="form-icon">📂</div>
-      <h2 class="slide-title" tabindex="-1">Where are your sessions?</h2>
+      <h2 class="slide-title" tabindex="-1">Where is your Copilot home?</h2>
       <p class="slide-desc">
-        GitHub Copilot stores session data in a local directory.
-        TracePilot reads this data to generate analytics.
+        TracePilot derives your sessions directory from Copilot home, then reads that data to generate analytics.
       </p>
 
       <div class="path-input-group">
         <input
-          :value="sessionDir"
+          :value="copilotHome"
           type="text"
           class="path-input"
-          placeholder="~/.copilot/session-state"
+          :placeholder="COPILOT_HOME_PLACEHOLDER"
           spellcheck="false"
-          @input="emit('update:sessionDir', ($event.target as HTMLInputElement).value)"
+          @input="emit('update:copilotHome', ($event.target as HTMLInputElement).value)"
           @blur="emit('validate')"
           @keydown.enter.prevent="emit('validate')"
         />
         <button class="btn-browse" @click="emit('browse')">Browse…</button>
         <button
-          v-if="sessionDir !== defaultSessionDir"
+          v-if="copilotHome !== defaultCopilotHome"
           class="btn-reset-path"
           title="Reset to default"
-          aria-label="Reset session directory to default"
+          aria-label="Reset Copilot home to default"
           @click="emit('reset')"
         >↺</button>
+      </div>
+      <div class="derived-path">
+        Sessions: <span>{{ sessionDir || defaultSessionDir }}</span>
       </div>
 
       <div class="validation-area">
@@ -105,4 +110,16 @@ const emit = defineEmits<{
 .validation-msg.warning { color: var(--warning-fg); }
 .validation-msg.error { color: var(--danger-fg); }
 .validation-msg.validating { color: var(--text-tertiary); }
+
+.derived-path {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  font-family: 'JetBrains Mono', monospace;
+  max-width: 560px;
+  overflow-wrap: anywhere;
+}
+
+.derived-path span {
+  color: var(--text-secondary);
+}
 </style>

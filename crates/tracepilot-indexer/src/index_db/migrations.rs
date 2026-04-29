@@ -436,9 +436,9 @@ pub(super) static INDEX_DB_PLAN: MigrationPlan = MigrationPlan {
 /// are written to `{db_parent}/backups/database/` as `{db}.pre-v{N}.bak`
 /// per applied version.
 pub(super) fn run_migrations(conn: &mut Connection, db_path: Option<&Path>) -> Result<()> {
-    let backup_dir = db_path
-        .and_then(|p| p.parent())
-        .map(|parent| parent.join("backups").join("database"));
+    let backup_dir = db_path.and_then(|p| p.parent()).map(|parent| {
+        tracepilot_core::paths::TracePilotPaths::from_root(parent).database_backups_dir()
+    });
     let opts = MigratorOptions {
         backup: db_path.is_some(),
         backup_dir,

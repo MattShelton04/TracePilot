@@ -86,10 +86,92 @@ fn deserialize_v1_config_and_migrate() {
     assert_eq!(config.version, 1);
     assert!(config.migrate());
     assert_eq!(config.version, TracePilotConfig::CURRENT_VERSION);
-    assert_eq!(config.paths.index_db_path, "/custom/path/index.db");
+    assert_eq!(
+        config.paths.index_db_path,
+        std::path::PathBuf::from("/custom/path")
+            .join("index.db")
+            .to_string_lossy()
+    );
+    assert_eq!(config.paths.tracepilot_home, "/custom/path");
+    assert_eq!(config.paths.session_state_dir, "/custom/path");
     assert_eq!(config.ui.theme, "light");
     // New v2 field gets default value
     assert!(config.features.render_markdown);
+}
+
+#[test]
+fn migrate_v6_derives_index_db_from_tracepilot_home() {
+    let v5_toml = r#"
+        version = 5
+
+        [paths]
+        copilotHome = "/custom/copilot"
+        indexDbPath = "/custom/tracepilot/legacy-name.sqlite"
+        sessionStateDir = "/custom/sessions"
+    "#;
+    let mut config: TracePilotConfig = toml::from_str(v5_toml).expect("parse v5 config");
+    assert!(config.migrate());
+    assert_eq!(config.version, TracePilotConfig::CURRENT_VERSION);
+    assert_eq!(config.paths.copilot_home, "/custom/copilot");
+    assert_eq!(config.paths.tracepilot_home, "/custom/tracepilot");
+    assert_eq!(
+        config.paths.index_db_path,
+        std::path::PathBuf::from("/custom/tracepilot")
+            .join("index.db")
+            .to_string_lossy()
+    );
+    assert_eq!(config.paths.session_state_dir, "/custom/sessions");
+    assert_eq!(
+        config.session_state_dir(),
+        std::path::PathBuf::from("/custom/sessions")
+    );
+}
+
+#[test]
+fn normalize_paths_derives_empty_session_dir_from_copilot_home() {
+    let mut config = TracePilotConfig::default();
+    config.paths.copilot_home = std::path::PathBuf::from("/custom/copilot")
+        .to_string_lossy()
+        .to_string();
+    config.paths.session_state_dir.clear();
+    config.normalize_paths();
+
+    assert_eq!(
+        config.paths.session_state_dir,
+        std::path::PathBuf::from("/custom/copilot")
+            .join("session-state")
+            .to_string_lossy()
+    );
+}
+
+#[test]
+fn normalize_paths_fills_empty_homes_and_syncs_index_db() {
+    let dir = tempfile::tempdir().unwrap();
+    let tracepilot_home = dir.path().join("tracepilot-data");
+    let mut config = TracePilotConfig::default();
+    config.paths.tracepilot_home = tracepilot_home.to_string_lossy().to_string();
+    config.paths.index_db_path = dir
+        .path()
+        .join("old")
+        .join("file.db")
+        .to_string_lossy()
+        .to_string();
+    config.normalize_paths();
+
+    assert_eq!(
+        config.paths.tracepilot_home,
+        tracepilot_home.to_string_lossy()
+    );
+    assert_eq!(
+        config.paths.index_db_path,
+        tracepilot_home.join("index.db").to_string_lossy()
+    );
+    assert_eq!(
+        config.paths.session_state_dir,
+        tracepilot_core::paths::CopilotPaths::from_home(&config.paths.copilot_home)
+            .session_state_dir()
+            .to_string_lossy()
+    );
 }
 
 // ── File I/O tests (use tempfile) ──────────────────────────────
@@ -270,7 +352,13 @@ fn migration_through_file_io_roundtrip() {
     let reloaded = TracePilotConfig::load_from(&path).expect("reload");
     assert_eq!(reloaded.version, TracePilotConfig::CURRENT_VERSION);
     assert_eq!(reloaded.ui.theme, "solar-flare");
-    assert_eq!(reloaded.paths.index_db_path, "/test/index.db");
+    assert_eq!(
+        reloaded.paths.index_db_path,
+        std::path::PathBuf::from("/test")
+            .join("index.db")
+            .to_string_lossy()
+    );
+    assert_eq!(reloaded.paths.session_state_dir, "/test/sessions");
     // v2 default applied
     assert!(reloaded.features.render_markdown);
 }

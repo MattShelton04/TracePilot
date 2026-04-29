@@ -58,6 +58,8 @@ impl std::io::Write for LogWriter {
 fn make_shared_config(session_state_dir: &str) -> SharedConfig {
     Arc::new(RwLock::new(Some(crate::config::TracePilotConfig {
         paths: crate::config::PathsConfig {
+            copilot_home: String::new(),
+            tracepilot_home: String::new(),
             session_state_dir: session_state_dir.to_string(),
             index_db_path: String::new(),
         },

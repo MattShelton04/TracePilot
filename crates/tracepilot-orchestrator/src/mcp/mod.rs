@@ -4,6 +4,8 @@
 //! for managing MCP servers used by Copilot CLI.
 
 pub mod config;
+#[cfg(test)]
+mod config_tests;
 pub mod diff;
 mod error;
 pub(crate) mod headers;

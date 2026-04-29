@@ -31,12 +31,12 @@ pub fn validate_skill_dir(skill_dir: &Path) -> Result<(), SkillsError> {
         }
     }
 
-    // Check if it's under a repo .copilot/skills/ directory
-    // Walk up to find a .copilot/skills pattern
+    // Check if it's under a repo-scoped skills directory.
     for ancestor in canonical.ancestors() {
-        if ancestor.ends_with("skills")
+        if ancestor.ends_with(tracepilot_core::paths::SKILLS_DIR_NAME)
             && let Some(parent) = ancestor.parent()
-            && (parent.ends_with(".copilot") || parent.ends_with(".github"))
+            && (parent.ends_with(tracepilot_core::paths::COPILOT_DIR_NAME)
+                || parent.ends_with(tracepilot_core::paths::GITHUB_DIR_NAME))
         {
             return Ok(());
         }
@@ -220,7 +220,9 @@ pub fn get_skill(skill_dir: &Path) -> Result<Skill, SkillsError> {
 /// Determine if a skill directory is global or repository-scoped.
 fn determine_scope(skill_dir: &Path) -> SkillScope {
     let path_str = skill_dir.to_string_lossy();
-    if path_str.contains(".copilot") && !path_str.contains("skills") {
+    if path_str.contains(tracepilot_core::paths::COPILOT_DIR_NAME)
+        && !path_str.contains(tracepilot_core::paths::SKILLS_DIR_NAME)
+    {
         SkillScope::Repository
     } else if let Ok(global) = global_skills_dir() {
         if skill_dir.starts_with(&global) {

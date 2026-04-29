@@ -20,7 +20,7 @@ use tracepilot_core::utils::backup::BackupStore;
 
 /// Read all agent definitions for a given Copilot version.
 pub fn read_agent_definitions(version_dir: &Path) -> Result<Vec<AgentDefinition>> {
-    let defs_dir = version_dir.join("definitions");
+    let defs_dir = version_dir.join(tracepilot_core::paths::COPILOT_DEFINITIONS_DIR);
     if !defs_dir.exists() {
         return Err(OrchestratorError::NotFound(format!(
             "Definitions directory not found: {}",
@@ -317,8 +317,11 @@ fn parse_agent_yaml(path: &Path) -> Result<Option<AgentDefinition>> {
 
 /// Get the backup directory for TracePilot agent/config backups.
 pub fn backup_dir() -> Result<PathBuf> {
-    let home = crate::launcher::copilot_home()?;
-    Ok(home.join("tracepilot").join("backups").join("agents"))
+    Ok(
+        tracepilot_core::paths::CopilotPaths::from_home(crate::launcher::copilot_home()?)
+            .tracepilot()
+            .agent_backups_dir(),
+    )
 }
 
 #[cfg(test)]

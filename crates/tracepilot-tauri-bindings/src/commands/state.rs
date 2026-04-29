@@ -152,11 +152,16 @@ pub async fn get_git_info() -> GitInfo {
 
 fn collect_git_info(timeout_secs: u64) -> GitInfo {
     git_info_from_runner(|args| {
-        tracepilot_orchestrator::process::run_hidden("git", args, None, Some(timeout_secs))
-            .ok()
-            .and_then(|o| String::from_utf8(o.stdout).ok())
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty())
+        tracepilot_orchestrator::process::run_hidden(
+            tracepilot_core::constants::DEFAULT_GIT_COMMAND,
+            args,
+            None,
+            Some(timeout_secs),
+        )
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
     })
 }
 

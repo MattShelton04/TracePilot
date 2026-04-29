@@ -1,6 +1,6 @@
 //! tracepilot-indexer: Maintain a local index database for fast session search.
 //!
-//! Creates and incrementally updates `~/.copilot/tracepilot/index.db` with:
+//! Creates and incrementally updates the configured TracePilot index database with:
 //! - Session metadata from workspace.yaml
 //! - Shutdown metrics
 //! - FTS5 full-text search over summaries and messages

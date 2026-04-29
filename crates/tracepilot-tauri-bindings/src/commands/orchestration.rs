@@ -158,16 +158,24 @@ pub async fn fetch_remote(repo_path: String, branch: Option<String>) -> CmdResul
 
 #[tauri::command]
 #[tracing::instrument(level = "debug", err)]
-pub async fn list_registered_repos() -> CmdResult<Vec<tracepilot_orchestrator::RegisteredRepo>> {
-    blocking_cmd!(tracepilot_orchestrator::repo_registry::list_registered_repos())
+pub async fn list_registered_repos(
+    state: tauri::State<'_, SharedConfig>,
+) -> CmdResult<Vec<tracepilot_orchestrator::RegisteredRepo>> {
+    let tracepilot_home = read_config(&state).tracepilot_home();
+    blocking_cmd!(
+        tracepilot_orchestrator::repo_registry::list_registered_repos_in(&tracepilot_home)
+    )
 }
 
 #[tauri::command]
 #[tracing::instrument(skip(path), err)]
 pub async fn add_registered_repo(
+    state: tauri::State<'_, SharedConfig>,
     path: String,
 ) -> CmdResult<tracepilot_orchestrator::RegisteredRepo> {
-    blocking_cmd!(tracepilot_orchestrator::repo_registry::add_repo(
+    let tracepilot_home = read_config(&state).tracepilot_home();
+    blocking_cmd!(tracepilot_orchestrator::repo_registry::add_repo_in(
+        &tracepilot_home,
         &path,
         tracepilot_orchestrator::RepoSource::Manual,
     ))
@@ -175,14 +183,27 @@ pub async fn add_registered_repo(
 
 #[tauri::command]
 #[tracing::instrument(skip(path), err)]
-pub async fn remove_registered_repo(path: String) -> CmdResult<()> {
-    blocking_cmd!(tracepilot_orchestrator::repo_registry::remove_repo(&path))
+pub async fn remove_registered_repo(
+    state: tauri::State<'_, SharedConfig>,
+    path: String,
+) -> CmdResult<()> {
+    let tracepilot_home = read_config(&state).tracepilot_home();
+    blocking_cmd!(tracepilot_orchestrator::repo_registry::remove_repo_in(
+        &tracepilot_home,
+        &path
+    ))
 }
 
 #[tauri::command]
 #[tracing::instrument(skip(path), err)]
-pub async fn toggle_repo_favourite(path: String) -> CmdResult<bool> {
-    blocking_cmd!(tracepilot_orchestrator::repo_registry::toggle_repo_favourite(&path))
+pub async fn toggle_repo_favourite(
+    state: tauri::State<'_, SharedConfig>,
+    path: String,
+) -> CmdResult<bool> {
+    let tracepilot_home = read_config(&state).tracepilot_home();
+    blocking_cmd!(
+        tracepilot_orchestrator::repo_registry::toggle_repo_favourite_in(&tracepilot_home, &path)
+    )
 }
 
 #[tauri::command]
@@ -192,6 +213,7 @@ pub async fn discover_repos_from_sessions(
 ) -> CmdResult<Vec<tracepilot_orchestrator::RegisteredRepo>> {
     let cfg = read_config(&state);
     let index_path = cfg.index_db_path();
+    let tracepilot_home = cfg.tracepilot_home();
 
     let cwds = tokio::task::spawn_blocking(move || -> CmdResult<Vec<String>> {
         if !index_path.exists() {
@@ -203,7 +225,12 @@ pub async fn discover_repos_from_sessions(
     })
     .await??;
 
-    blocking_cmd!(tracepilot_orchestrator::repo_registry::discover_repos_from_sessions(&cwds))
+    blocking_cmd!(
+        tracepilot_orchestrator::repo_registry::discover_repos_from_sessions_in(
+            &tracepilot_home,
+            &cwds,
+        )
+    )
 }
 
 // -- Launcher commands --
