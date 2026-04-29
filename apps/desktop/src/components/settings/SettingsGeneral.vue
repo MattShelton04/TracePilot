@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { DEFAULT_CLI_COMMAND } from "@tracepilot/types";
 import { BtnGroup, FormInput, FormSwitch, SectionPanel } from "@tracepilot/ui";
 import { type ThemeOption, usePreferencesStore } from "@/stores/preferences";
 import { useSessionsStore } from "@/stores/sessions";
@@ -58,7 +59,7 @@ const themeOptions = [
           :model-value="preferences.cliCommand"
           @update:model-value="preferences.cliCommand = String($event)"
           type="text"
-          placeholder="copilot"
+          :placeholder="DEFAULT_CLI_COMMAND"
           class="input-medium"
         />
       </div>

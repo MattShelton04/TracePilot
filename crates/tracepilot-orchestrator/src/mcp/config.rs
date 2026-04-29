@@ -4,7 +4,6 @@
 //! Supports reading, adding, updating, removing, and toggling MCP servers.
 
 use crate::json_io::{atomic_json_read, atomic_json_write};
-use crate::launcher::copilot_home;
 use crate::mcp::error::McpError;
 use crate::mcp::headers::validate_configured_http_headers;
 use crate::mcp::types::{McpServerConfig, McpServerDetail, McpSummary};
@@ -27,7 +26,10 @@ pub struct McpConfigFile {
 
 /// Get the path to the MCP config file (`~/.copilot/mcp-config.json`).
 pub fn mcp_config_path() -> crate::error::Result<PathBuf> {
-    Ok(copilot_home()?.join("mcp-config.json"))
+    Ok(
+        tracepilot_core::paths::CopilotPaths::from_home(crate::launcher::copilot_home()?)
+            .mcp_config_json(),
+    )
 }
 
 /// Load the MCP configuration from disk.

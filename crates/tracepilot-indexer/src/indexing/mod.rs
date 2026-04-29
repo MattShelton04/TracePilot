@@ -16,8 +16,5 @@ pub use search::{rebuild_search_content, reindex_search_content};
 
 /// Default path for the TracePilot index database.
 pub fn default_index_db_path() -> PathBuf {
-    tracepilot_core::utils::home_dir()
-        .join(".copilot")
-        .join("tracepilot")
-        .join("index.db")
+    tracepilot_core::paths::default_index_db_path()
 }

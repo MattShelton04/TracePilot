@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { TRACEPILOT_INDEX_DB_PLACEHOLDER } from "@tracepilot/types";
+
 defineProps<{
   dbPath: string;
   defaultDbPath: string;
@@ -37,7 +39,7 @@ function onPathInput(e: Event) {
           :value="dbPath"
           type="text"
           class="path-input"
-          placeholder="~/.copilot/tracepilot/index.db"
+          :placeholder="TRACEPILOT_INDEX_DB_PLACEHOLDER"
           spellcheck="false"
           @input="onPathInput"
         />

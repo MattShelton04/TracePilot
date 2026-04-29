@@ -62,7 +62,7 @@ pub struct GitHubFileContent {
 /// rather than an error when `gh` is installed but not logged in.
 pub fn gh_auth_status() -> Result<GhAuthInfo> {
     let output = run_hidden(
-        "gh",
+        tracepilot_core::constants::DEFAULT_GH_COMMAND,
         &["auth", "status", "--hostname", "github.com"],
         None,
         Some(15),
@@ -88,7 +88,12 @@ pub fn gh_auth_status() -> Result<GhAuthInfo> {
 /// Returns a clear, actionable error message rather than hanging or returning
 /// an opaque failure. Call this before any API operations.
 pub fn gh_check_auth() -> Result<()> {
-    let version_check = run_hidden("gh", &["--version"], None, Some(5));
+    let version_check = run_hidden(
+        tracepilot_core::constants::DEFAULT_GH_COMMAND,
+        &["--version"],
+        None,
+        Some(5),
+    );
     let is_installed = version_check.map(|o| o.status.success()).unwrap_or(false);
     if !is_installed {
         return Err(OrchestratorError::Launch(
@@ -122,7 +127,12 @@ pub fn gh_get_file(owner: &str, repo: &str, path: &str, ref_: &str) -> Result<St
 /// Fetch the contents of a single file from a GitHub repository as raw bytes.
 pub fn gh_get_file_bytes(owner: &str, repo: &str, path: &str, ref_: &str) -> Result<Vec<u8>> {
     let api_path = format!("/repos/{owner}/{repo}/contents/{path}?ref={ref_}");
-    let json = run_hidden_stdout_timeout("gh", &["api", &api_path], None, GH_TIMEOUT_SECS)?;
+    let json = run_hidden_stdout_timeout(
+        tracepilot_core::constants::DEFAULT_GH_COMMAND,
+        &["api", &api_path],
+        None,
+        GH_TIMEOUT_SECS,
+    )?;
 
     let response: GhContentResponse = serde_json::from_str(&json).map_err(|e| {
         OrchestratorError::Launch(format!("Failed to parse GitHub API response: {e}"))
@@ -139,7 +149,12 @@ pub fn gh_get_file_bytes(owner: &str, repo: &str, path: &str, ref_: &str) -> Res
 /// Uses the Git Trees API with `recursive=1` and a 15-second timeout.
 pub fn gh_list_tree(owner: &str, repo: &str, ref_: &str) -> Result<Vec<TreeEntry>> {
     let api_path = format!("/repos/{owner}/{repo}/git/trees/{ref_}?recursive=1");
-    let json = run_hidden_stdout_timeout("gh", &["api", &api_path], None, GH_TIMEOUT_SECS)?;
+    let json = run_hidden_stdout_timeout(
+        tracepilot_core::constants::DEFAULT_GH_COMMAND,
+        &["api", &api_path],
+        None,
+        GH_TIMEOUT_SECS,
+    )?;
 
     let response: GhTreeResponse = serde_json::from_str(&json).map_err(|e| {
         OrchestratorError::Launch(format!("Failed to parse GitHub tree response: {e}"))
@@ -196,7 +211,7 @@ pub fn gh_get_files_batch(
         );
 
         let output = run_hidden_stdout_timeout(
-            "gh",
+            tracepilot_core::constants::DEFAULT_GH_COMMAND,
             &["api", "graphql", "-f", &format!("query={query}")],
             None,
             GH_TIMEOUT_SECS,

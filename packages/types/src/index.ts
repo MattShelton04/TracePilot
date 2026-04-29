@@ -73,13 +73,10 @@ export {
   ALL_SECTION_IDS,
   SECTION_LABELS,
 } from "./export.js";
-
 // ── files.js ───────────────────────────────────────────────────────
 export type { FileEntry } from "./files.js";
-
 // ── known-events.js ────────────────────────────────────────────────
 export { TRACEPILOT_KNOWN_EVENTS, type TracePilotKnownEvent } from "./known-events.js";
-
 // ── mcp.js ─────────────────────────────────────────────────────────
 export type {
   McpConfigDiff,
@@ -111,7 +108,6 @@ export {
   getTierLabel,
   MODEL_REGISTRY,
 } from "./models.js";
-
 // ── orchestration.js ───────────────────────────────────────────────
 export type {
   ActiveSessionInfo,
@@ -133,6 +129,16 @@ export type {
   WorktreeDetails,
   WorktreeInfo,
 } from "./orchestration.js";
+// ── paths.js ────────────────────────────────────────────────────────
+export {
+  COPILOT_HOME_PLACEHOLDER,
+  COPILOT_SESSION_STATE_DIR_PLACEHOLDER,
+  DEFAULT_GH_COMMAND,
+  DEFAULT_GIT_COMMAND,
+  TRACEPILOT_BACKUPS_PLACEHOLDER,
+  TRACEPILOT_HOME_PLACEHOLDER,
+  TRACEPILOT_INDEX_DB_PLACEHOLDER,
+} from "./paths.js";
 
 // ── replay.js ──────────────────────────────────────────────────────
 export type { ReplayState, ReplayStep } from "./replay.js";

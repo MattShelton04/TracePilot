@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ValidateSessionDirResult } from "@tracepilot/client";
+import { COPILOT_SESSION_STATE_DIR_PLACEHOLDER } from "@tracepilot/types";
 
 defineProps<{
   sessionDir: string;
@@ -34,7 +35,7 @@ const emit = defineEmits<{
           :value="sessionDir"
           type="text"
           class="path-input"
-          placeholder="~/.copilot/session-state"
+          :placeholder="COPILOT_SESSION_STATE_DIR_PLACEHOLDER"
           spellcheck="false"
           @input="emit('update:sessionDir', ($event.target as HTMLInputElement).value)"
           @blur="emit('validate')"

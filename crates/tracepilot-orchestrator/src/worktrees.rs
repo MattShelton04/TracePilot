@@ -33,7 +33,12 @@ pub fn invalidate_disk_usage_cache(path: &Path) {
 /// Run a git command in the given directory, returning stdout on success.
 /// Uses a 30-second timeout to prevent hanging on network operations or slow repositories.
 fn git(repo_path: &Path, args: &[&str]) -> Result<String> {
-    let output = crate::process::run_hidden("git", args, Some(repo_path), Some(30))?;
+    let output = crate::process::run_hidden(
+        tracepilot_core::constants::DEFAULT_GIT_COMMAND,
+        args,
+        Some(repo_path),
+        Some(30),
+    )?;
 
     if output.status.success() {
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
@@ -51,9 +56,14 @@ pub fn get_repo_root(path: &Path) -> Result<String> {
 /// Check if a path is a valid git repository.
 pub fn is_git_repo(path: &Path) -> bool {
     path.is_dir()
-        && crate::process::run_hidden("git", &["rev-parse", "--git-dir"], Some(path), Some(5))
-            .map(|o| o.status.success())
-            .unwrap_or(false)
+        && crate::process::run_hidden(
+            tracepilot_core::constants::DEFAULT_GIT_COMMAND,
+            &["rev-parse", "--git-dir"],
+            Some(path),
+            Some(5),
+        )
+        .map(|o| o.status.success())
+        .unwrap_or(false)
 }
 
 /// Get the default branch of a repository (usually "main" or "master").
@@ -361,7 +371,7 @@ pub fn validate_branch_name(name: &str) -> Result<()> {
     }
     // Use git check-ref-format to validate (5s timeout for local check)
     let output = crate::process::run_hidden(
-        "git",
+        tracepilot_core::constants::DEFAULT_GIT_COMMAND,
         &["check-ref-format", "--branch", name],
         None,
         Some(5),

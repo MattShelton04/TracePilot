@@ -18,6 +18,10 @@ import {
   DEFAULT_UI_SCALE,
 } from "../src/defaults.js";
 import { DEFAULT_FAVOURITE_MODELS } from "../src/models.js";
+import {
+  COPILOT_SESSION_STATE_DIR_PLACEHOLDER,
+  TRACEPILOT_INDEX_DB_PLACEHOLDER,
+} from "../src/paths.js";
 
 describe("createDefaultConfig", () => {
   const expectedDefaults = {
@@ -140,6 +144,11 @@ describe("createDefaultConfig", () => {
 
     // Check that other array remains untouched
     expect(config.ui.recentRepoPaths).toEqual([]);
+  });
+
+  it("path placeholders track the documented default locations", () => {
+    expect(COPILOT_SESSION_STATE_DIR_PLACEHOLDER).toBe("~/.copilot/session-state");
+    expect(TRACEPILOT_INDEX_DB_PLACEHOLDER).toBe("~/.copilot/tracepilot/index.db");
   });
 
   it("should override primitive fields successfully", () => {

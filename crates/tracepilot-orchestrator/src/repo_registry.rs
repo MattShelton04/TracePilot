@@ -25,10 +25,11 @@ struct RegistryFile {
 
 /// Get the path to the registry JSON file.
 fn registry_path() -> Result<PathBuf> {
-    let home = tracepilot_core::utils::home_dir_opt()
+    let home = tracepilot_core::paths::default_copilot_home_opt()
         .ok_or_else(|| OrchestratorError::Registry("Cannot determine home directory".into()))?;
-    let dir = home.join(".copilot").join("tracepilot");
-    Ok(dir.join("repo-registry.json"))
+    Ok(tracepilot_core::paths::CopilotPaths::from_home(home)
+        .tracepilot()
+        .repo_registry_json())
 }
 
 /// Ensure the parent directory exists.

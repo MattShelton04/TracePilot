@@ -16,8 +16,9 @@ fn validate_template_id(id: &str) -> Result<()> {
 
 /// Default templates storage path.
 pub fn templates_dir() -> Result<PathBuf> {
-    let home = crate::launcher::copilot_home()?;
-    let dir = home.join("tracepilot").join("templates");
+    let dir = tracepilot_core::paths::CopilotPaths::from_home(crate::launcher::copilot_home()?)
+        .tracepilot()
+        .templates_dir();
     std::fs::create_dir_all(&dir)?;
     Ok(dir)
 }

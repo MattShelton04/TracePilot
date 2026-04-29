@@ -39,8 +39,11 @@ pub fn render_orchestrator_prompt(config: &OrchestratorPromptConfig) -> String {
 /// Default jobs directory: `~/.copilot/tracepilot/jobs/`
 #[allow(dead_code)]
 pub fn default_jobs_dir() -> crate::error::Result<std::path::PathBuf> {
-    let home = crate::launcher::copilot_home()?;
-    Ok(home.join("tracepilot").join("jobs"))
+    Ok(
+        tracepilot_core::paths::CopilotPaths::from_home(crate::launcher::copilot_home()?)
+            .tracepilot()
+            .jobs_dir(),
+    )
 }
 
 /// Resolve the manifest path from a jobs directory.

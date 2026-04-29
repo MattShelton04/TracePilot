@@ -16,19 +16,21 @@ pub use crate::process::spawn_outside_job;
 
 /// Resolve the copilot home directory.
 pub fn copilot_home() -> Result<std::path::PathBuf> {
-    tracepilot_core::utils::home_dir_opt()
-        .map(|h| h.join(".copilot"))
+    tracepilot_core::paths::default_copilot_home_opt()
         .filter(|p| p.exists())
         .ok_or_else(|| OrchestratorError::Launch("Copilot home directory not found".into()))
 }
 
 /// Check system dependencies (git, copilot CLI).
 pub fn check_dependencies(copilot_cmd: Option<&str>) -> SystemDependencies {
-    let git = check_tool("git", &["--version"]);
+    let git = check_tool(
+        tracepilot_core::constants::DEFAULT_GIT_COMMAND,
+        &["--version"],
+    );
     let cmd = copilot_cmd.unwrap_or(tracepilot_core::constants::DEFAULT_CLI_COMMAND);
     let copilot = check_tool(cmd, &["--version"]);
-    let copilot_home_exists = tracepilot_core::utils::home_dir_opt()
-        .map(|h| h.join(".copilot").exists())
+    let copilot_home_exists = tracepilot_core::paths::default_copilot_home_opt()
+        .map(|p| p.exists())
         .unwrap_or(false);
 
     SystemDependencies {

@@ -1,5 +1,5 @@
 import type { LaunchConfig, SessionTemplate } from "@tracepilot/types";
-import { DEFAULT_MODEL_ID, getTierLabel } from "@tracepilot/types";
+import { DEFAULT_CLI_COMMAND, DEFAULT_MODEL_ID, getTierLabel } from "@tracepilot/types";
 import { formatCost, useClipboard, useConfirmDialog, useToast } from "@tracepilot/ui";
 import {
   computed,
@@ -116,10 +116,10 @@ export function useSessionLauncher() {
     uiServer: !headless.value && uiServer.value,
     launchMode: headless.value ? "sdk" : "terminal",
     envVars: envVarsRecord.value,
-    cliCommand: prefsStore.cliCommand || "copilot",
+    cliCommand: prefsStore.cliCommand || DEFAULT_CLI_COMMAND,
   }));
 
-  const effectiveCli = computed(() => prefsStore.cliCommand || "copilot");
+  const effectiveCli = computed(() => prefsStore.cliCommand || DEFAULT_CLI_COMMAND);
 
   const cliCommand = computed(() => {
     if (launchConfig.value.launchMode === "sdk") {

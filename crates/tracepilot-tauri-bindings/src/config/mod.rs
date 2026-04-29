@@ -49,13 +49,8 @@ pub use tasks::TasksConfig;
 pub use tool_rendering::ToolRenderingConfig;
 pub use ui::UiConfig;
 
-/// The canonical config file location.
-fn config_dir() -> Option<PathBuf> {
-    home_dir().map(|h| h.join(".copilot").join("tracepilot"))
-}
-
 pub fn config_file_path() -> Option<PathBuf> {
-    config_dir().map(|d| d.join("config.toml"))
+    tracepilot_core::paths::TracePilotPaths::default().map(|p| p.config_toml())
 }
 
 fn home_dir() -> Option<PathBuf> {
@@ -95,21 +90,17 @@ impl Default for TracePilotConfig {
     fn default() -> Self {
         // home_dir() can fail if env vars are missing; use empty strings as
         // sentinel values — the setup wizard will prompt the user for paths.
-        let home = home_dir().unwrap_or_default();
+        let copilot_paths =
+            tracepilot_core::paths::CopilotPaths::from_user_home(home_dir().unwrap_or_default());
+        let paths = copilot_paths.tracepilot();
         Self {
             version: 5,
             paths: PathsConfig {
-                session_state_dir: home
-                    .join(".copilot")
-                    .join("session-state")
+                session_state_dir: copilot_paths
+                    .session_state_dir()
                     .to_string_lossy()
                     .to_string(),
-                index_db_path: home
-                    .join(".copilot")
-                    .join("tracepilot")
-                    .join("index.db")
-                    .to_string_lossy()
-                    .to_string(),
+                index_db_path: paths.index_db().to_string_lossy().to_string(),
             },
             general: GeneralConfig::default(),
             ui: UiConfig::default(),
@@ -248,20 +239,20 @@ impl TracePilotConfig {
 
     /// Path to the task presets directory (derived from copilot home).
     pub fn presets_dir(&self) -> PathBuf {
-        // Presets live alongside the index DB: ~/.copilot/tracepilot/presets/
-        PathBuf::from(&self.paths.index_db_path)
-            .parent()
-            .unwrap_or_else(|| std::path::Path::new("."))
-            .join("presets")
+        self.tracepilot_root_paths().presets_dir()
     }
 
     /// Path to the jobs directory for orchestrator IPC.
     pub fn jobs_dir(&self) -> PathBuf {
-        // Jobs dir: ~/.copilot/tracepilot/jobs/
-        PathBuf::from(&self.paths.index_db_path)
+        self.tracepilot_root_paths().jobs_dir()
+    }
+
+    fn tracepilot_root_paths(&self) -> tracepilot_core::paths::TracePilotPaths {
+        let root = PathBuf::from(&self.paths.index_db_path)
             .parent()
-            .unwrap_or_else(|| std::path::Path::new("."))
-            .join("jobs")
+            .map(Path::to_path_buf)
+            .unwrap_or_else(|| PathBuf::from("."));
+        tracepilot_core::paths::TracePilotPaths::from_root(root)
     }
 }
 

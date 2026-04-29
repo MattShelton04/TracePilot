@@ -85,8 +85,11 @@ impl TaskDb {
 
     /// Default database path: `~/.copilot/tracepilot/tasks.db`
     pub fn default_path() -> Result<std::path::PathBuf> {
-        let home = crate::launcher::copilot_home()?;
-        Ok(home.join("tracepilot").join("tasks.db"))
+        Ok(
+            tracepilot_core::paths::CopilotPaths::from_home(crate::launcher::copilot_home()?)
+                .tracepilot()
+                .tasks_db(),
+        )
     }
 
     /// Run schema migrations through the shared framework, honouring the legacy
@@ -96,9 +99,9 @@ impl TaskDb {
             OrchestratorError::task_ctx("Legacy schema_version bootstrap failed", e)
         })?;
 
-        let backup_dir = db_path
-            .and_then(|p| p.parent())
-            .map(|parent| parent.join("backups").join("database"));
+        let backup_dir = db_path.and_then(|p| p.parent()).map(|parent| {
+            tracepilot_core::paths::TracePilotPaths::from_root(parent).database_backups_dir()
+        });
         let opts = MigratorOptions {
             backup: db_path.is_some(),
             backup_dir,

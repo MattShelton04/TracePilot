@@ -6,7 +6,11 @@ import {
   validateSessionDir,
 } from "@tracepilot/client";
 import type { TracePilotConfig } from "@tracepilot/types";
-import { createDefaultConfig } from "@tracepilot/types";
+import {
+  COPILOT_SESSION_STATE_DIR_PLACEHOLDER,
+  createDefaultConfig,
+  TRACEPILOT_INDEX_DB_PLACEHOLDER,
+} from "@tracepilot/types";
 import { toErrorMessage, useKeydown } from "@tracepilot/ui";
 import { computed, nextTick, onMounted, ref } from "vue";
 import WizardStepDatabase from "@/components/wizard/WizardStepDatabase.vue";
@@ -40,8 +44,8 @@ const { currentStep, transitionDuration, goTo, next, onKeydown } = useWizardNavi
 // ── Form state ─────────────────────────────────────────────────
 // Fallback defaults for dev mode (outside Tauri). In production the backend
 // returns absolute paths via getConfig() which replace these on mount.
-const FALLBACK_SESSION_DIR = "~/.copilot/session-state";
-const FALLBACK_DB_PATH = "~/.copilot/tracepilot/index.db";
+const FALLBACK_SESSION_DIR = COPILOT_SESSION_STATE_DIR_PLACEHOLDER;
+const FALLBACK_DB_PATH = TRACEPILOT_INDEX_DB_PLACEHOLDER;
 
 const defaultSessionDir = ref(FALLBACK_SESSION_DIR);
 const defaultDbPath = ref(FALLBACK_DB_PATH);

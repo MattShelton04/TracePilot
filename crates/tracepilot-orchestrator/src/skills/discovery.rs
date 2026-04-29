@@ -1,8 +1,8 @@
 //! Skill discovery — scans filesystem for SKILL.md files.
 //!
 //! Discovers skills in:
-//! - Global: `~/.copilot/skills/*/SKILL.md`
-//! - Repository: `.copilot/skills/*/SKILL.md` (relative to repo root)
+//! - Global Copilot skills under the Copilot home
+//! - Repository skills under supported repo-scoped skill roots
 
 use crate::launcher::copilot_home;
 use crate::skills::error::SkillsError;
@@ -13,12 +13,12 @@ use std::path::{Path, PathBuf};
 
 /// Get the global skills directory (`~/.copilot/skills/`).
 pub fn global_skills_dir() -> crate::error::Result<PathBuf> {
-    Ok(copilot_home()?.join("skills"))
+    Ok(tracepilot_core::paths::CopilotPaths::from_home(copilot_home()?).global_skills_dir())
 }
 
 /// Get the repository skills directory (`.copilot/skills/` under repo root).
 pub fn repo_skills_dir(repo_root: &Path) -> PathBuf {
-    repo_root.join(".copilot").join("skills")
+    tracepilot_core::paths::RepoPaths::from_root(repo_root).copilot_skills_dir()
 }
 
 /// Discover all skills (global + optional repository).
