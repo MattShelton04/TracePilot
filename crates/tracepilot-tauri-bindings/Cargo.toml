@@ -28,7 +28,7 @@ lru = "0.12"
 reqwest = { workspace = true }
 semver = { workspace = true }
 walkdir = "2"
-zip = { version = "4", default-features = false, features = ["deflate-flate2-zlib-rs"] }
+zip = { version = "8", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 
 # Phase 1B.1 codegen pilot: specta derive on a tiny allow-list of types,
 # plus the TS emitter used by the `gen-bindings` binary. The derive macro
