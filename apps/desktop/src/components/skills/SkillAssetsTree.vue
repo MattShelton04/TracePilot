@@ -49,7 +49,11 @@ function onNewFileBlur() {
 }
 
 function depthStyle(depth: number): Record<string, string> {
-  return { paddingLeft: `${6 + depth * 16}px` };
+  const indent = 6 + depth * 16;
+  return {
+    "--assets-tree-indent": `${indent}px`,
+    "--assets-tree-chevron-left": `${Math.max(0, indent - 12)}px`,
+  };
 }
 </script>
 
@@ -229,11 +233,12 @@ function depthStyle(depth: number): Record<string, string> {
 
 /* ── Folder row ──────────────────────────────────────────── */
 .assets-tree__folder {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 5px;
   width: 100%;
-  padding: 5px 6px;
+  padding: 5px 6px 5px var(--assets-tree-indent, 6px);
   border: none;
   background: none;
   border-radius: var(--radius-md);
@@ -253,11 +258,17 @@ function depthStyle(depth: number): Record<string, string> {
 }
 
 .assets-tree__chevron {
+  position: absolute;
+  left: var(--assets-tree-chevron-left, 0);
+  top: 50%;
+  transform: translateY(-50%);
   font-size: 0.625rem;
   color: var(--text-tertiary);
   width: 10px;
   flex-shrink: 0;
   line-height: 1;
+  text-align: center;
+  pointer-events: none;
 }
 
 .assets-tree__folder-icon {
@@ -290,7 +301,7 @@ function depthStyle(depth: number): Record<string, string> {
   display: flex;
   align-items: center;
   gap: 7px;
-  padding: 5px 6px;
+  padding: 5px 6px 5px var(--assets-tree-indent, 6px);
   border-radius: var(--radius-md);
   transition: background var(--transition-fast);
 }
