@@ -33,7 +33,7 @@ const emit = defineEmits<{
   viewFile: [path: string];
 }>();
 
-const { treeStructure, fileCount, collapsedFolders, toggleFolder, formatSize } = useFileBrowserTree(
+const { visibleRows, fileCount, collapsedFolders, toggleFolder, formatSize } = useFileBrowserTree(
   toRef(props, "entries"),
   {
     get autoCollapseThreshold() {
@@ -63,6 +63,10 @@ const iconTypeByPath = computed(() => {
   }
   return map;
 });
+
+function depthStyle(depth: number): Record<string, string> {
+  return { paddingLeft: `${8 + depth * 16}px` };
+}
 </script>
 
 <template>
@@ -79,139 +83,85 @@ const iconTypeByPath = computed(() => {
     <div v-else-if="fileCount === 0" class="fb-tree__empty">No files</div>
 
     <div v-else class="fb-tree__list">
-      <!-- Root-level files -->
-      <div
-        v-for="entry in treeStructure.rootFiles"
-        :key="entry.path"
-        class="fb-tree__item"
-        :class="{
-          'fb-tree__item--selected': selectedPath === entry.path,
-          'fb-tree__item--new': highlightedPaths?.has(entry.path),
-        }"
-        role="button"
-        tabindex="0"
-        @click="emit('viewFile', entry.path)"
-        @keyup.enter="emit('viewFile', entry.path)"
-      >
-        <svg class="fb-tree__file-icon" :class="`fb-tree__file-icon--${iconTypeByPath.get(entry.path) ?? 'generic'}`" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
-          <!-- generic / default -->
-          <template v-if="(iconTypeByPath.get(entry.path) ?? 'generic') === 'generic'">
-            <path d="M4 2h5l4 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/>
-            <path d="M9 2v4h4"/>
-          </template>
-          <!-- markdown -->
-          <template v-else-if="(iconTypeByPath.get(entry.path) ?? 'generic') === 'markdown'">
-            <path d="M4 2h5l4 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/>
-            <path d="M9 2v4h4"/>
-            <path d="M5 9h6M5 11h4" stroke-width="1.1"/>
-          </template>
-          <!-- json / jsonl -->
-          <template v-else-if="(iconTypeByPath.get(entry.path) ?? 'generic') === 'json'">
-            <path d="M6 3c-1 0-1.5 1-1.5 2v1c0 .8-.5 1.2-.5 1.5s.5.7.5 1.5v1c0 1 .5 2 1.5 2"/>
-            <path d="M10 3c1 0 1.5 1 1.5 2v1c0 .8.5 1.2.5 1.5s-.5.7-.5 1.5v1c0 1-.5 2-1.5 2"/>
-          </template>
-          <!-- yaml -->
-          <template v-else-if="(iconTypeByPath.get(entry.path) ?? 'generic') === 'yaml'">
-            <path d="M3 4h10M3 8h10M3 12h6"/>
-          </template>
-          <!-- toml -->
-          <template v-else-if="(iconTypeByPath.get(entry.path) ?? 'generic') === 'toml'">
-            <path d="M3 3h10v10H3z"/>
-            <path d="M3 7h10M7 3v10" stroke-width="1.1"/>
-          </template>
-          <!-- database -->
-          <template v-else-if="(iconTypeByPath.get(entry.path) ?? 'generic') === 'database'">
-            <ellipse cx="8" cy="5" rx="5" ry="1.8"/>
-            <path d="M3 5v3c0 1 2.2 1.8 5 1.8s5-.8 5-1.8V5"/>
-            <path d="M3 8v3c0 1 2.2 1.8 5 1.8s5-.8 5-1.8V8"/>
-          </template>
-          <!-- lock -->
-          <template v-else-if="(iconTypeByPath.get(entry.path) ?? 'generic') === 'lock'">
-            <rect x="4" y="7" width="8" height="7" rx="1"/>
-            <path d="M5.5 7V5a2.5 2.5 0 015 0v2"/>
-          </template>
-          <!-- log / txt -->
-          <template v-else>
-            <path d="M4 2h5l4 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/>
-            <path d="M9 2v4h4"/>
-            <path d="M5 9h6M5 11h6M5 13h3" stroke-width="1.1"/>
-          </template>
-        </svg>
-        <span class="fb-tree__name">{{ entry.name }}</span>
-        <span class="fb-tree__size">{{ formatSize(entry.sizeBytes) }}</span>
-      </div>
-
-      <!-- Folders -->
-      <template v-for="(folderEntries, folder) in treeStructure.folders" :key="folder">
+      <template v-for="row in visibleRows" :key="row.kind === 'file' ? `file:${row.entry.path}` : `folder:${row.folder.path}`">
+        <div
+          v-if="row.kind === 'file'"
+          class="fb-tree__item"
+          :class="{
+            'fb-tree__item--selected': selectedPath === row.entry.path,
+            'fb-tree__item--new': highlightedPaths?.has(row.entry.path),
+          }"
+          :style="depthStyle(row.depth)"
+          :data-depth="row.depth"
+          role="button"
+          tabindex="0"
+          @click="emit('viewFile', row.entry.path)"
+          @keyup.enter="emit('viewFile', row.entry.path)"
+        >
+          <svg class="fb-tree__file-icon" :class="`fb-tree__file-icon--${iconTypeByPath.get(row.entry.path) ?? 'generic'}`" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+            <!-- generic / default -->
+            <template v-if="(iconTypeByPath.get(row.entry.path) ?? 'generic') === 'generic'">
+              <path d="M4 2h5l4 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/>
+              <path d="M9 2v4h4"/>
+            </template>
+            <!-- markdown -->
+            <template v-else-if="(iconTypeByPath.get(row.entry.path) ?? 'generic') === 'markdown'">
+              <path d="M4 2h5l4 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/>
+              <path d="M9 2v4h4"/>
+              <path d="M5 9h6M5 11h4" stroke-width="1.1"/>
+            </template>
+            <!-- json / jsonl -->
+            <template v-else-if="(iconTypeByPath.get(row.entry.path) ?? 'generic') === 'json'">
+              <path d="M6 3c-1 0-1.5 1-1.5 2v1c0 .8-.5 1.2-.5 1.5s.5.7.5 1.5v1c0 1 .5 2 1.5 2"/>
+              <path d="M10 3c1 0 1.5 1 1.5 2v1c0 .8.5 1.2.5 1.5s-.5.7-.5 1.5v1c0 1-.5 2-1.5 2"/>
+            </template>
+            <!-- yaml -->
+            <template v-else-if="(iconTypeByPath.get(row.entry.path) ?? 'generic') === 'yaml'">
+              <path d="M3 4h10M3 8h10M3 12h6"/>
+            </template>
+            <!-- toml -->
+            <template v-else-if="(iconTypeByPath.get(row.entry.path) ?? 'generic') === 'toml'">
+              <path d="M3 3h10v10H3z"/>
+              <path d="M3 7h10M7 3v10" stroke-width="1.1"/>
+            </template>
+            <!-- database -->
+            <template v-else-if="(iconTypeByPath.get(row.entry.path) ?? 'generic') === 'database'">
+              <ellipse cx="8" cy="5" rx="5" ry="1.8"/>
+              <path d="M3 5v3c0 1 2.2 1.8 5 1.8s5-.8 5-1.8V5"/>
+              <path d="M3 8v3c0 1 2.2 1.8 5 1.8s5-.8 5-1.8V8"/>
+            </template>
+            <!-- lock -->
+            <template v-else-if="(iconTypeByPath.get(row.entry.path) ?? 'generic') === 'lock'">
+              <rect x="4" y="7" width="8" height="7" rx="1"/>
+              <path d="M5.5 7V5a2.5 2.5 0 015 0v2"/>
+            </template>
+            <!-- log / txt -->
+            <template v-else>
+              <path d="M4 2h5l4 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/>
+              <path d="M9 2v4h4"/>
+              <path d="M5 9h6M5 11h6M5 13h3" stroke-width="1.1"/>
+            </template>
+          </svg>
+          <span class="fb-tree__name">{{ row.entry.name }}</span>
+          <span class="fb-tree__size">{{ formatSize(row.entry.sizeBytes) }}</span>
+        </div>
         <button
+          v-else
           class="fb-tree__folder"
-          :aria-expanded="!collapsedFolders.has(String(folder))"
-          @click="toggleFolder(String(folder))"
+          :style="depthStyle(row.depth)"
+          :data-depth="row.depth"
+          :aria-expanded="!collapsedFolders.has(row.folder.path)"
+          @click="toggleFolder(row.folder.path)"
         >
           <span class="fb-tree__chevron">
-            {{ collapsedFolders.has(String(folder)) ? "▸" : "▾" }}
+            {{ collapsedFolders.has(row.folder.path) ? "▸" : "▾" }}
           </span>
           <svg class="fb-tree__folder-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M2 4h4l1.5 1.5H14v7.5H2V4z"/>
           </svg>
-          <span class="fb-tree__folder-name">{{ folder }}</span>
-          <span class="fb-tree__folder-count">({{ folderEntries.length }})</span>
+          <span class="fb-tree__folder-name">{{ row.folder.name }}</span>
+          <span class="fb-tree__folder-count">({{ row.folder.fileCount }})</span>
         </button>
-
-        <template v-if="!collapsedFolders.has(String(folder))">
-          <div
-            v-for="entry in folderEntries"
-            :key="entry.path"
-            class="fb-tree__item fb-tree__item--nested"
-            :class="{
-              'fb-tree__item--selected': selectedPath === entry.path,
-              'fb-tree__item--new': highlightedPaths?.has(entry.path),
-            }"
-            role="button"
-            tabindex="0"
-            @click="emit('viewFile', entry.path)"
-            @keyup.enter="emit('viewFile', entry.path)"
-          >
-            <svg class="fb-tree__file-icon" :class="`fb-tree__file-icon--${iconTypeByPath.get(entry.path) ?? 'generic'}`" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
-              <template v-if="(iconTypeByPath.get(entry.path) ?? 'generic') === 'generic'">
-                <path d="M4 2h5l4 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/>
-                <path d="M9 2v4h4"/>
-              </template>
-              <template v-else-if="(iconTypeByPath.get(entry.path) ?? 'generic') === 'markdown'">
-                <path d="M4 2h5l4 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/>
-                <path d="M9 2v4h4"/>
-                <path d="M5 9h6M5 11h4" stroke-width="1.1"/>
-              </template>
-              <template v-else-if="(iconTypeByPath.get(entry.path) ?? 'generic') === 'json'">
-                <path d="M6 3c-1 0-1.5 1-1.5 2v1c0 .8-.5 1.2-.5 1.5s.5.7.5 1.5v1c0 1 .5 2 1.5 2"/>
-                <path d="M10 3c1 0 1.5 1 1.5 2v1c0 .8.5 1.2.5 1.5s-.5.7-.5 1.5v1c0 1-.5 2-1.5 2"/>
-              </template>
-              <template v-else-if="(iconTypeByPath.get(entry.path) ?? 'generic') === 'yaml'">
-                <path d="M3 4h10M3 8h10M3 12h6"/>
-              </template>
-              <template v-else-if="(iconTypeByPath.get(entry.path) ?? 'generic') === 'toml'">
-                <path d="M3 3h10v10H3z"/>
-                <path d="M3 7h10M7 3v10" stroke-width="1.1"/>
-              </template>
-              <template v-else-if="(iconTypeByPath.get(entry.path) ?? 'generic') === 'database'">
-                <ellipse cx="8" cy="5" rx="5" ry="1.8"/>
-                <path d="M3 5v3c0 1 2.2 1.8 5 1.8s5-.8 5-1.8V5"/>
-                <path d="M3 8v3c0 1 2.2 1.8 5 1.8s5-.8 5-1.8V8"/>
-              </template>
-              <template v-else-if="(iconTypeByPath.get(entry.path) ?? 'generic') === 'lock'">
-                <rect x="4" y="7" width="8" height="7" rx="1"/>
-                <path d="M5.5 7V5a2.5 2.5 0 015 0v2"/>
-              </template>
-              <template v-else>
-                <path d="M4 2h5l4 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/>
-                <path d="M9 2v4h4"/>
-                <path d="M5 9h6M5 11h6M5 13h3" stroke-width="1.1"/>
-              </template>
-            </svg>
-            <span class="fb-tree__name">{{ entry.name }}</span>
-            <span class="fb-tree__size">{{ formatSize(entry.sizeBytes) }}</span>
-          </div>
-        </template>
       </template>
     </div>
   </div>

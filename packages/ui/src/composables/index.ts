@@ -31,7 +31,11 @@ export { useConfirmDialog } from "./useConfirmDialog";
 export type { ConversationSectionsReturn } from "./useConversationSections";
 export { useConversationSections } from "./useConversationSections";
 export { useDismissable } from "./useDismissable";
-export type { UseFileBrowserTreeOptions } from "./useFileBrowserTree";
+export type {
+  FileBrowserFolderNode,
+  FileBrowserTreeRow,
+  UseFileBrowserTreeOptions,
+} from "./useFileBrowserTree";
 export { useFileBrowserTree } from "./useFileBrowserTree";
 export type { UseInflightPromiseReturn } from "./useInflightPromise";
 export { useInflightPromise } from "./useInflightPromise";
