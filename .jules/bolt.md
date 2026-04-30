@@ -1,0 +1,3 @@
+## 2024-05-30 - Optimize build_placeholder_sql
+**Learning:** We can optimize the generation of SQLite placeholders significantly by switching from `write!` and dynamically calculated capacities to simple byte pushes (`?` and `,`) using pre-calculated sizes. We avoid intermediate integer string formatting overhead entirely because the batch\_insert strategy we use in SQLite bindings can simply use sequential bindings (e.g. `?,?`) rather than indexed parameters (`?1, ?2`).
+**Action:** When creating batch strings of repeating patterns in Rust, avoid format machinery where possible, precalculate exact capacity, and use primitive `push` operations.

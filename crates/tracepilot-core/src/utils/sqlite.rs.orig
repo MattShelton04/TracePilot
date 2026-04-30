@@ -302,7 +302,7 @@ pub fn build_placeholder_sql(sql_prefix: &str, num_rows: usize, params_per_row: 
             if n > 0 {
                 sql.push(',');
             }
-            sql.push('?');
+            write!(&mut sql, "?{n}").expect("String write is infallible");
         }
         sql.push(')');
     }
