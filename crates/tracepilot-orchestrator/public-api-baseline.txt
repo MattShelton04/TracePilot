@@ -9,16 +9,9 @@ mod github
 mod launcher
 mod mcp
 mod models
-mod presets
 mod process
 mod repo_registry
 mod skills
-mod task_attribution
-mod task_context
-mod task_db
-mod task_ipc
-mod task_orchestrator
-mod task_recovery
 mod templates
 mod validation
 mod version_manager

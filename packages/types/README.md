@@ -21,7 +21,6 @@ Everything is re-exported from `src/index.ts`. Module groups:
 | `analytics`                | `AnalyticsData`, `ProductivityMetrics`, `ToolUsageEntry`     |
 | `export`                   | `ExportFormat`, `ExportConfig`, `SectionId`, preview/result  |
 | `orchestration`            | `WorktreeInfo`, `LaunchedSession`, `RegisteredRepo`, configs |
-| `tasks`                    | `Task`, `TaskStatus`, `OrchestratorHealth`, presets          |
 | `mcp`                      | `McpServerConfig`, `McpHealthResult`, diff types             |
 | `skills`                   | `Skill`, `SkillSummary`, import previews                     |
 | `models`                   | `MODEL_REGISTRY`, `ModelDefinition`, tier helpers            |
@@ -34,7 +33,7 @@ Everything is re-exported from `src/index.ts`. Module groups:
 
 ```ts
 import type { SessionListItem, SessionDetail } from "@tracepilot/types";
-import { formatDuration, isTerminalStatus } from "@tracepilot/types";
+import { formatDuration } from "@tracepilot/types";
 ```
 
 ## Workspace dependencies

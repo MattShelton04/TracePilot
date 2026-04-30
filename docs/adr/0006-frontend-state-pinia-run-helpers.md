@@ -5,8 +5,7 @@ Status: Accepted
 
 ## Context
 
-TracePilot's UI state is substantial: sessions, tasks, orchestrator
-jobs, skills, MCP servers, worktrees, launcher presets, SDK
+TracePilot's UI state is substantial: sessions, skills, MCP servers, worktrees, launcher presets, SDK
 connection state, search indexing progress. Every store has the same
 lifecycle concerns:
 
@@ -44,8 +43,8 @@ store author had in mind.
    hits IPC in response to user input (e.g. typing in a filter) uses
    the guard so a slow previous response cannot clobber a newer one.
 5. **IPC calls go through `@tracepilot/client`.** Stores never
-   `invoke(...)` directly — they call typed wrappers (`taskCreate`,
-   `listSessions`, etc.) so the IPC contract (ADR-0002) stays
+   `invoke(...)` directly — they call typed wrappers (`listSessions`,
+   etc.) so the IPC contract (ADR-0002) stays
    enforced.
 6. **Errors surface as strings via `toErrorMessage`.** The UI never
    renders a raw error object; it goes through the same helper so
@@ -62,7 +61,7 @@ store author had in mind.
   without instantiating the component tree.
 - **Negative**: Contributors must learn the `runAction` /
   `runMutation` / `useAsyncGuard` trio. Mitigated by the consistency
-  of existing stores — `stores/tasks.ts` is the canonical reference.
+  of existing stores — `stores/sessions.ts` is the canonical reference.
 - **Negative**: `runAction`'s options object is a little verbose for
   simple cases. Worth the uniformity.
 
@@ -73,7 +72,7 @@ store author had in mind.
   Composition API idioms.
 - **Ad-hoc composables (`useX`) instead of stores**. Rejected —
   composables are per-consumer; we need shared, singleton state for
-  sessions/tasks/orchestrator.
+  sessions and shared app state.
 - **Component-owned state + prop drilling**. Rejected at scale — the
   session viewer alone spans many components that need the same
   derived data.
@@ -91,12 +90,12 @@ store author had in mind.
 
 ## References
 
-- `apps/desktop/src/stores/tasks.ts` — canonical reference (uses
-  `runAction`, `runMutation`, `useAsyncGuard`, `toErrorMessage`).
+- `apps/desktop/src/stores/sessions.ts` — canonical reference for
+  explicit store actions and request deduplication.
 - Other stores adopting the pattern (Wave 95 sweep):
   `mcp.ts`, `launcher.ts`, `configInjector.ts`, `worktrees.ts`,
-  `skills.ts`, `sessions.ts`, `orchestrator.ts`, `sdk/connection.ts`,
-  `presets.ts`, `sdk/messaging.ts`, `search/indexing.ts`.
+  `skills.ts`, `sessions.ts`, `sdk/connection.ts`, `sdk/messaging.ts`,
+  `search/indexing.ts`.
 - `packages/ui/` — `runAction`, `runMutation`, `useAsyncGuard`,
   `toErrorMessage` implementations.
 - `packages/client/` — typed IPC wrappers used from stores.

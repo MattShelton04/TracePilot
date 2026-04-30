@@ -1,5 +1,7 @@
 # AI Agent Task System — Implementation Plan
 
+> **Status**: Removed. This document is retained as historical design context only; the AI Tasks feature, task DB, task IPC, task presets, and UI routes were removed after v0.6.4.
+>
 > Derived from `docs/ai-agent-task-system.md`. This is the code-level implementation plan
 > for building Phase 1 of the task system. Each section maps to a work stream with concrete
 > file paths, types, and acceptance criteria.

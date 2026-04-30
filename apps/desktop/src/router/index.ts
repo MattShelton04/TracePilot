@@ -287,60 +287,6 @@ const routes: RouteRecordRaw[] = [
       featureFlag: "skills",
     },
   },
-  // ── AI Tasks ─────────────────────────────────────────────────────────────────
-  {
-    path: "/tasks",
-    name: "tasks",
-    component: () => import("@/views/tasks/TaskDashboardView.vue"),
-    meta: {
-      title: "AI Tasks",
-      sidebarId: "ai-tasks",
-      featureFlag: "aiTasks",
-      sidebar: { section: "tasks", label: "Tasks", icon: "ai-tasks", order: 0 },
-    },
-  },
-  {
-    path: "/tasks/new",
-    name: "task-create",
-    component: () => import("@/views/tasks/TaskCreateView.vue"),
-    meta: {
-      title: "Create Task",
-      sidebarId: "ai-tasks",
-      featureFlag: "aiTasks",
-    },
-  },
-  {
-    path: "/tasks/:taskId",
-    name: "task-detail",
-    component: () => import("@/views/tasks/TaskDetailView.vue"),
-    meta: {
-      title: "Task Detail",
-      sidebarId: "ai-tasks",
-      featureFlag: "aiTasks",
-    },
-  },
-  {
-    path: "/tasks/monitor",
-    name: "task-monitor",
-    component: () => import("@/views/tasks/OrchestratorMonitorView.vue"),
-    meta: {
-      title: "Orchestrator Monitor",
-      sidebarId: "ai-monitor",
-      featureFlag: "aiTasks",
-      sidebar: { section: "tasks", label: "Monitor", icon: "ai-monitor", order: 1 },
-    },
-  },
-  {
-    path: "/tasks/presets",
-    name: "task-presets",
-    component: () => import("@/views/tasks/PresetManagerView.vue"),
-    meta: {
-      title: "Task Presets",
-      sidebarId: "ai-presets",
-      featureFlag: "aiTasks",
-      sidebar: { section: "tasks", label: "Presets", icon: "ai-presets", order: 2 },
-    },
-  },
   // 404 catch-all — must be last
   {
     path: "/:pathMatch(.*)*",

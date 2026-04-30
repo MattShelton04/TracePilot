@@ -12,7 +12,6 @@
 //! - [`ToolRenderingConfig`] — per-tool render toggles.
 //! - [`FeaturesConfig`] — feature-flag booleans exposed to the frontend.
 //! - [`LoggingConfig`] — log-level wiring.
-//! - [`TasksConfig`] — AI orchestrator/subagent knobs.
 //! - [`AlertsConfig`] — notification/toast/sound preferences.
 //!
 //! Wire-format rule: every sub-config must carry `#[serde(default)]` on its
@@ -32,7 +31,6 @@ mod general;
 mod logging;
 mod paths;
 mod pricing;
-mod tasks;
 mod tool_rendering;
 mod ui;
 
@@ -45,7 +43,6 @@ pub use general::GeneralConfig;
 pub use logging::LoggingConfig;
 pub use paths::PathsConfig;
 pub use pricing::{ModelPriceEntry, PricingConfig};
-pub use tasks::TasksConfig;
 pub use tool_rendering::ToolRenderingConfig;
 pub use ui::UiConfig;
 
@@ -81,8 +78,6 @@ pub struct TracePilotConfig {
     #[serde(default)]
     pub logging: LoggingConfig,
     #[serde(default)]
-    pub tasks: TasksConfig,
-    #[serde(default)]
     pub alerts: AlertsConfig,
 }
 
@@ -110,7 +105,6 @@ impl Default for TracePilotConfig {
             tool_rendering: ToolRenderingConfig::default(),
             features: FeaturesConfig::default(),
             logging: LoggingConfig::default(),
-            tasks: TasksConfig::default(),
             alerts: AlertsConfig::default(),
         }
     }
@@ -118,7 +112,7 @@ impl Default for TracePilotConfig {
 
 impl TracePilotConfig {
     /// Current schema version. Bump this when adding migrations.
-    pub const CURRENT_VERSION: u32 = 6;
+    pub const CURRENT_VERSION: u32 = 7;
 
     /// Apply any pending migrations to bring the config up to the current version.
     /// Returns true if any migrations were applied.
@@ -149,10 +143,10 @@ impl TracePilotConfig {
         // Future migrations go here:
         // if self.version < 5 { ... self.version = 5; }
 
-        // Migration from v3 → v4: added tasks config section (handled by serde default).
+        // Migration from v3 → v4: legacy version bump.
         if self.version < 4 {
             self.version = 4;
-            tracing::info!("Migrated config from v3 → v4 (added tasks config)");
+            tracing::info!("Migrated config from v3 → v4");
         }
 
         // Migration from v4 → v5: added alerts config section (handled by serde default).
@@ -170,6 +164,14 @@ impl TracePilotConfig {
             tracing::info!("Migrated config from v5 → v6 (explicit path homes)");
         } else {
             self.normalize_paths();
+        }
+
+        // Migration from v6 → v7: removed the experimental AI Tasks config
+        // section. Serde ignores the old TOML table on read; saving the
+        // migrated config drops it from disk.
+        if self.version < 7 {
+            self.version = 7;
+            tracing::info!("Migrated config from v6 → v7 (removed AI Tasks config)");
         }
 
         self.version != original
@@ -262,21 +264,6 @@ impl TracePilotConfig {
 
     pub fn index_db_path(&self) -> PathBuf {
         self.tracepilot_root_paths().index_db()
-    }
-
-    /// Path to the task presets directory (derived from TracePilot home).
-    pub fn presets_dir(&self) -> PathBuf {
-        self.tracepilot_root_paths().presets_dir()
-    }
-
-    /// Path to the task database (derived from TracePilot home).
-    pub fn task_db_path(&self) -> PathBuf {
-        self.tracepilot_root_paths().tasks_db()
-    }
-
-    /// Path to the jobs directory for orchestrator IPC.
-    pub fn jobs_dir(&self) -> PathBuf {
-        self.tracepilot_root_paths().jobs_dir()
     }
 
     fn tracepilot_root_paths(&self) -> tracepilot_core::paths::TracePilotPaths {

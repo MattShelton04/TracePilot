@@ -1,11 +1,11 @@
-//! Path-safe name validation (template / preset / skill / asset).
+//! Path-safe name validation (template / skill / asset).
 //!
 //! These identifiers become filesystem path segments, so the shared
 //! [`tracepilot_orchestrator::validation`] rules enforce character restrictions
 //! and block path-traversal sequences like `..` or `/`.
 
 use crate::error::{BindingsError, CmdResult};
-use tracepilot_core::ids::{PresetId, SkillName};
+use tracepilot_core::ids::SkillName;
 
 /// Validate a template ID.
 ///
@@ -24,30 +24,11 @@ pub(crate) fn validate_template_id(id: &str) -> CmdResult<()> {
     .map_err(BindingsError::Validation)
 }
 
-/// Validate a preset ID.
-///
-/// Preset IDs must be safe for use in filesystem operations and cannot
-/// contain path traversal sequences. Alphanumeric characters, hyphens, and
-/// underscores are allowed.
-///
-/// Returns a [`PresetId`] newtype — callers get a type-checked receipt that
-/// validation has happened, instead of re-validating (or forgetting to) at
-/// every downstream boundary.
-pub(crate) fn validate_preset_id(id: &str) -> CmdResult<PresetId> {
-    tracepilot_orchestrator::validation::validate_identifier(
-        id,
-        tracepilot_orchestrator::validation::TEMPLATE_ID_RULES,
-        "Preset ID",
-    )
-    .map_err(BindingsError::Validation)?;
-    Ok(PresetId::from_validated(id))
-}
-
 /// Validate a skill name.
 ///
 /// Skill names must be safe for use in filesystem operations and cannot
 /// contain path traversal sequences or path separators. Character restrictions
-/// are more permissive than template/preset IDs to support existing skill
+/// are more permissive than template IDs to support existing skill
 /// naming conventions.
 ///
 /// Returns a [`SkillName`] newtype on success.

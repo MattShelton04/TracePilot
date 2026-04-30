@@ -1,4 +1,4 @@
-//! Session/index/task database access helpers.
+//! Session/index database access helpers.
 
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use tracepilot_core::ids::SessionId;
 use tracing::warn;
 
-use super::{OpenIndexDb, cache::read_config, mutex_poisoned};
+use super::{OpenIndexDb, cache::read_config};
 
 /// Resolve a session directory path and run a blocking closure with it.
 ///
@@ -40,58 +40,6 @@ where
             &session_state_dir,
         )?;
         f(path)
-    })
-    .await?
-}
-
-/// Get or initialize the shared TaskDb.
-///
-/// Lazily opens the database on first call, and reopens it if the configured
-/// TracePilot home changes at runtime. Returns a clone of the Arc for use
-/// inside `spawn_blocking`.
-pub(crate) fn get_or_init_task_db(
-    state: &crate::types::SharedTaskDb,
-    config: &SharedConfig,
-) -> Result<crate::types::SharedTaskDb, BindingsError> {
-    let mut guard = state
-        .lock()
-        .map_err(|_| BindingsError::Internal("TaskDb mutex poisoned".into()))?;
-    let path = read_config(config).task_db_path();
-    if guard.as_ref().is_none_or(|db| db.path() != path) {
-        let db = tracepilot_orchestrator::task_db::TaskDb::open_or_create(&path)
-            .map_err(|e| BindingsError::Validation(format!("Failed to open task DB: {e}")))?;
-        db.startup_maintenance()
-            .map_err(|e| BindingsError::Validation(format!("Task DB maintenance failed: {e}")))?;
-        tracing::info!(path = %path.display(), "Task DB initialized");
-        *guard = Some(crate::types::TaskDbHandle::new(path.to_path_buf(), db));
-    }
-    drop(guard);
-    Ok(state.clone())
-}
-
-/// Initialise the task DB (if needed), acquire the mutex, and run a
-/// blocking closure with the underlying `TaskDb`.
-///
-/// This encapsulates the `get_or_init_task_db → spawn_blocking → lock →
-/// unwrap Option` boilerplate shared by most task CRUD commands.
-pub(crate) async fn with_task_db<T, F>(
-    state: &crate::types::SharedTaskDb,
-    config: &SharedConfig,
-    f: F,
-) -> CmdResult<T>
-where
-    T: Send + 'static,
-    F: FnOnce(&tracepilot_orchestrator::task_db::TaskDb) -> Result<T, BindingsError>
-        + Send
-        + 'static,
-{
-    let db = get_or_init_task_db(state, config)?;
-    tokio::task::spawn_blocking(move || {
-        let guard = db.lock().map_err(|_| mutex_poisoned())?;
-        let db = guard
-            .as_ref()
-            .ok_or_else(|| BindingsError::Validation("TaskDb not init".into()))?;
-        f(db)
     })
     .await?
 }

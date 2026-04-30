@@ -10,8 +10,8 @@ import { usePreferencesStore } from "./preferences";
 export type SortOption = "updated" | "created" | "oldest" | "events" | "turns";
 
 export const useSessionsStore = defineStore("sessions", () => {
-  /** Fetch sessions, hiding orchestrator sessions by default. */
-  const fetchAllSessions = () => listSessions({ hideOrchestrator: true });
+  /** Fetch sessions from the backend. */
+  const fetchAllSessions = () => listSessions();
 
   // Both fetchSessions and refreshSessions share this slot so that a
   // silent background refresh coalesces with any concurrent explicit fetch.
@@ -76,7 +76,6 @@ export const useSessionsStore = defineStore("sessions", () => {
     const cache = searchFieldCache.value;
 
     // Single-pass filter: combine all predicates into one loop
-    // Note: orchestrator sessions are excluded at the backend level via hideOrchestrator
     const result = sessions.value.filter((s) => {
       if (hideEmpty && (s.turnCount ?? 0) === 0) return false;
 

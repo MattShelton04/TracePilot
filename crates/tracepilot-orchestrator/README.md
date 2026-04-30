@@ -20,13 +20,6 @@ Top-level modules in `src/lib.rs`:
 | `repo_registry`         | Track registered repos + their worktrees                     |
 | `templates`             | Session templates (prompt scaffolds, preset variables)       |
 | `mcp`                   | MCP server config read/write, health checks, diffs           |
-| `presets`               | Task presets: prompts, variables, variants                   |
-| `task_db`               | Persistent task DB (SQLite, per ADR 0003)                    |
-| `task_orchestrator`     | Task runner + scheduler                                      |
-| `task_context`          | Context assembly (snippets, attributions) for task prompts   |
-| `task_attribution`      | Attribution tracking across subagent turns                   |
-| `task_ipc`              | IPC event wiring for task lifecycle                          |
-| `task_recovery`         | Recovery / resume logic after crashes                        |
 | `bridge`                | Copilot SDK bridge — JSON-RPC manager, events, status        |
 | `skills`                | Skill discovery + preview                                    |
 | `github`                | Minimal GitHub metadata helpers                              |
@@ -55,7 +48,6 @@ a [`CopilotSdkEnabledReader`](src/bridge/mod.rs) injected into
 - `src/error.rs` — `OrchestratorError` + `Result` alias.
 - `src/bridge/` — Copilot SDK bridge; `manager/` holds the `BridgeManager`
   lifecycle + steering logic, always compiled.
-- `src/task_*/` — task orchestration submodules (DB, context, IPC, recovery, attribution, orchestrator).
 - `src/worktrees.rs`, `src/launcher.rs`, `src/mcp/` — domain modules.
 
 ## Related ADRs

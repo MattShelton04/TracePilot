@@ -3,7 +3,7 @@ import type { FeatureFlag } from "@/config/featureFlags";
 import type { RouteName } from "@/config/routes";
 import type { SidebarId } from "@/config/sidebarIds";
 
-export type SidebarSection = "primary" | "advanced" | "orchestration" | "tasks" | "configuration";
+export type SidebarSection = "primary" | "advanced" | "orchestration" | "configuration";
 
 export interface SidebarMeta {
   /** Which sidebar section this route appears in */

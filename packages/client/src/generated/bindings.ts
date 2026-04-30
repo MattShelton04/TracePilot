@@ -21,7 +21,7 @@ export const commands = {
 	 *  See Phase 1A.6 in `docs/tech-debt-plan-revised-2026-04.md`.
 	 */
 	sdkBridgeMetrics: () => typedError<BridgeMetricsSnapshot, BindingsErrorIpc>(__TAURI_INVOKE("sdk_bridge_metrics")),
-	listSessions: (limit: number | null, repo: string | null, branch: string | null, hideEmpty: boolean | null, hideOrchestrator: boolean | null) => typedError<SessionListItem[], BindingsErrorIpc>(__TAURI_INVOKE("list_sessions", { limit, repo, branch, hideEmpty, hideOrchestrator })),
+	listSessions: (limit: number | null, repo: string | null, branch: string | null, hideEmpty: boolean | null) => typedError<SessionListItem[], BindingsErrorIpc>(__TAURI_INVOKE("list_sessions", { limit, repo, branch, hideEmpty })),
 	// Lightweight freshness probe— returns just the events.jsonl file size.
 	checkSessionFreshness: (sessionId: string) => typedError<FreshnessResponse, BindingsErrorIpc>(__TAURI_INVOKE("check_session_freshness", { sessionId })),
 	getDbSize: () => typedError<number, BindingsErrorIpc>(__TAURI_INVOKE("get_db_size")),

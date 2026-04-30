@@ -42,5 +42,4 @@ export * from "./sdk.js";
 export * from "./search.js";
 export * from "./sessions.js";
 export * from "./skills.js";
-export * from "./tasks.js";
 export type { SessionHealth };

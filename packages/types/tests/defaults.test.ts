@@ -6,15 +6,8 @@ import {
   DEFAULT_AUTO_REFRESH_INTERVAL_SECONDS,
   DEFAULT_CLI_COMMAND,
   DEFAULT_CONTENT_MAX_WIDTH,
-  DEFAULT_CONTEXT_BUDGET_TOKENS,
   DEFAULT_COST_PER_PREMIUM_REQUEST,
   DEFAULT_FEATURES,
-  DEFAULT_HEARTBEAT_STALE_MULTIPLIER,
-  DEFAULT_MAX_CONCURRENT_TASKS,
-  DEFAULT_MAX_RETRIES,
-  DEFAULT_ORCHESTRATOR_MODEL,
-  DEFAULT_POLL_INTERVAL_SECONDS,
-  DEFAULT_SUBAGENT_MODEL,
   DEFAULT_UI_SCALE,
 } from "../src/defaults.js";
 import { DEFAULT_FAVOURITE_MODELS } from "../src/models.js";
@@ -61,17 +54,6 @@ describe("createDefaultConfig", () => {
     features: { ...DEFAULT_FEATURES },
     logging: {
       level: "info",
-    },
-    tasks: {
-      enabled: false,
-      orchestratorModel: DEFAULT_ORCHESTRATOR_MODEL,
-      defaultSubagentModel: DEFAULT_SUBAGENT_MODEL,
-      pollIntervalSeconds: DEFAULT_POLL_INTERVAL_SECONDS,
-      maxConcurrentTasks: DEFAULT_MAX_CONCURRENT_TASKS,
-      heartbeatStaleMultiplier: DEFAULT_HEARTBEAT_STALE_MULTIPLIER,
-      maxRetries: DEFAULT_MAX_RETRIES,
-      autoStartOrchestrator: false,
-      contextBudgetTokens: DEFAULT_CONTEXT_BUDGET_TOKENS,
     },
     alerts: {
       enabled: false,

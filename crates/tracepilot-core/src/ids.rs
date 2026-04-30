@@ -1,6 +1,6 @@
 //! Validated identifier newtypes.
 //!
-//! These thin wrappers exist to lift *validated* session / preset / skill
+//! These thin wrappers exist to lift *validated* session / skill
 //! identifiers out of the untyped-`String` swamp at the Tauri IPC boundary.
 //! They are intentionally minimal:
 //!
@@ -66,10 +66,6 @@ macro_rules! impl_id_newtype {
 }
 
 impl_id_newtype!(SessionId, "Validated session identifier (UUID format).");
-impl_id_newtype!(
-    PresetId,
-    "Validated preset identifier (filesystem-safe slug)."
-);
 impl_id_newtype!(SkillName, "Validated skill name (filesystem-safe).");
 
 #[cfg(test)]
@@ -99,19 +95,13 @@ mod tests {
     }
 
     #[test]
-    fn preset_and_skill_round_trip() {
-        let pid = PresetId::from_validated("my-preset");
+    fn skill_round_trip() {
         let sn = SkillName::from_validated("my.skill");
-        assert_eq!(
-            serde_json::from_str::<PresetId>(&serde_json::to_string(&pid).unwrap()).unwrap(),
-            pid
-        );
         assert_eq!(
             serde_json::from_str::<SkillName>(&serde_json::to_string(&sn).unwrap()).unwrap(),
             sn
         );
         // into_inner hands back an owned String unchanged.
-        assert_eq!(pid.clone().into_inner(), "my-preset");
         assert_eq!(String::from(sn.clone()), "my.skill");
     }
 }

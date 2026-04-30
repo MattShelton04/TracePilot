@@ -42,34 +42,6 @@ pub(super) fn default_log_level() -> String {
     "info".to_string()
 }
 
-pub(super) fn default_orchestrator_model() -> String {
-    tracepilot_core::constants::DEFAULT_ORCHESTRATOR_MODEL.to_string()
-}
-
-pub(super) fn default_subagent_model() -> String {
-    tracepilot_core::constants::DEFAULT_SUBAGENT_MODEL.to_string()
-}
-
-pub(super) fn default_poll_interval() -> u32 {
-    30
-}
-
-pub(super) fn default_max_concurrent_tasks() -> u32 {
-    3
-}
-
-pub(super) fn default_heartbeat_stale_multiplier() -> u32 {
-    6
-}
-
-pub(super) fn default_max_retries() -> u32 {
-    3
-}
-
-pub(super) fn default_context_budget_tokens() -> u32 {
-    50_000
-}
-
 pub(super) fn default_alert_cooldown() -> u32 {
     20
 }

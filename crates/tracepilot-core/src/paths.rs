@@ -17,12 +17,8 @@ pub const COPILOT_MCP_CONFIG_FILE: &str = "mcp-config.json";
 
 pub const TRACEPILOT_CONFIG_FILE: &str = "config.toml";
 pub const TRACEPILOT_INDEX_DB_FILE: &str = "index.db";
-pub const TRACEPILOT_TASKS_DB_FILE: &str = "tasks.db";
 pub const TRACEPILOT_REPO_REGISTRY_FILE: &str = "repo-registry.json";
 pub const TRACEPILOT_TEMPLATES_DIR: &str = "templates";
-pub const TRACEPILOT_PRESETS_DIR: &str = "presets";
-pub const TRACEPILOT_TASK_PRESETS_DIR: &str = "task-presets";
-pub const TRACEPILOT_JOBS_DIR: &str = "jobs";
 pub const TRACEPILOT_BACKUPS_DIR: &str = "backups";
 pub const TRACEPILOT_AGENT_BACKUPS_DIR: &str = "agents";
 pub const TRACEPILOT_DATABASE_BACKUPS_DIR: &str = "database";
@@ -116,28 +112,12 @@ impl TracePilotPaths {
         self.root.join(TRACEPILOT_INDEX_DB_FILE)
     }
 
-    pub fn tasks_db(&self) -> PathBuf {
-        self.root.join(TRACEPILOT_TASKS_DB_FILE)
-    }
-
     pub fn repo_registry_json(&self) -> PathBuf {
         self.root.join(TRACEPILOT_REPO_REGISTRY_FILE)
     }
 
     pub fn templates_dir(&self) -> PathBuf {
         self.root.join(TRACEPILOT_TEMPLATES_DIR)
-    }
-
-    pub fn presets_dir(&self) -> PathBuf {
-        self.root.join(TRACEPILOT_PRESETS_DIR)
-    }
-
-    pub fn task_presets_dir(&self) -> PathBuf {
-        self.root.join(TRACEPILOT_TASK_PRESETS_DIR)
-    }
-
-    pub fn jobs_dir(&self) -> PathBuf {
-        self.root.join(TRACEPILOT_JOBS_DIR)
     }
 
     pub fn backups_dir(&self) -> PathBuf {
@@ -236,10 +216,6 @@ mod tests {
         assert_eq!(
             paths.agent_backups_dir(),
             Path::new("/home/alice/.copilot/tracepilot/backups/agents")
-        );
-        assert_eq!(
-            paths.presets_dir(),
-            Path::new("/home/alice/.copilot/tracepilot/presets")
         );
     }
 

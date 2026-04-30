@@ -1,6 +1,5 @@
 use crate::config::TracePilotConfig;
 use crate::error::BindingsError;
-use crate::types::TaskDbHandle;
 
 pub(super) fn validate_configured_roots(config: &TracePilotConfig) -> Result<(), BindingsError> {
     validate_absolute_path("Copilot home", &config.copilot_home())?;
@@ -42,17 +41,6 @@ fn validate_absolute_path(label: &str, path: &std::path::Path) -> Result<(), Bin
     Ok(())
 }
 
-pub(super) fn checkpoint_task_db(handle: &TaskDbHandle) -> Result<(), BindingsError> {
-    handle
-        .conn()
-        .execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")
-        .map_err(|e| {
-            BindingsError::Internal(format!(
-                "Failed to checkpoint task DB before migration: {e}"
-            ))
-        })
-}
-
 pub(super) fn copy_tracepilot_home_if_moved(
     old_root: &std::path::Path,
     new_root: &std::path::Path,
@@ -65,12 +53,7 @@ pub(super) fn copy_tracepilot_home_if_moved(
     let new_paths = tracepilot_core::paths::TracePilotPaths::from_root(new_root);
     std::fs::create_dir_all(new_paths.root())?;
 
-    for (old_db, new_db) in [
-        (old_paths.index_db(), new_paths.index_db()),
-        (old_paths.tasks_db(), new_paths.tasks_db()),
-    ] {
-        copy_sqlite_db_if_absent(&old_db, &new_db)?;
-    }
+    copy_sqlite_db_if_absent(&old_paths.index_db(), &new_paths.index_db())?;
     copy_file_if_absent(
         &old_paths.repo_registry_json(),
         &new_paths.repo_registry_json(),
@@ -125,9 +108,6 @@ fn tracepilot_data_dirs(
     vec![
         (old_paths.backups_dir(), new_paths.backups_dir()),
         (old_paths.templates_dir(), new_paths.templates_dir()),
-        (old_paths.presets_dir(), new_paths.presets_dir()),
-        (old_paths.task_presets_dir(), new_paths.task_presets_dir()),
-        (old_paths.jobs_dir(), new_paths.jobs_dir()),
     ]
 }
 
@@ -182,25 +162,21 @@ mod tests {
         let old = tracepilot_core::paths::TracePilotPaths::from_root(&old_root);
         let new = tracepilot_core::paths::TracePilotPaths::from_root(&new_root);
 
-        for db in [old.index_db(), old.tasks_db()] {
-            write(&db, "main");
-            write(&db.with_extension("db-wal"), "wal");
-            write(&db.with_extension("db-shm"), "shm");
-        }
+        write(&old.index_db(), "main");
+        write(&old.index_db().with_extension("db-wal"), "wal");
+        write(&old.index_db().with_extension("db-shm"), "shm");
 
         copy_tracepilot_home_if_moved(&old_root, &new_root).unwrap();
 
-        for db in [new.index_db(), new.tasks_db()] {
-            assert_eq!(std::fs::read_to_string(&db).unwrap(), "main");
-            assert_eq!(
-                std::fs::read_to_string(db.with_extension("db-wal")).unwrap(),
-                "wal"
-            );
-            assert_eq!(
-                std::fs::read_to_string(db.with_extension("db-shm")).unwrap(),
-                "shm"
-            );
-        }
+        assert_eq!(std::fs::read_to_string(new.index_db()).unwrap(), "main");
+        assert_eq!(
+            std::fs::read_to_string(new.index_db().with_extension("db-wal")).unwrap(),
+            "wal"
+        );
+        assert_eq!(
+            std::fs::read_to_string(new.index_db().with_extension("db-shm")).unwrap(),
+            "shm"
+        );
     }
 
     #[test]

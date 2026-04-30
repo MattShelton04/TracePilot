@@ -1,6 +1,7 @@
 # AI Task System
 
-> **Status**: Experimental (behind `aiTasks` feature flag)  
+> **Status**: Removed. This document is retained as historical design context only; the AI Tasks feature, task DB, task IPC, task presets, and UI routes were removed after v0.6.4.
+> **Previous status**: Experimental (behind `aiTasks` feature flag)
 > **Introduced**: v0.7.0
 
 TracePilot's AI Task System enables automated analysis of Copilot CLI sessions by
@@ -179,7 +180,7 @@ stateDiagram-v2
    - Writes prompt to file (avoids PowerShell escaping issues)
    - Spawns detached `copilot-cli session --prompt "Read instructions at: {path}" --allow-all`
 3. **Orchestrator reads prompt file** → enters main loop
-4. **Main loop** (see [orchestrator_prompt.md](../crates/tracepilot-orchestrator/src/task_orchestrator/orchestrator_prompt.md)):
+4. **Main loop** (formerly defined by the removed `orchestrator_prompt.md` template):
    - Read manifest → check shutdown → find pending → process → write heartbeat → sleep → repeat
 
 ### Shutdown

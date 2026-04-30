@@ -1,5 +1,7 @@
 # TracePilot AI Agent Task System — Final Architecture
 
+> **Status**: Removed. This document is retained as historical design context only; the AI Tasks feature, task DB, task IPC, task presets, and UI routes were removed after v0.6.4.
+>
 > **TracePilot v0.6.1** | April 2026
 >
 > Definitive architecture for enabling AI agents to perform automated tasks within TracePilot.

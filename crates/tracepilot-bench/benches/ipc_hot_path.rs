@@ -56,27 +56,18 @@ fn bench_list_sessions(c: &mut Criterion) {
         group.throughput(Throughput::Elements(count as u64));
 
         group.bench_with_input(BenchmarkId::new("no_filter", count), &db, |b, db| {
-            b.iter(|| {
-                db.list_sessions_filtered(None, None, None, false, None)
-                    .unwrap()
-            });
+            b.iter(|| db.list_sessions_filtered(None, None, None, false).unwrap());
         });
         group.bench_with_input(BenchmarkId::new("hide_empty", count), &db, |b, db| {
             b.iter(|| {
-                db.list_sessions_filtered(Some(100), None, None, true, None)
+                db.list_sessions_filtered(Some(100), None, None, true)
                     .unwrap()
             });
         });
         group.bench_with_input(BenchmarkId::new("repo_filter", count), &db, |b, db| {
             b.iter(|| {
-                db.list_sessions_filtered(
-                    Some(100),
-                    Some("github.com/bench/project"),
-                    None,
-                    true,
-                    None,
-                )
-                .unwrap()
+                db.list_sessions_filtered(Some(100), Some("github.com/bench/project"), None, true)
+                    .unwrap()
             });
         });
     }
