@@ -16,7 +16,6 @@ export interface SidebarNavGroups {
   primary: NavItem[];
   advanced: NavItem[];
   orchestration: NavItem[];
-  tasks: NavItem[];
   configuration: NavItem[];
 }
 
@@ -35,7 +34,6 @@ export function useSidebarNav() {
       primary: [],
       advanced: [],
       orchestration: [],
-      tasks: [],
       configuration: [],
     };
 
@@ -77,14 +75,12 @@ export function useSidebarNav() {
   const visiblePrimaryNav = computed(() => allItems.value.primary.filter(isVisible));
   const visibleAdvancedNav = computed(() => allItems.value.advanced.filter(isVisible));
   const orchestrationNav = computed(() => allItems.value.orchestration);
-  const visibleTasksNav = computed(() => allItems.value.tasks.filter(isVisible));
   const visibleConfigNav = computed(() => allItems.value.configuration.filter(isVisible));
 
   return {
     visiblePrimaryNav,
     visibleAdvancedNav,
     orchestrationNav,
-    visibleTasksNav,
     visibleConfigNav,
   };
 }

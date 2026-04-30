@@ -85,7 +85,7 @@ static ALLOC: dhat::Alloc = dhat::Alloc;
 pub mod testing;
 
 pub use error::{Result, TracePilotError};
-pub use ids::{PresetId, SessionId, SkillName};
+pub use ids::{SessionId, SkillName};
 pub use models::{ConversationTurn, SessionEvent, SessionSummary, ShutdownMetrics, TurnToolCall};
 pub use session::discovery::{
     discover_sessions, resolve_session_path, resolve_session_path_direct,

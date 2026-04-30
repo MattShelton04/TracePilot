@@ -20,8 +20,8 @@ IPC contract + drift detection: ADR
 - `pub mod error` — `BindingsError` (flattens each downstream crate's error
   into a single `serde`-able shape for the frontend; see ADR 0005).
 - `pub mod events` — IPC event-name constants.
-- `pub mod types` — managed-state type aliases (`SharedOrchestratorState`,
-  `TurnCache`, `EventCache`, …).
+- `pub mod types` — managed-state DTOs and cache type aliases (`TurnCache`,
+  `EventCache`, …).
 - `pub mod concurrency` — `IndexingSemaphores` registry (w126): the unified
   set of `tokio::sync::Semaphore` gates that bound background indexing.
   Registered once as `Arc<IndexingSemaphores>` in Tauri managed state.

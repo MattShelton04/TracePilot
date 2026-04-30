@@ -20,8 +20,6 @@ pub struct FeaturesConfig {
     #[serde(default = "default_true")]
     pub skills: bool,
     #[serde(default)]
-    pub ai_tasks: bool,
-    #[serde(default)]
     pub copilot_sdk: bool,
 }
 
@@ -34,7 +32,6 @@ impl Default for FeaturesConfig {
             render_markdown: true,
             mcp_servers: true,
             skills: true,
-            ai_tasks: false,
             copilot_sdk: false,
         }
     }

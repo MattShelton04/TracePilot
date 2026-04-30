@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/windows-schema.json",
   "identifier": "viewer",
-  "description": "Permission set for viewer (pop-out session detail) windows. Originally read-only (Phase 1A.1 of tech-debt plan), now also allowlists SDK steering commands so popouts can drive their session — same single-Client backend, single-user app. Still excludes: dialog, opener, process, updater, notification, factory_reset, save_config, launch_session, skills_*, mcp_*, task_* (those remain main-window only). See docs/adr/0002-tauri-capability-scoping.md.",
+  "description": "Permission set for viewer (pop-out session detail) windows. Originally read-only (Phase 1A.1 of tech-debt plan), now also allowlists SDK steering commands so popouts can drive their session — same single-Client backend, single-user app. Still excludes: dialog, opener, process, updater, notification, factory_reset, save_config, launch_session, skills_*, and mcp_* commands. See docs/adr/0002-tauri-capability-scoping.md.",
   "windows": ["viewer-*"],
   "permissions": [
     "core:default",

@@ -59,15 +59,6 @@ pub fn atomic_json_read<T: DeserializeOwned + Default>(path: &Path) -> Result<T>
     }
 }
 
-/// Read a JSON file, returning `None` if it doesn't exist.
-pub fn atomic_json_read_opt<T: DeserializeOwned>(path: &Path) -> Result<Option<T>> {
-    match std::fs::read_to_string(path) {
-        Ok(content) => Ok(Some(serde_json::from_str(&content)?)),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
-        Err(e) => Err(e.into()),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -102,15 +93,6 @@ mod tests {
 
         let read: TestData = atomic_json_read(&path).unwrap();
         assert_eq!(read, TestData::default());
-    }
-
-    #[test]
-    fn read_opt_nonexistent_returns_none() {
-        let dir = TempDir::new().unwrap();
-        let path = dir.path().join("missing.json");
-
-        let read: Option<TestData> = atomic_json_read_opt(&path).unwrap();
-        assert!(read.is_none());
     }
 
     #[test]

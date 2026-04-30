@@ -37,11 +37,6 @@ export const ROUTE_NAMES = {
   mcpServerDetail: "mcp-server-detail",
   skillsManager: "skills-manager",
   skillEditor: "skill-editor",
-  tasks: "tasks",
-  taskCreate: "task-create",
-  taskDetail: "task-detail",
-  taskMonitor: "task-monitor",
-  taskPresets: "task-presets",
   notFound: "not-found",
 } as const;
 

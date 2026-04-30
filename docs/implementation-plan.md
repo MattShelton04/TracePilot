@@ -5,6 +5,7 @@
 **Source**: [tech-debt-consolidation-report.md](./archive/2026-04/tech-debt-consolidation-report.md)
 **Status**: ✅ **Implementation complete.** See §9 of the report for full status and commit references.
 **Scope**: 4 phases + backlog, 25 tasks total — 23 completed, 1 dropped, 1 deferred
+**Historical note**: Sections that reference the experimental AI Tasks feature, `tasks.db`, task IPC, task stores, or task presets are obsolete because AI Tasks was removed after v0.6.4.
 
 > Each task includes: context, exact files to change, before/after examples, dependencies, testing strategy, and risks. Tasks within a phase can generally be parallelized unless noted.
 

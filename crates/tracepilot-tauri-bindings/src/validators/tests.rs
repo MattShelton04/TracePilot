@@ -17,12 +17,6 @@ fn validate_session_id_returns_newtype_carrying_input() {
 }
 
 #[test]
-fn validate_preset_id_returns_newtype_carrying_input() {
-    let pid = validate_preset_id("my-preset").unwrap();
-    assert_eq!(pid.as_str(), "my-preset");
-}
-
-#[test]
 fn validate_skill_name_returns_newtype_carrying_input() {
     let sn = validate_skill_name("my.skill").unwrap();
     assert_eq!(sn.as_str(), "my.skill");
@@ -94,54 +88,6 @@ fn list_one_invalid_fails() {
 #[test]
 fn empty_list_passes() {
     assert!(validate_session_id_list(&[]).is_ok());
-}
-
-// -- validate_task_id ---------------------------------------------------
-
-#[test]
-fn task_valid_uuid_passes() {
-    assert!(validate_task_id("a1b2c3d4-e5f6-7890-abcd-ef1234567890").is_ok());
-}
-
-#[test]
-fn task_uppercase_uuid_passes() {
-    assert!(validate_task_id("A1B2C3D4-E5F6-7890-ABCD-EF1234567890").is_ok());
-}
-
-#[test]
-fn task_invalid_uuid_fails_with_validation_error() {
-    let err = validate_task_id("not-a-uuid").unwrap_err();
-    let msg = err.to_string();
-    assert!(msg.contains("Invalid task ID format"), "got: {msg}");
-    assert!(msg.contains("not-a-uuid"), "should include input: {msg}");
-}
-
-#[test]
-fn task_empty_string_fails() {
-    assert!(validate_task_id("").is_err());
-}
-
-#[test]
-fn task_partial_uuid_fails() {
-    // Only the first segment of a valid UUID — not a full UUID.
-    assert!(validate_task_id("a1b2c3d4").is_err());
-}
-
-// -- validate_job_id ------------------------------------------------------
-
-#[test]
-fn job_valid_uuid_passes() {
-    assert!(validate_job_id("a1b2c3d4-e5f6-7890-abcd-ef1234567890").is_ok());
-}
-
-#[test]
-fn job_invalid_id_fails() {
-    let err = validate_job_id("not-a-uuid").unwrap_err();
-    let msg = err.to_string();
-    assert!(
-        msg.contains("job ID"),
-        "error should say 'job ID', got: {msg}"
-    );
 }
 
 // -- clamp_limit --------------------------------------------------------

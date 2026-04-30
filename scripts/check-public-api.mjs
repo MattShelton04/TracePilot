@@ -26,7 +26,7 @@
  *   crates/tracepilot-orchestrator/README.md § Public API
  */
 
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const REPO_ROOT = new URL("..", import.meta.url).pathname.replace(/^\/([A-Z]:)/, "$1");

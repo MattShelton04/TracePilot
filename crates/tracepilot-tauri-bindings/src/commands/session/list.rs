@@ -15,16 +15,10 @@ pub async fn list_sessions(
     repo: Option<String>,
     branch: Option<String>,
     hide_empty: Option<bool>,
-    hide_orchestrator: Option<bool>,
 ) -> CmdResult<Vec<SessionListItem>> {
     let cfg = read_config(&state);
     let index_path = cfg.index_db_path();
     let session_state_dir = cfg.session_state_dir();
-    let exclude_cwd = if hide_orchestrator.unwrap_or(false) {
-        Some(cfg.jobs_dir().to_string_lossy().to_string())
-    } else {
-        None
-    };
 
     blocking_cmd!({
         // Fast path: query the index DB (single SQLite read, no per-session I/O)
@@ -39,7 +33,6 @@ pub async fn list_sessions(
                     repo.as_deref(),
                     branch.as_deref(),
                     hide_empty.unwrap_or(false),
-                    exclude_cwd.as_deref(),
                 )?;
 
                 return Ok(indexed
@@ -54,21 +47,11 @@ pub async fn list_sessions(
 
         let mut items = Vec::new();
         let should_hide_empty = hide_empty.unwrap_or(false);
-        // Normalize the exclude_cwd prefix for comparison (forward slashes)
-        let exclude_cwd_normalized = exclude_cwd.as_deref().map(|p| p.replace('\\', "/"));
         for session in sessions {
             let item = match load_summary_list_item(&session.path) {
                 Ok(item) => item,
                 Err(_) => continue,
             };
-
-            // Apply CWD exclusion filter (same logic as SQL path in session_reader)
-            if let Some(ref prefix) = exclude_cwd_normalized
-                && let Some(ref cwd) = item.cwd
-                && cwd.replace('\\', "/").starts_with(prefix.as_str())
-            {
-                continue;
-            }
 
             if repo
                 .as_ref()

@@ -50,7 +50,6 @@ This document proposes a **single-process, multi-window** architecture using Tau
 |---|---|---|
 | **Rust managed state** | `Arc<Mutex<...>>` / `Arc<RwLock<...>>` per resource | ✅ Already thread-safe and shared across all windows |
 | **SQLite IndexDb** | WAL mode + `busy_timeout=5000` | ✅ Concurrent readers supported; single writer serialised by SQLite |
-| **SQLite TaskDb** | `Arc<Mutex<Option<TaskDb>>>` | ✅ Mutex serialises access; shared across windows |
 | **BridgeManager** | `Arc<RwLock<BridgeManager>>` + `broadcast::channel` | ✅ Broadcast already fans out to multiple receivers |
 | **Tauri events** | `app.emit(event, payload)` | ✅ Broadcasts to ALL webviews in the process |
 | **LRU caches** | `Arc<Mutex<LruCache>>` for turns and events | ✅ Shared cache benefits all windows |
@@ -94,8 +93,6 @@ This document proposes a **single-process, multi-window** architecture using Tau
 │         │  Arc<RwLock<BridgeManager>>        │                   │
 │         │  Arc<Mutex<LruCache>> (turns)      │                   │
 │         │  Arc<Mutex<LruCache>> (events)     │                   │
-│         │  Arc<Mutex<TaskDb>>               │                   │
-│         │  Arc<Mutex<()>> (ManifestLock)     │                   │
 │         │  Arc<Semaphore> (indexing)          │                   │
 │         │  Arc<RwLock<Config>>               │                   │
 │         │  IndexDb (rusqlite Connection)      │                   │
@@ -221,12 +218,11 @@ Recommendation: Prefix window-specific localStorage keys with the window label (
 
 ### 6.1 Current Database Layout
 
-TracePilot uses three SQLite databases:
+TracePilot uses two categories of SQLite data:
 
 | Database | File | Access Pattern | Connection Owner |
 |---|---|---|---|
 | **IndexDb** | `~/.tracepilot/index.db` | Read-heavy, occasional writes during reindex | Opened per-request in commands |
-| **TaskDb** | `~/.tracepilot/tasks.db` | Read/write for task CRUD | `Arc<Mutex<Option<TaskDb>>>` singleton |
 | **session.db** (per-session) | `<session_dir>/session.db` | Read-only via `open_readonly()` | Opened per-request, dropped after |
 
 ### 6.2 Why Multi-Window is Safe

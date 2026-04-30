@@ -25,7 +25,7 @@
  * See: docs/tech-debt-followups-triage-2026-04.md § FU-02
  */
 
-import { readFileSync, existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const REPO_ROOT = new URL("..", import.meta.url).pathname.replace(/^\/([A-Z]:)/, "$1");
@@ -110,8 +110,7 @@ function scanBuiltIndexHtml() {
   // Match <script ...>BODY</script> where BODY is non-empty and non-whitespace.
   const rx = /<script\b([^>]*)>([\s\S]*?)<\/script(?:\s[^>]*)?>/gi;
   const offenders = [];
-  let m;
-  while ((m = rx.exec(html)) !== null) {
+  for (const m of html.matchAll(rx)) {
     const attrs = m[1];
     const body = m[2];
     const hasSrc = /\bsrc\s*=/.test(attrs);

@@ -7,6 +7,8 @@
 > compares integration strategies, identifies new capabilities, and provides a
 > concrete implementation roadmap.
 >
+> **Historical note:** Sections that mention the experimental AI task orchestrator are retained as historical SDK evaluation context only. The AI Tasks feature, task DB, task IPC, task presets, and UI routes were removed after v0.6.4.
+>
 > **Multi-model review completed**: Claude Opus 4.6, GPT 5.4, GPT 5.3 Codex.
 > See [Part 8: Consolidated Review Feedback](#part-8-consolidated-review-feedback) for findings.
 

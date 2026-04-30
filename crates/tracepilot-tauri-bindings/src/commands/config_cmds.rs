@@ -8,11 +8,9 @@ use crate::helpers::{
     mutex_poisoned, read_config, remove_index_db_files, validate_path_within,
     validate_write_path_within,
 };
-use crate::types::{SharedTaskDb, ValidateSessionDirResult};
+use crate::types::ValidateSessionDirResult;
 
-use super::config_paths::{
-    checkpoint_task_db, copy_tracepilot_home_if_moved, validate_configured_roots,
-};
+use super::config_paths::{copy_tracepilot_home_if_moved, validate_configured_roots};
 
 #[tauri::command]
 #[specta::specta]
@@ -31,7 +29,6 @@ pub async fn get_config(state: tauri::State<'_, SharedConfig>) -> CmdResult<Trac
 #[tracing::instrument(skip_all, level = "debug", err)]
 pub async fn save_config(
     state: tauri::State<'_, SharedConfig>,
-    task_db: tauri::State<'_, SharedTaskDb>,
     gates: tauri::State<'_, std::sync::Arc<IndexingSemaphores>>,
     config: TracePilotConfig,
 ) -> CmdResult<()> {
@@ -60,20 +57,9 @@ pub async fn save_config(
     let cfg_for_disk = cfg.clone();
     let cfg_for_state = cfg;
     let config_state = std::sync::Arc::clone(&*state);
-    let task_db_state = std::sync::Arc::clone(&*task_db);
     tokio::task::spawn_blocking(move || {
         let _session_indexing_permit = session_indexing_permit;
         let _search_indexing_permit = search_indexing_permit;
-        let mut task_guard = task_db_state
-            .lock()
-            .map_err(|_| BindingsError::Internal("TaskDb mutex poisoned".into()))?;
-        if old_tracepilot_home != new_tracepilot_home {
-            if let Some(handle) = task_guard.as_ref() {
-                checkpoint_task_db(handle)?;
-            }
-            let old_handle = task_guard.take();
-            drop(old_handle);
-        }
         copy_tracepilot_home_if_moved(&old_tracepilot_home, &new_tracepilot_home)?;
         cfg_for_disk.save()?;
 

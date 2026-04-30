@@ -8,7 +8,7 @@
 
 TracePilot runs two kinds of Tauri webview windows:
 
-- **Main window** (`main`) — the full application: orchestration, settings, MCP, SDK bridge, skills, task system, reindex, launcher, factory reset.
+- **Main window** (`main`) — the full application: orchestration, settings, MCP, SDK bridge, skills, reindex, launcher, factory reset.
 - **Viewer windows** (`viewer-<session-id>`) — a pop-out, single-session detail view (`ChildApp.vue` mounted when `isViewer()` is true in `apps/desktop/src/main.ts`).
 
 Before this ADR, a single capability file (`capabilities/default.json`) applied to `["main", "viewer-*"]` and granted `tracepilot:default` — which, combined with `build.rs` declaring the plugin via `InlinedPlugin::default_permission(AllowAllCommands)`, exposed **every** tracepilot IPC command to viewer windows.
@@ -20,13 +20,12 @@ That surface included destructive commands with no read-only use case:
 - Indexing and templates: `reindex_sessions*`, `save_session_template`, `delete_session_template`
 - Agent / skills mutations: `save_agent_definition`, all `skills_create|update|delete|rename|duplicate|import_*|remove_asset`
 - MCP mutations: `mcp_add_server|update_server|remove_server|toggle_server|import_*`
-- Task system: all `task_*`
 - SDK writes: `sdk_send_message`, `sdk_create_session`, `sdk_abort_session`, `sdk_destroy_session`, `sdk_unlink_session`, `sdk_set_session_mode`, `sdk_set_session_model`, `sdk_set_foreground_session`, `sdk_launch_ui_server`, `sdk_connect`, `sdk_disconnect`
 - Export / import: `export_sessions`, `import_sessions`, `export_logs`
 - Config backups: `create_config_backup`, `restore_config_backup`, `delete_config_backup`, `save_copilot_config`
 - Repo registry / worktrees mutations: `add_registered_repo`, `remove_registered_repo`, `toggle_repo_favourite`, `create_worktree`, `remove_worktree`, `prune_worktrees`, `lock_worktree`, `unlock_worktree`
 
-A misbehaving or hijacked viewer context could therefore factory-reset the install, overwrite config, mutate the task queue, or send arbitrary SDK messages.
+A misbehaving or hijacked viewer context could therefore factory-reset the install, overwrite config, mutate app integrations, or send arbitrary SDK messages.
 
 ## Decision
 
@@ -95,7 +94,7 @@ Do **not** grant any `*_send`, `*_create`, `*_update`, `*_delete`, `*_import`, `
 
 ## Consequences
 
-- **Positive:** A compromised or bugged viewer window can no longer factory-reset, write config, mutate MCP/skills/tasks, send SDK messages, or launch processes. The attack surface drops from ~160 commands to 15.
+- **Positive:** A compromised or bugged viewer window can no longer factory-reset, write config, mutate MCP/skills, send SDK messages, or launch processes. The attack surface drops from ~160 commands to 15.
 - **Positive:** The allow-list is declarative JSON — easy to audit in code review.
 - **Negative:** Any new read-only command needed by the viewer must be added in two places: the Rust command registration *and* `capabilities/viewer.json`. The CI test proposed in Phase 1A.1 (`test_viewer_disallows_destructive`) will help keep this honest.
 - **Negative:** The three UX regressions in `SessionDetailPanel` listed above. Tracked as follow-up: hide those buttons when `isViewer()`.

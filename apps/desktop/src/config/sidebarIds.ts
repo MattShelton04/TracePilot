@@ -26,9 +26,6 @@ export const SIDEBAR_IDS = {
   configInjector: "config-injector",
   mcp: "mcp",
   skills: "skills",
-  aiTasks: "ai-tasks",
-  aiMonitor: "ai-monitor",
-  aiPresets: "ai-presets",
 } as const;
 
 export type SidebarId = (typeof SIDEBAR_IDS)[keyof typeof SIDEBAR_IDS];

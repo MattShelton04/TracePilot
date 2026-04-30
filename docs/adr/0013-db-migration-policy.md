@@ -4,6 +4,8 @@ Status: Accepted
 Date: 2026-04
 Authors: TracePilot maintainers (wave 15, Phase 3-safety.1)
 
+> **Note:** The experimental AI Tasks feature and its `tasks.db` database were removed after v0.6.4. The `TaskDb` material below is retained as historical context; current runtime state uses `index.db`.
+
 ## Context
 
 TracePilot persists runtime state in two on-disk SQLite databases:

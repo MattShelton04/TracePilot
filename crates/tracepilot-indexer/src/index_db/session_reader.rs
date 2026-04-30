@@ -21,17 +21,16 @@ impl IndexDb {
         filter_branch: Option<&str>,
         hide_empty: bool,
     ) -> Result<Vec<IndexedSession>> {
-        self.list_sessions_filtered(limit, filter_repo, filter_branch, hide_empty, None)
+        self.list_sessions_filtered(limit, filter_repo, filter_branch, hide_empty)
     }
 
-    /// List sessions with optional CWD prefix exclusion (used to hide orchestrator sessions).
+    /// List sessions with optional metadata filters.
     pub fn list_sessions_filtered(
         &self,
         limit: Option<usize>,
         filter_repo: Option<&str>,
         filter_branch: Option<&str>,
         hide_empty: bool,
-        exclude_cwd_prefix: Option<&str>,
     ) -> Result<Vec<IndexedSession>> {
         use super::helpers::build_eq_filter;
 
@@ -55,16 +54,6 @@ impl IndexDb {
                 branch.to_string(),
                 &mut query_params,
             ));
-        }
-
-        if let Some(prefix) = exclude_cwd_prefix {
-            // Normalize both sides to forward slashes for Windows compatibility.
-            // The copilot CLI may record CWD with backslashes or forward slashes,
-            // and cfg.jobs_dir() may differ.  `REPLACE(cwd, '\', '/')` ensures
-            // the LIKE comparison works regardless of separator style.
-            let normalized = prefix.replace('\\', "/");
-            sql.push_str(" AND (cwd IS NULL OR REPLACE(cwd, '\\', '/') NOT LIKE ?)");
-            query_params.push(Box::new(format!("{normalized}%")));
         }
 
         sql.push_str(" ORDER BY updated_at DESC");

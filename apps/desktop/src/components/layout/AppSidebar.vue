@@ -29,13 +29,8 @@ const sessionsStore = useSessionsStore();
 const prefsStore = usePreferencesStore();
 const alertsStore = useAlertsStore();
 
-const {
-  visiblePrimaryNav,
-  visibleAdvancedNav,
-  orchestrationNav,
-  visibleTasksNav,
-  visibleConfigNav,
-} = useSidebarNav();
+const { visiblePrimaryNav, visibleAdvancedNav, orchestrationNav, visibleConfigNav } =
+  useSidebarNav();
 
 const activeSidebarId = computed(() => (route.meta?.sidebarId as string) || "sessions");
 const sessionCount = computed(() => sessionsStore.visibleSessionCount);
@@ -173,31 +168,6 @@ async function handleVersionClick() {
         </span>
         <span>{{ item.label }}</span>
       </router-link>
-
-      <!-- AI Tasks section -->
-      <template v-if="visibleTasksNav.length > 0">
-        <div class="sidebar-section-title">AI Tasks</div>
-
-        <router-link
-          v-for="item in visibleTasksNav"
-          :key="item.id"
-          :to="item.to"
-          :data-nav-id="item.id"
-          :data-testid="`nav-${item.id}`"
-          class="sidebar-nav-item"
-          :class="{ active: activeSidebarId === item.id }"
-        >
-          <span class="nav-icon">
-            <!-- ai-tasks (task list) -->
-            <svg v-if="item.icon === 'ai-tasks'" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 2h8a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V4a2 2 0 012-2z"/><path d="M5 6h6M5 8.5h4M5 11h2"/></svg>
-            <!-- ai-monitor (heartbeat) -->
-            <svg v-else-if="item.icon === 'ai-monitor'" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 8h3l1.5-4 2 8L10 6l1.5 2H15"/></svg>
-            <!-- ai-presets (template) -->
-            <svg v-else-if="item.icon === 'ai-presets'" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="1" width="12" height="14" rx="1.5"/><path d="M5 4.5h6M5 7.5h6M5 10.5h3"/></svg>
-          </span>
-          <span>{{ item.label }}</span>
-        </router-link>
-      </template>
 
       <!-- Configuration section -->
       <template v-if="visibleConfigNav.length > 0">

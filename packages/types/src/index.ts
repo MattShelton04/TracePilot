@@ -39,15 +39,8 @@ export {
   DEFAULT_AUTO_REFRESH_INTERVAL_SECONDS,
   DEFAULT_CLI_COMMAND,
   DEFAULT_CONTENT_MAX_WIDTH,
-  DEFAULT_CONTEXT_BUDGET_TOKENS,
   DEFAULT_COST_PER_PREMIUM_REQUEST,
   DEFAULT_FEATURES,
-  DEFAULT_HEARTBEAT_STALE_MULTIPLIER,
-  DEFAULT_MAX_CONCURRENT_TASKS,
-  DEFAULT_MAX_RETRIES,
-  DEFAULT_ORCHESTRATOR_MODEL,
-  DEFAULT_POLL_INTERVAL_SECONDS,
-  DEFAULT_SUBAGENT_MODEL,
   DEFAULT_UI_SCALE,
 } from "./defaults.js";
 export type {
@@ -231,46 +224,6 @@ export type {
   SkillTokenBudget,
   SkillTokenEntry,
 } from "./skills.js";
-export type {
-  AttributionSnapshot,
-  ContextFormat,
-  ContextSource,
-  ContextSourceType,
-  HealthCheckResult,
-  Job,
-  JobStatus,
-  NewTask,
-  OrchestratorEvent,
-  OrchestratorHandle,
-  OrchestratorHealth,
-  OrchestratorState,
-  OrchestratorStatus,
-  OrchestratorTaskConfig,
-  OutputFormat,
-  PresetContext,
-  PresetExecution,
-  PresetOutput,
-  PresetPrompt,
-  PromptVariable,
-  SubagentStatus,
-  Task,
-  TaskCompletedEvent,
-  TaskFilter,
-  TaskPreset,
-  TaskResult,
-  TaskStats,
-  TaskStatus,
-  TaskSubagentEvent,
-  TrackedSubagent,
-  ValidationMode,
-  VariableType,
-} from "./tasks.js";
-// ── tasks.js ───────────────────────────────────────────────────────
-export {
-  DEFAULT_ORCHESTRATOR_CONFIG,
-  isTerminalStatus,
-  TERMINAL_TASK_STATUSES,
-} from "./tasks.js";
 export type { ToolArgs } from "./tool-args.js";
 // ── tool-args.js ───────────────────────────────────────────────────
 export { getToolArgs, toolArgString } from "./tool-args.js";
