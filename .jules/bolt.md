@@ -1,0 +1,3 @@
+## 2024-05-01 - Optimize SQL placeholder string generation
+**Learning:** When dynamically generating large SQL placeholder strings in Rust for batch inserts with `rusqlite`, using anonymous sequential bindings (`?`) with simple character pushes is significantly faster and allocates less than using indexed parameters (`?1`) with `std::fmt::Write` (`write!`), because it eliminates integer formatting overhead.
+**Action:** Always prefer anonymous sequential bindings (`?`) and `String::push('?')` over `write!(&mut string, "?{i}")` when generating dynamic SQL placeholder strings for SQLite batch inserts.
