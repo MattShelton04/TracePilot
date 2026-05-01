@@ -56,10 +56,8 @@ const ALLOWLIST = new Set([
   // TODO(wave-2): decompose — see Phase 4 of docs/archive/2026-04/tech-debt-plan-revised-2026-04.md
   "crates/tracepilot-indexer/src/index_db/helpers.rs",
   "crates/tracepilot-tauri-bindings/src/commands/tasks.rs",
-  "crates/tracepilot-indexer/src/index_db/session_writer.rs",
   "crates/tracepilot-orchestrator/src/task_db/operations.rs",
   "crates/tracepilot-export/src/builder.rs",
-  "crates/tracepilot-orchestrator/src/templates.rs",
   "crates/tracepilot-export/src/redaction/mod.rs",
   "crates/tracepilot-export/src/import/validator.rs",
   "crates/tracepilot-orchestrator/src/worktrees.rs",

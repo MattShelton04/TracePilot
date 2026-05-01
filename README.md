@@ -168,9 +168,9 @@ TracePilot includes a feature flag system (Settings → Experimental Features) t
 
 | Flag | Feature |
 |------|---------|
-| **Session Replay** | Step through a session's event timeline. Currently working but needs furnishing |
-| **Health Scoring** | Per-session health scores with configurable weights and thresholds. Currently not implemented |
-| **Export** | Export Sessions — format/section selection with preview. Currently not implemented |
+| **Session Replay** | Step through a session's event timeline using real indexed session data. Preview feature. |
+| **Health Scoring** | Per-session health score UI backed by placeholder/mock data until the backend scoring API lands. Preview feature. |
+| **Export** | Export sessions as TracePilot JSON, Markdown, CSV, or raw zip archives with format/section selection and preview. |
 
 ### Settings
 
@@ -206,10 +206,11 @@ Requires [Rust](https://rustup.rs/) (1.85+), [Node.js](https://nodejs.org/) (20+
 ```bash
 git clone https://github.com/MattShelton04/TracePilot.git
 cd TracePilot
+pnpm install
 pnpm start
 ```
 
-That's it. `pnpm start` installs dependencies, builds the source, and launches the app automatically. On first launch, the setup wizard will guide you through configuration and index your sessions.
+`pnpm install` installs the workspace dependencies. `pnpm start` runs `pnpm tauri dev --no-watch`, which starts the Vite frontend, builds the Rust/Tauri backend as needed, and launches the desktop app. On first launch, the setup wizard will guide you through configuration and index your sessions.
 
 > **Note:** A Tauri desktop window will open — this is the full app with the Rust backend. The terminal will also print a localhost URL, but opening that in a browser only shows the frontend with mock data (no backend communication). Always use the desktop window for the real experience.
 
@@ -441,8 +442,8 @@ pnpm format
 
 | Feature | Status | Description |
 |---------|--------|-------------|
-| **Export** | In Progress | Export sessions as Markdown, JSON, or CSV with configurable sections. UI prototype complete behind feature flag; backend partially implemented (JSON works, Markdown/CSV pending). |
-| **Health Scoring** | Preview | Per-session health scores with configurable weights and thresholds. Available behind feature flag. |
+| **Export** | Preview | Export sessions as Markdown, TracePilot JSON, CSV, or raw zip archives with configurable sections and redaction options. Available behind feature flag. |
+| **Health Scoring** | Stub Preview | Per-session health score UI is available behind a feature flag, but currently uses placeholder/mock-backed data until backend scoring lands. |
 | **CLI Tool** | Experimental | Terminal-based session browser with `list`, `show`, `search`, `resume`, and `index` commands. Partially functional (`list`, `show`, `search` work; `index` is a stub). Not yet recommended for general use. |
 
 ### Ideas & Future Exploration

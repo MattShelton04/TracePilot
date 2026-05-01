@@ -36,5 +36,5 @@ of scope for the current wave. Porting the CDP harness to a
 `tests/e2e/*.spec.ts` Playwright project was evaluated in Wave 106 and
 explicitly deferred — the `tracepilot-app-automation` skill plus the
 canonical smoke/perf scripts are the E2E path (see `docs/testing.md`);
-follow-up items live in `docs/tech-debt-future-improvements-2026-04.md`
-(w106).
+follow-up items should be tracked in the current improvement review or a
+fresh issue before being scheduled.

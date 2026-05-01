@@ -113,4 +113,4 @@ Do **not** grant any `*_send`, `*_create`, `*_update`, `*_delete`, `*_import`, `
 - `apps/desktop/src-tauri/gen/schemas/capabilities.json` (generated)
 - `apps/desktop/src/main.ts:28-50` (viewer dispatch)
 - `apps/desktop/src/ChildApp.vue` (viewer entry point)
-- `docs/archive/2026-04/tech-debt-plan-revised-2026-04.md` §1A.1
+- Historical capability-scoping plan notes are available in git history before the 2026-05-01 documentation cleanup.

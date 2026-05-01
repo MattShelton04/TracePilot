@@ -4,8 +4,8 @@
  *
  * Invoked as: node scripts/check-commit-msg.mjs <path-to-commit-msg-file>
  *
- * Extracted from the inline lefthook command in w103 to avoid YAML escaping
- * fragility (see docs/tech-debt-future-improvements-2026-04.md w103 notes).
+ * Extracted from the inline lefthook command to avoid YAML escaping
+ * fragility.
  */
 
 import { readFileSync } from "node:fs";
