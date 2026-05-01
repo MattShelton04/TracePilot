@@ -47,34 +47,13 @@ const ALLOWLIST = new Set([
 
   // ── TS stores (Wave 102 — biome formatter expansion) ───────────
   // TODO(w102): decompose try/catch helpers; expanded past budget by biome 2.4 formatter.
-  "apps/desktop/src/stores/sdk/connection.ts",
 
   // ── Rust god-modules (Phase 4 decomposition targets) ───────────
-  // TODO(FI-w123-error-variants): split ErrorCode variants into domain submodules when BindingsError grows further
-  "crates/tracepilot-tauri-bindings/src/error.rs",
   "crates/tracepilot-orchestrator/src/bridge/manager.rs",
   // TODO(wave-2): decompose — see Phase 4 of docs/archive/2026-04/tech-debt-plan-revised-2026-04.md
-  "crates/tracepilot-indexer/src/index_db/helpers.rs",
   "crates/tracepilot-tauri-bindings/src/commands/tasks.rs",
-  "crates/tracepilot-indexer/src/index_db/session_writer.rs",
   "crates/tracepilot-orchestrator/src/task_db/operations.rs",
-  "crates/tracepilot-export/src/builder.rs",
-  "crates/tracepilot-orchestrator/src/templates.rs",
-  "crates/tracepilot-export/src/redaction/mod.rs",
-  "crates/tracepilot-export/src/import/validator.rs",
-  "crates/tracepilot-orchestrator/src/worktrees.rs",
-  "crates/tracepilot-export/src/import/mod.rs",
-  "crates/tracepilot-tauri-bindings/src/commands/search.rs",
   "crates/tracepilot-orchestrator/src/task_context/sources.rs",
-  "crates/tracepilot-core/src/utils/sqlite.rs",
-  "crates/tracepilot-indexer/src/index_db/analytics_queries.rs",
-  "crates/tracepilot-core/src/analytics/dashboard.rs",
-  "crates/tracepilot-indexer/src/index_db/search_writer/content_extraction.rs",
-  "crates/tracepilot-core/src/summary/mod.rs",
-  "crates/tracepilot-bench/src/lib.rs",
-  "crates/tracepilot-export/src/import/writer.rs",
-  // TODO(FI-w123-migrations-module): split run_migrations out into a dedicated module
-  "crates/tracepilot-indexer/src/index_db/migrations.rs",
 
   // ── Rust test files ─────────────────────────────────────────────
   "crates/tracepilot-core/src/turns/tests/builders.rs",
@@ -82,28 +61,13 @@ const ALLOWLIST = new Set([
   "crates/tracepilot-core/src/turns/tests/session_events.rs",
   "crates/tracepilot-core/src/turns/tests/subagent_lifecycle.rs",
   "crates/tracepilot-export/tests/integration.rs",
-  "crates/tracepilot-indexer/src/index_db/search_writer/tests.rs",
 
   // ── Pinia stores (Phase 4/5) ────────────────────────────────────
-  "apps/desktop/src/stores/worktrees.ts",
   "apps/desktop/src/stores/skills.ts",
   "apps/desktop/src/stores/tasks.ts",
   "apps/desktop/src/stores/mcp.ts",
 
-  // ── TypeScript helpers ──────────────────────────────────────────
-  "apps/cli/src/lib/version-analyzer.ts",
-  "packages/client/src/mock/index.ts",
-
   // ── Test files (allow-listed; not a Phase 4 priority) ──────────
-  "apps/desktop/src/__tests__/stores/worktrees.test.ts",
-  "apps/desktop/src/__tests__/stores/mcp.test.ts",
-  "apps/desktop/src/__tests__/stores/sessionDetail.test.ts",
-  "apps/desktop/src/__tests__/stores/skills.test.ts",
-  "apps/desktop/src/__tests__/stores/configInjector.test.ts",
-  "apps/desktop/src/__tests__/stores/search.test.ts",
-  "apps/desktop/src/__tests__/stores/orchestrationHome.test.ts",
-  "apps/desktop/src/__tests__/stores/launcher.test.ts",
-  "apps/desktop/src/__tests__/stores/analytics.test.ts",
   "apps/desktop/src/__tests__/components/timeline/AgentTreeView.test.ts",
   "apps/desktop/src/__tests__/composables/useCachedFetch.test.ts",
   "apps/desktop/src/__tests__/composables/useImportFlow.test.ts",

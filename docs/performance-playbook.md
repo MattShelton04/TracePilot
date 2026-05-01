@@ -2,7 +2,7 @@
 
 Quick-reference guide for profiling, benchmarking, and finding bottlenecks in TracePilot.
 
-> **Full analysis**: [`docs/performance-analysis-report.md`](performance-analysis-report.md)
+> Historical generated performance analysis reports were removed in the 2026-05-01 docs cleanup.
 > **Performance budgets**: [`perf-budget.json`](../perf-budget.json) (CI-enforced)
 
 ---

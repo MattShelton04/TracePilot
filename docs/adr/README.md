@@ -59,8 +59,8 @@ Do **not** write an ADR for:
 - One-off bug fixes or refactors that touch a single module.
 - Style or formatting choices (those belong in `rustfmt.toml` /
   `biome.json`).
-- Temporary workarounds (those belong in code comments or in
-  `docs/tech-debt-future-improvements-2026-04.md`).
+- Temporary workarounds (those belong in code comments or in the current
+  improvement review notes under `docs/improvements/`).
 
 ## Numbering
 
@@ -106,7 +106,7 @@ decision probably isn't worth an ADR.
 
 - Code paths that implement the decision.
 - Related ADRs (supersedes / superseded by / informs).
-- Relevant wave entries in `docs/tech-debt-master-plan-2026-04.md`.
+- Relevant roadmap entries or issue/PR references.
 ```
 
 Keep each ADR under ~200 lines. If you need more, you probably have

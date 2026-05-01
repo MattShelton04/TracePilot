@@ -21,7 +21,7 @@ TracePilot explicitly supports, in tiers:
 Implications:
 
 1. CI matrix runs `ubuntu-latest`, `windows-latest`, and `macos-latest` for build + test. Lint / fmt / audit gates run only on Linux (single source of truth).
-2. Release workflow will be extended to produce artefacts for all three platforms. Tracked in `docs/archive/2026-04/tech-debt-plan-revised-2026-04.md` Phase 6.1.
+2. Release workflow will be extended to produce artefacts for all three platforms.
 3. Platform differences use `cfg(...)` guards; path handling must use `std::path` / `node:path` primitives.
 4. Any test with hardcoded `\\` or `/` separators must be refactored.
 
@@ -33,5 +33,4 @@ Implications:
 
 ## References
 
-- `docs/archive/2026-04/tech-debt-audit-2026-04.md` — cross-platform drift findings.
-- `docs/archive/2026-04/tech-debt-plan-revised-2026-04.md` Phase 0.2, 0.15, 6.1, 6.3.
+- Historical cross-platform drift findings and release-plan notes are available in git history before the 2026-05-01 documentation cleanup.

@@ -2,8 +2,7 @@
 
 > Status: evaluated in **Wave 130** (2026-04). Decision: keep the bespoke
 > regex tokenizer; document it; capture shiki/highlight.js migration as a
-> future improvement. See FI entries `FI-w130-*` in
-> `docs/tech-debt-future-improvements-2026-04.md`.
+> future improvement.
 
 ## Library choice
 
@@ -149,7 +148,6 @@ fallbacks, so theming hooks into the existing design-token pipeline
 
 - `packages/ui/src/utils/markdownLite.ts` — fenced-code dispatcher.
 - `packages/ui/src/utils/languageDetection.ts` — file-path → language id.
-- FI entries `FI-w130-*` in
-  `docs/tech-debt-future-improvements-2026-04.md` — conditions under
-  which migrating to `shiki` or making tokenization theme-aware would
-  become worthwhile.
+- Migrating to `shiki` or making tokenization theme-aware becomes worthwhile
+  if bundled grammar coverage or theme fidelity matter more than the current
+  lightweight tokenizer.

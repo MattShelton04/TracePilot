@@ -1,0 +1,7 @@
+name: task
+displayName: Task Agent
+description: Fixture task agent.
+model: claude-haiku-4.5
+tools:
+  - read
+  - edit
