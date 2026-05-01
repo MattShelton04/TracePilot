@@ -206,11 +206,10 @@ Requires [Rust](https://rustup.rs/) (1.85+), [Node.js](https://nodejs.org/) (20+
 ```bash
 git clone https://github.com/MattShelton04/TracePilot.git
 cd TracePilot
-pnpm install
 pnpm start
 ```
 
-`pnpm install` installs the workspace dependencies. `pnpm start` runs `pnpm tauri dev --no-watch`, which starts the Vite frontend, builds the Rust/Tauri backend as needed, and launches the desktop app. On first launch, the setup wizard will guide you through configuration and index your sessions.
+That's it. `pnpm start` installs dependencies, builds the source, and launches the app automatically. On first launch, the setup wizard will guide you through configuration and index your sessions.
 
 > **Note:** A Tauri desktop window will open — this is the full app with the Rust backend. The terminal will also print a localhost URL, but opening that in a browser only shows the frontend with mock data (no backend communication). Always use the desktop window for the real experience.
 
