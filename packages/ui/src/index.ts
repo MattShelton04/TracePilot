@@ -114,7 +114,11 @@ export { useConfirmDialog } from "./composables/useConfirmDialog";
 export type { ConversationSectionsReturn } from "./composables/useConversationSections";
 export { useConversationSections } from "./composables/useConversationSections";
 export { useDismissable } from "./composables/useDismissable";
-export type { UseFileBrowserTreeOptions } from "./composables/useFileBrowserTree";
+export type {
+  FileBrowserFolderNode,
+  FileBrowserTreeRow,
+  UseFileBrowserTreeOptions,
+} from "./composables/useFileBrowserTree";
 export { useFileBrowserTree } from "./composables/useFileBrowserTree";
 export type { UseInflightPromiseReturn } from "./composables/useInflightPromise";
 export { useInflightPromise } from "./composables/useInflightPromise";

@@ -16,6 +16,14 @@ const nestedEntries: FileBrowserEntry[] = [
   { path: "events.jsonl", name: "events.jsonl", sizeBytes: 512, isDirectory: false },
 ];
 
+const deeplyNestedEntries: FileBrowserEntry[] = [
+  { path: "folder", name: "folder", sizeBytes: 0, isDirectory: true },
+  { path: "folder/folder2", name: "folder2", sizeBytes: 0, isDirectory: true },
+  { path: "file.txt", name: "file.txt", sizeBytes: 128, isDirectory: false },
+  { path: "folder/abc.txt", name: "abc.txt", sizeBytes: 256, isDirectory: false },
+  { path: "folder/folder2/xyz.txt", name: "xyz.txt", sizeBytes: 512, isDirectory: false },
+];
+
 describe("FileBrowserTree", () => {
   it("renders loading state", () => {
     const wrapper = mount(FileBrowserTree, {
@@ -76,6 +84,27 @@ describe("FileBrowserTree", () => {
     // Files under folder should be visible initially (folder starts expanded)
     expect(wrapper.text()).toContain("plan.md");
     expect(wrapper.text()).toContain("notes.md");
+  });
+
+  it("renders nested folders under their parent instead of as top-level path groups", () => {
+    const wrapper = mount(FileBrowserTree, {
+      props: { entries: deeplyNestedEntries },
+    });
+
+    const folderRows = wrapper.findAll(".fb-tree__folder");
+    expect(folderRows.map((row) => row.find(".fb-tree__folder-name").text())).toEqual([
+      "folder",
+      "folder2",
+    ]);
+    expect(folderRows.map((row) => row.attributes("data-depth"))).toEqual(["0", "1"]);
+
+    const fileRows = wrapper.findAll(".fb-tree__item");
+    expect(fileRows.map((row) => row.find(".fb-tree__name").text())).toEqual([
+      "file.txt",
+      "abc.txt",
+      "xyz.txt",
+    ]);
+    expect(fileRows.map((row) => row.attributes("data-depth"))).toEqual(["0", "1", "2"]);
   });
 
   it("toggles folder collapse on click", async () => {

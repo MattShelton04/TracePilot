@@ -15,7 +15,7 @@ const emit = defineEmits<{
   newFile: [name: string];
 }>();
 
-const { treeStructure, fileCount, collapsedFolders, toggleFolder, formatSize } = useFileBrowserTree(
+const { visibleRows, fileCount, collapsedFolders, toggleFolder, formatSize } = useFileBrowserTree(
   toRef(props, "assets"),
 );
 
@@ -46,6 +46,14 @@ function onNewFileBlur() {
   setTimeout(() => {
     if (showNewFileInput.value) cancelNewFile();
   }, 150);
+}
+
+function depthStyle(depth: number): Record<string, string> {
+  const indent = 6 + depth * 16;
+  return {
+    "--assets-tree-indent": `${indent}px`,
+    "--assets-tree-chevron-left": `${Math.max(0, indent - 12)}px`,
+  };
 }
 </script>
 
@@ -86,69 +94,46 @@ function onNewFileBlur() {
     </div>
 
     <div v-else class="assets-tree__list">
-      <!-- Root-level files -->
-      <div
-        v-for="asset in treeStructure.rootFiles"
-        :key="asset.path"
-        class="assets-tree__item"
-      >
-        <svg class="assets-tree__file-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round">
-          <path d="M4 2h5l4 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/>
-          <path d="M9 2v4h4"/>
-        </svg>
-        <span class="assets-tree__name assets-tree__name--clickable" @click="emit('viewAsset', asset)">
-          {{ asset.name }}
-        </span>
-        <span class="assets-tree__size">{{ formatSize(asset.sizeBytes) }}</span>
-        <button
-          class="assets-tree__remove"
-          title="Remove asset"
-          @click="emit('removeAsset', asset.path)"
+      <template v-for="row in visibleRows" :key="row.kind === 'file' ? `file:${row.entry.path}` : `folder:${row.folder.path}`">
+        <div
+          v-if="row.kind === 'file'"
+          class="assets-tree__item"
+          :style="depthStyle(row.depth)"
+          :data-depth="row.depth"
         >
-          ✕
-        </button>
-      </div>
-
-      <!-- Folders -->
-      <template v-for="(folderAssets, folder) in treeStructure.folders" :key="folder">
+          <svg class="assets-tree__file-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round">
+            <path d="M4 2h5l4 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/>
+            <path d="M9 2v4h4"/>
+          </svg>
+          <span class="assets-tree__name assets-tree__name--clickable" @click="emit('viewAsset', row.entry)">
+            {{ row.entry.name }}
+          </span>
+          <span class="assets-tree__size">{{ formatSize(row.entry.sizeBytes) }}</span>
+          <button
+            class="assets-tree__remove"
+            title="Remove asset"
+            @click="emit('removeAsset', row.entry.path)"
+          >
+            ✕
+          </button>
+        </div>
         <button
+          v-else
           class="assets-tree__folder"
-          :aria-expanded="!collapsedFolders.has(String(folder))"
-          @click="toggleFolder(String(folder))"
+          :style="depthStyle(row.depth)"
+          :data-depth="row.depth"
+          :aria-expanded="!collapsedFolders.has(row.folder.path)"
+          @click="toggleFolder(row.folder.path)"
         >
           <span class="assets-tree__chevron">
-            {{ collapsedFolders.has(String(folder)) ? "▸" : "▾" }}
+            {{ collapsedFolders.has(row.folder.path) ? "▸" : "▾" }}
           </span>
           <svg class="assets-tree__folder-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M2 4h4l1.5 1.5H14v7.5H2V4z"/>
           </svg>
-          <span class="assets-tree__folder-name">{{ folder }}</span>
-          <span class="assets-tree__folder-count">({{ folderAssets.length }})</span>
+          <span class="assets-tree__folder-name">{{ row.folder.name }}</span>
+          <span class="assets-tree__folder-count">({{ row.folder.fileCount }})</span>
         </button>
-
-        <template v-if="!collapsedFolders.has(String(folder))">
-          <div
-            v-for="asset in folderAssets"
-            :key="asset.path"
-            class="assets-tree__item assets-tree__item--nested"
-          >
-            <svg class="assets-tree__file-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round">
-              <path d="M4 2h5l4 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/>
-              <path d="M9 2v4h4"/>
-            </svg>
-            <span class="assets-tree__name assets-tree__name--clickable" @click="emit('viewAsset', asset)">
-              {{ asset.name }}
-            </span>
-            <span class="assets-tree__size">{{ formatSize(asset.sizeBytes) }}</span>
-            <button
-              class="assets-tree__remove"
-              title="Remove asset"
-              @click="emit('removeAsset', asset.path)"
-            >
-              ✕
-            </button>
-          </div>
-        </template>
       </template>
     </div>
   </div>
@@ -248,11 +233,12 @@ function onNewFileBlur() {
 
 /* ── Folder row ──────────────────────────────────────────── */
 .assets-tree__folder {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 5px;
   width: 100%;
-  padding: 5px 6px;
+  padding: 5px 6px 5px var(--assets-tree-indent, 6px);
   border: none;
   background: none;
   border-radius: var(--radius-md);
@@ -272,11 +258,17 @@ function onNewFileBlur() {
 }
 
 .assets-tree__chevron {
+  position: absolute;
+  left: var(--assets-tree-chevron-left, 0);
+  top: 50%;
+  transform: translateY(-50%);
   font-size: 0.625rem;
   color: var(--text-tertiary);
   width: 10px;
   flex-shrink: 0;
   line-height: 1;
+  text-align: center;
+  pointer-events: none;
 }
 
 .assets-tree__folder-icon {
@@ -309,7 +301,7 @@ function onNewFileBlur() {
   display: flex;
   align-items: center;
   gap: 7px;
-  padding: 5px 6px;
+  padding: 5px 6px 5px var(--assets-tree-indent, 6px);
   border-radius: var(--radius-md);
   transition: background var(--transition-fast);
 }
