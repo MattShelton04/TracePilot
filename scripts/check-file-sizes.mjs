@@ -55,10 +55,6 @@ const ALLOWLIST = new Set([
   "crates/tracepilot-tauri-bindings/src/commands/tasks.rs",
   "crates/tracepilot-orchestrator/src/task_db/operations.rs",
   "crates/tracepilot-orchestrator/src/task_context/sources.rs",
-  "crates/tracepilot-indexer/src/index_db/search_writer/content_extraction.rs",
-  "crates/tracepilot-bench/src/lib.rs",
-  // TODO(FI-w123-migrations-module): split run_migrations out into a dedicated module
-  "crates/tracepilot-indexer/src/index_db/migrations.rs",
 
   // ── Rust test files ─────────────────────────────────────────────
   "crates/tracepilot-core/src/turns/tests/builders.rs",
