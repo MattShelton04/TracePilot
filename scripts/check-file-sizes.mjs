@@ -54,13 +54,10 @@ const ALLOWLIST = new Set([
   "crates/tracepilot-tauri-bindings/src/error.rs",
   "crates/tracepilot-orchestrator/src/bridge/manager.rs",
   // TODO(wave-2): decompose — see Phase 4 of docs/archive/2026-04/tech-debt-plan-revised-2026-04.md
-  "crates/tracepilot-indexer/src/index_db/helpers.rs",
   "crates/tracepilot-tauri-bindings/src/commands/tasks.rs",
   "crates/tracepilot-orchestrator/src/task_db/operations.rs",
   "crates/tracepilot-tauri-bindings/src/commands/search.rs",
   "crates/tracepilot-orchestrator/src/task_context/sources.rs",
-  "crates/tracepilot-core/src/utils/sqlite.rs",
-  "crates/tracepilot-indexer/src/index_db/analytics_queries.rs",
   "crates/tracepilot-core/src/analytics/dashboard.rs",
   "crates/tracepilot-indexer/src/index_db/search_writer/content_extraction.rs",
   "crates/tracepilot-bench/src/lib.rs",
