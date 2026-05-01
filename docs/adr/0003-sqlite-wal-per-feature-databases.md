@@ -90,5 +90,4 @@ UI, indexer) without them stepping on each other.
 - `crates/tracepilot-core/src/utils/migrator/` — per-DB migrations.
 - `crates/tracepilot-core/src/ids.rs` — cross-feature ID types.
 - ADR-0013 — DB migration policy (IndexDb / TaskDb / SessionDb).
-- `docs/tech-debt-master-plan-2026-04.md` — Waves 79–83 (DB split),
-  Wave 89 (online backup).
+- Repository cleanup roadmap entries covering the DB split and online backup work.

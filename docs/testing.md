@@ -11,7 +11,7 @@ tooling, scripts, and CI status for each.
 | Unit / integration (JS/TS) | Vitest | `apps/**`, `packages/**` (`*.spec.ts`, `*.test.ts`) | ✅ `pnpm test` |
 | Unit / integration (Rust) | `cargo test` | `crates/**` | ✅ `cargo test` |
 | Component visual regression | Playwright CT | `packages/ui/src/__vrt__/*.vrt.spec.ts` | ❌ on-demand only |
-| Desktop end-to-end (real Tauri app) | Playwright-over-CDP + `scripts/e2e/*.mjs` | `scripts/e2e/` | ❌ on-demand only |
+| Desktop end-to-end (real Tauri app) | Playwright-over-CDP + canonical `scripts/e2e` harness | `scripts/e2e/` | ❌ on-demand only |
 
 The JS/TS and Rust unit suites are the primary regression gate. VRT and E2E
 are opt-in — they require extra tooling (Chromium download, a live Tauri
@@ -39,6 +39,8 @@ See `packages/ui/src/__vrt__/README.md` for the full contract. Summary:
 - **Run:** `pnpm --filter @tracepilot/ui vrt`.
 - **Update baselines:** `pnpm --filter @tracepilot/ui vrt:update`.
 - **First-run setup:** `pnpm --filter @tracepilot/ui exec playwright install chromium`.
+- **Scope:** a deliberately small package-level baseline for `PageHeader` and
+  `SegmentedControl`, where the visual styling lives in `@tracepilot/ui`.
 
 VRT is **not** on default CI because baselines are OS-sensitive (Windows vs
 Linux sub-pixel antialiasing). Baselines must be refreshed together on a
@@ -64,9 +66,7 @@ scripts/e2e/
 ├── stop.ps1            # Stop a tracked instance (or all of them)
 ├── connect.mjs         # Shared helpers: connect, navigateTo, collectTelemetry, ipc, shutdown
 ├── smoke-test.mjs      # Canonical flow: session list → detail → search → analytics → settings
-├── perf-profile.mjs    # Performance-focused scenario (mount timings, IPC budgets)
-├── test-*.mjs          # Ad-hoc / historical scenario scripts
-└── fixtures/           # (Placeholder) future deterministic fixture set
+└── perf-profile.mjs    # Optional performance diagnostic: hot paths, IPC, heap, mounts
 ```
 
 `.github/skills/tracepilot-app-automation/SKILL.md` is the authoritative
@@ -86,21 +86,33 @@ node scripts/e2e/smoke-test.mjs
 .\scripts\e2e\stop.ps1
 ```
 
-The smoke test exits non-zero on any failed assertion or budget violation
-and writes a JSON report + screenshots under `scripts/e2e/screenshots/`
-(git-ignored).
+The smoke test exits non-zero on any failed assertion or budget violation.
+It writes a JSON report plus screenshots under `scripts/e2e/screenshots/`,
+which is generated output and remains git-ignored.
 
-### Writing new E2E scenarios
+For performance-focused local diagnostics, launch the app the same way and run:
 
-1. Add `scripts/e2e/<scenario>.mjs`.
-2. Import helpers from `./connect.mjs` (`connect`, `navigateTo`,
+```powershell
+node scripts/e2e/perf-profile.mjs
+```
+
+### Extending E2E coverage
+
+Do not add one-off `test-*.mjs` scripts for individual fixes. Prefer extending
+`smoke-test.mjs` when a flow should become part of the reusable local gate, or
+`perf-profile.mjs` when the scenario is specifically a performance diagnostic.
+
+If a short-lived investigation needs custom automation, keep it out of the
+repository or delete it after the investigation. Reusable additions should:
+
+1. Import helpers from `./connect.mjs` (`connect`, `navigateTo`,
    `collectTelemetry`, `startConsoleCapture`, `validateBudgets`, `ipc`,
    `shutdown`).
-3. Prefer `[data-testid="…"]` selectors over CSS classes — the catalogue
+2. Prefer `[data-testid="…"]` selectors over CSS classes — the catalogue
    lives in the skill doc.
-4. Always clear the IPC perf log before measuring
+3. Always clear the IPC perf log before measuring
    (`window.__TRACEPILOT_IPC_PERF__?.clearIpcPerfLog()`).
-5. Call `shutdown(browser, port)` (or `stop.ps1`) in a `finally` block so a
+4. Call `shutdown(browser, port)` (or `stop.ps1`) in a `finally` block so a
    failed run does not leave an orphaned WebView2 process.
 
 ### CI

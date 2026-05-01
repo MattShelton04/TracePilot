@@ -96,5 +96,4 @@ The workspace layout keeps a single `Cargo.lock` and a single
 - `pnpm-workspace.yaml` — JS catalog + package list.
 - `apps/desktop/src-tauri/src/main.rs` — Tauri shell entry point.
 - `apps/desktop/package.json` — Vue 3 + Vite + vue-tsc build.
-- `docs/tech-debt-master-plan-2026-04.md` — Wave 104 (catalog), Wave 107
-  (justfile).
+- Repository cleanup roadmap entries from the current improvement review.

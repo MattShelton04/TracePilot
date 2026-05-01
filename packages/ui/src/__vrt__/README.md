@@ -6,14 +6,17 @@ of default `pnpm test` or CI gates (see _Known limitations_ below).
 
 ## What this gates
 
-Pixel-diff coverage of the shared components most likely to regress during
-Phase 4 view decomposition:
+Pixel-diff coverage is intentionally small and limited to shared UI primitives
+whose styling lives in `@tracepilot/ui`:
 
-- `StatCard` — default / `variant=plain` / `accentColor` / gradient / `labelStyle=uppercase`
-- `TabNav` — default / with icons / `variant=pill` / staggered
-- `PageHeader` — default / `size=sm` / `size=lg` / `inlineSubtitle`
-- `SegmentedControl` — `rounded=square` (default) / `rounded=pill`
-- `PageShell` — default slot
+- `PageHeader` — one composite header with icon tile, inline subtitle, large
+  title sizing, and right-aligned action slots.
+- `SegmentedControl` — `rounded=square` (default) and `rounded=pill`, including
+  active state and count badges.
+
+The previous `PageShell`, `StatCard`, and `TabNav` snapshots were removed
+because their CT screenshots either exercised wrapper markup only or depended
+on application-level styles that are not loaded by this package harness.
 
 Each test mounts the component via Playwright CT, locks the viewport to
 1280×720, forces `prefers-color-scheme: dark` + `reducedMotion: reduce`,
@@ -75,5 +78,6 @@ snapshot change that is _not_ explained by the diff should be treated as a bug.
   with Phase 4 decomposition so each decomposed view has a pixel-diff gate.
 - Linux-only CI job that regenerates baselines nightly and posts a diff
   artifact to PRs (keeps Windows devs unblocked without breaking gates).
-- Extend component coverage as new shared components ship (Badge, ModalDialog,
-  DataTable, ToastContainer, …).
+- Extend component coverage as new shared components ship or when existing
+  package components gain self-contained visual styling that is not already
+  protected by unit tests.

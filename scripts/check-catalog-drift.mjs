@@ -87,8 +87,7 @@ for (const rel of pkgFiles) {
     for (const [name, spec] of Object.entries(deps)) {
       const specStr = String(spec);
       // Hard fail only on runtime/dev deps — peerDependencies have different
-      // resolution semantics and are tracked separately (see
-      // docs/tech-debt-future-improvements-2026-04.md §w104).
+      // resolution semantics and are tracked separately.
       if (catalog.has(name) && !specStr.startsWith("catalog:")) {
         const record = { file: rel, field, dep: name, spec: specStr };
         if (HARD_FIELDS.includes(field)) {

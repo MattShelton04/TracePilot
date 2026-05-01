@@ -24,13 +24,11 @@ import { dirname, resolve, sep } from "node:path";
 const REPO_ROOT = new URL("..", import.meta.url).pathname.replace(/^\/([A-Z]:)/, "$1");
 
 // Files intentionally skipped by the checker. Keep short and commented.
-//   - docs/archive/**: frozen historical plans, references refer to
-//     pre-renumbering ADR paths and other removed files.
 //   - docs/multi-window-implementation-plan.md, docs/copilot-sdk-deep-dive.md:
 //     reference an unchecked-in `reviews/` subdir (pre-existing; tracked
 //     separately — remove once those review docs land or the refs are
 //     excised). Added during FU-04 so the live-doc gate can still be useful.
-const SKIP_PREFIXES = ["docs/archive/"];
+const SKIP_PREFIXES = [];
 const SKIP_FILES = new Set([
   "docs/multi-window-implementation-plan.md",
   "docs/copilot-sdk-deep-dive.md",

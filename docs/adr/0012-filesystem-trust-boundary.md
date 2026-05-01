@@ -128,7 +128,7 @@ Negative / accepted:
   containment (e.g. "must be under the sessions directory") must
   implement that check themselves against the helper's output.
 
-## Future work (tracked in tech-debt-plan §1A.3+)
+## Future work
 
 - Add a `path_within(root, candidate)` utility for the callers that
   need jailing, so we don't reinvent the prefix check each time.
@@ -144,4 +144,4 @@ Negative / accepted:
   (`canonicalize_user_path`, `launch_session`, `open_in_explorer`,
   `open_in_terminal`).
 - ADR 0002 — Tauri capability scoping (main vs viewer).
-- `docs/archive/2026-04/tech-debt-plan-revised-2026-04.md` Phase 1A.2.
+- Historical filesystem trust-boundary plan notes are available in git history before the 2026-05-01 documentation cleanup.
