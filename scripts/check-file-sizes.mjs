@@ -57,16 +57,13 @@ const ALLOWLIST = new Set([
   "crates/tracepilot-indexer/src/index_db/helpers.rs",
   "crates/tracepilot-tauri-bindings/src/commands/tasks.rs",
   "crates/tracepilot-orchestrator/src/task_db/operations.rs",
-  "crates/tracepilot-orchestrator/src/worktrees.rs",
   "crates/tracepilot-tauri-bindings/src/commands/search.rs",
   "crates/tracepilot-orchestrator/src/task_context/sources.rs",
   "crates/tracepilot-core/src/utils/sqlite.rs",
   "crates/tracepilot-indexer/src/index_db/analytics_queries.rs",
   "crates/tracepilot-core/src/analytics/dashboard.rs",
   "crates/tracepilot-indexer/src/index_db/search_writer/content_extraction.rs",
-  "crates/tracepilot-core/src/summary/mod.rs",
   "crates/tracepilot-bench/src/lib.rs",
-  "crates/tracepilot-export/src/import/writer.rs",
   // TODO(FI-w123-migrations-module): split run_migrations out into a dedicated module
   "crates/tracepilot-indexer/src/index_db/migrations.rs",
 
