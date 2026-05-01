@@ -70,10 +70,7 @@ const ALLOWLIST = new Set([
   "apps/desktop/src/stores/mcp.ts",
 
   // ── Test files (allow-listed; not a Phase 4 priority) ──────────
-  "apps/desktop/src/__tests__/stores/sessionDetail.test.ts",
-  "apps/desktop/src/__tests__/stores/skills.test.ts",
   "apps/desktop/src/__tests__/stores/configInjector.test.ts",
-  "apps/desktop/src/__tests__/stores/search.test.ts",
   "apps/desktop/src/__tests__/stores/orchestrationHome.test.ts",
   "apps/desktop/src/__tests__/stores/launcher.test.ts",
   "apps/desktop/src/__tests__/stores/analytics.test.ts",
