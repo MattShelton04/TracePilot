@@ -58,7 +58,6 @@ const ALLOWLIST = new Set([
   "crates/tracepilot-tauri-bindings/src/commands/tasks.rs",
   "crates/tracepilot-orchestrator/src/task_db/operations.rs",
   "crates/tracepilot-export/src/builder.rs",
-  "crates/tracepilot-export/src/redaction/mod.rs",
   "crates/tracepilot-export/src/import/validator.rs",
   "crates/tracepilot-orchestrator/src/worktrees.rs",
   "crates/tracepilot-export/src/import/mod.rs",
@@ -87,9 +86,6 @@ const ALLOWLIST = new Set([
   "apps/desktop/src/stores/skills.ts",
   "apps/desktop/src/stores/tasks.ts",
   "apps/desktop/src/stores/mcp.ts",
-
-  // ── TypeScript helpers ──────────────────────────────────────────
-  "apps/cli/src/lib/version-analyzer.ts",
 
   // ── Test files (allow-listed; not a Phase 4 priority) ──────────
   "apps/desktop/src/__tests__/stores/worktrees.test.ts",

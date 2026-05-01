@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Copilot API",
+  "server": {
+    "ping": {
+      "rpcMethod": "server.ping",
+      "description": "Ping the server.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "message": { "type": "string" }
+        },
+        "required": ["message"]
+      },
+      "result": { "$ref": "#/definitions/PingResult" }
+    }
+  },
+  "session": {
+    "abort": {
+      "rpcMethod": "session.abort",
+      "description": "Experimental abort.",
+      "params": { "$ref": "#/definitions/AbortParams" },
+      "result": {
+        "type": "object",
+        "properties": {
+          "ok": { "type": "boolean" }
+        },
+        "required": ["ok"]
+      }
+    }
+  },
+  "definitions": {
+    "PingResult": {
+      "type": "object",
+      "properties": {
+        "reply": { "type": "string" }
+      },
+      "required": ["reply"]
+    },
+    "AbortParams": {
+      "type": "object",
+      "properties": {
+        "reason": { "type": "string" }
+      },
+      "required": ["reason"]
+    },
+    "SchemaWithParamsButNotRpcMethod": {
+      "params": { "type": "string" },
+      "result": { "type": "string" }
+    }
+  }
+}
