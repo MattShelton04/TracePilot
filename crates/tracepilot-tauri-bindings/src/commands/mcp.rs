@@ -9,7 +9,7 @@ use std::collections::HashMap;
 // -- Server CRUD --
 
 #[tauri::command]
-#[tracing::instrument(level = "debug", err)]
+#[tracing::instrument(level = "debug", skip(state), err)]
 pub async fn mcp_list_servers(
     state: tauri::State<'_, SharedConfig>,
 ) -> CmdResult<Vec<(String, tracepilot_orchestrator::mcp::types::McpServerConfig)>> {
@@ -18,7 +18,7 @@ pub async fn mcp_list_servers(
 }
 
 #[tauri::command]
-#[tracing::instrument(level = "debug", err, fields(server = %name))]
+#[tracing::instrument(level = "debug", skip(state), err, fields(server = %name))]
 pub async fn mcp_get_server(
     state: tauri::State<'_, SharedConfig>,
     name: String,
@@ -30,7 +30,7 @@ pub async fn mcp_get_server(
 }
 
 #[tauri::command]
-#[tracing::instrument(skip(config), err, fields(server = %name))]
+#[tracing::instrument(skip(state, config), err, fields(server = %name))]
 pub async fn mcp_add_server(
     state: tauri::State<'_, SharedConfig>,
     name: String,
@@ -43,7 +43,7 @@ pub async fn mcp_add_server(
 }
 
 #[tauri::command]
-#[tracing::instrument(skip(config), err, fields(server = %name))]
+#[tracing::instrument(skip(state, config), err, fields(server = %name))]
 pub async fn mcp_update_server(
     state: tauri::State<'_, SharedConfig>,
     name: String,
@@ -56,7 +56,7 @@ pub async fn mcp_update_server(
 }
 
 #[tauri::command]
-#[tracing::instrument(err, fields(server = %name))]
+#[tracing::instrument(skip(state), err, fields(server = %name))]
 pub async fn mcp_remove_server(
     state: tauri::State<'_, SharedConfig>,
     name: String,
@@ -68,7 +68,7 @@ pub async fn mcp_remove_server(
 }
 
 #[tauri::command]
-#[tracing::instrument(err, fields(server = %name))]
+#[tracing::instrument(skip(state), err, fields(server = %name))]
 #[specta::specta]
 pub async fn mcp_toggle_server(
     state: tauri::State<'_, SharedConfig>,
@@ -83,7 +83,7 @@ pub async fn mcp_toggle_server(
 // -- Health checks --
 
 #[tauri::command]
-#[tracing::instrument(err)]
+#[tracing::instrument(skip(state), err)]
 pub async fn mcp_check_health(
     state: tauri::State<'_, SharedConfig>,
 ) -> CmdResult<HashMap<String, tracepilot_orchestrator::mcp::health::McpHealthResultCached>> {
@@ -99,7 +99,7 @@ pub async fn mcp_check_health(
 }
 
 #[tauri::command]
-#[tracing::instrument(err, fields(server = %name))]
+#[tracing::instrument(skip(state), err, fields(server = %name))]
 pub async fn mcp_check_server_health(
     state: tauri::State<'_, SharedConfig>,
     name: String,
@@ -146,7 +146,7 @@ pub async fn mcp_import_from_github(
 // -- Diff --
 
 #[tauri::command]
-#[tracing::instrument(skip(incoming), err, fields(incoming_count = incoming.len()))]
+#[tracing::instrument(skip(state, incoming), err, fields(incoming_count = incoming.len()))]
 pub async fn mcp_compute_diff(
     state: tauri::State<'_, SharedConfig>,
     incoming: HashMap<String, tracepilot_orchestrator::mcp::types::McpServerConfig>,
