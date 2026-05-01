@@ -209,9 +209,11 @@ export function createSessionDetailInstance() {
             if (!sessionGuard.isValid(token)) return;
             detail.value = result;
           });
-          if (silentError.value && sessionGuard.isValid(token)) {
+          if (sessionGuard.isValid(token)) {
             error.value = silentError.value;
-            logError(`${LOG_PREFIX} Failed to refresh detail:`, silentError.value);
+            if (silentError.value) {
+              logError(`${LOG_PREFIX} Failed to refresh detail:`, silentError.value);
+            }
           }
         })(),
       );
