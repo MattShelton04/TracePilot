@@ -47,7 +47,6 @@ const ALLOWLIST = new Set([
 
   // ── TS stores (Wave 102 — biome formatter expansion) ───────────
   // TODO(w102): decompose try/catch helpers; expanded past budget by biome 2.4 formatter.
-  "apps/desktop/src/stores/sdk/connection.ts",
 
   // ── Rust god-modules (Phase 4 decomposition targets) ───────────
   "crates/tracepilot-orchestrator/src/bridge/manager.rs",
@@ -64,13 +63,11 @@ const ALLOWLIST = new Set([
   "crates/tracepilot-export/tests/integration.rs",
 
   // ── Pinia stores (Phase 4/5) ────────────────────────────────────
-  "apps/desktop/src/stores/worktrees.ts",
   "apps/desktop/src/stores/skills.ts",
   "apps/desktop/src/stores/tasks.ts",
   "apps/desktop/src/stores/mcp.ts",
 
   // ── Test files (allow-listed; not a Phase 4 priority) ──────────
-  "apps/desktop/src/__tests__/stores/analytics.test.ts",
   "apps/desktop/src/__tests__/components/timeline/AgentTreeView.test.ts",
   "apps/desktop/src/__tests__/composables/useCachedFetch.test.ts",
   "apps/desktop/src/__tests__/composables/useImportFlow.test.ts",

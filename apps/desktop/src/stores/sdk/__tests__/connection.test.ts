@@ -33,7 +33,13 @@ vi.mock("@tracepilot/client", () => ({
   sdkStopUiServer: vi.fn(async () => {}),
 }));
 
+vi.mock("@/utils/logger", () => ({
+  logInfo: vi.fn(),
+  logWarn: vi.fn(),
+}));
+
 import * as client from "@tracepilot/client";
+import * as logger from "@/utils/logger";
 import { createConnectionSlice } from "../connection";
 import { hydratedBridgeState } from "./connection.fixtures";
 
@@ -73,6 +79,7 @@ describe("createConnectionSlice", () => {
     expect(slice.connectionState.value).toBe("error");
     expect(slice.lastError.value).toBe("nope");
     expect(slice.connecting.value).toBe(false);
+    expect(logger.logWarn).toHaveBeenCalledWith("[sdk] Connect failed:", expect.any(Error));
   });
 
   it("connect treats DisabledByPreference as disconnected (not an error)", async () => {
@@ -85,6 +92,9 @@ describe("createConnectionSlice", () => {
     expect(slice.connectionState.value).toBe("disconnected");
     expect(slice.lastError.value).toBeNull();
     expect(slice.connecting.value).toBe(false);
+    expect(logger.logInfo).toHaveBeenCalledWith(
+      "[sdk] Connect skipped — disabled by user preference",
+    );
   });
 
   it("disconnect resets sessions/mode and fires onDisconnect hook atomically", async () => {
