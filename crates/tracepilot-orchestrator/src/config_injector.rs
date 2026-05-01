@@ -90,14 +90,12 @@ pub fn create_backup(file_path: &Path, backup_dir: &Path, label: &str) -> Result
     // Write sidecar metadata atomically so a crash never leaves the backup
     // file without a discoverable sidecar.
     let sidecar_path = backup_dir.join(format!("{}.meta.json", backup_name));
-    let sidecar_tmp = sidecar_path.with_extension("tmp");
     let sidecar = serde_json::json!({
         "source_path": file_path.to_string_lossy(),
         "label": label,
         "original_filename": file_path.file_name().unwrap_or_default().to_string_lossy(),
     });
-    std::fs::write(&sidecar_tmp, serde_json::to_string_pretty(&sidecar)?)?;
-    std::fs::rename(&sidecar_tmp, &sidecar_path)?;
+    crate::json_io::atomic_json_write(&sidecar_path, &sidecar)?;
 
     Ok(BackupEntry {
         id: backup_path.to_string_lossy().to_string(),

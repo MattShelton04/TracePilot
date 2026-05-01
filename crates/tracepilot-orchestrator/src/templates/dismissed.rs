@@ -84,9 +84,7 @@ fn write_dismissed_defaults_in(tracepilot_home: &Path, ids: &[String]) -> Result
 }
 
 fn write_dismissed_defaults_to_path(ids: &[String], path: &Path) -> Result<()> {
-    let content = serde_json::to_string_pretty(ids)?;
-    std::fs::write(path, content)?;
-    Ok(())
+    crate::json_io::atomic_json_write(path, &ids)
 }
 
 /// Dismiss a default template so it no longer appears.

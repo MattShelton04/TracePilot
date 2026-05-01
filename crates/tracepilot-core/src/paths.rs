@@ -41,7 +41,7 @@ impl CopilotPaths {
         Self::from_home(home.as_ref().join(COPILOT_DIR_NAME))
     }
 
-    pub fn default() -> Option<Self> {
+    pub fn try_default() -> Option<Self> {
         crate::utils::home_dir_opt().map(Self::from_user_home)
     }
 
@@ -96,8 +96,8 @@ impl TracePilotPaths {
         Self::from_root(copilot_home.as_ref().join(TRACEPILOT_DIR_NAME))
     }
 
-    pub fn default() -> Option<Self> {
-        CopilotPaths::default().map(|p| p.tracepilot())
+    pub fn try_default() -> Option<Self> {
+        CopilotPaths::try_default().map(|p| p.tracepilot())
     }
 
     pub fn root(&self) -> &Path {
@@ -167,7 +167,7 @@ pub fn default_copilot_home() -> PathBuf {
 }
 
 pub fn default_copilot_home_opt() -> Option<PathBuf> {
-    CopilotPaths::default().map(|p| p.home().to_path_buf())
+    CopilotPaths::try_default().map(|p| p.home().to_path_buf())
 }
 
 pub fn default_session_state_dir() -> PathBuf {

@@ -1,6 +1,6 @@
 import { searchContent } from "@tracepilot/client";
 import type { SearchContentType, SearchResult } from "@tracepilot/types";
-import { toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
+import { runAction, useAsyncGuard } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { nextTick, watch } from "vue";
 import { useRecentSearches } from "@/composables/useRecentSearches";
@@ -95,61 +95,58 @@ export const useSearchStore = defineStore("search", () => {
     const mergedSession = parsed.session ?? q.sessionId.value;
     const mergedSort = parsed.sort ?? effectiveSort;
 
-    const token = searchGuard.start();
-    q.loading.value = true;
-    q.error.value = null;
-
-    try {
-      const { dateFromUnix, dateToUnix, error: dateError } = q.parseDateRange();
-      if (dateError) {
-        q.error.value = dateError;
-        q.clearSearchResults();
-        f.facets.value = null;
-        return;
-      }
-
-      const response = await searchContent(searchQuery, {
-        contentTypes: mergedContentTypes.length > 0 ? mergedContentTypes : undefined,
-        excludeContentTypes:
-          q.excludeContentTypes.value.length > 0 ? q.excludeContentTypes.value : undefined,
-        repositories: mergedRepo ? [mergedRepo] : undefined,
-        toolNames: mergedTool ? [mergedTool] : undefined,
-        sessionId: mergedSession ?? undefined,
-        dateFromUnix,
-        dateToUnix,
-        limit: q.pageSize.value,
-        offset: (q.page.value - 1) * q.pageSize.value,
-        sortBy: mergedSort !== "relevance" ? mergedSort : undefined,
-      });
-
-      if (!searchGuard.isValid(token)) return;
-
-      q.results.value = response.results;
-      q.totalCount.value = response.totalCount;
-      q.hasMore.value = response.hasMore;
-      q.latencyMs.value = response.latencyMs;
-
-      // Record to recent searches (only for text queries, not browse mode)
-      if (q.query.value.trim().length > 0 && response.totalCount > 0) {
-        addRecentSearch(q.query.value.trim(), response.totalCount);
-      }
-
-      // Fetch facets using the same parsed query and merged filters as the search.
-      // Use searchQuery directly (empty string = browse mode); don't fall back to raw
-      // query.value which may contain qualifier syntax like "type:error".
-      const facetQuery = searchQuery || undefined;
-      f.fetchFacets(facetQuery, {
-        contentTypes: mergedContentTypes,
-        repo: mergedRepo,
-        tool: mergedTool,
-        session: mergedSession,
-      });
-    } catch (e) {
-      if (!searchGuard.isValid(token)) return;
-      q.error.value = toErrorMessage(e);
+    const { dateFromUnix, dateToUnix, error: dateError } = q.parseDateRange();
+    if (dateError) {
+      q.error.value = dateError;
       q.clearSearchResults();
-    } finally {
-      if (searchGuard.isValid(token)) q.loading.value = false;
+      f.facets.value = null;
+      return;
+    }
+
+    await runAction({
+      loading: q.loading,
+      error: q.error,
+      guard: searchGuard,
+      action: () =>
+        searchContent(searchQuery, {
+          contentTypes: mergedContentTypes.length > 0 ? mergedContentTypes : undefined,
+          excludeContentTypes:
+            q.excludeContentTypes.value.length > 0 ? q.excludeContentTypes.value : undefined,
+          repositories: mergedRepo ? [mergedRepo] : undefined,
+          toolNames: mergedTool ? [mergedTool] : undefined,
+          sessionId: mergedSession ?? undefined,
+          dateFromUnix,
+          dateToUnix,
+          limit: q.pageSize.value,
+          offset: (q.page.value - 1) * q.pageSize.value,
+          sortBy: mergedSort !== "relevance" ? mergedSort : undefined,
+        }),
+      onSuccess: (response) => {
+        q.results.value = response.results;
+        q.totalCount.value = response.totalCount;
+        q.hasMore.value = response.hasMore;
+        q.latencyMs.value = response.latencyMs;
+
+        // Record to recent searches (only for text queries, not browse mode)
+        if (q.query.value.trim().length > 0 && response.totalCount > 0) {
+          addRecentSearch(q.query.value.trim(), response.totalCount);
+        }
+
+        // Fetch facets using the same parsed query and merged filters as the search.
+        // Use searchQuery directly (empty string = browse mode); don't fall back to raw
+        // query.value which may contain qualifier syntax like "type:error".
+        const facetQuery = searchQuery || undefined;
+        f.fetchFacets(facetQuery, {
+          contentTypes: mergedContentTypes,
+          repo: mergedRepo,
+          tool: mergedTool,
+          session: mergedSession,
+        });
+      },
+    });
+
+    if (q.error.value) {
+      q.clearSearchResults();
     }
   }
 

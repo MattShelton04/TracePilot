@@ -193,18 +193,23 @@ export const useSessionsStore = defineStore("sessions", () => {
       return;
     }
 
-    indexing.value = true;
-    error.value = null;
-    try {
-      await indexInflight.run(() => reindexSessions());
-      sessions.value = await refreshSessionsAfterIndex();
-    } catch (e) {
-      if (!isAlreadyIndexingError(e)) {
-        error.value = toErrorMessage(e);
-      }
-    } finally {
-      indexing.value = false;
-    }
+    await runAction({
+      loading: indexing,
+      error,
+      action: async () => {
+        try {
+          await indexInflight.run(() => reindexSessions());
+        } catch (e) {
+          if (!isAlreadyIndexingError(e)) {
+            throw e;
+          }
+        }
+        return refreshSessionsAfterIndex();
+      },
+      onSuccess: (result) => {
+        sessions.value = result;
+      },
+    });
   }
 
   /**

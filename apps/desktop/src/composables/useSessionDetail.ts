@@ -24,7 +24,7 @@
  */
 import { getSessionDetail, getSessionEvents, getSessionTurns } from "@tracepilot/client";
 import type { EventsResponse, SessionDetail } from "@tracepilot/types";
-import { toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
+import { runAction, runMutation, toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
 import type { InjectionKey, UnwrapNestedRefs } from "vue";
 import { inject, reactive, ref, shallowRef } from "vue";
 import { logDebug, logError, logWarn } from "@/utils/logger";
@@ -113,7 +113,7 @@ export function createSessionDetailInstance() {
       saveToCache(sessionId.value);
     }
 
-    const token = sessionGuard.start();
+    const _token = sessionGuard.start();
     sessionId.value = id;
     error.value = null;
     clearSectionErrors();
@@ -146,17 +146,19 @@ export function createSessionDetailInstance() {
     loading.value = true;
     resetSectionData();
 
-    try {
-      const result = await getSessionDetail(id);
-      if (!sessionGuard.isValid(token)) return;
-      detail.value = result;
-      loaded.value.add("detail");
-    } catch (e) {
-      if (!sessionGuard.isValid(token)) return;
+    await runAction({
+      loading,
+      error,
+      guard: sessionGuard,
+      action: () => getSessionDetail(id),
+      onSuccess: (result) => {
+        detail.value = result;
+        loaded.value.add("detail");
+      },
+    });
+
+    if (error.value) {
       detail.value = null;
-      error.value = toErrorMessage(e);
-    } finally {
-      if (sessionGuard.isValid(token)) loading.value = false;
     }
   }
 
@@ -196,20 +198,22 @@ export function createSessionDetailInstance() {
     const token = sessionGuard.current();
     const loadedSections = new Set(loaded.value);
 
-    const promises: Promise<void>[] = [];
+    const promises: Promise<unknown>[] = [];
 
     if (loadedSections.has("detail")) {
       promises.push(
         (async () => {
-          try {
+          const silentError = ref<string | null>(null);
+          await runMutation(silentError, async () => {
             const result = await getSessionDetail(id);
             if (!sessionGuard.isValid(token)) return;
             detail.value = result;
-            error.value = null;
-          } catch (e) {
-            if (!sessionGuard.isValid(token)) return;
-            error.value = toErrorMessage(e);
-            logError(`${LOG_PREFIX} Failed to refresh detail:`, e);
+          });
+          if (sessionGuard.isValid(token)) {
+            error.value = silentError.value;
+            if (silentError.value) {
+              logError(`${LOG_PREFIX} Failed to refresh detail:`, silentError.value);
+            }
           }
         })(),
       );

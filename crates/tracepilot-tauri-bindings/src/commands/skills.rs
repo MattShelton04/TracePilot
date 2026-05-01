@@ -2,14 +2,6 @@
 
 use crate::blocking_cmd;
 use crate::error::CmdResult;
-use tracepilot_orchestrator::OrchestratorError;
-
-/// Helper to convert SkillsError to OrchestratorError inside spawn_blocking.
-fn sk<T>(
-    r: Result<T, tracepilot_orchestrator::skills::SkillsError>,
-) -> Result<T, OrchestratorError> {
-    r.map_err(OrchestratorError::from)
-}
 
 /// Validate that a skill_dir is within a known skills root before any operation.
 fn check_skill_dir(skill_dir: &str) -> Result<(), tracepilot_orchestrator::skills::SkillsError> {
@@ -23,10 +15,8 @@ fn check_skill_dir(skill_dir: &str) -> Result<(), tracepilot_orchestrator::skill
 pub async fn skills_list_all(
     repo_root: Option<String>,
 ) -> CmdResult<Vec<tracepilot_orchestrator::skills::types::SkillSummary>> {
-    blocking_cmd!(sk(
-        tracepilot_orchestrator::skills::discovery::discover_all(
-            repo_root.as_deref().map(std::path::Path::new),
-        )
+    blocking_cmd!(tracepilot_orchestrator::skills::discovery::discover_all(
+        repo_root.as_deref().map(std::path::Path::new),
     ))
 }
 
@@ -36,9 +26,9 @@ pub async fn skills_get_skill(
     skill_dir: String,
 ) -> CmdResult<tracepilot_orchestrator::skills::types::Skill> {
     let dir = skill_dir.clone();
-    blocking_cmd!(sk(check_skill_dir(&dir).and_then(|_| {
+    blocking_cmd!(check_skill_dir(&dir).and_then(|_| {
         tracepilot_orchestrator::skills::manager::get_skill(std::path::Path::new(&dir))
-    })))
+    }))
 }
 
 // -- CRUD --
@@ -47,12 +37,10 @@ pub async fn skills_get_skill(
 #[tracing::instrument(skip(description, body), err, fields(%name, body_len = body.len()))]
 pub async fn skills_create(name: String, description: String, body: String) -> CmdResult<String> {
     let sn = crate::validators::validate_skill_name(&name)?;
-    blocking_cmd!(sk(tracepilot_orchestrator::skills::manager::create_skill(
-        &sn,
-        &description,
-        &body
+    blocking_cmd!(
+        tracepilot_orchestrator::skills::manager::create_skill(&sn, &description, &body)
+            .map(|p| p.to_string_lossy().to_string())
     )
-    .map(|p| p.to_string_lossy().to_string())))
 }
 
 #[tauri::command]
@@ -62,58 +50,58 @@ pub async fn skills_update(
     frontmatter: tracepilot_orchestrator::skills::types::SkillFrontmatter,
     body: String,
 ) -> CmdResult<()> {
-    blocking_cmd!(sk(check_skill_dir(&skill_dir).and_then(|_| {
+    blocking_cmd!(check_skill_dir(&skill_dir).and_then(|_| {
         tracepilot_orchestrator::skills::manager::update_skill(
             std::path::Path::new(&skill_dir),
             &frontmatter,
             &body,
         )
-    })))
+    }))
 }
 
 #[tauri::command]
 #[tracing::instrument(skip(skill_dir, raw_content), err, fields(raw_len = raw_content.len()))]
 pub async fn skills_update_raw(skill_dir: String, raw_content: String) -> CmdResult<()> {
-    blocking_cmd!(sk(check_skill_dir(&skill_dir).and_then(|_| {
+    blocking_cmd!(check_skill_dir(&skill_dir).and_then(|_| {
         tracepilot_orchestrator::skills::manager::update_skill_raw(
             std::path::Path::new(&skill_dir),
             &raw_content,
         )
-    })))
+    }))
 }
 
 #[tauri::command]
 #[tracing::instrument(skip(skill_dir), err)]
 pub async fn skills_delete(skill_dir: String) -> CmdResult<()> {
-    blocking_cmd!(sk(check_skill_dir(&skill_dir).and_then(|_| {
+    blocking_cmd!(check_skill_dir(&skill_dir).and_then(|_| {
         tracepilot_orchestrator::skills::manager::delete_skill(std::path::Path::new(&skill_dir))
-    })))
+    }))
 }
 
 #[tauri::command]
 #[tracing::instrument(skip(skill_dir), err, fields(%new_name))]
 pub async fn skills_rename(skill_dir: String, new_name: String) -> CmdResult<String> {
     let sn = crate::validators::validate_skill_name(&new_name)?;
-    blocking_cmd!(sk(check_skill_dir(&skill_dir).and_then(|_| {
+    blocking_cmd!(check_skill_dir(&skill_dir).and_then(|_| {
         tracepilot_orchestrator::skills::manager::rename_skill(
             std::path::Path::new(&skill_dir),
             &sn,
         )
         .map(|p| p.to_string_lossy().to_string())
-    })))
+    }))
 }
 
 #[tauri::command]
 #[tracing::instrument(skip(skill_dir), err, fields(%new_name))]
 pub async fn skills_duplicate(skill_dir: String, new_name: String) -> CmdResult<String> {
     let sn = crate::validators::validate_skill_name(&new_name)?;
-    blocking_cmd!(sk(check_skill_dir(&skill_dir).and_then(|_| {
+    blocking_cmd!(check_skill_dir(&skill_dir).and_then(|_| {
         tracepilot_orchestrator::skills::manager::duplicate_skill(
             std::path::Path::new(&skill_dir),
             &sn,
         )
         .map(|p| p.to_string_lossy().to_string())
-    })))
+    }))
 }
 
 // -- Assets --
@@ -122,9 +110,9 @@ pub async fn skills_duplicate(skill_dir: String, new_name: String) -> CmdResult<
 pub async fn skills_list_assets(
     skill_dir: String,
 ) -> CmdResult<Vec<tracepilot_orchestrator::skills::types::SkillAsset>> {
-    blocking_cmd!(sk(check_skill_dir(&skill_dir).and_then(|_| {
+    blocking_cmd!(check_skill_dir(&skill_dir).and_then(|_| {
         tracepilot_orchestrator::skills::assets::list_assets(std::path::Path::new(&skill_dir))
-    })))
+    }))
 }
 
 #[tauri::command]
@@ -135,13 +123,13 @@ pub async fn skills_add_asset(
     content: Vec<u8>,
 ) -> CmdResult<()> {
     crate::validators::validate_asset_name(&asset_name)?;
-    blocking_cmd!(sk(check_skill_dir(&skill_dir).and_then(|_| {
+    blocking_cmd!(check_skill_dir(&skill_dir).and_then(|_| {
         tracepilot_orchestrator::skills::assets::add_asset(
             std::path::Path::new(&skill_dir),
             &asset_name,
             &content,
         )
-    })))
+    }))
 }
 
 #[tauri::command]
@@ -152,36 +140,36 @@ pub async fn skills_copy_asset_from(
     source_path: String,
 ) -> CmdResult<()> {
     crate::validators::validate_asset_name(&asset_name)?;
-    blocking_cmd!(sk(check_skill_dir(&skill_dir).and_then(|_| {
+    blocking_cmd!(check_skill_dir(&skill_dir).and_then(|_| {
         tracepilot_orchestrator::skills::assets::copy_asset_from(
             std::path::Path::new(&skill_dir),
             &asset_name,
             std::path::Path::new(&source_path),
         )
-    })))
+    }))
 }
 
 #[tauri::command]
 #[tracing::instrument(skip(skill_dir), err, fields(%asset_name))]
 pub async fn skills_remove_asset(skill_dir: String, asset_name: String) -> CmdResult<()> {
     crate::validators::validate_asset_name(&asset_name)?;
-    blocking_cmd!(sk(check_skill_dir(&skill_dir).and_then(|_| {
+    blocking_cmd!(check_skill_dir(&skill_dir).and_then(|_| {
         tracepilot_orchestrator::skills::assets::remove_asset(
             std::path::Path::new(&skill_dir),
             &asset_name,
         )
-    })))
+    }))
 }
 
 #[tauri::command]
 pub async fn skills_read_asset(skill_dir: String, asset_name: String) -> CmdResult<String> {
     crate::validators::validate_asset_name(&asset_name)?;
-    blocking_cmd!(sk(check_skill_dir(&skill_dir).and_then(|_| {
+    blocking_cmd!(check_skill_dir(&skill_dir).and_then(|_| {
         tracepilot_orchestrator::skills::assets::read_asset(
             std::path::Path::new(&skill_dir),
             &asset_name,
         )
-    })))
+    }))
 }
 
 // -- Import --
@@ -219,11 +207,9 @@ pub async fn skills_import_local(
         tokio::task::spawn_blocking(move || resolve_skills_dest(&scope, repo_root.as_deref()))
             .await??;
 
-    blocking_cmd!(sk(
-        tracepilot_orchestrator::skills::import::import_from_local(
-            std::path::Path::new(&source_dir),
-            &dest,
-        )
+    blocking_cmd!(tracepilot_orchestrator::skills::import::import_from_local(
+        std::path::Path::new(&source_dir),
+        &dest,
     ))
 }
 
@@ -239,11 +225,9 @@ pub async fn skills_import_file(
         tokio::task::spawn_blocking(move || resolve_skills_dest(&scope, repo_root.as_deref()))
             .await??;
 
-    blocking_cmd!(sk(
-        tracepilot_orchestrator::skills::import::import_from_file(
-            std::path::Path::new(&file_path),
-            &dest,
-        )
+    blocking_cmd!(tracepilot_orchestrator::skills::import::import_from_file(
+        std::path::Path::new(&file_path),
+        &dest,
     ))
 }
 
@@ -262,14 +246,12 @@ pub async fn skills_import_github(
         tokio::task::spawn_blocking(move || resolve_skills_dest(&scope, repo_root.as_deref()))
             .await??;
 
-    blocking_cmd!(sk(
-        tracepilot_orchestrator::skills::import::import_from_github(
-            &owner,
-            &repo,
-            skill_path.as_deref(),
-            git_ref.as_deref(),
-            &dest,
-        )
+    blocking_cmd!(tracepilot_orchestrator::skills::import::import_from_github(
+        &owner,
+        &repo,
+        skill_path.as_deref(),
+        git_ref.as_deref(),
+        &dest,
     ))
 }
 
@@ -279,9 +261,9 @@ pub async fn skills_import_github(
 pub async fn skills_discover_local(
     dir: String,
 ) -> CmdResult<Vec<tracepilot_orchestrator::skills::types::LocalSkillPreview>> {
-    blocking_cmd!(sk(
+    blocking_cmd!(
         tracepilot_orchestrator::skills::import::discover_local_skills(std::path::Path::new(&dir),)
-    ))
+    )
 }
 
 // -- GitHub auth --
@@ -300,14 +282,14 @@ pub async fn skills_discover_github(
     path: Option<String>,
     git_ref: Option<String>,
 ) -> CmdResult<Vec<tracepilot_orchestrator::skills::types::GitHubSkillPreview>> {
-    blocking_cmd!(sk(
+    blocking_cmd!(
         tracepilot_orchestrator::skills::import::discover_github_skills(
             &owner,
             &repo,
             path.as_deref(),
             git_ref.as_deref(),
         )
-    ))
+    )
 }
 
 #[tauri::command]
@@ -324,7 +306,7 @@ pub async fn skills_import_github_skill(
         tokio::task::spawn_blocking(move || resolve_skills_dest(&scope, repo_root.as_deref()))
             .await??;
 
-    blocking_cmd!(sk(
+    blocking_cmd!(
         tracepilot_orchestrator::skills::import::import_github_skill(
             &owner,
             &repo,
@@ -332,7 +314,7 @@ pub async fn skills_import_github_skill(
             git_ref.as_deref(),
             &dest,
         )
-    ))
+    )
 }
 
 // -- Repository discovery (batch scan) --

@@ -179,7 +179,7 @@ export function useTimelineToolState(
    */
   watch(allToolCalls, (newAll) => {
     const sel = selectedTool.value;
-    if (!sel || !sel.toolCallId) return;
+    if (!sel?.toolCallId) return;
     const match = newAll.find((tc) => tc.toolCallId === sel.toolCallId);
     if (match) {
       selectedTool.value = match;
