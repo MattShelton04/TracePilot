@@ -94,12 +94,8 @@ pub fn save_template_in(tracepilot_home: &Path, template: &SessionTemplate) -> R
 
     let dir = templates_dir_in(tracepilot_home)?;
     let path = dir.join(format!("{}.json", template.id));
-    let temp = dir.join(format!(".{}.json.tmp", template.id));
 
-    let content = serde_json::to_string_pretty(template)?;
-    std::fs::write(&temp, &content)?;
-    std::fs::rename(&temp, &path)?;
-    Ok(())
+    crate::json_io::atomic_json_write(&path, template)
 }
 
 /// Delete a template by ID. For default templates, this dismisses them instead.

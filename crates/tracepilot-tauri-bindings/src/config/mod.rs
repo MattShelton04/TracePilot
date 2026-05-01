@@ -47,7 +47,7 @@ pub use tool_rendering::ToolRenderingConfig;
 pub use ui::UiConfig;
 
 pub fn config_file_path() -> Option<PathBuf> {
-    tracepilot_core::paths::TracePilotPaths::default().map(|p| p.config_toml())
+    tracepilot_core::paths::TracePilotPaths::try_default().map(|p| p.config_toml())
 }
 
 fn home_dir() -> Option<PathBuf> {
