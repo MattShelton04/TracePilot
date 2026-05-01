@@ -40,7 +40,9 @@ onUnmounted(() => document.removeEventListener("keydown", onKeydown));
           <slot name="header">
             <h3>{{ title }}</h3>
           </slot>
-          <button class="btn btn-ghost btn-sm" @click="close" aria-label="Close">✕</button>
+          <button class="btn btn-ghost btn-sm" @click="close" aria-label="Close">
+            <span aria-hidden="true">✕</span>
+          </button>
         </div>
         <div class="modal-body">
           <slot />

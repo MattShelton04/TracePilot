@@ -1,0 +1,1 @@
+## 2026-05-01 - Screen reader noise on icon-only buttons\n**Learning:** Decorative characters inside buttons (like '✕' or '×') can be read aloud confusingly by screen readers, even if the button has an `aria-label`. \n**Action:** Always wrap raw unicode decorative characters or svgs inside buttons with `<span aria-hidden="true">`.
