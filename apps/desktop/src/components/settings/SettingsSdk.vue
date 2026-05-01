@@ -102,14 +102,15 @@ async function handleStopServer(pid: number) {
 }
 
 async function refreshAll() {
+  const status = await sdk.hydrate();
+  syncModeFromBackend();
+  if (!isEnabled.value || (status?.state ?? sdk.connectionState) !== "connected") return;
   await Promise.all([
-    sdk.hydrate(),
     sdk.fetchAuthStatus(),
     sdk.fetchQuota(),
     sdk.fetchModels(),
     sdk.fetchSessions(),
   ]);
-  syncModeFromBackend();
 }
 
 function syncModeFromBackend() {
@@ -122,22 +123,37 @@ function syncModeFromBackend() {
   }
 }
 
-onMounted(() => {
-  void refreshAll();
-  refreshTimer = setInterval(() => void refreshAll(), 10_000);
-});
-
-onUnmounted(() => {
+function stopRefreshLoop() {
   if (refreshTimer) {
     clearInterval(refreshTimer);
     refreshTimer = null;
   }
+}
+
+function startRefreshLoop() {
+  if (refreshTimer) return;
+  void refreshAll();
+  refreshTimer = setInterval(() => void refreshAll(), 10_000);
+}
+
+onMounted(() => {
+  if (isEnabled.value) startRefreshLoop();
 });
+
+onUnmounted(stopRefreshLoop);
 
 watch(
   () => sdk.connectionMode,
   () => syncModeFromBackend(),
 );
+
+watch(isEnabled, (enabled) => {
+  if (enabled) {
+    startRefreshLoop();
+  } else {
+    stopRefreshLoop();
+  }
+});
 
 // ─── Diagnostics ────────────────────────────────────────────────────────
 
