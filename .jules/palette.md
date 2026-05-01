@@ -1,0 +1,3 @@
+## 2024-05-01 - Add accessibility to search result copy button
+**Learning:** Icon-only buttons containing SVG elements require dynamic `aria-label` attributes to accurately describe their function to screen readers, especially when their state changes (e.g., from "Copy content" to "Copied!"). The inner `<svg>` tags should also include `aria-hidden="true"` so that the screen reader correctly announces the button label without erroneously interpreting the SVG element.
+**Action:** When creating or modifying icon-only buttons (such as copy buttons), ensure `aria-label` matches the visible tooltip functionality and `aria-hidden="true"` is applied to the child `<svg>` elements to avoid redundant or confusing screen reader announcements.
