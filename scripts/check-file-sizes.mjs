@@ -62,7 +62,6 @@ const ALLOWLIST = new Set([
   "crates/tracepilot-core/src/turns/tests/session_events.rs",
   "crates/tracepilot-core/src/turns/tests/subagent_lifecycle.rs",
   "crates/tracepilot-export/tests/integration.rs",
-  "crates/tracepilot-indexer/src/index_db/search_writer/tests.rs",
 
   // ── Pinia stores (Phase 4/5) ────────────────────────────────────
   "apps/desktop/src/stores/worktrees.ts",
@@ -71,8 +70,6 @@ const ALLOWLIST = new Set([
   "apps/desktop/src/stores/mcp.ts",
 
   // ── Test files (allow-listed; not a Phase 4 priority) ──────────
-  "apps/desktop/src/__tests__/stores/worktrees.test.ts",
-  "apps/desktop/src/__tests__/stores/mcp.test.ts",
   "apps/desktop/src/__tests__/stores/sessionDetail.test.ts",
   "apps/desktop/src/__tests__/stores/skills.test.ts",
   "apps/desktop/src/__tests__/stores/configInjector.test.ts",
