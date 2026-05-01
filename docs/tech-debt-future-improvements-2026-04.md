@@ -874,19 +874,20 @@ actionable so a future engineer can pick them up.
 - **Risk / why deferred**: Requires telemetry plumbing or a structured local log sink; product decision needed on whether to ship opt-in telemetry.
 - **Effort**: M
 
-### w106 — Consolidate `scripts/e2e/*.mjs` one-off scenarios
+### w106 — Consolidate one-off E2E scenarios
 
-- **Area**: `scripts/e2e/test-*.mjs` (10 historical scenario scripts: `test-three-fixes`, `test-tasks`, `test-task-views`, `test-task-system`, `test-stale-presets`, `test-review-fixes`, `test-observability`, `test-multi-fix`, `test-full-e2e`, `test-fixes-batch2`, `test-final-review`).
-- **Observation**: Ten of the thirteen `.mjs` files under `scripts/e2e/` are one-off scenarios authored during specific bug-fix waves. They share boilerplate (connect → navigate → assert → report) but each re-implements its own loop, reporting shape, and failure surface. Discoverability is poor (no top-level index), and the names no longer describe current flows.
-- **Proposed change**: Audit each `test-*.mjs`, drop anything whose flow is already covered by `smoke-test.mjs` or component Vitest, and fold the remainder into a single `scripts/e2e/scenarios/` directory with a shared `runScenario({ name, steps })` harness that standardises reporting + screenshot naming. A follow-up wave can then port the harness to a `playwright.config.ts` if CI ever grows a dedicated e2e runner.
-- **Risk / why deferred**: Wave 106 is docs-only per the pragmatic alternative — touching these scripts risks breaking ad-hoc dev workflows that are undocumented. Needs an owner who remembers the intent of each `test-*` file.
+- **Status (2026-05-01)**: Landed via Wave 1 / Task A cleanup. Historical fix-specific E2E scripts and generated screenshots/reports were removed; `scripts/e2e` now retains the reusable CDP harness, canonical smoke flow, and optional performance profile.
+- **Area**: `scripts/e2e`.
+- **Observation**: The old folder mixed reusable launch/connect helpers with one-off scenarios authored during specific bug-fix waves. Those scripts shared boilerplate but each re-implemented its own reporting and failure surface.
+- **Proposed follow-up**: If new repeatable scenarios are needed, extend `smoke-test.mjs` or `perf-profile.mjs` instead of restoring ad-hoc `test-*.mjs` files. A later wave can port the retained harness to a `playwright.config.ts` if CI ever grows a dedicated E2E runner.
+- **Risk / why deferred**: Further consolidation now depends on deciding whether the CDP harness should stay script-based or move to a Playwright project.
 - **Effort**: M
 
 ### w106 — Deterministic E2E fixture set
 
-- **Area**: `scripts/e2e/fixtures/` (currently a placeholder README).
+- **Area**: future E2E fixture support.
 - **Observation**: All E2E scenarios run against the developer's real `~/.copilot/session-state/` contents. Assertions are therefore either count-agnostic (`sessionCards > 0`) or implicitly tied to the author's local data, which makes them flaky across machines and impossible to gate in CI.
-- **Proposed change**: Ship a sealed fixture bundle under `scripts/e2e/fixtures/sessions/` plus an `import_sessions` IPC seed step, and add a `--fixture` flag to `connect.mjs` that points the app at a temporary session-state directory. Scenarios that need a specific shape (large session, tool-call heavy, incident-heavy) can opt into named fixtures.
+- **Proposed change**: Ship a sealed fixture bundle plus an `import_sessions` IPC seed step, and add a `--fixture` flag to `connect.mjs` that points the app at an isolated session-state directory. Scenarios that need a specific shape (large session, tool-call heavy, incident-heavy) can opt into named fixtures.
 - **Risk / why deferred**: Requires either (a) an app-level override for the session-state path (currently hard-coded per OS config) or (b) a reliable `factory_reset` + `import_sessions` round-trip that is idempotent. Both are product-surface changes.
 - **Effort**: L
 

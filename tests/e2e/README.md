@@ -4,7 +4,8 @@ TracePilot does **not** host desktop end-to-end tests here. The canonical
 E2E path is the `tracepilot-app-automation` skill, which drives the real
 Tauri 2 + WebView2 app over Chrome DevTools Protocol.
 
-- **Runtime scenarios:** `scripts/e2e/*.mjs` (start with `smoke-test.mjs`).
+- **Canonical runtime flow:** `scripts/e2e/smoke-test.mjs`.
+- **Optional perf diagnostic:** `scripts/e2e/perf-profile.mjs`.
 - **Launcher / shutdown:** `scripts/e2e/launch.ps1` / `scripts/e2e/stop.ps1`.
 - **Skill doc:** `.github/skills/tracepilot-app-automation/SKILL.md`.
 - **Testing guide:** `docs/testing.md`.
