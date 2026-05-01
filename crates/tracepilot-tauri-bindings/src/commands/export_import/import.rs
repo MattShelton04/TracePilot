@@ -28,17 +28,7 @@ pub async fn preview_import(
             tracepilot_export::import::MigrationStatus::Available { .. }
         );
 
-        let issues: Vec<ImportIssue> = preview
-            .issues
-            .into_iter()
-            .map(|i| ImportIssue {
-                severity: match i.severity {
-                    tracepilot_export::import::IssueSeverity::Error => "error".into(),
-                    tracepilot_export::import::IssueSeverity::Warning => "warning".into(),
-                },
-                message: i.message,
-            })
-            .collect();
+        let issues: Vec<ImportIssue> = preview.issues.into_iter().map(Into::into).collect();
 
         let sessions: Vec<ImportSessionPreview> = preview
             .sessions

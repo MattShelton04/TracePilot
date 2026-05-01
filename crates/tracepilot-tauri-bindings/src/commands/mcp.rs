@@ -5,12 +5,6 @@ use crate::config::SharedConfig;
 use crate::error::CmdResult;
 use crate::helpers::read_config;
 use std::collections::HashMap;
-use tracepilot_orchestrator::OrchestratorError;
-
-/// Helper to convert McpError to OrchestratorError inside spawn_blocking.
-fn mcp<T>(r: Result<T, tracepilot_orchestrator::mcp::McpError>) -> Result<T, OrchestratorError> {
-    r.map_err(OrchestratorError::from)
-}
 
 // -- Server CRUD --
 
@@ -30,9 +24,9 @@ pub async fn mcp_get_server(
     name: String,
 ) -> CmdResult<tracepilot_orchestrator::mcp::types::McpServerConfig> {
     let home = read_config(&state).copilot_home();
-    blocking_cmd!(mcp(tracepilot_orchestrator::mcp::config::get_server_in(
+    blocking_cmd!(tracepilot_orchestrator::mcp::config::get_server_in(
         &home, &name
-    )))
+    ))
 }
 
 #[tauri::command]
@@ -43,9 +37,9 @@ pub async fn mcp_add_server(
     config: tracepilot_orchestrator::mcp::types::McpServerConfig,
 ) -> CmdResult<()> {
     let home = read_config(&state).copilot_home();
-    blocking_cmd!(mcp(tracepilot_orchestrator::mcp::config::add_server_in(
+    blocking_cmd!(tracepilot_orchestrator::mcp::config::add_server_in(
         &home, &name, config
-    )))
+    ))
 }
 
 #[tauri::command]
@@ -56,9 +50,9 @@ pub async fn mcp_update_server(
     config: tracepilot_orchestrator::mcp::types::McpServerConfig,
 ) -> CmdResult<()> {
     let home = read_config(&state).copilot_home();
-    blocking_cmd!(mcp(tracepilot_orchestrator::mcp::config::update_server_in(
+    blocking_cmd!(tracepilot_orchestrator::mcp::config::update_server_in(
         &home, &name, config
-    )))
+    ))
 }
 
 #[tauri::command]
@@ -68,9 +62,9 @@ pub async fn mcp_remove_server(
     name: String,
 ) -> CmdResult<tracepilot_orchestrator::mcp::types::McpServerConfig> {
     let home = read_config(&state).copilot_home();
-    blocking_cmd!(mcp(tracepilot_orchestrator::mcp::config::remove_server_in(
+    blocking_cmd!(tracepilot_orchestrator::mcp::config::remove_server_in(
         &home, &name
-    )))
+    ))
 }
 
 #[tauri::command]
@@ -81,9 +75,9 @@ pub async fn mcp_toggle_server(
     name: String,
 ) -> CmdResult<bool> {
     let home = read_config(&state).copilot_home();
-    blocking_cmd!(mcp(tracepilot_orchestrator::mcp::config::toggle_server_in(
+    blocking_cmd!(tracepilot_orchestrator::mcp::config::toggle_server_in(
         &home, &name
-    )))
+    ))
 }
 
 // -- Health checks --
@@ -112,7 +106,7 @@ pub async fn mcp_check_server_health(
 ) -> CmdResult<tracepilot_orchestrator::mcp::health::McpHealthResultCached> {
     let home = read_config(&state).copilot_home();
     let config = tokio::task::spawn_blocking(move || {
-        mcp(tracepilot_orchestrator::mcp::config::get_server_in(&home, &name).map(|c| (name, c)))
+        tracepilot_orchestrator::mcp::config::get_server_in(&home, &name).map(|c| (name, c))
     })
     .await??;
 
@@ -128,9 +122,9 @@ pub async fn mcp_check_server_health(
 pub async fn mcp_import_from_file(
     path: String,
 ) -> CmdResult<tracepilot_orchestrator::mcp::import::McpImportResult> {
-    blocking_cmd!(mcp(tracepilot_orchestrator::mcp::import::import_from_file(
+    blocking_cmd!(tracepilot_orchestrator::mcp::import::import_from_file(
         std::path::Path::new(&path),
-    )))
+    ))
 }
 
 #[tauri::command]
@@ -141,13 +135,11 @@ pub async fn mcp_import_from_github(
     path: Option<String>,
     git_ref: Option<String>,
 ) -> CmdResult<tracepilot_orchestrator::mcp::import::McpImportResult> {
-    blocking_cmd!(mcp(
-        tracepilot_orchestrator::mcp::import::import_from_github(
-            &owner,
-            &repo,
-            path.as_deref(),
-            git_ref.as_deref(),
-        )
+    blocking_cmd!(tracepilot_orchestrator::mcp::import::import_from_github(
+        &owner,
+        &repo,
+        path.as_deref(),
+        git_ref.as_deref(),
     ))
 }
 
@@ -162,7 +154,7 @@ pub async fn mcp_compute_diff(
     let home = read_config(&state).copilot_home();
     blocking_cmd!({
         let config = tracepilot_orchestrator::mcp::config::load_config_in(&home)?;
-        Ok::<_, OrchestratorError>(tracepilot_orchestrator::mcp::diff::compute_diff(
+        Ok::<_, crate::error::BindingsError>(tracepilot_orchestrator::mcp::diff::compute_diff(
             &config.mcp_servers,
             &incoming,
         ))

@@ -71,6 +71,18 @@ pub enum BindingsError {
     Internal(String),
 }
 
+impl From<tracepilot_orchestrator::skills::SkillsError> for BindingsError {
+    fn from(e: tracepilot_orchestrator::skills::SkillsError) -> Self {
+        Self::Orchestrator(e.into())
+    }
+}
+
+impl From<tracepilot_orchestrator::mcp::McpError> for BindingsError {
+    fn from(e: tracepilot_orchestrator::mcp::McpError) -> Self {
+        Self::Orchestrator(e.into())
+    }
+}
+
 impl BindingsError {
     /// Stable, machine-readable error code. The frontend branches on this.
     pub fn code(&self) -> ErrorCode {

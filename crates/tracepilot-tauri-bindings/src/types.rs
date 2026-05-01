@@ -264,6 +264,18 @@ pub struct ImportIssue {
     pub message: String,
 }
 
+impl From<tracepilot_export::import::ValidationIssue> for ImportIssue {
+    fn from(issue: tracepilot_export::import::ValidationIssue) -> Self {
+        Self {
+            severity: match issue.severity {
+                tracepilot_export::import::IssueSeverity::Error => "error".into(),
+                tracepilot_export::import::IssueSeverity::Warning => "warning".into(),
+            },
+            message: issue.message,
+        }
+    }
+}
+
 /// Summary of a session found in an import archive.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
