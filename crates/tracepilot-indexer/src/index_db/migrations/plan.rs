@@ -82,7 +82,7 @@ pub(super) static INDEX_DB_MIGRATIONS: &[Migration] = &[
     },
     Migration {
         version: 14,
-        name: "session CLI version and index cleanup",
+        name: "session CLI version and schema cleanup",
         sql: MIGRATION_14,
         pre_hook: None,
     },

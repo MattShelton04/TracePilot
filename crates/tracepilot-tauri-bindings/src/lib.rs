@@ -55,6 +55,18 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
                 Arc::new(Mutex::new(cache::build_session_lru(SESSION_CACHE_CAPACITY)));
             app.manage(event_cache);
 
+            if let Some(cfg) = app
+                .state::<crate::config::SharedConfig>()
+                .read()
+                .ok()
+                .and_then(|guard| guard.clone())
+                .filter(|cfg| cfg.general.setup_complete)
+                && let Err(e) =
+                    tracepilot_indexer::index_db::IndexDb::open_or_create(&cfg.index_db_path())
+            {
+                tracing::warn!(error = %e, "Failed to apply pending index database migrations at startup");
+            }
+
             // Copilot SDK bridge manager.
             let (bridge_manager, _bridge_rx, _bridge_status_rx) =
                 tracepilot_orchestrator::bridge::BridgeManager::new();

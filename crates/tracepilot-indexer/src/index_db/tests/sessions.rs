@@ -70,6 +70,21 @@ fn test_version_migration_adds_cli_version_and_cleans_indexes() {
         .collect::<rusqlite::Result<_>>()
         .unwrap();
     assert!(columns.contains("copilot_version"));
+    for removed in [
+        "has_plan",
+        "has_checkpoints",
+        "checkpoint_count",
+        "shutdown_type",
+        "duration_ms",
+        "warning_count",
+        "last_error_type",
+        "last_error_message",
+    ] {
+        assert!(
+            !columns.contains(removed),
+            "retired column should be removed: {removed}"
+        );
+    }
 
     let indexes: HashSet<String> = db
         .conn

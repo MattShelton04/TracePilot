@@ -125,11 +125,9 @@ pub(crate) struct SessionAnalytics {
     pub total_cost: f64,
     pub lines_added: Option<i64>,
     pub lines_removed: Option<i64>,
-    pub duration_ms: Option<i64>,
     pub tool_call_count: Option<i64>,
 
     // Shutdown metrics pass-through
-    pub shutdown_type: Option<String>,
     pub current_model: Option<String>,
     pub copilot_version: Option<String>,
     pub total_premium_requests: Option<f64>,
@@ -150,11 +148,8 @@ pub(crate) struct SessionAnalytics {
     // Incident counters
     pub error_count: i64,
     pub rate_limit_count: i64,
-    pub warning_count: i64,
     pub compaction_count: i64,
     pub truncation_count: i64,
-    pub last_error_type: Option<String>,
-    pub last_error_message: Option<String>,
     pub total_compaction_input: i64,
     pub total_compaction_output: i64,
     pub incidents: Vec<IncidentRow>,

@@ -344,6 +344,16 @@ pub(super) const MIGRATION_14: &str = r#"
 -- Persist the latest observed Copilot CLI version for each session.
 ALTER TABLE sessions ADD COLUMN copilot_version TEXT;
 
+-- Remove session columns that are only written, never queried or exposed.
+ALTER TABLE sessions DROP COLUMN has_plan;
+ALTER TABLE sessions DROP COLUMN has_checkpoints;
+ALTER TABLE sessions DROP COLUMN checkpoint_count;
+ALTER TABLE sessions DROP COLUMN shutdown_type;
+ALTER TABLE sessions DROP COLUMN duration_ms;
+ALTER TABLE sessions DROP COLUMN warning_count;
+ALTER TABLE sessions DROP COLUMN last_error_type;
+ALTER TABLE sessions DROP COLUMN last_error_message;
+
 -- idx_sessions_repo_updated(repository, updated_at) covers repository-only lookups too.
 DROP INDEX IF EXISTS idx_sessions_repository;
 
