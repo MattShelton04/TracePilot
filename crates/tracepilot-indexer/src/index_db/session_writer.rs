@@ -97,7 +97,7 @@ impl IndexDb {
                     id, path, summary, repository, branch, cwd, host_type,
                     created_at, updated_at, event_count, turn_count,
                     has_plan, has_checkpoints, checkpoint_count,
-                    shutdown_type, current_model, total_premium_requests, total_api_duration_ms,
+                    shutdown_type, current_model, copilot_version, total_premium_requests, total_api_duration_ms,
                     workspace_mtime,
                     total_tokens, total_cost, tool_call_count, lines_added, lines_removed,
                     duration_ms, events_mtime, events_size, analytics_version,
@@ -106,8 +106,8 @@ impl IndexDb {
                     indexed_at
                 ) VALUES (
                     ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14,
-                    ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28,
-                    ?29, ?30, ?31, ?32, ?33, ?34, ?35, ?36, ?37,
+                    ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29,
+                    ?30, ?31, ?32, ?33, ?34, ?35, ?36, ?37, ?38,
                     datetime('now')
                 )
                 ON CONFLICT(id) DO UPDATE SET
@@ -118,6 +118,7 @@ impl IndexDb {
                     has_plan=excluded.has_plan, has_checkpoints=excluded.has_checkpoints,
                     checkpoint_count=excluded.checkpoint_count, shutdown_type=excluded.shutdown_type,
                     current_model=excluded.current_model,
+                    copilot_version=excluded.copilot_version,
                     total_premium_requests=excluded.total_premium_requests,
                     total_api_duration_ms=excluded.total_api_duration_ms,
                     workspace_mtime=excluded.workspace_mtime,
@@ -151,6 +152,7 @@ impl IndexDb {
                     summary.checkpoint_count.map(|c| c as i64),
                     analytics.shutdown_type,
                     analytics.current_model,
+                    analytics.copilot_version,
                     analytics.total_premium_requests,
                     analytics.total_api_duration_ms,
                     analytics.workspace_mtime,

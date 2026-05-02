@@ -339,3 +339,16 @@ ALTER TABLE session_model_metrics ADD COLUMN reasoning_tokens INTEGER;
 pub(super) const MIGRATION_13: &str = r#"
 ALTER TABLE sessions DROP COLUMN health_score;
 "#;
+
+pub(super) const MIGRATION_14: &str = r#"
+-- Persist the latest observed Copilot CLI version for each session.
+ALTER TABLE sessions ADD COLUMN copilot_version TEXT;
+
+-- idx_sessions_repo_updated(repository, updated_at) covers repository-only lookups too.
+DROP INDEX IF EXISTS idx_sessions_repository;
+
+-- Session lists commonly hide empty sessions while sorting newest-first.
+CREATE INDEX IF NOT EXISTS idx_sessions_nonempty_updated_at
+    ON sessions(updated_at DESC)
+    WHERE turn_count IS NOT NULL AND turn_count > 0;
+"#;

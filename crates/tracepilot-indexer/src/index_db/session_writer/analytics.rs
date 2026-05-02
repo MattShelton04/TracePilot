@@ -39,6 +39,7 @@ pub(crate) fn extract_session_analytics(
         .shutdown_metrics
         .as_ref()
         .and_then(|m| m.total_api_duration_ms.map(|v| v as i64));
+    let mut copilot_version: Option<String> = None;
 
     if let Some(ref metrics) = summary.shutdown_metrics {
         if let (Some(start_time), Some(updated)) = (metrics.session_start_time, summary.updated_at)
@@ -143,6 +144,16 @@ pub(crate) fn extract_session_analytics(
 
         for event in events {
             match &event.typed_data {
+                TypedEventData::SessionStart(d) => {
+                    if let Some(version) = d.copilot_version.as_ref().filter(|v| !v.is_empty()) {
+                        copilot_version = Some(version.clone());
+                    }
+                }
+                TypedEventData::SessionResume(d) => {
+                    if let Some(version) = d.copilot_version.as_ref().filter(|v| !v.is_empty()) {
+                        copilot_version = Some(version.clone());
+                    }
+                }
                 TypedEventData::UserMessage(_) => {
                     // FTS content extraction moved to search_writer (Phase 2)
                 }
@@ -326,6 +337,7 @@ pub(crate) fn extract_session_analytics(
         tool_call_count: final_tool_call_count,
         shutdown_type,
         current_model,
+        copilot_version,
         total_premium_requests,
         total_api_duration_ms,
         workspace_mtime: file_meta.workspace_mtime.clone(),

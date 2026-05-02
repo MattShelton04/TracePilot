@@ -2,7 +2,7 @@
 
 /// Bump this when the analytics schema or extraction logic changes.
 /// Sessions with a stored analytics_version below this will be re-indexed.
-pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 4;
+pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 5;
 
 /// Maximum incidents stored per session to prevent DB bloat.
 pub(super) const MAX_INCIDENTS_PER_SESSION: usize = 100;
@@ -34,6 +34,7 @@ pub struct IndexedSession {
     pub event_count: Option<i64>,
     pub turn_count: Option<i64>,
     pub current_model: Option<String>,
+    pub copilot_version: Option<String>,
     pub error_count: Option<i64>,
     pub rate_limit_count: Option<i64>,
     pub compaction_count: Option<i64>,
@@ -130,6 +131,7 @@ pub(crate) struct SessionAnalytics {
     // Shutdown metrics pass-through
     pub shutdown_type: Option<String>,
     pub current_model: Option<String>,
+    pub copilot_version: Option<String>,
     pub total_premium_requests: Option<f64>,
     pub total_api_duration_ms: Option<i64>,
 

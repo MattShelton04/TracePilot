@@ -10,7 +10,7 @@ use super::IndexDb;
 use super::row_helpers::*;
 use super::types::*;
 
-const SESSION_COLUMNS: &str = "id, path, summary, repository, branch, cwd, host_type, created_at, updated_at, event_count, turn_count, current_model, error_count, rate_limit_count, compaction_count, truncation_count";
+const SESSION_COLUMNS: &str = "id, path, summary, repository, branch, cwd, host_type, created_at, updated_at, event_count, turn_count, current_model, copilot_version, error_count, rate_limit_count, compaction_count, truncation_count";
 
 impl IndexDb {
     /// List indexed sessions with optional filters.
@@ -133,7 +133,7 @@ impl IndexDb {
             "SELECT
                 s.id, s.path, s.summary, s.repository, s.branch, s.cwd, s.host_type,
                 s.created_at, s.updated_at, s.event_count, s.turn_count, s.current_model,
-                s.error_count, s.rate_limit_count, s.compaction_count, s.truncation_count
+                s.copilot_version, s.error_count, s.rate_limit_count, s.compaction_count, s.truncation_count
              FROM sessions_fts f
              INNER JOIN sessions s ON s.rowid = f.rowid
              WHERE sessions_fts MATCH ?1
