@@ -19,12 +19,12 @@ impl IndexDb {
             return Ok(0);
         }
 
-        self.conn.execute_batch("BEGIN")?;
+        self.conn.execute_batch("SAVEPOINT prune_deleted")?;
         let result = (|| -> Result<()> {
             // Use json_each() to pass all live IDs as a single JSON array parameter,
             // avoiding the N individual INSERT statements into a temp table.
             let live_json = serde_json::to_string(&live_ids.iter().collect::<Vec<_>>())
-                .expect("string serialization is infallible");
+                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
 
             self.conn.execute(
                 "DELETE FROM sessions WHERE id NOT IN (SELECT value FROM json_each(?1))",
@@ -39,11 +39,14 @@ impl IndexDb {
 
         match result {
             Ok(()) => {
-                self.conn.execute_batch("COMMIT")?;
+                self.conn.execute_batch("RELEASE SAVEPOINT prune_deleted")?;
                 Ok(count)
             }
             Err(e) => {
-                if let Err(rb_err) = self.conn.execute_batch("ROLLBACK") {
+                if let Err(rb_err) = self
+                    .conn
+                    .execute_batch("ROLLBACK TO SAVEPOINT prune_deleted")
+                {
                     tracing::warn!(error = %rb_err, "ROLLBACK after prune_deleted failed");
                 }
                 Err(e)

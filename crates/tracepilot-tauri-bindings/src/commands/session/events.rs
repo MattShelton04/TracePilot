@@ -4,6 +4,7 @@ use crate::config::SharedConfig;
 use crate::error::CmdResult;
 use crate::helpers::with_session_path;
 use crate::types::{EventCache, EventItem, EventsResponse, FreshnessResponse};
+use tracepilot_core::parsing::EVENTS_JSONL;
 
 use super::shared::{load_cached_typed_events, system_time_to_unix_millis};
 
@@ -16,7 +17,7 @@ pub async fn check_session_freshness(
 ) -> CmdResult<FreshnessResponse> {
     let sid = crate::validators::validate_session_id(&session_id)?;
     with_session_path(&state, sid, |path| {
-        let meta = std::fs::metadata(path.join("events.jsonl")).ok();
+        let meta = std::fs::metadata(path.join(EVENTS_JSONL)).ok();
         let file_size = meta.as_ref().map_or(0, |m| m.len());
         let file_mtime = meta.and_then(|m| m.modified().ok());
         Ok(FreshnessResponse {
@@ -44,7 +45,7 @@ pub async fn get_session_events(
     let cache_session_id = session_id.clone();
 
     with_session_path(&state, sid, move |path| {
-        let events_path = path.join("events.jsonl");
+        let events_path = path.join(EVENTS_JSONL);
         let (all_events, _, _) = load_cached_typed_events(&cache, &cache_session_id, &events_path)?;
 
         let all_event_types: Vec<String> = {
@@ -105,7 +106,7 @@ pub async fn get_tool_result(
     let cache_session_id = session_id.clone();
 
     with_session_path(&state, sid, move |path| {
-        let events_path = path.join("events.jsonl");
+        let events_path = path.join(EVENTS_JSONL);
         let (events, _, _) = load_cached_typed_events(&cache, &cache_session_id, &events_path)?;
 
         let mut last_result: Option<serde_json::Value> = None;

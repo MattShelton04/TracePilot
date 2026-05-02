@@ -2,11 +2,12 @@ use std::path::Path;
 
 use crate::error::{Result, TracePilotError};
 use crate::models::session_summary::SessionSummary;
+use crate::parsing::WORKSPACE_YAML;
 use crate::parsing::workspace::{WorkspaceMetadata, parse_workspace_yaml};
 
 /// Parse `workspace.yaml` when present, otherwise fall back to the directory ID.
 pub(super) fn load_workspace_summary(session_dir: &Path) -> Result<SessionSummary> {
-    let workspace_path = session_dir.join("workspace.yaml");
+    let workspace_path = session_dir.join(WORKSPACE_YAML);
     if workspace_path.exists() {
         match parse_workspace_yaml(&workspace_path) {
             Ok(ws) => Ok(summary_from_workspace(ws)),

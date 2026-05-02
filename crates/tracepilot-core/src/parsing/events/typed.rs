@@ -103,13 +103,13 @@ pub(crate) fn typed_data_from_raw(
     /// Uses `&Value` as a `Deserializer` directly — no clone on the success path.
     /// The clone is deferred to the error fallback, which is rare in practice.
     macro_rules! try_deser {
-        ($variant:ident, $data_type:ty, $wire:expr, $data:expr) => {{
+        ($variant:ident, $data_type:ty, $data:expr, $event_type:expr) => {{
             match <$data_type as serde::de::Deserialize>::deserialize($data) {
                 Ok(typed) => (TypedEventData::$variant(typed), None),
                 Err(e) => (
                     TypedEventData::Other($data.clone()),
                     Some(EventParseWarning::DeserializationFailed {
-                        event_type: $wire.to_string(),
+                        event_type: $event_type.to_string(),
                         error: e.to_string(),
                     }),
                 ),
@@ -119,210 +119,128 @@ pub(crate) fn typed_data_from_raw(
 
     match event_type {
         SessionEventType::SessionStart => {
-            try_deser!(SessionStart, SessionStartData, "session.start", data)
+            try_deser!(SessionStart, SessionStartData, data, event_type)
         }
         SessionEventType::SessionShutdown => {
-            try_deser!(SessionShutdown, ShutdownData, "session.shutdown", data)
+            try_deser!(SessionShutdown, ShutdownData, data, event_type)
         }
-        SessionEventType::UserMessage => {
-            try_deser!(UserMessage, UserMessageData, "user.message", data)
-        }
+        SessionEventType::UserMessage => try_deser!(UserMessage, UserMessageData, data, event_type),
         SessionEventType::AssistantMessage => {
-            try_deser!(
-                AssistantMessage,
-                AssistantMessageData,
-                "assistant.message",
-                data
-            )
+            try_deser!(AssistantMessage, AssistantMessageData, data, event_type)
         }
         SessionEventType::AssistantTurnStart => {
-            try_deser!(TurnStart, TurnStartData, "assistant.turn_start", data)
+            try_deser!(TurnStart, TurnStartData, data, event_type)
         }
-        SessionEventType::AssistantTurnEnd => {
-            try_deser!(TurnEnd, TurnEndData, "assistant.turn_end", data)
-        }
+        SessionEventType::AssistantTurnEnd => try_deser!(TurnEnd, TurnEndData, data, event_type),
         SessionEventType::ToolExecutionStart => {
-            try_deser!(
-                ToolExecutionStart,
-                ToolExecStartData,
-                "tool.execution_start",
-                data
-            )
+            try_deser!(ToolExecutionStart, ToolExecStartData, data, event_type)
         }
         SessionEventType::ToolExecutionComplete => {
             try_deser!(
                 ToolExecutionComplete,
                 ToolExecCompleteData,
-                "tool.execution_complete",
-                data
+                data,
+                event_type
             )
         }
         SessionEventType::SubagentStarted => {
-            try_deser!(
-                SubagentStarted,
-                SubagentStartedData,
-                "subagent.started",
-                data
-            )
+            try_deser!(SubagentStarted, SubagentStartedData, data, event_type)
         }
         SessionEventType::SubagentCompleted => {
-            try_deser!(
-                SubagentCompleted,
-                SubagentCompletedData,
-                "subagent.completed",
-                data
-            )
+            try_deser!(SubagentCompleted, SubagentCompletedData, data, event_type)
         }
         SessionEventType::SubagentFailed => {
-            try_deser!(SubagentFailed, SubagentFailedData, "subagent.failed", data)
+            try_deser!(SubagentFailed, SubagentFailedData, data, event_type)
         }
         SessionEventType::SessionCompactionComplete => {
-            try_deser!(
-                CompactionComplete,
-                CompactionCompleteData,
-                "session.compaction_complete",
-                data
-            )
+            try_deser!(CompactionComplete, CompactionCompleteData, data, event_type)
         }
         SessionEventType::SessionCompactionStart => {
-            try_deser!(
-                CompactionStart,
-                CompactionStartData,
-                "session.compaction_start",
-                data
-            )
+            try_deser!(CompactionStart, CompactionStartData, data, event_type)
         }
         SessionEventType::SessionModelChange => {
-            try_deser!(ModelChange, ModelChangeData, "session.model_change", data)
+            try_deser!(ModelChange, ModelChangeData, data, event_type)
         }
         SessionEventType::SessionError => {
-            try_deser!(SessionError, SessionErrorData, "session.error", data)
+            try_deser!(SessionError, SessionErrorData, data, event_type)
         }
         SessionEventType::SessionResume => {
-            try_deser!(SessionResume, SessionResumeData, "session.resume", data)
+            try_deser!(SessionResume, SessionResumeData, data, event_type)
         }
         SessionEventType::SystemNotification => {
-            try_deser!(
-                SystemNotification,
-                SystemNotificationData,
-                "system.notification",
-                data
-            )
+            try_deser!(SystemNotification, SystemNotificationData, data, event_type)
         }
         SessionEventType::SkillInvoked => {
-            try_deser!(SkillInvoked, SkillInvokedData, "skill.invoked", data)
+            try_deser!(SkillInvoked, SkillInvokedData, data, event_type)
         }
-        SessionEventType::Abort => {
-            try_deser!(Abort, AbortData, "abort", data)
-        }
+        SessionEventType::Abort => try_deser!(Abort, AbortData, data, event_type),
         SessionEventType::SessionPlanChanged => {
-            try_deser!(PlanChanged, PlanChangedData, "session.plan_changed", data)
+            try_deser!(PlanChanged, PlanChangedData, data, event_type)
         }
-        SessionEventType::SessionInfo => {
-            try_deser!(SessionInfo, SessionInfoData, "session.info", data)
-        }
+        SessionEventType::SessionInfo => try_deser!(SessionInfo, SessionInfoData, data, event_type),
         SessionEventType::SessionContextChanged => {
-            try_deser!(
-                ContextChanged,
-                SessionContext,
-                "session.context_changed",
-                data
-            )
+            try_deser!(ContextChanged, SessionContext, data, event_type)
         }
         SessionEventType::SessionWorkspaceFileChanged => {
             try_deser!(
                 WorkspaceFileChanged,
                 WorkspaceFileChangedData,
-                "session.workspace_file_changed",
-                data
+                data,
+                event_type
             )
         }
         SessionEventType::ToolUserRequested => {
-            try_deser!(
-                ToolUserRequested,
-                ToolUserRequestedData,
-                "tool.user_requested",
-                data
-            )
+            try_deser!(ToolUserRequested, ToolUserRequestedData, data, event_type)
         }
         // New event types
         SessionEventType::SessionTruncation => {
-            try_deser!(
-                SessionTruncation,
-                SessionTruncationData,
-                "session.truncation",
-                data
-            )
+            try_deser!(SessionTruncation, SessionTruncationData, data, event_type)
         }
         SessionEventType::AssistantReasoning => {
-            try_deser!(
-                AssistantReasoning,
-                AssistantReasoningData,
-                "assistant.reasoning",
-                data
-            )
+            try_deser!(AssistantReasoning, AssistantReasoningData, data, event_type)
         }
         SessionEventType::SystemMessage => {
-            try_deser!(SystemMessage, SystemMessageData, "system.message", data)
+            try_deser!(SystemMessage, SystemMessageData, data, event_type)
         }
         SessionEventType::SessionWarning => {
-            try_deser!(SessionWarning, SessionWarningData, "session.warning", data)
+            try_deser!(SessionWarning, SessionWarningData, data, event_type)
         }
         SessionEventType::SessionModeChanged => {
-            try_deser!(
-                SessionModeChanged,
-                SessionModeChangedData,
-                "session.mode_changed",
-                data
-            )
+            try_deser!(SessionModeChanged, SessionModeChangedData, data, event_type)
         }
         SessionEventType::SessionTaskComplete => {
             try_deser!(
                 SessionTaskComplete,
                 SessionTaskCompleteData,
-                "session.task_complete",
-                data
+                data,
+                event_type
             )
         }
         SessionEventType::SubagentSelected => {
-            try_deser!(
-                SubagentSelected,
-                SubagentSelectedData,
-                "subagent.selected",
-                data
-            )
+            try_deser!(SubagentSelected, SubagentSelectedData, data, event_type)
         }
         SessionEventType::SubagentDeselected => {
-            try_deser!(
-                SubagentDeselected,
-                SubagentDeselectedData,
-                "subagent.deselected",
-                data
-            )
+            try_deser!(SubagentDeselected, SubagentDeselectedData, data, event_type)
         }
-        SessionEventType::HookStart => {
-            try_deser!(HookStart, HookStartData, "hook.start", data)
-        }
-        SessionEventType::HookEnd => {
-            try_deser!(HookEnd, HookEndData, "hook.end", data)
-        }
+        SessionEventType::HookStart => try_deser!(HookStart, HookStartData, data, event_type),
+        SessionEventType::HookEnd => try_deser!(HookEnd, HookEndData, data, event_type),
         SessionEventType::SessionHandoff => {
-            try_deser!(SessionHandoff, SessionHandoffData, "session.handoff", data)
+            try_deser!(SessionHandoff, SessionHandoffData, data, event_type)
         }
         SessionEventType::SessionImportLegacy => {
             try_deser!(
                 SessionImportLegacy,
                 SessionImportLegacyData,
-                "session.import_legacy",
-                data
+                data,
+                event_type
             )
         }
         SessionEventType::SessionRemoteSteerableChanged => {
             try_deser!(
                 SessionRemoteSteerableChanged,
                 SessionRemoteSteerableChangedData,
-                "session.remote_steerable_changed",
-                data
+                data,
+                event_type
             )
         }
         SessionEventType::Unknown(name) => (
