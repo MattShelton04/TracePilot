@@ -28,7 +28,8 @@ pub struct RewindSnapshot {
 ///
 /// Returns `None` if the file doesn't exist.
 pub fn parse_rewind_index(session_dir: &Path) -> Result<Option<RewindIndex>> {
-    let index_path = session_dir.join("rewind-snapshots").join("index.json");
+    let session_paths = crate::paths::SessionPaths::from_root(session_dir);
+    let index_path = session_paths.rewind_snapshots_index();
 
     if !index_path.exists() {
         return Ok(None);

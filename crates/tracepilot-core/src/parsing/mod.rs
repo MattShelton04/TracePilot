@@ -28,3 +28,11 @@ pub const SESSION_DB: &str = "session.db";
 pub const CHECKPOINTS_DIR: &str = "checkpoints";
 /// Directory name for rewind snapshots.
 pub const REWIND_SNAPSHOTS_DIR: &str = "rewind-snapshots";
+/// File name for the checkpoint index.
+pub const CHECKPOINTS_INDEX: &str = "index.md";
+/// File name for the rewind snapshot index.
+pub const REWIND_SNAPSHOTS_INDEX: &str = "index.json";
+/// File name for the implementation plan.
+pub const PLAN_MD: &str = "plan.md";
+/// Directory name for extracted files.
+pub const FILES_DIR: &str = "files";
