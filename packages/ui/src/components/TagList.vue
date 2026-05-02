@@ -39,7 +39,7 @@ function onKeydown(e: KeyboardEvent, tags: string[]) {
   <div class="tag-list">
     <span v-for="(tag, i) in tags" :key="tag" class="tag-item">
       {{ tag }}
-      <button v-if="editable" class="tag-remove" @click="removeTag(tags, i)" aria-label="Remove tag">×</button>
+      <button v-if="editable" class="tag-remove" @click="removeTag(tags, i)" aria-label="Remove tag"><span aria-hidden="true">×</span></button>
     </span>
     <input
       v-if="editable"
