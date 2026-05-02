@@ -14,8 +14,18 @@ impl LiveStateStore {
         Self::default()
     }
 
+    /// Helper to acquire the states write lock, handling poisoned mutexes.
+    fn states_write(&self) -> std::sync::RwLockWriteGuard<'_, HashMap<String, SessionLiveState>> {
+        self.states.write().unwrap_or_else(|e| e.into_inner())
+    }
+
+    /// Helper to acquire the states read lock, handling poisoned mutexes.
+    fn states_read(&self) -> std::sync::RwLockReadGuard<'_, HashMap<String, SessionLiveState>> {
+        self.states.read().unwrap_or_else(|e| e.into_inner())
+    }
+
     pub fn apply_event(&self, event: &BridgeEvent) -> SessionLiveState {
-        let mut states = self.states.write().unwrap_or_else(|e| e.into_inner());
+        let mut states = self.states_write();
         let state = states
             .entry(event.session_id.clone())
             .or_insert_with(|| SessionLiveState::new(&event.session_id));
@@ -29,7 +39,7 @@ impl LiveStateStore {
         status: SessionRuntimeStatus,
         last_error: Option<String>,
     ) -> SessionLiveState {
-        let mut states = self.states.write().unwrap_or_else(|e| e.into_inner());
+        let mut states = self.states_write();
         let state = states
             .entry(session_id.to_string())
             .or_insert_with(|| SessionLiveState::new(session_id));
@@ -39,21 +49,11 @@ impl LiveStateStore {
     }
 
     pub fn get(&self, session_id: &str) -> Option<SessionLiveState> {
-        self.states
-            .read()
-            .unwrap_or_else(|e| e.into_inner())
-            .get(session_id)
-            .cloned()
+        self.states_read().get(session_id).cloned()
     }
 
     pub fn list(&self) -> Vec<SessionLiveState> {
-        let mut states: Vec<_> = self
-            .states
-            .read()
-            .unwrap_or_else(|e| e.into_inner())
-            .values()
-            .cloned()
-            .collect();
+        let mut states: Vec<_> = self.states_read().values().cloned().collect();
         states.sort_by(|a, b| a.session_id.cmp(&b.session_id));
         states
     }

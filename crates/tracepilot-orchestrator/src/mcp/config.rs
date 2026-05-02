@@ -15,6 +15,14 @@ use std::sync::Mutex;
 /// Static mutex to serialize config file writes (mirrors repo_registry pattern).
 static CONFIG_LOCK: Mutex<()> = Mutex::new(());
 
+/// Helper to acquire the config lock, handling poisoned mutexes.
+///
+/// Returns the lock guard if successful, or the inner mutex guard
+/// if the mutex was poisoned (indicating a previous thread panic).
+fn config_lock() -> std::sync::MutexGuard<'static, ()> {
+    CONFIG_LOCK.lock().unwrap_or_else(|e| e.into_inner())
+}
+
 /// The on-disk format for `mcp-config.json`.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
@@ -60,7 +68,7 @@ fn save_config_unlocked_in(
 
 /// Save the MCP configuration to disk atomically.
 pub fn save_config(config: &McpConfigFile) -> crate::error::Result<()> {
-    let _lock = CONFIG_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _lock = config_lock();
     save_config_unlocked(config)
 }
 
@@ -69,7 +77,7 @@ fn with_config_mut<F, T>(f: F) -> Result<T, McpError>
 where
     F: FnOnce(&mut McpConfigFile) -> Result<T, McpError>,
 {
-    let _lock = CONFIG_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _lock = config_lock();
     let mut config = load_config().map_err(McpError::from_orchestrator)?;
     let result = f(&mut config)?;
     save_config_unlocked(&config).map_err(McpError::from_orchestrator)?;
@@ -80,7 +88,7 @@ fn with_config_mut_in<F, T>(copilot_home: &Path, f: F) -> Result<T, McpError>
 where
     F: FnOnce(&mut McpConfigFile) -> Result<T, McpError>,
 {
-    let _lock = CONFIG_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _lock = config_lock();
     let mut config = load_config_in(copilot_home).map_err(McpError::from_orchestrator)?;
     let result = f(&mut config)?;
     save_config_unlocked_in(copilot_home, &config).map_err(McpError::from_orchestrator)?;

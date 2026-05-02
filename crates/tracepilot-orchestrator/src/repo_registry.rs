@@ -16,6 +16,14 @@ const SCHEMA_VERSION: u32 = 1;
 /// Process-level lock serializing all registry file operations.
 static REGISTRY_LOCK: Mutex<()> = Mutex::new(());
 
+/// Helper to acquire the registry lock, handling poisoned mutexes.
+///
+/// Returns the lock guard if successful, or the inner mutex guard
+/// if the mutex was poisoned (indicating a previous thread panic).
+fn registry_lock() -> std::sync::MutexGuard<'static, ()> {
+    REGISTRY_LOCK.lock().unwrap_or_else(|e| e.into_inner())
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct RegistryFile {
@@ -85,13 +93,13 @@ fn repo_name_from_path(path: &str) -> String {
 
 /// List all registered repos.
 pub fn list_registered_repos() -> Result<Vec<RegisteredRepo>> {
-    let _guard = REGISTRY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _guard = registry_lock();
     let registry = read_registry()?;
     Ok(registry.repos)
 }
 
 pub fn list_registered_repos_in(tracepilot_home: &Path) -> Result<Vec<RegisteredRepo>> {
-    let _guard = REGISTRY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _guard = registry_lock();
     let registry = read_registry_from_path(&registry_path_in(tracepilot_home))?;
     Ok(registry.repos)
 }
@@ -132,7 +140,7 @@ fn add_repo_at_path(
     let root = worktrees::get_repo_root(p)?;
     let normalized = normalize_path(&root);
 
-    let _guard = REGISTRY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _guard = registry_lock();
     let mut registry = read_registry_from_path(registry_path)?;
 
     // Check for duplicates — single traversal to find and update
@@ -173,7 +181,7 @@ pub fn remove_repo_in(tracepilot_home: &Path, path: &str) -> Result<()> {
 
 fn remove_repo_at_path(registry_path: &Path, path: &str) -> Result<()> {
     let normalized = normalize_path(path);
-    let _guard = REGISTRY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _guard = registry_lock();
     let mut registry = read_registry_from_path(registry_path)?;
     let before = registry.repos.len();
     registry
@@ -200,7 +208,7 @@ pub fn update_last_used_in(tracepilot_home: &Path, path: &str) -> Result<()> {
 
 fn update_last_used_at_path(registry_path: &Path, path: &str) -> Result<()> {
     let normalized = normalize_path(path);
-    let _guard = REGISTRY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _guard = registry_lock();
     let mut registry = read_registry_from_path(registry_path)?;
     if let Some(repo) = registry
         .repos
