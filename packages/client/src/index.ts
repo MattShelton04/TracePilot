@@ -7,8 +7,6 @@
  * remain importable by consumers with its original name and type.
  */
 
-import type { SessionHealth } from "@tracepilot/types";
-
 export * from "./analytics.js";
 export { type CommandName, IPC_COMMANDS } from "./commands.js";
 export * from "./config.js";
@@ -42,4 +40,3 @@ export * from "./sdk.js";
 export * from "./search.js";
 export * from "./sessions.js";
 export * from "./skills.js";
-export type { SessionHealth };

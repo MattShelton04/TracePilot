@@ -10,7 +10,6 @@ fn test_analytics_empty_sessions() {
     assert_eq!(result.total_sessions, 0);
     assert_eq!(result.total_tokens, 0);
     assert_eq!(result.total_cost, 0.0);
-    assert_eq!(result.average_health_score, 0.0);
     assert!(result.token_usage_by_day.is_empty());
     assert!(result.activity_per_day.is_empty());
     assert!(result.model_distribution.is_empty());

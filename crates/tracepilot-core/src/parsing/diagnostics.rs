@@ -5,15 +5,14 @@
 //!
 //! As the Copilot CLI evolves (~4 releases/week, 41→62+ event types), TracePilot
 //! will regularly encounter event types it doesn't recognize. This module provides
-//! structured tracking of these situations so they can be surfaced in health scoring
-//! and logged for debugging, rather than being silently swallowed.
+//! structured tracking of these situations so they can be logged for debugging and
+//! surfaced in parse-quality reports, rather than being silently swallowed.
 //!
 //! ## Usage
 //!
 //! [`ParseDiagnostics`] is accumulated during [`parse_typed_events`](super::events::parse_typed_events)
 //! and returned alongside the parsed events in [`ParsedEvents`]. Callers that only
-//! need events can access `.events` and ignore diagnostics. The health module
-//! uses diagnostics for session health scoring.
+//! need events can access `.events` and ignore diagnostics.
 //!
 //! Diagnostics are **Rust-internal only** — they do not cross the Tauri FFI boundary.
 

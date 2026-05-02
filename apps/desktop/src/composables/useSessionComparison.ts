@@ -16,7 +16,6 @@ import { computed, type InjectionKey, inject, onMounted, reactive, ref } from "v
 import {
   copilotCost,
   filesModified,
-  healthScore,
   linesChanged,
   sessionDurationMs,
   successRate,
@@ -256,9 +255,6 @@ export function useSessionComparison() {
     const fmB = filesModified(dataB.metrics);
     const lcA = linesChanged(dataA.metrics);
     const lcB = linesChanged(dataB.metrics);
-    const hsA = healthScore(dataA.turns);
-    const hsB = healthScore(dataB.turns);
-
     const isNorm = normMode.value !== "raw";
     const suffix =
       normMode.value === "per-turn" ? " /turn" : normMode.value === "per-minute" ? " /min" : "";
@@ -287,7 +283,6 @@ export function useSessionComparison() {
       row("Success Rate", srA, srB, formatRate, true),
       row("Files Modified", fmA, fmB, String, false),
       row(`Lines Changed${suffix}`, lcA / divA, lcB / divB, fmtInt, false),
-      row("Health Score", hsA, hsB, (v) => Math.round(v * 100).toString(), true),
     ];
   });
 

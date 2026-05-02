@@ -125,13 +125,13 @@ fn render_summary_csv(session: &PortableSession) -> Result<Vec<u8>> {
 
     writeln!(
         out,
-        "id,summary,repository,branch,host_type,created_at,updated_at,event_count,turn_count,health_score"
+        "id,summary,repository,branch,host_type,created_at,updated_at,event_count,turn_count"
     )
     .map_err(csv_write_err)?;
 
     writeln!(
         out,
-        "{},{},{},{},{},{},{},{},{},{}",
+        "{},{},{},{},{},{},{},{},{}",
         escape_csv(&meta.id),
         escape_csv_opt(meta.summary.as_deref()),
         escape_csv_opt(meta.repository.as_deref()),
@@ -141,11 +141,6 @@ fn render_summary_csv(session: &PortableSession) -> Result<Vec<u8>> {
         escape_csv_opt(meta.updated_at.as_ref().map(fmt_dt).as_deref()),
         meta.event_count.unwrap_or(0),
         meta.turn_count.unwrap_or(0),
-        session
-            .health
-            .as_ref()
-            .map(|h| format!("{:.2}", h.score))
-            .unwrap_or_default(),
     )
     .map_err(csv_write_err)?;
 

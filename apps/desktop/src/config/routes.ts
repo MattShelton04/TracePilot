@@ -21,7 +21,6 @@ export const ROUTE_NAMES = {
   sessionTimeline: "session-timeline",
   search: "search",
   analytics: "analytics",
-  health: "health",
   tools: "tools",
   code: "code",
   modelComparison: "model-comparison",

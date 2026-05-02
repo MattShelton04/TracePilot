@@ -27,7 +27,6 @@ const FIXTURE_ANALYTICS: AnalyticsData = {
   totalTokens: 2_500_000,
   totalCost: 5.5,
   totalPremiumRequests: 40,
-  averageHealthScore: 0.82,
   tokenUsageByDay: [
     { date: "2025-01-01", tokens: 100_000 },
     { date: "2025-01-02", tokens: 150_000 },
@@ -84,11 +83,6 @@ const FIXTURE_ANALYTICS: AnalyticsData = {
     totalInputTokens: 1_250_000,
     cacheHitRate: 24.0,
     nonCachedInputTokens: 950_000,
-  },
-  healthDistribution: {
-    healthyCount: 7,
-    attentionCount: 2,
-    criticalCount: 1,
   },
   sessionsWithErrors: 2,
   totalRateLimits: 3,
@@ -186,7 +180,6 @@ describe("AnalyticsDashboardView", () => {
     expect(wrapper.text()).toContain("$1.60"); // copilotCost
     expect(wrapper.text()).toContain("Copilot Cost");
     expect(wrapper.text()).toContain("Wholesale Cost");
-    expect(wrapper.text()).toContain("0.82"); // averageHealthScore
   });
 
   it("renders duration stats section", async () => {
@@ -226,20 +219,6 @@ describe("AnalyticsDashboardView", () => {
     expect(wrapper.text()).toContain("Cache Hit Rate");
     expect(wrapper.text()).toContain("24.0%");
     expect(wrapper.text()).toContain("Cached Tokens");
-  });
-
-  it("renders session health distribution section", async () => {
-    mockGetAnalytics.mockResolvedValue(FIXTURE_ANALYTICS);
-    const Component = await loadAnalyticsDashboard();
-    const wrapper = mount(Component, globalStubs);
-
-    await flushPromises();
-
-    expect(wrapper.text()).toContain("Session Health Distribution");
-    expect(wrapper.text()).toContain("Healthy");
-    expect(wrapper.text()).toContain("Attention");
-    expect(wrapper.text()).toContain("Critical");
-    expect(wrapper.text()).toContain("7"); // healthyCount
   });
 
   it("renders request count in model distribution legend", async () => {

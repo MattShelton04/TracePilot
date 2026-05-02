@@ -125,7 +125,6 @@ pub(crate) struct SessionAnalytics {
     pub lines_added: Option<i64>,
     pub lines_removed: Option<i64>,
     pub duration_ms: Option<i64>,
-    pub health_score: f64,
     pub tool_call_count: Option<i64>,
 
     // Shutdown metrics pass-through

@@ -9,7 +9,6 @@ const { mockGetAnalytics, mockGetToolAnalysis, mockGetCodeImpact } = vi.hoisted(
     totalTokens: 0,
     totalCost: 0,
     totalPremiumRequests: 0,
-    averageHealthScore: 0,
     tokenUsageByDay: [],
     activityPerDay: [],
     modelDistribution: [],

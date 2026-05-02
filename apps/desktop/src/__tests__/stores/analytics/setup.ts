@@ -24,7 +24,6 @@ export const FIXTURE_ANALYTICS: AnalyticsData = {
   totalTokens: 500_000,
   totalCost: 5.0,
   totalPremiumRequests: 25,
-  averageHealthScore: 0.8,
   tokenUsageByDay: [{ date: "2025-01-01", tokens: 50_000 }],
   activityPerDay: [{ date: "2025-01-01", count: 3 }],
   modelDistribution: [
@@ -59,11 +58,6 @@ export const FIXTURE_ANALYTICS: AnalyticsData = {
     totalInputTokens: 250_000,
     cacheHitRate: 20.0,
     nonCachedInputTokens: 200_000,
-  },
-  healthDistribution: {
-    healthyCount: 7,
-    attentionCount: 2,
-    criticalCount: 1,
   },
   sessionsWithErrors: 2,
   totalRateLimits: 3,

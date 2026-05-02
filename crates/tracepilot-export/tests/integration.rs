@@ -139,20 +139,6 @@ fn export_includes_shutdown_metrics() {
 }
 
 #[test]
-fn export_includes_health() {
-    let (dir, _) = full_session_temp_dir();
-
-    let options = ExportOptions::all(ExportFormat::Json);
-    let files = export_session(dir.path(), &options).unwrap();
-    let archive: SessionArchive = serde_json::from_slice(&files[0].content).unwrap();
-    let session = &archive.sessions[0];
-
-    assert!(session.available_sections.contains(&SectionId::Health));
-    let health = session.health.as_ref().expect("health should be present");
-    assert!(health.score > 0.0 && health.score <= 1.0);
-}
-
-#[test]
 fn export_section_filtering() {
     let (dir, _) = full_session_temp_dir();
 
@@ -181,7 +167,6 @@ fn export_section_filtering() {
     assert!(session.events.is_none());
     assert!(session.checkpoints.is_none());
     assert!(session.shutdown_metrics.is_none());
-    assert!(session.health.is_none());
 }
 
 #[test]
@@ -218,10 +203,9 @@ fn export_sharing_preset() {
     assert!(session.plan.is_some());
     assert!(session.shutdown_metrics.is_some());
 
-    // Sharing excludes raw events, checkpoints, health
+    // Sharing excludes raw events and checkpoints
     assert!(session.events.is_none());
     assert!(session.checkpoints.is_none());
-    assert!(session.health.is_none());
 }
 
 #[test]
@@ -821,7 +805,7 @@ fn import_session_filter() {
 
 #[test]
 fn export_skips_rewind_snapshots_on_malformed_index() {
-    let (dir, _) = workspace_only_temp_dir(full_workspace_yaml());
+    let (dir, _) = full_session_temp_dir();
 
     // Write invalid JSON to force a parse error in parse_rewind_index
     let rewind_dir = dir.path().join("rewind-snapshots");
@@ -844,16 +828,21 @@ fn export_skips_rewind_snapshots_on_malformed_index() {
             .contains(&SectionId::RewindSnapshots)
     );
     assert!(session.rewind_snapshots.is_none());
-    // Other sections (health, parse diagnostics) are still present as expected
-    assert!(session.available_sections.contains(&SectionId::Health));
+    // Other event-backed sections are still present as expected.
+    assert!(
+        session
+            .available_sections
+            .contains(&SectionId::ParseDiagnostics)
+    );
 }
 
 #[test]
 fn export_skips_checkpoints_on_unreadable_index() {
-    let (dir, _) = workspace_only_temp_dir(full_workspace_yaml());
+    let (dir, _) = full_session_temp_dir();
 
     // Make checkpoints/index.md a directory — reading it as a file causes an I/O error
     let cp_index_path = dir.path().join("checkpoints").join("index.md");
+    fs::remove_file(&cp_index_path).unwrap();
     fs::create_dir_all(&cp_index_path).unwrap();
 
     let options = ExportOptions::all(ExportFormat::Json);
@@ -865,15 +854,17 @@ fn export_skips_checkpoints_on_unreadable_index() {
     assert!(!session.available_sections.contains(&SectionId::Checkpoints));
     assert!(session.checkpoints.is_none());
     // Other sections are still present as expected
-    assert!(session.available_sections.contains(&SectionId::Health));
+    assert!(session.available_sections.contains(&SectionId::Metrics));
 }
 
 #[test]
 fn export_skips_plan_on_unreadable_file() {
-    let (dir, _) = workspace_only_temp_dir(full_workspace_yaml());
+    let (dir, _) = full_session_temp_dir();
 
     // Make plan.md a directory — reading it as a file causes an I/O error
-    fs::create_dir_all(dir.path().join("plan.md")).unwrap();
+    let plan_path = dir.path().join("plan.md");
+    fs::remove_file(&plan_path).unwrap();
+    fs::create_dir_all(plan_path).unwrap();
 
     let options = ExportOptions::all(ExportFormat::Json);
     let files = export_session(dir.path(), &options).unwrap();
@@ -884,7 +875,7 @@ fn export_skips_plan_on_unreadable_file() {
     assert!(!session.available_sections.contains(&SectionId::Plan));
     assert!(session.plan.is_none());
     // Other sections are still present as expected
-    assert!(session.available_sections.contains(&SectionId::Health));
+    assert!(session.available_sections.contains(&SectionId::Metrics));
 }
 
 // ── Redaction integration tests ────────────────────────────────────────────

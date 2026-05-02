@@ -21,7 +21,6 @@ export { default as FileContentViewer } from "./components/FileContentViewer.vue
 export { default as FilterSelect } from "./components/FilterSelect.vue";
 export { default as FormInput } from "./components/FormInput.vue";
 export { default as FormSwitch } from "./components/FormSwitch.vue";
-export { default as HealthRing } from "./components/HealthRing.vue";
 export { default as LoadingOverlay } from "./components/LoadingOverlay.vue";
 export { default as LoadingSpinner } from "./components/LoadingSpinner.vue";
 export { default as MarkdownContent } from "./components/MarkdownContent.vue";

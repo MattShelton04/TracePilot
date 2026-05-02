@@ -1,12 +1,6 @@
-import type {
-  AnalyticsData,
-  CodeImpactData,
-  HealthScoringData,
-  ToolAnalysisData,
-} from "@tracepilot/types";
+import type { AnalyticsData, CodeImpactData, ToolAnalysisData } from "@tracepilot/types";
 
 import { invoke } from "./internal/core.js";
-import { getMocks } from "./internal/mockData.js";
 
 /** Get aggregated analytics data across all sessions. */
 export async function getAnalytics(options?: {
@@ -51,17 +45,4 @@ export async function getCodeImpact(options?: {
     repo: options?.repo,
     hideEmpty: options?.hideEmpty,
   });
-}
-
-/**
- * Get health scoring data across all sessions.
- *
- * STUB: Currently returns mock data unconditionally. Replace with a real
- * Tauri IPC command when the health scoring backend API is implemented
- * (Phase 6+). Consumed by `HealthScoringView.vue`; do not remove without
- * updating the view. Deferred in Wave 45.
- */
-export async function getHealthScores(): Promise<HealthScoringData> {
-  const m = await getMocks();
-  return m.MOCK_HEALTH_SCORING;
 }

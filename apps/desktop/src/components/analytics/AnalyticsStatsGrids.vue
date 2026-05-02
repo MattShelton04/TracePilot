@@ -1,12 +1,6 @@
 <script setup lang="ts">
 import type { AnalyticsData } from "@tracepilot/types";
-import {
-  formatCost,
-  formatNumber,
-  formatNumberFull,
-  formatPercent,
-  StatCard,
-} from "@tracepilot/ui";
+import { formatCost, formatNumber, formatNumberFull, StatCard } from "@tracepilot/ui";
 
 defineProps<{
   data: AnalyticsData;
@@ -17,12 +11,11 @@ defineProps<{
 
 <template>
   <!-- Stats Row -->
-  <div class="grid-5 mb-4">
+  <div class="grid-4 mb-4">
     <StatCard :value="formatNumberFull(data.totalSessions)" label="Total Sessions" />
     <StatCard :value="formatNumber(data.totalTokens)" label="Total Tokens" :gradient="true" />
     <StatCard :value="formatCost(copilotCost)" label="Copilot Cost" color="warning" />
     <StatCard :value="formatCost(totalWholesaleCost)" label="Wholesale Cost" color="done" tooltip="Estimated cost if this usage went through direct API access instead of GitHub Copilot, based on per-model token pricing configured in Settings." />
-    <StatCard :value="formatPercent(data.averageHealthScore * 100)" label="Avg Health Score" color="warning" />
   </div>
 
   <!-- Incident Stats -->

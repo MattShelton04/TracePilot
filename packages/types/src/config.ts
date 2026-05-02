@@ -57,7 +57,6 @@ export interface TracePilotConfig {
   };
   features: {
     exportView: boolean;
-    healthScoring: boolean;
     sessionReplay: boolean;
     renderMarkdown: boolean;
     mcpServers: boolean;

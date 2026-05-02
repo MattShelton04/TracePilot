@@ -96,27 +96,6 @@ fn renders_plan() {
 }
 
 #[test]
-fn renders_health_score() {
-    let mut session = minimal_session();
-    session.health = Some(SessionHealth {
-        score: 0.85,
-        flags: vec![HealthFlag {
-            severity: HealthSeverity::Warning,
-            category: "size".to_string(),
-            message: "Large session".to_string(),
-        }],
-    });
-
-    let archive = test_archive(session);
-    let renderer = MarkdownRenderer;
-    let files = renderer.render(&archive).unwrap();
-
-    let text = files[0].as_text().unwrap();
-    assert!(text.contains("**Score:** 85%"));
-    assert!(text.contains("Large session"));
-}
-
-#[test]
 fn filename_uses_short_id() {
     let archive = test_archive(minimal_session());
     let renderer = MarkdownRenderer;

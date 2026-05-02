@@ -1,9 +1,4 @@
-import type {
-  AnalyticsData,
-  CodeImpactData,
-  HealthScoringData,
-  ToolAnalysisData,
-} from "@tracepilot/types";
+import type { AnalyticsData, CodeImpactData, ToolAnalysisData } from "@tracepilot/types";
 
 import { NOW } from "./common.js";
 
@@ -12,7 +7,6 @@ export const MOCK_ANALYTICS: AnalyticsData = {
   totalTokens: 223_500,
   totalCost: 124.75,
   totalPremiumRequests: 42,
-  averageHealthScore: 0.76,
   tokenUsageByDay: Array.from({ length: 7 }, (_, i) => ({
     date: new Date(new Date(NOW).getTime() - (6 - i) * 86_400_000).toISOString().split("T")[0],
     tokens: 20_000 + i * 2_500,
@@ -67,7 +61,6 @@ export const MOCK_ANALYTICS: AnalyticsData = {
     cacheHitRate: 4.8,
     nonCachedInputTokens: 144_700,
   },
-  healthDistribution: { healthyCount: 32, attentionCount: 11, criticalCount: 4 },
   sessionsWithErrors: 6,
   totalRateLimits: 9,
   totalCompactions: 14,
@@ -148,51 +141,4 @@ export const MOCK_CODE_IMPACT: CodeImpactData = {
     additions: 40 + i * 5,
     deletions: 12 + i,
   })),
-};
-
-export const MOCK_HEALTH_SCORING: HealthScoringData = {
-  overallScore: 0.73,
-  healthyCount: 5,
-  attentionCount: 3,
-  criticalCount: 1,
-  attentionSessions: [
-    {
-      sessionId: "sess-auth-refactor",
-      sessionName: "Auth refactor",
-      score: 0.62,
-      flags: [{ name: "High retry rate", severity: "warning" }],
-    },
-    {
-      sessionId: "sess-search-polish",
-      sessionName: "Search polish",
-      score: 0.71,
-      flags: [{ name: "Excessive tool calls", severity: "warning" }],
-    },
-  ],
-  healthFlags: [
-    {
-      name: "High retry rate",
-      count: 4,
-      severity: "warning",
-      description: "Session had more than 3 consecutive retries",
-    },
-    {
-      name: "Many errors",
-      count: 2,
-      severity: "danger",
-      description: "More than 10 tool call failures",
-    },
-    {
-      name: "High token usage",
-      count: 3,
-      severity: "warning",
-      description: "Token usage exceeded 500K",
-    },
-    {
-      name: "Low success rate",
-      count: 1,
-      severity: "warning",
-      description: "Tool success rate below 85%",
-    },
-  ],
 };

@@ -1,12 +1,11 @@
-//! Post-conversation sections: todos, checkpoints, metrics, health,
-//! incidents, custom tables, events summary, diagnostics, and rewind
-//! snapshots.
+//! Post-conversation sections: todos, checkpoints, metrics, incidents,
+//! custom tables, events summary, diagnostics, and rewind snapshots.
 
 use std::fmt::Write;
 
 use crate::document::{
-    CheckpointExport, CustomTableExport, HealthSeverity, IncidentExport, ParseDiagnosticsExport,
-    RawEvent, RewindIndex, SessionHealth, ShutdownMetrics, TodoExport,
+    CheckpointExport, CustomTableExport, IncidentExport, ParseDiagnosticsExport, RawEvent,
+    RewindIndex, ShutdownMetrics, TodoExport,
 };
 
 use super::format_dt;
@@ -142,27 +141,6 @@ pub(super) fn write_metrics(md: &mut String, metrics: &ShutdownMetrics) {
                 model, reqs, input, output, cache_r, cache_w
             )
             .expect("writeln to String is infallible");
-        }
-        md.push('\n');
-    }
-}
-
-pub(super) fn write_health(md: &mut String, health: &SessionHealth) {
-    writeln!(md, "## Health\n").expect("writeln to String is infallible");
-    writeln!(md, "**Score:** {:.0}%\n", health.score * 100.0)
-        .expect("writeln to String is infallible");
-
-    if !health.flags.is_empty() {
-        writeln!(md, "| Severity | Category | Message |").expect("writeln to String is infallible");
-        writeln!(md, "|----------|----------|---------|").expect("writeln to String is infallible");
-        for flag in &health.flags {
-            let icon = match flag.severity {
-                HealthSeverity::Error => "🔴 Error",
-                HealthSeverity::Warning => "🟡 Warning",
-                HealthSeverity::Info => "ℹ️ Info",
-            };
-            writeln!(md, "| {} | {} | {} |", icon, flag.category, flag.message)
-                .expect("writeln to String is infallible");
         }
         md.push('\n');
     }

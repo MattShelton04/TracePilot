@@ -3,7 +3,7 @@
 use super::columns::ensure_search_columns;
 use super::sql::{
     MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4, MIGRATION_5, MIGRATION_6, MIGRATION_7,
-    MIGRATION_8, MIGRATION_9, MIGRATION_10, MIGRATION_11,
+    MIGRATION_8, MIGRATION_9, MIGRATION_10, MIGRATION_11, MIGRATION_13,
 };
 use tracepilot_core::utils::migrator::{Migration, MigrationPlan};
 
@@ -72,6 +72,12 @@ pub(super) static INDEX_DB_MIGRATIONS: &[Migration] = &[
         version: 11,
         name: "reasoning tokens",
         sql: MIGRATION_11,
+        pre_hook: None,
+    },
+    Migration {
+        version: 13,
+        name: "remove retired score column",
+        sql: MIGRATION_13,
         pre_hook: None,
     },
 ];

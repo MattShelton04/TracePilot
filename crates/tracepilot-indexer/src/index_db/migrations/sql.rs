@@ -64,10 +64,10 @@ ALTER TABLE sessions ADD COLUMN tool_call_count INTEGER;
 ALTER TABLE sessions ADD COLUMN lines_added INTEGER;
 ALTER TABLE sessions ADD COLUMN lines_removed INTEGER;
 ALTER TABLE sessions ADD COLUMN duration_ms INTEGER;
-ALTER TABLE sessions ADD COLUMN health_score REAL;
 ALTER TABLE sessions ADD COLUMN events_mtime TEXT;
 ALTER TABLE sessions ADD COLUMN events_size INTEGER;
 ALTER TABLE sessions ADD COLUMN analytics_version INTEGER DEFAULT 1;
+ALTER TABLE sessions ADD COLUMN health_score REAL;
 
 -- Per-session model metrics (normalized, not JSON blob)
 CREATE TABLE IF NOT EXISTS session_model_metrics (
@@ -334,4 +334,8 @@ pub(super) const MIGRATION_11: &str = r#"
 -- Add reasoning_tokens column to model metrics (v1.0.24+ sessions).
 -- NULL means "data not available" (older sessions); 0 means "no reasoning used".
 ALTER TABLE session_model_metrics ADD COLUMN reasoning_tokens INTEGER;
+"#;
+
+pub(super) const MIGRATION_13: &str = r#"
+ALTER TABLE sessions DROP COLUMN health_score;
 "#;

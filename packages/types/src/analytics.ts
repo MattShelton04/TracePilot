@@ -1,6 +1,5 @@
 // ─── Analytics Types ──────────────────────────────────────────────
-// Aggregated analytics, tool usage analysis, code impact metrics,
-// and health scoring data for dashboards and reporting views.
+// Aggregated analytics, tool usage analysis, and code impact metrics for dashboards.
 
 /** Aggregated analytics data across all sessions */
 export interface AnalyticsData {
@@ -12,8 +11,6 @@ export interface AnalyticsData {
   totalCost: number;
   /** Total premium requests across all sessions */
   totalPremiumRequests: number;
-  /** Average health score (0-1) */
-  averageHealthScore: number;
   /** Token usage per day for trend charts */
   tokenUsageByDay: Array<{ date: string; tokens: number }>;
   /** Activity (session segment) count per day */
@@ -38,8 +35,6 @@ export interface AnalyticsData {
   productivityMetrics: ProductivityMetrics;
   /** Prompt cache efficiency metrics */
   cacheStats: CacheStats;
-  /** Distribution of sessions by health score tier */
-  healthDistribution: HealthDistribution;
   sessionsWithErrors: number;
   totalRateLimits: number;
   totalCompactions: number;
@@ -82,16 +77,6 @@ export interface CacheStats {
   cacheHitRate: number;
   /** Fresh (non-cached) input tokens = totalInputTokens - totalCacheReadTokens */
   nonCachedInputTokens: number;
-}
-
-/** Distribution of sessions by health score tier */
-export interface HealthDistribution {
-  /** Sessions with health score ≥ 0.8 */
-  healthyCount: number;
-  /** Sessions with 0.5 ≤ health score < 0.8 */
-  attentionCount: number;
-  /** Sessions with health score < 0.5 */
-  criticalCount: number;
 }
 
 // ─── Tool Analysis ────────────────────────────────────────────────
@@ -144,32 +129,4 @@ export interface CodeImpactData {
   mostModifiedFiles: Array<{ path: string; additions: number; deletions: number }>;
   /** Changes over time (daily) */
   changesByDay: Array<{ date: string; additions: number; deletions: number }>;
-}
-
-// ─── Health Scoring ───────────────────────────────────────────────
-
-/** Aggregate health scoring data for the health dashboard */
-export interface HealthScoringData {
-  /** Overall average health score (0-1) */
-  overallScore: number;
-  /** Count of healthy sessions (score >= 0.8) */
-  healthyCount: number;
-  /** Count of sessions needing attention (0.5 <= score < 0.8) */
-  attentionCount: number;
-  /** Count of critical sessions (score < 0.5) */
-  criticalCount: number;
-  /** Sessions requiring attention with their health details */
-  attentionSessions: Array<{
-    sessionId: string;
-    sessionName: string;
-    score: number;
-    flags: Array<{ name: string; severity: "warning" | "danger" }>;
-  }>;
-  /** All health flags with aggregate counts */
-  healthFlags: Array<{
-    name: string;
-    count: number;
-    severity: "warning" | "danger";
-    description: string;
-  }>;
 }

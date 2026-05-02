@@ -232,7 +232,6 @@ pub struct SessionSectionsInfo {
     pub has_plan: bool,
     pub has_checkpoints: bool,
     pub has_metrics: bool,
-    pub has_health: bool,
     pub has_incidents: bool,
     pub has_rewind_snapshots: bool,
     pub has_custom_tables: bool,

@@ -13,7 +13,7 @@
 //!
 //! Unknown event types and deserialization failures are tracked in
 //! [`ParseDiagnostics`](crate::parsing::diagnostics::ParseDiagnostics) rather than being
-//! silently swallowed, enabling health scoring and debugging.
+//! silently swallowed, enabling debugging and parse-quality reporting.
 //!
 //! ## Submodules
 //!
