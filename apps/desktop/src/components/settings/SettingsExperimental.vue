@@ -20,11 +20,6 @@ const flags: readonly { key: FeatureFlag; label: string; description: string }[]
     description: "Create and manage reusable skill definitions for Copilot CLI sessions.",
   },
   {
-    key: "healthScoring",
-    label: "Health Scoring",
-    description: "Enable the Health view with session quality scoring and diagnostics.",
-  },
-  {
     key: "sessionReplay",
     label: "Session Replay",
     description: "Enable the Replay view to step through session events interactively.",

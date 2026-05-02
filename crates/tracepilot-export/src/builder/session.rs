@@ -5,9 +5,8 @@ use crate::error::{ExportError, Result};
 use crate::options::ExportOptions;
 
 use super::sections::{
-    build_checkpoints, build_conversation, build_custom_tables, build_events, build_health,
-    build_incidents, build_metrics, build_parse_diagnostics, build_plan, build_rewind_snapshots,
-    build_todos,
+    build_checkpoints, build_conversation, build_custom_tables, build_events, build_incidents,
+    build_metrics, build_parse_diagnostics, build_plan, build_rewind_snapshots, build_todos,
 };
 use tracepilot_core::parsing::events::parse_typed_events;
 use tracepilot_core::parsing::workspace::parse_workspace_yaml;
@@ -30,7 +29,6 @@ pub(super) fn build_portable_session(
         || options.includes(SectionId::Events)
         || options.includes(SectionId::Metrics)
         || options.includes(SectionId::Incidents)
-        || options.includes(SectionId::Health)
         || options.includes(SectionId::ParseDiagnostics);
 
     let events_path = session_dir.join("events.jsonl");
@@ -80,12 +78,6 @@ pub(super) fn build_portable_session(
     let rewind_snapshots = build_rewind_snapshots(options, session_dir, &mut available_sections);
     let shutdown_metrics = build_metrics(options, typed_events.as_deref(), &mut available_sections);
     let incidents = build_incidents(options, typed_events.as_deref(), &mut available_sections);
-    let health = build_health(
-        options,
-        typed_events.as_deref(),
-        diagnostics.as_ref(),
-        &mut available_sections,
-    );
     let custom_tables = build_custom_tables(options, session_dir, &mut available_sections);
     let parse_diagnostics = build_parse_diagnostics(
         options,
@@ -105,7 +97,6 @@ pub(super) fn build_portable_session(
         rewind_snapshots,
         shutdown_metrics,
         incidents,
-        health,
         custom_tables,
         parse_diagnostics,
         extensions: None,

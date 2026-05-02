@@ -23,7 +23,6 @@ Top-level modules re-exported from `src/lib.rs`:
 | `turns`      | Turn reconstruction state machine                                   |
 | `summary`    | Orchestrates all parsers → `SessionSummary`                         |
 | `analytics`  | Cross-session aggregation (tokens, tools, code impact)              |
-| `health`     | Session health scoring with diagnostics-based heuristics            |
 | `error`      | Crate-wide `Error` / `Result` types                                 |
 | `ids`        | Session / event ID helpers                                          |
 | `constants`  | Stable wire / directory constants                                   |
@@ -48,7 +47,6 @@ a dependency of `tracepilot-indexer`, `tracepilot-export`,
 - `src/turns/` — state machine that groups events into `ConversationTurn`s.
 - `src/summary/` — builds a full `SessionSummary` from parsed inputs.
 - `src/analytics/` — aggregations across many sessions.
-- `src/health/` — health scoring + diagnostics-driven flags.
 
 ## Features
 

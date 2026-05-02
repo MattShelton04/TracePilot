@@ -237,13 +237,12 @@ Event badges (`.event-badge`) use a smaller 0.625rem size with prefix-based colo
 | `.data-table td` | 9px 14px padding, `--border-muted` separators |
 | `.data-table tbody tr:hover` | Subtle row highlight |
 
-### Progress & Health
+### Progress
 
 | Class | Description |
 |-------|-------------|
 | `.progress-bar` | 6px height track |
 | `.progress-bar-fill` | Accent gradient fill, animatable width |
-| `.health-ring` | 56px ring using `conic-gradient`, driven by `--ring-color` and `--ring-pct` |
 
 ### Buttons
 

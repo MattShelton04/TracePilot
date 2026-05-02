@@ -35,15 +35,18 @@ fn add_column_if_missing(
     column: &str,
     col_type: &str,
 ) -> rusqlite::Result<()> {
-    let mut stmt = conn.prepare(&format!("PRAGMA table_info({})", table))?;
-    let has_column = stmt
-        .query_map([], |row| row.get::<_, String>(1))?
-        .any(|r| r.as_deref() == Ok(column));
-    if !has_column {
+    if !has_column(conn, table, column)? {
         conn.execute_batch(&format!(
             "ALTER TABLE {} ADD COLUMN {} {}",
             table, column, col_type
         ))?;
     }
     Ok(())
+}
+
+fn has_column(conn: &Connection, table: &str, column: &str) -> rusqlite::Result<bool> {
+    let mut stmt = conn.prepare(&format!("PRAGMA table_info({})", table))?;
+    Ok(stmt
+        .query_map([], |row| row.get::<_, String>(1))?
+        .any(|r| r.as_deref() == Ok(column)))
 }

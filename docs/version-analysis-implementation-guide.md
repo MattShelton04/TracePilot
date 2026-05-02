@@ -35,7 +35,7 @@ TracePilot handles **36 of 36 persisted event types** (100% coverage). All 12 pr
 
 - **Forward-compatible parsing:** `Unknown(String)` catch-all in `SessionEventType` and `Other(Value)` fallback in `TypedEventData` mean new event types never crash the parser.
 - **All fields `Option<T>`:** Missing or added fields on existing events don't cause deserialization failures.
-- **Health scoring is tolerant:** Unknown events get `Info` severity (0.0 deduction) — they don't reduce session health scores.
+- **Diagnostics are tolerant:** Unknown events are tracked for review without breaking parsing.
 - **Frontend is event-type-agnostic:** Timeline views, agent grouping, and tool rendering all operate on pre-processed `ConversationTurn` / `TurnToolCall` structures, not raw event types.
 
 ### What this guide addresses
@@ -427,7 +427,7 @@ pub struct SessionWarningData {
 }
 ```
 
-**Turn reconstruction:** No direct impact. Display-only — shows in the raw events timeline. Could optionally contribute to health scoring (e.g., sessions with many warnings get a slight deduction).
+**Turn reconstruction:** No direct impact. Display-only — shows in the raw events timeline.
 
 **Finding examples:** Trigger by using Copilot when approaching rate limits, or with misconfigured MCP servers.
 

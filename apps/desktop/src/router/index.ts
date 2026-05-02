@@ -116,24 +116,13 @@ const routes: RouteRecordRaw[] = [
     },
   },
   {
-    path: "/health",
-    name: "health",
-    component: () => import("@/views/HealthScoringView.vue"),
-    meta: {
-      title: "Health Scoring",
-      sidebarId: "health",
-      featureFlag: "healthScoring",
-      sidebar: { section: "primary", label: "Health", icon: "health", order: 3 },
-    },
-  },
-  {
     path: "/tools",
     name: "tools",
     component: () => import("@/views/ToolAnalysisView.vue"),
     meta: {
       title: "Tool Analysis",
       sidebarId: "tools",
-      sidebar: { section: "primary", label: "Tools", icon: "tools", order: 4 },
+      sidebar: { section: "primary", label: "Tools", icon: "tools", order: 3 },
     },
   },
   {
@@ -143,7 +132,7 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: "Code Impact",
       sidebarId: "code",
-      sidebar: { section: "primary", label: "Code", icon: "code", order: 5 },
+      sidebar: { section: "primary", label: "Code", icon: "code", order: 4 },
     },
   },
   {

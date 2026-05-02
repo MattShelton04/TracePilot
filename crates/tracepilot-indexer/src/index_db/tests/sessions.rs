@@ -29,8 +29,8 @@ fn test_migrations_run_once() {
         .conn
         .query_row("SELECT COUNT(*) FROM schema_version", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(v1, 11);
-    assert_eq!(count1, 11);
+    assert_eq!(v1, 13);
+    assert_eq!(count1, 12);
     drop(db1);
 
     let db2 = IndexDb::open_or_create(&db_path).unwrap();
@@ -38,7 +38,22 @@ fn test_migrations_run_once() {
         .conn
         .query_row("SELECT COUNT(*) FROM schema_version", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(count2, 11);
+    assert_eq!(count2, 12);
+}
+
+#[test]
+fn test_retired_score_column_is_removed() {
+    let tmp = tempfile::tempdir().unwrap();
+    let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
+
+    let has_retired_score_column = db
+        .conn
+        .prepare("PRAGMA table_info(sessions)")
+        .unwrap()
+        .query_map([], |row| row.get::<_, String>(1))
+        .unwrap()
+        .any(|name| name.as_deref() == Ok("health_score"));
+    assert!(!has_retired_score_column);
 }
 
 #[test]

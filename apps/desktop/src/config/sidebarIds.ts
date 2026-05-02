@@ -12,7 +12,6 @@ export const SIDEBAR_IDS = {
   sessions: "sessions",
   search: "search",
   analytics: "analytics",
-  health: "health",
   tools: "tools",
   code: "code",
   models: "models",

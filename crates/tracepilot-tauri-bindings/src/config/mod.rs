@@ -112,7 +112,7 @@ impl Default for TracePilotConfig {
 
 impl TracePilotConfig {
     /// Current schema version. Bump this when adding migrations.
-    pub const CURRENT_VERSION: u32 = 7;
+    pub const CURRENT_VERSION: u32 = 8;
 
     /// Apply any pending migrations to bring the config up to the current version.
     /// Returns true if any migrations were applied.
@@ -172,6 +172,14 @@ impl TracePilotConfig {
         if self.version < 7 {
             self.version = 7;
             tracing::info!("Migrated config from v6 → v7 (removed AI Tasks config)");
+        }
+
+        // Migration from v7 → v8: removed a retired experimental feature flag.
+        // Unknown TOML fields are ignored on read; saving the migrated config
+        // drops the old key from disk.
+        if self.version < 8 {
+            self.version = 8;
+            tracing::info!("Migrated config from v7 → v8 (removed retired feature config)");
         }
 
         self.version != original

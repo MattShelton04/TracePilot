@@ -296,7 +296,6 @@ function sectionHasData(sectionId: SectionId): boolean | null {
     plan: info.hasPlan,
     checkpoints: info.hasCheckpoints,
     metrics: info.hasMetrics,
-    health: info.hasHealth,
     incidents: info.hasIncidents,
     rewind_snapshots: info.hasRewindSnapshots,
     custom_tables: info.hasCustomTables,

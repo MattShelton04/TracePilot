@@ -61,7 +61,6 @@ pub fn minimal_session() -> PortableSession {
         rewind_snapshots: None,
         shutdown_metrics: None,
         incidents: None,
-        health: None,
         custom_tables: None,
         parse_diagnostics: None,
         extensions: None,

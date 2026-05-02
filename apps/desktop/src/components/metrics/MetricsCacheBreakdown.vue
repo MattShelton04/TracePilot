@@ -1,17 +1,22 @@
 <script setup lang="ts">
-import { formatNumber, HealthRing, SectionPanel } from "@tracepilot/ui";
+import { formatNumber, SectionPanel } from "@tracepilot/ui";
+import { computed } from "vue";
 
-defineProps<{
+const props = defineProps<{
   cacheHitRatio: number;
   totalCacheReadTokens: number;
   totalInputTokens: number;
 }>();
+
+const cachePercent = computed(() => Math.round(props.cacheHitRatio * 100));
 </script>
 
 <template>
   <SectionPanel v-if="totalCacheReadTokens > 0" title="Cache Breakdown" class="mb-6">
     <div class="cache-section">
-      <HealthRing :score="cacheHitRatio" size="lg" />
+      <div class="cache-ratio" role="meter" :aria-valuenow="cachePercent" aria-valuemin="0" aria-valuemax="100">
+        <strong>{{ cachePercent }}</strong><span>%</span>
+      </div>
       <div class="cache-info">
         <div class="text-sm text-[var(--text-secondary)] mb-3">
           {{ formatNumber(totalCacheReadTokens) }} of {{ formatNumber(totalInputTokens) }} input tokens served from cache
@@ -39,6 +44,34 @@ defineProps<{
 .cache-info {
   flex: 1;
   max-width: 400px;
+}
+
+.cache-ratio {
+  width: 112px;
+  height: 112px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(circle at center, var(--canvas-overlay) 0 58%, transparent 59%),
+    conic-gradient(var(--success-fg) 0 calc(v-bind(cachePercent) * 1%), var(--canvas-inset) 0 100%);
+  box-shadow:
+    inset 0 0 0 1px var(--border-emphasis, var(--border-default)),
+    0 0 0 1px var(--canvas-default);
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.cache-ratio strong {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.cache-ratio span {
+  margin-left: 2px;
+  color: var(--text-tertiary);
+  font-size: 0.75rem;
 }
 
 .cache-bar {

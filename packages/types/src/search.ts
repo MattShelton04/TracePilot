@@ -2,10 +2,6 @@
 // Types for the full-text search (FTS) index: content types, results,
 // filters, facets, statistics, and indexing progress events.
 
-// Re-exported for convenience — `SessionHealth` is the authoritative
-// definition and lives in ./session.js alongside other session types.
-export type { SessionHealth } from "./session.js";
-
 /** Content types that can be indexed for full-text search. */
 export type SearchContentType =
   | "user_message"

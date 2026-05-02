@@ -103,7 +103,6 @@ describe("Export mock fallback", () => {
     expect(typeof info.hasPlan).toBe("boolean");
     expect(typeof info.hasCheckpoints).toBe("boolean");
     expect(typeof info.hasMetrics).toBe("boolean");
-    expect(typeof info.hasHealth).toBe("boolean");
     expect(typeof info.hasIncidents).toBe("boolean");
     expect(typeof info.hasRewindSnapshots).toBe("boolean");
     expect(typeof info.hasCustomTables).toBe("boolean");

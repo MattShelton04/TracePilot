@@ -1,7 +1,6 @@
 export {
   MOCK_ANALYTICS,
   MOCK_CODE_IMPACT,
-  MOCK_HEALTH_SCORING,
   MOCK_TOOL_ANALYSIS,
 } from "./analytics.js";
 export { MOCK_EXPORT_RESULT } from "./export.js";

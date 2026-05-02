@@ -100,14 +100,14 @@ impl IndexDb {
                     shutdown_type, current_model, total_premium_requests, total_api_duration_ms,
                     workspace_mtime,
                     total_tokens, total_cost, tool_call_count, lines_added, lines_removed,
-                    duration_ms, health_score, events_mtime, events_size, analytics_version,
+                    duration_ms, events_mtime, events_size, analytics_version,
                     error_count, rate_limit_count, warning_count, compaction_count, truncation_count,
                     last_error_type, last_error_message, total_compaction_input_tokens, total_compaction_output_tokens,
                     indexed_at
                 ) VALUES (
                     ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14,
-                    ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29,
-                    ?30, ?31, ?32, ?33, ?34, ?35, ?36, ?37, ?38,
+                    ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28,
+                    ?29, ?30, ?31, ?32, ?33, ?34, ?35, ?36, ?37,
                     datetime('now')
                 )
                 ON CONFLICT(id) DO UPDATE SET
@@ -124,7 +124,7 @@ impl IndexDb {
                     total_tokens=excluded.total_tokens, total_cost=excluded.total_cost,
                     tool_call_count=excluded.tool_call_count,
                     lines_added=excluded.lines_added, lines_removed=excluded.lines_removed,
-                    duration_ms=excluded.duration_ms, health_score=excluded.health_score,
+                    duration_ms=excluded.duration_ms,
                     events_mtime=excluded.events_mtime, events_size=excluded.events_size,
                     analytics_version=excluded.analytics_version,
                     error_count=excluded.error_count, rate_limit_count=excluded.rate_limit_count,
@@ -160,7 +160,6 @@ impl IndexDb {
                     analytics.lines_added,
                     analytics.lines_removed,
                     analytics.duration_ms,
-                    analytics.health_score,
                     analytics.events_mtime,
                     analytics.events_size,
                     CURRENT_ANALYTICS_VERSION,

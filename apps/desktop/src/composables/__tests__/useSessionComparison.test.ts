@@ -121,7 +121,7 @@ describe("useSessionComparison", () => {
     expect(labels).toContain("Duration");
     expect(labels).toContain("Turns");
     expect(labels).toContain("Success Rate");
-    expect(comp.metricsRows.length).toBe(10);
+    expect(comp.metricsRows.length).toBe(9);
   });
 });
 

@@ -33,7 +33,6 @@ pub struct AnalyticsData {
     pub total_tokens: u64,
     pub total_cost: f64,
     pub total_premium_requests: f64,
-    pub average_health_score: f64,
     pub token_usage_by_day: Vec<DayTokens>,
     pub activity_per_day: Vec<DayActivity>,
     pub model_distribution: Vec<ModelDistEntry>,
@@ -41,7 +40,6 @@ pub struct AnalyticsData {
     pub api_duration_stats: ApiDurationStats,
     pub productivity_metrics: ProductivityMetrics,
     pub cache_stats: CacheStats,
-    pub health_distribution: HealthDistribution,
     pub sessions_with_errors: u32,
     pub total_rate_limits: u64,
     pub total_compactions: u64,
@@ -142,18 +140,6 @@ pub struct CacheStats {
     pub cache_hit_rate: f64,
     /// Fresh (non-cached) input tokens = total_input - cache_read.
     pub non_cached_input_tokens: u64,
-}
-
-/// Distribution of sessions by health score tier.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct HealthDistribution {
-    /// Sessions with health score ≥ 0.8.
-    pub healthy_count: u32,
-    /// Sessions with 0.5 ≤ health score < 0.8.
-    pub attention_count: u32,
-    /// Sessions with health score < 0.5.
-    pub critical_count: u32,
 }
 
 // ── Tool Analysis ─────────────────────────────────────────────────────

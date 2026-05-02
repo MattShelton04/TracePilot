@@ -58,7 +58,7 @@ export const EXPORT_PRESETS: readonly ExportPreset[] = [
     description:
       "Session summary for sharing with another AI — includes conversation, plan, todos, and metrics.",
     format: "markdown",
-    sections: ["conversation", "todos", "plan", "metrics", "health"],
+    sections: ["conversation", "todos", "plan", "metrics"],
   },
   {
     id: "full-fidelity-backup",
@@ -74,7 +74,6 @@ export const EXPORT_PRESETS: readonly ExportPreset[] = [
       "checkpoints",
       "rewind_snapshots",
       "metrics",
-      "health",
       "incidents",
       "events",
       "parse_diagnostics",
@@ -97,7 +96,7 @@ export interface SectionGroup {
 
 export const SECTION_GROUPS: readonly SectionGroup[] = [
   { label: "Content", sections: ["conversation", "plan", "todos", "checkpoints"] },
-  { label: "Analytics", sections: ["metrics", "health", "incidents"] },
+  { label: "Analytics", sections: ["metrics", "incidents"] },
   {
     label: "Technical",
     sections: ["events", "rewind_snapshots", "custom_tables", "parse_diagnostics"],
@@ -110,7 +109,6 @@ export const SECTION_ICONS: Record<SectionId, string> = {
   todos: "✅",
   checkpoints: "📌",
   metrics: "📊",
-  health: "💚",
   incidents: "⚠️",
   events: "📡",
   rewind_snapshots: "🔄",

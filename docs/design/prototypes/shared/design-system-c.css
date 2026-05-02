@@ -959,29 +959,6 @@ body { font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans
 }
 .timeline-time { font-size: 0.6875rem; color: var(--text-tertiary); font-variant-numeric: tabular-nums; min-width: 44px; }
 
-/* --- Health Score --- */
-.health-ring {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.125rem;
-  font-weight: 700;
-  position: relative;
-}
-.health-ring::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  padding: 3px;
-  background: conic-gradient(var(--ring-color) calc(var(--ring-pct) * 1%), var(--neutral-muted) 0);
-  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
-  mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
-}
-
 /* --- Modal/Dialog --- */
 .modal-overlay {
   position: fixed;

@@ -90,7 +90,6 @@ These functions bypass `invoke()` entirely and return hardcoded mock data:
 | `getAnalytics()` | `MOCK_ANALYTICS` | `AnalyticsData` | `AnalyticsDashboardView` |
 | `getToolAnalysis()` | `MOCK_TOOL_ANALYSIS` | `ToolAnalysisData` | `ToolAnalysisView` |
 | `getCodeImpact()` | `MOCK_CODE_IMPACT` | `CodeImpactData` | `CodeImpactView` |
-| `getHealthScores()` | `MOCK_HEALTH_SCORING` | `HealthScoringData` | `HealthScoringView` |
 | `exportSessions(config)` | `MOCK_EXPORT_RESULT` | `ExportConfig → ExportResult` | `ExportView` |
 
 ---
@@ -102,7 +101,7 @@ These functions bypass `invoke()` entirely and return hardcoded mock data:
 **Route:** `/analytics` · **View:** `apps/desktop/src/views/AnalyticsDashboardView.vue`
 
 **What it needs:**
-- Aggregate analytics across all sessions: total sessions, total tokens, total cost, average health score
+- Aggregate analytics across all sessions: total sessions, total tokens, total cost, model usage
 - Time-series data: token usage by day, sessions per day, cost by day
 - Model distribution breakdown
 
@@ -239,37 +238,7 @@ These functions bypass `invoke()` entirely and return hardcoded mock data:
 
 ---
 
-### 3.5 Health Scoring
-
-**Route:** `/health` · **View:** `apps/desktop/src/views/HealthScoringView.vue`
-
-**What it needs:**
-- Overall health score across all sessions
-- Counts by category (healthy/attention/critical)
-- Per-session health details with flags
-- Aggregate health flag statistics
-
-**Current state:** Calls `getHealthScores()` → returns `MOCK_HEALTH_SCORING`.
-
-**How to wire it:**
-
-1. **Create Rust command** `get_health_scores`:
-   - Implement a scoring engine that evaluates each session
-   - Score based on: retry rate, duration, error count, token usage, tool call count
-   - Classify into healthy (≥0.8), attention (0.5–0.8), critical (<0.5)
-   - Aggregate flag counts
-
-2. **Register** in `invoke_handler`.
-
-3. **Rust struct** matching `HealthScoringData` (types lines 229–252).
-
-4. **Update client** — replace `MOCK_HEALTH_SCORING` return with `invoke<HealthScoringData>("get_health_scores")` and add to `getMockData()`.
-
-**STUB markers:** `HealthScoringView.vue` (3 markers), `packages/client/src/index.ts` (lines 151–160).
-
----
-
-### 3.6 Export
+### 3.5 Export
 
 **Route:** `/export` · **View:** `apps/desktop/src/views/ExportView.vue`
 
@@ -450,7 +419,6 @@ grep -rl "STUB:" apps/desktop/src/ packages/client/src/ | xargs -I{} sh -c 'echo
 | `apps/desktop/src/views/ExportView.vue` | 4 | Export engine, file dialog |
 | `apps/desktop/src/views/AnalyticsDashboardView.vue` | 3 | Aggregate analytics API |
 | `apps/desktop/src/views/CodeImpactView.vue` | 3 | File change tracking API |
-| `apps/desktop/src/views/HealthScoringView.vue` | 3 | Health scoring engine |
 | `apps/desktop/src/views/SessionReplayView.vue` | 3 | Real timing data |
 | `apps/desktop/src/views/SessionTimelineView.vue` | 3 | Real timestamp positioning |
 | `apps/desktop/src/views/StubView.vue` | 2 | Placeholder stub view |
@@ -475,7 +443,7 @@ pub struct AnalyticsData {
     pub total_sessions: u32,
     pub total_tokens: u64,
     pub total_cost: f64,
-    pub average_health_score: f64,
+    pub rate_limit_count: u32,
     pub token_usage_by_day: Vec<DayTokens>,
     // ... etc
 }
@@ -525,13 +493,13 @@ export interface AnalyticsData {
   totalSessions: number;
   totalTokens: number;
   totalCost: number;
-  averageHealthScore: number;
+  rateLimitCount: number;
   tokenUsageByDay: Array<{ date: string; tokens: number }>;
   // ... etc
 }
 ```
 
-> The types for the 5 stub features already exist in `packages/types/src/index.ts`.
+> The types for the remaining stub features already exist in `packages/types/src/index.ts`.
 
 ### Step 5: Update the Client Function
 
@@ -627,8 +595,7 @@ Recommended order for implementing backends (by user impact and complexity):
 | 2 | **Analytics Dashboard** | Medium | Aggregate from existing session data |
 | 3 | **Tool Analysis** | Medium | Parse tool calls from turn data |
 | 4 | **Code Impact** | Low | Extract from `shutdown_metrics.code_changes` |
-| 5 | **Health Scoring** | High | Needs scoring algorithm design |
-| 6 | **Settings** | Low | Mostly Tauri API calls, minimal backend |
-| 7 | **Session Comparison** | Low | Can start client-side with existing data |
-| 8 | **Session Timeline** | Low | Already wired, needs timestamp accuracy |
-| 9 | **Session Replay** | Low | Already wired, needs timestamp accuracy |
+| 5 | **Settings** | Low | Mostly Tauri API calls, minimal backend |
+| 6 | **Session Comparison** | Low | Can start client-side with existing data |
+| 7 | **Session Timeline** | Low | Already wired, needs timestamp accuracy |
+| 8 | **Session Replay** | Low | Already wired, needs timestamp accuracy |

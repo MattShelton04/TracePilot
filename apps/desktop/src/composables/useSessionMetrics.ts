@@ -106,11 +106,3 @@ export function linesChanged(m: ShutdownMetrics | null): number {
 export function filesModified(m: ShutdownMetrics | null): number {
   return m?.codeChanges?.filesModified?.length ?? 0;
 }
-
-export function healthScore(turns: ConversationTurn[]): number {
-  if (turns.length === 0) return 0;
-  const sr = successRate(turns);
-  const avgToolsPerTurn = totalToolCalls(turns) / turns.length;
-  const efficiencyPenalty = Math.min(avgToolsPerTurn / 20, 0.3);
-  return Math.max(0, Math.min(1, sr - efficiencyPenalty));
-}

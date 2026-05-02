@@ -26,7 +26,7 @@ async function getMocks() {
   return mocksModule;
 }
 
-/** Used by `search.ts`/`analytics.ts` to return `MOCK_HEALTH_SCORING`. */
+/** Used by client modules that need direct access to mock datasets. */
 export { getMocks };
 
 /**
@@ -179,7 +179,6 @@ export async function getMockData<T>(cmd: string, args?: Record<string, unknown>
       hasPlan: true,
       hasCheckpoints: true,
       hasMetrics: true,
-      hasHealth: true,
       hasIncidents: true,
       hasRewindSnapshots: false,
       hasCustomTables: false,

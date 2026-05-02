@@ -27,7 +27,7 @@
 //!    (falls back to `Other(Value)` on failure)
 //! 4. **Diagnostics**: Unknown types and deserialization failures are tracked in
 //!    [`ParseDiagnostics`](parsing::diagnostics::ParseDiagnostics) — never crossing
-//!    the Tauri FFI boundary. The health module consumes them.
+//!    the Tauri FFI boundary.
 //! 5. **Turn reconstruction**: `Vec<TypedEvent>` → `Vec<ConversationTurn>`
 //!    (state machine in [`turns`])
 //! 6. **Summary building**: Orchestrates all parsers → [`SessionSummary`]
@@ -49,7 +49,6 @@
 //! |--------|---------|
 //! | [`analytics`] | Cross-session aggregation (tokens, tools, code impact) |
 //! | [`error`] | Crate-wide error types |
-//! | [`health`] | Session health scoring with diagnostics-based heuristics |
 //! | [`models`] | Domain types: events, summaries, conversations |
 //! | [`parsing`] | Event parsing pipeline, diagnostics, workspace/DB parsers |
 //! | [`session`] | Session discovery (scan, resolve, filter) |
@@ -59,7 +58,6 @@
 pub mod analytics;
 pub mod constants;
 pub mod error;
-pub mod health;
 pub mod ids;
 pub mod models;
 pub mod parsing;

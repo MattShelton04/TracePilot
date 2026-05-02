@@ -12,7 +12,7 @@ use super::super::types::*;
 pub(crate) fn extract_session_analytics(
     summary: &tracepilot_core::SessionSummary,
     typed_events: &Option<Vec<tracepilot_core::parsing::events::TypedEvent>>,
-    diagnostics: Option<&tracepilot_core::parsing::diagnostics::ParseDiagnostics>,
+    _diagnostics: Option<&tracepilot_core::parsing::diagnostics::ParseDiagnostics>,
     file_meta: &SessionFileMeta,
 ) -> SessionAnalytics {
     let mut total_tokens: i64 = 0;
@@ -317,28 +317,12 @@ pub(crate) fn extract_session_analytics(
         }
     }
 
-    // Health score
-    let incident_counts = tracepilot_core::health::SessionIncidentCounts {
-        error_count: error_count as usize,
-        rate_limit_count: rate_limit_count as usize,
-        warning_count: warning_count as usize,
-        compaction_count: compaction_count as usize,
-        truncation_count: truncation_count as usize,
-    };
-    let health = tracepilot_core::health::compute_health(
-        summary.event_count,
-        summary.shutdown_metrics.as_ref(),
-        diagnostics,
-        Some(&incident_counts),
-    );
-
     SessionAnalytics {
         total_tokens,
         total_cost,
         lines_added,
         lines_removed,
         duration_ms,
-        health_score: health.score,
         tool_call_count: final_tool_call_count,
         shutdown_type,
         current_model,

@@ -8,7 +8,7 @@ defineProps<{
 </script>
 
 <template>
-  <div class="grid-2 mb-4" v-if="data.cacheStats || data.healthDistribution">
+  <div class="grid-2 mb-4" v-if="data.cacheStats">
     <!-- Cache Efficiency -->
     <SectionPanel v-if="data.cacheStats" title="Cache Efficiency">
       <div class="cache-hit-rate" :title="`${data.cacheStats.cacheHitRate.toFixed(1)}% of input tokens were served from the prompt cache`">
@@ -40,27 +40,6 @@ defineProps<{
         <div class="metric-item">
           <span class="metric-value">{{ formatNumber(data.cacheStats.totalInputTokens) }}</span>
           <span class="metric-label">Total Input Tokens</span>
-        </div>
-      </div>
-    </SectionPanel>
-
-    <!-- Session Health Distribution -->
-    <SectionPanel v-if="data.healthDistribution" title="Session Health Distribution">
-      <div class="health-dist-grid">
-        <div class="health-dist-card health-dist-card--healthy" :title="`${data.healthDistribution.healthyCount} sessions with health score ≥ 0.8`">
-          <span class="health-dist-count">{{ data.healthDistribution.healthyCount }}</span>
-          <span class="health-dist-label">Healthy</span>
-          <span class="health-dist-sub">score ≥ 0.8</span>
-        </div>
-        <div class="health-dist-card health-dist-card--attention" :title="`${data.healthDistribution.attentionCount} sessions with health score between 0.5 and 0.8`">
-          <span class="health-dist-count">{{ data.healthDistribution.attentionCount }}</span>
-          <span class="health-dist-label">Attention</span>
-          <span class="health-dist-sub">0.5 – 0.8</span>
-        </div>
-        <div class="health-dist-card health-dist-card--critical" :title="`${data.healthDistribution.criticalCount} sessions with health score below 0.5`">
-          <span class="health-dist-count">{{ data.healthDistribution.criticalCount }}</span>
-          <span class="health-dist-label">Critical</span>
-          <span class="health-dist-sub">score &lt; 0.5</span>
         </div>
       </div>
     </SectionPanel>
@@ -136,57 +115,4 @@ defineProps<{
   margin-top: 0;
 }
 
-.health-dist-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  padding: 18px;
-}
-
-.health-dist-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 16px 8px;
-  border-radius: 10px;
-  border: 1px solid transparent;
-}
-
-.health-dist-card--healthy {
-  background: var(--success-subtle);
-  border-color: var(--success-muted);
-}
-
-.health-dist-card--attention {
-  background: var(--warning-subtle);
-  border-color: var(--warning-muted);
-}
-
-.health-dist-card--critical {
-  background: var(--danger-subtle);
-  border-color: var(--danger-muted);
-}
-
-.health-dist-count {
-  font-size: 1.75rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-}
-
-.health-dist-card--healthy .health-dist-count  { color: var(--chart-success); }
-.health-dist-card--attention .health-dist-count { color: var(--chart-warning); }
-.health-dist-card--critical .health-dist-count  { color: var(--chart-danger); }
-
-.health-dist-label {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.health-dist-sub {
-  font-size: 0.6875rem;
-  color: var(--text-tertiary);
-}
 </style>

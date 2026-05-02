@@ -304,28 +304,6 @@ fn redacts_checkpoint_title_and_filename() {
 }
 
 #[test]
-fn redacts_health_flags() {
-    let mut session = minimal_session();
-    session.health = Some(tracepilot_core::health::SessionHealth {
-        score: 0.8,
-        flags: vec![tracepilot_core::health::HealthFlag {
-            severity: tracepilot_core::health::HealthSeverity::Warning,
-            category: "paths".into(),
-            message: "Found path /home/user/sensitive in events".into(),
-        }],
-    });
-    let mut archive = test_archive(session);
-
-    apply_redaction(&mut archive, &test_options_paths_only());
-
-    let flag = &archive.sessions[0].health.as_ref().unwrap().flags[0];
-    assert!(
-        !flag.message.contains("/home/user"),
-        "Health flag message should be redacted"
-    );
-}
-
-#[test]
 fn redacts_extensions_json() {
     let mut session = minimal_session();
     session.extensions = Some(serde_json::json!({

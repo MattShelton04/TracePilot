@@ -87,9 +87,6 @@ fn render_session(session: &PortableSession, archive: &SessionArchive) -> String
     if let Some(metrics) = &session.shutdown_metrics {
         footer::write_metrics(&mut md, metrics);
     }
-    if let Some(health) = &session.health {
-        footer::write_health(&mut md, health);
-    }
     if let Some(incidents) = &session.incidents {
         footer::write_incidents(&mut md, incidents);
     }

@@ -1,7 +1,6 @@
 // ─── Session Types ────────────────────────────────────────────────
-// Core session management types: list items, detail views, health
-// assessment, shutdown metrics, and session artifacts (todos, plans,
-// checkpoints).
+// Core session management types: list items, detail views, shutdown metrics,
+// and session artifacts (todos, plans, checkpoints).
 
 /**
  * Session list item (enriched from workspace.yaml + events)
@@ -102,18 +101,6 @@ export interface ModelMetricDetail {
     cacheWriteTokens?: number;
     reasoningTokens?: number;
   };
-}
-
-/** Session health assessment */
-export interface SessionHealth {
-  score: number;
-  flags: HealthFlag[];
-}
-
-export interface HealthFlag {
-  severity: "info" | "warning" | "error";
-  category: string;
-  message: string;
 }
 
 // ─── Session Artifacts ────────────────────────────────────────────

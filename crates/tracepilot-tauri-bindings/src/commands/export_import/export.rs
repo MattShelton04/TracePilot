@@ -70,7 +70,6 @@ pub(super) fn parse_sections(sections: &[String]) -> CmdResult<HashSet<SectionId
             "plan" => SectionId::Plan,
             "checkpoints" => SectionId::Checkpoints,
             "metrics" | "shutdownmetrics" => SectionId::Metrics,
-            "health" => SectionId::Health,
             "incidents" => SectionId::Incidents,
             "rewindsnapshots" | "rewind_snapshots" | "snapshots" => SectionId::RewindSnapshots,
             "customtables" | "custom_tables" | "tables" => SectionId::CustomTables,
@@ -78,7 +77,7 @@ pub(super) fn parse_sections(sections: &[String]) -> CmdResult<HashSet<SectionId
             unknown => {
                 return Err(BindingsError::Validation(format!(
                     "Unknown section '{}'. Valid sections: conversation, events, todos, plan, \
-                     checkpoints, metrics, health, incidents, snapshots, tables, diagnostics",
+                     checkpoints, metrics, incidents, snapshots, tables, diagnostics",
                     unknown
                 )));
             }
@@ -312,7 +311,6 @@ pub async fn get_session_sections(
             has_plan,
             has_checkpoints,
             has_metrics,
-            has_health: has_events,
             has_incidents: has_events && scan_events_for_incidents(&events_path),
             has_rewind_snapshots: session_path.join("rewind-snapshots").exists(),
             has_custom_tables: check_custom_tables(&db_path),

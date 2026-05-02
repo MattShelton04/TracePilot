@@ -10,8 +10,6 @@ pub struct FeaturesConfig {
     #[serde(default)]
     pub export_view: bool,
     #[serde(default)]
-    pub health_scoring: bool,
-    #[serde(default)]
     pub session_replay: bool,
     #[serde(default = "default_true")]
     pub render_markdown: bool,
@@ -27,7 +25,6 @@ impl Default for FeaturesConfig {
     fn default() -> Self {
         Self {
             export_view: false,
-            health_scoring: false,
             session_replay: false,
             render_markdown: true,
             mcp_servers: true,

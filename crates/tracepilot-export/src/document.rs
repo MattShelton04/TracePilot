@@ -11,7 +11,6 @@ use crate::schema::SchemaVersion;
 
 // ── Re-export core types that already have Serialize + Deserialize ───────────
 
-pub use tracepilot_core::health::{HealthFlag, HealthSeverity, SessionHealth};
 pub use tracepilot_core::models::conversation::{
     AttributedMessage, ConversationTurn, SessionEventSeverity, TurnSessionEvent, TurnToolCall,
 };
@@ -119,9 +118,6 @@ pub struct PortableSession {
     pub incidents: Option<Vec<IncidentExport>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub health: Option<SessionHealth>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub custom_tables: Option<Vec<CustomTableExport>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -203,7 +199,6 @@ pub enum SectionId {
     RewindSnapshots,
     Metrics,
     Incidents,
-    Health,
     CustomTables,
     ParseDiagnostics,
 }
@@ -219,7 +214,6 @@ impl SectionId {
         SectionId::RewindSnapshots,
         SectionId::Metrics,
         SectionId::Incidents,
-        SectionId::Health,
         SectionId::CustomTables,
         SectionId::ParseDiagnostics,
     ];
@@ -235,7 +229,6 @@ impl SectionId {
             SectionId::RewindSnapshots => "Rewind Snapshots",
             SectionId::Metrics => "Shutdown Metrics",
             SectionId::Incidents => "Incidents",
-            SectionId::Health => "Health Score",
             SectionId::CustomTables => "Custom Tables",
             SectionId::ParseDiagnostics => "Parse Diagnostics",
         }

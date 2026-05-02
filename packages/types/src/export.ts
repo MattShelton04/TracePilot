@@ -14,7 +14,6 @@ export type SectionId =
   | "rewind_snapshots"
   | "metrics"
   | "incidents"
-  | "health"
   | "custom_tables"
   | "parse_diagnostics";
 
@@ -28,7 +27,6 @@ export const ALL_SECTION_IDS: readonly SectionId[] = [
   "rewind_snapshots",
   "metrics",
   "incidents",
-  "health",
   "custom_tables",
   "parse_diagnostics",
 ] as const;
@@ -43,7 +41,6 @@ export const SECTION_LABELS: Record<SectionId, string> = {
   rewind_snapshots: "Rewind Snapshots",
   metrics: "Metrics",
   incidents: "Incidents",
-  health: "Health",
   custom_tables: "Custom Tables",
   parse_diagnostics: "Parse Diagnostics",
 };
@@ -148,7 +145,6 @@ export interface SessionSectionsInfo {
   hasPlan: boolean;
   hasCheckpoints: boolean;
   hasMetrics: boolean;
-  hasHealth: boolean;
   hasIncidents: boolean;
   hasRewindSnapshots: boolean;
   hasCustomTables: boolean;
@@ -224,7 +220,6 @@ export interface ComparisonResult {
     successRate: number;
     filesModified: number;
     linesChanged: number;
-    healthScore: number;
   };
   /** Session B details */
   sessionB: {
@@ -239,7 +234,6 @@ export interface ComparisonResult {
     successRate: number;
     filesModified: number;
     linesChanged: number;
-    healthScore: number;
   };
   /** Per-model usage breakdown for comparison */
   modelUsage: {

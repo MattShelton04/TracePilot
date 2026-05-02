@@ -10,7 +10,7 @@ import type { TracePilotConfig } from "./config.js";
 import { DEFAULT_FAVOURITE_MODELS } from "./models.js";
 
 /** Current config schema version. */
-export const CONFIG_VERSION = 7;
+export const CONFIG_VERSION = 8;
 
 /** Default cost per premium request (USD). */
 export const DEFAULT_COST_PER_PREMIUM_REQUEST = 0.04;
@@ -35,8 +35,7 @@ export const DEFAULT_ALERT_COOLDOWN_SECONDS = 20;
  * MUST match `crates/tracepilot-tauri-bindings/src/config.rs` FeaturesConfig::default().
  */
 export const DEFAULT_FEATURES: TracePilotConfig["features"] = {
-  exportView: false,
-  healthScoring: false,
+  exportView: true,
   sessionReplay: false,
   renderMarkdown: true,
   mcpServers: true,

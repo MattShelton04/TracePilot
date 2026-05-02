@@ -92,12 +92,6 @@ fn redact_session(
         }
     }
 
-    if let Some(health) = &mut session.health {
-        for flag in &mut health.flags {
-            redact_string(&mut flag.message, patterns, stats);
-        }
-    }
-
     if let Some(diag) = &mut session.parse_diagnostics {
         redact_diagnostics(diag, patterns, stats);
     }

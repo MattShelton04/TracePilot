@@ -96,7 +96,6 @@ ALTER TABLE sessions ADD COLUMN tool_call_count INTEGER;
 ALTER TABLE sessions ADD COLUMN lines_added INTEGER;
 ALTER TABLE sessions ADD COLUMN lines_removed INTEGER;
 ALTER TABLE sessions ADD COLUMN duration_ms INTEGER;
-ALTER TABLE sessions ADD COLUMN health_score REAL;
 ALTER TABLE sessions ADD COLUMN model_metrics_json TEXT;
 ALTER TABLE sessions ADD COLUMN events_mtime TEXT;
 ALTER TABLE sessions ADD COLUMN analytics_version INTEGER DEFAULT 1;
@@ -132,10 +131,9 @@ This enables SQL-based tool analysis aggregation without re-parsing `events.json
 During `upsert_session`, after loading the session summary:
 1. Extract token/cost totals from `ShutdownMetrics.model_metrics`
 2. Compute `duration_ms` from `session_start_time` → `updated_at`
-3. Compute `health_score` via `compute_health()`
-4. Count lines added/removed from `code_changes`
-5. Serialize `model_metrics` as JSON for the `model_metrics_json` column
-6. If events exist, parse them ONCE and:
+3. Count lines added/removed from `code_changes`
+4. Serialize `model_metrics` as JSON for the `model_metrics_json` column
+5. If events exist, parse them ONCE and:
    - Extract tool call stats → upsert into `session_tool_calls`
    - Extract conversation content → upsert into `conversation_fts`
    - Derive `event_count` from the parsed events length (eliminating `count_events`)
