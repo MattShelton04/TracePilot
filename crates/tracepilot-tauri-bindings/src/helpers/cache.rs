@@ -36,6 +36,7 @@ pub(crate) fn summary_to_list_item(
             .shutdown_metrics
             .as_ref()
             .and_then(|metrics| metrics.current_model.clone()),
+        copilot_version: None,
         is_running,
         error_count: None,
         rate_limit_count: None,
@@ -69,6 +70,7 @@ pub(crate) fn indexed_session_to_list_item(
         event_count: maybe_i64_to_usize(session.event_count),
         turn_count: maybe_i64_to_usize(session.turn_count),
         current_model: session.current_model,
+        copilot_version: session.copilot_version,
         is_running,
         error_count: maybe_i64_to_usize(session.error_count),
         rate_limit_count: maybe_i64_to_usize(session.rate_limit_count),

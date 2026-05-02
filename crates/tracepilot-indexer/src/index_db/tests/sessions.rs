@@ -29,8 +29,8 @@ fn test_migrations_run_once() {
         .conn
         .query_row("SELECT COUNT(*) FROM schema_version", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(v1, 13);
-    assert_eq!(count1, 12);
+    assert_eq!(v1, 14);
+    assert_eq!(count1, 13);
     drop(db1);
 
     let db2 = IndexDb::open_or_create(&db_path).unwrap();
@@ -38,7 +38,7 @@ fn test_migrations_run_once() {
         .conn
         .query_row("SELECT COUNT(*) FROM schema_version", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(count2, 12);
+    assert_eq!(count2, 13);
 }
 
 #[test]
@@ -54,6 +54,97 @@ fn test_retired_score_column_is_removed() {
         .unwrap()
         .any(|name| name.as_deref() == Ok("health_score"));
     assert!(!has_retired_score_column);
+}
+
+#[test]
+fn test_version_migration_adds_cli_version_and_cleans_indexes() {
+    let tmp = tempfile::tempdir().unwrap();
+    let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
+
+    let columns: HashSet<String> = db
+        .conn
+        .prepare("PRAGMA table_info(sessions)")
+        .unwrap()
+        .query_map([], |row| row.get::<_, String>(1))
+        .unwrap()
+        .collect::<rusqlite::Result<_>>()
+        .unwrap();
+    assert!(columns.contains("copilot_version"));
+    for removed in [
+        "has_plan",
+        "has_checkpoints",
+        "checkpoint_count",
+        "shutdown_type",
+        "duration_ms",
+        "warning_count",
+        "last_error_type",
+        "last_error_message",
+    ] {
+        assert!(
+            !columns.contains(removed),
+            "retired column should be removed: {removed}"
+        );
+    }
+
+    let indexes: HashSet<String> = db
+        .conn
+        .prepare("PRAGMA index_list(sessions)")
+        .unwrap()
+        .query_map([], |row| row.get::<_, String>(1))
+        .unwrap()
+        .collect::<rusqlite::Result<_>>()
+        .unwrap();
+    assert!(!indexes.contains("idx_sessions_repository"));
+    assert!(indexes.contains("idx_sessions_repo_updated"));
+    assert!(indexes.contains("idx_sessions_nonempty_updated_at"));
+}
+
+#[test]
+fn test_upsert_extracts_latest_copilot_version() {
+    let tmp = tempfile::tempdir().unwrap();
+    let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
+    let session_id = "44444444-4444-4444-4444-444444444444";
+    let session_dir = tmp.path().join(session_id);
+    fs::create_dir_all(&session_dir).unwrap();
+    fs::write(
+        session_dir.join("workspace.yaml"),
+        format!(
+            r#"id: {session_id}
+summary: "Versioned session"
+repository: "org/repo"
+branch: "main"
+cwd: 'C:\test\{session_id}'
+host_type: cli
+created_at: "2026-03-10T07:14:50Z"
+updated_at: "2026-03-10T07:15:00Z"
+"#
+        ),
+    )
+    .unwrap();
+    fs::write(
+        session_dir.join("events.jsonl"),
+        concat!(
+            r#"{"type":"session.start","data":{"sessionId":"44444444-4444-4444-4444-444444444444","version":1,"producer":"copilot-cli","copilotVersion":"1.0.39"},"id":"evt-1","timestamp":"2026-03-10T07:14:50.000Z","parentId":null}"#, "\n",
+            r#"{"type":"session.resume","data":{"copilotVersion":"1.0.40","eventCount":1},"id":"evt-2","timestamp":"2026-03-10T07:14:55.000Z","parentId":null}"#, "\n",
+        ),
+    )
+    .unwrap();
+
+    db.upsert_session(&session_dir).unwrap();
+
+    let stored: String = db
+        .conn
+        .query_row(
+            "SELECT copilot_version FROM sessions WHERE id = ?1",
+            [session_id],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(stored, "1.0.40");
+
+    let listed = db.list_sessions(None, None, None, false).unwrap();
+    let session = listed.iter().find(|s| s.id == session_id).unwrap();
+    assert_eq!(session.copilot_version.as_deref(), Some("1.0.40"));
 }
 
 #[test]

@@ -101,6 +101,7 @@ pub struct SessionListItem {
     pub event_count: Option<usize>,
     pub turn_count: Option<usize>,
     pub current_model: Option<String>,
+    pub copilot_version: Option<String>,
     /// Whether this session is currently running (has an `inuse.*.lock` file).
     pub is_running: bool,
     // Incident counts (populated from index DB; None in fallback disk-scan path)

@@ -366,6 +366,7 @@ fn session_resume_seeds_model() {
             TypedEventData::SessionResume(SessionResumeData {
                 selected_model: Some("claude-3-haiku".to_string()),
                 resume_time: None,
+                copilot_version: None,
                 event_count: None,
                 reasoning_effort: None,
                 context: None,

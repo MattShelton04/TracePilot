@@ -102,6 +102,7 @@ pub struct UsageMetrics {
 #[serde(rename_all = "camelCase")]
 pub struct SessionResumeData {
     pub resume_time: Option<String>,
+    pub copilot_version: Option<String>,
     pub event_count: Option<u64>,
     pub selected_model: Option<String>,
     pub reasoning_effort: Option<String>,

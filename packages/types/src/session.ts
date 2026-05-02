@@ -20,6 +20,7 @@ export interface SessionListItem {
   eventCount?: number | null;
   turnCount?: number | null;
   currentModel?: string | null;
+  copilotVersion?: string | null;
   /** Whether this session is currently running (has an `inuse.*.lock` file). */
   isRunning: boolean;
   errorCount?: number | null;

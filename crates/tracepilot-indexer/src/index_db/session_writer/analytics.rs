@@ -19,14 +19,9 @@ pub(crate) fn extract_session_analytics(
     let mut total_cost: f64 = 0.0;
     let mut lines_added: Option<i64> = None;
     let mut lines_removed: Option<i64> = None;
-    let mut duration_ms: Option<i64> = None;
     let mut model_rows: Vec<ModelMetricsRow> = Vec::new();
     let mut session_segment_rows: Vec<SessionSegmentRow> = Vec::new();
 
-    let shutdown_type = summary
-        .shutdown_metrics
-        .as_ref()
-        .and_then(|m| m.shutdown_type.clone());
     let current_model = summary
         .shutdown_metrics
         .as_ref()
@@ -39,16 +34,9 @@ pub(crate) fn extract_session_analytics(
         .shutdown_metrics
         .as_ref()
         .and_then(|m| m.total_api_duration_ms.map(|v| v as i64));
+    let mut copilot_version: Option<String> = None;
 
     if let Some(ref metrics) = summary.shutdown_metrics {
-        if let (Some(start_time), Some(updated)) = (metrics.session_start_time, summary.updated_at)
-        {
-            let end_ms = updated.timestamp_millis() as u64;
-            if end_ms > start_time {
-                duration_ms = Some((end_ms - start_time) as i64);
-            }
-        }
-
         for (model_name, detail) in &metrics.model_metrics {
             let (input_t, output_t, cache_read, cache_write, reasoning) =
                 if let Some(ref usage) = detail.usage {
@@ -126,11 +114,8 @@ pub(crate) fn extract_session_analytics(
 
     let mut error_count: i64 = 0;
     let mut rate_limit_count: i64 = 0;
-    let mut warning_count: i64 = 0;
     let mut compaction_count: i64 = 0;
     let mut truncation_count: i64 = 0;
-    let mut last_error_type: Option<String> = None;
-    let mut last_error_message: Option<String> = None;
     let mut total_compaction_input: i64 = 0;
     let mut total_compaction_output: i64 = 0;
     let mut incidents: Vec<IncidentRow> = Vec::new();
@@ -143,6 +128,16 @@ pub(crate) fn extract_session_analytics(
 
         for event in events {
             match &event.typed_data {
+                TypedEventData::SessionStart(d) => {
+                    if let Some(version) = d.copilot_version.as_ref().filter(|v| !v.is_empty()) {
+                        copilot_version = Some(version.clone());
+                    }
+                }
+                TypedEventData::SessionResume(d) => {
+                    if let Some(version) = d.copilot_version.as_ref().filter(|v| !v.is_empty()) {
+                        copilot_version = Some(version.clone());
+                    }
+                }
                 TypedEventData::UserMessage(_) => {
                     // FTS content extraction moved to search_writer (Phase 2)
                 }
@@ -191,8 +186,6 @@ pub(crate) fn extract_session_analytics(
                     if is_rate_limit {
                         rate_limit_count += 1;
                     }
-                    last_error_type = d.error_type.clone();
-                    last_error_message = d.message.clone();
                     if incidents.len() < MAX_INCIDENTS_PER_SESSION {
                         let summary = if is_rate_limit {
                             "Rate limit hit".into()
@@ -210,7 +203,6 @@ pub(crate) fn extract_session_analytics(
                     }
                 }
                 TypedEventData::SessionWarning(d) => {
-                    warning_count += 1;
                     if incidents.len() < MAX_INCIDENTS_PER_SESSION {
                         incidents.push(IncidentRow {
                             event_type: "warning".into(),
@@ -322,10 +314,9 @@ pub(crate) fn extract_session_analytics(
         total_cost,
         lines_added,
         lines_removed,
-        duration_ms,
         tool_call_count: final_tool_call_count,
-        shutdown_type,
         current_model,
+        copilot_version,
         total_premium_requests,
         total_api_duration_ms,
         workspace_mtime: file_meta.workspace_mtime.clone(),
@@ -338,11 +329,8 @@ pub(crate) fn extract_session_analytics(
         session_segment_rows,
         error_count,
         rate_limit_count,
-        warning_count,
         compaction_count,
         truncation_count,
-        last_error_type,
-        last_error_message,
         total_compaction_input,
         total_compaction_output,
         incidents,

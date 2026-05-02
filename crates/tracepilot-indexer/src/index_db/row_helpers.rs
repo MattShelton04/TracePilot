@@ -12,7 +12,7 @@ use super::types::*;
 /// Extract an IndexedSession from a query row using column names.
 ///
 /// Expected columns: id, path, summary, repository, branch, cwd, host_type,
-/// created_at, updated_at, event_count, turn_count, current_model,
+/// created_at, updated_at, event_count, turn_count, current_model, copilot_version,
 /// error_count, rate_limit_count, compaction_count, truncation_count
 pub(super) fn indexed_session_from_row(row: &Row) -> rusqlite::Result<IndexedSession> {
     Ok(IndexedSession {
@@ -28,6 +28,7 @@ pub(super) fn indexed_session_from_row(row: &Row) -> rusqlite::Result<IndexedSes
         event_count: row.get("event_count")?,
         turn_count: row.get("turn_count")?,
         current_model: row.get("current_model")?,
+        copilot_version: row.get("copilot_version")?,
         error_count: row.get("error_count")?,
         rate_limit_count: row.get("rate_limit_count")?,
         compaction_count: row.get("compaction_count")?,
