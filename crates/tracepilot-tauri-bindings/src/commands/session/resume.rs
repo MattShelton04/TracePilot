@@ -1,6 +1,8 @@
 //! `resume_session_in_terminal` — spawn a detached terminal running the CLI's
 //! resume command for the given session.
 
+use tracepilot_core::parsing::WORKSPACE_YAML;
+
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
 use crate::helpers::read_config;
@@ -38,7 +40,7 @@ pub async fn resume_session_in_terminal(
             &sid,
             &session_state_dir,
         )?;
-        let workspace_path = session_path.join("workspace.yaml");
+        let workspace_path = session_path.join(WORKSPACE_YAML);
         let metadata = tracepilot_core::parsing::workspace::parse_workspace_yaml(&workspace_path)?;
         Ok::<Option<std::path::PathBuf>, BindingsError>(metadata.cwd.map(std::path::PathBuf::from))
     })

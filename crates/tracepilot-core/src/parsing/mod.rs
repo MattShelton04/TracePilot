@@ -17,3 +17,14 @@ pub mod events;
 pub mod rewind_snapshots;
 pub mod session_db;
 pub mod workspace;
+
+/// File name for the JSONL event log.
+pub const EVENTS_JSONL: &str = "events.jsonl";
+/// File name for the YAML workspace metadata.
+pub const WORKSPACE_YAML: &str = "workspace.yaml";
+/// File name for the SQLite session database.
+pub const SESSION_DB: &str = "session.db";
+/// Directory name for checkpoints.
+pub const CHECKPOINTS_DIR: &str = "checkpoints";
+/// Directory name for rewind snapshots.
+pub const REWIND_SNAPSHOTS_DIR: &str = "rewind-snapshots";

@@ -1,6 +1,7 @@
 //! Raw JSONL line parsing — reads `events.jsonl` into [`RawEvent`] envelopes.
 
 use crate::error::{Result, TracePilotError};
+use crate::parsing::EVENTS_JSONL;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -29,6 +30,14 @@ pub struct RawEvent {
 /// Returns `(events, malformed_line_count)` so the caller can track parse quality.
 #[tracing::instrument(skip_all, fields(path = %path.display()))]
 pub(super) fn parse_events_jsonl(path: &Path) -> Result<(Vec<RawEvent>, usize)> {
+    if !path.ends_with(EVENTS_JSONL) {
+        tracing::warn!(
+            path = %path.display(),
+            "Parsing event log from file not named {}",
+            EVENTS_JSONL
+        );
+    }
+
     let file = std::fs::File::open(path)
         .map_err(|e| TracePilotError::io_context("Failed to open", path.display(), e))?;
     // Estimate event count from file size (~1KB per event) to reduce Vec reallocations
@@ -44,11 +53,12 @@ pub(super) fn parse_events_jsonl(path: &Path) -> Result<(Vec<RawEvent>, usize)> 
         let line = line.map_err(|e| {
             TracePilotError::io_context("Failed to read line", format!("{}", line_num + 1), e)
         })?;
-        let trimmed = line.trim();
-        if trimmed.is_empty() {
+        let line = line.trim();
+        if line.is_empty() {
             continue;
         }
-        match serde_json::from_str::<RawEvent>(trimmed) {
+
+        match serde_json::from_str::<RawEvent>(line) {
             Ok(event) => events.push(event),
             Err(e) => {
                 tracing::warn!(line = line_num + 1, error = %e, "Skipping malformed event line");
