@@ -34,7 +34,6 @@ ALTER TABLE sessions ADD COLUMN tool_call_count INTEGER;
 ALTER TABLE sessions ADD COLUMN lines_added INTEGER;
 ALTER TABLE sessions ADD COLUMN lines_removed INTEGER;
 ALTER TABLE sessions ADD COLUMN duration_ms INTEGER;
-ALTER TABLE sessions ADD COLUMN health_score REAL;
 ALTER TABLE sessions ADD COLUMN model_metrics_json TEXT;  -- per-model breakdown as JSON
 ALTER TABLE sessions ADD COLUMN analytics_version INTEGER DEFAULT 1;
 ```

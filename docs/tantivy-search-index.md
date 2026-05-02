@@ -123,7 +123,7 @@ Tantivy is a full-text search engine, not a relational database. It fundamentall
 | Foreign key cascades | `ON DELETE CASCADE` cleans up all child rows automatically | Manual deletion across correlated documents |
 | Composite primary keys | `PRIMARY KEY (session_id, model_name)`, `PRIMARY KEY (session_id, day_of_week, hour)` | No uniqueness constraints; upsert requires delete-then-insert |
 | `CHECK` constraints | `CHECK(content_type IN (...))`, `CHECK(length(trim(content)) > 0)` | No schema-level validation |
-| Filtered aggregate expressions | `COUNT(CASE WHEN health_score >= 80 THEN 1 END)` (`analytics_queries.rs:25–42`) | Would require custom Rust collector per expression |
+| Filtered aggregate expressions | `COUNT(CASE WHEN rate_limit_count > 0 THEN 1 END)` | Would require custom Rust collector per expression |
 | Date functions | `date(m.end_timestamp)`, `COALESCE(s.updated_at, s.created_at)` | No date parsing; would need pre-computed day fields |
 
 ### 3. `sessions_fts` — should Tantivy replace it?
@@ -156,7 +156,7 @@ ORDER BY aggregate DESC
 | `SUM(input_tokens + output_tokens) ... GROUP BY model_name` | `analytics_queries.rs:124–139` | No arithmetic on stored fields, no SUM |
 | `SUM(tool_call_count) GROUP BY day_of_week, hour` | `analytics_queries.rs:347–352` | No multi-dimensional GROUP BY |
 | `COUNT(DISTINCT session_id) GROUP BY file_path LIMIT 20` | `analytics_queries.rs:448–455` | No COUNT DISTINCT |
-| `AVG(health_score)`, `SUM(CASE WHEN ...)` | `analytics_queries.rs:25–42` | No AVG, no conditional aggregation |
+| `AVG(duration_ms)`, `SUM(CASE WHEN ...)` | Analytics queries | No AVG, no conditional aggregation |
 | `date(m.end_timestamp) ... GROUP BY d` | `analytics_queries.rs:91–122` | No date extraction functions |
 
 Tantivy _could_ express some of these through custom `Collector` implementations that walk fast-field values per document and accumulate results in Rust. But this would mean reimplementing an ad-hoc query engine in application code — the exact problem SQLite already solves, with decades of optimization behind it.

@@ -343,7 +343,6 @@ Rich side-by-side comparison of any two sessions with metric deltas, token break
 | Per-turn message lengths | ✅ | `ConversationTurn.user_message.length` / `assistant_message.length` |
 | Per-turn durations | ✅ | `ConversationTurn` timestamps (start/end) |
 | Files modified + lines changed | ✅ | `SessionSummary.code_changes` |
-| Health score | ✅ | `SessionSummary.health_score` |
 | Duration | ✅ | `SessionSummary.duration_seconds` |
 
 **ALL data is available from existing commands.** No backend changes needed.
@@ -1304,7 +1303,6 @@ Several features share visualization patterns. Consider creating shared componen
 
 | Component | Used By | Description |
 |-----------|---------|-------------|
-| `<HealthRing>` | Already exists in `@tracepilot/ui` | Circular progress indicator |
 | `<SparklineChart>` | Model Comparison, MCP Analytics | Mini line chart for trends |
 | `<RadarChart>` | Model Comparison | Spider/radar chart SVG |
 | `<ForceGraph>` | Tool Ecosystem, Todo Dependencies | Force-directed graph renderer |

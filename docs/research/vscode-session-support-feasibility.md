@@ -259,7 +259,6 @@ Line 4:  kind=2  → Splice response items into requests[0].response array
 | **Code Changes** | ✅ `session.shutdown → codeChanges` (lines +/-) | ⚠️ `chatEditingSessions` timeline (file-level only) | Parse edit sessions for file list |
 | **Files Modified** | ✅ From shutdown metrics | ⚠️ From `textEditGroup` response items + edit sessions | Collect URIs from responses |
 | **Session Duration** | ✅ Computed from first→last event | ✅ Computed from `creationDate` → `lastMessageDate` | Direct computation |
-| **Health Score** | ✅ Computed from errors/warnings | ❌ No error tracking data | Show as N/A or always "healthy" |
 | **Error/Warning Count** | ✅ From `session.error`/`session.warning` events | ❌ Not tracked | Show as 0 / N/A |
 | **Rate Limit Count** | ✅ From events | ❌ Not tracked | Show as N/A |
 | **Compaction Count** | ✅ From `session.compaction_*` events | ❌ Not applicable | N/A |
@@ -564,7 +563,6 @@ Implement `CliSessionProvider` (wrapping existing code) and `VscodeSessionProvid
 **DB migration:** Add `session_source TEXT` column to sessions table. VSCode sessions will have `NULL` values for:
 - `total_tokens`, `total_cost`, `total_premium_requests`, `total_api_duration_ms`
 - `error_count`, `rate_limit_count`, `compaction_count`, `truncation_count`
-- `health_score` (or compute simplified score from `result.errorDetails`)
 
 **FTS extension:** Include `AssistantReasoning` text in FTS content extraction (benefits both CLI and VSCode sessions).
 

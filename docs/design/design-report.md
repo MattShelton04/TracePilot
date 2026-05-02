@@ -26,11 +26,10 @@ This document presents **two complete design variants** for the TracePilot deskt
 | 8 | Session Timeline | 3 |
 | 9 | Tool Analysis | 3 |
 | 10 | Code Impact | 3 |
-| 11 | Health Scoring | 4 |
-| 12 | Export Dialog | 5 |
-| 13 | Session Comparison | 6 |
-| 14 | Session Replay | 6 |
-| 15 | Settings | 6 |
+| 11 | Export Dialog | 5 |
+| 12 | Session Comparison | 6 |
+| 13 | Session Replay | 6 |
+| 14 | Settings | 6 |
 
 ---
 
@@ -174,13 +173,7 @@ All charts are hand-drawn SVG (no library dependency) with 4 visualization types
 
 For implementation, we recommend integrating Apache ECharts or Chart.js for interactive features.
 
-### 6. Health Scoring
-Uses a circular ring gauge (conic-gradient CSS) to show scores 0-1.0 with color coding:
-- ≥0.8: Green (healthy)
-- 0.5-0.8: Amber (needs attention)
-- <0.5: Red (critical)
-
-### 7. Export Dialog
+### 6. Export Dialog
 Dual UX: inline page with configuration panel + modal overlay for quick exports from session detail.
 
 ### 8. Session Replay
@@ -275,7 +268,7 @@ All reviewers agreed on these Variant A advantages:
 ### Consensus Strengths — Variant B
 All reviewers agreed on these Variant B advantages:
 1. **Premium visual polish** — Indigo gradients, glow effects, and translateY hover create a "crafted" feel.
-2. **Superior health scoring page** — Horizontal ring + stat row + 3-column attention grid maximizes above-fold info.
+2. **Better metrics density** — Compact stat rows and grouped panels maximize above-fold information.
 3. **Better session replay layout** — Persistent side panel with step metrics + files + todos is an IA masterclass.
 4. **Modern data visualization** — Gradient charts, dashed gridlines, donut with stroke-dash look production-quality.
 5. **Human-readable breadcrumbs** — "Sessions / OAuth Login Implementation" vs UUID fragments.
@@ -310,7 +303,6 @@ These items were noted but not fixed in prototypes (better addressed during Vue 
 | **Detail Overview** | B | B's prose summary + "key files modified" is far more useful than A's stat-only view |
 | **Conversation** | B | Tool calls expanded by default with pass/fail counts is better progressive disclosure |
 | **Analytics Dashboard** | B | Gradient charts + compact donut with side legend wins clearly |
-| **Health Scoring** | B | Horizontal layout, 3-col attention grid, descriptive health flags table |
 | **Session Replay** | B | Persistent side panel with step metrics is excellent information architecture |
 | **Metrics** | A | 8-column model breakdown table is more detailed; B's was buggy (now fixed) |
 | **Settings** | Tie | Both strong; B's narrow max-width is cleaner, A's shortcuts table more complete |

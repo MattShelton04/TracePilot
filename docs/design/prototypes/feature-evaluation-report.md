@@ -763,7 +763,7 @@ All four reviewers confirmed the proposed architecture is a strong fit:
 - **Use SVG icons, not emoji:** TracePilot uses inline SVG icons exclusively (16×16, stroke="currentColor"). Emoji won't honor theme colors.
 
 #### 8.4.4 Progressive Disclosure — Revised Strategy
-- **Feature flag gating:** Gate advanced capabilities (tool-level enable/disable, raw JSON editor, diff preview, clone, batch operations, VS Code sync) behind `usePreferencesStore.isFeatureEnabled()` as "Power User Mode" in SettingsExperimental. Matches existing Replay/Health Scoring gating pattern.
+- **Feature flag gating:** Gate advanced capabilities (tool-level enable/disable, raw JSON editor, diff preview, clone, batch operations, VS Code sync) behind `usePreferencesStore.isFeatureEnabled()` as "Power User Mode" in SettingsExperimental.
 - **Hide transport type on cards in simple mode:** `stdio/http/sse` is meaningless to non-technical users. Show only in detail panel.
 - **Default scope without requiring understanding:** Default to Global for Skills, Project for MCP (if project config exists). Only surface scope selector on explicit "Change scope" click.
 

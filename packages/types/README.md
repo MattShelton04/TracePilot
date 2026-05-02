@@ -14,7 +14,7 @@ Everything is re-exported from `src/index.ts`. Module groups:
 
 | Module                     | Key exports                                                  |
 | -------------------------- | ------------------------------------------------------------ |
-| `session`                  | `SessionListItem`, `SessionDetail`, `SessionHealth`, todos   |
+| `session`                  | `SessionListItem`, `SessionDetail`, incidents, todos         |
 | `conversation`             | `ConversationTurn`, `AttributedMessage`, `SessionEvent`      |
 | `session-event-payloads`   | Event-type unions + `narrowSessionEvent` narrower            |
 | `search`                   | `SearchResult`, `SearchFilters`, `SearchFacetsResponse`      |

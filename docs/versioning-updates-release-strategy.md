@@ -328,7 +328,7 @@ Do not parse `CHANGELOG.md` at runtime for app metadata — CHANGELOG.md is a hu
       "version": "0.2.0",
       "date": "2026-04-01",
       "notes": {
-        "added": ["Health scoring view with anomaly detection", "Export to Markdown and CSV"],
+        "added": ["Export to Markdown and CSV"],
         "fixed": ["Subagent timing regression on truncated traces"],
         "changed": []
       },
