@@ -55,9 +55,7 @@ pub fn build_placeholder_sql(sql_prefix: &str, num_rows: usize, params_per_row: 
     );
     // Each param is '?' (1 byte) + ',' (1 byte) separator = 2 bytes max.
     // Each row adds '(' and ')' + ',' between rows = 3 bytes.
-    let mut sql = String::with_capacity(
-        sql_prefix.len() + 1 + num_rows * (params_per_row * 2 + 3),
-    );
+    let mut sql = String::with_capacity(sql_prefix.len() + 1 + num_rows * (params_per_row * 2 + 3));
     sql.push_str(sql_prefix);
     sql.push(' ');
     for i in 0..num_rows {
