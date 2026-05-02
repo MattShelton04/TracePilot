@@ -75,7 +75,7 @@ View every user ↔ assistant exchange with full tool call details. Three viewin
 
 Four dashboard views provide comprehensive understanding of your Copilot usage:
 
-- **Analytics Dashboard** — token usage over time, sessions per day, cost trends, model distribution, health distribution, incident tracking
+- **Analytics Dashboard** — token usage over time, sessions per day, cost trends, model distribution, and incident tracking
 - **Tool Analysis** — invocation frequency, success rates, average duration, and a day × hour activity heatmap
 - **Code Impact** — file type breakdown, most-modified files, additions/deletions over time, churn visualization
 - **Model Comparison** — per-model token stats, cache hit rates, cost breakdown (both Copilot and wholesale), side-by-side radar charts
@@ -86,7 +86,7 @@ All analytics views support time range filtering (7d / 30d / 90d / custom) and r
 
 ### Session Comparison
 
-Compare two sessions side-by-side with normalization modes (raw, per-turn, per-minute) to spot differences in token usage, model selection, cost, health scores, and tool call patterns.
+Compare two sessions side-by-side with normalization modes (raw, per-turn, per-minute) to spot differences in token usage, model selection, cost, and tool call patterns.
 
 ### Cost Tracking
 
@@ -169,7 +169,6 @@ TracePilot includes a feature flag system (Settings → Experimental Features) t
 | Flag | Feature |
 |------|---------|
 | **Session Replay** | Step through a session's event timeline using real indexed session data. Preview feature. |
-| **Health Scoring** | Per-session health score UI backed by placeholder/mock data until the backend scoring API lands. Preview feature. |
 | **Export** | Export sessions as TracePilot JSON, Markdown, CSV, or raw zip archives with format/section selection and preview. |
 
 ### Settings
@@ -184,7 +183,6 @@ TracePilot offers extensive configuration through 10 settings panels:
 | **Logs & Diagnostics** | Log level, log file location, export logs for issue reports |
 | **Pricing** | Cost per premium request, per-token wholesale prices for each model |
 | **Tool Visualization** | Custom display settings for tool call rendering |
-| **Health Scoring** | Health score thresholds and weight configuration |
 | **Updates** | Check for updates on startup, manual check |
 | **Experimental** | Feature flags for preview features |
 | **About** | Version info, session count, database size |
@@ -235,7 +233,7 @@ TracePilot/
 │   └── cli/                        # CLI tool (TypeScript, experimental)
 │
 ├── crates/
-│   ├── tracepilot-core/            # Core parsing, turn reconstruction, analytics, health scoring
+│   ├── tracepilot-core/            # Core parsing, turn reconstruction, and analytics
 │   ├── tracepilot-indexer/         # SQLite FTS5 search index, incremental reindex, migrations
 │   ├── tracepilot-orchestrator/    # Session launching, worktrees, config injection, templates, repo registry
 │   ├── tracepilot-tauri-bindings/  # Tauri IPC commands + config management
@@ -442,7 +440,6 @@ pnpm format
 | Feature | Status | Description |
 |---------|--------|-------------|
 | **Export** | Preview | Export sessions as Markdown, TracePilot JSON, CSV, or raw zip archives with configurable sections and redaction options. Available behind feature flag. |
-| **Health Scoring** | Stub Preview | Per-session health score UI is available behind a feature flag, but currently uses placeholder/mock-backed data until backend scoring lands. |
 | **CLI Tool** | Experimental | Terminal-based session browser with `list`, `show`, `search`, `resume`, and `index` commands. Partially functional (`list`, `show`, `search` work; `index` is a stub). Not yet recommended for general use. |
 
 ### Ideas & Future Exploration
