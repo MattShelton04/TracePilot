@@ -28,7 +28,7 @@ mod tests;
 mod typed;
 
 pub use aggregate::{extract_combined_shutdown_data, extract_session_start};
-pub use raw::RawEvent;
+pub use raw::{RawEvent, events_to_jsonl};
 pub use typed::{
     ParsedEvents, TypedEvent, TypedEventData, parse_typed_events, parse_typed_events_if_exists,
 };

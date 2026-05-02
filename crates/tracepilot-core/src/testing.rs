@@ -65,17 +65,17 @@ pub fn temp_session(
 
     // events.jsonl (if any events provided)
     if !events.is_empty() {
-        let mut lines = Vec::new();
+        let mut raw_events = Vec::new();
         for (i, (event_type, data)) in events.iter().enumerate() {
-            let raw = serde_json::json!({
+            raw_events.push(serde_json::json!({
                 "type": event_type,
                 "data": data,
                 "id": format!("e{}", i + 1),
                 "timestamp": format!("2025-01-01T00:00:{:02}.000Z", i),
-            });
-            lines.push(serde_json::to_string(&raw).expect("failed to serialize event"));
+            }));
         }
-        std::fs::write(session_path.join("events.jsonl"), lines.join("\n"))
+        let content = crate::parsing::events::events_to_jsonl(&raw_events);
+        std::fs::write(session_path.join("events.jsonl"), content)
             .expect("failed to write events.jsonl");
     }
 

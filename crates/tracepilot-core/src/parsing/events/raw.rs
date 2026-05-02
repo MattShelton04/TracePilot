@@ -20,6 +20,22 @@ pub struct RawEvent {
     pub parent_id: Option<String>,
 }
 
+/// Serialize a slice of events into a newline-delimited JSON string.
+///
+/// Each event is serialized to a single line. The resulting string does NOT
+/// contain a trailing newline.
+pub fn events_to_jsonl<T: Serialize>(events: &[T]) -> String {
+    let mut s = String::with_capacity(events.len() * 256);
+    for (i, e) in events.iter().enumerate() {
+        if i > 0 {
+            s.push('\n');
+        }
+        let line = serde_json::to_string(e).expect("event serialization should be infallible");
+        s.push_str(&line);
+    }
+    s
+}
+
 /// Parse all events from an `events.jsonl` file into raw envelopes.
 ///
 /// PERF: I/O + CPU bound — reads entire file line-by-line, deserializes each JSON line.
