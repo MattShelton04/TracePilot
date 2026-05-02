@@ -1,7 +1,7 @@
 //! Post-conversation sections: todos, checkpoints, metrics, incidents,
 //! custom tables, events summary, diagnostics, and rewind snapshots.
 
-use std::fmt::Write;
+use tracepilot_core::utils::InfallibleWrite;
 
 use crate::document::{
     CheckpointExport, CustomTableExport, IncidentExport, ParseDiagnosticsExport, RawEvent,
@@ -11,7 +11,7 @@ use crate::document::{
 use super::format_dt;
 
 pub(super) fn write_todos(md: &mut String, todos: &TodoExport) {
-    writeln!(md, "## Todos\n").expect("writeln to String is infallible");
+    md.push_line(format_args!("## Todos\n"));
 
     if todos.items.is_empty() {
         md.push_str("_No todos._\n\n");
@@ -23,20 +23,21 @@ pub(super) fn write_todos(md: &mut String, todos: &TodoExport) {
             "done" => "[x]",
             _ => "[ ]",
         };
-        writeln!(md, "- {} **{}**: {}", checkbox, item.id, item.title)
-            .expect("writeln to String is infallible");
+        md.push_line(format_args!(
+            "- {} **{}**: {}",
+            checkbox, item.id, item.title
+        ));
         if let Some(desc) = &item.description
             && !desc.is_empty()
         {
-            writeln!(md, "  {}", desc).expect("writeln to String is infallible");
+            md.push_line(format_args!("  {}", desc));
         }
     }
 
     if !todos.deps.is_empty() {
         md.push_str("\n**Dependencies:**\n");
         for dep in &todos.deps {
-            writeln!(md, "- {} → {}", dep.todo_id, dep.depends_on)
-                .expect("writeln to String is infallible");
+            md.push_line(format_args!("- {} → {}", dep.todo_id, dep.depends_on));
         }
     }
 
@@ -44,7 +45,7 @@ pub(super) fn write_todos(md: &mut String, todos: &TodoExport) {
 }
 
 pub(super) fn write_checkpoints(md: &mut String, checkpoints: &[CheckpointExport]) {
-    writeln!(md, "## Checkpoints\n").expect("writeln to String is infallible");
+    md.push_line(format_args!("## Checkpoints\n"));
 
     if checkpoints.is_empty() {
         md.push_str("_No checkpoints._\n\n");
@@ -52,14 +53,13 @@ pub(super) fn write_checkpoints(md: &mut String, checkpoints: &[CheckpointExport
     }
 
     for cp in checkpoints {
-        writeln!(md, "### Checkpoint {}: {}\n", cp.number, cp.title)
-            .expect("writeln to String is infallible");
+        md.push_line(format_args!("### Checkpoint {}: {}\n", cp.number, cp.title));
         if let Some(content) = &cp.content {
             for line in content.lines() {
                 if line.starts_with('#') {
-                    writeln!(md, "####{}", line).expect("writeln to String is infallible");
+                    md.push_line(format_args!("####{}", line));
                 } else {
-                    writeln!(md, "{}", line).expect("writeln to String is infallible");
+                    md.push_line(format_args!("{}", line));
                 }
             }
             md.push('\n');
@@ -68,46 +68,41 @@ pub(super) fn write_checkpoints(md: &mut String, checkpoints: &[CheckpointExport
 }
 
 pub(super) fn write_metrics(md: &mut String, metrics: &ShutdownMetrics) {
-    writeln!(md, "## Metrics\n").expect("writeln to String is infallible");
+    md.push_line(format_args!("## Metrics\n"));
 
-    writeln!(md, "| Metric | Value |").expect("writeln to String is infallible");
-    writeln!(md, "|--------|-------|").expect("writeln to String is infallible");
+    md.push_line(format_args!("| Metric | Value |"));
+    md.push_line(format_args!("|--------|-------|"));
 
     if let Some(kind) = &metrics.shutdown_type {
-        writeln!(md, "| Shutdown Type | {} |", kind).expect("writeln to String is infallible");
+        md.push_line(format_args!("| Shutdown Type | {} |", kind));
     }
     if let Some(model) = &metrics.current_model {
-        writeln!(md, "| Model | {} |", model).expect("writeln to String is infallible");
+        md.push_line(format_args!("| Model | {} |", model));
     }
     if let Some(reqs) = metrics.total_premium_requests {
-        writeln!(md, "| Premium Requests | {} |", reqs).expect("writeln to String is infallible");
+        md.push_line(format_args!("| Premium Requests | {} |", reqs));
     }
     if let Some(api_ms) = metrics.total_api_duration_ms {
-        writeln!(md, "| API Duration | {}ms |", api_ms).expect("writeln to String is infallible");
+        md.push_line(format_args!("| API Duration | {}ms |", api_ms));
     }
     if let Some(changes) = &metrics.code_changes {
         if let Some(added) = changes.lines_added {
-            writeln!(md, "| Lines Added | +{} |", added).expect("writeln to String is infallible");
+            md.push_line(format_args!("| Lines Added | +{} |", added));
         }
         if let Some(removed) = changes.lines_removed {
-            writeln!(md, "| Lines Removed | -{} |", removed)
-                .expect("writeln to String is infallible");
+            md.push_line(format_args!("| Lines Removed | -{} |", removed));
         }
     }
     md.push('\n');
 
     if !metrics.model_metrics.is_empty() {
-        writeln!(md, "### Model Usage\n").expect("writeln to String is infallible");
-        writeln!(
-            md,
+        md.push_line(format_args!("### Model Usage\n"));
+        md.push_line(format_args!(
             "| Model | Requests | Input Tokens | Output Tokens | Cache Read | Cache Write |"
-        )
-        .expect("writeln to String is infallible");
-        writeln!(
-            md,
+        ));
+        md.push_line(format_args!(
             "|-------|----------|--------------|---------------|------------|-------------|"
-        )
-        .expect("writeln to String is infallible");
+        ));
 
         let mut sorted: Vec<_> = metrics.model_metrics.iter().collect();
         sorted.sort_by_key(|(k, _)| k.as_str());
@@ -135,12 +130,10 @@ pub(super) fn write_metrics(md: &mut String, metrics: &ShutdownMetrics) {
                 .and_then(|u| u.cache_write_tokens)
                 .unwrap_or(0);
 
-            writeln!(
-                md,
+            md.push_line(format_args!(
                 "| {} | {} | {} | {} | {} | {} |",
                 model, reqs, input, output, cache_r, cache_w
-            )
-            .expect("writeln to String is infallible");
+            ));
         }
         md.push('\n');
     }
@@ -151,9 +144,9 @@ pub(super) fn write_incidents(md: &mut String, incidents: &[IncidentExport]) {
         return;
     }
 
-    writeln!(md, "## Incidents\n").expect("writeln to String is infallible");
-    writeln!(md, "| Time | Type | Severity | Summary |").expect("writeln to String is infallible");
-    writeln!(md, "|------|------|----------|---------|").expect("writeln to String is infallible");
+    md.push_line(format_args!("## Incidents\n"));
+    md.push_line(format_args!("| Time | Type | Severity | Summary |"));
+    md.push_line(format_args!("|------|------|----------|---------|"));
 
     for inc in incidents {
         let time = inc
@@ -161,19 +154,17 @@ pub(super) fn write_incidents(md: &mut String, incidents: &[IncidentExport]) {
             .as_ref()
             .map(format_dt)
             .unwrap_or_else(|| "—".to_string());
-        writeln!(
-            md,
+        md.push_line(format_args!(
             "| {} | {} | {} | {} |",
             time, inc.event_type, inc.severity, inc.summary
-        )
-        .expect("writeln to String is infallible");
+        ));
     }
     md.push('\n');
 }
 
 pub(super) fn write_events_summary(md: &mut String, events: &[RawEvent]) {
-    writeln!(md, "## Events Summary\n").expect("writeln to String is infallible");
-    writeln!(md, "Total events: {}\n", events.len()).expect("writeln to String is infallible");
+    md.push_line(format_args!("## Events Summary\n"));
+    md.push_line(format_args!("Total events: {}\n", events.len()));
 
     let mut counts: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
     for event in events {
@@ -183,27 +174,26 @@ pub(super) fn write_events_summary(md: &mut String, events: &[RawEvent]) {
     let mut sorted: Vec<_> = counts.into_iter().collect();
     sorted.sort_by_key(|b| std::cmp::Reverse(b.1));
 
-    writeln!(md, "| Event Type | Count |").expect("writeln to String is infallible");
-    writeln!(md, "|------------|-------|").expect("writeln to String is infallible");
+    md.push_line(format_args!("| Event Type | Count |"));
+    md.push_line(format_args!("|------------|-------|"));
     for (event_type, count) in sorted {
-        writeln!(md, "| `{}` | {} |", event_type, count).expect("writeln to String is infallible");
+        md.push_line(format_args!("| `{}` | {} |", event_type, count));
     }
     md.push('\n');
 }
 
 pub(super) fn write_diagnostics(md: &mut String, diag: &ParseDiagnosticsExport) {
-    writeln!(md, "## Parse Diagnostics\n").expect("writeln to String is infallible");
-    writeln!(md, "- Total events: {}", diag.total_events).expect("writeln to String is infallible");
-    writeln!(md, "- Malformed lines: {}", diag.malformed_lines)
-        .expect("writeln to String is infallible");
-    writeln!(md, "- Unknown event types: {}", diag.unknown_event_types)
-        .expect("writeln to String is infallible");
-    writeln!(
-        md,
+    md.push_line(format_args!("## Parse Diagnostics\n"));
+    md.push_line(format_args!("- Total events: {}", diag.total_events));
+    md.push_line(format_args!("- Malformed lines: {}", diag.malformed_lines));
+    md.push_line(format_args!(
+        "- Unknown event types: {}",
+        diag.unknown_event_types
+    ));
+    md.push_line(format_args!(
         "- Deserialization failures: {}",
         diag.deserialization_failures
-    )
-    .expect("writeln to String is infallible");
+    ));
     md.push('\n');
 }
 
@@ -211,17 +201,13 @@ pub(super) fn write_rewind_snapshots(md: &mut String, rewind: &RewindIndex) {
     if rewind.snapshots.is_empty() {
         return;
     }
-    writeln!(md, "## Rewind Snapshots\n").expect("writeln to String is infallible");
-    writeln!(
-        md,
+    md.push_line(format_args!("## Rewind Snapshots\n"));
+    md.push_line(format_args!(
         "| # | Snapshot ID | Timestamp | Files | Branch | Message |"
-    )
-    .expect("writeln to String is infallible");
-    writeln!(
-        md,
+    ));
+    md.push_line(format_args!(
         "|---|-------------|-----------|-------|--------|---------|"
-    )
-    .expect("writeln to String is infallible");
+    ));
     for (i, snap) in rewind.snapshots.iter().enumerate() {
         let ts = snap.timestamp.as_deref().unwrap_or("—");
         let files = snap
@@ -235,8 +221,7 @@ pub(super) fn write_rewind_snapshots(md: &mut String, rewind: &RewindIndex) {
         } else {
             msg
         };
-        writeln!(
-            md,
+        md.push_line(format_args!(
             "| {} | `{}` | {} | {} | {} | {} |",
             i + 1,
             &snap.snapshot_id[..snap.snapshot_id.len().min(8)],
@@ -244,8 +229,7 @@ pub(super) fn write_rewind_snapshots(md: &mut String, rewind: &RewindIndex) {
             files,
             branch,
             msg_truncated
-        )
-        .expect("writeln to String is infallible");
+        ));
     }
     md.push('\n');
 }
@@ -254,25 +238,25 @@ pub(super) fn write_custom_tables(md: &mut String, tables: &[CustomTableExport])
     if tables.is_empty() {
         return;
     }
-    writeln!(md, "## Custom Tables\n").expect("writeln to String is infallible");
+    md.push_line(format_args!("## Custom Tables\n"));
     for table in tables {
-        writeln!(md, "### {}\n", table.name).expect("writeln to String is infallible");
+        md.push_line(format_args!("### {}\n", table.name));
         if table.rows.is_empty() {
-            writeln!(md, "*Empty table*\n").expect("writeln to String is infallible");
+            md.push_line(format_args!("*Empty table*\n"));
             continue;
         }
-        write!(md, "|").expect("write to String is infallible");
+        md.push_fmt(format_args!("|"));
         for col in &table.columns {
-            write!(md, " {} |", col).expect("write to String is infallible");
+            md.push_fmt(format_args!(" {} |", col));
         }
-        writeln!(md).expect("writeln to String is infallible");
-        write!(md, "|").expect("write to String is infallible");
+        md.push_line(format_args!(""));
+        md.push_fmt(format_args!("|"));
         for _ in &table.columns {
-            write!(md, "---|").expect("write to String is infallible");
+            md.push_fmt(format_args!("---|"));
         }
-        writeln!(md).expect("writeln to String is infallible");
+        md.push_line(format_args!(""));
         for row in &table.rows {
-            write!(md, "|").expect("write to String is infallible");
+            md.push_fmt(format_args!("|"));
             for col in &table.columns {
                 let val = row
                     .get(col)
@@ -281,9 +265,9 @@ pub(super) fn write_custom_tables(md: &mut String, tables: &[CustomTableExport])
                         other => other.to_string(),
                     })
                     .unwrap_or_default();
-                write!(md, " {} |", val).expect("write to String is infallible");
+                md.push_fmt(format_args!(" {} |", val));
             }
-            writeln!(md).expect("writeln to String is infallible");
+            md.push_line(format_args!(""));
         }
         md.push('\n');
     }

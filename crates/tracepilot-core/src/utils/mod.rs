@@ -91,6 +91,41 @@ pub fn home_dir_opt() -> Option<PathBuf> {
     }
 }
 
+/// Extension trait for [`String`] to allow infallible formatted writes.
+///
+/// Since [`String`]'s implementation of [`std::fmt::Write`] never returns an
+/// error, this trait provides a more ergonomic way to build strings without
+/// repetitive `.expect("String write is infallible")` calls.
+pub trait InfallibleWrite {
+    /// Write a formatted string to the buffer, panicking on failure (which is
+    /// impossible for [`String`]).
+    ///
+    /// # Example
+    /// ```
+    /// use tracepilot_core::utils::InfallibleWrite;
+    /// let mut s = String::new();
+    /// s.push_fmt(format_args!("hello {}", "world"));
+    /// assert_eq!(s, "hello world");
+    /// ```
+    fn push_fmt(&mut self, args: std::fmt::Arguments<'_>);
+
+    /// Write a formatted string followed by a newline to the buffer.
+    fn push_line(&mut self, args: std::fmt::Arguments<'_>);
+}
+
+impl InfallibleWrite for String {
+    fn push_fmt(&mut self, args: std::fmt::Arguments<'_>) {
+        use std::fmt::Write;
+        self.write_fmt(args).expect("String write is infallible");
+    }
+
+    fn push_line(&mut self, args: std::fmt::Arguments<'_>) {
+        use std::fmt::Write;
+        self.write_fmt(args).expect("String write is infallible");
+        self.push('\n');
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
