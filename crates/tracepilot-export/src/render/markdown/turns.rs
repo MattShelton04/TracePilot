@@ -1,12 +1,12 @@
 //! Conversation & turn rendering: user/assistant blocks, reasoning, tool
 //! calls (including subagent detail), and per-turn session events.
 
-use std::fmt::Write;
+use tracepilot_core::utils::InfallibleWrite;
 
 use crate::document::{ConversationTurn, SessionEventSeverity};
 
 pub(super) fn write_conversation(md: &mut String, turns: &[ConversationTurn]) {
-    writeln!(md, "## Conversation\n").expect("writeln to String is infallible");
+    md.push_line(format_args!("## Conversation\n"));
 
     if turns.is_empty() {
         md.push_str("_No conversation turns recorded._\n\n");
@@ -19,7 +19,7 @@ pub(super) fn write_conversation(md: &mut String, turns: &[ConversationTurn]) {
 }
 
 fn write_turn(md: &mut String, turn: &ConversationTurn) {
-    writeln!(md, "### Turn {}", turn.turn_index + 1).expect("writeln to String is infallible");
+    md.push_line(format_args!("### Turn {}", turn.turn_index + 1));
 
     let mut meta_parts = Vec::new();
     if let Some(model) = &turn.model {
@@ -32,7 +32,7 @@ fn write_turn(md: &mut String, turn: &ConversationTurn) {
         meta_parts.push(format!("{} tokens", tokens));
     }
     if !meta_parts.is_empty() {
-        writeln!(md, "*{}*\n", meta_parts.join(" · ")).expect("writeln to String is infallible");
+        md.push_line(format_args!("*{}*\n", meta_parts.join(" · ")));
     }
 
     match turn.user_message.as_deref() {
@@ -46,10 +46,10 @@ fn write_turn(md: &mut String, turn: &ConversationTurn) {
     }
 
     if !turn.reasoning_texts.is_empty() {
-        writeln!(md, "**Reasoning**\n").expect("writeln to String is infallible");
+        md.push_line(format_args!("**Reasoning**\n"));
         for msg in &turn.reasoning_texts {
             for line in msg.content.lines() {
-                writeln!(md, "> {}", line).expect("writeln to String is infallible");
+                md.push_line(format_args!("> {}", line));
             }
             md.push('\n');
         }
@@ -57,10 +57,8 @@ fn write_turn(md: &mut String, turn: &ConversationTurn) {
 
     if !turn.tool_calls.is_empty() {
         md.push_str("**Tool Calls**\n\n");
-        writeln!(md, "| Tool | Status | Duration | Summary |")
-            .expect("writeln to String is infallible");
-        writeln!(md, "|------|--------|----------|---------|")
-            .expect("writeln to String is infallible");
+        md.push_line(format_args!("| Tool | Status | Duration | Summary |"));
+        md.push_line(format_args!("|------|--------|----------|---------|"));
 
         for tool in &turn.tool_calls {
             let status = match tool.success {
@@ -109,8 +107,10 @@ fn write_turn(md: &mut String, turn: &ConversationTurn) {
                     .to_string()
             };
 
-            writeln!(md, "| {} | {} | {} | {} |", name, status, duration, summary)
-                .expect("writeln to String is infallible");
+            md.push_line(format_args!(
+                "| {} | {} | {} | {} |",
+                name, status, duration, summary
+            ));
         }
         md.push('\n');
 
@@ -126,7 +126,7 @@ fn write_turn(md: &mut String, turn: &ConversationTurn) {
                         .agent_display_name
                         .as_deref()
                         .unwrap_or(&tool.tool_name);
-                    writeln!(md, "#### 🤖 {}\n", display).expect("writeln to String is infallible");
+                    md.push_line(format_args!("#### 🤖 {}\n", display));
 
                     let mut stats: Vec<String> = Vec::new();
                     if let Some(model) = tool.model.as_deref() {
@@ -145,22 +145,19 @@ fn write_turn(md: &mut String, turn: &ConversationTurn) {
                         stats.push(format!("{} tool calls", calls));
                     }
                     if !stats.is_empty() {
-                        writeln!(md, "*{}*\n", stats.join(" · "))
-                            .expect("writeln to String is infallible");
+                        md.push_line(format_args!("*{}*\n", stats.join(" · ")));
                     }
 
                     if let Some(desc) = tool.agent_description.as_deref() {
-                        writeln!(md, "{}\n", desc).expect("writeln to String is infallible");
+                        md.push_line(format_args!("{}\n", desc));
                     }
                 } else {
-                    writeln!(md, "#### 🔧 {}\n", tool.tool_name)
-                        .expect("writeln to String is infallible");
+                    md.push_line(format_args!("#### 🔧 {}\n", tool.tool_name));
                 }
 
                 if let Some(args) = &tool.arguments {
                     md.push_str("**Arguments:**\n\n");
-                    writeln!(md, "```json\n{}\n```\n", args)
-                        .expect("writeln to String is infallible");
+                    md.push_line(format_args!("```json\n{}\n```\n", args));
                 }
                 if let Some(result) = &tool.result_content {
                     let preview = if result.len() > 2000 {
@@ -173,8 +170,7 @@ fn write_turn(md: &mut String, turn: &ConversationTurn) {
                         result.clone()
                     };
                     md.push_str("**Result:**\n\n");
-                    writeln!(md, "```\n{}\n```\n", preview)
-                        .expect("writeln to String is infallible");
+                    md.push_line(format_args!("```\n{}\n```\n", preview));
                 }
             }
         }
@@ -187,17 +183,19 @@ fn write_turn(md: &mut String, turn: &ConversationTurn) {
                 SessionEventSeverity::Warning => "🟡",
                 SessionEventSeverity::Info => "ℹ️",
             };
-            writeln!(md, "> {} **{}**: {}", icon, event.event_type, event.summary)
-                .expect("writeln to String is infallible");
+            md.push_line(format_args!(
+                "> {} **{}**: {}",
+                icon, event.event_type, event.summary
+            ));
         }
         md.push('\n');
     }
 }
 
 fn write_block(md: &mut String, label: &str, text: &str) {
-    writeln!(md, "**{}**\n", label).expect("writeln to String is infallible");
+    md.push_line(format_args!("**{}**\n", label));
     for line in text.lines() {
-        writeln!(md, "> {}", line).expect("writeln to String is infallible");
+        md.push_line(format_args!("> {}", line));
     }
     md.push('\n');
 }

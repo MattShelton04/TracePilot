@@ -3,20 +3,11 @@ use std::path::Path;
 
 use crate::document::{CheckpointExport, RawEvent};
 use crate::error::{ExportError, Result};
+use tracepilot_core::parsing::events::events_to_jsonl;
 
 pub(super) fn write_events_jsonl(events: &[RawEvent], dir: &Path) -> Result<()> {
     let path = dir.join("events.jsonl");
-    let mut content = String::with_capacity(events.len() * 256);
-
-    for event in events {
-        let line = serde_json::to_string(event).map_err(|e| ExportError::Render {
-            format: "JSONL".to_string(),
-            message: e.to_string(),
-        })?;
-        content.push_str(&line);
-        content.push('\n');
-    }
-
+    let content = events_to_jsonl(events);
     fs::write(&path, content).map_err(|e| ExportError::io(&path, e))
 }
 

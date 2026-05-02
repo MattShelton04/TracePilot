@@ -160,6 +160,59 @@ impl RepoPaths {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SessionPaths {
+    root: PathBuf,
+}
+
+impl SessionPaths {
+    pub fn from_root(root: impl Into<PathBuf>) -> Self {
+        Self { root: root.into() }
+    }
+
+    pub fn root(&self) -> &Path {
+        &self.root
+    }
+
+    pub fn workspace_yaml(&self) -> PathBuf {
+        self.root.join(crate::parsing::WORKSPACE_YAML)
+    }
+
+    pub fn events_jsonl(&self) -> PathBuf {
+        self.root.join(crate::parsing::EVENTS_JSONL)
+    }
+
+    pub fn session_db(&self) -> PathBuf {
+        self.root.join(crate::parsing::SESSION_DB)
+    }
+
+    pub fn checkpoints_dir(&self) -> PathBuf {
+        self.root.join(crate::parsing::CHECKPOINTS_DIR)
+    }
+
+    pub fn checkpoints_index(&self) -> PathBuf {
+        self.checkpoints_dir()
+            .join(crate::parsing::CHECKPOINTS_INDEX)
+    }
+
+    pub fn rewind_snapshots_dir(&self) -> PathBuf {
+        self.root.join(crate::parsing::REWIND_SNAPSHOTS_DIR)
+    }
+
+    pub fn rewind_snapshots_index(&self) -> PathBuf {
+        self.rewind_snapshots_dir()
+            .join(crate::parsing::REWIND_SNAPSHOTS_INDEX)
+    }
+
+    pub fn plan_md(&self) -> PathBuf {
+        self.root.join(crate::parsing::PLAN_MD)
+    }
+
+    pub fn files_dir(&self) -> PathBuf {
+        self.root.join(crate::parsing::FILES_DIR)
+    }
+}
+
 pub fn default_copilot_home() -> PathBuf {
     CopilotPaths::from_user_home(crate::utils::home_dir())
         .home()

@@ -30,7 +30,8 @@ pub struct CheckpointEntry {
 /// Reads the markdown table in `index.md` (`| # | Title | File |`) and
 /// loads the corresponding `.md` file content for each entry.
 pub fn parse_checkpoints(session_dir: &Path) -> Result<Option<CheckpointIndex>> {
-    let index_path = session_dir.join("checkpoints").join("index.md");
+    let session_paths = crate::paths::SessionPaths::from_root(session_dir);
+    let index_path = session_paths.checkpoints_index();
     if !index_path.exists() {
         return Ok(None);
     }
@@ -38,7 +39,7 @@ pub fn parse_checkpoints(session_dir: &Path) -> Result<Option<CheckpointIndex>> 
     let content = std::fs::read_to_string(&index_path)
         .map_err(|e| TracePilotError::io_context("Failed to read", index_path.display(), e))?;
 
-    let checkpoints_dir = session_dir.join("checkpoints");
+    let checkpoints_dir = session_paths.checkpoints_dir();
     let mut entries = Vec::new();
 
     for line in content.lines() {

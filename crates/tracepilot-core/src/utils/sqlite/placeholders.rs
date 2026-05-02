@@ -53,7 +53,7 @@ pub fn build_placeholder_sql(sql_prefix: &str, num_rows: usize, params_per_row: 
         params_per_row > 0,
         "build_placeholder_sql requires params_per_row > 0"
     );
-    use std::fmt::Write;
+    use crate::utils::InfallibleWrite;
     // SQLite max bind parameter is ?32766 (5 digits). Each param slot is
     // "?NNNNN" (up to 6 chars) + "," separator = 7 chars. Each row adds "(", ")"
     // and "," between rows = 3 chars. Capacity is a tight upper bound.
@@ -74,7 +74,7 @@ pub fn build_placeholder_sql(sql_prefix: &str, num_rows: usize, params_per_row: 
             if n > start {
                 sql.push(',');
             }
-            write!(&mut sql, "?{n}").expect("String write is infallible");
+            sql.push_fmt(format_args!("?{n}"));
         }
         sql.push(')');
     }

@@ -1,5 +1,6 @@
 use chrono::{DateTime, Duration, Utc};
 use serde_json::{Value, json};
+pub(crate) use tracepilot_core::parsing::events::events_to_jsonl;
 
 /// Tool names rotated through when generating tool call events.
 const TOOL_NAMES: &[&str] = &[
@@ -28,14 +29,6 @@ fn base_time() -> DateTime<Utc> {
 
 fn make_timestamp(base: DateTime<Utc>, offset_secs: i64) -> String {
     (base + Duration::seconds(offset_secs)).to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
-}
-
-pub(crate) fn events_to_jsonl(events: &[Value]) -> String {
-    events
-        .iter()
-        .map(|e| serde_json::to_string(e).expect("failed to serialize event"))
-        .collect::<Vec<_>>()
-        .join("\n")
 }
 
 /// Generate a sequence of realistic session events.

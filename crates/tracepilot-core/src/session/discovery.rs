@@ -4,7 +4,6 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
 use crate::error::{Result, TracePilotError};
-use crate::parsing::{EVENTS_JSONL, SESSION_DB, WORKSPACE_YAML};
 
 /// Maximum age of session activity before a lock file is considered stale.
 const STALE_LOCK_THRESHOLD: Duration = Duration::from_secs(24 * 60 * 60); // 24 hours
@@ -59,11 +58,12 @@ pub fn discover_sessions(base_dir: &Path) -> Result<Vec<DiscoveredSession>> {
             Err(_) => continue,
         };
 
+        let session_paths = crate::paths::SessionPaths::from_root(&path);
         sessions.push(DiscoveredSession {
             id,
-            has_workspace_yaml: path.join(WORKSPACE_YAML).exists(),
-            has_events_jsonl: path.join(EVENTS_JSONL).exists(),
-            has_session_db: path.join(SESSION_DB).exists(),
+            has_workspace_yaml: session_paths.workspace_yaml().exists(),
+            has_events_jsonl: session_paths.events_jsonl().exists(),
+            has_session_db: session_paths.session_db().exists(),
             path,
         });
     }
@@ -102,9 +102,10 @@ pub fn has_lock_file(session_dir: &Path) -> bool {
 /// can't determine mtime (fail-open to avoid false negatives).
 fn has_recent_activity(session_dir: &Path) -> bool {
     let now = SystemTime::now();
+    let session_paths = crate::paths::SessionPaths::from_root(session_dir);
 
     // Check events.jsonl first (best activity indicator)
-    if is_file_recent(&session_dir.join(EVENTS_JSONL), now) {
+    if is_file_recent(&session_paths.events_jsonl(), now) {
         return true;
     }
 
@@ -208,7 +209,8 @@ mod tests {
 
         let uuid_dir = tmp.path().join("c86fe369-c858-4d91-81da-203c5e276e33");
         fs::create_dir_all(&uuid_dir).unwrap();
-        fs::write(uuid_dir.join(WORKSPACE_YAML), "id: test").unwrap();
+        let session_paths = crate::paths::SessionPaths::from_root(&uuid_dir);
+        fs::write(session_paths.workspace_yaml(), "id: test").unwrap();
 
         let not_uuid = tmp.path().join("not-a-uuid");
         fs::create_dir_all(&not_uuid).unwrap();
@@ -312,7 +314,8 @@ mod tests {
         );
         filetime::set_file_mtime(&lock_path, old_time).unwrap();
         // Create recent events.jsonl
-        fs::write(tmp.path().join(EVENTS_JSONL), "{}").unwrap();
+        let session_paths = crate::paths::SessionPaths::from_root(tmp.path());
+        fs::write(session_paths.events_jsonl(), "{}").unwrap();
         // Recent events → should be active despite stale lock
         assert!(has_lock_file(tmp.path()));
     }

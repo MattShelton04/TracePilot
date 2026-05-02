@@ -3,6 +3,7 @@ use std::path::Path;
 use crate::document::{PortableSession, PortableSessionMetadata, SectionId};
 use crate::error::{ExportError, Result};
 use crate::options::ExportOptions;
+use tracepilot_core::paths::SessionPaths;
 
 use super::sections::{
     build_checkpoints, build_conversation, build_custom_tables, build_events, build_incidents,
@@ -17,8 +18,10 @@ pub(super) fn build_portable_session(
     session_dir: &Path,
     options: &ExportOptions,
 ) -> Result<PortableSession> {
+    let session_paths = SessionPaths::from_root(session_dir);
+
     // 1. Load workspace metadata (always required)
-    let workspace_path = session_dir.join("workspace.yaml");
+    let workspace_path = session_paths.workspace_yaml();
     if !workspace_path.exists() {
         return Err(ExportError::SessionNotFound(session_dir.to_path_buf()));
     }
@@ -31,7 +34,7 @@ pub(super) fn build_portable_session(
         || options.includes(SectionId::Incidents)
         || options.includes(SectionId::ParseDiagnostics);
 
-    let events_path = session_dir.join("events.jsonl");
+    let events_path = session_paths.events_jsonl();
     let (typed_events, raw_events, diagnostics) = if needs_events && events_path.exists() {
         let parsed = parse_typed_events(&events_path).map_err(ExportError::session_data)?;
         let raw = parsed.events.iter().map(|te| te.raw.clone()).collect();
