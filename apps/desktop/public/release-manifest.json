@@ -1,6 +1,26 @@
 {
   "versions": [
     {
+      "version": "0.6.5",
+      "date": "2026-05-03",
+      "notes": {
+        "added": [
+          "Custom storage path support: setup and Data & Storage now support custom Copilot and TracePilot home/session directories",
+          "Better tool-call rendering for apply_patch diffs and ask_user prompts"
+        ],
+        "changed": [
+          "Live session viewing is more reliable: SDK deltas render correctly, tool partial output is shown inline, and pop-out windows keep auto-scroll behavior",
+          "Session metadata now preserves Copilot CLI version attribution more accurately",
+          "Path handling is now centralized across setup, settings, launcher integration, and backend session discovery"
+        ],
+        "fixed": [
+          "Nested folders now render correctly in file-browser trees",
+          "Explorer width and disabled-button states are more consistent and accessible"
+        ]
+      },
+      "requiresReindex": false
+    },
+    {
       "version": "0.6.4",
       "date": "2026-04-27",
       "notes": {
