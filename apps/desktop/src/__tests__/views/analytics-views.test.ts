@@ -217,7 +217,7 @@ describe("AnalyticsDashboardView", () => {
 
     expect(wrapper.text()).toContain("Cache Efficiency");
     expect(wrapper.text()).toContain("Cache Hit Rate");
-    expect(wrapper.text()).toContain("24.0%");
+    expect(wrapper.text()).toContain("24%");
     expect(wrapper.text()).toContain("Cached Tokens");
   });
 
@@ -323,7 +323,7 @@ describe("ToolAnalysisView", () => {
 
     expect(wrapper.text()).toContain("50"); // totalCalls
     expect(wrapper.text()).toContain("edit"); // mostUsedTool
-    expect(wrapper.text()).toContain("95.0%"); // successRate
+    expect(wrapper.text()).toContain("95%"); // successRate
   });
 
   it("renders tool table with sorted tools", async () => {

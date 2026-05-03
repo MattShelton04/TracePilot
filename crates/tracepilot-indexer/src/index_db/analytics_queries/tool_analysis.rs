@@ -3,6 +3,7 @@ use rusqlite::{Connection, params_from_iter};
 use std::collections::HashMap;
 
 use tracepilot_core::analytics::types::*;
+use tracepilot_core::analytics::utils::*;
 
 use super::super::helpers::*;
 
@@ -57,43 +58,18 @@ pub(super) fn query_tool_analysis(
         total_duration += dur.max(0) as f64;
         total_with_duration = total_with_duration.saturating_add(dur_count_u32);
 
-        let determined = success_u32 + failure_u32;
-        let success_rate = if determined > 0 {
-            success_u32 as f64 / determined as f64
-        } else {
-            0.0
-        };
-        let avg_dur = if dur_count_u32 > 0 {
-            dur.max(0) as f64 / dur_count_u32 as f64
-        } else {
-            0.0
-        };
-
         tools.push(ToolUsageEntry {
             name,
             call_count: calls_u32,
-            success_rate,
-            avg_duration_ms: avg_dur,
+            success_rate: compute_success_rate(success_u32, failure_u32),
+            avg_duration_ms: safe_div(dur.max(0) as f64, dur_count_u32),
             total_duration_ms: dur.max(0) as f64,
         });
     }
 
-    let most_used_tool = tools
-        .first()
-        .map(|t| t.name.clone())
-        .unwrap_or_else(|| "N/A".to_string());
-
-    let overall_determined = total_success + total_failure;
-    let success_rate = if overall_determined > 0 {
-        total_success as f64 / overall_determined as f64
-    } else {
-        0.0
-    };
-    let avg_duration_ms = if total_with_duration > 0 {
-        total_duration / total_with_duration as f64
-    } else {
-        0.0
-    };
+    let most_used_tool = get_most_used_tool(&tools);
+    let success_rate = compute_success_rate(total_success, total_failure);
+    let avg_duration_ms = safe_div(total_duration, total_with_duration);
 
     // Activity heatmap — full 7×24 grid
     let hm_sql = format!(
@@ -118,13 +94,7 @@ pub(super) fn query_tool_analysis(
         heatmap_data.insert((day, hour), count);
     }
 
-    let mut activity_heatmap: Vec<HeatmapEntry> = Vec::with_capacity(168);
-    for day in 0..7u32 {
-        for hour in 0..24u32 {
-            let count = heatmap_data.get(&(day, hour)).copied().unwrap_or(0);
-            activity_heatmap.push(HeatmapEntry { day, hour, count });
-        }
-    }
+    let activity_heatmap = build_heatmap_grid(&heatmap_data);
 
     Ok(ToolAnalysisData {
         total_calls,

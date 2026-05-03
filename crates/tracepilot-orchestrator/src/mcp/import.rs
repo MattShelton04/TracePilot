@@ -45,15 +45,15 @@ pub struct McpImportResult {
 /// - Claude Desktop config (has `mcpServers` key)
 /// - VS Code settings (has `mcp.servers` or `mcpServers` in settings)
 pub fn import_from_file(path: &Path) -> Result<McpImportResult, McpError> {
-    let content = std::fs::read_to_string(path)
-        .map_err(|e| McpError::import_ctx(format!("Failed to read {}", path.display()), e))?;
+    let value: Value = tracepilot_core::TracePilotError::read_json(path)
+        .map_err(|e| McpError::import_ctx("Failed to read config", e))?;
 
     let filename = path
         .file_name()
         .and_then(|f| f.to_str())
         .unwrap_or("unknown");
 
-    import_from_json(&content, filename)
+    parse_mcp_config(&value, filename)
 }
 
 /// Import from raw JSON text with a source label.

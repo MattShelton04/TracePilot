@@ -78,16 +78,16 @@ describe("formatModelDelta", () => {
 
   it("shows positive percentage when a > b", () => {
     const result = formatModelDelta(120, 100, true);
-    // diff = 20, pct = (20/100)*100 = 20.0
-    expect(result.delta).toBe("+20.0%");
+    // diff = 20, pct = (20/100)*100 = 20
+    expect(result.delta).toBe("+20%");
     expect(result.direction).toBe("up");
     expect(result.better).toBe("a");
   });
 
   it("shows negative percentage when a < b", () => {
     const result = formatModelDelta(80, 100, true);
-    // diff = -20, pct = (-20/100)*100 = -20.0
-    expect(result.delta).toBe("-20.0%");
+    // diff = -20, pct = (-20/100)*100 = -20
+    expect(result.delta).toBe("-20%");
     expect(result.direction).toBe("down");
     expect(result.better).toBe("b");
   });
@@ -135,8 +135,8 @@ describe("formatModelDelta", () => {
 
   it("handles negative values", () => {
     const result = formatModelDelta(-5, -10, true);
-    // diff = -5 - (-10) = 5, pct = (5/10)*100 = 50.0
-    expect(result.delta).toBe("+50.0%");
+    // diff = -5 - (-10) = 5, pct = (5/10)*100 = 50
+    expect(result.delta).toBe("+50%");
     expect(result.direction).toBe("up");
     expect(result.better).toBe("a");
   });

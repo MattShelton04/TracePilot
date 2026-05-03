@@ -3,9 +3,8 @@ import type { SkillSummary } from "@tracepilot/types";
 import { useRouter } from "vue-router";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
-import SkillScopeBadge from "./SkillScopeBadge.vue";
-
 import { formatCompactNumber } from "@/utils/numberFormatting";
+import SkillScopeBadge from "./SkillScopeBadge.vue";
 
 const props = defineProps<{
   skill: SkillSummary;

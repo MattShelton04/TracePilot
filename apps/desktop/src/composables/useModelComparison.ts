@@ -4,7 +4,6 @@ import { useAnalyticsPage } from "@/composables/useAnalyticsPage";
 import { usePreferencesStore } from "@/stores/preferences";
 import { MODEL_PALETTE } from "@/utils/chartColors";
 import { formatModelDelta } from "@/utils/deltaFormatting";
-import { formatCompactNumber } from "@/utils/numberFormatting";
 import {
   radarAxisEnd,
   radarLabelPos,
@@ -14,6 +13,7 @@ import {
   scatterX,
   scatterY,
 } from "@/utils/modelChartGeometry";
+import { formatCompactNumber } from "@/utils/numberFormatting";
 
 export {
   RADAR_AXES,

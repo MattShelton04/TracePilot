@@ -14,6 +14,7 @@ mod dashboard;
 pub mod loader;
 mod tools;
 pub mod types;
+pub mod utils;
 
 #[cfg(test)]
 mod test_helpers;

@@ -49,35 +49,35 @@ describe("formatClockTime", () => {
 
 describe("formatRate", () => {
   it("formats 0-1 rate as percentage", () => {
-    expect(formatRate(0.95)).toBe("95.0%");
-    expect(formatRate(0)).toBe("0.0%");
-    expect(formatRate(1)).toBe("100.0%");
+    expect(formatRate(0.95)).toBe("95%");
+    expect(formatRate(0)).toBe("0%");
+    expect(formatRate(1)).toBe("100%");
   });
   it("handles null/undefined", () => {
-    expect(formatRate(null)).toBe("0.0%");
-    expect(formatRate(undefined)).toBe("0.0%");
+    expect(formatRate(null)).toBe("0%");
+    expect(formatRate(undefined)).toBe("0%");
   });
   it("handles NaN and Infinity", () => {
-    expect(formatRate(NaN)).toBe("0.0%");
-    expect(formatRate(Infinity)).toBe("0.0%");
-    expect(formatRate(-Infinity)).toBe("0.0%");
+    expect(formatRate(NaN)).toBe("0%");
+    expect(formatRate(Infinity)).toBe("0%");
+    expect(formatRate(-Infinity)).toBe("0%");
   });
 });
 
 describe("formatPercent", () => {
   it("formats 0-100 value as percentage string", () => {
     expect(formatPercent(95.1)).toBe("95.1%");
-    expect(formatPercent(0)).toBe("0.0%");
-    expect(formatPercent(100)).toBe("100.0%");
+    expect(formatPercent(0)).toBe("0%");
+    expect(formatPercent(100)).toBe("100%");
   });
   it("handles null/undefined", () => {
-    expect(formatPercent(null)).toBe("0.0%");
-    expect(formatPercent(undefined)).toBe("0.0%");
+    expect(formatPercent(null)).toBe("0%");
+    expect(formatPercent(undefined)).toBe("0%");
   });
   it("handles NaN and Infinity", () => {
-    expect(formatPercent(NaN)).toBe("0.0%");
-    expect(formatPercent(Infinity)).toBe("0.0%");
-    expect(formatPercent(-Infinity)).toBe("0.0%");
+    expect(formatPercent(NaN)).toBe("0%");
+    expect(formatPercent(Infinity)).toBe("0%");
+    expect(formatPercent(-Infinity)).toBe("0%");
   });
 });
 
@@ -324,17 +324,17 @@ describe("toErrorMessage", () => {
 
 describe("formatNumber", () => {
   it("formats large numbers with M suffix", () => {
-    expect(formatNumber(1_000_000)).toBe("1.0M");
+    expect(formatNumber(1_000_000)).toBe("1M");
     expect(formatNumber(1_234_567)).toBe("1.2M");
     expect(formatNumber(1_500_000)).toBe("1.5M");
-    expect(formatNumber(9_999_999)).toBe("10.0M");
+    expect(formatNumber(9_999_999)).toBe("10M");
   });
 
   it("formats thousands with K suffix", () => {
-    expect(formatNumber(1_000)).toBe("1.0K");
+    expect(formatNumber(1_000)).toBe("1K");
     expect(formatNumber(1_234)).toBe("1.2K");
     expect(formatNumber(12_345)).toBe("12.3K");
-    expect(formatNumber(999_999)).toBe("1000.0K");
+    expect(formatNumber(999_999)).toBe("1000K");
   });
 
   it("formats numbers under 1000 without suffix", () => {
@@ -372,7 +372,7 @@ describe("formatDuration", () => {
     expect(formatDuration(1000)).toBe("1s");
     expect(formatDuration(2100)).toBe("2.1s");
     expect(formatDuration(59_000)).toBe("59s");
-    expect(formatDuration(59_999)).toBe("60.0s"); // Formats with decimal
+    expect(formatDuration(59_999)).toBe("60s"); // Formats with decimal
   });
 
   it("formats minutes and seconds", () => {
@@ -440,8 +440,8 @@ describe("formatCost", () => {
 
 describe("formatBytes", () => {
   it("handles zero and negative values", () => {
-    expect(formatBytes(0)).toBe("—");
-    expect(formatBytes(-1)).toBe("—");
+    expect(formatBytes(0)).toBe("0 B");
+    expect(formatBytes(-1)).toBe("0 B");
     expect(formatBytes(null)).toBe("—");
     expect(formatBytes(undefined)).toBe("—");
   });
@@ -452,21 +452,21 @@ describe("formatBytes", () => {
   });
 
   it("formats kilobytes", () => {
-    expect(formatBytes(1024)).toBe("1.0 KB");
+    expect(formatBytes(1024)).toBe("1 KB");
     expect(formatBytes(1536)).toBe("1.5 KB");
   });
 
   it("formats megabytes", () => {
-    expect(formatBytes(1_048_576)).toBe("1.0 MB");
+    expect(formatBytes(1_048_576)).toBe("1 MB");
     expect(formatBytes(1_572_864)).toBe("1.5 MB");
   });
 
   it("formats gigabytes", () => {
-    expect(formatBytes(1_073_741_824)).toBe("1.0 GB");
+    expect(formatBytes(1_073_741_824)).toBe("1 GB");
   });
 
   it("formats terabytes", () => {
-    expect(formatBytes(1_099_511_627_776)).toBe("1.0 TB");
+    expect(formatBytes(1_099_511_627_776)).toBe("1 TB");
   });
 
   it("handles NaN and Infinity", () => {

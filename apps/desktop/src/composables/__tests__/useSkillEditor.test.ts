@@ -208,8 +208,8 @@ describe("useSkillEditor", () => {
   it("formatSize handles all three ranges", async () => {
     const { ctx, wrapper } = mountHarness();
     expect(ctx.formatSize(512)).toBe("512 B");
-    expect(ctx.formatSize(2048)).toBe("2.0 KB");
-    expect(ctx.formatSize(2 * 1024 * 1024)).toBe("2.0 MB");
+    expect(ctx.formatSize(2048)).toBe("2 KB");
+    expect(ctx.formatSize(2 * 1024 * 1024)).toBe("2 MB");
     wrapper.unmount();
   });
 

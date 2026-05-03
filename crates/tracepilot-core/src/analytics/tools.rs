@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use chrono::{Datelike, Timelike};
 
 use super::types::*;
+use super::utils::*;
 
 /// Intermediate accumulator for per-tool statistics.
 struct ToolAccumulator {
@@ -95,58 +96,20 @@ pub fn compute_tool_analysis(sessions: &[SessionAnalyticsInput]) -> ToolAnalysis
     // Build per-tool entries
     let mut tools: Vec<ToolUsageEntry> = tool_stats
         .into_iter()
-        .map(|(name, acc)| {
-            let total_determined = acc.success_count + acc.failure_count;
-            let success_rate = if total_determined > 0 {
-                acc.success_count as f64 / total_determined as f64
-            } else {
-                0.0
-            };
-            let avg_duration_ms = if acc.durations_counted > 0 {
-                acc.total_duration_ms / acc.durations_counted as f64
-            } else {
-                0.0
-            };
-            ToolUsageEntry {
-                name,
-                call_count: acc.call_count,
-                success_rate,
-                avg_duration_ms,
-                total_duration_ms: acc.total_duration_ms,
-            }
+        .map(|(name, acc)| ToolUsageEntry {
+            name,
+            call_count: acc.call_count,
+            success_rate: compute_success_rate(acc.success_count, acc.failure_count),
+            avg_duration_ms: safe_div(acc.total_duration_ms, acc.durations_counted),
+            total_duration_ms: acc.total_duration_ms,
         })
         .collect();
     tools.sort_by_key(|b| std::cmp::Reverse(b.call_count));
 
-    // Most used tool
-    let most_used_tool = tools
-        .first()
-        .map(|t| t.name.clone())
-        .unwrap_or_else(|| "N/A".to_string());
-
-    // Overall success rate (excluding unknown outcomes)
-    let total_determined = total_success + total_failure;
-    let success_rate = if total_determined > 0 {
-        total_success as f64 / total_determined as f64
-    } else {
-        0.0
-    };
-
-    // Average duration
-    let avg_duration_ms = if total_with_duration > 0 {
-        total_duration / total_with_duration as f64
-    } else {
-        0.0
-    };
-
-    // Build full heatmap (7 days × 24 hours)
-    let mut activity_heatmap: Vec<HeatmapEntry> = Vec::with_capacity(168);
-    for day in 0..7 {
-        for hour in 0..24 {
-            let count = heatmap.get(&(day, hour)).copied().unwrap_or(0);
-            activity_heatmap.push(HeatmapEntry { day, hour, count });
-        }
-    }
+    let most_used_tool = get_most_used_tool(&tools);
+    let success_rate = compute_success_rate(total_success, total_failure);
+    let avg_duration_ms = safe_div(total_duration, total_with_duration);
+    let activity_heatmap = build_heatmap_grid(&heatmap);
 
     ToolAnalysisData {
         total_calls,
