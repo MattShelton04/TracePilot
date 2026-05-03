@@ -125,12 +125,13 @@ watch(
         class="result-copy-btn"
         :class="{ 'result-copy-btn--copied': copied }"
         :title="copied ? 'Copied!' : 'Copy content'"
+        :aria-label="copied ? 'Copied!' : 'Copy content'"
         @click.stop="handleCopy"
       >
-        <svg v-if="!copied" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="12" height="12">
+        <svg v-if="!copied" aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="12" height="12">
           <rect x="5" y="5" width="9" height="9" rx="1" /><path d="M11 5V3a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h2" />
         </svg>
-        <svg v-else viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12">
+        <svg v-else aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12">
           <polyline points="3 8 6.5 11.5 13 5" />
         </svg>
       </button>
