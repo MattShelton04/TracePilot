@@ -8,7 +8,7 @@
  * duplication of location and make them independently testable.
  */
 
-import { formatPercent } from "@tracepilot/types";
+import { formatPercent, formatCleanFloat } from "@tracepilot/types";
 
 // ── Session comparison delta ────────────────────────────────────────────────
 
@@ -29,6 +29,9 @@ export interface FormattedDelta {
  * Percentage base: `max(|a|, 1)`.
  */
 export function formatSessionDelta(a: number, b: number, higherIsBetter: boolean): FormattedDelta {
+  if (!Number.isFinite(a) || !Number.isFinite(b)) {
+    return { delta: "—", deltaClass: "delta-neutral", arrow: "" };
+  }
   if (a === 0 && b === 0) return { delta: "—", deltaClass: "delta-neutral", arrow: "" };
   const diff = b - a;
   if (Math.abs(diff) < 0.001) return { delta: "—", deltaClass: "delta-neutral", arrow: "" };
@@ -39,8 +42,7 @@ export function formatSessionDelta(a: number, b: number, higherIsBetter: boolean
   const cls = isBetter ? "delta-positive" : "delta-negative";
 
   // Use whole percentages for large changes, otherwise one clean decimal
-  const label =
-    pct > 1 ? `${pct.toFixed(0)}%` : `${Math.abs(diff).toFixed(1).replace(/\.0+$/, "")}`;
+  const label = pct > 1 ? `${pct.toFixed(0)}%` : `${formatCleanFloat(Math.abs(diff), 1)}`;
 
   return { delta: `${arrow} ${label}`, deltaClass: cls, arrow };
 }
@@ -64,6 +66,9 @@ export interface ModelDelta {
  * Percentage base: `|b|` (with ∞ fallback for b = 0).
  */
 export function formatModelDelta(a: number, b: number, higherIsBetter: boolean): ModelDelta {
+  if (!Number.isFinite(a) || !Number.isFinite(b)) {
+    return { delta: "—", direction: "neutral", better: "neutral" };
+  }
   const diff = a - b;
   if (Math.abs(diff) < 0.001) return { delta: "—", direction: "neutral", better: "neutral" };
 

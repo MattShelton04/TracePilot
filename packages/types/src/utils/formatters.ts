@@ -66,8 +66,10 @@ export function formatRelativeTime(value?: string | number | null): string {
 /** Abbreviate large numbers (1200 → "1.2K", 1500000 → "1.5M"). */
 export function formatNumber(n?: number | null): string {
   if (n == null || !Number.isFinite(n)) return "0";
-  if (n >= 1_000_000) return `${formatCleanFloat(n / 1_000_000, 1)}M`;
-  if (n >= 1_000) return `${formatCleanFloat(n / 1_000, 1)}K`;
+  const abs = Math.abs(n);
+  const sign = n < 0 ? "-" : "";
+  if (abs >= 1_000_000) return `${sign}${formatCleanFloat(abs / 1_000_000, 1)}M`;
+  if (abs >= 1_000) return `${sign}${formatCleanFloat(abs / 1_000, 1)}K`;
   return n.toString();
 }
 
@@ -80,7 +82,9 @@ export function formatTokens(n?: number | null): string {
 /** Format a cost value as USD with comma separators. */
 export function formatCost(cost?: number | null): string {
   if (cost == null || !Number.isFinite(cost)) return "$0.00";
-  return `$${cost.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const sign = cost < 0 ? "-" : "";
+  const abs = Math.abs(cost);
+  return `${sign}$${abs.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 /** Truncate a string to a max length, appending ellipsis. */
@@ -114,7 +118,7 @@ export function formatPercent(value?: number | null): string {
  * Internal helper to format a float with fixed decimals, stripping trailing zeros
  * and the decimal point if it becomes an integer (e.g. 12.0 -> 12).
  */
-function formatCleanFloat(value: number, decimals: number): string {
+export function formatCleanFloat(value: number, decimals: number): string {
   return value.toFixed(decimals).replace(/\.0+$/, "");
 }
 
@@ -148,7 +152,8 @@ export function formatNumberFull(n?: number | null): string {
 
 /** Format a byte count as a human-readable string (e.g. 1536 → "1.5 KB"). */
 export function formatBytes(bytes?: number | null): string {
-  if (bytes == null || !Number.isFinite(bytes) || bytes <= 0) return "—";
+  if (bytes == null || !Number.isFinite(bytes)) return "—";
+  if (bytes <= 0) return "0 B";
   const units = ["B", "KB", "MB", "GB", "TB"];
   const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
   const value = bytes / 1024 ** i;

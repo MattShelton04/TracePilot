@@ -440,8 +440,8 @@ describe("formatCost", () => {
 
 describe("formatBytes", () => {
   it("handles zero and negative values", () => {
-    expect(formatBytes(0)).toBe("—");
-    expect(formatBytes(-1)).toBe("—");
+    expect(formatBytes(0)).toBe("0 B");
+    expect(formatBytes(-1)).toBe("0 B");
     expect(formatBytes(null)).toBe("—");
     expect(formatBytes(undefined)).toBe("—");
   });

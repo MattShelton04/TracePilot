@@ -230,6 +230,7 @@ export { DEFAULT_TOOL_RENDERING_PREFS } from "./tool-rendering.js";
 // ── utils/formatters.js ────────────────────────────────────────────
 export {
   formatBytes,
+  formatCleanFloat,
   formatClockTime,
   formatCost,
   formatDate,
