@@ -72,7 +72,6 @@ const ALLOWLIST = new Set([
   "apps/desktop/src/__tests__/composables/useImportFlow.test.ts",
   "apps/desktop/src/composables/__tests__/useGitRepository.test.ts",
   "apps/desktop/src/composables/__tests__/useTimelineToolState.test.ts",
-  "apps/desktop/src/composables/__tests__/useAsyncData.test.ts",
   "apps/desktop/src/__tests__/views/analytics-views.test.ts",
 ]);
 
