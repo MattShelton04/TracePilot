@@ -75,19 +75,19 @@ pub async fn save_config(
 #[specta::specta]
 pub async fn validate_session_dir(path: String) -> CmdResult<ValidateSessionDirResult> {
     blocking_cmd!({
-        let dir = std::path::PathBuf::from(&path);
+        let dir = std::path::PathBuf::from(path);
         if !dir.exists() {
             return Ok(ValidateSessionDirResult {
                 valid: false,
                 session_count: 0,
-                error: Some(format!("Directory does not exist: {path}")),
+                error: Some(format!("Directory does not exist: {}", dir.display())),
             });
         }
         if !dir.is_dir() {
             return Ok(ValidateSessionDirResult {
                 valid: false,
                 session_count: 0,
-                error: Some(format!("Path is not a directory: {path}")),
+                error: Some(format!("Path is not a directory: {}", dir.display())),
             });
         }
         match tracepilot_core::session::discovery::discover_sessions(&dir) {
@@ -155,7 +155,7 @@ pub async fn get_agent_definitions(
             tracepilot_core::paths::CopilotPaths::from_home(&home).version_dir(&v)
         } else {
             let active = tracepilot_orchestrator::version_manager::active_version(&home)?;
-            std::path::PathBuf::from(&active.path)
+            std::path::PathBuf::from(active.path)
         };
         Ok::<_, BindingsError>(
             tracepilot_orchestrator::config_injector::read_agent_definitions(&version_dir)?,
