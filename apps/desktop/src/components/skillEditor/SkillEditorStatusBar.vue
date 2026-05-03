@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatNumberFull } from "@tracepilot/types";
 import { useSkillEditorContext } from "@/composables/useSkillEditor";
 
 const ctx = useSkillEditorContext();
@@ -19,7 +20,7 @@ const ctx = useSkillEditorContext();
     <div class="info-group">
       <span class="info-item">UTF-8</span>
       <span class="info-item">{{ ctx.totalLineCount }} lines</span>
-      <span class="info-item">{{ ctx.byteCount.toLocaleString() }} bytes</span>
+      <span class="info-item">{{ formatNumberFull(ctx.byteCount) }} bytes</span>
     </div>
   </div>
 </template>

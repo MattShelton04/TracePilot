@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatNumberFull } from "@tracepilot/types";
 import { formatBytes } from "@tracepilot/ui";
 import { computed, ref } from "vue";
 import {
@@ -136,7 +137,7 @@ const {
               {{ store.healthInfo.indexedSessions }}/{{ store.healthInfo.totalSessions }} sessions indexed
             </span>
             <span class="health-separator">·</span>
-            <span class="health-stat">{{ store.healthInfo.totalContentRows.toLocaleString() }} rows</span>
+            <span class="health-stat">{{ formatNumberFull(store.healthInfo.totalContentRows) }} rows</span>
             <span class="health-separator">·</span>
             <span class="health-stat">{{ formatBytes(store.healthInfo.dbSizeBytes) }}</span>
             <span v-if="store.healthInfo.pendingSessions > 0" class="health-stat health-pending">

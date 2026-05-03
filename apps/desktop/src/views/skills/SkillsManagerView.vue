@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { SkillImportResult } from "@tracepilot/types";
+import { type SkillImportResult, formatNumberFull } from "@tracepilot/types";
 import { PageHeader, PageShell, useConfirmDialog } from "@tracepilot/ui";
 import { computed, onMounted, ref } from "vue";
 import SkillCard from "@/components/skills/SkillCard.vue";
@@ -33,7 +33,7 @@ function formatTokens(n: number): string {
 }
 
 function formatTokensWithCommas(n: number): string {
-  return n.toLocaleString("en-US");
+  return formatNumberFull(n);
 }
 
 async function handleCreateSkill() {

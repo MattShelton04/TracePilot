@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatNumberFull } from "@tracepilot/types";
 import { BROWSE_PRESETS, useSearchStore } from "@/stores/search";
 
 const store = useSearchStore();
@@ -87,11 +88,11 @@ const store = useSearchStore();
 
     <div v-if="store.stats" class="empty-stats">
       <span class="empty-stat">
-        <strong>{{ store.stats.totalSessions.toLocaleString() }}</strong> sessions indexed
+        <strong>{{ formatNumberFull(store.stats.totalSessions) }}</strong> sessions indexed
       </span>
       <span class="empty-stat-sep">·</span>
       <span class="empty-stat">
-        <strong>{{ store.stats.totalRows.toLocaleString() }}</strong> content rows
+        <strong>{{ formatNumberFull(store.stats.totalRows) }}</strong> content rows
       </span>
     </div>
   </div>
