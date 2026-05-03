@@ -63,7 +63,6 @@ const ALLOWLIST = new Set([
   "crates/tracepilot-export/tests/integration.rs",
 
   // ── Pinia stores (Phase 4/5) ────────────────────────────────────
-  "apps/desktop/src/stores/skills.ts",
   "apps/desktop/src/stores/tasks.ts",
   "apps/desktop/src/stores/mcp.ts",
 
