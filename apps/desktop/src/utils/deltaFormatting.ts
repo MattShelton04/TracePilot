@@ -8,7 +8,7 @@
  * duplication of location and make them independently testable.
  */
 
-import { formatPercent, formatCleanFloat } from "@tracepilot/types";
+import { formatCleanFloat, formatPercent } from "@tracepilot/types";
 
 // ── Session comparison delta ────────────────────────────────────────────────
 
@@ -72,8 +72,7 @@ export function formatModelDelta(a: number, b: number, higherIsBetter: boolean):
   const diff = a - b;
   if (Math.abs(diff) < 0.001) return { delta: "—", direction: "neutral", better: "neutral" };
 
-  const pctLabel =
-    b !== 0 ? formatPercent((diff / Math.abs(b)) * 100) : diff > 0 ? "∞%" : "-∞%";
+  const pctLabel = b !== 0 ? formatPercent((diff / Math.abs(b)) * 100) : diff > 0 ? "∞%" : "-∞%";
 
   const direction: "up" | "down" = diff > 0 ? "up" : "down";
   const better: "a" | "b" = higherIsBetter ? (diff > 0 ? "a" : "b") : diff < 0 ? "a" : "b";

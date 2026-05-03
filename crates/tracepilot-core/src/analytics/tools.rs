@@ -96,14 +96,12 @@ pub fn compute_tool_analysis(sessions: &[SessionAnalyticsInput]) -> ToolAnalysis
     // Build per-tool entries
     let mut tools: Vec<ToolUsageEntry> = tool_stats
         .into_iter()
-        .map(|(name, acc)| {
-            ToolUsageEntry {
-                name,
-                call_count: acc.call_count,
-                success_rate: compute_success_rate(acc.success_count, acc.failure_count),
-                avg_duration_ms: safe_div(acc.total_duration_ms, acc.durations_counted),
-                total_duration_ms: acc.total_duration_ms,
-            }
+        .map(|(name, acc)| ToolUsageEntry {
+            name,
+            call_count: acc.call_count,
+            success_rate: compute_success_rate(acc.success_count, acc.failure_count),
+            avg_duration_ms: safe_div(acc.total_duration_ms, acc.durations_counted),
+            total_duration_ms: acc.total_duration_ms,
         })
         .collect();
     tools.sort_by_key(|b| std::cmp::Reverse(b.call_count));

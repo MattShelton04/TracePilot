@@ -1,4 +1,4 @@
-import { formatPercent as sharedFormatPercent, formatRate } from "@tracepilot/types";
+import { formatRate, formatPercent as sharedFormatPercent } from "@tracepilot/types";
 
 /**
  * Format a number as a percentage string (e.g. 0.123 -> "12.3%").

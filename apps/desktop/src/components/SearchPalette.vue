@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import type { SearchResult } from "@tracepilot/types";
+import { formatDuration } from "@tracepilot/types";
 import { nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import SearchPaletteResults from "@/components/search/SearchPaletteResults.vue";
 import { useSearchPaletteSearch } from "@/composables/useSearchPaletteSearch";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
-import { formatDuration } from "@tracepilot/types";
 import { shouldIgnoreGlobalShortcut } from "@/utils/keyboardShortcuts";
 
 // ── Router ───────────────────────────────────────────────────

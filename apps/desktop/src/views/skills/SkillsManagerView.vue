@@ -4,8 +4,8 @@ import { PageHeader, PageShell, useConfirmDialog } from "@tracepilot/ui";
 import { computed, onMounted, ref } from "vue";
 import SkillCard from "@/components/skills/SkillCard.vue";
 import SkillImportWizard from "@/components/skills/SkillImportWizard.vue";
-import { formatCompactNumber } from "@/utils/numberFormatting";
 import { useSkillsStore } from "@/stores/skills";
+import { formatCompactNumber } from "@/utils/numberFormatting";
 
 const store = useSkillsStore();
 const { confirm: showConfirm } = useConfirmDialog();

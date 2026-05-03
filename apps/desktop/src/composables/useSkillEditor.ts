@@ -1,4 +1,5 @@
 import type { SkillAsset, SkillFrontmatter } from "@tracepilot/types";
+import { formatBytes } from "@tracepilot/types";
 import { useConfirmDialog, useResizeHandle } from "@tracepilot/ui";
 import {
   computed,
@@ -16,7 +17,6 @@ import { browseForFile } from "@/composables/useBrowseDirectory";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
 import { useSkillsStore } from "@/stores/skills";
-import { formatBytes } from "@tracepilot/types";
 import { logWarn } from "@/utils/logger";
 import { parseSkillContent, serializeSkillContent } from "@/utils/skillFrontmatter";
 
