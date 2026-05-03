@@ -31,6 +31,15 @@ struct RegistryFile {
     repos: Vec<RegisteredRepo>,
 }
 
+impl Default for RegistryFile {
+    fn default() -> Self {
+        Self {
+            schema_version: SCHEMA_VERSION,
+            repos: Vec::new(),
+        }
+    }
+}
+
 /// Get the path to the registry JSON file.
 fn registry_path() -> Result<PathBuf> {
     let home = tracepilot_core::paths::default_copilot_home_opt()
@@ -51,15 +60,7 @@ fn read_registry() -> Result<RegistryFile> {
 }
 
 fn read_registry_from_path(path: &Path) -> Result<RegistryFile> {
-    if !path.exists() {
-        return Ok(RegistryFile {
-            schema_version: SCHEMA_VERSION,
-            repos: Vec::new(),
-        });
-    }
-    let data = std::fs::read_to_string(path)?;
-    let registry: RegistryFile = serde_json::from_str(&data)?;
-    Ok(registry)
+    crate::json_io::atomic_json_read(path)
 }
 
 fn write_registry_to_path(path: &Path, registry: &RegistryFile) -> Result<()> {
