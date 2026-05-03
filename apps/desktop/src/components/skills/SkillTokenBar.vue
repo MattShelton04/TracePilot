@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { formatCompactNumber } from "@/utils/numberFormatting";
 
 const props = defineProps<{
   tokens: number;
@@ -16,8 +17,7 @@ const barClass = computed(() => {
 });
 
 function formatTokens(n: number): string {
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
-  return String(n);
+  return formatCompactNumber(n);
 }
 </script>
 

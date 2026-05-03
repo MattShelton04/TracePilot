@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { AnalyticsData } from "@tracepilot/types";
 import { formatNumber, SectionPanel } from "@tracepilot/ui";
+import { formatPercent } from "@/utils/percentageFormatting";
 
 defineProps<{
   data: AnalyticsData;
@@ -11,10 +12,10 @@ defineProps<{
   <div class="grid-2 mb-4" v-if="data.cacheStats">
     <!-- Cache Efficiency -->
     <SectionPanel v-if="data.cacheStats" title="Cache Efficiency">
-      <div class="cache-hit-rate" :title="`${data.cacheStats.cacheHitRate.toFixed(1)}% of input tokens were served from the prompt cache`">
+      <div class="cache-hit-rate" :title="`${formatPercent(data.cacheStats.cacheHitRate)} of input tokens were served from the prompt cache`">
         <div class="cache-hit-rate-label">
           <span>Cache Hit Rate</span>
-          <strong>{{ data.cacheStats.cacheHitRate.toFixed(1) }}%</strong>
+          <strong>{{ formatPercent(data.cacheStats.cacheHitRate) }}</strong>
         </div>
         <div class="cache-progress-track">
           <div

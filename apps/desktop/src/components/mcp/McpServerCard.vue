@@ -4,6 +4,7 @@ import { computed } from "vue";
 import { useRouter } from "vue-router";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
+import { formatCompactNumber } from "@/utils/numberFormatting";
 import McpStatusDot from "./McpStatusDot.vue";
 
 const props = defineProps<{
@@ -45,7 +46,7 @@ const statusDotClass = computed(() => {
 
 const tokensFormatted = computed(() => {
   const t = props.server.totalTokens;
-  return t >= 1000 ? `~${(t / 1000).toFixed(1)}k` : `~${t}`;
+  return `~${formatCompactNumber(t)}`;
 });
 
 const description = computed(() => {

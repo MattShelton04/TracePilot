@@ -5,6 +5,8 @@ import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
 import SkillScopeBadge from "./SkillScopeBadge.vue";
 
+import { formatCompactNumber } from "@/utils/numberFormatting";
+
 const props = defineProps<{
   skill: SkillSummary;
 }>();
@@ -40,8 +42,7 @@ function onDelete(event: Event) {
 }
 
 function formatTokens(n: number): string {
-  if (n >= 1_000) return `~${(n / 1_000).toFixed(1)}k tok`;
-  return `~${n} tok`;
+  return `~${formatCompactNumber(n)} tok`;
 }
 </script>
 

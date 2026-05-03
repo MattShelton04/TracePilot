@@ -14,6 +14,7 @@ import { computed } from "vue";
 import AnalyticsPageHeader from "@/components/AnalyticsPageHeader.vue";
 import { useAnalyticsPage } from "@/composables/useAnalyticsPage";
 import { CHART_COLORS } from "@/utils/chartColors";
+import { formatPercent } from "@/utils/percentageFormatting";
 
 const { tooltip, positionTooltip, dismissTooltip, onBarMouseEnter, findNearestIndex } =
   useChartTooltip();
@@ -51,9 +52,9 @@ function onSuccessFailureMouseMove(event: MouseEvent) {
   if (bestIdx < 0) return;
   const row = chart.rows[bestIdx];
   const total = row.successCount + row.failureCount;
-  const rate = total > 0 ? ((row.successCount / total) * 100).toFixed(1) : "0.0";
+  const rate = formatPercent(total > 0 ? row.successCount / total : 0, { isRatio: true });
   tooltip.visible = true;
-  tooltip.content = `${row.tool.name} — ${formatNumberFull(row.successCount)} success / ${formatNumberFull(row.failureCount)} failure (${rate}%)`;
+  tooltip.content = `${row.tool.name} — ${formatNumberFull(row.successCount)} success / ${formatNumberFull(row.failureCount)} failure (${rate})`;
   tooltip.chartId = "success-failure";
   tooltip.highlightIndex = bestIdx;
   positionTooltip(event, container);

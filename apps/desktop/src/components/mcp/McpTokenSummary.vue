@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { formatCompactNumber } from "@/utils/numberFormatting";
 
 const props = withDefaults(
   defineProps<{
@@ -15,19 +16,14 @@ const props = withDefaults(
   },
 );
 
-const formatted = computed(() => {
-  if (props.tokens >= 1000) {
-    return `~${(props.tokens / 1000).toFixed(1)}k`;
-  }
-  return `~${props.tokens}`;
-});
+const formatted = computed(() => `~${formatCompactNumber(props.tokens)}`);
 
 const percentage = computed(() => {
   if (props.contextSize <= 0) return 0;
   return Number(((props.tokens / props.contextSize) * 100).toFixed(1));
 });
 
-const contextLabel = computed(() => `${props.contextSize / 1000}k`);
+const contextLabel = computed(() => formatCompactNumber(props.contextSize));
 </script>
 
 <template>
