@@ -82,6 +82,28 @@ impl TracePilotError {
             source: Some(Box::new(source)),
         }
     }
+
+    /// Read a file to string with context-rich errors.
+    pub fn read_to_string(path: &std::path::Path) -> Result<String> {
+        std::fs::read_to_string(path)
+            .map_err(|e| Self::io_context("Failed to read", path.display(), e))
+    }
+
+    /// Read and parse a JSON file with context-rich errors.
+    pub fn read_json<T: serde::de::DeserializeOwned>(path: &std::path::Path) -> Result<T> {
+        let file = std::fs::File::open(path)
+            .map_err(|e| Self::io_context("Failed to read", path.display(), e))?;
+        let reader = std::io::BufReader::new(file);
+        serde_json::from_reader(reader).map_err(|e| Self::parse_context("JSON", path.display(), e))
+    }
+
+    /// Read and parse a YAML file with context-rich errors.
+    pub fn read_yaml<T: serde::de::DeserializeOwned>(path: &std::path::Path) -> Result<T> {
+        let file = std::fs::File::open(path)
+            .map_err(|e| Self::io_context("Failed to read", path.display(), e))?;
+        let reader = std::io::BufReader::new(file);
+        serde_yml::from_reader(reader).map_err(|e| Self::parse_context("YAML", path.display(), e))
+    }
 }
 
 #[cfg(test)]
