@@ -2,6 +2,7 @@
 import { formatNumber } from "@tracepilot/ui";
 import { computed, ref } from "vue";
 import { SANKEY_LAYOUT, type SankeyLink, type SankeyNode } from "@/composables/useSankeyLayout";
+import { formatPercent } from "@/utils/percentageFormatting";
 
 const props = defineProps<{
   sankeyData: { nodes: SankeyNode[]; links: SankeyLink[] };
@@ -75,8 +76,8 @@ function showLinkTooltip(link: SankeyLink, event: MouseEvent) {
   const src = props.sankeyData.nodes.find((n) => n.id === link.source);
   const tgt = props.sankeyData.nodes.find((n) => n.id === link.target);
   const total = props.totalTokens || 1;
-  const pct = ((link.tokens / total) * 100).toFixed(1);
-  tooltipText.value = `${src?.label ?? link.source} → ${tgt?.label ?? link.target}\n${formatNumber(link.tokens)} tokens (${pct}%)`;
+  const pct = formatPercent(link.tokens / total, { isRatio: true });
+  tooltipText.value = `${src?.label ?? link.source} → ${tgt?.label ?? link.target}\n${formatNumber(link.tokens)} tokens (${pct})`;
   positionTooltip(event);
   tooltipVisible.value = true;
 }
@@ -84,8 +85,8 @@ function showLinkTooltip(link: SankeyLink, event: MouseEvent) {
 function showNodeTooltip(node: SankeyNode, event: MouseEvent) {
   hoveredNode.value = node.id;
   const total = props.totalTokens || 1;
-  const pct = ((node.tokens / total) * 100).toFixed(1);
-  tooltipText.value = `${node.label}\n${formatNumber(node.tokens)} tokens (${pct}%)`;
+  const pct = formatPercent(node.tokens / total, { isRatio: true });
+  tooltipText.value = `${node.label}\n${formatNumber(node.tokens)} tokens (${pct})`;
   positionTooltip(event);
   tooltipVisible.value = true;
 }
