@@ -193,7 +193,7 @@ watch(isSessionActive, (active) => {
 </script>
 
 <template>
-  <PageShell :fluid="fillContent" :class="{ 'explorer-mode': fillContent }">
+  <PageShell :class="{ 'explorer-mode': fillContent }">
     <!-- Loading state -->
     <div v-if="store.loading" style="padding-top: 8px;">
       <SkeletonLoader variant="text" :count="1" />
