@@ -4,8 +4,10 @@
  * Tracks which sessions are open as tabs, which tab is active, and
  * persists tab state to localStorage for session continuity across reloads.
  */
+
+import { usePersistedRef } from "@tracepilot/ui";
 import { defineStore } from "pinia";
-import { computed, ref, watch } from "vue";
+import { computed, ref } from "vue";
 import { STORAGE_KEYS } from "@/config/storageKeys";
 
 export interface SessionTab {
@@ -25,37 +27,37 @@ const MAX_TABS = 20;
 /** Default sub-tab for newly opened sessions */
 const DEFAULT_SUB_TAB = "overview";
 
-function loadPersistedTabs(): { tabs: SessionTab[]; activeId: string | null } {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      return {
-        tabs: Array.isArray(parsed.tabs) ? parsed.tabs : [],
-        activeId: parsed.activeId ?? null,
-      };
-    }
-  } catch {
-    /* ignore corrupt data */
-  }
-  return { tabs: [], activeId: null };
-}
-
-function persistTabs(tabs: SessionTab[], activeId: string | null) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ tabs, activeId }));
-  } catch {
-    /* quota exceeded — best effort */
-  }
-}
-
 export const useSessionTabsStore = defineStore("sessionTabs", () => {
-  const persisted = loadPersistedTabs();
-  const tabs = ref<SessionTab[]>(persisted.tabs);
-  const activeTabId = ref<string | null>(persisted.activeId);
+  const persisted = usePersistedRef<{ tabs: SessionTab[]; activeId: string | null }>(
+    STORAGE_KEY,
+    { tabs: [], activeId: null },
+    {
+      serializer: {
+        read: (raw) => {
+          const parsed = JSON.parse(raw);
+          return {
+            tabs: Array.isArray(parsed.tabs) ? parsed.tabs : [],
+            activeId: parsed.activeId ?? null,
+          };
+        },
+        write: (val) => JSON.stringify(val),
+      },
+    },
+  );
 
-  // Auto-persist on changes
-  watch([tabs, activeTabId], () => persistTabs(tabs.value, activeTabId.value), { deep: true });
+  const tabs = computed({
+    get: () => persisted.value.tabs,
+    set: (v) => {
+      persisted.value.tabs = v;
+    },
+  });
+
+  const activeTabId = computed({
+    get: () => persisted.value.activeId,
+    set: (v) => {
+      persisted.value.activeId = v;
+    },
+  });
 
   const activeTab = computed(
     () => tabs.value.find((t) => t.sessionId === activeTabId.value) ?? null,
