@@ -24,7 +24,9 @@ function statusClass(s: SubagentStatus): string {
       aria-label="Close panel"
       title="Close (Esc)"
       @click="emit('close')"
-    >✕</button>
+    >
+      <span aria-hidden="true">✕</span>
+    </button>
     <div class="sap-info">
       <div class="sap-name" :style="{ color: agentColor }">
         <span class="sap-name-icon">{{ agentIcon }}</span>

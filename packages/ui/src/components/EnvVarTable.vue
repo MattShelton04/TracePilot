@@ -60,7 +60,9 @@ function removeRow(vars: EnvVar[], index: number) {
       />
       <span v-else class="env-cell env-col-value">{{ v.value }}</span>
 
-      <button v-if="editable" class="env-remove" @click="removeRow(vars, i)" aria-label="Remove variable">×</button>
+      <button v-if="editable" class="env-remove" @click="removeRow(vars, i)" aria-label="Remove variable">
+        <span aria-hidden="true">×</span>
+      </button>
     </div>
     <div v-if="vars.length === 0" class="env-empty">No environment variables</div>
     <button v-if="editable" class="env-add" @click="addRow(vars)">+ Add Variable</button>

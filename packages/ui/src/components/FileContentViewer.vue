@@ -165,13 +165,14 @@ function copyTableAsJson() {
             class="fcv__copy-btn"
             :class="{ 'fcv__copy-btn--copied': dbCopied }"
             :title="dbCopied ? 'Copied!' : 'Copy table as JSON'"
+            :aria-label="dbCopied ? 'Copied!' : 'Copy table as JSON'"
             @click="copyTableAsJson"
           >
-            <svg v-if="!dbCopied" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+            <svg aria-hidden="true" v-if="!dbCopied" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
               <rect x="5" y="5" width="9" height="10" rx="1"/>
               <path d="M11 5V3a1 1 0 00-1-1H3a1 1 0 00-1 1v9a1 1 0 001 1h2"/>
             </svg>
-            <svg v-else viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <svg aria-hidden="true" v-else viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="3 8 6.5 12 13 4"/>
             </svg>
           </button>
@@ -278,13 +279,14 @@ function copyTableAsJson() {
           class="fcv__copy-btn"
           :class="{ 'fcv__copy-btn--copied': textCopied }"
           :title="textCopied ? 'Copied!' : 'Copy file contents'"
+          :aria-label="textCopied ? 'Copied!' : 'Copy file contents'"
           @click="copyFileContent"
         >
-          <svg v-if="!textCopied" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+          <svg aria-hidden="true" v-if="!textCopied" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
             <rect x="5" y="5" width="9" height="10" rx="1"/>
             <path d="M11 5V3a1 1 0 00-1-1H3a1 1 0 00-1 1v9a1 1 0 001 1h2"/>
           </svg>
-          <svg v-else viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <svg aria-hidden="true" v-else viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="3 8 6.5 12 13 4"/>
           </svg>
         </button>

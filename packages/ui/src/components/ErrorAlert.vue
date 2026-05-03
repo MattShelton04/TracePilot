@@ -59,7 +59,7 @@ defineEmits<{
         aria-label="Dismiss"
         @click="$emit('dismiss')"
       >
-        ✕
+        <span aria-hidden="true">✕</span>
       </button>
     </span>
   </div>

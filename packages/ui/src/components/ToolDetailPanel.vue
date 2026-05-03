@@ -51,7 +51,9 @@ defineEmits<{
         >{{ badge.label }}</Badge>
         <Badge v-if="tc.isSubagent" variant="neutral">agent</Badge>
       </div>
-      <button class="detail-close" @click.stop="$emit('close')" aria-label="Close detail panel">✕</button>
+      <button class="detail-close" @click.stop="$emit('close')" aria-label="Close detail panel">
+        <span aria-hidden="true">✕</span>
+      </button>
     </div>
 
     <!-- Metadata grid -->
