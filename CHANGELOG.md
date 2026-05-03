@@ -7,6 +7,27 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 
 ## [Unreleased]
 
+## [0.6.5] - 2026-05-03
+
+### Added
+- **Custom storage path support** — setup and Data & Storage now support custom Copilot and TracePilot home directories, including custom session directories, without breaking session discovery
+- **Richer tool-call rendering** — `apply_patch` diffs and `ask_user` prompts now render in dedicated UI components instead of generic fallbacks
+
+### Changed
+- **Live session viewing is more reliable** — Copilot SDK deltas render correctly, tool partial output now appears inline, pop-out windows keep auto-scroll behavior, and unnecessary SDK refresh work is skipped when the feature is disabled
+- **Session metadata is more accurate** — indexed sessions now preserve Copilot CLI version attribution more consistently, with supporting SQLite schema improvements under the hood
+- **Storage/path handling is more consistent** — setup, settings, launcher integration, and backend session discovery now share a centralized path model
+
+### Fixed
+- **Security hardening for detached terminal launch** — detached process spawning is now protected against command injection
+- Nested folders now render correctly in file-browser trees
+- Explorer tab width is constrained more cleanly, and disabled button states are more consistent and accessible across the UI
+
+### Removed
+- The experimental AI Tasks surface, including its task dashboard, preset-management views, and related backend orchestration plumbing
+- Session health scoring
+- The Token Flow Sankey tab
+
 ## [0.6.4] - 2026-04-27
 
 ### Added
