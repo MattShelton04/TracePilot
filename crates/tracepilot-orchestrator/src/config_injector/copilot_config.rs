@@ -175,7 +175,7 @@ pub fn read_copilot_config(copilot_home: &Path) -> Result<CopilotConfig> {
 pub fn write_copilot_config(copilot_home: &Path, config: &serde_json::Value) -> Result<()> {
     let cp = CopilotPaths::from_home(copilot_home);
     let settings_path = cp.settings_json();
-    let temp_path = copilot_home.join(format!(".{}.tmp", SETTINGS_FILE));
+    let temp_path = settings_path.with_file_name(format!(".{}.tmp", SETTINGS_FILE));
 
     // Load the existing settings.json so unknown keys survive the
     // round-trip. If it's missing we start from `{}`. If it's present but
