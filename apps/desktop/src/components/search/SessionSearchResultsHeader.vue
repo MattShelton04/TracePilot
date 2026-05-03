@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { formatDuration } from "@tracepilot/types";
+
 defineProps<{
   hasResults: boolean;
   isBrowseMode: boolean;
@@ -23,7 +25,7 @@ const emit = defineEmits<{
       {{ isBrowseMode ? 'Browsing' : 'Found' }} <strong>{{ totalCount.toLocaleString() }}</strong>
       result{{ totalCount !== 1 ? 's' : '' }}
       <span v-if="resultViewMode === 'grouped'"> across <strong>{{ groupedCount }}</strong> session{{ groupedCount !== 1 ? 's' : '' }}</span>
-      <span class="summary-speed">({{ latencyMs.toFixed(2) }}ms)</span>
+      <span class="summary-speed">({{ formatDuration(latencyMs) }})</span>
       <template v-if="resultViewMode === 'flat' && totalPages > 1">
         — page {{ page }} of {{ totalPages }}
       </template>

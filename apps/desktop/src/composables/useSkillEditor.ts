@@ -16,6 +16,7 @@ import { browseForFile } from "@/composables/useBrowseDirectory";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
 import { useSkillsStore } from "@/stores/skills";
+import { formatBytes } from "@tracepilot/types";
 import { logWarn } from "@/utils/logger";
 import { parseSkillContent, serializeSkillContent } from "@/utils/skillFrontmatter";
 
@@ -335,9 +336,7 @@ export function useSkillEditor() {
 
   // ─── Utilities ────────────────────────────────────────────
   function formatSize(bytes: number): string {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return formatBytes(bytes);
   }
 
   function syncScroll() {
