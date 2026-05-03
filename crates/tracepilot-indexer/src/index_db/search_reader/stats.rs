@@ -157,7 +157,7 @@ impl IndexDb {
 
         // Get rows before
         let mut before_stmt = self.conn.prepare(
-            "SELECT id, content_type, turn_number, event_index, tool_name, substr(content, 1, 300)
+            "SELECT id, content_type, turn_number, event_index, tool_name, substr(content, 1, 300) AS preview
              FROM search_content
              WHERE session_id = ?1 AND event_index < ?2 AND event_index IS NOT NULL
              ORDER BY event_index DESC LIMIT ?3",
@@ -178,7 +178,7 @@ impl IndexDb {
 
         // Get rows after
         let mut after_stmt = self.conn.prepare(
-            "SELECT id, content_type, turn_number, event_index, tool_name, substr(content, 1, 300)
+            "SELECT id, content_type, turn_number, event_index, tool_name, substr(content, 1, 300) AS preview
              FROM search_content
              WHERE session_id = ?1 AND event_index > ?2 AND event_index IS NOT NULL
              ORDER BY event_index ASC LIMIT ?3",

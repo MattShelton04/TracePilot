@@ -50,20 +50,16 @@ pub(super) fn indexed_incident_from_row(row: &Row) -> rusqlite::Result<IndexedIn
     })
 }
 
-/// Extract a ContextSnippet from a query row using column indices.
+/// Extract a ContextSnippet from a query row using column names.
 ///
-/// Expected columns: id, content_type, turn_number, event_index, tool_name, preview (substr)
-///
-/// Note: This function uses numeric indices because it's called in two places with substr()
-/// expressions that don't have natural column names. The column order is well-defined
-/// and consistent across both call sites.
+/// Expected columns: id, content_type, turn_number, event_index, tool_name, preview
 pub(super) fn context_snippet_from_row(row: &Row) -> rusqlite::Result<ContextSnippet> {
     Ok(ContextSnippet {
-        id: row.get(0)?,
-        content_type: row.get(1)?,
-        turn_number: row.get(2)?,
-        event_index: row.get(3)?,
-        tool_name: row.get(4)?,
-        preview: row.get(5)?,
+        id: row.get("id")?,
+        content_type: row.get("content_type")?,
+        turn_number: row.get("turn_number")?,
+        event_index: row.get("event_index")?,
+        tool_name: row.get("tool_name")?,
+        preview: row.get("preview")?,
     })
 }
