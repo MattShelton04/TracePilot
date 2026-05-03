@@ -59,7 +59,6 @@ const ALLOWLIST = new Set([
   "crates/tracepilot-core/src/turns/tests/builders.rs",
   "crates/tracepilot-core/src/turns/tests/model_tracking.rs",
   "crates/tracepilot-core/src/turns/tests/session_events.rs",
-  "crates/tracepilot-core/src/turns/tests/subagent_lifecycle.rs",
   "crates/tracepilot-export/tests/integration.rs",
 
   // ── Pinia stores (Phase 4/5) ────────────────────────────────────
