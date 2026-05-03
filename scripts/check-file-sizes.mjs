@@ -57,23 +57,13 @@ const ALLOWLIST = new Set([
 
   // ── Rust test files ─────────────────────────────────────────────
   "crates/tracepilot-core/src/turns/tests/builders.rs",
-  "crates/tracepilot-core/src/turns/tests/model_tracking.rs",
-  "crates/tracepilot-core/src/turns/tests/session_events.rs",
-  "crates/tracepilot-core/src/turns/tests/subagent_lifecycle.rs",
   "crates/tracepilot-export/tests/integration.rs",
 
   // ── Pinia stores (Phase 4/5) ────────────────────────────────────
-  "apps/desktop/src/stores/skills.ts",
   "apps/desktop/src/stores/tasks.ts",
   "apps/desktop/src/stores/mcp.ts",
 
   // ── Test files (allow-listed; not a Phase 4 priority) ──────────
-  "apps/desktop/src/__tests__/components/timeline/AgentTreeView.test.ts",
-  "apps/desktop/src/__tests__/composables/useCachedFetch.test.ts",
-  "apps/desktop/src/__tests__/composables/useImportFlow.test.ts",
-  "apps/desktop/src/composables/__tests__/useGitRepository.test.ts",
-  "apps/desktop/src/composables/__tests__/useTimelineToolState.test.ts",
-  "apps/desktop/src/composables/__tests__/useAsyncData.test.ts",
   "apps/desktop/src/__tests__/views/analytics-views.test.ts",
 ]);
 
