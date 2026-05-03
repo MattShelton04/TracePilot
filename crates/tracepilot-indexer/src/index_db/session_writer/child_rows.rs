@@ -52,10 +52,7 @@ pub(super) fn write_child_rows(
             params.push(&row.cache_write_tokens);
             params.push(&row.cost);
             params.push(&row.premium_requests);
-            match &row.reasoning_tokens {
-                Some(v) => params.push(v),
-                None => params.push(&rusqlite::types::Null),
-            }
+            params.push(&row.reasoning_tokens);
         },
     )?;
 
@@ -86,10 +83,7 @@ pub(super) fn write_child_rows(
         |row, params| {
             params.push(&session_id as &dyn rusqlite::ToSql);
             params.push(&row.file_path);
-            match &row.extension {
-                Some(ext) => params.push(ext),
-                None => params.push(&rusqlite::types::Null),
-            }
+            params.push(&row.extension);
         },
     )?;
 
@@ -123,14 +117,8 @@ pub(super) fn write_child_rows(
             params.push(&row.total_requests);
             params.push(&row.premium_requests);
             params.push(&row.api_duration_ms);
-            match &row.current_model {
-                Some(m) => params.push(m),
-                None => params.push(&rusqlite::types::Null),
-            }
-            match &row.model_metrics_json {
-                Some(j) => params.push(j),
-                None => params.push(&rusqlite::types::Null),
-            }
+            params.push(&row.current_model);
+            params.push(&row.model_metrics_json);
         },
     )?;
 
@@ -145,16 +133,10 @@ pub(super) fn write_child_rows(
             params.push(&session_id as &dyn rusqlite::ToSql);
             params.push(&inc.event_type);
             params.push(&inc.source_event_type);
-            match &inc.timestamp {
-                Some(t) => params.push(t),
-                None => params.push(&rusqlite::types::Null),
-            }
+            params.push(&inc.timestamp);
             params.push(&inc.severity);
             params.push(&inc.summary);
-            match &inc.detail_json {
-                Some(d) => params.push(d),
-                None => params.push(&rusqlite::types::Null),
-            }
+            params.push(&inc.detail_json);
         },
     )?;
 
