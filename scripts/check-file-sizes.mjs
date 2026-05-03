@@ -67,7 +67,6 @@ const ALLOWLIST = new Set([
   "apps/desktop/src/stores/mcp.ts",
 
   // ── Test files (allow-listed; not a Phase 4 priority) ──────────
-  "apps/desktop/src/__tests__/components/timeline/AgentTreeView.test.ts",
   "apps/desktop/src/__tests__/views/analytics-views.test.ts",
 ]);
 

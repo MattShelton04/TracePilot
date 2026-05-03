@@ -1,64 +1,21 @@
-import { makeTurn, makeTurnToolCall, setupPinia } from "@tracepilot/test-utils";
-import { mount } from "@vue/test-utils";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { makeTurn, makeTurnToolCall } from "@tracepilot/test-utils";
+import { describe, expect, it } from "vitest";
 import { nextTick } from "vue";
-import AgentTreeView from "../../../components/timeline/AgentTreeView.vue";
-import { useSessionDetailStore } from "../../../stores/sessionDetail";
+import { mountAgentTreeView, setupAgentTreeViewTest } from "./AgentTreeView/setup";
 
-// ── Mock @tracepilot/client ─────────────────────────────────────────
-vi.mock("@tracepilot/client", async () => {
-  const { createClientMock } = await import("../../mocks/client");
-  return createClientMock({
-    getSessionDetail: vi.fn(),
-    getSessionTurns: vi.fn(),
-    getSessionEvents: vi.fn(),
-    getSessionTodos: vi.fn(),
-    getSessionCheckpoints: vi.fn(),
-    getShutdownMetrics: vi.fn(),
-  });
-});
+const ctx = setupAgentTreeViewTest();
 
-function mountComponent() {
-  return mount(AgentTreeView, {
-    global: {
-      stubs: {
-        EmptyState: {
-          template: '<div class="empty-state-stub">{{ title }}</div>',
-          props: ["icon", "title", "message"],
-        },
-        Badge: {
-          template: '<span class="badge-stub"><slot /></span>',
-          props: ["variant"],
-        },
-        ExpandChevron: {
-          template: '<span class="chevron-stub" />',
-          props: ["expanded", "size"],
-        },
-      },
-    },
-  });
-}
-
-// ── Tests ────────────────────────────────────────────────────────────
-
-describe("AgentTreeView", () => {
-  let store: ReturnType<typeof useSessionDetailStore>;
-
-  beforeEach(() => {
-    setupPinia();
-    store = useSessionDetailStore();
-  });
-
+describe("AgentTreeView basic rendering and selection", () => {
   it("renders empty state when no turns have subagents", () => {
     // Turns with only non-subagent tool calls
-    store.turns = [
+    ctx.store.turns = [
       makeTurn({
         turnIndex: 0,
         toolCalls: [makeTurnToolCall({ isSubagent: false })],
       }),
     ];
 
-    const wrapper = mountComponent();
+    const wrapper = mountAgentTreeView();
     const empty = wrapper.find(".empty-state-stub");
     expect(empty.exists()).toBe(true);
     expect(wrapper.html()).toContain("No Agent Orchestration");
@@ -72,7 +29,7 @@ describe("AgentTreeView", () => {
       agentDisplayName: "Explore Agent",
     });
 
-    store.turns = [
+    ctx.store.turns = [
       makeTurn({ turnIndex: 0, toolCalls: [agentTc] }),
       makeTurn({
         turnIndex: 1,
@@ -87,7 +44,7 @@ describe("AgentTreeView", () => {
       }),
     ];
 
-    const wrapper = mountComponent();
+    const wrapper = mountAgentTreeView();
     const navLabel = wrapper.find(".turn-nav-label");
     expect(navLabel.exists()).toBe(true);
     expect(navLabel.text()).toContain("1 of 2 with agents");
@@ -101,9 +58,9 @@ describe("AgentTreeView", () => {
       agentDisplayName: "Explore",
     });
 
-    store.turns = [makeTurn({ turnIndex: 0, model: "gpt-4.1", toolCalls: [agentTc] })];
+    ctx.store.turns = [makeTurn({ turnIndex: 0, model: "gpt-4.1", toolCalls: [agentTc] })];
 
-    const wrapper = mountComponent();
+    const wrapper = mountAgentTreeView();
     expect(wrapper.text()).toContain("Main Agent");
     expect(wrapper.text()).toContain("gpt-4.1");
   });
@@ -128,9 +85,9 @@ describe("AgentTreeView", () => {
       durationMs: 4000,
     });
 
-    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agent1, agent2] })];
+    ctx.store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agent1, agent2] })];
 
-    const wrapper = mountComponent();
+    const wrapper = mountAgentTreeView();
     expect(wrapper.text()).toContain("Explore Agent");
     expect(wrapper.text()).toContain("Code Review Agent");
   });
@@ -144,9 +101,9 @@ describe("AgentTreeView", () => {
       model: "claude-haiku-4.5",
     });
 
-    store.turns = [makeTurn({ turnIndex: 0, model: "gpt-4.1", toolCalls: [agentTc] })];
+    ctx.store.turns = [makeTurn({ turnIndex: 0, model: "gpt-4.1", toolCalls: [agentTc] })];
 
-    const wrapper = mountComponent();
+    const wrapper = mountAgentTreeView();
     // The agent node should show its own model
     expect(wrapper.text()).toContain("claude-haiku-4.5");
   });
@@ -159,9 +116,9 @@ describe("AgentTreeView", () => {
       agentDisplayName: "Explore Agent",
     });
 
-    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agentTc] })];
+    ctx.store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agentTc] })];
 
-    const wrapper = mountComponent();
+    const wrapper = mountAgentTreeView();
     // No detail panel initially
     expect(wrapper.find(".detail-panel").exists()).toBe(false);
 
@@ -182,9 +139,9 @@ describe("AgentTreeView", () => {
       agentDisplayName: "Explore Agent",
     });
 
-    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agentTc] })];
+    ctx.store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agentTc] })];
 
-    const wrapper = mountComponent();
+    const wrapper = mountAgentTreeView();
     const nodes = wrapper.findAll(".agent-node");
 
     // Click to select
@@ -196,729 +153,5 @@ describe("AgentTreeView", () => {
     await nodes[0].trigger("click");
     await nextTick();
     expect(wrapper.find(".detail-panel").exists()).toBe(false);
-  });
-
-  it("parallel groups detect overlapping time ranges", () => {
-    // Two subagents with overlapping time ranges
-    const agent1 = makeTurnToolCall({
-      toolName: "explore",
-      isSubagent: true,
-      toolCallId: "agent-1",
-      agentDisplayName: "Agent A",
-      startedAt: "2025-01-01T00:00:00.000Z",
-      completedAt: "2025-01-01T00:00:05.000Z",
-      durationMs: 5000,
-    });
-    const agent2 = makeTurnToolCall({
-      toolName: "code-review",
-      isSubagent: true,
-      toolCallId: "agent-2",
-      agentDisplayName: "Agent B",
-      startedAt: "2025-01-01T00:00:02.000Z",
-      completedAt: "2025-01-01T00:00:07.000Z",
-      durationMs: 5000,
-    });
-    // Third non-overlapping agent to ensure we have multiple groups
-    // (parallelGroups returns [] when there's only 1 group)
-    const agent3 = makeTurnToolCall({
-      toolName: "task",
-      isSubagent: true,
-      toolCallId: "agent-3",
-      agentDisplayName: "Agent C",
-      startedAt: "2025-01-01T00:00:20.000Z",
-      completedAt: "2025-01-01T00:00:25.000Z",
-      durationMs: 5000,
-    });
-    const agent4 = makeTurnToolCall({
-      toolName: "task",
-      isSubagent: true,
-      toolCallId: "agent-4",
-      agentDisplayName: "Agent D",
-      startedAt: "2025-01-01T00:00:22.000Z",
-      completedAt: "2025-01-01T00:00:27.000Z",
-      durationMs: 5000,
-    });
-
-    store.turns = [
-      makeTurn({
-        turnIndex: 0,
-        toolCalls: [agent1, agent2, agent3, agent4],
-      }),
-    ];
-
-    const wrapper = mountComponent();
-    // With 2+ parallel groups, parallel badges should appear
-    const badges = wrapper.findAll(".parallel-badge");
-    expect(badges.length).toBeGreaterThanOrEqual(2);
-    expect(wrapper.text()).toContain("Parallel Group");
-  });
-
-  it("nodes with no overlap are not grouped together", () => {
-    const agent1 = makeTurnToolCall({
-      toolName: "explore",
-      isSubagent: true,
-      toolCallId: "agent-1",
-      agentDisplayName: "Agent A",
-      startedAt: "2025-01-01T00:00:00.000Z",
-      completedAt: "2025-01-01T00:00:02.000Z",
-      durationMs: 2000,
-    });
-    const agent2 = makeTurnToolCall({
-      toolName: "code-review",
-      isSubagent: true,
-      toolCallId: "agent-2",
-      agentDisplayName: "Agent B",
-      startedAt: "2025-01-01T00:00:10.000Z",
-      completedAt: "2025-01-01T00:00:12.000Z",
-      durationMs: 2000,
-    });
-
-    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agent1, agent2] })];
-
-    const wrapper = mountComponent();
-    // No parallel badges should appear for non-overlapping agents
-    const badges = wrapper.findAll(".parallel-badge");
-    expect(badges).toHaveLength(0);
-  });
-
-  it("prev button disabled on first agent turn", () => {
-    const agentTc = makeTurnToolCall({
-      toolName: "explore",
-      isSubagent: true,
-      toolCallId: "agent-1",
-    });
-
-    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agentTc] })];
-
-    const wrapper = mountComponent();
-    const prevBtn = wrapper.find('button[aria-label="Previous agent turn"]');
-    expect(prevBtn.attributes("disabled")).toBeDefined();
-  });
-
-  it("next button disabled on last agent turn", () => {
-    const agentTc = makeTurnToolCall({
-      toolName: "explore",
-      isSubagent: true,
-      toolCallId: "agent-1",
-    });
-
-    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agentTc] })];
-
-    const wrapper = mountComponent();
-    const nextBtn = wrapper.find('button[aria-label="Next agent turn"]');
-    expect(nextBtn.attributes("disabled")).toBeDefined();
-  });
-
-  it("finds child tools across turns (cross-turn boundary)", () => {
-    // Subagent in turn 0, its child tools end up in turn 1
-    const agentTc = makeTurnToolCall({
-      toolName: "explore",
-      isSubagent: true,
-      toolCallId: "agent-cross",
-      agentDisplayName: "Cross-Turn Agent",
-      durationMs: 120000,
-    });
-    // Child tool in a DIFFERENT turn
-    const childTool = makeTurnToolCall({
-      toolName: "grep",
-      isSubagent: false,
-      toolCallId: "child-grep-1",
-      parentToolCallId: "agent-cross",
-      durationMs: 50,
-    });
-
-    store.turns = [
-      makeTurn({ turnIndex: 0, toolCalls: [agentTc] }),
-      makeTurn({ turnIndex: 1, toolCalls: [childTool] }),
-    ];
-
-    const wrapper = mountComponent();
-    // The agent node should show "1 tool" (found cross-turn)
-    expect(wrapper.text()).toContain("1 tool");
-  });
-
-  it("shows prompt in detail panel when subagent has arguments", async () => {
-    const agentTc = makeTurnToolCall({
-      toolName: "code-review",
-      isSubagent: true,
-      toolCallId: "agent-prompt",
-      agentDisplayName: "Code Review Agent",
-      arguments: {
-        prompt: "Review the auth module for vulnerabilities",
-        agent_type: "code-review",
-      },
-    });
-
-    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agentTc] })];
-
-    const wrapper = mountComponent();
-    // Click the subagent node to open detail panel
-    const nodes = wrapper.findAll(".agent-node");
-    const childNode = nodes.find((n) => n.text().includes("Code Review Agent"));
-    expect(childNode).toBeDefined();
-    await childNode?.trigger("click");
-    await nextTick();
-
-    expect(wrapper.find(".detail-panel").exists()).toBe(true);
-    expect(wrapper.text()).toContain("Review the auth module for vulnerabilities");
-  });
-
-  it("in-progress subagent shows ⏳ and pulsing node class", () => {
-    const agentTc = makeTurnToolCall({
-      toolName: "explore",
-      isSubagent: true,
-      isComplete: false,
-      success: undefined,
-      toolCallId: "agent-ip",
-      agentDisplayName: "Running Agent",
-      startedAt: "2025-01-01T00:00:00.000Z",
-      completedAt: undefined,
-      durationMs: undefined,
-    });
-
-    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agentTc] })];
-
-    const wrapper = mountComponent();
-    expect(wrapper.text()).toContain("⏳");
-    const nodes = wrapper.findAll(".agent-node");
-    const inProgressNode = nodes.find((n) => n.text().includes("Running Agent"));
-    expect(inProgressNode).toBeDefined();
-    expect(inProgressNode?.classes()).toContain("agent-node--in-progress");
-  });
-
-  it("main agent tool list includes subagent-spawning tool calls with agent badge", async () => {
-    const agentTc = makeTurnToolCall({
-      toolName: "task",
-      isSubagent: true,
-      toolCallId: "agent-spawn-1",
-      agentDisplayName: "Explore Agent",
-      arguments: { agent_type: "explore", prompt: "Find auth code" },
-    });
-    const directTool = makeTurnToolCall({
-      toolName: "view",
-      isSubagent: false,
-      toolCallId: "tc-view-1",
-    });
-
-    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agentTc, directTool] })];
-
-    const wrapper = mountComponent();
-    // Click main agent node to open detail panel
-    const mainNode = wrapper.findAll(".agent-node").find((n) => n.text().includes("Main Agent"));
-    expect(mainNode).toBeDefined();
-    await mainNode?.trigger("click");
-    await nextTick();
-
-    const detailPanel = wrapper.find(".detail-panel");
-    expect(detailPanel.exists()).toBe(true);
-    // Should show both the subagent tool call and the direct tool
-    expect(detailPanel.text()).toContain("Explore Agent");
-    expect(detailPanel.text()).toContain("view");
-    // Subagent tool call should appear as a nested-subagent activity row
-    const nestedRows = wrapper.findAll(".sap-nested-subagent");
-    expect(nestedRows.length).toBe(1);
-  });
-
-  it("in-progress node status icon has pulsing animation class", () => {
-    const agentTc = makeTurnToolCall({
-      toolName: "explore",
-      isSubagent: true,
-      isComplete: false,
-      success: undefined,
-      toolCallId: "agent-pulse",
-      agentDisplayName: "Pulsing Agent",
-      startedAt: "2025-01-01T00:00:00.000Z",
-      completedAt: undefined,
-      durationMs: undefined,
-    });
-
-    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agentTc] })];
-
-    const wrapper = mountComponent();
-    const statusIcons = wrapper.findAll(".agent-node-status--in-progress");
-    expect(statusIcons.length).toBeGreaterThan(0);
-  });
-
-  // ── Subagent Output Tests ─────────────────────────────────────────
-
-  it("shows output section when a subagent with messages is selected", async () => {
-    const agentTc = makeTurnToolCall({
-      toolName: "task",
-      isSubagent: true,
-      toolCallId: "agent-1",
-      agentDisplayName: "Explore Agent",
-    });
-
-    store.turns = [
-      makeTurn({
-        turnIndex: 0,
-        toolCalls: [agentTc],
-        assistantMessages: [
-          { content: "Main agent text" },
-          { content: "Subagent found the answer", parentToolCallId: "agent-1" },
-        ],
-      }),
-    ];
-
-    const wrapper = mountComponent();
-    // Select the subagent node (second node after main)
-    const nodes = wrapper.findAll(".agent-node");
-    const subagentNode = nodes.find((n) => n.text().includes("Explore Agent"));
-    expect(subagentNode).toBeDefined();
-    await subagentNode?.trigger("click");
-    await nextTick();
-
-    const detailPanel = wrapper.find(".detail-panel");
-    expect(detailPanel.exists()).toBe(true);
-    // Output section renders subagent's final message
-    expect(detailPanel.text()).toContain("Output");
-    expect(detailPanel.text()).toContain("Subagent found the answer");
-    // Main agent text should NOT appear anywhere in the subagent's panel
-    expect(detailPanel.text()).not.toContain("Main agent text");
-  });
-
-  it("shows reasoning interleaved in activity stream, expanded by default", async () => {
-    const agentTc = makeTurnToolCall({
-      toolName: "task",
-      isSubagent: true,
-      toolCallId: "agent-1",
-      agentDisplayName: "Thinking Agent",
-    });
-
-    store.turns = [
-      makeTurn({
-        turnIndex: 0,
-        toolCalls: [agentTc],
-        assistantMessages: [{ content: "Result", parentToolCallId: "agent-1" }],
-        reasoningTexts: [{ content: "Let me think about this...", parentToolCallId: "agent-1" }],
-      }),
-    ];
-
-    const wrapper = mountComponent();
-    const nodes = wrapper.findAll(".agent-node");
-    const subagentNode = nodes.find((n) => n.text().includes("Thinking Agent"));
-    await subagentNode?.trigger("click");
-    await nextTick();
-
-    const detailPanel = wrapper.find(".detail-panel");
-    // Reasoning block appears in activity stream with content visible by default
-    const reasoningBlocks = detailPanel.findAll(".sap-reasoning");
-    expect(reasoningBlocks.length).toBe(1);
-    expect(detailPanel.find(".sap-reasoning-content").exists()).toBe(true);
-    expect(detailPanel.find(".sap-reasoning-content").text()).toContain(
-      "Let me think about this...",
-    );
-
-    // Clicking the toggle collapses the reasoning content
-    await detailPanel.find(".sap-reasoning-toggle").trigger("click");
-    await nextTick();
-    expect(detailPanel.find(".sap-reasoning-content").exists()).toBe(false);
-  });
-
-  it("main agent node excludes subagent-attributed messages", async () => {
-    const agentTc = makeTurnToolCall({
-      toolName: "task",
-      isSubagent: true,
-      toolCallId: "agent-1",
-      agentDisplayName: "Sub Agent",
-    });
-
-    store.turns = [
-      makeTurn({
-        turnIndex: 0,
-        toolCalls: [agentTc],
-        assistantMessages: [
-          { content: "Main says hello" },
-          { content: "Sub says hello", parentToolCallId: "agent-1" },
-        ],
-      }),
-    ];
-
-    const wrapper = mountComponent();
-    // Select main agent node (first node)
-    const nodes = wrapper.findAll(".agent-node");
-    const mainNode = nodes.find((n) => n.text().includes("Main Agent"));
-    expect(mainNode).toBeDefined();
-    await mainNode?.trigger("click");
-    await nextTick();
-
-    const detailPanel = wrapper.find(".detail-panel");
-    expect(detailPanel.exists()).toBe(true);
-    // Main output should contain only main agent's message
-    expect(detailPanel.text()).toContain("Main says hello");
-    // Subagent message should NOT appear in main agent's activity stream
-    const activities = detailPanel.find(".sap-activities");
-    if (activities.exists()) {
-      expect(activities.text()).not.toContain("Sub says hello");
-    }
-  });
-
-  it("does not show output section when subagent has no messages", async () => {
-    const agentTc = makeTurnToolCall({
-      toolName: "task",
-      isSubagent: true,
-      toolCallId: "agent-1",
-      agentDisplayName: "Silent Agent",
-    });
-
-    store.turns = [
-      makeTurn({
-        turnIndex: 0,
-        toolCalls: [agentTc],
-        assistantMessages: [{ content: "Main only" }],
-      }),
-    ];
-
-    const wrapper = mountComponent();
-    const nodes = wrapper.findAll(".agent-node");
-    const subagentNode = nodes.find((n) => n.text().includes("Silent Agent"));
-    await subagentNode?.trigger("click");
-    await nextTick();
-
-    const detailPanel = wrapper.find(".detail-panel");
-    expect(detailPanel.exists()).toBe(true);
-    // No activity stream rendered when no tools/messages/reasoning
-    expect(detailPanel.find(".sap-activities").exists()).toBe(false);
-    expect(detailPanel.find(".sap-reasoning").exists()).toBe(false);
-  });
-
-  // ── Cross-Turn Hierarchy Tests ──────────────────────────────────────
-
-  it("resolves cross-turn parent subagent hierarchy", async () => {
-    // Turn 0: Main agent spawns subagent "parent-sub"
-    const parentSubagent = makeTurnToolCall({
-      toolName: "task",
-      isSubagent: true,
-      toolCallId: "parent-sub",
-      agentDisplayName: "GPT 5.3 Codex",
-      model: "gpt-5.3-codex",
-      startedAt: "2025-01-01T00:00:00.000Z",
-      completedAt: "2025-01-01T00:01:00.000Z",
-      durationMs: 60000,
-    });
-
-    // Turn 1: The parent subagent spawns child subagents
-    const childSub1 = makeTurnToolCall({
-      toolName: "task",
-      isSubagent: true,
-      toolCallId: "child-sub-1",
-      parentToolCallId: "parent-sub",
-      agentDisplayName: "GPT 5.3 Codex #2",
-      model: "gpt-5.3-codex",
-      startedAt: "2025-01-01T00:00:10.000Z",
-    });
-    const childSub2 = makeTurnToolCall({
-      toolName: "task",
-      isSubagent: true,
-      toolCallId: "child-sub-2",
-      parentToolCallId: "parent-sub",
-      agentDisplayName: "GPT 5.4",
-      model: "gpt-5.4",
-      startedAt: "2025-01-01T00:00:15.000Z",
-    });
-
-    store.turns = [
-      makeTurn({
-        turnIndex: 0,
-        model: "claude-sonnet-4",
-        toolCalls: [parentSubagent],
-      }),
-      makeTurn({
-        turnIndex: 1,
-        model: "gpt-5.3-codex",
-        toolCalls: [childSub1, childSub2],
-      }),
-    ];
-
-    const wrapper = mountComponent();
-    // Navigate to the second agent turn (turn 1) which has the child subagents
-    const nextBtn = wrapper.find('button[aria-label="Next agent turn"]');
-    await nextBtn.trigger("click");
-    await nextTick();
-
-    // Should show "GPT 5.3 Codex" as a cross-turn parent node
-    // with children nested under it
-    expect(wrapper.text()).toContain("GPT 5.3 Codex");
-    // The cross-turn badge should appear
-    expect(wrapper.find(".cross-turn-badge").exists()).toBe(true);
-  });
-
-  it("cross-turn parent nodes show correct child tool counts", async () => {
-    const parentSubagent = makeTurnToolCall({
-      toolName: "task",
-      isSubagent: true,
-      toolCallId: "parent-sub",
-      agentDisplayName: "Parent Agent",
-      model: "gpt-5.3-codex",
-      startedAt: "2025-01-01T00:00:00.000Z",
-    });
-    // A child tool that belongs to the parent subagent (from a different turn)
-    const parentChildTool = makeTurnToolCall({
-      toolName: "grep",
-      isSubagent: false,
-      toolCallId: "parent-child-grep",
-      parentToolCallId: "parent-sub",
-    });
-    const childSub = makeTurnToolCall({
-      toolName: "task",
-      isSubagent: true,
-      toolCallId: "child-sub",
-      parentToolCallId: "parent-sub",
-      agentDisplayName: "Child Agent",
-      startedAt: "2025-01-01T00:00:10.000Z",
-    });
-
-    store.turns = [
-      makeTurn({
-        turnIndex: 0,
-        toolCalls: [parentSubagent, parentChildTool],
-      }),
-      makeTurn({
-        turnIndex: 1,
-        toolCalls: [childSub],
-      }),
-    ];
-
-    const wrapper = mountComponent();
-    // Navigate to second agent turn
-    const nextBtn = wrapper.find('button[aria-label="Next agent turn"]');
-    await nextBtn.trigger("click");
-    await nextTick();
-
-    // Parent agent node should exist as a cross-turn parent
-    expect(wrapper.text()).toContain("Parent Agent");
-  });
-
-  it("nests same-turn subagent tool calls correctly (attribution fix)", async () => {
-    // Parent subagent spawned by Main Agent
-    const parentSub = makeTurnToolCall({
-      toolName: "task",
-      isSubagent: true,
-      toolCallId: "parent-same-turn",
-      agentDisplayName: "Parent Same Turn",
-    });
-    // Child subagent spawned by the parent subagent
-    const childSub = makeTurnToolCall({
-      toolName: "task",
-      isSubagent: true,
-      toolCallId: "child-same-turn",
-      parentToolCallId: "parent-same-turn",
-      agentDisplayName: "Child Same Turn",
-    });
-    // A regular tool spawned by the child subagent
-    const childTool = makeTurnToolCall({
-      toolName: "grep",
-      isSubagent: false,
-      toolCallId: "child-tool-grep",
-      parentToolCallId: "child-same-turn",
-    });
-
-    store.turns = [
-      makeTurn({
-        turnIndex: 0,
-        toolCalls: [parentSub, childSub, childTool],
-      }),
-    ];
-
-    const wrapper = mountComponent();
-    await nextTick();
-
-    // 1. Check Main Agent's tool list (should only include parentSub)
-    const nodes = wrapper.findAll(".agent-node");
-    const mainNode = nodes.find((n) => n.text().includes("Main Agent"));
-    await mainNode?.trigger("click");
-    await nextTick();
-
-    const detailPanel = wrapper.find(".detail-panel");
-    const toolItems = detailPanel.findAll(".sap-nested-subagent");
-    // Main agent should only have ONE nested subagent (the parent subagent spawn)
-    // It should NOT include childSub or childTool
-    expect(toolItems.length).toBe(1);
-    expect(toolItems[0].text()).toContain("Parent Same Turn");
-
-    // 2. Check Parent Subagent's activity stream (should include childSub)
-    const parentNode = nodes.find((n) => n.text().includes("Parent Same Turn"));
-    await parentNode?.trigger("click");
-    await nextTick();
-
-    const parentTools = wrapper.find(".detail-panel").findAll(".sap-nested-subagent");
-    // Parent should have the child subagent spawn in its activity stream
-    expect(parentTools.length).toBe(1);
-    expect(parentTools[0].text()).toContain("Child Same Turn");
-
-    // 3. Check Child Subagent's activity stream (should include childTool)
-    const childNode = nodes.find((n) => n.text().includes("Child Same Turn"));
-    await childNode?.trigger("click");
-    await nextTick();
-
-    const childTools = wrapper.find(".detail-panel").findAll(".tool-call-item");
-    expect(childTools.length).toBeGreaterThanOrEqual(1);
-    expect(wrapper.find(".detail-panel").text()).toContain("grep");
-  });
-
-  it("renders unified session view with agents from all turns", async () => {
-    // Turn 1: Subagent A
-    const subA = makeTurnToolCall({
-      toolName: "task",
-      isSubagent: true,
-      toolCallId: "sub-a",
-      agentDisplayName: "Agent A",
-    });
-    // Turn 2: Subagent B
-    const subB = makeTurnToolCall({
-      toolName: "task",
-      isSubagent: true,
-      toolCallId: "sub-b",
-      agentDisplayName: "Agent B",
-    });
-
-    store.turns = [
-      makeTurn({ turnIndex: 1, toolCalls: [subA] }),
-      makeTurn({ turnIndex: 2, toolCalls: [subB] }),
-    ];
-
-    const wrapper = mountComponent();
-    await nextTick();
-
-    // Default: Paginated view, only shows Agent A (from turn 1)
-    expect(wrapper.text()).toContain("Agent A");
-    expect(wrapper.text()).not.toContain("Agent B");
-
-    // Switch to Unified mode
-    const unifiedBtn = wrapper.findAll(".view-mode-btn").find((b) => b.text().includes("Unified"));
-    await unifiedBtn?.trigger("click");
-    await nextTick();
-
-    // Now shows both agents
-    expect(wrapper.text()).toContain("Agent A");
-    expect(wrapper.text()).toContain("Agent B");
-
-    // Turn navigation should be disabled in unified mode
-    const navButtons = wrapper.findAll(".turn-nav-btn");
-    navButtons.forEach((btn) => {
-      expect((btn.element as HTMLButtonElement).disabled).toBe(true);
-    });
-  });
-
-  // ── Failure Reason Tests ────────────────────────────────────────────
-
-  it("shows failure reason when a failed subagent is selected", async () => {
-    const failedAgent = makeTurnToolCall({
-      toolName: "task",
-      isSubagent: true,
-      toolCallId: "agent-fail",
-      agentDisplayName: "Failing Agent",
-      success: false,
-      isComplete: true,
-      error: "Agent exceeded maximum retries. Last error: connection timeout",
-    });
-
-    store.turns = [
-      makeTurn({
-        turnIndex: 0,
-        toolCalls: [failedAgent],
-        assistantMessages: [{ content: "Starting task...", parentToolCallId: "agent-fail" }],
-      }),
-    ];
-
-    const wrapper = mountComponent();
-    const nodes = wrapper.findAll(".agent-node");
-    const failedNode = nodes.find((n) => n.text().includes("Failing Agent"));
-    expect(failedNode).toBeDefined();
-    await failedNode?.trigger("click");
-    await nextTick();
-
-    const detailPanel = wrapper.find(".detail-panel");
-    expect(detailPanel.exists()).toBe(true);
-    // Should show status as failed
-    expect(detailPanel.text().toLowerCase()).toContain("failed");
-    // Should show failure reason section
-    expect(detailPanel.find(".sap-failure").exists()).toBe(true);
-    expect(detailPanel.find(".sap-failure-body").text()).toContain("connection timeout");
-  });
-
-  it("does not show failure reason for completed subagents", async () => {
-    const successAgent = makeTurnToolCall({
-      toolName: "task",
-      isSubagent: true,
-      toolCallId: "agent-ok",
-      agentDisplayName: "Success Agent",
-      success: true,
-      isComplete: true,
-    });
-
-    store.turns = [
-      makeTurn({
-        turnIndex: 0,
-        toolCalls: [successAgent],
-        assistantMessages: [{ content: "Done!", parentToolCallId: "agent-ok" }],
-      }),
-    ];
-
-    const wrapper = mountComponent();
-    const nodes = wrapper.findAll(".agent-node");
-    const okNode = nodes.find((n) => n.text().includes("Success Agent"));
-    await okNode?.trigger("click");
-    await nextTick();
-
-    expect(wrapper.find(".sap-failure").exists()).toBe(false);
-  });
-
-  // ── Output Rendering Tests ──────────────────────────────────────────
-
-  it("renders full output content without truncation", async () => {
-    const longContent = "A".repeat(600);
-    const agentTc = makeTurnToolCall({
-      toolName: "task",
-      isSubagent: true,
-      toolCallId: "agent-long",
-      agentDisplayName: "Verbose Agent",
-    });
-
-    store.turns = [
-      makeTurn({
-        turnIndex: 0,
-        toolCalls: [agentTc],
-        assistantMessages: [{ content: longContent, parentToolCallId: "agent-long" }],
-      }),
-    ];
-
-    const wrapper = mountComponent();
-    const nodes = wrapper.findAll(".agent-node");
-    const verboseNode = nodes.find((n) => n.text().includes("Verbose Agent"));
-    await verboseNode?.trigger("click");
-    await nextTick();
-
-    // Full output renders inside the standalone Output section (no Show more/Show less toggle)
-    const output = wrapper.find(".sap-block");
-    expect(output.exists()).toBe(true);
-    expect(output.text()).toContain("A".repeat(600));
-  });
-
-  it("renders short output without any toggle", async () => {
-    const agentTc = makeTurnToolCall({
-      toolName: "task",
-      isSubagent: true,
-      toolCallId: "agent-short",
-      agentDisplayName: "Brief Agent",
-    });
-
-    store.turns = [
-      makeTurn({
-        turnIndex: 0,
-        toolCalls: [agentTc],
-        assistantMessages: [{ content: "Short answer", parentToolCallId: "agent-short" }],
-      }),
-    ];
-
-    const wrapper = mountComponent();
-    const nodes = wrapper.findAll(".agent-node");
-    const briefNode = nodes.find((n) => n.text().includes("Brief Agent"));
-    await briefNode?.trigger("click");
-    await nextTick();
-
-    // No truncation toggle in unified activity stream
-    expect(wrapper.find(".output-toggle").exists()).toBe(false);
-    expect(wrapper.find(".detail-output--collapsed").exists()).toBe(false);
   });
 });
