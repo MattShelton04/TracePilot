@@ -16,7 +16,6 @@ export const ROUTE_NAMES = {
   sessionEvents: "session-events",
   sessionTodos: "session-todos",
   sessionMetrics: "session-metrics",
-  sessionTokenFlow: "session-token-flow",
   sessionExplorer: "session-explorer",
   sessionTimeline: "session-timeline",
   search: "search",

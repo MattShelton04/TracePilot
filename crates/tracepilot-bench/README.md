@@ -81,7 +81,6 @@ passively at runtime by the `useRenderBudget` composable
 | `render.chatViewModeMs`            | `ChatViewMode.vue`           | 200ms  |
 | `render.analyticsDashboardViewMs`  | `AnalyticsDashboardView.vue` | 180ms  |
 | `render.orchestrationHomeViewMs`   | `OrchestrationHomeView.vue`  | 150ms  |
-| `render.tokenFlowTabMs`            | `TokenFlowTab.vue`           | 180ms  |
 
 The composable times from Vue's `onMounted` to the second nested
 `requestAnimationFrame` (i.e. the first paint commit) and emits a

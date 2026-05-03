@@ -116,7 +116,7 @@ This document proposes a **single-process, multi-window** architecture using Tau
 
 **Features:**
 - Loads directly into `SessionDetailView` for a specific session ID
-- Includes all tabs (Overview, Conversation, Events, Todos, Metrics, Token Flow, Timeline)
+- Includes all tabs (Overview, Conversation, Events, Todos, Metrics, Timeline)
 - Optional SDK steering panel at bottom (if session is linked to bridge)
 - Minimal chrome — no sidebar, compact breadcrumb
 - Auto-refreshes if session is active (reuses existing `checkSessionFreshness` mechanism)

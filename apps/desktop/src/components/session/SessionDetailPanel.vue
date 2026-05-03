@@ -134,7 +134,6 @@ const routerTabs = [
   { name: "events", routeName: "session-events", label: "Events" },
   { name: "todos", routeName: "session-todos", label: "Todos" },
   { name: "metrics", routeName: "session-metrics", label: "Metrics" },
-  { name: "token-flow", routeName: "session-token-flow", label: "Token Flow" },
   { name: "explorer", routeName: "session-explorer", label: "Explorer" },
   { name: "timeline", routeName: "session-timeline", label: "Timeline" },
 ];
@@ -146,7 +145,6 @@ const localTabs = [
   { name: "events", routeName: "events", label: "Events" },
   { name: "todos", routeName: "todos", label: "Todos" },
   { name: "metrics", routeName: "metrics", label: "Metrics" },
-  { name: "token-flow", routeName: "token-flow", label: "Token Flow" },
   { name: "explorer", routeName: "explorer", label: "Explorer" },
   { name: "timeline", routeName: "timeline", label: "Timeline" },
 ];
