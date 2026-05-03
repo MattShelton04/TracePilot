@@ -175,7 +175,6 @@ pub fn read_copilot_config(copilot_home: &Path) -> Result<CopilotConfig> {
 pub fn write_copilot_config(copilot_home: &Path, config: &serde_json::Value) -> Result<()> {
     let cp = CopilotPaths::from_home(copilot_home);
     let settings_path = cp.settings_json();
-    let temp_path = settings_path.with_file_name(format!(".{}.tmp", SETTINGS_FILE));
 
     // Load the existing settings.json so unknown keys survive the
     // round-trip. If it's missing we start from `{}`. If it's present but
@@ -216,12 +215,7 @@ pub fn write_copilot_config(copilot_home: &Path, config: &serde_json::Value) -> 
         merged.insert(k.clone(), v.clone());
     }
 
-    let content = serde_json::to_string_pretty(&serde_json::Value::Object(merged))?;
-    if let Some(parent) = settings_path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-    std::fs::write(&temp_path, &content)?;
-    std::fs::rename(&temp_path, &settings_path)?;
+    crate::json_io::atomic_json_write(&settings_path, &serde_json::Value::Object(merged))?;
     Ok(())
 }
 

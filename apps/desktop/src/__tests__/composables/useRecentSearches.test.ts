@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { nextTick } from "vue";
 import type { RecentSearch } from "../../composables/useRecentSearches";
 import { useRecentSearches } from "../../composables/useRecentSearches";
 
@@ -86,11 +87,12 @@ describe("useRecentSearches", () => {
       expect(recentSearches.value[0].resultCount).toBe(20);
       expect(recentSearches.value[1].query).toBe("second");
     });
-
-    it("persists to localStorage after adding", () => {
+    it("persists to localStorage after adding", async () => {
       const { addRecentSearch } = useRecentSearches();
 
       addRecentSearch("test", 3);
+      await nextTick();
+      await nextTick();
 
       expect(mockStorage.setItem).toHaveBeenCalledWith(
         "tracepilot-recent-searches",
@@ -128,14 +130,18 @@ describe("useRecentSearches", () => {
       expect(recentSearches.value[0].query).toBe("keep");
     });
 
-    it("persists to localStorage after removing", () => {
+    it("persists to localStorage after removing", async () => {
       const { addRecentSearch, removeRecentSearch } = useRecentSearches();
 
       addRecentSearch("keep", 1);
       addRecentSearch("remove", 2);
+      await nextTick();
+      await nextTick();
       mockStorage.setItem.mockClear();
 
       removeRecentSearch("remove");
+      await nextTick();
+      await nextTick();
 
       expect(mockStorage.setItem).toHaveBeenCalled();
       const saved = JSON.parse(storageMap["tracepilot-recent-searches"]);
@@ -164,13 +170,17 @@ describe("useRecentSearches", () => {
       expect(recentSearches.value).toEqual([]);
     });
 
-    it("persists empty state to localStorage", () => {
+    it("persists empty state to localStorage", async () => {
       const { addRecentSearch, clearRecentSearches } = useRecentSearches();
 
       addRecentSearch("a", 1);
+      await nextTick();
+      await nextTick();
       mockStorage.setItem.mockClear();
 
       clearRecentSearches();
+      await nextTick();
+      await nextTick();
 
       const saved = JSON.parse(storageMap["tracepilot-recent-searches"]);
       expect(saved).toEqual([]);

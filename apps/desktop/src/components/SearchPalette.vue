@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { type SearchResult, formatNumberFull } from "@tracepilot/types";
-import { formatDuration } from "@tracepilot/types";
+import { formatDuration, formatNumberFull, type SearchResult } from "@tracepilot/types";
 import { nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import SearchPaletteResults from "@/components/search/SearchPaletteResults.vue";
