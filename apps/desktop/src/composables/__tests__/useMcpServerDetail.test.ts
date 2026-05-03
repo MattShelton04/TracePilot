@@ -155,7 +155,7 @@ describe("useMcpServerDetail", () => {
     expect(api.tokensFormatted.value).toBe("~500");
     detailRef.value = makeDetail({ totalTokens: 2500 });
     await nextTick();
-    expect(api.tokensFormatted.value).toBe("~2.5k");
+    expect(api.tokensFormatted.value).toBe("~2.5K");
     wrapper.unmount();
   });
 
