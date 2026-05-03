@@ -54,4 +54,5 @@ packages/ui/src/__vrt__/__screenshots__/**/*-diff.png
 
 # Agent planning artifacts
 .agent/
+.jules/
 package-lock.json
