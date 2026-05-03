@@ -34,11 +34,15 @@ export const useSessionTabsStore = defineStore("sessionTabs", () => {
     {
       serializer: {
         read: (raw) => {
-          const parsed = JSON.parse(raw);
-          return {
-            tabs: Array.isArray(parsed.tabs) ? parsed.tabs : [],
-            activeId: parsed.activeId ?? null,
-          };
+          try {
+            const parsed = JSON.parse(raw);
+            return {
+              tabs: Array.isArray(parsed?.tabs) ? parsed.tabs : [],
+              activeId: parsed?.activeId ?? null,
+            };
+          } catch {
+            return { tabs: [], activeId: null };
+          }
         },
         write: (val) => JSON.stringify(val),
       },
@@ -194,6 +198,7 @@ export const useSessionTabsStore = defineStore("sessionTabs", () => {
   }
 
   return {
+    persisted,
     tabs,
     activeTabId,
     activeTab,

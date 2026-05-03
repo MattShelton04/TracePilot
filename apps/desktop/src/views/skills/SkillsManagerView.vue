@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { type SkillImportResult, formatNumberFull } from "@tracepilot/types";
+import { formatNumberFull, type SkillImportResult } from "@tracepilot/types";
 import { PageHeader, PageShell, useConfirmDialog } from "@tracepilot/ui";
 import { computed, onMounted, ref } from "vue";
 import SkillCard from "@/components/skills/SkillCard.vue";

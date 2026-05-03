@@ -1,4 +1,5 @@
 import { usePersistedRef } from "@tracepilot/ui";
+import { STORAGE_KEYS } from "@/config/storageKeys";
 import { logWarn } from "@/utils/logger";
 
 export interface RecentSearch {
@@ -10,12 +11,12 @@ export interface RecentSearch {
 export interface UseRecentSearchesOptions {
   /** Maximum number of recent searches to keep. Defaults to 10. */
   maxItems?: number;
-  /** localStorage key to persist recent searches. Defaults to `'tracepilot-recent-searches'`. */
+  /** localStorage key to persist recent searches. Defaults to `STORAGE_KEYS.recentSearches`. */
   storageKey?: string;
 }
 
 const DEFAULT_MAX_ITEMS = 10;
-const DEFAULT_STORAGE_KEY = "tracepilot-recent-searches";
+const DEFAULT_STORAGE_KEY = STORAGE_KEYS.recentSearches;
 
 /**
  * Composable for managing recent search history with localStorage persistence.
@@ -31,8 +32,12 @@ export function useRecentSearches(options: UseRecentSearchesOptions = {}) {
     onParseError: (e) => logWarn("[useRecentSearches] Failed to load from localStorage:", e),
     serializer: {
       read: (raw) => {
-        const parsed = JSON.parse(raw);
-        return Array.isArray(parsed) ? parsed.slice(0, maxItems) : [];
+        try {
+          const parsed = JSON.parse(raw);
+          return Array.isArray(parsed) ? parsed.slice(0, maxItems) : [];
+        } catch {
+          return [];
+        }
       },
       write: (val) => JSON.stringify(val),
     },

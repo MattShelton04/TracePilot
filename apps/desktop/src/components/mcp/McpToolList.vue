@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { type McpTool, formatNumberFull } from "@tracepilot/types";
+import { formatNumberFull, type McpTool } from "@tracepilot/types";
 import { computed, ref } from "vue";
 
 import { formatCompactNumber } from "@/utils/numberFormatting";

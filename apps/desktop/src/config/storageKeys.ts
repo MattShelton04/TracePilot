@@ -39,6 +39,8 @@ export const STORAGE_KEYS = Object.freeze({
   sdkSettings: "tracepilot:sdk-settings",
   /** Open session tabs + active tab id. */
   sessionTabs: "tracepilot:session-tabs",
+  /** Recent search history. */
+  recentSearches: "tracepilot-recent-searches",
   /** Alert history ring buffer (up to 100 entries). */
   alerts: "tracepilot:alert-history",
 } as const);

@@ -1,4 +1,10 @@
-import { type McpServerConfig, type McpServerDetail, formatDate, formatTokens, formatDuration } from "@tracepilot/types";
+import {
+  formatDate,
+  formatDuration,
+  formatTokens,
+  type McpServerConfig,
+  type McpServerDetail,
+} from "@tracepilot/types";
 import { useToast } from "@tracepilot/ui";
 import { computed, type InjectionKey, inject, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
