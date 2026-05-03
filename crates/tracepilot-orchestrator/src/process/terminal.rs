@@ -176,11 +176,9 @@ fn spawn_terminal_macos(
     }
 
     if !program.is_empty() {
-        let cmd_str = if args.is_empty() {
-            program.to_string()
-        } else {
-            format!("{} {}", program, args.join(" "))
-        };
+        let mut escaped_args = vec![shell_quote(program)];
+        escaped_args.extend(args.iter().map(|a| shell_quote(a)));
+        let cmd_str = escaped_args.join(" ");
         parts.push(cmd_str);
     }
 
@@ -218,11 +216,9 @@ fn spawn_terminal_linux(
 
         // If a program is specified, pass it via -e; otherwise just open a shell
         if !program.is_empty() {
-            let cmd_str = if args.is_empty() {
-                program.to_string()
-            } else {
-                format!("{} {}", program, args.join(" "))
-            };
+            let mut escaped_args = vec![crate::process::shell_quote(program)];
+            escaped_args.extend(args.iter().map(|a| crate::process::shell_quote(a)));
+            let cmd_str = escaped_args.join(" ");
             command.args(["-e", &cmd_str]);
         }
 
