@@ -26,8 +26,8 @@ pub fn build_in_placeholders(n: usize) -> String {
     s
 }
 
-/// Build a complete `INSERT … VALUES (?1,?2),(…)` SQL string into a single
-/// pre-allocated buffer, using numbered bind parameters.
+/// Build a complete `INSERT … VALUES (?,?),(…)` SQL string into a single
+/// pre-allocated buffer, using sequential bind parameters.
 ///
 /// Avoids all intermediate `String`/`Vec` allocations that a `.map().collect().join()`
 /// chain produces (~600 per 50-row × 9-column batch).
@@ -43,7 +43,7 @@ pub fn build_in_placeholders(n: usize) -> String {
 /// use tracepilot_core::utils::sqlite::build_placeholder_sql;
 /// assert_eq!(
 ///     build_placeholder_sql("INSERT INTO t (a,b) VALUES", 2, 2),
-///     "INSERT INTO t (a,b) VALUES (?1,?2),(?3,?4)",
+///     "INSERT INTO t (a,b) VALUES (?,?),(?,?)",
 /// );
 /// ```
 #[must_use]
@@ -53,30 +53,29 @@ pub fn build_placeholder_sql(sql_prefix: &str, num_rows: usize, params_per_row: 
         params_per_row > 0,
         "build_placeholder_sql requires params_per_row > 0"
     );
-    use crate::utils::InfallibleWrite;
-    // SQLite max bind parameter is ?32766 (5 digits). Each param slot is
-    // "?NNNNN" (up to 6 chars) + "," separator = 7 chars. Each row adds "(", ")"
-    // and "," between rows = 3 chars. Capacity is a tight upper bound.
-    let total_params = num_rows * params_per_row;
-    let param_digits = total_params.checked_ilog10().unwrap_or(0) as usize + 1;
+    if num_rows == 0 || params_per_row == 0 {
+        return sql_prefix.to_string();
+    }
+
     let mut sql = String::with_capacity(
-        sql_prefix.len() + 1 + num_rows * (params_per_row * (param_digits + 2) + 3),
+        sql_prefix.len() + 1 + num_rows * (params_per_row * 2 + 1) + num_rows - 1,
     );
     sql.push_str(sql_prefix);
     sql.push(' ');
-    for i in 0..num_rows {
-        if i > 0 {
-            sql.push(',');
-        }
-        sql.push('(');
-        let start = i * params_per_row + 1;
-        for n in start..start + params_per_row {
-            if n > start {
-                sql.push(',');
-            }
-            sql.push_fmt(format_args!("?{n}"));
-        }
-        sql.push(')');
+
+    let mut row_str = String::with_capacity(params_per_row * 2 + 1);
+    row_str.push('(');
+    row_str.push('?');
+    for _ in 1..params_per_row {
+        row_str.push(',');
+        row_str.push('?');
+    }
+    row_str.push(')');
+
+    sql.push_str(&row_str);
+    for _ in 1..num_rows {
+        sql.push(',');
+        sql.push_str(&row_str);
     }
     sql
 }

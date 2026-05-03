@@ -66,6 +66,7 @@ onUnmounted(() => {
       :class="{ 'refresh-btn--spinning': showSpinner }"
       :disabled="refreshing"
       title="Refresh data"
+      aria-label="Refresh data"
       @click="emit('refresh')"
     >
       <svg class="refresh-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -78,6 +79,7 @@ onUnmounted(() => {
       <input
         type="checkbox"
         :checked="autoRefreshEnabled"
+        aria-label="Enable auto-refresh"
         @change="emit('update:autoRefreshEnabled', ($event.target as HTMLInputElement).checked)"
       />
       <span class="auto-toggle-label">Auto</span>
@@ -87,6 +89,7 @@ onUnmounted(() => {
       v-if="autoRefreshEnabled"
       class="interval-cycle-btn"
       :title="`Auto-refresh every ${intervalLabel} (click to change)`"
+      aria-label="Change auto-refresh interval"
       @click="cycleInterval"
     >
       {{ intervalLabel }}

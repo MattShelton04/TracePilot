@@ -84,11 +84,11 @@ function sortIcon(field: "branch" | "status" | "createdAt" | "diskUsageBytes"): 
     >
       <!-- Icon -->
       <div class="wt-row-icon" :class="wt.isMainWorktree ? 'wt-row-icon--main' : 'wt-row-icon--' + wt.status">
-        <svg v-if="wt.isMainWorktree" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <svg v-if="wt.isMainWorktree" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
           <circle cx="12" cy="15" r="2" />
         </svg>
-        <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <line x1="6" y1="3" x2="6" y2="15" />
           <circle cx="18" cy="6" r="3" />
           <circle cx="6" cy="18" r="3" />
@@ -137,6 +137,7 @@ function sortIcon(field: "branch" | "status" | "createdAt" | "diskUsageBytes"): 
           stroke-width="1.5"
           stroke-linecap="round"
           stroke-linejoin="round"
+          aria-hidden="true"
           :title="wt.lockedReason ? `Locked: ${wt.lockedReason}` : 'Locked'"
         >
           <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
@@ -149,14 +150,14 @@ function sortIcon(field: "branch" | "status" | "createdAt" | "diskUsageBytes"): 
 
       <!-- Actions -->
       <div class="wt-row-actions" @click.stop>
-        <button class="icon-btn" title="Open Folder" @click="emit('open-explorer', wt.path)">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>
+        <button class="icon-btn" title="Open Folder" aria-label="Open Folder" @click="emit('open-explorer', wt.path)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>
         </button>
-        <button class="icon-btn" title="Open Terminal" @click="emit('open-terminal', wt.path)">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5" /><line x1="12" y1="19" x2="20" y2="19" /></svg>
+        <button class="icon-btn" title="Open Terminal" aria-label="Open Terminal" @click="emit('open-terminal', wt.path)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="4 17 10 11 4 5" /><line x1="12" y1="19" x2="20" y2="19" /></svg>
         </button>
-        <button class="icon-btn" title="Launch Session Here" @click="emit('navigate-launcher', wt)">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3" /></svg>
+        <button class="icon-btn" title="Launch Session Here" aria-label="Launch Session Here" @click="emit('navigate-launcher', wt)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3" /></svg>
         </button>
         <button
           class="icon-btn"
