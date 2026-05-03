@@ -41,19 +41,19 @@ Split the capabilities into two files, each scoped by window label:
 ## Viewer allow-list (and why each entry is there)
 
 Audited by tracing the viewer mount path:
-`ChildApp.vue` → `SessionDetailTabView.vue` → `SessionDetailPanel.vue` + tab components (`OverviewTab`, `ConversationTab`, `EventsTab`, `TodosTab`, `MetricsTab`, `TokenFlowTab`, `SessionTimelineView`).
+`ChildApp.vue` → `SessionDetailTabView.vue` → `SessionDetailPanel.vue` + tab components (`OverviewTab`, `ConversationTab`, `EventsTab`, `TodosTab`, `MetricsTab`, `SessionTimelineView`).
 
 | Command | Reached from | Read-only? |
 | --- | --- | --- |
 | `list_sessions` | `stores/sessions.ts` → `fetchSessions()` in `ChildApp.onMounted` | yes |
 | `get_session_detail` | `composables/useSessionDetail.ts` → `loadDetail` | yes |
-| `get_session_turns` | `useSessionDetail.loadTurns` (Conversation / Token Flow) | yes |
+| `get_session_turns` | `useSessionDetail.loadTurns` (Conversation) | yes |
 | `get_session_events` | `useSessionDetail.loadEvents` (Events tab) | yes |
 | `get_session_incidents` | `useSessionDetail` incidents section | yes |
 | `get_session_todos` | `useSessionDetail` todos section (Todos tab) | yes |
 | `get_session_checkpoints` | `useSessionDetail` checkpoints (Overview) | yes |
 | `get_session_plan` | `useSessionDetail` plan (Overview) | yes |
-| `get_shutdown_metrics` | `useSessionDetail` metrics (Metrics / Token Flow) | yes |
+| `get_shutdown_metrics` | `useSessionDetail` metrics (Metrics) | yes |
 | `check_session_freshness` | `useSessionDetail` auto-refresh gate | yes |
 | `is_session_running` | `SessionDetailPanel.checkRunning` (active-badge) | yes |
 | `get_tool_result` | `composables/useToolResultLoader` (Conversation expand-tool) | yes |

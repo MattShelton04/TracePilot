@@ -52,7 +52,6 @@ Each session has seven tabs for full inspection:
 | **Events** | Raw event log with type filtering and pagination |
 | **Todos** | Copilot's internal task tracker with built-in dependency graph visualization |
 | **Metrics** | Per-model token breakdown, cache efficiency, cost estimates |
-| **Token Flow** | Token distribution across models with cost comparison |
 | **Timeline** | Three visualizations: Agent Tree, Swimlanes, and Waterfall |
 
 ![Overview](docs/images/session_overview.png)

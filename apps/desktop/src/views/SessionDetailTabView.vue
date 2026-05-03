@@ -27,7 +27,6 @@ const innerTabComponents: Record<string, ReturnType<typeof defineAsyncComponent>
   events: defineAsyncComponent(() => import("@/views/tabs/EventsTab.vue")),
   todos: defineAsyncComponent(() => import("@/views/tabs/TodosTab.vue")),
   metrics: defineAsyncComponent(() => import("@/views/tabs/MetricsTab.vue")),
-  "token-flow": defineAsyncComponent(() => import("@/views/tabs/TokenFlowTab.vue")),
   explorer: defineAsyncComponent(() => import("@/views/tabs/ExplorerTab.vue")),
   timeline: defineAsyncComponent(() => import("@/views/SessionTimelineView.vue")),
 };

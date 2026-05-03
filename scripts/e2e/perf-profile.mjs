@@ -138,7 +138,7 @@ if (largeSession) {
     }),
   );
 
-  for (const tab of ["conversation", "events", "todos", "metrics", "timeline", "token-flow"]) {
+  for (const tab of ["conversation", "events", "todos", "metrics", "timeline"]) {
     results.push(
       await measureStep(`  Tab: ${tab}  (large ${evts})`, page, cdp, async () => {
         await navigateTo(page, `/session/${sid}/${tab}`);

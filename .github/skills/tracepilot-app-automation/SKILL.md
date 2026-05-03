@@ -141,7 +141,6 @@ The app uses **hash-based routing** (`createWebHashHistory()`). Navigate by sett
 | `/#/session/:id/events` | Events | `session-tab-session-events` |
 | `/#/session/:id/todos` | Todos | `session-tab-session-todos` |
 | `/#/session/:id/metrics` | Metrics | `session-tab-session-metrics` |
-| `/#/session/:id/token-flow` | Token Flow | `session-tab-session-token-flow` |
 | `/#/session/:id/timeline` | Timeline | `session-tab-session-timeline` |
 | `/#/search` | Deep Search | `search-input`, `search-input-field`, `nav-search` |
 | `/#/analytics` | Analytics | `nav-analytics` |
