@@ -6,6 +6,7 @@ import SearchPaletteResults from "@/components/search/SearchPaletteResults.vue";
 import { useSearchPaletteSearch } from "@/composables/useSearchPaletteSearch";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
+import { formatDuration } from "@tracepilot/types";
 import { shouldIgnoreGlobalShortcut } from "@/utils/keyboardShortcuts";
 
 // ── Router ───────────────────────────────────────────────────
@@ -209,7 +210,7 @@ onUnmounted(() => {
           <div v-if="hasQuery && !loading && hasResults" class="palette-status">
             {{ totalCount.toLocaleString() }} result{{ totalCount !== 1 ? 's' : '' }}
             across {{ uniqueSessionCount().toLocaleString() }} session{{ uniqueSessionCount() !== 1 ? 's' : '' }}
-            · {{ latencyMs < 1000 ? `${latencyMs.toFixed(2)}ms` : `${(latencyMs / 1000).toFixed(2)}s` }}
+            · {{ formatDuration(latencyMs) }}
           </div>
 
           <!-- ═══ Results ═══ -->
