@@ -11,6 +11,8 @@
 
 use std::path::Path;
 
+use tracepilot_core::paths::CopilotPaths;
+
 use crate::error::{OrchestratorError, Result};
 use crate::types::CopilotConfig;
 
@@ -92,8 +94,9 @@ fn merge_objects(
 /// surface a banner and disable destructive operations rather than crashing
 /// with an opaque "expected value at line 1 column 1" message.
 pub fn read_copilot_config(copilot_home: &Path) -> Result<CopilotConfig> {
-    let settings_path = copilot_home.join(SETTINGS_FILE);
-    let config_path = copilot_home.join(CONFIG_FILE);
+    let cp = CopilotPaths::from_home(copilot_home);
+    let settings_path = cp.settings_json();
+    let config_path = cp.config_json();
     let settings_path_str = settings_path.to_string_lossy().to_string();
 
     let mut errors: Vec<String> = Vec::new();
@@ -170,7 +173,8 @@ pub fn read_copilot_config(copilot_home: &Path) -> Result<CopilotConfig> {
 ///   ensure `parse_error` is clear before invoking save.
 /// * Atomic via temp-file + rename.
 pub fn write_copilot_config(copilot_home: &Path, config: &serde_json::Value) -> Result<()> {
-    let settings_path = copilot_home.join(SETTINGS_FILE);
+    let cp = CopilotPaths::from_home(copilot_home);
+    let settings_path = cp.settings_json();
     let temp_path = copilot_home.join(format!(".{}.tmp", SETTINGS_FILE));
 
     // Load the existing settings.json so unknown keys survive the
