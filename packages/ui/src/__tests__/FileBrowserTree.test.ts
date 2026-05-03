@@ -150,8 +150,8 @@ describe("FileBrowserTree", () => {
     });
 
     expect(wrapper.text()).toContain("500 B");
-    expect(wrapper.text()).toContain("2.0 KB");
-    expect(wrapper.text()).toContain("1.0 MB");
+    expect(wrapper.text()).toContain("2 KB");
+    expect(wrapper.text()).toContain("1 MB");
   });
 
   it("emits viewFile on Enter key press", async () => {
