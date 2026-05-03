@@ -1,7 +1,8 @@
 /* ── Session Explorer — fill-height layout ────────────────────────────────────
  *
  * When the Explorer tab is active, .page-content must become a flex column
- * so that .detail-tab-content can grow to fill all remaining viewport height.
+ * so that .detail-tab-content can grow to fill all remaining viewport height
+ * while preserving the standard PageShell max-width wrapper used by other tabs.
  *
  * Scoped to .explorer-mode (applied by SessionDetailPanel via :class binding)
  * so no other session tabs are affected.
@@ -15,14 +16,16 @@
 }
 
 /*
- * PageShell renders a .page-content-fluid wrapper div in fluid mode (no
- * max-width constraint). Make it a flex column so the height chain reaches
- * .detail-tab-content without relying on an anonymous > div selector.
+ * Make the standard constrained PageShell wrapper a flex column so the height
+ * chain reaches .detail-tab-content without opting into full-bleed width. The
+ * explicit width preserves PageShell's normal block-width behavior after the
+ * wrapper becomes a flex item.
  */
-.page-content.explorer-mode .page-content-fluid {
+.page-content.explorer-mode .page-content-inner {
   display: flex;
   flex-direction: column;
   flex: 1;
+  width: 100%;
   min-height: 0;
 }
 
