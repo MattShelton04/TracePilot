@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatNumberFull } from "@tracepilot/types";
 import { MarkdownContent } from "@tracepilot/ui";
 import SkillAssetsTree from "@/components/skills/SkillAssetsTree.vue";
 import SkillScopeBadge from "@/components/skills/SkillScopeBadge.vue";
@@ -33,7 +34,7 @@ const ctx = useSkillEditorContext();
           <div class="preview-skill-meta">
             <SkillScopeBadge :scope="ctx.store.selectedSkill!.scope" />
             <span class="badge badge-neutral">
-              ~{{ ctx.store.selectedSkill!.estimatedTokens.toLocaleString() }} tokens
+              ~{{ formatNumberFull(ctx.store.selectedSkill!.estimatedTokens) }} tokens
             </span>
           </div>
         </div>

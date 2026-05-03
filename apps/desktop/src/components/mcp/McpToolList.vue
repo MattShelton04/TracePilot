@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { McpTool } from "@tracepilot/types";
+import { type McpTool, formatNumberFull } from "@tracepilot/types";
 import { computed, ref } from "vue";
 
 import { formatCompactNumber } from "@/utils/numberFormatting";
@@ -38,7 +38,7 @@ const filteredTools = computed(() => {
     <div v-for="tool in filteredTools" :key="tool.name" class="tool-item">
       <div class="tool-header">
         <code class="tool-name">{{ tool.name }}</code>
-        <span class="tool-tokens" :title="`${tool.estimatedTokens.toLocaleString()} estimated tokens`">
+        <span class="tool-tokens" :title="`${formatNumberFull(tool.estimatedTokens)} estimated tokens`">
           {{ formatCompactNumber(tool.estimatedTokens) }} tok
         </span>
       </div>

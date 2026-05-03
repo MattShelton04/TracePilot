@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { formatNumberFull } from "@tracepilot/types";
+
 defineProps<{
   page: number;
   totalPages: number;
@@ -44,7 +46,7 @@ const emit = defineEmits<{
       Next ›
     </button>
     <span class="pagination-info">
-      {{ pageStart }}–{{ pageEnd }} of {{ totalCount.toLocaleString() }}
+      {{ pageStart }}–{{ pageEnd }} of {{ formatNumberFull(totalCount) }}
     </span>
   </div>
 </template>

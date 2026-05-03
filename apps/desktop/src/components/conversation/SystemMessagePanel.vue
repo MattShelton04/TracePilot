@@ -7,6 +7,7 @@
  * Copilot CLI system prompt, emitted once per turn in auto-model-selection
  * sessions and also re-emitted after each context compaction.
  */
+import { formatNumberFull } from "@tracepilot/types";
 import { ExpandChevron, MarkdownContent, useClipboard } from "@tracepilot/ui";
 import { computed, ref } from "vue";
 
@@ -46,7 +47,7 @@ async function handleCopy(e: MouseEvent) {
       >
         <span class="smp-icon" aria-hidden="true">🔧</span>
         <span class="smp-label">{{ label }}</span>
-        <span class="smp-badge">{{ wordCount.toLocaleString() }} words</span>
+        <span class="smp-badge">{{ formatNumberFull(wordCount) }} words</span>
       </button>
       <button
         class="smp-copy"

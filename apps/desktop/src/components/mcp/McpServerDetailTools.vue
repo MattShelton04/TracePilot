@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatNumberFull } from "@tracepilot/types";
 import { useMcpServerDetailContext } from "@/composables/useMcpServerDetail";
 
 const { server, toolSearch, expandedTools, filteredTools, toggleToolExpand } =
@@ -51,7 +52,7 @@ const { server, toolSearch, expandedTools, filteredTools, toggleToolExpand } =
     </div>
     <div v-if="server.tools.length > 0" class="tools-summary">
       <span><strong>{{ server.tools.length }}</strong> of {{ server.tools.length }} enabled</span>
-      <span class="token-cost">~{{ server.totalTokens.toLocaleString() }} estimated tokens</span>
+      <span class="token-cost">~{{ formatNumberFull(server.totalTokens) }} estimated tokens</span>
     </div>
   </div>
 </template>

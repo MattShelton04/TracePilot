@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { formatDuration } from "@tracepilot/types";
+import { formatDuration, formatNumberFull } from "@tracepilot/types";
 
 defineProps<{
   hasResults: boolean;
@@ -22,7 +22,7 @@ const emit = defineEmits<{
 <template>
   <div class="results-summary">
     <span v-if="hasResults" class="results-summary-text">
-      {{ isBrowseMode ? 'Browsing' : 'Found' }} <strong>{{ totalCount.toLocaleString() }}</strong>
+      {{ isBrowseMode ? 'Browsing' : 'Found' }} <strong>{{ formatNumberFull(totalCount) }}</strong>
       result{{ totalCount !== 1 ? 's' : '' }}
       <span v-if="resultViewMode === 'grouped'"> across <strong>{{ groupedCount }}</strong> session{{ groupedCount !== 1 ? 's' : '' }}</span>
       <span class="summary-speed">({{ formatDuration(latencyMs) }})</span>

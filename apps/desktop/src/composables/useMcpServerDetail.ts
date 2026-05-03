@@ -1,4 +1,4 @@
-import type { McpServerConfig, McpServerDetail } from "@tracepilot/types";
+import { type McpServerConfig, type McpServerDetail, formatDate, formatTokens, formatDuration } from "@tracepilot/types";
 import { useToast } from "@tracepilot/ui";
 import { computed, type InjectionKey, inject, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
@@ -62,18 +62,12 @@ export function useMcpServerDetail() {
 
   const latencyDisplay = computed(() => {
     const ms = server.value?.health?.latencyMs;
-    if (ms == null) return null;
-    return ms;
+    return ms != null ? formatDuration(ms) : null;
   });
 
   const lastCheckedDisplay = computed(() => {
     const at = server.value?.health?.checkedAt;
-    if (!at) return "Never";
-    try {
-      return new Date(at).toLocaleString();
-    } catch {
-      return at;
-    }
+    return at ? formatDate(at) : "Never";
   });
 
   const transportLabel = computed(() => server.value?.config.type ?? "stdio");
@@ -106,7 +100,7 @@ export function useMcpServerDetail() {
 
   const tokensFormatted = computed(() => {
     const t = server.value?.totalTokens ?? 0;
-    return t >= 1000 ? `~${(t / 1000).toFixed(1)}k` : `~${t}`;
+    return `~${formatTokens(t)}`;
   });
 
   onMounted(async () => {

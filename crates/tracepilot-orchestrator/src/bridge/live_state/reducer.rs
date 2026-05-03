@@ -135,13 +135,7 @@ fn rebuild_visible(committed: &str, pending: &[PendingDelta], visible: &mut Stri
     for p in pending {
         visible.push_str(&p.delta);
     }
-    if visible.len() > MAX_TEXT_PREVIEW_CHARS {
-        let mut start = visible.len().saturating_sub(MAX_TEXT_PREVIEW_CHARS);
-        while start < visible.len() && !visible.is_char_boundary(start) {
-            start += 1;
-        }
-        visible.drain(..start);
-    }
+    drain_to_tail(visible, MAX_TEXT_PREVIEW_CHARS);
 }
 
 /// Apply a final `assistant.message` / `assistant.reasoning` event. Drains the
@@ -430,14 +424,7 @@ fn number_field(value: &Value, keys: &[&str]) -> Option<f64> {
 
 fn append_capped(target: &mut String, delta: &str) {
     target.push_str(delta);
-    if target.len() <= MAX_TEXT_PREVIEW_CHARS {
-        return;
-    }
-    let mut start = target.len().saturating_sub(MAX_TEXT_PREVIEW_CHARS);
-    while start < target.len() && !target.is_char_boundary(start) {
-        start += 1;
-    }
-    target.drain(..start);
+    drain_to_tail(target, MAX_TEXT_PREVIEW_CHARS);
 }
 
 fn compact_partial_result(value: &Value) -> Value {
@@ -473,11 +460,28 @@ fn truncate_string(value: &str, max_len: usize) -> String {
     if value.len() <= max_len {
         return value.to_string();
     }
-    let mut start = value.len().saturating_sub(max_len);
-    while start < value.len() && !value.is_char_boundary(start) {
+    let start = find_tail_start(value, max_len);
+    format!("…{}", &value[start..])
+}
+
+/// Truncate a string in-place to keep only the trailing `max_len` bytes,
+/// respecting UTF-8 character boundaries.
+fn drain_to_tail(s: &mut String, max_len: usize) {
+    if s.len() <= max_len {
+        return;
+    }
+    let start = find_tail_start(s, max_len);
+    s.drain(..start);
+}
+
+/// Find the byte index to start from to keep the trailing `max_len` bytes
+/// while respecting UTF-8 character boundaries.
+fn find_tail_start(s: &str, max_len: usize) -> usize {
+    let mut start = s.len().saturating_sub(max_len);
+    while start < s.len() && !s.is_char_boundary(start) {
         start += 1;
     }
-    format!("…{}", &value[start..])
+    start
 }
 
 fn warn(state: &mut SessionLiveState, event: &BridgeEvent, warning: &str) {
