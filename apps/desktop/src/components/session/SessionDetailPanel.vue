@@ -446,4 +446,3 @@ watch(isSessionActive, (active) => {
   padding-top: 4px;
 }
 </style>
-/style>
