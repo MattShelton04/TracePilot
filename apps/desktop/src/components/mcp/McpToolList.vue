@@ -2,6 +2,8 @@
 import type { McpTool } from "@tracepilot/types";
 import { computed, ref } from "vue";
 
+import { formatCompactNumber } from "@/utils/numberFormatting";
+
 const props = defineProps<{
   tools: McpTool[];
 }>();
@@ -37,7 +39,7 @@ const filteredTools = computed(() => {
       <div class="tool-header">
         <code class="tool-name">{{ tool.name }}</code>
         <span class="tool-tokens" :title="`${tool.estimatedTokens.toLocaleString()} estimated tokens`">
-          {{ tool.estimatedTokens >= 1000 ? `${(tool.estimatedTokens / 1000).toFixed(1)}k` : tool.estimatedTokens }} tok
+          {{ formatCompactNumber(tool.estimatedTokens) }} tok
         </span>
       </div>
       <p v-if="tool.description" class="tool-description">{{ tool.description }}</p>

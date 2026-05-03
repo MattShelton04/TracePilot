@@ -4,6 +4,7 @@ import { useAnalyticsPage } from "@/composables/useAnalyticsPage";
 import { usePreferencesStore } from "@/stores/preferences";
 import { MODEL_PALETTE } from "@/utils/chartColors";
 import { formatModelDelta } from "@/utils/deltaFormatting";
+import { formatCompactNumber } from "@/utils/numberFormatting";
 import {
   radarAxisEnd,
   radarLabelPos,
@@ -315,7 +316,7 @@ export function useModelComparison() {
     if (normMode.value === "share") return `${value.toFixed(1)}%`;
     if (isCost) {
       // Compact cost format for large values
-      if (Math.abs(value) >= 1_000) return `$${(value / 1_000).toFixed(1)}K`;
+      if (Math.abs(value) >= 1_000) return `$${formatCompactNumber(value).toUpperCase()}`;
       return formatCost(value);
     }
     if (normMode.value === "per-10m-tokens") {

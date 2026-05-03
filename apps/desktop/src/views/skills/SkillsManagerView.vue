@@ -4,6 +4,7 @@ import { PageHeader, PageShell, useConfirmDialog } from "@tracepilot/ui";
 import { computed, onMounted, ref } from "vue";
 import SkillCard from "@/components/skills/SkillCard.vue";
 import SkillImportWizard from "@/components/skills/SkillImportWizard.vue";
+import { formatCompactNumber } from "@/utils/numberFormatting";
 import { useSkillsStore } from "@/stores/skills";
 
 const store = useSkillsStore();
@@ -28,8 +29,7 @@ onMounted(() => {
 });
 
 function formatTokens(n: number): string {
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
-  return String(n);
+  return formatCompactNumber(n);
 }
 
 function formatTokensWithCommas(n: number): string {
