@@ -7,6 +7,7 @@
  */
 import type { FileEntry } from "@tracepilot/types";
 import { computed, type Ref, ref, watch } from "vue";
+import { formatBytes } from "../utils/formatters";
 
 export interface UseFileBrowserTreeOptions {
   /** Folders with more files than this are auto-collapsed on load. */
@@ -181,11 +182,12 @@ export function useFileBrowserTree<TEntry extends FileEntry>(
 
   const fileCount = computed(() => entries.value.filter((e) => !e.isDirectory).length);
 
-  function formatSize(bytes: number): string {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  }
-
-  return { treeStructure, visibleRows, fileCount, collapsedFolders, toggleFolder, formatSize };
+  return {
+    treeStructure,
+    visibleRows,
+    fileCount,
+    collapsedFolders,
+    toggleFolder,
+    formatSize: formatBytes,
+  };
 }
