@@ -136,24 +136,12 @@ impl IndexDb {
                 |row, params| {
                     params.push(&row.session_id);
                     params.push(&row.content_type as &dyn rusqlite::ToSql);
-                    match &row.turn_number {
-                        Some(n) => params.push(n),
-                        None => params.push(&rusqlite::types::Null),
-                    }
+                    params.push(&row.turn_number);
                     params.push(&row.event_index);
-                    match &row.timestamp_unix {
-                        Some(n) => params.push(n),
-                        None => params.push(&rusqlite::types::Null),
-                    }
-                    match &row.tool_name {
-                        Some(s) => params.push(s),
-                        None => params.push(&rusqlite::types::Null),
-                    }
+                    params.push(&row.timestamp_unix);
+                    params.push(&row.tool_name);
                     params.push(&row.content);
-                    match &row.metadata_json {
-                        Some(s) => params.push(s),
-                        None => params.push(&rusqlite::types::Null),
-                    }
+                    params.push(&row.metadata_json);
                 },
             )?;
             let inserted = non_empty.len();
@@ -249,24 +237,12 @@ impl IndexDb {
                     |row, params| {
                         params.push(&row.session_id);
                         params.push(&row.content_type as &dyn rusqlite::ToSql);
-                        match &row.turn_number {
-                            Some(n) => params.push(n),
-                            None => params.push(&rusqlite::types::Null),
-                        }
+                        params.push(&row.turn_number);
                         params.push(&row.event_index);
-                        match &row.timestamp_unix {
-                            Some(n) => params.push(n),
-                            None => params.push(&rusqlite::types::Null),
-                        }
-                        match &row.tool_name {
-                            Some(s) => params.push(s),
-                            None => params.push(&rusqlite::types::Null),
-                        }
+                        params.push(&row.timestamp_unix);
+                        params.push(&row.tool_name);
                         params.push(&row.content);
-                        match &row.metadata_json {
-                            Some(s) => params.push(s),
-                            None => params.push(&rusqlite::types::Null),
-                        }
+                        params.push(&row.metadata_json);
                     },
                 )?;
                 total_inserted += non_empty.len();

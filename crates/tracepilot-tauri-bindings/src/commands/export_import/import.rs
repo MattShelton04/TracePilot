@@ -19,7 +19,7 @@ pub async fn preview_import(
     let session_state_dir = cfg.session_state_dir();
 
     blocking_cmd!({
-        let path = PathBuf::from(&file_path);
+        let path = PathBuf::from(file_path);
 
         let preview = tracepilot_export::import::preview_import(&path, Some(&session_state_dir))?;
 
@@ -77,7 +77,7 @@ pub async fn import_sessions(
     };
 
     blocking_cmd!({
-        let path = PathBuf::from(&file_path);
+        let path = PathBuf::from(file_path);
 
         let options = tracepilot_export::import::ImportOptions {
             conflict_strategy: strategy,

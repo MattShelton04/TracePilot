@@ -19,7 +19,7 @@ pub async fn export_logs(app: tauri::AppHandle, destination: String) -> CmdResul
     blocking_cmd!({
         use std::io::Read;
 
-        let dest = std::path::PathBuf::from(&destination);
+        let dest = std::path::PathBuf::from(destination);
 
         if !dest.is_absolute() {
             return Err(BindingsError::Validation(
