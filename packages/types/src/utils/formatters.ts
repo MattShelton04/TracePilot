@@ -17,7 +17,7 @@ export function formatDuration(ms?: number | null): string {
   if (hours > 0) return `${hours}h ${minutes}m`;
   if (minutes > 0) return `${minutes}m ${Math.floor(seconds)}s`;
   // Show one decimal for sub-minute durations (e.g. "2.1s")
-  return seconds % 1 === 0 ? `${seconds}s` : `${seconds.toFixed(1)}s`;
+  return `${formatCleanFloat(seconds, 1)}s`;
 }
 
 /** Format an ISO date string to locale date+time. */
@@ -66,8 +66,8 @@ export function formatRelativeTime(value?: string | number | null): string {
 /** Abbreviate large numbers (1200 → "1.2K", 1500000 → "1.5M"). */
 export function formatNumber(n?: number | null): string {
   if (n == null || !Number.isFinite(n)) return "0";
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  if (n >= 1_000_000) return `${formatCleanFloat(n / 1_000_000, 1)}M`;
+  if (n >= 1_000) return `${formatCleanFloat(n / 1_000, 1)}K`;
   return n.toString();
 }
 
@@ -98,16 +98,24 @@ export function formatLiveDuration(ms?: number | null): string {
   return formatDuration(floored);
 }
 
-/** Format a rate (0–1) as a percentage string (e.g. 0.95 → "95.0%"). */
+/** Format a rate (0–1) as a percentage string (e.g. 0.95 → "95%"). */
 export function formatRate(rate?: number | null): string {
-  if (rate == null || !Number.isFinite(rate)) return "0.0%";
-  return `${(rate * 100).toFixed(1)}%`;
+  if (rate == null || !Number.isFinite(rate)) return "0%";
+  return `${formatCleanFloat(rate * 100, 1)}%`;
 }
 
 /** Format a percentage value (0–100) as a string (e.g. 95.1 → "95.1%"). */
 export function formatPercent(value?: number | null): string {
-  if (value == null || !Number.isFinite(value)) return "0.0%";
-  return `${value.toFixed(1)}%`;
+  if (value == null || !Number.isFinite(value)) return "0%";
+  return `${formatCleanFloat(value, 1)}%`;
+}
+
+/**
+ * Internal helper to format a float with fixed decimals, stripping trailing zeros
+ * and the decimal point if it becomes an integer (e.g. 12.0 -> 12).
+ */
+function formatCleanFloat(value: number, decimals: number): string {
+  return value.toFixed(decimals).replace(/\.0+$/, "");
 }
 
 /** Format an ISO date as a short M/D string (e.g. "3/19"). Uses UTC. */
@@ -144,7 +152,7 @@ export function formatBytes(bytes?: number | null): string {
   const units = ["B", "KB", "MB", "GB", "TB"];
   const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
   const value = bytes / 1024 ** i;
-  return `${value.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+  return `${formatCleanFloat(value, i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
 /** Format milliseconds as a clock-style "MM:SS" string (e.g. 90000 → "01:30").
