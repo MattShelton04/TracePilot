@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { SearchResult } from "@tracepilot/types";
+import { type SearchResult, formatNumberFull } from "@tracepilot/types";
 import { formatDuration } from "@tracepilot/types";
 import { nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
@@ -208,8 +208,8 @@ onUnmounted(() => {
 
           <!-- ═══ Status ═══ -->
           <div v-if="hasQuery && !loading && hasResults" class="palette-status">
-            {{ totalCount.toLocaleString() }} result{{ totalCount !== 1 ? 's' : '' }}
-            across {{ uniqueSessionCount().toLocaleString() }} session{{ uniqueSessionCount() !== 1 ? 's' : '' }}
+            {{ formatNumberFull(totalCount) }} result{{ totalCount !== 1 ? 's' : '' }}
+            across {{ formatNumberFull(uniqueSessionCount()) }} session{{ uniqueSessionCount() !== 1 ? 's' : '' }}
             · {{ formatDuration(latencyMs) }}
           </div>
 
