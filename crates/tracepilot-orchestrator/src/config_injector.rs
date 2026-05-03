@@ -16,6 +16,7 @@ pub use copilot_config::{CONFIG_FILE, SETTINGS_FILE, read_copilot_config, write_
 use crate::error::{OrchestratorError, Result};
 use crate::types::{AgentDefinition, BackupDiffPreview, BackupEntry, ConfigDiff};
 use std::path::{Path, PathBuf};
+use tracepilot_core::TracePilotError;
 use tracepilot_core::utils::backup::BackupStore;
 
 /// Read all agent definitions for a given Copilot version.
@@ -209,12 +210,7 @@ pub fn restore_backup(backup_path: &Path, restore_to: &Path) -> Result<()> {
 /// Preview what would change if a backup were restored.
 /// Returns both the backup file content and the current file content.
 pub fn preview_backup_restore(backup_path: &Path, source_path: &Path) -> Result<BackupDiffPreview> {
-    let backup_content = std::fs::read_to_string(backup_path).map_err(|e| {
-        OrchestratorError::Io(std::io::Error::new(
-            e.kind(),
-            format!("Cannot read backup file: {}", e),
-        ))
-    })?;
+    let backup_content = TracePilotError::read_to_string(backup_path)?;
     let current_content = std::fs::read_to_string(source_path).unwrap_or_default();
     Ok(BackupDiffPreview {
         backup_content,
@@ -249,8 +245,9 @@ pub fn diff_files(old_path: &Path, new_path: &Path) -> Result<ConfigDiff> {
 // ─── Internal helpers ─────────────────────────────────────────────
 
 fn parse_agent_yaml(path: &Path) -> Result<Option<AgentDefinition>> {
-    let content = std::fs::read_to_string(path)?;
-    let value: serde_yml::Value = serde_yml::from_str(&content)?;
+    let content = TracePilotError::read_to_string(path)?;
+    let value: serde_yml::Value = serde_yml::from_str(&content)
+        .map_err(|e| TracePilotError::parse_context("YAML", path.display(), e))?;
 
     let name = value
         .get("name")

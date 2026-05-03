@@ -70,11 +70,10 @@ fn list_templates_from_dir(dir: &Path) -> Result<Vec<SessionTemplate>> {
             _ => {}
         }
 
-        let content = std::fs::read_to_string(&path)?;
-        match serde_json::from_str::<SessionTemplate>(&content) {
+        match tracepilot_core::TracePilotError::read_json::<SessionTemplate>(&path) {
             Ok(template) => templates.push(template),
             Err(e) => {
-                tracing::warn!("Failed to parse template {}: {}", path.display(), e);
+                tracing::warn!("Failed to load template: {e}");
             }
         }
     }
