@@ -100,6 +100,8 @@ versionsCmd
   .command("report")
   .description("Generate comprehensive version analysis report")
   .option("-o, --output <path>", "Write report to file (default: stdout)")
+  .option("--from <version>", "Focus report on a baseline Copilot CLI version")
+  .option("--to <version>", "Focus report on a target Copilot CLI version")
   .action(versionsReportCommand);
 
 versionsCmd

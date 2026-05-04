@@ -12,6 +12,7 @@ tracepilot search <query>          # FTS search across indexed sessions
 tracepilot index                   # Build / refresh the local search index
 tracepilot resume <session-id>     # Print the resume command for a session
 tracepilot versions                # Show Copilot CLI version history
+tracepilot versions report --from 1.0.24 --to 1.0.40 --output docs\reports\versions\report.md
 ```
 
 Run `tracepilot <command> --help` for per-command flags.

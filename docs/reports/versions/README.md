@@ -16,6 +16,9 @@ Reports follow the format: `{date}-v{latest_version}-{label}.md`
 # Generate with a timestamped name
 pnpm cli versions report --output "docs/reports/versions/$(date +%Y-%m-%d)-v{VERSION}-{label}.md"
 
+# Focus a report on a baseline → target Copilot CLI schema window
+pnpm cli versions report --from 1.0.24 --to 1.0.40 --output "docs/reports/versions/$(date +%Y-%m-%d)-v1.0.40-report.md"
+
 # Or on Windows PowerShell:
 pnpm cli versions report --output "docs/reports/versions/$(Get-Date -Format yyyy-MM-dd)-v1.0.7-label.md"
 ```
@@ -40,4 +43,7 @@ pnpm cli versions diff 1.0.5 1.0.7
 
 # Find sessions with a specific event type
 pnpm cli versions examples -e session.truncation
+
+# Generate a focused markdown report with empirical field observations
+pnpm cli versions report --from 1.0.24 --to 1.0.40 --output docs\reports\versions\2026-05-04-v1.0.40-report.md
 ```
