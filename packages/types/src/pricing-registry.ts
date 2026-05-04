@@ -1,6 +1,6 @@
 import { MODEL_REGISTRY } from "./models.js";
 import type { PricingRegistryEntry, TokenRateSet } from "./pricing.js";
-import pricingData from "./pricing-data.json";
+import pricingData from "./pricing-data.json" with { type: "json" };
 
 interface PricingSourceData {
   label: string;

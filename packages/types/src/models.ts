@@ -10,7 +10,7 @@
  */
 
 import type { ModelPriceEntry } from "./config.js";
-import pricingData from "./pricing-data.json";
+import pricingData from "./pricing-data.json" with { type: "json" };
 
 // ─── Tier ────────────────────────────────────────────────────────────
 

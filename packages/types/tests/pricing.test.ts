@@ -12,7 +12,7 @@ import {
   PROVIDER_WHOLESALE_PRICING,
   resolvePricingEntry,
 } from "../src/pricing.js";
-import pricingData from "../src/pricing-data.json";
+import pricingData from "../src/pricing-data.json" with { type: "json" };
 import type { ShutdownMetrics } from "../src/session.js";
 
 describe("pricing registry", () => {
