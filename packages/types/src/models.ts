@@ -10,6 +10,7 @@
  */
 
 import type { ModelPriceEntry } from "./config.js";
+import pricingData from "./pricing-data.json";
 
 // ─── Tier ────────────────────────────────────────────────────────────
 
@@ -32,6 +33,39 @@ export interface ModelDefinition {
   outputPerM: number;
   /** Premium-request multiplier (e.g. 1×, 3×, 0.33×). 0 = free tier. */
   premiumRequests: number;
+}
+
+interface UsagePricingData {
+  model: string;
+  inputPerM: number;
+  cachedInputPerM: number;
+  cacheWritePerM?: number;
+  outputPerM: number;
+}
+
+interface PricingDataFile {
+  sources: {
+    githubCopilotUsage: {
+      label: string;
+      url?: string;
+      verifiedAt: string;
+    };
+    tracePilotLegacyProviderEstimate: {
+      label: string;
+      verifiedAt: string;
+    };
+  };
+  aliases: Record<string, string[]>;
+  githubCopilotUsage: UsagePricingData[];
+}
+
+const PRICING_DATA = pricingData as PricingDataFile;
+const OFFICIAL_TOKEN_RATES_BY_MODEL = new Map(
+  PRICING_DATA.githubCopilotUsage.map((entry) => [entry.model, entry]),
+);
+
+function pricingSourceLabel(source: { label: string; verifiedAt: string }): string {
+  return `${source.label} (verified ${source.verifiedAt})`;
 }
 
 // ─── Registry ────────────────────────────────────────────────────────
@@ -275,13 +309,40 @@ export function getTierLabel(tier: ModelTier): string {
 
 /** Derive default wholesale prices from the registry. */
 export function getDefaultWholesalePrices(): ModelPriceEntry[] {
-  return MODEL_REGISTRY.map(({ id, inputPerM, cachedInputPerM, outputPerM, premiumRequests }) => ({
-    model: id,
-    inputPerM,
-    cachedInputPerM,
-    outputPerM,
-    premiumRequests,
-  }));
+  return MODEL_REGISTRY.map(({ id, inputPerM, cachedInputPerM, outputPerM, premiumRequests }) => {
+    const officialRates = OFFICIAL_TOKEN_RATES_BY_MODEL.get(id);
+    if (officialRates) {
+      return {
+        model: id,
+        aliases: PRICING_DATA.aliases[id],
+        inputPerM: officialRates.inputPerM,
+        cachedInputPerM: officialRates.cachedInputPerM,
+        cacheWritePerM: officialRates.cacheWritePerM,
+        outputPerM: officialRates.outputPerM,
+        premiumRequests,
+        source: "provider-wholesale",
+        sourceLabel: `${pricingSourceLabel(
+          PRICING_DATA.sources.githubCopilotUsage,
+        )}; local default mirrors GitHub's published token rates`,
+        sourceUrl: PRICING_DATA.sources.githubCopilotUsage.url,
+        status: "official",
+      };
+    }
+    return {
+      model: id,
+      aliases: PRICING_DATA.aliases[id],
+      inputPerM,
+      cachedInputPerM,
+      cacheWritePerM: 0,
+      outputPerM,
+      premiumRequests,
+      source: "provider-wholesale",
+      sourceLabel: `${pricingSourceLabel(
+        PRICING_DATA.sources.tracePilotLegacyProviderEstimate,
+      )}; model not listed on GitHub pricing page`,
+      status: "estimated",
+    };
+  });
 }
 
 // ─── Well-known defaults ─────────────────────────────────────────────

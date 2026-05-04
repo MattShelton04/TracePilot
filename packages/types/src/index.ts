@@ -132,6 +132,40 @@ export {
   TRACEPILOT_HOME_PLACEHOLDER,
   TRACEPILOT_INDEX_DB_PLACEHOLDER,
 } from "./paths.js";
+export type {
+  CostBreakdownStatus,
+  PricingComparisonBreakdown,
+  PricingKind,
+  PricingLookupOptions,
+  PricingProvider,
+  PricingRateMode,
+  PricingRegistryEntry,
+  PricingStatus,
+  PricingUnit,
+  TokenCostBreakdown,
+  TokenRateSet,
+  TokenUsageForCost,
+} from "./pricing.js";
+// ── pricing.js ──────────────────────────────────────────────────────
+export {
+  AI_CREDIT_USD,
+  calculateMetricsTokenCost,
+  calculateObservedAiuCost,
+  calculatePricingComparison,
+  calculateTokenCost,
+  GITHUB_ANNUAL_LEGACY_MULTIPLIERS,
+  GITHUB_COPILOT_USAGE_PRICING,
+  GITHUB_USAGE_BILLING_EFFECTIVE_FROM,
+  modelPriceEntriesToPricingRegistry,
+  modelPriceEntryToPricingEntry,
+  NANO_AIU_PER_AI_CREDIT,
+  normalizeModelName,
+  PRICING_REGISTRY,
+  PRICING_REGISTRY_VERSION,
+  PROVIDER_WHOLESALE_PRICING,
+  resolvePricingEntry,
+  sumTokenCosts,
+} from "./pricing.js";
 
 // ── replay.js ──────────────────────────────────────────────────────
 export type { ReplayState, ReplayStep } from "./replay.js";

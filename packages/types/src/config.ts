@@ -5,14 +5,27 @@
 //
 // Note: default values for these types live in `defaults.ts`.
 
-/** Per-model wholesale pricing entry */
+import type { PricingKind, PricingProvider, PricingStatus } from "./pricing.js";
+
+/** Per-model pricing entry persisted in local settings. Defaults mirror the shipped registry; user edits override it locally. */
 export interface ModelPriceEntry {
   model: string;
+  aliases?: string[];
   inputPerM: number;
   cachedInputPerM: number;
+  cacheWritePerM?: number;
   outputPerM: number;
+  reasoningPerM?: number;
   /** Premium request multiplier (e.g. 1x, 3x, 0.33x). 0 = free tier. */
   premiumRequests: number;
+  /** Optional provenance for display. Local settings entries are applied as direct-API/provider rates. */
+  source?: PricingProvider;
+  pricingKind?: PricingKind;
+  effectiveFrom?: string;
+  effectiveTo?: string;
+  sourceLabel?: string;
+  sourceUrl?: string;
+  status?: PricingStatus;
 }
 
 /** TracePilot application configuration — persisted in config.toml */
