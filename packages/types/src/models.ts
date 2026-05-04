@@ -57,11 +57,17 @@ interface PricingDataFile {
   };
   aliases: Record<string, string[]>;
   githubCopilotUsage: UsagePricingData[];
+  annualLegacyMultipliers: { model: string; currentPremiumRequests?: number }[];
 }
 
 const PRICING_DATA = pricingData as PricingDataFile;
 const OFFICIAL_TOKEN_RATES_BY_MODEL = new Map(
   PRICING_DATA.githubCopilotUsage.map((entry) => [entry.model, entry]),
+);
+const CURRENT_PREMIUM_REQUESTS_BY_MODEL = new Map(
+  PRICING_DATA.annualLegacyMultipliers
+    .filter((entry) => entry.currentPremiumRequests != null)
+    .map((entry) => [entry.model, entry.currentPremiumRequests as number]),
 );
 
 function pricingSourceLabel(source: { label: string; verifiedAt: string }): string {
@@ -77,7 +83,7 @@ function pricingSourceLabel(source: { label: string; verifiedAt: string }): stri
  * Keep in sync with `crates/tracepilot-orchestrator/src/launcher.rs →
  * available_models()`.
  */
-export const MODEL_REGISTRY: readonly ModelDefinition[] = [
+const MODEL_REGISTRY_BASE: readonly ModelDefinition[] = [
   // ── Premium ──
   {
     id: "claude-opus-4.7",
@@ -96,6 +102,15 @@ export const MODEL_REGISTRY: readonly ModelDefinition[] = [
     cachedInputPerM: 0.5,
     outputPerM: 30.0,
     premiumRequests: 7.5,
+  },
+  {
+    id: "goldeneye",
+    name: "Goldeneye",
+    tier: "premium",
+    inputPerM: 1.25,
+    cachedInputPerM: 0.125,
+    outputPerM: 10.0,
+    premiumRequests: 1,
   },
   {
     id: "claude-opus-4.6",
@@ -159,6 +174,24 @@ export const MODEL_REGISTRY: readonly ModelDefinition[] = [
     inputPerM: 3.0,
     cachedInputPerM: 0.3,
     outputPerM: 16.0,
+    premiumRequests: 1,
+  },
+  {
+    id: "gemini-2.5-pro",
+    name: "Gemini 2.5 Pro",
+    tier: "standard",
+    inputPerM: 1.25,
+    cachedInputPerM: 0.125,
+    outputPerM: 10.0,
+    premiumRequests: 1,
+  },
+  {
+    id: "gemini-3.1-pro",
+    name: "Gemini 3.1 Pro",
+    tier: "standard",
+    inputPerM: 2.0,
+    cachedInputPerM: 0.2,
+    outputPerM: 12.0,
     premiumRequests: 1,
   },
   {
@@ -244,6 +277,42 @@ export const MODEL_REGISTRY: readonly ModelDefinition[] = [
     premiumRequests: 0.33,
   },
   {
+    id: "gpt-5.4-nano",
+    name: "GPT-5.4 Nano",
+    tier: "fast",
+    inputPerM: 0.2,
+    cachedInputPerM: 0.02,
+    outputPerM: 1.25,
+    premiumRequests: 0.33,
+  },
+  {
+    id: "gemini-3-flash",
+    name: "Gemini 3 Flash",
+    tier: "fast",
+    inputPerM: 0.5,
+    cachedInputPerM: 0.05,
+    outputPerM: 3.0,
+    premiumRequests: 0.33,
+  },
+  {
+    id: "grok-code-fast-1",
+    name: "Grok Code Fast 1",
+    tier: "fast",
+    inputPerM: 0.2,
+    cachedInputPerM: 0.02,
+    outputPerM: 1.5,
+    premiumRequests: 0.25,
+  },
+  {
+    id: "raptor-mini",
+    name: "Raptor Mini",
+    tier: "fast",
+    inputPerM: 0.25,
+    cachedInputPerM: 0.025,
+    outputPerM: 2.0,
+    premiumRequests: 0,
+  },
+  {
     id: "gpt-5.1-codex-mini",
     name: "GPT-5.1 Codex Mini",
     tier: "fast",
@@ -271,6 +340,11 @@ export const MODEL_REGISTRY: readonly ModelDefinition[] = [
     premiumRequests: 0,
   },
 ];
+
+export const MODEL_REGISTRY: readonly ModelDefinition[] = MODEL_REGISTRY_BASE.map((model) => ({
+  ...model,
+  premiumRequests: CURRENT_PREMIUM_REQUESTS_BY_MODEL.get(model.id) ?? model.premiumRequests,
+}));
 
 // ─── Derived helpers ─────────────────────────────────────────────────
 

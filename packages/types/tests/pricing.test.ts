@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ModelPriceEntry } from "../src/config.js";
+import { getDefaultWholesalePrices, MODEL_REGISTRY } from "../src/models.js";
 import {
   calculateObservedAiuCost,
   calculatePricingComparison,
@@ -11,6 +12,7 @@ import {
   PROVIDER_WHOLESALE_PRICING,
   resolvePricingEntry,
 } from "../src/pricing.js";
+import pricingData from "../src/pricing-data.json";
 import type { ShutdownMetrics } from "../src/session.js";
 
 describe("pricing registry", () => {
@@ -59,6 +61,51 @@ describe("pricing registry", () => {
       );
       expect(providerEntry?.rates).toEqual(usageEntry.rates);
       expect(providerEntry?.sourceLabel).toContain("mirrors GitHub's published token rates");
+    }
+  });
+
+  it("keeps documented usage models in the supported model registry", () => {
+    const modelIds = new Set(MODEL_REGISTRY.map((model) => model.id));
+    for (const usageEntry of pricingData.githubCopilotUsage) {
+      expect(modelIds.has(usageEntry.model), `${usageEntry.model} should be supported`).toBe(true);
+    }
+  });
+
+  it("derives default local rates and current multipliers from pricing data", () => {
+    const defaultsByModel = new Map(
+      getDefaultWholesalePrices().map((entry) => [entry.model, entry]),
+    );
+    const modelsById = new Map(MODEL_REGISTRY.map((entry) => [entry.id, entry]));
+
+    for (const usageEntry of pricingData.githubCopilotUsage) {
+      const defaultPrice = defaultsByModel.get(usageEntry.model);
+      expect(defaultPrice?.inputPerM).toBe(usageEntry.inputPerM);
+      expect(defaultPrice?.cachedInputPerM).toBe(usageEntry.cachedInputPerM);
+      expect(defaultPrice?.cacheWritePerM).toBe(usageEntry.cacheWritePerM);
+      expect(defaultPrice?.outputPerM).toBe(usageEntry.outputPerM);
+    }
+
+    for (const multiplier of pricingData.annualLegacyMultipliers) {
+      const model = modelsById.get(multiplier.model);
+      if (!model || multiplier.currentPremiumRequests == null) continue;
+      expect(model.premiumRequests).toBe(multiplier.currentPremiumRequests);
+    }
+  });
+
+  it("prefers the most specific alias match for overlapping model prefixes", () => {
+    for (const model of [
+      "gpt-5.1-codex",
+      "gpt-5.1-codex-max",
+      "gpt-5.1-codex-mini",
+      "gpt-5.4-mini",
+      "gpt-5.4-nano",
+    ]) {
+      expect(
+        resolvePricingEntry(model, {
+          billingProvider: "provider-wholesale",
+          pricingKind: "usage-token-rate",
+        })?.model,
+      ).toBe(model);
     }
   });
 

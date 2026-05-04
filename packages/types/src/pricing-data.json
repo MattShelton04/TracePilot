@@ -229,31 +229,161 @@
     }
   ],
   "annualLegacyMultipliers": [
-    { "model": "claude-haiku-4.5", "displayName": "Claude Haiku 4.5", "premiumRequests": 0.33 },
-    { "model": "claude-opus-4.5", "displayName": "Claude Opus 4.5", "premiumRequests": 15 },
-    { "model": "claude-opus-4.6", "displayName": "Claude Opus 4.6", "premiumRequests": 27 },
-    { "model": "claude-opus-4.7", "displayName": "Claude Opus 4.7", "premiumRequests": 27 },
-    { "model": "claude-sonnet-4", "displayName": "Claude Sonnet 4", "premiumRequests": 1 },
-    { "model": "claude-sonnet-4.5", "displayName": "Claude Sonnet 4.5", "premiumRequests": 6 },
-    { "model": "claude-sonnet-4.6", "displayName": "Claude Sonnet 4.6", "premiumRequests": 9 },
-    { "model": "gemini-2.5-pro", "displayName": "Gemini 2.5 Pro", "premiumRequests": 1 },
-    { "model": "gemini-3-flash", "displayName": "Gemini 3 Flash", "premiumRequests": 0.33 },
-    { "model": "gemini-3-pro-preview", "displayName": "Gemini 3 Pro", "premiumRequests": 6 },
-    { "model": "gemini-3.1-pro", "displayName": "Gemini 3.1 Pro", "premiumRequests": 6 },
-    { "model": "gpt-4o", "displayName": "GPT-4o", "premiumRequests": 0.33 },
-    { "model": "gpt-4o-mini", "displayName": "GPT-4o mini", "premiumRequests": 0.33 },
-    { "model": "gpt-4.1", "displayName": "GPT-4.1", "premiumRequests": 1 },
-    { "model": "gpt-5.1", "displayName": "GPT-5.1", "premiumRequests": 3 },
-    { "model": "gpt-5.1-codex", "displayName": "GPT-5.1-Codex", "premiumRequests": 3 },
-    { "model": "gpt-5.1-codex-mini", "displayName": "GPT-5.1-Codex-Mini", "premiumRequests": 0.33 },
-    { "model": "gpt-5.1-codex-max", "displayName": "GPT-5.1-Codex-Max", "premiumRequests": 3 },
-    { "model": "gpt-5.2", "displayName": "GPT-5.2", "premiumRequests": 3 },
-    { "model": "gpt-5.2-codex", "displayName": "GPT-5.2-Codex", "premiumRequests": 3 },
-    { "model": "gpt-5.3-codex", "displayName": "GPT-5.3-Codex", "premiumRequests": 6 },
-    { "model": "gpt-5.4", "displayName": "GPT-5.4", "premiumRequests": 6 },
-    { "model": "gpt-5.4-mini", "displayName": "GPT-5.4 mini", "premiumRequests": 6 },
-    { "model": "gpt-5-mini", "displayName": "GPT-5 mini", "premiumRequests": 0.33 },
-    { "model": "grok-code-fast-1", "displayName": "Grok Code Fast 1", "premiumRequests": 0.33 },
-    { "model": "raptor-mini", "displayName": "Raptor mini", "premiumRequests": 0.33 }
+    {
+      "model": "claude-haiku-4.5",
+      "displayName": "Claude Haiku 4.5",
+      "currentPremiumRequests": 0.33,
+      "premiumRequests": 0.33
+    },
+    {
+      "model": "claude-opus-4.5",
+      "displayName": "Claude Opus 4.5",
+      "currentPremiumRequests": 3,
+      "premiumRequests": 15
+    },
+    {
+      "model": "claude-opus-4.6",
+      "displayName": "Claude Opus 4.6",
+      "currentPremiumRequests": 3,
+      "premiumRequests": 27
+    },
+    {
+      "model": "claude-opus-4.7",
+      "displayName": "Claude Opus 4.7",
+      "currentPremiumRequests": 15,
+      "premiumRequests": 27
+    },
+    {
+      "model": "claude-sonnet-4",
+      "displayName": "Claude Sonnet 4",
+      "currentPremiumRequests": 1,
+      "premiumRequests": 1
+    },
+    {
+      "model": "claude-sonnet-4.5",
+      "displayName": "Claude Sonnet 4.5",
+      "currentPremiumRequests": 1,
+      "premiumRequests": 6
+    },
+    {
+      "model": "claude-sonnet-4.6",
+      "displayName": "Claude Sonnet 4.6",
+      "currentPremiumRequests": 1,
+      "premiumRequests": 9
+    },
+    {
+      "model": "gemini-2.5-pro",
+      "displayName": "Gemini 2.5 Pro",
+      "currentPremiumRequests": 1,
+      "premiumRequests": 1
+    },
+    {
+      "model": "gemini-3-flash",
+      "displayName": "Gemini 3 Flash",
+      "currentPremiumRequests": 0.33,
+      "premiumRequests": 0.33
+    },
+    {
+      "model": "gemini-3-pro-preview",
+      "displayName": "Gemini 3 Pro",
+      "currentPremiumRequests": 1,
+      "premiumRequests": 6
+    },
+    {
+      "model": "gemini-3.1-pro",
+      "displayName": "Gemini 3.1 Pro",
+      "currentPremiumRequests": 1,
+      "premiumRequests": 6
+    },
+    {
+      "model": "gpt-4o",
+      "displayName": "GPT-4o",
+      "currentPremiumRequests": 0,
+      "premiumRequests": 0.33
+    },
+    {
+      "model": "gpt-4o-mini",
+      "displayName": "GPT-4o mini",
+      "currentPremiumRequests": 0,
+      "premiumRequests": 0.33
+    },
+    {
+      "model": "gpt-4.1",
+      "displayName": "GPT-4.1",
+      "currentPremiumRequests": 0,
+      "premiumRequests": 1
+    },
+    {
+      "model": "gpt-5.1",
+      "displayName": "GPT-5.1",
+      "currentPremiumRequests": 1,
+      "premiumRequests": 3
+    },
+    {
+      "model": "gpt-5.1-codex",
+      "displayName": "GPT-5.1-Codex",
+      "currentPremiumRequests": 1,
+      "premiumRequests": 3
+    },
+    {
+      "model": "gpt-5.1-codex-mini",
+      "displayName": "GPT-5.1-Codex-Mini",
+      "currentPremiumRequests": 0.33,
+      "premiumRequests": 0.33
+    },
+    {
+      "model": "gpt-5.1-codex-max",
+      "displayName": "GPT-5.1-Codex-Max",
+      "currentPremiumRequests": 1,
+      "premiumRequests": 3
+    },
+    {
+      "model": "gpt-5.2",
+      "displayName": "GPT-5.2",
+      "currentPremiumRequests": 1,
+      "premiumRequests": 3
+    },
+    {
+      "model": "gpt-5.2-codex",
+      "displayName": "GPT-5.2-Codex",
+      "currentPremiumRequests": 1,
+      "premiumRequests": 3
+    },
+    {
+      "model": "gpt-5.3-codex",
+      "displayName": "GPT-5.3-Codex",
+      "currentPremiumRequests": 1,
+      "premiumRequests": 6
+    },
+    {
+      "model": "gpt-5.4",
+      "displayName": "GPT-5.4",
+      "currentPremiumRequests": 1,
+      "premiumRequests": 6
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "displayName": "GPT-5.4 mini",
+      "currentPremiumRequests": 0.33,
+      "premiumRequests": 6
+    },
+    {
+      "model": "gpt-5-mini",
+      "displayName": "GPT-5 mini",
+      "currentPremiumRequests": 0,
+      "premiumRequests": 0.33
+    },
+    {
+      "model": "grok-code-fast-1",
+      "displayName": "Grok Code Fast 1",
+      "currentPremiumRequests": 0.25,
+      "premiumRequests": 0.33
+    },
+    {
+      "model": "raptor-mini",
+      "displayName": "Raptor mini",
+      "currentPremiumRequests": 0,
+      "premiumRequests": 0.33
+    }
   ]
 }

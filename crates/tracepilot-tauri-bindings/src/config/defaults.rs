@@ -12,6 +12,7 @@ struct PricingDataFile {
     sources: PricingDataSources,
     aliases: HashMap<String, Vec<String>>,
     github_copilot_usage: Vec<UsagePricingData>,
+    annual_legacy_multipliers: Vec<LegacyMultiplierData>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -37,6 +38,13 @@ struct UsagePricingData {
     cached_input_per_m: f64,
     cache_write_per_m: Option<f64>,
     output_per_m: f64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LegacyMultiplierData {
+    model: String,
+    current_premium_requests: Option<f64>,
 }
 
 fn pricing_source_label(source: &PricingSourceData) -> String {
@@ -102,6 +110,15 @@ pub(crate) fn default_model_prices() -> Vec<ModelPriceEntry> {
         .iter()
         .map(|entry| (entry.model.as_str(), entry))
         .collect();
+    let current_multipliers: HashMap<&str, f64> = pricing_data
+        .annual_legacy_multipliers
+        .iter()
+        .filter_map(|entry| {
+            entry
+                .current_premium_requests
+                .map(|premium_requests| (entry.model.as_str(), premium_requests))
+        })
+        .collect();
     let github_source = &pricing_data.sources.github_copilot_usage;
     let legacy_source = &pricing_data.sources.trace_pilot_legacy_provider_estimate;
 
@@ -134,7 +151,10 @@ pub(crate) fn default_model_prices() -> Vec<ModelPriceEntry> {
                 cache_write_per_m: official.and_then(|rates| rates.cache_write_per_m),
                 output_per_m: official.map_or(entry.output_per_m, |rates| rates.output_per_m),
                 reasoning_per_m: None,
-                premium_requests: entry.premium_requests,
+                premium_requests: current_multipliers
+                    .get(entry.model)
+                    .copied()
+                    .unwrap_or(entry.premium_requests),
                 source: Some("provider-wholesale".to_string()),
                 pricing_kind: None,
                 effective_from: None,

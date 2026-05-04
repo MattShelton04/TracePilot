@@ -126,6 +126,7 @@ fn default_pricing_uses_shared_published_token_rates() {
     assert_eq!(gpt_54_mini.input_per_m, 0.75);
     assert_eq!(gpt_54_mini.cached_input_per_m, 0.075);
     assert_eq!(gpt_54_mini.output_per_m, 4.5);
+    assert_eq!(gpt_54_mini.premium_requests, 0.33);
     assert_eq!(gpt_54_mini.source.as_deref(), Some("provider-wholesale"));
     assert_eq!(gpt_54_mini.status.as_deref(), Some("official"));
 }

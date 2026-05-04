@@ -55,7 +55,7 @@ pub const MODEL_REGISTRY: &[ModelMetadata] = &[
         input_per_m: 5.0,
         cached_input_per_m: 0.5,
         output_per_m: 25.0,
-        premium_requests: 7.5,
+        premium_requests: 15.0,
     },
     ModelMetadata {
         id: "gpt-5.5",
@@ -65,6 +65,15 @@ pub const MODEL_REGISTRY: &[ModelMetadata] = &[
         cached_input_per_m: 0.5,
         output_per_m: 30.0,
         premium_requests: 7.5,
+    },
+    ModelMetadata {
+        id: "goldeneye",
+        name: "Goldeneye",
+        tier: "premium",
+        input_per_m: 1.25,
+        cached_input_per_m: 0.125,
+        output_per_m: 10.0,
+        premium_requests: 1.0,
     },
     ModelMetadata {
         id: "claude-opus-4.6",
@@ -109,6 +118,24 @@ pub const MODEL_REGISTRY: &[ModelMetadata] = &[
         input_per_m: 3.0,
         cached_input_per_m: 0.3,
         output_per_m: 16.0,
+        premium_requests: 1.0,
+    },
+    ModelMetadata {
+        id: "gemini-2.5-pro",
+        name: "Gemini 2.5 Pro",
+        tier: "standard",
+        input_per_m: 1.25,
+        cached_input_per_m: 0.125,
+        output_per_m: 10.0,
+        premium_requests: 1.0,
+    },
+    ModelMetadata {
+        id: "gemini-3.1-pro",
+        name: "Gemini 3.1 Pro",
+        tier: "standard",
+        input_per_m: 2.0,
+        cached_input_per_m: 0.2,
+        output_per_m: 12.0,
         premium_requests: 1.0,
     },
     ModelMetadata {
@@ -184,6 +211,42 @@ pub const MODEL_REGISTRY: &[ModelMetadata] = &[
         premium_requests: 0.33,
     },
     ModelMetadata {
+        id: "gpt-5.4-nano",
+        name: "GPT-5.4 Nano",
+        tier: "fast",
+        input_per_m: 0.2,
+        cached_input_per_m: 0.02,
+        output_per_m: 1.25,
+        premium_requests: 0.33,
+    },
+    ModelMetadata {
+        id: "gemini-3-flash",
+        name: "Gemini 3 Flash",
+        tier: "fast",
+        input_per_m: 0.5,
+        cached_input_per_m: 0.05,
+        output_per_m: 3.0,
+        premium_requests: 0.33,
+    },
+    ModelMetadata {
+        id: "grok-code-fast-1",
+        name: "Grok Code Fast 1",
+        tier: "fast",
+        input_per_m: 0.2,
+        cached_input_per_m: 0.02,
+        output_per_m: 1.5,
+        premium_requests: 0.25,
+    },
+    ModelMetadata {
+        id: "raptor-mini",
+        name: "Raptor Mini",
+        tier: "fast",
+        input_per_m: 0.25,
+        cached_input_per_m: 0.025,
+        output_per_m: 2.0,
+        premium_requests: 0.0,
+    },
+    ModelMetadata {
         id: "gpt-5.1-codex-mini",
         name: "GPT-5.1 Codex Mini",
         tier: "fast",
@@ -251,7 +314,7 @@ mod tests {
         for model in MODEL_REGISTRY {
             assert!(ids.insert(model.id), "duplicate model id: {}", model.id);
         }
-        assert_eq!(MODEL_REGISTRY.len(), 21);
+        assert_eq!(MODEL_REGISTRY.len(), 28);
     }
 
     #[test]
