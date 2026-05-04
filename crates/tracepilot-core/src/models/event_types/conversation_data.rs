@@ -6,16 +6,21 @@ pub struct UserMessageData {
     pub content: Option<String>,
     pub transformed_content: Option<String>,
     pub attachments: Option<Vec<serde_json::Value>>,
+    pub supported_native_document_mime_types: Option<Vec<String>>,
+    pub native_document_path_fallback_paths: Option<Vec<String>>,
     pub interaction_id: Option<String>,
     pub source: Option<String>,
     /// The agent mode active when the user sent this message.
     pub agent_mode: Option<String>,
+    /// Parent agent task when the message belongs to a delegated/background task.
+    pub parent_agent_task_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AssistantMessageData {
     pub message_id: Option<String>,
+    pub turn_id: Option<String>,
     pub content: Option<String>,
     pub interaction_id: Option<String>,
     pub tool_requests: Option<Vec<serde_json::Value>>,

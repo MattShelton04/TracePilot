@@ -35,6 +35,10 @@ export const TRACEPILOT_KNOWN_EVENTS = [
   // System
   "system.notification",
   "skill.invoked",
+  // Permission and external tools
+  "permission.requested",
+  "permission.completed",
+  "external_tool.requested",
   // Control
   "abort",
   // New event types

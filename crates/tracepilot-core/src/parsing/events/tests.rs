@@ -127,6 +127,54 @@ fn test_parse_typed_events() {
 }
 
 #[test]
+fn test_parse_v1_0_40_permission_external_and_compaction_shapes() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("events.jsonl");
+    let content = concat!(
+        r#"{"type":"permission.requested","data":{"requestId":"req-1","permissionRequest":{"kind":"shell","toolCallId":"tc-1","intention":"Run tests"},"promptRequest":{"kind":"commands","toolCallId":"tc-1","intention":"Run tests"}},"id":"evt-1","timestamp":"2026-05-04T08:00:00.000Z","parentId":null}"#,
+        "\n",
+        r#"{"type":"permission.completed","data":{"requestId":"req-1","toolCallId":"tc-1","result":{"kind":"approved-for-session"}},"id":"evt-2","timestamp":"2026-05-04T08:00:01.000Z","parentId":"evt-1"}"#,
+        "\n",
+        r#"{"type":"external_tool.requested","data":{"requestId":"req-ext","sessionId":"s1","toolCallId":"tc-ext","toolName":"external-ci","arguments":{"job":"test"},"traceparent":"00-abc-def-01"},"id":"evt-3","timestamp":"2026-05-04T08:00:02.000Z","parentId":null}"#,
+        "\n",
+        r#"{"type":"session.compaction_complete","data":{"success":true,"compactionTokensUsed":{"inputTokens":100,"outputTokens":20,"cacheReadTokens":5,"cacheWriteTokens":2,"duration":1234,"model":"gpt-5.5","copilotUsage":{"totalNanoAiu":42,"tokenDetails":[{"tokenType":"input","tokenCount":100,"batchSize":1,"costPerBatch":42}]}}},"id":"evt-4","timestamp":"2026-05-04T08:00:03.000Z","parentId":null}"#,
+        "\n",
+    );
+    std::fs::write(&path, content).unwrap();
+
+    let parsed = parse_typed_events(&path).unwrap();
+
+    assert_eq!(parsed.diagnostics.fallback_events, 0);
+    assert!(matches!(
+        parsed.events[0].typed_data,
+        TypedEventData::PermissionRequested(_)
+    ));
+    assert!(matches!(
+        parsed.events[1].typed_data,
+        TypedEventData::PermissionCompleted(_)
+    ));
+    assert!(matches!(
+        parsed.events[2].typed_data,
+        TypedEventData::ExternalToolRequested(_)
+    ));
+    let compaction = match &parsed.events[3].typed_data {
+        TypedEventData::CompactionComplete(data) => data,
+        other => panic!("Expected CompactionComplete, got {other:?}"),
+    };
+    let usage = compaction.compaction_tokens_used.as_ref().unwrap();
+    assert_eq!(usage.input_tokens, Some(100));
+    assert_eq!(usage.cache_read_tokens, Some(5));
+    assert_eq!(usage.model.as_deref(), Some("gpt-5.5"));
+    assert_eq!(
+        usage
+            .copilot_usage
+            .as_ref()
+            .and_then(|usage| usage.total_nano_aiu),
+        Some(42)
+    );
+}
+
+#[test]
 fn test_extract_shutdown() {
     let dir = tempfile::tempdir().unwrap();
     let path = write_sample_file(&dir);

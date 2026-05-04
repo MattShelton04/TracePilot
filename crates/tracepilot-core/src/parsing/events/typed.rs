@@ -4,15 +4,15 @@ use super::raw::{RawEvent, parse_events_jsonl};
 use crate::error::Result;
 use crate::models::event_types::{
     AbortData, AssistantMessageData, AssistantReasoningData, CompactionCompleteData,
-    CompactionStartData, HookEndData, HookStartData, ModelChangeData, PlanChangedData,
-    SessionContext, SessionErrorData, SessionEventType, SessionHandoffData,
-    SessionImportLegacyData, SessionInfoData, SessionModeChangedData,
-    SessionRemoteSteerableChangedData, SessionResumeData, SessionStartData,
-    SessionTaskCompleteData, SessionTruncationData, SessionWarningData, ShutdownData,
-    SkillInvokedData, SubagentCompletedData, SubagentDeselectedData, SubagentFailedData,
-    SubagentSelectedData, SubagentStartedData, SystemMessageData, SystemNotificationData,
-    ToolExecCompleteData, ToolExecStartData, ToolUserRequestedData, TurnEndData, TurnStartData,
-    UserMessageData, WorkspaceFileChangedData,
+    CompactionStartData, ExternalToolRequestedData, HookEndData, HookStartData, ModelChangeData,
+    PermissionCompletedData, PermissionRequestedData, PlanChangedData, SessionContext,
+    SessionErrorData, SessionEventType, SessionHandoffData, SessionImportLegacyData,
+    SessionInfoData, SessionModeChangedData, SessionRemoteSteerableChangedData, SessionResumeData,
+    SessionStartData, SessionTaskCompleteData, SessionTruncationData, SessionWarningData,
+    ShutdownData, SkillInvokedData, SubagentCompletedData, SubagentDeselectedData,
+    SubagentFailedData, SubagentSelectedData, SubagentStartedData, SystemMessageData,
+    SystemNotificationData, ToolExecCompleteData, ToolExecStartData, ToolUserRequestedData,
+    TurnEndData, TurnStartData, UserMessageData, WorkspaceFileChangedData,
 };
 use crate::parsing::diagnostics::{EventParseWarning, ParseDiagnostics};
 use serde_json::Value;
@@ -51,6 +51,9 @@ pub enum TypedEventData {
     SessionResume(SessionResumeData),
     SystemNotification(SystemNotificationData),
     SkillInvoked(SkillInvokedData),
+    PermissionRequested(PermissionRequestedData),
+    PermissionCompleted(PermissionCompletedData),
+    ExternalToolRequested(ExternalToolRequestedData),
     Abort(AbortData),
     PlanChanged(PlanChangedData),
     SessionInfo(SessionInfoData),
@@ -172,6 +175,30 @@ pub(crate) fn typed_data_from_raw(
         }
         SessionEventType::SkillInvoked => {
             try_deser!(SkillInvoked, SkillInvokedData, data, event_type)
+        }
+        SessionEventType::PermissionRequested => {
+            try_deser!(
+                PermissionRequested,
+                PermissionRequestedData,
+                data,
+                event_type
+            )
+        }
+        SessionEventType::PermissionCompleted => {
+            try_deser!(
+                PermissionCompleted,
+                PermissionCompletedData,
+                data,
+                event_type
+            )
+        }
+        SessionEventType::ExternalToolRequested => {
+            try_deser!(
+                ExternalToolRequested,
+                ExternalToolRequestedData,
+                data,
+                event_type
+            )
         }
         SessionEventType::Abort => try_deser!(Abort, AbortData, data, event_type),
         SessionEventType::SessionPlanChanged => {

@@ -132,8 +132,11 @@ impl UserMessageBuilder {
             interaction_id: self.interaction_id,
             transformed_content: self.transformed_content,
             attachments: self.attachments,
+            supported_native_document_mime_types: None,
+            native_document_path_fallback_paths: None,
             source: self.source,
             agent_mode: self.agent_mode,
+            parent_agent_task_id: None,
         }
     }
 
@@ -234,6 +237,7 @@ impl AssistantMessageBuilder {
         AssistantMessageData {
             content: self.content,
             message_id: self.message_id,
+            turn_id: None,
             interaction_id: self.interaction_id,
             tool_requests: self.tool_requests,
             output_tokens: self.output_tokens,
@@ -383,6 +387,7 @@ impl ToolExecStartBuilder {
     fn build_data(self) -> ToolExecStartData {
         ToolExecStartData {
             tool_call_id: self.tool_call_id,
+            turn_id: None,
             tool_name: self.tool_name,
             arguments: self.arguments,
             parent_tool_call_id: self.parent_tool_call_id,
@@ -471,6 +476,7 @@ impl ToolExecCompleteBuilder {
     fn build_data(self) -> ToolExecCompleteData {
         ToolExecCompleteData {
             tool_call_id: self.tool_call_id,
+            turn_id: None,
             parent_tool_call_id: self.parent_tool_call_id,
             model: self.model,
             interaction_id: self.interaction_id,
@@ -776,6 +782,8 @@ impl SessionErrorBuilder {
             stack: self.stack,
             status_code: self.status_code,
             provider_call_id: self.provider_call_id,
+            error_code: None,
+            eligible_for_auto_switch: None,
             url: self.url,
         }
     }
@@ -862,6 +870,7 @@ impl ModelChangeBuilder {
             new_model: self.new_model,
             previous_reasoning_effort: None,
             reasoning_effort: None,
+            cause: None,
         }
     }
 

@@ -7,6 +7,7 @@ pub struct ModelChangeData {
     pub new_model: Option<String>,
     pub previous_reasoning_effort: Option<String>,
     pub reasoning_effort: Option<String>,
+    pub cause: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -32,9 +33,35 @@ pub struct CompactionCompleteData {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CompactionTokenUsage {
+    /// Legacy pre-v1.0.40 field.
     pub input: Option<u64>,
+    /// Legacy pre-v1.0.40 field.
     pub output: Option<u64>,
+    /// Legacy pre-v1.0.40 field.
     pub cached_input: Option<u64>,
+    pub input_tokens: Option<u64>,
+    pub output_tokens: Option<u64>,
+    pub cache_read_tokens: Option<u64>,
+    pub cache_write_tokens: Option<u64>,
+    pub duration: Option<u64>,
+    pub model: Option<String>,
+    pub copilot_usage: Option<CopilotUsage>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CopilotUsage {
+    pub token_details: Option<Vec<CopilotUsageTokenDetail>>,
+    pub total_nano_aiu: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CopilotUsageTokenDetail {
+    pub token_type: Option<String>,
+    pub token_count: Option<u64>,
+    pub batch_size: Option<u64>,
+    pub cost_per_batch: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

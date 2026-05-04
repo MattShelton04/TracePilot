@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::models::event_types::{CodeChanges, ModelMetricDetail};
+use crate::models::event_types::{CodeChanges, ModelMetricDetail, ShutdownTokenDetail};
 
 /// A fully derived session summary — the primary model for session lists.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -70,6 +70,8 @@ pub struct ShutdownMetrics {
     pub conversation_tokens: Option<u64>,
     /// Token budget: tool definition tokens at shutdown.
     pub tool_definitions_tokens: Option<u64>,
+    pub total_nano_aiu: Option<u64>,
+    pub token_details: Option<HashMap<String, ShutdownTokenDetail>>,
     pub code_changes: Option<CodeChanges>,
     #[serde(default)]
     pub model_metrics: HashMap<String, ModelMetricDetail>,

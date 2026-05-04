@@ -41,6 +41,8 @@ pub(in crate::builder) fn build_metrics(
         system_tokens: sd.system_tokens,
         conversation_tokens: sd.conversation_tokens,
         tool_definitions_tokens: sd.tool_definitions_tokens,
+        total_nano_aiu: sd.total_nano_aiu,
+        token_details: sd.token_details,
         code_changes: sd.code_changes,
         model_metrics: sd.model_metrics.unwrap_or_default(),
         session_segments: sd.session_segments,

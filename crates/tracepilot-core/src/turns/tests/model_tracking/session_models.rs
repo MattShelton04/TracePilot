@@ -83,6 +83,8 @@ fn session_resume_seeds_model() {
                 reasoning_effort: None,
                 context: None,
                 already_in_use: None,
+                session_was_active: None,
+                continue_pending_work: None,
                 remote_steerable: None,
             }),
             "ev-resume",

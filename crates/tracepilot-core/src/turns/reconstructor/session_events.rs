@@ -2,13 +2,15 @@
 
 use crate::models::conversation::SessionEventSeverity;
 use crate::models::event_types::{
-    CompactionCompleteData, ModelChangeData, PlanChangedData, SessionErrorData,
-    SessionModeChangedData, SessionResumeData, SessionStartData, SessionTruncationData,
-    SessionWarningData,
+    CompactionCompleteData, ExternalToolRequestedData, ModelChangeData, PermissionCompletedData,
+    PermissionRequestedData, PlanChangedData, SessionErrorData, SessionModeChangedData,
+    SessionResumeData, SessionStartData, SessionTruncationData, SessionWarningData,
 };
 use crate::parsing::events::TypedEvent;
+use serde_json::Value;
 
 use super::TurnReconstructor;
+use super::state::SessionEventBuild;
 
 impl TurnReconstructor {
     // Model change: update session-level model; set turn model if not already set
@@ -187,4 +189,95 @@ impl TurnReconstructor {
                 .unwrap_or_else(|| "Session resumed".to_string()),
         );
     }
+
+    pub(super) fn handle_permission_requested(
+        &mut self,
+        event: &TypedEvent,
+        data: &PermissionRequestedData,
+    ) {
+        let source = data
+            .prompt_request
+            .as_ref()
+            .or(data.permission_request.as_ref());
+        let kind = json_field_str(source, "kind").unwrap_or("unknown");
+        let intention = json_field_str(source, "intention");
+        let summary = match intention {
+            Some(text) if !text.trim().is_empty() => {
+                format!("Permission requested ({kind}): {}", text.trim())
+            }
+            _ => format!("Permission requested ({kind})"),
+        };
+        let tool_call_id = json_field_str(source, "toolCallId").map(str::to_string);
+        self.push_session_event_full(SessionEventBuild {
+            event_type: "permission.requested".to_string(),
+            timestamp: event.raw.timestamp,
+            severity: SessionEventSeverity::Info,
+            summary,
+            checkpoint_number: None,
+            request_id: data.request_id.clone(),
+            tool_call_id,
+            prompt_kind: Some(kind.to_string()),
+            result_kind: None,
+            resolved_by_hook: data.resolved_by_hook,
+        });
+    }
+
+    pub(super) fn handle_permission_completed(
+        &mut self,
+        event: &TypedEvent,
+        data: &PermissionCompletedData,
+    ) {
+        let result_kind = json_field_str(data.result.as_ref(), "kind").unwrap_or("unknown");
+        let severity = if result_kind.starts_with("approved") {
+            SessionEventSeverity::Info
+        } else {
+            SessionEventSeverity::Warning
+        };
+        let feedback = json_field_str(data.result.as_ref(), "feedback")
+            .or_else(|| json_field_str(data.result.as_ref(), "reason"))
+            .or_else(|| json_field_str(data.result.as_ref(), "message"));
+        let summary = match feedback {
+            Some(text) if !text.trim().is_empty() => {
+                format!("Permission result: {result_kind} ({})", text.trim())
+            }
+            _ => format!("Permission result: {result_kind}"),
+        };
+        self.push_session_event_full(SessionEventBuild {
+            event_type: "permission.completed".to_string(),
+            timestamp: event.raw.timestamp,
+            severity,
+            summary,
+            checkpoint_number: None,
+            request_id: data.request_id.clone(),
+            tool_call_id: data.tool_call_id.clone(),
+            prompt_kind: None,
+            result_kind: Some(result_kind.to_string()),
+            resolved_by_hook: None,
+        });
+    }
+
+    pub(super) fn handle_external_tool_requested(
+        &mut self,
+        event: &TypedEvent,
+        data: &ExternalToolRequestedData,
+    ) {
+        let summary = data
+            .tool_name
+            .as_deref()
+            .map(|name| format!("External tool requested: {name}"))
+            .unwrap_or_else(|| "External tool requested".to_string());
+        self.push_session_event(
+            "external_tool.requested",
+            event.raw.timestamp,
+            SessionEventSeverity::Info,
+            summary,
+        );
+    }
+}
+
+fn json_field_str<'a>(value: Option<&'a Value>, field: &str) -> Option<&'a str> {
+    value
+        .and_then(Value::as_object)
+        .and_then(|object| object.get(field))
+        .and_then(Value::as_str)
 }

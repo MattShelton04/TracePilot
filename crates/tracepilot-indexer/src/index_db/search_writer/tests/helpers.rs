@@ -35,6 +35,9 @@ pub(super) fn user_message(content: &str) -> TypedEvent {
             interaction_id: None,
             source: None,
             agent_mode: None,
+            supported_native_document_mime_types: None,
+            native_document_path_fallback_paths: None,
+            parent_agent_task_id: None,
         }),
     )
 }
@@ -71,6 +74,7 @@ pub(super) fn assistant_message(content: &str) -> TypedEvent {
             encrypted_content: None,
             phase: None,
             request_id: None,
+            turn_id: None,
         }),
     )
 }
@@ -85,6 +89,7 @@ pub(super) fn tool_exec_start(name: &str, call_id: &str) -> TypedEvent {
             parent_tool_call_id: None,
             mcp_server_name: None,
             mcp_tool_name: None,
+            turn_id: None,
         }),
     )
 }
@@ -119,6 +124,7 @@ pub(super) fn tool_exec_complete(call_id: &str, result_text: &str) -> TypedEvent
             error: None,
             tool_telemetry: None,
             is_user_requested: None,
+            turn_id: None,
         }),
     )
 }
@@ -133,6 +139,8 @@ pub(super) fn session_error(msg: &str) -> TypedEvent {
             status_code: None,
             provider_call_id: None,
             url: None,
+            error_code: None,
+            eligible_for_auto_switch: None,
         }),
     )
 }

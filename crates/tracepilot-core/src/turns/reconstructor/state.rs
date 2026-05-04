@@ -30,12 +30,32 @@ impl TurnReconstructor {
         summary: String,
         checkpoint_number: Option<u32>,
     ) {
-        let se = TurnSessionEvent {
+        self.push_session_event_full(SessionEventBuild {
             event_type: event_type.to_string(),
             timestamp,
             severity,
             summary,
             checkpoint_number,
+            request_id: None,
+            tool_call_id: None,
+            prompt_kind: None,
+            result_kind: None,
+            resolved_by_hook: None,
+        });
+    }
+
+    pub(crate) fn push_session_event_full(&mut self, build: SessionEventBuild) {
+        let se = TurnSessionEvent {
+            event_type: build.event_type,
+            timestamp: build.timestamp,
+            severity: build.severity,
+            summary: build.summary,
+            checkpoint_number: build.checkpoint_number,
+            request_id: build.request_id,
+            tool_call_id: build.tool_call_id,
+            prompt_kind: build.prompt_kind,
+            result_kind: build.result_kind,
+            resolved_by_hook: build.resolved_by_hook,
         };
         if let Some(turn) = &mut self.current_turn {
             turn.session_events.push(se);
@@ -189,6 +209,25 @@ impl TurnReconstructor {
 }
 
 // ── Free helpers ──────────────────────────────────────────────────────
+
+/// Builder payload for a fully-specified [`TurnSessionEvent`] push.
+///
+/// Most session events only need `event_type` / `timestamp` / `severity` /
+/// `summary` (covered by [`TurnReconstructor::push_session_event`]). Permission
+/// events additionally carry pairing/context fields used by the UI to render
+/// `permission.requested` and `permission.completed` as a single linked card.
+pub(crate) struct SessionEventBuild {
+    pub(crate) event_type: String,
+    pub(crate) timestamp: Option<DateTime<Utc>>,
+    pub(crate) severity: SessionEventSeverity,
+    pub(crate) summary: String,
+    pub(crate) checkpoint_number: Option<u32>,
+    pub(crate) request_id: Option<String>,
+    pub(crate) tool_call_id: Option<String>,
+    pub(crate) prompt_kind: Option<String>,
+    pub(crate) result_kind: Option<String>,
+    pub(crate) resolved_by_hook: Option<bool>,
+}
 
 /// Create a new conversation turn with the given initial data.
 pub(crate) fn new_turn(

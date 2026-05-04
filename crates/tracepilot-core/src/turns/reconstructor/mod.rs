@@ -171,6 +171,18 @@ impl TurnReconstructor {
             (SessionEventType::SystemMessage, TypedEventData::SystemMessage(data)) => {
                 self.handle_system_message(event, data);
             }
+            (SessionEventType::PermissionRequested, TypedEventData::PermissionRequested(data)) => {
+                self.handle_permission_requested(event, data);
+            }
+            (SessionEventType::PermissionCompleted, TypedEventData::PermissionCompleted(data)) => {
+                self.handle_permission_completed(event, data);
+            }
+            (
+                SessionEventType::ExternalToolRequested,
+                TypedEventData::ExternalToolRequested(data),
+            ) => {
+                self.handle_external_tool_requested(event, data);
+            }
             _ => {}
         }
     }

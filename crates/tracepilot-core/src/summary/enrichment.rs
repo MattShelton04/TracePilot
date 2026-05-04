@@ -53,6 +53,8 @@ fn shutdown_data_to_metrics(data: &ShutdownData, shutdown_count: u32) -> Shutdow
         system_tokens: data.system_tokens,
         conversation_tokens: data.conversation_tokens,
         tool_definitions_tokens: data.tool_definitions_tokens,
+        total_nano_aiu: data.total_nano_aiu,
+        token_details: data.token_details.clone(),
         code_changes: data.code_changes.clone(),
         model_metrics: data.model_metrics.clone().unwrap_or_default(),
         session_segments: data.session_segments.clone(),

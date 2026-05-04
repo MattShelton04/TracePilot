@@ -59,6 +59,19 @@ export interface TurnSessionEvent {
   summary: string;
   /** For compaction_complete events, the associated checkpoint number. */
   checkpointNumber?: number;
+  /** For `permission.*` events, the upstream request id used to pair
+   *  `permission.requested` with its matching `permission.completed`. */
+  requestId?: string;
+  /** For `permission.completed` (and `external_tool.requested`), the
+   *  related `toolCallId` so the UI can correlate permissions with tool calls. */
+  toolCallId?: string;
+  /** For `permission.requested`, the prompt kind (e.g. "shell", "write"). */
+  promptKind?: string;
+  /** For `permission.completed`, the result kind (e.g. "approved",
+   *  "approved-for-session", "denied-interactively-by-user"). */
+  resultKind?: string;
+  /** For `permission.requested`, true if a hook auto-resolved the prompt. */
+  resolvedByHook?: boolean;
 }
 
 /** A tool call within a turn */

@@ -72,6 +72,8 @@ pub(super) fn make_input(
                 system_tokens: None,
                 conversation_tokens: None,
                 tool_definitions_tokens: None,
+                total_nano_aiu: None,
+                token_details: None,
                 code_changes: Some(CodeChanges {
                     lines_added: Some(50),
                     lines_removed: Some(10),
