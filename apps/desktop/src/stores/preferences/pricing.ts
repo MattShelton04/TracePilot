@@ -8,13 +8,23 @@
 
 import type {
   ModelPriceEntry,
+  PricingComparisonBreakdown,
+  PricingRegistryEntry,
   RichRenderableToolName,
+  ShutdownMetrics,
+  TokenCostBreakdown,
   ToolRenderingPreferences,
 } from "@tracepilot/types";
 import {
+  calculateObservedAiuCost,
+  calculatePricingComparison,
+  calculateTokenCost,
   DEFAULT_COST_PER_PREMIUM_REQUEST,
   DEFAULT_TOOL_RENDERING_PREFS,
   getDefaultWholesalePrices,
+  modelPriceEntriesToPricingRegistry,
+  modelPriceEntryToPricingEntry,
+  resolvePricingEntry,
 } from "@tracepilot/types";
 import { ref } from "vue";
 
@@ -34,14 +44,20 @@ export function createPricingSlice() {
     toolOverrides: { ...DEFAULT_TOOL_RENDERING_PREFS.toolOverrides },
   });
 
-  /** Look up wholesale price for a model name (fuzzy match on prefix). */
+  function userPricingRegistry(): PricingRegistryEntry[] {
+    return modelPriceEntriesToPricingRegistry(modelWholesalePrices.value);
+  }
+
+  /** Look up local wholesale/provider price for a model name. */
   function getWholesalePrice(modelName: string): ModelPriceEntry | undefined {
-    const lower = modelName.toLowerCase();
-    const sorted = [...modelWholesalePrices.value].sort((a, b) => b.model.length - a.model.length);
-    return (
-      sorted.find((p) => lower.includes(p.model.toLowerCase())) ??
-      sorted.find((p) => lower.startsWith(p.model.toLowerCase().split("-").slice(0, 2).join("-")))
-    );
+    const match = resolvePricingEntry(modelName, {
+      billingProvider: "provider-wholesale",
+      pricingKind: "usage-token-rate",
+      rateMode: "latest",
+      userOverrides: userPricingRegistry(),
+    });
+    if (!match) return undefined;
+    return modelWholesalePrices.value.find((price) => price.model === match.model);
   }
 
   /** Compute wholesale cost for a model given token usage. */
@@ -50,15 +66,107 @@ export function createPricingSlice() {
     inputTokens: number,
     cacheReadTokens: number,
     outputTokens: number,
+    cacheWriteTokens = 0,
   ): number | null {
-    const price = getWholesalePrice(modelName);
-    if (!price) return null;
-    const nonCachedInput = Math.max(inputTokens - cacheReadTokens, 0);
-    return (
-      (nonCachedInput / 1_000_000) * price.inputPerM +
-      (cacheReadTokens / 1_000_000) * price.cachedInputPerM +
-      (outputTokens / 1_000_000) * price.outputPerM
+    const breakdown = computeWholesaleCostBreakdown(
+      modelName,
+      inputTokens,
+      cacheReadTokens,
+      outputTokens,
+      cacheWriteTokens,
     );
+    return breakdown.totalCost;
+  }
+
+  function computeWholesaleCostBreakdown(
+    modelName: string,
+    inputTokens: number,
+    cacheReadTokens: number,
+    outputTokens: number,
+    cacheWriteTokens = 0,
+  ): TokenCostBreakdown {
+    return calculateTokenCost(
+      modelName,
+      { inputTokens, cacheReadTokens, outputTokens, cacheWriteTokens },
+      {
+        billingProvider: "provider-wholesale",
+        pricingKind: "usage-token-rate",
+        rateMode: "latest",
+        userOverrides: userPricingRegistry(),
+      },
+    );
+  }
+
+  function computeUsageBasedCostBreakdown(
+    modelName: string,
+    inputTokens: number,
+    cacheReadTokens: number,
+    outputTokens: number,
+    cacheWriteTokens = 0,
+    at?: string | Date | null,
+  ): TokenCostBreakdown {
+    return calculateTokenCost(
+      modelName,
+      { inputTokens, cacheReadTokens, outputTokens, cacheWriteTokens },
+      {
+        billingProvider: "github-copilot",
+        pricingKind: "usage-token-rate",
+        at,
+      },
+    );
+  }
+
+  function computeUsageBasedCost(
+    modelName: string,
+    inputTokens: number,
+    cacheReadTokens: number,
+    outputTokens: number,
+    cacheWriteTokens = 0,
+    at?: string | Date | null,
+  ): number | null {
+    return computeUsageBasedCostBreakdown(
+      modelName,
+      inputTokens,
+      cacheReadTokens,
+      outputTokens,
+      cacheWriteTokens,
+      at,
+    ).totalCost;
+  }
+
+  function computeCostComparison(
+    metrics: ShutdownMetrics,
+    at?: string | Date | null,
+  ): PricingComparisonBreakdown {
+    return calculatePricingComparison(
+      metrics,
+      costPerPremiumRequest.value,
+      userPricingRegistry(),
+      at,
+    );
+  }
+
+  function getObservedAiuCost(totalNanoAiu: number | null | undefined): number | null {
+    return calculateObservedAiuCost(totalNanoAiu);
+  }
+
+  function getPricingMetadata(
+    modelName: string,
+    billingProvider: PricingRegistryEntry["billingProvider"] = "provider-wholesale",
+  ): PricingRegistryEntry | undefined {
+    const localPrice = modelWholesalePrices.value.find((price) => price.model === modelName);
+    if (localPrice?.source || localPrice?.status || localPrice?.sourceLabel) {
+      return modelPriceEntryToPricingEntry(localPrice, {
+        billingProvider,
+        status: localPrice.status ?? "user-override",
+        sourceLabel: localPrice.sourceLabel ?? "Local settings override",
+      });
+    }
+    return resolvePricingEntry(modelName, {
+      billingProvider,
+      pricingKind: "usage-token-rate",
+      rateMode: "latest",
+    });
   }
 
   function addWholesalePrice(price: ModelPriceEntry) {
@@ -105,6 +213,12 @@ export function createPricingSlice() {
     toolRendering,
     getWholesalePrice,
     computeWholesaleCost,
+    computeWholesaleCostBreakdown,
+    computeUsageBasedCost,
+    computeUsageBasedCostBreakdown,
+    computeCostComparison,
+    getObservedAiuCost,
+    getPricingMetadata,
     addWholesalePrice,
     removeWholesalePrice,
     resetWholesalePrices,
