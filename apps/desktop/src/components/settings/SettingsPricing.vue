@@ -8,6 +8,7 @@ const preferences = usePreferencesStore();
 const newModelName = ref("");
 const newInputPerM = ref(0);
 const newCachedInputPerM = ref(0);
+const newCacheWritePerM = ref(0);
 const newOutputPerM = ref(0);
 const newPremiumRequests = ref(1);
 
@@ -17,14 +18,41 @@ function addModelPrice() {
     model: newModelName.value.trim(),
     inputPerM: newInputPerM.value,
     cachedInputPerM: newCachedInputPerM.value,
+    cacheWritePerM: newCacheWritePerM.value,
     outputPerM: newOutputPerM.value,
     premiumRequests: newPremiumRequests.value,
+    status: "user-override",
+    sourceLabel: "Local settings override",
   });
   newModelName.value = "";
   newInputPerM.value = 0;
   newCachedInputPerM.value = 0;
+  newCacheWritePerM.value = 0;
   newOutputPerM.value = 0;
   newPremiumRequests.value = 1;
+}
+
+function sourceLabel(model: string): string {
+  const metadata = preferences.getPricingMetadata(model, "provider-wholesale");
+  return metadata?.sourceLabel ?? "Local settings override";
+}
+
+function effectiveLabel(model: string): string {
+  const metadata = preferences.getPricingMetadata(model, "provider-wholesale");
+  return metadata?.effectiveFrom ?? "always";
+}
+
+function statusLabel(model: string): string {
+  const metadata = preferences.getPricingMetadata(model, "provider-wholesale");
+  return metadata?.status ?? "estimated";
+}
+
+function sourceSummary(model: string): string {
+  return `${statusLabel(model)} · ${effectiveLabel(model)}`;
+}
+
+function sourceTooltip(model: string): string {
+  return `${sourceLabel(model)}\nStatus: ${statusLabel(model)}\nEffective: ${effectiveLabel(model)}`;
 }
 </script>
 
@@ -36,7 +64,7 @@ function addModelPrice() {
         <div class="setting-info">
           <div class="setting-label">Cost per premium request</div>
           <div class="setting-description">
-            GitHub Copilot charges per premium request. Cost = premiumRequests × this rate.
+            Legacy Copilot estimate for premium-request sessions. Usage-based billing uses token rates below and official GitHub Copilot rates where available.
           </div>
         </div>
         <div class="setting-control-group">
@@ -54,9 +82,9 @@ function addModelPrice() {
       </div>
     </SectionPanel>
 
-    <div class="pricing-subsection-title">Model Wholesale Prices</div>
+    <div class="pricing-subsection-title">Model Pricing Overrides</div>
     <p class="pricing-description">
-      API prices ($ per 1M tokens) used to compute what sessions would cost through direct API access vs. Copilot premium requests.
+      Local direct-API/provider prices ($ per 1M tokens) used for configurable estimates. Defaults mirror GitHub Copilot's published token rates for documented models; edits here intentionally override that local estimate.
     </p>
 
     <SectionPanel>
@@ -65,12 +93,14 @@ function addModelPrice() {
           <thead>
             <tr>
               <th class="text-left">Model</th>
-              <th>Input / 1M</th>
-              <th>Cached / 1M</th>
-              <th>Output / 1M</th>
-              <th>Premium Req.</th>
-              <th class="pricing-col-action"></th>
-            </tr>
+               <th>Input / 1M</th>
+               <th>Cached / 1M</th>
+               <th>Cache Write / 1M</th>
+               <th>Output / 1M</th>
+               <th>Premium Req.</th>
+               <th>Source</th>
+               <th class="pricing-col-action"></th>
+             </tr>
           </thead>
           <tbody>
             <tr v-for="(price, idx) in preferences.modelWholesalePrices" :key="price.model">
@@ -100,6 +130,17 @@ function addModelPrice() {
               <td class="text-center">
                 <FormInput
                   type="number"
+                  :model-value="price.cacheWritePerM ?? 0"
+                  @update:model-value="preferences.modelWholesalePrices[idx].cacheWritePerM = Number($event)"
+                  step="0.001"
+                  min="0"
+                  class="pricing-input"
+                  :aria-label="`${price.model} cache write price per 1M tokens`"
+                />
+              </td>
+              <td class="text-center">
+                <FormInput
+                  type="number"
                   :model-value="price.outputPerM"
                   @update:model-value="preferences.modelWholesalePrices[idx].outputPerM = Number($event)"
                   step="0.01"
@@ -118,6 +159,10 @@ function addModelPrice() {
                   class="pricing-input"
                   :aria-label="`${price.model} premium requests`"
                 />
+              </td>
+              <td class="pricing-meta-cell" :title="sourceTooltip(price.model)">
+                <span class="pricing-source-label">{{ sourceLabel(price.model) }}</span>
+                <span class="pricing-source-meta">{{ sourceSummary(price.model) }}</span>
               </td>
               <td class="text-center">
                 <button class="pricing-remove-btn" @click="preferences.removeWholesalePrice(price.model)" :title="`Remove ${price.model}`" :aria-label="`Remove pricing for ${price.model}`">&times;</button>
@@ -156,6 +201,16 @@ function addModelPrice() {
               <td class="text-center">
                 <FormInput
                   type="number"
+                  v-model="newCacheWritePerM"
+                  step="0.001"
+                  min="0"
+                  class="pricing-input"
+                  aria-label="New model cache write price per 1M tokens"
+                />
+              </td>
+              <td class="text-center">
+                <FormInput
+                  type="number"
                   v-model="newOutputPerM"
                   step="0.01"
                   min="0"
@@ -172,6 +227,10 @@ function addModelPrice() {
                   class="pricing-input"
                   aria-label="New model premium requests"
                 />
+              </td>
+              <td class="pricing-meta-cell" title="Local settings override&#10;Status: user-override&#10;Effective: always">
+                <span class="pricing-source-label">Local settings override</span>
+                <span class="pricing-source-meta">user-override · always</span>
               </td>
               <td class="text-center">
                 <button class="pricing-add-btn" @click="addModelPrice" :disabled="!newModelName.trim()" title="Add model" aria-label="Add model pricing entry">+</button>
@@ -285,5 +344,26 @@ function addModelPrice() {
   width: 140px;
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.75rem;
+}
+
+.pricing-meta-cell {
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-tertiary);
+  font-size: 0.6875rem;
+}
+
+.pricing-source-label,
+.pricing-source-meta {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pricing-source-label {
+  color: var(--text-secondary);
+  font-weight: 600;
 }
 </style>
