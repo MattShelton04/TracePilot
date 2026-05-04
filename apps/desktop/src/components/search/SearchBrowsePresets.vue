@@ -13,42 +13,42 @@ const store = useSearchStore();
     </div>
     <div class="browse-preset-grid">
       <button class="browse-preset-btn browse-preset-errors" @click="store.applyBrowsePreset(BROWSE_PRESETS.errors)">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20">
+        <svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20">
           <circle cx="8" cy="8" r="6" /><line x1="8" y1="5" x2="8" y2="9" /><circle cx="8" cy="11" r="0.5" fill="currentColor" />
         </svg>
         <span class="preset-label">All Errors</span>
         <span class="preset-desc">Errors &amp; tool failures</span>
       </button>
       <button class="browse-preset-btn browse-preset-user" @click="store.applyBrowsePreset(BROWSE_PRESETS.userMessages)">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20">
+        <svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20">
           <circle cx="8" cy="5" r="3" /><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6" />
         </svg>
         <span class="preset-label">User Messages</span>
         <span class="preset-desc">Your prompts &amp; requests</span>
       </button>
       <button class="browse-preset-btn browse-preset-tools" @click="store.applyBrowsePreset(BROWSE_PRESETS.toolCalls)">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20">
+        <svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20">
           <path d="M4 2v12M12 2v12M2 6h12M2 10h12" />
         </svg>
         <span class="preset-label">Tool Calls</span>
         <span class="preset-desc">All tool invocations</span>
       </button>
       <button class="browse-preset-btn browse-preset-reasoning" @click="store.applyBrowsePreset(BROWSE_PRESETS.reasoning)">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20">
+        <svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20">
           <circle cx="8" cy="8" r="6" /><path d="M6 6a2 2 0 1 1 2 2v1.5" /><circle cx="8" cy="11.5" r="0.5" fill="currentColor" />
         </svg>
         <span class="preset-label">Reasoning</span>
         <span class="preset-desc">AI thinking &amp; analysis</span>
       </button>
       <button class="browse-preset-btn browse-preset-results" @click="store.applyBrowsePreset(BROWSE_PRESETS.toolResults)">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20">
+        <svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20">
           <rect x="2" y="2" width="12" height="12" rx="2" /><polyline points="5 8 7 10 11 6" />
         </svg>
         <span class="preset-label">Tool Results</span>
         <span class="preset-desc">Command outputs &amp; file contents</span>
       </button>
       <button class="browse-preset-btn browse-preset-subagents" @click="store.applyBrowsePreset(BROWSE_PRESETS.subagents)">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20">
+        <svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20">
           <circle cx="5" cy="5" r="3" /><circle cx="11" cy="11" r="3" /><line x1="7" y1="7" x2="9" y2="9" />
         </svg>
         <span class="preset-label">Sub-agents</span>
@@ -69,7 +69,7 @@ const store = useSearchStore();
           class="recent-search-item"
           @click="store.applyRecentSearch(recent.query)"
         >
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14">
+          <svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14">
             <circle cx="7" cy="7" r="5" /><line x1="10.5" y1="10.5" x2="14" y2="14" />
           </svg>
           <span class="recent-query">{{ recent.query }}</span>
@@ -81,7 +81,8 @@ const store = useSearchStore();
             @click.stop="store.removeRecentSearch(recent.query)"
             @keydown.enter.stop="store.removeRecentSearch(recent.query)"
             title="Remove"
-          >✕</span>
+            aria-label="Remove recent search"
+          ><span aria-hidden="true">✕</span></span>
         </button>
       </div>
     </div>
