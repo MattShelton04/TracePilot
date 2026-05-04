@@ -90,6 +90,18 @@ describe("pricing registry", () => {
       if (!model || multiplier.currentPremiumRequests == null) continue;
       expect(model.premiumRequests).toBe(multiplier.currentPremiumRequests);
     }
+
+    const multiplierIds = new Set([
+      ...pricingData.annualLegacyMultipliers
+        .filter((entry) => entry.currentPremiumRequests != null)
+        .map((entry) => entry.model),
+      ...pricingData.currentPremiumRequestDefaults.map((entry) => entry.model),
+    ]);
+    for (const model of MODEL_REGISTRY) {
+      expect(multiplierIds.has(model.id), `${model.id} should have pricing-data multiplier`).toBe(
+        true,
+      );
+    }
   });
 
   it("prefers the most specific alias match for overlapping model prefixes", () => {

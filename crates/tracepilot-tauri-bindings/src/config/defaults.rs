@@ -13,6 +13,7 @@ struct PricingDataFile {
     aliases: HashMap<String, Vec<String>>,
     github_copilot_usage: Vec<UsagePricingData>,
     annual_legacy_multipliers: Vec<LegacyMultiplierData>,
+    current_premium_request_defaults: Vec<CurrentPremiumRequestData>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -45,6 +46,13 @@ struct UsagePricingData {
 struct LegacyMultiplierData {
     model: String,
     current_premium_requests: Option<f64>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CurrentPremiumRequestData {
+    model: String,
+    current_premium_requests: f64,
 }
 
 fn pricing_source_label(source: &PricingSourceData) -> String {
@@ -118,6 +126,12 @@ pub(crate) fn default_model_prices() -> Vec<ModelPriceEntry> {
                 .current_premium_requests
                 .map(|premium_requests| (entry.model.as_str(), premium_requests))
         })
+        .chain(
+            pricing_data
+                .current_premium_request_defaults
+                .iter()
+                .map(|entry| (entry.model.as_str(), entry.current_premium_requests)),
+        )
         .collect();
     let github_source = &pricing_data.sources.github_copilot_usage;
     let legacy_source = &pricing_data.sources.trace_pilot_legacy_provider_estimate;

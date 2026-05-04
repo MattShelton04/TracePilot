@@ -16,6 +16,10 @@
     "tracePilotLegacyProviderEstimate": {
       "label": "TracePilot legacy provider estimate",
       "verifiedAt": "2026-05-04"
+    },
+    "tracePilotCurrentPremiumRequests": {
+      "label": "TracePilot current premium request defaults",
+      "verifiedAt": "2026-05-04"
     }
   },
   "aliases": {
@@ -384,6 +388,28 @@
       "displayName": "Raptor mini",
       "currentPremiumRequests": 0,
       "premiumRequests": 0.33
+    }
+  ],
+  "currentPremiumRequestDefaults": [
+    {
+      "model": "claude-opus-4.6-fast",
+      "displayName": "Claude Opus 4.6 Fast",
+      "currentPremiumRequests": 30
+    },
+    {
+      "model": "gpt-5.5",
+      "displayName": "GPT-5.5",
+      "currentPremiumRequests": 7.5
+    },
+    {
+      "model": "gpt-5.4-nano",
+      "displayName": "GPT-5.4 nano",
+      "currentPremiumRequests": 0.33
+    },
+    {
+      "model": "goldeneye",
+      "displayName": "Goldeneye",
+      "currentPremiumRequests": 1
     }
   ]
 }

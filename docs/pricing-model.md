@@ -20,7 +20,7 @@ TracePilot now treats prices as effective-dated registry entries. A rate can des
 - premium-request multipliers where applicable;
 - currency/unit, effective dates, source label/URL, and confidence/status.
 
-The shipped registry is read-only and generated from `packages/types/src/pricing-data.json`, which contains the source URLs, verification date, effective date, aliases, token rates, current premium-request multipliers, and June 2026 annual-plan multipliers. User edits in `pricing.models` remain local overrides and are layered above defaults without mutating the shipped registry.
+The shipped registry is read-only and generated from `packages/types/src/pricing-data.json`, which contains the source URLs, verification date, effective date, aliases, token rates, current premium-request multipliers, and June 2026 annual-plan multipliers. For models missing from GitHub's annual multiplier table, TracePilot records the current fallback multiplier in `currentPremiumRequestDefaults` so launch/settings defaults still come from the shared pricing data file instead of calculator code. User edits in `pricing.models` remain local overrides and are layered above defaults without mutating the shipped registry.
 
 ## Historical sessions and switchover
 

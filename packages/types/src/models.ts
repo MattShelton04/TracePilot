@@ -54,10 +54,15 @@ interface PricingDataFile {
       label: string;
       verifiedAt: string;
     };
+    tracePilotCurrentPremiumRequests: {
+      label: string;
+      verifiedAt: string;
+    };
   };
   aliases: Record<string, string[]>;
   githubCopilotUsage: UsagePricingData[];
   annualLegacyMultipliers: { model: string; currentPremiumRequests?: number }[];
+  currentPremiumRequestDefaults: { model: string; currentPremiumRequests: number }[];
 }
 
 const PRICING_DATA = pricingData as PricingDataFile;
@@ -65,9 +70,10 @@ const OFFICIAL_TOKEN_RATES_BY_MODEL = new Map(
   PRICING_DATA.githubCopilotUsage.map((entry) => [entry.model, entry]),
 );
 const CURRENT_PREMIUM_REQUESTS_BY_MODEL = new Map(
-  PRICING_DATA.annualLegacyMultipliers
-    .filter((entry) => entry.currentPremiumRequests != null)
-    .map((entry) => [entry.model, entry.currentPremiumRequests as number]),
+  [
+    ...PRICING_DATA.annualLegacyMultipliers.filter((entry) => entry.currentPremiumRequests != null),
+    ...PRICING_DATA.currentPremiumRequestDefaults,
+  ].map((entry) => [entry.model, entry.currentPremiumRequests as number]),
 );
 
 function pricingSourceLabel(source: { label: string; verifiedAt: string }): string {
