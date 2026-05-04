@@ -47,7 +47,7 @@ function formatSignedCost(value: number): string {
   </div>
 
   <p class="cost-legend mb-6">
-    Legacy = premium-request billing. GitHub Copilot (usage) = post-Jun-2026 token billing. Direct API = same token-rate defaults with local override support.
+    Legacy: premium requests · Copilot usage: token billing · Direct API: local token-rate estimate.
   </p>
 </template>
 
