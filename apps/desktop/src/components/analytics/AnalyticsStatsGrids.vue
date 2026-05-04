@@ -14,8 +14,8 @@ defineProps<{
   <div class="grid-4 mb-4">
     <StatCard :value="formatNumberFull(data.totalSessions)" label="Total Sessions" />
     <StatCard :value="formatNumber(data.totalTokens)" label="Total Tokens" :gradient="true" />
-    <StatCard :value="formatCost(copilotCost)" label="Copilot Cost" color="warning" />
-    <StatCard :value="formatCost(totalWholesaleCost)" label="Wholesale Cost" color="done" tooltip="Estimated cost if this usage went through direct API access instead of GitHub Copilot, based on per-model token pricing configured in Settings." />
+    <StatCard :value="formatCost(copilotCost)" label="Legacy Copilot Cost" color="warning" />
+    <StatCard :value="formatCost(totalWholesaleCost)" label="Direct API Estimate" color="done" tooltip="Local token-rate estimate. Defaults mirror GitHub's published Copilot usage rates for documented models; Settings overrides can intentionally diverge." />
   </div>
 
   <!-- Incident Stats -->

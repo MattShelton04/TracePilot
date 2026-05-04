@@ -277,7 +277,7 @@ export function useSessionComparison() {
       row("Duration", durA, durB, (v) => formatDuration(v) || "0s", false),
       row("Turns", turnsA, turnsB, String, false),
       row(`Total Tokens${suffix}`, tokA / divA, tokB / divB, fmtN, false),
-      row(`Wholesale Cost${suffix}`, wcA / divA, wcB / divB, formatCost, false),
+      row(`Direct API Cost${suffix}`, wcA / divA, wcB / divB, formatCost, false),
       row(`Copilot Cost${suffix}`, ccA / divA, ccB / divB, formatCost, false),
       row(`Tool Calls${suffix}`, tcA / divA, tcB / divB, fmtInt, false),
       row("Success Rate", srA, srB, formatRate, true),

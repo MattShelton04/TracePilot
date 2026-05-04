@@ -178,8 +178,8 @@ describe("AnalyticsDashboardView", () => {
     expect(wrapper.text()).toContain("10"); // totalSessions
     expect(wrapper.text()).toContain("2.5M"); // totalTokens
     expect(wrapper.text()).toContain("$1.60"); // copilotCost
-    expect(wrapper.text()).toContain("Copilot Cost");
-    expect(wrapper.text()).toContain("Wholesale Cost");
+    expect(wrapper.text()).toContain("Legacy Copilot Cost");
+    expect(wrapper.text()).toContain("Direct API Estimate");
   });
 
   it("renders duration stats section", async () => {

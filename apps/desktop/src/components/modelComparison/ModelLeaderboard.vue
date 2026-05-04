@@ -13,15 +13,15 @@ const ctx = useModelComparisonContext();
         <div class="cost-toggle">
           <button
             :class="['toggle-btn', { active: ctx.costMode === 'wholesale' }]"
-            @click="ctx.costMode = 'wholesale'"
+           @click="ctx.costMode = 'wholesale'"
           >
-            Wholesale
+            Direct API
           </button>
           <button
             :class="['toggle-btn', { active: ctx.costMode === 'copilot' }]"
             @click="ctx.costMode = 'copilot'"
           >
-            Copilot
+            Legacy Copilot
           </button>
           <button
             :class="['toggle-btn', { active: ctx.costMode === 'both' }]"
@@ -61,8 +61,6 @@ const ctx = useModelComparisonContext();
           <col class="col-output" />
           <col class="col-cached" />
           <col class="col-share" />
-          <col class="col-prem-req" />
-          <col class="col-cache-hit" />
           <col v-if="ctx.costMode !== 'copilot'" class="col-cost" />
           <col v-if="ctx.costMode !== 'wholesale'" class="col-cost" />
         </colgroup>
@@ -81,30 +79,24 @@ const ctx = useModelComparisonContext();
               Output <span class="sort-arrow">{{ ctx.sortArrow('outputTokens') }}</span>
             </th>
             <th class="sort-header" @click="ctx.toggleSort('cacheReadTokens')">
-              Cached <span class="sort-arrow">{{ ctx.sortArrow('cacheReadTokens') }}</span>
+              Cache <span class="sort-arrow">{{ ctx.sortArrow('cacheReadTokens') }}</span>
             </th>
             <th class="sort-header" @click="ctx.toggleSort('percentage')">
               Share <span class="sort-arrow">{{ ctx.sortArrow('percentage') }}</span>
-            </th>
-            <th class="sort-header" @click="ctx.toggleSort('premiumRequests')">
-              Prem. Req. <span class="sort-arrow">{{ ctx.sortArrow('premiumRequests') }}</span>
-            </th>
-            <th class="sort-header" @click="ctx.toggleSort('cacheHitRate')">
-              Cache Hit <span class="sort-arrow">{{ ctx.sortArrow('cacheHitRate') }}</span>
             </th>
             <th
               v-if="ctx.costMode !== 'copilot'"
               class="sort-header"
               @click="ctx.toggleSort('cost')"
             >
-              W. Cost <span class="sort-arrow">{{ ctx.sortArrow('cost') }}</span>
+              API $ <span class="sort-arrow">{{ ctx.sortArrow('cost') }}</span>
             </th>
             <th
               v-if="ctx.costMode !== 'wholesale'"
               class="sort-header"
               @click="ctx.toggleSort('copilotCost')"
             >
-              CP Cost <span class="sort-arrow">{{ ctx.sortArrow('copilotCost') }}</span>
+              Copilot $ <span class="sort-arrow">{{ ctx.sortArrow('copilotCost') }}</span>
             </th>
           </tr>
         </thead>
@@ -119,7 +111,7 @@ const ctx = useModelComparisonContext();
             <td class="num-cell">{{ ctx.fmtNorm(row.tokens) }}</td>
             <td class="num-cell">{{ ctx.fmtNorm(row.inputTokens) }}</td>
             <td class="num-cell">{{ ctx.fmtNorm(row.outputTokens) }}</td>
-            <td class="num-cell">{{ ctx.fmtNorm(row.cacheReadTokens) }}</td>
+            <td class="num-cell">{{ ctx.fmtNorm(row.cacheReadTokens) }} ({{ formatPercent(row.cacheHitRate) }})</td>
             <td class="num-cell">
               <div class="inline-progress">
                 <span>{{ formatPercent(row.percentage) }}</span>
@@ -130,14 +122,6 @@ const ctx = useModelComparisonContext();
                   />
                 </div>
               </div>
-            </td>
-            <td class="num-cell">
-              {{ ctx.fmtNorm(row.premiumRequests) }}
-            </td>
-            <td class="num-cell">
-              <span :class="{ 'best-cell': row.model === ctx.modelRows[ctx.bestCacheIdx]?.model }">
-                {{ formatPercent(row.cacheHitRate) }}
-              </span>
             </td>
             <td v-if="ctx.costMode !== 'copilot'" class="num-cell">
               <span :class="{ 'best-cell': row.model === ctx.modelRows[ctx.bestCostIdx]?.model }">
