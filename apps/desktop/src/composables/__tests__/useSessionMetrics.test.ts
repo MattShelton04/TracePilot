@@ -103,8 +103,8 @@ describe("useSessionMetrics", () => {
       // model-b cost: (100 + 50 + 200) * 0.2 = 70.0
       expect(result).toBe(73.5);
       expect(computeWholesaleCost).toHaveBeenCalledTimes(2);
-      expect(computeWholesaleCost).toHaveBeenCalledWith("model-a", 10, 5, 20);
-      expect(computeWholesaleCost).toHaveBeenCalledWith("model-b", 100, 50, 200);
+      expect(computeWholesaleCost).toHaveBeenCalledWith("model-a", 10, 5, 20, 0);
+      expect(computeWholesaleCost).toHaveBeenCalledWith("model-b", 100, 50, 200, 0);
     });
 
     it("should default to 0 for missing token counts", () => {
@@ -124,9 +124,9 @@ describe("useSessionMetrics", () => {
 
       expect(result).toBe(40); // 15 + 0 + 25
       expect(computeWholesaleCost).toHaveBeenCalledTimes(3);
-      expect(computeWholesaleCost).toHaveBeenCalledWith("model-c", 15, 0, 0);
-      expect(computeWholesaleCost).toHaveBeenCalledWith("model-d", 0, 0, 0);
-      expect(computeWholesaleCost).toHaveBeenCalledWith("model-e", 0, 0, 25);
+      expect(computeWholesaleCost).toHaveBeenCalledWith("model-c", 15, 0, 0, 0);
+      expect(computeWholesaleCost).toHaveBeenCalledWith("model-d", 0, 0, 0, 0);
+      expect(computeWholesaleCost).toHaveBeenCalledWith("model-e", 0, 0, 25, 0);
     });
 
     it("should treat a null return from computeWholesaleCost as 0", () => {

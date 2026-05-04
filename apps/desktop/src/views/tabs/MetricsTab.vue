@@ -36,6 +36,10 @@ const {
   hasTokenBudget,
   copilotCost,
   totalWholesaleCost,
+  totalUsageBasedCost,
+  hasUsageBasedUnknowns,
+  june2026PreviewDelta,
+  observedAiuCost,
   cacheHitRatio,
 } = useMetricsTabData(metrics, prefs);
 </script>
@@ -58,7 +62,11 @@ const {
         :metrics="metrics"
         :total-requests="totalRequests"
         :copilot-cost="copilotCost"
+        :total-usage-based-cost="totalUsageBasedCost"
+        :has-usage-based-unknowns="hasUsageBasedUnknowns"
         :total-wholesale-cost="totalWholesaleCost"
+        :june2026-preview-delta="june2026PreviewDelta"
+        :observed-aiu-cost="observedAiuCost"
         :total-tokens="totalTokens"
       />
 

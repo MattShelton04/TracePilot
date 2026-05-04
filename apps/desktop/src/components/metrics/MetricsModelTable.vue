@@ -13,8 +13,9 @@ const modelColumns = computed(() => {
   const cols = [
     { key: "name", label: "Model", align: "left" as const },
     { key: "requests", label: "Requests", align: "right" as const },
-    { key: "copilotCost", label: "Copilot Cost", align: "right" as const },
-    { key: "wholesaleCost", label: "Wholesale Cost", align: "right" as const },
+    { key: "copilotCost", label: "Legacy Copilot", align: "right" as const },
+    { key: "usageBasedCost", label: "GitHub Usage", align: "right" as const },
+    { key: "wholesaleCost", label: "Direct API", align: "right" as const },
     { key: "inputTokens", label: "Input Tokens", align: "right" as const },
     { key: "outputTokens", label: "Output Tokens", align: "right" as const },
   ];
@@ -68,6 +69,11 @@ const modelColumns = computed(() => {
     </template>
     <template #cell-copilotCost="{ value }">
       <span class="text-[var(--warning-fg)]">{{ formatCost(value as number) }}</span>
+    </template>
+    <template #cell-usageBasedCost="{ value }">
+      <span :class="value != null ? 'text-[var(--done-fg)]' : 'text-[var(--text-placeholder)]'">
+        {{ value != null ? formatCost(value as number) : '—' }}
+      </span>
     </template>
     <template #cell-wholesaleCost="{ value }">
       <span :class="value != null ? 'text-[var(--done-fg)]' : 'text-[var(--text-placeholder)]'">

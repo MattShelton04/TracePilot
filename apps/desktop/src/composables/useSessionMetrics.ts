@@ -49,6 +49,7 @@ export function wholesaleCost(
     input: number,
     cache: number,
     output: number,
+    cacheWrite?: number,
   ) => number | null,
 ): number {
   if (!m?.modelMetrics) return 0;
@@ -58,6 +59,7 @@ export function wholesaleCost(
       mm.usage?.inputTokens ?? 0,
       mm.usage?.cacheReadTokens ?? 0,
       mm.usage?.outputTokens ?? 0,
+      mm.usage?.cacheWriteTokens ?? 0,
     );
     return sum + (cost ?? 0);
   }, 0);
