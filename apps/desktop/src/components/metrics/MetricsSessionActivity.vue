@@ -51,9 +51,37 @@ function segmentWholesaleCost(seg: SessionSegment): number {
       m.usage?.inputTokens ?? 0,
       m.usage?.cacheReadTokens ?? 0,
       m.usage?.outputTokens ?? 0,
+      m.usage?.cacheWriteTokens ?? 0,
     );
     return sum + (cost ?? 0);
   }, 0);
+}
+
+function segmentUsageBasedCost(seg: SessionSegment): number | null {
+  if (!seg.modelMetrics) return null;
+  let total = 0;
+  for (const [name, m] of Object.entries(seg.modelMetrics)) {
+    const cost = prefs.computeUsageBasedCost(
+      name,
+      m.usage?.inputTokens ?? 0,
+      m.usage?.cacheReadTokens ?? 0,
+      m.usage?.outputTokens ?? 0,
+      m.usage?.cacheWriteTokens ?? 0,
+    );
+    if (cost == null) return null;
+    total += cost;
+  }
+  return total;
+}
+
+function modelUsageBasedCost(name: string, m: ModelMetricDetail): number | null {
+  return prefs.computeUsageBasedCost(
+    name,
+    m.usage?.inputTokens ?? 0,
+    m.usage?.cacheReadTokens ?? 0,
+    m.usage?.outputTokens ?? 0,
+    m.usage?.cacheWriteTokens ?? 0,
+  );
 }
 </script>
 
@@ -104,8 +132,11 @@ function segmentWholesaleCost(seg: SessionSegment): number {
               <span v-if="(m.requests?.cost ?? 0) > 0" class="cost-pill amber-text" title="Copilot Cost">
                 {{ formatCost((m.requests?.cost ?? 0) * prefs.costPerPremiumRequest) }}
               </span>
-              <span class="cost-pill emerald-text" title="Wholesale Cost">
-                {{ formatCost(prefs.computeWholesaleCost(name as string, m.usage?.inputTokens ?? 0, m.usage?.cacheReadTokens ?? 0, m.usage?.outputTokens ?? 0) || 0) }}
+              <span class="cost-pill emerald-text" title="Direct API estimate">
+                {{ formatCost(prefs.computeWholesaleCost(name as string, m.usage?.inputTokens ?? 0, m.usage?.cacheReadTokens ?? 0, m.usage?.outputTokens ?? 0, m.usage?.cacheWriteTokens ?? 0) || 0) }}
+              </span>
+              <span class="cost-pill blue-text" title="GitHub Copilot usage estimate">
+                {{ modelUsageBasedCost(name as string, m) != null ? formatCost(modelUsageBasedCost(name as string, m)!) : '—' }}
               </span>
             </div>
           </div>
@@ -115,8 +146,11 @@ function segmentWholesaleCost(seg: SessionSegment): number {
           <span v-if="segmentCopilotCost(seg) > 0" class="cost-pill amber-text" title="Copilot Cost">
             Copilot {{ formatCost(segmentCopilotCost(seg)) }}
           </span>
-          <span class="cost-pill emerald-text" title="Wholesale Cost">
-            Wholesale {{ formatCost(segmentWholesaleCost(seg)) }}
+          <span class="cost-pill emerald-text" title="Direct API estimate">
+            Direct API {{ formatCost(segmentWholesaleCost(seg)) }}
+          </span>
+          <span class="cost-pill blue-text" title="GitHub Copilot usage estimate">
+            GitHub usage {{ segmentUsageBasedCost(seg) != null ? formatCost(segmentUsageBasedCost(seg) as number) : '—' }}
           </span>
         </div>
         <div class="activity-tile-footer">
@@ -361,4 +395,5 @@ function segmentWholesaleCost(seg: SessionSegment): number {
 
 .amber-text { color: var(--warning-fg); }
 .emerald-text { color: var(--success-fg); }
+.blue-text { color: var(--accent-fg); }
 </style>

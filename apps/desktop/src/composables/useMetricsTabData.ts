@@ -9,6 +9,8 @@ export interface MetricsModelEntry {
   name: string;
   requests: number;
   copilotCost: number;
+  usageBasedCost: number | null;
+  usageBasedStatus: string;
   inputTokens: number;
   outputTokens: number;
   cacheReadTokens: number;
@@ -29,22 +31,33 @@ export function useMetricsTabData(
         const inputTokens = data.usage?.inputTokens ?? 0;
         const outputTokens = data.usage?.outputTokens ?? 0;
         const cacheReadTokens = data.usage?.cacheReadTokens ?? 0;
+        const cacheWriteTokens = data.usage?.cacheWriteTokens ?? 0;
         const reasoningTokens = data.usage?.reasoningTokens ?? null;
         const wholesaleCost = prefs.computeWholesaleCost(
           name,
           inputTokens,
           cacheReadTokens,
           outputTokens,
+          cacheWriteTokens,
+        );
+        const usageBased = prefs.computeUsageBasedCostBreakdown(
+          name,
+          inputTokens,
+          cacheReadTokens,
+          outputTokens,
+          cacheWriteTokens,
         );
         const premiumRequests = data.requests?.cost ?? 0;
         return {
           name,
           requests: data.requests?.count ?? 0,
           copilotCost: premiumRequests * prefs.costPerPremiumRequest,
+          usageBasedCost: usageBased.totalCost,
+          usageBasedStatus: usageBased.status,
           inputTokens,
           outputTokens,
           cacheReadTokens,
-          cacheWriteTokens: data.usage?.cacheWriteTokens ?? 0,
+          cacheWriteTokens,
           reasoningTokens,
           totalTokens: inputTokens + outputTokens,
           wholesaleCost,
@@ -86,6 +99,22 @@ export function useMetricsTabData(
     return total;
   });
 
+  const totalUsageBasedCost = computed(() => {
+    let total = 0;
+    for (const m of modelEntries.value) {
+      if (m.usageBasedCost !== null) total += m.usageBasedCost;
+    }
+    return total;
+  });
+
+  const hasUsageBasedUnknowns = computed(() =>
+    modelEntries.value.some((m) => m.usageBasedCost === null || m.usageBasedStatus !== "priced"),
+  );
+
+  const june2026PreviewDelta = computed(() => totalUsageBasedCost.value - copilotCost.value);
+
+  const observedAiuCost = computed(() => prefs.getObservedAiuCost(metrics.value?.totalNanoAiu));
+
   const cacheHitRatio = computed(() =>
     totalInputTokens.value > 0 ? totalCacheReadTokens.value / totalInputTokens.value : 0,
   );
@@ -101,6 +130,10 @@ export function useMetricsTabData(
     hasTokenBudget,
     copilotCost,
     totalWholesaleCost,
+    totalUsageBasedCost,
+    hasUsageBasedUnknowns,
+    june2026PreviewDelta,
+    observedAiuCost,
     cacheHitRatio,
   };
 }

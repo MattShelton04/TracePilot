@@ -132,7 +132,7 @@ const { chartData: costChart } = useLineAreaChartData({
     </SectionPanel>
 
     <!-- Cost Trend -->
-    <SectionPanel title="Cost Trend">
+    <SectionPanel title="Legacy Cost Trend">
       <LineAreaChart
         v-if="costChart"
         :chart-data="costChart"

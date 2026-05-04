@@ -10,6 +10,7 @@
  */
 
 import type { ModelPriceEntry } from "./config.js";
+import pricingData from "./pricing-data.json" with { type: "json" };
 
 // ─── Tier ────────────────────────────────────────────────────────────
 
@@ -34,6 +35,51 @@ export interface ModelDefinition {
   premiumRequests: number;
 }
 
+interface UsagePricingData {
+  model: string;
+  inputPerM: number;
+  cachedInputPerM: number;
+  cacheWritePerM?: number;
+  outputPerM: number;
+}
+
+interface PricingDataFile {
+  sources: {
+    githubCopilotUsage: {
+      label: string;
+      url?: string;
+      verifiedAt: string;
+    };
+    tracePilotLegacyProviderEstimate: {
+      label: string;
+      verifiedAt: string;
+    };
+    tracePilotCurrentPremiumRequests: {
+      label: string;
+      verifiedAt: string;
+    };
+  };
+  aliases: Record<string, string[]>;
+  githubCopilotUsage: UsagePricingData[];
+  annualLegacyMultipliers: { model: string; currentPremiumRequests?: number }[];
+  currentPremiumRequestDefaults: { model: string; currentPremiumRequests: number }[];
+}
+
+const PRICING_DATA = pricingData as PricingDataFile;
+const OFFICIAL_TOKEN_RATES_BY_MODEL = new Map(
+  PRICING_DATA.githubCopilotUsage.map((entry) => [entry.model, entry]),
+);
+const CURRENT_PREMIUM_REQUESTS_BY_MODEL = new Map(
+  [
+    ...PRICING_DATA.annualLegacyMultipliers.filter((entry) => entry.currentPremiumRequests != null),
+    ...PRICING_DATA.currentPremiumRequestDefaults,
+  ].map((entry) => [entry.model, entry.currentPremiumRequests as number]),
+);
+
+function pricingSourceLabel(source: { label: string; verifiedAt: string }): string {
+  return `${source.label} (verified ${source.verifiedAt})`;
+}
+
 // ─── Registry ────────────────────────────────────────────────────────
 
 /**
@@ -43,7 +89,7 @@ export interface ModelDefinition {
  * Keep in sync with `crates/tracepilot-orchestrator/src/launcher.rs →
  * available_models()`.
  */
-export const MODEL_REGISTRY: readonly ModelDefinition[] = [
+const MODEL_REGISTRY_BASE: readonly ModelDefinition[] = [
   // ── Premium ──
   {
     id: "claude-opus-4.7",
@@ -62,6 +108,15 @@ export const MODEL_REGISTRY: readonly ModelDefinition[] = [
     cachedInputPerM: 0.5,
     outputPerM: 30.0,
     premiumRequests: 7.5,
+  },
+  {
+    id: "goldeneye",
+    name: "Goldeneye",
+    tier: "premium",
+    inputPerM: 1.25,
+    cachedInputPerM: 0.125,
+    outputPerM: 10.0,
+    premiumRequests: 1,
   },
   {
     id: "claude-opus-4.6",
@@ -125,6 +180,24 @@ export const MODEL_REGISTRY: readonly ModelDefinition[] = [
     inputPerM: 3.0,
     cachedInputPerM: 0.3,
     outputPerM: 16.0,
+    premiumRequests: 1,
+  },
+  {
+    id: "gemini-2.5-pro",
+    name: "Gemini 2.5 Pro",
+    tier: "standard",
+    inputPerM: 1.25,
+    cachedInputPerM: 0.125,
+    outputPerM: 10.0,
+    premiumRequests: 1,
+  },
+  {
+    id: "gemini-3.1-pro",
+    name: "Gemini 3.1 Pro",
+    tier: "standard",
+    inputPerM: 2.0,
+    cachedInputPerM: 0.2,
+    outputPerM: 12.0,
     premiumRequests: 1,
   },
   {
@@ -210,6 +283,42 @@ export const MODEL_REGISTRY: readonly ModelDefinition[] = [
     premiumRequests: 0.33,
   },
   {
+    id: "gpt-5.4-nano",
+    name: "GPT-5.4 Nano",
+    tier: "fast",
+    inputPerM: 0.2,
+    cachedInputPerM: 0.02,
+    outputPerM: 1.25,
+    premiumRequests: 0.33,
+  },
+  {
+    id: "gemini-3-flash",
+    name: "Gemini 3 Flash",
+    tier: "fast",
+    inputPerM: 0.5,
+    cachedInputPerM: 0.05,
+    outputPerM: 3.0,
+    premiumRequests: 0.33,
+  },
+  {
+    id: "grok-code-fast-1",
+    name: "Grok Code Fast 1",
+    tier: "fast",
+    inputPerM: 0.2,
+    cachedInputPerM: 0.02,
+    outputPerM: 1.5,
+    premiumRequests: 0.25,
+  },
+  {
+    id: "raptor-mini",
+    name: "Raptor Mini",
+    tier: "fast",
+    inputPerM: 0.25,
+    cachedInputPerM: 0.025,
+    outputPerM: 2.0,
+    premiumRequests: 0,
+  },
+  {
     id: "gpt-5.1-codex-mini",
     name: "GPT-5.1 Codex Mini",
     tier: "fast",
@@ -237,6 +346,11 @@ export const MODEL_REGISTRY: readonly ModelDefinition[] = [
     premiumRequests: 0,
   },
 ];
+
+export const MODEL_REGISTRY: readonly ModelDefinition[] = MODEL_REGISTRY_BASE.map((model) => ({
+  ...model,
+  premiumRequests: CURRENT_PREMIUM_REQUESTS_BY_MODEL.get(model.id) ?? model.premiumRequests,
+}));
 
 // ─── Derived helpers ─────────────────────────────────────────────────
 
@@ -275,13 +389,40 @@ export function getTierLabel(tier: ModelTier): string {
 
 /** Derive default wholesale prices from the registry. */
 export function getDefaultWholesalePrices(): ModelPriceEntry[] {
-  return MODEL_REGISTRY.map(({ id, inputPerM, cachedInputPerM, outputPerM, premiumRequests }) => ({
-    model: id,
-    inputPerM,
-    cachedInputPerM,
-    outputPerM,
-    premiumRequests,
-  }));
+  return MODEL_REGISTRY.map(({ id, inputPerM, cachedInputPerM, outputPerM, premiumRequests }) => {
+    const officialRates = OFFICIAL_TOKEN_RATES_BY_MODEL.get(id);
+    if (officialRates) {
+      return {
+        model: id,
+        aliases: PRICING_DATA.aliases[id],
+        inputPerM: officialRates.inputPerM,
+        cachedInputPerM: officialRates.cachedInputPerM,
+        cacheWritePerM: officialRates.cacheWritePerM,
+        outputPerM: officialRates.outputPerM,
+        premiumRequests,
+        source: "provider-wholesale",
+        sourceLabel: `${pricingSourceLabel(
+          PRICING_DATA.sources.githubCopilotUsage,
+        )}; local default mirrors GitHub's published token rates`,
+        sourceUrl: PRICING_DATA.sources.githubCopilotUsage.url,
+        status: "official",
+      };
+    }
+    return {
+      model: id,
+      aliases: PRICING_DATA.aliases[id],
+      inputPerM,
+      cachedInputPerM,
+      cacheWritePerM: 0,
+      outputPerM,
+      premiumRequests,
+      source: "provider-wholesale",
+      sourceLabel: `${pricingSourceLabel(
+        PRICING_DATA.sources.tracePilotLegacyProviderEstimate,
+      )}; model not listed on GitHub pricing page`,
+      status: "estimated",
+    };
+  });
 }
 
 // ─── Well-known defaults ─────────────────────────────────────────────

@@ -71,6 +71,67 @@ fn deserialize_missing_optional_sections_uses_defaults() {
 }
 
 #[test]
+fn pricing_model_entries_roundtrip_optional_metadata() {
+    let toml = r#"
+        version = 8
+
+        [paths]
+        copilotHome = "/custom/copilot"
+        tracepilotHome = "/custom/tracepilot"
+        indexDbPath = "/custom/tracepilot/index.db"
+        sessionStateDir = "/custom/copilot/session-state"
+
+        [pricing]
+        costPerPremiumRequest = 0.04
+
+        [[pricing.models]]
+        model = "custom-model"
+        aliases = ["Custom Model"]
+        inputPerM = 1.0
+        cachedInputPerM = 0.1
+        cacheWritePerM = 0.2
+        outputPerM = 2.0
+        reasoningPerM = 3.0
+        premiumRequests = 1.0
+        source = "user"
+        pricingKind = "usage-token-rate"
+        effectiveFrom = "2026-06-01"
+        sourceLabel = "Local settings override"
+        status = "user-override"
+    "#;
+
+    let config: TracePilotConfig = toml::from_str(toml).expect("parse pricing metadata");
+    let model = config.pricing.models.first().expect("pricing model");
+    assert_eq!(model.aliases, vec!["Custom Model".to_string()]);
+    assert_eq!(model.cache_write_per_m, Some(0.2));
+    assert_eq!(model.reasoning_per_m, Some(3.0));
+    assert_eq!(model.source.as_deref(), Some("user"));
+    assert_eq!(model.effective_from.as_deref(), Some("2026-06-01"));
+
+    let serialized = toml::to_string_pretty(&config).expect("serialize pricing metadata");
+    assert!(serialized.contains("cacheWritePerM = 0.2"));
+    assert!(serialized.contains("sourceLabel = \"Local settings override\""));
+}
+
+#[test]
+fn default_pricing_uses_shared_published_token_rates() {
+    let config = TracePilotConfig::default();
+    let gpt_54_mini = config
+        .pricing
+        .models
+        .iter()
+        .find(|entry| entry.model == "gpt-5.4-mini")
+        .expect("gpt-5.4-mini default price");
+
+    assert_eq!(gpt_54_mini.input_per_m, 0.75);
+    assert_eq!(gpt_54_mini.cached_input_per_m, 0.075);
+    assert_eq!(gpt_54_mini.output_per_m, 4.5);
+    assert_eq!(gpt_54_mini.premium_requests, 0.33);
+    assert_eq!(gpt_54_mini.source.as_deref(), Some("provider-wholesale"));
+    assert_eq!(gpt_54_mini.status.as_deref(), Some("official"));
+}
+
+#[test]
 fn deserialize_v1_config_and_migrate() {
     let v1_toml = r#"
         version = 1

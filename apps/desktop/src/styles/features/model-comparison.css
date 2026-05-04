@@ -93,6 +93,19 @@
   table-layout: fixed;
   width: 100%;
 }
+
+.model-comparison-feature .matrix-table th:first-child,
+.model-comparison-feature .matrix-table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--canvas-default);
+}
+
+.model-comparison-feature .matrix-table th:first-child {
+  z-index: 2;
+}
+
 .model-comparison-feature .matrix-table td,
 .model-comparison-feature .compare-table td {
   overflow: hidden;
@@ -297,11 +310,11 @@
 }
 
 .model-comparison-feature .col-model {
-  width: 18%;
+  width: 22%;
 }
 
 .model-comparison-feature .col-total {
-  width: 11%;
+  width: 12%;
 }
 
 .model-comparison-feature .col-input {
@@ -309,27 +322,19 @@
 }
 
 .model-comparison-feature .col-output {
-  width: 9%;
+  width: 11%;
 }
 
 .model-comparison-feature .col-cached {
-  width: 9%;
+  width: 16%;
 }
 
 .model-comparison-feature .col-share {
-  width: 13%;
-}
-
-.model-comparison-feature .col-prem-req {
-  width: 8%;
-}
-
-.model-comparison-feature .col-cache-hit {
-  width: 8%;
+  width: 14%;
 }
 
 .model-comparison-feature .col-cost {
-  width: 8%;
+  width: 7%;
 }
 
 .model-comparison-feature .col-quarter {

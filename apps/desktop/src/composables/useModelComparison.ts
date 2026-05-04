@@ -133,7 +133,7 @@ function buildCompareMetrics(
       ...formatModelDelta(a.cacheHitRate, b.cacheHitRate, true),
     },
     {
-      label: "Wholesale Cost",
+      label: "Direct API Cost",
       valueA: fmtNorm(a.cost, true),
       valueB: fmtNorm(b.cost, true),
       ...formatModelDelta(a.cost ?? 0, b.cost ?? 0, false),

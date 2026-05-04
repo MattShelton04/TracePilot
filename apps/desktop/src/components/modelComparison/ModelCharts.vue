@@ -162,7 +162,7 @@ const ctx = useModelComparisonContext();
               fill="var(--text-tertiary)"
               font-family="Inter, sans-serif"
               transform="rotate(-90, 14, 135)"
-            >Wholesale Cost ($)</text>
+            >Direct API ($)</text>
             <!-- Scale labels -->
             <text
               :x="SCATTER_PAD.left - 8"

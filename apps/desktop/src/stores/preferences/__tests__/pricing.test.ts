@@ -18,7 +18,7 @@ describe("createPricingSlice", () => {
     ).toBeUndefined();
   });
 
-  it("getWholesalePrice matches by longest-first substring", () => {
+  it("getWholesalePrice matches by longest-first prefix", () => {
     const slice = createPricingSlice();
     slice.modelWholesalePrices.value = [
       { model: "gpt-4", inputPerM: 1, cachedInputPerM: 0.1, outputPerM: 2, premiumRequests: 1 },
@@ -34,6 +34,12 @@ describe("createPricingSlice", () => {
     expect(match?.model).toBe("gpt-4-turbo");
   });
 
+  it("getWholesalePrice matches explicit aliases without arbitrary substring fallback", () => {
+    const slice = createPricingSlice();
+    expect(slice.getWholesalePrice("Claude Sonnet 4.6")?.model).toBe("claude-sonnet-4.6");
+    expect(slice.getWholesalePrice("not-claude-sonnet-4.6-but-contains-it")).toBeUndefined();
+  });
+
   it("computeWholesaleCost subtracts cache reads from input tokens", () => {
     const slice = createPricingSlice();
     slice.modelWholesalePrices.value = [
@@ -42,6 +48,67 @@ describe("createPricingSlice", () => {
     // 1M input, 500k cached, 1M output → 500k*10 + 500k*1 + 1M*20 = 5 + 0.5 + 20 = 25.5
     const cost = slice.computeWholesaleCost("test", 1_000_000, 500_000, 1_000_000);
     expect(cost).toBeCloseTo(25.5);
+  });
+
+  it("computeWholesaleCost includes cache write price when configured", () => {
+    const slice = createPricingSlice();
+    slice.modelWholesalePrices.value = [
+      {
+        model: "test",
+        inputPerM: 10,
+        cachedInputPerM: 1,
+        cacheWritePerM: 2,
+        outputPerM: 20,
+        premiumRequests: 1,
+      },
+    ];
+    const cost = slice.computeWholesaleCost("test", 1_000_000, 500_000, 1_000_000, 250_000);
+    expect(cost).toBeCloseTo(26);
+  });
+
+  it("computeUsageBasedCost uses official GitHub rates and returns null for unknown models", () => {
+    const slice = createPricingSlice();
+    expect(
+      slice.computeUsageBasedCost(
+        "claude-sonnet-4.6",
+        1_000_000,
+        400_000,
+        200_000,
+        100_000,
+        "2026-06-01",
+      ),
+    ).toBeCloseTo(5.295);
+    expect(slice.computeUsageBasedCost("unknown-model", 1, 0, 1, 0, "2026-06-01")).toBeNull();
+  });
+
+  it("computeUsageBasedCost respects effective dates", () => {
+    const slice = createPricingSlice();
+    expect(slice.computeUsageBasedCost("gpt-5.4", 1_000_000, 0, 0, 0, "2026-05-31")).toBeNull();
+    expect(slice.computeUsageBasedCost("gpt-5.4", 1_000_000, 0, 0, 0, "2026-06-01")).toBe(2.5);
+  });
+
+  it("computeUsageBasedCost previews June 2026 rates when no date is supplied", () => {
+    const slice = createPricingSlice();
+    expect(slice.computeUsageBasedCost("gpt-5.4", 1_000_000, 0, 0)).toBe(2.5);
+  });
+
+  it("default local token-rate estimates mirror GitHub usage rates for documented models", () => {
+    const slice = createPricingSlice();
+    expect(slice.computeWholesaleCost("gpt-5.4-mini", 1_000_000, 0, 1_000_000)).toBeCloseTo(5.25);
+    expect(slice.computeUsageBasedCost("gpt-5.4-mini", 1_000_000, 0, 1_000_000)).toBeCloseTo(5.25);
+  });
+
+  it("local wholesale overrides take precedence over bundled defaults", () => {
+    const slice = createPricingSlice();
+    slice.modelWholesalePrices.value = [
+      { model: "gpt-5.5", inputPerM: 1, cachedInputPerM: 0.1, outputPerM: 2, premiumRequests: 1 },
+    ];
+    expect(slice.computeWholesaleCost("GPT-5.5", 1_000_000, 0, 1_000_000)).toBe(3);
+  });
+
+  it("converts observed nano AIU to USD using AI Credit units", () => {
+    const slice = createPricingSlice();
+    expect(slice.getObservedAiuCost(1_000_000_000)).toBe(0.01);
   });
 
   it("computeWholesaleCost returns null when the model is unknown", () => {

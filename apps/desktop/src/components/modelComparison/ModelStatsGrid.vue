@@ -10,8 +10,8 @@ const ctx = useModelComparisonContext();
   <div class="grid-4 mb-4">
     <StatCard :value="ctx.modelCount" label="Models Used" />
     <StatCard :value="formatNumber(ctx.totalTokens)" label="Total Tokens" color="done" />
-    <StatCard :value="formatCost(ctx.totalCost)" label="Wholesale Cost" color="success" />
-    <StatCard :value="formatCost(ctx.totalCopilotCost)" label="Copilot Cost" color="warning" />
+    <StatCard :value="formatCost(ctx.totalCost)" label="Direct API Estimate" color="success" />
+    <StatCard :value="formatCost(ctx.totalCopilotCost)" label="Legacy Copilot Cost" color="warning" />
   </div>
 
   <!-- Model Cards Row -->
@@ -27,7 +27,7 @@ const ctx = useModelComparisonContext();
           <div class="model-card-stat-value">{{ formatNumber(row.tokens) }}</div>
         </div>
         <div>
-          <div class="model-card-stat-label">Wholesale Cost</div>
+          <div class="model-card-stat-label">Direct API</div>
           <div class="model-card-stat-value">{{ formatCost(row.cost) }}</div>
         </div>
         <div>
