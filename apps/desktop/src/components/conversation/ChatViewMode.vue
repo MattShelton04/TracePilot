@@ -10,7 +10,9 @@ import { useRoute } from "vue-router";
 import GapIndicator from "@/components/conversation/chat/GapIndicator.vue";
 import TurnBlock from "@/components/conversation/chat/TurnBlock.vue";
 import UserMessageAnchor from "@/components/conversation/chat/UserMessageAnchor.vue";
+import PermissionEventRow from "@/components/conversation/PermissionEventRow.vue";
 import SessionEventRow from "@/components/conversation/SessionEventRow.vue";
+import { pairPermissionEvents } from "@/components/conversation/sessionEventPairing";
 import { useChatViewPanelOffset } from "@/composables/useChatViewPanelOffset";
 import { useCrossTurnSubagents } from "@/composables/useCrossTurnSubagents";
 import { useRenderBudget } from "@/composables/useRenderBudget";
@@ -370,12 +372,18 @@ defineExpose({ revealEvent });
                 :index="idx"
               />
 
-              <!-- Session events -->
-              <SessionEventRow
-                v-for="evt in (turn.sessionEvents ?? [])"
-                :key="evt.timestamp"
-                :event="evt"
-              />
+              <!-- Session events (with permission request/completion pairing) -->
+              <template v-for="entry in pairPermissionEvents(turn.sessionEvents ?? [])" :key="entry.key">
+                <PermissionEventRow
+                  v-if="entry.type === 'permission'"
+                  :requested="entry.requested"
+                  :completed="entry.completed"
+                />
+                <SessionEventRow
+                  v-else
+                  :event="entry.event"
+                />
+              </template>
 
               <!-- User message anchor -->
               <UserMessageAnchor
