@@ -70,9 +70,15 @@ export interface ShutdownMetrics {
   systemTokens?: number | null;
   conversationTokens?: number | null;
   toolDefinitionsTokens?: number | null;
+  totalNanoAiu?: number | null;
+  tokenDetails?: Record<string, ShutdownTokenDetail> | null;
   codeChanges?: CodeChanges | null;
   modelMetrics?: Record<string, ModelMetricDetail> | null;
   sessionSegments?: SessionSegment[] | null;
+}
+
+export interface ShutdownTokenDetail {
+  tokenCount?: number | null;
 }
 
 /** A single session segment's metrics snapshot (one per shutdown event). */
@@ -83,6 +89,7 @@ export interface SessionSegment {
   totalRequests: number;
   premiumRequests: number;
   apiDurationMs: number;
+  totalNanoAiu?: number | null;
   currentModel?: string | null;
   modelMetrics?: Record<string, ModelMetricDetail> | null;
 }

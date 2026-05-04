@@ -31,6 +31,15 @@ function severityIcon(severity: SessionEventSeverity | undefined): string {
   if (severity === "warning") return "⚠️";
   return "ℹ️";
 }
+
+function eventLabel(eventType: string): string {
+  const labels: Record<string, string> = {
+    "permission.requested": "permission requested",
+    "permission.completed": "permission result",
+    "external_tool.requested": "external tool",
+  };
+  return labels[eventType] ?? eventType;
+}
 </script>
 
 <template>
@@ -61,7 +70,7 @@ function severityIcon(severity: SessionEventSeverity | undefined): string {
     :class="['cv-session-event', severityClass(event.severity)]"
   >
     <span class="cv-session-event-icon">{{ severityIcon(event.severity) }}</span>
-    <span class="cv-session-event-type">{{ event.eventType }}</span>
+    <span class="cv-session-event-type">{{ eventLabel(event.eventType) }}</span>
     <span class="cv-session-event-summary">{{ event.summary }}</span>
     <span v-if="event.timestamp" class="cv-session-event-time">
       {{ formatTime(event.timestamp) }}

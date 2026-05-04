@@ -3,7 +3,7 @@
 use super::typed::{TypedEvent, TypedEventData};
 use crate::models::event_types::{
     CodeChanges, ModelMetricDetail, RequestMetrics, SessionEventType, SessionSegment,
-    SessionStartData, ShutdownData, UsageMetrics,
+    SessionStartData, ShutdownData, ShutdownTokenDetail, UsageMetrics,
 };
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
@@ -122,6 +122,7 @@ fn combine_shutdown_data(
             total_requests,
             premium_requests: sd.total_premium_requests.unwrap_or(0.0),
             api_duration_ms: sd.total_api_duration_ms.unwrap_or(0),
+            total_nano_aiu: sd.total_nano_aiu,
             current_model: sd.current_model.clone(),
             model_metrics: sd.model_metrics.clone(),
         });
@@ -129,6 +130,7 @@ fn combine_shutdown_data(
 
     Some(ShutdownData {
         shutdown_type: last.shutdown_type.clone(),
+        error_reason: last.error_reason.clone(),
         current_model: last.current_model.clone(),
         session_start_time: first.session_start_time,
         total_premium_requests: sum_opt_f64(
@@ -140,12 +142,42 @@ fn combine_shutdown_data(
         system_tokens: last.system_tokens,
         conversation_tokens: last.conversation_tokens,
         tool_definitions_tokens: last.tool_definitions_tokens,
+        total_nano_aiu: sum_opt_u64(shutdowns.iter().map(|(s, _)| s.total_nano_aiu)),
+        token_details: combine_token_details(
+            shutdowns.iter().map(|(s, _)| s.token_details.as_ref()),
+        ),
         code_changes: combine_code_changes(shutdowns.iter().map(|(s, _)| s.code_changes.as_ref())),
         model_metrics: Some(combine_model_metrics(
             shutdowns.iter().map(|(s, _)| s.model_metrics.as_ref()),
         )),
         session_segments: Some(segments),
     })
+}
+
+fn combine_token_details<'a>(
+    details: impl Iterator<Item = Option<&'a HashMap<String, ShutdownTokenDetail>>>,
+) -> Option<HashMap<String, ShutdownTokenDetail>> {
+    let mut combined: HashMap<String, ShutdownTokenDetail> = HashMap::new();
+    for detail_map in details.flatten() {
+        for (token_type, detail) in detail_map {
+            let entry = combined.entry(token_type.clone()).or_default();
+            entry.token_count = sum_pair_opt_u64(entry.token_count, detail.token_count);
+        }
+    }
+    if combined.is_empty() {
+        None
+    } else {
+        Some(combined)
+    }
+}
+
+fn sum_pair_opt_u64(a: Option<u64>, b: Option<u64>) -> Option<u64> {
+    match (a, b) {
+        (Some(a), Some(b)) => Some(a + b),
+        (Some(a), None) => Some(a),
+        (None, Some(b)) => Some(b),
+        (None, None) => None,
+    }
 }
 
 /// Sum Option<f64> values: None + Some(5) = Some(5), None + None = None.

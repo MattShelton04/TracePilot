@@ -57,6 +57,12 @@ pub enum SessionEventType {
     SystemNotification,
     #[strum(serialize = "skill.invoked")]
     SkillInvoked,
+    #[strum(serialize = "permission.requested")]
+    PermissionRequested,
+    #[strum(serialize = "permission.completed")]
+    PermissionCompleted,
+    #[strum(serialize = "external_tool.requested")]
+    ExternalToolRequested,
     #[strum(serialize = "abort")]
     Abort,
     // ── New event types ──
@@ -117,6 +123,9 @@ pub const KNOWN_EVENT_TYPES: &[&str] = &[
     "subagent.failed",
     "system.notification",
     "skill.invoked",
+    "permission.requested",
+    "permission.completed",
+    "external_tool.requested",
     "abort",
     // New event types
     "session.truncation",

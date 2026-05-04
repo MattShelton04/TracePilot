@@ -51,6 +51,11 @@ fn session_events_serialization_round_trip() {
             severity: SessionEventSeverity::Error,
             summary: "Test error".to_string(),
             checkpoint_number: None,
+            request_id: None,
+            tool_call_id: None,
+            prompt_kind: None,
+            result_kind: None,
+            resolved_by_hook: None,
         }],
         system_messages: Vec::new(),
     };

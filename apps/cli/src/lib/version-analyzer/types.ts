@@ -115,6 +115,13 @@ export interface SessionVersionInfo {
   sessionId: string;
   copilotVersion: string;
   eventTypesObserved: Set<string>;
+  eventTypeCounts: Map<string, number>;
+  eventFieldCounts: Map<string, Map<string, number>>;
   createdAt?: string;
   summary?: string;
+}
+
+export interface ReportOptions {
+  fromVersion?: string;
+  toVersion?: string;
 }

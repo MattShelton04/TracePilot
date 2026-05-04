@@ -5,6 +5,26 @@ import yaml from "js-yaml";
 import { getSessionStateDir } from "../session-path.js";
 import type { SessionExample, SessionVersionInfo } from "./types.js";
 
+const MAX_FIELD_SCAN_LINE_CHARS = 1_000_000;
+const FIELD_SCAN_SKIP_EVENTS = new Set(["session.import_legacy"]);
+
+function collectFieldPaths(value: unknown, prefix = "", out: string[] = [], depth = 0): string[] {
+  if (depth > 3 || value === null || typeof value !== "object" || Array.isArray(value)) return out;
+  for (const [key, child] of Object.entries(value)) {
+    const path = prefix ? `${prefix}.${key}` : key;
+    out.push(path);
+    if (child !== null && typeof child === "object") {
+      if (Array.isArray(child)) {
+        const firstObject = child.find((entry) => entry !== null && typeof entry === "object");
+        if (firstObject) collectFieldPaths(firstObject, `${path}[]`, out, depth + 1);
+      } else {
+        collectFieldPaths(child, path, out, depth + 1);
+      }
+    }
+  }
+  return out;
+}
+
 export async function scanSessionVersions(maxSessions = 10000): Promise<SessionVersionInfo[]> {
   const sessionsDir = getSessionStateDir();
   if (!existsSync(sessionsDir)) return [];
@@ -24,10 +44,11 @@ export async function scanSessionVersions(maxSessions = 10000): Promise<SessionV
 
     let copilotVersion = "unknown";
     const eventTypesObserved = new Set<string>();
+    const eventTypeCounts = new Map<string, number>();
+    const eventFieldCounts = new Map<string, Map<string, number>>();
 
-    // Stream events — use lightweight regex extraction for type field to avoid
-    // full JSON parsing of large events (e.g. session.import_legacy).
-    // Only do full JSON parse for session.start/session.resume to get copilotVersion.
+    // Stream events and collect schema-shape metadata. The report only stores
+    // field paths/counts, not field values, so generated diagnostics stay safe.
     const typeRe = /"type"\s*:\s*"([^"]+)"/;
     try {
       const rl = createInterface({ input: createReadStream(eventsPath) });
@@ -39,21 +60,36 @@ export async function scanSessionVersions(maxSessions = 10000): Promise<SessionV
         if (!typeMatch) continue;
         const eventType = typeMatch[1];
         eventTypesObserved.add(eventType);
+        eventTypeCounts.set(eventType, (eventTypeCounts.get(eventType) ?? 0) + 1);
 
-        // Full parse only for session.start/resume to extract copilotVersion
-        if (
+        const shouldParseForVersion =
           eventType === "session.start" ||
-          (eventType === "session.resume" && copilotVersion === "unknown")
-        ) {
-          try {
-            const event = JSON.parse(trimmed) as Record<string, unknown>;
-            const data = event.data as Record<string, unknown> | undefined;
-            if (data?.copilotVersion) {
-              copilotVersion = String(data.copilotVersion);
-            }
-          } catch {
-            /* skip malformed */
+          (eventType === "session.resume" && copilotVersion === "unknown");
+        const shouldScanFields =
+          !FIELD_SCAN_SKIP_EVENTS.has(eventType) && trimmed.length <= MAX_FIELD_SCAN_LINE_CHARS;
+        if (!shouldParseForVersion && !shouldScanFields) {
+          continue;
+        }
+
+        try {
+          const event = JSON.parse(trimmed) as Record<string, unknown>;
+          const data = event.data as Record<string, unknown> | undefined;
+          if (shouldParseForVersion && data?.copilotVersion) {
+            copilotVersion = String(data.copilotVersion);
           }
+
+          if (!shouldScanFields) {
+            continue;
+          }
+          const fieldCounts = eventFieldCounts.get(eventType) ?? new Map<string, number>();
+          for (const field of new Set(collectFieldPaths(data ?? {}))) {
+            fieldCounts.set(field, (fieldCounts.get(field) ?? 0) + 1);
+          }
+          if (fieldCounts.size > 0) {
+            eventFieldCounts.set(eventType, fieldCounts);
+          }
+        } catch {
+          /* skip malformed fields; raw parser will catch malformed event lines elsewhere */
         }
       }
     } catch {
@@ -80,6 +116,8 @@ export async function scanSessionVersions(maxSessions = 10000): Promise<SessionV
         sessionId: dir,
         copilotVersion,
         eventTypesObserved,
+        eventTypeCounts,
+        eventFieldCounts,
         createdAt,
         summary,
       });

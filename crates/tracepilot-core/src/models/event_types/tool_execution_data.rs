@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "camelCase")]
 pub struct ToolExecStartData {
     pub tool_call_id: Option<String>,
+    pub turn_id: Option<String>,
     pub tool_name: Option<String>,
     pub arguments: Option<serde_json::Value>,
     pub parent_tool_call_id: Option<String>,
@@ -15,6 +16,7 @@ pub struct ToolExecStartData {
 #[serde(rename_all = "camelCase")]
 pub struct ToolExecCompleteData {
     pub tool_call_id: Option<String>,
+    pub turn_id: Option<String>,
     pub parent_tool_call_id: Option<String>,
     pub model: Option<String>,
     pub interaction_id: Option<String>,
@@ -71,4 +73,33 @@ pub struct HookEndData {
 pub struct HookError {
     pub message: Option<String>,
     pub stack: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PermissionRequestedData {
+    pub request_id: Option<String>,
+    pub permission_request: Option<serde_json::Value>,
+    pub prompt_request: Option<serde_json::Value>,
+    pub resolved_by_hook: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PermissionCompletedData {
+    pub request_id: Option<String>,
+    pub tool_call_id: Option<String>,
+    pub result: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExternalToolRequestedData {
+    pub request_id: Option<String>,
+    pub session_id: Option<String>,
+    pub tool_call_id: Option<String>,
+    pub tool_name: Option<String>,
+    pub arguments: Option<serde_json::Value>,
+    pub traceparent: Option<String>,
+    pub tracestate: Option<String>,
 }

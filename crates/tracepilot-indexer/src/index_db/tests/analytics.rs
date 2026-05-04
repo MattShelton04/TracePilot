@@ -182,6 +182,16 @@ fn test_incident_indexing_and_retrieval() {
     assert_eq!(s.rate_limit_count, Some(1), "should count 1 rate limit");
     assert_eq!(s.compaction_count, Some(1), "should count 1 compaction");
     assert_eq!(s.truncation_count, Some(1), "should count 1 truncation");
+    let (compaction_input, compaction_output): (i64, i64) = db
+        .conn
+        .query_row(
+            "SELECT total_compaction_input_tokens, total_compaction_output_tokens FROM sessions WHERE id = ?1",
+            ["aaaa1111-1111-1111-1111-111111111111"],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(compaction_input, 2000);
+    assert_eq!(compaction_output, 1000);
 
     // Verify individual incident rows
     let incidents = db

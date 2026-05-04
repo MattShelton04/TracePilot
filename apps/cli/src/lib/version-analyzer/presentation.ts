@@ -2,6 +2,7 @@ import type {
   CopilotVersion,
   CoverageReport,
   EventObservation,
+  ReportOptions,
   SchemaType,
   SessionVersionInfo,
   VersionDiff,
@@ -30,6 +31,7 @@ export function generateMarkdownReport(
   diffs: VersionDiff[],
   coverage: CoverageReport,
   sessionInfo: SessionVersionInfo[],
+  options: ReportOptions = {},
 ): string {
   const lines: string[] = [];
 
@@ -37,8 +39,20 @@ export function generateMarkdownReport(
   lines.push("");
   lines.push(`> Generated: ${new Date().toISOString()}`);
   lines.push(`> Versions analyzed: ${versions.map((v) => v.version).join(", ")}`);
+  if (options.fromVersion || options.toVersion) {
+    lines.push(
+      `> Focus diff: ${options.fromVersion ?? versions[0]?.version} → ${options.toVersion ?? versions[versions.length - 1]?.version}`,
+    );
+  }
   lines.push(`> Sessions scanned: ${sessionInfo.length}`);
   lines.push("");
+
+  const latest = versions[versions.length - 1];
+  const empiricalStats = aggregateObservedStats(sessionInfo);
+  const schemaEvents = new Map(latest?.eventTypes.map((event) => [event.name, event]) ?? []);
+  const unknownObserved = [...empiricalStats.keys()].filter(
+    (eventType) => !schemaEvents.has(eventType),
+  );
 
   // ── Executive Summary
   lines.push("## 1. Executive Summary");
@@ -254,8 +268,74 @@ export function generateMarkdownReport(
     }
   }
 
+  // ── Empirical Field Observations
+  lines.push("## 8. Empirical Session Observations");
+  lines.push("");
+  lines.push(
+    "Local session scanning records event counts and field paths only; generated reports do not include event payload values or message content.",
+  );
+  lines.push("");
+  const interestingEvents = collectInterestingEvents(diffs, coverage)
+    .filter((eventType) => empiricalStats.has(eventType) || schemaEvents.has(eventType))
+    .slice(0, 40);
+  if (interestingEvents.length > 0) {
+    lines.push("| Event Type | Persisted? | Observed Events | Sessions | Top Observed Fields |");
+    lines.push("|-----------|------------|-----------------|----------|---------------------|");
+    for (const eventType of interestingEvents) {
+      const stat = empiricalStats.get(eventType);
+      const schema = schemaEvents.get(eventType);
+      const persisted = schema?.ephemeral === "always" ? "No (ephemeral)" : "Yes";
+      const fields = stat
+        ? [...stat.fields.entries()]
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 8)
+            .map(([field]) => `\`${field}\``)
+            .join(", ")
+        : "—";
+      lines.push(
+        `| \`${eventType}\` | ${persisted} | ${stat?.count ?? 0} | ${stat?.sessions ?? 0} | ${fields || "—"} |`,
+      );
+    }
+    lines.push("");
+  }
+  if (unknownObserved.length > 0) {
+    lines.push("### Observed but missing from latest installed schema");
+    lines.push("");
+    for (const eventType of unknownObserved.sort()) {
+      const stat = empiricalStats.get(eventType);
+      lines.push(
+        `- \`${eventType}\` — ${stat?.count ?? 0} events in ${stat?.sessions ?? 0} sessions`,
+      );
+    }
+    lines.push("");
+  } else {
+    lines.push("No locally observed event types are missing from the latest installed schema.");
+    lines.push("");
+  }
+
+  // ── Live-stream opportunities
+  lines.push("## 9. Live-Stream / Ephemeral Opportunities");
+  lines.push("");
+  const addedEphemeral = collectAddedEvents(diffs)
+    .map((eventType) => schemaEvents.get(eventType))
+    .filter((event): event is NonNullable<typeof event> => Boolean(event))
+    .filter((event) => event.ephemeral === "always");
+  if (addedEphemeral.length > 0) {
+    lines.push(
+      "These events are always-ephemeral in the Copilot CLI schema, so they normally do not appear in `events.jsonl`. They are still high-value for future SDK/live-session UX.",
+    );
+    lines.push("");
+    for (const event of addedEphemeral) {
+      lines.push(`- \`${event.name}\` — ${valueAddForEvent(event.name)}`);
+    }
+    lines.push("");
+  } else {
+    lines.push("No newly-added always-ephemeral events were found in the selected diff window.");
+    lines.push("");
+  }
+
   // ── Forward Compatibility Assessment
-  lines.push("## 8. Forward Compatibility Assessment");
+  lines.push("## 10. Forward Compatibility Assessment");
   lines.push("");
   lines.push("### Strengths");
   lines.push(
@@ -276,7 +356,7 @@ export function generateMarkdownReport(
   lines.push("");
 
   // ── Recommendations
-  lines.push("## 9. Recommendations");
+  lines.push("## 11. Recommendations");
   lines.push("");
 
   const observedGaps = coverage.observations.filter(
@@ -308,6 +388,22 @@ export function generateMarkdownReport(
     lines.push("");
   }
 
+  lines.push("### Biggest value-add opportunities");
+  lines.push("");
+  lines.push(
+    "- **Permission audit trail:** `permission.requested` and `permission.completed` show approval intent and outcome, enabling per-tool approval history.",
+  );
+  lines.push(
+    "- **Cost and usage fidelity:** v1.0.40 shutdown/compaction token fields can enrich model cost, cache, and compaction analytics.",
+  );
+  lines.push(
+    "- **Live reliability diagnostics:** ephemeral `model.call_failure` and `auto_mode_switch.*` events can explain retries and automatic model fallback in live views.",
+  );
+  lines.push(
+    "- **External handoff visibility:** `external_tool.requested` can connect TracePilot timelines to external trace context when those events appear.",
+  );
+  lines.push("");
+
   lines.push("### Suggested next steps");
   lines.push("");
   lines.push(
@@ -324,4 +420,64 @@ export function generateMarkdownReport(
   lines.push("");
 
   return lines.join("\n");
+}
+
+interface ObservedEventStat {
+  count: number;
+  sessions: number;
+  fields: Map<string, number>;
+}
+
+function aggregateObservedStats(sessionInfo: SessionVersionInfo[]): Map<string, ObservedEventStat> {
+  const stats = new Map<string, ObservedEventStat>();
+  for (const session of sessionInfo) {
+    for (const [eventType, count] of session.eventTypeCounts) {
+      const stat = stats.get(eventType) ?? {
+        count: 0,
+        sessions: 0,
+        fields: new Map<string, number>(),
+      };
+      stat.count += count;
+      stat.sessions += 1;
+      const fields = session.eventFieldCounts.get(eventType);
+      if (fields) {
+        for (const [field, fieldCount] of fields) {
+          stat.fields.set(field, (stat.fields.get(field) ?? 0) + fieldCount);
+        }
+      }
+      stats.set(eventType, stat);
+    }
+  }
+  return stats;
+}
+
+function collectAddedEvents(diffs: VersionDiff[]): string[] {
+  return [...new Set(diffs.flatMap((diff) => diff.addedEvents))].sort();
+}
+
+function collectInterestingEvents(diffs: VersionDiff[], coverage: CoverageReport): string[] {
+  const events = new Set<string>();
+  for (const diff of diffs) {
+    for (const eventType of diff.addedEvents) events.add(eventType);
+    for (const modification of diff.modifiedEvents) events.add(modification.eventType);
+  }
+  for (const observation of coverage.observations) {
+    if (!observation.handledByTracePilot && observation.ephemeral !== "always") {
+      events.add(observation.eventType);
+    }
+  }
+  return [...events].sort();
+}
+
+function valueAddForEvent(eventType: string): string {
+  const notes: Record<string, string> = {
+    "assistant.message_start":
+      "earlier live message/phase boundaries before final assistant messages are persisted.",
+    "model.call_failure":
+      "model reliability diagnostics, provider failure attribution, and retry/fallback explanations.",
+    "auto_mode_switch.requested":
+      "visibility into why Copilot requested an automatic model/mode fallback.",
+    "auto_mode_switch.completed": "visibility into the outcome of automatic model/mode fallback.",
+  };
+  return notes[eventType] ?? "potential live-session telemetry for future UI enrichment.";
 }

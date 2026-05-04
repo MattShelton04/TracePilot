@@ -107,7 +107,7 @@ updated_at: "2026-03-10T07:15:00Z"
             r#"{"type":"user.message","data":{"content":"hello","interactionId":"int-1"},"id":"evt-1","timestamp":"2026-03-10T07:14:51.000Z","parentId":null}"#, "\n",
             r#"{"type":"session.error","data":{"errorType":"rate_limit","message":"Rate limit exceeded","statusCode":429},"id":"evt-2","timestamp":"2026-03-10T07:14:52.000Z","parentId":null}"#, "\n",
             r#"{"type":"session.error","data":{"errorType":"api_error","message":"Internal server error","statusCode":500},"id":"evt-3","timestamp":"2026-03-10T07:14:53.000Z","parentId":null}"#, "\n",
-            r#"{"type":"session.compaction_complete","data":{"preCompactionTokens":50000,"success":true,"checkpointNumber":1,"compactionTokensUsed":{"input":2000,"output":1000}},"id":"evt-4","timestamp":"2026-03-10T07:14:54.000Z","parentId":null}"#, "\n",
+            r#"{"type":"session.compaction_complete","data":{"preCompactionTokens":50000,"success":true,"checkpointNumber":1,"compactionTokensUsed":{"inputTokens":2000,"outputTokens":1000,"cacheReadTokens":250,"cacheWriteTokens":50,"duration":1200,"model":"gpt-5.5"}},"id":"evt-4","timestamp":"2026-03-10T07:14:54.000Z","parentId":null}"#, "\n",
             r#"{"type":"session.truncation","data":{"tokensRemovedDuringTruncation":5000,"messagesRemovedDuringTruncation":3,"performedBy":"BasicTruncator","tokenLimit":100000},"id":"evt-5","timestamp":"2026-03-10T07:14:55.000Z","parentId":null}"#, "\n",
             r#"{"type":"assistant.message","data":{"messageId":"msg-1","content":"hi","interactionId":"int-1"},"id":"evt-6","timestamp":"2026-03-10T07:14:56.000Z","parentId":"evt-1"}"#, "\n",
         ),

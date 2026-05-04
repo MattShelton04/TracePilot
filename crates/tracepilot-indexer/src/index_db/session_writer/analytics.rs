@@ -217,8 +217,10 @@ pub(crate) fn extract_session_analytics(
                 TypedEventData::CompactionComplete(d) => {
                     compaction_count += 1;
                     if let Some(usage) = &d.compaction_tokens_used {
-                        total_compaction_input += usage.input.unwrap_or(0) as i64;
-                        total_compaction_output += usage.output.unwrap_or(0) as i64;
+                        total_compaction_input +=
+                            usage.input_tokens.or(usage.input).unwrap_or(0) as i64;
+                        total_compaction_output +=
+                            usage.output_tokens.or(usage.output).unwrap_or(0) as i64;
                     }
                     if incidents.len() < MAX_INCIDENTS_PER_SESSION {
                         incidents.push(IncidentRow {

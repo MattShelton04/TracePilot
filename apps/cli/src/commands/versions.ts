@@ -255,19 +255,44 @@ export async function versionsCoverageCommand(opts: { json?: boolean }) {
 
 // ── tracepilot versions report ───────────────────────────────────────
 
-export async function versionsReportCommand(opts: { output?: string }) {
+export async function versionsReportCommand(opts: { output?: string; from?: string; to?: string }) {
   const versions = ensureVersions();
 
   console.error(chalk.dim("  Scanning sessions..."));
   const sessionInfo = await scanSessionVersions();
 
   console.error(chalk.dim("  Computing diffs..."));
-  const diffs = diffAllVersions(versions);
+  let reportVersions = versions;
+  let diffs = diffAllVersions(versions);
+  let coverageVersion = versions[versions.length - 1];
+  if (opts.from || opts.to) {
+    const from = opts.from ? findVersion(versions, opts.from) : versions[0];
+    const to = opts.to ? findVersion(versions, opts.to) : versions[versions.length - 1];
+    if (!from) {
+      handleValidationError(
+        `Version "${opts.from}" not found. Available: ${versions.map((v) => v.version).join(", ")}`,
+      );
+    }
+    if (!to) {
+      handleValidationError(
+        `Version "${opts.to}" not found. Available: ${versions.map((v) => v.version).join(", ")}`,
+      );
+    }
+    const fromIndex = versions.findIndex((version) => version.version === from.version);
+    const toIndex = versions.findIndex((version) => version.version === to.version);
+    const [start, end] = fromIndex <= toIndex ? [fromIndex, toIndex] : [toIndex, fromIndex];
+    reportVersions = versions.slice(start, end + 1);
+    diffs = [diffVersions(from, to)];
+    coverageVersion = to;
+  }
 
   console.error(chalk.dim("  Computing coverage..."));
-  const coverage = computeCoverage(versions[versions.length - 1], sessionInfo);
+  const coverage = computeCoverage(coverageVersion, sessionInfo);
 
-  const report = generateMarkdownReport(versions, diffs, coverage, sessionInfo);
+  const report = generateMarkdownReport(reportVersions, diffs, coverage, sessionInfo, {
+    fromVersion: opts.from,
+    toVersion: opts.to,
+  });
 
   if (opts.output) {
     mkdirSync(dirname(opts.output), { recursive: true });

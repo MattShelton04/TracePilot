@@ -39,6 +39,7 @@ fn make_subagent_heavy_session(
             new_model: Some("claude-sonnet-4".to_string()),
             previous_reasoning_effort: None,
             reasoning_effort: None,
+            cause: None,
         }),
         &next_id(),
         &next_ts(),
@@ -53,9 +54,12 @@ fn make_subagent_heavy_session(
                 content: Some(format!("Turn {turn_idx}")),
                 transformed_content: None,
                 attachments: None,
+                supported_native_document_mime_types: None,
+                native_document_path_fallback_paths: None,
                 interaction_id: Some(format!("int-{turn_idx}")),
                 source: None,
                 agent_mode: None,
+                parent_agent_task_id: None,
             }),
             &next_id(),
             &next_ts(),
@@ -68,6 +72,7 @@ fn make_subagent_heavy_session(
             SessionEventType::ToolExecutionStart,
             TypedEventData::ToolExecutionStart(ToolExecStartData {
                 tool_call_id: Some(main_tc_id.clone()),
+                turn_id: None,
                 tool_name: Some("read_file".to_string()),
                 arguments: None,
                 parent_tool_call_id: None,
@@ -82,6 +87,7 @@ fn make_subagent_heavy_session(
             SessionEventType::ToolExecutionComplete,
             TypedEventData::ToolExecutionComplete(ToolExecCompleteData {
                 tool_call_id: Some(main_tc_id),
+                turn_id: None,
                 parent_tool_call_id: None,
                 model: Some("claude-sonnet-4".to_string()),
                 interaction_id: None,
@@ -110,6 +116,7 @@ fn make_subagent_heavy_session(
                 SessionEventType::ToolExecutionStart,
                 TypedEventData::ToolExecutionStart(ToolExecStartData {
                     tool_call_id: Some(sub_tc_id.clone()),
+                    turn_id: None,
                     tool_name: Some("task".to_string()),
                     arguments: Some(json!({ "model": sub_model })),
                     parent_tool_call_id: None,
@@ -140,6 +147,7 @@ fn make_subagent_heavy_session(
                     SessionEventType::ToolExecutionStart,
                     TypedEventData::ToolExecutionStart(ToolExecStartData {
                         tool_call_id: Some(child_tc_id.clone()),
+                        turn_id: None,
                         tool_name: Some("grep".to_string()),
                         arguments: None,
                         parent_tool_call_id: Some(sub_tc_id.clone()),
@@ -154,6 +162,7 @@ fn make_subagent_heavy_session(
                     SessionEventType::ToolExecutionComplete,
                     TypedEventData::ToolExecutionComplete(ToolExecCompleteData {
                         tool_call_id: Some(child_tc_id),
+                        turn_id: None,
                         parent_tool_call_id: Some(sub_tc_id.clone()),
                         model: Some(sub_model.to_string()),
                         interaction_id: None,
@@ -188,6 +197,7 @@ fn make_subagent_heavy_session(
                 SessionEventType::ToolExecutionComplete,
                 TypedEventData::ToolExecutionComplete(ToolExecCompleteData {
                     tool_call_id: Some(sub_tc_id),
+                    turn_id: None,
                     parent_tool_call_id: None,
                     model: Some("claude-sonnet-4".to_string()),
                     interaction_id: None,

@@ -58,6 +58,29 @@ export interface AssistantMessagePayload {
   content: string;
 }
 
+/** Payload for `permission.requested`. */
+export interface PermissionRequestedPayload {
+  kind: "permission.requested";
+  requestId: string;
+  promptKind: string;
+}
+
+/** Payload for `permission.completed`. */
+export interface PermissionCompletedPayload {
+  kind: "permission.completed";
+  requestId: string;
+  toolCallId: string;
+  resultKind: string;
+}
+
+/** Payload for `external_tool.requested`. */
+export interface ExternalToolRequestedPayload {
+  kind: "external_tool.requested";
+  requestId: string;
+  toolCallId: string;
+  toolName: string;
+}
+
 /** Catch-all for event types TracePilot does not currently narrow. */
 export interface UnknownSessionEventPayload {
   kind: "unknown";
@@ -74,6 +97,9 @@ export type NarrowedSessionEventPayload =
   | SubagentCompletedPayload
   | SubagentFailedPayload
   | AssistantMessagePayload
+  | PermissionRequestedPayload
+  | PermissionCompletedPayload
+  | ExternalToolRequestedPayload
   | UnknownSessionEventPayload;
 
 /**
@@ -104,6 +130,34 @@ export function narrowSessionEvent(event: SessionEvent): NarrowedSessionEventPay
       };
     case "assistant.message":
       return { kind: "assistant.message", content: readString(data.content) };
+    case "permission.requested": {
+      const prompt = isRecord(data.promptRequest)
+        ? data.promptRequest
+        : isRecord(data.permissionRequest)
+          ? data.permissionRequest
+          : {};
+      return {
+        kind: "permission.requested",
+        requestId: readString(data.requestId),
+        promptKind: readString(prompt.kind),
+      };
+    }
+    case "permission.completed": {
+      const result = isRecord(data.result) ? data.result : {};
+      return {
+        kind: "permission.completed",
+        requestId: readString(data.requestId),
+        toolCallId: readString(data.toolCallId),
+        resultKind: readString(result.kind),
+      };
+    }
+    case "external_tool.requested":
+      return {
+        kind: "external_tool.requested",
+        requestId: readString(data.requestId),
+        toolCallId: readString(data.toolCallId),
+        toolName: readString(data.toolName),
+      };
     default:
       return { kind: "unknown", eventType: event.eventType };
   }

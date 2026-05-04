@@ -28,6 +28,7 @@ pub struct SessionContext {
     pub branch: Option<String>,
     pub repository: Option<String>,
     pub host_type: Option<String>,
+    pub repository_host: Option<String>,
     pub head_commit: Option<String>,
     pub base_commit: Option<String>,
 }
@@ -36,6 +37,7 @@ pub struct SessionContext {
 #[serde(rename_all = "camelCase")]
 pub struct ShutdownData {
     pub shutdown_type: Option<String>,
+    pub error_reason: Option<String>,
     pub total_premium_requests: Option<f64>,
     pub total_api_duration_ms: Option<u64>,
     pub session_start_time: Option<u64>,
@@ -48,6 +50,8 @@ pub struct ShutdownData {
     pub conversation_tokens: Option<u64>,
     /// Tool definition tokens at shutdown.
     pub tool_definitions_tokens: Option<u64>,
+    pub total_nano_aiu: Option<u64>,
+    pub token_details: Option<HashMap<String, ShutdownTokenDetail>>,
     pub code_changes: Option<CodeChanges>,
     pub model_metrics: Option<HashMap<String, ModelMetricDetail>>,
     pub session_segments: Option<Vec<SessionSegment>>,
@@ -62,6 +66,7 @@ pub struct SessionSegment {
     pub total_requests: u64,
     pub premium_requests: f64,
     pub api_duration_ms: u64,
+    pub total_nano_aiu: Option<u64>,
     pub current_model: Option<String>,
     pub model_metrics: Option<HashMap<String, ModelMetricDetail>>,
 }
@@ -72,6 +77,12 @@ pub struct CodeChanges {
     pub lines_added: Option<u64>,
     pub lines_removed: Option<u64>,
     pub files_modified: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShutdownTokenDetail {
+    pub token_count: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -108,6 +119,8 @@ pub struct SessionResumeData {
     pub reasoning_effort: Option<String>,
     pub context: Option<SessionContext>,
     pub already_in_use: Option<bool>,
+    pub session_was_active: Option<bool>,
+    pub continue_pending_work: Option<bool>,
     /// Whether the session supports remote steering.
     pub remote_steerable: Option<bool>,
 }
@@ -120,6 +133,8 @@ pub struct SessionErrorData {
     pub stack: Option<String>,
     pub status_code: Option<u16>,
     pub provider_call_id: Option<String>,
+    pub error_code: Option<String>,
+    pub eligible_for_auto_switch: Option<bool>,
     /// URL with additional error details.
     pub url: Option<String>,
 }
@@ -131,6 +146,7 @@ pub struct SessionInfoData {
     pub message: Option<String>,
     /// URL with additional information.
     pub url: Option<String>,
+    pub tip: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

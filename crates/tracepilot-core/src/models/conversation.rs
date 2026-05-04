@@ -48,6 +48,27 @@ pub struct TurnSessionEvent {
     /// For compaction_complete events, the associated checkpoint number (if any).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub checkpoint_number: Option<u32>,
+    /// For `permission.*` events, the upstream request identifier. Used to
+    /// pair `permission.requested` with its matching `permission.completed`
+    /// so the UI can render them as a single linked permission card.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub request_id: Option<String>,
+    /// For `permission.completed` (and `external_tool.requested`), the
+    /// related `toolCallId` so the UI can correlate the permission with a tool call.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_call_id: Option<String>,
+    /// For `permission.requested`, the prompt kind (e.g. `shell`, `write`,
+    /// `commands`). Surfaced as a small badge in the UI.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prompt_kind: Option<String>,
+    /// For `permission.completed`, the result kind (e.g. `approved`,
+    /// `approved-for-session`, `denied-interactively-by-user`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub result_kind: Option<String>,
+    /// For `permission.requested`, whether a hook auto-resolved the prompt
+    /// (no human-in-the-loop).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resolved_by_hook: Option<bool>,
 }
 
 /// A single conversation turn.
