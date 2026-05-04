@@ -10,6 +10,7 @@ import {
 import SubagentGroupSegment from "@/components/conversation/chat/SubagentGroupSegment.vue";
 import ToolGroupSegment from "@/components/conversation/chat/ToolGroupSegment.vue";
 import type { ToolSegment } from "@/components/conversation/chatViewUtils";
+import type { PermissionPair } from "@/components/conversation/sessionEventPairing";
 import type { SubagentFullData } from "@/composables/useCrossTurnSubagents";
 import { usePreferencesStore } from "@/stores/preferences";
 
@@ -24,6 +25,11 @@ interface TurnRenderData {
 const props = defineProps<{
   turn: ConversationTurn;
   renderData: TurnRenderData;
+  /** Permission events keyed by `toolCallId`, surfaced inline on the
+   *  matching tool call row instead of as a standalone permission card.
+   *  Only populated for tool calls whose `toolCallId` was paired with a
+   *  `permission.*` event in the same turn. */
+  permissionByToolCallId?: Map<string, PermissionPair>;
   subagentMap: Map<string, SubagentFullData>;
   completionIds: string[];
   turnColor?: string;
@@ -60,6 +66,10 @@ function tcProps(tc: TurnToolCall) {
     loadingFullResult: tc.toolCallId ? props.loadingResults.has(tc.toolCallId) : false,
     failedFullResult: tc.toolCallId ? props.failedResults.has(tc.toolCallId) : false,
     richEnabled: preferences.isRichRenderingEnabled(tc.toolName),
+    permission:
+      tc.toolCallId && props.permissionByToolCallId
+        ? props.permissionByToolCallId.get(tc.toolCallId)
+        : undefined,
   };
 }
 

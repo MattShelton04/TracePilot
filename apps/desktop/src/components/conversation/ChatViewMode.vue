@@ -12,7 +12,10 @@ import TurnBlock from "@/components/conversation/chat/TurnBlock.vue";
 import UserMessageAnchor from "@/components/conversation/chat/UserMessageAnchor.vue";
 import PermissionEventRow from "@/components/conversation/PermissionEventRow.vue";
 import SessionEventRow from "@/components/conversation/SessionEventRow.vue";
-import { pairPermissionEvents } from "@/components/conversation/sessionEventPairing";
+import {
+  type PermissionPair,
+  pairPermissionEvents,
+} from "@/components/conversation/sessionEventPairing";
 import { useChatViewPanelOffset } from "@/composables/useChatViewPanelOffset";
 import { useCrossTurnSubagents } from "@/composables/useCrossTurnSubagents";
 import { useRenderBudget } from "@/composables/useRenderBudget";
@@ -249,6 +252,43 @@ watch(
   { immediate: true },
 );
 
+// ─── Per-turn permission events (paired + tool-call attached) ────
+// Pairing runs once per turns change. Pairs whose toolCallId matches a
+// rendered tool call are extracted into a per-toolCallId map; the
+// remaining (orphan) entries flow through the timeline as standalone
+// permission cards. Computed up-front so we don't re-pair on every render.
+
+interface TurnPermissionData {
+  entries: ReturnType<typeof pairPermissionEvents>["entries"];
+  permissionByToolCallId: Map<string, PermissionPair>;
+}
+
+const turnPermissionData = computed(() => {
+  const map = new Map<number, TurnPermissionData>();
+  for (const turn of turns.value) {
+    const events = turn.sessionEvents ?? [];
+    if (events.length === 0) {
+      map.set(turn.turnIndex, { entries: [], permissionByToolCallId: new Map() });
+      continue;
+    }
+    const tcIds = new Set<string>();
+    for (const tc of turn.toolCalls) {
+      if (tc.toolCallId) tcIds.add(tc.toolCallId);
+    }
+    map.set(turn.turnIndex, pairPermissionEvents(events, tcIds));
+  }
+  return map;
+});
+
+function permissionDataFor(turn: ConversationTurn): TurnPermissionData {
+  return (
+    turnPermissionData.value.get(turn.turnIndex) ?? {
+      entries: [],
+      permissionByToolCallId: new Map(),
+    }
+  );
+}
+
 // ─── toolCallId → turnIndex index (O(1) lookups) ─────────────────
 
 const toolCallTurnIndex = computed(() => {
@@ -373,7 +413,7 @@ defineExpose({ revealEvent });
               />
 
               <!-- Session events (with permission request/completion pairing) -->
-              <template v-for="entry in pairPermissionEvents(turn.sessionEvents ?? [])" :key="entry.key">
+              <template v-for="entry in permissionDataFor(turn).entries" :key="entry.key">
                 <PermissionEventRow
                   v-if="entry.type === 'permission'"
                   :requested="entry.requested"
@@ -399,6 +439,7 @@ defineExpose({ revealEvent });
               <TurnBlock
                 :turn="turn"
                 :render-data="renderDataFor(turn)"
+                :permission-by-tool-call-id="permissionDataFor(turn).permissionByToolCallId"
                 :subagent-map="subagentMap"
                 :completion-ids="completionsByTurn.get(turn.turnIndex) ?? []"
                 :turn-color="subagentTurnColors.get(turn.turnIndex)"

@@ -9,6 +9,7 @@ import {
   MAX_VISIBLE_TOOLS,
   type ToolGroupItem,
 } from "@/components/conversation/chatViewUtils";
+import type { PermissionPair } from "@/components/conversation/sessionEventPairing";
 
 type ToggleSet = ReturnType<typeof useToggleSet<string>>;
 
@@ -21,6 +22,7 @@ interface ToolCallItemProps {
   loadingFullResult: boolean;
   failedFullResult: boolean;
   richEnabled: boolean;
+  permission?: PermissionPair;
 }
 
 const props = defineProps<{

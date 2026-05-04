@@ -27,9 +27,9 @@ describe("pairPermissionEvents", () => {
       }),
     ];
 
-    const out = pairPermissionEvents(events);
-    expect(out).toHaveLength(1);
-    const first = out[0]!;
+    const { entries } = pairPermissionEvents(events);
+    expect(entries).toHaveLength(1);
+    const first = entries[0]!;
     expect(first.type).toBe("permission");
     if (first.type !== "permission") return;
     expect(first.requested?.requestId).toBe("r1");
@@ -37,27 +37,27 @@ describe("pairPermissionEvents", () => {
   });
 
   it("emits a pending pair when only requested is present", () => {
-    const out = pairPermissionEvents([
+    const { entries } = pairPermissionEvents([
       evt({ eventType: "permission.requested", requestId: "r2", promptKind: "write" }),
     ]);
-    expect(out).toHaveLength(1);
-    if (out[0]!.type !== "permission") return;
-    expect(out[0]!.requested?.requestId).toBe("r2");
-    expect(out[0]!.completed).toBeUndefined();
+    expect(entries).toHaveLength(1);
+    if (entries[0]!.type !== "permission") return;
+    expect(entries[0]!.requested?.requestId).toBe("r2");
+    expect(entries[0]!.completed).toBeUndefined();
   });
 
   it("emits a result-only pair when only completed is present", () => {
-    const out = pairPermissionEvents([
+    const { entries } = pairPermissionEvents([
       evt({
         eventType: "permission.completed",
         requestId: "r3",
         resultKind: "denied-interactively-by-user",
       }),
     ]);
-    expect(out).toHaveLength(1);
-    if (out[0]!.type !== "permission") return;
-    expect(out[0]!.requested).toBeUndefined();
-    expect(out[0]!.completed?.resultKind).toBe("denied-interactively-by-user");
+    expect(entries).toHaveLength(1);
+    if (entries[0]!.type !== "permission") return;
+    expect(entries[0]!.requested).toBeUndefined();
+    expect(entries[0]!.completed?.resultKind).toBe("denied-interactively-by-user");
   });
 
   it("preserves non-permission events as plain rows", () => {
@@ -68,30 +68,79 @@ describe("pairPermissionEvents", () => {
       evt({ eventType: "permission.completed", requestId: "r4", resultKind: "approved" }),
     ];
 
-    const out = pairPermissionEvents(events);
+    const { entries } = pairPermissionEvents(events);
     // The trailing completed merges into the existing permission entry, so we
     // get: [event, permission, event] (3 entries, not 4).
-    expect(out.map((e) => e.type)).toEqual(["event", "permission", "event"]);
-    if (out[1]!.type !== "permission") return;
-    expect(out[1]!.requested?.requestId).toBe("r4");
-    expect(out[1]!.completed?.resultKind).toBe("approved");
+    expect(entries.map((e) => e.type)).toEqual(["event", "permission", "event"]);
+    if (entries[1]!.type !== "permission") return;
+    expect(entries[1]!.requested?.requestId).toBe("r4");
+    expect(entries[1]!.completed?.resultKind).toBe("approved");
   });
 
   it("does not pair across distinct requestIds", () => {
-    const out = pairPermissionEvents([
+    const { entries } = pairPermissionEvents([
       evt({ eventType: "permission.requested", requestId: "a", promptKind: "shell" }),
       evt({ eventType: "permission.completed", requestId: "b", resultKind: "approved" }),
     ]);
-    expect(out).toHaveLength(2);
-    expect(out.every((e) => e.type === "permission")).toBe(true);
+    expect(entries).toHaveLength(2);
+    expect(entries.every((e) => e.type === "permission")).toBe(true);
   });
 
   it("falls back to a unique key when requestId is missing", () => {
-    const out = pairPermissionEvents([
+    const { entries } = pairPermissionEvents([
       evt({ eventType: "permission.requested" }),
       evt({ eventType: "permission.completed" }),
     ]);
     // Without requestId we cannot safely merge — keep them separate.
-    expect(out).toHaveLength(2);
+    expect(entries).toHaveLength(2);
+  });
+
+  it("attaches paired permissions to matching tool calls and removes them from entries", () => {
+    const events: TurnSessionEvent[] = [
+      evt({
+        eventType: "permission.requested",
+        requestId: "r-tc",
+        toolCallId: "tc-1",
+        promptKind: "shell",
+        summary: "Permission requested (shell): Run tests",
+      }),
+      evt({
+        eventType: "permission.completed",
+        requestId: "r-tc",
+        toolCallId: "tc-1",
+        resultKind: "approved",
+        summary: "Permission result: approved",
+      }),
+      evt({
+        eventType: "permission.completed",
+        requestId: "r-orphan",
+        toolCallId: "tc-missing",
+        resultKind: "denied-interactively-by-user",
+      }),
+    ];
+
+    const { entries, permissionByToolCallId } = pairPermissionEvents(events, new Set(["tc-1"]));
+    // tc-1 pair extracted; orphan pair (no matching tool call) stays inline.
+    expect(entries).toHaveLength(1);
+    if (entries[0]!.type !== "permission") return;
+    expect(entries[0]!.completed?.toolCallId).toBe("tc-missing");
+
+    const attached = permissionByToolCallId.get("tc-1");
+    expect(attached?.requested?.requestId).toBe("r-tc");
+    expect(attached?.completed?.resultKind).toBe("approved");
+  });
+
+  it("does not extract pairs when no toolCallIds are provided", () => {
+    const events: TurnSessionEvent[] = [
+      evt({
+        eventType: "permission.completed",
+        requestId: "r5",
+        toolCallId: "tc-X",
+        resultKind: "approved",
+      }),
+    ];
+    const { entries, permissionByToolCallId } = pairPermissionEvents(events);
+    expect(entries).toHaveLength(1);
+    expect(permissionByToolCallId.size).toBe(0);
   });
 });
