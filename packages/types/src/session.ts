@@ -89,6 +89,7 @@ export interface SessionSegment {
   totalRequests: number;
   premiumRequests: number;
   apiDurationMs: number;
+  totalNanoAiu?: number | null;
   currentModel?: string | null;
   modelMetrics?: Record<string, ModelMetricDetail> | null;
 }

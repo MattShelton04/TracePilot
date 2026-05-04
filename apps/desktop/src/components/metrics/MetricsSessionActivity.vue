@@ -132,6 +132,10 @@ function segmentWholesaleCost(seg: SessionSegment): number {
             <span class="label">Premium</span>
             <span class="val premium-val">{{ seg.premiumRequests.toFixed(1) }}</span>
           </div>
+          <div v-if="seg.totalNanoAiu != null" class="footer-metric">
+            <span class="label">Nano AIU</span>
+            <span class="val">{{ formatNumber(seg.totalNanoAiu) }}</span>
+          </div>
         </div>
       </div>
     </div>

@@ -122,6 +122,7 @@ fn combine_shutdown_data(
             total_requests,
             premium_requests: sd.total_premium_requests.unwrap_or(0.0),
             api_duration_ms: sd.total_api_duration_ms.unwrap_or(0),
+            total_nano_aiu: sd.total_nano_aiu,
             current_model: sd.current_model.clone(),
             model_metrics: sd.model_metrics.clone(),
         });

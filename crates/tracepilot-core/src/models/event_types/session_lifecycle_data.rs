@@ -66,6 +66,7 @@ pub struct SessionSegment {
     pub total_requests: u64,
     pub premium_requests: f64,
     pub api_duration_ms: u64,
+    pub total_nano_aiu: Option<u64>,
     pub current_model: Option<String>,
     pub model_metrics: Option<HashMap<String, ModelMetricDetail>>,
 }
