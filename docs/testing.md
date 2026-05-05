@@ -66,7 +66,9 @@ scripts/e2e/
 ├── stop.ps1            # Stop a tracked instance (or all of them)
 ├── connect.mjs         # Shared helpers: connect, navigateTo, collectTelemetry, ipc, shutdown
 ├── smoke-test.mjs      # Canonical flow: session list → detail → search → analytics → settings
-└── perf-profile.mjs    # Optional performance diagnostic: hot paths, IPC, heap, mounts
+├── perf-profile.mjs    # Optional performance diagnostic: hot paths, IPC, heap, mounts
+├── capture-readme-media.mjs # README screenshot/storyboard capture utility
+└── readme-media/       # Helper modules for README media capture
 ```
 
 `.github/skills/tracepilot-app-automation/SKILL.md` is the authoritative
@@ -96,11 +98,23 @@ For performance-focused local diagnostics, launch the app the same way and run:
 node scripts/e2e/perf-profile.mjs
 ```
 
+For README/product screenshots, launch with CDP and run:
+
+```powershell
+node scripts/e2e/capture-readme-media.mjs
+```
+
+This writes candidate screenshots and review assets under
+`scripts/e2e/screenshots/readme-candidates/` and copies the final selected
+viewport to `docs/images/readme-*.png`.
+
 ### Extending E2E coverage
 
 Do not add one-off `test-*.mjs` scripts for individual fixes. Prefer extending
 `smoke-test.mjs` when a flow should become part of the reusable local gate, or
 `perf-profile.mjs` when the scenario is specifically a performance diagnostic.
+`capture-readme-media.mjs` is intentionally documentation/media automation, not
+a regression gate.
 
 If a short-lived investigation needs custom automation, keep it out of the
 repository or delete it after the investigation. Reusable additions should:
