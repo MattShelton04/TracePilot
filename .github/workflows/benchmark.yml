@@ -7,13 +7,6 @@ on:
         description: 'Benchmark run name (e.g. "pre-refactor", "v0.3.0")'
         required: false
         type: string
-  pull_request:
-    branches: [main]
-    paths:
-      - 'crates/**'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'perf-budget.json'
 
 permissions:
   contents: write
@@ -22,7 +15,8 @@ permissions:
 jobs:
   benchmark:
     name: Run Criterion Benchmarks
-    # disabled as not valuable currently
+    # Disabled as not valuable currently. Keep this workflow manual-only so PRs
+    # don't show a benchmark workflow whose only job is intentionally skipped.
     if: false
     runs-on: ubuntu-latest
     steps:

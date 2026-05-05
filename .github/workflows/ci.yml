@@ -102,17 +102,15 @@ jobs:
       - name: Rust lint (clippy)
         if: runner.os == 'Linux'
         continue-on-error: true
-        # Wave 101: clippy warnings are a hard failure for workspace crates
-        # (excluding tracepilot-desktop, which still pulls in tauri's generated
-        # context and is gated separately).
+        # Wave 101: clippy runs as a soft gate until the remaining baseline is
+        # clean. Remove continue-on-error once warnings can be hard-failed.
         run: cargo clippy --workspace --exclude tracepilot-desktop --all-targets -- -D warnings
 
       - name: Frontend lint (biome)
         if: runner.os == 'Linux'
         continue-on-error: true
-        # Wave 102: biome warnings + errors are now a hard failure. Any new
-        # lint finding must be fixed or suppressed with a targeted
-        # `biome-ignore <rule>: <reason>` comment in the same PR.
+        # Wave 102: biome runs as a soft gate until the remaining baseline is
+        # clean. New suppressions should still use targeted biome-ignore comments.
         run: pnpm biome check --error-on-warnings .
 
       # ── File-size guard-rails ───────────────────────────────

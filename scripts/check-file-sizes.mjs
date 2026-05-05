@@ -43,25 +43,6 @@ const BUDGETS = {
 // after the first CI run and committing the output, then removing entries
 // as files are split.
 const ALLOWLIST = new Set([
-  // ── Vue SFCs (Phase 4 decomposition targets) ───────────────────
-
-  // ── TS stores (Wave 102 — biome formatter expansion) ───────────
-  // TODO(w102): decompose try/catch helpers; expanded past budget by biome 2.4 formatter.
-
-  // ── Rust god-modules (Phase 4 decomposition targets) ───────────
-  "crates/tracepilot-orchestrator/src/bridge/manager.rs",
-  // TODO(wave-2): decompose — see Phase 4 of docs/archive/2026-04/tech-debt-plan-revised-2026-04.md
-  "crates/tracepilot-tauri-bindings/src/commands/tasks.rs",
-  "crates/tracepilot-orchestrator/src/task_db/operations.rs",
-  "crates/tracepilot-orchestrator/src/task_context/sources.rs",
-
-  // ── Rust test files ─────────────────────────────────────────────
-  // ── Pinia stores (Phase 4/5) ────────────────────────────────────
-  "apps/desktop/src/stores/tasks.ts",
-  "apps/desktop/src/stores/mcp.ts",
-
-  // ── Test files (allow-listed; not a Phase 4 priority) ──────────
-  "apps/desktop/src/__tests__/views/analytics-views.test.ts",
 ]);
 
 function gitLsFiles() {
