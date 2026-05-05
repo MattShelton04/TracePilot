@@ -76,6 +76,7 @@ ci:
     -cargo clippy --workspace --exclude tracepilot-desktop --all-targets -- -D warnings
     -pnpm biome check --error-on-warnings .
     node scripts/check-file-sizes.mjs
+    node scripts/check-workflow-actions.mjs
     node scripts/check-doc-links.mjs
     node scripts/check-adr.mjs
     node scripts/check-catalog-drift.mjs

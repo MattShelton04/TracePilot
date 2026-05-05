@@ -34,7 +34,7 @@ jobs:
       # purely informational.
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - uses: pnpm/action-setup@7088e561eb65bb68695d245aa206f005ef30921d # v4.1.0
+      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
         with:
           version: 9
 
@@ -42,12 +42,17 @@ jobs:
         with:
           node-version: 20
           cache: 'pnpm'
+          cache-dependency-path: pnpm-lock.yaml
 
-      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable (2025-02-12)
+      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable (2026-03-27)
         with:
           components: clippy, rustfmt
 
-      - uses: Swatinem/rust-cache@400e7407cfd7a091e5fbb6afec01ec146c432b7c # v2.7.7
+      - uses: Swatinem/rust-cache@f0deed1e0edfc6a9be95417288c0e1099b1eeec3 # v2.7.7
+        with:
+          cache-on-failure: true
+          shared-key: rust-${{ runner.os }}-stable
+          key: cargo-lock-${{ hashFiles('Cargo.lock') }}
 
       - name: Install Tauri system dependencies (Linux only)
         if: runner.os == 'Linux'
@@ -97,23 +102,27 @@ jobs:
       - name: Rust lint (clippy)
         if: runner.os == 'Linux'
         continue-on-error: true
-        # Wave 101: clippy warnings are a hard failure for workspace crates
-        # (excluding tracepilot-desktop, which still pulls in tauri's generated
-        # context and is gated separately).
+        # Wave 101: clippy runs as a soft gate until the remaining baseline is
+        # clean. Remove continue-on-error once warnings can be hard-failed.
         run: cargo clippy --workspace --exclude tracepilot-desktop --all-targets -- -D warnings
 
       - name: Frontend lint (biome)
         if: runner.os == 'Linux'
         continue-on-error: true
-        # Wave 102: biome warnings + errors are now a hard failure. Any new
-        # lint finding must be fixed or suppressed with a targeted
-        # `biome-ignore <rule>: <reason>` comment in the same PR.
+        # Wave 102: biome runs as a soft gate until the remaining baseline is
+        # clean. New suppressions should still use targeted biome-ignore comments.
         run: pnpm biome check --error-on-warnings .
 
       # ── File-size guard-rails ───────────────────────────────
       - name: File size budgets
         if: runner.os == 'Linux'
         run: node scripts/check-file-sizes.mjs
+
+      - name: Workflow action pins
+        if: runner.os == 'Linux'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/check-workflow-actions.mjs --verify-remote
 
   # ───────────────────────────────────────────────────────────────
   # Security + supply-chain gates (Linux, separate job so failure
@@ -125,11 +134,15 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable (2025-02-12)
+      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable (2026-03-27)
 
-      - uses: Swatinem/rust-cache@400e7407cfd7a091e5fbb6afec01ec146c432b7c # v2.7.7
+      - uses: Swatinem/rust-cache@f0deed1e0edfc6a9be95417288c0e1099b1eeec3 # v2.7.7
+        with:
+          cache-on-failure: true
+          shared-key: rust-${{ runner.os }}-stable
+          key: cargo-lock-${{ hashFiles('Cargo.lock') }}
 
-      - uses: pnpm/action-setup@7088e561eb65bb68695d245aa206f005ef30921d # v4.1.0
+      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
         with:
           version: 9
 
@@ -137,6 +150,7 @@ jobs:
         with:
           node-version: 20
           cache: 'pnpm'
+          cache-dependency-path: pnpm-lock.yaml
 
       - run: pnpm install --frozen-lockfile
 
@@ -145,9 +159,6 @@ jobs:
         continue-on-error: true # advisories are warnings, not blockers — see audit.toml for rationale
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          # RUSTSEC-2026-0097: rand unsound w/ custom logger — not applicable (TracePilot has no custom rand logger).
-          # RUSTSEC-2025-0068: serde_yml unmaintained — direct dep of tracepilot-core; migration tracked separately.
-          ignore: "RUSTSEC-2026-0097,RUSTSEC-2025-0068"
 
       - name: pnpm audit (production)
         run: pnpm audit --prod --audit-level=high

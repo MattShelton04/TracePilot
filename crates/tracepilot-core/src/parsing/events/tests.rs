@@ -5,32 +5,12 @@ use super::raw::parse_events_jsonl;
 use super::typed::{TypedEventData, parse_typed_events, parse_typed_events_if_exists};
 use crate::models::event_types::SessionEventType;
 use std::io::Write;
-
-fn sample_jsonl() -> &'static str {
-    concat!(
-        r#"{"type":"session.start","data":{"sessionId":"abc-123","version":"1.0","producer":"copilot-cli","context":{"cwd":"/test","branch":"main"}},"id":"evt-1","timestamp":"2026-03-10T07:14:50.780Z","parentId":null}"#,
-        "\n",
-        r#"{"type":"user.message","data":{"content":"Hello world","interactionId":"int-1","attachments":[]},"id":"evt-2","timestamp":"2026-03-10T07:14:51.000Z","parentId":"evt-1"}"#,
-        "\n",
-        r#"{"type":"assistant.turn_start","data":{"turnId":"turn-1","interactionId":"int-1"},"id":"evt-3","timestamp":"2026-03-10T07:14:51.100Z","parentId":"evt-2"}"#,
-        "\n",
-        r#"{"type":"assistant.message","data":{"messageId":"msg-1","content":"Hi there!","interactionId":"int-1"},"id":"evt-4","timestamp":"2026-03-10T07:14:52.000Z","parentId":"evt-3"}"#,
-        "\n",
-        r#"{"type":"tool.execution_start","data":{"toolCallId":"tc-1","toolName":"read_file","arguments":{"path":"/test/foo.rs"}},"id":"evt-5","timestamp":"2026-03-10T07:14:52.100Z","parentId":"evt-4"}"#,
-        "\n",
-        r#"{"type":"tool.execution_complete","data":{"toolCallId":"tc-1","model":"claude-opus-4.6","interactionId":"int-1","success":true,"result":"file contents"},"id":"evt-6","timestamp":"2026-03-10T07:14:52.500Z","parentId":"evt-5"}"#,
-        "\n",
-        r#"{"type":"assistant.turn_end","data":{"turnId":"turn-1"},"id":"evt-7","timestamp":"2026-03-10T07:14:53.000Z","parentId":"evt-3"}"#,
-        "\n",
-        r#"{"type":"session.shutdown","data":{"shutdownType":"routine","totalPremiumRequests":1,"totalApiDurationMs":5000,"sessionStartTime":1773270552854,"currentModel":"claude-opus-4.6","codeChanges":{"linesAdded":10,"linesRemoved":2,"filesModified":["/test/foo.rs"]},"modelMetrics":{"claude-opus-4.6":{"requests":{"count":3,"cost":1},"usage":{"inputTokens":1000,"outputTokens":500,"cacheReadTokens":800,"cacheWriteTokens":0}}}},"id":"evt-8","timestamp":"2026-03-10T07:15:00.000Z","parentId":null}"#,
-        "\n",
-    )
-}
+use tracepilot_test_support::fixtures::sample_events_jsonl;
 
 fn write_sample_file(dir: &tempfile::TempDir) -> std::path::PathBuf {
     let path = dir.path().join("events.jsonl");
     let mut f = std::fs::File::create(&path).unwrap();
-    f.write_all(sample_jsonl().as_bytes()).unwrap();
+    f.write_all(sample_events_jsonl().as_bytes()).unwrap();
     path
 }
 
@@ -79,7 +59,7 @@ fn test_parse_typed_events() {
     assert_eq!(events[0].event_type, SessionEventType::SessionStart);
     match &events[0].typed_data {
         TypedEventData::SessionStart(d) => {
-            assert_eq!(d.session_id.as_deref(), Some("abc-123"));
+            assert_eq!(d.session_id.as_deref(), Some("test-session-id"));
             assert_eq!(d.producer.as_deref(), Some("copilot-cli"));
         }
         other => panic!("Expected SessionStart, got {:?}", other),
@@ -199,7 +179,7 @@ fn test_extract_session_start() {
     let start = extract_session_start(&events);
     assert!(start.is_some());
     let sd = start.unwrap();
-    assert_eq!(sd.session_id.as_deref(), Some("abc-123"));
+    assert_eq!(sd.session_id.as_deref(), Some("test-session-id"));
 }
 
 #[test]
