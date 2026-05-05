@@ -74,10 +74,15 @@ jobs:
         with:
           node-version: 20
           cache: 'pnpm'
+          cache-dependency-path: pnpm-lock.yaml
 
       - uses: dtolnay/rust-toolchain@stable
 
       - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+          shared-key: rust-${{ runner.os }}-stable
+          key: cargo-lock-${{ hashFiles('Cargo.lock') }}
 
       - run: pnpm install --frozen-lockfile
 

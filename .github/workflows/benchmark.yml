@@ -33,6 +33,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
+          shared-key: rust-${{ runner.os }}-stable
+          key: cargo-lock-${{ hashFiles('Cargo.lock') }}
 
       - name: Run benchmarks
         run: cargo bench -p tracepilot-bench
@@ -136,4 +138,3 @@ jobs:
           comment-on-alert: true
           fail-on-alert: false
           summary-always: true
-
