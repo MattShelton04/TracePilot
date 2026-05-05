@@ -118,6 +118,12 @@ jobs:
         if: runner.os == 'Linux'
         run: node scripts/check-file-sizes.mjs
 
+      - name: Workflow action pins
+        if: runner.os == 'Linux'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/check-workflow-actions.mjs --verify-remote
+
   # ───────────────────────────────────────────────────────────────
   # Security + supply-chain gates (Linux, separate job so failure
   # is highlighted independently of build/test).
