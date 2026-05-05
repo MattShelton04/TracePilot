@@ -19,7 +19,7 @@ const REPO_ROOT = new URL("..", import.meta.url).pathname.replace(/^\/([A-Z]:)/,
 const WORKFLOWS_DIR = join(REPO_ROOT, ".github", "workflows");
 const FULL_SHA = /^[0-9a-f]{40}$/;
 const USES_LINE_RX = /^\s*(?:-\s*)?uses:\s*(\S+)(?:\s+#\s*(.+))?\s*$/;
-const THIRD_PARTY_RX = /^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+@(.+)$/;
+const THIRD_PARTY_RX = /^[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)+@(.+)$/;
 const WANT_SELF_TEST = process.argv.includes("--self-test");
 const WANT_REMOTE = process.argv.includes("--verify-remote");
 
@@ -83,6 +83,7 @@ function collectUses(files = workflowFiles()) {
 function selfTest() {
   const cases = [
     ["uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2", 1, 0],
+    ["uses: github/codeql-action/init@11bd71901bbe5b1630ceea73d27597364c9af683 # v3.30.7", 1, 0],
     ["uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683", 0, 1],
     ["uses: actions/checkout@v4", 0, 1],
     ["uses: ./.github/actions/setup-foo", 0, 0],
