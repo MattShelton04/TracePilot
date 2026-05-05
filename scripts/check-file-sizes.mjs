@@ -56,9 +56,6 @@ const ALLOWLIST = new Set([
   "crates/tracepilot-orchestrator/src/task_context/sources.rs",
 
   // ── Rust test files ─────────────────────────────────────────────
-  "crates/tracepilot-core/src/turns/tests/builders.rs",
-  "crates/tracepilot-export/tests/integration.rs",
-
   // ── Pinia stores (Phase 4/5) ────────────────────────────────────
   "apps/desktop/src/stores/tasks.ts",
   "apps/desktop/src/stores/mcp.ts",
