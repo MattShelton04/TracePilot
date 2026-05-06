@@ -86,6 +86,19 @@ impl TurnReconstructor {
                 return true;
             }
         }
+        for skill in self
+            .current_turn
+            .iter_mut()
+            .flat_map(|turn| turn.tool_calls.iter_mut())
+            .filter_map(|tool_call| tool_call.skill_invocation.as_mut())
+            .rev()
+        {
+            if skill.id.as_deref() == Some(invocation_id) {
+                skill.context_folded = true;
+                skill.context_length = context_length;
+                return true;
+            }
+        }
         false
     }
 
@@ -114,7 +127,7 @@ impl TurnReconstructor {
         is_complete: bool,
         end_timestamp: Option<DateTime<Utc>>,
     ) {
-        self.pending_skill_invocation = None;
+        self.pending_skill_invocations.clear();
         if let Some(mut turn) = self.current_turn.take() {
             if turn.end_timestamp.is_none() {
                 turn.end_timestamp = end_timestamp;

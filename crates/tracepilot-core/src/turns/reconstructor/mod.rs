@@ -43,6 +43,9 @@ pub struct TurnReconstructor {
     /// Maps tool_call_id → (turn_index, tool_call_index).
     /// `turn_index == CURRENT_TURN_SENTINEL` means the tool call is in `current_turn`.
     pub(crate) tool_call_index: HashMap<String, (usize, usize)>,
+    /// Maps raw tool execution event ids to their tool_call_id so follow-up
+    /// events (for example `skill.invoked`) can attach to the originating row.
+    pub(crate) tool_event_to_call_id: HashMap<String, String>,
     /// Tracks the most recent session-level model, so new turns inherit it.
     pub(crate) session_model: Option<String>,
     /// Session events buffered while no turn is active.
@@ -54,14 +57,14 @@ pub struct TurnReconstructor {
     /// Timestamp of the first pending system message — used as fallback when
     /// building a synthetic turn in sessions that have no real turns.
     pub(crate) pending_system_messages_ts: Option<DateTime<Utc>>,
-    /// Most recent skill invocation awaiting a synthetic `<skill-context>`
+    /// Skill invocations awaiting synthetic `<skill-context>`
     /// `user.message` that should be folded instead of rendered as user input.
-    pub(crate) pending_skill_invocation: Option<PendingSkillInvocation>,
+    pub(crate) pending_skill_invocations: HashMap<String, PendingSkillInvocation>,
 }
 
 #[derive(Debug, Clone)]
 pub(crate) struct PendingSkillInvocation {
-    pub(crate) event_id: Option<String>,
+    pub(crate) event_id: String,
     pub(crate) name: Option<String>,
     pub(crate) content: Option<String>,
 }
@@ -81,11 +84,12 @@ impl TurnReconstructor {
             current_turn: None,
             tool_call_intentions: HashMap::new(),
             tool_call_index: HashMap::new(),
+            tool_event_to_call_id: HashMap::new(),
             session_model: None,
             pending_session_events: Vec::new(),
             pending_system_messages: Vec::new(),
             pending_system_messages_ts: None,
-            pending_skill_invocation: None,
+            pending_skill_invocations: HashMap::new(),
         }
     }
 
@@ -239,10 +243,7 @@ impl PendingSkillInvocation {
         event: &TypedEvent,
         data: &UserMessageData,
     ) -> bool {
-        let Some(event_id) = self.event_id.as_deref() else {
-            return false;
-        };
-        if event.raw.parent_id.as_deref() != Some(event_id) {
+        if event.raw.parent_id.as_deref() != Some(self.event_id.as_str()) {
             return false;
         }
 

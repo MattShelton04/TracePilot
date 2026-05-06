@@ -131,6 +131,8 @@ export interface TurnToolCall {
   resultContent?: string;
   /** Short summary of arguments, computed server-side for IPC efficiency. */
   argsSummary?: string;
+  /** Skill-specific payload, present when this tool call loaded a skill. */
+  skillInvocation?: SkillInvocationEvent;
 }
 
 /** Response from get_session_turns — includes file size for freshness tracking. */

@@ -1,4 +1,4 @@
-import type { TurnSessionEvent } from "@tracepilot/types";
+import type { TurnSessionEvent, TurnToolCall } from "@tracepilot/types";
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ROUTE_NAMES } from "@/config/routes";
@@ -25,6 +25,25 @@ function evt(partial: Partial<TurnSessionEvent> & { eventType?: string }): TurnS
     eventType: "skill.invoked",
     severity: "info",
     summary: "Skill invoked: trace-skill",
+    ...partial,
+  };
+}
+
+function skillTool(partial: Partial<TurnToolCall> = {}): TurnToolCall {
+  return {
+    toolName: "skill",
+    arguments: { skill: "trace-skill" },
+    isComplete: true,
+    success: true,
+    durationMs: 42,
+    skillInvocation: {
+      contextFolded: true,
+      name: "trace-skill",
+      description: "Adds tracing helpers.",
+      path: "C:\\skills\\trace-skill\\SKILL.md",
+      content: "# trace-skill body",
+      contentLength: "# trace-skill body".length,
+    },
     ...partial,
   };
 }
@@ -59,6 +78,20 @@ describe("SkillInvocationEventRow", () => {
     // Body is hidden until the user expands.
     expect(wrapper.find(".skill-row__body").exists()).toBe(false);
     expect(wrapper.get(".skill-row__header").attributes("aria-expanded")).toBe("false");
+  });
+
+  it("renders inside a skill tool row with tool duration and status", () => {
+    const wrapper = mount(SkillInvocationEventRow, {
+      props: {
+        toolCall: skillTool(),
+      },
+    });
+
+    expect(wrapper.text()).toContain("⚡");
+    expect(wrapper.text()).toContain("trace-skill");
+    expect(wrapper.text()).toContain("Adds tracing helpers.");
+    expect(wrapper.text()).toContain("42ms");
+    expect(wrapper.text()).toContain("✓");
   });
 
   it("expands to show the skill content and path metadata when toggled", async () => {

@@ -17,13 +17,12 @@ impl TurnReconstructor {
         event_index: usize,
         data: &UserMessageData,
     ) {
-        let folded_skill_invocation_id =
-            self.pending_skill_invocation.as_ref().and_then(|pending| {
-                pending
-                    .matches_context_message(event, data)
-                    .then(|| pending.event_id.clone())
-                    .flatten()
-            });
+        let folded_skill_invocation_id = event.raw.parent_id.as_deref().and_then(|parent_id| {
+            self.pending_skill_invocations
+                .get(parent_id)
+                .filter(|pending| pending.matches_context_message(event, data))
+                .map(|pending| pending.event_id.clone())
+        });
         if let Some(invocation_id) = folded_skill_invocation_id {
             let folded = self.mark_skill_context_folded(
                 &invocation_id,
@@ -31,12 +30,24 @@ impl TurnReconstructor {
                     .as_deref()
                     .map(|content| content.chars().count()),
             );
-            self.pending_skill_invocation = None;
+            self.pending_skill_invocations.remove(&invocation_id);
             if folded {
                 return;
             }
         }
-        self.pending_skill_invocation = None;
+
+        if data
+            .content
+            .as_deref()
+            .map(str::trim_start)
+            .is_some_and(|content| content.starts_with("<skill-context"))
+        {
+            if let Some(parent_id) = event.raw.parent_id.as_deref() {
+                self.pending_skill_invocations.remove(parent_id);
+            }
+        } else {
+            self.pending_skill_invocations.clear();
+        }
 
         self.finalize_current_turn(false, None);
         let mut turn = new_turn(

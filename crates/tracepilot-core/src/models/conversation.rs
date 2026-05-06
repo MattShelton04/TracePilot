@@ -192,4 +192,7 @@ pub struct TurnToolCall {
     /// Short summary of arguments, computed server-side for IPC efficiency.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub args_summary: Option<String>,
+    /// Skill-specific payload, present when this tool call loaded a skill.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skill_invocation: Option<SkillInvocationEvent>,
 }

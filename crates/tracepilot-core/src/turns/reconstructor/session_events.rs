@@ -200,8 +200,8 @@ impl TurnReconstructor {
             .unwrap_or_else(|| "Skill invoked".to_string());
         let content_len = data.content.as_ref().map(|content| content.chars().count());
         // Cap content size sent over IPC so multi-megabyte skills don't bloat
-        // the conversation payload. The UI compares `content.chars().count()`
-        // against `content_length` to detect and surface truncation.
+        // the conversation payload. The UI compares the captured Unicode scalar
+        // count against `content_length` to detect and surface truncation.
         const MAX_CONTENT_CHARS: usize = 16_384;
         let content = data.content.as_ref().map(|raw| {
             if raw.chars().count() > MAX_CONTENT_CHARS {
@@ -210,33 +210,56 @@ impl TurnReconstructor {
                 raw.clone()
             }
         });
-        self.push_session_event_full(SessionEventBuild {
-            event_type: "skill.invoked".to_string(),
-            timestamp: event.raw.timestamp,
-            severity: SessionEventSeverity::Info,
-            summary,
-            checkpoint_number: None,
-            request_id: None,
-            tool_call_id: None,
-            prompt_kind: None,
-            result_kind: None,
-            resolved_by_hook: None,
-            skill_invocation: Some(SkillInvocationEvent {
-                id: event.raw.id.clone(),
-                name: data.name.clone(),
-                path: data.path.clone(),
-                description: data.description.clone(),
-                content_length: content_len,
-                content,
-                context_length: None,
-                context_folded: false,
-            }),
-        });
-        self.pending_skill_invocation = Some(PendingSkillInvocation {
-            event_id: event.raw.id.clone(),
+        let skill_invocation = SkillInvocationEvent {
+            id: event.raw.id.clone(),
             name: data.name.clone(),
-            content: data.content.clone(),
-        });
+            path: data.path.clone(),
+            description: data.description.clone(),
+            content_length: content_len,
+            content,
+            context_length: None,
+            context_folded: false,
+        };
+
+        let attached_to_tool = event
+            .raw
+            .parent_id
+            .as_deref()
+            .and_then(|parent_id| self.tool_event_to_call_id.get(parent_id))
+            .cloned()
+            .and_then(|tool_call_id| self.find_tool_call_mut(Some(&tool_call_id)))
+            .filter(|tool_call| tool_call.tool_name == "skill")
+            .map(|tool_call| {
+                tool_call.skill_invocation = Some(skill_invocation.clone());
+            })
+            .is_some();
+
+        if !attached_to_tool {
+            self.push_session_event_full(SessionEventBuild {
+                event_type: "skill.invoked".to_string(),
+                timestamp: event.raw.timestamp,
+                severity: SessionEventSeverity::Info,
+                summary,
+                checkpoint_number: None,
+                request_id: None,
+                tool_call_id: None,
+                prompt_kind: None,
+                result_kind: None,
+                resolved_by_hook: None,
+                skill_invocation: Some(skill_invocation.clone()),
+            });
+        }
+
+        if let Some(event_id) = event.raw.id.clone() {
+            self.pending_skill_invocations.insert(
+                event_id.clone(),
+                PendingSkillInvocation {
+                    event_id,
+                    name: data.name.clone(),
+                    content: data.content.clone(),
+                },
+            );
+        }
     }
 
     pub(super) fn handle_permission_requested(

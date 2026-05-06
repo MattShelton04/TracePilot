@@ -15,6 +15,11 @@ impl TurnReconstructor {
         event_index: usize,
         data: &ToolExecStartData,
     ) {
+        if let (Some(event_id), Some(tool_call_id)) = (&event.raw.id, &data.tool_call_id) {
+            self.tool_event_to_call_id
+                .insert(event_id.clone(), tool_call_id.clone());
+        }
+
         // Dedup: skip if we already have a tool call with this ID
         if let Some(id) = &data.tool_call_id
             && self.tool_call_index.contains_key(id)
@@ -66,6 +71,7 @@ impl TurnReconstructor {
             total_tool_calls: None,
             result_content: None,
             args_summary: None,
+            skill_invocation: None,
         });
 
         // Index the new tool call
@@ -80,6 +86,11 @@ impl TurnReconstructor {
         event: &TypedEvent,
         data: &ToolExecCompleteData,
     ) {
+        if let (Some(event_id), Some(tool_call_id)) = (&event.raw.id, &data.tool_call_id) {
+            self.tool_event_to_call_id
+                .insert(event_id.clone(), tool_call_id.clone());
+        }
+
         if let Some(turn) = self.current_turn.as_mut()
             && turn.interaction_id.is_none()
         {
@@ -196,6 +207,7 @@ impl TurnReconstructor {
                 total_tool_calls: None,
                 result_content: None,
                 args_summary: None,
+                skill_invocation: None,
             });
             if let Some(id) = &data.tool_call_id {
                 self.tool_call_index

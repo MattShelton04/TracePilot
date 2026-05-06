@@ -1,15 +1,14 @@
 <script setup lang="ts">
 /**
- * SkillInvocationEventRow — collapsible disclosure for `skill.invoked` events.
+ * SkillInvocationEventRow — collapsible disclosure for skill invocations.
  *
  * Compact header shows the skill emoji, name and one-line description so the
- * row sits in the conversation flow next to other session events. Expanding
- * reveals the SKILL.md body (truncated at the backend if very large) plus a
- * path footer and an "Open in editor" affordance gated by the `skills`
- * feature flag and a valid `SKILL.md` path.
+ * row sits in the conversation flow. It renders inside the originating `skill`
+ * tool row when correlation is available, and remains usable as a fallback for
+ * standalone `skill.invoked` session events.
  */
-import type { TurnSessionEvent } from "@tracepilot/types";
-import { ExpandChevron, formatTime } from "@tracepilot/ui";
+import type { SkillInvocationEvent, TurnSessionEvent, TurnToolCall } from "@tracepilot/types";
+import { ExpandChevron, formatDuration, formatTime } from "@tracepilot/ui";
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import { ROUTE_NAMES } from "@/config/routes";
@@ -17,7 +16,8 @@ import { pushRoute } from "@/router/navigation";
 import { usePreferencesStore } from "@/stores/preferences";
 
 const props = defineProps<{
-  event: TurnSessionEvent;
+  event?: TurnSessionEvent;
+  toolCall?: TurnToolCall;
 }>();
 
 const router = useRouter();
@@ -25,7 +25,9 @@ const prefs = usePreferencesStore();
 
 const expanded = ref(false);
 
-const skill = computed(() => props.event.skillInvocation);
+const skill = computed<SkillInvocationEvent | undefined>(
+  () => props.toolCall?.skillInvocation ?? props.event?.skillInvocation,
+);
 const skillName = computed(() => skill.value?.name?.trim() || "");
 const skillDescription = computed(() => skill.value?.description?.trim() || "");
 const skillPath = computed(() => skill.value?.path?.trim() || "");
@@ -47,7 +49,10 @@ const canOpenEditor = computed(
   () => Boolean(editorTarget.value) && prefs.isFeatureEnabled("skills"),
 );
 
-const headerLabel = computed(() => skillName.value || props.event.summary || "Skill invoked");
+const timestamp = computed(() => props.event?.timestamp ?? props.toolCall?.startedAt);
+const durationMs = computed(() => props.toolCall?.durationMs);
+const success = computed(() => props.toolCall?.success);
+const headerLabel = computed(() => skillName.value || props.event?.summary || "Skill invoked");
 const ariaLabel = computed(
   () => `${expanded.value ? "Collapse" : "Expand"} skill ${headerLabel.value}`,
 );
@@ -78,9 +83,14 @@ function openEditor(e: MouseEvent) {
       <span class="skill-row__tag">skill</span>
       <span class="skill-row__name">{{ headerLabel }}</span>
       <span v-if="skillDescription" class="skill-row__desc">— {{ skillDescription }}</span>
-      <span v-if="event.timestamp" class="skill-row__time">
-        {{ formatTime(event.timestamp) }}
+      <span v-if="timestamp" class="skill-row__time">
+        {{ formatTime(timestamp) }}
       </span>
+      <span v-if="durationMs != null" class="skill-row__duration">
+        {{ formatDuration(durationMs) }}
+      </span>
+      <span v-if="success === true" class="skill-row__status skill-row__status--success">✓</span>
+      <span v-else-if="success === false" class="skill-row__status skill-row__status--failed">✗</span>
       <span class="skill-row__chev" aria-hidden="true">
         <ExpandChevron :expanded="expanded" />
       </span>
@@ -182,6 +192,25 @@ function openEditor(e: MouseEvent) {
   flex-shrink: 0;
   font-size: 11px;
   opacity: 0.6;
+}
+
+.skill-row__duration,
+.skill-row__status {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--text-muted, #6e7681);
+}
+
+.skill-row__status {
+  font-weight: 700;
+}
+
+.skill-row__status--success {
+  color: var(--success-fg, #3fb950);
+}
+
+.skill-row__status--failed {
+  color: var(--danger-fg, #f85149);
 }
 
 .skill-row__chev {

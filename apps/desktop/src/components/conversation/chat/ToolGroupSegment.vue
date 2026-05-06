@@ -9,6 +9,7 @@ import {
   MAX_VISIBLE_TOOLS,
   type ToolGroupItem,
 } from "@/components/conversation/chatViewUtils";
+import SkillInvocationEventRow from "@/components/conversation/SkillInvocationEventRow.vue";
 import type { PermissionPair } from "@/components/conversation/sessionEventPairing";
 
 type ToggleSet = ReturnType<typeof useToggleSet<string>>;
@@ -103,6 +104,13 @@ function intentLabel(tc: TurnToolCall): string {
       />
 
       <!-- Regular tool row (with progressive disclosure) -->
+      <SkillInvocationEventRow
+        v-else-if="item.type === 'tool' && item.toolCall.toolName === 'skill' && item.toolCall.skillInvocation"
+        v-show="isItemVisible(item, items, iIdx)"
+        :data-event-idx="item.toolCall.eventIndex != null ? item.toolCall.eventIndex : undefined"
+        :tool-call="item.toolCall"
+      />
+
       <ToolCallItem
         v-else-if="item.type === 'tool'"
         v-show="isItemVisible(item, items, iIdx)"
