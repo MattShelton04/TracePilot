@@ -3,7 +3,7 @@
 use std::path::{Path, PathBuf};
 
 use crate::config::SharedConfig;
-use crate::error::{BindingsError, CmdResult};
+use crate::error::CmdResult;
 use crate::helpers::with_session_path;
 
 /// Export a session folder as a raw zip archive.
@@ -30,12 +30,9 @@ pub async fn export_session_folder_zip(
             .compression_method(zip::CompressionMethod::Deflated);
 
         for entry in walkdir::WalkDir::new(&session_path).follow_links(false) {
-            let entry =
-                entry.map_err(|e| BindingsError::Io(std::io::Error::other(e.to_string())))?;
+            let entry = entry?;
             let path = entry.path();
-            let relative = path
-                .strip_prefix(&session_path)
-                .map_err(|e| BindingsError::Validation(e.to_string()))?;
+            let relative = path.strip_prefix(&session_path)?;
 
             if relative == Path::new("") {
                 continue;
@@ -44,18 +41,15 @@ pub async fn export_session_folder_zip(
             let zip_name = relative.to_string_lossy().replace('\\', "/");
 
             if path.is_dir() {
-                zip.add_directory(&zip_name, options)
-                    .map_err(|e| BindingsError::Io(std::io::Error::other(e.to_string())))?;
+                zip.add_directory(&zip_name, options)?;
             } else {
-                zip.start_file(&zip_name, options)
-                    .map_err(|e| BindingsError::Io(std::io::Error::other(e.to_string())))?;
+                zip.start_file(&zip_name, options)?;
                 let mut f = std::fs::File::open(path)?;
                 std::io::copy(&mut f, &mut zip)?;
             }
         }
 
-        zip.finish()
-            .map_err(|e| BindingsError::Io(std::io::Error::other(e.to_string())))?;
+        zip.finish()?;
 
         Ok(())
     })

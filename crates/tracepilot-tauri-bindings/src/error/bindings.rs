@@ -55,6 +55,18 @@ pub enum BindingsError {
     #[error(transparent)]
     TomlDeserialize(#[from] toml::de::Error),
 
+    /// ZIP archive creation error.
+    #[error(transparent)]
+    Zip(#[from] zip::result::ZipError),
+
+    /// Directory traversal error.
+    #[error(transparent)]
+    WalkDir(#[from] walkdir::Error),
+
+    /// Path prefix stripping error.
+    #[error(transparent)]
+    StripPrefix(#[from] std::path::StripPrefixError),
+
     /// A reindex is already running; callers should retry later.
     #[error("Indexing is already in progress.")]
     AlreadyIndexing,
@@ -93,7 +105,7 @@ impl BindingsError {
             Self::Indexer(_) => ErrorCode::Indexer,
             Self::Export(_) => ErrorCode::Export,
             Self::Join(_) => ErrorCode::Join,
-            Self::Io(_) => ErrorCode::Io,
+            Self::Io(_) | Self::Zip(_) | Self::WalkDir(_) | Self::StripPrefix(_) => ErrorCode::Io,
             Self::Tauri(_) => ErrorCode::Tauri,
             Self::Reqwest(_) => ErrorCode::Network,
             Self::Semver(_) | Self::Uuid(_) => ErrorCode::Parse,
