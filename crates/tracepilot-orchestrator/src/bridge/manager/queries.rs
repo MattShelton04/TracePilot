@@ -60,7 +60,7 @@ impl BridgeManager {
         let result = client
             .get_quota()
             .await
-            .map_err(|e| BridgeError::Sdk(e.to_string()))?;
+            .map_err(BridgeError::sdk)?;
 
         Ok(BridgeQuota {
             quotas: result
@@ -83,7 +83,7 @@ impl BridgeManager {
         let result = client
             .get_auth_status()
             .await
-            .map_err(|e| BridgeError::Sdk(e.to_string()))?;
+            .map_err(BridgeError::sdk)?;
 
         Ok(BridgeAuthStatus {
             is_authenticated: result.is_authenticated,
@@ -100,7 +100,7 @@ impl BridgeManager {
         let result = client
             .get_status()
             .await
-            .map_err(|e| BridgeError::Sdk(e.to_string()))?;
+            .map_err(BridgeError::sdk)?;
 
         Ok(BridgeStatus {
             state: self.state,
@@ -120,7 +120,7 @@ impl BridgeManager {
         let models = client
             .list_models()
             .await
-            .map_err(|e| BridgeError::Sdk(e.to_string()))?;
+            .map_err(BridgeError::sdk)?;
 
         Ok(models
             .into_iter()

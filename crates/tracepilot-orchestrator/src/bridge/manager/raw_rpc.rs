@@ -41,11 +41,11 @@ pub(super) async fn raw_rpc_call(
     let mut stream = timeout(RPC_TIMEOUT, TcpStream::connect(&addr))
         .await
         .map_err(|_| {
-            BridgeError::Sdk(format!(
+            BridgeError::sdk(format!(
                 "TCP connect to {addr}: timed out after {RPC_TIMEOUT:?}"
             ))
         })?
-        .map_err(|e| BridgeError::Sdk(format!("TCP connect to {addr}: {e}")))?;
+        .map_err(|e| BridgeError::sdk(format!("TCP connect to {addr}: {e}")))?;
 
     let body = serde_json::json!({
         "jsonrpc": "2.0",
@@ -54,13 +54,13 @@ pub(super) async fn raw_rpc_call(
         "params": params,
     });
     let body_str = serde_json::to_string(&body)
-        .map_err(|e| BridgeError::Sdk(format!("JSON serialize: {e}")))?;
+        .map_err(|e| BridgeError::sdk(format!("JSON serialize: {e}")))?;
 
     let msg = format!("Content-Length: {}\r\n\r\n{}", body_str.len(), body_str);
     timeout(RPC_TIMEOUT, stream.write_all(msg.as_bytes()))
         .await
-        .map_err(|_| BridgeError::Sdk("TCP write timed out".into()))?
-        .map_err(|e| BridgeError::Sdk(format!("TCP write: {e}")))?;
+        .map_err(|_| BridgeError::sdk("TCP write timed out"))?
+        .map_err(|e| BridgeError::sdk(format!("TCP write: {e}")))?;
 
     // Read Content-Length header from response
     let mut reader = BufReader::new(stream);
@@ -71,7 +71,7 @@ pub(super) async fn raw_rpc_call(
             reader
                 .read_line(&mut line)
                 .await
-                .map_err(|e| BridgeError::Sdk(format!("TCP read header: {e}")))?;
+                .map_err(|e| BridgeError::sdk(format!("TCP read header: {e}")))?;
             let trimmed = line.trim();
             if trimmed.is_empty() {
                 break;
@@ -80,20 +80,20 @@ pub(super) async fn raw_rpc_call(
                 content_length = len_str
                     .trim()
                     .parse()
-                    .map_err(|_| BridgeError::Sdk("Invalid Content-Length".into()))?;
+                    .map_err(|_| BridgeError::sdk("Invalid Content-Length"))?;
             }
         }
         Ok::<(), BridgeError>(())
     })
     .await
-    .map_err(|_| BridgeError::Sdk("TCP read header timed out".into()))?;
+    .map_err(|_| BridgeError::sdk("TCP read header timed out"))?;
     header_result?;
 
     if content_length == 0 {
-        return Err(BridgeError::Sdk("No Content-Length in response".into()));
+        return Err(BridgeError::sdk("No Content-Length in response"));
     }
     if content_length > MAX_BODY_SIZE {
-        return Err(BridgeError::Sdk(format!(
+        return Err(BridgeError::sdk(format!(
             "Response body too large: {content_length} bytes (max {MAX_BODY_SIZE})"
         )));
     }
@@ -101,11 +101,11 @@ pub(super) async fn raw_rpc_call(
     let mut body_buf = vec![0u8; content_length];
     timeout(RPC_TIMEOUT, reader.read_exact(&mut body_buf))
         .await
-        .map_err(|_| BridgeError::Sdk("TCP read body timed out".into()))?
-        .map_err(|e| BridgeError::Sdk(format!("TCP read body: {e}")))?;
+        .map_err(|_| BridgeError::sdk("TCP read body timed out"))?
+        .map_err(|e| BridgeError::sdk(format!("TCP read body: {e}")))?;
 
     let response: serde_json::Value = serde_json::from_slice(&body_buf)
-        .map_err(|e| BridgeError::Sdk(format!("JSON parse response: {e}")))?;
+        .map_err(|e| BridgeError::sdk(format!("JSON parse response: {e}")))?;
 
     debug!("raw_rpc_call: {} response={}", method, response);
 
@@ -115,7 +115,7 @@ pub(super) async fn raw_rpc_call(
             .and_then(|m| m.as_str())
             .unwrap_or("Unknown");
         let code = error.get("code").and_then(|c| c.as_i64()).unwrap_or(0);
-        return Err(BridgeError::Sdk(format!("JSON-RPC error {code}: {msg}")));
+        return Err(BridgeError::sdk(format!("JSON-RPC error {code}: {msg}")));
     }
 
     Ok(response

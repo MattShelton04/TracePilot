@@ -78,6 +78,6 @@ impl BridgeManager {
         session
             .set_model(model, opts)
             .await
-            .map_err(|e| BridgeError::Sdk(e.to_string()))
+            .map_err(BridgeError::sdk)
     }
 }

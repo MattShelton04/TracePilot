@@ -56,7 +56,7 @@ impl BridgeManager {
         let session = client
             .create_session(session_config)
             .await
-            .map_err(|e| BridgeError::Sdk(e.to_string()))?;
+            .map_err(BridgeError::sdk)?;
 
         Ok(self.track_created_session(session, config))
     }
@@ -176,7 +176,7 @@ impl BridgeManager {
         session
             .send(opts)
             .await
-            .map_err(|e| BridgeError::Sdk(e.to_string()))
+            .map_err(BridgeError::sdk)
     }
 
     /// Abort the current turn in a session.
@@ -185,7 +185,7 @@ impl BridgeManager {
         session
             .abort()
             .await
-            .map_err(|e| BridgeError::Sdk(e.to_string()))
+            .map_err(BridgeError::sdk)
     }
 
     /// Unlink a session from the bridge WITHOUT destroying it on the SDK side.
@@ -215,7 +215,7 @@ impl BridgeManager {
             session
                 .destroy()
                 .await
-                .map_err(|e| BridgeError::Sdk(e.to_string()))?;
+                .map_err(BridgeError::sdk)?;
             info!("Destroyed session {}", session_id);
         } else {
             // Not locally resumed — nothing to destroy
@@ -243,7 +243,7 @@ impl BridgeManager {
         session
             .set_mode(sdk_mode)
             .await
-            .map_err(|e| BridgeError::Sdk(e.to_string()))
+            .map_err(BridgeError::sdk)
     }
 
     /// Spawn a tokio task that reads SDK events and forwards them as BridgeEvents.
