@@ -195,7 +195,9 @@ async function handleDeleteSkill(dir: string) {
         <div class="modal">
           <div class="modal__header">
             <h3 class="modal__title">New Skill</h3>
-            <button class="modal__close" @click="showNewSkillModal = false">✕</button>
+            <button class="modal__close" aria-label="Close modal" @click="showNewSkillModal = false">
+              <span aria-hidden="true">✕</span>
+            </button>
           </div>
           <div class="modal__body">
             <label class="modal__label">Name</label>

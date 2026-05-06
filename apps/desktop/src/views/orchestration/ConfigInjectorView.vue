@@ -69,7 +69,9 @@ const tabNavItems = computed(() =>
             <code>COPILOT_AUTO_UPDATE=false</code> to prevent.
             We don't recommend disabling auto-update and suggest reinjecting after every update.
           </span>
-          <button class="warning-banner-close" title="Dismiss" @click="dismissWarning()">✕</button>
+          <button class="warning-banner-close" title="Dismiss" aria-label="Dismiss warning" @click="dismissWarning()">
+            <span aria-hidden="true">✕</span>
+          </button>
         </div>
       </Transition>
 
