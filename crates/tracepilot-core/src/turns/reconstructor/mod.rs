@@ -67,6 +67,7 @@ pub(crate) struct PendingSkillInvocation {
     pub(crate) event_id: String,
     pub(crate) name: Option<String>,
     pub(crate) content: Option<String>,
+    pub(crate) attached_tool_call_id: Option<String>,
 }
 
 pub(crate) const CURRENT_TURN_SENTINEL: usize = usize::MAX;

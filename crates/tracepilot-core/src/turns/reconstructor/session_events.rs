@@ -221,20 +221,24 @@ impl TurnReconstructor {
             context_folded: false,
         };
 
-        let attached_to_tool = event
+        let attached_tool_call_id = event
             .raw
             .parent_id
             .as_deref()
             .and_then(|parent_id| self.tool_event_to_call_id.get(parent_id))
             .cloned()
-            .and_then(|tool_call_id| self.find_tool_call_mut(Some(&tool_call_id)))
-            .filter(|tool_call| tool_call.tool_name == "skill")
-            .map(|tool_call| {
-                tool_call.skill_invocation = Some(skill_invocation.clone());
-            })
-            .is_some();
+            .filter(|tool_call_id| {
+                self.find_tool_call_ref(Some(tool_call_id))
+                    .is_some_and(|tool_call| tool_call.tool_name == "skill")
+            });
 
-        if !attached_to_tool {
+        if let Some(tool_call_id) = attached_tool_call_id.as_deref()
+            && let Some(tool_call) = self.find_tool_call_mut(Some(tool_call_id))
+        {
+            tool_call.skill_invocation = Some(skill_invocation.clone());
+        }
+
+        if attached_tool_call_id.is_none() {
             self.push_session_event_full(SessionEventBuild {
                 event_type: "skill.invoked".to_string(),
                 timestamp: event.raw.timestamp,
@@ -257,6 +261,7 @@ impl TurnReconstructor {
                     event_id,
                     name: data.name.clone(),
                     content: data.content.clone(),
+                    attached_tool_call_id,
                 },
             );
         }

@@ -17,36 +17,23 @@ impl TurnReconstructor {
         event_index: usize,
         data: &UserMessageData,
     ) {
-        let folded_skill_invocation_id = event.raw.parent_id.as_deref().and_then(|parent_id| {
+        let folded_skill_invocation = event.raw.parent_id.as_deref().and_then(|parent_id| {
             self.pending_skill_invocations
                 .get(parent_id)
                 .filter(|pending| pending.matches_context_message(event, data))
-                .map(|pending| pending.event_id.clone())
+                .cloned()
         });
-        if let Some(invocation_id) = folded_skill_invocation_id {
+        if let Some(invocation) = folded_skill_invocation {
             let folded = self.mark_skill_context_folded(
-                &invocation_id,
+                &invocation,
                 data.content
                     .as_deref()
                     .map(|content| content.chars().count()),
             );
-            self.pending_skill_invocations.remove(&invocation_id);
+            self.pending_skill_invocations.remove(&invocation.event_id);
             if folded {
                 return;
             }
-        }
-
-        if data
-            .content
-            .as_deref()
-            .map(str::trim_start)
-            .is_some_and(|content| content.starts_with("<skill-context"))
-        {
-            if let Some(parent_id) = event.raw.parent_id.as_deref() {
-                self.pending_skill_invocations.remove(parent_id);
-            }
-        } else {
-            self.pending_skill_invocations.clear();
         }
 
         self.finalize_current_turn(false, None);

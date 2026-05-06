@@ -8,7 +8,7 @@ use crate::models::conversation::{
 use crate::models::event_types::SubagentStartedData;
 
 use super::super::utils::duration_ms;
-use super::{CURRENT_TURN_SENTINEL, TurnReconstructor};
+use super::{CURRENT_TURN_SENTINEL, PendingSkillInvocation, TurnReconstructor};
 
 impl TurnReconstructor {
     /// Push a session event into the current turn, or buffer it for the next one.
@@ -68,9 +68,20 @@ impl TurnReconstructor {
 
     pub(crate) fn mark_skill_context_folded(
         &mut self,
-        invocation_id: &str,
+        invocation: &PendingSkillInvocation,
         context_length: Option<usize>,
     ) -> bool {
+        if let Some(tool_call_id) = invocation.attached_tool_call_id.as_deref()
+            && let Some(skill) = self
+                .find_tool_call_mut(Some(tool_call_id))
+                .and_then(|tool_call| tool_call.skill_invocation.as_mut())
+            && skill.id.as_deref() == Some(invocation.event_id.as_str())
+        {
+            skill.context_folded = true;
+            skill.context_length = context_length;
+            return true;
+        }
+
         for event in self
             .current_turn
             .iter_mut()
@@ -79,21 +90,8 @@ impl TurnReconstructor {
             .rev()
         {
             if let Some(skill) = event.skill_invocation.as_mut()
-                && skill.id.as_deref() == Some(invocation_id)
+                && skill.id.as_deref() == Some(invocation.event_id.as_str())
             {
-                skill.context_folded = true;
-                skill.context_length = context_length;
-                return true;
-            }
-        }
-        for skill in self
-            .current_turn
-            .iter_mut()
-            .flat_map(|turn| turn.tool_calls.iter_mut())
-            .filter_map(|tool_call| tool_call.skill_invocation.as_mut())
-            .rev()
-        {
-            if skill.id.as_deref() == Some(invocation_id) {
                 skill.context_folded = true;
                 skill.context_length = context_length;
                 return true;

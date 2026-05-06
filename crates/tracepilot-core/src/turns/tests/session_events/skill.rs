@@ -87,6 +87,81 @@ fn skill_invocation_attaches_to_originating_skill_tool_call() {
 }
 
 #[test]
+fn skill_invocation_parented_to_non_skill_tool_renders_as_session_event() {
+    let skill_content = "---\nname: trace-skill\n---\nUse tracing.";
+
+    let events = vec![
+        user_msg("Inspect the file")
+            .id("evt-u1")
+            .timestamp("2026-03-10T07:00:00.000Z")
+            .build_event(),
+        tool_start("view")
+            .tool_call_id("tc-view")
+            .id("evt-tool-start")
+            .timestamp("2026-03-10T07:00:01.000Z")
+            .build_event(),
+        tool_complete("tc-view")
+            .success(true)
+            .id("evt-tool-complete")
+            .timestamp("2026-03-10T07:00:02.000Z")
+            .build_event(),
+        skill_invoked_with_parent(
+            "evt-skill",
+            "trace-skill",
+            "C:\\skills\\trace-skill\\SKILL.md",
+            skill_content,
+            "evt-tool-complete",
+        ),
+        turn_end()
+            .id("evt-end")
+            .timestamp("2026-03-10T07:00:12.000Z")
+            .build_event(),
+    ];
+
+    let turns = reconstruct_turns(&events);
+
+    assert_eq!(turns.len(), 1);
+    assert_eq!(turns[0].tool_calls.len(), 1);
+    assert!(turns[0].tool_calls[0].skill_invocation.is_none());
+    assert_eq!(turns[0].session_events.len(), 1);
+    let skill = turns[0].session_events[0]
+        .skill_invocation
+        .as_ref()
+        .unwrap();
+    assert_eq!(skill.id.as_deref(), Some("evt-skill"));
+    assert_eq!(skill.name.as_deref(), Some("trace-skill"));
+}
+
+#[test]
+fn skill_invocation_content_is_truncated_without_changing_reported_length() {
+    let max_content_chars = 16_384;
+    let skill_content = format!("{}tail", "é".repeat(max_content_chars));
+
+    let events = vec![
+        user_msg("Use the large skill").id("evt-u1").build_event(),
+        skill_invoked(
+            "evt-skill",
+            "large-skill",
+            "C:\\skills\\large-skill\\SKILL.md",
+            &skill_content,
+        ),
+    ];
+
+    let turns = reconstruct_turns(&events);
+
+    assert_eq!(turns.len(), 1);
+    let skill = turns[0].session_events[0]
+        .skill_invocation
+        .as_ref()
+        .unwrap();
+    let captured = skill.content.as_deref().unwrap();
+    assert_eq!(skill.content_length, Some(skill_content.chars().count()));
+    assert_eq!(captured.chars().count(), max_content_chars);
+    assert_eq!(captured.chars().last(), Some('é'));
+    assert!(!captured.contains("tail"));
+}
+
+#[test]
 fn multiple_pending_skill_context_messages_are_folded_by_parent_id() {
     let content_a = "---\nname: skill-a\n---\nUse A.";
     let content_b = "---\nname: skill-b\n---\nUse B.";
