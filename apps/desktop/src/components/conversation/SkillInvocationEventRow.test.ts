@@ -15,7 +15,9 @@ vi.mock("@/router/navigation", () => ({
   pushRoute: vi.fn(),
 }));
 
-function evt(overrides: Partial<TurnSessionEvent["skillInvocation"]>): TurnSessionEvent {
+function evt(
+  overrides: Partial<NonNullable<TurnSessionEvent["skillInvocation"]>>,
+): TurnSessionEvent {
   return {
     eventType: "skill.invoked",
     severity: "info",
@@ -32,7 +34,7 @@ describe("SkillInvocationEventRow", () => {
     vi.mocked(pushRoute).mockClear();
   });
 
-  it("renders folded skill invocation metadata without raw skill context", () => {
+  it("renders a compact, collapsed row by default", () => {
     const wrapper = mount(SkillInvocationEventRow, {
       props: {
         event: evt({
@@ -45,15 +47,55 @@ describe("SkillInvocationEventRow", () => {
       },
     });
 
-    expect(wrapper.text()).toContain("skill invoked");
+    const toggle = wrapper.get("button.cv-skill-toggle");
+    expect(toggle.attributes("aria-expanded")).toBe("false");
+    expect(wrapper.text()).toContain("skill");
     expect(wrapper.text()).toContain("tracepilot-app-automation");
-    expect(wrapper.text()).toContain("Launch and interact with TracePilot.");
-    expect(wrapper.text()).toContain("context folded");
-    expect(wrapper.text()).toContain("…skills\\tracepilot-app-automation\\SKILL.md");
-    expect(wrapper.text()).not.toContain("<skill-context");
+    expect(wrapper.text()).toContain("folded");
+    // Description and path should NOT appear in collapsed state.
+    expect(wrapper.text()).not.toContain("Launch and interact with TracePilot.");
+    expect(wrapper.text()).not.toContain("SKILL.md");
+    expect(wrapper.find(".cv-skill-details").exists()).toBe(false);
   });
 
-  it("opens path-backed skill invocations in the skill editor", async () => {
+  it("expands to reveal description, metadata, and editor action on toggle", async () => {
+    const wrapper = mount(SkillInvocationEventRow, {
+      props: {
+        event: evt({
+          name: "tracepilot-app-automation",
+          description: "Launch and interact with TracePilot.",
+          path: "C:\\git\\TracePilot\\.github\\skills\\tracepilot-app-automation\\SKILL.md",
+          contextFolded: true,
+          contextLength: 16285,
+        }),
+      },
+    });
+
+    await wrapper.get("button.cv-skill-toggle").trigger("click");
+
+    const toggle = wrapper.get("button.cv-skill-toggle");
+    expect(toggle.attributes("aria-expanded")).toBe("true");
+    expect(wrapper.find(".cv-skill-details").exists()).toBe(true);
+    expect(wrapper.text()).toContain("Launch and interact with TracePilot.");
+    expect(wrapper.text()).toContain("SKILL.md");
+    expect(wrapper.text()).toContain("16,285");
+    expect(wrapper.find(".cv-skill-action").exists()).toBe(true);
+  });
+
+  it("collapses again on a second toggle click", async () => {
+    const wrapper = mount(SkillInvocationEventRow, {
+      props: { event: evt({ name: "x", description: "desc" }) },
+    });
+
+    const toggle = wrapper.get("button.cv-skill-toggle");
+    await toggle.trigger("click");
+    expect(wrapper.find(".cv-skill-details").exists()).toBe(true);
+    await toggle.trigger("click");
+    expect(wrapper.find(".cv-skill-details").exists()).toBe(false);
+    expect(toggle.attributes("aria-expanded")).toBe("false");
+  });
+
+  it("opens the skill editor only via the expanded action button", async () => {
     const wrapper = mount(SkillInvocationEventRow, {
       props: {
         event: evt({
@@ -63,8 +105,11 @@ describe("SkillInvocationEventRow", () => {
       },
     });
 
-    await wrapper.get(".cv-skill-invoked").trigger("click");
+    // Clicking the toggle row expands but does NOT navigate.
+    await wrapper.get("button.cv-skill-toggle").trigger("click");
+    expect(pushRoute).not.toHaveBeenCalled();
 
+    await wrapper.get("button.cv-skill-action").trigger("click");
     expect(pushRoute).toHaveBeenCalledWith(routerMock, ROUTE_NAMES.skillEditor, {
       params: {
         name: encodeURIComponent("C:\\git\\TracePilot\\.github\\skills\\tracepilot-app-automation"),
@@ -72,15 +117,15 @@ describe("SkillInvocationEventRow", () => {
     });
   });
 
-  it("does not navigate when the invocation has no skill path", async () => {
+  it("does not render an editor action when no skill path is present", async () => {
     const wrapper = mount(SkillInvocationEventRow, {
-      props: {
-        event: evt({ name: "tracepilot-app-automation" }),
-      },
+      props: { event: evt({ name: "tracepilot-app-automation", description: "Something." }) },
     });
 
-    await wrapper.get(".cv-skill-invoked").trigger("click");
+    await wrapper.get("button.cv-skill-toggle").trigger("click");
 
+    expect(wrapper.find(".cv-skill-details").exists()).toBe(true);
+    expect(wrapper.find(".cv-skill-action").exists()).toBe(false);
     expect(pushRoute).not.toHaveBeenCalled();
   });
 });
