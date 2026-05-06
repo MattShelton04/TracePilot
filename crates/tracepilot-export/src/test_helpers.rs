@@ -127,5 +127,6 @@ pub fn simple_tool_call(name: &str, success: Option<bool>, is_subagent: bool) ->
         total_tool_calls: None,
         result_content: None,
         args_summary: Some("test args".to_string()),
+        skill_invocation: None,
     }
 }
