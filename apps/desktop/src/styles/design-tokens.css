@@ -1,5 +1,0 @@
-/* LEGACY SHIM — re-exports @tracepilot/ui/tokens.css.
-   The canonical design tokens moved to @tracepilot/ui in wave 14 (phase 5.2).
-   This file will be removed one release after 0.6.x. Migrate consumers to
-   import "@tracepilot/ui/tokens.css" directly (see apps/desktop/src/styles.css). */
-@import "@tracepilot/ui/tokens.css";
