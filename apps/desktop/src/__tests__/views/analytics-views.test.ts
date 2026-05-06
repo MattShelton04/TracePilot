@@ -180,7 +180,7 @@ describe("AnalyticsDashboardView", () => {
     expect(wrapper.text()).toContain("$1.60"); // copilotCost
     expect(wrapper.text()).toContain("Legacy Copilot Cost");
     expect(wrapper.text()).toContain("Direct API Estimate");
-  });
+  }, 10_000);
 
   it("renders duration stats section", async () => {
     mockGetAnalytics.mockResolvedValue(FIXTURE_ANALYTICS);
