@@ -3,6 +3,7 @@
 // Reads the agent-tree context for selection, prefs, and tool-result loader.
 import { SubagentPanel } from "@tracepilot/ui";
 import { computed } from "vue";
+import SubagentToolRow from "@/components/conversation/SubagentToolRow.vue";
 import { fromAgentNode } from "@/composables/subagentView";
 import { useAgentTreeContext } from "@/composables/useAgentTree";
 
@@ -39,7 +40,21 @@ function onSelectSubagent(toolCallId: string) {
         @load-full-result="ctx.loadFullResult"
         @retry-full-result="ctx.retryFullResult"
         @select-subagent="onSelectSubagent"
-      />
+      >
+        <template #tool="{ item, expanded, fullResult, loadingFullResult, failedFullResult, richEnabled, toggle }">
+          <SubagentToolRow
+            :tool-call="item.toolCall"
+            :expanded="expanded"
+            :full-result="fullResult"
+            :loading-full-result="loadingFullResult"
+            :failed-full-result="failedFullResult"
+            :rich-enabled="richEnabled"
+            @toggle="toggle"
+            @load-full-result="ctx.loadFullResult"
+            @retry-full-result="ctx.retryFullResult"
+          />
+        </template>
+      </SubagentPanel>
     </div>
   </Transition>
 </template>
