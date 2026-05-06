@@ -3,7 +3,7 @@ import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
-import SessionEventRow from "./SessionEventRow.vue";
+import SkillInvocationEventRow from "./SkillInvocationEventRow.vue";
 
 const routerMock = vi.hoisted(() => ({}));
 
@@ -11,37 +11,36 @@ vi.mock("vue-router", () => ({
   useRouter: () => routerMock,
 }));
 
-vi.mock("@/composables/useCheckpointNavigation", () => ({
-  useCheckpointNavigation: () => vi.fn(),
-}));
-
 vi.mock("@/router/navigation", () => ({
   pushRoute: vi.fn(),
 }));
 
-function evt(overrides: Partial<TurnSessionEvent>): TurnSessionEvent {
+function evt(overrides: Partial<TurnSessionEvent["skillInvocation"]>): TurnSessionEvent {
   return {
     eventType: "skill.invoked",
     severity: "info",
     summary: "Skill invoked: tracepilot-app-automation",
-    ...overrides,
+    skillInvocation: {
+      contextFolded: false,
+      ...overrides,
+    },
   };
 }
 
-describe("SessionEventRow skill invocations", () => {
+describe("SkillInvocationEventRow", () => {
   beforeEach(() => {
     vi.mocked(pushRoute).mockClear();
   });
 
   it("renders folded skill invocation metadata without raw skill context", () => {
-    const wrapper = mount(SessionEventRow, {
+    const wrapper = mount(SkillInvocationEventRow, {
       props: {
         event: evt({
-          skillName: "tracepilot-app-automation",
-          skillDescription: "Launch and interact with TracePilot.",
-          skillPath: "C:\\git\\TracePilot\\.github\\skills\\tracepilot-app-automation\\SKILL.md",
-          skillContextFolded: true,
-          skillContextLength: 16285,
+          name: "tracepilot-app-automation",
+          description: "Launch and interact with TracePilot.",
+          path: "C:\\git\\TracePilot\\.github\\skills\\tracepilot-app-automation\\SKILL.md",
+          contextFolded: true,
+          contextLength: 16285,
         }),
       },
     });
@@ -55,12 +54,11 @@ describe("SessionEventRow skill invocations", () => {
   });
 
   it("opens path-backed skill invocations in the skill editor", async () => {
-    const skillPath = "C:\\git\\TracePilot\\.github\\skills\\tracepilot-app-automation\\SKILL.md";
-    const wrapper = mount(SessionEventRow, {
+    const wrapper = mount(SkillInvocationEventRow, {
       props: {
         event: evt({
-          skillName: "tracepilot-app-automation",
-          skillPath,
+          name: "tracepilot-app-automation",
+          path: "C:\\git\\TracePilot\\.github\\skills\\tracepilot-app-automation\\SKILL.md",
         }),
       },
     });
@@ -75,9 +73,9 @@ describe("SessionEventRow skill invocations", () => {
   });
 
   it("does not navigate when the invocation has no skill path", async () => {
-    const wrapper = mount(SessionEventRow, {
+    const wrapper = mount(SkillInvocationEventRow, {
       props: {
-        event: evt({ skillName: "tracepilot-app-automation" }),
+        event: evt({ name: "tracepilot-app-automation" }),
       },
     });
 

@@ -25,14 +25,16 @@ impl TurnReconstructor {
                     .flatten()
             });
         if let Some(invocation_id) = folded_skill_invocation_id {
-            self.mark_skill_context_folded(
+            let folded = self.mark_skill_context_folded(
                 &invocation_id,
                 data.content
                     .as_deref()
                     .map(|content| content.chars().count()),
             );
             self.pending_skill_invocation = None;
-            return;
+            if folded {
+                return;
+            }
         }
         self.pending_skill_invocation = None;
 

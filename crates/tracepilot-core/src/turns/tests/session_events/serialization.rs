@@ -56,13 +56,7 @@ fn session_events_serialization_round_trip() {
             prompt_kind: None,
             result_kind: None,
             resolved_by_hook: None,
-            skill_invocation_id: None,
-            skill_name: None,
-            skill_path: None,
-            skill_description: None,
-            skill_content_length: None,
-            skill_context_length: None,
-            skill_context_folded: None,
+            skill_invocation: None,
         }],
         system_messages: Vec::new(),
     };
@@ -79,4 +73,43 @@ fn session_events_serialization_round_trip() {
         deserialized.session_events[0].severity,
         SessionEventSeverity::Error
     );
+}
+
+#[test]
+fn skill_invocation_session_event_serialization_round_trip() {
+    let event = TurnSessionEvent {
+        event_type: "skill.invoked".to_string(),
+        timestamp: None,
+        severity: SessionEventSeverity::Info,
+        summary: "Skill invoked: trace-skill".to_string(),
+        checkpoint_number: None,
+        request_id: None,
+        tool_call_id: None,
+        prompt_kind: None,
+        result_kind: None,
+        resolved_by_hook: None,
+        skill_invocation: Some(SkillInvocationEvent {
+            id: Some("evt-skill".to_string()),
+            name: Some("trace-skill".to_string()),
+            path: Some("C:\\skills\\trace-skill\\SKILL.md".to_string()),
+            description: Some("Helpful skill".to_string()),
+            content_length: Some(42),
+            context_length: Some(84),
+            context_folded: true,
+        }),
+    };
+
+    let json = serde_json::to_value(&event).unwrap();
+    assert_eq!(json["eventType"], "skill.invoked");
+    assert_eq!(json["skillInvocation"]["name"], "trace-skill");
+    assert_eq!(json["skillInvocation"]["contentLength"], 42);
+    assert_eq!(json["skillInvocation"]["contextLength"], 84);
+    assert_eq!(json["skillInvocation"]["contextFolded"], true);
+
+    let deserialized: TurnSessionEvent = serde_json::from_value(json).unwrap();
+    let skill = deserialized.skill_invocation.unwrap();
+    assert_eq!(skill.name.as_deref(), Some("trace-skill"));
+    assert_eq!(skill.content_length, Some(42));
+    assert_eq!(skill.context_length, Some(84));
+    assert!(skill.context_folded);
 }

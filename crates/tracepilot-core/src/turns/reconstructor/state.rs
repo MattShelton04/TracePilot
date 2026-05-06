@@ -3,7 +3,7 @@
 use chrono::{DateTime, Utc};
 
 use crate::models::conversation::{
-    ConversationTurn, SessionEventSeverity, TurnSessionEvent, TurnToolCall,
+    ConversationTurn, SessionEventSeverity, SkillInvocationEvent, TurnSessionEvent, TurnToolCall,
 };
 use crate::models::event_types::SubagentStartedData;
 
@@ -41,13 +41,7 @@ impl TurnReconstructor {
             prompt_kind: None,
             result_kind: None,
             resolved_by_hook: None,
-            skill_invocation_id: None,
-            skill_name: None,
-            skill_path: None,
-            skill_description: None,
-            skill_content_length: None,
-            skill_context_length: None,
-            skill_context_folded: None,
+            skill_invocation: None,
         });
     }
 
@@ -63,13 +57,7 @@ impl TurnReconstructor {
             prompt_kind: build.prompt_kind,
             result_kind: build.result_kind,
             resolved_by_hook: build.resolved_by_hook,
-            skill_invocation_id: build.skill_invocation_id,
-            skill_name: build.skill_name,
-            skill_path: build.skill_path,
-            skill_description: build.skill_description,
-            skill_content_length: build.skill_content_length,
-            skill_context_length: build.skill_context_length,
-            skill_context_folded: build.skill_context_folded,
+            skill_invocation: build.skill_invocation,
         };
         if let Some(turn) = &mut self.current_turn {
             turn.session_events.push(se);
@@ -82,7 +70,7 @@ impl TurnReconstructor {
         &mut self,
         invocation_id: &str,
         context_length: Option<usize>,
-    ) {
+    ) -> bool {
         for event in self
             .current_turn
             .iter_mut()
@@ -90,12 +78,15 @@ impl TurnReconstructor {
             .chain(self.pending_session_events.iter_mut())
             .rev()
         {
-            if event.skill_invocation_id.as_deref() == Some(invocation_id) {
-                event.skill_context_folded = Some(true);
-                event.skill_context_length = context_length;
-                return;
+            if let Some(skill) = event.skill_invocation.as_mut()
+                && skill.id.as_deref() == Some(invocation_id)
+            {
+                skill.context_folded = true;
+                skill.context_length = context_length;
+                return true;
             }
         }
+        false
     }
 
     pub(crate) fn ensure_current_turn(
@@ -123,6 +114,7 @@ impl TurnReconstructor {
         is_complete: bool,
         end_timestamp: Option<DateTime<Utc>>,
     ) {
+        self.pending_skill_invocation = None;
         if let Some(mut turn) = self.current_turn.take() {
             if turn.end_timestamp.is_none() {
                 turn.end_timestamp = end_timestamp;
@@ -247,9 +239,8 @@ impl TurnReconstructor {
 /// Builder payload for a fully-specified [`TurnSessionEvent`] push.
 ///
 /// Most session events only need `event_type` / `timestamp` / `severity` /
-/// `summary` (covered by [`TurnReconstructor::push_session_event`]). Permission
-/// events additionally carry pairing/context fields used by the UI to render
-/// `permission.requested` and `permission.completed` as a single linked card.
+/// `summary` (covered by [`TurnReconstructor::push_session_event`]). Some event
+/// families carry compact payloads used by the conversation UI.
 pub(crate) struct SessionEventBuild {
     pub(crate) event_type: String,
     pub(crate) timestamp: Option<DateTime<Utc>>,
@@ -261,13 +252,7 @@ pub(crate) struct SessionEventBuild {
     pub(crate) prompt_kind: Option<String>,
     pub(crate) result_kind: Option<String>,
     pub(crate) resolved_by_hook: Option<bool>,
-    pub(crate) skill_invocation_id: Option<String>,
-    pub(crate) skill_name: Option<String>,
-    pub(crate) skill_path: Option<String>,
-    pub(crate) skill_description: Option<String>,
-    pub(crate) skill_content_length: Option<usize>,
-    pub(crate) skill_context_length: Option<usize>,
-    pub(crate) skill_context_folded: Option<bool>,
+    pub(crate) skill_invocation: Option<SkillInvocationEvent>,
 }
 
 /// Create a new conversation turn with the given initial data.

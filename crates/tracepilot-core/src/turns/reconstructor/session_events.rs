@@ -1,6 +1,7 @@
 //! Session-level event handlers (model changes, errors, warnings, lifecycle).
 
 use crate::models::conversation::SessionEventSeverity;
+use crate::models::conversation::SkillInvocationEvent;
 use crate::models::event_types::{
     CompactionCompleteData, ExternalToolRequestedData, ModelChangeData, PermissionCompletedData,
     PermissionRequestedData, PlanChangedData, SessionErrorData, SessionModeChangedData,
@@ -209,13 +210,15 @@ impl TurnReconstructor {
             prompt_kind: None,
             result_kind: None,
             resolved_by_hook: None,
-            skill_invocation_id: event.raw.id.clone(),
-            skill_name: data.name.clone(),
-            skill_path: data.path.clone(),
-            skill_description: data.description.clone(),
-            skill_content_length: content_len,
-            skill_context_length: None,
-            skill_context_folded: Some(false),
+            skill_invocation: Some(SkillInvocationEvent {
+                id: event.raw.id.clone(),
+                name: data.name.clone(),
+                path: data.path.clone(),
+                description: data.description.clone(),
+                content_length: content_len,
+                context_length: None,
+                context_folded: false,
+            }),
         });
         self.pending_skill_invocation = Some(PendingSkillInvocation {
             event_id: event.raw.id.clone(),
@@ -253,13 +256,7 @@ impl TurnReconstructor {
             prompt_kind: Some(kind.to_string()),
             result_kind: None,
             resolved_by_hook: data.resolved_by_hook,
-            skill_invocation_id: None,
-            skill_name: None,
-            skill_path: None,
-            skill_description: None,
-            skill_content_length: None,
-            skill_context_length: None,
-            skill_context_folded: None,
+            skill_invocation: None,
         });
     }
 
@@ -294,13 +291,7 @@ impl TurnReconstructor {
             prompt_kind: None,
             result_kind: Some(result_kind.to_string()),
             resolved_by_hook: None,
-            skill_invocation_id: None,
-            skill_name: None,
-            skill_path: None,
-            skill_description: None,
-            skill_content_length: None,
-            skill_context_length: None,
-            skill_context_folded: None,
+            skill_invocation: None,
         });
     }
 

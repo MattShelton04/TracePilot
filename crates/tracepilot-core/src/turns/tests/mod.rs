@@ -13,7 +13,7 @@
 
 use super::*;
 use crate::models::conversation::{
-    AttributedMessage, SessionEventSeverity, TurnSessionEvent, TurnToolCall,
+    AttributedMessage, SessionEventSeverity, SkillInvocationEvent, TurnSessionEvent, TurnToolCall,
 };
 use crate::models::event_types::{
     AbortData, AssistantReasoningData, ExternalToolRequestedData, ModelChangeData,

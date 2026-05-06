@@ -24,6 +24,7 @@ export type {
   FreshnessResponse,
   SessionEvent,
   SessionEventSeverity,
+  SkillInvocationEvent,
   TurnSessionEvent,
   TurnsResponse,
   TurnToolCall,
