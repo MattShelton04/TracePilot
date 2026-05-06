@@ -72,6 +72,26 @@ export interface TurnSessionEvent {
   resultKind?: string;
   /** For `permission.requested`, true if a hook auto-resolved the prompt. */
   resolvedByHook?: boolean;
+  /** Skill-specific payload, present only for `skill.invoked` events. */
+  skillInvocation?: SkillInvocationEvent;
+}
+
+export interface SkillInvocationEvent {
+  /** Raw event id used to correlate the synthetic skill-context user message. */
+  id?: string;
+  name?: string;
+  /** Full path to the invoked skill's `SKILL.md`, when provided by Copilot. */
+  path?: string;
+  description?: string;
+  /** Character count of the skill content embedded in the invocation event. */
+  contentLength?: number;
+  /** SKILL.md body (possibly truncated) for the conversation drop-down.
+   *  Compare Unicode scalar count to `contentLength` to detect truncation. */
+  content?: string;
+  /** Character count of the folded synthetic skill-context user message. */
+  contextLength?: number;
+  /** Whether a verified synthetic skill-context user message was folded. */
+  contextFolded: boolean;
 }
 
 /** A tool call within a turn */
@@ -111,6 +131,8 @@ export interface TurnToolCall {
   resultContent?: string;
   /** Short summary of arguments, computed server-side for IPC efficiency. */
   argsSummary?: string;
+  /** Skill-specific payload, present when this tool call loaded a skill. */
+  skillInvocation?: SkillInvocationEvent;
 }
 
 /** Response from get_session_turns — includes file size for freshness tracking. */

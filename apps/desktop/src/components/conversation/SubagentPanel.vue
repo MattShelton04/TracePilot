@@ -9,6 +9,7 @@ import type { SubagentFullData } from "@/composables/useCrossTurnSubagents";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
 import { usePreferencesStore } from "@/stores/preferences";
+import SubagentToolRow from "./SubagentToolRow.vue";
 
 const props = defineProps<{
   subagent: SubagentFullData | null;
@@ -68,7 +69,21 @@ watch(
           @load-full-result="loadFullResult"
           @retry-full-result="retryFullResult"
           @select-subagent="emit('select-subagent', $event)"
-        />
+        >
+          <template #tool="{ item, expanded, fullResult, loadingFullResult, failedFullResult, richEnabled, toggle }">
+            <SubagentToolRow
+              :tool-call="item.toolCall"
+              :expanded="expanded"
+              :full-result="fullResult"
+              :loading-full-result="loadingFullResult"
+              :failed-full-result="failedFullResult"
+              :rich-enabled="richEnabled"
+              @toggle="toggle"
+              @load-full-result="loadFullResult"
+              @retry-full-result="retryFullResult"
+            />
+          </template>
+        </SubagentPanel>
       </div>
 
       <SubagentPanelNav

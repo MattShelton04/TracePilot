@@ -141,6 +141,7 @@ mod tests {
                     total_tool_calls: None,
                     result_content: Some("file contents here".into()),
                     args_summary: Some("path: foo.rs".into()),
+                    skill_invocation: None,
                 },
                 // Subagent entry
                 TurnToolCall {
@@ -167,6 +168,7 @@ mod tests {
                     total_tool_calls: None,
                     result_content: Some("Found auth.rs".into()),
                     args_summary: None,
+                    skill_invocation: None,
                 },
                 // Child tool call of the subagent
                 TurnToolCall {
@@ -193,6 +195,7 @@ mod tests {
                     total_tool_calls: None,
                     result_content: Some("auth.rs:10: fn authenticate".into()),
                     args_summary: Some("pattern: auth".into()),
+                    skill_invocation: None,
                 },
             ],
             duration_ms: Some(6000),

@@ -1,16 +1,18 @@
 //! Session-level event handlers (model changes, errors, warnings, lifecycle).
 
 use crate::models::conversation::SessionEventSeverity;
+use crate::models::conversation::SkillInvocationEvent;
 use crate::models::event_types::{
     CompactionCompleteData, ExternalToolRequestedData, ModelChangeData, PermissionCompletedData,
     PermissionRequestedData, PlanChangedData, SessionErrorData, SessionModeChangedData,
     SessionResumeData, SessionStartData, SessionTruncationData, SessionWarningData,
+    SkillInvokedData,
 };
 use crate::parsing::events::TypedEvent;
 use serde_json::Value;
 
-use super::TurnReconstructor;
 use super::state::SessionEventBuild;
+use super::{PendingSkillInvocation, TurnReconstructor};
 
 impl TurnReconstructor {
     // Model change: update session-level model; set turn model if not already set
@@ -190,6 +192,81 @@ impl TurnReconstructor {
         );
     }
 
+    pub(super) fn handle_skill_invoked(&mut self, event: &TypedEvent, data: &SkillInvokedData) {
+        let summary = data
+            .name
+            .as_deref()
+            .map(|name| format!("Skill invoked: {name}"))
+            .unwrap_or_else(|| "Skill invoked".to_string());
+        let content_len = data.content.as_ref().map(|content| content.chars().count());
+        // Cap content size sent over IPC so multi-megabyte skills don't bloat
+        // the conversation payload. The UI compares the captured Unicode scalar
+        // count against `content_length` to detect and surface truncation.
+        const MAX_CONTENT_CHARS: usize = 16_384;
+        let content = data.content.as_ref().map(|raw| {
+            if raw.chars().count() > MAX_CONTENT_CHARS {
+                raw.chars().take(MAX_CONTENT_CHARS).collect()
+            } else {
+                raw.clone()
+            }
+        });
+        let skill_invocation = SkillInvocationEvent {
+            id: event.raw.id.clone(),
+            name: data.name.clone(),
+            path: data.path.clone(),
+            description: data.description.clone(),
+            content_length: content_len,
+            content,
+            context_length: None,
+            context_folded: false,
+        };
+
+        let attached_tool_call_id = event
+            .raw
+            .parent_id
+            .as_deref()
+            .and_then(|parent_id| self.tool_event_to_call_id.get(parent_id))
+            .cloned()
+            .filter(|tool_call_id| {
+                self.find_tool_call_ref(Some(tool_call_id))
+                    .is_some_and(|tool_call| tool_call.tool_name == "skill")
+            });
+
+        if let Some(tool_call_id) = attached_tool_call_id.as_deref()
+            && let Some(tool_call) = self.find_tool_call_mut(Some(tool_call_id))
+        {
+            tool_call.skill_invocation = Some(skill_invocation.clone());
+        }
+
+        if attached_tool_call_id.is_none() {
+            self.push_session_event_full(SessionEventBuild {
+                event_type: "skill.invoked".to_string(),
+                timestamp: event.raw.timestamp,
+                severity: SessionEventSeverity::Info,
+                summary,
+                checkpoint_number: None,
+                request_id: None,
+                tool_call_id: None,
+                prompt_kind: None,
+                result_kind: None,
+                resolved_by_hook: None,
+                skill_invocation: Some(skill_invocation.clone()),
+            });
+        }
+
+        if let Some(event_id) = event.raw.id.clone() {
+            self.pending_skill_invocations.insert(
+                event_id.clone(),
+                PendingSkillInvocation {
+                    event_id,
+                    name: data.name.clone(),
+                    content: data.content.clone(),
+                    attached_tool_call_id,
+                },
+            );
+        }
+    }
+
     pub(super) fn handle_permission_requested(
         &mut self,
         event: &TypedEvent,
@@ -219,6 +296,7 @@ impl TurnReconstructor {
             prompt_kind: Some(kind.to_string()),
             result_kind: None,
             resolved_by_hook: data.resolved_by_hook,
+            skill_invocation: None,
         });
     }
 
@@ -253,6 +331,7 @@ impl TurnReconstructor {
             prompt_kind: None,
             result_kind: Some(result_kind.to_string()),
             resolved_by_hook: None,
+            skill_invocation: None,
         });
     }
 

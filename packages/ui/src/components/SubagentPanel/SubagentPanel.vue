@@ -3,7 +3,7 @@
 // inline transition, scroll container, prev/next nav). Both the conversation
 // slide-out and the agent-tree inline panel render this same body so they
 // cannot drift.
-import { computed, ref, watch } from "vue";
+import { computed, ref, useSlots, watch } from "vue";
 import { getAgentColor, getAgentIcon } from "../../utils/agentTypes";
 import { formatDuration, formatLiveDuration } from "../../utils/formatters";
 import SubagentActivityStream from "./SubagentActivityStream.vue";
@@ -37,6 +37,7 @@ const emit = defineEmits<{
   "select-subagent": [toolCallId: string];
 }>();
 
+const slots = useSlots();
 const agentColor = computed(() => getAgentColor(props.view.type));
 const agentIcon = computed(() => getAgentIcon(props.view.type));
 
@@ -132,7 +133,11 @@ watch(
       @load-full-result="emit('load-full-result', $event)"
       @retry-full-result="emit('retry-full-result', $event)"
       @select-subagent="emit('select-subagent', $event)"
-    />
+    >
+      <template v-if="slots.tool" #tool="slotProps">
+        <slot name="tool" v-bind="slotProps" />
+      </template>
+    </SubagentActivityStream>
   </div>
 </template>
 

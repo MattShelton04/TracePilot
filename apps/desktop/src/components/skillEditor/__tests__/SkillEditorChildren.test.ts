@@ -60,6 +60,7 @@ function makeCtx(overrides: Partial<SkillEditorContext> = {}): SkillEditorContex
     descCharCount: 4,
     descCharClass: "",
     lastSavedDisplay: "Not saved yet",
+    backLabel: "Back to Skills",
     loadSkill: vi.fn(),
     handleSave: vi.fn(),
     handleDelete: vi.fn(),

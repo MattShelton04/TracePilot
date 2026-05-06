@@ -2,23 +2,24 @@
 /**
  * SessionEventRow — renders a single session event in the conversation view.
  *
- * Handles both compaction events (blue accent + checkpoint pill) and regular
- * events (severity-based colouring). Encapsulates the checkpoint navigation
- * concern so ChatViewMode doesn't need to know about it.
+ * Handles compaction events (blue accent + checkpoint pill) and regular
+ * events (severity-based colouring). Skill invocations are delegated to
+ * `SkillInvocationEventRow` so the dedicated dropdown UI lives in one place.
  */
 import type { SessionEventSeverity, TurnSessionEvent } from "@tracepilot/types";
 import { formatTime } from "@tracepilot/ui";
+import { computed } from "vue";
 import { useCheckpointNavigation } from "@/composables/useCheckpointNavigation";
+import SkillInvocationEventRow from "./SkillInvocationEventRow.vue";
 
-defineProps<{
+const props = defineProps<{
   event: TurnSessionEvent;
 }>();
 
 const navigateToCheckpoint = useCheckpointNavigation();
 
-function isCompaction(evt: TurnSessionEvent): boolean {
-  return evt.eventType === "session.compaction_complete";
-}
+const isCompaction = computed(() => props.event.eventType === "session.compaction_complete");
+const isSkill = computed(() => props.event.eventType === "skill.invoked");
 
 function severityClass(severity: SessionEventSeverity | undefined): string {
   if (severity === "error") return "error";
@@ -43,9 +44,12 @@ function eventLabel(eventType: string): string {
 </script>
 
 <template>
+  <!-- Skill invocation: dedicated collapsible component -->
+  <SkillInvocationEventRow v-if="isSkill" :event="event" />
+
   <!-- Compaction event with checkpoint pill -->
   <div
-    v-if="isCompaction(event)"
+    v-else-if="isCompaction"
     class="cv-session-event cv-compaction"
   >
     <span class="cv-session-event-icon">🗜️</span>

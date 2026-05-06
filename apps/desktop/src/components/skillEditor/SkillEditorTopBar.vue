@@ -9,7 +9,7 @@ const ctx = useSkillEditorContext();
   <header class="editor-topbar">
     <button class="topbar-back" @click="ctx.goBack">
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 12L6 8l4-4"/></svg>
-      Back to Skills
+      {{ ctx.backLabel }}
     </button>
     <div class="topbar-divider" />
     <div v-if="ctx.store.selectedSkill" class="topbar-skill-name">

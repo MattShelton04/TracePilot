@@ -19,6 +19,9 @@
 //! 5. `AssistantMessage` appends content to the current turn
 //! 6. `SessionModelChange` sets the turn-level model when no tool completion has
 //! 7. `Abort` finalizes the current turn as incomplete
+//! 8. `SkillInvoked` is surfaced as a session event; a verified synthetic
+//!    `<skill-context>` `UserMessage` parented to it is folded into that event
+//!    instead of opening a visible user turn
 //!
 //! Events that don't affect turn state (e.g. `SessionInfo`, `SystemNotification`)
 //! are silently skipped.

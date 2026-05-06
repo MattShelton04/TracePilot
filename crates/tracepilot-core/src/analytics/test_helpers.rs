@@ -138,6 +138,7 @@ pub(super) fn make_tool_call(
         total_tool_calls: None,
         result_content: None,
         args_summary: None,
+        skill_invocation: None,
     }
 }
 

@@ -109,6 +109,7 @@ fn redacts_conversation_content() {
             total_tool_calls: None,
             result_content: Some("email: admin@company.com".into()),
             args_summary: None,
+            skill_invocation: None,
         }],
         duration_ms: None,
         is_complete: true,

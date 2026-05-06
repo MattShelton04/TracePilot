@@ -16,6 +16,8 @@ import { formatDuration } from "../../utils/formatters";
 import ToolCallItem from "../ToolCallItem.vue";
 import type { SubagentActivityItem, SubagentActivityPillType } from "./types";
 
+type ToolActivityItem = Extract<SubagentActivityItem, { kind: "tool" }>;
+
 const props = defineProps<{
   activities: SubagentActivityItem[];
   /** Stable key for the owning subagent — resets local expansion state on change. */
@@ -26,6 +28,18 @@ const props = defineProps<{
   failedResults: Set<string>;
   /** When true, render rich content for the given tool name. Defaults to true. */
   isRichRenderingEnabled?: (toolName: string) => boolean;
+}>();
+
+defineSlots<{
+  tool(props: {
+    item: ToolActivityItem;
+    expanded: boolean;
+    fullResult: string | undefined;
+    loadingFullResult: boolean;
+    failedFullResult: boolean;
+    richEnabled: boolean;
+    toggle: () => void;
+  }): unknown;
 }>();
 
 const emit = defineEmits<{
@@ -120,19 +134,30 @@ function richEnabled(toolName: string): boolean {
           <span v-if="item.toolCall.isComplete" class="sap-pill-check">✓</span>
         </div>
 
-        <ToolCallItem
+        <slot
           v-else-if="item.kind === 'tool'"
-          :tc="item.toolCall"
-          variant="compact"
+          name="tool"
+          :item="item"
           :expanded="expandedToolDetails.has(item.key)"
           :full-result="item.toolCall.toolCallId ? fullResults.get(item.toolCall.toolCallId) : undefined"
           :loading-full-result="item.toolCall.toolCallId ? loadingResults.has(item.toolCall.toolCallId) : false"
           :failed-full-result="item.toolCall.toolCallId ? failedResults.has(item.toolCall.toolCallId) : false"
           :rich-enabled="richEnabled(item.toolCall.toolName)"
-          @toggle="expandedToolDetails.toggle(item.key)"
-          @load-full-result="emit('load-full-result', $event)"
-          @retry-full-result="emit('retry-full-result', $event)"
-        />
+          :toggle="() => expandedToolDetails.toggle(item.key)"
+        >
+          <ToolCallItem
+            :tc="item.toolCall"
+            variant="compact"
+            :expanded="expandedToolDetails.has(item.key)"
+            :full-result="item.toolCall.toolCallId ? fullResults.get(item.toolCall.toolCallId) : undefined"
+            :loading-full-result="item.toolCall.toolCallId ? loadingResults.has(item.toolCall.toolCallId) : false"
+            :failed-full-result="item.toolCall.toolCallId ? failedResults.has(item.toolCall.toolCallId) : false"
+            :rich-enabled="richEnabled(item.toolCall.toolName)"
+            @toggle="expandedToolDetails.toggle(item.key)"
+            @load-full-result="emit('load-full-result', $event)"
+            @retry-full-result="emit('retry-full-result', $event)"
+          />
+        </slot>
 
         <button
           v-else-if="item.kind === 'nested-subagent'"

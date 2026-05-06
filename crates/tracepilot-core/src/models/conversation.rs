@@ -69,6 +69,39 @@ pub struct TurnSessionEvent {
     /// (no human-in-the-loop).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub resolved_by_hook: Option<bool>,
+    /// Skill-specific payload, present only for `skill.invoked` events.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skill_invocation: Option<SkillInvocationEvent>,
+}
+
+/// Metadata for a `skill.invoked` event rendered in a conversation turn.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SkillInvocationEvent {
+    /// Raw event id used to correlate the synthetic skill-context user message.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    /// Full path to the invoked skill's `SKILL.md`, when provided by Copilot.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// Character count of the skill content embedded in the invocation event.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content_length: Option<usize>,
+    /// SKILL.md body (possibly truncated) for the conversation drop-down.
+    /// Compare `content.chars().count()` against [`Self::content_length`] to
+    /// detect truncation in the UI.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content: Option<String>,
+    /// Character count of the folded synthetic skill-context user message.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub context_length: Option<usize>,
+    /// Whether a verified synthetic skill-context user message was folded.
+    #[serde(default)]
+    pub context_folded: bool,
 }
 
 /// A single conversation turn.
@@ -159,4 +192,7 @@ pub struct TurnToolCall {
     /// Short summary of arguments, computed server-side for IPC efficiency.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub args_summary: Option<String>,
+    /// Skill-specific payload, present when this tool call loaded a skill.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skill_invocation: Option<SkillInvocationEvent>,
 }

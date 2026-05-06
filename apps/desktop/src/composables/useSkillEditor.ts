@@ -63,6 +63,11 @@ export function useSkillEditor() {
     const param = route.params.name;
     return typeof param === "string" ? decodeURIComponent(param) : "";
   });
+  const returnSessionId = computed(() => {
+    const fromSession = route.query.fromSession;
+    return typeof fromSession === "string" && fromSession.trim() ? fromSession : "";
+  });
+  const backLabel = computed(() => (returnSessionId.value ? "Back to Session" : "Back to Skills"));
 
   const editorLineNumbers = computed(() => {
     const count = previewBody.value.split("\n").length;
@@ -287,6 +292,12 @@ export function useSkillEditor() {
   }
 
   function goBack() {
+    if (returnSessionId.value) {
+      pushRoute(router, ROUTE_NAMES.sessionConversation, {
+        params: { id: returnSessionId.value },
+      });
+      return;
+    }
     pushRoute(router, ROUTE_NAMES.skillsManager);
   }
 
@@ -379,6 +390,7 @@ export function useSkillEditor() {
     descCharCount,
     descCharClass,
     lastSavedDisplay,
+    backLabel,
     // actions
     loadSkill,
     handleSave,
