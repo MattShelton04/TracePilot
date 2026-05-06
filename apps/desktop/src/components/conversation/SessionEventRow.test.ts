@@ -1,14 +1,10 @@
 import type { TurnSessionEvent } from "@tracepilot/types";
 import { mount } from "@vue/test-utils";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ROUTE_NAMES } from "@/config/routes";
-import { pushRoute } from "@/router/navigation";
+import { describe, expect, it, vi } from "vitest";
 import SessionEventRow from "./SessionEventRow.vue";
 
-const routerMock = vi.hoisted(() => ({}));
-
 vi.mock("vue-router", () => ({
-  useRouter: () => routerMock,
+  useRouter: () => ({}),
 }));
 
 vi.mock("@/router/navigation", () => ({
@@ -19,6 +15,20 @@ vi.mock("@/composables/useCheckpointNavigation", () => ({
   useCheckpointNavigation: () => vi.fn(),
 }));
 
+// Stub the dedicated skill component so SessionEventRow tests stay focused on
+// delegation rather than the skill component's internals.
+vi.mock("./SkillInvocationEventRow.vue", () => ({
+  default: {
+    name: "SkillInvocationEventRow",
+    props: ["event"],
+    template: '<div class="stub-skill-row" />',
+  },
+}));
+
+vi.mock("@/stores/preferences", () => ({
+  usePreferencesStore: () => ({ isFeatureEnabled: () => true }),
+}));
+
 function evt(partial: Partial<TurnSessionEvent> & { eventType: string }): TurnSessionEvent {
   return {
     severity: "info",
@@ -27,90 +37,23 @@ function evt(partial: Partial<TurnSessionEvent> & { eventType: string }): TurnSe
   };
 }
 
-describe("SessionEventRow — skill invocation", () => {
-  beforeEach(() => {
-    vi.mocked(pushRoute).mockClear();
-  });
-
-  it("renders inline with the skill emoji, label, and name", () => {
-    const wrapper = mount(SessionEventRow, {
-      props: {
-        event: evt({
-          eventType: "skill.invoked",
-          summary: "Skill invoked: tracepilot-app-automation",
-          skillInvocation: {
-            contextFolded: true,
-            name: "tracepilot-app-automation",
-            description: "Launch and interact with TracePilot.",
-            path: "C:\\skills\\tracepilot-app-automation\\SKILL.md",
-            contentLength: 1024,
-          },
-        }),
-      },
-    });
-
-    expect(wrapper.text()).toContain("⚡");
-    expect(wrapper.text()).toContain("skill");
-    expect(wrapper.text()).toContain("tracepilot-app-automation");
-    expect(wrapper.text()).toContain("Launch and interact with TracePilot.");
-    // No expandable/duplicate toggle artefacts.
-    expect(wrapper.find(".cv-skill-toggle").exists()).toBe(false);
-    expect(wrapper.find(".cv-skill-body").exists()).toBe(false);
-  });
-
-  it("renders as a clickable button when a skill path is present and navigates to the editor", async () => {
+describe("SessionEventRow", () => {
+  it("delegates skill.invoked events to SkillInvocationEventRow", () => {
     const wrapper = mount(SessionEventRow, {
       props: {
         event: evt({
           eventType: "skill.invoked",
           summary: "Skill invoked: trace-skill",
-          skillInvocation: {
-            contextFolded: true,
-            name: "trace-skill",
-            path: "C:\\skills\\trace-skill\\SKILL.md",
-          },
+          skillInvocation: { contextFolded: true, name: "trace-skill" },
         }),
       },
     });
 
-    const btn = wrapper.get("button.cv-skill");
-    await btn.trigger("click");
-    expect(pushRoute).toHaveBeenCalledWith(routerMock, ROUTE_NAMES.skillEditor, {
-      params: { name: encodeURIComponent("C:\\skills\\trace-skill") },
-    });
+    expect(wrapper.find(".stub-skill-row").exists()).toBe(true);
+    // No leftover inline skill chrome.
+    expect(wrapper.find(".cv-skill").exists()).toBe(false);
   });
 
-  it("renders as a non-clickable div when no skill path is present", () => {
-    const wrapper = mount(SessionEventRow, {
-      props: {
-        event: evt({
-          eventType: "skill.invoked",
-          summary: "Skill invoked: trace-skill",
-          skillInvocation: { contextFolded: false, name: "trace-skill" },
-        }),
-      },
-    });
-
-    expect(wrapper.find("button.cv-skill").exists()).toBe(false);
-    expect(wrapper.find("div.cv-skill").exists()).toBe(true);
-  });
-
-  it("falls back to the summary when the skill payload has no name", () => {
-    const wrapper = mount(SessionEventRow, {
-      props: {
-        event: evt({
-          eventType: "skill.invoked",
-          summary: "Skill invoked",
-          skillInvocation: { contextFolded: false },
-        }),
-      },
-    });
-
-    expect(wrapper.text()).toContain("Skill invoked");
-  });
-});
-
-describe("SessionEventRow — regular events", () => {
   it("renders compaction events with the checkpoint pill", () => {
     const wrapper = mount(SessionEventRow, {
       props: {

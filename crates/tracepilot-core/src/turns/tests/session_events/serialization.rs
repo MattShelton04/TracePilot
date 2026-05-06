@@ -94,6 +94,7 @@ fn skill_invocation_session_event_serialization_round_trip() {
             path: Some("C:\\skills\\trace-skill\\SKILL.md".to_string()),
             description: Some("Helpful skill".to_string()),
             content_length: Some(42),
+            content: Some("Use tracing.".to_string()),
             context_length: Some(84),
             context_folded: true,
         }),

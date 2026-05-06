@@ -91,6 +91,11 @@ pub struct SkillInvocationEvent {
     /// Character count of the skill content embedded in the invocation event.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub content_length: Option<usize>,
+    /// SKILL.md body (possibly truncated) for the conversation drop-down.
+    /// Compare `content.chars().count()` against [`Self::content_length`] to
+    /// detect truncation in the UI.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content: Option<String>,
     /// Character count of the folded synthetic skill-context user message.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub context_length: Option<usize>,

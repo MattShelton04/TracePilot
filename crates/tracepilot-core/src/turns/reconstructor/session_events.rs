@@ -199,6 +199,17 @@ impl TurnReconstructor {
             .map(|name| format!("Skill invoked: {name}"))
             .unwrap_or_else(|| "Skill invoked".to_string());
         let content_len = data.content.as_ref().map(|content| content.chars().count());
+        // Cap content size sent over IPC so multi-megabyte skills don't bloat
+        // the conversation payload. The UI compares `content.chars().count()`
+        // against `content_length` to detect and surface truncation.
+        const MAX_CONTENT_CHARS: usize = 16_384;
+        let content = data.content.as_ref().map(|raw| {
+            if raw.chars().count() > MAX_CONTENT_CHARS {
+                raw.chars().take(MAX_CONTENT_CHARS).collect()
+            } else {
+                raw.clone()
+            }
+        });
         self.push_session_event_full(SessionEventBuild {
             event_type: "skill.invoked".to_string(),
             timestamp: event.raw.timestamp,
@@ -216,6 +227,7 @@ impl TurnReconstructor {
                 path: data.path.clone(),
                 description: data.description.clone(),
                 content_length: content_len,
+                content,
                 context_length: None,
                 context_folded: false,
             }),

@@ -85,6 +85,9 @@ export interface SkillInvocationEvent {
   description?: string;
   /** Character count of the skill content embedded in the invocation event. */
   contentLength?: number;
+  /** SKILL.md body (possibly truncated) for the conversation drop-down.
+   *  Compare `content.length` to `contentLength` to detect truncation. */
+  content?: string;
   /** Character count of the folded synthetic skill-context user message. */
   contextLength?: number;
   /** Whether a verified synthetic skill-context user message was folded. */

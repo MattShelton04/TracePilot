@@ -2,48 +2,24 @@
 /**
  * SessionEventRow — renders a single session event in the conversation view.
  *
- * Handles compaction events (blue accent + checkpoint pill), skill
- * invocations (lightning accent + optional editor link), and regular events
- * (severity-based colouring). Encapsulates the checkpoint navigation
- * concern so ChatViewMode doesn't need to know about it.
+ * Handles compaction events (blue accent + checkpoint pill) and regular
+ * events (severity-based colouring). Skill invocations are delegated to
+ * `SkillInvocationEventRow` so the dedicated dropdown UI lives in one place.
  */
 import type { SessionEventSeverity, TurnSessionEvent } from "@tracepilot/types";
 import { formatTime } from "@tracepilot/ui";
 import { computed } from "vue";
-import { useRouter } from "vue-router";
 import { useCheckpointNavigation } from "@/composables/useCheckpointNavigation";
-import { ROUTE_NAMES } from "@/config/routes";
-import { pushRoute } from "@/router/navigation";
+import SkillInvocationEventRow from "./SkillInvocationEventRow.vue";
 
 const props = defineProps<{
   event: TurnSessionEvent;
 }>();
 
-const router = useRouter();
 const navigateToCheckpoint = useCheckpointNavigation();
 
 const isCompaction = computed(() => props.event.eventType === "session.compaction_complete");
 const isSkill = computed(() => props.event.eventType === "skill.invoked");
-
-const skill = computed(() => props.event.skillInvocation);
-const skillName = computed(() => skill.value?.name?.trim() || "");
-const skillDescription = computed(() => skill.value?.description?.trim() || "");
-const skillPath = computed(() => skill.value?.path?.trim() || "");
-
-const skillEditorTarget = computed(() => {
-  const p = skillPath.value;
-  if (!p) return "";
-  const dir = p.replace(/[\\/]SKILL\.md$/i, "");
-  return dir === p ? "" : dir;
-});
-
-const skillTooltip = computed(() => {
-  const parts: string[] = [];
-  if (skillDescription.value) parts.push(skillDescription.value);
-  if (skillPath.value) parts.push(skillPath.value);
-  if (skillEditorTarget.value) parts.push("Click to open in skill editor");
-  return parts.join("\n");
-});
 
 function severityClass(severity: SessionEventSeverity | undefined): string {
   if (severity === "error") return "error";
@@ -65,20 +41,15 @@ function eventLabel(eventType: string): string {
   };
   return labels[eventType] ?? eventType;
 }
-
-function openSkillEditor() {
-  const target = skillEditorTarget.value;
-  if (!target) return;
-  pushRoute(router, ROUTE_NAMES.skillEditor, {
-    params: { name: encodeURIComponent(target) },
-  });
-}
 </script>
 
 <template>
+  <!-- Skill invocation: dedicated collapsible component -->
+  <SkillInvocationEventRow v-if="isSkill" :event="event" />
+
   <!-- Compaction event with checkpoint pill -->
   <div
-    v-if="isCompaction"
+    v-else-if="isCompaction"
     class="cv-session-event cv-compaction"
   >
     <span class="cv-session-event-icon">🗜️</span>
@@ -96,35 +67,6 @@ function openSkillEditor() {
       {{ formatTime(event.timestamp) }}
     </span>
   </div>
-
-  <!-- Skill invocation: same row shape as a regular session event, but with
-       a skill emoji, the skill name as the primary label, and an optional
-       click target that opens the skill editor when a path is known. -->
-  <component
-    :is="skillEditorTarget ? 'button' : 'div'"
-    v-else-if="isSkill"
-    type="button"
-    :class="[
-      'cv-session-event',
-      'cv-skill',
-      { 'cv-skill-clickable': skillEditorTarget },
-    ]"
-    :title="skillTooltip || undefined"
-    @click="skillEditorTarget ? openSkillEditor() : undefined"
-  >
-    <span class="cv-session-event-icon">⚡</span>
-    <span class="cv-session-event-type">skill</span>
-    <span class="cv-session-event-summary">
-      <template v-if="skillName">{{ skillName }}</template>
-      <template v-else>{{ event.summary }}</template>
-      <span v-if="skillDescription" class="cv-skill-desc">
-        — {{ skillDescription }}
-      </span>
-    </span>
-    <span v-if="event.timestamp" class="cv-session-event-time">
-      {{ formatTime(event.timestamp) }}
-    </span>
-  </component>
 
   <!-- Regular session event -->
   <div
@@ -188,50 +130,6 @@ function openSkillEditor() {
   flex-shrink: 0;
   font-size: 11px;
   opacity: 0.6;
-}
-
-/* ─── Skill accent ───────────────────────────────────────────────── */
-
-.cv-skill {
-  background: var(--accent-subtle, rgba(56, 139, 253, 0.08));
-  color: var(--text-secondary, #8b949e);
-  border: 1px solid transparent;
-  width: 100%;
-  text-align: left;
-  font: inherit;
-}
-
-button.cv-skill {
-  cursor: default;
-}
-
-button.cv-skill.cv-skill-clickable {
-  cursor: pointer;
-}
-
-button.cv-skill.cv-skill-clickable:hover {
-  background: var(--accent-muted, rgba(56, 139, 253, 0.15));
-  border-color: var(--accent-muted, rgba(56, 139, 253, 0.3));
-}
-
-button.cv-skill:focus-visible {
-  outline: 2px solid var(--accent-fg, #58a6ff);
-  outline-offset: 2px;
-}
-
-.cv-skill .cv-session-event-type {
-  color: var(--accent-fg, #58a6ff);
-  opacity: 1;
-  font-weight: 600;
-}
-
-.cv-skill .cv-session-event-summary {
-  color: var(--text-primary, #e6edf3);
-}
-
-.cv-skill-desc {
-  color: var(--text-muted, #6e7681);
-  margin-left: 4px;
 }
 
 /* ─── Compaction accent ──────────────────────────────────────────── */
