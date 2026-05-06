@@ -57,10 +57,7 @@ impl BridgeManager {
     /// Get quota information.
     pub async fn get_quota(&self) -> Result<BridgeQuota, BridgeError> {
         let client = self.require_client()?;
-        let result = client
-            .get_quota()
-            .await
-            .map_err(BridgeError::sdk)?;
+        let result = client.get_quota().await.map_err(BridgeError::sdk)?;
 
         Ok(BridgeQuota {
             quotas: result
@@ -80,10 +77,7 @@ impl BridgeManager {
     /// Get authentication status.
     pub async fn get_auth_status(&self) -> Result<BridgeAuthStatus, BridgeError> {
         let client = self.require_client()?;
-        let result = client
-            .get_auth_status()
-            .await
-            .map_err(BridgeError::sdk)?;
+        let result = client.get_auth_status().await.map_err(BridgeError::sdk)?;
 
         Ok(BridgeAuthStatus {
             is_authenticated: result.is_authenticated,
@@ -97,10 +91,7 @@ impl BridgeManager {
     /// Get SDK / CLI version info.
     pub async fn get_cli_status(&self) -> Result<BridgeStatus, BridgeError> {
         let client = self.require_client()?;
-        let result = client
-            .get_status()
-            .await
-            .map_err(BridgeError::sdk)?;
+        let result = client.get_status().await.map_err(BridgeError::sdk)?;
 
         Ok(BridgeStatus {
             state: self.state,
@@ -117,10 +108,7 @@ impl BridgeManager {
     /// List available models.
     pub async fn list_models(&self) -> Result<Vec<BridgeModelInfo>, BridgeError> {
         let client = self.require_client()?;
-        let models = client
-            .list_models()
-            .await
-            .map_err(BridgeError::sdk)?;
+        let models = client.list_models().await.map_err(BridgeError::sdk)?;
 
         Ok(models
             .into_iter()

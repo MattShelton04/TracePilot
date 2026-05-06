@@ -47,19 +47,25 @@ pub(super) fn write_session_db(todos: &TodoExport, dir: &Path) -> Result<()> {
                     item.created_at,
                     item.updated_at,
                 ])
-                .map_err(|e| ExportError::session_data(format!("failed to insert todo '{}': {}", item.id, e)))?;
+                .map_err(|e| {
+                    ExportError::session_data(format!("failed to insert todo '{}': {}", item.id, e))
+                })?;
             }
         }
 
         {
             let mut dep_stmt = conn
                 .prepare("INSERT INTO todo_deps (todo_id, depends_on) VALUES (?1, ?2)")
-                .map_err(|e| ExportError::session_data(format!("failed to prepare dep insert: {}", e)))?;
+                .map_err(|e| {
+                    ExportError::session_data(format!("failed to prepare dep insert: {}", e))
+                })?;
 
             for dep in &todos.deps {
                 dep_stmt
                     .execute(rusqlite::params![dep.todo_id, dep.depends_on])
-                    .map_err(|e| ExportError::session_data(format!("failed to insert dep: {}", e)))?;
+                    .map_err(|e| {
+                        ExportError::session_data(format!("failed to insert dep: {}", e))
+                    })?;
             }
         }
 
@@ -68,8 +74,9 @@ pub(super) fn write_session_db(todos: &TodoExport, dir: &Path) -> Result<()> {
 
     match insert_result {
         Ok(()) => {
-            conn.execute_batch("COMMIT")
-                .map_err(|e| ExportError::session_data(format!("failed to commit transaction: {}", e)))?;
+            conn.execute_batch("COMMIT").map_err(|e| {
+                ExportError::session_data(format!("failed to commit transaction: {}", e))
+            })?;
         }
         Err(e) => {
             if let Err(rb_err) = conn.execute_batch("ROLLBACK") {
