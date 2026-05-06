@@ -5,12 +5,13 @@ use crate::models::event_types::{
     CompactionCompleteData, ExternalToolRequestedData, ModelChangeData, PermissionCompletedData,
     PermissionRequestedData, PlanChangedData, SessionErrorData, SessionModeChangedData,
     SessionResumeData, SessionStartData, SessionTruncationData, SessionWarningData,
+    SkillInvokedData,
 };
 use crate::parsing::events::TypedEvent;
 use serde_json::Value;
 
-use super::TurnReconstructor;
 use super::state::SessionEventBuild;
+use super::{PendingSkillInvocation, TurnReconstructor};
 
 impl TurnReconstructor {
     // Model change: update session-level model; set turn model if not already set
@@ -190,6 +191,39 @@ impl TurnReconstructor {
         );
     }
 
+    pub(super) fn handle_skill_invoked(&mut self, event: &TypedEvent, data: &SkillInvokedData) {
+        let summary = data
+            .name
+            .as_deref()
+            .map(|name| format!("Skill invoked: {name}"))
+            .unwrap_or_else(|| "Skill invoked".to_string());
+        let content_len = data.content.as_ref().map(|content| content.chars().count());
+        self.push_session_event_full(SessionEventBuild {
+            event_type: "skill.invoked".to_string(),
+            timestamp: event.raw.timestamp,
+            severity: SessionEventSeverity::Info,
+            summary,
+            checkpoint_number: None,
+            request_id: None,
+            tool_call_id: None,
+            prompt_kind: None,
+            result_kind: None,
+            resolved_by_hook: None,
+            skill_invocation_id: event.raw.id.clone(),
+            skill_name: data.name.clone(),
+            skill_path: data.path.clone(),
+            skill_description: data.description.clone(),
+            skill_content_length: content_len,
+            skill_context_length: None,
+            skill_context_folded: Some(false),
+        });
+        self.pending_skill_invocation = Some(PendingSkillInvocation {
+            event_id: event.raw.id.clone(),
+            name: data.name.clone(),
+            content: data.content.clone(),
+        });
+    }
+
     pub(super) fn handle_permission_requested(
         &mut self,
         event: &TypedEvent,
@@ -219,6 +253,13 @@ impl TurnReconstructor {
             prompt_kind: Some(kind.to_string()),
             result_kind: None,
             resolved_by_hook: data.resolved_by_hook,
+            skill_invocation_id: None,
+            skill_name: None,
+            skill_path: None,
+            skill_description: None,
+            skill_content_length: None,
+            skill_context_length: None,
+            skill_context_folded: None,
         });
     }
 
@@ -253,6 +294,13 @@ impl TurnReconstructor {
             prompt_kind: None,
             result_kind: Some(result_kind.to_string()),
             resolved_by_hook: None,
+            skill_invocation_id: None,
+            skill_name: None,
+            skill_path: None,
+            skill_description: None,
+            skill_content_length: None,
+            skill_context_length: None,
+            skill_context_folded: None,
         });
     }
 

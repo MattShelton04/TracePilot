@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 
 use crate::models::conversation::{ConversationTurn, TurnSessionEvent};
-use crate::models::event_types::SessionEventType;
+use crate::models::event_types::{SessionEventType, UserMessageData};
 use crate::parsing::events::{TypedEvent, TypedEventData};
 
 use super::postprocess::{
@@ -54,6 +54,16 @@ pub struct TurnReconstructor {
     /// Timestamp of the first pending system message — used as fallback when
     /// building a synthetic turn in sessions that have no real turns.
     pub(crate) pending_system_messages_ts: Option<DateTime<Utc>>,
+    /// Most recent skill invocation awaiting a synthetic `<skill-context>`
+    /// `user.message` that should be folded instead of rendered as user input.
+    pub(crate) pending_skill_invocation: Option<PendingSkillInvocation>,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct PendingSkillInvocation {
+    pub(crate) event_id: Option<String>,
+    pub(crate) name: Option<String>,
+    pub(crate) content: Option<String>,
 }
 
 pub(crate) const CURRENT_TURN_SENTINEL: usize = usize::MAX;
@@ -75,6 +85,7 @@ impl TurnReconstructor {
             pending_session_events: Vec::new(),
             pending_system_messages: Vec::new(),
             pending_system_messages_ts: None,
+            pending_skill_invocation: None,
         }
     }
 
@@ -177,6 +188,9 @@ impl TurnReconstructor {
             (SessionEventType::PermissionCompleted, TypedEventData::PermissionCompleted(data)) => {
                 self.handle_permission_completed(event, data);
             }
+            (SessionEventType::SkillInvoked, TypedEventData::SkillInvoked(data)) => {
+                self.handle_skill_invoked(event, data);
+            }
             (
                 SessionEventType::ExternalToolRequested,
                 TypedEventData::ExternalToolRequested(data),
@@ -216,5 +230,41 @@ impl TurnReconstructor {
         correct_turn_models(&mut self.turns);
         resolve_agent_display_names(&mut self.turns);
         self.turns
+    }
+}
+
+impl PendingSkillInvocation {
+    pub(crate) fn matches_context_message(
+        &self,
+        event: &TypedEvent,
+        data: &UserMessageData,
+    ) -> bool {
+        let Some(event_id) = self.event_id.as_deref() else {
+            return false;
+        };
+        if event.raw.parent_id.as_deref() != Some(event_id) {
+            return false;
+        }
+
+        let Some(content) = data.content.as_deref().map(str::trim_start) else {
+            return false;
+        };
+        if !content.starts_with("<skill-context") {
+            return false;
+        }
+        if let Some(name) = self.name.as_deref()
+            && !content.contains(&format!("name=\"{name}\""))
+            && !content.contains(&format!("name='{name}'"))
+        {
+            return false;
+        }
+        if let Some(skill_content) = self.content.as_deref()
+            && !skill_content.trim().is_empty()
+            && !content.contains(skill_content)
+        {
+            return false;
+        }
+
+        true
     }
 }

@@ -19,8 +19,8 @@ use crate::models::event_types::{
     AbortData, AssistantReasoningData, ExternalToolRequestedData, ModelChangeData,
     PermissionCompletedData, PermissionRequestedData, PlanChangedData, SessionEventType,
     SessionModeChangedData, SessionResumeData, SessionStartData, SessionTruncationData,
-    SubagentCompletedData, SubagentStartedData, ToolExecCompleteData, ToolExecStartData,
-    TurnEndData, TurnStartData, UserMessageData,
+    SkillInvokedData, SubagentCompletedData, SubagentStartedData, ToolExecCompleteData,
+    ToolExecStartData, TurnEndData, TurnStartData, UserMessageData,
 };
 use crate::parsing::events::{RawEvent, TypedEvent, TypedEventData};
 use chrono::Utc;

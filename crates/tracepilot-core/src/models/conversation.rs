@@ -69,6 +69,29 @@ pub struct TurnSessionEvent {
     /// (no human-in-the-loop).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub resolved_by_hook: Option<bool>,
+    /// Raw event id for a `skill.invoked` event. Used to correlate and fold
+    /// the synthetic skill-context `user.message` that may immediately follow.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skill_invocation_id: Option<String>,
+    /// Invoked skill name, when `event_type == "skill.invoked"`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skill_name: Option<String>,
+    /// Full path to the invoked skill's `SKILL.md`, when provided by Copilot.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skill_path: Option<String>,
+    /// Human-readable skill description from the invocation event.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skill_description: Option<String>,
+    /// Character count of the skill content embedded in the invocation event.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skill_content_length: Option<usize>,
+    /// Character count of the folded synthetic skill-context user message.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skill_context_length: Option<usize>,
+    /// True when a verified synthetic skill-context user message was folded
+    /// into this invocation instead of being reconstructed as a user turn.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skill_context_folded: Option<bool>,
 }
 
 /// A single conversation turn.

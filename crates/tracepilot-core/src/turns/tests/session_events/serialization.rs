@@ -56,6 +56,13 @@ fn session_events_serialization_round_trip() {
             prompt_kind: None,
             result_kind: None,
             resolved_by_hook: None,
+            skill_invocation_id: None,
+            skill_name: None,
+            skill_path: None,
+            skill_description: None,
+            skill_content_length: None,
+            skill_context_length: None,
+            skill_context_folded: None,
         }],
         system_messages: Vec::new(),
     };

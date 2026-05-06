@@ -17,6 +17,25 @@ impl TurnReconstructor {
         event_index: usize,
         data: &UserMessageData,
     ) {
+        let folded_skill_invocation_id =
+            self.pending_skill_invocation.as_ref().and_then(|pending| {
+                pending
+                    .matches_context_message(event, data)
+                    .then(|| pending.event_id.clone())
+                    .flatten()
+            });
+        if let Some(invocation_id) = folded_skill_invocation_id {
+            self.mark_skill_context_folded(
+                &invocation_id,
+                data.content
+                    .as_deref()
+                    .map(|content| content.chars().count()),
+            );
+            self.pending_skill_invocation = None;
+            return;
+        }
+        self.pending_skill_invocation = None;
+
         self.finalize_current_turn(false, None);
         let mut turn = new_turn(
             self.turns.len(),

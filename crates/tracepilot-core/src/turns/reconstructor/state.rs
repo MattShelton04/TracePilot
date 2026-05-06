@@ -41,6 +41,13 @@ impl TurnReconstructor {
             prompt_kind: None,
             result_kind: None,
             resolved_by_hook: None,
+            skill_invocation_id: None,
+            skill_name: None,
+            skill_path: None,
+            skill_description: None,
+            skill_content_length: None,
+            skill_context_length: None,
+            skill_context_folded: None,
         });
     }
 
@@ -56,11 +63,38 @@ impl TurnReconstructor {
             prompt_kind: build.prompt_kind,
             result_kind: build.result_kind,
             resolved_by_hook: build.resolved_by_hook,
+            skill_invocation_id: build.skill_invocation_id,
+            skill_name: build.skill_name,
+            skill_path: build.skill_path,
+            skill_description: build.skill_description,
+            skill_content_length: build.skill_content_length,
+            skill_context_length: build.skill_context_length,
+            skill_context_folded: build.skill_context_folded,
         };
         if let Some(turn) = &mut self.current_turn {
             turn.session_events.push(se);
         } else {
             self.pending_session_events.push(se);
+        }
+    }
+
+    pub(crate) fn mark_skill_context_folded(
+        &mut self,
+        invocation_id: &str,
+        context_length: Option<usize>,
+    ) {
+        for event in self
+            .current_turn
+            .iter_mut()
+            .flat_map(|turn| turn.session_events.iter_mut())
+            .chain(self.pending_session_events.iter_mut())
+            .rev()
+        {
+            if event.skill_invocation_id.as_deref() == Some(invocation_id) {
+                event.skill_context_folded = Some(true);
+                event.skill_context_length = context_length;
+                return;
+            }
         }
     }
 
@@ -227,6 +261,13 @@ pub(crate) struct SessionEventBuild {
     pub(crate) prompt_kind: Option<String>,
     pub(crate) result_kind: Option<String>,
     pub(crate) resolved_by_hook: Option<bool>,
+    pub(crate) skill_invocation_id: Option<String>,
+    pub(crate) skill_name: Option<String>,
+    pub(crate) skill_path: Option<String>,
+    pub(crate) skill_description: Option<String>,
+    pub(crate) skill_content_length: Option<usize>,
+    pub(crate) skill_context_length: Option<usize>,
+    pub(crate) skill_context_folded: Option<bool>,
 }
 
 /// Create a new conversation turn with the given initial data.
