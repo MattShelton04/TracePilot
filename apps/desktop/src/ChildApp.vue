@@ -99,7 +99,9 @@ async function closeWindow() {
       <!-- Compact title bar -->
       <div class="child-titlebar">
         <span class="child-titlebar-label">{{ sessionLabel }}</span>
-        <button class="child-titlebar-close" title="Close window" @click="closeWindow">×</button>
+        <button class="child-titlebar-close" title="Close window" aria-label="Close window" @click="closeWindow">
+          <span aria-hidden="true">×</span>
+        </button>
       </div>
 
       <!-- Content -->

@@ -227,7 +227,7 @@ async function handleVersionClick() {
               aria-label="Dismiss update notification"
               @click="dismissUpdate"
             >
-              ×
+              <span aria-hidden="true">×</span>
             </button>
           </div>
           <div class="sidebar-update-actions">

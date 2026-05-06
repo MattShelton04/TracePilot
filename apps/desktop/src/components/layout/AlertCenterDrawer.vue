@@ -94,7 +94,7 @@ function handleClose() {
               aria-label="Close alert center"
               @click="handleClose"
             >
-              ×
+              <span aria-hidden="true">×</span>
             </button>
           </div>
         </div>
@@ -127,9 +127,10 @@ function handleClose() {
             <button
               class="alert-item-dismiss"
               title="Dismiss"
+              aria-label="Dismiss alert"
               @click.stop="alertsStore.dismiss(alert.id)"
             >
-              ×
+              <span aria-hidden="true">×</span>
             </button>
           </div>
         </div>

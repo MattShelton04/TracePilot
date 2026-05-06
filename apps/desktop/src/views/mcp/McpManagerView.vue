@@ -181,7 +181,9 @@ async function handleImport() {
     <!-- Error -->
     <div v-if="store.error" class="error-banner">
       <span>{{ store.error }}</span>
-      <button class="error-dismiss" @click="store.clearError()">×</button>
+      <button class="error-dismiss" aria-label="Dismiss error" @click="store.clearError()">
+        <span aria-hidden="true">×</span>
+      </button>
     </div>
 
     <!-- Loading -->
