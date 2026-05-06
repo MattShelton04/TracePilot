@@ -55,7 +55,6 @@ function openSkillEditor() {
       :aria-label="`Skill ${skillName}, ${expanded ? 'collapse' : 'expand'} details`"
       @click="toggle"
     >
-      <span class="cv-skill-icon" aria-hidden="true">⚡</span>
       <span class="cv-skill-label">skill</span>
       <span class="cv-skill-name">{{ skillName }}</span>
       <span class="cv-skill-spacer" />
@@ -90,7 +89,6 @@ function openSkillEditor() {
           Open in skill editor
           <span aria-hidden="true">→</span>
         </button>
-        <span class="cv-skill-action-hint">Opens the editor in a new view.</span>
       </div>
     </div>
   </div>
@@ -130,10 +128,6 @@ function openSkillEditor() {
 .cv-skill-action:focus-visible {
   outline: 2px solid var(--accent-fg, #58a6ff);
   outline-offset: 2px;
-}
-
-.cv-skill-icon {
-  flex-shrink: 0;
 }
 
 .cv-skill-label {
@@ -254,10 +248,5 @@ function openSkillEditor() {
 
 .cv-skill-action:hover {
   background: var(--canvas-subtle-hover, rgba(110, 118, 129, 0.12));
-}
-
-.cv-skill-action-hint {
-  color: var(--text-muted, #6e7681);
-  font-size: 11px;
 }
 </style>

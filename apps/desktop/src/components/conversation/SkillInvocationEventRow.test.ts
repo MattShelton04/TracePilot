@@ -50,6 +50,9 @@ describe("SkillInvocationEventRow", () => {
     expect(toggle.attributes("aria-expanded")).toBe("false");
     expect(wrapper.text()).toContain("skill");
     expect(wrapper.text()).toContain("tracepilot-app-automation");
+    // No internal skill icon — the surrounding tool-call layer already provides one.
+    expect(wrapper.find(".cv-skill-icon").exists()).toBe(false);
+    expect(wrapper.text()).not.toContain("⚡");
     // Description and path should NOT appear in collapsed state.
     expect(wrapper.text()).not.toContain("Launch and interact with TracePilot.");
     expect(wrapper.text()).not.toContain("SKILL.md");
@@ -78,6 +81,9 @@ describe("SkillInvocationEventRow", () => {
     expect(wrapper.text()).toContain("SKILL.md");
     expect(wrapper.text()).toContain("16,128");
     expect(wrapper.find(".cv-skill-action").exists()).toBe(true);
+    // The misleading "new view" hint must not be present.
+    expect(wrapper.text()).not.toContain("new view");
+    expect(wrapper.find(".cv-skill-action-hint").exists()).toBe(false);
   });
 
   it("collapses again on a second toggle click", async () => {
