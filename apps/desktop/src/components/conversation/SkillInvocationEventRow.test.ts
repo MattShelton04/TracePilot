@@ -102,6 +102,24 @@ describe("SkillInvocationEventRow", () => {
     expect(wrapper.text()).toMatch(/Showing first 3 of 1,024 characters/);
   });
 
+  it("uses Unicode character counts for truncation hints", async () => {
+    const wrapper = mount(SkillInvocationEventRow, {
+      props: {
+        event: evt({
+          skillInvocation: {
+            contextFolded: true,
+            name: "trace-skill",
+            content: "😀",
+            contentLength: 2,
+          },
+        }),
+      },
+    });
+
+    await wrapper.get(".skill-row__header").trigger("click");
+    expect(wrapper.text()).toMatch(/Showing first 1 of 2 characters/);
+  });
+
   it("shows a placeholder when no skill content is captured", async () => {
     const wrapper = mount(SkillInvocationEventRow, {
       props: {

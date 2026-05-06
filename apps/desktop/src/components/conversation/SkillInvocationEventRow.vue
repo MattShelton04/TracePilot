@@ -30,9 +30,10 @@ const skillName = computed(() => skill.value?.name?.trim() || "");
 const skillDescription = computed(() => skill.value?.description?.trim() || "");
 const skillPath = computed(() => skill.value?.path?.trim() || "");
 const skillContent = computed(() => skill.value?.content ?? "");
+const capturedContentLength = computed(() => Array.from(skillContent.value).length);
 const fullContentLength = computed(() => skill.value?.contentLength ?? 0);
 const isContentTruncated = computed(
-  () => skillContent.value.length > 0 && fullContentLength.value > skillContent.value.length,
+  () => capturedContentLength.value > 0 && fullContentLength.value > capturedContentLength.value,
 );
 
 const editorTarget = computed(() => {
@@ -104,7 +105,7 @@ function openEditor(e: MouseEvent) {
       <p v-else class="skill-row__empty">No skill content captured for this invocation.</p>
 
       <p v-if="isContentTruncated" class="skill-row__truncated">
-        Showing first {{ skillContent.length.toLocaleString() }} of
+        Showing first {{ capturedContentLength.toLocaleString() }} of
         {{ fullContentLength.toLocaleString() }} characters.
       </p>
     </div>
