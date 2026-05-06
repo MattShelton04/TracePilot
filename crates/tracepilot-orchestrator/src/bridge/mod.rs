@@ -56,6 +56,13 @@ pub enum BridgeError {
     Timeout(String),
 }
 
+impl BridgeError {
+    /// Helper to wrap a stringifiable error as an SDK error.
+    pub fn sdk(err: impl std::fmt::Display) -> Self {
+        Self::Sdk(err.to_string())
+    }
+}
+
 // ─── Connection State ─────────────────────────────────────────────
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

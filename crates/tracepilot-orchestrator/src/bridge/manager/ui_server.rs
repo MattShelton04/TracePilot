@@ -20,7 +20,7 @@ impl BridgeManager {
         let resp = client
             .get_foreground_session_id()
             .await
-            .map_err(|e| BridgeError::Sdk(e.to_string()))?;
+            .map_err(BridgeError::sdk)?;
         Ok(resp.session_id)
     }
 
@@ -30,7 +30,7 @@ impl BridgeManager {
         client
             .set_foreground_session_id(session_id)
             .await
-            .map_err(|e| BridgeError::Sdk(e.to_string()))?;
+            .map_err(BridgeError::sdk)?;
         Ok(())
     }
 }
@@ -71,21 +71,21 @@ pub fn launch_ui_server(working_dir: Option<&str>) -> Result<u32, BridgeError> {
             &work_dir,
             None,
         )
-        .map_err(|e| BridgeError::Sdk(format!("Failed to launch UI server: {e}")))
+        .map_err(|e| BridgeError::sdk(format!("Failed to launch UI server: {e}")))
     }
 
     #[cfg(target_os = "macos")]
     {
         let cmd = format!("{} --ui-server", copilot_path);
         crate::process::spawn_detached_terminal(&cmd, &[], &work_dir, None)
-            .map_err(|e| BridgeError::Sdk(format!("Failed to launch UI server: {e}")))
+            .map_err(|e| BridgeError::sdk(format!("Failed to launch UI server: {e}")))
     }
 
     #[cfg(target_os = "linux")]
     {
         let cmd = format!("{} --ui-server", copilot_path);
         crate::process::spawn_detached_terminal(&cmd, &[], &work_dir, None)
-            .map_err(|e| BridgeError::Sdk(format!("Failed to launch UI server: {e}")))
+            .map_err(|e| BridgeError::sdk(format!("Failed to launch UI server: {e}")))
     }
 }
 
@@ -96,7 +96,7 @@ pub fn launch_ui_server(working_dir: Option<&str>) -> Result<u32, BridgeError> {
 pub async fn stop_ui_server(pid: u32) -> Result<(), BridgeError> {
     let detected = detect_ui_servers().await;
     if !detected.iter().any(|server| server.pid == pid) {
-        return Err(BridgeError::Sdk(format!(
+        return Err(BridgeError::sdk(format!(
             "Refusing to stop PID {pid}: it is not a detected copilot --ui-server process"
         )));
     }
@@ -125,12 +125,12 @@ pub async fn stop_ui_server(pid: u32) -> Result<(), BridgeError> {
     let (_stdout, stderr, status) =
         crate::process::run_async_with_limits(cmd, STOP_TIMEOUT, STOP_MAX_BYTES)
             .await
-            .map_err(|e| BridgeError::Sdk(format!("Failed to stop UI server PID {pid}: {e}")))?;
+            .map_err(|e| BridgeError::sdk(format!("Failed to stop UI server PID {pid}: {e}")))?;
 
     if status.success() {
         Ok(())
     } else {
-        Err(BridgeError::Sdk(format!(
+        Err(BridgeError::sdk(format!(
             "Failed to stop UI server PID {pid}: {}",
             String::from_utf8_lossy(&stderr).trim()
         )))

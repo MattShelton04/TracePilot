@@ -56,7 +56,7 @@ impl BridgeManager {
         let session = client
             .create_session(session_config)
             .await
-            .map_err(|e| BridgeError::Sdk(e.to_string()))?;
+            .map_err(BridgeError::sdk)?;
 
         Ok(self.track_created_session(session, config))
     }
@@ -173,19 +173,13 @@ impl BridgeManager {
             mode: payload.mode,
         };
 
-        session
-            .send(opts)
-            .await
-            .map_err(|e| BridgeError::Sdk(e.to_string()))
+        session.send(opts).await.map_err(BridgeError::sdk)
     }
 
     /// Abort the current turn in a session.
     pub async fn abort_session(&self, session_id: &str) -> Result<(), BridgeError> {
         let session = self.require_session(session_id)?;
-        session
-            .abort()
-            .await
-            .map_err(|e| BridgeError::Sdk(e.to_string()))
+        session.abort().await.map_err(BridgeError::sdk)
     }
 
     /// Unlink a session from the bridge WITHOUT destroying it on the SDK side.
@@ -212,10 +206,7 @@ impl BridgeManager {
             if let Some(task) = self.event_tasks.remove(session_id) {
                 task.abort();
             }
-            session
-                .destroy()
-                .await
-                .map_err(|e| BridgeError::Sdk(e.to_string()))?;
+            session.destroy().await.map_err(BridgeError::sdk)?;
             info!("Destroyed session {}", session_id);
         } else {
             // Not locally resumed — nothing to destroy
@@ -240,10 +231,7 @@ impl BridgeManager {
             BridgeSessionMode::Plan => copilot_sdk::SessionMode::Plan,
             BridgeSessionMode::Autopilot => copilot_sdk::SessionMode::Autopilot,
         };
-        session
-            .set_mode(sdk_mode)
-            .await
-            .map_err(|e| BridgeError::Sdk(e.to_string()))
+        session.set_mode(sdk_mode).await.map_err(BridgeError::sdk)
     }
 
     /// Spawn a tokio task that reads SDK events and forwards them as BridgeEvents.

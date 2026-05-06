@@ -42,8 +42,7 @@ const BUDGETS = {
 // Populate this list by running `node scripts/check-file-sizes.mjs --list`
 // after the first CI run and committing the output, then removing entries
 // as files are split.
-const ALLOWLIST = new Set([
-]);
+const ALLOWLIST = new Set([]);
 
 function gitLsFiles() {
   try {
