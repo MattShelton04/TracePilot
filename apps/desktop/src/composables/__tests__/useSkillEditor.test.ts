@@ -5,7 +5,7 @@ import { defineComponent, h, provide } from "vue";
 
 // ─── Mocks ──────────────────────────────────────────────────────────────
 
-const routeMock = { params: { name: "my-skill" } };
+const routeMock = { params: { name: "my-skill" }, query: {} as Record<string, string> };
 const routerMock = { push: vi.fn(), replace: vi.fn() };
 vi.mock("vue-router", () => ({
   useRoute: () => routeMock,
@@ -96,6 +96,8 @@ beforeEach(() => {
   storeMock.error = null;
   storeMock.listAssets.mockResolvedValue([]);
   storeMock.getSkill.mockImplementation(async () => storeMock.selectedSkill);
+  routeMock.params.name = "my-skill";
+  routeMock.query = {};
 });
 
 describe("useSkillEditor", () => {
@@ -190,6 +192,32 @@ describe("useSkillEditor", () => {
     await ctx.handleDelete();
     expect(storeMock.deleteSkill).toHaveBeenCalledWith("my-skill");
     expect(routerMock.push).toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
+  it("goBack returns to the originating session when opened from a session", async () => {
+    routeMock.query = { fromSession: "session-123" };
+    const { ctx, wrapper } = mountHarness();
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(ctx.backLabel).toBe("Back to Session");
+    ctx.goBack();
+
+    expect(routerMock.push).toHaveBeenCalledWith({
+      name: "session-conversation",
+      params: { id: "session-123" },
+    });
+    wrapper.unmount();
+  });
+
+  it("goBack returns to skills manager by default", async () => {
+    const { ctx, wrapper } = mountHarness();
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(ctx.backLabel).toBe("Back to Skills");
+    ctx.goBack();
+
+    expect(routerMock.push).toHaveBeenCalledWith({ name: "skills-manager" });
     wrapper.unmount();
   });
 

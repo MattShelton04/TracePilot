@@ -6,10 +6,13 @@ import { pushRoute } from "@/router/navigation";
 import SkillInvocationEventRow from "./SkillInvocationEventRow.vue";
 
 const routerMock = vi.hoisted(() => ({}));
+const routeMock = vi.hoisted(() => ({ params: {} as Record<string, string> }));
 const isFeatureEnabledMock = vi.hoisted(() => vi.fn(() => true));
+const windowRoleMock = vi.hoisted(() => ({ isViewer: false }));
 
 vi.mock("vue-router", () => ({
   useRouter: () => routerMock,
+  useRoute: () => routeMock,
 }));
 
 vi.mock("@/router/navigation", () => ({
@@ -18,6 +21,10 @@ vi.mock("@/router/navigation", () => ({
 
 vi.mock("@/stores/preferences", () => ({
   usePreferencesStore: () => ({ isFeatureEnabled: isFeatureEnabledMock }),
+}));
+
+vi.mock("@/composables/useWindowRole", () => ({
+  useWindowRole: () => ({ isViewer: () => windowRoleMock.isViewer }),
 }));
 
 function evt(partial: Partial<TurnSessionEvent> & { eventType?: string }): TurnSessionEvent {
@@ -53,6 +60,8 @@ describe("SkillInvocationEventRow", () => {
     vi.mocked(pushRoute).mockClear();
     isFeatureEnabledMock.mockReset();
     isFeatureEnabledMock.mockReturnValue(true);
+    routeMock.params = {};
+    windowRoleMock.isViewer = false;
   });
 
   it("renders a compact, collapsed header with skill name and description", () => {
@@ -206,7 +215,30 @@ describe("SkillInvocationEventRow", () => {
     expect(wrapper.find(".skill-row__editor-btn").exists()).toBe(false);
   });
 
+  it("hides the editor button in popout viewer windows", async () => {
+    windowRoleMock.isViewer = true;
+
+    const wrapper = mount(SkillInvocationEventRow, {
+      props: {
+        event: evt({
+          skillInvocation: {
+            contextFolded: true,
+            name: "trace-skill",
+            path: "C:\\skills\\trace-skill\\SKILL.md",
+            content: "body",
+            contentLength: 4,
+          },
+        }),
+      },
+    });
+
+    await wrapper.get(".skill-row__header").trigger("click");
+    expect(wrapper.find(".skill-row__editor-btn").exists()).toBe(false);
+  });
+
   it("opens the skill editor when the button is clicked with a valid path and flag", async () => {
+    routeMock.params = { id: "session-123" };
+
     const wrapper = mount(SkillInvocationEventRow, {
       props: {
         event: evt({
@@ -227,6 +259,7 @@ describe("SkillInvocationEventRow", () => {
 
     expect(pushRoute).toHaveBeenCalledWith(routerMock, ROUTE_NAMES.skillEditor, {
       params: { name: encodeURIComponent("C:\\skills\\trace-skill") },
+      query: { fromSession: "session-123" },
     });
   });
 

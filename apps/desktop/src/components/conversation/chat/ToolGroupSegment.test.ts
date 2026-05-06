@@ -22,6 +22,7 @@ vi.mock("@/stores/preferences", () => ({
 
 vi.mock("vue-router", () => ({
   useRouter: () => ({}),
+  useRoute: () => ({ params: {} }),
 }));
 
 vi.mock("@/router/navigation", () => ({

@@ -9,8 +9,10 @@
  */
 import type { SkillInvocationEvent, TurnSessionEvent, TurnToolCall } from "@tracepilot/types";
 import { ExpandChevron, formatDuration, formatTime } from "@tracepilot/ui";
-import { computed, ref } from "vue";
-import { useRouter } from "vue-router";
+import { computed, inject, ref } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { SESSION_DETAIL_KEY } from "@/composables/useSessionDetail";
+import { useWindowRole } from "@/composables/useWindowRole";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
 import { usePreferencesStore } from "@/stores/preferences";
@@ -20,8 +22,11 @@ const props = defineProps<{
   toolCall?: TurnToolCall;
 }>();
 
-const router = useRouter();
+const { isViewer } = useWindowRole();
+const router = isViewer() ? null : useRouter();
+const route = isViewer() ? null : useRoute();
 const prefs = usePreferencesStore();
+const sessionCtx = inject(SESSION_DETAIL_KEY, null);
 
 const expanded = ref(false);
 
@@ -46,13 +51,23 @@ const editorTarget = computed(() => {
 });
 
 const canOpenEditor = computed(
-  () => Boolean(editorTarget.value) && prefs.isFeatureEnabled("skills"),
+  () =>
+    Boolean(editorTarget.value) &&
+    !isViewer() &&
+    Boolean(router) &&
+    prefs.isFeatureEnabled("skills"),
 );
 
 const timestamp = computed(() => props.event?.timestamp ?? props.toolCall?.startedAt);
 const durationMs = computed(() => props.toolCall?.durationMs);
 const success = computed(() => props.toolCall?.success);
 const headerLabel = computed(() => skillName.value || props.event?.summary || "Skill invoked");
+const sourceSessionId = computed(() => {
+  const injected = sessionCtx?.sessionId;
+  if (injected) return injected;
+  const routeId = route?.params.id;
+  return typeof routeId === "string" ? routeId : "";
+});
 const ariaLabel = computed(
   () => `${expanded.value ? "Collapse" : "Expand"} skill ${headerLabel.value}`,
 );
@@ -63,9 +78,10 @@ function toggle() {
 
 function openEditor(e: MouseEvent) {
   e.stopPropagation();
-  if (!canOpenEditor.value) return;
+  if (!canOpenEditor.value || !router) return;
   pushRoute(router, ROUTE_NAMES.skillEditor, {
     params: { name: encodeURIComponent(editorTarget.value) },
+    query: sourceSessionId.value ? { fromSession: sourceSessionId.value } : undefined,
   });
 }
 </script>
