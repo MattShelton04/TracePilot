@@ -41,8 +41,7 @@ describe("SkillInvocationEventRow", () => {
           name: "tracepilot-app-automation",
           description: "Launch and interact with TracePilot.",
           path: "C:\\git\\TracePilot\\.github\\skills\\tracepilot-app-automation\\SKILL.md",
-          contextFolded: true,
-          contextLength: 16285,
+          contentLength: 16128,
         }),
       },
     });
@@ -51,22 +50,20 @@ describe("SkillInvocationEventRow", () => {
     expect(toggle.attributes("aria-expanded")).toBe("false");
     expect(wrapper.text()).toContain("skill");
     expect(wrapper.text()).toContain("tracepilot-app-automation");
-    expect(wrapper.text()).toContain("folded");
     // Description and path should NOT appear in collapsed state.
     expect(wrapper.text()).not.toContain("Launch and interact with TracePilot.");
     expect(wrapper.text()).not.toContain("SKILL.md");
-    expect(wrapper.find(".cv-skill-details").exists()).toBe(false);
+    expect(wrapper.find(".cv-skill-body").exists()).toBe(false);
   });
 
-  it("expands to reveal description, metadata, and editor action on toggle", async () => {
+  it("expands to reveal the skill preview, metadata, and editor action on toggle", async () => {
     const wrapper = mount(SkillInvocationEventRow, {
       props: {
         event: evt({
           name: "tracepilot-app-automation",
           description: "Launch and interact with TracePilot.",
           path: "C:\\git\\TracePilot\\.github\\skills\\tracepilot-app-automation\\SKILL.md",
-          contextFolded: true,
-          contextLength: 16285,
+          contentLength: 16128,
         }),
       },
     });
@@ -75,10 +72,11 @@ describe("SkillInvocationEventRow", () => {
 
     const toggle = wrapper.get("button.cv-skill-toggle");
     expect(toggle.attributes("aria-expanded")).toBe("true");
-    expect(wrapper.find(".cv-skill-details").exists()).toBe(true);
+    expect(wrapper.find(".cv-skill-body").exists()).toBe(true);
+    expect(wrapper.text()).toContain("Skill preview");
     expect(wrapper.text()).toContain("Launch and interact with TracePilot.");
     expect(wrapper.text()).toContain("SKILL.md");
-    expect(wrapper.text()).toContain("16,285");
+    expect(wrapper.text()).toContain("16,128");
     expect(wrapper.find(".cv-skill-action").exists()).toBe(true);
   });
 
@@ -89,9 +87,10 @@ describe("SkillInvocationEventRow", () => {
 
     const toggle = wrapper.get("button.cv-skill-toggle");
     await toggle.trigger("click");
-    expect(wrapper.find(".cv-skill-details").exists()).toBe(true);
+    expect(wrapper.find(".cv-skill-body").exists()).toBe(true);
+    expect(toggle.attributes("aria-expanded")).toBe("true");
     await toggle.trigger("click");
-    expect(wrapper.find(".cv-skill-details").exists()).toBe(false);
+    expect(wrapper.find(".cv-skill-body").exists()).toBe(false);
     expect(toggle.attributes("aria-expanded")).toBe("false");
   });
 
@@ -124,8 +123,20 @@ describe("SkillInvocationEventRow", () => {
 
     await wrapper.get("button.cv-skill-toggle").trigger("click");
 
-    expect(wrapper.find(".cv-skill-details").exists()).toBe(true);
+    expect(wrapper.find(".cv-skill-body").exists()).toBe(true);
     expect(wrapper.find(".cv-skill-action").exists()).toBe(false);
     expect(pushRoute).not.toHaveBeenCalled();
+  });
+
+  it("gracefully renders an empty-state preview when no description is provided", async () => {
+    const wrapper = mount(SkillInvocationEventRow, {
+      props: { event: evt({ name: "tracepilot-app-automation" }) },
+    });
+
+    await wrapper.get("button.cv-skill-toggle").trigger("click");
+
+    expect(wrapper.find(".cv-skill-body").exists()).toBe(true);
+    expect(wrapper.text()).toContain("Skill preview");
+    expect(wrapper.text()).toContain("No description provided.");
   });
 });
