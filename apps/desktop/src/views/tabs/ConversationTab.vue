@@ -12,7 +12,9 @@ import {
   formatNumber,
   formatTime,
   getAgentColor,
+  getMainAgentObjective,
   MarkdownContent,
+  ObjectiveBanner,
   ReasoningBlock,
   StatCard,
   ToolCallDetail,
@@ -24,7 +26,7 @@ import {
   useSessionTabLoader,
   useToggleSet,
 } from "@tracepilot/ui";
-import { nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { type RouteLocationNormalizedLoaded, useRoute } from "vue-router";
 import ChatViewMode from "@/components/conversation/ChatViewMode.vue";
 import { useAutoScroll } from "@/composables/useAutoScroll";
@@ -243,6 +245,36 @@ function retryLoadTurns() {
   store.loaded.delete("turns");
   store.loadTurns();
 }
+
+// ── Persistent objective banner ─────────────────────────────────────────
+// Latest report_intent across the main agent's tool calls, regardless of
+// turn — gives the user a stable "what is the agent currently aiming at?"
+// indicator that complements the inline pill rendering inside the chat.
+
+const sessionObjective = computed(() => getMainAgentObjective(store.turns));
+
+const sessionObjectiveStatus = computed<"running" | "completed" | "idle">(() => {
+  if (store.detail?.shutdownMetrics) return "completed";
+  if (store.turns.length === 0) return "idle";
+  return "running";
+});
+
+function revealObjective(info: { eventIndex?: number; toolCallId?: string }) {
+  // Find the owning turn and reveal via the active view.
+  const turn = store.turns.find((t) =>
+    t.toolCalls.some(
+      (tc) =>
+        (info.eventIndex != null && tc.eventIndex === info.eventIndex) ||
+        (info.toolCallId != null && tc.toolCallId === info.toolCallId),
+    ),
+  );
+  if (!turn) return;
+  if (activeView.value === "chat" && chatViewRef.value) {
+    chatViewRef.value.revealEvent(turn.turnIndex, info.eventIndex);
+    return;
+  }
+  scrollToTarget(turn.turnIndex, info.eventIndex ?? null);
+}
 </script>
 
 <template>
@@ -255,6 +287,16 @@ function retryLoadTurns() {
       :retryable="true"
       class="mb-4"
       @retry="retryLoadTurns"
+    />
+
+    <!-- Persistent current-objective banner (sticks below page header on scroll) -->
+    <ObjectiveBanner
+      class="conv-objective-banner"
+      scope="session"
+      label="Current objective"
+      :objective="sessionObjective"
+      :status="sessionObjectiveStatus"
+      @reveal="revealObjective"
     />
 
     <!-- Mini stat row -->
@@ -457,6 +499,16 @@ function retryLoadTurns() {
       </div>
     </div>
 
+    <ObjectiveBanner
+      v-if="sessionObjective"
+      class="conv-objective-dock"
+      scope="session"
+      label="Current objective"
+      :objective="sessionObjective"
+      :status="sessionObjectiveStatus"
+      @reveal="revealObjective"
+    />
+
     <!-- Floating scroll buttons -->
     <Transition name="fab">
       <div v-if="hasOverflow && (!isLockedToBottom || showScrollToTop)" class="scroll-fab-group">
@@ -484,6 +536,41 @@ function retryLoadTurns() {
 </template>
 
 <style scoped>
+/* Persistent objective banner sits above the stat row and sticks to the
+ * top of the page-content scroll container so it stays visible while
+ * users scroll long conversations. */
+.conv-objective-banner {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  margin-bottom: 12px;
+  background: var(--canvas-default);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 6px 14px var(--shadow-color, rgba(0, 0, 0, 0.18));
+}
+
+.conv-objective-dock {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  z-index: calc(var(--z-fab, 55) - 1);
+  width: min(720px, calc(100vw - var(--sidebar-width) - 160px));
+  background: var(--canvas-overlay, var(--canvas-default));
+  box-shadow: 0 12px 30px var(--shadow-color, rgba(0, 0, 0, 0.28));
+  backdrop-filter: blur(10px);
+}
+
+@media (max-width: 900px) {
+  .conv-objective-dock {
+    left: 16px;
+    right: 16px;
+    bottom: 88px;
+    width: auto;
+    transform: none;
+  }
+}
+
 /* Highlight animation for scroll-to-turn from search deep-links */
 .turn-highlight {
   animation: turn-flash 4s ease-out;
