@@ -19,7 +19,7 @@ const emit = defineEmits<{
       v-for="session in sessions"
       :key="session.id"
       :session="session"
-      @select="emit('select', $event)"
+      @select="(_, id) => emit('select', id)"
     />
   </div>
 </template>

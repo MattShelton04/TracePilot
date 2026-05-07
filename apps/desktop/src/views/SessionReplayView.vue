@@ -204,7 +204,7 @@ const totalToolCalls = computed(() =>
               v-for="s in recentSessions"
               :key="s.id"
               :session="s"
-              @select="openReplay"
+              @select="(_, id) => openReplay(id)"
             />
           </div>
         </template>
