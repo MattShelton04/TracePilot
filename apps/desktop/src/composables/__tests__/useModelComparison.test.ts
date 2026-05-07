@@ -6,8 +6,8 @@ import { defineComponent } from "vue";
 // ── Mocks ──────────────────────────────────────────────────────────────
 const prefsStoreMock = {
   computeWholesaleCost: vi.fn(
-    (_model: string, input: number, _cacheRead: number, output: number) =>
-      (input + output) * 0.00001,
+    (_model: string, input: number, _cacheRead: number, output: number, cacheWrite = 0) =>
+      (input + output + cacheWrite) * 0.00001,
   ),
   costPerPremiumRequest: 0.04,
 };
@@ -56,10 +56,13 @@ function seedDistribution(
     inputTokens: number;
     outputTokens: number;
     cacheReadTokens: number;
+    cacheWriteTokens?: number;
     premiumRequests: number;
   }>,
 ) {
-  analyticsStoreMock.analytics = { modelDistribution: rows };
+  analyticsStoreMock.analytics = {
+    modelDistribution: rows.map((r) => ({ cacheWriteTokens: 0, ...r })),
+  };
 }
 
 describe("useModelComparison", () => {
@@ -231,5 +234,31 @@ describe("useModelComparison", () => {
     analyticsStoreMock.selectedRepo = "foo/bar";
     const { comp } = mountHook();
     expect(comp.pageSubtitle).toContain("in foo/bar");
+  });
+
+  it("passes cacheWriteTokens through to computeWholesaleCost (regression)", () => {
+    prefsStoreMock.computeWholesaleCost.mockClear();
+    seedDistribution([
+      {
+        model: "claude-sonnet-4.6",
+        inputTokens: 1000,
+        outputTokens: 500,
+        cacheReadTokens: 200,
+        cacheWriteTokens: 300,
+        premiumRequests: 1,
+      },
+    ]);
+    const { comp } = mountHook();
+    // Touch the computed so it evaluates.
+    expect(comp.modelRows).toHaveLength(1);
+    expect(prefsStoreMock.computeWholesaleCost).toHaveBeenCalledWith(
+      "claude-sonnet-4.6",
+      1000,
+      200,
+      500,
+      300,
+    );
+    // Mock returns (input+output+cacheWrite) * 1e-5 = (1000+500+300)*1e-5 = 0.018
+    expect(comp.modelRows[0].cost).toBeCloseTo(0.018);
   });
 });

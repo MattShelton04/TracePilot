@@ -1,7 +1,7 @@
 import { setupPinia } from "@tracepilot/test-utils";
-import type { AnalyticsData, CodeImpactData, ToolAnalysisData } from "@tracepilot/types";
 import { flushPromises, mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { FIXTURE_ANALYTICS, FIXTURE_CODE_IMPACT, FIXTURE_TOOL_ANALYSIS } from "./analyticsFixtures";
 
 // ── Mock client ───────────────────────────────────────────────
 const mockGetAnalytics = vi.fn();
@@ -20,114 +20,6 @@ vi.mock("@tracepilot/client", async () => {
     getCodeImpact: (...args: unknown[]) => mockGetCodeImpact(...args),
   });
 });
-
-// ── Fixtures ──────────────────────────────────────────────────
-const FIXTURE_ANALYTICS: AnalyticsData = {
-  totalSessions: 10,
-  totalTokens: 2_500_000,
-  totalCost: 5.5,
-  totalPremiumRequests: 40,
-  tokenUsageByDay: [
-    { date: "2025-01-01", tokens: 100_000 },
-    { date: "2025-01-02", tokens: 150_000 },
-    { date: "2025-01-03", tokens: 200_000 },
-  ],
-  activityPerDay: [
-    { date: "2025-01-01", count: 3 },
-    { date: "2025-01-02", count: 4 },
-    { date: "2025-01-03", count: 3 },
-  ],
-  modelDistribution: [
-    {
-      model: "gpt-4",
-      tokens: 1_500_000,
-      percentage: 60,
-      inputTokens: 750_000,
-      outputTokens: 750_000,
-      cacheReadTokens: 0,
-      premiumRequests: 24,
-      requestCount: 180,
-    },
-    {
-      model: "claude-3",
-      tokens: 1_000_000,
-      percentage: 40,
-      inputTokens: 500_000,
-      outputTokens: 500_000,
-      cacheReadTokens: 0,
-      premiumRequests: 16,
-      requestCount: 120,
-    },
-  ],
-  costByDay: [
-    { date: "2025-01-01", cost: 1.5 },
-    { date: "2025-01-02", cost: 2.0 },
-    { date: "2025-01-03", cost: 2.0 },
-  ],
-  apiDurationStats: {
-    avgMs: 1_800_000,
-    medianMs: 1_200_000,
-    p95Ms: 5_400_000,
-    minMs: 120_000,
-    maxMs: 7_200_000,
-    totalSessionsWithDuration: 8,
-  },
-  productivityMetrics: {
-    avgTurnsPerSession: 8.5,
-    avgToolCallsPerTurn: 4.2,
-    avgTokensPerTurn: 60_489,
-    avgTokensPerApiSecond: 3_420,
-  },
-  cacheStats: {
-    totalCacheReadTokens: 300_000,
-    totalInputTokens: 1_250_000,
-    cacheHitRate: 24.0,
-    nonCachedInputTokens: 950_000,
-  },
-  sessionsWithErrors: 2,
-  totalRateLimits: 3,
-  totalCompactions: 5,
-  totalTruncations: 1,
-  incidentsByDay: [
-    { date: "2026-03-18", errors: 1, rateLimits: 1, compactions: 3, truncations: 1 },
-    { date: "2026-03-19", errors: 1, rateLimits: 2, compactions: 2, truncations: 0 },
-  ],
-};
-
-const FIXTURE_TOOL_ANALYSIS: ToolAnalysisData = {
-  totalCalls: 50,
-  successRate: 0.95,
-  avgDurationMs: 500,
-  mostUsedTool: "edit",
-  tools: [
-    { name: "edit", callCount: 30, successRate: 0.97, avgDurationMs: 400, totalDurationMs: 12_000 },
-    { name: "view", callCount: 20, successRate: 0.92, avgDurationMs: 650, totalDurationMs: 13_000 },
-  ],
-  activityHeatmap: [
-    { day: 0, hour: 10, count: 5 },
-    { day: 1, hour: 14, count: 3 },
-  ],
-};
-
-const FIXTURE_CODE_IMPACT: CodeImpactData = {
-  filesModified: 15,
-  linesAdded: 1000,
-  linesRemoved: 300,
-  netChange: 700,
-  fileTypeBreakdown: [
-    { extension: ".ts", count: 10, percentage: 66.7 },
-    { extension: ".vue", count: 5, percentage: 33.3 },
-  ],
-  mostModifiedFiles: [
-    { path: "src/index.ts", additions: 100, deletions: 30 },
-    { path: "src/App.vue", additions: 80, deletions: 20 },
-  ],
-  changesByDay: [
-    { date: "2025-01-01", additions: 200, deletions: 60 },
-    { date: "2025-01-02", additions: 300, deletions: 80 },
-    { date: "2025-01-03", additions: 500, deletions: 160 },
-  ],
-};
 
 // ── LoadingOverlay stub ───────────────────────────────────────
 const LoadingOverlayStub = {
@@ -305,6 +197,56 @@ describe("AnalyticsDashboardView", () => {
 
     expect(wrapper.text()).toContain("10");
     expect(wrapper.text()).not.toContain("API Duration");
+  });
+
+  it("renders the cost basis toggle with both options and defaults to legacy", async () => {
+    mockGetAnalytics.mockResolvedValue(FIXTURE_ANALYTICS);
+    const Component = await loadAnalyticsDashboard();
+    const wrapper = mount(Component, globalStubs);
+
+    await flushPromises();
+
+    // Panel title reflects the legacy default.
+    expect(wrapper.text()).toContain("Legacy Copilot Cost Trend");
+    expect(wrapper.text()).not.toContain("Direct API Cost Trend");
+
+    const radios = wrapper.findAll('[role="radio"]');
+    const legacyBtn = radios.find((b) => b.text().includes("Legacy Copilot"));
+    const directBtn = radios.find((b) => b.text().includes("Direct API"));
+    expect(legacyBtn).toBeTruthy();
+    expect(directBtn).toBeTruthy();
+    expect(legacyBtn!.attributes("aria-checked")).toBe("true");
+    expect(directBtn!.attributes("aria-checked")).toBe("false");
+
+    // Default chart aria label reflects the legacy basis.
+    const chartSvg = wrapper
+      .findAll("svg")
+      .find((s) => /legacy Copilot cost trend/i.test(s.attributes("aria-label") ?? ""));
+    expect(chartSvg).toBeTruthy();
+  });
+
+  it("switches the cost graph to the direct API basis when toggled", async () => {
+    mockGetAnalytics.mockResolvedValue(FIXTURE_ANALYTICS);
+    const Component = await loadAnalyticsDashboard();
+    const wrapper = mount(Component, globalStubs);
+
+    await flushPromises();
+
+    const directBtn = wrapper
+      .findAll('[role="radio"]')
+      .find((b) => b.text().includes("Direct API"));
+    expect(directBtn).toBeTruthy();
+    await directBtn!.trigger("click");
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("Direct API Cost Trend");
+    expect(wrapper.text()).not.toContain("Legacy Copilot Cost Trend");
+    expect(directBtn!.attributes("aria-checked")).toBe("true");
+
+    const chartSvg = wrapper
+      .findAll("svg")
+      .find((s) => /direct API cost trend/i.test(s.attributes("aria-label") ?? ""));
+    expect(chartSvg).toBeTruthy();
   });
 });
 

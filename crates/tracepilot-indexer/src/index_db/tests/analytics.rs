@@ -31,6 +31,57 @@ fn test_query_analytics_basic() {
 }
 
 #[test]
+fn test_query_analytics_model_usage_by_day_from_segments() {
+    let tmp = tempfile::tempdir().unwrap();
+    let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
+    db.conn
+        .execute(
+            "INSERT INTO sessions (id, path, repository, created_at, updated_at, indexed_at)
+             VALUES ('segmented-session', 'C:\\test\\segmented-session', 'org/repo',
+                     '2026-03-10T07:14:50Z', '2026-03-12T09:00:00Z', datetime('now'))",
+            [],
+        )
+        .unwrap();
+    db.conn
+        .execute(
+            "INSERT INTO session_segments
+             (session_id, start_timestamp, end_timestamp, total_tokens, total_requests,
+              total_premium_requests, total_api_duration_ms, current_model, model_metrics_json)
+             VALUES
+             ('segmented-session', '2026-03-10T07:00:00Z', '2026-03-10T07:15:00Z',
+              150, 1, 1.0, 1000, 'claude-opus-4.6',
+              '{\"claude-opus-4.6\":{\"usage\":{\"inputTokens\":100,\"outputTokens\":50,\"cacheReadTokens\":20,\"cacheWriteTokens\":10}}}'),
+             ('segmented-session', '2026-03-11T08:00:00Z', '2026-03-11T08:15:00Z',
+              300, 2, 2.0, 2000, 'gpt-5.4',
+              '{\"gpt-5.4\":{\"usage\":{\"inputTokens\":200,\"outputTokens\":100,\"cacheReadTokens\":40,\"cacheWriteTokens\":0,\"reasoningTokens\":25}}}')",
+            [],
+        )
+        .unwrap();
+
+    let result = db.query_analytics(None, None, None, false).unwrap();
+
+    assert_eq!(result.model_usage_by_day.len(), 2);
+    let day_one = result
+        .model_usage_by_day
+        .iter()
+        .find(|entry| entry.date == "2026-03-10")
+        .unwrap();
+    assert_eq!(day_one.model, "claude-opus-4.6");
+    assert_eq!(day_one.input_tokens, 100);
+    assert_eq!(day_one.output_tokens, 50);
+    assert_eq!(day_one.cache_read_tokens, 20);
+    assert_eq!(day_one.cache_write_tokens, 10);
+
+    let day_two = result
+        .model_usage_by_day
+        .iter()
+        .find(|entry| entry.date == "2026-03-11")
+        .unwrap();
+    assert_eq!(day_two.model, "gpt-5.4");
+    assert_eq!(day_two.reasoning_tokens, Some(25));
+}
+
+#[test]
 fn test_query_analytics_repo_filter() {
     let tmp = tempfile::tempdir().unwrap();
     let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();

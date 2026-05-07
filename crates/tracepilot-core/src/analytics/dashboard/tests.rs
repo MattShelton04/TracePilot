@@ -32,6 +32,11 @@ fn test_analytics_single_session() {
     assert!((result.total_cost - 1.50).abs() < f64::EPSILON);
     assert_eq!(result.activity_per_day.len(), 1);
     assert_eq!(result.activity_per_day[0].date, "2026-01-15");
+    assert_eq!(result.model_usage_by_day.len(), 1);
+    assert_eq!(result.model_usage_by_day[0].date, "2026-01-15");
+    assert_eq!(result.model_usage_by_day[0].model, "claude-opus-4.6");
+    assert_eq!(result.model_usage_by_day[0].input_tokens, 5000);
+    assert_eq!(result.model_usage_by_day[0].output_tokens, 5000);
     assert_eq!(result.model_distribution.len(), 1);
     assert_eq!(result.model_distribution[0].model, "claude-opus-4.6");
     assert!((result.model_distribution[0].percentage - 100.0).abs() < f64::EPSILON);

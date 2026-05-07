@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import type { AnalyticsData } from "@tracepilot/types";
-import type { ChartLayout, ChartTooltipState } from "@tracepilot/ui";
+import type { ChartLayout, ChartTooltipState, SegmentOption } from "@tracepilot/ui";
 import {
   formatCost,
   formatDateMedium,
   formatNumber,
   formatNumberFull,
   SectionPanel,
+  SegmentedControl,
   useChartTooltip,
 } from "@tracepilot/ui";
 import { computed, ref, watch } from "vue";
@@ -14,6 +15,7 @@ import { RouterLink } from "vue-router";
 import LineAreaChart from "@/components/charts/LineAreaChart.vue";
 import { useLineAreaChartData } from "@/composables/useLineAreaChartData";
 import { usePreferencesStore } from "@/stores/preferences";
+import { buildAnalyticsCostSeries } from "@/utils/analyticsCostSeries";
 import { CHART_COLORS, DONUT_PALETTE } from "@/utils/chartColors";
 
 const props = defineProps<{
@@ -63,12 +65,36 @@ watch(donutSegments, () => {
   hoveredDonut.value = null;
 });
 
-const costPoints = computed(
-  () =>
-    props.data.costByDay.map((p) => ({
-      date: p.date,
-      cost: p.cost * prefs.costPerPremiumRequest,
-    })) ?? null,
+// ── Cost basis toggle ─────────────────────────────────────────────
+type CostBasis = "legacy" | "directApi";
+
+const COST_BASIS_OPTIONS: SegmentOption[] = [
+  { value: "legacy", label: "Legacy Copilot" },
+  { value: "directApi", label: "Direct API" },
+];
+
+// Default to legacy to preserve existing behavior. Local component state
+// (not persisted) — matches other analytics page controls.
+const costBasis = ref<CostBasis>("legacy");
+
+const isDirectApi = computed(() => costBasis.value === "directApi");
+
+const costPanelTitle = computed(() =>
+  isDirectApi.value ? "Direct API Cost Trend" : "Legacy Copilot Cost Trend",
+);
+
+const costColor = computed(() => (isDirectApi.value ? CHART_COLORS.success : CHART_COLORS.primary));
+const costColorLight = computed(() =>
+  isDirectApi.value ? CHART_COLORS.successLight : CHART_COLORS.primaryLight,
+);
+
+const costPoints = computed(() =>
+  buildAnalyticsCostSeries(
+    props.data,
+    costBasis.value,
+    prefs.costPerPremiumRequest,
+    prefs.computeWholesaleCost,
+  ),
 );
 
 const { chartData: costChart } = useLineAreaChartData({
@@ -79,6 +105,18 @@ const { chartData: costChart } = useLineAreaChartData({
   yFormatter: formatCost,
   maxFloor: 0.01,
 });
+
+const costAriaLabel = computed(
+  () =>
+    `Area chart showing daily ${
+      isDirectApi.value ? "direct API" : "legacy Copilot"
+    } cost trend over ${props.timeRangeLabel}`,
+);
+
+const tooltipFormatter = (i: number) => {
+  const point = costChart.value?.coords[i];
+  return point ? `${formatDateMedium(point.date)} — ${formatCost(point.cost)}` : "";
+};
 </script>
 
 <template>
@@ -132,7 +170,14 @@ const { chartData: costChart } = useLineAreaChartData({
     </SectionPanel>
 
     <!-- Cost Trend -->
-    <SectionPanel title="Legacy Cost Trend">
+    <SectionPanel :title="costPanelTitle">
+      <template #actions>
+        <SegmentedControl
+          v-model="costBasis"
+          :options="COST_BASIS_OPTIONS"
+          aria-label="Cost basis"
+        />
+      </template>
       <LineAreaChart
         v-if="costChart"
         :chart-data="costChart"
@@ -140,12 +185,12 @@ const { chartData: costChart } = useLineAreaChartData({
         :grid-lines="gridLines"
         :tooltip="tooltip"
         chart-id="cost"
-        :ariaLabel="`Area chart showing daily cost trend over ${timeRangeLabel}`"
-        :color="CHART_COLORS.primary"
-        :color-light="CHART_COLORS.primaryLight"
+        :ariaLabel="costAriaLabel"
+        :color="costColor"
+        :color-light="costColorLight"
         :gradient-opacity="0.35"
-        @mousemove="onChartMouseMove($event, costChart.coords, (i) => `${formatDateMedium(costChart!.coords[i].date)} — ${formatCost(costChart!.coords[i].cost)}`, 'cost', '.chart-frame')"
-        @click="onChartClick($event, costChart.coords, (i) => `${formatDateMedium(costChart!.coords[i].date)} — ${formatCost(costChart!.coords[i].cost)}`, 'cost', '.chart-frame')"
+        @mousemove="onChartMouseMove($event, costChart.coords, tooltipFormatter, 'cost', '.chart-frame')"
+        @click="onChartClick($event, costChart.coords, tooltipFormatter, 'cost', '.chart-frame')"
         @dismiss-tooltip="dismissTooltip"
       />
     </SectionPanel>

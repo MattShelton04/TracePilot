@@ -4,7 +4,7 @@ use tracepilot_core::analytics::types::ModelDistEntry;
 
 /// Raw row type returned by model-distribution queries before the `i64` sentinel
 /// for `has_reasoning` is converted to `bool`.
-type ModelDistRawRow = (String, i64, i64, i64, i64, f64, i64, i64, bool);
+type ModelDistRawRow = (String, i64, i64, i64, i64, i64, f64, i64, i64, bool);
 
 pub(in crate::index_db) fn query_model_distribution(
     conn: &Connection,
@@ -19,10 +19,11 @@ pub(in crate::index_db) fn query_model_distribution(
             row.get::<_, i64>(2)?,
             row.get::<_, i64>(3)?,
             row.get::<_, i64>(4)?,
-            row.get::<_, f64>(5)?,
-            row.get::<_, i64>(6)?,
+            row.get::<_, i64>(5)?,
+            row.get::<_, f64>(6)?,
             row.get::<_, i64>(7)?,
             row.get::<_, i64>(8)?,
+            row.get::<_, i64>(9)?,
         ))
     })?;
     let mut entries: Vec<ModelDistRawRow> = Vec::new();
@@ -34,6 +35,7 @@ pub(in crate::index_db) fn query_model_distribution(
             input_t,
             output_t,
             cache_read,
+            cache_write,
             cost,
             request_count,
             reasoning_sum,
@@ -46,6 +48,7 @@ pub(in crate::index_db) fn query_model_distribution(
             input_t,
             output_t,
             cache_read,
+            cache_write,
             cost,
             request_count,
             reasoning_sum,
@@ -61,6 +64,7 @@ pub(in crate::index_db) fn query_model_distribution(
                 input_t,
                 output_t,
                 cache_read,
+                cache_write,
                 cost,
                 request_count,
                 reasoning_sum,
@@ -78,6 +82,7 @@ pub(in crate::index_db) fn query_model_distribution(
                     input_tokens: input_t as u64,
                     output_tokens: output_t as u64,
                     cache_read_tokens: cache_read as u64,
+                    cache_write_tokens: cache_write as u64,
                     premium_requests: cost,
                     request_count: request_count as u64,
                     reasoning_tokens: if has_reasoning {

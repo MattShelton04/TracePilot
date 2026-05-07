@@ -34,11 +34,22 @@ export const FIXTURE_ANALYTICS: AnalyticsData = {
       inputTokens: 250_000,
       outputTokens: 250_000,
       cacheReadTokens: 0,
+      cacheWriteTokens: 0,
       premiumRequests: 5,
       requestCount: 50,
     },
   ],
   costByDay: [{ date: "2025-01-01", cost: 5.0 }],
+  modelUsageByDay: [
+    {
+      date: "2025-01-01",
+      model: "gpt-4",
+      inputTokens: 250_000,
+      outputTokens: 250_000,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+    },
+  ],
   apiDurationStats: {
     avgMs: 1_000_000,
     medianMs: 900_000,
