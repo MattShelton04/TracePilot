@@ -569,12 +569,18 @@ defineExpose({ revealEvent });
   z-index: 12;
   display: flex;
   flex-direction: column;
-  background: var(--canvas-default, #0d1117);
+  align-items: center;
+  padding: 0 16px 8px;
+  pointer-events: none;
 }
 
 .cv-objective-strip {
-  width: 100%;
-  margin: 0;
+  margin: 0 0 8px;
+  pointer-events: auto;
+}
+
+.cv-bottom-stack :deep(.sdk-steering-feature) {
+  pointer-events: auto;
 }
 
 /* ─── Deep-link highlight animation ────────────────────────────── */

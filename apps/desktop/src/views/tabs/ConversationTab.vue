@@ -530,11 +530,9 @@ function revealObjective(info: { eventIndex?: number; toolCallId?: string }) {
 <style scoped>
 .conv-objective-strip {
   position: sticky;
-  bottom: 0;
+  bottom: 12px;
   z-index: 8;
-  width: 100%;
-  margin: 8px 0 0;
-  background: var(--canvas-default, #0d1117);
+  margin: 12px auto 0;
 }
 
 /* Highlight animation for scroll-to-turn from search deep-links */

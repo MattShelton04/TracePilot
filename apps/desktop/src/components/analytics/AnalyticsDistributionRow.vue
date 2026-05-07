@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import type { AnalyticsData } from "@tracepilot/types";
-import type { ChartLayout, ChartTooltipState, SegmentOption } from "@tracepilot/ui";
+import type { ChartLayout, ChartTooltipState } from "@tracepilot/ui";
 import {
   formatCost,
   formatDateMedium,
   formatNumber,
   formatNumberFull,
   SectionPanel,
-  SegmentedControl,
   useChartTooltip,
 } from "@tracepilot/ui";
 import { computed, ref, watch } from "vue";
@@ -67,11 +66,6 @@ watch(donutSegments, () => {
 
 // ── Cost basis toggle ─────────────────────────────────────────────
 type CostBasis = "legacy" | "directApi";
-
-const COST_BASIS_OPTIONS: SegmentOption[] = [
-  { value: "legacy", label: "Legacy Copilot" },
-  { value: "directApi", label: "Direct API" },
-];
 
 // Default to legacy to preserve existing behavior. Local component state
 // (not persisted) — matches other analytics page controls.
@@ -172,11 +166,33 @@ const tooltipFormatter = (i: number) => {
     <!-- Cost Trend -->
     <SectionPanel :title="costPanelTitle">
       <template #actions>
-        <SegmentedControl
-          v-model="costBasis"
-          :options="COST_BASIS_OPTIONS"
+        <div
+          class="cost-basis-switch"
+          role="radiogroup"
           aria-label="Cost basis"
-        />
+        >
+          <button
+            type="button"
+            class="cost-basis-option"
+            :class="{ active: costBasis === 'legacy' }"
+            role="radio"
+            :aria-checked="costBasis === 'legacy'"
+            @click="costBasis = 'legacy'"
+          >
+            Legacy Copilot
+          </button>
+          <span class="cost-basis-separator" aria-hidden="true">/</span>
+          <button
+            type="button"
+            class="cost-basis-option"
+            :class="{ active: costBasis === 'directApi' }"
+            role="radio"
+            :aria-checked="costBasis === 'directApi'"
+            @click="costBasis = 'directApi'"
+          >
+            Direct API
+          </button>
+        </div>
       </template>
       <LineAreaChart
         v-if="costChart"
@@ -272,5 +288,42 @@ const tooltipFormatter = (i: number) => {
 }
 .more-info-link:hover {
   color: var(--accent-primary);
+}
+
+.cost-basis-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-tertiary);
+  font-size: 0.75rem;
+}
+
+.cost-basis-option {
+  border: 0;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  padding: 2px 0;
+  transition: color var(--transition-fast, 0.15s);
+}
+
+.cost-basis-option:hover {
+  color: var(--text-secondary);
+}
+
+.cost-basis-option.active {
+  color: var(--text-primary);
+}
+
+.cost-basis-option:focus-visible {
+  outline: 2px solid var(--accent-emphasis);
+  outline-offset: 3px;
+  border-radius: var(--radius-sm, 4px);
+}
+
+.cost-basis-separator {
+  opacity: 0.45;
 }
 </style>

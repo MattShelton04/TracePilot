@@ -105,23 +105,25 @@ function handleClick() {
 <style scoped>
 .objective-banner {
   --ob-accent: var(--accent-fg, #58a6ff);
-  display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
+  width: fit-content;
+  max-width: 100%;
   min-width: 0;
-  padding: 4px 10px;
-  border: 0;
-  border-top: 1px solid color-mix(in srgb, var(--ob-accent) 18%, var(--border-muted, transparent));
-  background: transparent;
+  padding: 5px 9px;
+  border: 1px solid color-mix(in srgb, var(--ob-accent) 14%, var(--border-muted, transparent));
+  border-radius: var(--radius-md, 8px);
+  background: color-mix(in srgb, var(--canvas-overlay, var(--canvas-default, #0d1117)) 82%, transparent);
   color: var(--text-secondary, #b1bac4);
   font-size: 0.75rem;
   line-height: 1.3;
+  box-shadow: 0 8px 24px color-mix(in srgb, #000 16%, transparent);
 }
 
 .objective-banner.empty {
   --ob-accent: var(--text-tertiary, #8b949e);
-  border-top-color: var(--border-muted, transparent);
+  border-color: var(--border-muted, transparent);
 }
 
 .ob-dot {
@@ -144,7 +146,7 @@ function handleClick() {
   color: var(--text-tertiary, #8b949e);
   font-size: 0.6875rem;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0;
 }
 
 .ob-text {
@@ -184,7 +186,6 @@ button.ob-text:focus-visible {
 
 .ob-updates,
 .ob-status {
-  justify-self: end;
   font-size: 0.6875rem;
   font-weight: 500;
   line-height: 1;
@@ -215,7 +216,7 @@ button.ob-text:focus-visible {
 
 .objective-banner.scope-subagent {
   padding-left: 8px;
-  border-left: 2px solid var(--ob-accent);
+  border-left-color: var(--ob-accent);
 }
 
 @keyframes objectiveDot {
