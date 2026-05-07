@@ -15,21 +15,21 @@ describe("ObjectiveBanner", () => {
   it("renders the objective text and accent label", () => {
     const w = mount(ObjectiveBanner, { props: { objective: sample } });
     expect(w.find(".ob-text").text()).toBe(sample.text);
-    expect(w.find(".ob-label").text()).toBe("Current objective");
+    expect(w.find(".ob-label").text()).toBe("Objective");
   });
 
   it("falls back to a muted empty state when objective is null", () => {
     const w = mount(ObjectiveBanner, { props: { objective: null } });
     expect(w.classes()).toContain("empty");
-    expect(w.find(".empty-text").text()).toBe("No objective reported yet");
-    expect(w.find(".ob-status").text()).toBe("Awaiting objective");
+    expect(w.find(".empty-text").text()).toBe("No objective yet");
+    expect(w.find(".ob-status").text()).toBe("Awaiting");
   });
 
-  it("shows an updates badge when the objective changed multiple times", () => {
+  it("shows a compact updates badge when the objective changed multiple times", () => {
     const w = mount(ObjectiveBanner, {
       props: { objective: { ...sample, updateCount: 4 } },
     });
-    expect(w.find(".ob-updates").text()).toBe("Updated 4×");
+    expect(w.find(".ob-updates").text()).toBe("+3");
   });
 
   it("does not show updates badge for a single-update objective", () => {
@@ -42,7 +42,7 @@ describe("ObjectiveBanner", () => {
       props: { objective: sample, status: "completed" },
     });
     const pill = w.find(".ob-status");
-    expect(pill.text()).toBe("Completed");
+    expect(pill.text()).toBe("Done");
     expect(pill.classes()).toContain("ob-status-completed");
   });
 
@@ -71,10 +71,11 @@ describe("ObjectiveBanner", () => {
     expect(w.emitted("reveal")).toBeUndefined();
   });
 
-  it("shows running progress treatment for active objectives", () => {
+  it("shows a running treatment for active objectives", () => {
     const w = mount(ObjectiveBanner, { props: { objective: sample, status: "running" } });
     expect(w.find(".ob-status").classes()).toContain("ob-status-running");
-    expect(w.find(".ob-progress").exists()).toBe(true);
+    expect(w.classes()).toContain("status-running");
+    expect(w.find(".ob-dot").exists()).toBe(true);
   });
 
   it("exposes accessible status semantics", () => {

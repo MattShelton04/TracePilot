@@ -289,16 +289,6 @@ function revealObjective(info: { eventIndex?: number; toolCallId?: string }) {
       @retry="retryLoadTurns"
     />
 
-    <!-- Persistent current-objective banner (sticks below page header on scroll) -->
-    <ObjectiveBanner
-      class="conv-objective-banner"
-      scope="session"
-      label="Current objective"
-      :objective="sessionObjective"
-      :status="sessionObjectiveStatus"
-      @reveal="revealObjective"
-    />
-
     <!-- Mini stat row -->
     <div class="grid-3 mb-4">
       <StatCard :value="store.turns.length" label="Turns" color="accent" mini />
@@ -317,7 +307,10 @@ function revealObjective(info: { eventIndex?: number; toolCallId?: string }) {
     <ChatViewMode
       v-else-if="activeView === 'chat'"
       ref="chatViewRef"
+      :objective="sessionObjective"
+      :objective-status="sessionObjectiveStatus"
       @message-sent="handleChatSteeringMessage"
+      @reveal-objective="revealObjective"
     />
 
     <!-- ═══════════════ COMPACT VIEW ═══════════════ -->
@@ -500,10 +493,9 @@ function revealObjective(info: { eventIndex?: number; toolCallId?: string }) {
     </div>
 
     <ObjectiveBanner
-      v-if="sessionObjective"
-      class="conv-objective-dock"
+      v-if="activeView !== 'chat' && sessionObjective"
+      class="conv-objective-strip"
       scope="session"
-      label="Current objective"
       :objective="sessionObjective"
       :status="sessionObjectiveStatus"
       @reveal="revealObjective"
@@ -536,39 +528,13 @@ function revealObjective(info: { eventIndex?: number; toolCallId?: string }) {
 </template>
 
 <style scoped>
-/* Persistent objective banner sits above the stat row and sticks to the
- * top of the page-content scroll container so it stays visible while
- * users scroll long conversations. */
-.conv-objective-banner {
+.conv-objective-strip {
   position: sticky;
-  top: 0;
-  z-index: 5;
-  margin-bottom: 12px;
-  background: var(--canvas-default);
-  backdrop-filter: blur(6px);
-  box-shadow: 0 6px 14px var(--shadow-color, rgba(0, 0, 0, 0.18));
-}
-
-.conv-objective-dock {
-  position: fixed;
-  left: 50%;
-  bottom: 28px;
-  transform: translateX(-50%);
-  z-index: calc(var(--z-fab, 55) - 1);
-  width: min(720px, calc(100vw - var(--sidebar-width) - 160px));
-  background: var(--canvas-overlay, var(--canvas-default));
-  box-shadow: 0 12px 30px var(--shadow-color, rgba(0, 0, 0, 0.28));
-  backdrop-filter: blur(10px);
-}
-
-@media (max-width: 900px) {
-  .conv-objective-dock {
-    left: 16px;
-    right: 16px;
-    bottom: 88px;
-    width: auto;
-    transform: none;
-  }
+  bottom: 0;
+  z-index: 8;
+  width: min(720px, 100%);
+  margin: 16px auto 0;
+  box-shadow: 0 8px 24px var(--shadow-color, rgba(0, 0, 0, 0.22));
 }
 
 /* Highlight animation for scroll-to-turn from search deep-links */

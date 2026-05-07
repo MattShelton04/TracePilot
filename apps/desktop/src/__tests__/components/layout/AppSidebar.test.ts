@@ -88,12 +88,17 @@ describe("AppSidebar collapse toggle", () => {
     await toggle.trigger("click");
     const aside = wrapper.find('[data-testid="app-sidebar"]');
     expect(aside.classes()).toContain("collapsed");
-    expect(toggle.attributes("aria-pressed")).toBe("true");
-    expect(toggle.attributes("aria-label")).toBe("Expand sidebar");
+    expect(wrapper.find('[data-testid="sidebar-collapse-toggle"]').exists()).toBe(false);
 
-    await toggle.trigger("click");
+    const expand = wrapper.find('[data-testid="sidebar-brand-expand"]');
+    expect(expand.exists()).toBe(true);
+    expect(expand.attributes("aria-label")).toBe("Expand sidebar");
+
+    await expand.trigger("click");
     expect(aside.classes()).not.toContain("collapsed");
-    expect(toggle.attributes("aria-pressed")).toBe("false");
+    expect(wrapper.find('[data-testid="sidebar-collapse-toggle"]').attributes("aria-pressed")).toBe(
+      "false",
+    );
   });
 
   it("persists the collapsed preference to localStorage", async () => {
@@ -108,5 +113,6 @@ describe("AppSidebar collapse toggle", () => {
     const wrapper = await mountSidebar();
     const aside = wrapper.find('[data-testid="app-sidebar"]');
     expect(aside.classes()).toContain("collapsed");
+    expect(wrapper.find('[data-testid="sidebar-brand-expand"]').exists()).toBe(true);
   });
 });
