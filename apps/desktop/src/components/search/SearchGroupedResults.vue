@@ -43,9 +43,10 @@ defineEmits<{
           <button
             class="session-group-filter-btn"
             title="Filter search to this session"
+            aria-label="Filter search to this session"
             @click.stop="$emit('filter-by-session', group.sessionId, group.sessionSummary)"
           >
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="12" height="12">
+            <svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="12" height="12">
               <path d="M2 4h12M4 8h8M6 12h4" />
             </svg>
           </button>
@@ -53,9 +54,10 @@ defineEmits<{
             :to="`/session/${group.sessionId}/conversation`"
             class="session-group-goto-btn"
             title="Go to session"
+            aria-label="Go to session"
             @click.stop
           >
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="12" height="12">
+            <svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="12" height="12">
               <path d="M6 3l5 5-5 5" />
             </svg>
           </router-link>
