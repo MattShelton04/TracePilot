@@ -25,15 +25,10 @@ describe("ObjectiveBanner", () => {
     expect(w.find(".ob-status").text()).toBe("Awaiting");
   });
 
-  it("shows a compact updates badge when the objective changed multiple times", () => {
+  it("does not render update counts for repeated objective changes", () => {
     const w = mount(ObjectiveBanner, {
       props: { objective: { ...sample, updateCount: 4 } },
     });
-    expect(w.find(".ob-updates").text()).toBe("+3");
-  });
-
-  it("does not show updates badge for a single-update objective", () => {
-    const w = mount(ObjectiveBanner, { props: { objective: sample } });
     expect(w.find(".ob-updates").exists()).toBe(false);
   });
 
@@ -76,6 +71,7 @@ describe("ObjectiveBanner", () => {
     expect(w.find(".ob-status").classes()).toContain("ob-status-running");
     expect(w.classes()).toContain("status-running");
     expect(w.find(".ob-dot").exists()).toBe(true);
+    expect(w.find(".ob-status-dots").exists()).toBe(true);
   });
 
   it("exposes accessible status semantics", () => {

@@ -1,6 +1,6 @@
 import type { TurnToolCall } from "@tracepilot/types";
 import { mount } from "@vue/test-utils";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import SubagentPanel from "../components/SubagentPanel/SubagentPanel.vue";
 import type { SubagentView } from "../components/SubagentPanel/types";
 
@@ -61,5 +61,52 @@ describe("SubagentPanel slots", () => {
 
     expect(wrapper.find(".tool-call-item").exists()).toBe(true);
     expect(wrapper.text()).toContain("view");
+  });
+
+  it("reveals the originating intent row when the objective is clicked", async () => {
+    const scrollIntoView = vi.fn();
+    const originalScrollIntoView = Element.prototype.scrollIntoView;
+    Object.defineProperty(Element.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoView,
+    });
+    try {
+      const wrapper = mount(SubagentPanel, {
+        props: {
+          view: {
+            ...makeView(makeToolCall()),
+            status: "in-progress",
+            activities: [
+              {
+                kind: "pill",
+                key: "intent-1",
+                sortKey: 1,
+                type: "intent",
+                label: "Reviewing branch",
+                toolCall: makeToolCall({
+                  toolName: "report_intent",
+                  toolCallId: "intent-call",
+                  eventIndex: 42,
+                  arguments: { intent: "Reviewing branch" },
+                }),
+              },
+            ],
+          },
+          renderMarkdown: false,
+          fullResults: new Map(),
+          loadingResults: emptyResultSet(),
+          failedResults: emptyResultSet(),
+        },
+      });
+
+      await wrapper.find("button.ob-text").trigger("click");
+      expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "center" });
+      expect(wrapper.find('[data-sap-event-idx="42"]').classes()).toContain("sap-reveal-highlight");
+    } finally {
+      Object.defineProperty(Element.prototype, "scrollIntoView", {
+        configurable: true,
+        value: originalScrollIntoView,
+      });
+    }
   });
 });

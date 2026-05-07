@@ -333,34 +333,35 @@
 .sidebar.collapsed {
   width: var(--sidebar-collapsed);
   min-width: var(--sidebar-collapsed);
+  contain: layout;
+  overflow: visible;
 }
 .sidebar.collapsed .sidebar-brand {
   padding: 14px 8px 8px;
   justify-content: center;
+  gap: 0;
   position: relative;
 }
 .sidebar.collapsed .sidebar-brand-text {
-  opacity: 0;
-  max-width: 0;
-  pointer-events: none;
+  display: none;
 }
 .sidebar-expand-handle {
   position: absolute;
   top: 16px;
-  right: 0;
+  right: -13px;
   z-index: 2;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 14px;
+  width: 18px;
   height: 28px;
   margin: 0;
   padding: 0;
   border: 1px solid var(--border-default);
-  border-right: 0;
+  border-left: 0;
   background: var(--canvas-default);
   color: var(--text-tertiary);
-  border-radius: var(--radius-full, 999px) 0 0 var(--radius-full, 999px);
+  border-radius: 0 var(--radius-full, 999px) var(--radius-full, 999px) 0;
   cursor: pointer;
   transition:
     color var(--transition-fast),
@@ -372,7 +373,7 @@
   color: var(--text-primary);
   border-color: var(--accent-emphasis);
   background: var(--accent-subtle);
-  transform: translateX(-1px);
+  transform: translateX(1px);
 }
 .sidebar-expand-handle:focus-visible {
   outline: 2px solid var(--accent-emphasis);

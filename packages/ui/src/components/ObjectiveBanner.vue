@@ -43,11 +43,6 @@ const statusLabel = computed(() => {
   }
 });
 
-const updateBadge = computed(() => {
-  const n = props.objective?.updateCount ?? 0;
-  return n > 1 ? `+${n - 1}` : null;
-});
-
 const ariaText = computed(() => {
   if (!props.objective) return `${props.label}: none reported yet.`;
   return `${props.label}: ${props.objective.text}.`;
@@ -91,14 +86,12 @@ function handleClick() {
       {{ objective!.text }}
     </span>
     <span v-else class="ob-text empty-text">No objective yet</span>
-    <span
-      v-if="updateBadge"
-      class="ob-updates"
-      :title="`Objective changed ${objective?.updateCount} times`"
-    >
-      {{ updateBadge }}
+    <span :class="['ob-status', `ob-status-${status}`]">
+      {{ statusLabel }}
+      <span v-if="status === 'running' && hasObjective" class="ob-status-dots" aria-hidden="true">
+        <span>.</span><span>.</span><span>.</span>
+      </span>
     </span>
-    <span :class="['ob-status', `ob-status-${status}`]">{{ statusLabel }}</span>
   </section>
 </template>
 
@@ -184,7 +177,6 @@ button.ob-text:focus-visible {
   font-weight: 400;
 }
 
-.ob-updates,
 .ob-status {
   font-size: 0.6875rem;
   font-weight: 500;
@@ -193,13 +185,29 @@ button.ob-text:focus-visible {
   color: var(--text-tertiary, #8b949e);
 }
 
-.ob-updates {
-  color: color-mix(in srgb, var(--ob-accent) 70%, var(--text-tertiary, #8b949e));
-  font-variant-numeric: tabular-nums;
+.ob-status-running {
+  display: inline-flex;
+  align-items: baseline;
+  color: color-mix(in srgb, var(--ob-accent) 80%, var(--text-secondary, #b1bac4));
 }
 
-.ob-status-running {
-  color: color-mix(in srgb, var(--ob-accent) 80%, var(--text-secondary, #b1bac4));
+.ob-status-dots {
+  display: inline-flex;
+  width: 1em;
+  margin-left: 1px;
+}
+
+.ob-status-dots span {
+  opacity: 0;
+  animation: objectiveDotFade 1.2s ease-in-out infinite;
+}
+
+.ob-status-dots span:nth-child(2) {
+  animation-delay: 0.16s;
+}
+
+.ob-status-dots span:nth-child(3) {
+  animation-delay: 0.32s;
 }
 
 .ob-status-completed {
@@ -225,9 +233,25 @@ button.ob-text:focus-visible {
   }
 }
 
+@keyframes objectiveDotFade {
+  0%,
+  35% {
+    opacity: 0;
+  }
+  55%,
+  100% {
+    opacity: 1;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .status-running .ob-dot {
+  .status-running .ob-dot,
+  .ob-status-dots span {
     animation: none;
+  }
+
+  .ob-status-dots span {
+    opacity: 1;
   }
 }
 </style>
