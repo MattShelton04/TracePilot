@@ -12,8 +12,8 @@ const ctx = useModelComparisonContext();
       <div class="matrix-toggles">
         <div class="cost-toggle">
           <button
-            :class="['toggle-btn', { active: ctx.costMode === 'wholesale' }]"
-           @click="ctx.costMode = 'wholesale'"
+              :class="['toggle-btn', { active: ctx.costMode === 'wholesale' }]"
+              @click="ctx.costMode = 'wholesale'"
           >
             Direct API
           </button>
@@ -123,16 +123,22 @@ const ctx = useModelComparisonContext();
                 </div>
               </div>
             </td>
-            <td v-if="ctx.costMode !== 'copilot'" class="num-cell">
-              <span :class="{ 'best-cell': row.model === ctx.modelRows[ctx.bestCostIdx]?.model }">
+            <td v-if="ctx.costMode !== 'copilot'" class="num-cell matrix-cost-cell">
+              <span
+                class="matrix-cost-value"
+                :class="{ 'best-cell': row.model === ctx.modelRows[ctx.bestCostIdx]?.model }"
+                :title="ctx.fmtNorm(row.cost, true)"
+              >
                 {{ ctx.fmtNorm(row.cost, true) }}
               </span>
             </td>
-            <td v-if="ctx.costMode !== 'wholesale'" class="num-cell">
+            <td v-if="ctx.costMode !== 'wholesale'" class="num-cell matrix-cost-cell">
               <span
+                class="matrix-cost-value"
                 :class="{
                   'best-cell': row.model === ctx.modelRows[ctx.bestCopilotCostIdx]?.model,
                 }"
+                :title="ctx.fmtNorm(row.copilotCost, true)"
               >
                 {{ ctx.fmtNorm(row.copilotCost, true) }}
               </span>

@@ -37,6 +37,7 @@ pub struct AnalyticsData {
     pub activity_per_day: Vec<DayActivity>,
     pub model_distribution: Vec<ModelDistEntry>,
     pub cost_by_day: Vec<DayCost>,
+    pub model_usage_by_day: Vec<DayModelUsage>,
     pub api_duration_stats: ApiDurationStats,
     pub productivity_metrics: ProductivityMetrics,
     pub cache_stats: CacheStats,
@@ -73,6 +74,9 @@ pub struct ModelDistEntry {
     pub input_tokens: u64,
     pub output_tokens: u64,
     pub cache_read_tokens: u64,
+    /// Cache-write (a.k.a. cache-creation) tokens, billed separately from
+    /// `input_tokens` on Anthropic-style models.
+    pub cache_write_tokens: u64,
     pub premium_requests: f64,
     /// Number of API requests made to this model.
     pub request_count: u64,
@@ -86,6 +90,19 @@ pub struct ModelDistEntry {
 pub struct DayCost {
     pub date: String,
     pub cost: f64,
+}
+
+/// Per-day model token usage for exact local/direct API cost trends.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DayModelUsage {
+    pub date: String,
+    pub model: String,
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+    pub cache_read_tokens: u64,
+    pub cache_write_tokens: u64,
+    pub reasoning_tokens: Option<u64>,
 }
 
 /// Incident counts for a single day.

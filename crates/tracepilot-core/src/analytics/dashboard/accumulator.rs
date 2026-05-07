@@ -103,6 +103,7 @@ impl AnalyticsAccumulator {
             activity_per_day: daily.activity_per_day,
             model_distribution,
             cost_by_day: daily.cost_by_day,
+            model_usage_by_day: daily.model_usage_by_day,
             api_duration_stats,
             productivity_metrics,
             cache_stats,

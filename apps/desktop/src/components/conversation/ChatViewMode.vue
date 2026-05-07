@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import type { ConversationTurn } from "@tracepilot/types";
 import {
+  type CurrentObjective,
   LIVE_TOOL_PARTIAL_OUTPUT_KEY,
+  ObjectiveBanner,
   useConversationSections,
   useToggleSet,
 } from "@tracepilot/ui";
@@ -39,6 +41,19 @@ import SystemMessagePanel from "./SystemMessagePanel.vue";
 
 const store = useSessionDetailContext();
 const sdk = useSdkStore();
+
+type ObjectiveStatus = "running" | "completed" | "failed" | "idle";
+
+const props = withDefaults(
+  defineProps<{
+    objective?: CurrentObjective | null;
+    objectiveStatus?: ObjectiveStatus;
+  }>(),
+  {
+    objective: null,
+    objectiveStatus: "idle",
+  },
+);
 
 useRenderBudget({ key: "render.chatViewModeMs", budgetMs: 200, label: "ChatViewMode" });
 const preferences = usePreferencesStore();
@@ -129,6 +144,7 @@ provide(LIVE_TOOL_PARTIAL_OUTPUT_KEY, liveToolPartialOutputs);
 
 const emit = defineEmits<{
   messageSent: [prompt: string];
+  revealObjective: [info: { eventIndex?: number; toolCallId?: string }];
 }>();
 
 // ─── Cross-turn subagent data ─────────────────────────────────────
@@ -463,8 +479,19 @@ defineExpose({ revealEvent });
         </div>
       </div>
 
-      <!-- SDK Steering Panel (appears at bottom of chat when SDK is active) -->
-      <SdkSteeringPanel :session-id="store.sessionId" :session-cwd="store.detail?.cwd ?? undefined" @message-sent="handleSteeringMessage" />
+      <div class="cv-bottom-stack">
+        <ObjectiveBanner
+          v-if="props.objective"
+          class="cv-objective-strip"
+          scope="session"
+          :objective="props.objective"
+          :status="props.objectiveStatus"
+          @reveal="emit('revealObjective', $event)"
+        />
+
+        <!-- SDK Steering Panel (appears at bottom of chat when SDK is active) -->
+        <SdkSteeringPanel :session-id="store.sessionId" :session-cwd="store.detail?.cwd ?? undefined" @message-sent="handleSteeringMessage" />
+      </div>
     </div>
 
     <!-- Subagent panel (fixed viewport-sticky, below header) -->
@@ -527,13 +554,33 @@ defineExpose({ revealEvent });
 .cv-content {
   max-width: var(--content-max-width, 1600px);
   margin: 0 auto;
-  padding: 24px 32px 80px;
+  padding: 24px 32px 96px;
 }
 
 .cv-stream {
   display: flex;
   flex-direction: column;
   gap: 0;
+}
+
+.cv-bottom-stack {
+  position: sticky;
+  bottom: 0;
+  z-index: 12;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 16px 8px;
+  pointer-events: none;
+}
+
+.cv-objective-strip {
+  margin: 0 0 8px;
+  pointer-events: auto;
+}
+
+.cv-bottom-stack :deep(.sdk-steering-feature) {
+  pointer-events: auto;
 }
 
 /* ─── Deep-link highlight animation ────────────────────────────── */

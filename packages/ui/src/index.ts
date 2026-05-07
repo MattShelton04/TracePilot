@@ -26,6 +26,7 @@ export { default as LoadingSpinner } from "./components/LoadingSpinner.vue";
 export { default as MarkdownContent } from "./components/MarkdownContent.vue";
 export { default as MiniTimeline } from "./components/MiniTimeline.vue";
 export { default as ModalDialog } from "./components/ModalDialog.vue";
+export { default as ObjectiveBanner } from "./components/ObjectiveBanner.vue";
 export { default as PageHeader } from "./components/PageHeader.vue";
 export { default as PageShell } from "./components/PageShell.vue";
 export { default as ProgressBar } from "./components/ProgressBar.vue";
@@ -229,6 +230,12 @@ export {
 } from "./utils/formatters";
 export { detectLanguage, languageDisplayName } from "./utils/languageDetection";
 export { ensureMarkdownReady } from "./utils/markdownLoader";
+export type { CurrentObjective } from "./utils/objective";
+export {
+  getCurrentObjective,
+  getMainAgentObjective,
+  getSubagentObjective,
+} from "./utils/objective";
 export {
   normalizePath,
   pathBasename,

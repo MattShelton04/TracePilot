@@ -13,6 +13,7 @@ const { mockGetAnalytics, mockGetToolAnalysis, mockGetCodeImpact } = vi.hoisted(
     activityPerDay: [],
     modelDistribution: [],
     costByDay: [],
+    modelUsageByDay: [],
     sessionsWithErrors: 0,
     totalRateLimits: 0,
     totalCompactions: 0,

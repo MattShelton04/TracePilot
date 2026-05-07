@@ -23,6 +23,7 @@ export const MOCK_ANALYTICS: AnalyticsData = {
       inputTokens: 82_000,
       outputTokens: 38_000,
       cacheReadTokens: 4_200,
+      cacheWriteTokens: 0,
       premiumRequests: 24,
       requestCount: 46,
     },
@@ -33,6 +34,7 @@ export const MOCK_ANALYTICS: AnalyticsData = {
       inputTokens: 70_000,
       outputTokens: 33_500,
       cacheReadTokens: 3_100,
+      cacheWriteTokens: 1_200,
       premiumRequests: 18,
       requestCount: 39,
     },
@@ -41,6 +43,29 @@ export const MOCK_ANALYTICS: AnalyticsData = {
     date: new Date(new Date(NOW).getTime() - (6 - i) * 86_400_000).toISOString().split("T")[0],
     cost: 12 + i * 1.5,
   })),
+  modelUsageByDay: Array.from({ length: 7 }, (_, i) => {
+    const date = new Date(new Date(NOW).getTime() - (6 - i) * 86_400_000)
+      .toISOString()
+      .split("T")[0];
+    return [
+      {
+        date,
+        model: "gpt-5.4",
+        inputTokens: 10_000 + i * 900,
+        outputTokens: 4_800 + i * 450,
+        cacheReadTokens: 600 + i * 40,
+        cacheWriteTokens: 0,
+      },
+      {
+        date,
+        model: "claude-opus-4.6",
+        inputTokens: 8_500 + i * 650,
+        outputTokens: 4_100 + i * 350,
+        cacheReadTokens: 450 + i * 35,
+        cacheWriteTokens: 120 + i * 20,
+      },
+    ];
+  }).flat(),
   apiDurationStats: {
     avgMs: 480,
     medianMs: 410,

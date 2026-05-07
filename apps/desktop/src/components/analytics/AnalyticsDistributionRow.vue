@@ -14,6 +14,7 @@ import { RouterLink } from "vue-router";
 import LineAreaChart from "@/components/charts/LineAreaChart.vue";
 import { useLineAreaChartData } from "@/composables/useLineAreaChartData";
 import { usePreferencesStore } from "@/stores/preferences";
+import { buildAnalyticsCostSeries } from "@/utils/analyticsCostSeries";
 import { CHART_COLORS, DONUT_PALETTE } from "@/utils/chartColors";
 
 const props = defineProps<{
@@ -63,12 +64,31 @@ watch(donutSegments, () => {
   hoveredDonut.value = null;
 });
 
-const costPoints = computed(
-  () =>
-    props.data.costByDay.map((p) => ({
-      date: p.date,
-      cost: p.cost * prefs.costPerPremiumRequest,
-    })) ?? null,
+// ── Cost basis toggle ─────────────────────────────────────────────
+type CostBasis = "legacy" | "directApi";
+
+// Default to legacy to preserve existing behavior. Local component state
+// (not persisted) — matches other analytics page controls.
+const costBasis = ref<CostBasis>("legacy");
+
+const isDirectApi = computed(() => costBasis.value === "directApi");
+
+const costPanelTitle = computed(() =>
+  isDirectApi.value ? "Direct API Cost Trend" : "Legacy Copilot Cost Trend",
+);
+
+const costColor = computed(() => (isDirectApi.value ? CHART_COLORS.success : CHART_COLORS.primary));
+const costColorLight = computed(() =>
+  isDirectApi.value ? CHART_COLORS.successLight : CHART_COLORS.primaryLight,
+);
+
+const costPoints = computed(() =>
+  buildAnalyticsCostSeries(
+    props.data,
+    costBasis.value,
+    prefs.costPerPremiumRequest,
+    prefs.computeWholesaleCost,
+  ),
 );
 
 const { chartData: costChart } = useLineAreaChartData({
@@ -79,6 +99,18 @@ const { chartData: costChart } = useLineAreaChartData({
   yFormatter: formatCost,
   maxFloor: 0.01,
 });
+
+const costAriaLabel = computed(
+  () =>
+    `Area chart showing daily ${
+      isDirectApi.value ? "direct API" : "legacy Copilot"
+    } cost trend over ${props.timeRangeLabel}`,
+);
+
+const tooltipFormatter = (i: number) => {
+  const point = costChart.value?.coords[i];
+  return point ? `${formatDateMedium(point.date)} — ${formatCost(point.cost)}` : "";
+};
 </script>
 
 <template>
@@ -132,7 +164,36 @@ const { chartData: costChart } = useLineAreaChartData({
     </SectionPanel>
 
     <!-- Cost Trend -->
-    <SectionPanel title="Legacy Cost Trend">
+    <SectionPanel :title="costPanelTitle">
+      <template #actions>
+        <div
+          class="cost-basis-switch"
+          role="radiogroup"
+          aria-label="Cost basis"
+        >
+          <button
+            type="button"
+            class="cost-basis-option"
+            :class="{ active: costBasis === 'legacy' }"
+            role="radio"
+            :aria-checked="costBasis === 'legacy'"
+            @click="costBasis = 'legacy'"
+          >
+            Legacy Copilot
+          </button>
+          <span class="cost-basis-separator" aria-hidden="true">/</span>
+          <button
+            type="button"
+            class="cost-basis-option"
+            :class="{ active: costBasis === 'directApi' }"
+            role="radio"
+            :aria-checked="costBasis === 'directApi'"
+            @click="costBasis = 'directApi'"
+          >
+            Direct API
+          </button>
+        </div>
+      </template>
       <LineAreaChart
         v-if="costChart"
         :chart-data="costChart"
@@ -140,12 +201,12 @@ const { chartData: costChart } = useLineAreaChartData({
         :grid-lines="gridLines"
         :tooltip="tooltip"
         chart-id="cost"
-        :ariaLabel="`Area chart showing daily cost trend over ${timeRangeLabel}`"
-        :color="CHART_COLORS.primary"
-        :color-light="CHART_COLORS.primaryLight"
+        :ariaLabel="costAriaLabel"
+        :color="costColor"
+        :color-light="costColorLight"
         :gradient-opacity="0.35"
-        @mousemove="onChartMouseMove($event, costChart.coords, (i) => `${formatDateMedium(costChart!.coords[i].date)} — ${formatCost(costChart!.coords[i].cost)}`, 'cost', '.chart-frame')"
-        @click="onChartClick($event, costChart.coords, (i) => `${formatDateMedium(costChart!.coords[i].date)} — ${formatCost(costChart!.coords[i].cost)}`, 'cost', '.chart-frame')"
+        @mousemove="onChartMouseMove($event, costChart.coords, tooltipFormatter, 'cost', '.chart-frame')"
+        @click="onChartClick($event, costChart.coords, tooltipFormatter, 'cost', '.chart-frame')"
         @dismiss-tooltip="dismissTooltip"
       />
     </SectionPanel>
@@ -227,5 +288,42 @@ const { chartData: costChart } = useLineAreaChartData({
 }
 .more-info-link:hover {
   color: var(--accent-primary);
+}
+
+.cost-basis-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-tertiary);
+  font-size: 0.75rem;
+}
+
+.cost-basis-option {
+  border: 0;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  padding: 2px 0;
+  transition: color var(--transition-fast, 0.15s);
+}
+
+.cost-basis-option:hover {
+  color: var(--text-secondary);
+}
+
+.cost-basis-option.active {
+  color: var(--text-primary);
+}
+
+.cost-basis-option:focus-visible {
+  outline: 2px solid var(--accent-emphasis);
+  outline-offset: 3px;
+  border-radius: var(--radius-sm, 4px);
+}
+
+.cost-basis-separator {
+  opacity: 0.45;
 }
 </style>
