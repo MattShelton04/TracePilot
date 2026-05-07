@@ -347,32 +347,34 @@
 }
 .sidebar-expand-handle {
   position: absolute;
-  top: 16px;
-  right: -13px;
+  top: 17px;
+  right: -11px;
   z-index: 2;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 28px;
+  width: 22px;
+  height: 22px;
   margin: 0;
   padding: 0;
   border: 1px solid var(--border-default);
-  border-left: 0;
-  background: var(--canvas-default);
+  background: var(--canvas-subtle);
   color: var(--text-tertiary);
-  border-radius: 0 var(--radius-full, 999px) var(--radius-full, 999px) 0;
+  border-radius: var(--radius-full, 999px);
+  box-shadow: 0 0 0 2px var(--canvas-subtle);
   cursor: pointer;
   transition:
     color var(--transition-fast),
     background-color var(--transition-fast),
     border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
     transform var(--transition-fast);
 }
 .sidebar-expand-handle:hover {
   color: var(--text-primary);
   border-color: var(--accent-emphasis);
-  background: var(--accent-subtle);
+  background: color-mix(in srgb, var(--accent-emphasis) 14%, var(--canvas-subtle));
+  box-shadow: 0 0 0 2px var(--canvas-subtle);
   transform: translateX(1px);
 }
 .sidebar-expand-handle:focus-visible {
