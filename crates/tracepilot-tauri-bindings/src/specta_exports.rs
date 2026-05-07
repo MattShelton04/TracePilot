@@ -66,9 +66,7 @@ pub fn export(out_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
         .typ::<BridgeMetricsSnapshot>()
         .typ::<IndexingProgressPayload>();
 
-    if let Some(parent) = out_path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
+    tracepilot_core::utils::fs::ensure_parent_dir(out_path)?;
 
     let exporter = Typescript::default().header(HEADER);
     builder.export(exporter, out_path)?;

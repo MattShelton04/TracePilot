@@ -8,6 +8,7 @@
 
 pub mod backup;
 pub mod cache;
+pub mod fs;
 pub mod log_sanitize;
 pub mod migrator;
 pub mod sqlite;

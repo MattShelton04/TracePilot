@@ -10,9 +10,7 @@ use std::path::Path;
 impl IndexDb {
     /// Open or create the index database, running migrations as needed.
     pub fn open_or_create(path: &Path) -> Result<Self> {
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
+        tracepilot_core::utils::fs::ensure_parent_dir(path)?;
 
         let mut conn =
             Connection::open(path).map_err(|e| IndexerError::database_open(path.display(), e))?;

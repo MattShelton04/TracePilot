@@ -15,9 +15,7 @@ use std::path::Path;
 /// Writes to a `.json.tmp` sibling, then renames over the target.
 /// Creates parent directories if needed.
 pub fn atomic_json_write<T: Serialize>(path: &Path, value: &T) -> Result<()> {
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
+    tracepilot_core::utils::fs::ensure_parent_dir(path)?;
 
     let json = serde_json::to_string_pretty(value)?;
     let tmp = path.with_extension("json.tmp");
