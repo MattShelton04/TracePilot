@@ -42,7 +42,7 @@ describe("SessionCard", () => {
     });
     await wrapper.trigger("click");
     expect(wrapper.emitted("select")).toBeTruthy();
-    expect(wrapper.emitted("select")?.[0]).toEqual(["test-id"]);
+    expect(wrapper.emitted("select")?.[0][1]).toBe("test-id");
   });
 
   it("shows event count and turn count", () => {
@@ -107,8 +107,8 @@ describe("SessionCard", () => {
         session: makeSession({ id: "test-id" }),
       },
     });
-    // No event/turn counts shown when not provided
-    expect(wrapper.find("svg").exists()).toBe(false);
+    // In the new design, stats icons are always visible but show 0
+    expect(wrapper.text()).toContain("0");
     expect(wrapper.text()).toContain("Untitled Session");
   });
 });
