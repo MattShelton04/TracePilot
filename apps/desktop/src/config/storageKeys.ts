@@ -43,6 +43,8 @@ export const STORAGE_KEYS = Object.freeze({
   recentSearches: "tracepilot-recent-searches",
   /** Alert history ring buffer (up to 100 entries). */
   alerts: "tracepilot:alert-history",
+  /** Whether the main sidebar is collapsed to icon-only mode. */
+  sidebarCollapsed: "tracepilot-sidebar-collapsed",
 } as const);
 
 /** Narrowed union of valid `localStorage` keys used by the desktop app. */
