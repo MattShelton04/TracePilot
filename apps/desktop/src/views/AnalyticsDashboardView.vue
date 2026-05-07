@@ -48,7 +48,13 @@ const totalWholesaleCost = computed(() => {
   return data.value.modelDistribution.reduce(
     (sum, m) =>
       sum +
-      (prefs.computeWholesaleCost(m.model, m.inputTokens, m.cacheReadTokens, m.outputTokens) ?? 0),
+      (prefs.computeWholesaleCost(
+        m.model,
+        m.inputTokens,
+        m.cacheReadTokens,
+        m.outputTokens,
+        m.cacheWriteTokens,
+      ) ?? 0),
     0,
   );
 });

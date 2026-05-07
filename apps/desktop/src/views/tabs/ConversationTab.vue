@@ -12,7 +12,9 @@ import {
   formatNumber,
   formatTime,
   getAgentColor,
+  getMainAgentObjective,
   MarkdownContent,
+  ObjectiveBanner,
   ReasoningBlock,
   StatCard,
   ToolCallDetail,
@@ -24,7 +26,7 @@ import {
   useSessionTabLoader,
   useToggleSet,
 } from "@tracepilot/ui";
-import { nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { type RouteLocationNormalizedLoaded, useRoute } from "vue-router";
 import ChatViewMode from "@/components/conversation/ChatViewMode.vue";
 import { useAutoScroll } from "@/composables/useAutoScroll";
@@ -243,6 +245,36 @@ function retryLoadTurns() {
   store.loaded.delete("turns");
   store.loadTurns();
 }
+
+// ── Persistent objective banner ─────────────────────────────────────────
+// Latest report_intent across the main agent's tool calls, regardless of
+// turn — gives the user a stable "what is the agent currently aiming at?"
+// indicator that complements the inline pill rendering inside the chat.
+
+const sessionObjective = computed(() => getMainAgentObjective(store.turns));
+
+const sessionObjectiveStatus = computed<"running" | "completed" | "idle">(() => {
+  if (store.detail?.shutdownMetrics) return "completed";
+  if (store.turns.length === 0) return "idle";
+  return "running";
+});
+
+function revealObjective(info: { eventIndex?: number; toolCallId?: string }) {
+  // Find the owning turn and reveal via the active view.
+  const turn = store.turns.find((t) =>
+    t.toolCalls.some(
+      (tc) =>
+        (info.eventIndex != null && tc.eventIndex === info.eventIndex) ||
+        (info.toolCallId != null && tc.toolCallId === info.toolCallId),
+    ),
+  );
+  if (!turn) return;
+  if (activeView.value === "chat" && chatViewRef.value) {
+    chatViewRef.value.revealEvent(turn.turnIndex, info.eventIndex);
+    return;
+  }
+  scrollToTarget(turn.turnIndex, info.eventIndex ?? null);
+}
 </script>
 
 <template>
@@ -275,7 +307,10 @@ function retryLoadTurns() {
     <ChatViewMode
       v-else-if="activeView === 'chat'"
       ref="chatViewRef"
+      :objective="sessionObjective"
+      :objective-status="sessionObjectiveStatus"
       @message-sent="handleChatSteeringMessage"
+      @reveal-objective="revealObjective"
     />
 
     <!-- ═══════════════ COMPACT VIEW ═══════════════ -->
@@ -457,6 +492,15 @@ function retryLoadTurns() {
       </div>
     </div>
 
+    <ObjectiveBanner
+      v-if="activeView !== 'chat' && sessionObjective"
+      class="conv-objective-strip"
+      scope="session"
+      :objective="sessionObjective"
+      :status="sessionObjectiveStatus"
+      @reveal="revealObjective"
+    />
+
     <!-- Floating scroll buttons -->
     <Transition name="fab">
       <div v-if="hasOverflow && (!isLockedToBottom || showScrollToTop)" class="scroll-fab-group">
@@ -484,6 +528,13 @@ function retryLoadTurns() {
 </template>
 
 <style scoped>
+.conv-objective-strip {
+  position: sticky;
+  bottom: 12px;
+  z-index: 8;
+  margin: 12px auto 0;
+}
+
 /* Highlight animation for scroll-to-turn from search deep-links */
 .turn-highlight {
   animation: turn-flash 4s ease-out;

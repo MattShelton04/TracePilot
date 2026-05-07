@@ -96,6 +96,7 @@ impl ModelDistributionAccumulator {
                     input_tokens: totals.input_tokens,
                     output_tokens: totals.output_tokens,
                     cache_read_tokens: totals.cache_read_tokens,
+                    cache_write_tokens: totals.cache_write_tokens,
                     premium_requests: totals.premium_cost,
                     request_count: totals.request_count,
                     reasoning_tokens: if totals.has_reasoning_data {

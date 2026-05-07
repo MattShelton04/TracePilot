@@ -46,6 +46,12 @@ const dismissedVersion = useLocalStorage<string | null>(DISMISSED_KEY, null, {
   flush: "sync",
 });
 
+const isCollapsed = useLocalStorage<boolean>(STORAGE_KEYS.sidebarCollapsed, false);
+
+function toggleCollapsed() {
+  isCollapsed.value = !isCollapsed.value;
+}
+
 const hasUpdate = computed(() => {
   if (updateResult.value?.hasUpdate !== true) return false;
   return updateResult.value.latestVersion !== dismissedVersion.value;
@@ -74,14 +80,65 @@ async function handleVersionClick() {
 </script>
 
 <template>
-  <aside class="sidebar" role="navigation" aria-label="Main navigation" data-testid="app-sidebar">
+  <aside
+    class="sidebar"
+    :class="{ collapsed: isCollapsed }"
+    role="navigation"
+    aria-label="Main navigation"
+    data-testid="app-sidebar"
+  >
     <!-- Brand -->
     <div class="sidebar-brand">
       <div class="sidebar-brand-icon" aria-hidden="true">
         <LogoIcon :size="24" />
       </div>
       <span class="sidebar-brand-text">TracePilot</span>
+      <button
+        v-if="!isCollapsed"
+        type="button"
+        class="sidebar-collapse-toggle"
+        data-testid="sidebar-collapse-toggle"
+        aria-label="Collapse sidebar"
+        :aria-pressed="isCollapsed"
+        title="Collapse sidebar"
+        @click="toggleCollapsed"
+      >
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          aria-hidden="true"
+        >
+          <polyline points="10,3 5,8 10,13" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </button>
     </div>
+
+    <!-- Collapsed-only expand handle: a clear, discoverable affordance. -->
+    <button
+      v-if="isCollapsed"
+      type="button"
+      class="sidebar-expand-handle"
+      data-testid="sidebar-brand-expand"
+      aria-label="Expand sidebar"
+      title="Expand sidebar"
+      @click="toggleCollapsed"
+    >
+      <svg
+        width="12"
+        height="12"
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.75"
+        aria-hidden="true"
+      >
+        <polyline points="6,3 11,8 6,13" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+    </button>
 
     <!-- Navigation -->
     <nav class="sidebar-nav">
@@ -92,6 +149,7 @@ async function handleVersionClick() {
         :to="item.to"
         :data-nav-id="item.id"
         :data-testid="`nav-${item.id}`"
+        :title="item.label"
         class="sidebar-nav-item"
         :class="{ active: activeSidebarId === item.id }"
         @click="item.id === 'sessions' && emit('nav-sessions')"
@@ -128,6 +186,7 @@ async function handleVersionClick() {
         :to="item.to"
         :data-nav-id="item.id"
         :data-testid="`nav-${item.id}`"
+        :title="item.label"
         class="sidebar-nav-item"
         :class="{ active: activeSidebarId === item.id }"
       >
@@ -153,6 +212,7 @@ async function handleVersionClick() {
         :to="item.to"
         :data-nav-id="item.id"
         :data-testid="`nav-${item.id}`"
+        :title="item.label"
         class="sidebar-nav-item"
         :class="{ active: activeSidebarId === item.id }"
       >
@@ -178,6 +238,7 @@ async function handleVersionClick() {
           :key="item.id"
           :to="item.to"
           :data-nav-id="item.id"
+          :title="item.label"
           class="sidebar-nav-item"
           :class="{ active: activeSidebarId === item.id }"
         >
@@ -197,6 +258,7 @@ async function handleVersionClick() {
         to="/settings"
         data-nav-id="settings"
         data-testid="nav-settings"
+        title="Settings"
         class="sidebar-nav-item"
         :class="{ active: activeSidebarId === 'settings' }"
       >

@@ -58,6 +58,7 @@ export interface ModelRow {
   inputTokens: number;
   outputTokens: number;
   cacheReadTokens: number;
+  cacheWriteTokens: number;
   percentage: number;
   premiumRequests: number;
   cacheHitRate: number;
@@ -175,6 +176,7 @@ export function useModelComparison() {
         m.inputTokens,
         m.cacheReadTokens,
         m.outputTokens,
+        m.cacheWriteTokens ?? 0,
       );
       const copilotCost = premiumRequests * prefs.costPerPremiumRequest;
       return {
@@ -184,6 +186,7 @@ export function useModelComparison() {
         inputTokens: m.inputTokens,
         outputTokens: m.outputTokens,
         cacheReadTokens: m.cacheReadTokens,
+        cacheWriteTokens: m.cacheWriteTokens ?? 0,
         percentage,
         premiumRequests,
         cacheHitRate,

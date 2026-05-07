@@ -3,9 +3,11 @@
 // inline transition, scroll container, prev/next nav). Both the conversation
 // slide-out and the agent-tree inline panel render this same body so they
 // cannot drift.
-import { computed, ref, useSlots, watch } from "vue";
+import { computed, nextTick, ref, useSlots, watch } from "vue";
 import { getAgentColor, getAgentIcon } from "../../utils/agentTypes";
 import { formatDuration, formatLiveDuration } from "../../utils/formatters";
+import { getSubagentObjective } from "../../utils/objective";
+import ObjectiveBanner from "../ObjectiveBanner.vue";
 import SubagentActivityStream from "./SubagentActivityStream.vue";
 import SubagentCollapsibleBlock from "./SubagentCollapsibleBlock.vue";
 import SubagentModelWarning from "./SubagentModelWarning.vue";
@@ -56,8 +58,44 @@ const headerDuration = computed(() => {
 
 const promptExpanded = ref(false);
 const outputExpanded = ref(false);
+const bodyEl = ref<HTMLElement | null>(null);
 
 const descriptionText = computed(() => props.view.intentSummary || props.view.description || "");
+
+const currentObjective = computed(() => getSubagentObjective(props.view.activities));
+
+const objectiveStatus = computed<"running" | "completed" | "failed" | "idle">(() => {
+  switch (status.value) {
+    case "completed":
+      return "completed";
+    case "failed":
+      return "failed";
+    default:
+      return currentObjective.value ? "running" : "idle";
+  }
+});
+
+function revealObjective(info: { eventIndex?: number; toolCallId?: string }) {
+  const root = bodyEl.value;
+  if (!root) return;
+
+  const selector =
+    info.eventIndex != null
+      ? `[data-sap-event-idx="${info.eventIndex}"]`
+      : info.toolCallId
+        ? `[data-sap-tool-call-id="${CSS.escape(info.toolCallId)}"]`
+        : null;
+  if (!selector) return;
+
+  const target = root.querySelector<HTMLElement>(selector);
+  if (!target) return;
+
+  nextTick(() => {
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
+    target.classList.add("sap-reveal-highlight");
+    window.setTimeout(() => target.classList.remove("sap-reveal-highlight"), 1800);
+  });
+}
 
 watch(
   () => props.view.id,
@@ -79,7 +117,7 @@ watch(
     @close="emit('close')"
   />
 
-  <div class="sap-body">
+  <div ref="bodyEl" class="sap-body">
     <SubagentModelWarning
       v-if="view.modelSubstituted && view.requestedModel && view.model"
       :requested-model="view.requestedModel"
@@ -138,11 +176,44 @@ watch(
         <slot name="tool" v-bind="slotProps" />
       </template>
     </SubagentActivityStream>
+
+    <ObjectiveBanner
+      v-if="currentObjective"
+      class="sap-objective sap-objective-footer"
+      scope="subagent"
+      :objective="currentObjective"
+      :status="objectiveStatus"
+      :accent-color="agentColor"
+      @reveal="revealObjective"
+    />
   </div>
 </template>
 
 <style scoped>
 .sap-body { padding: 12px 16px; display: flex; flex-direction: column; gap: 12px; }
+.sap-objective {
+  align-self: center;
+  margin-bottom: 2px;
+}
+.sap-objective-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  margin-top: 4px;
+}
+:deep(.sap-reveal-highlight) {
+  animation: sapRevealFlash 1.8s ease-out;
+}
+@keyframes sapRevealFlash {
+  0%,
+  45% {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-emphasis, #58a6ff) 65%, transparent);
+    background: color-mix(in srgb, var(--accent-emphasis, #58a6ff) 14%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
 .sap-section { margin: 0; }
 .sap-section-label { font-size: 0.6875rem; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
 .sap-description { font-size: 0.8125rem; color: var(--text-secondary); line-height: 1.5; margin: 0; }

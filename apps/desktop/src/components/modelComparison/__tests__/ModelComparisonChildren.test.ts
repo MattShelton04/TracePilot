@@ -27,6 +27,7 @@ function makeRow(overrides: Partial<ModelRow> = {}): ModelRow {
     inputTokens: 600,
     outputTokens: 400,
     cacheReadTokens: 100,
+    cacheWriteTokens: 0,
     percentage: 50,
     premiumRequests: 2,
     cacheHitRate: 16.67,

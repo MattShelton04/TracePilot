@@ -128,6 +128,8 @@ function richEnabled(toolName: string): boolean {
         <div
           v-else-if="item.kind === 'pill'"
           :class="['sap-pill', `sap-pill--${item.type}`]"
+          :data-sap-event-idx="item.toolCall.eventIndex ?? undefined"
+          :data-sap-tool-call-id="item.toolCall.toolCallId ?? undefined"
         >
           <span class="sap-pill-icon">{{ pillIcon(item.type) }}</span>
           <span class="sap-pill-label">{{ item.label }}</span>

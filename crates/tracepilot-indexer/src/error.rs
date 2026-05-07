@@ -36,6 +36,10 @@ pub enum IndexerError {
     /// Session parsing error (from tracepilot-core).
     #[error(transparent)]
     SessionParse(#[from] tracepilot_core::TracePilotError),
+
+    /// JSON parsing failed for structured analytics payloads stored in the index.
+    #[error(transparent)]
+    Json(#[from] serde_json::Error),
 }
 
 pub type Result<T> = std::result::Result<T, IndexerError>;

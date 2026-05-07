@@ -23,12 +23,28 @@ export interface AnalyticsData {
     inputTokens: number;
     outputTokens: number;
     cacheReadTokens: number;
+    /**
+     * Cache-write (a.k.a. cache-creation) tokens. Billed separately from
+     * `inputTokens` on Anthropic-style models. Older indexer rows that
+     * predate cache-write aggregation default to 0.
+     */
+    cacheWriteTokens: number;
     premiumRequests: number;
     requestCount: number;
     reasoningTokens?: number | null;
   }>;
   /** Cost per day for trend charts */
   costByDay: Array<{ date: string; cost: number }>;
+  /** Per-day model token usage for exact local/direct API cost trends */
+  modelUsageByDay: Array<{
+    date: string;
+    model: string;
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadTokens: number;
+    cacheWriteTokens: number;
+    reasoningTokens?: number | null;
+  }>;
   /** API duration statistics (avg, median, p95 of total_api_duration_ms per session) */
   apiDurationStats: ApiDurationStats;
   /** Productivity heuristics */
