@@ -46,7 +46,7 @@ describe("SessionList", () => {
     const wrapper = mount(SessionList, {
       props: { sessions },
     });
-    await wrapper.find("[role='button']").trigger("click");
+    await wrapper.find("[role='link']").trigger("click");
     expect(wrapper.emitted("select")).toBeTruthy();
     expect(wrapper.emitted("select")?.[0]).toEqual(["click-me"]);
   });

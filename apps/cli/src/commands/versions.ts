@@ -16,6 +16,7 @@ import {
   scanSessionVersions,
 } from "../lib/version-analyzer.js";
 import { handleValidationError } from "../utils/errorHandler.js";
+import { printJson } from "./utils.js";
 
 // ── Shared helpers ───────────────────────────────────────────────────
 
@@ -49,7 +50,7 @@ export async function versionsListCommand(opts: { json?: boolean }) {
       agentNames: v.agents.map((a) => a.name),
       path: v.path,
     }));
-    console.log(JSON.stringify(data, null, 2));
+    printJson(data);
     return;
   }
 
@@ -90,14 +91,14 @@ export async function versionsDiffCommand(v1?: string, v2?: string, opts?: { jso
 
     const diff = diffVersions(ver1, ver2);
     if (opts?.json) {
-      console.log(JSON.stringify(diff, null, 2));
+      printJson(diff);
     } else {
       printDiff(diff);
     }
   } else {
     const diffs = diffAllVersions(versions);
     if (opts?.json) {
-      console.log(JSON.stringify(diffs, null, 2));
+      printJson(diffs);
     } else {
       for (const diff of diffs) {
         printDiff(diff);
@@ -202,7 +203,7 @@ export async function versionsCoverageCommand(opts: { json?: boolean }) {
         })),
       })),
     };
-    console.log(JSON.stringify(serializable, null, 2));
+    printJson(serializable);
     return;
   }
 
@@ -312,7 +313,7 @@ export async function versionsExamplesCommand(opts: { eventType?: string; json?:
     const examples = await findEventExamples(opts.eventType);
 
     if (opts.json) {
-      console.log(JSON.stringify(examples, null, 2));
+      printJson(examples);
       return;
     }
 
@@ -371,7 +372,7 @@ export async function versionsExamplesCommand(opts: { eventType?: string; json?:
         })),
         sessionsScanned: sessionInfo.length,
       };
-      console.log(JSON.stringify(data, null, 2));
+      printJson(data);
       return;
     }
 
