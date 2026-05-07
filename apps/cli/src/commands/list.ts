@@ -6,7 +6,13 @@ import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import chalk from "chalk";
 import { handleValidationError, wrapCommand } from "../utils/errorHandler.js";
-import { fileExists, parseWorkspace, requireSessionStateDir, UUID_REGEX } from "./utils.js";
+import {
+  fileExists,
+  parseWorkspace,
+  printJson,
+  requireSessionStateDir,
+  UUID_REGEX,
+} from "./utils.js";
 
 interface SessionInfo {
   id: string;
@@ -110,7 +116,7 @@ export async function listSessionsCommand(options: {
     sessions = sessions.slice(0, limit);
 
     if (options.json) {
-      console.log(JSON.stringify(sessions, null, 2));
+      printJson(sessions);
       return;
     }
 

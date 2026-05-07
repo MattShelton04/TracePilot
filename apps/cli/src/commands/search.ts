@@ -11,6 +11,7 @@ import { handleValidationError, wrapCommand } from "../utils/errorHandler.js";
 import {
   fileExists,
   parseWorkspace,
+  printJson,
   requireSessionStateDir,
   streamEvents,
   UUID_REGEX,
@@ -168,7 +169,7 @@ export async function searchCommand(query: string, options: { json?: boolean }) 
     const hits = await searchSessions(query);
 
     if (options.json) {
-      console.log(JSON.stringify(hits, null, 2));
+      printJson(hits);
       return;
     }
 

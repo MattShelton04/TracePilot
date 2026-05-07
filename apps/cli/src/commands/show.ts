@@ -15,6 +15,7 @@ import {
   formatTokens,
   getSessionStateDir,
   parseWorkspace,
+  printJson,
   streamEvents,
 } from "./utils.js";
 
@@ -451,7 +452,7 @@ export async function showSessionCommand(
 
     // ── JSON output ──
     if (options.json) {
-      console.log(JSON.stringify(jsonOutput, null, 2));
+      printJson(jsonOutput);
     }
   }, "Failed to show session");
 }

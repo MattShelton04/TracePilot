@@ -134,3 +134,10 @@ export async function fileExists(path: string): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Print a value as formatted JSON to stdout.
+ */
+export function printJson(data: unknown): void {
+  console.log(JSON.stringify(data, null, 2));
+}
