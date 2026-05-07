@@ -25,6 +25,7 @@
   overflow: hidden;
   will-change: width, min-width;
   contain: layout paint;
+  position: relative;
 }
 .sidebar-brand {
   display: flex;
@@ -73,22 +74,6 @@
   font-size: 13px;
   flex-shrink: 0;
   box-shadow: 0 2px 8px var(--accent-muted);
-}
-.sidebar-brand-button {
-  border: 0;
-  padding: 0;
-  cursor: pointer;
-  transition:
-    filter var(--transition-fast),
-    transform var(--transition-fast);
-}
-.sidebar-brand-button:hover {
-  filter: brightness(1.08);
-  transform: translateY(-1px);
-}
-.sidebar-brand-button:focus-visible {
-  outline: 2px solid var(--accent-emphasis);
-  outline-offset: 2px;
 }
 .sidebar-brand-text {
   font-size: 0.875rem;
@@ -350,30 +335,68 @@
   min-width: var(--sidebar-collapsed);
 }
 .sidebar.collapsed .sidebar-brand {
-  padding: 14px 8px 12px;
+  padding: 14px 8px 8px;
   justify-content: center;
+  position: relative;
 }
 .sidebar.collapsed .sidebar-brand-text {
   opacity: 0;
   max-width: 0;
   pointer-events: none;
 }
-.sidebar.collapsed .sidebar-brand {
-  position: relative;
+.sidebar-expand-handle {
+  position: absolute;
+  top: 16px;
+  right: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border-default);
+  border-right: 0;
+  background: var(--canvas-default);
+  color: var(--text-tertiary);
+  border-radius: var(--radius-full, 999px) 0 0 var(--radius-full, 999px);
+  cursor: pointer;
+  transition:
+    color var(--transition-fast),
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    transform var(--transition-fast);
+}
+.sidebar-expand-handle:hover {
+  color: var(--text-primary);
+  border-color: var(--accent-emphasis);
+  background: var(--accent-subtle);
+  transform: translateX(-1px);
+}
+.sidebar-expand-handle:focus-visible {
+  outline: 2px solid var(--accent-emphasis);
+  outline-offset: 2px;
 }
 .sidebar.collapsed .sidebar-nav {
   padding: 4px 6px;
 }
 .sidebar.collapsed .sidebar-nav-item {
   justify-content: center;
-  padding: 8px 0;
+  padding: 0;
+  height: 36px;
+  width: 36px;
+  margin: 0 auto;
+  gap: 0;
 }
 .sidebar.collapsed .sidebar-nav-item > span:not(.nav-icon),
 .sidebar.collapsed .sidebar-nav-badge {
-  opacity: 0;
-  max-width: 0;
-  pointer-events: none;
-  visibility: hidden;
+  display: none;
+}
+.sidebar.collapsed .sidebar-nav-item .nav-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .sidebar.collapsed .sidebar-section-title {
   display: none;

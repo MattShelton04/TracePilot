@@ -95,7 +95,7 @@
 }
 
 .model-comparison-feature .matrix-table {
-  min-width: 1120px;
+  min-width: 920px;
 }
 
 .model-comparison-feature .matrix-table th:first-child,
@@ -333,31 +333,31 @@
 }
 
 .model-comparison-feature .col-model {
-  width: 244px;
+  width: 196px;
 }
 
 .model-comparison-feature .col-total {
-  width: 122px;
+  width: 92px;
 }
 
 .model-comparison-feature .col-input {
-  width: 122px;
+  width: 92px;
 }
 
 .model-comparison-feature .col-output {
-  width: 112px;
+  width: 92px;
 }
 
 .model-comparison-feature .col-cached {
-  width: 172px;
+  width: 132px;
 }
 
 .model-comparison-feature .col-share {
-  width: 170px;
+  width: 130px;
 }
 
 .model-comparison-feature .col-cost {
-  width: 116px;
+  width: 96px;
 }
 
 .model-comparison-feature .col-quarter {

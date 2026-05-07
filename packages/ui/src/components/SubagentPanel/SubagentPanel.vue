@@ -172,8 +172,7 @@ watch(
   position: sticky;
   bottom: 0;
   z-index: 2;
-  margin-top: 6px;
-  box-shadow: 0 -8px 18px var(--shadow-color, rgba(0, 0, 0, 0.16));
+  margin-top: 4px;
 }
 .sap-section { margin: 0; }
 .sap-section-label { font-size: 0.6875rem; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }

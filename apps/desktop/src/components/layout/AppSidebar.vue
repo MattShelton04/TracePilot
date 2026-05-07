@@ -89,18 +89,7 @@ async function handleVersionClick() {
   >
     <!-- Brand -->
     <div class="sidebar-brand">
-      <button
-        v-if="isCollapsed"
-        type="button"
-        class="sidebar-brand-icon sidebar-brand-button"
-        data-testid="sidebar-brand-expand"
-        aria-label="Expand sidebar"
-        title="Expand sidebar"
-        @click="toggleCollapsed"
-      >
-        <LogoIcon :size="24" />
-      </button>
-      <div v-else class="sidebar-brand-icon" aria-hidden="true">
+      <div class="sidebar-brand-icon" aria-hidden="true">
         <LogoIcon :size="24" />
       </div>
       <span class="sidebar-brand-text">TracePilot</span>
@@ -127,6 +116,29 @@ async function handleVersionClick() {
         </svg>
       </button>
     </div>
+
+    <!-- Collapsed-only expand handle: a clear, discoverable affordance. -->
+    <button
+      v-if="isCollapsed"
+      type="button"
+      class="sidebar-expand-handle"
+      data-testid="sidebar-brand-expand"
+      aria-label="Expand sidebar"
+      title="Expand sidebar"
+      @click="toggleCollapsed"
+    >
+      <svg
+        width="12"
+        height="12"
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.75"
+        aria-hidden="true"
+      >
+        <polyline points="6,3 11,8 6,13" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+    </button>
 
     <!-- Navigation -->
     <nav class="sidebar-nav">

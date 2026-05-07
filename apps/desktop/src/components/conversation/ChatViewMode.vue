@@ -569,19 +569,12 @@ defineExpose({ revealEvent });
   z-index: 12;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding-top: 10px;
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--canvas-default, #0d1117) 0%, transparent) 0%,
-    var(--canvas-default, #0d1117) 32%
-  );
+  background: var(--canvas-default, #0d1117);
 }
 
 .cv-objective-strip {
-  width: min(720px, calc(100% - 32px));
-  margin: 0 auto;
-  box-shadow: 0 8px 24px var(--shadow-color, rgba(0, 0, 0, 0.22));
+  width: 100%;
+  margin: 0;
 }
 
 /* ─── Deep-link highlight animation ────────────────────────────── */

@@ -532,9 +532,9 @@ function revealObjective(info: { eventIndex?: number; toolCallId?: string }) {
   position: sticky;
   bottom: 0;
   z-index: 8;
-  width: min(720px, 100%);
-  margin: 16px auto 0;
-  box-shadow: 0 8px 24px var(--shadow-color, rgba(0, 0, 0, 0.22));
+  width: 100%;
+  margin: 8px 0 0;
+  background: var(--canvas-default, #0d1117);
 }
 
 /* Highlight animation for scroll-to-turn from search deep-links */

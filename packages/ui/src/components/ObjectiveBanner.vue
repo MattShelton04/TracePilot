@@ -110,10 +110,10 @@ function handleClick() {
   align-items: center;
   gap: 8px;
   min-width: 0;
-  padding: 7px 10px;
-  border: 1px solid color-mix(in srgb, var(--ob-accent) 20%, var(--border-default, transparent));
-  border-radius: var(--radius-md, 8px);
-  background: color-mix(in srgb, var(--ob-accent) 6%, var(--canvas-overlay, var(--canvas-default, #0d1117)));
+  padding: 4px 10px;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--ob-accent) 18%, var(--border-muted, transparent));
+  background: transparent;
   color: var(--text-secondary, #b1bac4);
   font-size: 0.75rem;
   line-height: 1.3;
@@ -121,32 +121,30 @@ function handleClick() {
 
 .objective-banner.empty {
   --ob-accent: var(--text-tertiary, #8b949e);
-  background: var(--canvas-subtle, var(--canvas-default, #0d1117));
+  border-top-color: var(--border-muted, transparent);
 }
 
 .ob-dot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: var(--ob-accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ob-accent) 12%, transparent);
 }
 
 .status-running .ob-dot {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ob-accent) 14%, transparent);
   animation: objectiveDot 1.5s ease-in-out infinite;
 }
 
 .objective-banner.empty .ob-dot {
   opacity: 0.45;
-  box-shadow: none;
 }
 
 .ob-label {
   color: var(--text-tertiary, #8b949e);
   font-size: 0.6875rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
 .ob-text {
@@ -161,6 +159,7 @@ function handleClick() {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  padding: 0;
 }
 
 button.ob-text {
@@ -186,23 +185,20 @@ button.ob-text:focus-visible {
 .ob-updates,
 .ob-status {
   justify-self: end;
-  border-radius: var(--radius-full, 999px);
-  background: color-mix(in srgb, var(--ob-accent) 12%, transparent);
-  color: color-mix(in srgb, var(--ob-accent) 82%, var(--text-primary, #f0f6fc));
-  font-size: 0.625rem;
-  font-weight: 700;
+  font-size: 0.6875rem;
+  font-weight: 500;
   line-height: 1;
   white-space: nowrap;
+  color: var(--text-tertiary, #8b949e);
 }
 
 .ob-updates {
-  padding: 3px 5px;
+  color: color-mix(in srgb, var(--ob-accent) 70%, var(--text-tertiary, #8b949e));
+  font-variant-numeric: tabular-nums;
 }
 
-.ob-status {
-  padding: 4px 7px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+.ob-status-running {
+  color: color-mix(in srgb, var(--ob-accent) 80%, var(--text-secondary, #b1bac4));
 }
 
 .ob-status-completed {
@@ -218,7 +214,8 @@ button.ob-text:focus-visible {
 }
 
 .objective-banner.scope-subagent {
-  border-left-width: 3px;
+  padding-left: 8px;
+  border-left: 2px solid var(--ob-accent);
 }
 
 @keyframes objectiveDot {
