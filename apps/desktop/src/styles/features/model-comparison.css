@@ -94,6 +94,10 @@
   width: 100%;
 }
 
+.model-comparison-feature .matrix-table {
+  min-width: 1120px;
+}
+
 .model-comparison-feature .matrix-table th:first-child,
 .model-comparison-feature .matrix-table td:first-child {
   position: sticky;
@@ -118,6 +122,16 @@
   user-select: none;
   white-space: nowrap;
 }
+
+.model-comparison-feature .matrix-table th:not(:first-child) {
+  text-align: right;
+}
+
+.model-comparison-feature .matrix-table th,
+.model-comparison-feature .matrix-table td {
+  vertical-align: middle;
+}
+
 .model-comparison-feature .sort-header:hover {
   color: var(--accent-fg, var(--chart-primary-light));
 }
@@ -133,6 +147,15 @@
 .model-comparison-feature .num-cell {
   font-variant-numeric: tabular-nums;
   text-align: right;
+}
+
+.model-comparison-feature .matrix-cost-cell {
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.model-comparison-feature .matrix-cost-value {
+  white-space: nowrap;
 }
 
 .model-comparison-feature .model-name-cell {
@@ -176,7 +199,7 @@
 /* ── Scrollable Sections ──────────────────────────────────── */
 .model-comparison-feature .scrollable-section {
   max-height: 500px;
-  overflow-y: auto;
+  overflow: auto;
 }
 
 /* ── Charts ───────────────────────────────────────────────── */
@@ -310,31 +333,31 @@
 }
 
 .model-comparison-feature .col-model {
-  width: 22%;
+  width: 244px;
 }
 
 .model-comparison-feature .col-total {
-  width: 12%;
+  width: 122px;
 }
 
 .model-comparison-feature .col-input {
-  width: 11%;
+  width: 122px;
 }
 
 .model-comparison-feature .col-output {
-  width: 11%;
+  width: 112px;
 }
 
 .model-comparison-feature .col-cached {
-  width: 16%;
+  width: 172px;
 }
 
 .model-comparison-feature .col-share {
-  width: 14%;
+  width: 170px;
 }
 
 .model-comparison-feature .col-cost {
-  width: 7%;
+  width: 116px;
 }
 
 .model-comparison-feature .col-quarter {
