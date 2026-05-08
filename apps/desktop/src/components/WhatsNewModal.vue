@@ -45,7 +45,7 @@ const needsReindex = computed(() => relevantEntries.value.some((e) => e.requires
       <div class="modal-content" role="dialog" aria-labelledby="whats-new-title">
         <div class="modal-header">
           <h2 id="whats-new-title">🎉 What's New in v{{ currentVersion }}</h2>
-          <button class="modal-close" aria-label="Close" @click="emit('close')">×</button>
+          <button class="modal-close" aria-label="Close" @click="emit('close')"><span aria-hidden="true">×</span></button>
         </div>
 
         <div class="modal-body">
