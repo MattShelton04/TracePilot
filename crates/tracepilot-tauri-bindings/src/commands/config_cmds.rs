@@ -4,13 +4,9 @@ use crate::blocking_cmd;
 use crate::concurrency::IndexingSemaphores;
 use crate::config::{self, SharedConfig, TracePilotConfig};
 use crate::error::{BindingsError, CmdResult};
-use crate::helpers::{
-    mutex_poisoned, read_config, remove_index_db_files, validate_path_within,
-    validate_write_path_within,
-};
+use crate::helpers::{read_config, validate_path_within, validate_write_path_within};
+use crate::services;
 use crate::types::ValidateSessionDirResult;
-
-use super::config_paths::{copy_tracepilot_home_if_moved, validate_configured_roots};
 
 #[tauri::command]
 #[specta::specta]
@@ -32,43 +28,7 @@ pub async fn save_config(
     gates: tauri::State<'_, std::sync::Arc<IndexingSemaphores>>,
     config: TracePilotConfig,
 ) -> CmdResult<()> {
-    let old_tracepilot_home = read_config(&state).tracepilot_home();
-    let mut cfg = config;
-    cfg.normalize_paths();
-    validate_configured_roots(&cfg)?;
-    let new_tracepilot_home = cfg.tracepilot_home();
-    let (session_indexing_permit, search_indexing_permit) =
-        if old_tracepilot_home != new_tracepilot_home {
-            (
-                Some(
-                    gates
-                        .try_acquire_sessions()
-                        .map_err(|_| BindingsError::AlreadyIndexing)?,
-                ),
-                Some(
-                    gates
-                        .try_acquire_search()
-                        .map_err(|_| BindingsError::AlreadyIndexing)?,
-                ),
-            )
-        } else {
-            (None, None)
-        };
-    let cfg_for_disk = cfg.clone();
-    let cfg_for_state = cfg;
-    let config_state = std::sync::Arc::clone(&*state);
-    tokio::task::spawn_blocking(move || {
-        let _session_indexing_permit = session_indexing_permit;
-        let _search_indexing_permit = search_indexing_permit;
-        copy_tracepilot_home_if_moved(&old_tracepilot_home, &new_tracepilot_home)?;
-        cfg_for_disk.save()?;
-
-        let mut config_guard = config_state.write().map_err(|_| mutex_poisoned())?;
-        *config_guard = Some(cfg_for_state);
-        Ok::<_, BindingsError>(())
-    })
-    .await??;
-    Ok(())
+    services::config::save_config(&state, std::sync::Arc::clone(&*gates), config).await
 }
 
 #[tauri::command]
@@ -108,32 +68,7 @@ pub async fn validate_session_dir(path: String) -> CmdResult<ValidateSessionDirR
 #[tauri::command]
 #[specta::specta]
 pub async fn factory_reset(state: tauri::State<'_, SharedConfig>) -> CmdResult<()> {
-    let cfg = read_config(&state);
-    let index_path = cfg.index_db_path();
-    let config_path = config::config_file_path();
-
-    tokio::task::spawn_blocking(move || {
-        // Best-effort: log failures but don't abort the reset.
-        if let Err(e) = remove_index_db_files(&index_path) {
-            tracing::warn!(error = %e, "factory_reset: failed to remove index DB files");
-        }
-
-        if let Some(ref path) = config_path {
-            match std::fs::remove_file(path) {
-                Ok(()) => {}
-                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-                Err(e) => {
-                    tracing::warn!(error = %e, "factory_reset: failed to remove config file");
-                }
-            }
-        }
-        Ok::<(), BindingsError>(())
-    })
-    .await??;
-
-    let mut guard = state.write().map_err(|_| mutex_poisoned())?;
-    *guard = None;
-    Ok(())
+    services::config::factory_reset(&state).await
 }
 
 fn agent_backup_dir(cfg: &TracePilotConfig) -> std::path::PathBuf {

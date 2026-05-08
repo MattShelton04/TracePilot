@@ -1,7 +1,125 @@
-use crate::config::TracePilotConfig;
-use crate::error::BindingsError;
+//! Configuration service: validation, persistence and TracePilot-home migration.
+//!
+//! Owns the orchestration that used to live inline in
+//! `commands::config_cmds::save_config` / `factory_reset` so the command shells
+//! become thin adapters. Helpers like `copy_tracepilot_home_if_moved` and
+//! `validate_configured_roots` were moved here from `commands/config_paths.rs`.
 
-pub(super) fn validate_configured_roots(config: &TracePilotConfig) -> Result<(), BindingsError> {
+use std::sync::Arc;
+
+use tokio::sync::OwnedSemaphorePermit;
+
+use crate::concurrency::IndexingSemaphores;
+use crate::config::{self, SharedConfig, TracePilotConfig};
+use crate::error::{BindingsError, CmdResult};
+use crate::helpers::{mutex_poisoned, read_config, remove_index_db_files};
+
+/// Service-layer alias for [`crate::helpers::remove_index_db_files`]. Speaks
+/// the verb the docs/refactor brief uses; behaviour is identical.
+pub(crate) fn delete_index_db_files(path: &std::path::Path) -> Result<(), BindingsError> {
+    remove_index_db_files(path)
+}
+
+/// RAII pair of indexing permits held for the duration of a TracePilot-home
+/// migration. Both permits must outlive the on-disk copy so reindex jobs
+/// cannot race the move.
+struct IndexingMovePermits {
+    _sessions: OwnedSemaphorePermit,
+    _search: OwnedSemaphorePermit,
+}
+
+/// Orchestrate `save_config`:
+///
+/// 1. Read the previous on-disk `tracepilot_home`.
+/// 2. Normalise the incoming config and validate configured roots.
+/// 3. If `tracepilot_home` changed, acquire the sessions + search indexing
+///    permits up-front so we fail fast (`AlreadyIndexing`) instead of starting
+///    a half-done migration.
+/// 4. On a blocking worker, hold the permits, copy the old home into the new
+///    home, save the config to disk, and only then publish the new in-memory
+///    `SharedConfig`.
+///
+/// The blocking closure owns the permits via [`IndexingMovePermits`] so the
+/// invariant "hold both permits until the copy completes" is encoded in a type
+/// rather than relying on `let _ = …` bindings (which drop immediately).
+///
+/// Cancellation: even if the `tauri::command` future is dropped, the
+/// `spawn_blocking` task continues to completion, so the migration cannot be
+/// left half-done.
+pub(crate) async fn save_config(
+    shared_config: &SharedConfig,
+    gates: Arc<IndexingSemaphores>,
+    config: TracePilotConfig,
+) -> CmdResult<()> {
+    let old_tracepilot_home = read_config(shared_config).tracepilot_home();
+    let mut cfg = config;
+    cfg.normalize_paths();
+    validate_configured_roots(&cfg)?;
+    let new_tracepilot_home = cfg.tracepilot_home();
+
+    let move_permits = if old_tracepilot_home != new_tracepilot_home {
+        let sessions = gates
+            .try_acquire_sessions()
+            .map_err(|_| BindingsError::AlreadyIndexing)?;
+        let search = gates
+            .try_acquire_search()
+            .map_err(|_| BindingsError::AlreadyIndexing)?;
+        Some(IndexingMovePermits {
+            _sessions: sessions,
+            _search: search,
+        })
+    } else {
+        None
+    };
+
+    let cfg_for_disk = cfg.clone();
+    let cfg_for_state = cfg;
+    let config_state = Arc::clone(shared_config);
+
+    tokio::task::spawn_blocking(move || {
+        let _move_permits = move_permits;
+        copy_tracepilot_home_if_moved(&old_tracepilot_home, &new_tracepilot_home)?;
+        cfg_for_disk.save()?;
+
+        let mut config_guard = config_state.write().map_err(|_| mutex_poisoned())?;
+        *config_guard = Some(cfg_for_state);
+        Ok::<_, BindingsError>(())
+    })
+    .await??;
+    Ok(())
+}
+
+/// Orchestrate `factory_reset`: remove index DB files and the config file on a
+/// blocking worker, then clear the in-memory `SharedConfig`.
+pub(crate) async fn factory_reset(shared_config: &SharedConfig) -> CmdResult<()> {
+    let cfg = read_config(shared_config);
+    let index_path = cfg.index_db_path();
+    let config_path = config::config_file_path();
+
+    tokio::task::spawn_blocking(move || {
+        if let Err(e) = delete_index_db_files(&index_path) {
+            tracing::warn!(error = %e, "factory_reset: failed to remove index DB files");
+        }
+
+        if let Some(ref path) = config_path {
+            match std::fs::remove_file(path) {
+                Ok(()) => {}
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                Err(e) => {
+                    tracing::warn!(error = %e, "factory_reset: failed to remove config file");
+                }
+            }
+        }
+        Ok::<(), BindingsError>(())
+    })
+    .await??;
+
+    let mut guard = shared_config.write().map_err(|_| mutex_poisoned())?;
+    *guard = None;
+    Ok(())
+}
+
+pub(crate) fn validate_configured_roots(config: &TracePilotConfig) -> Result<(), BindingsError> {
     validate_absolute_path("Copilot home", &config.copilot_home())?;
     validate_absolute_path("TracePilot data directory", &config.tracepilot_home())?;
     let tracepilot_home = config.tracepilot_home();
@@ -41,7 +159,7 @@ fn validate_absolute_path(label: &str, path: &std::path::Path) -> Result<(), Bin
     Ok(())
 }
 
-pub(super) fn copy_tracepilot_home_if_moved(
+pub(crate) fn copy_tracepilot_home_if_moved(
     old_root: &std::path::Path,
     new_root: &std::path::Path,
 ) -> Result<(), BindingsError> {
@@ -233,5 +351,20 @@ mod tests {
             std::fs::read_to_string(new.templates_dir().join("new.json")).unwrap(),
             "old-new"
         );
+    }
+
+    #[test]
+    fn delete_index_db_files_alias_resolves() {
+        // The alias `delete_index_db_files` must point at the same function as
+        // `helpers::remove_index_db_files` (it's a 1-call wrapper); construct
+        // function-pointers and ensure they stay in lockstep.
+        let alias: fn(&std::path::Path) -> Result<(), BindingsError> = delete_index_db_files;
+        let original: fn(&std::path::Path) -> Result<(), BindingsError> = remove_index_db_files;
+        // They are different fn items but must produce the same `Ok(())` for a
+        // missing path.
+        let dir = tempfile::tempdir().unwrap();
+        let missing = dir.path().join("does-not-exist.db");
+        assert!(alias(&missing).is_ok());
+        assert!(original(&missing).is_ok());
     }
 }
