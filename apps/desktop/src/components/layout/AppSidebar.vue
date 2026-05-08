@@ -154,7 +154,7 @@ async function handleVersionClick() {
         :class="{ active: activeSidebarId === item.id }"
         @click="item.id === 'sessions' && emit('nav-sessions')"
       >
-        <span class="nav-icon">
+        <span class="nav-icon" aria-hidden="true">
           <!-- sessions -->
           <svg v-if="item.icon === 'sessions'" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>
           <!-- search -->
@@ -190,7 +190,7 @@ async function handleVersionClick() {
         class="sidebar-nav-item"
         :class="{ active: activeSidebarId === item.id }"
       >
-        <span class="nav-icon">
+        <span class="nav-icon" aria-hidden="true">
           <!-- models -->
           <svg v-if="item.icon === 'models'" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="4" cy="4" r="2.5"/><circle cx="12" cy="4" r="2.5"/><circle cx="8" cy="12" r="2.5"/><path d="M6 5l2 5M10 5l-2 5"/></svg>
           <!-- compare -->
@@ -216,7 +216,7 @@ async function handleVersionClick() {
         class="sidebar-nav-item"
         :class="{ active: activeSidebarId === item.id }"
       >
-        <span class="nav-icon">
+        <span class="nav-icon" aria-hidden="true">
           <!-- orchestration (command center) -->
           <svg v-if="item.icon === 'orchestration'" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="14" height="14" rx="2"/><circle cx="8" cy="8" r="2"/><path d="M8 3v3M8 10v3M3 8h3M10 8h3"/></svg>
           <!-- worktrees -->
@@ -242,7 +242,7 @@ async function handleVersionClick() {
           class="sidebar-nav-item"
           :class="{ active: activeSidebarId === item.id }"
         >
-          <span class="nav-icon">
+          <span class="nav-icon" aria-hidden="true">
             <!-- mcp -->
             <svg v-if="item.icon === 'mcp'" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="5" rx="1"/><rect x="2" y="9" width="12" height="5" rx="1"/><circle cx="4.5" cy="4.5" r="0.75" fill="currentColor" stroke="none"/><circle cx="4.5" cy="11.5" r="0.75" fill="currentColor" stroke="none"/><path d="M11 4.5h1M11 11.5h1"/></svg>
             <!-- skills -->
@@ -262,7 +262,7 @@ async function handleVersionClick() {
         class="sidebar-nav-item"
         :class="{ active: activeSidebarId === 'settings' }"
       >
-        <span class="nav-icon">
+        <span class="nav-icon" aria-hidden="true">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
             <path d="M6.7 1h2.6l.4 2.1a5.5 5.5 0 0 1 1.3.8l2-.8 1.3 2.2-1.6 1.4a5.6 5.6 0 0 1 0 1.6l1.6 1.4-1.3 2.2-2-.8a5.5 5.5 0 0 1-1.3.8L9.3 15H6.7l-.4-2.1a5.5 5.5 0 0 1-1.3-.8l-2 .8-1.3-2.2 1.6-1.4a5.6 5.6 0 0 1 0-1.6L1.7 6.3 3 4.1l2 .8a5.5 5.5 0 0 1 1.3-.8L6.7 1Z" />
             <circle cx="8" cy="8" r="2" />
@@ -279,7 +279,7 @@ async function handleVersionClick() {
         <div v-if="hasUpdate" class="sidebar-update-notice">
           <div class="sidebar-update-header">
             <div class="sidebar-update-content">
-              <span class="sidebar-update-icon">🎉</span>
+              <span class="sidebar-update-icon" aria-hidden="true">🎉</span>
               <span class="sidebar-update-text">
                 <strong>v{{ updateResult?.latestVersion }}</strong> available
               </span>
@@ -289,7 +289,7 @@ async function handleVersionClick() {
               aria-label="Dismiss update notification"
               @click="dismissUpdate"
             >
-              ×
+              <span aria-hidden="true">×</span>
             </button>
           </div>
           <div class="sidebar-update-actions">
@@ -319,7 +319,7 @@ async function handleVersionClick() {
           :aria-label="`Alerts${alertsStore.unreadCount > 0 ? ` (${alertsStore.unreadCount} unread)` : ''}`"
           @click="alertsStore.toggleDrawer()"
         >
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
             <path d="M4 6a4 4 0 018 0c0 2 1 4 2 5H2c1-1 2-3 2-5z" />
             <path d="M6.5 13a1.5 1.5 0 003 0" />
           </svg>
@@ -334,12 +334,12 @@ async function handleVersionClick() {
           @click="toggleTheme"
         >
           <!-- Sun (shown in dark mode) -->
-          <svg v-if="currentTheme === 'dark'" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <svg v-if="currentTheme === 'dark'" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
             <circle cx="8" cy="8" r="3" />
             <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.5 3.5l1.5 1.5M11 11l1.5 1.5M12.5 3.5l-1.5 1.5M5 11l-1.5 1.5" />
           </svg>
           <!-- Moon (shown in light mode) -->
-          <svg v-else width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <svg v-else width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
             <path d="M13.5 8.5a5.5 5.5 0 01-6-6 5.5 5.5 0 106 6z" />
           </svg>
         </button>

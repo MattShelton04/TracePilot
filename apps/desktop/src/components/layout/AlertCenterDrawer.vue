@@ -79,7 +79,7 @@ function handleClose() {
               title="Mark all as read"
               @click="alertsStore.markAllRead()"
             >
-              ✓ Read all
+              <span aria-hidden="true">✓</span> Read all
             </button>
             <button
               v-if="hasAlerts"
@@ -94,13 +94,13 @@ function handleClose() {
               aria-label="Close alert center"
               @click="handleClose"
             >
-              ×
+              <span aria-hidden="true">×</span>
             </button>
           </div>
         </div>
 
         <div v-if="!hasAlerts" class="alert-drawer-empty">
-          <div class="alert-drawer-empty-icon">🔔</div>
+          <div class="alert-drawer-empty-icon" aria-hidden="true">🔔</div>
           <div class="alert-drawer-empty-text">No alerts yet</div>
           <div class="alert-drawer-empty-hint">
             Alerts appear here when sessions complete, need input, or encounter errors.
@@ -118,7 +118,7 @@ function handleClose() {
             @click="handleAlertClick(alert)"
             @keydown.enter="handleAlertClick(alert)"
           >
-            <div class="alert-item-icon">{{ iconForType(alert.type) }}</div>
+            <div class="alert-item-icon" aria-hidden="true">{{ iconForType(alert.type) }}</div>
             <div class="alert-item-content">
               <div class="alert-item-title">{{ alert.title }}</div>
               <div class="alert-item-body">{{ alert.body }}</div>
@@ -126,10 +126,11 @@ function handleClose() {
             </div>
             <button
               class="alert-item-dismiss"
+              aria-label="Dismiss alert"
               title="Dismiss"
               @click.stop="alertsStore.dismiss(alert.id)"
             >
-              ×
+              <span aria-hidden="true">×</span>
             </button>
           </div>
         </div>
