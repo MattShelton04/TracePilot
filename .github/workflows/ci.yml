@@ -28,39 +28,9 @@ jobs:
         # macOS disabled for now — slow runners cause timing-sensitive test flakiness
         os: [ubuntu-latest, windows-latest]
     steps:
-      # NOTE: all third-party actions are pinned to full commit SHAs per the
-      # tech-debt plan (Phase 0.3). Renovate / Dependabot will propose SHA
-      # bumps; *never* relax to a floating tag. The `# vX.Y.Z` comment is
-      # purely informational.
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
-        with:
-          version: 9
-
-      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
-        with:
-          node-version: 20
-          cache: 'pnpm'
-          cache-dependency-path: pnpm-lock.yaml
-
-      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable (2026-03-27)
-        with:
-          components: clippy, rustfmt
-
-      - uses: Swatinem/rust-cache@f0deed1e0edfc6a9be95417288c0e1099b1eeec3 # v2.7.7
-        with:
-          cache-on-failure: true
-          shared-key: rust-${{ runner.os }}-stable
-          key: cargo-lock-${{ hashFiles('Cargo.lock') }}
-
-      - name: Install Tauri system dependencies (Linux only)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
-
-      - run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/setup-build-env
 
       # Verify all version fields are in sync (Linux only — need python3)
       - name: Check version consistency

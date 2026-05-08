@@ -10,7 +10,7 @@ edition.workspace = true
 # when the user toggle is off.
 
 [dependencies]
-tracepilot-core = { workspace = true }
+tracepilot-core = { workspace = true, features = ["specta"] }
 tracepilot-indexer = { workspace = true }
 tracepilot-orchestrator = { workspace = true }
 tracepilot-export = { workspace = true }

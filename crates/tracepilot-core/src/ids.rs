@@ -16,10 +16,14 @@
 
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "specta")]
+use specta::Type;
+
 macro_rules! impl_id_newtype {
     ($name:ident, $doc:literal) => {
         #[doc = $doc]
         #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+        #[cfg_attr(feature = "specta", derive(Type))]
         #[serde(transparent)]
         pub struct $name(String);
 

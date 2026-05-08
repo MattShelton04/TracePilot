@@ -47,6 +47,5 @@ export type RouteName = (typeof ROUTE_NAMES)[keyof typeof ROUTE_NAMES];
  */
 export function isRouteName(value: unknown): value is RouteName {
   if (typeof value !== "string") return false;
-  // biome-ignore lint/suspicious/noExplicitAny: narrow reverse-lookup over const-record
-  return Object.values(ROUTE_NAMES).includes(value as any);
+  return Object.values(ROUTE_NAMES).includes(value as RouteName);
 }

@@ -21,6 +21,7 @@ import {
   turnSubagentCount,
   turnToolCount,
 } from "@/composables/useSwimlaneLayout";
+import { usePreferencesStore } from "@/stores/preferences";
 import SwimlaneMessageLane from "./SwimlaneMessageLane.vue";
 import SwimlaneSubagentLane from "./SwimlaneSubagentLane.vue";
 
@@ -43,8 +44,8 @@ const props = defineProps<{
   selectedTool: TurnToolCall | null;
   fullResults: Map<string, string>;
   loadingResults: Set<string>;
-  // biome-ignore lint/suspicious/noExplicitAny: prefs store is exposed via composable
-  prefs: any;
+  /** Preferences store for accessing user settings and feature flags */
+  prefs: ReturnType<typeof usePreferencesStore>;
   turnOwnsSelected: ((turn: ConversationTurn) => boolean) | undefined;
   isToolSelected: (tc: TurnToolCall) => boolean;
   agentLiveDuration: (agent: TurnToolCall) => number | undefined;
