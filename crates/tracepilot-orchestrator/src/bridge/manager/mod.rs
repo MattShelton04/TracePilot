@@ -30,6 +30,8 @@ mod session_tasks;
 mod ui_server;
 
 #[cfg(test)]
+mod concurrency_tests;
+#[cfg(test)]
 mod lifecycle_tests;
 #[cfg(test)]
 mod live_state_tests;
@@ -260,11 +262,33 @@ impl BridgeManager {
         status: SessionRuntimeStatus,
         last_error: Option<String>,
     ) -> SessionLiveState {
-        let state = self.live_state.mark_status(session_id, status, last_error);
+        let state = self
+            .live_state
+            .mark_or_insert(session_id, status, last_error);
         if self.state_tx.send(state.clone()).is_err() {
             tracing::trace!("no SDK session-state subscribers");
         }
         state
+    }
+
+    /// Teardown variant of [`Self::mark_live_session_status`]: mutates the
+    /// existing slot in place and broadcasts the snapshot, but does NOT
+    /// re-create a removed entry. Returns `None` when the slot is already
+    /// gone — the expected case when called from `disconnect`-style flows
+    /// after `live_state.clear()`.
+    pub(super) fn mark_existing_session_status(
+        &self,
+        session_id: &str,
+        status: SessionRuntimeStatus,
+        last_error: Option<String>,
+    ) -> Option<SessionLiveState> {
+        let state = self
+            .live_state
+            .mark_existing(session_id, status, last_error)?;
+        if self.state_tx.send(state.clone()).is_err() {
+            tracing::trace!("no SDK session-state subscribers");
+        }
+        Some(state)
     }
 
     pub(super) fn require_client(&self) -> Result<&copilot_sdk::Client, BridgeError> {

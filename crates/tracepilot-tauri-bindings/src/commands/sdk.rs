@@ -143,7 +143,7 @@ pub async fn sdk_unlink_session(
     session_id: String,
 ) -> CmdResult<()> {
     let mut mgr = bridge.write().await;
-    mgr.unlink_session(&session_id);
+    mgr.unlink_session(&session_id).await;
     Ok(())
 }
 

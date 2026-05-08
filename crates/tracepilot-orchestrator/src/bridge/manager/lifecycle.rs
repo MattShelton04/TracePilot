@@ -3,7 +3,6 @@
 //! an existing `copilot --ui-server`) modes.
 
 use super::BridgeManager;
-use crate::bridge::live_state::SessionRuntimeStatus;
 use crate::bridge::{BridgeConnectConfig, BridgeConnectionState, BridgeError, ConnectionMode};
 
 use tracing::{info, warn};
@@ -92,22 +91,47 @@ impl BridgeManager {
     }
 
     /// Disconnect from the Copilot CLI, stopping all sessions.
+    ///
+    /// Order is critical (DEEP-06): `client.stop()` does NOT close the SDK
+    /// `Session` broadcast channels by itself — the bridge holds
+    /// `Arc<copilot_sdk::Session>` clones, so the SDK senders stay alive
+    /// until those `Arc`s drop. The forwarder loop only exits naturally on
+    /// `RecvError::Closed`, so relying on natural drain after `stop()` would
+    /// hang.
+    ///
+    /// Therefore: `client.stop()` → drain `sessions` (drops the `Arc`s) →
+    /// `abort() + await` every forwarder handle → clear `live_state`. The
+    /// abort+await pair is what makes the teardown deterministic, not the
+    /// natural-exit path.
+    ///
+    /// Live-state is cleared silently — no per-session terminal broadcast.
+    /// The renderer treats a `Disconnected` `BridgeStatus` as the canonical
+    /// "all sessions gone" signal; emitting per-session terminal events
+    /// here would just duplicate that information.
     pub async fn disconnect(&mut self) -> Result<(), BridgeError> {
-        let active_session_ids: Vec<String> = self.sessions.keys().cloned().collect();
-        for (_, handle) in self.event_tasks.drain() {
-            handle.abort();
-        }
-        self.sessions.clear();
-        for session_id in &active_session_ids {
-            self.mark_live_session_status(session_id, SessionRuntimeStatus::Unknown, None);
-        }
-
         if let Some(client) = self.client.take() {
             let errors = client.stop().await;
             if !errors.is_empty() {
                 warn!("SDK stop reported {} errors", errors.len());
             }
         }
+
+        // Drop SDK session handles before draining forwarders so each
+        // session's broadcast `Sender` count goes to zero — any in-flight
+        // recv on the forwarder side will see `RecvError::Closed`. The
+        // explicit abort+await below remains the authoritative teardown.
+        self.sessions.clear();
+
+        for (id, handle) in self.event_tasks.drain() {
+            handle.abort();
+            if let Err(e) = handle.await
+                && !e.is_cancelled()
+            {
+                warn!("event forwarder for {} failed to join cleanly: {}", id, e);
+            }
+        }
+
+        self.live_state.clear();
 
         self.state = BridgeConnectionState::Disconnected;
         self.error_message = None;

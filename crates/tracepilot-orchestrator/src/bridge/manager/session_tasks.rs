@@ -185,37 +185,92 @@ impl BridgeManager {
     /// Unlink a session from the bridge WITHOUT destroying it on the SDK side.
     /// The session stays alive in the subprocess — no `session.shutdown` event is written.
     /// This allows safe re-linking without triggering Zod re-validation.
-    pub fn unlink_session(&mut self, session_id: &str) {
+    ///
+    /// Teardown order (per DEEP-01 rubber-duck invariants):
+    ///   1. Drop the SDK session handle so the broadcast `Sender` it owns
+    ///      starts draining once all forwarder receivers stop.
+    ///   2. `abort()` the forwarder task and `await` its `JoinHandle` — only
+    ///      then is it guaranteed no further `apply_event` calls can fire.
+    ///   3. `live_state.remove(...)` clears the per-session slot. Because the
+    ///      forwarder is provably dead, no late event can resurrect it via
+    ///      `apply_event`'s create-on-first-touch branch.
+    ///
+    /// The legacy "remove → mark_status(Unknown)" pattern was unsound: the
+    /// old `mark_status` had insert-or-create semantics and would silently
+    /// re-create the slot. There is no terminal broadcast on the unlink
+    /// path because the session is intentionally NOT shut down — the SDK
+    /// process keeps it alive for re-linking.
+    pub async fn unlink_session(&mut self, session_id: &str) {
         if self.sessions.remove(session_id).is_some() {
-            if let Some(task) = self.event_tasks.remove(session_id) {
-                task.abort();
+            if let Some(handle) = self.event_tasks.remove(session_id) {
+                handle.abort();
+                if let Err(e) = handle.await
+                    && !e.is_cancelled()
+                {
+                    warn!(
+                        "event forwarder for {} failed to join cleanly: {}",
+                        session_id, e
+                    );
+                }
             }
+            self.live_state.remove(session_id);
             info!("Unlinked session {} (kept alive in subprocess)", session_id);
         } else {
             debug!("unlink_session: {} not in local session map", session_id);
+            // Defensive: if the live-state slot somehow exists without a
+            // tracked session (e.g. previous partial teardown), clear it.
+            self.live_state.remove(session_id);
         }
-        self.mark_live_session_status(session_id, SessionRuntimeStatus::Unknown, None);
     }
 
     /// Destroy a resumed session, releasing its resources.
     /// Removes it from the local session map and cancels the event forwarder.
     /// This writes a `session.shutdown` event to events.jsonl.
+    ///
+    /// Teardown follows the **deterministic-synthetic** path (DEEP-05):
+    ///   1. Take the SDK session out of the local map and abort+await the
+    ///      forwarder *before* calling `session.destroy()`. This guarantees
+    ///      that any `session.shutdown` event the SDK emits cannot race the
+    ///      reducer — no surviving forwarder is left to consume it.
+    ///   2. Drive `session.destroy()` for the SDK-side cleanup (writes the
+    ///      shutdown event to events.jsonl on disk).
+    ///   3. Synthesize one terminal `Shutdown` snapshot via
+    ///      [`mark_existing_session_status`] so live-state subscribers see
+    ///      a deterministic terminal frame even though the real shutdown
+    ///      event no longer flows through the (now-stopped) forwarder.
+    ///   4. `live_state.remove(...)` clears the slot.
+    ///
+    /// Rationale: matches DEEP-05's intent (deterministic, easy-to-test
+    /// teardown) and preserves the existing wire contract that downstream
+    /// consumers see a Shutdown emission per destroyed session.
     pub async fn destroy_session(&mut self, session_id: &str) -> Result<(), BridgeError> {
-        if let Some(session) = self.sessions.remove(session_id) {
-            // Cancel the event forwarder task
-            if let Some(task) = self.event_tasks.remove(session_id) {
-                task.abort();
+        let session = self.sessions.remove(session_id);
+
+        if let Some(handle) = self.event_tasks.remove(session_id) {
+            handle.abort();
+            if let Err(e) = handle.await
+                && !e.is_cancelled()
+            {
+                warn!(
+                    "event forwarder for {} failed to join cleanly: {}",
+                    session_id, e
+                );
             }
+        }
+
+        if let Some(session) = session {
             session.destroy().await.map_err(BridgeError::sdk)?;
+            self.mark_existing_session_status(session_id, SessionRuntimeStatus::Shutdown, None);
+            self.live_state.remove(session_id);
             info!("Destroyed session {}", session_id);
         } else {
-            // Not locally resumed — nothing to destroy
             debug!(
                 "destroy_session: {} not in local session map, skipping",
                 session_id
             );
+            // Defensive cleanup if a stray live-state slot exists.
+            self.live_state.remove(session_id);
         }
-        self.mark_live_session_status(session_id, SessionRuntimeStatus::Shutdown, None);
         Ok(())
     }
 
