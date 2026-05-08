@@ -172,7 +172,9 @@ pub(crate) fn import_from_github_path(
                         // segments without false positives on names like "..foo".
                         let has_traversal = Path::new(relative)
                             .components()
-                            .any(|c| matches!(c, std::path::Component::ParentDir));
+                            .any(|c| matches!(c, std::path::Component::ParentDir))
+                            || relative.contains('\\')
+                            || relative.starts_with('/');
                         if has_traversal || Path::new(relative).is_absolute() {
                             warnings.push(format!("Skipped '{}': unsafe path component", relative));
                             continue;
