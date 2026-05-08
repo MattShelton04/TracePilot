@@ -7,6 +7,13 @@ on:
         description: 'Benchmark run name (e.g. "pre-refactor", "v0.3.0")'
         required: false
         type: string
+  schedule:
+    # Nightly run on the default branch to populate the historical-trends
+    # dashboard with one data point per day. PRs are intentionally not run
+    # automatically — Criterion variance on shared GitHub runners is too
+    # high (~20–40%) to give actionable per-PR signal. Trigger via
+    # `workflow_dispatch` for ad-hoc before/after comparisons on a PR.
+    - cron: '0 6 * * *'
 
 permissions:
   contents: write
@@ -120,7 +127,7 @@ jobs:
           retention-days: 90
 
       - name: Store benchmark results
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
         uses: benchmark-action/github-action-benchmark@a60cea5bc7b49e15c1f58f411161f99e0df48372 # v1.22.0
         with:
           tool: 'customSmallerIsBetter'
