@@ -13,19 +13,17 @@ interface ViewModeOption {
   label: string;
 }
 
-const DEFAULT_MODES: ViewModeOption[] = [
-  { value: "chat", label: "Chat" },
-  { value: "compact", label: "Compact" },
-  { value: "timeline", label: "Timeline" },
-];
-
 const props = withDefaults(
   defineProps<{
     modelValue: ConversationViewMode;
     availableModes?: ViewModeOption[];
   }>(),
   {
-    availableModes: () => DEFAULT_MODES,
+    availableModes: () => [
+      { value: "chat", label: "Chat" },
+      { value: "compact", label: "Compact" },
+      { value: "timeline", label: "Timeline" },
+    ],
   },
 );
 

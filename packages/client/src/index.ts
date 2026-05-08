@@ -1,10 +1,10 @@
 /**
  * Barrel entry point for `@tracepilot/client`.
  *
- * Domain modules live alongside this file; see Wave 45 of
- * `docs/tech-debt-plan-revised-2026-04.md` §5.1 for the split.
- * Public API is preserved byte-for-byte — every symbol below must
- * remain importable by consumers with its original name and type.
+ * Domain modules live alongside this file; the split was performed in
+ * Wave 4 (B4-B). Public API is preserved byte-for-byte — every symbol
+ * re-exported below must remain importable by consumers with its
+ * original name and type.
  */
 
 export * from "./composables.js";
