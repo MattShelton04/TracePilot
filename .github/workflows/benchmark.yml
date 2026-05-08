@@ -15,9 +15,9 @@ permissions:
 jobs:
   benchmark:
     name: Run Criterion Benchmarks
-    # Disabled as not valuable currently. Keep this workflow manual-only so PRs
-    # don't show a benchmark workflow whose only job is intentionally skipped.
-    if: false
+    # Manual-only: this workflow is intentionally gated to `workflow_dispatch`
+    # so it doesn't run on every PR. Trigger from the Actions tab when you
+    # need a fresh perf snapshot or are validating a perf-sensitive change.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2

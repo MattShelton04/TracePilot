@@ -5,7 +5,8 @@
 use super::BridgeManager;
 use crate::bridge::{BridgeConnectConfig, BridgeConnectionState, BridgeError, ConnectionMode};
 
-use tracing::{info, warn};
+use std::time::Instant;
+use tracing::{debug, info, warn};
 
 impl BridgeManager {
     fn requested_connection_mode(config: &BridgeConnectConfig) -> ConnectionMode {
@@ -46,6 +47,18 @@ impl BridgeManager {
         self.cli_url = config.cli_url.clone();
         self.connection_cwd = config.cwd.clone();
 
+        // DEEP-03: capture connect-path timing so operators can tell whether
+        // a slow start was the SDK builder vs. `client.start()`. Reported
+        // alongside the existing "connected" info log on success.
+        let connect_started_at = Instant::now();
+        let mode = self.connection_mode.expect("set above");
+        debug!(
+            mode = %mode,
+            has_cli_url = config.cli_url.is_some(),
+            has_cwd = config.cwd.is_some(),
+            "SDK bridge connect: starting"
+        );
+
         let mut builder = copilot_sdk::Client::builder();
 
         if let Some(url) = &config.cli_url {
@@ -76,17 +89,26 @@ impl BridgeManager {
             self.error_message = Some(e.to_string());
             BridgeError::ConnectionFailed(e.to_string())
         })?;
+        let build_ms = connect_started_at.elapsed().as_millis() as u64;
 
         client.start().await.map_err(|e| {
             self.state = BridgeConnectionState::Error;
             self.error_message = Some(e.to_string());
             BridgeError::ConnectionFailed(e.to_string())
         })?;
+        let total_ms = connect_started_at.elapsed().as_millis() as u64;
+        let start_ms = total_ms.saturating_sub(build_ms);
 
         self.client = Some(client);
         self.state = BridgeConnectionState::Connected;
         self.emit_status_change();
-        info!("Copilot SDK bridge connected");
+        info!(
+            mode = %mode,
+            build_ms,
+            start_ms,
+            total_ms,
+            "Copilot SDK bridge connected"
+        );
         Ok(())
     }
 
