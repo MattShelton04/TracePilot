@@ -91,3 +91,15 @@ pub(super) static INDEX_DB_MIGRATIONS: &[Migration] = &[
 pub(super) static INDEX_DB_PLAN: MigrationPlan = MigrationPlan {
     migrations: INDEX_DB_MIGRATIONS,
 };
+
+#[cfg(test)]
+mod tests {
+    use super::INDEX_DB_PLAN;
+
+    #[test]
+    fn index_db_plan_is_strictly_monotonic() {
+        INDEX_DB_PLAN
+            .validate()
+            .expect("INDEX_DB_PLAN versions must be strictly monotonically increasing");
+    }
+}

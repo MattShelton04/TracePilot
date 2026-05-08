@@ -59,30 +59,31 @@ pub fn reindex_all_with_rich_progress(
     // Phase 2: Write results to DB sequentially with throttled progress
     let mut indexed = 0;
 
-    db.begin_transaction()?;
-    for (session_id, parse_result) in prepared.into_iter() {
-        let info = match parse_result {
-            Ok(data) => match db.write_prepared_session(&data) {
-                Ok(info) => {
-                    indexed += 1;
-                    tracker.accumulate(&info);
-                    Some(info)
-                }
+    db.with_transaction(|db| {
+        for (session_id, parse_result) in prepared.into_iter() {
+            let info = match parse_result {
+                Ok(data) => match db.write_prepared_session(&data) {
+                    Ok(info) => {
+                        indexed += 1;
+                        tracker.accumulate(&info);
+                        Some(info)
+                    }
+                    Err(e) => {
+                        tracing::warn!(session_id = %session_id, error = %e, "Failed to write session");
+                        None
+                    }
+                },
                 Err(e) => {
-                    tracing::warn!(session_id = %session_id, error = %e, "Failed to write session");
+                    tracing::warn!(session_id = %session_id, error = %e, "Failed to parse session");
                     None
                 }
-            },
-            Err(e) => {
-                tracing::warn!(session_id = %session_id, error = %e, "Failed to parse session");
-                None
-            }
-        };
+            };
 
-        tracker.increment();
-        tracker.emit_if_ready(&mut on_progress, info);
-    }
-    db.commit_transaction()?;
+            tracker.increment();
+            tracker.emit_if_ready(&mut on_progress, info);
+        }
+        Ok(())
+    })?;
 
     // Note: Final 100% emission is guaranteed by is_complete() check in emit_if_ready.
     // For zero sessions, the initial emit above covers it (current=0, total=0).
@@ -179,51 +180,36 @@ pub fn reindex_incremental_with_rich_progress(
     // Batch size for transaction grouping — amortizes WAL fsyncs while keeping
     // lock duration reasonable for concurrent readers.
     const BATCH_SIZE: usize = 100;
-    let mut batch_count = 0;
-    let mut in_transaction = false;
 
-    for (session_id, parse_result) in prepared.into_iter() {
-        let info = match parse_result {
-            Ok(data) => {
-                if !in_transaction {
-                    db.begin_transaction()?;
-                    in_transaction = true;
-                    batch_count = 0;
-                }
-
-                match db.write_prepared_session(&data) {
-                    Ok(info) => {
-                        indexed += 1;
-                        batch_count += 1;
-                        tracker.accumulate(&info);
-
-                        // Commit batch when reaching BATCH_SIZE
-                        if batch_count >= BATCH_SIZE {
-                            db.commit_transaction()?;
-                            in_transaction = false;
+    let mut prepared = prepared;
+    while !prepared.is_empty() {
+        let take = prepared.len().min(BATCH_SIZE);
+        let batch: Vec<_> = prepared.drain(..take).collect();
+        db.with_transaction(|db| -> Result<()> {
+            for (session_id, parse_result) in batch {
+                let info = match parse_result {
+                    Ok(data) => match db.write_prepared_session(&data) {
+                        Ok(info) => {
+                            indexed += 1;
+                            tracker.accumulate(&info);
+                            Some(info)
                         }
-
-                        Some(info)
-                    }
+                        Err(e) => {
+                            tracing::warn!(session_id = %session_id, error = %e, "Failed to write session");
+                            None
+                        }
+                    },
                     Err(e) => {
-                        tracing::warn!(session_id = %session_id, error = %e, "Failed to write session");
+                        tracing::warn!(session_id = %session_id, error = %e, "Failed to parse session");
                         None
                     }
-                }
-            }
-            Err(e) => {
-                tracing::warn!(session_id = %session_id, error = %e, "Failed to parse session");
-                None
-            }
-        };
+                };
 
-        tracker.increment();
-        tracker.emit_if_ready(&mut on_progress, info);
-    }
-
-    // Commit any remaining batch
-    if in_transaction {
-        db.commit_transaction()?;
+                tracker.increment();
+                tracker.emit_if_ready(&mut on_progress, info);
+            }
+            Ok(())
+        })?;
     }
 
     tracing::debug!(

@@ -71,6 +71,13 @@ pub enum BindingsError {
     #[error("Indexing is already in progress.")]
     AlreadyIndexing,
 
+    /// A per-session indexing job is already running for the given session.
+    /// Surfaced by [`crate::concurrency::IndexingJobGuard`].
+    #[error("Indexing is already in progress for session {session_id}.")]
+    AlreadyIndexingSession {
+        session_id: tracepilot_core::ids::SessionId,
+    },
+
     /// Input validation failed (user-facing message).
     #[error("{0}")]
     Validation(String),
@@ -111,6 +118,7 @@ impl BindingsError {
             Self::Semver(_) | Self::Uuid(_) => ErrorCode::Parse,
             Self::TomlSerialize(_) | Self::TomlDeserialize(_) => ErrorCode::Serialization,
             Self::AlreadyIndexing => ErrorCode::AlreadyIndexing,
+            Self::AlreadyIndexingSession { .. } => ErrorCode::AlreadyIndexing,
             Self::Validation(_) => ErrorCode::Validation,
             Self::Internal(_) => ErrorCode::Internal,
         }

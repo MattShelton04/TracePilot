@@ -49,5 +49,11 @@ fn map_migration_err(err: tracepilot_core::utils::migrator::MigrationError) -> I
             source,
         },
         ME::Backup { source, .. } => IndexerError::Io(source),
+        ME::NonMonotonicPlan { previous, current } => IndexerError::DatabaseConfiguration {
+            details: format!(
+                "migration plan invalid: version {current} follows {previous} (must be strictly increasing)"
+            ),
+            source: rusqlite::Error::InvalidQuery,
+        },
     }
 }

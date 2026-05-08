@@ -22,8 +22,42 @@ pub struct Migration {
 }
 
 /// Ordered list of migrations a database applies on open.
+///
+/// Migration versions must be strictly monotonically increasing (each version
+/// greater than the previous; gaps are allowed but duplicates and regressions
+/// are not). The invariant is checked at startup by [`MigrationPlan::validate`]
+/// (called from `run_migrations`) and by [`MigrationPlan::new`].
 pub struct MigrationPlan {
     pub migrations: &'static [Migration],
+}
+
+impl MigrationPlan {
+    /// Construct a [`MigrationPlan`], validating strict monotonicity.
+    ///
+    /// Returns [`MigrationError::NonMonotonicPlan`] if any migration's version
+    /// is not strictly greater than the preceding one.
+    pub fn new(migrations: &'static [Migration]) -> Result<Self, MigrationError> {
+        let plan = Self { migrations };
+        plan.validate()?;
+        Ok(plan)
+    }
+
+    /// Verify migration versions are strictly monotonically increasing.
+    pub fn validate(&self) -> Result<(), MigrationError> {
+        let mut prev: Option<u32> = None;
+        for migration in self.migrations {
+            if let Some(p) = prev
+                && migration.version <= p
+            {
+                return Err(MigrationError::NonMonotonicPlan {
+                    previous: p,
+                    current: migration.version,
+                });
+            }
+            prev = Some(migration.version);
+        }
+        Ok(())
+    }
 }
 
 /// Options controlling migration execution.
@@ -98,6 +132,11 @@ pub enum MigrationError {
         source: rusqlite::Error,
         restore_outcome: String,
     },
+
+    #[error(
+        "migration plan is not strictly monotonically increasing: version {current} follows {previous}"
+    )]
+    NonMonotonicPlan { previous: u32, current: u32 },
 }
 
 // Suppress unused-variant dead-code warnings: RestoreOutcome is part of the

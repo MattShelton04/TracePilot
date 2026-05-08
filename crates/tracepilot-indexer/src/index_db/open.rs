@@ -53,16 +53,31 @@ impl IndexDb {
         Ok(Self { conn })
     }
 
-    /// Begin a deferred transaction for batch operations.
-    pub fn begin_transaction(&self) -> Result<()> {
+    /// Run `f` inside a `BEGIN DEFERRED` transaction.
+    ///
+    /// Commits if `f` returns `Ok`; rolls back if `f` returns `Err`. A failure
+    /// during rollback is logged via `tracing::error!` and the original error
+    /// from `f` is propagated.
+    ///
+    /// Replaces the prior `begin_transaction` / `commit_transaction` pair which
+    /// could leak an open transaction on early returns or panics.
+    pub fn with_transaction<R>(&self, f: impl FnOnce(&IndexDb) -> Result<R>) -> Result<R> {
         self.conn.execute_batch("BEGIN DEFERRED")?;
-        Ok(())
-    }
-
-    /// Commit the current transaction.
-    pub fn commit_transaction(&self) -> Result<()> {
-        self.conn.execute_batch("COMMIT")?;
-        Ok(())
+        match f(self) {
+            Ok(value) => {
+                self.conn.execute_batch("COMMIT")?;
+                Ok(value)
+            }
+            Err(err) => {
+                if let Err(rb) = self.conn.execute_batch("ROLLBACK") {
+                    tracing::error!(
+                        error = %rb,
+                        "Failed to roll back transaction after closure error"
+                    );
+                }
+                Err(err)
+            }
+        }
     }
 
     /// Ensure the database uses incremental auto_vacuum.

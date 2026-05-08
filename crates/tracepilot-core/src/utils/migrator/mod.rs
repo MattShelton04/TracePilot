@@ -90,6 +90,8 @@ pub fn run_migrations(
     plan: &MigrationPlan,
     opts: &MigratorOptions,
 ) -> Result<MigrationReport, MigrationError> {
+    plan.validate()?;
+
     ensure_schema_version_table(conn).map_err(MigrationError::SchemaVersion)?;
 
     let current_version: u32 = conn
@@ -128,7 +130,7 @@ pub fn run_migrations(
         };
 
         let tx_result: rusqlite::Result<()> = (|| {
-            let tx = conn.unchecked_transaction()?;
+            let tx = conn.transaction()?;
             if let Some(hook) = migration.pre_hook {
                 hook(&tx)?;
             }
