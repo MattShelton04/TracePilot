@@ -3,7 +3,10 @@ import type { ContextSnippet } from "@tracepilot/client";
 import { getResultContext } from "@tracepilot/client";
 import type { SearchResult } from "@tracepilot/types";
 import { CONTENT_TYPE_CONFIG, formatDateMedium, formatRelativeTime } from "@tracepilot/ui";
-import { computed, ref, watch } from "vue";
+import { ref, watch } from "vue";
+import SearchResultActions from "./SearchResultActions.vue";
+import SearchResultExpandedDetails from "./SearchResultExpandedDetails.vue";
+import SearchResultMeta from "./SearchResultMeta.vue";
 
 const props = defineProps<{
   result: SearchResult;
@@ -15,35 +18,16 @@ const props = defineProps<{
   sessionEventCount?: number;
 }>();
 
-const emit = defineEmits<{
+defineEmits<{
   toggle: [];
   copy: [];
 }>();
-
-const copied = ref(false);
-let copiedTimer: ReturnType<typeof setTimeout> | null = null;
-
-function handleCopy() {
-  emit("copy");
-  copied.value = true;
-  if (copiedTimer) clearTimeout(copiedTimer);
-  copiedTimer = setTimeout(() => {
-    copied.value = false;
-  }, 1500);
-}
 
 const ctConfig = CONTENT_TYPE_CONFIG;
 
 function ctLookup(type: string) {
   return ctConfig[type as keyof typeof ctConfig];
 }
-
-// Timeline position: what fraction through the session is this result?
-const timelinePosition = computed(() => {
-  if (props.result.eventIndex == null || !props.sessionEventCount || props.sessionEventCount < 2)
-    return null;
-  return Math.min(1, Math.max(0, props.result.eventIndex / props.sessionEventCount));
-});
 
 // Contextual snippets: load lazily when expanded
 const contextBefore = ref<ContextSnippet[]>([]);
@@ -76,22 +60,21 @@ watch(
     @click="$emit('toggle')"
   >
     <div class="result-header">
-      <span v-if="result.sessionRepository" class="badge badge-accent" style="font-size: 0.625rem">
+      <span v-if="result.sessionRepository" class="badge badge-accent badge-xs">
         {{ result.sessionRepository }}
       </span>
-      <span v-if="result.sessionBranch" class="badge badge-success" style="font-size: 0.625rem">
+      <span v-if="result.sessionBranch" class="badge badge-success badge-xs">
         {{ result.sessionBranch }}
       </span>
       <span v-if="result.timestampUnix != null" class="result-date" :title="formatDateMedium(result.timestampUnix)">
         {{ formatRelativeTime(result.timestampUnix) }}
       </span>
       <span
-        class="ct-badge"
+        class="ct-badge ct-badge--trailing"
         :style="{
           '--ct-bg': (ctConfig[result.contentType]?.color ?? '') + '20',
           '--ct-fg': ctConfig[result.contentType]?.color,
         }"
-        style="margin-left: auto"
       >
         {{ ctConfig[result.contentType]?.label ?? result.contentType }}
       </span>
@@ -100,42 +83,11 @@ watch(
     <!-- eslint-disable-next-line vue/no-v-html -- server-controlled highlighted snippet -->
     <div class="result-snippet" v-html="result.snippet" />
 
-    <div class="result-meta">
-      <span v-if="result.sessionSummary" class="result-session-summary" :title="result.sessionSummary">
-        {{ result.sessionSummary.length > 50 ? result.sessionSummary.slice(0, 50) + '…' : result.sessionSummary }}
-      </span>
-      <span v-if="result.sessionSummary" class="result-meta-sep">·</span>
-      <span v-if="result.turnNumber != null">Turn {{ result.turnNumber }}</span>
-      <span v-if="result.turnNumber != null" class="result-meta-sep">·</span>
-      <span>{{ result.contentType.replace(/_/g, ' ') }}</span>
-      <template v-if="result.toolName">
-        <span class="result-meta-sep">·</span>
-        <span class="tool-name-badge">{{ result.toolName }}</span>
+    <SearchResultMeta :result="result" :session-event-count="sessionEventCount">
+      <template #trailing>
+        <SearchResultActions :session-link="sessionLink" @copy="$emit('copy')" />
       </template>
-      <!-- Timeline position indicator -->
-      <span v-if="timelinePosition != null" class="timeline-spark" :title="`${Math.round(timelinePosition * 100)}% through session`">
-        <span class="timeline-spark-track">
-          <span class="timeline-spark-dot" :style="{ left: `${timelinePosition * 100}%` }" />
-        </span>
-      </span>
-      <router-link :to="sessionLink" class="result-view-btn" @click.stop>
-        View in session
-      </router-link>
-      <button
-        class="result-copy-btn"
-        :class="{ 'result-copy-btn--copied': copied }"
-        :title="copied ? 'Copied!' : 'Copy content'"
-        :aria-label="copied ? 'Copied!' : 'Copy content'"
-        @click.stop="handleCopy"
-      >
-        <svg v-if="!copied" aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="12" height="12">
-          <rect x="5" y="5" width="9" height="9" rx="1" /><path d="M11 5V3a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h2" />
-        </svg>
-        <svg v-else aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12">
-          <polyline points="3 8 6.5 11.5 13 5" />
-        </svg>
-      </button>
-    </div>
+    </SearchResultMeta>
 
     <!-- Expanded Details -->
     <div v-if="expanded" class="result-expanded">
@@ -152,7 +104,7 @@ watch(
         </div>
         <div class="context-item context-current">
           <span class="context-type-dot" :style="{ '--dot-color': ctConfig[result.contentType]?.color }" />
-          <span class="context-label" style="font-weight: 600">▸ Current match</span>
+          <span class="context-label context-label--current">▸ Current match</span>
         </div>
         <div v-for="(ctx, ci) in contextAfter" :key="'a' + ci" class="context-item context-after">
           <span
@@ -165,35 +117,7 @@ watch(
         </div>
       </div>
 
-      <div class="expanded-grid">
-        <div v-if="result.sessionSummary" class="expanded-item">
-          <span class="expanded-label">Session</span>
-          <span class="expanded-value">{{ result.sessionSummary }}</span>
-        </div>
-        <div class="expanded-item">
-          <span class="expanded-label">Session ID</span>
-          <span class="expanded-value expanded-mono">{{ result.sessionId }}</span>
-        </div>
-        <div v-if="result.turnNumber != null" class="expanded-item">
-          <span class="expanded-label">Turn</span>
-          <span class="expanded-value">{{ result.turnNumber }}</span>
-        </div>
-        <div v-if="result.toolName" class="expanded-item">
-          <span class="expanded-label">Tool</span>
-          <span class="expanded-value expanded-mono">{{ result.toolName }}</span>
-        </div>
-        <div v-if="result.eventIndex != null" class="expanded-item">
-          <span class="expanded-label">Event Index</span>
-          <span class="expanded-value">{{ result.eventIndex }}</span>
-        </div>
-        <div v-if="result.timestampUnix != null" class="expanded-item">
-          <span class="expanded-label">Timestamp</span>
-          <span class="expanded-value">{{ formatDateMedium(result.timestampUnix) }}</span>
-        </div>
-      </div>
-      <router-link :to="sessionLink" class="expanded-view-btn" @click.stop>
-        Open in Session Viewer →
-      </router-link>
+      <SearchResultExpandedDetails :result="result" :session-link="sessionLink" variant="card" />
     </div>
   </div>
 </template>
@@ -236,6 +160,15 @@ watch(
   background: var(--ct-bg);
   color: var(--ct-fg);
 }
+.ct-badge--trailing {
+  margin-left: auto;
+}
+.badge-xs {
+  font-size: 0.625rem;
+}
+.context-label--current {
+  font-weight: 600;
+}
 .result-snippet {
   font-size: 0.8125rem;
   line-height: 1.65;
@@ -247,7 +180,7 @@ watch(
   -webkit-box-orient: vertical;
 }
 .result-snippet :deep(mark) {
-  background: rgba(251, 191, 36, 0.22);
+  background: var(--color-search-mark-highlight-bg);
   color: var(--warning-fg);
   border-radius: 2px;
   padding: 0 2px;
@@ -263,76 +196,6 @@ watch(
   -webkit-line-clamp: unset;
   display: block;
 }
-.result-meta {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-  font-size: 0.6875rem;
-  color: var(--text-tertiary);
-}
-.result-meta-sep { opacity: 0.3; }
-.result-session-summary {
-  font-weight: 500;
-  color: var(--text-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 200px;
-}
-.tool-name-badge {
-  font-family: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
-  font-size: 0.625rem;
-  background: var(--neutral-subtle);
-  padding: 1px 6px;
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-}
-.result-view-btn {
-  margin-left: auto;
-  color: var(--accent-fg);
-  text-decoration: none;
-  font-weight: 600;
-  font-size: 0.6875rem;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 12px;
-  border-radius: var(--radius-md);
-  background: var(--accent-subtle);
-  border: 1px solid var(--accent-emphasis);
-  transition: all var(--transition-fast);
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-.result-view-btn:hover {
-  background: var(--accent-emphasis);
-  color: var(--text-on-emphasis, #fff);
-}
-.result-copy-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding: 2px 6px;
-  background: transparent;
-  border: 1px solid var(--border-muted);
-  border-radius: var(--radius-sm);
-  color: var(--text-tertiary);
-  cursor: pointer;
-  font-size: 0.675rem;
-  transition: all var(--transition-fast);
-  flex-shrink: 0;
-}
-.result-copy-btn:hover {
-  color: var(--accent-fg);
-  background: var(--accent-subtle);
-  border-color: var(--accent-fg);
-}
-.result-copy-btn--copied {
-  color: var(--success-fg, #22c55e);
-  border-color: var(--success-fg, #22c55e);
-  background: rgba(34, 197, 94, 0.08);
-}
 
 /* ── Expanded details ────────────────────────────────────── */
 .result-expanded {
@@ -341,82 +204,11 @@ watch(
   border-top: 1px solid var(--border-default);
   animation: fadeSlideIn 0.2s ease both;
 }
-.expanded-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px 16px;
-  margin-bottom: 12px;
-}
-.expanded-item {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.expanded-label {
-  font-size: 0.625rem;
-  font-weight: 600;
-  color: var(--text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.expanded-value {
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.expanded-mono {
-  font-family: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
-  font-size: 0.6875rem;
-}
-.expanded-view-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 14px;
-  border-radius: var(--radius-md);
-  background: var(--accent-subtle);
-  border: 1px solid var(--border-accent);
-  color: var(--accent-fg);
-  font-size: 0.75rem;
-  font-weight: 500;
-  text-decoration: none;
-  font-family: inherit;
-  transition: all var(--transition-fast);
-}
-.expanded-view-btn:hover {
-  background: var(--accent-muted);
-}
 
 /* ── Focus indicator ─────────────────────────────────────── */
 .result-focused {
   outline: 2px solid var(--accent-fg);
   outline-offset: -2px;
-}
-
-/* ── Timeline position indicator ──────────────────────────── */
-.timeline-spark {
-  display: inline-flex;
-  align-items: center;
-  margin-left: 4px;
-}
-.timeline-spark-track {
-  position: relative;
-  width: 40px;
-  height: 4px;
-  background: var(--neutral-subtle);
-  border-radius: 2px;
-}
-.timeline-spark-dot {
-  position: absolute;
-  top: -1px;
-  width: 6px;
-  height: 6px;
-  background: var(--accent-fg);
-  border-radius: 50%;
-  transform: translateX(-50%);
-  transition: left var(--transition-fast);
 }
 
 /* ── Contextual snippets (surrounding turns) ─────────────── */

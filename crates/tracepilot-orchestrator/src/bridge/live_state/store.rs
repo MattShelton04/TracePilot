@@ -16,12 +16,24 @@ impl LiveStateStore {
 
     /// Helper to acquire the states write lock, handling poisoned mutexes.
     fn states_write(&self) -> std::sync::RwLockWriteGuard<'_, HashMap<String, SessionLiveState>> {
-        self.states.write().unwrap_or_else(|e| e.into_inner())
+        self.states.write().unwrap_or_else(|e| {
+            tracing::error!(
+                helper = "LiveStateStore::states_write",
+                "live_state store RwLock poisoned; recovering inner guard to preserve availability"
+            );
+            e.into_inner()
+        })
     }
 
     /// Helper to acquire the states read lock, handling poisoned mutexes.
     fn states_read(&self) -> std::sync::RwLockReadGuard<'_, HashMap<String, SessionLiveState>> {
-        self.states.read().unwrap_or_else(|e| e.into_inner())
+        self.states.read().unwrap_or_else(|e| {
+            tracing::error!(
+                helper = "LiveStateStore::states_read",
+                "live_state store RwLock poisoned; recovering inner guard to preserve availability"
+            );
+            e.into_inner()
+        })
     }
 
     pub fn apply_event(&self, event: &BridgeEvent) -> SessionLiveState {

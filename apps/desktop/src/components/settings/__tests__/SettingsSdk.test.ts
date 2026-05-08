@@ -144,4 +144,30 @@ describe("SettingsSdk", () => {
     expect(mocks.sdk.fetchModels).toHaveBeenCalledOnce();
     expect(mocks.sdk.fetchSessions).toHaveBeenCalledOnce();
   });
+
+  it("re-polls SDK status on the 10s interval and stops when unmounted", async () => {
+    vi.useFakeTimers();
+    mocks.enabled.value = true;
+    mocks.sdk.connectionState = "connected";
+    mocks.sdk.connectionMode = "stdio";
+    mocks.sdk.isConnected = true;
+
+    const wrapper = mountPanel();
+    await nextTick();
+    await flushPromises();
+
+    // Immediate poll on mount.
+    expect(mocks.sdk.hydrate).toHaveBeenCalledOnce();
+
+    // Advance one full interval — composable should fire another tick.
+    await vi.advanceTimersByTimeAsync(10_000);
+    await flushPromises();
+    expect(mocks.sdk.hydrate).toHaveBeenCalledTimes(2);
+
+    // Unmount; subsequent ticks must not invoke hydrate.
+    wrapper.unmount();
+    await vi.advanceTimersByTimeAsync(30_000);
+    await flushPromises();
+    expect(mocks.sdk.hydrate).toHaveBeenCalledTimes(2);
+  });
 });

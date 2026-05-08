@@ -13,6 +13,7 @@ import {
 } from "@tracepilot/ui";
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
+import { runUiAction } from "@/composables/useAsyncAction";
 import { browseForSavePath } from "@/composables/useBrowseDirectory";
 import {
   type ExportPreset,
@@ -23,14 +24,15 @@ import {
 } from "@/composables/useExportConfig";
 import { useExportPreview } from "@/composables/useExportPreview";
 import { useSessionsStore } from "@/stores/sessions";
-import { logError, logInfo } from "@/utils/logger";
+import { buildExportFilename, type ExportExtension } from "@/utils/exportFilename";
+import { logInfo } from "@/utils/logger";
 import { openExternal } from "@/utils/openExternal";
 
 // ── Stores & Composables ─────────────────────────────────────
 
 const route = useRoute();
 const sessionsStore = useSessionsStore();
-const { success: toastSuccess, error: toastError } = useToast();
+const { success: toastSuccess } = useToast();
 
 const {
   selectedSessionId,
@@ -87,19 +89,15 @@ async function handleExport() {
     return;
   }
 
-  const ext = format.value === "json" ? "tpx.json" : format.value === "markdown" ? "md" : "csv";
+  const ext: ExportExtension =
+    format.value === "json" ? "tpx.json" : format.value === "markdown" ? "md" : "csv";
 
-  // Build a descriptive filename from session name + datetime
   const session = selectedSession.value;
-  const slug =
-    (session?.summary || session?.repository || "")
-      .replace(/[^\w\s-]/g, "")
-      .trim()
-      .replace(/\s+/g, "-")
-      .toLowerCase()
-      .slice(0, 60) || "session-export";
-  const timestamp = new Date().toISOString().slice(0, 16).replace(/[T:]/g, "-");
-  const defaultName = `${slug}-${timestamp}.${ext}`;
+  const defaultName = buildExportFilename({
+    summary: session?.summary,
+    repository: session?.repository,
+    extension: ext,
+  });
 
   const filters =
     format.value === "json"
@@ -116,24 +114,24 @@ async function handleExport() {
   if (!outputPath) return;
 
   exporting.value = true;
-  try {
-    const result = await exportSessions({
-      sessionIds: [selectedSessionId.value],
-      format: format.value,
-      sections: sectionsArray.value,
-      outputPath,
-      contentDetail: contentDetail.value,
-      redaction: redaction.value,
-    });
+  const result = await runUiAction({
+    errorLabel: "[export]",
+    run: () =>
+      exportSessions({
+        sessionIds: [selectedSessionId.value],
+        format: format.value,
+        sections: sectionsArray.value,
+        outputPath,
+        contentDetail: contentDetail.value,
+        redaction: redaction.value,
+      }),
+  });
+  exporting.value = false;
+  if (result) {
     toastSuccess(
       `Exported ${result.sessionsExported} session (${formatBytes(result.fileSizeBytes)})`,
     );
     logInfo(`[export] Saved to ${result.filePath}`);
-  } catch (err) {
-    logError("[export] Failed:", err);
-    toastError(err instanceof Error ? err.message : "Export failed");
-  } finally {
-    exporting.value = false;
   }
 }
 
@@ -141,15 +139,11 @@ async function handleExport() {
 
 async function handleRawZipExport() {
   const session = selectedSession.value;
-  const slug =
-    (session?.summary || session?.repository || "")
-      .replace(/[^\w\s-]/g, "")
-      .trim()
-      .replace(/\s+/g, "-")
-      .toLowerCase()
-      .slice(0, 60) || "session-export";
-  const timestamp = new Date().toISOString().slice(0, 16).replace(/[T:]/g, "-");
-  const defaultName = `${slug}-${timestamp}.zip`;
+  const defaultName = buildExportFilename({
+    summary: session?.summary,
+    repository: session?.repository,
+    extension: "zip",
+  });
 
   const outputPath = await browseForSavePath({
     title: "Save zip archive as",
@@ -159,16 +153,15 @@ async function handleRawZipExport() {
   if (!outputPath) return;
 
   exporting.value = true;
-  try {
-    await exportSessionFolderZip(selectedSessionId.value, outputPath);
-    toastSuccess("Session folder exported as zip");
-    logInfo(`[export] Raw zip saved to ${outputPath}`);
-  } catch (err) {
-    logError("[export] Raw zip failed:", err);
-    toastError(err instanceof Error ? err.message : "Export failed");
-  } finally {
-    exporting.value = false;
-  }
+  await runUiAction({
+    errorLabel: "[export] Raw zip",
+    toastSuccess: "Session folder exported as zip",
+    run: async () => {
+      await exportSessionFolderZip(selectedSessionId.value, outputPath);
+      logInfo(`[export] Raw zip saved to ${outputPath}`);
+    },
+  });
+  exporting.value = false;
 }
 
 type PreviewView = "raw" | "rendered";

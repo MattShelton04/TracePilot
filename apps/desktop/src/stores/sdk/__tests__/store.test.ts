@@ -17,56 +17,55 @@ const windowRoleMock = vi.hoisted(() => ({
   isMain: true,
 }));
 
-vi.mock("@tracepilot/client", () => ({
-  IPC_EVENTS: {
-    SDK_BRIDGE_EVENT: "sdk://event",
-    SDK_CONNECTION_CHANGED: "sdk://status",
-    SDK_SESSION_STATE_CHANGED: "sdk://session-state",
-  },
-  sdkConnect: vi.fn(async () => connectedStatus),
-  sdkCliStatus: vi.fn(async () => connectedStatus),
-  sdkCreateSession: vi.fn(async () => ({ sessionId: "new-1", isActive: true })),
-  sdkDetectUiServer: vi.fn(async () => []),
-  sdkDisconnect: vi.fn(async () => {}),
-  sdkGetAuthStatus: vi.fn(async () => null),
-  sdkGetForegroundSession: vi.fn(async () => null),
-  sdkGetQuota: vi.fn(async () => null),
-  sdkHydrate: vi.fn(async () => ({
-    status: connectedStatus,
-    sessions: [{ sessionId: "tracked-1", isActive: true }],
-    metrics: { eventsForwarded: 0, eventsDroppedDueToLag: 0, lagOccurrences: 0 },
-    sessionStates: [
-      {
-        sessionId: "tracked-1",
-        status: "running",
-        currentTurnId: null,
-        assistantText: "hello",
-        reasoningText: "",
-        tools: [],
-        usage: null,
-        pendingPermission: null,
-        pendingUserInput: null,
-        lastEventId: "evt-1",
-        lastEventType: "assistant.message_delta",
-        lastEventTimestamp: "2026-04-27T00:00:00Z",
-        lastError: null,
-        reducerWarnings: [],
-      },
-    ],
-  })),
-  sdkLaunchUiServer: vi.fn(async () => 42),
-  sdkListModels: vi.fn(async () => []),
-  sdkListSessions: vi.fn(async () => []),
-  sdkResumeSession: vi.fn(async (sessionId: string) => ({ sessionId, isActive: true })),
-  sdkSendMessage: vi.fn(async () => "turn-1"),
-  sdkSetForegroundSession: vi.fn(async () => {}),
-  sdkSetSessionMode: vi.fn(async () => {}),
-  sdkSetSessionModel: vi.fn(async () => {}),
-  sdkStatus: vi.fn(async () => connectedStatus),
-  sdkAbortSession: vi.fn(async () => {}),
-  sdkDestroySession: vi.fn(async () => {}),
-  sdkUnlinkSession: vi.fn(async () => {}),
-}));
+vi.mock("@tracepilot/client", async () => {
+  const actual = await vi.importActual<typeof import("@tracepilot/client")>("@tracepilot/client");
+  return {
+    IPC_EVENTS: actual.IPC_EVENTS,
+    sdkConnect: vi.fn(async () => connectedStatus),
+    sdkCliStatus: vi.fn(async () => connectedStatus),
+    sdkCreateSession: vi.fn(async () => ({ sessionId: "new-1", isActive: true })),
+    sdkDetectUiServer: vi.fn(async () => []),
+    sdkDisconnect: vi.fn(async () => {}),
+    sdkGetAuthStatus: vi.fn(async () => null),
+    sdkGetForegroundSession: vi.fn(async () => null),
+    sdkGetQuota: vi.fn(async () => null),
+    sdkHydrate: vi.fn(async () => ({
+      status: connectedStatus,
+      sessions: [{ sessionId: "tracked-1", isActive: true }],
+      metrics: { eventsForwarded: 0, eventsDroppedDueToLag: 0, lagOccurrences: 0 },
+      sessionStates: [
+        {
+          sessionId: "tracked-1",
+          status: "running",
+          currentTurnId: null,
+          assistantText: "hello",
+          reasoningText: "",
+          tools: [],
+          usage: null,
+          pendingPermission: null,
+          pendingUserInput: null,
+          lastEventId: "evt-1",
+          lastEventType: "assistant.message_delta",
+          lastEventTimestamp: "2026-04-27T00:00:00Z",
+          lastError: null,
+          reducerWarnings: [],
+        },
+      ],
+    })),
+    sdkLaunchUiServer: vi.fn(async () => 42),
+    sdkListModels: vi.fn(async () => []),
+    sdkListSessions: vi.fn(async () => []),
+    sdkResumeSession: vi.fn(async (sessionId: string) => ({ sessionId, isActive: true })),
+    sdkSendMessage: vi.fn(async () => "turn-1"),
+    sdkSetForegroundSession: vi.fn(async () => {}),
+    sdkSetSessionMode: vi.fn(async () => {}),
+    sdkSetSessionModel: vi.fn(async () => {}),
+    sdkStatus: vi.fn(async () => connectedStatus),
+    sdkAbortSession: vi.fn(async () => {}),
+    sdkDestroySession: vi.fn(async () => {}),
+    sdkUnlinkSession: vi.fn(async () => {}),
+  };
+});
 
 vi.mock("@/composables/useWindowRole", () => ({
   useWindowRole: () => ({ isMain: () => windowRoleMock.isMain }),
@@ -125,7 +124,7 @@ describe("useSdkStore lifecycle hydration", () => {
     await Promise.resolve();
     await Promise.resolve();
     await Promise.resolve();
-    listeners.get("sdk://session-state")?.({
+    listeners.get(client.IPC_EVENTS.SDK_SESSION_STATE_CHANGED)?.({
       payload: {
         sessionId: "live-2",
         status: "idle",

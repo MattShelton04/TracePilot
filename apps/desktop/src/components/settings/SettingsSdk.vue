@@ -8,8 +8,9 @@
  *   3. Advanced — log level, diagnostics, raw state
  */
 import { ActionButton, BtnGroup, FormInput, SectionPanel } from "@tracepilot/ui";
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
+import { useIntervalRefresh } from "@/composables/useIntervalRefresh";
 import { ROUTE_NAMES } from "@/config/routes";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSdkStore } from "@/stores/sdk";
@@ -23,7 +24,9 @@ const router = useRouter();
 const isEnabled = computed(() => prefs.isFeatureEnabled("copilotSdk"));
 const showAdvanced = ref(false);
 const tcpConnectError = ref<string | null>(null);
-let refreshTimer: ReturnType<typeof setInterval> | null = null;
+
+/** Status-poll cadence (ms). Matches the previous hand-rolled setInterval. */
+const REFRESH_INTERVAL_MS = 10_000;
 
 // ─── Mode selection (local UI state, drives what connect() does) ────────
 // "stdio" = isolated subprocess, "tcp" = connect to existing server
@@ -123,24 +126,15 @@ function syncModeFromBackend() {
   }
 }
 
-function stopRefreshLoop() {
-  if (refreshTimer) {
-    clearInterval(refreshTimer);
-    refreshTimer = null;
-  }
-}
-
-function startRefreshLoop() {
-  if (refreshTimer) return;
-  void refreshAll();
-  refreshTimer = setInterval(() => void refreshAll(), 10_000);
-}
+const { start: startRefreshLoop, stop: stopRefreshLoop } = useIntervalRefresh(
+  refreshAll,
+  REFRESH_INTERVAL_MS,
+  { immediate: true, enabled: isEnabled },
+);
 
 onMounted(() => {
   if (isEnabled.value) startRefreshLoop();
 });
-
-onUnmounted(stopRefreshLoop);
 
 watch(
   () => sdk.connectionMode,
