@@ -7,6 +7,10 @@ use tracepilot_core::analytics::types::*;
 use tracepilot_core::models::event_types::ModelMetricDetail;
 
 use super::super::helpers::*;
+use super::day_bucket::{DayBucketSpec, query_day_bucketed};
+
+/// FROM/JOIN fragment shared by all three day-bucketed dashboard charts.
+const SEGMENTS_JOIN_SESSIONS: &str = "session_segments m JOIN sessions s ON s.id = m.session_id";
 
 pub(super) fn query_analytics(
     conn: &Connection,
@@ -90,61 +94,67 @@ pub(super) fn query_analytics(
     // Tokens by day — clamp segment end_timestamp to the requested window to
     // prevent segments from sessions that *overlap* the range from leaking
     // data points outside the filter window.
-    let (day_where, day_values) = append_segment_date_filter(
+    let token_usage_by_day = query_day_bucketed(
+        conn,
+        DayBucketSpec {
+            from_clause: SEGMENTS_JOIN_SESSIONS,
+            aggregate_expr: "COALESCE(SUM(m.total_tokens), 0)",
+            bucket_column: "m.end_timestamp",
+        },
         &where_clause,
         &bind_values,
         from_date,
         to_date,
-        "m.end_timestamp",
-    );
-    let day_sql = format!(
-        "SELECT date(m.end_timestamp) as d, COALESCE(SUM(m.total_tokens), 0)
-             FROM session_segments m
-             JOIN sessions s ON s.id = m.session_id
-             {} AND d IS NOT NULL GROUP BY d ORDER BY d",
-        day_where
-    );
-    let refs = to_refs(&day_values);
-    let token_usage_by_day = query_day_tokens(conn, &day_sql, &refs)?;
+        |row| {
+            Ok(DayTokens {
+                date: row.get(0)?,
+                tokens: row.get::<_, i64>(1)? as u64,
+            })
+        },
+    )?;
 
     // Activity (segments) by day — count segments by the day they *ended*.
     // Using end_timestamp keeps the activity chart consistent with the token and cost
     // charts (which also group by end_timestamp), so all three series agree on which
     // day a segment belongs to.
-    let (sbd_where, sbd_values) = append_segment_date_filter(
+    let activity_per_day = query_day_bucketed(
+        conn,
+        DayBucketSpec {
+            from_clause: SEGMENTS_JOIN_SESSIONS,
+            aggregate_expr: "COUNT(*)",
+            bucket_column: "m.end_timestamp",
+        },
         &where_clause,
         &bind_values,
         from_date,
         to_date,
-        "m.end_timestamp",
-    );
-    let sbd_sql = format!(
-        "SELECT date(m.end_timestamp) as d, COUNT(*)
-             FROM session_segments m
-             JOIN sessions s ON s.id = m.session_id
-             {} AND d IS NOT NULL GROUP BY d ORDER BY d",
-        sbd_where
-    );
-    let refs = to_refs(&sbd_values);
-    let activity_per_day = query_day_activity(conn, &sbd_sql, &refs)?;
+        |row| {
+            Ok(DayActivity {
+                date: row.get(0)?,
+                count: row.get(1)?,
+            })
+        },
+    )?;
 
     // Cost by day — clamp segment end_timestamp to the requested window.
-    let (cbd_where, cbd_values) = append_segment_date_filter(
+    let cost_by_day = query_day_bucketed(
+        conn,
+        DayBucketSpec {
+            from_clause: SEGMENTS_JOIN_SESSIONS,
+            aggregate_expr: "COALESCE(SUM(m.total_premium_requests), 0.0)",
+            bucket_column: "m.end_timestamp",
+        },
         &where_clause,
         &bind_values,
         from_date,
         to_date,
-        "m.end_timestamp",
-    );
-    let cbd_sql = format!(
-        "SELECT date(m.end_timestamp) as d, COALESCE(SUM(m.total_premium_requests), 0.0)
-             FROM session_segments m
-             JOIN sessions s ON s.id = m.session_id
-             {} AND d IS NOT NULL GROUP BY d ORDER BY d",
-        cbd_where
-    );
-    let refs = to_refs(&cbd_values);
-    let cost_by_day = query_day_cost(conn, &cbd_sql, &refs)?;
+        |row| {
+            Ok(DayCost {
+                date: row.get(0)?,
+                cost: row.get(1)?,
+            })
+        },
+    )?;
     let model_usage_by_day =
         query_model_usage_by_day(conn, &where_clause, &bind_values, from_date, to_date)?;
 

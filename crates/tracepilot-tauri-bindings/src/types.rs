@@ -2,6 +2,7 @@
 
 use serde::Serialize;
 use std::sync::{Arc, Mutex};
+use tracepilot_core::SessionId;
 
 // ── LRU Turn Cache ──────────────────────────────────────────────────
 
@@ -44,7 +45,7 @@ pub struct FreshnessResponse {
 #[serde(rename_all = "camelCase")]
 pub struct SearchResultItem {
     pub id: i64,
-    pub session_id: String,
+    pub session_id: SessionId,
     pub content_type: String,
     pub turn_number: Option<i64>,
     pub event_index: Option<i64>,
@@ -90,7 +91,7 @@ pub struct SearchStatsResponse {
 #[derive(Debug, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionListItem {
-    pub id: String,
+    pub id: SessionId,
     pub summary: Option<String>,
     pub repository: Option<String>,
     pub branch: Option<String>,
@@ -226,7 +227,7 @@ pub struct ExportPreviewResult {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionSectionsInfo {
-    pub session_id: String,
+    pub session_id: SessionId,
     pub has_conversation: bool,
     pub has_events: bool,
     pub has_todos: bool,

@@ -280,7 +280,7 @@ async fn unlink_session_aborts_event_task_and_clears_maps() {
     mgr.event_tasks.insert(sid.clone(), handle);
     mgr.sessions.insert(sid.clone(), stub_session(&sid));
 
-    mgr.unlink_session(&sid);
+    mgr.unlink_session(&sid).await;
 
     assert!(
         mgr.sessions.is_empty(),
@@ -314,7 +314,7 @@ async fn unlink_session_is_noop_when_not_tracked() {
     mgr.sessions
         .insert(sid_other.clone(), stub_session(&sid_other));
 
-    mgr.unlink_session("sess-does-not-exist");
+    mgr.unlink_session("sess-does-not-exist").await;
 
     assert_eq!(mgr.sessions.len(), 1, "untracked unlink must not touch map");
     assert_eq!(mgr.event_tasks.len(), 1);

@@ -1,15 +1,15 @@
-import { searchContent } from "@tracepilot/client";
 import type { SearchContentType, SearchResult } from "@tracepilot/types";
-import { runAction, useAsyncGuard } from "@tracepilot/ui";
+import { useAsyncGuard } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { nextTick, watch } from "vue";
-import { useRecentSearches } from "@/composables/useRecentSearches";
 import { useSearchClipboard } from "@/composables/useSearchClipboard";
-import { parseQualifiers } from "@/utils/parseQualifiers";
+import { createSearchExecutor } from "./search/executor";
 import { createFacetsSlice } from "./search/facets";
+import { createSearchHistory } from "./search/history";
 import { createIndexingSlice } from "./search/indexing";
 import { createMaintenanceSlice } from "./search/maintenance";
 import { createQuerySlice } from "./search/query";
+import { createSearchScheduler } from "./search/scheduler";
 
 // Re-export types and utilities that consumers may depend on
 export type { RecentSearch } from "@/composables/useRecentSearches";
@@ -28,26 +28,42 @@ export const BROWSE_PRESETS = {
   subagents: ["subagent"],
 } as const satisfies Record<string, readonly SearchContentType[]>;
 
+const DEBOUNCE_MS = 150;
+
 export const useSearchStore = defineStore("search", () => {
   const q = createQuerySlice();
   const f = createFacetsSlice(q);
   const m = createMaintenanceSlice();
 
-  // When true, watcher-triggered searches are suppressed (URL hydration in progress)
-  let hydrating = false;
-  // Track if the search view is currently mounted (prevent background ops when navigated away)
+  // Suppresses watcher-triggered searches while URL hydration is in progress.
+  let isHydrating = false;
+  // Tracks if the search view is currently mounted (prevents background ops
+  // from firing API requests when the user has navigated away).
   let isViewMounted = false;
+  // One-shot flag set when scheduleSearch resets page → 1 itself, so the
+  // page watcher doesn't double-fire the search it already requested.
+  let isPageWatcherSuppressed = false;
 
-  const { recentSearches, addRecentSearch, removeRecentSearch, clearRecentSearches } =
-    useRecentSearches();
+  const history = createSearchHistory();
   const { copyResultsToClipboard: clipboardCopyResults, copySingleResult: clipboardCopySingle } =
     useSearchClipboard();
 
-  // ── Single search scheduler (replaces multiple watchers) ────
-  let searchTimer: ReturnType<typeof setTimeout> | null = null;
-  let suppressPageWatcher = false;
   const searchGuard = useAsyncGuard();
-  const DEBOUNCE_MS = 150;
+
+  const { executeSearch } = createSearchExecutor({
+    query: q,
+    facets: f,
+    guard: searchGuard,
+    recordRecentSearch: history.addRecentSearch,
+  });
+
+  const scheduler = createSearchScheduler({
+    delay: DEBOUNCE_MS,
+    run: executeSearch,
+    immediate: (cb) => {
+      void nextTick(cb);
+    },
+  });
 
   /**
    * Schedule a search. All state changes funnel through here.
@@ -55,99 +71,12 @@ export const useSearchStore = defineStore("search", () => {
    * - debounce: add delay (true for typing, false for filter clicks)
    */
   function scheduleSearch(resetPage: boolean, debounce = false) {
-    if (hydrating) return; // Suppress during URL hydration
-    if (searchTimer) {
-      clearTimeout(searchTimer);
-      searchTimer = null;
-    }
+    if (isHydrating) return;
     if (resetPage && q.page.value !== 1) {
-      suppressPageWatcher = true;
+      isPageWatcherSuppressed = true;
       q.page.value = 1;
     }
-    if (debounce) {
-      searchTimer = setTimeout(() => {
-        searchTimer = null;
-        executeSearch();
-      }, DEBOUNCE_MS);
-    } else {
-      // Use nextTick to coalesce synchronous state changes (e.g. presets)
-      nextTick(() => executeSearch());
-    }
-  }
-
-  async function executeSearch() {
-    // In browse mode, default to newest sort since relevance is meaningless
-    const effectiveSort =
-      q.isBrowseMode.value && q.sortBy.value === "relevance" ? "newest" : q.sortBy.value;
-
-    // Parse inline qualifiers (e.g. "type:error repo:myapp fix bug")
-    const parsed = parseQualifiers(q.query.value);
-    // Always use parsed.cleanQuery — empty string means "no text, filter only"
-    const searchQuery = parsed.cleanQuery;
-
-    // Merge qualifier-derived filters with explicit UI filters
-    const mergedContentTypes =
-      parsed.types.length > 0
-        ? [...new Set([...q.contentTypes.value, ...parsed.types])]
-        : q.contentTypes.value;
-    const mergedRepo = parsed.repo ?? q.repository.value;
-    const mergedTool = parsed.tool ?? q.toolName.value;
-    const mergedSession = parsed.session ?? q.sessionId.value;
-    const mergedSort = parsed.sort ?? effectiveSort;
-
-    const { dateFromUnix, dateToUnix, error: dateError } = q.parseDateRange();
-    if (dateError) {
-      q.error.value = dateError;
-      q.clearSearchResults();
-      f.facets.value = null;
-      return;
-    }
-
-    await runAction({
-      loading: q.loading,
-      error: q.error,
-      guard: searchGuard,
-      action: () =>
-        searchContent(searchQuery, {
-          contentTypes: mergedContentTypes.length > 0 ? mergedContentTypes : undefined,
-          excludeContentTypes:
-            q.excludeContentTypes.value.length > 0 ? q.excludeContentTypes.value : undefined,
-          repositories: mergedRepo ? [mergedRepo] : undefined,
-          toolNames: mergedTool ? [mergedTool] : undefined,
-          sessionId: mergedSession ?? undefined,
-          dateFromUnix,
-          dateToUnix,
-          limit: q.pageSize.value,
-          offset: (q.page.value - 1) * q.pageSize.value,
-          sortBy: mergedSort !== "relevance" ? mergedSort : undefined,
-        }),
-      onSuccess: (response) => {
-        q.results.value = response.results;
-        q.totalCount.value = response.totalCount;
-        q.hasMore.value = response.hasMore;
-        q.latencyMs.value = response.latencyMs;
-
-        // Record to recent searches (only for text queries, not browse mode)
-        if (q.query.value.trim().length > 0 && response.totalCount > 0) {
-          addRecentSearch(q.query.value.trim(), response.totalCount);
-        }
-
-        // Fetch facets using the same parsed query and merged filters as the search.
-        // Use searchQuery directly (empty string = browse mode); don't fall back to raw
-        // query.value which may contain qualifier syntax like "type:error".
-        const facetQuery = searchQuery || undefined;
-        f.fetchFacets(facetQuery, {
-          contentTypes: mergedContentTypes,
-          repo: mergedRepo,
-          tool: mergedTool,
-          session: mergedSession,
-        });
-      },
-    });
-
-    if (q.error.value) {
-      q.clearSearchResults();
-    }
+    scheduler.schedule(debounce);
   }
 
   const indexing = createIndexingSlice({
@@ -183,8 +112,8 @@ export const useSearchStore = defineStore("search", () => {
 
   // Page changes → immediate search (no page reset)
   watch(q.page, () => {
-    if (suppressPageWatcher) {
-      suppressPageWatcher = false;
+    if (isPageWatcherSuppressed) {
+      isPageWatcherSuppressed = false;
       return;
     }
     scheduleSearch(false);
@@ -195,7 +124,7 @@ export const useSearchStore = defineStore("search", () => {
    * Resets query, pagination, and all filter fields, then triggers a search.
    */
   function applyBrowsePreset(types: readonly SearchContentType[]) {
-    hydrating = true;
+    isHydrating = true;
     q.page.value = 1;
     q.query.value = "";
     q.contentTypes.value = [...types];
@@ -207,7 +136,7 @@ export const useSearchStore = defineStore("search", () => {
     q.sessionId.value = null;
     q.sortBy.value = "newest";
     nextTick(() => {
-      hydrating = false;
+      isHydrating = false;
       scheduleSearch(false);
     });
   }
@@ -226,13 +155,13 @@ export const useSearchStore = defineStore("search", () => {
 
   function clearAll() {
     // Suppress watchers during multi-ref reset
-    hydrating = true;
+    isHydrating = true;
     q.query.value = "";
     q.clearFilters();
     q.clearSearchResults();
     q.error.value = null;
     nextTick(() => {
-      hydrating = false;
+      isHydrating = false;
     });
   }
 
@@ -246,9 +175,9 @@ export const useSearchStore = defineStore("search", () => {
     ...f,
     ...m,
     ...indexing,
-    recentSearches,
-    removeRecentSearch,
-    clearRecentSearches,
+    recentSearches: history.recentSearches,
+    removeRecentSearch: history.removeRecentSearch,
+    clearRecentSearches: history.clearRecentSearches,
     executeSearch,
     applyBrowsePreset,
     applyRecentSearch,
@@ -257,10 +186,10 @@ export const useSearchStore = defineStore("search", () => {
     clearAll,
     // Hydration control (for URL sync)
     beginHydration: () => {
-      hydrating = true;
+      isHydrating = true;
     },
     endHydration: () => {
-      hydrating = false;
+      isHydrating = false;
     },
     // View lifecycle control (prevent background ops when view unmounted)
     setViewMounted: (mounted: boolean) => {

@@ -17,6 +17,10 @@ use std::sync::Arc;
 
 use tokio::sync::{OwnedSemaphorePermit, Semaphore, TryAcquireError};
 
+pub mod indexing_guard;
+
+pub use indexing_guard::{IndexingJobGuard, SharedIndexingState};
+
 /// Permits for the "session reindex" gate. One permit = at most one active
 /// incremental/full reindex at a time (`AlreadyIndexing` is surfaced to the
 /// UI when busy).

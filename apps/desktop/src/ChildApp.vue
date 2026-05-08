@@ -15,6 +15,7 @@
 import { emit } from "@tauri-apps/api/event";
 import { ErrorAlert, PageShell, ToastContainer } from "@tracepilot/ui";
 import { computed, onMounted, onUnmounted, ref } from "vue";
+import AsyncPageState from "@/components/state/AsyncPageState.vue";
 import { getCurrentTauriWindow } from "@/lib/tauri";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSessionsStore } from "@/stores/sessions";
@@ -104,14 +105,19 @@ async function closeWindow() {
 
       <!-- Content -->
       <div class="child-content">
-        <ErrorAlert v-if="error" :message="error" />
-        <div v-else-if="!ready" class="child-loading">Loading session…</div>
-        <SessionDetailTabView
-          v-else
-          :session-id="sessionId"
-          :active-sub-tab="activeSubTab"
-          @update:active-sub-tab="activeSubTab = $event"
-        />
+        <AsyncPageState :loading="!ready && !error" :error="error" :empty="false">
+          <template #loading>
+            <div class="child-loading">Loading session…</div>
+          </template>
+          <template #error="{ error: msg }">
+            <ErrorAlert :message="msg ?? ''" />
+          </template>
+          <SessionDetailTabView
+            :session-id="sessionId"
+            :active-sub-tab="activeSubTab"
+            @update:active-sub-tab="activeSubTab = $event"
+          />
+        </AsyncPageState>
       </div>
     </div>
 

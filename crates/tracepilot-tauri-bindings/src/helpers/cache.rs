@@ -4,6 +4,7 @@ use crate::config::{SharedConfig, TracePilotConfig};
 use crate::error::CmdResult;
 use crate::types::SessionListItem;
 use std::path::Path;
+use tracepilot_core::SessionId;
 
 /// Read config from shared state, falling back to defaults.
 pub(crate) fn read_config(state: &SharedConfig) -> TracePilotConfig {
@@ -22,7 +23,7 @@ pub(crate) fn summary_to_list_item(
 ) -> SessionListItem {
     let is_running = tracepilot_core::session::discovery::has_lock_file(session_path);
     SessionListItem {
-        id: summary.id,
+        id: SessionId::from_validated(summary.id),
         summary: summary.summary,
         repository: summary.repository,
         branch: summary.branch,
@@ -59,7 +60,7 @@ pub(crate) fn indexed_session_to_list_item(
 ) -> SessionListItem {
     let is_running = tracepilot_core::session::discovery::has_lock_file(Path::new(&session.path));
     SessionListItem {
-        id: session.id,
+        id: SessionId::from_validated(session.id),
         summary: session.summary,
         repository: session.repository,
         branch: session.branch,

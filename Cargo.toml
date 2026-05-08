@@ -83,15 +83,17 @@ missing_debug_implementations = "allow"
 unused_must_use = "warn"
 
 [workspace.lints.clippy]
-# Opinionated tightening — raise to "deny" once the baseline is clean.
-unwrap_used = "warn"
-expect_used = "warn"
+# Baseline is clean across `cargo clippy --workspace --all-targets`, so the
+# panic-prone and error-swallowing footguns are promoted to `deny` to keep
+# them out of new code (Wave 5 / W5-2). The softer scaffolding lints below
+# remain at `warn` so in-progress work isn't blocked.
+unwrap_used = "deny"
+expect_used = "deny"
+map_err_ignore = "deny"
 print_stdout = "warn"
 print_stderr = "warn"
 dbg_macro = "warn"
 todo = "warn"
 unimplemented = "warn"
-# Guardrails against common footguns.
-map_err_ignore = "warn"
 needless_pass_by_value = "allow"
 module_name_repetitions = "allow"

@@ -16,10 +16,14 @@
 
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "specta")]
+use specta::Type;
+
 macro_rules! impl_id_newtype {
     ($name:ident, $doc:literal) => {
         #[doc = $doc]
         #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+        #[cfg_attr(feature = "specta", derive(Type))]
         #[serde(transparent)]
         pub struct $name(String);
 
@@ -67,6 +71,8 @@ macro_rules! impl_id_newtype {
 
 impl_id_newtype!(SessionId, "Validated session identifier (UUID format).");
 impl_id_newtype!(SkillName, "Validated skill name (filesystem-safe).");
+impl_id_newtype!(TurnId, "Opaque turn identifier.");
+impl_id_newtype!(EventId, "Opaque event identifier.");
 
 #[cfg(test)]
 mod tests {
@@ -103,5 +109,111 @@ mod tests {
         );
         // into_inner hands back an owned String unchanged.
         assert_eq!(String::from(sn.clone()), "my.skill");
+    }
+
+    #[test]
+    fn turn_id_uuid_shaped() {
+        let id = TurnId::from_validated("12345678-1234-1234-1234-123456789abc");
+        assert_eq!(id.as_str(), "12345678-1234-1234-1234-123456789abc");
+        let json = serde_json::to_string(&id).unwrap();
+        assert_eq!(json, "\"12345678-1234-1234-1234-123456789abc\"");
+        let back: TurnId = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, id);
+    }
+
+    #[test]
+    fn turn_id_synthetic() {
+        let id = TurnId::from_validated("turn-1");
+        assert_eq!(id.as_str(), "turn-1");
+        let json = serde_json::to_string(&id).unwrap();
+        assert_eq!(json, "\"turn-1\"");
+        let back: TurnId = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, id);
+    }
+
+    #[test]
+    fn turn_id_more_synthetic_cases() {
+        for synthetic_id in &["turn-42", "turn-999", "t1", "t-42-a"] {
+            let id = TurnId::from_validated(*synthetic_id);
+            assert_eq!(id.as_str(), *synthetic_id);
+            let json = serde_json::to_string(&id).unwrap();
+            let back: TurnId = serde_json::from_str(&json).unwrap();
+            assert_eq!(back, id);
+            assert_eq!(format!("{}", id), *synthetic_id);
+        }
+    }
+
+    #[test]
+    fn event_id_uuid_shaped() {
+        let id = EventId::from_validated("87654321-4321-4321-4321-abcdef123456");
+        assert_eq!(id.as_str(), "87654321-4321-4321-4321-abcdef123456");
+        let json = serde_json::to_string(&id).unwrap();
+        assert_eq!(json, "\"87654321-4321-4321-4321-abcdef123456\"");
+        let back: EventId = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, id);
+    }
+
+    #[test]
+    fn event_id_synthetic() {
+        let id = EventId::from_validated("evt-1");
+        assert_eq!(id.as_str(), "evt-1");
+        let json = serde_json::to_string(&id).unwrap();
+        assert_eq!(json, "\"evt-1\"");
+        let back: EventId = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, id);
+    }
+
+    #[test]
+    fn event_id_more_synthetic_cases() {
+        for synthetic_id in &["evt-1", "m1", "d1", "evt-42", "event-abc-123"] {
+            let id = EventId::from_validated(*synthetic_id);
+            assert_eq!(id.as_str(), *synthetic_id);
+            let json = serde_json::to_string(&id).unwrap();
+            let back: EventId = serde_json::from_str(&json).unwrap();
+            assert_eq!(back, id);
+            assert_eq!(format!("{}", id), *synthetic_id);
+        }
+    }
+
+    #[test]
+    fn turn_id_as_ref() {
+        let id = TurnId::from_validated("turn-123");
+        assert_eq!(id.as_ref() as &str, "turn-123");
+        let _: &str = id.as_ref();
+    }
+
+    #[test]
+    fn event_id_as_ref() {
+        let id = EventId::from_validated("evt-456");
+        assert_eq!(id.as_ref() as &str, "evt-456");
+        let _: &str = id.as_ref();
+    }
+
+    #[test]
+    fn turn_id_into_inner() {
+        let id = TurnId::from_validated("turn-789");
+        let s: String = id.into_inner();
+        assert_eq!(s, "turn-789");
+    }
+
+    #[test]
+    fn event_id_into_inner() {
+        let id = EventId::from_validated("evt-999");
+        let s: String = id.into_inner();
+        assert_eq!(s, "evt-999");
+    }
+
+    #[test]
+    fn turn_id_from_string() {
+        let id = TurnId::from_validated("turn-abc");
+        let s: String = id.into();
+        assert_eq!(s, "turn-abc");
+    }
+
+    #[test]
+    fn event_id_from_string() {
+        let id = EventId::from_validated("evt-def");
+        let s: String = id.into();
+        assert_eq!(s, "evt-def");
     }
 }

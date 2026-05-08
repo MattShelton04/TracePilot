@@ -15,14 +15,14 @@ import {
   SessionCard,
   SkeletonLoader,
 } from "@tracepilot/ui";
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import ModelSwitchBanner from "@/components/replay/ModelSwitchBanner.vue";
 import ReplayEventTicker from "@/components/replay/ReplayEventTicker.vue";
 import ReplaySidebar from "@/components/replay/ReplaySidebar.vue";
-import ReplayStepContent from "@/components/replay/ReplayStepContent.vue";
+import ReplayTimelinePane from "@/components/replay/ReplayTimelinePane.vue";
 import ReplayTransportBar from "@/components/replay/ReplayTransportBar.vue";
 import { useReplayController } from "@/composables/useReplayController";
+import { useReplaySessionLoader } from "@/composables/useReplaySessionLoader";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
 import { ROUTE_NAMES } from "@/config/routes";
@@ -37,10 +37,8 @@ const store = useSessionDetailContext();
 const sessionsStore = useSessionsStore();
 const preferences = usePreferencesStore();
 
-// Session ID from route
 const sessionId = computed(() => route.params.id as string | undefined);
 
-// Recent sessions for empty-state picker (sorted by update, capped at 12)
 const recentSessions = computed(() => {
   const all = [...sessionsStore.sessions]
     .filter((s) => (s.turnCount ?? 0) > 0)
@@ -56,26 +54,18 @@ function openReplay(id: string) {
   pushRoute(router, ROUTE_NAMES.replay, { params: { id } });
 }
 
-// Tool result lazy loader
 const { fullResults, loadingResults, failedResults, loadFullResult, retryFullResult } =
   useToolResultLoader(() => store.sessionId);
 
-// Transform turns into replay steps
 const replaySteps = computed(() => turnsToReplaySteps(store.turns));
-
-// O(1) turn lookup by turnIndex (avoids O(N²) .find() in template loop)
 const turnsByIndex = computed(() => new Map(store.turns.map((t) => [t.turnIndex, t])));
 
-// Playback controller
 const controller = useReplayController(replaySteps, {
   proportionalTiming: false,
   fixedIntervalMs: 1500,
   maxStepDelayMs: 3000,
 });
 
-// Current source turn for the active step (sidebar display)
-
-// Collect all events up to current step for the ticker
 const tickerEvents = computed(() => {
   const events: Array<{ type: string; label: string; timestamp?: string }> = [];
   for (let i = 0; i <= controller.currentStep.value && i < replaySteps.value.length; i++) {
@@ -93,25 +83,7 @@ const tickerEvents = computed(() => {
   return events;
 });
 
-// Auto-scroll conversation to current step
-const conversationRef = ref<HTMLElement | null>(null);
-watch(
-  () => controller.currentStep.value,
-  async () => {
-    await nextTick();
-    if (!conversationRef.value) return;
-    const stepEl = conversationRef.value.querySelector(
-      `[data-step="${controller.currentStep.value}"]`,
-    );
-    if (stepEl) {
-      stepEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }
-  },
-);
-
-// Keyboard shortcut handler (delegated to controller)
 function handleKeydown(e: KeyboardEvent) {
-  // Don't capture when user is in an input/textarea
   if (
     (e.target as HTMLElement)?.tagName === "INPUT" ||
     (e.target as HTMLElement)?.tagName === "TEXTAREA"
@@ -122,7 +94,6 @@ function handleKeydown(e: KeyboardEvent) {
 
 onMounted(() => {
   window.addEventListener("keydown", handleKeydown);
-  // Load sessions list for empty-state picker (if not already loaded)
   if (sessionsStore.sessions.length === 0) {
     sessionsStore.fetchSessions();
   }
@@ -131,46 +102,14 @@ onUnmounted(() => {
   window.removeEventListener("keydown", handleKeydown);
 });
 
-// Data loading with stale-request guard
-const initialLoading = ref(false);
-let loadToken = 0;
+const { initialLoading, retryLoadTurns } = useReplaySessionLoader(store, sessionId);
 
-async function loadSession(id: string) {
-  const token = ++loadToken;
-  initialLoading.value = true;
-  try {
-    await store.loadDetail(id);
-    if (token !== loadToken) return;
-    await Promise.all([store.loadTurns(), store.loadTodos(), store.loadShutdownMetrics()]);
-  } finally {
-    if (token === loadToken) {
-      initialLoading.value = false;
-    }
-  }
-}
-
-function retryLoadTurns() {
-  store.loaded.delete("turns");
-  store.loadTurns();
-}
-
-// Watch for route changes
-watch(
-  sessionId,
-  (id) => {
-    if (id) loadSession(id);
-  },
-  { immediate: true },
-);
-
-// Cap visible future skeletons
 const MAX_FUTURE_SKELETONS = 5;
 const visibleSteps = computed(() => {
   const current = controller.currentStep.value;
   return replaySteps.value.filter((s) => s.index <= current + MAX_FUTURE_SKELETONS);
 });
 
-// Summary stats
 const totalToolCalls = computed(() =>
   replaySteps.value.reduce((s, st) => s + (st.richToolCalls?.length ?? 0), 0),
 );
@@ -307,43 +246,18 @@ const totalToolCalls = computed(() =>
 
         <!-- Main Split Layout -->
         <div class="replay-layout">
-          <!-- Left: Conversation Pane -->
-          <div ref="conversationRef" class="replay-conversation">
-            <template v-for="(step, idx) in visibleSteps" :key="step.index">
-              <!-- Model switch banner -->
-              <ModelSwitchBanner
-                v-if="step.modelSwitchFrom && step.model"
-                :previous-model="step.modelSwitchFrom"
-                :new-model="step.model"
-              />
-
-              <!-- Step content -->
-              <div :data-step="step.index">
-                <ReplayStepContent
-                  v-if="turnsByIndex.get(step.turnIndex)"
-                  :step="step"
-                  :turn="turnsByIndex.get(step.turnIndex)!"
-                  :all-turns="store.turns"
-                  :is-current="step.index === controller.currentStep.value"
-                  :is-past="step.index < controller.currentStep.value"
-                  :is-future="step.index > controller.currentStep.value"
-                  :full-results="fullResults"
-                  :loading-results="loadingResults"
-                  :failed-results="failedResults"
-                  :is-rich-enabled="preferences.isRichRenderingEnabled"
-                  @load-full-result="loadFullResult($event)"
-                  @retry-full-result="retryFullResult($event)"
-                />
-
-                <!-- Skeleton placeholder for far-future steps -->
-                <div
-                  v-if="step.index > controller.currentStep.value"
-                  class="future-skeleton"
-                  :style="{ opacity: Math.max(0.08, 0.3 - (step.index - controller.currentStep.value) * 0.05) }"
-                />
-              </div>
-            </template>
-          </div>
+          <ReplayTimelinePane
+            :visible-steps="visibleSteps"
+            :turns-by-index="turnsByIndex"
+            :all-turns="store.turns"
+            :current-step="controller.currentStep.value"
+            :full-results="fullResults"
+            :loading-results="loadingResults"
+            :failed-results="failedResults"
+            :is-rich-enabled="preferences.isRichRenderingEnabled"
+            @load-full-result="loadFullResult($event)"
+            @retry-full-result="retryFullResult($event)"
+          />
 
           <!-- Right: Sidebar -->
           <ReplaySidebar
@@ -460,41 +374,5 @@ const totalToolCalls = computed(() =>
   .replay-layout {
     grid-template-columns: 1fr;
   }
-}
-
-/* ── Conversation Pane ─────────────────────────────────────── */
-.replay-conversation {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  max-height: calc(100vh - 300px);
-  overflow-y: auto;
-  padding-right: 8px;
-  scroll-behavior: smooth;
-}
-.replay-conversation::-webkit-scrollbar { width: 6px; }
-.replay-conversation::-webkit-scrollbar-track { background: transparent; }
-.replay-conversation::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: 3px; }
-
-/* ── Future skeleton placeholder ───────────────────────────── */
-.future-skeleton {
-  height: 60px;
-  border-radius: var(--radius-md);
-  background: linear-gradient(
-    90deg,
-    var(--canvas-subtle) 25%,
-    var(--canvas-inset) 50%,
-    var(--canvas-subtle) 75%
-  );
-  background-size: 200% 100%;
-  animation: shimmer 2s infinite;
-  border: 1px solid var(--border-muted);
-}
-@keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .future-skeleton { animation: none; }
 }
 </style>

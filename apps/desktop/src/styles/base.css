@@ -2,6 +2,23 @@
    GLOBAL RESETS & BASE
    ============================ */
 
+:root {
+  /*
+   * Search-result mark/highlight background.
+   *
+   * Kept as a literal rgba (not derived from --warning-fg) so the colour
+   * stays byte-equal across light/dark themes — the same yellow tint is
+   * used for FTS5 highlights regardless of theme. See B1-B / W1-5.
+   */
+  --color-search-mark-highlight-bg: rgba(251, 191, 36, 0.22);
+  /*
+   * Confirmation tint applied to the "copy" button in search-result
+   * actions while the "Copied!" affordance is showing. Distinct from
+   * --success-fg by design (preserves the original visual).
+   */
+  --color-search-copy-confirm-bg: rgba(34, 197, 94, 0.08);
+}
+
 * {
   margin: 0;
   padding: 0;

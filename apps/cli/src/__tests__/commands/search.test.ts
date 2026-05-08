@@ -80,4 +80,65 @@ describe("commands/search", () => {
       snippet: expect.stringContaining("bar"),
     });
   });
+
+  it("scans multiple sessions in parallel, preserves order, parses workspace once per session, and survives per-session errors", async () => {
+    mocked.readdir.mockResolvedValue([dir("sess-a"), dir("sess-b"), dir("sess-c"), dir("sess-d")]);
+
+    // sess-a: metadata match (should NOT trigger streamEvents)
+    // sess-b: parseWorkspace throws, fall through to events with assistant match
+    // sess-c: workspace ok but no metadata match, events have tool match
+    // sess-d: workspace ok, no metadata match, events throw — should be skipped, not abort
+    mocked.parseWorkspace.mockImplementation(async (sessionDir: string) => {
+      if (sessionDir.endsWith("sess-a")) {
+        return { summary: "needle here", repository: "repo/a", branch: "main" };
+      }
+      if (sessionDir.endsWith("sess-b")) {
+        throw new Error("missing workspace.yaml");
+      }
+      if (sessionDir.endsWith("sess-c")) {
+        return { summary: "unrelated", repository: "repo/c", branch: "main" };
+      }
+      return { summary: "also unrelated", repository: "repo/d", branch: "main" };
+    });
+
+    mocked.streamEvents.mockImplementation((path: string) => {
+      if (path.includes("sess-a")) {
+        // Should never be called — metadata already matched.
+        throw new Error("sess-a events should not be scanned");
+      }
+      if (path.includes("sess-b")) {
+        return (async function* () {
+          yield { type: "assistant.message", data: { content: "found needle in haystack" } };
+        })();
+      }
+      if (path.includes("sess-c")) {
+        return (async function* () {
+          yield { type: "tool.result", data: { content: "needle output" } };
+        })();
+      }
+      return (async function* () {
+        throw new Error("boom");
+        // biome-ignore lint/correctness/noUnreachable: unreachable yield required for generator typing
+        yield {};
+      })();
+    });
+
+    const hits = await searchSessions("needle");
+
+    // sess-d errored mid-stream → no hit, but should not have aborted siblings.
+    expect(hits.map((h) => h.sessionId)).toEqual(["sess-a", "sess-b", "sess-c"]);
+    expect(hits[0].matchSource).toBe("metadata");
+    expect(hits[1].matchSource).toBe("assistant");
+    expect(hits[2].matchSource).toBe("tool");
+
+    // Each session's workspace.yaml is parsed at most once.
+    const callsPerSession = new Map<string, number>();
+    for (const call of mocked.parseWorkspace.mock.calls) {
+      const dirArg = call[0] as string;
+      callsPerSession.set(dirArg, (callsPerSession.get(dirArg) ?? 0) + 1);
+    }
+    for (const [, count] of callsPerSession) {
+      expect(count).toBe(1);
+    }
+  });
 });

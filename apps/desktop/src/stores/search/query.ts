@@ -2,6 +2,57 @@ import type { SearchContentType, SearchResult } from "@tracepilot/types";
 import { toErrorMessage } from "@tracepilot/ui";
 import { computed, ref, shallowRef } from "vue";
 import { hasMeaningfulDateValue } from "@/utils/dateValidation";
+import type { ParsedQualifiers } from "@/utils/parseQualifiers";
+
+export type SortMode = "relevance" | "newest" | "oldest";
+
+export interface MergeSearchInputsState {
+  contentTypes: readonly SearchContentType[];
+  repository: string | null;
+  toolName: string | null;
+  sessionId: string | null;
+  sortBy: SortMode;
+  isBrowseMode: boolean;
+}
+
+export interface MergedSearchInputs {
+  searchQuery: string;
+  contentTypes: SearchContentType[];
+  repository: string | null;
+  toolName: string | null;
+  sessionId: string | null;
+  sortBy: SortMode;
+}
+
+/**
+ * Merge inline qualifier syntax (e.g. `type:error repo:foo`) with the
+ * explicit UI filters held by the query slice. Pure function — no Vue
+ * reactivity, safe to unit-test in isolation.
+ *
+ * Browse mode (no text query) downgrades a `relevance` sort to `newest`
+ * because relevance is meaningless when there is nothing to rank against.
+ */
+export function mergeSearchInputs(
+  parsed: ParsedQualifiers,
+  state: MergeSearchInputsState,
+): MergedSearchInputs {
+  const effectiveSort: SortMode =
+    state.isBrowseMode && state.sortBy === "relevance" ? "newest" : state.sortBy;
+
+  const contentTypes =
+    parsed.types.length > 0
+      ? [...new Set([...state.contentTypes, ...parsed.types])]
+      : [...state.contentTypes];
+
+  return {
+    searchQuery: parsed.cleanQuery,
+    contentTypes,
+    repository: parsed.repo ?? state.repository,
+    toolName: parsed.tool ?? state.toolName,
+    sessionId: parsed.session ?? state.sessionId,
+    sortBy: parsed.sort ?? effectiveSort,
+  };
+}
 
 export interface SessionGroup {
   sessionId: string;

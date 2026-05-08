@@ -15,7 +15,14 @@ import {
   requireSessionStateDir,
   streamEvents,
   UUID_REGEX,
+  type WorkspaceInfo,
 } from "./utils.js";
+
+/**
+ * Concurrency cap for parallel session scans. Chosen to amortise I/O wait
+ * without exhausting the file-descriptor budget on large session corpora.
+ */
+const SEARCH_CONCURRENCY = 8;
 
 type MatchSource = "metadata" | "user" | "assistant" | "tool";
 
@@ -85,78 +92,121 @@ function extractEventTexts(evt: Record<string, unknown>): { texts: string[]; sou
   return { texts: [], source: "user" };
 }
 
-export async function searchSessions(query: string): Promise<SearchHit[]> {
-  const baseDir = await requireSessionStateDir();
-  const entries = await readdir(baseDir, { withFileTypes: true });
-  const hits: SearchHit[] = [];
-  const q = query.toLowerCase();
+/**
+ * Scan a single session directory for the first matching hit.
+ *
+ * Mirrors the legacy sequential semantics: metadata is searched first, and
+ * `events.jsonl` is only scanned if metadata did not match. The previously
+ * duplicated `parseWorkspace` call has been collapsed so the file is parsed
+ * at most once per session. Errors are swallowed (per-session failures must
+ * not abort the whole search), matching the original try/catch behaviour.
+ */
+async function scanSession(
+  baseDir: string,
+  sessionId: string,
+  q: string,
+): Promise<SearchHit | null> {
+  const sessionDir = join(baseDir, sessionId);
 
-  for (const entry of entries) {
-    if (!entry.isDirectory() || !UUID_REGEX.test(entry.name)) continue;
-    const sessionDir = join(baseDir, entry.name);
-    let matched = false;
+  let ws: WorkspaceInfo | null = null;
+  try {
+    ws = await parseWorkspace(sessionDir);
+  } catch {
+    /* no workspace — leave ws as null */
+  }
 
-    // Search workspace.yaml
-    try {
-      const ws = await parseWorkspace(sessionDir);
-      const haystack = [ws.summary, ws.repository, ws.branch, ws.cwd]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
+  if (ws) {
+    const haystack = [ws.summary, ws.repository, ws.branch, ws.cwd]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
 
-      if (haystack.includes(q)) {
-        hits.push({
-          sessionId: entry.name,
-          summary: ws.summary,
-          repository: ws.repository,
-          branch: ws.branch,
-          matchSource: "metadata",
-          snippet: ws.summary ?? ws.repository ?? "(metadata match)",
-        });
-        matched = true;
-      }
-    } catch {
-      /* no workspace */
-    }
-
-    // Search conversation/tool content in events.jsonl
-    if (!matched) {
-      const eventsPath = join(sessionDir, "events.jsonl");
-      if (await fileExists(eventsPath)) {
-        try {
-          let ws: { summary?: string; repository?: string; branch?: string } = {};
-          try {
-            ws = await parseWorkspace(sessionDir);
-          } catch {
-            /* ok */
-          }
-
-          for await (const evt of streamEvents(eventsPath)) {
-            const { texts, source } = extractEventTexts(evt);
-            for (const text of texts) {
-              const haystack = text.toLowerCase();
-              if (!haystack.includes(q)) continue;
-
-              hits.push({
-                sessionId: entry.name,
-                summary: ws.summary,
-                repository: ws.repository,
-                branch: ws.branch,
-                matchSource: source,
-                snippet: buildSnippet(text, q),
-              });
-              matched = true;
-              break;
-            }
-            if (matched) break; // one hit per session is enough
-          }
-        } catch {
-          /* skip */
-        }
-      }
+    if (haystack.includes(q)) {
+      return {
+        sessionId,
+        summary: ws.summary,
+        repository: ws.repository,
+        branch: ws.branch,
+        matchSource: "metadata",
+        snippet: ws.summary ?? ws.repository ?? "(metadata match)",
+      };
     }
   }
 
+  const eventsPath = join(sessionDir, "events.jsonl");
+  if (!(await fileExists(eventsPath))) return null;
+
+  try {
+    for await (const evt of streamEvents(eventsPath)) {
+      const { texts, source } = extractEventTexts(evt);
+      for (const text of texts) {
+        if (!text.toLowerCase().includes(q)) continue;
+        return {
+          sessionId,
+          summary: ws?.summary,
+          repository: ws?.repository,
+          branch: ws?.branch,
+          matchSource: source,
+          snippet: buildSnippet(text, q),
+        };
+      }
+    }
+  } catch {
+    /* skip malformed/unreadable events */
+  }
+
+  return null;
+}
+
+/**
+ * Run `tasks` with bounded concurrency and return results in input order.
+ *
+ * Uses `Promise.allSettled` semantics under the hood: a rejected task does
+ * not abort siblings — it simply resolves to `null` so the search can
+ * continue across the remaining sessions.
+ */
+async function runWithConcurrency<T>(
+  tasks: ReadonlyArray<() => Promise<T | null>>,
+  limit: number,
+): Promise<Array<T | null>> {
+  const results: Array<T | null> = new Array(tasks.length).fill(null);
+  let cursor = 0;
+
+  const worker = async (): Promise<void> => {
+    while (true) {
+      const idx = cursor++;
+      if (idx >= tasks.length) return;
+      try {
+        results[idx] = await tasks[idx]();
+      } catch {
+        results[idx] = null;
+      }
+    }
+  };
+
+  const poolSize = Math.min(limit, tasks.length);
+  const workers: Promise<void>[] = [];
+  for (let i = 0; i < poolSize; i++) workers.push(worker());
+  await Promise.all(workers);
+  return results;
+}
+
+export async function searchSessions(query: string): Promise<SearchHit[]> {
+  const baseDir = await requireSessionStateDir();
+  const entries = await readdir(baseDir, { withFileTypes: true });
+  const q = query.toLowerCase();
+
+  const sessionIds = entries
+    .filter((e) => e.isDirectory() && UUID_REGEX.test(e.name))
+    .map((e) => e.name);
+
+  const tasks = sessionIds.map((id) => () => scanSession(baseDir, id, q));
+  const settled = await runWithConcurrency(tasks, SEARCH_CONCURRENCY);
+
+  const hits: SearchHit[] = [];
+  for (const hit of settled) {
+    if (hit) hits.push(hit);
+  }
   return hits;
 }
 

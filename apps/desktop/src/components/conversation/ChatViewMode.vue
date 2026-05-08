@@ -20,6 +20,7 @@ import {
 } from "@/components/conversation/sessionEventPairing";
 import { useChatViewPanelOffset } from "@/composables/useChatViewPanelOffset";
 import { useCrossTurnSubagents } from "@/composables/useCrossTurnSubagents";
+import { useLiveConversationTurn } from "@/composables/useLiveConversationTurn";
 import { useRenderBudget } from "@/composables/useRenderBudget";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { useSubagentCompletions } from "@/composables/useSubagentCompletions";
@@ -60,86 +61,19 @@ const preferences = usePreferencesStore();
 const route = useRoute();
 const persistedTurns = computed(() => store.turns);
 
-const liveConversationTurn = computed<ConversationTurn | null>(() => {
-  const sessionId = store.sessionId;
-  if (!sessionId) return null;
-  const live = sdk.liveTurnsBySessionId[sessionId];
-  if (!live) return null;
-  const liveText = live.assistantText.trim();
-  const liveReasoning = live.reasoningText.trim();
-  if (!liveText && !liveReasoning) return null;
-
-  // Hide the placeholder once the streamed text is already in the most
-  // recent persisted turn. Content-based check is the simplest robust
-  // dedup: we don't depend on bridge ids matching session.jsonl turn ids,
-  // and it's evaluated synchronously inside the computed so there's no
-  // post-render race when auto-refresh and streaming overlap.
-  const last = persistedTurns.value[persistedTurns.value.length - 1];
-  const persistedAssistant = (last?.assistantMessages ?? [])
-    .map((m) => m.content)
-    .join("")
-    .trim();
-  const persistedReasoning = (last?.reasoningTexts ?? [])
-    .map((r) => r.content)
-    .join("")
-    .trim();
-  const assistantSuperseded = liveText ? persistedAssistant.startsWith(liveText) : true;
-  const reasoningSuperseded = liveReasoning ? persistedReasoning.startsWith(liveReasoning) : true;
-  if (assistantSuperseded && reasoningSuperseded) return null;
-
-  return {
-    turnIndex: (last?.turnIndex ?? 0) + 1,
-    turnId: live.turnId ?? undefined,
-    assistantMessages: liveText ? [{ content: live.assistantText }] : [],
-    reasoningTexts: liveReasoning ? [{ content: live.reasoningText }] : [],
-    toolCalls: [],
-    timestamp: live.updatedAt,
-    isComplete: false,
-  };
+const { turns, liveToolPartialOutputs } = useLiveConversationTurn({
+  sessionId: () => store.sessionId,
+  persistedTurns: () => persistedTurns.value,
+  liveTurnsBySessionId: () => sdk.liveTurnsBySessionId,
+  sessionStatesById: () => sdk.sessionStatesById,
+  clearLiveTurn: (sessionId) => sdk.clearLiveTurn(sessionId),
 });
 
-const turns = computed(() => {
-  const liveTurn = liveConversationTurn.value;
-  return liveTurn ? [...persistedTurns.value, liveTurn] : persistedTurns.value;
-});
-
-// Free the live entry from the store once it's been hidden by the dedup
-// above (post-render, just to release memory and reset for next turn).
-watch(
-  () => liveConversationTurn.value === null && !!sdk.liveTurnsBySessionId[store.sessionId ?? ""],
-  (shouldClear) => {
-    const sessionId = store.sessionId;
-    if (sessionId && shouldClear) sdk.clearLiveTurn(sessionId);
-  },
-);
 const renderMd = computed(() => preferences.isFeatureEnabled("renderMarkdown"));
 
-// Live partial output (streaming stdout from in-flight tool calls), keyed
-// by toolCallId. Sourced from the SDK live-state reducer's per-session
-// `ToolProgressSummary[]`. Provided into the tool-detail tree via injection
-// so it surfaces inline on the persisted tool call without prop-drilling.
-const liveToolPartialOutputs = computed<Map<string, string>>(() => {
-  const sessionId = store.sessionId;
-  const map = new Map<string, string>();
-  if (!sessionId) return map;
-  const state = sdk.sessionStatesById[sessionId];
-  if (!state) return map;
-  for (const tool of state.tools ?? []) {
-    if (!tool.toolCallId || tool.partialResult == null) continue;
-    const text =
-      typeof tool.partialResult === "string"
-        ? tool.partialResult
-        : (() => {
-            try {
-              return JSON.stringify(tool.partialResult, null, 2);
-            } catch {
-              return String(tool.partialResult);
-            }
-          })();
-    if (text.length > 0) map.set(tool.toolCallId, text);
-  }
-  return map;
-});
+// Provided into the tool-detail tree via injection so streaming stdout for
+// in-flight tool calls surfaces inline on the persisted tool call without
+// prop-drilling.
 provide(LIVE_TOOL_PARTIAL_OUTPUT_KEY, liveToolPartialOutputs);
 
 const emit = defineEmits<{

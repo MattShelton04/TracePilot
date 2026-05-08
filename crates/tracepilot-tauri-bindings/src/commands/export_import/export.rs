@@ -10,6 +10,7 @@ use crate::error::{BindingsError, CmdResult};
 use crate::helpers::{read_config, with_session_path};
 use crate::types::{ExportPreviewResult, ExportSessionsResult, SessionSectionsInfo};
 
+use tracepilot_core::SessionId;
 use tracepilot_core::parsing::session_db::list_tables;
 use tracepilot_export::SectionId;
 use tracepilot_export::options::{
@@ -304,7 +305,7 @@ pub async fn get_session_sections(
             .is_some();
 
         Ok(SessionSectionsInfo {
-            session_id,
+            session_id: SessionId::from_validated(session_id),
             has_conversation,
             has_events,
             has_todos,

@@ -69,14 +69,16 @@ fn bench_search(c: &mut Criterion) {
 
         let (_sessions_guard, sessions_path) = create_multi_session_fixture(count, 50);
 
-        db.begin_transaction().unwrap();
-        for entry in std::fs::read_dir(&sessions_path).unwrap() {
-            let entry = entry.unwrap();
-            if entry.file_type().unwrap().is_dir() {
-                let _ = db.upsert_session(&entry.path());
+        db.with_transaction(|db| {
+            for entry in std::fs::read_dir(&sessions_path).unwrap() {
+                let entry = entry.unwrap();
+                if entry.file_type().unwrap().is_dir() {
+                    let _ = db.upsert_session(&entry.path());
+                }
             }
-        }
-        db.commit_transaction().unwrap();
+            Ok(())
+        })
+        .unwrap();
 
         group.throughput(criterion::Throughput::Elements(count as u64));
         group.bench_with_input(BenchmarkId::from_parameter(count), &db, |b, db| {
@@ -95,14 +97,16 @@ fn bench_query_analytics(c: &mut Criterion) {
 
         let (_sessions_guard, sessions_path) = create_multi_session_fixture(count, 50);
 
-        db.begin_transaction().unwrap();
-        for entry in std::fs::read_dir(&sessions_path).unwrap() {
-            let entry = entry.unwrap();
-            if entry.file_type().unwrap().is_dir() {
-                let _ = db.upsert_session(&entry.path());
+        db.with_transaction(|db| {
+            for entry in std::fs::read_dir(&sessions_path).unwrap() {
+                let entry = entry.unwrap();
+                if entry.file_type().unwrap().is_dir() {
+                    let _ = db.upsert_session(&entry.path());
+                }
             }
-        }
-        db.commit_transaction().unwrap();
+            Ok(())
+        })
+        .unwrap();
 
         group.throughput(criterion::Throughput::Elements(count as u64));
         group.bench_with_input(BenchmarkId::from_parameter(count), &db, |b, db| {

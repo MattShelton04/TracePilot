@@ -2,6 +2,7 @@
 import type { ContentTypeStyle } from "@tracepilot/ui";
 import { formatDateMedium, formatRelativeTime } from "@tracepilot/ui";
 import type { SessionGroup } from "@/stores/search";
+import SearchResultExpandedDetails from "./SearchResultExpandedDetails.vue";
 
 defineProps<{
   groupedResults: SessionGroup[];
@@ -35,8 +36,8 @@ defineEmits<{
           {{ group.sessionSummary || group.sessionId.slice(0, 12) + '…' }}
         </div>
         <div v-if="group.sessionRepository || group.sessionBranch" class="session-group-badges">
-          <span v-if="group.sessionRepository" class="badge badge-accent" style="font-size: 0.5625rem">{{ group.sessionRepository }}</span>
-          <span v-if="group.sessionBranch" class="badge badge-success" style="font-size: 0.5625rem">{{ group.sessionBranch }}</span>
+          <span v-if="group.sessionRepository" class="badge badge-accent badge-xxs">{{ group.sessionRepository }}</span>
+          <span v-if="group.sessionBranch" class="badge badge-success badge-xxs">{{ group.sessionBranch }}</span>
         </div>
         <div class="session-group-actions">
           <span class="session-group-count">{{ group.results.length }}{{ hasMore ? '+' : '' }} match{{ group.results.length !== 1 ? 'es' : '' }}</span>
@@ -100,39 +101,11 @@ defineEmits<{
             <!-- Full snippet (un-truncated) -->
             <!-- eslint-disable-next-line vue/no-v-html -- server-controlled highlighted snippet -->
             <div class="result-snippet" v-html="result.snippet" />
-            <div class="expanded-grid">
-              <div v-if="result.sessionSummary" class="expanded-item">
-                <span class="expanded-label">Session</span>
-                <span class="expanded-value">{{ result.sessionSummary }}</span>
-              </div>
-              <div class="expanded-item">
-                <span class="expanded-label">Session ID</span>
-                <span class="expanded-value expanded-mono">{{ result.sessionId }}</span>
-              </div>
-              <div v-if="result.turnNumber != null" class="expanded-item">
-                <span class="expanded-label">Turn</span>
-                <span class="expanded-value">{{ result.turnNumber }}</span>
-              </div>
-              <div v-if="result.toolName" class="expanded-item">
-                <span class="expanded-label">Tool</span>
-                <span class="expanded-value expanded-mono">{{ result.toolName }}</span>
-              </div>
-              <div v-if="result.eventIndex != null" class="expanded-item">
-                <span class="expanded-label">Event Index</span>
-                <span class="expanded-value">{{ result.eventIndex }}</span>
-              </div>
-              <div v-if="result.timestampUnix != null" class="expanded-item">
-                <span class="expanded-label">Timestamp</span>
-                <span class="expanded-value">{{ formatDateMedium(result.timestampUnix) }}</span>
-              </div>
-            </div>
-            <router-link
-              :to="sessionLink(result.sessionId, result.turnNumber, result.eventIndex)"
-              class="expanded-view-btn"
-              @click.stop
-            >
-              Open in Session Viewer →
-            </router-link>
+            <SearchResultExpandedDetails
+              :result="result"
+              :session-link="sessionLink(result.sessionId, result.turnNumber, result.eventIndex)"
+              variant="grouped"
+            />
           </div>
         </div>
       </div>
@@ -295,7 +268,7 @@ defineEmits<{
 }
 
 .session-group-snippet :deep(mark) {
-  background: rgba(251, 191, 36, 0.22);
+  background: var(--color-search-mark-highlight-bg);
   color: var(--warning-fg);
   border-radius: 2px;
   padding: 0 2px;
@@ -360,6 +333,10 @@ defineEmits<{
   font-family: 'JetBrains Mono', monospace;
 }
 
+.badge-xxs {
+  font-size: 0.5625rem;
+}
+
 .result-snippet {
   font-size: 0.75rem;
   color: var(--text-secondary);
@@ -373,57 +350,10 @@ defineEmits<{
   word-break: break-word;
 }
 .result-snippet :deep(mark) {
-  background: rgba(251, 191, 36, 0.22);
+  background: var(--color-search-mark-highlight-bg);
   color: var(--warning-fg);
   border-radius: 2px;
   padding: 0 2px;
   font-weight: 500;
-}
-
-.expanded-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 12px;
-  margin-bottom: 14px;
-}
-.expanded-item {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.expanded-label {
-  font-size: 0.625rem;
-  color: var(--text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-.expanded-value {
-  font-size: 0.75rem;
-  color: var(--text-primary);
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.expanded-mono {
-  font-family: 'JetBrains Mono', monospace;
-}
-.expanded-view-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--accent-fg);
-  background: var(--accent-subtle);
-  border: 1px solid var(--accent-fg);
-  border-radius: var(--radius-sm);
-  text-decoration: none;
-  transition: all var(--transition-fast);
-}
-.expanded-view-btn:hover {
-  background: var(--accent-emphasis);
-  color: white;
 }
 </style>

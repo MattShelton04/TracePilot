@@ -293,3 +293,107 @@ fn pre_hook_runs_before_sql() {
         .unwrap();
     assert_eq!(x, 42);
 }
+
+#[test]
+fn rejects_non_monotonic_plan() {
+    static OUT_OF_ORDER: MigrationPlan = MigrationPlan {
+        migrations: &[
+            Migration {
+                version: 2,
+                name: "two",
+                sql: "CREATE TABLE t (id INTEGER);",
+                pre_hook: None,
+            },
+            Migration {
+                version: 1,
+                name: "one_after_two",
+                sql: "CREATE TABLE u (id INTEGER);",
+                pre_hook: None,
+            },
+        ],
+    };
+
+    match OUT_OF_ORDER.validate() {
+        Err(MigrationError::NonMonotonicPlan { previous, current }) => {
+            assert_eq!(previous, 2);
+            assert_eq!(current, 1);
+        }
+        other => panic!("expected NonMonotonicPlan, got {:?}", other),
+    }
+
+    // run_migrations must surface the validation error before touching the DB.
+    let mut conn = Connection::open_in_memory().unwrap();
+    let err = run_migrations(
+        &mut conn,
+        None,
+        &OUT_OF_ORDER,
+        &MigratorOptions {
+            backup: false,
+            ..Default::default()
+        },
+    )
+    .unwrap_err();
+    assert!(matches!(err, MigrationError::NonMonotonicPlan { .. }));
+}
+
+#[test]
+fn rejects_duplicate_versions() {
+    static DUPLICATE: MigrationPlan = MigrationPlan {
+        migrations: &[
+            Migration {
+                version: 1,
+                name: "first",
+                sql: "CREATE TABLE a (id INTEGER);",
+                pre_hook: None,
+            },
+            Migration {
+                version: 1,
+                name: "duplicate",
+                sql: "CREATE TABLE b (id INTEGER);",
+                pre_hook: None,
+            },
+        ],
+    };
+    assert!(matches!(
+        DUPLICATE.validate(),
+        Err(MigrationError::NonMonotonicPlan {
+            previous: 1,
+            current: 1,
+        })
+    ));
+}
+
+#[test]
+fn new_constructor_validates_and_returns_result() {
+    static GOOD: &[Migration] = &[
+        Migration {
+            version: 1,
+            name: "a",
+            sql: "CREATE TABLE x (id INTEGER);",
+            pre_hook: None,
+        },
+        Migration {
+            version: 2,
+            name: "b",
+            sql: "CREATE TABLE y (id INTEGER);",
+            pre_hook: None,
+        },
+    ];
+    assert!(MigrationPlan::new(GOOD).is_ok());
+
+    static BAD: &[Migration] = &[
+        Migration {
+            version: 5,
+            name: "a",
+            sql: "CREATE TABLE x (id INTEGER);",
+            pre_hook: None,
+        },
+        Migration {
+            version: 5,
+            name: "b",
+            sql: "CREATE TABLE y (id INTEGER);",
+            pre_hook: None,
+        },
+    ];
+    assert!(MigrationPlan::new(BAD).is_err());
+}

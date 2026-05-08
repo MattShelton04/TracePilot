@@ -1,0 +1,7 @@
+# Benchmark artifacts downloaded from CI runs (Criterion HTML reports,
+# benchmark-output.json, flamegraphs). These can be large and are
+# reproducible from the `Benchmarks` GitHub Actions workflow, so we
+# don't track them in git.
+*
+!.gitignore
+!README.md

@@ -7,6 +7,13 @@ on:
         description: 'Benchmark run name (e.g. "pre-refactor", "v0.3.0")'
         required: false
         type: string
+  schedule:
+    # Nightly run on the default branch to populate the historical-trends
+    # dashboard with one data point per day. PRs are intentionally not run
+    # automatically — Criterion variance on shared GitHub runners is too
+    # high (~20–40%) to give actionable per-PR signal. Trigger via
+    # `workflow_dispatch` for ad-hoc before/after comparisons on a PR.
+    - cron: '0 6 * * *'
 
 permissions:
   contents: write
@@ -15,9 +22,9 @@ permissions:
 jobs:
   benchmark:
     name: Run Criterion Benchmarks
-    # Disabled as not valuable currently. Keep this workflow manual-only so PRs
-    # don't show a benchmark workflow whose only job is intentionally skipped.
-    if: false
+    # Manual-only: this workflow is intentionally gated to `workflow_dispatch`
+    # so it doesn't run on every PR. Trigger from the Actions tab when you
+    # need a fresh perf snapshot or are validating a perf-sensitive change.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -120,7 +127,7 @@ jobs:
           retention-days: 90
 
       - name: Store benchmark results
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
         uses: benchmark-action/github-action-benchmark@a60cea5bc7b49e15c1f58f411161f99e0df48372 # v1.22.0
         with:
           tool: 'customSmallerIsBetter'

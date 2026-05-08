@@ -37,6 +37,15 @@ function lineColor(line: AgentTreeSvgLine): string {
   }
   return findType(ctx.treeData.value.children) ?? AGENT_COLORS.main;
 }
+
+/**
+ * Handles DOM element ref binding, filtering out component instances to only accept Elements.
+ * @param nodeId - The node ID to associate with this element
+ * @param el - The element or component public instance or null
+ */
+function handleNodeRef(nodeId: string, el: Element | null): void {
+  ctx.setNodeRef(nodeId, el);
+}
 </script>
 
 <template>
@@ -74,7 +83,7 @@ function lineColor(line: AgentTreeSvgLine): string {
       <div
         v-for="ln in ctx.layout.value.nodes"
         :key="ln.node.id"
-        :ref="(el: any) => ctx.setNodeRef(ln.node.id, el)"
+        :ref="(el) => handleNodeRef(ln.node.id, (el as Element | null))"
         class="agent-node"
         :class="{
           'agent-node--main': ln.node.type === 'main',

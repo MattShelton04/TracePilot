@@ -6,6 +6,7 @@ edition.workspace = true
 
 [features]
 dhat-heap = ["dep:dhat"]
+specta = ["dep:specta"]
 
 [dependencies]
 serde = { workspace = true }
@@ -19,6 +20,7 @@ tracing = { workspace = true }
 strum = { workspace = true }
 dashmap = { workspace = true }
 dhat = { version = "0.3", optional = true }
+specta = { workspace = true, optional = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }

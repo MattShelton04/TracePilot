@@ -7,6 +7,7 @@ use super::IndexDb;
 
 mod code_impact;
 mod dashboard;
+mod day_bucket;
 mod tool_analysis;
 
 impl IndexDb {

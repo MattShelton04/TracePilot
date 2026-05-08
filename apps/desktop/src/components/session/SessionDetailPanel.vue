@@ -23,6 +23,7 @@ import type { Router } from "vue-router";
 import RefreshToolbar from "@/components/RefreshToolbar.vue";
 import type { SessionDetailContext } from "@/composables/useSessionDetail";
 import { useWindowRole } from "@/composables/useWindowRole";
+import { mapSessionTabs, type SessionTabMode } from "@/config/sessionTabs";
 import { usePreferencesStore } from "@/stores/preferences";
 import { logError } from "@/utils/logger";
 
@@ -36,7 +37,7 @@ const props = defineProps<{
    * - "router"  → tabs use routeName to push routes (SessionDetailView)
    * - "local"   → tabs controlled via v-model (SessionDetailTabView / child window)
    */
-  tabMode: "router" | "local";
+  tabMode: SessionTabMode;
   /** Current inner sub-tab name (used when tabMode="local") */
   activeSubTab?: string;
   /** Whether auto-refresh should be enabled (e.g. paused when tab not visible) */
@@ -127,31 +128,8 @@ function cancelResume() {
   confirmingResume.value = false;
 }
 
-// Router-mode tabs (used by SessionDetailView)
-const routerTabs = [
-  { name: "overview", routeName: "session-overview", label: "Overview" },
-  { name: "conversation", routeName: "session-conversation", label: "Conversation" },
-  { name: "events", routeName: "session-events", label: "Events" },
-  { name: "todos", routeName: "session-todos", label: "Todos" },
-  { name: "metrics", routeName: "session-metrics", label: "Metrics" },
-  { name: "explorer", routeName: "session-explorer", label: "Explorer" },
-  { name: "timeline", routeName: "session-timeline", label: "Timeline" },
-];
-
-// Local-mode tabs (used by SessionDetailTabView / child window)
-const localTabs = [
-  { name: "overview", routeName: "overview", label: "Overview" },
-  { name: "conversation", routeName: "conversation", label: "Conversation" },
-  { name: "events", routeName: "events", label: "Events" },
-  { name: "todos", routeName: "todos", label: "Todos" },
-  { name: "metrics", routeName: "metrics", label: "Metrics" },
-  { name: "explorer", routeName: "explorer", label: "Explorer" },
-  { name: "timeline", routeName: "timeline", label: "Timeline" },
-];
-
 const tabs = computed(() => {
-  const base = props.tabMode === "local" ? localTabs : routerTabs;
-  return base.map((t) => {
+  return mapSessionTabs(props.tabMode).map((t) => {
     if (t.name === "conversation")
       return { ...t, count: props.store.detail?.turnCount ?? undefined };
     if (t.name === "events") return { ...t, count: props.store.detail?.eventCount ?? undefined };

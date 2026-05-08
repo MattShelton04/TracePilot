@@ -3,10 +3,10 @@
 //! an existing `copilot --ui-server`) modes.
 
 use super::BridgeManager;
-use crate::bridge::live_state::SessionRuntimeStatus;
 use crate::bridge::{BridgeConnectConfig, BridgeConnectionState, BridgeError, ConnectionMode};
 
-use tracing::{info, warn};
+use std::time::Instant;
+use tracing::{debug, info, warn};
 
 impl BridgeManager {
     fn requested_connection_mode(config: &BridgeConnectConfig) -> ConnectionMode {
@@ -47,6 +47,18 @@ impl BridgeManager {
         self.cli_url = config.cli_url.clone();
         self.connection_cwd = config.cwd.clone();
 
+        // DEEP-03: capture connect-path timing so operators can tell whether
+        // a slow start was the SDK builder vs. `client.start()`. Reported
+        // alongside the existing "connected" info log on success.
+        let connect_started_at = Instant::now();
+        let mode = self.connection_mode.expect("set above");
+        debug!(
+            mode = %mode,
+            has_cli_url = config.cli_url.is_some(),
+            has_cwd = config.cwd.is_some(),
+            "SDK bridge connect: starting"
+        );
+
         let mut builder = copilot_sdk::Client::builder();
 
         if let Some(url) = &config.cli_url {
@@ -77,37 +89,71 @@ impl BridgeManager {
             self.error_message = Some(e.to_string());
             BridgeError::ConnectionFailed(e.to_string())
         })?;
+        let build_ms = connect_started_at.elapsed().as_millis() as u64;
 
         client.start().await.map_err(|e| {
             self.state = BridgeConnectionState::Error;
             self.error_message = Some(e.to_string());
             BridgeError::ConnectionFailed(e.to_string())
         })?;
+        let total_ms = connect_started_at.elapsed().as_millis() as u64;
+        let start_ms = total_ms.saturating_sub(build_ms);
 
         self.client = Some(client);
         self.state = BridgeConnectionState::Connected;
         self.emit_status_change();
-        info!("Copilot SDK bridge connected");
+        info!(
+            mode = %mode,
+            build_ms,
+            start_ms,
+            total_ms,
+            "Copilot SDK bridge connected"
+        );
         Ok(())
     }
 
     /// Disconnect from the Copilot CLI, stopping all sessions.
+    ///
+    /// Order is critical (DEEP-06): `client.stop()` does NOT close the SDK
+    /// `Session` broadcast channels by itself — the bridge holds
+    /// `Arc<copilot_sdk::Session>` clones, so the SDK senders stay alive
+    /// until those `Arc`s drop. The forwarder loop only exits naturally on
+    /// `RecvError::Closed`, so relying on natural drain after `stop()` would
+    /// hang.
+    ///
+    /// Therefore: `client.stop()` → drain `sessions` (drops the `Arc`s) →
+    /// `abort() + await` every forwarder handle → clear `live_state`. The
+    /// abort+await pair is what makes the teardown deterministic, not the
+    /// natural-exit path.
+    ///
+    /// Live-state is cleared silently — no per-session terminal broadcast.
+    /// The renderer treats a `Disconnected` `BridgeStatus` as the canonical
+    /// "all sessions gone" signal; emitting per-session terminal events
+    /// here would just duplicate that information.
     pub async fn disconnect(&mut self) -> Result<(), BridgeError> {
-        let active_session_ids: Vec<String> = self.sessions.keys().cloned().collect();
-        for (_, handle) in self.event_tasks.drain() {
-            handle.abort();
-        }
-        self.sessions.clear();
-        for session_id in &active_session_ids {
-            self.mark_live_session_status(session_id, SessionRuntimeStatus::Unknown, None);
-        }
-
         if let Some(client) = self.client.take() {
             let errors = client.stop().await;
             if !errors.is_empty() {
                 warn!("SDK stop reported {} errors", errors.len());
             }
         }
+
+        // Drop SDK session handles before draining forwarders so each
+        // session's broadcast `Sender` count goes to zero — any in-flight
+        // recv on the forwarder side will see `RecvError::Closed`. The
+        // explicit abort+await below remains the authoritative teardown.
+        self.sessions.clear();
+
+        for (id, handle) in self.event_tasks.drain() {
+            handle.abort();
+            if let Err(e) = handle.await
+                && !e.is_cancelled()
+            {
+                warn!("event forwarder for {} failed to join cleanly: {}", id, e);
+            }
+        }
+
+        self.live_state.clear();
 
         self.state = BridgeConnectionState::Disconnected;
         self.error_message = None;

@@ -6,6 +6,7 @@ use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
 use crate::helpers::read_config;
 use crate::types::{SearchFacetsResponse, SearchResultItem, SearchResultsResponse};
+use tracepilot_core::SessionId;
 
 /// Search session content with full-text search or browse mode.
 #[tauri::command]
@@ -69,7 +70,7 @@ pub async fn search_content(
                 .into_iter()
                 .map(|r| SearchResultItem {
                     id: r.id,
-                    session_id: r.session_id,
+                    session_id: SessionId::from_validated(r.session_id),
                     content_type: r.content_type,
                     turn_number: r.turn_number,
                     event_index: r.event_index,
