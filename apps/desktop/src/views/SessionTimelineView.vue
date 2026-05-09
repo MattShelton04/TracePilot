@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BtnGroup, EmptyState, formatNumberFull, LoadingOverlay } from "@tracepilot/ui";
+import { BtnGroup, EmptyState, formatNumberFull, LoadingOverlay, PageHeader } from "@tracepilot/ui";
 import { BarChart3 } from "lucide-vue-next";
 import { ref, watch } from "vue";
 import ErrorBoundary from "@/components/ErrorBoundary.vue";
@@ -40,13 +40,15 @@ const viewModes = [
 
     <template v-if="store.turns.length">
       <!-- Header: title + view toggle -->
-      <div class="timeline-header">
-        <div>
-          <h1 class="page-title">Session Timeline</h1>
-          <p class="page-subtitle">Visual timeline of session events and interactions</p>
-        </div>
-        <BtnGroup v-model="activeView" :options="viewModes" />
-      </div>
+      <PageHeader
+        title="Session Timeline"
+        subtitle="Visual timeline of session events and interactions"
+        density="compact"
+      >
+        <template #actions>
+          <BtnGroup v-model="activeView" :options="viewModes" />
+        </template>
+      </PageHeader>
 
       <!-- Session Info Bar -->
       <div class="session-info-bar" aria-label="Session metadata">
@@ -81,14 +83,6 @@ const viewModes = [
 </template>
 
 <style scoped>
-.timeline-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 20px;
-}
-
 /* Session info bar */
 .session-info-bar {
   display: flex;

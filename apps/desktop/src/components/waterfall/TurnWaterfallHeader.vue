@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ConversationTurn } from "@tracepilot/types";
 import { truncateText } from "@tracepilot/ui";
+import { ChevronLeft, ChevronRight, SkipBack, SkipForward } from "lucide-vue-next";
 import type { ComponentPublicInstance } from "vue";
 
 interface TurnStats {
@@ -44,7 +45,7 @@ function setJumpRef(el: Element | ComponentPublicInstance | null) {
           @click="emit('jump-to', 0)"
           aria-label="Jump to earliest turn"
         >
-          ⏮ Earliest
+          <SkipBack :size="14" aria-hidden="true" /> Earliest
         </button>
         <button
           class="nav-btn"
@@ -52,7 +53,7 @@ function setJumpRef(el: Element | ComponentPublicInstance | null) {
           @click="emit('prev')"
           aria-label="Previous turn"
         >
-          ◀ Prev
+          <ChevronLeft :size="14" aria-hidden="true" /> Prev
         </button>
         <span class="nav-label">{{ turnLabel }}</span>
         <button
@@ -61,7 +62,7 @@ function setJumpRef(el: Element | ComponentPublicInstance | null) {
           @click="emit('next')"
           aria-label="Next turn"
         >
-          Next ▶
+          Next <ChevronRight :size="14" aria-hidden="true" />
         </button>
         <button
           class="nav-btn"
@@ -69,7 +70,7 @@ function setJumpRef(el: Element | ComponentPublicInstance | null) {
           @click="emit('jump-to', turns.length - 1)"
           aria-label="Jump to latest turn"
         >
-          Latest ⏭
+          Latest <SkipForward :size="14" aria-hidden="true" />
         </button>
       </div>
 

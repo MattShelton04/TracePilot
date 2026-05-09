@@ -8,6 +8,7 @@ import {
   useTimelineNavigation,
   useToggleSet,
 } from "@tracepilot/ui";
+import { BarChart3, MessageCircle } from "lucide-vue-next";
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import TurnWaterfallHeader from "@/components/waterfall/TurnWaterfallHeader.vue";
 import TurnWaterfallRow from "@/components/waterfall/TurnWaterfallRow.vue";
@@ -196,10 +197,11 @@ const waterfallTerms = [
     <!-- Empty state -->
     <EmptyState
       v-if="turns.length === 0"
-      icon="📊"
       title="No turns loaded"
       message="Load a session to view the waterfall timeline."
-    />
+    >
+      <template #icon><BarChart3 :size="36" aria-hidden="true" /></template>
+    </EmptyState>
 
     <template v-else>
       <!-- ════════════ Turn navigation header ════════════ -->
@@ -270,7 +272,7 @@ const waterfallTerms = [
           v-if="currentTurn.assistantMessages.some((m) => m.content.trim())"
         >
           <div class="label-col">
-            <span class="tool-icon">💬</span>
+            <MessageCircle class="tool-icon" :size="14" aria-hidden="true" />
             <span class="tool-name assistant-label">Assistant response</span>
           </div>
           <div class="bar-col" />
