@@ -72,6 +72,6 @@ describe("ViewCodeRenderer", () => {
       },
     });
 
-    expect(wrapper.text()).toContain("Output was truncated");
+    expect(wrapper.text()).toContain("Output truncated");
   });
 });

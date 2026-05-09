@@ -1,10 +1,11 @@
 <script setup lang="ts">
 /**
- * GlobTreeRenderer — renders glob results as a hierarchical collapsible
- * file tree with unlimited depth via a flattened list approach.
+ * GlobTreeRenderer — renders glob results as a hierarchical collapsible file tree.
  */
+
+import { File, Folder, FolderTree } from "lucide-vue-next";
 import { computed, reactive } from "vue";
-import RendererShell from "./RendererShell.vue";
+import RendererShell from "../RendererShell.vue";
 
 const props = defineProps<{
   content: string;
@@ -20,7 +21,6 @@ const pattern = computed(() =>
   typeof props.args?.pattern === "string" ? props.args.pattern : null,
 );
 
-/** The search root path from args — used to make tree relative. */
 const searchRoot = computed(() =>
   typeof props.args?.path === "string"
     ? props.args.path.replace(/\\/g, "/").replace(/\/+$/, "")
@@ -29,7 +29,6 @@ const searchRoot = computed(() =>
 
 const files = computed(() => props.content.split("\n").filter((l) => l.trim()));
 
-/** Strip the search root prefix from paths to build a relative tree. */
 const relativePaths = computed(() => {
   const root = searchRoot.value;
   if (!root) return files.value;
@@ -44,8 +43,6 @@ const relativePaths = computed(() => {
 });
 
 const fileCount = computed(() => files.value.length);
-
-// ── Tree construction ──
 
 interface TreeNode {
   name: string;
@@ -97,8 +94,6 @@ function sortNodes(nodes: TreeNode[]): TreeNode[] {
 
 const tree = computed(() => buildTree(relativePaths.value));
 
-// ── Flatten tree into a renderable list with depth ──
-
 interface FlatNode {
   node: TreeNode;
   depth: number;
@@ -136,42 +131,19 @@ function countFiles(node: TreeNode): number {
   }
   return count;
 }
-
-function fileIcon(name: string): string {
-  const ext = name.includes(".") ? name.split(".").pop()?.toLowerCase() : "";
-  const icons: Record<string, string> = {
-    ts: "📘",
-    tsx: "📘",
-    js: "📒",
-    jsx: "📒",
-    vue: "💚",
-    json: "📋",
-    md: "📝",
-    rs: "🦀",
-    py: "🐍",
-    go: "🐹",
-    css: "🎨",
-    html: "🌐",
-    yaml: "⚙️",
-    yml: "⚙️",
-    toml: "⚙️",
-    lock: "🔒",
-    sql: "🗃️",
-  };
-  return icons[ext ?? ""] ?? "📄";
-}
 </script>
 
 <template>
   <RendererShell
-    :label="pattern ?? 'Glob Results'"
-    :copy-content="content"
-    :is-truncated="isTruncated"
-    @load-full="emit('load-full')"
+    tool-name="Glob"
+    status="success"
+    :primary-hint="pattern ?? undefined"
+    :copy-text="content"
   >
+    <template #icon><FolderTree :size="16" /></template>
     <div class="glob-tree">
       <div class="glob-stats">
-        <span class="glob-stat">📁 {{ fileCount }} file{{ fileCount !== 1 ? 's' : '' }} matched</span>
+        <span class="glob-stat">{{ fileCount }} file{{ fileCount !== 1 ? 's' : '' }} matched</span>
         <span v-if="searchRoot" class="glob-root-path" :title="searchRoot">{{ searchRoot }}</span>
       </div>
       <div class="glob-list" role="tree">
@@ -181,21 +153,22 @@ function fileIcon(name: string): string {
              :role="item.node.isDir ? 'treeitem' : undefined"
              :aria-expanded="item.node.isDir ? !collapsed.has(item.node.path) : undefined"
              @click="item.node.isDir && toggleDir(item.node.path)">
-          <!-- Directory -->
           <template v-if="item.node.isDir">
             <span class="glob-dir-arrow" :class="{ 'glob-dir-arrow--collapsed': collapsed.has(item.node.path) }">▶</span>
-            <span class="glob-dir-icon">📁</span>
+            <Folder :size="14" class="glob-dir-icon" />
             <span class="glob-dir-name">{{ item.node.name }}</span>
             <span class="glob-dir-count">{{ countFiles(item.node) }}</span>
           </template>
-          <!-- File -->
           <template v-else>
-            <span class="glob-file-icon">{{ fileIcon(item.node.name) }}</span>
+            <File :size="14" class="glob-file-icon" />
             <span class="glob-file-name">{{ item.node.name }}</span>
           </template>
         </div>
       </div>
     </div>
+    <button v-if="isTruncated" type="button" class="rs-trunc" @click="emit('load-full')">
+      Output truncated — Show full
+    </button>
   </RendererShell>
 </template>
 
@@ -205,6 +178,9 @@ function fileIcon(name: string): string {
   font-size: 0.75rem;
 }
 .glob-stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 6px 12px;
   border-bottom: 1px solid var(--border-muted);
 }
@@ -251,8 +227,8 @@ function fileIcon(name: string): string {
   transform: rotate(0deg);
 }
 .glob-dir-icon {
-  font-size: 0.75rem;
   flex-shrink: 0;
+  color: var(--text-secondary);
 }
 .glob-dir-name {
   color: var(--text-secondary);
@@ -268,8 +244,8 @@ function fileIcon(name: string): string {
   margin-left: auto;
 }
 .glob-file-icon {
-  font-size: 0.75rem;
   flex-shrink: 0;
+  color: var(--text-tertiary);
 }
 .glob-file-name {
   color: var(--text-secondary);
@@ -277,4 +253,17 @@ function fileIcon(name: string): string {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.rs-trunc {
+  display: block;
+  width: 100%;
+  padding: 6px 12px;
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--canvas-inset);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+.rs-trunc:hover { color: var(--text-primary); background: var(--surface-tertiary); }
 </style>

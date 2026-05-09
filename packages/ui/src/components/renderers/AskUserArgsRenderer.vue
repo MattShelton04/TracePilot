@@ -1,7 +1,6 @@
 <script setup lang="ts">
 /**
  * AskUserArgsRenderer — shows legacy ask_user choices and newer schema fields.
- * Prompt text is rendered as markdown since it often contains formatting.
  */
 import { computed } from "vue";
 import MarkdownContent from "../MarkdownContent.vue";
@@ -26,7 +25,6 @@ const allowFreeform = computed(() => askUserAllowFreeform(props.args));
 <template>
   <div class="askuser-args">
     <div v-if="prompt" class="askuser-question">
-      <span class="askuser-icon">💬</span>
       <MarkdownContent class="askuser-question-text" :content="prompt" :render="true" />
     </div>
 
@@ -56,7 +54,7 @@ const allowFreeform = computed(() => askUserAllowFreeform(props.args));
 
     <div v-if="choices.length > 0" class="askuser-choices">
       <div v-for="(choice, idx) in choices" :key="idx" class="askuser-choice">
-        <span class="askuser-choice-radio">○</span>
+        <span class="askuser-choice-radio" aria-hidden="true">–</span>
         <span class="askuser-choice-text">{{ choice }}</span>
       </div>
     </div>
@@ -72,6 +70,7 @@ const allowFreeform = computed(() => askUserAllowFreeform(props.args));
   display: flex;
   flex-direction: column;
   gap: 8px;
+  padding: 8px 12px;
 }
 .askuser-question {
   display: flex;
@@ -79,9 +78,8 @@ const allowFreeform = computed(() => askUserAllowFreeform(props.args));
   gap: 8px;
   padding: 8px 12px;
   background: var(--canvas-inset);
-  border-radius: var(--radius-sm, 6px);
+  border-radius: var(--radius-sm);
 }
-.askuser-icon { font-size: 1rem; flex-shrink: 0; }
 .askuser-question-text {
   font-size: 0.8125rem;
   color: var(--text-primary);
@@ -91,7 +89,6 @@ const allowFreeform = computed(() => askUserAllowFreeform(props.args));
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 0 12px;
 }
 .askuser-choice {
   display: flex;
@@ -99,7 +96,7 @@ const allowFreeform = computed(() => askUserAllowFreeform(props.args));
   gap: 8px;
   padding: 4px 10px;
   border: 1px solid var(--border-muted);
-  border-radius: var(--radius-sm, 6px);
+  border-radius: var(--radius-sm);
   font-size: 0.75rem;
   color: var(--text-secondary);
 }
@@ -107,22 +104,17 @@ const allowFreeform = computed(() => askUserAllowFreeform(props.args));
   color: var(--text-tertiary);
   font-size: 0.75rem;
 }
-.askuser-choice-text {
-  flex: 1;
-}
+.askuser-choice-text { flex: 1; }
 .askuser-schema {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 0 12px;
 }
 .askuser-field {
   border: 1px solid var(--border-muted);
-  border-radius: var(--radius-sm, 6px);
+  border-radius: var(--radius-sm);
   padding: 8px 10px;
-  background:
-    linear-gradient(135deg, rgba(99, 102, 241, 0.07), transparent 42%),
-    var(--canvas-default);
+  background: var(--canvas-inset);
 }
 .askuser-field-main {
   display: flex;
@@ -158,12 +150,12 @@ const allowFreeform = computed(() => askUserAllowFreeform(props.args));
   color: var(--text-tertiary);
 }
 .askuser-field-required--on {
-  color: var(--warning-fg, #fbbf24);
-  background: rgba(251, 191, 36, 0.12);
+  color: var(--warning-fg);
+  background: var(--warning-subtle);
 }
 .askuser-field-default {
-  color: var(--accent-fg, #818cf8);
-  background: var(--accent-muted, rgba(99, 102, 241, 0.12));
+  color: var(--accent-fg);
+  background: var(--accent-muted);
 }
 .askuser-field-description {
   margin: 6px 0 0;
@@ -183,9 +175,8 @@ const allowFreeform = computed(() => askUserAllowFreeform(props.args));
   border: 1px solid var(--border-muted);
 }
 .askuser-freeform-note {
-  margin: 0 12px;
   padding: 4px 8px;
-  border-radius: var(--radius-sm, 6px);
+  border-radius: var(--radius-sm);
   color: var(--text-tertiary);
   background: var(--canvas-inset);
   font-size: 0.6875rem;

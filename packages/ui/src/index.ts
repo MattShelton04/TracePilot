@@ -82,7 +82,6 @@ export { default as RendererShell } from "./components/RendererShell.vue";
 // ── Renderers ──────────────────────────────────────────────────────
 export { default as CodeBlock } from "./components/renderers/CodeBlock.vue";
 export { default as PlainTextRenderer } from "./components/renderers/PlainTextRenderer.vue";
-export { default as LegacyRendererShell } from "./components/renderers/RendererShell.vue";
 export {
   getRegisteredRenderers,
   getRendererEntry,

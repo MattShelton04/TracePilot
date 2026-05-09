@@ -1,12 +1,11 @@
 <script setup lang="ts">
 /**
  * StoreMemoryRenderer — renders store_memory tool results as a memory card.
- *
- * The store_memory tool uses `subject` (not `category`) as its topic field,
- * and also provides `citations` for traceability.
  */
+
+import { Brain } from "lucide-vue-next";
 import { computed } from "vue";
-import RendererShell from "./RendererShell.vue";
+import RendererShell from "../RendererShell.vue";
 
 const props = defineProps<{
   content: string;
@@ -30,14 +29,14 @@ const citations = computed(() =>
 
 <template>
   <RendererShell
-    :label="subject ? `🧠 ${subject}` : 'Store Memory'"
-    :copy-content="fact ?? content"
-    :is-truncated="isTruncated"
-    @load-full="emit('load-full')"
+    tool-name="Store Memory"
+    status="success"
+    :primary-hint="subject ?? undefined"
+    :copy-text="fact ?? content"
   >
+    <template #icon><Brain :size="16" /></template>
     <div class="memory-card">
       <div v-if="fact" class="memory-fact">
-        <span class="memory-icon">💡</span>
         <span>{{ fact }}</span>
       </div>
       <div v-if="subject" class="memory-meta">
@@ -54,6 +53,9 @@ const citations = computed(() =>
       </div>
       <pre v-if="!fact" class="memory-fallback">{{ content }}</pre>
     </div>
+    <button v-if="isTruncated" type="button" class="rs-trunc" @click="emit('load-full')">
+      Output truncated — Show full
+    </button>
   </RendererShell>
 </template>
 
@@ -73,10 +75,6 @@ const citations = computed(() =>
   font-weight: 500;
   line-height: 1.5;
 }
-.memory-icon {
-  font-size: 1rem;
-  flex-shrink: 0;
-}
 .memory-meta {
   display: flex;
   align-items: center;
@@ -93,8 +91,8 @@ const citations = computed(() =>
   font-size: 0.6875rem;
   padding: 1px 8px;
   border-radius: 9999px;
-  background: var(--accent-muted, rgba(99, 102, 241, 0.15));
-  color: var(--accent-fg, #818cf8);
+  background: var(--accent-muted);
+  color: var(--accent-fg);
 }
 .memory-reason {
   display: flex;
@@ -126,4 +124,17 @@ const citations = computed(() =>
   word-break: break-word;
   color: var(--text-secondary);
 }
+.rs-trunc {
+  display: block;
+  width: 100%;
+  padding: 6px 12px;
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--canvas-inset);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+.rs-trunc:hover { color: var(--text-primary); background: var(--surface-tertiary); }
 </style>

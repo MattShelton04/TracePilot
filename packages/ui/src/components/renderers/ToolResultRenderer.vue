@@ -9,13 +9,12 @@
  *  - no renderer is registered for this tool
  *  - content is empty/null
  */
-
 import type { TurnToolCall } from "@tracepilot/types";
 import { getToolArgs } from "@tracepilot/types";
 import { type Component, computed } from "vue";
 import MarkdownContent from "../MarkdownContent.vue";
+import RendererShell from "../RendererShell.vue";
 import PlainTextRenderer from "./PlainTextRenderer.vue";
-import RendererShell from "./RendererShell.vue";
 import { getRendererEntry } from "./registry";
 
 const props = defineProps<{
@@ -41,13 +40,14 @@ const activeComponent = computed<Component | null>(() => {
   return entry.value?.resultComponent ?? null;
 });
 
-const parsedArgs = computed(() => {
-  return getToolArgs(props.tc);
-});
+const parsedArgs = computed(() => getToolArgs(props.tc));
+
+const useMarkdownFallback = computed(
+  () => props.richEnabled && ["read_agent", "task"].includes(props.tc.toolName),
+);
 </script>
 
 <template>
-  <!-- Rich renderer available and enabled -->
   <component
     v-if="activeComponent"
     :is="activeComponent"
@@ -57,19 +57,50 @@ const parsedArgs = computed(() => {
     :is-truncated="isTruncated"
     @load-full="emit('load-full', tc.toolCallId ?? '')"
   />
-  <!-- Fallback: plain text or markdown in a shell -->
   <RendererShell
-    v-else-if="content"
-    :copy-content="content"
-    :is-truncated="isTruncated"
-    @load-full="emit('load-full', tc.toolCallId ?? '')"
+    v-else-if="content && useMarkdownFallback"
+    :tool-name="tc.toolName"
+    status="success"
+    :copy-text="content"
   >
     <MarkdownContent
-      v-if="richEnabled && ['read_agent', 'task'].includes(tc.toolName)"
       :content="content"
       :render="true"
       style="padding: 10px 12px; background: var(--canvas-default);"
     />
-    <PlainTextRenderer v-else :content="content" />
+    <button
+      v-if="isTruncated"
+      type="button"
+      class="rs-trunc"
+      @click="emit('load-full', tc.toolCallId ?? '')"
+    >
+      Output truncated — Show full
+    </button>
   </RendererShell>
+  <PlainTextRenderer
+    v-else-if="content"
+    :content="content"
+    :args="parsedArgs"
+    :is-truncated="isTruncated"
+    @load-full="emit('load-full', tc.toolCallId ?? '')"
+  />
 </template>
+
+<style scoped>
+.rs-trunc {
+  display: block;
+  width: 100%;
+  padding: 6px 12px;
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--canvas-inset);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+.rs-trunc:hover {
+  color: var(--text-primary);
+  background: var(--surface-tertiary);
+}
+</style>

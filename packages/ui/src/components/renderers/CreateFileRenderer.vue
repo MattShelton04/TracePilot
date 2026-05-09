@@ -2,9 +2,11 @@
 /**
  * CreateFileRenderer — renders the create tool result showing the created file.
  */
+
+import { FilePlus } from "lucide-vue-next";
 import { computed } from "vue";
+import RendererShell from "../RendererShell.vue";
 import CodeBlock from "./CodeBlock.vue";
-import RendererShell from "./RendererShell.vue";
 
 const props = defineProps<{
   content: string;
@@ -20,7 +22,6 @@ const filePath = computed(() =>
   typeof props.args?.path === "string" ? props.args.path : undefined,
 );
 
-/** The actual file content from args, falling back to result content. */
 const fileContent = computed(() => {
   if (typeof props.args?.file_text === "string") return props.args.file_text;
   return props.content;
@@ -34,13 +35,14 @@ const lineCount = computed(() => {
 
 <template>
   <RendererShell
-    :label="filePath ?? 'Create'"
-    :copy-content="fileContent"
-    :is-truncated="isTruncated"
-    @load-full="emit('load-full')"
+    tool-name="Create File"
+    status="success"
+    :primary-hint="filePath"
+    :copy-text="fileContent"
   >
+    <template #icon><FilePlus :size="16" /></template>
     <div class="create-file-info">
-      <span class="create-file-badge create-file-badge--new">📄 New File</span>
+      <span class="create-file-badge create-file-badge--new">New File</span>
       <span class="create-file-badge">{{ lineCount }} line{{ lineCount !== 1 ? 's' : '' }}</span>
     </div>
     <CodeBlock
@@ -49,6 +51,9 @@ const lineCount = computed(() => {
       :max-lines="2000"
       :show-language-badge="true"
     />
+    <button v-if="isTruncated" type="button" class="rs-trunc" @click="emit('load-full')">
+      Output truncated — Show full
+    </button>
   </RendererShell>
 </template>
 
@@ -65,7 +70,20 @@ const lineCount = computed(() => {
   color: var(--text-tertiary);
 }
 .create-file-badge--new {
-  color: var(--success-fg, #34d399);
+  color: var(--success-fg);
   font-weight: 600;
 }
+.rs-trunc {
+  display: block;
+  width: 100%;
+  padding: 6px 12px;
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--canvas-inset);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+.rs-trunc:hover { color: var(--text-primary); background: var(--surface-tertiary); }
 </style>

@@ -3,13 +3,16 @@
  * SqlResultRenderer — renders SQL tool results with syntax-highlighted query,
  * striped table with semantic cell styling, and row count badge.
  */
+import type { TurnToolCall } from "@tracepilot/types";
+import { Database } from "lucide-vue-next";
 import { computed } from "vue";
 import { highlightSql } from "../../utils/syntaxHighlight";
-import RendererShell from "./RendererShell.vue";
+import RendererShell, { type RendererShellStatus } from "../RendererShell.vue";
 
 const props = defineProps<{
   content: string;
   args: Record<string, unknown>;
+  tc?: TurnToolCall;
   isTruncated?: boolean;
 }>();
 
@@ -17,23 +20,24 @@ const emit = defineEmits<{
   "load-full": [];
 }>();
 
+const status = computed<RendererShellStatus>(() =>
+  props.tc?.success === true ? "success" : props.tc?.success === false ? "error" : "success",
+);
+
 const query = computed(() => (typeof props.args?.query === "string" ? props.args.query : null));
 
 const description = computed(() =>
   typeof props.args?.description === "string" ? props.args.description : null,
 );
 
-/** Highlighted SQL query (safe HTML). */
 const highlightedQuery = computed(() => {
   if (!query.value) return "";
   return highlightSql(query.value);
 });
 
-/** Parse a markdown pipe table from text. Handles tables embedded in surrounding text. */
 function parseMarkdownTable(text: string): { headers: string[]; rows: string[][] } | null {
   const allLines = text.split("\n");
 
-  // Find the header separator line (e.g. "| --- | --- |" or "| :--- | ---: |")
   const sepIdx = allLines.findIndex((l) =>
     /^\s*\|[\s:]*-{2,}[\s:]*(\|[\s:]*-{2,}[\s:]*)*\|\s*$/.test(l),
   );
@@ -63,14 +67,10 @@ function parseMarkdownTable(text: string): { headers: string[]; rows: string[][]
   return { headers, rows };
 }
 
-/** Try to parse the content as a structured result.
- *  Handles: JSON array of objects, newline-delimited JSON objects,
- *  and content with a JSON array embedded in surrounding text. */
 const parsedTable = computed<{ headers: string[]; rows: string[][] } | null>(() => {
   if (!props.content) return null;
   const trimmed = props.content.trim();
 
-  // Try direct JSON parse first (most common: [{ ... }, { ... }])
   const tryParse = (text: string): { headers: string[]; rows: string[][] } | null => {
     try {
       const parsed = JSON.parse(text);
@@ -90,18 +90,15 @@ const parsedTable = computed<{ headers: string[]; rows: string[][] } | null>(() 
     return null;
   };
 
-  // 1. Direct parse
   const direct = tryParse(trimmed);
   if (direct) return direct;
 
-  // 2. Extract embedded JSON array from surrounding text (e.g. "Results:\n[{...}]")
   const arrayMatch = trimmed.match(/\[\s*\{[\s\S]*?\}\s*\]/);
   if (arrayMatch) {
     const embedded = tryParse(arrayMatch[0]);
     if (embedded) return embedded;
   }
 
-  // 3. Try newline-delimited JSON objects (NDJSON)
   const lines = trimmed.split("\n").filter((l) => l.trim().startsWith("{"));
   if (lines.length > 0) {
     try {
@@ -116,14 +113,12 @@ const parsedTable = computed<{ headers: string[]; rows: string[][] } | null>(() 
     }
   }
 
-  // 4. Parse markdown pipe tables (e.g. "| col1 | col2 |\n| --- | --- |\n| val | val |")
   const mdTable = parseMarkdownTable(trimmed);
   if (mdTable) return mdTable;
 
   return null;
 });
 
-/** Detect cell type for semantic coloring. */
 function cellClass(value: string): string {
   if (value === "null" || value === "NULL" || value === "") return "sql-cell--null";
   if (/^-?\d+(\.\d+)?$/.test(value)) return "sql-cell--number";
@@ -135,20 +130,19 @@ function cellClass(value: string): string {
 
 <template>
   <RendererShell
-    :label="description ?? 'SQL'"
-    :copy-content="content"
-    :is-truncated="isTruncated"
-    @load-full="emit('load-full')"
+    tool-name="SQL"
+    :status="status"
+    :primary-hint="description ?? undefined"
+    :copy-text="content"
   >
+    <template #icon><Database :size="16" /></template>
     <div class="sql-result">
-      <!-- Query display with syntax highlighting -->
       <div v-if="query" class="sql-query-section">
         <div class="sql-query-label">Query</div>
         <!-- eslint-disable vue/no-v-html -->
         <pre class="sql-query-code" v-html="highlightedQuery"></pre>
       </div>
 
-      <!-- Table result -->
       <div v-if="parsedTable" class="sql-table-section">
         <div class="sql-table-header">
           <span class="sql-table-label">Result</span>
@@ -170,9 +164,11 @@ function cellClass(value: string): string {
         </div>
       </div>
 
-      <!-- Plain text fallback -->
       <pre v-else class="sql-plain-output">{{ content }}</pre>
     </div>
+    <button v-if="isTruncated" type="button" class="rs-trunc" @click="emit('load-full')">
+      Output truncated — Show full
+    </button>
   </RendererShell>
 </template>
 
@@ -196,18 +192,17 @@ function cellClass(value: string): string {
   margin: 4px 0 0 0;
   padding: 6px 10px;
   background: var(--canvas-inset);
-  border-radius: var(--radius-sm, 6px);
+  border-radius: var(--radius-sm);
   white-space: pre-wrap;
   word-break: break-word;
   font-size: 0.6875rem;
   line-height: 1.5;
 }
-/* SQL syntax highlight classes */
-.sql-query-code :deep(.syn-keyword) { color: var(--syn-keyword, #c084fc); }
-.sql-query-code :deep(.syn-string) { color: var(--syn-string, #34d399); }
-.sql-query-code :deep(.syn-number) { color: var(--syn-number, #fb923c); }
+.sql-query-code :deep(.syn-keyword) { color: var(--syn-keyword); }
+.sql-query-code :deep(.syn-string) { color: var(--syn-string); }
+.sql-query-code :deep(.syn-number) { color: var(--syn-number); }
 .sql-query-code :deep(.syn-comment) { color: var(--text-tertiary); font-style: italic; }
-.sql-query-code :deep(.syn-func) { color: var(--syn-func, #fbbf24); }
+.sql-query-code :deep(.syn-func) { color: var(--syn-func); }
 .sql-query-code :deep(.syn-operator) { color: var(--text-tertiary); }
 
 .sql-table-section { padding: 8px 12px; }
@@ -222,14 +217,14 @@ function cellClass(value: string): string {
   font-weight: 600;
   padding: 1px 6px;
   border-radius: 9999px;
-  background: var(--accent-muted, rgba(99, 102, 241, 0.15));
-  color: var(--accent-fg, #818cf8);
+  background: var(--accent-muted);
+  color: var(--accent-fg);
 }
 .sql-table-wrap {
   overflow: auto;
   max-height: 400px;
   border: 1px solid var(--border-muted);
-  border-radius: var(--radius-sm, 6px);
+  border-radius: var(--radius-sm);
 }
 .sql-data-table {
   width: 100%;
@@ -253,17 +248,16 @@ function cellClass(value: string): string {
   border-bottom: 1px solid var(--border-muted);
 }
 .sql-row--striped td {
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--canvas-inset);
 }
 .sql-data-table tr:hover td {
   background: var(--neutral-muted);
 }
 
-/* Semantic cell styles */
 .sql-cell--null { color: var(--text-tertiary); font-style: italic; }
-.sql-cell--number { color: var(--syn-number, #fb923c); }
-.sql-cell--boolean { color: var(--syn-keyword, #c084fc); }
-.sql-cell--date { color: var(--syn-type, #38bdf8); }
+.sql-cell--number { color: var(--syn-number); }
+.sql-cell--boolean { color: var(--syn-keyword); }
+.sql-cell--date { color: var(--syn-type); }
 
 .sql-plain-output {
   margin: 0;
@@ -274,4 +268,17 @@ function cellClass(value: string): string {
   max-height: 400px;
   overflow: auto;
 }
+.rs-trunc {
+  display: block;
+  width: 100%;
+  padding: 6px 12px;
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--canvas-inset);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+.rs-trunc:hover { color: var(--text-primary); background: var(--surface-tertiary); }
 </style>

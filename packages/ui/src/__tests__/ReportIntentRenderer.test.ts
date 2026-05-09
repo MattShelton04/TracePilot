@@ -14,7 +14,7 @@ describe("ReportIntentRenderer", () => {
     const wrapper = mount(ReportIntentRenderer, {
       props: { args: { intent: "Testing" } },
     });
-    expect(wrapper.find(".intent-icon").text()).toBe("🎯");
+    expect(wrapper.find(".intent-renderer").exists()).toBe(true);
   });
 
   it("does not render when intent is missing", () => {

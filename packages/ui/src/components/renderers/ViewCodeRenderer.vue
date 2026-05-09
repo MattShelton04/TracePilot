@@ -2,10 +2,12 @@
 /**
  * ViewCodeRenderer — renders view tool results with line numbers and language detection.
  */
+
+import { FileCode2 } from "lucide-vue-next";
 import { computed } from "vue";
 import { detectLanguage } from "../../utils/languageDetection";
+import RendererShell from "../RendererShell.vue";
 import CodeBlock from "./CodeBlock.vue";
-import RendererShell from "./RendererShell.vue";
 
 const props = defineProps<{
   content: string;
@@ -31,13 +33,10 @@ const viewRange = computed<[number, number] | null>(() => {
 
 const startLine = computed(() => viewRange.value?.[0] ?? 1);
 
-/** Detect if this is a directory listing (no file extension AND not a known filename). */
 const isDirectoryListing = computed(() => {
   if (!filePath.value) return false;
   const lastSegment = filePath.value.replace(/\\/g, "/").split("/").pop() ?? "";
-  // Check against known extensionless filenames (Dockerfile, Makefile, etc.)
   if (detectLanguage(filePath.value) !== "text") return false;
-  // No extension and not a recognized filename → likely a directory
   if (!lastSegment.includes(".")) return true;
   return false;
 });
@@ -50,20 +49,19 @@ const lineCount = computed(() => {
 
 <template>
   <RendererShell
-    :label="filePath ?? 'View'"
-    :copy-content="content"
-    :is-truncated="isTruncated"
-    @load-full="emit('load-full')"
+    tool-name="View"
+    status="success"
+    :primary-hint="filePath"
+    :copy-text="content"
   >
+    <template #icon><FileCode2 :size="16" /></template>
     <div v-if="filePath" class="view-code-info">
-      <span class="view-code-badge">👁 {{ lineCount }} line{{ lineCount !== 1 ? 's' : '' }}</span>
+      <span class="view-code-badge">{{ lineCount }} line{{ lineCount !== 1 ? 's' : '' }}</span>
       <span v-if="viewRange" class="view-code-range">
         Lines {{ viewRange[0] }}–{{ viewRange[1] === -1 ? 'end' : viewRange[1] }}
       </span>
     </div>
-    <!-- Directory listing -->
     <pre v-if="isDirectoryListing" class="view-code-dir">{{ content }}</pre>
-    <!-- Code file -->
     <CodeBlock
       v-else
       :code="content"
@@ -72,6 +70,9 @@ const lineCount = computed(() => {
       :max-lines="2000"
       :show-language-badge="true"
     />
+    <button v-if="isTruncated" type="button" class="rs-trunc" @click="emit('load-full')">
+      Output truncated — Show full
+    </button>
   </RendererShell>
 </template>
 
@@ -89,7 +90,7 @@ const lineCount = computed(() => {
 }
 .view-code-range {
   font-size: 0.6875rem;
-  color: var(--accent-fg, #818cf8);
+  color: var(--accent-fg);
   font-family: 'JetBrains Mono', monospace;
 }
 .view-code-dir {
@@ -104,4 +105,17 @@ const lineCount = computed(() => {
   max-height: 500px;
   overflow: auto;
 }
+.rs-trunc {
+  display: block;
+  width: 100%;
+  padding: 6px 12px;
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--canvas-inset);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+.rs-trunc:hover { color: var(--text-primary); background: var(--surface-tertiary); }
 </style>

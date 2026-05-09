@@ -1,13 +1,13 @@
 <script setup lang="ts">
 /**
  * ShellOutputRenderer — terminal-style rendering for powershell tool results.
- * Shows macOS-style terminal chrome, command with exit status badge,
- * and output with semantic coloring (errors, warnings, success, dim).
+ * Shows command with exit status badge, and output with semantic coloring.
  */
 
 import type { TurnToolCall } from "@tracepilot/types";
+import { Terminal } from "lucide-vue-next";
 import { computed } from "vue";
-import RendererShell from "./RendererShell.vue";
+import RendererShell, { type RendererShellStatus } from "../RendererShell.vue";
 
 const props = defineProps<{
   content: string;
@@ -30,39 +30,46 @@ const description = computed(() =>
 
 const mode = computed(() => (typeof props.args?.mode === "string" ? props.args.mode : "sync"));
 
-const statusLabel = computed(() => {
+const status = computed<RendererShellStatus>(() =>
+  props.tc?.success === true ? "success" : props.tc?.success === false ? "error" : "pending",
+);
+
+const exitLabel = computed(() => {
   if (props.tc.success === true) return "exit 0";
   if (props.tc.success === false) return "error";
   return "running";
 });
 
-const statusClass = computed(() => {
+const exitClass = computed(() => {
   if (props.tc.success === true) return "shell-exit--success";
   if (props.tc.success === false) return "shell-exit--error";
   return "shell-exit--pending";
 });
 
-/** Classify output lines for semantic coloring. */
+const primaryHint = computed(() => {
+  if (description.value) return description.value;
+  if (command.value) {
+    return command.value.length > 60 ? `${command.value.slice(0, 60)}…` : command.value;
+  }
+  return undefined;
+});
+
 interface OutputLine {
   text: string;
   cls: string;
 }
 
-/** Test if a word appears as a standalone token (word boundary aware). */
 function hasWord(text: string, word: string): boolean {
   return new RegExp(`(?:^|[\\s:=,;|/\\\\()])${word}(?:[\\s:=,;|/\\\\()]|$)`, "i").test(text);
 }
 
-/** Test if a line looks like a genuine error line (not just a filename containing "error"). */
 function isErrorLine(line: string): boolean {
   const lower = line.toLowerCase();
-  // Genuine error patterns: "error TS2322:", "ERROR:", "fatal error", "error:", "- error"
   if (/\berror[\s:[\]]/i.test(line)) return true;
   if (hasWord(lower, "fail") || hasWord(lower, "failed") || hasWord(lower, "failure")) return true;
   if (hasWord(lower, "fatal")) return true;
   if (hasWord(lower, "exception")) return true;
   if (lower.startsWith("e ")) return true;
-  // Avoid: "0 errors", "error_handler.ts", "found 0 errors"
   if (/\b0\s+errors?\b/i.test(line)) return false;
   return false;
 }
@@ -78,7 +85,6 @@ function isSuccessLine(line: string): boolean {
   return (
     hasWord(lower, "success") ||
     hasWord(lower, "passed") ||
-    lower.includes("✓") ||
     /\bdone\b/i.test(line) ||
     /\bcomplete(?:d)?\b/i.test(line)
   );
@@ -100,104 +106,49 @@ const outputLines = computed<OutputLine[]>(() => {
 
 <template>
   <RendererShell
-    label="Terminal"
-    :copy-content="content"
-    :is-truncated="isTruncated"
-    @load-full="emit('load-full')"
+    tool-name="Shell"
+    :status="status"
+    :primary-hint="primaryHint"
+    :copy-text="content"
   >
+    <template #icon><Terminal :size="16" /></template>
     <div class="shell-output">
-      <!-- Terminal title bar with dots -->
-      <div class="shell-titlebar">
-        <div class="shell-dots">
-          <span class="shell-dot shell-dot--close"></span>
-          <span class="shell-dot shell-dot--minimize"></span>
-          <span class="shell-dot shell-dot--maximize"></span>
-        </div>
-        <span v-if="description" class="shell-title">{{ description }}</span>
-        <span v-else class="shell-title">Terminal</span>
-      </div>
-
-      <!-- Command bar -->
       <div v-if="command" class="shell-command-bar">
-        <span class="shell-prompt">❯</span>
+        <span class="shell-prompt">&gt;</span>
         <code class="shell-command">{{ command }}</code>
         <span v-if="mode !== 'sync'" class="shell-mode-badge">{{ mode }}</span>
-        <span class="shell-exit-badge" :class="statusClass">{{ statusLabel }}</span>
+        <span class="shell-exit-badge" :class="exitClass">{{ exitLabel }}</span>
       </div>
 
-      <!-- Output body with semantic line coloring -->
       <div class="shell-output-body">
         <div v-for="(line, idx) in outputLines" :key="idx" :class="['shell-line', line.cls]">{{ line.text }}</div>
         <div v-if="outputLines.length === 0" class="shell-line term-dim">(no output)</div>
       </div>
     </div>
+    <button v-if="isTruncated" type="button" class="rs-trunc" @click="emit('load-full')">
+      Output truncated — Show full
+    </button>
   </RendererShell>
 </template>
 
 <style scoped>
 .shell-output {
-  --term-bg: var(--canvas-subtle, #0d1117);
-  --term-chrome: var(--canvas-inset, #161b22);
-  --term-border: var(--border-muted, #30363d);
-  --term-text: var(--text-secondary, #c9d1d9);
-  --term-strong: var(--text-primary, #e6edf3);
-  --term-dim: var(--text-tertiary, #8b949e);
-  --term-accent: var(--accent-fg, #58a6ff);
-  --term-accent-bg: var(--accent-subtle, rgba(99, 102, 241, 0.1));
-  --term-success: var(--success-fg, #3fb950);
-  --term-success-bg: var(--success-subtle, rgba(16, 185, 129, 0.1));
-  --term-warning: var(--warning-fg, #d29922);
-  --term-warning-bg: var(--warning-subtle, rgba(245, 158, 11, 0.1));
-  --term-danger: var(--danger-fg, #f85149);
-  --term-danger-bg: var(--danger-subtle, rgba(244, 63, 94, 0.1));
   font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
-  background: linear-gradient(180deg, var(--term-chrome), var(--term-bg));
-  color: var(--term-text);
-  border-radius: 0 0 6px 6px;
+  background: var(--canvas-default);
+  color: var(--text-secondary);
   overflow: hidden;
 }
 
-/* ── Terminal title bar with macOS-style dots ── */
-.shell-titlebar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  background: var(--term-chrome);
-  border-bottom: 1px solid var(--term-border);
-}
-.shell-dots {
-  display: flex;
-  gap: 6px;
-  flex-shrink: 0;
-}
-.shell-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-}
-.shell-dot--close { background: #ff5f57; }
-.shell-dot--minimize { background: #febc2e; }
-.shell-dot--maximize { background: #28c840; }
-.shell-title {
-  font-size: 0.6875rem;
-  color: var(--term-dim);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* ── Command bar ── */
 .shell-command-bar {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 6px 12px;
-  background: var(--term-bg);
-  border-bottom: 1px solid var(--term-border);
+  background: var(--canvas-inset);
+  border-bottom: 1px solid var(--border-muted);
 }
 .shell-prompt {
-  color: var(--term-success);
+  color: var(--success-fg);
   font-weight: 700;
   font-size: 0.875rem;
   flex-shrink: 0;
@@ -207,15 +158,15 @@ const outputLines = computed<OutputLine[]>(() => {
   font-size: 0.75rem;
   white-space: pre-wrap;
   word-break: break-word;
-  color: var(--term-strong);
+  color: var(--text-primary);
 }
 .shell-mode-badge {
   font-size: 0.5625rem;
   font-weight: 600;
   padding: 1px 6px;
   border-radius: 9999px;
-  background: var(--term-accent-bg);
-  color: var(--term-accent);
+  background: var(--accent-muted);
+  color: var(--accent-fg);
   flex-shrink: 0;
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -228,41 +179,46 @@ const outputLines = computed<OutputLine[]>(() => {
   flex-shrink: 0;
 }
 .shell-exit--success {
-  background: var(--term-success-bg);
-  color: var(--term-success);
+  background: var(--success-subtle);
+  color: var(--success-fg);
 }
 .shell-exit--error {
-  background: var(--term-danger-bg);
-  color: var(--term-danger);
+  background: var(--danger-subtle);
+  color: var(--danger-fg);
 }
 .shell-exit--pending {
-  background: var(--term-warning-bg);
-  color: var(--term-warning);
+  background: var(--warning-subtle);
+  color: var(--warning-fg);
 }
 
-/* ── Output body ── */
 .shell-output-body {
   font-size: 0.75rem;
   line-height: 1.5;
   padding: 10px 12px;
   max-height: 500px;
   overflow: auto;
-  background: var(--term-bg);
+  background: var(--canvas-default);
 }
 .shell-line {
   white-space: pre-wrap;
   word-break: break-word;
 }
-.shell-line.term-error {
-  color: var(--term-danger);
+.shell-line.term-error { color: var(--danger-fg); }
+.shell-line.term-warning { color: var(--warning-fg); }
+.shell-line.term-success { color: var(--success-fg); }
+.shell-line.term-dim { color: var(--text-tertiary); }
+
+.rs-trunc {
+  display: block;
+  width: 100%;
+  padding: 6px 12px;
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--canvas-inset);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
 }
-.shell-line.term-warning {
-  color: var(--term-warning);
-}
-.shell-line.term-success {
-  color: var(--term-success);
-}
-.shell-line.term-dim {
-  color: var(--term-dim);
-}
+.rs-trunc:hover { color: var(--text-primary); background: var(--surface-tertiary); }
 </style>

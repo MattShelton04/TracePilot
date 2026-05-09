@@ -5,8 +5,10 @@
  * Features: unified/split toggle, line numbers, full-line backgrounds,
  * and a "Modified" badge.
  */
+
+import { FileEdit } from "lucide-vue-next";
 import { computed, ref } from "vue";
-import RendererShell from "./RendererShell.vue";
+import RendererShell from "../RendererShell.vue";
 
 const props = defineProps<{
   content: string;
@@ -35,8 +37,6 @@ const newStr = computed(() =>
 
 const isDelete = computed(() => oldStr.value != null && !newStr.value);
 
-// ── Line-level diff for unified/split views ──
-
 interface DiffLine {
   type: "context" | "added" | "removed";
   oldNum?: number;
@@ -44,14 +44,12 @@ interface DiffLine {
   content: string;
 }
 
-/** Strip trailing empty entry from split (common for content ending with \n). */
 function splitLines(text: string): string[] {
   const lines = text.split("\n");
   if (lines.length > 1 && lines[lines.length - 1] === "") lines.pop();
   return lines;
 }
 
-/** Compute line-level diff entries using LCS on lines. */
 const diffLines = computed<DiffLine[]>(() => {
   if (oldStr.value == null || newStr.value == null) return [];
 
@@ -59,12 +57,10 @@ const diffLines = computed<DiffLine[]>(() => {
   const newLines = splitLines(newStr.value);
   const lines: DiffLine[] = [];
 
-  // Simple line-based diff using LCS on lines
   const m = oldLines.length;
   const n = newLines.length;
 
   if (m * n > 1_000_000) {
-    // Too large — just show all old as removed, all new as added
     oldLines.forEach((l, i) => {
       lines.push({ type: "removed", oldNum: i + 1, content: l });
     });
@@ -74,7 +70,6 @@ const diffLines = computed<DiffLine[]>(() => {
     return lines;
   }
 
-  // Line-level LCS
   const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
   for (let i = 1; i <= m; i++) {
     for (let j = 1; j <= n; j++) {
@@ -106,18 +101,12 @@ const diffLines = computed<DiffLine[]>(() => {
   return stack;
 });
 
-const oldLineCount = computed(() => (oldStr.value ? splitLines(oldStr.value).length : 0));
-const newLineCount = computed(() => (newStr.value ? splitLines(newStr.value).length : 0));
-
-/** Actual diff stats based on LCS result, not raw line counts. */
 const addedCount = computed(() => diffLines.value.filter((l) => l.type === "added").length);
 const removedCount = computed(() => diffLines.value.filter((l) => l.type === "removed").length);
 const contextCount = computed(() => diffLines.value.filter((l) => l.type === "context").length);
 
-/** When all old lines appear as context (no removals), the edit only added new content. */
 const isPureAddition = computed(() => removedCount.value === 0 && addedCount.value > 0);
 
-/** Badge text based on the kind of edit. */
 const editBadgeText = computed(() => {
   if (isDelete.value) return "Deleted";
   if (isPureAddition.value) return "Extended";
@@ -130,7 +119,6 @@ const editBadgeClass = computed(() => {
   return "edit-diff-badge--modified";
 });
 
-/** Split view: left (old) lines and right (new) lines aligned. */
 const splitPairs = computed(() => {
   const pairs: Array<{ left: DiffLine | null; right: DiffLine | null }> = [];
   const removedQueue: DiffLine[] = [];
@@ -161,29 +149,19 @@ const splitPairs = computed(() => {
   flushQueues();
   return pairs;
 });
-
-function fileName(path: string): string {
-  return path.replace(/\\/g, "/").split("/").pop() ?? path;
-}
 </script>
 
 <template>
   <RendererShell
-    :label="filePath ? fileName(filePath) : 'Edit'"
-    :copy-content="newStr ?? content"
-    :is-truncated="isTruncated"
-    @load-full="emit('load-full')"
+    tool-name="Edit"
+    status="success"
+    :primary-hint="filePath"
+    :copy-text="newStr ?? content"
   >
-    <!-- File path + badge + diff mode tabs -->
-    <div class="edit-diff-header">
-      <div class="edit-diff-path-group">
-        <span v-if="filePath" class="edit-diff-path" :title="filePath">
-          <span class="edit-diff-path-icon">📄</span>
-          {{ filePath }}
-        </span>
+    <template #icon><FileEdit :size="16" /></template>
+    <template v-if="oldStr != null && newStr != null" #tabs>
+      <div class="edit-diff-tabs" role="tablist">
         <span class="edit-diff-badge" :class="editBadgeClass">{{ editBadgeText }}</span>
-      </div>
-      <div v-if="oldStr != null && newStr != null" class="edit-diff-tabs" role="tablist">
         <button
           type="button"
           role="tab"
@@ -199,9 +177,8 @@ function fileName(path: string): string {
           @click="diffMode = 'split'"
         >Split</button>
       </div>
-    </div>
+    </template>
 
-    <!-- Stats bar -->
     <div v-if="oldStr != null || isDelete" class="edit-diff-stats">
       <span v-if="removedCount > 0" class="edit-diff-stat edit-diff-stat--removed">−{{ removedCount }} line{{ removedCount !== 1 ? 's' : '' }}</span>
       <span v-if="addedCount > 0" class="edit-diff-stat edit-diff-stat--added">+{{ addedCount }} line{{ addedCount !== 1 ? 's' : '' }}</span>
@@ -209,7 +186,6 @@ function fileName(path: string): string {
       <span v-if="isDelete" class="edit-diff-stat edit-diff-stat--removed">deleted</span>
     </div>
 
-    <!-- Unified diff view -->
     <div v-if="oldStr != null && newStr != null && diffMode === 'unified'" class="edit-diff-body">
       <table class="diff-table" role="presentation">
         <tbody>
@@ -229,7 +205,6 @@ function fileName(path: string): string {
       </table>
     </div>
 
-    <!-- Split diff view -->
     <div v-else-if="oldStr != null && newStr != null && diffMode === 'split'" class="edit-diff-body">
       <div class="diff-split">
         <table class="diff-table diff-table--half" role="presentation">
@@ -265,7 +240,6 @@ function fileName(path: string): string {
       </div>
     </div>
 
-    <!-- Delete-only case -->
     <div v-else-if="isDelete && oldStr" class="edit-diff-body">
       <table class="diff-table" role="presentation">
         <tbody>
@@ -278,36 +252,18 @@ function fileName(path: string): string {
       </table>
     </div>
 
-    <!-- Fallback: show raw content -->
     <pre v-else class="edit-diff-fallback">{{ content }}</pre>
+    <button v-if="isTruncated" type="button" class="rs-trunc" @click="emit('load-full')">
+      Output truncated — Show full
+    </button>
   </RendererShell>
 </template>
 
 <style scoped>
-.edit-diff-header {
+.edit-diff-tabs {
   display: flex;
+  gap: 6px;
   align-items: center;
-  justify-content: space-between;
-  padding: 6px 10px;
-  border-bottom: 1px solid var(--border-muted);
-  background: rgba(255, 255, 255, 0.02);
-}
-.edit-diff-path-group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  overflow: hidden;
-}
-.edit-diff-path {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.6875rem;
-  color: var(--text-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.edit-diff-path-icon {
-  margin-right: 4px;
 }
 .edit-diff-badge {
   font-size: 0.5625rem;
@@ -319,21 +275,16 @@ function fileName(path: string): string {
   flex-shrink: 0;
 }
 .edit-diff-badge--modified {
-  background: rgba(251, 191, 36, 0.15);
-  color: var(--warning-fg, #fbbf24);
+  background: var(--warning-subtle);
+  color: var(--warning-fg);
 }
 .edit-diff-badge--added {
-  background: rgba(52, 211, 153, 0.15);
-  color: var(--success-fg, #34d399);
+  background: var(--success-subtle);
+  color: var(--success-fg);
 }
 .edit-diff-badge--deleted {
-  background: rgba(248, 113, 113, 0.15);
-  color: var(--danger-fg, #f87171);
-}
-.edit-diff-tabs {
-  display: flex;
-  gap: 2px;
-  flex-shrink: 0;
+  background: var(--danger-subtle);
+  color: var(--danger-fg);
 }
 .edit-diff-tab {
   font-size: 0.625rem;
@@ -351,9 +302,9 @@ function fileName(path: string): string {
   color: var(--text-secondary);
 }
 .edit-diff-tab.active {
-  background: var(--accent-muted, rgba(99, 102, 241, 0.15));
-  color: var(--accent-fg, #818cf8);
-  border-color: var(--accent-emphasis, #6366f1);
+  background: var(--accent-muted);
+  color: var(--accent-fg);
+  border-color: var(--accent-emphasis);
 }
 .edit-diff-stats {
   display: flex;
@@ -366,15 +317,14 @@ function fileName(path: string): string {
   font-weight: 600;
   font-family: 'JetBrains Mono', monospace;
 }
-.edit-diff-stat--removed { color: var(--danger-fg, #f87171); }
-.edit-diff-stat--added { color: var(--success-fg, #34d399); }
+.edit-diff-stat--removed { color: var(--danger-fg); }
+.edit-diff-stat--added { color: var(--success-fg); }
 .edit-diff-stat--context { color: var(--text-tertiary); }
 .edit-diff-body {
   overflow: auto;
   max-height: 500px;
 }
 
-/* ── Diff table ── */
 .diff-table {
   border-collapse: collapse;
   width: 100%;
@@ -384,8 +334,8 @@ function fileName(path: string): string {
 }
 .diff-line { border: none; }
 .diff-line--context { background: transparent; }
-.diff-line--removed { background: rgba(251, 113, 133, 0.08); }
-.diff-line--added { background: rgba(52, 211, 153, 0.08); }
+.diff-line--removed { background: var(--danger-subtle); }
+.diff-line--added { background: var(--success-subtle); }
 .diff-line--empty { background: var(--canvas-inset); }
 .diff-num {
   text-align: right;
@@ -405,8 +355,8 @@ function fileName(path: string): string {
   user-select: none;
   vertical-align: top;
 }
-.diff-line--removed .diff-indicator { color: var(--danger-fg, #f87171); }
-.diff-line--added .diff-indicator { color: var(--success-fg, #34d399); }
+.diff-line--removed .diff-indicator { color: var(--danger-fg); }
+.diff-line--added .diff-indicator { color: var(--success-fg); }
 .diff-line--context .diff-indicator { color: var(--text-tertiary); }
 .diff-code {
   padding: 0 12px;
@@ -417,11 +367,10 @@ function fileName(path: string): string {
   font: inherit;
   white-space: pre;
 }
-.diff-line--removed .diff-code { color: var(--danger-fg, #f87171); }
-.diff-line--added .diff-code { color: var(--success-fg, #34d399); }
+.diff-line--removed .diff-code { color: var(--danger-fg); }
+.diff-line--added .diff-code { color: var(--success-fg); }
 .diff-line--context .diff-code { color: var(--text-secondary); }
 
-/* ── Split view ── */
 .diff-split {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -446,4 +395,17 @@ function fileName(path: string): string {
   max-height: 400px;
   overflow: auto;
 }
+.rs-trunc {
+  display: block;
+  width: 100%;
+  padding: 6px 12px;
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--canvas-inset);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+.rs-trunc:hover { color: var(--text-primary); background: var(--surface-tertiary); }
 </style>
