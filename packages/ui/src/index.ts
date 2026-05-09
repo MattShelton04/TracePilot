@@ -7,6 +7,16 @@ export { default as Badge } from "./components/Badge.vue";
 export { default as BtnGroup } from "./components/BtnGroup.vue";
 export { default as ChartFrame } from "./components/ChartFrame.vue";
 export { default as ConfirmDialog } from "./components/ConfirmDialog.vue";
+export type {
+  DataGridColumn,
+  DataGridDensity,
+  DataGridProps,
+  DataGridSelectionMode,
+  DataGridSortDir,
+  DataGridSortState,
+  DataGridState,
+} from "./components/DataGrid.vue";
+export { default as DataGrid } from "./components/DataGrid.vue";
 export { default as DataTable } from "./components/DataTable.vue";
 export { default as DefList } from "./components/DefList.vue";
 export type { EmptyStateAction, EmptyStateProps } from "./components/EmptyState.vue";
@@ -30,6 +40,10 @@ export { default as FormInput } from "./components/FormInput.vue";
 export { default as FormSwitch } from "./components/FormSwitch.vue";
 export type { HeadingProps } from "./components/Heading.vue";
 export { default as Heading } from "./components/Heading.vue";
+export type { KPIDelta, KPIProps } from "./components/KPI.vue";
+export { default as KPI } from "./components/KPI.vue";
+export type { KPIRowProps } from "./components/KPIRow.vue";
+export { default as KPIRow } from "./components/KPIRow.vue";
 export { default as LoadingOverlay } from "./components/LoadingOverlay.vue";
 export { default as LoadingSpinner } from "./components/LoadingSpinner.vue";
 export { default as MarkdownContent } from "./components/MarkdownContent.vue";
@@ -40,10 +54,16 @@ export { default as PageHeader } from "./components/PageHeader.vue";
 export { default as PageShell } from "./components/PageShell.vue";
 export { default as ProgressBar } from "./components/ProgressBar.vue";
 export { default as ReasoningBlock } from "./components/ReasoningBlock.vue";
+export type {
+  RendererShellProps,
+  RendererShellStatus,
+  RendererShellTokenUsage,
+} from "./components/RendererShell.vue";
+export { default as RendererShell } from "./components/RendererShell.vue";
 // ── Renderers ──────────────────────────────────────────────────────
 export { default as CodeBlock } from "./components/renderers/CodeBlock.vue";
 export { default as PlainTextRenderer } from "./components/renderers/PlainTextRenderer.vue";
-export { default as RendererShell } from "./components/renderers/RendererShell.vue";
+export { default as LegacyRendererShell } from "./components/renderers/RendererShell.vue";
 export {
   getRegisteredRenderers,
   getRendererEntry,
@@ -89,6 +109,11 @@ export { default as TagList } from "./components/TagList.vue";
 export { default as TerminologyLegend } from "./components/TerminologyLegend.vue";
 export { default as ToastContainer } from "./components/ToastContainer.vue";
 export { default as TokenBar } from "./components/TokenBar.vue";
+export type {
+  TokenBudgetBarProps,
+  TokenBudgetBarThresholds,
+} from "./components/TokenBudgetBar.vue";
+export { default as TokenBudgetBar } from "./components/TokenBudgetBar.vue";
 export type { ToolbarRowProps } from "./components/ToolbarRow.vue";
 export { default as ToolbarRow } from "./components/ToolbarRow.vue";
 export { default as ToolCallDetail } from "./components/ToolCallDetail.vue";
