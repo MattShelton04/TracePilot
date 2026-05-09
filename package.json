@@ -27,6 +27,12 @@
     "format": "biome format --write .",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
+    "check:hex": "node scripts/check-no-hex-colors.mjs",
+    "check:emoji": "node scripts/check-no-emoji-in-templates.mjs",
+    "check:backdrop": "node scripts/check-no-backdrop-filter.mjs",
+    "check:zindex": "node scripts/check-z-index-tokens.mjs",
+    "check:spacing": "node scripts/check-spacing-grid.mjs",
+    "check:design-system": "node scripts/check-no-hex-colors.mjs && node scripts/check-no-emoji-in-templates.mjs && node scripts/check-no-backdrop-filter.mjs && node scripts/check-z-index-tokens.mjs",
     "gen:bindings": "cargo run -p tracepilot-tauri-bindings --bin gen-bindings",
     "clean": "pnpm -r clean",
     "prepare": "lefthook install || exit 0"

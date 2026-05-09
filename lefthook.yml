@@ -35,6 +35,20 @@ pre-commit:
     public-api:
       glob: "crates/tracepilot-orchestrator/src/lib.rs"
       run: node scripts/check-public-api.mjs
+    # Design-system guard-rails (00-globals §G1, §G2, §G6, §G10).
+    # Each script accepts --staged for incremental enforcement.
+    ds-hex:
+      glob: "apps/desktop/src/**/*.{vue,css,scss}"
+      run: node scripts/check-no-hex-colors.mjs --staged
+    ds-emoji:
+      glob: "apps/desktop/src/**/*.vue"
+      run: node scripts/check-no-emoji-in-templates.mjs --staged
+    ds-backdrop:
+      glob: "apps/desktop/src/**/*.{vue,css,scss}"
+      run: node scripts/check-no-backdrop-filter.mjs --staged
+    ds-zindex:
+      glob: "apps/desktop/src/**/*.{vue,css}"
+      run: node scripts/check-z-index-tokens.mjs --staged
 
 # Heavier checks that shouldn't block every commit but should run before
 # sharing work with the remote. Skip with `git push --no-verify` if urgent.
@@ -47,6 +61,9 @@ pre-push:
       run: cargo fmt --all -- --check
     filesize:
       run: node scripts/check-file-sizes.mjs
+    # Spacing-grid is warn-only (00-globals §G8); pre-push surfaces report.
+    ds-spacing:
+      run: node scripts/check-spacing-grid.mjs
 
 commit-msg:
   commands:
