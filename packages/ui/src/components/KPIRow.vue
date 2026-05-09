@@ -31,35 +31,33 @@ withDefaults(defineProps<KPIRowProps>(), {
 </template>
 
 <style scoped>
+/*
+ * Hairline framing via grid `gap` painted over `background-color`. The 1px
+ * gap acts as the divider between tiles; tiles paint their own
+ * `--canvas-default` background to cover everywhere except the seams. This
+ * gives a clean, even hairline regardless of wrap row count (no orphaned
+ * border-right on visual row endings, no doubled borders).
+ */
 .kpi-row {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: nowrap;
+  display: grid;
+  gap: 1px;
+  background: var(--border-subtle);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  background: var(--canvas-default);
   overflow: hidden;
 }
 
 .kpi-row--wrap {
-  flex-wrap: wrap;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.kpi-row:not(.kpi-row--wrap) {
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
 }
 
 .kpi-row :slotted(.kpi) {
-  flex: 1 1 0;
-  min-width: 160px;
-  border-right: 1px solid var(--border-subtle);
-}
-
-.kpi-row :slotted(.kpi:last-child) {
-  border-right: 0;
-}
-
-.kpi-row--wrap :slotted(.kpi) {
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.kpi-row--wrap :slotted(.kpi:last-child) {
-  border-bottom: 0;
+  background: var(--canvas-default);
+  min-width: 0;
 }
 </style>

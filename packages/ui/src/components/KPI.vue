@@ -6,6 +6,7 @@
   See 02-primitives.md §KPI (CC-4).
 -->
 <script setup lang="ts">
+import { ArrowDown, ArrowUp, Info, Minus } from "lucide-vue-next";
 import { computed } from "vue";
 import { formatBytes, formatDuration, formatNumber, formatPercent } from "../utils/formatters";
 
@@ -54,11 +55,11 @@ const deltaTone = computed<"good" | "bad" | "neutral">(() => {
   return "neutral";
 });
 
-const deltaArrow = computed(() => {
-  if (!props.delta) return "";
-  if (props.delta.direction === "up") return "▲";
-  if (props.delta.direction === "down") return "▼";
-  return "■";
+const deltaArrowComponent = computed(() => {
+  if (!props.delta) return null;
+  if (props.delta.direction === "up") return ArrowUp;
+  if (props.delta.direction === "down") return ArrowDown;
+  return Minus;
 });
 
 const sparkPoints = computed(() => {
@@ -94,7 +95,7 @@ const sparkPoints = computed(() => {
         class="kpi__info"
         :title="description"
         aria-label="More info"
-      >ⓘ</span>
+      ><Info :size="12" :stroke-width="1.5" aria-hidden="true" /></span>
     </div>
     <div class="kpi__value">
       <span class="kpi__value-num">{{ formattedValue }}</span>
@@ -106,7 +107,13 @@ const sparkPoints = computed(() => {
         class="kpi__delta"
         :class="`kpi__delta--${deltaTone}`"
       >
-        <span aria-hidden="true">{{ deltaArrow }}</span>
+        <component
+          :is="deltaArrowComponent"
+          v-if="deltaArrowComponent"
+          :size="12"
+          :stroke-width="1.5"
+          aria-hidden="true"
+        />
         <span>{{ Math.abs(delta.value).toFixed(1) }}%</span>
       </span>
       <slot name="spark">
@@ -140,6 +147,7 @@ const sparkPoints = computed(() => {
 .kpi__label {
   font-size: 12px;
   line-height: 16px;
+  font-weight: 500;
   color: var(--text-secondary);
   display: flex;
   gap: 4px;
@@ -149,14 +157,15 @@ const sparkPoints = computed(() => {
 .kpi__info {
   color: var(--text-tertiary);
   cursor: help;
-  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
 }
 
 .kpi__value {
   font-family: var(--font-mono);
   font-feature-settings: "tnum" 1;
-  font-size: 18px;
-  line-height: 24px;
+  font-size: 22px;
+  line-height: 28px;
   color: var(--text-primary);
   display: flex;
   align-items: baseline;

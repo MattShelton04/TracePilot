@@ -34,7 +34,7 @@ function mountPanel(
 describe("ToolDetailPanel", () => {
   it("renders tool name and icon", () => {
     const wrapper = mountPanel({ toolName: "grep" });
-    expect(wrapper.find(".detail-icon").text()).toBe("🔍");
+    expect(wrapper.find(".detail-icon").attributes("data-icon-name")).toBe("search");
     expect(wrapper.find(".detail-title strong").text()).toBe("grep");
   });
 

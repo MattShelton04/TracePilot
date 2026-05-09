@@ -1,10 +1,21 @@
 <script setup lang="ts">
 import type { TurnSessionEvent, TurnToolCall } from "@tracepilot/types";
+import * as LucideIcons from "lucide-vue-next";
 import { computed, nextTick, ref, watch } from "vue";
 import { formatDuration } from "../utils/formatters";
 import { categoryColor, formatArgsSummary, toolCategory, toolIcon } from "../utils/toolCall";
 import ExpandChevron from "./ExpandChevron.vue";
 import ToolCallDetail from "./ToolCallDetail.vue";
+
+function kebabToPascal(name: string): string {
+  return name
+    .split("-")
+    .map((p) => (p.length ? p[0].toUpperCase() + p.slice(1) : p))
+    .join("");
+}
+function resolveLucide(name: string): unknown {
+  return (LucideIcons as Record<string, unknown>)[kebabToPascal(name)] ?? LucideIcons.Wrench;
+}
 
 const props = defineProps<{
   tc: TurnToolCall;
@@ -169,7 +180,9 @@ watch(
       :aria-expanded="expanded"
       @click="emit('toggle')"
     >
-      <span class="tool-call-icon">{{ toolIcon(tc.toolName) }}</span>
+      <span class="tool-call-icon">
+        <component :is="resolveLucide(toolIcon(tc.toolName))" :size="14" :stroke-width="1.5" aria-hidden="true" />
+      </span>
 
       <!-- With intention: stacked name + intent -->
       <template v-if="tc.intentionSummary">

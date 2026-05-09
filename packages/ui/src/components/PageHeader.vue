@@ -14,6 +14,13 @@
     • `inlineSubtitle` still bullets the subtitle inline with the title.
     • `#icon` slot still works for callers that hand-roll an icon node;
       `iconName` (Lucide kebab name) is the new preferred path.
+
+  Stickiness:
+    • `sticky` prop pins the header to the top of its scroll ancestor
+      (`position: sticky; top: 0; z-index: var(--z-sticky)`) with a
+      `--canvas-default` background and the always-on hairline bottom
+      border so it reads cleanly against scrolled content. Used by
+      Session Detail to keep its action toolbar visible.
 -->
 <script setup lang="ts">
 import * as LucideIcons from "lucide-vue-next";
@@ -50,11 +57,18 @@ export interface PageHeaderProps {
    * Title size is always text.h1 (20px) per design-system §1.4.
    */
   size?: "sm" | "md" | "lg";
+  /**
+   * Pin the header to the top of its scroll ancestor with --z-sticky
+   * and a token-based background. Bottom hairline is always present so
+   * it reads cleanly against scrolled content.
+   */
+  sticky?: boolean;
 }
 
 const props = withDefaults(defineProps<PageHeaderProps>(), {
   density: "comfortable",
   size: "md",
+  sticky: false,
 });
 
 function kebabToPascal(name: string): string {
@@ -80,7 +94,7 @@ const statusIconComponent = computed(() => {
 <template>
   <header
     class="page-header"
-    :class="[`page-header--${size}`, `page-header--${density}`]"
+    :class="[`page-header--${size}`, `page-header--${density}`, { 'page-header--sticky': sticky }]"
     data-tp-component="PageHeader"
   >
     <div v-if="crumbs && crumbs.length" class="page-header__crumbs">
@@ -143,6 +157,13 @@ const statusIconComponent = computed(() => {
 
 .page-header--compact {
   padding: 12px 16px;
+}
+
+.page-header--sticky {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  background: var(--canvas-default);
 }
 
 .page-header__crumbs {

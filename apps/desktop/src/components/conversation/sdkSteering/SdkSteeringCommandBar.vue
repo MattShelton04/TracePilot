@@ -1,7 +1,18 @@
 <script setup lang="ts">
+import * as LucideIcons from "lucide-vue-next";
 import { useSdkSteeringContext } from "@/composables/useSdkSteering";
 
 const ctx = useSdkSteeringContext();
+
+function kebabToPascal(name: string): string {
+  return name
+    .split("-")
+    .map((p) => (p.length ? p[0].toUpperCase() + p.slice(1) : p))
+    .join("");
+}
+function resolveLucide(name: string): unknown {
+  return (LucideIcons as Record<string, unknown>)[kebabToPascal(name)] ?? LucideIcons.Circle;
+}
 </script>
 
 <template>
@@ -56,7 +67,7 @@ const ctx = useSdkSteeringContext();
           :title="m.label"
           @click="ctx.handleModeChange(m.value)"
         >
-          <span class="cb-pill-emoji">{{ m.icon }}</span>
+          <component :is="resolveLucide(m.icon)" class="cb-pill-emoji" :size="14" :stroke-width="1.5" aria-hidden="true" />
           <span>{{ m.label }}</span>
         </button>
       </div>

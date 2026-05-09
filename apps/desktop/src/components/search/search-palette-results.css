@@ -6,6 +6,9 @@
 /* ── Results container ── */
 .palette-results {
   flex: 1;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
   overflow-y: auto;
   padding: 6px 0;
   scroll-behavior: smooth;
@@ -27,6 +30,7 @@
 /* ── Group ── */
 .palette-group {
   padding: 2px 6px;
+  min-width: 0;
 }
 .palette-group + .palette-group {
   margin-top: 2px;
@@ -68,6 +72,9 @@
   margin: 1px 6px;
   border-radius: 8px;
   cursor: pointer;
+  min-width: 0;
+  max-width: calc(100% - 12px);
+  overflow: hidden;
   transition: background 0.08s ease;
   position: relative;
 }

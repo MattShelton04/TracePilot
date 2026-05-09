@@ -4,26 +4,27 @@
  */
 
 import { getToolArgs } from "@tracepilot/types";
+import type { LucideName } from "../icons/templateCatalogue";
 
-const TOOL_ICONS: Record<string, string> = {
-  view: "👁",
-  edit: "✏️",
-  create: "📄",
-  grep: "🔍",
-  glob: "📁",
-  powershell: "💻",
-  task: "🤖",
-  report_intent: "🎯",
-  ask_user: "💬",
-  store_memory: "🧠",
-  web_search: "🌐",
-  web_fetch: "🌐",
-  sql: "🗄️",
-  skill: "⚡",
+const TOOL_ICONS: Record<string, LucideName> = {
+  view: "eye",
+  edit: "pencil",
+  create: "file-plus",
+  grep: "search",
+  glob: "folder-search",
+  powershell: "terminal",
+  task: "bot",
+  report_intent: "target",
+  ask_user: "message-circle",
+  store_memory: "brain",
+  web_search: "globe",
+  web_fetch: "globe",
+  sql: "database",
+  skill: "zap",
 };
 
-export function toolIcon(toolName: string): string {
-  return TOOL_ICONS[toolName] || "🔧";
+export function toolIcon(toolName: string): LucideName {
+  return TOOL_ICONS[toolName] ?? "wrench";
 }
 
 export type ToolCategory = "file" | "shell" | "agent" | "github" | "web" | "data" | "other";

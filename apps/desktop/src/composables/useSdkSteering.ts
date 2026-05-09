@@ -157,9 +157,9 @@ export function useSdkSteering(options: UseSdkSteeringOptions) {
   const isLinked = computed(() => hasActiveSdkHandle.value && !userUnlinked.value);
 
   const modes: { value: BridgeSessionMode; label: string; icon: string }[] = [
-    { value: "interactive", label: "Ask", icon: "💬" },
-    { value: "plan", label: "Plan", icon: "📋" },
-    { value: "autopilot", label: "Auto", icon: "🚀" },
+    { value: "interactive", label: "Ask", icon: "message-circle" },
+    { value: "plan", label: "Plan", icon: "clipboard-list" },
+    { value: "autopilot", label: "Auto", icon: "rocket" },
   ];
 
   const currentMode = computed(() => linkedSession.value?.mode ?? "interactive");
