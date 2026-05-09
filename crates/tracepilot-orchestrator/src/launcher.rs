@@ -87,9 +87,7 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
                 (std::path::PathBuf::from(&wt.path), Some(wt_path))
             }
             Err(e) => {
-                return Err(OrchestratorError::Launch(format!(
-                    "Failed to create worktree: {e}"
-                )));
+                return Err(OrchestratorError::launch_ctx("Failed to create worktree", e));
             }
         }
     } else {
@@ -304,9 +302,7 @@ pub(crate) fn canonicalize_user_path(path: &str) -> Result<std::path::PathBuf> {
     }
 
     let canonical = std::fs::canonicalize(path).map_err(|e| {
-        OrchestratorError::Launch(format!(
-            "Path does not exist or is not accessible: {path}: {e}"
-        ))
+        OrchestratorError::launch_ctx(format!("Path does not exist or is not accessible: {path}"), e)
     })?;
 
     #[cfg(windows)]
