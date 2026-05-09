@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TracePilot — Accent & Icon Set Preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-canvas:#0B0D10; --bg-surface:#111418; --bg-surface-2:#161A20; --bg-surface-3:#1C2128;
+    --bg-inset:#0E1116;
+    --border-subtle:#1F242C; --border-default:#2A2F38; --border-strong:#3A4150;
+    --text-primary:#E6E8EC; --text-secondary:#A2A8B3; --text-muted:#6B7280; --text-disabled:#4A5060;
+    --state-success:#3DDC97; --state-warning:#F2B14B; --state-danger:#F26D6D; --state-info:#3DB8FF;
+    --font-sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+    --font-mono:'JetBrains Mono','SF Mono','Cascadia Code','Consolas',monospace;
+    --ease:cubic-bezier(0.2,0.6,0.2,1);
+  }
+  *,*::before,*::after{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg-canvas); color:var(--text-primary);
+    font-family:var(--font-sans); font-size:13px; line-height:18px;
+    font-feature-settings:'cv11','ss01','tnum';
+    min-height:100vh;
+    background-image:
+      radial-gradient(1200px 600px at 80% -10%, rgba(61,184,255,.06), transparent 60%),
+      radial-gradient(900px 500px at 0% 100%, rgba(124,92,255,.05), transparent 60%);
+  }
+  .mono{font-family:var(--font-mono); font-variant-numeric:tabular-nums}
+  .micro{font-size:11px; line-height:14px; font-weight:500; letter-spacing:.04em; text-transform:uppercase}
+
+  header.page{
+    position:sticky; top:0; z-index:10;
+    backdrop-filter:saturate(140%) blur(8px);
+    background:rgba(11,13,16,.7);
+    border-bottom:1px solid var(--border-subtle);
+  }
+  .page-inner{
+    max-width:1280px; margin:0 auto; padding:14px 24px;
+    display:flex; align-items:center; justify-content:space-between; gap:16px;
+  }
+  .brand{display:flex; align-items:center; gap:10px; font-weight:600}
+  .brand .dot{width:10px; height:10px; border-radius:9999px; background:var(--state-info); box-shadow:0 0 0 3px rgba(61,184,255,.15)}
+  .crumb{color:var(--text-muted)}
+  .kbd{
+    font-family:var(--font-mono); font-size:11px;
+    border:1px solid var(--border-default); border-bottom-width:2px;
+    background:var(--bg-surface-2); color:var(--text-secondary);
+    padding:1px 6px; border-radius:4px;
+  }
+  main{max-width:1280px; margin:0 auto; padding:32px 24px 80px}
+  h1{font-size:20px; line-height:28px; font-weight:600; margin:0 0 6px}
+  h2{font-size:16px; line-height:22px; font-weight:600; margin:32px 0 12px}
+  h3{font-size:14px; line-height:20px; font-weight:600; margin:0 0 12px}
+  p.lead{color:var(--text-secondary); margin:0 0 8px; max-width:72ch}
+
+  .grid-3{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px}
+  @media (max-width:1100px){ .grid-3{grid-template-columns:1fr} }
+
+  .card{
+    background:var(--bg-surface);
+    border:1px solid var(--border-subtle);
+    border-radius:10px;
+    overflow:hidden;
+    transition:border-color 120ms var(--ease), background 120ms var(--ease);
+  }
+  .card:hover{border-color:var(--border-default)}
+  .card-head{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 16px;
+    border-bottom:1px solid var(--border-subtle);
+    background:var(--bg-surface-2);
+  }
+  .swatch{width:14px; height:14px; border-radius:4px; box-shadow:inset 0 0 0 1px rgba(255,255,255,.05)}
+  .card-title{display:flex; align-items:center; gap:10px; font-weight:600}
+  .card-meta{color:var(--text-muted); font-size:12px}
+  .card-body{padding:14px 16px}
+
+  .btn{
+    display:inline-flex; align-items:center; gap:8px;
+    height:32px; padding:0 12px; border-radius:6px;
+    font:500 13px/1 var(--font-sans);
+    cursor:pointer; user-select:none;
+    border:1px solid var(--border-default); background:var(--bg-surface-2); color:var(--text-primary);
+    transition:background 120ms var(--ease), border-color 120ms var(--ease), color 120ms var(--ease);
+  }
+  .btn:hover{background:var(--bg-surface-3)}
+  .btn-primary{ background:var(--accent); border-color:var(--accent); color:#06121C; }
+  .btn-primary:hover{background:var(--accent-hover); border-color:var(--accent-hover)}
+  .btn-ghost{background:transparent}
+  .btn:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+
+  .tabs{display:flex; gap:4px; border-bottom:1px solid var(--border-subtle); padding:0 16px}
+  .tab{
+    padding:10px 10px; color:var(--text-secondary); font-weight:500;
+    border-bottom:2px solid transparent; cursor:pointer;
+    transition:color 120ms var(--ease), border-color 120ms var(--ease);
+  }
+  .tab:hover{color:var(--text-primary)}
+  .tab.active{color:var(--text-primary); border-bottom-color:var(--accent)}
+
+  .pill{
+    display:inline-flex; align-items:center; gap:6px;
+    height:20px; padding:0 8px; border-radius:9999px;
+    font:500 11px/1 var(--font-sans); letter-spacing:.04em; text-transform:uppercase;
+    border:1px solid transparent;
+  }
+  .pill .dot{width:6px; height:6px; border-radius:9999px}
+  .pill.success{color:#0F2A22; background:#3DDC97}
+  .pill.warn{color:#2A2110; background:#F2B14B}
+  .pill.danger{color:#2A1414; background:#F26D6D}
+  .pill.info{color:#06121C; background:var(--accent)}
+  .pill.neutral{color:var(--text-secondary); background:var(--bg-surface-3); border-color:var(--border-default)}
+
+  .table-head, .row{
+    display:grid; grid-template-columns: 22px 1fr 96px 96px 80px;
+    gap:12px; align-items:center;
+    padding:0 12px;
+  }
+  .table-head{
+    height:28px; color:var(--text-muted); font-size:11px; letter-spacing:.04em; text-transform:uppercase;
+    border-bottom:1px solid var(--border-subtle); background:var(--bg-surface-2);
+  }
+  .row{
+    height:32px; border-bottom:1px solid var(--border-subtle);
+    transition:background 120ms var(--ease);
+  }
+  .row:last-child{border-bottom:none}
+  .row:hover{background:var(--bg-surface-2)}
+  .row.selected{background:var(--accent-soft)}
+  .row .name{display:flex; align-items:center; gap:8px; min-width:0}
+  .row .name .label{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .row .num{font-family:var(--font-mono); font-variant-numeric:tabular-nums; color:var(--text-secondary); text-align:right}
+
+  .bar{position:relative; height:6px; background:var(--bg-surface-3); border-radius:9999px; overflow:hidden}
+  .bar > i{position:absolute; inset:0; width:var(--w,40%); background:linear-gradient(90deg, var(--accent), var(--accent-secondary,#7C5CFF)); border-radius:inherit}
+
+  .codeline{
+    font-family:var(--font-mono); font-size:12px; color:var(--text-secondary);
+    background:var(--bg-inset); border:1px solid var(--border-subtle);
+    border-radius:6px; padding:10px 12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+
+  .accent-cyan   { --accent:#3DB8FF; --accent-hover:#5CC4FF; --accent-press:#1FA4F0; --accent-soft:#102838; --accent-secondary:#7C5CFF; }
+  .accent-violet { --accent:#7C5CFF; --accent-hover:#9277FF; --accent-press:#6A48F0; --accent-soft:#1A1230; --accent-secondary:#3DB8FF; }
+  .accent-green  { --accent:#3DDC97; --accent-hover:#5BE5A8; --accent-press:#28C886; --accent-soft:#0F2A22; --accent-secondary:#3DB8FF; }
+
+  .icon-table{
+    width:100%; border-collapse:separate; border-spacing:0;
+    border:1px solid var(--border-subtle); border-radius:10px; overflow:hidden;
+    background:var(--bg-surface);
+  }
+  .icon-table th, .icon-table td{
+    padding:14px 12px; border-bottom:1px solid var(--border-subtle);
+    text-align:center; vertical-align:middle;
+  }
+  .icon-table thead th{
+    background:var(--bg-surface-2); color:var(--text-secondary);
+    font-weight:600; font-size:12px;
+  }
+  .icon-table tbody tr:last-child td{border-bottom:none}
+  .icon-table .label-col{
+    text-align:left; color:var(--text-secondary);
+    font-family:var(--font-mono); font-size:12px;
+  }
+  .icon-table img{
+    width:20px; height:20px; display:inline-block; vertical-align:middle;
+  }
+
+  .legend{
+    display:flex; gap:14px; flex-wrap:wrap; align-items:center;
+    color:var(--text-muted); font-size:12px; margin-top:8px;
+  }
+  .legend span{display:inline-flex; align-items:center; gap:6px}
+  .legend i{width:10px; height:10px; border-radius:3px; display:inline-block}
+
+  footer{
+    border-top:1px solid var(--border-subtle); margin-top:48px; padding-top:20px;
+    color:var(--text-muted); font-size:12px;
+  }
+</style>
+</head>
+<body>
+
+<header class="page">
+  <div class="page-inner">
+    <div class="brand">
+      <span class="dot"></span>
+      TracePilot
+      <span class="crumb">/ design / accent &amp; icons</span>
+    </div>
+    <div style="display:flex; align-items:center; gap:10px; color:var(--text-muted); font-size:12px;">
+      <span>Compare in dark mode</span>
+      <span class="kbd">⌘</span><span class="kbd">K</span>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <h1>Accent &amp; Icon Set Preview</h1>
+  <p class="lead">
+    Same TracePilot session-detail card rendered with three candidate accents, then a side-by-side icon comparison
+    across four icon sets at the production size (20px). Pick what reads cleanest at a glance — focus, primary action, selected row, and latency bar all use the chosen accent.
+  </p>
+
+  <h2>1 · Accent options</h2>
+  <div class="grid-3">
+
+    <section class="card accent-cyan" aria-label="Accent: Cyan">
+      <div class="card-head">
+        <div class="card-title">
+          <span class="swatch" style="background:#3DB8FF"></span>
+          Cyan <span class="mono" style="color:var(--text-muted); font-weight:400">#3DB8FF</span>
+        </div>
+        <div class="card-meta">Warp / observability</div>
+      </div>
+      <div class="tabs">
+        <div class="tab active">Timeline</div>
+        <div class="tab">Tools</div>
+        <div class="tab">Tokens</div>
+        <div class="tab">Logs</div>
+      </div>
+      <div class="card-body">
+        <div style="display:flex; gap:8px; margin-bottom:12px;">
+          <button class="btn btn-primary">Run trace</button>
+          <button class="btn">Filter</button>
+          <span class="pill info"><span class="dot" style="background:#06121C"></span>Live</span>
+        </div>
+        <div class="codeline">$ copilot run --session 0f3a · model=claude-opus-4.7</div>
+        <div style="margin-top:12px; border:1px solid var(--border-subtle); border-radius:8px; overflow:hidden;">
+          <div class="table-head">
+            <span></span><span>Span</span><span style="text-align:right">Latency</span><span style="text-align:right">Tokens</span><span style="text-align:right">Status</span>
+          </div>
+          <div class="row selected">
+            <span style="height:8px; width:8px; border-radius:9999px; background:var(--accent)"></span>
+            <span class="name"><span class="label mono">tool.read_file</span></span>
+            <span class="num">182ms</span><span class="num">1,204</span>
+            <span style="text-align:right"><span class="pill success">OK</span></span>
+          </div>
+          <div class="row">
+            <span></span>
+            <span class="name"><span class="label mono">tool.grep</span></span>
+            <span class="num">94ms</span><span class="num">512</span>
+            <span style="text-align:right"><span class="pill success">OK</span></span>
+          </div>
+          <div class="row">
+            <span></span>
+            <span class="name"><span class="label mono">tool.bash</span></span>
+            <span class="num">2.41s</span><span class="num">3,817</span>
+            <span style="text-align:right"><span class="pill warn">SLOW</span></span>
+          </div>
+          <div class="row">
+            <span></span>
+            <span class="name"><span class="label mono">tool.write_file</span></span>
+            <span class="num">—</span><span class="num">128</span>
+            <span style="text-align:right"><span class="pill danger">FAIL</span></span>
+          </div>
+        </div>
+        <div style="margin-top:14px;">
+          <div class="micro" style="color:var(--text-muted); margin-bottom:6px;">Latency · p95</div>
+          <div class="bar"><i style="--w:62%"></i></div>
+          <div class="legend">
+            <span><i style="background:var(--accent)"></i>accent</span>
+            <span><i style="background:var(--accent-secondary)"></i>secondary</span>
+            <span><i style="background:var(--state-success)"></i>success</span>
+            <span><i style="background:var(--state-warning)"></i>warn</span>
+            <span><i style="background:var(--state-danger)"></i>danger</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card accent-violet" aria-label="Accent: Violet">
+      <div class="card-head">
+        <div class="card-title">
+          <span class="swatch" style="background:#7C5CFF"></span>
+          Violet <span class="mono" style="color:var(--text-muted); font-weight:400">#7C5CFF</span>
+        </div>
+        <div class="card-meta">AI / agentic identity</div>
+      </div>
+      <div class="tabs">
+        <div class="tab active">Timeline</div>
+        <div class="tab">Tools</div>
+        <div class="tab">Tokens</div>
+        <div class="tab">Logs</div>
+      </div>
+      <div class="card-body">
+        <div style="display:flex; gap:8px; margin-bottom:12px;">
+          <button class="btn btn-primary">Run trace</button>
+          <button class="btn">Filter</button>
+          <span class="pill info"><span class="dot" style="background:#06121C"></span>Live</span>
+        </div>
+        <div class="codeline">$ copilot run --session 0f3a · model=claude-opus-4.7</div>
+        <div style="margin-top:12px; border:1px solid var(--border-subtle); border-radius:8px; overflow:hidden;">
+          <div class="table-head">
+            <span></span><span>Span</span><span style="text-align:right">Latency</span><span style="text-align:right">Tokens</span><span style="text-align:right">Status</span>
+          </div>
+          <div class="row selected">
+            <span style="height:8px; width:8px; border-radius:9999px; background:var(--accent)"></span>
+            <span class="name"><span class="label mono">tool.read_file</span></span>
+            <span class="num">182ms</span><span class="num">1,204</span>
+            <span style="text-align:right"><span class="pill success">OK</span></span>
+          </div>
+          <div class="row">
+            <span></span>
+            <span class="name"><span class="label mono">tool.grep</span></span>
+            <span class="num">94ms</span><span class="num">512</span>
+            <span style="text-align:right"><span class="pill success">OK</span></span>
+          </div>
+          <div class="row">
+            <span></span>
+            <span class="name"><span class="label mono">tool.bash</span></span>
+            <span class="num">2.41s</span><span class="num">3,817</span>
+            <span style="text-align:right"><span class="pill warn">SLOW</span></span>
+          </div>
+          <div class="row">
+            <span></span>
+            <span class="name"><span class="label mono">tool.write_file</span></span>
+            <span class="num">—</span><span class="num">128</span>
+            <span style="text-align:right"><span class="pill danger">FAIL</span></span>
+          </div>
+        </div>
+        <div style="margin-top:14px;">
+          <div class="micro" style="color:var(--text-muted); margin-bottom:6px;">Latency · p95</div>
+          <div class="bar"><i style="--w:62%"></i></div>
+          <div class="legend">
+            <span><i style="background:var(--accent)"></i>accent</span>
+            <span><i style="background:var(--accent-secondary)"></i>secondary</span>
+            <span><i style="background:var(--state-success)"></i>success</span>
+            <span><i style="background:var(--state-warning)"></i>warn</span>
+            <span><i style="background:var(--state-danger)"></i>danger</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card accent-green" aria-label="Accent: Green">
+      <div class="card-head">
+        <div class="card-title">
+          <span class="swatch" style="background:#3DDC97"></span>
+          Green <span class="mono" style="color:var(--text-muted); font-weight:400">#3DDC97</span>
+        </div>
+        <div class="card-meta">Terminal / success-forward</div>
+      </div>
+      <div class="tabs">
+        <div class="tab active">Timeline</div>
+        <div class="tab">Tools</div>
+        <div class="tab">Tokens</div>
+        <div class="tab">Logs</div>
+      </div>
+      <div class="card-body">
+        <div style="display:flex; gap:8px; margin-bottom:12px;">
+          <button class="btn btn-primary">Run trace</button>
+          <button class="btn">Filter</button>
+          <span class="pill info"><span class="dot" style="background:#06121C"></span>Live</span>
+        </div>
+        <div class="codeline">$ copilot run --session 0f3a · model=claude-opus-4.7</div>
+        <div style="margin-top:12px; border:1px solid var(--border-subtle); border-radius:8px; overflow:hidden;">
+          <div class="table-head">
+            <span></span><span>Span</span><span style="text-align:right">Latency</span><span style="text-align:right">Tokens</span><span style="text-align:right">Status</span>
+          </div>
+          <div class="row selected">
+            <span style="height:8px; width:8px; border-radius:9999px; background:var(--accent)"></span>
+            <span class="name"><span class="label mono">tool.read_file</span></span>
+            <span class="num">182ms</span><span class="num">1,204</span>
+            <span style="text-align:right"><span class="pill success">OK</span></span>
+          </div>
+          <div class="row">
+            <span></span>
+            <span class="name"><span class="label mono">tool.grep</span></span>
+            <span class="num">94ms</span><span class="num">512</span>
+            <span style="text-align:right"><span class="pill success">OK</span></span>
+          </div>
+          <div class="row">
+            <span></span>
+            <span class="name"><span class="label mono">tool.bash</span></span>
+            <span class="num">2.41s</span><span class="num">3,817</span>
+            <span style="text-align:right"><span class="pill warn">SLOW</span></span>
+          </div>
+          <div class="row">
+            <span></span>
+            <span class="name"><span class="label mono">tool.write_file</span></span>
+            <span class="num">—</span><span class="num">128</span>
+            <span style="text-align:right"><span class="pill danger">FAIL</span></span>
+          </div>
+        </div>
+        <div style="margin-top:14px;">
+          <div class="micro" style="color:var(--text-muted); margin-bottom:6px;">Latency · p95</div>
+          <div class="bar"><i style="--w:62%"></i></div>
+          <div class="legend">
+            <span><i style="background:var(--accent)"></i>accent</span>
+            <span><i style="background:var(--accent-secondary)"></i>secondary</span>
+            <span><i style="background:var(--state-success)"></i>success</span>
+            <span><i style="background:var(--state-warning)"></i>warn</span>
+            <span><i style="background:var(--state-danger)"></i>danger</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <h2>2 · Icon set comparison</h2>
+  <p class="lead">
+    Eight icons that appear constantly in TracePilot UI: activity, alert, success, time, terminal, search, settings, close.
+    Rendered at 20px. Look for stroke consistency, optical balance, and how the alert / terminal glyphs feel.
+  </p>
+
+  <table class="icon-table">
+    <thead>
+      <tr>
+        <th class="label-col" style="text-align:left">icon</th>
+        <th>Lucide<br><span style="color:var(--text-muted); font-weight:400; font-size:11px">1.5px stroke · open-source</span></th>
+        <th>Phosphor<br><span style="color:var(--text-muted); font-weight:400; font-size:11px">geometric · 6 weights</span></th>
+        <th>Tabler<br><span style="color:var(--text-muted); font-weight:400; font-size:11px">2px stroke · 4k+ icons</span></th>
+        <th>Heroicons<br><span style="color:var(--text-muted); font-weight:400; font-size:11px">Tailwind team · outline</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="label-col">activity</td>
+        <td><img src="https://api.iconify.design/lucide/activity.svg?color=%23E6E8EC&width=20&height=20" alt=""></td>
+        <td><img src="https://api.iconify.design/ph/activity.svg?color=%23E6E8EC&width=20&height=20" alt=""></td>
+        <td><img src="https://api.iconify.design/tabler/activity.svg?color=%23E6E8EC&width=20&height=20" alt=""></td>
+        <td><img src="https://api.iconify.design/heroicons/bolt.svg?color=%23E6E8EC&width=20&height=20" alt=""></td>
+      </tr>
+      <tr>
+        <td class="label-col">alert</td>
+        <td><img src="https://api.iconify.design/lucide/alert-triangle.svg?color=%23F2B14B&width=20&height=20" alt=""></td>
+        <td><img src="https://api.iconify.design/ph/warning.svg?color=%23F2B14B&width=20&height=20" alt=""></td>
+        <td><img src="https://api.iconify.design/tabler/alert-triangle.svg?color=%23F2B14B&width=20&height=20" alt=""></td>
+        <td><img src="https://api.iconify.design/heroicons/exclamation-triangle.svg?color=%23F2B14B&width=20&height=20" alt=""></td>
+      </tr>
+      <tr>
+        <td class="label-col">success</td>
+        <td><img src="https://api.iconify.design/lucide/check-circle-2.svg?color=%233DDC97&width=20&height=20" alt=""></td>
+        <td><img src="https://api.iconify.design/ph/check-circle.svg?color=%233DDC97&width=20&height=20" alt=""></td>
+        <td><img src="https://api.iconify.design/tabler/circle-check.svg?color=%233DDC97&width=20&height=20" alt=""></td>
+        <td><img src="https://api.iconify.design/heroicons/check-circle.svg?color=%233DDC97&width=20&height=20" alt=""></td>
+      </tr>
+      <tr>
+        <td class="label-col">clock</td>
+        <td><img src="https://api.iconify.design/lucide/clock.svg?color=%23E6E8EC&width=20&height=20" alt=""></td>
+        <td><img src="https://api.iconify.design/ph/clock.svg?color=%23E6E8EC&width=20&height=20" alt=""></td>
+        <td><img src="https://api.iconify.design/tabler/clock.svg?color=%23E6E8EC&width=20&height=20" alt=""></td>
+        <td><img src="https://api.iconify.design/heroicons/clock.svg?color=%23E6E8EC&width=20&height=20" alt=""></td>
+      </tr>
+      <tr>
+        <td class="label-col">terminal</td>
+        <td><img src="https://api.iconify.design/lucide/terminal.svg?color=%23E6E8EC&width=20&height=20" alt=""></td>
+        <td><img src="https://api.iconify.design/ph/terminal-window.svg?color=%23E6E8EC&width=20&height=20" alt=""></td>
+        <td><img src="https://api.iconify.design/tabler/terminal-2.svg?color=%23E6E8EC&width=20&height=20" alt=""></td>
+        <td><img src="https://api.iconify.design/heroicons/command-line.svg?color=%23E6E8EC&width=20&height=20" alt=""></td>
+      </tr>
+      <tr>
+        <td class="label-col">search</td>
+        <td><img src="https://api.iconify.design/lucide/search.svg?color=%23E6E8EC&width=20&height=20" alt=""></td>
+        <td><img src="https://api.iconify.design/ph/magnifying-glass.svg?color=%23E6E8EC&width=20&height=20" alt=""></td>
+        <td><img src="https://api.iconify.design/tabler/search.svg?color=%23E6E8EC&width=20&height=20" alt=""></td>
+        <td><img src="https://api.iconify.design/heroicons/magnifying-glass.svg?color=%23E6E8EC&width=20&height=20" alt=""></td>
+      </tr>
+      <tr>
+        <td class="label-col">settings</td>
+        <td><img src="https://api.iconify.design/lucide/settings.svg?color=%23E6E8EC&width=20&height=20" alt=""></td>
+        <td><img src="https://api.iconify.design/ph/gear.svg?color=%23E6E8EC&width=20&height=20" alt=""></td>
+        <td><img src="https://api.iconify.design/tabler/settings.svg?color=%23E6E8EC&width=20&height=20" alt=""></td>
+        <td><img src="https://api.iconify.design/heroicons/cog-6-tooth.svg?color=%23E6E8EC&width=20&height=20" alt=""></td>
+      </tr>
+      <tr>
+        <td class="label-col">close</td>
+        <td><img src="https://api.iconify.design/lucide/x.svg?color=%23E6E8EC&width=20&height=20" alt=""></td>
+        <td><img src="https://api.iconify.design/ph/x.svg?color=%23E6E8EC&width=20&height=20" alt=""></td>
+        <td><img src="https://api.iconify.design/tabler/x.svg?color=%23E6E8EC&width=20&height=20" alt=""></td>
+        <td><img src="https://api.iconify.design/heroicons/x-mark.svg?color=%23E6E8EC&width=20&height=20" alt=""></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3 style="margin-top:24px">In context (toolbar)</h3>
+  <div style="display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px;">
+
+    <div class="card" style="padding:10px 12px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+      <span class="micro" style="color:var(--text-muted); width:84px;">Lucide</span>
+      <button class="btn btn-ghost"><img src="https://api.iconify.design/lucide/play.svg?color=%23E6E8EC&width=16&height=16" alt="">Run</button>
+      <button class="btn btn-ghost"><img src="https://api.iconify.design/lucide/refresh-ccw.svg?color=%23E6E8EC&width=16&height=16" alt="">Refresh</button>
+      <button class="btn btn-ghost"><img src="https://api.iconify.design/lucide/filter.svg?color=%23E6E8EC&width=16&height=16" alt="">Filter</button>
+      <button class="btn btn-ghost"><img src="https://api.iconify.design/lucide/download.svg?color=%23E6E8EC&width=16&height=16" alt="">Export</button>
+    </div>
+    <div class="card" style="padding:10px 12px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+      <span class="micro" style="color:var(--text-muted); width:84px;">Phosphor</span>
+      <button class="btn btn-ghost"><img src="https://api.iconify.design/ph/play.svg?color=%23E6E8EC&width=16&height=16" alt="">Run</button>
+      <button class="btn btn-ghost"><img src="https://api.iconify.design/ph/arrows-clockwise.svg?color=%23E6E8EC&width=16&height=16" alt="">Refresh</button>
+      <button class="btn btn-ghost"><img src="https://api.iconify.design/ph/funnel.svg?color=%23E6E8EC&width=16&height=16" alt="">Filter</button>
+      <button class="btn btn-ghost"><img src="https://api.iconify.design/ph/download-simple.svg?color=%23E6E8EC&width=16&height=16" alt="">Export</button>
+    </div>
+    <div class="card" style="padding:10px 12px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+      <span class="micro" style="color:var(--text-muted); width:84px;">Tabler</span>
+      <button class="btn btn-ghost"><img src="https://api.iconify.design/tabler/player-play.svg?color=%23E6E8EC&width=16&height=16" alt="">Run</button>
+      <button class="btn btn-ghost"><img src="https://api.iconify.design/tabler/refresh.svg?color=%23E6E8EC&width=16&height=16" alt="">Refresh</button>
+      <button class="btn btn-ghost"><img src="https://api.iconify.design/tabler/filter.svg?color=%23E6E8EC&width=16&height=16" alt="">Filter</button>
+      <button class="btn btn-ghost"><img src="https://api.iconify.design/tabler/download.svg?color=%23E6E8EC&width=16&height=16" alt="">Export</button>
+    </div>
+    <div class="card" style="padding:10px 12px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+      <span class="micro" style="color:var(--text-muted); width:84px;">Heroicons</span>
+      <button class="btn btn-ghost"><img src="https://api.iconify.design/heroicons/play.svg?color=%23E6E8EC&width=16&height=16" alt="">Run</button>
+      <button class="btn btn-ghost"><img src="https://api.iconify.design/heroicons/arrow-path.svg?color=%23E6E8EC&width=16&height=16" alt="">Refresh</button>
+      <button class="btn btn-ghost"><img src="https://api.iconify.design/heroicons/funnel.svg?color=%23E6E8EC&width=16&height=16" alt="">Filter</button>
+      <button class="btn btn-ghost"><img src="https://api.iconify.design/heroicons/arrow-down-tray.svg?color=%23E6E8EC&width=16&height=16" alt="">Export</button>
+    </div>
+  </div>
+
+  <footer>
+    Inter · JetBrains Mono · 4px grid · 32px Comfortable rows · dark-first.
+    Icons fetched from <span class="mono">api.iconify.design</span> for preview only — production will bundle the chosen set locally.
+  </footer>
+
+</main>
+
+</body>
+</html>
