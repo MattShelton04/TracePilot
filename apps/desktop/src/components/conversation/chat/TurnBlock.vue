@@ -7,6 +7,7 @@ import {
   ReasoningBlock,
   type useToggleSet,
 } from "@tracepilot/ui";
+import { Bot } from "lucide-vue-next";
 import SubagentGroupSegment from "@/components/conversation/chat/SubagentGroupSegment.vue";
 import ToolGroupSegment from "@/components/conversation/chat/ToolGroupSegment.vue";
 import type { ToolSegment } from "@/components/conversation/chatViewUtils";
@@ -102,7 +103,7 @@ function toggleToolDetail(tc: TurnToolCall) {
       class="cv-agent-bubble"
     >
       <div class="cv-agent-bubble-header">
-        <span class="cv-agent-avatar" aria-hidden="true">🤖</span>
+        <span class="cv-agent-avatar" aria-hidden="true"><Bot :size="16" /></span>
         <span class="cv-agent-name">Copilot</span>
         <span v-if="turn.timestamp" class="cv-agent-time">
           {{ formatTime(turn.timestamp) }}

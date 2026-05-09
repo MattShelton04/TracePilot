@@ -7,6 +7,7 @@
  * and exposes the manual CLI URL input.
  */
 import { ActionButton, FormInput } from "@tracepilot/ui";
+import { Rocket, Search } from "lucide-vue-next";
 import type { UseSdkConnectionHealth } from "@/composables/useSdkConnectionHealth";
 import { useSdkStore } from "@/stores/sdk";
 
@@ -43,10 +44,12 @@ async function handleStopServer(pid: number): Promise<void> {
     </div>
     <div class="sdk-mode-actions">
       <ActionButton size="sm" :disabled="sdk.detecting" @click="handleDetect">
-        {{ sdk.detecting ? "Scanning…" : "🔍 Detect" }}
+        <template v-if="sdk.detecting">Scanning…</template>
+        <template v-else><Search :size="14" aria-hidden="true" /> Detect</template>
       </ActionButton>
       <ActionButton size="sm" :disabled="sdk.launching" @click="handleLaunchServer">
-        {{ sdk.launching ? "Starting…" : "🚀 Launch" }}
+        <template v-if="sdk.launching">Starting…</template>
+        <template v-else><Rocket :size="14" aria-hidden="true" /> Launch</template>
       </ActionButton>
     </div>
   </div>

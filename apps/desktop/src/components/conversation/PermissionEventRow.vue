@@ -17,6 +17,7 @@
  */
 import type { TurnSessionEvent } from "@tracepilot/types";
 import { formatTime } from "@tracepilot/ui";
+import { Lock } from "lucide-vue-next";
 import { computed } from "vue";
 
 const props = defineProps<{
@@ -115,7 +116,7 @@ const tooltip = computed(() => {
 
 <template>
   <div :class="['cv-permission-event', `status-${status}`]" :title="tooltip">
-    <span class="cv-permission-icon" aria-hidden="true">🔐</span>
+    <span class="cv-permission-icon" aria-hidden="true"><Lock :size="14" /></span>
 
     <span v-if="promptKind" class="cv-permission-kind">{{ promptKind }}</span>
 

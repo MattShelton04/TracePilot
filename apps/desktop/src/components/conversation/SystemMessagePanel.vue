@@ -9,6 +9,7 @@
  */
 import { formatNumberFull } from "@tracepilot/types";
 import { ExpandChevron, MarkdownContent, useClipboard } from "@tracepilot/ui";
+import { Wrench } from "lucide-vue-next";
 import { computed, ref } from "vue";
 
 const props = defineProps<{
@@ -45,7 +46,7 @@ async function handleCopy(e: MouseEvent) {
         :aria-label="`${expanded ? 'Collapse' : 'Expand'} ${label}`"
         @click="expanded = !expanded"
       >
-        <span class="smp-icon" aria-hidden="true">🔧</span>
+        <span class="smp-icon" aria-hidden="true"><Wrench :size="14" /></span>
         <span class="smp-label">{{ label }}</span>
         <span class="smp-badge">{{ formatNumberFull(wordCount) }} words</span>
       </button>

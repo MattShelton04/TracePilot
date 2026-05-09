@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Circle, Link2 } from "lucide-vue-next";
 import { useSdkSteeringContext } from "@/composables/useSdkSteering";
 
 const ctx = useSdkSteeringContext();
@@ -6,7 +7,10 @@ const ctx = useSdkSteeringContext();
 
 <template>
   <div v-if="ctx.shortSessionId" class="cb-session-label">
-    <span class="cb-session-icon">{{ ctx.isLinked ? '🔗' : '○' }}</span>
+    <span class="cb-session-icon" :aria-label="ctx.isLinked ? 'linked' : 'not linked'">
+      <Link2 v-if="ctx.isLinked" :size="12" />
+      <Circle v-else :size="12" />
+    </span>
     {{ ctx.isLinked ? 'Steering' : 'Not linked' }}
     <span v-if="ctx.sdk.connectionMode" class="cb-mode-tag">{{ ctx.sdk.connectionMode === 'tcp' ? 'TCP' : 'stdio' }}</span>
     <span class="cb-session-id">{{ ctx.shortSessionId }}</span>

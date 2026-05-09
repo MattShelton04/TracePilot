@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { BtnGroup, EmptyState, formatNumberFull, LoadingOverlay } from "@tracepilot/ui";
+import { BarChart3 } from "lucide-vue-next";
 import { ref, watch } from "vue";
 import ErrorBoundary from "@/components/ErrorBoundary.vue";
 import AgentTreeView from "@/components/timeline/AgentTreeView.vue";
@@ -33,7 +34,9 @@ const viewModes = [
     <LoadingOverlay :loading="store.loading" message="Loading session…">
 
     <!-- Empty state -->
-    <EmptyState v-if="!store.loading && !store.turns.length" icon="📊" title="No Timeline Data" message="This session has no conversation turns to visualize." />
+    <EmptyState v-if="!store.loading && !store.turns.length" title="No Timeline Data" message="This session has no conversation turns to visualize.">
+      <template #icon><BarChart3 :size="36" aria-hidden="true" /></template>
+    </EmptyState>
 
     <template v-if="store.turns.length">
       <!-- Header: title + view toggle -->

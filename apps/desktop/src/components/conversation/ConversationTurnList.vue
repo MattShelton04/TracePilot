@@ -32,6 +32,7 @@ import {
   toolIcon,
   truncateText,
 } from "@tracepilot/ui";
+import { Coins, User } from "lucide-vue-next";
 
 interface ToggleSetLike<T> {
   has: (value: T) => boolean;
@@ -123,7 +124,7 @@ function onRetryFullResult(toolCallId: string) {
   <div v-if="viewMode === 'compact'" class="turn-group">
     <template v-for="turn in turns" :key="turn.turnIndex">
       <div v-if="turn.userMessage" :data-event-idx="turn.eventIndex != null ? turn.eventIndex : undefined" :data-turn-idx="turn.eventIndex == null ? turn.turnIndex : undefined" class="compact-turn-user">
-        <span class="compact-turn-label-prefix user">👤 User</span>
+        <span class="compact-turn-label-prefix user"><User :size="14" aria-hidden="true" /> User</span>
         <div class="compact-turn-user-text">{{ truncateText(turn.userMessage, 300) }}</div>
       </div>
       <div class="compact-turn">
@@ -132,7 +133,7 @@ function onRetryFullResult(toolCallId: string) {
         <Badge v-if="turn.model" variant="done">{{ turn.model }}</Badge>
         <span v-if="turn.durationMs" class="turn-meta">{{ formatDuration(turn.durationMs) }}</span>
         <span v-if="turn.timestamp" class="turn-meta">{{ formatTime(turn.timestamp) }}</span>
-        <span v-if="turn.outputTokens" class="token-badge">🪙 {{ formatNumber(turn.outputTokens) }}</span>
+        <span v-if="turn.outputTokens" class="token-badge"><Coins :size="12" aria-hidden="true" /> {{ formatNumber(turn.outputTokens) }}</span>
         <span v-if="turn.toolCalls.length" style="margin-left: auto;" class="turn-meta">
           {{ turn.toolCalls.length }} tool{{ turn.toolCalls.length !== 1 ? "s" : "" }}
         </span>
@@ -227,7 +228,7 @@ function onRetryFullResult(toolCallId: string) {
         <div class="timeline-meta">
           <Badge v-if="turn.model" variant="done">{{ turn.model }}</Badge>
           <span v-if="turn.durationMs" class="turn-meta">{{ formatDuration(turn.durationMs) }}</span>
-          <span v-if="turn.outputTokens" class="token-badge">🪙 {{ formatNumber(turn.outputTokens) }}</span>
+          <span v-if="turn.outputTokens" class="token-badge"><Coins :size="12" aria-hidden="true" /> {{ formatNumber(turn.outputTokens) }}</span>
           <span v-if="turn.timestamp" class="turn-meta">{{ formatTime(turn.timestamp) }}</span>
           <span v-if="turn.toolCalls.length" class="turn-meta">· {{ turn.toolCalls.length }} tools</span>
           <Badge v-if="!turn.isComplete" variant="warning">Incomplete</Badge>

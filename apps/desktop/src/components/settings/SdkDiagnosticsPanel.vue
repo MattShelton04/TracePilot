@@ -8,6 +8,7 @@
  * log-level binding comes from the parent's connection-health composable.
  */
 import { ActionButton } from "@tracepilot/ui";
+import { Clipboard } from "lucide-vue-next";
 import { ref } from "vue";
 import type { UseSdkConnectionHealth } from "@/composables/useSdkConnectionHealth";
 import type { UseSdkDiagnostics } from "@/composables/useSdkDiagnostics";
@@ -30,6 +31,11 @@ function runProbe(): void {
 </script>
 
 <template>
+  <!-- design-system: allow-emoji -->
+  <!--
+    The diag-line :class checks below match against emoji emitted by the CLI
+    diagnostics probe output (not chrome). They categorise log lines by status.
+  -->
   <div class="sdk-divider" />
   <div class="sdk-advanced-toggle" @click="showAdvanced = !showAdvanced">
     <span class="sdk-toggle-arrow" :class="{ 'sdk-toggle-arrow--open': showAdvanced }">▸</span>
@@ -69,7 +75,7 @@ function runProbe(): void {
           title="Copy diagnostics log to clipboard"
           @click="diagnostics.copyDiagnostics"
         >
-          📋 Copy
+          <Clipboard :size="14" aria-hidden="true" /> Copy
         </ActionButton>
         <ActionButton size="sm" :disabled="diagnostics.diagRunning.value" @click="runProbe">
           {{ diagnostics.diagRunning.value ? "Running…" : "Run Diagnostics" }}

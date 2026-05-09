@@ -2,6 +2,7 @@
 import type { ConversationTurn, TurnToolCall } from "@tracepilot/types";
 import { getToolArgs, toolArgString } from "@tracepilot/types";
 import { ToolCallItem, type useToggleSet } from "@tracepilot/ui";
+import { Target } from "lucide-vue-next";
 import {
   COLLAPSE_THRESHOLD,
   countRegularTools,
@@ -79,7 +80,7 @@ function intentLabel(tc: TurnToolCall): string {
         class="cv-intent-pill"
         :data-event-idx="item.toolCall.eventIndex != null ? item.toolCall.eventIndex : undefined"
       >
-        <span class="cv-pill-icon" aria-hidden="true">🎯</span>
+        <span class="cv-pill-icon" aria-hidden="true"><Target :size="14" /></span>
         <span class="cv-pill-label">{{ intentLabel(item.toolCall) }}</span>
       </div>
 

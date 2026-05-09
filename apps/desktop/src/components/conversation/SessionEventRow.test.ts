@@ -80,7 +80,7 @@ describe("SessionEventRow", () => {
       },
     });
 
-    expect(wrapper.text()).toContain("⚠️");
+    expect(wrapper.find(".cv-session-event-icon").exists()).toBe(true);
     expect(wrapper.text()).toContain("session.error");
     expect(wrapper.text()).toContain("Boom");
   });

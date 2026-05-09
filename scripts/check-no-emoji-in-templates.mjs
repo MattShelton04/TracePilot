@@ -29,27 +29,17 @@ const SKIP_DIRS = new Set(["node_modules", "dist", "target", "__tests__", ".git"
 
 // Pre-existing emoji in templates (00-globals §G1 migration backlog).
 // Add no new entries; remove as files are migrated to Lucide icons.
+//
+// Remaining entries are cleaned during D-phase per-view rebuilds. The high-
+// traffic conversation/session/settings/banner/agent-tree/timeline surfaces
+// were migrated under task A4 (chunk 1) and are no longer allow-listed.
 const ALLOW_FILES = new Set([
-  "apps/desktop/src/components/agentTree/AgentTreeCanvas.vue",
-  "apps/desktop/src/components/agentTree/AgentTreeToolbar.vue",
   "apps/desktop/src/components/configInjector/ConfigInjectorAgentsTab.vue",
   "apps/desktop/src/components/configInjector/ConfigInjectorBackupsTab.vue",
   "apps/desktop/src/components/configInjector/ConfigInjectorGlobalTab.vue",
   "apps/desktop/src/components/configInjector/ConfigInjectorVersionsTab.vue",
-  "apps/desktop/src/components/conversation/chat/SubagentGroupSegment.vue",
-  "apps/desktop/src/components/conversation/chat/ToolGroupSegment.vue",
-  "apps/desktop/src/components/conversation/chat/TurnBlock.vue",
-  "apps/desktop/src/components/conversation/chat/UserMessageAnchor.vue",
-  "apps/desktop/src/components/conversation/ConversationTurnList.vue",
-  "apps/desktop/src/components/conversation/PermissionEventRow.vue",
-  "apps/desktop/src/components/conversation/sdkSteering/SdkSteeringSessionLabel.vue",
-  "apps/desktop/src/components/conversation/SessionEventRow.vue",
-  "apps/desktop/src/components/conversation/SkillInvocationEventRow.vue",
-  "apps/desktop/src/components/conversation/SubagentCard.vue",
-  "apps/desktop/src/components/conversation/SystemMessagePanel.vue",
   "apps/desktop/src/components/export/ExportTab.vue",
   "apps/desktop/src/components/export/ImportTab.vue",
-  "apps/desktop/src/components/layout/AlertCenterDrawer.vue",
   "apps/desktop/src/components/mcp/addServer/AddServerAdvanced.vue",
   "apps/desktop/src/components/mcp/McpServerCard.vue",
   "apps/desktop/src/components/mcp/McpTokenSummary.vue",
@@ -57,23 +47,17 @@ const ALLOW_FILES = new Set([
   "apps/desktop/src/components/replay/ReplaySidebar.vue",
   "apps/desktop/src/components/replay/ReplayStepContent.vue",
   "apps/desktop/src/components/replay/ReplayTransportBar.vue",
-  "apps/desktop/src/components/session/SessionDetailPanel.vue",
   "apps/desktop/src/components/sessionComparison/ComparisonHeader.vue",
   "apps/desktop/src/components/sessionLauncher/SessionLauncherAdvanced.vue",
   "apps/desktop/src/components/sessionLauncher/SessionLauncherPreview.vue",
   "apps/desktop/src/components/sessionLauncher/SessionLauncherSaveTemplate.vue",
   "apps/desktop/src/components/sessionLauncher/SessionLauncherTemplates.vue",
-  "apps/desktop/src/components/settings/SdkDiagnosticsPanel.vue",
-  "apps/desktop/src/components/settings/SdkServersPanel.vue",
   "apps/desktop/src/components/skills/import-wizard/SkillImportStep1Local.vue",
   "apps/desktop/src/components/skills/import-wizard/SkillImportStep3File.vue",
   "apps/desktop/src/components/skills/SkillImportWizard.vue",
-  "apps/desktop/src/components/StubBanner.vue",
   "apps/desktop/src/components/timeline/AgentTreeView.vue",
-  "apps/desktop/src/components/timeline/NestedSwimlanesView.vue",
   "apps/desktop/src/components/timeline/TurnWaterfallView.vue",
   "apps/desktop/src/components/TodoDependencyGraph.vue",
-  "apps/desktop/src/components/UpdateBanner.vue",
   "apps/desktop/src/components/waterfall/TurnWaterfallHeader.vue",
   "apps/desktop/src/components/waterfall/TurnWaterfallTooltip.vue",
   "apps/desktop/src/components/WhatsNewModal.vue",
@@ -83,9 +67,7 @@ const ALLOW_FILES = new Set([
   "apps/desktop/src/views/ModelComparisonView.vue",
   "apps/desktop/src/views/orchestration/ConfigInjectorView.vue",
   "apps/desktop/src/views/orchestration/home/OrchestrationSystemHealth.vue",
-  "apps/desktop/src/views/SessionListView.vue",
   "apps/desktop/src/views/SessionReplayView.vue",
-  "apps/desktop/src/views/SessionTimelineView.vue",
 ]);
 
 const TEMPLATE_RE = /<template[^>]*>([\s\S]*?)<\/template>/i;

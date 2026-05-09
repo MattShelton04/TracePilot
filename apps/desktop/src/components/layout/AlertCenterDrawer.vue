@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ActionButton } from "@tracepilot/ui";
+import { AlertTriangle, Bell, Check, Lock, type LucideIcon, MessageSquare } from "lucide-vue-next";
 import { computed } from "vue";
 import { type AlertEvent, useAlertsStore } from "@/stores/alerts";
 import { useSessionTabsStore } from "@/stores/sessionTabs";
@@ -29,22 +30,23 @@ function formatTime(ts: number): string {
   });
 }
 
-function iconForType(type: AlertEvent["type"]): string {
+function iconForType(type: AlertEvent["type"]): LucideIcon {
   switch (type) {
     case "session-end":
-      return "✓";
+      return Check;
     case "ask-user":
     case "sdk-user-input-required":
-      return "💬";
+      return MessageSquare;
     case "sdk-permission-required":
-      return "🔐";
+      return Lock;
     case "session-error":
     case "sdk-session-error":
     case "sdk-event-lag":
-      return "⚠";
+      return AlertTriangle;
     case "sdk-session-idle":
-      return "✓";
+      return Check;
   }
+  return Bell;
 }
 
 function severityClass(severity: AlertEvent["severity"]): string {
@@ -100,7 +102,7 @@ function handleClose() {
         </div>
 
         <div v-if="!hasAlerts" class="alert-drawer-empty">
-          <div class="alert-drawer-empty-icon">🔔</div>
+          <div class="alert-drawer-empty-icon" aria-hidden="true"><Bell :size="32" /></div>
           <div class="alert-drawer-empty-text">No alerts yet</div>
           <div class="alert-drawer-empty-hint">
             Alerts appear here when sessions complete, need input, or encounter errors.
@@ -118,7 +120,7 @@ function handleClose() {
             @click="handleAlertClick(alert)"
             @keydown.enter="handleAlertClick(alert)"
           >
-            <div class="alert-item-icon">{{ iconForType(alert.type) }}</div>
+            <div class="alert-item-icon" aria-hidden="true"><component :is="iconForType(alert.type)" :size="16" /></div>
             <div class="alert-item-content">
               <div class="alert-item-title">{{ alert.title }}</div>
               <div class="alert-item-body">{{ alert.body }}</div>

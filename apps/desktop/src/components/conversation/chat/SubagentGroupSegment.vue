@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { TurnToolCall } from "@tracepilot/types";
+import { Zap } from "lucide-vue-next";
 import SubagentCard from "@/components/conversation/SubagentCard.vue";
 import type { SubagentFullData } from "@/composables/useCrossTurnSubagents";
 
@@ -20,7 +21,8 @@ const emit = defineEmits<{
     class="cv-parallel-header"
     aria-hidden="true"
   >
-    ⚡ {{ subagents.length }} agents launched in parallel
+    <Zap :size="14" aria-hidden="true" />
+    {{ subagents.length }} agents launched in parallel
   </div>
   <div :class="{ 'cv-parallel-stack': subagents.length > 1 }">
     <div

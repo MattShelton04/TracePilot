@@ -18,6 +18,7 @@ import {
   useAutoRefresh,
   useClipboard,
 } from "@tracepilot/ui";
+import { AlertTriangle } from "lucide-vue-next";
 import { computed, onMounted, ref, watch } from "vue";
 import type { Router } from "vue-router";
 import ErrorBoundary from "@/components/ErrorBoundary.vue";
@@ -207,7 +208,7 @@ watch(isSessionActive, (active) => {
       <div class="detail-actions">
         <div class="detail-actions-left">
           <template v-if="confirmingCopy">
-            <span class="resume-warning">⚠ Session is active elsewhere</span>
+            <span class="resume-warning"><AlertTriangle :size="14" aria-hidden="true" /> Session is active elsewhere</span>
             <button class="resume-btn resume-btn--confirm" @click="copyResumeCommand">
               Copy Anyway
             </button>
@@ -224,7 +225,7 @@ watch(isSessionActive, (active) => {
 
           <template v-if="!isViewer()">
             <template v-if="confirmingResume">
-              <span class="resume-warning">⚠ Session is active elsewhere</span>
+              <span class="resume-warning"><AlertTriangle :size="14" aria-hidden="true" /> Session is active elsewhere</span>
               <button class="resume-btn resume-btn--confirm" @click="resumeInTerminal">
                 Resume Anyway
               </button>

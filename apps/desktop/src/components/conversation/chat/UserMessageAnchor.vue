@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { formatTime, MarkdownContent } from "@tracepilot/ui";
+import { User } from "lucide-vue-next";
 
 defineProps<{
   content: string;
@@ -16,7 +17,7 @@ defineProps<{
     :data-event-idx="eventIndex != null ? eventIndex : undefined"
   >
     <div class="cv-user-header">
-      <span class="cv-user-avatar" aria-hidden="true">👤</span>
+      <span class="cv-user-avatar" aria-hidden="true"><User :size="16" /></span>
       <span class="cv-user-name">User</span>
       <span class="cv-user-turn">T{{ turnIndex }}</span>
       <span v-if="timestamp" class="cv-user-time">

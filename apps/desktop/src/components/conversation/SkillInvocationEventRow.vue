@@ -9,6 +9,7 @@
  */
 import type { SkillInvocationEvent, TurnSessionEvent, TurnToolCall } from "@tracepilot/types";
 import { ExpandChevron, formatDuration, formatTime } from "@tracepilot/ui";
+import { Zap } from "lucide-vue-next";
 import { computed, inject, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { SESSION_DETAIL_KEY } from "@/composables/useSessionDetail";
@@ -95,7 +96,7 @@ function openEditor(e: MouseEvent) {
       :aria-label="ariaLabel"
       @click="toggle"
     >
-      <span class="skill-row__icon" aria-hidden="true">⚡</span>
+      <span class="skill-row__icon" aria-hidden="true"><Zap :size="14" /></span>
       <span class="skill-row__tag">skill</span>
       <span class="skill-row__name">{{ headerLabel }}</span>
       <span v-if="skillDescription" class="skill-row__desc">— {{ skillDescription }}</span>

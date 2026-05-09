@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useLocalStorage } from "@tracepilot/ui";
+import { Sparkles } from "lucide-vue-next";
 import { computed } from "vue";
 import { useUpdateCheck } from "@/composables/useUpdateCheck";
 import { STORAGE_KEYS } from "@/config/storageKeys";
@@ -32,7 +33,7 @@ function dismiss() {
 <template>
   <Transition name="banner-slide">
     <div v-if="visible" class="update-banner" role="status">
-      <span class="update-banner-icon">🎉</span>
+      <span class="update-banner-icon" aria-hidden="true"><Sparkles :size="16" /></span>
       <span class="update-banner-text">
         TracePilot <strong>v{{ updateResult?.latestVersion }}</strong> is
         available

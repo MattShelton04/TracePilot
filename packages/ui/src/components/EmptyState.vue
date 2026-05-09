@@ -9,7 +9,9 @@ defineProps<{
 
 <template>
   <div :class="['empty-state', { 'empty-state--compact': compact }]">
-    <div v-if="icon && !compact" class="empty-state-icon">{{ icon }}</div>
+    <div v-if="!compact && ($slots.icon || icon)" class="empty-state-icon">
+      <slot name="icon">{{ icon }}</slot>
+    </div>
     <h2 v-if="title && !compact" class="empty-state-title">{{ title }}</h2>
     <p class="empty-state-desc">
       <slot>{{ message ?? "No data found." }}</slot>

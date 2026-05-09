@@ -8,6 +8,7 @@
  */
 import type { SessionEventSeverity, TurnSessionEvent } from "@tracepilot/types";
 import { formatTime } from "@tracepilot/ui";
+import { AlertTriangle, ClipboardList, FileArchive, Info, type LucideIcon } from "lucide-vue-next";
 import { computed } from "vue";
 import { useCheckpointNavigation } from "@/composables/useCheckpointNavigation";
 import SkillInvocationEventRow from "./SkillInvocationEventRow.vue";
@@ -27,10 +28,16 @@ function severityClass(severity: SessionEventSeverity | undefined): string {
   return "info";
 }
 
-function severityIcon(severity: SessionEventSeverity | undefined): string {
-  if (severity === "error") return "⚠️";
-  if (severity === "warning") return "⚠️";
-  return "ℹ️";
+function severityIcon(severity: SessionEventSeverity | undefined): LucideIcon {
+  if (severity === "error") return AlertTriangle;
+  if (severity === "warning") return AlertTriangle;
+  return Info;
+}
+
+function severityAria(severity: SessionEventSeverity | undefined): string {
+  if (severity === "error") return "error";
+  if (severity === "warning") return "warning";
+  return "info";
 }
 
 function eventLabel(eventType: string): string {
@@ -52,14 +59,14 @@ function eventLabel(eventType: string): string {
     v-else-if="isCompaction"
     class="cv-session-event cv-compaction"
   >
-    <span class="cv-session-event-icon">🗜️</span>
+    <span class="cv-session-event-icon" aria-hidden="true"><FileArchive :size="14" /></span>
     <button
       v-if="event.checkpointNumber != null"
       class="cv-checkpoint-pill"
       :title="`View Checkpoint #${event.checkpointNumber} in Overview tab`"
       @click="navigateToCheckpoint(event.checkpointNumber!)"
     >
-      📋 Checkpoint #{{ event.checkpointNumber }}
+      <ClipboardList :size="12" aria-hidden="true" /> Checkpoint #{{ event.checkpointNumber }}
     </button>
     <span v-else class="cv-session-event-type">compaction</span>
     <span class="cv-session-event-summary">{{ event.summary }}</span>
@@ -73,7 +80,9 @@ function eventLabel(eventType: string): string {
     v-else
     :class="['cv-session-event', severityClass(event.severity)]"
   >
-    <span class="cv-session-event-icon">{{ severityIcon(event.severity) }}</span>
+    <span class="cv-session-event-icon" :aria-label="severityAria(event.severity)">
+      <component :is="severityIcon(event.severity)" :size="14" />
+    </span>
     <span class="cv-session-event-type">{{ eventLabel(event.eventType) }}</span>
     <span class="cv-session-event-summary">{{ event.summary }}</span>
     <span v-if="event.timestamp" class="cv-session-event-time">

@@ -10,6 +10,7 @@ import {
   getAgentIcon,
   inferAgentTypeFromToolCall,
 } from "@tracepilot/ui";
+import { AlertTriangle, ChevronRight } from "lucide-vue-next";
 import { computed } from "vue";
 
 const props = defineProps<{
@@ -90,7 +91,8 @@ function handleClick() {
         v-if="modelMismatch"
         class="cv-subagent-model-warn"
         :title="`Requested ${requestedModel} but a different model ran`"
-      >⚠</span>
+        aria-label="model mismatch"
+      ><AlertTriangle :size="12" /></span>
       <span v-if="duration" class="cv-subagent-dur">{{ duration }}</span>
       <span
         :class="[
@@ -98,7 +100,7 @@ function handleClick() {
           status === 'failed' ? 'fail' : status === 'in-progress' ? 'pending' : 'success',
         ]"
       />
-      <span class="cv-subagent-arrow">▶</span>
+      <span class="cv-subagent-arrow" aria-hidden="true"><ChevronRight :size="12" /></span>
     </div>
     <div v-if="childToolCount || toolCall.totalTokens || toolCall.totalToolCalls" class="cv-subagent-hint">
       <span v-if="childToolCount">{{ childToolCount }} tool call{{ childToolCount !== 1 ? "s" : "" }} inside</span>
