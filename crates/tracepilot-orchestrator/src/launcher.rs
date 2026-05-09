@@ -321,15 +321,9 @@ pub(crate) fn canonicalize_user_path(path: &str) -> Result<std::path::PathBuf> {
                 "Network (UNC) paths are not permitted: {path}"
             )));
         }
-
-        // Strip the verbatim prefix so downstream consumers (explorer.exe,
-        // PowerShell, git-for-windows) see a normal `C:\…` path.
-        if let Some(stripped) = s.strip_prefix(r"\\?\") {
-            return Ok(std::path::PathBuf::from(stripped.to_string()));
-        }
     }
 
-    Ok(canonical)
+    Ok(tracepilot_core::utils::fs::normalize_canonical_path(canonical))
 }
 
 /// Open a path in the system file explorer.
