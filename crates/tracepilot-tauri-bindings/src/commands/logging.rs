@@ -3,6 +3,7 @@
 use crate::blocking_cmd;
 use crate::error::{BindingsError, CmdResult};
 use tauri::Manager;
+use tracepilot_core::utils::InfallibleWrite;
 
 #[tauri::command]
 #[specta::specta]
@@ -83,7 +84,7 @@ pub async fn export_logs(app: tauri::AppHandle, destination: String) -> CmdResul
                 Ok(mut f) => {
                     let mut content = String::new();
                     if f.read_to_string(&mut content).is_ok() {
-                        combined.push_str(&format!(
+                        combined.push_fmt(format_args!(
                             "=== {} ===\n",
                             file.file_name().unwrap_or_default().to_string_lossy()
                         ));

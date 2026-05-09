@@ -4,6 +4,7 @@ use std::path::Path;
 use crate::document::{CheckpointExport, RawEvent};
 use crate::error::{ExportError, Result};
 use tracepilot_core::parsing::events::events_to_jsonl;
+use tracepilot_core::utils::InfallibleWrite;
 
 pub(super) fn write_events_jsonl(events: &[RawEvent], dir: &Path) -> Result<()> {
     let path = dir.join("events.jsonl");
@@ -23,7 +24,7 @@ pub(super) fn write_checkpoints(checkpoints: &[CheckpointExport], dir: &Path) ->
     // Write index.md
     let mut index = String::from("| # | Title | File |\n| --- | --- | --- |\n");
     for cp in checkpoints {
-        index.push_str(&format!(
+        index.push_fmt(format_args!(
             "| {} | {} | {} |\n",
             cp.number, cp.title, cp.filename
         ));
