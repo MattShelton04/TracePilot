@@ -20,6 +20,7 @@ import {
 } from "@tracepilot/ui";
 import { computed, onMounted, ref, watch } from "vue";
 import type { Router } from "vue-router";
+import ErrorBoundary from "@/components/ErrorBoundary.vue";
 import RefreshToolbar from "@/components/RefreshToolbar.vue";
 import type { SessionDetailContext } from "@/composables/useSessionDetail";
 import { useWindowRole } from "@/composables/useWindowRole";
@@ -289,7 +290,9 @@ watch(isSessionActive, (active) => {
       <TabNav v-else :tabs="tabs" />
 
       <div class="detail-tab-content" data-testid="session-detail-content">
-        <slot />
+        <ErrorBoundary>
+          <slot />
+        </ErrorBoundary>
       </div>
     </template>
   </PageShell>
