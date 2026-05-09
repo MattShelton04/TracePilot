@@ -9,17 +9,7 @@ use std::path::PathBuf;
 /// UNC share paths (`\\?\UNC\server\share`) are left untouched because
 /// stripping their prefix would produce an invalid path.
 fn normalize_canonicalized(p: PathBuf) -> PathBuf {
-    #[cfg(windows)]
-    {
-        let s = p.to_string_lossy();
-        if let Some(rest) = s.strip_prefix(r"\\?\") {
-            // Drive-rooted: second byte is ':' (e.g. "C:\...").
-            if rest.len() >= 2 && rest.as_bytes()[1] == b':' {
-                return PathBuf::from(rest.to_string());
-            }
-        }
-    }
-    p
+    tracepilot_core::utils::fs::normalize_canonical_path(p)
 }
 
 /// Validate that an existing path resides within `dir`.

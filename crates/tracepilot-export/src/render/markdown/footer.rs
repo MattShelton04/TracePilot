@@ -216,15 +216,12 @@ pub(super) fn write_rewind_snapshots(md: &mut String, rewind: &RewindIndex) {
             .unwrap_or_else(|| "—".to_string());
         let branch = snap.git_branch.as_deref().unwrap_or("—");
         let msg = snap.user_message.as_deref().unwrap_or("—");
-        let msg_truncated = if msg.len() > 50 {
-            &msg[..msg.floor_char_boundary(50)]
-        } else {
-            msg
-        };
+        let msg_truncated = tracepilot_core::utils::truncate_utf8(msg, 50);
+
         md.push_line(format_args!(
             "| {} | `{}` | {} | {} | {} | {} |",
             i + 1,
-            &snap.snapshot_id[..snap.snapshot_id.len().min(8)],
+            tracepilot_core::utils::truncate_utf8(&snap.snapshot_id, 8),
             ts,
             files,
             branch,

@@ -20,7 +20,7 @@ pub(crate) async fn launch_sdk_session(
             agent: None,
         })
         .await
-        .map_err(|e| OrchestratorError::Launch(format!("Copilot SDK launch failed: {e}")))?;
+        .map_err(|e| OrchestratorError::launch_ctx("Copilot SDK launch failed", e))?;
     send_initial_prompt_if_present(bridge, &session.session_id, config.prompt.as_deref()).await?;
 
     Ok(LaunchedSession {
@@ -51,7 +51,7 @@ async fn send_initial_prompt_if_present(
         )
         .await
         .map(|_| ())
-        .map_err(|e| OrchestratorError::Launch(format!("Copilot SDK initial prompt failed: {e}")))
+        .map_err(|e| OrchestratorError::launch_ctx("Copilot SDK initial prompt failed", e))
 }
 
 fn prepare_sdk_workspace(config: &LaunchConfig) -> Result<(std::path::PathBuf, Option<String>)> {
@@ -68,7 +68,7 @@ fn prepare_sdk_workspace(config: &LaunchConfig) -> Result<(std::path::PathBuf, O
             target_dir: None,
         };
         let wt = worktrees::create_worktree(&request)
-            .map_err(|e| OrchestratorError::Launch(format!("Failed to create worktree: {e}")))?;
+            .map_err(|e| OrchestratorError::launch_ctx("Failed to create worktree", e))?;
         return Ok((std::path::PathBuf::from(&wt.path), Some(wt.path)));
     }
 
