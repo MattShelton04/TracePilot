@@ -134,8 +134,8 @@ pub fn gh_get_file_bytes(owner: &str, repo: &str, path: &str, ref_: &str) -> Res
         GH_TIMEOUT_SECS,
     )?;
 
-    let response: GhContentResponse =
-        serde_json::from_str(&json).map_err(|e| OrchestratorError::launch_ctx("Failed to parse GitHub API response", e))?;
+    let response: GhContentResponse = serde_json::from_str(&json)
+        .map_err(|e| OrchestratorError::launch_ctx("Failed to parse GitHub API response", e))?;
 
     // GitHub returns base64-encoded content (with newlines)
     let cleaned = response.content.replace('\n', "");

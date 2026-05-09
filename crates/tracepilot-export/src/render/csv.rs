@@ -226,7 +226,11 @@ fn render_events_csv(events: &[RawEvent]) -> Result<Vec<u8>> {
         let ts = event.timestamp.as_ref().map(fmt_dt).unwrap_or_default();
 
         // Show a truncated preview of the data payload
-        let preview = tracepilot_core::utils::truncate_utf8_with_marker(&event.data.to_string(), 200, Some("…"));
+        let preview = tracepilot_core::utils::truncate_utf8_with_marker(
+            &event.data.to_string(),
+            200,
+            Some("…"),
+        );
 
         writeln!(
             out,
