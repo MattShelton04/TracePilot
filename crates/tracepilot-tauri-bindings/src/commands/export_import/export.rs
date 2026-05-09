@@ -186,9 +186,7 @@ pub async fn export_sessions(
         }
 
         let out = PathBuf::from(&output_path);
-        if let Some(parent) = out.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
+        tracepilot_core::utils::fs::ensure_parent_dir(&out)?;
 
         let mut total_size: u64 = 0;
         if files.len() == 1 {

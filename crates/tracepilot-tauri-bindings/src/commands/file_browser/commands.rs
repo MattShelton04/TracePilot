@@ -10,6 +10,7 @@ use crate::blocking_cmd;
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
 use crate::helpers::read_config;
+use tracepilot_core::utils::InfallibleWrite;
 
 /// List all files in a session's directory tree.
 ///
@@ -126,7 +127,7 @@ pub async fn session_read_file(
 
         let mut content = String::from_utf8_lossy(&buf).into_owned();
         if truncated {
-            content.push_str(&format!(
+            content.push_fmt(format_args!(
                 "\n\n[... file truncated — showing first {} bytes ...]",
                 MAX_READ_BYTES
             ));

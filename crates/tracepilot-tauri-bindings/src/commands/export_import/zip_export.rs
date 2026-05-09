@@ -20,9 +20,7 @@ pub async fn export_session_folder_zip(
     let sid = crate::validators::validate_session_id(&session_id)?;
     with_session_path(&state, sid, move |session_path| {
         let dest = PathBuf::from(&dest_path);
-        if let Some(parent) = dest.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
+        tracepilot_core::utils::fs::ensure_parent_dir(&dest)?;
 
         let file = std::fs::File::create(&dest)?;
         let mut zip = zip::ZipWriter::new(file);

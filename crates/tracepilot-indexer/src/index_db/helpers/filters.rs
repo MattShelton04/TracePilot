@@ -1,4 +1,5 @@
 use rusqlite::types::ToSql;
+use tracepilot_core::utils::InfallibleWrite;
 
 /// Build a WHERE clause for date range + repo filtering on the sessions table.
 ///
@@ -65,11 +66,11 @@ pub(in crate::index_db) fn append_segment_date_filter(
 
     if let Some(from) = from_date {
         new_values.push(from.to_string());
-        new_clause.push_str(&format!(" AND date({col}) >= ?"));
+        new_clause.push_fmt(format_args!(" AND date({col}) >= ?"));
     }
     if let Some(to) = to_date {
         new_values.push(to.to_string());
-        new_clause.push_str(&format!(" AND date({col}) <= ?"));
+        new_clause.push_fmt(format_args!(" AND date({col}) <= ?"));
     }
 
     (new_clause, new_values)

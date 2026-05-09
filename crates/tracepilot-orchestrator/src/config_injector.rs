@@ -130,9 +130,8 @@ pub fn list_backups(backup_dir: &Path) -> Result<Vec<BackupEntry>> {
             // Try to read sidecar metadata.
             let sidecar_path = backup_dir.join(format!("{}.meta.json", file_name));
             let (source_path, label) = if sidecar_path.exists() {
-                let sidecar_content = std::fs::read_to_string(&sidecar_path).unwrap_or_default();
                 let sidecar: serde_json::Value =
-                    serde_json::from_str(&sidecar_content).unwrap_or_default();
+                    crate::json_io::atomic_json_read(&sidecar_path).unwrap_or_default();
                 (
                     sidecar
                         .get("source_path")
@@ -192,17 +191,14 @@ pub fn restore_backup(backup_path: &Path, restore_to: &Path) -> Result<()> {
         ));
     }
 
-    if let Some(parent) = restore_to.parent() {
-        std::fs::create_dir_all(parent)?;
-        let tmp = parent.join(format!(
-            ".restore-tmp-{}",
-            restore_to.file_name().unwrap_or_default().to_string_lossy()
-        ));
-        std::fs::copy(backup_path, &tmp)?;
-        std::fs::rename(&tmp, restore_to)?;
-    } else {
-        std::fs::copy(backup_path, restore_to)?;
-    }
+    tracepilot_core::utils::fs::ensure_parent_dir(restore_to)?;
+    let tmp_name = format!(
+        ".restore-tmp-{}",
+        restore_to.file_name().unwrap_or_default().to_string_lossy()
+    );
+    let tmp = restore_to.with_file_name(tmp_name);
+    std::fs::copy(backup_path, &tmp)?;
+    std::fs::rename(&tmp, restore_to)?;
 
     Ok(())
 }
@@ -384,8 +380,7 @@ mod tests {
                 .to_string_lossy()
         ));
         assert!(sidecar.exists(), "sidecar metadata file should be created");
-        let sidecar_val: serde_json::Value =
-            serde_json::from_str(&fs::read_to_string(&sidecar).unwrap()).unwrap();
+        let sidecar_val: serde_json::Value = crate::json_io::atomic_json_read(&sidecar).unwrap();
         assert_eq!(sidecar_val["label"], "pre-migrate");
     }
 
