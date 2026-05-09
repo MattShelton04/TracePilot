@@ -21,7 +21,7 @@ pub fn normalize_canonical_path(p: PathBuf) -> PathBuf {
         if let Some(rest) = s.strip_prefix(r"\\?\") {
             // Drive-rooted: second byte is ':' (e.g. "C:\...").
             if rest.len() >= 2 && rest.as_bytes()[1] == b':' {
-                return PathBuf::from(rest.to_string());
+                return PathBuf::from(rest);
             }
         }
     }
