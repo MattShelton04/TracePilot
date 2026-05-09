@@ -16,12 +16,16 @@ pub fn build_in_placeholders(n: usize) -> String {
         "build_in_placeholders requires n > 0; n=0 produces empty string that makes IN () invalid SQL"
     );
     // Each element is "?" (1 char) + ", " (2 chars) except the last → n*3 max.
-    let mut s = String::with_capacity(n * 3);
-    for i in 0..n {
-        if i > 0 {
-            s.push_str(", ");
+    // Optimization: Calculate exact capacity using safe math and use `.push_str`
+    // with pre-encoded strings instead of `.push` with individual characters
+    // to avoid scalar UTF-8 validation overhead in a tight loop.
+    let capacity = n.saturating_mul(3).saturating_sub(2);
+    let mut s = String::with_capacity(capacity);
+    if n > 0 {
+        s.push_str("?");
+        for _ in 1..n {
+            s.push_str(", ?");
         }
-        s.push('?');
     }
     s
 }
@@ -57,24 +61,27 @@ pub fn build_placeholder_sql(sql_prefix: &str, num_rows: usize, params_per_row: 
         return sql_prefix.to_string();
     }
 
-    let mut sql = String::with_capacity(
-        sql_prefix.len() + 1 + num_rows * (params_per_row * 2 + 1) + num_rows - 1,
-    );
+    // Optimization: Calculate exact capacity using safe math to avoid reallocation.
+    let prefix_len = sql_prefix.len().saturating_add(1);
+    let row_len = params_per_row.saturating_mul(2).saturating_add(1);
+    let rows_len = num_rows.saturating_mul(row_len).saturating_add(num_rows.saturating_sub(1));
+    let mut sql = String::with_capacity(prefix_len.saturating_add(rows_len));
+
     sql.push_str(sql_prefix);
-    sql.push(' ');
+    sql.push_str(" ");
 
-    let mut row_str = String::with_capacity(params_per_row * 2 + 1);
-    row_str.push('(');
-    row_str.push('?');
+    // Optimization: Pre-build the row tuple string including the leading comma
+    // and append it directly using `.push_str` to bypass `.push` overhead.
+    let mut row_str = String::with_capacity(row_len.saturating_add(1));
+    row_str.push_str(",");
+    row_str.push_str("(?");
     for _ in 1..params_per_row {
-        row_str.push(',');
-        row_str.push('?');
+        row_str.push_str(",?");
     }
-    row_str.push(')');
+    row_str.push_str(")");
 
-    sql.push_str(&row_str);
+    sql.push_str(&row_str[1..]);
     for _ in 1..num_rows {
-        sql.push(',');
         sql.push_str(&row_str);
     }
     sql
