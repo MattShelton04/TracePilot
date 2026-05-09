@@ -61,22 +61,28 @@ const emit = defineEmits<{
   color: var(--text-secondary);
   font-size: 0.8125rem;
   cursor: pointer;
-  transition: all var(--transition-fast, 100ms);
+  transition:
+    background-color 120ms cubic-bezier(0.2, 0.6, 0.2, 1),
+    color 120ms cubic-bezier(0.2, 0.6, 0.2, 1);
   white-space: nowrap;
 }
 .segment-btn:hover:not(.active) {
   color: var(--text-primary);
-  background: var(--surface-tertiary, rgba(255,255,255,0.05));
+  background: var(--surface-tertiary);
 }
 .segment-btn.active {
   background: var(--accent-emphasis);
-  color: var(--text-on-emphasis, #fff);
+  color: var(--text-on-emphasis);
+}
+.segment-btn:focus-visible {
+  outline: 2px solid var(--accent-emphasis);
+  outline-offset: 2px;
 }
 .segment-count {
   font-size: 0.6875rem;
   padding: 0 4px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--accent-muted);
 }
 .segment-btn:not(.active) .segment-count {
   background: var(--neutral-muted);
