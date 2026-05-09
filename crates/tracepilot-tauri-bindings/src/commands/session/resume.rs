@@ -21,16 +21,10 @@ pub async fn resume_session_in_terminal(
     let cli =
         cli_command.unwrap_or_else(|| tracepilot_core::constants::DEFAULT_CLI_COMMAND.to_string());
 
-    // Sanitize CLI command: allow only alphanumeric, hyphens, underscores, dots, slashes, spaces.
-    // Colon is needed for Windows drive letters (e.g., C:\path\to\copilot).
-    if !cli
-        .chars()
-        .all(|c| c.is_alphanumeric() || "-_./\\ :".contains(c))
-    {
-        return Err(BindingsError::Validation(
-            "CLI command contains invalid characters".into(),
-        ));
-    }
+    // Defence-in-depth: the CLI string is interpolated into a shell command
+    // below, so any character outside the safe allowlist is rejected at the
+    // boundary. See `validators::validate_cli_command` for the rule set.
+    crate::validators::validate_cli_command(&cli)?;
 
     // Resolve the session's original working directory from workspace.yaml
     let session_state_dir = read_config(&state).session_state_dir();
