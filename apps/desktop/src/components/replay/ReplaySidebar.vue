@@ -12,6 +12,7 @@ import {
   StatCard,
   toolIcon,
 } from "@tracepilot/ui";
+import { computed } from "vue";
 
 const props = defineProps<{
   step: ReplayStep | null;
@@ -25,6 +26,12 @@ const props = defineProps<{
 const emit = defineEmits<{
   "go-to-step": [index: number];
 }>();
+
+// Memoize total tool-call count so the reduce isn't re-run inside the template
+// every time an unrelated reactive value (e.g. currentStepIndex) changes.
+const totalToolCallCount = computed(() =>
+  props.steps.reduce((sum, st) => sum + (st.richToolCalls?.length ?? 0), 0),
+);
 </script>
 
 <template>
@@ -143,7 +150,7 @@ const emit = defineEmits<{
         </div>
         <div class="kv-item">
           <span class="kv-label">Total Tool Calls</span>
-          <span class="kv-value">{{ steps.reduce((s, st) => s + (st.richToolCalls?.length ?? 0), 0) }}</span>
+          <span class="kv-value">{{ totalToolCallCount }}</span>
         </div>
         <div v-if="detail?.repository" class="kv-item">
           <span class="kv-label">Repository</span>

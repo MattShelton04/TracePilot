@@ -108,6 +108,31 @@ function runProbe(): void {
         <div><span class="diag-key">detectedServers:</span> {{ sdk.detectedServers.length }}</div>
       </div>
     </div>
+
+    <!-- Bridge metrics -->
+    <div class="setting-row setting-row-stacked">
+      <div class="setting-info">
+        <div class="setting-label">Bridge Metrics</div>
+        <div class="setting-description">
+          Cumulative broadcast-channel counters. Diff snapshots to derive rates.
+          State-channel lag indicates the desktop fell behind <code>state_tx</code>
+          live-state snapshots (w4-8).
+        </div>
+      </div>
+      <div class="diag-raw">
+        <div><span class="diag-key">eventsForwarded:</span> {{ sdk.bridgeMetrics?.eventsForwarded ?? 0 }}</div>
+        <div><span class="diag-key">eventsDroppedDueToLag:</span> {{ sdk.bridgeMetrics?.eventsDroppedDueToLag ?? 0 }}</div>
+        <div><span class="diag-key">lagOccurrences:</span> {{ sdk.bridgeMetrics?.lagOccurrences ?? 0 }}</div>
+        <div :class="{ 'diag-warn': (sdk.bridgeMetrics?.stateEventsDroppedDueToLag ?? 0) > 0 }">
+          <span class="diag-key">stateEventsDroppedDueToLag:</span>
+          {{ sdk.bridgeMetrics?.stateEventsDroppedDueToLag ?? 0 }}
+        </div>
+        <div :class="{ 'diag-warn': (sdk.bridgeMetrics?.stateLagOccurrences ?? 0) > 0 }">
+          <span class="diag-key">stateLagOccurrences:</span>
+          {{ sdk.bridgeMetrics?.stateLagOccurrences ?? 0 }}
+        </div>
+      </div>
+    </div>
   </template>
 </template>
 

@@ -49,6 +49,59 @@ pub(crate) fn validate_path_within(path: &str, dir: &std::path::Path) -> CmdResu
     Ok(canonical)
 }
 
+/// Validate that an existing path resides within **any** of the supplied
+/// allowed root directories.
+///
+/// Used by callers that accept a path which may legitimately live under one of
+/// several trusted roots (e.g. the system "open in explorer" command, where the
+/// path may be a session folder, a registered repo, or an app-managed
+/// directory).
+///
+/// Roots that fail to canonicalize (e.g. they don't exist on disk) are silently
+/// skipped — the caller is responsible for ensuring at least one root resolves.
+/// Returns the canonicalized input path on success.
+///
+/// Rejects empty paths, non-existent paths, and paths whose canonical form is
+/// not contained by any allowed root (covers `..` traversal and symlink
+/// escapes).
+pub(crate) fn validate_path_within_any(
+    path: &str,
+    allowed_roots: &[std::path::PathBuf],
+) -> CmdResult<PathBuf> {
+    if path.is_empty() {
+        return Err(BindingsError::Validation("Path must not be empty".into()));
+    }
+    let p = std::path::Path::new(path);
+    if !p.exists() {
+        return Err(BindingsError::Validation(format!(
+            "Path does not exist: {path}"
+        )));
+    }
+    let canonical = normalize_canonicalized(p.canonicalize()?);
+
+    let mut any_root_resolved = false;
+    for root in allowed_roots {
+        let Ok(canonical_root) = root.canonicalize() else {
+            continue;
+        };
+        any_root_resolved = true;
+        let canonical_root = normalize_canonicalized(canonical_root);
+        if canonical.starts_with(&canonical_root) {
+            return Ok(canonical);
+        }
+    }
+
+    if !any_root_resolved {
+        return Err(BindingsError::Validation(
+            "No allowed directories are accessible".into(),
+        ));
+    }
+
+    Err(BindingsError::Validation(
+        "Path is outside the allowed directories".into(),
+    ))
+}
+
 /// Validate a write-target path whose file may not yet exist.
 ///
 /// Checks that the parent directory exists and is within `dir`. If the target

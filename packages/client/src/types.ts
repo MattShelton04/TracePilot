@@ -134,6 +134,10 @@ export interface BridgeMetricsSnapshot {
   eventsForwarded: number;
   eventsDroppedDueToLag: number;
   lagOccurrences: number;
+  /** Cumulative live-state snapshots dropped because `state_tx` lagged. */
+  stateEventsDroppedDueToLag: number;
+  /** Distinct lag occurrences observed on the live-state broadcast channel. */
+  stateLagOccurrences: number;
 }
 
 export interface BridgeHydrationSnapshot {

@@ -56,6 +56,41 @@ fn live_state_reducer_keeps_multiple_sessions_isolated() {
 }
 
 #[test]
+fn metrics_snapshot_includes_state_lag_counters() {
+    let (mgr, _rx, _status_rx) = BridgeManager::new();
+    let metrics = mgr.metrics();
+
+    // Initial snapshot starts at zero across all counters.
+    let zero = mgr.metrics_snapshot();
+    assert_eq!(zero.state_events_dropped_due_to_lag, 0);
+    assert_eq!(zero.state_lag_occurrences, 0);
+
+    // Simulate two distinct state-channel lag observations totalling
+    // 7 dropped snapshots — mirrors what the bindings' on_lag closure
+    // does when it observes RecvError::Lagged on `state_tx`.
+    metrics
+        .state_events_dropped_due_to_lag
+        .fetch_add(5, std::sync::atomic::Ordering::Relaxed);
+    metrics
+        .state_lag_occurrences
+        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    metrics
+        .state_events_dropped_due_to_lag
+        .fetch_add(2, std::sync::atomic::Ordering::Relaxed);
+    metrics
+        .state_lag_occurrences
+        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+
+    let snap = mgr.metrics_snapshot();
+    assert_eq!(snap.state_events_dropped_due_to_lag, 7);
+    assert_eq!(snap.state_lag_occurrences, 2);
+    // SDK-event counters remain untouched — the two lag families
+    // are tracked independently.
+    assert_eq!(snap.events_dropped_due_to_lag, 0);
+    assert_eq!(snap.lag_occurrences, 0);
+}
+
+#[test]
 fn bridge_event_reducer_emits_state_and_keeps_raw_forwarding_available() {
     let (mgr, mut raw_rx, _status_rx) = BridgeManager::new();
     let mut state_rx = mgr.subscribe_session_state();

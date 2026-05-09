@@ -125,6 +125,49 @@ pub(super) fn safe_session_file_path(
     }
 }
 
+/// Re-canonicalize `file_path` and `session_dir` after a `path.exists()` check
+/// to close the TOCTOU window left open by [`safe_session_file_path`] when the
+/// target file did not yet exist at validation time.
+///
+/// Between `safe_session_file_path` (which skips canonicalisation for
+/// non-existent files) and the caller's first read, an attacker — or a buggy
+/// agent with write access to its own session dir — could have replaced the
+/// path with a symlink pointing outside the session directory. Re-canonicalising
+/// here forces the symlink target to be resolved and verified.
+///
+/// Returns the canonicalised file path on success.
+pub(super) fn revalidate_within_session_dir(
+    session_dir: &Path,
+    file_path: &Path,
+) -> Result<std::path::PathBuf, BindingsError> {
+    let canonical_dir = session_dir.canonicalize()?;
+    let canonical_file = file_path.canonicalize()?;
+    if !canonical_file.starts_with(&canonical_dir) {
+        return Err(BindingsError::Validation(
+            "File path escapes session directory".into(),
+        ));
+    }
+    Ok(canonical_file)
+}
+
+/// Reject hidden filenames (anything starting with `.`).
+///
+/// We do not surface dotfiles through the file browser — the relative-path
+/// validator already drops them when listing, and the read endpoints refuse
+/// them by name in case a renderer constructs the path directly.
+pub(super) fn reject_hidden_filename(file_path: &Path) -> Result<(), BindingsError> {
+    let file_name = file_path
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_default();
+    if file_name.starts_with('.') {
+        return Err(BindingsError::Validation(
+            "Hidden files cannot be read".into(),
+        ));
+    }
+    Ok(())
+}
+
 /// Recursively collect file entries from `dir`, building paths relative to `root`.
 ///
 /// `depth` tracks the current recursion level; the call site passes 0.
@@ -310,6 +353,10 @@ mod tests {
         let session_dir = make_session_dir(&tmp);
         assert!(safe_session_file_path(&session_dir, "../other.db").is_err());
     }
+
+    // `revalidate_within_session_dir` and `reject_hidden_filename` tests
+    // live in `security_revalidate_tests.rs` to keep this file under the
+    // `scripts/check-file-sizes.mjs` budget.
 
     // ── collect_entries ────────────────────────────────────────
 

@@ -78,7 +78,18 @@ const { getSections, getArgsSummary, findToolCallIndex } = useConversationSectio
   () => props.allTurns,
 );
 
-const sections = computed(() => getSections(props.turn.turnIndex));
+const sections = computed(() =>
+  // Decorate sections with derived counts/lists so the template doesn't recompute
+  // these filters on every reactive update (e.g. toggling expanded sets).
+  // The decoration only re-runs when the underlying section data changes.
+  getSections(props.turn.turnIndex).map((s) => ({
+    ...s,
+    nonEmptyMessages: s.messages.filter((m) => m.trim()),
+    passedToolCount: s.toolCalls.filter((tc) => tc.success === true).length,
+    failedToolCount: s.toolCalls.filter((tc) => tc.success === false).length,
+    hasFailedTool: s.toolCalls.some((tc) => tc.success === false),
+  })),
+);
 
 // Auto-expand individual tool details when ≤ 5 tool calls in main sections only.
 // Subagent sections use compact variant and don't auto-expand.
@@ -146,7 +157,7 @@ function toggleToolDetail(tc: TurnToolCall) {
 
 const hasUserMessage = computed(() => !!props.step.userMessage);
 const hasAssistantContent = computed(() =>
-  sections.value.some((s) => s.messages.some((m) => m.trim()) || s.toolCalls.length > 0),
+  sections.value.some((s) => s.nonEmptyMessages.length > 0 || s.toolCalls.length > 0),
 );
 </script>
 
@@ -200,7 +211,7 @@ const hasAssistantContent = computed(() =>
 
         <!-- Assistant messages -->
         <div
-          v-for="(msg, msgIdx) in section.messages.filter((m) => m.trim())"
+          v-for="(msg, msgIdx) in section.nonEmptyMessages"
           :key="`msg-${msgIdx}`"
           class="step-message assistant-message"
         >
@@ -239,12 +250,12 @@ const hasAssistantContent = computed(() =>
             <ExpandChevron :expanded="!collapsedTools.has(`${step.index}-${sIdx}`)" />
             <span>{{ section.toolCalls.length }} tool call{{ section.toolCalls.length !== 1 ? 's' : '' }}</span>
             <span class="tools-summary">
-              <span class="tools-pass">{{ section.toolCalls.filter((tc) => tc.success === true).length }} passed</span>
+              <span class="tools-pass">{{ section.passedToolCount }} passed</span>
               <span
-                v-if="section.toolCalls.some((tc) => tc.success === false)"
+                v-if="section.hasFailedTool"
                 class="tools-fail"
               >
-                {{ section.toolCalls.filter((tc) => tc.success === false).length }} failed
+                {{ section.failedToolCount }} failed
               </span>
             </span>
           </button>
@@ -299,7 +310,7 @@ const hasAssistantContent = computed(() =>
             @toggle="expandedReasoning.toggle(`${step.index}-${section.agentId}`)"
           />
 
-          <div v-for="(msg, idx) in section.messages.filter((m) => m.trim())" :key="`sub-msg-${idx}`" class="step-message subagent-msg">
+          <div v-for="(msg, idx) in section.nonEmptyMessages" :key="`sub-msg-${idx}`" class="step-message subagent-msg">
             <div class="message-bubble assistant-bubble subagent-bubble">
               <MarkdownContent :content="displayMessage(msg, `sub-${step.index}-${section.agentId}-${idx}`)" :render="preferences.isFeatureEnabled('renderMarkdown')" max-height="300px" />
               <button

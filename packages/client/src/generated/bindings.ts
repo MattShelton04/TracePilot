@@ -61,6 +61,16 @@ export type BridgeMetricsSnapshot = {
 	eventsForwarded: number,
 	eventsDroppedDueToLag: number,
 	lagOccurrences: number,
+	/**
+	 *  Cumulative dropped live-state snapshots. See
+	 *  [`BridgeMetrics::state_events_dropped_due_to_lag`].
+	 */
+	stateEventsDroppedDueToLag: number,
+	/**
+	 *  Cumulative live-state lag occurrences. See
+	 *  [`BridgeMetrics::state_lag_occurrences`].
+	 */
+	stateLagOccurrences: number,
 };
 
 /**
@@ -99,8 +109,11 @@ export type IndexingProgressPayload = {
 	totalRepos: number,
 };
 
+//Validated session identifier (UUID format).
+export type SessionId = string;
+
 export type SessionListItem = {
-	id: string,
+	id: SessionId,
 	summary: string | null,
 	repository: string | null,
 	branch: string | null,

@@ -13,7 +13,13 @@ export const hydratedBridgeState = {
     { sessionId: "tracked-1", isActive: true },
     { sessionId: "tracked-2", isActive: false },
   ],
-  metrics: { eventsForwarded: 2, eventsDroppedDueToLag: 0, lagOccurrences: 0 },
+  metrics: {
+    eventsForwarded: 2,
+    eventsDroppedDueToLag: 0,
+    lagOccurrences: 0,
+    stateEventsDroppedDueToLag: 0,
+    stateLagOccurrences: 0,
+  },
   sessionStates: [
     {
       sessionId: "tracked-1",

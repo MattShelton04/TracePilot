@@ -1,6 +1,8 @@
 //! Tauri IPC commands for the session file browser.
 
-use super::security::{collect_entries, safe_session_file_path};
+use super::security::{
+    collect_entries, reject_hidden_filename, revalidate_within_session_dir, safe_session_file_path,
+};
 use super::types::{
     MAX_READ_BYTES, MAX_SQLITE_ROWS_PER_TABLE, MAX_SQLITE_TABLES, SessionFileEntry, SessionFileType,
 };
@@ -79,13 +81,7 @@ pub async fn session_read_file(
         // between safe_session_file_path (which skips canonicalization for
         // non-existent files) and here, the path could have been replaced with
         // a symlink pointing outside the session directory.
-        let canonical_dir = session_dir.canonicalize()?;
-        let file_path = file_path.canonicalize()?;
-        if !file_path.starts_with(&canonical_dir) {
-            return Err(BindingsError::Validation(
-                "File path escapes session directory".into(),
-            ));
-        }
+        let file_path = revalidate_within_session_dir(&session_dir, &file_path)?;
 
         if file_path.is_dir() {
             return Err(BindingsError::Validation(format!(
@@ -95,15 +91,11 @@ pub async fn session_read_file(
         }
 
         // Refuse to read binary formats or hidden dotfiles.
+        reject_hidden_filename(&file_path)?;
         let file_name = file_path
             .file_name()
             .map(|n| n.to_string_lossy().to_string())
             .unwrap_or_default();
-        if file_name.starts_with('.') {
-            return Err(BindingsError::Validation(
-                "Hidden files cannot be read".into(),
-            ));
-        }
         if SessionFileType::from_name(&file_name) == SessionFileType::Binary
             || SessionFileType::from_name(&file_name) == SessionFileType::Sqlite
         {
@@ -175,24 +167,14 @@ pub async fn session_read_sqlite(
 
         // Re-canonicalize after exists() to close the TOCTOU window (same
         // rationale as session_read_file above).
-        let canonical_dir = session_dir.canonicalize()?;
-        let file_path = file_path.canonicalize()?;
-        if !file_path.starts_with(&canonical_dir) {
-            return Err(BindingsError::Validation(
-                "File path escapes session directory".into(),
-            ));
-        }
+        let file_path = revalidate_within_session_dir(&session_dir, &file_path)?;
 
         // Only allow recognised SQLite extensions; reject hidden files.
+        reject_hidden_filename(&file_path)?;
         let file_name = file_path
             .file_name()
             .map(|n| n.to_string_lossy().to_string())
             .unwrap_or_default();
-        if file_name.starts_with('.') {
-            return Err(BindingsError::Validation(
-                "Hidden files cannot be read".into(),
-            ));
-        }
         if SessionFileType::from_name(&file_name) != SessionFileType::Sqlite {
             return Err(BindingsError::Validation(format!(
                 "'{}' is not a SQLite database file",

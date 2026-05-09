@@ -15,6 +15,7 @@ import {
 } from "@tracepilot/ui";
 import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
+import ErrorBoundary from "@/components/ErrorBoundary.vue";
 import RefreshToolbar from "@/components/RefreshToolbar.vue";
 import { useIndexingEvents } from "@/composables/useIndexingEvents";
 import { usePerfMonitor } from "@/composables/usePerfMonitor";
@@ -141,6 +142,7 @@ function openSession(event: MouseEvent, sessionId: string, label: string) {
 
 <template>
   <div ref="pageRef" class="page-content">
+    <ErrorBoundary>
     <div class="page-content-inner">
 
       <!-- Toolbar -->
@@ -229,6 +231,7 @@ function openSession(event: MouseEvent, sessionId: string, label: string) {
       />
 
     </div>
+    </ErrorBoundary>
   </div>
 </template>
 

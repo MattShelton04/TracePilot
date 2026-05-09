@@ -3,10 +3,12 @@
 use crate::blocking_cmd;
 use crate::cache::TtlCache;
 use crate::config::SharedConfig;
-use crate::error::CmdResult;
-use crate::helpers::read_config;
+use crate::error::{BindingsError, CmdResult};
+use crate::helpers::{read_config, validate_path_within_any};
+use std::path::PathBuf;
 use std::sync::LazyLock;
 use std::time::Duration;
+use tauri::Manager;
 
 // ---------------------------------------------------------------------------
 // check_system_deps TTL cache (P0 perf fix)
@@ -256,11 +258,78 @@ pub async fn get_available_models() -> CmdResult<Vec<tracepilot_orchestrator::Mo
 }
 
 #[tauri::command]
-pub async fn open_in_explorer(path: String) -> CmdResult<()> {
-    blocking_cmd!(tracepilot_orchestrator::launcher::open_in_explorer(&path))
+#[tracing::instrument(skip(state, app), err)]
+pub async fn open_in_explorer(
+    state: tauri::State<'_, SharedConfig>,
+    app: tauri::AppHandle,
+    path: String,
+) -> CmdResult<()> {
+    let validated = resolve_opener_path(&state, &app, &path)?;
+    blocking_cmd!(tracepilot_orchestrator::launcher::open_in_explorer(
+        &validated.to_string_lossy()
+    ))
 }
 
 #[tauri::command]
-pub async fn open_in_terminal(path: String) -> CmdResult<()> {
-    blocking_cmd!(tracepilot_orchestrator::launcher::open_in_terminal(&path))
+#[tracing::instrument(skip(state, app), err)]
+pub async fn open_in_terminal(
+    state: tauri::State<'_, SharedConfig>,
+    app: tauri::AppHandle,
+    path: String,
+) -> CmdResult<()> {
+    let validated = resolve_opener_path(&state, &app, &path)?;
+    blocking_cmd!(tracepilot_orchestrator::launcher::open_in_terminal(
+        &validated.to_string_lossy()
+    ))
+}
+
+/// Build the allowlist of trusted roots for the OS-opener commands and
+/// validate that `path` resolves to a location within one of them.
+///
+/// Allowed roots:
+/// - `session_state_dir`, `tracepilot_home`, `copilot_home` (config-derived)
+/// - The Tauri app log directory (e.g. `getLogPath()` callers)
+/// - Each registered repository path **and** its parent directory — the parent
+///   covers worktrees that `git worktree add` places as siblings of the repo
+///   (the default layout used by [`tracepilot_orchestrator::worktrees`]).
+///
+/// Rejects (via [`validate_path_within_any`]):
+/// - Empty / non-existent paths
+/// - Paths whose canonical form is outside every allowed root (covers `..`
+///   traversal and symlink escapes)
+fn resolve_opener_path(
+    state: &tauri::State<'_, SharedConfig>,
+    app: &tauri::AppHandle,
+    path: &str,
+) -> CmdResult<PathBuf> {
+    let cfg = read_config(state);
+    let mut roots: Vec<PathBuf> = vec![
+        cfg.session_state_dir(),
+        cfg.tracepilot_home(),
+        cfg.copilot_home(),
+    ];
+
+    if let Ok(log_dir) = app.path().app_log_dir() {
+        roots.push(log_dir);
+    }
+
+    let tracepilot_home = cfg.tracepilot_home();
+    if let Ok(repos) =
+        tracepilot_orchestrator::repo_registry::list_registered_repos_in(&tracepilot_home)
+    {
+        for repo in repos {
+            let repo_path = PathBuf::from(&repo.path);
+            if let Some(parent) = repo_path.parent() {
+                roots.push(parent.to_path_buf());
+            }
+            roots.push(repo_path);
+        }
+    }
+
+    validate_path_within_any(path, &roots).map_err(|e| match e {
+        BindingsError::Validation(msg) => {
+            BindingsError::Validation(format!("Refusing to open path '{path}': {msg}"))
+        }
+        other => other,
+    })
 }

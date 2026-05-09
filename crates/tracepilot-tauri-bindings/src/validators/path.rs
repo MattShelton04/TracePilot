@@ -71,3 +71,37 @@ pub(crate) fn validate_path_segment(value: &str, context: &str) -> CmdResult<()>
     )
     .map_err(BindingsError::Validation)
 }
+
+/// Validate a CLI executable command string supplied by the renderer.
+///
+/// The string is later concatenated into a shell invocation (e.g. PowerShell
+/// or `sh -c`) when launching detached terminal windows, so we must reject any
+/// character that could break out of the literal command position.
+///
+/// Allowed characters:
+/// * ASCII alphanumerics
+/// * `-` `_` `.` (option flags, version separators)
+/// * `/` `\` (Unix and Windows path separators — the value may legitimately be
+///   a fully-qualified path like `/usr/local/bin/copilot` or
+///   `C:\Tools\copilot.exe`)
+/// * ` ` (a space — to allow an executable name followed by a fixed sub-command,
+///   e.g. `npx copilot`)
+/// * `:` (Windows drive letter, e.g. `C:\...`)
+///
+/// Empty strings are rejected so callers can rely on a non-empty command.
+pub(crate) fn validate_cli_command(cli: &str) -> CmdResult<()> {
+    if cli.is_empty() {
+        return Err(BindingsError::Validation(
+            "CLI command must not be empty".into(),
+        ));
+    }
+    if !cli
+        .chars()
+        .all(|c| c.is_alphanumeric() || "-_./\\ :".contains(c))
+    {
+        return Err(BindingsError::Validation(
+            "CLI command contains invalid characters".into(),
+        ));
+    }
+    Ok(())
+}

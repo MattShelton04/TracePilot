@@ -20,24 +20,28 @@ function retry() {
 </script>
 
 <template>
-  <div v-if="error" class="error-boundary">
-    <div class="section-panel">
-      <div class="section-panel-header">
-        <h3 style="color: var(--danger-fg);">Something went wrong</h3>
+  <template v-if="error">
+    <slot name="fallback" :error="error" :retry="retry" :error-info="errorInfo">
+      <div class="error-boundary">
+        <div class="section-panel">
+          <div class="section-panel-header">
+            <h3 style="color: var(--danger-fg);">Something went wrong</h3>
+          </div>
+          <div class="section-panel-body">
+            <p style="color: var(--text-secondary); margin-bottom: 12px;">
+              {{ error.message }}
+            </p>
+            <p v-if="errorInfo" style="color: var(--text-tertiary); font-size: 0.8125rem; margin-bottom: 16px;">
+              Error occurred in: {{ errorInfo }}
+            </p>
+            <button class="btn btn-primary" @click="retry">
+              Try Again
+            </button>
+          </div>
+        </div>
       </div>
-      <div class="section-panel-body">
-        <p style="color: var(--text-secondary); margin-bottom: 12px;">
-          {{ error.message }}
-        </p>
-        <p v-if="errorInfo" style="color: var(--text-tertiary); font-size: 0.8125rem; margin-bottom: 16px;">
-          Error occurred in: {{ errorInfo }}
-        </p>
-        <button class="btn btn-primary" @click="retry">
-          Try Again
-        </button>
-      </div>
-    </div>
-  </div>
+    </slot>
+  </template>
   <slot v-else />
 </template>
 

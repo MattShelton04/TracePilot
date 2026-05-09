@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { BtnGroup, EmptyState, formatNumberFull, LoadingOverlay } from "@tracepilot/ui";
 import { ref, watch } from "vue";
+import ErrorBoundary from "@/components/ErrorBoundary.vue";
 import AgentTreeView from "@/components/timeline/AgentTreeView.vue";
 import NestedSwimlanesView from "@/components/timeline/NestedSwimlanesView.vue";
 import TurnWaterfallView from "@/components/timeline/TurnWaterfallView.vue";
@@ -66,9 +67,11 @@ const viewModes = [
       </div>
 
       <!-- Active sub-view -->
-      <NestedSwimlanesView v-if="activeView === 'swimlanes'" />
-      <TurnWaterfallView v-else-if="activeView === 'waterfall'" />
-      <AgentTreeView v-else-if="activeView === 'agent-tree'" />
+      <ErrorBoundary :key="activeView">
+        <NestedSwimlanesView v-if="activeView === 'swimlanes'" />
+        <TurnWaterfallView v-else-if="activeView === 'waterfall'" />
+        <AgentTreeView v-else-if="activeView === 'agent-tree'" />
+      </ErrorBoundary>
     </template>
     </LoadingOverlay>
   </div>

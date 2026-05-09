@@ -340,6 +340,16 @@ pub(super) const MIGRATION_13: &str = r#"
 ALTER TABLE sessions DROP COLUMN health_score;
 "#;
 
+pub(super) const MIGRATION_15: &str = r#"
+-- Per-day analytics queries (token / cost / activity charts in the
+-- dashboard) range-scan `session_segments` by `end_timestamp` without a
+-- `session_id` prefix, so the existing PRIMARY KEY (session_id, end_timestamp)
+-- doesn't help. Add a standalone index so the EXPLAIN QUERY PLAN for
+-- those queries uses an index scan instead of a full table scan.
+CREATE INDEX IF NOT EXISTS idx_session_segments_end_ts
+    ON session_segments(end_timestamp);
+"#;
+
 pub(super) const MIGRATION_14: &str = r#"
 -- Persist the latest observed Copilot CLI version for each session.
 ALTER TABLE sessions ADD COLUMN copilot_version TEXT;
