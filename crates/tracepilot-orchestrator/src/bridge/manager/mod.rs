@@ -68,6 +68,19 @@ pub struct BridgeMetrics {
     /// each occurrence dropped). Useful for alerting on "lag is happening
     /// at all" vs "lag is huge".
     pub lag_occurrences: AtomicU64,
+    /// Cumulative count of *individual live-state snapshots* dropped when
+    /// the [`SessionLiveState`] broadcast channel (`state_tx`) lagged.
+    /// Incremented by `n` each time a downstream forwarder observes
+    /// `RecvError::Lagged(n)` while draining the live-state stream.
+    ///
+    /// Surfaced separately from [`Self::events_dropped_due_to_lag`] so that
+    /// the diagnostics panel can distinguish SDK-event lag (rendering /
+    /// reducer pressure) from live-state lag (frontend snapshot-emit
+    /// pressure). See follow-up plan w4-8.
+    pub state_events_dropped_due_to_lag: AtomicU64,
+    /// Number of distinct lag occurrences for the live-state broadcast
+    /// channel. Mirrors [`Self::lag_occurrences`] but for `state_tx`.
+    pub state_lag_occurrences: AtomicU64,
 }
 
 /// Plain-data snapshot of [`BridgeMetrics`] for IPC / logging.
@@ -80,6 +93,12 @@ pub struct BridgeMetricsSnapshot {
     pub events_forwarded: u64,
     pub events_dropped_due_to_lag: u64,
     pub lag_occurrences: u64,
+    /// Cumulative dropped live-state snapshots. See
+    /// [`BridgeMetrics::state_events_dropped_due_to_lag`].
+    pub state_events_dropped_due_to_lag: u64,
+    /// Cumulative live-state lag occurrences. See
+    /// [`BridgeMetrics::state_lag_occurrences`].
+    pub state_lag_occurrences: u64,
 }
 
 /// Callable that reads the current `FeaturesConfig.copilot_sdk` runtime
@@ -193,7 +212,23 @@ impl BridgeManager {
                 .events_dropped_due_to_lag
                 .load(Ordering::Relaxed),
             lag_occurrences: self.metrics.lag_occurrences.load(Ordering::Relaxed),
+            state_events_dropped_due_to_lag: self
+                .metrics
+                .state_events_dropped_due_to_lag
+                .load(Ordering::Relaxed),
+            state_lag_occurrences: self.metrics.state_lag_occurrences.load(Ordering::Relaxed),
         }
+    }
+
+    /// Shared handle to the cumulative bridge metrics counters.
+    ///
+    /// Exposed so out-of-process forwarders (e.g. the Tauri broadcast→IPC
+    /// forwarder in `tracepilot-tauri-bindings`) can record live-state
+    /// lag they observe on `state_tx` without taking a lock on the
+    /// manager. Callers should treat the returned `Arc` as read/increment
+    /// only — the counters are monotonic.
+    pub fn metrics(&self) -> Arc<BridgeMetrics> {
+        Arc::clone(&self.metrics)
     }
 
     /// Subscribe to bridge events (additional receivers beyond the initial one).

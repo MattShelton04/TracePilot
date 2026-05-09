@@ -196,6 +196,8 @@ describe("SDK alert watcher", () => {
       eventsForwarded: 10,
       eventsDroppedDueToLag: 2,
       lagOccurrences: 1,
+      stateEventsDroppedDueToLag: 0,
+      stateLagOccurrences: 0,
     });
 
     expect(mocks.dispatchAlert).toHaveBeenCalledWith(
@@ -203,6 +205,27 @@ describe("SDK alert watcher", () => {
         type: "sdk-event-lag",
         sessionId: "sdk-bridge",
         metadata: expect.objectContaining({ eventsDroppedDueToLag: 2, lagOccurrences: 1 }),
+      }),
+    );
+  });
+
+  it("emits an event-lag alert when only state-channel lag is non-zero", () => {
+    checkSdkBridgeMetricsAlerts({
+      eventsForwarded: 5,
+      eventsDroppedDueToLag: 0,
+      lagOccurrences: 0,
+      stateEventsDroppedDueToLag: 4,
+      stateLagOccurrences: 2,
+    });
+
+    expect(mocks.dispatchAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "sdk-event-lag",
+        sessionId: "sdk-bridge",
+        metadata: expect.objectContaining({
+          stateEventsDroppedDueToLag: 4,
+          stateLagOccurrences: 2,
+        }),
       }),
     );
   });

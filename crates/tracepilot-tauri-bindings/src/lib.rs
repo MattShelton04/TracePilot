@@ -102,8 +102,17 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
                 tauri::async_runtime::spawn(tracing::Instrument::instrument(
                     async move {
                         let rx = bridge_for_events.read().await.subscribe();
-                        broadcast::forward_broadcast(rx, app_handle, events::SDK_BRIDGE_EVENT)
-                            .await;
+                        broadcast::forward_broadcast(
+                            rx,
+                            app_handle,
+                            events::SDK_BRIDGE_EVENT,
+                            // Lag on `event_tx` is already counted at the
+                            // SDK→bridge boundary inside the orchestrator's
+                            // per-session forwarder (BridgeMetrics::events_*);
+                            // the bindings layer just logs here.
+                            |_| {},
+                        )
+                        .await;
                     },
                     tracing::info_span!("bridge_event_forwarder"),
                 ));
@@ -114,11 +123,26 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
                 let app_handle = app.clone();
                 tauri::async_runtime::spawn(tracing::Instrument::instrument(
                     async move {
-                        let rx = bridge_for_state.read().await.subscribe_session_state();
+                        let (rx, metrics) = {
+                            let mgr = bridge_for_state.read().await;
+                            (mgr.subscribe_session_state(), mgr.metrics())
+                        };
                         broadcast::forward_broadcast(
                             rx,
                             app_handle,
                             events::SDK_SESSION_STATE_CHANGED,
+                            // w4-8: surface `state_tx` lag in BridgeMetrics so
+                            // the diagnostics panel can render it. The
+                            // human-readable WARN line is debounced inside
+                            // forward_broadcast; counters are not.
+                            move |n| {
+                                metrics
+                                    .state_events_dropped_due_to_lag
+                                    .fetch_add(n, std::sync::atomic::Ordering::Relaxed);
+                                metrics
+                                    .state_lag_occurrences
+                                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                            },
                         )
                         .await;
                     },
@@ -136,6 +160,7 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
                             rx,
                             app_handle,
                             events::SDK_CONNECTION_CHANGED,
+                            |_| {},
                         )
                         .await;
                     },

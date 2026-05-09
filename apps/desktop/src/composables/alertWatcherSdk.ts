@@ -249,26 +249,38 @@ export function checkSdkBridgeMetricsAlerts(metrics: BridgeMetricsSnapshot | nul
   if (!metrics) return;
   const prefs = usePreferencesStore();
   if (!prefs.alertsEnabled || !prefs.alertsOnSessionError) return;
-  if (metrics.eventsDroppedDueToLag <= 0 && metrics.lagOccurrences <= 0) return;
+  if (
+    metrics.eventsDroppedDueToLag <= 0 &&
+    metrics.lagOccurrences <= 0 &&
+    metrics.stateEventsDroppedDueToLag <= 0 &&
+    metrics.stateLagOccurrences <= 0
+  ) {
+    return;
+  }
 
   const store = useAlertWatcherStore();
-  const key = `sdk-bridge:sdk-event-lag:${metrics.eventsDroppedDueToLag}:${metrics.lagOccurrences}`;
+  const key = `sdk-bridge:sdk-event-lag:${metrics.eventsDroppedDueToLag}:${metrics.lagOccurrences}:${metrics.stateEventsDroppedDueToLag}:${metrics.stateLagOccurrences}`;
   if (store.hasAlertedSdkState(key)) return;
   store.markSdkStateAlerted(key);
+
+  const totalOccurrences = metrics.lagOccurrences + metrics.stateLagOccurrences;
+  const totalDropped = metrics.eventsDroppedDueToLag + metrics.stateEventsDroppedDueToLag;
 
   dispatchAlert({
     type: "sdk-event-lag",
     sessionId: "sdk-bridge",
     sessionSummary: "Copilot SDK bridge",
     title: "SDK Event Lag Detected",
-    body: `Copilot SDK bridge reported ${metrics.lagOccurrences} lag occurrence${
-      metrics.lagOccurrences === 1 ? "" : "s"
-    } and ${metrics.eventsDroppedDueToLag} dropped event${metrics.eventsDroppedDueToLag === 1 ? "" : "s"}`,
+    body: `Copilot SDK bridge reported ${totalOccurrences} lag occurrence${
+      totalOccurrences === 1 ? "" : "s"
+    } and ${totalDropped} dropped event${totalDropped === 1 ? "" : "s"}`,
     metadata: {
       source: "copilot-sdk",
       eventsForwarded: metrics.eventsForwarded,
       eventsDroppedDueToLag: metrics.eventsDroppedDueToLag,
       lagOccurrences: metrics.lagOccurrences,
+      stateEventsDroppedDueToLag: metrics.stateEventsDroppedDueToLag,
+      stateLagOccurrences: metrics.stateLagOccurrences,
     },
   });
 }

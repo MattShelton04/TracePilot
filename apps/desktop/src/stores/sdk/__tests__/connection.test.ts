@@ -23,7 +23,13 @@ vi.mock("@tracepilot/client", () => ({
   sdkHydrate: vi.fn(async () => ({
     status: defaultStatus,
     sessions: [],
-    metrics: { eventsForwarded: 0, eventsDroppedDueToLag: 0, lagOccurrences: 0 },
+    metrics: {
+      eventsForwarded: 0,
+      eventsDroppedDueToLag: 0,
+      lagOccurrences: 0,
+      stateEventsDroppedDueToLag: 0,
+      stateLagOccurrences: 0,
+    },
     sessionStates: [],
   })),
   sdkLaunchUiServer: vi.fn(async () => 42),

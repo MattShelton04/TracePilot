@@ -32,7 +32,13 @@ vi.mock("@tracepilot/client", async () => {
     sdkHydrate: vi.fn(async () => ({
       status: connectedStatus,
       sessions: [{ sessionId: "tracked-1", isActive: true }],
-      metrics: { eventsForwarded: 0, eventsDroppedDueToLag: 0, lagOccurrences: 0 },
+      metrics: {
+        eventsForwarded: 0,
+        eventsDroppedDueToLag: 0,
+        lagOccurrences: 0,
+        stateEventsDroppedDueToLag: 0,
+        stateLagOccurrences: 0,
+      },
       sessionStates: [
         {
           sessionId: "tracked-1",
