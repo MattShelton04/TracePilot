@@ -29,8 +29,8 @@ fn test_migrations_run_once() {
         .conn
         .query_row("SELECT COUNT(*) FROM schema_version", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(v1, 14);
-    assert_eq!(count1, 13);
+    assert_eq!(v1, 15);
+    assert_eq!(count1, 14);
     drop(db1);
 
     let db2 = IndexDb::open_or_create(&db_path).unwrap();
@@ -38,7 +38,7 @@ fn test_migrations_run_once() {
         .conn
         .query_row("SELECT COUNT(*) FROM schema_version", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(count2, 13);
+    assert_eq!(count2, 14);
 }
 
 #[test]

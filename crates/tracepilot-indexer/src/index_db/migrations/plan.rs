@@ -3,7 +3,7 @@
 use super::columns::ensure_search_columns;
 use super::sql::{
     MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4, MIGRATION_5, MIGRATION_6, MIGRATION_7,
-    MIGRATION_8, MIGRATION_9, MIGRATION_10, MIGRATION_11, MIGRATION_13, MIGRATION_14,
+    MIGRATION_8, MIGRATION_9, MIGRATION_10, MIGRATION_11, MIGRATION_13, MIGRATION_14, MIGRATION_15,
 };
 use tracepilot_core::utils::migrator::{Migration, MigrationPlan};
 
@@ -86,6 +86,12 @@ pub(super) static INDEX_DB_MIGRATIONS: &[Migration] = &[
         sql: MIGRATION_14,
         pre_hook: None,
     },
+    Migration {
+        version: 15,
+        name: "session_segments end_timestamp index",
+        sql: MIGRATION_15,
+        pre_hook: None,
+    },
 ];
 
 pub(super) static INDEX_DB_PLAN: MigrationPlan = MigrationPlan {
@@ -95,11 +101,39 @@ pub(super) static INDEX_DB_PLAN: MigrationPlan = MigrationPlan {
 #[cfg(test)]
 mod tests {
     use super::INDEX_DB_PLAN;
+    use rusqlite::Connection;
+    use tracepilot_core::utils::migrator::{MigratorOptions, run_migrations};
 
     #[test]
     fn index_db_plan_is_strictly_monotonic() {
         INDEX_DB_PLAN
             .validate()
             .expect("INDEX_DB_PLAN versions must be strictly monotonically increasing");
+    }
+
+    #[test]
+    fn end_timestamp_range_query_uses_new_index() {
+        let mut conn = Connection::open_in_memory().expect("open in-memory db");
+        run_migrations(&mut conn, None, &INDEX_DB_PLAN, &MigratorOptions::default())
+            .expect("apply migrations on a fresh in-memory db");
+
+        let plan: Vec<String> = conn
+            .prepare(
+                "EXPLAIN QUERY PLAN \
+                 SELECT session_id, total_tokens \
+                 FROM session_segments \
+                 WHERE end_timestamp >= ?1 AND end_timestamp < ?2",
+            )
+            .expect("prepare EXPLAIN QUERY PLAN")
+            .query_map(["2026-01-01", "2026-02-01"], |row| row.get::<_, String>(3))
+            .expect("query EXPLAIN QUERY PLAN rows")
+            .collect::<Result<_, _>>()
+            .expect("collect plan rows");
+
+        let joined = plan.join("\n");
+        assert!(
+            joined.contains("idx_session_segments_end_ts"),
+            "EXPLAIN QUERY PLAN should reference idx_session_segments_end_ts, got:\n{joined}"
+        );
     }
 }
