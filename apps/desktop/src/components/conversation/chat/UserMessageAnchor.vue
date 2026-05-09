@@ -31,8 +31,8 @@ defineProps<{
 
 <style scoped>
 .cv-user-anchor {
-  border-left: 3px solid var(--accent-emphasis, #1f6feb);
-  background: var(--canvas-subtle, #161b22);
+  border-left: 3px solid var(--accent-emphasis);
+  background: var(--canvas-subtle);
   border-radius: 0 var(--radius-md, 8px) var(--radius-md, 8px) 0;
   padding: 12px 16px;
   margin: 12px 0 4px;
@@ -53,19 +53,19 @@ defineProps<{
 .cv-user-name {
   font-weight: 600;
   font-size: 13px;
-  color: var(--accent-fg, #58a6ff);
+  color: var(--accent-fg);
 }
 
 .cv-user-turn {
   font-size: 11px;
   font-family: "JetBrains Mono", monospace;
-  color: var(--text-placeholder, #6e7681);
+  color: var(--text-placeholder);
 }
 
 .cv-user-time {
   margin-left: auto;
   font-size: 11px;
-  color: var(--text-placeholder, #6e7681);
+  color: var(--text-placeholder);
 }
 
 .cv-user-body {
@@ -76,7 +76,7 @@ defineProps<{
   padding: 12px 16px;
   font-size: 13px;
   line-height: 1.55;
-  color: var(--text-primary, #c9d1d9);
+  color: var(--text-primary);
   overflow-wrap: break-word;
 }
 </style>

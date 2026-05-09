@@ -711,8 +711,8 @@
 /* ── Teleported model-picker dropdown (body-level) ─────────────── */
 .cb-model-dropdown-portal {
   overflow-y: auto;
-  background: var(--canvas-overlay, #18181b);
-  border: 1px solid var(--border-default, #27272a);
+  background: var(--canvas-overlay);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-md, 8px);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
   padding: 4px;
@@ -737,7 +737,7 @@
   border-radius: var(--radius-sm, 6px);
   border: none;
   background: transparent;
-  color: var(--text-secondary, #a1a1aa);
+  color: var(--text-secondary);
   font-size: 0.75rem;
   font-weight: 500;
   cursor: pointer;
@@ -748,14 +748,14 @@
 }
 .cb-model-dropdown-portal .cb-model-option:hover {
   background: rgba(255, 255, 255, 0.05);
-  color: var(--text-primary, #fafafa);
+  color: var(--text-primary);
 }
 .cb-model-dropdown-portal .cb-model-option.active {
-  color: var(--accent-fg, #818cf8);
+  color: var(--accent-fg);
 }
 .cb-model-dropdown-portal .cb-check {
   opacity: 0;
-  color: var(--accent-fg, #818cf8);
+  color: var(--accent-fg);
   font-size: 0.75rem;
 }
 .cb-model-dropdown-portal .cb-model-option.active .cb-check {
@@ -764,7 +764,7 @@
 .cb-model-dropdown-portal .cb-model-empty {
   padding: 8px 10px;
   font-size: 0.6875rem;
-  color: var(--text-placeholder, #52525b);
+  color: var(--text-placeholder);
   text-align: center;
 }
 

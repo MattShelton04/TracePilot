@@ -95,17 +95,17 @@ function eventLabel(eventType: string): string {
 
 .cv-session-event.info {
   background: var(--neutral-subtle, rgba(110, 118, 129, 0.1));
-  color: var(--text-secondary, #8b949e);
+  color: var(--text-secondary);
 }
 
 .cv-session-event.warning {
   background: var(--warning-subtle, rgba(210, 153, 34, 0.1));
-  color: var(--warning-fg, #d29922);
+  color: var(--warning-fg);
 }
 
 .cv-session-event.error {
   background: var(--danger-subtle, rgba(248, 81, 73, 0.1));
-  color: var(--danger-fg, #f85149);
+  color: var(--danger-fg);
 }
 
 .cv-session-event-icon {
@@ -136,8 +136,8 @@ function eventLabel(eventType: string): string {
 
 .cv-compaction {
   background: var(--accent-subtle, rgba(56, 139, 253, 0.08));
-  color: var(--accent-fg, #58a6ff);
-  border-left: 3px solid var(--accent-emphasis, #1f6feb);
+  color: var(--accent-fg);
+  border-left: 3px solid var(--accent-emphasis);
 }
 
 .cv-checkpoint-pill {
@@ -148,7 +148,7 @@ function eventLabel(eventType: string): string {
   border: 1px solid var(--accent-muted, rgba(56, 139, 253, 0.4));
   border-radius: 12px;
   background: var(--accent-subtle, rgba(56, 139, 253, 0.1));
-  color: var(--accent-fg, #58a6ff);
+  color: var(--accent-fg);
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
@@ -158,6 +158,6 @@ function eventLabel(eventType: string): string {
 
 .cv-checkpoint-pill:hover {
   background: var(--accent-muted, rgba(56, 139, 253, 0.25));
-  border-color: var(--accent-fg, #58a6ff);
+  border-color: var(--accent-fg);
 }
 </style>

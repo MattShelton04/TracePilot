@@ -174,15 +174,15 @@ defineExpose({ allExpanded, expandAll, collapseAll });
   flex-shrink: 0;
   margin-top: 2px;
   background: var(--surface-tertiary, rgba(255, 255, 255, 0.06));
-  color: var(--text-tertiary, #6e7681);
+  color: var(--text-tertiary);
   border: 2px solid var(--border, rgba(255, 255, 255, 0.1));
   transition: all 0.15s;
 }
 
 .cp-timeline-dot.active {
-  background: var(--accent-emphasis, #1f6feb);
-  color: #fff;
-  border-color: var(--accent-emphasis, #1f6feb);
+  background: var(--accent-emphasis);
+  color: var(--text-on-emphasis);
+  border-color: var(--accent-emphasis);
 }
 
 .cp-timeline-content {
@@ -219,7 +219,7 @@ defineExpose({ allExpanded, expandAll, collapseAll });
 .cp-timeline-title {
   font-size: 0.8125rem;
   font-weight: 600;
-  color: var(--text-primary, #e6edf3);
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

@@ -833,13 +833,13 @@
 .mcp-detail-view .btn-primary {
   background: var(--accent-emphasis);
   border-color: var(--accent-emphasis);
-  color: var(--text-on-emphasis, #fff);
+  color: var(--text-on-emphasis);
 }
 
 .mcp-detail-view .btn-primary:hover {
   background: var(--accent-fg);
   border-color: var(--accent-fg);
-  color: var(--text-on-emphasis, #fff);
+  color: var(--text-on-emphasis);
 }
 
 .mcp-detail-view .btn-primary:disabled {

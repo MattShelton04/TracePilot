@@ -81,7 +81,7 @@ function dismiss() {
   padding: 4px 12px;
   border-radius: 6px;
   background: var(--accent-emphasis);
-  color: var(--text-on-emphasis, #fff);
+  color: var(--text-on-emphasis);
   border: none;
   font-size: 12px;
   font-weight: 500;

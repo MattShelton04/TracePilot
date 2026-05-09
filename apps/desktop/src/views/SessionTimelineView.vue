@@ -93,8 +93,8 @@ const viewModes = [
   gap: 10px;
   padding: 10px 16px;
   border-radius: 8px;
-  background: var(--canvas-raised, #161b22);
-  border: 1px solid var(--border-default, #30363d);
+  background: var(--canvas-raised);
+  border: 1px solid var(--border-default);
   margin-bottom: 20px;
   flex-wrap: wrap;
 }

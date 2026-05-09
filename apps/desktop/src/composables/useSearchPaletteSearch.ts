@@ -1,6 +1,6 @@
 import { searchContent } from "@tracepilot/client";
 import type { SearchContentType, SearchResult, SearchResultsResponse } from "@tracepilot/types";
-import { CONTENT_TYPE_CONFIG, toErrorMessage } from "@tracepilot/ui";
+import { CONTENT_TYPE_CONFIG, getDesignToken, toErrorMessage } from "@tracepilot/ui";
 import { computed, ref, watch } from "vue";
 
 export interface ResultGroup {
@@ -84,7 +84,7 @@ export function useSearchPaletteSearch(options: { debounceMs?: number; limit?: n
       out.push({
         contentType: ct,
         label: config?.label ?? ct,
-        color: config?.color ?? "#71717a",
+        color: config?.color ?? getDesignToken("--text-tertiary"),
         results: items,
       });
     }

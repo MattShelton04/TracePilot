@@ -171,7 +171,7 @@ function intentLabel(tc: TurnToolCall): string {
   border: 1px solid var(--accent-muted, rgba(56, 139, 253, 0.2));
   border-radius: var(--radius-full, 100px);
   font-size: 12px;
-  color: var(--accent-fg, #58a6ff);
+  color: var(--accent-fg);
   max-width: 100%;
   margin: 2px 0;
 }
@@ -195,10 +195,10 @@ function intentLabel(tc: TurnToolCall): string {
   gap: 8px;
   width: 100%;
   padding: 6px 10px;
-  background: var(--canvas-inset, #010409);
-  border: 1px dashed var(--border-muted, #484f58);
+  background: var(--canvas-inset);
+  border: 1px dashed var(--border-muted);
   border-radius: var(--radius-sm, 4px);
-  color: var(--accent-fg, #58a6ff);
+  color: var(--accent-fg);
   font-size: 12px;
   cursor: pointer;
   transition: background var(--transition-fast, 0.1s) ease;
@@ -227,7 +227,7 @@ function intentLabel(tc: TurnToolCall): string {
   border-radius: var(--radius-sm, 4px);
   font-family: "JetBrains Mono", monospace;
   font-size: 10px;
-  color: var(--text-tertiary, #484f58);
+  color: var(--text-tertiary);
   white-space: nowrap;
 }
 </style>

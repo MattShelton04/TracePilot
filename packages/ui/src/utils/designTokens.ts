@@ -80,6 +80,7 @@ export function getChartColors() {
     cyan: getDesignToken("--chart-cyan"),
     orange: getDesignToken("--chart-orange"),
     lime: getDesignToken("--chart-lime"),
+    pink: getDesignToken("--chart-pink"),
   } as const;
 }
 

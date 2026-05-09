@@ -521,7 +521,7 @@ defineExpose({ revealEvent });
 
 @keyframes cv-flash {
   0% {
-    box-shadow: 0 0 0 2px var(--accent-emphasis, #1f6feb);
+    box-shadow: 0 0 0 2px var(--accent-emphasis);
   }
   50% {
     box-shadow: 0 0 0 4px var(--accent-muted, rgba(56, 139, 253, 0.2));

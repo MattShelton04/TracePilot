@@ -428,7 +428,7 @@ function retryLoadSection(section: string) {
 .cp-toggle-all-btn {
   background: none;
   border: none;
-  color: var(--accent-fg, #58a6ff);
+  color: var(--accent-fg);
   font-size: 0.75rem;
   cursor: pointer;
   padding: 2px 8px;

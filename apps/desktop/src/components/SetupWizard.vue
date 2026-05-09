@@ -268,14 +268,14 @@ onMounted(async () => {
   position: fixed;
   inset: 0;
   z-index: 9999;
-  background: var(--canvas-default, #09090b);
+  background: var(--canvas-default);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   overflow: hidden;
   font-family: var(--font-family, 'Inter Variable', sans-serif);
-  color: var(--text-primary, #fafafa);
+  color: var(--text-primary);
 }
 
 /* ── Background effects ───────────────────────────────────── */
@@ -323,7 +323,7 @@ onMounted(async () => {
   z-index: 10;
   background: none;
   border: none;
-  color: var(--text-tertiary, #71717a);
+  color: var(--text-tertiary);
   font-size: 0.8125rem;
   cursor: pointer;
   padding: 6px 12px;
@@ -332,7 +332,7 @@ onMounted(async () => {
 }
 
 .skip-link:hover {
-  color: var(--text-secondary, #a1a1aa);
+  color: var(--text-secondary);
   background: rgba(255,255,255,0.04);
 }
 
@@ -377,7 +377,7 @@ onMounted(async () => {
 }
 
 .dot:hover:not(.active) {
-  background: var(--text-tertiary, #71717a);
+  background: var(--text-tertiary);
 }
 
 /* ── Reduced motion ───────────────────────────────────────── */

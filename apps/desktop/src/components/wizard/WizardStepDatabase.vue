@@ -67,7 +67,7 @@ function onPathInput(e: Event) {
 <style scoped>
 .form-note {
   font-size: 0.75rem;
-  color: var(--text-tertiary, #71717a);
+  color: var(--text-tertiary);
   margin-top: -4px;
 }
 </style>

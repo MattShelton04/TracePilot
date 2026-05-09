@@ -122,7 +122,7 @@ const allExpanded = computed(() => availableSections.value.every((d) => expanded
 .cp-tool-btn {
   background: none;
   border: none;
-  color: var(--accent-fg, #58a6ff);
+  color: var(--accent-fg);
   font-size: 0.75rem;
   cursor: pointer;
   padding: 2px 6px;
@@ -149,7 +149,7 @@ const allExpanded = computed(() => availableSections.value.every((d) => expanded
   cursor: pointer;
   font-size: 0.8125rem;
   font-weight: 600;
-  color: var(--text-primary, #e6edf3);
+  color: var(--text-primary);
   transition: background 0.15s;
 }
 
@@ -176,13 +176,13 @@ const allExpanded = computed(() => availableSections.value.every((d) => expanded
   padding: 8px 12px 12px 34px;
   font-size: 0.8125rem;
   line-height: 1.6;
-  color: var(--text-secondary, #8b949e);
+  color: var(--text-secondary);
 }
 
 .cp-fallback {
   font-size: 0.875rem;
   line-height: 1.6;
-  color: var(--text-secondary, #8b949e);
+  color: var(--text-secondary);
 }
 
 .cp-raw {
@@ -195,7 +195,7 @@ const allExpanded = computed(() => availableSections.value.every((d) => expanded
   font-family: "JetBrains Mono", monospace;
   font-size: 0.75rem;
   line-height: 1.5;
-  color: var(--text-secondary, #8b949e);
+  color: var(--text-secondary);
   background: var(--surface-secondary, rgba(255, 255, 255, 0.03));
   border-radius: var(--radius-md, 8px);
   padding: 12px;

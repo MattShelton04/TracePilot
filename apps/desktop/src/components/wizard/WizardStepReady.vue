@@ -116,7 +116,7 @@ const emit = defineEmits<{
 
 .slide-desc {
   font-size: 0.875rem;
-  color: var(--text-secondary, #a1a1aa);
+  color: var(--text-secondary);
   line-height: 1.5;
   max-width: 440px;
 }
@@ -124,7 +124,7 @@ const emit = defineEmits<{
 .config-summary {
   width: 100%;
   max-width: 440px;
-  background: var(--canvas-subtle, #111113);
+  background: var(--canvas-subtle);
   border: 1px solid var(--border-muted, rgba(255, 255, 255, 0.06));
   border-radius: var(--radius-lg, 10px);
   padding: 16px;
@@ -153,21 +153,21 @@ const emit = defineEmits<{
 .summary-label {
   font-size: 0.6875rem;
   font-weight: 600;
-  color: var(--text-tertiary, #71717a);
+  color: var(--text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
 
 .summary-value {
   font-size: 0.8125rem;
-  color: var(--text-secondary, #a1a1aa);
+  color: var(--text-secondary);
   font-family: 'JetBrains Mono', monospace;
   word-break: break-all;
 }
 
 .ready-footer {
   font-size: 0.75rem;
-  color: var(--text-placeholder, #52525b);
+  color: var(--text-placeholder);
 }
 
 .setup-error {

@@ -45,7 +45,7 @@ const emit = defineEmits<{
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  color: var(--warning-fg, #d29922);
+  color: var(--warning-fg);
   padding: 6px 0 2px;
   user-select: none;
 }
@@ -54,7 +54,7 @@ const emit = defineEmits<{
   display: flex;
   flex-direction: column;
   gap: 4px;
-  border-left: 2px solid var(--warning-emphasis, #d29922);
+  border-left: 2px solid var(--warning-emphasis);
   padding-left: 12px;
   margin-left: 4px;
 }

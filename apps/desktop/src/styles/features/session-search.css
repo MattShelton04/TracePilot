@@ -517,7 +517,7 @@
 
 .search-view .result-view-btn:hover {
   background: var(--accent-emphasis);
-  color: var(--text-on-emphasis, #fff);
+  color: var(--text-on-emphasis);
 }
 
 /* ÔöÇÔöÇ Pagination ÔöÇÔöÇ */
@@ -1148,13 +1148,13 @@
 }
 
 .search-view .health-dot.synced {
-  background: var(--success-fg, #3fb950);
+  background: var(--success-fg);
 }
 
 .search-view .health-dot.pending {
-  background: var(--attention-fg, #d29922);
+  background: var(--attention-fg);
 }
 
 .search-view .health-pending {
-  color: var(--attention-fg, #d29922);
+  color: var(--attention-fg);
 }

@@ -392,7 +392,7 @@ watch(isSessionActive, (active) => {
 }
 .resume-warning {
   font-size: 0.75rem;
-  color: var(--warning-fg, #d29922);
+  color: var(--warning-fg);
   font-weight: 500;
 }
 .resume-btn {
@@ -414,8 +414,8 @@ watch(isSessionActive, (active) => {
   border-color: var(--border-accent);
 }
 .resume-btn--confirm {
-  color: var(--warning-fg, #d29922);
-  border-color: var(--warning-fg, #d29922);
+  color: var(--warning-fg);
+  border-color: var(--warning-fg);
 }
 .resume-btn--confirm:hover {
   background: rgba(210, 153, 34, 0.1);

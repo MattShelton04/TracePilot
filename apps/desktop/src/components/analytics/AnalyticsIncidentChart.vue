@@ -55,7 +55,7 @@ const {
           :y="bar.truncRect.y"
           :width="incidentChart.barW"
           :height="bar.truncRect.h"
-          fill="var(--text-tertiary, #71717a)"
+          fill="var(--text-tertiary)"
           rx="1"
           class="chart-bar"
           :class="{ 'chart-bar--active': tooltip.chartId === 'incidents' && tooltip.highlightIndex === i }"
