@@ -246,9 +246,7 @@ impl TracePilotConfig {
     /// file.  A future improvement could use write-to-temp + rename for
     /// crash-safety.
     pub fn save_to(&self, path: &Path) -> Result<(), BindingsError> {
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
+        tracepilot_core::utils::fs::ensure_parent_dir(path)?;
         let content = toml::to_string_pretty(self)?;
         std::fs::write(path, content)?;
         Ok(())

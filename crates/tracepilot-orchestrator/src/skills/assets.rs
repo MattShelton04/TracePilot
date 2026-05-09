@@ -132,9 +132,7 @@ pub fn add_asset(skill_dir: &Path, asset_name: &str, content: &[u8]) -> Result<(
     validate_asset_name(asset_name)?;
 
     let asset_path = skill_dir.join(asset_name);
-    if let Some(parent) = asset_path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
+    tracepilot_core::utils::fs::ensure_parent_dir(&asset_path)?;
 
     // Verify canonical path stays within skill_dir (prevents symlink escape)
     let canonical_dir = skill_dir.canonicalize()?;
@@ -192,9 +190,7 @@ pub fn copy_asset_from(
     validate_asset_name(asset_name)?;
 
     let asset_path = skill_dir.join(asset_name);
-    if let Some(parent) = asset_path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
+    tracepilot_core::utils::fs::ensure_parent_dir(&asset_path)?;
 
     // Verify canonical path stays within skill_dir
     let canonical_dir = skill_dir.canonicalize()?;

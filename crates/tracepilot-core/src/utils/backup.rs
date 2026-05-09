@@ -209,9 +209,7 @@ impl BackupStore {
             return Err(BackupError::NotFound(backup_path.to_path_buf()));
         }
 
-        if let Some(parent) = dest.parent() {
-            std::fs::create_dir_all(parent).map_err(BackupError::Io)?;
-        }
+        crate::utils::fs::ensure_parent_dir(dest).map_err(BackupError::Io)?;
 
         let tmp_name = format!(
             ".restore-tmp-{}",

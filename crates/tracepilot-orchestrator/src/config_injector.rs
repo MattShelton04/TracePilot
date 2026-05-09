@@ -192,17 +192,14 @@ pub fn restore_backup(backup_path: &Path, restore_to: &Path) -> Result<()> {
         ));
     }
 
-    if let Some(parent) = restore_to.parent() {
-        std::fs::create_dir_all(parent)?;
-        let tmp = parent.join(format!(
-            ".restore-tmp-{}",
-            restore_to.file_name().unwrap_or_default().to_string_lossy()
-        ));
-        std::fs::copy(backup_path, &tmp)?;
-        std::fs::rename(&tmp, restore_to)?;
-    } else {
-        std::fs::copy(backup_path, restore_to)?;
-    }
+    tracepilot_core::utils::fs::ensure_parent_dir(restore_to)?;
+    let tmp_name = format!(
+        ".restore-tmp-{}",
+        restore_to.file_name().unwrap_or_default().to_string_lossy()
+    );
+    let tmp = restore_to.with_file_name(tmp_name);
+    std::fs::copy(backup_path, &tmp)?;
+    std::fs::rename(&tmp, restore_to)?;
 
     Ok(())
 }

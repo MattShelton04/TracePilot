@@ -233,9 +233,7 @@ fn copy_file_if_absent(src: &std::path::Path, dst: &std::path::Path) -> Result<(
     if !src.exists() || dst.exists() {
         return Ok(());
     }
-    if let Some(parent) = dst.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
+    tracepilot_core::utils::fs::ensure_parent_dir(dst)?;
     std::fs::copy(src, dst)?;
     Ok(())
 }
@@ -266,9 +264,7 @@ mod tests {
     use super::*;
 
     fn write(path: &std::path::Path, content: &str) {
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent).unwrap();
-        }
+        tracepilot_core::utils::fs::ensure_parent_dir(path).unwrap();
         std::fs::write(path, content).unwrap();
     }
 
