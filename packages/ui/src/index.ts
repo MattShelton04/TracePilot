@@ -25,6 +25,7 @@ export type {
 export { default as DataGrid } from "./components/DataGrid.vue";
 export { default as DataTable } from "./components/DataTable.vue";
 export { default as DefList } from "./components/DefList.vue";
+export { default as Drawer } from "./components/Drawer.vue";
 export type { EmptyStateAction, EmptyStateProps } from "./components/EmptyState.vue";
 export { default as EmptyState } from "./components/EmptyState.vue";
 export type {
