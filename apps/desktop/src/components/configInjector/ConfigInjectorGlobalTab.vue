@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { getModelsByTier } from "@tracepilot/types";
 import { EmptyState } from "@tracepilot/ui";
+import { computed } from "vue";
 import { useConfigInjectorContext } from "@/composables/useConfigInjector";
 
 const {
@@ -23,6 +24,14 @@ const {
 const PREMIUM_MODELS = getModelsByTier("premium").map((m) => m.id);
 const STANDARD_MODELS = getModelsByTier("standard").map((m) => m.id);
 const FAST_MODELS = getModelsByTier("fast").map((m) => m.id);
+
+// Memoize the change counter so it isn't recomputed (two array filters) on every
+// unrelated re-render of the diff preview details element.
+const diffChangeCount = computed(
+  () =>
+    configDiffLines.value.left.filter((l) => l.changed).length +
+    configDiffLines.value.right.filter((l) => l.changed).length,
+);
 </script>
 
 <template>
@@ -144,7 +153,7 @@ const FAST_MODELS = getModelsByTier("fast").map((m) => m.id);
       <details v-if="hasConfigChanges" class="diff-preview-details" open>
         <summary class="diff-preview-summary">
           <span>📝 Diff Preview</span>
-          <span class="diff-badge">{{ configDiffLines.left.filter(l => l.changed).length + configDiffLines.right.filter(l => l.changed).length }} changes</span>
+          <span class="diff-badge">{{ diffChangeCount }} changes</span>
         </summary>
         <div class="diff-side-by-side diff-side-by-side--compact">
           <div class="diff-panel diff-panel--left">
