@@ -2,7 +2,6 @@ use std::path::Path;
 
 use crate::error::Result;
 use crate::models::session_summary::SessionSummary;
-use crate::parsing::EVENTS_JSONL;
 use crate::parsing::events::{TypedEvent, parse_typed_events};
 
 use super::artifacts::apply_artifact_flags;
@@ -58,7 +57,7 @@ fn load_session_summary_impl(session_dir: &Path, retain_events: bool) -> Result<
     let mut summary = load_workspace_summary(session_dir)?;
 
     // 2–5. Events processing — parse ONCE, derive count from len()
-    let events_path = session_dir.join(EVENTS_JSONL);
+    let events_path = crate::paths::SessionPaths::from_root(session_dir).events_jsonl();
     let mut typed_events_out = None;
     let mut diagnostics_out = None;
 
