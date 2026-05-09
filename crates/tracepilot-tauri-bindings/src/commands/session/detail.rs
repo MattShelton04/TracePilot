@@ -25,7 +25,8 @@ pub async fn get_session_detail(
             &session_id,
             &session_state_dir,
         )?;
-        let events_path = path.join("events.jsonl");
+        let sp = tracepilot_core::paths::SessionPaths::from_root(&path);
+        let events_path = sp.events_jsonl();
 
         // Use cached events — avoids re-parsing events.jsonl on every call.
         // Cache key is (session_id, file_size, mtime) so active sessions
@@ -96,7 +97,7 @@ pub async fn get_shutdown_metrics(
     let cache_session_id = session_id.clone();
 
     with_session_path(&state, sid, move |path| {
-        let events_path = path.join("events.jsonl");
+        let events_path = tracepilot_core::paths::SessionPaths::from_root(path).events_jsonl();
         let (events, _, _) = load_cached_typed_events(&cache, &cache_session_id, &events_path)?;
         Ok(
             tracepilot_core::parsing::events::extract_combined_shutdown_data(events.as_ref())

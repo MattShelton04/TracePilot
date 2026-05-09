@@ -283,10 +283,11 @@ pub async fn get_session_sections(
 ) -> CmdResult<SessionSectionsInfo> {
     let sid = crate::validators::validate_session_id(&session_id)?;
     with_session_path(&state, sid, move |session_path| {
-        let events_path = session_path.join("events.jsonl");
-        let db_path = session_path.join("session.db");
-        let plan_path = session_path.join("plan.md");
-        let checkpoints_path = session_path.join("checkpoints");
+        let sp = tracepilot_core::paths::SessionPaths::from_root(&session_path);
+        let events_path = sp.events_jsonl();
+        let db_path = sp.session_db();
+        let plan_path = sp.plan_md();
+        let checkpoints_path = sp.checkpoints_dir();
 
         let summary = tracepilot_core::summary::load_session_summary(&session_path).ok();
 
@@ -311,7 +312,7 @@ pub async fn get_session_sections(
             has_checkpoints,
             has_metrics,
             has_incidents: has_events && scan_events_for_incidents(&events_path),
-            has_rewind_snapshots: session_path.join("rewind-snapshots").exists(),
+            has_rewind_snapshots: sp.rewind_snapshots_dir().exists(),
             has_custom_tables: check_custom_tables(&db_path),
             event_count: summary.as_ref().and_then(|s| s.event_count),
             turn_count: summary.as_ref().and_then(|s| s.turn_count),

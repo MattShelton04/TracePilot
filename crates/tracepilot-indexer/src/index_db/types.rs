@@ -178,7 +178,7 @@ impl SessionFileMeta {
 }
 
 pub(super) fn get_workspace_mtime(session_path: &std::path::Path) -> Option<String> {
-    let ws_path = session_path.join("workspace.yaml");
+    let ws_path = tracepilot_core::paths::SessionPaths::from_root(session_path).workspace_yaml();
     std::fs::metadata(&ws_path)
         .ok()
         .and_then(|m| m.modified().ok())
@@ -189,7 +189,7 @@ pub(super) fn get_workspace_mtime(session_path: &std::path::Path) -> Option<Stri
 }
 
 pub(super) fn get_events_mtime_and_size(session_path: &std::path::Path) -> Option<(String, u64)> {
-    let ev_path = session_path.join("events.jsonl");
+    let ev_path = tracepilot_core::paths::SessionPaths::from_root(session_path).events_jsonl();
     let meta = std::fs::metadata(&ev_path).ok()?;
     let mtime = meta.modified().ok()?;
     let dt: chrono::DateTime<chrono::Utc> = mtime.into();

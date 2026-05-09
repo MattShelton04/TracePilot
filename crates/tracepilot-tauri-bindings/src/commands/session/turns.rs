@@ -27,7 +27,7 @@ pub async fn get_session_turns(
             &session_id,
             &session_state_dir,
         )?;
-        let events_path = path.join("events.jsonl");
+        let events_path = tracepilot_core::paths::SessionPaths::from_root(&path).events_jsonl();
 
         // Check LRU cache — return if file size unchanged (append-only).
         // Clone cache data and release lock before running prepare_turns_for_ipc
