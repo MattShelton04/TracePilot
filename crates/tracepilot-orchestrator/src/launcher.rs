@@ -147,9 +147,8 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
     // If a branch was specified but we're NOT creating a worktree, checkout the branch first
     let checkout_cmd = if !config.create_worktree {
         config.branch.as_deref().map(|b| {
-            let escaped = b.replace('\'', "''");
-            // Try checkout; if it fails (branch doesn't exist locally), try creating from remote
-            format!("git checkout '{b}'", b = escaped)
+            // Use shell_quote to prevent command injection via branch name
+            format!("git checkout {}", crate::process::shell_quote(b))
         })
     } else {
         None
@@ -258,7 +257,7 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
             .unwrap_or_default();
         let full_cmd = format!("{}{}{}", checkout_prefix, copilot_cmd, interactive_suffix);
         let envs_ref = if envs.is_empty() { None } else { Some(&envs) };
-        crate::process::spawn_detached_terminal(&full_cmd, &[], &work_dir, envs_ref)?
+        crate::process::spawn_detached_terminal("sh", &["-c", &full_cmd], &work_dir, envs_ref)?
     };
 
     Ok(LaunchedSession {
