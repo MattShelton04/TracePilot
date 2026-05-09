@@ -50,19 +50,7 @@ fn read_dismissed_defaults_from_path(path: &Path) -> Vec<String> {
         return Vec::new();
     }
 
-    let content = match std::fs::read_to_string(path) {
-        Ok(c) => c,
-        Err(e) => {
-            tracing::warn!(
-                path = %path.display(),
-                error = %e,
-                "Failed to read dismissed defaults file, returning empty list"
-            );
-            return Vec::new();
-        }
-    };
-
-    match serde_json::from_str(&content) {
+    match crate::json_io::atomic_json_read::<Vec<String>>(path) {
         Ok(ids) => ids,
         Err(e) => {
             tracing::warn!(
