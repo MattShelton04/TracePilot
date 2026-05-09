@@ -473,3 +473,7 @@ fn validate_write_path_within_accepts_overwrite_within_dir() {
     let result = validate_write_path_within(file.to_str().unwrap(), dir.path());
     assert!(result.is_ok());
 }
+
+// `validate_path_within_any` tests live in `path_within_any_tests.rs` to keep
+// this file under the file-size budget enforced by
+// `scripts/check-file-sizes.mjs`.
