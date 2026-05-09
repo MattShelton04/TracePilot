@@ -113,7 +113,7 @@ fn make_file(prefix: &str, name: &str, content: Vec<u8>) -> ExportFile {
 }
 
 fn short_prefix(id: &str) -> String {
-    let short = &id[..id.floor_char_boundary(8.min(id.len()))];
+    let short = tracepilot_core::utils::truncate_utf8(id, 8);
     format!("session-{}", short)
 }
 
@@ -226,15 +226,7 @@ fn render_events_csv(events: &[RawEvent]) -> Result<Vec<u8>> {
         let ts = event.timestamp.as_ref().map(fmt_dt).unwrap_or_default();
 
         // Show a truncated preview of the data payload
-        let preview = {
-            let s = event.data.to_string();
-            if s.len() > 200 {
-                let boundary = s.floor_char_boundary(200);
-                format!("{}…", &s[..boundary])
-            } else {
-                s
-            }
-        };
+        let preview = tracepilot_core::utils::truncate_utf8_with_marker(&event.data.to_string(), 200, Some("…"));
 
         writeln!(
             out,

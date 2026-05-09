@@ -163,7 +163,7 @@ fn write_turn(md: &mut String, turn: &ConversationTurn) {
                     let preview = if result.len() > 2000 {
                         format!(
                             "{}…\n\n*(truncated — {} bytes total)*",
-                            &result[..result.floor_char_boundary(2000)],
+                            tracepilot_core::utils::truncate_utf8(result, 2000),
                             result.len()
                         )
                     } else {

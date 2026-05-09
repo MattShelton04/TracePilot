@@ -32,7 +32,7 @@ impl ExportRenderer for MarkdownRenderer {
         for session in &archive.sessions {
             let md = render_session(session, archive);
             let id = &session.metadata.id;
-            let short_id = &id[..id.floor_char_boundary(8.min(id.len()))];
+            let short_id = tracepilot_core::utils::truncate_utf8(id, 8);
             files.push(ExportFile {
                 filename: format!("session-{}.md", short_id),
                 content: md.into_bytes(),
