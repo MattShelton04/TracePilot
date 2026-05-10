@@ -18,18 +18,17 @@ pub fn increment_usage_in(tracepilot_home: &Path, id: &str) -> Result<()> {
     let dir = templates_dir_in(tracepilot_home)?;
     let path = dir.join(format!("{id}.json"));
 
-    let mut template: SessionTemplate = if path.exists() {
-        let content = std::fs::read_to_string(&path)?;
-        serde_json::from_str(&content)?
-    } else {
-        match default_templates().into_iter().find(|t| t.id == id) {
+    let mut template: SessionTemplate = match tracepilot_core::TracePilotError::read_json(&path) {
+        Ok(t) => t,
+        Err(e) if e.is_not_found() => match default_templates().into_iter().find(|t| t.id == id) {
             Some(t) => t,
             None => {
                 return Err(OrchestratorError::NotFound(format!(
                     "Template not found: {id}"
                 )));
             }
-        }
+        },
+        Err(e) => return Err(e.into()),
     };
 
     template.usage_count += 1;

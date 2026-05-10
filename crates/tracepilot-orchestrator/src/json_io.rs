@@ -53,9 +53,9 @@ pub fn atomic_json_write<T: Serialize>(path: &Path, value: &T) -> Result<()> {
 
 /// Read and deserialize a JSON file. Returns a default if the file doesn't exist.
 pub fn atomic_json_read<T: DeserializeOwned + Default>(path: &Path) -> Result<T> {
-    match std::fs::read_to_string(path) {
-        Ok(content) => Ok(serde_json::from_str(&content)?),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(T::default()),
+    match tracepilot_core::TracePilotError::read_json(path) {
+        Ok(v) => Ok(v),
+        Err(e) if e.is_not_found() => Ok(T::default()),
         Err(e) => Err(e.into()),
     }
 }

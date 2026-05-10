@@ -120,6 +120,21 @@ impl TracePilotError {
     ) -> Result<T> {
         serde_yml::from_str(yaml).map_err(|e| Self::parse_context(&format!("YAML ({context})"), "", e))
     }
+
+    /// Returns true if this error represents a "file not found" condition.
+    pub fn is_not_found(&self) -> bool {
+        match self {
+            Self::ParseError { source, .. } => {
+                if let Some(source) = source
+                    && let Some(io_err) = source.downcast_ref::<std::io::Error>()
+                {
+                    return io_err.kind() == std::io::ErrorKind::NotFound;
+                }
+                false
+            }
+            _ => false,
+        }
+    }
 }
 
 #[cfg(test)]
