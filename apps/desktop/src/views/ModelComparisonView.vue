@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { EmptyState, ErrorState, LoadingOverlay, PageShell } from "@tracepilot/ui";
+import { Bot } from "lucide-vue-next";
 import { provide } from "vue";
 import AnalyticsPageHeader from "@/components/AnalyticsPageHeader.vue";
 import ModelCharts from "@/components/modelComparison/ModelCharts.vue";
@@ -29,10 +30,13 @@ provide(ModelComparisonKey, ctx);
           <!-- Empty State -->
           <EmptyState
             v-if="ctx.modelRows.length === 0"
-            icon="🤖"
             title="No Model Data"
             message="No model usage data found for the selected time range and repository."
-          />
+          >
+            <template #icon>
+              <Bot :size="32" />
+            </template>
+          </EmptyState>
 
           <template v-else>
             <ModelStatsGrid />
