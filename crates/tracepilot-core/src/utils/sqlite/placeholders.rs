@@ -62,7 +62,8 @@ pub fn build_placeholder_sql(sql_prefix: &str, num_rows: usize, params_per_row: 
 
     let row_len = params_per_row.saturating_mul(2).saturating_add(1);
     let total_rows_len = num_rows.saturating_mul(row_len);
-    let capacity = sql_prefix.len()
+    let capacity = sql_prefix
+        .len()
         .saturating_add(1)
         .saturating_add(total_rows_len)
         .saturating_add(num_rows.saturating_sub(1));
