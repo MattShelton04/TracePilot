@@ -103,7 +103,7 @@ describe("AskUser renderers", () => {
       },
     });
 
-    expect(wrapper.text()).toContain("Response:");
+    expect(wrapper.text()).toContain("Response");
     expect(wrapper.text()).toContain("Please keep it conservative.");
   });
 });

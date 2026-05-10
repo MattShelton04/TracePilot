@@ -3,9 +3,12 @@
  * GrepResultRenderer — renders grep tool results with grouped file matches,
  * amber pattern highlighting, context/match distinction, and separator gaps.
  */
+
+import { File, Search } from "lucide-vue-next";
 import { computed } from "vue";
 import { normalizePath } from "../../utils/pathUtils";
-import RendererShell from "./RendererShell.vue";
+import RendererShell from "../RendererShell.vue";
+import RendererTruncationFooter from "../RendererTruncationFooter.vue";
 
 const props = defineProps<{
   content: string;
@@ -32,7 +35,6 @@ interface GrepMatch {
   isContext?: boolean;
 }
 
-/** Parse grep output into structured matches. */
 const parsedMatches = computed<GrepMatch[]>(() => {
   if (!props.content) return [];
   const lines = props.content
@@ -43,10 +45,8 @@ const parsedMatches = computed<GrepMatch[]>(() => {
   const results: GrepMatch[] = [];
 
   for (const line of lines) {
-    // Skip ripgrep group separators
     if (line === "--") continue;
 
-    // Windows match: C:\path:lineNum:text (drive letter prefix)
     const winMatchLine = line.match(/^([A-Za-z]:\\.+?):(\d+):(.*)$/);
     if (winMatchLine) {
       results.push({
@@ -58,7 +58,6 @@ const parsedMatches = computed<GrepMatch[]>(() => {
       continue;
     }
 
-    // Windows context: C:\path-lineNum-text (drive letter prefix)
     const winCtxLine = line.match(/^([A-Za-z]:\\.+?)-(\d+)-(.*)$/);
     if (winCtxLine) {
       results.push({
@@ -70,7 +69,6 @@ const parsedMatches = computed<GrepMatch[]>(() => {
       continue;
     }
 
-    // Unix match: path:lineNum:text
     const unixMatchLine = line.match(/^(.+?):(\d+):(.*)$/);
     if (unixMatchLine) {
       results.push({
@@ -82,7 +80,6 @@ const parsedMatches = computed<GrepMatch[]>(() => {
       continue;
     }
 
-    // Unix context: path-lineNum-text (require path separator to avoid false positives)
     const unixCtxLine = line.match(/^(.+?)-(\d+)-(.*)$/);
     if (unixCtxLine && (unixCtxLine[1].includes("/") || unixCtxLine[1].includes("\\"))) {
       results.push({
@@ -94,28 +91,24 @@ const parsedMatches = computed<GrepMatch[]>(() => {
       continue;
     }
 
-    // Windows path with text (no line number): C:\path:text — count mode or bare
     const winBare = line.match(/^([A-Za-z]:\\.+?):(.+)$/);
     if (winBare) {
       results.push({ file: winBare[1], text: winBare[2] });
       continue;
     }
 
-    // Unix path:text (count mode) — require path separator in file
     const unixBare = line.match(/^(.+?):(.+)$/);
     if (unixBare && (unixBare[1].includes("/") || unixBare[1].includes("\\"))) {
       results.push({ file: unixBare[1], text: unixBare[2] });
       continue;
     }
 
-    // Bare file path (files_with_matches mode or fallback)
     results.push({ file: line.trim(), text: "", isContext: false });
   }
 
   return results;
 });
 
-/** Group matches by file (using normalized path for consistent grouping). */
 const groupedByFile = computed(() => {
   const groups: Record<string, GrepMatch[]> = {};
   for (const m of parsedMatches.value) {
@@ -137,7 +130,6 @@ const matchCount = computed(() => {
   return parsedMatches.value.filter((m) => !m.isContext).length;
 });
 
-/** Highlight pattern matches in text with amber spans (safe — escapes HTML first). */
 function highlightPattern(text: string): string {
   if (!pattern.value) return escapeHtml(text);
   try {
@@ -162,7 +154,6 @@ function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/** Check if there's a gap in line numbers (for separator rendering). */
 function hasGap(matches: GrepMatch[], idx: number): boolean {
   if (idx === 0) return false;
   const prev = matches[idx - 1];
@@ -176,23 +167,24 @@ function hasGap(matches: GrepMatch[], idx: number): boolean {
 
 <template>
   <RendererShell
-    :label="pattern ? `grep /${pattern}/` : 'Grep Results'"
-    :copy-content="content"
-    :is-truncated="isTruncated"
-    @load-full="emit('load-full')"
+    tool-name="Grep"
+    status="success"
+    :primary-hint="pattern ?? undefined"
+    :copy-text="content"
   >
+    <template #icon><Search :size="16" /></template>
     <div class="grep-result">
       <div class="grep-stats">
-        <span class="grep-stat">🔍 {{ matchCount }} match{{ matchCount !== 1 ? 'es' : '' }}</span>
+        <Search :size="12" class="grep-stat-icon" />
+        <span class="grep-stat">{{ matchCount }} match{{ matchCount !== 1 ? 'es' : '' }}</span>
         <span class="grep-stat">in {{ fileCount }} file{{ fileCount !== 1 ? 's' : '' }}</span>
         <span v-if="outputMode !== 'files_with_matches'" class="grep-mode-badge">{{ outputMode }}</span>
       </div>
 
-      <!-- File-grouped results (content mode) -->
       <div v-if="outputMode === 'content'" class="grep-groups">
         <div v-for="(matches, _key) in groupedByFile" :key="_key" class="grep-file-group">
           <div class="grep-file-header">
-            <span class="grep-file-icon">📄</span>
+            <File :size="12" class="grep-file-icon" />
             <span class="grep-file-path">{{ matches[0]?.file ?? _key }}</span>
             <span class="grep-file-count">{{ matches.filter(m => !m.isContext).length }}</span>
           </div>
@@ -209,23 +201,22 @@ function hasGap(matches: GrepMatch[], idx: number): boolean {
         </div>
       </div>
 
-      <!-- Count mode -->
       <div v-else-if="outputMode === 'count'" class="grep-file-list">
         <div v-for="m in parsedMatches" :key="m.file" class="grep-file-item">
-          <span class="grep-file-icon">📄</span>
+          <File :size="12" class="grep-file-icon" />
           <span class="grep-file-path">{{ m.file }}</span>
           <span v-if="m.text" class="grep-file-count">{{ m.text }}</span>
         </div>
       </div>
 
-      <!-- File list mode -->
       <div v-else class="grep-file-list">
         <div v-for="m in parsedMatches" :key="m.file" class="grep-file-item">
-          <span class="grep-file-icon">📄</span>
+          <File :size="12" class="grep-file-icon" />
           <span class="grep-file-path">{{ m.file }}</span>
         </div>
       </div>
     </div>
+    <RendererTruncationFooter v-if="isTruncated" @load-full="emit('load-full')" />
   </RendererShell>
 </template>
 
@@ -237,9 +228,13 @@ function hasGap(matches: GrepMatch[], idx: number): boolean {
 .grep-stats {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   padding: 6px 12px;
   border-bottom: 1px solid var(--border-muted);
+}
+.grep-stat-icon {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
 }
 .grep-stat {
   font-size: 0.6875rem;
@@ -249,8 +244,8 @@ function hasGap(matches: GrepMatch[], idx: number): boolean {
   font-size: 0.625rem;
   padding: 1px 6px;
   border-radius: 9999px;
-  background: var(--accent-muted, rgba(99, 102, 241, 0.15));
-  color: var(--accent-fg, #818cf8);
+  background: var(--accent-muted);
+  color: var(--accent-fg);
 }
 .grep-groups {
   max-height: 500px;
@@ -267,7 +262,10 @@ function hasGap(matches: GrepMatch[], idx: number): boolean {
   padding: 6px 12px;
   background: var(--canvas-inset);
 }
-.grep-file-icon { font-size: 0.75rem; flex-shrink: 0; }
+.grep-file-icon {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
 .grep-file-path {
   color: var(--text-secondary);
   overflow: hidden;
@@ -282,8 +280,8 @@ function hasGap(matches: GrepMatch[], idx: number): boolean {
   height: 16px;
   line-height: 16px;
   border-radius: 9999px;
-  background: rgba(251, 191, 36, 0.15);
-  color: var(--syn-match, #fbbf24);
+  background: var(--warning-subtle);
+  color: var(--warning-fg);
   flex-shrink: 0;
 }
 .grep-matches { padding: 2px 0; }
@@ -297,9 +295,9 @@ function hasGap(matches: GrepMatch[], idx: number): boolean {
 .grep-match-line {
   display: flex;
   padding: 1px 12px;
-  background: rgba(251, 191, 36, 0.04);
+  background: var(--warning-subtle);
 }
-.grep-match-line:hover { background: rgba(251, 191, 36, 0.08); }
+.grep-match-line:hover { background: var(--warning-muted); }
 .grep-match-line--context {
   background: transparent;
   opacity: 0.6;
@@ -323,8 +321,8 @@ function hasGap(matches: GrepMatch[], idx: number): boolean {
   color: var(--text-secondary);
 }
 .grep-line-text :deep(.grep-highlight) {
-  background: rgba(251, 191, 36, 0.25);
-  color: var(--syn-match, #fbbf24);
+  background: var(--warning-muted);
+  color: var(--warning-fg);
   border-radius: 2px;
   padding: 0 1px;
 }

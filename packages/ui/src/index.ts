@@ -4,37 +4,67 @@
 export { default as ActionButton } from "./components/ActionButton.vue";
 export { default as AgentBadge } from "./components/AgentBadge.vue";
 export { default as Badge } from "./components/Badge.vue";
+export type { BannerProps, BannerTone } from "./components/Banner.vue";
+export { default as Banner } from "./components/Banner.vue";
+export type { BreadcrumbItem, BreadcrumbNavProps } from "./components/BreadcrumbNav.vue";
+export { default as BreadcrumbNav } from "./components/BreadcrumbNav.vue";
 export { default as BtnGroup } from "./components/BtnGroup.vue";
+export type { ChartCardProps, ChartCardState } from "./components/ChartCard.vue";
+export { default as ChartCard } from "./components/ChartCard.vue";
 export { default as ChartFrame } from "./components/ChartFrame.vue";
 export { default as ConfirmDialog } from "./components/ConfirmDialog.vue";
 export { default as DataTable } from "./components/DataTable.vue";
 export { default as DefList } from "./components/DefList.vue";
+export { default as Drawer } from "./components/Drawer.vue";
+export type { EmptyStateAction, EmptyStateProps } from "./components/EmptyState.vue";
 export { default as EmptyState } from "./components/EmptyState.vue";
 export type { EnvVar } from "./components/EnvVarTable.vue";
 export { default as EnvVarTable } from "./components/EnvVarTable.vue";
 export { default as ErrorAlert } from "./components/ErrorAlert.vue";
 export { default as ErrorState } from "./components/ErrorState.vue";
 export { default as ExpandChevron } from "./components/ExpandChevron.vue";
+export type {
+  FieldLayout,
+  FieldProps,
+  FieldStatus,
+} from "./components/Field.vue";
+export { default as Field } from "./components/Field.vue";
 export type { FileBrowserEntry } from "./components/FileBrowserTree.vue";
 export { default as FileBrowserTree } from "./components/FileBrowserTree.vue";
 export { default as FileContentViewer } from "./components/FileContentViewer.vue";
 export { default as FilterSelect } from "./components/FilterSelect.vue";
 export { default as FormInput } from "./components/FormInput.vue";
-export { default as FormSwitch } from "./components/FormSwitch.vue";
+// Toggle is the canonical name for the FormSwitch primitive (vocab parity
+// with <Field>/<Select>). Behaviour and exports are identical; old
+// FormSwitch import path is preserved.
+export { default as FormSwitch, default as Toggle } from "./components/FormSwitch.vue";
+export type { HeadingProps } from "./components/Heading.vue";
+export { default as Heading } from "./components/Heading.vue";
+export type { KPIDelta, KPIProps } from "./components/KPI.vue";
+export { default as KPI } from "./components/KPI.vue";
+export type { KPIRowProps } from "./components/KPIRow.vue";
+export { default as KPIRow } from "./components/KPIRow.vue";
 export { default as LoadingOverlay } from "./components/LoadingOverlay.vue";
 export { default as LoadingSpinner } from "./components/LoadingSpinner.vue";
 export { default as MarkdownContent } from "./components/MarkdownContent.vue";
 export { default as MiniTimeline } from "./components/MiniTimeline.vue";
 export { default as ModalDialog } from "./components/ModalDialog.vue";
 export { default as ObjectiveBanner } from "./components/ObjectiveBanner.vue";
+export type { PageHeaderProps, PageHeaderStatus } from "./components/PageHeader.vue";
 export { default as PageHeader } from "./components/PageHeader.vue";
 export { default as PageShell } from "./components/PageShell.vue";
 export { default as ProgressBar } from "./components/ProgressBar.vue";
 export { default as ReasoningBlock } from "./components/ReasoningBlock.vue";
+export type {
+  RendererShellProps,
+  RendererShellStatus,
+  RendererShellTokenUsage,
+} from "./components/RendererShell.vue";
+export { default as RendererShell } from "./components/RendererShell.vue";
+export { default as RendererTruncationFooter } from "./components/RendererTruncationFooter.vue";
 // ── Renderers ──────────────────────────────────────────────────────
 export { default as CodeBlock } from "./components/renderers/CodeBlock.vue";
 export { default as PlainTextRenderer } from "./components/renderers/PlainTextRenderer.vue";
-export { default as RendererShell } from "./components/renderers/RendererShell.vue";
 export {
   getRegisteredRenderers,
   getRendererEntry,
@@ -50,12 +80,16 @@ export { default as SearchInput } from "./components/SearchInput.vue";
 export { default as SectionPanel } from "./components/SectionPanel.vue";
 export type { SegmentOption } from "./components/SegmentedControl.vue";
 export { default as SegmentedControl } from "./components/SegmentedControl.vue";
+export type { SelectOption, SelectProps } from "./components/Select.vue";
+export { default as Select } from "./components/Select.vue";
 export { default as SessionCard } from "./components/SessionCard.vue";
 export { default as SessionList } from "./components/SessionList.vue";
 export { default as SkeletonLoader } from "./components/SkeletonLoader.vue";
 export { default as SqliteTableView } from "./components/SqliteTableView.vue";
 export { default as StatCard } from "./components/StatCard.vue";
 export { default as StatusIcon } from "./components/StatusIcon.vue";
+export type { StatusPillProps, StatusPillTone } from "./components/StatusPill.vue";
+export { default as StatusPill } from "./components/StatusPill.vue";
 export type {
   SubagentActivityInput,
   SubagentActivityItem,
@@ -79,6 +113,10 @@ export { default as TokenBar } from "./components/TokenBar.vue";
 export { default as ToolCallDetail } from "./components/ToolCallDetail.vue";
 export { default as ToolCallItem } from "./components/ToolCallItem.vue";
 export { default as ToolDetailPanel } from "./components/ToolDetailPanel.vue";
+export type { TooltipProps } from "./components/Tooltip.vue";
+export { default as Tooltip } from "./components/Tooltip.vue";
+export type { UserContentEmojiProps } from "./components/UserContentEmoji.vue";
+export { default as UserContentEmoji } from "./components/UserContentEmoji.vue";
 export { LIVE_TOOL_PARTIAL_OUTPUT_KEY } from "./composables/liveToolPartialOutput";
 export type {
   UseAsyncDataOptions,
@@ -160,6 +198,13 @@ export { useToast } from "./composables/useToast";
 export { useToggleSet } from "./composables/useToggleSet";
 export type { UseVisibilityGatedPollOptions } from "./composables/useVisibilityGatedPoll";
 export { useVisibilityGatedPoll } from "./composables/useVisibilityGatedPoll";
+export {
+  LUCIDE_ICON_COMPONENTS,
+  type LucideComponent,
+  resolveLucideIcon,
+} from "./icons/lucideRegistry";
+export type { LucideName } from "./icons/templateCatalogue";
+export { TEMPLATE_ICON_CATALOGUE } from "./icons/templateCatalogue";
 
 // ── Utilities ──────────────────────────────────────────────────────
 export type { AgentSection, SubagentContent } from "./utils/agentGrouping";

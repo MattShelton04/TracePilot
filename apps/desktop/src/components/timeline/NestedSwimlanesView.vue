@@ -7,6 +7,7 @@ import {
   useLiveDuration,
   useToggleSet,
 } from "@tracepilot/ui";
+import { BarChart3 } from "lucide-vue-next";
 import { computed, ref, watch } from "vue";
 import SwimlanePhaseGroup from "@/components/timeline/swimlanes/SwimlanePhaseGroup.vue";
 import { useParallelAgentDetection } from "@/composables/useParallelAgentDetection";
@@ -157,8 +158,9 @@ function onLoadFullResult(toolCallId: string) {
       v-if="!store.turns.length && !store.loading"
       title="No Timeline Data"
       message="This session has no conversation turns to visualize."
-      icon="📊"
-    />
+    >
+      <template #icon><BarChart3 :size="36" aria-hidden="true" /></template>
+    </EmptyState>
 
     <!-- Loading state -->
     <div v-else-if="store.loading && !store.turns.length" class="ns-loading">

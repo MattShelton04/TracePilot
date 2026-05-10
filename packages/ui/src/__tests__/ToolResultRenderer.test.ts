@@ -22,7 +22,7 @@ describe("ToolResultRenderer", () => {
       },
     });
     // Should fall back to RendererShell + PlainTextRenderer
-    expect(wrapper.find(".renderer-shell").exists()).toBe(true);
+    expect(wrapper.find('[data-tp-component="RendererShell"]').exists()).toBe(true);
     expect(wrapper.find(".plain-text-renderer").exists()).toBe(true);
   });
 
@@ -46,7 +46,7 @@ describe("ToolResultRenderer", () => {
       },
     });
     // No RendererShell should appear for empty content
-    expect(wrapper.find(".renderer-shell").exists()).toBe(false);
+    expect(wrapper.find('[data-tp-component="RendererShell"]').exists()).toBe(false);
   });
 
   it("registers apply_patch and rg rich renderers", () => {

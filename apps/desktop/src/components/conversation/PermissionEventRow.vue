@@ -17,6 +17,7 @@
  */
 import type { TurnSessionEvent } from "@tracepilot/types";
 import { formatTime } from "@tracepilot/ui";
+import { Lock } from "lucide-vue-next";
 import { computed } from "vue";
 
 const props = defineProps<{
@@ -115,7 +116,7 @@ const tooltip = computed(() => {
 
 <template>
   <div :class="['cv-permission-event', `status-${status}`]" :title="tooltip">
-    <span class="cv-permission-icon" aria-hidden="true">🔐</span>
+    <span class="cv-permission-icon" aria-hidden="true"><Lock :size="14" /></span>
 
     <span v-if="promptKind" class="cv-permission-kind">{{ promptKind }}</span>
 
@@ -153,26 +154,26 @@ const tooltip = computed(() => {
   margin: 4px 0;
   border-left: 3px solid var(--neutral-muted, rgba(110, 118, 129, 0.4));
   background: var(--neutral-subtle, rgba(110, 118, 129, 0.08));
-  color: var(--text-secondary, #8b949e);
+  color: var(--text-secondary);
 }
 
 .cv-permission-event.status-approved {
-  border-left-color: var(--success-fg, #3fb950);
+  border-left-color: var(--success-fg);
   background: var(--success-subtle, rgba(63, 185, 80, 0.08));
 }
 
 .cv-permission-event.status-denied {
-  border-left-color: var(--danger-fg, #f85149);
+  border-left-color: var(--danger-fg);
   background: var(--danger-subtle, rgba(248, 81, 73, 0.08));
 }
 
 .cv-permission-event.status-pending {
-  border-left-color: var(--warning-fg, #d29922);
+  border-left-color: var(--warning-fg);
   background: var(--warning-subtle, rgba(210, 153, 34, 0.08));
 }
 
 .cv-permission-event.status-hook {
-  border-left-color: var(--accent-fg, #58a6ff);
+  border-left-color: var(--accent-fg);
   background: var(--accent-subtle, rgba(56, 139, 253, 0.08));
 }
 
@@ -188,7 +189,7 @@ const tooltip = computed(() => {
   font-family: "JetBrains Mono", monospace;
   font-size: 10px;
   text-transform: lowercase;
-  color: var(--text-secondary, #8b949e);
+  color: var(--text-secondary);
 }
 
 .cv-permission-intention {
@@ -197,7 +198,7 @@ const tooltip = computed(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--text-primary, #e6edf3);
+  color: var(--text-primary);
 }
 
 .cv-permission-status {
@@ -214,23 +215,23 @@ const tooltip = computed(() => {
 }
 
 .cv-permission-status.status-approved {
-  color: var(--success-fg, #3fb950);
+  color: var(--success-fg);
 }
 
 .cv-permission-status.status-denied {
-  color: var(--danger-fg, #f85149);
+  color: var(--danger-fg);
 }
 
 .cv-permission-status.status-pending {
-  color: var(--warning-fg, #d29922);
+  color: var(--warning-fg);
 }
 
 .cv-permission-status.status-hook {
-  color: var(--accent-fg, #58a6ff);
+  color: var(--accent-fg);
 }
 
 .cv-permission-status.status-unknown {
-  color: var(--text-secondary, #8b949e);
+  color: var(--text-secondary);
 }
 
 .cv-permission-feedback {

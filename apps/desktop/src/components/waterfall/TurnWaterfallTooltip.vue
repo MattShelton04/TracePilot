@@ -7,6 +7,7 @@ import {
   toolIcon,
   truncateText,
 } from "@tracepilot/ui";
+import { Lightbulb } from "lucide-vue-next";
 import { computed } from "vue";
 import type { WaterfallRow } from "@/composables/useWaterfallLayout";
 
@@ -38,8 +39,13 @@ const argsSummary = computed(() =>
       {{ truncateText(argsSummary, 200) }}
     </div>
 
-    <div v-if="row.call.intentionSummary" class="tip-args" style="font-style: italic;">
-      💭 {{ row.call.intentionSummary }}
+    <div
+      v-if="row.call.intentionSummary"
+      class="tip-args"
+      style="font-style: italic; display: inline-flex; align-items: center; gap: 4px;"
+    >
+      <Lightbulb :size="12" aria-hidden="true" />
+      <span>{{ row.call.intentionSummary }}</span>
     </div>
 
     <div class="tip-meta">

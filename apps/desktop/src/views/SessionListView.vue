@@ -13,6 +13,7 @@ import {
   SkeletonLoader,
   useAutoRefresh,
 } from "@tracepilot/ui";
+import { Search } from "lucide-vue-next";
 import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import ErrorBoundary from "@/components/ErrorBoundary.vue";
@@ -225,10 +226,11 @@ function openSession(event: MouseEvent, sessionId: string, label: string) {
       <!-- Empty state -->
       <EmptyState
         v-else-if="!store.loading"
-        icon="🔍"
         title="No sessions found"
         message="Try adjusting your search or filters."
-      />
+      >
+        <template #icon><Search :size="36" aria-hidden="true" /></template>
+      </EmptyState>
 
     </div>
     </ErrorBoundary>

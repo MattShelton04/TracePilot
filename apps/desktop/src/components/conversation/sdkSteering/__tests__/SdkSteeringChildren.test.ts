@@ -62,9 +62,9 @@ function makeCtx(overrides: Partial<SdkSteeringContext> = {}): SdkSteeringContex
     shortSessionId: "sess-1",
     inlineError: null,
     modes: [
-      { value: "interactive" as const, label: "Ask", icon: "💬" },
-      { value: "plan" as const, label: "Plan", icon: "📋" },
-      { value: "autopilot" as const, label: "Auto", icon: "🚀" },
+      { value: "interactive" as const, label: "Ask", icon: "message-circle" },
+      { value: "plan" as const, label: "Plan", icon: "clipboard-list" },
+      { value: "autopilot" as const, label: "Auto", icon: "rocket" },
     ],
     linkSession: vi.fn(),
     handleSend: vi.fn(),

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { resolveLucideIcon } from "@tracepilot/ui";
 import { useSdkSteeringContext } from "@/composables/useSdkSteering";
 
 const ctx = useSdkSteeringContext();
@@ -56,7 +57,7 @@ const ctx = useSdkSteeringContext();
           :title="m.label"
           @click="ctx.handleModeChange(m.value)"
         >
-          <span class="cb-pill-emoji">{{ m.icon }}</span>
+          <component :is="resolveLucideIcon(m.icon)" class="cb-pill-emoji" :size="14" :stroke-width="1.5" aria-hidden="true" />
           <span>{{ m.label }}</span>
         </button>
       </div>

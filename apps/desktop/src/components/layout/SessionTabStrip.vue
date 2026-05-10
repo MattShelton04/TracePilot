@@ -18,6 +18,7 @@
  */
 
 import { openSessionWindow } from "@tracepilot/client";
+import { Home } from "lucide-vue-next";
 import { computed, nextTick, ref, watch } from "vue";
 import { useTabReorderDrag } from "@/composables/useTabReorderDrag";
 import { useSessionTabsStore } from "@/stores/sessionTabs";
@@ -195,16 +196,19 @@ async function contextPopOut() {
     aria-label="Open sessions"
     @click.self="hideContextMenu"
   >
-    <!-- "Sessions" home pill — always visible, returns to session list -->
+    <!-- Home pill — always visible, returns to session list. Icon-only per
+         design-system §1.3 (CC-5: avoid label collision with sidebar
+         "Sessions" item; the strip shows open work, not navigation). -->
     <div
       class="session-tab home-tab"
       :class="{ active: isHomeActive }"
       role="tab"
       :aria-selected="activeTabId === null"
-      title="All Sessions"
+      aria-label="All sessions"
+      title="All sessions"
       @click="goHome"
     >
-      <span class="tab-label">Sessions</span>
+      <Home :size="16" :stroke-width="1.5" aria-hidden="true" />
     </div>
 
     <div class="tab-separator" />
@@ -290,13 +294,14 @@ async function contextPopOut() {
 }
 
 .session-tab.home-tab {
-  min-width: auto;
+  min-width: 32px;
   max-width: none;
-  padding: 6px 12px;
-  font-weight: 600;
-  font-size: 0.6875rem;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: var(--text-tertiary);
 }
 

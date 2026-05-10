@@ -62,20 +62,20 @@ function truncate(s: string, max: number): string {
   line-height: 1.5;
   padding: 6px 10px;
   margin: 0;
-  border-radius: var(--radius-sm, 6px);
+  border-radius: var(--radius-sm);
   white-space: pre-wrap;
   word-break: break-word;
   max-height: 120px;
   overflow: auto;
 }
 .edit-args-code--old {
-  background: rgba(248, 113, 113, 0.08);
-  border: 1px solid rgba(248, 113, 113, 0.2);
-  color: var(--danger-fg, #f87171);
+  background: var(--danger-subtle);
+  border: 1px solid var(--danger-muted);
+  color: var(--danger-fg);
 }
 .edit-args-code--new {
-  background: rgba(52, 211, 153, 0.08);
-  border: 1px solid rgba(52, 211, 153, 0.2);
-  color: var(--success-fg, #34d399);
+  background: var(--success-subtle);
+  border: 1px solid var(--success-muted);
+  color: var(--success-fg);
 }
 </style>

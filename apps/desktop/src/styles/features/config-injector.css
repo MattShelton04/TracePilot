@@ -274,7 +274,7 @@
 
 .auto-saved-hint {
   font-size: 0.75rem;
-  color: var(--success-fg, #2ea043);
+  color: var(--success-fg);
   font-weight: 500;
   white-space: nowrap;
 }
@@ -355,9 +355,9 @@
 }
 
 .config-parse-error {
-  border: 1px solid var(--color-danger, #c0392b);
+  border: 1px solid var(--color-danger);
   background: var(--color-danger-bg, rgba(192, 57, 43, 0.08));
-  color: var(--color-danger-text, #c0392b);
+  color: var(--color-danger-text);
   padding: 12px 14px;
   border-radius: 6px;
   font-size: 0.8125rem;
@@ -736,8 +736,16 @@
 }
 
 .meta-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 0.75rem;
   color: var(--text-tertiary);
+}
+
+.meta-tag svg {
+  display: inline-block;
+  vertical-align: middle;
 }
 
 .meta-tag--warn {
@@ -955,7 +963,7 @@
   border-color: var(--danger-muted);
 }
 .btn-danger {
-  color: var(--text-on-emphasis, #fff);
+  color: var(--text-on-emphasis);
   background: var(--danger-fg);
   border: 1px solid var(--danger-fg);
   font-weight: 600;

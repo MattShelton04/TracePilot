@@ -11,7 +11,7 @@
 
 .slide-desc {
   font-size: 0.875rem;
-  color: var(--text-secondary, #a1a1aa);
+  color: var(--text-secondary);
   line-height: 1.5;
   max-width: 440px;
 }
@@ -26,10 +26,10 @@
 .path-input {
   flex: 1;
   padding: 10px 14px;
-  background: var(--canvas-subtle, #111113);
+  background: var(--canvas-subtle);
   border: 1px solid var(--border-default, rgba(255, 255, 255, 0.1));
   border-radius: var(--radius-md, 8px);
-  color: var(--text-primary, #fafafa);
+  color: var(--text-primary);
   font-family: "JetBrains Mono", "Fira Code", monospace;
   font-size: 0.8125rem;
   outline: none;
@@ -43,10 +43,10 @@
 
 .btn-browse {
   padding: 10px 16px;
-  background: var(--canvas-subtle, #111113);
+  background: var(--canvas-subtle);
   border: 1px solid var(--border-default, rgba(255, 255, 255, 0.1));
   border-radius: var(--radius-md, 8px);
-  color: var(--text-secondary, #a1a1aa);
+  color: var(--text-secondary);
   font-size: 0.8125rem;
   cursor: pointer;
   white-space: nowrap;
@@ -56,7 +56,7 @@
 }
 
 .btn-browse:hover {
-  background: var(--canvas-raised, #1c1c1f);
+  background: var(--canvas-raised);
   border-color: var(--border-accent, rgba(99, 102, 241, 0.5));
 }
 
@@ -65,7 +65,7 @@
   background: none;
   border: 1px solid var(--border-default, rgba(255, 255, 255, 0.1));
   border-radius: var(--radius-md, 8px);
-  color: var(--text-tertiary, #71717a);
+  color: var(--text-tertiary);
   font-size: 1rem;
   cursor: pointer;
   transition:

@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TracePilot — Extended Accent Preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-canvas:#0B0D10; --bg-surface:#111418; --bg-surface-2:#161A20; --bg-surface-3:#1C2128;
+    --bg-inset:#0E1116;
+    --border-subtle:#1F242C; --border-default:#2A2F38; --border-strong:#3A4150;
+    --text-primary:#E6E8EC; --text-secondary:#A2A8B3; --text-muted:#6B7280; --text-disabled:#4A5060;
+    --state-success:#3DDC97; --state-warning:#F2B14B; --state-danger:#F26D6D; --state-info:#3DB8FF;
+    --font-sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+    --font-mono:'JetBrains Mono','SF Mono','Cascadia Code','Consolas',monospace;
+    --ease:cubic-bezier(0.2,0.6,0.2,1);
+    /* Default accent (overridden per-card) */
+    --accent:#3DB8FF; --accent-hover:#5CC4FF; --accent-soft:#102838;
+    --accent-secondary:#7C5CFF; --on-accent:#06121C;
+  }
+  *,*::before,*::after{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg-canvas); color:var(--text-primary);
+    font-family:var(--font-sans); font-size:13px; line-height:18px;
+    font-feature-settings:'cv11','ss01','tnum';
+    min-height:100vh;
+    background-image:
+      radial-gradient(1200px 600px at 80% -10%, rgba(61,184,255,.05), transparent 60%),
+      radial-gradient(900px 500px at 0% 100%, rgba(124,92,255,.04), transparent 60%);
+  }
+  .mono{font-family:var(--font-mono); font-variant-numeric:tabular-nums}
+  .micro{font-size:11px; line-height:14px; font-weight:500; letter-spacing:.04em; text-transform:uppercase}
+
+  header.page{
+    position:sticky; top:0; z-index:10;
+    backdrop-filter:saturate(140%) blur(8px);
+    background:rgba(11,13,16,.7);
+    border-bottom:1px solid var(--border-subtle);
+  }
+  .page-inner{
+    max-width:1320px; margin:0 auto; padding:14px 24px;
+    display:flex; align-items:center; justify-content:space-between; gap:16px;
+  }
+  .brand{display:flex; align-items:center; gap:10px; font-weight:600}
+  .brand .dot{width:10px; height:10px; border-radius:9999px; background:#3DB8FF; box-shadow:0 0 0 3px rgba(61,184,255,.15)}
+  .crumb{color:var(--text-muted)}
+
+  main{max-width:1320px; margin:0 auto; padding:32px 24px 80px}
+  h1{font-size:22px; line-height:30px; font-weight:600; margin:0 0 6px}
+  h2{font-size:16px; line-height:22px; font-weight:600; margin:32px 0 4px}
+  p.lead{color:var(--text-secondary); margin:0 0 16px; max-width:78ch}
+
+  .grid-3{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px}
+  @media (max-width:1180px){ .grid-3{grid-template-columns:repeat(2,minmax(0,1fr))} }
+  @media (max-width:760px){ .grid-3{grid-template-columns:1fr} }
+
+  .card{
+    background:var(--bg-surface);
+    border:1px solid var(--border-subtle);
+    border-radius:10px; overflow:hidden;
+  }
+  .card-head{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 16px;
+    border-bottom:1px solid var(--border-subtle);
+    background:var(--bg-surface-2);
+  }
+  .swatch{width:14px; height:14px; border-radius:4px; box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
+  .card-title{display:flex; align-items:center; gap:10px; font-weight:600}
+  .card-meta{color:var(--text-muted); font-size:11px; letter-spacing:.04em; text-transform:uppercase}
+  .card-body{padding:14px 16px}
+
+  .btn{
+    display:inline-flex; align-items:center; gap:8px;
+    height:30px; padding:0 12px; border-radius:6px;
+    font:500 12.5px/1 var(--font-sans);
+    cursor:pointer; user-select:none;
+    border:1px solid var(--border-default); background:var(--bg-surface-2); color:var(--text-primary);
+    transition:background 120ms var(--ease), border-color 120ms var(--ease);
+  }
+  .btn:hover{background:var(--bg-surface-3)}
+  .btn-primary{ background:var(--accent); border-color:var(--accent); color:var(--on-accent); }
+  .btn-primary:hover{background:var(--accent-hover); border-color:var(--accent-hover)}
+  .btn:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+
+  .tabs{display:flex; gap:4px; border-bottom:1px solid var(--border-subtle); padding:0 14px}
+  .tab{
+    padding:9px 8px; color:var(--text-secondary); font-weight:500; font-size:12.5px;
+    border-bottom:2px solid transparent;
+  }
+  .tab.active{color:var(--text-primary); border-bottom-color:var(--accent)}
+
+  .pill{
+    display:inline-flex; align-items:center;
+    height:18px; padding:0 7px; border-radius:9999px;
+    font:500 10.5px/1 var(--font-sans); letter-spacing:.04em; text-transform:uppercase;
+  }
+  .pill.success{color:#0F2A22; background:#3DDC97}
+  .pill.warn{color:#2A2110; background:#F2B14B}
+  .pill.danger{color:#2A1414; background:#F26D6D}
+  .pill.info{color:var(--on-accent); background:var(--accent)}
+
+  .table-head, .row{
+    display:grid; grid-template-columns: 18px 1fr 70px 60px;
+    gap:10px; align-items:center;
+    padding:0 12px;
+  }
+  .table-head{
+    height:26px; color:var(--text-muted); font-size:10.5px; letter-spacing:.04em; text-transform:uppercase;
+    border-bottom:1px solid var(--border-subtle); background:var(--bg-surface-2);
+  }
+  .row{
+    height:32px; border-bottom:1px solid var(--border-subtle);
+    font-size:12.5px;
+  }
+  .row:last-child{border-bottom:none}
+  .row.selected{background:var(--accent-soft)}
+  .row .name .label{font-family:var(--font-mono); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:block}
+  .row .num{font-family:var(--font-mono); font-variant-numeric:tabular-nums; color:var(--text-secondary); text-align:right; font-size:12px}
+
+  .bar{position:relative; height:6px; background:var(--bg-surface-3); border-radius:9999px; overflow:hidden}
+  .bar > i{position:absolute; inset:0; width:var(--w,62%); background:linear-gradient(90deg, var(--accent), var(--accent-secondary)); border-radius:inherit}
+
+  .codeline{
+    font-family:var(--font-mono); font-size:11.5px; color:var(--text-secondary);
+    background:var(--bg-inset); border:1px solid var(--border-subtle);
+    border-radius:6px; padding:8px 10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+
+  .legend{
+    display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+    color:var(--text-muted); font-size:11px; margin-top:6px;
+  }
+  .legend i{width:10px; height:10px; border-radius:3px; display:inline-block}
+
+  /* ============ Accent variants ============ */
+  /* baseline */
+  .a-cyan       { --accent:#3DB8FF; --accent-hover:#5CC4FF; --accent-soft:#0E2438; --accent-secondary:#7C5CFF; --on-accent:#06121C; }
+  /* Linear's actual brand color */
+  .a-linear     { --accent:#5E6AD2; --accent-hover:#7681E0; --accent-soft:#181A30; --accent-secondary:#8B6FE3; --on-accent:#FFFFFF; }
+  /* Tailwind indigo — classic dev */
+  .a-indigo     { --accent:#6366F1; --accent-hover:#818CF8; --accent-soft:#181A33; --accent-secondary:#3DB8FF; --on-accent:#FFFFFF; }
+  /* Honeycomb / Grafana orange — observability heritage */
+  .a-honeycomb  { --accent:#F58A1F; --accent-hover:#FFA040; --accent-soft:#2A1A0A; --accent-secondary:#F2B14B; --on-accent:#1A0E03; }
+  /* Calm teal — Vercel/Linear-ish but warmer than cyan */
+  .a-teal       { --accent:#14B8A6; --accent-hover:#2DD4BF; --accent-soft:#0A2A26; --accent-secondary:#3DB8FF; --on-accent:#06141A; }
+  /* Monochrome — no chromatic accent (Vercel / Raycast aesthetic) */
+  .a-mono       { --accent:#F4F5F7; --accent-hover:#FFFFFF; --accent-soft:#1F242C; --accent-secondary:#A2A8B3; --on-accent:#0B0D10; }
+  /* Datadog-leaning purple — slightly punchier than violet */
+  .a-datadog    { --accent:#774AFF; --accent-hover:#8F66FF; --accent-soft:#1A1230; --accent-secondary:#3DB8FF; --on-accent:#FFFFFF; }
+  /* Sentry-esque magenta */
+  .a-magenta    { --accent:#E84A8A; --accent-hover:#F26FA0; --accent-soft:#2A1220; --accent-secondary:#7C5CFF; --on-accent:#FFFFFF; }
+  /* Sunset coral — warmer alternative */
+  .a-coral      { --accent:#FF7A59; --accent-hover:#FF9478; --accent-soft:#2A130E; --accent-secondary:#F2B14B; --on-accent:#1A0805; }
+
+  footer{
+    border-top:1px solid var(--border-subtle); margin-top:48px; padding-top:20px;
+    color:var(--text-muted); font-size:12px;
+  }
+
+  .recap{
+    margin-top:24px; padding:16px;
+    border:1px solid var(--border-subtle); border-radius:10px; background:var(--bg-surface);
+  }
+  .recap h3{margin:0 0 10px; font-size:14px}
+  .recap-grid{
+    display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px;
+  }
+  @media (max-width:1180px){ .recap-grid{grid-template-columns:repeat(2,minmax(0,1fr))} }
+  @media (max-width:760px){ .recap-grid{grid-template-columns:1fr} }
+  .recap-row{
+    display:flex; align-items:center; gap:10px;
+    padding:8px 10px; border:1px solid var(--border-subtle); border-radius:6px;
+    background:var(--bg-surface-2);
+  }
+  .recap-sw{width:18px; height:18px; border-radius:4px}
+</style>
+</head>
+<body>
+
+<header class="page">
+  <div class="page-inner">
+    <div class="brand">
+      <span class="dot"></span>
+      TracePilot
+      <span class="crumb">/ design / accent — extended</span>
+    </div>
+    <div style="color:var(--text-muted); font-size:12px;">9 candidates · dark canvas · Inter + JetBrains Mono</div>
+  </div>
+</header>
+
+<main>
+
+  <h1>Extended Accent Options</h1>
+  <p class="lead">
+    Same TracePilot session card rendered with nine candidate accents pulled from real best-in-class dev tools (Linear, Datadog, Honeycomb, Vercel, Sentry). Tabs, primary button, focus ring, selected row, latency bar, and the categorical[0] data series all use the chosen accent. Semantic state colors (success / warn / danger) stay constant so you can judge contrast against them.
+  </p>
+
+  <div class="grid-3" id="grid"></div>
+
+  <div class="recap">
+    <h3>Quick swatch recap</h3>
+    <div class="recap-grid" id="recap"></div>
+  </div>
+
+  <footer>
+    Inter · JetBrains Mono · 4px grid · 32px Comfortable rows · dark-first.
+    Pick one accent — it will be used for primary actions, focus rings, active selection, and the categorical[0] data series.
+  </footer>
+
+</main>
+
+<script>
+  const accents = [
+    { cls:'a-cyan',      name:'Cyan',          hex:'#3DB8FF', tag:'Warp / observability — current MASTER default' },
+    { cls:'a-linear',    name:'Linear Blue',   hex:'#5E6AD2', tag:'Linear\u2019s actual brand color' },
+    { cls:'a-indigo',    name:'Indigo',        hex:'#6366F1', tag:'Tailwind indigo — classic dev' },
+    { cls:'a-teal',      name:'Teal',          hex:'#14B8A6', tag:'Calm, distinct from success-green' },
+    { cls:'a-honeycomb', name:'Honeycomb',     hex:'#F58A1F', tag:'Observability heritage (Honeycomb / Grafana)' },
+    { cls:'a-datadog',   name:'Datadog Purple',hex:'#774AFF', tag:'Punchier than violet, brand-adjacent' },
+    { cls:'a-magenta',   name:'Magenta',       hex:'#E84A8A', tag:'Sentry-esque, high-energy' },
+    { cls:'a-coral',     name:'Coral',         hex:'#FF7A59', tag:'Warm sunset, distinct in dark UI' },
+    { cls:'a-mono',      name:'Monochrome',    hex:'#F4F5F7', tag:'Vercel / Raycast — accent = text-primary' },
+  ];
+
+  const cardTpl = (a) => `
+    <section class="card ${a.cls}" aria-label="Accent: ${a.name}">
+      <div class="card-head">
+        <div class="card-title">
+          <span class="swatch" style="background:${a.hex}"></span>
+          ${a.name} <span class="mono" style="color:var(--text-muted); font-weight:400">${a.hex}</span>
+        </div>
+        <div class="card-meta">${a.tag}</div>
+      </div>
+      <div class="tabs">
+        <div class="tab active">Timeline</div>
+        <div class="tab">Tools</div>
+        <div class="tab">Tokens</div>
+      </div>
+      <div class="card-body">
+        <div style="display:flex; gap:8px; margin-bottom:10px; align-items:center;">
+          <button class="btn btn-primary">Run trace</button>
+          <button class="btn">Filter</button>
+          <span class="pill info">Live</span>
+        </div>
+        <div class="codeline">$ copilot run --session 0f3a · model=claude-opus-4.7</div>
+        <div style="margin-top:10px; border:1px solid var(--border-subtle); border-radius:8px; overflow:hidden;">
+          <div class="table-head">
+            <span></span><span>Span</span><span style="text-align:right">Latency</span><span style="text-align:right">Status</span>
+          </div>
+          <div class="row selected">
+            <span style="height:8px; width:8px; border-radius:9999px; background:var(--accent)"></span>
+            <span class="name"><span class="label">tool.read_file</span></span>
+            <span class="num">182ms</span>
+            <span style="text-align:right"><span class="pill success">OK</span></span>
+          </div>
+          <div class="row">
+            <span></span>
+            <span class="name"><span class="label">tool.bash</span></span>
+            <span class="num">2.41s</span>
+            <span style="text-align:right"><span class="pill warn">SLOW</span></span>
+          </div>
+          <div class="row">
+            <span></span>
+            <span class="name"><span class="label">tool.write_file</span></span>
+            <span class="num">—</span>
+            <span style="text-align:right"><span class="pill danger">FAIL</span></span>
+          </div>
+        </div>
+        <div style="margin-top:12px;">
+          <div class="micro" style="color:var(--text-muted); margin-bottom:6px;">Latency · p95</div>
+          <div class="bar"><i></i></div>
+          <div class="legend">
+            <span><i style="background:var(--accent)"></i>accent</span>
+            <span><i style="background:var(--accent-secondary)"></i>secondary</span>
+            <span><i style="background:#3DDC97"></i>success</span>
+            <span><i style="background:#F2B14B"></i>warn</span>
+            <span><i style="background:#F26D6D"></i>danger</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  `;
+
+  const recapTpl = (a) => `
+    <div class="recap-row">
+      <span class="recap-sw" style="background:${a.hex}"></span>
+      <div style="display:flex; flex-direction:column;">
+        <strong>${a.name}</strong>
+        <span class="mono" style="color:var(--text-muted); font-size:11px;">${a.hex}</span>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('grid').innerHTML = accents.map(cardTpl).join('');
+  document.getElementById('recap').innerHTML = accents.map(recapTpl).join('');
+</script>
+
+</body>
+</html>

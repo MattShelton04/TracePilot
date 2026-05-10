@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { getModelsByTier } from "@tracepilot/types";
-import { EmptyState } from "@tracepilot/ui";
+import { Banner, EmptyState } from "@tracepilot/ui";
+import { FileText, X } from "lucide-vue-next";
 import { computed } from "vue";
 import { useConfigInjectorContext } from "@/composables/useConfigInjector";
 
@@ -40,14 +41,19 @@ const diffChangeCount = computed(
       <!-- Parse-error banner: surfaced when ~/.copilot/{config,settings}.json
            cannot be parsed. Saving is gated until the underlying file is
            fixed so we never silently overwrite invalid user data. -->
-      <div v-if="configParseError" class="config-parse-error" role="alert">
-        <strong>⚠️ Copilot settings file could not be parsed.</strong>
+      <Banner
+        v-if="configParseError"
+        tone="warning"
+        title="Copilot settings file could not be parsed."
+        role="alert"
+        class="config-parse-error"
+      >
         <p>{{ configParseError }}</p>
         <p v-if="configSettingsPath" class="config-parse-error__hint">
           Edit <code>{{ configSettingsPath }}</code> to fix the syntax, then reload.
           Saving is disabled to avoid clobbering existing data.
         </p>
-      </div>
+      </Banner>
 
       <!-- Config Form -->
       <div class="config-form">
@@ -124,7 +130,9 @@ const diffChangeCount = computed(
           <div class="folder-list">
             <div v-for="(folder, i) in editTrustedFolders" :key="i" class="folder-item">
               <span class="folder-path">{{ folder }}</span>
-              <button class="btn-icon-sm" title="Remove" @click="removeFolder(i)">✕</button>
+              <button class="btn-icon-sm" title="Remove" @click="removeFolder(i)">
+                <X :size="13" :stroke-width="1.5" />
+              </button>
             </div>
             <EmptyState v-if="!editTrustedFolders.length" compact message="No trusted folders configured." />
           </div>
@@ -145,14 +153,17 @@ const diffChangeCount = computed(
           :disabled="store.saving || !hasConfigChanges || !!configParseError"
           @click="handleSaveGlobalConfig"
         >
-          {{ store.saving ? 'Saving…' : '💾 Save Config' }}
+          {{ store.saving ? 'Saving…' : 'Save Config' }}
         </button>
       </div>
 
       <!-- Diff Preview -->
       <details v-if="hasConfigChanges" class="diff-preview-details" open>
         <summary class="diff-preview-summary">
-          <span>📝 Diff Preview</span>
+          <span class="diff-preview-summary__title">
+            <FileText :size="14" :stroke-width="1.5" />
+            Diff Preview
+          </span>
           <span class="diff-badge">{{ diffChangeCount }} changes</span>
         </summary>
         <div class="diff-side-by-side diff-side-by-side--compact">

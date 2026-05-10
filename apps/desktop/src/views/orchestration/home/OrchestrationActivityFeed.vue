@@ -1,31 +1,31 @@
 <script setup lang="ts">
 import { formatRelativeTime } from "@tracepilot/ui";
+import {
+  Activity,
+  CheckCircle2,
+  ClipboardList,
+  DollarSign,
+  type LucideIcon,
+  Rocket,
+  Wrench,
+  XCircle,
+} from "lucide-vue-next";
 import { computed } from "vue";
 import { useOrchestrationHomeStore } from "@/stores/orchestrationHome";
 
 const store = useOrchestrationHomeStore();
 
-const feedIconClass = (type: string) => {
-  const map: Record<string, string> = {
-    session_launched: "feed-icon--accent",
-    session_error: "feed-icon--danger",
-    batch_completed: "feed-icon--success",
-    budget_alert: "feed-icon--warning",
-    config_changed: "feed-icon--accent",
-  };
-  return map[type] ?? "feed-icon--accent";
+const FEED_ICON_MAP: Record<string, { icon: LucideIcon; tone: string }> = {
+  session_launched: { icon: Rocket, tone: "feed-icon--accent" },
+  session_error: { icon: XCircle, tone: "feed-icon--danger" },
+  batch_completed: { icon: CheckCircle2, tone: "feed-icon--success" },
+  budget_alert: { icon: DollarSign, tone: "feed-icon--warning" },
+  config_changed: { icon: Wrench, tone: "feed-icon--accent" },
 };
 
-const feedIconLabel = (type: string) => {
-  const map: Record<string, string> = {
-    session_launched: "🚀",
-    session_error: "❌",
-    batch_completed: "✅",
-    budget_alert: "💰",
-    config_changed: "🔧",
-  };
-  return map[type] ?? "📋";
-};
+function feedEntry(type: string) {
+  return FEED_ICON_MAP[type] ?? { icon: ClipboardList, tone: "feed-icon--accent" };
+}
 
 const mockFeed = [
   {
@@ -60,9 +60,7 @@ const feedItems = computed(() => (store.activityFeed.length > 0 ? store.activity
 <template>
   <div class="panel">
     <div class="section-header">
-      <svg class="section-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-      </svg>
+      <Activity class="section-icon" :size="16" :stroke-width="2" aria-hidden="true" />
       <span>Activity Feed</span>
       <span class="feed-badge">{{ feedItems.length }}</span>
     </div>
@@ -72,7 +70,9 @@ const feedItems = computed(() => (store.activityFeed.length > 0 ? store.activity
         :key="event.id"
         class="feed-item"
       >
-        <span class="feed-icon" :class="feedIconClass(event.type)">{{ feedIconLabel(event.type) }}</span>
+        <span class="feed-icon" :class="feedEntry(event.type).tone">
+          <component :is="feedEntry(event.type).icon" :size="14" :stroke-width="1.75" aria-hidden="true" />
+        </span>
         <span class="feed-msg">{{ event.message }}</span>
         <span class="feed-time">{{ formatRelativeTime(event.timestamp) }}</span>
       </div>
@@ -147,7 +147,6 @@ const feedItems = computed(() => (store.activityFeed.length > 0 ? store.activity
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  font-size: 0.75rem;
 }
 
 .feed-icon--accent {

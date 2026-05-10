@@ -1,7 +1,7 @@
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
-import SearchPalette from "@/components/SearchPalette.vue";
+import SearchPalette from "@/components/chrome/SearchPalette.vue";
 
 // Mock the search composable so we don't hit the real search IPC.
 const paletteState = {
@@ -20,6 +20,10 @@ const paletteState = {
 };
 vi.mock("@/composables/useSearchPaletteSearch", () => ({
   useSearchPaletteSearch: () => paletteState,
+}));
+
+vi.mock("@/stores/sessions", () => ({
+  useSessionsStore: () => ({ sessions: [] }),
 }));
 
 vi.mock("vue-router", () => ({

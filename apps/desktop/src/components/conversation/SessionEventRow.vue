@@ -8,6 +8,7 @@
  */
 import type { SessionEventSeverity, TurnSessionEvent } from "@tracepilot/types";
 import { formatTime } from "@tracepilot/ui";
+import { AlertTriangle, ClipboardList, FileArchive, Info, type LucideIcon } from "lucide-vue-next";
 import { computed } from "vue";
 import { useCheckpointNavigation } from "@/composables/useCheckpointNavigation";
 import SkillInvocationEventRow from "./SkillInvocationEventRow.vue";
@@ -27,10 +28,16 @@ function severityClass(severity: SessionEventSeverity | undefined): string {
   return "info";
 }
 
-function severityIcon(severity: SessionEventSeverity | undefined): string {
-  if (severity === "error") return "⚠️";
-  if (severity === "warning") return "⚠️";
-  return "ℹ️";
+function severityIcon(severity: SessionEventSeverity | undefined): LucideIcon {
+  if (severity === "error") return AlertTriangle;
+  if (severity === "warning") return AlertTriangle;
+  return Info;
+}
+
+function severityAria(severity: SessionEventSeverity | undefined): string {
+  if (severity === "error") return "error";
+  if (severity === "warning") return "warning";
+  return "info";
 }
 
 function eventLabel(eventType: string): string {
@@ -52,14 +59,14 @@ function eventLabel(eventType: string): string {
     v-else-if="isCompaction"
     class="cv-session-event cv-compaction"
   >
-    <span class="cv-session-event-icon">🗜️</span>
+    <span class="cv-session-event-icon" aria-hidden="true"><FileArchive :size="14" /></span>
     <button
       v-if="event.checkpointNumber != null"
       class="cv-checkpoint-pill"
       :title="`View Checkpoint #${event.checkpointNumber} in Overview tab`"
       @click="navigateToCheckpoint(event.checkpointNumber!)"
     >
-      📋 Checkpoint #{{ event.checkpointNumber }}
+      <ClipboardList :size="12" aria-hidden="true" /> Checkpoint #{{ event.checkpointNumber }}
     </button>
     <span v-else class="cv-session-event-type">compaction</span>
     <span class="cv-session-event-summary">{{ event.summary }}</span>
@@ -73,7 +80,9 @@ function eventLabel(eventType: string): string {
     v-else
     :class="['cv-session-event', severityClass(event.severity)]"
   >
-    <span class="cv-session-event-icon">{{ severityIcon(event.severity) }}</span>
+    <span class="cv-session-event-icon" :aria-label="severityAria(event.severity)">
+      <component :is="severityIcon(event.severity)" :size="14" />
+    </span>
     <span class="cv-session-event-type">{{ eventLabel(event.eventType) }}</span>
     <span class="cv-session-event-summary">{{ event.summary }}</span>
     <span v-if="event.timestamp" class="cv-session-event-time">
@@ -95,17 +104,17 @@ function eventLabel(eventType: string): string {
 
 .cv-session-event.info {
   background: var(--neutral-subtle, rgba(110, 118, 129, 0.1));
-  color: var(--text-secondary, #8b949e);
+  color: var(--text-secondary);
 }
 
 .cv-session-event.warning {
   background: var(--warning-subtle, rgba(210, 153, 34, 0.1));
-  color: var(--warning-fg, #d29922);
+  color: var(--warning-fg);
 }
 
 .cv-session-event.error {
   background: var(--danger-subtle, rgba(248, 81, 73, 0.1));
-  color: var(--danger-fg, #f85149);
+  color: var(--danger-fg);
 }
 
 .cv-session-event-icon {
@@ -136,8 +145,8 @@ function eventLabel(eventType: string): string {
 
 .cv-compaction {
   background: var(--accent-subtle, rgba(56, 139, 253, 0.08));
-  color: var(--accent-fg, #58a6ff);
-  border-left: 3px solid var(--accent-emphasis, #1f6feb);
+  color: var(--accent-fg);
+  border-left: 3px solid var(--accent-emphasis);
 }
 
 .cv-checkpoint-pill {
@@ -148,7 +157,7 @@ function eventLabel(eventType: string): string {
   border: 1px solid var(--accent-muted, rgba(56, 139, 253, 0.4));
   border-radius: 12px;
   background: var(--accent-subtle, rgba(56, 139, 253, 0.1));
-  color: var(--accent-fg, #58a6ff);
+  color: var(--accent-fg);
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
@@ -158,6 +167,6 @@ function eventLabel(eventType: string): string {
 
 .cv-checkpoint-pill:hover {
   background: var(--accent-muted, rgba(56, 139, 253, 0.25));
-  border-color: var(--accent-fg, #58a6ff);
+  border-color: var(--accent-fg);
 }
 </style>

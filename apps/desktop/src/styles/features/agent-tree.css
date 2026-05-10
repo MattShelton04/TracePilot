@@ -81,6 +81,9 @@
 }
 
 .agent-tree-feature .turn-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   padding: 4px 12px;
   font-size: 0.8125rem;
   font-weight: 500;
@@ -92,6 +95,12 @@
   transition:
     background var(--transition-fast, 150ms),
     border-color var(--transition-fast, 150ms);
+}
+
+.agent-tree-feature .turn-nav-btn svg {
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
 }
 
 .agent-tree-feature .turn-nav-btn:hover:not(:disabled) {
@@ -284,7 +293,7 @@
 
 .agent-tree-feature .agent-node-model-warn {
   margin-left: 4px;
-  color: var(--color-warning, #e6a817);
+  color: var(--color-warning);
   cursor: default;
   font-size: 0.75rem;
 }
@@ -421,7 +430,7 @@
 
 .agent-tree-feature .detail-model-warn {
   font-size: 0.75rem;
-  color: var(--color-warning, #e6a817);
+  color: var(--color-warning);
   cursor: default;
 }
 
@@ -683,7 +692,7 @@
 }
 
 .agent-tree-feature .detail-failure-title {
-  color: var(--danger-fg, #f85149);
+  color: var(--danger-fg);
 }
 
 .agent-tree-feature .detail-failure-body {
@@ -695,7 +704,7 @@
   word-break: break-word;
   max-height: 200px;
   overflow-y: auto;
-  color: var(--danger-fg, #f85149);
+  color: var(--danger-fg);
   background: var(--danger-subtle, rgba(248, 81, 73, 0.1));
   border: 1px solid var(--danger-muted, rgba(248, 81, 73, 0.3));
   border-radius: 6px;

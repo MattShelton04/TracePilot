@@ -1,15 +1,27 @@
 <script setup lang="ts">
 /**
  * PlainTextRenderer — fallback renderer for unknown or disabled tool types.
- * Simply wraps text in a scrollable <pre>.
  */
+import { FileText } from "lucide-vue-next";
+import RendererShell from "../RendererShell.vue";
+import RendererTruncationFooter from "../RendererTruncationFooter.vue";
+
 defineProps<{
   content: string;
+  isTruncated?: boolean;
+}>();
+
+const emit = defineEmits<{
+  "load-full": [];
 }>();
 </script>
 
 <template>
-  <pre class="plain-text-renderer">{{ content }}</pre>
+  <RendererShell tool-name="Output" status="success" :copy-text="content">
+    <template #icon><FileText :size="16" /></template>
+    <pre class="plain-text-renderer">{{ content }}</pre>
+    <RendererTruncationFooter v-if="isTruncated" @load-full="emit('load-full')" />
+  </RendererShell>
 </template>
 
 <style scoped>
@@ -24,6 +36,5 @@ defineProps<{
   max-height: 400px;
   overflow: auto;
   color: var(--text-secondary);
-  background: var(--canvas-default);
 }
 </style>

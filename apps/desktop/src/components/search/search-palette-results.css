@@ -5,28 +5,15 @@
 
 /* ── Results container ── */
 .palette-results {
-  flex: 1;
-  overflow-y: auto;
+  min-width: 0;
   padding: 6px 0;
   scroll-behavior: smooth;
-}
-.palette-results::-webkit-scrollbar {
-  width: 5px;
-}
-.palette-results::-webkit-scrollbar-track {
-  background: transparent;
-}
-.palette-results::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 3px;
-}
-.palette-results::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.14);
 }
 
 /* ── Group ── */
 .palette-group {
-  padding: 2px 6px;
+  padding: 2px 0;
+  min-width: 0;
 }
 .palette-group + .palette-group {
   margin-top: 2px;
@@ -36,7 +23,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px 4px;
+  padding: 6px 16px 4px;
   font-size: 0.6875rem;
   font-weight: 600;
   color: var(--text-tertiary);
@@ -64,10 +51,12 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 7px 12px;
-  margin: 1px 6px;
-  border-radius: 8px;
+  padding: 7px 16px;
+  margin: 1px 0;
+  border-radius: 6px;
   cursor: pointer;
+  min-width: 0;
+  overflow: hidden;
   transition: background 0.08s ease;
   position: relative;
 }

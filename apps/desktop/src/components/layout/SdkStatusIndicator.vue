@@ -78,20 +78,20 @@ async function handleClick() {
 }
 
 .sdk-dot--disconnected {
-  background: var(--text-tertiary, #888);
+  background: var(--text-tertiary);
 }
 
 .sdk-dot--connecting {
-  background: var(--status-warning, #f59e0b);
+  background: var(--status-warning);
   animation: sdk-pulse 1.2s ease-in-out infinite;
 }
 
 .sdk-dot--connected {
-  background: var(--status-success, #22c55e);
+  background: var(--status-success);
 }
 
 .sdk-dot--error {
-  background: var(--status-error, #ef4444);
+  background: var(--status-error);
 }
 
 .sdk-status-label {

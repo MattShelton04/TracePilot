@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { BarChart3 } from "lucide-vue-next";
 import { computed } from "vue";
 import { formatCompactNumber } from "@/utils/numberFormatting";
 
@@ -28,7 +29,9 @@ const contextLabel = computed(() => formatCompactNumber(props.contextSize));
 
 <template>
   <div class="token-usage-summary">
-    <div class="token-usage-icon">📊</div>
+    <div class="token-usage-icon">
+      <BarChart3 :size="20" :stroke-width="1.5" />
+    </div>
     <div class="token-usage-info">
       <div class="token-usage-text">
         <strong>{{ formatted }}</strong> tokens from <strong>{{ tools }}</strong> tools

@@ -2,14 +2,15 @@
 import { ConfirmDialog, ToastContainer } from "@tracepilot/ui";
 import { computed, provide, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import AlertCenterDrawer from "@/components/chrome/AlertCenterDrawer.vue";
+import KbdHelpOverlay from "@/components/chrome/KbdHelpOverlay.vue";
+import SearchPalette from "@/components/chrome/SearchPalette.vue";
 import ErrorBoundary from "@/components/ErrorBoundary.vue";
 import IndexingLoadingScreen from "@/components/IndexingLoadingScreen.vue";
-import AlertCenterDrawer from "@/components/layout/AlertCenterDrawer.vue";
 import AppSidebar from "@/components/layout/AppSidebar.vue";
 import BreadcrumbNav from "@/components/layout/BreadcrumbNav.vue";
 import SessionTabContent from "@/components/layout/SessionTabContent.vue";
 import SessionTabStrip from "@/components/layout/SessionTabStrip.vue";
-import SearchPalette from "@/components/SearchPalette.vue";
 import SetupWizard from "@/components/SetupWizard.vue";
 import UpdateInstructionsModal from "@/components/UpdateInstructionsModal.vue";
 import WhatsNewModal from "@/components/WhatsNewModal.vue";
@@ -169,6 +170,7 @@ const { breadcrumbs } = useBreadcrumbs(isTabViewActive);
   <ConfirmDialog />
   <SearchPalette />
   <AlertCenterDrawer />
+  <KbdHelpOverlay />
 </template>
 
 <style scoped>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Hourglass, RotateCcw } from "lucide-vue-next";
 import { useSessionLauncherContext } from "@/composables/useSessionLauncher";
 
 const {
@@ -17,6 +18,8 @@ const {
 </script>
 
 <template>
+  <!-- design-system: allow-emoji -->
+  <!-- Templates render user-supplied emoji icons via templateIcon(). -->
   <section
     v-if="store.loading || store.templates.length || hasDismissedDefaults"
     class="section-block"
@@ -29,12 +32,15 @@ const {
         title="Restore dismissed default templates"
         @click="store.restoreDefaults()"
       >
-        ↻ Restore Defaults
+        <RotateCcw :size="12" :stroke-width="1.5" aria-hidden="true" />
+        Restore Defaults
       </button>
     </div>
     <div v-if="store.loading && !store.templates.length" class="tpl-grid">
       <div v-for="n in 3" :key="n" class="tpl-card tpl-skeleton">
-        <span class="tpl-emoji">⏳</span>
+        <span class="tpl-emoji" aria-hidden="true">
+          <Hourglass :size="20" :stroke-width="1.5" />
+        </span>
         <span class="tpl-name skeleton-text">&nbsp;</span>
         <span class="tpl-desc skeleton-text">&nbsp;</span>
       </div>

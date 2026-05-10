@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { McpServerDetail } from "@tracepilot/types";
+import { Wrench, Zap } from "lucide-vue-next";
 import { computed } from "vue";
 import { useRouter } from "vue-router";
 import { ROUTE_NAMES } from "@/config/routes";
@@ -112,9 +113,15 @@ function handleConfigure(event: Event) {
     </div>
 
     <div class="server-badges">
-      <span class="badge-xs badge-tools">🔧 {{ server.tools.length }} tools</span>
+      <span class="badge-xs badge-tools">
+        <Wrench :size="11" :stroke-width="1.5" />
+        {{ server.tools.length }} tools
+      </span>
       <span class="badge-xs badge-transport">{{ transportLabel }}</span>
-      <span class="badge-xs badge-tokens">⚡ {{ tokensFormatted }} tok</span>
+      <span class="badge-xs badge-tokens">
+        <Zap :size="11" :stroke-width="1.5" />
+        {{ tokensFormatted }} tok
+      </span>
     </div>
 
     <div v-if="server.config.tags?.length" class="server-tags">

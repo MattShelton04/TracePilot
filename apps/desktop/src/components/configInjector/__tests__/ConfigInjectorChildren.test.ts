@@ -131,7 +131,7 @@ function makeCtx(overrides: Partial<UseConfigInjectorReturn> = {}): UseConfigInj
     handleCreateBackup: vi.fn(),
     batchBackingUp: ref(false),
     handleBackupAllAgents: vi.fn(),
-    backupEmoji: () => "🤖",
+    backupIconName: () => "bot",
     formatBackupLabel: () => "Test Backup",
     confirmingDeleteBackupId: ref<string | null>(null),
     toggleDeleteBackup: vi.fn(),

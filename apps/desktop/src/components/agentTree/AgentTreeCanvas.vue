@@ -7,6 +7,7 @@ import {
   getAgentIcon,
   STATUS_ICONS,
 } from "@tracepilot/ui";
+import { AlertTriangle, ArrowUpRight } from "lucide-vue-next";
 import { type AgentNode, useAgentTreeContext } from "@/composables/useAgentTree";
 import type { AgentTreeSvgLine } from "@/utils/agentTreeLayout";
 
@@ -113,7 +114,7 @@ function handleNodeRef(nodeId: string, el: Element | null): void {
           class="cross-turn-badge"
           :title="`This subagent was launched in turn ${ln.node.sourceTurnIndex}`"
         >
-          ↗ Turn {{ ln.node.sourceTurnIndex }}
+          <ArrowUpRight :size="12" aria-hidden="true" /> Turn {{ ln.node.sourceTurnIndex }}
         </div>
 
         <div class="agent-node-header">
@@ -127,7 +128,8 @@ function handleNodeRef(nodeId: string, el: Element | null): void {
             v-if="ln.node.status !== 'in-progress' && ln.node.requestedModel && ln.node.model !== ln.node.requestedModel"
             class="agent-node-model-warn"
             :title="`Requested ${ln.node.requestedModel} but a different model ran`"
-          >⚠</span>
+            aria-label="model mismatch"
+          ><AlertTriangle :size="12" /></span>
         </div>
 
         <div class="agent-node-meta">

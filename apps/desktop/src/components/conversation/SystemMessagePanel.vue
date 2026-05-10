@@ -9,6 +9,7 @@
  */
 import { formatNumberFull } from "@tracepilot/types";
 import { ExpandChevron, MarkdownContent, useClipboard } from "@tracepilot/ui";
+import { Wrench } from "lucide-vue-next";
 import { computed, ref } from "vue";
 
 const props = defineProps<{
@@ -45,7 +46,7 @@ async function handleCopy(e: MouseEvent) {
         :aria-label="`${expanded ? 'Collapse' : 'Expand'} ${label}`"
         @click="expanded = !expanded"
       >
-        <span class="smp-icon" aria-hidden="true">🔧</span>
+        <span class="smp-icon" aria-hidden="true"><Wrench :size="14" /></span>
         <span class="smp-label">{{ label }}</span>
         <span class="smp-badge">{{ formatNumberFull(wordCount) }} words</span>
       </button>
@@ -99,7 +100,7 @@ async function handleCopy(e: MouseEvent) {
   padding: 6px 6px 6px 10px;
   background: none;
   border: none;
-  color: var(--text-secondary, #8b949e);
+  color: var(--text-secondary);
   cursor: pointer;
   text-align: left;
   min-width: 0;
@@ -121,7 +122,7 @@ async function handleCopy(e: MouseEvent) {
   padding: 1px 6px;
   border-radius: 10px;
   background: var(--neutral-muted, rgba(110, 118, 129, 0.15));
-  color: var(--text-muted, #6e7681);
+  color: var(--text-muted);
   font-size: 10px;
   font-variant-numeric: tabular-nums;
 }
@@ -129,7 +130,7 @@ async function handleCopy(e: MouseEvent) {
 .smp-copy {
   background: none;
   border: none;
-  color: var(--accent-fg, #58a6ff);
+  color: var(--accent-fg);
   font-size: 0.7rem;
   cursor: pointer;
   padding: 2px 6px;
@@ -153,13 +154,13 @@ async function handleCopy(e: MouseEvent) {
 }
 
 .smp-toggle:hover .smp-chevron {
-  color: var(--text-secondary, #8b949e);
+  color: var(--text-secondary);
 }
 
 .smp-body {
   padding: 10px 14px;
-  background: var(--canvas-default, #0d1117);
-  color: var(--text-primary, #e6edf3);
+  background: var(--canvas-default);
+  color: var(--text-primary);
   font-size: 12px;
   border-top: 1px solid var(--border-default, rgba(110, 118, 129, 0.2));
   max-height: 500px;

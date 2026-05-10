@@ -465,7 +465,7 @@
   top: -4px;
   right: -4px;
   background: var(--danger-fg);
-  color: #fff;
+  color: var(--text-on-emphasis);
   font-size: 9px;
   font-weight: 700;
   min-width: 16px;
@@ -482,7 +482,7 @@
    ============================ */
 
 .gradient-value {
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  background: var(--gradient-accent);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { CheckCircle2, XCircle } from "lucide-vue-next";
 import { useOrchestrationHomeStore } from "@/stores/orchestrationHome";
 
 const store = useOrchestrationHomeStore();
@@ -9,7 +10,12 @@ const store = useOrchestrationHomeStore();
     <div class="health-item">
       <span class="health-label">Copilot CLI</span>
       <span class="health-val" :class="store.systemDeps?.copilotAvailable ? 'ok' : 'err'">
-        {{ store.systemDeps?.copilotAvailable ? '✅' : '❌' }}
+        <component
+          :is="store.systemDeps?.copilotAvailable ? CheckCircle2 : XCircle"
+          :size="14"
+          :stroke-width="1.75"
+          aria-hidden="true"
+        />
         v{{ store.copilotVersionStr }}
       </span>
     </div>
@@ -17,7 +23,12 @@ const store = useOrchestrationHomeStore();
     <div class="health-item">
       <span class="health-label">Git</span>
       <span class="health-val" :class="store.systemDeps?.gitAvailable ? 'ok' : 'err'">
-        {{ store.systemDeps?.gitAvailable ? '✅' : '❌' }}
+        <component
+          :is="store.systemDeps?.gitAvailable ? CheckCircle2 : XCircle"
+          :size="14"
+          :stroke-width="1.75"
+          aria-hidden="true"
+        />
         v{{ store.systemDeps?.gitVersion ?? 'N/A' }}
       </span>
     </div>
@@ -57,6 +68,9 @@ const store = useOrchestrationHomeStore();
 
 .health-val {
   font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .health-val.ok {

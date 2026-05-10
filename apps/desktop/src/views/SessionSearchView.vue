@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { formatNumberFull } from "@tracepilot/types";
-import { formatBytes } from "@tracepilot/ui";
+import { Banner, formatBytes } from "@tracepilot/ui";
 import { computed, ref } from "vue";
 import {
   SearchActiveFilters,
@@ -100,13 +100,14 @@ const {
 
       <div class="search-main">
 
-        <div v-if="store.error" class="search-error">
-          <svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16">
-            <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm-.75 3.75a.75.75 0 0 1 1.5 0v3.5a.75.75 0 0 1-1.5 0v-3.5zM8 11a1 1 0 1 1 0 2 1 1 0 0 1 0-2z" />
-          </svg>
-          <span>{{ friendlyError }}</span>
-          <button class="filter-clear-btn" @click="store.clearError()">Dismiss</button>
-        </div>
+        <Banner
+          v-if="store.error"
+          tone="danger"
+          dismissible
+          @dismiss="store.clearError()"
+        >
+          {{ friendlyError }}
+        </Banner>
 
         <div v-if="store.loading" class="search-main-scroll">
           <div class="results-summary">

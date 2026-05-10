@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import { ErrorAlert, LoadingSpinner, PageHeader, TabNav, useDismissable } from "@tracepilot/ui";
+import {
+  Banner,
+  ErrorAlert,
+  LoadingSpinner,
+  PageHeader,
+  TabNav,
+  useDismissable,
+} from "@tracepilot/ui";
 import { computed, provide } from "vue";
 import ConfigInjectorAgentsTab from "@/components/configInjector/ConfigInjectorAgentsTab.vue";
 import ConfigInjectorBackupsTab from "@/components/configInjector/ConfigInjectorBackupsTab.vue";
@@ -16,11 +23,11 @@ const { store } = ctx;
 const { isDismissed: warningDismissed, dismiss: dismissWarning } =
   useDismissable("config-injector-warning");
 
-const tabs: { key: ConfigTab; label: string; emoji: string }[] = [
-  { key: "agents", label: "Agent Models", emoji: "🤖" },
-  { key: "global", label: "Global Config", emoji: "📋" },
-  { key: "versions", label: "Environment", emoji: "🔧" },
-  { key: "backups", label: "Backups", emoji: "💾" },
+const tabs: { key: ConfigTab; label: string }[] = [
+  { key: "agents", label: "Agent Models" },
+  { key: "global", label: "Global Config" },
+  { key: "versions", label: "Environment" },
+  { key: "backups", label: "Backups" },
 ];
 
 function tabCount(key: ConfigTab): number | null {
@@ -36,7 +43,6 @@ const tabNavItems = computed(() =>
       name: t.key,
       routeName: t.key,
       label: t.label,
-      icon: t.emoji,
       ...(count !== null ? { count } : {}),
     };
   }),
@@ -60,17 +66,20 @@ const tabNavItems = computed(() =>
         <span class="breadcrumb-current">Config Injector</span>
       </nav>
 
-      <PageHeader title="⚙️ Config Injector" size="sm" class="config-injector-header" />
+      <PageHeader title="Config Injector" icon-name="sliders-horizontal" size="sm" class="config-injector-header" />
 
       <Transition name="banner">
-        <div v-if="store.hasCustomizations && !warningDismissed" class="warning-banner">
-          <span class="warning-banner-text">
-            ⚠️ Copilot will overwrite customizations on update. Set
-            <code>COPILOT_AUTO_UPDATE=false</code> to prevent.
-            We don't recommend disabling auto-update and suggest reinjecting after every update.
-          </span>
-          <button class="warning-banner-close" title="Dismiss" @click="dismissWarning()">✕</button>
-        </div>
+        <Banner
+          v-if="store.hasCustomizations && !warningDismissed"
+          tone="warning"
+          dismissible
+          class="config-injector-customizations-banner"
+          @dismiss="dismissWarning()"
+        >
+          Copilot will overwrite customizations on update. Set
+          <code>COPILOT_AUTO_UPDATE=false</code> to prevent.
+          We don't recommend disabling auto-update and suggest reinjecting after every update.
+        </Banner>
       </Transition>
 
       <TabNav

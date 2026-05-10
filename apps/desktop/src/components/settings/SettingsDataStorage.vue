@@ -397,7 +397,7 @@ defineExpose({ databaseSize, indexedSessionCount });
 
 .indexing-progress-bar {
   height: 100%;
-  background: var(--accent-fg, #3b82f6);
+  background: var(--accent-fg);
   border-radius: 3px;
   transition: width 0.15s ease-out;
 }

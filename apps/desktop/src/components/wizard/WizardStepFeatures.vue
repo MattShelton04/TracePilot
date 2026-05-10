@@ -36,7 +36,7 @@ const features = [
   },
   {
     emoji: "🔧",
-    color: "#f472b6", // pink - not in chart colors, keep as-is for now
+    color: chartColors.pink, // pink (--chart-pink)
     title: "Tool Analysis",
     desc: "See which tools Copilot uses and how effectively",
   },
@@ -102,7 +102,7 @@ const features = [
   gap: 12px;
   padding: 14px;
   border-radius: var(--radius-lg, 10px);
-  background: var(--canvas-subtle, #111113);
+  background: var(--canvas-subtle);
   border: 1px solid var(--border-muted, rgba(255, 255, 255, 0.06));
   text-align: left;
   opacity: 0;
@@ -115,7 +115,7 @@ const features = [
   transform: translateY(-2px);
   border-color: var(--border-accent, rgba(99, 102, 241, 0.5));
   box-shadow: 0 4px 20px rgba(99, 102, 241, 0.10), 0 0 0 1px rgba(99, 102, 241, 0.08);
-  background: var(--canvas-raised, #1c1c1f);
+  background: var(--canvas-raised);
 }
 
 .feature-card.animate-in {
@@ -133,7 +133,7 @@ const features = [
   transform: translateY(-2px);
   border-color: var(--border-accent, rgba(99, 102, 241, 0.5));
   box-shadow: 0 4px 20px rgba(99, 102, 241, 0.10), 0 0 0 1px rgba(99, 102, 241, 0.08);
-  background: var(--canvas-raised, #1c1c1f);
+  background: var(--canvas-raised);
 }
 
 @keyframes fadeInUp {
@@ -159,12 +159,12 @@ const features = [
 .feature-title {
   font-size: 0.8125rem;
   font-weight: 600;
-  color: var(--text-primary, #fafafa);
+  color: var(--text-primary);
 }
 
 .feature-desc {
   font-size: 0.6875rem;
-  color: var(--text-tertiary, #71717a);
+  color: var(--text-tertiary);
   margin-top: 2px;
   line-height: 1.4;
 }

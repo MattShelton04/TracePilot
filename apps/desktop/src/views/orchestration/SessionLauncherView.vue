@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ErrorAlert, PageHeader } from "@tracepilot/ui";
+import { Banner, ErrorAlert, PageHeader } from "@tracepilot/ui";
 import { provide } from "vue";
 import SessionLauncherAdvanced from "@/components/sessionLauncher/SessionLauncherAdvanced.vue";
 import SessionLauncherConfig from "@/components/sessionLauncher/SessionLauncherConfig.vue";
@@ -41,21 +41,20 @@ const { store, contextMenuTpl, deleteContextTemplate, closeContextMenu } = ctx;
             class="session-launcher-header"
           />
 
-          <div v-if="store && !store.isReady && !store.loading" class="readiness-banner">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" class="readiness-icon">
-              <path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575ZM8 5a.75.75 0 0 0-.75.75v2.5a.75.75 0 0 0 1.5 0v-2.5A.75.75 0 0 0 8 5Zm1 6a1 1 0 1 0-2 0 1 1 0 0 0 2 0Z"/>
-            </svg>
-            <span>
-              System not ready —
-              <template v-if="store.systemDeps">
-                <strong v-if="!store.systemDeps.gitAvailable">git</strong>
-                <template v-if="!store.systemDeps.gitAvailable && !store.systemDeps.copilotAvailable"> and </template>
-                <strong v-if="!store.systemDeps.copilotAvailable">GitHub Copilot CLI</strong>
-                not found on PATH.
-              </template>
-              <template v-else>ensure <strong>git</strong> and <strong>GitHub Copilot CLI</strong> are installed.</template>
-            </span>
-          </div>
+          <Banner
+            v-if="store && !store.isReady && !store.loading"
+            tone="warning"
+            class="readiness-banner"
+          >
+            <strong>System not ready</strong> —
+            <template v-if="store.systemDeps">
+              <strong v-if="!store.systemDeps.gitAvailable">git</strong>
+              <template v-if="!store.systemDeps.gitAvailable && !store.systemDeps.copilotAvailable"> and </template>
+              <strong v-if="!store.systemDeps.copilotAvailable">GitHub Copilot CLI</strong>
+              not found on PATH.
+            </template>
+            <template v-else>ensure <strong>git</strong> and <strong>GitHub Copilot CLI</strong> are installed.</template>
+          </Banner>
 
           <ErrorAlert v-if="store.error" :message="store.error" variant="banner" dismissible @dismiss="store.clearError()" />
 

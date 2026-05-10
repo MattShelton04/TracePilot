@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { TurnSessionEvent, TurnToolCall } from "@tracepilot/types";
 import { computed, nextTick, ref, watch } from "vue";
+import { resolveLucideIcon } from "../icons/lucideRegistry";
 import { formatDuration } from "../utils/formatters";
 import { categoryColor, formatArgsSummary, toolCategory, toolIcon } from "../utils/toolCall";
 import ExpandChevron from "./ExpandChevron.vue";
@@ -169,7 +170,9 @@ watch(
       :aria-expanded="expanded"
       @click="emit('toggle')"
     >
-      <span class="tool-call-icon">{{ toolIcon(tc.toolName) }}</span>
+      <span class="tool-call-icon">
+        <component :is="resolveLucideIcon(toolIcon(tc.toolName))" :size="14" :stroke-width="1.5" aria-hidden="true" />
+      </span>
 
       <!-- With intention: stacked name + intent -->
       <template v-if="tc.intentionSummary">

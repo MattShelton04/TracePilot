@@ -7,6 +7,7 @@ import {
   ReasoningBlock,
   type useToggleSet,
 } from "@tracepilot/ui";
+import { Bot } from "lucide-vue-next";
 import SubagentGroupSegment from "@/components/conversation/chat/SubagentGroupSegment.vue";
 import ToolGroupSegment from "@/components/conversation/chat/ToolGroupSegment.vue";
 import type { ToolSegment } from "@/components/conversation/chatViewUtils";
@@ -102,7 +103,7 @@ function toggleToolDetail(tc: TurnToolCall) {
       class="cv-agent-bubble"
     >
       <div class="cv-agent-bubble-header">
-        <span class="cv-agent-avatar" aria-hidden="true">🤖</span>
+        <span class="cv-agent-avatar" aria-hidden="true"><Bot :size="16" /></span>
         <span class="cv-agent-name">Copilot</span>
         <span v-if="turn.timestamp" class="cv-agent-time">
           {{ formatTime(turn.timestamp) }}
@@ -173,7 +174,7 @@ function toggleToolDetail(tc: TurnToolCall) {
   bottom: 0;
   left: 7px;
   width: 1px;
-  background: var(--border-muted, #484f58);
+  background: var(--border-muted);
   pointer-events: none;
 }
 
@@ -184,8 +185,8 @@ function toggleToolDetail(tc: TurnToolCall) {
   top: 8px;
   font-size: 10px;
   font-family: "JetBrains Mono", monospace;
-  color: var(--text-placeholder, #6e7681);
-  background: var(--canvas-default, #0d1117);
+  color: var(--text-placeholder);
+  background: var(--canvas-default);
   padding: 0 3px;
   border-radius: var(--radius-sm, 4px);
   opacity: 0;
@@ -201,7 +202,7 @@ function toggleToolDetail(tc: TurnToolCall) {
 /* ─── Agent bubble ─────────────────────────────────────────────── */
 
 .cv-agent-bubble {
-  background: var(--canvas-subtle, #161b22);
+  background: var(--canvas-subtle);
   border-radius: var(--radius-md, 8px);
   padding: 12px 16px;
   margin: 6px 0;
@@ -213,7 +214,7 @@ function toggleToolDetail(tc: TurnToolCall) {
   gap: 6px;
   font-size: 12px;
   font-weight: 600;
-  color: var(--text-secondary, #8b949e);
+  color: var(--text-secondary);
   margin-bottom: 6px;
 }
 
@@ -237,7 +238,7 @@ function toggleToolDetail(tc: TurnToolCall) {
 .cv-agent-time {
   margin-left: auto;
   font-size: 11px;
-  color: var(--text-placeholder, #6e7681);
+  color: var(--text-placeholder);
   font-weight: 400;
 }
 
@@ -261,12 +262,12 @@ function toggleToolDetail(tc: TurnToolCall) {
 
 .cv-subagent-complete-pill.completed {
   background: var(--success-subtle, rgba(63, 185, 80, 0.1));
-  color: var(--success-fg, #3fb950);
+  color: var(--success-fg);
 }
 
 .cv-subagent-complete-pill.failed {
   background: var(--danger-subtle, rgba(248, 81, 73, 0.1));
-  color: var(--danger-fg, #f85149);
+  color: var(--danger-fg);
 }
 
 .cv-subagent-complete-pill .cv-pill-duration {

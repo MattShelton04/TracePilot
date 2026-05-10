@@ -55,7 +55,7 @@ const emit = defineEmits<{
   font-size: 36px;
   font-weight: 800;
   letter-spacing: -0.03em;
-  background: linear-gradient(135deg, #fafafa 0%, #a1a1aa 100%);
+  background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -63,7 +63,7 @@ const emit = defineEmits<{
 
 .welcome-subtitle {
   font-size: 20px;
-  color: var(--text-secondary, #a1a1aa);
+  color: var(--text-secondary);
   margin-top: -4px;
 }
 

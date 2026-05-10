@@ -9,6 +9,7 @@
  */
 import type { SkillInvocationEvent, TurnSessionEvent, TurnToolCall } from "@tracepilot/types";
 import { ExpandChevron, formatDuration, formatTime } from "@tracepilot/ui";
+import { Zap } from "lucide-vue-next";
 import { computed, inject, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { SESSION_DETAIL_KEY } from "@/composables/useSessionDetail";
@@ -95,7 +96,7 @@ function openEditor(e: MouseEvent) {
       :aria-label="ariaLabel"
       @click="toggle"
     >
-      <span class="skill-row__icon" aria-hidden="true">⚡</span>
+      <span class="skill-row__icon" aria-hidden="true"><Zap :size="14" /></span>
       <span class="skill-row__tag">skill</span>
       <span class="skill-row__name">{{ headerLabel }}</span>
       <span v-if="skillDescription" class="skill-row__desc">— {{ skillDescription }}</span>
@@ -150,7 +151,7 @@ function openEditor(e: MouseEvent) {
 }
 
 .skill-row--expanded {
-  background: var(--canvas-default, #0d1117);
+  background: var(--canvas-default);
 }
 
 .skill-row__header {
@@ -161,7 +162,7 @@ function openEditor(e: MouseEvent) {
   padding: 6px 10px;
   background: none;
   border: none;
-  color: var(--text-secondary, #8b949e);
+  color: var(--text-secondary);
   cursor: pointer;
   text-align: left;
   font: inherit;
@@ -173,7 +174,7 @@ function openEditor(e: MouseEvent) {
 }
 
 .skill-row__header:focus-visible {
-  outline: 2px solid var(--accent-fg, #58a6ff);
+  outline: 2px solid var(--accent-fg);
   outline-offset: -2px;
 }
 
@@ -186,19 +187,19 @@ function openEditor(e: MouseEvent) {
   font-family: "JetBrains Mono", monospace;
   font-size: 11px;
   font-weight: 600;
-  color: var(--accent-fg, #58a6ff);
+  color: var(--accent-fg);
 }
 
 .skill-row__name {
   flex-shrink: 0;
-  color: var(--text-primary, #e6edf3);
+  color: var(--text-primary);
   font-weight: 500;
 }
 
 .skill-row__desc {
   flex: 1;
   min-width: 0;
-  color: var(--text-muted, #6e7681);
+  color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -214,7 +215,7 @@ function openEditor(e: MouseEvent) {
 .skill-row__status {
   flex-shrink: 0;
   font-size: 11px;
-  color: var(--text-muted, #6e7681);
+  color: var(--text-muted);
 }
 
 .skill-row__status {
@@ -222,24 +223,24 @@ function openEditor(e: MouseEvent) {
 }
 
 .skill-row__status--success {
-  color: var(--success-fg, #3fb950);
+  color: var(--success-fg);
 }
 
 .skill-row__status--failed {
-  color: var(--danger-fg, #f85149);
+  color: var(--danger-fg);
 }
 
 .skill-row__chev {
   display: inline-flex;
   align-items: center;
   flex-shrink: 0;
-  color: var(--text-muted, #6e7681);
+  color: var(--text-muted);
 }
 
 .skill-row__body {
   padding: 10px 14px 12px;
   border-top: 1px solid var(--border-default, rgba(110, 118, 129, 0.2));
-  color: var(--text-primary, #e6edf3);
+  color: var(--text-primary);
 }
 
 .skill-row__meta {
@@ -254,7 +255,7 @@ function openEditor(e: MouseEvent) {
   min-width: 0;
   font-family: "JetBrains Mono", monospace;
   font-size: 11px;
-  color: var(--text-muted, #6e7681);
+  color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -266,7 +267,7 @@ function openEditor(e: MouseEvent) {
   border: 1px solid var(--accent-muted, rgba(56, 139, 253, 0.4));
   border-radius: var(--radius-sm, 4px);
   background: var(--accent-subtle, rgba(56, 139, 253, 0.08));
-  color: var(--accent-fg, #58a6ff);
+  color: var(--accent-fg);
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
@@ -274,11 +275,11 @@ function openEditor(e: MouseEvent) {
 
 .skill-row__editor-btn:hover {
   background: var(--accent-muted, rgba(56, 139, 253, 0.2));
-  border-color: var(--accent-fg, #58a6ff);
+  border-color: var(--accent-fg);
 }
 
 .skill-row__editor-btn:focus-visible {
-  outline: 2px solid var(--accent-fg, #58a6ff);
+  outline: 2px solid var(--accent-fg);
   outline-offset: 2px;
 }
 
@@ -301,6 +302,6 @@ function openEditor(e: MouseEvent) {
 .skill-row__truncated {
   margin: 6px 0 0;
   font-size: 11px;
-  color: var(--text-muted, #6e7681);
+  color: var(--text-muted);
 }
 </style>

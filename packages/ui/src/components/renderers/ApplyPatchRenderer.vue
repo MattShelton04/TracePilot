@@ -1,15 +1,13 @@
 <script setup lang="ts">
 /**
  * ApplyPatchRenderer — renders apply_patch raw patch grammar as file cards.
- *
- * Unlike the edit tool, apply_patch arguments are a raw patch string that may
- * touch multiple files. The parser below preserves that explicit structure
- * instead of trying to infer old/new source strings.
  */
 import type { TurnToolCall } from "@tracepilot/types";
+import { GitPullRequest } from "lucide-vue-next";
 import { computed, ref } from "vue";
+import RendererShell, { type RendererShellStatus } from "../RendererShell.vue";
+import RendererTruncationFooter from "../RendererTruncationFooter.vue";
 import CodeBlock from "./CodeBlock.vue";
-import RendererShell from "./RendererShell.vue";
 
 const props = defineProps<{
   content: string;
@@ -39,6 +37,10 @@ interface PatchFile {
 
 const showRaw = ref(false);
 
+const status = computed<RendererShellStatus>(() =>
+  props.tc?.success === true ? "success" : props.tc?.success === false ? "error" : "pending",
+);
+
 const rawPatch = computed(() => {
   if (typeof props.tc.arguments === "string") return props.tc.arguments;
   if (props.content.startsWith("*** Begin Patch")) return props.content;
@@ -46,6 +48,12 @@ const rawPatch = computed(() => {
 });
 
 const patchFiles = computed(() => parsePatch(rawPatch.value));
+
+const primaryHint = computed(() => {
+  if (patchFiles.value.length === 0) return undefined;
+  if (patchFiles.value.length === 1) return patchFiles.value[0].path;
+  return `${patchFiles.value.length} files`;
+});
 
 const addedLineCount = computed(() =>
   patchFiles.value.reduce(
@@ -145,10 +153,6 @@ function operationLabel(operation: PatchOperation): string {
   }
 }
 
-function fileName(path: string): string {
-  return path.replace(/\\/g, "/").split("/").pop() ?? path;
-}
-
 function addedFileContent(file: PatchFile): string {
   return file.lines.map((line) => line.content).join("\n");
 }
@@ -156,11 +160,12 @@ function addedFileContent(file: PatchFile): string {
 
 <template>
   <RendererShell
-    :label="patchFiles.length === 1 ? fileName(patchFiles[0].path) : 'Apply Patch'"
-    :copy-content="rawPatch || content"
-    :is-truncated="isTruncated"
-    @load-full="emit('load-full')"
+    tool-name="Apply Patch"
+    :status="status"
+    :primary-hint="primaryHint"
+    :copy-text="rawPatch || content"
   >
+    <template #icon><GitPullRequest :size="16" /></template>
     <div v-if="patchFiles.length > 0" class="patch-renderer">
       <div class="patch-summary">
         <span class="patch-summary-item">{{ patchFiles.length }} file{{ patchFiles.length !== 1 ? 's' : '' }}</span>
@@ -190,7 +195,7 @@ function addedFileContent(file: PatchFile): string {
               <span class="patch-file-path" :title="file.path">{{ file.path }}</span>
             </div>
             <span v-if="file.moveTo" class="patch-move-target" :title="file.moveTo">
-              -> {{ file.moveTo }}
+              -&gt; {{ file.moveTo }}
             </span>
           </header>
 
@@ -234,6 +239,7 @@ function addedFileContent(file: PatchFile): string {
     </div>
 
     <pre v-else class="patch-fallback">{{ content || rawPatch }}</pre>
+    <RendererTruncationFooter v-if="isTruncated" @load-full="emit('load-full')" />
   </RendererShell>
 </template>
 
@@ -248,10 +254,7 @@ function addedFileContent(file: PatchFile): string {
   gap: 6px;
   padding: 8px 10px;
   border-bottom: 1px solid var(--border-muted);
-  background:
-    radial-gradient(circle at top left, rgba(52, 211, 153, 0.09), transparent 35%),
-    radial-gradient(circle at top right, rgba(248, 113, 113, 0.07), transparent 34%),
-    var(--canvas-inset);
+  background: var(--canvas-inset);
 }
 .patch-summary-item,
 .patch-op-chip {
@@ -264,20 +267,20 @@ function addedFileContent(file: PatchFile): string {
 }
 .patch-summary-item--added,
 .patch-op-chip--add {
-  color: var(--success-fg, #34d399);
-  border-color: rgba(52, 211, 153, 0.32);
-  background: rgba(52, 211, 153, 0.09);
+  color: var(--success-fg);
+  border-color: var(--success-muted);
+  background: var(--success-subtle);
 }
 .patch-summary-item--removed,
 .patch-op-chip--delete {
-  color: var(--danger-fg, #f87171);
-  border-color: rgba(248, 113, 113, 0.32);
-  background: rgba(248, 113, 113, 0.09);
+  color: var(--danger-fg);
+  border-color: var(--danger-muted);
+  background: var(--danger-subtle);
 }
 .patch-op-chip--update {
-  color: var(--warning-fg, #fbbf24);
-  border-color: rgba(251, 191, 36, 0.32);
-  background: rgba(251, 191, 36, 0.09);
+  color: var(--warning-fg);
+  border-color: var(--warning-muted);
+  background: var(--warning-subtle);
 }
 .patch-file-list {
   display: flex;
@@ -294,7 +297,7 @@ function addedFileContent(file: PatchFile): string {
   justify-content: space-between;
   gap: 10px;
   padding: 7px 10px;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--canvas-inset);
 }
 .patch-file-title {
   display: flex;
@@ -312,16 +315,16 @@ function addedFileContent(file: PatchFile): string {
   flex-shrink: 0;
 }
 .patch-file-badge--add {
-  color: var(--success-fg, #34d399);
-  background: rgba(52, 211, 153, 0.14);
+  color: var(--success-fg);
+  background: var(--success-subtle);
 }
 .patch-file-badge--update {
-  color: var(--warning-fg, #fbbf24);
-  background: rgba(251, 191, 36, 0.14);
+  color: var(--warning-fg);
+  background: var(--warning-subtle);
 }
 .patch-file-badge--delete {
-  color: var(--danger-fg, #f87171);
-  background: rgba(248, 113, 113, 0.14);
+  color: var(--danger-fg);
+  background: var(--danger-subtle);
 }
 .patch-file-path,
 .patch-move-target {
@@ -347,13 +350,13 @@ function addedFileContent(file: PatchFile): string {
   line-height: 1.6;
 }
 .patch-line--added {
-  background: rgba(52, 211, 153, 0.08);
+  background: var(--success-subtle);
 }
 .patch-line--removed {
-  background: rgba(248, 113, 113, 0.08);
+  background: var(--danger-subtle);
 }
 .patch-line--hunk {
-  background: rgba(99, 102, 241, 0.1);
+  background: var(--accent-muted);
 }
 .patch-line-indicator {
   width: 3ch;
@@ -365,15 +368,15 @@ function addedFileContent(file: PatchFile): string {
 }
 .patch-line--added .patch-line-indicator,
 .patch-line--added .patch-line-code {
-  color: var(--success-fg, #34d399);
+  color: var(--success-fg);
 }
 .patch-line--removed .patch-line-indicator,
 .patch-line--removed .patch-line-code {
-  color: var(--danger-fg, #f87171);
+  color: var(--danger-fg);
 }
 .patch-line--hunk .patch-line-indicator,
 .patch-line--hunk .patch-line-code {
-  color: var(--accent-fg, #818cf8);
+  color: var(--accent-fg);
 }
 .patch-line-code {
   padding: 0 12px 0 0;
@@ -391,7 +394,7 @@ function addedFileContent(file: PatchFile): string {
 }
 .patch-delete-body code {
   font-family: 'JetBrains Mono', monospace;
-  color: var(--danger-fg, #f87171);
+  color: var(--danger-fg);
 }
 .patch-raw-toggle {
   width: 100%;

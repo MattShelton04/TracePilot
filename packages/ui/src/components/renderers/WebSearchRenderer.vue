@@ -3,12 +3,16 @@
  * WebSearchRenderer — renders web_search tool results with markdown body,
  * numbered source cards, and inline citation highlighting.
  */
+import type { TurnToolCall } from "@tracepilot/types";
+import { Globe, Search } from "lucide-vue-next";
 import { computed } from "vue";
-import RendererShell from "./RendererShell.vue";
+import RendererShell, { type RendererShellStatus } from "../RendererShell.vue";
+import RendererTruncationFooter from "../RendererTruncationFooter.vue";
 
 const props = defineProps<{
   content: string;
   args: Record<string, unknown>;
+  tc?: TurnToolCall;
   isTruncated?: boolean;
 }>();
 
@@ -16,26 +20,23 @@ const emit = defineEmits<{
   "load-full": [];
 }>();
 
+const status = computed<RendererShellStatus>(() =>
+  props.tc?.success === true ? "success" : props.tc?.success === false ? "error" : "success",
+);
+
 const query = computed(() => (typeof props.args?.query === "string" ? props.args.query : null));
 
-/** Unwrap JSON envelopes that wrap the real text content.
- *  Real web_search results often arrive as:
- *  `{"type":"text","text":{"value":"...actual markdown..."}}` */
 const unwrappedContent = computed(() => {
   if (!props.content) return "";
   const s = props.content.trim();
   if (!s.startsWith("{") && !s.startsWith("[")) return s;
   try {
     const parsed = JSON.parse(s);
-    // Envelope: { type: "text", text: { value: "..." } }
     if (parsed?.text?.value && typeof parsed.text.value === "string") {
       return parsed.text.value;
     }
-    // Simpler envelope: { value: "..." }
     if (typeof parsed?.value === "string") return parsed.value;
-    // Direct text field
     if (typeof parsed?.text === "string") return parsed.text;
-    // Array of text entries
     if (Array.isArray(parsed)) {
       return parsed
         .map((e: Record<string, unknown>) =>
@@ -47,12 +48,11 @@ const unwrappedContent = computed(() => {
         .join("\n\n");
     }
   } catch {
-    // Not JSON — use as-is
+    // Not JSON
   }
   return s;
 });
 
-/** Extract URLs from markdown link format. */
 const sources = computed<Array<{ title: string; url: string; domain: string }>>(() => {
   const text = unwrappedContent.value;
   if (!text) return [];
@@ -74,38 +74,28 @@ const sources = computed<Array<{ title: string; url: string; domain: string }>>(
   return results;
 });
 
-/** Simple markdown → HTML (safe — escapes first, then applies formatting). */
 const renderedBody = computed(() => {
   const text = unwrappedContent.value;
   if (!text) return "";
   let html = escapeHtml(text);
 
-  // Headings: ### before ## to avoid conflicts
   html = html.replace(/^### (.+)$/gm, '<h4 class="ws-heading ws-h3">$1</h4>');
   html = html.replace(/^## (.+)$/gm, '<h3 class="ws-heading ws-h2">$1</h3>');
   html = html.replace(/^# (.+)$/gm, '<h2 class="ws-heading ws-h1">$1</h2>');
 
-  // Horizontal rule
   html = html.replace(/^---+$/gm, '<hr class="ws-hr">');
 
-  // Bold
   html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-  // Italic (single *)
   html = html.replace(/(?<!\*)\*([^*]+?)\*(?!\*)/g, "<em>$1</em>");
-  // Inline code
   html = html.replace(/`([^`]+)`/g, '<code class="ws-inline-code">$1</code>');
 
-  // Citation references like [1], [2] — only match standalone numeric refs
-  // Use negative lookbehind/lookahead to avoid matching markdown link text
   html = html.replace(/(?<!\[)\[(\d+)\](?!\()/g, '<span class="ws-citation">$1</span>');
 
-  // Markdown links → clickable (handles one level of nested parentheses in URL)
   html = html.replace(
     /\[([^\]]+)\]\((https?:\/\/(?:[^()]*|\([^()]*\))*)\)/g,
     '<a href="$2" target="_blank" rel="noopener" class="ws-link">$1</a>',
   );
 
-  // Unordered lists (- or * at line start)
   html = html.replace(/(?:^|\n)((?:(?:- |\* ).+\n?)+)/g, (_match, block: string) => {
     const items = block
       .split("\n")
@@ -115,7 +105,6 @@ const renderedBody = computed(() => {
     return `<ul class="ws-list">${items}</ul>`;
   });
 
-  // Ordered lists (1. 2. etc.)
   html = html.replace(/(?:^|\n)((?:\d+\. .+\n?)+)/g, (_match, block: string) => {
     const items = block
       .split("\n")
@@ -125,7 +114,6 @@ const renderedBody = computed(() => {
     return `<ol class="ws-list ws-list--ordered">${items}</ol>`;
   });
 
-  // Blockquotes (> at line start)
   html = html.replace(/(?:^|\n)((?:&gt; .+\n?)+)/g, (_match, block: string) => {
     const content = block
       .split("\n")
@@ -135,7 +123,6 @@ const renderedBody = computed(() => {
     return `<blockquote class="ws-blockquote">${content}</blockquote>`;
   });
 
-  // Line breaks (double newline = paragraph, single = br)
   html = html.replace(/\n\n+/g, '</p><p class="ws-paragraph">');
   html = html.replace(/\n/g, "<br>");
   html = `<p class="ws-paragraph">${html}</p>`;
@@ -152,30 +139,27 @@ function escapeHtml(s: string): string {
 }
 
 function faviconUrl(domain: string): string {
-  // DuckDuckGo's privacy-respecting favicon proxy (no user tracking)
   return `https://icons.duckduckgo.com/ip3/${domain}.ico`;
 }
 </script>
 
 <template>
   <RendererShell
-    :label="query ? `🌐 ${query}` : 'Web Search'"
-    :copy-content="content"
-    :is-truncated="isTruncated"
-    @load-full="emit('load-full')"
+    tool-name="Web Search"
+    :status="status"
+    :primary-hint="query ?? undefined"
+    :copy-text="content"
   >
+    <template #icon><Globe :size="16" /></template>
     <div class="web-search">
-      <!-- Query display -->
       <div v-if="query" class="ws-query-bar">
-        <span class="ws-query-icon">🔍</span>
+        <Search :size="14" class="ws-query-icon" />
         <span class="ws-query-text">{{ query }}</span>
       </div>
 
-      <!-- Rendered body with markdown formatting -->
       <!-- eslint-disable vue/no-v-html -->
       <div class="ws-body" v-html="renderedBody"></div>
 
-      <!-- Source cards -->
       <div v-if="sources.length > 0" class="ws-sources">
         <div class="ws-sources-label">Sources ({{ sources.length }})</div>
         <div class="ws-source-grid">
@@ -194,6 +178,7 @@ function faviconUrl(domain: string): string {
         </div>
       </div>
     </div>
+    <RendererTruncationFooter v-if="isTruncated" @load-full="emit('load-full')" />
   </RendererShell>
 </template>
 
@@ -209,7 +194,7 @@ function faviconUrl(domain: string): string {
   background: var(--canvas-inset);
   border-bottom: 1px solid var(--border-muted);
 }
-.ws-query-icon { font-size: 0.875rem; flex-shrink: 0; }
+.ws-query-icon { flex-shrink: 0; color: var(--text-tertiary); }
 .ws-query-text {
   font-weight: 600;
   color: var(--text-primary);
@@ -233,7 +218,7 @@ function faviconUrl(domain: string): string {
   font-size: 0.6875rem;
 }
 .ws-body :deep(.ws-link) {
-  color: var(--accent-fg, #818cf8);
+  color: var(--accent-fg);
   text-decoration: none;
 }
 .ws-body :deep(.ws-link:hover) { text-decoration: underline; }
@@ -249,7 +234,7 @@ function faviconUrl(domain: string): string {
 }
 .ws-body :deep(.ws-list li) { margin: 2px 0; }
 .ws-body :deep(.ws-blockquote) {
-  border-left: 3px solid var(--accent-emphasis, #6366f1);
+  border-left: 3px solid var(--accent-emphasis);
   padding: 4px 10px;
   margin: 6px 0;
   background: var(--neutral-muted);
@@ -266,8 +251,8 @@ function faviconUrl(domain: string): string {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: var(--accent-muted, rgba(99, 102, 241, 0.15));
-  color: var(--accent-fg, #818cf8);
+  background: var(--accent-muted);
+  color: var(--accent-fg);
   font-size: 0.5625rem;
   font-weight: 700;
   vertical-align: super;
@@ -275,7 +260,6 @@ function faviconUrl(domain: string): string {
   cursor: default;
 }
 
-/* ── Source cards ── */
 .ws-sources {
   border-top: 1px solid var(--border-muted);
   padding: 8px 12px;
@@ -299,13 +283,13 @@ function faviconUrl(domain: string): string {
   gap: 8px;
   padding: 8px 10px;
   border: 1px solid var(--border-muted);
-  border-radius: var(--radius-sm, 6px);
+  border-radius: var(--radius-sm);
   text-decoration: none;
   color: inherit;
   transition: all 0.15s;
 }
 .ws-source-card:hover {
-  border-color: var(--accent-emphasis, #6366f1);
+  border-color: var(--accent-emphasis);
   background: var(--neutral-muted);
 }
 .ws-source-num {
@@ -315,8 +299,8 @@ function faviconUrl(domain: string): string {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: var(--accent-muted, rgba(99, 102, 241, 0.15));
-  color: var(--accent-fg, #818cf8);
+  background: var(--accent-muted);
+  color: var(--accent-fg);
   font-size: 0.625rem;
   font-weight: 700;
   flex-shrink: 0;

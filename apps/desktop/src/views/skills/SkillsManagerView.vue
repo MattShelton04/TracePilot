@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { formatNumberFull, type SkillImportResult } from "@tracepilot/types";
 import { PageHeader, PageShell, useConfirmDialog } from "@tracepilot/ui";
+import { Brain } from "lucide-vue-next";
 import { computed, onMounted, ref } from "vue";
 import SkillCard from "@/components/skills/SkillCard.vue";
 import SkillImportWizard from "@/components/skills/SkillImportWizard.vue";
@@ -179,7 +180,9 @@ async function handleDeleteSkill(dir: string) {
 
       <!-- Empty State -->
       <div v-else class="empty-state">
-        <div class="empty-state__icon">🧠</div>
+        <div class="empty-state__icon" aria-hidden="true">
+          <Brain :size="48" :stroke-width="1.5" />
+        </div>
         <h3 class="empty-state__title">No skills found</h3>
         <p class="empty-state__desc">
           {{ store.searchQuery ? "Try a different search term" : "Create your first skill or import one to get started" }}
@@ -446,7 +449,7 @@ async function handleDeleteSkill(dir: string) {
 .btn--primary {
   background: var(--gradient-accent, var(--accent-emphasis));
   border: 1px solid transparent;
-  color: var(--text-on-emphasis, #fff);
+  color: var(--text-on-emphasis);
   font-weight: 600;
   box-shadow: 0 1px 6px rgba(99, 102, 241, 0.35);
 }

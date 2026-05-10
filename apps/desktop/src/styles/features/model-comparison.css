@@ -212,7 +212,7 @@
   gap: 16px;
   margin-bottom: 12px;
   font-size: 0.75rem;
-  color: var(--text-secondary, #a1a1aa);
+  color: var(--text-secondary);
   flex-wrap: wrap;
 }
 .model-comparison-feature .legend-dot {

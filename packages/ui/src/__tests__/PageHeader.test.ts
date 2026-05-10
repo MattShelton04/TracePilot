@@ -64,4 +64,14 @@ describe("PageHeader", () => {
     expect(wrapper.find(".title-icon-tile").exists()).toBe(true);
     expect(wrapper.find(".title-icon-tile .ic").exists()).toBe(true);
   });
+
+  it("does not apply sticky modifier by default", () => {
+    const wrapper = mount(PageHeader, { props: { title: "T" } });
+    expect(wrapper.find(".page-header").classes()).not.toContain("page-header--sticky");
+  });
+
+  it("applies sticky modifier when sticky prop is true", () => {
+    const wrapper = mount(PageHeader, { props: { title: "T", sticky: true } });
+    expect(wrapper.find(".page-header").classes()).toContain("page-header--sticky");
+  });
 });

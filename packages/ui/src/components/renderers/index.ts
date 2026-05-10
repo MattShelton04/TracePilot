@@ -2,7 +2,6 @@
 
 export { default as CodeBlock } from "./CodeBlock.vue";
 export { default as PlainTextRenderer } from "./PlainTextRenderer.vue";
-export { default as RendererShell } from "./RendererShell.vue";
 // Registry
 export {
   getRegisteredRenderers,

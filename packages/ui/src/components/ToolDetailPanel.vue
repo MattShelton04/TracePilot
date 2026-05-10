@@ -8,6 +8,8 @@
  * to the parent component.
  */
 import type { TurnToolCall } from "@tracepilot/types";
+import { computed } from "vue";
+import { resolveLucideIcon } from "../icons/lucideRegistry";
 import { formatDuration, formatTime } from "../utils/formatters";
 import { extractPrompt, toolIcon } from "../utils/toolCall";
 import Badge from "./Badge.vue";
@@ -32,13 +34,19 @@ defineEmits<{
   close: [];
   "load-full-result": [toolCallId: string];
 }>();
+
+const iconComponent = computed(() => {
+  return resolveLucideIcon(toolIcon(props.tc.toolName));
+});
 </script>
 
 <template>
   <div class="detail-panel">
     <div class="detail-header">
       <span class="detail-title">
-        <span class="detail-icon">{{ toolIcon(tc.toolName) }}</span>
+        <span class="detail-icon" :data-icon-name="toolIcon(tc.toolName)">
+          <component :is="iconComponent" :size="14" :stroke-width="1.5" aria-hidden="true" />
+        </span>
         <strong>{{ tc.agentDisplayName ?? tc.toolName }}</strong>
       </span>
       <div class="detail-badges">

@@ -80,7 +80,7 @@ describe("SkillInvocationEventRow", () => {
       },
     });
 
-    expect(wrapper.text()).toContain("⚡");
+    expect(wrapper.find(".skill-row__icon").exists()).toBe(true);
     expect(wrapper.text()).toContain("skill");
     expect(wrapper.text()).toContain("trace-skill");
     expect(wrapper.text()).toContain("Adds tracing helpers.");
@@ -96,7 +96,7 @@ describe("SkillInvocationEventRow", () => {
       },
     });
 
-    expect(wrapper.text()).toContain("⚡");
+    expect(wrapper.find(".skill-row__icon").exists()).toBe(true);
     expect(wrapper.text()).toContain("trace-skill");
     expect(wrapper.text()).toContain("Adds tracing helpers.");
     expect(wrapper.text()).toContain("42ms");

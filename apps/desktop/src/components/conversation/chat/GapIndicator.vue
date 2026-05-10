@@ -23,12 +23,12 @@ defineProps<{
 .cv-gap-line {
   flex: 1;
   height: 0;
-  border-top: 1px dashed var(--border-muted, #484f58);
+  border-top: 1px dashed var(--border-muted);
 }
 
 .cv-gap-label {
   font-size: 12px;
-  color: var(--text-placeholder, #6e7681);
+  color: var(--text-placeholder);
   white-space: nowrap;
   user-select: none;
 }

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-vue-next";
 import { useAgentTreeContext } from "@/composables/useAgentTree";
 
 const ctx = useAgentTreeContext();
@@ -15,7 +16,7 @@ const ctx = useAgentTreeContext();
         @click="ctx.jumpToEarliestAgent()"
         aria-label="Jump to earliest agent turn"
       >
-        ⏮ Earliest
+        <ChevronsLeft :size="14" aria-hidden="true" /> Earliest
       </button>
       <button
         class="turn-nav-btn"
@@ -23,7 +24,7 @@ const ctx = useAgentTreeContext();
         @click="ctx.prevAgentTurn()"
         aria-label="Previous agent turn"
       >
-        ◀ Prev
+        <ChevronLeft :size="14" aria-hidden="true" /> Prev
       </button>
       <span class="turn-nav-label">{{ ctx.viewMode.value === 'unified' ? 'Unified Session View' : ctx.turnNavLabel.value }}</span>
       <button
@@ -32,7 +33,7 @@ const ctx = useAgentTreeContext();
         @click="ctx.nextAgentTurn()"
         aria-label="Next agent turn"
       >
-        Next ▶
+        Next <ChevronRight :size="14" aria-hidden="true" />
       </button>
       <button
         class="turn-nav-btn"
@@ -40,7 +41,7 @@ const ctx = useAgentTreeContext();
         @click="ctx.jumpToLatestAgent()"
         aria-label="Jump to latest agent turn"
       >
-        Latest ⏭
+        Latest <ChevronsRight :size="14" aria-hidden="true" />
       </button>
     </div>
 

@@ -1,7 +1,13 @@
 <script setup lang="ts">
 import type { AgentDefinition } from "@tracepilot/types";
 import { getAllModelIds, getModelsByTier, getModelTier, getTierLabel } from "@tracepilot/types";
-import { EmptyState, StatCard, truncateText } from "@tracepilot/ui";
+import {
+  EmptyState,
+  LUCIDE_ICON_COMPONENTS,
+  resolveLucideIcon,
+  StatCard,
+  truncateText,
+} from "@tracepilot/ui";
 import { computed, ref } from "vue";
 import { TOOLS_COLLAPSE_LIMIT, useConfigInjectorContext } from "@/composables/useConfigInjector";
 import { agentMeta } from "./agentMeta";
@@ -38,6 +44,11 @@ function modelTier(model: string): "premium" | "standard" | "fast" {
 
 function tierLabel(tier: string): string {
   return getTierLabel(tier as "premium" | "standard" | "fast");
+}
+
+function agentIcon(name: string): unknown {
+  const meta = agentMeta(name);
+  return resolveLucideIcon(meta.iconName, LUCIDE_ICON_COMPONENTS.bot);
 }
 
 const uniqueModelCount = computed(() => new Set(store.agents.map((a) => a.model)).size);
@@ -80,7 +91,7 @@ const premiumAgentCount = computed(
       >
         <div class="agent-header">
           <div class="agent-icon">
-            {{ agentMeta(agent.name).emoji }}
+            <component :is="agentIcon(agent.name)" :size="18" :stroke-width="1.5" />
           </div>
           <div class="agent-info">
             <span class="agent-name">{{ agent.name }}</span>
@@ -176,7 +187,8 @@ const premiumAgentCount = computed(
         :disabled="store.saving"
         @click="resetAllDefaults"
       >
-        ↩ Reload from Disk
+        <component :is="LUCIDE_ICON_COMPONENTS['rotate-ccw']" :size="13" :stroke-width="1.5" />
+        Reload from Disk
       </button>
     </div>
   </div>

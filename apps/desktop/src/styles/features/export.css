@@ -117,7 +117,7 @@
 }
 .export-feature .preset-delete:hover {
   opacity: 1;
-  color: var(--danger-fg, #f85149);
+  color: var(--danger-fg);
 }
 .export-feature .save-preset-row {
   display: flex;

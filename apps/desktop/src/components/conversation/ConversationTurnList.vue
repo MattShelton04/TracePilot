@@ -26,12 +26,14 @@ import {
   formatTime,
   getAgentColor,
   ReasoningBlock,
+  resolveLucideIcon,
   ToolCallDetail,
   ToolCallItem,
   toolCategory,
   toolIcon,
   truncateText,
 } from "@tracepilot/ui";
+import { Coins, User } from "lucide-vue-next";
 
 interface ToggleSetLike<T> {
   has: (value: T) => boolean;
@@ -89,10 +91,10 @@ function severityVariant(severity: SessionEventSeverity): "danger" | "warning" |
   return "neutral";
 }
 
-function severityIcon(severity: SessionEventSeverity): string {
-  if (severity === "error") return "🔴";
-  if (severity === "warning") return "🟡";
-  return "ℹ️";
+function severityIconName(severity: SessionEventSeverity): string {
+  if (severity === "error") return "circle-alert";
+  if (severity === "warning") return "triangle-alert";
+  return "info";
 }
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
@@ -123,7 +125,7 @@ function onRetryFullResult(toolCallId: string) {
   <div v-if="viewMode === 'compact'" class="turn-group">
     <template v-for="turn in turns" :key="turn.turnIndex">
       <div v-if="turn.userMessage" :data-event-idx="turn.eventIndex != null ? turn.eventIndex : undefined" :data-turn-idx="turn.eventIndex == null ? turn.turnIndex : undefined" class="compact-turn-user">
-        <span class="compact-turn-label-prefix user">👤 User</span>
+        <span class="compact-turn-label-prefix user"><User :size="14" aria-hidden="true" /> User</span>
         <div class="compact-turn-user-text">{{ truncateText(turn.userMessage, 300) }}</div>
       </div>
       <div class="compact-turn">
@@ -132,7 +134,7 @@ function onRetryFullResult(toolCallId: string) {
         <Badge v-if="turn.model" variant="done">{{ turn.model }}</Badge>
         <span v-if="turn.durationMs" class="turn-meta">{{ formatDuration(turn.durationMs) }}</span>
         <span v-if="turn.timestamp" class="turn-meta">{{ formatTime(turn.timestamp) }}</span>
-        <span v-if="turn.outputTokens" class="token-badge">🪙 {{ formatNumber(turn.outputTokens) }}</span>
+        <span v-if="turn.outputTokens" class="token-badge"><Coins :size="12" aria-hidden="true" /> {{ formatNumber(turn.outputTokens) }}</span>
         <span v-if="turn.toolCalls.length" style="margin-left: auto;" class="turn-meta">
           {{ turn.toolCalls.length }} tool{{ turn.toolCalls.length !== 1 ? "s" : "" }}
         </span>
@@ -180,7 +182,8 @@ function onRetryFullResult(toolCallId: string) {
               :title="section.agentId ? `${section.agentDisplayName} → ${tc.toolName}` : tc.toolName"
               @click="expandedToolDetails.toggle(`compact-${turn.turnIndex}-${findToolCallIndex(turn, tc)}`)"
             >
-              {{ toolIcon(tc.toolName) }} {{ tc.toolName }}
+              <component :is="resolveLucideIcon(toolIcon(tc.toolName))" :size="14" :stroke-width="1.5" aria-hidden="true" />
+              {{ tc.toolName }}
               <span v-if="tc.durationMs" class="turn-meta">{{ formatDuration(tc.durationMs) }}</span>
             </button>
           </div>
@@ -190,7 +193,7 @@ function onRetryFullResult(toolCallId: string) {
         <template v-for="(tc, tcIdx) in turn.toolCalls" :key="`detail-${tcIdx}`">
           <div v-if="expandedToolDetails.has(`compact-${turn.turnIndex}-${tcIdx}`)" class="tool-calls-container" style="margin-top: 4px;">
             <div class="tool-call-header">
-              <span>{{ toolIcon(tc.toolName) }}</span>
+              <component :is="resolveLucideIcon(toolIcon(tc.toolName))" :size="14" :stroke-width="1.5" aria-hidden="true" />
               <span class="tool-call-name" :class="categoryColor(toolCategory(tc.toolName))">{{ tc.toolName }}</span>
               <span v-if="getArgsSummary(turn.turnIndex, tcIdx)" class="tool-call-args" style="font-family: var(--font-mono, monospace);">{{ getArgsSummary(turn.turnIndex, tcIdx) }}</span>
             </div>
@@ -208,7 +211,10 @@ function onRetryFullResult(toolCallId: string) {
         <!-- Session events (compact) -->
         <div v-if="turn.sessionEvents?.length" class="session-events-list compact">
           <div v-for="(se, seIdx) in turn.sessionEvents" :key="seIdx" class="session-event-row" :class="`session-event-${se.severity}`">
-            <Badge :variant="severityVariant(se.severity)" size="sm">{{ severityIcon(se.severity) }} {{ eventTypeLabel(se.eventType) }}</Badge>
+            <Badge :variant="severityVariant(se.severity)" size="sm">
+              <component :is="resolveLucideIcon(severityIconName(se.severity))" :size="12" :stroke-width="1.5" aria-hidden="true" />
+              {{ eventTypeLabel(se.eventType) }}
+            </Badge>
             <span class="session-event-summary">{{ se.summary }}</span>
           </div>
         </div>
@@ -227,7 +233,7 @@ function onRetryFullResult(toolCallId: string) {
         <div class="timeline-meta">
           <Badge v-if="turn.model" variant="done">{{ turn.model }}</Badge>
           <span v-if="turn.durationMs" class="turn-meta">{{ formatDuration(turn.durationMs) }}</span>
-          <span v-if="turn.outputTokens" class="token-badge">🪙 {{ formatNumber(turn.outputTokens) }}</span>
+          <span v-if="turn.outputTokens" class="token-badge"><Coins :size="12" aria-hidden="true" /> {{ formatNumber(turn.outputTokens) }}</span>
           <span v-if="turn.timestamp" class="turn-meta">{{ formatTime(turn.timestamp) }}</span>
           <span v-if="turn.toolCalls.length" class="turn-meta">· {{ turn.toolCalls.length }} tools</span>
           <Badge v-if="!turn.isComplete" variant="warning">Incomplete</Badge>
@@ -289,7 +295,10 @@ function onRetryFullResult(toolCallId: string) {
         <!-- Session events (timeline) -->
         <div v-if="turn.sessionEvents?.length" class="session-events-list">
           <div v-for="(se, seIdx) in turn.sessionEvents" :key="seIdx" class="session-event-row" :class="`session-event-${se.severity}`">
-            <Badge :variant="severityVariant(se.severity)" size="sm">{{ severityIcon(se.severity) }} {{ eventTypeLabel(se.eventType) }}</Badge>
+            <Badge :variant="severityVariant(se.severity)" size="sm">
+              <component :is="resolveLucideIcon(severityIconName(se.severity))" :size="12" :stroke-width="1.5" aria-hidden="true" />
+              {{ eventTypeLabel(se.eventType) }}
+            </Badge>
             <span class="session-event-summary">{{ se.summary }}</span>
             <span v-if="se.timestamp" class="turn-meta">{{ formatTime(se.timestamp) }}</span>
           </div>

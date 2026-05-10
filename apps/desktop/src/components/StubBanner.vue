@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { AlertTriangle } from "lucide-vue-next";
+
 defineProps<{
   message?: string;
 }>();
@@ -7,7 +9,7 @@ defineProps<{
 <template>
   <!-- STUB: Remove this banner when real data is wired -->
   <div class="stub-banner">
-    <span class="stub-banner-icon">🔶</span>
+    <span class="stub-banner-icon" aria-hidden="true"><AlertTriangle :size="16" /></span>
     <span>{{ message || 'This page uses demo data. Connect to the backend API for real analytics.' }}</span>
   </div>
 </template>
