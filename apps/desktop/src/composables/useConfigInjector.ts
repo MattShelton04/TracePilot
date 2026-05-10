@@ -219,17 +219,17 @@ export function useConfigInjector() {
       if (copilotHome) {
         const sep = store.activeVersion.path.includes("\\") ? "\\" : "/";
         files.push({
-          label: "📋 Global Config (config.json)",
+          label: "Global Config (config.json)",
           path: `${copilotHome}${sep}config.json`,
         });
         files.push({
-          label: "⚙️ User Settings (settings.json)",
+          label: "User Settings (settings.json)",
           path: `${copilotHome}${sep}settings.json`,
         });
       }
     }
     for (const agent of store.agents) {
-      files.push({ label: `🤖 ${agent.name} agent`, path: agent.filePath });
+      files.push({ label: `${agent.name} agent`, path: agent.filePath });
     }
     return files;
   });
@@ -269,9 +269,9 @@ export function useConfigInjector() {
     }
   }
 
-  function backupEmoji(path: string): string {
-    if (path.includes("agent") || path.endsWith(".md")) return "🤖";
-    return "📋";
+  function backupIconName(path: string): string {
+    if (path.includes("agent") || path.endsWith(".md")) return "bot";
+    return "clipboard-list";
   }
   function formatBackupLabel(backup: {
     label: string;
@@ -389,7 +389,7 @@ export function useConfigInjector() {
     handleCreateBackup,
     batchBackingUp,
     handleBackupAllAgents,
-    backupEmoji,
+    backupIconName,
     formatBackupLabel,
     confirmingDeleteBackupId,
     toggleDeleteBackup,

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Bot, GitBranch, LayoutDashboard, type LucideIcon, Rocket } from "lucide-vue-next";
 import { useRouter } from "vue-router";
 import { ROUTE_NAMES, type RouteName } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
@@ -6,7 +7,7 @@ import { pushRoute } from "@/router/navigation";
 const router = useRouter();
 
 interface QuickAction {
-  emoji: string;
+  icon: LucideIcon;
   title: string;
   desc: string;
   to: RouteName | null;
@@ -15,28 +16,28 @@ interface QuickAction {
 
 const quickActions: QuickAction[] = [
   {
-    emoji: "🚀",
+    icon: Rocket,
     title: "Launch Session",
     desc: "Start a new Copilot CLI session",
     to: ROUTE_NAMES.sessionLauncher,
     disabled: false,
   },
   {
-    emoji: "📊",
+    icon: LayoutDashboard,
     title: "Open Mission Control",
     desc: "Real-time session dashboard",
     to: null,
     disabled: true,
   },
   {
-    emoji: "🔧",
+    icon: Bot,
     title: "Configure Agents",
     desc: "Edit agent definitions & configs",
     to: ROUTE_NAMES.configInjector,
     disabled: false,
   },
   {
-    emoji: "🌳",
+    icon: GitBranch,
     title: "Manage Worktrees",
     desc: "Create, list, and prune worktrees",
     to: ROUTE_NAMES.worktreeManager,
@@ -54,9 +55,7 @@ function navigateAction(action: QuickAction) {
 <template>
   <div class="panel">
     <div class="section-header">
-      <svg class="section-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12 2L12 14M12 2L8 6M12 2L16 6" /><path d="M5 18c0-3.87 3.13-7 7-7s7 3.13 7 7" />
-      </svg>
+      <Rocket class="section-icon" :size="16" :stroke-width="2" aria-hidden="true" />
       <span>Quick Actions</span>
     </div>
     <div class="actions-grid" data-testid="orchestration-actions">
@@ -72,7 +71,7 @@ function navigateAction(action: QuickAction) {
         @keydown.enter="navigateAction(action)"
       >
         <div class="action-emoji-wrap">
-          <span class="action-emoji">{{ action.emoji }}</span>
+          <component :is="action.icon" :size="22" :stroke-width="1.5" aria-hidden="true" />
         </div>
         <div class="action-title">{{ action.title }}</div>
         <div class="action-desc">{{ action.desc }}</div>
@@ -144,7 +143,7 @@ function navigateAction(action: QuickAction) {
   justify-content: center;
   background: var(--canvas-default);
   border-radius: var(--radius-md);
-  font-size: 1.4rem;
+  color: var(--accent-fg);
   margin-bottom: 10px;
 }
 

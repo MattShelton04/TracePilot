@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { EmptyState, formatBytes, formatDate, shortenPath } from "@tracepilot/ui";
+import * as LucideIcons from "lucide-vue-next";
 import { useConfigInjectorContext } from "@/composables/useConfigInjector";
 
 const {
@@ -10,7 +11,7 @@ const {
   handleCreateBackup,
   batchBackingUp,
   handleBackupAllAgents,
-  backupEmoji,
+  backupIconName,
   formatBackupLabel,
   confirmingDeleteBackupId,
   toggleDeleteBackup,
@@ -19,6 +20,20 @@ const {
   backupDiffData,
   toggleBackupPreview,
 } = useConfigInjectorContext();
+
+function kebabToPascal(name: string): string {
+  return name
+    .split("-")
+    .map((p) => (p.length ? p[0].toUpperCase() + p.slice(1) : p))
+    .join("");
+}
+
+function backupIcon(path: string): unknown {
+  return (
+    (LucideIcons as Record<string, unknown>)[kebabToPascal(backupIconName(path))] ??
+    LucideIcons.FileText
+  );
+}
 </script>
 
 <template>
@@ -43,7 +58,7 @@ const {
           :disabled="!newBackupPath.trim() || store.saving"
           @click="handleCreateBackup"
         >
-          {{ store.saving ? 'Creating…' : '💾 Create Backup' }}
+          {{ store.saving ? 'Creating…' : 'Create Backup' }}
         </button>
       </div>
       <div v-if="store.agents.length" class="backup-batch">
@@ -52,7 +67,7 @@ const {
           :disabled="store.saving || batchBackingUp"
           @click="handleBackupAllAgents"
         >
-          {{ batchBackingUp ? 'Backing up…' : '📦 Back Up All Agents' }}
+          {{ batchBackingUp ? 'Backing up…' : 'Back Up All Agents' }}
         </button>
       </div>
     </div>
@@ -62,7 +77,9 @@ const {
       <h3 class="section-heading">Existing Backups</h3>
       <div v-for="backup in store.backups" :key="backup.id" class="backup-item-wrapper">
         <div class="backup-item">
-          <span class="backup-emoji">{{ backupEmoji(backup.sourcePath) }}</span>
+          <span class="backup-emoji">
+            <component :is="backupIcon(backup.sourcePath)" :size="16" :stroke-width="1.5" />
+          </span>
           <div class="backup-info">
             <span class="backup-name">{{ formatBackupLabel(backup) }}</span>
             <span class="backup-meta">
@@ -77,7 +94,7 @@ const {
               :title="backup.sourcePath ? 'Preview changes before restoring' : 'Source path unknown'"
               @click="toggleBackupPreview(backup)"
             >
-              {{ previewingBackupId === backup.id ? '✕ Close' : '📝 Preview' }}
+              {{ previewingBackupId === backup.id ? 'Close' : 'Preview' }}
             </button>
             <button
               class="btn btn-sm"
@@ -85,7 +102,8 @@ const {
               :title="backup.sourcePath ? 'Restore to ' + backup.sourcePath : 'Source path unknown — cannot restore'"
               @click="store.restoreBackup(backup.backupPath, backup.sourcePath)"
             >
-              ↩ Restore
+              <component :is="LucideIcons.RotateCcw" :size="13" :stroke-width="1.5" />
+              Restore
             </button>
             <button
               class="btn btn-sm"
@@ -93,7 +111,8 @@ const {
               :title="confirmingDeleteBackupId === backup.id ? 'Click again to confirm deletion' : 'Delete this backup'"
               @click="toggleDeleteBackup(backup)"
             >
-              {{ confirmingDeleteBackupId === backup.id ? 'Confirm?' : '🗑' }}
+              <template v-if="confirmingDeleteBackupId === backup.id">Confirm?</template>
+              <component v-else :is="LucideIcons.Trash2" :size="13" :stroke-width="1.5" />
             </button>
           </div>
         </div>
@@ -114,6 +133,10 @@ const {
       </div>
     </div>
 
-    <EmptyState v-else icon="📦" title="No Backups Yet" message="Create a backup above to safeguard your configuration before making changes." />
+    <EmptyState v-else title="No Backups Yet" message="Create a backup above to safeguard your configuration before making changes.">
+      <template #icon>
+        <component :is="LucideIcons.Package" :size="32" :stroke-width="1.5" />
+      </template>
+    </EmptyState>
   </div>
 </template>

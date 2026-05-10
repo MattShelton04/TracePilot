@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PageShell } from "@tracepilot/ui";
+import { PageHeader, PageShell } from "@tracepilot/ui";
 import { computed, ref } from "vue";
 import SettingsAbout from "@/components/settings/SettingsAbout.vue";
 import SettingsAlerts from "@/components/settings/SettingsAlerts.vue";
@@ -28,7 +28,7 @@ const databaseSize = computed(() => dataStorageRef.value?.databaseSize ?? "—")
 <template>
   <PageShell>
     <div class="settings-root">
-      <h1 class="page-title page-title-spaced">Settings</h1>
+      <PageHeader title="Settings" class="settings-page-header" />
 
       <SettingsGeneral />
       <SettingsAppearance />
@@ -51,8 +51,10 @@ const databaseSize = computed(() => dataStorageRef.value?.databaseSize ?? "—")
      allowing the user to preview content width changes live. */
 }
 
-.page-title-spaced {
+.settings-page-header {
   margin-bottom: 24px;
+  padding-left: 0;
+  padding-right: 0;
 }
 
 /* Shared styles for all settings sub-components (scoped via :deep) */

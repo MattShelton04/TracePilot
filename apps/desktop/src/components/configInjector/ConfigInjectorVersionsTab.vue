@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { EmptyState } from "@tracepilot/ui";
+import { Lock } from "lucide-vue-next";
 import { useConfigInjectorContext } from "@/composables/useConfigInjector";
 
 const { store, migrationFrom, migrationTo, handleLoadDiffs, handleMigrateAgent } =
@@ -20,7 +21,10 @@ const { store, migrationFrom, migrationTo, handleLoadDiffs, handleMigrateAgent }
         </div>
         <div class="version-meta">
           <span v-if="ver.hasCustomizations" class="meta-tag meta-tag--warn">Customized</span>
-          <span class="meta-tag">🔒 {{ ver.lockCount ?? 0 }}</span>
+          <span class="meta-tag">
+            <Lock :size="12" :stroke-width="1.5" />
+            {{ ver.lockCount ?? 0 }}
+          </span>
         </div>
       </div>
       <EmptyState v-if="!store.versions.length" compact message="No Copilot CLI versions discovered." />

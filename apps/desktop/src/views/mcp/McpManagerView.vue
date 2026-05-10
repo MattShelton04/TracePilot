@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { McpServerConfig } from "@tracepilot/types";
-import { PageHeader, PageShell, useToast } from "@tracepilot/ui";
+import { Banner, PageHeader, PageShell, useToast } from "@tracepilot/ui";
 import { computed, onMounted, ref } from "vue";
 import McpAddServerModal from "@/components/mcp/McpAddServerModal.vue";
 import McpServerCard from "@/components/mcp/McpServerCard.vue";
@@ -179,10 +179,15 @@ async function handleImport() {
     </div>
 
     <!-- Error -->
-    <div v-if="store.error" class="error-banner">
-      <span>{{ store.error }}</span>
-      <button class="error-dismiss" @click="store.clearError()">×</button>
-    </div>
+    <Banner
+      v-if="store.error"
+      tone="danger"
+      dismissible
+      class="error-banner"
+      @dismiss="store.clearError()"
+    >
+      {{ store.error }}
+    </Banner>
 
     <!-- Loading -->
     <div v-if="store.loading" class="loading-state">

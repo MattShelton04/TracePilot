@@ -1,32 +1,37 @@
 export interface AgentMeta {
-  emoji: string;
+  /** Lucide kebab-case icon name. Rendered via <component :is>. */
+  iconName: string;
   colorVar: string;
   motto: string;
 }
 
 export const AGENT_META: Readonly<Record<string, AgentMeta>> = Object.freeze({
-  explore: { emoji: "🔍", colorVar: "--accent-emphasis", motto: "Fast & thorough explorer" },
-  task: { emoji: "⚡", colorVar: "--warning-emphasis", motto: "Reliable command runner" },
+  explore: { iconName: "search", colorVar: "--accent-emphasis", motto: "Fast & thorough explorer" },
+  task: { iconName: "zap", colorVar: "--warning-emphasis", motto: "Reliable command runner" },
   "code-review": {
-    emoji: "📝",
+    iconName: "file-pen-line",
     colorVar: "--success-emphasis",
     motto: "High signal-to-noise reviewer",
   },
   "rubber-duck": {
-    emoji: "🦆",
+    iconName: "message-circle",
     colorVar: "--agent-color-rubber-duck",
     motto: "Pragmatic feedback partner",
   },
-  research: { emoji: "🔬", colorVar: "--done-emphasis", motto: "Deep analysis specialist" },
+  research: {
+    iconName: "microscope",
+    colorVar: "--done-emphasis",
+    motto: "Deep analysis specialist",
+  },
   "configure-copilot": {
-    emoji: "⚙️",
+    iconName: "settings",
     colorVar: "--neutral-emphasis",
     motto: "System configurator",
   },
 });
 
 export const DEFAULT_AGENT_META: AgentMeta = Object.freeze({
-  emoji: "🤖",
+  iconName: "bot",
   colorVar: "--neutral-emphasis",
   motto: "",
 });

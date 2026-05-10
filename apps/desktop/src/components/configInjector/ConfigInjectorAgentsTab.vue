@@ -2,6 +2,7 @@
 import type { AgentDefinition } from "@tracepilot/types";
 import { getAllModelIds, getModelsByTier, getModelTier, getTierLabel } from "@tracepilot/types";
 import { EmptyState, StatCard, truncateText } from "@tracepilot/ui";
+import * as LucideIcons from "lucide-vue-next";
 import { computed, ref } from "vue";
 import { TOOLS_COLLAPSE_LIMIT, useConfigInjectorContext } from "@/composables/useConfigInjector";
 import { agentMeta } from "./agentMeta";
@@ -38,6 +39,18 @@ function modelTier(model: string): "premium" | "standard" | "fast" {
 
 function tierLabel(tier: string): string {
   return getTierLabel(tier as "premium" | "standard" | "fast");
+}
+
+function kebabToPascal(name: string): string {
+  return name
+    .split("-")
+    .map((p) => (p.length ? p[0].toUpperCase() + p.slice(1) : p))
+    .join("");
+}
+
+function agentIcon(name: string): unknown {
+  const meta = agentMeta(name);
+  return (LucideIcons as Record<string, unknown>)[kebabToPascal(meta.iconName)] ?? LucideIcons.Bot;
 }
 
 const uniqueModelCount = computed(() => new Set(store.agents.map((a) => a.model)).size);
@@ -80,7 +93,7 @@ const premiumAgentCount = computed(
       >
         <div class="agent-header">
           <div class="agent-icon">
-            {{ agentMeta(agent.name).emoji }}
+            <component :is="agentIcon(agent.name)" :size="18" :stroke-width="1.5" />
           </div>
           <div class="agent-info">
             <span class="agent-name">{{ agent.name }}</span>
@@ -176,7 +189,8 @@ const premiumAgentCount = computed(
         :disabled="store.saving"
         @click="resetAllDefaults"
       >
-        ↩ Reload from Disk
+        <component :is="LucideIcons.RotateCcw" :size="13" :stroke-width="1.5" />
+        Reload from Disk
       </button>
     </div>
   </div>
