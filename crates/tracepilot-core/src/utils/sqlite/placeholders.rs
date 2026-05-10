@@ -24,6 +24,7 @@ pub fn build_in_placeholders(n: usize) -> String {
     let cap = n.saturating_sub(1).saturating_mul(3).saturating_add(1);
     let mut s = String::with_capacity(cap);
 
+    #[allow(clippy::single_char_add_str)]
     s.push_str("?");
     for _ in 1..n {
         s.push_str(", ?");
@@ -64,11 +65,17 @@ pub fn build_placeholder_sql(sql_prefix: &str, num_rows: usize, params_per_row: 
 
     // Use safe math for capacity calculation
     let row_len = params_per_row.saturating_mul(2).saturating_add(1);
-    let total_rows_len = num_rows.saturating_mul(row_len).saturating_add(num_rows.saturating_sub(1));
-    let cap = sql_prefix.len().saturating_add(1).saturating_add(total_rows_len);
+    let total_rows_len = num_rows
+        .saturating_mul(row_len)
+        .saturating_add(num_rows.saturating_sub(1));
+    let cap = sql_prefix
+        .len()
+        .saturating_add(1)
+        .saturating_add(total_rows_len);
 
     let mut sql = String::with_capacity(cap);
     sql.push_str(sql_prefix);
+    #[allow(clippy::single_char_add_str)]
     sql.push_str(" ");
 
     // Pre-build the row string once to optimize the hot loop
@@ -77,10 +84,12 @@ pub fn build_placeholder_sql(sql_prefix: &str, num_rows: usize, params_per_row: 
     for _ in 1..params_per_row {
         row_str.push_str(",?");
     }
+    #[allow(clippy::single_char_add_str)]
     row_str.push_str(")");
 
     sql.push_str(&row_str);
     for _ in 1..num_rows {
+        #[allow(clippy::single_char_add_str)]
         sql.push_str(",");
         sql.push_str(&row_str);
     }
