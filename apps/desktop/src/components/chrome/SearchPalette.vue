@@ -184,9 +184,10 @@ onUnmounted(() => search.dispose());
 .palette-modal {
   display: flex;
   flex-direction: column;
+  /* Extend into .modal-body's 20px padding so rows reach the modal's left/right edges. */
   margin: -20px;
-  width: min(640px, 90vw);
-  max-width: 100%;
+  width: calc(100% + 40px);
+  max-width: none;
   min-width: 0;
   max-height: 60vh;
   overflow-x: hidden;
