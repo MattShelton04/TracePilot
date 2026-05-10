@@ -36,6 +36,8 @@ pub(crate) fn write_session_to_id(
     }
 
     // Create staging directory
+    tracepilot_core::utils::fs::ensure_parent_dir(&staging_dir)
+        .map_err(|e| ExportError::io(target_parent, e))?;
     fs::create_dir_all(&staging_dir).map_err(|e| ExportError::io(&staging_dir, e))?;
 
     // Write all session files into staging

@@ -46,7 +46,7 @@ where
     let staging_name = format!(".tmp-import-{}", uuid::Uuid::new_v4());
     let staging_dir = dest_parent.join(&staging_name);
 
-    std::fs::create_dir_all(dest_parent).map_err(|e| {
+    tracepilot_core::utils::fs::ensure_parent_dir(&staging_dir).map_err(|e| {
         SkillsError::io_ctx(
             format!("Failed to create destination parent for '{skill_name}'"),
             e,

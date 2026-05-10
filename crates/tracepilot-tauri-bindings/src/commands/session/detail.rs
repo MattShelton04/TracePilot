@@ -78,7 +78,9 @@ pub async fn get_session_incidents(
                     timestamp: i.timestamp,
                     severity: i.severity,
                     summary: i.summary,
-                    detail_json: i.detail_json.and_then(|s| serde_json::from_str(&s).ok()),
+                    detail_json: i.detail_json.and_then(|s| {
+                        tracepilot_core::TracePilotError::from_json_str(&s, "Incident Detail").ok()
+                    }),
                 })
                 .collect(),
         )

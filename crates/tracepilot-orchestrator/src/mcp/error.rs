@@ -25,6 +25,9 @@ pub enum McpError {
     /// JSON error with preserved source chain.
     #[error("MCP JSON error: {0}")]
     JsonSource(#[from] serde_json::Error),
+    /// TracePilot core error.
+    #[error(transparent)]
+    Core(#[from] tracepilot_core::TracePilotError),
 }
 
 impl McpError {

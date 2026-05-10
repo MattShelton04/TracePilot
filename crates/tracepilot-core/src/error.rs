@@ -97,6 +97,15 @@ impl TracePilotError {
         serde_json::from_reader(reader).map_err(|e| Self::parse_context("JSON", path.display(), e))
     }
 
+    /// Parse a JSON string with context-rich errors.
+    pub fn from_json_str<T: serde::de::DeserializeOwned>(
+        json: &str,
+        context: impl std::fmt::Display,
+    ) -> Result<T> {
+        serde_json::from_str(json)
+            .map_err(|e| Self::parse_context(&format!("JSON ({context})"), "(in-memory)", e))
+    }
+
     /// Read and parse a YAML file with context-rich errors.
     pub fn read_yaml<T: serde::de::DeserializeOwned>(path: &std::path::Path) -> Result<T> {
         let file = std::fs::File::open(path)
@@ -104,8 +113,32 @@ impl TracePilotError {
         let reader = std::io::BufReader::new(file);
         serde_yml::from_reader(reader).map_err(|e| Self::parse_context("YAML", path.display(), e))
     }
-}
 
+    /// Parse a YAML string with context-rich errors.
+    pub fn from_yaml_str<T: serde::de::DeserializeOwned>(
+        yaml: &str,
+        context: impl std::fmt::Display,
+    ) -> Result<T> {
+        serde_yml::from_str(yaml)
+            .map_err(|e| Self::parse_context(&format!("YAML ({context})"), "(in-memory)", e))
+    }
+
+    /// Returns true if this error represents a "file not found" condition.
+    pub fn is_not_found(&self) -> bool {
+        match self {
+            Self::ParseError { source, .. } => {
+                if let Some(source) = source
+                    && let Some(io_err) = source.downcast_ref::<std::io::Error>()
+                {
+                    return io_err.kind() == std::io::ErrorKind::NotFound;
+                }
+                false
+            }
+            Self::IoError(e) => e.kind() == std::io::ErrorKind::NotFound,
+            _ => false,
+        }
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;

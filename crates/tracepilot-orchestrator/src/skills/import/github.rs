@@ -184,9 +184,7 @@ pub(crate) fn import_from_github_path(
                         }) {
                             Some(file_content) => {
                                 let dest_path = staging.join(relative);
-                                if let Some(parent) = dest_path.parent() {
-                                    std::fs::create_dir_all(parent)?;
-                                }
+                                tracepilot_core::utils::fs::ensure_parent_dir(&dest_path)?;
                                 std::fs::write(dest_path, file_content)?;
                                 files_copied += 1;
                             }
