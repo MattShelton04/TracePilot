@@ -242,7 +242,15 @@ onUnmounted(() => search.dispose());
   font-weight: 500;
   color: var(--text-tertiary);
 }
-.palette-body { flex: 1; min-width: 0; min-height: 0; overflow-x: hidden; overflow-y: auto; padding: 4px 0 8px; }
+.palette-body {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 4px 0 8px;
+  scrollbar-gutter: stable;
+}
 .palette-section { padding: 8px 0; min-width: 0; }
 .palette-section + .palette-section { border-top: 1px solid var(--border-subtle); }
 .palette-section-label { padding: 4px 16px; color: var(--text-tertiary); }
