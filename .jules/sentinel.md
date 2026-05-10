@@ -1,0 +1,4 @@
+## 2024-05-10 - Cross-Platform Path Traversal bypass with std::path::Component
+**Vulnerability:** Relying solely on `std::path::Path::is_absolute()` or `std::path::Component::ParentDir` to validate user-supplied file paths is unsafe for cross-platform validation. Specifically, on a Unix system, a path with Windows backslashes (`\` or `C:\...`) is not recognized as absolute or as a directory separator, which can allow an attacker to bypass directory traversal checks.
+**Learning:** `std::path` parses paths according to the operating system it is running on. So, a Linux backend processing untrusted Windows paths will fail to recognize backslash-based traversal payloads.
+**Prevention:** Always explicitly check for both forward slashes (`/`) and backslashes (`\`) or `..` directly in string checks, or normalize paths consistently before applying component-based safety checks. Explicitly block backward slashes (`\`) for things like zip extraction or github tree imports.
