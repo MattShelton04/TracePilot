@@ -48,8 +48,7 @@ pub fn read_agent_definitions(version_dir: &Path) -> Result<Vec<AgentDefinition>
 /// Uses atomic write (write to temp then rename) for safety.
 pub fn write_agent_definition(path: &Path, yaml_content: &str) -> Result<()> {
     // Validate YAML is parseable before writing
-    let _: serde_yml::Value = serde_yml::from_str(yaml_content)
-        .map_err(|e| OrchestratorError::config_ctx("Invalid YAML", e))?;
+    let _: serde_yml::Value = TracePilotError::from_yaml_str(yaml_content, "Agent Definition")?;
 
     let parent = path
         .parent()
@@ -241,9 +240,8 @@ pub fn diff_files(old_path: &Path, new_path: &Path) -> Result<ConfigDiff> {
 // ─── Internal helpers ─────────────────────────────────────────────
 
 fn parse_agent_yaml(path: &Path) -> Result<Option<AgentDefinition>> {
-    let content = TracePilotError::read_to_string(path)?;
-    let value: serde_yml::Value = serde_yml::from_str(&content)
-        .map_err(|e| TracePilotError::parse_context("YAML", path.display(), e))?;
+    let value: serde_yml::Value = TracePilotError::read_yaml(path)?;
+    let content = serde_yml::to_string(&value).unwrap_or_default();
 
     let name = value
         .get("name")

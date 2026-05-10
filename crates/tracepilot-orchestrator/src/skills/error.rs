@@ -45,6 +45,9 @@ pub enum SkillsError {
     /// YAML error with preserved source chain.
     #[error("Skills YAML error: {0}")]
     YamlSource(#[from] serde_yml::Error),
+    /// TracePilot core error.
+    #[error(transparent)]
+    Core(#[from] tracepilot_core::TracePilotError),
 }
 
 impl SkillsError {

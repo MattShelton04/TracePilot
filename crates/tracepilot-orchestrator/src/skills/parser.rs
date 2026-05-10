@@ -21,8 +21,8 @@ use crate::skills::types::SkillFrontmatter;
 /// ```
 pub fn parse_skill_md(content: &str) -> Result<(SkillFrontmatter, String), SkillsError> {
     let (yaml_str, body) = split_frontmatter(content)?;
-    let frontmatter: SkillFrontmatter = serde_yml::from_str(&yaml_str)
-        .map_err(|e| SkillsError::FrontmatterParse(format!("Invalid frontmatter YAML: {e}")))?;
+    let frontmatter: SkillFrontmatter =
+        tracepilot_core::TracePilotError::from_yaml_str(&yaml_str, "SKILL.md Frontmatter")?;
 
     validate_frontmatter(&frontmatter)?;
 
