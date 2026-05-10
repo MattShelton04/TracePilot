@@ -258,8 +258,7 @@ pub async fn preview_export(
 
         let content = match max_bytes.or(Some(512 * 1024)) {
             Some(max) if full_content.len() > max => {
-                let boundary = full_content.as_str().floor_char_boundary(max);
-                full_content[..boundary].to_string()
+                tracepilot_core::utils::truncate_utf8(&full_content, max).to_string()
             }
             _ => full_content,
         };

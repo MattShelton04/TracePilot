@@ -38,11 +38,7 @@ pub fn compute_args_summary(tool_name: &str, args: &serde_json::Value) -> String
         }
         "powershell" => {
             if let Some(cmd) = get_str("command") {
-                if cmd.len() > 150 {
-                    let truncated: String = cmd.chars().take(150).collect();
-                    return format!("{}…", truncated);
-                }
-                return cmd;
+                return crate::utils::truncate_utf8_with_marker(&cmd, 150, Some("…"));
             }
         }
         "task" | "sql" => {

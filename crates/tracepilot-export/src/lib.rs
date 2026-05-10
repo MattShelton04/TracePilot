@@ -89,9 +89,7 @@ pub fn preview_export(
 
     match max_bytes {
         Some(max) if content.len() > max => {
-            // Find a valid UTF-8 boundary at or before `max`
-            let truncated = &content[..content.floor_char_boundary(max)];
-            Ok(truncated.to_string())
+            Ok(tracepilot_core::utils::truncate_utf8(&content, max).to_string())
         }
         _ => Ok(content),
     }

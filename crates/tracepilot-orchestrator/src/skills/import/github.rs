@@ -103,7 +103,8 @@ pub fn import_from_github(
     git_ref: Option<&str>,
     dest_parent: &Path,
 ) -> Result<SkillImportResult, SkillsError> {
-    crate::github::gh_check_auth().map_err(|e| SkillsError::GitHub(e.to_string()))?;
+    crate::github::gh_check_auth()
+        .map_err(|e| SkillsError::github_ctx("GitHub authentication check failed", e))?;
 
     let ref_ = git_ref.unwrap_or("HEAD");
 
@@ -124,8 +125,6 @@ pub(crate) fn import_from_github_path(
     ref_: &str,
     dest_parent: &Path,
 ) -> Result<SkillImportResult, SkillsError> {
-    crate::github::gh_check_auth().map_err(|e| SkillsError::GitHub(e.to_string()))?;
-
     let skill_md_path = if base_path == "." {
         "SKILL.md".to_string()
     } else {
@@ -244,6 +243,9 @@ pub fn preview_github_import(
     skill_path: Option<&str>,
     git_ref: Option<&str>,
 ) -> Result<(String, String, Vec<String>), SkillsError> {
+    crate::github::gh_check_auth()
+        .map_err(|e| SkillsError::github_ctx("GitHub authentication check failed", e))?;
+
     let ref_ = git_ref.unwrap_or("HEAD");
 
     let base_path = match skill_path {
@@ -271,8 +273,6 @@ fn preview_github_import_path(
         .map_err(|e| SkillsError::github_ctx("Failed to fetch SKILL.md", e))?;
 
     let (fm, _) = parse_skill_md(&content)?;
-
-    crate::github::gh_check_auth().map_err(|e| SkillsError::GitHub(e.to_string()))?;
 
     // List files that would be imported
     let mut files = vec!["SKILL.md".to_string()];
@@ -302,7 +302,8 @@ pub fn discover_github_skills(
     git_ref: Option<&str>,
 ) -> Result<Vec<GitHubSkillPreview>, SkillsError> {
     // Fail fast with a clear message if gh is not installed or authenticated.
-    crate::github::gh_check_auth().map_err(|e| SkillsError::GitHub(e.to_string()))?;
+    crate::github::gh_check_auth()
+        .map_err(|e| SkillsError::github_ctx("GitHub authentication check failed", e))?;
 
     let ref_ = git_ref.unwrap_or("HEAD");
 
@@ -386,6 +387,9 @@ pub fn import_github_skill(
     git_ref: Option<&str>,
     dest_parent: &Path,
 ) -> Result<SkillImportResult, SkillsError> {
+    crate::github::gh_check_auth()
+        .map_err(|e| SkillsError::github_ctx("GitHub authentication check failed", e))?;
+
     import_from_github_path(
         owner,
         repo,

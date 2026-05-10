@@ -286,13 +286,7 @@ fn parse_agent_yaml(path: &Path) -> Result<Option<AgentDefinition>> {
         .get("instructions")
         .or_else(|| value.get("prompt"))
         .and_then(|v| v.as_str())
-        .map(|s| {
-            if s.len() > 200 {
-                format!("{}…", &s[..200])
-            } else {
-                s.to_string()
-            }
-        })
+        .map(|s| tracepilot_core::utils::truncate_utf8_with_marker(s, 200, Some("…")))
         .unwrap_or_default();
 
     Ok(Some(AgentDefinition {
