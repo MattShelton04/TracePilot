@@ -29,10 +29,10 @@ const PROP_RE =
 const PX_RE = /(-?\d*\.?\d+)px/g;
 
 function gitStaged() {
-  const out = execSync(
-    "git diff --cached --name-only --diff-filter=ACMR",
-    { encoding: "utf8", cwd: REPO_ROOT },
-  );
+  const out = execSync("git diff --cached --name-only --diff-filter=ACMR", {
+    encoding: "utf8",
+    cwd: REPO_ROOT,
+  });
   return out.split(/\r?\n/).filter(Boolean);
 }
 
@@ -94,10 +94,7 @@ for (const abs of files) {
 }
 
 offGrid.sort(
-  (a, b) =>
-    a.file.localeCompare(b.file) ||
-    a.line - b.line ||
-    a.prop.localeCompare(b.prop),
+  (a, b) => a.file.localeCompare(b.file) || a.line - b.line || a.prop.localeCompare(b.prop),
 );
 
 if (offGrid.length === 0) {
@@ -105,13 +102,9 @@ if (offGrid.length === 0) {
   process.exit(0);
 }
 
-console.warn(
-  `⚠ spacing-grid: ${offGrid.length} off-grid value(s) (warn-only in v1)`,
-);
+console.warn(`⚠ spacing-grid: ${offGrid.length} off-grid value(s) (warn-only in v1)`);
 for (const v of offGrid) {
   console.warn(`  ${v.file}:${v.line}: ${v.prop}: ${v.value}`);
 }
-console.warn(
-  "\nGrid: 4 · 8 · 12 · 16 · 20 · 24 · 32 · 40 · 48 · 64 · 80 (00-globals §G8).",
-);
+console.warn("\nGrid: 4 · 8 · 12 · 16 · 20 · 24 · 32 · 40 · 48 · 64 · 80 (00-globals §G8).");
 process.exit(0);

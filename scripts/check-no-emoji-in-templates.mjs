@@ -61,10 +61,10 @@ const ALLOW_DIRECTIVE = /<!--\s*design-system:\s*allow-emoji\s*-->/;
 const EMOJI_RE = /\p{Extended_Pictographic}/u;
 
 function gitStaged() {
-  const out = execSync(
-    "git diff --cached --name-only --diff-filter=ACMR",
-    { encoding: "utf8", cwd: REPO_ROOT },
-  );
+  const out = execSync("git diff --cached --name-only --diff-filter=ACMR", {
+    encoding: "utf8",
+    cwd: REPO_ROOT,
+  });
   return out.split(/\r?\n/).filter(Boolean);
 }
 
@@ -133,13 +133,7 @@ console.error(`✗ no-emoji-in-templates: ${violations.length} violation(s)`);
 for (const v of violations.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line)) {
   console.error(`  ${v.file}:${v.line}: ${v.emoji}  // ${v.src.slice(0, 100)}`);
 }
-console.error(
-  "\nFix: use Lucide icons via @tracepilot/ui (see 00-globals §G1 migration table),",
-);
-console.error(
-  "or wrap user-supplied emoji in <UserContentEmoji> and add",
-);
-console.error(
-  "`<!-- design-system: allow-emoji -->` inside the template block.",
-);
+console.error("\nFix: use Lucide icons via @tracepilot/ui (see 00-globals §G1 migration table),");
+console.error("or wrap user-supplied emoji in <UserContentEmoji> and add");
+console.error("`<!-- design-system: allow-emoji -->` inside the template block.");
 process.exit(1);
