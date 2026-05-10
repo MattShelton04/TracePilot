@@ -81,7 +81,8 @@ const store = useSearchStore();
             @click.stop="store.removeRecentSearch(recent.query)"
             @keydown.enter.stop="store.removeRecentSearch(recent.query)"
             title="Remove"
-          >✕</span>
+            aria-label="Remove"
+          ><span aria-hidden="true">✕</span></span>
         </button>
       </div>
     </div>
