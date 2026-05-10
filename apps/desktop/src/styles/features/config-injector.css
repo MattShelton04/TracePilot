@@ -736,8 +736,16 @@
 }
 
 .meta-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 0.75rem;
   color: var(--text-tertiary);
+}
+
+.meta-tag svg {
+  display: inline-block;
+  vertical-align: middle;
 }
 
 .meta-tag--warn {

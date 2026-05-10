@@ -6,6 +6,7 @@
 import { Brain } from "lucide-vue-next";
 import { computed } from "vue";
 import RendererShell from "../RendererShell.vue";
+import RendererTruncationFooter from "../RendererTruncationFooter.vue";
 
 const props = defineProps<{
   content: string;
@@ -53,9 +54,7 @@ const citations = computed(() =>
       </div>
       <pre v-if="!fact" class="memory-fallback">{{ content }}</pre>
     </div>
-    <button v-if="isTruncated" type="button" class="rs-trunc" @click="emit('load-full')">
-      Output truncated — Show full
-    </button>
+    <RendererTruncationFooter v-if="isTruncated" @load-full="emit('load-full')" />
   </RendererShell>
 </template>
 
@@ -124,17 +123,4 @@ const citations = computed(() =>
   word-break: break-word;
   color: var(--text-secondary);
 }
-.rs-trunc {
-  display: block;
-  width: 100%;
-  padding: 6px 12px;
-  border: 0;
-  border-top: 1px solid var(--border-subtle);
-  background: var(--canvas-inset);
-  color: var(--text-secondary);
-  font-size: 12px;
-  cursor: pointer;
-  text-align: left;
-}
-.rs-trunc:hover { color: var(--text-primary); background: var(--surface-tertiary); }
 </style>

@@ -8,6 +8,7 @@ import type { TurnToolCall } from "@tracepilot/types";
 import { Terminal } from "lucide-vue-next";
 import { computed } from "vue";
 import RendererShell, { type RendererShellStatus } from "../RendererShell.vue";
+import RendererTruncationFooter from "../RendererTruncationFooter.vue";
 
 const props = defineProps<{
   content: string;
@@ -125,9 +126,7 @@ const outputLines = computed<OutputLine[]>(() => {
         <div v-if="outputLines.length === 0" class="shell-line term-dim">(no output)</div>
       </div>
     </div>
-    <button v-if="isTruncated" type="button" class="rs-trunc" @click="emit('load-full')">
-      Output truncated — Show full
-    </button>
+    <RendererTruncationFooter v-if="isTruncated" @load-full="emit('load-full')" />
   </RendererShell>
 </template>
 
@@ -208,17 +207,4 @@ const outputLines = computed<OutputLine[]>(() => {
 .shell-line.term-success { color: var(--success-fg); }
 .shell-line.term-dim { color: var(--text-tertiary); }
 
-.rs-trunc {
-  display: block;
-  width: 100%;
-  padding: 6px 12px;
-  border: 0;
-  border-top: 1px solid var(--border-subtle);
-  background: var(--canvas-inset);
-  color: var(--text-secondary);
-  font-size: 12px;
-  cursor: pointer;
-  text-align: left;
-}
-.rs-trunc:hover { color: var(--text-primary); background: var(--surface-tertiary); }
 </style>

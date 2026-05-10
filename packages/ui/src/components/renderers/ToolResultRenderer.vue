@@ -14,6 +14,7 @@ import { getToolArgs } from "@tracepilot/types";
 import { type Component, computed } from "vue";
 import MarkdownContent from "../MarkdownContent.vue";
 import RendererShell from "../RendererShell.vue";
+import RendererTruncationFooter from "../RendererTruncationFooter.vue";
 import PlainTextRenderer from "./PlainTextRenderer.vue";
 import { getRendererEntry } from "./registry";
 
@@ -68,14 +69,10 @@ const useMarkdownFallback = computed(
       :render="true"
       style="padding: 10px 12px; background: var(--canvas-default);"
     />
-    <button
+    <RendererTruncationFooter
       v-if="isTruncated"
-      type="button"
-      class="rs-trunc"
-      @click="emit('load-full', tc.toolCallId ?? '')"
-    >
-      Output truncated — Show full
-    </button>
+      @load-full="emit('load-full', tc.toolCallId ?? '')"
+    />
   </RendererShell>
   <PlainTextRenderer
     v-else-if="content"
@@ -86,21 +83,4 @@ const useMarkdownFallback = computed(
   />
 </template>
 
-<style scoped>
-.rs-trunc {
-  display: block;
-  width: 100%;
-  padding: 6px 12px;
-  border: 0;
-  border-top: 1px solid var(--border-subtle);
-  background: var(--canvas-inset);
-  color: var(--text-secondary);
-  font-size: 12px;
-  cursor: pointer;
-  text-align: left;
-}
-.rs-trunc:hover {
-  color: var(--text-primary);
-  background: var(--surface-tertiary);
-}
-</style>
+

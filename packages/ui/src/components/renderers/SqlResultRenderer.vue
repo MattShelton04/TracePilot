@@ -8,6 +8,7 @@ import { Database } from "lucide-vue-next";
 import { computed } from "vue";
 import { highlightSql } from "../../utils/syntaxHighlight";
 import RendererShell, { type RendererShellStatus } from "../RendererShell.vue";
+import RendererTruncationFooter from "../RendererTruncationFooter.vue";
 
 const props = defineProps<{
   content: string;
@@ -166,9 +167,7 @@ function cellClass(value: string): string {
 
       <pre v-else class="sql-plain-output">{{ content }}</pre>
     </div>
-    <button v-if="isTruncated" type="button" class="rs-trunc" @click="emit('load-full')">
-      Output truncated — Show full
-    </button>
+    <RendererTruncationFooter v-if="isTruncated" @load-full="emit('load-full')" />
   </RendererShell>
 </template>
 
@@ -268,17 +267,4 @@ function cellClass(value: string): string {
   max-height: 400px;
   overflow: auto;
 }
-.rs-trunc {
-  display: block;
-  width: 100%;
-  padding: 6px 12px;
-  border: 0;
-  border-top: 1px solid var(--border-subtle);
-  background: var(--canvas-inset);
-  color: var(--text-secondary);
-  font-size: 12px;
-  cursor: pointer;
-  text-align: left;
-}
-.rs-trunc:hover { color: var(--text-primary); background: var(--surface-tertiary); }
 </style>

@@ -79,6 +79,7 @@ export type {
   RendererShellTokenUsage,
 } from "./components/RendererShell.vue";
 export { default as RendererShell } from "./components/RendererShell.vue";
+export { default as RendererTruncationFooter } from "./components/RendererTruncationFooter.vue";
 // ── Renderers ──────────────────────────────────────────────────────
 export { default as CodeBlock } from "./components/renderers/CodeBlock.vue";
 export { default as PlainTextRenderer } from "./components/renderers/PlainTextRenderer.vue";

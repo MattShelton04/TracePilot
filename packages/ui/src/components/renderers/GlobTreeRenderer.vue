@@ -6,6 +6,7 @@
 import { File, Folder, FolderTree } from "lucide-vue-next";
 import { computed, reactive } from "vue";
 import RendererShell from "../RendererShell.vue";
+import RendererTruncationFooter from "../RendererTruncationFooter.vue";
 
 const props = defineProps<{
   content: string;
@@ -166,9 +167,7 @@ function countFiles(node: TreeNode): number {
         </div>
       </div>
     </div>
-    <button v-if="isTruncated" type="button" class="rs-trunc" @click="emit('load-full')">
-      Output truncated — Show full
-    </button>
+    <RendererTruncationFooter v-if="isTruncated" @load-full="emit('load-full')" />
   </RendererShell>
 </template>
 
@@ -253,17 +252,4 @@ function countFiles(node: TreeNode): number {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.rs-trunc {
-  display: block;
-  width: 100%;
-  padding: 6px 12px;
-  border: 0;
-  border-top: 1px solid var(--border-subtle);
-  background: var(--canvas-inset);
-  color: var(--text-secondary);
-  font-size: 12px;
-  cursor: pointer;
-  text-align: left;
-}
-.rs-trunc:hover { color: var(--text-primary); background: var(--surface-tertiary); }
 </style>

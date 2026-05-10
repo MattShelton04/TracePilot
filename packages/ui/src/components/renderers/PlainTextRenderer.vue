@@ -4,6 +4,7 @@
  */
 import { FileText } from "lucide-vue-next";
 import RendererShell from "../RendererShell.vue";
+import RendererTruncationFooter from "../RendererTruncationFooter.vue";
 
 defineProps<{
   content: string;
@@ -19,9 +20,7 @@ const emit = defineEmits<{
   <RendererShell tool-name="Output" status="success" :copy-text="content">
     <template #icon><FileText :size="16" /></template>
     <pre class="plain-text-renderer">{{ content }}</pre>
-    <button v-if="isTruncated" type="button" class="rs-trunc" @click="emit('load-full')">
-      Output truncated — Show full
-    </button>
+    <RendererTruncationFooter v-if="isTruncated" @load-full="emit('load-full')" />
   </RendererShell>
 </template>
 
@@ -38,17 +37,4 @@ const emit = defineEmits<{
   overflow: auto;
   color: var(--text-secondary);
 }
-.rs-trunc {
-  display: block;
-  width: 100%;
-  padding: 6px 12px;
-  border: 0;
-  border-top: 1px solid var(--border-subtle);
-  background: var(--canvas-inset);
-  color: var(--text-secondary);
-  font-size: 12px;
-  cursor: pointer;
-  text-align: left;
-}
-.rs-trunc:hover { color: var(--text-primary); background: var(--surface-tertiary); }
 </style>

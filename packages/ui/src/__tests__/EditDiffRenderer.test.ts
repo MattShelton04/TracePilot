@@ -101,6 +101,6 @@ describe("EditDiffRenderer", () => {
         isTruncated: true,
       },
     });
-    expect(wrapper.text()).toContain("Output truncated");
+    expect(wrapper.text()).toContain("Output was truncated");
   });
 });

@@ -8,6 +8,7 @@ import { File, Search } from "lucide-vue-next";
 import { computed } from "vue";
 import { normalizePath } from "../../utils/pathUtils";
 import RendererShell from "../RendererShell.vue";
+import RendererTruncationFooter from "../RendererTruncationFooter.vue";
 
 const props = defineProps<{
   content: string;
@@ -215,9 +216,7 @@ function hasGap(matches: GrepMatch[], idx: number): boolean {
         </div>
       </div>
     </div>
-    <button v-if="isTruncated" type="button" class="rs-trunc" @click="emit('load-full')">
-      Output truncated — Show full
-    </button>
+    <RendererTruncationFooter v-if="isTruncated" @load-full="emit('load-full')" />
   </RendererShell>
 </template>
 
@@ -338,17 +337,4 @@ function hasGap(matches: GrepMatch[], idx: number): boolean {
   padding: 3px 12px;
 }
 .grep-file-item:hover { background: var(--neutral-muted); }
-.rs-trunc {
-  display: block;
-  width: 100%;
-  padding: 6px 12px;
-  border: 0;
-  border-top: 1px solid var(--border-subtle);
-  background: var(--canvas-inset);
-  color: var(--text-secondary);
-  font-size: 12px;
-  cursor: pointer;
-  text-align: left;
-}
-.rs-trunc:hover { color: var(--text-primary); background: var(--surface-tertiary); }
 </style>
