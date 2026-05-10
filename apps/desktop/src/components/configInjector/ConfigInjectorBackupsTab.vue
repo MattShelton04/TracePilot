@@ -1,6 +1,12 @@
 <script setup lang="ts">
-import { EmptyState, formatBytes, formatDate, shortenPath } from "@tracepilot/ui";
-import * as LucideIcons from "lucide-vue-next";
+import {
+  EmptyState,
+  formatBytes,
+  formatDate,
+  LUCIDE_ICON_COMPONENTS,
+  resolveLucideIcon,
+  shortenPath,
+} from "@tracepilot/ui";
 import { useConfigInjectorContext } from "@/composables/useConfigInjector";
 
 const {
@@ -21,18 +27,8 @@ const {
   toggleBackupPreview,
 } = useConfigInjectorContext();
 
-function kebabToPascal(name: string): string {
-  return name
-    .split("-")
-    .map((p) => (p.length ? p[0].toUpperCase() + p.slice(1) : p))
-    .join("");
-}
-
 function backupIcon(path: string): unknown {
-  return (
-    (LucideIcons as Record<string, unknown>)[kebabToPascal(backupIconName(path))] ??
-    LucideIcons.FileText
-  );
+  return resolveLucideIcon(backupIconName(path), LUCIDE_ICON_COMPONENTS["file-text"]);
 }
 </script>
 
@@ -102,7 +98,7 @@ function backupIcon(path: string): unknown {
               :title="backup.sourcePath ? 'Restore to ' + backup.sourcePath : 'Source path unknown — cannot restore'"
               @click="store.restoreBackup(backup.backupPath, backup.sourcePath)"
             >
-              <component :is="LucideIcons.RotateCcw" :size="13" :stroke-width="1.5" />
+              <component :is="LUCIDE_ICON_COMPONENTS['rotate-ccw']" :size="13" :stroke-width="1.5" />
               Restore
             </button>
             <button
@@ -112,7 +108,7 @@ function backupIcon(path: string): unknown {
               @click="toggleDeleteBackup(backup)"
             >
               <template v-if="confirmingDeleteBackupId === backup.id">Confirm?</template>
-              <component v-else :is="LucideIcons.Trash2" :size="13" :stroke-width="1.5" />
+              <component v-else :is="LUCIDE_ICON_COMPONENTS['trash-2']" :size="13" :stroke-width="1.5" />
             </button>
           </div>
         </div>
@@ -135,7 +131,7 @@ function backupIcon(path: string): unknown {
 
     <EmptyState v-else title="No Backups Yet" message="Create a backup above to safeguard your configuration before making changes.">
       <template #icon>
-        <component :is="LucideIcons.Package" :size="32" :stroke-width="1.5" />
+        <component :is="LUCIDE_ICON_COMPONENTS.package" :size="32" :stroke-width="1.5" />
       </template>
     </EmptyState>
   </div>

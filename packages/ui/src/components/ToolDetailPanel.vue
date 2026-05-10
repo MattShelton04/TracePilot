@@ -8,8 +8,8 @@
  * to the parent component.
  */
 import type { TurnToolCall } from "@tracepilot/types";
-import * as LucideIcons from "lucide-vue-next";
 import { computed } from "vue";
+import { resolveLucideIcon } from "../icons/lucideRegistry";
 import { formatDuration, formatTime } from "../utils/formatters";
 import { extractPrompt, toolIcon } from "../utils/toolCall";
 import Badge from "./Badge.vue";
@@ -35,15 +35,8 @@ defineEmits<{
   "load-full-result": [toolCallId: string];
 }>();
 
-function kebabToPascal(name: string): string {
-  return name
-    .split("-")
-    .map((p) => (p.length ? p[0].toUpperCase() + p.slice(1) : p))
-    .join("");
-}
 const iconComponent = computed(() => {
-  const pascal = kebabToPascal(toolIcon(props.tc.toolName));
-  return (LucideIcons as Record<string, unknown>)[pascal] ?? LucideIcons.Wrench;
+  return resolveLucideIcon(toolIcon(props.tc.toolName));
 });
 </script>
 

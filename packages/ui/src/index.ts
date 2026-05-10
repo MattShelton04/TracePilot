@@ -198,6 +198,11 @@ export { useToast } from "./composables/useToast";
 export { useToggleSet } from "./composables/useToggleSet";
 export type { UseVisibilityGatedPollOptions } from "./composables/useVisibilityGatedPoll";
 export { useVisibilityGatedPoll } from "./composables/useVisibilityGatedPoll";
+export {
+  LUCIDE_ICON_COMPONENTS,
+  type LucideComponent,
+  resolveLucideIcon,
+} from "./icons/lucideRegistry";
 export type { LucideName } from "./icons/templateCatalogue";
 export { TEMPLATE_ICON_CATALOGUE } from "./icons/templateCatalogue";
 

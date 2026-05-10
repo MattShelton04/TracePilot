@@ -26,30 +26,18 @@ import {
   formatTime,
   getAgentColor,
   ReasoningBlock,
+  resolveLucideIcon,
   ToolCallDetail,
   ToolCallItem,
   toolCategory,
   toolIcon,
   truncateText,
 } from "@tracepilot/ui";
-import * as LucideIcons from "lucide-vue-next";
 import { Coins, User } from "lucide-vue-next";
 
 interface ToggleSetLike<T> {
   has: (value: T) => boolean;
   toggle: (value: T) => void;
-}
-
-function kebabToPascal(name: string): string {
-  return name
-    .split("-")
-    .map((p) => (p.length ? p[0].toUpperCase() + p.slice(1) : p))
-    .join("");
-}
-
-function resolveLucide(name: string): unknown {
-  const pascal = kebabToPascal(name);
-  return (LucideIcons as Record<string, unknown>)[pascal] ?? LucideIcons.Wrench;
 }
 
 const props = defineProps<{
@@ -194,7 +182,7 @@ function onRetryFullResult(toolCallId: string) {
               :title="section.agentId ? `${section.agentDisplayName} → ${tc.toolName}` : tc.toolName"
               @click="expandedToolDetails.toggle(`compact-${turn.turnIndex}-${findToolCallIndex(turn, tc)}`)"
             >
-              <component :is="resolveLucide(toolIcon(tc.toolName))" :size="14" :stroke-width="1.5" aria-hidden="true" />
+              <component :is="resolveLucideIcon(toolIcon(tc.toolName))" :size="14" :stroke-width="1.5" aria-hidden="true" />
               {{ tc.toolName }}
               <span v-if="tc.durationMs" class="turn-meta">{{ formatDuration(tc.durationMs) }}</span>
             </button>
@@ -205,7 +193,7 @@ function onRetryFullResult(toolCallId: string) {
         <template v-for="(tc, tcIdx) in turn.toolCalls" :key="`detail-${tcIdx}`">
           <div v-if="expandedToolDetails.has(`compact-${turn.turnIndex}-${tcIdx}`)" class="tool-calls-container" style="margin-top: 4px;">
             <div class="tool-call-header">
-              <component :is="resolveLucide(toolIcon(tc.toolName))" :size="14" :stroke-width="1.5" aria-hidden="true" />
+              <component :is="resolveLucideIcon(toolIcon(tc.toolName))" :size="14" :stroke-width="1.5" aria-hidden="true" />
               <span class="tool-call-name" :class="categoryColor(toolCategory(tc.toolName))">{{ tc.toolName }}</span>
               <span v-if="getArgsSummary(turn.turnIndex, tcIdx)" class="tool-call-args" style="font-family: var(--font-mono, monospace);">{{ getArgsSummary(turn.turnIndex, tcIdx) }}</span>
             </div>
@@ -224,7 +212,7 @@ function onRetryFullResult(toolCallId: string) {
         <div v-if="turn.sessionEvents?.length" class="session-events-list compact">
           <div v-for="(se, seIdx) in turn.sessionEvents" :key="seIdx" class="session-event-row" :class="`session-event-${se.severity}`">
             <Badge :variant="severityVariant(se.severity)" size="sm">
-              <component :is="resolveLucide(severityIconName(se.severity))" :size="12" :stroke-width="1.5" aria-hidden="true" />
+              <component :is="resolveLucideIcon(severityIconName(se.severity))" :size="12" :stroke-width="1.5" aria-hidden="true" />
               {{ eventTypeLabel(se.eventType) }}
             </Badge>
             <span class="session-event-summary">{{ se.summary }}</span>
@@ -308,7 +296,7 @@ function onRetryFullResult(toolCallId: string) {
         <div v-if="turn.sessionEvents?.length" class="session-events-list">
           <div v-for="(se, seIdx) in turn.sessionEvents" :key="seIdx" class="session-event-row" :class="`session-event-${se.severity}`">
             <Badge :variant="severityVariant(se.severity)" size="sm">
-              <component :is="resolveLucide(severityIconName(se.severity))" :size="12" :stroke-width="1.5" aria-hidden="true" />
+              <component :is="resolveLucideIcon(severityIconName(se.severity))" :size="12" :stroke-width="1.5" aria-hidden="true" />
               {{ eventTypeLabel(se.eventType) }}
             </Badge>
             <span class="session-event-summary">{{ se.summary }}</span>

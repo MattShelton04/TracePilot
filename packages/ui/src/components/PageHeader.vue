@@ -23,8 +23,8 @@
       Session Detail to keep its action toolbar visible.
 -->
 <script setup lang="ts">
-import * as LucideIcons from "lucide-vue-next";
 import { computed } from "vue";
+import { resolveLucideIcon } from "../icons/lucideRegistry";
 import { type LucideName } from "../icons/templateCatalogue";
 import BreadcrumbNav, { type BreadcrumbItem } from "./BreadcrumbNav.vue";
 import Heading from "./Heading.vue";
@@ -71,23 +71,14 @@ const props = withDefaults(defineProps<PageHeaderProps>(), {
   sticky: false,
 });
 
-function kebabToPascal(name: string): string {
-  return name
-    .split("-")
-    .map((p) => (p.length ? p[0].toUpperCase() + p.slice(1) : p))
-    .join("");
-}
-
 const titleIconComponent = computed(() => {
   if (!props.iconName) return null;
-  const pascal = kebabToPascal(props.iconName);
-  return (LucideIcons as Record<string, unknown>)[pascal] ?? null;
+  return resolveLucideIcon(props.iconName, null);
 });
 
 const statusIconComponent = computed(() => {
   if (!props.status?.iconName) return null;
-  const pascal = kebabToPascal(props.status.iconName);
-  return (LucideIcons as Record<string, unknown>)[pascal] ?? null;
+  return resolveLucideIcon(props.status.iconName, null);
 });
 </script>
 
