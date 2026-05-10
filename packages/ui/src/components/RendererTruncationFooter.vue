@@ -21,9 +21,10 @@ const emit = defineEmits<{
 <style scoped>
 .rs-trunc-row {
   display: flex;
+  justify-content: center;
   align-items: center;
   gap: 8px;
-  padding: 6px 12px;
+  padding: 8px 12px;
   border-top: 1px solid var(--border-subtle);
   background: var(--canvas-inset);
   font-size: 12px;
@@ -31,7 +32,6 @@ const emit = defineEmits<{
 }
 
 .rs-trunc-text {
-  flex: 1;
   min-width: 0;
 }
 

@@ -18,7 +18,15 @@ import {
   useAutoRefresh,
   useClipboard,
 } from "@tracepilot/ui";
-import { AlertTriangle } from "lucide-vue-next";
+import {
+  AlertTriangle,
+  Check,
+  Clapperboard,
+  Clipboard,
+  FolderOpen,
+  Play,
+  Share,
+} from "lucide-vue-next";
 import { computed, onMounted, ref, watch } from "vue";
 import type { Router } from "vue-router";
 import ErrorBoundary from "@/components/ErrorBoundary.vue";
@@ -220,7 +228,8 @@ watch(isSessionActive, (active) => {
             @click="copyResumeCommand"
             :title="`Copy: ${prefs.cliCommand} --resume ${sessionId}`"
           >
-            {{ copied ? '✓ Copied!' : '📋 Copy Resume Command' }}
+            <component :is="copied ? Check : Clipboard" :size="14" aria-hidden="true" />
+            {{ copied ? 'Copied!' : 'Copy Resume Command' }}
           </button>
 
           <template v-if="!isViewer()">
@@ -237,7 +246,8 @@ watch(isSessionActive, (active) => {
               @click="resumeInTerminal"
               :title="`Resume session ${sessionId} in a new terminal`"
             >
-              ▶ Resume in Terminal
+              <Play :size="14" aria-hidden="true" />
+              Resume in Terminal
             </button>
           </template>
 
@@ -247,7 +257,8 @@ watch(isSessionActive, (active) => {
             @click="openSessionFolder"
             title="Open session state folder in file explorer"
           >
-            📂 Open Folder
+            <FolderOpen :size="14" aria-hidden="true" />
+            Open Folder
           </button>
 
           <button
@@ -256,7 +267,8 @@ watch(isSessionActive, (active) => {
             :title="`Export session ${sessionId}`"
             @click="router!.push({ name: 'export', query: { sessionId: resolvedSessionId } })"
           >
-            📤 Export
+            <Share :size="14" aria-hidden="true" />
+            Export
           </button>
 
           <button
@@ -265,7 +277,8 @@ watch(isSessionActive, (active) => {
             @click="router!.push({ name: 'replay', params: { id: sessionId } })"
             title="Open session in step-by-step replay view"
           >
-            🎬 Replay
+            <Clapperboard :size="14" aria-hidden="true" />
+            Replay
           </button>
         </div>
 
@@ -399,7 +412,7 @@ watch(isSessionActive, (active) => {
 .resume-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   padding: 6px 14px;
   font-size: 0.8125rem;
   font-weight: 500;
@@ -409,6 +422,9 @@ watch(isSessionActive, (active) => {
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: all var(--transition-fast);
+}
+.resume-btn svg {
+  flex-shrink: 0;
 }
 .resume-btn:hover {
   background: var(--neutral-subtle);
