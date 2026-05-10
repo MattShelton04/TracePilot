@@ -7,6 +7,19 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 
 ## [Unreleased]
 
+## [0.6.6] - 2026-05-10
+
+### Added
+- **Inline skill invocation rendering** — conversation views now show skill calls as dedicated session events instead of burying them inside generic tool activity
+
+### Changed
+- **Usage-based Copilot pricing support** — pricing settings, session metrics, analytics, and model comparison now understand the newer AI Credit / usage-based billing model
+- **Better objective and cost visibility** — active session objectives are surfaced more clearly, and analytics cost series/distributions are easier to interpret
+- **UI polish across core surfaces** — sidebar, search palette, session views, and shared tool-renderer chrome now feel more consistent and readable
+
+### Fixed
+- **Copilot CLI 1.0.40 compatibility** — newer permission-related events and payload shapes now parse and render correctly
+
 ## [0.6.5] - 2026-05-03
 
 ### Added
