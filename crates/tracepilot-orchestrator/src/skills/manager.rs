@@ -155,7 +155,7 @@ pub fn rename_skill(skill_dir: &Path, new_name: &SkillName) -> Result<PathBuf, S
     }
 
     // Prepare updated content BEFORE any filesystem mutation
-    let content = std::fs::read_to_string(&skill_path)?;
+    let content = tracepilot_core::TracePilotError::read_to_string(&skill_path)?;
     let (mut fm, body) = parse_skill_md(&content)?;
     fm.name = new_name.to_string();
     let new_content = write_skill_md(&fm, &body);

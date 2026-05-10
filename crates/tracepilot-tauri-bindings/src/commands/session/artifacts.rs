@@ -57,7 +57,7 @@ pub async fn get_session_plan(
             return Ok(None);
         }
 
-        let mut content = std::fs::read_to_string(&plan_path)?;
+        let mut content = tracepilot_core::TracePilotError::read_to_string(&plan_path)?;
         tracepilot_core::utils::truncate_string_utf8(&mut content, MAX_CHECKPOINT_CONTENT_BYTES);
 
         Ok(Some(serde_json::json!({ "content": content })))

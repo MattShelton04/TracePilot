@@ -89,7 +89,7 @@ fn load_skill_summary(
     skill_md_path: &Path,
     scope: &SkillScope,
 ) -> Result<SkillSummary, SkillsError> {
-    let content = std::fs::read_to_string(skill_md_path)?;
+    let content = tracepilot_core::TracePilotError::read_to_string(skill_md_path)?;
     let (fm, body) = parse_skill_md(&content)?;
     let tokens = estimate_skill_tokens(&content, &body);
 
@@ -116,7 +116,7 @@ fn load_skill_summary(
 
 /// Load a full skill from a SKILL.md path.
 pub fn load_skill(skill_md_path: &Path, scope: SkillScope) -> Result<Skill, SkillsError> {
-    let content = std::fs::read_to_string(skill_md_path)?;
+    let content = tracepilot_core::TracePilotError::read_to_string(skill_md_path)?;
     let (fm, body) = parse_skill_md(&content)?;
     let tokens = estimate_skill_tokens(&content, &body);
 
