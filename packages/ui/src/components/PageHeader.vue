@@ -150,13 +150,13 @@ const statusIconComponent = computed(() => {
 .page-header {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 10px 16px;
+  gap: 4px;
+  padding: 8px 16px;
   border-bottom: 1px solid var(--border-subtle);
 }
 
 .page-header--compact {
-  padding: 6px 12px;
+  padding: 4px 12px;
 }
 
 .page-header--sticky {

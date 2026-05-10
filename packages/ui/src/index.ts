@@ -13,27 +13,11 @@ export type { ChartCardProps, ChartCardState } from "./components/ChartCard.vue"
 export { default as ChartCard } from "./components/ChartCard.vue";
 export { default as ChartFrame } from "./components/ChartFrame.vue";
 export { default as ConfirmDialog } from "./components/ConfirmDialog.vue";
-export type {
-  DataGridColumn,
-  DataGridDensity,
-  DataGridProps,
-  DataGridSelectionMode,
-  DataGridSortDir,
-  DataGridSortState,
-  DataGridState,
-} from "./components/DataGrid.vue";
-export { default as DataGrid } from "./components/DataGrid.vue";
 export { default as DataTable } from "./components/DataTable.vue";
 export { default as DefList } from "./components/DefList.vue";
 export { default as Drawer } from "./components/Drawer.vue";
 export type { EmptyStateAction, EmptyStateProps } from "./components/EmptyState.vue";
 export { default as EmptyState } from "./components/EmptyState.vue";
-export type {
-  EntityCardMeta,
-  EntityCardProps,
-  EntityCardTone,
-} from "./components/EntityCard.vue";
-export { default as EntityCard } from "./components/EntityCard.vue";
 export type { EnvVar } from "./components/EnvVarTable.vue";
 export { default as EnvVarTable } from "./components/EnvVarTable.vue";
 export { default as ErrorAlert } from "./components/ErrorAlert.vue";
@@ -62,8 +46,6 @@ export type { KPIRowProps } from "./components/KPIRow.vue";
 export { default as KPIRow } from "./components/KPIRow.vue";
 export { default as LoadingOverlay } from "./components/LoadingOverlay.vue";
 export { default as LoadingSpinner } from "./components/LoadingSpinner.vue";
-export type { LucideIconPickerProps } from "./components/LucideIconPicker.vue";
-export { default as LucideIconPicker } from "./components/LucideIconPicker.vue";
 export { default as MarkdownContent } from "./components/MarkdownContent.vue";
 export { default as MiniTimeline } from "./components/MiniTimeline.vue";
 export { default as ModalDialog } from "./components/ModalDialog.vue";
@@ -103,8 +85,6 @@ export { default as Select } from "./components/Select.vue";
 export { default as SessionCard } from "./components/SessionCard.vue";
 export { default as SessionList } from "./components/SessionList.vue";
 export { default as SkeletonLoader } from "./components/SkeletonLoader.vue";
-export type { SplitPaneProps } from "./components/SplitPane.vue";
-export { default as SplitPane } from "./components/SplitPane.vue";
 export { default as SqliteTableView } from "./components/SqliteTableView.vue";
 export { default as StatCard } from "./components/StatCard.vue";
 export { default as StatusIcon } from "./components/StatusIcon.vue";
@@ -130,13 +110,6 @@ export { default as TagList } from "./components/TagList.vue";
 export { default as TerminologyLegend } from "./components/TerminologyLegend.vue";
 export { default as ToastContainer } from "./components/ToastContainer.vue";
 export { default as TokenBar } from "./components/TokenBar.vue";
-export type {
-  TokenBudgetBarProps,
-  TokenBudgetBarThresholds,
-} from "./components/TokenBudgetBar.vue";
-export { default as TokenBudgetBar } from "./components/TokenBudgetBar.vue";
-export type { ToolbarRowProps } from "./components/ToolbarRow.vue";
-export { default as ToolbarRow } from "./components/ToolbarRow.vue";
 export { default as ToolCallDetail } from "./components/ToolCallDetail.vue";
 export { default as ToolCallItem } from "./components/ToolCallItem.vue";
 export { default as ToolDetailPanel } from "./components/ToolDetailPanel.vue";
