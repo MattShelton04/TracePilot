@@ -58,7 +58,7 @@ pub fn import_from_file(path: &Path) -> Result<McpImportResult, McpError> {
 
 /// Import from raw JSON text with a source label.
 pub fn import_from_json(json: &str, source_label: &str) -> Result<McpImportResult, McpError> {
-    let value: Value = serde_json::from_str(json)?;
+    let value: Value = tracepilot_core::TracePilotError::from_json_str(json, source_label)?;
     parse_mcp_config(&value, source_label)
 }
 

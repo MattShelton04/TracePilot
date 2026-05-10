@@ -97,12 +97,28 @@ impl TracePilotError {
         serde_json::from_reader(reader).map_err(|e| Self::parse_context("JSON", path.display(), e))
     }
 
+    /// Parse a JSON string with context-rich errors.
+    pub fn from_json_str<T: serde::de::DeserializeOwned>(
+        json: &str,
+        context: impl std::fmt::Display,
+    ) -> Result<T> {
+        serde_json::from_str(json).map_err(|e| Self::parse_context(&format!("JSON ({context})"), "", e))
+    }
+
     /// Read and parse a YAML file with context-rich errors.
     pub fn read_yaml<T: serde::de::DeserializeOwned>(path: &std::path::Path) -> Result<T> {
         let file = std::fs::File::open(path)
             .map_err(|e| Self::io_context("Failed to read", path.display(), e))?;
         let reader = std::io::BufReader::new(file);
         serde_yml::from_reader(reader).map_err(|e| Self::parse_context("YAML", path.display(), e))
+    }
+
+    /// Parse a YAML string with context-rich errors.
+    pub fn from_yaml_str<T: serde::de::DeserializeOwned>(
+        yaml: &str,
+        context: impl std::fmt::Display,
+    ) -> Result<T> {
+        serde_yml::from_str(yaml).map_err(|e| Self::parse_context(&format!("YAML ({context})"), "", e))
     }
 }
 
