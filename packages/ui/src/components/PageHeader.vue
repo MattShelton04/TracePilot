@@ -141,14 +141,16 @@ const statusIconComponent = computed(() => {
 .page-header {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin: 0;
-  padding: 0;
+  gap: 10px;
+  margin: 0 0 24px;
+  padding: 0 0 16px;
   border-bottom: 1px solid var(--border-subtle);
 }
 
 .page-header--compact {
-  padding: 0;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
 }
 
 .page-header--sticky {
@@ -166,7 +168,7 @@ const statusIconComponent = computed(() => {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 16px;
   min-height: 28px;
 }
 
