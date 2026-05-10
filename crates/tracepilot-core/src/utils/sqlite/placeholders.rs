@@ -15,13 +15,18 @@ pub fn build_in_placeholders(n: usize) -> String {
         n > 0,
         "build_in_placeholders requires n > 0; n=0 produces empty string that makes IN () invalid SQL"
     );
+    if n == 0 {
+        return String::new();
+    }
+
     // Each element is "?" (1 char) + ", " (2 chars) except the last → n*3 max.
-    let mut s = String::with_capacity(n * 3);
-    for i in 0..n {
-        if i > 0 {
-            s.push_str(", ");
-        }
-        s.push('?');
+    // Use safe math to avoid any theoretical underflows
+    let cap = n.saturating_sub(1).saturating_mul(3).saturating_add(1);
+    let mut s = String::with_capacity(cap);
+
+    s.push_str("?");
+    for _ in 1..n {
+        s.push_str(", ?");
     }
     s
 }
@@ -57,24 +62,26 @@ pub fn build_placeholder_sql(sql_prefix: &str, num_rows: usize, params_per_row: 
         return sql_prefix.to_string();
     }
 
-    let mut sql = String::with_capacity(
-        sql_prefix.len() + 1 + num_rows * (params_per_row * 2 + 1) + num_rows - 1,
-    );
-    sql.push_str(sql_prefix);
-    sql.push(' ');
+    // Use safe math for capacity calculation
+    let row_len = params_per_row.saturating_mul(2).saturating_add(1);
+    let total_rows_len = num_rows.saturating_mul(row_len).saturating_add(num_rows.saturating_sub(1));
+    let cap = sql_prefix.len().saturating_add(1).saturating_add(total_rows_len);
 
-    let mut row_str = String::with_capacity(params_per_row * 2 + 1);
-    row_str.push('(');
-    row_str.push('?');
+    let mut sql = String::with_capacity(cap);
+    sql.push_str(sql_prefix);
+    sql.push_str(" ");
+
+    // Pre-build the row string once to optimize the hot loop
+    let mut row_str = String::with_capacity(row_len);
+    row_str.push_str("(?");
     for _ in 1..params_per_row {
-        row_str.push(',');
-        row_str.push('?');
+        row_str.push_str(",?");
     }
-    row_str.push(')');
+    row_str.push_str(")");
 
     sql.push_str(&row_str);
     for _ in 1..num_rows {
-        sql.push(',');
+        sql.push_str(",");
         sql.push_str(&row_str);
     }
     sql
