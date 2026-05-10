@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { FolderOpen } from "lucide-vue-next";
 import { useSkillImportWizardContext } from "@/composables/useSkillImportWizard";
 
 const wizard = useSkillImportWizardContext();
@@ -35,8 +36,8 @@ const wizard = useSkillImportWizardContext();
           placeholder="C:\path\to\repository"
         />
       </div>
-      <button class="btn-browse" @click="wizard.browseLocalDir" title="Browse for directory">
-        📂
+      <button class="btn-browse" @click="wizard.browseLocalDir" title="Browse for directory" aria-label="Browse for directory">
+        <FolderOpen :size="14" :stroke-width="1.5" aria-hidden="true" />
       </button>
       <button
         class="btn-scan"

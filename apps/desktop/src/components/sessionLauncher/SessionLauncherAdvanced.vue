@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { SearchableSelect } from "@tracepilot/ui";
+import { Banner, SearchableSelect } from "@tracepilot/ui";
+import { ChevronRight, FolderOpen } from "lucide-vue-next";
 import { useSessionLauncherContext } from "@/composables/useSessionLauncher";
 
 const {
@@ -38,7 +39,9 @@ function toggleUiServer() {
 <template>
   <section class="section-block">
     <button class="advanced-trigger" @click="showAdvanced = !showAdvanced">
-      <span class="advanced-arrow" :class="{ open: showAdvanced }">▶</span>
+      <span class="advanced-arrow" :class="{ open: showAdvanced }" aria-hidden="true">
+        <ChevronRight :size="14" :stroke-width="1.5" />
+      </span>
       Advanced Options
     </button>
     <Transition name="slide">
@@ -85,12 +88,11 @@ function toggleUiServer() {
               />
               <span class="form-hint">The branch to base the new worktree on. If left blank, the worktree is created from the current HEAD.</span>
             </div>
-            <div v-if="!branch" class="worktree-warning">
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575ZM8 5a.75.75 0 0 0-.75.75v2.5a.75.75 0 0 0 1.5 0v-2.5A.75.75 0 0 0 8 5Zm1 6a1 1 0 1 0-2 0 1 1 0 0 0 2 0Z"/></svg>
-              <span>A branch name is required when creating a worktree. Enter one in the Branch field above.</span>
-            </div>
+            <Banner v-if="!branch" tone="warning" class="worktree-warning">
+              A branch name is required when creating a worktree. Enter one in the Branch field above.
+            </Banner>
             <div v-if="worktreePreviewPath" class="worktree-path-preview">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+              <FolderOpen :size="14" :stroke-width="1.5" aria-hidden="true" />
               <span class="wt-preview-label">Worktree folder:</span>
               <code class="wt-preview-path">{{ worktreePreviewPath }}</code>
             </div>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { SkillImportResult } from "@tracepilot/types";
 import { useShortcut } from "@tracepilot/ui";
+import { AlertTriangle, CheckCircle2 } from "lucide-vue-next";
 import { provide } from "vue";
 import SkillImportStep1Local from "@/components/skills/import-wizard/SkillImportStep1Local.vue";
 import SkillImportStep2GitHub from "@/components/skills/import-wizard/SkillImportStep2GitHub.vue";
@@ -37,7 +38,9 @@ useShortcut("Escape", () => emit("close"));
       <!-- Result View -->
       <div v-if="wizard.showResult && wizard.importResult" class="wizard__body">
         <div class="wizard__result">
-          <div class="wizard__result-icon">✅</div>
+          <div class="wizard__result-icon" aria-hidden="true">
+            <CheckCircle2 :size="32" :stroke-width="1.5" />
+          </div>
           <h4 class="wizard__result-title">Skill Imported</h4>
           <p class="wizard__result-name">{{ wizard.importResult.skillName }}</p>
           <p class="wizard__result-detail">
@@ -45,7 +48,8 @@ useShortcut("Escape", () => emit("close"));
           </p>
           <div v-if="wizard.importResult.warnings.length > 0" class="wizard__warnings">
             <p v-for="(w, i) in wizard.importResult.warnings" :key="i" class="wizard__warning">
-              ⚠️ {{ w }}
+              <AlertTriangle :size="14" :stroke-width="1.5" aria-hidden="true" />
+              <span>{{ w }}</span>
             </p>
           </div>
         </div>

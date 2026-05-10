@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { TRACEPILOT_HOME_PLACEHOLDER } from "@tracepilot/types";
+import { Database } from "lucide-vue-next";
 
 defineProps<{
   tracepilotHome: string;
@@ -28,7 +29,9 @@ function onPathInput(e: Event) {
 <template>
   <div class="slide">
       <div class="slide-content slide-form">
-        <div class="form-icon">🗄️</div>
+        <div class="form-icon" aria-hidden="true">
+          <Database :size="40" :stroke-width="1.5" />
+        </div>
         <h2 class="slide-title" tabindex="-1">Where should TracePilot store data?</h2>
         <p class="slide-desc">
           TracePilot keeps its local database, task data, presets, and backups

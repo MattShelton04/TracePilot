@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ValidateSessionDirResult } from "@tracepilot/client";
 import { COPILOT_HOME_PLACEHOLDER } from "@tracepilot/types";
+import { AlertTriangle, FolderOpen } from "lucide-vue-next";
 
 defineProps<{
   copilotHome: string;
@@ -25,7 +26,9 @@ const emit = defineEmits<{
 <template>
   <div class="slide">
     <div class="slide-content slide-form">
-      <div class="form-icon">📂</div>
+      <div class="form-icon" aria-hidden="true">
+        <FolderOpen :size="40" :stroke-width="1.5" />
+      </div>
       <h2 class="slide-title" tabindex="-1">Where is your Copilot home?</h2>
       <p class="slide-desc">
         TracePilot derives your sessions directory from Copilot home, then reads that data to generate analytics.
@@ -73,7 +76,8 @@ const emit = defineEmits<{
           v-else-if="validationResult && validationResult.sessionCount === 0"
           class="validation-msg warning"
         >
-          ⚠ No sessions found yet — TracePilot will watch for new sessions
+          <AlertTriangle :size="14" :stroke-width="1.5" aria-hidden="true" />
+          No sessions found yet — TracePilot will watch for new sessions
         </div>
       </div>
 

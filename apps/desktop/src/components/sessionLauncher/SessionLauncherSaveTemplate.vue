@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Save } from "lucide-vue-next";
 import { useSessionLauncherContext } from "@/composables/useSessionLauncher";
 
 const { showTemplateForm, templateForm, handleSaveTemplate } = useSessionLauncherContext();
@@ -8,7 +9,10 @@ const { showTemplateForm, templateForm, handleSaveTemplate } = useSessionLaunche
   <section class="section-block">
     <label class="tpl-save-toggle">
       <input type="checkbox" v-model="showTemplateForm" class="tpl-save-checkbox" />
-      <span>💾 Save as Template</span>
+      <span class="tpl-save-toggle-label">
+        <Save :size="14" :stroke-width="1.5" aria-hidden="true" />
+        Save as Template
+      </span>
     </label>
     <Transition name="slide">
       <div v-if="showTemplateForm" class="section-panel tpl-save-form">
@@ -29,7 +33,7 @@ const { showTemplateForm, templateForm, handleSaveTemplate } = useSessionLaunche
           </div>
           <div class="form-group">
             <label class="form-label">Icon</label>
-            <input v-model="templateForm.icon" type="text" class="form-input tpl-icon-input" placeholder="🚀" maxlength="14" />
+            <input v-model="templateForm.icon" type="text" class="form-input tpl-icon-input" placeholder="Optional emoji" maxlength="14" />
             <span class="form-hint">Emoji shown on the template card</span>
           </div>
         </div>
@@ -44,3 +48,11 @@ const { showTemplateForm, templateForm, handleSaveTemplate } = useSessionLaunche
     </Transition>
   </section>
 </template>
+
+<style scoped>
+.tpl-save-toggle-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+</style>

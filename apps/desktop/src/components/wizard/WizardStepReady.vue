@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { AlertTriangle, Database, FolderOpen } from "lucide-vue-next";
+
 defineProps<{
   active: boolean;
   sessionDir: string;
@@ -42,14 +44,18 @@ const emit = defineEmits<{
 
       <div class="config-summary">
         <div class="summary-row">
-          <span class="summary-icon">📂</span>
+          <span class="summary-icon" aria-hidden="true">
+            <FolderOpen :size="18" :stroke-width="1.5" />
+          </span>
           <div class="summary-text">
             <span class="summary-label">Sessions ({{ sessionCount }})</span>
             <span class="summary-value">{{ sessionDir }}</span>
           </div>
         </div>
         <div class="summary-row">
-          <span class="summary-icon">🗄️</span>
+          <span class="summary-icon" aria-hidden="true">
+            <Database :size="18" :stroke-width="1.5" />
+          </span>
           <div class="summary-text">
             <span class="summary-label">Database</span>
             <span class="summary-value">{{ dbPath }}</span>
@@ -65,7 +71,8 @@ const emit = defineEmits<{
         <span v-else>Launch TracePilot</span>
       </button>
       <p v-if="setupError" class="setup-error" role="alert">
-        ⚠ Setup failed: {{ setupError }}. Please try again.
+        <AlertTriangle :size="14" :stroke-width="1.5" aria-hidden="true" />
+        Setup failed: {{ setupError }}. Please try again.
       </p>
       <p class="ready-footer">Change these anytime in Settings → Data &amp; Storage</p>
     </div>

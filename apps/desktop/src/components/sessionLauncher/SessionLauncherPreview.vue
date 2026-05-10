@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { truncateText } from "@tracepilot/ui";
+import { Check, X } from "lucide-vue-next";
 import { useSessionLauncherContext } from "@/composables/useSessionLauncher";
 
 const {
@@ -73,11 +74,17 @@ const sdkDisabledHint = "Enable copilotSdk in Settings → Experimental";
           </div>
           <div class="config-row">
             <span class="config-key">Auto-approve</span>
-            <span class="config-val">{{ autoApprove ? '✅' : '❌' }}</span>
+            <span class="config-val config-val--bool">
+              <Check v-if="autoApprove" :size="14" :stroke-width="1.5" class="config-icon config-icon--on" aria-label="Yes" />
+              <X v-else :size="14" :stroke-width="1.5" class="config-icon config-icon--off" aria-label="No" />
+            </span>
           </div>
           <div class="config-row">
             <span class="config-key">Worktree</span>
-            <span class="config-val">{{ createWorktree ? '✅' : '❌' }}</span>
+            <span class="config-val config-val--bool">
+              <Check v-if="createWorktree" :size="14" :stroke-width="1.5" class="config-icon config-icon--on" aria-label="Yes" />
+              <X v-else :size="14" :stroke-width="1.5" class="config-icon config-icon--off" aria-label="No" />
+            </span>
           </div>
           <div class="config-row">
             <span class="config-key">Launch Path</span>
@@ -118,3 +125,16 @@ const sdkDisabledHint = "Enable copilotSdk in Settings → Experimental";
     </div>
   </aside>
 </template>
+
+<style scoped>
+.config-val--bool {
+  display: inline-flex;
+  align-items: center;
+}
+.config-icon--on {
+  color: var(--success-fg);
+}
+.config-icon--off {
+  color: var(--danger-fg);
+}
+</style>
