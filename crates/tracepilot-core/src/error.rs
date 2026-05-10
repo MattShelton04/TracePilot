@@ -138,7 +138,7 @@ impl TracePilotError {
             _ => false,
         }
     }
-    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;

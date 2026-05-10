@@ -134,7 +134,8 @@ pub fn gh_get_file_bytes(owner: &str, repo: &str, path: &str, ref_: &str) -> Res
         GH_TIMEOUT_SECS,
     )?;
 
-    let response: GhContentResponse = tracepilot_core::TracePilotError::from_json_str(&json, "GitHub Content API")?;
+    let response: GhContentResponse =
+        tracepilot_core::TracePilotError::from_json_str(&json, "GitHub Content API")?;
 
     // GitHub returns base64-encoded content (with newlines)
     let cleaned = response.content.replace('\n', "");
@@ -154,7 +155,8 @@ pub fn gh_list_tree(owner: &str, repo: &str, ref_: &str) -> Result<Vec<TreeEntry
         GH_TIMEOUT_SECS,
     )?;
 
-    let response: GhTreeResponse = tracepilot_core::TracePilotError::from_json_str(&json, "GitHub Trees API")?;
+    let response: GhTreeResponse =
+        tracepilot_core::TracePilotError::from_json_str(&json, "GitHub Trees API")?;
 
     Ok(response
         .tree
@@ -213,7 +215,8 @@ pub fn gh_get_files_batch(
             GH_TIMEOUT_SECS,
         )?;
 
-        let json: serde_json::Value = tracepilot_core::TracePilotError::from_json_str(&output, "GitHub GraphQL API")?;
+        let json: serde_json::Value =
+            tracepilot_core::TracePilotError::from_json_str(&output, "GitHub GraphQL API")?;
 
         if let Some(repo_data) = json.get("data").and_then(|d| d.get("repository")) {
             for (i, path) in chunk.iter().enumerate() {
