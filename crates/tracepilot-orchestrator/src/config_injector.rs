@@ -240,8 +240,8 @@ pub fn diff_files(old_path: &Path, new_path: &Path) -> Result<ConfigDiff> {
 // ─── Internal helpers ─────────────────────────────────────────────
 
 fn parse_agent_yaml(path: &Path) -> Result<Option<AgentDefinition>> {
-    let value: serde_yml::Value = TracePilotError::read_yaml(path)?;
-    let content = serde_yml::to_string(&value).unwrap_or_default();
+    let content = TracePilotError::read_to_string(path)?;
+    let value: serde_yml::Value = TracePilotError::from_yaml_str(&content, path.display())?;
 
     let name = value
         .get("name")

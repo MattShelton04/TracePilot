@@ -102,7 +102,8 @@ impl TracePilotError {
         json: &str,
         context: impl std::fmt::Display,
     ) -> Result<T> {
-        serde_json::from_str(json).map_err(|e| Self::parse_context(&format!("JSON ({context})"), "", e))
+        serde_json::from_str(json)
+            .map_err(|e| Self::parse_context(&format!("JSON ({context})"), "(in-memory)", e))
     }
 
     /// Read and parse a YAML file with context-rich errors.
@@ -118,7 +119,8 @@ impl TracePilotError {
         yaml: &str,
         context: impl std::fmt::Display,
     ) -> Result<T> {
-        serde_yml::from_str(yaml).map_err(|e| Self::parse_context(&format!("YAML ({context})"), "", e))
+        serde_yml::from_str(yaml)
+            .map_err(|e| Self::parse_context(&format!("YAML ({context})"), "(in-memory)", e))
     }
 
     /// Returns true if this error represents a "file not found" condition.
@@ -132,11 +134,11 @@ impl TracePilotError {
                 }
                 false
             }
+            Self::IoError(e) => e.kind() == std::io::ErrorKind::NotFound,
             _ => false,
         }
     }
-}
-
+    }
 #[cfg(test)]
 mod tests {
     use super::*;
