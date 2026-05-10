@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778315611541,
+  "lastUpdate": 1778402885414,
   "repoUrl": "https://github.com/MattShelton04/TracePilot",
   "entries": {
     "Benchmark": [
@@ -1393,6 +1393,703 @@ window.BENCHMARK_DATA = {
           {
             "name": "upsert_session/5_turns",
             "value": 2612932.17,
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Matt",
+            "username": "MattShelton04",
+            "email": "103937891+MattShelton04@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "3197bae6901ae993030cb52a416891b849b41eae",
+          "message": "UI/UX polish: design system foundation, primitives, chrome, surgical view fixes (#632)\n\n* docs(design-system): scaffold MASTER, UI audit, accent/icon previews\n\n- design-system/MASTER.md: global design system aligned to packages/ui tokens (Indigo accent, zinc canvas, emerald/amber/rose semantic, Inter+JetBrains Mono, Lucide-only)\n\n- design-system/audit/UI-AUDIT.md: 49-surface UI audit (18 High / 21 Med / 10 Low) with 13 cross-cutting findings and recommended redesign sequence\n\n- design-system/previews/: HTML previews for accent + icon-set selection (used to lock Indigo + Lucide)\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n* docs(design-system): add 00-globals hygiene rulebook\n\nImplementation rulebook for the global hygiene PR. Closes audit cross-cutting findings CC-1, CC-2, CC-3, CC-10, CC-11, CC-12, CC-13: Lucide-only icons (G1), no glass on data/chrome (G2), no marketing gradients (G3), hover=color+border only (G4), motion budget 120/180/220ms with the ?67 easter egg re-housed (G5), color-from-token (G6), text.micro discipline + <Heading> primitive (G7), density + 4px grid (G8), tnum on numerics (G9), z-index discipline (G10).\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n* docs(design-system): add 01-chrome navigational hierarchy spec\n\nDefines the chrome contract for AppSidebar, BreadcrumbNav, SessionTabStrip, the canonical PageHeader, Search Palette (Cmd+K), Alert Center drawer, and a new ? shortcuts overlay. Closes audit High items for Sidebar, Search Palette, Alert Center, plus cross-cutting CC-5 (multiple competing chromes) and CC-6 (two PageHeader components). Inherits all hygiene rules from 00-globals.md.\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n* docs(design-system): add 02-primitives shared component contracts\n\nDefines 10 reusable primitives in packages/ui that compose every per-view spec: Heading, DataGrid, KPI/KPIRow, SplitPane, TokenBudgetBar, EntityCard, RendererShell, StatusPill, EmptyState, ToolbarRow. Closes audit cross-cutting findings CC-4 (frame soup), CC-7 (token budget bar reinvented), CC-8 (hand-rolled split panes), CC-9 (component duplication), and provides the RendererShell contract for all conversation tool-call renderers.\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n* docs(design-system): add 11-session-detail-shell and 12-conversation-tab specs\n\n11-session-detail-shell.md: shared chrome contract for the inner-tabbed session detail view (header, breadcrumb, action bar, tab strip). Proposes <SegmentedControl> as a new primitive. Closes audit High items: Session Detail Shell.\n\n12-conversation-tab.md: flagship Datadog/Linear-style thread layout (mini-timeline rail / main turn column / resizable inspector). Mandates <RendererShell> for every tool call, consolidates the duplicated SubagentPanel, replaces emoji headers with Lucide. Closes audit High item: Conversation Tab + cross-cutting CC-4/CC-9.\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n* docs(design-system): add 10-session-list view spec\n\nLinear-style dense DataGrid as default with cards toggle, j/k row nav, virtualization at 1000+ rows, filter chips, indexing progress treatment. Replaces glass toolbar with flat ToolbarRow, replaces emoji empty-state with Lucide. Re-houses ?67 easter egg per 00-globals §G5. Closes audit High item: Session List.\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n* docs(design-system): add 13-tool-renderers spec\n\nDocuments all 17 conversation tool-call renderers (ApplyPatch, EditDiff, CreateFile, ViewCode, Grep, GlobTree, ShellOutput, SqlResult, WebSearch, AskUser, ReportIntent, StoreMemory, PlainText, plus arg variants) grouped into 8 categories. Mandates RendererShell composition, syntax-token palette, copy/raw/full toggles. Cites exact anti-patterns (radial-gradient in ApplyPatch, fake macOS dots in ShellOutput, emoji in Grep/Edit). Closes audit High item: Conversation Tool-Call Renderers + cross-cutting CC-4/CC-9.\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n* docs(design-system): add 16-analytics-dashboard spec\n\nGrafana-style overview with KPIRow (sparkline + delta vs prior period), responsive 12-col chart grid (1440 + 1024 wireframes), collapsible filter rail, every chart has table fallback. Migrates AnalyticsPageHeader to canonical PageHeader (CC-6) and proposes <ChartCard> as a new primitive. Closes audit High item: Analytics Dashboard.\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n* docs(design-system): add 17-settings view spec\n\nLinear-settings-style scalable two-pane layout: SplitPane rail (220px) + anchored content. Single search across 11 panels, deep-linkable anchors (/settings#sdk), auto-save with explicit-save fallback for validated strings. Proposes <Field>, <Toggle>, <Select> primitives. Removes text.micro heading misuse (CC-10/G7). Closes audit High item: Settings.\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n* docs(design-system): add 14-session-timeline and 15-session-search specs\n\n14-session-timeline.md: swimlane + waterfall sharing one TimelineRuler/SpanBar primitive, agent-color tokens for lanes, sub-pixel clamp to +N clusters, deprecates AgentTreeView. Removes #161b22/#30363d Primer leftovers (G6/CC-11). Closes audit High item: Session Timeline.\n\n15-session-search.md: results page anchored to Cmd+K palette, URL as source of truth, migration table reducing 14 search components to 5 primitives + 2 view files. Closes audit High item: Session Search + cross-cutting CC-5/CC-9.\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n* docs(design-system): add 20-config-injector spec\n\nRemoves emoji from PageHeader title, deletes local breadcrumb, migrates agentMeta.ts emoji→Lucide preserving --agent-color-* identity, proposes <Banner> as new primitive replacing ad-hoc warning markup, flattens frame soup. Closes audit High item: Config Injector + cross-cutting CC-3/CC-4/CC-5.\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n* docs(design-system): add 19-session-launcher spec\n\nTwo-pane SplitPane (config | preview) with agent-color rails, mono prompt editor, template grid migrated to DataGrid. Proposes <LucideIconPicker> primitive and migrates Template.icon field from emoji string to LucideName with legacyEmoji fallback via UserContentEmoji quarantine. Aligns <Field>/<Toggle>/<Select> proposals with 17-settings.md. Closes audit High item: Session Launcher.\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n* docs(design-system): add 21-mcp-manager spec\n\nEntityCard mapping replaces McpServerCard, TokenBudgetBar replaces McpTokenSummary's bespoke bar (CC-7), DataGrid default with Cards toggle. Documents server-detail nav contract, removes glass at add-server.css:9 + mcp-server-detail.css:134, replaces emoji + inline SVGs with Lucide. Closes audit High item: MCP Manager.\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n* docs(design-system): add 18-orchestration-home spec\n\nReplaces hero gradient stat tiles with flat KPIRow, emoji quick-actions grid with Lucide-iconed EntityCard grid, emoji activity feed with DataGrid log stream. Removes fadeInUp stagger animation (CC-13), glass and gradients (G2/G3). Closes audit High item: Orchestration Home — the surface flagged most AI-vibe-coded by the audit.\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n* docs(design-system): add 22-skills-manager spec\n\nHeavy CC-9 cleanup: replaces .modal-overlay with <ModalDialog>, .scope-seg-btn with <SegmentedControl>, .search-input with <SearchInput>, SkillCard with <EntityCard>/<DataGrid>, .token-info with <TokenBudgetBar> (CC-7). Quarantines user-supplied skill emoji via <UserContentEmoji> (G1). Includes Skill Editor <DetailShell>+<SplitPane> contract. Closes audit High item: Skills Manager + cross-cutting CC-7/CC-9.\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n* refactor(ui): replace hex literals with design tokens across desktop app\n\n- Strip 150 stale Primer-era hex fallbacks from var(--token, #hex) patterns; rely on tokens.css being globally imported\n\n- Replace remaining genuine hex literals with semantic tokens (--text-on-emphasis, --gradient-accent, text-primary/secondary)\n\n- Add --chart-pink token (and getChartColors().pink) to back the categorical pink used in setup wizard feature cards\n\n- Use getDesignToken(--text-tertiary) for runtime fallback in useSearchPaletteSearch instead of raw hex\n\n- Preserve intentional exceptions: mask compositing #000, orbital SEED_COLOR, and useSessionComparison gradient pastels (per A2 scope)\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n* chore(design-system): add ripgrep-style guardrail scripts for color/emoji/backdrop/z-index\n\nAdds five Node guardrail scripts under scripts/ that enforce 00-globals\n\nG1 (no emoji in templates), G2 (no backdrop-filter), G6 (no hex literals),\n\nG8 (4px spacing grid, warn-only), and G10 (z-index tokens). Each script\n\nsupports --staged for incremental enforcement and ships with a baseline\n\nALLOW_FILES set capturing pre-existing violations (ratchet pattern from\n\ncheck-file-sizes.mjs). Wired into package.json (check:design-system) and\n\nlefthook.yml (pre-commit + pre-push).\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n* refactor(desktop): replace decorative emoji with Lucide icons in conversation/session/settings/banner surfaces\n\nPurges emoji from 22 high-traffic Vue surfaces, replacing them with lucide-vue-next icons. Extends EmptyState with an #icon slot for icon-component support. Shrinks the no-emoji-in-templates allow-list from 55 to 33 entries. Adds one allow-emoji directive in SdkDiagnosticsPanel.vue where CLI log content (not chrome) is matched.\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n* feat(ui): add Heading, EntityCard, StatusPill, ToolbarRow, SplitPane primitives + extend EmptyState\n\nImplements B-Layout-Status — six primitives from design-system/pages/02-primitives.md.\n\n- Heading: typography primitive (level 1-4, decoupled as tag, truncate/mono)\n\n- EntityCard: canonical card archetype (icon/title/status/meta/actions, whole-card activation, action click-stop-propagation)\n\n- StatusPill: tone-aware semantic chip (7 tones x xs/sm x subtle/solid). Coexists with existing Badge/StatusIcon.\n\n- ToolbarRow: flat hairline toolbar (left/center/right slots, sticky uses --z-header)\n\n- SplitPane: keyboard-resizable persisted splitter (PointerEvents, Alt+Arrow, ARIA separator, persists via usePersistedRef)\n\n- EmptyState: refactored to spec parity (size, primary/secondary actions, Lucide slot). Backward-compat preserved.\n\nNo new tokens, no new dependencies, no consumer migrations.\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n* feat(ui): add DataGrid, KPI/KPIRow, TokenBudgetBar, RendererShell primitives (B-Data)\n\nImplements B-Data — four primitives from design-system/pages/02-primitives.md.\n\n- DataGrid: generic sortable + virtualized table (auto-virtualize >100 rows). Selection, keyboard nav (j/k/arrows/Home/End/PgUp/PgDn/Enter/Space), pinned rows, density toggle, empty/loading/error states, per-column slots.\n\n- KPI + KPIRow: metric tile + framed row container with hairline dividers. Sparkline inline SVG. Coexists with StatCard.\n\n- TokenBudgetBar: ARIA progressbar with ok/warn/danger tones. Coexists with TokenBar.\n\n- RendererShell: spec frame for tool-call renderers (status pill, primary hint, collapsible, footer with duration/tokens/Copy/Retry). Legacy renderers/RendererShell re-exported as LegacyRendererShell.\n\nNo new tokens, no new dependencies. 1016 unit tests passing.\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n* feat(ui): add B11 primitives — Banner, ChartCard, Tooltip, Field, Select, Toggle, LucideIconPicker, UserContentEmoji\n\n- Adds 7 new SFCs + 50-glyph LucideName catalogue\n\n- Toggle is a re-export alias for FormSwitch (vocab parity)\n\n- Audit fixes: SegmentedControl focus-visible/tokens; ModalDialog uses lucide X + auto-focuses close button\n\n- Exposes lucide-vue-next to packages/ui (already transitively present)\n\n- 35 new tests; all design-system checks pass\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n* feat(ui,desktop): canonical AppSidebar, BreadcrumbNav, SessionTabStrip, PageHeader chrome\n\n- packages/ui: add generic BreadcrumbNav (truncation, Tooltip, max-crumbs collapse)\n\n- packages/ui: refactor PageHeader to spec §1.4 (Heading h1, crumbs/iconName/status/density props, #toolbar slot, hairline)\n\n- desktop AppSidebar: Lucide icons via icon map; aria-label=Primary; aria-current=page; <h2> section titles; Sparkles replaces decorative emoji\n\n- desktop SessionTabStrip: icon-only home pill (Lucide Home, 32x32)\n\n- desktop BreadcrumbNav: thin wrapper around @tracepilot/ui generic\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n* feat(chrome): rebuild overlays — SearchPalette, AlertCenterDrawer, KbdHelpOverlay\n\n- Add Drawer primitive to @tracepilot/ui (right/left, focus restore, Esc)\n\n- Rebuild SearchPalette on ModalDialog with nav actions, recent sessions, fuzzy scoring\n\n- Rebuild AlertCenterDrawer on Drawer with Lucide severity icons and severity grouping\n\n- New KbdHelpOverlay listing all useShortcut-registered combos by group\n\n- New apps/desktop useShortcut wrapper exposing description/group registry\n\n- Migrate Cmd+K, question-mark, Mod+Shift+A to the metadata-aware shortcut API\n\nCloses C5, C6, C7.\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n* feat(desktop,ui): migrate tool renderers to canonical RendererShell (D3)\n\n- Migrate 16 renderer SFCs in packages/ui/src/components/renderers from legacy to canonical RendererShell\n\n- Delete legacy packages/ui/src/components/renderers/RendererShell.vue and LegacyRendererShell re-export\n\n- Replace emoji with Lucide icons across renderers\n\n- Drop hex fallbacks, gradients, and macOS-style chrome\n\n- Update test selectors .renderer-shell -> [data-tp-component=RendererShell]\n\n- 1826/1826 desktop tests pass; ?67 easter egg untouched\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n* fix(ui,desktop): KPI rendering, sticky page header, SearchPalette overflow, tool-call Lucide icons\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n* refactor(desktop): align Session List/Timeline/Search to design system (PageHeader, Banner, StatusPill, Lucide)\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n* refactor(desktop): align Settings/Orchestration/ConfigInjector/MCP to design system (PageHeader, Banner, Lucide)\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n* refactor(desktop): align Launcher/Skills/Wizard to design system (PageHeader, Banner, Lucide)\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n* fix(ui,desktop): restore renderer truncation footer + inline icon alignment\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n* fix(desktop): swap robot emoji for Lucide Bot in ModelComparisonView empty state\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n* fix(ui,desktop): SearchPalette width, PageHeader padding, SessionDetail icon migration, center renderer truncation footer\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n* refactor(ui): tighten PageHeader, SearchPalette breathing room, prune 6 unused primitives\n\nPageHeader padding 10/16 -> 8/16, gap 6 -> 4. SearchPalette adds 8px scroll gutter (scrollbar-gutter: stable). Remove unused primitives: EntityCard, ToolbarRow, SplitPane, DataGrid, TokenBudgetBar, LucideIconPicker (and tests). Keep KPI/KPIRow/ChartCard/Tooltip/Field/Toggle for upcoming view sweeps.\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n* fix(desktop): collapse SearchPalette to single scroller, fix right-edge gutter\n\nRoot cause: SearchPalette had two nested scroll containers (.palette-body outer + .palette-results inner), so scrollbar-gutter applied to the inner one had no visible effect. The scrollbar lives on .palette-body. Remove inner overflow and apply scrollbar-gutter: stable to .palette-body so layout reserves scrollbar space symmetrically and result rows have proper right-edge breathing room.\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n* fix(desktop): SearchPalette result rows fill full width to scrollbar gutter\n\nRemoved 8px horizontal padding from .palette-results so result items extend edge-to-edge of the .palette-body content area. The scrollbar-gutter: stable on .palette-body reserves the right-side gutter, so the selected-row highlight now reaches all the way to the scrollbar instead of stopping short with a fat empty strip on the right.\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n* fix(ui): palette rows now fill modal edge-to-edge\n\nThe .palette-modal used margin: -20px to negate the .modal-body 20px padding,\nbut combined with max-width: 100% the negative right margin couldn't actually\nextend the element's width. The element rendered at parent content width\n(~480px) shifted -20px left, leaving ~40px of dead space on the right.\n\nReplace max-width: 100% with width: calc(100% + 40px) so the element actually\nexpands to fill .modal-body's padding-box, allowing rows (and their selection\nhighlight) to reach the modal's right edge.\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n* chore: Update Lockfile\n\n* fix(ui): tree-shake dynamic lucide icons\n\nReplace namespace Lucide imports with a shared explicit icon registry so dynamic icon name resolution only retains the curated icon set instead of the full lucide-vue-next module.\n\nLocal desktop build now emits a ~21 KB lucideRegistry chunk instead of the ~849 KB lucide-vue-next chunk reported by CI, bringing total JS+CSS back under the 2500 KB budget.\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n* fix(ui): align PageHeader with page content\n\nRemove PageHeader-owned outer spacing so surrounding page containers control alignment consistently.\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n* fix(ui): restore PageHeader vertical rhythm\n\nKeep PageHeader horizontally aligned with page content while restoring main-like bottom breathing room and row spacing.\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-05-10T04:31:13Z",
+          "url": "https://github.com/MattShelton04/TracePilot/commit/3197bae6901ae993030cb52a416891b849b41eae"
+        },
+        "date": 1778402884824,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "compute_analytics/10",
+            "value": 5244.178578328278,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "compute_analytics/100",
+            "value": 47621.894511353436,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "compute_analytics/200",
+            "value": 103250.43282204978,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "compute_analytics/50",
+            "value": 23590.92639873399,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "compute_code_impact/10",
+            "value": 8170.541984470667,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "compute_code_impact/100",
+            "value": 82094.71243987812,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "compute_code_impact/200",
+            "value": 163396.55831073495,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "compute_code_impact/50",
+            "value": 41770.991792435496,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "compute_tool_analysis/10",
+            "value": 18312.00011972256,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "compute_tool_analysis/100",
+            "value": 182206.35578567872,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "compute_tool_analysis/200",
+            "value": 377622.95249522396,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "compute_tool_analysis/50",
+            "value": 83190.9255305321,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_analytics_serialize/analytics_data/100",
+            "value": 809.0518241402199,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_analytics_serialize/analytics_data/200",
+            "value": 812.2229908300495,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_analytics_serialize/analytics_data/50",
+            "value": 857.3481408942457,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_analytics_serialize/code_impact_data/100",
+            "value": 195.4618429160902,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_analytics_serialize/code_impact_data/200",
+            "value": 197.5987299204693,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_analytics_serialize/code_impact_data/50",
+            "value": 197.1923564166609,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_analytics_serialize/tool_analysis_data/100",
+            "value": 9532.733049811832,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_analytics_serialize/tool_analysis_data/200",
+            "value": 9500.841736750312,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_analytics_serialize/tool_analysis_data/50",
+            "value": 9533.017590763091,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_code_impact/100",
+            "value": 64977.75311740871,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_code_impact/200",
+            "value": 65027.67453341021,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_code_impact/50",
+            "value": 65053.945493865416,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_fts_health/100",
+            "value": 38763.621139927716,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_fts_health/200",
+            "value": 38576.55313200865,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_fts_health/50",
+            "value": 38615.38629115521,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_list_sessions/hide_empty/100",
+            "value": 16159.189174327012,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_list_sessions/hide_empty/200",
+            "value": 16242.343002278547,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_list_sessions/hide_empty/50",
+            "value": 16238.884262445006,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_list_sessions/no_filter/100",
+            "value": 13438.616918896774,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_list_sessions/no_filter/200",
+            "value": 13474.450034358862,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_list_sessions/no_filter/50",
+            "value": 13429.760579423337,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_list_sessions/repo_filter/100",
+            "value": 17876.93932908056,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_list_sessions/repo_filter/200",
+            "value": 17802.434055167596,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_list_sessions/repo_filter/50",
+            "value": 17925.555575677015,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_search_content/browse/100",
+            "value": 20601.747456109715,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_search_content/browse/200",
+            "value": 20645.91703437312,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_search_content/browse/50",
+            "value": 20522.55193602812,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_search_content/fts_common_term/100",
+            "value": 41571.74434597893,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_search_content/fts_common_term/200",
+            "value": 41583.22584452693,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_search_content/fts_common_term/50",
+            "value": 41865.38300325012,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_search_content/fts_rare_term/100",
+            "value": 41923.121144580015,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_search_content/fts_rare_term/200",
+            "value": 42090.167475518974,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_search_content/fts_rare_term/50",
+            "value": 41913.06071322428,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_search_facets/browse/100",
+            "value": 61858.757446849784,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_search_facets/browse/200",
+            "value": 61456.63693562182,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_search_facets/browse/50",
+            "value": 61692.42737173563,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_search_facets/fts/100",
+            "value": 87752.8086050633,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_search_facets/fts/200",
+            "value": 88099.03896329751,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_search_facets/fts/50",
+            "value": 88255.03584513348,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_tool_analysis/100",
+            "value": 27573.809190617358,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_tool_analysis/200",
+            "value": 27460.96583203984,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_tool_analysis/50",
+            "value": 27416.433120653237,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "load_session_summary/20",
+            "value": 433478.5702149144,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "load_session_summary/5",
+            "value": 144555.31363264023,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "load_session_summary/50",
+            "value": 957317.6314545379,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "parse_typed_events/100",
+            "value": 146218.84392781806,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "parse_typed_events/1000",
+            "value": 1389830.83308741,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "parse_typed_events/10000",
+            "value": 14439125.9925,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "parse_typed_events/5000",
+            "value": 6824812.4075,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_analytics/10",
+            "value": 263064.9324725168,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_analytics/100",
+            "value": 823333.8985181436,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_analytics/200",
+            "value": 1451007.9601044848,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_analytics/50",
+            "value": 506264.38570489996,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "reconstruct_turns/100",
+            "value": 16800.5758796598,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "reconstruct_turns/2000",
+            "value": 329740.8411390083,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "reconstruct_turns/500",
+            "value": 83809.68539737111,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "reconstruct_turns/5000",
+            "value": 837631.2693997526,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "reindex_all/10",
+            "value": 40806684.49829365,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "reindex_all/100",
+            "value": 42634853.668214284,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "reindex_all/50",
+            "value": 41552738.443769835,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "reindex_search_content/10",
+            "value": 989879.2543915345,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "reindex_search_content/100",
+            "value": 1180652.5121560846,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "reindex_search_content/200",
+            "value": 1438077.9039021162,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "reindex_search_content/50",
+            "value": 1078768.8931349204,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "reindex_search_varied/100",
+            "value": 1220691.6886772488,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "reindex_search_varied/50",
+            "value": 1108367.5666269842,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "reindex_varied/100",
+            "value": 40440378.348624334,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "reindex_varied/50",
+            "value": 41270710.791428566,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search/10",
+            "value": 20728.658305789548,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search/100",
+            "value": 17701.03397499994,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search/200",
+            "value": 24015.92765596794,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search/50",
+            "value": 14701.94682909362,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_10000_rows/100",
+            "value": 47004438.44299851,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_10000_rows/1000",
+            "value": 40241246.86723783,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_10000_rows/200",
+            "value": 43054026.467202865,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_10000_rows/2000",
+            "value": 40049858.54900518,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_10000_rows/25",
+            "value": 55204619.86999999,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_10000_rows/4000",
+            "value": 36015864.54279433,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_10000_rows/50",
+            "value": 49453145.85000001,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_10000_rows/500",
+            "value": 40420033.99748273,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_2500_rows/100",
+            "value": 10441675.809345135,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_2500_rows/1000",
+            "value": 9207186.859437857,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_2500_rows/200",
+            "value": 9438591.34550695,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_2500_rows/2000",
+            "value": 9355031.824327856,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_2500_rows/25",
+            "value": 12567301.110483665,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_2500_rows/4000",
+            "value": 8576454.941398969,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_2500_rows/50",
+            "value": 11167697.887089472,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_2500_rows/500",
+            "value": 9203020.675531523,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_5000_rows/100",
+            "value": 21701910.99752082,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_5000_rows/1000",
+            "value": 18133714.060893565,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_5000_rows/200",
+            "value": 20525383.26367977,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_5000_rows/2000",
+            "value": 18073626.411638137,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_5000_rows/25",
+            "value": 26077380.368327927,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_5000_rows/4000",
+            "value": 17996419.094017196,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_5000_rows/50",
+            "value": 23843687.483431704,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_5000_rows/500",
+            "value": 18246505.443407126,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_500_rows/100",
+            "value": 1888819.8651569649,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_500_rows/1000",
+            "value": 1736161.750592618,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_500_rows/200",
+            "value": 1896902.2038226973,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_500_rows/2000",
+            "value": 1732967.543424566,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_500_rows/25",
+            "value": 2253107.1294402992,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_500_rows/4000",
+            "value": 1736732.1353031602,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_500_rows/50",
+            "value": 1915291.6426247552,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_500_rows/500",
+            "value": 1739253.3680260666,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "session_writer_100_rows/10",
+            "value": 137571.93811977768,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "session_writer_100_rows/100",
+            "value": 121936.26878192899,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "session_writer_100_rows/25",
+            "value": 119264.69015498299,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "session_writer_100_rows/50",
+            "value": 117114.44352806718,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "session_writer_20_rows/10",
+            "value": 28973.56737283843,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "session_writer_20_rows/100",
+            "value": 25741.69280089326,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "session_writer_20_rows/25",
+            "value": 25665.518466887836,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "session_writer_20_rows/50",
+            "value": 25743.276277784837,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "session_writer_50_rows/10",
+            "value": 69171.88419404368,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "session_writer_50_rows/100",
+            "value": 58248.27059459486,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "session_writer_50_rows/25",
+            "value": 59202.3981620685,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "session_writer_50_rows/50",
+            "value": 58636.7803930422,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "session_writer_5_rows/10",
+            "value": 10282.047326522716,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "session_writer_5_rows/100",
+            "value": 10223.390204507541,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "session_writer_5_rows/25",
+            "value": 10125.517419618176,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "session_writer_5_rows/50",
+            "value": 10211.725555871219,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "upsert_session/20_turns",
+            "value": 3044532.035,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "upsert_session/50_turns",
+            "value": 3437399.86,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "upsert_session/5_turns",
+            "value": 2833638.275,
             "unit": "ns/iter"
           }
         ]
