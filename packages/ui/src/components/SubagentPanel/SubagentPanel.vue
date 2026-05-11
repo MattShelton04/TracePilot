@@ -26,15 +26,9 @@ const props = withDefaults(
     failedResults: Set<string>;
     /** When false, the host renders its own header. Default true. */
     showHeader?: boolean;
-    /** When true, applies `position: sticky` to the header so it pins to the
-     *  top of the nearest scrolling ancestor. Only set this when the host
-     *  wraps the panel in its own scroll container (e.g. the conversation
-     *  slide-out). Default false to preserve agent-tree inline behavior. */
-    stickyHeader?: boolean;
   }>(),
   {
     showHeader: true,
-    stickyHeader: false,
   },
 );
 
@@ -120,7 +114,6 @@ watch(
     :agent-icon="agentIcon"
     :header-duration="headerDuration"
     :status-text="statusText"
-    :class="{ 'sap-header-sticky': stickyHeader }"
     @close="emit('close')"
   />
 

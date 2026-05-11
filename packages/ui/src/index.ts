@@ -102,6 +102,7 @@ export type {
 export {
   buildSubagentActivities,
   SubagentPanel,
+  SubagentPanelHeader,
   SubagentPanelNav,
 } from "./components/SubagentPanel";
 export type { TabNavItem } from "./components/TabNav.vue";
