@@ -405,9 +405,15 @@ watch(isSessionActive, (active) => {
   margin-left: auto;
 }
 .resume-warning {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 0.75rem;
   color: var(--warning-fg);
   font-weight: 500;
+}
+.resume-warning svg {
+  flex-shrink: 0;
 }
 .resume-btn {
   display: inline-flex;

@@ -27,9 +27,10 @@ pub(super) fn load_workspace_summary(session_dir: &Path) -> Result<SessionSummar
 }
 
 fn summary_from_workspace(ws: WorkspaceMetadata) -> SessionSummary {
+    let summary = ws.display_summary();
     SessionSummary {
         id: ws.id,
-        summary: ws.summary,
+        summary,
         repository: ws.repository,
         branch: ws.branch,
         cwd: ws.cwd,

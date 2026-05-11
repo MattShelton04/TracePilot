@@ -14,10 +14,34 @@ pub struct WorkspaceMetadata {
     pub repository: Option<String>,
     pub branch: Option<String>,
     pub host_type: Option<String>,
+    /// Legacy title field, written by older Copilot CLI versions.
     pub summary: Option<String>,
+    /// Current title field, written by newer Copilot CLI versions (alongside
+    /// `user_named`). Replaces `summary` for sessions created after the CLI
+    /// schema transition observed around May 2026.
+    pub name: Option<String>,
+    /// `true` when the user explicitly set the session name (rather than the
+    /// CLI auto-generating one). Written by newer Copilot CLI versions.
+    pub user_named: Option<bool>,
     pub summary_count: Option<u32>,
     pub created_at: Option<DateTime<Utc>>,
     pub updated_at: Option<DateTime<Utc>>,
+}
+
+impl WorkspaceMetadata {
+    /// Returns the canonical title for this session, preferring the newer
+    /// `name` field over the legacy `summary` field. Empty/whitespace values
+    /// are treated as absent so a blank `name` correctly falls back to a
+    /// populated `summary`.
+    pub fn display_summary(&self) -> Option<String> {
+        fn non_blank(s: &Option<String>) -> Option<String> {
+            s.as_deref()
+                .map(str::trim)
+                .filter(|t| !t.is_empty())
+                .map(str::to_string)
+        }
+        non_blank(&self.name).or_else(|| non_blank(&self.summary))
+    }
 }
 
 /// Parse a `workspace.yaml` file from a session directory.
@@ -127,6 +151,61 @@ updated_at: "2026-06-20T18:30:45.123Z"
             }
             _ => panic!("Expected ParseError, got {:?}", err),
         }
+    }
+
+    #[test]
+    fn parse_workspace_with_name_field() {
+        let yaml = r#"
+id: name-only-session
+cwd: /home/user/p
+name: "Refactor auth"
+user_named: false
+summary_count: 0
+"#;
+        let meta: WorkspaceMetadata = serde_yml::from_str(yaml).unwrap();
+        assert_eq!(meta.name.as_deref(), Some("Refactor auth"));
+        assert_eq!(meta.user_named, Some(false));
+        assert_eq!(meta.summary, None);
+        assert_eq!(meta.display_summary().as_deref(), Some("Refactor auth"));
+    }
+
+    #[test]
+    fn display_summary_prefers_name_over_summary() {
+        let yaml = r#"
+id: both-fields
+name: "Newer title"
+summary: "Older title"
+"#;
+        let meta: WorkspaceMetadata = serde_yml::from_str(yaml).unwrap();
+        assert_eq!(meta.display_summary().as_deref(), Some("Newer title"));
+    }
+
+    #[test]
+    fn display_summary_falls_back_to_summary_when_name_blank() {
+        let yaml = r#"
+id: blank-name
+name: "   "
+summary: "Real summary"
+"#;
+        let meta: WorkspaceMetadata = serde_yml::from_str(yaml).unwrap();
+        assert_eq!(meta.display_summary().as_deref(), Some("Real summary"));
+    }
+
+    #[test]
+    fn display_summary_uses_summary_when_name_absent() {
+        let yaml = r#"
+id: legacy
+summary: "Legacy session"
+"#;
+        let meta: WorkspaceMetadata = serde_yml::from_str(yaml).unwrap();
+        assert_eq!(meta.display_summary().as_deref(), Some("Legacy session"));
+    }
+
+    #[test]
+    fn display_summary_is_none_when_both_absent_or_blank() {
+        let yaml = "id: nameless\n";
+        let meta: WorkspaceMetadata = serde_yml::from_str(yaml).unwrap();
+        assert_eq!(meta.display_summary(), None);
     }
 
     #[test]

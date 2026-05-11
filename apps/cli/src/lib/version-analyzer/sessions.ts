@@ -25,6 +25,14 @@ function collectFieldPaths(value: unknown, prefix = "", out: string[] = [], dept
   return out;
 }
 
+function pickWorkspaceTitle(ws: Record<string, unknown>): string | undefined {
+  for (const key of ["name", "summary"]) {
+    const v = ws[key];
+    if (typeof v === "string" && v.trim() !== "") return v;
+  }
+  return undefined;
+}
+
 export async function scanSessionVersions(maxSessions = 10000): Promise<SessionVersionInfo[]> {
   const sessionsDir = getSessionStateDir();
   if (!existsSync(sessionsDir)) return [];
@@ -104,7 +112,7 @@ export async function scanSessionVersions(maxSessions = 10000): Promise<SessionV
       if (existsSync(workspacePath)) {
         try {
           const ws = yaml.load(readFileSync(workspacePath, "utf-8")) as Record<string, unknown>;
-          summary = ws.summary as string | undefined;
+          summary = pickWorkspaceTitle(ws);
           const ca = ws.created_at;
           createdAt = ca instanceof Date ? ca.toISOString() : (ca as string);
         } catch {
@@ -186,7 +194,7 @@ export async function findEventExamples(
       if (existsSync(workspacePath)) {
         try {
           const ws = yaml.load(readFileSync(workspacePath, "utf-8")) as Record<string, unknown>;
-          summary = ws.summary as string | undefined;
+          summary = pickWorkspaceTitle(ws);
         } catch {
           /* ignore */
         }

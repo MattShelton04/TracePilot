@@ -93,6 +93,16 @@ export async function parseWorkspace(sessionDir: string): Promise<WorkspaceInfo>
     return String(v);
   };
 
+  // Prefer newer `name` field over legacy `summary`; treat blanks as absent
+  // so an empty `name:` correctly falls back to a populated `summary:`.
+  const pickTitle = (...vals: unknown[]): string | undefined => {
+    for (const v of vals) {
+      const s = toStr(v);
+      if (s != null && s.trim() !== "") return s;
+    }
+    return undefined;
+  };
+
   return {
     id: toStr(raw.id),
     cwd: toStr(raw.cwd),
@@ -100,7 +110,7 @@ export async function parseWorkspace(sessionDir: string): Promise<WorkspaceInfo>
     repository: toStr(raw.repository),
     hostType: toStr(raw.host_type),
     branch: toStr(raw.branch),
-    summary: toStr(raw.summary),
+    summary: pickTitle(raw.name, raw.summary),
     summaryCount: raw.summary_count as number | undefined,
     createdAt: toStr(raw.created_at),
     updatedAt: toStr(raw.updated_at),

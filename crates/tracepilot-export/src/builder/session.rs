@@ -53,9 +53,10 @@ pub(super) fn build_portable_session(
         turns.len()
     });
 
+    let display_summary = ws.display_summary();
     let metadata = PortableSessionMetadata {
         id: ws.id,
-        summary: ws.summary,
+        summary: display_summary,
         repository: ws.repository,
         branch: ws.branch,
         cwd: ws.cwd,

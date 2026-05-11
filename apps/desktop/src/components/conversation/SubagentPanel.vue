@@ -2,7 +2,20 @@
 // Host wrapper: slide-out chrome around the shared <SubagentPanel />.
 // Owns the slide transition, the scrollable container, the prev/next nav footer
 // and the per-session tool-result loader.
-import { SubagentPanel, SubagentPanelNav } from "@tracepilot/ui";
+//
+// The header is rendered OUTSIDE the scroll container so it (a) stays pinned
+// while the body scrolls and (b) spans the full panel width including the
+// scrollbar gutter — otherwise the scrollbar track shows a strip of the
+// panel background next to the header.
+import {
+  formatDuration,
+  formatLiveDuration,
+  getAgentColor,
+  getAgentIcon,
+  SubagentPanel,
+  SubagentPanelHeader,
+  SubagentPanelNav,
+} from "@tracepilot/ui";
 import { computed, nextTick, ref, watch } from "vue";
 import { fromSubagentFullData } from "@/composables/subagentView";
 import type { SubagentFullData } from "@/composables/useCrossTurnSubagents";
@@ -38,6 +51,21 @@ const { fullResults, loadingResults, failedResults, loadFullResult, retryFullRes
 
 const view = computed(() => (props.subagent ? fromSubagentFullData(props.subagent) : null));
 
+const agentColor = computed(() => (view.value ? getAgentColor(view.value.type) : ""));
+const agentIcon = computed(() => (view.value ? getAgentIcon(view.value.type) : ""));
+const statusText = computed(() => {
+  if (!view.value) return "";
+  if (view.value.status === "completed") return "Completed";
+  if (view.value.status === "failed") return "Failed";
+  return "Running";
+});
+const headerDuration = computed(() => {
+  if (!view.value) return "";
+  const ms = view.value.durationMs;
+  if (view.value.status === "in-progress") return ms ? formatLiveDuration(ms) : "";
+  return formatDuration(ms ?? 0);
+});
+
 const scrollContainer = ref<HTMLElement | null>(null);
 watch(
   () => props.subagent?.agentId,
@@ -57,6 +85,14 @@ watch(
       aria-label="Subagent detail panel"
       @keydown.esc="emit('close')"
     >
+      <SubagentPanelHeader
+        :view="view"
+        :agent-color="agentColor"
+        :agent-icon="agentIcon"
+        :header-duration="headerDuration"
+        :status-text="statusText"
+        @close="emit('close')"
+      />
       <div ref="scrollContainer" class="cv-panel-scroll">
         <SubagentPanel
           :view="view"
@@ -65,6 +101,7 @@ watch(
           :full-results="fullResults"
           :loading-results="loadingResults"
           :failed-results="failedResults"
+          :show-header="false"
           @close="emit('close')"
           @load-full-result="loadFullResult"
           @retry-full-result="retryFullResult"
