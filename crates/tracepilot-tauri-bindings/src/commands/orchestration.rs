@@ -1,7 +1,6 @@
 //! Orchestration Tauri commands (22 commands).
 
 use crate::blocking_cmd;
-use tracepilot_core::utils::cache::TtlCache;
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
 use crate::helpers::{read_config, validate_path_within_any};
@@ -9,6 +8,7 @@ use std::path::PathBuf;
 use std::sync::LazyLock;
 use std::time::Duration;
 use tauri::Manager;
+use tracepilot_core::utils::cache::TtlCache;
 
 // ---------------------------------------------------------------------------
 // check_system_deps TTL cache (P0 perf fix)

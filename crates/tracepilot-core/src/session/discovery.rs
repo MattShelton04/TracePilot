@@ -143,7 +143,10 @@ fn is_file_recent(path: &Path, now: SystemTime) -> bool {
 /// Resolve a session ID (full or partial prefix) to its directory path.
 /// Returns TracePilotError::SessionNotFound if no match or multiple matches.
 pub fn resolve_session_path(session_id_prefix: &str) -> Result<PathBuf> {
-    resolve_session_path_in(session_id_prefix, &crate::paths::default_session_state_dir())
+    resolve_session_path_in(
+        session_id_prefix,
+        &crate::paths::default_session_state_dir(),
+    )
 }
 
 /// Resolve a session path directly from a full session UUID without scanning.
