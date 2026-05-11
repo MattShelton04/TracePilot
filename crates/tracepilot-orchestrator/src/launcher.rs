@@ -304,7 +304,7 @@ pub(crate) fn canonicalize_user_path(path: &str) -> Result<std::path::PathBuf> {
         return Err(OrchestratorError::Launch("Path contains a NUL byte".into()));
     }
 
-    let canonical = std::fs::canonicalize(path).map_err(|e| {
+    let canonical = tracepilot_core::utils::fs::canonicalize(path).map_err(|e| {
         OrchestratorError::launch_ctx(
             format!("Path does not exist or is not accessible: {path}"),
             e,
@@ -325,9 +325,7 @@ pub(crate) fn canonicalize_user_path(path: &str) -> Result<std::path::PathBuf> {
         }
     }
 
-    Ok(tracepilot_core::utils::fs::normalize_canonical_path(
-        canonical,
-    ))
+    Ok(canonical)
 }
 
 /// Open a path in the system file explorer.

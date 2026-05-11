@@ -1,11 +1,11 @@
 //! Facets TTL cache shared by search content and indexing commands.
 
-use crate::cache::TtlCache;
 use crate::types::SearchFacetsResponse;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::sync::LazyLock;
 use std::time::Duration;
+use tracepilot_core::utils::cache::TtlCache;
 
 // ---------------------------------------------------------------------------
 // Facets TTL cache (P1 perf fix)

@@ -3,15 +3,6 @@
 use crate::error::{BindingsError, CmdResult};
 use std::path::PathBuf;
 
-/// Strip the `\\?\` extended-length path prefix that `std::fs::canonicalize`
-/// adds on Windows for drive-rooted paths (e.g. `\\?\C:\...` → `C:\...`).
-///
-/// UNC share paths (`\\?\UNC\server\share`) are left untouched because
-/// stripping their prefix would produce an invalid path.
-fn normalize_canonicalized(p: PathBuf) -> PathBuf {
-    tracepilot_core::utils::fs::normalize_canonical_path(p)
-}
-
 /// Validate that an existing path resides within `dir`.
 ///
 /// Returns the canonicalized path on success so callers can use the resolved
@@ -27,10 +18,9 @@ pub(crate) fn validate_path_within(path: &str, dir: &std::path::Path) -> CmdResu
             path
         )));
     }
-    let canonical = normalize_canonicalized(p.canonicalize()?);
-    let canonical_dir = normalize_canonicalized(dir.canonicalize().map_err(|e| {
-        BindingsError::Validation(format!("Cannot resolve allowed directory: {e}"))
-    })?);
+    let canonical = tracepilot_core::utils::fs::canonicalize(p)?;
+    let canonical_dir = tracepilot_core::utils::fs::canonicalize(dir)
+        .map_err(|e| BindingsError::Validation(format!("Cannot resolve allowed directory: {e}")))?;
     if !canonical.starts_with(&canonical_dir) {
         return Err(BindingsError::Validation(
             "Path is outside the allowed directory".into(),
@@ -67,15 +57,14 @@ pub(crate) fn validate_path_within_any(
             "Path does not exist: {path}"
         )));
     }
-    let canonical = normalize_canonicalized(p.canonicalize()?);
+    let canonical = tracepilot_core::utils::fs::canonicalize(p)?;
 
     let mut any_root_resolved = false;
     for root in allowed_roots {
-        let Ok(canonical_root) = root.canonicalize() else {
+        let Ok(canonical_root) = tracepilot_core::utils::fs::canonicalize(root) else {
             continue;
         };
         any_root_resolved = true;
-        let canonical_root = normalize_canonicalized(canonical_root);
         if canonical.starts_with(&canonical_root) {
             return Ok(canonical);
         }
@@ -117,14 +106,13 @@ pub(crate) fn validate_write_path_within(path: &str, dir: &std::path::Path) -> C
             parent.display()
         )));
     }
-    let canonical_dir = normalize_canonicalized(dir.canonicalize().map_err(|e| {
-        BindingsError::Validation(format!("Cannot resolve allowed directory: {e}"))
-    })?);
+    let canonical_dir = tracepilot_core::utils::fs::canonicalize(dir)
+        .map_err(|e| BindingsError::Validation(format!("Cannot resolve allowed directory: {e}")))?;
 
     // If the target already exists (overwrite or symlink), canonicalize the full
     // path to ensure symlinks don't escape the allowed directory.
     if p.exists() {
-        let canonical_full = normalize_canonicalized(p.canonicalize()?);
+        let canonical_full = tracepilot_core::utils::fs::canonicalize(p)?;
         if !canonical_full.starts_with(&canonical_dir) {
             return Err(BindingsError::Validation(
                 "Path is outside the allowed directory".into(),
@@ -134,7 +122,7 @@ pub(crate) fn validate_write_path_within(path: &str, dir: &std::path::Path) -> C
     }
 
     // File doesn't exist yet — validate parent only.
-    let canonical_parent = normalize_canonicalized(parent.canonicalize()?);
+    let canonical_parent = tracepilot_core::utils::fs::canonicalize(parent)?;
     if !canonical_parent.starts_with(&canonical_dir) {
         return Err(BindingsError::Validation(
             "Path is outside the allowed directory".into(),
