@@ -8,11 +8,6 @@ use crate::error::{Result, TracePilotError};
 /// Maximum age of session activity before a lock file is considered stale.
 const STALE_LOCK_THRESHOLD: Duration = Duration::from_secs(24 * 60 * 60); // 24 hours
 
-/// Default location for Copilot CLI session state.
-pub fn default_session_state_dir() -> PathBuf {
-    crate::paths::default_session_state_dir()
-}
-
 /// A discovered session directory with its UUID and path.
 #[derive(Debug, Clone)]
 pub struct DiscoveredSession {
@@ -148,7 +143,7 @@ fn is_file_recent(path: &Path, now: SystemTime) -> bool {
 /// Resolve a session ID (full or partial prefix) to its directory path.
 /// Returns TracePilotError::SessionNotFound if no match or multiple matches.
 pub fn resolve_session_path(session_id_prefix: &str) -> Result<PathBuf> {
-    resolve_session_path_in(session_id_prefix, &default_session_state_dir())
+    resolve_session_path_in(session_id_prefix, &crate::paths::default_session_state_dir())
 }
 
 /// Resolve a session path directly from a full session UUID without scanning.
