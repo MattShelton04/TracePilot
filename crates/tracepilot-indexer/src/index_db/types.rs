@@ -2,7 +2,11 @@
 
 /// Bump this when the analytics schema or extraction logic changes.
 /// Sessions with a stored analytics_version below this will be re-indexed.
-pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 5;
+///
+/// v6: workspace.yaml parser now reads the `name` field (newer Copilot CLI
+/// schema) in addition to legacy `summary`. Forces re-parse so existing
+/// rows for name-only sessions populate `sessions.summary`.
+pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 6;
 
 /// Maximum incidents stored per session to prevent DB bloat.
 pub(super) const MAX_INCIDENTS_PER_SESSION: usize = 100;
