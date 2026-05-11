@@ -27,3 +27,9 @@ pub fn normalize_canonical_path(p: PathBuf) -> PathBuf {
     }
     p
 }
+
+/// Canonicalize a path and normalize it by stripping the `\\?\` verbatim prefix on Windows.
+/// Preserves `\\?\UNC\` prefix for network shares.
+pub fn canonicalize(path: impl AsRef<Path>) -> std::io::Result<PathBuf> {
+    std::fs::canonicalize(path).map(normalize_canonical_path)
+}
