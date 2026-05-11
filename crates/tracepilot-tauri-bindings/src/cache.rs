@@ -6,8 +6,6 @@ use std::num::NonZeroUsize;
 
 use lru::LruCache;
 
-pub(crate) use tracepilot_core::utils::cache::TtlCache;
-
 /// Build a typed, bounded LRU cache keyed by session ID.
 ///
 /// Centralises the `NonZeroUsize::new(cap).unwrap_or(…)` ceremony that was

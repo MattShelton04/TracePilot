@@ -1,7 +1,7 @@
 //! Orchestration Tauri commands (22 commands).
 
 use crate::blocking_cmd;
-use crate::cache::TtlCache;
+use tracepilot_core::utils::cache::TtlCache;
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
 use crate::helpers::{read_config, validate_path_within_any};

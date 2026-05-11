@@ -1,6 +1,6 @@
 //! Facets TTL cache shared by search content and indexing commands.
 
-use crate::cache::TtlCache;
+use tracepilot_core::utils::cache::TtlCache;
 use crate::types::SearchFacetsResponse;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
