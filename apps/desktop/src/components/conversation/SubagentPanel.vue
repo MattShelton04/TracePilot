@@ -65,6 +65,7 @@ watch(
           :full-results="fullResults"
           :loading-results="loadingResults"
           :failed-results="failedResults"
+          :sticky-header="true"
           @close="emit('close')"
           @load-full-result="loadFullResult"
           @retry-full-result="retryFullResult"

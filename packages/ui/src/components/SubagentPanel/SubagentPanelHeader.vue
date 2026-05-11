@@ -64,6 +64,15 @@ function statusClass(s: SubagentStatus): string {
   background: var(--canvas-inset);
   flex-shrink: 0;
 }
+/* Opt-in from <SubagentPanel :sticky-header="true">. Defined here (not in the
+ * parent) so the scoped-style hash matches this component's root element —
+ * `:deep(.sap-header-sticky)` in the parent compiles to a descendant selector
+ * and would never match the root. */
+.sap-header.sap-header-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
 .sap-close {
   display: flex;
   align-items: center;
