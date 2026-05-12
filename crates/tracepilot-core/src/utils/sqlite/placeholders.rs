@@ -17,11 +17,11 @@ pub fn build_in_placeholders(n: usize) -> String {
     );
     // Each element is "?" (1 char) + ", " (2 chars) except the last → n*3 max.
     let mut s = String::with_capacity(n * 3);
-    for i in 0..n {
-        if i > 0 {
-            s.push_str(", ");
-        }
+    if n > 0 {
         s.push('?');
+        for _ in 1..n {
+            s.push_str(", ?");
+        }
     }
     s
 }
@@ -64,11 +64,9 @@ pub fn build_placeholder_sql(sql_prefix: &str, num_rows: usize, params_per_row: 
     sql.push(' ');
 
     let mut row_str = String::with_capacity(params_per_row * 2 + 1);
-    row_str.push('(');
-    row_str.push('?');
+    row_str.push_str("(?");
     for _ in 1..params_per_row {
-        row_str.push(',');
-        row_str.push('?');
+        row_str.push_str(",?");
     }
     row_str.push(')');
 
