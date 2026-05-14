@@ -1,0 +1,4 @@
+## 2025-02-23 - Cross-Platform Path Traversal Bypass
+**Vulnerability:** Path validation for imported GitHub trees relied solely on `std::path::Component::ParentDir` and `is_absolute()`. On Unix systems, this fails to identify Windows-style path traversal attempts (e.g., `..\..\file`) or absolute paths (`C:\file`) because backslashes are treated as regular filename characters, allowing traversal vulnerabilities.
+**Learning:** Rust's `Path` parsing is OS-specific. Validating paths from untrusted, cross-platform sources (like git repositories or archives) using standard `Path` methods on Unix will bypass Windows-specific attack vectors.
+**Prevention:** Always explicitly check for backslashes (`\`) and explicit root characters (`/`) when validating paths from external sources, in addition to using `std::path::Component::ParentDir` to safely handle `..` components without introducing functional regressions like naive `.contains("..")` checks would.
