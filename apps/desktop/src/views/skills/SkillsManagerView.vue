@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import { formatNumberFull, type SkillImportResult } from "@tracepilot/types";
+import {
+  formatNumber as formatCompactNumber,
+  formatNumberFull,
+  type SkillImportResult,
+} from "@tracepilot/types";
 import { PageHeader, PageShell, useConfirmDialog } from "@tracepilot/ui";
 import { Brain } from "lucide-vue-next";
 import { computed, onMounted, ref } from "vue";
 import SkillCard from "@/components/skills/SkillCard.vue";
 import SkillImportWizard from "@/components/skills/SkillImportWizard.vue";
 import { useSkillsStore } from "@/stores/skills";
-import { formatCompactNumber } from "@/utils/numberFormatting";
 
 const store = useSkillsStore();
 const { confirm: showConfirm } = useConfirmDialog();

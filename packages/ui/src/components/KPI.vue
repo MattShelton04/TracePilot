@@ -6,9 +6,9 @@
   See 02-primitives.md §KPI (CC-4).
 -->
 <script setup lang="ts">
+import { formatBytes, formatDuration, formatNumber, formatPercent } from "@tracepilot/types";
 import { ArrowDown, ArrowUp, Info, Minus } from "lucide-vue-next";
 import { computed } from "vue";
-import { formatBytes, formatDuration, formatNumber, formatPercent } from "../utils/formatters";
 
 export type KPIDelta = {
   value: number;

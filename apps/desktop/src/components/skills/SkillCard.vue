@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import type { SkillSummary } from "@tracepilot/types";
+import { formatNumber as formatCompactNumber } from "@tracepilot/types";
 import { useRouter } from "vue-router";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
-import { formatCompactNumber } from "@/utils/numberFormatting";
 import SkillScopeBadge from "./SkillScopeBadge.vue";
 
 const props = defineProps<{

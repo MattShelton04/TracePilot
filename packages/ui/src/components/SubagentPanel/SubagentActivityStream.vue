@@ -3,7 +3,7 @@
 // pills, nested-subagent rows, and final agent messages. Pure props/events;
 // no app-store imports.
 import type { TurnToolCall } from "@tracepilot/types";
-import { getToolArgs, toolArgString } from "@tracepilot/types";
+import { formatDuration, getToolArgs, toolArgString } from "@tracepilot/types";
 import { ref, watch } from "vue";
 import { useToggleSet } from "../../composables/useToggleSet";
 import {
@@ -12,7 +12,6 @@ import {
   getAgentIcon,
   inferAgentTypeFromToolCall,
 } from "../../utils/agentTypes";
-import { formatDuration } from "../../utils/formatters";
 import ToolCallItem from "../ToolCallItem.vue";
 import type { SubagentActivityItem, SubagentActivityPillType } from "./types";
 

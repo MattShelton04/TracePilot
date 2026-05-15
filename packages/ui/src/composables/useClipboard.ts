@@ -1,6 +1,6 @@
+import { toErrorMessage } from "@tracepilot/types";
 import type { Ref } from "vue";
 import { onScopeDispose, ref } from "vue";
-import { toErrorMessage } from "../utils/formatters";
 
 export interface UseClipboardOptions {
   /** Duration in ms to show "copied" state. Default: 2000 */

@@ -1,6 +1,6 @@
 import type { BridgeSessionMode, SessionLiveState } from "@tracepilot/types";
 import type { ComponentPublicInstance, CSSProperties, InjectionKey, Ref } from "vue";
-import { computed, inject, nextTick, onBeforeUnmount, reactive, ref, watch } from "vue";
+import { computed, inject, nextTick, onMounted, onUnmounted, reactive, ref, watch } from "vue";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSdkStore } from "@/stores/sdk";
@@ -137,9 +137,12 @@ export function useSdkSteering(options: UseSdkSteeringOptions) {
     }
   }
   if (typeof document !== "undefined") {
-    document.addEventListener("click", closeModelPicker);
-    onBeforeUnmount(() => {
-      document.removeEventListener("click", closeModelPicker);
+    const outsideClickHandler = (event: MouseEvent) => closeModelPicker(event);
+    onMounted(() => {
+      document.addEventListener("click", outsideClickHandler);
+    });
+    onUnmounted(() => {
+      document.removeEventListener("click", outsideClickHandler);
     });
   }
 
@@ -269,6 +272,19 @@ export function useSdkSteering(options: UseSdkSteeringOptions) {
 
   // ─── Actions ────────────────────────────────────────────────
 
+  /**
+   * Run `fn` with the current effective session id only when the session is
+   * actually linked. Centralises the `effectiveSessionId` null-check and the
+   * `isLinked` gate so callers don't need non-null assertions. Also clears
+   * any prior `sessionError` so the next action starts from a clean slate.
+   */
+  async function withLinkedSession<T>(fn: (sid: string) => Promise<T>): Promise<T | undefined> {
+    const sid = effectiveSessionId.value;
+    if (!sid || !isLinked.value) return undefined;
+    sessionError.value = null;
+    return fn(sid);
+  }
+
   function scheduleRefresh(delayMs = 500) {
     setTimeout(async () => {
       try {
@@ -306,14 +322,16 @@ export function useSdkSteering(options: UseSdkSteeringOptions) {
     // call (e.g. Send double-tap or Ctrl+Enter racing a click).
     if (sdk.isSending(effectiveSessionId.value)) return;
 
-    sessionError.value = null;
-
     const id = ++sentIdCounter;
     const msg: SentMessage = { id, text, timestamp: Date.now(), status: "sending" };
     sentMessages.value = [msg, ...sentMessages.value].slice(0, MAX_SENT_LOG);
 
-    // biome-ignore lint/style/noNonNullAssertion: guarded by isLinked.value check in handleSendMessage above.
-    const turnId = await sdk.sendMessage(effectiveSessionId.value!, { prompt: text });
+    const turnId = await withLinkedSession((sid) => sdk.sendMessage(sid, { prompt: text }));
+    if (turnId === undefined) {
+      // Session was unlinked between guard and dispatch — drop optimistic row.
+      sentMessages.value = sentMessages.value.filter((m) => m.id !== id);
+      return;
+    }
     if (turnId !== null) {
       updateSentMessage(id, { status: "sent", turnId });
       prompt.value = "";
@@ -334,11 +352,9 @@ export function useSdkSteering(options: UseSdkSteeringOptions) {
   }
 
   async function handleModeChange(mode: BridgeSessionMode) {
-    if (!sessionIdRef.value || !isLinked.value) return;
-    sessionError.value = null;
     sdk.lastError = null;
-    // biome-ignore lint/style/noNonNullAssertion: early-return above ensures sessionIdRef/isLinked are set.
-    await sdk.setSessionMode(effectiveSessionId.value!, mode);
+    const result = await withLinkedSession((sid) => sdk.setSessionMode(sid, mode));
+    if (result === undefined) return;
     const err = sdk.lastError as string | null;
     if (err) {
       if (err.includes("-32601") || err.includes("Unhandled method")) {
@@ -353,10 +369,8 @@ export function useSdkSteering(options: UseSdkSteeringOptions) {
   }
 
   async function handleAbort() {
-    if (!sessionIdRef.value || !isLinked.value) return;
-    sessionError.value = null;
-    // biome-ignore lint/style/noNonNullAssertion: early-return above ensures sessionIdRef/isLinked are set.
-    await sdk.abortSession(effectiveSessionId.value!);
+    const result = await withLinkedSession((sid) => sdk.abortSession(sid));
+    if (result === undefined) return;
     scheduleRefresh(500);
   }
 

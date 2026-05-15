@@ -3,9 +3,10 @@
  *
  * Owns per-session steering actions (send message, abort, resume, create,
  * destroy, unlink, set-mode, set-model, foreground selection) plus a
- * global `sendingMessage` flag (TODO: make per-session). Does **not** trigger
- * `session.resume` implicitly — resumption remains an explicit opt-in (see
- * repo memory on SDK session steering pitfalls).
+ * per-session "sending" tracker (`sendingByIds`) and a derived
+ * `sendingMessage` boolean that is true when any session is mid-send. Does
+ * **not** trigger `session.resume` implicitly — resumption remains an
+ * explicit opt-in (see repo memory on SDK session steering pitfalls).
  */
 
 import {
@@ -180,6 +181,7 @@ export function createMessagingSlice(deps: MessagingDeps) {
       await sdkDestroySession(sessionId);
       markSessionInactive(sessionId);
       liveTurns.clearLiveTurn(sessionId);
+      markSending(sessionId, false);
       lastError.value = null;
       logInfo("[sdk] Session destroyed:", sessionId);
     } catch (e) {
@@ -194,6 +196,7 @@ export function createMessagingSlice(deps: MessagingDeps) {
       await sdkUnlinkSession(sessionId);
       markSessionInactive(sessionId);
       liveTurns.clearLiveTurn(sessionId);
+      markSending(sessionId, false);
       lastError.value = null;
       logInfo("[sdk] Session unlinked:", sessionId);
     } catch (e) {

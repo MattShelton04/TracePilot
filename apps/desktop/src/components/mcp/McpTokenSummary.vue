@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import { formatNumber as formatCompactNumber } from "@tracepilot/types";
 import { BarChart3 } from "lucide-vue-next";
 import { computed } from "vue";
-import { formatCompactNumber } from "@/utils/numberFormatting";
 
 const props = withDefaults(
   defineProps<{

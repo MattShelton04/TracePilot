@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { formatCost, formatNumber, formatPercent, StatCard } from "@tracepilot/ui";
+import { formatCost, formatNumber, formatPercent } from "@tracepilot/types";
+import { StatCard } from "@tracepilot/ui";
 import { useModelComparisonContext } from "@/composables/useModelComparison";
 
 const ctx = useModelComparisonContext();

@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import { formatRate } from "@tracepilot/types";
 import { formatNumber, SectionPanel } from "@tracepilot/ui";
 import { computed } from "vue";
-import { formatPercent } from "@/utils/percentageFormatting";
 
 const props = defineProps<{
   cacheHitRatio: number;
@@ -26,8 +26,8 @@ const cachePercent = computed(() => Math.round(props.cacheHitRatio * 100));
           <div class="cache-bar-fill" :style="{ width: `${cacheHitRatio * 100}%` }" />
         </div>
         <div class="cache-bar-legend">
-          <span class="legend-cached">{{ formatPercent(cacheHitRatio, { isRatio: true }) }} cached</span>
-          <span class="legend-uncached">{{ formatPercent(1 - cacheHitRatio, { isRatio: true }) }} uncached</span>
+          <span class="legend-cached">{{ formatRate(cacheHitRatio) }} cached</span>
+          <span class="legend-uncached">{{ formatRate(1 - cacheHitRatio) }} uncached</span>
         </div>
       </div>
     </div>

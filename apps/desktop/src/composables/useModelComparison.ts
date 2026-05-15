@@ -1,4 +1,9 @@
-import { formatCost, formatNumber, formatPercent } from "@tracepilot/ui";
+import {
+  formatNumber as formatCompactNumber,
+  formatCost,
+  formatNumber,
+  formatPercent,
+} from "@tracepilot/types";
 import { computed, type InjectionKey, inject, reactive, ref, watch } from "vue";
 import { useAnalyticsPage } from "@/composables/useAnalyticsPage";
 import { usePreferencesStore } from "@/stores/preferences";
@@ -13,7 +18,6 @@ import {
   scatterX,
   scatterY,
 } from "@/utils/modelChartGeometry";
-import { formatCompactNumber } from "@/utils/numberFormatting";
 
 export {
   RADAR_AXES,

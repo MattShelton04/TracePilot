@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { TurnToolCall } from "@tracepilot/types";
+import { formatDuration, formatTime } from "@tracepilot/types";
 import { computed, inject } from "vue";
 import { LIVE_TOOL_PARTIAL_OUTPUT_KEY } from "../composables/liveToolPartialOutput";
-import { formatDuration, formatTime } from "../utils/formatters";
 import ToolArgsRenderer from "./renderers/ToolArgsRenderer.vue";
 import ToolErrorDisplay from "./renderers/ToolErrorDisplay.vue";
 import ToolResultRenderer from "./renderers/ToolResultRenderer.vue";

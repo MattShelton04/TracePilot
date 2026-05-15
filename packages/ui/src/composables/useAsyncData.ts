@@ -1,5 +1,5 @@
+import { toErrorMessage } from "@tracepilot/types";
 import { type Ref, ref } from "vue";
-import { toErrorMessage } from "../utils/formatters";
 import { useAsyncGuard } from "./useAsyncGuard";
 
 /**

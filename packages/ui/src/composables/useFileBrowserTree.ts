@@ -6,8 +6,8 @@
  * place.
  */
 import type { FileEntry } from "@tracepilot/types";
+import { formatBytes } from "@tracepilot/types";
 import { computed, type Ref, ref, watch } from "vue";
-import { formatBytes } from "../utils/formatters";
 
 export interface UseFileBrowserTreeOptions {
   /** Folders with more files than this are auto-collapsed on load. */

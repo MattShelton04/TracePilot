@@ -1,5 +1,25 @@
 // TracePilot UI component library — shared Vue components for desktop and web.
 
+export {
+  formatBytes,
+  formatClockTime,
+  formatCost,
+  formatDate,
+  formatDateMedium,
+  formatDateShort,
+  formatDuration,
+  formatLiveDuration,
+  formatNumber,
+  formatNumberFull,
+  formatPercent,
+  formatRate,
+  formatRelativeTime,
+  formatShortDate,
+  formatTime,
+  formatTokens,
+  toErrorMessage,
+  truncateText,
+} from "@tracepilot/types";
 // ── Components ─────────────────────────────────────────────────────
 export { default as ActionButton } from "./components/ActionButton.vue";
 export { default as AgentBadge } from "./components/AgentBadge.vue";
@@ -206,7 +226,6 @@ export {
 } from "./icons/lucideRegistry";
 export type { LucideName } from "./icons/templateCatalogue";
 export { TEMPLATE_ICON_CATALOGUE } from "./icons/templateCatalogue";
-
 // ── Utilities ──────────────────────────────────────────────────────
 export type { AgentSection, SubagentContent } from "./utils/agentGrouping";
 export {
@@ -254,26 +273,6 @@ export {
   getSemanticColors,
   getStatusColors,
 } from "./utils/designTokens";
-export {
-  formatBytes,
-  formatClockTime,
-  formatCost,
-  formatDate,
-  formatDateMedium,
-  formatDateShort,
-  formatDuration,
-  formatLiveDuration,
-  formatNumber,
-  formatNumberFull,
-  formatPercent,
-  formatRate,
-  formatRelativeTime,
-  formatShortDate,
-  formatTime,
-  formatTokens,
-  toErrorMessage,
-  truncateText,
-} from "./utils/formatters";
 export { detectLanguage, languageDisplayName } from "./utils/languageDetection";
 export { ensureMarkdownReady } from "./utils/markdownLoader";
 export type { CurrentObjective } from "./utils/objective";

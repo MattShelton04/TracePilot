@@ -1,20 +1,11 @@
 <script setup lang="ts">
 import type { ToolUsageEntry } from "@tracepilot/types";
-import {
-  ErrorState,
-  formatDuration,
-  formatNumberFull,
-  formatRate,
-  LoadingOverlay,
-  PageShell,
-  StatCard,
-  useChartTooltip,
-} from "@tracepilot/ui";
+import { formatDuration, formatNumberFull, formatRate } from "@tracepilot/types";
+import { ErrorState, LoadingOverlay, PageShell, StatCard, useChartTooltip } from "@tracepilot/ui";
 import { computed } from "vue";
 import AnalyticsPageHeader from "@/components/AnalyticsPageHeader.vue";
 import { useAnalyticsPage } from "@/composables/useAnalyticsPage";
 import { CHART_COLORS } from "@/utils/chartColors";
-import { formatPercent } from "@/utils/percentageFormatting";
 
 const { tooltip, positionTooltip, dismissTooltip, onBarMouseEnter, findNearestIndex } =
   useChartTooltip();
@@ -52,7 +43,7 @@ function onSuccessFailureMouseMove(event: MouseEvent) {
   if (bestIdx < 0) return;
   const row = chart.rows[bestIdx];
   const total = row.successCount + row.failureCount;
-  const rate = formatPercent(total > 0 ? row.successCount / total : 0, { isRatio: true });
+  const rate = formatRate(total > 0 ? row.successCount / total : 0);
   tooltip.visible = true;
   tooltip.content = `${row.tool.name} — ${formatNumberFull(row.successCount)} success / ${formatNumberFull(row.failureCount)} failure (${rate})`;
   tooltip.chartId = "success-failure";

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { formatNumber } from "../../utils/formatters";
+import { formatNumber } from "@tracepilot/types";
 import type { SubagentStatus, SubagentView } from "./types";
 
 defineProps<{

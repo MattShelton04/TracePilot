@@ -3,9 +3,10 @@
 // inline transition, scroll container, prev/next nav). Both the conversation
 // slide-out and the agent-tree inline panel render this same body so they
 // cannot drift.
+
+import { formatDuration, formatLiveDuration } from "@tracepilot/types";
 import { computed, nextTick, ref, useSlots, watch } from "vue";
 import { getAgentColor, getAgentIcon } from "../../utils/agentTypes";
-import { formatDuration, formatLiveDuration } from "../../utils/formatters";
 import { getSubagentObjective } from "../../utils/objective";
 import ObjectiveBanner from "../ObjectiveBanner.vue";
 import SubagentActivityStream from "./SubagentActivityStream.vue";

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { formatCost, formatNumber, formatPercent } from "@tracepilot/ui";
+import { formatCost, formatNumber, formatPercent } from "@tracepilot/types";
 import {
   RADAR_AXES,
   RADAR_CX,
