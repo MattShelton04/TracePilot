@@ -13,7 +13,7 @@ const comp = useSessionComparisonContext();
     <div class="chart-box">
       <div class="chart-box-header">Message Length by Turn — Session A</div>
       <div class="chart-box-body">
-        <EmptyState v-if="comp.waveA.length === 0" compact message="No turns" />
+        <EmptyState v-if="comp.waveA.length === 0" size="sm" description="No turns" />
         <div v-else class="waveform-container">
           <div
             v-for="(h, i) in comp.waveA"
@@ -28,7 +28,7 @@ const comp = useSessionComparisonContext();
     <div class="chart-box">
       <div class="chart-box-header">Message Length by Turn — Session B</div>
       <div class="chart-box-body">
-        <EmptyState v-if="comp.waveB.length === 0" compact message="No turns" />
+        <EmptyState v-if="comp.waveB.length === 0" size="sm" description="No turns" />
         <div v-else class="waveform-container">
           <div
             v-for="(h, i) in comp.waveB"

@@ -157,7 +157,7 @@ function onLoadFullResult(toolCallId: string) {
     <EmptyState
       v-if="!store.turns.length && !store.loading"
       title="No Timeline Data"
-      message="This session has no conversation turns to visualize."
+      description="This session has no conversation turns to visualize."
     >
       <template #icon><BarChart3 :size="36" aria-hidden="true" /></template>
     </EmptyState>

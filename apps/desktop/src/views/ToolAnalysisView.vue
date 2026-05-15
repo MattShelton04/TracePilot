@@ -5,6 +5,7 @@ import { ErrorState, LoadingOverlay, PageShell, StatCard, useChartTooltip } from
 import { computed } from "vue";
 import AnalyticsPageHeader from "@/components/AnalyticsPageHeader.vue";
 import { useAnalyticsPage } from "@/composables/useAnalyticsPage";
+import { localizeHeatmap } from "@/utils/analytics";
 import { CHART_COLORS } from "@/utils/chartColors";
 
 const { tooltip, positionTooltip, dismissTooltip, onBarMouseEnter, findNearestIndex } =
@@ -82,26 +83,9 @@ const hourLabels = Array.from({ length: 24 }, (_, i) => {
 
 const heatmapData = computed<number[][]>(() => {
   if (!data.value) return [];
-  const grid: number[][] = Array.from({ length: 7 }, () => Array(24).fill(0));
-  // Backend stores heatmap in UTC; convert to local timezone
-  const localOffsetMinutes = -new Date().getTimezoneOffset(); // e.g. +330 for UTC+5:30
-  for (const entry of data.value.activityHeatmap) {
-    if (entry.day >= 0 && entry.day < 7 && entry.hour >= 0 && entry.hour < 24) {
-      const utcMinutes = entry.hour * 60;
-      const localMinutes = utcMinutes + localOffsetMinutes;
-      let localHour = Math.floor(localMinutes / 60);
-      let localDay = entry.day;
-      if (localHour >= 24) {
-        localHour -= 24;
-        localDay = (localDay + 1) % 7;
-      } else if (localHour < 0) {
-        localHour += 24;
-        localDay = (localDay + 6) % 7;
-      }
-      grid[localDay][localHour] += entry.count;
-    }
-  }
-  return grid;
+  // Backend stores heatmap in UTC; convert to local timezone.
+  const localOffsetMinutes = -new Date().getTimezoneOffset();
+  return localizeHeatmap(data.value.activityHeatmap, localOffsetMinutes);
 });
 
 const heatmapMax = computed(() => {

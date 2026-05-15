@@ -15,8 +15,9 @@ pub(super) fn validate_model(model: &str) -> Result<()> {
 
 /// List available models.
 ///
-/// Keep in sync with the TypeScript model registry at
-/// `packages/types/src/models.ts → MODEL_REGISTRY`.
+/// Backed by the shared JSON registry at
+/// `packages/types/data/model-registry.json` — the same data consumed by the
+/// TypeScript `MODEL_REGISTRY` in `packages/types/src/models.ts`.
 pub fn available_models() -> Vec<ModelInfo> {
     models::available_models()
 }

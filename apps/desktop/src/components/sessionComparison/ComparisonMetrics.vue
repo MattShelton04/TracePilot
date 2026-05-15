@@ -87,7 +87,7 @@ const comp = useSessionComparisonContext();
     <div class="chart-box">
       <div class="chart-box-header">Model Distribution — Session A</div>
       <div class="chart-box-body chart-body-center">
-        <EmptyState v-if="comp.donutA.length === 0" compact message="No model data" />
+      <EmptyState v-if="comp.donutA.length === 0" size="sm" description="No model data" />
         <div v-else class="donut-wrap">
           <svg width="160" height="160" viewBox="0 0 160 160" role="img" aria-label="Donut chart showing model distribution for session A">
             <circle cx="80" cy="80" r="60" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="20" />
@@ -115,7 +115,7 @@ const comp = useSessionComparisonContext();
     <div class="chart-box">
       <div class="chart-box-header">Model Distribution — Session B</div>
       <div class="chart-box-body chart-body-center">
-        <EmptyState v-if="comp.donutB.length === 0" compact message="No model data" />
+      <EmptyState v-if="comp.donutB.length === 0" size="sm" description="No model data" />
         <div v-else class="donut-wrap">
           <svg width="160" height="160" viewBox="0 0 160 160" role="img" aria-label="Donut chart showing model distribution for session B">
             <circle cx="80" cy="80" r="60" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="20" />
@@ -144,7 +144,7 @@ const comp = useSessionComparisonContext();
 
   <!-- ═══════ Tool Usage Comparison ═══════ -->
   <SectionPanel title="Tool Usage Comparison">
-    <EmptyState v-if="comp.toolCompRows.length === 0" compact message="No tool usage data" />
+    <EmptyState v-if="comp.toolCompRows.length === 0" size="sm" description="No tool usage data" />
     <template v-else>
       <div class="tool-legend">
         <div class="tool-legend-item">

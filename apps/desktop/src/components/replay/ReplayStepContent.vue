@@ -26,12 +26,8 @@ import {
   useToggleSet,
 } from "@tracepilot/ui";
 import { computed, ref } from "vue";
+import { MAX_MESSAGE_CHARS, MAX_VISIBLE_TOOLS } from "@/config/chatDisplay";
 import { usePreferencesStore } from "@/stores/preferences";
-
-/** Max tool calls shown before requiring expand */
-const MAX_VISIBLE_TOOLS = 8;
-/** Max characters in a message bubble before truncation */
-const MAX_MESSAGE_CHARS = 3000;
 
 const props = defineProps<{
   step: ReplayStep;

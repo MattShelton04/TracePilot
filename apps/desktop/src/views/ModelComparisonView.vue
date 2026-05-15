@@ -31,7 +31,7 @@ provide(ModelComparisonKey, ctx);
           <EmptyState
             v-if="ctx.modelRows.length === 0"
             title="No Model Data"
-            message="No model usage data found for the selected time range and repository."
+            description="No model usage data found for the selected time range and repository."
           >
             <template #icon>
               <Bot :size="32" />

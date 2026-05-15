@@ -448,15 +448,6 @@
   animation: spin 0.8s linear infinite;
 }
 
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 /* ─── Danger Zone ─── */
 .mcp-detail-view .danger-zone {
   border: 1px solid rgba(251, 113, 133, 0.2);

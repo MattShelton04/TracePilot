@@ -36,8 +36,7 @@ export interface SentMessage {
   error?: string;
 }
 
-export const MAX_SENT_LOG = 5;
-export const MAX_INPUT_HEIGHT = 4 * 20 + 10; // ~4 lines, matches original
+export { MAX_INPUT_HEIGHT, MAX_SENT_LOG } from "@/config/sdkSteering";
 
 export interface SdkSteeringState {
   // Injected stores / context

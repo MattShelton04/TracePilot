@@ -558,20 +558,22 @@ function copiedToClipboard() {
         <div class="preview-body">
           <div v-if="!selectedSessionId" class="preview-empty">
             <EmptyState
-              icon="📤"
-              message="Select a session to preview the export"
-              compact
-            />
+              description="Select a session to preview the export"
+              size="sm"
+            >
+              <template #icon>📤</template>
+            </EmptyState>
           </div>
           <div v-else-if="previewLoading" class="preview-loading">
             <span class="spinner" /> Generating preview…
           </div>
           <div v-else-if="previewError" class="preview-error">
             <EmptyState
-              icon="⚠️"
-              :message="previewError"
-              compact
-            />
+              :description="previewError"
+              size="sm"
+            >
+              <template #icon>⚠️</template>
+            </EmptyState>
           </div>
           <div v-else-if="preview">
             <!-- Raw view -->

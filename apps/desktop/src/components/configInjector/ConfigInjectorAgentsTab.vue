@@ -153,7 +153,7 @@ const premiumAgentCount = computed(
         </div>
       </div>
 
-      <EmptyState v-if="!store.agents.length" compact message="No agent definitions found." />
+      <EmptyState v-if="!store.agents.length" size="sm" description="No agent definitions found." />
     </div>
 
     <!-- Batch Actions -->

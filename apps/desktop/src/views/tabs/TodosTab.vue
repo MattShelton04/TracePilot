@@ -94,7 +94,7 @@ function getTodoTitle(id: string): string {
         @retry="retryLoadTodos"
       />
 
-      <EmptyState v-if="showEmptyState" message="No todos found in this session." />
+      <EmptyState v-if="showEmptyState" description="No todos found in this session." />
 
       <template v-else-if="showContent">
         <!-- Progress section -->

@@ -62,15 +62,4 @@ export interface ReplayStep {
   hasSubagents?: boolean;
   /** Whether a model switch occurred before this step (from previous step's model). */
   modelSwitchFrom?: string;
-
-  // ── Legacy compat (simplified tool calls for backward compatibility) ──
-
-  /** Simplified tool call summaries (legacy shape). */
-  toolCalls?: Array<{
-    name: string;
-    success: boolean;
-    durationMs: number;
-    command?: string;
-    output?: string;
-  }>;
 }

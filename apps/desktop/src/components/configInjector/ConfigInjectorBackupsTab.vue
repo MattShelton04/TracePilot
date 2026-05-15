@@ -129,7 +129,7 @@ function backupIcon(path: string): unknown {
       </div>
     </div>
 
-    <EmptyState v-else title="No Backups Yet" message="Create a backup above to safeguard your configuration before making changes.">
+    <EmptyState v-else title="No Backups Yet" description="Create a backup above to safeguard your configuration before making changes.">
       <template #icon>
         <component :is="LUCIDE_ICON_COMPONENTS.package" :size="32" :stroke-width="1.5" />
       </template>

@@ -1,7 +1,7 @@
 <!--
   @slots
     icon    — Lucide icon component (32px). Inherits --text-tertiary.
-    default — description text (alternative to `message` / `description` props)
+    default — description text (alternative to `description` prop)
     actions — custom action row (alternative to primaryAction/secondaryAction props)
   Empty / "no results" / first-run pattern. The only legal place to render
   text.display (28/34 600). See 02-primitives.md §EmptyState.
@@ -17,14 +17,8 @@ export interface EmptyStateProps {
   title?: string;
   /** Body description. Either this prop or default slot. */
   description?: string;
-  /** Legacy alias for `description`. Preserved for backward compat. */
-  message?: string;
-  /** Legacy text icon (emoji/string). Prefer the `icon` slot with a Lucide component. */
-  icon?: string;
   /** sm = inline (text.h2 title); md = default (text.h1 title); lg = full empty page (text.display). */
   size?: "sm" | "md" | "lg";
-  /** Legacy compact flag; equivalent to size='sm' and hides icon/title. */
-  compact?: boolean;
   primaryAction?: EmptyStateAction;
   secondaryAction?: EmptyStateAction;
 }
@@ -37,18 +31,14 @@ withDefaults(defineProps<EmptyStateProps>(), {
 <template>
   <div
     data-tp-component="EmptyState"
-    :class="[
-      'empty-state',
-      `empty-state--${size}`,
-      { 'empty-state--compact': compact },
-    ]"
+    :class="['empty-state', `empty-state--${size}`]"
   >
-    <div v-if="!compact && ($slots.icon || icon)" class="empty-state-icon">
-      <slot name="icon">{{ icon }}</slot>
+    <div v-if="$slots.icon" class="empty-state-icon">
+      <slot name="icon" />
     </div>
-    <h2 v-if="title && !compact" class="empty-state-title">{{ title }}</h2>
+    <h2 v-if="title" class="empty-state-title">{{ title }}</h2>
     <p class="empty-state-desc">
-      <slot>{{ description ?? message ?? "No data found." }}</slot>
+      <slot>{{ description ?? "No data found." }}</slot>
     </p>
     <div
       v-if="$slots.actions || primaryAction || secondaryAction"
@@ -88,8 +78,6 @@ withDefaults(defineProps<EmptyStateProps>(), {
 
 .empty-state--sm { padding: 24px 16px; }
 .empty-state--lg { padding: 64px 24px; }
-
-.empty-state--compact { padding: 20px; }
 
 .empty-state-icon {
   color: var(--text-tertiary);
@@ -131,10 +119,6 @@ withDefaults(defineProps<EmptyStateProps>(), {
   color: var(--text-secondary);
   margin: 0;
   max-width: 48ch;
-}
-
-.empty-state--compact .empty-state-desc {
-  color: var(--text-tertiary);
 }
 
 .empty-state-actions {
