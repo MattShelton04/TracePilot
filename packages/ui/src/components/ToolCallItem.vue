@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { TurnSessionEvent, TurnToolCall } from "@tracepilot/types";
+import { formatDuration } from "@tracepilot/types";
 import { computed, nextTick, ref, watch } from "vue";
 import { resolveLucideIcon } from "../icons/lucideRegistry";
-import { formatDuration } from "../utils/formatters";
 import { categoryColor, formatArgsSummary, toolCategory, toolIcon } from "../utils/toolCall";
 import ExpandChevron from "./ExpandChevron.vue";
 import ToolCallDetail from "./ToolCallDetail.vue";

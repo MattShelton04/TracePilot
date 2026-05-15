@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { formatNumberFull, type McpTool } from "@tracepilot/types";
+import {
+  formatNumber as formatCompactNumber,
+  formatNumberFull,
+  type McpTool,
+} from "@tracepilot/types";
 import { computed, ref } from "vue";
-
-import { formatCompactNumber } from "@/utils/numberFormatting";
 
 const props = defineProps<{
   tools: McpTool[];

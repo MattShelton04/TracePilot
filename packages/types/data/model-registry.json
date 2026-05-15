@@ -1,0 +1,254 @@
+[
+  {
+    "id": "claude-opus-4.7",
+    "name": "Claude Opus 4.7",
+    "tier": "premium",
+    "inputPerM": 5.0,
+    "cachedInputPerM": 0.5,
+    "outputPerM": 25.0,
+    "premiumRequests": 15
+  },
+  {
+    "id": "gpt-5.5",
+    "name": "GPT-5.5",
+    "tier": "premium",
+    "inputPerM": 5.0,
+    "cachedInputPerM": 0.5,
+    "outputPerM": 30.0,
+    "premiumRequests": 7.5
+  },
+  {
+    "id": "goldeneye",
+    "name": "Goldeneye",
+    "tier": "premium",
+    "inputPerM": 1.25,
+    "cachedInputPerM": 0.125,
+    "outputPerM": 10.0,
+    "premiumRequests": 1
+  },
+  {
+    "id": "claude-opus-4.6",
+    "name": "Claude Opus 4.6",
+    "tier": "premium",
+    "inputPerM": 5.0,
+    "cachedInputPerM": 0.5,
+    "outputPerM": 25.0,
+    "premiumRequests": 3
+  },
+  {
+    "id": "claude-opus-4.6-fast",
+    "name": "Claude Opus 4.6 Fast",
+    "tier": "premium",
+    "inputPerM": 30.0,
+    "cachedInputPerM": 3.0,
+    "outputPerM": 150.0,
+    "premiumRequests": 30
+  },
+  {
+    "id": "claude-opus-4.5",
+    "name": "Claude Opus 4.5",
+    "tier": "premium",
+    "inputPerM": 5.0,
+    "cachedInputPerM": 0.5,
+    "outputPerM": 25.0,
+    "premiumRequests": 3
+  },
+  {
+    "id": "claude-sonnet-4.6",
+    "name": "Claude Sonnet 4.6",
+    "tier": "standard",
+    "inputPerM": 3.0,
+    "cachedInputPerM": 0.3,
+    "outputPerM": 15.0,
+    "premiumRequests": 1
+  },
+  {
+    "id": "claude-sonnet-4.5",
+    "name": "Claude Sonnet 4.5",
+    "tier": "standard",
+    "inputPerM": 3.0,
+    "cachedInputPerM": 0.3,
+    "outputPerM": 15.0,
+    "premiumRequests": 1
+  },
+  {
+    "id": "claude-sonnet-4",
+    "name": "Claude Sonnet 4",
+    "tier": "standard",
+    "inputPerM": 3.0,
+    "cachedInputPerM": 0.3,
+    "outputPerM": 15.0,
+    "premiumRequests": 1
+  },
+  {
+    "id": "gemini-3-pro-preview",
+    "name": "Gemini 3 Pro",
+    "tier": "standard",
+    "inputPerM": 3.0,
+    "cachedInputPerM": 0.3,
+    "outputPerM": 16.0,
+    "premiumRequests": 1
+  },
+  {
+    "id": "gemini-2.5-pro",
+    "name": "Gemini 2.5 Pro",
+    "tier": "standard",
+    "inputPerM": 1.25,
+    "cachedInputPerM": 0.125,
+    "outputPerM": 10.0,
+    "premiumRequests": 1
+  },
+  {
+    "id": "gemini-3.1-pro",
+    "name": "Gemini 3.1 Pro",
+    "tier": "standard",
+    "inputPerM": 2.0,
+    "cachedInputPerM": 0.2,
+    "outputPerM": 12.0,
+    "premiumRequests": 1
+  },
+  {
+    "id": "gpt-5.4",
+    "name": "GPT-5.4",
+    "tier": "standard",
+    "inputPerM": 2.5,
+    "cachedInputPerM": 0.25,
+    "outputPerM": 15.0,
+    "premiumRequests": 1
+  },
+  {
+    "id": "gpt-5.3-codex",
+    "name": "GPT-5.3 Codex",
+    "tier": "standard",
+    "inputPerM": 1.75,
+    "cachedInputPerM": 0.175,
+    "outputPerM": 14.0,
+    "premiumRequests": 1
+  },
+  {
+    "id": "gpt-5.2-codex",
+    "name": "GPT-5.2 Codex",
+    "tier": "standard",
+    "inputPerM": 1.75,
+    "cachedInputPerM": 0.175,
+    "outputPerM": 14.0,
+    "premiumRequests": 1
+  },
+  {
+    "id": "gpt-5.2",
+    "name": "GPT-5.2",
+    "tier": "standard",
+    "inputPerM": 2.5,
+    "cachedInputPerM": 0.25,
+    "outputPerM": 15.0,
+    "premiumRequests": 1
+  },
+  {
+    "id": "gpt-5.1-codex-max",
+    "name": "GPT-5.1 Codex Max",
+    "tier": "standard",
+    "inputPerM": 1.75,
+    "cachedInputPerM": 0.175,
+    "outputPerM": 14.0,
+    "premiumRequests": 1
+  },
+  {
+    "id": "gpt-5.1-codex",
+    "name": "GPT-5.1 Codex",
+    "tier": "standard",
+    "inputPerM": 1.75,
+    "cachedInputPerM": 0.175,
+    "outputPerM": 14.0,
+    "premiumRequests": 1
+  },
+  {
+    "id": "gpt-5.1",
+    "name": "GPT-5.1",
+    "tier": "standard",
+    "inputPerM": 10.0,
+    "cachedInputPerM": 1.0,
+    "outputPerM": 40.0,
+    "premiumRequests": 1
+  },
+  {
+    "id": "claude-haiku-4.5",
+    "name": "Claude Haiku 4.5",
+    "tier": "fast",
+    "inputPerM": 1.0,
+    "cachedInputPerM": 0.1,
+    "outputPerM": 5.0,
+    "premiumRequests": 0.33
+  },
+  {
+    "id": "gpt-5.4-mini",
+    "name": "GPT-5.4 Mini",
+    "tier": "fast",
+    "inputPerM": 0.4,
+    "cachedInputPerM": 0.04,
+    "outputPerM": 1.6,
+    "premiumRequests": 0.33
+  },
+  {
+    "id": "gpt-5.4-nano",
+    "name": "GPT-5.4 Nano",
+    "tier": "fast",
+    "inputPerM": 0.2,
+    "cachedInputPerM": 0.02,
+    "outputPerM": 1.25,
+    "premiumRequests": 0.33
+  },
+  {
+    "id": "gemini-3-flash",
+    "name": "Gemini 3 Flash",
+    "tier": "fast",
+    "inputPerM": 0.5,
+    "cachedInputPerM": 0.05,
+    "outputPerM": 3.0,
+    "premiumRequests": 0.33
+  },
+  {
+    "id": "grok-code-fast-1",
+    "name": "Grok Code Fast 1",
+    "tier": "fast",
+    "inputPerM": 0.2,
+    "cachedInputPerM": 0.02,
+    "outputPerM": 1.5,
+    "premiumRequests": 0.25
+  },
+  {
+    "id": "raptor-mini",
+    "name": "Raptor Mini",
+    "tier": "fast",
+    "inputPerM": 0.25,
+    "cachedInputPerM": 0.025,
+    "outputPerM": 2.0,
+    "premiumRequests": 0
+  },
+  {
+    "id": "gpt-5.1-codex-mini",
+    "name": "GPT-5.1 Codex Mini",
+    "tier": "fast",
+    "inputPerM": 0.4,
+    "cachedInputPerM": 0.04,
+    "outputPerM": 1.6,
+    "premiumRequests": 0.33
+  },
+  {
+    "id": "gpt-5-mini",
+    "name": "GPT-5 Mini",
+    "tier": "fast",
+    "inputPerM": 0.4,
+    "cachedInputPerM": 0.04,
+    "outputPerM": 1.6,
+    "premiumRequests": 0
+  },
+  {
+    "id": "gpt-4.1",
+    "name": "GPT-4.1",
+    "tier": "fast",
+    "inputPerM": 8.0,
+    "cachedInputPerM": 0.8,
+    "outputPerM": 24.0,
+    "premiumRequests": 0
+  }
+]

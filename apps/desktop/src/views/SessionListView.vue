@@ -227,7 +227,7 @@ function openSession(event: MouseEvent, sessionId: string, label: string) {
       <EmptyState
         v-else-if="!store.loading"
         title="No sessions found"
-        message="Try adjusting your search or filters."
+        description="Try adjusting your search or filters."
       >
         <template #icon><Search :size="36" aria-hidden="true" /></template>
       </EmptyState>

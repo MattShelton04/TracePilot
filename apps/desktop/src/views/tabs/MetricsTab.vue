@@ -55,7 +55,7 @@ const {
       @retry="retryLoadMetrics"
     />
 
-    <EmptyState v-if="!metrics && !store.metricsError" message="No shutdown metrics available for this session. Metrics are only generated after the first session shutdown." />
+    <EmptyState v-if="!metrics && !store.metricsError" description="No shutdown metrics available for this session. Metrics are only generated after the first session shutdown." />
 
     <template v-if="metrics">
       <MetricsStatCards

@@ -8,13 +8,6 @@ describe("EmptyState (B-Layout-Status extensions)", () => {
     expect(wrapper.find(".empty-state-desc").text()).toBe("Nothing to show yet.");
   });
 
-  it("description prop takes precedence over legacy message prop", () => {
-    const wrapper = mount(EmptyState, {
-      props: { description: "New", message: "Old" },
-    });
-    expect(wrapper.find(".empty-state-desc").text()).toBe("New");
-  });
-
   it("applies size modifier classes", () => {
     const wrapper = mount(EmptyState, { props: { size: "lg" } });
     expect(wrapper.find(".empty-state").classes()).toContain("empty-state--lg");

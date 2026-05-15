@@ -134,7 +134,7 @@ const diffChangeCount = computed(
                 <X :size="13" :stroke-width="1.5" />
               </button>
             </div>
-            <EmptyState v-if="!editTrustedFolders.length" compact message="No trusted folders configured." />
+            <EmptyState v-if="!editTrustedFolders.length" size="sm" description="No trusted folders configured." />
           </div>
           <div class="folder-add">
             <input

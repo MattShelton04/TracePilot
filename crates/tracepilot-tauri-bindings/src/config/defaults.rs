@@ -139,7 +139,7 @@ pub(crate) fn default_model_prices() -> Vec<ModelPriceEntry> {
     tracepilot_orchestrator::models::default_model_pricing()
         .into_iter()
         .map(|entry| {
-            let official = official_rates.get(entry.model);
+            let official = official_rates.get(entry.model.as_str());
             let source_label = if official.is_some() {
                 format!(
                     "{}; local default mirrors GitHub's published token rates",
@@ -153,10 +153,10 @@ pub(crate) fn default_model_prices() -> Vec<ModelPriceEntry> {
             };
 
             ModelPriceEntry {
-                model: entry.model.to_string(),
+                model: entry.model.clone(),
                 aliases: pricing_data
                     .aliases
-                    .get(entry.model)
+                    .get(entry.model.as_str())
                     .cloned()
                     .unwrap_or_default(),
                 input_per_m: official.map_or(entry.input_per_m, |rates| rates.input_per_m),
@@ -166,7 +166,7 @@ pub(crate) fn default_model_prices() -> Vec<ModelPriceEntry> {
                 output_per_m: official.map_or(entry.output_per_m, |rates| rates.output_per_m),
                 reasoning_per_m: None,
                 premium_requests: current_multipliers
-                    .get(entry.model)
+                    .get(entry.model.as_str())
                     .copied()
                     .unwrap_or(entry.premium_requests),
                 source: Some("provider-wholesale".to_string()),

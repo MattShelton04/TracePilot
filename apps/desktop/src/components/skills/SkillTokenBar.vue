@@ -1,6 +1,6 @@
 <script setup lang="ts">
+import { formatNumber as formatCompactNumber } from "@tracepilot/types";
 import { computed } from "vue";
-import { formatCompactNumber } from "@/utils/numberFormatting";
 
 const props = defineProps<{
   tokens: number;

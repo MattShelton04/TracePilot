@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { AnalyticsData } from "@tracepilot/types";
+import { formatPercent } from "@tracepilot/types";
 import { formatNumber, SectionPanel } from "@tracepilot/ui";
-import { formatPercent } from "@/utils/percentageFormatting";
 
 defineProps<{
   data: AnalyticsData;

@@ -13,7 +13,9 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <EmptyState v-if="sessions.length === 0" icon="📄" title="No sessions found" message="Sessions appear after using GitHub Copilot CLI." />
+  <EmptyState v-if="sessions.length === 0" title="No sessions found" description="Sessions appear after using GitHub Copilot CLI.">
+    <template #icon>📄</template>
+  </EmptyState>
   <div v-else class="grid-cards">
     <SessionCard
       v-for="session in sessions"

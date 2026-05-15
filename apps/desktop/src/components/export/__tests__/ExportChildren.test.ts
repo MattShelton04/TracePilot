@@ -103,6 +103,11 @@ vi.mock("@tracepilot/ui", () => {
 });
 
 import ExportView from "@/views/ExportView.vue";
+import ExportFormatSelector from "../ExportFormatSelector.vue";
+import ExportPresetBar from "../ExportPresetBar.vue";
+import ExportPreviewPanel from "../ExportPreviewPanel.vue";
+import ExportSectionsPanel from "../ExportSectionsPanel.vue";
+import ExportSessionPicker from "../ExportSessionPicker.vue";
 import ExportTab from "../ExportTab.vue";
 import ImportTab from "../ImportTab.vue";
 
@@ -129,6 +134,166 @@ describe("ExportTab", () => {
     expect(wrapper.find(".save-preset-row").exists()).toBe(false);
     await wrapper.find(".preset-save-btn").trigger("click");
     expect(wrapper.find(".save-preset-row").exists()).toBe(true);
+    wrapper.unmount();
+  });
+});
+
+describe("ExportPresetBar", () => {
+  it("emits apply when a preset button is clicked", async () => {
+    const presets = [
+      { id: "p1", label: "P1", icon: "📦", description: "", format: "json", sections: [] },
+    ];
+    const wrapper = mount(ExportPresetBar, {
+      props: { allPresets: presets as never, customPresets: [], activePreset: null },
+    });
+    await wrapper.find(".preset-btn").trigger("click");
+    expect(wrapper.emitted("apply")?.[0]).toEqual(["p1"]);
+    wrapper.unmount();
+  });
+
+  it("emits save with trimmed preset name", async () => {
+    const wrapper = mount(ExportPresetBar, {
+      props: { allPresets: [], customPresets: [], activePreset: null },
+    });
+    await wrapper.find(".preset-save-btn").trigger("click");
+    const input = wrapper.find<HTMLInputElement>(".save-preset-input");
+    await input.setValue("  My Preset  ");
+    await wrapper.find(".btn-primary").trigger("click");
+    expect(wrapper.emitted("save")?.[0]).toEqual(["My Preset"]);
+    wrapper.unmount();
+  });
+});
+
+describe("ExportSessionPicker", () => {
+  it("emits select when a session row is clicked", async () => {
+    const sessions = [
+      {
+        id: "abc",
+        summary: "Test",
+        repository: "r",
+        currentModel: null,
+        createdAt: 0,
+        updatedAt: 0,
+      },
+    ] as unknown as Parameters<typeof mount>[1] extends never ? never : never;
+    const wrapper = mount(ExportSessionPicker, {
+      props: {
+        sessions: [
+          {
+            id: "abc",
+            summary: "Test session",
+            repository: "repo",
+            currentModel: null,
+          },
+        ] as never,
+        selectedSessionId: "",
+        selectedSession: undefined,
+        sectionsInfo: null,
+      },
+    });
+    // Open dropdown by focusing the input
+    await wrapper.find(".session-search-input").trigger("focus");
+    await wrapper.find(".session-dropdown-item").trigger("click");
+    expect(wrapper.emitted("select")?.[0]).toEqual(["abc"]);
+    void sessions;
+    wrapper.unmount();
+  });
+});
+
+describe("ExportFormatSelector", () => {
+  it("renders the format description for the current format", () => {
+    const wrapper = mount(ExportFormatSelector, {
+      props: { modelValue: "markdown" },
+    });
+    expect(wrapper.find(".format-desc-text").text()).toContain("Human-readable");
+    wrapper.unmount();
+  });
+});
+
+describe("ExportSectionsPanel", () => {
+  it("emits toggle-section when a section switch is toggled", async () => {
+    const wrapper = mount(ExportSectionsPanel, {
+      props: {
+        enabledSections: new Set(["conversation"]) as Set<never>,
+        contentDetail: {
+          includeSubagentInternals: true,
+          includeToolDetails: false,
+          includeFullToolResults: false,
+        },
+        redaction: {
+          anonymizePaths: false,
+          stripSecrets: false,
+          stripPii: false,
+        },
+        sectionHasData: () => null,
+      },
+    });
+    // The stubbed FormSwitch is a passthrough <div> — emit directly via the component instance.
+    const firstSwitch = wrapper.findAllComponents({ name: "StubInput" })[0];
+    firstSwitch.vm.$emit("update:modelValue", false);
+    expect(wrapper.emitted("toggle-section")?.[0]?.[0]).toBe("conversation");
+    wrapper.unmount();
+  });
+
+  it("emits select-all and select-none from the header actions", async () => {
+    const wrapper = mount(ExportSectionsPanel, {
+      props: {
+        enabledSections: new Set() as Set<never>,
+        contentDetail: {
+          includeSubagentInternals: false,
+          includeToolDetails: false,
+          includeFullToolResults: false,
+        },
+        redaction: {
+          anonymizePaths: false,
+          stripSecrets: false,
+          stripPii: false,
+        },
+        sectionHasData: () => null,
+      },
+    });
+    const links = wrapper.findAll(".link-btn");
+    await links[0].trigger("click");
+    await links[1].trigger("click");
+    expect(wrapper.emitted("select-all")).toBeTruthy();
+    expect(wrapper.emitted("select-none")).toBeTruthy();
+    wrapper.unmount();
+  });
+});
+
+describe("ExportPreviewPanel", () => {
+  it("shows the empty state when no session is selected", () => {
+    const wrapper = mount(ExportPreviewPanel, {
+      props: {
+        format: "json",
+        preview: null,
+        loading: false,
+        error: null,
+        hasSelectedSession: false,
+      },
+    });
+    expect(wrapper.find(".preview-empty").exists()).toBe(true);
+    wrapper.unmount();
+  });
+
+  it("renders the preview footer with section count + size when a preview is present", () => {
+    const wrapper = mount(ExportPreviewPanel, {
+      props: {
+        format: "markdown",
+        preview: {
+          content: "# Hello",
+          sectionCount: 2,
+          estimatedSizeBytes: 1234,
+        } as never,
+        loading: false,
+        error: null,
+        hasSelectedSession: true,
+      },
+    });
+    const footer = wrapper.find(".preview-footer");
+    expect(footer.exists()).toBe(true);
+    expect(footer.text()).toContain("2 sections");
+    expect(footer.text()).toContain("1234B");
     wrapper.unmount();
   });
 });

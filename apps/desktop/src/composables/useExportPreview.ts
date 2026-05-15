@@ -6,20 +6,20 @@
 import { previewExport } from "@tracepilot/client";
 import type {
   ContentDetailOptions,
-  ExportFormat,
   ExportPreviewResult,
   RedactionOptions,
   SectionId,
 } from "@tracepilot/types";
 import { toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
 import { type ComputedRef, onUnmounted, type Ref, ref, watch } from "vue";
+import type { ExportTabFormat } from "@/composables/useExportConfig";
 import { logError } from "@/utils/logger";
 
 const DEBOUNCE_MS = 400;
 
 export function useExportPreview(
   sessionId: Ref<string>,
-  format: Ref<ExportFormat>,
+  format: Ref<ExportTabFormat>,
   sections: Ref<SectionId[]> | ComputedRef<SectionId[]>,
   contentDetail?: Ref<ContentDetailOptions>,
   redaction?: Ref<RedactionOptions>,
@@ -44,7 +44,14 @@ export function useExportPreview(
       clearPreviewState();
       return;
     }
+    // "zip" exports stream raw session files directly via a separate Tauri
+    // command — there is no renderable preview, so short-circuit here.
+    if (format.value === "zip") {
+      clearPreviewState();
+      return;
+    }
 
+    const fmt = format.value;
     const token = guard.start();
     loading.value = true;
     error.value = null;
@@ -52,7 +59,7 @@ export function useExportPreview(
     try {
       const result = await previewExport({
         sessionId: sid,
-        format: format.value,
+        format: fmt,
         sections: sections.value,
         contentDetail: contentDetail?.value,
         redaction: redaction?.value,

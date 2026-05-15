@@ -196,7 +196,7 @@ function richEnabledFor(toolName: string): boolean {
     <!-- View mode toggle -->
     <ConversationViewSwitcher v-model="activeView" />
 
-    <EmptyState v-if="store.turns.length === 0 && !store.turnsError" message="No conversation turns found." />
+    <EmptyState v-if="store.turns.length === 0 && !store.turnsError" description="No conversation turns found." />
 
     <!-- ═══════════════ CHAT VIEW ═══════════════ -->
     <ChatViewMode

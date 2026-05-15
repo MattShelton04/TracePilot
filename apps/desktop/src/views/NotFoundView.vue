@@ -9,7 +9,8 @@ const router = useRouter();
 
 <template>
   <PageShell>
-    <EmptyState icon="404" title="Page Not Found" message="The page you're looking for doesn't exist.">
+    <EmptyState title="Page Not Found" description="The page you're looking for doesn't exist.">
+      <template #icon>404</template>
       <template #actions>
         <button class="btn btn-primary" @click="pushRoute(router, ROUTE_NAMES.sessions)">
           Back to Sessions

@@ -18,7 +18,7 @@ const { rootRef, agentTurns } = ctx;
     <EmptyState
       v-if="agentTurns.length === 0"
       title="No Agent Orchestration"
-      message="No turns with subagent activity found in this session."
+      description="No turns with subagent activity found in this session."
     >
       <template #icon><Bot :size="36" aria-hidden="true" /></template>
     </EmptyState>

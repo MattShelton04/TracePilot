@@ -198,7 +198,7 @@ const waterfallTerms = [
     <EmptyState
       v-if="turns.length === 0"
       title="No turns loaded"
-      message="Load a session to view the waterfall timeline."
+      description="Load a session to view the waterfall timeline."
     >
       <template #icon><BarChart3 :size="36" aria-hidden="true" /></template>
     </EmptyState>

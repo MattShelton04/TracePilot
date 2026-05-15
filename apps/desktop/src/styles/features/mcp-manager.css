@@ -1,0 +1,362 @@
+/**
+ * Shared styles for the MCP Manager feature.
+ *
+ * Extracted from `views/mcp/McpManagerView.vue` scoped styles (Phase 8 of
+ * tech-debt cleanup). Every selector is namespaced under `.mcp-manager-view`
+ * — the wrapping element already present in the SFC's template — so that
+ * generic class names (`.search-input`, `.empty-state`, `.btn-import`,
+ * `.loading-spinner`, etc.) cannot leak out and clash with the global
+ * `apps/desktop/src/styles/components.css` / `overlays.css` / `features.css`
+ * rules. The original `@keyframes spin` is renamed to `mcp-spin` to avoid
+ * collisions with other globally-loaded keyframes.
+ */
+
+.mcp-manager-view {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* ─── Buttons ─── */
+.mcp-manager-view .btn-add-server {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  background: var(--gradient-accent);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 1px 6px rgba(99, 102, 241, 0.35);
+  transition: all var(--transition-fast);
+  letter-spacing: -0.01em;
+}
+
+.mcp-manager-view .btn-add-server:hover {
+  box-shadow: 0 3px 14px rgba(99, 102, 241, 0.45);
+  transform: translateY(-1px);
+}
+
+.mcp-manager-view .btn-add-server:active {
+  transform: translateY(0);
+}
+
+.mcp-manager-view .btn-add-server svg {
+  width: 14px;
+  height: 14px;
+}
+
+.mcp-manager-view .btn-import {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  background: var(--canvas-subtle);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.mcp-manager-view .btn-import:hover {
+  color: var(--text-primary);
+  border-color: var(--border-accent);
+  background: var(--neutral-subtle);
+}
+
+/* ─── Stats Strip ─── */
+.mcp-manager-view .stats-strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 0 2px;
+  flex-wrap: wrap;
+}
+
+.mcp-manager-view .stat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  letter-spacing: 0.01em;
+}
+
+.mcp-manager-view .stat-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.mcp-manager-view .stat-dot.installed { background: var(--accent-fg); }
+.mcp-manager-view .stat-dot.active    { background: var(--success-fg); }
+.mcp-manager-view .stat-dot.paused    { background: var(--warning-fg); }
+.mcp-manager-view .stat-dot.error     { background: var(--danger-fg); }
+
+.mcp-manager-view .stat-sep {
+  color: var(--text-placeholder);
+  font-size: 0.625rem;
+  user-select: none;
+}
+
+/* ─── Filter Bar ─── */
+.mcp-manager-view .filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 0 20px;
+  flex-wrap: wrap;
+}
+
+.mcp-manager-view .search-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  max-width: 260px;
+  flex: 1;
+}
+
+.mcp-manager-view .search-icon {
+  position: absolute;
+  left: 10px;
+  color: var(--text-placeholder);
+  pointer-events: none;
+}
+
+.mcp-manager-view .search-input {
+  width: 100%;
+  padding: 7px 10px 7px 32px;
+  background: var(--canvas-subtle);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.mcp-manager-view .search-input:focus {
+  border-color: var(--accent-emphasis);
+}
+
+.mcp-manager-view .search-input::placeholder {
+  color: var(--text-placeholder);
+}
+
+.mcp-manager-view .btn-icon-sm {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--canvas-subtle);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.mcp-manager-view .btn-icon-sm:hover {
+  color: var(--text-primary);
+  border-color: var(--accent-emphasis);
+}
+
+.mcp-manager-view .btn-icon-sm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.mcp-manager-view .spinning {
+  animation: mcp-spin 1s linear infinite;
+}
+
+@keyframes mcp-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ─── Section Heading ─── */
+.mcp-manager-view .section-heading {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mcp-manager-view .section-heading::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border-default);
+}
+
+/* ─── Tag Filters ─── */
+.mcp-manager-view .tag-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-bottom: 8px;
+}
+
+.mcp-manager-view .tag-filter-btn {
+  padding: 3px 10px;
+  font-size: 0.75rem;
+  border-radius: var(--radius-full);
+  background: var(--neutral-subtle);
+  color: var(--text-tertiary);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.mcp-manager-view .tag-filter-btn:hover {
+  color: var(--text-secondary);
+  background: var(--neutral-muted);
+}
+
+.mcp-manager-view .tag-filter-btn.active {
+  background: var(--accent-subtle);
+  color: var(--accent-fg);
+  border-color: var(--accent-emphasis);
+}
+
+/* ─── Error ─── */
+.mcp-manager-view .error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--danger-subtle);
+  border: 1px solid var(--danger-muted);
+  border-radius: var(--radius-md);
+  color: var(--danger-fg);
+  font-size: 0.8125rem;
+}
+
+.mcp-manager-view .error-dismiss {
+  background: none;
+  border: none;
+  color: var(--danger-fg);
+  cursor: pointer;
+  font-size: 1.125rem;
+  padding: 0 4px;
+}
+
+/* ─── Loading ─── */
+.mcp-manager-view .loading-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 48px 0;
+  color: var(--text-tertiary);
+  font-size: 0.875rem;
+}
+
+.mcp-manager-view .loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border-default);
+  border-top-color: var(--accent-emphasis);
+  border-radius: 50%;
+  animation: mcp-spin 0.8s linear infinite;
+}
+
+/* ─── Empty State ─── */
+.mcp-manager-view .empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60px 24px;
+}
+
+.mcp-manager-view .empty-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  text-align: center;
+}
+
+.mcp-manager-view .empty-icon {
+  color: var(--text-tertiary);
+  opacity: 0.4;
+  margin-bottom: 4px;
+}
+
+.mcp-manager-view .empty-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.mcp-manager-view .empty-description {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.6;
+  max-width: 480px;
+}
+
+.mcp-manager-view .empty-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.mcp-manager-view .empty-features {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-muted);
+  width: 100%;
+}
+
+.mcp-manager-view .feature-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8125rem;
+  color: var(--text-tertiary);
+}
+
+.mcp-manager-view .feature-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent-fg);
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+/* ─── Server Grid ─── */
+.mcp-manager-view .server-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  gap: 12px;
+  margin-bottom: 36px;
+}

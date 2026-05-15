@@ -27,7 +27,7 @@ const { store, migrationFrom, migrationTo, handleLoadDiffs, handleMigrateAgent }
           </span>
         </div>
       </div>
-      <EmptyState v-if="!store.versions.length" compact message="No Copilot CLI versions discovered." />
+      <EmptyState v-if="!store.versions.length" size="sm" description="No Copilot CLI versions discovered." />
     </div>
 
     <!-- Migration Panel -->

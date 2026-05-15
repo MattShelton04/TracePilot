@@ -8,22 +8,22 @@ describe("EmptyState", () => {
     expect(wrapper.find(".empty-state-desc").text()).toBe("No data found.");
   });
 
-  it("renders custom message prop", () => {
+  it("renders custom description prop", () => {
     const wrapper = mount(EmptyState, {
-      props: { message: "Nothing here yet." },
+      props: { description: "Nothing here yet." },
     });
     expect(wrapper.find(".empty-state-desc").text()).toBe("Nothing here yet.");
   });
 
-  it("renders icon when provided", () => {
+  it("renders icon slot when provided", () => {
     const wrapper = mount(EmptyState, {
-      props: { icon: "🔍" },
+      slots: { icon: "🔍" },
     });
     expect(wrapper.find(".empty-state-icon").exists()).toBe(true);
     expect(wrapper.find(".empty-state-icon").text()).toBe("🔍");
   });
 
-  it("does not render icon when not provided", () => {
+  it("does not render icon when no slot provided", () => {
     const wrapper = mount(EmptyState);
     expect(wrapper.find(".empty-state-icon").exists()).toBe(false);
   });
@@ -41,30 +41,16 @@ describe("EmptyState", () => {
     expect(wrapper.find(".empty-state-title").exists()).toBe(false);
   });
 
-  it("applies compact class when compact prop is true", () => {
+  it("applies size class for sm", () => {
     const wrapper = mount(EmptyState, {
-      props: { compact: true },
+      props: { size: "sm" },
     });
-    expect(wrapper.find(".empty-state").classes()).toContain("empty-state--compact");
+    expect(wrapper.find(".empty-state").classes()).toContain("empty-state--sm");
   });
 
-  it("does not apply compact class by default", () => {
+  it("applies md size class by default", () => {
     const wrapper = mount(EmptyState);
-    expect(wrapper.find(".empty-state").classes()).not.toContain("empty-state--compact");
-  });
-
-  it("hides icon in compact mode even when provided", () => {
-    const wrapper = mount(EmptyState, {
-      props: { compact: true, icon: "📦" },
-    });
-    expect(wrapper.find(".empty-state-icon").exists()).toBe(false);
-  });
-
-  it("hides title in compact mode even when provided", () => {
-    const wrapper = mount(EmptyState, {
-      props: { compact: true, title: "Empty" },
-    });
-    expect(wrapper.find(".empty-state-title").exists()).toBe(false);
+    expect(wrapper.find(".empty-state").classes()).toContain("empty-state--md");
   });
 
   it("renders default slot content", () => {
@@ -90,20 +76,11 @@ describe("EmptyState", () => {
 
   it("renders all props together", () => {
     const wrapper = mount(EmptyState, {
-      props: { icon: "404", title: "Not Found", message: "Page missing." },
+      props: { title: "Not Found", description: "Page missing." },
+      slots: { icon: "404" },
     });
     expect(wrapper.find(".empty-state-icon").text()).toBe("404");
     expect(wrapper.find(".empty-state-title").text()).toBe("Not Found");
     expect(wrapper.find(".empty-state-desc").text()).toBe("Page missing.");
-  });
-
-  it("compact mode with message only renders minimal output", () => {
-    const wrapper = mount(EmptyState, {
-      props: { compact: true, message: "No data" },
-    });
-    expect(wrapper.find(".empty-state-icon").exists()).toBe(false);
-    expect(wrapper.find(".empty-state-title").exists()).toBe(false);
-    expect(wrapper.find(".empty-state-desc").text()).toBe("No data");
-    expect(wrapper.find(".empty-state").classes()).toContain("empty-state--compact");
   });
 });

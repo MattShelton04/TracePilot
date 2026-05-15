@@ -61,15 +61,6 @@ export function turnsToReplaySteps(turns: ConversationTurn[]): ReplayStep[] {
       filesModified: filesModified.length > 0 ? filesModified : undefined,
       hasSubagents: hasSubagents || undefined,
       modelSwitchFrom,
-
-      // Legacy simplified tool calls
-      toolCalls: turn.toolCalls.map((tc) => ({
-        name: tc.toolName,
-        success: tc.success ?? true,
-        durationMs: tc.durationMs ?? 0,
-        command: extractToolCommand(tc),
-        output: tc.resultContent ?? undefined,
-      })),
     };
 
     steps.push(step);
@@ -152,33 +143,4 @@ function normalizePath(path: string): string {
     return `…/${parts.slice(-3).join("/")}`;
   }
   return path.replace(/\\/g, "/");
-}
-
-/** Extract a short command/summary string from tool call arguments. */
-function extractToolCommand(tc: TurnToolCall): string | undefined {
-  if (!tc.arguments || typeof tc.arguments !== "object") return undefined;
-  const args = getToolArgs(tc);
-
-  switch (tc.toolName) {
-    case "powershell":
-    case "read_powershell":
-    case "write_powershell":
-      return typeof args.command === "string" ? args.command : undefined;
-    case "edit":
-    case "view":
-    case "create":
-      return typeof args.path === "string" ? `${tc.toolName} ${args.path}` : undefined;
-    case "grep":
-      return typeof args.pattern === "string" ? `grep "${args.pattern}"` : undefined;
-    case "glob":
-      return typeof args.pattern === "string" ? `glob "${args.pattern}"` : undefined;
-    case "sql":
-      return typeof args.query === "string"
-        ? args.query.length > 80
-          ? `${args.query.slice(0, 77)}…`
-          : args.query
-        : undefined;
-    default:
-      return tc.intentionSummary ?? undefined;
-  }
 }

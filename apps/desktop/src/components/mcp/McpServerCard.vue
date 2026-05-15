@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import type { McpServerDetail } from "@tracepilot/types";
+import { formatNumber as formatCompactNumber } from "@tracepilot/types";
 import { Wrench, Zap } from "lucide-vue-next";
 import { computed } from "vue";
 import { useRouter } from "vue-router";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
-import { formatCompactNumber } from "@/utils/numberFormatting";
 import McpStatusDot from "./McpStatusDot.vue";
 
 const props = defineProps<{

@@ -48,7 +48,7 @@ const ALLOW_FILES = new Set([
   "apps/desktop/src/components/SearchPalette.vue",
   "apps/desktop/src/components/SetupWizard.vue",
   "apps/desktop/src/components/session/SessionDetailPanel.vue",
-  "apps/desktop/src/views/skills/SkillsManagerView.vue",
+  "apps/desktop/src/styles/features/skills-manager.css",
   "apps/desktop/src/views/SessionListView.vue",
   "apps/desktop/src/components/WhatsNewModal.vue",
   "apps/desktop/src/components/search/SearchSyntaxHelpModal.vue",

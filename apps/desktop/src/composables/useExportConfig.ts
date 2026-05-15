@@ -12,6 +12,14 @@ import type {
 import { ALL_SECTION_IDS } from "@tracepilot/types";
 import { computed, ref, watch } from "vue";
 
+/**
+ * UI-level format selection — superset of the backend `ExportFormat` that adds
+ * `"zip"` for the "raw session folder zip" path. The zip option is dispatched
+ * to a separate Tauri command (`export_session_folder_zip`) rather than the
+ * regular renderer pipeline.
+ */
+export type ExportTabFormat = ExportFormat | "zip";
+
 // ── Preset Definitions ──────────────────────────────────────────
 
 export interface ExportPreset {
@@ -118,16 +126,18 @@ export const SECTION_ICONS: Record<SectionId, string> = {
 
 // ── Format Descriptions ─────────────────────────────────────────
 
-export const FORMAT_DESCRIPTIONS: Record<ExportFormat, string> = {
+export const FORMAT_DESCRIPTIONS: Record<ExportTabFormat, string> = {
   json: "Full fidelity archive — lossless round-trip import/export.",
   markdown: "Human-readable summary — great for sharing in docs or PRs.",
+  csv: "Tabular CSV — one row per event/turn for spreadsheet analysis.",
+  zip: "Raw zip of the session folder — all files exactly as stored on disk. No rendering or filtering.",
 };
 
 // ── Composable ──────────────────────────────────────────────────
 
 export function useExportConfig() {
   const selectedSessionId = ref("");
-  const format = ref<ExportFormat>("json");
+  const format = ref<ExportTabFormat>("json");
   const enabledSections = ref(new Set<SectionId>([...ALL_SECTION_IDS]));
   const activePreset = ref<string | null>("full");
 
@@ -193,6 +203,10 @@ export function useExportConfig() {
   }
 
   function saveAsPreset(name: string) {
+    // "zip" is a transient UI mode (it dispatches to a different Tauri
+    // command and has no sections/options) — fall back to "json" when
+    // persisting it as a preset so the round-trip stays type-safe.
+    const presetFormat: ExportFormat = format.value === "zip" ? "json" : format.value;
     const id = `custom-${Date.now()}`;
     customPresets.value = [
       ...customPresets.value,
@@ -201,7 +215,7 @@ export function useExportConfig() {
         label: name,
         icon: "⭐",
         description: `Custom preset: ${name}`,
-        format: format.value,
+        format: presetFormat,
         sections: [...enabledSections.value],
       },
     ];

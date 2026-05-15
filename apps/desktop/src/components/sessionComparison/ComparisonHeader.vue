@@ -73,10 +73,11 @@ const comp = useSessionComparisonContext();
   <!-- Empty state -->
   <EmptyState
     v-else-if="!comp.compared"
-    icon="⚖️"
     title="Select Two Sessions"
-    message="Pick two sessions above and click Compare to see a side-by-side analysis."
-  />
+    description="Pick two sessions above and click Compare to see a side-by-side analysis."
+  >
+    <template #icon>⚖️</template>
+  </EmptyState>
 
   <!-- Summary Cards -->
   <div v-else class="summary-pair">
