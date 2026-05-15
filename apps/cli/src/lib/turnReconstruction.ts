@@ -20,6 +20,37 @@ export interface TurnInfo {
 
 type RawEvent = Record<string, unknown>;
 
+function stripAnsiAndControlCharacters(content: string): string {
+  let output = "";
+
+  for (let i = 0; i < content.length; i++) {
+    const code = content.charCodeAt(i);
+
+    if (code === 0x1b && content[i + 1] === "[") {
+      i += 2;
+      while (i < content.length) {
+        const ansiCode = content.charCodeAt(i);
+        if (ansiCode >= 0x40 && ansiCode <= 0x7e) break;
+        i++;
+      }
+      continue;
+    }
+
+    if (code <= 0x1f || (code >= 0x7f && code <= 0x9f)) {
+      output += " ";
+      continue;
+    }
+
+    output += content[i];
+  }
+
+  return output;
+}
+
+function formatSnippet(content: string, maxLength: number): string {
+  return stripAnsiAndControlCharacters(content).replace(/\s+/g, " ").trim().slice(0, maxLength);
+}
+
 export async function reconstructTurns(events: AsyncIterable<RawEvent>): Promise<TurnInfo[]> {
   const turns: TurnInfo[] = [];
   let currentTurn: TurnInfo | null = null;
@@ -52,8 +83,7 @@ export async function reconstructTurns(events: AsyncIterable<RawEvent>): Promise
     if (type === "user.message") {
       const content = data?.content as string | undefined;
       if (content) {
-        const clean = content.replace(/<[^>]+>[^<]*<\/[^>]+>/g, "").trim();
-        pendingUserMessage = clean.slice(0, 200);
+        pendingUserMessage = formatSnippet(content, 200) || undefined;
       }
     }
 
@@ -74,7 +104,7 @@ export async function reconstructTurns(events: AsyncIterable<RawEvent>): Promise
       const turn = ensureCurrentTurn(data, timestamp);
       const content = data?.content as string | undefined;
       if (content && content.length > 0 && !turn.assistantSnippet) {
-        turn.assistantSnippet = content.slice(0, 120);
+        turn.assistantSnippet = formatSnippet(content, 120) || undefined;
       }
     }
 

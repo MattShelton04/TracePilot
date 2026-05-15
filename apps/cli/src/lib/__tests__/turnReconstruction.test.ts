@@ -116,4 +116,28 @@ describe("reconstructTurns", () => {
     expect(turns[0].assistantSnippet).toBe("ok");
     expect(turns[0].durationMs).toBe(2000);
   });
+
+  it("formats snippets for terminal display without lossy HTML tag stripping", async () => {
+    const events: Record<string, unknown>[] = [
+      {
+        type: "user.message",
+        data: { content: "show <script>alert(1)</script>\n\tplease" },
+      },
+      {
+        type: "assistant.turn_start",
+        timestamp: "2025-01-01T00:00:00.000Z",
+        data: { turnId: "t0" },
+      },
+      {
+        type: "assistant.message",
+        data: { content: "ok\n\u001b[31mred" },
+      },
+      { type: "assistant.turn_end", timestamp: "2025-01-01T00:00:01.000Z", data: {} },
+    ];
+
+    const turns = await reconstructTurns(toAsync(events));
+
+    expect(turns[0].userMessage).toBe("show <script>alert(1)</script> please");
+    expect(turns[0].assistantSnippet).toBe("ok red");
+  });
 });
