@@ -47,7 +47,7 @@ export const SECTION_LABELS: Record<SectionId, string> = {
 
 // ── Export Format ────────────────────────────────────────────────
 
-export type ExportFormat = "json" | "markdown";
+export type ExportFormat = "json" | "markdown" | "csv";
 
 // ── Conflict Strategy (for import) ──────────────────────────────
 
