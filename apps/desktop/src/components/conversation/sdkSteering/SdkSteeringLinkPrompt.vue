@@ -32,6 +32,7 @@ const ctx = useSdkSteeringContext();
     <div class="cb-link-actions">
       <div class="cb-prelink-model">
         <button
+          :ref="ctx.setModelPickerTrigger"
           class="cb-model-pick-btn"
           :class="{ active: ctx.showModelPicker }"
           title="Choose a model for this session"

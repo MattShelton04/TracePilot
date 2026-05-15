@@ -79,6 +79,7 @@ function makeCtx(overrides: Partial<SdkSteeringContext> = {}): SdkSteeringContex
     setInputEl: vi.fn(),
     selectPendingModel: vi.fn(),
     toggleModelPicker: vi.fn(),
+    setModelPickerTrigger: vi.fn(),
   };
   return reactive({ ...base, ...overrides }) as unknown as SdkSteeringContext;
 }
