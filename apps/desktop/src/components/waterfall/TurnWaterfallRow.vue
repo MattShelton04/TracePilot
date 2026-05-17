@@ -5,6 +5,7 @@ import {
   ExpandChevron,
   formatArgsSummary,
   getToolCallColor,
+  resolveLucideIcon,
   toolCategory,
   toolIcon,
   truncateText,
@@ -78,7 +79,14 @@ const barStyle = computed(() => ({
       <span v-if="row.depth > 0" class="tree-line">└</span>
 
       <!-- Icon -->
-      <span class="tool-icon">{{ toolIcon(row.call.toolName) }}</span>
+      <span class="tool-icon">
+        <component
+          :is="resolveLucideIcon(toolIcon(row.call.toolName))"
+          :size="14"
+          :stroke-width="1.5"
+          aria-hidden="true"
+        />
+      </span>
 
       <!-- Name + summary -->
       <span class="tool-name" :class="categoryColor(toolCategory(row.call.toolName))">

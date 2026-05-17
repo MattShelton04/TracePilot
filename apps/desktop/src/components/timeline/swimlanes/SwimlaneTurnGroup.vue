@@ -5,6 +5,7 @@ import {
   ExpandChevron,
   formatDuration,
   getToolStatusColor,
+  resolveLucideIcon,
   ToolDetailPanel,
   toolIcon,
   truncateText,
@@ -178,8 +179,14 @@ const turnDirectTools = computed(() => props.directTools(props.turn));
               @click.stop="emit('select-tool', tc)"
               @keydown.enter.space.prevent="emit('select-tool', tc)"
             >
-              <span class="bar-icon">{{ toolIcon(tc.toolName) }}</span>
-              {{ tc.toolName }}
+              <component
+                :is="resolveLucideIcon(toolIcon(tc.toolName))"
+                class="bar-icon"
+                :size="12"
+                :stroke-width="1.5"
+                aria-hidden="true"
+              />
+              <span class="bar-label">{{ tc.toolName }}</span>
             </div>
           </div>
         </div>
@@ -202,6 +209,9 @@ const turnDirectTools = computed(() => props.directTools(props.turn));
 
 <style scoped>
 .turn-group {
+  display: block;
+  gap: 0;
+  padding-bottom: 0;
   border-bottom: 1px solid var(--border-subtle);
 }
 
@@ -213,9 +223,11 @@ const turnDirectTools = computed(() => props.directTools(props.turn));
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 14px 8px 28px;
+  padding: 7px 12px 7px 24px;
+  margin-bottom: 0;
   background: var(--canvas-subtle);
   border-bottom: 1px solid var(--border-subtle);
+  flex-wrap: nowrap;
   cursor: pointer;
   user-select: none;
   transition: background var(--transition-fast);
@@ -257,13 +269,13 @@ const turnDirectTools = computed(() => props.directTools(props.turn));
 }
 
 .turn-body {
-  padding: 4px 0;
+  padding: 2px 0;
   transition: max-height var(--transition-slow);
 }
 
 /* ── Direct tools lane ── */
 .direct-tools-lane {
-  margin-left: 40px;
+  margin-left: 32px;
   border-left: 3px solid var(--border-muted);
   background: var(--canvas-default);
 }
@@ -271,12 +283,12 @@ const turnDirectTools = computed(() => props.directTools(props.turn));
 /* ── Swimlane (for direct tools track) ── */
 .swimlane {
   display: grid;
-  grid-template-columns: 100px 1fr;
+  grid-template-columns: 84px minmax(0, 1fr);
   gap: 0;
 }
 
 .swimlane-label {
-  padding: 6px 12px;
+  padding: 4px 10px;
   font-size: 0.6875rem;
   font-weight: 500;
   color: var(--text-tertiary);
@@ -285,20 +297,26 @@ const turnDirectTools = computed(() => props.directTools(props.turn));
 }
 
 .swimlane-track {
-  padding: 6px 12px;
+  padding: 4px 10px;
   display: flex;
   align-items: center;
+  align-content: center;
   gap: 4px;
-  min-height: 32px;
-  overflow: hidden;
+  row-gap: 4px;
+  min-height: 28px;
+  overflow: visible;
   flex-wrap: wrap;
+  min-width: 0;
 }
 
 .swimlane-bar {
-  height: 22px;
+  height: 20px;
+  min-width: 48px;
+  max-width: 100%;
   border-radius: 3px;
   display: inline-flex;
   align-items: center;
+  gap: 4px;
   padding: 0 8px;
   font-size: 0.625rem;
   font-weight: 500;
@@ -321,8 +339,14 @@ const turnDirectTools = computed(() => props.directTools(props.turn));
 }
 
 .swimlane-bar--tool .bar-icon {
-  margin-right: 4px;
   font-size: 0.6875rem;
+  flex-shrink: 0;
+}
+
+.swimlane-bar--tool .bar-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .swimlane-bar--selected {

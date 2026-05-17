@@ -6,6 +6,7 @@ import {
   getAgentColor,
   getToolStatusColor,
   inferAgentTypeFromToolCall,
+  resolveLucideIcon,
   toolIcon,
 } from "@tracepilot/ui";
 import { computed } from "vue";
@@ -61,7 +62,14 @@ const maxMs = computed(() => turnMaxDuration(props.turn));
       >
         <ExpandChevron :expanded="!collapsed" size="sm" />
       </span>
-      <span class="subagent-icon">{{ toolIcon(agent.toolName) }}</span>
+      <span class="subagent-icon">
+        <component
+          :is="resolveLucideIcon(toolIcon(agent.toolName))"
+          :size="14"
+          :stroke-width="1.5"
+          aria-hidden="true"
+        />
+      </span>
       <span class="subagent-name">
         {{ agent.agentDisplayName ?? agent.toolName }}
       </span>
@@ -104,8 +112,14 @@ const maxMs = computed(() => turnMaxDuration(props.turn));
             @click.stop="emit('select-tool', tc)"
             @keydown.enter.space.prevent="emit('select-tool', tc)"
           >
-            <span class="bar-icon">{{ toolIcon(tc.toolName) }}</span>
-            {{ tc.toolName }}
+            <component
+              :is="resolveLucideIcon(toolIcon(tc.toolName))"
+              class="bar-icon"
+              :size="12"
+              :stroke-width="1.5"
+              aria-hidden="true"
+            />
+            <span class="bar-label">{{ tc.toolName }}</span>
           </div>
         </div>
       </div>
@@ -115,7 +129,7 @@ const maxMs = computed(() => turnMaxDuration(props.turn));
 
 <style scoped>
 .subagent-lane {
-  margin: 2px 0 2px 40px;
+  margin: 1px 0 1px 32px;
   border-left: 3px solid var(--agent-color, var(--accent-fg));
   border-radius: 0 var(--radius-md) var(--radius-md) 0;
   background: var(--canvas-inset);
@@ -126,7 +140,7 @@ const maxMs = computed(() => turnMaxDuration(props.turn));
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
+  padding: 5px 10px;
   cursor: pointer;
   user-select: none;
   transition: background var(--transition-fast);
@@ -150,11 +164,17 @@ const maxMs = computed(() => turnMaxDuration(props.turn));
 }
 
 .subagent-icon {
-  font-size: 0.875rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
   flex-shrink: 0;
 }
 
 .subagent-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--agent-color, var(--accent-fg));
@@ -205,12 +225,12 @@ const maxMs = computed(() => turnMaxDuration(props.turn));
 /* ── Shared swimlane layout (scoped to subagent's nested track) ── */
 .swimlane {
   display: grid;
-  grid-template-columns: 100px 1fr;
+  grid-template-columns: 84px minmax(0, 1fr);
   gap: 0;
 }
 
 .swimlane-label {
-  padding: 6px 12px;
+  padding: 4px 10px;
   font-size: 0.6875rem;
   font-weight: 500;
   color: var(--text-tertiary);
@@ -219,20 +239,26 @@ const maxMs = computed(() => turnMaxDuration(props.turn));
 }
 
 .swimlane-track {
-  padding: 6px 12px;
+  padding: 4px 10px;
   display: flex;
   align-items: center;
+  align-content: center;
   gap: 4px;
-  min-height: 32px;
-  overflow: hidden;
+  row-gap: 4px;
+  min-height: 28px;
+  overflow: visible;
   flex-wrap: wrap;
+  min-width: 0;
 }
 
 .swimlane-bar {
-  height: 22px;
+  height: 20px;
+  min-width: 48px;
+  max-width: 100%;
   border-radius: 3px;
   display: inline-flex;
   align-items: center;
+  gap: 4px;
   padding: 0 8px;
   font-size: 0.625rem;
   font-weight: 500;
@@ -255,8 +281,14 @@ const maxMs = computed(() => turnMaxDuration(props.turn));
 }
 
 .swimlane-bar--tool .bar-icon {
-  margin-right: 4px;
   font-size: 0.6875rem;
+  flex-shrink: 0;
+}
+
+.swimlane-bar--tool .bar-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .swimlane-bar--selected {
