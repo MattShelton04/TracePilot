@@ -140,6 +140,7 @@ pub const IPC_COMMAND_NAMES: &[&str] = &[
     "mcp_compute_diff",
     // Skills
     "skills_list_all",
+    "skills_encountered_project",
     "skills_get_skill",
     "skills_create",
     "skills_update",

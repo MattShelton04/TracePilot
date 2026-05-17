@@ -161,6 +161,98 @@ impl IndexDb {
         Ok(cwds)
     }
 
+    /// Return recent skill tool invocation candidates from indexed search rows.
+    ///
+    /// `search_content` stores one `tool_call` row per invocation, so callers can
+    /// cheaply identify candidate skill names before opening event logs for the
+    /// source path/details that are not persisted in the aggregate tables.
+    pub fn recent_skill_call_candidates(
+        &self,
+        limit: usize,
+    ) -> Result<Vec<IndexedSkillCallCandidate>> {
+        let limit_i64 = i64::try_from(limit).unwrap_or(i64::MAX);
+        let mut stmt = self.conn.prepare(
+            "WITH recent_skill_calls AS (
+                 SELECT
+                     LOWER(TRIM(c.content)) AS normalized_name,
+                     TRIM(c.content) AS display_name,
+                     s.path AS session_path,
+                     COALESCE(c.timestamp_unix, unixepoch(s.updated_at), 0) AS sort_ts,
+                     c.id AS search_row_id
+                 FROM search_content c
+                 JOIN sessions s ON s.id = c.session_id
+                 WHERE c.tool_name = 'skill'
+                   AND c.content_type = 'tool_call'
+                   AND LENGTH(TRIM(c.content)) > 0
+                   AND s.turn_count IS NOT NULL
+                   AND s.turn_count > 0
+                 ORDER BY sort_ts DESC, search_row_id DESC
+                 LIMIT ?1
+             ),
+             ranked AS (
+                 SELECT
+                     normalized_name,
+                     display_name,
+                     session_path,
+                     sort_ts,
+                     search_row_id,
+                     COUNT(*) OVER (PARTITION BY normalized_name) AS invocation_count,
+                     ROW_NUMBER() OVER (
+                         PARTITION BY normalized_name
+                         ORDER BY sort_ts DESC, search_row_id DESC
+                     ) AS rn
+                 FROM recent_skill_calls
+             )
+             SELECT normalized_name, display_name, session_path, invocation_count
+             FROM ranked
+             WHERE rn <= 3
+             ORDER BY sort_ts DESC, search_row_id DESC",
+        )?;
+        let rows = stmt.query_map([limit_i64], |row| {
+            let invocation_count = row.get::<_, i64>(3)?.max(0);
+            Ok(IndexedSkillCallCandidate {
+                normalized_name: row.get::<_, String>(0)?,
+                display_name: row.get::<_, String>(1)?,
+                session_path: PathBuf::from(row.get::<_, String>(2)?),
+                invocation_count: usize::try_from(invocation_count).unwrap_or(usize::MAX),
+            })
+        })?;
+        let mut candidates = Vec::new();
+        for row in rows {
+            candidates.push(row?);
+        }
+        Ok(candidates)
+    }
+
+    /// Return recent indexed sessions that used the Copilot `skill` tool.
+    ///
+    /// Retained as a coarse fallback for callers that only need session paths.
+    pub fn recent_skill_tool_sessions(&self, limit: usize) -> Result<Vec<(String, PathBuf)>> {
+        let limit_i64 = i64::try_from(limit).unwrap_or(i64::MAX);
+        let mut stmt = self.conn.prepare(
+            "SELECT s.id, s.path
+             FROM session_tool_calls t
+             JOIN sessions s ON s.id = t.session_id
+             WHERE t.tool_name = 'skill'
+               AND t.call_count > 0
+               AND s.turn_count IS NOT NULL
+               AND s.turn_count > 0
+             ORDER BY s.updated_at DESC, s.id ASC
+             LIMIT ?1",
+        )?;
+        let rows = stmt.query_map([limit_i64], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                PathBuf::from(row.get::<_, String>(1)?),
+            ))
+        })?;
+        let mut sessions = Vec::new();
+        for row in rows {
+            sessions.push(row?);
+        }
+        Ok(sessions)
+    }
+
     /// Query incidents for a specific session.
     pub fn get_session_incidents(&self, session_id: &SessionId) -> Result<Vec<IndexedIncident>> {
         let mut stmt = self.conn.prepare(

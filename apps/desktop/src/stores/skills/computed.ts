@@ -2,15 +2,17 @@ import { computed } from "vue";
 import type { SkillsContext } from "./context";
 
 export function createSkillsComputed(context: SkillsContext) {
-  const { skills, searchQuery, filterScope } = context;
+  const { skills, encounteredSkills, searchQuery, filterScope } = context;
+
+  const displaySkills = computed(() => [...skills.value, ...encounteredSkills.value]);
 
   const sortedSkills = computed(() =>
-    [...skills.value].sort((a, b) => a.name.localeCompare(b.name)),
+    [...displaySkills.value].sort((a, b) => a.name.localeCompare(b.name)),
   );
 
   const globalSkills = computed(() => skills.value.filter((s) => s.scope === "global"));
 
-  const repoSkills = computed(() => skills.value.filter((s) => s.scope === "repository"));
+  const repoSkills = computed(() => displaySkills.value.filter((s) => s.scope === "repository"));
 
   const filteredSkills = computed(() => {
     let list = sortedSkills.value;
@@ -40,6 +42,7 @@ export function createSkillsComputed(context: SkillsContext) {
   });
 
   return {
+    displaySkills,
     sortedSkills,
     globalSkills,
     repoSkills,

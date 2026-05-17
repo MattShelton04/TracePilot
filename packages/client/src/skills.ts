@@ -1,6 +1,7 @@
 /** Skills client IPC wrappers. */
 
 import type {
+  EncounteredSkillSummary,
   GhAuthInfo,
   GitHubSkillPreview,
   LocalSkillPreview,
@@ -20,6 +21,16 @@ const invoke = createInvoke("Skills");
 export async function skillsListAll(repoRoot?: string): Promise<SkillSummary[]> {
   return invoke<SkillSummary[]>("skills_list_all", {
     repoRoot: repoRoot ?? null,
+  });
+}
+
+export async function skillsEncounteredProject(
+  installedNames: string[],
+  limit?: number,
+): Promise<EncounteredSkillSummary[]> {
+  return invoke<EncounteredSkillSummary[]>("skills_encountered_project", {
+    installedNames,
+    limit: limit ?? null,
   });
 }
 

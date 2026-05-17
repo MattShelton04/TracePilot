@@ -30,11 +30,12 @@ const wizard = useSkillImportWizardContext();
     <div class="input-row">
       <div class="input-field">
         <label>Repository Path</label>
-        <input
-          v-model="wizard.localDir"
-          type="text"
-          placeholder="C:\path\to\repository"
-        />
+          <input
+            v-model="wizard.localDir"
+            type="text"
+            placeholder="C:\path\to\repository"
+            @input="wizard.resetLocalPreview"
+          />
       </div>
       <button class="btn-browse" @click="wizard.browseLocalDir" title="Browse for directory" aria-label="Browse for directory">
         <FolderOpen :size="14" :stroke-width="1.5" aria-hidden="true" />

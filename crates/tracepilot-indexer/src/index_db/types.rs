@@ -119,6 +119,14 @@ pub(crate) struct IncidentRow {
     pub detail_json: Option<String>,
 }
 
+#[derive(Debug, Clone)]
+pub struct IndexedSkillCallCandidate {
+    pub normalized_name: String,
+    pub display_name: String,
+    pub session_path: std::path::PathBuf,
+    pub invocation_count: usize,
+}
+
 /// Aggregated analytics extracted from a session's events and summary.
 /// This is a pure data struct produced by `extract_session_analytics`
 /// without any database interaction, making analytics computation

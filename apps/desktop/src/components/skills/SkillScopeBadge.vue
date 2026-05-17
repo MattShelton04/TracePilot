@@ -8,7 +8,7 @@ defineProps<{
 
 <template>
   <span class="scope-badge" :class="`scope-badge--${scope}`">
-    {{ scope === "global" ? "Global" : "Repository" }}
+    {{ scope === "global" ? "Global" : "Project" }}
   </span>
 </template>
 

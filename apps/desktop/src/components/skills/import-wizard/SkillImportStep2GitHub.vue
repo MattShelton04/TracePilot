@@ -14,13 +14,14 @@ const wizard = useSkillImportWizardContext();
           type="text"
           placeholder="https://github.com/owner/repo  or  owner/repo/path"
           :disabled="wizard.ghScanning"
-          @keyup.enter="!wizard.ghScanning && wizard.scanGitHub()"
+          @input="wizard.resetGitHubPreview"
+          @keyup.enter="wizard.canScanGitHub && !wizard.ghScanning && wizard.scanGitHub()"
         />
       </div>
       <button
         v-if="!wizard.ghScanning"
         class="btn-scan"
-        :disabled="!wizard.ghRepoUrl.trim() && !wizard.ghOwner.trim()"
+        :disabled="!wizard.canScanGitHub"
         @click="wizard.scanGitHub"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>

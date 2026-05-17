@@ -34,7 +34,7 @@ pub use search_reader::{
     ContextSnippet, FtsHealthInfo, SearchFacets, SearchFilters, SearchResult, SearchStats,
 };
 pub use search_writer::CURRENT_EXTRACTOR_VERSION;
-pub use types::{IndexedIncident, IndexedSession, SessionIndexInfo};
+pub use types::{IndexedIncident, IndexedSession, IndexedSkillCallCandidate, SessionIndexInfo};
 
 pub struct IndexDb {
     pub(crate) conn: Connection,

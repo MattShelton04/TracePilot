@@ -42,9 +42,9 @@ describe("useSkillsStore", () => {
       expect(store.searchQuery).toBe("");
     });
 
-    it("defaults filterScope to 'all'", () => {
+    it("defaults filterScope to 'global'", () => {
       const store = useSkillsStore();
-      expect(store.filterScope).toBe("all");
+      expect(store.filterScope).toBe("global");
     });
   });
 
@@ -113,6 +113,45 @@ describe("useSkillsStore", () => {
       // Skills should still be from call2 (stale result discarded)
       expect(store.skills).toHaveLength(1);
       expect(store.skills[0].name).toBe("test-gen");
+    });
+  });
+
+  describe("loadEncounteredProjectSkills", () => {
+    it("loads project skills encountered in recent indexed skill tool sessions", async () => {
+      mocks.skillsListAll.mockResolvedValue(ALL_SUMMARIES);
+      mocks.skillsEncounteredProject.mockResolvedValue([
+        {
+          name: "tracepilot-app-automation",
+          description: "App automation",
+          directory: "C:\\repo\\.github\\skills\\tracepilot-app-automation",
+          estimatedTokens: 400,
+          sourcePath: "C:\\repo\\.github\\skills\\tracepilot-app-automation\\SKILL.md",
+          invocationCount: 2,
+        },
+      ]);
+
+      const store = useSkillsStore();
+      await store.loadSkills();
+      await store.loadEncounteredProjectSkills();
+
+      expect(mocks.skillsEncounteredProject).toHaveBeenCalledWith(
+        ["code-review", "test-gen", "api-docs"],
+        100,
+      );
+      expect(store.encounteredSkills).toHaveLength(1);
+      expect(store.encounteredSkills[0]).toMatchObject({
+        name: "tracepilot-app-automation",
+        directory: "C:\\repo\\.github\\skills\\tracepilot-app-automation",
+        description: "App automation",
+        scope: "repository",
+        source: "session",
+        estimatedTokens: 400,
+        invocationCount: 2,
+      });
+      expect(store.repoSkills.map((skill) => skill.name)).toEqual([
+        "test-gen",
+        "tracepilot-app-automation",
+      ]);
     });
   });
 

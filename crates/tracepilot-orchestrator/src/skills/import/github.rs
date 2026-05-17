@@ -330,8 +330,8 @@ pub fn discover_github_skills(
         skill_md_paths
     };
 
-    // Cap at 50 to avoid overwhelming the API with sequential fetches.
-    const MAX_SKILLS: usize = 50;
+    // Cap discovery to keep preview fetches bounded while still supporting larger skill libraries.
+    const MAX_SKILLS: usize = 200;
     let filtered: Vec<&str> = filtered.into_iter().take(MAX_SKILLS).collect();
 
     // Batch-fetch all SKILL.md contents in at most ⌈N/25⌉ GraphQL calls

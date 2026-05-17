@@ -35,6 +35,16 @@ export interface SkillSummary {
   assetCount: number;
 }
 
+/** Project skill encountered in recent CLI sessions. */
+export interface EncounteredSkillSummary {
+  name: string;
+  description: string;
+  directory: string;
+  estimatedTokens: number;
+  sourcePath: string;
+  invocationCount: number;
+}
+
 /** An asset file in a skill directory. */
 export type SkillAsset = import("./files.js").FileEntry;
 

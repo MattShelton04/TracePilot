@@ -1,11 +1,15 @@
 //! Skills Tauri commands (16 commands).
 
+pub mod encountered;
+
+use std::path::Path;
+
 use crate::blocking_cmd;
 use crate::error::CmdResult;
 
 /// Validate that a skill_dir is within a known skills root before any operation.
 fn check_skill_dir(skill_dir: &str) -> Result<(), tracepilot_orchestrator::skills::SkillsError> {
-    tracepilot_orchestrator::skills::manager::validate_skill_dir(std::path::Path::new(skill_dir))
+    tracepilot_orchestrator::skills::manager::validate_skill_dir(Path::new(skill_dir))
 }
 
 // -- Discovery --
@@ -16,7 +20,7 @@ pub async fn skills_list_all(
     repo_root: Option<String>,
 ) -> CmdResult<Vec<tracepilot_orchestrator::skills::types::SkillSummary>> {
     blocking_cmd!(tracepilot_orchestrator::skills::discovery::discover_all(
-        repo_root.as_deref().map(std::path::Path::new),
+        repo_root.as_deref().map(Path::new),
     ))
 }
 

@@ -291,15 +291,33 @@
   gap: 12px;
 }
 
+.skills-manager-view .state-message--warning {
+  padding: 10px 14px;
+  margin: -4px 0 16px;
+  border: 1px solid color-mix(in srgb, var(--attention-fg, #d29922) 22%, transparent);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--attention-muted, #d29922) 12%, transparent);
+  color: var(--text-secondary);
+  text-align: left;
+}
+
 /* ── Empty State ─────────────────────────────────────────── */
 .skills-manager-view .empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
   padding: 60px 20px;
 }
 
 .skills-manager-view .empty-state__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-size: 3rem;
   margin-bottom: 12px;
+  color: var(--text-tertiary);
+  opacity: 0.75;
 }
 
 .skills-manager-view .empty-state__title {

@@ -131,12 +131,12 @@ function next() {
 <style scoped>
 .swimlane {
   display: grid;
-  grid-template-columns: 100px 1fr;
+  grid-template-columns: 84px minmax(0, 1fr);
   gap: 0;
 }
 
 .swimlane-label {
-  padding: 6px 12px;
+  padding: 4px 10px;
   font-size: 0.6875rem;
   font-weight: 500;
   color: var(--text-tertiary);
@@ -145,17 +145,20 @@ function next() {
 }
 
 .swimlane-track {
-  padding: 6px 12px;
+  padding: 4px 10px;
   display: flex;
   align-items: center;
   gap: 4px;
-  min-height: 32px;
+  min-height: 28px;
   overflow: hidden;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  min-width: 0;
 }
 
 .swimlane-bar {
-  height: 22px;
+  height: 20px;
+  min-width: 48px;
+  max-width: 100%;
   border-radius: 3px;
   display: inline-flex;
   align-items: center;

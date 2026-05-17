@@ -133,6 +133,7 @@
   "skills_discover_local",
   "skills_discover_repos",
   "skills_duplicate",
+  "skills_encountered_project",
   "skills_get_skill",
   "skills_gh_auth_status",
   "skills_import_file",

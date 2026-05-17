@@ -2,6 +2,9 @@
 
 /* ── Root ── */
 .waterfall-root {
+  --waterfall-label-col: 280px;
+  --waterfall-bar-min-width: 380px;
+
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -24,27 +27,40 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .nav-buttons {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   background: var(--canvas-overlay);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
   color: var(--text-secondary);
+  min-height: 34px;
   padding: 4px 10px;
   font-size: 0.8125rem;
+  line-height: 1;
   cursor: pointer;
   transition:
     background var(--transition-fast),
     color var(--transition-fast);
   white-space: nowrap;
 }
+
+.nav-btn svg {
+  flex-shrink: 0;
+}
+
 .nav-btn:hover:not(:disabled) {
   background: var(--accent-subtle);
   color: var(--text-primary);
@@ -156,19 +172,19 @@
 
 /* Shared column widths */
 .label-col {
-  width: 200px;
-  min-width: 200px;
+  width: var(--waterfall-label-col);
+  min-width: var(--waterfall-label-col);
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 0 8px;
+  gap: 6px;
+  padding: 0 10px;
   overflow: hidden;
   white-space: nowrap;
 }
 .bar-col {
   flex: 1;
-  min-width: 300px;
+  min-width: var(--waterfall-bar-min-width);
   position: relative;
   height: 100%;
 }
@@ -256,11 +272,16 @@
 
 /* Icons & labels */
 .tool-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
-  font-size: 0.8125rem;
-  line-height: 1;
+  width: 16px;
+  color: var(--text-tertiary);
 }
 .tool-name {
+  flex: 0 1 auto;
+  min-width: 0;
   font-size: 0.8125rem;
   font-weight: 500;
   overflow: hidden;
@@ -279,11 +300,13 @@
   flex-shrink: 0;
 }
 .args-summary {
+  flex: 1 1 90px;
+  min-width: 0;
   font-size: 0.6875rem;
   color: var(--text-tertiary);
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-left: auto;
+  white-space: nowrap;
 }
 
 /* Bar */
@@ -377,4 +400,11 @@
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+
+@media (max-width: 900px) {
+  .waterfall-root {
+    --waterfall-label-col: 230px;
+    --waterfall-bar-min-width: 320px;
+  }
 }
