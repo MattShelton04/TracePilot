@@ -1,0 +1,3 @@
+## 2024-05-17 - Direct chunk slice memory copy optimization
+**Learning:** Scalar character-by-character pushes (`.push(',')`, `.push('?')`) for SQL placeholders cause suboptimal memory writes. Grouping these characters into a single chunk slice and using `.push_str(",?")` is faster because it performs a direct, optimized memory copy of the pre-allocated byte slice. However, must handle empty cases like `n=0` to avoid out-of-bounds or runtime errors (e.g. unconditionally pushing `?`).
+**Action:** When generating dynamic SQL placeholders or repeating strings, replace multiple `.push()` calls with a single `.push_str()` to combine characters into literal slices, but ensure edge cases (n=0) are short-circuited.
