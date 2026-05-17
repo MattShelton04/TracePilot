@@ -66,18 +66,29 @@ export function useSkillImportWizard(options: SkillImportWizardOptions) {
   const canImport = computed(() => {
     switch (activeTab.value) {
       case "local":
-        if (localPreviews.value.length > 0) return localSelected.value.size > 0;
-        return localDir.value.trim().length > 0;
+        return localPreviews.value.length > 0 && localSelected.value.size > 0;
       case "file":
         return filePath.value.trim().length > 0;
       case "github":
-        if (ghPreviews.value.length > 0) return ghSelected.value.size > 0;
-        return (
-          ghRepoUrl.value.trim().length > 0 ||
-          (ghOwner.value.trim().length > 0 && ghRepo.value.trim().length > 0)
-        );
+        return ghPreviews.value.length > 0 && ghSelected.value.size > 0;
     }
   });
+
+  const canScanGitHub = computed(
+    () =>
+      ghRepoUrl.value.trim().length > 0 ||
+      (ghOwner.value.trim().length > 0 && ghRepo.value.trim().length > 0),
+  );
+
+  function resetLocalPreview() {
+    localPreviews.value = [];
+    localSelected.value = new Set();
+  }
+
+  function resetGitHubPreview() {
+    ghPreviews.value = [];
+    ghSelected.value = new Set();
+  }
 
   // ── GitHub URL parsing ──────────────────────────────────────────────
   function parseGhUrl() {
@@ -106,8 +117,7 @@ export function useSkillImportWizard(options: SkillImportWizardOptions) {
   // ── Local scan + selection ──────────────────────────────────────────
   async function scanLocal() {
     localScanning.value = true;
-    localPreviews.value = [];
-    localSelected.value = new Set();
+    resetLocalPreview();
     importError.value = null;
 
     const previews = await store.discoverLocal(localDir.value.trim());
@@ -143,8 +153,7 @@ export function useSkillImportWizard(options: SkillImportWizardOptions) {
 
   // ── GitHub scan + selection ─────────────────────────────────────────
   async function scanGitHub() {
-    ghPreviews.value = [];
-    ghSelected.value = new Set();
+    resetGitHubPreview();
     importError.value = null;
 
     parseGhUrl();
@@ -222,6 +231,14 @@ export function useSkillImportWizard(options: SkillImportWizardOptions) {
 
   // ── Import flow ─────────────────────────────────────────────────────
   async function doImport() {
+    if (!canImport.value) {
+      importError.value =
+        activeTab.value === "local" || activeTab.value === "github"
+          ? "Scan first, then select the skills you want to import."
+          : "Choose a skill file to import.";
+      return;
+    }
+
     importing.value = true;
     importError.value = null;
     importResult.value = null;
@@ -233,7 +250,7 @@ export function useSkillImportWizard(options: SkillImportWizardOptions) {
       let result: SkillImportResult | null = null;
       switch (activeTab.value) {
         case "local":
-          if (localPreviews.value.length > 0 && localSelected.value.size > 0) {
+          {
             const paths = [...localSelected.value];
             importTotal.value = paths.length;
             let imported = 0;
@@ -258,11 +275,6 @@ export function useSkillImportWizard(options: SkillImportWizardOptions) {
                 filesCopied: imported,
               };
             }
-          } else {
-            importTotal.value = 1;
-            importCurrent.value = 1;
-            importStatusMessage.value = "Importing skill…";
-            result = await store.importLocal(localDir.value.trim(), targetScope.value);
           }
           break;
         case "file":
@@ -272,49 +284,35 @@ export function useSkillImportWizard(options: SkillImportWizardOptions) {
           result = await store.importFile(filePath.value.trim(), targetScope.value);
           break;
         case "github": {
-          if (ghPreviews.value.length > 0 && ghSelected.value.size > 0) {
-            const paths = [...ghSelected.value];
-            importTotal.value = paths.length;
-            let imported = 0;
-            const warnings: string[] = [];
-            for (let i = 0; i < paths.length; i++) {
-              importCurrent.value = i + 1;
-              const preview = ghPreviews.value.find((p) => p.path === paths[i]);
-              importStatusMessage.value = preview
-                ? `Fetching "${preview.name}" from GitHub (${i + 1} of ${paths.length})…`
-                : `Importing skill ${i + 1} of ${paths.length}…`;
-              const r = await store.importGitHubSkill(
-                ghOwner.value.trim(),
-                ghRepo.value.trim(),
-                paths[i],
-                ghRef.value || undefined,
-                targetScope.value,
-              );
-              if (r) {
-                imported++;
-                warnings.push(...r.warnings);
-              }
-            }
-            if (imported > 0) {
-              result = {
-                skillName: `${imported} skill(s)`,
-                destination: "",
-                warnings,
-                filesCopied: imported,
-              };
-            }
-          } else {
-            importTotal.value = 1;
-            importCurrent.value = 1;
-            parseGhUrl();
-            importStatusMessage.value = "Fetching skill from GitHub…";
-            result = await store.importGitHub(
+          const paths = [...ghSelected.value];
+          importTotal.value = paths.length;
+          let imported = 0;
+          const warnings: string[] = [];
+          for (let i = 0; i < paths.length; i++) {
+            importCurrent.value = i + 1;
+            const preview = ghPreviews.value.find((p) => p.path === paths[i]);
+            importStatusMessage.value = preview
+              ? `Fetching "${preview.name}" from GitHub (${i + 1} of ${paths.length})…`
+              : `Importing skill ${i + 1} of ${paths.length}…`;
+            const r = await store.importGitHubSkill(
               ghOwner.value.trim(),
               ghRepo.value.trim(),
-              ghPath.value.trim() || undefined,
-              ghRef.value.trim() || undefined,
+              paths[i],
+              ghRef.value || undefined,
               targetScope.value,
             );
+            if (r) {
+              imported++;
+              warnings.push(...r.warnings);
+            }
+          }
+          if (imported > 0) {
+            result = {
+              skillName: `${imported} skill(s)`,
+              destination: "",
+              warnings,
+              filesCopied: imported,
+            };
           }
           break;
         }
@@ -352,12 +350,20 @@ export function useSkillImportWizard(options: SkillImportWizardOptions) {
     const path = await browseForDirectory({
       title: "Select repository or skill directory",
     });
-    if (path) localDir.value = path;
+    if (path) {
+      localDir.value = path;
+      resetLocalPreview();
+      importError.value = null;
+    }
   }
 
   function onSelectRepo(event: Event) {
     const val = (event.target as HTMLSelectElement).value;
-    if (val) localDir.value = val;
+    if (val) {
+      localDir.value = val;
+      resetLocalPreview();
+      importError.value = null;
+    }
   }
 
   // ── Finish / close ──────────────────────────────────────────────────
@@ -409,6 +415,7 @@ export function useSkillImportWizard(options: SkillImportWizardOptions) {
     targetScope,
     // computed
     canImport,
+    canScanGitHub,
     // actions
     scanLocal,
     toggleLocalSkill,
@@ -421,6 +428,8 @@ export function useSkillImportWizard(options: SkillImportWizardOptions) {
     browseFile,
     browseLocalDir,
     onSelectRepo,
+    resetLocalPreview,
+    resetGitHubPreview,
     finish,
     requestClose,
   });

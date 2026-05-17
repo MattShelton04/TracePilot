@@ -72,6 +72,7 @@ function makeWizardStub(
     ghScanMessage: "",
     targetScope: "global" as const,
     canImport: false,
+    canScanGitHub: false,
     scanLocal: vi.fn(),
     toggleLocalSkill: vi.fn(),
     toggleAllLocalSkills: vi.fn(),
@@ -83,6 +84,8 @@ function makeWizardStub(
     browseFile: vi.fn(),
     browseLocalDir: vi.fn(),
     onSelectRepo: vi.fn(),
+    resetLocalPreview: vi.fn(),
+    resetGitHubPreview: vi.fn(),
     finish: vi.fn(),
     requestClose: vi.fn(),
     ...overrides,
@@ -128,14 +131,22 @@ describe("SkillImportStep1Local", () => {
 
 describe("SkillImportStep2GitHub", () => {
   it("triggers scanGitHub on the Scan button", async () => {
-    const wizard = makeWizardStub({ activeTab: "github", ghRepoUrl: "acme/tools" });
+    const wizard = makeWizardStub({
+      activeTab: "github",
+      ghRepoUrl: "acme/tools",
+      canScanGitHub: true,
+    });
     const wrapper = mount(hostFor(SkillImportStep2GitHub, wizard));
     await wrapper.find(".btn-scan").trigger("click");
     expect(wizard.scanGitHub).toHaveBeenCalled();
   });
 
   it("scans when Enter is pressed in the URL input (keyboard-nav)", async () => {
-    const wizard = makeWizardStub({ activeTab: "github", ghRepoUrl: "acme/tools" });
+    const wizard = makeWizardStub({
+      activeTab: "github",
+      ghRepoUrl: "acme/tools",
+      canScanGitHub: true,
+    });
     const wrapper = mount(hostFor(SkillImportStep2GitHub, wizard));
     const input = wrapper.find("input[type='text']");
     await input.trigger("keyup.enter");

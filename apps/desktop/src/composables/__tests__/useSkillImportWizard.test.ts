@@ -102,17 +102,40 @@ describe("useSkillImportWizard", () => {
     expect(wizard.canImport).toBe(false);
   });
 
-  it("canImport reflects active tab and inputs", () => {
+  it("canImport requires scanned repository previews for repository imports", async () => {
+    const previews = [makeLocalPreview({ path: "/a" })];
+    skillsStoreMock.discoverLocal = vi.fn(async () => previews);
     const { wizard } = mountWizard();
+
     wizard.localDir = "/path";
+    expect(wizard.canImport).toBe(false);
+
+    await wizard.scanLocal();
     expect(wizard.canImport).toBe(true);
+
+    wizard.localDir = "/other-path";
+    wizard.resetLocalPreview();
+    expect(wizard.canImport).toBe(false);
+
     wizard.activeTab = "file";
     expect(wizard.canImport).toBe(false);
     wizard.filePath = "/path/SKILL.md";
     expect(wizard.canImport).toBe(true);
+
     wizard.activeTab = "github";
     wizard.ghRepoUrl = "https://github.com/foo/bar";
+    expect(wizard.canImport).toBe(false);
+    wizard.ghPreviews = [{ path: "skills/demo", name: "demo", description: "", fileCount: 1 }];
+    wizard.ghSelected = new Set(["skills/demo"]);
     expect(wizard.canImport).toBe(true);
+  });
+
+  it("doImport reports scan requirement instead of importing a raw local path", async () => {
+    const { wizard } = mountWizard();
+    wizard.localDir = "/path";
+    await wizard.doImport();
+    expect(skillsStoreMock.importLocal).not.toHaveBeenCalled();
+    expect(wizard.importError).toContain("Scan first");
   });
 
   it("scanLocal populates previews and auto-selects all", async () => {
@@ -172,6 +195,39 @@ describe("useSkillImportWizard", () => {
     await wizard.scanGitHub();
     expect(wizard.importError).toContain("Could not parse");
     expect(wizard.ghScanning).toBe(false);
+  });
+
+  it("doImport imports selected GitHub previews instead of raw repo input", async () => {
+    const result: SkillImportResult = {
+      skillName: "demo",
+      destination: "/out",
+      warnings: [],
+      filesCopied: 1,
+    };
+    skillsStoreMock.importGitHubSkill = vi.fn(async () => result);
+    skillsStoreMock.importGitHub = vi.fn(async () => {
+      throw new Error("raw GitHub import should not be called");
+    });
+
+    const { wizard } = mountWizard();
+    wizard.activeTab = "github";
+    wizard.ghOwner = "acme";
+    wizard.ghRepo = "tools";
+    wizard.ghRef = "main";
+    wizard.ghPreviews = [{ path: "skills/demo", name: "demo", description: "", fileCount: 1 }];
+    wizard.ghSelected = new Set(["skills/demo"]);
+
+    await wizard.doImport();
+
+    expect(skillsStoreMock.importGitHubSkill).toHaveBeenCalledWith(
+      "acme",
+      "tools",
+      "skills/demo",
+      "main",
+      "global",
+    );
+    expect(skillsStoreMock.importGitHub).not.toHaveBeenCalled();
+    expect(wizard.showResult).toBe(true);
   });
 
   it("doImport for file invokes store.importFile and records result", async () => {
