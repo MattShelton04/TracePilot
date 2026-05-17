@@ -161,7 +161,9 @@ fn backup_retention_keeps_last_five() {
     // When simulating sequential migrations, apply them individually with a short delay
     // between each to ensure distinct mtime values and prevent non-deterministic test failures.
     for m in PLAN7.migrations {
-        let single_plan = MigrationPlan { migrations: std::slice::from_ref(m) };
+        let single_plan = MigrationPlan {
+            migrations: std::slice::from_ref(m),
+        };
         run_migrations(
             &mut conn,
             Some(&db_path),
