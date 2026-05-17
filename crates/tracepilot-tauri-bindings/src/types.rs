@@ -41,6 +41,17 @@ pub struct FreshnessResponse {
     pub events_file_mtime: Option<i64>,
 }
 
+#[derive(Debug, Clone, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct EncounteredSkillSummary {
+    pub name: String,
+    pub description: String,
+    pub directory: String,
+    pub estimated_tokens: usize,
+    pub source_path: String,
+    pub invocation_count: usize,
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SearchResultItem {

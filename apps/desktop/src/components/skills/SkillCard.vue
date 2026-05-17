@@ -20,7 +20,8 @@ const emit = defineEmits<{
 const router = useRouter();
 const disableTooltip =
   "TracePilot cannot currently disable Copilot skills. Remove the skill directory or use session-level disabledSkills elsewhere.";
-const isReadOnly = computed(() => isEncounteredSkill(props.skill));
+const isEncountered = computed(() => isEncounteredSkill(props.skill));
+const canOpenEditor = computed(() => !isEncountered.value || Boolean(props.skill.directory));
 const encounteredLabel = computed(() => {
   if (!isEncounteredSkill(props.skill)) return "";
   const count = props.skill.invocationCount;
@@ -34,9 +35,9 @@ const sourceTitle = computed(() => {
 });
 
 function navigateToEditor() {
-  if (isReadOnly.value) return;
+  if (!canOpenEditor.value) return;
   pushRoute(router, ROUTE_NAMES.skillEditor, {
-    params: { name: encodeURIComponent(props.skill.directory) },
+    params: { name: props.skill.directory },
   });
 }
 
@@ -63,9 +64,13 @@ function formatTokens(n: number): string {
 <template>
   <div
     class="skill-card"
-    :class="{ 'skill-card--disabled': !skill.enabled, 'skill-card--encountered': isReadOnly }"
-    :tabindex="isReadOnly ? undefined : 0"
-    :role="isReadOnly ? 'article' : 'button'"
+    :class="{
+      'skill-card--disabled': !skill.enabled,
+      'skill-card--encountered': isEncountered,
+      'skill-card--static': !canOpenEditor,
+    }"
+    :tabindex="canOpenEditor ? 0 : undefined"
+    :role="canOpenEditor ? 'button' : 'article'"
     @click="navigateToEditor"
     @keydown.enter="navigateToEditor"
   >
@@ -87,7 +92,7 @@ function formatTokens(n: number): string {
 
     <div class="skill-card__badges">
       <SkillScopeBadge :scope="skill.scope" />
-      <span v-if="isReadOnly" class="badge-xs badge-encountered" :title="sourceTitle">
+      <span v-if="isEncountered" class="badge-xs badge-encountered" :title="sourceTitle">
         Encountered
       </span>
       <span v-if="skill.assetCount > 0" class="badge-xs badge-files">
@@ -96,7 +101,7 @@ function formatTokens(n: number): string {
       <span class="badge-xs badge-tokens">{{ formatTokens(skill.estimatedTokens) }}</span>
     </div>
 
-    <div v-if="isReadOnly" class="skill-card__actions skill-card__actions--static">
+    <div v-if="isEncountered" class="skill-card__actions skill-card__actions--static">
       <span class="encountered-meta" :title="sourceTitle">{{ encounteredLabel }}</span>
     </div>
 
@@ -143,7 +148,7 @@ function formatTokens(n: number): string {
   transition: all 0.2s ease;
 }
 
-.skill-card--encountered {
+.skill-card--static {
   cursor: default;
 }
 

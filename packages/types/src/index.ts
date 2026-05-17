@@ -242,6 +242,7 @@ export type {
 export { narrowSessionEvent } from "./session-event-payloads.js";
 // ── skills.js ──────────────────────────────────────────────────────
 export type {
+  EncounteredSkillSummary,
   GhAuthInfo,
   GitHubSkillPreview,
   LocalSkillPreview,

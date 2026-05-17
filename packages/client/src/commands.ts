@@ -110,6 +110,7 @@ export const IPC_COMMANDS = [
   "mcp_compute_diff",
   // Skills commands
   "skills_list_all",
+  "skills_encountered_project",
   "skills_get_skill",
   "skills_create",
   "skills_update",
