@@ -19,13 +19,13 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <nav v-if="totalPages > 1" class="pagination" aria-label="Pagination">
+  <div v-if="totalPages > 1" class="pagination">
     <button
       class="pagination-btn"
       :disabled="page <= 1"
       @click="emit('prev')"
     >
-      <span aria-hidden="true">‹</span> Prev
+      ‹ Prev
     </button>
     <template v-for="(p, idx) in visiblePages" :key="idx">
       <span v-if="p === null" class="pagination-ellipsis">…</span>
@@ -33,7 +33,6 @@ const emit = defineEmits<{
         v-else
         class="pagination-btn"
         :class="{ active: p === page }"
-        :aria-current="p === page ? 'page' : undefined"
         @click="emit('go', p)"
       >
         {{ p }}
@@ -44,10 +43,10 @@ const emit = defineEmits<{
       :disabled="!hasMore"
       @click="emit('next')"
     >
-      Next <span aria-hidden="true">›</span>
+      Next ›
     </button>
     <span class="pagination-info">
       {{ pageStart }}–{{ pageEnd }} of {{ formatNumberFull(totalCount) }}
     </span>
-  </nav>
+  </div>
 </template>
