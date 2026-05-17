@@ -291,6 +291,16 @@
   gap: 12px;
 }
 
+.skills-manager-view .state-message--warning {
+  padding: 10px 14px;
+  margin: -4px 0 16px;
+  border: 1px solid color-mix(in srgb, var(--attention-fg, #d29922) 22%, transparent);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--attention-muted, #d29922) 12%, transparent);
+  color: var(--text-secondary);
+  text-align: left;
+}
+
 /* ── Empty State ─────────────────────────────────────────── */
 .skills-manager-view .empty-state {
   text-align: center;

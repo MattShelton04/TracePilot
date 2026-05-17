@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import type { SkillSummary } from "@tracepilot/types";
 import { formatNumber as formatCompactNumber } from "@tracepilot/types";
+import { FolderGit2, Sparkles } from "lucide-vue-next";
+import { computed } from "vue";
 import { useRouter } from "vue-router";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
+import { type DisplaySkillSummary, isEncounteredSkill } from "@/stores/skills/encountered";
 import SkillScopeBadge from "./SkillScopeBadge.vue";
 
 const props = defineProps<{
-  skill: SkillSummary;
+  skill: DisplaySkillSummary;
 }>();
 
 const emit = defineEmits<{
@@ -18,8 +20,21 @@ const emit = defineEmits<{
 const router = useRouter();
 const disableTooltip =
   "TracePilot cannot currently disable Copilot skills. Remove the skill directory or use session-level disabledSkills elsewhere.";
+const isReadOnly = computed(() => isEncounteredSkill(props.skill));
+const encounteredLabel = computed(() => {
+  if (!isEncounteredSkill(props.skill)) return "";
+  const count = props.skill.invocationCount;
+  return `Seen ${count} time${count === 1 ? "" : "s"} in recent sessions`;
+});
+const sourceTitle = computed(() => {
+  if (!isEncounteredSkill(props.skill)) return undefined;
+  return props.skill.sourcePath
+    ? `${encounteredLabel.value}: ${props.skill.sourcePath}`
+    : encounteredLabel.value;
+});
 
 function navigateToEditor() {
+  if (isReadOnly.value) return;
   pushRoute(router, ROUTE_NAMES.skillEditor, {
     params: { name: encodeURIComponent(props.skill.directory) },
   });
@@ -48,9 +63,9 @@ function formatTokens(n: number): string {
 <template>
   <div
     class="skill-card"
-    :class="{ 'skill-card--disabled': !skill.enabled }"
-    tabindex="0"
-    role="button"
+    :class="{ 'skill-card--disabled': !skill.enabled, 'skill-card--encountered': isReadOnly }"
+    :tabindex="isReadOnly ? undefined : 0"
+    :role="isReadOnly ? 'article' : 'button'"
     @click="navigateToEditor"
     @keydown.enter="navigateToEditor"
   >
@@ -59,9 +74,8 @@ function formatTokens(n: number): string {
 
     <div class="skill-card__top">
       <div class="skill-card__icon">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="17" height="17">
-          <path d="M9 1L5 9h4l-2 6 6-8H9l2-6z"/>
-        </svg>
+        <FolderGit2 v-if="skill.scope === 'repository'" :size="18" :stroke-width="1.75" />
+        <Sparkles v-else :size="18" :stroke-width="1.75" />
       </div>
       <div class="skill-card__info">
         <div class="skill-card__name-row">
@@ -73,13 +87,20 @@ function formatTokens(n: number): string {
 
     <div class="skill-card__badges">
       <SkillScopeBadge :scope="skill.scope" />
+      <span v-if="isReadOnly" class="badge-xs badge-encountered" :title="sourceTitle">
+        Encountered
+      </span>
       <span v-if="skill.assetCount > 0" class="badge-xs badge-files">
         {{ skill.assetCount }} file{{ skill.assetCount === 1 ? "" : "s" }}
       </span>
       <span class="badge-xs badge-tokens">{{ formatTokens(skill.estimatedTokens) }}</span>
     </div>
 
-    <div class="skill-card__actions">
+    <div v-if="isReadOnly" class="skill-card__actions skill-card__actions--static">
+      <span class="encountered-meta" :title="sourceTitle">{{ encounteredLabel }}</span>
+    </div>
+
+    <div v-else class="skill-card__actions">
       <label class="toggle-switch" @click.stop>
         <input
           type="checkbox"
@@ -122,10 +143,18 @@ function formatTokens(n: number): string {
   transition: all 0.2s ease;
 }
 
+.skill-card--encountered {
+  cursor: default;
+}
+
 .skill-card:hover {
   border-color: var(--border-accent, var(--accent-fg));
   box-shadow: var(--shadow-md);
   transform: translateY(-2px);
+}
+
+.skill-card--encountered:hover {
+  transform: translateY(-1px);
 }
 
 .skill-card:hover .skill-card__accent {
@@ -183,7 +212,7 @@ function formatTokens(n: number): string {
   background: var(--canvas-default, var(--canvas-subtle));
   color: var(--accent-fg);
   transition: all 0.2s ease;
-  font-size: 17px;
+  line-height: 0;
 }
 
 .skill-card:hover .skill-card__icon {
@@ -192,8 +221,7 @@ function formatTokens(n: number): string {
 }
 
 .skill-card__icon svg {
-  width: 17px;
-  height: 17px;
+  display: block;
 }
 
 .skill-card__info {
@@ -267,6 +295,12 @@ function formatTokens(n: number): string {
   font-size: 0.5625rem;
 }
 
+.badge-encountered {
+  background: color-mix(in srgb, var(--accent-muted) 55%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-fg) 18%, transparent);
+  color: var(--accent-fg);
+}
+
 /* ── Card Actions (toggle + hover buttons) ──────────────── */
 .skill-card__actions {
   display: flex;
@@ -274,6 +308,19 @@ function formatTokens(n: number): string {
   gap: 4px;
   border-top: 1px solid var(--border-subtle, var(--border-muted));
   padding-top: 10px;
+}
+
+.skill-card__actions--static {
+  min-height: 29px;
+}
+
+.encountered-meta {
+  color: var(--text-tertiary);
+  font-size: 0.6875rem;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Toggle Switch */

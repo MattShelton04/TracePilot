@@ -21,6 +21,8 @@ const hoistedMocks = vi.hoisted(() => ({
   skillsImportFile: vi.fn(),
   skillsImportGitHub: vi.fn(),
   skillsDiscoverRepos: vi.fn(),
+  listSessions: vi.fn(),
+  getSessionTurns: vi.fn(),
   logWarn: vi.fn(),
 }));
 
@@ -42,6 +44,8 @@ vi.mock("@tracepilot/client", () => ({
   skillsImportFile: (...args: unknown[]) => hoistedMocks.skillsImportFile(...args),
   skillsImportGitHub: (...args: unknown[]) => hoistedMocks.skillsImportGitHub(...args),
   skillsDiscoverRepos: (...args: unknown[]) => hoistedMocks.skillsDiscoverRepos(...args),
+  listSessions: (...args: unknown[]) => hoistedMocks.listSessions(...args),
+  getSessionTurns: (...args: unknown[]) => hoistedMocks.getSessionTurns(...args),
 }));
 
 vi.mock("@tracepilot/ui", async (importOriginal) => {
@@ -131,6 +135,12 @@ export function setupSkillsStoreTest() {
   beforeEach(() => {
     setupPinia();
     for (const mock of allMocks()) mock.mockReset();
+    hoistedMocks.listSessions.mockResolvedValue([]);
+    hoistedMocks.getSessionTurns.mockResolvedValue({
+      turns: [],
+      eventsFileSize: 0,
+      eventsFileMtime: null,
+    });
   });
 
   afterEach(async () => {

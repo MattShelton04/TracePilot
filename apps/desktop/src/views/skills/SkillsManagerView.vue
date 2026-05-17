@@ -29,8 +29,10 @@ const contextPct = computed(() => {
   return pct.toFixed(1);
 });
 
-onMounted(() => {
-  store.loadSkills();
+onMounted(async () => {
+  await store.loadSkills();
+  if (store.error) return;
+  await store.loadEncounteredProjectSkills();
 });
 
 function formatTokens(n: number): string {
@@ -111,6 +113,10 @@ async function handleDeleteSkill(dir: string) {
           <span class="stat-dot stat-dot--project" />
           {{ store.repoSkills.length }} Project
         </span>
+        <template v-if="store.encounteredLoading">
+          <span class="stat-sep">&middot;</span>
+          <span class="stat-chip">Scanning recent sessions…</span>
+        </template>
         <span class="stat-sep">&middot;</span>
         <span class="stat-chip">
           <span class="stat-dot stat-dot--active" />
@@ -140,10 +146,6 @@ async function handleDeleteSkill(dir: string) {
       <div class="filter-row">
         <div class="scope-segmented">
           <button
-            :class="['scope-seg-btn', { active: store.filterScope === 'all' }]"
-            @click="store.setFilterScope('all')"
-          >All</button>
-          <button
             :class="['scope-seg-btn', { active: store.filterScope === 'global' }]"
             @click="store.setFilterScope('global')"
           >Global</button>
@@ -151,6 +153,10 @@ async function handleDeleteSkill(dir: string) {
             :class="['scope-seg-btn', { active: store.filterScope === 'repository' }]"
             @click="store.setFilterScope('repository')"
           >Project</button>
+          <button
+            :class="['scope-seg-btn', { active: store.filterScope === 'all' }]"
+            @click="store.setFilterScope('all')"
+          >All</button>
         </div>
 
         <div class="search-box">
@@ -173,30 +179,36 @@ async function handleDeleteSkill(dir: string) {
         <button class="btn btn--secondary btn--sm" @click="store.loadSkills()">Retry</button>
       </div>
 
-      <!-- Skills Grid -->
-      <div v-else-if="store.filteredSkills.length > 0" class="skills-grid">
-        <SkillCard
-          v-for="skill in store.filteredSkills"
-          :key="skill.directory"
-          :skill="skill"
-          @delete="handleDeleteSkill"
-        />
-      </div>
+      <template v-else>
+        <div v-if="store.encounteredError" class="state-message state-message--warning">
+          Session-encountered project skills could not be loaded: {{ store.encounteredError }}
+        </div>
 
-      <!-- Empty State -->
-      <div v-else class="empty-state">
-        <div class="empty-state__icon" aria-hidden="true">
-          <Brain :size="48" :stroke-width="1.5" />
+        <!-- Skills Grid -->
+        <div v-if="store.filteredSkills.length > 0" class="skills-grid">
+          <SkillCard
+            v-for="skill in store.filteredSkills"
+            :key="skill.directory"
+            :skill="skill"
+            @delete="handleDeleteSkill"
+          />
         </div>
-        <h3 class="empty-state__title">No skills found</h3>
-        <p class="empty-state__desc">
-          {{ store.searchQuery ? "Try a different search term" : "Create your first skill or import one to get started" }}
-        </p>
-        <div class="empty-state__actions">
-          <button class="btn btn--primary" @click="store.clearError(); showNewSkillModal = true">Create Skill</button>
-          <button class="btn btn--secondary" @click="store.clearError(); showImportWizard = true">Import</button>
+
+        <!-- Empty State -->
+        <div v-else class="empty-state">
+          <div class="empty-state__icon" aria-hidden="true">
+            <Brain :size="48" :stroke-width="1.5" />
+          </div>
+          <h3 class="empty-state__title">No skills found</h3>
+          <p class="empty-state__desc">
+            {{ store.searchQuery ? "Try a different search term" : "Create your first skill or import one to get started" }}
+          </p>
+          <div class="empty-state__actions">
+            <button class="btn btn--primary" @click="store.clearError(); showNewSkillModal = true">Create Skill</button>
+            <button class="btn btn--secondary" @click="store.clearError(); showImportWizard = true">Import</button>
+          </div>
         </div>
-      </div>
+      </template>
 
       <!-- New Skill Modal -->
       <div v-if="showNewSkillModal" class="modal-overlay" @click.self="showNewSkillModal = false">
