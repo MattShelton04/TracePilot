@@ -7,6 +7,18 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 
 ## [Unreleased]
 
+## [0.6.7] - 2026-05-17
+
+### Added
+- **Project Skill Discovery** — The Skills Manager now automatically discovers and surfaces skills encountered within your active projects
+
+### Changed
+- **Copilot CLI alignment** — Session names now read the new `name` field from Copilot's `workspace.yaml`
+- **UI Refinements** — Improved timeline alignments, sticky headers for the subagent panel, and internal refactoring of Export and Analytics views for better maintainability
+
+### Fixed
+- **CLI Turn Snippets** — Terminal turn previews now safely normalize snippets instead of lossily stripping HTML
+
 ## [0.6.6] - 2026-05-10
 
 ### Added

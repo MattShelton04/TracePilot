@@ -1,6 +1,23 @@
 {
   "versions": [
     {
+      "version": "0.6.7",
+      "date": "2026-05-17",
+      "notes": {
+        "added": [
+          "Project Skill Discovery: The Skills Manager now automatically discovers and surfaces skills encountered within your active projects"
+        ],
+        "changed": [
+          "Copilot CLI alignment: Session names now read the new `name` field from Copilot's workspace.yaml",
+          "UI Refinements: Improved timeline alignments, sticky headers for the subagent panel, and internal architectural cleanup"
+        ],
+        "fixed": [
+          "CLI Turn Snippets: Terminal turn previews now safely normalize snippets instead of lossily stripping HTML"
+        ]
+      },
+      "requiresReindex": false
+    },
+    {
       "version": "0.6.6",
       "date": "2026-05-10",
       "notes": {
