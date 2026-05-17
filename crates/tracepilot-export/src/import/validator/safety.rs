@@ -9,7 +9,7 @@ pub(crate) fn contains_path_traversal(s: &str) -> bool {
     let path = Path::new(s);
 
     // Reject absolute paths (covers `/`, `\`, `C:\`, `\\server`, etc.)
-    if path.is_absolute() {
+    if path.is_absolute() || s.starts_with('/') || s.contains('\\') {
         return true;
     }
 
@@ -21,8 +21,9 @@ pub(crate) fn contains_path_traversal(s: &str) -> bool {
         }
     }
 
-    // Belt-and-suspenders: also catch `://` and bare `..` in the string
-    s.contains("..") || s.contains(":/")
+    // Belt-and-suspenders: also catch `://` in the string.
+    // Do NOT use `.contains("..")` here as it causes false positives on valid files like `my..file.txt`.
+    s.contains(":/")
 }
 
 /// Check if a string looks like a standard UUID (8-4-4-4-12 hex pattern).
