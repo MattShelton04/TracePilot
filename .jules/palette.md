@@ -1,0 +1,3 @@
+## 2024-05-17 - Improved Accessibility of Pagination Component
+**Learning:** Found a common accessibility pattern in `apps/desktop/src/components/search/SessionSearchPagination.vue`. Pagination components often lack proper screen reader support such as `<nav aria-label="Pagination">`, `aria-current="page"` for active pages, and hidden decorative elements like `‹` or `›` arrows that screen readers might read aloud in a confusing manner.
+**Action:** When implementing pagination components, always enclose them in a `<nav aria-label="Pagination">` wrapper, include `aria-current="page"` on the currently active page element, and hide decorative characters with `aria-hidden="true"` to ensure proper context for screen reader users.
