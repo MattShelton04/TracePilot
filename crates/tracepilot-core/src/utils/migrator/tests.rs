@@ -156,13 +156,21 @@ fn backup_retention_keeps_last_five() {
 
     let mut conn = Connection::open(&db_path).unwrap();
     crate::utils::sqlite::configure_connection(&conn).unwrap();
-    run_migrations(
-        &mut conn,
-        Some(&db_path),
-        &PLAN7,
-        &MigratorOptions::default(),
-    )
-    .unwrap();
+
+    // In migrator tests, backup pruning relies strictly on filesystem modification times (mtime).
+    // When simulating sequential migrations, apply them individually with a short delay
+    // between each to ensure distinct mtime values and prevent non-deterministic test failures.
+    for m in PLAN7.migrations {
+        let single_plan = MigrationPlan { migrations: std::slice::from_ref(m) };
+        run_migrations(
+            &mut conn,
+            Some(&db_path),
+            &single_plan,
+            &MigratorOptions::default(),
+        )
+        .unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
 
     // Only the last 5 backups should remain (pre-v3..pre-v7).
     let backups: Vec<String> = std::fs::read_dir(dir.path())
