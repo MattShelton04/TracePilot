@@ -14,8 +14,8 @@
  */
 
 import { execSync } from "node:child_process";
-import { readFile } from "node:fs/promises";
 import { readdirSync, statSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 
 const REPO_ROOT = new URL("..", import.meta.url).pathname.replace(/^\/([A-Z]:)/, "$1");
@@ -59,10 +59,10 @@ const ALLOW_FILES = new Set([
 const RE = /(^|[^a-z-])z-index\s*:\s*([^;]+);/gi;
 
 function gitStaged() {
-  const out = execSync(
-    "git diff --cached --name-only --diff-filter=ACMR",
-    { encoding: "utf8", cwd: REPO_ROOT },
-  );
+  const out = execSync("git diff --cached --name-only --diff-filter=ACMR", {
+    encoding: "utf8",
+    cwd: REPO_ROOT,
+  });
   return out.split(/\r?\n/).filter(Boolean);
 }
 
@@ -130,13 +130,7 @@ console.error(`✗ z-index-tokens: ${violations.length} violation(s)`);
 for (const v of violations.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line)) {
   console.error(`  ${v.file}:${v.line}: z-index: ${v.value};`);
 }
-console.error(
-  "\nFix: use a token from MASTER §7 (--z-sidebar | --z-header | --z-fab |",
-);
-console.error(
-  "--z-overlay | --z-modal | --z-tooltip). Literal 0/auto/-1/1 are allowed",
-);
-console.error(
-  "for stacking-context creation only.",
-);
+console.error("\nFix: use a token from MASTER §7 (--z-sidebar | --z-header | --z-fab |");
+console.error("--z-overlay | --z-modal | --z-tooltip). Literal 0/auto/-1/1 are allowed");
+console.error("for stacking-context creation only.");
 process.exit(1);
