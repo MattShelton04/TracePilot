@@ -1,0 +1,3 @@
+## 2024-05-18 - Optimize dynamic SQL placeholder generation
+**Learning:** In Rust, when generating dynamic SQL placeholder strings (e.g. `?, ?, ?`), pushing individual characters `s.push(',')`, `s.push('?')` or doing conditional check inside the loop is slower. We can extract the first `?` outside the loop, short-circuit `n=0`, and use `s.push_str(", ?")` which does a direct optimized memory copy of the pre-allocated byte slice instead of iterative scalar character-by-character pushes.
+**Action:** Apply this optimization to `build_in_placeholders` and `build_placeholder_sql` in `tracepilot-core`. Avoid `saturating_add`, `saturating_mul`, `saturating_sub` in `String::with_capacity` as it introduces a de-optimization by injecting unnecessary bounds-checking instructions.
