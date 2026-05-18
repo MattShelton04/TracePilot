@@ -96,7 +96,7 @@ pub fn validate_identifier(
     }
 
     // Check for absolute paths
-    if Path::new(value).is_absolute() {
+    if Path::new(value).is_absolute() || value.contains('\\') || value.starts_with('/') {
         return Err(format!("{context} cannot be an absolute path"));
     }
 

@@ -95,7 +95,7 @@ async fn test_run_async_with_limits_caps_large_stdout() {
 
     #[cfg(not(windows))]
     let cmd = {
-        let mut c = tokio::process::Command::new("sh");
+        let mut c = crate::process::hidden_command("sh");
         c.args(["-c", "echo AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"]);
         c
     };

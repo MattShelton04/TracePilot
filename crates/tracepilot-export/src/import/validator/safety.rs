@@ -22,7 +22,7 @@ pub(crate) fn contains_path_traversal(s: &str) -> bool {
     }
 
     // Belt-and-suspenders: also catch `://` and bare `..` in the string
-    s.contains("..") || s.contains(":/")
+    s.contains("..") || s.contains(":/") || s.contains('\\') || s.starts_with('/')
 }
 
 /// Check if a string looks like a standard UUID (8-4-4-4-12 hex pattern).
