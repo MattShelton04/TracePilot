@@ -1,0 +1,3 @@
+## 2024-05-19 - Optimizing dynamic SQL placeholders
+**Learning:** Using scalar character-by-character pushes (`.push(',')`, `.push('?')`) inside a loop is slower than chunk slice additions (`.push_str(", ?")`) directly onto a pre-allocated string. Extracting the first character push before a loop enables this chunking, but requires explicitly checking and short-circuiting edge cases like `n=0` to prevent runtime panics or underflows on capacity calculations.
+**Action:** Use `.push_str()` for repeating string patterns instead of individual character pushes, combined with a pre-allocation calculation using standard arithmetic operators instead of saturating math which injects bounds-checking instructions.
