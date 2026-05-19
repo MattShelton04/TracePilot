@@ -29,7 +29,8 @@ pub(crate) fn contains_path_traversal(s: &str) -> bool {
     let is_bare_parent = s == "..";
 
     // Explicit cross-platform absolute path checks just in case Path::is_absolute() missed it
-    let has_explicit_root = s.starts_with('/') || s.starts_with('\\') || s.contains(":/") || s.contains(":\\");
+    let has_explicit_root =
+        s.starts_with('/') || s.starts_with('\\') || s.contains(":/") || s.contains(":\\");
 
     has_windows_traversal || has_unix_traversal || is_bare_parent || has_explicit_root
 }
