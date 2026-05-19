@@ -1,0 +1,4 @@
+## 2024-05-19 - Stop cross-platform Path Traversal false negatives
+**Vulnerability:** `contains_path_traversal` in `tracepilot-export/src/import/validator/safety.rs` failed to detect Windows-style traversal sequences (like `..\..\windows`) when running on a Unix machine.
+**Learning:** `std::path::Component::ParentDir` and `Path::is_absolute()` are strictly tied to the host OS. On Unix, Windows backslashes are treated as literal characters in a file name, meaning the standard library won't recognize them as path separators.
+**Prevention:** Always combine `std::path::Component::ParentDir` checks with explicit, cross-platform string matching for `..`, `\`, `://` and other dangerous sequences when validating imported content like GitHub trees or user uploads. Note: Naive `.contains("..")` string matching introduces functional regressions by falsely flagging valid files (e.g., `my..file.txt`).
