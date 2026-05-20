@@ -1,0 +1,3 @@
+## 2024-05-20 - Semantic Pagination Elements
+**Learning:** Pagination components in this application lack proper structural semantics (using generic `<div>` instead of `<nav>`) and active state indicators (missing `aria-current="page"`). This prevents screen readers from correctly identifying the component purpose and the user's current location within the paginated set. Decorative characters like `‹` and `›` also add noise if not hidden.
+**Action:** When implementing or refactoring pagination, enclose the controls in a `<nav aria-label="Pagination">` wrapper, apply `aria-current="page"` to the element representing the currently active page, and hide decorative arrows with `aria-hidden="true"`.
