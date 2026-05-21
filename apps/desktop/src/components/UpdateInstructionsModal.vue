@@ -49,7 +49,7 @@ function handleOpenRelease() {
       <div class="modal-content" role="dialog" aria-labelledby="update-modal-title">
         <div class="modal-header">
           <h2 id="update-modal-title">Update to v{{ version }}</h2>
-          <button class="modal-close" aria-label="Close" @click="emit('close')">×</button>
+          <button class="modal-close" aria-label="Close modal" @click="emit('close')">×</button>
         </div>
 
         <div class="modal-body">
