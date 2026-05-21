@@ -49,7 +49,7 @@ describe("ModalDialog", () => {
       props: { visible: true, title: "Test" },
       global: { stubs: { Teleport: true } },
     });
-    await wrapper.find("button[aria-label='Close']").trigger("click");
+    await wrapper.find("button[aria-label='Close modal']").trigger("click");
     expect(wrapper.emitted("update:visible")).toBeTruthy();
     expect(wrapper.emitted("update:visible")?.[0]).toEqual([false]);
   });

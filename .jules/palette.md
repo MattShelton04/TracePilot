@@ -1,0 +1,3 @@
+## 2024-03-24 - Accessibility improvements for structural components
+**Learning:** When improving accessibility for structural components (like Drawers or Modals), avoid generic `aria-label` attributes like 'Close' on their controls. Append the component type to the label (e.g., 'Close drawer' or 'Close modal') to provide explicit context for screen reader users. Also ensure component tests that query elements by these exact string literals are concurrently updated.
+**Action:** Use specific, contextual ARIA labels instead of generic ones for important UI controls, and always update associated unit tests.
