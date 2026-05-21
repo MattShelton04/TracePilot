@@ -1,0 +1,3 @@
+## 2024-05-21 - Optimized SQL Placeholder Generation
+**Learning:** When generating dynamic SQL placeholders in Rust, appending chunk slices directly via `.push_str()` instead of scalar character-by-character pushes (`.push(',')`, `.push('?')`) avoids unnecessary branching. This performs direct, optimized memory copies of the pre-allocated byte slice into the string.
+**Action:** When dynamically generating large SQL placeholder strings, pre-allocate a `String` with exact capacity, check the 0 length edge case and explicitly `push` the first character, and then use `.push_str()` in the loops for remaining string slices.
