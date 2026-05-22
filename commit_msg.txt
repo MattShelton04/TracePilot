@@ -1,0 +1,6 @@
+⚡ Bolt: Pre-allocate dynamic SQL placeholder strings for faster memory copy
+
+💡 What: Changed the SQL generation logic in `tracepilot_core::utils::sqlite::placeholders` for `build_in_placeholders` and `build_placeholder_sql` to precisely compute string capacities beforehand and utilize `.push_str()` instead of scalar character `.push()`. Added a fast-path for `n == 0` edge-cases.
+🎯 Why: Prevents excessive heap allocations and sequential resizing when building large SQL statements with numerous bindings (e.g., IN clauses or batched inserts). Eliminates extraneous loop execution and bounds checks since `.push_str()` performs a single memory copy operation. This enhances execution speed during heavy database query operations.
+📊 Impact: Considerably faster execution of generated SQL batches since dynamically resizing large memory buffers in heavy query environments is eliminated.
+🔬 Measurement: Verify with `cargo test -p tracepilot-core utils::sqlite` to ensure the generated dynamic SQL outputs remain completely identical and robust for valid statements.
