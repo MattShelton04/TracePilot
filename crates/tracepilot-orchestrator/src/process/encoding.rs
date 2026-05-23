@@ -138,7 +138,7 @@ pub(crate) fn win32_quote_arg(s: &str) -> String {
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 pub(crate) fn encode_prompt_utf8_base64(s: &str) -> String {
     const C: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let mut o = Vec::with_capacity(4 * ((s.len() + 2) / 3));
+    let mut o = Vec::with_capacity(4 * s.len().div_ceil(3));
     for c in s.as_bytes().chunks(3) {
         let (b0, b1, b2) = (
             c[0],
