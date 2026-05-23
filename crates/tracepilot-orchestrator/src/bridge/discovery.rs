@@ -258,14 +258,15 @@ async fn detect_linux() -> Vec<DetectedUiServer> {
                 let parts: Vec<&str> = line.split_whitespace().collect();
                 if parts.len() >= 4
                     && let Some(port_str) = parts[3].rsplit(':').next()
-                        && let Ok(port) = port_str.parse::<u16>() {
-                            results.push(DetectedUiServer {
-                                pid,
-                                port,
-                                address: format!("127.0.0.1:{}", port),
-                            });
-                            break;
-                        }
+                    && let Ok(port) = port_str.parse::<u16>()
+                {
+                    results.push(DetectedUiServer {
+                        pid,
+                        port,
+                        address: format!("127.0.0.1:{}", port),
+                    });
+                    break;
+                }
             }
         }
     }
