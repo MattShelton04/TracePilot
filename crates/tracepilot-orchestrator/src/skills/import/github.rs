@@ -169,10 +169,13 @@ pub(crate) fn import_from_github_path(
                         // Guard against path traversal from crafted tree entries.
                         // Use component analysis to correctly detect ParentDir
                         // segments without false positives on names like "..foo".
+                        // We also explicitly reject backslashes and absolute path prefixes
+                        // since Unix rustc will not identify Windows paths as absolute.
                         let has_traversal = Path::new(relative)
                             .components()
                             .any(|c| matches!(c, std::path::Component::ParentDir));
-                        if has_traversal || Path::new(relative).is_absolute() {
+                        let has_win_path = relative.contains('\\') || relative.starts_with('/');
+                        if has_traversal || Path::new(relative).is_absolute() || has_win_path {
                             warnings.push(format!("Skipped '{}': unsafe path component", relative));
                             continue;
                         }
