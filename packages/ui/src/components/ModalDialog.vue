@@ -56,7 +56,7 @@ onUnmounted(() => document.removeEventListener("keydown", onKeydown));
             class="btn btn-ghost btn-sm modal-close"
             type="button"
             @click="close"
-            aria-label="Close"
+            aria-label="Close modal"
           >
             <X :size="14" :stroke-width="1.5" aria-hidden="true" />
           </button>
