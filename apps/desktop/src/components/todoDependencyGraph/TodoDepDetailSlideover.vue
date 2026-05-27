@@ -18,7 +18,7 @@ const ctx = useTodoDependencyGraphContext();
           {{ ctx.selectedTodo.value.status.replace("_", " ") }}
         </span>
       </div>
-      <button class="close-detail" @click="ctx.closeDetail" aria-label="Close detail panel">✕</button>
+      <button class="close-detail" @click="ctx.closeDetail" aria-label="Close detail panel"><span aria-hidden="true">✕</span></button>
     </div>
     <div class="detail-panel-body">
       <div class="detail-section">
