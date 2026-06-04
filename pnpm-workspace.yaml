@@ -11,14 +11,14 @@ allowBuilds:
 # Reference from a package.json as: "typescript": "catalog:" (default catalog).
 catalog:
   "@fontsource-variable/inter": "^5.2.8"
-  "@tauri-apps/api": "^2.5.0"
+  "@tauri-apps/api": "^2.11.0"
   "@types/node": "^22.0.0"
   "@vitejs/plugin-vue": "^5.2.4"
-  "@vue/test-utils": "^2.4.6"
+  "@vue/test-utils": "^2.4.10"
   jsdom: "^28.1.0"
-  tsx: "^4.21.0"
+  tsx: "^4.22.4"
   typescript: "^5.8.0"
   vite: "^6.3.0"
   vitest: "^3.2.4"
-  vue: "^3.5.0"
+  vue: "^3.5.35"
   vue-tsc: "^2.2.0"
