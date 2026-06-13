@@ -169,10 +169,16 @@ pub(crate) fn import_from_github_path(
                         // Guard against path traversal from crafted tree entries.
                         // Use component analysis to correctly detect ParentDir
                         // segments without false positives on names like "..foo".
+                        // Also explicitly block backslashes and explicit root characters
+                        // to prevent cross-platform path traversal bypasses.
                         let has_traversal = Path::new(relative)
                             .components()
                             .any(|c| matches!(c, std::path::Component::ParentDir));
-                        if has_traversal || Path::new(relative).is_absolute() {
+                        if has_traversal
+                            || Path::new(relative).is_absolute()
+                            || relative.contains('\\')
+                            || relative.starts_with('/')
+                        {
                             warnings.push(format!("Skipped '{}': unsafe path component", relative));
                             continue;
                         }
