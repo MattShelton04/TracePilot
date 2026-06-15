@@ -156,13 +156,23 @@ fn backup_retention_keeps_last_five() {
 
     let mut conn = Connection::open(&db_path).unwrap();
     crate::utils::sqlite::configure_connection(&conn).unwrap();
-    run_migrations(
-        &mut conn,
-        Some(&db_path),
-        &PLAN7,
-        &MigratorOptions::default(),
-    )
-    .unwrap();
+
+    // We need to apply migrations sequentially with a small sleep between them
+    // to ensure distinct mtimes, since pruning is strictly based on mtime.
+    for m in PLAN7.migrations {
+        let single_plan = MigrationPlan {
+            migrations: std::slice::from_ref(m),
+        };
+        run_migrations(
+            &mut conn,
+            Some(&db_path),
+            &single_plan,
+            &MigratorOptions::default(),
+        )
+        .unwrap();
+        // Force distinct mtimes for backup files
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
 
     // Only the last 5 backups should remain (pre-v3..pre-v7).
     let backups: Vec<String> = std::fs::read_dir(dir.path())
