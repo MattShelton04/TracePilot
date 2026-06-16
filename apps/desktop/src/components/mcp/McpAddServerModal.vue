@@ -35,7 +35,7 @@ const {
               </div>
               <span id="add-server-title">Add MCP Server</span>
             </div>
-            <button class="modal-close" aria-label="Close" @click="emit('close')">✕</button>
+            <button class="modal-close" aria-label="Close" @click="emit('close')"><span aria-hidden="true">✕</span></button>
           </div>
         </div>
 
