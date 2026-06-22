@@ -1,0 +1,3 @@
+## 2024-05-24 - Accessible Pagination Controls
+**Learning:** For pagination controls, simple `active` classes are insufficient for screen readers. They need explicit `:aria-current="page"` on the active item, a `<nav aria-label="Pagination">` wrapper, and all decorative text/symbols like "‹" or "…" must be hidden with `aria-hidden="true"` so they aren't awkwardly announced alongside the `aria-label`s.
+**Action:** Always include `aria-current="page"` on the currently active page element, wrap decorative characters in interactive elements with `<span aria-hidden="true">`, and enclose pagination components in a `<nav>` with a clear `aria-label`.
