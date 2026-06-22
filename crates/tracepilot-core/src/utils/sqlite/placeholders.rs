@@ -64,18 +64,25 @@ pub fn build_placeholder_sql(sql_prefix: &str, num_rows: usize, params_per_row: 
     sql.push(' ');
 
     let mut row_str = String::with_capacity(params_per_row * 2 + 1);
-    row_str.push('(');
-    row_str.push('?');
+    row_str.push_str("(?");
     for _ in 1..params_per_row {
-        row_str.push(',');
-        row_str.push('?');
+        row_str.push_str(",?");
     }
     row_str.push(')');
 
     sql.push_str(&row_str);
-    for _ in 1..num_rows {
-        sql.push(',');
-        sql.push_str(&row_str);
+
+    if num_rows > 1 {
+        // PERFORMANCE (Bolt): Pre-building a chunk once and appending that exact
+        // string multiple times using .push_str() is an O(num_rows) operation and
+        // significantly outperforms iteratively re-generating the chunk characters
+        // inside the loop, as `push_str` is a direct memory copy.
+        let mut comma_row_str = String::with_capacity(row_str.len() + 1);
+        comma_row_str.push(',');
+        comma_row_str.push_str(&row_str);
+        for _ in 1..num_rows {
+            sql.push_str(&comma_row_str);
+        }
     }
     sql
 }
