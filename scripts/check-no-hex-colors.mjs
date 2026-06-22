@@ -40,10 +40,10 @@ const HEX_RE = /#[0-9a-fA-F]{3,8}\b/;
 const ALLOW_DIRECTIVE = /design-system:\s*allow-hex/;
 
 function gitStaged() {
-  const out = execSync(
-    "git diff --cached --name-only --diff-filter=ACMR",
-    { encoding: "utf8", cwd: REPO_ROOT },
-  );
+  const out = execSync("git diff --cached --name-only --diff-filter=ACMR", {
+    encoding: "utf8",
+    cwd: REPO_ROOT,
+  });
   return out.split(/\r?\n/).filter(Boolean);
 }
 
@@ -102,9 +102,7 @@ console.error(`✗ no-hex-colors: ${violations.length} violation(s)`);
 for (const v of violations.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line)) {
   console.error(`  ${v.file}:${v.line}: ${v.hex}  // ${v.src.slice(0, 100)}`);
 }
-console.error(
-  "\nFix: replace with a token from packages/ui/src/styles/tokens.css,",
-);
+console.error("\nFix: replace with a token from packages/ui/src/styles/tokens.css,");
 console.error(
   "or add `// design-system: allow-hex (reason)` to the offending line if intentional.",
 );

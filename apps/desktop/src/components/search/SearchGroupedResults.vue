@@ -31,7 +31,7 @@ defineEmits<{
       :style="{ animationDelay: `${Math.min(gIdx, 6) * 40}ms` }"
     >
       <div class="session-group-header" @click="$emit('toggle-group-collapse', group.sessionId)">
-        <span class="session-group-chevron" :class="{ collapsed: collapsedGroups.has(group.sessionId) }">▾</span>
+        <span class="session-group-chevron" :class="{ collapsed: collapsedGroups.has(group.sessionId) }"><span aria-hidden="true">▾</span></span>
         <div class="session-group-title">
           {{ group.sessionSummary || group.sessionId.slice(0, 12) + '…' }}
         </div>
@@ -46,7 +46,7 @@ defineEmits<{
             title="Filter search to this session"
             @click.stop="$emit('filter-by-session', group.sessionId, group.sessionSummary)"
           >
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="12" height="12">
+            <svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="12" height="12">
               <path d="M2 4h12M4 8h8M6 12h4" />
             </svg>
           </button>
@@ -56,7 +56,7 @@ defineEmits<{
             title="Go to session"
             @click.stop
           >
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="12" height="12">
+            <svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="12" height="12">
               <path d="M6 3l5 5-5 5" />
             </svg>
           </router-link>
@@ -93,8 +93,9 @@ defineEmits<{
             <router-link
               :to="sessionLink(result.sessionId, result.turnNumber, result.eventIndex)"
               class="session-group-view-btn"
+              aria-label="View details"
               @click.stop
-            >→</router-link>
+            ><span aria-hidden="true">→</span></router-link>
           </div>
           <!-- Expanded details -->
           <div v-if="expandedResults.has(result.id)" class="session-group-expanded">

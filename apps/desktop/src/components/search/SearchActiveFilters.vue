@@ -37,19 +37,19 @@ const emit = defineEmits<{
         />
         <span v-if="chip.mode === 'exclude'" class="filter-chip-prefix">NOT</span>
         {{ contentTypeConfig[chip.type]?.label ?? chip.type }}
-        <button class="filter-chip-remove" @click="$emit('remove-content-type', chip.type)" aria-label="Remove filter">×</button>
+        <button class="filter-chip-remove" @click="$emit('remove-content-type', chip.type)" aria-label="Remove filter"><span aria-hidden="true">×</span></button>
       </span>
       <span v-if="repository" class="filter-chip filter-chip-neutral">
         Repo: {{ repository }}
-        <button class="filter-chip-remove" @click="$emit('clear-repository')" aria-label="Remove filter">×</button>
+        <button class="filter-chip-remove" @click="$emit('clear-repository')" aria-label="Remove filter"><span aria-hidden="true">×</span></button>
       </span>
       <span v-if="toolName" class="filter-chip filter-chip-neutral">
         Tool: {{ toolName }}
-        <button class="filter-chip-remove" @click="$emit('clear-tool-name')" aria-label="Remove filter">×</button>
+        <button class="filter-chip-remove" @click="$emit('clear-tool-name')" aria-label="Remove filter"><span aria-hidden="true">×</span></button>
       </span>
       <span v-if="sessionId" class="filter-chip filter-chip-include">
         Session: {{ sessionDisplayName }}
-        <button class="filter-chip-remove" @click="$emit('clear-session-id')" aria-label="Remove filter">×</button>
+        <button class="filter-chip-remove" @click="$emit('clear-session-id')" aria-label="Remove filter"><span aria-hidden="true">×</span></button>
       </span>
       <button v-if="activeFilterCount > 1" class="filter-chip-clear-all" @click="$emit('clear-all')">
         Clear all
