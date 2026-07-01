@@ -32,7 +32,7 @@
     "lucide-vue-next": "^1.0.0",
     "pinia": "^3.0.4",
     "vue": "catalog:",
-    "vue-router": "^4.5.0"
+    "vue-router": "^5.1.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.1",
