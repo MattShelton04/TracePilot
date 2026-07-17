@@ -33,6 +33,10 @@ pub struct AnalyticsData {
     pub total_tokens: u64,
     pub total_cost: f64,
     pub total_premium_requests: f64,
+    /// Authoritative observed Copilot usage, stored in nano-AI units.
+    pub total_nano_aiu: u64,
+    /// Sessions contributing authoritative observed AI Credit telemetry.
+    pub sessions_with_observed_ai_credits: u32,
     pub token_usage_by_day: Vec<DayTokens>,
     pub activity_per_day: Vec<DayActivity>,
     pub model_distribution: Vec<ModelDistEntry>,
@@ -82,6 +86,15 @@ pub struct ModelDistEntry {
     pub request_count: u64,
     /// Total reasoning tokens consumed by this model (None = data unavailable).
     pub reasoning_tokens: Option<u64>,
+    /// Observed nano-AI units for rows where the CLI emitted billing telemetry.
+    pub total_nano_aiu: Option<u64>,
+    /// Token usage from historical rows that have no observed AIC. These fields
+    /// allow the frontend to estimate only the missing portion without
+    /// double-counting observed usage.
+    pub unobserved_input_tokens: u64,
+    pub unobserved_output_tokens: u64,
+    pub unobserved_cache_read_tokens: u64,
+    pub unobserved_cache_write_tokens: u64,
 }
 
 /// Cost for a single day.
@@ -103,6 +116,11 @@ pub struct DayModelUsage {
     pub cache_read_tokens: u64,
     pub cache_write_tokens: u64,
     pub reasoning_tokens: Option<u64>,
+    pub total_nano_aiu: Option<u64>,
+    pub unobserved_input_tokens: u64,
+    pub unobserved_output_tokens: u64,
+    pub unobserved_cache_read_tokens: u64,
+    pub unobserved_cache_write_tokens: u64,
 }
 
 /// Incident counts for a single day.

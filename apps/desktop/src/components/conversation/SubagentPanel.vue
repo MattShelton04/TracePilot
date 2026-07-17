@@ -7,6 +7,7 @@
 // while the body scrolls and (b) spans the full panel width including the
 // scrollbar gutter — otherwise the scrollbar track shows a strip of the
 // panel background next to the header.
+
 import {
   formatDuration,
   formatLiveDuration,

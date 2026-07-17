@@ -7,6 +7,9 @@
  */
 
 import {
+  AI_CREDIT_USD,
+  calculateObservedAiCredits,
+  formatAiCredits,
   formatNumber as formatCompactNumber,
   formatCost,
   formatNumber,
@@ -52,6 +55,7 @@ export function bestCostIndex(rows: Array<{ cost: number | null }>): number {
 export interface BuildModelRowsOptions {
   distribution: readonly ModelDistributionEntry[];
   computeWholesaleCost: ComputeWholesaleCost;
+  computeUsageBasedCost?: ComputeWholesaleCost;
   costPerPremiumRequest: number;
   palette: readonly string[];
 }
@@ -66,6 +70,7 @@ export interface BuildModelRowsOptions {
 export function buildModelRows({
   distribution,
   computeWholesaleCost,
+  computeUsageBasedCost = computeWholesaleCost,
   costPerPremiumRequest,
   palette,
 }: BuildModelRowsOptions): ModelRow[] {
@@ -82,6 +87,68 @@ export function buildModelRows({
       m.cacheWriteTokens ?? 0,
     );
     const copilotCost = m.premiumRequests * costPerPremiumRequest;
+    const hasCoverageFields =
+      m.unobservedInputTokens != null ||
+      m.unobservedOutputTokens != null ||
+      m.unobservedCacheReadTokens != null ||
+      m.unobservedCacheWriteTokens != null;
+    const estimateInput = hasCoverageFields
+      ? (m.unobservedInputTokens ?? 0)
+      : m.totalNanoAiu == null
+        ? m.inputTokens
+        : 0;
+    const estimateOutput = hasCoverageFields
+      ? (m.unobservedOutputTokens ?? 0)
+      : m.totalNanoAiu == null
+        ? m.outputTokens
+        : 0;
+    const estimateCacheRead = hasCoverageFields
+      ? (m.unobservedCacheReadTokens ?? 0)
+      : m.totalNanoAiu == null
+        ? m.cacheReadTokens
+        : 0;
+    const estimateCacheWrite = hasCoverageFields
+      ? (m.unobservedCacheWriteTokens ?? 0)
+      : m.totalNanoAiu == null
+        ? (m.cacheWriteTokens ?? 0)
+        : 0;
+    const hasEstimateTokens =
+      estimateInput + estimateOutput + estimateCacheRead + estimateCacheWrite > 0;
+    const usageEstimate = hasEstimateTokens
+      ? computeUsageBasedCost(
+          m.model,
+          estimateInput,
+          estimateCacheRead,
+          estimateOutput,
+          estimateCacheWrite,
+        )
+      : null;
+    const directEstimate =
+      hasEstimateTokens && usageEstimate == null
+        ? computeWholesaleCost(
+            m.model,
+            estimateInput,
+            estimateCacheRead,
+            estimateOutput,
+            estimateCacheWrite,
+          )
+        : null;
+    const observedCredits = calculateObservedAiCredits(m.totalNanoAiu);
+    const estimatedCredits = (usageEstimate ?? directEstimate ?? 0) / AI_CREDIT_USD;
+    const aiCredits =
+      observedCredits != null || usageEstimate != null || directEstimate != null
+        ? (observedCredits ?? 0) + estimatedCredits
+        : null;
+    const aiCreditSource =
+      observedCredits != null && estimatedCredits > 0
+        ? ("mixed-observed-estimated" as const)
+        : observedCredits != null
+          ? ("observed" as const)
+          : usageEstimate != null
+            ? ("estimated-token-usage" as const)
+            : directEstimate != null
+              ? ("estimated-direct-api" as const)
+              : ("unavailable" as const);
     return {
       model: m.model,
       color: palette[i % palette.length],
@@ -93,6 +160,8 @@ export function buildModelRows({
       percentage,
       premiumRequests: m.premiumRequests,
       cacheHitRate,
+      aiCredits,
+      aiCreditSource,
       cost,
       copilotCost,
     };
@@ -123,6 +192,7 @@ export function normalizeRows(rows: readonly ModelRow[], mode: NormMode): ModelR
         outputTokens: r.outputTokens / divisor,
         cacheReadTokens: r.cacheReadTokens / divisor,
         premiumRequests: r.premiumRequests / divisor,
+        aiCredits: r.aiCredits != null ? r.aiCredits / divisor : null,
         cost: r.cost != null ? r.cost / divisor : null,
         copilotCost: r.copilotCost / divisor,
       };
@@ -136,6 +206,7 @@ export function normalizeRows(rows: readonly ModelRow[], mode: NormMode): ModelR
       outputTokens: acc.outputTokens + r.outputTokens,
       cacheReadTokens: acc.cacheReadTokens + r.cacheReadTokens,
       premiumRequests: acc.premiumRequests + r.premiumRequests,
+      aiCredits: acc.aiCredits + (r.aiCredits ?? 0),
       cost: acc.cost + (r.cost ?? 0),
       copilotCost: acc.copilotCost + r.copilotCost,
     }),
@@ -145,6 +216,7 @@ export function normalizeRows(rows: readonly ModelRow[], mode: NormMode): ModelR
       outputTokens: 0,
       cacheReadTokens: 0,
       premiumRequests: 0,
+      aiCredits: 0,
       cost: 0,
       copilotCost: 0,
     },
@@ -159,6 +231,7 @@ export function normalizeRows(rows: readonly ModelRow[], mode: NormMode): ModelR
       sums.cacheReadTokens > 0 ? (r.cacheReadTokens / sums.cacheReadTokens) * 100 : 0,
     premiumRequests:
       sums.premiumRequests > 0 ? (r.premiumRequests / sums.premiumRequests) * 100 : 0,
+    aiCredits: sums.aiCredits > 0 ? ((r.aiCredits ?? 0) / sums.aiCredits) * 100 : 0,
     cost: sums.cost > 0 ? ((r.cost ?? 0) / sums.cost) * 100 : 0,
     copilotCost: sums.copilotCost > 0 ? (r.copilotCost / sums.copilotCost) * 100 : 0,
   }));
@@ -191,16 +264,16 @@ export function computeRadarValues(row: ModelRow, rows: readonly ModelRow[]): nu
   const maxTokens = Math.max(...rows.map((m) => m.tokens), 1);
   const tokenVol = row.tokens / maxTokens;
   const cacheEff = row.cacheHitRate / 100;
-  const maxPR = Math.max(...rows.map((m) => m.premiumRequests), 1);
-  const prShare = row.premiumRequests / maxPR;
-  const costPerToken = row.cost != null && row.tokens > 0 ? row.cost / row.tokens : 0;
+  const maxAiCredits = Math.max(...rows.map((m) => m.aiCredits ?? 0), 1);
+  const aiCreditShare = (row.aiCredits ?? 0) / maxAiCredits;
+  const costPerToken = row.aiCredits != null && row.tokens > 0 ? row.aiCredits / row.tokens : 0;
   const maxCostPerToken = Math.max(
-    ...rows.map((m) => (m.cost ?? 0) / Math.max(m.tokens, 1)),
+    ...rows.map((m) => (m.aiCredits ?? 0) / Math.max(m.tokens, 1)),
     0.0001,
   );
   const costEff = 1 - Math.min(costPerToken / maxCostPerToken, 1);
   const share = row.percentage / 100;
-  return [tokenVol, cacheEff, prShare, costEff, share];
+  return [tokenVol, cacheEff, aiCreditShare, costEff, share];
 }
 
 /**
@@ -209,7 +282,7 @@ export function computeRadarValues(row: ModelRow, rows: readonly ModelRow[]): nu
  */
 export function computeScatterScale(rows: readonly ModelRow[]): { maxT: number; maxC: number } {
   const maxT = Math.max(...rows.map((m) => m.tokens), 1);
-  const maxC = Math.max(...rows.map((m) => m.cost ?? 0), 0.01);
+  const maxC = Math.max(...rows.map((m) => m.aiCredits ?? 0), 0.01);
   return { maxT, maxC };
 }
 
@@ -256,10 +329,10 @@ export function buildCompareMetrics(
       ...formatModelDelta(a.percentage, b.percentage, true),
     },
     {
-      label: "Premium Requests",
-      valueA: fmtNorm(a.premiumRequests),
-      valueB: fmtNorm(b.premiumRequests),
-      ...formatModelDelta(a.premiumRequests, b.premiumRequests, true),
+      label: "AI Credits",
+      valueA: formatAiCredits(a.aiCredits),
+      valueB: formatAiCredits(b.aiCredits),
+      ...formatModelDelta(a.aiCredits ?? 0, b.aiCredits ?? 0, false),
     },
     {
       label: "Cache Hit Rate",
@@ -268,13 +341,7 @@ export function buildCompareMetrics(
       ...formatModelDelta(a.cacheHitRate, b.cacheHitRate, true),
     },
     {
-      label: "Direct API Cost",
-      valueA: fmtNorm(a.cost, true),
-      valueB: fmtNorm(b.cost, true),
-      ...formatModelDelta(a.cost ?? 0, b.cost ?? 0, false),
-    },
-    {
-      label: "Copilot Cost",
+      label: "Legacy Premium Cost",
       valueA: fmtNorm(a.copilotCost, true),
       valueB: fmtNorm(b.copilotCost, true),
       ...formatModelDelta(a.copilotCost, b.copilotCost, false),

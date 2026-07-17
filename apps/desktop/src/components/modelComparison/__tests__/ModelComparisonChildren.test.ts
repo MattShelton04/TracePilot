@@ -34,6 +34,8 @@ function makeRow(overrides: Partial<ModelRow> = {}): ModelRow {
     cost: 0.05,
     copilotCost: 0.08,
     ...overrides,
+    aiCredits: overrides.aiCredits ?? 5,
+    aiCreditSource: overrides.aiCreditSource ?? "observed",
   };
 }
 
@@ -46,6 +48,7 @@ function makeCtxStub(overrides: Partial<ModelComparisonContext> = {}): ModelComp
     modelRows: [] as ModelRow[],
     totalTokens: 0,
     totalCost: 0,
+    totalAiCredits: 0,
     totalCopilotCost: 0,
     modelCount: 0,
     costMode: "both" as const,
@@ -106,16 +109,15 @@ describe("ModelStatsGrid", () => {
 });
 
 describe("ModelLeaderboard", () => {
-  it("renders table rows and toggles costMode on click", async () => {
+  it("renders an AIC-first table without legacy cost toggles", () => {
     const ctx = makeCtxStub({
       modelRows: [makeRow()],
       displayRows: [makeRow()],
     });
     const wrapper = mount(hostFor(ModelLeaderboard, ctx));
     expect(wrapper.findAll("tbody tr").length).toBe(1);
-    const btns = wrapper.findAll(".cost-toggle .toggle-btn");
-    await btns[0]!.trigger("click");
-    expect(ctx.costMode).toBe("wholesale");
+    expect(wrapper.text()).toContain("AI Credits");
+    expect(wrapper.find(".cost-toggle").exists()).toBe(false);
   });
 
   it("invokes toggleSort when sort header clicked", async () => {

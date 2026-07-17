@@ -350,6 +350,15 @@ CREATE INDEX IF NOT EXISTS idx_session_segments_end_ts
     ON session_segments(end_timestamp);
 "#;
 
+pub(super) const MIGRATION_16: &str = r#"
+-- Preserve authoritative Copilot AI Credit telemetry in integer nano-AI units.
+-- NULL distinguishes older sessions without observed billing data from a
+-- genuinely zero-cost session.
+ALTER TABLE sessions ADD COLUMN total_nano_aiu INTEGER;
+ALTER TABLE session_model_metrics ADD COLUMN total_nano_aiu INTEGER;
+ALTER TABLE session_segments ADD COLUMN total_nano_aiu INTEGER;
+"#;
+
 pub(super) const MIGRATION_14: &str = r#"
 -- Persist the latest observed Copilot CLI version for each session.
 ALTER TABLE sessions ADD COLUMN copilot_version TEXT;

@@ -79,8 +79,16 @@ pub(super) fn write_metrics(md: &mut String, metrics: &ShutdownMetrics) {
     if let Some(model) = &metrics.current_model {
         md.push_line(format_args!("| Model | {} |", model));
     }
-    if let Some(reqs) = metrics.total_premium_requests {
-        md.push_line(format_args!("| Premium Requests | {} |", reqs));
+    if let Some(nano_aiu) = metrics.total_nano_aiu {
+        md.push_line(format_args!(
+            "| AI Credits | {:.3} (observed) |",
+            nano_aiu as f64 / 1_000_000_000.0
+        ));
+    } else if let Some(reqs) = metrics.total_premium_requests {
+        md.push_line(format_args!(
+            "| Legacy Premium Requests | {} (AIC unavailable) |",
+            reqs
+        ));
     }
     if let Some(api_ms) = metrics.total_api_duration_ms {
         md.push_line(format_args!("| API Duration | {}ms |", api_ms));
@@ -98,10 +106,10 @@ pub(super) fn write_metrics(md: &mut String, metrics: &ShutdownMetrics) {
     if !metrics.model_metrics.is_empty() {
         md.push_line(format_args!("### Model Usage\n"));
         md.push_line(format_args!(
-            "| Model | Requests | Input Tokens | Output Tokens | Cache Read | Cache Write |"
+            "| Model | Requests | AI Credits | Input Tokens | Output Tokens | Cache Read | Cache Write |"
         ));
         md.push_line(format_args!(
-            "|-------|----------|--------------|---------------|------------|-------------|"
+            "|-------|----------|------------|--------------|---------------|------------|-------------|"
         ));
 
         let mut sorted: Vec<_> = metrics.model_metrics.iter().collect();
@@ -129,10 +137,14 @@ pub(super) fn write_metrics(md: &mut String, metrics: &ShutdownMetrics) {
                 .as_ref()
                 .and_then(|u| u.cache_write_tokens)
                 .unwrap_or(0);
+            let ai_credits = detail
+                .total_nano_aiu
+                .map(|value| format!("{:.3}", value as f64 / 1_000_000_000.0))
+                .unwrap_or_else(|| "—".to_string());
 
             md.push_line(format_args!(
-                "| {} | {} | {} | {} | {} | {} |",
-                model, reqs, input, output, cache_r, cache_w
+                "| {} | {} | {} | {} | {} | {} | {} |",
+                model, reqs, ai_credits, input, output, cache_r, cache_w
             ));
         }
         md.push('\n');

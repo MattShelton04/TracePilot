@@ -87,6 +87,18 @@ export function formatCost(cost?: number | null): string {
   return `${sign}$${abs.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+/** Format GitHub AI Credits with enough precision for sub-credit usage. */
+export function formatAiCredits(credits?: number | null): string {
+  if (credits == null || !Number.isFinite(credits)) return "—";
+  const abs = Math.abs(credits);
+  const maximumFractionDigits =
+    abs > 0 && abs < 0.001 ? 6 : abs < 1 ? 3 : abs < 100 ? 2 : abs < 1_000 ? 1 : 0;
+  return `${credits.toLocaleString("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits,
+  })} AIC`;
+}
+
 /** Truncate a string to a max length, appending ellipsis. */
 export function truncateText(text: string, maxLen = 1000): string {
   if (text.length <= maxLen) return text;

@@ -1,6 +1,6 @@
 # Copilot pricing model refresh
 
-TracePilot's pricing model is moving from a single premium-request estimate plus configurable wholesale token rates to a small, typed pricing registry backed by versioned pricing data. It can compare legacy premium-request billing, GitHub usage-based token billing, local token-rate estimates, and observed AI Credit telemetry when present.
+TracePilot treats GitHub AI Credits (AIC) as its primary billing quantity. A small, typed pricing registry backed by versioned pricing data supports estimates for older sessions, while legacy premium-request and direct-API views remain compatibility data rather than the headline cost.
 
 ## Source assumptions
 
@@ -24,24 +24,25 @@ TracePilot now treats prices as effective-dated registry entries. A rate can des
 
 The shipped registry is read-only and generated from `packages/types/src/pricing-data.json`, which contains the source URLs, verification date, effective date, aliases, model-specific token-rate tiers, current premium-request multipliers, and June 2026 annual-plan multipliers. Multiple rate tiers retain one model identity; the resolver selects the highest applicable threshold for the observed total input-token count. For models missing from GitHub's annual multiplier table, TracePilot records the current fallback multiplier in `currentPremiumRequestDefaults` so launch/settings defaults still come from the shared pricing data file instead of calculator code. User edits in `pricing.models` remain local overrides and are layered above defaults without mutating the shipped registry.
 
-## Historical sessions and switchover
+## Historical sessions
 
-TracePilot preserves old sessions by keeping the premium-request estimate available as **Legacy Copilot**. Usage-based estimates are calculated from token usage and GitHub's official model rates, effective from **2026-06-01** by default. For historical analysis, TracePilot can evaluate:
+TracePilot merges old and new sessions using this precedence:
 
-- **session-time rates**, using the rates effective at the session or segment timestamp;
-- **latest rates**, re-pricing older usage with the newest registry entries;
-- **comparison/preview**, showing old-vs-new estimates and the delta around the June 2026 switchover.
+1. observed `totalNanoAiu` telemetry;
+2. an AIC estimate calculated from recorded tokens and GitHub's published Copilot rates;
+3. an AIC estimate converted from the configured direct-API token rate;
+4. unavailable, with legacy premium requests shown separately when present.
 
-The current UI focuses on comparison/preview for individual session metrics while keeping the lower-level rate engine ready for broader selectable modes later.
+Premium requests are never converted into AIC because the units are not equivalent. Analytics separately aggregate observed coverage and only estimate token usage belonging to sessions without observed telemetry, preventing double counting when historical and current sessions are viewed together.
 
 ## Cost surfaces
 
-- **Legacy Copilot**: `premiumRequests * costPerPremiumRequest`. This is retained for pre-switchover sessions and annual-plan users that remain request-billed.
-- **GitHub Copilot (usage)**: token usage multiplied by GitHub Copilot model rates. This is the forward-looking estimate for monthly plans after June 1, 2026.
-- **Direct API (estimate)**: configurable local token rates, preserving TracePilot's previous provider/direct-API estimate workflow. Defaults for models listed on GitHub's pricing page are derived from the same `pricing-data.json` rows as GitHub Copilot usage estimates, so the two estimates align by default. They only diverge when a user overrides local rates or when a model is not present in GitHub's published usage table and TracePilot falls back to a clearly marked legacy estimate.
-- **Observed AI Credits**: shown when `totalNanoAiu` exists. TracePilot treats it as observed telemetry and does not silently substitute it for calculated costs unless the units are explicit enough to display.
+- **AI Credits**: the primary session, model, segment, comparison, CLI, and analytics value. One billion nano-AIU equals one AIC, and one AIC has a $0.01 USD billing equivalent.
+- **Estimated AI Credits**: used only where observed telemetry is absent. The UI labels whether GitHub token rates or direct-API rates supplied the estimate.
+- **Legacy Copilot**: `premiumRequests * costPerPremiumRequest`. Retained for old request-billed sessions and shown only as compatibility data.
+- **Direct API (estimate)**: configurable local token rates retained as the last estimate fallback and for settings compatibility.
 
-Unknown models or missing prices are surfaced as unknown instead of falling back to a possibly wrong model price. After June 2026, no code change should be needed for the estimate path: the shipped effective date already exists, and sessions with `totalNanoAiu` can additionally show observed AI Credit telemetry when the CLI emits it.
+Unknown models or missing prices are surfaced as unavailable instead of falling back to a possibly wrong model price.
 
 ## Pricing updates
 

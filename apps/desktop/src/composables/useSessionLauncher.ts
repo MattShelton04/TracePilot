@@ -125,7 +125,7 @@ export function useSessionLauncher() {
     const pr = prefsStore.getPremiumRequests(modelId);
     const cost = pr * prefsStore.costPerPremiumRequest;
     if (pr === 0) return "Free";
-    return `~${formatCost(cost)} (${pr}x premium requests)`;
+    return `Legacy estimate: ~${formatCost(cost)} (${pr} premium requests)`;
   });
 
   function selectRecentRepo(event: Event) {

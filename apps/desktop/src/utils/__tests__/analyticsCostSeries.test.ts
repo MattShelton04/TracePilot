@@ -1,6 +1,6 @@
 import type { AnalyticsData } from "@tracepilot/types";
 import { describe, expect, it, vi } from "vitest";
-import { buildAnalyticsCostSeries } from "../analyticsCostSeries";
+import { buildAnalyticsAiCreditSummary, buildAnalyticsCostSeries } from "../analyticsCostSeries";
 
 const baseAnalytics: AnalyticsData = {
   totalSessions: 1,
@@ -93,5 +93,72 @@ describe("buildAnalyticsCostSeries", () => {
     ]);
     expect(computeWholesaleCost).toHaveBeenCalledWith("claude-opus-4.6", 100, 25, 50, 10);
     expect(computeWholesaleCost).toHaveBeenCalledWith("gpt-5.4", 80, 0, 40, 0);
+  });
+});
+
+describe("buildAnalyticsAiCreditSummary", () => {
+  it("merges observed AIC with estimates only for uncovered historical tokens", () => {
+    const data: AnalyticsData = {
+      ...baseAnalytics,
+      totalNanoAiu: 2_000_000_000,
+      sessionsWithObservedAiCredits: 1,
+      modelDistribution: [
+        {
+          model: "gpt-5.4",
+          tokens: 300,
+          percentage: 100,
+          inputTokens: 200,
+          outputTokens: 100,
+          cacheReadTokens: 0,
+          cacheWriteTokens: 0,
+          premiumRequests: 0,
+          requestCount: 1,
+          totalNanoAiu: 2_000_000_000,
+          unobservedInputTokens: 50,
+          unobservedOutputTokens: 25,
+          unobservedCacheReadTokens: 0,
+          unobservedCacheWriteTokens: 0,
+        },
+      ],
+    };
+    const usageCost = vi.fn(() => 0.01);
+    const directCost = vi.fn(() => 10);
+
+    expect(buildAnalyticsAiCreditSummary(data, usageCost, directCost)).toEqual({
+      credits: 3,
+      usdEquivalent: 0.03,
+      source: "mixed-observed-estimated",
+      observedCredits: 2,
+      estimatedCredits: 1,
+      isPartial: false,
+    });
+    expect(usageCost).toHaveBeenCalledWith("gpt-5.4", 50, 0, 25, 0);
+    expect(directCost).not.toHaveBeenCalled();
+  });
+
+  it("uses direct API rates as the final estimate fallback", () => {
+    const data: AnalyticsData = {
+      ...baseAnalytics,
+      modelDistribution: [
+        {
+          model: "custom",
+          tokens: 100,
+          percentage: 100,
+          inputTokens: 60,
+          outputTokens: 40,
+          cacheReadTokens: 0,
+          cacheWriteTokens: 0,
+          premiumRequests: 5,
+          requestCount: 1,
+        },
+      ],
+    };
+    const summary = buildAnalyticsAiCreditSummary(
+      data,
+      () => null,
+      () => 0.05,
+    );
+    expect(summary.credits).toBe(5);
+    expect(summary.source).toBe("estimated-direct-api");
   });
 });

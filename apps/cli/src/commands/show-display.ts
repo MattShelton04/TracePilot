@@ -86,11 +86,13 @@ export function displayMetrics(m: ShutdownMetrics): void {
   console.log(chalk.bold.blue("\n  Shutdown Metrics\n"));
   if (m.shutdownType) console.log(`    ${chalk.dim("Type:")} ${m.shutdownType}`);
   if (m.currentModel) console.log(`    ${chalk.dim("Model:")} ${m.currentModel}`);
-  if (m.totalPremiumRequests != null)
-    console.log(`    ${chalk.dim("Premium requests:")} ${m.totalPremiumRequests}`);
   if (m.totalNanoAiu != null)
     console.log(
-      `    ${chalk.dim("Observed AI Credits:")} ${(m.totalNanoAiu / 1_000_000_000).toFixed(3)}`,
+      `    ${chalk.dim("AI Credits:")} ${(m.totalNanoAiu / 1_000_000_000).toFixed(3)} ${chalk.dim("(observed)")}`,
+    );
+  else if (m.totalPremiumRequests != null)
+    console.log(
+      `    ${chalk.dim("Legacy premium requests:")} ${m.totalPremiumRequests} ${chalk.dim("(AIC unavailable)")}`,
     );
   if (m.totalApiDurationMs != null)
     console.log(`    ${chalk.dim("API duration:")} ${(m.totalApiDurationMs / 1000).toFixed(1)}s`);
@@ -110,9 +112,7 @@ export function displayMetrics(m: ShutdownMetrics): void {
       const input = formatTokens(info.usage?.inputTokens ?? 0);
       const output = formatTokens(info.usage?.outputTokens ?? 0);
       const aiCredits =
-        info.totalNanoAiu != null
-          ? ` AI credits: ${(info.totalNanoAiu / 1_000_000_000).toFixed(3)}`
-          : "";
+        info.totalNanoAiu != null ? ` AIC: ${(info.totalNanoAiu / 1_000_000_000).toFixed(3)}` : "";
       console.log(
         `      ${chalk.cyan(model.padEnd(28))} requests: ${String(reqs).padEnd(4)} input: ${input.padEnd(8)} output: ${output}${aiCredits}`,
       );

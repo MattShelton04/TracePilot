@@ -15,6 +15,8 @@ pub(super) struct AnalyticsAccumulator {
     total_tokens_from_turns: u64,
     sessions_with_turns: u32,
     total_premium_requests: f64,
+    total_nano_aiu: u64,
+    sessions_with_observed_ai_credits: u32,
     total_api_duration_ms: u64,
     total_tokens_with_duration: u64,
 }
@@ -33,6 +35,8 @@ impl AnalyticsAccumulator {
             total_tokens_from_turns: 0,
             sessions_with_turns: 0,
             total_premium_requests: 0.0,
+            total_nano_aiu: 0,
+            sessions_with_observed_ai_credits: 0,
             total_api_duration_ms: 0,
             total_tokens_with_duration: 0,
         }
@@ -46,6 +50,10 @@ impl AnalyticsAccumulator {
         if let Some(ref metrics) = summary.shutdown_metrics {
             if let Some(pr) = metrics.total_premium_requests {
                 self.total_premium_requests += pr;
+            }
+            if let Some(total_nano_aiu) = metrics.total_nano_aiu {
+                self.total_nano_aiu += total_nano_aiu;
+                self.sessions_with_observed_ai_credits += 1;
             }
 
             let session_api_duration_ms = metrics.total_api_duration_ms.unwrap_or(0);
@@ -99,6 +107,8 @@ impl AnalyticsAccumulator {
             total_tokens: self.total_tokens,
             total_cost: self.total_cost,
             total_premium_requests: self.total_premium_requests,
+            total_nano_aiu: self.total_nano_aiu,
+            sessions_with_observed_ai_credits: self.sessions_with_observed_ai_credits,
             token_usage_by_day: daily.token_usage_by_day,
             activity_per_day: daily.activity_per_day,
             model_distribution,

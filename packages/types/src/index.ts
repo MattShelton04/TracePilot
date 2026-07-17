@@ -134,6 +134,8 @@ export {
   TRACEPILOT_INDEX_DB_PLACEHOLDER,
 } from "./paths.js";
 export type {
+  AiCreditSource,
+  AiCreditUsage,
   CostBreakdownStatus,
   PricingComparisonBreakdown,
   PricingKind,
@@ -151,6 +153,7 @@ export type {
 export {
   AI_CREDIT_USD,
   calculateMetricsTokenCost,
+  calculateObservedAiCredits,
   calculateObservedAiuCost,
   calculatePricingComparison,
   calculateTokenCost,
@@ -164,6 +167,7 @@ export {
   PRICING_REGISTRY,
   PRICING_REGISTRY_VERSION,
   PROVIDER_WHOLESALE_PRICING,
+  resolveAiCreditUsage,
   resolvePricingEntry,
   sumTokenCosts,
 } from "./pricing.js";
@@ -265,6 +269,7 @@ export { DEFAULT_TOOL_RENDERING_PREFS } from "./tool-rendering.js";
 
 // ── utils/formatters.js ────────────────────────────────────────────
 export {
+  formatAiCredits,
   formatBytes,
   formatCleanFloat,
   formatClockTime,

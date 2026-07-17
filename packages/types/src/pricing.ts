@@ -85,7 +85,27 @@ export interface PricingComparisonBreakdown {
   legacyCopilotCost: number;
   usageBasedCopilot: TokenCostBreakdown;
   wholesaleProvider: TokenCostBreakdown;
-  june2026PreviewDelta: number | null;
+}
+
+export type AiCreditSource =
+  | "observed"
+  | "mixed-observed-estimated"
+  | "estimated-token-usage"
+  | "estimated-direct-api"
+  | "unavailable";
+
+/**
+ * Canonical Copilot cost representation.
+ *
+ * AI Credits are the primary quantity. USD is a fixed equivalent at the
+ * published GitHub conversion rate and is included for display convenience.
+ * `source` must always be shown anywhere an estimated value could be mistaken
+ * for observed billing telemetry.
+ */
+export interface AiCreditUsage {
+  credits: number | null;
+  usdEquivalent: number | null;
+  source: AiCreditSource;
 }
 
 export function normalizeModelName(modelName: string): string {
@@ -334,6 +354,55 @@ export function calculateObservedAiuCost(totalNanoAiu: number | null | undefined
   return (totalNanoAiu / NANO_AIU_PER_AI_CREDIT) * AI_CREDIT_USD;
 }
 
+export function calculateObservedAiCredits(totalNanoAiu: number | null | undefined): number | null {
+  if (totalNanoAiu == null) return null;
+  return totalNanoAiu / NANO_AIU_PER_AI_CREDIT;
+}
+
+/**
+ * Resolve the first-class AI Credit value for a usage snapshot.
+ *
+ * Observed CLI telemetry always wins. When it is unavailable, the token-rate
+ * calculation is a useful historical estimate, but remains explicitly marked
+ * as such. Premium requests are intentionally not converted into AI Credits.
+ */
+export function resolveAiCreditUsage(
+  totalNanoAiu: number | null | undefined,
+  estimatedTokenCost?: TokenCostBreakdown | null,
+  directApiEstimate?: TokenCostBreakdown | null,
+): AiCreditUsage {
+  const observed = calculateObservedAiCredits(totalNanoAiu);
+  if (observed != null) {
+    return {
+      credits: observed,
+      usdEquivalent: observed * AI_CREDIT_USD,
+      source: "observed",
+    };
+  }
+
+  if (estimatedTokenCost?.aiCredits != null) {
+    return {
+      credits: estimatedTokenCost.aiCredits,
+      usdEquivalent: estimatedTokenCost.aiCredits * AI_CREDIT_USD,
+      source: "estimated-token-usage",
+    };
+  }
+
+  if (directApiEstimate?.totalCost != null) {
+    return {
+      credits: directApiEstimate.totalCost / AI_CREDIT_USD,
+      usdEquivalent: directApiEstimate.totalCost,
+      source: "estimated-direct-api",
+    };
+  }
+
+  return {
+    credits: null,
+    usdEquivalent: null,
+    source: "unavailable",
+  };
+}
+
 export function calculatePricingComparison(
   metrics: ShutdownMetrics,
   costPerPremiumRequest: number,
@@ -352,12 +421,9 @@ export function calculatePricingComparison(
     at,
     userOverrides,
   });
-  const june2026PreviewDelta =
-    usageBasedCopilot.totalCost == null ? null : usageBasedCopilot.totalCost - legacyCopilotCost;
   return {
     legacyCopilotCost,
     usageBasedCopilot,
     wholesaleProvider,
-    june2026PreviewDelta,
   };
 }

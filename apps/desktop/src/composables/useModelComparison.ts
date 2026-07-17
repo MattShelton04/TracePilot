@@ -70,6 +70,7 @@ export function useModelComparison() {
     return buildModelRows({
       distribution: data.value.modelDistribution,
       computeWholesaleCost: prefs.computeWholesaleCost,
+      computeUsageBasedCost: prefs.computeUsageBasedCost,
       costPerPremiumRequest: prefs.costPerPremiumRequest,
       palette: MODEL_COLORS,
     });
@@ -77,6 +78,9 @@ export function useModelComparison() {
 
   const totalTokens = computed(() => modelRows.value.reduce((sum, m) => sum + m.tokens, 0));
   const totalCost = computed(() => modelRows.value.reduce((sum, m) => sum + (m.cost ?? 0), 0));
+  const totalAiCredits = computed(() =>
+    modelRows.value.reduce((sum, model) => sum + (model.aiCredits ?? 0), 0),
+  );
   const totalCopilotCost = computed(() =>
     modelRows.value.reduce((sum, m) => sum + m.copilotCost, 0),
   );
@@ -155,6 +159,7 @@ export function useModelComparison() {
     modelRows,
     totalTokens,
     totalCost,
+    totalAiCredits,
     totalCopilotCost,
     modelCount,
     costMode,

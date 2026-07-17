@@ -27,6 +27,13 @@ fn test_query_analytics_basic() {
 
     let result = db.query_analytics(None, None, None, false).unwrap();
     assert_eq!(result.total_sessions, 2);
+    assert_eq!(result.total_nano_aiu, 5_000_000_000);
+    assert_eq!(result.sessions_with_observed_ai_credits, 2);
+    assert_eq!(
+        result.model_distribution[0].total_nano_aiu,
+        Some(5_000_000_000)
+    );
+    assert_eq!(result.model_distribution[0].unobserved_input_tokens, 0);
     assert!(!result.activity_per_day.is_empty());
 }
 
@@ -71,6 +78,9 @@ fn test_query_analytics_model_usage_by_day_from_segments() {
     assert_eq!(day_one.output_tokens, 50);
     assert_eq!(day_one.cache_read_tokens, 20);
     assert_eq!(day_one.cache_write_tokens, 10);
+    assert_eq!(day_one.total_nano_aiu, None);
+    assert_eq!(day_one.unobserved_input_tokens, 100);
+    assert_eq!(day_one.unobserved_output_tokens, 50);
 
     let day_two = result
         .model_usage_by_day

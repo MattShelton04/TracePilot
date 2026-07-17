@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ModelPriceEntry } from "../src/config.js";
 import { getDefaultWholesalePrices, MODEL_REGISTRY } from "../src/models.js";
 import {
+  calculateObservedAiCredits,
   calculateObservedAiuCost,
   calculatePricingComparison,
   calculateTokenCost,
@@ -10,6 +11,7 @@ import {
   modelPriceEntriesToPricingRegistry,
   normalizeModelName,
   PROVIDER_WHOLESALE_PRICING,
+  resolveAiCreditUsage,
   resolvePricingEntry,
 } from "../src/pricing.js";
 import pricingData from "../src/pricing-data.json" with { type: "json" };
@@ -235,7 +237,7 @@ describe("pricing registry", () => {
     expect(cost.totalCost).toBe(2.1);
   });
 
-  it("compares legacy premium requests with usage-based preview", () => {
+  it("retains the legacy premium comparison for historical reporting", () => {
     const metrics: ShutdownMetrics = {
       totalPremiumRequests: 10,
       modelMetrics: {
@@ -248,10 +250,69 @@ describe("pricing registry", () => {
     const comparison = calculatePricingComparison(metrics, 0.04, [], "2026-06-01");
     expect(comparison.legacyCopilotCost).toBeCloseTo(0.4);
     expect(comparison.usageBasedCopilot.totalCost).toBeCloseTo(55);
-    expect(comparison.june2026PreviewDelta).toBeCloseTo(54.6);
   });
 
   it("converts observed nano AIU telemetry with explicit nano units", () => {
     expect(calculateObservedAiuCost(1_000_000_000)).toBe(0.01);
+    expect(calculateObservedAiCredits(1_000_000_000)).toBe(1);
+  });
+
+  it("prefers observed AI Credits over a token-based estimate", () => {
+    const estimate = calculateTokenCost(
+      "gpt-5.5",
+      { inputTokens: 1_000_000 },
+      {
+        billingProvider: "github-copilot",
+        pricingKind: "usage-token-rate",
+        at: "2026-06-01",
+      },
+    );
+    expect(resolveAiCreditUsage(2_500_000_000, estimate)).toEqual({
+      credits: 2.5,
+      usdEquivalent: 0.025,
+      source: "observed",
+    });
+  });
+
+  it("uses a labeled token estimate when observed AI Credits are absent", () => {
+    const estimate = calculateTokenCost(
+      "gpt-5.5",
+      { inputTokens: 1_000_000 },
+      {
+        billingProvider: "github-copilot",
+        pricingKind: "usage-token-rate",
+        at: "2026-06-01",
+      },
+    );
+    expect(resolveAiCreditUsage(null, estimate)).toEqual({
+      credits: 1000,
+      usdEquivalent: 10,
+      source: "estimated-token-usage",
+    });
+  });
+
+  it("falls back to a direct API estimate when GitHub token pricing is unavailable", () => {
+    const unknownUsage = calculateTokenCost("unknown-model", { inputTokens: 1_000_000 });
+    const directEstimate = calculateTokenCost(
+      "gpt-5.5",
+      { inputTokens: 1_000_000 },
+      {
+        billingProvider: "provider-wholesale",
+        pricingKind: "usage-token-rate",
+      },
+    );
+    expect(resolveAiCreditUsage(null, unknownUsage, directEstimate)).toEqual({
+      credits: 1000,
+      usdEquivalent: 10,
+      source: "estimated-direct-api",
+    });
+  });
+
+  it("does not reinterpret missing usage as AI Credits", () => {
+    expect(resolveAiCreditUsage(undefined)).toEqual({
+      credits: null,
+      usdEquivalent: null,
+      source: "unavailable",
+    });
   });
 });

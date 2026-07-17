@@ -44,7 +44,6 @@ export interface SubagentView {
   completedAt?: string;
   totalTokens?: number;
   totalToolCalls?: number;
-
   turnIndex?: number;
   sourceTurnIndex?: number;
   isCrossTurnParent?: boolean;

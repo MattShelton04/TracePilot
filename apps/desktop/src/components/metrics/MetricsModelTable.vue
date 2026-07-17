@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import { Badge, DataTable, formatCost, formatNumber, SectionPanel, TokenBar } from "@tracepilot/ui";
+import {
+  Badge,
+  DataTable,
+  formatAiCredits,
+  formatNumber,
+  SectionPanel,
+  TokenBar,
+} from "@tracepilot/ui";
 import { computed } from "vue";
 import type { MetricsModelEntry } from "@/composables/useMetricsTabData";
 
@@ -13,10 +20,8 @@ const modelColumns = computed(() => {
   const cols = [
     { key: "name", label: "Model", align: "left" as const },
     { key: "requests", label: "Requests", align: "right" as const },
-    { key: "copilotCost", label: "Legacy Copilot", align: "right" as const },
-    { key: "usageBasedCost", label: "GitHub Usage", align: "right" as const },
-    { key: "observedAiuCost", label: "Observed AIC cost", align: "right" as const },
-    { key: "wholesaleCost", label: "Direct API", align: "right" as const },
+    { key: "aiCredits", label: "AI Credits", align: "right" as const },
+    { key: "aiCreditSource", label: "Source", align: "left" as const },
     { key: "inputTokens", label: "Input Tokens", align: "right" as const },
     { key: "outputTokens", label: "Output Tokens", align: "right" as const },
   ];
@@ -68,23 +73,15 @@ const modelColumns = computed(() => {
     <template #cell-requests="{ value }">
       <span class="text-[var(--text-primary)]">{{ value }}</span>
     </template>
-    <template #cell-copilotCost="{ value }">
-      <span class="text-[var(--warning-fg)]">{{ formatCost(value as number) }}</span>
-    </template>
-    <template #cell-usageBasedCost="{ value }">
-      <span :class="value != null ? 'text-[var(--done-fg)]' : 'text-[var(--text-placeholder)]'">
-        {{ value != null ? formatCost(value as number) : '—' }}
-      </span>
-    </template>
-    <template #cell-observedAiuCost="{ value }">
+    <template #cell-aiCredits="{ value }">
       <span :class="value != null ? 'text-[var(--accent-fg)]' : 'text-[var(--text-placeholder)]'">
-        {{ value != null ? formatCost(value as number) : '—' }}
+        {{ formatAiCredits(value as number | null) }}
       </span>
     </template>
-    <template #cell-wholesaleCost="{ value }">
-      <span :class="value != null ? 'text-[var(--done-fg)]' : 'text-[var(--text-placeholder)]'">
-        {{ value != null ? formatCost(value as number) : '—' }}
-      </span>
+    <template #cell-aiCreditSource="{ value }">
+      <Badge :variant="value === 'observed' ? 'success' : 'neutral'">
+        {{ value === 'observed' ? 'Observed' : value === 'unavailable' ? 'Unavailable' : 'Estimated' }}
+      </Badge>
     </template>
     <template #cell-inputTokens="{ value }">
       <span class="text-[var(--text-secondary)]">{{ formatNumber(value as number) }}</span>

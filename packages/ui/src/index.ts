@@ -1,6 +1,7 @@
 // TracePilot UI component library — shared Vue components for desktop and web.
 
 export {
+  formatAiCredits,
   formatBytes,
   formatClockTime,
   formatCost,

@@ -104,6 +104,15 @@ impl DailySeriesAccumulator {
             entry.reasoning_tokens_sum += reasoning_tokens;
             entry.has_reasoning_tokens = true;
         }
+        if let Some(total_nano_aiu) = detail.total_nano_aiu {
+            entry.total_nano_aiu += total_nano_aiu;
+            entry.has_observed_ai_credits = true;
+        } else {
+            entry.unobserved_input_tokens += usage.input_tokens.unwrap_or(0);
+            entry.unobserved_output_tokens += usage.output_tokens.unwrap_or(0);
+            entry.unobserved_cache_read_tokens += usage.cache_read_tokens.unwrap_or(0);
+            entry.unobserved_cache_write_tokens += usage.cache_write_tokens.unwrap_or(0);
+        }
     }
 }
 
@@ -117,6 +126,12 @@ struct DayModelUsageTotals {
     cache_write_tokens: u64,
     reasoning_tokens_sum: u64,
     has_reasoning_tokens: bool,
+    total_nano_aiu: u64,
+    has_observed_ai_credits: bool,
+    unobserved_input_tokens: u64,
+    unobserved_output_tokens: u64,
+    unobserved_cache_read_tokens: u64,
+    unobserved_cache_write_tokens: u64,
 }
 
 impl DayModelUsageTotals {
@@ -143,6 +158,13 @@ impl From<DayModelUsageTotals> for DayModelUsage {
             } else {
                 None
             },
+            total_nano_aiu: value
+                .has_observed_ai_credits
+                .then_some(value.total_nano_aiu),
+            unobserved_input_tokens: value.unobserved_input_tokens,
+            unobserved_output_tokens: value.unobserved_output_tokens,
+            unobserved_cache_read_tokens: value.unobserved_cache_read_tokens,
+            unobserved_cache_write_tokens: value.unobserved_cache_write_tokens,
         }
     }
 }

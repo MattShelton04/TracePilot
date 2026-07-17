@@ -49,8 +49,8 @@ const features = [
   {
     emoji: "💰",
     color: chartColors.orange, // orange
-    title: "Cost Tracking",
-    desc: "Monitor premium request spending and API cost estimates",
+    title: "AI Credit Tracking",
+    desc: "Track observed AIC with estimates for compatible historical sessions",
   },
 ];
 </script>

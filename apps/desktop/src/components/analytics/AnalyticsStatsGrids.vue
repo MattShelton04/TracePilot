@@ -1,12 +1,34 @@
 <script setup lang="ts">
 import type { AnalyticsData } from "@tracepilot/types";
-import { formatCost, formatNumber, formatNumberFull, StatCard } from "@tracepilot/ui";
+import {
+  formatAiCredits,
+  formatCost,
+  formatNumber,
+  formatNumberFull,
+  StatCard,
+} from "@tracepilot/ui";
+import type { AnalyticsAiCreditSummary } from "@/utils/analyticsCostSeries";
 
 defineProps<{
   data: AnalyticsData;
-  copilotCost: number;
-  totalWholesaleCost: number;
+  aiCreditSummary: AnalyticsAiCreditSummary | null;
 }>();
+
+function sourceLabel(summary: AnalyticsAiCreditSummary | null): string {
+  if (!summary) return "";
+  const partial = summary.isPartial ? " Partial total: some models could not be priced." : "";
+  if (summary.source === "observed") return `Observed Copilot billing telemetry.${partial}`;
+  if (summary.source === "mixed-observed-estimated") {
+    return `Observed AIC merged with estimates for historical sessions.${partial}`;
+  }
+  if (summary.source === "estimated-token-usage") {
+    return `Estimated from GitHub token rates.${partial}`;
+  }
+  if (summary.source === "estimated-direct-api") {
+    return `Estimated from direct API rates.${partial}`;
+  }
+  return "No AIC or compatible token pricing data";
+}
 </script>
 
 <template>
@@ -14,8 +36,18 @@ defineProps<{
   <div class="grid-4 mb-4">
     <StatCard :value="formatNumberFull(data.totalSessions)" label="Total Sessions" />
     <StatCard :value="formatNumber(data.totalTokens)" label="Total Tokens" :gradient="true" />
-    <StatCard :value="formatCost(copilotCost)" label="Legacy Copilot Cost" color="warning" />
-    <StatCard :value="formatCost(totalWholesaleCost)" label="Direct API Estimate" color="done" tooltip="Local token-rate estimate. Defaults mirror GitHub's published Copilot usage rates for documented models; Settings overrides can intentionally diverge." />
+    <StatCard
+      :value="formatAiCredits(aiCreditSummary?.credits)"
+      label="AI Credits"
+      color="done"
+      :tooltip="sourceLabel(aiCreditSummary)"
+    />
+    <StatCard
+      :value="formatCost(aiCreditSummary?.usdEquivalent)"
+      label="AIC USD Equivalent"
+      color="success"
+      :tooltip="sourceLabel(aiCreditSummary)"
+    />
   </div>
 
   <!-- Incident Stats -->

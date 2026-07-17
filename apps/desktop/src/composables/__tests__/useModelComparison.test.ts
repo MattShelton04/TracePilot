@@ -187,9 +187,9 @@ describe("useModelComparison", () => {
     const { comp } = mountHook();
     expect(comp.compareA).toBe("x");
     expect(comp.compareB).toBe("y");
-    expect(comp.compareMetrics.length).toBe(9);
+    expect(comp.compareMetrics.length).toBe(8);
     expect(comp.compareMetrics.map((m) => m.label)).toContain("Total Tokens");
-    expect(comp.compareMetrics.map((m) => m.label)).toContain("Direct API Cost");
+    expect(comp.compareMetrics.map((m) => m.label)).toContain("AI Credits");
   });
 
   it("radar + scatter helpers produce valid coordinates", () => {

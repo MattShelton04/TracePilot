@@ -5,6 +5,8 @@ export const FIXTURE_ANALYTICS: AnalyticsData = {
   totalTokens: 2_500_000,
   totalCost: 5.5,
   totalPremiumRequests: 40,
+  totalNanoAiu: 160_000_000_000,
+  sessionsWithObservedAiCredits: 10,
   tokenUsageByDay: [
     { date: "2025-01-01", tokens: 100_000 },
     { date: "2025-01-02", tokens: 150_000 },
@@ -26,6 +28,7 @@ export const FIXTURE_ANALYTICS: AnalyticsData = {
       cacheWriteTokens: 0,
       premiumRequests: 24,
       requestCount: 180,
+      totalNanoAiu: 96_000_000_000,
     },
     {
       model: "claude-3",
@@ -37,6 +40,7 @@ export const FIXTURE_ANALYTICS: AnalyticsData = {
       cacheWriteTokens: 0,
       premiumRequests: 16,
       requestCount: 120,
+      totalNanoAiu: 64_000_000_000,
     },
   ],
   costByDay: [
@@ -52,6 +56,7 @@ export const FIXTURE_ANALYTICS: AnalyticsData = {
       outputTokens: 100_000,
       cacheReadTokens: 0,
       cacheWriteTokens: 0,
+      totalNanoAiu: 30_000_000_000,
     },
     {
       date: "2025-01-02",
@@ -60,6 +65,7 @@ export const FIXTURE_ANALYTICS: AnalyticsData = {
       outputTokens: 250_000,
       cacheReadTokens: 0,
       cacheWriteTokens: 0,
+      totalNanoAiu: 50_000_000_000,
     },
     {
       date: "2025-01-03",
@@ -68,6 +74,7 @@ export const FIXTURE_ANALYTICS: AnalyticsData = {
       outputTokens: 500_000,
       cacheReadTokens: 0,
       cacheWriteTokens: 0,
+      totalNanoAiu: 80_000_000_000,
     },
   ],
   apiDurationStats: {
