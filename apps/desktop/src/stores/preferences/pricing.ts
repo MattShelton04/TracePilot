@@ -36,6 +36,35 @@ export type ModelWholesalePrice = ModelPriceEntry;
  *  Derived from the shared MODEL_REGISTRY in @tracepilot/types. */
 export const DEFAULT_WHOLESALE_PRICES: ModelPriceEntry[] = getDefaultWholesalePrices();
 
+function pricingEntryKey(
+  price: Pick<ModelPriceEntry, "model" | "pricingTier" | "minimumInputTokens">,
+) {
+  return `${price.model}:${price.pricingTier ?? "default"}:${price.minimumInputTokens ?? 0}`;
+}
+
+export function mergeWholesalePricesWithDefaults(
+  saved: readonly ModelPriceEntry[],
+): ModelPriceEntry[] {
+  const savedByKey = new Map(saved.map((price) => [pricingEntryKey(price), price]));
+  const merged = DEFAULT_WHOLESALE_PRICES.map((def) => {
+    const existing = savedByKey.get(pricingEntryKey(def));
+    return existing
+      ? {
+          ...def,
+          ...existing,
+          premiumRequests: existing.premiumRequests ?? def.premiumRequests,
+        }
+      : def;
+  });
+  const defaultKeys = new Set(DEFAULT_WHOLESALE_PRICES.map(pricingEntryKey));
+  return [
+    ...merged,
+    ...saved
+      .filter((price) => !defaultKeys.has(pricingEntryKey(price)))
+      .map((price) => ({ ...price, premiumRequests: price.premiumRequests ?? 1 })),
+  ];
+}
+
 export function createPricingSlice() {
   const costPerPremiumRequest = ref(DEFAULT_COST_PER_PREMIUM_REQUEST);
   const modelWholesalePrices = ref<ModelPriceEntry[]>([...DEFAULT_WHOLESALE_PRICES]);

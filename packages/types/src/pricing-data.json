@@ -1,25 +1,25 @@
 {
-  "version": "github-copilot-usage-2026-05-04",
+  "version": "github-copilot-usage-2026-07-17",
   "sources": {
     "githubCopilotUsage": {
       "label": "GitHub Copilot models and pricing",
       "url": "https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing",
-      "verifiedAt": "2026-05-04",
+      "verifiedAt": "2026-07-17",
       "effectiveFrom": "2026-06-01"
     },
     "annualLegacyMultipliers": {
       "label": "GitHub annual-plan premium request multipliers",
-      "url": "https://docs.github.com/en/copilot/reference/copilot-billing/model-multipliers-for-annual-plans",
-      "verifiedAt": "2026-05-04",
+      "url": "https://docs.github.com/en/copilot/reference/copilot-billing/request-based-billing-legacy/model-multipliers-for-annual-plans",
+      "verifiedAt": "2026-07-17",
       "effectiveFrom": "2026-06-01"
     },
     "tracePilotLegacyProviderEstimate": {
       "label": "TracePilot legacy provider estimate",
-      "verifiedAt": "2026-05-04"
+      "verifiedAt": "2026-07-17"
     },
     "tracePilotCurrentPremiumRequests": {
       "label": "TracePilot current premium request defaults",
-      "verifiedAt": "2026-05-04"
+      "verifiedAt": "2026-07-17"
     }
   },
   "aliases": {
@@ -28,13 +28,18 @@
     "claude-opus-4.6": ["Claude Opus 4.6"],
     "claude-opus-4.6-fast": ["Claude Opus 4.6 Fast"],
     "claude-opus-4.7": ["Claude Opus 4.7"],
+    "claude-opus-4.8": ["Claude Opus 4.8"],
+    "claude-opus-4.8-fast": ["Claude Opus 4.8 (fast mode) (preview)", "Claude Opus 4.8 Fast"],
+    "claude-fable-5": ["Claude Fable 5"],
     "claude-sonnet-4": ["Claude Sonnet 4"],
     "claude-sonnet-4.5": ["Claude Sonnet 4.5"],
     "claude-sonnet-4.6": ["Claude Sonnet 4.6"],
+    "claude-sonnet-5": ["Claude Sonnet 5"],
     "gemini-2.5-pro": ["Gemini 2.5 Pro"],
     "gemini-3-flash": ["Gemini 3 Flash"],
     "gemini-3-pro-preview": ["Gemini 3 Pro", "gemini-3-pro"],
     "gemini-3.1-pro": ["Gemini 3.1 Pro"],
+    "gemini-3.5-flash": ["Gemini 3.5 Flash"],
     "goldeneye": ["Goldeneye"],
     "gpt-4.1": ["GPT-4.1"],
     "gpt-4o": ["GPT-4o"],
@@ -51,8 +56,13 @@
     "gpt-5.4-mini": ["GPT-5.4 mini"],
     "gpt-5.4-nano": ["GPT-5.4 nano"],
     "gpt-5.5": ["GPT-5.5"],
+    "gpt-5.6-luna": ["GPT-5.6 Luna"],
+    "gpt-5.6-sol": ["GPT-5.6 Sol"],
+    "gpt-5.6-terra": ["GPT-5.6 Terra"],
     "grok-code-fast-1": ["Grok Code Fast 1"],
-    "raptor-mini": ["Raptor mini"]
+    "raptor-mini": ["Raptor mini"],
+    "mai-code-1-flash": ["MAI-Code-1-Flash"],
+    "kimi-k2.7-code": ["Kimi K2.7 Code"]
   },
   "githubCopilotUsage": [
     {
@@ -104,6 +114,16 @@
       "outputPerM": 15
     },
     {
+      "model": "gpt-5.4",
+      "displayName": "GPT-5.4",
+      "pricingTier": "long-context",
+      "minimumInputTokens": 272001,
+      "inputPerM": 5,
+      "cachedInputPerM": 0.5,
+      "cacheWritePerM": 0,
+      "outputPerM": 22.5
+    },
+    {
       "model": "gpt-5.4-mini",
       "displayName": "GPT-5.4 mini",
       "inputPerM": 0.75,
@@ -126,6 +146,70 @@
       "cachedInputPerM": 0.5,
       "cacheWritePerM": 0,
       "outputPerM": 30
+    },
+    {
+      "model": "gpt-5.5",
+      "displayName": "GPT-5.5",
+      "pricingTier": "long-context",
+      "minimumInputTokens": 272001,
+      "inputPerM": 10,
+      "cachedInputPerM": 1,
+      "cacheWritePerM": 0,
+      "outputPerM": 45
+    },
+    {
+      "model": "gpt-5.6-luna",
+      "displayName": "GPT-5.6 Luna",
+      "inputPerM": 1,
+      "cachedInputPerM": 0.1,
+      "cacheWritePerM": 0,
+      "outputPerM": 6
+    },
+    {
+      "model": "gpt-5.6-luna",
+      "displayName": "GPT-5.6 Luna",
+      "pricingTier": "long-context",
+      "minimumInputTokens": 200001,
+      "inputPerM": 2,
+      "cachedInputPerM": 0.2,
+      "cacheWritePerM": 0,
+      "outputPerM": 9
+    },
+    {
+      "model": "gpt-5.6-sol",
+      "displayName": "GPT-5.6 Sol",
+      "inputPerM": 5,
+      "cachedInputPerM": 0.5,
+      "cacheWritePerM": 0,
+      "outputPerM": 30
+    },
+    {
+      "model": "gpt-5.6-sol",
+      "displayName": "GPT-5.6 Sol",
+      "pricingTier": "long-context",
+      "minimumInputTokens": 272001,
+      "inputPerM": 10,
+      "cachedInputPerM": 1,
+      "cacheWritePerM": 0,
+      "outputPerM": 45
+    },
+    {
+      "model": "gpt-5.6-terra",
+      "displayName": "GPT-5.6 Terra",
+      "inputPerM": 2.5,
+      "cachedInputPerM": 0.25,
+      "cacheWritePerM": 0,
+      "outputPerM": 15
+    },
+    {
+      "model": "gpt-5.6-terra",
+      "displayName": "GPT-5.6 Terra",
+      "pricingTier": "long-context",
+      "minimumInputTokens": 272001,
+      "inputPerM": 5,
+      "cachedInputPerM": 0.5,
+      "cacheWritePerM": 0,
+      "outputPerM": 22.5
     },
     {
       "model": "claude-haiku-4.5",
@@ -184,6 +268,38 @@
       "outputPerM": 25
     },
     {
+      "model": "claude-opus-4.8",
+      "displayName": "Claude Opus 4.8",
+      "inputPerM": 5,
+      "cachedInputPerM": 0.5,
+      "cacheWritePerM": 6.25,
+      "outputPerM": 25
+    },
+    {
+      "model": "claude-opus-4.8-fast",
+      "displayName": "Claude Opus 4.8 (fast mode) (preview)",
+      "inputPerM": 10,
+      "cachedInputPerM": 1,
+      "cacheWritePerM": 12.5,
+      "outputPerM": 50
+    },
+    {
+      "model": "claude-fable-5",
+      "displayName": "Claude Fable 5",
+      "inputPerM": 10,
+      "cachedInputPerM": 1,
+      "cacheWritePerM": 12.5,
+      "outputPerM": 50
+    },
+    {
+      "model": "claude-sonnet-5",
+      "displayName": "Claude Sonnet 5",
+      "inputPerM": 2,
+      "cachedInputPerM": 0.2,
+      "cacheWritePerM": 2.5,
+      "outputPerM": 10
+    },
+    {
       "model": "gemini-2.5-pro",
       "displayName": "Gemini 2.5 Pro",
       "inputPerM": 1.25,
@@ -206,6 +322,40 @@
       "cachedInputPerM": 0.2,
       "cacheWritePerM": 0,
       "outputPerM": 12
+    },
+    {
+      "model": "gemini-3.1-pro",
+      "displayName": "Gemini 3.1 Pro",
+      "pricingTier": "long-context",
+      "minimumInputTokens": 200001,
+      "inputPerM": 4,
+      "cachedInputPerM": 0.4,
+      "cacheWritePerM": 0,
+      "outputPerM": 18
+    },
+    {
+      "model": "gemini-3.5-flash",
+      "displayName": "Gemini 3.5 Flash",
+      "inputPerM": 1.5,
+      "cachedInputPerM": 0.15,
+      "cacheWritePerM": 0,
+      "outputPerM": 9
+    },
+    {
+      "model": "mai-code-1-flash",
+      "displayName": "MAI-Code-1-Flash",
+      "inputPerM": 0.75,
+      "cachedInputPerM": 0.075,
+      "cacheWritePerM": 0,
+      "outputPerM": 4.5
+    },
+    {
+      "model": "kimi-k2.7-code",
+      "displayName": "Kimi K2.7 Code",
+      "inputPerM": 0.95,
+      "cachedInputPerM": 0.19,
+      "cacheWritePerM": 0,
+      "outputPerM": 4
     },
     {
       "model": "grok-code-fast-1",
@@ -258,6 +408,12 @@
       "premiumRequests": 27
     },
     {
+      "model": "claude-opus-4.8",
+      "displayName": "Claude Opus 4.8",
+      "currentPremiumRequests": 15,
+      "premiumRequests": 27
+    },
+    {
       "model": "claude-sonnet-4",
       "displayName": "Claude Sonnet 4",
       "currentPremiumRequests": 1,
@@ -298,6 +454,12 @@
       "displayName": "Gemini 3.1 Pro",
       "currentPremiumRequests": 1,
       "premiumRequests": 6
+    },
+    {
+      "model": "gemini-3.5-flash",
+      "displayName": "Gemini 3.5 Flash",
+      "currentPremiumRequests": 0.33,
+      "premiumRequests": 14
     },
     {
       "model": "gpt-4o",
@@ -372,6 +534,12 @@
       "premiumRequests": 6
     },
     {
+      "model": "gpt-5.5",
+      "displayName": "GPT-5.5",
+      "currentPremiumRequests": 7.5,
+      "premiumRequests": 57
+    },
+    {
       "model": "gpt-5-mini",
       "displayName": "GPT-5 mini",
       "currentPremiumRequests": 0,
@@ -387,6 +555,12 @@
       "model": "raptor-mini",
       "displayName": "Raptor mini",
       "currentPremiumRequests": 0,
+      "premiumRequests": 0.33
+    },
+    {
+      "model": "mai-code-1-flash",
+      "displayName": "MAI-Code-1-Flash",
+      "currentPremiumRequests": 0.33,
       "premiumRequests": 0.33
     }
   ],
@@ -410,6 +584,41 @@
       "model": "goldeneye",
       "displayName": "Goldeneye",
       "currentPremiumRequests": 1
+    },
+    {
+      "model": "gpt-5.6-luna",
+      "displayName": "GPT-5.6 Luna",
+      "currentPremiumRequests": 0.33
+    },
+    {
+      "model": "gpt-5.6-sol",
+      "displayName": "GPT-5.6 Sol",
+      "currentPremiumRequests": 7.5
+    },
+    {
+      "model": "gpt-5.6-terra",
+      "displayName": "GPT-5.6 Terra",
+      "currentPremiumRequests": 1
+    },
+    {
+      "model": "claude-fable-5",
+      "displayName": "Claude Fable 5",
+      "currentPremiumRequests": 30
+    },
+    {
+      "model": "claude-opus-4.8-fast",
+      "displayName": "Claude Opus 4.8 (fast mode) (preview)",
+      "currentPremiumRequests": 30
+    },
+    {
+      "model": "claude-sonnet-5",
+      "displayName": "Claude Sonnet 5",
+      "currentPremiumRequests": 1
+    },
+    {
+      "model": "kimi-k2.7-code",
+      "displayName": "Kimi K2.7 Code",
+      "currentPremiumRequests": 0.33
     }
   ]
 }

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { createPricingSlice, DEFAULT_WHOLESALE_PRICES } from "../pricing";
+import {
+  createPricingSlice,
+  DEFAULT_WHOLESALE_PRICES,
+  mergeWholesalePricesWithDefaults,
+} from "../pricing";
 
 describe("createPricingSlice", () => {
   it("seeds modelWholesalePrices with a copy of DEFAULT_WHOLESALE_PRICES", () => {
@@ -13,9 +17,28 @@ describe("createPricingSlice", () => {
       outputPerM: 2,
       premiumRequests: 1,
     });
+
     expect(
       DEFAULT_WHOLESALE_PRICES.find((p) => p.model === "synthetic-test-model"),
     ).toBeUndefined();
+  });
+
+  it("backfills new context tiers without overwriting saved model defaults", () => {
+    const savedDefault = {
+      model: "gpt-5.4",
+      pricingTier: "default" as const,
+      inputPerM: 1,
+      cachedInputPerM: 0.1,
+      outputPerM: 2,
+      premiumRequests: 1,
+    };
+    const merged = mergeWholesalePricesWithDefaults([savedDefault]);
+    expect(
+      merged.find((price) => price.model === "gpt-5.4" && price.pricingTier === "default"),
+    ).toMatchObject(savedDefault);
+    expect(
+      merged.find((price) => price.model === "gpt-5.4" && price.pricingTier === "long-context"),
+    ).toMatchObject({ minimumInputTokens: 272001, inputPerM: 5 });
   });
 
   it("getWholesalePrice matches by longest-first prefix", () => {
@@ -84,12 +107,12 @@ describe("createPricingSlice", () => {
   it("computeUsageBasedCost respects effective dates", () => {
     const slice = createPricingSlice();
     expect(slice.computeUsageBasedCost("gpt-5.4", 1_000_000, 0, 0, 0, "2026-05-31")).toBeNull();
-    expect(slice.computeUsageBasedCost("gpt-5.4", 1_000_000, 0, 0, 0, "2026-06-01")).toBe(2.5);
+    expect(slice.computeUsageBasedCost("gpt-5.4", 1_000_000, 0, 0, 0, "2026-06-01")).toBe(5);
   });
 
   it("computeUsageBasedCost previews June 2026 rates when no date is supplied", () => {
     const slice = createPricingSlice();
-    expect(slice.computeUsageBasedCost("gpt-5.4", 1_000_000, 0, 0)).toBe(2.5);
+    expect(slice.computeUsageBasedCost("gpt-5.4", 1_000_000, 0, 0)).toBe(5);
   });
 
   it("default local token-rate estimates mirror GitHub usage rates for documented models", () => {
@@ -103,7 +126,7 @@ describe("createPricingSlice", () => {
     slice.modelWholesalePrices.value = [
       { model: "gpt-5.5", inputPerM: 1, cachedInputPerM: 0.1, outputPerM: 2, premiumRequests: 1 },
     ];
-    expect(slice.computeWholesaleCost("GPT-5.5", 1_000_000, 0, 1_000_000)).toBe(3);
+    expect(slice.computeWholesaleCost("GPT-5.5", 100_000, 0, 1_000_000)).toBe(2.1);
   });
 
   it("converts observed nano AIU to USD using AI Credit units", () => {

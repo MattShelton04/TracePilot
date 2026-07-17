@@ -29,7 +29,11 @@ import { STORAGE_KEYS } from "@/config/storageKeys";
 import { createAlertsSlice } from "@/stores/preferences/alerts";
 import { createFeatureFlagsSlice } from "@/stores/preferences/featureFlags";
 import { migrateFromLocalStorage } from "@/stores/preferences/migration";
-import { createPricingSlice, DEFAULT_WHOLESALE_PRICES } from "@/stores/preferences/pricing";
+import {
+  createPricingSlice,
+  DEFAULT_WHOLESALE_PRICES,
+  mergeWholesalePricesWithDefaults,
+} from "@/stores/preferences/pricing";
 import {
   applyContentMaxWidth,
   applyTheme,
@@ -83,7 +87,9 @@ export const usePreferencesStore = defineStore("preferences", () => {
     ui.cliCommand.value = config.general.cliCommand;
     pricing.costPerPremiumRequest.value = config.pricing.costPerPremiumRequest;
     pricing.modelWholesalePrices.value =
-      config.pricing.models.length > 0 ? [...config.pricing.models] : [...DEFAULT_WHOLESALE_PRICES];
+      config.pricing.models.length > 0
+        ? mergeWholesalePricesWithDefaults(config.pricing.models)
+        : [...DEFAULT_WHOLESALE_PRICES];
     pricing.toolRendering.value = {
       enabled: config.toolRendering.enabled,
       toolOverrides: { ...config.toolRendering.toolOverrides },

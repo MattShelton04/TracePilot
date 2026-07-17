@@ -54,6 +54,13 @@ function sourceSummary(model: string): string {
 function sourceTooltip(model: string): string {
   return `${sourceLabel(model)}\nStatus: ${statusLabel(model)}\nEffective: ${effectiveLabel(model)}`;
 }
+
+function contextLabel(price: { pricingTier?: string; minimumInputTokens?: number }): string {
+  if (price.pricingTier === "long-context" && price.minimumInputTokens != null) {
+    return `Long context (>${(price.minimumInputTokens - 1).toLocaleString()} tokens)`;
+  }
+  return "Default context";
+}
 </script>
 
 <template>
@@ -84,7 +91,7 @@ function sourceTooltip(model: string): string {
 
     <div class="pricing-subsection-title">Model Pricing Overrides</div>
     <p class="pricing-description">
-      Local direct-API/provider prices ($ per 1M tokens) used for configurable estimates. Defaults mirror GitHub Copilot's published token rates for documented models; edits here intentionally override that local estimate.
+      Local direct-API/provider prices ($ per 1M tokens) used for configurable estimates. Defaults mirror GitHub Copilot's published token rates for documented models, including separate short- and long-context tiers under the same model; edits here intentionally override that local estimate.
     </p>
 
     <SectionPanel>
@@ -93,6 +100,7 @@ function sourceTooltip(model: string): string {
           <thead>
             <tr>
               <th class="text-left">Model</th>
+              <th>Context tier</th>
                <th>Input / 1M</th>
                <th>Cached / 1M</th>
                <th>Cache Write / 1M</th>
@@ -103,8 +111,12 @@ function sourceTooltip(model: string): string {
              </tr>
           </thead>
           <tbody>
-            <tr v-for="(price, idx) in preferences.modelWholesalePrices" :key="price.model">
+            <tr
+              v-for="(price, idx) in preferences.modelWholesalePrices"
+              :key="`${price.model}:${price.pricingTier ?? 'default'}:${price.minimumInputTokens ?? 0}`"
+            >
               <td class="font-mono text-xs">{{ price.model }}</td>
+              <td class="text-center text-xs">{{ contextLabel(price) }}</td>
               <td class="text-center">
                 <FormInput
                   type="number"
@@ -178,6 +190,7 @@ function sourceTooltip(model: string): string {
                   aria-label="New model name"
                 />
               </td>
+              <td class="text-center text-xs">Default context</td>
               <td class="text-center">
                 <FormInput
                   type="number"

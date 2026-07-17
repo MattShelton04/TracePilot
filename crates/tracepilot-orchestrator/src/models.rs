@@ -86,7 +86,7 @@ mod tests {
                 model.id
             );
         }
-        assert_eq!(registry().len(), 28);
+        assert_eq!(registry().len(), 38);
     }
 
     #[test]

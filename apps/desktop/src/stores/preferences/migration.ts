@@ -8,7 +8,7 @@
 
 import type { ModelPriceEntry, TracePilotConfig } from "@tracepilot/types";
 import { STORAGE_KEYS } from "@/config/storageKeys";
-import { DEFAULT_WHOLESALE_PRICES } from "@/stores/preferences/pricing";
+import { mergeWholesalePricesWithDefaults } from "@/stores/preferences/pricing";
 import { logWarn } from "@/utils/logger";
 
 export function migrateFromLocalStorage(config: TracePilotConfig): TracePilotConfig {
@@ -37,24 +37,9 @@ export function migrateFromLocalStorage(config: TracePilotConfig): TracePilotCon
     if (typeof old.costPerPremiumRequest === "number")
       config.pricing.costPerPremiumRequest = old.costPerPremiumRequest;
     if (Array.isArray(old.modelWholesalePrices)) {
-      // Merge with defaults: preserve user customizations, backfill new fields
+      // Merge with defaults: preserve user customizations, backfill new models and tiers.
       const saved = old.modelWholesalePrices as ModelPriceEntry[];
-      config.pricing.models = DEFAULT_WHOLESALE_PRICES.map((def) => {
-        const existing = saved.find((s) => s.model === def.model);
-        return existing
-          ? {
-              ...def,
-              ...existing,
-              premiumRequests: existing.premiumRequests ?? def.premiumRequests,
-            }
-          : def;
-      });
-      // Include any user-added models not in defaults
-      for (const s of saved) {
-        if (!DEFAULT_WHOLESALE_PRICES.find((d) => d.model === s.model)) {
-          config.pricing.models.push({ ...s, premiumRequests: s.premiumRequests ?? 1 });
-        }
-      }
+      config.pricing.models = mergeWholesalePricesWithDefaults(saved);
     }
 
     // Tool rendering

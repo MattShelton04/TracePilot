@@ -250,5 +250,95 @@
     "cachedInputPerM": 0.8,
     "outputPerM": 24.0,
     "premiumRequests": 0
+  },
+  {
+    "id": "gpt-5.6-luna",
+    "name": "GPT-5.6 Luna",
+    "tier": "fast",
+    "inputPerM": 1.0,
+    "cachedInputPerM": 0.1,
+    "outputPerM": 6.0,
+    "premiumRequests": 0.33
+  },
+  {
+    "id": "gpt-5.6-sol",
+    "name": "GPT-5.6 Sol",
+    "tier": "premium",
+    "inputPerM": 5.0,
+    "cachedInputPerM": 0.5,
+    "outputPerM": 30.0,
+    "premiumRequests": 7.5
+  },
+  {
+    "id": "gpt-5.6-terra",
+    "name": "GPT-5.6 Terra",
+    "tier": "standard",
+    "inputPerM": 2.5,
+    "cachedInputPerM": 0.25,
+    "outputPerM": 15.0,
+    "premiumRequests": 1
+  },
+  {
+    "id": "claude-fable-5",
+    "name": "Claude Fable 5",
+    "tier": "premium",
+    "inputPerM": 10.0,
+    "cachedInputPerM": 1.0,
+    "outputPerM": 50.0,
+    "premiumRequests": 30
+  },
+  {
+    "id": "claude-opus-4.8",
+    "name": "Claude Opus 4.8",
+    "tier": "premium",
+    "inputPerM": 5.0,
+    "cachedInputPerM": 0.5,
+    "outputPerM": 25.0,
+    "premiumRequests": 15
+  },
+  {
+    "id": "claude-opus-4.8-fast",
+    "name": "Claude Opus 4.8 (fast mode) (preview)",
+    "tier": "premium",
+    "inputPerM": 10.0,
+    "cachedInputPerM": 1.0,
+    "outputPerM": 50.0,
+    "premiumRequests": 30
+  },
+  {
+    "id": "claude-sonnet-5",
+    "name": "Claude Sonnet 5",
+    "tier": "standard",
+    "inputPerM": 2.0,
+    "cachedInputPerM": 0.2,
+    "outputPerM": 10.0,
+    "premiumRequests": 1
+  },
+  {
+    "id": "gemini-3.5-flash",
+    "name": "Gemini 3.5 Flash",
+    "tier": "fast",
+    "inputPerM": 1.5,
+    "cachedInputPerM": 0.15,
+    "outputPerM": 9.0,
+    "premiumRequests": 0.33
+  },
+  {
+    "id": "mai-code-1-flash",
+    "name": "MAI-Code-1-Flash",
+    "tier": "fast",
+    "inputPerM": 0.75,
+    "cachedInputPerM": 0.075,
+    "outputPerM": 4.5,
+    "premiumRequests": 0.33
+  },
+  {
+    "id": "kimi-k2.7-code",
+    "name": "Kimi K2.7 Code",
+    "tier": "standard",
+    "inputPerM": 0.95,
+    "cachedInputPerM": 0.19,
+    "outputPerM": 4.0,
+    "premiumRequests": 0.33
   }
 ]

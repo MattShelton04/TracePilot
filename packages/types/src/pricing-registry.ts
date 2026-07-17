@@ -12,6 +12,8 @@ interface PricingSourceData {
 interface UsagePricingData extends TokenRateSet {
   model: string;
   displayName: string;
+  pricingTier?: "default" | "long-context";
+  minimumInputTokens?: number;
 }
 
 interface LegacyMultiplierData {
@@ -52,6 +54,8 @@ function githubUsageEntry(row: UsagePricingData): PricingRegistryEntry {
     aliases: DATA.aliases[row.model],
     billingProvider: "github-copilot",
     pricingKind: "usage-token-rate",
+    pricingTier: row.pricingTier ?? "default",
+    minimumInputTokens: row.minimumInputTokens,
     rates: {
       inputPerM: row.inputPerM,
       cachedInputPerM: row.cachedInputPerM,
