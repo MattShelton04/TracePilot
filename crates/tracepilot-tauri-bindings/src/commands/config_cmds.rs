@@ -89,12 +89,19 @@ pub async fn get_agent_definitions(
         let version_dir = if let Some(v) = version {
             tracepilot_core::paths::CopilotPaths::from_home(&home).version_dir(&v)
         } else {
-            let active = tracepilot_orchestrator::version_manager::active_version(&home)?;
-            std::path::PathBuf::from(active.path)
+            match tracepilot_orchestrator::version_manager::active_version(&home) {
+                Ok(active) => std::path::PathBuf::from(active.path),
+                Err(tracepilot_orchestrator::OrchestratorError::Version(_)) => {
+                    return Ok::<_, BindingsError>(Vec::new());
+                }
+                Err(e) => return Err(e.into()),
+            }
         };
-        Ok::<_, BindingsError>(
-            tracepilot_orchestrator::config_injector::read_agent_definitions(&version_dir)?,
-        )
+        match tracepilot_orchestrator::config_injector::read_agent_definitions(&version_dir) {
+            Ok(defs) => Ok(defs),
+            Err(tracepilot_orchestrator::OrchestratorError::NotFound(_)) => Ok(Vec::new()),
+            Err(e) => Err(e.into()),
+        }
     })
 }
 
@@ -271,13 +278,15 @@ pub async fn discover_copilot_versions(
 #[tauri::command]
 pub async fn get_active_copilot_version(
     state: tauri::State<'_, SharedConfig>,
-) -> CmdResult<tracepilot_orchestrator::CopilotVersion> {
+) -> CmdResult<Option<tracepilot_orchestrator::CopilotVersion>> {
     let cfg = read_config(&state);
     blocking_cmd!({
         let home = cfg.copilot_home();
-        Ok::<_, crate::error::BindingsError>(
-            tracepilot_orchestrator::version_manager::active_version(&home)?,
-        )
+        match tracepilot_orchestrator::version_manager::active_version(&home) {
+            Ok(v) => Ok::<_, BindingsError>(Some(v)),
+            Err(tracepilot_orchestrator::OrchestratorError::Version(_)) => Ok::<_, BindingsError>(None),
+            Err(e) => Err(e.into()),
+        }
     })
 }
 

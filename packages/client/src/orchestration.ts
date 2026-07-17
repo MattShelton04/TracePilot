@@ -180,8 +180,8 @@ export async function discoverCopilotVersions(): Promise<CopilotVersion[]> {
   return invoke<CopilotVersion[]>("discover_copilot_versions");
 }
 
-export async function getActiveCopilotVersion(): Promise<CopilotVersion> {
-  return invoke<CopilotVersion>("get_active_copilot_version");
+export async function getActiveCopilotVersion(): Promise<CopilotVersion | null> {
+  return invoke<CopilotVersion | null>("get_active_copilot_version");
 }
 
 export async function getMigrationDiffs(

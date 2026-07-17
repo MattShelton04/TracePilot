@@ -14,6 +14,7 @@ import {
   findEventExamples,
   generateMarkdownReport,
   scanSessionVersions,
+  getCopilotPkgDir,
 } from "../lib/version-analyzer.js";
 import { handleValidationError } from "../utils/errorHandler.js";
 import { printJson } from "./utils.js";
@@ -23,7 +24,7 @@ import { printJson } from "./utils.js";
 function ensureVersions(): CopilotVersion[] {
   const versions = discoverInstalledVersions();
   if (versions.length === 0) {
-    handleValidationError("No installed Copilot CLI versions found at ~/.copilot/pkg/universal/");
+    handleValidationError(`No installed Copilot CLI versions found at ${getCopilotPkgDir()}`);
   }
   return versions;
 }

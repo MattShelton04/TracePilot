@@ -4,8 +4,27 @@ import { join } from "node:path";
 import { parseAgentDefinitions, parseApiSchema, parseSessionEventsSchema } from "./schema.js";
 import type { CopilotVersion } from "./types.js";
 
-function getCopilotPkgDir(): string {
-  return join(homedir(), ".copilot", "pkg", "universal");
+function getCopilotPkgDirName(): string {
+  const platform = process.platform;
+  const arch = process.arch;
+
+  if (platform === "win32") {
+    return "win32-x64";
+  } else if (platform === "darwin") {
+    return arch === "arm64" ? "darwin-arm64" : "darwin-x64";
+  } else if (platform === "linux") {
+    return arch === "arm64" ? "linux-arm64" : "linux-x64";
+  }
+  return "universal";
+}
+
+export function getCopilotPkgDir(): string {
+  const pkgBase = join(homedir(), ".copilot", "pkg");
+  const targetDir = join(pkgBase, getCopilotPkgDirName());
+  if (existsSync(targetDir)) {
+    return targetDir;
+  }
+  return join(pkgBase, "universal");
 }
 
 function findExistingFile(baseDir: string, candidates: string[]): string | undefined {
