@@ -9,7 +9,7 @@
 export const RADAR_CX = 150;
 export const RADAR_CY = 130;
 export const RADAR_R = 90;
-export const RADAR_AXES = ["Token Vol.", "Cache Eff.", "Premium Req.", "Cost Eff.", "Token Share"];
+export const RADAR_AXES = ["Token Vol.", "Cache Eff.", "AIC Usage", "AIC Eff.", "Token Share"];
 
 export const SCATTER_W = 500;
 export const SCATTER_H = 250;

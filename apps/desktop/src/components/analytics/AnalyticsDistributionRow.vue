@@ -2,6 +2,7 @@
 import type { AnalyticsData } from "@tracepilot/types";
 import type { ChartLayout, ChartTooltipState } from "@tracepilot/ui";
 import {
+  formatAiCredits,
   formatCost,
   formatDateMedium,
   formatNumber,
@@ -65,21 +66,19 @@ watch(donutSegments, () => {
 });
 
 // ── Cost basis toggle ─────────────────────────────────────────────
-type CostBasis = "legacy" | "directApi";
+type CostBasis = "aiCredits" | "legacy";
 
-// Default to legacy to preserve existing behavior. Local component state
-// (not persisted) — matches other analytics page controls.
-const costBasis = ref<CostBasis>("legacy");
+const costBasis = ref<CostBasis>("aiCredits");
 
-const isDirectApi = computed(() => costBasis.value === "directApi");
+const isAiCredits = computed(() => costBasis.value === "aiCredits");
 
 const costPanelTitle = computed(() =>
-  isDirectApi.value ? "Direct API Cost Trend" : "Legacy Copilot Cost Trend",
+  isAiCredits.value ? "AI Credit Trend" : "Legacy Premium Cost Trend",
 );
 
-const costColor = computed(() => (isDirectApi.value ? CHART_COLORS.success : CHART_COLORS.primary));
+const costColor = computed(() => (isAiCredits.value ? CHART_COLORS.success : CHART_COLORS.primary));
 const costColorLight = computed(() =>
-  isDirectApi.value ? CHART_COLORS.successLight : CHART_COLORS.primaryLight,
+  isAiCredits.value ? CHART_COLORS.successLight : CHART_COLORS.primaryLight,
 );
 
 const costPoints = computed(() =>
@@ -88,6 +87,7 @@ const costPoints = computed(() =>
     costBasis.value,
     prefs.costPerPremiumRequest,
     prefs.computeWholesaleCost,
+    prefs.computeUsageBasedCost,
   ),
 );
 
@@ -96,20 +96,20 @@ const { chartData: costChart } = useLineAreaChartData({
   layout: props.chartLayout,
   accessor: (p) => p.cost,
   yTicks: 4,
-  yFormatter: formatCost,
+  yFormatter: (value) => (isAiCredits.value ? formatAiCredits(value) : formatCost(value)),
   maxFloor: 0.01,
 });
 
 const costAriaLabel = computed(
   () =>
-    `Area chart showing daily ${
-      isDirectApi.value ? "direct API" : "legacy Copilot"
-    } cost trend over ${props.timeRangeLabel}`,
+    `Area chart showing daily ${isAiCredits.value ? "AI Credit usage" : "legacy premium cost"} over ${props.timeRangeLabel}`,
 );
 
 const tooltipFormatter = (i: number) => {
   const point = costChart.value?.coords[i];
-  return point ? `${formatDateMedium(point.date)} — ${formatCost(point.cost)}` : "";
+  return point
+    ? `${formatDateMedium(point.date)} — ${isAiCredits.value ? formatAiCredits(point.cost) : formatCost(point.cost)}`
+    : "";
 };
 </script>
 
@@ -174,23 +174,23 @@ const tooltipFormatter = (i: number) => {
           <button
             type="button"
             class="cost-basis-option"
-            :class="{ active: costBasis === 'legacy' }"
+            :class="{ active: costBasis === 'aiCredits' }"
             role="radio"
-            :aria-checked="costBasis === 'legacy'"
-            @click="costBasis = 'legacy'"
+            :aria-checked="costBasis === 'aiCredits'"
+            @click="costBasis = 'aiCredits'"
           >
-            Legacy Copilot
+            AI Credits
           </button>
           <span class="cost-basis-separator" aria-hidden="true">/</span>
           <button
             type="button"
             class="cost-basis-option"
-            :class="{ active: costBasis === 'directApi' }"
+            :class="{ active: costBasis === 'legacy' }"
             role="radio"
-            :aria-checked="costBasis === 'directApi'"
-            @click="costBasis = 'directApi'"
+            :aria-checked="costBasis === 'legacy'"
+            @click="costBasis = 'legacy'"
           >
-            Direct API
+            Legacy Premium
           </button>
         </div>
       </template>

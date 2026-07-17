@@ -72,6 +72,7 @@ fn export_markdown_includes_metrics() {
 
     assert!(text.contains("## Metrics"));
     assert!(text.contains("claude-opus-4.6"));
+    assert!(text.contains("| AI Credits | 2.500 (observed) |"));
 }
 
 #[test]

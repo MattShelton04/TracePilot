@@ -4,6 +4,7 @@ use super::columns::ensure_search_columns;
 use super::sql::{
     MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4, MIGRATION_5, MIGRATION_6, MIGRATION_7,
     MIGRATION_8, MIGRATION_9, MIGRATION_10, MIGRATION_11, MIGRATION_13, MIGRATION_14, MIGRATION_15,
+    MIGRATION_16,
 };
 use tracepilot_core::utils::migrator::{Migration, MigrationPlan};
 
@@ -90,6 +91,12 @@ pub(super) static INDEX_DB_MIGRATIONS: &[Migration] = &[
         version: 15,
         name: "session_segments end_timestamp index",
         sql: MIGRATION_15,
+        pre_hook: None,
+    },
+    Migration {
+        version: 16,
+        name: "observed AI Credit analytics",
+        sql: MIGRATION_16,
         pre_hook: None,
     },
 ];

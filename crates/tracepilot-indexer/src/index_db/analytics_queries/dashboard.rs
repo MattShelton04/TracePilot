@@ -39,7 +39,9 @@ pub(super) fn query_analytics(
                     COUNT(CASE WHEN error_count > 0 THEN 1 END),
                     COALESCE(SUM(rate_limit_count), 0),
                     COALESCE(SUM(compaction_count), 0),
-                    COALESCE(SUM(truncation_count), 0)
+                    COALESCE(SUM(truncation_count), 0),
+                    COALESCE(SUM(total_nano_aiu), 0),
+                    COUNT(CASE WHEN total_nano_aiu IS NOT NULL THEN 1 END)
              FROM sessions s{}",
         where_clause
     );
@@ -59,6 +61,8 @@ pub(super) fn query_analytics(
         total_rate_limits,
         total_compactions,
         total_truncations,
+        total_nano_aiu,
+        sessions_with_observed_ai_credits,
     ): (
         u32,
         i64,
@@ -73,6 +77,8 @@ pub(super) fn query_analytics(
         i64,
         i64,
         i64,
+        i64,
+        u32,
     ) = conn.query_row(&agg_sql, params_from_iter(refs.iter().copied()), |row| {
         Ok((
             row.get(0)?,
@@ -88,6 +94,8 @@ pub(super) fn query_analytics(
             row.get(10)?,
             row.get(11)?,
             row.get(12)?,
+            row.get(13)?,
+            row.get(14)?,
         ))
     })?;
 
@@ -169,7 +177,13 @@ pub(super) fn query_analytics(
                     SUM(m.cost),
                     SUM(m.request_count),
                     SUM(COALESCE(m.reasoning_tokens, 0)),
-                    MAX(CASE WHEN m.reasoning_tokens IS NOT NULL THEN 1 ELSE 0 END)
+                    MAX(CASE WHEN m.reasoning_tokens IS NOT NULL THEN 1 ELSE 0 END),
+                    SUM(COALESCE(m.total_nano_aiu, 0)),
+                    MAX(CASE WHEN m.total_nano_aiu IS NOT NULL THEN 1 ELSE 0 END),
+                    SUM(CASE WHEN m.total_nano_aiu IS NULL THEN m.input_tokens ELSE 0 END),
+                    SUM(CASE WHEN m.total_nano_aiu IS NULL THEN m.output_tokens ELSE 0 END),
+                    SUM(CASE WHEN m.total_nano_aiu IS NULL THEN m.cache_read_tokens ELSE 0 END),
+                    SUM(CASE WHEN m.total_nano_aiu IS NULL THEN m.cache_write_tokens ELSE 0 END)
              FROM session_model_metrics m
              JOIN sessions s ON s.id = m.session_id{}
              GROUP BY m.model_name ORDER BY 2 DESC",
@@ -272,6 +286,8 @@ pub(super) fn query_analytics(
         total_tokens: total_tokens.max(0) as u64,
         total_cost,
         total_premium_requests,
+        total_nano_aiu: total_nano_aiu.max(0) as u64,
+        sessions_with_observed_ai_credits,
         token_usage_by_day,
         activity_per_day,
         model_distribution,
@@ -301,6 +317,12 @@ struct DayModelUsageTotals {
     cache_write_tokens: u64,
     reasoning_tokens_sum: u64,
     has_reasoning_tokens: bool,
+    total_nano_aiu: u64,
+    has_observed_ai_credits: bool,
+    unobserved_input_tokens: u64,
+    unobserved_output_tokens: u64,
+    unobserved_cache_read_tokens: u64,
+    unobserved_cache_write_tokens: u64,
 }
 
 fn query_model_usage_by_day(
@@ -349,7 +371,13 @@ fn query_model_usage_by_day(
                     COALESCE(SUM(m.cache_read_tokens), 0),
                     COALESCE(SUM(m.cache_write_tokens), 0),
                     COALESCE(SUM(COALESCE(m.reasoning_tokens, 0)), 0),
-                    MAX(CASE WHEN m.reasoning_tokens IS NOT NULL THEN 1 ELSE 0 END)
+                    MAX(CASE WHEN m.reasoning_tokens IS NOT NULL THEN 1 ELSE 0 END),
+                    COALESCE(SUM(COALESCE(m.total_nano_aiu, 0)), 0),
+                    MAX(CASE WHEN m.total_nano_aiu IS NOT NULL THEN 1 ELSE 0 END),
+                    COALESCE(SUM(CASE WHEN m.total_nano_aiu IS NULL THEN m.input_tokens ELSE 0 END), 0),
+                    COALESCE(SUM(CASE WHEN m.total_nano_aiu IS NULL THEN m.output_tokens ELSE 0 END), 0),
+                    COALESCE(SUM(CASE WHEN m.total_nano_aiu IS NULL THEN m.cache_read_tokens ELSE 0 END), 0),
+                    COALESCE(SUM(CASE WHEN m.total_nano_aiu IS NULL THEN m.cache_write_tokens ELSE 0 END), 0)
              FROM session_model_metrics m
              JOIN sessions s ON s.id = m.session_id{}
              AND d IS NOT NULL
@@ -372,10 +400,31 @@ fn query_model_usage_by_day(
             row.get::<_, i64>(5)?,
             row.get::<_, i64>(6)?,
             row.get::<_, i64>(7)?,
+            row.get::<_, i64>(8)?,
+            row.get::<_, i64>(9)?,
+            row.get::<_, i64>(10)?,
+            row.get::<_, i64>(11)?,
+            row.get::<_, i64>(12)?,
+            row.get::<_, i64>(13)?,
         ))
     })?;
     for row in fallback_rows {
-        let (date, model, input, output, cache_read, cache_write, reasoning, has_reasoning) = row?;
+        let (
+            date,
+            model,
+            input,
+            output,
+            cache_read,
+            cache_write,
+            reasoning,
+            has_reasoning,
+            total_nano_aiu,
+            has_observed,
+            unobserved_input,
+            unobserved_output,
+            unobserved_cache_read,
+            unobserved_cache_write,
+        ) = row?;
         let entry = totals.entry((date.clone(), model.clone())).or_default();
         entry.input_tokens += input.max(0) as u64;
         entry.output_tokens += output.max(0) as u64;
@@ -385,6 +434,12 @@ fn query_model_usage_by_day(
             entry.reasoning_tokens_sum += reasoning.max(0) as u64;
             entry.has_reasoning_tokens = true;
         }
+        entry.total_nano_aiu += total_nano_aiu.max(0) as u64;
+        entry.has_observed_ai_credits |= has_observed != 0;
+        entry.unobserved_input_tokens += unobserved_input.max(0) as u64;
+        entry.unobserved_output_tokens += unobserved_output.max(0) as u64;
+        entry.unobserved_cache_read_tokens += unobserved_cache_read.max(0) as u64;
+        entry.unobserved_cache_write_tokens += unobserved_cache_write.max(0) as u64;
     }
 
     Ok(totals
@@ -401,6 +456,13 @@ fn query_model_usage_by_day(
             } else {
                 None
             },
+            total_nano_aiu: totals
+                .has_observed_ai_credits
+                .then_some(totals.total_nano_aiu),
+            unobserved_input_tokens: totals.unobserved_input_tokens,
+            unobserved_output_tokens: totals.unobserved_output_tokens,
+            unobserved_cache_read_tokens: totals.unobserved_cache_read_tokens,
+            unobserved_cache_write_tokens: totals.unobserved_cache_write_tokens,
         })
         .collect())
 }
@@ -424,5 +486,14 @@ fn add_model_usage(
     if let Some(reasoning_tokens) = usage.reasoning_tokens {
         entry.reasoning_tokens_sum += reasoning_tokens;
         entry.has_reasoning_tokens = true;
+    }
+    if let Some(total_nano_aiu) = detail.total_nano_aiu {
+        entry.total_nano_aiu += total_nano_aiu;
+        entry.has_observed_ai_credits = true;
+    } else {
+        entry.unobserved_input_tokens += usage.input_tokens.unwrap_or(0);
+        entry.unobserved_output_tokens += usage.output_tokens.unwrap_or(0);
+        entry.unobserved_cache_read_tokens += usage.cache_read_tokens.unwrap_or(0);
+        entry.unobserved_cache_write_tokens += usage.cache_write_tokens.unwrap_or(0);
     }
 }

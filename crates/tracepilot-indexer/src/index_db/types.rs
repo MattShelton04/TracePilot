@@ -3,10 +3,10 @@
 /// Bump this when the analytics schema or extraction logic changes.
 /// Sessions with a stored analytics_version below this will be re-indexed.
 ///
-/// v6: workspace.yaml parser now reads the `name` field (newer Copilot CLI
-/// schema) in addition to legacy `summary`. Forces re-parse so existing
-/// rows for name-only sessions populate `sessions.summary`.
-pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 6;
+/// v7: persist observed nano-AI-unit totals at session, model, and segment
+/// granularity. Existing sessions must be re-read because migration-added
+/// columns cannot be safely backfilled from legacy aggregate columns.
+pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 7;
 
 /// Maximum incidents stored per session to prevent DB bloat.
 pub(super) const MAX_INCIDENTS_PER_SESSION: usize = 100;
@@ -71,6 +71,7 @@ pub(crate) struct ModelMetricsRow {
     pub cost: f64,
     pub premium_requests: i64,
     pub reasoning_tokens: Option<i64>,
+    pub total_nano_aiu: Option<i64>,
 }
 
 /// Named row for per-tool call stats.
@@ -100,6 +101,7 @@ pub(crate) struct SessionSegmentRow {
     pub api_duration_ms: i64,
     pub current_model: Option<String>,
     pub model_metrics_json: Option<String>,
+    pub total_nano_aiu: Option<i64>,
 }
 
 /// Named row for modified file data.
@@ -135,6 +137,7 @@ pub(crate) struct SessionAnalytics {
     // Aggregate token/cost metrics
     pub total_tokens: i64,
     pub total_cost: f64,
+    pub total_nano_aiu: Option<i64>,
     pub lines_added: Option<i64>,
     pub lines_removed: Option<i64>,
     pub tool_call_count: Option<i64>,

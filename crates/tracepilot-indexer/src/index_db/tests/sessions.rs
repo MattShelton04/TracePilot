@@ -29,8 +29,8 @@ fn test_migrations_run_once() {
         .conn
         .query_row("SELECT COUNT(*) FROM schema_version", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(v1, 15);
-    assert_eq!(count1, 14);
+    assert_eq!(v1, 16);
+    assert_eq!(count1, 15);
     drop(db1);
 
     let db2 = IndexDb::open_or_create(&db_path).unwrap();
@@ -38,7 +38,7 @@ fn test_migrations_run_once() {
         .conn
         .query_row("SELECT COUNT(*) FROM schema_version", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(count2, 14);
+    assert_eq!(count2, 15);
 }
 
 #[test]
@@ -145,6 +145,50 @@ updated_at: "2026-03-10T07:15:00Z"
     let listed = db.list_sessions(None, None, None, false).unwrap();
     let session = listed.iter().find(|s| s.id == session_id).unwrap();
     assert_eq!(session.copilot_version.as_deref(), Some("1.0.40"));
+}
+
+#[test]
+fn test_upsert_persists_ai_credit_telemetry_at_each_analytics_level() {
+    let tmp = tempfile::tempdir().unwrap();
+    let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
+    let session_id = "a1c00000-0000-0000-0000-000000000001";
+    let session_dir = write_session_with_tools(
+        tmp.path(),
+        session_id,
+        "org/aic-repo",
+        "2026-03-11T09:00:00Z",
+    );
+
+    db.upsert_session(&session_dir).unwrap();
+
+    let session_aiu: Option<i64> = db
+        .conn
+        .query_row(
+            "SELECT total_nano_aiu FROM sessions WHERE id = ?1",
+            [session_id],
+            |row| row.get(0),
+        )
+        .unwrap();
+    let model_aiu: Option<i64> = db
+        .conn
+        .query_row(
+            "SELECT total_nano_aiu FROM session_model_metrics WHERE session_id = ?1",
+            [session_id],
+            |row| row.get(0),
+        )
+        .unwrap();
+    let segment_aiu: Option<i64> = db
+        .conn
+        .query_row(
+            "SELECT total_nano_aiu FROM session_segments WHERE session_id = ?1",
+            [session_id],
+            |row| row.get(0),
+        )
+        .unwrap();
+
+    assert_eq!(session_aiu, Some(2_500_000_000));
+    assert_eq!(model_aiu, Some(2_500_000_000));
+    assert_eq!(segment_aiu, Some(2_500_000_000));
 }
 
 #[test]

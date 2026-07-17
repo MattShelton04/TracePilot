@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { formatCost, formatNumber, formatPercent } from "@tracepilot/types";
+import { formatAiCredits, formatNumber, formatPercent } from "@tracepilot/types";
 import {
   RADAR_AXES,
   RADAR_CX,
@@ -162,7 +162,7 @@ const ctx = useModelComparisonContext();
               fill="var(--text-tertiary)"
               font-family="Inter, sans-serif"
               transform="rotate(-90, 14, 135)"
-            >Direct API ($)</text>
+            >AI Credits</text>
             <!-- Scale labels -->
             <text
               :x="SCATTER_PAD.left - 8"
@@ -171,7 +171,7 @@ const ctx = useModelComparisonContext();
               font-size="8"
               fill="var(--text-tertiary)"
               font-family="Inter, sans-serif"
-            >$0</text>
+            >0 AIC</text>
             <text
               :x="SCATTER_PAD.left - 8"
               :y="SCATTER_PAD.top + 4"
@@ -179,7 +179,7 @@ const ctx = useModelComparisonContext();
               font-size="8"
               fill="var(--text-tertiary)"
               font-family="Inter, sans-serif"
-            >{{ formatCost(ctx.scatterScale.maxC) }}</text>
+            >{{ formatAiCredits(ctx.scatterScale.maxC) }}</text>
             <text
               :x="SCATTER_PAD.left"
               :y="SCATTER_H - SCATTER_PAD.bottom + 16"
@@ -200,18 +200,18 @@ const ctx = useModelComparisonContext();
             <g v-for="row in ctx.modelRows" :key="`scatter-${row.model}`">
               <circle
                 :cx="ctx.scatterX(row.tokens)"
-                :cy="ctx.scatterY(row.cost ?? 0)"
+                :cy="ctx.scatterY(row.aiCredits ?? 0)"
                 :r="ctx.scatterRadius(row.cacheHitRate)"
                 :fill="row.color"
                 fill-opacity="0.6"
                 :stroke="row.color"
                 stroke-width="1.5"
               >
-                <title>{{ row.model }}: {{ formatNumber(row.tokens) }} tokens, {{ formatCost(row.cost) }}, {{ formatPercent(row.cacheHitRate) }} cache</title>
+                <title>{{ row.model }}: {{ formatNumber(row.tokens) }} tokens, {{ formatAiCredits(row.aiCredits) }}, {{ formatPercent(row.cacheHitRate) }} cache</title>
               </circle>
               <text
                 :x="ctx.scatterX(row.tokens)"
-                :y="ctx.scatterY(row.cost ?? 0) - ctx.scatterRadius(row.cacheHitRate) - 4"
+                :y="ctx.scatterY(row.aiCredits ?? 0) - ctx.scatterRadius(row.cacheHitRate) - 4"
                 text-anchor="middle"
                 font-size="8"
                 fill="var(--text-secondary)"

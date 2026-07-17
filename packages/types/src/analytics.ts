@@ -11,6 +11,10 @@ export interface AnalyticsData {
   totalCost: number;
   /** Total premium requests across all sessions */
   totalPremiumRequests: number;
+  /** Authoritative Copilot usage in nano-AI units. */
+  totalNanoAiu?: number;
+  /** Sessions that contributed authoritative AI Credit telemetry. */
+  sessionsWithObservedAiCredits?: number;
   /** Token usage per day for trend charts */
   tokenUsageByDay: Array<{ date: string; tokens: number }>;
   /** Activity (session segment) count per day */
@@ -32,6 +36,11 @@ export interface AnalyticsData {
     premiumRequests: number;
     requestCount: number;
     reasoningTokens?: number | null;
+    totalNanoAiu?: number | null;
+    unobservedInputTokens?: number;
+    unobservedOutputTokens?: number;
+    unobservedCacheReadTokens?: number;
+    unobservedCacheWriteTokens?: number;
   }>;
   /** Cost per day for trend charts */
   costByDay: Array<{ date: string; cost: number }>;
@@ -44,6 +53,11 @@ export interface AnalyticsData {
     cacheReadTokens: number;
     cacheWriteTokens: number;
     reasoningTokens?: number | null;
+    totalNanoAiu?: number | null;
+    unobservedInputTokens?: number;
+    unobservedOutputTokens?: number;
+    unobservedCacheReadTokens?: number;
+    unobservedCacheWriteTokens?: number;
   }>;
   /** API duration statistics (avg, median, p95 of total_api_duration_ms per session) */
   apiDurationStats: ApiDurationStats;

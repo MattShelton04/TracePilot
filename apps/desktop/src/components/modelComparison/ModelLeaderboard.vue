@@ -10,26 +10,6 @@ const ctx = useModelComparisonContext();
     <div class="section-panel-header panel-header-flex">
       <span>Performance Matrix</span>
       <div class="matrix-toggles">
-        <div class="cost-toggle">
-          <button
-              :class="['toggle-btn', { active: ctx.costMode === 'wholesale' }]"
-              @click="ctx.costMode = 'wholesale'"
-          >
-            Direct API
-          </button>
-          <button
-            :class="['toggle-btn', { active: ctx.costMode === 'copilot' }]"
-            @click="ctx.costMode = 'copilot'"
-          >
-            Legacy Copilot
-          </button>
-          <button
-            :class="['toggle-btn', { active: ctx.costMode === 'both' }]"
-            @click="ctx.costMode = 'both'"
-          >
-            Both
-          </button>
-        </div>
         <div class="norm-toggle">
           <button
             :class="['toggle-btn', { active: ctx.normMode === 'raw' }]"
@@ -61,8 +41,7 @@ const ctx = useModelComparisonContext();
           <col class="col-output" />
           <col class="col-cached" />
           <col class="col-share" />
-          <col v-if="ctx.costMode !== 'copilot'" class="col-cost" />
-          <col v-if="ctx.costMode !== 'wholesale'" class="col-cost" />
+          <col class="col-cost" />
         </colgroup>
         <thead>
           <tr>
@@ -84,19 +63,8 @@ const ctx = useModelComparisonContext();
             <th class="sort-header" @click="ctx.toggleSort('percentage')">
               Share <span class="sort-arrow">{{ ctx.sortArrow('percentage') }}</span>
             </th>
-            <th
-              v-if="ctx.costMode !== 'copilot'"
-              class="sort-header"
-              @click="ctx.toggleSort('cost')"
-            >
-              API $ <span class="sort-arrow">{{ ctx.sortArrow('cost') }}</span>
-            </th>
-            <th
-              v-if="ctx.costMode !== 'wholesale'"
-              class="sort-header"
-              @click="ctx.toggleSort('copilotCost')"
-            >
-              Copilot $ <span class="sort-arrow">{{ ctx.sortArrow('copilotCost') }}</span>
+            <th class="sort-header" @click="ctx.toggleSort('aiCredits')">
+              AI Credits <span class="sort-arrow">{{ ctx.sortArrow('aiCredits') }}</span>
             </th>
           </tr>
         </thead>
@@ -123,24 +91,9 @@ const ctx = useModelComparisonContext();
                 </div>
               </div>
             </td>
-            <td v-if="ctx.costMode !== 'copilot'" class="num-cell matrix-cost-cell">
-              <span
-                class="matrix-cost-value"
-                :class="{ 'best-cell': row.model === ctx.modelRows[ctx.bestCostIdx]?.model }"
-                :title="ctx.fmtNorm(row.cost, true)"
-              >
-                {{ ctx.fmtNorm(row.cost, true) }}
-              </span>
-            </td>
-            <td v-if="ctx.costMode !== 'wholesale'" class="num-cell matrix-cost-cell">
-              <span
-                class="matrix-cost-value"
-                :class="{
-                  'best-cell': row.model === ctx.modelRows[ctx.bestCopilotCostIdx]?.model,
-                }"
-                :title="ctx.fmtNorm(row.copilotCost, true)"
-              >
-                {{ ctx.fmtNorm(row.copilotCost, true) }}
+            <td class="num-cell matrix-cost-cell">
+              <span class="matrix-cost-value">
+                {{ ctx.normMode === 'raw' ? `${row.aiCredits?.toFixed(3) ?? '—'} AIC` : ctx.fmtNorm(row.aiCredits) }}
               </span>
             </td>
           </tr>

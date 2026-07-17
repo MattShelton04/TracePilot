@@ -97,6 +97,7 @@ impl IndexDb {
                     id, path, summary, repository, branch, cwd, host_type,
                     created_at, updated_at, event_count, turn_count,
                     current_model, copilot_version, total_premium_requests, total_api_duration_ms,
+                    total_nano_aiu,
                     workspace_mtime,
                     total_tokens, total_cost, tool_call_count, lines_added, lines_removed,
                     events_mtime, events_size, analytics_version,
@@ -107,6 +108,7 @@ impl IndexDb {
                     ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10,
                     ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20,
                     ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30,
+                    ?31,
                     datetime('now')
                 )
                 ON CONFLICT(id) DO UPDATE SET
@@ -118,6 +120,7 @@ impl IndexDb {
                     copilot_version=excluded.copilot_version,
                     total_premium_requests=excluded.total_premium_requests,
                     total_api_duration_ms=excluded.total_api_duration_ms,
+                    total_nano_aiu=excluded.total_nano_aiu,
                     workspace_mtime=excluded.workspace_mtime,
                     total_tokens=excluded.total_tokens, total_cost=excluded.total_cost,
                     tool_call_count=excluded.tool_call_count,
@@ -146,6 +149,7 @@ impl IndexDb {
                     analytics.copilot_version,
                     analytics.total_premium_requests,
                     analytics.total_api_duration_ms,
+                    analytics.total_nano_aiu,
                     analytics.workspace_mtime,
                     analytics.total_tokens,
                     analytics.total_cost,

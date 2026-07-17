@@ -69,9 +69,9 @@ describe("AnalyticsDashboardView", () => {
 
     expect(wrapper.text()).toContain("10"); // totalSessions
     expect(wrapper.text()).toContain("2.5M"); // totalTokens
-    expect(wrapper.text()).toContain("$1.60"); // copilotCost
-    expect(wrapper.text()).toContain("Legacy Copilot Cost");
-    expect(wrapper.text()).toContain("Direct API Estimate");
+    expect(wrapper.text()).toContain("160 AIC");
+    expect(wrapper.text()).toContain("$1.60");
+    expect(wrapper.text()).toContain("AIC USD Equivalent");
   }, 10_000);
 
   it("renders duration stats section", async () => {
@@ -199,53 +199,50 @@ describe("AnalyticsDashboardView", () => {
     expect(wrapper.text()).not.toContain("API Duration");
   });
 
-  it("renders the cost basis toggle with both options and defaults to legacy", async () => {
+  it("renders the AIC-first trend with a legacy compatibility toggle", async () => {
     mockGetAnalytics.mockResolvedValue(FIXTURE_ANALYTICS);
     const Component = await loadAnalyticsDashboard();
     const wrapper = mount(Component, globalStubs);
 
     await flushPromises();
 
-    // Panel title reflects the legacy default.
-    expect(wrapper.text()).toContain("Legacy Copilot Cost Trend");
-    expect(wrapper.text()).not.toContain("Direct API Cost Trend");
+    expect(wrapper.text()).toContain("AI Credit Trend");
 
     const radios = wrapper.findAll('[role="radio"]');
-    const legacyBtn = radios.find((b) => b.text().includes("Legacy Copilot"));
-    const directBtn = radios.find((b) => b.text().includes("Direct API"));
+    const aiCreditsBtn = radios.find((b) => b.text().includes("AI Credits"));
+    const legacyBtn = radios.find((b) => b.text().includes("Legacy Premium"));
+    expect(aiCreditsBtn).toBeTruthy();
     expect(legacyBtn).toBeTruthy();
-    expect(directBtn).toBeTruthy();
-    expect(legacyBtn!.attributes("aria-checked")).toBe("true");
-    expect(directBtn!.attributes("aria-checked")).toBe("false");
+    expect(aiCreditsBtn!.attributes("aria-checked")).toBe("true");
+    expect(legacyBtn!.attributes("aria-checked")).toBe("false");
 
-    // Default chart aria label reflects the legacy basis.
     const chartSvg = wrapper
       .findAll("svg")
-      .find((s) => /legacy Copilot cost trend/i.test(s.attributes("aria-label") ?? ""));
+      .find((s) => /AI Credit usage/i.test(s.attributes("aria-label") ?? ""));
     expect(chartSvg).toBeTruthy();
   });
 
-  it("switches the cost graph to the direct API basis when toggled", async () => {
+  it("switches the AIC graph to the legacy premium basis when requested", async () => {
     mockGetAnalytics.mockResolvedValue(FIXTURE_ANALYTICS);
     const Component = await loadAnalyticsDashboard();
     const wrapper = mount(Component, globalStubs);
 
     await flushPromises();
 
-    const directBtn = wrapper
+    const legacyBtn = wrapper
       .findAll('[role="radio"]')
-      .find((b) => b.text().includes("Direct API"));
-    expect(directBtn).toBeTruthy();
-    await directBtn!.trigger("click");
+      .find((b) => b.text().includes("Legacy Premium"));
+    expect(legacyBtn).toBeTruthy();
+    await legacyBtn!.trigger("click");
     await flushPromises();
 
-    expect(wrapper.text()).toContain("Direct API Cost Trend");
-    expect(wrapper.text()).not.toContain("Legacy Copilot Cost Trend");
-    expect(directBtn!.attributes("aria-checked")).toBe("true");
+    expect(wrapper.text()).toContain("Legacy Premium Cost Trend");
+    expect(wrapper.text()).not.toContain("AI Credit Trend");
+    expect(legacyBtn!.attributes("aria-checked")).toBe("true");
 
     const chartSvg = wrapper
       .findAll("svg")
-      .find((s) => /direct API cost trend/i.test(s.attributes("aria-label") ?? ""));
+      .find((s) => /legacy premium cost/i.test(s.attributes("aria-label") ?? ""));
     expect(chartSvg).toBeTruthy();
   });
 });

@@ -40,8 +40,9 @@ pub(super) fn write_child_rows(
         conn,
         "INSERT INTO session_model_metrics \
         (session_id, model_name, input_tokens, output_tokens, \
-         cache_read_tokens, cache_write_tokens, cost, request_count, reasoning_tokens) VALUES",
-        9,
+         cache_read_tokens, cache_write_tokens, cost, request_count, reasoning_tokens, \
+         total_nano_aiu) VALUES",
+        10,
         &analytics.model_rows,
         |row, params| {
             params.push(&session_id as &dyn rusqlite::ToSql);
@@ -53,6 +54,7 @@ pub(super) fn write_child_rows(
             params.push(&row.cost);
             params.push(&row.premium_requests);
             params.push(&row.reasoning_tokens);
+            params.push(&row.total_nano_aiu);
         },
     )?;
 
@@ -106,8 +108,8 @@ pub(super) fn write_child_rows(
         "INSERT INTO session_segments \
         (session_id, start_timestamp, end_timestamp, total_tokens, \
          total_requests, total_premium_requests, total_api_duration_ms, \
-         current_model, model_metrics_json) VALUES",
-        9,
+         current_model, model_metrics_json, total_nano_aiu) VALUES",
+        10,
         &analytics.session_segment_rows,
         |row, params| {
             params.push(&session_id as &dyn rusqlite::ToSql);
@@ -119,6 +121,7 @@ pub(super) fn write_child_rows(
             params.push(&row.api_duration_ms);
             params.push(&row.current_model);
             params.push(&row.model_metrics_json);
+            params.push(&row.total_nano_aiu);
         },
     )?;
 

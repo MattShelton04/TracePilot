@@ -6,6 +6,8 @@
  * the type surface without pulling in Vue reactivity.
  */
 
+import type { AiCreditSource } from "@tracepilot/types";
+
 export type CostMode = "wholesale" | "copilot" | "both";
 export type NormMode = "raw" | "per-10m-tokens" | "share";
 
@@ -18,6 +20,7 @@ export type SortKey =
   | "percentage"
   | "premiumRequests"
   | "cacheHitRate"
+  | "aiCredits"
   | "cost"
   | "copilotCost";
 
@@ -32,6 +35,8 @@ export interface ModelRow {
   percentage: number;
   premiumRequests: number;
   cacheHitRate: number;
+  aiCredits: number | null;
+  aiCreditSource: AiCreditSource;
   cost: number | null;
   copilotCost: number;
 }
@@ -58,6 +63,11 @@ export interface ModelDistributionEntry {
   cacheReadTokens: number;
   cacheWriteTokens?: number;
   premiumRequests: number;
+  totalNanoAiu?: number | null;
+  unobservedInputTokens?: number;
+  unobservedOutputTokens?: number;
+  unobservedCacheReadTokens?: number;
+  unobservedCacheWriteTokens?: number;
 }
 
 /** Signature compatible with `usePreferencesStore().computeWholesaleCost`. */

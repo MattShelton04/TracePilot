@@ -1,8 +1,15 @@
 <script setup lang="ts">
-import type { ModelMetricDetail, SessionSegment, ShutdownMetrics } from "@tracepilot/types";
+import {
+  type AiCreditUsage,
+  type ModelMetricDetail,
+  resolveAiCreditUsage,
+  type SessionSegment,
+  type ShutdownMetrics,
+  sumTokenCosts,
+} from "@tracepilot/types";
 import {
   Badge,
-  formatCost,
+  formatAiCredits,
   formatDuration,
   formatNumber,
   formatShortDate,
@@ -35,53 +42,81 @@ function segmentDurationMs(seg: SessionSegment): number | null {
   return new Date(seg.endTimestamp).getTime() - new Date(seg.startTimestamp).getTime();
 }
 
-function segmentCopilotCost(seg: SessionSegment): number {
-  if (!seg.modelMetrics) return seg.premiumRequests * prefs.costPerPremiumRequest;
-  return Object.values(seg.modelMetrics).reduce(
-    (sum, m) => sum + (m.requests?.cost ?? 0) * prefs.costPerPremiumRequest,
-    0,
+function modelAiCredits(name: string, metric: ModelMetricDetail): AiCreditUsage {
+  const usage = metric.usage;
+  const hasTokenUsage =
+    (usage?.inputTokens ?? 0) +
+      (usage?.outputTokens ?? 0) +
+      (usage?.cacheReadTokens ?? 0) +
+      (usage?.cacheWriteTokens ?? 0) >
+    0;
+  const usageEstimate = hasTokenUsage
+    ? prefs.computeUsageBasedCostBreakdown(
+        name,
+        usage?.inputTokens ?? 0,
+        usage?.cacheReadTokens ?? 0,
+        usage?.outputTokens ?? 0,
+        usage?.cacheWriteTokens ?? 0,
+      )
+    : null;
+  const directEstimate = hasTokenUsage
+    ? prefs.computeWholesaleCostBreakdown(
+        name,
+        usage?.inputTokens ?? 0,
+        usage?.cacheReadTokens ?? 0,
+        usage?.outputTokens ?? 0,
+        usage?.cacheWriteTokens ?? 0,
+      )
+    : null;
+  return resolveAiCreditUsage(metric.totalNanoAiu, usageEstimate, directEstimate);
+}
+
+function segmentAiCredits(segment: SessionSegment): AiCreditUsage {
+  const models = Object.entries(segment.modelMetrics ?? {});
+  const hasTokenUsage = models.some(
+    ([, metric]) =>
+      (metric.usage?.inputTokens ?? 0) +
+        (metric.usage?.outputTokens ?? 0) +
+        (metric.usage?.cacheReadTokens ?? 0) +
+        (metric.usage?.cacheWriteTokens ?? 0) >
+      0,
+  );
+  return resolveAiCreditUsage(
+    segment.totalNanoAiu,
+    hasTokenUsage
+      ? sumTokenCosts(
+          models.map(([name, metric]) =>
+            prefs.computeUsageBasedCostBreakdown(
+              name,
+              metric.usage?.inputTokens ?? 0,
+              metric.usage?.cacheReadTokens ?? 0,
+              metric.usage?.outputTokens ?? 0,
+              metric.usage?.cacheWriteTokens ?? 0,
+            ),
+          ),
+        )
+      : null,
+    hasTokenUsage
+      ? sumTokenCosts(
+          models.map(([name, metric]) =>
+            prefs.computeWholesaleCostBreakdown(
+              name,
+              metric.usage?.inputTokens ?? 0,
+              metric.usage?.cacheReadTokens ?? 0,
+              metric.usage?.outputTokens ?? 0,
+              metric.usage?.cacheWriteTokens ?? 0,
+            ),
+          ),
+        )
+      : null,
   );
 }
 
-function segmentWholesaleCost(seg: SessionSegment): number {
-  if (!seg.modelMetrics) return 0;
-  return Object.entries(seg.modelMetrics).reduce((sum, [name, m]) => {
-    const cost = prefs.computeWholesaleCost(
-      name,
-      m.usage?.inputTokens ?? 0,
-      m.usage?.cacheReadTokens ?? 0,
-      m.usage?.outputTokens ?? 0,
-      m.usage?.cacheWriteTokens ?? 0,
-    );
-    return sum + (cost ?? 0);
-  }, 0);
-}
-
-function segmentUsageBasedCost(seg: SessionSegment): number | null {
-  if (!seg.modelMetrics) return null;
-  let total = 0;
-  for (const [name, m] of Object.entries(seg.modelMetrics)) {
-    const cost = prefs.computeUsageBasedCost(
-      name,
-      m.usage?.inputTokens ?? 0,
-      m.usage?.cacheReadTokens ?? 0,
-      m.usage?.outputTokens ?? 0,
-      m.usage?.cacheWriteTokens ?? 0,
-    );
-    if (cost == null) return null;
-    total += cost;
-  }
-  return total;
-}
-
-function modelUsageBasedCost(name: string, m: ModelMetricDetail): number | null {
-  return prefs.computeUsageBasedCost(
-    name,
-    m.usage?.inputTokens ?? 0,
-    m.usage?.cacheReadTokens ?? 0,
-    m.usage?.outputTokens ?? 0,
-    m.usage?.cacheWriteTokens ?? 0,
-  );
+function sourceLabel(source: AiCreditUsage["source"]): string {
+  if (source === "observed") return "Observed AI Credits";
+  if (source === "estimated-token-usage") return "Estimated AI Credits from GitHub token rates";
+  if (source === "estimated-direct-api") return "Estimated AI Credits from direct API rates";
+  return "AI Credits unavailable";
 }
 </script>
 
@@ -122,35 +157,25 @@ function modelUsageBasedCost(name: string, m: ModelMetricDetail): number | null 
             v-for="[name, m] in sortedSegmentModels(seg.modelMetrics)"
             :key="name"
             class="model-row"
-            :class="{ 'model-row--premium': (m.requests?.cost ?? 0) > 0 }"
           >
             <div class="row-main">
               <span class="model-name">{{ name }}</span>
               <span class="model-tokens">{{ formatNumber((m.usage?.inputTokens ?? 0) + (m.usage?.outputTokens ?? 0)) }} <small>tokens</small></span>
             </div>
             <div class="row-costs">
-              <span v-if="(m.requests?.cost ?? 0) > 0" class="cost-pill amber-text" title="Copilot Cost">
-                {{ formatCost((m.requests?.cost ?? 0) * prefs.costPerPremiumRequest) }}
-              </span>
-              <span class="cost-pill emerald-text" title="Direct API estimate">
-                {{ formatCost(prefs.computeWholesaleCost(name as string, m.usage?.inputTokens ?? 0, m.usage?.cacheReadTokens ?? 0, m.usage?.outputTokens ?? 0, m.usage?.cacheWriteTokens ?? 0) || 0) }}
-              </span>
-              <span class="cost-pill blue-text" title="GitHub Copilot usage estimate">
-                {{ modelUsageBasedCost(name as string, m) != null ? formatCost(modelUsageBasedCost(name as string, m)!) : '—' }}
+              <span
+                class="cost-pill blue-text"
+                :title="sourceLabel(modelAiCredits(name as string, m).source)"
+              >
+                {{ formatAiCredits(modelAiCredits(name as string, m).credits) }}
               </span>
             </div>
           </div>
         </div>
 
         <div v-if="seg.tokens > 0" class="activity-tile-costs">
-          <span v-if="segmentCopilotCost(seg) > 0" class="cost-pill amber-text" title="Copilot Cost">
-            Copilot {{ formatCost(segmentCopilotCost(seg)) }}
-          </span>
-          <span class="cost-pill emerald-text" title="Direct API estimate">
-            Direct API {{ formatCost(segmentWholesaleCost(seg)) }}
-          </span>
-          <span class="cost-pill blue-text" title="GitHub Copilot usage estimate">
-            GitHub usage {{ segmentUsageBasedCost(seg) != null ? formatCost(segmentUsageBasedCost(seg) as number) : '—' }}
+          <span class="cost-pill blue-text" :title="sourceLabel(segmentAiCredits(seg).source)">
+            {{ formatAiCredits(segmentAiCredits(seg).credits) }}
           </span>
         </div>
         <div class="activity-tile-footer">
@@ -162,13 +187,17 @@ function modelUsageBasedCost(name: string, m: ModelMetricDetail): number | null 
             <span class="label">Reqs</span>
             <span class="val">{{ formatNumber(seg.totalRequests) }}</span>
           </div>
-          <div v-if="seg.premiumRequests > 0" class="footer-metric">
-            <span class="label">Premium</span>
-            <span class="val premium-val">{{ seg.premiumRequests.toFixed(1) }}</span>
+          <div class="footer-metric">
+            <span class="label">AIC</span>
+            <span class="val">{{ formatAiCredits(segmentAiCredits(seg).credits).replace(' AIC', '') }}</span>
           </div>
-          <div v-if="seg.totalNanoAiu != null" class="footer-metric">
-            <span class="label">Nano AIU</span>
-            <span class="val">{{ formatNumber(seg.totalNanoAiu) }}</span>
+          <div
+            v-if="segmentAiCredits(seg).source === 'unavailable' && seg.premiumRequests > 0"
+            class="footer-metric"
+            title="Legacy sessions only; premium requests are not converted to AIC"
+          >
+            <span class="label">Legacy Premium</span>
+            <span class="val premium-val">{{ seg.premiumRequests.toFixed(1) }}</span>
           </div>
         </div>
       </div>

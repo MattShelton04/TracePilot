@@ -4,7 +4,24 @@ use tracepilot_core::analytics::types::ModelDistEntry;
 
 /// Raw row type returned by model-distribution queries before the `i64` sentinel
 /// for `has_reasoning` is converted to `bool`.
-type ModelDistRawRow = (String, i64, i64, i64, i64, i64, f64, i64, i64, bool);
+type ModelDistRawRow = (
+    String,
+    i64,
+    i64,
+    i64,
+    i64,
+    i64,
+    f64,
+    i64,
+    i64,
+    bool,
+    i64,
+    bool,
+    i64,
+    i64,
+    i64,
+    i64,
+);
 
 pub(in crate::index_db) fn query_model_distribution(
     conn: &Connection,
@@ -24,6 +41,12 @@ pub(in crate::index_db) fn query_model_distribution(
             row.get::<_, i64>(7)?,
             row.get::<_, i64>(8)?,
             row.get::<_, i64>(9)?,
+            row.get::<_, i64>(10)?,
+            row.get::<_, i64>(11)?,
+            row.get::<_, i64>(12)?,
+            row.get::<_, i64>(13)?,
+            row.get::<_, i64>(14)?,
+            row.get::<_, i64>(15)?,
         ))
     })?;
     let mut entries: Vec<ModelDistRawRow> = Vec::new();
@@ -40,6 +63,12 @@ pub(in crate::index_db) fn query_model_distribution(
             request_count,
             reasoning_sum,
             has_reasoning,
+            total_nano_aiu,
+            has_observed,
+            unobserved_input,
+            unobserved_output,
+            unobserved_cache_read,
+            unobserved_cache_write,
         ) = row?;
         grand_total += tokens;
         entries.push((
@@ -53,6 +82,12 @@ pub(in crate::index_db) fn query_model_distribution(
             request_count,
             reasoning_sum,
             has_reasoning != 0,
+            total_nano_aiu,
+            has_observed != 0,
+            unobserved_input,
+            unobserved_output,
+            unobserved_cache_read,
+            unobserved_cache_write,
         ));
     }
     Ok(entries
@@ -69,6 +104,12 @@ pub(in crate::index_db) fn query_model_distribution(
                 request_count,
                 reasoning_sum,
                 has_reasoning,
+                total_nano_aiu,
+                has_observed,
+                unobserved_input,
+                unobserved_output,
+                unobserved_cache_read,
+                unobserved_cache_write,
             )| {
                 let percentage = if grand_total > 0 {
                     (tokens as f64 / grand_total as f64) * 100.0
@@ -90,6 +131,11 @@ pub(in crate::index_db) fn query_model_distribution(
                     } else {
                         None
                     },
+                    total_nano_aiu: has_observed.then_some(total_nano_aiu.max(0) as u64),
+                    unobserved_input_tokens: unobserved_input.max(0) as u64,
+                    unobserved_output_tokens: unobserved_output.max(0) as u64,
+                    unobserved_cache_read_tokens: unobserved_cache_read.max(0) as u64,
+                    unobserved_cache_write_tokens: unobserved_cache_write.max(0) as u64,
                 }
             },
         )

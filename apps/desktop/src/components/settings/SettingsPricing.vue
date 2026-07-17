@@ -65,11 +65,15 @@ function contextLabel(price: { pricingTier?: string; minimumInputTokens?: number
 
 <template>
   <div class="settings-section">
-    <div class="settings-section-title">Pricing</div>
+    <div class="settings-section-title">AI Credit Tracking</div>
+    <p class="pricing-description">
+      Observed AI Credit telemetry is always used when available. These settings only control
+      estimates for historical sessions and models whose AIC telemetry is missing.
+    </p>
     <SectionPanel>
       <div class="setting-row">
         <div class="setting-info">
-          <div class="setting-label">Cost per premium request</div>
+          <div class="setting-label">Legacy cost per premium request</div>
           <div class="setting-description">
             Legacy Copilot estimate for premium-request sessions. Usage-based billing uses token rates below and official GitHub Copilot rates where available.
           </div>
@@ -89,9 +93,10 @@ function contextLabel(price: { pricingTier?: string; minimumInputTokens?: number
       </div>
     </SectionPanel>
 
-    <div class="pricing-subsection-title">Model Pricing Overrides</div>
+    <div class="pricing-subsection-title">AIC Estimate Fallback Rates</div>
     <p class="pricing-description">
-      Local direct-API/provider prices ($ per 1M tokens) used for configurable estimates. Defaults mirror GitHub Copilot's published token rates for documented models, including separate short- and long-context tiers under the same model; edits here intentionally override that local estimate.
+      Local direct-API/provider prices ($ per 1M tokens) are the final AIC estimate fallback when
+      GitHub's published Copilot token rate is unavailable. Overrides do not replace observed AIC.
     </p>
 
     <SectionPanel>
@@ -105,7 +110,7 @@ function contextLabel(price: { pricingTier?: string; minimumInputTokens?: number
                <th>Cached / 1M</th>
                <th>Cache Write / 1M</th>
                <th>Output / 1M</th>
-               <th>Premium Req.</th>
+               <th>Legacy Req.</th>
                <th>Source</th>
                <th class="pricing-col-action"></th>
              </tr>

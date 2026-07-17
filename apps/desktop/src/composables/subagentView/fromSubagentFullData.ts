@@ -5,7 +5,10 @@ import { inferAgentTypeFromToolCall } from "@tracepilot/ui";
 import type { SubagentFullData } from "@/composables/useCrossTurnSubagents";
 import { buildSubagentView } from "./buildSubagentView";
 
-export function fromSubagentFullData(sa: SubagentFullData): SubagentView {
+export function fromSubagentFullData(
+  sa: SubagentFullData,
+  aiCreditAttribution?: { credits: number; label: string } | null,
+): SubagentView {
   const tc = sa.toolCall;
   const status: SubagentView["status"] =
     tc.success === false ? "failed" : tc.isComplete ? "completed" : "in-progress";
@@ -23,6 +26,8 @@ export function fromSubagentFullData(sa: SubagentFullData): SubagentView {
     model: tc.model || undefined,
     requestedModel: tc.requestedModel || undefined,
     turnIndex: sa.turnIndex,
+    attributedAiCredits: aiCreditAttribution?.credits,
+    aiCreditAttributionLabel: aiCreditAttribution?.label,
     isMainAgent: false,
   });
 }

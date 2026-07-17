@@ -3,6 +3,7 @@ import {
   Badge,
   DefList,
   ErrorAlert,
+  formatAiCredits,
   formatDate,
   formatDuration,
   formatNumberFull,
@@ -15,7 +16,9 @@ import {
 } from "@tracepilot/ui";
 import { computed, ref } from "vue";
 import CheckpointTimeline from "@/components/checkpoints/CheckpointTimeline.vue";
+import { useMetricsTabData } from "@/composables/useMetricsTabData";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
+import { usePreferencesStore } from "@/stores/preferences";
 import { formatObjectResult } from "@/utils/formatResult";
 
 const store = useSessionDetailContext();
@@ -33,6 +36,8 @@ useSessionTabLoader(
 const detail = computed(() => store.detail);
 const metrics = computed(() => store.shutdownMetrics);
 const incidents = computed(() => store.incidents);
+const prefs = usePreferencesStore();
+const { aiCreditUsage } = useMetricsTabData(metrics, prefs);
 
 const sessionInfoItems = computed(() => {
   const d = detail.value;
@@ -159,9 +164,10 @@ function retryLoadSection(section: string) {
       <StatCard :value="detail?.turnCount ?? 0" label="Turns" :gradient="true" />
       <StatCard :value="detail?.checkpointCount ?? 0" label="Checkpoints" color="success" />
       <StatCard
-        :value="metrics?.totalPremiumRequests != null ? formatNumberFull(metrics.totalPremiumRequests) : '—'"
-        label="Premium Requests"
+        :value="formatAiCredits(aiCreditUsage.credits)"
+        label="AI Credits"
         color="done"
+        :tooltip="aiCreditUsage.source === 'observed' ? 'Observed Copilot billing telemetry' : 'Estimated for historical session data'"
       />
     </div>
 

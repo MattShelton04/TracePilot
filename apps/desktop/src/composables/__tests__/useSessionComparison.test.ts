@@ -120,8 +120,9 @@ describe("useSessionComparison", () => {
     const labels = comp.metricsRows.map((r) => r.label);
     expect(labels).toContain("Duration");
     expect(labels).toContain("Turns");
+    expect(labels).toContain("AI Credits");
     expect(labels).toContain("Success Rate");
-    expect(comp.metricsRows.length).toBe(9);
+    expect(comp.metricsRows.length).toBe(8);
   });
 });
 

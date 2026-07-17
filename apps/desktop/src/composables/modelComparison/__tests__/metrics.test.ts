@@ -29,6 +29,8 @@ function row(overrides: Partial<ModelRow> = {}): ModelRow {
     cost: 0,
     copilotCost: 0,
     ...overrides,
+    aiCredits: overrides.aiCredits ?? 0,
+    aiCreditSource: overrides.aiCreditSource ?? "observed",
   };
 }
 
@@ -109,6 +111,7 @@ describe("buildModelRows", () => {
     buildModelRows({
       distribution,
       computeWholesaleCost: compute,
+      computeUsageBasedCost: () => 0,
       costPerPremiumRequest: 0.04,
       palette: PALETTE,
     });
@@ -254,11 +257,11 @@ describe("computeScatterScale", () => {
     expect(computeScatterScale([])).toEqual({ maxT: 1, maxC: 0.01 });
   });
 
-  it("returns the max tokens and max cost", () => {
+  it("returns the max tokens and max AI Credits", () => {
     const out = computeScatterScale([
-      row({ tokens: 10, cost: 1 }),
-      row({ tokens: 25, cost: 4 }),
-      row({ tokens: 5, cost: null }),
+      row({ tokens: 10, aiCredits: 1 }),
+      row({ tokens: 25, aiCredits: 4 }),
+      row({ tokens: 5, aiCredits: null }),
     ]);
     expect(out.maxT).toBe(25);
     expect(out.maxC).toBe(4);
@@ -266,21 +269,20 @@ describe("computeScatterScale", () => {
 });
 
 describe("buildCompareMetrics", () => {
-  it("returns 9 rows with delta/direction/better fields populated", () => {
+  it("returns AIC-first rows with delta/direction/better fields populated", () => {
     const a = row({ model: "a", tokens: 1000, percentage: 40, cost: 1, copilotCost: 0.2 });
     const b = row({ model: "b", tokens: 2000, percentage: 60, cost: 2, copilotCost: 0.4 });
     const metrics = buildCompareMetrics(a, b, (v) => (v == null ? "—" : String(v)));
-    expect(metrics).toHaveLength(9);
+    expect(metrics).toHaveLength(8);
     expect(metrics.map((m) => m.label)).toEqual([
       "Total Tokens",
       "Input Tokens",
       "Output Tokens",
       "Cache Read",
       "Token Share",
-      "Premium Requests",
+      "AI Credits",
       "Cache Hit Rate",
-      "Direct API Cost",
-      "Copilot Cost",
+      "Legacy Premium Cost",
     ]);
     for (const m of metrics) {
       expect(typeof m.delta).toBe("string");

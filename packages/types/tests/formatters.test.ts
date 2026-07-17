@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { formatLiveDuration } from "../src/utils/formatters.js";
+import { formatAiCredits, formatLiveDuration } from "../src/utils/formatters.js";
+
+describe("formatAiCredits", () => {
+  it("preserves useful precision and labels the unit", () => {
+    expect(formatAiCredits(0.1254)).toBe("0.125 AIC");
+    expect(formatAiCredits(0.0004)).toBe("0.0004 AIC");
+    expect(formatAiCredits(12.345)).toBe("12.35 AIC");
+    expect(formatAiCredits(null)).toBe("—");
+  });
+});
 
 describe("formatLiveDuration", () => {
   it("should return empty string for null or undefined", () => {

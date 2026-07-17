@@ -21,6 +21,12 @@ struct ModelTokenTotals {
     request_count: u64,
     reasoning_tokens_sum: u64,
     has_reasoning_data: bool,
+    total_nano_aiu: u64,
+    has_observed_ai_credits: bool,
+    unobserved_input_tokens: u64,
+    unobserved_output_tokens: u64,
+    unobserved_cache_read_tokens: u64,
+    unobserved_cache_write_tokens: u64,
 }
 
 pub(super) struct ModelMetricsTotals {
@@ -44,6 +50,8 @@ impl ModelDistributionAccumulator {
                 let cache_write = usage.cache_write_tokens.unwrap_or(0);
                 let session_model_tokens = input_t + output_t;
                 tokens += session_model_tokens;
+                self.total_cache_read_tokens += cache_read;
+                self.total_input_tokens += input_t;
 
                 let entry = self.entry(model_name);
                 entry.input_tokens += input_t;
@@ -56,8 +64,18 @@ impl ModelDistributionAccumulator {
                     entry.has_reasoning_data = true;
                 }
 
-                self.total_cache_read_tokens += cache_read;
-                self.total_input_tokens += input_t;
+                if detail.total_nano_aiu.is_none() {
+                    entry.unobserved_input_tokens += input_t;
+                    entry.unobserved_output_tokens += output_t;
+                    entry.unobserved_cache_read_tokens += cache_read;
+                    entry.unobserved_cache_write_tokens += cache_write;
+                }
+            }
+
+            if let Some(total_nano_aiu) = detail.total_nano_aiu {
+                let entry = self.entry(model_name);
+                entry.total_nano_aiu += total_nano_aiu;
+                entry.has_observed_ai_credits = true;
             }
 
             if let Some(ref requests) = detail.requests {
@@ -104,6 +122,13 @@ impl ModelDistributionAccumulator {
                     } else {
                         None
                     },
+                    total_nano_aiu: totals
+                        .has_observed_ai_credits
+                        .then_some(totals.total_nano_aiu),
+                    unobserved_input_tokens: totals.unobserved_input_tokens,
+                    unobserved_output_tokens: totals.unobserved_output_tokens,
+                    unobserved_cache_read_tokens: totals.unobserved_cache_read_tokens,
+                    unobserved_cache_write_tokens: totals.unobserved_cache_write_tokens,
                 }
             })
             .collect();

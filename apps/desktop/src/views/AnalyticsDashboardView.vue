@@ -19,6 +19,7 @@ import { useAnalyticsPage } from "@/composables/useAnalyticsPage";
 import { usePerfMonitor } from "@/composables/usePerfMonitor";
 import { useRenderBudget } from "@/composables/useRenderBudget";
 import { usePreferencesStore } from "@/stores/preferences";
+import { buildAnalyticsAiCreditSummary } from "@/utils/analyticsCostSeries";
 
 const prefs = usePreferencesStore();
 usePerfMonitor("AnalyticsDashboardView");
@@ -39,25 +40,15 @@ const pageSubtitle = computed(() => {
   return `Aggregate metrics across ${allPrefix}${data.value?.totalSessions ?? 0} sessions${repoSuffix}`;
 });
 
-const copilotCost = computed(() => {
-  if (!data.value) return 0;
-  return data.value.totalPremiumRequests * prefs.costPerPremiumRequest;
-});
-const totalWholesaleCost = computed(() => {
-  if (!data.value) return 0;
-  return data.value.modelDistribution.reduce(
-    (sum, m) =>
-      sum +
-      (prefs.computeWholesaleCost(
-        m.model,
-        m.inputTokens,
-        m.cacheReadTokens,
-        m.outputTokens,
-        m.cacheWriteTokens,
-      ) ?? 0),
-    0,
-  );
-});
+const aiCreditSummary = computed(() =>
+  data.value
+    ? buildAnalyticsAiCreditSummary(
+        data.value,
+        prefs.computeUsageBasedCost,
+        prefs.computeWholesaleCost,
+      )
+    : null,
+);
 
 const chartLayout = createChartLayout(55, 490, 20, 175);
 const GRID_ROWS = 4;
@@ -90,8 +81,7 @@ const timeRangeLabel = computed(() => {
       <template v-else-if="data">
         <AnalyticsStatsGrids
           :data="data"
-          :copilot-cost="copilotCost"
-          :total-wholesale-cost="totalWholesaleCost"
+          :ai-credit-summary="aiCreditSummary"
         />
         <AnalyticsMetricPanels :data="data" />
         <AnalyticsTokenActivityRow

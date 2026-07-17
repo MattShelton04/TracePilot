@@ -44,6 +44,9 @@ export interface SubagentView {
   completedAt?: string;
   totalTokens?: number;
   totalToolCalls?: number;
+  /** Proportional estimate because current CLI telemetry does not report exact per-subagent AIC. */
+  attributedAiCredits?: number;
+  aiCreditAttributionLabel?: string;
 
   turnIndex?: number;
   sourceTurnIndex?: number;

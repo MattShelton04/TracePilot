@@ -1,12 +1,14 @@
 import { getSessionDetail, getSessionTurns, getShutdownMetrics } from "@tracepilot/client";
-import type {
-  ConversationTurn,
-  SessionDetail,
-  SessionListItem,
-  ShutdownMetrics,
+import {
+  type ConversationTurn,
+  resolveAiCreditUsage,
+  type SessionDetail,
+  type SessionListItem,
+  type ShutdownMetrics,
+  sumTokenCosts,
 } from "@tracepilot/types";
 import {
-  formatCost,
+  formatAiCredits,
   formatDuration,
   formatNumber,
   formatRate,
@@ -14,7 +16,6 @@ import {
 } from "@tracepilot/ui";
 import { computed, type InjectionKey, inject, onMounted, reactive, ref } from "vue";
 import {
-  copilotCost,
   filesModified,
   linesChanged,
   sessionDurationMs,
@@ -25,7 +26,6 @@ import {
   totalOutputTokens,
   totalTokens,
   totalToolCalls,
-  wholesaleCost,
 } from "@/composables/useSessionMetrics";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSessionsStore } from "@/stores/sessions";
@@ -243,10 +243,48 @@ export function useSessionComparison() {
 
     const tokA = totalTokens(dataA.metrics);
     const tokB = totalTokens(dataB.metrics);
-    const wcA = wholesaleCost(dataA.metrics, prefs.computeWholesaleCost);
-    const wcB = wholesaleCost(dataB.metrics, prefs.computeWholesaleCost);
-    const ccA = copilotCost(dataA.metrics, prefs.costPerPremiumRequest);
-    const ccB = copilotCost(dataB.metrics, prefs.costPerPremiumRequest);
+    const aiCredits = (metrics: ShutdownMetrics | null) => {
+      const models = Object.entries(metrics?.modelMetrics ?? {});
+      const hasTokenUsage = models.some(
+        ([, detail]) =>
+          (detail.usage?.inputTokens ?? 0) +
+            (detail.usage?.outputTokens ?? 0) +
+            (detail.usage?.cacheReadTokens ?? 0) +
+            (detail.usage?.cacheWriteTokens ?? 0) >
+          0,
+      );
+      return resolveAiCreditUsage(
+        metrics?.totalNanoAiu,
+        hasTokenUsage
+          ? sumTokenCosts(
+              models.map(([model, detail]) =>
+                prefs.computeUsageBasedCostBreakdown(
+                  model,
+                  detail.usage?.inputTokens ?? 0,
+                  detail.usage?.cacheReadTokens ?? 0,
+                  detail.usage?.outputTokens ?? 0,
+                  detail.usage?.cacheWriteTokens ?? 0,
+                ),
+              ),
+            )
+          : null,
+        hasTokenUsage
+          ? sumTokenCosts(
+              models.map(([model, detail]) =>
+                prefs.computeWholesaleCostBreakdown(
+                  model,
+                  detail.usage?.inputTokens ?? 0,
+                  detail.usage?.cacheReadTokens ?? 0,
+                  detail.usage?.outputTokens ?? 0,
+                  detail.usage?.cacheWriteTokens ?? 0,
+                ),
+              ),
+            )
+          : null,
+      ).credits;
+    };
+    const aiA = aiCredits(dataA.metrics);
+    const aiB = aiCredits(dataB.metrics);
     const tcA = totalToolCalls(dataA.turns);
     const tcB = totalToolCalls(dataB.turns);
     const srA = successRate(dataA.turns);
@@ -277,8 +315,7 @@ export function useSessionComparison() {
       row("Duration", durA, durB, (v) => formatDuration(v) || "0s", false),
       row("Turns", turnsA, turnsB, String, false),
       row(`Total Tokens${suffix}`, tokA / divA, tokB / divB, fmtN, false),
-      row(`Direct API Cost${suffix}`, wcA / divA, wcB / divB, formatCost, false),
-      row(`Copilot Cost${suffix}`, ccA / divA, ccB / divB, formatCost, false),
+      row(`AI Credits${suffix}`, (aiA ?? 0) / divA, (aiB ?? 0) / divB, formatAiCredits, false),
       row(`Tool Calls${suffix}`, tcA / divA, tcB / divB, fmtInt, false),
       row("Success Rate", srA, srB, formatRate, true),
       row("Files Modified", fmA, fmB, String, false),

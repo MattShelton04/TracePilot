@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { formatCost, formatNumber, formatPercent } from "@tracepilot/types";
+import { formatAiCredits, formatNumber, formatPercent } from "@tracepilot/types";
 import { StatCard } from "@tracepilot/ui";
 import { useModelComparisonContext } from "@/composables/useModelComparison";
 
@@ -11,8 +11,12 @@ const ctx = useModelComparisonContext();
   <div class="grid-4 mb-4">
     <StatCard :value="ctx.modelCount" label="Models Used" />
     <StatCard :value="formatNumber(ctx.totalTokens)" label="Total Tokens" color="done" />
-    <StatCard :value="formatCost(ctx.totalCost)" label="Direct API Estimate" color="success" />
-    <StatCard :value="formatCost(ctx.totalCopilotCost)" label="Legacy Copilot Cost" color="warning" />
+    <StatCard :value="formatAiCredits(ctx.totalAiCredits)" label="AI Credits" color="success" />
+    <StatCard
+      :value="ctx.data?.sessionsWithObservedAiCredits ?? 0"
+      label="Sessions with Observed AIC"
+      color="done"
+    />
   </div>
 
   <!-- Model Cards Row -->
@@ -28,16 +32,16 @@ const ctx = useModelComparisonContext();
           <div class="model-card-stat-value">{{ formatNumber(row.tokens) }}</div>
         </div>
         <div>
-          <div class="model-card-stat-label">Direct API</div>
-          <div class="model-card-stat-value">{{ formatCost(row.cost) }}</div>
+          <div class="model-card-stat-label">AI Credits</div>
+          <div class="model-card-stat-value">{{ formatAiCredits(row.aiCredits) }}</div>
         </div>
         <div>
           <div class="model-card-stat-label">Cache Hit</div>
           <div class="model-card-stat-value">{{ formatPercent(row.cacheHitRate) }}</div>
         </div>
         <div>
-          <div class="model-card-stat-label">Premium Req.</div>
-          <div class="model-card-stat-value">{{ formatNumber(row.premiumRequests) }}</div>
+          <div class="model-card-stat-label">AIC Source</div>
+          <div class="model-card-stat-value">{{ row.aiCreditSource === 'observed' ? 'Observed' : 'Estimated' }}</div>
         </div>
       </div>
       <!-- Token share bar -->

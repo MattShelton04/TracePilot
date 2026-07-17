@@ -34,6 +34,10 @@ pub(crate) fn extract_session_analytics(
         .shutdown_metrics
         .as_ref()
         .and_then(|m| m.total_api_duration_ms.map(|v| v as i64));
+    let total_nano_aiu = summary
+        .shutdown_metrics
+        .as_ref()
+        .and_then(|m| m.total_nano_aiu.map(|v| v as i64));
     let mut copilot_version: Option<String> = None;
 
     if let Some(ref metrics) = summary.shutdown_metrics {
@@ -67,6 +71,7 @@ pub(crate) fn extract_session_analytics(
                 cost,
                 premium_requests: req_count,
                 reasoning_tokens: reasoning,
+                total_nano_aiu: detail.total_nano_aiu.map(|v| v as i64),
             });
         }
 
@@ -101,6 +106,7 @@ pub(crate) fn extract_session_analytics(
                     api_duration_ms: seg.api_duration_ms as i64,
                     current_model: seg.current_model.clone(),
                     model_metrics_json: mm_json,
+                    total_nano_aiu: seg.total_nano_aiu.map(|v| v as i64),
                 });
             }
         }
@@ -314,6 +320,7 @@ pub(crate) fn extract_session_analytics(
     SessionAnalytics {
         total_tokens,
         total_cost,
+        total_nano_aiu,
         lines_added,
         lines_removed,
         tool_call_count: final_tool_call_count,
