@@ -31,6 +31,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   viewFile: [path: string];
+  contextmenuEntry: [event: MouseEvent, entry: FileEntry];
 }>();
 
 const { visibleRows, fileCount, collapsedFolders, toggleFolder, formatSize } = useFileBrowserTree(
@@ -101,6 +102,7 @@ function depthStyle(depth: number): Record<string, string> {
           tabindex="0"
           @click="emit('viewFile', row.entry.path)"
           @keyup.enter="emit('viewFile', row.entry.path)"
+          @contextmenu.prevent="emit('contextmenuEntry', $event, row.entry)"
         >
           <svg class="fb-tree__file-icon" :class="`fb-tree__file-icon--${iconTypeByPath.get(row.entry.path) ?? 'generic'}`" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
             <!-- generic / default -->
@@ -156,6 +158,7 @@ function depthStyle(depth: number): Record<string, string> {
           :data-depth="row.depth"
           :aria-expanded="!collapsedFolders.has(row.folder.path)"
           @click="toggleFolder(row.folder.path)"
+          @contextmenu.prevent.stop="emit('contextmenuEntry', $event, { path: row.folder.path, name: row.folder.name, sizeBytes: 0, isDirectory: true })"
         >
           <span class="fb-tree__chevron">
             {{ collapsedFolders.has(row.folder.path) ? "▸" : "▾" }}

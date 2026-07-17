@@ -165,4 +165,37 @@ describe("FileBrowserTree", () => {
     expect(wrapper.emitted("viewFile")).toBeTruthy();
     expect(wrapper.emitted("viewFile")![0]).toEqual(["events.jsonl"]);
   });
+
+  it("emits contextmenuEntry when a file is right-clicked", async () => {
+    const wrapper = mount(FileBrowserTree, {
+      props: { entries: rootEntries },
+    });
+
+    const items = wrapper.findAll(".fb-tree__item");
+    await items[0].trigger("contextmenu");
+
+    expect(wrapper.emitted("contextmenuEntry")).toBeTruthy();
+    const emitted = wrapper.emitted("contextmenuEntry")![0];
+    expect(emitted[0]).toBeInstanceOf(MouseEvent);
+    expect(emitted[1]).toEqual(rootEntries[0]);
+  });
+
+  it("emits contextmenuEntry when a folder is right-clicked", async () => {
+    const wrapper = mount(FileBrowserTree, {
+      props: { entries: nestedEntries },
+    });
+
+    const folder = wrapper.find(".fb-tree__folder");
+    await folder.trigger("contextmenu");
+
+    expect(wrapper.emitted("contextmenuEntry")).toBeTruthy();
+    const emitted = wrapper.emitted("contextmenuEntry")![0];
+    expect(emitted[0]).toBeInstanceOf(MouseEvent);
+    expect(emitted[1]).toEqual({
+      path: "files",
+      name: "files",
+      sizeBytes: 0,
+      isDirectory: true,
+    });
+  });
 });
