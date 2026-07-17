@@ -46,6 +46,7 @@ describe("createDefaultConfig", () => {
     pricing: {
       costPerPremiumRequest: DEFAULT_COST_PER_PREMIUM_REQUEST,
       models: [],
+      removedModels: [],
     },
     toolRendering: {
       enabled: true,
