@@ -18,6 +18,7 @@ export interface MetricsModelEntry {
   reasoningTokens: number | null;
   totalTokens: number;
   wholesaleCost: number | null;
+  observedAiuCost: number | null;
 }
 
 export function useMetricsTabData(
@@ -61,6 +62,7 @@ export function useMetricsTabData(
           reasoningTokens,
           totalTokens: inputTokens + outputTokens,
           wholesaleCost,
+          observedAiuCost: prefs.getObservedAiuCost(data.totalNanoAiu),
         };
       })
       .sort((a, b) => b.totalTokens - a.totalTokens);

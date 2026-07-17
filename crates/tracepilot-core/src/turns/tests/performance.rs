@@ -39,6 +39,7 @@ fn make_subagent_heavy_session(
             new_model: Some("claude-sonnet-4".to_string()),
             previous_reasoning_effort: None,
             reasoning_effort: None,
+            context_tier: None,
             cause: None,
         }),
         &next_id(),

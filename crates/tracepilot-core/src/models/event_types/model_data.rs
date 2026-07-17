@@ -7,6 +7,7 @@ pub struct ModelChangeData {
     pub new_model: Option<String>,
     pub previous_reasoning_effort: Option<String>,
     pub reasoning_effort: Option<String>,
+    pub context_tier: Option<String>,
     pub cause: Option<String>,
 }
 

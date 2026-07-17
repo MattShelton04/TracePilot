@@ -43,7 +43,7 @@ function formatSignedCost(value: number): string {
   </div>
 
   <div v-if="observedAiuCost != null" class="grid-2 mb-6">
-    <StatCard :value="formatCost(observedAiuCost)" label="Observed AI Credits" color="accent" tooltip="Observed totalNanoAiu converted as nano AI Credits at 1 AI Credit = $0.01. Treat as telemetry until real-session billing semantics are confirmed." />
+    <StatCard :value="formatCost(observedAiuCost)" label="Observed AIC cost" color="accent" tooltip="Observed totalNanoAiu converted at 1 AI Credit = $0.01. Treat as telemetry until real-session billing semantics are confirmed." />
   </div>
 
   <p class="cost-legend mb-6">

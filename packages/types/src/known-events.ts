@@ -11,6 +11,8 @@ export const TRACEPILOT_KNOWN_EVENTS = [
   "session.start",
   "session.shutdown",
   "session.resume",
+  "session.usage_checkpoint",
+  "session.session_limits_changed",
   "session.error",
   "session.info",
   "session.model_change",

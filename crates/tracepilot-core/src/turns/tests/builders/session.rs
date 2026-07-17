@@ -212,6 +212,7 @@ impl ModelChangeBuilder {
             new_model: self.new_model,
             previous_reasoning_effort: None,
             reasoning_effort: None,
+            context_tier: None,
             cause: None,
         }
     }

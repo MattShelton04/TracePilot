@@ -7,12 +7,13 @@ use crate::models::event_types::{
     CompactionStartData, ExternalToolRequestedData, HookEndData, HookStartData, ModelChangeData,
     PermissionCompletedData, PermissionRequestedData, PlanChangedData, SessionContext,
     SessionErrorData, SessionEventType, SessionHandoffData, SessionImportLegacyData,
-    SessionInfoData, SessionModeChangedData, SessionRemoteSteerableChangedData, SessionResumeData,
-    SessionStartData, SessionTaskCompleteData, SessionTruncationData, SessionWarningData,
-    ShutdownData, SkillInvokedData, SubagentCompletedData, SubagentDeselectedData,
-    SubagentFailedData, SubagentSelectedData, SubagentStartedData, SystemMessageData,
-    SystemNotificationData, ToolExecCompleteData, ToolExecStartData, ToolUserRequestedData,
-    TurnEndData, TurnStartData, UserMessageData, WorkspaceFileChangedData,
+    SessionInfoData, SessionLimitsChangedData, SessionModeChangedData,
+    SessionRemoteSteerableChangedData, SessionResumeData, SessionStartData,
+    SessionTaskCompleteData, SessionTruncationData, SessionWarningData, ShutdownData,
+    SkillInvokedData, SubagentCompletedData, SubagentDeselectedData, SubagentFailedData,
+    SubagentSelectedData, SubagentStartedData, SystemMessageData, SystemNotificationData,
+    ToolExecCompleteData, ToolExecStartData, ToolUserRequestedData, TurnEndData, TurnStartData,
+    UsageCheckpointData, UserMessageData, WorkspaceFileChangedData,
 };
 use crate::parsing::diagnostics::{EventParseWarning, ParseDiagnostics};
 use serde_json::Value;
@@ -49,6 +50,8 @@ pub enum TypedEventData {
     ModelChange(ModelChangeData),
     SessionError(SessionErrorData),
     SessionResume(SessionResumeData),
+    SessionUsageCheckpoint(UsageCheckpointData),
+    SessionLimitsChanged(SessionLimitsChangedData),
     SystemNotification(SystemNotificationData),
     SkillInvoked(SkillInvokedData),
     PermissionRequested(PermissionRequestedData),
@@ -169,6 +172,22 @@ pub(crate) fn typed_data_from_raw(
         }
         SessionEventType::SessionResume => {
             try_deser!(SessionResume, SessionResumeData, data, event_type)
+        }
+        SessionEventType::SessionUsageCheckpoint => {
+            try_deser!(
+                SessionUsageCheckpoint,
+                UsageCheckpointData,
+                data,
+                event_type
+            )
+        }
+        SessionEventType::SessionLimitsChanged => {
+            try_deser!(
+                SessionLimitsChanged,
+                SessionLimitsChangedData,
+                data,
+                event_type
+            )
         }
         SessionEventType::SystemNotification => {
             try_deser!(SystemNotification, SystemNotificationData, data, event_type)

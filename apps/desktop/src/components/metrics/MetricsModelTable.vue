@@ -15,6 +15,7 @@ const modelColumns = computed(() => {
     { key: "requests", label: "Requests", align: "right" as const },
     { key: "copilotCost", label: "Legacy Copilot", align: "right" as const },
     { key: "usageBasedCost", label: "GitHub Usage", align: "right" as const },
+    { key: "observedAiuCost", label: "Observed AIC cost", align: "right" as const },
     { key: "wholesaleCost", label: "Direct API", align: "right" as const },
     { key: "inputTokens", label: "Input Tokens", align: "right" as const },
     { key: "outputTokens", label: "Output Tokens", align: "right" as const },
@@ -72,6 +73,11 @@ const modelColumns = computed(() => {
     </template>
     <template #cell-usageBasedCost="{ value }">
       <span :class="value != null ? 'text-[var(--done-fg)]' : 'text-[var(--text-placeholder)]'">
+        {{ value != null ? formatCost(value as number) : '—' }}
+      </span>
+    </template>
+    <template #cell-observedAiuCost="{ value }">
+      <span :class="value != null ? 'text-[var(--accent-fg)]' : 'text-[var(--text-placeholder)]'">
         {{ value != null ? formatCost(value as number) : '—' }}
       </span>
     </template>
