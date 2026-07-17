@@ -34,6 +34,9 @@ export interface PricingRegistryEntry {
   billingProvider: PricingProvider;
   pricingKind: PricingKind;
   rates?: TokenRateSet;
+  pricingTier?: "default" | "long-context";
+  /** Minimum total input-token count for this rate tier. */
+  minimumInputTokens?: number;
   premiumRequests?: number;
   currency: "USD";
   unit: PricingUnit;
@@ -56,6 +59,7 @@ export interface PricingLookupOptions {
   billingProvider?: PricingProvider;
   pricingKind?: PricingKind;
   at?: string | Date | null;
+  inputTokens?: number | null;
   rateMode?: PricingRateMode;
   userOverrides?: readonly PricingRegistryEntry[];
 }
@@ -118,6 +122,15 @@ function modelMatches(entry: PricingRegistryEntry, normalizedModel: string): boo
   );
 }
 
+function inputTokensMatch(
+  entry: PricingRegistryEntry,
+  inputTokens: number | null | undefined,
+): boolean {
+  const minimumInputTokens = entry.minimumInputTokens ?? 0;
+  if (inputTokens == null) return minimumInputTokens === 0;
+  return inputTokens >= minimumInputTokens;
+}
+
 function compareEffectiveFrom(a: PricingRegistryEntry, b: PricingRegistryEntry): number {
   return (parseEffectiveDate(b.effectiveFrom) ?? 0) - (parseEffectiveDate(a.effectiveFrom) ?? 0);
 }
@@ -132,6 +145,8 @@ export function modelPriceEntryToPricingEntry(
 ): PricingRegistryEntry {
   return {
     model: entry.model,
+    pricingTier: entry.pricingTier,
+    minimumInputTokens: entry.minimumInputTokens,
     aliases: entry.aliases,
     billingProvider: entry.source ?? "user",
     pricingKind: entry.pricingKind ?? "usage-token-rate",
@@ -183,12 +198,17 @@ export function resolvePricingEntry(
       (entry) =>
         entry.billingProvider === billingProvider &&
         entry.pricingKind === pricingKind &&
+        inputTokensMatch(entry, options.inputTokens) &&
         modelMatches(entry, normalizedModel),
     )
     .sort((a, b) => {
+      const aliasLength = longestAliasLength(b) - longestAliasLength(a);
+      if (aliasLength !== 0) return aliasLength;
+      const inputTier = (b.minimumInputTokens ?? 0) - (a.minimumInputTokens ?? 0);
+      if (inputTier !== 0) return inputTier;
       if (a.status === "user-override" && b.status !== "user-override") return -1;
       if (a.status !== "user-override" && b.status === "user-override") return 1;
-      return longestAliasLength(b) - longestAliasLength(a) || compareEffectiveFrom(a, b);
+      return compareEffectiveFrom(a, b);
     });
 
   if (rateMode === "latest") return matches[0];
@@ -200,7 +220,10 @@ export function calculateTokenCost(
   usage: TokenUsageForCost,
   options: PricingLookupOptions = {},
 ): TokenCostBreakdown {
-  const entry = resolvePricingEntry(modelName, options);
+  const entry = resolvePricingEntry(modelName, {
+    ...options,
+    inputTokens: usage.inputTokens,
+  });
   if (!entry) {
     return {
       status: "unknown-model",

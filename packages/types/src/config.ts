@@ -10,6 +10,8 @@ import type { PricingKind, PricingProvider, PricingStatus } from "./pricing.js";
 /** Per-model pricing entry persisted in local settings. Defaults mirror the shipped registry; user edits override it locally. */
 export interface ModelPriceEntry {
   model: string;
+  pricingTier?: "default" | "long-context";
+  minimumInputTokens?: number;
   aliases?: string[];
   inputPerM: number;
   cachedInputPerM: number;
@@ -63,6 +65,8 @@ export interface TracePilotConfig {
   pricing: {
     costPerPremiumRequest: number;
     models: ModelPriceEntry[];
+    /** Bundled model pricing intentionally removed by the user. */
+    removedModels?: string[];
   };
   toolRendering: {
     enabled: boolean;

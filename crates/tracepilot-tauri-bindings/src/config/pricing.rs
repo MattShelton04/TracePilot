@@ -11,6 +11,8 @@ pub struct PricingConfig {
     pub cost_per_premium_request: f64,
     #[serde(default = "default_model_prices")]
     pub models: Vec<ModelPriceEntry>,
+    #[serde(default)]
+    pub removed_models: Vec<String>,
 }
 
 impl Default for PricingConfig {
@@ -18,6 +20,7 @@ impl Default for PricingConfig {
         Self {
             cost_per_premium_request: 0.04,
             models: default_model_prices(),
+            removed_models: Vec::new(),
         }
     }
 }
@@ -26,6 +29,10 @@ impl Default for PricingConfig {
 #[serde(rename_all = "camelCase")]
 pub struct ModelPriceEntry {
     pub model: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pricing_tier: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub minimum_input_tokens: Option<u64>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub aliases: Vec<String>,
     pub input_per_m: f64,

@@ -35,6 +35,8 @@ struct PricingSourceData {
 #[serde(rename_all = "camelCase")]
 struct UsagePricingData {
     model: String,
+    pricing_tier: Option<String>,
+    minimum_input_tokens: Option<u64>,
     input_per_m: f64,
     cached_input_per_m: f64,
     cache_write_per_m: Option<f64>,
@@ -113,11 +115,6 @@ pub(super) fn default_alert_scope() -> String {
 
 pub(crate) fn default_model_prices() -> Vec<ModelPriceEntry> {
     let pricing_data = pricing_data();
-    let official_rates: HashMap<&str, &UsagePricingData> = pricing_data
-        .github_copilot_usage
-        .iter()
-        .map(|entry| (entry.model.as_str(), entry))
-        .collect();
     let current_multipliers: HashMap<&str, f64> = pricing_data
         .annual_legacy_multipliers
         .iter()
@@ -138,52 +135,71 @@ pub(crate) fn default_model_prices() -> Vec<ModelPriceEntry> {
 
     tracepilot_orchestrator::models::default_model_pricing()
         .into_iter()
-        .map(|entry| {
-            let official = official_rates.get(entry.model.as_str());
-            let source_label = if official.is_some() {
-                format!(
-                    "{}; local default mirrors GitHub's published token rates",
-                    pricing_source_label(github_source)
-                )
+        .flat_map(|entry| {
+            let official: Vec<&UsagePricingData> = pricing_data
+                .github_copilot_usage
+                .iter()
+                .filter(|rates| rates.model == entry.model)
+                .collect();
+            let rates = if official.is_empty() {
+                vec![None]
             } else {
-                format!(
-                    "{}; model not listed on GitHub pricing page",
-                    pricing_source_label(legacy_source)
-                )
+                official.iter().copied().map(Some).collect()
             };
+            let aliases = pricing_data
+                .aliases
+                .get(entry.model.as_str())
+                .cloned()
+                .unwrap_or_default();
+            let premium_requests = current_multipliers
+                .get(entry.model.as_str())
+                .copied()
+                .unwrap_or(entry.premium_requests);
+            rates.into_iter().map(move |official| {
+                let source_label = if official.is_some() {
+                    format!(
+                        "{}; local default mirrors GitHub's published token rates",
+                        pricing_source_label(github_source)
+                    )
+                } else {
+                    format!(
+                        "{}; model not listed on GitHub pricing page",
+                        pricing_source_label(legacy_source)
+                    )
+                };
 
-            ModelPriceEntry {
-                model: entry.model.clone(),
-                aliases: pricing_data
-                    .aliases
-                    .get(entry.model.as_str())
-                    .cloned()
-                    .unwrap_or_default(),
-                input_per_m: official.map_or(entry.input_per_m, |rates| rates.input_per_m),
-                cached_input_per_m: official
-                    .map_or(entry.cached_input_per_m, |rates| rates.cached_input_per_m),
-                cache_write_per_m: official.and_then(|rates| rates.cache_write_per_m),
-                output_per_m: official.map_or(entry.output_per_m, |rates| rates.output_per_m),
-                reasoning_per_m: None,
-                premium_requests: current_multipliers
-                    .get(entry.model.as_str())
-                    .copied()
-                    .unwrap_or(entry.premium_requests),
-                source: Some("provider-wholesale".to_string()),
-                pricing_kind: None,
-                effective_from: None,
-                effective_to: None,
-                source_label: Some(source_label),
-                source_url: official.and_then(|_| github_source.url.clone()),
-                status: Some(
-                    if official.is_some() {
-                        "official"
-                    } else {
-                        "estimated"
-                    }
-                    .to_string(),
-                ),
-            }
+                ModelPriceEntry {
+                    model: entry.model.clone(),
+                    pricing_tier: official
+                        .and_then(|rates| rates.pricing_tier.clone())
+                        .or_else(|| entry.pricing_tier.clone()),
+                    minimum_input_tokens: official
+                        .and_then(|rates| rates.minimum_input_tokens)
+                        .or(entry.minimum_input_tokens),
+                    aliases: aliases.clone(),
+                    input_per_m: official.map_or(entry.input_per_m, |rates| rates.input_per_m),
+                    cached_input_per_m: official
+                        .map_or(entry.cached_input_per_m, |rates| rates.cached_input_per_m),
+                    cache_write_per_m: official.and_then(|rates| rates.cache_write_per_m),
+                    output_per_m: official.map_or(entry.output_per_m, |rates| rates.output_per_m),
+                    reasoning_per_m: None,
+                    premium_requests,
+                    source: Some("provider-wholesale".to_string()),
+                    pricing_kind: None,
+                    effective_from: None,
+                    effective_to: None,
+                    source_label: Some(source_label),
+                    source_url: official.and_then(|_| github_source.url.clone()),
+                    status: Some(
+                        if official.is_some() {
+                            "official"
+                        } else {
+                            "estimated"
+                        }
+                        .to_string(),
+                    ),
+                }
+            })
         })
         .collect()
 }

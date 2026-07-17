@@ -24,6 +24,8 @@ pub struct Model {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ModelPricing {
     pub model: String,
+    pub pricing_tier: Option<String>,
+    pub minimum_input_tokens: Option<u64>,
     pub input_per_m: f64,
     pub cached_input_per_m: f64,
     pub output_per_m: f64,
@@ -59,6 +61,8 @@ pub fn default_model_pricing() -> Vec<ModelPricing> {
         .iter()
         .map(|model| ModelPricing {
             model: model.id.clone(),
+            pricing_tier: Some("default".to_string()),
+            minimum_input_tokens: None,
             input_per_m: model.input_per_m,
             cached_input_per_m: model.cached_input_per_m,
             output_per_m: model.output_per_m,
@@ -86,7 +90,7 @@ mod tests {
                 model.id
             );
         }
-        assert_eq!(registry().len(), 28);
+        assert_eq!(registry().len(), 38);
     }
 
     #[test]

@@ -83,9 +83,12 @@ fn pricing_model_entries_roundtrip_optional_metadata() {
 
         [pricing]
         costPerPremiumRequest = 0.04
+        removedModels = ["retired-model"]
 
         [[pricing.models]]
         model = "custom-model"
+        pricingTier = "long-context"
+        minimumInputTokens = 272001
         aliases = ["Custom Model"]
         inputPerM = 1.0
         cachedInputPerM = 0.1
@@ -107,10 +110,18 @@ fn pricing_model_entries_roundtrip_optional_metadata() {
     assert_eq!(model.reasoning_per_m, Some(3.0));
     assert_eq!(model.source.as_deref(), Some("user"));
     assert_eq!(model.effective_from.as_deref(), Some("2026-06-01"));
+    assert_eq!(model.pricing_tier.as_deref(), Some("long-context"));
+    assert_eq!(model.minimum_input_tokens, Some(272001));
+    assert_eq!(
+        config.pricing.removed_models,
+        vec!["retired-model".to_string()]
+    );
 
     let serialized = toml::to_string_pretty(&config).expect("serialize pricing metadata");
     assert!(serialized.contains("cacheWritePerM = 0.2"));
     assert!(serialized.contains("sourceLabel = \"Local settings override\""));
+    assert!(serialized.contains("pricingTier = \"long-context\""));
+    assert!(serialized.contains("removedModels = [\"retired-model\"]"));
 }
 
 #[test]
@@ -316,10 +327,23 @@ fn default_pricing_models_match_available_models() {
     let pricing = super::defaults::default_model_prices();
     let available = tracepilot_orchestrator::launcher::available_models();
 
-    let pricing_ids: Vec<_> = pricing.iter().map(|entry| entry.model.as_str()).collect();
+    let pricing_ids: std::collections::HashSet<_> =
+        pricing.iter().map(|entry| entry.model.as_str()).collect();
     let available_ids: Vec<_> = available.iter().map(|entry| entry.id.as_str()).collect();
 
-    assert_eq!(pricing_ids, available_ids);
+    assert_eq!(pricing_ids.len(), available_ids.len());
+    assert!(
+        available_ids
+            .iter()
+            .all(|model| pricing_ids.contains(model))
+    );
+    assert_eq!(
+        pricing
+            .iter()
+            .filter(|entry| entry.model == "gpt-5.4")
+            .count(),
+        2
+    );
 }
 
 #[test]

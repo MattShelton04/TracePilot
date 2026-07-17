@@ -38,6 +38,9 @@ export interface ModelDefinition {
 
 interface UsagePricingData {
   model: string;
+  displayName: string;
+  pricingTier?: "default" | "long-context";
+  minimumInputTokens?: number;
   inputPerM: number;
   cachedInputPerM: number;
   cacheWritePerM?: number;
@@ -67,9 +70,6 @@ interface PricingDataFile {
 }
 
 const PRICING_DATA = pricingData as PricingDataFile;
-const OFFICIAL_TOKEN_RATES_BY_MODEL = new Map(
-  PRICING_DATA.githubCopilotUsage.map((entry) => [entry.model, entry]),
-);
 const CURRENT_PREMIUM_REQUESTS_BY_MODEL = new Map(
   [
     ...PRICING_DATA.annualLegacyMultipliers.filter((entry) => entry.currentPremiumRequests != null),
@@ -133,40 +133,47 @@ export function getTierLabel(tier: ModelTier): string {
 
 /** Derive default wholesale prices from the registry. */
 export function getDefaultWholesalePrices(): ModelPriceEntry[] {
-  return MODEL_REGISTRY.map(({ id, inputPerM, cachedInputPerM, outputPerM, premiumRequests }) => {
-    const officialRates = OFFICIAL_TOKEN_RATES_BY_MODEL.get(id);
-    if (officialRates) {
-      return {
-        model: id,
-        aliases: PRICING_DATA.aliases[id],
-        inputPerM: officialRates.inputPerM,
-        cachedInputPerM: officialRates.cachedInputPerM,
-        cacheWritePerM: officialRates.cacheWritePerM,
-        outputPerM: officialRates.outputPerM,
-        premiumRequests,
-        source: "provider-wholesale",
-        sourceLabel: `${pricingSourceLabel(
-          PRICING_DATA.sources.githubCopilotUsage,
-        )}; local default mirrors GitHub's published token rates`,
-        sourceUrl: PRICING_DATA.sources.githubCopilotUsage.url,
-        status: "official",
-      };
-    }
-    return {
-      model: id,
-      aliases: PRICING_DATA.aliases[id],
-      inputPerM,
-      cachedInputPerM,
-      cacheWritePerM: 0,
-      outputPerM,
-      premiumRequests,
-      source: "provider-wholesale",
-      sourceLabel: `${pricingSourceLabel(
-        PRICING_DATA.sources.tracePilotLegacyProviderEstimate,
-      )}; model not listed on GitHub pricing page`,
-      status: "estimated",
-    };
-  });
+  return MODEL_REGISTRY.flatMap<ModelPriceEntry>(
+    ({ id, inputPerM, cachedInputPerM, outputPerM, premiumRequests }) => {
+      const officialRates = PRICING_DATA.githubCopilotUsage.filter((entry) => entry.model === id);
+      if (officialRates.length > 0) {
+        return officialRates.map((officialRate) => ({
+          model: id,
+          pricingTier: officialRate.pricingTier ?? "default",
+          minimumInputTokens: officialRate.minimumInputTokens,
+          aliases: PRICING_DATA.aliases[id],
+          inputPerM: officialRate.inputPerM,
+          cachedInputPerM: officialRate.cachedInputPerM,
+          cacheWritePerM: officialRate.cacheWritePerM,
+          outputPerM: officialRate.outputPerM,
+          premiumRequests,
+          source: "provider-wholesale" as const,
+          sourceLabel: `${pricingSourceLabel(
+            PRICING_DATA.sources.githubCopilotUsage,
+          )}; local default mirrors GitHub's published token rates`,
+          sourceUrl: PRICING_DATA.sources.githubCopilotUsage.url,
+          status: "official" as const,
+        }));
+      }
+      return [
+        {
+          model: id,
+          pricingTier: "default",
+          aliases: PRICING_DATA.aliases[id],
+          inputPerM,
+          cachedInputPerM,
+          cacheWritePerM: 0,
+          outputPerM,
+          premiumRequests,
+          source: "provider-wholesale" as const,
+          sourceLabel: `${pricingSourceLabel(
+            PRICING_DATA.sources.tracePilotLegacyProviderEstimate,
+          )}; model not listed on GitHub pricing page`,
+          status: "estimated" as const,
+        },
+      ];
+    },
+  );
 }
 
 // ─── Well-known defaults ─────────────────────────────────────────────

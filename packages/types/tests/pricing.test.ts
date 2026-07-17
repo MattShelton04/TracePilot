@@ -54,10 +54,44 @@ describe("pricing registry", () => {
     ).toBe(15);
   });
 
+  it("selects long-context rates from total input tokens", () => {
+    expect(
+      calculateTokenCost(
+        "gpt-5.4",
+        { inputTokens: 272_000, outputTokens: 1_000_000 },
+        {
+          billingProvider: "github-copilot",
+          pricingKind: "usage-token-rate",
+          at: "2026-06-01",
+        },
+      ).entry?.rates?.outputPerM,
+    ).toBe(15);
+    expect(
+      calculateTokenCost(
+        "gpt-5.4",
+        { inputTokens: 272_001, outputTokens: 1_000_000 },
+        {
+          billingProvider: "github-copilot",
+          pricingKind: "usage-token-rate",
+          at: "2026-06-01",
+        },
+      ).entry?.rates?.outputPerM,
+    ).toBe(22.5);
+  });
+
+  it("keeps short and long-context prices under one model identity", () => {
+    const gpt54Prices = getDefaultWholesalePrices().filter((entry) => entry.model === "gpt-5.4");
+    expect(gpt54Prices).toHaveLength(2);
+    expect(gpt54Prices.map((entry) => entry.pricingTier)).toEqual(["default", "long-context"]);
+    expect(gpt54Prices.map((entry) => entry.minimumInputTokens ?? 0)).toEqual([0, 272001]);
+  });
+
   it("derives provider defaults from the same published rates as GitHub usage pricing", () => {
     for (const usageEntry of GITHUB_COPILOT_USAGE_PRICING) {
       const providerEntry = PROVIDER_WHOLESALE_PRICING.find(
-        (entry) => entry.model === usageEntry.model,
+        (entry) =>
+          entry.model === usageEntry.model &&
+          entry.minimumInputTokens === usageEntry.minimumInputTokens,
       );
       expect(providerEntry?.rates).toEqual(usageEntry.rates);
       expect(providerEntry?.sourceLabel).toContain("mirrors GitHub's published token rates");
@@ -66,19 +100,26 @@ describe("pricing registry", () => {
 
   it("keeps documented usage models in the supported model registry", () => {
     const modelIds = new Set(MODEL_REGISTRY.map((model) => model.id));
-    for (const usageEntry of pricingData.githubCopilotUsage) {
+    for (const usageEntry of pricingData.githubCopilotUsage.filter(
+      (entry) => entry.minimumInputTokens == null,
+    )) {
       expect(modelIds.has(usageEntry.model), `${usageEntry.model} should be supported`).toBe(true);
     }
   });
 
   it("derives default local rates and current multipliers from pricing data", () => {
     const defaultsByModel = new Map(
-      getDefaultWholesalePrices().map((entry) => [entry.model, entry]),
+      getDefaultWholesalePrices().map((entry) => [
+        `${entry.model}:${entry.minimumInputTokens ?? 0}`,
+        entry,
+      ]),
     );
     const modelsById = new Map(MODEL_REGISTRY.map((entry) => [entry.id, entry]));
 
-    for (const usageEntry of pricingData.githubCopilotUsage) {
-      const defaultPrice = defaultsByModel.get(usageEntry.model);
+    for (const usageEntry of pricingData.githubCopilotUsage.filter(
+      (entry) => entry.minimumInputTokens == null,
+    )) {
+      const defaultPrice = defaultsByModel.get(`${usageEntry.model}:0`);
       expect(defaultPrice?.inputPerM).toBe(usageEntry.inputPerM);
       expect(defaultPrice?.cachedInputPerM).toBe(usageEntry.cachedInputPerM);
       expect(defaultPrice?.cacheWritePerM).toBe(usageEntry.cacheWritePerM);
@@ -183,7 +224,7 @@ describe("pricing registry", () => {
     };
     const cost = calculateTokenCost(
       "GPT-5.5",
-      { inputTokens: 1_000_000, outputTokens: 1_000_000 },
+      { inputTokens: 100_000, outputTokens: 1_000_000 },
       {
         billingProvider: "provider-wholesale",
         pricingKind: "usage-token-rate",
@@ -191,7 +232,7 @@ describe("pricing registry", () => {
       },
     );
     expect(cost.entry?.status).toBe("user-override");
-    expect(cost.totalCost).toBe(3);
+    expect(cost.totalCost).toBe(2.1);
   });
 
   it("compares legacy premium requests with usage-based preview", () => {
@@ -206,8 +247,8 @@ describe("pricing registry", () => {
     };
     const comparison = calculatePricingComparison(metrics, 0.04, [], "2026-06-01");
     expect(comparison.legacyCopilotCost).toBeCloseTo(0.4);
-    expect(comparison.usageBasedCopilot.totalCost).toBeCloseTo(35);
-    expect(comparison.june2026PreviewDelta).toBeCloseTo(34.6);
+    expect(comparison.usageBasedCopilot.totalCost).toBeCloseTo(55);
+    expect(comparison.june2026PreviewDelta).toBeCloseTo(54.6);
   });
 
   it("converts observed nano AIU telemetry with explicit nano units", () => {
