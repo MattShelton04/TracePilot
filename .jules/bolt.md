@@ -1,0 +1,3 @@
+## 2025-05-17 - Pre-allocation for dynamic SQL placeholders
+**Learning:** Pre-building repeated chunks of SQL parameter placeholders (like `(?, ?)`) outside a loop and directly using `String::push_str()` on a pre-allocated `String` with accurately calculated capacity is significantly faster than scalar character pushes (`push()`) or allocating new intermediate strings. However, standard arithmetic (`n * 3`) correctly computes exact capacity bounds; avoid `.saturating_add()` or `.saturating_mul()` as they force de-optimized bounds checking instructions.
+**Action:** Use standard capacity arithmetic alongside loop-invariant string chunk building for high-performance string concatenation.
