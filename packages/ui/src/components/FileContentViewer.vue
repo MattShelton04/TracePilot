@@ -20,6 +20,8 @@ import "../styles/features/file-content-viewer.css";
 const props = defineProps<{
   /** Relative path within the session directory (for display + language detection). */
   filePath?: string;
+  /** Absolute path on host filesystem. */
+  absolutePath?: string;
   /** File content to render. */
   content?: string;
   /** Classified file type from the backend. */
@@ -109,6 +111,7 @@ const activeTableHasSchema = computed(() => (activeTable.value?.columnInfo?.leng
 // ── Copy to clipboard ──────────────────────────────────────────────────────
 const { copy: copyText, copied: textCopied } = useClipboard();
 const { copy: copyDb, copied: dbCopied } = useClipboard();
+const { copy: copyPath, copied: pathCopied } = useClipboard();
 
 function copyFileContent() {
   if (props.content !== undefined) copyText(props.content);
@@ -277,10 +280,27 @@ function copyTableAsJson() {
         </svg>
         <span class="fcv__file-name">{{ filePath }}</span>
         <button
+          v-if="absolutePath"
+          class="fcv__copy-btn"
+          :class="{ 'fcv__copy-btn--copied': pathCopied }"
+          :title="pathCopied ? 'Copied path!' : 'Copy file path'"
+          :aria-label="pathCopied ? 'Copied path!' : 'Copy file path'"
+          @click="copyPath(absolutePath)"
+        >
+          <svg aria-hidden="true" v-if="!pathCopied" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6.5 9.5A3.2 3.2 0 0 0 11 10l2-2a3.2 3.2 0 1 0-4.5-4.5L7.5 4.5"/>
+            <path d="M9.5 6.5A3.2 3.2 0 0 0 5 6l-2 2a3.2 3.2 0 1 0 4.5 4.5l1-1"/>
+          </svg>
+          <svg aria-hidden="true" v-else viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 8 6.5 12 13 4"/>
+          </svg>
+        </button>
+        <button
           class="fcv__copy-btn"
           :class="{ 'fcv__copy-btn--copied': textCopied }"
           :title="textCopied ? 'Copied!' : 'Copy file contents'"
           :aria-label="textCopied ? 'Copied!' : 'Copy file contents'"
+          :style="absolutePath ? { marginLeft: '4px' } : undefined"
           @click="copyFileContent"
         >
           <svg aria-hidden="true" v-if="!textCopied" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">

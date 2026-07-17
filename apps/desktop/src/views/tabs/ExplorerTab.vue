@@ -1,7 +1,18 @@
 <script setup lang="ts">
 import "@/styles/features/session-explorer.css";
 import type { SessionFileType } from "@tracepilot/types";
-import { FileBrowserTree, FileContentViewer, useAutoRefresh } from "@tracepilot/ui";
+import { openInExplorer, sessionReadFile } from "@tracepilot/client";
+import {
+  FileBrowserTree,
+  FileContentViewer,
+  useAutoRefresh,
+  useClipboard,
+  useToast,
+  normalizePath,
+  pathDirname,
+} from "@tracepilot/ui";
+import FileContextMenu from "@/components/session/FileContextMenu.vue";
+import type { FileEntry } from "@tracepilot/types";
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { useSessionFiles } from "@/composables/useSessionFiles";
@@ -113,7 +124,99 @@ const viewerChanged = computed(() => sessionFiles.contentChangedAt !== null);
 onBeforeUnmount(() => {
   if (newPathTimer) clearTimeout(newPathTimer);
   if (viewerPulseTimer) clearTimeout(viewerPulseTimer);
+  document.removeEventListener("click", hideContextMenu);
+  document.removeEventListener("contextmenu", hideContextMenu);
 });
+
+// ── Context Menu ───────────────────────────────────────────────────────────
+const contextMenuEntry = ref<FileEntry | null>(null);
+const contextMenuPos = ref({ x: 0, y: 0 });
+const { success: toastSuccess, error: toastError } = useToast();
+const { copy: copyToClipboard } = useClipboard();
+
+function getAbsoluteFilePath(relativeFilePath: string) {
+  const base = prefs.sessionStateDir;
+  const session = store.sessionId;
+  if (!base || !session || !relativeFilePath) return "";
+  return normalizePath(`${base}/${session}/${relativeFilePath}`);
+}
+
+const selectedAbsolutePath = computed(() => {
+  if (!sessionFiles.selectedPath) return undefined;
+  return getAbsoluteFilePath(sessionFiles.selectedPath);
+});
+
+function onContextMenuEntry(event: MouseEvent, entry: FileEntry) {
+  event.stopPropagation();
+  contextMenuEntry.value = entry;
+  contextMenuPos.value = { x: event.clientX, y: event.clientY };
+}
+
+function hideContextMenu() {
+  contextMenuEntry.value = null;
+}
+
+watch(contextMenuEntry, (newVal) => {
+  if (newVal) {
+    document.addEventListener("click", hideContextMenu);
+    document.addEventListener("contextmenu", hideContextMenu);
+  } else {
+    document.removeEventListener("click", hideContextMenu);
+    document.removeEventListener("contextmenu", hideContextMenu);
+  }
+});
+
+async function onCopyPath() {
+  if (!contextMenuEntry.value) return;
+  const path = getAbsoluteFilePath(contextMenuEntry.value.path);
+  const success = await copyToClipboard(path);
+  if (success) {
+    toastSuccess(contextMenuEntry.value.isDirectory ? "Copied folder path to clipboard" : "Copied file path to clipboard");
+  } else {
+    toastError("Failed to copy path");
+  }
+  hideContextMenu();
+}
+
+async function onCopyContents() {
+  if (!contextMenuEntry.value || contextMenuEntry.value.isDirectory) return;
+  try {
+    if (!store.sessionId) return;
+    const content = await sessionReadFile(store.sessionId, contextMenuEntry.value.path);
+    const success = await copyToClipboard(content);
+    if (success) {
+      toastSuccess("Copied file contents to clipboard");
+    } else {
+      toastError("Failed to copy contents");
+    }
+  } catch (err) {
+    toastError(err instanceof Error ? err.message : String(err));
+  }
+  hideContextMenu();
+}
+
+async function onOpenContainingFolder() {
+  if (!contextMenuEntry.value || contextMenuEntry.value.isDirectory) return;
+  try {
+    const fullPath = getAbsoluteFilePath(contextMenuEntry.value.path);
+    const parentFolder = pathDirname(fullPath);
+    await openInExplorer(parentFolder);
+  } catch (err) {
+    toastError(err instanceof Error ? err.message : String(err));
+  }
+  hideContextMenu();
+}
+
+async function onOpenFolder() {
+  if (!contextMenuEntry.value || !contextMenuEntry.value.isDirectory) return;
+  try {
+    const fullPath = getAbsoluteFilePath(contextMenuEntry.value.path);
+    await openInExplorer(fullPath);
+  } catch (err) {
+    toastError(err instanceof Error ? err.message : String(err));
+  }
+  hideContextMenu();
+}
 </script>
 
 <template>
@@ -127,6 +230,7 @@ onBeforeUnmount(() => {
         title="Session Files"
         :auto-collapse-threshold="10"
         @view-file="onViewFile"
+        @contextmenu-entry="onContextMenuEntry"
       />
     </div>
 
@@ -140,6 +244,7 @@ onBeforeUnmount(() => {
     <div class="explorer-tab__viewer" :class="{ 'explorer-tab__viewer--changed': viewerChanged }">
       <FileContentViewer
         :file-path="sessionFiles.selectedPath ?? undefined"
+        :absolute-path="selectedAbsolutePath"
         :content="sessionFiles.fileContent ?? undefined"
         :file-type="sessionFiles.selectedFileType ?? undefined"
         :db-data="sessionFiles.dbData ?? undefined"
@@ -147,6 +252,17 @@ onBeforeUnmount(() => {
         :error="sessionFiles.fileContentError"
       />
     </div>
+
+    <FileContextMenu
+      :visible="contextMenuEntry !== null"
+      :position="contextMenuPos"
+      :entry="contextMenuEntry"
+      @copy-path="onCopyPath"
+      @copy-contents="onCopyContents"
+      @open-containing-folder="onOpenContainingFolder"
+      @open-folder="onOpenFolder"
+      @dismiss="hideContextMenu"
+    />
   </div>
 </template>
 
