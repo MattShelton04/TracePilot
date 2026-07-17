@@ -10,7 +10,7 @@ import type { TracePilotConfig } from "./config.js";
 import { DEFAULT_FAVOURITE_MODELS } from "./models.js";
 
 /** Current config schema version. */
-export const CONFIG_VERSION = 8;
+export const CONFIG_VERSION = 9;
 
 /** Default cost per premium request (USD). */
 export const DEFAULT_COST_PER_PREMIUM_REQUEST = 0.04;
@@ -99,6 +99,7 @@ export function createDefaultConfig(
       costPerPremiumRequest: DEFAULT_COST_PER_PREMIUM_REQUEST,
       ...overrides?.pricing,
       models: overrides?.pricing?.models ?? [],
+      removedModels: overrides?.pricing?.removedModels ?? [],
     },
     toolRendering: {
       enabled: true,

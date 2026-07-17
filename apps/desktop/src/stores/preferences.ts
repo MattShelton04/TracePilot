@@ -87,9 +87,10 @@ export const usePreferencesStore = defineStore("preferences", () => {
     ui.cliCommand.value = config.general.cliCommand;
     pricing.costPerPremiumRequest.value = config.pricing.costPerPremiumRequest;
     pricing.modelWholesalePrices.value =
-      config.pricing.models.length > 0
-        ? mergeWholesalePricesWithDefaults(config.pricing.models)
+      config.pricing.models.length > 0 || (config.pricing.removedModels?.length ?? 0) > 0
+        ? mergeWholesalePricesWithDefaults(config.pricing.models, config.pricing.removedModels)
         : [...DEFAULT_WHOLESALE_PRICES];
+    pricing.removedModels.value = [...(config.pricing.removedModels ?? [])];
     pricing.toolRendering.value = {
       enabled: config.toolRendering.enabled,
       toolOverrides: { ...config.toolRendering.toolOverrides },
@@ -132,6 +133,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
       pricing: {
         costPerPremiumRequest: pricing.costPerPremiumRequest.value,
         models: [...pricing.modelWholesalePrices.value],
+        removedModels: [...pricing.removedModels.value],
       },
       toolRendering: {
         enabled: pricing.toolRendering.value.enabled,

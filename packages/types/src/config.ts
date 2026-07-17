@@ -65,6 +65,8 @@ export interface TracePilotConfig {
   pricing: {
     costPerPremiumRequest: number;
     models: ModelPriceEntry[];
+    /** Bundled model pricing intentionally removed by the user. */
+    removedModels?: string[];
   };
   toolRendering: {
     enabled: boolean;

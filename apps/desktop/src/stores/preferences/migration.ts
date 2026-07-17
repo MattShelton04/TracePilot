@@ -39,7 +39,7 @@ export function migrateFromLocalStorage(config: TracePilotConfig): TracePilotCon
     if (Array.isArray(old.modelWholesalePrices)) {
       // Merge with defaults: preserve user customizations, backfill new models and tiers.
       const saved = old.modelWholesalePrices as ModelPriceEntry[];
-      config.pricing.models = mergeWholesalePricesWithDefaults(saved);
+      config.pricing.models = mergeWholesalePricesWithDefaults(saved, config.pricing.removedModels);
     }
 
     // Tool rendering

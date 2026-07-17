@@ -44,9 +44,15 @@ function pricingEntryKey(
 
 export function mergeWholesalePricesWithDefaults(
   saved: readonly ModelPriceEntry[],
+  removedModels: readonly string[] = [],
 ): ModelPriceEntry[] {
-  const savedByKey = new Map(saved.map((price) => [pricingEntryKey(price), price]));
-  const merged = DEFAULT_WHOLESALE_PRICES.map((def) => {
+  const removed = new Set(removedModels);
+  const savedByKey = new Map(
+    saved
+      .filter((price) => !removed.has(price.model))
+      .map((price) => [pricingEntryKey(price), price]),
+  );
+  const merged = DEFAULT_WHOLESALE_PRICES.filter((def) => !removed.has(def.model)).map((def) => {
     const existing = savedByKey.get(pricingEntryKey(def));
     return existing
       ? {
@@ -60,6 +66,7 @@ export function mergeWholesalePricesWithDefaults(
   return [
     ...merged,
     ...saved
+      .filter((price) => !removed.has(price.model))
       .filter((price) => !defaultKeys.has(pricingEntryKey(price)))
       .map((price) => ({ ...price, premiumRequests: price.premiumRequests ?? 1 })),
   ];
@@ -68,6 +75,7 @@ export function mergeWholesalePricesWithDefaults(
 export function createPricingSlice() {
   const costPerPremiumRequest = ref(DEFAULT_COST_PER_PREMIUM_REQUEST);
   const modelWholesalePrices = ref<ModelPriceEntry[]>([...DEFAULT_WHOLESALE_PRICES]);
+  const removedModels = ref<string[]>([]);
   const toolRendering = ref<ToolRenderingPreferences>({
     enabled: DEFAULT_TOOL_RENDERING_PREFS.enabled,
     toolOverrides: { ...DEFAULT_TOOL_RENDERING_PREFS.toolOverrides },
@@ -199,15 +207,18 @@ export function createPricingSlice() {
   }
 
   function addWholesalePrice(price: ModelPriceEntry) {
+    removedModels.value = removedModels.value.filter((model) => model !== price.model);
     modelWholesalePrices.value.push(price);
   }
 
   function removeWholesalePrice(model: string) {
     modelWholesalePrices.value = modelWholesalePrices.value.filter((p) => p.model !== model);
+    if (!removedModels.value.includes(model)) removedModels.value.push(model);
   }
 
   function resetWholesalePrices() {
     modelWholesalePrices.value = [...DEFAULT_WHOLESALE_PRICES];
+    removedModels.value = [];
   }
 
   /** Check if rich rendering is enabled for a specific tool. */
@@ -239,6 +250,7 @@ export function createPricingSlice() {
   return {
     costPerPremiumRequest,
     modelWholesalePrices,
+    removedModels,
     toolRendering,
     getWholesalePrice,
     computeWholesaleCost,

@@ -112,7 +112,7 @@ impl Default for TracePilotConfig {
 
 impl TracePilotConfig {
     /// Current schema version. Bump this when adding migrations.
-    pub const CURRENT_VERSION: u32 = 8;
+    pub const CURRENT_VERSION: u32 = 9;
 
     /// Apply any pending migrations to bring the config up to the current version.
     /// Returns true if any migrations were applied.
@@ -180,6 +180,12 @@ impl TracePilotConfig {
         if self.version < 8 {
             self.version = 8;
             tracing::info!("Migrated config from v7 → v8 (removed retired feature config)");
+        }
+
+        // Migration from v8 → v9: added pricing context tiers and removal state.
+        if self.version < 9 {
+            self.version = 9;
+            tracing::info!("Migrated config from v8 → v9 (pricing tiers and removal state)");
         }
 
         self.version != original

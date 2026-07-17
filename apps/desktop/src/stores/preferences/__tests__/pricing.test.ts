@@ -41,6 +41,12 @@ describe("createPricingSlice", () => {
     ).toMatchObject({ minimumInputTokens: 272001, inputPerM: 5 });
   });
 
+  it("preserves intentionally removed bundled models across default merges", () => {
+    const merged = mergeWholesalePricesWithDefaults([], ["gpt-5.4"]);
+    expect(merged.some((price) => price.model === "gpt-5.4")).toBe(false);
+    expect(merged.some((price) => price.model === "gpt-5.5")).toBe(true);
+  });
+
   it("getWholesalePrice matches by longest-first prefix", () => {
     const slice = createPricingSlice();
     slice.modelWholesalePrices.value = [
