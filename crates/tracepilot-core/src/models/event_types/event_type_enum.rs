@@ -31,6 +31,10 @@ pub enum SessionEventType {
     SessionError,
     #[strum(serialize = "session.resume")]
     SessionResume,
+    #[strum(serialize = "session.usage_checkpoint")]
+    SessionUsageCheckpoint,
+    #[strum(serialize = "session.session_limits_changed")]
+    SessionLimitsChanged,
     #[strum(serialize = "session.workspace_file_changed")]
     SessionWorkspaceFileChanged,
     #[strum(serialize = "user.message")]
@@ -110,6 +114,8 @@ pub const KNOWN_EVENT_TYPES: &[&str] = &[
     "session.context_changed",
     "session.error",
     "session.resume",
+    "session.usage_checkpoint",
+    "session.session_limits_changed",
     "session.workspace_file_changed",
     "user.message",
     "assistant.message",

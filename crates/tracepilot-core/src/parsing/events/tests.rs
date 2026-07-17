@@ -2,7 +2,7 @@
 
 use super::aggregate::{extract_combined_shutdown_data, extract_session_start};
 use super::raw::parse_events_jsonl;
-use super::typed::{TypedEventData, parse_typed_events, parse_typed_events_if_exists};
+use super::typed::{parse_typed_events, parse_typed_events_if_exists, TypedEventData};
 use crate::models::event_types::SessionEventType;
 use std::io::Write;
 use tracepilot_test_support::fixtures::sample_events_jsonl;
@@ -155,6 +155,63 @@ fn test_parse_v1_0_40_permission_external_and_compaction_shapes() {
 }
 
 #[test]
+fn test_parse_usage_billing_limits_and_context_tier_shapes() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("events.jsonl");
+    let content = concat!(
+        r#"{"type":"session.start","data":{"sessionId":"billing-1","version":1,"producer":"copilot-agent","copilotVersion":"1.0.71","startTime":"2026-07-17T10:30:08.210Z","contextTier":null,"sessionLimits":{"maxAiCredits":25}},"id":"evt-1","timestamp":"2026-07-17T10:30:08.281Z","parentId":null}"#,
+        "\n",
+        r#"{"type":"session.model_change","data":{"newModel":"claude-sonnet-4.6","reasoningEffort":"medium","contextTier":"long_context"},"id":"evt-2","timestamp":"2026-07-17T10:30:20.685Z","parentId":"evt-1"}"#,
+        "\n",
+        r#"{"type":"session.usage_checkpoint","data":{"totalNanoAiu":8582025000,"totalPremiumRequests":1},"id":"evt-3","timestamp":"2026-07-17T10:30:40.000Z","parentId":"evt-2"}"#,
+        "\n",
+        r#"{"type":"session.session_limits_changed","data":{"sessionLimits":{"maxAiCredits":50}},"id":"evt-4","timestamp":"2026-07-17T10:30:41.000Z","parentId":"evt-3"}"#,
+        "\n",
+    );
+    std::fs::write(&path, content).unwrap();
+
+    let parsed = parse_typed_events(&path).unwrap();
+    assert_eq!(parsed.diagnostics.fallback_events, 0);
+
+    let start = match &parsed.events[0].typed_data {
+        TypedEventData::SessionStart(data) => data,
+        other => panic!("Expected SessionStart, got {other:?}"),
+    };
+    assert_eq!(
+        start
+            .session_limits
+            .as_ref()
+            .and_then(|limits| limits.max_ai_credits),
+        Some(25.0)
+    );
+
+    let model_change = match &parsed.events[1].typed_data {
+        TypedEventData::ModelChange(data) => data,
+        other => panic!("Expected ModelChange, got {other:?}"),
+    };
+    assert_eq!(model_change.context_tier.as_deref(), Some("long_context"));
+
+    let checkpoint = match &parsed.events[2].typed_data {
+        TypedEventData::SessionUsageCheckpoint(data) => data,
+        other => panic!("Expected SessionUsageCheckpoint, got {other:?}"),
+    };
+    assert_eq!(checkpoint.total_nano_aiu, 8_582_025_000);
+    assert_eq!(checkpoint.total_premium_requests, Some(1.0));
+
+    let limits = match &parsed.events[3].typed_data {
+        TypedEventData::SessionLimitsChanged(data) => data,
+        other => panic!("Expected SessionLimitsChanged, got {other:?}"),
+    };
+    assert_eq!(
+        limits
+            .session_limits
+            .as_ref()
+            .and_then(|limits| limits.max_ai_credits),
+        Some(50.0)
+    );
+}
+
+#[test]
 fn test_extract_shutdown() {
     let dir = tempfile::tempdir().unwrap();
     let path = write_sample_file(&dir);
@@ -271,6 +328,93 @@ fn test_extract_combined_shutdown_multiple() {
     let changes = sd.code_changes.unwrap();
     assert_eq!(changes.lines_added, Some(15));
     assert_eq!(changes.lines_removed, Some(5));
+}
+
+#[test]
+fn test_extract_combined_shutdown_cumulative_snapshots_are_not_double_counted() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("events.jsonl");
+    let content = concat!(
+        r#"{"type":"session.start","data":{"sessionId":"cumulative-1","version":1,"producer":"copilot-agent","copilotVersion":"1.0.71","startTime":"2026-07-17T09:05:30.361Z"},"id":"evt-1","timestamp":"2026-07-17T09:05:30.388Z","parentId":null}"#,
+        "\n",
+        r#"{"type":"session.shutdown","data":{"shutdownType":"routine","totalPremiumRequests":0,"totalNanoAiu":104070240000,"tokenDetails":{"cache_read":{"tokenCount":6529774},"output":{"tokenCount":34251}},"totalApiDurationMs":322598,"sessionStartTime":1784279130361,"eventsFileSizeBytes":1668156,"codeChanges":{"linesAdded":558,"linesRemoved":121,"filesModified":["a.rs"]},"modelMetrics":{"gpt-5.6-luna":{"requests":{"count":63,"cost":0},"usage":{"inputTokens":6675587,"outputTokens":34251,"cacheReadTokens":6529774,"cacheWriteTokens":145624,"reasoningTokens":14475},"totalNanoAiu":104070240000,"tokenDetails":{"cache_read":{"tokenCount":6529774},"output":{"tokenCount":34251}}}}},"id":"evt-2","timestamp":"2026-07-17T09:23:26.709Z","parentId":"evt-1"}"#,
+        "\n",
+        r#"{"type":"session.resume","data":{"resumeTime":"2026-07-17T09:23:33.121Z","eventCount":2,"eventsFileSizeBytes":1670146},"id":"evt-3","timestamp":"2026-07-17T09:23:33.130Z","parentId":"evt-2"}"#,
+        "\n",
+        r#"{"type":"session.shutdown","data":{"shutdownType":"routine","totalPremiumRequests":0,"totalNanoAiu":188594945000,"tokenDetails":{"cache_read":{"tokenCount":9663092},"output":{"tokenCount":58646}},"totalApiDurationMs":556705,"sessionStartTime":1784279130361,"eventsFileSizeBytes":3327374,"codeChanges":{"linesAdded":712,"linesRemoved":200,"filesModified":["a.rs","b.rs"]},"modelMetrics":{"gpt-5.6-luna":{"requests":{"count":111,"cost":0},"usage":{"inputTokens":9958887,"outputTokens":56516,"cacheReadTokens":9515033,"cacheWriteTokens":443521,"reasoningTokens":25693},"totalNanoAiu":188594945000,"tokenDetails":{"cache_read":{"tokenCount":9663092},"output":{"tokenCount":58646}}}}},"id":"evt-4","timestamp":"2026-07-17T09:42:31.854Z","parentId":"evt-3"}"#,
+        "\n",
+    );
+    std::fs::write(&path, content).unwrap();
+
+    let events = parse_typed_events(&path).unwrap().events;
+    let (metrics, count) = extract_combined_shutdown_data(&events).unwrap();
+
+    assert_eq!(count, 2);
+    assert_eq!(
+        metrics.source_metrics_scope,
+        Some(crate::models::event_types::ShutdownMetricsScope::Cumulative)
+    );
+    assert_eq!(metrics.total_nano_aiu, Some(188_594_945_000));
+    assert_eq!(metrics.total_api_duration_ms, Some(556_705));
+    let model = &metrics.model_metrics.as_ref().unwrap()["gpt-5.6-luna"];
+    assert_eq!(model.requests.as_ref().unwrap().count, Some(111));
+    assert_eq!(model.total_nano_aiu, Some(188_594_945_000));
+    assert_eq!(
+        model.token_details.as_ref().unwrap()["output"].token_count,
+        Some(58_646)
+    );
+
+    let segments = metrics.session_segments.as_ref().unwrap();
+    assert_eq!(segments.len(), 2);
+    assert_eq!(segments[0].total_requests, 63);
+    assert_eq!(segments[1].total_requests, 48);
+    assert_eq!(segments[1].api_duration_ms, 234_107);
+    assert_eq!(segments[1].total_nano_aiu, Some(84_524_705_000));
+    let second_model = &segments[1].model_metrics.as_ref().unwrap()["gpt-5.6-luna"];
+    assert_eq!(second_model.total_nano_aiu, Some(84_524_705_000));
+    assert_eq!(
+        second_model.token_details.as_ref().unwrap()["output"].token_count,
+        Some(24_395)
+    );
+}
+
+#[test]
+fn test_extract_combined_shutdown_handles_legacy_to_cumulative_transition() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("events.jsonl");
+    let content = concat!(
+        r#"{"type":"session.shutdown","data":{"totalNanoAiu":10,"totalApiDurationMs":100,"modelMetrics":{"model":{"requests":{"count":1},"totalNanoAiu":10}}},"id":"evt-1","timestamp":"2026-07-17T09:00:00Z"}"#,
+        "\n",
+        r#"{"type":"session.shutdown","data":{"totalNanoAiu":20,"totalApiDurationMs":200,"modelMetrics":{"model":{"requests":{"count":2},"totalNanoAiu":20}}},"id":"evt-2","timestamp":"2026-07-17T09:01:00Z"}"#,
+        "\n",
+        // The upgraded producer restores only the immediately preceding legacy
+        // shutdown, then adds the current segment.
+        r#"{"type":"session.shutdown","data":{"totalNanoAiu":25,"totalApiDurationMs":250,"eventsFileSizeBytes":1234,"modelMetrics":{"model":{"requests":{"count":3},"totalNanoAiu":25}}},"id":"evt-3","timestamp":"2026-07-17T09:02:00Z"}"#,
+        "\n",
+    );
+    std::fs::write(&path, content).unwrap();
+
+    let events = parse_typed_events(&path).unwrap().events;
+    let (metrics, count) = extract_combined_shutdown_data(&events).unwrap();
+
+    assert_eq!(count, 3);
+    assert_eq!(
+        metrics.source_metrics_scope,
+        Some(crate::models::event_types::ShutdownMetricsScope::Mixed)
+    );
+    assert_eq!(metrics.total_nano_aiu, Some(35));
+    assert_eq!(metrics.total_api_duration_ms, Some(350));
+    assert_eq!(
+        metrics.model_metrics.as_ref().unwrap()["model"]
+            .requests
+            .as_ref()
+            .unwrap()
+            .count,
+        Some(4)
+    );
+    let segments = metrics.session_segments.as_ref().unwrap();
+    assert_eq!(segments[2].total_nano_aiu, Some(5));
+    assert_eq!(segments[2].total_requests, 1);
 }
 
 #[test]

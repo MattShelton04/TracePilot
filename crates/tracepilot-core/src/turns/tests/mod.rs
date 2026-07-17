@@ -94,6 +94,8 @@ pub(super) fn typed_data_to_value(data: &TypedEventData) -> Value {
         TypedEventData::ModelChange(value) => serde_json::to_value(value).unwrap(),
         TypedEventData::SessionError(value) => serde_json::to_value(value).unwrap(),
         TypedEventData::SessionResume(value) => serde_json::to_value(value).unwrap(),
+        TypedEventData::SessionUsageCheckpoint(value) => serde_json::to_value(value).unwrap(),
+        TypedEventData::SessionLimitsChanged(value) => serde_json::to_value(value).unwrap(),
         TypedEventData::SystemNotification(value) => serde_json::to_value(value).unwrap(),
         TypedEventData::SkillInvoked(value) => serde_json::to_value(value).unwrap(),
         TypedEventData::PermissionRequested(value) => serde_json::to_value(value).unwrap(),

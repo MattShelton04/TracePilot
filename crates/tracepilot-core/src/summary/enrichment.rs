@@ -58,6 +58,7 @@ fn shutdown_data_to_metrics(data: &ShutdownData, shutdown_count: u32) -> Shutdow
         code_changes: data.code_changes.clone(),
         model_metrics: data.model_metrics.clone().unwrap_or_default(),
         session_segments: data.session_segments.clone(),
+        source_metrics_scope: data.source_metrics_scope,
         shutdown_count: Some(shutdown_count),
     }
 }

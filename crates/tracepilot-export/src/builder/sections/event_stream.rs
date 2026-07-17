@@ -46,6 +46,7 @@ pub(in crate::builder) fn build_metrics(
         code_changes: sd.code_changes,
         model_metrics: sd.model_metrics.unwrap_or_default(),
         session_segments: sd.session_segments,
+        source_metrics_scope: sd.source_metrics_scope,
         shutdown_count: Some(count),
     })
 }

@@ -75,6 +75,8 @@ export interface ShutdownMetrics {
   codeChanges?: CodeChanges | null;
   modelMetrics?: Record<string, ModelMetricDetail> | null;
   sessionSegments?: SessionSegment[] | null;
+  /** Source shutdown snapshots detected in the event log. */
+  sourceMetricsScope?: "segment" | "cumulative" | "mixed" | null;
 }
 
 export interface ShutdownTokenDetail {
@@ -109,6 +111,8 @@ export interface ModelMetricDetail {
     cacheWriteTokens?: number;
     reasoningTokens?: number;
   };
+  totalNanoAiu?: number | null;
+  tokenDetails?: Record<string, ShutdownTokenDetail> | null;
 }
 
 // ─── Session Artifacts ────────────────────────────────────────────

@@ -3,13 +3,13 @@
 use super::typed::{TypedEvent, TypedEventData};
 use crate::models::event_types::{
     CodeChanges, ModelMetricDetail, RequestMetrics, SessionEventType, SessionSegment,
-    SessionStartData, ShutdownData, ShutdownTokenDetail, UsageMetrics,
+    SessionStartData, ShutdownData, ShutdownMetricsScope, ShutdownTokenDetail, UsageMetrics,
 };
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 
-/// Metrics in each shutdown event are per-instance (not cumulative), so resumed
-/// sessions require summing across all shutdown events. Returns `(combined_data, count)`.
+/// Normalizes legacy per-instance shutdown metrics and newer cumulative
+/// shutdown snapshots into one session aggregate. Returns `(combined_data, count)`.
 pub fn extract_combined_shutdown_data(events: &[TypedEvent]) -> Option<(ShutdownData, u32)> {
     let shutdowns: Vec<(&ShutdownData, Option<DateTime<Utc>>)> = events
         .iter()
@@ -57,6 +57,34 @@ fn combine_shutdown_data(
 ) -> Option<ShutdownData> {
     let (first, _) = shutdowns.first()?;
     let (last, _) = shutdowns.last()?;
+    // Newer Copilot builds restore accounting from prior shutdowns when a
+    // session resumes, so each later shutdown is cumulative. `eventsFileSizeBytes`
+    // arrived with that persisted snapshot behavior and is a data-shape marker,
+    // avoiding an unreliable producer-version cutoff.
+    let cumulative_snapshot_count = shutdowns
+        .iter()
+        .filter(|(shutdown, _)| shutdown.events_file_size_bytes.is_some())
+        .count();
+    let source_metrics_scope = match cumulative_snapshot_count {
+        0 => ShutdownMetricsScope::Segment,
+        count if count == shutdowns.len() => ShutdownMetricsScope::Cumulative,
+        _ => ShutdownMetricsScope::Mixed,
+    };
+    // If a session crossed the producer change, the first cumulative snapshot
+    // includes the immediately preceding legacy segment (the resume path
+    // restores that shutdown). Earlier legacy segments still need adding.
+    let first_cumulative_snapshot = shutdowns
+        .iter()
+        .position(|(shutdown, _)| shutdown.events_file_size_bytes.is_some());
+    let aggregate_sources: Vec<&ShutdownData> = match first_cumulative_snapshot {
+        None => shutdowns.iter().map(|(shutdown, _)| *shutdown).collect(),
+        Some(0) => vec![*last],
+        Some(first_cumulative) => shutdowns[..first_cumulative - 1]
+            .iter()
+            .map(|(shutdown, _)| *shutdown)
+            .chain(std::iter::once(*last))
+            .collect(),
+    };
 
     let mut segments: Vec<SessionSegment> = Vec::new();
 
@@ -102,9 +130,47 @@ fn combine_shutdown_data(
                 .unwrap_or_else(|| end_str.clone())
         };
 
+        let previous_shutdown = i
+            .checked_sub(1)
+            .and_then(|previous_index| shutdowns.get(previous_index))
+            .map(|(shutdown, _)| *shutdown);
+        let is_cumulative_snapshot =
+            sd.events_file_size_bytes.is_some() && previous_shutdown.is_some();
+        let segment_model_metrics = if is_cumulative_snapshot {
+            Some(subtract_model_metrics(
+                sd.model_metrics.as_ref(),
+                previous_shutdown.and_then(|previous| previous.model_metrics.as_ref()),
+            ))
+        } else {
+            sd.model_metrics.clone()
+        };
+        let segment_premium_requests = if is_cumulative_snapshot {
+            diff_opt_f64(
+                sd.total_premium_requests,
+                previous_shutdown.and_then(|previous| previous.total_premium_requests),
+            )
+        } else {
+            sd.total_premium_requests
+        };
+        let segment_api_duration_ms = if is_cumulative_snapshot {
+            diff_opt_u64(
+                sd.total_api_duration_ms,
+                previous_shutdown.and_then(|previous| previous.total_api_duration_ms),
+            )
+        } else {
+            sd.total_api_duration_ms
+        };
+        let segment_total_nano_aiu = if is_cumulative_snapshot {
+            diff_opt_u64(
+                sd.total_nano_aiu,
+                previous_shutdown.and_then(|previous| previous.total_nano_aiu),
+            )
+        } else {
+            sd.total_nano_aiu
+        };
         let mut tokens = 0u64;
         let mut total_requests = 0u64;
-        if let Some(ref mm) = sd.model_metrics {
+        if let Some(ref mm) = segment_model_metrics {
             for detail in mm.values() {
                 if let Some(ref usage) = detail.usage {
                     tokens += usage.input_tokens.unwrap_or(0) + usage.output_tokens.unwrap_or(0);
@@ -120,11 +186,11 @@ fn combine_shutdown_data(
             end_timestamp: end_str,
             tokens,
             total_requests,
-            premium_requests: sd.total_premium_requests.unwrap_or(0.0),
-            api_duration_ms: sd.total_api_duration_ms.unwrap_or(0),
-            total_nano_aiu: sd.total_nano_aiu,
+            premium_requests: segment_premium_requests.unwrap_or(0.0),
+            api_duration_ms: segment_api_duration_ms.unwrap_or(0),
+            total_nano_aiu: segment_total_nano_aiu,
             current_model: sd.current_model.clone(),
-            model_metrics: sd.model_metrics.clone(),
+            model_metrics: segment_model_metrics,
         });
     }
 
@@ -133,22 +199,42 @@ fn combine_shutdown_data(
         error_reason: last.error_reason.clone(),
         current_model: last.current_model.clone(),
         session_start_time: first.session_start_time,
+        events_file_size_bytes: last.events_file_size_bytes,
+        source_metrics_scope: Some(source_metrics_scope),
         total_premium_requests: sum_opt_f64(
-            shutdowns.iter().map(|(s, _)| s.total_premium_requests),
+            aggregate_sources
+                .iter()
+                .map(|shutdown| shutdown.total_premium_requests),
         ),
-        total_api_duration_ms: sum_opt_u64(shutdowns.iter().map(|(s, _)| s.total_api_duration_ms)),
+        total_api_duration_ms: sum_opt_u64(
+            aggregate_sources
+                .iter()
+                .map(|shutdown| shutdown.total_api_duration_ms),
+        ),
         // Token fields are point-in-time snapshots — use the last shutdown's values.
         current_tokens: last.current_tokens,
         system_tokens: last.system_tokens,
         conversation_tokens: last.conversation_tokens,
         tool_definitions_tokens: last.tool_definitions_tokens,
-        total_nano_aiu: sum_opt_u64(shutdowns.iter().map(|(s, _)| s.total_nano_aiu)),
-        token_details: combine_token_details(
-            shutdowns.iter().map(|(s, _)| s.token_details.as_ref()),
+        total_nano_aiu: sum_opt_u64(
+            aggregate_sources
+                .iter()
+                .map(|shutdown| shutdown.total_nano_aiu),
         ),
-        code_changes: combine_code_changes(shutdowns.iter().map(|(s, _)| s.code_changes.as_ref())),
+        token_details: combine_token_details(
+            aggregate_sources
+                .iter()
+                .map(|shutdown| shutdown.token_details.as_ref()),
+        ),
+        code_changes: combine_code_changes(
+            aggregate_sources
+                .iter()
+                .map(|shutdown| shutdown.code_changes.as_ref()),
+        ),
         model_metrics: Some(combine_model_metrics(
-            shutdowns.iter().map(|(s, _)| s.model_metrics.as_ref()),
+            aggregate_sources
+                .iter()
+                .map(|shutdown| shutdown.model_metrics.as_ref()),
         )),
         session_segments: Some(segments),
     })
@@ -171,6 +257,100 @@ fn combine_token_details<'a>(
     }
 }
 
+fn diff_opt_u64(current: Option<u64>, previous: Option<u64>) -> Option<u64> {
+    current.map(|value| value.saturating_sub(previous.unwrap_or(0)))
+}
+
+fn diff_opt_f64(current: Option<f64>, previous: Option<f64>) -> Option<f64> {
+    current.map(|value| (value - previous.unwrap_or(0.0)).max(0.0))
+}
+
+fn subtract_token_details(
+    current: Option<&HashMap<String, ShutdownTokenDetail>>,
+    previous: Option<&HashMap<String, ShutdownTokenDetail>>,
+) -> Option<HashMap<String, ShutdownTokenDetail>> {
+    let current = current?;
+    let mut result = HashMap::new();
+    for (token_type, detail) in current {
+        let previous_count = previous
+            .and_then(|details| details.get(token_type))
+            .and_then(|detail| detail.token_count);
+        result.insert(
+            token_type.clone(),
+            ShutdownTokenDetail {
+                token_count: diff_opt_u64(detail.token_count, previous_count),
+            },
+        );
+    }
+    Some(result)
+}
+
+fn subtract_model_metrics(
+    current: Option<&HashMap<String, ModelMetricDetail>>,
+    previous: Option<&HashMap<String, ModelMetricDetail>>,
+) -> HashMap<String, ModelMetricDetail> {
+    let mut result = HashMap::new();
+    for (model, detail) in current.into_iter().flatten() {
+        let previous_detail = previous.and_then(|metrics| metrics.get(model));
+        let requests = detail.requests.as_ref().map(|requests| RequestMetrics {
+            count: diff_opt_u64(
+                requests.count,
+                previous_detail
+                    .and_then(|detail| detail.requests.as_ref())
+                    .and_then(|requests| requests.count),
+            ),
+            cost: diff_opt_f64(
+                requests.cost,
+                previous_detail
+                    .and_then(|detail| detail.requests.as_ref())
+                    .and_then(|requests| requests.cost),
+            ),
+        });
+        let usage = detail.usage.as_ref().map(|usage| {
+            let previous_usage = previous_detail.and_then(|detail| detail.usage.as_ref());
+            UsageMetrics {
+                input_tokens: diff_opt_u64(
+                    usage.input_tokens,
+                    previous_usage.and_then(|usage| usage.input_tokens),
+                ),
+                output_tokens: diff_opt_u64(
+                    usage.output_tokens,
+                    previous_usage.and_then(|usage| usage.output_tokens),
+                ),
+                cache_read_tokens: diff_opt_u64(
+                    usage.cache_read_tokens,
+                    previous_usage.and_then(|usage| usage.cache_read_tokens),
+                ),
+                cache_write_tokens: diff_opt_u64(
+                    usage.cache_write_tokens,
+                    previous_usage.and_then(|usage| usage.cache_write_tokens),
+                ),
+                reasoning_tokens: diff_opt_u64(
+                    usage.reasoning_tokens,
+                    previous_usage.and_then(|usage| usage.reasoning_tokens),
+                ),
+            }
+        });
+
+        result.insert(
+            model.clone(),
+            ModelMetricDetail {
+                requests,
+                usage,
+                total_nano_aiu: diff_opt_u64(
+                    detail.total_nano_aiu,
+                    previous_detail.and_then(|detail| detail.total_nano_aiu),
+                ),
+                token_details: subtract_token_details(
+                    detail.token_details.as_ref(),
+                    previous_detail.and_then(|detail| detail.token_details.as_ref()),
+                ),
+            },
+        );
+    }
+    result
+}
+
 fn sum_pair_opt_u64(a: Option<u64>, b: Option<u64>) -> Option<u64> {
     match (a, b) {
         (Some(a), Some(b)) => Some(a + b),
@@ -188,7 +368,11 @@ fn sum_opt_f64(values: impl Iterator<Item = Option<f64>>) -> Option<f64> {
         has_any = true;
         total += n;
     }
-    if has_any { Some(total) } else { None }
+    if has_any {
+        Some(total)
+    } else {
+        None
+    }
 }
 
 /// Sum Option<u64> values: None + Some(5) = Some(5), None + None = None.
@@ -199,7 +383,11 @@ fn sum_opt_u64(values: impl Iterator<Item = Option<u64>>) -> Option<u64> {
         has_any = true;
         total += n;
     }
-    if has_any { Some(total) } else { None }
+    if has_any {
+        Some(total)
+    } else {
+        None
+    }
 }
 
 /// Combine code changes: sum lines, deduplicate files.
@@ -227,7 +415,11 @@ fn combine_code_changes<'a>(
                 }
             }
         }
-        if files.is_empty() { None } else { Some(files) }
+        if files.is_empty() {
+            None
+        } else {
+            Some(files)
+        }
     };
 
     Some(CodeChanges {
@@ -250,6 +442,8 @@ fn combine_model_metrics<'a>(
                 .or_insert_with(|| ModelMetricDetail {
                     requests: None,
                     usage: None,
+                    total_nano_aiu: None,
+                    token_details: None,
                 });
 
             // Merge requests
@@ -282,6 +476,11 @@ fn combine_model_metrics<'a>(
                 e_usg.reasoning_tokens =
                     sum_opt_u64([e_usg.reasoning_tokens, usg.reasoning_tokens].into_iter());
             }
+            entry.total_nano_aiu =
+                sum_opt_u64([entry.total_nano_aiu, detail.total_nano_aiu].into_iter());
+            entry.token_details = combine_token_details(
+                [entry.token_details.as_ref(), detail.token_details.as_ref()].into_iter(),
+            );
         }
     }
 

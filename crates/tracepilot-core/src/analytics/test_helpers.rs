@@ -42,6 +42,8 @@ pub(super) fn make_input(
                 cache_write_tokens: Some(0),
                 reasoning_tokens: None,
             }),
+            total_nano_aiu: None,
+            token_details: None,
         },
     );
 
@@ -81,6 +83,7 @@ pub(super) fn make_input(
                 }),
                 model_metrics,
                 session_segments: None,
+                source_metrics_scope: None,
                 shutdown_count: None,
             }),
         },

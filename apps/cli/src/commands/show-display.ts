@@ -12,6 +12,8 @@ import { formatTokens } from "./utils.js";
 export interface ShutdownMetrics {
   shutdownType?: string;
   totalPremiumRequests?: number;
+  totalNanoAiu?: number;
+  tokenDetails?: Record<string, { tokenCount?: number }>;
   totalApiDurationMs?: number;
   sessionStartTime?: number;
   currentModel?: string;
@@ -29,7 +31,10 @@ export interface ShutdownMetrics {
         outputTokens?: number;
         cacheReadTokens?: number;
         cacheWriteTokens?: number;
+        reasoningTokens?: number;
       };
+      totalNanoAiu?: number;
+      tokenDetails?: Record<string, { tokenCount?: number }>;
     }
   >;
 }
@@ -83,6 +88,10 @@ export function displayMetrics(m: ShutdownMetrics): void {
   if (m.currentModel) console.log(`    ${chalk.dim("Model:")} ${m.currentModel}`);
   if (m.totalPremiumRequests != null)
     console.log(`    ${chalk.dim("Premium requests:")} ${m.totalPremiumRequests}`);
+  if (m.totalNanoAiu != null)
+    console.log(
+      `    ${chalk.dim("Observed AI Credits:")} ${(m.totalNanoAiu / 1_000_000_000).toFixed(3)}`,
+    );
   if (m.totalApiDurationMs != null)
     console.log(`    ${chalk.dim("API duration:")} ${(m.totalApiDurationMs / 1000).toFixed(1)}s`);
 
@@ -100,8 +109,12 @@ export function displayMetrics(m: ShutdownMetrics): void {
       const reqs = info.requests?.count ?? 0;
       const input = formatTokens(info.usage?.inputTokens ?? 0);
       const output = formatTokens(info.usage?.outputTokens ?? 0);
+      const aiCredits =
+        info.totalNanoAiu != null
+          ? ` AI credits: ${(info.totalNanoAiu / 1_000_000_000).toFixed(3)}`
+          : "";
       console.log(
-        `      ${chalk.cyan(model.padEnd(28))} requests: ${String(reqs).padEnd(4)} input: ${input.padEnd(8)} output: ${output}`,
+        `      ${chalk.cyan(model.padEnd(28))} requests: ${String(reqs).padEnd(4)} input: ${input.padEnd(8)} output: ${output}${aiCredits}`,
       );
     }
   }
