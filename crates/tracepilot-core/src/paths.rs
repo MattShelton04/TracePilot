@@ -69,8 +69,36 @@ impl CopilotPaths {
         self.home.join(SKILLS_DIR_NAME)
     }
 
+    pub fn pkg_target_dir(&self) -> PathBuf {
+        let pkg_base = self.home.join(COPILOT_PKG_DIR);
+        let platform_dir_name = if cfg!(target_os = "windows") {
+            "win32-x64"
+        } else if cfg!(target_os = "macos") {
+            if cfg!(target_arch = "aarch64") {
+                "darwin-arm64"
+            } else {
+                "darwin-x64"
+            }
+        } else if cfg!(target_os = "linux") {
+            if cfg!(target_arch = "aarch64") {
+                "linux-arm64"
+            } else {
+                "linux-x64"
+            }
+        } else {
+            "universal"
+        };
+
+        let target_dir = pkg_base.join(platform_dir_name);
+        if target_dir.exists() {
+            target_dir
+        } else {
+            pkg_base.join("universal")
+        }
+    }
+
     pub fn pkg_universal_dir(&self) -> PathBuf {
-        self.home.join(COPILOT_PKG_DIR).join(COPILOT_UNIVERSAL_DIR)
+        self.pkg_target_dir()
     }
 
     pub fn version_dir(&self, version: &str) -> PathBuf {

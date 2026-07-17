@@ -6,7 +6,7 @@ use std::path::Path;
 
 /// Discover all installed Copilot CLI versions.
 pub fn discover_versions(copilot_home: &Path) -> Result<Vec<CopilotVersion>> {
-    let universal_dir = copilot_home.join("pkg").join("universal");
+    let universal_dir = tracepilot_core::paths::CopilotPaths::from_home(copilot_home).pkg_target_dir();
     if !universal_dir.exists() {
         return Ok(Vec::new());
     }
@@ -78,7 +78,7 @@ pub fn migration_diffs(
     from_version: &str,
     to_version: &str,
 ) -> Result<Vec<MigrationDiff>> {
-    let universal = copilot_home.join("pkg").join("universal");
+    let universal = tracepilot_core::paths::CopilotPaths::from_home(copilot_home).pkg_target_dir();
     let from_dir = universal.join(from_version).join("definitions");
     let to_dir = universal.join(to_version).join("definitions");
 
@@ -198,7 +198,7 @@ pub fn migrate_agent(
     from_version: &str,
     to_version: &str,
 ) -> Result<()> {
-    let universal = copilot_home.join("pkg").join("universal");
+    let universal = tracepilot_core::paths::CopilotPaths::from_home(copilot_home).pkg_target_dir();
     let from_file = universal
         .join(from_version)
         .join("definitions")
@@ -371,7 +371,8 @@ mod tests {
     #[test]
     fn test_discover_versions_with_versions() {
         let dir = tempfile::tempdir().unwrap();
-        let universal = dir.path().join("pkg").join("universal");
+        let paths = tracepilot_core::paths::CopilotPaths::from_home(dir.path());
+        let universal = paths.pkg_target_dir();
 
         // Create two version directories
         let v108 = universal.join("1.0.8");
@@ -391,7 +392,8 @@ mod tests {
     #[test]
     fn test_migration_diffs() {
         let dir = tempfile::tempdir().unwrap();
-        let universal = dir.path().join("pkg").join("universal");
+        let paths = tracepilot_core::paths::CopilotPaths::from_home(dir.path());
+        let universal = paths.pkg_target_dir();
 
         // Setup v1.0.8 with an agent
         let old_defs = universal.join("1.0.8").join("definitions");
