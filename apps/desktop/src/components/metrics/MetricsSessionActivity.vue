@@ -10,6 +10,7 @@ import {
 import {
   Badge,
   formatAiCredits,
+  formatCost,
   formatDuration,
   formatNumber,
   formatShortDate,
@@ -169,6 +170,12 @@ function sourceLabel(source: AiCreditUsage["source"]): string {
               >
                 {{ formatAiCredits(modelAiCredits(name as string, m).credits) }}
               </span>
+              <span
+                v-if="modelAiCredits(name as string, m).usdEquivalent != null"
+                class="cost-equivalent"
+              >
+                {{ formatCost(modelAiCredits(name as string, m).usdEquivalent) }}
+              </span>
             </div>
           </div>
         </div>
@@ -176,6 +183,9 @@ function sourceLabel(source: AiCreditUsage["source"]): string {
         <div v-if="seg.tokens > 0" class="activity-tile-costs">
           <span class="cost-pill blue-text" :title="sourceLabel(segmentAiCredits(seg).source)">
             {{ formatAiCredits(segmentAiCredits(seg).credits) }}
+          </span>
+          <span v-if="segmentAiCredits(seg).usdEquivalent != null" class="cost-equivalent">
+            {{ formatCost(segmentAiCredits(seg).usdEquivalent) }}
           </span>
         </div>
         <div class="activity-tile-footer">
@@ -186,10 +196,6 @@ function sourceLabel(source: AiCreditUsage["source"]): string {
           <div class="footer-metric">
             <span class="label">Reqs</span>
             <span class="val">{{ formatNumber(seg.totalRequests) }}</span>
-          </div>
-          <div class="footer-metric">
-            <span class="label">AIC</span>
-            <span class="val">{{ formatAiCredits(segmentAiCredits(seg).credits).replace(' AIC', '') }}</span>
           </div>
           <div
             v-if="segmentAiCredits(seg).source === 'unavailable' && seg.premiumRequests > 0"
@@ -379,6 +385,12 @@ function sourceLabel(source: AiCreditUsage["source"]): string {
   background: var(--canvas-inset);
   padding: 1px 6px;
   border-radius: 3px;
+}
+
+.cost-equivalent {
+  color: var(--text-tertiary);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.6875rem;
 }
 
 .activity-tile-costs {

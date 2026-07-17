@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { AnalyticsData } from "@tracepilot/types";
+import { AI_CREDIT_USD, type AnalyticsData } from "@tracepilot/types";
 import type { ChartLayout, ChartTooltipState } from "@tracepilot/ui";
 import {
   formatAiCredits,
@@ -108,7 +108,11 @@ const costAriaLabel = computed(
 const tooltipFormatter = (i: number) => {
   const point = costChart.value?.coords[i];
   return point
-    ? `${formatDateMedium(point.date)} — ${isAiCredits.value ? formatAiCredits(point.cost) : formatCost(point.cost)}`
+    ? `${formatDateMedium(point.date)} — ${
+        isAiCredits.value
+          ? `${formatAiCredits(point.cost)} (${formatCost(point.cost * AI_CREDIT_USD)})`
+          : formatCost(point.cost)
+      }`
     : "";
 };
 </script>
@@ -209,6 +213,10 @@ const tooltipFormatter = (i: number) => {
         @click="onChartClick($event, costChart.coords, tooltipFormatter, 'cost', '.chart-frame')"
         @dismiss-tooltip="dismissTooltip"
       />
+      <div v-if="isAiCredits" class="cost-equivalence">
+        Dollar equivalent: 1 AIC = {{ formatCost(AI_CREDIT_USD) }}. Daily USD values are shown in
+        chart tooltips.
+      </div>
     </SectionPanel>
   </div>
 </template>
@@ -276,6 +284,12 @@ const tooltipFormatter = (i: number) => {
 .donut-segment {
   cursor: default;
   transition: stroke-width 0.15s ease;
+}
+
+.cost-equivalence {
+  padding: 0 18px 12px;
+  color: var(--text-tertiary);
+  font-size: 0.6875rem;
 }
 
 .more-info-link {

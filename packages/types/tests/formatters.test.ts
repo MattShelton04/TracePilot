@@ -6,6 +6,9 @@ describe("formatAiCredits", () => {
     expect(formatAiCredits(0.1254)).toBe("0.125 AIC");
     expect(formatAiCredits(0.0004)).toBe("0.0004 AIC");
     expect(formatAiCredits(12.345)).toBe("12.35 AIC");
+    expect(formatAiCredits(123.456)).toBe("123.5 AIC");
+    expect(formatAiCredits(1_234.56)).toBe("1,235 AIC");
+    expect(formatAiCredits(123_456.78)).toBe("123,457 AIC");
     expect(formatAiCredits(null)).toBe("—");
   });
 });

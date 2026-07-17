@@ -8,7 +8,6 @@
 // scrollbar gutter — otherwise the scrollbar track shows a strip of the
 // panel background next to the header.
 
-import { calculateObservedAiCredits, resolveAiCreditUsage } from "@tracepilot/types";
 import {
   formatDuration,
   formatLiveDuration,
@@ -51,58 +50,7 @@ const store = useSessionDetailContext();
 const { fullResults, loadingResults, failedResults, loadFullResult, retryFullResult } =
   useToolResultLoader(() => store.sessionId);
 
-const aiCreditAttribution = computed(() => {
-  const subagent = props.subagent;
-  const metrics = store.shutdownMetrics;
-  const subagentTokens = subagent?.toolCall.totalTokens ?? 0;
-  if (!subagent || !metrics || subagentTokens <= 0) return null;
-
-  const sessionTokens = Object.values(metrics.modelMetrics ?? {}).reduce(
-    (sum, metric) => sum + (metric.usage?.inputTokens ?? 0) + (metric.usage?.outputTokens ?? 0),
-    0,
-  );
-  const observedSessionCredits = calculateObservedAiCredits(metrics.totalNanoAiu);
-  if (observedSessionCredits != null && sessionTokens > 0) {
-    return {
-      credits: observedSessionCredits * (subagentTokens / sessionTokens),
-      label:
-        "Estimated attribution: session-observed AIC allocated by the subagent's share of tokens.",
-    };
-  }
-
-  const modelName = subagent.toolCall.model;
-  const modelMetric = modelName ? metrics.modelMetrics?.[modelName] : undefined;
-  if (!modelName || !modelMetric) return null;
-  const modelTokens =
-    (modelMetric.usage?.inputTokens ?? 0) + (modelMetric.usage?.outputTokens ?? 0);
-  if (modelTokens <= 0) return null;
-  const modelCredits = resolveAiCreditUsage(
-    modelMetric.totalNanoAiu,
-    preferences.computeUsageBasedCostBreakdown(
-      modelName,
-      modelMetric.usage?.inputTokens ?? 0,
-      modelMetric.usage?.cacheReadTokens ?? 0,
-      modelMetric.usage?.outputTokens ?? 0,
-      modelMetric.usage?.cacheWriteTokens ?? 0,
-    ),
-    preferences.computeWholesaleCostBreakdown(
-      modelName,
-      modelMetric.usage?.inputTokens ?? 0,
-      modelMetric.usage?.cacheReadTokens ?? 0,
-      modelMetric.usage?.outputTokens ?? 0,
-      modelMetric.usage?.cacheWriteTokens ?? 0,
-    ),
-  );
-  if (modelCredits.credits == null) return null;
-  return {
-    credits: modelCredits.credits * (subagentTokens / modelTokens),
-    label: "Estimated attribution: model AIC allocated by the subagent's share of tokens.",
-  };
-});
-
-const view = computed(() =>
-  props.subagent ? fromSubagentFullData(props.subagent, aiCreditAttribution.value) : null,
-);
+const view = computed(() => (props.subagent ? fromSubagentFullData(props.subagent) : null));
 
 const agentColor = computed(() => (view.value ? getAgentColor(view.value.type) : ""));
 const agentIcon = computed(() => (view.value ? getAgentIcon(view.value.type) : ""));

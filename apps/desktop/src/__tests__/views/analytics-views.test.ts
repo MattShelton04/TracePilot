@@ -215,6 +215,7 @@ describe("AnalyticsDashboardView", () => {
     expect(legacyBtn).toBeTruthy();
     expect(aiCreditsBtn!.attributes("aria-checked")).toBe("true");
     expect(legacyBtn!.attributes("aria-checked")).toBe("false");
+    expect(wrapper.text()).toContain("Dollar equivalent: 1 AIC = $0.01");
 
     const chartSvg = wrapper
       .findAll("svg")
@@ -238,6 +239,7 @@ describe("AnalyticsDashboardView", () => {
 
     expect(wrapper.text()).toContain("Legacy Premium Cost Trend");
     expect(wrapper.text()).not.toContain("AI Credit Trend");
+    expect(wrapper.text()).not.toContain("Dollar equivalent:");
     expect(legacyBtn!.attributes("aria-checked")).toBe("true");
 
     const chartSvg = wrapper

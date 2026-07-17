@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { formatAiCredits, formatNumber } from "@tracepilot/types";
+import { formatNumber } from "@tracepilot/types";
 import type { SubagentStatus, SubagentView } from "./types";
 
 defineProps<{
@@ -43,12 +43,6 @@ function statusClass(s: SubagentStatus): string {
         <template v-if="view.totalTokens">
           <span class="sep">·</span>
           <span title="Total tokens consumed">{{ formatNumber(view.totalTokens) }} tok</span>
-        </template>
-        <template v-if="view.attributedAiCredits != null">
-          <span class="sep">·</span>
-          <span :title="view.aiCreditAttributionLabel">
-            ~{{ formatAiCredits(view.attributedAiCredits) }}
-          </span>
         </template>
         <template v-if="view.totalToolCalls">
           <span class="sep">·</span>

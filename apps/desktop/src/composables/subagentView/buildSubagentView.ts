@@ -27,8 +27,6 @@ export interface SubagentViewInput {
   durationMs?: number;
   totalTokens?: number;
   totalToolCalls?: number;
-  attributedAiCredits?: number;
-  aiCreditAttributionLabel?: string;
   turnIndex?: number;
   sourceTurnIndex?: number;
   isCrossTurnParent?: boolean;
@@ -81,8 +79,6 @@ export function buildSubagentView(input: SubagentViewInput): SubagentView {
     completedAt: tc?.completedAt ?? undefined,
     totalTokens: input.totalTokens ?? tc?.totalTokens ?? undefined,
     totalToolCalls: input.totalToolCalls ?? tc?.totalToolCalls ?? undefined,
-    attributedAiCredits: input.attributedAiCredits,
-    aiCreditAttributionLabel: input.aiCreditAttributionLabel,
     turnIndex: input.turnIndex,
     sourceTurnIndex: input.sourceTurnIndex,
     isCrossTurnParent: input.isCrossTurnParent ?? false,
