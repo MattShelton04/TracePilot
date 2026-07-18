@@ -180,7 +180,13 @@ const compactionsFullyPaired = computed(
     timeline.value.compactionStartCount === timeline.value.compactionCompleteCount &&
     timeline.value.pairedCompactionCount === timeline.value.compactionStartCount,
 );
-const toolTypeView = ref<"list" | "pie">("list");
+type ToolAnalysisView = "types" | "chart" | "calls";
+const toolAnalysisViews: Array<{ id: ToolAnalysisView; label: string }> = [
+  { id: "types", label: "Types" },
+  { id: "chart", label: "Chart" },
+  { id: "calls", label: "Expensive calls" },
+];
+const toolAnalysisView = ref<ToolAnalysisView>("types");
 const maxToolCallTokens = computed(() => displayedToolCalls.value[0]?.totalTokens ?? 1);
 const selectedTurn = computed(() => {
   const turnNumber = selectedPoint.value?.turn;
@@ -428,8 +434,8 @@ function retryLoad() {
         />
       </SectionPanel>
 
-      <div class="context-tab__details">
-        <SectionPanel title="Selected point">
+      <SectionPanel title="Selected point">
+        <div class="context-tab__selected-inspector">
           <div v-if="selectedTimelineEvent" class="context-tab__detail-card">
             <div class="context-tab__detail-heading">
               <div>
@@ -484,16 +490,14 @@ function retryLoad() {
           <div v-else class="context-tab__placeholder">
             Select a turn, event, or compaction marker to inspect it.
           </div>
-        </SectionPanel>
 
-        <SectionPanel title="Compaction diagnostics">
-          <div v-if="selectedCompaction" class="context-tab__detail-card">
+          <div v-if="selectedCompaction" class="context-tab__compaction-details">
             <div class="context-tab__detail-heading">
               <div>
                 <span class="context-tab__eyebrow">
-                  Turn {{ selectedCompaction.startTurn }} → {{ selectedCompaction.completeTurn }}
+                  Turns {{ selectedCompaction.startTurn }}–{{ selectedCompaction.completeTurn }}
                 </span>
-                <h3>Copilot compaction</h3>
+                <h3>Compaction diagnostics</h3>
               </div>
               <Badge :variant="selectedCompaction.success ? 'success' : 'danger'">
                 {{ selectedCompaction.success ? 'Completed' : 'Failed' }}
@@ -546,125 +550,94 @@ function retryLoad() {
               Open checkpoint #{{ selectedCompaction.checkpointNumber }} in Overview
             </button>
           </div>
-          <div v-else class="context-tab__placeholder">
-            Select a dashed compaction marker to inspect its before/after estimate.
-          </div>
-          <div v-if="timeline.compactions.length" class="context-tab__compaction-list">
-            <button
-              v-for="(compaction, index) in timeline.compactions"
-              :key="`${compaction.startTurn}-${compaction.completeTurn}-${index}`"
-              type="button"
-              :class="{ 'context-tab__compact-row--selected': selectedCompaction === compaction }"
-              @click="selectCompaction(compaction)"
-            >
-              <span>#{{ index + 1 }} · turns {{ compaction.startTurn }}–{{ compaction.completeTurn }}</span>
-              <strong>{{ formatNumber(compaction.tokensRemoved ?? 0) }} removed</strong>
-            </button>
-          </div>
-        </SectionPanel>
 
-        <SectionPanel class="context-tab__wide-panel" title="Tool calls in selected turn">
           <div v-if="selectedPoint" class="context-tab__turn-tools">
             <div class="context-tab__turn-tools-heading">
-              <span class="context-tab__eyebrow">Turn {{ selectedPoint.turn }}</span>
+              <div>
+                <span class="context-tab__eyebrow">Turn {{ selectedPoint.turn }}</span>
+                <strong>Tool calls in this turn</strong>
+              </div>
               <LoadingSpinner v-if="loadingTurnTools" size="sm" />
             </div>
             <p v-if="store.turnsError" class="context-tab__turn-tools-error">
               {{ store.turnsError }}
             </p>
-            <div v-else-if="selectedTurnToolCalls.length" class="context-tab__turn-tool-grid">
-              <div
+            <div v-else-if="selectedTurnToolCalls.length" class="context-tab__turn-tool-list">
+              <ToolCallItem
                 v-for="(item, index) in selectedTurnToolCalls"
                 :key="item.toolCallId ?? `${item.toolName}-${index}`"
-                class="context-tab__turn-tool-card"
-              >
-                <button
-                  type="button"
-                  class="context-tab__tool-conversation-link"
-                  @click="openConversation(selectedPoint.turn, item.eventIndex)"
-                >
-                  View in Conversation
-                </button>
-                <ToolCallItem
-                  :tc="item"
-                  :expanded="selectedTurnToolCall === item"
-                  :full-result="
-                    item.toolCallId ? fullResults.get(item.toolCallId) : undefined
-                  "
-                  :loading-full-result="
-                    item.toolCallId ? loadingResults.has(item.toolCallId) : false
-                  "
-                  :failed-full-result="
-                    item.toolCallId ? failedResults.has(item.toolCallId) : false
-                  "
-                  :rich-enabled="richEnabledFor(item.toolName)"
-                  @toggle="selectTurnToolCall(item)"
-                  @load-full-result="loadFullResult"
-                  @retry-full-result="retryFullResult"
-                />
-              </div>
+                class="context-tab__bounded-tool"
+                :tc="item"
+                :expanded="selectedTurnToolCall === item"
+                :full-result="item.toolCallId ? fullResults.get(item.toolCallId) : undefined"
+                :loading-full-result="
+                  item.toolCallId ? loadingResults.has(item.toolCallId) : false
+                "
+                :failed-full-result="
+                  item.toolCallId ? failedResults.has(item.toolCallId) : false
+                "
+                :rich-enabled="richEnabledFor(item.toolName)"
+                @toggle="selectTurnToolCall(item)"
+                @load-full-result="loadFullResult"
+                @retry-full-result="retryFullResult"
+              />
             </div>
             <p v-else-if="!loadingTurnTools" class="context-tab__turn-tools-empty">
               No tool calls in this turn.
             </p>
           </div>
-          <div v-else class="context-tab__placeholder">
-            Select a turn to inspect its tool calls.
+        </div>
+      </SectionPanel>
+
+      <SectionPanel title="Session tool contribution">
+        <div class="context-tab__analysis-heading">
+          <p>Compare estimated context contribution by tool type or individual call.</p>
+          <div class="context-tab__view-switch" aria-label="Tool contribution view">
+            <button
+              v-for="view in toolAnalysisViews"
+              :key="view.id"
+              type="button"
+              :class="{ active: toolAnalysisView === view.id }"
+              :aria-pressed="toolAnalysisView === view.id"
+              @click="toolAnalysisView = view.id"
+            >
+              {{ view.label }}
+            </button>
           </div>
-        </SectionPanel>
-      </div>
+        </div>
 
-      <div class="context-tab__details">
-        <SectionPanel title="Tool types by estimated contribution">
-          <div v-if="displayedToolTypes.length" class="context-tab__tool-type-panel">
-            <div class="context-tab__view-switch" aria-label="Tool type visualization">
-              <button
-                type="button"
-                :class="{ active: toolTypeView === 'list' }"
-                :aria-pressed="toolTypeView === 'list'"
-                @click="toolTypeView = 'list'"
-              >
-                List
-              </button>
-              <button
-                type="button"
-                :class="{ active: toolTypeView === 'pie' }"
-                :aria-pressed="toolTypeView === 'pie'"
-                @click="toolTypeView = 'pie'"
-              >
-                Chart
-              </button>
-            </div>
-
-            <div v-if="toolTypeView === 'list'" class="context-tab__tool-types">
-              <div
-                v-for="item in displayedToolTypes"
-                :key="item.toolName"
-                class="context-tab__tool-type"
-              >
-                <div class="context-tab__tool-type-heading">
-                  <span>
-                    <strong>{{ item.toolName }}</strong>
-                    <small>{{ item.callCount }} calls · {{ item.errorCount }} errors</small>
-                  </span>
-                  <span>{{ formatNumber(item.totalTokens) }} · {{ item.percentage.toFixed(1) }}%</span>
-                </div>
-                <div class="context-tab__bar">
-                  <span :style="{ width: `${Math.max(item.percentage, 1)}%` }" />
-                </div>
-                <small class="context-tab__tool-split">
-                  {{ formatNumber(item.argumentTokens) }} arguments ·
-                  {{ formatNumber(item.resultTokens) }} returned result
-                </small>
+        <div
+          v-if="toolAnalysisView === 'types' && displayedToolTypes.length"
+          class="context-tab__tool-type-panel"
+        >
+          <div class="context-tab__tool-types">
+            <div
+              v-for="item in displayedToolTypes"
+              :key="item.toolName"
+              class="context-tab__tool-type"
+            >
+              <div class="context-tab__tool-type-heading">
+                <span>
+                  <strong>{{ item.toolName }}</strong>
+                  <small>{{ item.callCount }} calls · {{ item.errorCount }} errors</small>
+                </span>
+                <span>{{ formatNumber(item.totalTokens) }} · {{ item.percentage.toFixed(1) }}%</span>
               </div>
+              <div class="context-tab__bar">
+                <span :style="{ width: `${Math.max(item.percentage, 1)}%` }" />
+              </div>
+              <small class="context-tab__tool-split">
+                {{ formatNumber(item.argumentTokens) }} arguments ·
+                {{ formatNumber(item.resultTokens) }} returned result
+              </small>
             </div>
-
-            <ToolTypeDonut v-else :items="timeline.toolTypes" />
           </div>
-          <p v-else class="context-tab__placeholder">No tool calls were captured for this session.</p>
-        </SectionPanel>
-
-        <SectionPanel title="Most expensive tool calls">
+        </div>
+        <ToolTypeDonut
+          v-else-if="toolAnalysisView === 'chart' && timeline.toolTypes.length"
+          :items="timeline.toolTypes"
+        />
+        <template v-else-if="toolAnalysisView === 'calls'">
           <div v-if="displayedToolCalls.length" class="context-tab__ranked-tools">
             <button
               v-for="(item, index) in displayedToolCalls"
@@ -705,30 +678,17 @@ function retryLoad() {
                 <span class="context-tab__eyebrow">Turn {{ selectedToolCall.turn }}</span>
                 <strong>{{ selectedToolCall.toolName }} details</strong>
               </div>
-              <div class="context-tab__selected-tool-actions">
-                <button
-                  v-if="selectedContributionToolCall"
-                  type="button"
-                  @click="
-                    openConversation(
-                      selectedToolCall.turn,
-                      selectedContributionToolCall.eventIndex,
-                    )
-                  "
-                >
-                  View in Conversation
-                </button>
-                <button
-                  type="button"
-                  aria-label="Close tool call details"
-                  @click="selectedToolCall = null"
-                >
-                  ×
-                </button>
-              </div>
+              <button
+                type="button"
+                aria-label="Close tool call details"
+                @click="selectedToolCall = null"
+              >
+                ×
+              </button>
             </div>
             <ToolCallItem
               v-if="selectedContributionToolCall"
+              class="context-tab__bounded-tool"
               :tc="selectedContributionToolCall"
               :expanded="true"
               :full-result="
@@ -759,8 +719,14 @@ function retryLoad() {
             Contribution estimates measure captured arguments and returned results that may become
             later prompt input; they are not per-call cache attribution.
           </p>
-        </SectionPanel>
-      </div>
+        </template>
+        <p
+          v-else
+          class="context-tab__placeholder"
+        >
+          No tool calls were captured for this session.
+        </p>
+      </SectionPanel>
     </template>
   </div>
 </template>
@@ -872,14 +838,10 @@ function retryLoad() {
   margin-bottom: 24px;
 }
 
-.context-tab__details {
+.context-tab__selected-inspector {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px;
-}
-
-.context-tab__wide-panel {
-  grid-column: 1 / -1;
+  min-width: 0;
+  gap: 12px;
 }
 
 .context-tab__detail-card,
@@ -903,6 +865,14 @@ function retryLoad() {
   margin: 2px 0 0;
   color: var(--text-primary);
   font-size: 1rem;
+}
+
+.context-tab__compaction-details {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--canvas-inset);
 }
 
 .context-tab__eyebrow {
@@ -951,8 +921,7 @@ function retryLoad() {
   white-space: pre-wrap;
 }
 
-.context-tab__conversation-link,
-.context-tab__tool-conversation-link {
+.context-tab__conversation-link {
   padding: 5px 8px;
   border: 1px solid var(--border-accent);
   border-radius: var(--radius-sm);
@@ -967,13 +936,13 @@ function retryLoad() {
   margin-top: 12px;
 }
 
-.context-tab__conversation-link:hover,
-.context-tab__tool-conversation-link:hover {
+.context-tab__conversation-link:hover {
   border-color: var(--accent-fg);
   color: var(--text-primary);
 }
 
 .context-tab__turn-tools {
+  min-width: 0;
   padding: 12px;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
@@ -987,25 +956,34 @@ function retryLoad() {
   gap: 12px;
 }
 
-.context-tab__turn-tool-grid {
+.context-tab__turn-tools-heading > div {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: start;
-  gap: 12px;
+  gap: 2px;
+}
+
+.context-tab__turn-tools-heading strong {
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+}
+
+.context-tab__turn-tool-list {
+  display: grid;
+  min-width: 0;
+  max-width: 100%;
+  gap: 8px;
   margin-top: 10px;
 }
 
-.context-tab__turn-tool-card {
-  display: grid;
+.context-tab__bounded-tool {
+  width: 100%;
   min-width: 0;
-  gap: 5px;
+  max-width: 100%;
+  overflow: hidden;
 }
 
-.context-tab__tool-conversation-link {
-  justify-self: end;
-  border-color: var(--border-default);
-  background: transparent;
-  color: var(--text-tertiary);
+.context-tab__bounded-tool :deep([data-tp-component="RendererShell"]) {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .context-tab__turn-tools-empty,
@@ -1062,37 +1040,18 @@ function retryLoad() {
   text-align: center;
 }
 
-.context-tab__compaction-list {
-  display: grid;
-  max-height: 180px;
-  margin-top: 10px;
-  overflow: auto;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-}
-
-.context-tab__compaction-list button {
+.context-tab__analysis-heading {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 8px 10px;
-  border: 0;
-  border-bottom: 1px solid var(--border-muted);
-  background: transparent;
-  color: var(--text-secondary);
-  font: inherit;
-  font-size: 0.6875rem;
-  cursor: pointer;
+  margin-bottom: 12px;
 }
 
-.context-tab__compaction-list button:last-child {
-  border-bottom: 0;
-}
-
-.context-tab__compaction-list button:hover,
-.context-tab__compact-row--selected {
-  background: var(--canvas-subtle) !important;
-  color: var(--text-primary) !important;
+.context-tab__analysis-heading p {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: 0.75rem;
 }
 
 .context-tab__tool-type-panel,
@@ -1334,26 +1293,7 @@ function retryLoad() {
   color: var(--text-primary);
 }
 
-.context-tab__selected-tool-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.context-tab__selected-tool-actions button:first-child {
-  width: auto;
-  padding: 0 7px;
-  border: 1px solid var(--border-default);
-  color: var(--accent-fg);
-  font-size: 0.6875rem;
-  white-space: nowrap;
-}
-
 @media (max-width: 900px) {
-  .context-tab__details {
-    grid-template-columns: 1fr;
-  }
-
   .context-tab__token-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1362,9 +1302,6 @@ function retryLoad() {
     grid-template-columns: 1fr;
   }
 
-  .context-tab__turn-tool-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 @media (max-width: 640px) {
@@ -1375,6 +1312,11 @@ function retryLoad() {
 
   .context-tab__confidence {
     flex-wrap: wrap;
+  }
+
+  .context-tab__analysis-heading {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .context-tab__ranked-tool {

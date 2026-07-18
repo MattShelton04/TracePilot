@@ -184,6 +184,10 @@ describe("ContextTab", () => {
     await flushPromises();
 
     expect(wrapper.text()).not.toContain("No tool calls were captured for this session.");
+    await wrapper
+      .findAll(".context-tab__view-switch button")
+      .find((button) => button.text() === "Expensive calls")
+      ?.trigger("click");
     await wrapper.find(".context-tab__ranked-tool").trigger("click");
 
     expect(loadFullResult).toHaveBeenCalledWith("expensive-tool");
@@ -197,16 +201,20 @@ describe("ContextTab", () => {
     await wrapper.find(".select-chart-point").trigger("click");
     await flushPromises();
 
-    const tool = wrapper.find(".context-tab__turn-tool-grid .tool-call-stub");
+    const tool = wrapper.find(".context-tab__turn-tool-list .tool-call-stub");
     expect(tool.text()).toContain("shell");
     expect(tool.text()).toContain("pnpm test");
     expect(tool.attributes("data-rich")).toBe("true");
-    expect(wrapper.find(".context-tab__wide-panel").exists()).toBe(true);
+    expect(wrapper.find(".context-tab__bounded-tool").exists()).toBe(true);
+    expect(wrapper.find(".context-tab__selected-inspector .context-tab__turn-tools").exists()).toBe(
+      true,
+    );
+    expect(wrapper.find(".context-tab__tool-conversation-link").exists()).toBe(false);
 
-    await wrapper.find(".context-tab__tool-conversation-link").trigger("click");
+    await wrapper.find(".context-tab__conversation-link").trigger("click");
     expect(navigateToConversation).toHaveBeenCalledWith({
       turnIndex: 0,
-      eventIndex: 7,
+      eventIndex: null,
     });
   });
 

@@ -152,17 +152,19 @@ At compaction:
   current session. When `session.truncation` reports a hard token limit, that is
   shown separately. Copilot does not currently report a model-owned compaction
   trigger, so neither line is labeled as one.
-- Tool diagnostics aggregate estimated argument/returned-result contribution
-  by type, with list and keyboard-accessible donut-chart views. Donut segments
-  use pointer-position hit testing (including an inactive centre) and expose
-  calls, arguments, results, estimated tokens, and percentage on hover or
-  focus. Expensive calls use a compact ranked comparison; selecting one
+- Session-wide tool diagnostics share one full-width analysis panel with
+  type-list, keyboard-accessible donut-chart, and expensive-call views. Donut
+  segments use pointer-position hit testing (including an inactive centre) and
+  expose calls, arguments, results, estimated tokens, and percentage on hover
+  or focus. Expensive calls use a compact ranked comparison; selecting one
   resolves the original reconstructed tool call and immediately prefetches its
   display content before opening the shared TracePilot rich renderer.
-- Selecting a graph point lazily loads the existing turn reconstruction and
-  exposes every tool call in that turn in a full-width two-column rich-renderer
-  grid. Turn, user-event, and tool-call details can deep-link to the matching
-  Conversation location using the same turn/event coordinates as Search.
+- Selecting a graph point lazily loads the existing turn reconstruction into
+  one full-width selected-point inspector. Event or turn metadata, applicable
+  compaction diagnostics, and every tool call in that turn stay together.
+  Tool calls render as a horizontally bounded single-column list through the
+  shared rich renderers. The inspector has one Conversation deep link using
+  the same turn/event coordinates as Search.
   User-message event details retain the complete original message; transformed
   message content is still used for context estimation when available.
   Copilot `user.message` records whose source is `system` remain in token
