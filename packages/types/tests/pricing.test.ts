@@ -180,11 +180,11 @@ describe("pricing registry", () => {
       },
     );
     expect(cost.status).toBe("priced");
-    expect(cost.inputCost).toBeCloseTo(1.8);
+    expect(cost.inputCost).toBeCloseTo(1.5);
     expect(cost.cachedInputCost).toBeCloseTo(0.12);
     expect(cost.cacheWriteCost).toBeCloseTo(0.375);
     expect(cost.outputCost).toBeCloseTo(3);
-    expect(cost.totalCost).toBeCloseTo(5.295);
+    expect(cost.totalCost).toBeCloseTo(4.995);
   });
 
   it("treats missing token fields as zero", () => {

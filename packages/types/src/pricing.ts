@@ -284,14 +284,13 @@ export function calculateTokenCost(
   // Token-counting convention (must match the rest of the system, including
   // the Rust accumulators in tracepilot-core/analytics):
   //   - `inputTokens` is the TOTAL prompt token count and INCLUDES
-  //     `cacheReadTokens`. Non-cached input is therefore
-  //     `inputTokens - cacheReadTokens`.
-  //   - `cacheWriteTokens` (a.k.a. cache-creation) is DISJOINT from
-  //     `inputTokens` and is billed separately at `cacheWritePerM`. It is
-  //     significant for Anthropic models (~1.25× input rate).
+  //     `cacheReadTokens` and `cacheWriteTokens` (in the telemetry).
+  //     Non-cached standard input is therefore `inputTokens - cacheReadTokens - cacheWriteTokens`.
+  //   - `cacheWriteTokens` (a.k.a. cache-creation) is billed separately at `cacheWritePerM`.
+  //     It is significant for Anthropic models (~1.25× input rate).
   //   - `reasoningTokens` is DISJOINT from `outputTokens` and only billed
   //     when a model defines `reasoningPerM`.
-  const nonCachedInputTokens = Math.max(inputTokens - cacheReadTokens, 0);
+  const nonCachedInputTokens = Math.max(inputTokens - cacheReadTokens - cacheWriteTokens, 0);
   const inputCost = (nonCachedInputTokens / 1_000_000) * entry.rates.inputPerM;
   const cachedInputCost = (cacheReadTokens / 1_000_000) * entry.rates.cachedInputPerM;
   const cacheWriteCost = (cacheWriteTokens / 1_000_000) * (entry.rates.cacheWritePerM ?? 0);
