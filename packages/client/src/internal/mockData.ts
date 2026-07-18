@@ -31,6 +31,23 @@ const MOCK_CONTEXT_TIMELINE: ContextTimeline = {
   pairedCompactionCount: 1,
   methodology:
     "Top-level layers are observed at Copilot compaction/shutdown anchors; between-anchor conversation totals are calibrated estimates.",
+  reportedTokenLimit: 200_000,
+  events: [
+    {
+      turn: 1,
+      timestamp: null,
+      kind: "userMessage",
+      label: "User message",
+      preview: "Investigate the session context behavior.",
+    },
+    {
+      turn: 64,
+      timestamp: null,
+      kind: "sessionResume",
+      label: "Session resumed",
+      preview: "claude-sonnet",
+    },
+  ],
   points: [
     [1, "turn", 8756, 11012, 14218, "estimated"],
     [15, "turn", 8756, 11012, 64360, "estimated"],

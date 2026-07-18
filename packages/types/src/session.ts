@@ -120,6 +120,26 @@ export interface ContextCompaction {
   tokensRemoved?: number | null;
   afterSource: ContextPointSource;
   summaryTokens?: number | null;
+  compactionModel?: string | null;
+  durationMs?: number | null;
+  requestInputTokens?: number | null;
+  requestOutputTokens?: number | null;
+  cacheReadTokens?: number | null;
+  cacheWriteTokens?: number | null;
+}
+
+export type ContextTimelineEventKind =
+  | "userMessage"
+  | "modelChange"
+  | "sessionResume"
+  | "truncation";
+
+export interface ContextTimelineEvent {
+  turn: number;
+  timestamp?: string | null;
+  kind: ContextTimelineEventKind;
+  label: string;
+  preview?: string | null;
 }
 
 export interface ContextToolCallContribution {
@@ -146,6 +166,7 @@ export interface ContextToolTypeContribution {
 
 export interface ContextTimeline {
   points: ContextWindowPoint[];
+  events: ContextTimelineEvent[];
   compactions: ContextCompaction[];
   topToolCalls: ContextToolCallContribution[];
   toolTypes: ContextToolTypeContribution[];
@@ -155,6 +176,7 @@ export interface ContextTimeline {
   compactionStartCount: number;
   compactionCompleteCount: number;
   pairedCompactionCount: number;
+  reportedTokenLimit?: number | null;
   methodology: string;
 }
 

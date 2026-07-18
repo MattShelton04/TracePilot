@@ -52,6 +52,31 @@ pub struct ContextCompaction {
     pub tokens_removed: Option<u64>,
     pub after_source: ContextPointSource,
     pub summary_tokens: Option<u64>,
+    pub compaction_model: Option<String>,
+    pub duration_ms: Option<u64>,
+    pub request_input_tokens: Option<u64>,
+    pub request_output_tokens: Option<u64>,
+    pub cache_read_tokens: Option<u64>,
+    pub cache_write_tokens: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ContextTimelineEvent {
+    pub turn: usize,
+    pub timestamp: Option<String>,
+    pub kind: ContextTimelineEventKind,
+    pub label: String,
+    pub preview: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum ContextTimelineEventKind {
+    UserMessage,
+    ModelChange,
+    SessionResume,
+    Truncation,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -84,6 +109,7 @@ pub struct ContextToolTypeContribution {
 #[serde(rename_all = "camelCase")]
 pub struct ContextTimeline {
     pub points: Vec<ContextWindowPoint>,
+    pub events: Vec<ContextTimelineEvent>,
     pub compactions: Vec<ContextCompaction>,
     pub top_tool_calls: Vec<ContextToolCallContribution>,
     pub tool_types: Vec<ContextToolTypeContribution>,
@@ -93,6 +119,7 @@ pub struct ContextTimeline {
     pub compaction_start_count: usize,
     pub compaction_complete_count: usize,
     pub paired_compaction_count: usize,
+    pub reported_token_limit: Option<u64>,
     pub methodology: &'static str,
 }
 
@@ -124,6 +151,12 @@ struct CompactionDraft {
     before_tokens: Option<u64>,
     summary_tokens: Option<u64>,
     explicit_after: Option<(u64, u64, u64)>,
+    compaction_model: Option<String>,
+    duration_ms: Option<u64>,
+    request_input_tokens: Option<u64>,
+    request_output_tokens: Option<u64>,
+    cache_read_tokens: Option<u64>,
+    cache_write_tokens: Option<u64>,
 }
 
 #[derive(Debug, Clone)]
@@ -157,6 +190,8 @@ pub fn build_context_timeline(events: &[TypedEvent]) -> ContextTimeline {
     let mut compaction_complete_count = 0usize;
     let mut paired_compaction_count = 0usize;
     let mut tool_calls = Vec::<ToolCallDraft>::new();
+    let mut timeline_events = Vec::<ContextTimelineEvent>::new();
+    let mut reported_token_limit = None;
     let mut tool_call_indexes = HashMap::<String, usize>::new();
 
     for event in events {
@@ -181,6 +216,13 @@ pub fn build_context_timeline(events: &[TypedEvent]) -> ContextTimeline {
                     .or(data.content.as_deref())
                     .unwrap_or("");
                 add_message_delta(&mut deltas[turn], content);
+                timeline_events.push(ContextTimelineEvent {
+                    turn,
+                    timestamp: timestamp.clone(),
+                    kind: ContextTimelineEventKind::UserMessage,
+                    label: "User message".to_owned(),
+                    preview: preview_with_limit(content, 320),
+                });
             }
             TypedEventData::AssistantMessage(data) => {
                 let content = data.content.as_deref().unwrap_or("");
@@ -300,6 +342,39 @@ pub fn build_context_timeline(events: &[TypedEvent]) -> ContextTimeline {
                     anchors.push(anchor);
                 }
             }
+            TypedEventData::ModelChange(data) => {
+                timeline_events.push(ContextTimelineEvent {
+                    turn,
+                    timestamp: timestamp.clone(),
+                    kind: ContextTimelineEventKind::ModelChange,
+                    label: data.new_model.as_deref().map_or_else(
+                        || "Model changed".to_owned(),
+                        |model| format!("Model: {model}"),
+                    ),
+                    preview: data.context_tier.clone(),
+                });
+            }
+            TypedEventData::SessionResume(data) => {
+                timeline_events.push(ContextTimelineEvent {
+                    turn,
+                    timestamp: timestamp.clone(),
+                    kind: ContextTimelineEventKind::SessionResume,
+                    label: "Session resumed".to_owned(),
+                    preview: data.selected_model.clone(),
+                });
+            }
+            TypedEventData::SessionTruncation(data) => {
+                reported_token_limit = data.token_limit.or(reported_token_limit);
+                timeline_events.push(ContextTimelineEvent {
+                    turn,
+                    timestamp: timestamp.clone(),
+                    kind: ContextTimelineEventKind::Truncation,
+                    label: "Conversation truncated".to_owned(),
+                    preview: data
+                        .tokens_removed_during_truncation
+                        .map(|tokens| format!("{tokens} tokens removed")),
+                });
+            }
             _ => {}
         }
     }
@@ -332,6 +407,7 @@ pub fn build_context_timeline(events: &[TypedEvent]) -> ContextTimeline {
 
     ContextTimeline {
         points,
+        events: timeline_events,
         compactions,
         top_tool_calls,
         tool_types,
@@ -341,6 +417,7 @@ pub fn build_context_timeline(events: &[TypedEvent]) -> ContextTimeline {
         compaction_start_count,
         compaction_complete_count,
         paired_compaction_count,
+        reported_token_limit,
         methodology: METHODOLOGY,
     }
 }
@@ -479,6 +556,12 @@ fn finish_compaction(draft: CompactionDraft, points: &[ContextWindowPoint]) -> C
             .map(|(before, after)| before.saturating_sub(after)),
         after_source,
         summary_tokens: draft.summary_tokens,
+        compaction_model: draft.compaction_model,
+        duration_ms: draft.duration_ms,
+        request_input_tokens: draft.request_input_tokens,
+        request_output_tokens: draft.request_output_tokens,
+        cache_read_tokens: draft.cache_read_tokens,
+        cache_write_tokens: draft.cache_write_tokens,
     }
 }
 
@@ -533,6 +616,7 @@ fn compaction_from_complete(
         (Some(system), Some(conversation), Some(tools)) => Some((system, conversation, tools)),
         _ => None,
     };
+    let usage = data.compaction_tokens_used.as_ref();
     CompactionDraft {
         start_turn,
         complete_turn,
@@ -542,6 +626,12 @@ fn compaction_from_complete(
         before_tokens: data.pre_compaction_tokens,
         summary_tokens,
         explicit_after,
+        compaction_model: usage.and_then(|item| item.model.clone()),
+        duration_ms: usage.and_then(|item| item.duration),
+        request_input_tokens: usage.and_then(|item| item.input_tokens.or(item.input)),
+        request_output_tokens: usage.and_then(|item| item.output_tokens.or(item.output)),
+        cache_read_tokens: usage.and_then(|item| item.cache_read_tokens.or(item.cached_input)),
+        cache_write_tokens: usage.and_then(|item| item.cache_write_tokens),
     }
 }
 
@@ -643,13 +733,16 @@ fn estimate_tokens(content: &str) -> u64 {
 }
 
 fn preview(content: &str) -> Option<String> {
+    preview_with_limit(content, 2_000)
+}
+
+fn preview_with_limit(content: &str, limit: usize) -> Option<String> {
     if content.is_empty() {
         return None;
     }
-    const LIMIT: usize = 2_000;
-    let mut value = content.chars().take(LIMIT).collect::<String>();
-    if content.chars().count() > LIMIT {
-        value.push_str("\n…");
+    let mut value = content.chars().take(limit).collect::<String>();
+    if content.chars().count() > limit {
+        value.push_str("\n…[truncated]");
     }
     Some(value)
 }
@@ -667,7 +760,8 @@ fn phase_order(phase: ContextPointPhase) -> u8 {
 mod tests {
     use super::*;
     use crate::models::event_types::{
-        AssistantMessageData, CompactionTokenUsage, SessionEventType, TurnStartData,
+        AssistantMessageData, CompactionTokenUsage, SessionEventType, SessionTruncationData,
+        TurnStartData, UserMessageData,
     };
     use crate::parsing::events::RawEvent;
     use chrono::Utc;
@@ -873,6 +967,58 @@ mod tests {
             .find(|point| point.turn == 3 && point.phase == ContextPointPhase::PostCompaction)
             .unwrap();
         assert_eq!(post.total_tokens, 35);
+    }
+
+    #[test]
+    fn exposes_user_message_overlays_and_reported_truncation_limit() {
+        let events = vec![
+            event(
+                SessionEventType::AssistantTurnStart,
+                TypedEventData::TurnStart(TurnStartData {
+                    turn_id: Some("1".into()),
+                    interaction_id: None,
+                }),
+            ),
+            event(
+                SessionEventType::UserMessage,
+                TypedEventData::UserMessage(UserMessageData {
+                    content: Some("show me the context pressure".into()),
+                    transformed_content: None,
+                    attachments: None,
+                    supported_native_document_mime_types: None,
+                    native_document_path_fallback_paths: None,
+                    interaction_id: None,
+                    source: None,
+                    agent_mode: None,
+                    parent_agent_task_id: None,
+                }),
+            ),
+            event(
+                SessionEventType::SessionTruncation,
+                TypedEventData::SessionTruncation(SessionTruncationData {
+                    token_limit: Some(272_000),
+                    pre_truncation_tokens_in_messages: Some(250_000),
+                    pre_truncation_messages_length: None,
+                    post_truncation_tokens_in_messages: Some(200_000),
+                    post_truncation_messages_length: None,
+                    tokens_removed_during_truncation: Some(50_000),
+                    messages_removed_during_truncation: None,
+                    performed_by: Some("copilot".into()),
+                }),
+            ),
+        ];
+
+        let timeline = build_context_timeline(&events);
+        assert_eq!(timeline.reported_token_limit, Some(272_000));
+        assert_eq!(timeline.events.len(), 2);
+        assert_eq!(
+            timeline.events[0].kind,
+            ContextTimelineEventKind::UserMessage
+        );
+        assert_eq!(
+            timeline.events[1].kind,
+            ContextTimelineEventKind::Truncation
+        );
     }
 
     #[test]

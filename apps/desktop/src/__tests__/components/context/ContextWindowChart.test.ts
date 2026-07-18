@@ -11,6 +11,15 @@ const timeline: ContextTimeline = {
   compactionCompleteCount: 1,
   pairedCompactionCount: 1,
   methodology: "test",
+  events: [
+    {
+      turn: 1,
+      timestamp: "2026-01-01T00:00:00Z",
+      kind: "userMessage",
+      label: "User message",
+      preview: "hello",
+    },
+  ],
   points: [
     {
       turn: 1,
@@ -65,7 +74,7 @@ describe("ContextWindowChart", () => {
   it("renders all context layers and observed anchors", () => {
     const wrapper = mount(ContextWindowChart, { props: { timeline } });
     expect(wrapper.findAll(".context-chart__area")).toHaveLength(3);
-    expect(wrapper.findAll(".context-chart__anchor")).toHaveLength(3);
+    expect(wrapper.findAll(".context-chart__anchor")).toHaveLength(2);
     expect(wrapper.text()).toContain("System prompt");
     expect(wrapper.text()).toContain("Conversation");
   });
@@ -92,7 +101,6 @@ describe("ContextWindowChart", () => {
     });
     await svg.trigger("mousemove", { clientX: 66 });
     expect(wrapper.find(".context-chart__tooltip").text()).toContain("Turn 1");
-    expect(wrapper.find(".context-chart__tooltip").text()).toContain("Click to lock");
     await svg.trigger("click", { clientX: 66 });
     expect(wrapper.emitted("selectPoint")?.[0]).toEqual([timeline.points[0]]);
   });
@@ -100,7 +108,17 @@ describe("ContextWindowChart", () => {
   it("exposes zoom and pan controls", async () => {
     const wrapper = mount(ContextWindowChart, { props: { timeline } });
     await wrapper.find('button[aria-label="Zoom in"]').trigger("click");
-    expect(wrapper.text()).toContain("1.6×");
-    expect(wrapper.find('.context-chart__pan input[type="range"]').exists()).toBe(true);
+    expect(wrapper.text()).toContain("1.5×");
+    expect(wrapper.text()).toContain("Viewing");
+  });
+
+  it("emits selectable special points and message overlays", async () => {
+    const wrapper = mount(ContextWindowChart, { props: { timeline } });
+    const specialPoints = wrapper.findAll('[aria-label^="Select"]');
+    expect(specialPoints.length).toBeGreaterThan(0);
+    await specialPoints[0].trigger("click");
+    expect(wrapper.emitted("selectPoint")).toBeTruthy();
+    await wrapper.find('[aria-label="User message at turn 1"]').trigger("click");
+    expect(wrapper.emitted("selectEvent")?.[0]).toEqual([timeline.events[0]]);
   });
 });

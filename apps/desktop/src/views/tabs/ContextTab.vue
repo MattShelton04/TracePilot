@@ -2,8 +2,10 @@
 import type {
   ContextCompaction,
   ContextTimeline,
+  ContextTimelineEvent,
   ContextToolCallContribution,
   ContextWindowPoint,
+  TurnToolCall,
 } from "@tracepilot/types";
 import {
   Badge,
@@ -11,13 +13,16 @@ import {
   ErrorAlert,
   formatNumber,
   formatNumberFull,
+  formatTime,
+  LoadingSpinner,
   SectionPanel,
-  SkeletonLoader,
   StatCard,
+  ToolCallItem,
 } from "@tracepilot/ui";
-import { Activity, DatabaseZap } from "lucide-vue-next";
+import { Activity, Info } from "lucide-vue-next";
 import { computed, ref, watch } from "vue";
 import ContextWindowChart from "@/components/context/ContextWindowChart.vue";
+import { useCheckpointNavigation } from "@/composables/useCheckpointNavigation";
 import { getCachedContextTimeline, loadContextTimeline } from "@/composables/useContextTimeline";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
@@ -30,6 +35,8 @@ const error = ref<string | null>(null);
 const selectedPoint = ref<ContextWindowPoint | null>(null);
 const selectedCompaction = ref<ContextCompaction | null>(null);
 const selectedToolCall = ref<ContextToolCallContribution | null>(null);
+const selectedTimelineEvent = ref<ContextTimelineEvent | null>(null);
+const navigateToCheckpoint = useCheckpointNavigation();
 const { fullResults, loadingResults, failedResults, loadFullResult, retryFullResult } =
   useToolResultLoader(() => store.sessionId);
 let requestVersion = 0;
@@ -62,6 +69,7 @@ watch(
     selectedPoint.value = null;
     selectedCompaction.value = null;
     selectedToolCall.value = null;
+    selectedTimelineEvent.value = null;
     if (sessionId) load(sessionId);
   },
   { immediate: true },
@@ -77,22 +85,18 @@ const peakTokens = computed(() =>
 const latestTokens = computed(
   () => timeline.value?.points[timeline.value.points.length - 1]?.totalTokens ?? 0,
 );
-const totalRemoved = computed(() =>
-  (timeline.value?.compactions ?? []).reduce(
-    (sum, compaction) => sum + (compaction.tokensRemoved ?? 0),
-    0,
-  ),
-);
 const displayedToolCalls = computed(() => (timeline.value?.topToolCalls ?? []).slice(0, 10));
 const displayedToolTypes = computed(() => (timeline.value?.toolTypes ?? []).slice(0, 8));
 
 function selectPoint(point: ContextWindowPoint) {
   selectedPoint.value = point;
   selectedCompaction.value = null;
+  selectedTimelineEvent.value = null;
 }
 
 function selectCompaction(compaction: ContextCompaction) {
   selectedCompaction.value = compaction;
+  selectedTimelineEvent.value = null;
   selectedPoint.value =
     timeline.value?.points.find(
       (point) => point.turn === compaction.completeTurn && point.phase === "postCompaction",
@@ -107,6 +111,42 @@ function selectToolCall(item: ContextToolCallContribution) {
     timeline.value?.points.find((point) => point.turn === item.turn && point.phase === "turn") ??
     timeline.value?.points.find((point) => point.turn === item.turn) ??
     selectedPoint.value;
+}
+
+function selectTimelineEvent(event: ContextTimelineEvent) {
+  selectedTimelineEvent.value = event;
+  selectedCompaction.value = null;
+  selectedPoint.value =
+    timeline.value?.points.find((point) => point.turn === event.turn && point.phase === "turn") ??
+    timeline.value?.points.find((point) => point.turn === event.turn) ??
+    null;
+}
+
+function toolCallFor(item: ContextToolCallContribution): TurnToolCall {
+  let argumentsValue: unknown = item.argumentsPreview;
+  if (item.argumentsPreview && !item.argumentsPreview.endsWith("…[truncated]")) {
+    try {
+      argumentsValue = JSON.parse(item.argumentsPreview);
+    } catch {
+      // Keep non-JSON arguments as captured text.
+    }
+  }
+  return {
+    toolCallId: item.toolCallId ?? undefined,
+    toolName: item.toolName,
+    arguments: argumentsValue,
+    resultContent: item.resultPreview ?? undefined,
+    success: item.success ?? undefined,
+    isComplete: item.success != null,
+  };
+}
+
+function toggleToolCall(item: ContextToolCallContribution) {
+  if (selectedToolCall.value === item) {
+    selectedToolCall.value = null;
+  } else {
+    selectToolCall(item);
+  }
 }
 
 function phaseLabel(point: ContextWindowPoint): string {
@@ -136,8 +176,8 @@ function retryLoad() {
     />
 
     <div v-if="loading && !timeline" class="context-tab__loading">
-      <SkeletonLoader variant="text" :count="2" />
-      <SkeletonLoader variant="card" :count="2" />
+      <LoadingSpinner size="lg" />
+      <span>Reconstructing context timeline…</span>
     </div>
 
     <EmptyState
@@ -149,46 +189,71 @@ function retryLoad() {
     </EmptyState>
 
     <template v-else-if="timeline">
-      <div class="context-tab__notice">
-        <DatabaseZap :size="17" aria-hidden="true" />
-        <div>
-          <strong>Source-aware reconstruction</strong>
-          <span>{{ timeline.methodology }}</span>
+      <div class="context-tab__meta">
+        <details class="context-tab__methodology">
+          <summary><Info :size="14" aria-hidden="true" /> How estimates work</summary>
+          <div>
+            <strong>Source-aware reconstruction</strong>
+            <p>{{ timeline.methodology }}</p>
+            <p>
+              Cache telemetry is aggregate-only; tool payload estimates do not identify individual
+              cache reads or writes.
+            </p>
+          </div>
+        </details>
+        <div class="context-tab__confidence">
+          <LoadingSpinner v-if="refreshing" size="sm" />
+          <span v-if="refreshing">Updating</span>
+          <Badge variant="neutral">{{ timeline.observedPointCount }} observed</Badge>
+          <Badge variant="warning">{{ timeline.estimatedPointCount }} estimated</Badge>
+          <Badge
+            :variant="
+              timeline.compactionStartCount === timeline.compactionCompleteCount &&
+              timeline.pairedCompactionCount === timeline.compactionStartCount
+                ? 'success'
+                : 'warning'
+            "
+          >
+            {{ timeline.pairedCompactionCount }}/{{ timeline.compactionStartCount }} paired
+          </Badge>
         </div>
-        <Badge v-if="refreshing" variant="neutral">Refreshing</Badge>
-        <Badge variant="neutral">{{ timeline.observedPointCount }} observed</Badge>
-        <Badge variant="warning">{{ timeline.estimatedPointCount }} estimated</Badge>
-        <Badge
-          :variant="
-            timeline.compactionStartCount === timeline.compactionCompleteCount &&
-            timeline.pairedCompactionCount === timeline.compactionStartCount
-              ? 'success'
-              : 'warning'
-          "
-        >
-          {{ timeline.pairedCompactionCount }}/{{ timeline.compactionStartCount }} compactions paired
-        </Badge>
       </div>
 
-      <div class="grid-4 mb-6">
+      <div class="context-tab__stats">
         <StatCard :value="formatNumber(peakTokens)" label="Peak Context" :gradient="true" />
         <StatCard :value="formatNumber(latestTokens)" label="Latest Context" color="done" />
         <StatCard :value="timeline.compactions.length" label="Compactions" color="warning" />
-        <StatCard :value="formatNumber(totalRemoved)" label="Est. Tokens Removed" color="success" />
       </div>
 
       <SectionPanel title="Context pressure by turn">
         <ContextWindowChart
           :timeline="timeline"
           :selected-point="selectedPoint"
+          :selected-event="selectedTimelineEvent"
           @select-point="selectPoint"
           @select-compaction="selectCompaction"
+          @select-event="selectTimelineEvent"
         />
       </SectionPanel>
 
       <div class="context-tab__details">
         <SectionPanel title="Selected point">
-          <div v-if="selectedPoint" class="context-tab__detail-card">
+          <div v-if="selectedTimelineEvent" class="context-tab__detail-card">
+            <div class="context-tab__detail-heading">
+              <div>
+                <span class="context-tab__eyebrow">Turn {{ selectedTimelineEvent.turn }}</span>
+                <h3>{{ selectedTimelineEvent.label }}</h3>
+              </div>
+              <Badge variant="neutral">Event overlay</Badge>
+            </div>
+            <p v-if="selectedTimelineEvent.preview" class="context-tab__event-preview">
+              {{ selectedTimelineEvent.preview }}
+            </p>
+            <p v-if="selectedTimelineEvent.timestamp" class="context-tab__footnote">
+              {{ formatTime(selectedTimelineEvent.timestamp) }}
+            </p>
+          </div>
+          <div v-else-if="selectedPoint" class="context-tab__detail-card">
             <div class="context-tab__detail-heading">
               <div>
                 <span class="context-tab__eyebrow">Turn {{ selectedPoint.turn }}</span>
@@ -232,6 +297,43 @@ function retryLoad() {
             <p class="context-tab__footnote">
               After-compaction total is {{ selectedCompaction.afterSource }}; savings inherit that confidence.
             </p>
+            <dl
+              v-if="
+                selectedCompaction.compactionModel ||
+                selectedCompaction.durationMs ||
+                selectedCompaction.requestInputTokens
+              "
+              class="context-tab__compaction-request"
+            >
+              <div v-if="selectedCompaction.compactionModel">
+                <dt>Compaction model</dt>
+                <dd>{{ selectedCompaction.compactionModel }}</dd>
+              </div>
+              <div v-if="selectedCompaction.durationMs">
+                <dt>Duration</dt>
+                <dd>{{ selectedCompaction.durationMs.toLocaleString() }} ms</dd>
+              </div>
+              <div v-if="selectedCompaction.requestInputTokens">
+                <dt>Request input</dt>
+                <dd>{{ formatNumberFull(selectedCompaction.requestInputTokens) }}</dd>
+              </div>
+              <div v-if="selectedCompaction.requestOutputTokens">
+                <dt>Request output</dt>
+                <dd>{{ formatNumberFull(selectedCompaction.requestOutputTokens) }}</dd>
+              </div>
+              <div v-if="selectedCompaction.cacheReadTokens">
+                <dt>Cache read</dt>
+                <dd>{{ formatNumberFull(selectedCompaction.cacheReadTokens) }}</dd>
+              </div>
+            </dl>
+            <button
+              v-if="selectedCompaction.checkpointNumber != null"
+              type="button"
+              class="context-tab__checkpoint-link"
+              @click="navigateToCheckpoint(selectedCompaction.checkpointNumber)"
+            >
+              Open checkpoint #{{ selectedCompaction.checkpointNumber }} in Overview
+            </button>
           </div>
           <div v-else class="context-tab__placeholder">
             Select a dashed compaction marker to inspect its before/after estimate.
@@ -279,69 +381,43 @@ function retryLoad() {
         </SectionPanel>
 
         <SectionPanel title="Most expensive tool calls">
-          <div v-if="displayedToolCalls.length" class="context-tab__contributors">
-          <button
-            v-for="(item, index) in displayedToolCalls"
-            :key="item.toolCallId ?? `${item.turn}-${item.toolName}-${index}`"
-            type="button"
-            class="context-tab__contributor"
-            :class="{ 'context-tab__contributor--selected': selectedToolCall === item }"
-            @click="selectToolCall(item)"
-          >
-            <span class="context-tab__contributor-rank">{{ index + 1 }}</span>
-            <span class="context-tab__contributor-name">
-              <strong>{{ item.toolName }}</strong>
-              <small>
-                Turn {{ item.turn }} · {{ formatNumber(item.argumentTokens) }} arguments ·
-                {{ formatNumber(item.resultTokens) }} result
-              </small>
-            </span>
-            <Badge v-if="item.success === false" variant="danger">Failed</Badge>
-            <span>{{ formatNumber(item.totalTokens) }} tokens</span>
-          </button>
-        </div>
-          <p v-else class="context-tab__placeholder">No tool calls were captured for this session.</p>
-          <div v-if="selectedToolCall" class="context-tab__tool-inspector">
-            <div class="context-tab__detail-heading">
-              <div>
-                <span class="context-tab__eyebrow">Turn {{ selectedToolCall.turn }}</span>
-                <h3>{{ selectedToolCall.toolName }}</h3>
-              </div>
-              <Badge variant="neutral">{{ formatNumber(selectedToolCall.totalTokens) }} estimated tokens</Badge>
-            </div>
-            <p class="context-tab__footnote">
-              Arguments and returned results can become later LLM prompt input. The event stream
-              does not reveal whether this individual payload was a cache write, cache read, or
-              uncached input.
-            </p>
-            <template v-if="selectedToolCall.argumentsPreview">
-              <h4>Arguments</h4>
-              <pre>{{ selectedToolCall.argumentsPreview }}</pre>
-            </template>
-            <template v-if="selectedToolCall.resultPreview">
-              <h4>Returned result preview</h4>
-              <pre>{{ fullResults.get(selectedToolCall.toolCallId ?? '') ?? selectedToolCall.resultPreview }}</pre>
-            </template>
-            <button
-              v-if="selectedToolCall.toolCallId && !fullResults.has(selectedToolCall.toolCallId)"
-              type="button"
-              class="context-tab__load-result"
-              :disabled="loadingResults.has(selectedToolCall.toolCallId)"
-              @click="
-                failedResults.has(selectedToolCall.toolCallId)
-                  ? retryFullResult(selectedToolCall.toolCallId)
-                  : loadFullResult(selectedToolCall.toolCallId)
-              "
+          <div v-if="displayedToolCalls.length" class="context-tab__rich-tools">
+            <div
+              v-for="(item, index) in displayedToolCalls"
+              :key="item.toolCallId ?? `${item.turn}-${item.toolName}-${index}`"
+              class="context-tab__rich-tool"
             >
-              {{
-                loadingResults.has(selectedToolCall.toolCallId)
-                  ? 'Loading…'
-                  : failedResults.has(selectedToolCall.toolCallId)
-                    ? 'Retry full result'
-                    : 'Load full captured result'
-              }}
-            </button>
+              <div class="context-tab__rich-tool-meta">
+                <span>#{{ index + 1 }} · Turn {{ item.turn }}</span>
+                <span>
+                  {{ formatNumber(item.argumentTokens) }} arguments ·
+                  {{ formatNumber(item.resultTokens) }} result ·
+                  <strong>{{ formatNumber(item.totalTokens) }} estimated tokens</strong>
+                </span>
+              </div>
+              <ToolCallItem
+                :tc="toolCallFor(item)"
+                :expanded="selectedToolCall === item"
+                :full-result="
+                  item.toolCallId ? fullResults.get(item.toolCallId) : undefined
+                "
+                :loading-full-result="
+                  item.toolCallId ? loadingResults.has(item.toolCallId) : false
+                "
+                :failed-full-result="
+                  item.toolCallId ? failedResults.has(item.toolCallId) : false
+                "
+                @toggle="toggleToolCall(item)"
+                @load-full-result="loadFullResult"
+                @retry-full-result="retryFullResult"
+              />
+            </div>
           </div>
+          <p v-else class="context-tab__placeholder">No tool calls were captured for this session.</p>
+          <p v-if="displayedToolCalls.length" class="context-tab__footnote">
+            Contribution estimates measure captured arguments and returned results that may become
+            later prompt input; they are not per-call cache attribution.
+          </p>
         </SectionPanel>
       </div>
     </template>
@@ -350,45 +426,84 @@ function retryLoad() {
 
 <style scoped>
 .context-tab__loading {
-  display: grid;
-  align-content: start;
-  gap: 16px;
-  min-height: 620px;
+  display: flex;
+  min-height: 420px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+  color: var(--text-tertiary);
+  font-size: 0.75rem;
 }
 
-.context-tab__notice {
+.context-tab__meta {
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 30px;
+  margin-bottom: 12px;
+}
+
+.context-tab__methodology {
+  position: relative;
+}
+
+.context-tab__methodology summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-tertiary);
+  font-size: 0.6875rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.context-tab__methodology summary::-webkit-details-marker {
+  display: none;
+}
+
+.context-tab__methodology > div {
+  position: absolute;
+  z-index: var(--z-tooltip);
+  top: calc(100% + 7px);
+  left: 0;
+  width: min(520px, calc(100vw - 64px));
   padding: 12px 14px;
-  margin-bottom: 20px;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
-  background: var(--canvas-subtle);
-  color: var(--text-secondary);
+  background: var(--canvas-overlay, var(--canvas-default));
+  box-shadow: var(--shadow-lg);
 }
 
-.context-tab__notice svg {
-  color: var(--accent-fg);
-  flex-shrink: 0;
-}
-
-.context-tab__notice div {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  flex: 1;
-  min-width: 0;
-}
-
-.context-tab__notice strong {
+.context-tab__methodology strong {
   color: var(--text-primary);
   font-size: 0.8125rem;
 }
 
-.context-tab__notice span {
+.context-tab__methodology p {
+  margin: 6px 0 0;
+  color: var(--text-secondary);
   font-size: 0.75rem;
   line-height: 1.45;
+}
+
+.context-tab__confidence {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.context-tab__confidence > span {
+  color: var(--text-tertiary);
+  font-size: 0.6875rem;
+}
+
+.context-tab__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
 }
 
 .context-tab__details {
@@ -458,17 +573,55 @@ function retryLoad() {
   line-height: 1.45;
 }
 
+.context-tab__event-preview {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.context-tab__compaction-request {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 16px;
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-muted);
+}
+
+.context-tab__compaction-request dt {
+  color: var(--text-tertiary);
+  font-size: 0.6875rem;
+}
+
+.context-tab__compaction-request dd {
+  margin: 2px 0 0;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.context-tab__checkpoint-link {
+  margin-top: 12px;
+  padding: 5px 8px;
+  border: 1px solid var(--border-accent);
+  border-radius: var(--radius-sm);
+  background: var(--accent-subtle);
+  color: var(--accent-fg);
+  font: inherit;
+  font-size: 0.6875rem;
+  cursor: pointer;
+}
+
 .context-tab__placeholder {
   display: grid;
   place-items: center;
   color: var(--text-tertiary);
   font-size: 0.75rem;
   text-align: center;
-}
-
-.context-tab__contributors {
-  display: grid;
-  gap: 6px;
 }
 
 .context-tab__compaction-list {
@@ -559,101 +712,26 @@ function retryLoad() {
   background: var(--chart-warning);
 }
 
-.context-tab__contributor {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 9px 10px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-secondary);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.context-tab__contributor:hover {
-  border-color: var(--border-default);
-  background: var(--canvas-subtle);
-}
-
-.context-tab__contributor--selected {
-  border-color: var(--border-accent);
-  background: var(--canvas-subtle);
-}
-
-.context-tab__contributor-rank {
+.context-tab__rich-tools {
   display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: var(--neutral-subtle);
-  color: var(--text-tertiary);
-  font-size: 0.6875rem;
+  gap: 10px;
 }
 
-.context-tab__contributor-name {
-  display: flex;
-  flex: 1;
+.context-tab__rich-tool {
   min-width: 0;
-  flex-direction: column;
 }
 
-.context-tab__contributor-name strong {
-  overflow: hidden;
-  color: var(--text-primary);
-  font-size: 0.8125rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.context-tab__contributor-name small {
+.context-tab__rich-tool-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 4px 4px;
   color: var(--text-tertiary);
   font-size: 0.6875rem;
 }
 
-.context-tab__tool-inspector {
-  margin-top: 12px;
-  padding: 14px;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  background: var(--canvas-subtle);
-}
-
-.context-tab__tool-inspector h4 {
-  margin: 14px 0 5px;
+.context-tab__rich-tool-meta strong {
   color: var(--text-secondary);
-  font-size: 0.75rem;
-}
-
-.context-tab__tool-inspector pre {
-  max-height: 240px;
-  margin: 0;
-  padding: 10px;
-  overflow: auto;
-  border: 1px solid var(--border-muted);
-  border-radius: var(--radius-sm);
-  background: var(--canvas-default);
-  color: var(--text-secondary);
-  font-size: 0.6875rem;
-  line-height: 1.45;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.context-tab__load-result {
-  margin-top: 10px;
-  padding: 6px 10px;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  background: var(--canvas-default);
-  color: var(--text-secondary);
-  font: inherit;
-  font-size: 0.75rem;
-  cursor: pointer;
 }
 
 @media (max-width: 900px) {
@@ -664,12 +742,25 @@ function retryLoad() {
   .context-tab__token-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .context-tab__stats {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 640px) {
-  .context-tab__notice {
+  .context-tab__meta {
     align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .context-tab__confidence {
     flex-wrap: wrap;
+  }
+
+  .context-tab__rich-tool-meta {
+    flex-direction: column;
+    gap: 2px;
   }
 }
 </style>

@@ -20,6 +20,7 @@ const response: ContextTimelineResponse = {
   eventsFileMtime: 200,
   timeline: {
     points: [],
+    events: [],
     compactions: [],
     topToolCalls: [],
     toolTypes: [],

@@ -220,6 +220,8 @@ export type {
   ContextPointPhase,
   ContextPointSource,
   ContextTimeline,
+  ContextTimelineEvent,
+  ContextTimelineEventKind,
   ContextTimelineResponse,
   ContextToolCallContribution,
   ContextToolTypeContribution,

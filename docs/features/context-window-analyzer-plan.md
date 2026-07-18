@@ -86,6 +86,12 @@ for the compaction request, but neither attributes cache status to an
 individual tool result or turn. The analyzer therefore does not claim that a
 result is sent uncached once and cached on later requests.
 
+The local corpus does contain a `session.truncation.tokenLimit` value of
+272,000, but that sample is from Copilot CLI 1.0.40 on 2026-05-10. The two
+sessions from 2026-07-17 do not report a token/context limit field. Reported
+limits are therefore rendered only for the session that emitted them and are
+never promoted into model metadata or reused for newer sessions.
+
 ## Architecture
 
 1. Reuse the existing validated session path lookup and typed-event LRU cache.
@@ -130,10 +136,18 @@ At compaction:
   card with start/completion turns, before, after, removed, checkpoint, and
   estimation status. A scrollable history provides a second selection route.
 - Hovering previews a point; clicking locks its turn, total, phase, and source.
-  Zoom controls and a pan range support long sessions.
+  Mouse-wheel zoom, direct drag-panning, accessible zoom controls, and
+  turn/time axis modes support long or irregularly timed sessions.
+- Pre-compaction, post-compaction, and shutdown anchors have dedicated
+  selection targets. Optional overlays expose user messages, model changes,
+  resumes, and truncations without making them context layers.
+- A toggleable pressure overlay shows the median level at which compaction was
+  observed in the current session. When `session.truncation` reports a hard
+  token limit, that is shown separately. Copilot does not currently report a
+  model-owned compaction trigger, so neither line is labeled as one.
 - Tool diagnostics aggregate estimated argument/returned-result contribution
-  by type. Selecting a call exposes bounded captured previews and can lazily
-  load the full captured result.
+  by type. Individual calls reuse TracePilot's rich tool-call renderers and can
+  lazily load the full captured result.
 - Empty, loading, error, and no-anchor states use existing TracePilot patterns.
 
 ## Performance and compatibility
