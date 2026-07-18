@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatObjectResult } from "../../utils/formatResult";
+import { formatObjectResult, formatToolResultContent } from "../../utils/formatResult";
 
 describe("formatObjectResult", () => {
   // ── String inputs ─────────────────────────────────────────────────────────
@@ -222,5 +222,22 @@ describe("formatObjectResult", () => {
       const result = formatObjectResult(obj);
       expect(typeof result).toBe("string");
     });
+  });
+});
+
+describe("formatToolResultContent", () => {
+  it("extracts renderable content even when the transport wrapper has metadata", () => {
+    expect(
+      formatToolResultContent({
+        content: "render me",
+        detailedContent: "diff",
+        telemetry: { resultLength: 9 },
+      }),
+    ).toBe("render me");
+  });
+
+  it("retains structured results that have no renderable content", () => {
+    const result = { rows: [[1, 2]], columns: ["a", "b"] };
+    expect(formatToolResultContent(result)).toBe(JSON.stringify(result, null, 2));
   });
 });

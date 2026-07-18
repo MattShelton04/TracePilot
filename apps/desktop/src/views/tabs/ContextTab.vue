@@ -25,10 +25,13 @@ import ContextWindowChart from "@/components/context/ContextWindowChart.vue";
 import ToolTypeDonut from "@/components/context/ToolTypeDonut.vue";
 import { useCheckpointNavigation } from "@/composables/useCheckpointNavigation";
 import { getCachedContextTimeline, loadContextTimeline } from "@/composables/useContextTimeline";
+import { useConversationNavigation } from "@/composables/useConversationNavigation";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
+import { usePreferencesStore } from "@/stores/preferences";
 
 const store = useSessionDetailContext();
+const preferences = usePreferencesStore();
 const timeline = ref<ContextTimeline | null>(null);
 const loading = ref(false);
 const refreshing = ref(false);
@@ -40,6 +43,7 @@ const selectedTurnToolCall = ref<TurnToolCall | null>(null);
 const selectedTimelineEvent = ref<ContextTimelineEvent | null>(null);
 const loadingTurnTools = ref(false);
 const navigateToCheckpoint = useCheckpointNavigation();
+const navigateToConversation = useConversationNavigation();
 const { fullResults, loadingResults, failedResults, loadFullResult, retryFullResult } =
   useToolResultLoader(() => store.sessionId);
 let requestVersion = 0;
@@ -64,7 +68,10 @@ function applyTimeline(next: ContextTimeline) {
   const event = selectedTimelineEvent.value;
   const eventMatches = event
     ? (item: ContextTimelineEvent) =>
-        item.turn === event.turn && item.kind === event.kind && item.timestamp === event.timestamp
+        item.turn === event.turn &&
+        item.kind === event.kind &&
+        item.timestamp === event.timestamp &&
+        item.eventIndex === event.eventIndex
     : null;
   const eventOccurrence =
     event && eventMatches
@@ -182,6 +189,19 @@ const selectedTurn = computed(() => {
     : store.turns.find((turn) => turn.turnIndex === turnNumber - 1);
 });
 const selectedTurnToolCalls = computed(() => selectedTurn.value?.toolCalls ?? []);
+const selectedContributionToolCall = computed(() => {
+  const contribution = selectedToolCall.value;
+  if (!contribution) return null;
+  for (const turn of store.turns) {
+    const match = turn.toolCalls.find((item) =>
+      contribution.toolCallId
+        ? item.toolCallId === contribution.toolCallId
+        : turn.turnIndex === contribution.turn - 1 && item.toolName === contribution.toolName,
+    );
+    if (match) return match;
+  }
+  return toolCallFor(contribution);
+});
 
 watch(
   () => store.turnsVersion,
@@ -241,7 +261,7 @@ function selectToolCall(item: ContextToolCallContribution) {
     timeline.value?.points.find((point) => point.turn === item.turn && point.phase === "turn") ??
     timeline.value?.points.find((point) => point.turn === item.turn) ??
     selectedPoint.value;
-  if (item.toolCallId) void loadFullResult(item.toolCallId);
+  if (item.toolCallId) prefetchFullResult(item.toolCallId);
   void ensureTurnTools();
 }
 
@@ -259,16 +279,27 @@ function selectTimelineEvent(event: ContextTimelineEvent) {
 function selectTurnToolCall(item: TurnToolCall) {
   selectedTurnToolCall.value = selectedTurnToolCall.value === item ? null : item;
   if (selectedTurnToolCall.value?.toolCallId) {
-    void loadFullResult(selectedTurnToolCall.value.toolCallId);
+    prefetchFullResult(selectedTurnToolCall.value.toolCallId);
   }
 }
 
-function turnToolSummary(item: TurnToolCall): string {
-  if (item.argsSummary) return item.argsSummary;
-  if (item.arguments == null) return "No captured arguments";
-  const value =
-    typeof item.arguments === "string" ? item.arguments : JSON.stringify(item.arguments);
-  return value.length > 100 ? `${value.slice(0, 97)}…` : value;
+function prefetchFullResult(toolCallId: string) {
+  if (failedResults.has(toolCallId)) {
+    retryFullResult(toolCallId);
+  } else {
+    void loadFullResult(toolCallId);
+  }
+}
+
+function richEnabledFor(toolName: string): boolean {
+  return preferences.isRichRenderingEnabled(toolName);
+}
+
+function openConversation(turn: number, eventIndex?: number | null) {
+  navigateToConversation({
+    turnIndex: Math.max(0, turn - 1),
+    eventIndex: eventIndex ?? null,
+  });
 }
 
 function toolCallFor(item: ContextToolCallContribution): TurnToolCall {
@@ -413,6 +444,15 @@ function retryLoad() {
             <p v-if="selectedTimelineEvent.timestamp" class="context-tab__footnote">
               {{ formatTime(selectedTimelineEvent.timestamp) }}
             </p>
+            <button
+              type="button"
+              class="context-tab__conversation-link"
+              @click="
+                openConversation(selectedTimelineEvent.turn, selectedTimelineEvent.eventIndex)
+              "
+            >
+              View event in Conversation
+            </button>
           </div>
           <div v-else-if="selectedPoint" class="context-tab__detail-card">
             <div class="context-tab__detail-heading">
@@ -433,66 +473,16 @@ function retryLoad() {
             <p v-if="selectedPoint.source === 'observed'" class="context-tab__footnote">
               Copilot reported all three displayed layers for this point.
             </p>
+            <button
+              type="button"
+              class="context-tab__conversation-link"
+              @click="openConversation(selectedPoint.turn)"
+            >
+              View turn in Conversation
+            </button>
           </div>
           <div v-else class="context-tab__placeholder">
             Select a turn, event, or compaction marker to inspect it.
-          </div>
-          <div v-if="selectedPoint" class="context-tab__turn-tools">
-            <div class="context-tab__turn-tools-heading">
-              <div>
-                <span class="context-tab__eyebrow">Turn {{ selectedPoint.turn }}</span>
-                <strong>Tool calls in this turn</strong>
-              </div>
-              <LoadingSpinner v-if="loadingTurnTools" size="sm" />
-            </div>
-            <p v-if="store.turnsError" class="context-tab__turn-tools-error">
-              {{ store.turnsError }}
-            </p>
-            <div v-else-if="selectedTurnToolCalls.length" class="context-tab__turn-tool-list">
-              <button
-                v-for="(item, index) in selectedTurnToolCalls"
-                :key="item.toolCallId ?? `${item.toolName}-${index}`"
-                type="button"
-                :class="{ selected: selectedTurnToolCall === item }"
-                :aria-expanded="selectedTurnToolCall === item"
-                @click="selectTurnToolCall(item)"
-              >
-                <span>
-                  <strong>{{ item.toolName }}</strong>
-                  <small>{{ turnToolSummary(item) }}</small>
-                </span>
-                <Badge :variant="item.success === false ? 'danger' : item.isComplete ? 'success' : 'neutral'">
-                  {{ item.success === false ? 'Failed' : item.isComplete ? 'Complete' : 'Running' }}
-                </Badge>
-              </button>
-            </div>
-            <p v-else-if="!loadingTurnTools" class="context-tab__turn-tools-empty">
-              No tool calls in this turn.
-            </p>
-            <div v-if="selectedTurnToolCall" class="context-tab__turn-tool-detail">
-              <ToolCallItem
-                :tc="selectedTurnToolCall"
-                :expanded="true"
-                :full-result="
-                  selectedTurnToolCall.toolCallId
-                    ? fullResults.get(selectedTurnToolCall.toolCallId)
-                    : undefined
-                "
-                :loading-full-result="
-                  selectedTurnToolCall.toolCallId
-                    ? loadingResults.has(selectedTurnToolCall.toolCallId)
-                    : false
-                "
-                :failed-full-result="
-                  selectedTurnToolCall.toolCallId
-                    ? failedResults.has(selectedTurnToolCall.toolCallId)
-                    : false
-                "
-                @toggle="selectedTurnToolCall = null"
-                @load-full-result="loadFullResult"
-                @retry-full-result="retryFullResult"
-              />
-            </div>
           </div>
         </SectionPanel>
 
@@ -570,6 +560,56 @@ function retryLoad() {
               <span>#{{ index + 1 }} · turns {{ compaction.startTurn }}–{{ compaction.completeTurn }}</span>
               <strong>{{ formatNumber(compaction.tokensRemoved ?? 0) }} removed</strong>
             </button>
+          </div>
+        </SectionPanel>
+
+        <SectionPanel class="context-tab__wide-panel" title="Tool calls in selected turn">
+          <div v-if="selectedPoint" class="context-tab__turn-tools">
+            <div class="context-tab__turn-tools-heading">
+              <span class="context-tab__eyebrow">Turn {{ selectedPoint.turn }}</span>
+              <LoadingSpinner v-if="loadingTurnTools" size="sm" />
+            </div>
+            <p v-if="store.turnsError" class="context-tab__turn-tools-error">
+              {{ store.turnsError }}
+            </p>
+            <div v-else-if="selectedTurnToolCalls.length" class="context-tab__turn-tool-grid">
+              <div
+                v-for="(item, index) in selectedTurnToolCalls"
+                :key="item.toolCallId ?? `${item.toolName}-${index}`"
+                class="context-tab__turn-tool-card"
+              >
+                <button
+                  type="button"
+                  class="context-tab__tool-conversation-link"
+                  @click="openConversation(selectedPoint.turn, item.eventIndex)"
+                >
+                  View in Conversation
+                </button>
+                <ToolCallItem
+                  :tc="item"
+                  :expanded="selectedTurnToolCall === item"
+                  :full-result="
+                    item.toolCallId ? fullResults.get(item.toolCallId) : undefined
+                  "
+                  :loading-full-result="
+                    item.toolCallId ? loadingResults.has(item.toolCallId) : false
+                  "
+                  :failed-full-result="
+                    item.toolCallId ? failedResults.has(item.toolCallId) : false
+                  "
+                  :rich-enabled="richEnabledFor(item.toolName)"
+                  @toggle="selectTurnToolCall(item)"
+                  @load-full-result="loadFullResult"
+                  @retry-full-result="retryFullResult"
+                />
+              </div>
+            </div>
+            <p v-else-if="!loadingTurnTools" class="context-tab__turn-tools-empty">
+              No tool calls in this turn.
+            </p>
+          </div>
+          <div v-else class="context-tab__placeholder">
+            Select a turn to inspect its tool calls.
           </div>
         </SectionPanel>
       </div>
@@ -665,12 +705,31 @@ function retryLoad() {
                 <span class="context-tab__eyebrow">Turn {{ selectedToolCall.turn }}</span>
                 <strong>{{ selectedToolCall.toolName }} details</strong>
               </div>
-              <button type="button" aria-label="Close tool call details" @click="selectedToolCall = null">
-                ×
-              </button>
+              <div class="context-tab__selected-tool-actions">
+                <button
+                  v-if="selectedContributionToolCall"
+                  type="button"
+                  @click="
+                    openConversation(
+                      selectedToolCall.turn,
+                      selectedContributionToolCall.eventIndex,
+                    )
+                  "
+                >
+                  View in Conversation
+                </button>
+                <button
+                  type="button"
+                  aria-label="Close tool call details"
+                  @click="selectedToolCall = null"
+                >
+                  ×
+                </button>
+              </div>
             </div>
             <ToolCallItem
-              :tc="toolCallFor(selectedToolCall)"
+              v-if="selectedContributionToolCall"
+              :tc="selectedContributionToolCall"
               :expanded="true"
               :full-result="
                 selectedToolCall.toolCallId
@@ -687,6 +746,7 @@ function retryLoad() {
                   ? failedResults.has(selectedToolCall.toolCallId)
                   : false
               "
+              :rich-enabled="richEnabledFor(selectedContributionToolCall.toolName)"
               @toggle="selectedToolCall = null"
               @load-full-result="loadFullResult"
               @retry-full-result="retryFullResult"
@@ -818,6 +878,10 @@ function retryLoad() {
   gap: 20px;
 }
 
+.context-tab__wide-panel {
+  grid-column: 1 / -1;
+}
+
 .context-tab__detail-card,
 .context-tab__placeholder {
   min-height: 150px;
@@ -887,8 +951,29 @@ function retryLoad() {
   white-space: pre-wrap;
 }
 
-.context-tab__turn-tools {
+.context-tab__conversation-link,
+.context-tab__tool-conversation-link {
+  padding: 5px 8px;
+  border: 1px solid var(--border-accent);
+  border-radius: var(--radius-sm);
+  background: var(--accent-subtle);
+  color: var(--accent-fg);
+  font: inherit;
+  font-size: 0.6875rem;
+  cursor: pointer;
+}
+
+.context-tab__conversation-link {
   margin-top: 12px;
+}
+
+.context-tab__conversation-link:hover,
+.context-tab__tool-conversation-link:hover {
+  border-color: var(--accent-fg);
+  color: var(--text-primary);
+}
+
+.context-tab__turn-tools {
   padding: 12px;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
@@ -902,71 +987,25 @@ function retryLoad() {
   gap: 12px;
 }
 
-.context-tab__turn-tools-heading > div {
+.context-tab__turn-tool-grid {
   display: grid;
-  gap: 2px;
-}
-
-.context-tab__turn-tools-heading strong {
-  color: var(--text-primary);
-  font-size: 0.8125rem;
-}
-
-.context-tab__turn-tool-list {
-  display: grid;
-  max-height: 220px;
-  margin-top: 10px;
-  overflow: auto;
-  border: 1px solid var(--border-muted);
-  border-radius: var(--radius-sm);
-}
-
-.context-tab__turn-tool-list > button {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
   gap: 12px;
-  min-width: 0;
-  padding: 8px 10px;
-  border: 0;
-  border-bottom: 1px solid var(--border-muted);
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
+  margin-top: 10px;
 }
 
-.context-tab__turn-tool-list > button:last-child {
-  border-bottom: 0;
-}
-
-.context-tab__turn-tool-list > button:hover,
-.context-tab__turn-tool-list > button.selected {
-  background: var(--neutral-subtle);
-}
-
-.context-tab__turn-tool-list > button.selected {
-  box-shadow: inset 2px 0 0 var(--accent-fg);
-}
-
-.context-tab__turn-tool-list > button > span:first-child {
+.context-tab__turn-tool-card {
   display: grid;
   min-width: 0;
-  gap: 2px;
+  gap: 5px;
 }
 
-.context-tab__turn-tool-list strong {
-  color: var(--text-primary);
-  font-size: 0.75rem;
-}
-
-.context-tab__turn-tool-list small {
-  overflow: hidden;
+.context-tab__tool-conversation-link {
+  justify-self: end;
+  border-color: var(--border-default);
+  background: transparent;
   color: var(--text-tertiary);
-  font-size: 0.6875rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .context-tab__turn-tools-empty,
@@ -978,10 +1017,6 @@ function retryLoad() {
 
 .context-tab__turn-tools-error {
   color: var(--danger-fg);
-}
-
-.context-tab__turn-tool-detail {
-  margin-top: 10px;
 }
 
 .context-tab__compaction-request {
@@ -1271,7 +1306,7 @@ function retryLoad() {
   margin-bottom: 8px;
 }
 
-.context-tab__selected-tool-heading > div {
+.context-tab__selected-tool-heading > div:first-child {
   display: grid;
   gap: 2px;
 }
@@ -1299,6 +1334,21 @@ function retryLoad() {
   color: var(--text-primary);
 }
 
+.context-tab__selected-tool-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.context-tab__selected-tool-actions button:first-child {
+  width: auto;
+  padding: 0 7px;
+  border: 1px solid var(--border-default);
+  color: var(--accent-fg);
+  font-size: 0.6875rem;
+  white-space: nowrap;
+}
+
 @media (max-width: 900px) {
   .context-tab__details {
     grid-template-columns: 1fr;
@@ -1309,6 +1359,10 @@ function retryLoad() {
   }
 
   .context-tab__stats {
+    grid-template-columns: 1fr;
+  }
+
+  .context-tab__turn-tool-grid {
     grid-template-columns: 1fr;
   }
 }

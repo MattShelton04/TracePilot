@@ -12,6 +12,10 @@ import { computed, inject, provide, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import SessionDetailPanel from "@/components/session/SessionDetailPanel.vue";
 import { NAVIGATE_CHECKPOINT_KEY } from "@/composables/useCheckpointNavigation";
+import {
+  type ConversationNavigationTarget,
+  NAVIGATE_CONVERSATION_KEY,
+} from "@/composables/useConversationNavigation";
 import { usePerfMonitor } from "@/composables/usePerfMonitor";
 import type { SessionDetailContext } from "@/composables/useSessionDetail";
 import { ROUTE_NAMES } from "@/config/routes";
@@ -43,6 +47,15 @@ provide(NAVIGATE_CHECKPOINT_KEY, (checkpointNumber: number) => {
   if (route.name !== ROUTE_NAMES.sessionOverview) {
     pushRoute(router, ROUTE_NAMES.sessionOverview, { params: { id: sessionId.value } });
   }
+});
+provide(NAVIGATE_CONVERSATION_KEY, (target: ConversationNavigationTarget) => {
+  pushRoute(router, ROUTE_NAMES.sessionConversation, {
+    params: { id: sessionId.value },
+    query: {
+      turn: String(target.turnIndex),
+      ...(target.eventIndex != null ? { event: String(target.eventIndex) } : {}),
+    },
+  });
 });
 </script>
 

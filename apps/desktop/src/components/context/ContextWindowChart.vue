@@ -5,7 +5,6 @@ import type {
   ContextTimelineEvent,
   ContextWindowPoint,
 } from "@tracepilot/types";
-import { Tooltip } from "@tracepilot/ui";
 import { computed, ref, watch } from "vue";
 import { buildActiveTimeCoordinates } from "./contextChartScale";
 
@@ -24,7 +23,13 @@ const emit = defineEmits<{
 
 type LayerKey = "systemTokens" | "toolDefinitionTokens" | "conversationTokens";
 type AxisMode = "turn" | "time";
-const layers: Array<{ key: LayerKey; label: string; color: string; description: string }> = [
+type LayerDefinition = {
+  key: LayerKey;
+  label: string;
+  color: string;
+  description: string;
+};
+const layers: LayerDefinition[] = [
   {
     key: "systemTokens",
     label: "System prompt",
@@ -51,6 +56,9 @@ const enabled = ref<Record<LayerKey, boolean>>({
 });
 const axisMode = ref<AxisMode>("turn");
 const hoverPoint = ref<ContextWindowPoint | null>(null);
+const hoverPosition = ref<{ x: number; y: number } | null>(null);
+const hoveredLayer = ref<LayerDefinition | null>(null);
+const layerTooltipPosition = ref({ x: 0, y: 0 });
 const zoom = ref(1);
 const panStart = ref(0);
 const isPanning = ref(false);
@@ -277,16 +285,22 @@ const tooltipIndex = computed(() => {
     ? points.value.findIndex((item) => item.turn === point.turn && item.phase === point.phase)
     : -1;
 });
-const tooltipX = computed(() =>
-  tooltipIndex.value < 0
-    ? 0
-    : Math.min(width - margin.right - 148, Math.max(margin.left, x(tooltipIndex.value) + 10)),
-);
-const tooltipY = computed(() =>
-  tooltipPoint.value
-    ? Math.max(margin.top + 4, y(visibleTotal(tooltipPoint.value)) - 50)
-    : margin.top,
-);
+const tooltipX = computed(() => {
+  if (tooltipIndex.value < 0) return 0;
+  const anchor =
+    props.selectedPoint || !hoverPosition.value
+      ? x(tooltipIndex.value) + 10
+      : hoverPosition.value.x + 10;
+  return Math.min(width - margin.right - 148, Math.max(margin.left, anchor));
+});
+const tooltipY = computed(() => {
+  if (!tooltipPoint.value) return margin.top;
+  const anchor =
+    props.selectedPoint || !hoverPosition.value
+      ? y(visibleTotal(tooltipPoint.value)) - 50
+      : hoverPosition.value.y - 48;
+  return Math.min(margin.top + plotHeight - 43, Math.max(margin.top + 4, anchor));
+});
 
 function pointAtEvent(event: MouseEvent): ContextWindowPoint | null {
   const rect = (event.currentTarget as SVGElement).getBoundingClientRect();
@@ -303,7 +317,33 @@ function pointAtEvent(event: MouseEvent): ContextWindowPoint | null {
   return nearest;
 }
 function handleMove(event: MouseEvent) {
-  if (!isPanning.value) hoverPoint.value = pointAtEvent(event);
+  if (isPanning.value) return;
+  const rect = (event.currentTarget as SVGElement).getBoundingClientRect();
+  hoverPosition.value = {
+    x: ((event.clientX - rect.left) / rect.width) * width,
+    y: ((event.clientY - rect.top) / rect.height) * height,
+  };
+  hoverPoint.value = pointAtEvent(event);
+}
+function clearHover() {
+  hoverPoint.value = null;
+  hoverPosition.value = null;
+}
+function showLayerTooltip(event: MouseEvent, layer: LayerDefinition) {
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+  hoveredLayer.value = layer;
+  layerTooltipPosition.value = {
+    x: Math.min(window.innerWidth - 190, Math.max(190, rect.left + rect.width / 2)),
+    y: rect.bottom + 7,
+  };
+}
+function hideLayerTooltip() {
+  hoveredLayer.value = null;
+}
+function toggleLayer(event: MouseEvent, layer: LayerDefinition) {
+  enabled.value[layer.key] = !enabled.value[layer.key];
+  hideLayerTooltip();
+  (event.currentTarget as HTMLElement).blur();
 }
 function lockPoint(event: MouseEvent) {
   if (dragDistance.value > 4) {
@@ -425,23 +465,21 @@ function eventHoverLabel(event: ContextTimelineEvent): string {
   <div class="context-chart">
     <div class="context-chart__toolbar">
       <div class="context-chart__legend" aria-label="Context layers">
-        <Tooltip
+        <button
           v-for="layer in layers"
           :key="layer.key"
-          :text="layer.description"
-          position="bottom"
+          type="button"
+          class="context-chart__button"
+          :class="{ 'context-chart__button--muted': !enabled[layer.key] }"
+          :aria-label="`${layer.label}: ${layer.description}`"
+          :aria-pressed="enabled[layer.key]"
+          @mouseenter="showLayerTooltip($event, layer)"
+          @mouseleave="hideLayerTooltip"
+          @click="toggleLayer($event, layer)"
         >
-          <button
-            type="button"
-            class="context-chart__button"
-            :class="{ 'context-chart__button--muted': !enabled[layer.key] }"
-            :aria-pressed="enabled[layer.key]"
-            @click="enabled[layer.key] = !enabled[layer.key]"
-          >
-            <span class="context-chart__swatch" :style="{ background: layer.color }" />
-            {{ layer.label }}
-          </button>
-        </Tooltip>
+          <span class="context-chart__swatch" :style="{ background: layer.color }" />
+          {{ layer.label }}
+        </button>
         <span v-if="timeline.events.some((event) => event.kind === 'userMessage')" class="context-chart__legend-key">
           <span class="context-chart__legend-dot context-chart__legend-dot--message" />
           User message
@@ -461,18 +499,26 @@ function eventHoverLabel(event: ContextTimelineEvent): string {
           <button type="button" :class="{ active: axisMode === 'turn' }" @click="axisMode = 'turn'">Turn</button>
           <button type="button" :class="{ active: axisMode === 'time' }" @click="axisMode = 'time'">Time</button>
         </div>
-        <span
-          v-if="axisMode === 'time'"
-          class="context-chart__gesture-hint"
-          title="Long shutdown and resume gaps are capped at three typical active-turn intervals. Other extreme gaps are capped at four; short gaps retain their real duration."
-        >
-          Session gaps balanced
-        </span>
         <button type="button" class="context-chart__icon-button" aria-label="Zoom out" @click="changeZoom(zoom / 1.5)">−</button>
         <button type="button" class="context-chart__icon-button" aria-label="Zoom in" @click="changeZoom(zoom * 1.5)">+</button>
         <button type="button" class="context-chart__button" @click="resetView">Reset</button>
       </div>
     </div>
+
+    <Teleport to="body">
+      <div
+        v-if="hoveredLayer"
+        class="context-chart__layer-tooltip"
+        role="tooltip"
+        :style="{
+          left: `${layerTooltipPosition.x}px`,
+          top: `${layerTooltipPosition.y}px`,
+        }"
+      >
+        <strong>{{ hoveredLayer.label }}</strong>
+        <span>{{ hoveredLayer.description }}</span>
+      </div>
+    </Teleport>
 
     <div v-if="zoom > 1" class="context-chart__viewport-status">
       Viewing turns {{ points[0]?.turn }}–{{ points[points.length - 1]?.turn }} ·
@@ -486,7 +532,7 @@ function eventHoverLabel(event: ContextTimelineEvent): string {
         tabindex="0"
         aria-label="Stacked area chart of context window composition"
         @mousemove="handleMove"
-        @mouseleave="hoverPoint = null"
+        @mouseleave="clearHover"
         @click="lockPoint"
         @wheel.prevent="handleWheel"
         @pointerdown="startPan"
@@ -640,6 +686,25 @@ function eventHoverLabel(event: ContextTimelineEvent): string {
 .context-chart__icon-button:hover { border-color: var(--border-accent); color: var(--text-primary); }
 .context-chart__button--muted { opacity: 0.45; }
 .context-chart__swatch { width: 9px; height: 9px; border-radius: 2px; }
+.context-chart__layer-tooltip {
+  position: fixed;
+  z-index: var(--z-tooltip);
+  display: grid;
+  width: max-content;
+  max-width: 360px;
+  gap: 2px;
+  padding: 7px 9px;
+  transform: translateX(-50%);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--canvas-overlay, var(--canvas-default));
+  box-shadow: var(--shadow-md);
+  color: var(--text-secondary);
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  pointer-events: none;
+}
+.context-chart__layer-tooltip strong { color: var(--text-primary); }
 .context-chart__legend-key {
   display: inline-flex;
   align-items: center;

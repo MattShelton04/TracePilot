@@ -136,6 +136,8 @@ export type ContextTimelineEventKind =
 
 export interface ContextTimelineEvent {
   turn: number;
+  /** Zero-based source event index, used for exact conversation deep links. */
+  eventIndex?: number;
   timestamp?: string | null;
   kind: ContextTimelineEventKind;
   label: string;

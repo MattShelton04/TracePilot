@@ -64,6 +64,7 @@ pub struct ContextCompaction {
 #[serde(rename_all = "camelCase")]
 pub struct ContextTimelineEvent {
     pub turn: usize,
+    pub event_index: usize,
     pub timestamp: Option<String>,
     pub kind: ContextTimelineEventKind,
     pub label: String,
@@ -194,7 +195,7 @@ pub fn build_context_timeline(events: &[TypedEvent]) -> ContextTimeline {
     let mut reported_token_limit = None;
     let mut tool_call_indexes = HashMap::<String, usize>::new();
 
-    for event in events {
+    for (event_index, event) in events.iter().enumerate() {
         if matches!(event.typed_data, TypedEventData::TurnStart(_)) {
             current_turn += 1;
             if deltas.len() <= current_turn {
@@ -218,16 +219,24 @@ pub fn build_context_timeline(events: &[TypedEvent]) -> ContextTimeline {
                 let display_content = data
                     .content
                     .as_deref()
+                    .filter(|content| !content.trim().is_empty())
                     .or(data.transformed_content.as_deref())
                     .unwrap_or("");
                 add_message_delta(&mut deltas[turn], context_content);
-                timeline_events.push(ContextTimelineEvent {
-                    turn,
-                    timestamp: timestamp.clone(),
-                    kind: ContextTimelineEventKind::UserMessage,
-                    label: "User message".to_owned(),
-                    preview: (!display_content.is_empty()).then(|| display_content.to_owned()),
-                });
+                let is_system_injection = data
+                    .source
+                    .as_deref()
+                    .is_some_and(|source| source.eq_ignore_ascii_case("system"));
+                if !is_system_injection && !display_content.trim().is_empty() {
+                    timeline_events.push(ContextTimelineEvent {
+                        turn,
+                        event_index,
+                        timestamp: timestamp.clone(),
+                        kind: ContextTimelineEventKind::UserMessage,
+                        label: "User message".to_owned(),
+                        preview: Some(display_content.to_owned()),
+                    });
+                }
             }
             TypedEventData::AssistantMessage(data) => {
                 let content = data.content.as_deref().unwrap_or("");
@@ -267,12 +276,11 @@ pub fn build_context_timeline(events: &[TypedEvent]) -> ContextTimeline {
                 }
             }
             TypedEventData::ToolExecutionComplete(data) => {
-                let content = data
-                    .result
-                    .as_ref()
-                    .or(data.error.as_ref())
+                let result = data.result.as_ref().or(data.error.as_ref());
+                let content = result
                     .and_then(|value| serde_json::to_string(value).ok())
                     .unwrap_or_default();
+                let result_preview = result.and_then(context_result_preview);
                 add_tool_delta(&mut deltas[turn], &content);
                 let result_tokens = estimate_tokens(&content);
                 if let Some(index) = data
@@ -283,7 +291,7 @@ pub fn build_context_timeline(events: &[TypedEvent]) -> ContextTimeline {
                 {
                     tool_calls[index].result_tokens += result_tokens;
                     tool_calls[index].success = data.success;
-                    tool_calls[index].result_preview = preview(&content);
+                    tool_calls[index].result_preview = result_preview;
                 } else {
                     tool_calls.push(ToolCallDraft {
                         turn,
@@ -293,7 +301,7 @@ pub fn build_context_timeline(events: &[TypedEvent]) -> ContextTimeline {
                         result_tokens,
                         success: data.success,
                         arguments_preview: None,
-                        result_preview: preview(&content),
+                        result_preview,
                     });
                 }
             }
@@ -350,6 +358,7 @@ pub fn build_context_timeline(events: &[TypedEvent]) -> ContextTimeline {
             TypedEventData::ModelChange(data) => {
                 timeline_events.push(ContextTimelineEvent {
                     turn,
+                    event_index,
                     timestamp: timestamp.clone(),
                     kind: ContextTimelineEventKind::ModelChange,
                     label: data.new_model.as_deref().map_or_else(
@@ -362,6 +371,7 @@ pub fn build_context_timeline(events: &[TypedEvent]) -> ContextTimeline {
             TypedEventData::SessionResume(data) => {
                 timeline_events.push(ContextTimelineEvent {
                     turn,
+                    event_index,
                     timestamp: timestamp.clone(),
                     kind: ContextTimelineEventKind::SessionResume,
                     label: "Session resumed".to_owned(),
@@ -372,6 +382,7 @@ pub fn build_context_timeline(events: &[TypedEvent]) -> ContextTimeline {
                 reported_token_limit = data.token_limit.or(reported_token_limit);
                 timeline_events.push(ContextTimelineEvent {
                     turn,
+                    event_index,
                     timestamp: timestamp.clone(),
                     kind: ContextTimelineEventKind::Truncation,
                     label: "Conversation truncated".to_owned(),
@@ -741,6 +752,26 @@ fn preview(content: &str) -> Option<String> {
     preview_with_limit(content, 2_000)
 }
 
+fn context_result_preview(result: &serde_json::Value) -> Option<String> {
+    let display = match result {
+        serde_json::Value::String(content) => content.to_owned(),
+        serde_json::Value::Object(object) => object
+            .get("content")
+            .and_then(serde_json::Value::as_str)
+            .filter(|content| !content.trim().is_empty())
+            .or_else(|| {
+                object
+                    .get("detailedContent")
+                    .and_then(serde_json::Value::as_str)
+                    .filter(|content| !content.trim().is_empty())
+            })
+            .map(ToOwned::to_owned)
+            .or_else(|| serde_json::to_string(result).ok())?,
+        _ => serde_json::to_string(result).ok()?,
+    };
+    preview(&display)
+}
+
 fn preview_with_limit(content: &str, limit: usize) -> Option<String> {
     if content.is_empty() {
         return None;
@@ -1000,6 +1031,22 @@ mod tests {
                 }),
             ),
             event(
+                SessionEventType::UserMessage,
+                TypedEventData::UserMessage(UserMessageData {
+                    content: Some(String::new()),
+                    transformed_content: Some(
+                        "<system_reminder>Deferred tool definitions</system_reminder>".into(),
+                    ),
+                    attachments: None,
+                    supported_native_document_mime_types: None,
+                    native_document_path_fallback_paths: None,
+                    interaction_id: None,
+                    source: Some("system".into()),
+                    agent_mode: None,
+                    parent_agent_task_id: None,
+                }),
+            ),
+            event(
                 SessionEventType::SessionTruncation,
                 TypedEventData::SessionTruncation(SessionTruncationData {
                     token_limit: Some(272_000),
@@ -1025,10 +1072,12 @@ mod tests {
             timeline.events[0].preview.as_deref(),
             Some(full_user_message.as_str())
         );
+        assert_eq!(timeline.events[0].event_index, 1);
         assert_eq!(
             timeline.events[1].kind,
             ContextTimelineEventKind::Truncation
         );
+        assert_eq!(timeline.events[1].event_index, 3);
     }
 
     #[test]
@@ -1072,5 +1121,18 @@ mod tests {
         assert_eq!(types[0].error_count, 1);
         assert_eq!(types[0].total_tokens, 125);
         assert!((types[0].percentage - 71.428).abs() < 0.01);
+    }
+
+    #[test]
+    fn tool_result_preview_uses_renderable_content_instead_of_the_result_wrapper() {
+        let result = serde_json::json!({
+            "content": "fn main() {}",
+            "detailedContent": "diff --git a/main.rs b/main.rs"
+        });
+
+        assert_eq!(
+            context_result_preview(&result).as_deref(),
+            Some("fn main() {}")
+        );
     }
 }

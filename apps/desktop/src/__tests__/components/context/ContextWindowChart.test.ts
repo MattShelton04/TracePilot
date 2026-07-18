@@ -77,9 +77,10 @@ describe("ContextWindowChart", () => {
     expect(wrapper.findAll(".context-chart__anchor")).toHaveLength(1);
     expect(wrapper.text()).toContain("System prompt");
     expect(wrapper.text()).toContain("Conversation");
-    expect(wrapper.text()).toContain(
-      "Accumulated messages, reasoning, tool arguments, and returned tool results.",
-    );
+    expect(
+      wrapper.findAll(".context-chart__legend .context-chart__button")[2].attributes("aria-label"),
+    ).toContain("Accumulated messages, reasoning, tool arguments, and returned tool results.");
+    expect(wrapper.text()).not.toContain("Session gaps balanced");
     expect(wrapper.find(".context-chart__tooltip").exists()).toBe(false);
     const turnTicks = wrapper
       .findAll(".context-chart__axes text")
@@ -95,6 +96,26 @@ describe("ContextWindowChart", () => {
     expect(timeline.points[0].systemTokens).toBe(10);
   });
 
+  it("shows an unclipped hover-only layer explanation and dismisses it on click", async () => {
+    const wrapper = mount(ContextWindowChart, {
+      props: { timeline },
+      attachTo: document.body,
+    });
+    const firstToggle = wrapper.find(".context-chart__legend .context-chart__button");
+    Object.defineProperty(firstToggle.element, "getBoundingClientRect", {
+      value: () => ({ left: 20, bottom: 40, width: 100 }),
+    });
+
+    await firstToggle.trigger("mouseenter");
+    expect(document.body.querySelector(".context-chart__layer-tooltip")?.textContent).toContain(
+      "Persistent Copilot instructions",
+    );
+
+    await firstToggle.trigger("click");
+    expect(document.body.querySelector(".context-chart__layer-tooltip")).toBeNull();
+    wrapper.unmount();
+  });
+
   it("emits a compaction selection from its marker", async () => {
     const wrapper = mount(ContextWindowChart, { props: { timeline } });
     await wrapper.find(".context-chart__marker-hit").trigger("click");
@@ -105,11 +126,14 @@ describe("ContextWindowChart", () => {
     const wrapper = mount(ContextWindowChart, { props: { timeline } });
     const svg = wrapper.find("svg");
     Object.defineProperty(svg.element, "getBoundingClientRect", {
-      value: () => ({ left: 0, width: 900 }),
+      value: () => ({ left: 0, top: 0, width: 900, height: 390 }),
     });
-    await svg.trigger("mousemove", { clientX: 66 });
+    await svg.trigger("mousemove", { clientX: 400, clientY: 200 });
     expect(wrapper.find(".context-chart__tooltip").text()).toContain("Turn 1");
-    await svg.trigger("click", { clientX: 66 });
+    expect(wrapper.find(".context-chart__tooltip").attributes("transform")).toMatch(
+      /^translate\(410 15[12]\./,
+    );
+    await svg.trigger("click", { clientX: 66, clientY: 200 });
     expect(wrapper.emitted("selectPoint")?.[0]).toEqual([timeline.points[0]]);
   });
 
@@ -119,10 +143,10 @@ describe("ContextWindowChart", () => {
     });
     const svg = wrapper.find("svg");
     Object.defineProperty(svg.element, "getBoundingClientRect", {
-      value: () => ({ left: 0, width: 900 }),
+      value: () => ({ left: 0, top: 0, width: 900, height: 390 }),
     });
 
-    await svg.trigger("mousemove", { clientX: 830 });
+    await svg.trigger("mousemove", { clientX: 830, clientY: 200 });
 
     expect(wrapper.find(".context-chart__tooltip").text()).toContain("Turn 1");
   });
@@ -133,10 +157,10 @@ describe("ContextWindowChart", () => {
     });
     const svg = wrapper.find("svg");
     Object.defineProperty(svg.element, "getBoundingClientRect", {
-      value: () => ({ left: 0, width: 900 }),
+      value: () => ({ left: 0, top: 0, width: 900, height: 390 }),
     });
 
-    await svg.trigger("click", { clientX: 66 });
+    await svg.trigger("click", { clientX: 66, clientY: 200 });
 
     expect(wrapper.emitted("clearSelection")).toHaveLength(1);
   });

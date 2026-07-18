@@ -13,6 +13,10 @@ import { computed, defineAsyncComponent, provide, watch } from "vue";
 import SessionDetailPanel from "@/components/session/SessionDetailPanel.vue";
 import { NAVIGATE_CHECKPOINT_KEY } from "@/composables/useCheckpointNavigation";
 import {
+  type ConversationNavigationTarget,
+  NAVIGATE_CONVERSATION_KEY,
+} from "@/composables/useConversationNavigation";
+import {
   createSessionDetailInstance,
   SESSION_DETAIL_KEY,
   toSessionDetailContext,
@@ -77,6 +81,10 @@ function onIsActiveChange(active: boolean) {
 provide(NAVIGATE_CHECKPOINT_KEY, (checkpointNumber: number) => {
   store.focusCheckpoint(checkpointNumber);
   emit("update:activeSubTab", "overview");
+});
+provide(NAVIGATE_CONVERSATION_KEY, (target: ConversationNavigationTarget) => {
+  store.focusConversation(target.turnIndex, target.eventIndex ?? null);
+  emit("update:activeSubTab", "conversation");
 });
 </script>
 

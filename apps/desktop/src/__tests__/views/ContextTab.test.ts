@@ -6,6 +6,7 @@ import ContextTab from "@/views/tabs/ContextTab.vue";
 
 const loadTimeline = vi.fn();
 const loadFullResult = vi.fn();
+const navigateToConversation = vi.fn();
 let detailStore: ReturnType<typeof makeDetailStore>;
 
 vi.mock("@/composables/useContextTimeline", () => ({
@@ -21,6 +22,16 @@ vi.mock("@/composables/useCheckpointNavigation", () => ({
   useCheckpointNavigation: () => vi.fn(),
 }));
 
+vi.mock("@/composables/useConversationNavigation", () => ({
+  useConversationNavigation: () => navigateToConversation,
+}));
+
+vi.mock("@/stores/preferences", () => ({
+  usePreferencesStore: () => ({
+    isRichRenderingEnabled: () => true,
+  }),
+}));
+
 vi.mock("@/composables/useToolResultLoader", () => ({
   useToolResultLoader: () => ({
     fullResults: reactive(new Map<string, string>()),
@@ -34,6 +45,7 @@ vi.mock("@/composables/useToolResultLoader", () => ({
 const turnToolCall: TurnToolCall = {
   toolCallId: "turn-tool",
   toolName: "shell",
+  eventIndex: 7,
   arguments: { command: "pnpm test" },
   argsSummary: "pnpm test",
   success: true,
@@ -125,6 +137,13 @@ const ChartStub = {
   template: `
     <div>
       <button class="select-chart-point" @click="$emit('selectPoint', timeline.points[0])">Select</button>
+      <button
+        v-if="timeline.events[0]"
+        class="select-chart-event"
+        @click="$emit('selectEvent', timeline.events[0])"
+      >
+        Select event
+      </button>
       <span class="selected-chart-value">{{ selectedPoint?.totalTokens ?? 'none' }}</span>
     </div>
   `,
@@ -140,7 +159,11 @@ function mountTab() {
         EmptyState: true,
         ErrorAlert: true,
         LoadingSpinner: true,
-        ToolCallItem: true,
+        ToolCallItem: {
+          props: ["tc", "expanded", "richEnabled"],
+          template:
+            '<div class="tool-call-stub" :data-tool="tc.toolName" :data-expanded="expanded" :data-rich="richEnabled">{{ tc.toolName }} {{ JSON.stringify(tc.arguments) }}</div>',
+        },
         ToolTypeDonut: true,
       },
     },
@@ -152,6 +175,7 @@ describe("ContextTab", () => {
     detailStore = makeDetailStore();
     loadTimeline.mockReset();
     loadFullResult.mockReset();
+    navigateToConversation.mockReset();
   });
 
   it("does not show an empty message when expensive tool calls exist and prefetches details", async () => {
@@ -173,8 +197,17 @@ describe("ContextTab", () => {
     await wrapper.find(".select-chart-point").trigger("click");
     await flushPromises();
 
-    expect(wrapper.find(".context-tab__turn-tool-list").text()).toContain("shell");
-    expect(wrapper.find(".context-tab__turn-tool-list").text()).toContain("pnpm test");
+    const tool = wrapper.find(".context-tab__turn-tool-grid .tool-call-stub");
+    expect(tool.text()).toContain("shell");
+    expect(tool.text()).toContain("pnpm test");
+    expect(tool.attributes("data-rich")).toBe("true");
+    expect(wrapper.find(".context-tab__wide-panel").exists()).toBe(true);
+
+    await wrapper.find(".context-tab__tool-conversation-link").trigger("click");
+    expect(navigateToConversation).toHaveBeenCalledWith({
+      turnIndex: 0,
+      eventIndex: 7,
+    });
   });
 
   it("silently refreshes live data while preserving the selected point", async () => {
@@ -193,5 +226,32 @@ describe("ContextTab", () => {
     expect(loadTimeline).toHaveBeenCalledTimes(2);
     expect(wrapper.find(".selected-chart-value").text()).toBe("140");
     expect(wrapper.text()).not.toContain("Updating");
+  });
+
+  it("shows the complete user message and deep-links its exact event", async () => {
+    const value = timeline();
+    const message = "A complete user message that should not be shortened. ".repeat(20);
+    value.events = [
+      {
+        turn: 1,
+        eventIndex: 9,
+        timestamp: "2026-07-18T00:00:00Z",
+        kind: "userMessage",
+        label: "User message",
+        preview: message,
+      },
+    ];
+    loadTimeline.mockResolvedValue(response(value));
+    const wrapper = mountTab();
+    await flushPromises();
+
+    await wrapper.find(".select-chart-event").trigger("click");
+    expect(wrapper.find(".context-tab__event-preview").text()).toBe(message.trim());
+
+    await wrapper.find(".context-tab__conversation-link").trigger("click");
+    expect(navigateToConversation).toHaveBeenCalledWith({
+      turnIndex: 0,
+      eventIndex: 9,
+    });
   });
 });

@@ -15,6 +15,7 @@ const colors = [
   "var(--chart-info)",
 ];
 const hoveredLabel = ref<string | null>(null);
+const chartSvg = ref<SVGSVGElement | null>(null);
 
 const segments = computed(() => {
   const visible = props.items.slice(0, 5).map((item, index) => ({
@@ -53,17 +54,45 @@ function formatTokens(value: number): string {
   if (value >= 1_000) return `${(value / 1_000).toFixed(value >= 10_000 ? 0 : 1)}k`;
   return value.toLocaleString();
 }
+
+function handleChartPointerMove(event: MouseEvent) {
+  const svg = chartSvg.value;
+  if (!svg) return;
+  const rect = svg.getBoundingClientRect();
+  const x = ((event.clientX - rect.left) / rect.width) * 42 - 21;
+  const y = ((event.clientY - rect.top) / rect.height) * 42 - 21;
+  const radius = Math.hypot(x, y);
+  if (radius < 11.2 || radius > 20.6) {
+    hoveredLabel.value = null;
+    return;
+  }
+
+  const clockwiseFromTop = ((Math.atan2(y, x) * 180) / Math.PI + 450) % 360;
+  const percentage = clockwiseFromTop / 3.6;
+  hoveredLabel.value =
+    segments.value.find(
+      (item) => percentage >= item.offset && percentage < item.offset + item.percentage,
+    )?.label ?? null;
+}
 </script>
 
 <template>
   <div class="tool-donut">
     <div class="tool-donut__chart">
-      <svg viewBox="0 0 42 42" role="img" aria-label="Tool contribution donut chart">
+      <svg
+        ref="chartSvg"
+        viewBox="0 0 42 42"
+        role="img"
+        aria-label="Tool contribution donut chart"
+        @mousemove="handleChartPointerMove"
+        @mouseleave="hoveredLabel = null"
+      >
+        <rect width="42" height="42" fill="transparent" />
         <circle
           cx="21"
           cy="21"
           r="15.9155"
-          fill="transparent"
+          fill="none"
           stroke="var(--border-muted)"
           stroke-width="9"
         />
@@ -74,7 +103,7 @@ function formatTokens(value: number): string {
             cx="21"
             cy="21"
             r="15.9155"
-            fill="transparent"
+            fill="none"
             :stroke="item.color"
             :stroke-width="hoveredLabel === item.label ? 10 : 9"
             pathLength="100"
@@ -84,8 +113,6 @@ function formatTokens(value: number): string {
             tabindex="0"
             role="img"
             :aria-label="`${item.label}: ${item.percentage.toFixed(1)}%, ${formatTokens(item.tokens)} estimated tokens`"
-            @mouseenter="hoveredLabel = item.label"
-            @mouseleave="hoveredLabel = null"
             @focus="hoveredLabel = item.label"
             @blur="hoveredLabel = null"
           />

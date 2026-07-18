@@ -154,14 +154,19 @@ At compaction:
   trigger, so neither line is labeled as one.
 - Tool diagnostics aggregate estimated argument/returned-result contribution
   by type, with list and keyboard-accessible donut-chart views. Donut segments
-  expose calls, arguments, results, estimated tokens, and percentage on hover
-  or focus. Expensive calls use a compact ranked comparison; selecting one
-  immediately prefetches the full captured result before opening the shared
-  TracePilot rich renderer.
+  use pointer-position hit testing (including an inactive centre) and expose
+  calls, arguments, results, estimated tokens, and percentage on hover or
+  focus. Expensive calls use a compact ranked comparison; selecting one
+  resolves the original reconstructed tool call and immediately prefetches its
+  display content before opening the shared TracePilot rich renderer.
 - Selecting a graph point lazily loads the existing turn reconstruction and
-  exposes every tool call in that turn. User-message event details retain the
-  complete original message; transformed message content is still used for
-  context estimation when available.
+  exposes every tool call in that turn in a full-width two-column rich-renderer
+  grid. Turn, user-event, and tool-call details can deep-link to the matching
+  Conversation location using the same turn/event coordinates as Search.
+  User-message event details retain the complete original message; transformed
+  message content is still used for context estimation when available.
+  Copilot `user.message` records whose source is `system` remain in token
+  accounting but are excluded from the user-message overlay.
 - Empty, loading, error, and no-anchor states use existing TracePilot patterns.
 
 ## Performance and compatibility

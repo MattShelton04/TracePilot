@@ -1,7 +1,7 @@
 import { getToolResult } from "@tracepilot/client";
 import { useAsyncGuard } from "@tracepilot/ui";
 import { reactive, watch } from "vue";
-import { formatObjectResult } from "@/utils/formatResult";
+import { formatToolResultContent } from "@/utils/formatResult";
 import { logError } from "@/utils/logger";
 
 /**
@@ -34,7 +34,7 @@ export function useToolResultLoader(sessionId: () => string | null | undefined) 
       const result = await getToolResult(capturedSessionId, toolCallId);
       if (!guard.isValid(token) || sessionId() !== capturedSessionId) return;
       if (result != null) {
-        const formatted = formatObjectResult(result);
+        const formatted = formatToolResultContent(result);
         fullResults.set(toolCallId, formatted);
         fullResultData.set(toolCallId, { raw: result, formatted });
       } else {
