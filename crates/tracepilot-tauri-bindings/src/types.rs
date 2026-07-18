@@ -34,6 +34,14 @@ pub struct TurnsResponse {
     pub events_file_mtime: Option<i64>,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContextTimelineResponse {
+    pub timeline: tracepilot_core::context_window::ContextTimeline,
+    pub events_file_size: u64,
+    pub events_file_mtime: Option<i64>,
+}
+
 #[derive(Debug, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct FreshnessResponse {

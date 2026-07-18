@@ -96,6 +96,74 @@ export interface SessionSegment {
   modelMetrics?: Record<string, ModelMetricDetail> | null;
 }
 
+export type ContextPointPhase = "turn" | "preCompaction" | "postCompaction" | "shutdown";
+export type ContextPointSource = "observed" | "estimated";
+export interface ContextWindowPoint {
+  turn: number;
+  phase: ContextPointPhase;
+  timestamp?: string | null;
+  systemTokens: number;
+  toolDefinitionTokens: number;
+  conversationTokens: number;
+  totalTokens: number;
+  source: ContextPointSource;
+}
+
+export interface ContextCompaction {
+  startTurn: number;
+  completeTurn: number;
+  timestamp?: string | null;
+  success: boolean;
+  checkpointNumber?: number | null;
+  beforeTokens?: number | null;
+  afterTokens?: number | null;
+  tokensRemoved?: number | null;
+  afterSource: ContextPointSource;
+  summaryTokens?: number | null;
+}
+
+export interface ContextToolCallContribution {
+  turn: number;
+  toolCallId?: string | null;
+  toolName: string;
+  argumentTokens: number;
+  resultTokens: number;
+  totalTokens: number;
+  success?: boolean | null;
+  argumentsPreview?: string | null;
+  resultPreview?: string | null;
+}
+
+export interface ContextToolTypeContribution {
+  toolName: string;
+  callCount: number;
+  errorCount: number;
+  argumentTokens: number;
+  resultTokens: number;
+  totalTokens: number;
+  percentage: number;
+}
+
+export interface ContextTimeline {
+  points: ContextWindowPoint[];
+  compactions: ContextCompaction[];
+  topToolCalls: ContextToolCallContribution[];
+  toolTypes: ContextToolTypeContribution[];
+  turnCount: number;
+  observedPointCount: number;
+  estimatedPointCount: number;
+  compactionStartCount: number;
+  compactionCompleteCount: number;
+  pairedCompactionCount: number;
+  methodology: string;
+}
+
+export interface ContextTimelineResponse {
+  timeline: ContextTimeline;
+  eventsFileSize: number;
+  eventsFileMtime?: number | null;
+}
+
 export interface CodeChanges {
   linesAdded?: number;
   linesRemoved?: number;

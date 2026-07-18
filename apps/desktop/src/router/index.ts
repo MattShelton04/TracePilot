@@ -15,6 +15,7 @@ const ConversationTab = () => import("@/views/tabs/ConversationTab.vue");
 const EventsTab = () => import("@/views/tabs/EventsTab.vue");
 const TodosTab = () => import("@/views/tabs/TodosTab.vue");
 const MetricsTab = () => import("@/views/tabs/MetricsTab.vue");
+const ContextTab = () => import("@/views/tabs/ContextTab.vue");
 const ExplorerTab = () => import("@/views/tabs/ExplorerTab.vue");
 
 const routes: RouteRecordRaw[] = [
@@ -69,6 +70,12 @@ const routes: RouteRecordRaw[] = [
         name: "session-metrics",
         component: MetricsTab,
         meta: { title: "Metrics", sidebarId: "sessions" },
+      },
+      {
+        path: "context",
+        name: "session-context",
+        component: ContextTab,
+        meta: { title: "Context", sidebarId: "sessions" },
       },
       {
         path: "explorer",
