@@ -14,6 +14,7 @@
 
     "tracepilot:allow-list-sessions",
     "tracepilot:allow-get-session-detail",
+    "tracepilot:allow-get-session-context-timeline",
     "tracepilot:allow-get-session-turns",
     "tracepilot:allow-get-session-events",
     "tracepilot:allow-get-session-incidents",

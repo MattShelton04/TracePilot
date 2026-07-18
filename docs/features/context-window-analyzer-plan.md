@@ -135,19 +135,33 @@ At compaction:
 - Dashed compaction markers have a full-height hit target and open a diagnostic
   card with start/completion turns, before, after, removed, checkpoint, and
   estimation status. A scrollable history provides a second selection route.
-- Hovering previews a point; clicking locks its turn, total, phase, and source.
-  Mouse-wheel zoom, direct drag-panning, accessible zoom controls, and
-  turn/time axis modes support long or irregularly timed sessions.
-- Pre-compaction, post-compaction, and shutdown anchors have dedicated
-  selection targets. Optional overlays expose user messages, model changes,
-  resumes, and truncations without making them context layers.
-- A toggleable pressure overlay shows the median level at which compaction was
-  observed in the current session. When `session.truncation` reports a hard
-  token limit, that is shown separately. Copilot does not currently report a
-  model-owned compaction trigger, so neither line is labeled as one.
+- Nothing is selected on entry. Hovering previews a point; clicking locks its
+  turn, total, phase, and source, and the locked tooltip takes precedence over
+  later hover movement.
+- Mouse-wheel zoom, direct drag-panning, accessible zoom controls, and
+  turn/time axis modes support long sessions. Time mode uses balanced
+  active-time coordinates: ordinary intervals retain their real duration, long
+  shutdown/resume boundaries are capped at three typical active-turn
+  intervals, and other extreme outliers at four. Short session boundaries are
+  not expanded, and compressed boundaries receive an axis break marker.
+- Pre-compaction and shutdown anchors have dedicated selection targets.
+  Post-compaction points remain in the geometry so the reset is visible, but do
+  not add a second selectable marker. User messages, model changes, resumes,
+  and truncations are always-present event points integrated into the legend.
+- Pressure lines show the median level at which compaction was observed in the
+  current session. When `session.truncation` reports a hard token limit, that is
+  shown separately. Copilot does not currently report a model-owned compaction
+  trigger, so neither line is labeled as one.
 - Tool diagnostics aggregate estimated argument/returned-result contribution
-  by type. Individual calls reuse TracePilot's rich tool-call renderers and can
-  lazily load the full captured result.
+  by type, with list and keyboard-accessible donut-chart views. Donut segments
+  expose calls, arguments, results, estimated tokens, and percentage on hover
+  or focus. Expensive calls use a compact ranked comparison; selecting one
+  immediately prefetches the full captured result before opening the shared
+  TracePilot rich renderer.
+- Selecting a graph point lazily loads the existing turn reconstruction and
+  exposes every tool call in that turn. User-message event details retain the
+  complete original message; transformed message content is still used for
+  context estimation when available.
 - Empty, loading, error, and no-anchor states use existing TracePilot patterns.
 
 ## Performance and compatibility
@@ -160,7 +174,13 @@ At compaction:
 - An eight-session frontend LRU reuses a timeline immediately and performs only
   a file-size/mtime freshness probe before deciding whether to reconstruct it.
 - Active sessions refresh through the session tab loader.
+- While Context remains open, session-detail fingerprint changes trigger a
+  silent freshness probe/reconstruction. Timeline objects and selected
+  entities are reconciled by stable keys, so zoom, pan, axis mode, layer
+  toggles, and valid selections survive background updates.
 - Historical schemas with partial compaction payloads remain supported.
+- The command permission is granted to both the main and popped-out viewer
+  capabilities, so the Context tab has the same behavior in either window.
 
 ## Verification
 

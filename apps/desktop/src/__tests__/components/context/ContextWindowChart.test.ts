@@ -74,9 +74,17 @@ describe("ContextWindowChart", () => {
   it("renders all context layers and observed anchors", () => {
     const wrapper = mount(ContextWindowChart, { props: { timeline } });
     expect(wrapper.findAll(".context-chart__area")).toHaveLength(3);
-    expect(wrapper.findAll(".context-chart__anchor")).toHaveLength(2);
+    expect(wrapper.findAll(".context-chart__anchor")).toHaveLength(1);
     expect(wrapper.text()).toContain("System prompt");
     expect(wrapper.text()).toContain("Conversation");
+    expect(wrapper.text()).toContain(
+      "Accumulated messages, reasoning, tool arguments, and returned tool results.",
+    );
+    expect(wrapper.find(".context-chart__tooltip").exists()).toBe(false);
+    const turnTicks = wrapper
+      .findAll(".context-chart__axes text")
+      .filter((node) => ["1", "2"].includes(node.text()));
+    expect(turnTicks).toHaveLength(2);
   });
 
   it("toggles layers without mutating timeline data", async () => {
@@ -103,6 +111,34 @@ describe("ContextWindowChart", () => {
     expect(wrapper.find(".context-chart__tooltip").text()).toContain("Turn 1");
     await svg.trigger("click", { clientX: 66 });
     expect(wrapper.emitted("selectPoint")?.[0]).toEqual([timeline.points[0]]);
+  });
+
+  it("keeps the selected turn tooltip visible while another turn is hovered", async () => {
+    const wrapper = mount(ContextWindowChart, {
+      props: { timeline, selectedPoint: timeline.points[0] },
+    });
+    const svg = wrapper.find("svg");
+    Object.defineProperty(svg.element, "getBoundingClientRect", {
+      value: () => ({ left: 0, width: 900 }),
+    });
+
+    await svg.trigger("mousemove", { clientX: 830 });
+
+    expect(wrapper.find(".context-chart__tooltip").text()).toContain("Turn 1");
+  });
+
+  it("clears a locked turn when the same graph point is clicked again", async () => {
+    const wrapper = mount(ContextWindowChart, {
+      props: { timeline, selectedPoint: timeline.points[0] },
+    });
+    const svg = wrapper.find("svg");
+    Object.defineProperty(svg.element, "getBoundingClientRect", {
+      value: () => ({ left: 0, width: 900 }),
+    });
+
+    await svg.trigger("click", { clientX: 66 });
+
+    expect(wrapper.emitted("clearSelection")).toHaveLength(1);
   });
 
   it("exposes zoom and pan controls", async () => {

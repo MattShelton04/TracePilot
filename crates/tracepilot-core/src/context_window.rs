@@ -210,18 +210,23 @@ pub fn build_context_timeline(events: &[TypedEvent]) -> ContextTimeline {
 
         match &event.typed_data {
             TypedEventData::UserMessage(data) => {
-                let content = data
+                let context_content = data
                     .transformed_content
                     .as_deref()
                     .or(data.content.as_deref())
                     .unwrap_or("");
-                add_message_delta(&mut deltas[turn], content);
+                let display_content = data
+                    .content
+                    .as_deref()
+                    .or(data.transformed_content.as_deref())
+                    .unwrap_or("");
+                add_message_delta(&mut deltas[turn], context_content);
                 timeline_events.push(ContextTimelineEvent {
                     turn,
                     timestamp: timestamp.clone(),
                     kind: ContextTimelineEventKind::UserMessage,
                     label: "User message".to_owned(),
-                    preview: preview_with_limit(content, 320),
+                    preview: (!display_content.is_empty()).then(|| display_content.to_owned()),
                 });
             }
             TypedEventData::AssistantMessage(data) => {
@@ -971,6 +976,7 @@ mod tests {
 
     #[test]
     fn exposes_user_message_overlays_and_reported_truncation_limit() {
+        let full_user_message = "show me the context pressure ".repeat(30);
         let events = vec![
             event(
                 SessionEventType::AssistantTurnStart,
@@ -982,8 +988,8 @@ mod tests {
             event(
                 SessionEventType::UserMessage,
                 TypedEventData::UserMessage(UserMessageData {
-                    content: Some("show me the context pressure".into()),
-                    transformed_content: None,
+                    content: Some(full_user_message.clone()),
+                    transformed_content: Some("enriched context used for estimation".into()),
                     attachments: None,
                     supported_native_document_mime_types: None,
                     native_document_path_fallback_paths: None,
@@ -1014,6 +1020,10 @@ mod tests {
         assert_eq!(
             timeline.events[0].kind,
             ContextTimelineEventKind::UserMessage
+        );
+        assert_eq!(
+            timeline.events[0].preview.as_deref(),
+            Some(full_user_message.as_str())
         );
         assert_eq!(
             timeline.events[1].kind,

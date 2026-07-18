@@ -22,6 +22,7 @@ import {
 import { Activity, Info } from "lucide-vue-next";
 import { computed, ref, watch } from "vue";
 import ContextWindowChart from "@/components/context/ContextWindowChart.vue";
+import ToolTypeDonut from "@/components/context/ToolTypeDonut.vue";
 import { useCheckpointNavigation } from "@/composables/useCheckpointNavigation";
 import { getCachedContextTimeline, loadContextTimeline } from "@/composables/useContextTimeline";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
@@ -35,30 +36,92 @@ const error = ref<string | null>(null);
 const selectedPoint = ref<ContextWindowPoint | null>(null);
 const selectedCompaction = ref<ContextCompaction | null>(null);
 const selectedToolCall = ref<ContextToolCallContribution | null>(null);
+const selectedTurnToolCall = ref<TurnToolCall | null>(null);
 const selectedTimelineEvent = ref<ContextTimelineEvent | null>(null);
+const loadingTurnTools = ref(false);
 const navigateToCheckpoint = useCheckpointNavigation();
 const { fullResults, loadingResults, failedResults, loadFullResult, retryFullResult } =
   useToolResultLoader(() => store.sessionId);
 let requestVersion = 0;
+let requestedDetailFingerprint: string | null = null;
+let loadedDetailFingerprint: string | null = null;
 
-async function load(sessionId: string) {
+function detailFingerprint(sessionId: string): string {
+  const detail = store.detail;
+  return [
+    sessionId,
+    detail?.eventCount ?? "",
+    detail?.turnCount ?? "",
+    detail?.updatedAt ?? "",
+  ].join(":");
+}
+
+function applyTimeline(next: ContextTimeline) {
+  const previousTimeline = timeline.value;
+  const point = selectedPoint.value;
+  const compaction = selectedCompaction.value;
+  const toolCall = selectedToolCall.value;
+  const event = selectedTimelineEvent.value;
+  const eventMatches = event
+    ? (item: ContextTimelineEvent) =>
+        item.turn === event.turn && item.kind === event.kind && item.timestamp === event.timestamp
+    : null;
+  const eventOccurrence =
+    event && eventMatches
+      ? (previousTimeline?.events
+          .slice(0, previousTimeline.events.indexOf(event) + 1)
+          .filter(eventMatches).length ?? 1)
+      : 0;
+
+  timeline.value = next;
+  selectedPoint.value = point
+    ? (next.points.find((item) => item.turn === point.turn && item.phase === point.phase) ?? null)
+    : null;
+  selectedCompaction.value = compaction
+    ? (next.compactions.find(
+        (item) =>
+          item.startTurn === compaction.startTurn &&
+          item.completeTurn === compaction.completeTurn &&
+          item.checkpointNumber === compaction.checkpointNumber,
+      ) ?? null)
+    : null;
+  selectedToolCall.value = toolCall
+    ? (next.topToolCalls.find((item) =>
+        toolCall.toolCallId
+          ? item.toolCallId === toolCall.toolCallId
+          : item.turn === toolCall.turn && item.toolName === toolCall.toolName,
+      ) ?? null)
+    : null;
+  selectedTimelineEvent.value =
+    event && eventMatches ? (next.events.filter(eventMatches)[eventOccurrence - 1] ?? null) : null;
+}
+
+async function load(sessionId: string, options: { background?: boolean } = {}) {
   const version = ++requestVersion;
+  const fingerprint = detailFingerprint(sessionId);
+  requestedDetailFingerprint = fingerprint;
   const cached = getCachedContextTimeline(sessionId);
-  if (cached) timeline.value = cached.timeline;
-  loading.value = !cached;
-  refreshing.value = Boolean(cached);
-  error.value = null;
+  if (cached && !timeline.value) applyTimeline(cached.timeline);
+  loading.value = !options.background && !cached;
+  refreshing.value = !options.background && Boolean(cached);
+  if (!options.background) error.value = null;
+  let succeeded = false;
   try {
     const response = await loadContextTimeline(sessionId);
     if (version !== requestVersion) return;
-    timeline.value = response.timeline;
+    applyTimeline(response.timeline);
+    loadedDetailFingerprint = detailFingerprint(sessionId);
+    succeeded = true;
   } catch (cause) {
     if (version !== requestVersion) return;
-    error.value = cause instanceof Error ? cause.message : String(cause);
+    if (!options.background) {
+      error.value = cause instanceof Error ? cause.message : String(cause);
+    }
   } finally {
     if (version === requestVersion) {
       loading.value = false;
       refreshing.value = false;
+      if (!succeeded) requestedDetailFingerprint = null;
     }
   }
 }
@@ -66,18 +129,35 @@ async function load(sessionId: string) {
 watch(
   () => store.sessionId,
   (sessionId) => {
+    timeline.value = null;
     selectedPoint.value = null;
     selectedCompaction.value = null;
     selectedToolCall.value = null;
+    selectedTurnToolCall.value = null;
     selectedTimelineEvent.value = null;
+    requestedDetailFingerprint = null;
+    loadedDetailFingerprint = null;
     if (sessionId) load(sessionId);
   },
   { immediate: true },
 );
 
-watch(timeline, (value) => {
-  if (value?.points.length) selectedPoint.value = value.points[value.points.length - 1];
-});
+watch(
+  () => (store.sessionId ? detailFingerprint(store.sessionId) : null),
+  (fingerprint) => {
+    const sessionId = store.sessionId;
+    if (
+      !sessionId ||
+      !timeline.value ||
+      !fingerprint ||
+      fingerprint === requestedDetailFingerprint ||
+      fingerprint === loadedDetailFingerprint
+    ) {
+      return;
+    }
+    void load(sessionId, { background: true });
+  },
+);
 
 const peakTokens = computed(() =>
   Math.max(...(timeline.value?.points.map((point) => point.totalTokens) ?? [0])),
@@ -87,11 +167,59 @@ const latestTokens = computed(
 );
 const displayedToolCalls = computed(() => (timeline.value?.topToolCalls ?? []).slice(0, 10));
 const displayedToolTypes = computed(() => (timeline.value?.toolTypes ?? []).slice(0, 8));
+const compactionsFullyPaired = computed(
+  () =>
+    timeline.value != null &&
+    timeline.value.compactionStartCount === timeline.value.compactionCompleteCount &&
+    timeline.value.pairedCompactionCount === timeline.value.compactionStartCount,
+);
+const toolTypeView = ref<"list" | "pie">("list");
+const maxToolCallTokens = computed(() => displayedToolCalls.value[0]?.totalTokens ?? 1);
+const selectedTurn = computed(() => {
+  const turnNumber = selectedPoint.value?.turn;
+  return turnNumber == null
+    ? undefined
+    : store.turns.find((turn) => turn.turnIndex === turnNumber - 1);
+});
+const selectedTurnToolCalls = computed(() => selectedTurn.value?.toolCalls ?? []);
+
+watch(
+  () => store.turnsVersion,
+  () => {
+    const selected = selectedTurnToolCall.value;
+    if (!selected) return;
+    selectedTurnToolCall.value =
+      selectedTurnToolCalls.value.find((item) =>
+        selected.toolCallId
+          ? item.toolCallId === selected.toolCallId
+          : item.toolName === selected.toolName && item.startedAt === selected.startedAt,
+      ) ?? null;
+  },
+);
+
+async function ensureTurnTools() {
+  if (!selectedPoint.value || store.loaded.has("turns") || loadingTurnTools.value) return;
+  loadingTurnTools.value = true;
+  try {
+    await store.loadTurns();
+  } finally {
+    loadingTurnTools.value = false;
+  }
+}
+
+function clearSelection() {
+  selectedPoint.value = null;
+  selectedCompaction.value = null;
+  selectedTimelineEvent.value = null;
+  selectedTurnToolCall.value = null;
+}
 
 function selectPoint(point: ContextWindowPoint) {
   selectedPoint.value = point;
   selectedCompaction.value = null;
   selectedTimelineEvent.value = null;
+  selectedTurnToolCall.value = null;
+  void ensureTurnTools();
 }
 
 function selectCompaction(compaction: ContextCompaction) {
@@ -99,10 +227,12 @@ function selectCompaction(compaction: ContextCompaction) {
   selectedTimelineEvent.value = null;
   selectedPoint.value =
     timeline.value?.points.find(
-      (point) => point.turn === compaction.completeTurn && point.phase === "postCompaction",
+      (point) => point.turn === compaction.startTurn && point.phase === "preCompaction",
     ) ??
-    timeline.value?.points.find((point) => point.turn === compaction.completeTurn) ??
+    timeline.value?.points.find((point) => point.turn === compaction.startTurn) ??
     null;
+  selectedTurnToolCall.value = null;
+  void ensureTurnTools();
 }
 
 function selectToolCall(item: ContextToolCallContribution) {
@@ -111,6 +241,8 @@ function selectToolCall(item: ContextToolCallContribution) {
     timeline.value?.points.find((point) => point.turn === item.turn && point.phase === "turn") ??
     timeline.value?.points.find((point) => point.turn === item.turn) ??
     selectedPoint.value;
+  if (item.toolCallId) void loadFullResult(item.toolCallId);
+  void ensureTurnTools();
 }
 
 function selectTimelineEvent(event: ContextTimelineEvent) {
@@ -120,6 +252,23 @@ function selectTimelineEvent(event: ContextTimelineEvent) {
     timeline.value?.points.find((point) => point.turn === event.turn && point.phase === "turn") ??
     timeline.value?.points.find((point) => point.turn === event.turn) ??
     null;
+  selectedTurnToolCall.value = null;
+  void ensureTurnTools();
+}
+
+function selectTurnToolCall(item: TurnToolCall) {
+  selectedTurnToolCall.value = selectedTurnToolCall.value === item ? null : item;
+  if (selectedTurnToolCall.value?.toolCallId) {
+    void loadFullResult(selectedTurnToolCall.value.toolCallId);
+  }
+}
+
+function turnToolSummary(item: TurnToolCall): string {
+  if (item.argsSummary) return item.argsSummary;
+  if (item.arguments == null) return "No captured arguments";
+  const value =
+    typeof item.arguments === "string" ? item.arguments : JSON.stringify(item.arguments);
+  return value.length > 100 ? `${value.slice(0, 97)}…` : value;
 }
 
 function toolCallFor(item: ContextToolCallContribution): TurnToolCall {
@@ -147,6 +296,12 @@ function toggleToolCall(item: ContextToolCallContribution) {
   } else {
     selectToolCall(item);
   }
+}
+
+function toolCallSummary(item: ContextToolCallContribution): string {
+  const value = item.argumentsPreview?.replace(/\s+/g, " ").trim();
+  if (!value) return "No captured arguments";
+  return value.length > 110 ? `${value.slice(0, 107)}…` : value;
 }
 
 function phaseLabel(point: ContextWindowPoint): string {
@@ -204,15 +359,20 @@ function retryLoad() {
         <div class="context-tab__confidence">
           <LoadingSpinner v-if="refreshing" size="sm" />
           <span v-if="refreshing">Updating</span>
-          <Badge variant="neutral">{{ timeline.observedPointCount }} observed</Badge>
-          <Badge variant="warning">{{ timeline.estimatedPointCount }} estimated</Badge>
+          <Badge class="context-tab__confidence-badge context-tab__confidence-badge--observed" variant="neutral">
+            {{ timeline.observedPointCount }} observed
+          </Badge>
+          <Badge class="context-tab__confidence-badge context-tab__confidence-badge--estimated" variant="warning">
+            {{ timeline.estimatedPointCount }} estimated
+          </Badge>
           <Badge
-            :variant="
-              timeline.compactionStartCount === timeline.compactionCompleteCount &&
-              timeline.pairedCompactionCount === timeline.compactionStartCount
-                ? 'success'
-                : 'warning'
+            class="context-tab__confidence-badge"
+            :class="
+              compactionsFullyPaired
+                ? 'context-tab__confidence-badge--paired'
+                : 'context-tab__confidence-badge--unpaired'
             "
+            :variant="compactionsFullyPaired ? 'success' : 'warning'"
           >
             {{ timeline.pairedCompactionCount }}/{{ timeline.compactionStartCount }} paired
           </Badge>
@@ -233,6 +393,7 @@ function retryLoad() {
           @select-point="selectPoint"
           @select-compaction="selectCompaction"
           @select-event="selectTimelineEvent"
+          @clear-selection="clearSelection"
         />
       </SectionPanel>
 
@@ -272,6 +433,66 @@ function retryLoad() {
             <p v-if="selectedPoint.source === 'observed'" class="context-tab__footnote">
               Copilot reported all three displayed layers for this point.
             </p>
+          </div>
+          <div v-else class="context-tab__placeholder">
+            Select a turn, event, or compaction marker to inspect it.
+          </div>
+          <div v-if="selectedPoint" class="context-tab__turn-tools">
+            <div class="context-tab__turn-tools-heading">
+              <div>
+                <span class="context-tab__eyebrow">Turn {{ selectedPoint.turn }}</span>
+                <strong>Tool calls in this turn</strong>
+              </div>
+              <LoadingSpinner v-if="loadingTurnTools" size="sm" />
+            </div>
+            <p v-if="store.turnsError" class="context-tab__turn-tools-error">
+              {{ store.turnsError }}
+            </p>
+            <div v-else-if="selectedTurnToolCalls.length" class="context-tab__turn-tool-list">
+              <button
+                v-for="(item, index) in selectedTurnToolCalls"
+                :key="item.toolCallId ?? `${item.toolName}-${index}`"
+                type="button"
+                :class="{ selected: selectedTurnToolCall === item }"
+                :aria-expanded="selectedTurnToolCall === item"
+                @click="selectTurnToolCall(item)"
+              >
+                <span>
+                  <strong>{{ item.toolName }}</strong>
+                  <small>{{ turnToolSummary(item) }}</small>
+                </span>
+                <Badge :variant="item.success === false ? 'danger' : item.isComplete ? 'success' : 'neutral'">
+                  {{ item.success === false ? 'Failed' : item.isComplete ? 'Complete' : 'Running' }}
+                </Badge>
+              </button>
+            </div>
+            <p v-else-if="!loadingTurnTools" class="context-tab__turn-tools-empty">
+              No tool calls in this turn.
+            </p>
+            <div v-if="selectedTurnToolCall" class="context-tab__turn-tool-detail">
+              <ToolCallItem
+                :tc="selectedTurnToolCall"
+                :expanded="true"
+                :full-result="
+                  selectedTurnToolCall.toolCallId
+                    ? fullResults.get(selectedTurnToolCall.toolCallId)
+                    : undefined
+                "
+                :loading-full-result="
+                  selectedTurnToolCall.toolCallId
+                    ? loadingResults.has(selectedTurnToolCall.toolCallId)
+                    : false
+                "
+                :failed-full-result="
+                  selectedTurnToolCall.toolCallId
+                    ? failedResults.has(selectedTurnToolCall.toolCallId)
+                    : false
+                "
+                @toggle="selectedTurnToolCall = null"
+                @load-full-result="loadFullResult"
+                @retry-full-result="retryFullResult"
+              />
+            </div>
           </div>
         </SectionPanel>
 
@@ -355,65 +576,125 @@ function retryLoad() {
 
       <div class="context-tab__details">
         <SectionPanel title="Tool types by estimated contribution">
-          <div v-if="displayedToolTypes.length" class="context-tab__tool-types">
-            <div
-              v-for="item in displayedToolTypes"
-              :key="item.toolName"
-              class="context-tab__tool-type"
-            >
-              <div class="context-tab__tool-type-heading">
-                <span>
-                  <strong>{{ item.toolName }}</strong>
-                  <small>{{ item.callCount }} calls · {{ item.errorCount }} errors</small>
-                </span>
-                <span>{{ formatNumber(item.totalTokens) }} · {{ item.percentage.toFixed(1) }}%</span>
-              </div>
-              <div class="context-tab__bar">
-                <span :style="{ width: `${Math.max(item.percentage, 1)}%` }" />
-              </div>
-              <small class="context-tab__tool-split">
-                {{ formatNumber(item.argumentTokens) }} arguments ·
-                {{ formatNumber(item.resultTokens) }} returned result
-              </small>
+          <div v-if="displayedToolTypes.length" class="context-tab__tool-type-panel">
+            <div class="context-tab__view-switch" aria-label="Tool type visualization">
+              <button
+                type="button"
+                :class="{ active: toolTypeView === 'list' }"
+                :aria-pressed="toolTypeView === 'list'"
+                @click="toolTypeView = 'list'"
+              >
+                List
+              </button>
+              <button
+                type="button"
+                :class="{ active: toolTypeView === 'pie' }"
+                :aria-pressed="toolTypeView === 'pie'"
+                @click="toolTypeView = 'pie'"
+              >
+                Chart
+              </button>
             </div>
+
+            <div v-if="toolTypeView === 'list'" class="context-tab__tool-types">
+              <div
+                v-for="item in displayedToolTypes"
+                :key="item.toolName"
+                class="context-tab__tool-type"
+              >
+                <div class="context-tab__tool-type-heading">
+                  <span>
+                    <strong>{{ item.toolName }}</strong>
+                    <small>{{ item.callCount }} calls · {{ item.errorCount }} errors</small>
+                  </span>
+                  <span>{{ formatNumber(item.totalTokens) }} · {{ item.percentage.toFixed(1) }}%</span>
+                </div>
+                <div class="context-tab__bar">
+                  <span :style="{ width: `${Math.max(item.percentage, 1)}%` }" />
+                </div>
+                <small class="context-tab__tool-split">
+                  {{ formatNumber(item.argumentTokens) }} arguments ·
+                  {{ formatNumber(item.resultTokens) }} returned result
+                </small>
+              </div>
+            </div>
+
+            <ToolTypeDonut v-else :items="timeline.toolTypes" />
           </div>
           <p v-else class="context-tab__placeholder">No tool calls were captured for this session.</p>
         </SectionPanel>
 
         <SectionPanel title="Most expensive tool calls">
-          <div v-if="displayedToolCalls.length" class="context-tab__rich-tools">
-            <div
+          <div v-if="displayedToolCalls.length" class="context-tab__ranked-tools">
+            <button
               v-for="(item, index) in displayedToolCalls"
               :key="item.toolCallId ?? `${item.turn}-${item.toolName}-${index}`"
-              class="context-tab__rich-tool"
+              type="button"
+              class="context-tab__ranked-tool"
+              :class="{ 'context-tab__ranked-tool--selected': selectedToolCall === item }"
+              :aria-expanded="selectedToolCall === item"
+              @click="toggleToolCall(item)"
             >
-              <div class="context-tab__rich-tool-meta">
-                <span>#{{ index + 1 }} · Turn {{ item.turn }}</span>
-                <span>
-                  {{ formatNumber(item.argumentTokens) }} arguments ·
-                  {{ formatNumber(item.resultTokens) }} result ·
-                  <strong>{{ formatNumber(item.totalTokens) }} estimated tokens</strong>
+              <span class="context-tab__rank">{{ index + 1 }}</span>
+              <span class="context-tab__ranked-tool-main">
+                <span class="context-tab__ranked-tool-heading">
+                  <strong>{{ item.toolName }}</strong>
+                  <small>Turn {{ item.turn }}</small>
                 </span>
-              </div>
-              <ToolCallItem
-                :tc="toolCallFor(item)"
-                :expanded="selectedToolCall === item"
-                :full-result="
-                  item.toolCallId ? fullResults.get(item.toolCallId) : undefined
-                "
-                :loading-full-result="
-                  item.toolCallId ? loadingResults.has(item.toolCallId) : false
-                "
-                :failed-full-result="
-                  item.toolCallId ? failedResults.has(item.toolCallId) : false
-                "
-                @toggle="toggleToolCall(item)"
-                @load-full-result="loadFullResult"
-                @retry-full-result="retryFullResult"
-              />
-            </div>
+                <span class="context-tab__ranked-tool-summary">{{ toolCallSummary(item) }}</span>
+                <span class="context-tab__ranked-tool-bar">
+                  <span
+                    :style="{
+                      width: `${Math.max((item.totalTokens / maxToolCallTokens) * 100, 2)}%`,
+                    }"
+                  />
+                </span>
+              </span>
+              <span class="context-tab__ranked-tool-tokens">
+                <strong>{{ formatNumber(item.totalTokens) }}</strong>
+                <small>
+                  {{ formatNumber(item.argumentTokens) }} args ·
+                  {{ formatNumber(item.resultTokens) }} result
+                </small>
+              </span>
+            </button>
           </div>
-          <p v-else class="context-tab__placeholder">No tool calls were captured for this session.</p>
+          <div v-if="selectedToolCall" class="context-tab__selected-tool">
+            <div class="context-tab__selected-tool-heading">
+              <div>
+                <span class="context-tab__eyebrow">Turn {{ selectedToolCall.turn }}</span>
+                <strong>{{ selectedToolCall.toolName }} details</strong>
+              </div>
+              <button type="button" aria-label="Close tool call details" @click="selectedToolCall = null">
+                ×
+              </button>
+            </div>
+            <ToolCallItem
+              :tc="toolCallFor(selectedToolCall)"
+              :expanded="true"
+              :full-result="
+                selectedToolCall.toolCallId
+                  ? fullResults.get(selectedToolCall.toolCallId)
+                  : undefined
+              "
+              :loading-full-result="
+                selectedToolCall.toolCallId
+                  ? loadingResults.has(selectedToolCall.toolCallId)
+                  : false
+              "
+              :failed-full-result="
+                selectedToolCall.toolCallId
+                  ? failedResults.has(selectedToolCall.toolCallId)
+                  : false
+              "
+              @toggle="selectedToolCall = null"
+              @load-full-result="loadFullResult"
+              @retry-full-result="retryFullResult"
+            />
+          </div>
+          <p v-if="!displayedToolCalls.length" class="context-tab__placeholder">
+            No tool calls were captured for this session.
+          </p>
           <p v-if="displayedToolCalls.length" class="context-tab__footnote">
             Contribution estimates measure captured arguments and returned results that may become
             later prompt input; they are not per-call cache attribution.
@@ -499,6 +780,31 @@ function retryLoad() {
   font-size: 0.6875rem;
 }
 
+.context-tab__confidence :deep(.context-tab__confidence-badge) {
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  font-weight: 650;
+}
+
+.context-tab__confidence :deep(.context-tab__confidence-badge--observed) {
+  background: var(--neutral-subtle);
+}
+
+.context-tab__confidence :deep(.context-tab__confidence-badge--estimated) {
+  border-color: var(--warning-muted);
+  background: var(--warning-subtle);
+}
+
+.context-tab__confidence :deep(.context-tab__confidence-badge--paired) {
+  border-color: var(--success-muted);
+  background: var(--success-subtle);
+}
+
+.context-tab__confidence :deep(.context-tab__confidence-badge--unpaired) {
+  border-color: var(--warning-muted);
+  background: var(--warning-subtle);
+}
+
 .context-tab__stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -581,6 +887,103 @@ function retryLoad() {
   white-space: pre-wrap;
 }
 
+.context-tab__turn-tools {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--canvas-subtle);
+}
+
+.context-tab__turn-tools-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.context-tab__turn-tools-heading > div {
+  display: grid;
+  gap: 2px;
+}
+
+.context-tab__turn-tools-heading strong {
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+}
+
+.context-tab__turn-tool-list {
+  display: grid;
+  max-height: 220px;
+  margin-top: 10px;
+  overflow: auto;
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-sm);
+}
+
+.context-tab__turn-tool-list > button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 0;
+  border-bottom: 1px solid var(--border-muted);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.context-tab__turn-tool-list > button:last-child {
+  border-bottom: 0;
+}
+
+.context-tab__turn-tool-list > button:hover,
+.context-tab__turn-tool-list > button.selected {
+  background: var(--neutral-subtle);
+}
+
+.context-tab__turn-tool-list > button.selected {
+  box-shadow: inset 2px 0 0 var(--accent-fg);
+}
+
+.context-tab__turn-tool-list > button > span:first-child {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.context-tab__turn-tool-list strong {
+  color: var(--text-primary);
+  font-size: 0.75rem;
+}
+
+.context-tab__turn-tool-list small {
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-size: 0.6875rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.context-tab__turn-tools-empty,
+.context-tab__turn-tools-error {
+  margin: 10px 0 0;
+  color: var(--text-tertiary);
+  font-size: 0.6875rem;
+}
+
+.context-tab__turn-tools-error {
+  color: var(--danger-fg);
+}
+
+.context-tab__turn-tool-detail {
+  margin-top: 10px;
+}
+
 .context-tab__compaction-request {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -657,13 +1060,44 @@ function retryLoad() {
   color: var(--text-primary) !important;
 }
 
+.context-tab__tool-type-panel,
 .context-tab__tool-types {
   display: grid;
-  gap: 14px;
+  gap: 12px;
+}
+
+.context-tab__tool-type-panel {
   padding: 16px;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
   background: var(--canvas-subtle);
+}
+
+.context-tab__view-switch {
+  display: flex;
+  justify-content: flex-end;
+  gap: 2px;
+}
+
+.context-tab__view-switch button {
+  padding: 3px 9px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-tertiary);
+  font: inherit;
+  font-size: 0.6875rem;
+  cursor: pointer;
+}
+
+.context-tab__view-switch button:hover {
+  color: var(--text-primary);
+}
+
+.context-tab__view-switch button.active {
+  border-color: var(--border-default);
+  background: var(--canvas-default);
+  color: var(--text-primary);
 }
 
 .context-tab__tool-type {
@@ -712,26 +1146,157 @@ function retryLoad() {
   background: var(--chart-warning);
 }
 
-.context-tab__rich-tools {
+.context-tab__ranked-tools {
   display: grid;
-  gap: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--canvas-subtle);
 }
 
-.context-tab__rich-tool {
+.context-tab__ranked-tool {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 0;
+  border-bottom: 1px solid var(--border-muted);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.context-tab__ranked-tool:last-child {
+  border-bottom: 0;
+}
+
+.context-tab__ranked-tool:hover,
+.context-tab__ranked-tool--selected {
+  background: var(--neutral-subtle);
+}
+
+.context-tab__ranked-tool--selected {
+  box-shadow: inset 2px 0 0 var(--accent-fg);
+}
+
+.context-tab__rank {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  background: var(--neutral-muted);
+  color: var(--text-secondary);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.context-tab__ranked-tool-main {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.context-tab__ranked-tool-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
   min-width: 0;
 }
 
-.context-tab__rich-tool-meta {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  margin: 0 4px 4px;
+.context-tab__ranked-tool-heading strong {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.context-tab__ranked-tool-heading small,
+.context-tab__ranked-tool-summary,
+.context-tab__ranked-tool-tokens small {
   color: var(--text-tertiary);
   font-size: 0.6875rem;
 }
 
-.context-tab__rich-tool-meta strong {
-  color: var(--text-secondary);
+.context-tab__ranked-tool-summary {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.context-tab__ranked-tool-bar {
+  height: 3px;
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: var(--neutral-subtle);
+}
+
+.context-tab__ranked-tool-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--chart-warning);
+}
+
+.context-tab__ranked-tool-tokens {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+  white-space: nowrap;
+}
+
+.context-tab__ranked-tool-tokens strong {
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+}
+
+.context-tab__selected-tool {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--border-accent);
+  border-radius: var(--radius-md);
+  background: var(--canvas-subtle);
+}
+
+.context-tab__selected-tool-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.context-tab__selected-tool-heading > div {
+  display: grid;
+  gap: 2px;
+}
+
+.context-tab__selected-tool-heading strong {
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+}
+
+.context-tab__selected-tool-heading button {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-tertiary);
+  font: inherit;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.context-tab__selected-tool-heading button:hover {
+  background: var(--neutral-muted);
+  color: var(--text-primary);
 }
 
 @media (max-width: 900px) {
@@ -758,9 +1323,13 @@ function retryLoad() {
     flex-wrap: wrap;
   }
 
-  .context-tab__rich-tool-meta {
-    flex-direction: column;
-    gap: 2px;
+  .context-tab__ranked-tool {
+    grid-template-columns: 22px minmax(0, 1fr);
+  }
+
+  .context-tab__ranked-tool-tokens {
+    grid-column: 2;
+    justify-items: start;
   }
 }
 </style>
