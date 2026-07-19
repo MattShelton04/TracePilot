@@ -372,7 +372,8 @@ function handleWheel(event: WheelEvent) {
   changeZoom(event.deltaY < 0 ? zoom.value * 1.35 : zoom.value / 1.35, ratio);
 }
 function startPan(event: PointerEvent) {
-  if (event.button !== 0) return;
+  if (event.button !== 0 && event.button !== 1) return;
+  if (event.button === 1) event.preventDefault();
   isPanning.value = true;
   dragStartX.value = event.clientX;
   dragStartPan.value = panStart.value;

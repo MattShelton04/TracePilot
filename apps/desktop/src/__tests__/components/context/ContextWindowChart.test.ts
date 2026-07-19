@@ -1,6 +1,6 @@
 import type { ContextTimeline } from "@tracepilot/types";
 import { mount } from "@vue/test-utils";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import ContextWindowChart from "@/components/context/ContextWindowChart.vue";
 
 const timeline: ContextTimeline = {
@@ -13,7 +13,7 @@ const timeline: ContextTimeline = {
   methodology: "test",
   events: [
     {
-      turn: 1,
+      turn: 0,
       timestamp: "2026-01-01T00:00:00Z",
       kind: "userMessage",
       label: "User message",
@@ -22,40 +22,43 @@ const timeline: ContextTimeline = {
   ],
   points: [
     {
-      turn: 1,
+      turn: 0,
       phase: "turn",
       timestamp: null,
       systemTokens: 10,
       toolDefinitionTokens: 20,
       conversationTokens: 70,
+      contextAddedTokens: 70,
       totalTokens: 100,
       source: "estimated",
     },
     {
-      turn: 2,
+      turn: 1,
       phase: "preCompaction",
       timestamp: null,
       systemTokens: 10,
       toolDefinitionTokens: 20,
       conversationTokens: 120,
+      contextAddedTokens: 50,
       totalTokens: 150,
       source: "observed",
     },
     {
-      turn: 2,
+      turn: 1,
       phase: "postCompaction",
       timestamp: null,
       systemTokens: 10,
       toolDefinitionTokens: 20,
       conversationTokens: 10,
+      contextAddedTokens: 0,
       totalTokens: 40,
       source: "estimated",
     },
   ],
   compactions: [
     {
-      startTurn: 2,
-      completeTurn: 2,
+      startTurn: 1,
+      completeTurn: 1,
       timestamp: null,
       success: true,
       checkpointNumber: 1,
@@ -84,8 +87,9 @@ describe("ContextWindowChart", () => {
     expect(wrapper.find(".context-chart__tooltip").exists()).toBe(false);
     const turnTicks = wrapper
       .findAll(".context-chart__axes text")
-      .filter((node) => ["1", "2"].includes(node.text()));
-    expect(turnTicks).toHaveLength(2);
+      .filter((node) => ["0", "1"].includes(node.text()));
+    expect(turnTicks.some((node) => node.text() === "0")).toBe(true);
+    expect(turnTicks.some((node) => node.text() === "1")).toBe(true);
   });
 
   it("toggles layers without mutating timeline data", async () => {
@@ -129,7 +133,7 @@ describe("ContextWindowChart", () => {
       value: () => ({ left: 0, top: 0, width: 900, height: 390 }),
     });
     await svg.trigger("mousemove", { clientX: 400, clientY: 200 });
-    expect(wrapper.find(".context-chart__tooltip").text()).toContain("Turn 1");
+    expect(wrapper.find(".context-chart__tooltip").text()).toContain("Turn 0");
     expect(wrapper.find(".context-chart__tooltip").attributes("transform")).toMatch(
       /^translate\(410 15[12]\./,
     );
@@ -148,7 +152,7 @@ describe("ContextWindowChart", () => {
 
     await svg.trigger("mousemove", { clientX: 830, clientY: 200 });
 
-    expect(wrapper.find(".context-chart__tooltip").text()).toContain("Turn 1");
+    expect(wrapper.find(".context-chart__tooltip").text()).toContain("Turn 0");
   });
 
   it("clears a locked turn when the same graph point is clicked again", async () => {
@@ -172,13 +176,33 @@ describe("ContextWindowChart", () => {
     expect(wrapper.text()).toContain("Viewing");
   });
 
+  it("supports middle-button drag panning", async () => {
+    const wrapper = mount(ContextWindowChart, { props: { timeline } });
+    const svg = wrapper.find("svg");
+    Object.defineProperty(svg.element, "setPointerCapture", { value: vi.fn() });
+    const event = new MouseEvent("pointerdown", {
+      bubbles: true,
+      button: 1,
+      clientX: 400,
+    });
+    Object.defineProperty(event, "pointerId", { value: 7 });
+
+    svg.element.dispatchEvent(event);
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.find(".context-chart__frame").classes()).toContain(
+      "context-chart__frame--panning",
+    );
+    expect((svg.element as SVGElement).setPointerCapture).toHaveBeenCalledWith(7);
+  });
+
   it("emits selectable special points and message overlays", async () => {
     const wrapper = mount(ContextWindowChart, { props: { timeline } });
     const specialPoints = wrapper.findAll('[aria-label^="Select"]');
     expect(specialPoints.length).toBeGreaterThan(0);
     await specialPoints[0].trigger("click");
     expect(wrapper.emitted("selectPoint")).toBeTruthy();
-    await wrapper.find('[aria-label="User message at turn 1"]').trigger("click");
+    await wrapper.find('[aria-label="User message at turn 0"]').trigger("click");
     expect(wrapper.emitted("selectEvent")?.[0]).toEqual([timeline.events[0]]);
   });
 });

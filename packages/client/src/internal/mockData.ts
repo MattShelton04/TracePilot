@@ -34,14 +34,14 @@ const MOCK_CONTEXT_TIMELINE: ContextTimeline = {
   reportedTokenLimit: 200_000,
   events: [
     {
-      turn: 1,
+      turn: 0,
       timestamp: null,
       kind: "userMessage",
       label: "User message",
       preview: "Investigate the session context behavior.",
     },
     {
-      turn: 64,
+      turn: 63,
       timestamp: null,
       kind: "sessionResume",
       label: "Session resumed",
@@ -49,16 +49,16 @@ const MOCK_CONTEXT_TIMELINE: ContextTimeline = {
     },
   ],
   points: [
-    [1, "turn", 8756, 11012, 14218, "estimated"],
-    [15, "turn", 8756, 11012, 64360, "estimated"],
-    [30, "turn", 8756, 11012, 86154, "estimated"],
-    [45, "turn", 8756, 11012, 93414, "estimated"],
-    [60, "turn", 8756, 11012, 109898, "estimated"],
-    [72, "turn", 8756, 11145, 140579, "estimated"],
-    [73, "preCompaction", 8756, 11145, 141166, "observed"],
-    [73, "postCompaction", 8756, 11145, 2130, "estimated"],
-    [75, "turn", 8756, 11012, 5115, "estimated"],
-    [90, "shutdown", 8756, 11012, 26021, "observed"],
+    [0, "turn", 8756, 11012, 14218, "estimated"],
+    [14, "turn", 8756, 11012, 64360, "estimated"],
+    [29, "turn", 8756, 11012, 86154, "estimated"],
+    [44, "turn", 8756, 11012, 93414, "estimated"],
+    [59, "turn", 8756, 11012, 109898, "estimated"],
+    [71, "turn", 8756, 11145, 140579, "estimated"],
+    [72, "preCompaction", 8756, 11145, 141166, "observed"],
+    [72, "postCompaction", 8756, 11145, 2130, "estimated"],
+    [74, "turn", 8756, 11012, 5115, "estimated"],
+    [89, "shutdown", 8756, 11012, 26021, "observed"],
   ].map(([turn, phase, system, definitions, conversation, source]) => ({
     turn: turn as number,
     phase: phase as ContextTimeline["points"][number]["phase"],
@@ -66,13 +66,14 @@ const MOCK_CONTEXT_TIMELINE: ContextTimeline = {
     systemTokens: system as number,
     toolDefinitionTokens: definitions as number,
     conversationTokens: conversation as number,
+    contextAddedTokens: 0,
     totalTokens: (system as number) + (definitions as number) + (conversation as number),
     source: source as ContextTimeline["points"][number]["source"],
   })),
   compactions: [
     {
-      startTurn: 73,
-      completeTurn: 73,
+      startTurn: 72,
+      completeTurn: 72,
       timestamp: null,
       success: true,
       checkpointNumber: 1,
@@ -85,7 +86,7 @@ const MOCK_CONTEXT_TIMELINE: ContextTimeline = {
   ],
   topToolCalls: [
     {
-      turn: 1,
+      turn: 0,
       toolName: "web_fetch",
       argumentTokens: 25,
       resultTokens: 10249,
@@ -93,7 +94,7 @@ const MOCK_CONTEXT_TIMELINE: ContextTimeline = {
       success: true,
     },
     {
-      turn: 64,
+      turn: 63,
       toolName: "powershell",
       argumentTokens: 54,
       resultTokens: 9279,
@@ -101,7 +102,7 @@ const MOCK_CONTEXT_TIMELINE: ContextTimeline = {
       success: true,
     },
     {
-      turn: 64,
+      turn: 63,
       toolName: "view",
       argumentTokens: 18,
       resultTokens: 9290,

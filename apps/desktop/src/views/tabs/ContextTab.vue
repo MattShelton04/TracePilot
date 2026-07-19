@@ -189,10 +189,8 @@ const toolAnalysisViews: Array<{ id: ToolAnalysisView; label: string }> = [
 const toolAnalysisView = ref<ToolAnalysisView>("types");
 const maxToolCallTokens = computed(() => displayedToolCalls.value[0]?.totalTokens ?? 1);
 const selectedTurn = computed(() => {
-  const turnNumber = selectedPoint.value?.turn;
-  return turnNumber == null
-    ? undefined
-    : store.turns.find((turn) => turn.turnIndex === turnNumber - 1);
+  const turnIndex = selectedPoint.value?.turn;
+  return turnIndex == null ? undefined : store.turns.find((turn) => turn.turnIndex === turnIndex);
 });
 const selectedTurnToolCalls = computed(() => selectedTurn.value?.toolCalls ?? []);
 const selectedContributionToolCall = computed(() => {
@@ -202,7 +200,7 @@ const selectedContributionToolCall = computed(() => {
     const match = turn.toolCalls.find((item) =>
       contribution.toolCallId
         ? item.toolCallId === contribution.toolCallId
-        : turn.turnIndex === contribution.turn - 1 && item.toolName === contribution.toolName,
+        : turn.turnIndex === contribution.turn && item.toolName === contribution.toolName,
     );
     if (match) return match;
   }
@@ -263,10 +261,13 @@ function selectCompaction(compaction: ContextCompaction) {
 
 function selectToolCall(item: ContextToolCallContribution) {
   selectedToolCall.value = item;
+  selectedTimelineEvent.value = null;
+  selectedCompaction.value = null;
+  selectedTurnToolCall.value = null;
   selectedPoint.value =
     timeline.value?.points.find((point) => point.turn === item.turn && point.phase === "turn") ??
     timeline.value?.points.find((point) => point.turn === item.turn) ??
-    selectedPoint.value;
+    null;
   if (item.toolCallId) prefetchFullResult(item.toolCallId);
   void ensureTurnTools();
 }
@@ -303,7 +304,7 @@ function richEnabledFor(toolName: string): boolean {
 
 function openConversation(turn: number, eventIndex?: number | null) {
   navigateToConversation({
-    turnIndex: Math.max(0, turn - 1),
+    turnIndex: turn,
     eventIndex: eventIndex ?? null,
   });
 }
@@ -472,10 +473,14 @@ function retryLoad() {
             </div>
             <dl class="context-tab__token-grid">
               <div><dt>Total</dt><dd>{{ formatNumberFull(selectedPoint.totalTokens) }}</dd></div>
+              <div><dt>Added this turn</dt><dd>+{{ formatNumberFull(selectedPoint.contextAddedTokens) }}</dd></div>
               <div><dt>System prompt</dt><dd>{{ formatNumberFull(selectedPoint.systemTokens) }}</dd></div>
               <div><dt>Tool definitions</dt><dd>{{ formatNumberFull(selectedPoint.toolDefinitionTokens) }}</dd></div>
               <div><dt>Conversation</dt><dd>{{ formatNumberFull(selectedPoint.conversationTokens) }}</dd></div>
             </dl>
+            <p class="context-tab__footnote">
+              Added context is an estimate calibrated to the surrounding observed totals.
+            </p>
             <p v-if="selectedPoint.source === 'observed'" class="context-tab__footnote">
               Copilot reported all three displayed layers for this point.
             </p>

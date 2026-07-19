@@ -69,7 +69,10 @@ function makeDetailStore() {
     turnsError: null as string | null,
     loaded: new Set<string>(),
     async loadTurns() {
-      store.turns = [{ turnIndex: 0, toolCalls: [turnToolCall] }];
+      store.turns = [
+        { turnIndex: 0, toolCalls: [turnToolCall] },
+        { turnIndex: 1, toolCalls: [] },
+      ];
       store.turnsVersion += 1;
       store.loaded.add("turns");
     },
@@ -89,12 +92,13 @@ function timeline(totalTokens = 100): ContextTimeline {
     events: [],
     points: [
       {
-        turn: 1,
+        turn: 0,
         phase: "turn",
         timestamp: "2026-07-18T00:00:00Z",
         systemTokens: 10,
         toolDefinitionTokens: 20,
         conversationTokens: totalTokens - 30,
+        contextAddedTokens: totalTokens - 30,
         totalTokens,
         source: "estimated",
       },
@@ -102,7 +106,7 @@ function timeline(totalTokens = 100): ContextTimeline {
     compactions: [],
     topToolCalls: [
       {
-        turn: 1,
+        turn: 0,
         toolCallId: "expensive-tool",
         toolName: "view",
         argumentTokens: 5,
@@ -241,7 +245,7 @@ describe("ContextTab", () => {
     const message = "A complete user message that should not be shortened. ".repeat(20);
     value.events = [
       {
-        turn: 1,
+        turn: 0,
         eventIndex: 9,
         timestamp: "2026-07-18T00:00:00Z",
         kind: "userMessage",
@@ -261,5 +265,49 @@ describe("ContextTab", () => {
       turnIndex: 0,
       eventIndex: 9,
     });
+  });
+
+  it("replaces event details with the selected expensive call's turn stats", async () => {
+    const value = timeline();
+    value.turnCount = 2;
+    value.events = [
+      {
+        turn: 0,
+        eventIndex: 9,
+        timestamp: "2026-07-18T00:00:00Z",
+        kind: "userMessage",
+        label: "User message",
+        preview: "first turn message",
+      },
+    ];
+    value.points.push({
+      turn: 1,
+      phase: "turn",
+      timestamp: "2026-07-18T00:01:00Z",
+      systemTokens: 10,
+      toolDefinitionTokens: 20,
+      conversationTokens: 170,
+      contextAddedTokens: 40,
+      totalTokens: 200,
+      source: "estimated",
+    });
+    value.topToolCalls[0].turn = 1;
+    loadTimeline.mockResolvedValue(response(value));
+    const wrapper = mountTab();
+    await flushPromises();
+
+    await wrapper.find(".select-chart-event").trigger("click");
+    expect(wrapper.text()).toContain("first turn message");
+
+    await wrapper
+      .findAll(".context-tab__view-switch button")
+      .find((button) => button.text() === "Expensive calls")
+      ?.trigger("click");
+    await wrapper.find(".context-tab__ranked-tool").trigger("click");
+
+    expect(wrapper.find(".context-tab__event-preview").exists()).toBe(false);
+    expect(wrapper.find(".context-tab__detail-card").text()).toContain("Turn 1");
+    expect(wrapper.find(".context-tab__detail-card").text()).toContain("Added this turn");
+    expect(wrapper.find(".context-tab__detail-card").text()).toContain("+40");
   });
 });

@@ -99,12 +99,15 @@ export interface SessionSegment {
 export type ContextPointPhase = "turn" | "preCompaction" | "postCompaction" | "shutdown";
 export type ContextPointSource = "observed" | "estimated";
 export interface ContextWindowPoint {
+  /** Zero-based turn index, aligned with ConversationTurn and Search deep links. */
   turn: number;
   phase: ContextPointPhase;
   timestamp?: string | null;
   systemTokens: number;
   toolDefinitionTokens: number;
   conversationTokens: number;
+  /** Estimated context-bearing tokens added during this turn. */
+  contextAddedTokens: number;
   totalTokens: number;
   source: ContextPointSource;
 }
@@ -135,6 +138,7 @@ export type ContextTimelineEventKind =
   | "truncation";
 
 export interface ContextTimelineEvent {
+  /** Zero-based turn index, aligned with ConversationTurn and Search deep links. */
   turn: number;
   /** Zero-based source event index, used for exact conversation deep links. */
   eventIndex?: number;
@@ -145,6 +149,7 @@ export interface ContextTimelineEvent {
 }
 
 export interface ContextToolCallContribution {
+  /** Zero-based turn index, aligned with ConversationTurn and Search deep links. */
   turn: number;
   toolCallId?: string | null;
   toolName: string;

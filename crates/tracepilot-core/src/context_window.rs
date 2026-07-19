@@ -19,6 +19,7 @@ pub struct ContextWindowPoint {
     pub system_tokens: u64,
     pub tool_definition_tokens: u64,
     pub conversation_tokens: u64,
+    pub context_added_tokens: u64,
     pub total_tokens: u64,
     pub source: ContextPointSource,
 }
@@ -178,7 +179,7 @@ struct PendingCompaction {
     anchor: Option<Anchor>,
 }
 
-const METHODOLOGY: &str = "System, tool-definition, and conversation totals are observed at Copilot compaction-start/shutdown anchors. Compaction starts and completes are paired in event order, even when they span turns; the post-compaction summary is estimated unless Copilot reports explicit layers. Between-anchor conversation totals are calibrated estimates derived from context-bearing event text (ceil UTF-8 bytes / 4). Tool arguments and returned results are estimated conversation-input contribution, not cache attribution.";
+const METHODOLOGY: &str = "System, tool-definition, and conversation totals are observed at Copilot compaction-start/shutdown anchors. Compaction starts and completes are paired in event order, even when they span turns; the post-compaction summary is estimated unless Copilot reports explicit layers. Between-anchor conversation totals and per-turn context additions are calibrated estimates derived from context-bearing event text (ceil UTF-8 bytes / 4). Tool arguments and returned results are estimated conversation-input contribution, not cache attribution.";
 
 /// Build a context-pressure timeline without consulting TracePilot's index DB.
 pub fn build_context_timeline(events: &[TypedEvent]) -> ContextTimeline {
@@ -408,18 +409,35 @@ pub fn build_context_timeline(events: &[TypedEvent]) -> ContextTimeline {
     let mut points = build_points(turn_count, &deltas, &anchors);
     points.sort_by_key(|point| (point.turn, phase_order(point.phase)));
 
-    let compactions = compaction_drafts
+    let mut compactions = compaction_drafts
         .into_iter()
         .map(|draft| finish_compaction(draft, &points))
         .collect::<Vec<_>>();
 
-    let (top_tool_calls, tool_types) = finish_tool_contributions(tool_calls);
+    let (mut top_tool_calls, tool_types) = finish_tool_contributions(tool_calls);
 
     let observed_point_count = points
         .iter()
         .filter(|point| point.source == ContextPointSource::Observed)
         .count();
     let estimated_point_count = points.len().saturating_sub(observed_point_count);
+
+    // Reconstruction uses a one-based internal slot so events that precede the
+    // first turn-start can contribute to turn zero. The public DTO follows the
+    // zero-based ConversationTurn/Search coordinate contract.
+    for point in &mut points {
+        point.turn = point.turn.saturating_sub(1);
+    }
+    for event in &mut timeline_events {
+        event.turn = event.turn.saturating_sub(1);
+    }
+    for compaction in &mut compactions {
+        compaction.start_turn = compaction.start_turn.saturating_sub(1);
+        compaction.complete_turn = compaction.complete_turn.saturating_sub(1);
+    }
+    for tool_call in &mut top_tool_calls {
+        tool_call.turn = tool_call.turn.saturating_sub(1);
+    }
 
     ContextTimeline {
         points,
@@ -523,6 +541,7 @@ fn append_estimated_interval(
         .sum::<u64>();
     let target_growth = target.conversation.saturating_sub(base_conversation);
     let mut raw_conversation = 0u64;
+    let mut previous_scaled_conversation = 0u64;
 
     for turn in start..=end {
         raw_conversation += deltas[turn].message_tokens + deltas[turn].tool_tokens;
@@ -534,12 +553,18 @@ fn append_estimated_interval(
             target.system,
             target.tools,
             base_conversation + scaled_conversation,
+            scaled_conversation.saturating_sub(previous_scaled_conversation),
             ContextPointSource::Estimated,
         ));
+        previous_scaled_conversation = scaled_conversation;
     }
 }
 
 fn push_observed_anchor(points: &mut Vec<ContextWindowPoint>, anchor: &Anchor) {
+    let context_added_tokens = points
+        .iter()
+        .find(|point| point.turn == anchor.turn && point.phase == ContextPointPhase::Turn)
+        .map_or(0, |point| point.context_added_tokens);
     points.retain(|point| !(point.turn == anchor.turn && point.phase == ContextPointPhase::Turn));
     points.push(make_point(
         anchor.turn,
@@ -548,6 +573,7 @@ fn push_observed_anchor(points: &mut Vec<ContextWindowPoint>, anchor: &Anchor) {
         anchor.system,
         anchor.tools,
         anchor.conversation,
+        context_added_tokens,
         anchor.source,
     ));
 }
@@ -658,6 +684,7 @@ fn make_point(
     system_tokens: u64,
     tool_definition_tokens: u64,
     conversation_tokens: u64,
+    context_added_tokens: u64,
     source: ContextPointSource,
 ) -> ContextWindowPoint {
     ContextWindowPoint {
@@ -667,6 +694,7 @@ fn make_point(
         system_tokens,
         tool_definition_tokens,
         conversation_tokens,
+        context_added_tokens,
         total_tokens: system_tokens + tool_definition_tokens + conversation_tokens,
         source,
     }
@@ -817,6 +845,26 @@ mod tests {
         }
     }
 
+    fn assistant_message(content: &str) -> TypedEvent {
+        event(
+            SessionEventType::AssistantMessage,
+            TypedEventData::AssistantMessage(AssistantMessageData {
+                message_id: None,
+                turn_id: None,
+                content: Some(content.into()),
+                interaction_id: None,
+                tool_requests: None,
+                output_tokens: None,
+                parent_tool_call_id: None,
+                reasoning_text: None,
+                reasoning_opaque: None,
+                encrypted_content: None,
+                phase: None,
+                request_id: None,
+            }),
+        )
+    }
+
     #[test]
     fn preserves_observed_anchor_and_marks_intermediate_points_estimated() {
         let events = vec![
@@ -871,8 +919,64 @@ mod tests {
         let timeline = build_context_timeline(&events);
         assert_eq!(timeline.turn_count, 1);
         assert_eq!(timeline.points.len(), 1);
+        assert_eq!(timeline.points[0].turn, 0);
         assert_eq!(timeline.points[0].source, ContextPointSource::Observed);
         assert_eq!(timeline.points[0].total_tokens, 60);
+        assert_eq!(timeline.points[0].context_added_tokens, 30);
+    }
+
+    #[test]
+    fn exposes_calibrated_context_added_for_each_zero_based_turn() {
+        let events = vec![
+            event(
+                SessionEventType::AssistantTurnStart,
+                TypedEventData::TurnStart(TurnStartData {
+                    turn_id: Some("1".into()),
+                    interaction_id: None,
+                }),
+            ),
+            assistant_message("aaaa"),
+            event(
+                SessionEventType::AssistantTurnStart,
+                TypedEventData::TurnStart(TurnStartData {
+                    turn_id: Some("2".into()),
+                    interaction_id: None,
+                }),
+            ),
+            assistant_message("aaaaaaaaaaaa"),
+            event(
+                SessionEventType::SessionShutdown,
+                TypedEventData::SessionShutdown(ShutdownData {
+                    shutdown_type: None,
+                    error_reason: None,
+                    total_premium_requests: None,
+                    total_api_duration_ms: None,
+                    session_start_time: None,
+                    events_file_size_bytes: None,
+                    current_model: None,
+                    current_tokens: Some(40),
+                    system_tokens: Some(0),
+                    conversation_tokens: Some(40),
+                    tool_definitions_tokens: Some(0),
+                    total_nano_aiu: None,
+                    source_metrics_scope: None,
+                    token_details: None,
+                    code_changes: None,
+                    model_metrics: None,
+                    session_segments: None,
+                }),
+            ),
+        ];
+
+        let timeline = build_context_timeline(&events);
+        assert_eq!(
+            timeline
+                .points
+                .iter()
+                .map(|point| (point.turn, point.context_added_tokens))
+                .collect::<Vec<_>>(),
+            vec![(0, 10), (1, 30)]
+        );
     }
 
     #[test]
@@ -995,12 +1099,12 @@ mod tests {
         assert_eq!(timeline.compaction_start_count, 1);
         assert_eq!(timeline.compaction_complete_count, 1);
         assert_eq!(timeline.paired_compaction_count, 1);
-        assert_eq!(timeline.compactions[0].start_turn, 1);
-        assert_eq!(timeline.compactions[0].complete_turn, 3);
+        assert_eq!(timeline.compactions[0].start_turn, 0);
+        assert_eq!(timeline.compactions[0].complete_turn, 2);
         let post = timeline
             .points
             .iter()
-            .find(|point| point.turn == 3 && point.phase == ContextPointPhase::PostCompaction)
+            .find(|point| point.turn == 2 && point.phase == ContextPointPhase::PostCompaction)
             .unwrap();
         assert_eq!(post.total_tokens, 35);
     }

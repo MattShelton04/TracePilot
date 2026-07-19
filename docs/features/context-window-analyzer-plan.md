@@ -134,7 +134,7 @@ At compaction:
 - Solid anchor dots and an “Observed” badge distinguish exact snapshots.
 - Dashed compaction markers have a full-height hit target and open a diagnostic
   card with start/completion turns, before, after, removed, checkpoint, and
-  estimation status. A scrollable history provides a second selection route.
+  estimation status inside the selected-point inspector.
 - Nothing is selected on entry. Hovering previews a point; clicking locks its
   turn, total, phase, and source, and the locked tooltip takes precedence over
   later hover movement.
