@@ -220,7 +220,7 @@ function sourceLabel(source: AiCreditUsage["source"]): string {
   scrollbar-width: thin;
   scrollbar-color: var(--border-subtle) transparent;
   margin: 0 -8px;
-  justify-content: center;
+  justify-content: safe center;
 }
 
 .activity-horizontal::-webkit-scrollbar {
