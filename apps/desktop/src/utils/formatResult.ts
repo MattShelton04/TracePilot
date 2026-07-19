@@ -43,3 +43,21 @@ export function formatObjectResult(result: unknown): string {
     return String(result);
   }
 }
+
+/**
+ * Format a persisted tool result for the rich renderer. Copilot tool payloads
+ * may include telemetry/metadata beside their primary `content`; the renderer
+ * needs that content rather than the serialized transport wrapper.
+ */
+export function formatToolResultContent(result: unknown): string {
+  if (result && typeof result === "object" && !Array.isArray(result)) {
+    const object = result as Record<string, unknown>;
+    const content =
+      (typeof object.content === "string" && object.content.trim() ? object.content : null) ??
+      (typeof object.detailedContent === "string" && object.detailedContent.trim()
+        ? object.detailedContent
+        : null);
+    if (content != null) return content;
+  }
+  return formatObjectResult(result);
+}

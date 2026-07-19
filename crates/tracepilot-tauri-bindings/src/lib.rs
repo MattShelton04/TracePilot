@@ -172,11 +172,12 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            // Session commands (12)
+            // Session commands (13)
             commands::session::list_sessions,
             commands::session::get_session_detail,
             commands::session::get_session_incidents,
             commands::session::get_session_turns,
+            commands::session::get_session_context_timeline,
             commands::session::check_session_freshness,
             commands::session::get_session_events,
             commands::session::get_session_todos,

@@ -47,6 +47,7 @@
   "get_session_sections",
   "get_session_todos",
   "get_session_turns",
+  "get_session_context_timeline",
   "get_shutdown_metrics",
   "get_tool_analysis",
   "get_tool_result",

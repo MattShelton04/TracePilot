@@ -108,6 +108,8 @@ export function createSessionDetailInstance() {
       return;
     }
 
+    pendingConversationFocus.value = null;
+
     // Save current session before switching
     if (sessionId.value && loaded.value.has("detail")) {
       saveToCache(sessionId.value);
@@ -258,9 +260,24 @@ export function createSessionDetailInstance() {
 
   // ── Cross-tab navigation: checkpoint focus ─────────────────────────
   const pendingCheckpointFocus = ref<number | null>(null);
+  const pendingConversationFocus = ref<{
+    turnIndex: number;
+    eventIndex: number | null;
+    requestId: number;
+  } | null>(null);
+  let conversationFocusRequestId = 0;
 
   function focusCheckpoint(checkpointNumber: number | null) {
     pendingCheckpointFocus.value = checkpointNumber;
+  }
+
+  function focusConversation(turnIndex: number, eventIndex: number | null = null) {
+    conversationFocusRequestId += 1;
+    pendingConversationFocus.value = {
+      turnIndex,
+      eventIndex,
+      requestId: conversationFocusRequestId,
+    };
   }
 
   return {
@@ -285,7 +302,9 @@ export function createSessionDetailInstance() {
     metricsError: sections.metricsSection.error,
     incidentsError: sections.incidentsSection.error,
     pendingCheckpointFocus,
+    pendingConversationFocus,
     focusCheckpoint,
+    focusConversation,
     loadDetail,
     loadTurns: turnsRefresh.loadTurns,
     loadEvents,

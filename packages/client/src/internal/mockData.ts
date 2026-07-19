@@ -1,4 +1,6 @@
 import type {
+  ContextTimeline,
+  ContextTimelineResponse,
   ExportPreviewResult,
   FreshnessResponse,
   ImportPreviewResult,
@@ -14,6 +16,130 @@ import { createDefaultConfig } from "@tracepilot/types";
 import type { GitInfo, UpdateCheckResult } from "../generated/bindings.js";
 
 import type { ContextSnippet, FtsHealthInfo } from "../search.js";
+
+const MOCK_EVENTS_MTIME = 1_735_728_400_000;
+
+// Numeric shape sampled from a real 90-turn Copilot CLI session. Content and
+// identifiers are intentionally omitted; browser development only needs the
+// chart geometry and observed/estimated transitions.
+const MOCK_CONTEXT_TIMELINE: ContextTimeline = {
+  turnCount: 90,
+  observedPointCount: 2,
+  estimatedPointCount: 8,
+  compactionStartCount: 1,
+  compactionCompleteCount: 1,
+  pairedCompactionCount: 1,
+  methodology:
+    "Top-level layers are observed at Copilot compaction/shutdown anchors; between-anchor conversation totals are calibrated estimates.",
+  reportedTokenLimit: 200_000,
+  events: [
+    {
+      turn: 0,
+      timestamp: null,
+      kind: "userMessage",
+      label: "User message",
+      preview: "Investigate the session context behavior.",
+    },
+    {
+      turn: 63,
+      timestamp: null,
+      kind: "sessionResume",
+      label: "Session resumed",
+      preview: "claude-sonnet",
+    },
+  ],
+  points: [
+    [0, "turn", 8756, 11012, 14218, "estimated"],
+    [14, "turn", 8756, 11012, 64360, "estimated"],
+    [29, "turn", 8756, 11012, 86154, "estimated"],
+    [44, "turn", 8756, 11012, 93414, "estimated"],
+    [59, "turn", 8756, 11012, 109898, "estimated"],
+    [71, "turn", 8756, 11145, 140579, "estimated"],
+    [72, "preCompaction", 8756, 11145, 141166, "observed"],
+    [72, "postCompaction", 8756, 11145, 2130, "estimated"],
+    [74, "turn", 8756, 11012, 5115, "estimated"],
+    [89, "shutdown", 8756, 11012, 26021, "observed"],
+  ].map(([turn, phase, system, definitions, conversation, source]) => ({
+    turn: turn as number,
+    phase: phase as ContextTimeline["points"][number]["phase"],
+    timestamp: null,
+    systemTokens: system as number,
+    toolDefinitionTokens: definitions as number,
+    conversationTokens: conversation as number,
+    contextChangeTokens: null,
+    totalTokens: (system as number) + (definitions as number) + (conversation as number),
+    source: source as ContextTimeline["points"][number]["source"],
+  })),
+  compactions: [
+    {
+      startTurn: 72,
+      completeTurn: 72,
+      timestamp: null,
+      success: true,
+      checkpointNumber: 1,
+      beforeTokens: 161067,
+      afterTokens: 22031,
+      tokensRemoved: 139036,
+      afterSource: "estimated",
+      summaryTokens: 2130,
+    },
+  ],
+  topToolCalls: [
+    {
+      turn: 0,
+      toolName: "web_fetch",
+      argumentTokens: 25,
+      resultTokens: 10249,
+      totalTokens: 10274,
+      success: true,
+    },
+    {
+      turn: 63,
+      toolName: "powershell",
+      argumentTokens: 54,
+      resultTokens: 9279,
+      totalTokens: 9333,
+      success: true,
+    },
+    {
+      turn: 63,
+      toolName: "view",
+      argumentTokens: 18,
+      resultTokens: 9290,
+      totalTokens: 9308,
+      success: true,
+    },
+  ],
+  toolTypes: [
+    {
+      toolName: "view",
+      callCount: 89,
+      errorCount: 1,
+      argumentTokens: 2023,
+      resultTokens: 226448,
+      totalTokens: 228471,
+      percentage: 49.1841,
+    },
+    {
+      toolName: "powershell",
+      callCount: 84,
+      errorCount: 0,
+      argumentTokens: 4731,
+      resultTokens: 92543,
+      totalTokens: 97274,
+      percentage: 20.9407,
+    },
+    {
+      toolName: "rg",
+      callCount: 33,
+      errorCount: 0,
+      argumentTokens: 1735,
+      resultTokens: 59737,
+      totalTokens: 61472,
+      percentage: 13.2334,
+    },
+  ],
+};
 
 // Note: the import above is `type`-only, so there is no runtime cycle with
 // `search.ts` which imports the shared `invoke` helper from `./internal/core.js`.
@@ -65,9 +191,14 @@ export async function getMockData<T>(cmd: string, args?: Record<string, unknown>
       eventsFileSize: 1024,
       eventsFileMtime: Date.now(),
     } as TurnsResponse,
+    get_session_context_timeline: {
+      timeline: MOCK_CONTEXT_TIMELINE,
+      eventsFileSize: 1024,
+      eventsFileMtime: MOCK_EVENTS_MTIME,
+    } as ContextTimelineResponse,
     check_session_freshness: {
       eventsFileSize: 1024,
-      eventsFileMtime: Date.now(),
+      eventsFileMtime: MOCK_EVENTS_MTIME,
     } as FreshnessResponse,
     get_session_events: mocks.MOCK_EVENTS,
     get_session_todos: mocks.MOCK_TODOS,

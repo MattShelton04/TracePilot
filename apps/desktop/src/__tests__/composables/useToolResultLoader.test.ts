@@ -26,8 +26,7 @@ describe("useToolResultLoader", () => {
     await loader.loadFullResult("tc1");
 
     const formatted = loader.fullResults.get("tc1");
-    expect(typeof formatted).toBe("string");
-    expect(formatted).toContain("hello");
+    expect(formatted).toBe("hello");
     const data = loader.fullResultData.get("tc1");
     expect(data?.formatted).toBe(formatted);
     expect(data?.raw).toEqual(payload);

@@ -78,8 +78,8 @@ pub struct ModelDistEntry {
     pub input_tokens: u64,
     pub output_tokens: u64,
     pub cache_read_tokens: u64,
-    /// Cache-write (a.k.a. cache-creation) tokens, billed separately from
-    /// `input_tokens` on Anthropic-style models.
+    /// Cache-write (a.k.a. cache-creation) tokens. Included in `input_tokens`
+    /// telemetry, but billed at a separate rate on Anthropic-style models.
     pub cache_write_tokens: u64,
     pub premium_requests: f64,
     /// Number of API requests made to this model.

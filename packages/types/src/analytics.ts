@@ -28,9 +28,9 @@ export interface AnalyticsData {
     outputTokens: number;
     cacheReadTokens: number;
     /**
-     * Cache-write (a.k.a. cache-creation) tokens. Billed separately from
-     * `inputTokens` on Anthropic-style models. Older indexer rows that
-     * predate cache-write aggregation default to 0.
+     * Cache-write (a.k.a. cache-creation) tokens. Included in `inputTokens`
+     * telemetry, but billed at a separate rate on Anthropic-style models.
+     * Older indexer rows that predate cache-write aggregation default to 0.
      */
     cacheWriteTokens: number;
     premiumRequests: number;

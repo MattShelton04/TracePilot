@@ -84,6 +84,39 @@ const { scrollToTurn } = useConversationDeepLinkScroll(conversationRoot);
 
 // Watch for turns to load, then scroll to the target.
 let lastScrolledKey: string | null = null;
+function revealConversationTarget(
+  turnIndex: number,
+  eventIndex: number | null,
+  requestKey: string,
+) {
+  if (requestKey === lastScrolledKey) return;
+  if (!store.turns.some((turn) => turn.turnIndex === turnIndex)) return;
+  lastScrolledKey = requestKey;
+
+  nextTick(() => {
+    // For chat view, delegate to ChatViewMode's revealEvent
+    if (activeView.value === "chat" && chatViewRef.value) {
+      chatViewRef.value.revealEvent(turnIndex, eventIndex ?? undefined);
+      return;
+    }
+
+    // Compact/Timeline: use original expand logic
+    if (eventIndex != null) {
+      const turn = store.turns.find((item) => item.turnIndex === turnIndex);
+      if (turn) {
+        const tc = turn.toolCalls.find((item) => item.eventIndex === eventIndex);
+        if (tc) {
+          const idx = findToolCallIndex(turn, tc);
+          const prefix = activeView.value === "timeline" ? "tl-" : "compact-";
+          const detailKey = `${prefix}${turnIndex}-${idx}`;
+          if (!expandedToolDetails.has(detailKey)) expandedToolDetails.toggle(detailKey);
+        }
+      }
+    }
+    nextTick(() => scrollToTurn(turnIndex, eventIndex));
+  });
+}
+
 watch(
   [() => store.turns.length, () => route.query.turn, () => route.query.event],
   ([len, turnParam, eventParam]) => {
@@ -92,32 +125,25 @@ watch(
     if (Number.isNaN(turnIndex)) return;
     const eventIndex = eventParam ? Number(eventParam) : null;
     const key = `${turnIndex}-${eventIndex}`;
-    if (key === lastScrolledKey) return;
-    if (!store.turns.some((t) => t.turnIndex === turnIndex)) return;
-    lastScrolledKey = key;
+    revealConversationTarget(turnIndex, eventIndex, `route-${key}`);
+  },
+  { immediate: true },
+);
 
-    nextTick(() => {
-      // For chat view, delegate to ChatViewMode's revealEvent
-      if (activeView.value === "chat" && chatViewRef.value) {
-        chatViewRef.value.revealEvent(turnIndex, eventIndex ?? undefined);
-        return;
-      }
-
-      // Compact/Timeline: use original expand logic
-      if (eventIndex != null) {
-        const turn = store.turns.find((t) => t.turnIndex === turnIndex);
-        if (turn) {
-          const tc = turn.toolCalls.find((t) => t.eventIndex === eventIndex);
-          if (tc) {
-            const idx = findToolCallIndex(turn, tc);
-            const prefix = activeView.value === "timeline" ? "tl-" : "compact-";
-            const detailKey = `${prefix}${turnIndex}-${idx}`;
-            if (!expandedToolDetails.has(detailKey)) expandedToolDetails.toggle(detailKey);
-          }
-        }
-      }
-      nextTick(() => scrollToTurn(turnIndex, eventIndex));
-    });
+watch(
+  [
+    () => store.turns.length,
+    () => store.pendingConversationFocus?.requestId,
+    () => store.pendingConversationFocus?.turnIndex,
+    () => store.pendingConversationFocus?.eventIndex,
+  ],
+  ([len, requestId, turnIndex, eventIndex]) => {
+    if (!len || requestId == null || turnIndex == null) return;
+    revealConversationTarget(
+      turnIndex,
+      eventIndex ?? null,
+      `context-${requestId}-${turnIndex}-${eventIndex ?? "turn"}`,
+    );
   },
   { immediate: true },
 );

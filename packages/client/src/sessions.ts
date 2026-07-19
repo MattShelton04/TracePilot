@@ -1,5 +1,6 @@
 import type {
   CheckpointEntry,
+  ContextTimelineResponse,
   EventsResponse,
   FreshnessResponse,
   SessionDbTable,
@@ -46,6 +47,12 @@ export async function getSessionIncidents(sessionId: string): Promise<SessionInc
 
 export async function getSessionTurns(sessionId: string): Promise<TurnsResponse> {
   return invoke<TurnsResponse>("get_session_turns", { sessionId });
+}
+
+export async function getSessionContextTimeline(
+  sessionId: string,
+): Promise<ContextTimelineResponse> {
+  return invoke<ContextTimelineResponse>("get_session_context_timeline", { sessionId });
 }
 
 export async function checkSessionFreshness(sessionId: string): Promise<FreshnessResponse> {

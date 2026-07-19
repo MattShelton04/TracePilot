@@ -35,6 +35,7 @@ pub const IPC_COMMAND_NAMES: &[&str] = &[
     "get_session_detail",
     "get_session_incidents",
     "get_session_turns",
+    "get_session_context_timeline",
     "check_session_freshness",
     "get_session_events",
     "get_session_todos",

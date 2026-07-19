@@ -8,6 +8,7 @@ const EXPECTED_ORDER = [
   "events",
   "todos",
   "metrics",
+  "context",
   "explorer",
   "timeline",
 ] as const;
@@ -31,6 +32,7 @@ describe("mapSessionTabs", () => {
     expect(byName.events.routeName).toBe(ROUTE_NAMES.sessionEvents);
     expect(byName.todos.routeName).toBe(ROUTE_NAMES.sessionTodos);
     expect(byName.metrics.routeName).toBe(ROUTE_NAMES.sessionMetrics);
+    expect(byName.context.routeName).toBe(ROUTE_NAMES.sessionContext);
     expect(byName.explorer.routeName).toBe(ROUTE_NAMES.sessionExplorer);
     expect(byName.timeline.routeName).toBe(ROUTE_NAMES.sessionTimeline);
   });

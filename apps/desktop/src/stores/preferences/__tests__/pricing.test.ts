@@ -92,7 +92,7 @@ describe("createPricingSlice", () => {
       },
     ];
     const cost = slice.computeWholesaleCost("test", 1_000_000, 500_000, 1_000_000, 250_000);
-    expect(cost).toBeCloseTo(26);
+    expect(cost).toBeCloseTo(23.5);
   });
 
   it("computeUsageBasedCost uses official GitHub rates and returns null for unknown models", () => {
@@ -106,7 +106,7 @@ describe("createPricingSlice", () => {
         100_000,
         "2026-06-01",
       ),
-    ).toBeCloseTo(5.295);
+    ).toBeCloseTo(4.995);
     expect(slice.computeUsageBasedCost("unknown-model", 1, 0, 1, 0, "2026-06-01")).toBeNull();
   });
 

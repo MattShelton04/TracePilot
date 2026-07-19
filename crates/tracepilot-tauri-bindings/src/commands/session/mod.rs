@@ -10,6 +10,7 @@
 //! the command function. Glob re-exports forward both.
 
 mod artifacts;
+mod context;
 mod detail;
 mod events;
 mod list;
@@ -21,6 +22,7 @@ mod turns;
 mod tests;
 
 pub use artifacts::*;
+pub use context::*;
 pub use detail::*;
 pub use events::*;
 pub use list::*;

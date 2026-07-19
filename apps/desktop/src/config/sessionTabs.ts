@@ -45,6 +45,7 @@ const SESSION_TABS: readonly SessionTabDefinition[] = [
   { name: "events", label: "Events", routeName: ROUTE_NAMES.sessionEvents },
   { name: "todos", label: "Todos", routeName: ROUTE_NAMES.sessionTodos },
   { name: "metrics", label: "Metrics", routeName: ROUTE_NAMES.sessionMetrics },
+  { name: "context", label: "Context", routeName: ROUTE_NAMES.sessionContext },
   { name: "explorer", label: "Explorer", routeName: ROUTE_NAMES.sessionExplorer },
   { name: "timeline", label: "Timeline", routeName: ROUTE_NAMES.sessionTimeline },
 ];

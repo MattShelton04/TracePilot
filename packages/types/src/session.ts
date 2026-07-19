@@ -96,6 +96,103 @@ export interface SessionSegment {
   modelMetrics?: Record<string, ModelMetricDetail> | null;
 }
 
+export type ContextPointPhase = "turn" | "preCompaction" | "postCompaction" | "shutdown";
+export type ContextPointSource = "observed" | "estimated";
+export interface ContextWindowPoint {
+  /** Zero-based turn index, aligned with ConversationTurn and Search deep links. */
+  turn: number;
+  phase: ContextPointPhase;
+  timestamp?: string | null;
+  systemTokens: number;
+  toolDefinitionTokens: number;
+  conversationTokens: number;
+  /** Signed change from the previous displayed context point. */
+  contextChangeTokens?: number | null;
+  totalTokens: number;
+  source: ContextPointSource;
+}
+
+export interface ContextCompaction {
+  startTurn: number;
+  completeTurn: number;
+  timestamp?: string | null;
+  success: boolean;
+  checkpointNumber?: number | null;
+  beforeTokens?: number | null;
+  afterTokens?: number | null;
+  tokensRemoved?: number | null;
+  afterSource: ContextPointSource;
+  summaryTokens?: number | null;
+  compactionModel?: string | null;
+  durationMs?: number | null;
+  requestInputTokens?: number | null;
+  requestOutputTokens?: number | null;
+  cacheReadTokens?: number | null;
+  cacheWriteTokens?: number | null;
+}
+
+export type ContextTimelineEventKind =
+  | "userMessage"
+  | "modelChange"
+  | "sessionResume"
+  | "truncation";
+
+export interface ContextTimelineEvent {
+  /** Zero-based turn index, aligned with ConversationTurn and Search deep links. */
+  turn: number;
+  /** Zero-based source event index, used for exact conversation deep links. */
+  eventIndex?: number;
+  timestamp?: string | null;
+  kind: ContextTimelineEventKind;
+  label: string;
+  preview?: string | null;
+}
+
+export interface ContextToolCallContribution {
+  /** Zero-based turn index, aligned with ConversationTurn and Search deep links. */
+  turn: number;
+  toolCallId?: string | null;
+  toolName: string;
+  argumentTokens: number;
+  resultTokens: number;
+  totalTokens: number;
+  success?: boolean | null;
+  argumentsPreview?: string | null;
+  resultPreview?: string | null;
+}
+
+export interface ContextToolTypeContribution {
+  toolName: string;
+  callCount: number;
+  errorCount: number;
+  argumentTokens: number;
+  resultTokens: number;
+  totalTokens: number;
+  percentage: number;
+}
+
+export interface ContextTimeline {
+  points: ContextWindowPoint[];
+  events: ContextTimelineEvent[];
+  compactions: ContextCompaction[];
+  topToolCalls: ContextToolCallContribution[];
+  toolTypes: ContextToolTypeContribution[];
+  turnCount: number;
+  observedPointCount: number;
+  estimatedPointCount: number;
+  compactionStartCount: number;
+  compactionCompleteCount: number;
+  pairedCompactionCount: number;
+  reportedTokenLimit?: number | null;
+  methodology: string;
+}
+
+export interface ContextTimelineResponse {
+  timeline: ContextTimeline;
+  eventsFileSize: number;
+  eventsFileMtime?: number | null;
+}
+
 export interface CodeChanges {
   linesAdded?: number;
   linesRemoved?: number;
