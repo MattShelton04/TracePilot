@@ -6,6 +6,13 @@ import JsonTreeNode from "./JsonTreeNode.vue";
 const props = defineProps<{
   content: string;
   filePath?: string;
+  mode?: "records" | "raw";
+  searchQuery?: string;
+  activeSearchLine?: number;
+  activeSearchColumn?: number;
+}>();
+const emit = defineEmits<{
+  "update:mode": [mode: "records" | "raw"];
 }>();
 
 interface JsonlRecord {
@@ -17,7 +24,11 @@ interface JsonlRecord {
 }
 
 const MAX_RECORDS = 2_000;
-const mode = ref<"records" | "raw">("records");
+const mode = computed({
+  get: () => props.mode ?? "records",
+  set: (value: "records" | "raw") => emit("update:mode", value),
+});
+const effectiveMode = computed(() => (props.searchQuery?.trim() ? "raw" : mode.value));
 const query = ref("");
 const records = computed<JsonlRecord[]>(() =>
   props.content
@@ -67,11 +78,11 @@ const invalidCount = computed(() => records.value.filter((record) => record.erro
   <div class="jsonl-viewer">
     <div class="jsonl-viewer__toolbar">
       <div class="jsonl-viewer__modes" role="radiogroup" aria-label="JSONL view mode">
-        <button type="button" :class="{ active: mode === 'records' }" @click="mode = 'records'">Records</button>
-        <button type="button" :class="{ active: mode === 'raw' }" @click="mode = 'raw'">Raw</button>
+        <button type="button" :class="{ active: effectiveMode === 'records' }" @click="mode = 'records'">Records</button>
+        <button type="button" :class="{ active: effectiveMode === 'raw' }" @click="mode = 'raw'">Raw</button>
       </div>
       <input
-        v-if="mode === 'records'"
+        v-if="effectiveMode === 'records'"
         v-model="query"
         class="jsonl-viewer__search"
         type="search"
@@ -85,7 +96,7 @@ const invalidCount = computed(() => records.value.filter((record) => record.erro
       </span>
     </div>
 
-    <div v-if="mode === 'records'" class="jsonl-viewer__records">
+    <div v-if="effectiveMode === 'records'" class="jsonl-viewer__records">
       <details v-for="record in filtered" :key="record.line" class="jsonl-viewer__record">
         <summary>
           <span class="jsonl-viewer__line">L{{ record.line }}</span>
@@ -106,6 +117,9 @@ const invalidCount = computed(() => records.value.filter((record) => record.erro
       :show-language-badge="false"
       :max-lines="5000"
       :fill-height="true"
+      :search-query="searchQuery"
+      :active-search-line="activeSearchLine"
+      :active-search-column="activeSearchColumn"
     />
   </div>
 </template>

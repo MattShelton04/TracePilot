@@ -12,6 +12,8 @@ import { computed, type Ref, ref, watch } from "vue";
 export interface UseFileBrowserTreeOptions {
   /** Folders with more files than this are auto-collapsed on load. */
   autoCollapseThreshold?: number;
+  /** Temporarily display every folder expanded without discarding user collapse state. */
+  forceExpanded?: boolean;
 }
 
 export interface FileBrowserFolderNode<TEntry extends FileEntry = FileEntry> {
@@ -169,16 +171,21 @@ export function useFileBrowserTree<TEntry extends FileEntry>(
   });
 
   const visibleRows = computed(() => {
+    const effectiveCollapsed = options.forceExpanded ? new Set<string>() : collapsedFolders.value;
     const rows: FileBrowserTreeRow<TEntry>[] = treeStructure.value.rootFiles.map((entry) => ({
       kind: "file",
       entry,
       depth: 0,
     }));
     for (const folder of treeStructure.value.folders) {
-      collectRows(folder, 0, collapsedFolders.value, rows);
+      collectRows(folder, 0, effectiveCollapsed, rows);
     }
     return rows;
   });
+
+  const effectiveCollapsedFolders = computed<ReadonlySet<string>>(() =>
+    options.forceExpanded ? new Set<string>() : collapsedFolders.value,
+  );
 
   const fileCount = computed(() => entries.value.filter((e) => !e.isDirectory).length);
 
@@ -187,6 +194,7 @@ export function useFileBrowserTree<TEntry extends FileEntry>(
     visibleRows,
     fileCount,
     collapsedFolders,
+    effectiveCollapsedFolders,
     toggleFolder,
     formatSize: formatBytes,
   };

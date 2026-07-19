@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import "@/styles/features/session-explorer.css";
-import { openInExplorer, sessionReadFile, sessionSearchFiles } from "@tracepilot/client";
-import type { FileEntry, SessionFileSearchResponse, SessionFileType } from "@tracepilot/types";
+import { openInExplorer, sessionReadFile } from "@tracepilot/client";
+import type { FileEntry, SessionFileSearchMatch, SessionFileType } from "@tracepilot/types";
 import {
   FileBrowserTree,
   FileContentViewer,
@@ -9,12 +9,15 @@ import {
   pathDirname,
   useAutoRefresh,
   useClipboard,
+  usePersistedRef,
   useToast,
 } from "@tracepilot/ui";
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import FileContextMenu from "@/components/session/FileContextMenu.vue";
+import { useExplorerContentSearch } from "@/composables/useExplorerContentSearch";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { useSessionFiles } from "@/composables/useSessionFiles";
+import { STORAGE_KEYS } from "@/config/storageKeys";
 import { usePreferencesStore } from "@/stores/preferences";
 
 const store = useSessionDetailContext();
@@ -23,13 +26,25 @@ const prefs = usePreferencesStore();
 const sessionFiles = useSessionFiles(() => store.sessionId);
 
 // ── Name/path and bounded content search ───────────────────────────────────
-const searchMode = ref<"name" | "content">("name");
-const searchQuery = ref("");
-const contentSearch = ref<SessionFileSearchResponse | null>(null);
-const contentSearchLoading = ref(false);
-const contentSearchError = ref<string | null>(null);
-let contentSearchSeq = 0;
-let contentSearchTimer: ReturnType<typeof setTimeout> | null = null;
+interface ExplorerViewModes {
+  json: "tree" | "raw";
+  jsonl: "records" | "raw";
+  csv: "table" | "raw";
+}
+
+const explorerViewModes = usePersistedRef<ExplorerViewModes>(
+  STORAGE_KEYS.sessionExplorerViewModes,
+  { json: "tree", jsonl: "records", csv: "table" },
+);
+const {
+  searchMode,
+  searchQuery,
+  contentSearch,
+  contentSearchLoading,
+  contentSearchError,
+  runContentSearch,
+} = useExplorerContentSearch(() => store.sessionId);
+const viewerSearchRequest = ref({ id: 0, query: "", line: 0 });
 
 const filteredFiles = computed(() => {
   const query = searchQuery.value.trim().toLowerCase();
@@ -39,50 +54,23 @@ const filteredFiles = computed(() => {
   );
 });
 
-async function runContentSearch() {
-  const sessionId = store.sessionId;
-  const query = searchQuery.value.trim();
-  if (searchMode.value !== "content" || !sessionId || query.length < 2) {
-    contentSearch.value = null;
-    contentSearchError.value = null;
-    contentSearchLoading.value = false;
-    return;
-  }
-  const seq = ++contentSearchSeq;
-  contentSearchLoading.value = true;
-  contentSearchError.value = null;
-  try {
-    const result = await sessionSearchFiles(sessionId, query);
-    if (seq !== contentSearchSeq) return;
-    contentSearch.value = result;
-  } catch (err) {
-    if (seq !== contentSearchSeq) return;
-    contentSearchError.value = err instanceof Error ? err.message : String(err);
-    contentSearch.value = null;
-  } finally {
-    if (seq === contentSearchSeq) contentSearchLoading.value = false;
-  }
-}
-
-watch([searchQuery, searchMode], () => {
-  contentSearchSeq += 1;
-  if (contentSearchTimer) clearTimeout(contentSearchTimer);
-  if (searchMode.value !== "content" || searchQuery.value.trim().length < 2) {
-    contentSearch.value = null;
-    contentSearchError.value = null;
-    contentSearchLoading.value = false;
-    return;
-  }
-  contentSearchTimer = setTimeout(() => {
-    contentSearchTimer = null;
-    void runContentSearch();
-  }, 300);
-});
-
 async function onViewFile(path: string) {
   const entry = sessionFiles.files.find((f) => f.path === path);
   const fileType: SessionFileType = entry?.fileType ?? "text";
   await sessionFiles.selectFile(path, fileType);
+}
+
+async function onContentSearchMatch(match: SessionFileSearchMatch) {
+  await onViewFile(match.path);
+  const loadedLines = sessionFiles.fileContent?.split("\n").length ?? 0;
+  if (sessionFiles.fileCanLoadMore && match.lineNumber > loadedLines) {
+    await sessionFiles.loadFullFile();
+  }
+  viewerSearchRequest.value = {
+    id: viewerSearchRequest.value.id + 1,
+    query: searchQuery.value.trim(),
+    line: match.lineNumber,
+  };
 }
 
 // ── Drag-to-resize ──────────────────────────────────────────────────────────
@@ -127,13 +115,36 @@ onBeforeUnmount(() => {
 useAutoRefresh({
   onRefresh: async () => {
     await sessionFiles.reload();
-    if (searchMode.value === "content" && searchQuery.value.trim().length >= 2) {
-      await runContentSearch();
-    }
   },
   enabled: computed(() => prefs.autoRefreshEnabled),
   intervalSeconds: computed(() => prefs.autoRefreshIntervalSeconds),
 });
+
+const manualRefreshing = ref(false);
+const refreshComplete = ref(false);
+let refreshFeedbackTimer: ReturnType<typeof setTimeout> | null = null;
+
+async function refreshExplorer() {
+  if (manualRefreshing.value) return;
+  manualRefreshing.value = true;
+  refreshComplete.value = false;
+  if (refreshFeedbackTimer) clearTimeout(refreshFeedbackTimer);
+  try {
+    await sessionFiles.reload({ silent: false });
+    if (searchMode.value === "content" && searchQuery.value.trim().length >= 2) {
+      await runContentSearch({ background: true });
+    }
+    if (!sessionFiles.filesError && !contentSearchError.value) {
+      refreshComplete.value = true;
+      refreshFeedbackTimer = setTimeout(() => {
+        refreshComplete.value = false;
+        refreshFeedbackTimer = null;
+      }, 1_400);
+    }
+  } finally {
+    manualRefreshing.value = false;
+  }
+}
 
 // ── New-file highlight (bonus) ─────────────────────────────────────────────
 // Clear the transient highlight set AFTER the fade has fully completed so
@@ -187,7 +198,7 @@ onBeforeUnmount(() => {
   if (viewerPulseTimer) clearTimeout(viewerPulseTimer);
   document.removeEventListener("click", hideContextMenu);
   document.removeEventListener("contextmenu", hideContextMenu);
-  if (contentSearchTimer) clearTimeout(contentSearchTimer);
+  if (refreshFeedbackTimer) clearTimeout(refreshFeedbackTimer);
 });
 
 // ── Context Menu ───────────────────────────────────────────────────────────
@@ -317,19 +328,40 @@ async function onOpenFolder() {
     <div class="explorer-tab__tree" :style="{ width: `${treeWidth}px` }">
       <div class="explorer-search">
         <div class="explorer-search__row">
-          <input
-            v-model="searchQuery"
-            type="search"
-            :placeholder="searchMode === 'name' ? 'Filter names and paths…' : 'Search file contents…'"
-            :aria-label="searchMode === 'name' ? 'Filter file names and paths' : 'Search file contents'"
-          />
+          <div class="explorer-search__input-wrap">
+            <input
+              v-model="searchQuery"
+              type="text"
+              :placeholder="searchMode === 'name' ? 'Filter names and paths…' : 'Search file contents…'"
+              :aria-label="searchMode === 'name' ? 'Filter file names and paths' : 'Search file contents'"
+            />
+            <button
+              v-if="searchQuery"
+              type="button"
+              class="explorer-search__clear"
+              title="Clear search"
+              aria-label="Clear search"
+              @click="searchQuery = ''"
+            >
+              ×
+            </button>
+          </div>
           <button
             type="button"
-            title="Refresh files"
-            aria-label="Refresh files"
-            @click="sessionFiles.reload({ silent: false })"
+            class="explorer-search__refresh"
+            :class="{
+              'explorer-search__refresh--spinning': manualRefreshing,
+              'explorer-search__refresh--complete': refreshComplete,
+            }"
+            :title="manualRefreshing ? 'Refreshing files…' : refreshComplete ? 'Files refreshed' : 'Refresh files'"
+            :aria-label="manualRefreshing ? 'Refreshing files' : refreshComplete ? 'Files refreshed' : 'Refresh files'"
+            :disabled="manualRefreshing"
+            @click="refreshExplorer"
           >
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+            <svg v-if="refreshComplete && !manualRefreshing" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+              <path d="M3 8.5l3 3L13 4.5"/>
+            </svg>
+            <svg v-else viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
               <path d="M13 5V2.5L11.2 4.3A5.5 5.5 0 1 0 13.4 9"/>
             </svg>
           </button>
@@ -358,12 +390,13 @@ async function onOpenFolder() {
 
       <div v-if="sessionFiles.filesError" class="explorer-search__error">
         <span>{{ sessionFiles.filesError }}</span>
-        <button type="button" @click="sessionFiles.reload({ silent: false })">Retry</button>
+        <button type="button" @click="refreshExplorer">Retry</button>
       </div>
 
       <div v-else-if="searchMode === 'content'" class="explorer-results">
         <div v-if="searchQuery.trim().length < 2" class="explorer-results__empty">
-          Enter at least 2 characters to search readable files.
+          Enter at least 2 characters to search readable artifacts. events.jsonl, images,
+          databases, and binary files are skipped.
         </div>
         <div v-else-if="contentSearchLoading" class="explorer-results__empty">
           Searching session files…
@@ -381,7 +414,7 @@ async function onOpenFolder() {
             :key="`${match.path}:${match.lineNumber}`"
             type="button"
             class="explorer-result"
-            @click="onViewFile(match.path)"
+            @click="onContentSearchMatch(match)"
           >
             <span class="explorer-result__path">{{ match.path }}</span>
             <span class="explorer-result__line">L{{ match.lineNumber }}</span>
@@ -401,6 +434,7 @@ async function onOpenFolder() {
         :highlighted-paths="highlightedPaths"
         :title="searchQuery.trim() ? 'Matching Files' : 'Session Files'"
         :auto-collapse-threshold="10"
+        :force-expanded="Boolean(searchQuery.trim())"
         @view-file="onViewFile"
         @contextmenu-entry="onContextMenuEntry"
       />
@@ -422,9 +456,18 @@ async function onOpenFolder() {
         :db-data="sessionFiles.dbData ?? undefined"
         :image-preview="sessionFiles.imagePreview ?? undefined"
         :can-load-more="sessionFiles.fileCanLoadMore"
+        :json-mode="explorerViewModes.json"
+        :jsonl-mode="explorerViewModes.jsonl"
+        :csv-mode="explorerViewModes.csv"
+        :search-request-id="viewerSearchRequest.id"
+        :initial-search-query="viewerSearchRequest.query"
+        :initial-search-line="viewerSearchRequest.line"
         :loading="viewerLoading"
         :error="viewerError"
         @load-full="sessionFiles.loadFullFile"
+        @update:json-mode="explorerViewModes.json = $event"
+        @update:jsonl-mode="explorerViewModes.jsonl = $event"
+        @update:csv-mode="explorerViewModes.csv = $event"
       />
     </div>
 
@@ -475,10 +518,18 @@ async function onOpenFolder() {
   gap: 5px;
 }
 
-.explorer-search__row input {
+.explorer-search__input-wrap {
+  position: relative;
   min-width: 0;
   flex: 1;
-  padding: 5px 7px;
+}
+
+.explorer-search__input-wrap input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 5px 26px 5px 7px;
+  outline: none;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
   background: var(--canvas-default);
@@ -486,19 +537,76 @@ async function onOpenFolder() {
   font-size: 0.6875rem;
 }
 
-.explorer-search__row > button {
+.explorer-search__input-wrap input:focus {
+  border-color: var(--accent-fg);
+  box-shadow: 0 0 0 1px var(--accent-muted);
+}
+
+.explorer-search__clear {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  display: grid;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  transform: translateY(-50%);
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.explorer-search__clear:hover {
+  background: var(--neutral-muted);
+  color: var(--text-primary);
+}
+
+.explorer-search__row > .explorer-search__refresh {
+  display: grid;
   width: 27px;
-  padding: 5px;
+  height: 27px;
+  box-sizing: border-box;
+  padding: 5px 7px;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
+  place-items: center;
   background: var(--canvas-subtle);
   color: var(--text-secondary);
   cursor: pointer;
 }
 
-.explorer-search__row > button svg {
+.explorer-search__refresh:hover:not(:disabled) {
+  background: var(--neutral-muted);
+  color: var(--text-primary);
+}
+
+.explorer-search__refresh:disabled {
+  cursor: wait;
+}
+
+.explorer-search__refresh--complete {
+  border-color: var(--success-fg);
+  color: var(--success-fg);
+}
+
+.explorer-search__refresh svg {
   width: 14px;
   height: 14px;
+}
+
+.explorer-search__refresh--spinning svg {
+  animation: explorer-refresh-spin 0.75s linear infinite;
+}
+
+@keyframes explorer-refresh-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .explorer-search__modes {

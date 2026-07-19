@@ -6,7 +6,7 @@
  * produce colored tokens. The `.syn-*` CSS classes are defined in this
  * component's scoped styles.
  */
-import { computed } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import { detectLanguage, languageDisplayName } from "../../utils/languageDetection";
 import { highlightLine } from "../../utils/syntaxHighlight";
 
@@ -31,6 +31,12 @@ const props = withDefaults(
      * 500px is applied so the block doesn't dominate inline conversation views.
      */
     fillHeight?: boolean;
+    /** Case-insensitive literal query to highlight in the rendered source. */
+    searchQuery?: string;
+    /** One-based line containing the active search match. */
+    activeSearchLine?: number;
+    /** Zero-based character offset of the active match within its line. */
+    activeSearchColumn?: number;
   }>(),
   {
     lineNumbers: true,
@@ -50,22 +56,77 @@ const lines = computed(() => {
   return raw;
 });
 
-/** Pre-highlighted HTML for each visible line (sliced first for performance). */
-const visibleRawLines = computed(() => {
-  if (props.maxLines && props.maxLines > 0 && lines.value.length > props.maxLines) {
-    return lines.value.slice(0, props.maxLines);
+const visibleRange = computed(() => {
+  const maxLines = props.maxLines ?? 0;
+  if (maxLines <= 0 || lines.value.length <= maxLines) {
+    return { start: 0, end: lines.value.length };
   }
-  return lines.value;
+  const activeIndex = (props.activeSearchLine ?? start.value) - start.value;
+  if (activeIndex >= maxLines && activeIndex < lines.value.length) {
+    const rangeStart = Math.max(
+      0,
+      Math.min(activeIndex - Math.floor(maxLines / 2), lines.value.length - maxLines),
+    );
+    return { start: rangeStart, end: rangeStart + maxLines };
+  }
+  return { start: 0, end: maxLines };
 });
 
+function highlightedLine(line: string, lineNumber: number): string {
+  const query = props.searchQuery?.trim();
+  if (!query) return highlightLine(line, lang.value);
+
+  const lowerLine = line.toLocaleLowerCase();
+  const lowerQuery = query.toLocaleLowerCase();
+  let cursor = 0;
+  let match = lowerLine.indexOf(lowerQuery);
+  if (match < 0) return highlightLine(line, lang.value);
+
+  let html = "";
+  while (match >= 0) {
+    html += highlightLine(line.slice(cursor, match), lang.value);
+    const active = lineNumber === props.activeSearchLine && match === props.activeSearchColumn;
+    html += `<mark class="code-search-match${active ? " code-search-match--active" : ""}">${highlightLine(line.slice(match, match + query.length), lang.value)}</mark>`;
+    cursor = match + query.length;
+    match = lowerLine.indexOf(lowerQuery, cursor);
+  }
+  return html + highlightLine(line.slice(cursor), lang.value);
+}
+
 const visibleLines = computed(() =>
-  visibleRawLines.value.map((line) => highlightLine(line, lang.value)),
+  lines.value.slice(visibleRange.value.start, visibleRange.value.end).map((line, index) => {
+    const sourceIndex = visibleRange.value.start + index;
+    const lineNumber = start.value + sourceIndex;
+    return {
+      html: highlightedLine(line, lineNumber),
+      lineNumber,
+    };
+  }),
 );
 
 const isCollapsed = computed(() => (props.maxLines ? lines.value.length > props.maxLines : false));
 
 const hiddenCount = computed(() =>
-  isCollapsed.value ? lines.value.length - (props.maxLines ?? 0) : 0,
+  isCollapsed.value ? lines.value.length - visibleLines.value.length : 0,
+);
+
+const contentElement = ref<HTMLElement | null>(null);
+watch(
+  () => [
+    props.searchQuery,
+    props.activeSearchLine,
+    props.activeSearchColumn,
+    visibleRange.value.start,
+  ],
+  async () => {
+    if (!props.searchQuery || props.activeSearchLine === undefined) return;
+    await nextTick();
+    const activeLine = contentElement.value?.querySelector<HTMLElement>(
+      `[data-line-number="${props.activeSearchLine}"]`,
+    );
+    activeLine?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+  },
+  { flush: "post" },
 );
 
 const lineNumberWidth = computed(() => {
@@ -86,20 +147,29 @@ function fileName(path: string): string {
       </span>
       <span v-if="showLanguageBadge" class="code-block-lang">{{ langDisplay }}</span>
     </div>
-    <div class="code-block-content" :class="{ 'code-block-content--fill': fillHeight }">
+    <div ref="contentElement" class="code-block-content" :class="{ 'code-block-content--fill': fillHeight }">
       <table class="code-block-table" role="presentation">
         <tbody>
-          <tr v-for="(lineHtml, i) in visibleLines" :key="i" class="code-line">
+          <tr
+            v-for="line in visibleLines"
+            :key="line.lineNumber"
+            class="code-line"
+            :data-line-number="line.lineNumber"
+          >
             <td v-if="showNumbers" class="code-line-number" :style="{ width: lineNumberWidth + 'ch' }">
-              {{ start + i }}
+              {{ line.lineNumber }}
             </td>
             <!-- eslint-disable-next-line vue/no-v-html -- input is HTML-escaped by highlightLine -->
-            <td class="code-line-content"><pre v-html="lineHtml"></pre></td>
+            <td class="code-line-content"><pre v-html="line.html"></pre></td>
           </tr>
         </tbody>
       </table>
       <div v-if="isCollapsed" class="code-block-collapsed">
-        … {{ hiddenCount }} more line{{ hiddenCount !== 1 ? 's' : '' }}
+        <template v-if="visibleRange.start > 0">
+          … showing lines {{ visibleRange.start + start }}–{{ visibleRange.end + start - 1 }} of
+          {{ lines.length }}
+        </template>
+        <template v-else>… {{ hiddenCount }} more line{{ hiddenCount !== 1 ? 's' : '' }}</template>
       </div>
     </div>
   </div>
@@ -211,4 +281,13 @@ function fileName(path: string): string {
 .code-line-content :deep(.syn-punct)    { color: var(--text-tertiary); }
 .code-line-content :deep(.syn-prop)     { color: var(--syn-prop, #93c5fd); }
 .code-line-content :deep(.syn-regex)    { color: var(--syn-regex, #fb923c); }
+.code-line-content :deep(.code-search-match) {
+  border-radius: 2px;
+  background: var(--color-search-mark-highlight-bg);
+  color: inherit;
+}
+.code-line-content :deep(.code-search-match--active) {
+  outline: 1px solid var(--accent-fg);
+  background: var(--attention-muted, var(--color-search-mark-highlight-bg));
+}
 </style>

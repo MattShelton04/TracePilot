@@ -65,6 +65,34 @@ describe("FileContentViewer", () => {
     expect(wrapper.text()).toContain("800×600");
   });
 
+  it("zooms an image with the mouse wheel", async () => {
+    const wrapper = mount(FileContentViewer, {
+      props: {
+        filePath: "files/screenshot.png",
+        fileType: "image",
+        imagePreview: {
+          base64Data: "c2FmZS1wbmc=",
+          width: 800,
+          height: 600,
+          originalWidth: 800,
+          originalHeight: 600,
+          originalSizeBytes: 1024,
+          originalFormat: "png",
+          wasDownscaled: false,
+          animationOmitted: false,
+        },
+      },
+    });
+    Object.defineProperty(wrapper.get("img").element, "clientWidth", { value: 800 });
+    wrapper
+      .get(".image-viewer__canvas")
+      .element.dispatchEvent(
+        new WheelEvent("wheel", { bubbles: true, deltaY: -100, clientX: 20, clientY: 20 }),
+      );
+    await wrapper.vm.$nextTick();
+    expect(wrapper.text()).toContain("115%");
+  });
+
   it("renders file header and content for text content", () => {
     const wrapper = mount(FileContentViewer, {
       props: {
@@ -112,6 +140,68 @@ describe("FileContentViewer", () => {
     });
     expect(csv.find(".csv-viewer__table").exists()).toBe(true);
     expect(csv.text()).toContain("alpha");
+  });
+
+  it("uses a tab delimiter for TSV files", () => {
+    const wrapper = mount(FileContentViewer, {
+      props: {
+        filePath: "data.tsv",
+        fileType: "csv",
+        content: "name\tvalue\nalpha\t1\n",
+      },
+    });
+    expect(wrapper.text()).toContain("tab delimiter");
+    expect(wrapper.findAll(".csv-viewer__table th")).toHaveLength(3);
+  });
+
+  it("emits structured-view preference changes", async () => {
+    const wrapper = mount(FileContentViewer, {
+      props: {
+        filePath: "data.json",
+        fileType: "json",
+        content: '{"ok":true}',
+        jsonMode: "tree",
+      },
+    });
+    const rawButton = wrapper
+      .findAll(".structured-viewer__modes button")
+      .find((button) => button.text() === "Raw");
+    await rawButton?.trigger("click");
+    expect(wrapper.emitted("update:json-mode")?.[0]).toEqual(["raw"]);
+  });
+
+  it("opens find-in-file, highlights matches, and navigates them", async () => {
+    const wrapper = mount(FileContentViewer, {
+      props: {
+        filePath: "notes.txt",
+        fileType: "text",
+        content: "needle one\nother\nneedle two",
+      },
+    });
+    await wrapper.get('[aria-label="Find in file"]').trigger("click");
+    await wrapper.get('[aria-label="Find in selected file"]').setValue("needle");
+
+    expect(wrapper.findAll("mark.code-search-match")).toHaveLength(2);
+    expect(wrapper.text()).toContain("1/2");
+    await wrapper.get('[aria-label="Next match"]').trigger("click");
+    expect(wrapper.text()).toContain("2/2");
+  });
+
+  it("focuses and highlights a session-wide content-search result", async () => {
+    const wrapper = mount(FileContentViewer, {
+      props: {
+        filePath: "notes.txt",
+        fileType: "text",
+        content: "first\nneedle\nlast",
+        searchRequestId: 1,
+        initialSearchQuery: "needle",
+        initialSearchLine: 2,
+      },
+    });
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.get('[aria-label="Find in selected file"]').element).toBeTruthy();
+    expect(wrapper.find("mark.code-search-match--active").text()).toBe("needle");
   });
 
   it("offers an explicit larger bounded read for truncated previews", async () => {

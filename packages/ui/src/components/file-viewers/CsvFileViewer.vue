@@ -6,24 +6,47 @@ import CodeBlock from "../renderers/CodeBlock.vue";
 const props = defineProps<{
   content: string;
   filePath?: string;
+  mode?: "table" | "raw";
+  searchQuery?: string;
+  activeSearchLine?: number;
+  activeSearchColumn?: number;
+}>();
+const emit = defineEmits<{
+  "update:mode": [mode: "table" | "raw"];
 }>();
 
 const MAX_ROWS = 2_000;
 const MAX_COLUMNS = 200;
-const mode = ref<"table" | "raw">("table");
-const query = ref("");
+const mode = computed({
+  get: () => props.mode ?? "table",
+  set: (value: "table" | "raw") => emit("update:mode", value),
+});
+const effectiveMode = computed(() => (props.searchQuery?.trim() ? "raw" : mode.value));
+const filterQuery = ref("");
+const configuredDelimiter = computed(() =>
+  props.filePath?.toLowerCase().endsWith(".tsv") ? "\t" : "",
+);
 const parsed = computed(() =>
   Papa.parse<string[]>(props.content, {
+    delimiter: configuredDelimiter.value,
     skipEmptyLines: "greedy",
   }),
 );
+const delimiterLabel = computed(() => {
+  const delimiter = parsed.value.meta.delimiter;
+  if (delimiter === "\t") return "tab";
+  if (delimiter === ",") return "comma";
+  if (delimiter === ";") return "semicolon";
+  if (delimiter === "|") return "pipe";
+  return JSON.stringify(delimiter);
+});
 const rows = computed(() => parsed.value.data.slice(0, MAX_ROWS + 1));
 const headers = computed(() =>
   (rows.value[0] ?? []).slice(0, MAX_COLUMNS).map((value, index) => value || `Column ${index + 1}`),
 );
 const dataRows = computed(() => rows.value.slice(1));
 const filteredRows = computed(() => {
-  const needle = query.value.trim().toLowerCase();
+  const needle = filterQuery.value.trim().toLowerCase();
   if (!needle) return dataRows.value;
   return dataRows.value.filter((row) =>
     row.some((cell) => String(cell).toLowerCase().includes(needle)),
@@ -35,12 +58,12 @@ const filteredRows = computed(() => {
   <div class="csv-viewer">
     <div class="csv-viewer__toolbar">
       <div class="csv-viewer__modes" role="radiogroup" aria-label="CSV view mode">
-        <button type="button" :class="{ active: mode === 'table' }" @click="mode = 'table'">Table</button>
-        <button type="button" :class="{ active: mode === 'raw' }" @click="mode = 'raw'">Raw</button>
+        <button type="button" :class="{ active: effectiveMode === 'table' }" @click="mode = 'table'">Table</button>
+        <button type="button" :class="{ active: effectiveMode === 'raw' }" @click="mode = 'raw'">Raw</button>
       </div>
       <input
-        v-if="mode === 'table'"
-        v-model="query"
+        v-if="effectiveMode === 'table'"
+        v-model="filterQuery"
         class="csv-viewer__search"
         type="search"
         placeholder="Filter rows…"
@@ -48,13 +71,13 @@ const filteredRows = computed(() => {
       />
       <span class="csv-viewer__meta">
         {{ filteredRows.length }} rows · {{ headers.length }} columns
-        <template v-if="parsed.meta.delimiter"> · {{ JSON.stringify(parsed.meta.delimiter) }} delimiter</template>
+        <template v-if="parsed.meta.delimiter"> · {{ delimiterLabel }} delimiter</template>
         <template v-if="parsed.errors.length"> · {{ parsed.errors.length }} parse warnings</template>
         <template v-if="parsed.data.length > MAX_ROWS + 1"> · first {{ MAX_ROWS }} shown</template>
       </span>
     </div>
 
-    <div v-if="mode === 'table'" class="csv-viewer__table-wrap">
+    <div v-if="effectiveMode === 'table'" class="csv-viewer__table-wrap">
       <table class="csv-viewer__table">
         <thead>
           <tr>
@@ -82,6 +105,9 @@ const filteredRows = computed(() => {
       :show-language-badge="false"
       :max-lines="5000"
       :fill-height="true"
+      :search-query="searchQuery"
+      :active-search-line="activeSearchLine"
+      :active-search-column="activeSearchColumn"
     />
   </div>
 </template>

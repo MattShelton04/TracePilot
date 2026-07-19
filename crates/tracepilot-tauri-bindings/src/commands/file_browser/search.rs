@@ -15,6 +15,10 @@ use std::io::Read as _;
 
 const MAX_EXCERPT_CHARS: usize = 240;
 
+fn is_search_excluded(entry: &super::types::SessionFileEntry) -> bool {
+    entry.name.eq_ignore_ascii_case("events.jsonl")
+}
+
 fn line_excerpt(line: &str) -> String {
     let normalized = line.split_whitespace().collect::<Vec<_>>().join(" ");
     if normalized.chars().count() <= MAX_EXCERPT_CHARS {
@@ -60,6 +64,7 @@ pub async fn session_search_files(
         })?;
         let mut entries = Vec::new();
         collect_entries(&canonical_dir, &canonical_dir, 0, &mut entries)?;
+        entries.sort_by(|a, b| a.path.cmp(&b.path));
 
         let mut response = SessionFileSearchResponse {
             matches: Vec::new(),
@@ -70,6 +75,13 @@ pub async fn session_search_files(
         let mut total_bytes = 0_u64;
 
         for entry in entries.into_iter().filter(|entry| !entry.is_directory) {
+            // events.jsonl is both predictably large and already has dedicated
+            // conversation/timeline views. Scanning it here adds latency and
+            // noisy matches without helping artifact discovery.
+            if is_search_excluded(&entry) {
+                response.skipped_files += 1;
+                continue;
+            }
             if matches!(
                 entry.file_type,
                 SessionFileType::Binary | SessionFileType::Image | SessionFileType::Sqlite
@@ -158,5 +170,17 @@ mod tests {
         let excerpt = line_excerpt(&long);
         assert_eq!(excerpt.chars().count(), MAX_EXCERPT_CHARS + 1);
         assert!(excerpt.ends_with('…'));
+    }
+
+    #[test]
+    fn session_event_stream_is_excluded_from_artifact_search() {
+        let entry = super::super::types::SessionFileEntry {
+            path: "events.jsonl".into(),
+            name: "EVENTS.JSONL".into(),
+            size_bytes: 10_000_000,
+            is_directory: false,
+            file_type: SessionFileType::Jsonl,
+        };
+        assert!(is_search_excluded(&entry));
     }
 }

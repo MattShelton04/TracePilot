@@ -20,6 +20,8 @@ const props = defineProps<{
   title?: string;
   /** Folders with more entries than this will be auto-collapsed on load. Default: no limit. */
   autoCollapseThreshold?: number;
+  /** Temporarily show all folders expanded, for example while filtering. */
+  forceExpanded?: boolean;
   /**
    * Paths to briefly highlight as newly-added (e.g. green fade-in) — used by
    * the session explorer to indicate files that appeared on auto-refresh.
@@ -34,14 +36,15 @@ const emit = defineEmits<{
   contextmenuEntry: [event: MouseEvent, entry: FileEntry];
 }>();
 
-const { visibleRows, fileCount, collapsedFolders, toggleFolder, formatSize } = useFileBrowserTree(
-  toRef(props, "entries"),
-  {
+const { visibleRows, fileCount, effectiveCollapsedFolders, toggleFolder, formatSize } =
+  useFileBrowserTree(toRef(props, "entries"), {
     get autoCollapseThreshold() {
       return props.autoCollapseThreshold;
     },
-  },
-);
+    get forceExpanded() {
+      return props.forceExpanded;
+    },
+  });
 
 type FileIconType =
   | "generic"
@@ -179,12 +182,12 @@ function depthStyle(depth: number): Record<string, string> {
           class="fb-tree__folder"
           :style="depthStyle(row.depth)"
           :data-depth="row.depth"
-          :aria-expanded="!collapsedFolders.has(row.folder.path)"
+          :aria-expanded="!effectiveCollapsedFolders.has(row.folder.path)"
           @click="toggleFolder(row.folder.path)"
           @contextmenu.prevent.stop="emit('contextmenuEntry', $event, { path: row.folder.path, name: row.folder.name, sizeBytes: 0, isDirectory: true })"
         >
           <span class="fb-tree__chevron">
-            {{ collapsedFolders.has(row.folder.path) ? "▸" : "▾" }}
+            {{ effectiveCollapsedFolders.has(row.folder.path) ? "▸" : "▾" }}
           </span>
           <svg class="fb-tree__folder-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M2 4h4l1.5 1.5H14v7.5H2V4z"/>

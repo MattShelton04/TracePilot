@@ -45,6 +45,8 @@ export const STORAGE_KEYS = Object.freeze({
   alerts: "tracepilot:alert-history",
   /** Whether the main sidebar is collapsed to icon-only mode. */
   sidebarCollapsed: "tracepilot-sidebar-collapsed",
+  /** Preferred structured/raw mode for Session Explorer file types. */
+  sessionExplorerViewModes: "tracepilot-session-explorer-view-modes",
 } as const);
 
 /** Narrowed union of valid `localStorage` keys used by the desktop app. */

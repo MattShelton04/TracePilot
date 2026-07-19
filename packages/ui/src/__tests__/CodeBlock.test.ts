@@ -110,4 +110,36 @@ describe("CodeBlock", () => {
     const rows = wrapper.findAll(".code-line");
     expect(rows).toHaveLength(2);
   });
+
+  it("highlights literal search matches and marks the active occurrence", () => {
+    const wrapper = mount(CodeBlock, {
+      props: {
+        code: "alpha needle\nNeedle omega",
+        searchQuery: "needle",
+        activeSearchLine: 2,
+        activeSearchColumn: 0,
+      },
+    });
+
+    expect(wrapper.findAll("mark.code-search-match")).toHaveLength(2);
+    expect(wrapper.findAll("mark.code-search-match--active")).toHaveLength(1);
+    expect(wrapper.find("mark.code-search-match--active").text()).toBe("Needle");
+  });
+
+  it("windows a capped block around a search result beyond the initial lines", () => {
+    const code = Array.from({ length: 100 }, (_, index) => `line ${index + 1}`).join("\n");
+    const wrapper = mount(CodeBlock, {
+      props: {
+        code,
+        maxLines: 10,
+        searchQuery: "line 80",
+        activeSearchLine: 80,
+        activeSearchColumn: 0,
+      },
+    });
+
+    expect(wrapper.findAll(".code-line")).toHaveLength(10);
+    expect(wrapper.find('[data-line-number="80"]').exists()).toBe(true);
+    expect(wrapper.find(".code-block-collapsed").text()).toContain("showing lines");
+  });
 });

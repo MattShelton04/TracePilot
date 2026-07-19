@@ -1,14 +1,25 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed } from "vue";
 import CodeBlock from "../renderers/CodeBlock.vue";
 import JsonTreeNode from "./JsonTreeNode.vue";
 
 const props = defineProps<{
   content: string;
   filePath?: string;
+  mode?: "tree" | "raw";
+  searchQuery?: string;
+  activeSearchLine?: number;
+  activeSearchColumn?: number;
+}>();
+const emit = defineEmits<{
+  "update:mode": [mode: "tree" | "raw"];
 }>();
 
-const mode = ref<"tree" | "raw">("tree");
+const mode = computed({
+  get: () => props.mode ?? "tree",
+  set: (value: "tree" | "raw") => emit("update:mode", value),
+});
+const effectiveMode = computed(() => (props.searchQuery?.trim() ? "raw" : mode.value));
 const parsed = computed(() => {
   try {
     return { value: JSON.parse(props.content) as unknown, error: null };
@@ -27,18 +38,18 @@ const parsed = computed(() => {
       <div class="structured-viewer__modes" role="radiogroup" aria-label="JSON view mode">
         <button
           type="button"
-          :class="{ active: mode === 'tree' }"
+          :class="{ active: effectiveMode === 'tree' }"
           role="radio"
-          :aria-checked="mode === 'tree'"
+          :aria-checked="effectiveMode === 'tree'"
           @click="mode = 'tree'"
         >
           Tree
         </button>
         <button
           type="button"
-          :class="{ active: mode === 'raw' }"
+          :class="{ active: effectiveMode === 'raw' }"
           role="radio"
-          :aria-checked="mode === 'raw'"
+          :aria-checked="effectiveMode === 'raw'"
           @click="mode = 'raw'"
         >
           Raw
@@ -47,7 +58,7 @@ const parsed = computed(() => {
       <span v-if="parsed.error" class="structured-viewer__error">Invalid JSON: {{ parsed.error }}</span>
     </div>
 
-    <div v-if="mode === 'tree' && !parsed.error" class="structured-viewer__tree">
+    <div v-if="effectiveMode === 'tree' && !parsed.error" class="structured-viewer__tree">
       <JsonTreeNode :value="parsed.value" :initially-expanded="true" />
     </div>
     <CodeBlock
@@ -59,6 +70,9 @@ const parsed = computed(() => {
       :show-language-badge="false"
       :max-lines="5000"
       :fill-height="true"
+      :search-query="searchQuery"
+      :active-search-line="activeSearchLine"
+      :active-search-column="activeSearchColumn"
     />
   </div>
 </template>

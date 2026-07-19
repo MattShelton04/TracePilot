@@ -12,7 +12,7 @@
  *  - An empty state when no file is selected
  */
 import type { SessionDbTable, SessionFileType, SessionImagePreview } from "@tracepilot/types";
-import { computed, ref, watch } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import { useClipboard } from "../composables/useClipboard";
 import CsvFileViewer from "./file-viewers/CsvFileViewer.vue";
 import ImageFileViewer from "./file-viewers/ImageFileViewer.vue";
@@ -38,6 +38,18 @@ const props = defineProps<{
   imagePreview?: SessionImagePreview;
   /** Whether a larger bounded text read is available on explicit request. */
   canLoadMore?: boolean;
+  /** Persisted structured/raw preference for JSON files. */
+  jsonMode?: "tree" | "raw";
+  /** Persisted structured/raw preference for JSONL files. */
+  jsonlMode?: "records" | "raw";
+  /** Persisted structured/raw preference for CSV/TSV files. */
+  csvMode?: "table" | "raw";
+  /** Monotonic request ID used to focus a session-wide content-search match. */
+  searchRequestId?: number;
+  /** Query supplied by a session-wide content-search result. */
+  initialSearchQuery?: string;
+  /** One-based line supplied by a session-wide content-search result. */
+  initialSearchLine?: number;
   /** Whether the file is currently loading. */
   loading?: boolean;
   /** Error message if loading failed. */
@@ -48,6 +60,9 @@ const emit = defineEmits<{
   /** Re-emitted from MarkdownContent — parent handles OS open (Tauri). */
   "open-external": [url: string];
   "load-full": [];
+  "update:json-mode": [mode: "tree" | "raw"];
+  "update:jsonl-mode": [mode: "records" | "raw"];
+  "update:csv-mode": [mode: "table" | "raw"];
 }>();
 
 const isMarkdown = computed(
@@ -138,6 +153,97 @@ function copyTableAsJson() {
   const objects = rows.map((row) => Object.fromEntries(columns.map((col, i) => [col, row[i]])));
   copyDb(JSON.stringify(objects, null, 2));
 }
+
+// ── Search within the selected text file ───────────────────────────────────
+interface FileSearchMatch {
+  line: number;
+  column: number;
+}
+
+const MAX_FILE_SEARCH_MATCHES = 10_000;
+const fileSearchOpen = ref(false);
+const fileSearchQuery = ref("");
+const activeFileSearchIndex = ref(0);
+const fileSearchInput = ref<HTMLInputElement | null>(null);
+
+const fileSearchMatches = computed<FileSearchMatch[]>(() => {
+  const query = fileSearchQuery.value.trim();
+  if (!query || props.content === undefined) return [];
+  const needle = query.toLocaleLowerCase();
+  const matches: FileSearchMatch[] = [];
+  const sourceLines = props.content.split("\n");
+  for (let lineIndex = 0; lineIndex < sourceLines.length; lineIndex += 1) {
+    const source = sourceLines[lineIndex];
+    const lower = source.toLocaleLowerCase();
+    let column = lower.indexOf(needle);
+    while (column >= 0) {
+      matches.push({ line: lineIndex + 1, column });
+      if (matches.length >= MAX_FILE_SEARCH_MATCHES) return matches;
+      column = lower.indexOf(needle, column + needle.length);
+    }
+  }
+  return matches;
+});
+
+const activeFileSearchMatch = computed(() => fileSearchMatches.value[activeFileSearchIndex.value]);
+const fileSearchWasCapped = computed(
+  () => fileSearchMatches.value.length >= MAX_FILE_SEARCH_MATCHES,
+);
+
+function focusFileSearch() {
+  fileSearchOpen.value = true;
+  void nextTick(() => {
+    fileSearchInput.value?.focus();
+    fileSearchInput.value?.select();
+  });
+}
+
+function closeFileSearch() {
+  fileSearchOpen.value = false;
+  fileSearchQuery.value = "";
+  activeFileSearchIndex.value = 0;
+}
+
+function moveFileSearch(direction: 1 | -1) {
+  const count = fileSearchMatches.value.length;
+  if (count === 0) return;
+  activeFileSearchIndex.value = (activeFileSearchIndex.value + direction + count) % count;
+}
+
+watch(fileSearchQuery, () => {
+  activeFileSearchIndex.value = 0;
+});
+
+watch(fileSearchMatches, (matches) => {
+  if (matches.length === 0) {
+    activeFileSearchIndex.value = 0;
+  } else if (activeFileSearchIndex.value >= matches.length) {
+    activeFileSearchIndex.value = matches.length - 1;
+  }
+});
+
+watch(
+  () => props.filePath,
+  () => {
+    closeFileSearch();
+  },
+);
+
+watch(
+  () => props.searchRequestId,
+  async (requestId) => {
+    if (!requestId || !props.initialSearchQuery) return;
+    fileSearchOpen.value = true;
+    fileSearchQuery.value = props.initialSearchQuery;
+    await nextTick();
+    const targetLine = props.initialSearchLine;
+    const targetIndex = targetLine
+      ? fileSearchMatches.value.findIndex((match) => match.line === targetLine)
+      : -1;
+    activeFileSearchIndex.value = targetIndex >= 0 ? targetIndex : 0;
+  },
+  { immediate: true },
+);
 </script>
 
 <template>
@@ -361,6 +467,62 @@ function copyTableAsJson() {
             <polyline points="3 8 6.5 12 13 4"/>
           </svg>
         </button>
+        <button
+          class="fcv__copy-btn"
+          :class="{ 'fcv__copy-btn--active': fileSearchOpen }"
+          title="Find in file"
+          aria-label="Find in file"
+          :aria-expanded="fileSearchOpen"
+          @click="fileSearchOpen ? closeFileSearch() : focusFileSearch()"
+        >
+          <svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
+            <circle cx="7" cy="7" r="4.25"/>
+            <path d="M10.2 10.2L14 14"/>
+          </svg>
+        </button>
+      </div>
+
+      <div v-if="fileSearchOpen" class="fcv__find">
+        <svg class="fcv__find-icon" aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4">
+          <circle cx="7" cy="7" r="4.25"/>
+          <path d="M10.2 10.2L14 14"/>
+        </svg>
+        <input
+          ref="fileSearchInput"
+          v-model="fileSearchQuery"
+          type="text"
+          placeholder="Find in file…"
+          aria-label="Find in selected file"
+          @keydown.enter.prevent="moveFileSearch($event.shiftKey ? -1 : 1)"
+          @keydown.esc.prevent="closeFileSearch"
+        />
+        <span class="fcv__find-count" aria-live="polite">
+          <template v-if="fileSearchQuery.trim()">
+            {{ fileSearchMatches.length ? activeFileSearchIndex + 1 : 0 }}/{{ fileSearchMatches.length
+            }}<template v-if="fileSearchWasCapped">+</template>
+          </template>
+        </span>
+        <button
+          type="button"
+          title="Previous match"
+          aria-label="Previous match"
+          :disabled="fileSearchMatches.length === 0"
+          @click="moveFileSearch(-1)"
+        >
+          ↑
+        </button>
+        <button
+          type="button"
+          title="Next match"
+          aria-label="Next match"
+          :disabled="fileSearchMatches.length === 0"
+          @click="moveFileSearch(1)"
+        >
+          ↓
+        </button>
+        <button type="button" title="Close find" aria-label="Close find" @click="closeFileSearch">
+          ×
+        </button>
       </div>
 
       <div v-if="canLoadMore" class="fcv__load-more">
@@ -370,13 +532,44 @@ function copyTableAsJson() {
 
       <div class="fcv__content" :class="{ 'fcv__content--fill': !isMarkdown }">
         <!-- Markdown renderer -->
-        <MarkdownContent v-if="isMarkdown" :content="content" @open-external="(url) => emit('open-external', url)" />
+        <MarkdownContent
+          v-if="isMarkdown && !fileSearchQuery.trim()"
+          :content="content"
+          @open-external="(url) => emit('open-external', url)"
+        />
 
-        <JsonFileViewer v-else-if="isJson" :content="content" :file-path="filePath" />
+        <JsonFileViewer
+          v-else-if="isJson"
+          :content="content"
+          :file-path="filePath"
+          :mode="jsonMode"
+          :search-query="fileSearchQuery"
+          :active-search-line="activeFileSearchMatch?.line"
+          :active-search-column="activeFileSearchMatch?.column"
+          @update:mode="emit('update:json-mode', $event)"
+        />
 
-        <JsonlFileViewer v-else-if="isJsonl" :content="content" :file-path="filePath" />
+        <JsonlFileViewer
+          v-else-if="isJsonl"
+          :content="content"
+          :file-path="filePath"
+          :mode="jsonlMode"
+          :search-query="fileSearchQuery"
+          :active-search-line="activeFileSearchMatch?.line"
+          :active-search-column="activeFileSearchMatch?.column"
+          @update:mode="emit('update:jsonl-mode', $event)"
+        />
 
-        <CsvFileViewer v-else-if="isCsv" :content="content" :file-path="filePath" />
+        <CsvFileViewer
+          v-else-if="isCsv"
+          :content="content"
+          :file-path="filePath"
+          :mode="csvMode"
+          :search-query="fileSearchQuery"
+          :active-search-line="activeFileSearchMatch?.line"
+          :active-search-column="activeFileSearchMatch?.column"
+          @update:mode="emit('update:csv-mode', $event)"
+        />
 
         <!-- Code / text renderer (maxLines caps very large files to prevent UI freeze) -->
         <CodeBlock
@@ -388,6 +581,9 @@ function copyTableAsJson() {
           :show-language-badge="true"
           :max-lines="5000"
           :fill-height="true"
+          :search-query="fileSearchQuery"
+          :active-search-line="activeFileSearchMatch?.line"
+          :active-search-column="activeFileSearchMatch?.column"
         />
       </div>
     </template>
