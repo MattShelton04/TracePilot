@@ -28,7 +28,7 @@ const timeline: ContextTimeline = {
       systemTokens: 10,
       toolDefinitionTokens: 20,
       conversationTokens: 70,
-      contextAddedTokens: 70,
+      contextChangeTokens: null,
       totalTokens: 100,
       source: "estimated",
     },
@@ -39,7 +39,7 @@ const timeline: ContextTimeline = {
       systemTokens: 10,
       toolDefinitionTokens: 20,
       conversationTokens: 120,
-      contextAddedTokens: 50,
+      contextChangeTokens: 50,
       totalTokens: 150,
       source: "observed",
     },
@@ -50,7 +50,7 @@ const timeline: ContextTimeline = {
       systemTokens: 10,
       toolDefinitionTokens: 20,
       conversationTokens: 10,
-      contextAddedTokens: 0,
+      contextChangeTokens: -110,
       totalTokens: 40,
       source: "estimated",
     },
@@ -194,6 +194,16 @@ describe("ContextWindowChart", () => {
       "context-chart__frame--panning",
     );
     expect((svg.element as SVGElement).setPointerCapture).toHaveBeenCalledWith(7);
+  });
+
+  it("navigates between turns with the arrow keys", async () => {
+    const wrapper = mount(ContextWindowChart, {
+      props: { timeline, selectedPoint: timeline.points[0] },
+    });
+
+    await wrapper.find("svg").trigger("keydown", { key: "ArrowRight" });
+
+    expect(wrapper.emitted("selectPoint")?.[0]).toEqual([timeline.points[1]]);
   });
 
   it("emits selectable special points and message overlays", async () => {

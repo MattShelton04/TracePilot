@@ -106,8 +106,8 @@ export interface ContextWindowPoint {
   systemTokens: number;
   toolDefinitionTokens: number;
   conversationTokens: number;
-  /** Estimated context-bearing tokens added during this turn. */
-  contextAddedTokens: number;
+  /** Signed change from the previous displayed context point. */
+  contextChangeTokens?: number | null;
   totalTokens: number;
   source: ContextPointSource;
 }

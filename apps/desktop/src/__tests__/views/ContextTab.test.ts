@@ -98,7 +98,7 @@ function timeline(totalTokens = 100): ContextTimeline {
         systemTokens: 10,
         toolDefinitionTokens: 20,
         conversationTokens: totalTokens - 30,
-        contextAddedTokens: totalTokens - 30,
+        contextChangeTokens: null,
         totalTokens,
         source: "estimated",
       },
@@ -168,7 +168,7 @@ function mountTab() {
           template:
             '<div class="tool-call-stub" :data-tool="tc.toolName" :data-expanded="expanded" :data-rich="richEnabled">{{ tc.toolName }} {{ JSON.stringify(tc.arguments) }}</div>',
         },
-        ToolTypeDonut: true,
+        ToolTypeDonut: { template: '<div class="tool-donut-stub" />' },
       },
     },
   });
@@ -195,6 +195,46 @@ describe("ContextTab", () => {
     await wrapper.find(".context-tab__ranked-tool").trigger("click");
 
     expect(loadFullResult).toHaveBeenCalledWith("expensive-tool");
+  });
+
+  it("shows tool types and the contribution chart together in the overview", async () => {
+    loadTimeline.mockResolvedValue(response(timeline()));
+    const wrapper = mountTab();
+    await flushPromises();
+
+    expect(wrapper.find(".context-tab__tool-type-panel").exists()).toBe(true);
+    expect(wrapper.find(".tool-donut-stub").exists()).toBe(true);
+    expect(
+      wrapper.findAll(".context-tab__view-switch button").map((button) => button.text()),
+    ).toEqual(["Overview", "Expensive calls"]);
+  });
+
+  it("shows information on hover, pins it on click, and dismisses it outside", async () => {
+    loadTimeline.mockResolvedValue(response(timeline()));
+    const wrapper = mountTab();
+    await flushPromises();
+    const methodology = wrapper.find(".context-tab__methodology");
+    const trigger = methodology.find("button");
+
+    await methodology.trigger("mouseenter");
+    expect(wrapper.text()).toContain("Source-aware reconstruction");
+    await methodology.trigger("mouseleave");
+    expect(wrapper.text()).not.toContain("Source-aware reconstruction");
+
+    await trigger.trigger("click");
+    await methodology.trigger("mouseleave");
+    expect(wrapper.text()).toContain("Source-aware reconstruction");
+    document.body.click();
+    await wrapper.vm.$nextTick();
+    expect(wrapper.text()).not.toContain("Source-aware reconstruction");
+
+    const observed = wrapper
+      .find('[aria-label="Explain observed context telemetry"]')
+      .element.closest(".context-tab__confidence-anchor");
+    observed?.dispatchEvent(new MouseEvent("mouseenter"));
+    await wrapper.vm.$nextTick();
+    expect(wrapper.text()).toContain("Exact context-layer snapshots");
+    wrapper.unmount();
   });
 
   it("loads and displays tool calls for the selected turn", async () => {
@@ -287,7 +327,7 @@ describe("ContextTab", () => {
       systemTokens: 10,
       toolDefinitionTokens: 20,
       conversationTokens: 170,
-      contextAddedTokens: 40,
+      contextChangeTokens: 40,
       totalTokens: 200,
       source: "estimated",
     });
@@ -307,7 +347,9 @@ describe("ContextTab", () => {
 
     expect(wrapper.find(".context-tab__event-preview").exists()).toBe(false);
     expect(wrapper.find(".context-tab__detail-card").text()).toContain("Turn 1");
-    expect(wrapper.find(".context-tab__detail-card").text()).toContain("Added this turn");
+    expect(wrapper.find(".context-tab__detail-card").text()).toContain(
+      "Change from previous point",
+    );
     expect(wrapper.find(".context-tab__detail-card").text()).toContain("+40");
   });
 });

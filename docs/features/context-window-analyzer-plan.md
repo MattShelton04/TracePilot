@@ -97,8 +97,9 @@ never promoted into model metadata or reused for newer sessions.
 1. Reuse the existing validated session path lookup and typed-event LRU cache.
 2. Build the timeline in `tracepilot-core` directly from typed `events.jsonl`
    events.
-3. Count turns from chronological `assistant.turn_start` events. Do not trust
-   producer `turnId` values.
+3. Reuse the shared conversation turn reconstruction and its zero-based turn
+   coordinates. Raw `assistant.turn_start` counts can diverge from reconstructed
+   turns in sessions with synthetic or message-opened turns.
 4. Reuse the current event order/turn pipeline; do not add a separate database
    or rollback parser.
 5. Return a bounded DTO through `get_session_context_timeline`.

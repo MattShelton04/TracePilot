@@ -7,6 +7,7 @@
 
 use crate::models::event_types::{CompactionCompleteData, CompactionStartData, ShutdownData};
 use crate::parsing::events::{TypedEvent, TypedEventData};
+use crate::turns::reconstruct_turns;
 use serde::Serialize;
 use std::collections::{HashMap, VecDeque};
 
@@ -19,7 +20,7 @@ pub struct ContextWindowPoint {
     pub system_tokens: u64,
     pub tool_definition_tokens: u64,
     pub conversation_tokens: u64,
-    pub context_added_tokens: u64,
+    pub context_change_tokens: Option<i64>,
     pub total_tokens: u64,
     pub source: ContextPointSource,
 }
@@ -179,12 +180,101 @@ struct PendingCompaction {
     anchor: Option<Anchor>,
 }
 
-const METHODOLOGY: &str = "System, tool-definition, and conversation totals are observed at Copilot compaction-start/shutdown anchors. Compaction starts and completes are paired in event order, even when they span turns; the post-compaction summary is estimated unless Copilot reports explicit layers. Between-anchor conversation totals and per-turn context additions are calibrated estimates derived from context-bearing event text (ceil UTF-8 bytes / 4). Tool arguments and returned results are estimated conversation-input contribution, not cache attribution.";
+const METHODOLOGY: &str = "System, tool-definition, and conversation totals are observed at Copilot compaction-start/shutdown anchors. Compaction starts and completes are paired in event order, even when they span turns; the post-compaction summary is estimated unless Copilot reports explicit layers. Between-anchor conversation totals are calibrated estimates derived from context-bearing event text (ceil UTF-8 bytes / 4). Point-to-point context change is the signed difference between consecutive displayed totals. Tool arguments and primary returned content are estimated conversation-input contribution, not cache attribution.";
+
+fn reconstruct_event_turn_slots(events: &[TypedEvent]) -> (Vec<usize>, usize) {
+    let turns = reconstruct_turns(events);
+    if turns.is_empty() {
+        return (vec![1; events.len()], 0);
+    }
+
+    let mut exact_slots = vec![None; events.len()];
+    let mut turn_ids = HashMap::<String, usize>::new();
+    let mut interaction_ids = HashMap::<String, usize>::new();
+    let mut tool_call_ids = HashMap::<String, usize>::new();
+
+    for turn in &turns {
+        let slot = turn.turn_index.saturating_add(1);
+        if let Some(event_index) = turn.event_index
+            && event_index < exact_slots.len()
+        {
+            exact_slots[event_index] = Some(slot);
+        }
+        if let Some(turn_id) = &turn.turn_id {
+            turn_ids.entry(turn_id.clone()).or_insert(slot);
+        }
+        if let Some(interaction_id) = &turn.interaction_id {
+            interaction_ids
+                .entry(interaction_id.clone())
+                .or_insert(slot);
+        }
+        for message in turn
+            .assistant_messages
+            .iter()
+            .chain(turn.reasoning_texts.iter())
+        {
+            if let Some(event_index) = message.event_index
+                && event_index < exact_slots.len()
+            {
+                exact_slots[event_index] = Some(slot);
+            }
+        }
+        for tool_call in &turn.tool_calls {
+            if let Some(event_index) = tool_call.event_index
+                && event_index < exact_slots.len()
+            {
+                exact_slots[event_index] = Some(slot);
+            }
+            if let Some(tool_call_id) = &tool_call.tool_call_id {
+                tool_call_ids.entry(tool_call_id.clone()).or_insert(slot);
+            }
+        }
+    }
+
+    for (event_index, event) in events.iter().enumerate() {
+        let inferred = match &event.typed_data {
+            TypedEventData::TurnStart(data) => data
+                .turn_id
+                .as_ref()
+                .and_then(|turn_id| turn_ids.get(turn_id))
+                .copied()
+                .or_else(|| {
+                    data.interaction_id
+                        .as_ref()
+                        .and_then(|interaction_id| interaction_ids.get(interaction_id))
+                        .copied()
+                }),
+            TypedEventData::ToolExecutionComplete(data) => data
+                .tool_call_id
+                .as_ref()
+                .and_then(|tool_call_id| tool_call_ids.get(tool_call_id))
+                .copied(),
+            _ => None,
+        };
+        if exact_slots[event_index].is_none() {
+            exact_slots[event_index] = inferred;
+        }
+    }
+
+    let mut current_slot = 1usize;
+    let slots = exact_slots
+        .into_iter()
+        .map(|exact| {
+            if let Some(slot) = exact {
+                current_slot = current_slot.max(slot);
+                slot
+            } else {
+                current_slot
+            }
+        })
+        .collect();
+    (slots, turns.len())
+}
 
 /// Build a context-pressure timeline without consulting TracePilot's index DB.
 pub fn build_context_timeline(events: &[TypedEvent]) -> ContextTimeline {
-    let mut current_turn = 0usize;
-    let mut deltas = vec![TurnDelta::default()];
+    let (event_turn_slots, turn_count) = reconstruct_event_turn_slots(events);
+    let mut deltas = vec![TurnDelta::default(); turn_count.saturating_add(1).max(2)];
     let mut anchors = Vec::<Anchor>::new();
     let mut compaction_drafts = Vec::<CompactionDraft>::new();
     let mut pending_compactions = VecDeque::<PendingCompaction>::new();
@@ -197,13 +287,7 @@ pub fn build_context_timeline(events: &[TypedEvent]) -> ContextTimeline {
     let mut tool_call_indexes = HashMap::<String, usize>::new();
 
     for (event_index, event) in events.iter().enumerate() {
-        if matches!(event.typed_data, TypedEventData::TurnStart(_)) {
-            current_turn += 1;
-            if deltas.len() <= current_turn {
-                deltas.push(TurnDelta::default());
-            }
-        }
-        let turn = current_turn.max(1);
+        let turn = event_turn_slots.get(event_index).copied().unwrap_or(1);
         if deltas.len() <= turn {
             deltas.resize_with(turn + 1, TurnDelta::default);
         }
@@ -278,10 +362,8 @@ pub fn build_context_timeline(events: &[TypedEvent]) -> ContextTimeline {
             }
             TypedEventData::ToolExecutionComplete(data) => {
                 let result = data.result.as_ref().or(data.error.as_ref());
-                let content = result
-                    .and_then(|value| serde_json::to_string(value).ok())
-                    .unwrap_or_default();
-                let result_preview = result.and_then(context_result_preview);
+                let content = result.map(context_result_content).unwrap_or_default();
+                let result_preview = preview(&content);
                 add_tool_delta(&mut deltas[turn], &content);
                 let result_tokens = estimate_tokens(&content);
                 if let Some(index) = data
@@ -396,7 +478,6 @@ pub fn build_context_timeline(events: &[TypedEvent]) -> ContextTimeline {
         }
     }
 
-    let turn_count = current_turn.max(deltas.len().saturating_sub(1));
     anchors.sort_by_key(|anchor| (anchor.turn, phase_order(anchor.phase)));
     anchors.dedup_by(|right, left| {
         right.turn == left.turn
@@ -408,6 +489,12 @@ pub fn build_context_timeline(events: &[TypedEvent]) -> ContextTimeline {
 
     let mut points = build_points(turn_count, &deltas, &anchors);
     points.sort_by_key(|point| (point.turn, phase_order(point.phase)));
+    let mut previous_total = None;
+    for point in &mut points {
+        point.context_change_tokens =
+            previous_total.map(|total| signed_token_change(point.total_tokens, total));
+        previous_total = Some(point.total_tokens);
+    }
 
     let mut compactions = compaction_drafts
         .into_iter()
@@ -541,7 +628,6 @@ fn append_estimated_interval(
         .sum::<u64>();
     let target_growth = target.conversation.saturating_sub(base_conversation);
     let mut raw_conversation = 0u64;
-    let mut previous_scaled_conversation = 0u64;
 
     for turn in start..=end {
         raw_conversation += deltas[turn].message_tokens + deltas[turn].tool_tokens;
@@ -553,18 +639,12 @@ fn append_estimated_interval(
             target.system,
             target.tools,
             base_conversation + scaled_conversation,
-            scaled_conversation.saturating_sub(previous_scaled_conversation),
             ContextPointSource::Estimated,
         ));
-        previous_scaled_conversation = scaled_conversation;
     }
 }
 
 fn push_observed_anchor(points: &mut Vec<ContextWindowPoint>, anchor: &Anchor) {
-    let context_added_tokens = points
-        .iter()
-        .find(|point| point.turn == anchor.turn && point.phase == ContextPointPhase::Turn)
-        .map_or(0, |point| point.context_added_tokens);
     points.retain(|point| !(point.turn == anchor.turn && point.phase == ContextPointPhase::Turn));
     points.push(make_point(
         anchor.turn,
@@ -573,7 +653,6 @@ fn push_observed_anchor(points: &mut Vec<ContextWindowPoint>, anchor: &Anchor) {
         anchor.system,
         anchor.tools,
         anchor.conversation,
-        context_added_tokens,
         anchor.source,
     ));
 }
@@ -684,7 +763,6 @@ fn make_point(
     system_tokens: u64,
     tool_definition_tokens: u64,
     conversation_tokens: u64,
-    context_added_tokens: u64,
     source: ContextPointSource,
 ) -> ContextWindowPoint {
     ContextWindowPoint {
@@ -694,10 +772,15 @@ fn make_point(
         system_tokens,
         tool_definition_tokens,
         conversation_tokens,
-        context_added_tokens,
+        context_change_tokens: None,
         total_tokens: system_tokens + tool_definition_tokens + conversation_tokens,
         source,
     }
+}
+
+fn signed_token_change(current: u64, previous: u64) -> i64 {
+    let change = i128::from(current) - i128::from(previous);
+    change.clamp(i128::from(i64::MIN), i128::from(i64::MAX)) as i64
 }
 
 fn scale(value: u64, target: u64, source: u64) -> u64 {
@@ -780,8 +863,8 @@ fn preview(content: &str) -> Option<String> {
     preview_with_limit(content, 2_000)
 }
 
-fn context_result_preview(result: &serde_json::Value) -> Option<String> {
-    let display = match result {
+fn context_result_content(result: &serde_json::Value) -> String {
+    match result {
         serde_json::Value::String(content) => content.to_owned(),
         serde_json::Value::Object(object) => object
             .get("content")
@@ -794,10 +877,9 @@ fn context_result_preview(result: &serde_json::Value) -> Option<String> {
                     .filter(|content| !content.trim().is_empty())
             })
             .map(ToOwned::to_owned)
-            .or_else(|| serde_json::to_string(result).ok())?,
-        _ => serde_json::to_string(result).ok()?,
-    };
-    preview(&display)
+            .unwrap_or_else(|| serde_json::to_string(result).unwrap_or_default()),
+        _ => serde_json::to_string(result).unwrap_or_default(),
+    }
 }
 
 fn preview_with_limit(content: &str, limit: usize) -> Option<String> {
@@ -825,7 +907,7 @@ mod tests {
     use super::*;
     use crate::models::event_types::{
         AssistantMessageData, CompactionTokenUsage, SessionEventType, SessionTruncationData,
-        TurnStartData, UserMessageData,
+        ToolExecCompleteData, ToolExecStartData, TurnStartData, UserMessageData,
     };
     use crate::parsing::events::RawEvent;
     use chrono::Utc;
@@ -861,6 +943,23 @@ mod tests {
                 encrypted_content: None,
                 phase: None,
                 request_id: None,
+            }),
+        )
+    }
+
+    fn user_message(content: &str, interaction_id: &str) -> TypedEvent {
+        event(
+            SessionEventType::UserMessage,
+            TypedEventData::UserMessage(UserMessageData {
+                content: Some(content.into()),
+                transformed_content: None,
+                attachments: None,
+                supported_native_document_mime_types: None,
+                native_document_path_fallback_paths: None,
+                interaction_id: Some(interaction_id.into()),
+                source: None,
+                agent_mode: None,
+                parent_agent_task_id: None,
             }),
         )
     }
@@ -922,25 +1021,27 @@ mod tests {
         assert_eq!(timeline.points[0].turn, 0);
         assert_eq!(timeline.points[0].source, ContextPointSource::Observed);
         assert_eq!(timeline.points[0].total_tokens, 60);
-        assert_eq!(timeline.points[0].context_added_tokens, 30);
+        assert_eq!(timeline.points[0].context_change_tokens, None);
     }
 
     #[test]
-    fn exposes_calibrated_context_added_for_each_zero_based_turn() {
+    fn exposes_point_to_point_context_change_for_zero_based_turns() {
         let events = vec![
+            user_message("", "interaction-1"),
             event(
                 SessionEventType::AssistantTurnStart,
                 TypedEventData::TurnStart(TurnStartData {
                     turn_id: Some("1".into()),
-                    interaction_id: None,
+                    interaction_id: Some("interaction-1".into()),
                 }),
             ),
             assistant_message("aaaa"),
+            user_message("", "interaction-2"),
             event(
                 SessionEventType::AssistantTurnStart,
                 TypedEventData::TurnStart(TurnStartData {
                     turn_id: Some("2".into()),
-                    interaction_id: None,
+                    interaction_id: Some("interaction-2".into()),
                 }),
             ),
             assistant_message("aaaaaaaaaaaa"),
@@ -973,10 +1074,69 @@ mod tests {
             timeline
                 .points
                 .iter()
-                .map(|point| (point.turn, point.context_added_tokens))
+                .map(|point| (point.turn, point.context_change_tokens))
                 .collect::<Vec<_>>(),
-            vec![(0, 10), (1, 30)]
+            vec![(0, None), (1, Some(30))]
         );
+    }
+
+    #[test]
+    fn aligns_tool_contributions_with_reconstructed_conversation_turns() {
+        let events = vec![
+            user_message("first", "interaction-1"),
+            user_message("second", "interaction-2"),
+            user_message("third", "interaction-3"),
+            event(
+                SessionEventType::AssistantTurnStart,
+                TypedEventData::TurnStart(TurnStartData {
+                    turn_id: Some("turn-3".into()),
+                    interaction_id: Some("interaction-3".into()),
+                }),
+            ),
+            event(
+                SessionEventType::ToolExecutionStart,
+                TypedEventData::ToolExecutionStart(ToolExecStartData {
+                    tool_call_id: Some("tool-3".into()),
+                    turn_id: Some("turn-3".into()),
+                    tool_name: Some("view".into()),
+                    arguments: Some(json!({"path": "src/main.rs"})),
+                    parent_tool_call_id: None,
+                    mcp_server_name: None,
+                    mcp_tool_name: None,
+                }),
+            ),
+            event(
+                SessionEventType::ToolExecutionComplete,
+                TypedEventData::ToolExecutionComplete(ToolExecCompleteData {
+                    tool_call_id: Some("tool-3".into()),
+                    turn_id: Some("turn-3".into()),
+                    parent_tool_call_id: None,
+                    model: None,
+                    interaction_id: Some("interaction-3".into()),
+                    success: Some(true),
+                    result: Some(json!({
+                        "content": "abcd",
+                        "detailedContent": "this duplicate display detail must not be counted"
+                    })),
+                    error: None,
+                    tool_telemetry: None,
+                    is_user_requested: None,
+                }),
+            ),
+        ];
+
+        let timeline = build_context_timeline(&events);
+        assert_eq!(timeline.turn_count, 3);
+        assert_eq!(
+            timeline
+                .events
+                .iter()
+                .map(|event| event.turn)
+                .collect::<Vec<_>>(),
+            vec![0, 1, 2]
+        );
+        assert_eq!(timeline.top_tool_calls[0].turn, 2);
+        assert_eq!(timeline.top_tool_calls[0].result_tokens, 1);
     }
 
     #[test]
@@ -1041,11 +1201,12 @@ mod tests {
     #[test]
     fn pairs_compaction_across_turns_and_applies_reset_at_completion() {
         let mut events = vec![
+            user_message("", "interaction-1"),
             event(
                 SessionEventType::AssistantTurnStart,
                 TypedEventData::TurnStart(TurnStartData {
                     turn_id: Some("1".into()),
-                    interaction_id: None,
+                    interaction_id: Some("interaction-1".into()),
                 }),
             ),
             event(
@@ -1058,11 +1219,12 @@ mod tests {
             ),
         ];
         for turn_id in ["2", "3"] {
+            events.push(user_message("", &format!("interaction-{turn_id}")));
             events.push(event(
                 SessionEventType::AssistantTurnStart,
                 TypedEventData::TurnStart(TurnStartData {
                     turn_id: Some(turn_id.into()),
-                    interaction_id: None,
+                    interaction_id: Some(format!("interaction-{turn_id}")),
                 }),
             ));
         }
@@ -1228,15 +1390,12 @@ mod tests {
     }
 
     #[test]
-    fn tool_result_preview_uses_renderable_content_instead_of_the_result_wrapper() {
+    fn tool_result_estimate_uses_primary_content_instead_of_the_result_wrapper() {
         let result = serde_json::json!({
             "content": "fn main() {}",
             "detailedContent": "diff --git a/main.rs b/main.rs"
         });
 
-        assert_eq!(
-            context_result_preview(&result).as_deref(),
-            Some("fn main() {}")
-        );
+        assert_eq!(context_result_content(&result), "fn main() {}");
     }
 }

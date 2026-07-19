@@ -426,6 +426,40 @@ function selectCompactionMarker(compaction: ContextCompaction) {
     emit("selectCompaction", compaction);
   }
 }
+function selectAdjacentTurn(direction: -1 | 1) {
+  const selectable = props.timeline.points.filter((point) => point.phase !== "postCompaction");
+  if (!selectable.length) return;
+  const currentTurn = props.selectedPoint?.turn ?? hoverPoint.value?.turn;
+  const target =
+    currentTurn == null
+      ? direction > 0
+        ? selectable[0]
+        : selectable.at(-1)
+      : direction > 0
+        ? selectable.find((point) => point.turn > currentTurn)
+        : [...selectable].reverse().find((point) => point.turn < currentTurn);
+  if (!target) return;
+
+  const targetIndex = props.timeline.points.findIndex(
+    (point) => point.turn === target.turn && point.phase === target.phase,
+  );
+  if (targetIndex < panStart.value) {
+    panStart.value = targetIndex;
+  } else if (targetIndex >= panStart.value + visibleCount.value) {
+    panStart.value = Math.min(maxPanStart.value, targetIndex - visibleCount.value + 1);
+  }
+  hoverPoint.value = target;
+  emit("selectPoint", target);
+}
+function handleChartKeydown(event: KeyboardEvent) {
+  if (event.key === "Escape") {
+    emit("clearSelection");
+    return;
+  }
+  if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+  event.preventDefault();
+  selectAdjacentTurn(event.key === "ArrowLeft" ? -1 : 1);
+}
 function formatTick(value: number): string {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
   if (value >= 1_000) return `${Math.round(value / 1_000)}k`;
@@ -495,7 +529,9 @@ function eventHoverLabel(event: ContextTimelineEvent): string {
         </span>
       </div>
       <div class="context-chart__controls" aria-label="Chart navigation">
-        <span class="context-chart__gesture-hint">Scroll to zoom · drag to pan</span>
+        <span class="context-chart__gesture-hint">
+          Scroll to zoom · drag or middle-drag to pan · ←/→ turns
+        </span>
         <div class="context-chart__segments" aria-label="Horizontal axis">
           <button type="button" :class="{ active: axisMode === 'turn' }" @click="axisMode = 'turn'">Turn</button>
           <button type="button" :class="{ active: axisMode === 'time' }" @click="axisMode = 'time'">Time</button>
@@ -540,7 +576,7 @@ function eventHoverLabel(event: ContextTimelineEvent): string {
         @pointermove="movePan"
         @pointerup="endPan"
         @pointercancel="endPan"
-        @keydown.escape="emit('clearSelection')"
+        @keydown="handleChartKeydown"
       >
         <g class="context-chart__grid">
           <line v-for="tick in yTicks" :key="tick.value" :x1="margin.left" :x2="width - margin.right" :y1="tick.y" :y2="tick.y" />

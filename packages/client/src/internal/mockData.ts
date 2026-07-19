@@ -66,7 +66,7 @@ const MOCK_CONTEXT_TIMELINE: ContextTimeline = {
     systemTokens: system as number,
     toolDefinitionTokens: definitions as number,
     conversationTokens: conversation as number,
-    contextAddedTokens: 0,
+    contextChangeTokens: null,
     totalTokens: (system as number) + (definitions as number) + (conversation as number),
     source: source as ContextTimeline["points"][number]["source"],
   })),

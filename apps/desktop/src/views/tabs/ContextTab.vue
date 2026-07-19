@@ -20,7 +20,7 @@ import {
   ToolCallItem,
 } from "@tracepilot/ui";
 import { Activity, Info } from "lucide-vue-next";
-import { computed, ref, watch } from "vue";
+import { computed, onMounted, onScopeDispose, ref, watch } from "vue";
 import ContextWindowChart from "@/components/context/ContextWindowChart.vue";
 import ToolTypeDonut from "@/components/context/ToolTypeDonut.vue";
 import { useCheckpointNavigation } from "@/composables/useCheckpointNavigation";
@@ -180,13 +180,30 @@ const compactionsFullyPaired = computed(
     timeline.value.compactionStartCount === timeline.value.compactionCompleteCount &&
     timeline.value.pairedCompactionCount === timeline.value.compactionStartCount,
 );
-type ToolAnalysisView = "types" | "chart" | "calls";
+type ToolAnalysisView = "overview" | "calls";
 const toolAnalysisViews: Array<{ id: ToolAnalysisView; label: string }> = [
-  { id: "types", label: "Types" },
-  { id: "chart", label: "Chart" },
+  { id: "overview", label: "Overview" },
   { id: "calls", label: "Expensive calls" },
 ];
-const toolAnalysisView = ref<ToolAnalysisView>("types");
+const toolAnalysisView = ref<ToolAnalysisView>("overview");
+type InfoPopoverKey = "methodology" | "observed" | "estimated" | "paired";
+const confidenceKeys = ["observed", "estimated", "paired"] as const;
+const hoveredInfo = ref<InfoPopoverKey | null>(null);
+const pinnedInfo = ref<InfoPopoverKey | null>(null);
+const suppressedHoverInfo = ref<InfoPopoverKey | null>(null);
+const visibleInfo = computed(
+  () =>
+    pinnedInfo.value ??
+    (hoveredInfo.value !== suppressedHoverInfo.value ? hoveredInfo.value : null),
+);
+const confidenceExplanations: Record<Exclude<InfoPopoverKey, "methodology">, string> = {
+  observed:
+    "Exact context-layer snapshots reported by Copilot at compaction starts or session shutdowns.",
+  estimated:
+    "Reconstructed points between observed snapshots, calibrated from captured context-bearing event text.",
+  paired:
+    "Compaction starts matched to their completion events in event order. The ratio is paired completions to starts.",
+};
 const maxToolCallTokens = computed(() => displayedToolCalls.value[0]?.totalTokens ?? 1);
 const selectedTurn = computed(() => {
   const turnIndex = selectedPoint.value?.turn;
@@ -302,6 +319,32 @@ function richEnabledFor(toolName: string): boolean {
   return preferences.isRichRenderingEnabled(toolName);
 }
 
+function showInfo(key: InfoPopoverKey) {
+  hoveredInfo.value = key;
+}
+
+function hideInfo(key: InfoPopoverKey) {
+  if (hoveredInfo.value === key) hoveredInfo.value = null;
+  if (suppressedHoverInfo.value === key) suppressedHoverInfo.value = null;
+}
+
+function toggleInfo(key: InfoPopoverKey) {
+  if (pinnedInfo.value === key) {
+    pinnedInfo.value = null;
+    suppressedHoverInfo.value = key;
+  } else {
+    pinnedInfo.value = key;
+    suppressedHoverInfo.value = null;
+  }
+}
+
+function dismissPinnedInfo() {
+  pinnedInfo.value = null;
+}
+
+onMounted(() => document.addEventListener("click", dismissPinnedInfo));
+onScopeDispose(() => document.removeEventListener("click", dismissPinnedInfo));
+
 function openConversation(turn: number, eventIndex?: number | null) {
   navigateToConversation({
     turnIndex: turn,
@@ -352,6 +395,11 @@ function phaseLabel(point: ContextWindowPoint): string {
   return labels[point.phase];
 }
 
+function formatContextChange(value?: number | null): string {
+  if (value == null) return "—";
+  return `${value > 0 ? "+" : ""}${formatNumberFull(value)}`;
+}
+
 function retryLoad() {
   if (store.sessionId) load(store.sessionId);
 }
@@ -383,9 +431,24 @@ function retryLoad() {
 
     <template v-else-if="timeline">
       <div class="context-tab__meta">
-        <details class="context-tab__methodology">
-          <summary><Info :size="14" aria-hidden="true" /> How estimates work</summary>
-          <div>
+        <div
+          class="context-tab__info-anchor context-tab__methodology"
+          @mouseenter="showInfo('methodology')"
+          @mouseleave="hideInfo('methodology')"
+        >
+          <button
+            type="button"
+            :aria-expanded="visibleInfo === 'methodology'"
+            @click.stop="toggleInfo('methodology')"
+          >
+            <Info :size="14" aria-hidden="true" /> How estimates work
+          </button>
+          <div
+            v-if="visibleInfo === 'methodology'"
+            class="context-tab__info-popover context-tab__info-popover--methodology"
+            role="tooltip"
+            @click.stop
+          >
             <strong>Source-aware reconstruction</strong>
             <p>{{ timeline.methodology }}</p>
             <p>
@@ -393,27 +456,59 @@ function retryLoad() {
               cache reads or writes.
             </p>
           </div>
-        </details>
+        </div>
         <div class="context-tab__confidence">
           <LoadingSpinner v-if="refreshing" size="sm" />
           <span v-if="refreshing">Updating</span>
-          <Badge class="context-tab__confidence-badge context-tab__confidence-badge--observed" variant="neutral">
-            {{ timeline.observedPointCount }} observed
-          </Badge>
-          <Badge class="context-tab__confidence-badge context-tab__confidence-badge--estimated" variant="warning">
-            {{ timeline.estimatedPointCount }} estimated
-          </Badge>
-          <Badge
-            class="context-tab__confidence-badge"
-            :class="
-              compactionsFullyPaired
-                ? 'context-tab__confidence-badge--paired'
-                : 'context-tab__confidence-badge--unpaired'
-            "
-            :variant="compactionsFullyPaired ? 'success' : 'warning'"
+          <span
+            v-for="key in confidenceKeys"
+            :key="key"
+            class="context-tab__info-anchor context-tab__confidence-anchor"
+            @mouseenter="showInfo(key)"
+            @mouseleave="hideInfo(key)"
           >
-            {{ timeline.pairedCompactionCount }}/{{ timeline.compactionStartCount }} paired
-          </Badge>
+            <button
+              type="button"
+              :aria-label="`Explain ${key} context telemetry`"
+              :aria-expanded="visibleInfo === key"
+              @click.stop="toggleInfo(key)"
+            >
+              <Badge
+                v-if="key === 'observed'"
+                class="context-tab__confidence-badge context-tab__confidence-badge--observed"
+                variant="neutral"
+              >
+                {{ timeline.observedPointCount }} observed
+              </Badge>
+              <Badge
+                v-else-if="key === 'estimated'"
+                class="context-tab__confidence-badge context-tab__confidence-badge--estimated"
+                variant="warning"
+              >
+                {{ timeline.estimatedPointCount }} estimated
+              </Badge>
+              <Badge
+                v-else
+                class="context-tab__confidence-badge"
+                :class="
+                  compactionsFullyPaired
+                    ? 'context-tab__confidence-badge--paired'
+                    : 'context-tab__confidence-badge--unpaired'
+                "
+                :variant="compactionsFullyPaired ? 'success' : 'warning'"
+              >
+                {{ timeline.pairedCompactionCount }}/{{ timeline.compactionStartCount }} paired
+              </Badge>
+            </button>
+            <span
+              v-if="visibleInfo === key"
+              class="context-tab__info-popover context-tab__info-popover--confidence"
+              role="tooltip"
+              @click.stop
+            >
+              {{ confidenceExplanations[key] }}
+            </span>
+          </span>
         </div>
       </div>
 
@@ -473,13 +568,16 @@ function retryLoad() {
             </div>
             <dl class="context-tab__token-grid">
               <div><dt>Total</dt><dd>{{ formatNumberFull(selectedPoint.totalTokens) }}</dd></div>
-              <div><dt>Added this turn</dt><dd>+{{ formatNumberFull(selectedPoint.contextAddedTokens) }}</dd></div>
+              <div>
+                <dt>Change from previous point</dt>
+                <dd>{{ formatContextChange(selectedPoint.contextChangeTokens) }}</dd>
+              </div>
               <div><dt>System prompt</dt><dd>{{ formatNumberFull(selectedPoint.systemTokens) }}</dd></div>
               <div><dt>Tool definitions</dt><dd>{{ formatNumberFull(selectedPoint.toolDefinitionTokens) }}</dd></div>
               <div><dt>Conversation</dt><dd>{{ formatNumberFull(selectedPoint.conversationTokens) }}</dd></div>
             </dl>
             <p class="context-tab__footnote">
-              Added context is an estimate calibrated to the surrounding observed totals.
+              Change is the current displayed total minus the previous displayed point.
             </p>
             <p v-if="selectedPoint.source === 'observed'" class="context-tab__footnote">
               Copilot reported all three displayed layers for this point.
@@ -612,36 +710,37 @@ function retryLoad() {
         </div>
 
         <div
-          v-if="toolAnalysisView === 'types' && displayedToolTypes.length"
-          class="context-tab__tool-type-panel"
+          v-if="toolAnalysisView === 'overview' && timeline.toolTypes.length"
+          class="context-tab__tool-overview"
         >
-          <div class="context-tab__tool-types">
-            <div
-              v-for="item in displayedToolTypes"
-              :key="item.toolName"
-              class="context-tab__tool-type"
-            >
-              <div class="context-tab__tool-type-heading">
-                <span>
-                  <strong>{{ item.toolName }}</strong>
-                  <small>{{ item.callCount }} calls · {{ item.errorCount }} errors</small>
-                </span>
-                <span>{{ formatNumber(item.totalTokens) }} · {{ item.percentage.toFixed(1) }}%</span>
+          <div class="context-tab__tool-type-panel">
+            <div class="context-tab__tool-types">
+              <div
+                v-for="item in displayedToolTypes"
+                :key="item.toolName"
+                class="context-tab__tool-type"
+              >
+                <div class="context-tab__tool-type-heading">
+                  <span>
+                    <strong>{{ item.toolName }}</strong>
+                    <small>{{ item.callCount }} calls · {{ item.errorCount }} errors</small>
+                  </span>
+                  <span>
+                    {{ formatNumber(item.totalTokens) }} · {{ item.percentage.toFixed(1) }}%
+                  </span>
+                </div>
+                <div class="context-tab__bar">
+                  <span :style="{ width: `${Math.max(item.percentage, 1)}%` }" />
+                </div>
+                <small class="context-tab__tool-split">
+                  {{ formatNumber(item.argumentTokens) }} arguments ·
+                  {{ formatNumber(item.resultTokens) }} returned result
+                </small>
               </div>
-              <div class="context-tab__bar">
-                <span :style="{ width: `${Math.max(item.percentage, 1)}%` }" />
-              </div>
-              <small class="context-tab__tool-split">
-                {{ formatNumber(item.argumentTokens) }} arguments ·
-                {{ formatNumber(item.resultTokens) }} returned result
-              </small>
             </div>
           </div>
+          <ToolTypeDonut :items="timeline.toolTypes" />
         </div>
-        <ToolTypeDonut
-          v-else-if="toolAnalysisView === 'chart' && timeline.toolTypes.length"
-          :items="timeline.toolTypes"
-        />
         <template v-else-if="toolAnalysisView === 'calls'">
           <div v-if="displayedToolCalls.length" class="context-tab__ranked-tools">
             <button
@@ -757,47 +856,61 @@ function retryLoad() {
   margin-bottom: 12px;
 }
 
-.context-tab__methodology {
+.context-tab__info-anchor {
   position: relative;
 }
 
-.context-tab__methodology summary {
+.context-tab__info-anchor > button {
   display: inline-flex;
   align-items: center;
   gap: 5px;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--text-tertiary);
+  font: inherit;
   font-size: 0.6875rem;
   cursor: pointer;
-  list-style: none;
 }
 
-.context-tab__methodology summary::-webkit-details-marker {
-  display: none;
+.context-tab__info-anchor > button:focus-visible {
+  border-radius: var(--radius-sm);
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
-.context-tab__methodology > div {
+.context-tab__info-popover {
   position: absolute;
   z-index: var(--z-tooltip);
   top: calc(100% + 7px);
-  left: 0;
-  width: min(520px, calc(100vw - 64px));
-  padding: 12px 14px;
+  padding: 9px 11px;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
   background: var(--canvas-overlay, var(--canvas-default));
   box-shadow: var(--shadow-lg);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  line-height: 1.45;
 }
 
-.context-tab__methodology strong {
+.context-tab__info-popover--methodology {
+  left: 0;
+  width: min(520px, calc(100vw - 64px));
+  padding: 12px 14px;
+}
+
+.context-tab__info-popover--confidence {
+  right: 0;
+  width: 260px;
+}
+
+.context-tab__info-popover strong {
   color: var(--text-primary);
   font-size: 0.8125rem;
 }
 
-.context-tab__methodology p {
+.context-tab__info-popover p {
   margin: 6px 0 0;
-  color: var(--text-secondary);
-  font-size: 0.75rem;
-  line-height: 1.45;
 }
 
 .context-tab__confidence {
@@ -809,6 +922,10 @@ function retryLoad() {
 .context-tab__confidence > span {
   color: var(--text-tertiary);
   font-size: 0.6875rem;
+}
+
+.context-tab__confidence-anchor > button {
+  display: block;
 }
 
 .context-tab__confidence :deep(.context-tab__confidence-badge) {
@@ -1072,6 +1189,21 @@ function retryLoad() {
   background: var(--canvas-subtle);
 }
 
+.context-tab__tool-overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: stretch;
+  gap: 16px;
+}
+
+.context-tab__tool-overview :deep(.tool-donut) {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--canvas-subtle);
+}
+
 .context-tab__view-switch {
   display: flex;
   justify-content: flex-end;
@@ -1307,6 +1439,9 @@ function retryLoad() {
     grid-template-columns: 1fr;
   }
 
+  .context-tab__tool-overview {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 640px) {
