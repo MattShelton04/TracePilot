@@ -7,6 +7,18 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-07-19
+
+### Added
+- **Context Visualizer** — A new Context tab charts how session context changes by turn or elapsed time, separates system prompt, tool definition, and conversation tokens, marks compactions and session events, and ranks the tool types and individual calls contributing the most context
+- **Session Explorer file actions** — Copy a selected file's absolute path from the viewer, or right-click files and folders to copy paths or contents and open their locations in the system file browser
+
+### Changed
+- **AI Credits are now a first-class cost metric** — Observed AIC now flows through session summaries, per-model and per-segment metrics, analytics, comparisons, CLI output, and Markdown exports; compatible historical sessions fall back to clearly labelled token-based estimates
+- **Copilot CLI v1.0.71 telemetry** — Added tracking for usage checkpoints and session-limit changes, including context tiers and AIC caps, and corrected accounting for cumulative shutdown snapshots across resumed sessions
+- **Copilot CLI package path compatibility** — Config injection and version discovery now resolve platform-specific package directories on Windows, macOS, and Linux, with a fallback to the legacy `universal` layout
+- **Current model and pricing data** — Updated the registry with new Copilot models, refreshed AIC and token rates, and long-context pricing tiers selected by input-token thresholds
+
 ## [0.6.7] - 2026-05-17
 
 ### Added
