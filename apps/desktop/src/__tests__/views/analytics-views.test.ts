@@ -387,6 +387,25 @@ describe("CodeImpactView", () => {
     expect(svgs.length).toBeGreaterThanOrEqual(1);
   });
 
+  it("strides dense date labels in the changes chart", async () => {
+    const changesByDay = Array.from({ length: 30 }, (_, index) => ({
+      date: `2025-01-${String(index + 1).padStart(2, "0")}`,
+      additions: index + 1,
+      deletions: index,
+    }));
+    mockGetCodeImpact.mockResolvedValue({ ...FIXTURE_CODE_IMPACT, changesByDay });
+    const Component = await loadCodeImpact();
+    const wrapper = mount(Component, globalStubs);
+
+    await flushPromises();
+
+    const xLabels = wrapper
+      .findAll(".code-timeline-chart .chart-label")
+      .filter((label) => label.attributes("text-anchor") === "middle");
+    expect(xLabels.length).toBeGreaterThan(0);
+    expect(xLabels.length).toBeLessThanOrEqual(8);
+  });
+
   it("shows positive net change with correct label", async () => {
     mockGetCodeImpact.mockResolvedValue(FIXTURE_CODE_IMPACT);
     const Component = await loadCodeImpact();
