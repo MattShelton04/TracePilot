@@ -211,9 +211,9 @@ describe("useChartTooltip", () => {
   });
 
   describe("onChartMouseMove", () => {
-    function createSvgMocks(svgX: number) {
+    function createSvgMocks(svgX: number, containerSelector = ".tooltip-area") {
       const container = document.createElement("div");
-      container.classList.add("tooltip-area");
+      container.classList.add(containerSelector.slice(1));
       Object.defineProperty(container, "getBoundingClientRect", {
         value: () => ({ left: 0, top: 0, width: 500, height: 300 }),
       });
@@ -239,7 +239,7 @@ describe("useChartTooltip", () => {
       svgEl.appendChild(target);
       vi.spyOn(target, "closest").mockImplementation((sel: string) => {
         if (sel === "svg") return svgEl;
-        if (sel === ".tooltip-area") return container;
+        if (sel === containerSelector) return container;
         return null;
       });
 
@@ -260,6 +260,62 @@ describe("useChartTooltip", () => {
       expect(w.vm.tooltip.content).toBe("Point 2");
       expect(w.vm.tooltip.chartId).toBe("test-chart");
       expect(w.vm.tooltip.highlightIndex).toBe(2);
+    });
+
+    it("supports a custom chart container selector", () => {
+      const w = createWrapper();
+      const { target } = createSvgMocks(20, ".chart-frame");
+      const event = { target, clientX: 100, clientY: 50 } as unknown as MouseEvent;
+
+      w.vm.onChartMouseMove(
+        event,
+        [{ x: 10 }, { x: 20 }, { x: 30 }],
+        (i) => `Point ${i}`,
+        "test-chart",
+        ".chart-frame",
+      );
+
+      expect(w.vm.tooltip.visible).toBe(true);
+      expect(w.vm.tooltip.highlightIndex).toBe(1);
+    });
+
+    it("dismisses the tooltip outside the horizontal data range", () => {
+      const w = createWrapper();
+      w.vm.tooltip.visible = true;
+      w.vm.tooltip.chartId = "test-chart";
+      const { target } = createSvgMocks(5);
+      const event = { target, clientX: 100, clientY: 50 } as unknown as MouseEvent;
+
+      w.vm.onChartMouseMove(
+        event,
+        [{ x: 10 }, { x: 20 }, { x: 30 }],
+        (i) => `Point ${i}`,
+        "test-chart",
+      );
+
+      expect(w.vm.tooltip.visible).toBe(false);
+      expect(w.vm.tooltip.highlightIndex).toBe(-1);
+    });
+
+    it("uses a narrow hit target for a single-point series", () => {
+      const w = createWrapper();
+      const outside = createSvgMocks(30);
+      const outsideEvent = {
+        target: outside.target,
+        clientX: 100,
+        clientY: 50,
+      } as unknown as MouseEvent;
+      w.vm.onChartMouseMove(outsideEvent, [{ x: 10 }], () => "Point", "single");
+      expect(w.vm.tooltip.visible).toBe(false);
+
+      const inside = createSvgMocks(18);
+      const insideEvent = {
+        target: inside.target,
+        clientX: 100,
+        clientY: 50,
+      } as unknown as MouseEvent;
+      w.vm.onChartMouseMove(insideEvent, [{ x: 10 }], () => "Point", "single");
+      expect(w.vm.tooltip.visible).toBe(true);
     });
 
     it("does nothing when pinned", () => {

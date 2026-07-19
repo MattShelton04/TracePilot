@@ -69,6 +69,8 @@ export interface UseChartTooltipReturn {
  * ```
  */
 export function useChartTooltip(): UseChartTooltipReturn {
+  const SINGLE_POINT_HIT_RADIUS = 12;
+
   const tooltip = reactive<ChartTooltipState>({
     visible: false,
     pinned: false,
@@ -127,10 +129,19 @@ export function useChartTooltip(): UseChartTooltipReturn {
     pt.y = event.clientY;
     const svgPt = pt.matrixTransform(ctm.inverse());
 
-    const bestIdx = findNearestIndex(
-      coords.map((c) => c.x),
-      svgPt.x,
-    );
+    const xValues = coords.map((c) => c.x);
+    const minX = Math.min(...xValues);
+    const maxX = Math.max(...xValues);
+    const isOutsideSeries =
+      coords.length === 1
+        ? Math.abs(svgPt.x - minX) > SINGLE_POINT_HIT_RADIUS
+        : svgPt.x < minX || svgPt.x > maxX;
+    if (isOutsideSeries) {
+      dismissTooltip();
+      return;
+    }
+
+    const bestIdx = findNearestIndex(xValues, svgPt.x);
     if (bestIdx < 0) return;
 
     tooltip.visible = true;

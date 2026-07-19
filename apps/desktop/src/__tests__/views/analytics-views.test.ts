@@ -387,6 +387,34 @@ describe("CodeImpactView", () => {
     expect(svgs.length).toBeGreaterThanOrEqual(1);
   });
 
+  it("shows timeline details when hovering the code chart", async () => {
+    mockGetCodeImpact.mockResolvedValue(FIXTURE_CODE_IMPACT);
+    const Component = await loadCodeImpact();
+    const wrapper = mount(Component, globalStubs);
+    await flushPromises();
+
+    const svgWrapper = wrapper.find(".code-timeline-chart svg");
+    const svg = svgWrapper.element as SVGSVGElement;
+    Object.defineProperty(svg, "createSVGPoint", {
+      configurable: true,
+      value: () => ({
+        x: 0,
+        y: 0,
+        matrixTransform: () => ({ x: 365, y: 100 }),
+      }),
+    });
+    Object.defineProperty(svg, "getScreenCTM", {
+      configurable: true,
+      value: () => ({ inverse: () => ({}) }),
+    });
+
+    await svgWrapper.trigger("mousemove", { clientX: 100, clientY: 100 });
+    await flushPromises();
+
+    expect(document.body.querySelector('[role="tooltip"]')?.textContent).toContain("+300 / -80");
+    wrapper.unmount();
+  });
+
   it("strides dense date labels in the changes chart", async () => {
     const changesByDay = Array.from({ length: 30 }, (_, index) => ({
       date: `2025-01-${String(index + 1).padStart(2, "0")}`,
