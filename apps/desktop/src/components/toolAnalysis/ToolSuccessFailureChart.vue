@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ToolUsageEntry } from "@tracepilot/types";
 import { formatNumberFull, formatRate } from "@tracepilot/types";
-import { useChartTooltip } from "@tracepilot/ui";
+import { ChartTooltip, useChartTooltip } from "@tracepilot/ui";
 import { computed } from "vue";
 import { CHART_COLORS } from "@/utils/chartColors";
 
@@ -12,24 +12,41 @@ const props = defineProps<{
 
 const { tooltip, positionTooltip, dismissTooltip, findNearestIndex } = useChartTooltip();
 
-const CHART_LEFT = 100;
-const CHART_WIDTH = 396;
+const CHART_RIGHT = 496;
+const MIN_LABEL_WIDTH = 100;
+const MAX_LABEL_WIDTH = 120;
+const MAX_LABEL_CHARACTERS = 16;
 const BAR_HEIGHT = 22;
 const ROW_SPACING = 28;
+
+function displayToolName(name: string): string {
+  return name.length > MAX_LABEL_CHARACTERS ? `${name.slice(0, MAX_LABEL_CHARACTERS - 1)}…` : name;
+}
 
 const chart = computed(() => {
   if (!props.tools.length) return null;
   const maxCalls = props.maxInvocations || 1;
+  const longestLabel = Math.max(...props.tools.map((tool) => displayToolName(tool.name).length));
+  const chartLeft = Math.min(Math.max(longestLabel * 7 + 20, MIN_LABEL_WIDTH), MAX_LABEL_WIDTH);
+  const chartWidth = CHART_RIGHT - chartLeft;
   const rows = props.tools.map((tool, i) => {
     const successCount = Math.round(tool.callCount * tool.successRate);
     const failureCount = tool.callCount - successCount;
-    const successWidth = (successCount / maxCalls) * CHART_WIDTH;
-    const failureWidth = (failureCount / maxCalls) * CHART_WIDTH;
+    const successWidth = (successCount / maxCalls) * chartWidth;
+    const failureWidth = (failureCount / maxCalls) * chartWidth;
     const y = 18 + i * ROW_SPACING;
-    return { tool, successCount, failureCount, successWidth, failureWidth, y };
+    return {
+      tool,
+      label: displayToolName(tool.name),
+      successCount,
+      failureCount,
+      successWidth,
+      failureWidth,
+      y,
+    };
   });
   const svgHeight = 18 + rows.length * ROW_SPACING + 10;
-  return { rows, svgHeight };
+  return { rows, svgHeight, chartLeft };
 });
 
 function onMouseMove(event: MouseEvent) {
@@ -101,15 +118,18 @@ function onClick(event: MouseEvent) {
       >
         <template v-for="(row, ri) in chart.rows" :key="`sf-${ri}`">
           <text
-            :x="CHART_LEFT - 12"
+            :x="chart.chartLeft - 12"
             :y="row.y + BAR_HEIGHT / 2 + 4"
             font-family="Inter, sans-serif"
             font-size="12"
             fill="var(--text-placeholder)"
             text-anchor="end"
-          >{{ row.tool.name }}</text>
+          >
+            <title>{{ row.tool.name }}</title>
+            {{ row.label }}
+          </text>
           <rect
-            :x="CHART_LEFT"
+            :x="chart.chartLeft"
             :y="row.y"
             :width="Math.max(row.successWidth, 0)"
             :height="BAR_HEIGHT"
@@ -120,7 +140,7 @@ function onClick(event: MouseEvent) {
           />
           <rect
             v-if="row.failureWidth > 0"
-            :x="CHART_LEFT + row.successWidth"
+            :x="chart.chartLeft + row.successWidth"
             :y="row.y"
             :width="row.failureWidth"
             :height="BAR_HEIGHT"
@@ -130,7 +150,7 @@ function onClick(event: MouseEvent) {
             :class="{ 'chart-bar--active': tooltip.chartId === 'success-failure' && tooltip.highlightIndex === ri }"
           />
           <text
-            :x="CHART_LEFT + row.successWidth + row.failureWidth + 8"
+            :x="chart.chartLeft + row.successWidth + row.failureWidth + 8"
             :y="row.y + BAR_HEIGHT / 2 + 4"
             font-family="Inter, sans-serif"
             font-size="10"
@@ -146,12 +166,7 @@ function onClick(event: MouseEvent) {
           class="chart-overlay"
         />
       </svg>
-      <div
-        v-if="tooltip.visible && tooltip.chartId === 'success-failure'"
-        class="chart-tooltip"
-        :class="{ 'chart-tooltip--pinned': tooltip.pinned }"
-        :style="{ left: tooltip.x + 'px', top: (tooltip.y - 36) + 'px' }"
-      >{{ tooltip.content }}</div>
+      <ChartTooltip :tooltip="tooltip" chart-id="success-failure" />
     </div>
   </div>
 </template>
@@ -176,6 +191,7 @@ function onClick(event: MouseEvent) {
 
 .scrollable-section {
   max-height: 400px;
+  overflow-x: hidden;
   overflow-y: auto;
 }
 </style>

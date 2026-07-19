@@ -14,8 +14,8 @@ export interface UseChartTooltipReturn {
   /** Reactive tooltip state — bind to template for rendering. */
   tooltip: ChartTooltipState;
   /**
-   * Compute container-relative position from a mouse event and clamp
-   * so the tooltip stays within the container bounds.
+   * Capture a viewport-relative pointer position. The shared ChartTooltip
+   * measures and clamps its rendered content to the viewport.
    */
   positionTooltip: (event: MouseEvent, container: HTMLElement) => void;
   /** Reset tooltip to hidden/unpinned state. */
@@ -69,6 +69,8 @@ export interface UseChartTooltipReturn {
  * ```
  */
 export function useChartTooltip(): UseChartTooltipReturn {
+  const SINGLE_POINT_HIT_RADIUS = 12;
+
   const tooltip = reactive<ChartTooltipState>({
     visible: false,
     pinned: false,
@@ -79,15 +81,11 @@ export function useChartTooltip(): UseChartTooltipReturn {
     highlightIndex: -1,
   });
 
-  function positionTooltip(event: MouseEvent, container: HTMLElement): void {
-    const rect = container.getBoundingClientRect();
-    const style = getComputedStyle(container);
-    const padLeft = parseFloat(style.paddingLeft) || 0;
-    const padTop = parseFloat(style.paddingTop) || 0;
-    const rawX = event.clientX - rect.left - padLeft;
-    const rawY = event.clientY - rect.top - padTop;
-    tooltip.x = Math.max(40, Math.min(rawX, rect.width - padLeft * 2 - 40));
-    tooltip.y = Math.max(20, rawY);
+  function positionTooltip(event: MouseEvent, _container: HTMLElement): void {
+    const viewportWidth = typeof window === "undefined" ? event.clientX : window.innerWidth;
+    const viewportHeight = typeof window === "undefined" ? event.clientY : window.innerHeight;
+    tooltip.x = Math.min(Math.max(event.clientX, 0), viewportWidth);
+    tooltip.y = Math.min(Math.max(event.clientY, 0), viewportHeight);
   }
 
   function dismissTooltip(): void {
@@ -131,10 +129,19 @@ export function useChartTooltip(): UseChartTooltipReturn {
     pt.y = event.clientY;
     const svgPt = pt.matrixTransform(ctm.inverse());
 
-    const bestIdx = findNearestIndex(
-      coords.map((c) => c.x),
-      svgPt.x,
-    );
+    const xValues = coords.map((c) => c.x);
+    const minX = Math.min(...xValues);
+    const maxX = Math.max(...xValues);
+    const isOutsideSeries =
+      coords.length === 1
+        ? Math.abs(svgPt.x - minX) > SINGLE_POINT_HIT_RADIUS
+        : svgPt.x < minX || svgPt.x > maxX;
+    if (isOutsideSeries) {
+      dismissTooltip();
+      return;
+    }
+
+    const bestIdx = findNearestIndex(xValues, svgPt.x);
     if (bestIdx < 0) return;
 
     tooltip.visible = true;

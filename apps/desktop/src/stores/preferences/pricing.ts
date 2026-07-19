@@ -26,7 +26,7 @@ import {
   modelPriceEntryToPricingEntry,
   resolvePricingEntry,
 } from "@tracepilot/types";
-import { ref } from "vue";
+import { computed, ref } from "vue";
 
 // Re-export for backwards compat — consumers that imported ModelWholesalePrice
 // now use the shared ModelPriceEntry type from @tracepilot/types.
@@ -73,7 +73,7 @@ export function mergeWholesalePricesWithDefaults(
 }
 
 export function createPricingSlice() {
-  const costPerPremiumRequest = ref(DEFAULT_COST_PER_PREMIUM_REQUEST);
+  const costPerPremiumRequest = computed(() => DEFAULT_COST_PER_PREMIUM_REQUEST);
   const modelWholesalePrices = ref<ModelPriceEntry[]>([...DEFAULT_WHOLESALE_PRICES]);
   const removedModels = ref<string[]>([]);
   const toolRendering = ref<ToolRenderingPreferences>({

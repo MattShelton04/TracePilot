@@ -1,4 +1,5 @@
 import { setupPinia } from "@tracepilot/test-utils";
+import { DEFAULT_COST_PER_PREMIUM_REQUEST } from "@tracepilot/types";
 import { beforeEach, describe, expect, it } from "vitest";
 import { usePreferencesStore } from "../../stores/preferences";
 
@@ -38,6 +39,11 @@ describe("usePreferencesStore", () => {
   it("initializes uiScale with default (1.0)", () => {
     const store = usePreferencesStore();
     expect(store.uiScale).toBe(1.0);
+  });
+
+  it("uses the fixed legacy premium request cost", () => {
+    const store = usePreferencesStore();
+    expect(store.costPerPremiumRequest).toBe(DEFAULT_COST_PER_PREMIUM_REQUEST);
   });
 
   it("can update contentMaxWidth", () => {

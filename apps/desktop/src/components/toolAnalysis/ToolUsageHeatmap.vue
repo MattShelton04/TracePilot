@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useChartTooltip } from "@tracepilot/ui";
+import { ChartTooltip, useChartTooltip } from "@tracepilot/ui";
 import { computed } from "vue";
 import { type HeatmapEntry, localizeHeatmap } from "@/utils/analytics";
 
@@ -80,12 +80,7 @@ function getHeatmapLegendColor(level: number): string {
           <span>More</span>
         </div>
       </div>
-      <div
-        v-if="tooltip.visible && tooltip.chartId === 'heatmap'"
-        class="chart-tooltip"
-        :class="{ 'chart-tooltip--pinned': tooltip.pinned }"
-        :style="{ left: tooltip.x + 'px', top: (tooltip.y - 36) + 'px' }"
-      >{{ tooltip.content }}</div>
+      <ChartTooltip :tooltip="tooltip" chart-id="heatmap" />
     </div>
   </div>
 </template>

@@ -19,6 +19,7 @@ import type { TracePilotConfig } from "@tracepilot/types";
 import {
   createDefaultConfig,
   DEFAULT_CONTENT_MAX_WIDTH,
+  DEFAULT_COST_PER_PREMIUM_REQUEST,
   DEFAULT_FEATURES,
   DEFAULT_UI_SCALE,
 } from "@tracepilot/types";
@@ -85,7 +86,6 @@ export const usePreferencesStore = defineStore("preferences", () => {
     ui.uiScale.value = Math.max(0.8, Math.min(1.3, rawScale));
 
     ui.cliCommand.value = config.general.cliCommand;
-    pricing.costPerPremiumRequest.value = config.pricing.costPerPremiumRequest;
     pricing.modelWholesalePrices.value =
       config.pricing.models.length > 0 || (config.pricing.removedModels?.length ?? 0) > 0
         ? mergeWholesalePricesWithDefaults(config.pricing.models, config.pricing.removedModels)
@@ -131,7 +131,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
         uiScale: ui.uiScale.value,
       },
       pricing: {
-        costPerPremiumRequest: pricing.costPerPremiumRequest.value,
+        costPerPremiumRequest: DEFAULT_COST_PER_PREMIUM_REQUEST,
         models: [...pricing.modelWholesalePrices.value],
         removedModels: [...pricing.removedModels.value],
       },
@@ -244,7 +244,6 @@ export const usePreferencesStore = defineStore("preferences", () => {
     [
       ui.theme,
       ui.sessionStateDir,
-      pricing.costPerPremiumRequest,
       pricing.modelWholesalePrices,
       ui.hideEmptySessions,
       ui.cliCommand,

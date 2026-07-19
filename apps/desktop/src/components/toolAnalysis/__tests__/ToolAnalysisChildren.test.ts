@@ -16,6 +16,7 @@ vi.mock("@tracepilot/ui", () => {
     LoadingOverlay: passthrough("LoadingOverlay"),
     ErrorState: passthrough("ErrorState"),
     StatCard: passthrough("StatCard"),
+    ChartTooltip: passthrough("ChartTooltip"),
     getChartColors: () => ({
       primary: "#000",
       secondary: "#000",
@@ -117,6 +118,22 @@ describe("ToolSuccessFailureChart", () => {
       props: { tools: [], maxInvocations: 1 },
     });
     expect(wrapper.find("svg").exists()).toBe(false);
+  });
+
+  it("reserves label space and deliberately truncates very long tool names", () => {
+    const longName = "mcp_server_tool_with_a_name_that_would_overflow";
+    const wrapper = mount(ToolSuccessFailureChart, {
+      props: {
+        tools: [{ ...tools[0], name: longName }],
+        maxInvocations: 10,
+      },
+    });
+
+    const label = wrapper.find("svg text");
+    expect(Number(label.attributes("x"))).toBeGreaterThan(100);
+    expect(Number(label.attributes("x"))).toBeLessThanOrEqual(108);
+    expect(label.text()).toContain("…");
+    expect(label.find("title").text()).toBe(longName);
   });
 });
 

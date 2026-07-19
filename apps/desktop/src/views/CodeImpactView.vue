@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import {
+  ChartFrame,
+  ChartTooltip,
   computeGridLines,
   createChartLayout,
   ErrorState,
   formatDateShort,
   formatNumberFull,
+  generateXLabels,
   generateYLabels,
   LoadingOverlay,
   mapToLineCoords,
@@ -54,14 +57,7 @@ function addPct(adds: number, dels: number): number {
 
 // ── Changes Over Time Area Chart ─────────────────────────────
 const chartLayout = createChartLayout(50, 680, 30, 200);
-const {
-  left: CHART_LEFT,
-  right: CHART_RIGHT,
-  top: CHART_TOP,
-  bottom: CHART_BOTTOM,
-  width: CHART_W,
-  height: CHART_H,
-} = chartLayout;
+const { left: CHART_LEFT, right: CHART_RIGHT, bottom: CHART_BOTTOM } = chartLayout;
 
 const GRID_ROWS = 4;
 const gridYPositions = computed(() => computeGridLines(chartLayout, GRID_ROWS + 1, GRID_ROWS));
@@ -82,11 +78,12 @@ const timelineChart = computed(() => {
 
   const yLabels = generateYLabels(maxVal, chartLayout, 5, (v) => formatNumberFull(Math.round(v)));
 
-  // Show all labels (no stride filtering) — this chart has fewer data points
-  const xLabels = addCoords.map((c) => ({
-    label: formatDateShort(c.date),
-    x: c.x,
-  }));
+  const xLabels = generateXLabels(
+    addCoords,
+    (c) => c.x,
+    (c) => formatDateShort(c.date),
+    8,
+  );
 
   return { addLine, delLine, addArea, delArea, yLabels, xLabels, addCoords, delCoords };
 });
@@ -139,12 +136,7 @@ const timelineChart = computed(() => {
                   </div>
                   <span class="token-bar-value">{{ ft.count }} files</span>
                 </div>
-                <div
-                  v-if="tooltip.visible && tooltip.chartId === 'file-types'"
-                  class="chart-tooltip"
-                  :class="{ 'chart-tooltip--pinned': tooltip.pinned }"
-                  :style="{ left: tooltip.x + 'px', top: (tooltip.y - 36) + 'px' }"
-                >{{ tooltip.content }}</div>
+                <ChartTooltip :tooltip="tooltip" chart-id="file-types" />
               </div>
             </div>
 
@@ -167,12 +159,7 @@ const timelineChart = computed(() => {
                     <div class="churn-bar-add" style="width: 100%" />
                   </div>
                 </div>
-                <div
-                  v-if="tooltip.visible && tooltip.chartId === 'modified-files'"
-                  class="chart-tooltip"
-                  :class="{ 'chart-tooltip--pinned': tooltip.pinned }"
-                  :style="{ left: tooltip.x + 'px', top: (tooltip.y - 36) + 'px' }"
-                >{{ tooltip.content }}</div>
+                <ChartTooltip :tooltip="tooltip" chart-id="modified-files" />
               </div>
             </div>
           </div>
@@ -185,37 +172,22 @@ const timelineChart = computed(() => {
                 <span><span class="chart-legend-dot" :style="{ background: CHART_COLORS.success }" />Additions</span>
                 <span><span class="chart-legend-dot" :style="{ background: CHART_COLORS.danger }" />Deletions</span>
               </div>
-              <div class="chart-container tooltip-area" @mouseleave="dismissTooltip">
-                <svg
+              <div class="chart-container">
+                <ChartFrame
                   v-if="timelineChart"
-                  viewBox="0 0 700 220"
-                  role="img"
-                  aria-label="Area chart showing lines added and removed over 14 days"
-                  font-family="Inter"
-                  @mousemove="onChartMouseMove($event, timelineChart.addCoords, (i) => `${formatDateShort(timelineChart!.addCoords[i].date)} — +${formatNumberFull(timelineChart!.addCoords[i].additions)} / -${formatNumberFull(timelineChart!.addCoords[i].deletions)}`, 'timeline')"
-                  @click="onChartClick($event, timelineChart.addCoords, (i) => `${formatDateShort(timelineChart!.addCoords[i].date)} — +${formatNumberFull(timelineChart!.addCoords[i].additions)} / -${formatNumberFull(timelineChart!.addCoords[i].deletions)}`, 'timeline')"
+                  class="code-timeline-chart"
+                  :chart-layout="chartLayout"
+                  :grid-lines="gridYPositions"
+                  :y-labels="timelineChart.yLabels"
+                  :x-labels="timelineChart.xLabels"
+                  view-box="0 0 700 220"
+                  ariaLabel="Area chart showing lines added and removed over the selected period"
+                  chart-id="timeline"
+                  :tooltip="tooltip"
+                  @mousemove="onChartMouseMove($event, timelineChart.addCoords, (i) => `${formatDateShort(timelineChart!.addCoords[i].date)} — +${formatNumberFull(timelineChart!.addCoords[i].additions)} / -${formatNumberFull(timelineChart!.addCoords[i].deletions)}`, 'timeline', '.chart-frame')"
+                  @click="onChartClick($event, timelineChart.addCoords, (i) => `${formatDateShort(timelineChart!.addCoords[i].date)} — +${formatNumberFull(timelineChart!.addCoords[i].additions)} / -${formatNumberFull(timelineChart!.addCoords[i].deletions)}`, 'timeline', '.chart-frame')"
+                  @dismiss-tooltip="dismissTooltip"
                 >
-                  <!-- Grid lines -->
-                  <line
-                    v-for="(gy, gi) in gridYPositions"
-                    :key="`g-${gi}`"
-                    :x1="CHART_LEFT"
-                    :y1="gy"
-                    :x2="CHART_RIGHT"
-                    :y2="gy"
-                    class="chart-grid-line"
-                    stroke-dasharray="4,3"
-                  />
-                  <!-- Y-axis labels -->
-                  <text
-                    v-for="(yl, yi) in timelineChart.yLabels"
-                    :key="`y-${yi}`"
-                    :x="CHART_LEFT - 6"
-                    :y="yl.y + 4"
-                    text-anchor="end"
-                    font-size="9"
-                    class="chart-label"
-                  >{{ yl.value }}</text>
                   <!-- Additions area -->
                   <polygon :points="timelineChart.addArea" :fill="CHART_COLORS.success" fill-opacity="0.15" />
                   <!-- Deletions area -->
@@ -238,9 +210,6 @@ const timelineChart = computed(() => {
                     stroke-linejoin="round"
                     stroke-linecap="round"
                   />
-                  <!-- Axes -->
-                  <line :x1="CHART_LEFT" :y1="CHART_TOP" :x2="CHART_LEFT" :y2="CHART_BOTTOM" class="chart-axis" stroke-width="1" />
-                  <line :x1="CHART_LEFT" :y1="CHART_BOTTOM" :x2="CHART_RIGHT" :y2="CHART_BOTTOM" class="chart-axis" stroke-width="1" />
                   <!-- Highlight rings -->
                   <circle
                     v-if="tooltip.chartId === 'timeline' && tooltip.highlightIndex >= 0 && tooltip.highlightIndex < timelineChart.addCoords.length"
@@ -262,33 +231,7 @@ const timelineChart = computed(() => {
                     stroke-width="2"
                     class="chart-highlight-ring"
                   />
-                  <!-- Invisible overlay for mouse capture -->
-                  <rect
-                    :x="CHART_LEFT"
-                    :y="CHART_TOP"
-                    :width="CHART_W"
-                    :height="CHART_H"
-                    fill="transparent"
-                    class="chart-overlay"
-                  />
-                  <!-- X-axis labels -->
-                  <text
-                    v-for="(xl, xi) in timelineChart.xLabels"
-                    :key="`x-${xi}`"
-                    :x="xl.x"
-                    y="215"
-                    text-anchor="middle"
-                    font-size="8"
-                    class="chart-label"
-                  >{{ xl.label }}</text>
-                </svg>
-                <!-- Tooltip -->
-                <div
-                  v-if="tooltip.visible && tooltip.chartId === 'timeline'"
-                  class="chart-tooltip"
-                  :class="{ 'chart-tooltip--pinned': tooltip.pinned }"
-                  :style="{ left: tooltip.x + 'px', top: (tooltip.y - 36) + 'px' }"
-                >{{ tooltip.content }}</div>
+                </ChartFrame>
               </div>
             </div>
           </div>
@@ -371,5 +314,9 @@ const timelineChart = computed(() => {
   border-radius: 50%;
   margin-right: 4px;
   vertical-align: middle;
+}
+
+.code-timeline-chart {
+  width: 100%;
 }
 </style>

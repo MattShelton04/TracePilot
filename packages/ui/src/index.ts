@@ -33,6 +33,7 @@ export { default as BtnGroup } from "./components/BtnGroup.vue";
 export type { ChartCardProps, ChartCardState } from "./components/ChartCard.vue";
 export { default as ChartCard } from "./components/ChartCard.vue";
 export { default as ChartFrame } from "./components/ChartFrame.vue";
+export { default as ChartTooltip } from "./components/ChartTooltip.vue";
 export { default as ConfirmDialog } from "./components/ConfirmDialog.vue";
 export { default as DataTable } from "./components/DataTable.vue";
 export { default as DefList } from "./components/DefList.vue";

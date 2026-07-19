@@ -1,35 +1,59 @@
 <script setup lang="ts">
-import { ActionButton, FormInput, SectionPanel } from "@tracepilot/ui";
-import { ref } from "vue";
+import type { ModelPriceEntry } from "@tracepilot/types";
+import { ActionButton, FormInput, SearchInput, SectionPanel } from "@tracepilot/ui";
+import { computed, reactive, ref } from "vue";
 import { usePreferencesStore } from "@/stores/preferences";
 
 const preferences = usePreferencesStore();
 
 const newModelName = ref("");
-const newInputPerM = ref(0);
-const newCachedInputPerM = ref(0);
-const newCacheWritePerM = ref(0);
-const newOutputPerM = ref(0);
-const newPremiumRequests = ref(1);
+const newRates = reactive<Record<RateField, number>>({
+  inputPerM: 0,
+  cachedInputPerM: 0,
+  cacheWritePerM: 0,
+  outputPerM: 0,
+});
+const modelSearch = ref("");
 
-function addModelPrice() {
-  if (!newModelName.value.trim()) return;
-  preferences.addWholesalePrice({
-    model: newModelName.value.trim(),
-    inputPerM: newInputPerM.value,
-    cachedInputPerM: newCachedInputPerM.value,
-    cacheWritePerM: newCacheWritePerM.value,
-    outputPerM: newOutputPerM.value,
-    premiumRequests: newPremiumRequests.value,
-    status: "user-override",
-    sourceLabel: "Local settings override",
-  });
-  newModelName.value = "";
-  newInputPerM.value = 0;
-  newCachedInputPerM.value = 0;
-  newCacheWritePerM.value = 0;
-  newOutputPerM.value = 0;
-  newPremiumRequests.value = 1;
+type RateField = "inputPerM" | "cachedInputPerM" | "cacheWritePerM" | "outputPerM";
+
+const RATE_COLUMNS: readonly {
+  field: RateField;
+  label: string;
+  description: string;
+  step: string;
+}[] = [
+  { field: "inputPerM", label: "Input", description: "Input", step: "0.01" },
+  {
+    field: "cachedInputPerM",
+    label: "Cached read",
+    description: "Cached input",
+    step: "0.001",
+  },
+  {
+    field: "cacheWritePerM",
+    label: "Cache write",
+    description: "Cache write",
+    step: "0.001",
+  },
+  { field: "outputPerM", label: "Output", description: "Output", step: "0.01" },
+];
+
+const FAMILY_DEFINITIONS = [
+  { id: "claude", label: "Anthropic Claude" },
+  { id: "openai", label: "OpenAI" },
+  { id: "gemini", label: "Google Gemini" },
+  { id: "other", label: "Other models" },
+] as const;
+
+type FamilyId = (typeof FAMILY_DEFINITIONS)[number]["id"];
+
+function modelFamily(model: string): FamilyId {
+  const normalized = model.toLowerCase();
+  if (normalized.startsWith("claude-")) return "claude";
+  if (normalized.startsWith("gpt-") || /^o[134]-/.test(normalized)) return "openai";
+  if (normalized.startsWith("gemini-")) return "gemini";
+  return "other";
 }
 
 function sourceLabel(model: string): string {
@@ -55,11 +79,51 @@ function sourceTooltip(model: string): string {
   return `${sourceLabel(model)}\nStatus: ${statusLabel(model)}\nEffective: ${effectiveLabel(model)}`;
 }
 
-function contextLabel(price: { pricingTier?: string; minimumInputTokens?: number }): string {
+function contextLabel(price: Pick<ModelPriceEntry, "pricingTier" | "minimumInputTokens">): string {
   if (price.pricingTier === "long-context" && price.minimumInputTokens != null) {
     return `Long context (>${(price.minimumInputTokens - 1).toLocaleString()} tokens)`;
   }
   return "Default context";
+}
+
+const normalizedSearch = computed(() => modelSearch.value.trim().toLowerCase());
+
+const priceGroups = computed(() =>
+  FAMILY_DEFINITIONS.map((family) => ({
+    ...family,
+    rows: preferences.modelWholesalePrices
+      .map((price, index) => ({ price, index }))
+      .filter(({ price }) => modelFamily(price.model) === family.id)
+      .filter(({ price }) => {
+        if (!normalizedSearch.value) return true;
+        return [price.model, contextLabel(price), sourceLabel(price.model)]
+          .join(" ")
+          .toLowerCase()
+          .includes(normalizedSearch.value);
+      }),
+  })).filter((family) => family.rows.length > 0),
+);
+
+const visibleRateCount = computed(() =>
+  priceGroups.value.reduce((count, family) => count + family.rows.length, 0),
+);
+
+function addModelPrice() {
+  const model = newModelName.value.trim();
+  if (!model) return;
+  preferences.addWholesalePrice({
+    model,
+    ...newRates,
+    premiumRequests: 1,
+    status: "user-override",
+    sourceLabel: "Local settings override",
+  });
+  newModelName.value = "";
+  for (const column of RATE_COLUMNS) newRates[column.field] = 0;
+}
+
+function updateRate(index: number, field: RateField, value: unknown) {
+  preferences.modelWholesalePrices[index][field] = Number(value);
 }
 </script>
 
@@ -67,310 +131,348 @@ function contextLabel(price: { pricingTier?: string; minimumInputTokens?: number
   <div class="settings-section">
     <div class="settings-section-title">AI Credit Tracking</div>
     <p class="pricing-description">
-      Observed AI Credit telemetry is always used when available. These settings only control
-      estimates for historical sessions and models whose AIC telemetry is missing.
+      TracePilot uses the most reliable cost data available for each session. Local fallback rates
+      affect estimates only; they never replace observed AI Credit telemetry.
     </p>
-    <SectionPanel>
-      <div class="setting-row">
-        <div class="setting-info">
-          <div class="setting-label">Legacy cost per premium request</div>
-          <div class="setting-description">
-            Legacy Copilot estimate for premium-request sessions. Usage-based billing uses token rates below and official GitHub Copilot rates where available.
+
+    <div class="fallback-chain" aria-label="AI Credit estimate priority">
+      <div class="fallback-step">
+        <span class="fallback-step-number">1</span>
+        <span><strong>Observed AIC</strong><small>Billing telemetry</small></span>
+      </div>
+      <span class="fallback-chain-arrow" aria-hidden="true">→</span>
+      <div class="fallback-step">
+        <span class="fallback-step-number">2</span>
+        <span><strong>GitHub rate</strong><small>Published token pricing</small></span>
+      </div>
+      <span class="fallback-chain-arrow" aria-hidden="true">→</span>
+      <div class="fallback-step">
+        <span class="fallback-step-number">3</span>
+        <span><strong>Local fallback</strong><small>Rates edited below</small></span>
+      </div>
+    </div>
+
+    <SectionPanel title="AIC Estimate Fallback Rates">
+      <template #actions>
+        <ActionButton size="sm" @click="preferences.resetWholesalePrices()">
+          Reset defaults
+        </ActionButton>
+      </template>
+
+      <p class="pricing-description pricing-description--panel">
+        USD per 1 million tokens. Expand a model family to review or edit its rates.
+      </p>
+
+      <div class="pricing-toolbar">
+        <SearchInput
+          v-model="modelSearch"
+          placeholder="Search models or sources"
+          class="pricing-search"
+        />
+        <span class="pricing-result-count" aria-live="polite">
+          {{ visibleRateCount }} rate{{ visibleRateCount === 1 ? "" : "s" }}
+        </span>
+      </div>
+
+      <div v-if="priceGroups.length" class="pricing-groups">
+        <details
+          v-for="group in priceGroups"
+          :key="group.id"
+          class="pricing-group"
+          :open="Boolean(normalizedSearch)"
+        >
+          <summary class="pricing-group-summary">
+            <span class="pricing-group-chevron" aria-hidden="true" />
+            <span class="pricing-group-name">{{ group.label }}</span>
+            <span class="pricing-group-count">
+              {{ group.rows.length }} rate{{ group.rows.length === 1 ? "" : "s" }}
+            </span>
+          </summary>
+
+          <div class="pricing-table-wrapper">
+            <table class="data-table pricing-table" :aria-label="`${group.label} fallback rates`">
+              <thead>
+                <tr>
+                  <th class="text-left">Model</th>
+                  <th v-for="column in RATE_COLUMNS" :key="column.field">
+                    {{ column.label }}
+                  </th>
+                  <th class="text-left">Source</th>
+                  <th class="pricing-col-action"></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="{ price, index } in group.rows"
+                  :key="`${price.model}:${price.pricingTier ?? 'default'}:${price.minimumInputTokens ?? 0}`"
+                >
+                  <td class="pricing-model-cell">
+                    <span class="font-mono text-xs">{{ price.model }}</span>
+                    <span class="pricing-context">{{ contextLabel(price) }}</span>
+                  </td>
+                  <td v-for="column in RATE_COLUMNS" :key="column.field" class="text-center">
+                    <FormInput
+                      type="number"
+                      :model-value="price[column.field] ?? 0"
+                      @update:model-value="updateRate(index, column.field, $event)"
+                      :step="column.step"
+                      min="0"
+                      class="pricing-input"
+                      :aria-label="`${price.model} ${column.description.toLowerCase()} price per 1M tokens`"
+                    />
+                  </td>
+                  <td class="pricing-meta-cell" :title="sourceTooltip(price.model)">
+                    <span class="pricing-source-label">{{ sourceLabel(price.model) }}</span>
+                    <span class="pricing-source-meta">{{ sourceSummary(price.model) }}</span>
+                  </td>
+                  <td class="text-center">
+                    <button
+                      type="button"
+                      class="pricing-remove-btn"
+                      @click="preferences.removeWholesalePrice(price.model)"
+                      :title="`Remove all fallback rates for ${price.model}`"
+                      :aria-label="`Remove all fallback rates for ${price.model}`"
+                    >&times;</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-        </div>
-        <div class="setting-control-group">
-          <span class="setting-unit">$</span>
-          <FormInput
-            type="number"
-            :model-value="preferences.costPerPremiumRequest"
-            @update:model-value="preferences.costPerPremiumRequest = Number($event)"
-            step="0.01"
-            min="0"
-            class="input-cost"
-            aria-label="Cost per premium request in dollars"
-          />
-        </div>
+        </details>
       </div>
-    </SectionPanel>
+      <div v-else class="pricing-empty">
+        No fallback rates match “{{ modelSearch }}”.
+      </div>
 
-    <div class="pricing-subsection-title">AIC Estimate Fallback Rates</div>
-    <p class="pricing-description">
-      Local direct-API/provider prices ($ per 1M tokens) are the final AIC estimate fallback when
-      GitHub's published Copilot token rate is unavailable. Overrides do not replace observed AIC.
-    </p>
-
-    <SectionPanel>
-      <div class="pricing-table-wrapper">
-        <table class="data-table pricing-table" aria-label="Model wholesale pricing">
-          <thead>
-            <tr>
-              <th class="text-left">Model</th>
-              <th>Context tier</th>
-               <th>Input / 1M</th>
-               <th>Cached / 1M</th>
-               <th>Cache Write / 1M</th>
-               <th>Output / 1M</th>
-               <th>Legacy Req.</th>
-               <th>Source</th>
-               <th class="pricing-col-action"></th>
-             </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="(price, idx) in preferences.modelWholesalePrices"
-              :key="`${price.model}:${price.pricingTier ?? 'default'}:${price.minimumInputTokens ?? 0}`"
-            >
-              <td class="font-mono text-xs">{{ price.model }}</td>
-              <td class="text-center text-xs">{{ contextLabel(price) }}</td>
-              <td class="text-center">
-                <FormInput
-                  type="number"
-                  :model-value="price.inputPerM"
-                  @update:model-value="preferences.modelWholesalePrices[idx].inputPerM = Number($event)"
-                  step="0.01"
-                  min="0"
-                  class="pricing-input"
-                  :aria-label="`${price.model} input price per 1M tokens`"
-                />
-              </td>
-              <td class="text-center">
-                <FormInput
-                  type="number"
-                  :model-value="price.cachedInputPerM"
-                  @update:model-value="preferences.modelWholesalePrices[idx].cachedInputPerM = Number($event)"
-                  step="0.001"
-                  min="0"
-                  class="pricing-input"
-                  :aria-label="`${price.model} cached input price per 1M tokens`"
-                />
-              </td>
-              <td class="text-center">
-                <FormInput
-                  type="number"
-                  :model-value="price.cacheWritePerM ?? 0"
-                  @update:model-value="preferences.modelWholesalePrices[idx].cacheWritePerM = Number($event)"
-                  step="0.001"
-                  min="0"
-                  class="pricing-input"
-                  :aria-label="`${price.model} cache write price per 1M tokens`"
-                />
-              </td>
-              <td class="text-center">
-                <FormInput
-                  type="number"
-                  :model-value="price.outputPerM"
-                  @update:model-value="preferences.modelWholesalePrices[idx].outputPerM = Number($event)"
-                  step="0.01"
-                  min="0"
-                  class="pricing-input"
-                  :aria-label="`${price.model} output price per 1M tokens`"
-                />
-              </td>
-              <td class="text-center">
-                <FormInput
-                  type="number"
-                  :model-value="price.premiumRequests"
-                  @update:model-value="preferences.modelWholesalePrices[idx].premiumRequests = Number($event)"
-                  step="0.01"
-                  min="0"
-                  class="pricing-input"
-                  :aria-label="`${price.model} premium requests`"
-                />
-              </td>
-              <td class="pricing-meta-cell" :title="sourceTooltip(price.model)">
-                <span class="pricing-source-label">{{ sourceLabel(price.model) }}</span>
-                <span class="pricing-source-meta">{{ sourceSummary(price.model) }}</span>
-              </td>
-              <td class="text-center">
-                <button class="pricing-remove-btn" @click="preferences.removeWholesalePrice(price.model)" :title="`Remove ${price.model}`" :aria-label="`Remove pricing for ${price.model}`">&times;</button>
-              </td>
-            </tr>
-            <!-- Add new model row -->
-            <tr class="pricing-add-row">
-              <td>
-                <FormInput
-                  v-model="newModelName"
-                  placeholder="model-name"
-                  class="pricing-model-input"
-                  aria-label="New model name"
-                />
-              </td>
-              <td class="text-center text-xs">Default context</td>
-              <td class="text-center">
-                <FormInput
-                  type="number"
-                  v-model="newInputPerM"
-                  step="0.01"
-                  min="0"
-                  class="pricing-input"
-                  aria-label="New model input price per 1M tokens"
-                />
-              </td>
-              <td class="text-center">
-                <FormInput
-                  type="number"
-                  v-model="newCachedInputPerM"
-                  step="0.001"
-                  min="0"
-                  class="pricing-input"
-                  aria-label="New model cached input price per 1M tokens"
-                />
-              </td>
-              <td class="text-center">
-                <FormInput
-                  type="number"
-                  v-model="newCacheWritePerM"
-                  step="0.001"
-                  min="0"
-                  class="pricing-input"
-                  aria-label="New model cache write price per 1M tokens"
-                />
-              </td>
-              <td class="text-center">
-                <FormInput
-                  type="number"
-                  v-model="newOutputPerM"
-                  step="0.01"
-                  min="0"
-                  class="pricing-input"
-                  aria-label="New model output price per 1M tokens"
-                />
-              </td>
-              <td class="text-center">
-                <FormInput
-                  type="number"
-                  v-model="newPremiumRequests"
-                  step="0.01"
-                  min="0"
-                  class="pricing-input"
-                  aria-label="New model premium requests"
-                />
-              </td>
-              <td class="pricing-meta-cell" title="Local settings override&#10;Status: user-override&#10;Effective: always">
-                <span class="pricing-source-label">Local settings override</span>
-                <span class="pricing-source-meta">user-override · always</span>
-              </td>
-              <td class="text-center">
-                <button class="pricing-add-btn" @click="addModelPrice" :disabled="!newModelName.trim()" title="Add model" aria-label="Add model pricing entry">+</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="pricing-actions">
-        <ActionButton size="sm" @click="preferences.resetWholesalePrices()">Reset to Defaults</ActionButton>
-      </div>
+      <details class="custom-rate">
+        <summary class="custom-rate-summary">Add a custom fallback rate</summary>
+        <div class="custom-rate-form">
+          <label class="custom-rate-field custom-rate-field--model">
+            <span>Model ID</span>
+            <FormInput
+              v-model="newModelName"
+              placeholder="model-name"
+              class="pricing-model-input"
+            />
+          </label>
+          <label v-for="column in RATE_COLUMNS" :key="column.field" class="custom-rate-field">
+            <span>{{ column.label }}</span>
+            <FormInput
+              :model-value="newRates[column.field]"
+              @update:model-value="newRates[column.field] = Number($event)"
+              type="number"
+              :step="column.step"
+              min="0"
+              class="pricing-input"
+            />
+          </label>
+          <ActionButton size="sm" :disabled="!newModelName.trim()" @click="addModelPrice">
+            Add rate
+          </ActionButton>
+        </div>
+      </details>
     </SectionPanel>
   </div>
 </template>
 
 <style scoped>
-.pricing-subsection-title {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-  margin: 12px 0 4px;
+.pricing-description {
+  margin-bottom: 10px;
+  color: var(--text-tertiary);
+  font-size: 0.6875rem;
+  line-height: 1.5;
 }
 
-.pricing-description {
-  font-size: 0.6875rem;
+.pricing-description--panel {
+  margin: 0 0 12px;
+}
+
+.fallback-chain {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--canvas-subtle);
+}
+
+.fallback-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+
+.fallback-step > span:last-child {
+  display: flex;
+  flex-direction: column;
+}
+
+.fallback-step strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.fallback-step small {
   color: var(--text-tertiary);
+  font-size: 0.625rem;
+}
+
+.fallback-step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--accent-muted);
+  color: var(--accent-fg);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.fallback-chain-arrow {
+  color: var(--text-placeholder);
+}
+
+.pricing-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   margin-bottom: 10px;
-  line-height: 1.5;
+}
+
+.pricing-search {
+  flex: 1;
+  max-width: 360px;
+}
+
+.pricing-result-count {
+  color: var(--text-tertiary);
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.pricing-groups {
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.pricing-group + .pricing-group {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.pricing-group-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--canvas-subtle);
+  color: var(--text-secondary);
+  cursor: pointer;
+  list-style: none;
+  transition: background var(--transition-fast);
+}
+
+.pricing-group-summary::-webkit-details-marker {
+  display: none;
+}
+
+.pricing-group-summary:hover {
+  background: var(--canvas-raised);
+}
+
+.pricing-group-summary:focus-visible {
+  outline: 2px solid var(--accent-emphasis);
+  outline-offset: -2px;
+}
+
+.pricing-group-chevron {
+  width: 7px;
+  height: 7px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform var(--transition-fast);
+}
+
+.pricing-group[open] .pricing-group-chevron {
+  transform: rotate(45deg);
+}
+
+.pricing-group-name {
+  color: var(--text-primary);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.pricing-group-count {
+  margin-left: auto;
+  color: var(--text-tertiary);
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .pricing-table-wrapper {
   overflow-x: auto;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.pricing-table {
+  min-width: 780px;
 }
 
 .pricing-table th {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--text-tertiary);
   padding: 8px 6px;
+  color: var(--text-tertiary);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 
 .pricing-table td {
-  padding: 4px 6px;
+  padding: 6px;
   vertical-align: middle;
 }
 
-.pricing-remove-btn {
-  background: none;
-  border: none;
-  color: var(--danger-fg);
-  font-size: 1.125rem;
-  cursor: pointer;
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
-  line-height: 1;
-  opacity: 0.6;
-  transition: opacity 100ms ease;
+.pricing-model-cell {
+  min-width: 170px;
 }
 
-.pricing-remove-btn:hover {
-  opacity: 1;
-  background: var(--danger-subtle);
-}
-
-.pricing-add-btn {
-  background: none;
-  border: 1px solid var(--border-default);
-  color: var(--accent-fg);
-  font-size: 1rem;
-  cursor: pointer;
-  padding: 2px 8px;
-  border-radius: var(--radius-sm);
-  line-height: 1;
-  transition: all 100ms ease;
-}
-
-.pricing-add-btn:hover:not(:disabled) {
-  background: var(--accent-subtle);
-}
-
-.pricing-add-btn:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
-.pricing-add-row td {
-  padding-top: 8px;
-  border-top: 1px solid var(--border-subtle);
-}
-
-.pricing-actions {
-  padding: 10px 16px;
-  border-top: 1px solid var(--border-subtle);
-  display: flex;
-  justify-content: flex-end;
-}
-
-.pricing-col-action {
-  width: 40px;
+.pricing-context {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-tertiary);
+  font-size: 0.625rem;
 }
 
 .pricing-input {
-  width: 80px;
-  text-align: center;
+  width: 76px;
   font-size: 0.75rem;
+  text-align: center;
 }
 
 .pricing-model-input {
-  width: 140px;
-  font-family: 'JetBrains Mono', monospace;
+  width: 180px;
+  font-family: "JetBrains Mono", monospace;
   font-size: 0.75rem;
 }
 
 .pricing-meta-cell {
-  max-width: 190px;
+  width: 170px;
+  max-width: 170px;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   color: var(--text-tertiary);
   font-size: 0.6875rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pricing-source-label,
@@ -383,5 +485,79 @@ function contextLabel(price: { pricingTier?: string; minimumInputTokens?: number
 .pricing-source-label {
   color: var(--text-secondary);
   font-weight: 600;
+}
+
+.pricing-col-action {
+  width: 40px;
+}
+
+.pricing-remove-btn {
+  padding: 2px 6px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--danger-fg);
+  cursor: pointer;
+  font-size: 1.125rem;
+  line-height: 1;
+  opacity: 0.6;
+  transition: opacity 100ms ease;
+}
+
+.pricing-remove-btn:hover {
+  background: var(--danger-subtle);
+  opacity: 1;
+}
+
+.pricing-empty {
+  padding: 24px;
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-tertiary);
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.custom-rate {
+  margin-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.custom-rate-summary {
+  width: fit-content;
+  padding: 10px 0 4px;
+  color: var(--accent-fg);
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.custom-rate-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  padding-top: 10px;
+  overflow-x: auto;
+}
+
+.custom-rate-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+  font-size: 0.625rem;
+  font-weight: 600;
+}
+
+@media (max-width: 760px) {
+  .fallback-chain {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .fallback-chain-arrow {
+    display: none;
+  }
 }
 </style>

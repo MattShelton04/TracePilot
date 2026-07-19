@@ -41,6 +41,9 @@ function mountFrame(overrides: Record<string, unknown> = {}) {
       tooltip: makeTooltip(),
       ...overrides,
     },
+    global: {
+      stubs: { Teleport: true },
+    },
   });
 }
 

@@ -199,14 +199,14 @@ describe("AnalyticsDashboardView", () => {
     expect(wrapper.text()).not.toContain("API Duration");
   });
 
-  it("renders the AIC-first trend with a legacy compatibility toggle", async () => {
+  it("renders the USD-first cost trend with an AI Credit compatibility toggle", async () => {
     mockGetAnalytics.mockResolvedValue(FIXTURE_ANALYTICS);
     const Component = await loadAnalyticsDashboard();
     const wrapper = mount(Component, globalStubs);
 
     await flushPromises();
 
-    expect(wrapper.text()).toContain("AI Credit Trend");
+    expect(wrapper.text()).toContain("Cost Trend");
 
     const radios = wrapper.findAll('[role="radio"]');
     const aiCreditsBtn = radios.find((b) => b.text().includes("AI Credits"));
@@ -215,11 +215,11 @@ describe("AnalyticsDashboardView", () => {
     expect(legacyBtn).toBeTruthy();
     expect(aiCreditsBtn!.attributes("aria-checked")).toBe("true");
     expect(legacyBtn!.attributes("aria-checked")).toBe("false");
-    expect(wrapper.text()).toContain("Dollar equivalent: 1 AIC = $0.01");
+    expect(wrapper.text()).not.toContain("Dollar equivalent:");
 
     const chartSvg = wrapper
       .findAll("svg")
-      .find((s) => /AI Credit usage/i.test(s.attributes("aria-label") ?? ""));
+      .find((s) => /AI Credit cost in US dollars/i.test(s.attributes("aria-label") ?? ""));
     expect(chartSvg).toBeTruthy();
   });
 
@@ -237,8 +237,7 @@ describe("AnalyticsDashboardView", () => {
     await legacyBtn!.trigger("click");
     await flushPromises();
 
-    expect(wrapper.text()).toContain("Legacy Premium Cost Trend");
-    expect(wrapper.text()).not.toContain("AI Credit Trend");
+    expect(wrapper.text()).toContain("Cost Trend");
     expect(wrapper.text()).not.toContain("Dollar equivalent:");
     expect(legacyBtn!.attributes("aria-checked")).toBe("true");
 
@@ -386,6 +385,53 @@ describe("CodeImpactView", () => {
     expect(wrapper.text()).toContain("Changes Over Time");
     const svgs = wrapper.findAll("svg");
     expect(svgs.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("shows timeline details when hovering the code chart", async () => {
+    mockGetCodeImpact.mockResolvedValue(FIXTURE_CODE_IMPACT);
+    const Component = await loadCodeImpact();
+    const wrapper = mount(Component, globalStubs);
+    await flushPromises();
+
+    const svgWrapper = wrapper.find(".code-timeline-chart svg");
+    const svg = svgWrapper.element as SVGSVGElement;
+    Object.defineProperty(svg, "createSVGPoint", {
+      configurable: true,
+      value: () => ({
+        x: 0,
+        y: 0,
+        matrixTransform: () => ({ x: 365, y: 100 }),
+      }),
+    });
+    Object.defineProperty(svg, "getScreenCTM", {
+      configurable: true,
+      value: () => ({ inverse: () => ({}) }),
+    });
+
+    await svgWrapper.trigger("mousemove", { clientX: 100, clientY: 100 });
+    await flushPromises();
+
+    expect(document.body.querySelector('[role="tooltip"]')?.textContent).toContain("+300 / -80");
+    wrapper.unmount();
+  });
+
+  it("strides dense date labels in the changes chart", async () => {
+    const changesByDay = Array.from({ length: 30 }, (_, index) => ({
+      date: `2025-01-${String(index + 1).padStart(2, "0")}`,
+      additions: index + 1,
+      deletions: index,
+    }));
+    mockGetCodeImpact.mockResolvedValue({ ...FIXTURE_CODE_IMPACT, changesByDay });
+    const Component = await loadCodeImpact();
+    const wrapper = mount(Component, globalStubs);
+
+    await flushPromises();
+
+    const xLabels = wrapper
+      .findAll(".code-timeline-chart .chart-label")
+      .filter((label) => label.attributes("text-anchor") === "middle");
+    expect(xLabels.length).toBeGreaterThan(0);
+    expect(xLabels.length).toBeLessThanOrEqual(8);
   });
 
   it("shows positive net change with correct label", async () => {
