@@ -83,65 +83,27 @@ describe("useChartTooltip", () => {
   });
 
   describe("positionTooltip", () => {
-    it("clamps tooltip x to minimum 40", () => {
+    it("stores viewport-relative pointer coordinates", () => {
       const w = createWrapper();
-
       const container = document.createElement("div");
-      Object.defineProperty(container, "getBoundingClientRect", {
-        value: () => ({ left: 100, top: 200, width: 500, height: 300 }),
-      });
-      vi.spyOn(window, "getComputedStyle").mockReturnValue({
-        paddingLeft: "10",
-        paddingTop: "10",
-      } as unknown as CSSStyleDeclaration);
-
       const event = { clientX: 110, clientY: 250 } as MouseEvent;
       w.vm.positionTooltip(event, container);
 
-      // rawX = 110 - 100 - 10 = 0 → clamped to 40
-      expect(w.vm.tooltip.x).toBe(40);
-      // rawY = 250 - 200 - 10 = 40 → max(20, 40) = 40
-      expect(w.vm.tooltip.y).toBe(40);
+      expect(w.vm.tooltip.x).toBe(110);
+      expect(w.vm.tooltip.y).toBe(250);
     });
 
-    it("clamps tooltip x to maximum (width - 2*padLeft - 40)", () => {
+    it("clamps coordinates to the viewport", () => {
       const w = createWrapper();
-
       const container = document.createElement("div");
-      Object.defineProperty(container, "getBoundingClientRect", {
-        value: () => ({ left: 0, top: 0, width: 200, height: 300 }),
-      });
-      vi.spyOn(window, "getComputedStyle").mockReturnValue({
-        paddingLeft: "10",
-        paddingTop: "10",
-      } as unknown as CSSStyleDeclaration);
-
-      const event = { clientX: 190, clientY: 50 } as MouseEvent;
+      const event = {
+        clientX: window.innerWidth + 100,
+        clientY: -20,
+      } as MouseEvent;
       w.vm.positionTooltip(event, container);
 
-      // rawX = 190 - 0 - 10 = 180
-      // max bound = 200 - 20 - 40 = 140
-      // clamped to min(180, 140) = 140, max(40, 140) = 140
-      expect(w.vm.tooltip.x).toBe(140);
-    });
-
-    it("clamps tooltip y to minimum 20", () => {
-      const w = createWrapper();
-
-      const container = document.createElement("div");
-      Object.defineProperty(container, "getBoundingClientRect", {
-        value: () => ({ left: 0, top: 100, width: 500, height: 300 }),
-      });
-      vi.spyOn(window, "getComputedStyle").mockReturnValue({
-        paddingLeft: "0",
-        paddingTop: "0",
-      } as unknown as CSSStyleDeclaration);
-
-      const event = { clientX: 100, clientY: 105 } as MouseEvent;
-      w.vm.positionTooltip(event, container);
-
-      // rawY = 105 - 100 - 0 = 5 → max(20, 5) = 20
-      expect(w.vm.tooltip.y).toBe(20);
+      expect(w.vm.tooltip.x).toBe(window.innerWidth);
+      expect(w.vm.tooltip.y).toBe(0);
     });
   });
 

@@ -14,8 +14,8 @@ export interface UseChartTooltipReturn {
   /** Reactive tooltip state — bind to template for rendering. */
   tooltip: ChartTooltipState;
   /**
-   * Compute container-relative position from a mouse event and clamp
-   * so the tooltip stays within the container bounds.
+   * Capture a viewport-relative pointer position. The shared ChartTooltip
+   * measures and clamps its rendered content to the viewport.
    */
   positionTooltip: (event: MouseEvent, container: HTMLElement) => void;
   /** Reset tooltip to hidden/unpinned state. */
@@ -79,15 +79,11 @@ export function useChartTooltip(): UseChartTooltipReturn {
     highlightIndex: -1,
   });
 
-  function positionTooltip(event: MouseEvent, container: HTMLElement): void {
-    const rect = container.getBoundingClientRect();
-    const style = getComputedStyle(container);
-    const padLeft = parseFloat(style.paddingLeft) || 0;
-    const padTop = parseFloat(style.paddingTop) || 0;
-    const rawX = event.clientX - rect.left - padLeft;
-    const rawY = event.clientY - rect.top - padTop;
-    tooltip.x = Math.max(40, Math.min(rawX, rect.width - padLeft * 2 - 40));
-    tooltip.y = Math.max(20, rawY);
+  function positionTooltip(event: MouseEvent, _container: HTMLElement): void {
+    const viewportWidth = typeof window === "undefined" ? event.clientX : window.innerWidth;
+    const viewportHeight = typeof window === "undefined" ? event.clientY : window.innerHeight;
+    tooltip.x = Math.min(Math.max(event.clientX, 0), viewportWidth);
+    tooltip.y = Math.min(Math.max(event.clientY, 0), viewportHeight);
   }
 
   function dismissTooltip(): void {

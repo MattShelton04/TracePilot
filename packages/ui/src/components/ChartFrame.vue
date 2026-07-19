@@ -26,6 +26,7 @@
 
 import type { ChartTooltipState } from "../composables/useChartTooltip";
 import type { ChartLayout, XAxisLabel, YAxisLabel } from "../utils/chartGeometry";
+import ChartTooltip from "./ChartTooltip.vue";
 
 withDefaults(
   defineProps<{
@@ -134,13 +135,7 @@ const emit = defineEmits<{
       >{{ xl.label }}</text>
     </svg>
 
-    <!-- Tooltip (only shown when this chart is the active tooltip target) -->
-    <div
-      v-if="tooltip.visible && tooltip.chartId === chartId"
-      class="chart-tooltip"
-      :class="{ 'chart-tooltip--pinned': tooltip.pinned }"
-      :style="{ left: tooltip.x + 'px', top: (tooltip.y - 36) + 'px' }"
-    >{{ tooltip.content }}</div>
+    <ChartTooltip :tooltip="tooltip" :chart-id="chartId" />
 
     <slot name="footer" />
   </div>

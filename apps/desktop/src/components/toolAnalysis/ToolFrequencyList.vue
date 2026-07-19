@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ToolUsageEntry } from "@tracepilot/types";
 import { formatNumberFull } from "@tracepilot/types";
-import { useChartTooltip } from "@tracepilot/ui";
+import { ChartTooltip, useChartTooltip } from "@tracepilot/ui";
 
 defineProps<{
   tools: readonly ToolUsageEntry[];
@@ -35,12 +35,7 @@ const { tooltip, dismissTooltip, onBarMouseEnter } = useChartTooltip();
           <span class="tool-frequency__count">{{ formatNumberFull(tool.callCount) }}</span>
         </div>
       </div>
-      <div
-        v-if="tooltip.visible && tooltip.chartId === 'frequency'"
-        class="chart-tooltip"
-        :class="{ 'chart-tooltip--pinned': tooltip.pinned }"
-        :style="{ left: tooltip.x + 'px', top: (tooltip.y - 36) + 'px' }"
-      >{{ tooltip.content }}</div>
+      <ChartTooltip :tooltip="tooltip" chart-id="frequency" />
     </div>
   </div>
 </template>

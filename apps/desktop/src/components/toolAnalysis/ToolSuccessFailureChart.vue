@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ToolUsageEntry } from "@tracepilot/types";
 import { formatNumberFull, formatRate } from "@tracepilot/types";
-import { useChartTooltip } from "@tracepilot/ui";
+import { ChartTooltip, useChartTooltip } from "@tracepilot/ui";
 import { computed } from "vue";
 import { CHART_COLORS } from "@/utils/chartColors";
 
@@ -146,12 +146,7 @@ function onClick(event: MouseEvent) {
           class="chart-overlay"
         />
       </svg>
-      <div
-        v-if="tooltip.visible && tooltip.chartId === 'success-failure'"
-        class="chart-tooltip"
-        :class="{ 'chart-tooltip--pinned': tooltip.pinned }"
-        :style="{ left: tooltip.x + 'px', top: (tooltip.y - 36) + 'px' }"
-      >{{ tooltip.content }}</div>
+      <ChartTooltip :tooltip="tooltip" chart-id="success-failure" />
     </div>
   </div>
 </template>

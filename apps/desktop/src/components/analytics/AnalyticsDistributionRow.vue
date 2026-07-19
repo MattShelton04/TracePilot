@@ -72,53 +72,52 @@ const costBasis = ref<CostBasis>("aiCredits");
 
 const isAiCredits = computed(() => costBasis.value === "aiCredits");
 
-const costPanelTitle = computed(() =>
-  isAiCredits.value ? "AI Credit Trend" : "Legacy Premium Cost Trend",
-);
-
 const costColor = computed(() => (isAiCredits.value ? CHART_COLORS.success : CHART_COLORS.primary));
 const costColorLight = computed(() =>
   isAiCredits.value ? CHART_COLORS.successLight : CHART_COLORS.primaryLight,
 );
 
-const costPoints = computed(() =>
-  buildAnalyticsCostSeries(
+const costPoints = computed(() => {
+  const points = buildAnalyticsCostSeries(
     props.data,
     costBasis.value,
     prefs.costPerPremiumRequest,
     prefs.computeWholesaleCost,
     prefs.computeUsageBasedCost,
-  ),
-);
+  );
+  return points.map((point) => ({
+    ...point,
+    aiCredits: isAiCredits.value ? point.cost : null,
+    cost: isAiCredits.value ? point.cost * AI_CREDIT_USD : point.cost,
+  }));
+});
 
 const { chartData: costChart } = useLineAreaChartData({
   data: costPoints,
   layout: props.chartLayout,
   accessor: (p) => p.cost,
   yTicks: 4,
-  yFormatter: (value) => (isAiCredits.value ? formatAiCredits(value) : formatCost(value)),
+  yFormatter: formatCost,
   maxFloor: 0.01,
 });
 
 const costAriaLabel = computed(
   () =>
-    `Area chart showing daily ${isAiCredits.value ? "AI Credit usage" : "legacy premium cost"} over ${props.timeRangeLabel}`,
+    `Area chart showing daily ${isAiCredits.value ? "AI Credit cost in US dollars" : "legacy premium cost"} over ${props.timeRangeLabel}`,
 );
 
 const tooltipFormatter = (i: number) => {
   const point = costChart.value?.coords[i];
   return point
-    ? `${formatDateMedium(point.date)} — ${
-        isAiCredits.value
-          ? `${formatAiCredits(point.cost)} (${formatCost(point.cost * AI_CREDIT_USD)})`
-          : formatCost(point.cost)
+    ? `${formatDateMedium(point.date)} — ${formatCost(point.cost)}${
+        point.aiCredits == null ? "" : ` · ${formatAiCredits(point.aiCredits)}`
       }`
     : "";
 };
 </script>
 
 <template>
-  <div class="grid-2 mb-4">
+  <div class="grid-2 mb-4 analytics-distribution-grid">
     <!-- Model Distribution (Donut) -->
     <SectionPanel title="Model Distribution">
       <template #actions>
@@ -159,7 +158,7 @@ const tooltipFormatter = (i: number) => {
             @mouseleave="hoveredDonut = null"
           >
             <span class="donut-legend-dot" :style="{ background: DONUT_COLORS[si % DONUT_COLORS.length] }" />
-            <span>{{ m.model }}</span>
+            <span class="donut-legend-model" :title="m.model">{{ m.model }}</span>
             <span class="donut-legend-pct">{{ m.percentage.toFixed(0) }}%</span>
             <span class="donut-legend-requests" :title="`${formatNumberFull(m.requestCount)} API requests`">{{ formatNumberFull(m.requestCount) }} req</span>
           </div>
@@ -168,7 +167,7 @@ const tooltipFormatter = (i: number) => {
     </SectionPanel>
 
     <!-- Cost Trend -->
-    <SectionPanel :title="costPanelTitle">
+    <SectionPanel title="Cost Trend">
       <template #actions>
         <div
           class="cost-basis-switch"
@@ -213,10 +212,6 @@ const tooltipFormatter = (i: number) => {
         @click="onChartClick($event, costChart.coords, tooltipFormatter, 'cost', '.chart-frame')"
         @dismiss-tooltip="dismissTooltip"
       />
-      <div v-if="isAiCredits" class="cost-equivalence">
-        Dollar equivalent: 1 AIC = {{ formatCost(AI_CREDIT_USD) }}. Daily USD values are shown in
-        chart tooltips.
-      </div>
     </SectionPanel>
   </div>
 </template>
@@ -227,22 +222,46 @@ const tooltipFormatter = (i: number) => {
   align-items: center;
   gap: 24px;
   padding: 18px;
+  min-width: 0;
+}
+
+.analytics-distribution-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.analytics-distribution-grid :deep(.section-panel) {
+  min-width: 0;
 }
 
 .donut-legend {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  flex: 1;
+  min-width: 0;
+  max-height: 160px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-right: 6px;
+  scrollbar-gutter: stable;
 }
 
 .donut-legend-item {
-  display: flex;
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 8px;
   font-size: 0.8125rem;
   color: var(--text-secondary);
   cursor: default;
   transition: color var(--transition-fast, 0.15s);
+}
+
+.donut-legend-model {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .donut-legend-item--active {
@@ -284,12 +303,6 @@ const tooltipFormatter = (i: number) => {
 .donut-segment {
   cursor: default;
   transition: stroke-width 0.15s ease;
-}
-
-.cost-equivalence {
-  padding: 0 18px 12px;
-  color: var(--text-tertiary);
-  font-size: 0.6875rem;
 }
 
 .more-info-link {

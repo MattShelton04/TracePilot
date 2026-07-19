@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  ChartTooltip,
   computeGridLines,
   createChartLayout,
   ErrorState,
@@ -139,12 +140,7 @@ const timelineChart = computed(() => {
                   </div>
                   <span class="token-bar-value">{{ ft.count }} files</span>
                 </div>
-                <div
-                  v-if="tooltip.visible && tooltip.chartId === 'file-types'"
-                  class="chart-tooltip"
-                  :class="{ 'chart-tooltip--pinned': tooltip.pinned }"
-                  :style="{ left: tooltip.x + 'px', top: (tooltip.y - 36) + 'px' }"
-                >{{ tooltip.content }}</div>
+                <ChartTooltip :tooltip="tooltip" chart-id="file-types" />
               </div>
             </div>
 
@@ -167,12 +163,7 @@ const timelineChart = computed(() => {
                     <div class="churn-bar-add" style="width: 100%" />
                   </div>
                 </div>
-                <div
-                  v-if="tooltip.visible && tooltip.chartId === 'modified-files'"
-                  class="chart-tooltip"
-                  :class="{ 'chart-tooltip--pinned': tooltip.pinned }"
-                  :style="{ left: tooltip.x + 'px', top: (tooltip.y - 36) + 'px' }"
-                >{{ tooltip.content }}</div>
+                <ChartTooltip :tooltip="tooltip" chart-id="modified-files" />
               </div>
             </div>
           </div>
@@ -282,13 +273,7 @@ const timelineChart = computed(() => {
                     class="chart-label"
                   >{{ xl.label }}</text>
                 </svg>
-                <!-- Tooltip -->
-                <div
-                  v-if="tooltip.visible && tooltip.chartId === 'timeline'"
-                  class="chart-tooltip"
-                  :class="{ 'chart-tooltip--pinned': tooltip.pinned }"
-                  :style="{ left: tooltip.x + 'px', top: (tooltip.y - 36) + 'px' }"
-                >{{ tooltip.content }}</div>
+                <ChartTooltip :tooltip="tooltip" chart-id="timeline" />
               </div>
             </div>
           </div>

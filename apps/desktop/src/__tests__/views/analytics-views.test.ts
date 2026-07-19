@@ -199,14 +199,14 @@ describe("AnalyticsDashboardView", () => {
     expect(wrapper.text()).not.toContain("API Duration");
   });
 
-  it("renders the AIC-first trend with a legacy compatibility toggle", async () => {
+  it("renders the USD-first cost trend with an AI Credit compatibility toggle", async () => {
     mockGetAnalytics.mockResolvedValue(FIXTURE_ANALYTICS);
     const Component = await loadAnalyticsDashboard();
     const wrapper = mount(Component, globalStubs);
 
     await flushPromises();
 
-    expect(wrapper.text()).toContain("AI Credit Trend");
+    expect(wrapper.text()).toContain("Cost Trend");
 
     const radios = wrapper.findAll('[role="radio"]');
     const aiCreditsBtn = radios.find((b) => b.text().includes("AI Credits"));
@@ -215,11 +215,11 @@ describe("AnalyticsDashboardView", () => {
     expect(legacyBtn).toBeTruthy();
     expect(aiCreditsBtn!.attributes("aria-checked")).toBe("true");
     expect(legacyBtn!.attributes("aria-checked")).toBe("false");
-    expect(wrapper.text()).toContain("Dollar equivalent: 1 AIC = $0.01");
+    expect(wrapper.text()).not.toContain("Dollar equivalent:");
 
     const chartSvg = wrapper
       .findAll("svg")
-      .find((s) => /AI Credit usage/i.test(s.attributes("aria-label") ?? ""));
+      .find((s) => /AI Credit cost in US dollars/i.test(s.attributes("aria-label") ?? ""));
     expect(chartSvg).toBeTruthy();
   });
 
@@ -237,8 +237,7 @@ describe("AnalyticsDashboardView", () => {
     await legacyBtn!.trigger("click");
     await flushPromises();
 
-    expect(wrapper.text()).toContain("Legacy Premium Cost Trend");
-    expect(wrapper.text()).not.toContain("AI Credit Trend");
+    expect(wrapper.text()).toContain("Cost Trend");
     expect(wrapper.text()).not.toContain("Dollar equivalent:");
     expect(legacyBtn!.attributes("aria-checked")).toBe("true");
 
