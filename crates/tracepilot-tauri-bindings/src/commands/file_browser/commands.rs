@@ -4,7 +4,8 @@ use super::security::{
     collect_entries, reject_hidden_filename, revalidate_within_session_dir, safe_session_file_path,
 };
 use super::types::{
-    MAX_READ_BYTES, MAX_SQLITE_ROWS_PER_TABLE, MAX_SQLITE_TABLES, SessionFileEntry, SessionFileType,
+    MAX_FULL_READ_BYTES, MAX_READ_BYTES, MAX_SQLITE_ROWS_PER_TABLE, MAX_SQLITE_TABLES,
+    SessionFileEntry, SessionFileType,
 };
 use crate::blocking_cmd;
 use crate::config::SharedConfig;
@@ -54,7 +55,9 @@ pub async fn session_list_files(
 /// Read the text content of a file within a session directory.
 ///
 /// Returns the file contents as a UTF-8 string. Files exceeding
-/// [`MAX_READ_BYTES`] are truncated with a trailing notice.
+/// [`MAX_READ_BYTES`] are truncated with a trailing notice. When `full` is
+/// explicitly requested, the bounded limit increases to
+/// [`MAX_FULL_READ_BYTES`].
 /// Binary files (`.db`, `.sqlite`, etc.) cannot be read and return an error.
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(%session_id, %relative_path))]
@@ -62,6 +65,7 @@ pub async fn session_read_file(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,
     relative_path: String,
+    full: Option<bool>,
 ) -> CmdResult<String> {
     crate::validators::validate_session_id(&session_id)?;
 
@@ -97,9 +101,11 @@ pub async fn session_read_file(
             .file_name()
             .map(|n| n.to_string_lossy().to_string())
             .unwrap_or_default();
-        if SessionFileType::from_name(&file_name) == SessionFileType::Binary
-            || SessionFileType::from_name(&file_name) == SessionFileType::Sqlite
-        {
+        let file_type = SessionFileType::from_name(&file_name);
+        if matches!(
+            file_type,
+            SessionFileType::Binary | SessionFileType::Image | SessionFileType::Sqlite
+        ) {
             return Err(BindingsError::Validation(format!(
                 "'{}' is a binary file and cannot be displayed as text",
                 relative_path
@@ -111,12 +117,17 @@ pub async fn session_read_file(
         // read (relevant for active sessions where events.jsonl grows rapidly).
         use std::io::Read as _;
         let file = std::fs::File::open(&file_path)?;
+        let read_limit = if full.unwrap_or(false) {
+            MAX_FULL_READ_BYTES
+        } else {
+            MAX_READ_BYTES
+        };
         let mut buf = Vec::new();
         // take(MAX + 1) lets us detect truncation without a separate metadata call.
-        let n = file.take(MAX_READ_BYTES + 1).read_to_end(&mut buf)?;
-        let truncated = n > MAX_READ_BYTES as usize;
+        let n = file.take(read_limit + 1).read_to_end(&mut buf)?;
+        let truncated = n > read_limit as usize;
         if truncated {
-            buf.truncate(MAX_READ_BYTES as usize);
+            buf.truncate(read_limit as usize);
             // Walk back to the last valid UTF-8 boundary so we don't split a
             // multi-byte codepoint at the cut point (continuation bytes have
             // the high bits 0b10xxxxxx, i.e. (byte & 0xC0) == 0x80).
@@ -129,7 +140,7 @@ pub async fn session_read_file(
         if truncated {
             content.push_fmt(format_args!(
                 "\n\n[... file truncated — showing first {} bytes ...]",
-                MAX_READ_BYTES
+                read_limit
             ));
         }
 

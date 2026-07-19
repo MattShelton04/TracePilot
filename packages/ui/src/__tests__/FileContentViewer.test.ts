@@ -43,6 +43,28 @@ describe("FileContentViewer", () => {
     expect(wrapper.text()).not.toBe("");
   });
 
+  it("renders a sanitized image preview for image fileType", () => {
+    const wrapper = mount(FileContentViewer, {
+      props: {
+        filePath: "files/screenshot.png",
+        fileType: "image",
+        imagePreview: {
+          base64Data: "c2FmZS1wbmc=",
+          width: 800,
+          height: 600,
+          originalWidth: 800,
+          originalHeight: 600,
+          originalSizeBytes: 1024,
+          originalFormat: "png",
+          wasDownscaled: false,
+          animationOmitted: false,
+        },
+      },
+    });
+    expect(wrapper.find("img").attributes("src")).toBe("data:image/png;base64,c2FmZS1wbmc=");
+    expect(wrapper.text()).toContain("800×600");
+  });
+
   it("renders file header and content for text content", () => {
     const wrapper = mount(FileContentViewer, {
       props: {
@@ -67,6 +89,42 @@ describe("FileContentViewer", () => {
     expect(wrapper.find(".fcv__content").exists()).toBe(true);
     // MarkdownContent or CodeBlock should be rendered inside .fcv__content
     expect(wrapper.find(".fcv__content").html()).toBeTruthy();
+  });
+
+  it("renders JSON, JSONL, and CSV with structured viewers", () => {
+    const json = mount(FileContentViewer, {
+      props: { filePath: "data.json", fileType: "json", content: '{"ok":true}' },
+    });
+    expect(json.find(".structured-viewer__tree").exists()).toBe(true);
+
+    const jsonl = mount(FileContentViewer, {
+      props: {
+        filePath: "events.jsonl",
+        fileType: "jsonl",
+        content: '{"type":"session.start","id":"123456789"}\n',
+      },
+    });
+    expect(jsonl.find(".jsonl-viewer__records").exists()).toBe(true);
+    expect(jsonl.text()).toContain("session.start");
+
+    const csv = mount(FileContentViewer, {
+      props: { filePath: "data.csv", fileType: "csv", content: "name,value\nalpha,1\n" },
+    });
+    expect(csv.find(".csv-viewer__table").exists()).toBe(true);
+    expect(csv.text()).toContain("alpha");
+  });
+
+  it("offers an explicit larger bounded read for truncated previews", async () => {
+    const wrapper = mount(FileContentViewer, {
+      props: {
+        filePath: "events.jsonl",
+        fileType: "jsonl",
+        content: "{}",
+        canLoadMore: true,
+      },
+    });
+    await wrapper.get(".fcv__load-more button").trigger("click");
+    expect(wrapper.emitted("load-full")).toHaveLength(1);
   });
 
   it("does NOT show binary placeholder for non-binary types with undefined content", () => {

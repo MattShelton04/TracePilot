@@ -49,6 +49,8 @@ semver = "1"
 copilot-sdk = { git = "https://github.com/copilot-community-sdk/copilot-sdk-rust.git", rev = "2946ba1", package = "copilot-sdk" }
 rayon = "1.10"
 dashmap = "6"
+base64 = "0.22"
+image = { version = "0.25.10", default-features = false, features = ["gif", "jpeg", "png", "webp"] }
 
 # ── Rust ↔ TS contract codegen (Phase 1B.1 pilot) ────────────────
 # Locked to a compatible trio per tauri-specta release notes. Bump these

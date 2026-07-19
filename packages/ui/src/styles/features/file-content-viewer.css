@@ -192,6 +192,33 @@
   padding: 16px 20px;
 }
 
+.fcv__load-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--attention-muted, var(--canvas-subtle));
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+
+.fcv__load-more button {
+  padding: 4px 9px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--canvas-default);
+  color: var(--accent-fg);
+  cursor: pointer;
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+.fcv__load-more button:hover {
+  background: var(--canvas-inset);
+}
+
 /* ── SQLite database viewer ──────────────────────────────── */
 .fcv__db-header {
   display: flex;

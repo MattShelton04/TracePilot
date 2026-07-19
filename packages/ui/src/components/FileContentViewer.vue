@@ -4,14 +4,20 @@
  *
  * Dispatches to:
  *  - MarkdownContent for `.md` / `markdown` files
- *  - CodeBlock for text-based files (json, jsonl, yaml, toml, text, etc.)
+ *  - Structured viewers for JSON, JSONL, and CSV/TSV
+ *  - ImageFileViewer for sanitized raster previews
+ *  - CodeBlock for other text-based files
  *  - SqliteViewer for SQLite databases (table data)
  *  - A placeholder for binary files
  *  - An empty state when no file is selected
  */
-import type { SessionDbTable, SessionFileType } from "@tracepilot/types";
+import type { SessionDbTable, SessionFileType, SessionImagePreview } from "@tracepilot/types";
 import { computed, ref, watch } from "vue";
 import { useClipboard } from "../composables/useClipboard";
+import CsvFileViewer from "./file-viewers/CsvFileViewer.vue";
+import ImageFileViewer from "./file-viewers/ImageFileViewer.vue";
+import JsonFileViewer from "./file-viewers/JsonFileViewer.vue";
+import JsonlFileViewer from "./file-viewers/JsonlFileViewer.vue";
 import MarkdownContent from "./MarkdownContent.vue";
 import CodeBlock from "./renderers/CodeBlock.vue";
 import SqliteTableView from "./SqliteTableView.vue";
@@ -28,6 +34,10 @@ const props = defineProps<{
   fileType?: SessionFileType;
   /** SQLite table data returned by `session_read_sqlite`. */
   dbData?: SessionDbTable[];
+  /** Sanitized raster preview returned by `session_read_image_preview`. */
+  imagePreview?: SessionImagePreview;
+  /** Whether a larger bounded text read is available on explicit request. */
+  canLoadMore?: boolean;
   /** Whether the file is currently loading. */
   loading?: boolean;
   /** Error message if loading failed. */
@@ -37,6 +47,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   /** Re-emitted from MarkdownContent — parent handles OS open (Tauri). */
   "open-external": [url: string];
+  "load-full": [];
 }>();
 
 const isMarkdown = computed(
@@ -48,9 +59,13 @@ const isMarkdown = computed(
 
 const isSqlite = computed(() => props.fileType === "sqlite");
 
+const isImage = computed(() => props.fileType === "image");
+
 const isBinary = computed(() => props.fileType === "binary");
 
 const isJsonl = computed(() => props.fileType === "jsonl");
+const isJson = computed(() => props.fileType === "json");
+const isCsv = computed(() => props.fileType === "csv");
 
 const codeLanguage = computed(() => {
   if (isJsonl.value) return "json";
@@ -151,6 +166,41 @@ function copyTableAsJson() {
       </svg>
       <span class="fcv__error-text">{{ error }}</span>
     </div>
+
+    <!-- Sanitized raster image preview -->
+    <template v-else-if="isImage">
+      <template v-if="imagePreview">
+        <div class="fcv__file-header">
+        <svg class="fcv__file-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round">
+          <rect x="2" y="3" width="12" height="10" rx="1"/>
+          <circle cx="5.5" cy="6.5" r="1"/>
+          <path d="M3.5 12l3.5-3 2.5 2 1.5-1.5 2 2"/>
+        </svg>
+        <span class="fcv__file-name">{{ filePath }}</span>
+        <button
+          v-if="absolutePath"
+          class="fcv__copy-btn"
+          :class="{ 'fcv__copy-btn--copied': pathCopied }"
+          :title="pathCopied ? 'Copied path!' : 'Copy file path'"
+          :aria-label="pathCopied ? 'Copied path!' : 'Copy file path'"
+          @click="copyPath(absolutePath)"
+        >
+          <svg aria-hidden="true" v-if="!pathCopied" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6.5 9.5A3.2 3.2 0 0 0 11 10l2-2a3.2 3.2 0 1 0-4.5-4.5L7.5 4.5"/>
+            <path d="M9.5 6.5A3.2 3.2 0 0 0 5 6l-2 2a3.2 3.2 0 1 0 4.5 4.5l1-1"/>
+          </svg>
+          <svg aria-hidden="true" v-else viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 8 6.5 12 13 4"/>
+          </svg>
+        </button>
+        </div>
+        <ImageFileViewer :preview="imagePreview" :file-path="filePath" />
+      </template>
+      <div v-else class="fcv__binary">
+        <p class="fcv__binary-title">Image Preview</p>
+        <p class="fcv__binary-desc"><strong>{{ fileName }}</strong> has no preview data.</p>
+      </div>
+    </template>
 
     <!-- SQLite database viewer -->
     <template v-else-if="isSqlite">
@@ -313,9 +363,20 @@ function copyTableAsJson() {
         </button>
       </div>
 
+      <div v-if="canLoadMore" class="fcv__load-more">
+        <span>This file is larger than the 1 MiB preview.</span>
+        <button type="button" @click="emit('load-full')">Load up to 16 MiB</button>
+      </div>
+
       <div class="fcv__content" :class="{ 'fcv__content--fill': !isMarkdown }">
         <!-- Markdown renderer -->
         <MarkdownContent v-if="isMarkdown" :content="content" @open-external="(url) => emit('open-external', url)" />
+
+        <JsonFileViewer v-else-if="isJson" :content="content" :file-path="filePath" />
+
+        <JsonlFileViewer v-else-if="isJsonl" :content="content" :file-path="filePath" />
+
+        <CsvFileViewer v-else-if="isCsv" :content="content" :file-path="filePath" />
 
         <!-- Code / text renderer (maxLines caps very large files to prevent UI freeze) -->
         <CodeBlock

@@ -1,5 +1,15 @@
-import { sessionListFiles, sessionReadFile, sessionReadSqlite } from "@tracepilot/client";
-import type { SessionDbTable, SessionFileEntry, SessionFileType } from "@tracepilot/types";
+import {
+  sessionListFiles,
+  sessionReadFile,
+  sessionReadImagePreview,
+  sessionReadSqlite,
+} from "@tracepilot/client";
+import type {
+  SessionDbTable,
+  SessionFileEntry,
+  SessionFileType,
+  SessionImagePreview,
+} from "@tracepilot/types";
 import { ref, watch } from "vue";
 
 export interface SessionFilesState {
@@ -11,6 +21,9 @@ export interface SessionFilesState {
   fileContent: string | null;
   fileContentLoading: boolean;
   fileContentError: string | null;
+  imagePreview: SessionImagePreview | null;
+  imageLoading: boolean;
+  imageError: string | null;
   dbData: SessionDbTable[] | null;
   dbDataLoading: boolean;
   dbDataError: string | null;
@@ -21,7 +34,9 @@ export interface SessionFilesState {
    * last silent refresh. Transient; cleared by `ackContentChanged()`.
    */
   contentChangedAt: number | null;
+  fileCanLoadMore: boolean;
   selectFile: (path: string, fileType: SessionFileType) => Promise<void>;
+  loadFullFile: () => Promise<void>;
   /**
    * Reload files + (if a file is open) refetch its content in place.
    *
@@ -53,6 +68,10 @@ export function useSessionFiles(getSessionId: () => string | null | undefined): 
   const fileContentLoading = ref(false);
   const fileContentError = ref<string | null>(null);
 
+  const imagePreview = ref<SessionImagePreview | null>(null);
+  const imageLoading = ref(false);
+  const imageError = ref<string | null>(null);
+
   const dbData = ref<SessionDbTable[] | null>(null);
   const dbDataLoading = ref(false);
   const dbDataError = ref<string | null>(null);
@@ -63,6 +82,7 @@ export function useSessionFiles(getSessionId: () => string | null | undefined): 
   // we don't flash every file green on first mount.
   const newFilePaths = ref<Set<string>>(new Set());
   const contentChangedAt = ref<number | null>(null);
+  const fullContentRequested = ref(false);
   let knownPaths: Set<string> = new Set();
   // Track size-per-path so a size change (the common signal for "agent wrote
   // to this file") can flash the entry even when it isn't the selected file.
@@ -164,7 +184,19 @@ export function useSessionFiles(getSessionId: () => string | null | undefined): 
         dbDataError.value = null;
         return;
       }
-      const result = await sessionReadFile(sessionId, path);
+      if (fileType === "image") {
+        const result = await sessionReadImagePreview(sessionId, path);
+        if (seq !== silentSeq || selectedPath.value !== path) return;
+        if (result.base64Data !== imagePreview.value?.base64Data) {
+          imagePreview.value = result;
+          contentChangedAt.value = Date.now();
+        }
+        imageError.value = null;
+        return;
+      }
+      const result = fullContentRequested.value
+        ? await sessionReadFile(sessionId, path, true)
+        : await sessionReadFile(sessionId, path);
       if (seq !== silentSeq || selectedPath.value !== path) return;
       if (result !== fileContent.value) {
         fileContent.value = result;
@@ -177,6 +209,8 @@ export function useSessionFiles(getSessionId: () => string | null | undefined): 
       // surface the error so the user sees a hint but keeps the stale view.
       if (fileType === "sqlite") {
         dbDataError.value = err instanceof Error ? err.message : String(err);
+      } else if (fileType === "image") {
+        imageError.value = err instanceof Error ? err.message : String(err);
       } else {
         fileContentError.value = err instanceof Error ? err.message : String(err);
       }
@@ -192,17 +226,38 @@ export function useSessionFiles(getSessionId: () => string | null | undefined): 
     fileContent.value = null;
     fileContentError.value = null;
     fileContentLoading.value = false;
+    imagePreview.value = null;
+    imageError.value = null;
+    imageLoading.value = false;
     dbData.value = null;
     dbDataError.value = null;
+    dbDataLoading.value = false;
+    fullContentRequested.value = false;
+    const seq = ++readSeq;
 
     if (fileType === "binary") {
       fileContentLoading.value = false;
       return;
     }
 
+    if (fileType === "image") {
+      imageLoading.value = true;
+      try {
+        const result = await sessionReadImagePreview(sessionId, path);
+        if (seq !== readSeq) return;
+        imagePreview.value = result;
+      } catch (err) {
+        if (seq !== readSeq) return;
+        imageError.value = err instanceof Error ? err.message : String(err);
+        imagePreview.value = null;
+      } finally {
+        if (seq === readSeq) imageLoading.value = false;
+      }
+      return;
+    }
+
     if (fileType === "sqlite") {
       dbDataLoading.value = true;
-      const seq = ++readSeq;
       try {
         const result = await sessionReadSqlite(sessionId, path);
         if (seq !== readSeq) return;
@@ -218,7 +273,6 @@ export function useSessionFiles(getSessionId: () => string | null | undefined): 
     }
 
     fileContentLoading.value = true;
-    const seq = ++readSeq;
 
     try {
       const result = await sessionReadFile(sessionId, path);
@@ -236,6 +290,37 @@ export function useSessionFiles(getSessionId: () => string | null | undefined): 
     }
   }
 
+  async function loadFullFile() {
+    const sessionId = getSessionId();
+    const path = selectedPath.value;
+    const fileType = selectedFileType.value;
+    if (
+      !sessionId ||
+      !path ||
+      !fileType ||
+      fileType === "binary" ||
+      fileType === "image" ||
+      fileType === "sqlite"
+    ) {
+      return;
+    }
+
+    fileContentLoading.value = true;
+    fileContentError.value = null;
+    const seq = ++readSeq;
+    try {
+      const result = await sessionReadFile(sessionId, path, true);
+      if (seq !== readSeq || selectedPath.value !== path) return;
+      fileContent.value = result;
+      fullContentRequested.value = true;
+    } catch (err) {
+      if (seq !== readSeq || selectedPath.value !== path) return;
+      fileContentError.value = err instanceof Error ? err.message : String(err);
+    } finally {
+      if (seq === readSeq) fileContentLoading.value = false;
+    }
+  }
+
   // Reload when session changes
   watch(
     getSessionId,
@@ -246,8 +331,14 @@ export function useSessionFiles(getSessionId: () => string | null | undefined): 
       selectedFileType.value = null;
       fileContent.value = null;
       fileContentError.value = null;
+      fileContentLoading.value = false;
+      imagePreview.value = null;
+      imageError.value = null;
+      imageLoading.value = false;
       dbData.value = null;
       dbDataError.value = null;
+      dbDataLoading.value = false;
+      fullContentRequested.value = false;
       knownPaths = new Set();
       knownSizes = new Map();
       newFilePaths.value = new Set();
@@ -291,6 +382,15 @@ export function useSessionFiles(getSessionId: () => string | null | undefined): 
     get fileContentError() {
       return fileContentError.value;
     },
+    get imagePreview() {
+      return imagePreview.value;
+    },
+    get imageLoading() {
+      return imageLoading.value;
+    },
+    get imageError() {
+      return imageError.value;
+    },
     get dbData() {
       return dbData.value;
     },
@@ -306,7 +406,13 @@ export function useSessionFiles(getSessionId: () => string | null | undefined): 
     get contentChangedAt() {
       return contentChangedAt.value;
     },
+    get fileCanLoadMore() {
+      if (fullContentRequested.value || !selectedPath.value) return false;
+      const entry = files.value.find((file) => file.path === selectedPath.value);
+      return (entry?.sizeBytes ?? 0) > 1_024 * 1_024;
+    },
     selectFile,
+    loadFullFile,
     reload: (opts) => loadFiles({ silent: true, ...(opts ?? {}) }),
     ackNewPaths,
     ackContentChanged,

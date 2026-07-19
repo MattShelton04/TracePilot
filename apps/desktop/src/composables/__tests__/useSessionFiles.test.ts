@@ -5,11 +5,13 @@ import { defineComponent, h } from "vue";
 // ── Mock IPC client ─────────────────────────────────────────────────────────
 const mockSessionListFiles = vi.fn();
 const mockSessionReadFile = vi.fn();
+const mockSessionReadImagePreview = vi.fn();
 const mockSessionReadSqlite = vi.fn();
 
 vi.mock("@tracepilot/client", () => ({
   sessionListFiles: (...args: unknown[]) => mockSessionListFiles(...args),
   sessionReadFile: (...args: unknown[]) => mockSessionReadFile(...args),
+  sessionReadImagePreview: (...args: unknown[]) => mockSessionReadImagePreview(...args),
   sessionReadSqlite: (...args: unknown[]) => mockSessionReadSqlite(...args),
 }));
 
@@ -187,6 +189,89 @@ describe("useSessionFiles", () => {
 
     expect(mockSessionReadFile).not.toHaveBeenCalled();
     expect(instance.fileContent).toBeNull();
+  });
+
+  it("loads a sanitized image preview without using the text endpoint", async () => {
+    mockSessionListFiles.mockResolvedValue([
+      {
+        path: "files/screenshot.png",
+        name: "screenshot.png",
+        sizeBytes: 1024,
+        isDirectory: false,
+        fileType: "image",
+      },
+    ]);
+    const preview = {
+      base64Data: "c2FmZS1wbmc=",
+      width: 800,
+      height: 600,
+      originalWidth: 800,
+      originalHeight: 600,
+      originalSizeBytes: 1024,
+      originalFormat: "png",
+      wasDownscaled: false,
+      animationOmitted: false,
+    };
+    mockSessionReadImagePreview.mockResolvedValue(preview);
+
+    const { instance } = mountComposable("test-session-id");
+    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+    await instance.selectFile("files/screenshot.png", "image");
+
+    expect(mockSessionReadImagePreview).toHaveBeenCalledWith(
+      "test-session-id",
+      "files/screenshot.png",
+    );
+    expect(mockSessionReadFile).not.toHaveBeenCalled();
+    expect(instance.imagePreview).toEqual(preview);
+    expect(instance.imageLoading).toBe(false);
+  });
+
+  it("loads a larger bounded text response only after explicit request", async () => {
+    mockSessionListFiles.mockResolvedValue([
+      {
+        path: "events.jsonl",
+        name: "events.jsonl",
+        sizeBytes: 2 * 1024 * 1024,
+        isDirectory: false,
+        fileType: "jsonl",
+      },
+    ]);
+    mockSessionReadFile.mockResolvedValueOnce("preview").mockResolvedValueOnce("full content");
+
+    const { instance } = mountComposable("test-session-id");
+    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+    await instance.selectFile("events.jsonl", "jsonl");
+
+    expect(instance.fileCanLoadMore).toBe(true);
+    await instance.loadFullFile();
+    expect(mockSessionReadFile).toHaveBeenLastCalledWith("test-session-id", "events.jsonl", true);
+    expect(instance.fileContent).toBe("full content");
+    expect(instance.fileCanLoadMore).toBe(false);
+  });
+
+  it("keeps the larger-read action available when the request fails", async () => {
+    mockSessionListFiles.mockResolvedValue([
+      {
+        path: "events.jsonl",
+        name: "events.jsonl",
+        sizeBytes: 2 * 1024 * 1024,
+        isDirectory: false,
+        fileType: "jsonl",
+      },
+    ]);
+    mockSessionReadFile
+      .mockResolvedValueOnce("preview")
+      .mockRejectedValueOnce(new Error("Temporary read failure"));
+
+    const { instance } = mountComposable("test-session-id");
+    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+    await instance.selectFile("events.jsonl", "jsonl");
+    await instance.loadFullFile();
+
+    expect(instance.fileContent).toBe("preview");
+    expect(instance.fileContentError).toBe("Temporary read failure");
+    expect(instance.fileCanLoadMore).toBe(true);
   });
 
   it("records content error when file read fails", async () => {

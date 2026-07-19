@@ -43,7 +43,17 @@ const { visibleRows, fileCount, collapsedFolders, toggleFolder, formatSize } = u
   },
 );
 
-type FileIconType = "generic" | "markdown" | "json" | "yaml" | "database" | "lock" | "toml" | "log";
+type FileIconType =
+  | "generic"
+  | "markdown"
+  | "json"
+  | "yaml"
+  | "database"
+  | "lock"
+  | "toml"
+  | "log"
+  | "csv"
+  | "image";
 
 function getFileIconType(name: string): FileIconType {
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
@@ -51,6 +61,8 @@ function getFileIconType(name: string): FileIconType {
   if (ext === "json" || ext === "jsonl") return "json";
   if (ext === "yaml" || ext === "yml") return "yaml";
   if (ext === "toml") return "toml";
+  if (ext === "csv" || ext === "tsv") return "csv";
+  if (["png", "jpg", "jpeg", "gif", "webp"].includes(ext)) return "image";
   if (ext === "db" || ext === "sqlite" || ext === "sqlite3") return "database";
   if (ext === "lock" || ext === "pem" || ext === "crt") return "lock";
   if (ext === "log" || ext === "txt") return "log";
@@ -135,6 +147,17 @@ function depthStyle(depth: number): Record<string, string> {
               <ellipse cx="8" cy="5" rx="5" ry="1.8"/>
               <path d="M3 5v3c0 1 2.2 1.8 5 1.8s5-.8 5-1.8V5"/>
               <path d="M3 8v3c0 1 2.2 1.8 5 1.8s5-.8 5-1.8V8"/>
+            </template>
+            <!-- csv / tsv -->
+            <template v-else-if="(iconTypeByPath.get(row.entry.path) ?? 'generic') === 'csv'">
+              <rect x="2.5" y="3" width="11" height="10" rx="1"/>
+              <path d="M2.5 7h11M2.5 10h11M7 3v10"/>
+            </template>
+            <!-- raster image -->
+            <template v-else-if="(iconTypeByPath.get(row.entry.path) ?? 'generic') === 'image'">
+              <rect x="2" y="3" width="12" height="10" rx="1"/>
+              <circle cx="5.5" cy="6.5" r="1"/>
+              <path d="M3.5 12l3.5-3 2.5 2 1.5-1.5 2 2"/>
             </template>
             <!-- lock -->
             <template v-else-if="(iconTypeByPath.get(row.entry.path) ?? 'generic') === 'lock'">
@@ -378,6 +401,8 @@ function depthStyle(depth: number): Record<string, string> {
 .fb-tree__file-icon--yaml     { color: #e8834e; opacity: 0.85; }
 .fb-tree__file-icon--toml     { color: #e8834e; opacity: 0.75; }
 .fb-tree__file-icon--database { color: #5b9bd5; opacity: 0.9; }
+.fb-tree__file-icon--csv      { color: var(--success-fg); opacity: 0.85; }
+.fb-tree__file-icon--image    { color: var(--accent-fg); opacity: 0.85; }
 .fb-tree__file-icon--lock     { color: var(--text-tertiary); opacity: 0.5; }
 .fb-tree__file-icon--log      { color: var(--text-tertiary); opacity: 0.55; }
 

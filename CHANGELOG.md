@@ -7,6 +7,11 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 
 ## [Unreleased]
 
+### Added
+- **Richer Session Explorer previews** — Safely preview PNG, JPEG, WebP, and GIF files; inspect JSON/JSONL as expandable records; and view CSV/TSV data as searchable tables with raw-view fallbacks
+- **Session-wide file search** — Filter files instantly by name/path or run bounded content searches across readable session artifacts
+- **On-demand large-file reads** — Text previews still open quickly at 1 MiB and can now be explicitly expanded up to a 16 MiB safety limit
+
 ## [0.7.0] - 2026-07-19
 
 ### Added
