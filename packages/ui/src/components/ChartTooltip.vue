@@ -68,7 +68,9 @@ onBeforeUnmount(() => window.removeEventListener("resize", updatePosition));
 .chart-tooltip {
   position: fixed;
   pointer-events: none;
-  max-width: calc(100vw - 16px);
+  box-sizing: border-box;
+  width: max-content;
+  max-width: min(28rem, calc(100vw - 16px));
   padding: 4px 10px;
   border: 1px solid color-mix(in srgb, var(--chart-tooltip-bg) 82%, white 18%);
   border-radius: 6px;
