@@ -14,8 +14,8 @@ const { tooltip, positionTooltip, dismissTooltip, findNearestIndex } = useChartT
 
 const CHART_RIGHT = 496;
 const MIN_LABEL_WIDTH = 100;
-const MAX_LABEL_WIDTH = 200;
-const MAX_LABEL_CHARACTERS = 26;
+const MAX_LABEL_WIDTH = 120;
+const MAX_LABEL_CHARACTERS = 16;
 const BAR_HEIGHT = 22;
 const ROW_SPACING = 28;
 

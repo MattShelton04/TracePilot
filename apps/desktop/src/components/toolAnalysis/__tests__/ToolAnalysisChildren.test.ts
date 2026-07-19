@@ -131,6 +131,7 @@ describe("ToolSuccessFailureChart", () => {
 
     const label = wrapper.find("svg text");
     expect(Number(label.attributes("x"))).toBeGreaterThan(100);
+    expect(Number(label.attributes("x"))).toBeLessThanOrEqual(108);
     expect(label.text()).toContain("…");
     expect(label.find("title").text()).toBe(longName);
   });
