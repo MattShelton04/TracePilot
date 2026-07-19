@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ContextToolTypeContribution } from "@tracepilot/types";
+import { formatNumber } from "@tracepilot/ui";
 import { computed, ref } from "vue";
 
 const props = defineProps<{
@@ -48,12 +49,6 @@ const segments = computed(() => {
 });
 
 const hovered = computed(() => segments.value.find((item) => item.label === hoveredLabel.value));
-
-function formatTokens(value: number): string {
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-  if (value >= 1_000) return `${(value / 1_000).toFixed(value >= 10_000 ? 0 : 1)}k`;
-  return value.toLocaleString();
-}
 
 function handleChartPointerMove(event: MouseEvent) {
   const svg = chartSvg.value;
@@ -112,7 +107,7 @@ function handleChartPointerMove(event: MouseEvent) {
             class="tool-donut__segment"
             tabindex="0"
             role="img"
-            :aria-label="`${item.label}: ${item.percentage.toFixed(1)}%, ${formatTokens(item.tokens)} estimated tokens`"
+            :aria-label="`${item.label}: ${item.percentage.toFixed(1)}%, ${formatNumber(item.tokens)} estimated tokens`"
             @focus="hoveredLabel = item.label"
             @blur="hoveredLabel = null"
           />
@@ -131,10 +126,10 @@ function handleChartPointerMove(event: MouseEvent) {
 
       <div v-if="hovered" class="tool-donut__tooltip" role="tooltip">
         <strong>{{ hovered.label }}</strong>
-        <span>{{ hovered.percentage.toFixed(1) }}% · {{ formatTokens(hovered.tokens) }} tokens</span>
+        <span>{{ hovered.percentage.toFixed(1) }}% · {{ formatNumber(hovered.tokens) }} tokens</span>
         <small>
-          {{ hovered.calls }} calls · {{ formatTokens(hovered.argumentTokens) }} arguments ·
-          {{ formatTokens(hovered.resultTokens) }} results
+          {{ hovered.calls }} calls · {{ formatNumber(hovered.argumentTokens) }} arguments ·
+          {{ formatNumber(hovered.resultTokens) }} results
         </small>
       </div>
     </div>
@@ -152,7 +147,7 @@ function handleChartPointerMove(event: MouseEvent) {
         <span class="tool-donut__swatch" :style="{ background: item.color }" />
         <strong>{{ item.label }}</strong>
         <span>{{ item.percentage.toFixed(1) }}%</span>
-        <small>{{ formatTokens(item.tokens) }} estimated tokens</small>
+        <small>{{ formatNumber(item.tokens) }} estimated tokens</small>
       </div>
     </div>
   </div>

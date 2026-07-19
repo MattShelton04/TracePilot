@@ -187,23 +187,36 @@ const toolAnalysisViews: Array<{ id: ToolAnalysisView; label: string }> = [
 ];
 const toolAnalysisView = ref<ToolAnalysisView>("overview");
 type InfoPopoverKey = "methodology" | "observed" | "estimated" | "paired";
-const confidenceKeys = ["observed", "estimated", "paired"] as const;
-const hoveredInfo = ref<InfoPopoverKey | null>(null);
-const pinnedInfo = ref<InfoPopoverKey | null>(null);
-const suppressedHoverInfo = ref<InfoPopoverKey | null>(null);
-const visibleInfo = computed(
-  () =>
-    pinnedInfo.value ??
-    (hoveredInfo.value !== suppressedHoverInfo.value ? hoveredInfo.value : null),
-);
-const confidenceExplanations: Record<Exclude<InfoPopoverKey, "methodology">, string> = {
-  observed:
-    "Exact context-layer snapshots reported by Copilot at compaction starts or session shutdowns.",
-  estimated:
-    "Reconstructed points between observed snapshots, calibrated from captured context-bearing event text.",
-  paired:
-    "Compaction starts matched to their completion events in event order. The ratio is paired completions to starts.",
-};
+const activeInfo = ref<InfoPopoverKey | null>(null);
+const infoPinned = ref(false);
+const confidenceItems = computed(() => [
+  {
+    id: "observed" as const,
+    label: `${timeline.value?.observedPointCount ?? 0} observed`,
+    variant: "neutral" as const,
+    class: "context-tab__confidence-badge--observed",
+    explanation:
+      "Exact context-layer snapshots reported by Copilot at compaction starts or session shutdowns.",
+  },
+  {
+    id: "estimated" as const,
+    label: `${timeline.value?.estimatedPointCount ?? 0} estimated`,
+    variant: "warning" as const,
+    class: "context-tab__confidence-badge--estimated",
+    explanation:
+      "Reconstructed points between observed snapshots, calibrated from captured context-bearing event text.",
+  },
+  {
+    id: "paired" as const,
+    label: `${timeline.value?.pairedCompactionCount ?? 0}/${timeline.value?.compactionStartCount ?? 0} paired`,
+    variant: compactionsFullyPaired.value ? ("success" as const) : ("warning" as const),
+    class: compactionsFullyPaired.value
+      ? "context-tab__confidence-badge--paired"
+      : "context-tab__confidence-badge--unpaired",
+    explanation:
+      "Compaction starts matched to their completion events in event order. The ratio is paired completions to starts.",
+  },
+]);
 const maxToolCallTokens = computed(() => displayedToolCalls.value[0]?.totalTokens ?? 1);
 const selectedTurn = computed(() => {
   const turnIndex = selectedPoint.value?.turn;
@@ -320,26 +333,25 @@ function richEnabledFor(toolName: string): boolean {
 }
 
 function showInfo(key: InfoPopoverKey) {
-  hoveredInfo.value = key;
+  if (!infoPinned.value) activeInfo.value = key;
 }
 
 function hideInfo(key: InfoPopoverKey) {
-  if (hoveredInfo.value === key) hoveredInfo.value = null;
-  if (suppressedHoverInfo.value === key) suppressedHoverInfo.value = null;
+  if (!infoPinned.value && activeInfo.value === key) activeInfo.value = null;
 }
 
 function toggleInfo(key: InfoPopoverKey) {
-  if (pinnedInfo.value === key) {
-    pinnedInfo.value = null;
-    suppressedHoverInfo.value = key;
+  if (infoPinned.value && activeInfo.value === key) {
+    dismissPinnedInfo();
   } else {
-    pinnedInfo.value = key;
-    suppressedHoverInfo.value = null;
+    activeInfo.value = key;
+    infoPinned.value = true;
   }
 }
 
 function dismissPinnedInfo() {
-  pinnedInfo.value = null;
+  activeInfo.value = null;
+  infoPinned.value = false;
 }
 
 onMounted(() => document.addEventListener("click", dismissPinnedInfo));
@@ -438,13 +450,13 @@ function retryLoad() {
         >
           <button
             type="button"
-            :aria-expanded="visibleInfo === 'methodology'"
+            :aria-expanded="activeInfo === 'methodology'"
             @click.stop="toggleInfo('methodology')"
           >
             <Info :size="14" aria-hidden="true" /> How estimates work
           </button>
           <div
-            v-if="visibleInfo === 'methodology'"
+            v-if="activeInfo === 'methodology'"
             class="context-tab__info-popover context-tab__info-popover--methodology"
             role="tooltip"
             @click.stop
@@ -461,52 +473,33 @@ function retryLoad() {
           <LoadingSpinner v-if="refreshing" size="sm" />
           <span v-if="refreshing">Updating</span>
           <span
-            v-for="key in confidenceKeys"
-            :key="key"
+            v-for="item in confidenceItems"
+            :key="item.id"
             class="context-tab__info-anchor context-tab__confidence-anchor"
-            @mouseenter="showInfo(key)"
-            @mouseleave="hideInfo(key)"
+            @mouseenter="showInfo(item.id)"
+            @mouseleave="hideInfo(item.id)"
           >
             <button
               type="button"
-              :aria-label="`Explain ${key} context telemetry`"
-              :aria-expanded="visibleInfo === key"
-              @click.stop="toggleInfo(key)"
+              :aria-label="`Explain ${item.id} context telemetry`"
+              :aria-expanded="activeInfo === item.id"
+              @click.stop="toggleInfo(item.id)"
             >
               <Badge
-                v-if="key === 'observed'"
-                class="context-tab__confidence-badge context-tab__confidence-badge--observed"
-                variant="neutral"
-              >
-                {{ timeline.observedPointCount }} observed
-              </Badge>
-              <Badge
-                v-else-if="key === 'estimated'"
-                class="context-tab__confidence-badge context-tab__confidence-badge--estimated"
-                variant="warning"
-              >
-                {{ timeline.estimatedPointCount }} estimated
-              </Badge>
-              <Badge
-                v-else
                 class="context-tab__confidence-badge"
-                :class="
-                  compactionsFullyPaired
-                    ? 'context-tab__confidence-badge--paired'
-                    : 'context-tab__confidence-badge--unpaired'
-                "
-                :variant="compactionsFullyPaired ? 'success' : 'warning'"
+                :class="item.class"
+                :variant="item.variant"
               >
-                {{ timeline.pairedCompactionCount }}/{{ timeline.compactionStartCount }} paired
+                {{ item.label }}
               </Badge>
             </button>
             <span
-              v-if="visibleInfo === key"
+              v-if="activeInfo === item.id"
               class="context-tab__info-popover context-tab__info-popover--confidence"
               role="tooltip"
               @click.stop
             >
-              {{ confidenceExplanations[key] }}
+              {{ item.explanation }}
             </span>
           </span>
         </div>

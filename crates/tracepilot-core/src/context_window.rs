@@ -180,7 +180,7 @@ struct PendingCompaction {
     anchor: Option<Anchor>,
 }
 
-const METHODOLOGY: &str = "System, tool-definition, and conversation totals are observed at Copilot compaction-start/shutdown anchors. Compaction starts and completes are paired in event order, even when they span turns; the post-compaction summary is estimated unless Copilot reports explicit layers. Between-anchor conversation totals are calibrated estimates derived from context-bearing event text (ceil UTF-8 bytes / 4). Point-to-point context change is the signed difference between consecutive displayed totals. Tool arguments and primary returned content are estimated conversation-input contribution, not cache attribution.";
+const METHODOLOGY: &str = "System, tool-definition, and conversation totals are observed at Copilot compaction-start/shutdown anchors. Compaction starts and completes are paired in event order, even when they span turns; the post-compaction summary is estimated unless Copilot reports explicit layers. Between-anchor conversation totals are calibrated estimates derived from context-bearing event text, including visible reasoning (ceil UTF-8 bytes / 4). Opaque or encrypted reasoning cannot be independently estimated; its effect is captured only by observed Copilot totals. Point-to-point context change is the signed difference between consecutive displayed totals. Tool arguments and primary returned content are estimated conversation-input contribution, not cache attribution.";
 
 fn reconstruct_event_turn_slots(events: &[TypedEvent]) -> (Vec<usize>, usize) {
     let turns = reconstruct_turns(events);
@@ -189,42 +189,28 @@ fn reconstruct_event_turn_slots(events: &[TypedEvent]) -> (Vec<usize>, usize) {
     }
 
     let mut exact_slots = vec![None; events.len()];
-    let mut turn_ids = HashMap::<String, usize>::new();
-    let mut interaction_ids = HashMap::<String, usize>::new();
     let mut tool_call_ids = HashMap::<String, usize>::new();
 
     for turn in &turns {
         let slot = turn.turn_index.saturating_add(1);
-        if let Some(event_index) = turn.event_index
-            && event_index < exact_slots.len()
-        {
-            exact_slots[event_index] = Some(slot);
-        }
-        if let Some(turn_id) = &turn.turn_id {
-            turn_ids.entry(turn_id.clone()).or_insert(slot);
-        }
-        if let Some(interaction_id) = &turn.interaction_id {
-            interaction_ids
-                .entry(interaction_id.clone())
-                .or_insert(slot);
-        }
-        for message in turn
-            .assistant_messages
-            .iter()
-            .chain(turn.reasoning_texts.iter())
-        {
-            if let Some(event_index) = message.event_index
-                && event_index < exact_slots.len()
-            {
+        let event_indexes = std::iter::once(turn.event_index)
+            .chain(
+                turn.assistant_messages
+                    .iter()
+                    .chain(turn.reasoning_texts.iter())
+                    .map(|message| message.event_index),
+            )
+            .chain(
+                turn.tool_calls
+                    .iter()
+                    .map(|tool_call| tool_call.event_index),
+            );
+        for event_index in event_indexes.flatten() {
+            if event_index < exact_slots.len() {
                 exact_slots[event_index] = Some(slot);
             }
         }
         for tool_call in &turn.tool_calls {
-            if let Some(event_index) = tool_call.event_index
-                && event_index < exact_slots.len()
-            {
-                exact_slots[event_index] = Some(slot);
-            }
             if let Some(tool_call_id) = &tool_call.tool_call_id {
                 tool_call_ids.entry(tool_call_id.clone()).or_insert(slot);
             }
@@ -232,27 +218,14 @@ fn reconstruct_event_turn_slots(events: &[TypedEvent]) -> (Vec<usize>, usize) {
     }
 
     for (event_index, event) in events.iter().enumerate() {
-        let inferred = match &event.typed_data {
-            TypedEventData::TurnStart(data) => data
-                .turn_id
-                .as_ref()
-                .and_then(|turn_id| turn_ids.get(turn_id))
-                .copied()
-                .or_else(|| {
-                    data.interaction_id
-                        .as_ref()
-                        .and_then(|interaction_id| interaction_ids.get(interaction_id))
-                        .copied()
-                }),
-            TypedEventData::ToolExecutionComplete(data) => data
+        if exact_slots[event_index].is_none()
+            && let TypedEventData::ToolExecutionComplete(data) = &event.typed_data
+        {
+            exact_slots[event_index] = data
                 .tool_call_id
                 .as_ref()
                 .and_then(|tool_call_id| tool_call_ids.get(tool_call_id))
-                .copied(),
-            _ => None,
-        };
-        if exact_slots[event_index].is_none() {
-            exact_slots[event_index] = inferred;
+                .copied();
         }
     }
 
@@ -324,8 +297,11 @@ pub fn build_context_timeline(events: &[TypedEvent]) -> ContextTimeline {
                 }
             }
             TypedEventData::AssistantMessage(data) => {
-                let content = data.content.as_deref().unwrap_or("");
-                add_message_delta(&mut deltas[turn], content);
+                add_message_delta(&mut deltas[turn], data.content.as_deref().unwrap_or(""));
+                add_message_delta(
+                    &mut deltas[turn],
+                    data.reasoning_text.as_deref().unwrap_or(""),
+                );
             }
             TypedEventData::AssistantReasoning(data) => {
                 let content = data.content.as_deref().unwrap_or("");
@@ -947,6 +923,14 @@ mod tests {
         )
     }
 
+    fn assistant_message_with_reasoning(content: &str, reasoning: &str) -> TypedEvent {
+        let mut message = assistant_message(content);
+        if let TypedEventData::AssistantMessage(data) = &mut message.typed_data {
+            data.reasoning_text = Some(reasoning.into());
+        }
+        message
+    }
+
     fn user_message(content: &str, interaction_id: &str) -> TypedEvent {
         event(
             SessionEventType::UserMessage,
@@ -974,23 +958,7 @@ mod tests {
                     interaction_id: None,
                 }),
             ),
-            event(
-                SessionEventType::AssistantMessage,
-                TypedEventData::AssistantMessage(AssistantMessageData {
-                    message_id: None,
-                    turn_id: Some("1".into()),
-                    content: Some("abcdefgh".into()),
-                    interaction_id: None,
-                    tool_requests: None,
-                    output_tokens: None,
-                    parent_tool_call_id: None,
-                    reasoning_text: None,
-                    reasoning_opaque: None,
-                    encrypted_content: None,
-                    phase: None,
-                    request_id: None,
-                }),
-            ),
+            assistant_message("abcdefgh"),
             event(
                 SessionEventType::SessionShutdown,
                 TypedEventData::SessionShutdown(ShutdownData {
@@ -1035,7 +1003,7 @@ mod tests {
                     interaction_id: Some("interaction-1".into()),
                 }),
             ),
-            assistant_message("aaaa"),
+            assistant_message_with_reasoning("aaaa", "rrrrrrrrrrrr"),
             user_message("", "interaction-2"),
             event(
                 SessionEventType::AssistantTurnStart,
@@ -1076,7 +1044,7 @@ mod tests {
                 .iter()
                 .map(|point| (point.turn, point.context_change_tokens))
                 .collect::<Vec<_>>(),
-            vec![(0, None), (1, Some(30))]
+            vec![(0, None), (1, Some(18))]
         );
     }
 

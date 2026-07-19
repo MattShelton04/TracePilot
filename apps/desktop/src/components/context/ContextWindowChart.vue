@@ -529,9 +529,7 @@ function eventHoverLabel(event: ContextTimelineEvent): string {
         </span>
       </div>
       <div class="context-chart__controls" aria-label="Chart navigation">
-        <span class="context-chart__gesture-hint">
-          Scroll to zoom · drag or middle-drag to pan · ←/→ turns
-        </span>
+        <span class="context-chart__gesture-hint">Scroll to zoom · drag or middle-drag to pan</span>
         <div class="context-chart__segments" aria-label="Horizontal axis">
           <button type="button" :class="{ active: axisMode === 'turn' }" @click="axisMode = 'turn'">Turn</button>
           <button type="button" :class="{ active: axisMode === 'time' }" @click="axisMode = 'time'">Time</button>
