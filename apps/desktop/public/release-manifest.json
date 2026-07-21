@@ -1,8 +1,8 @@
 {
   "versions": [
     {
-      "version": "Unreleased",
-      "date": "Unreleased",
+      "version": "0.7.1",
+      "date": "2026-07-21",
       "notes": {
         "added": [
           "Session Explorer overhaul: Safely preview raster images with zoom/pan, inspect JSON/JSONL trees, browse CSV/TSV tables with remembered format view modes, search session files by name or content with auto-expanding folders, find matches within open files, and expand large previews up to 16 MiB"
