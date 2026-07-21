@@ -503,4 +503,18 @@ describe("useSessionFiles", () => {
     expect(instance.fileContent).toBe("a");
     expect(mockSessionReadFile).toHaveBeenCalledTimes(2);
   });
+
+  it("resets filesLoading when non-silent reload is superseded by another reload", async () => {
+    mockSessionListFiles.mockResolvedValue([]);
+    const { instance } = mountComposable("sess-supersede");
+    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+
+    const manualPromise = instance.reload({ silent: false });
+    expect(instance.filesLoading).toBe(true);
+
+    const silentPromise = instance.reload({ silent: true });
+
+    await Promise.all([manualPromise, silentPromise]);
+    expect(instance.filesLoading).toBe(false);
+  });
 });

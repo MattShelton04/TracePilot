@@ -29,6 +29,10 @@ const props = defineProps<{
    * duration; the class simply reflects current membership.
    */
   highlightedPaths?: ReadonlySet<string>;
+  /** Option to hide top header row if parent renders custom header. */
+  hideHeader?: boolean;
+  /** Option to hide file tree list area (e.g. when content search results are active). */
+  hideList?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -91,18 +95,24 @@ function depthStyle(depth: number): Record<string, string> {
 
 <template>
   <div class="fb-tree">
-    <div class="fb-tree__header">
+    <div v-if="!hideHeader" class="fb-tree__header">
       <h4 class="fb-tree__title">
         {{ title ?? "Files" }}
         <span v-if="fileCount > 0" class="fb-tree__count">{{ fileCount }}</span>
       </h4>
+      <div v-if="$slots['header-actions']" class="fb-tree__header-actions">
+        <slot name="header-actions" />
+      </div>
     </div>
 
-    <div v-if="loading" class="fb-tree__loading">Loading files…</div>
+    <slot name="after-header" />
 
-    <div v-else-if="fileCount === 0" class="fb-tree__empty">No files</div>
+    <template v-if="!hideList">
+      <div v-if="loading" class="fb-tree__loading">Loading files…</div>
 
-    <div v-else class="fb-tree__list">
+      <div v-else-if="fileCount === 0" class="fb-tree__empty">No files</div>
+
+      <div v-else class="fb-tree__list">
       <template v-for="row in visibleRows" :key="row.kind === 'file' ? `file:${row.entry.path}` : `folder:${row.folder.path}`">
         <div
           v-if="row.kind === 'file'"
@@ -197,6 +207,7 @@ function depthStyle(depth: number): Record<string, string> {
         </button>
       </template>
     </div>
+    </template>
   </div>
 </template>
 
@@ -211,11 +222,19 @@ function depthStyle(depth: number): Record<string, string> {
 .fb-tree__header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   padding: 8px 12px;
   height: 36px;
   box-sizing: border-box;
   border-bottom: 1px solid var(--border-default);
   flex-shrink: 0;
+}
+
+.fb-tree__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
 }
 
 .fb-tree__title {

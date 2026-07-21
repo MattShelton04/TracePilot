@@ -557,36 +557,40 @@ watch(
         <button type="button" @click="emit('load-full')">Load up to 16 MiB</button>
       </div>
 
-      <div class="fcv__content" :class="{ 'fcv__content--fill': !isMarkdown }">
+      <div class="fcv__content" :class="{ 'fcv__content--fill': !isMarkdown || effectiveMarkdownMode === 'rendered' || effectiveMarkdownMode === 'raw' }">
         <!-- Markdown renderer -->
         <template v-if="isMarkdown">
-          <div class="fcv__markdown-modes" role="radiogroup" aria-label="Markdown view mode">
-            <button type="button" :class="{ active: effectiveMarkdownMode === 'rendered' }" @click="emit('update:markdown-mode', 'rendered')">Rendered</button>
-            <button type="button" :class="{ active: effectiveMarkdownMode === 'raw' }" @click="emit('update:markdown-mode', 'raw')">Raw</button>
+          <div class="fcv__markdown-container">
+            <div class="fcv__markdown-modes" role="radiogroup" aria-label="Markdown view mode">
+              <button type="button" :class="{ active: effectiveMarkdownMode === 'rendered' }" @click="emit('update:markdown-mode', 'rendered')">Rendered</button>
+              <button type="button" :class="{ active: effectiveMarkdownMode === 'raw' }" @click="emit('update:markdown-mode', 'raw')">Raw</button>
+            </div>
+            <div v-if="effectiveMarkdownMode === 'rendered' && markdownRenderAllowed" class="fcv__markdown-body">
+              <MarkdownContent
+                :content="content"
+                :search-query="fileSearchQuery"
+                :active-search-index="activeFileSearchIndex"
+                @open-external="(url) => emit('open-external', url)"
+              />
+            </div>
+            <div v-else-if="effectiveMarkdownMode === 'rendered'" class="fcv__render-disabled">
+              <strong>Large Markdown preview</strong>
+              <span>Rendered view is paused above 512 KiB to keep the explorer responsive.</span>
+              <button type="button" @click="largeMarkdownRenderEnabled = true">Render anyway</button>
+            </div>
+            <CodeBlock
+              v-else
+              :code="content"
+              :file-path="filePath"
+              :line-numbers="true"
+              :show-language-badge="true"
+              :max-lines="10000"
+              :fill-height="true"
+              :search-query="fileSearchQuery"
+              :active-search-line="activeFileSearchMatch?.line"
+              :active-search-column="activeFileSearchMatch?.column"
+            />
           </div>
-          <MarkdownContent
-            v-if="effectiveMarkdownMode === 'rendered' && markdownRenderAllowed"
-            :content="content"
-            :search-query="fileSearchQuery"
-            :active-search-index="activeFileSearchIndex"
-            @open-external="(url) => emit('open-external', url)"
-          />
-          <div v-else-if="effectiveMarkdownMode === 'rendered'" class="fcv__render-disabled">
-            <strong>Large Markdown preview</strong>
-            <span>Rendered view is paused above 512 KiB to keep the explorer responsive.</span>
-            <button type="button" @click="largeMarkdownRenderEnabled = true">Render anyway</button>
-          </div>
-          <CodeBlock
-            v-else
-            :code="content"
-            :file-path="filePath"
-            :line-numbers="true"
-            :show-language-badge="true"
-            :max-lines="10000"
-            :search-query="fileSearchQuery"
-            :active-search-line="activeFileSearchMatch?.line"
-            :active-search-column="activeFileSearchMatch?.column"
-          />
         </template>
 
         <JsonFileViewer

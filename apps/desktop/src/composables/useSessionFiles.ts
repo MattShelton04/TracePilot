@@ -223,7 +223,10 @@ export function useSessionFiles(getSessionId: () => string | null | undefined): 
 
   async function loadFiles(opts: { silent?: boolean } = {}) {
     const sessionId = getSessionId();
-    if (!sessionId) return;
+    if (!sessionId) {
+      filesLoading.value = false;
+      return;
+    }
 
     const silent = opts.silent ?? false;
     const seq = ++loadSeq;
@@ -282,7 +285,7 @@ export function useSessionFiles(getSessionId: () => string | null | undefined): 
       filesError.value = err instanceof Error ? err.message : String(err);
       if (!silent) files.value = [];
     } finally {
-      if (seq === loadSeq && !silent) filesLoading.value = false;
+      if (seq === loadSeq) filesLoading.value = false;
     }
   }
 
@@ -302,8 +305,10 @@ export function useSessionFiles(getSessionId: () => string | null | undefined): 
       if (fileType === "sqlite") {
         const result = await sessionReadSqlite(sessionId, path);
         if (seq !== silentSeq || selectedPath.value !== path) return;
-        // Replace wholesale — SqliteViewer reacts to the prop change.
-        dbData.value = result;
+        if (JSON.stringify(result) !== JSON.stringify(dbData.value)) {
+          dbData.value = result;
+          contentChangedAt.value = Date.now();
+        }
         cacheAsset(path, {
           kind: "sqlite",
           value: result,

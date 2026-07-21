@@ -277,4 +277,19 @@ describe("FileContentViewer", () => {
     expect(wrapper.text()).not.toContain("Binary File");
     expect(wrapper.text()).not.toContain("SQLite Database");
   });
+
+  it("renders Markdown modes in a fixed container above the scrollable body", () => {
+    const wrapper = mount(FileContentViewer, {
+      props: {
+        filePath: "plan.md",
+        fileType: "markdown",
+        content: "# Plan\nSome text.",
+        markdownMode: "rendered",
+      },
+    });
+    expect(wrapper.find(".fcv__markdown-container").exists()).toBe(true);
+    expect(wrapper.find(".fcv__markdown-modes").exists()).toBe(true);
+    expect(wrapper.find(".fcv__markdown-body").exists()).toBe(true);
+    expect(wrapper.find(".fcv__markdown-body .markdown-content").exists()).toBe(true);
+  });
 });

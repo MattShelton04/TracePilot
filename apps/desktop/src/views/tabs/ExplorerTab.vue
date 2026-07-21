@@ -12,7 +12,7 @@ import {
   usePersistedRef,
   useToast,
 } from "@tracepilot/ui";
-import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import FileContextMenu from "@/components/session/FileContextMenu.vue";
 import { useExplorerContentSearch } from "@/composables/useExplorerContentSearch";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
@@ -46,6 +46,30 @@ const {
   runContentSearch,
 } = useExplorerContentSearch(() => store.sessionId);
 const viewerSearchRequest = ref({ id: 0, query: "", line: 0 });
+
+const isSearchOpen = ref(false);
+const searchInputRef = ref<HTMLInputElement | null>(null);
+
+const showSearchPanel = computed(
+  () => isSearchOpen.value || Boolean(searchQuery.value.trim()),
+);
+
+function toggleSearch() {
+  if (showSearchPanel.value) {
+    isSearchOpen.value = false;
+    searchQuery.value = "";
+  } else {
+    isSearchOpen.value = true;
+    void nextTick(() => {
+      searchInputRef.value?.focus();
+    });
+  }
+}
+
+function closeSearch() {
+  isSearchOpen.value = false;
+  searchQuery.value = "";
+}
 
 const filteredFiles = computed(() => {
   const query = searchQuery.value.trim().toLowerCase();
@@ -327,32 +351,39 @@ async function onOpenFolder() {
 <template>
   <div class="explorer-tab" :class="{ 'explorer-tab--dragging': isDragging }">
     <div class="explorer-tab__tree" :style="{ width: `${treeWidth}px` }">
-      <div class="explorer-search">
-        <div class="explorer-search__row">
-          <div class="explorer-search__input-wrap">
-            <input
-              v-model="searchQuery"
-              type="text"
-              :placeholder="searchMode === 'name' ? 'Filter names and paths…' : 'Search file contents…'"
-              :aria-label="searchMode === 'name' ? 'Filter file names and paths' : 'Search file contents'"
-            />
-            <button
-              v-if="searchQuery"
-              type="button"
-              class="explorer-search__clear"
-              title="Clear search"
-              aria-label="Clear search"
-              @click="searchQuery = ''"
-            >
-              ×
-            </button>
-          </div>
+      <FileBrowserTree
+        :entries="filteredFiles"
+        :loading="sessionFiles.filesLoading"
+        :selected-path="sessionFiles.selectedPath ?? undefined"
+        :highlighted-paths="highlightedPaths"
+        :title="searchQuery.trim() ? 'Matching Files' : 'Session Files'"
+        :auto-collapse-threshold="10"
+        :force-expanded="Boolean(searchQuery.trim())"
+        :hide-list="showSearchPanel && searchMode === 'content'"
+        @view-file="onViewFile"
+        @contextmenu-entry="onContextMenuEntry"
+      >
+        <template #header-actions>
           <button
             type="button"
-            class="explorer-search__refresh"
+            class="explorer-header-btn"
+            :class="{ 'explorer-header-btn--active': showSearchPanel }"
+            :title="showSearchPanel ? 'Hide file search' : 'Search files'"
+            :aria-label="showSearchPanel ? 'Hide file search' : 'Search files'"
+            :aria-expanded="showSearchPanel"
+            @click="toggleSearch"
+          >
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true">
+              <circle cx="7" cy="7" r="4.25"/>
+              <path d="M10.2 10.2L14 14"/>
+            </svg>
+          </button>
+          <button
+            type="button"
+            class="explorer-header-btn"
             :class="{
-              'explorer-search__refresh--spinning': manualRefreshing,
-              'explorer-search__refresh--complete': refreshComplete,
+              'explorer-header-btn--spinning': manualRefreshing,
+              'explorer-header-btn--complete': refreshComplete,
             }"
             :title="manualRefreshing ? 'Refreshing files…' : refreshComplete ? 'Files refreshed' : 'Refresh files'"
             :aria-label="manualRefreshing ? 'Refreshing files' : refreshComplete ? 'Files refreshed' : 'Refresh files'"
@@ -366,79 +397,93 @@ async function onOpenFolder() {
               <path d="M13 5V2.5L11.2 4.3A5.5 5.5 0 1 0 13.4 9"/>
             </svg>
           </button>
-        </div>
-        <div class="explorer-search__modes" role="radiogroup" aria-label="Explorer search mode">
-          <button
-            type="button"
-            :class="{ active: searchMode === 'name' }"
-            role="radio"
-            :aria-checked="searchMode === 'name'"
-            @click="searchMode = 'name'"
-          >
-            Name/path
-          </button>
-          <button
-            type="button"
-            :class="{ active: searchMode === 'content' }"
-            role="radio"
-            :aria-checked="searchMode === 'content'"
-            @click="searchMode = 'content'"
-          >
-            Content
-          </button>
-        </div>
-      </div>
+        </template>
 
-      <div v-if="sessionFiles.filesError" class="explorer-search__error">
-        <span>{{ sessionFiles.filesError }}</span>
-        <button type="button" @click="refreshExplorer">Retry</button>
-      </div>
-
-      <div v-else-if="searchMode === 'content'" class="explorer-results">
-        <div v-if="searchQuery.trim().length < 2" class="explorer-results__empty">
-          Enter at least 2 characters to search readable artifacts. events.jsonl, images,
-          databases, and binary files are skipped.
-        </div>
-        <div v-else-if="contentSearchLoading" class="explorer-results__empty">
-          Searching session files…
-        </div>
-        <div v-else-if="contentSearchError" class="explorer-search__error">
-          {{ contentSearchError }}
-        </div>
-        <template v-else-if="contentSearch">
-          <div class="explorer-results__meta">
-            {{ contentSearch.matches.length }} matches in {{ contentSearch.scannedFiles }} files
-            <span v-if="contentSearch.truncated"> · bounded results</span>
+        <template #after-header>
+          <div v-if="showSearchPanel" class="explorer-search">
+            <div class="explorer-search__row">
+              <div class="explorer-search__input-wrap">
+                <input
+                  ref="searchInputRef"
+                  v-model="searchQuery"
+                  type="text"
+                  :placeholder="searchMode === 'name' ? 'Filter names and paths…' : 'Search file contents…'"
+                  :aria-label="searchMode === 'name' ? 'Filter file names and paths' : 'Search file contents'"
+                  @keydown.esc="closeSearch"
+                />
+                <button
+                  v-if="searchQuery"
+                  type="button"
+                  class="explorer-search__clear"
+                  title="Clear search"
+                  aria-label="Clear search"
+                  @click="searchQuery = ''"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+            <div class="explorer-search__modes" role="radiogroup" aria-label="Explorer search mode">
+              <button
+                type="button"
+                :class="{ active: searchMode === 'name' }"
+                role="radio"
+                :aria-checked="searchMode === 'name'"
+                @click="searchMode = 'name'"
+              >
+                Name/path
+              </button>
+              <button
+                type="button"
+                :class="{ active: searchMode === 'content' }"
+                role="radio"
+                :aria-checked="searchMode === 'content'"
+                @click="searchMode = 'content'"
+              >
+                Content
+              </button>
+            </div>
           </div>
-          <button
-            v-for="match in contentSearch.matches"
-            :key="`${match.path}:${match.lineNumber}`"
-            type="button"
-            class="explorer-result"
-            @click="onContentSearchMatch(match)"
-          >
-            <span class="explorer-result__path">{{ match.path }}</span>
-            <span class="explorer-result__line">L{{ match.lineNumber }}</span>
-            <span class="explorer-result__excerpt">{{ match.excerpt }}</span>
-          </button>
-          <div v-if="contentSearch.matches.length === 0" class="explorer-results__empty">
-            No content matches.
+
+          <div v-if="sessionFiles.filesError" class="explorer-search__error">
+            <span>{{ sessionFiles.filesError }}</span>
+            <button type="button" @click="refreshExplorer">Retry</button>
+          </div>
+
+          <div v-else-if="showSearchPanel && searchMode === 'content'" class="explorer-results">
+            <div v-if="searchQuery.trim().length < 2" class="explorer-results__empty">
+              Enter at least 2 characters to search readable artifacts. events.jsonl, images,
+              databases, and binary files are skipped.
+            </div>
+            <div v-else-if="contentSearchLoading" class="explorer-results__empty">
+              Searching session files…
+            </div>
+            <div v-else-if="contentSearchError" class="explorer-search__error">
+              {{ contentSearchError }}
+            </div>
+            <template v-else-if="contentSearch">
+              <div class="explorer-results__meta">
+                {{ contentSearch.matches.length }} matches in {{ contentSearch.scannedFiles }} files
+                <span v-if="contentSearch.truncated"> · bounded results</span>
+              </div>
+              <button
+                v-for="match in contentSearch.matches"
+                :key="`${match.path}:${match.lineNumber}`"
+                type="button"
+                class="explorer-result"
+                @click="onContentSearchMatch(match)"
+              >
+                <span class="explorer-result__path">{{ match.path }}</span>
+                <span class="explorer-result__line">L{{ match.lineNumber }}</span>
+                <span class="explorer-result__excerpt">{{ match.excerpt }}</span>
+              </button>
+              <div v-if="contentSearch.matches.length === 0" class="explorer-results__empty">
+                No content matches.
+              </div>
+            </template>
           </div>
         </template>
-      </div>
-
-      <FileBrowserTree
-        v-else
-        :entries="filteredFiles"
-        :loading="sessionFiles.filesLoading"
-        :selected-path="sessionFiles.selectedPath ?? undefined"
-        :highlighted-paths="highlightedPaths"
-        :title="searchQuery.trim() ? 'Matching Files' : 'Session Files'"
-        :auto-collapse-threshold="10"
-        :force-expanded="Boolean(searchQuery.trim())"
-        @view-file="onViewFile"
-        @contextmenu-entry="onContextMenuEntry"
-      />
+      </FileBrowserTree>
     </div>
 
     <div
@@ -567,6 +612,48 @@ async function onOpenFolder() {
 .explorer-search__clear:hover {
   background: var(--neutral-muted);
   color: var(--text-primary);
+}
+
+.explorer-header-btn {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  box-sizing: border-box;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  place-items: center;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition:
+    color var(--transition-fast),
+    background var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.explorer-header-btn svg {
+  width: 13px;
+  height: 13px;
+}
+
+.explorer-header-btn:hover:not(:disabled) {
+  background: var(--neutral-muted);
+  color: var(--text-primary);
+}
+
+.explorer-header-btn--active {
+  color: var(--accent-fg);
+  background: var(--accent-muted);
+}
+
+.explorer-header-btn--spinning svg {
+  animation: explorer-refresh-spin 0.75s linear infinite;
+}
+
+.explorer-header-btn--complete {
+  border-color: var(--success-fg);
+  color: var(--success-fg);
 }
 
 .explorer-search__row > .explorer-search__refresh {

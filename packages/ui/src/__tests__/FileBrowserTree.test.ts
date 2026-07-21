@@ -219,4 +219,26 @@ describe("FileBrowserTree", () => {
       isDirectory: true,
     });
   });
+
+  it("renders header-actions slot and after-header slot", () => {
+    const wrapper = mount(FileBrowserTree, {
+      props: { entries: rootEntries },
+      slots: {
+        "header-actions": '<button class="custom-act">Search</button>',
+        "after-header": '<div class="custom-panel">Search Bar</div>',
+      },
+    });
+
+    expect(wrapper.find(".custom-act").exists()).toBe(true);
+    expect(wrapper.find(".custom-panel").exists()).toBe(true);
+  });
+
+  it("hides tree list when hideList is true", () => {
+    const wrapper = mount(FileBrowserTree, {
+      props: { entries: rootEntries, hideList: true },
+    });
+
+    expect(wrapper.find(".fb-tree__header").exists()).toBe(true);
+    expect(wrapper.find(".fb-tree__list").exists()).toBe(false);
+  });
 });

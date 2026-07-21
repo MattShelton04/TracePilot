@@ -303,12 +303,23 @@
   opacity: 0.45;
 }
 
+.fcv__markdown-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
 .fcv__markdown-modes {
   display: flex;
+  align-items: center;
   gap: 2px;
   padding: 5px 10px;
+  min-height: 34px;
+  box-sizing: border-box;
   border-bottom: 1px solid var(--border-muted);
   background: var(--canvas-subtle);
+  flex-shrink: 0;
 }
 
 .fcv__markdown-modes button {
@@ -324,6 +335,12 @@
 .fcv__markdown-modes button.active {
   background: var(--accent-emphasis);
   color: var(--text-on-emphasis);
+}
+
+.fcv__markdown-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .fcv__render-disabled {
