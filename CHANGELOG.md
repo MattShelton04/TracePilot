@@ -7,6 +7,8 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-07-21
+
 ### Added
 - **Session Explorer overhaul** — Safely preview raster images with zoom/pan, inspect JSON/JSONL trees, browse CSV/TSV tables with remembered format view modes, search session files by name or content with auto-expanding folders, find matches within open files, and expand large previews up to 16 MiB
 
