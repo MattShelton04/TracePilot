@@ -8,10 +8,10 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 ## [Unreleased]
 
 ### Added
-- **Richer Session Explorer previews** — Safely preview PNG, JPEG, WebP, and GIF files with wheel zoom and drag panning; inspect JSON/JSONL as expandable records; and view CSV/TSV data as searchable tables with raw-view fallbacks and remembered per-format view preferences
-- **Session-wide file search** — Filter files instantly by name/path or run bounded, debounced content searches across readable session artifacts; matching folders expand automatically and selected matches open, highlight, and scroll into view
-- **Find in Explorer file** — Search within the selected text file, highlight every literal match, and move between matches without leaving the Explorer
-- **On-demand large-file reads** — Text previews still open quickly at 1 MiB and can now be explicitly expanded up to a 16 MiB safety limit
+- **Session Explorer overhaul** — Safely preview raster images with zoom/pan, inspect JSON/JSONL trees, browse CSV/TSV tables with remembered format view modes, search session files by name or content with auto-expanding folders, find matches within open files, and expand large previews up to 16 MiB
+
+### Fixed
+- **Analytics, pricing, and chart usability** — Keep chart tooltips within the viewport, simplify AIC fallback pricing in settings, and refine interactive hit areas across Analytics, Code Impact, and Tool views (#751)
 
 ## [0.7.0] - 2026-07-19
 
