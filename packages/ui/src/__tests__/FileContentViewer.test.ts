@@ -142,6 +142,26 @@ describe("FileContentViewer", () => {
     expect(csv.text()).toContain("alpha");
   });
 
+  it("renders large JSONL in records mode without chunk gating", async () => {
+    const wrapper = mount(FileContentViewer, {
+      props: {
+        filePath: "large.jsonl",
+        fileType: "jsonl",
+        content: JSON.stringify({ type: "large.record", payload: "x".repeat(520_000) }),
+      },
+    });
+
+    expect(wrapper.find(".jsonl-viewer__records").exists()).toBe(true);
+    expect(wrapper.text()).toContain("large.record");
+    expect(wrapper.text()).not.toContain("Structure this chunk");
+    expect(wrapper.find(".json-node").exists()).toBe(false);
+
+    const details = wrapper.get(".jsonl-viewer__record");
+    (details.element as HTMLDetailsElement).open = true;
+    await details.trigger("toggle");
+    expect(wrapper.find(".json-node").exists()).toBe(true);
+  });
+
   it("uses a tab delimiter for TSV files", () => {
     const wrapper = mount(FileContentViewer, {
       props: {
@@ -215,6 +235,36 @@ describe("FileContentViewer", () => {
     });
     await wrapper.get(".fcv__load-more button").trigger("click");
     expect(wrapper.emitted("load-full")).toHaveLength(1);
+  });
+
+  it("keeps Markdown rendered while highlighting find results", async () => {
+    const wrapper = mount(FileContentViewer, {
+      props: {
+        filePath: "plan.md",
+        fileType: "markdown",
+        content: "# Plan\nFind the needle here.",
+        markdownMode: "rendered",
+      },
+    });
+    await wrapper.get('[aria-label="Find in file"]').trigger("click");
+    await wrapper.get('[aria-label="Find in selected file"]').setValue("needle");
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.find(".markdown-content").exists()).toBe(true);
+    expect(wrapper.find(".code-block").exists()).toBe(false);
+    expect(wrapper.find("mark.markdown-search-match").text()).toBe("needle");
+  });
+
+  it("offers copy path for SQLite files", () => {
+    const wrapper = mount(FileContentViewer, {
+      props: {
+        filePath: "session.db",
+        absolutePath: "C:/sessions/session.db",
+        fileType: "sqlite",
+        dbData: [],
+      },
+    });
+    expect(wrapper.find('[aria-label="Copy file path"]').exists()).toBe(true);
   });
 
   it("does NOT show binary placeholder for non-binary types with undefined content", () => {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 import CodeBlock from "../renderers/CodeBlock.vue";
 import JsonTreeNode from "./JsonTreeNode.vue";
 
@@ -20,7 +20,21 @@ const mode = computed({
   set: (value: "tree" | "raw") => emit("update:mode", value),
 });
 const effectiveMode = computed(() => (props.searchQuery?.trim() ? "raw" : mode.value));
+const MAX_AUTO_PARSE_BYTES = 512 * 1024;
+const parseOptIn = ref(false);
+watch(
+  () => props.content,
+  () => {
+    parseOptIn.value = false;
+  },
+);
+const parseAllowed = computed(
+  () => props.content.length <= MAX_AUTO_PARSE_BYTES || parseOptIn.value,
+);
 const parsed = computed(() => {
+  if (effectiveMode.value !== "tree" || !parseAllowed.value) {
+    return { value: null, error: null };
+  }
   try {
     return { value: JSON.parse(props.content) as unknown, error: null };
   } catch (error) {
@@ -56,9 +70,20 @@ const parsed = computed(() => {
         </button>
       </div>
       <span v-if="parsed.error" class="structured-viewer__error">Invalid JSON: {{ parsed.error }}</span>
+      <span v-else-if="effectiveMode === 'tree' && !parseAllowed" class="structured-viewer__error">
+        Large JSON tree is paused above 512 KiB.
+      </span>
+      <button
+        v-if="effectiveMode === 'tree' && content.length > MAX_AUTO_PARSE_BYTES && !parseOptIn"
+        type="button"
+        class="structured-viewer__opt-in"
+        @click="parseOptIn = true"
+      >
+        Parse anyway
+      </button>
     </div>
 
-    <div v-if="effectiveMode === 'tree' && !parsed.error" class="structured-viewer__tree">
+    <div v-if="effectiveMode === 'tree' && parseAllowed && !parsed.error" class="structured-viewer__tree">
       <JsonTreeNode :value="parsed.value" :initially-expanded="true" />
     </div>
     <CodeBlock
@@ -68,7 +93,7 @@ const parsed = computed(() => {
       language="json"
       :line-numbers="true"
       :show-language-badge="false"
-      :max-lines="5000"
+      :max-lines="10000"
       :fill-height="true"
       :search-query="searchQuery"
       :active-search-line="activeSearchLine"
@@ -123,6 +148,17 @@ const parsed = computed(() => {
   font-size: 0.6875rem;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.structured-viewer__opt-in {
+  margin-left: auto;
+  padding: 3px 8px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--canvas-default);
+  color: var(--accent-fg);
+  cursor: pointer;
+  font-size: 0.6875rem;
 }
 
 .structured-viewer__tree {

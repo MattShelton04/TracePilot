@@ -134,16 +134,16 @@ pub async fn session_search_files(
             total_bytes += bytes.len() as u64;
             response.scanned_files += 1;
 
-            let content = String::from_utf8_lossy(&bytes);
             let mut file_matches = 0;
-            for (index, line) in content.lines().enumerate() {
+            for (index, raw_line) in bytes.split_inclusive(|byte| *byte == b'\n').enumerate() {
+                let line = String::from_utf8_lossy(raw_line);
                 if !line.to_lowercase().contains(query.as_str()) {
                     continue;
                 }
                 response.matches.push(SessionFileSearchMatch {
                     path: entry.path.clone(),
                     line_number: index + 1,
-                    excerpt: line_excerpt(line),
+                    excerpt: line_excerpt(&line),
                 });
                 file_matches += 1;
                 if file_matches >= MAX_SEARCH_MATCHES_PER_FILE

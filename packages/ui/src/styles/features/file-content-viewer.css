@@ -82,7 +82,9 @@
 }
 
 @keyframes fcv-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ── Error ───────────────────────────────────────────────── */
@@ -125,7 +127,9 @@
   background: transparent;
   color: var(--text-tertiary);
   cursor: pointer;
-  transition: color var(--transition-fast), background var(--transition-fast);
+  transition:
+    color var(--transition-fast),
+    background var(--transition-fast);
 }
 
 .fcv__copy-btn svg {
@@ -294,6 +298,55 @@
   background: var(--canvas-inset);
 }
 
+.fcv__load-more button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.fcv__markdown-modes {
+  display: flex;
+  gap: 2px;
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--border-muted);
+  background: var(--canvas-subtle);
+}
+
+.fcv__markdown-modes button {
+  padding: 3px 9px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.6875rem;
+}
+
+.fcv__markdown-modes button.active {
+  background: var(--accent-emphasis);
+  color: var(--text-on-emphasis);
+}
+
+.fcv__render-disabled {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 180px;
+  padding: 24px;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.fcv__render-disabled button {
+  padding: 5px 10px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--canvas-default);
+  color: var(--accent-fg);
+  cursor: pointer;
+}
+
 /* ── SQLite database viewer ──────────────────────────────── */
 .fcv__db-header {
   display: flex;
@@ -369,7 +422,9 @@
   font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
-  transition: background var(--transition-fast), color var(--transition-fast);
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
 }
 
 .fcv__db-view-btn:hover:not(.fcv__db-view-btn--active) {
@@ -395,7 +450,9 @@
   cursor: pointer;
   white-space: nowrap;
   border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-  transition: color var(--transition-fast), background var(--transition-fast);
+  transition:
+    color var(--transition-fast),
+    background var(--transition-fast);
 }
 
 .fcv__db-tab:hover {

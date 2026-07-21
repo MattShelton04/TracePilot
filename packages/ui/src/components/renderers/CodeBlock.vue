@@ -23,6 +23,8 @@ const props = withDefaults(
     startLine?: number;
     /** Max lines before collapsing (0 = unlimited). */
     maxLines?: number;
+    /** Maximum characters tokenized and inserted into the DOM for one line. */
+    maxLineCharacters?: number;
     /** Whether to show the language badge (default: true). */
     showLanguageBadge?: boolean;
     /**
@@ -42,6 +44,7 @@ const props = withDefaults(
     lineNumbers: true,
     startLine: 1,
     showLanguageBadge: true,
+    maxLineCharacters: 20_000,
   },
 );
 
@@ -49,6 +52,7 @@ const lang = computed(() => props.language ?? detectLanguage(props.filePath ?? "
 const langDisplay = computed(() => languageDisplayName(lang.value));
 const showNumbers = computed(() => props.lineNumbers);
 const start = computed(() => props.startLine);
+const visiblePage = ref(0);
 
 const lines = computed(() => {
   const raw = props.code.split("\n");
@@ -61,16 +65,35 @@ const visibleRange = computed(() => {
   if (maxLines <= 0 || lines.value.length <= maxLines) {
     return { start: 0, end: lines.value.length };
   }
-  const activeIndex = (props.activeSearchLine ?? start.value) - start.value;
-  if (activeIndex >= maxLines && activeIndex < lines.value.length) {
+  const activeIndex = props.searchQuery?.trim()
+    ? (props.activeSearchLine ?? start.value) - start.value
+    : -1;
+  if (activeIndex >= 0 && activeIndex < lines.value.length) {
     const rangeStart = Math.max(
       0,
       Math.min(activeIndex - Math.floor(maxLines / 2), lines.value.length - maxLines),
     );
     return { start: rangeStart, end: rangeStart + maxLines };
   }
-  return { start: 0, end: maxLines };
+  const rangeStart = Math.min(visiblePage.value * maxLines, lines.value.length - maxLines);
+  return { start: rangeStart, end: rangeStart + maxLines };
 });
+
+watch(
+  () => props.code,
+  () => {
+    visiblePage.value = 0;
+  },
+);
+
+const pageCount = computed(() => {
+  const maxLines = props.maxLines ?? 0;
+  return maxLines > 0 ? Math.ceil(lines.value.length / maxLines) : 1;
+});
+
+function movePage(direction: 1 | -1) {
+  visiblePage.value = Math.max(0, Math.min(pageCount.value - 1, visiblePage.value + direction));
+}
 
 function highlightedLine(line: string, lineNumber: number): string {
   const query = props.searchQuery?.trim();
@@ -98,17 +121,16 @@ const visibleLines = computed(() =>
     const sourceIndex = visibleRange.value.start + index;
     const lineNumber = start.value + sourceIndex;
     return {
-      html: highlightedLine(line, lineNumber),
+      html:
+        line.length > props.maxLineCharacters
+          ? `${highlightedLine(line.slice(0, props.maxLineCharacters), lineNumber)}${highlightLine(" … [line truncated for display]", "text")}`
+          : highlightedLine(line, lineNumber),
       lineNumber,
     };
   }),
 );
 
 const isCollapsed = computed(() => (props.maxLines ? lines.value.length > props.maxLines : false));
-
-const hiddenCount = computed(() =>
-  isCollapsed.value ? lines.value.length - visibleLines.value.length : 0,
-);
 
 const contentElement = ref<HTMLElement | null>(null);
 watch(
@@ -165,11 +187,13 @@ function fileName(path: string): string {
         </tbody>
       </table>
       <div v-if="isCollapsed" class="code-block-collapsed">
-        <template v-if="visibleRange.start > 0">
-          … showing lines {{ visibleRange.start + start }}–{{ visibleRange.end + start - 1 }} of
+        <span>
+          Showing lines {{ visibleRange.start + start }}–{{ visibleRange.end + start - 1 }} of
           {{ lines.length }}
-        </template>
-        <template v-else>… {{ hiddenCount }} more line{{ hiddenCount !== 1 ? 's' : '' }}</template>
+        </span>
+        <button type="button" :disabled="visibleRange.start === 0" @click="visiblePage = 0">First</button>
+        <button type="button" :disabled="visibleRange.start === 0" @click="movePage(-1)">Previous</button>
+        <button type="button" :disabled="visibleRange.end >= lines.length" @click="movePage(1)">Next</button>
       </div>
     </div>
   </div>
@@ -258,12 +282,30 @@ function fileName(path: string): string {
   white-space: pre;
 }
 .code-block-collapsed {
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   padding: 6px;
   color: var(--text-tertiary);
   font-size: 0.6875rem;
   background: var(--canvas-inset);
   border-top: 1px solid var(--border-muted);
+}
+
+.code-block-collapsed button {
+  padding: 2px 7px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--canvas-default);
+  color: var(--accent-fg);
+  cursor: pointer;
+  font-size: inherit;
+}
+
+.code-block-collapsed button:disabled {
+  cursor: default;
+  opacity: 0.45;
 }
 
 /* ── Syntax highlighting tokens ── */

@@ -30,36 +30,51 @@ const mode = computed({
 });
 const effectiveMode = computed(() => (props.searchQuery?.trim() ? "raw" : mode.value));
 const query = ref("");
-const records = computed<JsonlRecord[]>(() =>
-  props.content
-    .split(/\r?\n/)
-    .filter((line) => line.trim().length > 0)
-    .slice(0, MAX_RECORDS)
-    .map((raw, index) => {
-      try {
-        const value = JSON.parse(raw) as unknown;
-        const object =
-          value && typeof value === "object" ? (value as Record<string, unknown>) : null;
-        const type = typeof object?.type === "string" ? object.type : null;
-        const id = typeof object?.id === "string" ? object.id.slice(0, 8) : null;
-        return {
-          line: index + 1,
-          value,
-          raw,
-          error: null,
-          label: [type, id].filter(Boolean).join(" · ") || `Record ${index + 1}`,
-        };
-      } catch (error) {
-        return {
-          line: index + 1,
-          value: raw,
-          raw,
-          error: error instanceof Error ? error.message : String(error),
-          label: `Invalid record ${index + 1}`,
-        };
-      }
-    }),
-);
+const expandedLines = ref<Set<number>>(new Set());
+
+function onRecordToggle(event: Event, line: number) {
+  const next = new Set(expandedLines.value);
+  if ((event.currentTarget as HTMLDetailsElement).open) next.add(line);
+  else next.delete(line);
+  expandedLines.value = next;
+}
+
+const records = computed<JsonlRecord[]>(() => {
+  if (effectiveMode.value !== "records") return [];
+  const result: JsonlRecord[] = [];
+  let sourceLine = 1;
+  for (const raw of props.content.split(/\r?\n/, MAX_RECORDS + 1)) {
+    if (!raw.trim()) {
+      sourceLine += 1;
+      continue;
+    }
+    if (result.length >= MAX_RECORDS) break;
+    const line = sourceLine;
+    sourceLine += 1;
+    try {
+      const value = JSON.parse(raw) as unknown;
+      const object = value && typeof value === "object" ? (value as Record<string, unknown>) : null;
+      const type = typeof object?.type === "string" ? object.type : null;
+      const id = typeof object?.id === "string" ? object.id.slice(0, 8) : null;
+      result.push({
+        line,
+        value,
+        raw,
+        error: null,
+        label: [type, id].filter(Boolean).join(" · ") || `Record ${line}`,
+      });
+    } catch (error) {
+      result.push({
+        line,
+        value: raw,
+        raw,
+        error: error instanceof Error ? error.message : String(error),
+        label: `Invalid record ${line}`,
+      });
+    }
+  }
+  return result;
+});
 const totalLines = computed(
   () => props.content.split(/\r?\n/).filter((line) => line.trim().length > 0).length,
 );
@@ -97,14 +112,21 @@ const invalidCount = computed(() => records.value.filter((record) => record.erro
     </div>
 
     <div v-if="effectiveMode === 'records'" class="jsonl-viewer__records">
-      <details v-for="record in filtered" :key="record.line" class="jsonl-viewer__record">
+      <details
+        v-for="record in filtered"
+        :key="record.line"
+        class="jsonl-viewer__record"
+        @toggle="onRecordToggle($event, record.line)"
+      >
         <summary>
           <span class="jsonl-viewer__line">L{{ record.line }}</span>
           <span>{{ record.label }}</span>
           <span v-if="record.error" class="jsonl-viewer__invalid">Invalid JSON</span>
         </summary>
-        <div v-if="record.error" class="jsonl-viewer__error">{{ record.error }}</div>
-        <JsonTreeNode :value="record.value" :initially-expanded="true" />
+        <template v-if="expandedLines.has(record.line)">
+          <div v-if="record.error" class="jsonl-viewer__error">{{ record.error }}</div>
+          <JsonTreeNode :value="record.value" :initially-expanded="true" />
+        </template>
       </details>
       <div v-if="filtered.length === 0" class="jsonl-viewer__empty">No matching records</div>
     </div>
@@ -115,7 +137,7 @@ const invalidCount = computed(() => records.value.filter((record) => record.erro
       language="json"
       :line-numbers="true"
       :show-language-badge="false"
-      :max-lines="5000"
+      :max-lines="10000"
       :fill-height="true"
       :search-query="searchQuery"
       :active-search-line="activeSearchLine"

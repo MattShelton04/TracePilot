@@ -84,7 +84,7 @@ describe("CodeBlock", () => {
     const rows = wrapper.findAll(".code-line");
     expect(rows).toHaveLength(10);
     expect(wrapper.find(".code-block-collapsed").exists()).toBe(true);
-    expect(wrapper.find(".code-block-collapsed").text()).toContain("40 more lines");
+    expect(wrapper.find(".code-block-collapsed").text()).toContain("Showing lines 1–10 of 50");
   });
 
   it("does not show collapsed indicator when under maxLines", () => {
@@ -140,6 +140,24 @@ describe("CodeBlock", () => {
 
     expect(wrapper.findAll(".code-line")).toHaveLength(10);
     expect(wrapper.find('[data-line-number="80"]').exists()).toBe(true);
-    expect(wrapper.find(".code-block-collapsed").text()).toContain("showing lines");
+    expect(wrapper.find(".code-block-collapsed").text()).toContain("Showing lines");
+  });
+
+  it("pages through every capped line window", async () => {
+    const code = Array.from({ length: 25 }, (_, index) => `line ${index + 1}`).join("\n");
+    const wrapper = mount(CodeBlock, { props: { code, maxLines: 10 } });
+
+    await wrapper.get(".code-block-collapsed button:nth-of-type(3)").trigger("click");
+    expect(wrapper.find('[data-line-number="11"]').exists()).toBe(true);
+    await wrapper.get(".code-block-collapsed button:nth-of-type(3)").trigger("click");
+    expect(wrapper.find('[data-line-number="25"]').exists()).toBe(true);
+  });
+
+  it("bounds extremely long rendered lines", () => {
+    const wrapper = mount(CodeBlock, {
+      props: { code: "x".repeat(50_000), maxLineCharacters: 1_000 },
+    });
+    expect(wrapper.text()).toContain("line truncated for display");
+    expect(wrapper.get("pre").text().length).toBeLessThan(1_100);
   });
 });

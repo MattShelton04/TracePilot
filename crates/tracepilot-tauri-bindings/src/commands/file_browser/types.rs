@@ -5,10 +5,7 @@ use serde::{Deserialize, Serialize};
 /// Maximum size of a text file that will be returned verbatim (1 MiB).
 pub(super) const MAX_READ_BYTES: u64 = 1_024 * 1_024;
 
-/// Maximum text returned after an explicit "load full file" request (16 MiB).
-///
-/// This remains bounded because session artifacts are agent-controlled and
-/// cross the JSON IPC boundary into the WebView.
+/// Maximum text returned after an explicit larger-read request (16 MiB).
 pub(super) const MAX_FULL_READ_BYTES: u64 = 16 * 1_024 * 1_024;
 
 /// Maximum encoded image size accepted for preview generation (20 MiB).
@@ -53,14 +50,23 @@ pub(super) const MAX_ENTRIES: usize = 2_000;
 pub(super) const MAX_DEPTH: usize = 8;
 
 /// Maximum number of rows returned per SQLite table.
-pub(super) const MAX_SQLITE_ROWS_PER_TABLE: usize = 500;
+pub(super) const MAX_SQLITE_ROWS_PER_TABLE: usize = 200;
+
+/// Maximum columns materialized from one SQLite table.
+pub(super) const MAX_SQLITE_COLUMNS_PER_TABLE: usize = 50;
+
+/// Maximum UTF-8 bytes retained from one SQLite TEXT cell.
+pub(super) const MAX_SQLITE_CELL_BYTES: usize = 16 * 1_024;
+
+/// Aggregate TEXT bytes retained from one SQLite table preview.
+pub(super) const MAX_SQLITE_TEXT_BYTES_PER_TABLE: usize = 512 * 1_024;
 
 /// Maximum number of tables returned by `session_read_sqlite`.
 ///
 /// A crafted SQLite file with thousands of tables could produce a multi-gigabyte
 /// IPC payload (tables × rows × row size). 50 tables is generous for any real
 /// session database while being several orders of magnitude below the attack threshold.
-pub(super) const MAX_SQLITE_TABLES: usize = 50;
+pub(super) const MAX_SQLITE_TABLES: usize = 20;
 
 /// Classified file type used by the frontend to choose a renderer.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

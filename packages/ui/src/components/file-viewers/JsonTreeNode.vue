@@ -17,21 +17,32 @@ const props = withDefaults(
 const expanded = ref(props.initiallyExpanded || props.depth === 0);
 const visibleLimit = ref(100);
 const isContainer = computed(() => props.value !== null && typeof props.value === "object");
-const entries = computed<[string, unknown][]>(() => {
+const entryCount = computed(() => {
+  if (Array.isArray(props.value)) return props.value.length;
+  if (!isContainer.value) return 0;
+  let count = 0;
+  for (const _key in props.value as Record<string, unknown>) count += 1;
+  return count;
+});
+const visibleEntries = computed<[string, unknown][]>(() => {
   if (Array.isArray(props.value)) {
-    return props.value.map((value, index) => [String(index), value]);
+    return props.value.slice(0, visibleLimit.value).map((value, index) => [String(index), value]);
   }
   if (isContainer.value) {
-    return Object.entries(props.value as Record<string, unknown>);
+    const result: [string, unknown][] = [];
+    for (const key in props.value as Record<string, unknown>) {
+      result.push([key, (props.value as Record<string, unknown>)[key]]);
+      if (result.length >= visibleLimit.value) break;
+    }
+    return result;
   }
   return [];
 });
-const visibleEntries = computed(() => entries.value.slice(0, visibleLimit.value));
-const hiddenCount = computed(() => Math.max(0, entries.value.length - visibleLimit.value));
+const hiddenCount = computed(() => Math.max(0, entryCount.value - visibleLimit.value));
 
 const summary = computed(() => {
   if (Array.isArray(props.value)) return `Array(${props.value.length})`;
-  if (isContainer.value) return `{${entries.value.length}}`;
+  if (isContainer.value) return `{${entryCount.value}}`;
   if (props.value === null) return "null";
   if (typeof props.value === "string") return JSON.stringify(props.value);
   return String(props.value);

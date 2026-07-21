@@ -26,12 +26,19 @@ const filterQuery = ref("");
 const configuredDelimiter = computed(() =>
   props.filePath?.toLowerCase().endsWith(".tsv") ? "\t" : "",
 );
-const parsed = computed(() =>
-  Papa.parse<string[]>(props.content, {
+const parsed = computed(() => {
+  if (effectiveMode.value !== "table") {
+    return Papa.parse<string[]>("", {
+      delimiter: configuredDelimiter.value,
+      skipEmptyLines: "greedy",
+    });
+  }
+  return Papa.parse<string[]>(props.content, {
     delimiter: configuredDelimiter.value,
     skipEmptyLines: "greedy",
-  }),
-);
+    preview: MAX_ROWS + 1,
+  });
+});
 const delimiterLabel = computed(() => {
   const delimiter = parsed.value.meta.delimiter;
   if (delimiter === "\t") return "tab";
@@ -73,7 +80,7 @@ const filteredRows = computed(() => {
         {{ filteredRows.length }} rows · {{ headers.length }} columns
         <template v-if="parsed.meta.delimiter"> · {{ delimiterLabel }} delimiter</template>
         <template v-if="parsed.errors.length"> · {{ parsed.errors.length }} parse warnings</template>
-        <template v-if="parsed.data.length > MAX_ROWS + 1"> · first {{ MAX_ROWS }} shown</template>
+        <template v-if="parsed.meta.truncated"> · first {{ MAX_ROWS }} shown</template>
       </span>
     </div>
 
@@ -103,7 +110,7 @@ const filteredRows = computed(() => {
       language="csv"
       :line-numbers="true"
       :show-language-badge="false"
-      :max-lines="5000"
+      :max-lines="10000"
       :fill-height="true"
       :search-query="searchQuery"
       :active-search-line="activeSearchLine"

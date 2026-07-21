@@ -27,6 +27,7 @@ const sessionFiles = useSessionFiles(() => store.sessionId);
 
 // ── Name/path and bounded content search ───────────────────────────────────
 interface ExplorerViewModes {
+  markdown: "rendered" | "raw";
   json: "tree" | "raw";
   jsonl: "records" | "raw";
   csv: "table" | "raw";
@@ -34,7 +35,7 @@ interface ExplorerViewModes {
 
 const explorerViewModes = usePersistedRef<ExplorerViewModes>(
   STORAGE_KEYS.sessionExplorerViewModes,
-  { json: "tree", jsonl: "records", csv: "table" },
+  { markdown: "rendered", json: "tree", jsonl: "records", csv: "table" },
 );
 const {
   searchMode,
@@ -456,6 +457,7 @@ async function onOpenFolder() {
         :db-data="sessionFiles.dbData ?? undefined"
         :image-preview="sessionFiles.imagePreview ?? undefined"
         :can-load-more="sessionFiles.fileCanLoadMore"
+        :markdown-mode="explorerViewModes.markdown"
         :json-mode="explorerViewModes.json"
         :jsonl-mode="explorerViewModes.jsonl"
         :csv-mode="explorerViewModes.csv"
@@ -465,6 +467,7 @@ async function onOpenFolder() {
         :loading="viewerLoading"
         :error="viewerError"
         @load-full="sessionFiles.loadFullFile"
+        @update:markdown-mode="explorerViewModes.markdown = $event"
         @update:json-mode="explorerViewModes.json = $event"
         @update:jsonl-mode="explorerViewModes.jsonl = $event"
         @update:csv-mode="explorerViewModes.csv = $event"

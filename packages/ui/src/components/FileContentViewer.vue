@@ -38,6 +38,8 @@ const props = defineProps<{
   imagePreview?: SessionImagePreview;
   /** Whether a larger bounded text read is available on explicit request. */
   canLoadMore?: boolean;
+  /** Persisted rendered/raw preference for Markdown files. */
+  markdownMode?: "rendered" | "raw";
   /** Persisted structured/raw preference for JSON files. */
   jsonMode?: "tree" | "raw";
   /** Persisted structured/raw preference for JSONL files. */
@@ -60,6 +62,7 @@ const emit = defineEmits<{
   /** Re-emitted from MarkdownContent — parent handles OS open (Tauri). */
   "open-external": [url: string];
   "load-full": [];
+  "update:markdown-mode": [mode: "rendered" | "raw"];
   "update:json-mode": [mode: "tree" | "raw"];
   "update:jsonl-mode": [mode: "records" | "raw"];
   "update:csv-mode": [mode: "table" | "raw"];
@@ -81,6 +84,15 @@ const isBinary = computed(() => props.fileType === "binary");
 const isJsonl = computed(() => props.fileType === "jsonl");
 const isJson = computed(() => props.fileType === "json");
 const isCsv = computed(() => props.fileType === "csv");
+const effectiveMarkdownMode = computed(() => props.markdownMode ?? "rendered");
+const MAX_MARKDOWN_RENDER_BYTES = 512 * 1024;
+const largeMarkdownRenderEnabled = ref(false);
+const markdownRenderAllowed = computed(
+  () =>
+    props.content === undefined ||
+    props.content.length <= MAX_MARKDOWN_RENDER_BYTES ||
+    largeMarkdownRenderEnabled.value,
+);
 
 const codeLanguage = computed(() => {
   if (isJsonl.value) return "json";
@@ -226,6 +238,7 @@ watch(
   () => props.filePath,
   () => {
     closeFileSearch();
+    largeMarkdownRenderEnabled.value = false;
   },
 );
 
@@ -275,8 +288,7 @@ watch(
 
     <!-- Sanitized raster image preview -->
     <template v-else-if="isImage">
-      <template v-if="imagePreview">
-        <div class="fcv__file-header">
+      <div class="fcv__file-header">
         <svg class="fcv__file-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round">
           <rect x="2" y="3" width="12" height="10" rx="1"/>
           <circle cx="5.5" cy="6.5" r="1"/>
@@ -299,9 +311,8 @@ watch(
             <polyline points="3 8 6.5 12 13 4"/>
           </svg>
         </button>
-        </div>
-        <ImageFileViewer :preview="imagePreview" :file-path="filePath" />
-      </template>
+      </div>
+      <ImageFileViewer v-if="imagePreview" :preview="imagePreview" :file-path="filePath" />
       <div v-else class="fcv__binary">
         <p class="fcv__binary-title">Image Preview</p>
         <p class="fcv__binary-desc"><strong>{{ fileName }}</strong> has no preview data.</p>
@@ -310,34 +321,42 @@ watch(
 
     <!-- SQLite database viewer -->
     <template v-else-if="isSqlite">
+      <div class="fcv__db-header">
+        <svg class="fcv__db-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <ellipse cx="12" cy="5" rx="9" ry="3"/>
+          <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+          <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+        </svg>
+        <span class="fcv__db-name">{{ fileName }}</span>
+        <span v-if="dbData" class="fcv__db-meta">{{ dbData.length }} {{ dbData.length === 1 ? 'table' : 'tables' }}</span>
+        <button
+          v-if="absolutePath"
+          class="fcv__copy-btn"
+          :class="{ 'fcv__copy-btn--copied': pathCopied }"
+          :title="pathCopied ? 'Copied path!' : 'Copy file path'"
+          :aria-label="pathCopied ? 'Copied path!' : 'Copy file path'"
+          @click="copyPath(absolutePath)"
+        >
+          <svg aria-hidden="true" v-if="!pathCopied" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6.5 9.5A3.2 3.2 0 0 0 11 10l2-2a3.2 3.2 0 1 0-4.5-4.5L7.5 4.5"/>
+            <path d="M9.5 6.5A3.2 3.2 0 0 0 5 6l-2 2a3.2 3.2 0 1 0 4.5 4.5l1-1"/>
+          </svg>
+          <svg aria-hidden="true" v-else viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="3 8 6.5 12 13 4"/></svg>
+        </button>
+        <button
+          v-if="activeTable"
+          class="fcv__copy-btn"
+          :class="{ 'fcv__copy-btn--copied': dbCopied }"
+          :title="dbCopied ? 'Copied!' : 'Copy table as JSON'"
+          :aria-label="dbCopied ? 'Copied!' : 'Copy table as JSON'"
+          @click="copyTableAsJson"
+        >
+          <svg aria-hidden="true" v-if="!dbCopied" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="9" height="10" rx="1"/><path d="M11 5V3a1 1 0 00-1-1H3a1 1 0 00-1 1v9a1 1 0 001 1h2"/></svg>
+          <svg aria-hidden="true" v-else viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="3 8 6.5 12 13 4"/></svg>
+        </button>
+      </div>
       <!-- Has data -->
       <template v-if="dbData && dbData.length > 0">
-        <div class="fcv__db-header">
-          <svg class="fcv__db-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <ellipse cx="12" cy="5" rx="9" ry="3"/>
-            <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
-            <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
-          </svg>
-          <span class="fcv__db-name">{{ fileName }}</span>
-          <span class="fcv__db-meta">{{ dbData.length }} {{ dbData.length === 1 ? 'table' : 'tables' }}</span>
-          <button
-            v-if="activeTable"
-            class="fcv__copy-btn"
-            :class="{ 'fcv__copy-btn--copied': dbCopied }"
-            :title="dbCopied ? 'Copied!' : 'Copy table as JSON'"
-            :aria-label="dbCopied ? 'Copied!' : 'Copy table as JSON'"
-            @click="copyTableAsJson"
-          >
-            <svg aria-hidden="true" v-if="!dbCopied" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="5" y="5" width="9" height="10" rx="1"/>
-              <path d="M11 5V3a1 1 0 00-1-1H3a1 1 0 00-1 1v9a1 1 0 001 1h2"/>
-            </svg>
-            <svg aria-hidden="true" v-else viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="3 8 6.5 12 13 4"/>
-            </svg>
-          </button>
-        </div>
-
         <!-- Table tabs (left) + Data/Schema toggle (right) -->
         <div class="fcv__db-tabs" role="tablist">
           <button
@@ -415,7 +434,16 @@ watch(
     </template>
 
     <!-- Binary file placeholder -->
-    <div v-else-if="isBinary" class="fcv__binary">
+    <template v-else-if="isBinary">
+      <div class="fcv__file-header">
+        <svg class="fcv__file-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 2h5l4 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M9 2v4h4"/></svg>
+        <span class="fcv__file-name">{{ filePath }}</span>
+        <button v-if="absolutePath" class="fcv__copy-btn" :class="{ 'fcv__copy-btn--copied': pathCopied }" :title="pathCopied ? 'Copied path!' : 'Copy file path'" :aria-label="pathCopied ? 'Copied path!' : 'Copy file path'" @click="copyPath(absolutePath)">
+          <svg aria-hidden="true" v-if="!pathCopied" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M6.5 9.5A3.2 3.2 0 0 0 11 10l2-2a3.2 3.2 0 1 0-4.5-4.5L7.5 4.5"/><path d="M9.5 6.5A3.2 3.2 0 0 0 5 6l-2 2a3.2 3.2 0 1 0 4.5 4.5l1-1"/></svg>
+          <svg aria-hidden="true" v-else viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="3 8 6.5 12 13 4"/></svg>
+        </button>
+      </div>
+      <div class="fcv__binary">
       <svg class="fcv__binary-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
         <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
         <line x1="8" y1="21" x2="16" y2="21"/>
@@ -425,7 +453,8 @@ watch(
       <p class="fcv__binary-desc">
         <strong>{{ fileName }}</strong> is a binary file and cannot be displayed as text.
       </p>
-    </div>
+      </div>
+    </template>
 
     <!-- File header + rendered content -->
     <template v-else-if="content !== undefined">
@@ -435,6 +464,18 @@ watch(
           <path d="M9 2v4h4"/>
         </svg>
         <span class="fcv__file-name">{{ filePath }}</span>
+        <button
+          class="fcv__copy-btn"
+          :class="{ 'fcv__copy-btn--active': fileSearchOpen }"
+          title="Find in file"
+          aria-label="Find in file"
+          :aria-expanded="fileSearchOpen"
+          @click="fileSearchOpen ? closeFileSearch() : focusFileSearch()"
+        >
+          <svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
+            <circle cx="7" cy="7" r="4.25"/><path d="M10.2 10.2L14 14"/>
+          </svg>
+        </button>
         <button
           v-if="absolutePath"
           class="fcv__copy-btn"
@@ -456,7 +497,6 @@ watch(
           :class="{ 'fcv__copy-btn--copied': textCopied }"
           :title="textCopied ? 'Copied!' : 'Copy file contents'"
           :aria-label="textCopied ? 'Copied!' : 'Copy file contents'"
-          :style="absolutePath ? { marginLeft: '4px' } : undefined"
           @click="copyFileContent"
         >
           <svg aria-hidden="true" v-if="!textCopied" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
@@ -465,19 +505,6 @@ watch(
           </svg>
           <svg aria-hidden="true" v-else viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="3 8 6.5 12 13 4"/>
-          </svg>
-        </button>
-        <button
-          class="fcv__copy-btn"
-          :class="{ 'fcv__copy-btn--active': fileSearchOpen }"
-          title="Find in file"
-          aria-label="Find in file"
-          :aria-expanded="fileSearchOpen"
-          @click="fileSearchOpen ? closeFileSearch() : focusFileSearch()"
-        >
-          <svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
-            <circle cx="7" cy="7" r="4.25"/>
-            <path d="M10.2 10.2L14 14"/>
           </svg>
         </button>
       </div>
@@ -532,11 +559,35 @@ watch(
 
       <div class="fcv__content" :class="{ 'fcv__content--fill': !isMarkdown }">
         <!-- Markdown renderer -->
-        <MarkdownContent
-          v-if="isMarkdown && !fileSearchQuery.trim()"
-          :content="content"
-          @open-external="(url) => emit('open-external', url)"
-        />
+        <template v-if="isMarkdown">
+          <div class="fcv__markdown-modes" role="radiogroup" aria-label="Markdown view mode">
+            <button type="button" :class="{ active: effectiveMarkdownMode === 'rendered' }" @click="emit('update:markdown-mode', 'rendered')">Rendered</button>
+            <button type="button" :class="{ active: effectiveMarkdownMode === 'raw' }" @click="emit('update:markdown-mode', 'raw')">Raw</button>
+          </div>
+          <MarkdownContent
+            v-if="effectiveMarkdownMode === 'rendered' && markdownRenderAllowed"
+            :content="content"
+            :search-query="fileSearchQuery"
+            :active-search-index="activeFileSearchIndex"
+            @open-external="(url) => emit('open-external', url)"
+          />
+          <div v-else-if="effectiveMarkdownMode === 'rendered'" class="fcv__render-disabled">
+            <strong>Large Markdown preview</strong>
+            <span>Rendered view is paused above 512 KiB to keep the explorer responsive.</span>
+            <button type="button" @click="largeMarkdownRenderEnabled = true">Render anyway</button>
+          </div>
+          <CodeBlock
+            v-else
+            :code="content"
+            :file-path="filePath"
+            :line-numbers="true"
+            :show-language-badge="true"
+            :max-lines="10000"
+            :search-query="fileSearchQuery"
+            :active-search-line="activeFileSearchMatch?.line"
+            :active-search-column="activeFileSearchMatch?.column"
+          />
+        </template>
 
         <JsonFileViewer
           v-else-if="isJson"
@@ -579,7 +630,7 @@ watch(
           :language="codeLanguage"
           :line-numbers="true"
           :show-language-badge="true"
-          :max-lines="5000"
+          :max-lines="10000"
           :fill-height="true"
           :search-query="fileSearchQuery"
           :active-search-line="activeFileSearchMatch?.line"

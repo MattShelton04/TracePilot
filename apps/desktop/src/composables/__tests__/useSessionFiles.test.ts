@@ -486,4 +486,21 @@ describe("useSessionFiles", () => {
     await new Promise<void>((resolve) => setTimeout(resolve, 20));
     expect(instance.contentChangedAt).toBeNull();
   });
+
+  it("reuses a bounded text page when switching back to a recently viewed file", async () => {
+    mockSessionListFiles.mockResolvedValue([
+      { path: "a.txt", name: "a.txt", sizeBytes: 1, isDirectory: false, fileType: "text" },
+      { path: "b.txt", name: "b.txt", sizeBytes: 1, isDirectory: false, fileType: "text" },
+    ]);
+    mockSessionReadFile.mockResolvedValueOnce("a").mockResolvedValueOnce("b");
+
+    const { instance } = mountComposable("sess-cache");
+    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+    await instance.selectFile("a.txt", "text");
+    await instance.selectFile("b.txt", "text");
+    await instance.selectFile("a.txt", "text");
+
+    expect(instance.fileContent).toBe("a");
+    expect(mockSessionReadFile).toHaveBeenCalledTimes(2);
+  });
 });

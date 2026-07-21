@@ -4,14 +4,14 @@ use super::security::{
     collect_entries, reject_hidden_filename, revalidate_within_session_dir, safe_session_file_path,
 };
 use super::types::{
-    MAX_FULL_READ_BYTES, MAX_READ_BYTES, MAX_SQLITE_ROWS_PER_TABLE, MAX_SQLITE_TABLES,
+    MAX_FULL_READ_BYTES, MAX_READ_BYTES, MAX_SQLITE_CELL_BYTES, MAX_SQLITE_COLUMNS_PER_TABLE,
+    MAX_SQLITE_ROWS_PER_TABLE, MAX_SQLITE_TABLES, MAX_SQLITE_TEXT_BYTES_PER_TABLE,
     SessionFileEntry, SessionFileType,
 };
 use crate::blocking_cmd;
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
 use crate::helpers::read_config;
-use tracepilot_core::utils::InfallibleWrite;
 
 /// List all files in a session's directory tree.
 ///
@@ -54,10 +54,8 @@ pub async fn session_list_files(
 
 /// Read the text content of a file within a session directory.
 ///
-/// Returns the file contents as a UTF-8 string. Files exceeding
-/// [`MAX_READ_BYTES`] are truncated with a trailing notice. When `full` is
-/// explicitly requested, the bounded limit increases to
-/// [`MAX_FULL_READ_BYTES`].
+/// Returns a 1 MiB preview by default, or up to 16 MiB after an explicit
+/// larger-read request.
 /// Binary files (`.db`, `.sqlite`, etc.) cannot be read and return an error.
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(%session_id, %relative_path))]
@@ -138,6 +136,7 @@ pub async fn session_read_file(
 
         let mut content = String::from_utf8_lossy(&buf).into_owned();
         if truncated {
+            use tracepilot_core::utils::InfallibleWrite as _;
             content.push_fmt(format_args!(
                 "\n\n[... file truncated — showing first {} bytes ...]",
                 read_limit
@@ -160,7 +159,7 @@ pub async fn session_read_sqlite(
     session_id: String,
     relative_path: String,
 ) -> CmdResult<Vec<tracepilot_core::parsing::session_db::CustomTableInfo>> {
-    use tracepilot_core::parsing::session_db::{list_tables, read_custom_table};
+    use tracepilot_core::parsing::session_db::{list_tables, read_custom_table_bounded};
 
     crate::validators::validate_session_id(&session_id)?;
 
@@ -204,13 +203,15 @@ pub async fn session_read_sqlite(
 
         let mut tables = Vec::with_capacity(table_names.len());
         for name in &table_names {
-            match read_custom_table(&file_path, name) {
-                Ok(mut info) => {
-                    if info.rows.len() > MAX_SQLITE_ROWS_PER_TABLE {
-                        info.rows.truncate(MAX_SQLITE_ROWS_PER_TABLE);
-                    }
-                    tables.push(info);
-                }
+            match read_custom_table_bounded(
+                &file_path,
+                name,
+                MAX_SQLITE_ROWS_PER_TABLE,
+                MAX_SQLITE_COLUMNS_PER_TABLE,
+                MAX_SQLITE_CELL_BYTES,
+                MAX_SQLITE_TEXT_BYTES_PER_TABLE,
+            ) {
+                Ok(info) => tables.push(info),
                 Err(e) => {
                     tracing::warn!("Skipping table '{}': {}", name, e);
                 }
