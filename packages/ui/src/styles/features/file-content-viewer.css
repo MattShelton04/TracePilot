@@ -82,7 +82,9 @@
 }
 
 @keyframes fcv-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ── Error ───────────────────────────────────────────────── */
@@ -125,7 +127,9 @@
   background: transparent;
   color: var(--text-tertiary);
   cursor: pointer;
-  transition: color var(--transition-fast), background var(--transition-fast);
+  transition:
+    color var(--transition-fast),
+    background var(--transition-fast);
 }
 
 .fcv__copy-btn svg {
@@ -142,6 +146,11 @@
   color: var(--success-fg, #2da44e);
 }
 
+.fcv__copy-btn--active {
+  color: var(--accent-fg);
+  background: var(--accent-muted);
+}
+
 /* ── File header ─────────────────────────────────────────── */
 .fcv__file-header {
   display: flex;
@@ -153,6 +162,10 @@
   border-bottom: 1px solid var(--border-default);
   background: var(--canvas-subtle);
   flex-shrink: 0;
+}
+
+.fcv__file-header .fcv__copy-btn + .fcv__copy-btn {
+  margin-left: 4px;
 }
 
 .fcv__file-icon {
@@ -170,6 +183,72 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* ── Find in file ────────────────────────────────────────── */
+.fcv__find {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 34px;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--canvas-default);
+  flex-shrink: 0;
+}
+
+.fcv__find-icon {
+  width: 13px;
+  height: 13px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.fcv__find input {
+  width: min(320px, 55%);
+  min-width: 120px;
+  padding: 4px 7px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  outline: none;
+  background: var(--canvas-inset);
+  color: var(--text-primary);
+  font-size: 0.75rem;
+}
+
+.fcv__find input:focus {
+  border-color: var(--accent-fg);
+  box-shadow: 0 0 0 1px var(--accent-muted);
+}
+
+.fcv__find-count {
+  min-width: 48px;
+  color: var(--text-tertiary);
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.fcv__find button {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.fcv__find button:hover:not(:disabled) {
+  background: var(--neutral-muted);
+  color: var(--text-primary);
+}
+
+.fcv__find button:disabled {
+  color: var(--text-disabled, var(--text-tertiary));
+  cursor: default;
+  opacity: 0.45;
 }
 
 /* ── Content area ────────────────────────────────────────── */
@@ -190,6 +269,99 @@
 
 .fcv__content .markdown-content {
   padding: 16px 20px;
+}
+
+.fcv__load-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--attention-muted, var(--canvas-subtle));
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+
+.fcv__load-more button {
+  padding: 4px 9px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--canvas-default);
+  color: var(--accent-fg);
+  cursor: pointer;
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+.fcv__load-more button:hover {
+  background: var(--canvas-inset);
+}
+
+.fcv__load-more button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.fcv__markdown-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.fcv__markdown-modes {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 5px 10px;
+  min-height: 34px;
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--border-muted);
+  background: var(--canvas-subtle);
+  flex-shrink: 0;
+}
+
+.fcv__markdown-modes button {
+  padding: 3px 9px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.6875rem;
+}
+
+.fcv__markdown-modes button.active {
+  background: var(--accent-emphasis);
+  color: var(--text-on-emphasis);
+}
+
+.fcv__markdown-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.fcv__render-disabled {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 180px;
+  padding: 24px;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.fcv__render-disabled button {
+  padding: 5px 10px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--canvas-default);
+  color: var(--accent-fg);
+  cursor: pointer;
 }
 
 /* ── SQLite database viewer ──────────────────────────────── */
@@ -267,7 +439,9 @@
   font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
-  transition: background var(--transition-fast), color var(--transition-fast);
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
 }
 
 .fcv__db-view-btn:hover:not(.fcv__db-view-btn--active) {
@@ -293,7 +467,9 @@
   cursor: pointer;
   white-space: nowrap;
   border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-  transition: color var(--transition-fast), background var(--transition-fast);
+  transition:
+    color var(--transition-fast),
+    background var(--transition-fast);
 }
 
 .fcv__db-tab:hover {

@@ -7,6 +7,12 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 
 ## [Unreleased]
 
+### Added
+- **Session Explorer overhaul** — Safely preview raster images with zoom/pan, inspect JSON/JSONL trees, browse CSV/TSV tables with remembered format view modes, search session files by name or content with auto-expanding folders, find matches within open files, and expand large previews up to 16 MiB
+
+### Fixed
+- **Analytics, pricing, and chart usability** — Keep chart tooltips within the viewport, simplify AIC fallback pricing in settings, and refine interactive hit areas across Analytics, Code Impact, and Tool views (#751)
+
 ## [0.7.0] - 2026-07-19
 
 ### Added

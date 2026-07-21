@@ -149,6 +149,34 @@ pub fn list_tables(db_path: &Path) -> Result<Vec<String>> {
 /// - NULL → Null
 /// - BLOB → skipped (set to Null)
 pub fn read_custom_table(db_path: &Path, table_name: &str) -> Result<CustomTableInfo> {
+    read_custom_table_inner(db_path, table_name, None)
+}
+
+/// Read a bounded preview of a custom table for interactive UI display.
+///
+/// Limits are applied by SQLite and while decoding cells, so a table with
+/// millions of rows or unusually large TEXT values never has to be fully
+/// materialized before the caller can truncate it.
+pub fn read_custom_table_bounded(
+    db_path: &Path,
+    table_name: &str,
+    max_rows: usize,
+    max_columns: usize,
+    max_text_bytes: usize,
+    max_total_text_bytes: usize,
+) -> Result<CustomTableInfo> {
+    read_custom_table_inner(
+        db_path,
+        table_name,
+        Some((max_rows, max_columns, max_text_bytes, max_total_text_bytes)),
+    )
+}
+
+fn read_custom_table_inner(
+    db_path: &Path,
+    table_name: &str,
+    limits: Option<(usize, usize, usize, usize)>,
+) -> Result<CustomTableInfo> {
     let Some(conn) = open_readonly_if_exists(db_path)? else {
         return Ok(CustomTableInfo {
             name: table_name.to_string(),
@@ -173,7 +201,7 @@ pub fn read_custom_table(db_path: &Path, table_name: &str) -> Result<CustomTable
     let safe_name = table_name.replace('"', "\"\"");
     let mut pragma_stmt = conn.prepare(&format!("PRAGMA table_info(\"{}\")", safe_name))?;
     // PRAGMA table_info columns: cid, name, type, notnull, dflt_value, pk
-    let column_info: Vec<ColumnSchema> = pragma_stmt
+    let mut column_info: Vec<ColumnSchema> = pragma_stmt
         .query_map([], |row| {
             Ok(ColumnSchema {
                 name: row.get::<_, String>(1)?,
@@ -184,6 +212,9 @@ pub fn read_custom_table(db_path: &Path, table_name: &str) -> Result<CustomTable
             })
         })?
         .collect::<std::result::Result<Vec<_>, _>>()?;
+    if let Some((_, max_columns, _, _)) = limits {
+        column_info.truncate(max_columns);
+    }
     let columns: Vec<String> = column_info.iter().map(|c| c.name.clone()).collect();
 
     // Discover indexes via PRAGMA index_list + PRAGMA index_info.
@@ -212,14 +243,33 @@ pub fn read_custom_table(db_path: &Path, table_name: &str) -> Result<CustomTable
         }
     }
 
-    // Read all rows — build each row as an ordered Vec aligned to `columns`.
-    let mut select_stmt = conn.prepare(&format!("SELECT * FROM \"{}\"", safe_name))?;
+    // Build an explicit projection so bounded callers do not make SQLite
+    // materialize columns which the UI will never receive.
+    let projection = columns
+        .iter()
+        .map(|column| format!("\"{}\"", column.replace('"', "\"\"")))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let limit_clause = limits
+        .map(|(max_rows, _, _, _)| format!(" LIMIT {max_rows}"))
+        .unwrap_or_default();
+    let mut select_stmt = conn.prepare(&format!(
+        "SELECT {projection} FROM \"{safe_name}\"{limit_clause}"
+    ))?;
     let mut rows = Vec::new();
+    let mut remaining_text_bytes = limits.map(|(_, _, _, total)| total);
 
     let mut result_rows = select_stmt.query([])?;
     while let Some(row) = result_rows.next()? {
         let row_values: Vec<serde_json::Value> = (0..columns.len())
-            .map(|i| sqlite_value_to_json(row, i))
+            .map(|i| {
+                sqlite_value_to_json(
+                    row,
+                    i,
+                    limits.map(|(_, _, max_text, _)| max_text),
+                    &mut remaining_text_bytes,
+                )
+            })
             .collect();
         rows.push(row_values);
     }
@@ -234,7 +284,12 @@ pub fn read_custom_table(db_path: &Path, table_name: &str) -> Result<CustomTable
 }
 
 /// Convert a SQLite column value to a serde_json::Value.
-fn sqlite_value_to_json(row: &rusqlite::Row<'_>, idx: usize) -> serde_json::Value {
+fn sqlite_value_to_json(
+    row: &rusqlite::Row<'_>,
+    idx: usize,
+    max_text_bytes: Option<usize>,
+    remaining_text_bytes: &mut Option<usize>,
+) -> serde_json::Value {
     use rusqlite::types::ValueRef;
     match row.get_ref(idx) {
         Ok(ValueRef::Null) => serde_json::Value::Null,
@@ -242,7 +297,22 @@ fn sqlite_value_to_json(row: &rusqlite::Row<'_>, idx: usize) -> serde_json::Valu
         Ok(ValueRef::Real(f)) => serde_json::Number::from_f64(f)
             .map(serde_json::Value::Number)
             .unwrap_or(serde_json::Value::Null),
-        Ok(ValueRef::Text(t)) => serde_json::Value::String(String::from_utf8_lossy(t).into_owned()),
+        Ok(ValueRef::Text(t)) => {
+            let bounded = if let Some(max_bytes) = max_text_bytes {
+                let remaining = remaining_text_bytes.unwrap_or(0);
+                let mut end = t.len().min(max_bytes).min(remaining);
+                while end > 0 && std::str::from_utf8(&t[..end]).is_err() {
+                    end -= 1;
+                }
+                if let Some(remaining) = remaining_text_bytes {
+                    *remaining = remaining.saturating_sub(end);
+                }
+                &t[..end]
+            } else {
+                t
+            };
+            serde_json::Value::String(String::from_utf8_lossy(bounded).into_owned())
+        }
         Ok(ValueRef::Blob(_)) => serde_json::Value::Null, // skip blobs
         Err(_) => serde_json::Value::Null,
     }
@@ -337,6 +407,26 @@ mod tests {
         // Null row
         assert_eq!(info.rows[2][1], serde_json::Value::Null);
         assert_eq!(info.rows[2][2], serde_json::Value::Null);
+    }
+
+    #[test]
+    fn bounded_custom_table_limits_rows_columns_and_text_before_returning() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("bounded.db");
+        let conn = Connection::open(&db_path).unwrap();
+        conn.execute_batch(
+            "CREATE TABLE large_table (a TEXT, b TEXT, c TEXT);
+             INSERT INTO large_table VALUES ('abcdefghij', 'klmnopqrst', 'uvwxyz');
+             INSERT INTO large_table VALUES ('second', 'row', 'ignored');",
+        )
+        .unwrap();
+        drop(conn);
+
+        let info = read_custom_table_bounded(&db_path, "large_table", 1, 2, 6, 8).unwrap();
+        assert_eq!(info.columns, vec!["a", "b"]);
+        assert_eq!(info.rows.len(), 1);
+        assert_eq!(info.rows[0][0], serde_json::json!("abcdef"));
+        assert_eq!(info.rows[0][1], serde_json::json!("kl"));
     }
 
     #[test]

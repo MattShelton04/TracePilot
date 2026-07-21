@@ -186,10 +186,12 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::session::get_shutdown_metrics,
             commands::session::get_tool_result,
             commands::session::resume_session_in_terminal,
-            // File browser commands (3)
+            // File browser commands (5)
             commands::file_browser::session_list_files,
             commands::file_browser::session_read_file,
+            commands::file_browser::session_read_image_preview,
             commands::file_browser::session_read_sqlite,
+            commands::file_browser::session_search_files,
             // Search commands (12)
             commands::search::search_sessions,
             commands::search::search_content,

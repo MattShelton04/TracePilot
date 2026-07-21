@@ -5,7 +5,7 @@
  * The parser is eagerly loaded at app startup via ensureMarkdownReady() in main.ts.
  * This component simply uses the shared singleton — no layout shift from async loading.
  */
-import { computed, watchEffect } from "vue";
+import { computed, nextTick, ref, watch, watchEffect } from "vue";
 import { ensureMarkdownReady, escapeHtml, mdReady, renderMarkdown } from "../utils/markdownLoader";
 
 const props = withDefaults(
@@ -16,6 +16,10 @@ const props = withDefaults(
     maxHeight?: string;
     /** Whether to render markdown (true) or show as raw text (false). */
     render?: boolean;
+    /** Literal, case-insensitive query highlighted in rendered Markdown. */
+    searchQuery?: string;
+    /** Zero-based occurrence to mark as active. */
+    activeSearchIndex?: number;
   }>(),
   {
     render: true,
@@ -37,6 +41,57 @@ const rendered = computed(() => {
   }
   return renderMarkdown(props.content);
 });
+
+const container = ref<HTMLElement | null>(null);
+const MAX_RENDERED_SEARCH_MATCHES = 2_000;
+
+watch(
+  [rendered, () => props.searchQuery, () => props.activeSearchIndex],
+  async () => {
+    await nextTick();
+    const root = container.value;
+    if (!root) return;
+    // Restore the already-sanitized renderer output before replacing the
+    // previous search marks. This avoids accumulating wrapper nodes.
+    root.innerHTML = rendered.value;
+    if (!props.render) return;
+    const query = props.searchQuery?.trim();
+    if (!query) return;
+    const needle = query.toLocaleLowerCase();
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const textNodes: Text[] = [];
+    while (walker.nextNode()) textNodes.push(walker.currentNode as Text);
+    let matchIndex = 0;
+    let activeMark: HTMLElement | null = null;
+    for (const node of textNodes) {
+      if (matchIndex >= MAX_RENDERED_SEARCH_MATCHES) break;
+      const source = node.data;
+      const lower = source.toLocaleLowerCase();
+      let cursor = 0;
+      let found = lower.indexOf(needle);
+      if (found < 0) continue;
+      const fragment = document.createDocumentFragment();
+      while (found >= 0 && matchIndex < MAX_RENDERED_SEARCH_MATCHES) {
+        fragment.append(source.slice(cursor, found));
+        const mark = document.createElement("mark");
+        mark.className = "markdown-search-match";
+        if (matchIndex === (props.activeSearchIndex ?? 0)) {
+          mark.classList.add("markdown-search-match--active");
+          activeMark = mark;
+        }
+        mark.textContent = source.slice(found, found + query.length);
+        fragment.append(mark);
+        cursor = found + query.length;
+        matchIndex += 1;
+        found = lower.indexOf(needle, cursor);
+      }
+      fragment.append(source.slice(cursor));
+      node.replaceWith(fragment);
+    }
+    activeMark?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+  },
+  { flush: "post", immediate: true },
+);
 
 function handleLinkClick(event: MouseEvent) {
   const target = event.target as HTMLElement;
@@ -101,6 +156,7 @@ function handleLinkClick(event: MouseEvent) {
 
 <template>
   <div
+    ref="container"
     class="markdown-content"
     :class="{
       'is-rendered': render && mdReady,
@@ -235,6 +291,16 @@ function handleLinkClick(event: MouseEvent) {
   border: none;
   border-top: 1px solid var(--border-subtle);
   margin: 1.5rem 0;
+}
+
+:deep(.markdown-search-match) {
+  border-radius: 2px;
+  background: var(--color-search-mark-highlight-bg);
+  color: inherit;
+}
+
+:deep(.markdown-search-match--active) {
+  outline: 1px solid var(--accent-fg);
 }
 
 :deep(table) {

@@ -6,6 +6,8 @@ import type {
   SessionDbTable,
   SessionDetail,
   SessionFileEntry,
+  SessionFileSearchResponse,
+  SessionImagePreview,
   SessionIncident,
   SessionListItem,
   SessionPlan,
@@ -143,8 +145,20 @@ export async function sessionListFiles(sessionId: string): Promise<SessionFileEn
 }
 
 /** Read the text content of a file at `relativePath` inside the session directory. */
-export async function sessionReadFile(sessionId: string, relativePath: string): Promise<string> {
-  return invoke<string>("session_read_file", { sessionId, relativePath });
+export async function sessionReadFile(
+  sessionId: string,
+  relativePath: string,
+  full = false,
+): Promise<string> {
+  return invoke<string>("session_read_file", { sessionId, relativePath, full });
+}
+
+/** Read a bounded, sanitized raster preview from the session directory. */
+export async function sessionReadImagePreview(
+  sessionId: string,
+  relativePath: string,
+): Promise<SessionImagePreview> {
+  return invoke<SessionImagePreview>("session_read_image_preview", { sessionId, relativePath });
 }
 
 /** Read all user tables from a SQLite database inside the session directory. */
@@ -153,4 +167,12 @@ export async function sessionReadSqlite(
   relativePath: string,
 ): Promise<SessionDbTable[]> {
   return invoke<SessionDbTable[]>("session_read_sqlite", { sessionId, relativePath });
+}
+
+/** Search readable files in one session using a bounded literal search. */
+export async function sessionSearchFiles(
+  sessionId: string,
+  query: string,
+): Promise<SessionFileSearchResponse> {
+  return invoke<SessionFileSearchResponse>("session_search_files", { sessionId, query });
 }

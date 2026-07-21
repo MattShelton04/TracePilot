@@ -27,6 +27,8 @@ uuid = { workspace = true }
 lru = "0.12"
 reqwest = { workspace = true }
 semver = { workspace = true }
+base64 = { workspace = true }
+image = { workspace = true }
 walkdir = "2"
 zip = { version = "4", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 

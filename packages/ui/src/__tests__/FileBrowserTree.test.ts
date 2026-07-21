@@ -128,6 +128,27 @@ describe("FileBrowserTree", () => {
     expect(wrapper.text()).toContain("plan.md");
   });
 
+  it("temporarily expands auto-collapsed folders while filtering", async () => {
+    const manyNested = [
+      { path: "files", name: "files", sizeBytes: 0, isDirectory: true },
+      ...Array.from({ length: 11 }, (_, index) => ({
+        path: `files/file-${index}.txt`,
+        name: `file-${index}.txt`,
+        sizeBytes: 10,
+        isDirectory: false,
+      })),
+    ];
+    const wrapper = mount(FileBrowserTree, {
+      props: { entries: manyNested, autoCollapseThreshold: 10 },
+    });
+
+    expect(wrapper.text()).not.toContain("file-0.txt");
+    await wrapper.setProps({ forceExpanded: true });
+    expect(wrapper.text()).toContain("file-0.txt");
+    await wrapper.setProps({ forceExpanded: false });
+    expect(wrapper.text()).not.toContain("file-0.txt");
+  });
+
   it("highlights selected file", () => {
     const wrapper = mount(FileBrowserTree, {
       props: { entries: rootEntries, selectedPath: "workspace.yaml" },
@@ -197,5 +218,27 @@ describe("FileBrowserTree", () => {
       sizeBytes: 0,
       isDirectory: true,
     });
+  });
+
+  it("renders header-actions slot and after-header slot", () => {
+    const wrapper = mount(FileBrowserTree, {
+      props: { entries: rootEntries },
+      slots: {
+        "header-actions": '<button class="custom-act">Search</button>',
+        "after-header": '<div class="custom-panel">Search Bar</div>',
+      },
+    });
+
+    expect(wrapper.find(".custom-act").exists()).toBe(true);
+    expect(wrapper.find(".custom-panel").exists()).toBe(true);
+  });
+
+  it("hides tree list when hideList is true", () => {
+    const wrapper = mount(FileBrowserTree, {
+      props: { entries: rootEntries, hideList: true },
+    });
+
+    expect(wrapper.find(".fb-tree__header").exists()).toBe(true);
+    expect(wrapper.find(".fb-tree__list").exists()).toBe(false);
   });
 });

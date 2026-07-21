@@ -6,11 +6,15 @@
  * parent component; this component only emits action events.
  */
 
-defineProps<{
-  visible: boolean;
-  position: { x: number; y: number };
-  entry: { path: string; name: string; isDirectory: boolean } | null;
-}>();
+withDefaults(
+  defineProps<{
+    visible: boolean;
+    position: { x: number; y: number };
+    entry: { path: string; name: string; isDirectory: boolean } | null;
+    canCopyContents?: boolean;
+  }>(),
+  { canCopyContents: true },
+);
 
 const emit = defineEmits<{
   copyPath: [];
@@ -36,7 +40,9 @@ const emit = defineEmits<{
       </template>
       <template v-else>
         <button class="ctx-item" @click="emit('copyPath')">Copy File Path</button>
-        <button class="ctx-item" @click="emit('copyContents')">Copy File Contents</button>
+        <button v-if="canCopyContents" class="ctx-item" @click="emit('copyContents')">
+          Copy File Contents
+        </button>
         <div class="ctx-separator" />
         <button class="ctx-item" @click="emit('openContainingFolder')">Open Containing Folder</button>
       </template>

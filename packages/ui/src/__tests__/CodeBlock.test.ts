@@ -84,7 +84,7 @@ describe("CodeBlock", () => {
     const rows = wrapper.findAll(".code-line");
     expect(rows).toHaveLength(10);
     expect(wrapper.find(".code-block-collapsed").exists()).toBe(true);
-    expect(wrapper.find(".code-block-collapsed").text()).toContain("40 more lines");
+    expect(wrapper.find(".code-block-collapsed").text()).toContain("Showing lines 1–10 of 50");
   });
 
   it("does not show collapsed indicator when under maxLines", () => {
@@ -109,5 +109,55 @@ describe("CodeBlock", () => {
     });
     const rows = wrapper.findAll(".code-line");
     expect(rows).toHaveLength(2);
+  });
+
+  it("highlights literal search matches and marks the active occurrence", () => {
+    const wrapper = mount(CodeBlock, {
+      props: {
+        code: "alpha needle\nNeedle omega",
+        searchQuery: "needle",
+        activeSearchLine: 2,
+        activeSearchColumn: 0,
+      },
+    });
+
+    expect(wrapper.findAll("mark.code-search-match")).toHaveLength(2);
+    expect(wrapper.findAll("mark.code-search-match--active")).toHaveLength(1);
+    expect(wrapper.find("mark.code-search-match--active").text()).toBe("Needle");
+  });
+
+  it("windows a capped block around a search result beyond the initial lines", () => {
+    const code = Array.from({ length: 100 }, (_, index) => `line ${index + 1}`).join("\n");
+    const wrapper = mount(CodeBlock, {
+      props: {
+        code,
+        maxLines: 10,
+        searchQuery: "line 80",
+        activeSearchLine: 80,
+        activeSearchColumn: 0,
+      },
+    });
+
+    expect(wrapper.findAll(".code-line")).toHaveLength(10);
+    expect(wrapper.find('[data-line-number="80"]').exists()).toBe(true);
+    expect(wrapper.find(".code-block-collapsed").text()).toContain("Showing lines");
+  });
+
+  it("pages through every capped line window", async () => {
+    const code = Array.from({ length: 25 }, (_, index) => `line ${index + 1}`).join("\n");
+    const wrapper = mount(CodeBlock, { props: { code, maxLines: 10 } });
+
+    await wrapper.get(".code-block-collapsed button:nth-of-type(3)").trigger("click");
+    expect(wrapper.find('[data-line-number="11"]').exists()).toBe(true);
+    await wrapper.get(".code-block-collapsed button:nth-of-type(3)").trigger("click");
+    expect(wrapper.find('[data-line-number="25"]').exists()).toBe(true);
+  });
+
+  it("bounds extremely long rendered lines", () => {
+    const wrapper = mount(CodeBlock, {
+      props: { code: "x".repeat(50_000), maxLineCharacters: 1_000 },
+    });
+    expect(wrapper.text()).toContain("line truncated for display");
+    expect(wrapper.get("pre").text().length).toBeLessThan(1_100);
   });
 });

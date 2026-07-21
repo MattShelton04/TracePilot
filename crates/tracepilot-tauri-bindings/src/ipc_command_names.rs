@@ -194,5 +194,7 @@ pub const IPC_COMMAND_NAMES: &[&str] = &[
     // File browser
     "session_list_files",
     "session_read_file",
+    "session_read_image_preview",
     "session_read_sqlite",
+    "session_search_files",
 ];

@@ -31,7 +31,9 @@
 
     "tracepilot:allow-session-list-files",
     "tracepilot:allow-session-read-file",
+    "tracepilot:allow-session-read-image-preview",
     "tracepilot:allow-session-read-sqlite",
+    "tracepilot:allow-session-search-files",
 
     "tracepilot:allow-sdk-status",
     "tracepilot:allow-sdk-hydrate",

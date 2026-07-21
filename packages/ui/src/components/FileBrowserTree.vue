@@ -20,6 +20,8 @@ const props = defineProps<{
   title?: string;
   /** Folders with more entries than this will be auto-collapsed on load. Default: no limit. */
   autoCollapseThreshold?: number;
+  /** Temporarily show all folders expanded, for example while filtering. */
+  forceExpanded?: boolean;
   /**
    * Paths to briefly highlight as newly-added (e.g. green fade-in) — used by
    * the session explorer to indicate files that appeared on auto-refresh.
@@ -27,6 +29,10 @@ const props = defineProps<{
    * duration; the class simply reflects current membership.
    */
   highlightedPaths?: ReadonlySet<string>;
+  /** Option to hide top header row if parent renders custom header. */
+  hideHeader?: boolean;
+  /** Option to hide file tree list area (e.g. when content search results are active). */
+  hideList?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -34,16 +40,27 @@ const emit = defineEmits<{
   contextmenuEntry: [event: MouseEvent, entry: FileEntry];
 }>();
 
-const { visibleRows, fileCount, collapsedFolders, toggleFolder, formatSize } = useFileBrowserTree(
-  toRef(props, "entries"),
-  {
+const { visibleRows, fileCount, effectiveCollapsedFolders, toggleFolder, formatSize } =
+  useFileBrowserTree(toRef(props, "entries"), {
     get autoCollapseThreshold() {
       return props.autoCollapseThreshold;
     },
-  },
-);
+    get forceExpanded() {
+      return props.forceExpanded;
+    },
+  });
 
-type FileIconType = "generic" | "markdown" | "json" | "yaml" | "database" | "lock" | "toml" | "log";
+type FileIconType =
+  | "generic"
+  | "markdown"
+  | "json"
+  | "yaml"
+  | "database"
+  | "lock"
+  | "toml"
+  | "log"
+  | "csv"
+  | "image";
 
 function getFileIconType(name: string): FileIconType {
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
@@ -51,6 +68,8 @@ function getFileIconType(name: string): FileIconType {
   if (ext === "json" || ext === "jsonl") return "json";
   if (ext === "yaml" || ext === "yml") return "yaml";
   if (ext === "toml") return "toml";
+  if (ext === "csv" || ext === "tsv") return "csv";
+  if (["png", "jpg", "jpeg", "gif", "webp"].includes(ext)) return "image";
   if (ext === "db" || ext === "sqlite" || ext === "sqlite3") return "database";
   if (ext === "lock" || ext === "pem" || ext === "crt") return "lock";
   if (ext === "log" || ext === "txt") return "log";
@@ -76,18 +95,24 @@ function depthStyle(depth: number): Record<string, string> {
 
 <template>
   <div class="fb-tree">
-    <div class="fb-tree__header">
+    <div v-if="!hideHeader" class="fb-tree__header">
       <h4 class="fb-tree__title">
         {{ title ?? "Files" }}
         <span v-if="fileCount > 0" class="fb-tree__count">{{ fileCount }}</span>
       </h4>
+      <div v-if="$slots['header-actions']" class="fb-tree__header-actions">
+        <slot name="header-actions" />
+      </div>
     </div>
 
-    <div v-if="loading" class="fb-tree__loading">Loading files…</div>
+    <slot name="after-header" />
 
-    <div v-else-if="fileCount === 0" class="fb-tree__empty">No files</div>
+    <template v-if="!hideList">
+      <div v-if="loading" class="fb-tree__loading">Loading files…</div>
 
-    <div v-else class="fb-tree__list">
+      <div v-else-if="fileCount === 0" class="fb-tree__empty">No files</div>
+
+      <div v-else class="fb-tree__list">
       <template v-for="row in visibleRows" :key="row.kind === 'file' ? `file:${row.entry.path}` : `folder:${row.folder.path}`">
         <div
           v-if="row.kind === 'file'"
@@ -136,6 +161,17 @@ function depthStyle(depth: number): Record<string, string> {
               <path d="M3 5v3c0 1 2.2 1.8 5 1.8s5-.8 5-1.8V5"/>
               <path d="M3 8v3c0 1 2.2 1.8 5 1.8s5-.8 5-1.8V8"/>
             </template>
+            <!-- csv / tsv -->
+            <template v-else-if="(iconTypeByPath.get(row.entry.path) ?? 'generic') === 'csv'">
+              <rect x="2.5" y="3" width="11" height="10" rx="1"/>
+              <path d="M2.5 7h11M2.5 10h11M7 3v10"/>
+            </template>
+            <!-- raster image -->
+            <template v-else-if="(iconTypeByPath.get(row.entry.path) ?? 'generic') === 'image'">
+              <rect x="2" y="3" width="12" height="10" rx="1"/>
+              <circle cx="5.5" cy="6.5" r="1"/>
+              <path d="M3.5 12l3.5-3 2.5 2 1.5-1.5 2 2"/>
+            </template>
             <!-- lock -->
             <template v-else-if="(iconTypeByPath.get(row.entry.path) ?? 'generic') === 'lock'">
               <rect x="4" y="7" width="8" height="7" rx="1"/>
@@ -156,12 +192,12 @@ function depthStyle(depth: number): Record<string, string> {
           class="fb-tree__folder"
           :style="depthStyle(row.depth)"
           :data-depth="row.depth"
-          :aria-expanded="!collapsedFolders.has(row.folder.path)"
+          :aria-expanded="!effectiveCollapsedFolders.has(row.folder.path)"
           @click="toggleFolder(row.folder.path)"
           @contextmenu.prevent.stop="emit('contextmenuEntry', $event, { path: row.folder.path, name: row.folder.name, sizeBytes: 0, isDirectory: true })"
         >
           <span class="fb-tree__chevron">
-            {{ collapsedFolders.has(row.folder.path) ? "▸" : "▾" }}
+            {{ effectiveCollapsedFolders.has(row.folder.path) ? "▸" : "▾" }}
           </span>
           <svg class="fb-tree__folder-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M2 4h4l1.5 1.5H14v7.5H2V4z"/>
@@ -171,6 +207,7 @@ function depthStyle(depth: number): Record<string, string> {
         </button>
       </template>
     </div>
+    </template>
   </div>
 </template>
 
@@ -185,11 +222,19 @@ function depthStyle(depth: number): Record<string, string> {
 .fb-tree__header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   padding: 8px 12px;
   height: 36px;
   box-sizing: border-box;
   border-bottom: 1px solid var(--border-default);
   flex-shrink: 0;
+}
+
+.fb-tree__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
 }
 
 .fb-tree__title {
@@ -378,6 +423,8 @@ function depthStyle(depth: number): Record<string, string> {
 .fb-tree__file-icon--yaml     { color: #e8834e; opacity: 0.85; }
 .fb-tree__file-icon--toml     { color: #e8834e; opacity: 0.75; }
 .fb-tree__file-icon--database { color: #5b9bd5; opacity: 0.9; }
+.fb-tree__file-icon--csv      { color: var(--success-fg); opacity: 0.85; }
+.fb-tree__file-icon--image    { color: var(--accent-fg); opacity: 0.85; }
 .fb-tree__file-icon--lock     { color: var(--text-tertiary); opacity: 0.5; }
 .fb-tree__file-icon--log      { color: var(--text-tertiary); opacity: 0.55; }
 
