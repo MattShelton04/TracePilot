@@ -35,6 +35,44 @@ pub struct CapturePreflight {
     pub can_capture: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BenchmarkPreflight {
+    pub storage_writable: bool,
+    pub cli: CliCapabilities,
+    pub warnings: Vec<String>,
+    pub can_capture: bool,
+}
+
+pub fn benchmark_preflight(
+    cli_command: &str,
+    tracepilot_home: &Path,
+) -> Result<BenchmarkPreflight> {
+    let cli = capability::probe(cli_command)?;
+    let mut warnings = Vec::new();
+    let storage_writable = match verify_capture_storage(tracepilot_home) {
+        Ok(()) => true,
+        Err(error) => {
+            warnings.push(format!(
+                "TracePilot capture storage is not writable: {error}."
+            ));
+            false
+        }
+    };
+    if !cli.capture_supported() {
+        warnings.push(format!(
+            "The installed CLI is missing required capture capabilities: {}.",
+            cli.missing_capabilities.join(", ")
+        ));
+    }
+    Ok(BenchmarkPreflight {
+        storage_writable,
+        can_capture: storage_writable && cli.capture_supported(),
+        cli,
+        warnings,
+    })
+}
+
 pub fn context_capture_preflight(
     session_id: &str,
     session_path: &Path,
@@ -141,7 +179,7 @@ pub fn context_capture_preflight(
     })
 }
 
-fn verify_capture_storage(tracepilot_home: &Path) -> Result<()> {
+pub(crate) fn verify_capture_storage(tracepilot_home: &Path) -> Result<()> {
     let paths = TracePilotPaths::from_root(tracepilot_home);
     for directory in [
         paths.context_captures_dir(),

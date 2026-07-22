@@ -195,6 +195,11 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::session::context_capture_delete,
             commands::session::context_capture_delete_all,
             commands::session::context_capture_storage_stats,
+            commands::session::context_benchmark_preflight,
+            commands::session::context_benchmark_start,
+            commands::session::context_benchmark_list,
+            commands::session::context_benchmark_get,
+            commands::session::context_benchmark_delete,
             // File browser commands (5)
             commands::file_browser::session_list_files,
             commands::file_browser::session_read_file,

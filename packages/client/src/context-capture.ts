@@ -1,4 +1,6 @@
 import type {
+  BenchmarkPreflight,
+  BenchmarkProfile,
   CapturePreflight,
   CaptureProtocol,
   ContextCaptureSnapshot,
@@ -51,4 +53,32 @@ export function contextCaptureDeleteAll(): Promise<number> {
 
 export function contextCaptureStorageStats(): Promise<ContextCaptureStorageStats> {
   return invoke("context_capture_storage_stats");
+}
+
+export function contextBenchmarkPreflight(): Promise<BenchmarkPreflight> {
+  return invoke("context_benchmark_preflight");
+}
+
+export function contextBenchmarkStart(request: {
+  profile: BenchmarkProfile;
+  repositoryPath?: string | null;
+  model: string;
+  protocol: CaptureProtocol;
+  save?: boolean;
+}): Promise<ContextCaptureSnapshot> {
+  return invoke("context_benchmark_start", {
+    request: { ...request, save: request.save ?? true },
+  });
+}
+
+export function contextBenchmarkList(): Promise<ContextCaptureSummary[]> {
+  return invoke("context_benchmark_list");
+}
+
+export function contextBenchmarkGet(captureId: string): Promise<ContextCaptureSnapshot> {
+  return invoke("context_benchmark_get", { captureId });
+}
+
+export function contextBenchmarkDelete(captureId: string): Promise<void> {
+  return invoke("context_benchmark_delete", { captureId });
 }

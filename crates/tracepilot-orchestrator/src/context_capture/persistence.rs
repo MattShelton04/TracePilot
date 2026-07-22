@@ -254,7 +254,7 @@ mod tests {
     use super::*;
     use chrono::Utc;
     use tracepilot_core::context_capture::{
-        CONTEXT_CAPTURE_SCHEMA_VERSION, FidelityManifest, SourceEventsFingerprint,
+        CONTEXT_CAPTURE_SCHEMA_VERSION, CaptureScope, FidelityManifest, SourceEventsFingerprint,
     };
 
     #[test]
@@ -283,6 +283,9 @@ mod tests {
                 },
                 cli_version: "1.0.74".into(),
                 capture_profile: "isolated".into(),
+                capture_scope: CaptureScope::Session,
+                repository_path: None,
+                capture_input_sha256: None,
                 protocol: CaptureProtocol::OpenAiChatCompletions,
                 protocol_detection_source: "test".into(),
                 request_path: "/nonce/v1/chat/completions".into(),

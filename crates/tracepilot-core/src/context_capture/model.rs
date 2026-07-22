@@ -2,7 +2,16 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
-pub const CONTEXT_CAPTURE_SCHEMA_VERSION: u32 = 1;
+pub const CONTEXT_CAPTURE_SCHEMA_VERSION: u32 = 2;
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum CaptureScope {
+    #[default]
+    Session,
+    CliBaseline,
+    RepositoryBenchmark,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -22,7 +31,7 @@ impl CaptureProtocol {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SourceEventsFingerprint {
     pub bytes: u64,
@@ -51,6 +60,12 @@ pub struct ContextCaptureManifest {
     pub source_events_fingerprint: SourceEventsFingerprint,
     pub cli_version: String,
     pub capture_profile: String,
+    #[serde(default)]
+    pub capture_scope: CaptureScope,
+    #[serde(default)]
+    pub repository_path: Option<String>,
+    #[serde(default)]
+    pub capture_input_sha256: Option<String>,
     pub protocol: CaptureProtocol,
     pub protocol_detection_source: String,
     pub request_path: String,
@@ -81,6 +96,11 @@ pub struct ContextCaptureSummary {
     pub capture_id: String,
     pub source_session_id: String,
     pub captured_at: DateTime<Utc>,
+    pub cli_version: String,
+    #[serde(default)]
+    pub capture_scope: CaptureScope,
+    #[serde(default)]
+    pub repository_path: Option<String>,
     pub model: Option<String>,
     pub protocol: CaptureProtocol,
     pub raw_body_bytes: u64,
@@ -96,6 +116,9 @@ impl From<&ContextCaptureManifest> for ContextCaptureSummary {
             capture_id: value.capture_id.clone(),
             source_session_id: value.source_session_id.clone(),
             captured_at: value.captured_at,
+            cli_version: value.cli_version.clone(),
+            capture_scope: value.capture_scope,
+            repository_path: value.repository_path.clone(),
             model: value.parsed.model.clone(),
             protocol: value.protocol,
             raw_body_bytes: value.raw_body_bytes,

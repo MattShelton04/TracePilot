@@ -16,9 +16,12 @@ export type {
   TracePilotConfig,
 } from "./config.js";
 export type {
+  BenchmarkPreflight,
+  BenchmarkProfile,
   CapturePreflight,
   CaptureProgress,
   CaptureProtocol,
+  CaptureScope,
   CaptureStage,
   CliCapabilities,
   ContextCaptureManifest,
@@ -33,6 +36,7 @@ export type {
   ParsedContextRequest,
   SectionMetrics,
   SourceEventsFingerprint,
+  StartBenchmarkCaptureRequest,
   StartCaptureRequest,
 } from "./context-capture.js";
 // ── conversation.js ────────────────────────────────────────────────

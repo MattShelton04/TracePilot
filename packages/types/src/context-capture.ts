@@ -1,4 +1,6 @@
 export type CaptureProtocol = "openAiChatCompletions" | "openAiResponses" | "anthropicMessages";
+export type CaptureScope = "session" | "cliBaseline" | "repositoryBenchmark";
+export type BenchmarkProfile = "isolatedBaseline" | "currentEnvironment";
 
 export interface SourceEventsFingerprint {
   bytes: number;
@@ -45,6 +47,21 @@ export interface StartCaptureRequest {
   protocol: CaptureProtocol;
   save: boolean;
   allowDegradedFidelity: boolean;
+}
+
+export interface BenchmarkPreflight {
+  storageWritable: boolean;
+  cli: CliCapabilities;
+  canCapture: boolean;
+  warnings: string[];
+}
+
+export interface StartBenchmarkCaptureRequest {
+  profile: BenchmarkProfile;
+  repositoryPath?: string | null;
+  model: string;
+  protocol: CaptureProtocol;
+  save: boolean;
 }
 
 export type CaptureStage =
@@ -149,6 +166,9 @@ export interface ContextCaptureManifest {
   sourceEventsFingerprint: SourceEventsFingerprint;
   cliVersion: string;
   captureProfile: string;
+  captureScope: CaptureScope;
+  repositoryPath?: string | null;
+  captureInputSha256?: string | null;
   protocol: CaptureProtocol;
   protocolDetectionSource: string;
   requestPath: string;
@@ -174,6 +194,9 @@ export interface ContextCaptureSummary {
   captureId: string;
   sourceSessionId: string;
   capturedAt: string;
+  cliVersion: string;
+  captureScope: CaptureScope;
+  repositoryPath?: string | null;
   model?: string | null;
   protocol: CaptureProtocol;
   rawBodyBytes: number;

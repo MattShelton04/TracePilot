@@ -1,6 +1,6 @@
 use super::listener::{CapturedRequest, OneShotListener};
 use super::persistence::{hash_bytes, save_capture};
-use super::preflight::context_capture_preflight;
+use super::preflight::{benchmark_preflight, context_capture_preflight};
 use super::snapshot::{
     cleanup_stale_scratch, copy_session_tree, set_private_dir_permissions, source_fingerprint,
 };
@@ -9,6 +9,8 @@ use crate::error::{OrchestratorError, Result};
 use crate::process::{hidden_command, hidden_std_command};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::Arc;
@@ -17,8 +19,9 @@ use std::time::Duration;
 use tokio::io::AsyncReadExt;
 use tokio::sync::{Mutex, Notify};
 use tracepilot_core::context_capture::{
-    CONTEXT_CAPTURE_SCHEMA_VERSION, CaptureProtocol, ContextCaptureManifest,
-    ContextCaptureSnapshot, FidelityManifest, detect_protocol, parse_context_request,
+    CONTEXT_CAPTURE_SCHEMA_VERSION, CaptureProtocol, CaptureScope, ContextCaptureManifest,
+    ContextCaptureSnapshot, FidelityManifest, SourceEventsFingerprint, detect_protocol,
+    parse_context_request,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -33,9 +36,28 @@ pub struct StartCaptureRequest {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub enum BenchmarkProfile {
+    IsolatedBaseline,
+    CurrentEnvironment,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StartBenchmarkCaptureRequest {
+    pub profile: BenchmarkProfile,
+    #[serde(default)]
+    pub repository_path: Option<String>,
+    pub model: String,
+    pub protocol: CaptureProtocol,
+    pub save: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub enum CaptureStage {
     Preflight,
     CopyingSession,
+    PreparingEnvironment,
     StartingListener,
     ResumingClone,
     WaitingForRequest,
@@ -137,6 +159,58 @@ impl ContextCaptureManager {
                 &request.session_id,
                 CaptureStage::Cancelled,
                 "Capture cancelled; isolated temporary state was removed.",
+                None,
+                None,
+                false,
+            );
+        }
+        result
+    }
+
+    pub async fn start_benchmark(
+        &self,
+        request: StartBenchmarkCaptureRequest,
+        cli_command: String,
+        copilot_home: PathBuf,
+        tracepilot_home: PathBuf,
+        progress: Arc<dyn Fn(CaptureProgress) + Send + Sync>,
+    ) -> Result<ContextCaptureSnapshot> {
+        let capture_id = uuid::Uuid::new_v4().to_string();
+        let session_id = super::BENCHMARK_CAPTURE_COLLECTION_ID.to_string();
+        let cancellation = Cancellation::new();
+        {
+            let mut active = self.active.lock().await;
+            if let Some(existing) = active.as_ref() {
+                return Err(OrchestratorError::ContextCapture(format!(
+                    "Capture {} is already running.",
+                    existing.capture_id
+                )));
+            }
+            *active = Some(ActiveCapture {
+                capture_id: capture_id.clone(),
+                session_id: session_id.clone(),
+                cancellation: cancellation.clone(),
+            });
+        }
+        let result = run_benchmark_capture(
+            &capture_id,
+            &session_id,
+            &request,
+            &cli_command,
+            &copilot_home,
+            &tracepilot_home,
+            &cancellation,
+            &progress,
+        )
+        .await;
+        self.active.lock().await.take();
+        if cancellation.is_cancelled() {
+            emit(
+                &progress,
+                &capture_id,
+                &session_id,
+                CaptureStage::Cancelled,
+                "Capture cancelled; temporary state was removed.",
                 None,
                 None,
                 false,
@@ -281,7 +355,7 @@ async fn run_capture(
     );
     let mut child = spawn_copilot(
         &preflight.cli.executable,
-        &request.session_id,
+        Some(&request.session_id),
         &probe,
         &isolated_home,
         &working_directory,
@@ -378,6 +452,9 @@ async fn run_capture(
         source_events_fingerprint: final_fingerprint,
         cli_version: preflight.cli.version,
         capture_profile: "isolated".into(),
+        capture_scope: CaptureScope::Session,
+        repository_path: None,
+        capture_input_sha256: None,
         protocol: request.protocol,
         protocol_detection_source,
         request_path: captured.path,
@@ -439,9 +516,453 @@ async fn run_capture(
 }
 
 #[allow(clippy::too_many_arguments)]
+async fn run_benchmark_capture(
+    capture_id: &str,
+    collection_id: &str,
+    request: &StartBenchmarkCaptureRequest,
+    cli_command: &str,
+    copilot_home: &Path,
+    tracepilot_home: &Path,
+    cancellation: &Cancellation,
+    progress: &Arc<dyn Fn(CaptureProgress) + Send + Sync>,
+) -> Result<ContextCaptureSnapshot> {
+    emit(
+        progress,
+        capture_id,
+        collection_id,
+        CaptureStage::Preflight,
+        "Checking CLI capture support and local storage…",
+        None,
+        None,
+        true,
+    );
+    let preflight = benchmark_preflight(cli_command, tracepilot_home)?;
+    if !preflight.can_capture {
+        return Err(OrchestratorError::ContextCapture(
+            "The installed CLI or capture storage does not support this benchmark.".into(),
+        ));
+    }
+    let model = request.model.trim();
+    if model.is_empty() {
+        return Err(OrchestratorError::ContextCapture(
+            "A model ID is required for a CLI context benchmark.".into(),
+        ));
+    }
+    check_cancelled(cancellation)?;
+
+    let tracepilot_paths = tracepilot_core::paths::TracePilotPaths::from_root(tracepilot_home);
+    let scratch_root = tracepilot_paths.context_capture_scratch_dir();
+    std::fs::create_dir_all(&scratch_root)?;
+    set_private_dir_permissions(&scratch_root)?;
+    let _ = cleanup_stale_scratch(&scratch_root, Duration::from_secs(24 * 60 * 60))?;
+    let scratch = tempfile::Builder::new()
+        .prefix("capture-")
+        .tempdir_in(&scratch_root)?;
+    set_private_dir_permissions(scratch.path())?;
+    std::fs::write(
+        scratch.path().join(".tracepilot-context-capture"),
+        capture_id,
+    )?;
+
+    let isolated_home = scratch.path().join("copilot-home");
+    std::fs::create_dir_all(&isolated_home)?;
+    set_private_dir_permissions(&isolated_home)?;
+    let empty_workspace = scratch.path().join("empty-workspace");
+    std::fs::create_dir_all(&empty_workspace)?;
+    set_private_dir_permissions(&empty_workspace)?;
+
+    emit(
+        progress,
+        capture_id,
+        collection_id,
+        CaptureStage::PreparingEnvironment,
+        match request.profile {
+            BenchmarkProfile::IsolatedBaseline => "Preparing an empty workspace and Copilot home…",
+            BenchmarkProfile::CurrentEnvironment => {
+                "Copying configured context sources into a temporary Copilot home…"
+            }
+        },
+        None,
+        None,
+        true,
+    );
+
+    let (working_directory, repository_path, copied_bytes, included_resources, omitted_resources) =
+        match request.profile {
+            BenchmarkProfile::IsolatedBaseline => (
+                empty_workspace,
+                None,
+                0,
+                vec!["installed CLI built-ins".into()],
+                vec![
+                    "repository instructions and files".into(),
+                    "user settings, MCP configuration, skills, prompts, and hooks".into(),
+                    "authentication, credentials, logs, and session history".into(),
+                ],
+            ),
+            BenchmarkProfile::CurrentEnvironment => {
+                let selected = request.repository_path.as_deref().ok_or_else(|| {
+                    OrchestratorError::ContextCapture(
+                        "Select a repository for the current-environment benchmark.".into(),
+                    )
+                })?;
+                let repository = PathBuf::from(selected).canonicalize().map_err(|error| {
+                    OrchestratorError::ContextCapture(format!(
+                        "Could not open the selected repository: {error}"
+                    ))
+                })?;
+                if !repository.is_dir() {
+                    return Err(OrchestratorError::ContextCapture(
+                        "The selected repository path is not a directory.".into(),
+                    ));
+                }
+                let copied = copy_environment_context(copilot_home, &isolated_home)?;
+                (
+                    repository.clone(),
+                    Some(repository.to_string_lossy().to_string()),
+                    copied,
+                    vec![
+                        "installed CLI built-ins".into(),
+                        "selected repository instruction discovery".into(),
+                        "user settings, MCP configuration, skills, prompts, and hooks copied into temporary storage".into(),
+                    ],
+                    vec![
+                        "authentication, credentials, logs, session history, package cache, and command history".into(),
+                    ],
+                )
+            }
+        };
+    let (capture_profile, capture_scope) = match request.profile {
+        BenchmarkProfile::IsolatedBaseline => ("isolated-baseline", CaptureScope::CliBaseline),
+        BenchmarkProfile::CurrentEnvironment => {
+            ("current-environment", CaptureScope::RepositoryBenchmark)
+        }
+    };
+    let fingerprint_seed = format!(
+        "{capture_profile}\n{}\n{}\n{:?}",
+        repository_path.as_deref().unwrap_or_default(),
+        model,
+        request.protocol
+    );
+    let environment_hash = fingerprint_context_tree(&isolated_home, &fingerprint_seed)?;
+    check_cancelled(cancellation)?;
+
+    let nonce = uuid::Uuid::new_v4().simple().to_string();
+    let probe = format!(
+        "[TracePilot context benchmark {nonce}]\nDo not call tools. Reply with exactly CAPTURED."
+    );
+    emit(
+        progress,
+        capture_id,
+        collection_id,
+        CaptureStage::StartingListener,
+        "Starting the one-shot capture endpoint…",
+        None,
+        None,
+        true,
+    );
+    let mut listener = OneShotListener::bind(request.protocol, &nonce).await?;
+    check_cancelled(cancellation)?;
+    emit(
+        progress,
+        capture_id,
+        collection_id,
+        CaptureStage::ResumingClone,
+        "Starting a fresh CLI session for the benchmark…",
+        None,
+        None,
+        true,
+    );
+    let mut child = spawn_copilot(
+        &preflight.cli.executable,
+        None,
+        &probe,
+        &isolated_home,
+        &working_directory,
+        &listener.base_url,
+        request.protocol,
+        model,
+    )?;
+    let mut process_tree_guard = ProcessTreeGuard::new(child.id());
+    let stdout = child.stdout.take().ok_or_else(|| {
+        OrchestratorError::ContextCapture("Copilot stdout was not captured.".into())
+    })?;
+    let stderr = child.stderr.take().ok_or_else(|| {
+        OrchestratorError::ContextCapture("Copilot stderr was not captured.".into())
+    })?;
+    let stdout_task = tokio::spawn(drain_bounded(stdout));
+    let stderr_task = tokio::spawn(drain_bounded(stderr));
+    emit(
+        progress,
+        capture_id,
+        collection_id,
+        CaptureStage::WaitingForRequest,
+        "Waiting for the CLI's first model request…",
+        None,
+        None,
+        true,
+    );
+    let captured = wait_for_request(&mut listener, &mut child, cancellation).await;
+    tokio::time::sleep(Duration::from_millis(75)).await;
+    let retry_seen = listener.retry_seen();
+    listener.shutdown().await;
+    terminate_process_tree(&mut child).await;
+    process_tree_guard.disarm();
+    let _ = stdout_task.await;
+    let _ = stderr_task.await;
+    let captured = captured?;
+    if retry_seen {
+        return Err(OrchestratorError::ContextCapture(
+            "The CLI retried after the capture-complete response; this protocol cannot be captured safely.".into(),
+        ));
+    }
+
+    emit(
+        progress,
+        capture_id,
+        collection_id,
+        CaptureStage::ParsingSnapshot,
+        "Validating and parsing the captured request…",
+        None,
+        None,
+        false,
+    );
+    let body_json: serde_json::Value = serde_json::from_slice(&captured.body)?;
+    let detected = detect_protocol(&captured.path, &body_json).ok_or_else(|| {
+        OrchestratorError::ContextCapture(
+            "The captured request did not match a supported wire protocol.".into(),
+        )
+    })?;
+    if detected != request.protocol {
+        return Err(OrchestratorError::ContextCapture(format!(
+            "The CLI posted a {} payload while {} was selected.",
+            detected.label(),
+            request.protocol.label()
+        )));
+    }
+    let parsed = parse_context_request(request.protocol, &captured.body, &nonce)?;
+    let raw_body = String::from_utf8(captured.body).map_err(|_| {
+        OrchestratorError::ContextCapture("The captured JSON request was not valid UTF-8.".into())
+    })?;
+    let mut snapshot = ContextCaptureSnapshot {
+        manifest: ContextCaptureManifest {
+            schema_version: CONTEXT_CAPTURE_SCHEMA_VERSION,
+            capture_id: capture_id.to_string(),
+            source_session_id: collection_id.to_string(),
+            captured_at: Utc::now(),
+            source_events_fingerprint: SourceEventsFingerprint {
+                bytes: copied_bytes,
+                modified_unix_ms: 0,
+                sha256: environment_hash.clone(),
+            },
+            cli_version: preflight.cli.version,
+            capture_profile: capture_profile.into(),
+            capture_scope,
+            repository_path,
+            capture_input_sha256: Some(environment_hash.clone()),
+            protocol: request.protocol,
+            protocol_detection_source: "benchmark selection".into(),
+            request_path: captured.path,
+            content_type: captured.content_type,
+            raw_body_sha256: hash_bytes(raw_body.as_bytes()),
+            raw_body_bytes: raw_body.len() as u64,
+            raw_body_characters: raw_body.chars().count() as u64,
+            estimated_tokens: (raw_body.len() as u64).div_ceil(4),
+            probe_nonce: nonce,
+            fidelity_manifest: FidelityManifest {
+                profile: capture_profile.into(),
+                included_resources,
+                omitted_resources,
+                working_directory: working_directory.to_string_lossy().to_string(),
+                working_directory_fallback: false,
+                source_unchanged: true,
+            },
+            warnings: vec![
+                "The raw body is exact for this benchmark run; provider-side processing and tokenization are not captured.".into(),
+            ],
+            safe_header_names: captured.safe_header_names,
+            saved: false,
+            parsed,
+        },
+        raw_body,
+    };
+    if request.save {
+        emit(
+            progress,
+            capture_id,
+            collection_id,
+            CaptureStage::SavingSnapshot,
+            "Saving the benchmark snapshot…",
+            None,
+            None,
+            false,
+        );
+        snapshot = save_capture(tracepilot_home, &snapshot)?;
+    }
+    emit(
+        progress,
+        capture_id,
+        collection_id,
+        CaptureStage::CleaningUp,
+        "Removing temporary CLI state…",
+        None,
+        None,
+        false,
+    );
+    drop(scratch);
+    emit(
+        progress,
+        capture_id,
+        collection_id,
+        CaptureStage::Complete,
+        "Benchmark snapshot is ready.",
+        None,
+        None,
+        false,
+    );
+    Ok(snapshot)
+}
+
+fn copy_environment_context(source_home: &Path, destination_home: &Path) -> Result<u64> {
+    const FILES: &[&str] = &["settings.json", "mcp-config.json"];
+    const DIRECTORIES: &[&str] = &["skills", "prompts", "hooks", "agents", "plugins"];
+    let mut copied_bytes = 0u64;
+    copied_bytes = copied_bytes.saturating_add(copy_sanitized_cli_config(
+        &source_home.join("config.json"),
+        &destination_home.join("config.json"),
+    )?);
+    for name in FILES {
+        let source = source_home.join(name);
+        if source.is_file() {
+            copied_bytes = copied_bytes
+                .saturating_add(copy_context_file(&source, &destination_home.join(name))?);
+        }
+    }
+    for name in DIRECTORIES {
+        let source = source_home.join(name);
+        if !source.is_dir() {
+            continue;
+        }
+        for entry in walkdir::WalkDir::new(&source).follow_links(false) {
+            let entry = entry?;
+            let metadata = std::fs::symlink_metadata(entry.path())?;
+            if metadata.file_type().is_symlink() {
+                return Err(OrchestratorError::ContextCapture(format!(
+                    "Configured context contains a symbolic link: {}",
+                    entry.path().display()
+                )));
+            }
+            let relative = entry.path().strip_prefix(source_home).map_err(|_| {
+                OrchestratorError::ContextCapture(
+                    "Configured context path escaped the Copilot home.".into(),
+                )
+            })?;
+            let destination = destination_home.join(relative);
+            if metadata.is_dir() {
+                std::fs::create_dir_all(&destination)?;
+                set_private_dir_permissions(&destination)?;
+            } else if metadata.is_file() {
+                copied_bytes =
+                    copied_bytes.saturating_add(copy_context_file(entry.path(), &destination)?);
+            } else {
+                return Err(OrchestratorError::ContextCapture(format!(
+                    "Configured context contains a non-regular entry: {}",
+                    entry.path().display()
+                )));
+            }
+            if copied_bytes > super::MAX_SESSION_COPY_BYTES {
+                return Err(OrchestratorError::ContextCapture(format!(
+                    "Configured context exceeds the {} MiB temporary-copy limit.",
+                    super::MAX_SESSION_COPY_BYTES / 1024 / 1024
+                )));
+            }
+        }
+    }
+    Ok(copied_bytes)
+}
+
+fn copy_sanitized_cli_config(source: &Path, destination: &Path) -> Result<u64> {
+    if !source.is_file() {
+        return Ok(0);
+    }
+    let value: serde_json::Value = serde_json::from_slice(&std::fs::read(source)?)?;
+    let source_object = value.as_object().ok_or_else(|| {
+        OrchestratorError::ContextCapture("Copilot config.json is not a JSON object.".into())
+    })?;
+    let mut sanitized = serde_json::Map::new();
+    for key in [
+        "trustedFolders",
+        "askedSetupTerminals",
+        "reasoningSummariesCleanupDone",
+    ] {
+        if let Some(value) = source_object.get(key) {
+            sanitized.insert(key.into(), value.clone());
+        }
+    }
+    let bytes = serde_json::to_vec_pretty(&sanitized)?;
+    if let Some(parent) = destination.parent() {
+        std::fs::create_dir_all(parent)?;
+        set_private_dir_permissions(parent)?;
+    }
+    std::fs::write(destination, &bytes)?;
+    super::snapshot::set_private_file_permissions(destination)?;
+    Ok(bytes.len() as u64)
+}
+
+fn fingerprint_context_tree(root: &Path, seed: &str) -> Result<String> {
+    let mut hasher = Sha256::new();
+    hasher.update(seed.as_bytes());
+    if !root.is_dir() {
+        return Ok(format!("{:x}", hasher.finalize()));
+    }
+    for entry in walkdir::WalkDir::new(root)
+        .sort_by_file_name()
+        .follow_links(false)
+    {
+        let entry = entry?;
+        if !entry.file_type().is_file() {
+            continue;
+        }
+        let relative = entry.path().strip_prefix(root).map_err(|_| {
+            OrchestratorError::ContextCapture(
+                "Configured context fingerprint path escaped its root.".into(),
+            )
+        })?;
+        hasher.update(relative.to_string_lossy().as_bytes());
+        let mut file = std::fs::File::open(entry.path())?;
+        let mut buffer = [0u8; 64 * 1024];
+        loop {
+            let count = file.read(&mut buffer)?;
+            if count == 0 {
+                break;
+            }
+            hasher.update(&buffer[..count]);
+        }
+    }
+    Ok(format!("{:x}", hasher.finalize()))
+}
+
+fn copy_context_file(source: &Path, destination: &Path) -> Result<u64> {
+    let metadata = std::fs::symlink_metadata(source)?;
+    if !metadata.is_file() || metadata.file_type().is_symlink() {
+        return Err(OrchestratorError::ContextCapture(format!(
+            "Configured context file is not a regular file: {}",
+            source.display()
+        )));
+    }
+    if let Some(parent) = destination.parent() {
+        std::fs::create_dir_all(parent)?;
+        set_private_dir_permissions(parent)?;
+    }
+    std::fs::copy(source, destination)?;
+    super::snapshot::set_private_file_permissions(destination)?;
+    Ok(metadata.len())
+}
+
+#[allow(clippy::too_many_arguments)]
 fn spawn_copilot(
     executable: &str,
-    session_id: &str,
+    session_id: Option<&str>,
     probe: &str,
     isolated_home: &Path,
     working_directory: &Path,
@@ -451,8 +972,10 @@ fn spawn_copilot(
 ) -> Result<tokio::process::Child> {
     let dummy_key = format!("tracepilot-capture-{}", uuid::Uuid::new_v4().simple());
     let mut command = hidden_command(executable);
+    if let Some(session_id) = session_id {
+        command.arg(format!("--resume={session_id}"));
+    }
     command
-        .arg(format!("--resume={session_id}"))
         .arg(format!("--prompt={probe}"))
         .arg("--output-format=json")
         .arg("--allow-all-tools")
@@ -649,4 +1172,43 @@ fn emit(
         total_bytes,
         cancellable,
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn environment_copy_is_allowlisted_and_sanitizes_cli_state() {
+        let root = tempfile::tempdir().expect("root");
+        let source = root.path().join("source");
+        let destination = root.path().join("destination");
+        std::fs::create_dir_all(source.join("skills/demo")).expect("skill dir");
+        std::fs::create_dir_all(source.join("session-state/session")).expect("session dir");
+        std::fs::write(source.join("settings.json"), br#"{"model":"gpt-5"}"#).expect("settings");
+        std::fs::write(source.join("skills/demo/SKILL.md"), b"instructions").expect("skill");
+        std::fs::write(source.join("session-state/session/events.jsonl"), b"secret")
+            .expect("session");
+        std::fs::write(
+            source.join("config.json"),
+            br#"{"trustedFolders":["C:/repo"],"loggedInUsers":["private"],"lastLoggedInUser":"private"}"#,
+        )
+        .expect("config");
+
+        let copied = copy_environment_context(&source, &destination).expect("copy");
+
+        assert!(copied > 0);
+        assert!(destination.join("settings.json").is_file());
+        assert!(destination.join("skills/demo/SKILL.md").is_file());
+        assert!(!destination.join("session-state").exists());
+        let config = std::fs::read_to_string(destination.join("config.json")).expect("read");
+        assert!(config.contains("trustedFolders"));
+        assert!(!config.contains("loggedInUsers"));
+        assert!(!config.contains("private"));
+        let first_hash = fingerprint_context_tree(&destination, "profile").expect("hash");
+        std::fs::write(destination.join("settings.json"), br#"{"model":"gpt-5.1"}"#)
+            .expect("change settings");
+        let second_hash = fingerprint_context_tree(&destination, "profile").expect("hash");
+        assert_ne!(first_hash, second_hash);
+    }
 }

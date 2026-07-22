@@ -35,6 +35,8 @@ const MOCK_CONTEXT_CAPTURE: ContextCaptureSnapshot = {
     },
     cliVersion: "1.0.71",
     captureProfile: "isolated",
+    captureScope: "session",
+    captureInputSha256: null,
     protocol: "openAiResponses",
     protocolDetectionSource: "mock API endpoint",
     requestPath: "/mock-nonce/v1/responses",
@@ -327,6 +329,26 @@ export async function getMockData<T>(cmd: string, args?: Record<string, unknown>
     context_capture_cancel: false,
     context_capture_delete: undefined,
     context_capture_delete_all: 0,
+    context_benchmark_preflight: {
+      storageWritable: true,
+      cli: {
+        executable: "copilot",
+        version: "1.0.71",
+        supportsResume: true,
+        supportsPrompt: true,
+        supportsJsonOutput: true,
+        supportsOffline: true,
+        supportsByokRouting: true,
+        supportsRequiredSafetyFlags: true,
+        missingCapabilities: [],
+      },
+      warnings: [],
+      canCapture: true,
+    },
+    context_benchmark_start: MOCK_CONTEXT_CAPTURE,
+    context_benchmark_list: [],
+    context_benchmark_get: MOCK_CONTEXT_CAPTURE,
+    context_benchmark_delete: undefined,
     search_sessions: searchQuery
       ? mocks.MOCK_SESSIONS.filter((s) =>
           [s.summary, s.repository, s.branch, s.id].some((f) =>

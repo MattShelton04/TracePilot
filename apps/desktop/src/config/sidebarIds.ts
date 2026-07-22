@@ -25,6 +25,7 @@ export const SIDEBAR_IDS = {
   configInjector: "config-injector",
   mcp: "mcp",
   skills: "skills",
+  cliContext: "cli-context",
 } as const;
 
 export type SidebarId = (typeof SIDEBAR_IDS)[keyof typeof SIDEBAR_IDS];

@@ -14,6 +14,8 @@ function fixture(): ContextCaptureSnapshot {
       sourceEventsFingerprint: { bytes: 100, modifiedUnixMs: 1, sha256: "source-hash" },
       cliVersion: "1.0.71",
       captureProfile: "isolated",
+      captureScope: "session",
+      captureInputSha256: null,
       protocol: "openAiResponses",
       protocolDetectionSource: "assistant.usage API endpoint",
       requestPath: "/nonce/v1/responses",

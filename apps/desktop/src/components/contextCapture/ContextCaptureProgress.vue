@@ -4,23 +4,34 @@ import { ActionButton, LoadingSpinner, PageHeader, ProgressBar } from "@tracepil
 import { Check, Circle } from "lucide-vue-next";
 import { computed } from "vue";
 
-const props = defineProps<{ progress: CaptureProgress | null }>();
+const props = withDefaults(
+  defineProps<{ progress: CaptureProgress | null; benchmark?: boolean }>(),
+  { benchmark: false },
+);
 const emit = defineEmits<{ cancel: [] }>();
-const stages = [
-  { value: "preflight", label: "Verify session and CLI" },
-  { value: "copyingSession", label: "Copy session into private storage" },
+const stages = computed(() => [
+  {
+    value: "preflight",
+    label: props.benchmark ? "Verify CLI and storage" : "Verify session and CLI",
+  },
+  props.benchmark
+    ? { value: "preparingEnvironment", label: "Prepare temporary environment" }
+    : { value: "copyingSession", label: "Copy session into private storage" },
   { value: "startingListener", label: "Start loopback capture endpoint" },
-  { value: "resumingClone", label: "Resume the isolated clone" },
+  {
+    value: "resumingClone",
+    label: props.benchmark ? "Start a fresh CLI session" : "Resume the isolated clone",
+  },
   { value: "waitingForRequest", label: "Receive one model request" },
   { value: "parsingSnapshot", label: "Validate and parse the payload" },
   { value: "savingSnapshot", label: "Save the immutable request" },
   { value: "cleaningUp", label: "Remove temporary state" },
   { value: "complete", label: "Capture complete" },
-] as const;
+]);
 const activeIndex = computed(() =>
   Math.max(
     0,
-    stages.findIndex((stage) => stage.value === props.progress?.stage),
+    stages.value.findIndex((stage) => stage.value === props.progress?.stage),
   ),
 );
 const copyPercent = computed(() => {
@@ -32,8 +43,8 @@ const copyPercent = computed(() => {
 <template>
   <div class="capture-progress">
     <PageHeader
-      title="Capturing isolated request"
-      subtitle="The source session remains untouched and no request is forwarded to a provider."
+      :title="benchmark ? 'Capturing CLI context' : 'Capturing isolated request'"
+      :subtitle="benchmark ? 'A fresh temporary CLI session will stop after its first model request.' : 'The source session remains untouched and no request is forwarded to a provider.'"
       icon-name="loader-circle"
       density="compact"
     >

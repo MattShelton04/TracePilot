@@ -1,6 +1,6 @@
 # Exact Context Capture
 
-Exact Context Capture is an experimental TracePilot feature for inspecting the model API request body that the installed GitHub Copilot CLI builds when an inactive session is resumed in a controlled capture run.
+Exact Context Capture is an experimental TracePilot feature for inspecting the model API request body that the installed GitHub Copilot CLI builds. It supports isolated captures of an inactive session and fresh CLI context benchmarks.
 
 The capture is local. TracePilot directs one request to a temporary listener on `127.0.0.1`, saves the request if you ask it to, returns an intentional error to stop inference, and never forwards the payload to a model provider.
 
@@ -43,6 +43,33 @@ The initial implementation is tested against the capture capabilities exposed by
 2. Open **Experimental**.
 3. Enable **Exact Context Capture**.
 4. Open a session and select its **Context** tab.
+
+Enabling the feature also adds **CLI Context** under the sidebar's **Configuration** section.
+
+## Benchmark fresh CLI context
+
+Open **Configuration → CLI Context** when you want a session-independent snapshot. This view is intended for tracking changes between Copilot CLI versions or measuring the context added by a repository and your configured integrations.
+
+Choose one of two environments:
+
+- **Isolated baseline** starts a fresh CLI session with an empty workspace and empty temporary `COPILOT_HOME`. The installed CLI's built-in system instructions and tools remain available. This is the most repeatable profile for comparing CLI versions.
+- **Repository environment** starts a fresh CLI session from a repository you select. TracePilot copies user settings, MCP configuration, skills, prompts, hooks, agents, and plugins into a temporary `COPILOT_HOME` when they exist. It does not copy authentication, credentials, session history, logs, command history, or package caches.
+
+For either profile, enter the model ID and choose its expected wire protocol, then select **Capture snapshot**. Benchmark snapshots are always saved because their purpose is comparison over time. The repository environment may start configured MCP servers or other integrations as part of normal CLI context discovery; use the isolated baseline when you do not want those integrations involved.
+
+The selected repository is read in place so repository instructions and available files reflect its current state. The CLI writes its new session and other state only inside TracePilot's temporary capture directory, which is removed after the request is received or the capture is cancelled.
+
+### Compare benchmarks
+
+The **Compare** view requires two saved benchmark snapshots. Choose a before and after snapshot to compare:
+
+- CLI version, profile, model, and repository provenance;
+- total request size and estimated-token deltas;
+- added, removed, or changed system instruction blocks;
+- added, removed, or changed tool definitions, matched by tool name;
+- added, removed, or changed request controls.
+
+The comparison is structural: object keys are canonicalized before values are compared, so a JSON object whose properties were merely serialized in a different order is not reported as changed. Arrays remain ordered. Open either snapshot's **Raw JSON** view when byte order, whitespace, or exact property order matters.
 
 The feature is available from the main TracePilot window. Pop-out viewer windows do not receive capture permissions.
 
@@ -110,6 +137,8 @@ Saved captures use this layout:
       manifest.json
       request.json
 ```
+
+Fresh CLI benchmarks use the same immutable `manifest.json` plus `request.json` format under a reserved internal collection directory. Their manifests record `captureScope`, `captureProfile`, `cliVersion`, the selected `repositoryPath` when applicable, and `captureInputSha256` for the copied configuration inputs. This keeps them separate from real session IDs while allowing the same integrity checks, viewer, deletion flow, and diff tooling to operate on both kinds of capture.
 
 `request.json` contains the exact captured request bytes in plaintext. It can include prompts, source code, file contents, tool results, instruction text, attachment data, and secrets that were already present in conversation history.
 
