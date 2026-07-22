@@ -20,6 +20,7 @@ This index lists current user/developer documentation. Stale generated tech-debt
 
 | Document | Description |
 |----------|-------------|
+| [Exact Context Capture](features/exact-context-capture-plan.md) | Feasibility research and phased implementation plan for isolated model-request snapshots. |
 | [Incremental Analytics](architecture/incremental-analytics.md) | Analytics pipeline and incremental computation strategy. |
 | [Design System](design/design-system.md) | Colour tokens, typography, spacing, and component patterns. |
 | [Tool-Call Rendering](design/tool-call-rendering.md) | How tool calls/results are visualised in the session viewer. |
