@@ -80,7 +80,8 @@ describe("ContextCaptureViewer", () => {
     expect(wrapper.text()).toContain("Estimated tokens");
     expect(wrapper.text()).toContain("System instructions");
     expect(wrapper.text()).toContain("Est. tokens");
-    expect(wrapper.find('[aria-label="Copy file contents"]').exists()).toBe(true);
+    expect(wrapper.find('[aria-label="Copy JSON"]').exists()).toBe(true);
+    expect(wrapper.find(".fcv__file-header").exists()).toBe(false);
   });
 
   it("keeps the synthetic probe visible and explicitly marked", async () => {
@@ -96,7 +97,7 @@ describe("ContextCaptureViewer", () => {
     (detail.element as HTMLDetailsElement).open = true;
     await detail.trigger("toggle");
     expect(wrapper.text()).toContain("TracePilot context capture nonce");
-    expect(wrapper.find('[aria-label="Copy file contents"]').exists()).toBe(true);
+    expect(wrapper.find('[aria-label="Copy JSON"]').exists()).toBe(true);
   });
 
   it("uses the standard direct copy action for the exact raw body", async () => {
@@ -109,7 +110,7 @@ describe("ContextCaptureViewer", () => {
       ?.trigger("click");
 
     expect(wrapper.text()).toContain("Raw preserves the captured byte and property order");
-    expect(wrapper.find('[aria-label="Copy file contents"]').exists()).toBe(true);
+    expect(wrapper.find('[aria-label="Copy JSON"]').exists()).toBe(true);
     expect(wrapper.text()).not.toContain("Copy sensitive request JSON");
   });
 });

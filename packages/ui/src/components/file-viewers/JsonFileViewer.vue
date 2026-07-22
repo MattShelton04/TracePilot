@@ -1,19 +1,28 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import { useClipboard } from "../../composables/useClipboard";
 import CodeBlock from "../renderers/CodeBlock.vue";
 import JsonTreeNode from "./JsonTreeNode.vue";
 
-const props = defineProps<{
-  content: string;
-  filePath?: string;
-  mode?: "tree" | "raw";
-  searchQuery?: string;
-  activeSearchLine?: number;
-  activeSearchColumn?: number;
-}>();
+const props = withDefaults(
+  defineProps<{
+    content: string;
+    filePath?: string;
+    mode?: "tree" | "raw";
+    searchQuery?: string;
+    activeSearchLine?: number;
+    activeSearchColumn?: number;
+    /** JSON trees expand all nested objects and arrays by default. */
+    expandAll?: boolean;
+    /** Show a direct copy action in the Tree/Raw toolbar. */
+    showCopy?: boolean;
+  }>(),
+  { expandAll: true, showCopy: false },
+);
 const emit = defineEmits<{
   "update:mode": [mode: "tree" | "raw"];
 }>();
+const { copy, copied } = useClipboard();
 
 const mode = computed({
   get: () => props.mode ?? "tree",
@@ -81,10 +90,31 @@ const parsed = computed(() => {
       >
         Parse anyway
       </button>
+      <button
+        v-if="showCopy"
+        type="button"
+        class="structured-viewer__copy"
+        :class="{ copied }"
+        :title="copied ? 'Copied!' : 'Copy JSON'"
+        :aria-label="copied ? 'Copied!' : 'Copy JSON'"
+        @click="copy(content)"
+      >
+        <svg v-if="!copied" aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="5" y="5" width="9" height="10" rx="1" />
+          <path d="M11 5V3a1 1 0 00-1-1H3a1 1 0 00-1 1v9a1 1 0 001 1h2" />
+        </svg>
+        <svg v-else aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3 8 6.5 12 13 4" />
+        </svg>
+      </button>
     </div>
 
     <div v-if="effectiveMode === 'tree' && parseAllowed && !parsed.error" class="structured-viewer__tree">
-      <JsonTreeNode :value="parsed.value" :initially-expanded="true" />
+      <JsonTreeNode
+        :value="parsed.value"
+        :initially-expanded="true"
+        :expand-all="expandAll"
+      />
     </div>
     <CodeBlock
       v-else
@@ -159,6 +189,34 @@ const parsed = computed(() => {
   color: var(--accent-fg);
   cursor: pointer;
   font-size: 0.6875rem;
+}
+
+.structured-viewer__copy {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  margin-left: auto;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+
+.structured-viewer__copy:hover {
+  background: var(--neutral-muted);
+  color: var(--text-primary);
+}
+
+.structured-viewer__copy.copied {
+  color: var(--success-fg);
+}
+
+.structured-viewer__copy svg {
+  width: 13px;
+  height: 13px;
 }
 
 .structured-viewer__tree {

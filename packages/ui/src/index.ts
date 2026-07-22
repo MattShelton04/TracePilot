@@ -60,6 +60,7 @@ export { default as FormInput } from "./components/FormInput.vue";
 // with <Field>/<Select>). Behaviour and exports are identical; old
 // FormSwitch import path is preserved.
 export { default as FormSwitch, default as Toggle } from "./components/FormSwitch.vue";
+export { default as JsonFileViewer } from "./components/file-viewers/JsonFileViewer.vue";
 export type { HeadingProps } from "./components/Heading.vue";
 export { default as Heading } from "./components/Heading.vue";
 export type { KPIDelta, KPIProps } from "./components/KPI.vue";

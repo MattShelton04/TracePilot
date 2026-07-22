@@ -88,12 +88,12 @@ Open a saved snapshot from the **Request snapshots** Context view. A view-once r
 The viewer contains:
 
 - **Overview** — exact body size, clearly labelled estimated token totals and per-section breakdowns, request details, request controls, and other top-level fields;
-- **System** — ordered system/instruction blocks recognized for the selected protocol;
+- **System** — ordered system/instruction blocks shown as wrapped text when possible, with copy and JSON fallback controls;
 - **Request items** — the complete on-wire sequence with filters for messages, tool calls, tool outputs, and the synthetic probe; large items render only when expanded;
-- **Tools** — tool names, descriptions, schemas, and compact-JSON sizes;
-- **Raw JSON** — the unchanged request body and its SHA-256 hash, using TracePilot’s structured tree/raw JSON viewer, direct copy action, and in-file search. Large trees require an explicit parse action.
+- **Tools** — tool names, descriptions, recognized input fields, required inputs, enum values, and raw-definition fallbacks;
+- **Raw JSON** — the unchanged request body and its SHA-256 hash, using a compact Tree/Raw JSON viewer and direct copy action. Large trees require an explicit parse action.
 
-Unknown top-level fields and unknown content blocks remain in Raw JSON even when TracePilot cannot normalize them. Raw mode is the byte- and property-order source of truth. Tree mode parses the JSON for navigation; request arrays retain their order, while the tree should not be used to compare raw serialization details.
+Unknown top-level fields and unknown content blocks remain in Raw JSON even when TracePilot cannot normalize them. Raw mode is the byte- and property-order source of truth. Tree mode expands nested JSON containers by default; request arrays retain their order, while the tree should not be used to compare raw serialization details.
 
 “Exact” applies to the received body and direct byte/character measurements. The displayed token total is a byte-based estimate and is labelled **Estimated**. Capturing JSON does not reveal the provider tokenizer’s exact section allocation.
 

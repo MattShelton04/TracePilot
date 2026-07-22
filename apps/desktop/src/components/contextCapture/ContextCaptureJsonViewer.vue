@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { FileContentViewer } from "@tracepilot/ui";
+import { JsonFileViewer } from "@tracepilot/ui";
 import { computed, ref, watch } from "vue";
 
 const props = withDefaults(
@@ -24,12 +24,13 @@ watch(
 
 <template>
   <div class="capture-json-viewer" :class="`capture-json-viewer--${size}`">
-    <FileContentViewer
-      :file-path="fileName"
-      file-type="json"
+    <JsonFileViewer
       :content="content"
-      :json-mode="mode"
-      @update:json-mode="mode = $event"
+      :file-path="fileName"
+      :mode="mode"
+      :expand-all="true"
+      :show-copy="true"
+      @update:mode="mode = $event"
     />
   </div>
 </template>

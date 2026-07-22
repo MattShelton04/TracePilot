@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { FileContentViewer } from "@tracepilot/ui";
+import { JsonFileViewer } from "@tracepilot/ui";
 import { ref, watch } from "vue";
 
 const props = defineProps<{ rawBody: string; sha256: string }>();
@@ -23,12 +23,13 @@ watch(
       <p>Raw preserves the captured byte and property order. Tree is a parsed view.</p>
     </div>
     <div class="capture-raw__viewer">
-      <FileContentViewer
-        file-path="request.json"
-        file-type="json"
+      <JsonFileViewer
         :content="rawBody"
-        :json-mode="jsonMode"
-        @update:json-mode="jsonMode = $event"
+        file-path="request.json"
+        :mode="jsonMode"
+        :expand-all="true"
+        :show-copy="true"
+        @update:mode="jsonMode = $event"
       />
     </div>
   </div>
