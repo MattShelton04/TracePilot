@@ -11,7 +11,7 @@ import {
   SectionPanel,
   useConfirmDialog,
 } from "@tracepilot/ui";
-import { Camera, FileJson2, ShieldCheck } from "lucide-vue-next";
+import { Camera, FileJson2 } from "lucide-vue-next";
 import { computed, onMounted } from "vue";
 import { useContextCapture } from "@/composables/useContextCapture";
 import ContextCapturePreflight from "./ContextCapturePreflight.vue";
@@ -96,16 +96,10 @@ onMounted(capture.setup);
 
       <ErrorAlert v-if="capture.error.value" :message="capture.error.value" variant="inline" />
 
-      <div class="capture-disclosure">
-        <div class="capture-disclosure__icon"><ShieldCheck :size="20" /></div>
-        <div>
-          <strong>Local, isolated, and never forwarded</strong>
-          <p>
-            TracePilot resumes a private session copy, intercepts one loopback request, and stops
-            before inference. Saved snapshots are plaintext and may contain sensitive context.
-          </p>
-        </div>
-      </div>
+      <p class="capture-description">
+        A capture resumes a temporary copy of the session and records its next outgoing model API
+        request on localhost. Saved request bodies are stored as plaintext.
+      </p>
 
       <SectionPanel title="Saved snapshots">
         <div v-if="capture.loading.value" class="capture-loading">
@@ -157,36 +151,20 @@ onMounted(capture.setup);
   min-height: 620px;
 }
 
-.capture-disclosure {
-  display: flex;
-  gap: 12px;
+.capture-description {
+  max-width: 780px;
+  margin-top: -8px;
   margin-bottom: 24px;
-  padding: 16px;
-  border: 1px solid var(--border-muted);
-  border-radius: var(--radius-lg);
-  background: var(--surface-secondary);
+  color: var(--text-tertiary);
+  font-size: 0.8125rem;
+  line-height: 1.5;
 }
 
-.capture-disclosure__icon,
 .capture-list__icon {
   display: grid;
   flex: none;
   place-items: center;
   color: var(--accent-fg);
-}
-
-.capture-disclosure__icon {
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-md);
-  background: var(--accent-muted);
-}
-
-.capture-disclosure p {
-  max-width: 780px;
-  margin: 4px 0 0;
-  color: var(--text-tertiary);
-  line-height: 1.5;
 }
 
 .capture-loading {

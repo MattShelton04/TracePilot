@@ -1,11 +1,9 @@
 <script setup lang="ts">
 import type { NormalizedSection } from "@tracepilot/types";
-import { Badge, CodeBlock, EmptyState, formatBytes } from "@tracepilot/ui";
+import { Badge, EmptyState, formatBytes } from "@tracepilot/ui";
+import ContextCaptureJsonViewer from "./ContextCaptureJsonViewer.vue";
 
 defineProps<{ blocks: NormalizedSection[] }>();
-function json(value: unknown) {
-  return typeof value === "string" ? value : JSON.stringify(value, null, 2);
-}
 </script>
 
 <template>
@@ -36,12 +34,10 @@ function json(value: unknown) {
           </span>
         </header>
         <div class="capture-system__content">
-          <CodeBlock
-            :code="json(block.content)"
-            :language="typeof block.content === 'string' ? 'text' : 'json'"
-            :line-numbers="true"
-            :show-language-badge="false"
-            :max-lines="2000"
+          <ContextCaptureJsonViewer
+            :value="block.content"
+            :file-name="`system-${block.index + 1}.json`"
+            size="large"
           />
         </div>
       </section>
@@ -98,5 +94,6 @@ function json(value: unknown) {
 
 .capture-system__content {
   min-width: 0;
+  padding: 14px;
 }
 </style>

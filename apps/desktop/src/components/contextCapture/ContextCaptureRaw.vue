@@ -1,11 +1,8 @@
 <script setup lang="ts">
-import { ActionButton, FileContentViewer, useConfirmDialog, useToast } from "@tracepilot/ui";
-import { Copy } from "lucide-vue-next";
+import { FileContentViewer } from "@tracepilot/ui";
 import { ref, watch } from "vue";
 
 const props = defineProps<{ rawBody: string; sha256: string }>();
-const { confirm } = useConfirmDialog();
-const toast = useToast();
 const jsonMode = ref<"tree" | "raw">("tree");
 
 watch(
@@ -14,30 +11,16 @@ watch(
     jsonMode.value = "tree";
   },
 );
-
-async function copyRaw() {
-  const { confirmed } = await confirm({
-    title: "Copy sensitive request JSON?",
-    message:
-      "The exact payload may contain source code, prompts, tool results, attachment data, and secrets. Clipboard managers may retain it.",
-    confirmLabel: "Copy exact JSON",
-  });
-  if (!confirmed) return;
-  await navigator.clipboard.writeText(props.rawBody);
-  toast.success("Exact request JSON copied");
-}
 </script>
 
 <template>
   <div class="capture-raw">
     <div class="capture-raw__toolbar">
       <div>
-        <strong>Immutable request body</strong>
+        <strong>Captured request body</strong>
         <code>SHA-256 {{ sha256 }}</code>
       </div>
-      <ActionButton size="sm" @click="copyRaw">
-        <Copy :size="14" /> Copy raw JSON…
-      </ActionButton>
+      <p>Raw preserves the captured byte and property order. Tree is a parsed view.</p>
     </div>
     <div class="capture-raw__viewer">
       <FileContentViewer
@@ -45,7 +28,6 @@ async function copyRaw() {
         file-type="json"
         :content="rawBody"
         :json-mode="jsonMode"
-        :show-copy-content="false"
         @update:json-mode="jsonMode = $event"
       />
     </div>
@@ -76,6 +58,13 @@ async function copyRaw() {
   min-width: 0;
 }
 
+.capture-raw__toolbar p {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: 0.75rem;
+  text-align: right;
+}
+
 .capture-raw code {
   overflow: hidden;
   color: var(--text-tertiary);
@@ -89,5 +78,16 @@ async function copyRaw() {
   height: min(68vh, 760px);
   min-height: 480px;
   overflow: hidden;
+}
+
+@media (max-width: 720px) {
+  .capture-raw__toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .capture-raw__toolbar p {
+    text-align: left;
+  }
 }
 </style>

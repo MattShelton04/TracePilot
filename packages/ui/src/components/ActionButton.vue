@@ -47,6 +47,7 @@ defineProps<{
   transition: opacity 0.15s ease;
   display: inline-flex;
   align-items: center;
+  gap: 6px;
 }
 .opacity-0 {
   opacity: 0;

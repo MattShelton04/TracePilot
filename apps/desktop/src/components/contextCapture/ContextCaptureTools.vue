@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { NormalizedToolDefinition } from "@tracepilot/types";
-import { CodeBlock, EmptyState, formatBytes } from "@tracepilot/ui";
+import { EmptyState, formatBytes } from "@tracepilot/ui";
 import { ref } from "vue";
+import ContextCaptureJsonViewer from "./ContextCaptureJsonViewer.vue";
 
 defineProps<{ tools: NormalizedToolDefinition[] }>();
 const expanded = ref(new Set<number>());
@@ -46,12 +47,10 @@ function toggleTool(index: number, event: Event) {
           </span>
         </summary>
         <div v-if="expanded.has(tool.index)" class="capture-tool__body">
-          <CodeBlock
-            :code="JSON.stringify(tool.raw, null, 2)"
-            language="json"
-            :line-numbers="true"
-            :show-language-badge="false"
-            :max-lines="1000"
+          <ContextCaptureJsonViewer
+            :value="tool.raw"
+            :file-name="`tool-${tool.index + 1}.json`"
+            size="large"
           />
         </div>
       </details>
@@ -132,9 +131,6 @@ function toggleTool(index: number, event: Event) {
 }
 
 .capture-tool__body {
-  overflow: hidden;
   margin: 0 14px 14px 52px;
-  border: 1px solid var(--border-muted);
-  border-radius: var(--radius-md);
 }
 </style>

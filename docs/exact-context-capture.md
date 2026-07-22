@@ -6,7 +6,9 @@ The capture is local. TracePilot directs one request to a temporary listener on 
 
 ## What the result means
 
-The result is the exact UTF-8 JSON request body produced by your installed Copilot CLI for this capture run. TracePilot also records the request path, protocol, exact byte and character counts, SHA-256 hash, CLI version, source-session fingerprint, and fidelity warnings.
+The result is the exact UTF-8 JSON request body produced by your installed Copilot CLI and posted to the selected model API route for this capture run. TracePilot records the received bytes without reserializing them. The Raw view therefore preserves the original whitespace and property order.
+
+The API provider normally parses this structured request after receiving it. It may apply server-side instructions, policy, model routing, field transformations, and provider-specific tokenization. A capture is therefore the exact client-side API request, not a representation of the model's final internal token stream.
 
 It is not:
 
@@ -48,7 +50,7 @@ The feature is available from the main TracePilot window. Pop-out viewer windows
 
 1. Close the selected session in Copilot CLI. A live or recently active lock blocks capture.
 2. In the session’s **Context** tab, switch from **Context timeline** to **Request snapshots**, then select **New capture**.
-3. Review the session status, working directory, CLI versions, model, protocol evidence, included resources, omitted resources, and warnings.
+3. Review the model, Copilot CLI version, working directory, and selected API request format.
 4. Confirm the wire protocol. TracePilot tries the following evidence in order:
    - the most recent persisted `assistant.usage` API endpoint;
    - a model-family compatibility fallback.
@@ -85,17 +87,17 @@ Open a saved snapshot from the **Request snapshots** Context view. A view-once r
 
 The viewer contains:
 
-- **Overview** — provenance, exact body size, exact character count, clearly labelled estimated tokens, section sizes, request controls, unknown fields, and fidelity warnings;
+- **Overview** — exact body size, clearly labelled estimated token totals and per-section breakdowns, request details, request controls, and other top-level fields;
 - **System** — ordered system/instruction blocks recognized for the selected protocol;
 - **Request items** — the complete on-wire sequence with filters for messages, tool calls, tool outputs, and the synthetic probe; large items render only when expanded;
 - **Tools** — tool names, descriptions, schemas, and compact-JSON sizes;
-- **Raw JSON** — the unchanged request body and its SHA-256 hash, using TracePilot’s structured tree/raw JSON viewer and in-file search. Large trees require an explicit parse action.
+- **Raw JSON** — the unchanged request body and its SHA-256 hash, using TracePilot’s structured tree/raw JSON viewer, direct copy action, and in-file search. Large trees require an explicit parse action.
 
-Unknown top-level fields and unknown content blocks remain in Raw JSON even when TracePilot cannot normalize them. Raw JSON is the source of truth.
+Unknown top-level fields and unknown content blocks remain in Raw JSON even when TracePilot cannot normalize them. Raw mode is the byte- and property-order source of truth. Tree mode parses the JSON for navigation; request arrays retain their order, while the tree should not be used to compare raw serialization details.
 
 “Exact” applies to the received body and direct byte/character measurements. The displayed token total is a byte-based estimate and is labelled **Estimated**. Capturing JSON does not reveal the provider tokenizer’s exact section allocation.
 
-Copying Raw JSON requires confirmation because clipboard history tools may retain sensitive content.
+The copy buttons use the same direct clipboard action as TracePilot's other file viewers. Remember that clipboard history tools may retain copied request data.
 
 ## Saved files and privacy
 

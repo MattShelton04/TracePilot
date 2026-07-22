@@ -46,5 +46,6 @@ describe("ContextCaptureMessages", () => {
     (detail.element as HTMLDetailsElement).open = true;
     await detail.trigger("toggle");
     expect(wrapper.html()).toContain("call-secret");
+    expect(wrapper.find('[aria-label="Copy file contents"]').exists()).toBe(true);
   });
 });

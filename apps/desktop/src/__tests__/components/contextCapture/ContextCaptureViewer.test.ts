@@ -71,14 +71,16 @@ function fixture(): ContextCaptureSnapshot {
 }
 
 describe("ContextCaptureViewer", () => {
-  it("states the capture-run truth boundary and labels token counts as estimated", () => {
+  it("explains the client request boundary and shows an estimated token breakdown", () => {
     const wrapper = mount(ContextCaptureViewer, {
       props: { snapshot: fixture() },
     });
-    expect(wrapper.text()).toContain("Exact raw body · capture run only");
+    expect(wrapper.text()).toContain("exact HTTP request body emitted by Copilot CLI");
+    expect(wrapper.text()).toContain("not the model's final internal token stream");
     expect(wrapper.text()).toContain("Estimated tokens");
-    expect(wrapper.text()).toContain("Source unchanged");
-    expect(wrapper.text()).toContain("A synthetic probe was appended");
+    expect(wrapper.text()).toContain("System instructions");
+    expect(wrapper.text()).toContain("Est. tokens");
+    expect(wrapper.find('[aria-label="Copy file contents"]').exists()).toBe(true);
   });
 
   it("keeps the synthetic probe visible and explicitly marked", async () => {
@@ -94,5 +96,20 @@ describe("ContextCaptureViewer", () => {
     (detail.element as HTMLDetailsElement).open = true;
     await detail.trigger("toggle");
     expect(wrapper.text()).toContain("TracePilot context capture nonce");
+    expect(wrapper.find('[aria-label="Copy file contents"]').exists()).toBe(true);
+  });
+
+  it("uses the standard direct copy action for the exact raw body", async () => {
+    const wrapper = mount(ContextCaptureViewer, {
+      props: { snapshot: fixture() },
+    });
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text().includes("Raw JSON"))
+      ?.trigger("click");
+
+    expect(wrapper.text()).toContain("Raw preserves the captured byte and property order");
+    expect(wrapper.find('[aria-label="Copy file contents"]').exists()).toBe(true);
+    expect(wrapper.text()).not.toContain("Copy sensitive request JSON");
   });
 });

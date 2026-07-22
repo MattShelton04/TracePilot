@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { NormalizedMessage } from "@tracepilot/types";
-import { Badge, CodeBlock, formatBytes, SegmentedControl } from "@tracepilot/ui";
+import { Badge, formatBytes, SegmentedControl } from "@tracepilot/ui";
 import { computed, ref } from "vue";
+import ContextCaptureJsonViewer from "./ContextCaptureJsonViewer.vue";
 
 const props = defineProps<{ messages: NormalizedMessage[] }>();
 type Filter = "all" | "messages" | "toolCalls" | "toolOutputs" | "probe";
@@ -60,10 +61,6 @@ function toggleItem(index: number, event: Event) {
   else next.delete(index);
   expanded.value = next;
 }
-
-function json(value: unknown) {
-  return JSON.stringify(value, null, 2);
-}
 </script>
 
 <template>
@@ -102,12 +99,10 @@ function json(value: unknown) {
           </span>
         </summary>
         <div v-if="expanded.has(message.index)" class="capture-item__body">
-          <CodeBlock
-            :code="json(message.raw)"
-            language="json"
-            :line-numbers="true"
-            :show-language-badge="false"
-            :max-lines="1000"
+          <ContextCaptureJsonViewer
+            :value="message.raw"
+            :file-name="`request-item-${message.index + 1}.json`"
+            size="large"
           />
         </div>
       </details>
@@ -207,10 +202,7 @@ function json(value: unknown) {
 }
 
 .capture-item__body {
-  overflow: hidden;
   margin: 0 14px 14px 52px;
-  border: 1px solid var(--border-muted);
-  border-radius: var(--radius-md);
 }
 
 @media (max-width: 720px) {

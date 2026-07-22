@@ -2,8 +2,6 @@
 import type { ContextCaptureSnapshot } from "@tracepilot/types";
 import {
   ActionButton,
-  Badge,
-  CodeBlock,
   formatBytes,
   formatDateMedium,
   formatNumberFull,
@@ -14,6 +12,7 @@ import {
 } from "@tracepilot/ui";
 import { ArrowLeft, Trash2 } from "lucide-vue-next";
 import { computed, ref, watch } from "vue";
+import ContextCaptureJsonViewer from "./ContextCaptureJsonViewer.vue";
 import ContextCaptureMessages from "./ContextCaptureMessages.vue";
 import ContextCaptureRaw from "./ContextCaptureRaw.vue";
 import ContextCaptureSystem from "./ContextCaptureSystem.vue";
@@ -23,12 +22,14 @@ const props = defineProps<{ snapshot: ContextCaptureSnapshot }>();
 const emit = defineEmits<{ close: []; delete: [captureId: string] }>();
 type View = "overview" | "system" | "items" | "tools" | "raw";
 const view = ref<View>("overview");
+
 watch(
   () => props.snapshot.manifest.captureId,
   () => {
     view.value = "overview";
   },
 );
+
 const tabs = computed(() => [
   { value: "overview", label: "Overview" },
   { value: "system", label: "System", count: props.snapshot.manifest.parsed.systemBlocks.length },
@@ -36,17 +37,52 @@ const tabs = computed(() => [
   { value: "tools", label: "Tools", count: props.snapshot.manifest.parsed.toolDefinitions.length },
   { value: "raw", label: "Raw JSON" },
 ]);
+
 const protocolLabel: Record<string, string> = {
   openAiChatCompletions: "OpenAI Chat Completions",
   openAiResponses: "OpenAI Responses",
   anthropicMessages: "Anthropic Messages",
 };
-const controlsJson = computed(() =>
-  JSON.stringify(props.snapshot.manifest.parsed.requestControls, null, 2),
-);
-const unknownJson = computed(() =>
-  JSON.stringify(props.snapshot.manifest.parsed.unknownFields, null, 2),
-);
+
+const composition = computed(() => {
+  const metrics = props.snapshot.manifest.parsed.sectionMetrics;
+  const rows = [
+    {
+      label: "System instructions",
+      bytes: metrics.systemBytes,
+      characters: metrics.systemCharacters,
+    },
+    { label: "Request items", bytes: metrics.messageBytes, characters: metrics.messageCharacters },
+    { label: "Tool definitions", bytes: metrics.toolBytes, characters: metrics.toolCharacters },
+    {
+      label: "Request controls",
+      bytes: metrics.controlsBytes,
+      characters: metrics.controlsCharacters,
+    },
+  ];
+  const measuredBytes = rows.reduce((sum, row) => sum + row.bytes, 0);
+  const measuredCharacters = rows.reduce((sum, row) => sum + row.characters, 0);
+  const otherBytes = Math.max(0, props.snapshot.manifest.rawBodyBytes - measuredBytes);
+  const otherCharacters = Math.max(
+    0,
+    props.snapshot.manifest.rawBodyCharacters - measuredCharacters,
+  );
+  if (otherBytes || otherCharacters) {
+    rows.push({
+      label: "JSON structure and other fields",
+      bytes: otherBytes,
+      characters: otherCharacters,
+    });
+  }
+  return rows.map((row) => ({
+    ...row,
+    estimatedTokens: Math.ceil(row.bytes / 4),
+    percent:
+      props.snapshot.manifest.rawBodyBytes > 0
+        ? Math.max(0, Math.min(100, (row.bytes / props.snapshot.manifest.rawBodyBytes) * 100))
+        : 0,
+  }));
+});
 </script>
 
 <template>
@@ -72,28 +108,13 @@ const unknownJson = computed(() =>
       </template>
     </PageHeader>
 
-    <div class="capture-viewer__badges">
-      <Badge variant="success">Exact raw body · capture run only</Badge>
-      <Badge variant="neutral">Isolated</Badge>
-      <Badge :variant="snapshot.manifest.fidelityManifest.sourceUnchanged ? 'success' : 'warning'">
-        Source {{ snapshot.manifest.fidelityManifest.sourceUnchanged ? 'unchanged' : 'changed' }}
-      </Badge>
-      <Badge :variant="snapshot.manifest.saved ? 'neutral' : 'warning'">
-        {{ snapshot.manifest.saved ? 'Saved plaintext' : 'View once' }}
-      </Badge>
-    </div>
-
     <div class="capture-viewer__tabs">
       <SegmentedControl v-model="view" :options="tabs" />
     </div>
 
     <div v-if="view === 'overview'" class="capture-overview">
       <div class="capture-overview__stats">
-        <StatCard :value="formatBytes(snapshot.manifest.rawBodyBytes)" label="Exact body size" />
-        <StatCard
-          :value="formatNumberFull(snapshot.manifest.rawBodyCharacters)"
-          label="Exact characters"
-        />
+        <StatCard :value="formatBytes(snapshot.manifest.rawBodyBytes)" label="Request body" />
         <StatCard
           :value="formatNumberFull(snapshot.manifest.estimatedTokens)"
           label="Estimated tokens"
@@ -103,78 +124,74 @@ const unknownJson = computed(() =>
         <StatCard :value="snapshot.manifest.parsed.toolDefinitions.length" label="Tools" />
       </div>
 
+      <div class="capture-definition">
+        <strong>What was captured</strong>
+        <p>
+          Raw JSON is the exact HTTP request body emitted by Copilot CLI during this capture run.
+          A provider may still apply server-side instructions, routing, transformations, and
+          tokenization, so this is not the model's final internal token stream.
+        </p>
+      </div>
+
       <div class="capture-overview__grid">
         <div class="capture-overview__main">
-          <SectionPanel title="Composition">
-            <dl class="capture-measurements">
-              <div><dt>System instructions</dt><dd>{{ formatBytes(snapshot.manifest.parsed.sectionMetrics.systemBytes) }} <span>{{ formatNumberFull(snapshot.manifest.parsed.sectionMetrics.systemCharacters) }} chars</span></dd></div>
-              <div><dt>Request items</dt><dd>{{ formatBytes(snapshot.manifest.parsed.sectionMetrics.messageBytes) }} <span>{{ formatNumberFull(snapshot.manifest.parsed.sectionMetrics.messageCharacters) }} chars</span></dd></div>
-              <div><dt>Tool definitions</dt><dd>{{ formatBytes(snapshot.manifest.parsed.sectionMetrics.toolBytes) }} <span>{{ formatNumberFull(snapshot.manifest.parsed.sectionMetrics.toolCharacters) }} chars</span></dd></div>
-              <div><dt>Request controls</dt><dd>{{ formatBytes(snapshot.manifest.parsed.sectionMetrics.controlsBytes) }} <span>{{ formatNumberFull(snapshot.manifest.parsed.sectionMetrics.controlsCharacters) }} chars</span></dd></div>
-              <div v-if="snapshot.manifest.parsed.attachments.length"><dt>Attachments</dt><dd>{{ snapshot.manifest.parsed.attachments.length }} recognized</dd></div>
-            </dl>
+          <SectionPanel title="Size and estimated tokens">
+            <div class="capture-composition" role="table" aria-label="Request composition">
+              <div class="capture-composition__head" role="row">
+                <span role="columnheader">Section</span>
+                <span role="columnheader">Size</span>
+                <span role="columnheader">Characters</span>
+                <span role="columnheader">Est. tokens</span>
+              </div>
+              <div v-for="row in composition" :key="row.label" class="capture-composition__row" role="row">
+                <span class="capture-composition__label" role="cell">
+                  <span>{{ row.label }}</span>
+                  <span class="capture-composition__bar" aria-hidden="true">
+                    <span :style="{ width: `${Math.max(row.percent, row.bytes ? 1 : 0)}%` }" />
+                  </span>
+                </span>
+                <span role="cell">{{ formatBytes(row.bytes) }}</span>
+                <span role="cell">{{ formatNumberFull(row.characters) }}</span>
+                <strong role="cell">{{ formatNumberFull(row.estimatedTokens) }}</strong>
+              </div>
+            </div>
             <p class="capture-metric-note">
-              Bytes and characters are compact-JSON measurements of captured values. Tokens are a
-              clearly labelled byte-based estimate, not provider tokenizer output.
+              Section sizes use compact JSON. Token counts use the same four-bytes-per-token
+              estimate as the total and will differ from provider tokenization.
             </p>
           </SectionPanel>
 
           <SectionPanel title="Request controls">
-            <div class="capture-code-card">
-              <CodeBlock
-                :code="controlsJson"
-                language="json"
-                :line-numbers="true"
-                :show-language-badge="false"
-                :max-lines="500"
-              />
-            </div>
+            <ContextCaptureJsonViewer
+              :value="snapshot.manifest.parsed.requestControls"
+              file-name="request-controls.json"
+              size="compact"
+            />
           </SectionPanel>
 
           <SectionPanel
             v-if="Object.keys(snapshot.manifest.parsed.unknownFields).length"
-            title="Additional protocol fields"
+            title="Other top-level fields"
           >
-            <p class="capture-section-copy">
-              These fields are preserved exactly in Raw JSON but are not yet assigned to a
-              normalized section.
-            </p>
-            <div class="capture-code-card">
-              <CodeBlock
-                :code="unknownJson"
-                language="json"
-                :line-numbers="true"
-                :show-language-badge="false"
-                :max-lines="500"
-              />
-            </div>
+            <ContextCaptureJsonViewer
+              :value="snapshot.manifest.parsed.unknownFields"
+              file-name="other-fields.json"
+              size="compact"
+            />
           </SectionPanel>
         </div>
 
         <aside class="capture-overview__aside">
-          <SectionPanel title="Provenance">
-            <dl class="capture-provenance">
-              <div><dt>Request</dt><dd><code>POST {{ snapshot.manifest.requestPath }}</code></dd></div>
-              <div><dt>Protocol evidence</dt><dd>{{ snapshot.manifest.protocolDetectionSource }}</dd></div>
-              <div><dt>Working directory</dt><dd><code>{{ snapshot.manifest.fidelityManifest.workingDirectory }}</code></dd></div>
-              <div><dt>Request SHA-256</dt><dd><code>{{ snapshot.manifest.rawBodySha256 }}</code></dd></div>
-              <div><dt>Source events SHA-256</dt><dd><code>{{ snapshot.manifest.sourceEventsFingerprint.sha256 }}</code></dd></div>
-              <div><dt>Observed headers</dt><dd>{{ snapshot.manifest.safeHeaderNames.join(', ') || 'None' }}</dd></div>
+          <SectionPanel title="Request details">
+            <dl class="capture-details">
+              <div><dt>Method</dt><dd><code>POST</code></dd></div>
+              <div><dt>Path</dt><dd><code>{{ snapshot.manifest.requestPath }}</code></dd></div>
+              <div><dt>Protocol</dt><dd>{{ protocolLabel[snapshot.manifest.protocol] }}</dd></div>
+              <div><dt>Model</dt><dd>{{ snapshot.manifest.parsed.model ?? 'Unknown' }}</dd></div>
+              <div><dt>CLI</dt><dd>{{ snapshot.manifest.cliVersion }}</dd></div>
+              <div><dt>Storage</dt><dd>{{ snapshot.manifest.saved ? 'Saved as plaintext' : 'View once' }}</dd></div>
+              <div><dt>Characters</dt><dd>{{ formatNumberFull(snapshot.manifest.rawBodyCharacters) }}</dd></div>
             </dl>
-          </SectionPanel>
-
-          <SectionPanel title="Fidelity notes">
-            <ul class="capture-warnings">
-              <li
-                v-for="warning in [
-                  ...snapshot.manifest.warnings,
-                  ...snapshot.manifest.parsed.warnings,
-                ]"
-                :key="warning"
-              >
-                {{ warning }}
-              </li>
-            </ul>
           </SectionPanel>
         </aside>
       </div>
@@ -219,13 +236,6 @@ const unknownJson = computed(() =>
   font-size: 0.75rem;
 }
 
-.capture-viewer__badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: -8px 0 16px;
-}
-
 .capture-viewer__tabs {
   overflow-x: auto;
   margin-bottom: 20px;
@@ -234,18 +244,36 @@ const unknownJson = computed(() =>
 
 .capture-overview {
   display: grid;
-  gap: 24px;
+  gap: 20px;
 }
 
 .capture-overview__stats {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
+}
+
+.capture-definition {
+  padding: 14px 16px;
+  border-left: 3px solid var(--border-accent);
+  background: var(--canvas-subtle);
+}
+
+.capture-definition strong {
+  font-size: 0.8125rem;
+}
+
+.capture-definition p {
+  max-width: 900px;
+  margin: 4px 0 0;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  line-height: 1.5;
 }
 
 .capture-overview__grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.7fr) minmax(300px, 1fr);
+  grid-template-columns: minmax(0, 1.7fr) minmax(260px, 0.8fr);
   gap: 24px;
 }
 
@@ -254,97 +282,108 @@ const unknownJson = computed(() =>
   min-width: 0;
 }
 
-.capture-measurements,
-.capture-provenance {
+.capture-composition {
   overflow: hidden;
-  margin: 0;
   border: 1px solid var(--border-muted);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
+  font-size: 0.75rem;
 }
 
-.capture-measurements > div,
-.capture-provenance > div {
+.capture-composition__head,
+.capture-composition__row {
   display: grid;
+  grid-template-columns: minmax(180px, 1fr) 90px 100px 90px;
+  align-items: center;
   gap: 12px;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--border-muted);
+  padding: 9px 12px;
 }
 
-.capture-measurements > div:last-child,
-.capture-provenance > div:last-child {
-  border-bottom: 0;
-}
-
-.capture-measurements > div {
-  grid-template-columns: minmax(140px, 1fr) auto;
-}
-
-.capture-provenance > div {
-  grid-template-columns: 120px minmax(0, 1fr);
-}
-
-.capture-measurements dt,
-.capture-provenance dt {
+.capture-composition__head {
+  background: var(--canvas-subtle);
   color: var(--text-tertiary);
+  font-size: 0.6875rem;
+  font-weight: 600;
 }
 
-.capture-measurements dd,
-.capture-provenance dd {
-  min-width: 0;
-  margin: 0;
-  overflow-wrap: anywhere;
+.capture-composition__row {
+  border-top: 1px solid var(--border-muted);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
 }
 
-.capture-measurements dd {
+.capture-composition__row > :not(:first-child) {
   text-align: right;
 }
 
-.capture-measurements dd span {
+.capture-composition__row strong {
+  color: var(--text-primary);
+}
+
+.capture-composition__label {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.capture-composition__bar {
+  height: 3px;
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: var(--neutral-subtle);
+}
+
+.capture-composition__bar > span {
   display: block;
-  color: var(--text-tertiary);
-  font-size: 0.75rem;
-}
-
-.capture-provenance code {
-  font-size: 0.6875rem;
-}
-
-.capture-metric-note,
-.capture-section-copy {
-  color: var(--text-tertiary);
-  font-size: 0.75rem;
-  line-height: 1.45;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent-fg);
 }
 
 .capture-metric-note {
   margin: 10px 0 0;
-}
-
-.capture-section-copy {
-  margin: 0 0 8px;
-}
-
-.capture-code-card {
-  overflow: hidden;
-  border: 1px solid var(--border-muted);
-  border-radius: var(--radius-lg);
-}
-
-.capture-warnings {
-  display: grid;
-  gap: 8px;
-  margin: 0;
-  padding: 14px 14px 14px 32px;
-  border: 1px solid var(--warning-muted);
-  border-radius: var(--radius-lg);
-  background: var(--warning-subtle);
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
+  font-size: 0.75rem;
   line-height: 1.45;
+}
+
+.capture-details {
+  overflow: hidden;
+  margin: 0;
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-md);
+  font-size: 0.75rem;
+}
+
+.capture-details > div {
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr);
+  gap: 12px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border-muted);
+}
+
+.capture-details > div:last-child {
+  border-bottom: 0;
+}
+
+.capture-details dt {
+  color: var(--text-tertiary);
+}
+
+.capture-details dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--text-secondary);
+}
+
+.capture-details code {
+  font-size: inherit;
 }
 
 @media (max-width: 980px) {
   .capture-overview__stats {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .capture-overview__grid {
@@ -352,9 +391,15 @@ const unknownJson = computed(() =>
   }
 }
 
-@media (max-width: 640px) {
-  .capture-overview__stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+@media (max-width: 680px) {
+  .capture-composition__head,
+  .capture-composition__row {
+    grid-template-columns: minmax(150px, 1fr) 80px 80px;
+  }
+
+  .capture-composition__head > :nth-child(3),
+  .capture-composition__row > :nth-child(3) {
+    display: none;
   }
 }
 </style>

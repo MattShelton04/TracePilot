@@ -1,15 +1,7 @@
 <script setup lang="ts">
 import type { CapturePreflight, CaptureProtocol } from "@tracepilot/types";
-import {
-  ActionButton,
-  Badge,
-  FormSwitch,
-  formatBytes,
-  PageHeader,
-  SectionPanel,
-  Select,
-} from "@tracepilot/ui";
-import { ArrowLeft, Camera, CheckCircle2, ShieldCheck } from "lucide-vue-next";
+import { ActionButton, FormSwitch, PageHeader, SectionPanel, Select } from "@tracepilot/ui";
+import { ArrowLeft, Camera } from "lucide-vue-next";
 import { computed } from "vue";
 
 const props = defineProps<{
@@ -23,6 +15,7 @@ const emit = defineEmits<{
   cancel: [];
   capture: [];
 }>();
+
 const options = computed(() =>
   props.preflight.protocolOptions.map((value) => ({
     value,
@@ -33,13 +26,26 @@ const options = computed(() =>
     }[value],
   })),
 );
+
+const blockers = computed(() => {
+  const items: string[] = [];
+  if (!props.preflight.inactive)
+    items.push("Close the source Copilot CLI session before capturing.");
+  if (!props.preflight.storageWritable) items.push("TracePilot's capture storage is not writable.");
+  if (props.preflight.cli.missingCapabilities.length) {
+    items.push(
+      `The installed CLI does not support: ${props.preflight.cli.missingCapabilities.join(", ")}.`,
+    );
+  }
+  return items;
+});
 </script>
 
 <template>
   <div class="capture-preflight">
     <PageHeader
       title="New request snapshot"
-      subtitle="Review the isolated capture plan before starting the Copilot CLI."
+      subtitle="Configure the request format and storage, then run the capture."
       icon-name="camera"
       density="compact"
     >
@@ -50,123 +56,69 @@ const options = computed(() =>
       </template>
     </PageHeader>
 
-    <div class="capture-truth">
-      <ShieldCheck :size="20" />
-      <p>
-        <strong>One request, captured locally.</strong>
-        TracePilot resumes a private copy, adds one synthetic probe, and never forwards the body
-        to a model provider or modifies the source session.
+    <p class="capture-explanation">
+      TracePilot copies the inactive session, resumes that copy with a short probe, records the
+      outgoing JSON request on localhost, and stops before inference.
+    </p>
+
+    <div v-if="blockers.length" class="capture-blockers">
+      <strong>Capture cannot start</strong>
+      <ul>
+        <li v-for="item in blockers" :key="item">{{ item }}</li>
+      </ul>
+    </div>
+
+    <SectionPanel title="Request">
+      <dl class="capture-summary">
+        <div><dt>Model</dt><dd>{{ preflight.model }}</dd></div>
+        <div><dt>Copilot CLI</dt><dd>{{ preflight.cli.version }}</dd></div>
+        <div>
+          <dt>Working directory</dt>
+          <dd class="mono">{{ preflight.workingDirectory || 'Unavailable' }}</dd>
+        </div>
+      </dl>
+
+      <p v-if="!preflight.workingDirectoryExists" class="capture-inline-note">
+        The original working directory is unavailable. The capture can continue, but current
+        repository instructions will not be discovered.
       </p>
-    </div>
 
-    <div class="capture-preflight__grid">
-      <div class="capture-preflight__main">
-        <SectionPanel title="Capture plan">
-          <dl class="capture-summary">
-            <div>
-              <dt>Source session</dt>
-              <dd>
-                <Badge :variant="preflight.inactive ? 'success' : 'warning'">
-                  {{ preflight.inactive ? 'Inactive and ready' : 'Active — capture blocked' }}
-                </Badge>
-              </dd>
-            </div>
-            <div><dt>Session copy</dt><dd>{{ formatBytes(preflight.sourceSizeBytes) }} · {{ preflight.sourceFileCount }} files</dd></div>
-            <div>
-              <dt>Capture storage</dt>
-              <dd>
-                <Badge :variant="preflight.storageWritable ? 'success' : 'warning'">
-                  {{ preflight.storageWritable ? 'Writable' : 'Blocked' }}
-                </Badge>
-              </dd>
-            </div>
-            <div><dt>Working directory</dt><dd class="mono">{{ preflight.workingDirectory || 'Unavailable' }}</dd></div>
-            <div>
-              <dt>Copilot CLI</dt>
-              <dd>
-                {{ preflight.cli.version }}
-                <span v-if="preflight.sourceCliVersion" class="secondary">
-                  Session originally used {{ preflight.sourceCliVersion }}
-                </span>
-              </dd>
-            </div>
-            <div><dt>Model</dt><dd>{{ preflight.model }}</dd></div>
-            <div><dt>Fidelity profile</dt><dd>Isolated</dd></div>
-          </dl>
-        </SectionPanel>
+      <label class="capture-field">
+        <span>API request format</span>
+        <Select
+          :model-value="protocol"
+          :options="options"
+          aria-label="API request format"
+          @update:model-value="emit('update:protocol', $event)"
+        />
+        <small>
+          TracePilot selected this from the session's endpoint history or model family. Change it
+          if the CLI uses a different API format.
+        </small>
+      </label>
+    </SectionPanel>
 
-        <SectionPanel title="Wire format">
-          <label class="capture-field">
-            <span>Protocol</span>
-            <Select
-              :model-value="protocol"
-              :options="options"
-              aria-label="Wire protocol"
-              @update:model-value="emit('update:protocol', $event)"
-            />
-            <small>
-              Suggested from {{ preflight.protocolDetectionSource }}. This chooses the expected
-              request schema; it does not assign provider identity.
-            </small>
-          </label>
-        </SectionPanel>
-
-        <SectionPanel title="Storage choice">
-          <label class="capture-storage-choice">
-            <span>
-              <strong>Save snapshot locally</strong>
-              <small>
-                Stores plaintext request JSON under TracePilot’s data directory. Turn this off to
-                inspect the result once without retaining it.
-              </small>
-            </span>
-            <FormSwitch
-              :model-value="save"
-              aria-label="Save snapshot locally"
-              @update:model-value="emit('update:save', $event)"
-            />
-          </label>
-          <p v-if="save" class="capture-sensitive-note">
-            Saved bodies may contain source code, prompts, tool results, attachments, and secrets
-            already present in conversation history.
-          </p>
-        </SectionPanel>
-      </div>
-
-      <aside class="capture-preflight__aside">
-        <SectionPanel title="Safety and fidelity">
-          <ul class="capture-notes">
-            <li v-for="warning in preflight.warnings" :key="warning">{{ warning }}</li>
-            <li v-if="preflight.warnings.length === 0" class="capture-note-ok">
-              <CheckCircle2 :size="14" /> No blocking preflight warnings.
-            </li>
-          </ul>
-        </SectionPanel>
-
-        <SectionPanel title="Included">
-          <ul class="capture-resources">
-            <li v-for="item in preflight.includedResources" :key="item">{{ item }}</li>
-          </ul>
-        </SectionPanel>
-
-        <SectionPanel title="Intentionally omitted">
-          <ul class="capture-resources">
-            <li v-for="item in preflight.omittedResources" :key="item">{{ item }}</li>
-          </ul>
-        </SectionPanel>
-      </aside>
-    </div>
+    <SectionPanel title="Storage">
+      <label class="capture-storage-choice">
+        <span>
+          <strong>Save snapshot locally</strong>
+          <small>
+            Saves request.json as plaintext in TracePilot's data directory. Turn this off to keep
+            the result only until you leave this view.
+          </small>
+        </span>
+        <FormSwitch
+          :model-value="save"
+          aria-label="Save snapshot locally"
+          @update:model-value="emit('update:save', $event)"
+        />
+      </label>
+    </SectionPanel>
 
     <div class="capture-actions">
-      <span v-if="!preflight.canCapture">Resolve the blocked checks above before capturing.</span>
-      <span v-else>Ready to create one isolated request.</span>
       <ActionButton @click="emit('cancel')">Cancel</ActionButton>
-      <ActionButton
-        variant="primary"
-        :disabled="!preflight.canCapture"
-        @click="emit('capture')"
-      >
-        <Camera :size="14" /> Capture isolated request
+      <ActionButton variant="primary" :disabled="!preflight.canCapture" @click="emit('capture')">
+        <Camera :size="14" /> Capture request
       </ActionButton>
     </div>
   </div>
@@ -179,56 +131,45 @@ const options = computed(() =>
   min-height: 620px;
 }
 
-.capture-truth {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 14px 16px;
-  border: 1px solid var(--accent-muted);
-  border-radius: var(--radius-lg);
-  background: var(--surface-secondary);
-  color: var(--accent-fg);
-}
-
-.capture-truth svg {
-  flex: none;
-  margin-top: 2px;
-}
-
-.capture-truth p {
+.capture-explanation {
+  max-width: 840px;
   margin: 0;
   color: var(--text-secondary);
-  line-height: 1.5;
+  font-size: 0.8125rem;
+  line-height: 1.55;
 }
 
-.capture-truth strong {
-  margin-right: 4px;
-  color: var(--text-primary);
+.capture-blockers {
+  padding: 12px 14px;
+  border: 1px solid var(--danger-muted);
+  border-radius: var(--radius-md);
+  background: var(--danger-subtle);
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
 }
 
-.capture-preflight__grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr);
-  gap: 24px;
+.capture-blockers strong {
+  color: var(--danger-fg);
 }
 
-.capture-preflight__main,
-.capture-preflight__aside {
-  min-width: 0;
+.capture-blockers ul {
+  margin: 6px 0 0;
+  padding-left: 20px;
 }
 
 .capture-summary {
   overflow: hidden;
-  margin: 0;
+  margin: 0 0 14px;
   border: 1px solid var(--border-muted);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
+  font-size: 0.8125rem;
 }
 
 .capture-summary > div {
   display: grid;
-  grid-template-columns: 150px minmax(0, 1fr);
+  grid-template-columns: 140px minmax(0, 1fr);
   gap: 16px;
-  padding: 11px 14px;
+  padding: 10px 12px;
   border-bottom: 1px solid var(--border-muted);
 }
 
@@ -244,13 +185,7 @@ const options = computed(() =>
   min-width: 0;
   margin: 0;
   overflow-wrap: anywhere;
-}
-
-.secondary {
-  display: block;
-  margin-top: 2px;
-  color: var(--text-tertiary);
-  font-size: 0.75rem;
+  color: var(--text-secondary);
 }
 
 .mono {
@@ -258,15 +193,25 @@ const options = computed(() =>
   font-size: 0.75rem;
 }
 
+.capture-inline-note {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--warning-fg);
+  background: var(--warning-subtle);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
 .capture-field {
   display: grid;
   gap: 8px;
-  padding: 14px;
-  border: 1px solid var(--border-muted);
-  border-radius: var(--radius-lg);
 }
 
-.capture-field > span {
+.capture-field > span,
+.capture-storage-choice strong {
+  color: var(--text-primary);
+  font-size: 0.8125rem;
   font-weight: 600;
 }
 
@@ -274,6 +219,7 @@ const options = computed(() =>
 .capture-storage-choice small {
   display: block;
   color: var(--text-tertiary);
+  font-size: 0.75rem;
   line-height: 1.45;
 }
 
@@ -282,44 +228,11 @@ const options = computed(() =>
   align-items: flex-start;
   justify-content: space-between;
   gap: 20px;
-  padding: 14px;
-  border: 1px solid var(--border-muted);
-  border-radius: var(--radius-lg);
 }
 
 .capture-storage-choice strong {
   display: block;
   margin-bottom: 4px;
-}
-
-.capture-sensitive-note {
-  margin: 8px 0 0;
-  padding: 10px 12px;
-  border-radius: var(--radius-md);
-  background: var(--warning-subtle);
-  color: var(--text-secondary);
-  font-size: 0.75rem;
-  line-height: 1.45;
-}
-
-.capture-notes,
-.capture-resources {
-  display: grid;
-  gap: 8px;
-  margin: 0;
-  padding: 14px 14px 14px 32px;
-  border: 1px solid var(--border-muted);
-  border-radius: var(--radius-lg);
-  color: var(--text-secondary);
-  line-height: 1.45;
-}
-
-.capture-note-ok {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--success-fg);
-  list-style: none;
 }
 
 .capture-actions {
@@ -331,15 +244,10 @@ const options = computed(() =>
   border-top: 1px solid var(--border-muted);
 }
 
-.capture-actions > span {
-  margin-right: auto;
-  color: var(--text-tertiary);
-  font-size: 0.75rem;
-}
-
-@media (max-width: 900px) {
-  .capture-preflight__grid {
+@media (max-width: 640px) {
+  .capture-summary > div {
     grid-template-columns: 1fr;
+    gap: 3px;
   }
 }
 </style>
