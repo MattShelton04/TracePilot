@@ -115,6 +115,8 @@ pub fn parse_context_request(
         "max_output_tokens",
         "reasoning",
         "thinking",
+        "text",
+        "output_config",
         "prompt_cache_key",
         "store",
         "include",
@@ -391,5 +393,36 @@ mod tests {
             detect_protocol("/nonce/v1/chat/completions", &body),
             Some(CaptureProtocol::OpenAiChatCompletions)
         );
+    }
+
+    #[test]
+    fn preserves_mixed_responses_items_and_classifies_current_controls() {
+        let body = format!(
+            r#"{{"model":"gpt-5","instructions":"rules","input":[{{"type":"message","role":"user","content":[{{"type":"input_text","text":"{NONCE}"}},{{"type":"input_image","image_url":"data:image/png;base64,AA=="}}]}},{{"type":"function_call","name":"shell","call_id":"1","arguments":"{{}}"}},{{"type":"function_call_output","call_id":"1","output":"ok"}},{{"type":"custom_tool_call","name":"patch","call_id":"2","input":"x"}},{{"type":"custom_tool_call_output","call_id":"2","output":"done"}}],"tools":[],"text":{{"verbosity":"low"}},"output_config":{{"effort":"medium"}}}}"#
+        );
+        let parsed =
+            parse_context_request(CaptureProtocol::OpenAiResponses, body.as_bytes(), NONCE)
+                .expect("responses fixture should parse");
+        assert_eq!(parsed.messages.len(), 5);
+        assert_eq!(parsed.attachments.len(), 1);
+        assert_eq!(parsed.attachments[0].kind, "input_image");
+        assert!(parsed.request_controls.contains_key("text"));
+        assert!(parsed.request_controls.contains_key("output_config"));
+        assert!(!parsed.unknown_fields.contains_key("text"));
+    }
+
+    #[test]
+    fn preserves_anthropic_tool_use_and_result_blocks() {
+        let body = format!(
+            r#"{{"model":"claude","max_tokens":100,"system":[{{"type":"text","text":"rules"}},{{"type":"text","text":"more rules"}}],"messages":[{{"role":"assistant","content":[{{"type":"tool_use","id":"1","name":"shell","input":{{}}}}]}},{{"role":"user","content":[{{"type":"tool_result","tool_use_id":"1","content":"ok"}},{{"type":"text","text":"{NONCE}"}}]}}],"tools":[]}}"#
+        );
+        let parsed =
+            parse_context_request(CaptureProtocol::AnthropicMessages, body.as_bytes(), NONCE)
+                .expect("anthropic fixture should parse");
+        assert_eq!(parsed.system_blocks.len(), 2);
+        assert_eq!(parsed.messages.len(), 2);
+        assert_eq!(parsed.messages[0].content[0]["type"], "tool_use");
+        assert_eq!(parsed.messages[1].content[0]["type"], "tool_result");
+        assert!(parsed.messages[1].is_probe);
     }
 }

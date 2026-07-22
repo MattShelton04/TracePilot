@@ -22,7 +22,7 @@ TracePilot resumes a copy of the session and adds this versioned probe to trigge
 Do not call tools. Reply with exactly CAPTURED.
 ```
 
-The probe remains in Raw JSON and is marked as synthetic in the Messages view. Hiding it changes only the view.
+The probe remains in Raw JSON and is marked as synthetic in the Request items view.
 
 ## Before you start
 
@@ -47,7 +47,7 @@ The feature is available from the main TracePilot window. Pop-out viewer windows
 ## Capture a request
 
 1. Close the selected session in Copilot CLI. A live or recently active lock blocks capture.
-2. In the session’s **Context** tab, find **Captured request snapshots** and select **Run preflight**.
+2. In the session’s **Context** tab, switch from **Context timeline** to **Request snapshots**, then select **New capture**.
 3. Review the session status, working directory, CLI versions, model, protocol evidence, included resources, omitted resources, and warnings.
 4. Confirm the wire protocol. TracePilot tries the following evidence in order:
    - the most recent persisted `assistant.usage` API endpoint;
@@ -57,7 +57,7 @@ The feature is available from the main TracePilot window. Pop-out viewer windows
    - **Save snapshot locally** writes plaintext files under TracePilot’s data directory.
 6. Select **Capture isolated request**.
 
-The progress dialog remains open while TracePilot copies the session, starts the loopback listener, resumes the clone, waits for one request, parses it, and removes temporary state. You can cancel while the capture is running.
+The progress view remains in place while TracePilot copies the session, starts the loopback listener, resumes the clone, waits for one request, parses it, and removes temporary state. Its fixed-height layout prevents the page from jumping as status text changes, and you can cancel while the capture is running.
 
 If the original working directory no longer exists, preflight warns that an empty temporary workspace will be used. Continuing explicitly accepts degraded fidelity.
 
@@ -81,15 +81,15 @@ Repository instructions and files may have changed since the original session ra
 
 ## Inspect a snapshot
 
-Open a saved snapshot from **Captured request snapshots**. A view-once result opens automatically after capture.
+Open a saved snapshot from the **Request snapshots** Context view. A view-once result opens automatically after capture. Preflight, progress, and snapshot details stay within this view instead of opening separate modal windows.
 
 The viewer contains:
 
 - **Overview** — provenance, exact body size, exact character count, clearly labelled estimated tokens, section sizes, request controls, unknown fields, and fidelity warnings;
 - **System** — ordered system/instruction blocks recognized for the selected protocol;
-- **Messages** — on-wire message/input order, roles and types, with the synthetic probe marked separately;
+- **Request items** — the complete on-wire sequence with filters for messages, tool calls, tool outputs, and the synthetic probe; large items render only when expanded;
 - **Tools** — tool names, descriptions, schemas, and compact-JSON sizes;
-- **Raw JSON** — the unchanged request body and its SHA-256 hash.
+- **Raw JSON** — the unchanged request body and its SHA-256 hash, using TracePilot’s structured tree/raw JSON viewer and in-file search. Large trees require an explicit parse action.
 
 Unknown top-level fields and unknown content blocks remain in Raw JSON even when TracePilot cannot normalize them. Raw JSON is the source of truth.
 

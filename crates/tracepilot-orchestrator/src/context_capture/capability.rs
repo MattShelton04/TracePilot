@@ -49,15 +49,11 @@ pub fn probe(cli_command: &str) -> Result<CliCapabilities> {
         String::from_utf8_lossy(&help_output.stdout),
         String::from_utf8_lossy(&help_output.stderr)
     );
-    let version_supports_byok = semver::Version::parse(&version)
-        .map(|value| value >= semver::Version::new(1, 0, 71))
-        .unwrap_or(false);
-
     let supports_resume = help.contains("--resume");
     let supports_prompt = help.contains("--prompt") || help.contains("-p,");
     let supports_json_output = help.contains("--output-format");
     let supports_offline = help.contains("--no-remote") || help.contains("COPILOT_OFFLINE");
-    let supports_byok_routing = help.contains("COPILOT_PROVIDER_BASE_URL") || version_supports_byok;
+    let supports_byok_routing = supports_byok(&help, &version);
     let supports_required_safety_flags = [
         "--allow-all-tools",
         "--no-ask-user",
@@ -96,6 +92,14 @@ pub fn probe(cli_command: &str) -> Result<CliCapabilities> {
     })
 }
 
+fn supports_byok(help: &str, version: &str) -> bool {
+    help.contains("COPILOT_PROVIDER_BASE_URL")
+        || help.contains("Custom Model Providers (BYOK)")
+        || semver::Version::parse(version)
+            .map(|value| value >= semver::Version::new(1, 0, 71))
+            .unwrap_or(false)
+}
+
 fn resolve_executable(cli_command: &str) -> Result<PathBuf> {
     let trimmed = cli_command.trim();
     if trimmed.is_empty() {
@@ -121,7 +125,9 @@ fn resolve_executable(cli_command: &str) -> Result<PathBuf> {
 
 fn extract_version(value: &str) -> Option<String> {
     value.split_whitespace().find_map(|token| {
-        let cleaned = token.trim_matches(|ch: char| !ch.is_ascii_digit() && ch != '.' && ch != '-');
+        let cleaned = token
+            .trim_matches(|ch: char| !ch.is_ascii_digit() && ch != '.' && ch != '-')
+            .trim_matches(['.', '-']);
         semver::Version::parse(cleaned)
             .ok()
             .map(|version| version.to_string())
@@ -130,7 +136,7 @@ fn extract_version(value: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::extract_version;
+    use super::{extract_version, supports_byok};
 
     #[test]
     fn extracts_cli_version_without_preserving_banner_text() {
@@ -138,5 +144,13 @@ mod tests {
             extract_version("GitHub Copilot CLI 1.0.74-0"),
             Some("1.0.74-0".into())
         );
+        assert_eq!(
+            extract_version(
+                "GitHub Copilot CLI 1.0.71.\nRun 'copilot update' to check for updates."
+            ),
+            Some("1.0.71".into())
+        );
+        assert!(supports_byok("Custom Model Providers (BYOK)", "unknown"));
+        assert!(supports_byok("", "1.0.71"));
     }
 }

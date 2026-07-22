@@ -56,6 +56,8 @@ const props = defineProps<{
   loading?: boolean;
   /** Error message if loading failed. */
   error?: string | null;
+  /** Show the built-in direct content copy action. Disable when the caller requires confirmation. */
+  showCopyContent?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -493,6 +495,7 @@ watch(
           </svg>
         </button>
         <button
+          v-if="showCopyContent !== false"
           class="fcv__copy-btn"
           :class="{ 'fcv__copy-btn--copied': textCopied }"
           :title="textCopied ? 'Copied!' : 'Copy file contents'"

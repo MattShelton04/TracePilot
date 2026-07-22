@@ -106,6 +106,19 @@ describe("FileContentViewer", () => {
     expect(wrapper.find(".fcv__content").exists()).toBe(true);
   });
 
+  it("can hide direct content copying when a caller requires confirmation", () => {
+    const wrapper = mount(FileContentViewer, {
+      props: {
+        filePath: "request.json",
+        fileType: "json",
+        content: '{"sensitive":true}',
+        showCopyContent: false,
+      },
+    });
+    expect(wrapper.find('[aria-label="Copy file contents"]').exists()).toBe(false);
+    expect(wrapper.find('[aria-label="Find in file"]').exists()).toBe(true);
+  });
+
   it("renders markdown content for markdown fileType", () => {
     const wrapper = mount(FileContentViewer, {
       props: {

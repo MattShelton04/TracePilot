@@ -1,18 +1,7 @@
 import type { ContextCaptureSnapshot } from "@tracepilot/types";
 import { mount } from "@vue/test-utils";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import ContextCaptureViewer from "@/components/contextCapture/ContextCaptureViewer.vue";
-
-vi.mock("@tracepilot/ui", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@tracepilot/ui")>();
-  return {
-    ...actual,
-    ModalDialog: {
-      props: ["visible", "title"],
-      template: '<div v-if="visible"><h2>{{ title }}</h2><slot /><slot name="footer" /></div>',
-    },
-  };
-});
 
 function fixture(): ContextCaptureSnapshot {
   return {
@@ -84,23 +73,26 @@ function fixture(): ContextCaptureSnapshot {
 describe("ContextCaptureViewer", () => {
   it("states the capture-run truth boundary and labels token counts as estimated", () => {
     const wrapper = mount(ContextCaptureViewer, {
-      props: { visible: true, snapshot: fixture() },
+      props: { snapshot: fixture() },
     });
-    expect(wrapper.text()).toContain("Exact captured payload · Capture run only");
+    expect(wrapper.text()).toContain("Exact raw body · capture run only");
     expect(wrapper.text()).toContain("Estimated tokens");
-    expect(wrapper.text()).toContain("source unchanged");
+    expect(wrapper.text()).toContain("Source unchanged");
     expect(wrapper.text()).toContain("A synthetic probe was appended");
   });
 
   it("keeps the synthetic probe visible and explicitly marked", async () => {
     const wrapper = mount(ContextCaptureViewer, {
-      props: { visible: true, snapshot: fixture() },
+      props: { snapshot: fixture() },
     });
     await wrapper
       .findAll("button")
-      .find((button) => button.text().includes("Messages"))
+      .find((button) => button.text().includes("Request items"))
       ?.trigger("click");
-    expect(wrapper.text()).toContain("synthetic capture probe");
+    expect(wrapper.text()).toContain("Synthetic capture probe");
+    const detail = wrapper.find("details");
+    (detail.element as HTMLDetailsElement).open = true;
+    await detail.trigger("toggle");
     expect(wrapper.text()).toContain("TracePilot context capture nonce");
   });
 });

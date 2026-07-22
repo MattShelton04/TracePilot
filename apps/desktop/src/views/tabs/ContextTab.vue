@@ -17,6 +17,7 @@ import {
   formatTime,
   LoadingSpinner,
   SectionPanel,
+  SegmentedControl,
   StatCard,
   ToolCallItem,
 } from "@tracepilot/ui";
@@ -45,6 +46,11 @@ const isMainWindow = (() => {
 const showContextCapture = computed(
   () => isMainWindow && (preferences.isFeatureEnabled?.("exactContextCapture") ?? false),
 );
+const contextView = ref<"timeline" | "snapshots">("timeline");
+const contextViews = [
+  { value: "timeline", label: "Context timeline" },
+  { value: "snapshots", label: "Request snapshots" },
+];
 const timeline = ref<ContextTimeline | null>(null);
 const loading = ref(false);
 const refreshing = ref(false);
@@ -432,20 +438,19 @@ function retryLoad() {
 
 <template>
   <div class="context-tab">
-    <ErrorAlert
-      v-if="error"
-      :message="error"
-      variant="inline"
-      :retryable="true"
-      class="mb-4"
-      @retry="retryLoad"
-    />
+    <div v-if="showContextCapture" class="context-tab__view-nav">
+      <SegmentedControl v-model="contextView" :options="contextViews" />
+    </div>
 
-    <ContextCapturePanel
-      v-if="showContextCapture && store.sessionId"
-      :session-id="store.sessionId"
-      class="mb-4"
-    />
+    <div v-if="contextView === 'timeline'" class="context-tab__view">
+      <ErrorAlert
+        v-if="error"
+        :message="error"
+        variant="inline"
+        :retryable="true"
+        class="mb-4"
+        @retry="retryLoad"
+      />
 
     <div v-if="loading && !timeline" class="context-tab__loading">
       <LoadingSpinner size="lg" />
@@ -844,10 +849,27 @@ function retryLoad() {
         </p>
       </SectionPanel>
     </template>
+
+    </div>
+
+    <ContextCapturePanel
+      v-if="showContextCapture && contextView === 'snapshots' && store.sessionId"
+      :session-id="store.sessionId"
+    />
   </div>
 </template>
 
 <style scoped>
+.context-tab__view-nav {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 20px;
+}
+
+.context-tab__view {
+  min-width: 0;
+}
+
 .context-tab__loading {
   display: flex;
   min-height: 420px;
