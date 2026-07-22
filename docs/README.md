@@ -15,6 +15,7 @@ This index lists current user/developer documentation. Stale generated tech-debt
 | [Tauri Command Registration](tauri-command-registration.md) | How Tauri IPC commands are registered and called. |
 | [On-Disk Paths](on-disk-paths.md) | Filesystem locations used by TracePilot. |
 | [Performance Playbook](performance-playbook.md) | Current performance investigation and profiling guidance. |
+| [Exact Context Capture Guide](exact-context-capture.md) | Enable, run, inspect, store, and delete isolated model-request snapshots. |
 
 ## Architecture and design
 

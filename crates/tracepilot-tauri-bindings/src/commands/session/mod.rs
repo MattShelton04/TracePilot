@@ -11,6 +11,7 @@
 
 mod artifacts;
 mod context;
+mod context_capture;
 mod detail;
 mod events;
 mod list;
@@ -23,6 +24,7 @@ mod tests;
 
 pub use artifacts::*;
 pub use context::*;
+pub use context_capture::*;
 pub use detail::*;
 pub use events::*;
 pub use list::*;

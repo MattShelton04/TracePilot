@@ -79,6 +79,7 @@ export interface TracePilotConfig {
     mcpServers: boolean;
     skills: boolean;
     copilotSdk: boolean;
+    exactContextCapture: boolean;
   };
   logging: {
     level: string;

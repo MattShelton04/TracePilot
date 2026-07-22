@@ -55,6 +55,7 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             let event_cache: EventCache =
                 Arc::new(Mutex::new(cache::build_session_lru(SESSION_CACHE_CAPACITY)));
             app.manage(event_cache);
+            app.manage(tracepilot_orchestrator::context_capture::ContextCaptureManager::default());
 
             if let Some(cfg) = app
                 .state::<crate::config::SharedConfig>()
@@ -186,6 +187,14 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::session::get_shutdown_metrics,
             commands::session::get_tool_result,
             commands::session::resume_session_in_terminal,
+            commands::session::context_capture_preflight,
+            commands::session::context_capture_start,
+            commands::session::context_capture_cancel,
+            commands::session::context_capture_list,
+            commands::session::context_capture_get,
+            commands::session::context_capture_delete,
+            commands::session::context_capture_delete_all,
+            commands::session::context_capture_storage_stats,
             // File browser commands (5)
             commands::file_browser::session_list_files,
             commands::file_browser::session_read_file,

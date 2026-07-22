@@ -19,6 +19,8 @@ pub struct FeaturesConfig {
     pub skills: bool,
     #[serde(default)]
     pub copilot_sdk: bool,
+    #[serde(default)]
+    pub exact_context_capture: bool,
 }
 
 impl Default for FeaturesConfig {
@@ -30,6 +32,7 @@ impl Default for FeaturesConfig {
             mcp_servers: true,
             skills: true,
             copilot_sdk: false,
+            exact_context_capture: false,
         }
     }
 }

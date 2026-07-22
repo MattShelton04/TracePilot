@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import type {
   ContextCompaction,
   ContextTimeline,
@@ -23,6 +24,7 @@ import { Activity, Info } from "lucide-vue-next";
 import { computed, onMounted, onScopeDispose, ref, watch } from "vue";
 import ContextWindowChart from "@/components/context/ContextWindowChart.vue";
 import ToolTypeDonut from "@/components/context/ToolTypeDonut.vue";
+import ContextCapturePanel from "@/components/contextCapture/ContextCapturePanel.vue";
 import { useCheckpointNavigation } from "@/composables/useCheckpointNavigation";
 import { getCachedContextTimeline, loadContextTimeline } from "@/composables/useContextTimeline";
 import { useConversationNavigation } from "@/composables/useConversationNavigation";
@@ -32,6 +34,17 @@ import { usePreferencesStore } from "@/stores/preferences";
 
 const store = useSessionDetailContext();
 const preferences = usePreferencesStore();
+const isMainWindow = (() => {
+  try {
+    return getCurrentWindow().label === "main";
+  } catch {
+    // Browser-only development has no Tauri window metadata.
+    return true;
+  }
+})();
+const showContextCapture = computed(
+  () => isMainWindow && (preferences.isFeatureEnabled?.("exactContextCapture") ?? false),
+);
 const timeline = ref<ContextTimeline | null>(null);
 const loading = ref(false);
 const refreshing = ref(false);
@@ -426,6 +439,12 @@ function retryLoad() {
       :retryable="true"
       class="mb-4"
       @retry="retryLoad"
+    />
+
+    <ContextCapturePanel
+      v-if="showContextCapture && store.sessionId"
+      :session-id="store.sessionId"
+      class="mb-4"
     />
 
     <div v-if="loading && !timeline" class="context-tab__loading">

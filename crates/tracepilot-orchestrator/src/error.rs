@@ -34,6 +34,10 @@ pub enum OrchestratorError {
     Bridge(#[from] crate::bridge::BridgeError),
     #[error("Export error: {0}")]
     Export(#[from] tracepilot_export::ExportError),
+    #[error("Context capture error: {0}")]
+    ContextCapture(String),
+    #[error("Filesystem traversal error: {0}")]
+    WalkDir(#[from] walkdir::Error),
 }
 
 impl From<tracepilot_core::utils::backup::BackupError> for OrchestratorError {

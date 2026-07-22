@@ -1,4 +1,5 @@
 import type {
+  ContextCaptureSnapshot,
   ContextTimeline,
   ContextTimelineResponse,
   ExportPreviewResult,
@@ -18,6 +19,85 @@ import type { GitInfo, UpdateCheckResult } from "../generated/bindings.js";
 import type { ContextSnippet, FtsHealthInfo } from "../search.js";
 
 const MOCK_EVENTS_MTIME = 1_735_728_400_000;
+
+const MOCK_CONTEXT_CAPTURE: ContextCaptureSnapshot = {
+  rawBody:
+    '{"model":"gpt-5","instructions":"Mock system instructions","input":[{"role":"user","content":"[TracePilot context capture mock-nonce]"}],"tools":[],"stream":true}',
+  manifest: {
+    schemaVersion: 1,
+    captureId: "11111111-1111-4111-8111-111111111111",
+    sourceSessionId: "22222222-2222-4222-8222-222222222222",
+    capturedAt: new Date().toISOString(),
+    sourceEventsFingerprint: {
+      bytes: 1024,
+      modifiedUnixMs: MOCK_EVENTS_MTIME,
+      sha256: "mock-source-sha256",
+    },
+    cliVersion: "1.0.71",
+    captureProfile: "isolated",
+    protocol: "openAiResponses",
+    protocolDetectionSource: "mock API endpoint",
+    requestPath: "/mock-nonce/v1/responses",
+    contentType: "application/json",
+    rawBodySha256: "mock-body-sha256",
+    rawBodyBytes: 164,
+    rawBodyCharacters: 164,
+    estimatedTokens: 41,
+    probeNonce: "mock-nonce",
+    fidelityManifest: {
+      profile: "isolated",
+      includedResources: ["source session"],
+      omittedResources: ["credentials", "user integrations"],
+      workingDirectory: "/mock/repo",
+      workingDirectoryFallback: false,
+      sourceUnchanged: true,
+    },
+    warnings: ["Mock capture: synthetic probe appended."],
+    safeHeaderNames: ["content-type", "user-agent"],
+    saved: false,
+    parsed: {
+      model: "gpt-5",
+      systemBlocks: [
+        {
+          index: 0,
+          source: "instructions",
+          content: "Mock system instructions",
+          bytes: 26,
+          characters: 26,
+          containsProbe: false,
+        },
+      ],
+      messages: [
+        {
+          index: 0,
+          role: "user",
+          itemType: "message",
+          content: "[TracePilot context capture mock-nonce]",
+          raw: { role: "user", content: "[TracePilot context capture mock-nonce]" },
+          bytes: 78,
+          characters: 78,
+          isProbe: true,
+        },
+      ],
+      toolDefinitions: [],
+      requestControls: { stream: true },
+      attachments: [],
+      probeMessageIndices: [0],
+      unknownFields: {},
+      sectionMetrics: {
+        systemBytes: 26,
+        systemCharacters: 26,
+        messageBytes: 78,
+        messageCharacters: 78,
+        toolBytes: 0,
+        toolCharacters: 0,
+        controlsBytes: 15,
+        controlsCharacters: 15,
+      },
+      warnings: [],
+    },
+  },
+};
 
 // Numeric shape sampled from a real 90-turn Copilot CLI session. Content and
 // identifiers are intentionally omitted; browser development only needs the
@@ -205,6 +285,48 @@ export async function getMockData<T>(cmd: string, args?: Record<string, unknown>
     get_session_checkpoints: mocks.MOCK_CHECKPOINTS,
     get_session_plan: { content: "# Mock Plan\n\n1. Task one\n2. Task two" },
     get_shutdown_metrics: mocks.MOCK_SHUTDOWN_METRICS,
+    context_capture_list: [],
+    context_capture_preflight: {
+      sourceSessionId: mockSessionId,
+      inactive: true,
+      sourceSizeBytes: 1024,
+      sourceFileCount: 3,
+      storageWritable: true,
+      sourceEventsFingerprint: {
+        bytes: 1024,
+        modifiedUnixMs: MOCK_EVENTS_MTIME,
+        sha256: "mock-source-sha256",
+      },
+      workingDirectory: "/mock/repo",
+      workingDirectoryExists: true,
+      cli: {
+        executable: "copilot",
+        version: "1.0.71",
+        supportsResume: true,
+        supportsPrompt: true,
+        supportsJsonOutput: true,
+        supportsOffline: true,
+        supportsByokRouting: true,
+        supportsRequiredSafetyFlags: true,
+        missingCapabilities: [],
+      },
+      sourceCliVersion: "1.0.71",
+      model: "gpt-5",
+      protocol: "openAiResponses",
+      protocolDetectionSource: "mock API endpoint",
+      protocolOptions: ["openAiChatCompletions", "openAiResponses", "anthropicMessages"],
+      captureProfile: "isolated",
+      includedResources: ["source session"],
+      omittedResources: ["credentials", "user integrations"],
+      warnings: [],
+      canCapture: true,
+    },
+    context_capture_start: MOCK_CONTEXT_CAPTURE,
+    context_capture_get: MOCK_CONTEXT_CAPTURE,
+    context_capture_storage_stats: { captureCount: 0, totalBytes: 0 },
+    context_capture_cancel: false,
+    context_capture_delete: undefined,
+    context_capture_delete_all: 0,
     search_sessions: searchQuery
       ? mocks.MOCK_SESSIONS.filter((s) =>
           [s.summary, s.repository, s.branch, s.id].some((f) =>

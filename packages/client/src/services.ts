@@ -6,6 +6,7 @@
  */
 
 export * from "./analytics.js";
+export * from "./context-capture.js";
 export * from "./maint.js";
 export * from "./orchestration.js";
 export * from "./sdk.js";

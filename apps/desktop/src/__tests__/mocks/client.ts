@@ -20,6 +20,7 @@ const IPC_EVENTS = {
   SDK_BRIDGE_EVENT: "sdk-bridge-event",
   SDK_SESSION_STATE_CHANGED: "sdk-session-state-changed",
   SDK_CONNECTION_CHANGED: "sdk-connection-changed",
+  CONTEXT_CAPTURE_PROGRESS: "context-capture-progress",
 } as const;
 
 /**
@@ -40,6 +41,8 @@ export function createClientMock(overrides: ClientExports = {}): ClientExports {
     checkConfigExists: vi.fn().mockResolvedValue(true),
     getConfig: vi.fn().mockResolvedValue(defaultConfig),
     saveConfig: vi.fn().mockResolvedValue(undefined),
+    contextCaptureStorageStats: vi.fn().mockResolvedValue({ captureCount: 0, totalBytes: 0 }),
+    contextCaptureDeleteAll: vi.fn().mockResolvedValue(0),
     IPC_EVENTS,
   };
 

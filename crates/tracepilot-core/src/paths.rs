@@ -22,6 +22,8 @@ pub const TRACEPILOT_TEMPLATES_DIR: &str = "templates";
 pub const TRACEPILOT_BACKUPS_DIR: &str = "backups";
 pub const TRACEPILOT_AGENT_BACKUPS_DIR: &str = "agents";
 pub const TRACEPILOT_DATABASE_BACKUPS_DIR: &str = "database";
+pub const TRACEPILOT_CONTEXT_CAPTURES_DIR: &str = "context-captures";
+pub const TRACEPILOT_CONTEXT_CAPTURE_SCRATCH_DIR: &str = "context-capture-scratch";
 
 pub const COPILOT_PKG_DIR: &str = "pkg";
 pub const COPILOT_UNIVERSAL_DIR: &str = "universal";
@@ -158,6 +160,23 @@ impl TracePilotPaths {
 
     pub fn database_backups_dir(&self) -> PathBuf {
         self.backups_dir().join(TRACEPILOT_DATABASE_BACKUPS_DIR)
+    }
+
+    pub fn context_captures_dir(&self) -> PathBuf {
+        self.root.join(TRACEPILOT_CONTEXT_CAPTURES_DIR)
+    }
+
+    pub fn context_capture_scratch_dir(&self) -> PathBuf {
+        self.root.join(TRACEPILOT_CONTEXT_CAPTURE_SCRATCH_DIR)
+    }
+
+    pub fn context_capture_session_dir(&self, session_id: &str) -> PathBuf {
+        self.context_captures_dir().join(session_id)
+    }
+
+    pub fn context_capture_dir(&self, session_id: &str, capture_id: &str) -> PathBuf {
+        self.context_capture_session_dir(session_id)
+            .join(capture_id)
     }
 }
 
@@ -297,6 +316,10 @@ mod tests {
         assert_eq!(
             paths.agent_backups_dir(),
             Path::new("/home/alice/.copilot/tracepilot/backups/agents")
+        );
+        assert_eq!(
+            paths.context_captures_dir(),
+            Path::new("/home/alice/.copilot/tracepilot/context-captures")
         );
     }
 

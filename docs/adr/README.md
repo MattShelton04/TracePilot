@@ -33,6 +33,7 @@ Policy ADRs (0010–0013):
 | [0011](0011-tauri-capability-scoping.md) | Tauri capability scoping | Accepted |
 | [0012](0012-filesystem-trust-boundary.md) | Filesystem trust boundary + path-jail policy | Accepted |
 | [0013](0013-db-migration-policy.md) | DB migration policy (IndexDb / TaskDb / SessionDb) | Accepted |
+| [0014](0014-bounded-loopback-context-capture.md) | Bounded loopback server for exact context capture | Accepted |
 
 > **Numbering note.** Policy ADRs originally occupied 0001–0004. They
 > were renumbered to 0010+ during Wave 115 so the foundational
