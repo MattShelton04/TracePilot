@@ -30,7 +30,7 @@
     "@tracepilot/types": "workspace:*",
     "@tracepilot/ui": "workspace:*",
     "lucide-vue-next": "^1.0.0",
-    "pinia": "^3.0.4",
+    "pinia": "^4.0.2",
     "vue": "catalog:",
     "vue-router": "^4.5.0"
   },
