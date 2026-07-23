@@ -15,13 +15,14 @@ pub fn build_in_placeholders(n: usize) -> String {
         n > 0,
         "build_in_placeholders requires n > 0; n=0 produces empty string that makes IN () invalid SQL"
     );
+    if n == 0 {
+        return String::new();
+    }
     // Each element is "?" (1 char) + ", " (2 chars) except the last → n*3 max.
     let mut s = String::with_capacity(n * 3);
-    for i in 0..n {
-        if i > 0 {
-            s.push_str(", ");
-        }
-        s.push('?');
+    s.push('?');
+    for _ in 1..n {
+        s.push_str(", ?");
     }
     s
 }
