@@ -104,7 +104,7 @@ onUnmounted(() => document.removeEventListener("keydown", onKeydown));
             <button
               type="button"
               class="drawer-close"
-              aria-label="Close"
+              aria-label="Close drawer"
               @click="close"
             >
               <X :size="14" :stroke-width="1.5" aria-hidden="true" />
