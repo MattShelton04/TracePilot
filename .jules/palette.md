@@ -1,0 +1,3 @@
+## 2024-05-24 - Accessibility: Explicit ARIA labels on generic close controls
+**Learning:** Structural components like Modals and Drawers often share standard accessibility labels (e.g. `aria-label="Close"`). This generic string provides insufficient context for screen reader users when multiple closeable overlays exist on a page simultaneously (e.g., closing the drawer versus closing the active modal).
+**Action:** When updating generic `aria-label`s on core architectural components, ALWAYS append the component type (e.g. "Close modal", "Close drawer") to the label string to provide explicit structural context. Update accompanying query tests concurrently.
