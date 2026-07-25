@@ -72,21 +72,24 @@ export function useContextBenchmarks() {
     }
   }
 
-  async function startCapture() {
+  async function startCapture(): Promise<ContextCaptureSnapshot | null> {
     error.value = null;
     capturing.value = true;
     progress.value = null;
     try {
-      snapshot.value = await contextBenchmarkStart({
+      const captured = await contextBenchmarkStart({
         profile: profile.value,
         repositoryPath: profile.value === "currentEnvironment" ? repositoryPath.value.trim() : null,
         model: model.value.trim(),
         protocol: protocol.value,
         save: true,
       });
+      snapshot.value = captured;
       await loadList();
+      return captured;
     } catch (cause) {
       error.value = errorMessage(cause);
+      return null;
     } finally {
       capturing.value = false;
     }

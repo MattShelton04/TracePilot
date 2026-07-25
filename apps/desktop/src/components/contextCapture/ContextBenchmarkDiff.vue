@@ -2,13 +2,19 @@
 import type { ContextCaptureSnapshot, NormalizedToolDefinition } from "@tracepilot/types";
 import { formatBytes, formatNumberFull, SectionPanel, StatCard } from "@tracepilot/ui";
 import { computed } from "vue";
+import ContextCaptureValueDiff from "./ContextCaptureValueDiff.vue";
 
 const props = defineProps<{
   before: ContextCaptureSnapshot;
   after: ContextCaptureSnapshot;
 }>();
 
-type Change = { key: string; state: "added" | "removed" | "changed" };
+type Change = {
+  key: string;
+  state: "added" | "removed" | "changed";
+  beforeValue?: unknown;
+  afterValue?: unknown;
+};
 
 function stable(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(stable).join(",")}]`;
@@ -26,9 +32,13 @@ function compareMaps(before: Map<string, unknown>, after: Map<string, unknown>):
   return [...keys]
     .sort((a, b) => a.localeCompare(b))
     .flatMap((key): Change[] => {
-      if (!before.has(key)) return [{ key, state: "added" }];
-      if (!after.has(key)) return [{ key, state: "removed" }];
-      return stable(before.get(key)) === stable(after.get(key)) ? [] : [{ key, state: "changed" }];
+      const beforeValue = before.get(key);
+      const afterValue = after.get(key);
+      if (!before.has(key)) return [{ key, state: "added", afterValue }];
+      if (!after.has(key)) return [{ key, state: "removed", beforeValue }];
+      return stable(beforeValue) === stable(afterValue)
+        ? []
+        : [{ key, state: "changed", beforeValue, afterValue }];
     });
 }
 
@@ -111,30 +121,48 @@ function signed(value: number): string {
     <div class="benchmark-diff__columns">
       <SectionPanel title="System instructions">
         <div v-if="system.length" class="change-list">
-          <div v-for="change in system" :key="change.key" class="change-row">
-            <span :class="`change-state change-state--${change.state}`">{{ change.state }}</span>
-            <code>{{ change.key }}</code>
-          </div>
+          <details v-for="change in system" :key="change.key" class="change-row" open>
+            <summary>
+              <span :class="`change-state change-state--${change.state}`">{{ change.state }}</span>
+              <code>{{ change.key }}</code>
+            </summary>
+            <ContextCaptureValueDiff
+              :before-value="change.beforeValue"
+              :after-value="change.afterValue"
+            />
+          </details>
         </div>
         <p v-else class="unchanged">No structural changes.</p>
       </SectionPanel>
 
       <SectionPanel title="Tools">
         <div v-if="tools.length" class="change-list">
-          <div v-for="change in tools" :key="change.key" class="change-row">
-            <span :class="`change-state change-state--${change.state}`">{{ change.state }}</span>
-            <code>{{ change.key }}</code>
-          </div>
+          <details v-for="change in tools" :key="change.key" class="change-row">
+            <summary>
+              <span :class="`change-state change-state--${change.state}`">{{ change.state }}</span>
+              <code>{{ change.key }}</code>
+            </summary>
+            <ContextCaptureValueDiff
+              :before-value="change.beforeValue"
+              :after-value="change.afterValue"
+            />
+          </details>
         </div>
         <p v-else class="unchanged">No structural changes.</p>
       </SectionPanel>
 
       <SectionPanel title="Request controls">
         <div v-if="controls.length" class="change-list">
-          <div v-for="change in controls" :key="change.key" class="change-row">
-            <span :class="`change-state change-state--${change.state}`">{{ change.state }}</span>
-            <code>{{ change.key }}</code>
-          </div>
+          <details v-for="change in controls" :key="change.key" class="change-row">
+            <summary>
+              <span :class="`change-state change-state--${change.state}`">{{ change.state }}</span>
+              <code>{{ change.key }}</code>
+            </summary>
+            <ContextCaptureValueDiff
+              :before-value="change.beforeValue"
+              :after-value="change.afterValue"
+            />
+          </details>
         </div>
         <p v-else class="unchanged">No structural changes.</p>
       </SectionPanel>
@@ -200,17 +228,26 @@ function signed(value: number): string {
 }
 
 .change-row {
-  display: grid;
-  grid-template-columns: 68px minmax(0, 1fr);
-  align-items: center;
-  gap: 10px;
-  padding: 9px 12px;
   border-bottom: 1px solid var(--border-muted);
   font-size: 0.75rem;
 }
 
 .change-row:last-child {
   border-bottom: 0;
+}
+
+.change-row summary {
+  display: grid;
+  grid-template-columns: 68px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  cursor: pointer;
+  list-style-position: inside;
+}
+
+.change-row summary::marker {
+  color: var(--text-tertiary);
 }
 
 .change-row code {

@@ -67,6 +67,7 @@ export interface StartBenchmarkCaptureRequest {
 export type CaptureStage =
   | "preflight"
   | "copyingSession"
+  | "preparingEnvironment"
   | "startingListener"
   | "resumingClone"
   | "waitingForRequest"

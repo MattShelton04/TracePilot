@@ -885,9 +885,18 @@ fn copy_sanitized_cli_config(source: &Path, destination: &Path) -> Result<u64> {
     if !source.is_file() {
         return Ok(0);
     }
-    let value: serde_json::Value = serde_json::from_slice(&std::fs::read(source)?)?;
+    let value = crate::config_injector::read_copilot_json_file(source)
+        .map_err(|error| {
+            OrchestratorError::ContextCapture(format!(
+                "Could not read Copilot's temporary setup state: {error}"
+            ))
+        })?
+        .unwrap_or_else(|| serde_json::Value::Object(serde_json::Map::new()));
     let source_object = value.as_object().ok_or_else(|| {
-        OrchestratorError::ContextCapture("Copilot config.json is not a JSON object.".into())
+        OrchestratorError::ContextCapture(format!(
+            "Copilot setup state is not a JSON object: {}",
+            source.display()
+        ))
     })?;
     let mut sanitized = serde_json::Map::new();
     for key in [
@@ -990,8 +999,9 @@ fn spawn_copilot(
         .kill_on_drop(true)
         .env("COPILOT_HOME", isolated_home)
         .env("COPILOT_PROVIDER_BASE_URL", base_url)
+        .env("COPILOT_MODEL", model)
         .env("COPILOT_PROVIDER_MODEL_ID", model)
-        .env("COPILOT_PROVIDER_WIRE_MODEL", "tracepilot-capture-only")
+        .env("COPILOT_PROVIDER_WIRE_MODEL", model)
         .env("COPILOT_PROVIDER_API_KEY", &dummy_key)
         .env("OPENAI_API_KEY", &dummy_key)
         .env("ANTHROPIC_API_KEY", &dummy_key)
@@ -1210,5 +1220,49 @@ mod tests {
             .expect("change settings");
         let second_hash = fingerprint_context_tree(&destination, "profile").expect("hash");
         assert_ne!(first_hash, second_hash);
+    }
+
+    #[test]
+    fn environment_copy_accepts_copilot_jsonc_setup_state() {
+        let root = tempfile::tempdir().expect("root");
+        let source = root.path().join("source");
+        let destination = root.path().join("destination");
+        std::fs::create_dir_all(&source).expect("source");
+        std::fs::write(
+            source.join("config.json"),
+            concat!(
+                "// User settings belong in settings.json.\n",
+                "// This file is managed by Copilot CLI.\n",
+                "{\n",
+                "  \"trustedFolders\": [\"C:\\\\repo\"],\n",
+                "  \"loggedInUsers\": [\"private\"]\n",
+                "}\n"
+            ),
+        )
+        .expect("config");
+
+        copy_environment_context(&source, &destination).expect("copy JSONC config");
+
+        let copied: serde_json::Value = serde_json::from_slice(
+            &std::fs::read(destination.join("config.json")).expect("read copied config"),
+        )
+        .expect("copied config is strict JSON");
+        assert_eq!(copied["trustedFolders"], serde_json::json!(["C:\\repo"]));
+        assert!(copied.get("loggedInUsers").is_none());
+    }
+
+    #[test]
+    fn environment_copy_reports_config_path_for_invalid_jsonc() {
+        let root = tempfile::tempdir().expect("root");
+        let source = root.path().join("source");
+        let destination = root.path().join("destination");
+        std::fs::create_dir_all(&source).expect("source");
+        std::fs::write(source.join("config.json"), "// banner\n{not-json").expect("config");
+
+        let error = copy_environment_context(&source, &destination).expect_err("invalid config");
+        let message = error.to_string();
+        assert!(message.contains("Copilot's temporary setup state"));
+        assert!(message.contains("config.json"));
+        assert!(message.contains("line 2"));
     }
 }

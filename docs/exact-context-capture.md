@@ -10,6 +10,17 @@ The result is the exact UTF-8 JSON request body produced by your installed Copil
 
 The API provider normally parses this structured request after receiving it. It may apply server-side instructions, policy, model routing, field transformations, and provider-specific tokenization. A capture is therefore the exact client-side API request, not a representation of the model's final internal token stream.
 
+### Is this the exact content the model continues from?
+
+It is the closest exact boundary available from the client: every JSON field Copilot CLI sends to the model API, including ordered messages/input items, system instructions, tool definitions, controls, and unknown fields. TracePilot does not reconstruct or reserialize the Raw view.
+
+An API model does not consume the HTTP JSON bytes directly. The provider parses the selected wire protocol and converts its fields into an internal model input before generation continues. That conversion can add provider instructions, translate roles or tools, apply policy, select a model snapshot, and tokenize the result. Only the provider can expose that post-parse representation. TracePilot therefore makes two separate claims:
+
+- **Exact client request:** `request.json` is the unchanged UTF-8 HTTP entity body received from Copilot CLI.
+- **Normalized inspection:** the System, Request items, Tools, and Overview views are parsed projections of those same bytes for navigation. They are convenient but are not a second source of truth.
+
+If the question is “what did Copilot CLI give the provider to continue from?”, use Raw JSON. If the question is “what exact token IDs or hidden instructions did the provider give the model?”, this setup cannot observe that boundary.
+
 It is not:
 
 - a request recovered from an earlier historical turn;
@@ -55,7 +66,9 @@ Choose one of two environments:
 - **Isolated baseline** starts a fresh CLI session with an empty workspace and empty temporary `COPILOT_HOME`. The installed CLI's built-in system instructions and tools remain available. This is the most repeatable profile for comparing CLI versions.
 - **Repository environment** starts a fresh CLI session from a repository you select. TracePilot copies user settings, MCP configuration, skills, prompts, hooks, agents, and plugins into a temporary `COPILOT_HOME` when they exist. It does not copy authentication, credentials, session history, logs, command history, or package caches.
 
-For either profile, enter the model ID and choose its expected wire protocol, then select **Capture snapshot**. Benchmark snapshots are always saved because their purpose is comparison over time. The repository environment may start configured MCP servers or other integrations as part of normal CLI context discovery; use the isolated baseline when you do not want those integrations involved.
+For a repository environment, choose from the registered and recent repository lists already used elsewhere in TracePilot, type a path, or browse for a directory. A successfully captured repository is added to the shared recent-repository history.
+
+For either profile, enter the model ID and choose its expected wire protocol, then select **Capture snapshot**. The model ID is used both for Copilot's model-specific prompt/tool configuration and as the `model` value on the wire. Benchmark snapshots are always saved because their purpose is comparison over time. The repository environment may start configured MCP servers or other integrations as part of normal CLI context discovery; use the isolated baseline when you do not want those integrations involved.
 
 The selected repository is read in place so repository instructions and available files reflect its current state. The CLI writes its new session and other state only inside TracePilot's temporary capture directory, which is removed after the request is received or the capture is cancelled.
 
@@ -70,6 +83,8 @@ The **Compare** view requires two saved benchmark snapshots. Choose a before and
 - added, removed, or changed request controls.
 
 The comparison is structural: object keys are canonicalized before values are compared, so a JSON object whose properties were merely serialized in a different order is not reported as changed. Arrays remain ordered. Open either snapshot's **Raw JSON** view when byte order, whitespace, or exact property order matters.
+
+Changed entries expand into a line diff. System instruction diffs are open by default; tool and request-control diffs can be expanded as needed. Strings are compared as text, while objects are rendered with canonical key order before diffing so serialization-only key movement does not obscure the semantic change.
 
 The feature is available from the main TracePilot window. Pop-out viewer windows do not receive capture permissions.
 
@@ -107,6 +122,45 @@ TracePilot performs these steps for each capture:
 The isolated profile includes the copied session, installed CLI built-ins, and current repository discovery from the original working directory. It does not copy Copilot authentication, user settings, user MCP configuration, global skills or agents, logs, caches, other sessions, or TracePilot data into the temporary home.
 
 Repository instructions and files may have changed since the original session ran. Current time wrappers, the installed CLI version, prompt-mode integration behavior, and the resume boundary can also change the generated request. These limitations are stored with every snapshot.
+
+### How the endpoint “mock” works
+
+TracePilot is not emulating a model and does not proxy the request to a real provider. It temporarily makes Copilot CLI's supported BYOK/custom-provider interface point at a local capture sink:
+
+```text
+Copilot CLI
+  └─ POST http://127.0.0.1:<random-port>/<random-nonce>/<protocol-route>
+       └─ one-shot TracePilot listener
+            ├─ validates route, content type, size, and JSON syntax
+            ├─ copies the received body bytes into memory unchanged
+            ├─ hands those bytes to the capture runner
+            └─ returns HTTP 400 TRACEPILOT_CAPTURE_COMPLETE
+```
+
+The random port is assigned by the operating system and the random 128-bit nonce is part of the only registered route. OpenAI Chat Completions and Responses receive a base URL ending in `/<nonce>/v1`; Anthropic receives `/<nonce>` because its SDK appends `/v1/messages` itself. The listener accepts only one matching JSON `POST` and has a 32 MiB body limit.
+
+The listener necessarily removes HTTP transport framing (for example, chunk boundaries) because those bytes are not the request entity body. It does not pretty-print, canonicalize, or reserialize the entity body. It parses a borrowed view once to reject a non-JSON request; the original byte buffer is retained. After the disposable CLI process is stopped, the runner parses the same buffer again to build the navigation views and calculates the SHA-256 over the original bytes.
+
+The intentional 400 is the stopping mechanism. TracePilot does not need to construct a plausible streaming model response, and Copilot never receives content it could execute as a tool call. A retry after the endpoint has been consumed is treated as a safety/fidelity failure rather than captured as a second request.
+
+### Process and configuration isolation
+
+For a fresh repository benchmark:
+
+1. TracePilot canonicalizes the selected repository and runs the CLI with that directory as its working directory.
+2. It creates a new temporary `COPILOT_HOME`.
+3. It copies only allowlisted context inputs: `settings.json`, `mcp-config.json`, `skills/`, `prompts/`, `hooks/`, `agents/`, and `plugins/`.
+4. It parses Copilot's JSON-with-comments `config.json`, retains only setup/trust keys needed for non-interactive startup, and writes strict sanitized JSON. Identity and login fields are never copied.
+5. It sets a random dummy provider credential, removes common GitHub/provider credentials from the child environment, enables offline/no-remote CLI options, and routes the selected protocol to loopback.
+6. It terminates the disposable CLI process tree and removes the temporary home after capture, cancellation, timeout, or error.
+
+The repository itself is read in place. This is necessary for the CLI's normal repository instruction discovery, but it also means repository hooks or configured integrations can behave as they normally do. The model request is never forwarded; integrations that run before the request can still have their own side effects.
+
+### Storage and reparsing
+
+`request.json` is immutable evidence. `manifest.json` stores provenance, protocol, byte count, hashes, and fidelity warnings, but not a duplicate copy of parsed messages, system text, or tools. When a saved capture is opened, TracePilot verifies its size and SHA-256 and rebuilds the normalized views from `request.json`. Parser/UI improvements can therefore be applied to older captures without recapturing or migrating duplicated normalized content.
+
+Persistence is published by atomically renaming a completed staging directory, so readers do not observe a manifest without its request body or vice versa.
 
 ## Inspect a snapshot
 
@@ -165,15 +219,57 @@ Deleting captures does not delete or modify Copilot session history.
 
 ## Protocol guidance
 
-Choose the protocol that the session’s model request is expected to use:
+“Wire protocol” means the provider's HTTP route and JSON contract. It is not the network transport (all three currently use local HTTP), and it is not a display preference. The choice configures Copilot CLI's provider adapter, the exact route exposed by the listener, and the parser used for inspection.
 
-| Selection | Captured operation path | Main normalized fields |
-| --- | --- | --- |
-| OpenAI Chat Completions | `/v1/chat/completions` | `messages`, `tools`, sampling/stream controls |
-| OpenAI Responses | `/v1/responses` | `instructions`, `input`, `tools`, reasoning/output controls |
-| Anthropic Messages | `/v1/messages` | `system`, `messages`, `tools`, thinking/output controls |
+| Selection | Route | Conversation/system shape | Tool shape and typical controls | When to choose it |
+| --- | --- | --- | --- | --- |
+| OpenAI Chat Completions | `/v1/chat/completions` | One ordered `messages` array; system instructions are messages with a `system` role | `tools[].function.parameters`; sampling, token-limit, tool-choice, and stream fields | OpenAI-compatible/local providers and models that implement the established Chat Completions contract |
+| OpenAI Responses | `/v1/responses` | Separate `instructions` plus an ordered, mixed-type `input` array | Responses tool definitions; reasoning, text/output, include, token-limit, and stream fields | GPT-5-family and other providers/models that explicitly use the Responses API |
+| Anthropic Messages | `/v1/messages` | Separate `system` value plus ordered `messages`; message content is commonly an array of typed blocks | `tools[].input_schema`; `thinking`, token-limit, tool-choice, and stream fields | Claude models or Anthropic-compatible endpoints |
+
+These envelopes can express similar concepts but are not interchangeable. For example, a Responses `input` array can contain messages, function calls, and function-call outputs as peers; Chat Completions represents the conversation through role-bearing messages; Anthropic represents tool use/results as typed content blocks. TracePilot preserves the original order and unknown blocks even when it does not have a specialized renderer for them.
 
 If the CLI posts a different payload family than the selected protocol, TracePilot discards the result and asks you to rerun preflight with the correct selection.
+
+The model name also matters independently of the wire protocol. Copilot uses the model ID to select model-specific context limits, tool support, and prompting strategies. A compatible protocol with the wrong model ID can therefore produce a technically valid request that is not representative of the model you intended to benchmark.
+
+## Maintainability and extension points
+
+The current design separates responsibilities cleanly:
+
+- the **runner** owns Copilot CLI arguments, environment isolation, lifecycle, and cleanup;
+- the **listener** owns the one-shot loopback HTTP boundary and unchanged body bytes;
+- the **protocol parser** owns provider-shape detection and normalized projections;
+- **persistence** owns atomic storage and integrity verification;
+- the **viewer and comparison** operate on the versioned snapshot type.
+
+This makes normal protocol evolution maintainable: add newly recognized controls or content-block renderers without changing stored evidence; add a new protocol by defining its route, provider configuration, detector, parser, and fixtures; update Copilot launch behavior without changing the storage format.
+
+There are deliberate coupling points:
+
+- Copilot CLI flags and BYOK environment variables can change between versions, so capability preflight and hands-on tests must track supported releases.
+- A one-shot error response assumes the client emits the complete first request before it requires any model response.
+- The current listener registers known HTTP `POST` routes and rejects retries. It is not yet a transparent proxy, TLS endpoint, WebSocket server, or streaming protocol emulator.
+- Normalized comparison matches tools by name and system blocks by source/index. Raw JSON remains available when a protocol needs a different semantic matching strategy.
+
+### Could this inspect Claude Code, Codex, or an arbitrary request?
+
+The capture/persistence/viewing core can support it, but connecting another client should be implemented as a client adapter rather than adding its launch flags to the Copilot runner. A maintainable extension would define:
+
+```text
+CaptureClientAdapter
+  ├─ preflight capabilities
+  ├─ construct isolated environment and launch command
+  ├─ choose route/transport adapter
+  ├─ provide model/protocol provenance
+  └─ terminate and clean up
+```
+
+Clients that accept an HTTP base URL and send a conventional JSON request can reuse most of the listener and all persistence/viewer code. Clients that require TLS certificate trust, WebSockets, protobuf, encrypted payloads, or a successful streaming response need a transport-specific capture adapter. If a client retries on the intentional 400, the safer design is a protocol-correct terminal mock response or an explicit non-forwarding proxy mode—not silently accepting whichever retry happens to arrive.
+
+An “inspect this arbitrary request” import path is simpler: accept bytes plus declared/detected protocol, validate them, and persist them through the same snapshot pipeline without launching a CLI. That would inspect supplied request bodies, but it would not prove that a real client emitted them unless TracePilot observed the transport boundary.
+
+The key design constraint should remain: immutable raw bytes are the evidence; parsers and UI are replaceable interpretations.
 
 ## Troubleshooting
 
@@ -196,6 +292,10 @@ Another process modified `events.jsonl`. Close all processes using the session a
 ### The CLI exits before sending a request
 
 Review the preflight CLI version, working-directory warning, model, and protocol. Because process output may contain context, TracePilot deliberately discards stdout/stderr instead of copying it into application logs.
+
+### JSON parse error at line 1 column 1
+
+Copilot CLI manages `~/.copilot/config.json` as JSON with leading `//` comments. Current TracePilot builds accept that format while creating the sanitized temporary setup state. If this error persists, the message should identify the exact Copilot configuration or captured-request file that is invalid; inspect that file without replacing it, because TracePilot will not overwrite malformed user configuration.
 
 ### A saved snapshot cannot be opened
 

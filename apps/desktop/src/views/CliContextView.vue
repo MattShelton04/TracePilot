@@ -22,9 +22,13 @@ import ContextCaptureProgress from "@/components/contextCapture/ContextCapturePr
 import ContextCaptureViewer from "@/components/contextCapture/ContextCaptureViewer.vue";
 import { browseForDirectory } from "@/composables/useBrowseDirectory";
 import { useContextBenchmarks } from "@/composables/useContextBenchmarks";
+import { usePreferencesStore } from "@/stores/preferences";
+import { useWorktreesStore } from "@/stores/worktrees";
 
 const benchmark = useContextBenchmarks();
 const { confirm } = useConfirmDialog();
+const prefsStore = usePreferencesStore();
+const worktreeStore = useWorktreesStore();
 const view = ref<"snapshots" | "compare">("snapshots");
 const beforeId = ref("");
 const afterId = ref("");
@@ -41,6 +45,14 @@ const protocolOptions = [
   { value: "openAiChatCompletions", label: "OpenAI Chat Completions" },
   { value: "anthropicMessages", label: "Anthropic Messages" },
 ];
+const protocolGuidance: Record<(typeof protocolOptions)[number]["value"], string> = {
+  openAiResponses:
+    "Uses POST /v1/responses with top-level instructions and an ordered input array. This is the usual format for GPT-5-family models and can carry reasoning and output controls.",
+  openAiChatCompletions:
+    "Uses POST /v1/chat/completions with one ordered messages array, including system messages. This is the established OpenAI-compatible format used by many local and third-party models.",
+  anthropicMessages:
+    "Uses POST /v1/messages with a separate system field and ordered messages. Tool schemas and thinking/output controls use Anthropic's request shape.",
+};
 const viewOptions = computed(() => [
   { value: "snapshots", label: "Snapshots", count: benchmark.summaries.value.length },
   { value: "compare", label: "Compare" },
@@ -78,8 +90,16 @@ async function browseRepository() {
 }
 
 async function runBenchmark() {
-  await benchmark.startCapture();
+  const captured = await benchmark.startCapture();
+  if (captured && benchmark.profile.value === "currentEnvironment") {
+    prefsStore.addRecentRepoPath(benchmark.repositoryPath.value);
+  }
   resetComparison();
+}
+
+function selectKnownRepository(event: Event) {
+  const path = (event.target as HTMLSelectElement).value;
+  if (path) benchmark.repositoryPath.value = path;
 }
 
 async function loadComparison() {
@@ -112,7 +132,7 @@ watch(view, (next) => {
 });
 
 onMounted(async () => {
-  await benchmark.setup();
+  await Promise.all([benchmark.setup(), prefsStore.whenReady, worktreeStore.loadRegisteredRepos()]);
   resetComparison();
 });
 </script>
@@ -160,6 +180,36 @@ onMounted(async () => {
 
           <div v-if="benchmark.profile.value === 'currentEnvironment'" class="capture-field capture-field--repository">
             <label for="benchmark-repository">Repository</label>
+            <select
+              v-if="worktreeStore.registeredRepos.length || prefsStore.recentRepoPaths.length"
+              id="benchmark-known-repository"
+              class="repository-select"
+              :value="benchmark.repositoryPath.value"
+              @change="selectKnownRepository"
+            >
+              <option value="">Choose a past repository…</option>
+              <optgroup
+                v-if="worktreeStore.registeredRepos.length"
+                label="Registered repositories"
+              >
+                <option
+                  v-for="repository in worktreeStore.registeredRepos"
+                  :key="repository.path"
+                  :value="repository.path"
+                >
+                  {{ repository.name }} — {{ repository.path }}
+                </option>
+              </optgroup>
+              <optgroup v-if="prefsStore.recentRepoPaths.length" label="Recent">
+                <option
+                  v-for="path in prefsStore.recentRepoPaths"
+                  :key="path"
+                  :value="path"
+                >
+                  {{ path }}
+                </option>
+              </optgroup>
+            </select>
             <div class="path-input">
               <FormInput
                 id="benchmark-repository"
@@ -182,6 +232,12 @@ onMounted(async () => {
               v-model="benchmark.protocol.value"
               :options="protocolOptions"
             />
+            <p>{{ protocolGuidance[benchmark.protocol.value] }}</p>
+            <p>
+              This choice changes the endpoint path and JSON envelope, not just its label. Select
+              the API format the model/provider expects; TracePilot rejects a different payload
+              family instead of silently interpreting it as the selected one.
+            </p>
           </div>
 
           <div class="capture-submit">
@@ -327,6 +383,16 @@ onMounted(async () => {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
+}
+
+.repository-select {
+  min-width: 0;
+  height: 32px;
+  padding: 5px 28px 5px 10px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--canvas-default);
+  color: var(--text-primary);
 }
 
 .capture-submit {
