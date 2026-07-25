@@ -2,7 +2,8 @@
 /**
  * GitHub Actions pinning guard.
  *
- * Ensures workflow `uses:` references are pinned to full 40-character SHAs.
+ * Ensures workflow and local composite-action `uses:` references are pinned
+ * to full 40-character SHAs.
  * With `--verify-remote`, each pin is also checked against GitHub's commit API
  * so annotated tag object SHAs are rejected in favor of commit SHAs.
  *
@@ -13,10 +14,11 @@
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { request } from "node:https";
-import { basename, join } from "node:path";
+import { join, relative } from "node:path";
 
 const REPO_ROOT = new URL("..", import.meta.url).pathname.replace(/^\/([A-Z]:)/, "$1");
 const WORKFLOWS_DIR = join(REPO_ROOT, ".github", "workflows");
+const ACTIONS_DIR = join(REPO_ROOT, ".github", "actions");
 const FULL_SHA = /^[0-9a-f]{40}$/;
 const USES_LINE_RX = /^\s*(?:-\s*)?uses:\s*(\S+)(?:\s+#\s*(.+))?\s*$/;
 const THIRD_PARTY_RX = /^[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)+@(.+)$/;
@@ -31,6 +33,25 @@ function workflowFiles(root = WORKFLOWS_DIR) {
     .sort();
 }
 
+function compositeActionFiles(root = ACTIONS_DIR) {
+  if (!existsSync(root)) return [];
+
+  const files = [];
+  for (const entry of readdirSync(root, { withFileTypes: true })) {
+    const path = join(root, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...compositeActionFiles(path));
+    } else if (entry.name === "action.yml" || entry.name === "action.yaml") {
+      files.push(path);
+    }
+  }
+  return files.sort();
+}
+
+function checkedFiles() {
+  return [...workflowFiles(), ...compositeActionFiles()].sort();
+}
+
 function parseUsesLine(line, rel, lineNumber) {
   const match = line.match(USES_LINE_RX);
   if (!match) return { ref: null, error: null };
@@ -43,31 +64,36 @@ function parseUsesLine(line, rel, lineNumber) {
     return { ref: null, error: `${rel}:${lineNumber}: unsupported uses reference ${target}` };
   }
 
-  const ownerRepo = target.slice(0, target.lastIndexOf("@"));
+  const actionTarget = target.slice(0, target.lastIndexOf("@"));
+  const [owner, repo] = actionTarget.split("/");
+  const ownerRepo = owner && repo ? `${owner}/${repo}` : actionTarget;
   const ref = thirdParty[1];
   if (!FULL_SHA.test(ref)) {
     return {
       ref: null,
-      error: `${rel}:${lineNumber}: ${ownerRepo}@${ref} is not pinned to a full commit SHA`,
+      error: `${rel}:${lineNumber}: ${actionTarget}@${ref} is not pinned to a full commit SHA`,
     };
   }
 
   if (!comment || comment.trim().length === 0) {
     return {
       ref: null,
-      error: `${rel}:${lineNumber}: ${ownerRepo}@${ref} is missing an informational version comment`,
+      error: `${rel}:${lineNumber}: ${actionTarget}@${ref} is missing an informational version comment`,
     };
   }
 
-  return { ref: { file: rel, line: lineNumber, ownerRepo, ref }, error: null };
+  return {
+    ref: { file: rel, line: lineNumber, actionTarget, ownerRepo, ref },
+    error: null,
+  };
 }
 
-function collectUses(files = workflowFiles()) {
+function collectUses(files = checkedFiles()) {
   const refs = [];
   const errors = [];
 
   for (const file of files) {
-    const rel = `.github/workflows/${basename(file)}`;
+    const rel = relative(REPO_ROOT, file).replaceAll("\\", "/");
     const lines = readFileSync(file, "utf8").split(/\r?\n/);
 
     for (const [idx, line] of lines.entries()) {

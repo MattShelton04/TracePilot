@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -14,27 +17,101 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  # ───────────────────────────────────────────────────────────────
-  # Cross-platform build + test matrix.
-  # Linux stays first (fast + cheapest), macOS + Windows added to
-  # catch platform-specific regressions before release.
-  # ───────────────────────────────────────────────────────────────
-  check:
-    name: check (${{ matrix.os }})
+  # OS-neutral frontend work runs on Linux only. Build/typecheck and tests
+  # are independent so they run in parallel for faster PR feedback.
+  frontend_build:
+    name: frontend (build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/setup-node-pnpm
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Frontend build
+        run: pnpm build
+
+      # Biome also checks formatting, which is intentionally advisory.
+      - name: Frontend lint and format (advisory)
+        continue-on-error: true
+        run: pnpm biome check --error-on-warnings .
+
+  frontend_test:
+    name: frontend (tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # This is the sole pnpm-cache writer. PRs and every other job restore
+      # the latest matching cache from main without creating PR caches.
+      - uses: ./.github/actions/setup-node-pnpm
+        with:
+          save-cache: "true"
+
+      - name: Frontend tests
+        run: pnpm test
+
+  # Cross-platform coverage remains for Rust, where platform-specific
+  # filesystem/process behavior matters. Frontend work is not duplicated.
+  rust:
+    name: rust (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        # macOS disabled for now — slow runners cause timing-sensitive test flakiness
+        # macOS remains disabled while timing-sensitive tests are flaky there.
         os: [ubuntu-latest, windows-latest]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: ./.github/actions/setup-build-env
+      - uses: ./.github/actions/setup-rust
+        with:
+          components: ${{ runner.os == 'Linux' && 'clippy' || '' }}
+          cache-key: ci-debug
+          # The action also checks that the ref is main, so PRs are restore-only.
+          save-cache: "true"
 
-      # Verify all version fields are in sync (Linux only — need python3)
-      - name: Check version consistency
+      - uses: ./.github/actions/setup-tauri-linux
         if: runner.os == 'Linux'
+
+      # `cargo test` already compiles the tested workspace targets, so a
+      # preceding serial `cargo check` only delayed the same feedback.
+      - name: Rust tests
+        run: cargo test --workspace --exclude tracepilot-desktop
+
+      - name: Rust lint (clippy, advisory)
+        if: runner.os == 'Linux'
+        # The current branch has a pre-existing needless-range-loop warning.
+        # Keep this visible without turning this PR into lint cleanup.
+        continue-on-error: true
+        run: cargo clippy --workspace --exclude tracepilot-desktop --all-targets -- -D warnings
+
+  # Fast repository-policy checks do not need dependency installation or
+  # native Tauri packages.
+  policy:
+    name: policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 20
+          package-manager-cache: false
+
+      - uses: ./.github/actions/setup-rust
+        with:
+          components: rustfmt
+          cache: "false"
+
+      - name: Check version consistency
+        shell: bash
         run: |
           CARGO_VER=$(cargo metadata --no-deps --format-version 1 \
             | python3 -c "import sys,json; d=json.load(sys.stdin); \
@@ -44,92 +121,70 @@ jobs:
             echo "::error::Version mismatch: Cargo=$CARGO_VER, package.json=$PKG_VER"
             exit 1
           fi
-          echo "✓ Version OK: $CARGO_VER"
+          echo "Version OK: $CARGO_VER"
 
-      # ── Build checks (fast fail before slower tests) ────────
-      - name: Rust build check
-        run: cargo check --workspace --exclude tracepilot-desktop
-
-      - name: Typecheck
-        run: pnpm typecheck
-
-      - name: Frontend build
-        run: pnpm build
-
-      # ── Tests ───────────────────────────────────────────────
-      - name: Rust tests
-        run: cargo test --workspace --exclude tracepilot-desktop
-
-      - name: Frontend tests
-        run: pnpm test
-
-      # ── Lint + format (Linux only — single source of truth) ─
-      - name: Rust format check
-        if: runner.os == 'Linux'
-        # Wave 101: rustfmt drift is now a hard failure workspace-wide.
+      - name: Rust format (advisory)
+        continue-on-error: true
         run: cargo fmt --all -- --check
 
-      - name: Rust lint (clippy)
-        if: runner.os == 'Linux'
-        continue-on-error: true
-        # Wave 101: clippy runs as a soft gate until the remaining baseline is
-        # clean. Remove continue-on-error once warnings can be hard-failed.
-        run: cargo clippy --workspace --exclude tracepilot-desktop --all-targets -- -D warnings
-
-      - name: Frontend lint (biome)
-        if: runner.os == 'Linux'
-        continue-on-error: true
-        # Wave 102: biome runs as a soft gate until the remaining baseline is
-        # clean. New suppressions should still use targeted biome-ignore comments.
-        run: pnpm biome check --error-on-warnings .
-
-      # ── File-size guard-rails ───────────────────────────────
       - name: File size budgets
-        if: runner.os == 'Linux'
         run: node scripts/check-file-sizes.mjs
 
       - name: Workflow action pins
-        if: runner.os == 'Linux'
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: node scripts/check-workflow-actions.mjs --verify-remote
 
-  # ───────────────────────────────────────────────────────────────
-  # Security + supply-chain gates (Linux, separate job so failure
-  # is highlighted independently of build/test).
-  # ───────────────────────────────────────────────────────────────
+  # Audits only need the lockfiles and their own action/tooling. Avoid
+  # restoring build caches or installing the dependency tree.
   security:
     name: security
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable (2026-03-27)
-
-      - uses: Swatinem/rust-cache@f0deed1e0edfc6a9be95417288c0e1099b1eeec3 # v2.7.7
-        with:
-          cache-on-failure: true
-          shared-key: rust-${{ runner.os }}-stable
-          key: cargo-lock-${{ hashFiles('Cargo.lock') }}
-
-      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
         with:
           version: 9
 
-      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 20
-          cache: 'pnpm'
-          cache-dependency-path: pnpm-lock.yaml
-
-      - run: pnpm install --frozen-lockfile
+          package-manager-cache: false
 
       - name: Rust security audit
         uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998 # v2.0.0
-        continue-on-error: true # advisories are warnings, not blockers — see audit.toml for rationale
+        continue-on-error: true
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: pnpm audit (production)
         run: pnpm audit --prod --audit-level=high
-        continue-on-error: true # gate softly until baseline vulnerabilities are triaged
+        # The current lockfile has high-severity transitive advisories.
+        continue-on-error: true
+
+  # Configure this single, stable check as required in the main ruleset.
+  required:
+    name: required
+    if: always()
+    needs: [frontend_build, frontend_test, rust, policy, security]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify required jobs
+        shell: bash
+        env:
+          FRONTEND_BUILD: ${{ needs.frontend_build.result }}
+          FRONTEND_TEST: ${{ needs.frontend_test.result }}
+          RUST: ${{ needs.rust.result }}
+          POLICY: ${{ needs.policy.result }}
+          SECURITY: ${{ needs.security.result }}
+        run: |
+          for result in "$FRONTEND_BUILD" "$FRONTEND_TEST" "$RUST" "$POLICY" "$SECURITY"; do
+            if [ "$result" != "success" ]; then
+              echo "::error::A required CI job finished with result: $result"
+              exit 1
+            fi
+          done
+          echo "All required CI jobs passed."

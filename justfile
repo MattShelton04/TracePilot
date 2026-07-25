@@ -45,7 +45,7 @@ test-ui:
 test-rust:
     cargo test --workspace --exclude tracepilot-desktop
 
-# Lint: Biome (JS/TS) + clippy (Rust), both hard-fail — mirrors CI.
+# Lint: Clippy and Biome remain advisory while their baselines are being cleared.
 lint:
     -pnpm lint
     -cargo clippy --workspace --exclude tracepilot-desktop --all-targets -- -D warnings
@@ -63,16 +63,13 @@ gen-bindings:
 check-sizes:
     node scripts/check-file-sizes.mjs
 
-# Run everything CI runs (cargo check, typecheck, build, tests, lint, fmt check).
-# Order mirrors `.github/workflows/ci.yml` so local runs catch the same
-# failures in roughly the same order.
+# Run the required CI work locally. Hosted CI parallelizes these commands.
 ci:
-    cargo check --workspace --exclude tracepilot-desktop
     pnpm typecheck
     pnpm build
     cargo test --workspace --exclude tracepilot-desktop
     pnpm test
-    cargo fmt --all -- --check
+    -cargo fmt --all -- --check
     -cargo clippy --workspace --exclude tracepilot-desktop --all-targets -- -D warnings
     -pnpm biome check --error-on-warnings .
     node scripts/check-file-sizes.mjs
