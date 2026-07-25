@@ -15,7 +15,30 @@ export type {
   ReleaseManifestEntry,
   TracePilotConfig,
 } from "./config.js";
-
+export type {
+  BenchmarkPreflight,
+  BenchmarkProfile,
+  CapturePreflight,
+  CaptureProgress,
+  CaptureProtocol,
+  CaptureScope,
+  CaptureStage,
+  CliCapabilities,
+  ContextCaptureManifest,
+  ContextCaptureSnapshot,
+  ContextCaptureStorageStats,
+  ContextCaptureSummary,
+  FidelityManifest,
+  NormalizedAttachment,
+  NormalizedMessage,
+  NormalizedSection,
+  NormalizedToolDefinition,
+  ParsedContextRequest,
+  SectionMetrics,
+  SourceEventsFingerprint,
+  StartBenchmarkCaptureRequest,
+  StartCaptureRequest,
+} from "./context-capture.js";
 // ── conversation.js ────────────────────────────────────────────────
 export type {
   AttributedMessage,

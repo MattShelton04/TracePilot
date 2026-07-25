@@ -7,6 +7,8 @@ const props = withDefaults(
     label?: string;
     depth?: number;
     initiallyExpanded?: boolean;
+    /** Expand every nested object and array when the tree is first rendered. */
+    expandAll?: boolean;
   }>(),
   {
     depth: 0,
@@ -14,7 +16,7 @@ const props = withDefaults(
   },
 );
 
-const expanded = ref(props.initiallyExpanded || props.depth === 0);
+const expanded = ref(props.expandAll || props.initiallyExpanded || props.depth === 0);
 const visibleLimit = ref(100);
 const isContainer = computed(() => props.value !== null && typeof props.value === "object");
 const entryCount = computed(() => {
@@ -79,6 +81,7 @@ const scalarClass = computed(
         :label="key"
         :value="child"
         :depth="depth + 1"
+        :expand-all="expandAll"
       />
       <button
         v-if="hiddenCount > 0"

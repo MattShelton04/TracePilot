@@ -8,6 +8,7 @@ const loadTimeline = vi.fn();
 const loadFullResult = vi.fn();
 const navigateToConversation = vi.fn();
 let detailStore: ReturnType<typeof makeDetailStore>;
+let contextCaptureEnabled = false;
 
 vi.mock("@/composables/useContextTimeline", () => ({
   getCachedContextTimeline: () => null,
@@ -29,6 +30,7 @@ vi.mock("@/composables/useConversationNavigation", () => ({
 vi.mock("@/stores/preferences", () => ({
   usePreferencesStore: () => ({
     isRichRenderingEnabled: () => true,
+    isFeatureEnabled: () => contextCaptureEnabled,
   }),
 }));
 
@@ -169,6 +171,7 @@ function mountTab() {
             '<div class="tool-call-stub" :data-tool="tc.toolName" :data-expanded="expanded" :data-rich="richEnabled">{{ tc.toolName }} {{ JSON.stringify(tc.arguments) }}</div>',
         },
         ToolTypeDonut: { template: '<div class="tool-donut-stub" />' },
+        ContextCapturePanel: { template: '<div class="capture-panel-stub">Snapshots</div>' },
       },
     },
   });
@@ -180,6 +183,22 @@ describe("ContextTab", () => {
     loadTimeline.mockReset();
     loadFullResult.mockReset();
     navigateToConversation.mockReset();
+    contextCaptureEnabled = false;
+  });
+
+  it("switches between the timeline and the in-page request snapshots workspace", async () => {
+    contextCaptureEnabled = true;
+    loadTimeline.mockResolvedValue(response(timeline()));
+    const wrapper = mountTab();
+    await flushPromises();
+
+    expect(wrapper.find(".capture-panel-stub").exists()).toBe(false);
+    await wrapper
+      .findAll(".context-tab__view-nav button")
+      .find((button) => button.text().includes("Request snapshots"))
+      ?.trigger("click");
+    expect(wrapper.find(".capture-panel-stub").exists()).toBe(true);
+    expect(wrapper.find(".context-tab__stats").exists()).toBe(false);
   });
 
   it("does not show an empty message when expensive tool calls exist and prefetches details", async () => {

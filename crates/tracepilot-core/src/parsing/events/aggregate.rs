@@ -368,11 +368,7 @@ fn sum_opt_f64(values: impl Iterator<Item = Option<f64>>) -> Option<f64> {
         has_any = true;
         total += n;
     }
-    if has_any {
-        Some(total)
-    } else {
-        None
-    }
+    if has_any { Some(total) } else { None }
 }
 
 /// Sum Option<u64> values: None + Some(5) = Some(5), None + None = None.
@@ -383,11 +379,7 @@ fn sum_opt_u64(values: impl Iterator<Item = Option<u64>>) -> Option<u64> {
         has_any = true;
         total += n;
     }
-    if has_any {
-        Some(total)
-    } else {
-        None
-    }
+    if has_any { Some(total) } else { None }
 }
 
 /// Combine code changes: sum lines, deduplicate files.
@@ -415,11 +407,7 @@ fn combine_code_changes<'a>(
                 }
             }
         }
-        if files.is_empty() {
-            None
-        } else {
-            Some(files)
-        }
+        if files.is_empty() { None } else { Some(files) }
     };
 
     Some(CodeChanges {

@@ -35,6 +35,12 @@ const flags: readonly { key: FeatureFlag; label: string; description: string }[]
     description:
       "Enable the SDK bridge for real-time session steering, programmatic events, and direct communication with Copilot CLI.",
   },
+  {
+    key: "exactContextCapture",
+    label: "Exact Context Capture",
+    description:
+      "Experimentally capture the exact model request body from an isolated copy of an inactive session. No provider is contacted.",
+  },
 ] as const;
 
 function handleToggle(key: FeatureFlag) {

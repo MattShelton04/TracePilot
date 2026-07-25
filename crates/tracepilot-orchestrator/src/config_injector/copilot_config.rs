@@ -41,7 +41,7 @@ const USER_EDITABLE_KEYS: &[&str] = &[
 /// strip lines whose first non-whitespace characters are `//` to keep the
 /// transformation conservative — string contents are never touched because
 /// JSON strings cannot legally start a line outside of an object/array.
-fn strip_jsonc_line_comments(input: &str) -> String {
+pub(crate) fn strip_jsonc_line_comments(input: &str) -> String {
     let mut out = String::with_capacity(input.len());
     for line in input.split_inclusive('\n') {
         if line.trim_start().starts_with("//") {
@@ -60,7 +60,9 @@ fn strip_jsonc_line_comments(input: &str) -> String {
 /// Parse a Copilot config/settings file from disk, tolerating `//` line
 /// comments. Returns `Ok(None)` if the file does not exist, and an
 /// `Err(message)` with file context if the file exists but cannot be parsed.
-fn read_json_file(path: &Path) -> std::result::Result<Option<serde_json::Value>, String> {
+pub(crate) fn read_json_file(
+    path: &Path,
+) -> std::result::Result<Option<serde_json::Value>, String> {
     if !path.exists() {
         return Ok(None);
     }

@@ -6,7 +6,8 @@ use std::path::Path;
 
 /// Discover all installed Copilot CLI versions.
 pub fn discover_versions(copilot_home: &Path) -> Result<Vec<CopilotVersion>> {
-    let universal_dir = tracepilot_core::paths::CopilotPaths::from_home(copilot_home).pkg_target_dir();
+    let universal_dir =
+        tracepilot_core::paths::CopilotPaths::from_home(copilot_home).pkg_target_dir();
     if !universal_dir.exists() {
         return Ok(Vec::new());
     }

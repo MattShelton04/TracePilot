@@ -11,6 +11,7 @@
 //! target `settings.json` (the new location); we never modify `config.json`.
 
 mod copilot_config;
+pub(crate) use copilot_config::read_json_file as read_copilot_json_file;
 pub use copilot_config::{CONFIG_FILE, SETTINGS_FILE, read_copilot_config, write_copilot_config};
 
 use crate::error::{OrchestratorError, Result};

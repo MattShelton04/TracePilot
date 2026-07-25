@@ -2,7 +2,7 @@
 
 use super::aggregate::{extract_combined_shutdown_data, extract_session_start};
 use super::raw::parse_events_jsonl;
-use super::typed::{parse_typed_events, parse_typed_events_if_exists, TypedEventData};
+use super::typed::{TypedEventData, parse_typed_events, parse_typed_events_if_exists};
 use crate::models::event_types::SessionEventType;
 use std::io::Write;
 use tracepilot_test_support::fixtures::sample_events_jsonl;

@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import {
+  contextCaptureDeleteAll,
+  contextCaptureStorageStats,
   factoryReset as factoryResetApi,
   getConfig,
   getDbSize,
@@ -62,6 +64,9 @@ const resetting = ref(false);
 const clearing = ref(false);
 const searchRebuilding = ref(false);
 const searchRebuildResult = ref<string | null>(null);
+const captureStorageCount = ref(0);
+const captureStorageSize = ref("—");
+const deletingCaptures = ref(false);
 
 // ── Indexing progress ────────────────────────────────────────
 const indexingProgress = ref<IndexingProgressPayload | null>(null);
@@ -110,7 +115,36 @@ onMounted(async () => {
     // Non-critical: keep 0
     logWarn("[SettingsDataStorage] Failed to get session count:", e);
   }
+
+  try {
+    const stats = await contextCaptureStorageStats();
+    captureStorageCount.value = stats.captureCount;
+    captureStorageSize.value = formatBytes(stats.totalBytes);
+  } catch (e) {
+    logWarn("[SettingsDataStorage] Failed to load context capture storage stats:", e);
+  }
 });
+
+async function deleteAllCaptures() {
+  const { confirmed } = await confirm({
+    title: "Delete all captured request snapshots?",
+    message: `This permanently removes ${captureStorageCount.value} saved plaintext snapshot${captureStorageCount.value === 1 ? "" : "s"} (${captureStorageSize.value}). Session history is not affected.`,
+    variant: "danger",
+    confirmLabel: "Delete all snapshots",
+  });
+  if (!confirmed) return;
+  deletingCaptures.value = true;
+  try {
+    const deleted = await contextCaptureDeleteAll();
+    captureStorageCount.value = 0;
+    captureStorageSize.value = formatBytes(0);
+    toast.success(`Deleted ${deleted} captured request snapshot${deleted === 1 ? "" : "s"}`);
+  } catch (e) {
+    toast.error(`Failed to delete captured snapshots: ${toErrorMessage(e)}`);
+  } finally {
+    deletingCaptures.value = false;
+  }
+}
 
 async function browseCopilotHome() {
   if (pathChangesBlocked.value) {
@@ -309,6 +343,18 @@ defineExpose({ databaseSize, indexedSessionCount });
           </div>
         </div>
         <span class="setting-value-display">{{ databaseSize }}</span>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">Captured request snapshots</div>
+          <div class="setting-description">
+            {{ captureStorageCount }} saved plaintext snapshot{{ captureStorageCount === 1 ? '' : 's' }} using {{ captureStorageSize }}. Exact request bodies may contain sensitive session and repository content.
+          </div>
+        </div>
+        <ActionButton size="sm" class="btn-danger" :disabled="captureStorageCount === 0 || deletingCaptures" @click="deleteAllCaptures">
+          {{ deletingCaptures ? 'Deleting…' : 'Delete all snapshots…' }}
+        </ActionButton>
       </div>
 
       <div v-if="indexingProgress" class="setting-row indexing-progress-row">

@@ -276,6 +276,17 @@ const routes: RouteRecordRaw[] = [
       featureFlag: "skills",
     },
   },
+  {
+    path: "/cli-context",
+    name: "cli-context",
+    component: () => import("@/views/CliContextView.vue"),
+    meta: {
+      title: "CLI Context",
+      sidebarId: "cli-context",
+      featureFlag: "exactContextCapture",
+      sidebar: { section: "configuration", label: "CLI Context", icon: "cli-context", order: 2 },
+    },
+  },
   // 404 catch-all — must be last
   {
     path: "/:pathMatch(.*)*",

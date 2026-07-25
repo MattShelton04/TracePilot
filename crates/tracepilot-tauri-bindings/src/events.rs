@@ -15,6 +15,9 @@ pub const SDK_SESSION_STATE_CHANGED: &str = "sdk-session-state-changed";
 /// SDK connection state changed.
 pub const SDK_CONNECTION_CHANGED: &str = "sdk-connection-changed";
 
+/// Exact request-capture lifecycle progress.
+pub const CONTEXT_CAPTURE_PROGRESS: &str = "context-capture-progress";
+
 /// Search-specific indexing events.
 pub const SEARCH_INDEXING_STARTED: &str = "search-indexing-started";
 pub const SEARCH_INDEXING_PROGRESS: &str = "search-indexing-progress";

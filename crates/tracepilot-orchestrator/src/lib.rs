@@ -4,6 +4,7 @@
 //! version management, repository registry, and session templates.
 
 pub mod config_injector;
+pub mod context_capture;
 mod error;
 pub mod github;
 pub(crate) mod json_io;

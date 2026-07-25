@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import type {
   ContextCompaction,
   ContextTimeline,
@@ -16,6 +17,7 @@ import {
   formatTime,
   LoadingSpinner,
   SectionPanel,
+  SegmentedControl,
   StatCard,
   ToolCallItem,
 } from "@tracepilot/ui";
@@ -23,6 +25,7 @@ import { Activity, Info } from "lucide-vue-next";
 import { computed, onMounted, onScopeDispose, ref, watch } from "vue";
 import ContextWindowChart from "@/components/context/ContextWindowChart.vue";
 import ToolTypeDonut from "@/components/context/ToolTypeDonut.vue";
+import ContextCapturePanel from "@/components/contextCapture/ContextCapturePanel.vue";
 import { useCheckpointNavigation } from "@/composables/useCheckpointNavigation";
 import { getCachedContextTimeline, loadContextTimeline } from "@/composables/useContextTimeline";
 import { useConversationNavigation } from "@/composables/useConversationNavigation";
@@ -32,6 +35,22 @@ import { usePreferencesStore } from "@/stores/preferences";
 
 const store = useSessionDetailContext();
 const preferences = usePreferencesStore();
+const isMainWindow = (() => {
+  try {
+    return getCurrentWindow().label === "main";
+  } catch {
+    // Browser-only development has no Tauri window metadata.
+    return true;
+  }
+})();
+const showContextCapture = computed(
+  () => isMainWindow && (preferences.isFeatureEnabled?.("exactContextCapture") ?? false),
+);
+const contextView = ref<"timeline" | "snapshots">("timeline");
+const contextViews = [
+  { value: "timeline", label: "Context timeline" },
+  { value: "snapshots", label: "Request snapshots" },
+];
 const timeline = ref<ContextTimeline | null>(null);
 const loading = ref(false);
 const refreshing = ref(false);
@@ -419,14 +438,19 @@ function retryLoad() {
 
 <template>
   <div class="context-tab">
-    <ErrorAlert
-      v-if="error"
-      :message="error"
-      variant="inline"
-      :retryable="true"
-      class="mb-4"
-      @retry="retryLoad"
-    />
+    <div v-if="showContextCapture" class="context-tab__view-nav">
+      <SegmentedControl v-model="contextView" :options="contextViews" />
+    </div>
+
+    <div v-if="contextView === 'timeline'" class="context-tab__view">
+      <ErrorAlert
+        v-if="error"
+        :message="error"
+        variant="inline"
+        :retryable="true"
+        class="mb-4"
+        @retry="retryLoad"
+      />
 
     <div v-if="loading && !timeline" class="context-tab__loading">
       <LoadingSpinner size="lg" />
@@ -825,10 +849,27 @@ function retryLoad() {
         </p>
       </SectionPanel>
     </template>
+
+    </div>
+
+    <ContextCapturePanel
+      v-if="showContextCapture && contextView === 'snapshots' && store.sessionId"
+      :session-id="store.sessionId"
+    />
   </div>
 </template>
 
 <style scoped>
+.context-tab__view-nav {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 20px;
+}
+
+.context-tab__view {
+  min-width: 0;
+}
+
 .context-tab__loading {
   display: flex;
   min-height: 420px;

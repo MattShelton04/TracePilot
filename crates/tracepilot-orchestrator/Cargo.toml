@@ -25,6 +25,8 @@ rusqlite = { workspace = true }
 
 tokio = { workspace = true }
 reqwest = { workspace = true }
+tempfile = { workspace = true }
+axum = "0.7"
 
 similar = "2"
 walkdir = "2"
