@@ -284,7 +284,9 @@ pub async fn get_active_copilot_version(
         let home = cfg.copilot_home();
         match tracepilot_orchestrator::version_manager::active_version(&home) {
             Ok(v) => Ok::<_, BindingsError>(Some(v)),
-            Err(tracepilot_orchestrator::OrchestratorError::Version(_)) => Ok::<_, BindingsError>(None),
+            Err(tracepilot_orchestrator::OrchestratorError::Version(_)) => {
+                Ok::<_, BindingsError>(None)
+            }
             Err(e) => Err(e.into()),
         }
     })
