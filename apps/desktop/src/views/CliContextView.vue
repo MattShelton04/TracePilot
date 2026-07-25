@@ -22,6 +22,10 @@ import ContextCaptureProgress from "@/components/contextCapture/ContextCapturePr
 import ContextCaptureViewer from "@/components/contextCapture/ContextCaptureViewer.vue";
 import { browseForDirectory } from "@/composables/useBrowseDirectory";
 import { useContextBenchmarks } from "@/composables/useContextBenchmarks";
+import {
+  CONTEXT_CAPTURE_PROTOCOL_GUIDANCE,
+  CONTEXT_CAPTURE_PROTOCOL_OPTIONS,
+} from "@/config/contextCapture";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useWorktreesStore } from "@/stores/worktrees";
 
@@ -40,19 +44,6 @@ const profileOptions: Array<{ value: "isolatedBaseline" | "currentEnvironment"; 
   { value: "isolatedBaseline", label: "Isolated baseline" },
   { value: "currentEnvironment", label: "Repository environment" },
 ];
-const protocolOptions = [
-  { value: "openAiResponses", label: "OpenAI Responses" },
-  { value: "openAiChatCompletions", label: "OpenAI Chat Completions" },
-  { value: "anthropicMessages", label: "Anthropic Messages" },
-];
-const protocolGuidance: Record<(typeof protocolOptions)[number]["value"], string> = {
-  openAiResponses:
-    "Uses POST /v1/responses with top-level instructions and an ordered input array. This is the usual format for GPT-5-family models and can carry reasoning and output controls.",
-  openAiChatCompletions:
-    "Uses POST /v1/chat/completions with one ordered messages array, including system messages. This is the established OpenAI-compatible format used by many local and third-party models.",
-  anthropicMessages:
-    "Uses POST /v1/messages with a separate system field and ordered messages. Tool schemas and thinking/output controls use Anthropic's request shape.",
-};
 const viewOptions = computed(() => [
   { value: "snapshots", label: "Snapshots", count: benchmark.summaries.value.length },
   { value: "compare", label: "Compare" },
@@ -230,9 +221,9 @@ onMounted(async () => {
             <Select
               id="benchmark-protocol"
               v-model="benchmark.protocol.value"
-              :options="protocolOptions"
+              :options="CONTEXT_CAPTURE_PROTOCOL_OPTIONS"
             />
-            <p>{{ protocolGuidance[benchmark.protocol.value] }}</p>
+            <p>{{ CONTEXT_CAPTURE_PROTOCOL_GUIDANCE[benchmark.protocol.value] }}</p>
             <p>
               This choice changes the endpoint path and JSON envelope, not just its label. Select
               the API format the model/provider expects; TracePilot rejects a different payload

@@ -10,6 +10,7 @@ use crate::process::{hidden_command, hidden_std_command};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::ffi::{OsStr, OsString};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
@@ -597,7 +598,7 @@ async fn run_benchmark_capture(
                 vec![
                     "repository instructions and files".into(),
                     "user settings, MCP configuration, skills, prompts, and hooks".into(),
-                    "authentication, credentials, logs, and session history".into(),
+                    "authentication, credentials, non-allowlisted parent process environment variables, logs, and session history".into(),
                 ],
             ),
             BenchmarkProfile::CurrentEnvironment => {
@@ -623,7 +624,7 @@ async fn run_benchmark_capture(
                         "user settings, MCP configuration, skills, prompts, and hooks copied into temporary storage".into(),
                     ],
                     vec![
-                        "authentication, credentials, remote experiment assignments, IDE state, logs, session history, package cache, and command history".into(),
+                        "authentication, credentials, non-allowlisted parent process environment variables, remote experiment assignments, IDE state, logs, session history, package cache, and command history".into(),
                     ],
                 )
             }
@@ -886,6 +887,12 @@ fn canonicalize_repository(selected: &str) -> Result<PathBuf> {
 }
 
 fn copy_sanitized_cli_config(source: &Path, destination: &Path) -> Result<u64> {
+    const RETAINED_SETUP_KEYS: &[&str] = &[
+        "trustedFolders",
+        "askedSetupTerminals",
+        "reasoningSummariesCleanupDone",
+    ];
+
     if !source.is_file() {
         return Ok(0);
     }
@@ -903,14 +910,21 @@ fn copy_sanitized_cli_config(source: &Path, destination: &Path) -> Result<u64> {
         ))
     })?;
     let mut sanitized = serde_json::Map::new();
-    for key in [
-        "trustedFolders",
-        "askedSetupTerminals",
-        "reasoningSummariesCleanupDone",
-    ] {
-        if let Some(value) = source_object.get(key) {
-            sanitized.insert(key.into(), value.clone());
+    for key in RETAINED_SETUP_KEYS {
+        if let Some(value) = source_object.get(*key) {
+            sanitized.insert((*key).into(), value.clone());
         }
+    }
+    for key in source_object
+        .keys()
+        .filter(|key| !RETAINED_SETUP_KEYS.contains(&key.as_str()))
+        .filter(|key| looks_like_setup_state_key(key))
+    {
+        tracing::warn!(
+            config_path = %source.display(),
+            key,
+            "Copilot added setup-like state that context capture does not copy"
+        );
     }
     let bytes = serde_json::to_vec_pretty(&sanitized)?;
     if let Some(parent) = destination.parent() {
@@ -920,6 +934,13 @@ fn copy_sanitized_cli_config(source: &Path, destination: &Path) -> Result<u64> {
     std::fs::write(destination, &bytes)?;
     super::snapshot::set_private_file_permissions(destination)?;
     Ok(bytes.len() as u64)
+}
+
+fn looks_like_setup_state_key(key: &str) -> bool {
+    let key = key.to_ascii_lowercase();
+    ["trust", "setup", "terminal"]
+        .iter()
+        .any(|fragment| key.contains(fragment))
 }
 
 fn fingerprint_context_tree(root: &Path, seed: &str) -> Result<String> {
@@ -972,6 +993,74 @@ fn copy_context_file(source: &Path, destination: &Path) -> Result<u64> {
     Ok(metadata.len())
 }
 
+const CAPTURE_ENV_ALLOWLIST: &[&str] = &[
+    "PATH",
+    "TEMP",
+    "TMP",
+    "TMPDIR",
+    "LANG",
+    "LANGUAGE",
+    "LC_ALL",
+    "LC_CTYPE",
+    "TERM",
+    "COLORTERM",
+    "TZ",
+    "SSL_CERT_FILE",
+    "SSL_CERT_DIR",
+    // Windows process/runtime discovery.
+    "SYSTEMROOT",
+    "SYSTEMDRIVE",
+    "WINDIR",
+    "COMSPEC",
+    "PATHEXT",
+    "USERPROFILE",
+    "HOMEDRIVE",
+    "HOMEPATH",
+    "APPDATA",
+    "LOCALAPPDATA",
+    "PROGRAMDATA",
+    "PROGRAMFILES",
+    "PROGRAMFILES(X86)",
+    "PROGRAMW6432",
+    "NUMBER_OF_PROCESSORS",
+    "PROCESSOR_ARCHITECTURE",
+    "PROCESSOR_IDENTIFIER",
+    "PROCESSOR_LEVEL",
+    "PROCESSOR_REVISION",
+    "USERNAME",
+    // Unix process/runtime discovery.
+    "HOME",
+    "USER",
+    "LOGNAME",
+    "SHELL",
+    "XDG_CONFIG_HOME",
+    "XDG_CACHE_HOME",
+    "XDG_DATA_HOME",
+    "XDG_RUNTIME_DIR",
+];
+
+fn capture_environment_name_allowed(name: &OsStr) -> bool {
+    let Some(name) = name.to_str() else {
+        return false;
+    };
+    #[cfg(windows)]
+    {
+        CAPTURE_ENV_ALLOWLIST
+            .iter()
+            .any(|allowed| name.eq_ignore_ascii_case(allowed))
+    }
+    #[cfg(not(windows))]
+    {
+        CAPTURE_ENV_ALLOWLIST.contains(&name)
+    }
+}
+
+fn capture_process_environment() -> Vec<(OsString, OsString)> {
+    std::env::vars_os()
+        .filter(|(name, _)| capture_environment_name_allowed(name))
+        .collect()
+}
+
 #[allow(clippy::too_many_arguments)]
 fn spawn_copilot(
     executable: &str,
@@ -985,6 +1074,7 @@ fn spawn_copilot(
 ) -> Result<tokio::process::Child> {
     let dummy_key = format!("tracepilot-capture-{}", uuid::Uuid::new_v4().simple());
     let mut command = hidden_command(executable);
+    command.env_clear().envs(capture_process_environment());
     if let Some(session_id) = session_id {
         command.arg(format!("--resume={session_id}"));
     }
@@ -1010,16 +1100,9 @@ fn spawn_copilot(
         .env("OPENAI_API_KEY", &dummy_key)
         .env("ANTHROPIC_API_KEY", &dummy_key)
         .env("COPILOT_OFFLINE", "true")
-        .env("COPILOT_AUTO_UPDATE", "false");
-    for name in [
-        "GITHUB_TOKEN",
-        "GH_TOKEN",
-        "COPILOT_GITHUB_TOKEN",
-        "AZURE_OPENAI_API_KEY",
-        "AZURE_OPENAI_ENDPOINT",
-    ] {
-        command.env_remove(name);
-    }
+        .env("COPILOT_AUTO_UPDATE", "false")
+        .env("NO_PROXY", "127.0.0.1,localhost,[::1]")
+        .env("no_proxy", "127.0.0.1,localhost,[::1]");
     match protocol {
         CaptureProtocol::OpenAiChatCompletions => {
             command
@@ -1268,6 +1351,31 @@ mod tests {
         assert!(message.contains("Copilot's temporary setup state"));
         assert!(message.contains("config.json"));
         assert!(message.contains("line 2"));
+    }
+
+    #[test]
+    fn setup_state_detection_flags_future_trust_and_terminal_keys() {
+        assert!(looks_like_setup_state_key("trustedRepositories"));
+        assert!(looks_like_setup_state_key("setupComplete"));
+        assert!(looks_like_setup_state_key("terminalOnboarding"));
+        assert!(!looks_like_setup_state_key("loggedInUsers"));
+        assert!(!looks_like_setup_state_key("expAssignmentsCache"));
+    }
+
+    #[test]
+    fn capture_environment_allowlist_rejects_credentials_and_provider_configuration() {
+        assert!(capture_environment_name_allowed(OsStr::new("PATH")));
+        assert!(capture_environment_name_allowed(OsStr::new("TEMP")));
+        assert!(!capture_environment_name_allowed(OsStr::new(
+            "OPENROUTER_API_KEY"
+        )));
+        assert!(!capture_environment_name_allowed(OsStr::new(
+            "AZURE_OPENAI_API_KEY"
+        )));
+        assert!(!capture_environment_name_allowed(OsStr::new(
+            "COPILOT_PROVIDER_BASE_URL"
+        )));
+        assert!(!capture_environment_name_allowed(OsStr::new("HTTP_PROXY")));
     }
 
     #[test]

@@ -12,6 +12,7 @@ import {
 } from "@tracepilot/ui";
 import { ArrowLeft, Trash2 } from "lucide-vue-next";
 import { computed, ref, watch } from "vue";
+import { CONTEXT_CAPTURE_PROTOCOL_LABELS } from "@/config/contextCapture";
 import ContextCaptureJsonViewer from "./ContextCaptureJsonViewer.vue";
 import ContextCaptureMessages from "./ContextCaptureMessages.vue";
 import ContextCaptureRaw from "./ContextCaptureRaw.vue";
@@ -37,12 +38,6 @@ const tabs = computed(() => [
   { value: "tools", label: "Tools", count: props.snapshot.manifest.parsed.toolDefinitions.length },
   { value: "raw", label: "Raw JSON" },
 ]);
-
-const protocolLabel: Record<string, string> = {
-  openAiChatCompletions: "OpenAI Chat Completions",
-  openAiResponses: "OpenAI Responses",
-  anthropicMessages: "Anthropic Messages",
-};
 
 const composition = computed(() => {
   const metrics = props.snapshot.manifest.parsed.sectionMetrics;
@@ -93,7 +88,7 @@ const composition = computed(() => {
 
     <PageHeader
       :title="`Captured ${formatDateMedium(snapshot.manifest.capturedAt)}`"
-      :subtitle="`${snapshot.manifest.parsed.model ?? 'Unknown model'} · ${protocolLabel[snapshot.manifest.protocol]} · Copilot CLI ${snapshot.manifest.cliVersion}`"
+      :subtitle="`${snapshot.manifest.parsed.model ?? 'Unknown model'} · ${CONTEXT_CAPTURE_PROTOCOL_LABELS[snapshot.manifest.protocol]} · Copilot CLI ${snapshot.manifest.cliVersion}`"
       icon-name="file-json"
       density="compact"
     >
@@ -186,7 +181,7 @@ const composition = computed(() => {
             <dl class="capture-details">
               <div><dt>Method</dt><dd><code>POST</code></dd></div>
               <div><dt>Path</dt><dd><code>{{ snapshot.manifest.requestPath }}</code></dd></div>
-              <div><dt>Protocol</dt><dd>{{ protocolLabel[snapshot.manifest.protocol] }}</dd></div>
+              <div><dt>Protocol</dt><dd>{{ CONTEXT_CAPTURE_PROTOCOL_LABELS[snapshot.manifest.protocol] }}</dd></div>
               <div><dt>Model</dt><dd>{{ snapshot.manifest.parsed.model ?? 'Unknown' }}</dd></div>
               <div><dt>CLI</dt><dd>{{ snapshot.manifest.cliVersion }}</dd></div>
               <div><dt>Storage</dt><dd>{{ snapshot.manifest.saved ? 'Saved as plaintext' : 'View once' }}</dd></div>

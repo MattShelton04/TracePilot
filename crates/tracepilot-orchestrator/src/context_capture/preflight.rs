@@ -172,6 +172,7 @@ pub fn context_capture_preflight(
         omitted_resources: vec![
             "Copilot authentication and credential stores".into(),
             "user-level settings, MCP configuration, skills, agents, plugins, logs, and other sessions".into(),
+            "non-allowlisted parent process environment variables".into(),
         ],
         warnings,
         can_capture,

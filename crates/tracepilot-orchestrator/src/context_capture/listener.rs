@@ -172,7 +172,8 @@ mod tests {
 
     #[tokio::test]
     async fn captures_one_matching_json_post_and_returns_sentinel() {
-        let mut listener = OneShotListener::bind(CaptureProtocol::OpenAiResponses, "nonce")
+        let nonce = uuid::Uuid::new_v4().simple().to_string();
+        let mut listener = OneShotListener::bind(CaptureProtocol::OpenAiResponses, &nonce)
             .await
             .expect("bind");
         let response = reqwest::Client::new()
@@ -183,7 +184,7 @@ mod tests {
             .expect("request");
         assert_eq!(response.status(), reqwest::StatusCode::BAD_REQUEST);
         let captured = listener.receiver.recv().await.expect("captured request");
-        assert_eq!(captured.path, "/nonce/v1/responses");
+        assert_eq!(captured.path, format!("/{nonce}/v1/responses"));
         assert_eq!(captured.body, br#"{"model":"capture"}"#);
         let retry = reqwest::Client::new()
             .post(format!("{}/responses", listener.base_url))
@@ -198,7 +199,8 @@ mod tests {
 
     #[tokio::test]
     async fn rejects_wrong_paths_without_capturing() {
-        let mut listener = OneShotListener::bind(CaptureProtocol::AnthropicMessages, "nonce")
+        let nonce = uuid::Uuid::new_v4().simple().to_string();
+        let mut listener = OneShotListener::bind(CaptureProtocol::AnthropicMessages, &nonce)
             .await
             .expect("bind");
         let response = reqwest::Client::new()

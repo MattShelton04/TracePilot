@@ -3,6 +3,7 @@ import type { CapturePreflight, CaptureProtocol } from "@tracepilot/types";
 import { ActionButton, FormSwitch, PageHeader, SectionPanel, Select } from "@tracepilot/ui";
 import { ArrowLeft, Camera } from "lucide-vue-next";
 import { computed } from "vue";
+import { CONTEXT_CAPTURE_PROTOCOL_LABELS } from "@/config/contextCapture";
 
 const props = defineProps<{
   preflight: CapturePreflight;
@@ -19,11 +20,7 @@ const emit = defineEmits<{
 const options = computed(() =>
   props.preflight.protocolOptions.map((value) => ({
     value,
-    label: {
-      openAiChatCompletions: "OpenAI Chat Completions",
-      openAiResponses: "OpenAI Responses",
-      anthropicMessages: "Anthropic Messages",
-    }[value],
+    label: CONTEXT_CAPTURE_PROTOCOL_LABELS[value],
   })),
 );
 

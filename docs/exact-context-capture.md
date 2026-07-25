@@ -75,7 +75,7 @@ For either profile, enter the model ID and choose its expected wire protocol, th
 - `settings.json` and `mcp-config.json` are copied byte-for-byte when present;
 - regular files below `skills/`, `prompts/`, `hooks/`, `agents/`, and `plugins/` are copied while symbolic links and non-regular entries are rejected;
 - Copilot-managed `config.json` is parsed as JSON-with-comments and reduced to trust/setup state needed for non-interactive startup;
-- identity/login records, remote experiment-assignment caches, command history, IDE connection state, session databases/history, logs, downloaded CLI packages, credentials, and authentication are excluded.
+- identity/login records, remote experiment-assignment caches, command history, IDE connection state, session databases/history, logs, downloaded CLI packages, credentials, authentication, and non-allowlisted parent process environment variables are excluded.
 
 Copied does not necessarily mean inserted into the first request. MCP servers contribute only the tools they successfully advertise during discovery. Disabled skills remain disabled. Prompt files normally define invokable commands and do not enter context until invoked. Hooks contribute only if their configured trigger runs before the first model request. Repository instructions contribute according to Copilot CLI's own discovery rules in the selected working directory.
 
@@ -162,10 +162,10 @@ For a fresh repository benchmark:
 2. It creates a new temporary `COPILOT_HOME`.
 3. It copies only allowlisted context inputs: `settings.json`, `mcp-config.json`, `skills/`, `prompts/`, `hooks/`, `agents/`, and `plugins/`.
 4. It parses Copilot's JSON-with-comments `config.json`, retains only setup/trust keys needed for non-interactive startup, and writes strict sanitized JSON. Identity/login fields and remote experiment-assignment caches are never copied.
-5. It sets a random dummy provider credential, removes common GitHub/provider credentials from the child environment, enables offline/no-remote CLI options, and routes the selected protocol to loopback.
+5. It clears the inherited process environment, restores only allowlisted OS/runtime variables (for example `PATH`, temporary-directory, user-home, locale, and platform runtime paths), sets random dummy provider credentials, enables offline/no-remote CLI options, and routes the selected protocol to loopback. Proxy variables and provider/API credentials are not inherited; loopback is explicitly exempted from proxying.
 6. It terminates the disposable CLI process tree and removes the temporary home after capture, cancellation, timeout, or error.
 
-The repository itself is read in place. This is necessary for the CLI's normal repository instruction discovery, but it also means repository hooks or configured integrations can behave as they normally do. The model request is never forwarded; integrations that run before the request can still have their own side effects.
+The repository itself is read in place. This is necessary for the CLI's normal repository instruction discovery, but it also means repository hooks or configured integrations can behave as they normally do. The model request is never forwarded; integrations that run before the request can still have their own side effects. An integration that depends on a custom parent-process environment variable or authenticated proxy may not start in the isolated environment, so its tools may be absent from the captured request.
 
 ### Storage and reparsing
 
@@ -262,6 +262,7 @@ There are deliberate coupling points:
 - A one-shot error response assumes the client emits the complete first request before it requires any model response.
 - The current listener registers known HTTP `POST` routes and rejects retries. It is not yet a transparent proxy, TLS endpoint, WebSocket server, or streaming protocol emulator.
 - Normalized comparison matches tools by name and system blocks by source/index. Raw JSON remains available when a protocol needs a different semantic matching strategy.
+- The final process-tree `Drop` safeguard invokes the platform termination command synchronously. This preserves the no-orphan guarantee if an async cleanup future is itself dropped, but can briefly block that thread; native Windows job objects would remove that tradeoff in a future lifecycle refactor.
 
 ### Could this inspect Claude Code, Codex, or an arbitrary request?
 
