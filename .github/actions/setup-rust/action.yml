@@ -1,0 +1,37 @@
+name: Setup Rust
+description: Install the Rust toolchain and an optional workload-specific cache
+
+inputs:
+  components:
+    description: Comma-separated rustup components to install
+    required: false
+    default: ""
+  cache:
+    description: Restore the Rust dependency/build cache
+    required: false
+    default: "true"
+  cache-key:
+    description: Stable cache identity for this workload
+    required: false
+    default: ""
+  save-cache:
+    description: Save a new Rust cache when running on main
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable (2026-03-27)
+      with:
+        components: ${{ inputs.components }}
+
+    - name: Restore Rust cache
+      if: inputs.cache == 'true'
+      uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+      with:
+        shared-key: ${{ inputs.cache-key }}
+        save-if: >-
+          ${{ inputs.save-cache == 'true' &&
+              github.ref == 'refs/heads/main' &&
+              github.event_name != 'pull_request' }}
