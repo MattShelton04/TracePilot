@@ -70,6 +70,17 @@ For a repository environment, choose from the registered and recent repository l
 
 For either profile, enter the model ID and choose its expected wire protocol, then select **Capture snapshot**. The model ID is used both for Copilot's model-specific prompt/tool configuration and as the `model` value on the wire. Benchmark snapshots are always saved because their purpose is comparison over time. The repository environment may start configured MCP servers or other integrations as part of normal CLI context discovery; use the isolated baseline when you do not want those integrations involved.
 
+“Repository environment” is an allowlisted reconstruction, not a complete clone of the user's Copilot home:
+
+- `settings.json` and `mcp-config.json` are copied byte-for-byte when present;
+- regular files below `skills/`, `prompts/`, `hooks/`, `agents/`, and `plugins/` are copied while symbolic links and non-regular entries are rejected;
+- Copilot-managed `config.json` is parsed as JSON-with-comments and reduced to trust/setup state needed for non-interactive startup;
+- identity/login records, remote experiment-assignment caches, command history, IDE connection state, session databases/history, logs, downloaded CLI packages, credentials, and authentication are excluded.
+
+Copied does not necessarily mean inserted into the first request. MCP servers contribute only the tools they successfully advertise during discovery. Disabled skills remain disabled. Prompt files normally define invokable commands and do not enter context until invoked. Hooks contribute only if their configured trigger runs before the first model request. Repository instructions contribute according to Copilot CLI's own discovery rules in the selected working directory.
+
+The Raw JSON remains exact for this reconstructed execution environment. It should not be described as proof that every piece of state from an ordinary authenticated Copilot session was reproduced.
+
 The selected repository is read in place so repository instructions and available files reflect its current state. The CLI writes its new session and other state only inside TracePilot's temporary capture directory, which is removed after the request is received or the capture is cancelled.
 
 ### Compare benchmarks
@@ -150,7 +161,7 @@ For a fresh repository benchmark:
 1. TracePilot canonicalizes the selected repository and runs the CLI with that directory as its working directory.
 2. It creates a new temporary `COPILOT_HOME`.
 3. It copies only allowlisted context inputs: `settings.json`, `mcp-config.json`, `skills/`, `prompts/`, `hooks/`, `agents/`, and `plugins/`.
-4. It parses Copilot's JSON-with-comments `config.json`, retains only setup/trust keys needed for non-interactive startup, and writes strict sanitized JSON. Identity and login fields are never copied.
+4. It parses Copilot's JSON-with-comments `config.json`, retains only setup/trust keys needed for non-interactive startup, and writes strict sanitized JSON. Identity/login fields and remote experiment-assignment caches are never copied.
 5. It sets a random dummy provider credential, removes common GitHub/provider credentials from the child environment, enables offline/no-remote CLI options, and routes the selected protocol to loopback.
 6. It terminates the disposable CLI process tree and removes the temporary home after capture, cancellation, timeout, or error.
 

@@ -4,7 +4,7 @@ use crate::error::{OrchestratorError, Result};
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tracepilot_core::context_capture::{
     CaptureProtocol, ContextCaptureManifest, ContextCaptureSnapshot, ContextCaptureStorageStats,
     ContextCaptureSummary, parse_context_request,
@@ -147,7 +147,8 @@ pub fn get_capture(
             OrchestratorError::ContextCapture("Saved capture manifest is not an object.".into())
         })?
         .insert("parsed".into(), serde_json::to_value(parsed)?);
-    let manifest: ContextCaptureManifest = serde_json::from_value(metadata)?;
+    let mut manifest: ContextCaptureManifest = serde_json::from_value(metadata)?;
+    normalize_manifest_paths(&mut manifest);
     if hash_bytes(raw_body.as_bytes()) != manifest.raw_body_sha256
         || raw_body.len() as u64 != manifest.raw_body_bytes
     {
@@ -156,6 +157,21 @@ pub fn get_capture(
         ));
     }
     Ok(ContextCaptureSnapshot { manifest, raw_body })
+}
+
+fn normalize_manifest_paths(manifest: &mut ContextCaptureManifest) {
+    if let Some(repository_path) = manifest.repository_path.as_mut() {
+        *repository_path = normalize_path_for_display(std::mem::take(repository_path));
+    }
+    manifest.fidelity_manifest.working_directory = normalize_path_for_display(std::mem::take(
+        &mut manifest.fidelity_manifest.working_directory,
+    ));
+}
+
+fn normalize_path_for_display(path: String) -> String {
+    tracepilot_core::utils::fs::normalize_canonical_path(PathBuf::from(path))
+        .to_string_lossy()
+        .to_string()
 }
 
 pub fn delete_capture(tracepilot_home: &Path, session_id: &str, capture_id: &str) -> Result<()> {
@@ -321,5 +337,69 @@ mod tests {
         let loaded = get_capture(root.path(), &session_id, &capture_id).expect("load");
         assert_eq!(loaded.raw_body, snapshot.raw_body);
         assert!(loaded.manifest.saved);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn saved_capture_strips_legacy_windows_verbatim_paths_when_read() {
+        let root = tempfile::tempdir().expect("root");
+        let session_id = uuid::Uuid::new_v4().to_string();
+        let capture_id = uuid::Uuid::new_v4().to_string();
+        let nonce = "nonce".to_string();
+        let raw_body =
+            r#"{"model":"gpt-5","instructions":"rules","input":[],"tools":[]}"#.to_string();
+        let parsed = parse_context_request(
+            CaptureProtocol::OpenAiResponses,
+            raw_body.as_bytes(),
+            &nonce,
+        )
+        .expect("parse");
+        let snapshot = ContextCaptureSnapshot {
+            manifest: ContextCaptureManifest {
+                schema_version: CONTEXT_CAPTURE_SCHEMA_VERSION,
+                capture_id: capture_id.clone(),
+                source_session_id: session_id.clone(),
+                captured_at: Utc::now(),
+                source_events_fingerprint: SourceEventsFingerprint::default(),
+                cli_version: "1.0.71".into(),
+                capture_profile: "current-environment".into(),
+                capture_scope: CaptureScope::RepositoryBenchmark,
+                repository_path: Some(r"\\?\C:\git\TracePilot".into()),
+                capture_input_sha256: None,
+                protocol: CaptureProtocol::OpenAiResponses,
+                protocol_detection_source: "test".into(),
+                request_path: "/nonce/v1/responses".into(),
+                content_type: "application/json".into(),
+                raw_body_sha256: hash_bytes(raw_body.as_bytes()),
+                raw_body_bytes: raw_body.len() as u64,
+                raw_body_characters: raw_body.chars().count() as u64,
+                estimated_tokens: 1,
+                probe_nonce: nonce,
+                fidelity_manifest: FidelityManifest {
+                    profile: "current-environment".into(),
+                    included_resources: vec![],
+                    omitted_resources: vec![],
+                    working_directory: r"\\?\C:\git\TracePilot".into(),
+                    working_directory_fallback: false,
+                    source_unchanged: true,
+                },
+                warnings: vec![],
+                safe_header_names: vec![],
+                saved: false,
+                parsed,
+            },
+            raw_body,
+        };
+        save_capture(root.path(), &snapshot).expect("save");
+
+        let loaded = get_capture(root.path(), &session_id, &capture_id).expect("load");
+        assert_eq!(
+            loaded.manifest.repository_path.as_deref(),
+            Some(r"C:\git\TracePilot")
+        );
+        assert_eq!(
+            loaded.manifest.fidelity_manifest.working_directory,
+            r"C:\git\TracePilot"
+        );
     }
 }

@@ -606,11 +606,7 @@ async fn run_benchmark_capture(
                         "Select a repository for the current-environment benchmark.".into(),
                     )
                 })?;
-                let repository = PathBuf::from(selected).canonicalize().map_err(|error| {
-                    OrchestratorError::ContextCapture(format!(
-                        "Could not open the selected repository: {error}"
-                    ))
-                })?;
+                let repository = canonicalize_repository(selected)?;
                 if !repository.is_dir() {
                     return Err(OrchestratorError::ContextCapture(
                         "The selected repository path is not a directory.".into(),
@@ -627,7 +623,7 @@ async fn run_benchmark_capture(
                         "user settings, MCP configuration, skills, prompts, and hooks copied into temporary storage".into(),
                     ],
                     vec![
-                        "authentication, credentials, logs, session history, package cache, and command history".into(),
+                        "authentication, credentials, remote experiment assignments, IDE state, logs, session history, package cache, and command history".into(),
                     ],
                 )
             }
@@ -879,6 +875,14 @@ fn copy_environment_context(source_home: &Path, destination_home: &Path) -> Resu
         }
     }
     Ok(copied_bytes)
+}
+
+fn canonicalize_repository(selected: &str) -> Result<PathBuf> {
+    tracepilot_core::utils::fs::canonicalize(PathBuf::from(selected)).map_err(|error| {
+        OrchestratorError::ContextCapture(format!(
+            "Could not open the selected repository: {error}"
+        ))
+    })
 }
 
 fn copy_sanitized_cli_config(source: &Path, destination: &Path) -> Result<u64> {
@@ -1264,5 +1268,19 @@ mod tests {
         assert!(message.contains("Copilot's temporary setup state"));
         assert!(message.contains("config.json"));
         assert!(message.contains("line 2"));
+    }
+
+    #[test]
+    fn canonical_repository_path_is_suitable_for_display() {
+        let root = tempfile::tempdir().expect("root");
+        let canonical =
+            canonicalize_repository(root.path().to_string_lossy().as_ref()).expect("canonical");
+        assert!(canonical.is_absolute());
+        #[cfg(windows)]
+        assert!(
+            !canonical.to_string_lossy().starts_with(r"\\?\"),
+            "display path retained the Windows verbatim prefix: {}",
+            canonical.display()
+        );
     }
 }

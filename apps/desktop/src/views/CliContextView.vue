@@ -183,7 +183,7 @@ onMounted(async () => {
             <select
               v-if="worktreeStore.registeredRepos.length || prefsStore.recentRepoPaths.length"
               id="benchmark-known-repository"
-              class="repository-select"
+              class="context-native-select"
               :value="benchmark.repositoryPath.value"
               @change="selectKnownRepository"
             >
@@ -300,7 +300,7 @@ onMounted(async () => {
           <div class="compare-selectors">
             <label>
               <span>Before</span>
-              <select v-model="beforeId">
+              <select v-model="beforeId" class="context-native-select">
                 <option v-for="item in benchmark.summaries.value" :key="item.captureId" :value="item.captureId">
                   {{ snapshotLabel(item.captureId) }}
                 </option>
@@ -309,7 +309,7 @@ onMounted(async () => {
             <GitCompareArrows :size="18" aria-hidden="true" />
             <label>
               <span>After</span>
-              <select v-model="afterId">
+              <select v-model="afterId" class="context-native-select">
                 <option v-for="item in benchmark.summaries.value" :key="item.captureId" :value="item.captureId">
                   {{ snapshotLabel(item.captureId) }}
                 </option>
@@ -385,14 +385,35 @@ onMounted(async () => {
   gap: 8px;
 }
 
-.repository-select {
+.context-native-select {
+  width: 100%;
   min-width: 0;
   height: 32px;
   padding: 5px 28px 5px 10px;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
   background: var(--canvas-default);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--text-tertiary) 50%),
+    linear-gradient(135deg, var(--text-tertiary) 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) 50%,
+    calc(100% - 9px) 50%;
+  background-repeat: no-repeat;
+  background-size: 5px 5px;
   color: var(--text-primary);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 18px;
+  appearance: none;
+}
+
+.context-native-select option,
+.context-native-select optgroup {
+  background: var(--canvas-overlay);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 13px;
 }
 
 .capture-submit {
@@ -488,16 +509,6 @@ onMounted(async () => {
 .compare-selectors label {
   display: grid;
   gap: 6px;
-}
-
-.compare-selectors select {
-  min-width: 0;
-  height: 32px;
-  padding: 5px 28px 5px 10px;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  background: var(--canvas-default);
-  color: var(--text-primary);
 }
 
 .compare-selectors > svg {
