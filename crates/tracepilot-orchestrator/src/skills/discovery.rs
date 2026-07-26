@@ -5,7 +5,6 @@
 //! - Built-in skills bundled under versioned Copilot packages
 //! - Repository skills under supported repo-scoped skill roots
 
-use crate::launcher::copilot_home;
 use crate::skills::error::SkillsError;
 use crate::skills::parser::parse_skill_md;
 use crate::skills::types::{Skill, SkillScope, SkillSummary};
@@ -15,9 +14,9 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 fn copilot_paths() -> crate::error::Result<tracepilot_core::paths::CopilotPaths> {
-    Ok(tracepilot_core::paths::CopilotPaths::from_home(
-        copilot_home()?,
-    ))
+    tracepilot_core::paths::CopilotPaths::try_default().ok_or_else(|| {
+        crate::error::OrchestratorError::Config("Home directory not found".into())
+    })
 }
 
 /// Get the global skills directory (`~/.copilot/skills/`).
