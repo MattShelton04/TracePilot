@@ -120,6 +120,11 @@ function formatContextChange(value?: number | null): string {
       <p v-if="selectedPoint.source === 'observed'" class="context-tab__footnote">
         Copilot reported all three displayed layers for this point.
       </p>
+      <p v-else class="context-tab__footnote">
+        Estimated points reuse observed system/tool layers when available. Before the first
+        telemetry anchor, System is estimated from the initial main-agent system message; full tool
+        definitions are not present in events.jsonl, so that layer is shown as zero.
+      </p>
       <p v-if="cachedInputAiCredits != null" class="context-tab__footnote">
         At current {{ pointModel }} rates, if this entire displayed context were one cache read.
         This is a comparison baseline, not the turn's bill; it excludes uncached input, cache

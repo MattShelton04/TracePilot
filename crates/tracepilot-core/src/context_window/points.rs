@@ -9,6 +9,7 @@ pub(super) fn build_points(
     turn_count: usize,
     deltas: &[TurnDelta],
     anchors: &[Anchor],
+    initial_system_tokens: u64,
 ) -> Vec<ContextWindowPoint> {
     if turn_count == 0 {
         return Vec::new();
@@ -17,7 +18,9 @@ pub(super) fn build_points(
     let mut points = Vec::new();
     let mut interval_start = 1usize;
     let mut base_conversation = 0u64;
-    let mut last_system = anchors.first().map_or(0, |anchor| anchor.system);
+    let mut last_system = anchors
+        .first()
+        .map_or(initial_system_tokens, |anchor| anchor.system);
     let mut last_tools = anchors.first().map_or(0, |anchor| anchor.tools);
 
     for anchor in anchors {

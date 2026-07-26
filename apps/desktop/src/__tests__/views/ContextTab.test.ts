@@ -286,6 +286,8 @@ describe("ContextTab", () => {
     expect(wrapper.text()).toContain("Cached-input equivalent");
     expect(wrapper.text()).toContain("0.123 AIC");
     expect(wrapper.text()).toContain("not the turn's bill");
+    expect(wrapper.text()).toContain("initial main-agent system message");
+    expect(wrapper.text()).toContain("that layer is shown as zero");
     expect(wrapper.find(".context-tab__selected-inspector .context-tab__turn-tools").exists()).toBe(
       true,
     );
