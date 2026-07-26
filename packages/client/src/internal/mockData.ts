@@ -391,6 +391,7 @@ export async function getMockData<T>(cmd: string, args?: Record<string, unknown>
       hasUpdate: false,
       releaseUrl: null,
       publishedAt: null,
+      releaseNotes: null,
     } as UpdateCheckResult,
     get_git_info: { commitHash: "abc1234", branch: "main" } as GitInfo,
     is_session_running: false,

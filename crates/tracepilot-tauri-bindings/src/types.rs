@@ -184,6 +184,7 @@ pub struct UpdateCheckResult {
     pub has_update: bool,
     pub release_url: Option<String>,
     pub published_at: Option<String>,
+    pub release_notes: Option<String>,
 }
 
 #[derive(Debug, Serialize, specta::Type)]

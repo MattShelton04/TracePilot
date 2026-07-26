@@ -67,6 +67,7 @@ pub(crate) fn update_result_from_latest_release(
                 has_update: false,
                 release_url: None,
                 published_at: None,
+                release_notes: None,
             });
         }
         429 | 403 => {
@@ -102,6 +103,10 @@ pub(crate) fn update_result_from_latest_release(
         has_update,
         release_url: body["html_url"].as_str().map(String::from),
         published_at: body["published_at"].as_str().map(String::from),
+        release_notes: body["body"]
+            .as_str()
+            .filter(|notes| !notes.trim().is_empty())
+            .map(String::from),
     })
 }
 
@@ -115,6 +120,7 @@ mod tests {
             "tag_name": tag,
             "html_url": "https://example.invalid/release",
             "published_at": "2030-01-01T00:00:00Z",
+            "body": "## Added\n\n- A useful feature",
         })
     }
 
@@ -131,6 +137,10 @@ mod tests {
             Some("https://example.invalid/release")
         );
         assert_eq!(result.published_at.as_deref(), Some("2030-01-01T00:00:00Z"));
+        assert_eq!(
+            result.release_notes.as_deref(),
+            Some("## Added\n\n- A useful feature")
+        );
     }
 
     #[test]

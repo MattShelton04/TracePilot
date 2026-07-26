@@ -139,6 +139,7 @@ export type UpdateCheckResult = {
 	hasUpdate: boolean,
 	releaseUrl: string | null,
 	publishedAt: string | null,
+	releaseNotes: string | null,
 };
 
 export type ValidateSessionDirResult = {

@@ -348,7 +348,9 @@ Do not parse `CHANGELOG.md` at runtime for app metadata — CHANGELOG.md is a hu
 }
 ```
 
-This file lives at `apps/desktop/public/release-manifest.json` — Vite copies it into the bundle verbatim. The app fetches it locally at runtime (no network call needed for "What's New" display).
+This file lives at `apps/desktop/public/release-manifest.json` — Vite copies it into the bundle verbatim. The app fetches it locally at runtime for the installed version and historical "What's New" display.
+
+An installed bundle cannot contain manifest entries for versions released after it was built. When an update is available, the update check therefore also carries the GitHub release description returned by the existing latest-release API request. The preview renders that version-specific Markdown with the shared sanitized Markdown renderer when the bundled manifest does not cover the target version. This avoids a second network request while retaining the bundled manifest as the offline fallback.
 
 > **`requiresReindex` flag**: This should almost always be `false`. The indexer already handles reindex decisions automatically via `CURRENT_ANALYTICS_VERSION` and DB schema migration version tracking. The flag in `release-manifest.json` is an escape hatch for the rare case where a logic change isn't reflected in those version numbers (e.g., a parsing fix that improves data quality without changing the schema). When in doubt, leave it `false` — the automatic detection handles the common case.
 
@@ -727,7 +729,8 @@ async function checkForVersionChange() {
 
 The modal should:
 - Display the new version number prominently
-- Show release notes from the locally bundled `release-manifest.json`
+- Show release notes from the locally bundled `release-manifest.json` when it covers the target version
+- For a newer available version, fall back to the release description already returned by the GitHub update check
 - Handle the case where the user skipped multiple versions (e.g., 0.1.0 → 0.3.0) — show notes for all intermediate versions
 - Show a **"Reindex Recommended"** prompt if `requiresReindex: true` in the manifest, with a "Reindex Now" button wired to the existing reindex flow
 - Be dismissible ("Got it" stores the current version as seen)

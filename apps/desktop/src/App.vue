@@ -52,6 +52,7 @@ const {
   whatsNewCurrentVersion,
   whatsNewEntries,
   whatsNewReleaseUrl,
+  whatsNewReleaseNotes,
   closeWhatsNew,
 } = useWhatsNew();
 
@@ -162,6 +163,7 @@ const { breadcrumbs } = useBreadcrumbs(isTabViewActive);
     :current-version="whatsNewCurrentVersion"
     :entries="whatsNewEntries"
     :release-url="whatsNewReleaseUrl"
+    :release-notes="whatsNewReleaseNotes"
     @close="closeWhatsNew"
     @open-external="openExternal"
   />

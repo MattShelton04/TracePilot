@@ -21,6 +21,7 @@ async function handleViewWhatsNew() {
       appVersion.value,
       updateResult.value.latestVersion,
       updateResult.value.releaseUrl ?? undefined,
+      updateResult.value.releaseNotes ?? undefined,
     );
   } else {
     await openWhatsNew("0.0.0", appVersion.value);
