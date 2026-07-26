@@ -55,7 +55,7 @@ fn apply_export_pipeline(
 
 /// Export a single session to the specified format.
 ///
-/// Returns one or more output files (most formats produce one; CSV produces multiple).
+/// Returns the rendered output files.
 pub fn export_session(session_dir: &Path, options: &ExportOptions) -> Result<Vec<ExportFile>> {
     let mut archive = builder::build_session_archive(session_dir, options)?;
     apply_export_pipeline(&mut archive, options)

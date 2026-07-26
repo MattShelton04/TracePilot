@@ -12,7 +12,6 @@ const emit = defineEmits<(e: "update:modelValue", value: ExportTabFormat) => voi
 const formatOptions: { value: ExportTabFormat; label: string }[] = [
   { value: "json", label: "JSON" },
   { value: "markdown", label: "Markdown" },
-  { value: "csv", label: "CSV" },
   { value: "zip", label: "Raw Zip" },
 ];
 

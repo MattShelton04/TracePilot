@@ -8,7 +8,6 @@ use crate::document::SessionArchive;
 use crate::error::Result;
 use crate::options::ExportFormat;
 
-pub mod csv;
 pub mod json;
 pub mod markdown;
 
@@ -33,7 +32,6 @@ impl ExportFile {
 /// Trait implemented by each export format renderer.
 ///
 /// The rendering pipeline: `SessionArchive` → `render()` → `Vec<ExportFile>`.
-/// Most formats produce a single file; CSV produces multiple.
 pub trait ExportRenderer {
     /// The format this renderer produces.
     fn format(&self) -> ExportFormat;
@@ -56,6 +54,5 @@ pub fn create_renderer(format: ExportFormat) -> Box<dyn ExportRenderer> {
     match format {
         ExportFormat::Json => Box::new(json::JsonRenderer),
         ExportFormat::Markdown => Box::new(markdown::MarkdownRenderer),
-        ExportFormat::Csv => Box::new(csv::CsvRenderer),
     }
 }

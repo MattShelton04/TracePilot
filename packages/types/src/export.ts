@@ -47,7 +47,7 @@ export const SECTION_LABELS: Record<SectionId, string> = {
 
 // ── Export Format ────────────────────────────────────────────────
 
-export type ExportFormat = "json" | "markdown" | "csv";
+export type ExportFormat = "json" | "markdown";
 
 // ── Conflict Strategy (for import) ──────────────────────────────
 
@@ -124,7 +124,7 @@ export interface ExportPreviewRequest {
 
 /** Result returned from `preview_export`. Matches Rust `ExportPreviewResult`. */
 export interface ExportPreviewResult {
-  /** Rendered content (JSON, Markdown, or CSV). */
+  /** Rendered content (JSON or Markdown). */
   content: string;
   /** Format that was rendered. */
   format: string;

@@ -1,6 +1,6 @@
 [package]
 name = "tracepilot-export"
-description = "Export sessions to Markdown, JSON, or CSV with optional secret redaction"
+description = "Export sessions to Markdown or JSON with optional secret redaction"
 version.workspace = true
 edition.workspace = true
 

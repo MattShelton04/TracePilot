@@ -4,10 +4,9 @@
  *
  *   - `tpx.json` — TracePilot JSON export
  *   - `md`       — Markdown export
- *   - `csv`      — CSV export
  *   - `zip`      — Raw session folder archive
  */
-export type ExportExtension = "tpx.json" | "md" | "csv" | "zip";
+export type ExportExtension = "tpx.json" | "md" | "zip";
 
 /**
  * Inputs for {@link buildExportFilename}. Both name fields are optional;

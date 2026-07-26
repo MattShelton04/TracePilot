@@ -50,9 +50,8 @@ pub(super) fn parse_format(format: &str) -> CmdResult<ExportFormat> {
     match format.to_lowercase().as_str() {
         "json" => Ok(ExportFormat::Json),
         "markdown" | "md" => Ok(ExportFormat::Markdown),
-        "csv" => Ok(ExportFormat::Csv),
         other => Err(BindingsError::Validation(format!(
-            "Unknown export format: '{}'. Supported: json, markdown, csv",
+            "Unknown export format: '{}'. Supported: json, markdown",
             other
         ))),
     }

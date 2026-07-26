@@ -32,10 +32,10 @@ describe("buildExportFilename", () => {
       buildExportFilename({
         summary: null,
         repository: undefined,
-        extension: "csv",
+        extension: "md",
         now: FIXED_DATE,
       }),
-    ).toBe(`session-export-${FIXED_STAMP}.csv`);
+    ).toBe(`session-export-${FIXED_STAMP}.md`);
   });
 
   it("falls back to session-export when slug is only special characters", () => {
@@ -86,7 +86,7 @@ describe("buildExportFilename", () => {
   });
 
   it("defaults to the current time when `now` is omitted", () => {
-    const result = buildExportFilename({ summary: "x", extension: "csv" });
-    expect(result).toMatch(/^x-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}\.csv$/);
+    const result = buildExportFilename({ summary: "x", extension: "md" });
+    expect(result).toMatch(/^x-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}\.md$/);
   });
 });
