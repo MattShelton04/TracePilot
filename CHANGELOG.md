@@ -7,6 +7,25 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-07-26
+
+### Added
+- **Exact Context Capture** — See the precise request payload sent to the LLM for any given session, including the full system prompt, tool definitions, and conversation history as the model received them (#773)
+- **Builtin skill browsing in the Skill Editor** — Packaged Copilot CLI skills are now surfaced directly in the Skills Manager (#782)
+- **Month-to-date time range for Analytics** — A new date range preset aligned to the current billing cycle is available across all analytics views (#782)
+
+### Changed
+- **"Experimental Features" → "Additional Features"** — The settings section has been reorganized into two groups: Recommended (Skills, Export, Exact Context Capture) and Experimental (MCP Servers, Session Replay, Copilot SDK Bridge, Config Injector, Alerts), with a clear stability warning on the latter (#781)
+- **Lower default session cache** — The in-memory session cache now defaults to 10 (previously 30) and is user-configurable in Settings, with prioritized foreground loading and optimized prefetch (#778)
+- **CSV export removed** — CSV has been dropped as a session export format; JSON and Markdown remain available (#780)
+- **CI/CD pipeline optimizations** — GitHub Actions workflows restructured with dedicated composite actions for Node/pnpm, Rust, and Tauri Linux setup; improved caching, concurrency controls, and dependency pinning (#774)
+- **Repository reliability improvements** — Pinned Node.js version, upgraded workspace dependencies, hardened external link handling, improved config persistence, and expanded test coverage across the CLI, UI, and Rust backend (#775)
+- **Context Visualizer module decomposition** — The Context tab, context window builder, and session-DB parser were split into focused sub-modules with dedicated test suites (#779)
+
+### Fixed
+- **Release notes visible before downloading updates** — The What's New modal can now display changelogs for an upcoming release while the update is still downloading, rather than requiring the install to complete first (#777)
+- **Context Timeline accuracy for subagents** — Fixed ownership attribution so main-agent context is no longer conflated with subagent context; added system prompt size estimation before shutdown and snapshot tracking across turns (#783)
+
 ## [0.7.1] - 2026-07-21
 
 ### Added

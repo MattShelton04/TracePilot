@@ -1,6 +1,29 @@
 {
   "versions": [
     {
+      "version": "0.8.0",
+      "date": "2026-07-26",
+      "notes": {
+        "added": [
+          "Exact Context Capture: See the precise request payload sent to the LLM for any given session, including the full system prompt, tool definitions, and conversation history as the model received them",
+          "Builtin skill browsing in the Skill Editor: Packaged Copilot CLI skills are now surfaced directly in the Skills Manager",
+          "Month-to-date time range for Analytics: A new date range preset aligned to the current billing cycle is available across all analytics views"
+        ],
+        "changed": [
+          "\"Experimental Features\" is now \"Additional Features\": reorganized into Recommended (Skills, Export, Exact Context Capture) and Experimental (MCP Servers, Session Replay, Copilot SDK Bridge, Config Injector, Alerts) groups, with a clear stability warning on experimental items",
+          "Lower default session cache: in-memory session cache defaults to 10 (previously 30) and is user-configurable in Settings, with prioritized foreground loading and optimized prefetch",
+          "CSV export removed: CSV has been dropped as a session export format; JSON and Markdown remain available",
+          "CI/CD pipeline optimizations: GitHub Actions workflows restructured with dedicated composite actions, improved caching, concurrency controls, and dependency pinning",
+          "Repository reliability improvements: pinned Node.js version, upgraded workspace dependencies, hardened external link handling, improved config persistence, and expanded test coverage"
+        ],
+        "fixed": [
+          "Release notes visible before downloading updates: the What's New modal can now display changelogs for an upcoming release while the update is still downloading",
+          "Context Timeline accuracy for subagents: fixed ownership attribution so main-agent context is no longer conflated with subagent context; added system prompt size estimation and snapshot tracking across turns"
+        ]
+      },
+      "requiresReindex": false
+    },
+    {
       "version": "0.7.1",
       "date": "2026-07-21",
       "notes": {
