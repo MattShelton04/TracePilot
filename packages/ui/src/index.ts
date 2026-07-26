@@ -141,6 +141,11 @@ export type { TooltipProps } from "./components/Tooltip.vue";
 export { default as Tooltip } from "./components/Tooltip.vue";
 export type { UserContentEmojiProps } from "./components/UserContentEmoji.vue";
 export { default as UserContentEmoji } from "./components/UserContentEmoji.vue";
+export {
+  EXTERNAL_LINK_HANDLER_KEY,
+  type ExternalLinkHandler,
+  useExternalLinkHandler,
+} from "./composables/externalLinks";
 export { LIVE_TOOL_PARTIAL_OUTPUT_KEY } from "./composables/liveToolPartialOutput";
 export type {
   UseAsyncDataOptions,

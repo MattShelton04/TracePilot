@@ -134,7 +134,9 @@ Useful outputs:
 
 - Windows with the WebView2 runtime.
 - GitHub Copilot CLI with session history.
-- For source builds: Rust, Node.js 20+, pnpm 9+, and the Tauri 2 prerequisites.
+- For source builds: Rust, Node.js 22, pnpm 10, and the Tauri 2 prerequisites.
+  The exact known-good versions are recorded in `.node-version` and the root
+  `packageManager` field.
 
 ### Option A: install a Windows build (recommended)
 

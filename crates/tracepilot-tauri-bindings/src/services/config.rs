@@ -102,11 +102,17 @@ pub(crate) async fn factory_reset(shared_config: &SharedConfig) -> CmdResult<()>
         }
 
         if let Some(ref path) = config_path {
-            match std::fs::remove_file(path) {
-                Ok(()) => {}
-                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-                Err(e) => {
-                    tracing::warn!(error = %e, "factory_reset: failed to remove config file");
+            for target in [path.clone(), config::config_backup_file_path(path)] {
+                match std::fs::remove_file(&target) {
+                    Ok(()) => {}
+                    Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                    Err(e) => {
+                        tracing::warn!(
+                            path = %target.display(),
+                            error = %e,
+                            "factory_reset: failed to remove config file"
+                        );
+                    }
                 }
             }
         }

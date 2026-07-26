@@ -18,7 +18,7 @@
     "notification:default",
     {
       "identifier": "opener:allow-open-url",
-      "allow": [{ "url": "https://github.com/*" }, { "url": "https://api.github.com/*" }]
+      "allow": [{ "url": "https://*" }, { "url": "http://*" }]
     },
     "process:allow-restart",
     "updater:default"

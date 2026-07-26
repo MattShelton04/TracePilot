@@ -89,7 +89,9 @@ async function doExportLogs() {
           <div class="setting-info">
             <div class="setting-label">Export logs</div>
             <div class="setting-description">
-              Combine all log files into a single file for sharing when reporting issues
+              Combine all log files into a single file for reporting issues. Debug and trace logs
+              can include session payloads, local paths, and identifiers; review the file before
+              sharing it.
             </div>
           </div>
           <ActionButton size="sm" :disabled="exporting" @click="doExportLogs">

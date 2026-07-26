@@ -6,6 +6,7 @@
  * This component simply uses the shared singleton — no layout shift from async loading.
  */
 import { computed, nextTick, ref, watch, watchEffect } from "vue";
+import { useExternalLinkHandler } from "../composables/externalLinks";
 import { ensureMarkdownReady, escapeHtml, mdReady, renderMarkdown } from "../utils/markdownLoader";
 
 const props = withDefaults(
@@ -29,6 +30,7 @@ const props = withDefaults(
 const emit = defineEmits<{
   "open-external": [url: string];
 }>();
+const externalLinkHandler = useExternalLinkHandler();
 
 // Safety net: trigger load if not already started (shouldn't happen in practice)
 watchEffect(() => {
@@ -143,7 +145,11 @@ function handleLinkClick(event: MouseEvent) {
     } else if (href && (href.startsWith("http://") || href.startsWith("https://"))) {
       // External link - emit event for parent to handle (opens in external browser in Tauri)
       event.preventDefault();
-      emit("open-external", href);
+      if (externalLinkHandler) {
+        void externalLinkHandler(href);
+      } else {
+        emit("open-external", href);
+      }
     } else if (href) {
       // Block all other hrefs (relative paths, mailto:, tel:, data:, custom
       // schemes) to prevent the Tauri WebView from navigating away from the

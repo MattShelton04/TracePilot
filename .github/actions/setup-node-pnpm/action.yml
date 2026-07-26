@@ -12,11 +12,11 @@ runs:
   steps:
     - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
       with:
-        version: 9
+        version: 10.32.1
 
     - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
       with:
-        node-version: 20
+        node-version-file: .node-version
         package-manager-cache: false
 
     - name: Resolve pnpm store path
@@ -31,9 +31,9 @@ runs:
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ${{ steps.pnpm-store.outputs.path }}
-        key: pnpm-store-${{ runner.os }}-v9-${{ hashFiles('pnpm-lock.yaml') }}
+        key: pnpm-store-${{ runner.os }}-v10-${{ hashFiles('pnpm-lock.yaml') }}
         restore-keys: |
-          pnpm-store-${{ runner.os }}-v9-
+          pnpm-store-${{ runner.os }}-v10-
 
     - name: Install pnpm dependencies
       shell: bash
@@ -48,4 +48,4 @@ runs:
       uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ${{ steps.pnpm-store.outputs.path }}
-        key: pnpm-store-${{ runner.os }}-v9-${{ hashFiles('pnpm-lock.yaml') }}
+        key: pnpm-store-${{ runner.os }}-v10-${{ hashFiles('pnpm-lock.yaml') }}

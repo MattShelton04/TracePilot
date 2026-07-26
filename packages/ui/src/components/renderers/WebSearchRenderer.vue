@@ -6,6 +6,7 @@
 import type { TurnToolCall } from "@tracepilot/types";
 import { Globe, Search } from "lucide-vue-next";
 import { computed } from "vue";
+import { useExternalLinkHandler } from "../../composables/externalLinks";
 import RendererShell, { type RendererShellStatus } from "../RendererShell.vue";
 import RendererTruncationFooter from "../RendererTruncationFooter.vue";
 
@@ -18,7 +19,9 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   "load-full": [];
+  "open-external": [url: string];
 }>();
+const externalLinkHandler = useExternalLinkHandler();
 
 const status = computed<RendererShellStatus>(() =>
   props.tc?.success === true ? "success" : props.tc?.success === false ? "error" : "success",
@@ -93,7 +96,7 @@ const renderedBody = computed(() => {
 
   html = html.replace(
     /\[([^\]]+)\]\((https?:\/\/(?:[^()]*|\([^()]*\))*)\)/g,
-    '<a href="$2" target="_blank" rel="noopener" class="ws-link">$1</a>',
+    '<a href="$2" class="ws-link">$1</a>',
   );
 
   html = html.replace(/(?:^|\n)((?:(?:- |\* ).+\n?)+)/g, (_match, block: string) => {
@@ -141,6 +144,22 @@ function escapeHtml(s: string): string {
 function faviconUrl(domain: string): string {
   return `https://icons.duckduckgo.com/ip3/${domain}.ico`;
 }
+
+function handleLinkClick(event: MouseEvent) {
+  const target = event.target as HTMLElement;
+  const link = target.closest<HTMLAnchorElement>("a[href]");
+  if (!link) return;
+
+  event.preventDefault();
+  const href = link.getAttribute("href");
+  if (!href) return;
+
+  if (externalLinkHandler) {
+    void externalLinkHandler(href);
+  } else {
+    emit("open-external", href);
+  }
+}
 </script>
 
 <template>
@@ -151,7 +170,7 @@ function faviconUrl(domain: string): string {
     :copy-text="content"
   >
     <template #icon><Globe :size="16" /></template>
-    <div class="web-search">
+    <div class="web-search" @click="handleLinkClick">
       <div v-if="query" class="ws-query-bar">
         <Search :size="14" class="ws-query-icon" />
         <span class="ws-query-text">{{ query }}</span>
@@ -164,7 +183,7 @@ function faviconUrl(domain: string): string {
         <div class="ws-sources-label">Sources ({{ sources.length }})</div>
         <div class="ws-source-grid">
           <a v-for="(src, idx) in sources" :key="src.url"
-             :href="src.url" target="_blank" rel="noopener"
+             :href="src.url"
              class="ws-source-card">
             <span class="ws-source-num">{{ idx + 1 }}</span>
             <div class="ws-source-info">

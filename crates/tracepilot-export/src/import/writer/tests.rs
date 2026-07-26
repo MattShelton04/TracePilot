@@ -36,7 +36,7 @@ fn write_session_to_id_overrides_directory_and_workspace_id() {
 
     let yaml_path = result.join("workspace.yaml");
     let content = fs::read_to_string(&yaml_path).unwrap();
-    let parsed: serde_yml::Value = serde_yml::from_str(&content).unwrap();
+    let parsed: serde_norway::Value = serde_norway::from_str(&content).unwrap();
     assert_eq!(parsed["id"].as_str(), Some(new_id));
     assert!(!dir.path().join(&session.metadata.id).exists());
 }

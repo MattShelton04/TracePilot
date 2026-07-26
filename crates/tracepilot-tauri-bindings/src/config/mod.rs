@@ -21,6 +21,7 @@
 
 use crate::error::BindingsError;
 use serde::{Deserialize, Serialize};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
@@ -35,6 +36,8 @@ mod tool_rendering;
 mod ui;
 
 #[cfg(test)]
+mod persistence_tests;
+#[cfg(test)]
 mod tests;
 
 pub use alerts::AlertsConfig;
@@ -48,6 +51,12 @@ pub use ui::UiConfig;
 
 pub fn config_file_path() -> Option<PathBuf> {
     tracepilot_core::paths::TracePilotPaths::try_default().map(|p| p.config_toml())
+}
+
+pub(crate) fn config_backup_file_path(path: &Path) -> PathBuf {
+    let mut backup = path.as_os_str().to_os_string();
+    backup.push(".bak");
+    PathBuf::from(backup)
 }
 
 fn home_dir() -> Option<PathBuf> {
@@ -201,13 +210,23 @@ impl TracePilotConfig {
     /// Applies pending migrations and auto-saves if the version was bumped.
     pub fn load() -> Option<Self> {
         let path = config_file_path()?;
-        match Self::load_from(&path) {
-            Ok(mut config) => {
+        match Self::load_from_or_backup(&path) {
+            Ok((mut config, recovered_from_backup)) => {
                 tracing::info!(path = %path.display(), version = config.version, "Loaded config.toml");
-                if config.migrate() {
-                    tracing::info!(new_version = config.version, "Config migrated — saving");
+                if recovered_from_backup {
+                    tracing::warn!(
+                        path = %path.display(),
+                        backup = %config_backup_file_path(&path).display(),
+                        "Recovered config.toml from the last-known-good backup"
+                    );
+                }
+                let migrated = config.migrate();
+                if migrated || recovered_from_backup {
+                    if migrated {
+                        tracing::info!(new_version = config.version, "Config migrated — saving");
+                    }
                     if let Err(e) = config.save_to(&path) {
-                        tracing::warn!(error = %e, "Failed to save migrated config");
+                        tracing::warn!(error = %e, "Failed to save recovered/migrated config");
                     }
                 }
                 Some(config)
@@ -238,6 +257,18 @@ impl TracePilotConfig {
         Ok(config)
     }
 
+    fn load_from_or_backup(path: &Path) -> Result<(Self, bool), BindingsError> {
+        match Self::load_from(path) {
+            Ok(config) => Ok((config, false)),
+            Err(primary_error) => {
+                let backup_path = config_backup_file_path(path);
+                Self::load_from(&backup_path)
+                    .map(|config| (config, true))
+                    .map_err(|_| primary_error)
+            }
+        }
+    }
+
     /// Save config to the standard location.
     pub fn save(&self) -> Result<(), BindingsError> {
         let path = config_file_path().ok_or_else(|| {
@@ -254,14 +285,14 @@ impl TracePilotConfig {
     /// This is the low-level "serialize + write" primitive used by [`save()`](Self::save)
     /// and available directly for testing.
     ///
-    /// Note: this is **not** atomic — a crash mid-write could leave a truncated
-    /// file.  A future improvement could use write-to-temp + rename for
-    /// crash-safety.
+    /// Writes through a same-directory temporary file and keeps the previous
+    /// valid configuration as `{path}.bak`. If the existing file is corrupt,
+    /// it is replaced without overwriting the last-known-good backup.
     pub fn save_to(&self, path: &Path) -> Result<(), BindingsError> {
         tracepilot_core::utils::fs::ensure_parent_dir(path)?;
         let content = toml::to_string_pretty(self)?;
-        std::fs::write(path, content)?;
-        Ok(())
+        let existing_is_valid = Self::load_from(path).is_ok();
+        atomic_replace_config(path, content.as_bytes(), existing_is_valid)
     }
 
     pub fn session_state_dir(&self) -> PathBuf {
@@ -331,4 +362,79 @@ pub type SharedConfig = Arc<RwLock<Option<TracePilotConfig>>>;
 pub fn create_shared_config() -> SharedConfig {
     let config = TracePilotConfig::load();
     Arc::new(RwLock::new(config))
+}
+
+fn atomic_replace_config(
+    path: &Path,
+    content: &[u8],
+    backup_existing: bool,
+) -> Result<(), BindingsError> {
+    let mut temp_name = path.as_os_str().to_os_string();
+    temp_name.push(format!(".tmp-{}", uuid::Uuid::new_v4()));
+    let temp_path = PathBuf::from(temp_name);
+    let mut backup_temp_path_to_cleanup = None;
+
+    let write_result = (|| {
+        let mut temp = std::fs::OpenOptions::new()
+            .create_new(true)
+            .write(true)
+            .open(&temp_path)?;
+        temp.write_all(content)?;
+        temp.sync_all()?;
+        drop(temp);
+
+        let backup_path = config_backup_file_path(path);
+        if backup_existing {
+            let mut backup_temp_name = backup_path.as_os_str().to_os_string();
+            backup_temp_name.push(format!(".tmp-{}", uuid::Uuid::new_v4()));
+            let backup_temp_path = PathBuf::from(backup_temp_name);
+            backup_temp_path_to_cleanup = Some(backup_temp_path.clone());
+
+            std::fs::copy(path, &backup_temp_path)?;
+            std::fs::OpenOptions::new()
+                .read(true)
+                .write(true)
+                .open(&backup_temp_path)?
+                .sync_all()?;
+            replace_file(&backup_temp_path, &backup_path, None)?;
+            backup_temp_path_to_cleanup = None;
+        }
+
+        replace_file(
+            &temp_path,
+            path,
+            backup_existing.then_some(backup_path.as_path()),
+        )
+    })();
+
+    if write_result.is_err() {
+        let _ = std::fs::remove_file(&temp_path);
+        if let Some(backup_temp_path) = backup_temp_path_to_cleanup {
+            let _ = std::fs::remove_file(backup_temp_path);
+        }
+    }
+    write_result
+}
+
+fn replace_file(
+    source: &Path,
+    destination: &Path,
+    recovery: Option<&Path>,
+) -> Result<(), BindingsError> {
+    #[cfg(windows)]
+    if destination.exists() {
+        std::fs::remove_file(destination)?;
+    }
+
+    if let Err(error) = std::fs::rename(source, destination) {
+        if !destination.exists()
+            && let Some(recovery) = recovery
+            && recovery.exists()
+        {
+            let _ = std::fs::copy(recovery, destination);
+        }
+        return Err(error.into());
+    }
+
+    Ok(())
 }

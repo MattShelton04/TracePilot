@@ -21,7 +21,7 @@ pub enum TracePilotError {
     DatabaseError(#[from] rusqlite::Error),
 
     #[error("YAML parse error: {0}")]
-    YamlError(#[from] serde_yml::Error),
+    YamlError(#[from] serde_norway::Error),
 
     #[error("JSON parse error: {0}")]
     JsonError(#[from] serde_json::Error),
@@ -111,7 +111,8 @@ impl TracePilotError {
         let file = std::fs::File::open(path)
             .map_err(|e| Self::io_context("Failed to read", path.display(), e))?;
         let reader = std::io::BufReader::new(file);
-        serde_yml::from_reader(reader).map_err(|e| Self::parse_context("YAML", path.display(), e))
+        serde_norway::from_reader(reader)
+            .map_err(|e| Self::parse_context("YAML", path.display(), e))
     }
 
     /// Parse a YAML string with context-rich errors.
@@ -119,7 +120,7 @@ impl TracePilotError {
         yaml: &str,
         context: impl std::fmt::Display,
     ) -> Result<T> {
-        serde_yml::from_str(yaml)
+        serde_norway::from_str(yaml)
             .map_err(|e| Self::parse_context(&format!("YAML ({context})"), "(in-memory)", e))
     }
 
@@ -188,7 +189,7 @@ mod tests {
 
     #[test]
     fn test_parse_context_with_yaml_error() {
-        let yaml_err = serde_yml::from_str::<i32>("not: valid: yaml:").unwrap_err();
+        let yaml_err = serde_norway::from_str::<i32>("not: valid: yaml:").unwrap_err();
         let err = TracePilotError::parse_context("YAML", "/config/app.yaml", yaml_err);
 
         match &err {
