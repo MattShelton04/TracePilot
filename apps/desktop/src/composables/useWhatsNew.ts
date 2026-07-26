@@ -7,6 +7,7 @@ const whatsNewPreviousVersion = ref("");
 const whatsNewCurrentVersion = ref("");
 const whatsNewEntries = ref<ReleaseManifestEntry[]>([]);
 const whatsNewReleaseUrl = ref("");
+const whatsNewReleaseNotes = ref("");
 
 async function fetchManifest(): Promise<ReleaseManifestEntry[]> {
   try {
@@ -26,12 +27,14 @@ export async function openWhatsNew(
   previous: string,
   current: string,
   releaseUrl?: string,
+  releaseNotes?: string,
 ): Promise<void> {
   const entries = await fetchManifest();
   whatsNewEntries.value = entries;
   whatsNewPreviousVersion.value = previous;
   whatsNewCurrentVersion.value = current;
   whatsNewReleaseUrl.value = releaseUrl ?? "";
+  whatsNewReleaseNotes.value = releaseNotes ?? "";
   showWhatsNew.value = true;
 }
 
@@ -46,6 +49,7 @@ export function useWhatsNew() {
     whatsNewCurrentVersion,
     whatsNewEntries,
     whatsNewReleaseUrl,
+    whatsNewReleaseNotes,
     openWhatsNew,
     closeWhatsNew,
   };

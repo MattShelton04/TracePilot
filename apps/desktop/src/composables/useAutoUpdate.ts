@@ -17,6 +17,11 @@ const progress = ref(0);
 const errorMessage = ref<string | null>(null);
 const installType = ref<InstallType>("unknown");
 
+export function calculateDownloadProgress(downloadedBytes: number, totalBytes: number): number {
+  if (totalBytes <= 0) return 0;
+  return Math.min(100, Math.max(0, Math.round((downloadedBytes / totalBytes) * 100)));
+}
+
 async function detectInstallType(): Promise<InstallType> {
   if (installType.value !== "unknown") return installType.value;
   try {
@@ -68,10 +73,11 @@ async function installUpdate(): Promise<void> {
       switch (event.event) {
         case "Started":
           totalBytes = event.data.contentLength ?? 0;
+          downloadedBytes = 0;
           break;
         case "Progress":
           downloadedBytes += event.data.chunkLength;
-          progress.value = totalBytes > 0 ? Math.round((downloadedBytes / totalBytes) * 100) : 0;
+          progress.value = calculateDownloadProgress(downloadedBytes, totalBytes);
           break;
         case "Finished":
           status.value = "installing";

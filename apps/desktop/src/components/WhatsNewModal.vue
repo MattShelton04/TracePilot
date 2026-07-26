@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ReleaseManifestEntry } from "@tracepilot/types";
+import { MarkdownContent } from "@tracepilot/ui";
 import { computed } from "vue";
 
 const props = defineProps<{
@@ -7,6 +8,7 @@ const props = defineProps<{
   currentVersion: string;
   entries: ReleaseManifestEntry[];
   releaseUrl?: string;
+  releaseNotes?: string;
 }>();
 
 const emit = defineEmits<{
@@ -37,6 +39,7 @@ const relevantEntries = computed(() => {
 });
 
 const needsReindex = computed(() => relevantEntries.value.some((e) => e.requiresReindex));
+const hasRemoteReleaseNotes = computed(() => Boolean(props.releaseNotes?.trim()));
 </script>
 
 <template>
@@ -89,8 +92,18 @@ const needsReindex = computed(() => relevantEntries.value.some((e) => e.requires
             </div>
           </div>
 
-          <div v-if="relevantEntries.length === 0" class="no-notes">
-            <p>No detailed release notes available for this update.</p>
+          <div
+            v-if="relevantEntries.length === 0 && hasRemoteReleaseNotes"
+            class="remote-release-notes"
+          >
+            <MarkdownContent
+              :content="releaseNotes ?? ''"
+              @open-external="(url) => emit('open-external', url)"
+            />
+          </div>
+
+          <div v-else-if="relevantEntries.length === 0" class="no-notes">
+            <p>Release notes could not be loaded for this update.</p>
             <p v-if="releaseUrl">
               <a
                 href="#"
@@ -240,6 +253,10 @@ const needsReindex = computed(() => relevantEntries.value.some((e) => e.requires
   padding: 20px;
   color: var(--text-secondary);
   font-size: 14px;
+}
+
+.remote-release-notes {
+  padding-top: 4px;
 }
 
 .release-notes-link {

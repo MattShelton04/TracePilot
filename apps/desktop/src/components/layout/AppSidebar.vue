@@ -116,6 +116,7 @@ async function handleWhatsNewPreview() {
       appVersion.value,
       latestVersion,
       updateResult.value?.releaseUrl ?? undefined,
+      updateResult.value?.releaseNotes ?? undefined,
     );
   }
 }

@@ -342,6 +342,14 @@ function handleOpenRelease() {
   margin-top: 12px;
 }
 
+.auto-update-progress :deep(.progress-bar) {
+  width: 100%;
+}
+
+.auto-update-progress :deep(.progress-bar-fill) {
+  transition: none;
+}
+
 .progress-text {
   display: block;
   margin-top: 6px;
