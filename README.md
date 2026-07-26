@@ -79,7 +79,6 @@ The orchestration pages are for starting and organizing Copilot CLI work from th
 - **Command Centre** shows repository/session status, recent activity, and system dependency health.
 - **Session Launcher** builds Copilot CLI launch commands with repository, branch, model, prompt, environment, and optional worktree settings.
 - **Worktree Manager** discovers registered repositories, creates/removes/prunes worktrees, fetches remotes, opens folders, and launches sessions from worktrees.
-- **Config Injector** edits Copilot CLI agent model assignments and user settings, compares installed CLI versions, and backs up/restores config files.
 
 TracePilot understands the newer Copilot CLI settings layout: user-editable settings belong in `~/.copilot/settings.json`, while CLI-managed internal state can remain in `~/.copilot/config.json`.
 
@@ -99,8 +98,9 @@ TracePilot includes feature-flagged configuration surfaces for:
 - **MCP Server Manager**: add, import, configure, toggle, and health-check MCP servers compatible with Copilot CLI configuration.
 - **Session Replay**: step through session event timelines using indexed session data.
 - **Copilot SDK bridge**: experimental live-session connection and steering support.
+- **Config Injector**: edit Copilot CLI agent model assignments and user settings, compare installed CLI versions, and back up or restore config files.
 
-Skills, MCP servers, export view, and Markdown rendering are enabled by default in current builds. Session Replay and the Copilot SDK bridge remain experimental and disabled by default.
+Skills, Export, and Exact Context Capture are presented as recommended additional features. MCP Servers, Session Replay, the Copilot SDK bridge, and Config Injector are experimental and disabled by default.
 
 ### Export and share sessions
 

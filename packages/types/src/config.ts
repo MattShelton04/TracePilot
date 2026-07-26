@@ -80,6 +80,7 @@ export interface TracePilotConfig {
     skills: boolean;
     copilotSdk: boolean;
     exactContextCapture: boolean;
+    configInjector: boolean;
   };
   logging: {
     level: string;

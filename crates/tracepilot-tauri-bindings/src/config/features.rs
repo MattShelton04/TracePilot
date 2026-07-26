@@ -13,7 +13,7 @@ pub struct FeaturesConfig {
     pub session_replay: bool,
     #[serde(default = "default_true")]
     pub render_markdown: bool,
-    #[serde(default = "default_true")]
+    #[serde(default)]
     pub mcp_servers: bool,
     #[serde(default = "default_true")]
     pub skills: bool,
@@ -21,6 +21,8 @@ pub struct FeaturesConfig {
     pub copilot_sdk: bool,
     #[serde(default)]
     pub exact_context_capture: bool,
+    #[serde(default)]
+    pub config_injector: bool,
 }
 
 impl Default for FeaturesConfig {
@@ -29,10 +31,28 @@ impl Default for FeaturesConfig {
             export_view: false,
             session_replay: false,
             render_markdown: true,
-            mcp_servers: true,
+            mcp_servers: false,
             skills: true,
             copilot_sdk: false,
             exact_context_capture: false,
+            config_injector: false,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::FeaturesConfig;
+
+    #[test]
+    fn experimental_configuration_features_default_off() {
+        let defaults = FeaturesConfig::default();
+        assert!(!defaults.mcp_servers);
+        assert!(!defaults.config_injector);
+
+        let missing_fields: FeaturesConfig =
+            toml::from_str("").expect("an empty features table should use field defaults");
+        assert!(!missing_fields.mcp_servers);
+        assert!(!missing_fields.config_injector);
     }
 }

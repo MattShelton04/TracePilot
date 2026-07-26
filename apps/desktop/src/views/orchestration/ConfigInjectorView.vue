@@ -61,7 +61,7 @@ const tabNavItems = computed(() =>
       />
 
       <nav class="breadcrumb">
-        <span class="breadcrumb-link">Orchestration</span>
+        <span class="breadcrumb-link">Configuration</span>
         <span class="breadcrumb-sep">›</span>
         <span class="breadcrumb-current">Config Injector</span>
       </nav>
@@ -102,4 +102,3 @@ const tabNavItems = computed(() =>
     </div>
   </div>
 </template>
-

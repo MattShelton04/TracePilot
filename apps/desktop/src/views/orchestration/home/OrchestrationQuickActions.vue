@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import { Bot, GitBranch, LayoutDashboard, type LucideIcon, Rocket } from "lucide-vue-next";
+import { computed } from "vue";
 import { useRouter } from "vue-router";
+import type { FeatureFlag } from "@/config/featureFlags";
 import { ROUTE_NAMES, type RouteName } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
+import { usePreferencesStore } from "@/stores/preferences";
 
 const router = useRouter();
+const preferences = usePreferencesStore();
 
 interface QuickAction {
   icon: LucideIcon;
@@ -12,9 +16,10 @@ interface QuickAction {
   desc: string;
   to: RouteName | null;
   disabled: boolean;
+  featureFlag?: FeatureFlag;
 }
 
-const quickActions: QuickAction[] = [
+const allQuickActions: QuickAction[] = [
   {
     icon: Rocket,
     title: "Launch Session",
@@ -35,6 +40,7 @@ const quickActions: QuickAction[] = [
     desc: "Edit agent definitions & configs",
     to: ROUTE_NAMES.configInjector,
     disabled: false,
+    featureFlag: "configInjector",
   },
   {
     icon: GitBranch,
@@ -44,6 +50,12 @@ const quickActions: QuickAction[] = [
     disabled: false,
   },
 ];
+
+const quickActions = computed(() =>
+  allQuickActions.filter(
+    (action) => !action.featureFlag || preferences.isFeatureEnabled(action.featureFlag),
+  ),
+);
 
 function navigateAction(action: QuickAction) {
   if (!action.disabled && action.to) {

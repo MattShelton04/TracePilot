@@ -81,6 +81,11 @@ describe("createDefaultConfig", () => {
     expect(createDefaultConfig({})).toEqual(expectedDefaults);
   });
 
+  it("keeps experimental configuration features disabled by default", () => {
+    expect(DEFAULT_FEATURES.mcpServers).toBe(false);
+    expect(DEFAULT_FEATURES.configInjector).toBe(false);
+  });
+
   it("should return a new object each call (mutation isolation)", () => {
     const a = createDefaultConfig();
     const b = createDefaultConfig();

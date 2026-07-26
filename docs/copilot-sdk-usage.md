@@ -2,7 +2,7 @@
 
 TracePilot integrates the community [Copilot SDK for Rust](https://github.com/copilot-community-sdk/copilot-sdk-rust) to enable **real-time session steering**, programmatic event streaming, and direct communication with the Copilot CLI — all from the desktop UI.
 
-> **Status:** Experimental. Enable via Settings → Experimental → Copilot SDK Bridge.
+> **Status:** Experimental. Enable via Settings → Additional Features → Copilot SDK Bridge.
 
 ---
 
@@ -175,7 +175,7 @@ Click "Detect UI Server" in Settings or use "Detect & Connect" for one-click dis
 ### Building
 
 The SDK is compiled into every build — there is no opt-out flag (ADR-0007).
-To disable at runtime, toggle **Settings → Experimental → Copilot SDK** off.
+To disable at runtime, toggle **Settings → Additional Features → Copilot SDK Bridge** off.
 
 ```bash
 cargo build
@@ -405,7 +405,7 @@ cd apps/desktop && npx vue-tsc --noEmit
 
 ### Manual Testing
 
-1. Enable the feature flag: Settings → Experimental → **Copilot SDK Bridge**
+1. Enable the feature flag: Settings → Additional Features → **Copilot SDK Bridge**
 2. In Settings → Copilot SDK Bridge, click **Connect** (leave CLI URL empty to spawn a subprocess)
 3. Open a session in the Conversation tab
 4. The steering panel should appear at the bottom of the Chat view
@@ -430,9 +430,9 @@ pnpm tauri dev
 | Issue | Solution |
 |---|---|
 | "SDK not available" error | Should not occur — the SDK is always compiled in (ADR-0007). If you see this from older logs, rebuild on `main`. |
-| "Copilot SDK bridge is disabled by user preference" | Enable **Settings → Experimental → Copilot SDK**. Existing sessions remain steerable even while the toggle is off. |
+| "Copilot SDK bridge is disabled by user preference" | Enable **Settings → Additional Features → Copilot SDK Bridge**. Existing sessions remain steerable even while the toggle is off. |
 | Can't connect | Ensure Copilot CLI is installed and on PATH (`copilot --version`) |
-| No steering panel | Enable `copilotSdk` feature flag in Settings → Experimental |
+| No steering panel | Enable `copilotSdk` feature flag in Settings → Additional Features |
 | Auth errors | Run `gh auth login` to authenticate |
 | Connection drops | Check CLI subprocess is still running; try reconnecting |
 | Models list empty | Ensure connected and authenticated |

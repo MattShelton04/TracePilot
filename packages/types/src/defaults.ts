@@ -48,10 +48,11 @@ export const DEFAULT_FEATURES: TracePilotConfig["features"] = {
   exportView: true,
   sessionReplay: false,
   renderMarkdown: true,
-  mcpServers: true,
+  mcpServers: false,
   skills: true,
   copilotSdk: false,
   exactContextCapture: false,
+  configInjector: false,
 };
 
 /**

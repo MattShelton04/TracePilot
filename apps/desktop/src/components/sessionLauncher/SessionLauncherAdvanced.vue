@@ -21,7 +21,7 @@ const {
   sdkFeatureEnabled,
 } = useSessionLauncherContext();
 
-const sdkDisabledHint = "Enable copilotSdk in Settings → Experimental";
+const sdkDisabledHint = "Enable Copilot SDK Bridge in Settings → Additional Features";
 
 function toggleHeadless() {
   if (!sdkFeatureEnabled.value) return;
