@@ -44,7 +44,7 @@ pub enum SkillsError {
     },
     /// YAML error with preserved source chain.
     #[error("Skills YAML error: {0}")]
-    YamlSource(#[from] serde_yml::Error),
+    YamlSource(#[from] serde_norway::Error),
     /// TracePilot core error.
     #[error(transparent)]
     Core(#[from] tracepilot_core::TracePilotError),
@@ -152,9 +152,9 @@ mod tests {
     }
 
     #[test]
-    fn from_serde_yml_error() {
+    fn from_serde_norway_error() {
         let yaml = "{{invalid";
-        let yml_err = serde_yml::from_str::<serde_yml::Value>(yaml).unwrap_err();
+        let yml_err = serde_norway::from_str::<serde_norway::Value>(yaml).unwrap_err();
         let skills_err: SkillsError = yml_err.into();
         assert!(matches!(skills_err, SkillsError::YamlSource(_)));
         assert!(!skills_err.to_string().is_empty());
@@ -177,7 +177,7 @@ mod tests {
     fn yaml_error_preserves_source_chain() {
         use std::error::Error;
         let yaml = "bad: {{unclosed";
-        let yml_err = serde_yml::from_str::<serde_yml::Value>(yaml).unwrap_err();
+        let yml_err = serde_norway::from_str::<serde_norway::Value>(yaml).unwrap_err();
         let skills_err: SkillsError = yml_err.into();
         assert!(matches!(skills_err, SkillsError::YamlSource(_)));
         assert!(

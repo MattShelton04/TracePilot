@@ -7,7 +7,7 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { formatTokens } from "@tracepilot/types";
-import yaml from "js-yaml";
+import { parse as parseYaml } from "yaml";
 import { getSessionStateDir } from "../lib/session-path.js";
 import { CliError } from "../utils/errorHandler.js";
 
@@ -80,13 +80,13 @@ export interface WorkspaceInfo {
 }
 
 /**
- * Parse workspace.yaml from a session directory using js-yaml.
+ * Parse workspace.yaml from a session directory.
  */
 export async function parseWorkspace(sessionDir: string): Promise<WorkspaceInfo> {
   const content = await readFile(join(sessionDir, "workspace.yaml"), "utf-8");
-  const raw = yaml.load(content) as Record<string, unknown>;
+  const raw = parseYaml(content) as Record<string, unknown>;
 
-  // js-yaml parses dates as Date objects — normalize to ISO strings
+  // Normalize timestamp-like values if a parser/schema returns Date objects.
   const toStr = (v: unknown): string | undefined => {
     if (v == null) return undefined;
     if (v instanceof Date) return v.toISOString();

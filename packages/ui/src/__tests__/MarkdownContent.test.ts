@@ -1,6 +1,7 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import MarkdownContent from "../components/MarkdownContent.vue";
+import { EXTERNAL_LINK_HANDLER_KEY } from "../composables/externalLinks";
 import { ensureMarkdownReady } from "../utils/markdownLoader";
 
 // Pre-load markdown-it + dompurify before any test renders
@@ -66,6 +67,32 @@ describe("MarkdownContent", () => {
     const wrapper2 = await mountAndWait({ content: "[click](javascript:alert(1))" });
     // markdown-it or dompurify will prevent this from being a clickable javascript link
     expect(wrapper2.html()).not.toContain('href="javascript:');
+  });
+
+  it("routes external links through the provided application handler", async () => {
+    const openExternal = vi.fn();
+    const wrapper = mount(MarkdownContent, {
+      props: { content: "[Docs](https://example.com/docs)" },
+      global: {
+        provide: {
+          [EXTERNAL_LINK_HANDLER_KEY as symbol]: openExternal,
+        },
+      },
+    });
+    for (let i = 0; i < 4; i++) await flushPromises();
+
+    await wrapper.get("a").trigger("click");
+
+    expect(openExternal).toHaveBeenCalledWith("https://example.com/docs");
+    expect(wrapper.emitted("open-external")).toBeUndefined();
+  });
+
+  it("emits external links when no application handler is provided", async () => {
+    const wrapper = await mountAndWait({ content: "[Docs](https://example.com/docs)" });
+
+    await wrapper.get("a").trigger("click");
+
+    expect(wrapper.emitted("open-external")).toEqual([["https://example.com/docs"]]);
   });
 
   it("trims extra newlines (fix for reported bug)", async () => {

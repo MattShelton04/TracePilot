@@ -23,11 +23,10 @@
     "better-sqlite3": "^12.8.0",
     "chalk": "^5.4.0",
     "commander": "^13.1.0",
-    "js-yaml": "^4.1.1"
+    "yaml": "^2.9.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
-    "@types/js-yaml": "^4.0.9",
     "@types/node": "catalog:",
     "vitest": "catalog:",
     "tsx": "catalog:",

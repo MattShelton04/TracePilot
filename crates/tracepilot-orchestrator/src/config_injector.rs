@@ -49,7 +49,7 @@ pub fn read_agent_definitions(version_dir: &Path) -> Result<Vec<AgentDefinition>
 /// Uses atomic write (write to temp then rename) for safety.
 pub fn write_agent_definition(path: &Path, yaml_content: &str) -> Result<()> {
     // Validate YAML is parseable before writing
-    let _: serde_yml::Value = TracePilotError::from_yaml_str(yaml_content, "Agent Definition")?;
+    let _: serde_norway::Value = TracePilotError::from_yaml_str(yaml_content, "Agent Definition")?;
 
     let parent = path
         .parent()
@@ -242,7 +242,7 @@ pub fn diff_files(old_path: &Path, new_path: &Path) -> Result<ConfigDiff> {
 
 fn parse_agent_yaml(path: &Path) -> Result<Option<AgentDefinition>> {
     let content = TracePilotError::read_to_string(path)?;
-    let value: serde_yml::Value = TracePilotError::from_yaml_str(&content, path.display())?;
+    let value: serde_norway::Value = TracePilotError::from_yaml_str(&content, path.display())?;
 
     let name = value
         .get("name")

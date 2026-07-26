@@ -138,7 +138,7 @@ fn import_duplicate_creates_new_id() {
     );
 
     let yaml = fs::read_to_string(result.imported[0].path.join("workspace.yaml")).unwrap();
-    let parsed: serde_yml::Value = serde_yml::from_str(&yaml).unwrap();
+    let parsed: serde_norway::Value = serde_norway::from_str(&yaml).unwrap();
     assert_eq!(parsed["id"].as_str(), Some(result.imported[0].id.as_str()));
 
     let existing_yaml = fs::read_to_string(existing_dir.join("workspace.yaml")).unwrap();

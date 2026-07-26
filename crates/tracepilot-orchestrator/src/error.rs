@@ -7,7 +7,7 @@ pub enum OrchestratorError {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
     #[error("YAML parse error: {0}")]
-    Yaml(#[from] serde_yml::Error),
+    Yaml(#[from] serde_norway::Error),
     #[error("JSON parse error: {0}")]
     Json(#[from] serde_json::Error),
     #[error("Config error: {0}")]

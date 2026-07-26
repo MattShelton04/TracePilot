@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ConfirmDialog, ToastContainer } from "@tracepilot/ui";
+import { ConfirmDialog, EXTERNAL_LINK_HANDLER_KEY, ToastContainer } from "@tracepilot/ui";
 import { computed, provide, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import AlertCenterDrawer from "@/components/chrome/AlertCenterDrawer.vue";
@@ -78,6 +78,7 @@ const isTabViewActive = computed(
 // can disable auto-refresh when hidden behind the tab view.
 const routeViewVisible = computed(() => !isTabViewActive.value);
 provide("routeViewVisible", routeViewVisible);
+provide(EXTERNAL_LINK_HANDLER_KEY, openExternal);
 
 // When the user navigates away from session-compatible routes (e.g. settings),
 // deactivate tab selection so the router-view shows through.

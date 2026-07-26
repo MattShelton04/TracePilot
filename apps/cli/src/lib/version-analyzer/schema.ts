@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
-import yaml from "js-yaml";
+import { parse as parseYaml } from "yaml";
 import type { AgentInfo, EventTypeInfo, PropertyInfo, RpcMethodInfo, SchemaType } from "./types.js";
 
 type JsonObject = Record<string, unknown>;
@@ -247,7 +247,7 @@ export function parseAgentDefinitions(versionDir: string): AgentInfo[] {
       .filter((f) => f.endsWith(".agent.yaml"))
       .map((f) => {
         const content = readFileSync(join(defsDir, f), "utf-8");
-        const def = yaml.load(content) as Record<string, unknown>;
+        const def = parseYaml(content) as Record<string, unknown>;
         return {
           name: (def.name as string) ?? basename(f, ".agent.yaml"),
           displayName: def.displayName as string | undefined,

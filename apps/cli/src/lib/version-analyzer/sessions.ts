@@ -1,7 +1,7 @@
 import { createReadStream, existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
-import yaml from "js-yaml";
+import { parse as parseYaml } from "yaml";
 import { getSessionStateDir } from "../session-path.js";
 import type { SessionExample, SessionVersionInfo } from "./types.js";
 
@@ -111,7 +111,7 @@ export async function scanSessionVersions(maxSessions = 10000): Promise<SessionV
       const workspacePath = join(sessionPath, "workspace.yaml");
       if (existsSync(workspacePath)) {
         try {
-          const ws = yaml.load(readFileSync(workspacePath, "utf-8")) as Record<string, unknown>;
+          const ws = parseYaml(readFileSync(workspacePath, "utf-8")) as Record<string, unknown>;
           summary = pickWorkspaceTitle(ws);
           const ca = ws.created_at;
           createdAt = ca instanceof Date ? ca.toISOString() : (ca as string);
@@ -193,7 +193,7 @@ export async function findEventExamples(
       const workspacePath = join(sessionsDir, dir, "workspace.yaml");
       if (existsSync(workspacePath)) {
         try {
-          const ws = yaml.load(readFileSync(workspacePath, "utf-8")) as Record<string, unknown>;
+          const ws = parseYaml(readFileSync(workspacePath, "utf-8")) as Record<string, unknown>;
           summary = pickWorkspaceTitle(ws);
         } catch {
           /* ignore */

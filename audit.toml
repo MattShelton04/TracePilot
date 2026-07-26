@@ -14,10 +14,4 @@ ignore = [
     # does not implement a custom logger that accesses rand. Transitive dep; revisit
     # when an upstream dep bumps rand to 0.9.3+ once the fix lands upstream.
     "RUSTSEC-2026-0097",
-
-    # RUSTSEC-2025-0068: serde_yml 0.0.12 is unsound and unmaintained.
-    # Direct dep of tracepilot-core for YAML parsing. The unsoundness is in the
-    # serde serialiser path; TracePilot only deserialises with serde_yml.
-    # Track migration to serde_norway or equivalent in a follow-up issue.
-    "RUSTSEC-2025-0068",
 ]

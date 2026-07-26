@@ -151,12 +151,11 @@ export function createMessagingSlice(deps: MessagingDeps) {
     // for the same prompt before `prompt.value = ""` clears in the caller.
     if (sendingByIds.value.has(sessionId)) return null;
     markSending(sessionId, true);
-    logInfo(
-      "[sdk] Sending message to session:",
+    logInfo("[sdk] Sending message", {
       sessionId,
-      "prompt:",
-      payload.prompt?.slice(0, 50),
-    );
+      promptLength: payload.prompt.length,
+      mode: payload.mode ?? null,
+    });
     try {
       const turnId = await sdkSendMessage(sessionId, payload);
       logInfo("[sdk] Message sent, turnId:", turnId);

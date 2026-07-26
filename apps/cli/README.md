@@ -26,8 +26,8 @@ Run `tracepilot <command> --help` for per-command flags.
 
 - `@tracepilot/types` — shared DTO types.
 
-Runtime deps are kept minimal: `commander`, `chalk`, `better-sqlite3`,
-`js-yaml`. The CLI reads Copilot session files directly and queries the same
+Runtime deps are kept minimal: `commander`, `chalk`, `better-sqlite3`, and
+`yaml`. The CLI reads Copilot session files directly and queries the same
 SQLite index the desktop app uses (see ADR
 [0003 — SQLite WAL, per-feature databases](../../docs/adr/0003-sqlite-wal-per-feature-databases.md)).
 
