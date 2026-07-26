@@ -285,9 +285,11 @@ describe("ContextTab", () => {
     expect(wrapper.find(".context-tab__bounded-tool").exists()).toBe(true);
     expect(wrapper.text()).toContain("Cached-input equivalent");
     expect(wrapper.text()).toContain("0.123 AIC");
-    expect(wrapper.find('[aria-label="Explain system prompt tokens"]').exists()).toBe(true);
-    expect(wrapper.find('[aria-label="Explain tool definition tokens"]').exists()).toBe(true);
-    expect(wrapper.find('[aria-label="Explain cached-input equivalent"]').exists()).toBe(true);
+    const statHelp = wrapper.findAll(".context-tab__stat-help");
+    expect(statHelp).toHaveLength(3);
+    expect(statHelp[0]?.attributes("title")).toContain("main-agent system snapshot");
+    expect(statHelp[1]?.attributes("title")).toContain("tool-definition total");
+    expect(statHelp[2]?.attributes("title")).toContain("Cache-read-only comparison");
     expect(wrapper.findAll(".context-tab__detail-card > .context-tab__footnote")).toHaveLength(1);
     expect(wrapper.find(".context-tab__selected-inspector .context-tab__turn-tools").exists()).toBe(
       true,

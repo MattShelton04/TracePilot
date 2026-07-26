@@ -7,8 +7,27 @@ use crate::models::event_types::{CompactionCompleteData, CompactionStartData, Sh
 
 #[derive(Default)]
 struct EstimatedLayers {
-    system: u64,
+    system_estimate: u64,
+    system_scale: Option<(u64, u64)>,
     tools: u64,
+}
+
+impl EstimatedLayers {
+    fn calibrate_system(&mut self, observed: u64, estimate_at_anchor: u64) {
+        if estimate_at_anchor == 0 {
+            self.system_estimate = observed;
+            self.system_scale = None;
+        } else {
+            self.system_scale = Some((observed, estimate_at_anchor));
+        }
+    }
+
+    fn displayed_system(&self) -> u64 {
+        self.system_scale
+            .map_or(self.system_estimate, |(target, source)| {
+                scale(self.system_estimate, target, source)
+            })
+    }
 }
 
 pub(super) fn build_points(
@@ -28,11 +47,17 @@ pub(super) fn build_points(
     for anchor in anchors {
         if anchor.turn < interval_start {
             push_observed_anchor(&mut points, anchor);
-            layers.system = anchor.system;
+            layers.calibrate_system(anchor.system, layers.system_estimate);
             layers.tools = anchor.tools;
             base_conversation = anchor.conversation;
             continue;
         }
+        let estimate_at_anchor = deltas[interval_start..=anchor.turn]
+            .iter()
+            .filter_map(|delta| delta.system_tokens)
+            .next_back()
+            .unwrap_or(layers.system_estimate);
+        layers.calibrate_system(anchor.system, estimate_at_anchor);
         layers.tools = anchor.tools;
         append_estimated_interval(
             &mut points,
@@ -45,7 +70,6 @@ pub(super) fn build_points(
         );
         push_observed_anchor(&mut points, anchor);
 
-        layers.system = anchor.system;
         layers.tools = anchor.tools;
         base_conversation = anchor.conversation;
         interval_start = anchor.turn.saturating_add(1);
@@ -57,7 +81,7 @@ pub(super) fn build_points(
             timestamp: deltas
                 .get(turn_count)
                 .and_then(|delta| delta.timestamp.clone()),
-            system: layers.system,
+            system: layers.displayed_system(),
             tools: layers.tools,
             conversation: base_conversation
                 + deltas[interval_start..=turn_count]
@@ -102,7 +126,7 @@ fn append_estimated_interval(
 
     for (turn, delta) in deltas.iter().enumerate().take(end + 1).skip(start) {
         if let Some(snapshot) = delta.system_tokens {
-            layers.system = snapshot;
+            layers.system_estimate = snapshot;
         }
         raw_conversation += delta.message_tokens + delta.tool_tokens;
         let scaled_conversation = scale(raw_conversation, target_growth, raw_total);
@@ -110,7 +134,7 @@ fn append_estimated_interval(
             turn,
             ContextPointPhase::Turn,
             delta.timestamp.clone(),
-            layers.system,
+            layers.displayed_system(),
             layers.tools,
             base_conversation + scaled_conversation,
             ContextPointSource::Estimated,

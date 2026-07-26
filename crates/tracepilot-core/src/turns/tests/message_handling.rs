@@ -48,7 +48,7 @@ fn collects_multiple_assistant_messages_per_turn() {
 }
 
 #[test]
-fn system_injected_user_message_stays_in_the_active_assistant_turn() {
+fn system_sourced_user_message_preserves_established_turn_boundary() {
     let events = vec![
         user_msg("Fix the bug")
             .interaction_id("int-1")
@@ -85,13 +85,13 @@ fn system_injected_user_message_stays_in_the_active_assistant_turn() {
     ];
 
     let turns = reconstruct_turns(&events);
-    assert_eq!(turns.len(), 1);
+    assert_eq!(turns.len(), 2);
     assert_eq!(turns[0].user_message.as_deref(), Some("Fix the bug"));
     assert_eq!(
-        turns[0].system_messages,
-        vec!["<system_reminder>Deferred tool definitions</system_reminder>"]
+        turns[1].transformed_user_message.as_deref(),
+        Some("<system_reminder>Deferred tool definitions</system_reminder>")
     );
-    assert_eq!(msg_contents(&turns[0].assistant_messages), vec!["Done"]);
+    assert_eq!(msg_contents(&turns[1].assistant_messages), vec!["Done"]);
 }
 
 #[test]

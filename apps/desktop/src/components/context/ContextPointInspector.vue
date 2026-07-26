@@ -6,14 +6,7 @@ import {
   formatAiCredits,
   type TurnToolCall,
 } from "@tracepilot/types";
-import {
-  Badge,
-  formatNumberFull,
-  formatTime,
-  LoadingSpinner,
-  ToolCallItem,
-  Tooltip,
-} from "@tracepilot/ui";
+import { Badge, formatNumberFull, formatTime, LoadingSpinner, ToolCallItem } from "@tracepilot/ui";
 
 defineProps<{
   selectedTimelineEvent: ContextTimelineEvent | null;
@@ -57,7 +50,7 @@ function formatContextChange(value?: number | null): string {
 function systemTokensTooltip(point: ContextWindowPoint): string {
   return point.source === "observed"
     ? "Reported by Copilot at this telemetry anchor."
-    : "Uses the latest main-agent system snapshot, or a nearby observed layer when available.";
+    : "Uses the latest main-agent system snapshot, calibrated against nearby observed telemetry when available.";
 }
 
 function toolDefinitionTokensTooltip(point: ContextWindowPoint): string {
@@ -120,26 +113,28 @@ function toolDefinitionTokensTooltip(point: ContextWindowPoint): string {
         <div>
           <dt class="context-tab__stat-label">
             System prompt
-            <Tooltip
-              class="context-tab__stat-tooltip"
-              :text="systemTokensTooltip(selectedPoint)"
-              position="bottom"
+            <button
+              type="button"
+              class="context-tab__stat-help"
+              :title="systemTokensTooltip(selectedPoint)"
+              :aria-label="systemTokensTooltip(selectedPoint)"
             >
-              <button type="button" aria-label="Explain system prompt tokens">?</button>
-            </Tooltip>
+              ?
+            </button>
           </dt>
           <dd>{{ formatNumberFull(selectedPoint.systemTokens) }}</dd>
         </div>
         <div>
           <dt class="context-tab__stat-label">
             Tool definitions
-            <Tooltip
-              class="context-tab__stat-tooltip"
-              :text="toolDefinitionTokensTooltip(selectedPoint)"
-              position="bottom"
+            <button
+              type="button"
+              class="context-tab__stat-help"
+              :title="toolDefinitionTokensTooltip(selectedPoint)"
+              :aria-label="toolDefinitionTokensTooltip(selectedPoint)"
             >
-              <button type="button" aria-label="Explain tool definition tokens">?</button>
-            </Tooltip>
+              ?
+            </button>
           </dt>
           <dd>{{ formatNumberFull(selectedPoint.toolDefinitionTokens) }}</dd>
         </div>
@@ -150,13 +145,14 @@ function toolDefinitionTokensTooltip(point: ContextWindowPoint): string {
         <div v-if="cachedInputAiCredits != null">
           <dt class="context-tab__stat-label">
             Cached-input equivalent
-            <Tooltip
-              class="context-tab__stat-tooltip"
-              :text="`Cache-read-only comparison at current ${pointModel} rates; excludes uncached input, cache writes, output/reasoning, compaction, and subagents.`"
-              position="bottom"
+            <button
+              type="button"
+              class="context-tab__stat-help"
+              :title="`Cache-read-only comparison at current ${pointModel} rates; excludes uncached input, cache writes, output/reasoning, compaction, and subagents.`"
+              :aria-label="`Cache-read-only comparison at current ${pointModel} rates; excludes uncached input, cache writes, output/reasoning, compaction, and subagents.`"
             >
-              <button type="button" aria-label="Explain cached-input equivalent">?</button>
-            </Tooltip>
+              ?
+            </button>
           </dt>
           <dd>{{ formatAiCredits(cachedInputAiCredits) }}</dd>
         </div>
@@ -360,7 +356,7 @@ function toolDefinitionTokensTooltip(point: ContextWindowPoint): string {
   gap: 5px;
 }
 
-.context-tab__stat-tooltip button {
+.context-tab__stat-help {
   display: grid;
   width: 15px;
   height: 15px;
@@ -374,12 +370,6 @@ function toolDefinitionTokensTooltip(point: ContextWindowPoint): string {
   font-size: 0.625rem;
   line-height: 1;
   cursor: help;
-}
-
-.context-tab__stat-tooltip :deep(.tooltip__bubble) {
-  width: max-content;
-  max-width: 280px;
-  white-space: normal;
 }
 
 .context-tab__footnote {

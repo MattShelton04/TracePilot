@@ -36,33 +36,6 @@ impl TurnReconstructor {
             }
         }
 
-        // Copilot emits deferred tool definitions and other internal prompt
-        // additions as `user.message` envelopes with `source: "system"`.
-        // They belong to the active request context and must not split the
-        // visible conversation into a synthetic user turn.
-        if data
-            .source
-            .as_deref()
-            .is_some_and(|source| source.eq_ignore_ascii_case("system"))
-        {
-            let content = data
-                .transformed_content
-                .as_deref()
-                .or(data.content.as_deref())
-                .filter(|content| !content.trim().is_empty())
-                .map(ToOwned::to_owned);
-            if let Some(content) = content {
-                if let Some(turn) = self.current_turn.as_mut() {
-                    turn.system_messages.push(content);
-                } else {
-                    self.pending_system_messages_ts =
-                        self.pending_system_messages_ts.or(event.raw.timestamp);
-                    self.pending_system_messages.push(content);
-                }
-            }
-            return;
-        }
-
         self.finalize_current_turn(false, None);
         let mut turn = new_turn(
             self.turns.len(),
