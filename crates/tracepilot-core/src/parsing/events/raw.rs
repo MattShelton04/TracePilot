@@ -89,3 +89,23 @@ pub(super) fn parse_events_jsonl(path: &Path) -> Result<(Vec<RawEvent>, usize)> 
 
     Ok((events, malformed))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn preserves_subagent_owner() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(EVENTS_JSONL);
+        std::fs::write(
+            &path,
+            r#"{"type":"assistant.reasoning","data":{"content":"private"},"id":"evt-1","agentId":"subagent-call"}"#,
+        )
+        .unwrap();
+
+        let (events, malformed) = parse_events_jsonl(&path).unwrap();
+        assert_eq!(malformed, 0);
+        assert_eq!(events[0].agent_id.as_deref(), Some("subagent-call"));
+    }
+}

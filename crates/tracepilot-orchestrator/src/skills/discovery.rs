@@ -14,9 +14,8 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 fn copilot_paths() -> crate::error::Result<tracepilot_core::paths::CopilotPaths> {
-    tracepilot_core::paths::CopilotPaths::try_default().ok_or_else(|| {
-        crate::error::OrchestratorError::Config("Home directory not found".into())
-    })
+    tracepilot_core::paths::CopilotPaths::try_default()
+        .ok_or_else(|| crate::error::OrchestratorError::Config("Home directory not found".into()))
 }
 
 /// Get the global skills directory (`~/.copilot/skills/`).
