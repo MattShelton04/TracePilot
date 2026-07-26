@@ -6,7 +6,14 @@ import {
   formatAiCredits,
   type TurnToolCall,
 } from "@tracepilot/types";
-import { Badge, formatNumberFull, formatTime, LoadingSpinner, ToolCallItem } from "@tracepilot/ui";
+import {
+  Badge,
+  formatNumberFull,
+  formatTime,
+  LoadingSpinner,
+  ToolCallItem,
+  Tooltip,
+} from "@tracepilot/ui";
 
 defineProps<{
   selectedTimelineEvent: ContextTimelineEvent | null;
@@ -45,6 +52,19 @@ function phaseLabel(point: ContextWindowPoint): string {
 function formatContextChange(value?: number | null): string {
   if (value == null) return "—";
   return `${value > 0 ? "+" : ""}${formatNumberFull(value)}`;
+}
+
+function systemTokensTooltip(point: ContextWindowPoint): string {
+  return point.source === "observed"
+    ? "Reported by Copilot at this telemetry anchor."
+    : "Uses the latest main-agent system snapshot, or a nearby observed layer when available.";
+}
+
+function toolDefinitionTokensTooltip(point: ContextWindowPoint): string {
+  if (point.source === "observed") return "Reported by Copilot at this telemetry anchor.";
+  return point.toolDefinitionTokens === 0
+    ? "Full definitions are absent from events.jsonl, so this is zero before telemetry."
+    : "Reuses a tool-definition total reported by a nearby Copilot telemetry anchor.";
 }
 </script>
 
@@ -98,11 +118,29 @@ function formatContextChange(value?: number | null): string {
           <dd>{{ formatContextChange(selectedPoint.contextChangeTokens) }}</dd>
         </div>
         <div>
-          <dt>System prompt</dt>
+          <dt class="context-tab__stat-label">
+            System prompt
+            <Tooltip
+              class="context-tab__stat-tooltip"
+              :text="systemTokensTooltip(selectedPoint)"
+              position="bottom"
+            >
+              <button type="button" aria-label="Explain system prompt tokens">?</button>
+            </Tooltip>
+          </dt>
           <dd>{{ formatNumberFull(selectedPoint.systemTokens) }}</dd>
         </div>
         <div>
-          <dt>Tool definitions</dt>
+          <dt class="context-tab__stat-label">
+            Tool definitions
+            <Tooltip
+              class="context-tab__stat-tooltip"
+              :text="toolDefinitionTokensTooltip(selectedPoint)"
+              position="bottom"
+            >
+              <button type="button" aria-label="Explain tool definition tokens">?</button>
+            </Tooltip>
+          </dt>
           <dd>{{ formatNumberFull(selectedPoint.toolDefinitionTokens) }}</dd>
         </div>
         <div>
@@ -110,7 +148,16 @@ function formatContextChange(value?: number | null): string {
           <dd>{{ formatNumberFull(selectedPoint.conversationTokens) }}</dd>
         </div>
         <div v-if="cachedInputAiCredits != null">
-          <dt>Cached-input equivalent</dt>
+          <dt class="context-tab__stat-label">
+            Cached-input equivalent
+            <Tooltip
+              class="context-tab__stat-tooltip"
+              :text="`Cache-read-only comparison at current ${pointModel} rates; excludes uncached input, cache writes, output/reasoning, compaction, and subagents.`"
+              position="bottom"
+            >
+              <button type="button" aria-label="Explain cached-input equivalent">?</button>
+            </Tooltip>
+          </dt>
           <dd>{{ formatAiCredits(cachedInputAiCredits) }}</dd>
         </div>
       </dl>
@@ -119,16 +166,6 @@ function formatContextChange(value?: number | null): string {
       </p>
       <p v-if="selectedPoint.source === 'observed'" class="context-tab__footnote">
         Copilot reported all three displayed layers for this point.
-      </p>
-      <p v-else class="context-tab__footnote">
-        Estimated points reuse observed system/tool layers when available. Before the first
-        telemetry anchor, System is estimated from the initial main-agent system message; full tool
-        definitions are not present in events.jsonl, so that layer is shown as zero.
-      </p>
-      <p v-if="cachedInputAiCredits != null" class="context-tab__footnote">
-        At current {{ pointModel }} rates, if this entire displayed context were one cache read.
-        This is a comparison baseline, not the turn's bill; it excludes uncached input, cache
-        writes, output/reasoning, compaction, and subagent usage.
       </p>
       <button
         type="button"
@@ -315,6 +352,34 @@ function formatContextChange(value?: number | null): string {
   color: var(--text-primary);
   font-size: 0.875rem;
   font-weight: 600;
+}
+
+.context-tab__stat-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.context-tab__stat-tooltip button {
+  display: grid;
+  width: 15px;
+  height: 15px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid var(--border-default);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-tertiary);
+  font: inherit;
+  font-size: 0.625rem;
+  line-height: 1;
+  cursor: help;
+}
+
+.context-tab__stat-tooltip :deep(.tooltip__bubble) {
+  width: max-content;
+  max-width: 280px;
+  white-space: normal;
 }
 
 .context-tab__footnote {

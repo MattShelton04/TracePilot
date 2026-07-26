@@ -81,17 +81,6 @@ fn estimates_initial_system_prompt_before_observed_telemetry() {
                 metadata: None,
             }),
         ),
-        // A repeated root prompt is a replacement/resume artifact, not
-        // additional conversation context.
-        event(
-            SessionEventType::SystemMessage,
-            TypedEventData::SystemMessage(SystemMessageData {
-                content: Some("this replacement must not accumulate".into()),
-                role: Some("system".into()),
-                name: None,
-                metadata: None,
-            }),
-        ),
         user_message("abcd", "interaction-1"),
         event(
             SessionEventType::AssistantTurnStart,
@@ -101,14 +90,37 @@ fn estimates_initial_system_prompt_before_observed_telemetry() {
             }),
         ),
         assistant_message("efgh"),
+        // A later root prompt replaces the System layer for the next request;
+        // it is neither discarded nor added to Conversation.
+        event(
+            SessionEventType::SystemMessage,
+            TypedEventData::SystemMessage(SystemMessageData {
+                content: Some("1234567890abcdefghijklmnopqrstuv".into()),
+                role: Some("system".into()),
+                name: None,
+                metadata: None,
+            }),
+        ),
+        user_message("ijkl", "interaction-2"),
+        event(
+            SessionEventType::AssistantTurnStart,
+            TypedEventData::TurnStart(TurnStartData {
+                turn_id: Some("2".into()),
+                interaction_id: Some("interaction-2".into()),
+            }),
+        ),
+        assistant_message("mnop"),
     ];
 
     let timeline = build_context_timeline(&events);
-    assert_eq!(timeline.points.len(), 1);
+    assert_eq!(timeline.points.len(), 2);
     assert_eq!(timeline.points[0].system_tokens, 4);
+    assert_eq!(timeline.points[1].system_tokens, 8);
     assert_eq!(timeline.points[0].tool_definition_tokens, 0);
     assert_eq!(timeline.points[0].conversation_tokens, 2);
+    assert_eq!(timeline.points[1].conversation_tokens, 4);
     assert_eq!(timeline.points[0].total_tokens, 6);
+    assert_eq!(timeline.points[1].total_tokens, 12);
     assert_eq!(timeline.points[0].source, ContextPointSource::Estimated);
 }
 

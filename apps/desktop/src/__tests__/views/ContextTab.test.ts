@@ -285,9 +285,10 @@ describe("ContextTab", () => {
     expect(wrapper.find(".context-tab__bounded-tool").exists()).toBe(true);
     expect(wrapper.text()).toContain("Cached-input equivalent");
     expect(wrapper.text()).toContain("0.123 AIC");
-    expect(wrapper.text()).toContain("not the turn's bill");
-    expect(wrapper.text()).toContain("initial main-agent system message");
-    expect(wrapper.text()).toContain("that layer is shown as zero");
+    expect(wrapper.find('[aria-label="Explain system prompt tokens"]').exists()).toBe(true);
+    expect(wrapper.find('[aria-label="Explain tool definition tokens"]').exists()).toBe(true);
+    expect(wrapper.find('[aria-label="Explain cached-input equivalent"]').exists()).toBe(true);
+    expect(wrapper.findAll(".context-tab__detail-card > .context-tab__footnote")).toHaveLength(1);
     expect(wrapper.find(".context-tab__selected-inspector .context-tab__turn-tools").exists()).toBe(
       true,
     );

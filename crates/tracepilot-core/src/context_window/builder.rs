@@ -11,7 +11,7 @@ use crate::parsing::events::{TypedEvent, TypedEventData};
 use crate::turns::reconstruct_turns;
 use std::collections::{HashMap, HashSet, VecDeque};
 
-const METHODOLOGY: &str = "System, tool-definition, and conversation totals are observed at Copilot compaction-start/shutdown anchors. Before the first anchor, the system layer is estimated from the first main-agent system.message (ceil UTF-8 bytes / 4); repeated system messages are replacements and are not accumulated. Full tool definitions are not serialized in events.jsonl, so that layer remains zero until Copilot reports it. Compaction starts and completes are paired in event order, even when they span turns; the post-compaction summary is estimated unless Copilot reports explicit layers. Between-anchor conversation totals are calibrated estimates derived from main-agent context-bearing event text, including visible reasoning. Nested subagent messages and child tools are excluded because they run in separate context windows; the main agent's subagent invocation and returned result remain included. Folded skill context is counted once. Opaque or encrypted reasoning cannot be independently estimated; its effect is captured only by observed Copilot totals. Point-to-point context change is the signed difference between consecutive displayed totals. Tool arguments and primary returned content are estimated conversation-input contribution, not cache attribution.";
+const METHODOLOGY: &str = "System, tool-definition, and conversation totals are observed at Copilot compaction-start/shutdown anchors. Main-agent system.message events represent prompt snapshots for the next request, so estimated points replace the System layer with each snapshot (ceil UTF-8 bytes / 4) rather than adding it to Conversation. Full tool definitions are not serialized in events.jsonl, so that layer remains zero until Copilot reports it. Compaction starts and completes are paired in event order, even when they span turns; the post-compaction summary is estimated unless Copilot reports explicit layers. Between-anchor conversation totals are calibrated estimates derived from main-agent context-bearing event text, including visible reasoning. Nested subagent messages and child tools are excluded because they run in separate context windows; the main agent's subagent invocation and returned result remain included. Folded skill context is counted once. Opaque or encrypted reasoning cannot be independently estimated; its effect is captured only by observed Copilot totals. Point-to-point context change is the signed difference between consecutive displayed totals. Tool arguments and primary returned content are estimated conversation-input contribution, not cache attribution.";
 
 #[derive(Debug, Default)]
 struct FoldedSkillContexts {
@@ -109,22 +109,6 @@ fn folded_skill_contexts(events: &[TypedEvent]) -> FoldedSkillContexts {
     folded
 }
 
-fn initial_system_estimate(events: &[TypedEvent], subagent_ids: &HashSet<String>) -> u64 {
-    events
-        .iter()
-        .filter(|event| !is_nested_subagent_event(event, subagent_ids))
-        .find_map(|event| {
-            let TypedEventData::SystemMessage(data) = &event.typed_data else {
-                return None;
-            };
-            data.content
-                .as_deref()
-                .filter(|content| !content.trim().is_empty())
-                .map(estimate_tokens)
-        })
-        .unwrap_or(0)
-}
-
 fn reconstruct_event_turn_slots(events: &[TypedEvent]) -> (Vec<usize>, usize) {
     let turns = reconstruct_turns(events);
     if turns.is_empty() {
@@ -160,6 +144,19 @@ fn reconstruct_event_turn_slots(events: &[TypedEvent]) -> (Vec<usize>, usize) {
         }
     }
 
+    // Root system.message events represent prompt snapshots emitted before the
+    // request they configure. Associate them with that next reconstructed
+    // main-agent turn instead of the previous completed turn.
+    for (event_index, event) in events.iter().enumerate() {
+        if matches!(event.typed_data, TypedEventData::SystemMessage(_)) {
+            exact_slots[event_index] = turns.iter().find_map(|turn| {
+                turn.event_index
+                    .filter(|turn_event_index| *turn_event_index > event_index)
+                    .map(|_| turn.turn_index.saturating_add(1))
+            });
+        }
+    }
+
     for (event_index, event) in events.iter().enumerate() {
         if exact_slots[event_index].is_none()
             && let TypedEventData::ToolExecutionComplete(data) = &event.typed_data
@@ -191,7 +188,6 @@ fn reconstruct_event_turn_slots(events: &[TypedEvent]) -> (Vec<usize>, usize) {
 pub fn build_context_timeline(events: &[TypedEvent]) -> ContextTimeline {
     let (event_turn_slots, turn_count) = reconstruct_event_turn_slots(events);
     let subagent_ids = subagent_tool_call_ids(events);
-    let initial_system_tokens = initial_system_estimate(events, &subagent_ids);
     let folded_skills = folded_skill_contexts(events);
     let mut deltas = vec![TurnDelta::default(); turn_count.saturating_add(1).max(2)];
     let mut anchors = Vec::<Anchor>::new();
@@ -259,10 +255,15 @@ pub fn build_context_timeline(events: &[TypedEvent]) -> ContextTimeline {
             TypedEventData::AssistantReasoning(data) => {
                 add_message_delta(&mut deltas[turn], data.content.as_deref().unwrap_or(""));
             }
-            // System prompts belong to the system layer, not conversation.
-            // The first root prompt seeds that layer until observed telemetry
-            // supersedes it; later prompts are never accumulated.
-            TypedEventData::SystemMessage(_) => {}
+            TypedEventData::SystemMessage(data) => {
+                if let Some(content) = data
+                    .content
+                    .as_deref()
+                    .filter(|content| !content.trim().is_empty())
+                {
+                    deltas[turn].system_tokens = Some(estimate_tokens(content));
+                }
+            }
             TypedEventData::SkillInvoked(data) => {
                 if !folded_skills.invocation_indexes.contains(&event_index) {
                     add_message_delta(&mut deltas[turn], data.content.as_deref().unwrap_or(""));
@@ -417,7 +418,7 @@ pub fn build_context_timeline(events: &[TypedEvent]) -> ContextTimeline {
             && right.conversation == left.conversation
     });
 
-    let mut points = build_points(turn_count, &deltas, &anchors, initial_system_tokens);
+    let mut points = build_points(turn_count, &deltas, &anchors);
     points.sort_by_key(|point| (point.turn, phase_order(point.phase)));
     let mut previous_total = None;
     for point in &mut points {

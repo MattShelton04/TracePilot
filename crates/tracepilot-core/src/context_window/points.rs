@@ -5,11 +5,16 @@ use super::model::{
 };
 use crate::models::event_types::{CompactionCompleteData, CompactionStartData, ShutdownData};
 
+#[derive(Default)]
+struct EstimatedLayers {
+    system: u64,
+    tools: u64,
+}
+
 pub(super) fn build_points(
     turn_count: usize,
     deltas: &[TurnDelta],
     anchors: &[Anchor],
-    initial_system_tokens: u64,
 ) -> Vec<ContextWindowPoint> {
     if turn_count == 0 {
         return Vec::new();
@@ -18,19 +23,17 @@ pub(super) fn build_points(
     let mut points = Vec::new();
     let mut interval_start = 1usize;
     let mut base_conversation = 0u64;
-    let mut last_system = anchors
-        .first()
-        .map_or(initial_system_tokens, |anchor| anchor.system);
-    let mut last_tools = anchors.first().map_or(0, |anchor| anchor.tools);
+    let mut layers = EstimatedLayers::default();
 
     for anchor in anchors {
         if anchor.turn < interval_start {
             push_observed_anchor(&mut points, anchor);
-            last_system = anchor.system;
-            last_tools = anchor.tools;
+            layers.system = anchor.system;
+            layers.tools = anchor.tools;
             base_conversation = anchor.conversation;
             continue;
         }
+        layers.tools = anchor.tools;
         append_estimated_interval(
             &mut points,
             deltas,
@@ -38,11 +41,12 @@ pub(super) fn build_points(
             anchor.turn,
             base_conversation,
             anchor,
+            &mut layers,
         );
         push_observed_anchor(&mut points, anchor);
 
-        last_system = anchor.system;
-        last_tools = anchor.tools;
+        layers.system = anchor.system;
+        layers.tools = anchor.tools;
         base_conversation = anchor.conversation;
         interval_start = anchor.turn.saturating_add(1);
     }
@@ -53,8 +57,8 @@ pub(super) fn build_points(
             timestamp: deltas
                 .get(turn_count)
                 .and_then(|delta| delta.timestamp.clone()),
-            system: last_system,
-            tools: last_tools,
+            system: layers.system,
+            tools: layers.tools,
             conversation: base_conversation
                 + deltas[interval_start..=turn_count]
                     .iter()
@@ -70,6 +74,7 @@ pub(super) fn build_points(
             turn_count,
             base_conversation,
             &fallback,
+            &mut layers,
         );
     }
 
@@ -83,6 +88,7 @@ fn append_estimated_interval(
     end: usize,
     base_conversation: u64,
     target: &Anchor,
+    layers: &mut EstimatedLayers,
 ) {
     if start > end || end >= deltas.len() {
         return;
@@ -95,14 +101,17 @@ fn append_estimated_interval(
     let mut raw_conversation = 0u64;
 
     for (turn, delta) in deltas.iter().enumerate().take(end + 1).skip(start) {
+        if let Some(snapshot) = delta.system_tokens {
+            layers.system = snapshot;
+        }
         raw_conversation += delta.message_tokens + delta.tool_tokens;
         let scaled_conversation = scale(raw_conversation, target_growth, raw_total);
         points.push(make_point(
             turn,
             ContextPointPhase::Turn,
             delta.timestamp.clone(),
-            target.system,
-            target.tools,
+            layers.system,
+            layers.tools,
             base_conversation + scaled_conversation,
             ContextPointSource::Estimated,
         ));
