@@ -46,6 +46,54 @@ fn collects_multiple_assistant_messages_per_turn() {
         vec!["Part one", "Part two"]
     );
 }
+
+#[test]
+fn system_injected_user_message_stays_in_the_active_assistant_turn() {
+    let events = vec![
+        user_msg("Fix the bug")
+            .interaction_id("int-1")
+            .id("evt-1")
+            .timestamp("2026-07-17T09:00:00.000Z")
+            .build_event(),
+        turn_start()
+            .turn_id("turn-1")
+            .interaction_id("int-1")
+            .id("evt-2")
+            .timestamp("2026-07-17T09:00:00.100Z")
+            .parent("evt-1")
+            .build_event(),
+        user_msg("")
+            .interaction_id("int-1")
+            .source("system")
+            .transformed_content("<system_reminder>Deferred tool definitions</system_reminder>")
+            .id("evt-3")
+            .timestamp("2026-07-17T09:00:00.200Z")
+            .parent("evt-2")
+            .build_event(),
+        asst_msg("Done")
+            .interaction_id("int-1")
+            .id("evt-4")
+            .timestamp("2026-07-17T09:00:01.000Z")
+            .parent("evt-3")
+            .build_event(),
+        turn_end()
+            .turn_id("turn-1")
+            .id("evt-5")
+            .timestamp("2026-07-17T09:00:01.100Z")
+            .parent("evt-2")
+            .build_event(),
+    ];
+
+    let turns = reconstruct_turns(&events);
+    assert_eq!(turns.len(), 1);
+    assert_eq!(turns[0].user_message.as_deref(), Some("Fix the bug"));
+    assert_eq!(
+        turns[0].system_messages,
+        vec!["<system_reminder>Deferred tool definitions</system_reminder>"]
+    );
+    assert_eq!(msg_contents(&turns[0].assistant_messages), vec!["Done"]);
+}
+
 #[test]
 fn filters_empty_string_assistant_messages() {
     // In real sessions, assistant.message events before tool-call batches

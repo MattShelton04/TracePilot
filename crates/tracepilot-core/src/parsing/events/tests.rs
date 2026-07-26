@@ -29,6 +29,21 @@ fn test_parse_raw_events() {
 }
 
 #[test]
+fn test_parse_raw_event_preserves_subagent_owner() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("events.jsonl");
+    std::fs::write(
+        &path,
+        r#"{"type":"assistant.reasoning","data":{"content":"private"},"id":"evt-1","agentId":"subagent-call"}"#,
+    )
+    .unwrap();
+
+    let (events, malformed) = parse_events_jsonl(&path).unwrap();
+    assert_eq!(malformed, 0);
+    assert_eq!(events[0].agent_id.as_deref(), Some("subagent-call"));
+}
+
+#[test]
 fn test_parse_typed_events_if_exists_returns_none_for_missing_file() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("events.jsonl");

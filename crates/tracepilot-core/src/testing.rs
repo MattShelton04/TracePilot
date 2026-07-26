@@ -17,6 +17,7 @@ pub fn make_raw_event(event_type: &str, data: serde_json::Value) -> RawEvent {
         id: Some(format!("test-{}", event_type.replace('.', "-"))),
         timestamp: Some(Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap()),
         parent_id: None,
+        agent_id: None,
     }
 }
 

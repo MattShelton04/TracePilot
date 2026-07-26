@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import type {
-  ContextCompaction,
-  ContextTimelineEvent,
-  ContextWindowPoint,
-  TurnToolCall,
+import {
+  type ContextCompaction,
+  type ContextTimelineEvent,
+  type ContextWindowPoint,
+  formatAiCredits,
+  type TurnToolCall,
 } from "@tracepilot/types";
 import { Badge, formatNumberFull, formatTime, LoadingSpinner, ToolCallItem } from "@tracepilot/ui";
 
@@ -11,6 +12,8 @@ defineProps<{
   selectedTimelineEvent: ContextTimelineEvent | null;
   selectedPoint: ContextWindowPoint | null;
   selectedCompaction: ContextCompaction | null;
+  pointModel: string | null;
+  cachedInputAiCredits: number | null;
   selectedTurnToolCalls: TurnToolCall[];
   selectedTurnToolCall: TurnToolCall | null;
   loadingTurnTools: boolean;
@@ -106,12 +109,21 @@ function formatContextChange(value?: number | null): string {
           <dt>Conversation</dt>
           <dd>{{ formatNumberFull(selectedPoint.conversationTokens) }}</dd>
         </div>
+        <div v-if="cachedInputAiCredits != null">
+          <dt>Cached-input equivalent</dt>
+          <dd>{{ formatAiCredits(cachedInputAiCredits) }}</dd>
+        </div>
       </dl>
       <p class="context-tab__footnote">
         Change is the current displayed total minus the previous displayed point.
       </p>
       <p v-if="selectedPoint.source === 'observed'" class="context-tab__footnote">
         Copilot reported all three displayed layers for this point.
+      </p>
+      <p v-if="cachedInputAiCredits != null" class="context-tab__footnote">
+        At current {{ pointModel }} rates, if this entire displayed context were one cache read.
+        This is a comparison baseline, not the turn's bill; it excludes uncached input, cache
+        writes, output/reasoning, compaction, and subagent usage.
       </p>
       <button
         type="button"
@@ -202,7 +214,7 @@ function formatContextChange(value?: number | null): string {
       <div class="context-tab__turn-tools-heading">
         <div>
           <span class="context-tab__eyebrow">Turn {{ selectedPoint.turn }}</span>
-          <strong>Tool calls in this turn</strong>
+          <strong>Main-agent tool calls in this turn</strong>
         </div>
         <LoadingSpinner v-if="loadingTurnTools" size="sm" />
       </div>
@@ -224,7 +236,7 @@ function formatContextChange(value?: number | null): string {
         />
       </div>
       <p v-else-if="!loadingTurnTools" class="context-tab__turn-tools-empty">
-        No tool calls in this turn.
+        No main-agent tool calls in this turn.
       </p>
     </div>
   </div>

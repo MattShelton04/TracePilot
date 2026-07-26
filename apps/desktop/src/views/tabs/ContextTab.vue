@@ -230,7 +230,16 @@ const selectedTurn = computed(() => {
   const turnIndex = selectedPoint.value?.turn;
   return turnIndex == null ? undefined : store.turns.find((turn) => turn.turnIndex === turnIndex);
 });
-const selectedTurnToolCalls = computed(() => selectedTurn.value?.toolCalls ?? []);
+const selectedCachedInputAiCredits = computed(() => {
+  const point = selectedPoint.value;
+  const model = selectedTurn.value?.model;
+  if (!point || !model) return null;
+  return preferences.computeUsageBasedCostBreakdown(model, point.totalTokens, point.totalTokens, 0)
+    .aiCredits;
+});
+const selectedTurnToolCalls = computed(
+  () => selectedTurn.value?.toolCalls.filter((toolCall) => !toolCall.parentToolCallId) ?? [],
+);
 const selectedContributionToolCall = computed(() => {
   const contribution = selectedToolCall.value;
   if (!contribution) return null;
@@ -520,6 +529,8 @@ function retryLoad() {
           :selected-timeline-event="selectedTimelineEvent"
           :selected-point="selectedPoint"
           :selected-compaction="selectedCompaction"
+          :point-model="selectedTurn?.model ?? null"
+          :cached-input-ai-credits="selectedCachedInputAiCredits"
           :selected-turn-tool-calls="selectedTurnToolCalls"
           :selected-turn-tool-call="selectedTurnToolCall"
           :loading-turn-tools="loadingTurnTools"

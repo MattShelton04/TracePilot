@@ -18,6 +18,10 @@ pub struct RawEvent {
     pub timestamp: Option<DateTime<Utc>>,
     #[serde(rename = "parentId")]
     pub parent_id: Option<String>,
+    /// Owning agent identifier. Nested agent events use the spawning
+    /// subagent tool-call ID; top-level events normally omit this field.
+    #[serde(rename = "agentId")]
+    pub agent_id: Option<String>,
 }
 
 /// Serialize a slice of events into a newline-delimited JSON string.
