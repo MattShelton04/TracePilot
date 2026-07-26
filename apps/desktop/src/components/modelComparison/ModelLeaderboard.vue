@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { formatPercent } from "@tracepilot/types";
+import { formatAiCredits, formatPercent } from "@tracepilot/types";
 import { useModelComparisonContext } from "@/composables/useModelComparison";
 
 const ctx = useModelComparisonContext();
@@ -93,7 +93,7 @@ const ctx = useModelComparisonContext();
             </td>
             <td class="num-cell matrix-cost-cell">
               <span class="matrix-cost-value">
-                {{ ctx.normMode === 'raw' ? `${row.aiCredits?.toFixed(3) ?? '—'} AIC` : ctx.fmtNorm(row.aiCredits) }}
+                {{ ctx.normMode === 'raw' ? formatAiCredits(row.aiCredits) : ctx.fmtNorm(row.aiCredits) }}
               </span>
             </td>
           </tr>

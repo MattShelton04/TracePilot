@@ -129,6 +129,18 @@ describe("ModelLeaderboard", () => {
     await wrapper.findAll(".sort-header")[0]!.trigger("click");
     expect(ctx.toggleSort).toHaveBeenCalledWith("model");
   });
+
+  it("formats raw AI Credits with grouping separators", () => {
+    const largeCredits = 111_123_141.341;
+    const ctx = makeCtxStub({
+      modelRows: [makeRow({ aiCredits: largeCredits })],
+      displayRows: [makeRow({ aiCredits: largeCredits })],
+    });
+
+    const wrapper = mount(hostFor(ModelLeaderboard, ctx));
+
+    expect(wrapper.find(".matrix-cost-value").text()).toBe("111,123,141 AIC");
+  });
 });
 
 describe("ModelCharts", () => {
