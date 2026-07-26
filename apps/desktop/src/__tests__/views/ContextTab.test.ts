@@ -31,6 +31,7 @@ vi.mock("@/stores/preferences", () => ({
   usePreferencesStore: () => ({
     isRichRenderingEnabled: () => true,
     isFeatureEnabled: () => contextCaptureEnabled,
+    computeUsageBasedCostBreakdown: () => ({ aiCredits: 0.123 }),
   }),
 }));
 
@@ -53,6 +54,13 @@ const turnToolCall: TurnToolCall = {
   success: true,
   isComplete: true,
 };
+const nestedSubagentToolCall: TurnToolCall = {
+  toolCallId: "nested-tool",
+  parentToolCallId: "subagent-call",
+  toolName: "view",
+  success: true,
+  isComplete: true,
+};
 
 function makeDetailStore() {
   const store = reactive({
@@ -66,13 +74,18 @@ function makeDetailStore() {
     turns: [] as Array<{
       turnIndex: number;
       toolCalls: TurnToolCall[];
+      model?: string;
     }>,
     turnsVersion: 0,
     turnsError: null as string | null,
     loaded: new Set<string>(),
     async loadTurns() {
       store.turns = [
-        { turnIndex: 0, toolCalls: [turnToolCall] },
+        {
+          turnIndex: 0,
+          toolCalls: [turnToolCall, nestedSubagentToolCall],
+          model: "gpt-5.6-luna",
+        },
         { turnIndex: 1, toolCalls: [] },
       ];
       store.turnsVersion += 1;
@@ -267,8 +280,17 @@ describe("ContextTab", () => {
     const tool = wrapper.find(".context-tab__turn-tool-list .tool-call-stub");
     expect(tool.text()).toContain("shell");
     expect(tool.text()).toContain("pnpm test");
+    expect(wrapper.findAll(".context-tab__turn-tool-list .tool-call-stub")).toHaveLength(1);
     expect(tool.attributes("data-rich")).toBe("true");
     expect(wrapper.find(".context-tab__bounded-tool").exists()).toBe(true);
+    expect(wrapper.text()).toContain("Cached-input equivalent");
+    expect(wrapper.text()).toContain("0.123 AIC");
+    const statHelp = wrapper.findAll(".context-tab__stat-help");
+    expect(statHelp).toHaveLength(3);
+    expect(statHelp[0]?.attributes("title")).toContain("main-agent system snapshot");
+    expect(statHelp[1]?.attributes("title")).toContain("tool-definition total");
+    expect(statHelp[2]?.attributes("title")).toContain("Cache-read-only comparison");
+    expect(wrapper.findAll(".context-tab__detail-card > .context-tab__footnote")).toHaveLength(1);
     expect(wrapper.find(".context-tab__selected-inspector .context-tab__turn-tools").exists()).toBe(
       true,
     );

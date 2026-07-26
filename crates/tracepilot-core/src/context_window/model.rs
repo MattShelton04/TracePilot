@@ -119,6 +119,7 @@ pub struct ContextTimeline {
 pub(super) struct TurnDelta {
     pub(super) message_tokens: u64,
     pub(super) tool_tokens: u64,
+    pub(super) system_tokens: Option<u64>,
     pub(super) timestamp: Option<String>,
 }
 

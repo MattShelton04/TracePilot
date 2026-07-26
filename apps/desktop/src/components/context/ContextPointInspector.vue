@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import type {
-  ContextCompaction,
-  ContextTimelineEvent,
-  ContextWindowPoint,
-  TurnToolCall,
+import {
+  type ContextCompaction,
+  type ContextTimelineEvent,
+  type ContextWindowPoint,
+  formatAiCredits,
+  type TurnToolCall,
 } from "@tracepilot/types";
 import { Badge, formatNumberFull, formatTime, LoadingSpinner, ToolCallItem } from "@tracepilot/ui";
 
@@ -11,6 +12,8 @@ defineProps<{
   selectedTimelineEvent: ContextTimelineEvent | null;
   selectedPoint: ContextWindowPoint | null;
   selectedCompaction: ContextCompaction | null;
+  pointModel: string | null;
+  cachedInputAiCredits: number | null;
   selectedTurnToolCalls: TurnToolCall[];
   selectedTurnToolCall: TurnToolCall | null;
   loadingTurnTools: boolean;
@@ -42,6 +45,19 @@ function phaseLabel(point: ContextWindowPoint): string {
 function formatContextChange(value?: number | null): string {
   if (value == null) return "—";
   return `${value > 0 ? "+" : ""}${formatNumberFull(value)}`;
+}
+
+function systemTokensTooltip(point: ContextWindowPoint): string {
+  return point.source === "observed"
+    ? "Reported by Copilot at this telemetry anchor."
+    : "Uses the latest main-agent system snapshot, calibrated against nearby observed telemetry when available.";
+}
+
+function toolDefinitionTokensTooltip(point: ContextWindowPoint): string {
+  if (point.source === "observed") return "Reported by Copilot at this telemetry anchor.";
+  return point.toolDefinitionTokens === 0
+    ? "Full definitions are absent from events.jsonl, so this is zero before telemetry."
+    : "Reuses a tool-definition total reported by a nearby Copilot telemetry anchor.";
 }
 </script>
 
@@ -95,16 +111,50 @@ function formatContextChange(value?: number | null): string {
           <dd>{{ formatContextChange(selectedPoint.contextChangeTokens) }}</dd>
         </div>
         <div>
-          <dt>System prompt</dt>
+          <dt class="context-tab__stat-label">
+            System prompt
+            <button
+              type="button"
+              class="context-tab__stat-help"
+              :title="systemTokensTooltip(selectedPoint)"
+              :aria-label="systemTokensTooltip(selectedPoint)"
+            >
+              ?
+            </button>
+          </dt>
           <dd>{{ formatNumberFull(selectedPoint.systemTokens) }}</dd>
         </div>
         <div>
-          <dt>Tool definitions</dt>
+          <dt class="context-tab__stat-label">
+            Tool definitions
+            <button
+              type="button"
+              class="context-tab__stat-help"
+              :title="toolDefinitionTokensTooltip(selectedPoint)"
+              :aria-label="toolDefinitionTokensTooltip(selectedPoint)"
+            >
+              ?
+            </button>
+          </dt>
           <dd>{{ formatNumberFull(selectedPoint.toolDefinitionTokens) }}</dd>
         </div>
         <div>
           <dt>Conversation</dt>
           <dd>{{ formatNumberFull(selectedPoint.conversationTokens) }}</dd>
+        </div>
+        <div v-if="cachedInputAiCredits != null">
+          <dt class="context-tab__stat-label">
+            Cached-input equivalent
+            <button
+              type="button"
+              class="context-tab__stat-help"
+              :title="`Cache-read-only comparison at current ${pointModel} rates; excludes uncached input, cache writes, output/reasoning, compaction, and subagents.`"
+              :aria-label="`Cache-read-only comparison at current ${pointModel} rates; excludes uncached input, cache writes, output/reasoning, compaction, and subagents.`"
+            >
+              ?
+            </button>
+          </dt>
+          <dd>{{ formatAiCredits(cachedInputAiCredits) }}</dd>
         </div>
       </dl>
       <p class="context-tab__footnote">
@@ -202,7 +252,7 @@ function formatContextChange(value?: number | null): string {
       <div class="context-tab__turn-tools-heading">
         <div>
           <span class="context-tab__eyebrow">Turn {{ selectedPoint.turn }}</span>
-          <strong>Tool calls in this turn</strong>
+          <strong>Main-agent tool calls in this turn</strong>
         </div>
         <LoadingSpinner v-if="loadingTurnTools" size="sm" />
       </div>
@@ -224,7 +274,7 @@ function formatContextChange(value?: number | null): string {
         />
       </div>
       <p v-else-if="!loadingTurnTools" class="context-tab__turn-tools-empty">
-        No tool calls in this turn.
+        No main-agent tool calls in this turn.
       </p>
     </div>
   </div>
@@ -298,6 +348,28 @@ function formatContextChange(value?: number | null): string {
   color: var(--text-primary);
   font-size: 0.875rem;
   font-weight: 600;
+}
+
+.context-tab__stat-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.context-tab__stat-help {
+  display: grid;
+  width: 15px;
+  height: 15px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid var(--border-default);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-tertiary);
+  font: inherit;
+  font-size: 0.625rem;
+  line-height: 1;
+  cursor: help;
 }
 
 .context-tab__footnote {

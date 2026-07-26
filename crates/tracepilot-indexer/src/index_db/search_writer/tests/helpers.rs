@@ -19,6 +19,7 @@ pub(super) fn evt(event_type: SessionEventType, typed_data: TypedEventData) -> T
             id: None,
             timestamp: None,
             parent_id: None,
+            agent_id: None,
         },
         event_type,
         typed_data,

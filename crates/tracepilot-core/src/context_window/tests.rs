@@ -1,12 +1,16 @@
 use super::*;
 use crate::models::event_types::{
-    AssistantMessageData, CompactionCompleteData, CompactionStartData, CompactionTokenUsage,
-    SessionEventType, SessionTruncationData, ShutdownData, ToolExecCompleteData, ToolExecStartData,
-    TurnStartData, UserMessageData,
+    AssistantMessageData, AssistantReasoningData, CompactionCompleteData, CompactionStartData,
+    CompactionTokenUsage, SessionEventType, SessionTruncationData, ShutdownData, SkillInvokedData,
+    SubagentStartedData, SystemMessageData, ToolExecCompleteData, ToolExecStartData, TurnStartData,
+    UserMessageData,
 };
 use crate::parsing::events::{RawEvent, TypedEvent, TypedEventData};
 use chrono::Utc;
 use serde_json::json;
+
+mod ownership;
+mod system;
 
 fn event(event_type: SessionEventType, typed_data: TypedEventData) -> TypedEvent {
     TypedEvent {
@@ -16,6 +20,7 @@ fn event(event_type: SessionEventType, typed_data: TypedEventData) -> TypedEvent
             id: None,
             timestamp: Some(Utc::now()),
             parent_id: None,
+            agent_id: None,
         },
         event_type,
         typed_data,
@@ -380,7 +385,9 @@ fn exposes_user_message_overlays_and_reported_truncation_limit() {
                 interaction_id: None,
                 source: None,
                 agent_mode: None,
-                parent_agent_task_id: None,
+                // Root user messages can carry a task id too. It is only a
+                // subagent owner when it matches a known subagent call.
+                parent_agent_task_id: Some("root-agent-task".into()),
             }),
         ),
         event(

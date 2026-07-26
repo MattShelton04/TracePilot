@@ -66,6 +66,7 @@ fn writes_events_jsonl() {
         id: Some("evt-1".to_string()),
         timestamp: None,
         parent_id: None,
+        agent_id: None,
     }]);
     let archive = test_archive(session.clone());
 

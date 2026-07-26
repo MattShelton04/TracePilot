@@ -5,6 +5,31 @@ use super::model::{
 };
 use crate::models::event_types::{CompactionCompleteData, CompactionStartData, ShutdownData};
 
+#[derive(Default)]
+struct EstimatedLayers {
+    system_estimate: u64,
+    system_scale: Option<(u64, u64)>,
+    tools: u64,
+}
+
+impl EstimatedLayers {
+    fn calibrate_system(&mut self, observed: u64, estimate_at_anchor: u64) {
+        if estimate_at_anchor == 0 {
+            self.system_estimate = observed;
+            self.system_scale = None;
+        } else {
+            self.system_scale = Some((observed, estimate_at_anchor));
+        }
+    }
+
+    fn displayed_system(&self) -> u64 {
+        self.system_scale
+            .map_or(self.system_estimate, |(target, source)| {
+                scale(self.system_estimate, target, source)
+            })
+    }
+}
+
 pub(super) fn build_points(
     turn_count: usize,
     deltas: &[TurnDelta],
@@ -17,17 +42,23 @@ pub(super) fn build_points(
     let mut points = Vec::new();
     let mut interval_start = 1usize;
     let mut base_conversation = 0u64;
-    let mut last_system = anchors.first().map_or(0, |anchor| anchor.system);
-    let mut last_tools = anchors.first().map_or(0, |anchor| anchor.tools);
+    let mut layers = EstimatedLayers::default();
 
     for anchor in anchors {
         if anchor.turn < interval_start {
             push_observed_anchor(&mut points, anchor);
-            last_system = anchor.system;
-            last_tools = anchor.tools;
+            layers.calibrate_system(anchor.system, layers.system_estimate);
+            layers.tools = anchor.tools;
             base_conversation = anchor.conversation;
             continue;
         }
+        let estimate_at_anchor = deltas[interval_start..=anchor.turn]
+            .iter()
+            .filter_map(|delta| delta.system_tokens)
+            .next_back()
+            .unwrap_or(layers.system_estimate);
+        layers.calibrate_system(anchor.system, estimate_at_anchor);
+        layers.tools = anchor.tools;
         append_estimated_interval(
             &mut points,
             deltas,
@@ -35,11 +66,11 @@ pub(super) fn build_points(
             anchor.turn,
             base_conversation,
             anchor,
+            &mut layers,
         );
         push_observed_anchor(&mut points, anchor);
 
-        last_system = anchor.system;
-        last_tools = anchor.tools;
+        layers.tools = anchor.tools;
         base_conversation = anchor.conversation;
         interval_start = anchor.turn.saturating_add(1);
     }
@@ -50,8 +81,8 @@ pub(super) fn build_points(
             timestamp: deltas
                 .get(turn_count)
                 .and_then(|delta| delta.timestamp.clone()),
-            system: last_system,
-            tools: last_tools,
+            system: layers.displayed_system(),
+            tools: layers.tools,
             conversation: base_conversation
                 + deltas[interval_start..=turn_count]
                     .iter()
@@ -67,6 +98,7 @@ pub(super) fn build_points(
             turn_count,
             base_conversation,
             &fallback,
+            &mut layers,
         );
     }
 
@@ -80,6 +112,7 @@ fn append_estimated_interval(
     end: usize,
     base_conversation: u64,
     target: &Anchor,
+    layers: &mut EstimatedLayers,
 ) {
     if start > end || end >= deltas.len() {
         return;
@@ -92,14 +125,17 @@ fn append_estimated_interval(
     let mut raw_conversation = 0u64;
 
     for (turn, delta) in deltas.iter().enumerate().take(end + 1).skip(start) {
+        if let Some(snapshot) = delta.system_tokens {
+            layers.system_estimate = snapshot;
+        }
         raw_conversation += delta.message_tokens + delta.tool_tokens;
         let scaled_conversation = scale(raw_conversation, target_growth, raw_total);
         points.push(make_point(
             turn,
             ContextPointPhase::Turn,
             delta.timestamp.clone(),
-            target.system,
-            target.tools,
+            layers.displayed_system(),
+            layers.tools,
             base_conversation + scaled_conversation,
             ContextPointSource::Estimated,
         ));

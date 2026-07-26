@@ -327,6 +327,7 @@ fn collect_issues_reports_too_many_events() {
         id: None,
         timestamp: None,
         parent_id: None,
+        agent_id: None,
     };
     let mut session = minimal_session();
     session.events = Some(vec![event; MAX_EVENTS + 1]);
