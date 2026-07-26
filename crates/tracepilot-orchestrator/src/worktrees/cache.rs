@@ -21,7 +21,7 @@ pub fn invalidate_disk_usage_cache(path: &Path) {
     DISK_USAGE_CACHE.remove(&disk_usage_cache_key(path));
 }
 
-/// Get disk usage of a path (fully recursive), with a 30-second TTL cache.
+/// Get disk usage of a path (fully recursive), with a 60-second TTL cache.
 pub fn disk_usage_bytes(path: &Path) -> Result<u64> {
     let key = disk_usage_cache_key(path);
 

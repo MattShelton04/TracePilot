@@ -22,6 +22,7 @@ import {
   toSessionDetailContext,
 } from "@/composables/useSessionDetail";
 import { useWindowRole } from "@/composables/useWindowRole";
+import { usePreferencesStore } from "@/stores/preferences";
 import { useSessionTabsStore } from "@/stores/sessionTabs";
 
 // ── Lazy-loaded inner tab components ──────────────────────────────────
@@ -46,9 +47,15 @@ const emit = defineEmits<{
 }>();
 
 // ── Per-instance session detail composable ───────────────────────────
-const rawInstance = createSessionDetailInstance();
+const preferences = usePreferencesStore();
+const rawInstance = createSessionDetailInstance(preferences.sessionCacheSize);
 const store = toSessionDetailContext(rawInstance);
 provide(SESSION_DETAIL_KEY, store);
+
+watch(
+  () => preferences.sessionCacheSize,
+  (size) => rawInstance.setCacheSize(size),
+);
 
 const { isViewer } = useWindowRole();
 const tabStore = useSessionTabsStore();

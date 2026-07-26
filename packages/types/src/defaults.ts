@@ -10,7 +10,7 @@ import type { TracePilotConfig } from "./config.js";
 import { DEFAULT_FAVOURITE_MODELS } from "./models.js";
 
 /** Current config schema version. */
-export const CONFIG_VERSION = 10;
+export const CONFIG_VERSION = 11;
 
 /** Default cost per premium request (USD). */
 export const DEFAULT_COST_PER_PREMIUM_REQUEST = 0.04;
@@ -26,6 +26,16 @@ export const DEFAULT_CONTENT_MAX_WIDTH = 1600;
 
 /** Default UI scale factor. */
 export const DEFAULT_UI_SCALE = 1.0;
+
+/** Recent sessions retained by each navigation cache. */
+export const DEFAULT_SESSION_CACHE_SIZE = 10;
+export const MIN_SESSION_CACHE_SIZE = 1;
+export const MAX_SESSION_CACHE_SIZE = 100;
+
+export function clampSessionCacheSize(value: number): number {
+  if (!Number.isFinite(value)) return DEFAULT_SESSION_CACHE_SIZE;
+  return Math.max(MIN_SESSION_CACHE_SIZE, Math.min(MAX_SESSION_CACHE_SIZE, Math.round(value)));
+}
 
 /** Default alert cooldown in seconds. */
 export const DEFAULT_ALERT_COOLDOWN_SECONDS = 20;
@@ -67,6 +77,7 @@ export function createDefaultConfig(
     features: Partial<TracePilotConfig["features"]>;
     logging: Partial<TracePilotConfig["logging"]>;
     alerts: Partial<TracePilotConfig["alerts"]>;
+    performance: Partial<TracePilotConfig["performance"]>;
   }>,
 ): TracePilotConfig {
   return {
@@ -126,6 +137,10 @@ export function createDefaultConfig(
       onSessionError: false,
       cooldownSeconds: DEFAULT_ALERT_COOLDOWN_SECONDS,
       ...overrides?.alerts,
+    },
+    performance: {
+      sessionCacheSize: DEFAULT_SESSION_CACHE_SIZE,
+      ...overrides?.performance,
     },
   };
 }

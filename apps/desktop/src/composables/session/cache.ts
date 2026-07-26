@@ -12,6 +12,7 @@ import type {
   ShutdownMetrics,
   TodosResponse,
 } from "@tracepilot/types";
+import { clampSessionCacheSize, DEFAULT_SESSION_CACHE_SIZE } from "@tracepilot/types";
 import type { EventsFingerprint } from "./sessionFingerprint";
 
 export interface CachedSession {
@@ -26,14 +27,16 @@ export interface CachedSession {
   loadedSections: Set<string>;
 }
 
-export const DEFAULT_SESSION_CACHE_SIZE = 30;
+export { DEFAULT_SESSION_CACHE_SIZE };
 
 export interface SessionCache {
   set(id: string, cached: CachedSession): void;
   get(id: string): CachedSession | undefined;
   has(id: string): boolean;
   clear(): void;
+  setMaxSize(maxSize: number): void;
   readonly size: number;
+  readonly maxSize: number;
 }
 
 /**
@@ -42,15 +45,21 @@ export interface SessionCache {
  */
 export function createSessionCache(maxSize: number = DEFAULT_SESSION_CACHE_SIZE): SessionCache {
   const map = new Map<string, CachedSession>();
+  let capacity = clampSessionCacheSize(maxSize);
+
+  function evictToCapacity() {
+    while (map.size > capacity) {
+      const oldest = map.keys().next().value;
+      if (oldest === undefined) break;
+      map.delete(oldest);
+    }
+  }
 
   return {
     set(id, cached) {
       map.delete(id);
       map.set(id, cached);
-      if (map.size > maxSize) {
-        const oldest = map.keys().next().value;
-        if (oldest !== undefined) map.delete(oldest);
-      }
+      evictToCapacity();
     },
     get(id) {
       const entry = map.get(id);
@@ -67,8 +76,15 @@ export function createSessionCache(maxSize: number = DEFAULT_SESSION_CACHE_SIZE)
     clear() {
       map.clear();
     },
+    setMaxSize(maxSize) {
+      capacity = clampSessionCacheSize(maxSize);
+      evictToCapacity();
+    },
     get size() {
       return map.size;
+    },
+    get maxSize() {
+      return capacity;
     },
   };
 }

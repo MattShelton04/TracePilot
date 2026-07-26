@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CONFIG_VERSION,
+  clampSessionCacheSize,
   createDefaultConfig,
   DEFAULT_ALERT_COOLDOWN_SECONDS,
   DEFAULT_AUTO_REFRESH_INTERVAL_SECONDS,
@@ -8,7 +9,10 @@ import {
   DEFAULT_CONTENT_MAX_WIDTH,
   DEFAULT_COST_PER_PREMIUM_REQUEST,
   DEFAULT_FEATURES,
+  DEFAULT_SESSION_CACHE_SIZE,
   DEFAULT_UI_SCALE,
+  MAX_SESSION_CACHE_SIZE,
+  MIN_SESSION_CACHE_SIZE,
 } from "../src/defaults.js";
 import { DEFAULT_FAVOURITE_MODELS } from "../src/models.js";
 import {
@@ -66,6 +70,9 @@ describe("createDefaultConfig", () => {
       onAskUser: true,
       onSessionError: false,
       cooldownSeconds: DEFAULT_ALERT_COOLDOWN_SECONDS,
+    },
+    performance: {
+      sessionCacheSize: DEFAULT_SESSION_CACHE_SIZE,
     },
   };
 
@@ -167,5 +174,18 @@ describe("createDefaultConfig", () => {
 
     // Check that nested values not specified remain intact
     expect(config.pricing.models).toEqual([]);
+  });
+});
+
+describe("clampSessionCacheSize", () => {
+  it("keeps the configured cache size within the supported range", () => {
+    expect(clampSessionCacheSize(MIN_SESSION_CACHE_SIZE - 1)).toBe(MIN_SESSION_CACHE_SIZE);
+    expect(clampSessionCacheSize(DEFAULT_SESSION_CACHE_SIZE)).toBe(DEFAULT_SESSION_CACHE_SIZE);
+    expect(clampSessionCacheSize(MAX_SESSION_CACHE_SIZE + 1)).toBe(MAX_SESSION_CACHE_SIZE);
+  });
+
+  it("falls back to the default for non-finite values", () => {
+    expect(clampSessionCacheSize(Number.NaN)).toBe(DEFAULT_SESSION_CACHE_SIZE);
+    expect(clampSessionCacheSize(Number.POSITIVE_INFINITY)).toBe(DEFAULT_SESSION_CACHE_SIZE);
   });
 });

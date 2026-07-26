@@ -34,26 +34,27 @@ use tracepilot_orchestrator::bridge::CopilotSdkEnabledReader;
 use tracepilot_orchestrator::bridge::manager::SharedBridgeManager;
 use types::{EventCache, TurnCache};
 
-/// Capacity (in sessions) for the per-process EventCache and TurnCache LRUs.
-///
-/// Sized to comfortably hold the prefetched window (`PREFETCH_LIMIT` in
-/// `SessionListView.vue`) plus a few "currently-open" tabs, so navigating
-/// back to the session list never re-parses events for a recently-viewed
-/// session — and a webview Ctrl+R refresh stays cheap because the Rust
-/// process (and these caches) survives the reload.
-const SESSION_CACHE_CAPACITY: usize = 30;
-
 /// Build the Tauri plugin that registers all IPC commands.
 pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
     tauri::plugin::Builder::new("tracepilot")
         .setup(|app, _api| {
             app.manage(Arc::new(IndexingSemaphores::new()));
+            let session_cache_size = app
+                .state::<crate::config::SharedConfig>()
+                .read()
+                .ok()
+                .and_then(|guard| {
+                    guard
+                        .as_ref()
+                        .map(|cfg| cfg.performance.session_cache_size)
+                })
+                .unwrap_or(crate::config::DEFAULT_SESSION_CACHE_SIZE);
             let turn_cache: TurnCache =
-                Arc::new(Mutex::new(cache::build_session_lru(SESSION_CACHE_CAPACITY)));
+                Arc::new(Mutex::new(cache::build_session_lru(session_cache_size)));
             app.manage(turn_cache);
 
             let event_cache: EventCache =
-                Arc::new(Mutex::new(cache::build_session_lru(SESSION_CACHE_CAPACITY)));
+                Arc::new(Mutex::new(cache::build_session_lru(session_cache_size)));
             app.manage(event_cache);
             app.manage(tracepilot_orchestrator::context_capture::ContextCaptureManager::default());
 

@@ -5,9 +5,6 @@ import {
   FIXTURE_CONFIG,
   FIXTURE_CONFIG_B,
   FIXTURE_CACHED,
-  FIXTURE_HEALTH,
-  FIXTURE_TOOL,
-  FIXTURE_TOOL_B,
   mocks,
   seedStore,
   setupMcpStoreTest,
@@ -65,10 +62,11 @@ describe("useMcpStore", () => {
 
   // ── updateServer ───────────────────────────────────────────
   describe("updateServer", () => {
-    it("updates config and preserves health/tools on success", async () => {
+    it("updates config and invalidates health/tools from the old config", async () => {
       mocks.mcpUpdateServer.mockResolvedValue(undefined);
       const store = useMcpStore();
       seedStore(store);
+      store.healthResults = new Map([["filesystem", FIXTURE_CACHED]]);
 
       const updatedConfig: McpServerConfig = {
         ...FIXTURE_CONFIG,
@@ -80,10 +78,10 @@ describe("useMcpStore", () => {
       expect(result).toBe(true);
       const detail = store.servers.get("filesystem");
       expect(detail?.config.description).toBe("Updated description");
-      // Health and tools should be preserved from the existing entry
-      expect(detail?.health).toEqual(FIXTURE_HEALTH);
-      expect(detail?.tools).toEqual([FIXTURE_TOOL, FIXTURE_TOOL_B]);
-      expect(detail?.totalTokens).toBe(350);
+      expect(detail?.health).toBeUndefined();
+      expect(detail?.tools).toEqual([]);
+      expect(detail?.totalTokens).toBe(0);
+      expect(store.healthResults.has("filesystem")).toBe(false);
     });
 
     it("returns false and sets error on failure", async () => {
@@ -170,11 +168,15 @@ describe("useMcpStore", () => {
       mocks.mcpToggleServer.mockResolvedValue(false); // was enabled, now disabled
       const store = useMcpStore();
       seedStore(store);
+      store.healthResults = new Map([["filesystem", FIXTURE_CACHED]]);
 
       const result = await store.toggleServer("filesystem");
 
       expect(result).toBe(false);
       expect(store.servers.get("filesystem")?.config.enabled).toBe(false);
+      expect(store.servers.get("filesystem")?.health).toBeUndefined();
+      expect(store.servers.get("filesystem")?.tools).toEqual([]);
+      expect(store.healthResults.has("filesystem")).toBe(false);
     });
 
     it("enables a disabled server", async () => {

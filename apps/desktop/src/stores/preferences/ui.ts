@@ -11,6 +11,7 @@ import {
   DEFAULT_CLI_COMMAND,
   DEFAULT_CONTENT_MAX_WIDTH,
   DEFAULT_FAVOURITE_MODELS,
+  DEFAULT_SESSION_CACHE_SIZE,
   DEFAULT_UI_SCALE,
 } from "@tracepilot/types";
 import { normalizePath } from "@tracepilot/ui";
@@ -59,6 +60,7 @@ export function createUiSlice() {
   const contentMaxWidth = ref(DEFAULT_CONTENT_MAX_WIDTH);
   const uiScale = ref(DEFAULT_UI_SCALE);
   const logLevel = ref("info");
+  const sessionCacheSize = ref(DEFAULT_SESSION_CACHE_SIZE);
 
   // Ephemeral state — stays in localStorage only
   const lastViewedSession = ref<string | null>(localStorage.getItem(STORAGE_KEYS.lastSession));
@@ -86,6 +88,7 @@ export function createUiSlice() {
     contentMaxWidth,
     uiScale,
     logLevel,
+    sessionCacheSize,
     lastViewedSession,
     lastSeenVersion,
     addRecentRepoPath,

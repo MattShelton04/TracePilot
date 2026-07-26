@@ -17,10 +17,12 @@
 import { checkConfigExists, getConfig, saveConfig } from "@tracepilot/client";
 import type { TracePilotConfig } from "@tracepilot/types";
 import {
+  clampSessionCacheSize,
   createDefaultConfig,
   DEFAULT_CONTENT_MAX_WIDTH,
   DEFAULT_COST_PER_PREMIUM_REQUEST,
   DEFAULT_FEATURES,
+  DEFAULT_SESSION_CACHE_SIZE,
   DEFAULT_UI_SCALE,
 } from "@tracepilot/types";
 import { useAsyncGuard } from "@tracepilot/ui";
@@ -97,6 +99,9 @@ export const usePreferencesStore = defineStore("preferences", () => {
     };
     flags.featureFlags.value = { ...DEFAULT_FEATURES, ...config.features };
     ui.logLevel.value = config.logging?.level ?? "info";
+    ui.sessionCacheSize.value = clampSessionCacheSize(
+      config.performance?.sessionCacheSize ?? DEFAULT_SESSION_CACHE_SIZE,
+    );
 
     // Alert settings
     if (config.alerts) {
@@ -151,6 +156,9 @@ export const usePreferencesStore = defineStore("preferences", () => {
         onAskUser: alerts.alertsOnAskUser.value,
         onSessionError: alerts.alertsOnSessionError.value,
         cooldownSeconds: alerts.alertsCooldownSeconds.value,
+      },
+      performance: {
+        sessionCacheSize: clampSessionCacheSize(ui.sessionCacheSize.value),
       },
     };
   }
@@ -266,6 +274,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
       alerts.alertsOnAskUser,
       alerts.alertsOnSessionError,
       alerts.alertsCooldownSeconds,
+      ui.sessionCacheSize,
     ],
     scheduleSave,
     { deep: true },

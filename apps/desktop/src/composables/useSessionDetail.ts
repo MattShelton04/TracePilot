@@ -47,7 +47,7 @@ const REFRESH_THROTTLE_MS = 5_000;
  * This is the core factory used both by the Pinia singleton store and
  * by per-tab composable instances.
  */
-export function createSessionDetailInstance() {
+export function createSessionDetailInstance(initialCacheSize?: number) {
   const sessionId = ref<string | null>(null);
   // shallowRef: these large immutable payloads are always replaced wholesale.
   const detail = shallowRef<SessionDetail | null>(null);
@@ -80,7 +80,8 @@ export function createSessionDetailInstance() {
   // Background refresh throttle
   const lastFetchTimestamp = new Map<string, number>();
 
-  const sessionCache = createSessionCache();
+  const sessionCache = createSessionCache(initialCacheSize);
+  const prefetchInFlight = new Set<string>();
   const snapshotCtx = { detail, loaded, turnsRefresh, sections };
 
   function saveToCache(id: string) {
@@ -194,6 +195,10 @@ export function createSessionDetailInstance() {
     sessionCache.clear();
   }
 
+  function setCacheSize(maxSize: number) {
+    sessionCache.setMaxSize(maxSize);
+  }
+
   async function refreshAll() {
     const id = sessionId.value;
     if (!id) return;
@@ -231,8 +236,9 @@ export function createSessionDetailInstance() {
   }
 
   async function prefetchSession(id: string) {
-    if (sessionCache.has(id) || sessionId.value === id) return;
+    if (sessionCache.has(id) || sessionId.value === id || prefetchInFlight.has(id)) return;
 
+    prefetchInFlight.add(id);
     try {
       const [detailResult, turnsResult] = await Promise.all([
         getSessionDetail(id),
@@ -255,6 +261,8 @@ export function createSessionDetailInstance() {
       } else {
         logWarn(`${LOG_PREFIX} Prefetch failed (best-effort)`, { sessionId: id }, e);
       }
+    } finally {
+      prefetchInFlight.delete(id);
     }
   }
 
@@ -314,6 +322,7 @@ export function createSessionDetailInstance() {
     loadShutdownMetrics: sections.metricsDef.load,
     loadIncidents: sections.incidentsDef.load,
     reset,
+    setCacheSize,
     refreshAll,
     prefetchSession,
   };

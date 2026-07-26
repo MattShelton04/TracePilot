@@ -13,6 +13,7 @@
 //! - [`FeaturesConfig`] — feature-flag booleans exposed to the frontend.
 //! - [`LoggingConfig`] — log-level wiring.
 //! - [`AlertsConfig`] — notification/toast/sound preferences.
+//! - [`PerformanceConfig`] — bounded runtime cache retention.
 //!
 //! Wire-format rule: every sub-config must carry `#[serde(default)]` on its
 //! field in [`TracePilotConfig`] so missing TOML sections round-trip cleanly.
@@ -31,6 +32,7 @@ mod features;
 mod general;
 mod logging;
 mod paths;
+mod performance;
 mod pricing;
 mod tool_rendering;
 mod ui;
@@ -45,6 +47,10 @@ pub use features::FeaturesConfig;
 pub use general::GeneralConfig;
 pub use logging::LoggingConfig;
 pub use paths::PathsConfig;
+pub use performance::{
+    DEFAULT_SESSION_CACHE_SIZE, MAX_SESSION_CACHE_SIZE, MIN_SESSION_CACHE_SIZE, PerformanceConfig,
+    clamp_session_cache_size,
+};
 pub use pricing::{ModelPriceEntry, PricingConfig};
 pub use tool_rendering::ToolRenderingConfig;
 pub use ui::UiConfig;
@@ -88,6 +94,8 @@ pub struct TracePilotConfig {
     pub logging: LoggingConfig,
     #[serde(default)]
     pub alerts: AlertsConfig,
+    #[serde(default)]
+    pub performance: PerformanceConfig,
 }
 
 impl Default for TracePilotConfig {
@@ -115,13 +123,14 @@ impl Default for TracePilotConfig {
             features: FeaturesConfig::default(),
             logging: LoggingConfig::default(),
             alerts: AlertsConfig::default(),
+            performance: PerformanceConfig::default(),
         }
     }
 }
 
 impl TracePilotConfig {
     /// Current schema version. Bump this when adding migrations.
-    pub const CURRENT_VERSION: u32 = 10;
+    pub const CURRENT_VERSION: u32 = 11;
 
     /// Apply any pending migrations to bring the config up to the current version.
     /// Returns true if any migrations were applied.
@@ -202,6 +211,14 @@ impl TracePilotConfig {
             self.version = 10;
             tracing::info!("Migrated config from v9 → v10 (exact context capture flag)");
         }
+
+        // Migration from v10 → v11: added performance.sessionCacheSize.
+        if self.version < 11 {
+            self.version = 11;
+            tracing::info!("Migrated config from v10 → v11 (session cache size setting)");
+        }
+
+        self.performance.normalize();
 
         self.version != original
     }
@@ -325,6 +342,7 @@ impl TracePilotConfig {
     }
 
     pub fn normalize_paths(&mut self) {
+        self.performance.normalize();
         let defaults = Self::default();
         if self.paths.copilot_home.trim().is_empty() {
             self.paths.copilot_home = defaults.paths.copilot_home;

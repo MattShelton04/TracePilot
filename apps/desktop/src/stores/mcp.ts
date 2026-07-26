@@ -129,13 +129,13 @@ export const useMcpStore = defineStore("mcp", () => {
   async function updateServer(name: string, config: McpServerConfig): Promise<boolean> {
     const ok = await runMutation(error, async () => {
       await mcpUpdateServer(name, config);
-      const existing = servers.value.get(name);
+      healthResults.value.delete(name);
       servers.value.set(name, {
         name,
         config,
-        health: existing?.health,
-        tools: existing?.tools ?? [],
-        totalTokens: existing?.totalTokens ?? 0,
+        health: undefined,
+        tools: [],
+        totalTokens: 0,
       });
       return true as const;
     });
@@ -158,11 +158,15 @@ export const useMcpStore = defineStore("mcp", () => {
   async function toggleServer(name: string): Promise<boolean> {
     const result = await runMutation(error, async () => {
       const newEnabled = await mcpToggleServer(name);
+      healthResults.value.delete(name);
       const existing = servers.value.get(name);
       if (existing) {
         servers.value.set(name, {
           ...existing,
           config: { ...existing.config, enabled: newEnabled },
+          health: undefined,
+          tools: [],
+          totalTokens: 0,
         });
       }
       return newEnabled;

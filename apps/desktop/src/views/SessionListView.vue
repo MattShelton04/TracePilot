@@ -27,6 +27,7 @@ import { usePreferencesStore } from "@/stores/preferences";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { type SortOption, useSessionsStore } from "@/stores/sessions";
 import { useSessionTabsStore } from "@/stores/sessionTabs";
+import { prefetchRecentSessions } from "@/utils/sessionPrefetch";
 
 const router = useRouter();
 const store = useSessionsStore();
@@ -57,22 +58,17 @@ const { setup: setupIndexingEvents } = useIndexingEvents({
   },
 });
 
-function prefetchTopSessions() {
+async function prefetchTopSessions() {
   // NOTE: Prefetch populates the Pinia singleton's cache. Per-tab instances
   // (via createSessionDetailInstance) have their own cache and won't benefit
   // from this prefetch. This is acceptable — tabs do their own data loading
   // on open, and this optimization still speeds up route-based navigation.
-  // Single-user deployment: prefetch generously to maximise cache hits on
-  // navigation. The backend now skips sessions whose events.jsonl is missing,
-  // and the typed-event cache is keyed by (size, mtime) so re-prefetch is cheap.
-  const PREFETCH_LIMIT = 25;
-  const top = store.sessions
-    .slice()
-    .sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""))
-    .slice(0, PREFETCH_LIMIT);
-  for (const session of top) {
-    detailStore.prefetchSession(session.id);
-  }
+  // Keep the prefetch window aligned with the configured frontend/backend LRU
+  // capacities so every eager load has a chance to remain useful.
+  const prefetchLimit = prefs.sessionCacheSize;
+  await prefetchRecentSessions(store.sessions, prefetchLimit, (sessionId) =>
+    detailStore.prefetchSession(sessionId),
+  );
 }
 
 const repoOptions = computed(() => store.repositories as string[]);
@@ -86,6 +82,7 @@ const sortOptions = [
 
 onMounted(async () => {
   await setupIndexingEvents();
+  await prefs.whenReady;
 
   if (store.sessions.length === 0) {
     await store.fetchSessions();
@@ -97,15 +94,23 @@ onMounted(async () => {
   }
   // Prefetch top sessions for instant navigation (fire-and-forget)
   if (store.sessions.length > 0) {
-    prefetchTopSessions();
+    void prefetchTopSessions();
   }
   // Ensure index is fresh — may add new sessions in background
   store.ensureIndex().then(() => {
     if (store.sessions.length > 0) {
-      prefetchTopSessions();
+      void prefetchTopSessions();
     }
   });
 });
+
+watch(
+  () => prefs.sessionCacheSize,
+  (size) => {
+    detailStore.setCacheSize(size);
+  },
+  { immediate: true },
+);
 
 const pageRef = ref<HTMLElement | null>(null);
 let driftTimeout: ReturnType<typeof setTimeout> | null = null;
