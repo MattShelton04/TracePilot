@@ -67,6 +67,13 @@ function updateSessionCacheSize(value: unknown) {
           </div>
         </div>
         <div class="setting-control-group">
+          <ActionButton
+            v-if="preferences.sessionCacheSize !== DEFAULT_SESSION_CACHE_SIZE"
+            size="sm"
+            @click="preferences.sessionCacheSize = DEFAULT_SESSION_CACHE_SIZE"
+          >
+            Reset
+          </ActionButton>
           <FormInput
             :model-value="preferences.sessionCacheSize"
             @update:model-value="updateSessionCacheSize"
@@ -77,15 +84,6 @@ function updateSessionCacheSize(value: unknown) {
             class="input-narrow-center"
             aria-label="Recent sessions kept ready"
           />
-          <span class="setting-unit">sessions</span>
-          <ActionButton
-            v-if="preferences.sessionCacheSize !== DEFAULT_SESSION_CACHE_SIZE"
-            size="sm"
-            variant="ghost"
-            @click="preferences.sessionCacheSize = DEFAULT_SESSION_CACHE_SIZE"
-          >
-            Reset
-          </ActionButton>
         </div>
       </div>
 

@@ -37,8 +37,8 @@ const databaseSize = computed(() => dataStorageRef.value?.databaseSize ?? "—")
       <SettingsPricing />
       <SettingsToolVisualization />
       <SettingsUpdates />
-      <SettingsAlerts />
       <SettingsExperimental />
+      <SettingsAlerts />
       <SettingsSdk />
       <SettingsAbout :session-count="sessionCount" :database-size="databaseSize" />
     </div>

@@ -245,7 +245,9 @@ describe("SessionLauncherAdvanced", () => {
     const toggles = wrapper.findAll(".toggle-switch");
 
     expect(toggles[2].attributes("disabled")).toBeDefined();
-    expect(toggles[2].attributes("title")).toBe("Enable copilotSdk in Settings → Experimental");
+    expect(toggles[2].attributes("title")).toBe(
+      "Enable Copilot SDK Bridge in Settings → Additional Features",
+    );
     await toggles[2].trigger("click");
 
     expect(ctx.headless.value).toBe(false);

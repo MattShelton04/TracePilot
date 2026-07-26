@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ActionButton, FormSwitch, SectionPanel } from "@tracepilot/ui";
+import SettingsFeatureGroupHeader from "@/components/settings/SettingsFeatureGroupHeader.vue";
 import { dispatchTestAlert } from "@/composables/useAlertDispatcher";
 import { usePreferencesStore } from "@/stores/preferences";
 
@@ -13,7 +14,12 @@ function handleTestAlert() {
 <template>
   <div class="settings-section">
     <div class="settings-section-title">Alerts &amp; Notifications</div>
-    <SectionPanel>
+    <SettingsFeatureGroupHeader
+      label="Experimental"
+      tone="experimental"
+      tooltip="Experimental features are likely to be buggy or unstable."
+    />
+    <SectionPanel class="alerts-experimental-panel">
       <div class="setting-row">
         <div>
           <div class="setting-label">Enable alerts</div>
@@ -153,6 +159,10 @@ function handleTestAlert() {
 </template>
 
 <style scoped>
+.alerts-experimental-panel {
+  border-color: var(--warning-muted);
+}
+
 .group-divider {
   height: 1px;
   background: var(--border-subtle);

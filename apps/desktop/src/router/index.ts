@@ -229,7 +229,8 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: "Config Injector",
       sidebarId: "config-injector",
-      sidebar: { section: "orchestration", label: "Config Injector", icon: "config", order: 3 },
+      featureFlag: "configInjector",
+      sidebar: { section: "configuration", label: "Config Injector", icon: "config", order: 3 },
     },
   },
   // === MCP Server Management ===

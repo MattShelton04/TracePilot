@@ -1,6 +1,6 @@
 # Exact Context Capture
 
-Exact Context Capture is an experimental TracePilot feature for inspecting the model API request body that the installed GitHub Copilot CLI builds. It supports isolated captures of an inactive session and fresh CLI context benchmarks.
+Exact Context Capture is an optional TracePilot feature for inspecting the model API request body that the installed GitHub Copilot CLI builds. It supports isolated captures of an inactive session and fresh CLI context benchmarks.
 
 The capture is local. TracePilot directs one request to a temporary listener on `127.0.0.1`, saves the request if you ask it to, returns an intentional error to stop inference, and never forwards the payload to a model provider.
 
@@ -51,7 +51,7 @@ The initial implementation is tested against the capture capabilities exposed by
 ## Enable the feature
 
 1. Open **Settings**.
-2. Open **Experimental**.
+2. Find **Recommended** under **Additional Features**.
 3. Enable **Exact Context Capture**.
 4. Open a session and select its **Context** tab.
 

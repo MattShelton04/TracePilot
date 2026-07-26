@@ -44,4 +44,13 @@ describe("route registry consistency", () => {
 
     expect(offenders, `Routes with unknown sidebarId: ${offenders.join(", ")}`).toEqual([]);
   });
+
+  it("gates Config Injector and places it in Configuration navigation", () => {
+    const route = router
+      .getRoutes()
+      .find((candidate) => candidate.name === ROUTE_NAMES.configInjector);
+
+    expect(route?.meta.featureFlag).toBe("configInjector");
+    expect(route?.meta.sidebar?.section).toBe("configuration");
+  });
 });
