@@ -2,11 +2,12 @@ export const SESSION_PREFETCH_CONCURRENCY = 2;
 
 interface PrefetchableSession {
   id: string;
+  turnCount?: number | null;
   updatedAt?: string | null;
 }
 
 /**
- * Prefetch the most recently updated sessions through a small worker pool.
+ * Prefetch the most recently updated non-empty sessions through a small worker pool.
  * Workers continue after individual failures because prefetch is best-effort.
  */
 export async function prefetchRecentSessions(
@@ -17,7 +18,7 @@ export async function prefetchRecentSessions(
 ): Promise<void> {
   const boundedLimit = Math.max(0, Math.floor(limit));
   const recent = sessions
-    .slice()
+    .filter((session) => (session.turnCount ?? 0) > 0)
     .sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""))
     .slice(0, boundedLimit);
   const workerCount = Math.min(recent.length, Math.max(1, Math.floor(concurrency)));

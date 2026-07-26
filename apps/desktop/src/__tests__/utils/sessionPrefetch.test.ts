@@ -7,9 +7,10 @@ describe("prefetchRecentSessions", () => {
 
     await prefetchRecentSessions(
       [
-        { id: "old", updatedAt: "2026-01-01" },
-        { id: "newest", updatedAt: "2026-03-01" },
-        { id: "middle", updatedAt: "2026-02-01" },
+        { id: "old", updatedAt: "2026-01-01", turnCount: 1 },
+        { id: "newest-empty", updatedAt: "2026-04-01", turnCount: 0 },
+        { id: "newest", updatedAt: "2026-03-01", turnCount: 1 },
+        { id: "middle", updatedAt: "2026-02-01", turnCount: 1 },
       ],
       2,
       prefetch,
@@ -18,6 +19,7 @@ describe("prefetchRecentSessions", () => {
     expect(prefetch).toHaveBeenCalledTimes(2);
     expect(prefetch).toHaveBeenCalledWith("newest");
     expect(prefetch).toHaveBeenCalledWith("middle");
+    expect(prefetch).not.toHaveBeenCalledWith("newest-empty");
   });
 
   it("bounds concurrent work while continuing after an individual failure", async () => {
@@ -37,6 +39,7 @@ describe("prefetchRecentSessions", () => {
       Array.from({ length: 5 }, (_, index) => ({
         id: `s-${index}`,
         updatedAt: `2026-01-0${5 - index}`,
+        turnCount: 1,
       })),
       5,
       prefetch,

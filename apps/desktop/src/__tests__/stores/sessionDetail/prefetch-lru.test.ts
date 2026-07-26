@@ -5,6 +5,7 @@ import {
   FIXTURE_DETAIL,
   FIXTURE_TURNS,
   ZERO_FRESHNESS,
+  createDeferred,
   mocks,
   setupSessionDetailStoreTest,
 } from "./setup";
@@ -65,6 +66,24 @@ describe("useSessionDetailStore", () => {
 
       expect(mocks.getSessionDetail).toHaveBeenCalledTimes(1);
       expect(mocks.getSessionTurns).toHaveBeenCalledTimes(1);
+    });
+
+    it("shares an active detail prefetch with foreground navigation", async () => {
+      const store = useSessionDetailStore();
+      const id = "foreground-priority";
+      const detailDeferred = createDeferred<typeof FIXTURE_DETAIL>();
+      mocks.getSessionDetail.mockReturnValue(detailDeferred.promise);
+
+      const prefetch = store.prefetchSession(id);
+      const foreground = store.loadDetail(id);
+
+      expect(mocks.getSessionDetail).toHaveBeenCalledTimes(1);
+
+      detailDeferred.resolve({ ...FIXTURE_DETAIL, id });
+      await Promise.all([prefetch, foreground]);
+
+      expect(store.detail?.id).toBe(id);
+      expect(mocks.getSessionTurns).not.toHaveBeenCalled();
     });
   });
 

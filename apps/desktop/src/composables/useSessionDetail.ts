@@ -82,7 +82,21 @@ export function createSessionDetailInstance(initialCacheSize?: number) {
 
   const sessionCache = createSessionCache(initialCacheSize);
   const prefetchInFlight = new Set<string>();
+  const detailInFlight = new Map<string, Promise<SessionDetail>>();
   const snapshotCtx = { detail, loaded, turnsRefresh, sections };
+
+  function fetchDetail(id: string): Promise<SessionDetail> {
+    const existing = detailInFlight.get(id);
+    if (existing) return existing;
+
+    const request = getSessionDetail(id).finally(() => {
+      if (detailInFlight.get(id) === request) {
+        detailInFlight.delete(id);
+      }
+    });
+    detailInFlight.set(id, request);
+    return request;
+  }
 
   function saveToCache(id: string) {
     const currentDetail = detail.value;
@@ -153,7 +167,7 @@ export function createSessionDetailInstance(initialCacheSize?: number) {
       loading,
       error,
       guard: sessionGuard,
-      action: () => getSessionDetail(id),
+      action: () => fetchDetail(id),
       onSuccess: (result) => {
         detail.value = result;
         loaded.value.add("detail");
@@ -240,11 +254,13 @@ export function createSessionDetailInstance(initialCacheSize?: number) {
 
     prefetchInFlight.add(id);
     try {
-      const [detailResult, turnsResult] = await Promise.all([
-        getSessionDetail(id),
-        getSessionTurns(id),
-      ]);
+      // Load detail first so foreground navigation can share this request.
+      // Turns then reuse the backend's parsed-event cache instead of racing
+      // detail and potentially parsing a large session twice.
+      const detailResult = await fetchDetail(id);
+      if (sessionCache.has(id) || sessionId.value === id) return;
 
+      const turnsResult = await getSessionTurns(id);
       if (sessionCache.has(id) || sessionId.value === id) return;
 
       sessionCache.set(id, buildPrefetchedCachedSession(detailResult, turnsResult));
