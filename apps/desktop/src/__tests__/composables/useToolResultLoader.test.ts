@@ -1,7 +1,10 @@
 import { getToolResult } from "@tracepilot/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick, ref } from "vue";
-import { useToolResultLoader } from "@/composables/useToolResultLoader";
+import {
+  TOOL_RESULT_CACHE_MAX_ENTRIES,
+  useToolResultLoader,
+} from "@/composables/useToolResultLoader";
 
 vi.mock("@tracepilot/client", async () => {
   const { createClientMock } = await import("../mocks/client");
@@ -67,5 +70,22 @@ describe("useToolResultLoader", () => {
     expect(loader.fullResults.has("tc3")).toBe(false);
     expect(loader.fullResultData.has("tc3")).toBe(false);
     expect(loader.loadingResults.has("tc3")).toBe(false);
+  });
+
+  it("evicts least-recently-used results at the entry limit", async () => {
+    const sessionId = ref("s1");
+    const loader = useToolResultLoader(() => sessionId.value);
+    mockGetToolResult.mockImplementation(async (_sessionId, toolCallId) => ({
+      content: toolCallId,
+    }));
+
+    for (let i = 0; i <= TOOL_RESULT_CACHE_MAX_ENTRIES; i++) {
+      await loader.loadFullResult(`tc-${i}`);
+    }
+
+    expect(loader.fullResults.size).toBe(TOOL_RESULT_CACHE_MAX_ENTRIES);
+    expect(loader.fullResultData.size).toBe(TOOL_RESULT_CACHE_MAX_ENTRIES);
+    expect(loader.fullResults.has("tc-0")).toBe(false);
+    expect(loader.fullResults.has(`tc-${TOOL_RESULT_CACHE_MAX_ENTRIES}`)).toBe(true);
   });
 });

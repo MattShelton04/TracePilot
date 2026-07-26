@@ -104,6 +104,13 @@ export interface TracePilotConfig {
     /** Minimum seconds between alerts for the same session to prevent spam. */
     cooldownSeconds: number;
   };
+  performance: {
+    /**
+     * Maximum recent sessions retained by each navigation cache.
+     * Higher values trade additional memory retention for faster revisits.
+     */
+    sessionCacheSize: number;
+  };
 }
 
 /** A single entry in the release manifest used by the What's New modal. */

@@ -5,14 +5,18 @@ import {
   FIXTURE_DETAIL,
   FIXTURE_TURNS,
   ZERO_FRESHNESS,
+  createDeferred,
   mocks,
   setupSessionDetailStoreTest,
 } from "./setup";
+import { DEFAULT_SESSION_CACHE_SIZE } from "@/composables/session/cache";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 
 setupSessionDetailStoreTest();
 
 describe("useSessionDetailStore", () => {
+  const cacheSize = DEFAULT_SESSION_CACHE_SIZE;
+
   describe("prefetchSession", () => {
     it("prefetches detail/turns and restores from cache with section defaults", async () => {
       const store = useSessionDetailStore();
@@ -48,6 +52,38 @@ describe("useSessionDetailStore", () => {
       expect(store.loaded.has("turns")).toBe(true);
       expect(store.loaded.has("events")).toBe(false);
       expect(store.loaded.has("todos")).toBe(false);
+    });
+
+    it("deduplicates concurrent prefetches for the same session", async () => {
+      const store = useSessionDetailStore();
+      mocks.getSessionDetail.mockResolvedValue({ ...FIXTURE_DETAIL, id: "same-session" });
+      mocks.getSessionTurns.mockResolvedValue(FIXTURE_TURNS);
+
+      await Promise.all([
+        store.prefetchSession("same-session"),
+        store.prefetchSession("same-session"),
+      ]);
+
+      expect(mocks.getSessionDetail).toHaveBeenCalledTimes(1);
+      expect(mocks.getSessionTurns).toHaveBeenCalledTimes(1);
+    });
+
+    it("shares an active detail prefetch with foreground navigation", async () => {
+      const store = useSessionDetailStore();
+      const id = "foreground-priority";
+      const detailDeferred = createDeferred<typeof FIXTURE_DETAIL>();
+      mocks.getSessionDetail.mockReturnValue(detailDeferred.promise);
+
+      const prefetch = store.prefetchSession(id);
+      const foreground = store.loadDetail(id);
+
+      expect(mocks.getSessionDetail).toHaveBeenCalledTimes(1);
+
+      detailDeferred.resolve({ ...FIXTURE_DETAIL, id });
+      await Promise.all([prefetch, foreground]);
+
+      expect(store.detail?.id).toBe(id);
+      expect(mocks.getSessionTurns).not.toHaveBeenCalled();
     });
   });
 
@@ -103,25 +139,24 @@ describe("useSessionDetailStore", () => {
     it("evicts the least-recently-used entry when cache overflows", async () => {
       const store = useSessionDetailStore();
 
-      // Load s-0 … s-29 sequentially (cache size = 30).
-      // After this: cache = {s-0…s-28} (29 entries saved on navigate-away),
-      // current session = s-29, s-0 is the oldest (LRU candidate).
+      // Load one cache window sequentially. The current session is not saved
+      // until navigating away, so s-0 is the oldest retained entry.
       await fillCache(
         store,
-        Array.from({ length: 30 }, (_, i) => `s-${i}`),
+        Array.from({ length: cacheSize }, (_, i) => `s-${i}`),
       );
 
-      // Navigate to s-30: saveToCache(s-29) fills cache to 30 entries.
-      // Cache = {s-0…s-29}, current = s-30 (not yet cached).
-      mocks.getSessionDetail.mockResolvedValue({ ...FIXTURE_DETAIL, id: "s-30" });
-      mocks.getSessionTurns.mockResolvedValue(FIXTURE_TURNS);
-      await store.loadDetail("s-30");
+      const firstOverflowId = `s-${cacheSize}`;
+      const secondOverflowId = `s-${cacheSize + 1}`;
 
-      // Navigate to s-31: saveToCache(s-30) adds s-30, triggering eviction of s-0 (LRU).
-      // Cache = {s-1…s-29, s-30}, s-0 evicted.
-      mocks.getSessionDetail.mockResolvedValue({ ...FIXTURE_DETAIL, id: "s-31" });
+      // Navigating once fills the cache; navigating again evicts s-0.
+      mocks.getSessionDetail.mockResolvedValue({ ...FIXTURE_DETAIL, id: firstOverflowId });
       mocks.getSessionTurns.mockResolvedValue(FIXTURE_TURNS);
-      await store.loadDetail("s-31");
+      await store.loadDetail(firstOverflowId);
+
+      mocks.getSessionDetail.mockResolvedValue({ ...FIXTURE_DETAIL, id: secondOverflowId });
+      mocks.getSessionTurns.mockResolvedValue(FIXTURE_TURNS);
+      await store.loadDetail(secondOverflowId);
 
       // s-0 should be evicted → cache miss (loading = true)
       const missOnS0 = await getLoadingState(store, "s-0");
@@ -131,31 +166,28 @@ describe("useSessionDetailStore", () => {
     it("read-touch: visiting a cached session promotes it to MRU, preventing eviction", async () => {
       const store = useSessionDetailStore();
 
-      // Load s-0…s-29 (cache size = 30). Cache = {s-0…s-28}, current = s-29, s-0 is LRU.
+      // Fill one cache window; s-0 is the LRU entry.
       await fillCache(
         store,
-        Array.from({ length: 30 }, (_, i) => `s-${i}`),
+        Array.from({ length: cacheSize }, (_, i) => `s-${i}`),
       );
 
-      // Navigate s-29 → s-0 (cache hit).
-      // saveToCache(s-29) adds s-29 → cache = {s-0…s-29} (30 entries).
-      // getFromSessionCache(s-0) promotes s-0 to MRU → cache = {s-1…s-29, s-0}, s-1 is now LRU.
+      // Revisit s-0 to promote it to MRU; s-1 becomes LRU.
       mocks.getSessionDetail.mockResolvedValue({ ...FIXTURE_DETAIL, id: "s-0" });
       mocks.checkSessionFreshness.mockResolvedValue(ZERO_FRESHNESS);
       await store.loadDetail("s-0");
       await new Promise((r) => setTimeout(r, 10)); // let background refresh settle
 
-      // Navigate to s-30 (cache miss).
-      // saveToCache(s-0) keeps s-0 at MRU. Cache = {s-1…s-29, s-0}, s-1 still LRU.
-      mocks.getSessionDetail.mockResolvedValue({ ...FIXTURE_DETAIL, id: "s-30" });
-      mocks.getSessionTurns.mockResolvedValue(FIXTURE_TURNS);
-      await store.loadDetail("s-30");
+      const firstOverflowId = `s-${cacheSize}`;
+      const secondOverflowId = `s-${cacheSize + 1}`;
 
-      // Navigate to s-31 (cache miss).
-      // saveToCache(s-30) adds s-30, evicts s-1 (LRU). Cache = {s-2…s-29, s-0, s-30}.
-      mocks.getSessionDetail.mockResolvedValue({ ...FIXTURE_DETAIL, id: "s-31" });
+      mocks.getSessionDetail.mockResolvedValue({ ...FIXTURE_DETAIL, id: firstOverflowId });
       mocks.getSessionTurns.mockResolvedValue(FIXTURE_TURNS);
-      await store.loadDetail("s-31");
+      await store.loadDetail(firstOverflowId);
+
+      mocks.getSessionDetail.mockResolvedValue({ ...FIXTURE_DETAIL, id: secondOverflowId });
+      mocks.getSessionTurns.mockResolvedValue(FIXTURE_TURNS);
+      await store.loadDetail(secondOverflowId);
 
       // s-0 was promoted by read-touch → still cached (cache hit, loading = false)
       const s0Result = await getLoadingState(store, "s-0");
@@ -169,14 +201,13 @@ describe("useSessionDetailStore", () => {
     it("prefetch guard uses .has() without promoting the entry to MRU", async () => {
       const store = useSessionDetailStore();
 
-      // Load s-0…s-29 (cache size = 30). Cache = {s-0…s-28}, current = s-29, s-0 is LRU.
+      // Fill one cache window; s-0 is the LRU entry.
       await fillCache(
         store,
-        Array.from({ length: 30 }, (_, i) => `s-${i}`),
+        Array.from({ length: cacheSize }, (_, i) => `s-${i}`),
       );
 
-      // Navigate s-29 → s-0 (cache hit, read-touch).
-      // cache = {s-1…s-29, s-0}, s-1 is now LRU.
+      // Revisit s-0; s-1 becomes LRU.
       mocks.getSessionDetail.mockResolvedValue({ ...FIXTURE_DETAIL, id: "s-0" });
       mocks.checkSessionFreshness.mockResolvedValue(ZERO_FRESHNESS);
       await store.loadDetail("s-0");
@@ -186,16 +217,18 @@ describe("useSessionDetailStore", () => {
       // Unlike getFromSessionCache, the .has() check does NOT promote s-1 to MRU.
       await store.prefetchSession("s-1"); // no-op: already cached, guard returns early
 
-      // Navigate to s-30 (cache miss). saveToCache(s-0) keeps s-0 at MRU.
-      mocks.getSessionDetail.mockResolvedValue({ ...FIXTURE_DETAIL, id: "s-30" });
-      mocks.getSessionTurns.mockResolvedValue(FIXTURE_TURNS);
-      await store.loadDetail("s-30");
+      const firstOverflowId = `s-${cacheSize}`;
+      const secondOverflowId = `s-${cacheSize + 1}`;
 
-      // Navigate to s-31 (cache miss). saveToCache(s-30) adds s-30, evicts s-1 (LRU).
-      // If prefetch HAD promoted s-1, s-2 would be evicted instead.
-      mocks.getSessionDetail.mockResolvedValue({ ...FIXTURE_DETAIL, id: "s-31" });
+      mocks.getSessionDetail.mockResolvedValue({ ...FIXTURE_DETAIL, id: firstOverflowId });
       mocks.getSessionTurns.mockResolvedValue(FIXTURE_TURNS);
-      await store.loadDetail("s-31");
+      await store.loadDetail(firstOverflowId);
+
+      // The second miss evicts s-1. If prefetch had promoted it, s-2
+      // would be evicted instead.
+      mocks.getSessionDetail.mockResolvedValue({ ...FIXTURE_DETAIL, id: secondOverflowId });
+      mocks.getSessionTurns.mockResolvedValue(FIXTURE_TURNS);
+      await store.loadDetail(secondOverflowId);
 
       // s-1 was not promoted by prefetch guard → it remains the LRU → evicted
       const s1Result = await getLoadingState(store, "s-1");

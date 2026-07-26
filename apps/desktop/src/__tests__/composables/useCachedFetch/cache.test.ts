@@ -107,6 +107,26 @@ describe("caching", () => {
     expect(fetcher).toHaveBeenCalledTimes(2);
   });
 
+  it("evicts least-recently-used parameter variants at the configured bound", async () => {
+    const fetcher = vi.fn(({ id }: { id: number }) => Promise.resolve({ id }));
+    const { fetch, isCached } = useCachedFetch({
+      fetcher,
+      maxCacheEntries: 2,
+    });
+
+    await fetch({ id: 1 });
+    await fetch({ id: 2 });
+    await fetch({ id: 1 }); // refresh key 1's recency
+    await fetch({ id: 3 });
+
+    expect(isCached({ id: 1 })).toBe(true);
+    expect(isCached({ id: 2 })).toBe(false);
+    expect(isCached({ id: 3 })).toBe(true);
+
+    await fetch({ id: 2 });
+    expect(fetcher).toHaveBeenCalledTimes(4);
+  });
+
   it("stores stale responses in cache without overwriting newer active data", async () => {
     const first = createDeferred<{ data: string }>();
     const second = createDeferred<{ data: string }>();

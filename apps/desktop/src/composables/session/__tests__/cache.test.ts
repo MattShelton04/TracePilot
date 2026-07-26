@@ -64,4 +64,20 @@ describe("createSessionCache", () => {
     expect(cache.size).toBe(0);
     expect(cache.has("a")).toBe(false);
   });
+
+  it("evicts least-recent entries immediately when resized smaller", () => {
+    const cache = createSessionCache(3);
+    cache.set("a", makeEntry("a"));
+    cache.set("b", makeEntry("b"));
+    cache.set("c", makeEntry("c"));
+    cache.get("a");
+
+    cache.setMaxSize(2);
+
+    expect(cache.maxSize).toBe(2);
+    expect(cache.size).toBe(2);
+    expect(cache.has("a")).toBe(true);
+    expect(cache.has("b")).toBe(false);
+    expect(cache.has("c")).toBe(true);
+  });
 });

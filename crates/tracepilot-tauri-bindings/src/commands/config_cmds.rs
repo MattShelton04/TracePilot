@@ -6,7 +6,35 @@ use crate::config::{self, SharedConfig, TracePilotConfig};
 use crate::error::{BindingsError, CmdResult};
 use crate::helpers::{read_config, validate_path_within, validate_write_path_within};
 use crate::services;
-use crate::types::ValidateSessionDirResult;
+use crate::types::{EventCache, TurnCache, ValidateSessionDirResult};
+
+fn resize_session_caches(turn_cache: &TurnCache, event_cache: &EventCache, capacity: usize) {
+    if let Ok(mut cache) = turn_cache.lock() {
+        crate::cache::resize_session_lru(&mut cache, capacity);
+    } else {
+        tracing::warn!(
+            cache = "turn",
+            "Session cache Mutex poisoned — resize skipped"
+        );
+    }
+    if let Ok(mut cache) = event_cache.lock() {
+        crate::cache::resize_session_lru(&mut cache, capacity);
+    } else {
+        tracing::warn!(
+            cache = "event",
+            "Session cache Mutex poisoned — resize skipped"
+        );
+    }
+}
+
+fn clear_session_caches(turn_cache: &TurnCache, event_cache: &EventCache) {
+    if let Ok(mut cache) = turn_cache.lock() {
+        cache.clear();
+    }
+    if let Ok(mut cache) = event_cache.lock() {
+        cache.clear();
+    }
+}
 
 #[tauri::command]
 #[specta::specta]
@@ -26,9 +54,14 @@ pub async fn get_config(state: tauri::State<'_, SharedConfig>) -> CmdResult<Trac
 pub async fn save_config(
     state: tauri::State<'_, SharedConfig>,
     gates: tauri::State<'_, std::sync::Arc<IndexingSemaphores>>,
+    turn_cache: tauri::State<'_, TurnCache>,
+    event_cache: tauri::State<'_, EventCache>,
     config: TracePilotConfig,
 ) -> CmdResult<()> {
-    services::config::save_config(&state, std::sync::Arc::clone(&*gates), config).await
+    let cache_size = config::clamp_session_cache_size(config.performance.session_cache_size);
+    services::config::save_config(&state, std::sync::Arc::clone(&*gates), config).await?;
+    resize_session_caches(&turn_cache, &event_cache, cache_size);
+    Ok(())
 }
 
 #[tauri::command]
@@ -67,8 +100,19 @@ pub async fn validate_session_dir(path: String) -> CmdResult<ValidateSessionDirR
 
 #[tauri::command]
 #[specta::specta]
-pub async fn factory_reset(state: tauri::State<'_, SharedConfig>) -> CmdResult<()> {
-    services::config::factory_reset(&state).await
+pub async fn factory_reset(
+    state: tauri::State<'_, SharedConfig>,
+    turn_cache: tauri::State<'_, TurnCache>,
+    event_cache: tauri::State<'_, EventCache>,
+) -> CmdResult<()> {
+    services::config::factory_reset(&state).await?;
+    clear_session_caches(&turn_cache, &event_cache);
+    resize_session_caches(
+        &turn_cache,
+        &event_cache,
+        config::DEFAULT_SESSION_CACHE_SIZE,
+    );
+    Ok(())
 }
 
 fn agent_backup_dir(cfg: &TracePilotConfig) -> std::path::PathBuf {

@@ -2,15 +2,20 @@
 
 use dashmap::DashMap;
 use std::hash::Hash;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
+
+const PRUNE_EVERY_N_INSERTS: usize = 64;
 
 /// A thread-safe TTL (time-to-live) cache backed by DashMap.
 ///
 /// Entries expire after the specified TTL duration. Expired entries are
-/// automatically detected and ignored on access (lazy eviction).
+/// removed on access and opportunistically pruned during inspection and
+/// periodically during writes.
 pub struct TtlCache<K, V> {
     data: DashMap<K, (V, Instant)>,
     ttl: Duration,
+    insert_count: AtomicUsize,
 }
 
 impl<K, V> TtlCache<K, V>
@@ -23,6 +28,7 @@ where
         Self {
             data: DashMap::new(),
             ttl,
+            insert_count: AtomicUsize::new(0),
         }
     }
 
@@ -41,6 +47,14 @@ where
 
     /// Insert or update a cache entry with the current timestamp.
     pub fn insert(&self, key: K, value: V) {
+        // DashMap::retain visits and write-locks every shard. Amortize that
+        // cost instead of turning every otherwise O(1) insert into a full-map
+        // scan. Exact-key reads still remove expired entries immediately, and
+        // len/is_empty always prune before reporting.
+        let insert_index = self.insert_count.fetch_add(1, Ordering::Relaxed);
+        if insert_index % PRUNE_EVERY_N_INSERTS == PRUNE_EVERY_N_INSERTS - 1 {
+            self.prune_expired();
+        }
         self.data.insert(key, (value, Instant::now()));
     }
 
@@ -52,19 +66,25 @@ where
     /// Clear all cache entries.
     pub fn clear(&self) {
         self.data.clear();
+        self.insert_count.store(0, Ordering::Relaxed);
     }
 
-    /// Returns the number of entries currently in the cache.
-    ///
-    /// Note: This may include expired entries that haven't been accessed
-    /// yet via `get()`. Entries are evicted lazily on access.
+    /// Returns the number of unexpired entries currently in the cache.
     pub fn len(&self) -> usize {
+        self.prune_expired();
         self.data.len()
     }
 
     /// Returns `true` if the cache contains no entries.
     pub fn is_empty(&self) -> bool {
+        self.prune_expired();
         self.data.is_empty()
+    }
+
+    fn prune_expired(&self) {
+        let ttl = self.ttl;
+        self.data
+            .retain(|_, (_, inserted_at)| inserted_at.elapsed() < ttl);
     }
 }
 
@@ -187,21 +207,33 @@ mod tests {
     }
 
     #[test]
-    fn test_lazy_eviction_behavior() {
+    fn test_expired_entries_are_pruned_during_inspection() {
         let cache = TtlCache::new(Duration::from_millis(100));
         cache.insert("a", 1);
         cache.insert("b", 2);
 
         thread::sleep(Duration::from_millis(200));
 
-        assert_eq!(cache.len(), 2);
-        assert!(!cache.is_empty());
-
-        assert_eq!(cache.get(&"a"), None);
-        assert_eq!(cache.len(), 1);
-
-        assert_eq!(cache.get(&"b"), None);
         assert_eq!(cache.len(), 0);
         assert!(cache.is_empty());
+        assert_eq!(cache.get(&"a"), None);
+        assert_eq!(cache.get(&"b"), None);
+    }
+
+    #[test]
+    fn test_insert_prunes_expired_other_keys() {
+        let cache = TtlCache::new(Duration::from_millis(100));
+        cache.insert("old-a".to_string(), 1);
+        cache.insert("old-b".to_string(), 2);
+
+        thread::sleep(Duration::from_millis(200));
+        for i in 0..(PRUNE_EVERY_N_INSERTS - 2) {
+            cache.insert(format!("fresh-{i}"), i);
+        }
+
+        // Inspect the backing map directly so len() cannot be the operation
+        // that makes this assertion pass.
+        assert_eq!(cache.data.len(), PRUNE_EVERY_N_INSERTS - 2);
+        assert_eq!(cache.get(&"fresh-61".to_string()), Some(61));
     }
 }

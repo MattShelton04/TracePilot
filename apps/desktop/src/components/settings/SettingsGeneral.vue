@@ -1,6 +1,12 @@
 <script setup lang="ts">
-import { DEFAULT_CLI_COMMAND } from "@tracepilot/types";
-import { BtnGroup, FormInput, FormSwitch, SectionPanel } from "@tracepilot/ui";
+import {
+  clampSessionCacheSize,
+  DEFAULT_CLI_COMMAND,
+  DEFAULT_SESSION_CACHE_SIZE,
+  MAX_SESSION_CACHE_SIZE,
+  MIN_SESSION_CACHE_SIZE,
+} from "@tracepilot/types";
+import { ActionButton, BtnGroup, FormInput, FormSwitch, SectionPanel } from "@tracepilot/ui";
 import { type ThemeOption, usePreferencesStore } from "@/stores/preferences";
 import { useSessionsStore } from "@/stores/sessions";
 
@@ -11,6 +17,10 @@ const themeOptions = [
   { value: "light", label: "Light" },
   { value: "dark", label: "Dark" },
 ];
+
+function updateSessionCacheSize(value: unknown) {
+  preferences.sessionCacheSize = clampSessionCacheSize(Number(value));
+}
 </script>
 
 <template>
@@ -46,6 +56,37 @@ const themeOptions = [
           @update:model-value="preferences.hideEmptySessions = $event"
           aria-label="Hide empty sessions"
         />
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">Recent sessions kept ready</div>
+          <div class="setting-description">
+            Keeps this many non-empty recent sessions ready to open. RAM use varies with session
+            size.
+          </div>
+        </div>
+        <div class="setting-control-group">
+          <FormInput
+            :model-value="preferences.sessionCacheSize"
+            @update:model-value="updateSessionCacheSize"
+            type="number"
+            :min="MIN_SESSION_CACHE_SIZE"
+            :max="MAX_SESSION_CACHE_SIZE"
+            step="1"
+            class="input-narrow-center"
+            aria-label="Recent sessions kept ready"
+          />
+          <span class="setting-unit">sessions</span>
+          <ActionButton
+            v-if="preferences.sessionCacheSize !== DEFAULT_SESSION_CACHE_SIZE"
+            size="sm"
+            variant="ghost"
+            @click="preferences.sessionCacheSize = DEFAULT_SESSION_CACHE_SIZE"
+          >
+            Reset
+          </ActionButton>
+        </div>
       </div>
 
       <div class="setting-row">

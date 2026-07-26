@@ -52,6 +52,12 @@ export interface CachedFetchOptions<TData, TParams> {
    * Set to false for always-fresh fetches.
    */
   cache?: boolean;
+
+  /**
+   * Maximum completed parameter variants retained in the cache.
+   * Defaults to 20. Least-recently-used entries are evicted first.
+   */
+  maxCacheEntries?: number;
 }
 
 /**
@@ -99,7 +105,7 @@ export interface CachedFetchResult<TData, TParams> {
  * Features:
  * - Request deduplication: concurrent requests for the same cache key return the same promise
  * - Generation tracking: prevents stale async writes from earlier requests
- * - Caching: results are cached by parameters to avoid redundant fetches
+ * - Bounded LRU caching: recent results are cached by parameters to avoid redundant fetches
  * - Type-safe: full TypeScript support with generics
  *
  * @template TData - The type of data returned by the fetcher
@@ -136,7 +142,11 @@ export function useCachedFetch<TData, TParams = void>(
     resetOnError = false,
     silent = false,
     cache = true,
+    maxCacheEntries = 20,
   } = options;
+  const cacheCapacity = Number.isFinite(maxCacheEntries)
+    ? Math.max(1, Math.floor(maxCacheEntries))
+    : 20;
 
   // Reactive state
   const data = ref<TData | null>(initialData) as Ref<TData | null>;
@@ -161,6 +171,23 @@ export function useCachedFetch<TData, TParams = void>(
   let activeGeneration = 0;
   let activeEpoch = 0;
 
+  function removeCacheKey(cacheKey: string) {
+    cacheData.delete(cacheKey);
+    loaded.delete(cacheKey);
+    if (!inflight.has(cacheKey)) keyGenerations.delete(cacheKey);
+  }
+
+  function retainCacheValue(cacheKey: string, value: TData | null) {
+    cacheData.delete(cacheKey);
+    cacheData.set(cacheKey, value);
+    loaded.add(cacheKey);
+    while (cacheData.size > cacheCapacity) {
+      const oldest = cacheData.keys().next().value;
+      if (oldest === undefined) break;
+      removeCacheKey(oldest);
+    }
+  }
+
   /**
    * Fetch data with the given parameters.
    */
@@ -173,6 +200,8 @@ export function useCachedFetch<TData, TParams = void>(
       activeGeneration = keyGenerations.get(cacheKey) ?? 0;
       activeEpoch = resetEpoch;
       const cachedValue = cacheData.get(cacheKey) ?? null;
+      cacheData.delete(cacheKey);
+      cacheData.set(cacheKey, cachedValue);
       error.value = null;
       if (!silent) {
         loading.value = false;
@@ -212,8 +241,7 @@ export function useCachedFetch<TData, TParams = void>(
 
         // Only write to cache when caching is enabled
         if (cache) {
-          cacheData.set(cacheKey, result ?? null);
-          loaded.add(cacheKey);
+          retainCacheValue(cacheKey, result ?? null);
         }
 
         const isActive =
@@ -261,6 +289,7 @@ export function useCachedFetch<TData, TParams = void>(
       } finally {
         // Clean up inflight tracking
         inflight.delete(cacheKey);
+        if (!loaded.has(cacheKey)) keyGenerations.delete(cacheKey);
 
         // Only update loading and call onFinally if this is still the latest request for this key
         if (activeKey === cacheKey && activeGeneration === gen && activeEpoch === epoch) {

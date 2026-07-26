@@ -56,6 +56,7 @@ export type {
 // ── defaults.js ────────────────────────────────────────────────────
 export {
   CONFIG_VERSION,
+  clampSessionCacheSize,
   createDefaultConfig,
   DEFAULT_ALERT_COOLDOWN_SECONDS,
   DEFAULT_AUTO_REFRESH_INTERVAL_SECONDS,
@@ -63,7 +64,10 @@ export {
   DEFAULT_CONTENT_MAX_WIDTH,
   DEFAULT_COST_PER_PREMIUM_REQUEST,
   DEFAULT_FEATURES,
+  DEFAULT_SESSION_CACHE_SIZE,
   DEFAULT_UI_SCALE,
+  MAX_SESSION_CACHE_SIZE,
+  MIN_SESSION_CACHE_SIZE,
 } from "./defaults.js";
 export type {
   ComparisonResult,

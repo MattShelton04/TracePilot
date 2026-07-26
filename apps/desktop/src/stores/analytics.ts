@@ -14,6 +14,11 @@ interface AnalyticsFetchParams {
   hideEmpty?: boolean;
 }
 
+// Each analytics payload can be substantial. Eight recent filter combinations
+// per dataset covers normal range/repository switching without retaining every
+// custom date combination explored during a long-running app session.
+const ANALYTICS_CACHE_ENTRIES_PER_DATASET = 8;
+
 /** Options accepted by all analytics fetch actions. */
 export interface AnalyticsFetchOptions {
   fromDate?: string;
@@ -66,18 +71,21 @@ export const useAnalyticsStore = defineStore("analytics", () => {
     fetcher: (params) => getAnalytics(params),
     cacheKeyFn: (params) =>
       `analytics:${params.fromDate ?? ""}:${params.toDate ?? ""}:${params.repo ?? ""}:${params.hideEmpty ?? ""}`,
+    maxCacheEntries: ANALYTICS_CACHE_ENTRIES_PER_DATASET,
   });
 
   const toolAnalysisFetcher = useCachedFetch<ToolAnalysisData, AnalyticsFetchParams>({
     fetcher: (params) => getToolAnalysis(params),
     cacheKeyFn: (params) =>
       `toolAnalysis:${params.fromDate ?? ""}:${params.toDate ?? ""}:${params.repo ?? ""}:${params.hideEmpty ?? ""}`,
+    maxCacheEntries: ANALYTICS_CACHE_ENTRIES_PER_DATASET,
   });
 
   const codeImpactFetcher = useCachedFetch<CodeImpactData, AnalyticsFetchParams>({
     fetcher: (params) => getCodeImpact(params),
     cacheKeyFn: (params) =>
       `codeImpact:${params.fromDate ?? ""}:${params.toDate ?? ""}:${params.repo ?? ""}:${params.hideEmpty ?? ""}`,
+    maxCacheEntries: ANALYTICS_CACHE_ENTRIES_PER_DATASET,
   });
 
   /** Ensure the sessions store is populated so availableRepos has data. */

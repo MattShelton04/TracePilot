@@ -47,7 +47,7 @@ const REFRESH_THROTTLE_MS = 5_000;
  * This is the core factory used both by the Pinia singleton store and
  * by per-tab composable instances.
  */
-export function createSessionDetailInstance() {
+export function createSessionDetailInstance(initialCacheSize?: number) {
   const sessionId = ref<string | null>(null);
   // shallowRef: these large immutable payloads are always replaced wholesale.
   const detail = shallowRef<SessionDetail | null>(null);
@@ -80,8 +80,23 @@ export function createSessionDetailInstance() {
   // Background refresh throttle
   const lastFetchTimestamp = new Map<string, number>();
 
-  const sessionCache = createSessionCache();
+  const sessionCache = createSessionCache(initialCacheSize);
+  const prefetchInFlight = new Set<string>();
+  const detailInFlight = new Map<string, Promise<SessionDetail>>();
   const snapshotCtx = { detail, loaded, turnsRefresh, sections };
+
+  function fetchDetail(id: string): Promise<SessionDetail> {
+    const existing = detailInFlight.get(id);
+    if (existing) return existing;
+
+    const request = getSessionDetail(id).finally(() => {
+      if (detailInFlight.get(id) === request) {
+        detailInFlight.delete(id);
+      }
+    });
+    detailInFlight.set(id, request);
+    return request;
+  }
 
   function saveToCache(id: string) {
     const currentDetail = detail.value;
@@ -152,7 +167,7 @@ export function createSessionDetailInstance() {
       loading,
       error,
       guard: sessionGuard,
-      action: () => getSessionDetail(id),
+      action: () => fetchDetail(id),
       onSuccess: (result) => {
         detail.value = result;
         loaded.value.add("detail");
@@ -194,6 +209,10 @@ export function createSessionDetailInstance() {
     sessionCache.clear();
   }
 
+  function setCacheSize(maxSize: number) {
+    sessionCache.setMaxSize(maxSize);
+  }
+
   async function refreshAll() {
     const id = sessionId.value;
     if (!id) return;
@@ -231,14 +250,17 @@ export function createSessionDetailInstance() {
   }
 
   async function prefetchSession(id: string) {
-    if (sessionCache.has(id) || sessionId.value === id) return;
+    if (sessionCache.has(id) || sessionId.value === id || prefetchInFlight.has(id)) return;
 
+    prefetchInFlight.add(id);
     try {
-      const [detailResult, turnsResult] = await Promise.all([
-        getSessionDetail(id),
-        getSessionTurns(id),
-      ]);
+      // Load detail first so foreground navigation can share this request.
+      // Turns then reuse the backend's parsed-event cache instead of racing
+      // detail and potentially parsing a large session twice.
+      const detailResult = await fetchDetail(id);
+      if (sessionCache.has(id) || sessionId.value === id) return;
 
+      const turnsResult = await getSessionTurns(id);
       if (sessionCache.has(id) || sessionId.value === id) return;
 
       sessionCache.set(id, buildPrefetchedCachedSession(detailResult, turnsResult));
@@ -255,6 +277,8 @@ export function createSessionDetailInstance() {
       } else {
         logWarn(`${LOG_PREFIX} Prefetch failed (best-effort)`, { sessionId: id }, e);
       }
+    } finally {
+      prefetchInFlight.delete(id);
     }
   }
 
@@ -314,6 +338,7 @@ export function createSessionDetailInstance() {
     loadShutdownMetrics: sections.metricsDef.load,
     loadIncidents: sections.incidentsDef.load,
     reset,
+    setCacheSize,
     refreshAll,
     prefetchSession,
   };

@@ -6,6 +6,10 @@ use super::*;
 fn current_version_matches_default() {
     let config = TracePilotConfig::default();
     assert_eq!(config.version, TracePilotConfig::CURRENT_VERSION);
+    assert_eq!(
+        config.performance.session_cache_size,
+        DEFAULT_SESSION_CACHE_SIZE
+    );
 }
 
 #[test]
@@ -68,6 +72,29 @@ fn deserialize_missing_optional_sections_uses_defaults() {
     assert!(config.general.auto_index_on_launch);
     assert_eq!(config.ui.theme, "dark");
     assert!(config.features.render_markdown);
+    assert_eq!(
+        config.performance.session_cache_size,
+        DEFAULT_SESSION_CACHE_SIZE
+    );
+}
+
+#[test]
+fn normalize_clamps_session_cache_size_to_safe_range() {
+    let mut too_small = TracePilotConfig::default();
+    too_small.performance.session_cache_size = 0;
+    too_small.normalize_paths();
+    assert_eq!(
+        too_small.performance.session_cache_size,
+        MIN_SESSION_CACHE_SIZE
+    );
+
+    let mut too_large = TracePilotConfig::default();
+    too_large.performance.session_cache_size = usize::MAX;
+    too_large.normalize_paths();
+    assert_eq!(
+        too_large.performance.session_cache_size,
+        MAX_SESSION_CACHE_SIZE
+    );
 }
 
 #[test]
