@@ -129,7 +129,6 @@ export const SECTION_ICONS: Record<SectionId, string> = {
 export const FORMAT_DESCRIPTIONS: Record<ExportTabFormat, string> = {
   json: "Full fidelity archive — lossless round-trip import/export.",
   markdown: "Human-readable summary — great for sharing in docs or PRs.",
-  csv: "Tabular CSV — one row per event/turn for spreadsheet analysis.",
   zip: "Raw zip of the session folder — all files exactly as stored on disk. No rendering or filtering.",
 };
 

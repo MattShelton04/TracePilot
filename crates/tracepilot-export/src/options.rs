@@ -14,8 +14,6 @@ pub enum ExportFormat {
     Json,
     /// Human-readable Markdown document. Lossy but shareable.
     Markdown,
-    /// Tabular CSV for analysis. Multi-file output. Lossy.
-    Csv,
 }
 
 impl ExportFormat {
@@ -24,7 +22,6 @@ impl ExportFormat {
         match self {
             ExportFormat::Json => "tpx.json",
             ExportFormat::Markdown => "md",
-            ExportFormat::Csv => "csv",
         }
     }
 
@@ -33,7 +30,6 @@ impl ExportFormat {
         match self {
             ExportFormat::Json => "application/json",
             ExportFormat::Markdown => "text/markdown",
-            ExportFormat::Csv => "text/csv",
         }
     }
 
@@ -42,7 +38,6 @@ impl ExportFormat {
         match self {
             ExportFormat::Json => "TracePilot JSON (.tpx.json)",
             ExportFormat::Markdown => "Markdown (.md)",
-            ExportFormat::Csv => "CSV (.csv)",
         }
     }
 }

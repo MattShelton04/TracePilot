@@ -104,7 +104,7 @@ Skills, MCP servers, export view, and Markdown rendering are enabled by default 
 
 ### Export and share sessions
 
-TracePilot can export sessions as Markdown, TracePilot JSON, CSV, or raw session archives, with configurable sections and redaction options. Session-level export is available from session detail; the top-level Export page provides a broader export/import workflow when enabled.
+TracePilot can export sessions as Markdown, TracePilot JSON, or raw session archives, with configurable sections and redaction options. Session-level export is available from session detail; the top-level Export page provides a broader export/import workflow when enabled.
 
 ---
 
@@ -179,7 +179,7 @@ TracePilot/
 ├── crates/
 │   ├── tracepilot-core/            # Session parsing, models, analytics
 │   ├── tracepilot-indexer/         # SQLite + FTS5 indexing and queries
-│   ├── tracepilot-export/          # Markdown/JSON/CSV/raw exports and imports
+│   ├── tracepilot-export/          # Markdown/JSON/raw exports and imports
 │   ├── tracepilot-orchestrator/    # Worktrees, launcher, config injection
 │   ├── tracepilot-tauri-bindings/  # Tauri IPC commands and app state
 │   ├── tracepilot-bench/           # Criterion benchmarks

@@ -233,7 +233,7 @@ pub struct ExportSessionsResult {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExportPreviewResult {
-    /// Rendered content (JSON, Markdown, or CSV).
+    /// Rendered content (JSON or Markdown).
     pub content: String,
     /// Format that was rendered.
     pub format: String,

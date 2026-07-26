@@ -112,8 +112,7 @@ async function handleExport() {
     return;
   }
 
-  const ext: ExportExtension =
-    format.value === "json" ? "tpx.json" : format.value === "markdown" ? "md" : "csv";
+  const ext: ExportExtension = format.value === "json" ? "tpx.json" : "md";
 
   const session = selectedSession.value;
   const defaultName = buildExportFilename({
@@ -125,9 +124,7 @@ async function handleExport() {
   const filters =
     format.value === "json"
       ? [{ name: "TracePilot Export (.tpx.json)", extensions: ["json"] }]
-      : format.value === "markdown"
-        ? [{ name: "Markdown", extensions: ["md"] }]
-        : [{ name: "CSV", extensions: ["csv"] }];
+      : [{ name: "Markdown", extensions: ["md"] }];
 
   const outputPath = await browseForSavePath({
     title: "Save export as",

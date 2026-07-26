@@ -13,7 +13,7 @@ TracePilot/
 │   ├── tracepilot-core/          # Session parsing, modelling, analytics
 │   ├── tracepilot-indexer/       # FTS search index (SQLite + FTS5)
 │   ├── tracepilot-orchestrator/  # Worktree orchestration, launcher, config
-│   ├── tracepilot-export/        # Session export (Markdown/JSON/CSV)
+│   ├── tracepilot-export/        # Session export (Markdown/JSON)
 │   ├── tracepilot-tauri-bindings/# Tauri IPC command bridge
 │   └── tracepilot-bench/         # Benchmarks and synthetic data generators
 ├── packages/
@@ -54,7 +54,7 @@ Manages the lifecycle of Copilot CLI sessions:
 
 ### tracepilot-export
 
-Exports sessions to portable formats (Markdown, JSON, CSV) with optional secret redaction. Currently scaffolded.
+Exports sessions to portable formats (Markdown, JSON) with optional secret redaction. Currently scaffolded.
 
 ### tracepilot-tauri-bindings
 
@@ -119,7 +119,7 @@ Shared configuration presets (Vite, TypeScript, Vitest base configs).
        │
        ├──► tracepilot-indexer    ← Indexes into SQLite FTS5 for search
        │
-       └──► tracepilot-export    ← Exports to MD/JSON/CSV
+       └──► tracepilot-export    ← Exports to MD/JSON
        │
  tracepilot-orchestrator  ← Launches sessions, manages repos/worktrees
        │

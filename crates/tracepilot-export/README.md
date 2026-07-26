@@ -1,6 +1,6 @@
 # tracepilot-export
 
-Export TracePilot sessions to Markdown, JSON, or CSV with optional secret
+Export TracePilot sessions to Markdown or JSON with optional secret
 redaction and per-section content filtering. Importers for portable session
 archives live here too.
 
@@ -56,7 +56,7 @@ for f in files { std::fs::write(&f.path, &f.bytes)?; }
 - `src/options.rs` — format/redaction/content-detail options.
 - `src/content_filter.rs` — applies `ContentDetailOptions` to an archive.
 - `src/redaction/` — secret-masking passes.
-- `src/render/` — per-format renderers (Markdown, JSON, CSV).
+- `src/render/` — per-format renderers (Markdown, JSON).
 - `src/import/` — parse `PortableSession` archives back into the model.
 - `src/schema.rs` — versioned schema constants for portable archives.
 

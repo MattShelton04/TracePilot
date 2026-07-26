@@ -28,7 +28,6 @@ pub(super) fn build_options_record(options: &ExportOptions) -> ArchiveOptionsRec
         format: match options.format {
             ExportFormat::Json => "json".to_string(),
             ExportFormat::Markdown => "markdown".to_string(),
-            ExportFormat::Csv => "csv".to_string(),
         },
         included_sections: options.sections.iter().copied().collect(),
         redaction_applied: false, // Phase C: redaction
