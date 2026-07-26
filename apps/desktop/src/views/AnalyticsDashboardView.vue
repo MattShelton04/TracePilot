@@ -59,6 +59,7 @@ const timeRangeLabel = computed(() => {
   if (tr === "7d") return "the past 7 days";
   if (tr === "30d") return "the past 30 days";
   if (tr === "90d") return "the past 90 days";
+  if (tr === "month-to-date") return "this month";
   if (tr === "custom") {
     const range = store.dateRange;
     if (range?.fromDate && range?.toDate) {

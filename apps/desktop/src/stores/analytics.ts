@@ -27,6 +27,8 @@ export interface AnalyticsFetchOptions {
   force?: boolean;
 }
 
+export type AnalyticsTimeRange = "all" | "7d" | "30d" | "90d" | "month-to-date" | "custom";
+
 export const useAnalyticsStore = defineStore("analytics", () => {
   // Repository filter — sourced from sessions store to avoid redundant listSessions() calls
   const selectedRepo = ref<string | null>(null);
@@ -36,7 +38,7 @@ export const useAnalyticsStore = defineStore("analytics", () => {
   });
 
   // Time range filter
-  const selectedTimeRange = ref<"all" | "7d" | "30d" | "90d" | "custom">("all");
+  const selectedTimeRange = ref<AnalyticsTimeRange>("all");
   const customFromDate = ref<string | undefined>(undefined);
   const customToDate = ref<string | undefined>(undefined);
 
@@ -44,6 +46,12 @@ export const useAnalyticsStore = defineStore("analytics", () => {
     if (selectedTimeRange.value === "all") return {};
     if (selectedTimeRange.value === "custom") {
       return { fromDate: customFromDate.value, toDate: customToDate.value };
+    }
+    if (selectedTimeRange.value === "month-to-date") {
+      const now = new Date();
+      const yyyy = now.getUTCFullYear();
+      const mm = String(now.getUTCMonth() + 1).padStart(2, "0");
+      return { fromDate: `${yyyy}-${mm}-01` };
     }
     const days = { "7d": 7, "30d": 30, "90d": 90 }[selectedTimeRange.value];
     const from = new Date();
@@ -54,11 +62,7 @@ export const useAnalyticsStore = defineStore("analytics", () => {
     return { fromDate: `${yyyy}-${mm}-${dd}` };
   });
 
-  function setTimeRange(
-    range: "all" | "7d" | "30d" | "90d" | "custom",
-    from?: string,
-    to?: string,
-  ) {
+  function setTimeRange(range: AnalyticsTimeRange, from?: string, to?: string) {
     selectedTimeRange.value = range;
     if (range === "custom") {
       customFromDate.value = from;
