@@ -113,6 +113,11 @@ async function handleDeleteSkill(dir: string) {
           <span class="stat-dot stat-dot--project" />
           {{ store.repoSkills.length }} Project
         </span>
+        <span class="stat-sep">&middot;</span>
+        <span class="stat-chip">
+          <span class="stat-dot stat-dot--builtin" />
+          {{ store.builtinSkills.length }} Built-in
+        </span>
         <template v-if="store.encounteredLoading">
           <span class="stat-sep">&middot;</span>
           <span class="stat-chip">Scanning recent sessions…</span>
@@ -153,6 +158,10 @@ async function handleDeleteSkill(dir: string) {
             :class="['scope-seg-btn', { active: store.filterScope === 'repository' }]"
             @click="store.setFilterScope('repository')"
           >Project</button>
+          <button
+            :class="['scope-seg-btn', { active: store.filterScope === 'builtin' }]"
+            @click="store.setFilterScope('builtin')"
+          >Built-in</button>
           <button
             :class="['scope-seg-btn', { active: store.filterScope === 'all' }]"
             @click="store.setFilterScope('all')"

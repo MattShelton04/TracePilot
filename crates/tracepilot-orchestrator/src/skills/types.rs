@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 pub enum SkillScope {
     Global,
     Repository,
+    Builtin,
 }
 
 impl std::fmt::Display for SkillScope {
@@ -16,6 +17,7 @@ impl std::fmt::Display for SkillScope {
         match self {
             SkillScope::Global => write!(f, "global"),
             SkillScope::Repository => write!(f, "repository"),
+            SkillScope::Builtin => write!(f, "builtin"),
         }
     }
 }
@@ -159,6 +161,8 @@ mod tests {
         assert_eq!(json, "\"global\"");
         let json = serde_json::to_string(&SkillScope::Repository).unwrap();
         assert_eq!(json, "\"repository\"");
+        let json = serde_json::to_string(&SkillScope::Builtin).unwrap();
+        assert_eq!(json, "\"builtin\"");
     }
 
     #[test]

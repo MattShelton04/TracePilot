@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { formatNumber as formatCompactNumber } from "@tracepilot/types";
-import { FolderGit2, Sparkles } from "lucide-vue-next";
+import { FolderGit2, Package, Sparkles } from "lucide-vue-next";
 import { computed } from "vue";
 import { useRouter } from "vue-router";
 import { ROUTE_NAMES } from "@/config/routes";
@@ -33,6 +33,7 @@ const sourceTitle = computed(() => {
     ? `${encounteredLabel.value}: ${props.skill.sourcePath}`
     : encounteredLabel.value;
 });
+const isBuiltin = computed(() => props.skill.scope === "builtin");
 
 function navigateToEditor() {
   if (!canOpenEditor.value) return;
@@ -53,6 +54,7 @@ function onEdit(event: Event) {
 
 function onDelete(event: Event) {
   event.stopPropagation();
+  if (isBuiltin.value) return;
   emit("delete", props.skill.directory);
 }
 
@@ -80,6 +82,7 @@ function formatTokens(n: number): string {
     <div class="skill-card__top">
       <div class="skill-card__icon">
         <FolderGit2 v-if="skill.scope === 'repository'" :size="18" :stroke-width="1.75" />
+        <Package v-else-if="skill.scope === 'builtin'" :size="18" :stroke-width="1.75" />
         <Sparkles v-else :size="18" :stroke-width="1.75" />
       </div>
       <div class="skill-card__info">
@@ -103,6 +106,17 @@ function formatTokens(n: number): string {
 
     <div v-if="isEncountered" class="skill-card__actions skill-card__actions--static">
       <span class="encountered-meta" :title="sourceTitle">{{ encounteredLabel }}</span>
+    </div>
+
+    <div v-else-if="isBuiltin" class="skill-card__actions skill-card__actions--static">
+      <span class="encountered-meta">Bundled with Copilot · Read-only</span>
+      <div class="card-hover-actions">
+        <button class="action-btn" title="View skill" @click="onEdit($event)">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z"/><circle cx="8" cy="8" r="2"/>
+          </svg>
+        </button>
+      </div>
     </div>
 
     <div v-else class="skill-card__actions">

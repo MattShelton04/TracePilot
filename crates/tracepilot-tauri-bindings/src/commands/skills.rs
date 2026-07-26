@@ -12,6 +12,12 @@ fn check_skill_dir(skill_dir: &str) -> Result<(), tracepilot_orchestrator::skill
     tracepilot_orchestrator::skills::manager::validate_skill_dir(Path::new(skill_dir))
 }
 
+fn check_mutable_skill_dir(
+    skill_dir: &str,
+) -> Result<(), tracepilot_orchestrator::skills::SkillsError> {
+    tracepilot_orchestrator::skills::manager::validate_mutable_skill_dir(Path::new(skill_dir))
+}
+
 // -- Discovery --
 
 #[tauri::command]
@@ -54,7 +60,7 @@ pub async fn skills_update(
     frontmatter: tracepilot_orchestrator::skills::types::SkillFrontmatter,
     body: String,
 ) -> CmdResult<()> {
-    blocking_cmd!(check_skill_dir(&skill_dir).and_then(|_| {
+    blocking_cmd!(check_mutable_skill_dir(&skill_dir).and_then(|_| {
         tracepilot_orchestrator::skills::manager::update_skill(
             std::path::Path::new(&skill_dir),
             &frontmatter,
@@ -66,7 +72,7 @@ pub async fn skills_update(
 #[tauri::command]
 #[tracing::instrument(skip(skill_dir, raw_content), err, fields(raw_len = raw_content.len()))]
 pub async fn skills_update_raw(skill_dir: String, raw_content: String) -> CmdResult<()> {
-    blocking_cmd!(check_skill_dir(&skill_dir).and_then(|_| {
+    blocking_cmd!(check_mutable_skill_dir(&skill_dir).and_then(|_| {
         tracepilot_orchestrator::skills::manager::update_skill_raw(
             std::path::Path::new(&skill_dir),
             &raw_content,
@@ -77,7 +83,7 @@ pub async fn skills_update_raw(skill_dir: String, raw_content: String) -> CmdRes
 #[tauri::command]
 #[tracing::instrument(skip(skill_dir), err)]
 pub async fn skills_delete(skill_dir: String) -> CmdResult<()> {
-    blocking_cmd!(check_skill_dir(&skill_dir).and_then(|_| {
+    blocking_cmd!(check_mutable_skill_dir(&skill_dir).and_then(|_| {
         tracepilot_orchestrator::skills::manager::delete_skill(std::path::Path::new(&skill_dir))
     }))
 }
@@ -86,7 +92,7 @@ pub async fn skills_delete(skill_dir: String) -> CmdResult<()> {
 #[tracing::instrument(skip(skill_dir), err, fields(%new_name))]
 pub async fn skills_rename(skill_dir: String, new_name: String) -> CmdResult<String> {
     let sn = crate::validators::validate_skill_name(&new_name)?;
-    blocking_cmd!(check_skill_dir(&skill_dir).and_then(|_| {
+    blocking_cmd!(check_mutable_skill_dir(&skill_dir).and_then(|_| {
         tracepilot_orchestrator::skills::manager::rename_skill(
             std::path::Path::new(&skill_dir),
             &sn,
@@ -99,7 +105,7 @@ pub async fn skills_rename(skill_dir: String, new_name: String) -> CmdResult<Str
 #[tracing::instrument(skip(skill_dir), err, fields(%new_name))]
 pub async fn skills_duplicate(skill_dir: String, new_name: String) -> CmdResult<String> {
     let sn = crate::validators::validate_skill_name(&new_name)?;
-    blocking_cmd!(check_skill_dir(&skill_dir).and_then(|_| {
+    blocking_cmd!(check_mutable_skill_dir(&skill_dir).and_then(|_| {
         tracepilot_orchestrator::skills::manager::duplicate_skill(
             std::path::Path::new(&skill_dir),
             &sn,
@@ -127,7 +133,7 @@ pub async fn skills_add_asset(
     content: Vec<u8>,
 ) -> CmdResult<()> {
     crate::validators::validate_asset_name(&asset_name)?;
-    blocking_cmd!(check_skill_dir(&skill_dir).and_then(|_| {
+    blocking_cmd!(check_mutable_skill_dir(&skill_dir).and_then(|_| {
         tracepilot_orchestrator::skills::assets::add_asset(
             std::path::Path::new(&skill_dir),
             &asset_name,
@@ -144,7 +150,7 @@ pub async fn skills_copy_asset_from(
     source_path: String,
 ) -> CmdResult<()> {
     crate::validators::validate_asset_name(&asset_name)?;
-    blocking_cmd!(check_skill_dir(&skill_dir).and_then(|_| {
+    blocking_cmd!(check_mutable_skill_dir(&skill_dir).and_then(|_| {
         tracepilot_orchestrator::skills::assets::copy_asset_from(
             std::path::Path::new(&skill_dir),
             &asset_name,
@@ -157,7 +163,7 @@ pub async fn skills_copy_asset_from(
 #[tracing::instrument(skip(skill_dir), err, fields(%asset_name))]
 pub async fn skills_remove_asset(skill_dir: String, asset_name: String) -> CmdResult<()> {
     crate::validators::validate_asset_name(&asset_name)?;
-    blocking_cmd!(check_skill_dir(&skill_dir).and_then(|_| {
+    blocking_cmd!(check_mutable_skill_dir(&skill_dir).and_then(|_| {
         tracepilot_orchestrator::skills::assets::remove_asset(
             std::path::Path::new(&skill_dir),
             &asset_name,

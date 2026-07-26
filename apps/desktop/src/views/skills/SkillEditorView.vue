@@ -38,7 +38,7 @@ provide(SkillEditorKey, ctx);
             <div class="panel-header">
               <span class="panel-header-title">
                 <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 2H4a1 1 0 00-1 1v10a1 1 0 001 1h8a1 1 0 001-1V3a1 1 0 00-1-1z"/><path d="M6 5h4M6 8h4M6 11h2"/></svg>
-                Editor
+                {{ ctx.isReadOnly ? "Source" : "Editor" }}
               </span>
               <span class="panel-header-filename">SKILL.md</span>
             </div>

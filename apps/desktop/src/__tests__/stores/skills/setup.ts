@@ -91,6 +91,17 @@ export const FIXTURE_SUMMARY_DISABLED: SkillSummary = {
   assetCount: 0,
 };
 
+export const FIXTURE_SUMMARY_BUILTIN: SkillSummary = {
+  name: "customize-cloud-agent",
+  description: "Customizes the Copilot cloud agent",
+  scope: "builtin",
+  directory: "/home/user/.copilot/pkg/linux-x64/1.0.75/builtin/customize-cloud-agent",
+  enabled: true,
+  estimatedTokens: 400,
+  hasAssets: false,
+  assetCount: 0,
+};
+
 export const FIXTURE_SKILL: Skill = {
   scope: "global",
   directory: "/home/user/.config/github-copilot/skills/code-review",

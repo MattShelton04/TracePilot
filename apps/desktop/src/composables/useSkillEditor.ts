@@ -68,6 +68,7 @@ export function useSkillEditor() {
     return typeof fromSession === "string" && fromSession.trim() ? fromSession : "";
   });
   const backLabel = computed(() => (returnSessionId.value ? "Back to Session" : "Back to Skills"));
+  const isReadOnly = computed(() => store.selectedSkill?.scope === "builtin");
 
   const editorLineNumbers = computed(() => {
     const count = previewBody.value.split("\n").length;
@@ -111,7 +112,7 @@ export function useSkillEditor() {
   function handleKeydown(e: KeyboardEvent) {
     if ((e.ctrlKey || e.metaKey) && e.key === "s") {
       e.preventDefault();
-      if (editorDirty.value && !saving.value) handleSave();
+      if (!isReadOnly.value && editorDirty.value && !saving.value) handleSave();
     }
   }
 
@@ -148,12 +149,14 @@ export function useSkillEditor() {
 
   // ─── Input handlers ───────────────────────────────────────
   function onBodyInput(event: Event) {
+    if (isReadOnly.value) return;
     const target = event.target as HTMLTextAreaElement;
     previewBody.value = target.value;
     rebuildRawContent();
   }
 
   function onNameInput(event: Event) {
+    if (isReadOnly.value) return;
     const val = (event.target as HTMLInputElement).value;
     if (previewFrontmatter.value) {
       previewFrontmatter.value = { ...previewFrontmatter.value, name: val };
@@ -162,6 +165,7 @@ export function useSkillEditor() {
   }
 
   function onDescInput(event: Event) {
+    if (isReadOnly.value) return;
     const val = (event.target as HTMLTextAreaElement).value;
     if (previewFrontmatter.value) {
       previewFrontmatter.value = { ...previewFrontmatter.value, description: val };
@@ -171,6 +175,7 @@ export function useSkillEditor() {
 
   // ─── Actions ──────────────────────────────────────────────
   async function handleSave() {
+    if (isReadOnly.value) return;
     saving.value = true;
     const ok = await store.updateSkillRaw(skillDir.value, rawContent.value);
     if (ok) {
@@ -182,6 +187,7 @@ export function useSkillEditor() {
   }
 
   async function handleDelete() {
+    if (isReadOnly.value) return;
     const { confirmed } = await showConfirm({
       title: "Delete Skill",
       message: "Delete this skill? This cannot be undone.",
@@ -198,6 +204,7 @@ export function useSkillEditor() {
   }
 
   async function handleDiscard() {
+    if (isReadOnly.value) return;
     if (!editorDirty.value) return;
     const { confirmed } = await showConfirm({
       title: "Discard Changes",
@@ -210,6 +217,7 @@ export function useSkillEditor() {
   }
 
   async function handleAddAsset() {
+    if (isReadOnly.value) return;
     const path = await browseForFile({
       title: "Select asset file to add",
       filters: [{ name: "All Files", extensions: ["*"] }],
@@ -221,12 +229,14 @@ export function useSkillEditor() {
   }
 
   async function handleNewFile(name: string) {
+    if (isReadOnly.value) return;
     if (!name.trim()) return;
     const ok = await store.addAsset(skillDir.value, name.trim(), []);
     if (ok) await loadAssets();
   }
 
   async function handleRemoveAsset(assetPath: string) {
+    if (isReadOnly.value) return;
     const { confirmed } = await showConfirm({
       title: "Remove Asset",
       message: `Remove asset "${assetPath}"?`,
@@ -303,6 +313,7 @@ export function useSkillEditor() {
 
   // ─── Markdown toolbar ─────────────────────────────────────
   function insertMarkdown(prefix: string, suffix = "") {
+    if (isReadOnly.value) return;
     const el = editorRef.value;
     if (!el) return;
     const start = el.selectionStart;
@@ -391,6 +402,7 @@ export function useSkillEditor() {
     descCharClass,
     lastSavedDisplay,
     backLabel,
+    isReadOnly,
     // actions
     loadSkill,
     handleSave,

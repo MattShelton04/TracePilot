@@ -71,8 +71,12 @@ impl CopilotPaths {
         self.home.join(SKILLS_DIR_NAME)
     }
 
+    pub fn pkg_dir(&self) -> PathBuf {
+        self.home.join(COPILOT_PKG_DIR)
+    }
+
     pub fn pkg_target_dir(&self) -> PathBuf {
-        let pkg_base = self.home.join(COPILOT_PKG_DIR);
+        let pkg_base = self.pkg_dir();
         let platform_dir_name = if cfg!(target_os = "windows") {
             "win32-x64"
         } else if cfg!(target_os = "macos") {
@@ -303,6 +307,7 @@ mod tests {
             paths.mcp_config_json(),
             Path::new("/home/alice/.copilot/mcp-config.json")
         );
+        assert_eq!(paths.pkg_dir(), Path::new("/home/alice/.copilot/pkg"));
     }
 
     #[test]
