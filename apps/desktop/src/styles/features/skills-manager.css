@@ -48,6 +48,10 @@
   background: var(--success-fg);
 }
 
+.skills-manager-view .stat-dot--builtin {
+  background: var(--attention-fg);
+}
+
 .skills-manager-view .stat-dot--active {
   background: var(--success-fg);
 }

@@ -31,7 +31,7 @@ function makeCtx(overrides: Partial<SkillEditorContext> = {}): SkillEditorContex
       selectedSkill: {
         directory: "my-skill",
         frontmatter: { name: "My Skill", description: "desc" },
-        scope: "project" as const,
+        scope: "repository" as const,
         estimatedTokens: 1234,
       },
       error: null as string | null,
@@ -61,6 +61,7 @@ function makeCtx(overrides: Partial<SkillEditorContext> = {}): SkillEditorContex
     descCharClass: "",
     lastSavedDisplay: "Not saved yet",
     backLabel: "Back to Skills",
+    isReadOnly: false,
     loadSkill: vi.fn(),
     handleSave: vi.fn(),
     handleDelete: vi.fn(),
@@ -119,6 +120,15 @@ describe("SkillEditorTopBar", () => {
     await wrapper.find(".btn-primary").trigger("click");
     expect(ctx.handleSave).toHaveBeenCalled();
   });
+
+  it("shows a read-only notice without mutation actions for builtin skills", () => {
+    const ctx = makeCtx({ isReadOnly: true } as never);
+    const wrapper = mountWithCtx(SkillEditorTopBar, ctx);
+
+    expect(wrapper.text()).toContain("Packaged skills are read-only");
+    expect(wrapper.find(".btn-primary").exists()).toBe(false);
+    expect(wrapper.find(".btn-ghost").exists()).toBe(false);
+  });
 });
 
 describe("SkillEditorMetadataForm", () => {
@@ -140,6 +150,14 @@ describe("SkillEditorMetadataForm", () => {
     const wrapper = mountWithCtx(SkillEditorMetadataForm, ctx);
     expect(wrapper.find(".char-count").classes()).toContain("near-limit");
     expect(wrapper.find(".char-count").text()).toContain("950");
+  });
+
+  it("makes builtin metadata fields read-only", () => {
+    const ctx = makeCtx({ isReadOnly: true } as never);
+    const wrapper = mountWithCtx(SkillEditorMetadataForm, ctx);
+
+    expect(wrapper.find(".field-input").attributes("readonly")).toBeDefined();
+    expect(wrapper.find(".field-textarea").attributes("readonly")).toBeDefined();
   });
 });
 
@@ -163,6 +181,14 @@ describe("SkillEditorMarkdownEditor", () => {
     await ta.trigger("input");
     expect(ctx.onBodyInput).toHaveBeenCalled();
   });
+
+  it("makes builtin instructions read-only", () => {
+    const ctx = makeCtx({ isReadOnly: true } as never);
+    const wrapper = mountWithCtx(SkillEditorMarkdownEditor, ctx);
+
+    expect(wrapper.find("textarea.md-textarea").attributes("readonly")).toBeDefined();
+    expect(wrapper.find('button[title="Bold"]').attributes("disabled")).toBeDefined();
+  });
 });
 
 describe("SkillEditorPreviewPane", () => {
@@ -179,6 +205,13 @@ describe("SkillEditorPreviewPane", () => {
     const wrapper = mountWithCtx(SkillEditorPreviewPane, ctx);
     await wrapper.find(".preview-markdown").trigger("click");
     expect(ctx.handlePreviewClick).toHaveBeenCalled();
+  });
+
+  it("hides asset mutation controls for builtin skills", () => {
+    const ctx = makeCtx({ isReadOnly: true } as never);
+    const wrapper = mountWithCtx(SkillEditorPreviewPane, ctx);
+
+    expect(wrapper.find(".assets-tree__actions").exists()).toBe(false);
   });
 });
 

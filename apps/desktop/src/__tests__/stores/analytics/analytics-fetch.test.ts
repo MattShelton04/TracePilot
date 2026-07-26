@@ -1,6 +1,6 @@
 // biome-ignore-all assist/source/organizeImports: setup must register mocks before the store import.
 import type { AnalyticsData } from "@tracepilot/types";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { FIXTURE_ANALYTICS, mocks } from "./setup";
 import { useAnalyticsStore } from "../../../stores/analytics";
 
@@ -25,6 +25,22 @@ describe("useAnalyticsStore", () => {
       expect(store.analyticsError).toBeNull();
       expect(store.toolAnalysisError).toBeNull();
       expect(store.codeImpactError).toBeNull();
+    });
+  });
+
+  describe("date range", () => {
+    it("uses the UTC month boundary for the current billing cycle", () => {
+      vi.useFakeTimers();
+      try {
+        vi.setSystemTime(new Date("2026-07-31T23:59:59Z"));
+        const store = useAnalyticsStore();
+
+        store.setTimeRange("month-to-date");
+
+        expect(store.dateRange).toEqual({ fromDate: "2026-07-01" });
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 

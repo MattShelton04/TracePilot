@@ -1,6 +1,6 @@
 // biome-ignore-all assist/source/organizeImports: setup must register mocks before the store import.
 import { describe, expect, it } from "vitest";
-import { ALL_SUMMARIES, mocks, setupSkillsStoreTest } from "./setup";
+import { ALL_SUMMARIES, FIXTURE_SUMMARY_BUILTIN, mocks, setupSkillsStoreTest } from "./setup";
 import { useSkillsStore } from "../../../stores/skills";
 
 setupSkillsStoreTest();
@@ -84,6 +84,16 @@ describe("useSkillsStore", () => {
       expect(store.filteredSkills[0].scope).toBe("repository");
     });
 
+    it("filters packaged skills into the builtin scope", async () => {
+      mocks.skillsListAll.mockResolvedValue([...ALL_SUMMARIES, FIXTURE_SUMMARY_BUILTIN]);
+      const store = useSkillsStore();
+      await store.loadSkills();
+
+      store.filterScope = "builtin";
+
+      expect(store.filteredSkills.map((skill) => skill.name)).toEqual(["customize-cloud-agent"]);
+    });
+
     it("combines scope and searchQuery filters", async () => {
       mocks.skillsListAll.mockResolvedValue(ALL_SUMMARIES);
       const store = useSkillsStore();
@@ -124,8 +134,8 @@ describe("useSkillsStore", () => {
     });
   });
 
-  // ── globalSkills / repoSkills (computed) ───────────────────
-  describe("globalSkills / repoSkills", () => {
+  // ── Scope collections (computed) ───────────────────────────
+  describe("scope collections", () => {
     it("globalSkills returns only global-scope skills", async () => {
       mocks.skillsListAll.mockResolvedValue(ALL_SUMMARIES);
       const store = useSkillsStore();
@@ -144,11 +154,20 @@ describe("useSkillsStore", () => {
       expect(store.repoSkills[0].scope).toBe("repository");
     });
 
+    it("builtinSkills returns only packaged skills", async () => {
+      mocks.skillsListAll.mockResolvedValue([...ALL_SUMMARIES, FIXTURE_SUMMARY_BUILTIN]);
+      const store = useSkillsStore();
+      await store.loadSkills();
+
+      expect(store.builtinSkills).toEqual([FIXTURE_SUMMARY_BUILTIN]);
+    });
+
     it("both return empty arrays when no skills are loaded", () => {
       const store = useSkillsStore();
 
       expect(store.globalSkills).toEqual([]);
       expect(store.repoSkills).toEqual([]);
+      expect(store.builtinSkills).toEqual([]);
     });
   });
 });

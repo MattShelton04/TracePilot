@@ -28,6 +28,9 @@ pub enum SkillsError {
     /// Path traversal / containment violation.
     #[error("Path not allowed: {0}")]
     PathTraversal(String),
+    /// An attempted mutation targeted a packaged, read-only skill.
+    #[error("Built-in skill is read-only: {0}")]
+    ReadOnly(String),
     /// I/O error with preserved source chain. Catches `?` on bare
     /// [`std::io::Error`].
     #[error("Skills I/O error: {0}")]
@@ -141,6 +144,12 @@ mod tests {
         let msg = err.to_string();
         assert!(msg.contains("Path not allowed"));
         assert!(msg.contains("../etc/passwd"));
+    }
+
+    #[test]
+    fn display_read_only() {
+        let err = SkillsError::ReadOnly("builtin/example".into());
+        assert!(err.to_string().contains("read-only"));
     }
 
     #[test]

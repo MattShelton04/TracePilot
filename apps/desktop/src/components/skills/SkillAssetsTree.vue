@@ -6,6 +6,7 @@ import { nextTick, ref, toRef } from "vue";
 const props = defineProps<{
   assets: SkillAsset[];
   loading?: boolean;
+  readonly?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -25,6 +26,7 @@ const newFileName = ref("");
 const newFileInputEl = ref<HTMLInputElement | null>(null);
 
 function openNewFileInput() {
+  if (props.readonly) return;
   newFileName.value = "";
   showNewFileInput.value = true;
   nextTick(() => newFileInputEl.value?.focus());
@@ -64,7 +66,7 @@ function depthStyle(depth: number): Record<string, string> {
         Assets
         <span v-if="fileCount > 0" class="assets-tree__count">{{ fileCount }}</span>
       </h4>
-      <div class="assets-tree__actions">
+      <div v-if="!readonly" class="assets-tree__actions">
         <button class="assets-tree__btn assets-tree__btn--ghost" @click="openNewFileInput">
           + New File
         </button>
@@ -110,6 +112,7 @@ function depthStyle(depth: number): Record<string, string> {
           </span>
           <span class="assets-tree__size">{{ formatSize(row.entry.sizeBytes) }}</span>
           <button
+            v-if="!readonly"
             class="assets-tree__remove"
             title="Remove asset"
             @click="emit('removeAsset', row.entry.path)"

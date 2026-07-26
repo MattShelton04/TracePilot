@@ -1,6 +1,8 @@
 //! Skill lifecycle manager — CRUD operations for skills.
 
-use crate::skills::discovery::{global_skills_dir, load_skill};
+use crate::skills::discovery::{
+    builtin_packages_dir, global_skills_dir, load_skill, registered_skill_roots,
+};
 use crate::skills::error::SkillsError;
 use crate::skills::parser::parse_skill_md;
 use crate::skills::types::{Skill, SkillFrontmatter, SkillScope};
@@ -9,7 +11,7 @@ use std::path::{Path, PathBuf};
 use tracepilot_core::ids::SkillName;
 
 /// Validate that a skill_dir path is contained within a known skills root
-/// (global `~/.copilot/skills/` or repo `.copilot/skills/`).
+/// (global `~/.copilot/skills/`, packaged `~/.copilot/pkg/`, or a repo skills root).
 ///
 /// This prevents IPC callers from passing arbitrary paths that could lead to
 /// reads/writes/deletes of unrelated directories.
@@ -18,16 +20,18 @@ pub fn validate_skill_dir(skill_dir: &Path) -> Result<(), SkillsError> {
         .canonicalize()
         .unwrap_or_else(|_| skill_dir.to_path_buf());
 
-    // Check global skills root
-    if let Ok(global) = global_skills_dir() {
-        if let Ok(global_canon) = global.canonicalize()
-            && canonical.starts_with(&global_canon)
-        {
-            return Ok(());
-        }
-        // Also check non-canonical in case dir doesn't exist yet
-        if canonical.starts_with(&global) {
-            return Ok(());
+    // Check registered global and packaged built-in roots.
+    if let Ok(roots) = registered_skill_roots() {
+        for root in roots {
+            if let Ok(root_canon) = root.canonicalize()
+                && canonical.starts_with(&root_canon)
+            {
+                return Ok(());
+            }
+            // Also check non-canonical in case dir doesn't exist yet.
+            if canonical.starts_with(&root) {
+                return Ok(());
+            }
         }
     }
 
@@ -46,6 +50,44 @@ pub fn validate_skill_dir(skill_dir: &Path) -> Result<(), SkillsError> {
         "Path '{}' is not within a known skills directory",
         skill_dir.display()
     )))
+}
+
+/// Validate that a skill path is registered and may be mutated.
+pub fn validate_mutable_skill_dir(skill_dir: &Path) -> Result<(), SkillsError> {
+    validate_skill_dir(skill_dir)?;
+    let canonical = skill_dir
+        .canonicalize()
+        .unwrap_or_else(|_| skill_dir.to_path_buf());
+
+    if let Ok(packages) = builtin_packages_dir() {
+        if let Ok(packages_canon) = packages.canonicalize()
+            && canonical.starts_with(&packages_canon)
+        {
+            return Err(SkillsError::ReadOnly(skill_dir.display().to_string()));
+        }
+        if canonical.starts_with(&packages) {
+            return Err(SkillsError::ReadOnly(skill_dir.display().to_string()));
+        }
+    }
+
+    Ok(())
+}
+
+fn is_builtin_skill_dir(skill_dir: &Path) -> bool {
+    let canonical = skill_dir
+        .canonicalize()
+        .unwrap_or_else(|_| skill_dir.to_path_buf());
+    if let Ok(packages) = builtin_packages_dir() {
+        if let Ok(packages_canon) = packages.canonicalize()
+            && canonical.starts_with(&packages_canon)
+        {
+            return true;
+        }
+        if canonical.starts_with(&packages) {
+            return true;
+        }
+    }
+    false
 }
 
 /// Create a new skill in the global skills directory.
@@ -217,8 +259,11 @@ pub fn get_skill(skill_dir: &Path) -> Result<Skill, SkillsError> {
     load_skill(&skill_path, determine_scope(skill_dir))
 }
 
-/// Determine if a skill directory is global or repository-scoped.
+/// Determine if a skill directory is built-in, global, or repository-scoped.
 fn determine_scope(skill_dir: &Path) -> SkillScope {
+    if is_builtin_skill_dir(skill_dir) {
+        return SkillScope::Builtin;
+    }
     let path_str = skill_dir.to_string_lossy();
     if path_str.contains(tracepilot_core::paths::COPILOT_DIR_NAME)
         && !path_str.contains(tracepilot_core::paths::SKILLS_DIR_NAME)
@@ -409,5 +454,21 @@ mod tests {
             err.contains("invalid") || err.contains("path") || err.contains(".."),
             "Expected validation error, got: {err}"
         );
+    }
+
+    #[test]
+    fn packaged_skill_paths_are_readable_but_not_mutable() {
+        let builtin = builtin_packages_dir()
+            .unwrap()
+            .join("win32-x64")
+            .join("1.2.3")
+            .join("builtin")
+            .join("example");
+
+        assert!(validate_skill_dir(&builtin).is_ok());
+        assert!(matches!(
+            validate_mutable_skill_dir(&builtin),
+            Err(SkillsError::ReadOnly(_))
+        ));
     }
 }

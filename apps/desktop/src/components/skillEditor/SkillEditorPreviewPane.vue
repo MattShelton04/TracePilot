@@ -50,6 +50,7 @@ const ctx = useSkillEditorContext();
         <SkillAssetsTree
           :assets="ctx.assets"
           :loading="ctx.assetsLoading"
+          :readonly="ctx.isReadOnly"
           @add-asset="ctx.handleAddAsset"
           @new-file="(name: string) => ctx.handleNewFile(name)"
           @remove-asset="ctx.handleRemoveAsset"

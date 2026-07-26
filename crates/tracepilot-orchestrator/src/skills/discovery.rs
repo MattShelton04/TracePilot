@@ -2,18 +2,40 @@
 //!
 //! Discovers skills in:
 //! - Global Copilot skills under the Copilot home
+//! - Built-in skills bundled under versioned Copilot packages
 //! - Repository skills under supported repo-scoped skill roots
 
-use crate::launcher::copilot_home;
 use crate::skills::error::SkillsError;
 use crate::skills::parser::parse_skill_md;
 use crate::skills::types::{Skill, SkillScope, SkillSummary};
 use crate::tokens::estimate_skill_tokens;
+use semver::Version;
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+
+fn copilot_paths() -> crate::error::Result<tracepilot_core::paths::CopilotPaths> {
+    tracepilot_core::paths::CopilotPaths::try_default().ok_or_else(|| {
+        crate::error::OrchestratorError::Config("Home directory not found".into())
+    })
+}
 
 /// Get the global skills directory (`~/.copilot/skills/`).
 pub fn global_skills_dir() -> crate::error::Result<PathBuf> {
-    Ok(tracepilot_core::paths::CopilotPaths::from_home(copilot_home()?).global_skills_dir())
+    Ok(copilot_paths()?.global_skills_dir())
+}
+
+/// Get the root containing Copilot CLI's downloaded packages (`~/.copilot/pkg/`).
+pub fn builtin_packages_dir() -> crate::error::Result<PathBuf> {
+    Ok(copilot_paths()?.pkg_dir())
+}
+
+/// Centralized fixed roots from which skill content may be read.
+///
+/// Repository-scoped roots are validated structurally because their locations
+/// are supplied at runtime.
+pub fn registered_skill_roots() -> crate::error::Result<Vec<PathBuf>> {
+    let paths = copilot_paths()?;
+    Ok(vec![paths.global_skills_dir(), paths.pkg_dir()])
 }
 
 /// Get the repository skills directory (`.copilot/skills/` under repo root).
@@ -33,6 +55,13 @@ pub fn discover_all(repo_root: Option<&Path>) -> Result<Vec<SkillSummary>, Skill
         summaries.extend(global);
     }
 
+    // Built-in skills bundled with installed Copilot CLI versions.
+    if let Ok(packages_dir) = builtin_packages_dir()
+        && packages_dir.exists()
+    {
+        summaries.extend(discover_builtin_skills(&packages_dir)?);
+    }
+
     // Repository skills
     if let Some(root) = repo_root {
         let repo_dir = repo_skills_dir(root);
@@ -44,6 +73,80 @@ pub fn discover_all(repo_root: Option<&Path>) -> Result<Vec<SkillSummary>, Skill
 
     summaries.sort_by(|a, b| a.name.cmp(&b.name));
     Ok(summaries)
+}
+
+/// Discover packaged built-in skills, retaining the newest semantic-versioned
+/// copy of each case-insensitive skill name across package targets.
+fn discover_builtin_skills(packages_dir: &Path) -> Result<Vec<SkillSummary>, SkillsError> {
+    let package_targets = std::fs::read_dir(packages_dir).map_err(|e| {
+        SkillsError::io_ctx(
+            format!(
+                "Failed to read Copilot packages directory {}",
+                packages_dir.display()
+            ),
+            e,
+        )
+    })?;
+    let mut discovered = BTreeMap::<String, (Version, SkillSummary)>::new();
+
+    for target in package_targets.flatten() {
+        let target_path = target.path();
+        if !target_path.is_dir()
+            || target
+                .file_name()
+                .to_string_lossy()
+                .eq_ignore_ascii_case("tmp")
+        {
+            continue;
+        }
+
+        let Ok(versions) = std::fs::read_dir(&target_path) else {
+            continue;
+        };
+        for version_entry in versions.flatten() {
+            let version_path = version_entry.path();
+            if !version_path.is_dir() {
+                continue;
+            }
+            let Ok(version) = Version::parse(&version_entry.file_name().to_string_lossy()) else {
+                continue;
+            };
+            let builtin_dir = version_path.join("builtin");
+            if !builtin_dir.is_dir() {
+                continue;
+            }
+
+            let summaries = match discover_in_directory(&builtin_dir, SkillScope::Builtin) {
+                Ok(summaries) => summaries,
+                Err(error) => {
+                    tracing::warn!(
+                        "Skipping built-in skills at {}: {error}",
+                        builtin_dir.display()
+                    );
+                    continue;
+                }
+            };
+            for summary in summaries {
+                let key = summary.name.trim().to_lowercase();
+                let should_replace =
+                    discovered
+                        .get(&key)
+                        .is_none_or(|(current_version, current_summary)| {
+                            version.cmp(current_version).is_gt()
+                                || (version.eq(current_version)
+                                    && summary.directory < current_summary.directory)
+                        });
+                if should_replace {
+                    discovered.insert(key, (version.clone(), summary));
+                }
+            }
+        }
+    }
+
+    Ok(discovered
+        .into_values()
+        .map(|(_, summary)| summary)
+        .collect())
 }
 
 /// Discover skills in a specific directory.
@@ -303,5 +406,40 @@ mod tests {
         std::fs::write(hidden_dir.join("secret.txt"), "").unwrap();
 
         assert_eq!(count_assets(dir.path()), 1);
+    }
+
+    #[test]
+    fn builtin_discovery_keeps_latest_version_per_name() {
+        let dir = TempDir::new().unwrap();
+        let old_builtin = dir.path().join("win32-x64").join("1.0.0").join("builtin");
+        let new_builtin = dir.path().join("win32-x64").join("1.2.0").join("builtin");
+        let universal_builtin = dir.path().join("universal").join("1.1.0").join("builtin");
+        std::fs::create_dir_all(&old_builtin).unwrap();
+        std::fs::create_dir_all(&new_builtin).unwrap();
+        std::fs::create_dir_all(&universal_builtin).unwrap();
+        create_test_skill(&old_builtin, "shared-skill");
+        create_test_skill(&new_builtin, "shared-skill");
+        create_test_skill(&new_builtin, "new-skill");
+        create_test_skill(&universal_builtin, "shared-skill");
+
+        let result = discover_builtin_skills(dir.path()).unwrap();
+
+        assert_eq!(result.len(), 2);
+        let shared = result
+            .iter()
+            .find(|skill| skill.name == "shared-skill")
+            .unwrap();
+        assert!(shared.directory.contains("1.2.0"));
+        assert_eq!(shared.scope, SkillScope::Builtin);
+    }
+
+    #[test]
+    fn builtin_discovery_ignores_temporary_packages() {
+        let dir = TempDir::new().unwrap();
+        let temporary_builtin = dir.path().join("tmp").join("2.0.0").join("builtin");
+        std::fs::create_dir_all(&temporary_builtin).unwrap();
+        create_test_skill(&temporary_builtin, "temporary-skill");
+
+        assert!(discover_builtin_skills(dir.path()).unwrap().is_empty());
     }
 }

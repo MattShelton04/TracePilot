@@ -8,7 +8,7 @@ defineProps<{
 
 <template>
   <span class="scope-badge" :class="`scope-badge--${scope}`">
-    {{ scope === "global" ? "Global" : "Project" }}
+    {{ scope === "global" ? "Global" : scope === "builtin" ? "Built-in" : "Project" }}
   </span>
 </template>
 
@@ -32,5 +32,10 @@ defineProps<{
 .scope-badge--repository {
   background: var(--success-muted);
   color: var(--success-fg);
+}
+
+.scope-badge--builtin {
+  background: var(--attention-subtle);
+  color: var(--attention-fg);
 }
 </style>

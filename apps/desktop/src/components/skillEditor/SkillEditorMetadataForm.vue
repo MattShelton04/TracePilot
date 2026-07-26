@@ -20,6 +20,7 @@ const ctx = useSkillEditorContext();
             type="text"
             class="field-input field-input--mono"
             :value="ctx.previewFrontmatter.name"
+            :readonly="ctx.isReadOnly"
             spellcheck="false"
             @input="ctx.onNameInput"
           />
@@ -30,6 +31,7 @@ const ctx = useSkillEditorContext();
             class="field-textarea"
             rows="3"
             :value="ctx.previewFrontmatter.description"
+            :readonly="ctx.isReadOnly"
             @input="ctx.onDescInput"
           />
           <div class="field-footer">

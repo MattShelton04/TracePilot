@@ -1,7 +1,7 @@
 /** Skills management type definitions. */
 
 /** Skill scope — where the skill is stored/active. */
-export type SkillScope = "global" | "repository";
+export type SkillScope = "global" | "repository" | "builtin";
 
 /** Parsed SKILL.md frontmatter. */
 export interface SkillFrontmatter {

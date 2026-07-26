@@ -1,16 +1,15 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { useAnalyticsStore } from "@/stores/analytics";
-
-type RangePreset = "all" | "7d" | "30d" | "90d" | "custom";
+import { type AnalyticsTimeRange, useAnalyticsStore } from "@/stores/analytics";
 
 const store = useAnalyticsStore();
 
-const presets: { value: RangePreset; label: string }[] = [
+const presets: { value: AnalyticsTimeRange; label: string }[] = [
   { value: "all", label: "All Time" },
   { value: "7d", label: "7 Days" },
   { value: "30d", label: "30 Days" },
   { value: "90d", label: "90 Days" },
+  { value: "month-to-date", label: "This Month" },
   { value: "custom", label: "Custom" },
 ];
 
@@ -26,7 +25,7 @@ function isValidDate(v: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v));
 }
 
-function selectPreset(preset: RangePreset) {
+function selectPreset(preset: AnalyticsTimeRange) {
   if (preset === "custom") {
     store.setTimeRange("custom", committedFrom.value || undefined, committedTo.value || undefined);
   } else {

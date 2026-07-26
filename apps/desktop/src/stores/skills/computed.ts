@@ -14,6 +14,8 @@ export function createSkillsComputed(context: SkillsContext) {
 
   const repoSkills = computed(() => displaySkills.value.filter((s) => s.scope === "repository"));
 
+  const builtinSkills = computed(() => skills.value.filter((s) => s.scope === "builtin"));
+
   const filteredSkills = computed(() => {
     let list = sortedSkills.value;
 
@@ -46,6 +48,7 @@ export function createSkillsComputed(context: SkillsContext) {
     sortedSkills,
     globalSkills,
     repoSkills,
+    builtinSkills,
     filteredSkills,
     tokenBudget,
   };

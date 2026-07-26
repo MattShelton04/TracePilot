@@ -23,14 +23,15 @@ const ctx = useSkillEditorContext();
       <span v-if="ctx.editorDirty" class="status-modified">Modified</span>
     </div>
     <div class="topbar-actions">
-      <span class="kbd-hint">
+      <span v-if="ctx.isReadOnly" class="kbd-hint">Packaged skills are read-only</span>
+      <span v-else class="kbd-hint">
         <span class="kbd">Ctrl</span>+<span class="kbd">S</span>
       </span>
-      <button class="btn-ghost" :disabled="!ctx.editorDirty" @click="ctx.handleDiscard">
+      <button v-if="!ctx.isReadOnly" class="btn-ghost" :disabled="!ctx.editorDirty" @click="ctx.handleDiscard">
         <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 2l12 12M14 2L2 14"/></svg>
         Discard
       </button>
-      <button class="btn-primary" :disabled="!ctx.editorDirty || ctx.saving" @click="ctx.handleSave">
+      <button v-if="!ctx.isReadOnly" class="btn-primary" :disabled="!ctx.editorDirty || ctx.saving" @click="ctx.handleSave">
         <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 2H4a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2V5.5L12 2z"/><path d="M10 2v4H6"/><path d="M6 10h4"/></svg>
         {{ ctx.saving ? 'Saving…' : 'Save' }}
       </button>
