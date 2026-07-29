@@ -13,8 +13,8 @@
  */
 
 import { execSync } from "node:child_process";
-import { readFile } from "node:fs/promises";
 import { readdirSync, statSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 
 const REPO_ROOT = new URL("..", import.meta.url).pathname.replace(/^\/([A-Z]:)/, "$1");
@@ -29,10 +29,10 @@ const PROP_RE =
 const PX_RE = /(-?\d*\.?\d+)px/g;
 
 function gitStaged() {
-  const out = execSync(
-    "git diff --cached --name-only --diff-filter=ACMR",
-    { encoding: "utf8", cwd: REPO_ROOT },
-  );
+  const out = execSync("git diff --cached --name-only --diff-filter=ACMR", {
+    encoding: "utf8",
+    cwd: REPO_ROOT,
+  });
   return out.split(/\r?\n/).filter(Boolean);
 }
 
@@ -76,14 +76,12 @@ for (const abs of files) {
     continue;
   }
   const re = new RegExp(PROP_RE.source, "gi");
-  let m;
-  while ((m = re.exec(text)) !== null) {
+  for (const m of text.matchAll(re)) {
     const prop = m[2];
     const value = m[3];
     const line = lineNumber(text, m.index);
-    let pm;
     PX_RE.lastIndex = 0;
-    while ((pm = PX_RE.exec(value)) !== null) {
+    for (const pm of value.matchAll(PX_RE)) {
       const n = Number.parseFloat(pm[1]);
       if (!Number.isFinite(n)) continue;
       if (!GRID.has(Math.abs(n))) {
@@ -94,10 +92,7 @@ for (const abs of files) {
 }
 
 offGrid.sort(
-  (a, b) =>
-    a.file.localeCompare(b.file) ||
-    a.line - b.line ||
-    a.prop.localeCompare(b.prop),
+  (a, b) => a.file.localeCompare(b.file) || a.line - b.line || a.prop.localeCompare(b.prop),
 );
 
 if (offGrid.length === 0) {
@@ -105,13 +100,9 @@ if (offGrid.length === 0) {
   process.exit(0);
 }
 
-console.warn(
-  `⚠ spacing-grid: ${offGrid.length} off-grid value(s) (warn-only in v1)`,
-);
+console.warn(`⚠ spacing-grid: ${offGrid.length} off-grid value(s) (warn-only in v1)`);
 for (const v of offGrid) {
   console.warn(`  ${v.file}:${v.line}: ${v.prop}: ${v.value}`);
 }
-console.warn(
-  "\nGrid: 4 · 8 · 12 · 16 · 20 · 24 · 32 · 40 · 48 · 64 · 80 (00-globals §G8).",
-);
+console.warn("\nGrid: 4 · 8 · 12 · 16 · 20 · 24 · 32 · 40 · 48 · 64 · 80 (00-globals §G8).");
 process.exit(0);

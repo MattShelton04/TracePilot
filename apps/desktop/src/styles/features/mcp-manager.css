@@ -96,10 +96,18 @@
   flex-shrink: 0;
 }
 
-.mcp-manager-view .stat-dot.installed { background: var(--accent-fg); }
-.mcp-manager-view .stat-dot.active    { background: var(--success-fg); }
-.mcp-manager-view .stat-dot.paused    { background: var(--warning-fg); }
-.mcp-manager-view .stat-dot.error     { background: var(--danger-fg); }
+.mcp-manager-view .stat-dot.installed {
+  background: var(--accent-fg);
+}
+.mcp-manager-view .stat-dot.active {
+  background: var(--success-fg);
+}
+.mcp-manager-view .stat-dot.paused {
+  background: var(--warning-fg);
+}
+.mcp-manager-view .stat-dot.error {
+  background: var(--danger-fg);
+}
 
 .mcp-manager-view .stat-sep {
   color: var(--text-placeholder);
@@ -162,7 +170,9 @@
   border-radius: var(--radius-md);
   color: var(--text-secondary);
   cursor: pointer;
-  transition: color var(--transition-fast), border-color var(--transition-fast);
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast);
 }
 
 .mcp-manager-view .btn-icon-sm:hover {
@@ -180,8 +190,12 @@
 }
 
 @keyframes mcp-spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ─── Section Heading ─── */
