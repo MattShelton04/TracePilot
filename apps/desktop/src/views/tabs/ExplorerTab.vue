@@ -50,9 +50,7 @@ const viewerSearchRequest = ref({ id: 0, query: "", line: 0 });
 const isSearchOpen = ref(false);
 const searchInputRef = ref<HTMLInputElement | null>(null);
 
-const showSearchPanel = computed(
-  () => isSearchOpen.value || Boolean(searchQuery.value.trim()),
-);
+const showSearchPanel = computed(() => isSearchOpen.value || Boolean(searchQuery.value.trim()));
 
 function toggleSearch() {
   if (showSearchPanel.value) {

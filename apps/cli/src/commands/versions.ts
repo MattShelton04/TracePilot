@@ -13,8 +13,8 @@ import {
   discoverInstalledVersions,
   findEventExamples,
   generateMarkdownReport,
-  scanSessionVersions,
   getCopilotPkgDir,
+  scanSessionVersions,
 } from "../lib/version-analyzer.js";
 import { handleValidationError } from "../utils/errorHandler.js";
 import { printJson } from "./utils.js";

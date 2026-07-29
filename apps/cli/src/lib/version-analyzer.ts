@@ -29,4 +29,7 @@ export type {
   SessionVersionInfo,
   VersionDiff,
 } from "./version-analyzer/types.js";
-export { discoverInstalledVersions, getCopilotPkgDir } from "./version-analyzer/version-discovery.js";
+export {
+  discoverInstalledVersions,
+  getCopilotPkgDir,
+} from "./version-analyzer/version-discovery.js";
