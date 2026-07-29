@@ -23,7 +23,7 @@ import CodeBlock from "./renderers/CodeBlock.vue";
 import SqliteTableView from "./SqliteTableView.vue";
 import "../styles/features/file-content-viewer.css";
 
-const props = defineProps<{
+interface FileContentViewerProps {
   /** Relative path within the session directory (for display + language detection). */
   filePath?: string;
   /** Absolute path on host filesystem. */
@@ -58,7 +58,9 @@ const props = defineProps<{
   error?: string | null;
   /** Show the built-in direct content copy action. Disable when the caller requires confirmation. */
   showCopyContent?: boolean;
-}>();
+}
+
+const props = withDefaults(defineProps<FileContentViewerProps>(), { showCopyContent: true });
 
 const emit = defineEmits<{
   /** Re-emitted from MarkdownContent — parent handles OS open (Tauri). */
