@@ -130,6 +130,7 @@ describe("FileContentViewer", () => {
     expect(wrapper.find(".fcv__content").exists()).toBe(true);
     // MarkdownContent or CodeBlock should be rendered inside .fcv__content
     expect(wrapper.find(".fcv__content").html()).toBeTruthy();
+    expect(wrapper.find('[aria-label="Copy file contents"]').exists()).toBe(true);
   });
 
   it("renders JSON, JSONL, and CSV with structured viewers", () => {
