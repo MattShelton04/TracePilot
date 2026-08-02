@@ -7,6 +7,11 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-08-02
+
+### Fixed
+- **Session Explorer file-content copying** — Restored the file viewer's copy-content action so file contents can be copied directly from Session Explorer (#785)
+
 ## [0.8.0] - 2026-07-26
 
 ### Added

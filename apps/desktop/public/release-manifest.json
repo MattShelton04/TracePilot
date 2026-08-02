@@ -1,6 +1,18 @@
 {
   "versions": [
     {
+      "version": "0.8.1",
+      "date": "2026-08-02",
+      "notes": {
+        "added": [],
+        "changed": [],
+        "fixed": [
+          "Session Explorer file-content copying: Restored the file viewer's copy-content action so file contents can be copied directly from Session Explorer"
+        ]
+      },
+      "requiresReindex": false
+    },
+    {
       "version": "0.8.0",
       "date": "2026-07-26",
       "notes": {
