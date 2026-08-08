@@ -22,3 +22,12 @@ pub fn estimate_skill_frontmatter_tokens(content: &str) -> Result<u32, SkillsErr
     let (frontmatter_yaml, _) = parser::split_frontmatter(content)?;
     Ok(crate::tokens::estimate_skill_tokens(&frontmatter_yaml))
 }
+
+/// Estimate both the always-loaded discovery metadata and lazily-loaded instructions.
+pub fn estimate_skill_token_usage(content: &str) -> Result<(u32, u32), SkillsError> {
+    let (frontmatter_yaml, body) = parser::split_frontmatter(content)?;
+    Ok((
+        crate::tokens::estimate_skill_tokens(&frontmatter_yaml),
+        crate::tokens::estimate_tokens(&body),
+    ))
+}

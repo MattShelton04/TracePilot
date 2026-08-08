@@ -36,7 +36,8 @@ const ctx = useSkillEditorContext();
             <SkillScopeBadge :scope="ctx.store.selectedSkill!.scope" />
             <Tooltip :text="SKILL_TOKEN_ESTIMATE_TOOLTIP" position="bottom">
               <span class="badge badge-neutral" tabindex="0">
-                ~{{ formatNumberFull(ctx.store.selectedSkill!.estimatedTokens) }} tokens
+                ~{{ formatNumberFull(ctx.tokenUsage.frontmatterTokens) }} discover ·
+                +~{{ formatNumberFull(ctx.tokenUsage.instructionTokens) }} on use
               </span>
             </Tooltip>
           </div>

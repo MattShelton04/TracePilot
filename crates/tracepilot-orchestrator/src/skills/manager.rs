@@ -6,7 +6,7 @@ use crate::skills::discovery::{
 use crate::skills::error::SkillsError;
 use crate::skills::parser::parse_skill_md;
 use crate::skills::types::{Skill, SkillFrontmatter, SkillScope};
-use crate::skills::writer::write_skill_md;
+use crate::skills::writer::{patch_frontmatter_scalar, patch_skill_md, write_skill_md};
 use std::path::{Path, PathBuf};
 use tracepilot_core::ids::SkillName;
 
@@ -122,6 +122,10 @@ pub fn create_skill(
     let fm = SkillFrontmatter {
         name: name.to_string(),
         description: description.to_string(),
+        argument_hint: None,
+        allowed_tools: None,
+        user_invocable: None,
+        disable_model_invocation: None,
         resource_globs: vec![],
         auto_attach: false,
     };
@@ -146,7 +150,8 @@ pub fn update_skill(
         ));
     }
 
-    let content = write_skill_md(frontmatter, body);
+    let existing = tracepilot_core::TracePilotError::read_to_string(&skill_path)?;
+    let content = patch_skill_md(&existing, frontmatter, body);
     std::fs::write(&skill_path, content)?;
     Ok(())
 }
@@ -198,9 +203,8 @@ pub fn rename_skill(skill_dir: &Path, new_name: &SkillName) -> Result<PathBuf, S
 
     // Prepare updated content BEFORE any filesystem mutation
     let content = tracepilot_core::TracePilotError::read_to_string(&skill_path)?;
-    let (mut fm, body) = parse_skill_md(&content)?;
-    fm.name = new_name.to_string();
-    let new_content = write_skill_md(&fm, &body);
+    parse_skill_md(&content)?;
+    let new_content = patch_frontmatter_scalar(&content, "name", new_name);
 
     // Write updated SKILL.md to the OLD directory first (safe — can retry)
     std::fs::write(&skill_path, &new_content)?;
@@ -229,7 +233,9 @@ pub fn duplicate_skill(skill_dir: &Path, new_name: &SkillName) -> Result<PathBuf
     let new_name = new_name.as_str();
     validate_skill_name(new_name)?;
 
-    let skill = load_skill(&skill_dir.join("SKILL.md"), SkillScope::Global)?;
+    let skill_path = skill_dir.join("SKILL.md");
+    let content = tracepilot_core::TracePilotError::read_to_string(&skill_path)?;
+    parse_skill_md(&content)?;
 
     let new_dir = skill_dir.parent().unwrap_or(Path::new(".")).join(new_name);
 
@@ -241,9 +247,8 @@ pub fn duplicate_skill(skill_dir: &Path, new_name: &SkillName) -> Result<PathBuf
     copy_dir_recursive(skill_dir, &new_dir)?;
 
     // Update the frontmatter name in the copy
-    let mut fm = skill.frontmatter;
-    fm.name = new_name.to_string();
-    update_skill(&new_dir, &fm, &skill.body)?;
+    let new_content = patch_frontmatter_scalar(&content, "name", new_name);
+    std::fs::write(new_dir.join("SKILL.md"), new_content)?;
 
     Ok(new_dir)
 }
@@ -319,6 +324,10 @@ mod tests {
         let fm = SkillFrontmatter {
             name: "test-skill".into(),
             description: "Updated description".into(),
+            argument_hint: None,
+            allowed_tools: None,
+            user_invocable: None,
+            disable_model_invocation: None,
             resource_globs: vec!["*.rs".into()],
             auto_attach: true,
         };
@@ -330,11 +339,43 @@ mod tests {
     }
 
     #[test]
+    fn update_skill_preserves_unknown_frontmatter_and_comments() {
+        let dir = TempDir::new().unwrap();
+        let skill_dir = setup_skill(dir.path(), "preserved");
+        std::fs::write(
+            skill_dir.join("SKILL.md"),
+            "---\n# keep\nname: preserved\ndescription: Old\nx-vendor: yes\n---\nOld body\n",
+        )
+        .unwrap();
+        let fm = SkillFrontmatter {
+            name: "preserved".into(),
+            description: "New".into(),
+            argument_hint: Some("[file]".into()),
+            allowed_tools: None,
+            user_invocable: None,
+            disable_model_invocation: None,
+            resource_globs: vec![],
+            auto_attach: false,
+        };
+
+        update_skill(&skill_dir, &fm, "New body").unwrap();
+        let content = std::fs::read_to_string(skill_dir.join("SKILL.md")).unwrap();
+        assert!(content.contains("# keep"));
+        assert!(content.contains("x-vendor: yes"));
+        assert!(content.contains("argument-hint: \"[file]\""));
+        assert!(content.contains("New body"));
+    }
+
+    #[test]
     fn update_nonexistent_skill_errors() {
         let dir = TempDir::new().unwrap();
         let fm = SkillFrontmatter {
             name: "ghost".into(),
             description: "desc".into(),
+            argument_hint: None,
+            allowed_tools: None,
+            user_invocable: None,
+            disable_model_invocation: None,
             resource_globs: vec![],
             auto_attach: false,
         };

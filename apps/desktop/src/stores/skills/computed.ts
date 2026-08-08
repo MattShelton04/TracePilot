@@ -36,10 +36,10 @@ export function createSkillsComputed(context: SkillsContext) {
   const tokenBudget = computed(() => {
     const total = skills.value.length;
     const enabled = skills.value.filter((s) => s.enabled).length;
-    const totalTokens = skills.value.reduce((sum, s) => sum + s.estimatedTokens, 0);
+    const totalTokens = skills.value.reduce((sum, s) => sum + s.frontmatterTokens, 0);
     const enabledTokens = skills.value
       .filter((s) => s.enabled)
-      .reduce((sum, s) => sum + s.estimatedTokens, 0);
+      .reduce((sum, s) => sum + s.frontmatterTokens, 0);
     return { totalSkills: total, enabledSkills: enabled, totalTokens, enabledTokens };
   });
 

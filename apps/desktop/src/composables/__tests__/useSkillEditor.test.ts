@@ -45,7 +45,8 @@ const storeMock = {
     rawContent: string;
     frontmatter: SkillFrontmatter;
     scope: "global" | "project";
-    estimatedTokens: number;
+    frontmatterTokens: number;
+    instructionTokens: number;
   },
   error: null as string | null,
   getSkill: vi.fn(async (_dir: string) => storeMock.selectedSkill),
@@ -91,7 +92,8 @@ beforeEach(() => {
     rawContent: "---\nname: my-skill\ndescription: hello\n---\n\n# Body",
     frontmatter: { name: "my-skill", description: "hello" } as SkillFrontmatter,
     scope: "project",
-    estimatedTokens: 100,
+    frontmatterTokens: 100,
+    instructionTokens: 200,
   };
   storeMock.error = null;
   storeMock.listAssets.mockResolvedValue([]);

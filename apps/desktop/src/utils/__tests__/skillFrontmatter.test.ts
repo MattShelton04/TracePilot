@@ -1,6 +1,12 @@
 import type { SkillFrontmatter } from "@tracepilot/types";
 import { describe, expect, it } from "vitest";
-import { parseSkillContent, serializeSkillContent } from "../skillFrontmatter";
+import {
+  estimateSkillTokenUsage,
+  parseSkillContent,
+  patchSkillFrontmatter,
+  replaceSkillBody,
+  serializeSkillContent,
+} from "../skillFrontmatter";
 
 describe("skillFrontmatter", () => {
   describe("parseSkillContent", () => {
@@ -98,6 +104,22 @@ describe("skillFrontmatter", () => {
       });
     });
 
+    it("parses allowed-tools in YAML array form", () => {
+      const parsed = parseSkillContent(
+        [
+          "---",
+          "name: tools",
+          "description: Uses tools",
+          "allowed-tools:",
+          "  - read",
+          "  - shell(git:*)",
+          "---",
+          "Body",
+        ].join("\n"),
+      );
+      expect(parsed.frontmatter?.["allowed-tools"]).toEqual(["read", "shell(git:*)"]);
+    });
+
     it("ignores unknown keys while preserving known ones", () => {
       const parsed = parseSkillContent(
         [
@@ -136,6 +158,56 @@ describe("skillFrontmatter", () => {
         body: content,
         status: "malformed",
       });
+    });
+  });
+
+  describe("lossless updates", () => {
+    it("patches known fields while preserving unknown fields, comments, ordering, CRLF, and body", () => {
+      const initial = [
+        "\uFEFF---",
+        "# retained comment",
+        "name: original",
+        "x-vendor: keep-me",
+        "description: >",
+        "  old folded value",
+        "allowed-tools: Bash(git:*)",
+        "---",
+        "",
+        "# Body",
+      ].join("\r\n");
+
+      const updated = patchSkillFrontmatter(initial, {
+        name: "renamed",
+        description: "new: description",
+      });
+
+      expect(updated).toContain("\uFEFF---\r\n# retained comment\r\nname: renamed\r\n");
+      expect(updated).toContain("x-vendor: keep-me");
+      expect(updated).toContain('description: "new: description"');
+      expect(updated).toContain("allowed-tools: Bash(git:*)");
+      expect(updated.endsWith("---\r\n\r\n# Body")).toBe(true);
+    });
+
+    it("adds and removes current fields without rewriting unrelated YAML", () => {
+      const initial = "---\nname: test\ndescription: Keep\ncustom: yes\n---\nBody";
+      const added = patchSkillFrontmatter(initial, {
+        "argument-hint": "[file]",
+        "user-invocable": false,
+      });
+      expect(added).toContain('custom: yes\nargument-hint: "[file]"\nuser-invocable: false');
+      expect(patchSkillFrontmatter(added, { "argument-hint": "" })).not.toContain("argument-hint");
+    });
+
+    it("replaces only the body and estimates discovery and invocation costs independently", () => {
+      const initial = "---\n# comment\nname: test\ndescription: Keep\n---\n\nOld body";
+      const updated = replaceSkillBody(initial, "New body");
+      expect(updated).toBe("---\n# comment\nname: test\ndescription: Keep\n---\nNew body");
+
+      const usage = estimateSkillTokenUsage(updated);
+      expect(usage.frontmatterTokens).toBeGreaterThan(0);
+      expect(usage.instructionTokens).toBe(
+        Math.ceil(new TextEncoder().encode("New body").length / 4),
+      );
     });
   });
 

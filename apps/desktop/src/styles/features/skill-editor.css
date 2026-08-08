@@ -334,7 +334,7 @@
 
 /* ── Frontmatter Card ───────────────────────────────────── */
 .skill-editor-feature .frontmatter-section {
-  padding: 20px;
+  padding: 14px 16px;
   border-bottom: 1px solid var(--border-default);
   flex-shrink: 0;
 }
@@ -362,7 +362,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
+  padding: 9px 12px;
   border-bottom: 1px solid var(--border-subtle);
 }
 
@@ -388,10 +388,83 @@
 }
 
 .skill-editor-feature .frontmatter-body {
-  padding: 16px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
+}
+
+.skill-editor-feature .frontmatter-advanced {
+  padding-top: 9px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.skill-editor-feature .frontmatter-advanced > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  list-style-position: inside;
+}
+
+.skill-editor-feature .frontmatter-advanced__hint {
+  color: var(--text-placeholder);
+  font-size: 0.625rem;
+  font-weight: 500;
+}
+
+.skill-editor-feature .frontmatter-advanced__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 12px;
+}
+
+.skill-editor-feature .frontmatter-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.skill-editor-feature .frontmatter-option:has(input:disabled) {
+  cursor: default;
+}
+
+.skill-editor-feature .frontmatter-option input {
+  margin-top: 2px;
+}
+
+.skill-editor-feature .frontmatter-option span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.skill-editor-feature .frontmatter-option strong {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+
+.skill-editor-feature .frontmatter-option small,
+.skill-editor-feature .raw-frontmatter > summary {
+  color: var(--text-tertiary);
+  font-size: 0.6875rem;
+  line-height: 1.4;
+}
+
+.skill-editor-feature .raw-frontmatter > summary {
+  cursor: pointer;
+}
+
+.skill-editor-feature .raw-frontmatter pre {
+  max-height: 10rem;
+  margin-top: 8px;
+  overflow: auto;
+  white-space: pre-wrap;
 }
 
 .skill-editor-feature .field-group {

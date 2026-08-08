@@ -196,4 +196,32 @@ describe("useSkillsStore", () => {
       expect(store.error).toBe("duplicate failed");
     });
   });
+
+  describe("setSkillEnabled", () => {
+    it("updates local state immediately without reloading the skills page", async () => {
+      mocks.skillsSetEnabled.mockResolvedValue(undefined);
+      mocks.skillsListAll.mockResolvedValue(ALL_SUMMARIES);
+      const store = useSkillsStore();
+      await store.loadSkills();
+      mocks.skillsListAll.mockClear();
+
+      const result = store.setSkillEnabled("code-review", false);
+
+      expect(store.skills.find((skill) => skill.name === "code-review")?.enabled).toBe(false);
+      expect(await result).toBe(true);
+      expect(mocks.skillsSetEnabled).toHaveBeenCalledWith("code-review", false);
+      expect(mocks.skillsListAll).not.toHaveBeenCalled();
+    });
+
+    it("rolls back the optimistic update when persistence fails", async () => {
+      mocks.skillsSetEnabled.mockRejectedValue(new Error("settings write failed"));
+      mocks.skillsListAll.mockResolvedValue(ALL_SUMMARIES);
+      const store = useSkillsStore();
+      await store.loadSkills();
+
+      expect(await store.setSkillEnabled("code-review", false)).toBe(false);
+      expect(store.skills.find((skill) => skill.name === "code-review")?.enabled).toBe(true);
+      expect(store.error).toBe("settings write failed");
+    });
+  });
 });

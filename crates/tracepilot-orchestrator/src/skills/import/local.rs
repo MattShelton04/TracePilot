@@ -104,10 +104,22 @@ pub fn discover_local_skills(base_dir: &Path) -> Result<Vec<LocalSkillPreview>, 
             if !skill_dir.is_dir() {
                 continue;
             }
-            if skill_dir.join("SKILL.md").exists()
-                && let Ok(preview) = skill_preview_from_dir(&skill_dir)
-            {
-                previews.push(preview);
+            if skill_dir.join("SKILL.md").exists() {
+                match skill_preview_from_dir(&skill_dir) {
+                    Ok(preview) => previews.push(preview),
+                    Err(error) => previews.push(LocalSkillPreview {
+                        path: skill_dir.to_string_lossy().to_string(),
+                        name: skill_dir
+                            .file_name()
+                            .unwrap_or_default()
+                            .to_string_lossy()
+                            .to_string(),
+                        description: "Invalid SKILL.md".into(),
+                        file_count: count_files_recursive(&skill_dir),
+                        valid: false,
+                        diagnostic: Some(error.to_string()),
+                    }),
+                }
             }
         }
     }
@@ -128,6 +140,8 @@ pub(super) fn skill_preview_from_dir(skill_dir: &Path) -> Result<LocalSkillPrevi
         name: fm.name,
         description: fm.description,
         file_count,
+        valid: true,
+        diagnostic: None,
     })
 }
 

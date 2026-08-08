@@ -224,4 +224,16 @@ Help with Rust code."#;
         assert!(fm.description.contains("browser interactions"));
         assert!(body.contains("This skill"));
     }
+
+    #[test]
+    fn parse_allowed_tools_array() {
+        let content = "---\nname: tools\ndescription: Uses tools\nallowed-tools:\n  - read\n  - shell(git:*)\n---\nBody";
+        let (frontmatter, _) = parse_skill_md(content).unwrap();
+        match frontmatter.allowed_tools {
+            Some(crate::skills::types::SkillAllowedTools::List(tools)) => {
+                assert_eq!(tools, vec!["read", "shell(git:*)"]);
+            }
+            other => panic!("expected tool list, got {other:?}"),
+        }
+    }
 }

@@ -302,10 +302,11 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::mcp::mcp_import_from_file,
             commands::mcp::mcp_import_from_github,
             commands::mcp::mcp_compute_diff,
-            // Skills commands (20)
+            // Skills commands
             commands::skills::skills_list_all,
             commands::skills::encountered::skills_encountered_project,
             commands::skills::skills_get_skill,
+            commands::skills::skills_set_enabled,
             commands::skills::skills_create,
             commands::skills::skills_update,
             commands::skills::skills_update_raw,

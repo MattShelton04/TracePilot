@@ -156,6 +156,7 @@ pub const IPC_COMMAND_NAMES: &[&str] = &[
     "skills_list_all",
     "skills_encountered_project",
     "skills_get_skill",
+    "skills_set_enabled",
     "skills_create",
     "skills_update",
     "skills_update_raw",

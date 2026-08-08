@@ -128,6 +128,7 @@ export const IPC_COMMANDS = [
   "skills_get_skill",
   "skills_create",
   "skills_update",
+  "skills_set_enabled",
   "skills_update_raw",
   "skills_delete",
   "skills_rename",

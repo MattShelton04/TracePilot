@@ -66,13 +66,13 @@ fn skill_directory_from_path(path: &str) -> Option<String> {
         .map(|parent| parent.to_string_lossy().to_string())
 }
 
-fn estimate_frontmatter_tokens(content: Option<&str>) -> usize {
+fn estimate_token_usage(content: Option<&str>) -> (usize, usize) {
     content
         .and_then(|content| {
-            tracepilot_orchestrator::skills::estimate_skill_frontmatter_tokens(content).ok()
+            tracepilot_orchestrator::skills::estimate_skill_token_usage(content).ok()
         })
-        .map(|tokens| tokens as usize)
-        .unwrap_or(0)
+        .map(|(frontmatter, instructions)| (frontmatter as usize, instructions as usize))
+        .unwrap_or((0, 0))
 }
 
 fn read_skill_invocations(events_path: &Path) -> Result<Vec<SkillInvokedPayload>, std::io::Error> {
@@ -144,7 +144,8 @@ fn merge_encountered_skill(
     previous.description = choose_description(&previous.description, &next.description);
     previous.directory = choose_path(&previous.directory, &next.directory);
     previous.source_path = choose_path(&previous.source_path, &next.source_path);
-    previous.estimated_tokens = previous.estimated_tokens.max(next.estimated_tokens);
+    previous.frontmatter_tokens = previous.frontmatter_tokens.max(next.frontmatter_tokens);
+    previous.instruction_tokens = previous.instruction_tokens.max(next.instruction_tokens);
     previous.invocation_count += next.invocation_count;
 }
 
@@ -153,7 +154,8 @@ struct EncounteredAccumulator {
     name: String,
     description: String,
     directory: String,
-    estimated_tokens: usize,
+    frontmatter_tokens: usize,
+    instruction_tokens: usize,
     source_path: String,
     invocation_count: usize,
 }
@@ -268,7 +270,8 @@ pub async fn skills_encountered_project(
                     .map(str::trim)
                     .filter(|desc| !desc.is_empty())
                     .unwrap_or("Encountered in recent CLI sessions");
-                let estimated_tokens = estimate_frontmatter_tokens(data.content.as_deref());
+                let (frontmatter_tokens, instruction_tokens) =
+                    estimate_token_usage(data.content.as_deref());
 
                 merge_encountered_skill(
                     &mut discovered,
@@ -277,7 +280,8 @@ pub async fn skills_encountered_project(
                         name: display_name.to_string(),
                         description: description.to_string(),
                         directory,
-                        estimated_tokens,
+                        frontmatter_tokens,
+                        instruction_tokens,
                         source_path: source_path.to_string(),
                         invocation_count: *invocation_count,
                     },
@@ -292,7 +296,8 @@ pub async fn skills_encountered_project(
                     name: skill.name,
                     description: skill.description,
                     directory: skill.directory,
-                    estimated_tokens: skill.estimated_tokens,
+                    frontmatter_tokens: skill.frontmatter_tokens,
+                    instruction_tokens: skill.instruction_tokens,
                     source_path: skill.source_path,
                     invocation_count: skill.invocation_count,
                 })
@@ -303,7 +308,7 @@ pub async fn skills_encountered_project(
 
 #[cfg(test)]
 mod tests {
-    use super::{estimate_frontmatter_tokens, is_project_skill_path};
+    use super::{estimate_token_usage, is_project_skill_path};
 
     #[test]
     fn encountered_estimate_excludes_instruction_body() {
@@ -312,9 +317,10 @@ mod tests {
         let long = format!("{frontmatter}{}", "Long instruction body. ".repeat(500));
 
         assert_eq!(
-            estimate_frontmatter_tokens(Some(&short)),
-            estimate_frontmatter_tokens(Some(&long))
+            estimate_token_usage(Some(&short)).0,
+            estimate_token_usage(Some(&long)).0
         );
+        assert!(estimate_token_usage(Some(&long)).1 > estimate_token_usage(Some(&short)).1);
     }
 
     #[test]

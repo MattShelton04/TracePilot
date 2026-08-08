@@ -1,4 +1,4 @@
-import type { Skill, SkillScope, SkillSummary } from "@tracepilot/types";
+import type { Skill, SkillDiagnostic, SkillScope, SkillSummary } from "@tracepilot/types";
 import { useAsyncGuard } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { ref, shallowRef } from "vue";
@@ -14,6 +14,7 @@ import { createSkillsMutationActions } from "./mutations";
 
 export const useSkillsStore = defineStore("skills", () => {
   const skills = shallowRef<SkillSummary[]>([]);
+  const diagnostics = shallowRef<SkillDiagnostic[]>([]);
   const encounteredSkills = shallowRef<EncounteredSkillSummary[]>([]);
   const selectedSkill = shallowRef<Skill | null>(null);
   const loading = ref(false);
@@ -27,6 +28,7 @@ export const useSkillsStore = defineStore("skills", () => {
 
   const context: SkillsContext = {
     skills,
+    diagnostics,
     encounteredSkills,
     selectedSkill,
     loading,
@@ -73,6 +75,7 @@ export const useSkillsStore = defineStore("skills", () => {
   return {
     // State
     skills,
+    diagnostics,
     encounteredSkills,
     selectedSkill,
     loading,

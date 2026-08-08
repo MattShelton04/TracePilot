@@ -55,7 +55,8 @@ pub struct EncounteredSkillSummary {
     pub name: String,
     pub description: String,
     pub directory: String,
-    pub estimated_tokens: usize,
+    pub frontmatter_tokens: usize,
+    pub instruction_tokens: usize,
     pub source_path: String,
     pub invocation_count: usize,
 }

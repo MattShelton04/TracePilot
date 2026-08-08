@@ -2,13 +2,14 @@
 import {
   formatNumber as formatCompactNumber,
   formatNumberFull,
-  type SkillImportResult,
+  type SkillBatchImportResult,
 } from "@tracepilot/types";
 import { PageHeader, PageShell, Tooltip, useConfirmDialog } from "@tracepilot/ui";
 import { Brain } from "lucide-vue-next";
 import { computed, onMounted, ref } from "vue";
 import SkillCard from "@/components/skills/SkillCard.vue";
 import SkillImportWizard from "@/components/skills/SkillImportWizard.vue";
+import { confirmSkillDeletion } from "@/components/skills/skillActions";
 import { SKILL_TOKEN_ESTIMATE_TOOLTIP } from "@/components/skills/tokenEstimate";
 import "@/styles/features/skills-manager.css";
 import { useSkillsStore } from "@/stores/skills";
@@ -56,20 +57,17 @@ async function handleCreateSkill() {
   }
 }
 
-function handleImported(_result: SkillImportResult) {
+function handleImported(_result: SkillBatchImportResult) {
   store.clearError();
   showImportWizard.value = false;
 }
 
 async function handleDeleteSkill(dir: string) {
-  const ok = await showConfirm({
-    title: "Delete Skill",
-    message: "Delete this skill? This cannot be undone.",
-    variant: "danger",
-    confirmLabel: "Delete",
-    cancelLabel: "Cancel",
-  });
-  if (ok) store.deleteSkill(dir);
+  await confirmSkillDeletion(showConfirm, store.deleteSkill, dir);
+}
+
+async function handleToggleEnabled(_dir: string, enabled: boolean, name: string) {
+  await store.setSkillEnabled(name, enabled);
 }
 </script>
 
@@ -192,6 +190,16 @@ async function handleDeleteSkill(dir: string) {
       </div>
 
       <template v-else>
+        <details v-if="store.diagnostics.length" class="state-message state-message--warning">
+          <summary>
+            {{ store.diagnostics.length }} skill{{ store.diagnostics.length === 1 ? '' : 's' }} could not be loaded
+          </summary>
+          <ul>
+            <li v-for="diagnostic in store.diagnostics" :key="diagnostic.path">
+              <code>{{ diagnostic.path }}</code>: {{ diagnostic.message }}
+            </li>
+          </ul>
+        </details>
         <div v-if="store.encounteredError" class="state-message state-message--warning">
           Session-encountered project skills could not be loaded: {{ store.encounteredError }}
         </div>
@@ -203,6 +211,7 @@ async function handleDeleteSkill(dir: string) {
             :key="skill.directory"
             :skill="skill"
             @delete="handleDeleteSkill"
+            @toggle-enabled="(dir, enabled) => handleToggleEnabled(dir, enabled, skill.name)"
           />
         </div>
 

@@ -1,4 +1,8 @@
-import type { GitHubSkillPreview, LocalSkillPreview, SkillImportResult } from "@tracepilot/types";
+import type {
+  GitHubSkillPreview,
+  LocalSkillPreview,
+  SkillBatchImportResult,
+} from "@tracepilot/types";
 import { toErrorMessage } from "@tracepilot/ui";
 import { computed, type InjectionKey, inject, onMounted, reactive, ref } from "vue";
 import { browseForDirectory, browseForFile } from "@/composables/useBrowseDirectory";
@@ -19,7 +23,7 @@ export type ImportSource = "local" | "github" | "file";
 export type ImportScope = "global" | "project";
 
 export interface SkillImportWizardOptions {
-  onImported: (result: SkillImportResult) => void;
+  onImported: (result: SkillBatchImportResult) => void;
   onClose: () => void;
 }
 
@@ -32,7 +36,7 @@ export function useSkillImportWizard(options: SkillImportWizardOptions) {
   const activeTab = ref<ImportSource>("local");
   const importing = ref(false);
   const importError = ref<string | null>(null);
-  const importResult = ref<SkillImportResult | null>(null);
+  const importResult = ref<SkillBatchImportResult | null>(null);
   const showResult = ref(false);
   const importStatusMessage = ref("");
   const importCurrent = ref(0);
@@ -61,9 +65,11 @@ export function useSkillImportWizard(options: SkillImportWizardOptions) {
 
   // Target scope
   const targetScope = ref<ImportScope>("global");
+  const targetRepoRoot = ref("");
 
   // ── Computed ────────────────────────────────────────────────────────
   const canImport = computed(() => {
+    if (targetScope.value === "project" && !targetRepoRoot.value) return false;
     switch (activeTab.value) {
       case "local":
         return localPreviews.value.length > 0 && localSelected.value.size > 0;
@@ -72,6 +78,13 @@ export function useSkillImportWizard(options: SkillImportWizardOptions) {
       case "github":
         return ghPreviews.value.length > 0 && ghSelected.value.size > 0;
     }
+  });
+  const targetRepositories = computed(() => {
+    const paths = new Map<string, string>();
+    for (const repo of worktreeStore.registeredRepos)
+      paths.set(repo.path, `${repo.name} — ${repo.path}`);
+    for (const path of prefsStore.recentRepoPaths) if (!paths.has(path)) paths.set(path, path);
+    return [...paths].map(([path, label]) => ({ path, label }));
   });
 
   const canScanGitHub = computed(
@@ -128,12 +141,13 @@ export function useSkillImportWizard(options: SkillImportWizardOptions) {
         store.error ??
         "No skills found. Check that the directory contains SKILL.md files in standard locations (.github/skills/, .copilot/skills/, skills/).";
     } else {
-      localSelected.value = new Set(previews.map((p) => p.path));
+      localSelected.value = new Set(previews.filter((p) => p.valid !== false).map((p) => p.path));
       localPreviews.value = previews;
     }
   }
 
   function toggleLocalSkill(path: string) {
+    if (localPreviews.value.find((preview) => preview.path === path)?.valid === false) return;
     const next = new Set(localSelected.value);
     if (next.has(path)) {
       next.delete(path);
@@ -144,10 +158,13 @@ export function useSkillImportWizard(options: SkillImportWizardOptions) {
   }
 
   function toggleAllLocalSkills() {
-    if (localSelected.value.size === localPreviews.value.length) {
+    const validPaths = localPreviews.value
+      .filter((preview) => preview.valid !== false)
+      .map((preview) => preview.path);
+    if (localSelected.value.size === validPaths.length) {
       localSelected.value = new Set();
     } else {
-      localSelected.value = new Set(localPreviews.value.map((p) => p.path));
+      localSelected.value = new Set(validPaths);
     }
   }
 
@@ -188,7 +205,7 @@ export function useSkillImportWizard(options: SkillImportWizardOptions) {
           store.error ??
           "No skills found in this repository. Make sure it contains SKILL.md files.";
       } else {
-        ghSelected.value = new Set(previews.map((p) => p.path));
+        ghSelected.value = new Set(previews.filter((p) => p.valid !== false).map((p) => p.path));
       }
     } catch (e) {
       if (!controller.cancelled) {
@@ -212,6 +229,7 @@ export function useSkillImportWizard(options: SkillImportWizardOptions) {
   }
 
   function toggleGhSkill(path: string) {
+    if (ghPreviews.value.find((preview) => preview.path === path)?.valid === false) return;
     const next = new Set(ghSelected.value);
     if (next.has(path)) {
       next.delete(path);
@@ -222,10 +240,13 @@ export function useSkillImportWizard(options: SkillImportWizardOptions) {
   }
 
   function toggleAllGhSkills() {
-    if (ghSelected.value.size === ghPreviews.value.length) {
+    const validPaths = ghPreviews.value
+      .filter((preview) => preview.valid !== false)
+      .map((preview) => preview.path);
+    if (ghSelected.value.size === validPaths.length) {
       ghSelected.value = new Set();
     } else {
-      ghSelected.value = new Set(ghPreviews.value.map((p) => p.path));
+      ghSelected.value = new Set(validPaths);
     }
   }
 
@@ -247,78 +268,60 @@ export function useSkillImportWizard(options: SkillImportWizardOptions) {
     importTotal.value = 0;
 
     try {
-      let result: SkillImportResult | null = null;
+      let result: SkillBatchImportResult | null = null;
+      const repoRoot = targetScope.value === "project" ? targetRepoRoot.value : undefined;
       switch (activeTab.value) {
         case "local":
           {
             const paths = [...localSelected.value];
             importTotal.value = paths.length;
-            let imported = 0;
-            const warnings: string[] = [];
-            for (let i = 0; i < paths.length; i++) {
-              importCurrent.value = i + 1;
-              const preview = localPreviews.value.find((p) => p.path === paths[i]);
-              importStatusMessage.value = preview
-                ? `Importing "${preview.name}" (${i + 1} of ${paths.length})…`
-                : `Importing skill ${i + 1} of ${paths.length}…`;
-              const r = await store.importLocal(paths[i], targetScope.value);
-              if (r) {
-                imported++;
-                warnings.push(...r.warnings);
-              }
-            }
-            if (imported > 0) {
-              result = {
-                skillName: `${imported} skill(s)`,
-                destination: "",
-                warnings,
-                filesCopied: imported,
-              };
-            }
+            importStatusMessage.value = `Importing ${paths.length} selected skill${paths.length === 1 ? "" : "s"}…`;
+            result = await store.importLocalBatch(paths, targetScope.value, repoRoot);
+            importCurrent.value = paths.length;
           }
           break;
         case "file":
           importTotal.value = 1;
           importCurrent.value = 1;
           importStatusMessage.value = "Importing file…";
-          result = await store.importFile(filePath.value.trim(), targetScope.value);
+          {
+            const single = await store.importFile(
+              filePath.value.trim(),
+              targetScope.value,
+              repoRoot,
+            );
+            result = {
+              items: [
+                {
+                  source: filePath.value.trim(),
+                  ...(single ? { result: single } : { error: store.error ?? "Import failed" }),
+                },
+              ],
+              succeeded: single ? 1 : 0,
+              failed: single ? 0 : 1,
+              filesCopied: single?.filesCopied ?? 0,
+              warnings: single?.warnings ?? [],
+            };
+          }
           break;
         case "github": {
           const paths = [...ghSelected.value];
           importTotal.value = paths.length;
-          let imported = 0;
-          const warnings: string[] = [];
-          for (let i = 0; i < paths.length; i++) {
-            importCurrent.value = i + 1;
-            const preview = ghPreviews.value.find((p) => p.path === paths[i]);
-            importStatusMessage.value = preview
-              ? `Fetching "${preview.name}" from GitHub (${i + 1} of ${paths.length})…`
-              : `Importing skill ${i + 1} of ${paths.length}…`;
-            const r = await store.importGitHubSkill(
-              ghOwner.value.trim(),
-              ghRepo.value.trim(),
-              paths[i],
-              ghRef.value || undefined,
-              targetScope.value,
-            );
-            if (r) {
-              imported++;
-              warnings.push(...r.warnings);
-            }
-          }
-          if (imported > 0) {
-            result = {
-              skillName: `${imported} skill(s)`,
-              destination: "",
-              warnings,
-              filesCopied: imported,
-            };
-          }
+          importStatusMessage.value = `Fetching ${paths.length} selected skill${paths.length === 1 ? "" : "s"} from GitHub…`;
+          result = await store.importGitHubBatch(
+            ghOwner.value.trim(),
+            ghRepo.value.trim(),
+            paths,
+            ghRef.value || undefined,
+            targetScope.value,
+            repoRoot,
+          );
+          importCurrent.value = paths.length;
           break;
         }
       }
 
-      if (result) {
+      if (result && result.succeeded > 0) {
         importResult.value = result;
         showResult.value = true;
       } else {
@@ -413,9 +416,11 @@ export function useSkillImportWizard(options: SkillImportWizardOptions) {
     ghScanning,
     ghScanMessage,
     targetScope,
+    targetRepoRoot,
     // computed
     canImport,
     canScanGitHub,
+    targetRepositories,
     // actions
     scanLocal,
     toggleLocalSkill,

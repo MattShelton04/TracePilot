@@ -113,6 +113,24 @@ describe("useSkillsStore", () => {
     });
   });
 
+  describe("importLocalBatch", () => {
+    it("reports partial failures and reloads once", async () => {
+      mocks.skillsImportLocal.mockImplementation(async (source: string) => {
+        if (source === "/bad") throw new Error("invalid skill");
+        return { ...FIXTURE_IMPORT_RESULT, skillName: source.slice(1) };
+      });
+      mocks.skillsListAll.mockResolvedValue(ALL_SUMMARIES);
+      const store = useSkillsStore();
+
+      const result = await store.importLocalBatch(["/one", "/bad", "/two"], "global");
+
+      expect(result.succeeded).toBe(2);
+      expect(result.failed).toBe(1);
+      expect(result.items[1].error).toBe("invalid skill");
+      expect(mocks.skillsListAll).toHaveBeenCalledTimes(1);
+    });
+  });
+
   // ── importFile ─────────────────────────────────────────────
   describe("importFile", () => {
     it("returns result and reloads skills on success", async () => {

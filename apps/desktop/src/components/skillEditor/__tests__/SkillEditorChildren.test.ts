@@ -18,6 +18,11 @@ vi.mock("@tracepilot/ui", async () => {
       props: ["content"],
       template: '<div class="md-stub">{{ content }}</div>',
     },
+    Tooltip: {
+      name: "Tooltip",
+      props: ["text"],
+      template: '<span><slot /><span role="tooltip">{{ text }}</span></span>',
+    },
   };
 });
 
@@ -32,7 +37,8 @@ function makeCtx(overrides: Partial<SkillEditorContext> = {}): SkillEditorContex
         directory: "my-skill",
         frontmatter: { name: "My Skill", description: "desc" },
         scope: "repository" as const,
-        estimatedTokens: 1234,
+        frontmatterTokens: 1234,
+        instructionTokens: 2468,
       },
       error: null as string | null,
     },
@@ -57,6 +63,8 @@ function makeCtx(overrides: Partial<SkillEditorContext> = {}): SkillEditorContex
     editorLineNumbers: [1],
     totalLineCount: 1,
     byteCount: 10,
+    tokenUsage: { frontmatterTokens: 12, instructionTokens: 34 },
+    rawFrontmatter: "name: My Skill\ndescription: desc",
     descCharCount: 4,
     descCharClass: "",
     lastSavedDisplay: "Not saved yet",
@@ -75,6 +83,9 @@ function makeCtx(overrides: Partial<SkillEditorContext> = {}): SkillEditorContex
     onBodyInput: vi.fn(),
     onNameInput: vi.fn(),
     onDescInput: vi.fn(),
+    onFrontmatterTextInput: vi.fn(),
+    onFrontmatterBooleanInput: vi.fn(),
+    onAutomaticInvocationInput: vi.fn(),
     insertBold: vi.fn(),
     insertItalic: vi.fn(),
     insertH1: vi.fn(),
@@ -158,6 +169,23 @@ describe("SkillEditorMetadataForm", () => {
 
     expect(wrapper.find(".field-input").attributes("readonly")).toBeDefined();
     expect(wrapper.find(".field-textarea").attributes("readonly")).toBeDefined();
+  });
+
+  it("keeps advanced settings compact and explains invocation in plain language", async () => {
+    const ctx = makeCtx();
+    const wrapper = mountWithCtx(SkillEditorMetadataForm, ctx);
+
+    expect(wrapper.find(".frontmatter-advanced").attributes("open")).toBeUndefined();
+    expect(wrapper.text()).toContain("Allow manual use");
+    expect(wrapper.text()).toContain("slash command");
+    expect(wrapper.text()).toContain("Allow automatic use");
+    expect(wrapper.text()).toContain("Copilot choose this skill");
+
+    const invocationToggles = wrapper.findAll(".frontmatter-option input");
+    await invocationToggles[0]?.trigger("change");
+    expect(ctx.onFrontmatterBooleanInput).toHaveBeenCalledWith("user-invocable", expect.anything());
+    await invocationToggles[1]?.trigger("change");
+    expect(ctx.onAutomaticInvocationInput).toHaveBeenCalled();
   });
 });
 

@@ -1,10 +1,11 @@
-import type { Skill, SkillScope, SkillSummary } from "@tracepilot/types";
+import type { Skill, SkillDiagnostic, SkillScope, SkillSummary } from "@tracepilot/types";
 import type { AsyncGuard } from "@tracepilot/ui";
 import type { Ref, ShallowRef } from "vue";
 import type { EncounteredSkillSummary } from "./encountered";
 
 export interface SkillsContext {
   skills: ShallowRef<SkillSummary[]>;
+  diagnostics: ShallowRef<SkillDiagnostic[]>;
   encounteredSkills: ShallowRef<EncounteredSkillSummary[]>;
   selectedSkill: ShallowRef<Skill | null>;
   loading: Ref<boolean>;

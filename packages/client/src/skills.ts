@@ -8,9 +8,9 @@ import type {
   RepoSkillsResult,
   Skill,
   SkillAsset,
+  SkillDiscoveryResult,
   SkillFrontmatter,
   SkillImportResult,
-  SkillSummary,
 } from "@tracepilot/types";
 import { createInvoke } from "./invoke.js";
 
@@ -18,8 +18,8 @@ const invoke = createInvoke("Skills");
 
 // -- Discovery --
 
-export async function skillsListAll(repoRoot?: string): Promise<SkillSummary[]> {
-  return invoke<SkillSummary[]>("skills_list_all", {
+export async function skillsListAll(repoRoot?: string): Promise<SkillDiscoveryResult> {
+  return invoke<SkillDiscoveryResult>("skills_list_all", {
     repoRoot: repoRoot ?? null,
   });
 }
@@ -36,6 +36,10 @@ export async function skillsEncounteredProject(
 
 export async function skillsGetSkill(skillDir: string): Promise<Skill> {
   return invoke<Skill>("skills_get_skill", { skillDir });
+}
+
+export async function skillsSetEnabled(name: string, enabled: boolean): Promise<void> {
+  return invoke<void>("skills_set_enabled", { name, enabled });
 }
 
 // -- CRUD --

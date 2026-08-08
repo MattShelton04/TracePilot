@@ -65,12 +65,13 @@ const wizard = useSkillImportWizardContext();
           v-for="preview in wizard.ghPreviews"
           :key="preview.path"
           class="gh-preview__item"
-          :class="{ selected: wizard.ghSelected.has(preview.path) }"
+          :class="{ selected: wizard.ghSelected.has(preview.path), invalid: preview.valid === false }"
           @click="wizard.toggleGhSkill(preview.path)"
         >
           <input
             type="checkbox"
             :checked="wizard.ghSelected.has(preview.path)"
+            :disabled="preview.valid === false"
             @click.stop
             @change="wizard.toggleGhSkill(preview.path)"
           />
@@ -81,6 +82,7 @@ const wizard = useSkillImportWizardContext();
               :class="{ 'gh-preview__desc--empty': !preview.description }"
             >{{ preview.description || 'No description' }}</span>
             <span class="gh-preview__path">{{ preview.path }}</span>
+            <span v-if="preview.diagnostic" class="gh-preview__desc gh-preview__desc--empty">{{ preview.diagnostic }}</span>
           </div>
           <span class="gh-preview__badge">
             {{ preview.fileCount }} file{{ preview.fileCount === 1 ? "" : "s" }}
