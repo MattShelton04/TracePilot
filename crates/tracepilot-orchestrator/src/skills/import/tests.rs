@@ -2,7 +2,7 @@
 
 use super::atomic::atomic_dir_install;
 use super::file::import_from_file;
-use super::github::collect_skill_blob_paths;
+use super::github::{collect_skill_blob_paths, is_safe_github_relative_path};
 use super::local::{
     copy_dir_contents, count_files_recursive, discover_repo_skills, import_from_local,
     skill_preview_from_dir,
@@ -168,6 +168,31 @@ fn collect_skill_blob_paths_for_root_skill_includes_nested_files() {
             "scripts/setup.sh".to_string(),
         ]
     );
+}
+
+#[test]
+fn github_import_paths_reject_cross_platform_traversal() {
+    for path in [
+        "../escape.txt",
+        "nested/../../escape.txt",
+        "/absolute.txt",
+        r"C:\\absolute.txt",
+        r"nested\\..\\escape.txt",
+        r"\\server\\share.txt",
+    ] {
+        assert!(!is_safe_github_relative_path(path), "accepted {path:?}");
+    }
+}
+
+#[test]
+fn github_import_paths_allow_safe_nested_and_double_dot_names() {
+    for path in [
+        "references/guide.md",
+        "scripts/setup.sh",
+        "references/..guide.md",
+    ] {
+        assert!(is_safe_github_relative_path(path), "rejected {path:?}");
+    }
 }
 
 #[test]
