@@ -7,7 +7,7 @@ use crate::error::{OrchestratorError, Result};
 use crate::types::{CreateWorktreeRequest, LaunchConfig, LaunchMode, LaunchedSession};
 use crate::worktrees;
 
-use super::models::validate_model;
+use super::models::{validate_model, validate_reasoning_effort};
 use super::paths::canonicalize_user_path;
 
 #[cfg(any(target_os = "macos", target_os = "linux"))]
@@ -98,6 +98,7 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
     }
 
     if let Some(effort) = &config.reasoning_effort {
+        validate_reasoning_effort(effort)?;
         args.push("--reasoning-effort".to_string());
         args.push(effort.clone());
     }
