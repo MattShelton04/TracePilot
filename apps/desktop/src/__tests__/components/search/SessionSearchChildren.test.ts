@@ -87,6 +87,10 @@ describe("SessionSearchResultsHeader", () => {
     });
     expect(wrapper.text()).toContain("42");
     const groupedBtn = wrapper.find('[title="Grouped by session"]');
+    expect(groupedBtn.attributes("aria-label")).toBe("Grouped by session");
+    expect(groupedBtn.attributes("aria-pressed")).toBe("false");
+    expect(wrapper.get('[aria-label="Flat list"]').attributes("aria-pressed")).toBe("true");
+    expect(wrapper.get('[aria-label="Clear search"] svg').attributes("aria-hidden")).toBe("true");
     await groupedBtn.trigger("click");
     expect(wrapper.emitted("update:resultViewMode")?.[0]).toEqual(["grouped"]);
   });
@@ -137,6 +141,10 @@ describe("SessionSearchPagination", () => {
       },
     });
     const buttons = wrapper.findAll(".pagination-btn");
+    expect(wrapper.find('nav[aria-label="Search results pagination"]').exists()).toBe(true);
+    expect(wrapper.get('[aria-label="Page 2"]').attributes("aria-current")).toBe("page");
+    expect(wrapper.get('[aria-label="Previous page"]').attributes("disabled")).toBeUndefined();
+    expect(wrapper.get(".pagination-info").attributes("aria-live")).toBe("polite");
     await buttons[0].trigger("click");
     expect(wrapper.emitted("prev")).toBeTruthy();
     await buttons[buttons.length - 1].trigger("click");

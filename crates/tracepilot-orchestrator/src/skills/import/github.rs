@@ -151,6 +151,20 @@ pub(crate) fn import_from_github_path(
                     let asset_paths: Vec<String> = collect_skill_blob_paths(&entries, base_path)
                         .into_iter()
                         .filter(|path| path != &skill_md_path)
+                        .filter(|repo_path| {
+                            let relative = if prefix.is_empty() {
+                                repo_path.as_str()
+                            } else {
+                                &repo_path[prefix.len()..]
+                            };
+                            if is_safe_github_relative_path(relative) {
+                                true
+                            } else {
+                                warnings
+                                    .push(format!("Skipped '{}': unsafe path component", relative));
+                                false
+                            }
+                        })
                         .collect();
                     let path_refs: Vec<&str> = asset_paths.iter().map(String::as_str).collect();
                     let contents = crate::github::gh_get_files_batch_with_binary(
@@ -166,16 +180,6 @@ pub(crate) fn import_from_github_path(
                         } else {
                             &repo_path[prefix.len()..]
                         };
-                        // Guard against path traversal from crafted tree entries.
-                        // Use component analysis to correctly detect ParentDir
-                        // segments without false positives on names like "..foo".
-                        let has_traversal = Path::new(relative)
-                            .components()
-                            .any(|c| matches!(c, std::path::Component::ParentDir));
-                        if has_traversal || Path::new(relative).is_absolute() {
-                            warnings.push(format!("Skipped '{}': unsafe path component", relative));
-                            continue;
-                        }
                         match contents.get(&repo_path).and_then(|file| {
                             file.bytes
                                 .as_ref()
@@ -219,6 +223,27 @@ fn skill_path_prefix(base_path: &str) -> String {
     } else {
         format!("{}/", base_path.trim_end_matches('/'))
     }
+}
+
+/// GitHub tree paths use `/` regardless of the host OS. Reject path forms that
+/// could be reinterpreted when the imported skill is written on another host.
+pub(super) fn is_safe_github_relative_path(path: &str) -> bool {
+    let bytes = path.as_bytes();
+    let has_windows_drive_prefix =
+        bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':';
+
+    !path.is_empty()
+        && !path.starts_with('/')
+        && !path.contains('\\')
+        && !has_windows_drive_prefix
+        && !Path::new(path).components().any(|component| {
+            matches!(
+                component,
+                std::path::Component::ParentDir
+                    | std::path::Component::RootDir
+                    | std::path::Component::Prefix(_)
+            )
+        })
 }
 
 pub(super) fn collect_skill_blob_paths(entries: &[TreeEntry], base_path: &str) -> Vec<String> {
@@ -280,10 +305,13 @@ fn preview_github_import_path(
             if repo_path == skill_md_path {
                 continue;
             }
-            if prefix.is_empty() {
-                files.push(repo_path);
+            let relative = if prefix.is_empty() {
+                repo_path.as_str()
             } else {
-                files.push(repo_path[prefix.len()..].to_string());
+                &repo_path[prefix.len()..]
+            };
+            if is_safe_github_relative_path(relative) {
+                files.push(relative.to_string());
             }
         }
     }
@@ -351,7 +379,18 @@ pub fn discover_github_skills(
         if let Some(content) = contents.get(*skill_md_path) {
             match parse_skill_md(content) {
                 Ok((fm, _)) => {
-                    let file_count = collect_skill_blob_paths(&entries, &skill_dir).len();
+                    let prefix = skill_path_prefix(&skill_dir);
+                    let file_count = collect_skill_blob_paths(&entries, &skill_dir)
+                        .iter()
+                        .filter(|repo_path| {
+                            let relative = if prefix.is_empty() {
+                                repo_path.as_str()
+                            } else {
+                                &repo_path[prefix.len()..]
+                            };
+                            is_safe_github_relative_path(relative)
+                        })
+                        .count();
 
                     previews.push(GitHubSkillPreview {
                         path: skill_dir,

@@ -22,8 +22,8 @@ pub(super) fn spawn(plan: &SessionPlan<'_>) -> Result<u32> {
             .branch
             .as_deref()
             .map(|b| {
-                let escaped = b.replace('\'', "''");
-                format!("git checkout '{escaped}' && ")
+                let escaped = crate::process::shell_quote(b);
+                format!("git checkout {escaped} && ")
             })
             .unwrap_or_default()
     } else {
@@ -45,5 +45,5 @@ pub(super) fn spawn(plan: &SessionPlan<'_>) -> Result<u32> {
     let full_cmd = format!("{checkout_prefix}{copilot_cmd}{interactive_suffix}");
     let envs = &config.env_vars;
     let envs_ref = if envs.is_empty() { None } else { Some(envs) };
-    crate::process::spawn_detached_terminal(&full_cmd, &[], work_dir, envs_ref)
+    crate::process::spawn_detached_terminal("sh", &["-c", &full_cmd], work_dir, envs_ref)
 }

@@ -33,6 +33,23 @@ fn rejects_path_traversal_in_id() {
 }
 
 #[test]
+fn path_checks_are_cross_platform_without_rejecting_double_dot_names() {
+    for unsafe_path in [
+        r"..\\escape",
+        r"folder\\..\\escape",
+        r"C:escape",
+        r"C:\\escape",
+    ] {
+        assert!(
+            contains_path_traversal(unsafe_path),
+            "accepted {unsafe_path:?}"
+        );
+    }
+    assert!(!contains_path_traversal("session..backup"));
+    assert!(!contains_path_traversal("..session"));
+}
+
+#[test]
 fn rejects_absolute_unix_path_in_id() {
     let mut session = minimal_session();
     session.metadata.id = "/etc/evil".to_string();

@@ -133,6 +133,21 @@ describe("WorktreeList", () => {
     });
     expect(wrapper.text()).toContain("No worktrees found");
   });
+
+  it("names lock and remove actions for their worktree", () => {
+    const wrapper = mount(WorktreeList, {
+      props: {
+        filteredWorktrees: [makeWt()],
+        selectedWorktreePath: null,
+        searchQuery: "",
+      },
+    });
+
+    const lock = wrapper.get('[aria-label="Lock worktree feature/a"]');
+    const remove = wrapper.get('[aria-label="Remove worktree feature/a"]');
+    expect(lock.get("svg").attributes("aria-hidden")).toBe("true");
+    expect(remove.get("svg").attributes("aria-hidden")).toBe("true");
+  });
 });
 
 describe("WorktreeDetailPanel", () => {

@@ -8,6 +8,19 @@ use super::validation_err;
 pub(crate) fn contains_path_traversal(s: &str) -> bool {
     let path = Path::new(s);
 
+    // Session IDs and checkpoint names are used as a single path component.
+    // Treat either platform's separator as unsafe regardless of the host OS.
+    if s.contains('/') || s.contains('\\') {
+        return true;
+    }
+
+    // `Path` only recognizes drive prefixes on Windows, so detect them
+    // lexically as well for archives validated on Unix hosts.
+    let bytes = s.as_bytes();
+    if bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':' {
+        return true;
+    }
+
     // Reject absolute paths (covers `/`, `\`, `C:\`, `\\server`, etc.)
     if path.is_absolute() {
         return true;
@@ -21,8 +34,7 @@ pub(crate) fn contains_path_traversal(s: &str) -> bool {
         }
     }
 
-    // Belt-and-suspenders: also catch `://` and bare `..` in the string
-    s.contains("..") || s.contains(":/")
+    false
 }
 
 /// Check if a string looks like a standard UUID (8-4-4-4-12 hex pattern).

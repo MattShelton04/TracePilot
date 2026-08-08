@@ -74,6 +74,16 @@ describe("SearchableSelect", () => {
     expect(emitted[0]).toEqual([""]);
   });
 
+  it("exposes and activates a named clear button", async () => {
+    wrapper = mountComponent({ clearable: true });
+    const clearButton = wrapper.get('button[aria-label="Clear selection"]');
+    expect(clearButton.get("svg").attributes("aria-hidden")).toBe("true");
+
+    await clearButton.trigger("mousedown");
+
+    expect(wrapper.emitted("update:modelValue")?.[0]).toEqual([""]);
+  });
+
   it("does not emit empty string if clearable is false", async () => {
     wrapper = mountComponent({ clearable: false, allowCustom: false });
     const input = wrapper.find("input");

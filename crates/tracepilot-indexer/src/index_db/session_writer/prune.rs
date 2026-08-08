@@ -21,18 +21,15 @@ impl IndexDb {
 
         self.conn.execute_batch("SAVEPOINT prune_deleted")?;
         let result = (|| -> Result<()> {
-            // Use json_each() to pass all live IDs as a single JSON array parameter,
-            // avoiding the N individual INSERT statements into a temp table.
-            let live_json = serde_json::to_string(&live_ids.iter().collect::<Vec<_>>())
+            // Target only the IDs already known to be stale. In the common case
+            // this keeps the JSON payload and DELETE work proportional to the
+            // number of removed sessions rather than the full live corpus.
+            let stale_json = serde_json::to_string(&stale)
                 .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
 
             self.conn.execute(
-                "DELETE FROM sessions WHERE id NOT IN (SELECT value FROM json_each(?1))",
-                [&live_json],
-            )?;
-            self.conn.execute(
-                "DELETE FROM search_content WHERE session_id NOT IN (SELECT value FROM json_each(?1))",
-                [&live_json],
+                "DELETE FROM sessions WHERE id IN (SELECT value FROM json_each(?1))",
+                [&stale_json],
             )?;
             Ok(())
         })();
