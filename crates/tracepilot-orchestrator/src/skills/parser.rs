@@ -30,7 +30,7 @@ pub fn parse_skill_md(content: &str) -> Result<(SkillFrontmatter, String), Skill
 }
 
 /// Split content into frontmatter YAML and body markdown.
-fn split_frontmatter(content: &str) -> Result<(String, String), SkillsError> {
+pub(super) fn split_frontmatter(content: &str) -> Result<(String, String), SkillsError> {
     let trimmed = content.trim_start();
 
     if !trimmed.starts_with("---") {
@@ -223,5 +223,17 @@ Help with Rust code."#;
         assert_eq!(fm.name, "playwright-cli");
         assert!(fm.description.contains("browser interactions"));
         assert!(body.contains("This skill"));
+    }
+
+    #[test]
+    fn parse_allowed_tools_array() {
+        let content = "---\nname: tools\ndescription: Uses tools\nallowed-tools:\n  - read\n  - shell(git:*)\n---\nBody";
+        let (frontmatter, _) = parse_skill_md(content).unwrap();
+        match frontmatter.allowed_tools {
+            Some(crate::skills::types::SkillAllowedTools::List(tools)) => {
+                assert_eq!(tools, vec!["read", "shell(git:*)"]);
+            }
+            other => panic!("expected tool list, got {other:?}"),
+        }
     }
 }

@@ -1,4 +1,4 @@
-//! Skills Tauri commands (16 commands).
+//! Skills Tauri commands.
 
 pub mod encountered;
 
@@ -6,6 +6,7 @@ use std::path::Path;
 
 use crate::blocking_cmd;
 use crate::error::CmdResult;
+use crate::helpers::read_config;
 
 /// Validate that a skill_dir is within a known skills root before any operation.
 fn check_skill_dir(skill_dir: &str) -> Result<(), tracepilot_orchestrator::skills::SkillsError> {
@@ -21,24 +22,89 @@ fn check_mutable_skill_dir(
 // -- Discovery --
 
 #[tauri::command]
-#[tracing::instrument(skip(repo_root), err)]
+#[tracing::instrument(skip(state, repo_root), err)]
 pub async fn skills_list_all(
+    state: tauri::State<'_, crate::config::SharedConfig>,
     repo_root: Option<String>,
-) -> CmdResult<Vec<tracepilot_orchestrator::skills::types::SkillSummary>> {
-    blocking_cmd!(tracepilot_orchestrator::skills::discovery::discover_all(
-        repo_root.as_deref().map(Path::new),
-    ))
+) -> CmdResult<tracepilot_orchestrator::skills::types::SkillDiscoveryResult> {
+    let copilot_home = read_config(&state).copilot_home();
+    let repository_settings = repo_root.as_ref().map(|root| {
+        Path::new(root)
+            .join(".github")
+            .join("copilot")
+            .join("settings.json")
+    });
+    blocking_cmd!({
+        let mut result = tracepilot_orchestrator::skills::discovery::discover_all_detailed(
+            repo_root.as_deref().map(Path::new),
+        )?;
+        let config = tracepilot_orchestrator::config_injector::read_copilot_config(&copilot_home)?;
+        let repository_disabled = match repository_settings {
+            Some(path) => {
+                tracepilot_orchestrator::config_injector::read_disabled_skills_file(&path)?
+            }
+            None => Vec::new(),
+        };
+        for skill in &mut result.skills {
+            if repository_disabled
+                .iter()
+                .any(|name| name.eq_ignore_ascii_case(&skill.name))
+            {
+                skill.enabled = false;
+                skill.disabled_reason =
+                    Some(tracepilot_orchestrator::skills::types::SkillDisabledReason::Repository);
+            } else if config
+                .disabled_skills
+                .iter()
+                .any(|name| name.eq_ignore_ascii_case(&skill.name))
+            {
+                skill.enabled = false;
+                skill.disabled_reason =
+                    Some(tracepilot_orchestrator::skills::types::SkillDisabledReason::User);
+            }
+        }
+        Ok::<_, tracepilot_orchestrator::OrchestratorError>(result)
+    })
 }
 
 #[tauri::command]
-#[tracing::instrument(skip(skill_dir), level = "debug", err)]
+#[tracing::instrument(skip(state, skill_dir), level = "debug", err)]
 pub async fn skills_get_skill(
+    state: tauri::State<'_, crate::config::SharedConfig>,
     skill_dir: String,
 ) -> CmdResult<tracepilot_orchestrator::skills::types::Skill> {
     let dir = skill_dir.clone();
-    blocking_cmd!(check_skill_dir(&dir).and_then(|_| {
-        tracepilot_orchestrator::skills::manager::get_skill(std::path::Path::new(&dir))
-    }))
+    let copilot_home = read_config(&state).copilot_home();
+    blocking_cmd!({
+        check_skill_dir(&dir)?;
+        let mut skill = tracepilot_orchestrator::skills::manager::get_skill(Path::new(&dir))?;
+        let config = tracepilot_orchestrator::config_injector::read_copilot_config(&copilot_home)?;
+        if config
+            .disabled_skills
+            .iter()
+            .any(|name| name.eq_ignore_ascii_case(&skill.frontmatter.name))
+        {
+            skill.enabled = false;
+            skill.disabled_reason =
+                Some(tracepilot_orchestrator::skills::types::SkillDisabledReason::User);
+        }
+        Ok::<_, tracepilot_orchestrator::OrchestratorError>(skill)
+    })
+}
+
+#[tauri::command]
+#[tracing::instrument(skip(state), err)]
+pub async fn skills_set_enabled(
+    state: tauri::State<'_, crate::config::SharedConfig>,
+    name: String,
+    enabled: bool,
+) -> CmdResult<()> {
+    let copilot_home = read_config(&state).copilot_home();
+    blocking_cmd!(tracepilot_orchestrator::config_injector::set_skill_enabled(
+        &copilot_home,
+        &name,
+        enabled,
+    ))
 }
 
 // -- CRUD --
@@ -192,9 +258,10 @@ fn resolve_skills_dest(
     match scope {
         "project" => {
             if let Some(root) = repo_root {
-                Ok(tracepilot_orchestrator::skills::discovery::repo_skills_dir(
-                    std::path::Path::new(root),
-                ))
+                Ok(
+                    tracepilot_core::paths::RepoPaths::from_root(std::path::Path::new(root))
+                        .github_skills_dir(),
+                )
             } else {
                 Err(crate::error::BindingsError::Validation(
                     "No repository root provided for project scope".into(),

@@ -3,7 +3,8 @@ import { runAction, runMutation } from "@tracepilot/ui";
 import type { SkillsContext } from "./context";
 
 export function createSkillsLoadingActions(context: SkillsContext) {
-  const { skills, selectedSkill, loading, error, currentRepoRoot, loadGuard } = context;
+  const { skills, diagnostics, selectedSkill, loading, error, currentRepoRoot, loadGuard } =
+    context;
 
   async function loadSkills(repoRoot?: string) {
     if (repoRoot !== undefined) {
@@ -15,7 +16,14 @@ export function createSkillsLoadingActions(context: SkillsContext) {
       guard: loadGuard,
       action: () => skillsListAll(currentRepoRoot.value),
       onSuccess: (result) => {
-        skills.value = result;
+        // Accept the legacy array shape from older test/mocked backends during rolling upgrades.
+        if (Array.isArray(result)) {
+          skills.value = result;
+          diagnostics.value = [];
+        } else {
+          skills.value = result.skills;
+          diagnostics.value = result.diagnostics;
+        }
       },
     });
   }

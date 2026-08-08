@@ -250,6 +250,9 @@
 
 /* ── Drop Zone ───────────────────────────────────────────── */
 .skill-import-wizard-root .drop-zone {
+  width: 100%;
+  color: inherit;
+  font: inherit;
   border: 2px dashed var(--border-default);
   border-radius: var(--radius-lg);
   padding: 40px 24px;
@@ -257,6 +260,16 @@
   transition: all 0.2s ease;
   cursor: pointer;
   background: var(--canvas-subtle);
+}
+
+.skill-import-wizard-root .drop-zone:focus-visible {
+  outline: 2px solid var(--accent-fg);
+  outline-offset: 2px;
+}
+
+.skill-import-wizard-root .gh-preview__item.invalid {
+  cursor: not-allowed;
+  opacity: 0.65;
 }
 
 .skill-import-wizard-root .drop-zone:hover {

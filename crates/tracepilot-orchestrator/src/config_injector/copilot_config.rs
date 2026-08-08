@@ -10,6 +10,7 @@
 //! `config.json` is never modified.
 
 use std::path::Path;
+use std::sync::Mutex;
 
 use tracepilot_core::paths::CopilotPaths;
 
@@ -33,6 +34,9 @@ const USER_EDITABLE_KEYS: &[&str] = &[
     "trustedFolders",
     "disabledSkills",
 ];
+
+static SETTINGS_WRITE_LOCK: once_cell::sync::Lazy<Mutex<()>> =
+    once_cell::sync::Lazy::new(|| Mutex::new(()));
 
 /// Strip full-line `//` comments from a JSON-with-comments document.
 ///
@@ -175,6 +179,13 @@ pub fn read_copilot_config(copilot_home: &Path) -> Result<CopilotConfig> {
 ///   ensure `parse_error` is clear before invoking save.
 /// * Atomic via temp-file + rename.
 pub fn write_copilot_config(copilot_home: &Path, config: &serde_json::Value) -> Result<()> {
+    let _guard = SETTINGS_WRITE_LOCK.lock().map_err(|_| {
+        OrchestratorError::Config("Copilot settings write lock was poisoned".into())
+    })?;
+    write_copilot_config_unlocked(copilot_home, config)
+}
+
+fn write_copilot_config_unlocked(copilot_home: &Path, config: &serde_json::Value) -> Result<()> {
     let cp = CopilotPaths::from_home(copilot_home);
     let settings_path = cp.settings_json();
 
@@ -219,6 +230,81 @@ pub fn write_copilot_config(copilot_home: &Path, config: &serde_json::Value) -> 
 
     crate::json_io::atomic_json_write(&settings_path, &serde_json::Value::Object(merged))?;
     Ok(())
+}
+
+/// Add or remove one skill from the user-level `disabledSkills` setting.
+/// The read-modify-write is serialized and preserves all unrelated settings.
+pub fn set_skill_enabled(copilot_home: &Path, skill_name: &str, enabled: bool) -> Result<()> {
+    let _guard = SETTINGS_WRITE_LOCK.lock().map_err(|_| {
+        OrchestratorError::Config("Copilot settings write lock was poisoned".into())
+    })?;
+    let settings_path = CopilotPaths::from_home(copilot_home).settings_json();
+    let settings = read_json_file(&settings_path).map_err(OrchestratorError::Config)?;
+    let setting_present = settings
+        .as_ref()
+        .and_then(|value| value.get("disabledSkills"))
+        .is_some();
+    if let Some(value) = settings
+        .as_ref()
+        .and_then(|value| value.get("disabledSkills"))
+        && !value
+            .as_array()
+            .is_some_and(|entries| entries.iter().all(serde_json::Value::is_string))
+    {
+        return Err(OrchestratorError::Config(format!(
+            "Refusing to update {}: disabledSkills must be an array of strings",
+            settings_path.display()
+        )));
+    }
+
+    let config = read_copilot_config(copilot_home)?;
+    let mut disabled = config.disabled_skills;
+    if enabled {
+        let had_match = disabled
+            .iter()
+            .any(|name| name.eq_ignore_ascii_case(skill_name));
+        if !had_match && !setting_present {
+            return Ok(());
+        }
+        disabled.retain(|name| !name.eq_ignore_ascii_case(skill_name));
+    } else if !disabled
+        .iter()
+        .any(|name| name.eq_ignore_ascii_case(skill_name))
+    {
+        disabled.push(skill_name.to_string());
+    }
+    disabled.sort_by_key(|name| name.to_lowercase());
+    write_copilot_config_unlocked(
+        copilot_home,
+        &serde_json::json!({ "disabledSkills": disabled }),
+    )
+}
+
+/// Read `disabledSkills` from one settings file, validating its complete shape.
+pub fn read_disabled_skills_file(settings_path: &Path) -> Result<Vec<String>> {
+    let Some(settings) = read_json_file(settings_path).map_err(OrchestratorError::Config)? else {
+        return Ok(Vec::new());
+    };
+    let Some(value) = settings.get("disabledSkills") else {
+        return Ok(Vec::new());
+    };
+    let entries = value.as_array().ok_or_else(|| {
+        OrchestratorError::Config(format!(
+            "Invalid {}: disabledSkills must be an array of strings",
+            settings_path.display()
+        ))
+    })?;
+    entries
+        .iter()
+        .map(|entry| {
+            entry.as_str().map(String::from).ok_or_else(|| {
+                OrchestratorError::Config(format!(
+                    "Invalid {}: disabledSkills must contain only strings",
+                    settings_path.display()
+                ))
+            })
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -342,5 +428,54 @@ mod tests {
             "empty string should clear key"
         );
         assert_eq!(written["reasoningEffort"], "low");
+    }
+
+    #[test]
+    fn set_skill_enabled_creates_updates_and_preserves_settings() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(
+            dir.path().join("settings.json"),
+            r#"{"custom":{"keep":true},"disabledSkills":["Other","TEST"]}"#,
+        )
+        .unwrap();
+
+        set_skill_enabled(dir.path(), "test", true).unwrap();
+        set_skill_enabled(dir.path(), "new-skill", false).unwrap();
+        set_skill_enabled(dir.path(), "NEW-SKILL", false).unwrap();
+
+        let written: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(dir.path().join("settings.json")).unwrap())
+                .unwrap();
+        assert_eq!(written["custom"]["keep"], true);
+        assert_eq!(
+            written["disabledSkills"],
+            serde_json::json!(["new-skill", "Other"])
+        );
+    }
+
+    #[test]
+    fn set_skill_enabled_refuses_to_overwrite_malformed_settings() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join("settings.json"), "{broken").unwrap();
+        assert!(set_skill_enabled(dir.path(), "test", false).is_err());
+        assert_eq!(
+            fs::read_to_string(dir.path().join("settings.json")).unwrap(),
+            "{broken"
+        );
+    }
+
+    #[test]
+    fn set_skill_enabled_refuses_invalid_disabled_skills_shape() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(
+            dir.path().join("settings.json"),
+            r#"{"disabledSkills":"test","custom":true}"#,
+        )
+        .unwrap();
+        assert!(set_skill_enabled(dir.path(), "test", false).is_err());
+        assert_eq!(
+            fs::read_to_string(dir.path().join("settings.json")).unwrap(),
+            r#"{"disabledSkills":"test","custom":true}"#
+        );
     }
 }

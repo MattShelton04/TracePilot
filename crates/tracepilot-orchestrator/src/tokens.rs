@@ -21,9 +21,9 @@ pub fn estimate_tool_tokens(name: &str, description: &str) -> u32 {
     estimate_tokens(&combined)
 }
 
-/// Estimate tokens for a SKILL.md file (frontmatter + body).
-pub fn estimate_skill_tokens(frontmatter_yaml: &str, body: &str) -> u32 {
-    estimate_tokens(frontmatter_yaml) + estimate_tokens(body)
+/// Estimate tokens for the frontmatter that advertises a skill before invocation.
+pub fn estimate_skill_tokens(frontmatter_yaml: &str) -> u32 {
+    estimate_tokens(frontmatter_yaml)
 }
 
 #[cfg(test)]
@@ -65,10 +65,9 @@ mod tests {
     }
 
     #[test]
-    fn skill_tokens_sums_both_parts() {
+    fn skill_tokens_only_include_frontmatter() {
         let fm = "name: test\ndescription: A test skill";
-        let body = "# Test Skill\n\nDo things.";
-        let total = estimate_skill_tokens(fm, body);
-        assert_eq!(total, estimate_tokens(fm) + estimate_tokens(body));
+        let total = estimate_skill_tokens(fm);
+        assert_eq!(total, estimate_tokens(fm));
     }
 }

@@ -360,12 +360,15 @@ pub fn discover_github_skills(
 
     // Cap discovery to keep preview fetches bounded while still supporting larger skill libraries.
     const MAX_SKILLS: usize = 200;
+    let truncated_count = filtered.len().saturating_sub(MAX_SKILLS);
     let filtered: Vec<&str> = filtered.into_iter().take(MAX_SKILLS).collect();
 
     // Batch-fetch all SKILL.md contents in at most ⌈N/25⌉ GraphQL calls
     // instead of N sequential `gh api` REST calls.
     let contents =
-        crate::github::gh_get_files_batch(owner, repo, &filtered, ref_).unwrap_or_default();
+        crate::github::gh_get_files_batch(owner, repo, &filtered, ref_).map_err(|error| {
+            SkillsError::github_ctx("Failed to read discovered SKILL.md files", error)
+        })?;
 
     let mut previews = Vec::new();
 
@@ -397,20 +400,45 @@ pub fn discover_github_skills(
                         name: fm.name,
                         description: fm.description,
                         file_count,
+                        valid: true,
+                        diagnostic: None,
                     });
                 }
-                Err(_) => {
+                Err(error) => {
                     // Include skills whose frontmatter can't be parsed with a note.
                     previews.push(GitHubSkillPreview {
                         path: skill_dir,
                         name: skill_md_path.to_string(),
                         description: "(Could not parse frontmatter)".to_string(),
                         file_count: 0,
+                        valid: false,
+                        diagnostic: Some(error.to_string()),
                     });
                 }
             }
+        } else {
+            previews.push(GitHubSkillPreview {
+                path: skill_dir,
+                name: skill_md_path.to_string(),
+                description: "SKILL.md could not be read".to_string(),
+                file_count: 0,
+                valid: false,
+                diagnostic: Some("GitHub returned no readable content for this file".into()),
+            });
         }
-        // If the path is missing from the batch result the file was inaccessible — skip it.
+    }
+
+    if truncated_count > 0 {
+        previews.push(GitHubSkillPreview {
+            path: "(discovery limit)".into(),
+            name: format!("{truncated_count} additional skills not shown"),
+            description: format!("Discovery is limited to the first {MAX_SKILLS} SKILL.md files"),
+            file_count: 0,
+            valid: false,
+            diagnostic: Some(
+                "Narrow the repository path and scan again to view these skills".into(),
+            ),
+        });
     }
 
     Ok(previews)

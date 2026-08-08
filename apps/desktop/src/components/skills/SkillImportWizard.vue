@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { SkillImportResult } from "@tracepilot/types";
+import type { SkillBatchImportResult } from "@tracepilot/types";
 import { useShortcut } from "@tracepilot/ui";
 import { AlertTriangle, CheckCircle2 } from "lucide-vue-next";
 import { provide } from "vue";
@@ -11,7 +11,7 @@ import "@/styles/features/skill-import-wizard.css";
 
 const emit = defineEmits<{
   close: [];
-  imported: [result: SkillImportResult];
+  imported: [result: SkillBatchImportResult];
 }>();
 
 const wizard = useSkillImportWizard({
@@ -41,8 +41,10 @@ useShortcut("Escape", () => emit("close"));
           <div class="wizard__result-icon" aria-hidden="true">
             <CheckCircle2 :size="32" :stroke-width="1.5" />
           </div>
-          <h4 class="wizard__result-title">Skill Imported</h4>
-          <p class="wizard__result-name">{{ wizard.importResult.skillName }}</p>
+          <h4 class="wizard__result-title">Import complete</h4>
+          <p class="wizard__result-name">
+            {{ wizard.importResult.succeeded }} succeeded<span v-if="wizard.importResult.failed"> · {{ wizard.importResult.failed }} failed</span>
+          </p>
           <p class="wizard__result-detail">
             {{ wizard.importResult.filesCopied }} file{{ wizard.importResult.filesCopied === 1 ? "" : "s" }} copied
           </p>
@@ -50,6 +52,12 @@ useShortcut("Escape", () => emit("close"));
             <p v-for="(w, i) in wizard.importResult.warnings" :key="i" class="wizard__warning">
               <AlertTriangle :size="14" :stroke-width="1.5" aria-hidden="true" />
               <span>{{ w }}</span>
+            </p>
+          </div>
+          <div v-if="wizard.importResult.failed" class="wizard__warnings">
+            <p v-for="item in wizard.importResult.items.filter((entry) => entry.error)" :key="item.source" class="wizard__warning">
+              <AlertTriangle :size="14" :stroke-width="1.5" aria-hidden="true" />
+              <span><code>{{ item.source }}</code>: {{ item.error }}</span>
             </p>
           </div>
         </div>
@@ -116,6 +124,12 @@ useShortcut("Escape", () => emit("close"));
             <select v-model="wizard.targetScope">
               <option value="global">Global (~/.copilot/skills/)</option>
               <option value="project">Project (.github/skills/)</option>
+            </select>
+            <select v-if="wizard.targetScope === 'project'" v-model="wizard.targetRepoRoot">
+              <option value="">Choose target repository…</option>
+              <option v-for="repo in wizard.targetRepositories" :key="repo.path" :value="repo.path">
+                {{ repo.label }}
+              </option>
             </select>
           </div>
           <div class="wizard__footer-right">

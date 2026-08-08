@@ -1,6 +1,6 @@
-import { flushPromises, mount } from "@vue/test-utils";
+import { enableAutoUnmount, flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import SettingsAlerts from "@/components/settings/SettingsAlerts.vue";
 import SettingsExperimental from "@/components/settings/SettingsExperimental.vue";
@@ -16,6 +16,16 @@ vi.mock("@tracepilot/client", async () => {
 vi.mock("@/composables/useAlertDispatcher", () => ({
   dispatchTestAlert: vi.fn(),
 }));
+
+enableAutoUnmount(afterEach);
+
+function tooltipTexts(wrapper: ReturnType<typeof mount>): string[] {
+  return wrapper.findAll('[data-tp-component="Tooltip"]').flatMap((trigger) => {
+    const id = trigger.attributes("aria-describedby");
+    const text = id ? document.getElementById(id)?.textContent : undefined;
+    return text ? [text] : [];
+  });
+}
 
 describe("settings feature groups", () => {
   beforeEach(() => {
@@ -48,7 +58,7 @@ describe("settings feature groups", () => {
     const wrapper = mount(SettingsExperimental);
     await flushPromises();
 
-    const tooltips = wrapper.findAll('[role="tooltip"]').map((tooltip) => tooltip.text());
+    const tooltips = tooltipTexts(wrapper);
     expect(tooltips).toContain("Stable features that extend TracePilot.");
     expect(tooltips).toContain("Experimental features are likely to be buggy or unstable.");
     expect(
@@ -64,7 +74,7 @@ describe("settings feature groups", () => {
     await flushPromises();
 
     expect(wrapper.get(".feature-group-title").text()).toBe("Experimental");
-    expect(wrapper.get('[role="tooltip"]').text()).toBe(
+    expect(tooltipTexts(wrapper)).toContain(
       "Experimental features are likely to be buggy or unstable.",
     );
     expect(wrapper.find(".alerts-experimental-panel").exists()).toBe(true);

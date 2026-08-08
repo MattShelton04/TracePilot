@@ -151,6 +151,7 @@
   "skills_duplicate",
   "skills_encountered_project",
   "skills_get_skill",
+  "skills_set_enabled",
   "skills_gh_auth_status",
   "skills_import_file",
   "skills_import_github",

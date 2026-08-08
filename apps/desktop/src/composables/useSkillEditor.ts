@@ -18,7 +18,13 @@ import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
 import { useSkillsStore } from "@/stores/skills";
 import { logWarn } from "@/utils/logger";
-import { parseSkillContent, serializeSkillContent } from "@/utils/skillFrontmatter";
+import {
+  estimateSkillTokenUsage,
+  getSkillFrontmatterYaml,
+  parseSkillContent,
+  patchSkillFrontmatter,
+  replaceSkillBody,
+} from "@/utils/skillFrontmatter";
 
 /**
  * State + actions for `SkillEditorView`.
@@ -77,6 +83,8 @@ export function useSkillEditor() {
 
   const totalLineCount = computed(() => rawContent.value.split("\n").length);
   const byteCount = computed(() => new TextEncoder().encode(rawContent.value).length);
+  const tokenUsage = computed(() => estimateSkillTokenUsage(rawContent.value));
+  const rawFrontmatter = computed(() => getSkillFrontmatterYaml(rawContent.value));
 
   const descCharCount = computed(() => previewFrontmatter.value?.description?.length ?? 0);
   const descCharClass = computed(() => {
@@ -136,8 +144,9 @@ export function useSkillEditor() {
     }
   }
 
-  function rebuildRawContent() {
-    rawContent.value = serializeSkillContent(previewFrontmatter.value, previewBody.value);
+  function markRawContent(nextContent: string) {
+    rawContent.value = nextContent;
+    parseContent(nextContent);
     editorDirty.value = true;
   }
 
@@ -151,16 +160,14 @@ export function useSkillEditor() {
   function onBodyInput(event: Event) {
     if (isReadOnly.value) return;
     const target = event.target as HTMLTextAreaElement;
-    previewBody.value = target.value;
-    rebuildRawContent();
+    markRawContent(replaceSkillBody(rawContent.value, target.value));
   }
 
   function onNameInput(event: Event) {
     if (isReadOnly.value) return;
     const val = (event.target as HTMLInputElement).value;
     if (previewFrontmatter.value) {
-      previewFrontmatter.value = { ...previewFrontmatter.value, name: val };
-      rebuildRawContent();
+      markRawContent(patchSkillFrontmatter(rawContent.value, { name: val }));
     }
   }
 
@@ -168,9 +175,33 @@ export function useSkillEditor() {
     if (isReadOnly.value) return;
     const val = (event.target as HTMLTextAreaElement).value;
     if (previewFrontmatter.value) {
-      previewFrontmatter.value = { ...previewFrontmatter.value, description: val };
-      rebuildRawContent();
+      markRawContent(patchSkillFrontmatter(rawContent.value, { description: val }));
     }
+  }
+
+  function onFrontmatterTextInput(key: "argument-hint" | "allowed-tools", event: Event) {
+    if (isReadOnly.value) return;
+    const value = (event.target as HTMLInputElement).value;
+    markRawContent(patchSkillFrontmatter(rawContent.value, { [key]: value }));
+  }
+
+  function onFrontmatterBooleanInput(
+    key: "user-invocable" | "disable-model-invocation",
+    event: Event,
+  ) {
+    if (isReadOnly.value) return;
+    const checked = (event.target as HTMLInputElement).checked;
+    markRawContent(patchSkillFrontmatter(rawContent.value, { [key]: checked }));
+  }
+
+  function onAutomaticInvocationInput(event: Event) {
+    if (isReadOnly.value) return;
+    const allowAutomaticUse = (event.target as HTMLInputElement).checked;
+    markRawContent(
+      patchSkillFrontmatter(rawContent.value, {
+        "disable-model-invocation": !allowAutomaticUse,
+      }),
+    );
   }
 
   // ─── Actions ──────────────────────────────────────────────
@@ -324,7 +355,7 @@ export function useSkillEditor() {
     const inner = selected || "text";
     const replacement = prefix + inner + suffix;
     previewBody.value = text.substring(0, start) + replacement + text.substring(end);
-    rebuildRawContent();
+    markRawContent(replaceSkillBody(rawContent.value, previewBody.value));
     nextTick(() => {
       el.focus();
       const selStart = start + prefix.length;
@@ -398,6 +429,8 @@ export function useSkillEditor() {
     editorLineNumbers,
     totalLineCount,
     byteCount,
+    tokenUsage,
+    rawFrontmatter,
     descCharCount,
     descCharClass,
     lastSavedDisplay,
@@ -417,6 +450,9 @@ export function useSkillEditor() {
     onBodyInput,
     onNameInput,
     onDescInput,
+    onFrontmatterTextInput,
+    onFrontmatterBooleanInput,
+    onAutomaticInvocationInput,
     insertBold,
     insertItalic,
     insertH1,

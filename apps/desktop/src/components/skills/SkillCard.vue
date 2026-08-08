@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { formatNumber as formatCompactNumber } from "@tracepilot/types";
+import { Tooltip } from "@tracepilot/ui";
 import { FolderGit2, Package, Sparkles } from "lucide-vue-next";
 import { computed } from "vue";
 import { useRouter } from "vue-router";
@@ -7,6 +8,7 @@ import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
 import { type DisplaySkillSummary, isEncounteredSkill } from "@/stores/skills/encountered";
 import SkillScopeBadge from "./SkillScopeBadge.vue";
+import { SKILL_TOKEN_ESTIMATE_TOOLTIP } from "./tokenEstimate";
 
 const props = defineProps<{
   skill: DisplaySkillSummary;
@@ -18,8 +20,11 @@ const emit = defineEmits<{
 }>();
 
 const router = useRouter();
-const disableTooltip =
-  "TracePilot cannot currently disable Copilot skills. Remove the skill directory or use session-level disabledSkills elsewhere.";
+const enablementTooltip = computed(() =>
+  props.skill.disabledReason === "repository"
+    ? "Disabled by repository settings; change the repository setting to enable it."
+    : "Updates disabledSkills in Copilot user settings for future sessions.",
+);
 const isEncountered = computed(() => isEncounteredSkill(props.skill));
 const canOpenEditor = computed(() => !isEncountered.value || Boolean(props.skill.directory));
 const encounteredLabel = computed(() => {
@@ -59,7 +64,7 @@ function onDelete(event: Event) {
 }
 
 function formatTokens(n: number): string {
-  return `~${formatCompactNumber(n)} tok`;
+  return `~${formatCompactNumber(n)}`;
 }
 </script>
 
@@ -67,7 +72,6 @@ function formatTokens(n: number): string {
   <div
     class="skill-card"
     :class="{
-      'skill-card--disabled': !skill.enabled,
       'skill-card--encountered': isEncountered,
       'skill-card--static': !canOpenEditor,
     }"
@@ -101,15 +105,29 @@ function formatTokens(n: number): string {
       <span v-if="skill.assetCount > 0" class="badge-xs badge-files">
         {{ skill.assetCount }} file{{ skill.assetCount === 1 ? "" : "s" }}
       </span>
-      <span class="badge-xs badge-tokens">{{ formatTokens(skill.estimatedTokens) }}</span>
+      <Tooltip :text="SKILL_TOKEN_ESTIMATE_TOOLTIP" position="bottom">
+        <span class="badge-xs badge-tokens" tabindex="0">
+          Discover {{ formatTokens(skill.frontmatterTokens) }} · On use +{{ formatTokens(skill.instructionTokens) }}
+        </span>
+      </Tooltip>
     </div>
 
     <div v-if="isEncountered" class="skill-card__actions skill-card__actions--static">
       <span class="encountered-meta" :title="sourceTitle">{{ encounteredLabel }}</span>
     </div>
 
-    <div v-else-if="isBuiltin" class="skill-card__actions skill-card__actions--static">
-      <span class="encountered-meta">Bundled with Copilot · Read-only</span>
+    <div v-else-if="isBuiltin" class="skill-card__actions">
+      <label class="toggle-switch" @click.stop>
+        <input
+          type="checkbox"
+          :checked="skill.enabled"
+          :disabled="skill.disabledReason === 'repository'"
+          :title="enablementTooltip"
+          @change="onToggle($event)"
+        />
+        <span class="toggle-track" />
+        <span class="toggle-label" :title="enablementTooltip">{{ skill.enabled ? "Enabled" : "Disabled" }}</span>
+      </label>
       <div class="card-hover-actions">
         <button class="action-btn" title="View skill" @click="onEdit($event)">
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
@@ -124,12 +142,12 @@ function formatTokens(n: number): string {
         <input
           type="checkbox"
           :checked="skill.enabled"
-          :disabled="true"
-          :title="disableTooltip"
+          :disabled="skill.disabledReason === 'repository'"
+          :title="enablementTooltip"
           @change="onToggle($event)"
         />
         <span class="toggle-track" />
-        <span class="toggle-label" :title="disableTooltip">{{ skill.enabled ? "Enabled" : "Disabled" }}</span>
+        <span class="toggle-label" :title="enablementTooltip">{{ skill.enabled ? "Enabled" : "Disabled" }}</span>
       </label>
 
       <div class="card-hover-actions">
@@ -183,20 +201,6 @@ function formatTokens(n: number): string {
 .skill-card:focus-visible {
   outline: 2px solid var(--accent-fg);
   outline-offset: 2px;
-}
-
-.skill-card--disabled {
-  opacity: 0.55;
-}
-
-.skill-card--disabled:hover {
-  transform: none;
-  box-shadow: none;
-  border-color: var(--border-default);
-}
-
-.skill-card--disabled .skill-card__accent {
-  display: none;
 }
 
 /* Accent top bar */
@@ -348,11 +352,15 @@ function formatTokens(n: number): string {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  cursor: not-allowed;
+  cursor: pointer;
   font-size: 0.6875rem;
   font-weight: 500;
   color: var(--text-tertiary);
   user-select: none;
+}
+
+.toggle-switch:has(input:disabled) {
+  cursor: not-allowed;
 }
 
 .toggle-switch input {

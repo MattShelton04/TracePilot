@@ -124,7 +124,8 @@ describe("useSkillsStore", () => {
           name: "tracepilot-app-automation",
           description: "App automation",
           directory: "C:\\repo\\.github\\skills\\tracepilot-app-automation",
-          estimatedTokens: 400,
+          frontmatterTokens: 400,
+          instructionTokens: 800,
           sourcePath: "C:\\repo\\.github\\skills\\tracepilot-app-automation\\SKILL.md",
           invocationCount: 2,
         },
@@ -145,7 +146,8 @@ describe("useSkillsStore", () => {
         description: "App automation",
         scope: "repository",
         source: "session",
-        estimatedTokens: 400,
+        frontmatterTokens: 400,
+        instructionTokens: 800,
         invocationCount: 2,
       });
       expect(store.repoSkills.map((skill) => skill.name)).toEqual([

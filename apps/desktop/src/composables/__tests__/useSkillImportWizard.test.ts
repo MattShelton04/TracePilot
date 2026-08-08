@@ -1,5 +1,9 @@
 import { setupPinia } from "@tracepilot/test-utils";
-import type { LocalSkillPreview, SkillImportResult } from "@tracepilot/types";
+import type {
+  LocalSkillPreview,
+  SkillBatchImportResult,
+  SkillImportResult,
+} from "@tracepilot/types";
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
@@ -17,6 +21,26 @@ const skillsStoreMock = {
   ),
   importGitHub: vi.fn(async () => null as SkillImportResult | null),
   importGitHubSkill: vi.fn(async () => null as SkillImportResult | null),
+  importLocalBatch: vi.fn(
+    async () =>
+      ({
+        items: [],
+        succeeded: 0,
+        failed: 0,
+        filesCopied: 0,
+        warnings: [],
+      }) as SkillBatchImportResult,
+  ),
+  importGitHubBatch: vi.fn(
+    async () =>
+      ({
+        items: [],
+        succeeded: 0,
+        failed: 0,
+        filesCopied: 0,
+        warnings: [],
+      }) as SkillBatchImportResult,
+  ),
 };
 vi.mock("@/stores/skills", () => ({
   useSkillsStore: () => skillsStoreMock,
@@ -86,6 +110,20 @@ describe("useSkillImportWizard", () => {
     skillsStoreMock.importFile = vi.fn(async () => null);
     skillsStoreMock.importGitHub = vi.fn(async () => null);
     skillsStoreMock.importGitHubSkill = vi.fn(async () => null);
+    skillsStoreMock.importLocalBatch = vi.fn(async () => ({
+      items: [],
+      succeeded: 0,
+      failed: 0,
+      filesCopied: 0,
+      warnings: [],
+    }));
+    skillsStoreMock.importGitHubBatch = vi.fn(async () => ({
+      items: [],
+      succeeded: 0,
+      failed: 0,
+      filesCopied: 0,
+      warnings: [],
+    }));
     worktreesStoreMock.registeredRepos = [];
     worktreesStoreMock.loadRegisteredRepos = vi.fn(async () => {});
     prefsStoreMock.recentRepoPaths = [];
@@ -204,7 +242,14 @@ describe("useSkillImportWizard", () => {
       warnings: [],
       filesCopied: 1,
     };
-    skillsStoreMock.importGitHubSkill = vi.fn(async () => result);
+    const batchResult: SkillBatchImportResult = {
+      items: [{ source: "skills/demo", result }],
+      succeeded: 1,
+      failed: 0,
+      filesCopied: 1,
+      warnings: [],
+    };
+    skillsStoreMock.importGitHubBatch = vi.fn(async () => batchResult);
     skillsStoreMock.importGitHub = vi.fn(async () => {
       throw new Error("raw GitHub import should not be called");
     });
@@ -219,12 +264,13 @@ describe("useSkillImportWizard", () => {
 
     await wizard.doImport();
 
-    expect(skillsStoreMock.importGitHubSkill).toHaveBeenCalledWith(
+    expect(skillsStoreMock.importGitHubBatch).toHaveBeenCalledWith(
       "acme",
       "tools",
-      "skills/demo",
+      ["skills/demo"],
       "main",
       "global",
+      undefined,
     );
     expect(skillsStoreMock.importGitHub).not.toHaveBeenCalled();
     expect(wizard.showResult).toBe(true);
@@ -242,17 +288,24 @@ describe("useSkillImportWizard", () => {
     wizard.activeTab = "file";
     wizard.filePath = "/path/SKILL.md";
     await wizard.doImport();
-    expect(skillsStoreMock.importFile).toHaveBeenCalledWith("/path/SKILL.md", "global");
+    expect(skillsStoreMock.importFile).toHaveBeenCalledWith("/path/SKILL.md", "global", undefined);
     expect(wizard.showResult).toBe(true);
-    expect(wizard.importResult).toEqual(result);
+    expect(wizard.importResult).toEqual({
+      items: [{ source: "/path/SKILL.md", result }],
+      succeeded: 1,
+      failed: 0,
+      filesCopied: 1,
+      warnings: [],
+    });
     expect(wizard.importing).toBe(false);
   });
 
   it("finish emits onImported and onClose", () => {
     const { wizard, onImported, onClose } = mountWizard();
-    const result: SkillImportResult = {
-      skillName: "demo",
-      destination: "",
+    const result: SkillBatchImportResult = {
+      items: [],
+      succeeded: 1,
+      failed: 0,
       warnings: [],
       filesCopied: 1,
     };

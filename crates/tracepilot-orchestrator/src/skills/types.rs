@@ -12,6 +12,20 @@ pub enum SkillScope {
     Builtin,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum SkillDisabledReason {
+    User,
+    Repository,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum SkillAllowedTools {
+    Text(String),
+    List(Vec<String>),
+}
+
 impl std::fmt::Display for SkillScope {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -27,6 +41,30 @@ impl std::fmt::Display for SkillScope {
 pub struct SkillFrontmatter {
     pub name: String,
     pub description: String,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "argument-hint"
+    )]
+    pub argument_hint: Option<String>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "allowed-tools"
+    )]
+    pub allowed_tools: Option<SkillAllowedTools>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "user-invocable"
+    )]
+    pub user_invocable: Option<bool>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "disable-model-invocation"
+    )]
+    pub disable_model_invocation: Option<bool>,
     /// Optional list of resource glob patterns (e.g., "src/**/*.ts").
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub resource_globs: Vec<String>,
@@ -48,10 +86,14 @@ pub struct Skill {
     pub scope: SkillScope,
     /// Directory path containing the SKILL.md file.
     pub directory: String,
-    /// Estimated token count for this skill.
-    pub estimated_tokens: u32,
+    /// Estimated token count for frontmatter loaded during discovery.
+    pub frontmatter_tokens: u32,
+    /// Estimated token count for instructions loaded when invoked.
+    pub instruction_tokens: u32,
     /// Whether the skill is enabled.
     pub enabled: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub disabled_reason: Option<SkillDisabledReason>,
     /// File modification time.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub modified_at: Option<DateTime<Utc>>,
@@ -65,10 +107,28 @@ pub struct SkillSummary {
     pub description: String,
     pub scope: SkillScope,
     pub directory: String,
-    pub estimated_tokens: u32,
+    pub frontmatter_tokens: u32,
+    pub instruction_tokens: u32,
     pub enabled: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub disabled_reason: Option<SkillDisabledReason>,
     pub has_assets: bool,
     pub asset_count: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SkillDiagnostic {
+    pub path: String,
+    pub message: String,
+    pub severity: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SkillDiscoveryResult {
+    pub skills: Vec<SkillSummary>,
+    pub diagnostics: Vec<SkillDiagnostic>,
 }
 
 /// A skill's asset file (non-SKILL.md file in the skill directory).
@@ -81,7 +141,7 @@ pub struct SkillAsset {
     pub is_directory: bool,
 }
 
-/// Token budget summary across all active skills.
+/// Frontmatter token budget summary across all active skills.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SkillTokenBudget {
@@ -123,6 +183,9 @@ pub struct GitHubSkillPreview {
     pub description: String,
     /// Number of files in the skill directory
     pub file_count: usize,
+    pub valid: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub diagnostic: Option<String>,
 }
 
 /// Preview information for a skill found within a local directory.
@@ -137,6 +200,9 @@ pub struct LocalSkillPreview {
     pub description: String,
     /// Number of files in the skill directory
     pub file_count: usize,
+    pub valid: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub diagnostic: Option<String>,
 }
 
 /// Result of scanning a single repository for skills.
@@ -170,6 +236,10 @@ mod tests {
         let fm = SkillFrontmatter {
             name: "test-skill".into(),
             description: "A test skill".into(),
+            argument_hint: None,
+            allowed_tools: None,
+            user_invocable: None,
+            disable_model_invocation: None,
             resource_globs: vec!["src/**/*.rs".into()],
             auto_attach: true,
         };
@@ -195,8 +265,10 @@ mod tests {
             description: "desc".into(),
             scope: SkillScope::Global,
             directory: "/path".into(),
-            estimated_tokens: 100,
+            frontmatter_tokens: 100,
+            instruction_tokens: 200,
             enabled: true,
+            disabled_reason: None,
             has_assets: false,
             asset_count: 0,
         };
@@ -215,6 +287,8 @@ mod tests {
                 name: "test".into(),
                 description: "A test".into(),
                 file_count: 2,
+                valid: true,
+                diagnostic: None,
             }],
         };
         let json = serde_json::to_string(&result).unwrap();

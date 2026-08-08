@@ -7,8 +7,9 @@
 
 use crate::skills::error::SkillsError;
 use crate::skills::parser::parse_skill_md;
-use crate::skills::types::{Skill, SkillScope, SkillSummary};
-use crate::tokens::estimate_skill_tokens;
+use crate::skills::types::{
+    Skill, SkillDiagnostic, SkillDiscoveryResult, SkillScope, SkillSummary,
+};
 use semver::Version;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -37,21 +38,40 @@ pub fn registered_skill_roots() -> crate::error::Result<Vec<PathBuf>> {
     Ok(vec![paths.global_skills_dir(), paths.pkg_dir()])
 }
 
-/// Get the repository skills directory (`.copilot/skills/` under repo root).
+/// Get the primary repository skills directory (`.github/skills/` under repo root).
 pub fn repo_skills_dir(repo_root: &Path) -> PathBuf {
-    tracepilot_core::paths::RepoPaths::from_root(repo_root).copilot_skills_dir()
+    tracepilot_core::paths::RepoPaths::from_root(repo_root).github_skills_dir()
+}
+
+fn repo_skill_dirs(repo_root: &Path) -> [PathBuf; 4] {
+    let paths = tracepilot_core::paths::RepoPaths::from_root(repo_root);
+    [
+        paths.github_skills_dir(),
+        repo_root.join(".agents").join("skills"),
+        repo_root.join(".claude").join("skills"),
+        paths.copilot_skills_dir(),
+    ]
 }
 
 /// Discover all skills (global + optional repository).
 pub fn discover_all(repo_root: Option<&Path>) -> Result<Vec<SkillSummary>, SkillsError> {
+    Ok(discover_all_detailed(repo_root)?.skills)
+}
+
+/// Discover skills and retain actionable diagnostics for invalid entries.
+pub fn discover_all_detailed(
+    repo_root: Option<&Path>,
+) -> Result<SkillDiscoveryResult, SkillsError> {
     let mut summaries = Vec::new();
+    let mut diagnostics = Vec::new();
 
     // Global skills
     if let Ok(global_dir) = global_skills_dir()
         && global_dir.exists()
     {
-        let global = discover_in_directory(&global_dir, SkillScope::Global)?;
-        summaries.extend(global);
+        let result = discover_in_directory_detailed(&global_dir, SkillScope::Global)?;
+        summaries.extend(result.skills);
+        diagnostics.extend(result.diagnostics);
     }
 
     // Built-in skills bundled with installed Copilot CLI versions.
@@ -63,15 +83,20 @@ pub fn discover_all(repo_root: Option<&Path>) -> Result<Vec<SkillSummary>, Skill
 
     // Repository skills
     if let Some(root) = repo_root {
-        let repo_dir = repo_skills_dir(root);
-        if repo_dir.exists() {
-            let repo = discover_in_directory(&repo_dir, SkillScope::Repository)?;
-            summaries.extend(repo);
+        for repo_dir in repo_skill_dirs(root) {
+            if repo_dir.exists() {
+                let result = discover_in_directory_detailed(&repo_dir, SkillScope::Repository)?;
+                summaries.extend(result.skills);
+                diagnostics.extend(result.diagnostics);
+            }
         }
     }
 
     summaries.sort_by(|a, b| a.name.cmp(&b.name));
-    Ok(summaries)
+    Ok(SkillDiscoveryResult {
+        skills: summaries,
+        diagnostics,
+    })
 }
 
 /// Discover packaged built-in skills, retaining the newest semantic-versioned
@@ -155,7 +180,15 @@ pub fn discover_in_directory(
     dir: &Path,
     scope: SkillScope,
 ) -> Result<Vec<SkillSummary>, SkillsError> {
+    Ok(discover_in_directory_detailed(dir, scope)?.skills)
+}
+
+fn discover_in_directory_detailed(
+    dir: &Path,
+    scope: SkillScope,
+) -> Result<SkillDiscoveryResult, SkillsError> {
     let mut summaries = Vec::new();
+    let mut diagnostics = Vec::new();
 
     let entries = std::fs::read_dir(dir).map_err(|e| {
         SkillsError::io_ctx(
@@ -179,11 +212,19 @@ pub fn discover_in_directory(
             Ok(summary) => summaries.push(summary),
             Err(e) => {
                 tracing::warn!("Skipping skill at {}: {e}", path.display());
+                diagnostics.push(SkillDiagnostic {
+                    path: skill_md.to_string_lossy().to_string(),
+                    message: e.to_string(),
+                    severity: "error".into(),
+                });
             }
         }
     }
 
-    Ok(summaries)
+    Ok(SkillDiscoveryResult {
+        skills: summaries,
+        diagnostics,
+    })
 }
 
 /// Load a skill summary from a SKILL.md file.
@@ -192,8 +233,9 @@ fn load_skill_summary(
     scope: &SkillScope,
 ) -> Result<SkillSummary, SkillsError> {
     let content = tracepilot_core::TracePilotError::read_to_string(skill_md_path)?;
-    let (fm, body) = parse_skill_md(&content)?;
-    let tokens = estimate_skill_tokens(&content, &body);
+    let (fm, _) = parse_skill_md(&content)?;
+    let (frontmatter_tokens, instruction_tokens) =
+        crate::skills::estimate_skill_token_usage(&content)?;
 
     let dir = skill_md_path
         .parent()
@@ -209,8 +251,10 @@ fn load_skill_summary(
         description: fm.description,
         scope: scope.clone(),
         directory: dir,
-        estimated_tokens: tokens,
+        frontmatter_tokens,
+        instruction_tokens,
         enabled: true,
+        disabled_reason: None,
         has_assets: asset_count > 0,
         asset_count,
     })
@@ -220,7 +264,8 @@ fn load_skill_summary(
 pub fn load_skill(skill_md_path: &Path, scope: SkillScope) -> Result<Skill, SkillsError> {
     let content = tracepilot_core::TracePilotError::read_to_string(skill_md_path)?;
     let (fm, body) = parse_skill_md(&content)?;
-    let tokens = estimate_skill_tokens(&content, &body);
+    let (frontmatter_tokens, instruction_tokens) =
+        crate::skills::estimate_skill_token_usage(&content)?;
 
     let dir = skill_md_path
         .parent()
@@ -239,8 +284,10 @@ pub fn load_skill(skill_md_path: &Path, scope: SkillScope) -> Result<Skill, Skil
         raw_content: content,
         scope,
         directory: dir,
-        estimated_tokens: tokens,
+        frontmatter_tokens,
+        instruction_tokens,
         enabled: true,
+        disabled_reason: None,
         modified_at,
     })
 }
@@ -273,172 +320,4 @@ fn count_assets_recursive(dir: &Path) -> usize {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use tempfile::TempDir;
-
-    fn create_test_skill(dir: &Path, name: &str) {
-        let skill_dir = dir.join(name);
-        std::fs::create_dir_all(&skill_dir).unwrap();
-        let content =
-            format!("---\nname: {name}\ndescription: Test skill {name}\n---\n\nBody of {name}.\n");
-        std::fs::write(skill_dir.join("SKILL.md"), content).unwrap();
-    }
-
-    #[test]
-    fn discover_in_empty_directory() {
-        let dir = TempDir::new().unwrap();
-        let result = discover_in_directory(dir.path(), SkillScope::Global).unwrap();
-        assert!(result.is_empty());
-    }
-
-    #[test]
-    fn discover_finds_skills() {
-        let dir = TempDir::new().unwrap();
-        create_test_skill(dir.path(), "skill-a");
-        create_test_skill(dir.path(), "skill-b");
-
-        let result = discover_in_directory(dir.path(), SkillScope::Global).unwrap();
-        assert_eq!(result.len(), 2);
-    }
-
-    #[test]
-    fn discover_skips_non_directories() {
-        let dir = TempDir::new().unwrap();
-        std::fs::write(dir.path().join("not-a-skill.txt"), "hello").unwrap();
-        create_test_skill(dir.path(), "real-skill");
-
-        let result = discover_in_directory(dir.path(), SkillScope::Global).unwrap();
-        assert_eq!(result.len(), 1);
-    }
-
-    #[test]
-    fn discover_skips_dirs_without_skill_md() {
-        let dir = TempDir::new().unwrap();
-        std::fs::create_dir_all(dir.path().join("empty-dir")).unwrap();
-        create_test_skill(dir.path(), "valid-skill");
-
-        let result = discover_in_directory(dir.path(), SkillScope::Global).unwrap();
-        assert_eq!(result.len(), 1);
-    }
-
-    #[test]
-    fn load_skill_returns_full_data() {
-        let dir = TempDir::new().unwrap();
-        create_test_skill(dir.path(), "my-skill");
-        let path = dir.path().join("my-skill").join("SKILL.md");
-
-        let skill = load_skill(&path, SkillScope::Global).unwrap();
-        assert_eq!(skill.frontmatter.name, "my-skill");
-        assert!(skill.body.contains("Body of my-skill"));
-        assert_eq!(skill.scope, SkillScope::Global);
-        assert!(skill.estimated_tokens > 0);
-    }
-
-    #[test]
-    fn count_assets_excludes_skill_md() {
-        let dir = TempDir::new().unwrap();
-        let skill_dir = dir.path().join("with-assets");
-        std::fs::create_dir_all(&skill_dir).unwrap();
-        std::fs::write(
-            skill_dir.join("SKILL.md"),
-            "---\nname: x\ndescription: y\n---\n",
-        )
-        .unwrap();
-        std::fs::write(skill_dir.join("helper.py"), "# helper").unwrap();
-        std::fs::write(skill_dir.join("data.json"), "{}").unwrap();
-
-        assert_eq!(count_assets(&skill_dir), 2);
-    }
-
-    #[test]
-    fn count_assets_excludes_hidden_files() {
-        let dir = TempDir::new().unwrap();
-        std::fs::write(dir.path().join(".hidden"), "").unwrap();
-        std::fs::write(dir.path().join("visible"), "").unwrap();
-        // SKILL.md not counted
-        std::fs::write(dir.path().join("SKILL.md"), "").unwrap();
-
-        assert_eq!(count_assets(dir.path()), 1);
-    }
-
-    #[test]
-    fn count_assets_counts_nested_files_recursively() {
-        let dir = TempDir::new().unwrap();
-        let skill_dir = dir.path().join("nested-skill");
-        std::fs::create_dir_all(&skill_dir).unwrap();
-        std::fs::write(
-            skill_dir.join("SKILL.md"),
-            "---\nname: x\ndescription: y\n---\n",
-        )
-        .unwrap();
-        std::fs::write(skill_dir.join("top-level.py"), "# top").unwrap();
-
-        // Create nested directories with files
-        let refs_dir = skill_dir.join("references");
-        std::fs::create_dir_all(&refs_dir).unwrap();
-        std::fs::write(refs_dir.join("guide.md"), "# guide").unwrap();
-        std::fs::write(refs_dir.join("api.md"), "# api").unwrap();
-
-        let scripts_dir = skill_dir.join("scripts");
-        std::fs::create_dir_all(&scripts_dir).unwrap();
-        std::fs::write(scripts_dir.join("setup.sh"), "#!/bin/bash").unwrap();
-
-        // Deeply nested
-        let deep_dir = refs_dir.join("examples");
-        std::fs::create_dir_all(&deep_dir).unwrap();
-        std::fs::write(deep_dir.join("example1.py"), "# ex1").unwrap();
-        std::fs::write(deep_dir.join("example2.py"), "# ex2").unwrap();
-
-        // Should count: top-level.py, guide.md, api.md, setup.sh, example1.py, example2.py = 6
-        // Should NOT count: SKILL.md, directories
-        assert_eq!(count_assets(&skill_dir), 6);
-    }
-
-    #[test]
-    fn count_assets_skips_hidden_dirs() {
-        let dir = TempDir::new().unwrap();
-        std::fs::write(dir.path().join("visible.txt"), "").unwrap();
-
-        let hidden_dir = dir.path().join(".hidden-dir");
-        std::fs::create_dir_all(&hidden_dir).unwrap();
-        std::fs::write(hidden_dir.join("secret.txt"), "").unwrap();
-
-        assert_eq!(count_assets(dir.path()), 1);
-    }
-
-    #[test]
-    fn builtin_discovery_keeps_latest_version_per_name() {
-        let dir = TempDir::new().unwrap();
-        let old_builtin = dir.path().join("win32-x64").join("1.0.0").join("builtin");
-        let new_builtin = dir.path().join("win32-x64").join("1.2.0").join("builtin");
-        let universal_builtin = dir.path().join("universal").join("1.1.0").join("builtin");
-        std::fs::create_dir_all(&old_builtin).unwrap();
-        std::fs::create_dir_all(&new_builtin).unwrap();
-        std::fs::create_dir_all(&universal_builtin).unwrap();
-        create_test_skill(&old_builtin, "shared-skill");
-        create_test_skill(&new_builtin, "shared-skill");
-        create_test_skill(&new_builtin, "new-skill");
-        create_test_skill(&universal_builtin, "shared-skill");
-
-        let result = discover_builtin_skills(dir.path()).unwrap();
-
-        assert_eq!(result.len(), 2);
-        let shared = result
-            .iter()
-            .find(|skill| skill.name == "shared-skill")
-            .unwrap();
-        assert!(shared.directory.contains("1.2.0"));
-        assert_eq!(shared.scope, SkillScope::Builtin);
-    }
-
-    #[test]
-    fn builtin_discovery_ignores_temporary_packages() {
-        let dir = TempDir::new().unwrap();
-        let temporary_builtin = dir.path().join("tmp").join("2.0.0").join("builtin");
-        std::fs::create_dir_all(&temporary_builtin).unwrap();
-        create_test_skill(&temporary_builtin, "temporary-skill");
-
-        assert!(discover_builtin_skills(dir.path()).unwrap().is_empty());
-    }
-}
+mod tests;
