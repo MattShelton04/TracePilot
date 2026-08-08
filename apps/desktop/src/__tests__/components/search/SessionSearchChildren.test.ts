@@ -141,7 +141,7 @@ describe("SessionSearchPagination", () => {
       },
     });
     const buttons = wrapper.findAll(".pagination-btn");
-    expect(wrapper.get('nav[aria-label="Search results pagination"]').exists()).toBe(true);
+    expect(wrapper.find('nav[aria-label="Search results pagination"]').exists()).toBe(true);
     expect(wrapper.get('[aria-label="Page 2"]').attributes("aria-current")).toBe("page");
     expect(wrapper.get('[aria-label="Previous page"]').attributes("disabled")).toBeUndefined();
     expect(wrapper.get(".pagination-info").attributes("aria-live")).toBe("polite");
