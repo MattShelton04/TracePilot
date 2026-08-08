@@ -30,7 +30,7 @@ pub fn parse_skill_md(content: &str) -> Result<(SkillFrontmatter, String), Skill
 }
 
 /// Split content into frontmatter YAML and body markdown.
-fn split_frontmatter(content: &str) -> Result<(String, String), SkillsError> {
+pub(super) fn split_frontmatter(content: &str) -> Result<(String, String), SkillsError> {
     let trimmed = content.trim_start();
 
     if !trimmed.starts_with("---") {

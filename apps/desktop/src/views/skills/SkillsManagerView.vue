@@ -4,11 +4,12 @@ import {
   formatNumberFull,
   type SkillImportResult,
 } from "@tracepilot/types";
-import { PageHeader, PageShell, useConfirmDialog } from "@tracepilot/ui";
+import { PageHeader, PageShell, Tooltip, useConfirmDialog } from "@tracepilot/ui";
 import { Brain } from "lucide-vue-next";
 import { computed, onMounted, ref } from "vue";
 import SkillCard from "@/components/skills/SkillCard.vue";
 import SkillImportWizard from "@/components/skills/SkillImportWizard.vue";
+import { SKILL_TOKEN_ESTIMATE_TOOLTIP } from "@/components/skills/tokenEstimate";
 import "@/styles/features/skills-manager.css";
 import { useSkillsStore } from "@/stores/skills";
 
@@ -135,7 +136,9 @@ async function handleDeleteSkill(dir: string) {
           <path d="M8.5 1.5L4 9h4l-.5 5.5L12 7H8l.5-5.5z" />
         </svg>
         <span class="token-info__text">
-          ~<code>{{ formatTokensWithCommas(store.tokenBudget.enabledTokens) }}</code>
+          <Tooltip :text="SKILL_TOKEN_ESTIMATE_TOOLTIP" position="bottom">
+            <code tabindex="0">~{{ formatTokensWithCommas(store.tokenBudget.enabledTokens) }}</code>
+          </Tooltip>
           tokens across {{ store.tokenBudget.enabledSkills }} active skill{{ store.tokenBudget.enabledSkills === 1 ? "" : "s" }}
           · {{ contextPct }}% of 128k context
         </span>

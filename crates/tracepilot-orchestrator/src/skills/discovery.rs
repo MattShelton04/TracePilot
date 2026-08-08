@@ -6,9 +6,9 @@
 //! - Repository skills under supported repo-scoped skill roots
 
 use crate::skills::error::SkillsError;
+use crate::skills::estimate_skill_frontmatter_tokens;
 use crate::skills::parser::parse_skill_md;
 use crate::skills::types::{Skill, SkillScope, SkillSummary};
-use crate::tokens::estimate_skill_tokens;
 use semver::Version;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -192,8 +192,8 @@ fn load_skill_summary(
     scope: &SkillScope,
 ) -> Result<SkillSummary, SkillsError> {
     let content = tracepilot_core::TracePilotError::read_to_string(skill_md_path)?;
-    let (fm, body) = parse_skill_md(&content)?;
-    let tokens = estimate_skill_tokens(&content, &body);
+    let (fm, _) = parse_skill_md(&content)?;
+    let tokens = estimate_skill_frontmatter_tokens(&content)?;
 
     let dir = skill_md_path
         .parent()
@@ -220,7 +220,7 @@ fn load_skill_summary(
 pub fn load_skill(skill_md_path: &Path, scope: SkillScope) -> Result<Skill, SkillsError> {
     let content = tracepilot_core::TracePilotError::read_to_string(skill_md_path)?;
     let (fm, body) = parse_skill_md(&content)?;
-    let tokens = estimate_skill_tokens(&content, &body);
+    let tokens = estimate_skill_frontmatter_tokens(&content)?;
 
     let dir = skill_md_path
         .parent()
@@ -333,6 +333,32 @@ mod tests {
         assert!(skill.body.contains("Body of my-skill"));
         assert_eq!(skill.scope, SkillScope::Global);
         assert!(skill.estimated_tokens > 0);
+    }
+
+    #[test]
+    fn token_estimate_excludes_instruction_body() {
+        let dir = TempDir::new().unwrap();
+        let short_dir = dir.path().join("short");
+        let long_dir = dir.path().join("long");
+        std::fs::create_dir_all(&short_dir).unwrap();
+        std::fs::create_dir_all(&long_dir).unwrap();
+
+        let frontmatter = "---\nname: body-independent\ndescription: Same metadata\n---\n";
+        std::fs::write(
+            short_dir.join("SKILL.md"),
+            format!("{frontmatter}Short body."),
+        )
+        .unwrap();
+        std::fs::write(
+            long_dir.join("SKILL.md"),
+            format!("{frontmatter}{}", "Long instruction body. ".repeat(500)),
+        )
+        .unwrap();
+
+        let short = load_skill(&short_dir.join("SKILL.md"), SkillScope::Global).unwrap();
+        let long = load_skill(&long_dir.join("SKILL.md"), SkillScope::Global).unwrap();
+
+        assert_eq!(short.estimated_tokens, long.estimated_tokens);
     }
 
     #[test]

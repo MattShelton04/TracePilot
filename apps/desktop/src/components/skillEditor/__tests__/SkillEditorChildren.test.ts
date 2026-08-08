@@ -198,6 +198,7 @@ describe("SkillEditorPreviewPane", () => {
     expect(wrapper.text()).toContain("My Skill");
     expect(wrapper.find(".md-stub").exists()).toBe(true);
     expect(wrapper.find(".assets-section").exists()).toBe(true);
+    expect(wrapper.find('[role="tooltip"]').text()).toContain("frontmatter");
   });
 
   it("preview click delegates to handlePreviewClick", async () => {

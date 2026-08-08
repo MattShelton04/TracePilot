@@ -48,7 +48,7 @@ pub struct Skill {
     pub scope: SkillScope,
     /// Directory path containing the SKILL.md file.
     pub directory: String,
-    /// Estimated token count for this skill.
+    /// Estimated token count for frontmatter loaded before skill invocation.
     pub estimated_tokens: u32,
     /// Whether the skill is enabled.
     pub enabled: bool,
@@ -81,7 +81,7 @@ pub struct SkillAsset {
     pub is_directory: bool,
 }
 
-/// Token budget summary across all active skills.
+/// Frontmatter token budget summary across all active skills.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SkillTokenBudget {

@@ -66,9 +66,12 @@ fn skill_directory_from_path(path: &str) -> Option<String> {
         .map(|parent| parent.to_string_lossy().to_string())
 }
 
-fn estimate_tokens(content: Option<&str>) -> usize {
+fn estimate_frontmatter_tokens(content: Option<&str>) -> usize {
     content
-        .map(|content| content.chars().count().div_ceil(4))
+        .and_then(|content| {
+            tracepilot_orchestrator::skills::estimate_skill_frontmatter_tokens(content).ok()
+        })
+        .map(|tokens| tokens as usize)
         .unwrap_or(0)
 }
 
@@ -265,7 +268,7 @@ pub async fn skills_encountered_project(
                     .map(str::trim)
                     .filter(|desc| !desc.is_empty())
                     .unwrap_or("Encountered in recent CLI sessions");
-                let estimated_tokens = estimate_tokens(data.content.as_deref());
+                let estimated_tokens = estimate_frontmatter_tokens(data.content.as_deref());
 
                 merge_encountered_skill(
                     &mut discovered,
@@ -300,7 +303,19 @@ pub async fn skills_encountered_project(
 
 #[cfg(test)]
 mod tests {
-    use super::is_project_skill_path;
+    use super::{estimate_frontmatter_tokens, is_project_skill_path};
+
+    #[test]
+    fn encountered_estimate_excludes_instruction_body() {
+        let frontmatter = "---\nname: session-skill\ndescription: Same metadata\n---\n";
+        let short = format!("{frontmatter}Short body.");
+        let long = format!("{frontmatter}{}", "Long instruction body. ".repeat(500));
+
+        assert_eq!(
+            estimate_frontmatter_tokens(Some(&short)),
+            estimate_frontmatter_tokens(Some(&long))
+        );
+    }
 
     #[test]
     fn project_skill_path_filter_excludes_user_global_skills() {

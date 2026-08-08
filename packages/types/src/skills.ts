@@ -18,6 +18,7 @@ export interface Skill {
   rawContent: string;
   scope: SkillScope;
   directory: string;
+  /** Estimated tokens for frontmatter loaded before skill invocation. */
   estimatedTokens: number;
   enabled: boolean;
   modifiedAt?: string;
@@ -29,6 +30,7 @@ export interface SkillSummary {
   description: string;
   scope: SkillScope;
   directory: string;
+  /** Estimated tokens for frontmatter loaded before skill invocation. */
   estimatedTokens: number;
   enabled: boolean;
   hasAssets: boolean;
@@ -40,6 +42,7 @@ export interface EncounteredSkillSummary {
   name: string;
   description: string;
   directory: string;
+  /** Estimated tokens for frontmatter loaded before skill invocation. */
   estimatedTokens: number;
   sourcePath: string;
   invocationCount: number;
@@ -48,7 +51,7 @@ export interface EncounteredSkillSummary {
 /** An asset file in a skill directory. */
 export type SkillAsset = import("./files.js").FileEntry;
 
-/** Token budget summary across all skills. */
+/** Frontmatter token budget summary across all skills. */
 export interface SkillTokenBudget {
   totalSkills: number;
   enabledSkills: number;

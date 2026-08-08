@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { formatNumber as formatCompactNumber } from "@tracepilot/types";
+import { Tooltip } from "@tracepilot/ui";
 import { FolderGit2, Package, Sparkles } from "lucide-vue-next";
 import { computed } from "vue";
 import { useRouter } from "vue-router";
@@ -7,6 +8,7 @@ import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
 import { type DisplaySkillSummary, isEncounteredSkill } from "@/stores/skills/encountered";
 import SkillScopeBadge from "./SkillScopeBadge.vue";
+import { SKILL_TOKEN_ESTIMATE_TOOLTIP } from "./tokenEstimate";
 
 const props = defineProps<{
   skill: DisplaySkillSummary;
@@ -101,7 +103,11 @@ function formatTokens(n: number): string {
       <span v-if="skill.assetCount > 0" class="badge-xs badge-files">
         {{ skill.assetCount }} file{{ skill.assetCount === 1 ? "" : "s" }}
       </span>
-      <span class="badge-xs badge-tokens">{{ formatTokens(skill.estimatedTokens) }}</span>
+      <Tooltip :text="SKILL_TOKEN_ESTIMATE_TOOLTIP" position="bottom">
+        <span class="badge-xs badge-tokens" tabindex="0">
+          {{ formatTokens(skill.estimatedTokens) }}
+        </span>
+      </Tooltip>
     </div>
 
     <div v-if="isEncountered" class="skill-card__actions skill-card__actions--static">

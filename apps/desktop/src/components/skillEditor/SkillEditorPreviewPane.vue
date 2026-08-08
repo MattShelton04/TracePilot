@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { formatNumberFull } from "@tracepilot/types";
-import { MarkdownContent } from "@tracepilot/ui";
+import { MarkdownContent, Tooltip } from "@tracepilot/ui";
 import SkillAssetsTree from "@/components/skills/SkillAssetsTree.vue";
 import SkillScopeBadge from "@/components/skills/SkillScopeBadge.vue";
+import { SKILL_TOKEN_ESTIMATE_TOOLTIP } from "@/components/skills/tokenEstimate";
 import { useSkillEditorContext } from "@/composables/useSkillEditor";
 import { openExternal } from "@/utils/openExternal";
 
@@ -33,9 +34,11 @@ const ctx = useSkillEditorContext();
           </div>
           <div class="preview-skill-meta">
             <SkillScopeBadge :scope="ctx.store.selectedSkill!.scope" />
-            <span class="badge badge-neutral">
-              ~{{ formatNumberFull(ctx.store.selectedSkill!.estimatedTokens) }} tokens
-            </span>
+            <Tooltip :text="SKILL_TOKEN_ESTIMATE_TOOLTIP" position="bottom">
+              <span class="badge badge-neutral" tabindex="0">
+                ~{{ formatNumberFull(ctx.store.selectedSkill!.estimatedTokens) }} tokens
+              </span>
+            </Tooltip>
           </div>
         </div>
 
