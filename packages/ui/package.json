@@ -38,7 +38,7 @@
     "@tracepilot/types": "workspace:*",
     "dompurify": "^3.4.12",
     "lucide-vue-next": "^1.0.0",
-    "markdown-it": "^14.3.0",
+    "markdown-it": "^15.0.0",
     "papaparse": "^5.5.3",
     "vue": "catalog:"
   },
