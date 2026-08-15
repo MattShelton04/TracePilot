@@ -56,3 +56,5 @@ packages/ui/src/__vrt__/__screenshots__/**/*-diff.png
 .agent/
 .jules/
 package-lock.json
+artifacts/visual-regression/
+**/__pycache__/

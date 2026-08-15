@@ -1,0 +1,50 @@
+name: UI quality
+on:
+  pull_request:
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - 'scripts/quality/**'
+      - 'tests/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/ui-quality.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - 'scripts/quality/**'
+      - 'tests/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+permissions:
+  contents: read
+concurrency:
+  group: ui-quality-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  structural-policy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: node scripts/quality/check-vue-interactions.mjs
+      - run: node scripts/quality/check-route-catalogue.mjs
+      - run: node --test tests/visual-regression/*.test.mjs
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm quality
+      - run: pnpm typecheck
+      - run: pnpm build
+      - run: pnpm test -- --run

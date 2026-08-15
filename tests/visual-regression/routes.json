@@ -1,0 +1,141 @@
+{
+  "schema_version": 1,
+  "generated_from": "apps/desktop/src/router/index.ts",
+  "source_sha256": "4d6dd003caeb8a17bd0cc4c6e615d9ddfcb16b05938414ed4ef4a139ea886bca",
+  "route_count": 19,
+  "routes": [
+    {
+      "path": "/",
+      "name": "sessions",
+      "id": "sessions",
+      "title": "Sessions",
+      "component": "SessionListView"
+    },
+    {
+      "path": "/analytics",
+      "name": "analytics",
+      "id": "analytics",
+      "title": "Analytics Dashboard",
+      "component": "@/views/AnalyticsDashboardView.vue"
+    },
+    {
+      "path": "/cli-context",
+      "name": "cli-context",
+      "id": "cli-context",
+      "title": "CLI Context",
+      "component": "@/views/CliContextView.vue"
+    },
+    {
+      "path": "/code",
+      "name": "code",
+      "id": "code",
+      "title": "Code Impact",
+      "component": "@/views/CodeImpactView.vue"
+    },
+    {
+      "path": "/compare",
+      "name": "compare",
+      "id": "compare",
+      "title": "Session Comparison",
+      "component": "@/views/SessionComparisonView.vue"
+    },
+    {
+      "path": "/export",
+      "name": "export",
+      "id": "export",
+      "title": "Export",
+      "component": "@/views/ExportView.vue"
+    },
+    {
+      "path": "/mcp",
+      "name": "mcp-manager",
+      "id": "mcp-manager",
+      "title": "MCP Servers",
+      "component": "@/views/mcp/McpManagerView.vue"
+    },
+    {
+      "path": "/models",
+      "name": "model-comparison",
+      "id": "model-comparison",
+      "title": "Model Comparison",
+      "component": "@/views/ModelComparisonView.vue"
+    },
+    {
+      "path": "/orchestration",
+      "name": "orchestration",
+      "id": "orchestration",
+      "title": "Orchestration",
+      "component": "@/views/orchestration/OrchestrationHomeView.vue"
+    },
+    {
+      "path": "/search",
+      "name": "search",
+      "id": "search",
+      "title": "Session Search",
+      "component": "@/views/SessionSearchView.vue"
+    },
+    {
+      "path": "/settings",
+      "name": "settings",
+      "id": "settings",
+      "title": "Settings",
+      "component": "@/views/SettingsView.vue"
+    },
+    {
+      "path": "/skills",
+      "name": "skills-manager",
+      "id": "skills-manager",
+      "title": "Skills",
+      "component": "@/views/skills/SkillsManagerView.vue"
+    },
+    {
+      "path": "/tools",
+      "name": "tools",
+      "id": "tools",
+      "title": "Tool Analysis",
+      "component": "@/views/ToolAnalysisView.vue"
+    },
+    {
+      "path": "/mcp/:name",
+      "name": "mcp-server-detail",
+      "id": "mcp-server-detail",
+      "title": "MCP Server Detail",
+      "component": "@/views/mcp/McpServerDetailView.vue"
+    },
+    {
+      "path": "/orchestration/config",
+      "name": "config-injector",
+      "id": "config-injector",
+      "title": "Config Injector",
+      "component": "@/views/orchestration/ConfigInjectorView.vue"
+    },
+    {
+      "path": "/orchestration/launcher",
+      "name": "session-launcher",
+      "id": "session-launcher",
+      "title": "Session Launcher",
+      "component": "@/views/orchestration/SessionLauncherView.vue"
+    },
+    {
+      "path": "/orchestration/worktrees",
+      "name": "worktree-manager",
+      "id": "worktree-manager",
+      "title": "Worktree Manager",
+      "component": "@/views/orchestration/WorktreeManagerView.vue"
+    },
+    {
+      "path": "/replay/:id?",
+      "name": "replay",
+      "id": "replay",
+      "title": "Session Replay",
+      "component": "@/views/SessionReplayView.vue"
+    },
+    {
+      "path": "/skills/:name",
+      "name": "skill-editor",
+      "id": "skill-editor",
+      "title": "Skill Editor",
+      "component": "@/views/skills/SkillEditorView.vue"
+    }
+  ]
+}

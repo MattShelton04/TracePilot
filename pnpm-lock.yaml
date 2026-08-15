@@ -56,6 +56,9 @@ importers:
       '@fontsource-variable/inter':
         specifier: 'catalog:'
         version: 5.2.8
+      playwright:
+        specifier: ^1.58.2
+        version: 1.59.1
       playwright-core:
         specifier: ^1.58.2
         version: 1.58.2

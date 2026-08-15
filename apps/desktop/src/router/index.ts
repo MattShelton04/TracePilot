@@ -339,4 +339,17 @@ router.onError((error, to) => {
   }
 });
 
+
+// Stable, renderer-visible page identity used by accessibility announcements,
+// route smoke tests, and visual regression capture. This is derived from the
+// actual resolved route, so a Not Found fallback cannot satisfy a URL-only test.
+router.afterEach((to) => {
+  if (typeof document === 'undefined') return;
+  const rawIdentity = String(to.name ?? to.path ?? 'unknown');
+  document.documentElement.dataset.routeId = rawIdentity
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '') || 'home';
+});
+
 export default router;
