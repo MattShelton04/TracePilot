@@ -276,3 +276,16 @@ You are free to use, modify, and distribute this software under the GPL-3.0. Der
 <p align="center">
   <sub>Built with Rust, Vue, SQLite, and Tauri.</sub>
 </p>
+<!-- tracepilot-quality-tooling -->
+## Quality and visual review
+
+TracePilot includes executable interaction policies, a router-derived [application storyboard](docs/quality/application-storyboard.md), an [interaction test matrix](docs/quality/interaction-test-matrix.md), and [path-scoped visual regression CI](docs/quality/visual-regression.md).
+
+```bash
+pnpm routes:check
+pnpm visual:capture
+pnpm visual:capture:mobile
+pnpm visual:storyboard
+```
+
+Visual captures are live renders of the running Vue application with deterministic Tauri IPC mocks. Existing images under `docs/images` are not accepted as capture fallbacks. Native filesystem, Git, process, updater, dialog, and window integration still require packaged Tauri validation.

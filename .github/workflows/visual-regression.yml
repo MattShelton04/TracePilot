@@ -1,0 +1,100 @@
+name: Visual regression
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      all_routes:
+        description: Capture every route
+        type: boolean
+        default: true
+permissions:
+  contents: read
+  pull-requests: write
+concurrency:
+  group: visual-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  review:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install candidate dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Resolve base revision
+        id: refs
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "base=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
+            echo "head=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "base=$(git rev-parse HEAD^)" >> "$GITHUB_OUTPUT"
+            echo "head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Select affected routes
+        shell: bash
+        run: |
+          git diff --name-only "${{ steps.refs.outputs.base }}" "${{ steps.refs.outputs.head }}" > /tmp/changed-files.txt
+          EXTRA=""
+          [[ "${{ inputs.all_routes }}" == "true" ]] && EXTRA="--all"
+          node scripts/visual-regression/affected-routes.mjs --files /tmp/changed-files.txt --output artifacts/visual-regression/affected-routes.json $EXTRA
+      - name: Create and install base worktree
+        shell: bash
+        run: |
+          git worktree add --detach /tmp/tracepilot-base "${{ steps.refs.outputs.base }}"
+          pnpm --dir /tmp/tracepilot-base install --frozen-lockfile
+      - name: Capture base
+        env: { PNPM_BIN: pnpm }
+        run: node scripts/visual-regression/capture.mjs --repo /tmp/tracepilot-base --routes artifacts/visual-regression/affected-routes.json --output artifacts/visual-regression/base --port 4173 --allow-missing-routes
+      - name: Capture candidate
+        env: { PNPM_BIN: pnpm }
+        run: node scripts/visual-regression/capture.mjs --repo . --routes artifacts/visual-regression/affected-routes.json --output artifacts/visual-regression/head --port 4174
+      - name: Capture candidate mobile
+        env: { PNPM_BIN: pnpm }
+        run: node scripts/visual-regression/capture.mjs --repo . --routes artifacts/visual-regression/affected-routes.json --output artifacts/visual-regression/head-mobile --port 4175 --viewport mobile
+      - name: Build review
+        run: |
+          node scripts/visual-regression/compare.mjs --base artifacts/visual-regression/base --head artifacts/visual-regression/head --output artifacts/visual-regression/report
+          node scripts/visual-regression/build-storyboard.mjs --capture artifacts/visual-regression/head --output artifacts/visual-regression/storyboard
+      - name: Upload review artifact
+        id: artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tracepilot-visual-review-${{ github.event.pull_request.number || github.run_number }}
+          path: artifacts/visual-regression
+          if-no-files-found: error
+          retention-days: 21
+      - name: Add job summary
+        shell: bash
+        run: |
+          echo '## TracePilot visual review' >> "$GITHUB_STEP_SUMMARY"
+          echo '' >> "$GITHUB_STEP_SUMMARY"
+          echo '[Download the before/after captures and HTML review](${{ steps.artifact.outputs.artifact-url }})' >> "$GITHUB_STEP_SUMMARY"
+          echo '' >> "$GITHUB_STEP_SUMMARY"
+          node -e "const x=require('./artifacts/visual-regression/affected-routes.json'); console.log('Scope: **'+x.scope+'**, routes: **'+x.routes.length+'**')" >> "$GITHUB_STEP_SUMMARY"
+      - name: Update pull-request comment
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        continue-on-error: true
+        uses: actions/github-script@v7
+        env:
+          ARTIFACT_URL: ${{ steps.artifact.outputs.artifact-url }}
+        with:
+          script: |
+            const marker='<!-- tracepilot-visual-review -->';
+            const body=`${marker}\n## TracePilot visual review\n\n[Download live before/after captures and the HTML diff report](${process.env.ARTIFACT_URL}).\n\nThe capture fails on wrong-route fallbacks, browser errors, or serious/critical automated accessibility violations.`;
+            const {owner,repo}=context.repo, issue_number=context.issue.number;
+            const comments=await github.paginate(github.rest.issues.listComments,{owner,repo,issue_number,per_page:100});
+            const prior=comments.find(c=>c.user.type==='Bot'&&c.body?.includes(marker));
+            if(prior) await github.rest.issues.updateComment({owner,repo,comment_id:prior.id,body});
+            else await github.rest.issues.createComment({owner,repo,issue_number,body});
