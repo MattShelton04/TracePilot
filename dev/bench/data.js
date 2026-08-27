@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787726660199,
+  "lastUpdate": 1787823880951,
   "repoUrl": "https://github.com/MattShelton04/TracePilot",
   "entries": {
     "Benchmark": [
@@ -77366,6 +77366,703 @@ window.BENCHMARK_DATA = {
           {
             "name": "upsert_session/5_turns",
             "value": 3602578.15,
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Matt",
+            "username": "MattShelton04",
+            "email": "103937891+MattShelton04@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "c5c6cfcc016745bf6714fc46e9967dfd71d03cf2",
+          "message": "Improve skills management, imports, and token estimates (#789)\n\n* fix(skills): estimate frontmatter context cost\n\n* feat(skills): harden management and imports\n\n* fix(ci): update tooltip and rust test layout",
+          "timestamp": "2026-08-08T06:42:49Z",
+          "url": "https://github.com/MattShelton04/TracePilot/commit/c5c6cfcc016745bf6714fc46e9967dfd71d03cf2"
+        },
+        "date": 1787823879581,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "compute_analytics/10",
+            "value": 5201.943192003557,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "compute_analytics/100",
+            "value": 47834.988349425286,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "compute_analytics/200",
+            "value": 96196.11745000344,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "compute_analytics/50",
+            "value": 24105.495508747554,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "compute_code_impact/10",
+            "value": 8624.825880992727,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "compute_code_impact/100",
+            "value": 85109.00370374987,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "compute_code_impact/200",
+            "value": 169807.21133897488,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "compute_code_impact/50",
+            "value": 42872.83851328386,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "compute_tool_analysis/10",
+            "value": 20945.13359158808,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "compute_tool_analysis/100",
+            "value": 194669.41704776534,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "compute_tool_analysis/200",
+            "value": 456262.3845384949,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "compute_tool_analysis/50",
+            "value": 89390.43195270567,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_analytics_serialize/analytics_data/100",
+            "value": 881.1115137255325,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_analytics_serialize/analytics_data/200",
+            "value": 867.0427585506274,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_analytics_serialize/analytics_data/50",
+            "value": 880.458783900111,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_analytics_serialize/code_impact_data/100",
+            "value": 189.46293926776724,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_analytics_serialize/code_impact_data/200",
+            "value": 193.95636353179708,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_analytics_serialize/code_impact_data/50",
+            "value": 193.3522645432464,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_analytics_serialize/tool_analysis_data/100",
+            "value": 9216.485605452326,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_analytics_serialize/tool_analysis_data/200",
+            "value": 9429.045008165214,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_analytics_serialize/tool_analysis_data/50",
+            "value": 9244.240487307368,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_code_impact/100",
+            "value": 61282.76021951643,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_code_impact/200",
+            "value": 61490.24005292393,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_code_impact/50",
+            "value": 60941.12380593141,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_fts_health/100",
+            "value": 40901.44282805956,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_fts_health/200",
+            "value": 41052.64314187298,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_fts_health/50",
+            "value": 40666.01750588913,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_list_sessions/hide_empty/100",
+            "value": 16312.88527802537,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_list_sessions/hide_empty/200",
+            "value": 16368.831771903171,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_list_sessions/hide_empty/50",
+            "value": 16271.255599968183,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_list_sessions/no_filter/100",
+            "value": 13849.237187549039,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_list_sessions/no_filter/200",
+            "value": 13904.884250184003,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_list_sessions/no_filter/50",
+            "value": 13867.198098759001,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_list_sessions/repo_filter/100",
+            "value": 17873.963640919785,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_list_sessions/repo_filter/200",
+            "value": 17704.248718734627,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_list_sessions/repo_filter/50",
+            "value": 17729.45445032413,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_search_content/browse/100",
+            "value": 19881.50357541125,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_search_content/browse/200",
+            "value": 19937.972484773883,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_search_content/browse/50",
+            "value": 19831.0124740238,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_search_content/fts_common_term/100",
+            "value": 36240.68802856121,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_search_content/fts_common_term/200",
+            "value": 36581.794731115726,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_search_content/fts_common_term/50",
+            "value": 36074.61663771947,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_search_content/fts_rare_term/100",
+            "value": 36365.93105331436,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_search_content/fts_rare_term/200",
+            "value": 36429.482949342375,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_search_content/fts_rare_term/50",
+            "value": 36902.137530295106,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_search_facets/browse/100",
+            "value": 54332.8045633388,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_search_facets/browse/200",
+            "value": 54761.696319329785,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_search_facets/browse/50",
+            "value": 54340.922371580265,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_search_facets/fts/100",
+            "value": 72933.98585321348,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_search_facets/fts/200",
+            "value": 72853.25910351129,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_search_facets/fts/50",
+            "value": 72990.70922797907,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_tool_analysis/100",
+            "value": 27140.584674838105,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_tool_analysis/200",
+            "value": 26842.498906874196,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ipc_tool_analysis/50",
+            "value": 27098.61472961052,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "load_session_summary/20",
+            "value": 428181.2171838163,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "load_session_summary/5",
+            "value": 137521.12479175566,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "load_session_summary/50",
+            "value": 971562.7130945419,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "parse_typed_events/100",
+            "value": 142530.82516791148,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "parse_typed_events/1000",
+            "value": 1380579.1093763404,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "parse_typed_events/10000",
+            "value": 14513797.5225,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "parse_typed_events/5000",
+            "value": 6890840.02,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_analytics/10",
+            "value": 266890.1780843695,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_analytics/100",
+            "value": 871893.2188924861,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_analytics/200",
+            "value": 1529863.8335380754,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_analytics/50",
+            "value": 524941.4666644868,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "reconstruct_turns/100",
+            "value": 16956.879914962108,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "reconstruct_turns/2000",
+            "value": 330569.2273514367,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "reconstruct_turns/500",
+            "value": 80477.05208549762,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "reconstruct_turns/5000",
+            "value": 848631.6490428358,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "reindex_all/10",
+            "value": 37912126.499497354,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "reindex_all/100",
+            "value": 37203418.63079365,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "reindex_all/50",
+            "value": 37964770.95652117,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "reindex_search_content/10",
+            "value": 1051530.2774867725,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "reindex_search_content/100",
+            "value": 1277924.0516137567,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "reindex_search_content/200",
+            "value": 1546391.7759259262,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "reindex_search_content/50",
+            "value": 1143799.9299074074,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "reindex_search_varied/100",
+            "value": 1300807.2875925924,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "reindex_search_varied/50",
+            "value": 1169500.7034920636,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "reindex_varied/100",
+            "value": 37899246.417685196,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "reindex_varied/50",
+            "value": 37485745.718029104,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search/10",
+            "value": 18246.254188812865,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search/100",
+            "value": 16019.690077545893,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search/200",
+            "value": 21805.434267729666,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search/50",
+            "value": 13752.937016871585,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_10000_rows/100",
+            "value": 45050540.78769228,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_10000_rows/1000",
+            "value": 38943539.89307116,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_10000_rows/200",
+            "value": 41094057.99793542,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_10000_rows/2000",
+            "value": 38704888.01664672,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_10000_rows/25",
+            "value": 52620825.50000001,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_10000_rows/4000",
+            "value": 34992355.99515433,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_10000_rows/50",
+            "value": 47393417.72585322,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_10000_rows/500",
+            "value": 38742005.07509972,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_2500_rows/100",
+            "value": 9867656.994762283,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_2500_rows/1000",
+            "value": 8672055.674704209,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_2500_rows/200",
+            "value": 8821148.539431501,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_2500_rows/2000",
+            "value": 8685331.484272767,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_2500_rows/25",
+            "value": 11811296.131769948,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_2500_rows/4000",
+            "value": 8113743.616121478,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_2500_rows/50",
+            "value": 10454662.638973726,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_2500_rows/500",
+            "value": 8657583.151364408,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_5000_rows/100",
+            "value": 20575302.716511395,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_5000_rows/1000",
+            "value": 17075107.933345772,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_5000_rows/200",
+            "value": 19439981.222042006,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_5000_rows/2000",
+            "value": 17068077.571393754,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_5000_rows/25",
+            "value": 24602118.053007167,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_5000_rows/4000",
+            "value": 17078316.97122265,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_5000_rows/50",
+            "value": 22663877.23998733,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_5000_rows/500",
+            "value": 17245803.56330865,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_500_rows/100",
+            "value": 1740396.657345013,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_500_rows/1000",
+            "value": 1615162.5714283108,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_500_rows/200",
+            "value": 1756901.4021642231,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_500_rows/2000",
+            "value": 1607979.97330635,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_500_rows/25",
+            "value": 2069036.8210740802,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_500_rows/4000",
+            "value": 1620596.1285416125,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_500_rows/50",
+            "value": 1749087.129840786,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "search_writer_500_rows/500",
+            "value": 1613098.1825307016,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "session_writer_100_rows/10",
+            "value": 134670.9633272632,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "session_writer_100_rows/100",
+            "value": 115643.01838467058,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "session_writer_100_rows/25",
+            "value": 113177.13243772542,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "session_writer_100_rows/50",
+            "value": 113741.34058536837,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "session_writer_20_rows/10",
+            "value": 27941.209108575,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "session_writer_20_rows/100",
+            "value": 24247.111615315665,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "session_writer_20_rows/25",
+            "value": 24542.80450395991,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "session_writer_20_rows/50",
+            "value": 24522.709499110086,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "session_writer_50_rows/10",
+            "value": 67298.67394356009,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "session_writer_50_rows/100",
+            "value": 55676.025977613404,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "session_writer_50_rows/25",
+            "value": 57166.41103487187,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "session_writer_50_rows/50",
+            "value": 55719.19295797661,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "session_writer_5_rows/10",
+            "value": 9715.26489934559,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "session_writer_5_rows/100",
+            "value": 9661.988803630835,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "session_writer_5_rows/25",
+            "value": 9650.734260872707,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "session_writer_5_rows/50",
+            "value": 9617.010418966389,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "upsert_session/20_turns",
+            "value": 2926798.345,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "upsert_session/50_turns",
+            "value": 3377705.52,
+            "unit": "ns/iter"
+          },
+          {
+            "name": "upsert_session/5_turns",
+            "value": 2674949.205,
             "unit": "ns/iter"
           }
         ]
