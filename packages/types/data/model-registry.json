@@ -3,18 +3,18 @@
     "id": "claude-opus-4.7",
     "name": "Claude Opus 4.7",
     "tier": "premium",
-    "inputPerM": 5.0,
+    "inputPerM": 5,
     "cachedInputPerM": 0.5,
-    "outputPerM": 25.0,
+    "outputPerM": 25,
     "premiumRequests": 15
   },
   {
     "id": "gpt-5.5",
     "name": "GPT-5.5",
     "tier": "premium",
-    "inputPerM": 5.0,
+    "inputPerM": 5,
     "cachedInputPerM": 0.5,
-    "outputPerM": 30.0,
+    "outputPerM": 30,
     "premiumRequests": 7.5
   },
   {
@@ -23,16 +23,16 @@
     "tier": "premium",
     "inputPerM": 1.25,
     "cachedInputPerM": 0.125,
-    "outputPerM": 10.0,
+    "outputPerM": 10,
     "premiumRequests": 1
   },
   {
     "id": "claude-opus-4.6",
     "name": "Claude Opus 4.6",
     "tier": "premium",
-    "inputPerM": 5.0,
+    "inputPerM": 5,
     "cachedInputPerM": 0.5,
-    "outputPerM": 25.0,
+    "outputPerM": 25,
     "premiumRequests": 3
   },
   {
@@ -48,36 +48,36 @@
     "id": "claude-opus-4.5",
     "name": "Claude Opus 4.5",
     "tier": "premium",
-    "inputPerM": 5.0,
+    "inputPerM": 5,
     "cachedInputPerM": 0.5,
-    "outputPerM": 25.0,
+    "outputPerM": 25,
     "premiumRequests": 3
   },
   {
     "id": "claude-sonnet-4.6",
     "name": "Claude Sonnet 4.6",
     "tier": "standard",
-    "inputPerM": 3.0,
+    "inputPerM": 3,
     "cachedInputPerM": 0.3,
-    "outputPerM": 15.0,
+    "outputPerM": 15,
     "premiumRequests": 1
   },
   {
     "id": "claude-sonnet-4.5",
     "name": "Claude Sonnet 4.5",
     "tier": "standard",
-    "inputPerM": 3.0,
+    "inputPerM": 3,
     "cachedInputPerM": 0.3,
-    "outputPerM": 15.0,
+    "outputPerM": 15,
     "premiumRequests": 1
   },
   {
     "id": "claude-sonnet-4",
     "name": "Claude Sonnet 4",
     "tier": "standard",
-    "inputPerM": 3.0,
+    "inputPerM": 3,
     "cachedInputPerM": 0.3,
-    "outputPerM": 15.0,
+    "outputPerM": 15,
     "premiumRequests": 1
   },
   {
@@ -95,16 +95,16 @@
     "tier": "standard",
     "inputPerM": 1.25,
     "cachedInputPerM": 0.125,
-    "outputPerM": 10.0,
+    "outputPerM": 10,
     "premiumRequests": 1
   },
   {
     "id": "gemini-3.1-pro",
     "name": "Gemini 3.1 Pro",
     "tier": "standard",
-    "inputPerM": 2.0,
+    "inputPerM": 2,
     "cachedInputPerM": 0.2,
-    "outputPerM": 12.0,
+    "outputPerM": 12,
     "premiumRequests": 1
   },
   {
@@ -113,7 +113,7 @@
     "tier": "standard",
     "inputPerM": 2.5,
     "cachedInputPerM": 0.25,
-    "outputPerM": 15.0,
+    "outputPerM": 15,
     "premiumRequests": 1
   },
   {
@@ -122,7 +122,7 @@
     "tier": "standard",
     "inputPerM": 1.75,
     "cachedInputPerM": 0.175,
-    "outputPerM": 14.0,
+    "outputPerM": 14,
     "premiumRequests": 1
   },
   {
@@ -131,16 +131,16 @@
     "tier": "standard",
     "inputPerM": 1.75,
     "cachedInputPerM": 0.175,
-    "outputPerM": 14.0,
+    "outputPerM": 14,
     "premiumRequests": 1
   },
   {
     "id": "gpt-5.2",
     "name": "GPT-5.2",
     "tier": "standard",
-    "inputPerM": 2.5,
-    "cachedInputPerM": 0.25,
-    "outputPerM": 15.0,
+    "inputPerM": 1.75,
+    "cachedInputPerM": 0.175,
+    "outputPerM": 14,
     "premiumRequests": 1
   },
   {
@@ -174,18 +174,18 @@
     "id": "claude-haiku-4.5",
     "name": "Claude Haiku 4.5",
     "tier": "fast",
-    "inputPerM": 1.0,
+    "inputPerM": 1,
     "cachedInputPerM": 0.1,
-    "outputPerM": 5.0,
+    "outputPerM": 5,
     "premiumRequests": 0.33
   },
   {
     "id": "gpt-5.4-mini",
     "name": "GPT-5.4 Mini",
     "tier": "fast",
-    "inputPerM": 0.4,
-    "cachedInputPerM": 0.04,
-    "outputPerM": 1.6,
+    "inputPerM": 0.75,
+    "cachedInputPerM": 0.075,
+    "outputPerM": 4.5,
     "premiumRequests": 0.33
   },
   {
@@ -203,7 +203,7 @@
     "tier": "fast",
     "inputPerM": 0.5,
     "cachedInputPerM": 0.05,
-    "outputPerM": 3.0,
+    "outputPerM": 3,
     "premiumRequests": 0.33
   },
   {
@@ -221,7 +221,7 @@
     "tier": "fast",
     "inputPerM": 0.25,
     "cachedInputPerM": 0.025,
-    "outputPerM": 2.0,
+    "outputPerM": 2,
     "premiumRequests": 0
   },
   {
@@ -237,81 +237,81 @@
     "id": "gpt-5-mini",
     "name": "GPT-5 Mini",
     "tier": "fast",
-    "inputPerM": 0.4,
-    "cachedInputPerM": 0.04,
-    "outputPerM": 1.6,
+    "inputPerM": 0.25,
+    "cachedInputPerM": 0.025,
+    "outputPerM": 2,
     "premiumRequests": 0
   },
   {
     "id": "gpt-4.1",
     "name": "GPT-4.1",
     "tier": "fast",
-    "inputPerM": 8.0,
-    "cachedInputPerM": 0.8,
-    "outputPerM": 24.0,
+    "inputPerM": 2,
+    "cachedInputPerM": 0.5,
+    "outputPerM": 8,
     "premiumRequests": 0
   },
   {
     "id": "gpt-5.6-luna",
     "name": "GPT-5.6 Luna",
     "tier": "fast",
-    "inputPerM": 1.0,
-    "cachedInputPerM": 0.1,
-    "outputPerM": 6.0,
+    "inputPerM": 0.2,
+    "cachedInputPerM": 0.02,
+    "outputPerM": 1.2,
     "premiumRequests": 0.33
   },
   {
     "id": "gpt-5.6-sol",
     "name": "GPT-5.6 Sol",
     "tier": "premium",
-    "inputPerM": 5.0,
-    "cachedInputPerM": 0.5,
-    "outputPerM": 30.0,
+    "inputPerM": 4,
+    "cachedInputPerM": 0.4,
+    "outputPerM": 20,
     "premiumRequests": 7.5
   },
   {
     "id": "gpt-5.6-terra",
     "name": "GPT-5.6 Terra",
     "tier": "standard",
-    "inputPerM": 2.5,
-    "cachedInputPerM": 0.25,
-    "outputPerM": 15.0,
+    "inputPerM": 2,
+    "cachedInputPerM": 0.2,
+    "outputPerM": 12,
     "premiumRequests": 1
   },
   {
     "id": "claude-fable-5",
     "name": "Claude Fable 5",
     "tier": "premium",
-    "inputPerM": 10.0,
-    "cachedInputPerM": 1.0,
-    "outputPerM": 50.0,
+    "inputPerM": 10,
+    "cachedInputPerM": 1,
+    "outputPerM": 50,
     "premiumRequests": 30
   },
   {
     "id": "claude-opus-4.8",
     "name": "Claude Opus 4.8",
     "tier": "premium",
-    "inputPerM": 5.0,
+    "inputPerM": 5,
     "cachedInputPerM": 0.5,
-    "outputPerM": 25.0,
+    "outputPerM": 25,
     "premiumRequests": 15
   },
   {
     "id": "claude-opus-4.8-fast",
     "name": "Claude Opus 4.8 (fast mode) (preview)",
     "tier": "premium",
-    "inputPerM": 10.0,
-    "cachedInputPerM": 1.0,
-    "outputPerM": 50.0,
+    "inputPerM": 10,
+    "cachedInputPerM": 1,
+    "outputPerM": 50,
     "premiumRequests": 30
   },
   {
     "id": "claude-sonnet-5",
     "name": "Claude Sonnet 5",
     "tier": "standard",
-    "inputPerM": 2.0,
+    "inputPerM": 2,
     "cachedInputPerM": 0.2,
-    "outputPerM": 10.0,
+    "outputPerM": 10,
     "premiumRequests": 1
   },
   {
@@ -320,7 +320,7 @@
     "tier": "fast",
     "inputPerM": 1.5,
     "cachedInputPerM": 0.15,
-    "outputPerM": 9.0,
+    "outputPerM": 9,
     "premiumRequests": 0.33
   },
   {
@@ -338,7 +338,97 @@
     "tier": "standard",
     "inputPerM": 0.95,
     "cachedInputPerM": 0.19,
-    "outputPerM": 4.0,
+    "outputPerM": 4,
     "premiumRequests": 0.33
+  },
+  {
+    "id": "gpt-6-astra",
+    "name": "GPT-6 Astra",
+    "tier": "premium",
+    "inputPerM": 10,
+    "cachedInputPerM": 1,
+    "outputPerM": 50,
+    "premiumRequests": 1
+  },
+  {
+    "id": "claude-opus-5",
+    "name": "Claude Opus 5",
+    "tier": "premium",
+    "inputPerM": 5,
+    "cachedInputPerM": 0.5,
+    "outputPerM": 25,
+    "premiumRequests": 1
+  },
+  {
+    "id": "claude-fable-5.1",
+    "name": "Claude Fable 5.1",
+    "tier": "premium",
+    "inputPerM": 10,
+    "cachedInputPerM": 0.25,
+    "outputPerM": 50,
+    "premiumRequests": 1
+  },
+  {
+    "id": "gemini-3.6-flash",
+    "name": "Gemini 3.6 Flash",
+    "tier": "standard",
+    "inputPerM": 0.75,
+    "cachedInputPerM": 0.075,
+    "outputPerM": 3.75,
+    "premiumRequests": 1
+  },
+  {
+    "id": "gemini-3.7-flash",
+    "name": "Gemini 3.7 Flash",
+    "tier": "standard",
+    "inputPerM": 0.75,
+    "cachedInputPerM": 0.075,
+    "outputPerM": 3.75,
+    "premiumRequests": 1
+  },
+  {
+    "id": "gemini-3.8-flash",
+    "name": "Gemini 3.8 Flash",
+    "tier": "standard",
+    "inputPerM": 0.75,
+    "cachedInputPerM": 0.075,
+    "outputPerM": 3.75,
+    "premiumRequests": 1
+  },
+  {
+    "id": "mai-code-1.1-flash",
+    "name": "MAI-Code-1.1-Flash",
+    "tier": "fast",
+    "inputPerM": 0.2,
+    "cachedInputPerM": 0.02,
+    "outputPerM": 1.2,
+    "premiumRequests": 0.25
+  },
+  {
+    "id": "grok-4.5",
+    "name": "Grok 4.5",
+    "tier": "standard",
+    "inputPerM": 2,
+    "cachedInputPerM": 0.5,
+    "outputPerM": 6,
+    "premiumRequests": 1
+  },
+  {
+    "id": "grok-4.6",
+    "name": "Grok 4.6",
+    "tier": "standard",
+    "inputPerM": 2,
+    "cachedInputPerM": 0.5,
+    "outputPerM": 6,
+    "premiumRequests": 1
+  },
+  {
+    "id": "kimi-k3",
+    "name": "Kimi K3",
+    "tier": "premium",
+    "inputPerM": 3,
+    "cachedInputPerM": 0.3,
+    "outputPerM": 15,
+    "premiumRequests": 1
   }
 ]

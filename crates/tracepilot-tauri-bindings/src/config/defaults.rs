@@ -41,6 +41,9 @@ struct UsagePricingData {
     cached_input_per_m: f64,
     cache_write_per_m: Option<f64>,
     output_per_m: f64,
+    effective_to: Option<String>,
+    verified_at: Option<String>,
+    source_note: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -156,10 +159,22 @@ pub(crate) fn default_model_prices() -> Vec<ModelPriceEntry> {
                 .copied()
                 .unwrap_or(entry.premium_requests);
             rates.into_iter().map(move |official| {
-                let source_label = if official.is_some() {
+                let source_label = if let Some(rates) = official {
+                    let label = format!(
+                        "{} (verified {})",
+                        github_source.label,
+                        rates
+                            .verified_at
+                            .as_ref()
+                            .unwrap_or(&github_source.verified_at)
+                    );
+                    let label = match &rates.source_note {
+                        Some(note) => format!("{label}; {note}"),
+                        None => label,
+                    };
                     format!(
                         "{}; local default mirrors GitHub's published token rates",
-                        pricing_source_label(github_source)
+                        label
                     )
                 } else {
                     format!(
@@ -187,7 +202,7 @@ pub(crate) fn default_model_prices() -> Vec<ModelPriceEntry> {
                     source: Some("provider-wholesale".to_string()),
                     pricing_kind: None,
                     effective_from: None,
-                    effective_to: None,
+                    effective_to: official.and_then(|rates| rates.effective_to.clone()),
                     source_label: Some(source_label),
                     source_url: official.and_then(|_| github_source.url.clone()),
                     status: Some(
@@ -202,4 +217,55 @@ pub(crate) fn default_model_prices() -> Vec<ModelPriceEntry> {
             })
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn september_prices_include_astra_cache_writes_and_both_context_tiers() {
+        let prices = default_model_prices();
+        let astra: Vec<_> = prices.iter().filter(|p| p.model == "gpt-6-astra").collect();
+        assert_eq!(astra.len(), 2);
+        assert_eq!(astra[0].input_per_m, 10.0);
+        assert_eq!(astra[0].cached_input_per_m, 1.0);
+        assert_eq!(astra[0].cache_write_per_m, Some(12.5));
+        assert_eq!(astra[0].output_per_m, 50.0);
+        assert_eq!(astra[1].minimum_input_tokens, Some(272001));
+        assert_eq!(astra[1].input_per_m, 20.0);
+        assert_eq!(astra[1].cached_input_per_m, 2.0);
+        assert_eq!(astra[1].cache_write_per_m, Some(25.0));
+        assert_eq!(astra[1].output_per_m, 75.0);
+
+        let sol: Vec<_> = prices.iter().filter(|p| p.model == "gpt-5.6-sol").collect();
+        assert_eq!(
+            sol.len(),
+            2,
+            "historical prices must not duplicate defaults"
+        );
+        assert_eq!(sol[0].input_per_m, 4.0);
+        assert_eq!(sol[0].cache_write_per_m, Some(5.0));
+    }
+
+    #[test]
+    fn price_provenance_and_promotion_expiry_survive_config_serialization() {
+        let prices = default_model_prices();
+        for model in ["gemini-3.6-flash", "gemini-3.7-flash", "gemini-3.8-flash"] {
+            let price = prices.iter().find(|p| p.model == model).unwrap();
+            let encoded = toml::to_string(price).unwrap();
+            let decoded: ModelPriceEntry = toml::from_str(&encoded).unwrap();
+            assert_eq!(decoded.effective_to.as_deref(), Some("2027-01-01"));
+            assert!(
+                decoded
+                    .source_label
+                    .unwrap()
+                    .contains("Promotional Copilot rates")
+            );
+        }
+        let retired = prices.iter().find(|p| p.model == "gemini-3.1-pro").unwrap();
+        let label = retired.source_label.as_ref().unwrap();
+        assert!(label.contains("verified 2026-07-17"));
+        assert!(label.contains("absent from the September Copilot table"));
+    }
 }

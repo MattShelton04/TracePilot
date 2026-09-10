@@ -14,12 +14,19 @@ interface UsagePricingData extends TokenRateSet {
   displayName: string;
   pricingTier?: "default" | "long-context";
   minimumInputTokens?: number;
+  effectiveFrom?: string;
+  effectiveTo?: string;
+  verifiedAt?: string;
+  sourceNote?: string;
 }
 
 interface LegacyMultiplierData {
   model: string;
   displayName: string;
   premiumRequests: number;
+  effectiveFrom?: string;
+  verifiedAt?: string;
+  sourceNote?: string;
 }
 
 interface PricingDataFile {
@@ -31,6 +38,7 @@ interface PricingDataFile {
   };
   aliases: Record<string, string[]>;
   githubCopilotUsage: UsagePricingData[];
+  githubCopilotUsageHistory: UsagePricingData[];
   annualLegacyMultipliers: LegacyMultiplierData[];
 }
 
@@ -43,8 +51,12 @@ export const PRICING_REGISTRY_VERSION = DATA.version;
 export const GITHUB_USAGE_BILLING_EFFECTIVE_FROM =
   GITHUB_USAGE_SOURCE.effectiveFrom ?? "2026-06-01";
 
-function sourceLabel(source: PricingSourceData): string {
-  return `${source.label} (verified ${source.verifiedAt})`;
+function sourceLabel(
+  source: PricingSourceData,
+  row?: { verifiedAt?: string; sourceNote?: string },
+): string {
+  const label = `${source.label} (verified ${row?.verifiedAt ?? source.verifiedAt})`;
+  return row?.sourceNote ? `${label}; ${row.sourceNote}` : label;
 }
 
 function githubUsageEntry(row: UsagePricingData): PricingRegistryEntry {
@@ -64,8 +76,9 @@ function githubUsageEntry(row: UsagePricingData): PricingRegistryEntry {
     },
     currency: "USD",
     unit: "per-1m-tokens",
-    effectiveFrom: GITHUB_USAGE_BILLING_EFFECTIVE_FROM,
-    sourceLabel: sourceLabel(GITHUB_USAGE_SOURCE),
+    effectiveFrom: row.effectiveFrom ?? GITHUB_USAGE_BILLING_EFFECTIVE_FROM,
+    effectiveTo: row.effectiveTo,
+    sourceLabel: sourceLabel(GITHUB_USAGE_SOURCE, row),
     sourceUrl: GITHUB_USAGE_SOURCE.url,
     status: "official",
   };
@@ -76,7 +89,7 @@ function providerMirrorEntry(row: UsagePricingData): PricingRegistryEntry {
     ...githubUsageEntry(row),
     billingProvider: "provider-wholesale",
     effectiveFrom: undefined,
-    sourceLabel: `${sourceLabel(GITHUB_USAGE_SOURCE)}; local default mirrors GitHub's published token rates`,
+    sourceLabel: `${sourceLabel(GITHUB_USAGE_SOURCE, row)}; local default mirrors GitHub's published token rates`,
   };
 }
 
@@ -90,8 +103,8 @@ function legacyMultiplierEntry(row: LegacyMultiplierData): PricingRegistryEntry 
     premiumRequests: row.premiumRequests,
     currency: "USD",
     unit: "premium-request",
-    effectiveFrom: ANNUAL_MULTIPLIERS_SOURCE.effectiveFrom,
-    sourceLabel: sourceLabel(ANNUAL_MULTIPLIERS_SOURCE),
+    effectiveFrom: row.effectiveFrom ?? ANNUAL_MULTIPLIERS_SOURCE.effectiveFrom,
+    sourceLabel: sourceLabel(ANNUAL_MULTIPLIERS_SOURCE, row),
     sourceUrl: ANNUAL_MULTIPLIERS_SOURCE.url,
     status: "official",
   };
@@ -130,5 +143,6 @@ export const PROVIDER_WHOLESALE_PRICING: readonly PricingRegistryEntry[] = [
 export const PRICING_REGISTRY: readonly PricingRegistryEntry[] = [
   ...PROVIDER_WHOLESALE_PRICING,
   ...GITHUB_COPILOT_USAGE_PRICING,
+  ...DATA.githubCopilotUsageHistory.map(githubUsageEntry),
   ...GITHUB_ANNUAL_LEGACY_MULTIPLIERS,
 ];

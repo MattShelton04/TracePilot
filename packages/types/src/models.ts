@@ -45,6 +45,9 @@ interface UsagePricingData {
   cachedInputPerM: number;
   cacheWritePerM?: number;
   outputPerM: number;
+  effectiveTo?: string;
+  verifiedAt?: string;
+  sourceNote?: string;
 }
 
 interface PricingDataFile {
@@ -77,8 +80,12 @@ const CURRENT_PREMIUM_REQUESTS_BY_MODEL = new Map(
   ].map((entry) => [entry.model, entry.currentPremiumRequests as number]),
 );
 
-function pricingSourceLabel(source: { label: string; verifiedAt: string }): string {
-  return `${source.label} (verified ${source.verifiedAt})`;
+function pricingSourceLabel(
+  source: { label: string; verifiedAt: string },
+  row?: { verifiedAt?: string; sourceNote?: string },
+): string {
+  const label = `${source.label} (verified ${row?.verifiedAt ?? source.verifiedAt})`;
+  return row?.sourceNote ? `${label}; ${row.sourceNote}` : label;
 }
 
 // ─── Registry ────────────────────────────────────────────────────────
@@ -150,8 +157,10 @@ export function getDefaultWholesalePrices(): ModelPriceEntry[] {
           source: "provider-wholesale" as const,
           sourceLabel: `${pricingSourceLabel(
             PRICING_DATA.sources.githubCopilotUsage,
+            officialRate,
           )}; local default mirrors GitHub's published token rates`,
           sourceUrl: PRICING_DATA.sources.githubCopilotUsage.url,
+          effectiveTo: officialRate.effectiveTo,
           status: "official" as const,
         }));
       }
