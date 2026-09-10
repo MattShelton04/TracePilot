@@ -1,5 +1,5 @@
 import type { ModelPriceEntry } from "./config.js";
-import { GITHUB_USAGE_BILLING_EFFECTIVE_FROM, PRICING_REGISTRY } from "./pricing-registry.js";
+import { PRICING_REGISTRY } from "./pricing-registry.js";
 import type { ModelMetricDetail, ShutdownMetrics } from "./session.js";
 
 export const AI_CREDIT_USD = 0.01;
@@ -287,7 +287,7 @@ export function calculateTokenCost(
   //     `cacheReadTokens` and `cacheWriteTokens` (in the telemetry).
   //     Non-cached standard input is therefore `inputTokens - cacheReadTokens - cacheWriteTokens`.
   //   - `cacheWriteTokens` (a.k.a. cache-creation) is billed separately at `cacheWritePerM`.
-  //     It is significant for Anthropic models (~1.25× input rate).
+  //     It applies to Anthropic and GPT-5.6/GPT-6 models (1.25× input rate).
   //   - `reasoningTokens` is DISJOINT from `outputTokens` and only billed
   //     when a model defines `reasoningPerM`.
   const nonCachedInputTokens = Math.max(inputTokens - cacheReadTokens - cacheWriteTokens, 0);
@@ -412,7 +412,7 @@ export function calculatePricingComparison(
   const usageBasedCopilot = calculateMetricsTokenCost(metrics.modelMetrics, {
     billingProvider: "github-copilot",
     pricingKind: "usage-token-rate",
-    at: at ?? GITHUB_USAGE_BILLING_EFFECTIVE_FROM,
+    at,
   });
   const wholesaleProvider = calculateMetricsTokenCost(metrics.modelMetrics, {
     billingProvider: "provider-wholesale",

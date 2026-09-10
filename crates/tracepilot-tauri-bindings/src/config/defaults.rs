@@ -41,6 +41,9 @@ struct UsagePricingData {
     cached_input_per_m: f64,
     cache_write_per_m: Option<f64>,
     output_per_m: f64,
+    effective_to: Option<String>,
+    verified_at: Option<String>,
+    source_note: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -156,10 +159,22 @@ pub(crate) fn default_model_prices() -> Vec<ModelPriceEntry> {
                 .copied()
                 .unwrap_or(entry.premium_requests);
             rates.into_iter().map(move |official| {
-                let source_label = if official.is_some() {
+                let source_label = if let Some(rates) = official {
+                    let label = format!(
+                        "{} (verified {})",
+                        github_source.label,
+                        rates
+                            .verified_at
+                            .as_ref()
+                            .unwrap_or(&github_source.verified_at)
+                    );
+                    let label = match &rates.source_note {
+                        Some(note) => format!("{label}; {note}"),
+                        None => label,
+                    };
                     format!(
                         "{}; local default mirrors GitHub's published token rates",
-                        pricing_source_label(github_source)
+                        label
                     )
                 } else {
                     format!(
@@ -187,7 +202,7 @@ pub(crate) fn default_model_prices() -> Vec<ModelPriceEntry> {
                     source: Some("provider-wholesale".to_string()),
                     pricing_kind: None,
                     effective_from: None,
-                    effective_to: None,
+                    effective_to: official.and_then(|rates| rates.effective_to.clone()),
                     source_label: Some(source_label),
                     source_url: official.and_then(|_| github_source.url.clone()),
                     status: Some(
