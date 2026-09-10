@@ -5,7 +5,7 @@ TracePilot treats GitHub AI Credits (AIC) as its primary billing quantity. A sma
 ## Source assumptions
 
 - GitHub announced that all Copilot plans transition to usage-based billing on **June 1, 2026**. Premium request units are replaced by GitHub AI Credits, and usage is calculated from token consumption including input, output, and cached tokens using the listed API rates for each model. Source: [GitHub Blog, "GitHub Copilot is moving to usage-based billing"](https://github.blog/news-insights/company-news/github-copilot-is-moving-to-usage-based-billing/).
-- GitHub's Copilot models/pricing reference states that model prices are listed **per 1 million tokens**, and **1 GitHub AI Credit = $0.01 USD**. It also distinguishes input, cached input, output, and Anthropic cache-write costs. Source: [Models and pricing for GitHub Copilot](https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing).
+- GitHub's Copilot models/pricing reference states that model prices are listed **per 1 million tokens**, and **1 GitHub AI Credit = $0.01 USD**. It distinguishes input, cached input, output, and cache-write costs for Anthropic, GPT-5.6, and GPT-6 models. Source: [Models and pricing for GitHub Copilot](https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing).
 - GitHub's usage-based billing docs state that Copilot CLI usage consumes AI Credits, while code completions and Next Edit suggestions remain included and are not billed in AI Credits. Sources: [Usage-based billing for individuals](https://docs.github.com/en/copilot/concepts/billing/usage-based-billing-for-individuals) and [Usage-based billing for organizations and enterprises](https://docs.github.com/en/copilot/concepts/billing/usage-based-billing-for-organizations-and-enterprises).
 - Annual Copilot Pro/Pro+ subscribers who remain on request-based billing after June 1, 2026 keep premium-request billing but receive changed model multipliers. These multipliers do **not** apply to usage-based billing. TracePilot records both the current multiplier and the June 2026 annual-plan multiplier in the pricing data file so launcher/default settings do not drift from the preview registry. Source: [Model multipliers for annual plans staying on request-based billing](https://docs.github.com/en/copilot/reference/copilot-billing/request-based-billing-legacy/model-multipliers-for-annual-plans).
 
@@ -48,7 +48,7 @@ Unknown models or missing prices are surfaced as unavailable instead of falling 
 
 Pricing updates should be made in `packages/types/src/pricing-data.json`, not in calculator code. That keeps source attribution, effective dates, aliases, GitHub Copilot usage rates, context tiers, and default local token-rate estimates in one auditable place. The TypeScript registry derives:
 
-- `github-copilot` usage entries with the June 1, 2026 effective date;
+- `github-copilot` usage entries with per-row effective dates, defaulting to the June 1, 2026 billing transition;
 - `provider-wholesale` defaults that mirror those same published token rates for documented models;
 - editable default and long-context rows under the same model identity;
 - current premium-request multipliers used by launch/settings defaults;
@@ -56,6 +56,25 @@ Pricing updates should be made in `packages/types/src/pricing-data.json`, not in
 - annual-plan premium-request multipliers from the separate GitHub multiplier reference.
 
 Local settings remain explicit user overrides for the Direct API estimate and are persisted in TracePilot's existing config file. Effective-date editing is intentionally display-only in this MVP; a future refresh command can update the JSON data file from GitHub's pricing page without changing calculation logic.
+
+### September 10, 2026 snapshot
+
+The refresh covers all 38 token-rate rows in [GitHub's Copilot pricing table](https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing), including ten newly registered models: GPT-6 Astra, Claude Opus 5, Claude Fable 5.1, Gemini 3.6/3.7/3.8 Flash, MAI-Code-1.1-Flash, Grok 4.5/4.6, and Kimi K3. GPT-5.6 Sol, Terra, and Luna have updated input/output/cache rates and now charge for cache writes. Astra and Grok have both default and long-context tiers. These are Copilot rates; the existing Direct API defaults mirror them for compatibility.
+
+Astra costs $10 input, $1 cached input, $12.50 cache write, and $50 output per million tokens up to 272,000 total input tokens. Above that threshold, the full request uses $20/$2/$25/$75 respectively. Cache reads and writes are included in total input telemetry and subtracted before charging ordinary input.
+
+New and changed rows use **2026-09-10 as TracePilot's verified snapshot boundary**, not a claim about the actual model launch or price-change date. The source does not establish those dates. The previous GPT-5.6 rows remain in `githubCopilotUsageHistory`, ending at that boundary, so dated estimates retain their prior rates. Undated comparisons use the latest snapshot. Retained models absent from the current tables keep their July verification date and an explicit source note. They remain usable for historical estimates without implying current Copilot availability.
+
+Gemini 3.6–3.8 Flash promotional rates end on December 31, 2026. Their exclusive `effectiveTo` is `2027-01-01`; dated lookups after that return unavailable until new rates are verified. An explicit latest-rate lookup (including the editable Direct API view) still means the latest published snapshot, not a forecast of future prices.
+
+The [legacy annual-plan multiplier table](https://docs.github.com/en/copilot/reference/copilot-billing/request-based-billing-legacy/model-multipliers-for-annual-plans) was also rechecked. Existing listed multipliers are unchanged; MAI-Code-1.1-Flash adds 0.25×. New models without a published multiplier have no official legacy pricing entry. Their numeric `currentPremiumRequestDefaults` values are local compatibility placeholders required by the existing settings schema, not Copilot billing rates. Earlier `currentPremiumRequests` defaults remain compatibility values separate from the official annual-plan `premiumRequests` multipliers.
+
+### Implementation path
+
+- `packages/types/src/pricing-data.json` owns Copilot rates, aliases, provenance, historical rows, and annual multipliers. `pricing-registry.ts` builds the effective-dated registry; `pricing.ts` resolves models/tiers and converts token costs to AIC.
+- `packages/types/data/model-registry.json` supplies model identity and tier metadata to TypeScript and the Rust orchestrator. Default token rates are kept consistent with the Copilot snapshot.
+- `packages/types/src/models.ts` and `crates/tracepilot-tauri-bindings/src/config/defaults.rs` produce editable default prices from the same data, including cache writes, context tiers, and source notes. Saved user overrides are preserved; new model rows are backfilled by the desktop preferences store.
+- Observed `totalNanoAiu` remains authoritative. Token-based values remain estimates; applying context tiers to aggregated session/model token counts cannot reconstruct individual request boundaries.
 
 ## Alias handling
 

@@ -47,6 +47,30 @@ describe("createPricingSlice", () => {
     expect(merged.some((price) => price.model === "gpt-5.5")).toBe(true);
   });
 
+  it("backfills Astra tiers and keeps saved direct-API overrides separate from Copilot rates", () => {
+    const saved = {
+      model: "gpt-5.6-sol",
+      inputPerM: 99,
+      cachedInputPerM: 9,
+      outputPerM: 199,
+      premiumRequests: 1,
+    };
+    const slice = createPricingSlice();
+    slice.modelWholesalePrices.value = mergeWholesalePricesWithDefaults([saved]);
+    const astra = slice.modelWholesalePrices.value.filter((price) => price.model === "gpt-6-astra");
+    expect(astra.map((price) => price.cacheWritePerM)).toEqual([12.5, 25]);
+    expect(slice.getWholesalePrice("gpt-5.6-sol")).toMatchObject(saved);
+    expect(slice.computeUsageBasedCost("gpt-5.6-sol", 100_000, 0, 0, 0, "2026-09-10")).toBe(0.4);
+    expect(
+      slice.computeUsageBasedCost("GPT-6 Astra", 200_000, 100_000, 10_000, 50_000),
+    ).toBeCloseTo(1.725);
+    expect(
+      slice.computeCostComparison({
+        modelMetrics: { "gpt-6-astra": { usage: { inputTokens: 100_000 } } },
+      }).usageBasedCopilot.totalCost,
+    ).toBe(1);
+  });
+
   it("getWholesalePrice matches by longest-first prefix", () => {
     const slice = createPricingSlice();
     slice.modelWholesalePrices.value = [
@@ -116,7 +140,7 @@ describe("createPricingSlice", () => {
     expect(slice.computeUsageBasedCost("gpt-5.4", 1_000_000, 0, 0, 0, "2026-06-01")).toBe(5);
   });
 
-  it("computeUsageBasedCost previews June 2026 rates when no date is supplied", () => {
+  it("computeUsageBasedCost uses the latest snapshot when no date is supplied", () => {
     const slice = createPricingSlice();
     expect(slice.computeUsageBasedCost("gpt-5.4", 1_000_000, 0, 0)).toBe(5);
   });
