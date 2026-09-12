@@ -36,10 +36,10 @@ provide(TodoDependencyGraphKey, ctx);
 
     <div class="graph-panel">
       <div class="zoom-controls">
-        <button class="zoom-btn" @click="ctx.zoomIn" title="Zoom in">+</button>
-        <button class="zoom-btn" @click="ctx.zoomOut" title="Zoom out">−</button>
+        <button class="zoom-btn" @click="ctx.zoomIn" title="Zoom in" aria-label="Zoom in">+</button>
+        <button class="zoom-btn" @click="ctx.zoomOut" title="Zoom out" aria-label="Zoom out">−</button>
         <span class="zoom-pct" :title="`Zoom: ${ctx.zoomPercent.value}%`">{{ ctx.zoomPercent.value }}%</span>
-        <button class="zoom-btn" @click="ctx.fitToView" title="Fit to view">⊡</button>
+        <button class="zoom-btn" @click="ctx.fitToView" title="Fit to view" aria-label="Fit to view">⊡</button>
       </div>
       <div
         :ref="(el) => { ctx.viewportRef.value = el as HTMLElement | null; }"
@@ -57,7 +57,7 @@ provide(TodoDependencyGraphKey, ctx);
             :height="ctx.viewBox.value.height"
             :viewBox="`${ctx.viewBox.value.minX} ${ctx.viewBox.value.minY} ${ctx.viewBox.value.width} ${ctx.viewBox.value.height}`"
             xmlns="http://www.w3.org/2000/svg"
-            role="img"
+            role="group"
             aria-label="Dependency graph showing todo item relationships"
           >
             <defs>
@@ -108,6 +108,6 @@ provide(TodoDependencyGraphKey, ctx);
 
     <TodoDepGraphLegend />
 
-    <TodoDepDetailSlideover />
+    <TodoDepDetailSlideover v-if="ctx.selectedNodeId.value" :key="ctx.selectedNodeId.value" />
   </div>
 </template>

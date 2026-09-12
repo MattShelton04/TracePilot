@@ -235,6 +235,11 @@
 .todo-graph-root .done-node {
   opacity: 0.7;
 }
+.todo-graph-root .dag-node:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+  opacity: 1;
+}
 
 /* biome-ignore lint/style/noDescendingSpecificity: base .node-rect shape follows the state-modifier rules (selected/faded) intentionally. */
 .todo-graph-root .node-rect {

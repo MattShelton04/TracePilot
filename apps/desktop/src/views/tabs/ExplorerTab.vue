@@ -15,6 +15,7 @@ import {
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import FileContextMenu from "@/components/session/FileContextMenu.vue";
 import { useExplorerContentSearch } from "@/composables/useExplorerContentSearch";
+import { useExplorerPaneResize } from "@/composables/useExplorerPaneResize";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { useSessionFiles } from "@/composables/useSessionFiles";
 import { STORAGE_KEYS } from "@/config/storageKeys";
@@ -97,40 +98,16 @@ async function onContentSearchMatch(match: SessionFileSearchMatch) {
 }
 
 // ── Drag-to-resize ──────────────────────────────────────────────────────────
-const treeWidth = ref(240);
-const isDragging = ref(false);
-
-let activeDragCleanup: (() => void) | null = null;
-
-function startDrag(e: MouseEvent) {
-  isDragging.value = true;
-  const startX = e.clientX;
-  const startWidth = treeWidth.value;
-
-  function onMove(e: MouseEvent) {
-    treeWidth.value = Math.max(160, Math.min(500, startWidth + (e.clientX - startX)));
-  }
-
-  function onUp() {
-    isDragging.value = false;
-    window.removeEventListener("mousemove", onMove);
-    window.removeEventListener("mouseup", onUp);
-    activeDragCleanup = null;
-  }
-
-  activeDragCleanup = () => {
-    isDragging.value = false;
-    window.removeEventListener("mousemove", onMove);
-    window.removeEventListener("mouseup", onUp);
-  };
-
-  window.addEventListener("mousemove", onMove);
-  window.addEventListener("mouseup", onUp);
-}
-
-onBeforeUnmount(() => {
-  activeDragCleanup?.();
-});
+const explorerRoot = ref<HTMLElement | null>(null);
+const {
+  treeWidth,
+  maxTreeWidth,
+  minTreeWidth,
+  isDragging,
+  startDrag,
+  onResizeKeydown,
+  resetTreeWidth,
+} = useExplorerPaneResize(explorerRoot);
 
 // ── Auto-refresh ────────────────────────────────────────────────────────────
 // Silent refresh: the composable defaults `reload()` to silent=true so the
@@ -347,7 +324,7 @@ async function onOpenFolder() {
 </script>
 
 <template>
-  <div class="explorer-tab" :class="{ 'explorer-tab--dragging': isDragging }">
+  <div ref="explorerRoot" class="explorer-tab" :class="{ 'explorer-tab--dragging': isDragging }">
     <div class="explorer-tab__tree" :style="{ width: `${treeWidth}px` }">
       <FileBrowserTree
         :entries="filteredFiles"
@@ -488,7 +465,16 @@ async function onOpenFolder() {
       class="explorer-tab__divider"
       role="separator"
       aria-label="Resize panes"
+      aria-orientation="vertical"
+      :aria-valuemin="minTreeWidth"
+      :aria-valuemax="maxTreeWidth"
+      :aria-valuenow="treeWidth"
+      :aria-valuetext="`File list ${treeWidth} pixels wide`"
+      tabindex="0"
+      title="Resize file list. Arrow keys adjust width; Home and End select minimum and maximum."
       @mousedown.prevent="startDrag"
+      @keydown="onResizeKeydown"
+      @dblclick="resetTreeWidth"
     />
 
     <div class="explorer-tab__viewer" :class="{ 'explorer-tab__viewer--changed': viewerChanged }">
@@ -812,9 +798,16 @@ async function onOpenFolder() {
 }
 
 .explorer-tab__divider:hover,
+.explorer-tab__divider:focus-visible,
 .explorer-tab--dragging .explorer-tab__divider {
   background: var(--accent-fg);
   opacity: 0.6;
+}
+
+.explorer-tab__divider:focus-visible {
+  outline: 2px solid var(--accent-fg);
+  outline-offset: -2px;
+  opacity: 1;
 }
 
 .explorer-tab__viewer {
