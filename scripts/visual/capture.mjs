@@ -28,6 +28,13 @@ const fixtureFile = resolve(dirname(fileURLToPath(import.meta.url)), "fixtures.m
 const fixtureImport = `/@fs/${fixtureFile.replaceAll("\\", "/")}`;
 const harnessRoot = resolve(dirname(fixtureFile), "../..");
 const reports = [];
+// Normalize rasterization across ephemeral CI hosts. Do not replace exact
+// comparison with a tolerance: even one-pixel product changes must stay visible.
+const renderingArgs = [
+  "--disable-gpu",
+  "--disable-skia-runtime-opts",
+  "--force-color-profile=srgb",
+];
 const started = performance.now();
 await mkdir(output, { recursive: true });
 let browser;
@@ -69,7 +76,10 @@ try {
   await server.listen();
   const address = server.httpServer.address();
   const baseUrl = `http://127.0.0.1:${address.port}`;
-  browser = await chromium.launch(args.channel ? { channel: args.channel } : {});
+  browser = await chromium.launch({
+    args: renderingArgs,
+    ...(args.channel ? { channel: args.channel } : {}),
+  });
   for (const item of selected) {
     const context = await browser.newContext({
       viewport,
@@ -189,6 +199,7 @@ try {
         revision,
         viewport,
         fixedTime,
+        renderingArgs,
         shard,
         durationMs: Math.round(performance.now() - started),
         cases: reports,
