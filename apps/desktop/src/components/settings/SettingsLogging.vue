@@ -103,13 +103,13 @@ async function doExportLogs() {
 
       <div class="setting-row">
         <div class="setting-info">
-          <div class="setting-label">Log level</div>
+            <label class="setting-label" for="settings-log-level">Log level</label>
           <div class="setting-description">
             Controls verbosity of logged messages.
             <span class="restart-hint">Takes effect after restart.</span>
           </div>
         </div>
-        <select v-model="logLevel" class="log-level-select">
+        <select id="settings-log-level" v-model="logLevel" class="log-level-select">
           <option value="error">Error</option>
           <option value="warn">Warn</option>
           <option value="info">Info</option>

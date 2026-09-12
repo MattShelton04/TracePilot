@@ -15,12 +15,21 @@ import {
   DEFAULT_UI_SCALE,
 } from "@tracepilot/types";
 import { normalizePath } from "@tracepilot/ui";
-import { ref } from "vue";
+import { ref, watch } from "vue";
 import { STORAGE_KEYS } from "@/config/storageKeys";
 
 export type ThemeOption = "dark" | "light";
 
 export const BASE_FONT_SIZE_PX = 16;
+export const MIN_CONTENT_MAX_WIDTH = 400;
+// Matches the backend's u32 setting; zero is the Full preset.
+export const MAX_CONTENT_MAX_WIDTH = 4_294_967_295;
+
+export function normalizeContentMaxWidth(value: number): number {
+  if (!Number.isFinite(value)) return DEFAULT_CONTENT_MAX_WIDTH;
+  if (value === 0) return 0;
+  return Math.max(MIN_CONTENT_MAX_WIDTH, Math.min(MAX_CONTENT_MAX_WIDTH, Math.round(value)));
+}
 
 const VALID_THEMES: ThemeOption[] = ["dark", "light"];
 
@@ -32,7 +41,8 @@ export function applyTheme(theme: ThemeOption) {
 
 export function applyContentMaxWidth(value: number) {
   // 0 means no limit (full width)
-  const cssVal = value <= 0 ? "none" : `${value}px`;
+  const normalized = normalizeContentMaxWidth(value);
+  const cssVal = normalized === 0 ? "none" : `${normalized}px`;
   document.documentElement.style.setProperty("--content-max-width", cssVal);
 }
 
@@ -58,6 +68,14 @@ export function createUiSlice() {
   const favouriteModels = ref<string[]>([...DEFAULT_FAVOURITE_MODELS]);
   const recentRepoPaths = ref<string[]>([]);
   const contentMaxWidth = ref(DEFAULT_CONTENT_MAX_WIDTH);
+  watch(
+    contentMaxWidth,
+    (value) => {
+      const normalized = normalizeContentMaxWidth(value);
+      if (value !== normalized) contentMaxWidth.value = normalized;
+    },
+    { flush: "sync" },
+  );
   const uiScale = ref(DEFAULT_UI_SCALE);
   const logLevel = ref("info");
   const sessionCacheSize = ref(DEFAULT_SESSION_CACHE_SIZE);

@@ -16,7 +16,7 @@ import {
   TRACEPILOT_INDEX_DB_PLACEHOLDER,
 } from "@tracepilot/types";
 import { toErrorMessage, useKeydown } from "@tracepilot/ui";
-import { computed, nextTick, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import WizardStepDatabase from "@/components/wizard/WizardStepDatabase.vue";
 import WizardStepFeatures from "@/components/wizard/WizardStepFeatures.vue";
 import WizardStepReady from "@/components/wizard/WizardStepReady.vue";
@@ -38,12 +38,19 @@ const emit = defineEmits<{
 const prefersReducedMotion = ref(false);
 const slidesViewport = ref<HTMLElement | null>(null);
 const TOTAL_SLIDES = 5;
+const loadingDefaults = ref(true);
+const saving = ref(false);
+const completed = ref(false);
+const busy = computed(() => loadingDefaults.value || saving.value || completed.value);
+let disposed = false;
 
-const { currentStep, transitionDuration, goTo, next, onKeydown } = useWizardNavigation({
-  totalSteps: TOTAL_SLIDES,
-  prefersReducedMotion,
-  slidesViewport,
-});
+const { currentStep, transitioning, transitionDuration, canGoTo, goTo, next, onKeydown } =
+  useWizardNavigation({
+    totalSteps: TOTAL_SLIDES,
+    prefersReducedMotion,
+    slidesViewport,
+    canNavigate: (step) => !busy.value && (step <= 2 || canContinueSlide3.value),
+  });
 
 // ── Form state ─────────────────────────────────────────────────
 // Fallback defaults for dev mode (outside Tauri). In production the backend
@@ -66,6 +73,7 @@ const dbPath = computed(() => deriveIndexDbPath(tracepilotHome.value) || FALLBAC
 const validating = ref(false);
 const validationResult = ref<ValidateSessionDirResult | null>(null);
 const validationError = ref("");
+const validatedSessionDir = ref("");
 let validationRequestId = 0;
 
 // A result belongs to the path that was checked. Invalidate it immediately on
@@ -76,42 +84,47 @@ watch(
     validationRequestId += 1;
     validating.value = false;
     validationResult.value = null;
+    validatedSessionDir.value = "";
     validationError.value = "";
   },
   { flush: "sync" },
 );
 
-// ── Saving state ───────────────────────────────────────────────
-const saving = ref(false);
-
 // ── Computed ───────────────────────────────────────────────────
 const canContinueSlide3 = computed(() => {
-  if (!validationResult.value) return false;
-  return validationResult.value.valid;
+  return (
+    !validating.value &&
+    validationResult.value?.valid === true &&
+    validatedSessionDir.value === sessionDir.value.trim()
+  );
 });
 
 const sessionCount = computed(() => validationResult.value?.sessionCount ?? 0);
 
 // ── Validation ─────────────────────────────────────────────────
-async function validateDir() {
+async function validateDir(): Promise<ValidateSessionDirResult | null> {
   const requestId = ++validationRequestId;
+  const requestedPath = sessionDir.value.trim();
   validationResult.value = null;
   validationError.value = "";
   if (!copilotHome.value.trim()) {
     validating.value = false;
     validationError.value = "Enter a Copilot home directory.";
-    return;
+    return null;
   }
   validating.value = true;
   try {
-    const result = await validateSessionDir(sessionDir.value.trim());
-    if (requestId !== validationRequestId) return;
+    const result = await validateSessionDir(requestedPath);
+    if (disposed || requestId !== validationRequestId) return null;
     validationResult.value = result;
+    validatedSessionDir.value = requestedPath;
     if (!result.valid && result.error) {
       validationError.value = result.error;
     }
+    return result;
   } catch (e) {
     if (requestId === validationRequestId) validationError.value = toErrorMessage(e);
+    return null;
   } finally {
     if (requestId === validationRequestId) validating.value = false;
   }
@@ -119,59 +132,82 @@ async function validateDir() {
 
 // ── Browse (Tauri dialog) ──────────────────────────────────────
 async function browseCopilotHome() {
+  if (busy.value) return;
+  const originalHome = copilotHome.value;
   const selected = await browseForDirectory({
     title: "Select Copilot home directory",
     defaultPath: copilotHome.value,
   });
-  if (selected) {
+  if (selected && !disposed && !busy.value && copilotHome.value === originalHome) {
     copilotHome.value = selected;
     await validateDir();
   }
 }
 
 async function browseDbPath() {
+  if (busy.value) return;
+  const originalHome = tracepilotHome.value;
   const selected = await browseForDirectory({
     title: "Choose TracePilot data directory",
     defaultPath: tracepilotHome.value,
   });
-  if (selected) tracepilotHome.value = selected;
+  if (selected && !disposed && !busy.value && tracepilotHome.value === originalHome)
+    tracepilotHome.value = selected;
 }
 
 // ── Skip setup ─────────────────────────────────────────────────
 async function skipSetup() {
-  await finishSetup();
+  await finishSetup(true);
 }
 
 // ── Reset to defaults ──────────────────────────────────────────
 function resetSessionDir() {
+  if (busy.value) return;
   copilotHome.value = defaultCopilotHome.value;
   validateDir();
 }
 
 function resetDbPath() {
+  if (busy.value) return;
   tracepilotHome.value = defaultTracePilotHome.value;
 }
 
 // ── Finish setup ───────────────────────────────────────────────
 const setupError = ref("");
 
-async function finishSetup() {
+async function finishSetup(useDefaults = false) {
+  if (busy.value || (!useDefaults && (currentStep.value !== 4 || transitioning.value))) return;
   saving.value = true;
   setupError.value = "";
+  const home = (useDefaults ? defaultCopilotHome.value : copilotHome.value).trim();
+  const dataHome =
+    (useDefaults ? defaultTracePilotHome.value : tracepilotHome.value).trim() ||
+    defaultTracePilotHome.value;
   try {
+    const checked = useDefaults ? null : await validateDir();
+    if (disposed) return;
+    if (!useDefaults && (!checked?.valid || home !== copilotHome.value.trim())) {
+      saving.value = false;
+      goTo(2);
+      return;
+    }
     const config: TracePilotConfig = createDefaultConfig({
       paths: {
-        copilotHome: copilotHome.value.trim(),
-        sessionStateDir: sessionDir.value.trim(),
-        tracepilotHome: tracepilotHome.value.trim(),
-        indexDbPath: dbPath.value,
+        copilotHome: home,
+        sessionStateDir: deriveSessionStateDir(home),
+        tracepilotHome: dataHome,
+        indexDbPath: deriveIndexDbPath(dataHome),
       },
       general: {
         autoIndexOnLaunch: true,
+        setupComplete: useDefaults,
       },
     });
     await saveConfig(config);
-    emit("setup-saved", validationResult.value?.sessionCount ?? 0);
+    if (disposed) return;
+    completed.value = true;
+    if (useDefaults) emit("setup-complete");
+    else emit("setup-saved", checked?.sessionCount ?? 0);
   } catch (e) {
     setupError.value = toErrorMessage(e);
     logError("[setup] Setup save failed:", e);
@@ -188,17 +224,25 @@ onMounted(async () => {
 
   try {
     const config = await getConfig();
-    copilotHome.value = config.paths.copilotHome;
-    tracepilotHome.value = config.paths.tracepilotHome;
+    if (disposed) return;
+    copilotHome.value = config.paths.copilotHome || FALLBACK_COPILOT_HOME;
+    tracepilotHome.value = config.paths.tracepilotHome || FALLBACK_TRACEPILOT_HOME;
     defaultSessionDir.value = config.paths.sessionStateDir;
-    defaultCopilotHome.value = config.paths.copilotHome;
-    defaultTracePilotHome.value = config.paths.tracepilotHome;
+    defaultCopilotHome.value = copilotHome.value;
+    defaultTracePilotHome.value = tracepilotHome.value;
   } catch {
     // Defaults are fine (dev mode / outside Tauri)
   }
 
+  if (disposed) return;
+  loadingDefaults.value = false;
   await nextTick();
   validateDir();
+});
+
+onUnmounted(() => {
+  disposed = true;
+  validationRequestId += 1;
 });
 </script>
 
@@ -212,12 +256,12 @@ onMounted(async () => {
     </div>
 
     <!-- Skip link -->
-    <button class="skip-link" :disabled="saving" @click="skipSetup">
-      {{ saving ? 'Setting up…' : 'Skip setup' }}
+    <button class="skip-link" :disabled="busy" @click="skipSetup" title="Use the default locations and finish setup">
+      {{ loadingDefaults ? 'Loading defaults…' : saving ? 'Setting up…' : 'Skip setup' }}
     </button>
 
     <!-- Slide container -->
-    <div ref="slidesViewport" class="slides-viewport">
+    <div ref="slidesViewport" class="slides-viewport" :inert="busy || transitioning">
       <div
         class="slides-track"
         :style="{ transform: `translateX(-${currentStep * 100}%)`, transitionDuration }"
@@ -250,8 +294,8 @@ onMounted(async () => {
           :validation-error="validationError"
           :can-continue="canContinueSlide3"
           @next="next"
-          @update:copilot-home="copilotHome = $event"
-          @validate="validateDir"
+          @update:copilot-home="!busy && (copilotHome = $event)"
+          @validate="!busy && validateDir()"
           @browse="browseCopilotHome"
           @reset="resetSessionDir"
         />
@@ -263,7 +307,7 @@ onMounted(async () => {
           :db-path="dbPath"
           :default-tracepilot-home="defaultTracePilotHome"
           @next="next"
-          @update:tracepilot-home="tracepilotHome = $event"
+          @update:tracepilot-home="!busy && (tracepilotHome = $event)"
           @browse="browseDbPath"
           @reset="resetDbPath"
         />
@@ -277,10 +321,14 @@ onMounted(async () => {
           :session-count="sessionCount"
           :saving="saving"
           :setup-error="setupError"
-          @finish="finishSetup"
+          @finish="finishSetup()"
         />
       </div>
     </div>
+
+    <p v-if="setupError && currentStep !== 4" class="setup-error-message" role="alert">
+      Setup failed: {{ setupError }}. Please try again.
+    </p>
 
     <!-- Dot navigation -->
     <div class="dot-nav" role="tablist" aria-label="Setup progress">
@@ -292,6 +340,7 @@ onMounted(async () => {
         role="tab"
         :aria-selected="currentStep === i - 1"
         :aria-label="`Step ${i}`"
+        :disabled="!canGoTo(i - 1)"
         @click="goTo(i - 1)"
       />
     </div>
@@ -299,6 +348,19 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.setup-error-message {
+  z-index: 1;
+  max-width: 600px;
+  padding: 0 24px;
+  color: var(--danger-fg);
+  text-align: center;
+}
+
+.dot:disabled:not(.active) {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
 /* ── Overlay ──────────────────────────────────────────────── */
 .setup-overlay {
   position: fixed;

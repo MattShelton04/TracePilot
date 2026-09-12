@@ -79,9 +79,8 @@ export const usePreferencesStore = defineStore("preferences", () => {
 
     // Defensive nullish coalescing (??) is used for backwards compatibility
     // with existing configs that may not have these newer fields yet.
-    const rawWidth = config.ui.contentMaxWidth ?? DEFAULT_CONTENT_MAX_WIDTH;
-    // Clamp to 400px min, or allow 0 for "No limit"
-    ui.contentMaxWidth.value = rawWidth === 0 ? 0 : Math.max(400, rawWidth);
+    // The UI slice normalizes hydration and runtime writes identically.
+    ui.contentMaxWidth.value = config.ui.contentMaxWidth ?? DEFAULT_CONTENT_MAX_WIDTH;
 
     const rawScale = config.ui.uiScale ?? DEFAULT_UI_SCALE;
     // Normalize to 0.8x to 1.3x range to ensure UI usability

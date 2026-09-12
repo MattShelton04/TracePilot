@@ -13,8 +13,8 @@ export async function reindexSessionsFull(): Promise<[number, number]> {
   return invoke<[number, number]>("reindex_sessions_full");
 }
 
-/** Rebuild the search index from scratch. Returns [indexed, total]. */
-export async function rebuildSearchIndex(): Promise<[number, number]> {
+/** Rebuild search content. Returns indexed and unchanged (skipped) session counts. */
+export async function rebuildSearchIndex(): Promise<[indexed: number, skipped: number]> {
   return invoke<[number, number]>("rebuild_search_index");
 }
 
