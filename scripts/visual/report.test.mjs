@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { PNG } from "pngjs";
-import { captureExitCode } from "./capture-policy.mjs";
+import { captureExitCode, stableScreenshot } from "./capture-policy.mjs";
 import { cases, selectCases } from "./manifest.mjs";
 import { decodePng } from "./png.mjs";
 import { buildReport, escapeHtml, validatePng } from "./report.mjs";
@@ -26,6 +26,19 @@ test("head capture errors fail CI while unavailable historical cases remain repo
   }
   assert.equal(captureExitCode([]), 1);
   assert.throws(() => captureExitCode([captured], "typo"), /Invalid visual revision/);
+});
+
+test("captures require consecutive exact frames and unstable rendering is an explicit failure", async () => {
+  const frames = [Buffer.from([0]), Buffer.from([1]), Buffer.from([1])];
+  const result = await stableScreenshot(async () => frames.shift());
+  assert.equal(result.attempts, 3);
+  assert.deepEqual(result.png, Buffer.from([1]));
+  let calls = 0;
+  await assert.rejects(
+    stableScreenshot(async () => Buffer.from([calls++])),
+    /did not stabilize within 5/,
+  );
+  assert.equal(calls, 5);
 });
 
 test("two shards cover every case exactly once and reject invalid shards", () => {
