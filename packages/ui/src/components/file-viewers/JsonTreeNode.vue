@@ -69,7 +69,7 @@ const scalarClass = computed(
       <span class="json-node__summary">{{ summary }}</span>
     </button>
 
-    <div v-else class="json-node__row">
+    <div v-else class="json-node__row json-node__row--scalar">
       <span v-if="label !== undefined" class="json-node__key">{{ label }}</span>
       <span class="json-node__scalar" :class="scalarClass">{{ summary }}</span>
     </div>
@@ -97,6 +97,7 @@ const scalarClass = computed(
 
 <style scoped>
 .json-node {
+  min-width: 0;
   font-family: var(--font-mono);
   font-size: 0.75rem;
 }
@@ -108,10 +109,12 @@ const scalarClass = computed(
 }
 
 .json-node__row {
+  box-sizing: border-box;
   display: flex;
   align-items: flex-start;
   gap: 6px;
   min-height: 24px;
+  min-width: 0;
   width: 100%;
   padding: 3px 6px;
   border: 0;
@@ -125,18 +128,29 @@ const scalarClass = computed(
   cursor: pointer;
 }
 
+.json-node__row--scalar {
+  flex-wrap: wrap;
+}
+
 .json-node__row:hover {
   background: var(--canvas-subtle);
 }
 
 .json-node__chevron {
+  flex: 0 0 10px;
   width: 10px;
   color: var(--text-tertiary);
 }
 
 .json-node__key {
+  flex: 0 0 auto;
+  max-width: min(50%, 32ch);
   color: var(--syn-prop);
   overflow-wrap: anywhere;
+}
+
+.json-node__row--scalar .json-node__key {
+  max-width: min(100%, 32ch);
 }
 
 .json-node__key::after {
@@ -145,10 +159,15 @@ const scalarClass = computed(
 }
 
 .json-node__summary {
+  min-width: 0;
   color: var(--text-tertiary);
+  overflow-wrap: anywhere;
 }
 
 .json-node__scalar {
+  /* Preserve the key's intrinsic width; narrow rows put the value beneath it. */
+  flex: 1 1 16ch;
+  min-width: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
