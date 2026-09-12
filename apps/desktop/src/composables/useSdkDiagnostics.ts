@@ -37,6 +37,7 @@ export function useSdkDiagnostics(): UseSdkDiagnostics {
   }
 
   async function runDiagnostics(opts: { cliUrl?: string; logLevel?: string } = {}): Promise<void> {
+    if (diagRunning.value) return;
     diagLog.value = [];
     diagRunning.value = true;
 
@@ -54,10 +55,16 @@ export function useSdkDiagnostics(): UseSdkDiagnostics {
 
       diagAppend("Connecting to SDK...");
       try {
-        await sdk.connect({
+        const connected = await sdk.connect({
           cliUrl: opts.cliUrl || undefined,
           logLevel: opts.logLevel || undefined,
         });
+        if (!connected) {
+          diagAppend(
+            `❌ Connect failed: ${sdk.lastError || `Bridge state is ${sdk.connectionState}`}`,
+          );
+          return;
+        }
         diagAppend(
           `✅ Connected! State: ${sdk.connectionState}, Mode: ${sdk.connectionMode ?? "unknown"}`,
         );

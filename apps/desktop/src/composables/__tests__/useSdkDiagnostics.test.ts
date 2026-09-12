@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   sdk: {
     connectionState: "disconnected" as string,
     connectionMode: null as string | null,
+    lastError: null as string | null,
     sdkAvailable: true,
     cliVersion: null as string | null,
     activeSessions: 0,
@@ -15,7 +16,7 @@ const mocks = vi.hoisted(() => ({
     authStatus: null as null | { isAuthenticated: boolean; login: string | null },
     detectedServers: [] as Array<{ pid: number; address: string }>,
     detectUiServer: vi.fn(async () => [] as Array<{ pid: number; address: string }>),
-    connect: vi.fn(async () => {}),
+    connect: vi.fn(async () => true),
     fetchAuthStatus: vi.fn(async () => {}),
     fetchModels: vi.fn(async () => {}),
     fetchSessions: vi.fn(async () => {}),
@@ -58,6 +59,7 @@ describe("useSdkDiagnostics", () => {
     Object.assign(mocks.sdk, {
       connectionState: "disconnected",
       connectionMode: null,
+      lastError: null,
       sdkAvailable: true,
       cliVersion: null,
       activeSessions: 0,
@@ -79,6 +81,7 @@ describe("useSdkDiagnostics", () => {
     mocks.sdk.connect.mockImplementationOnce(async () => {
       mocks.sdk.connectionState = "connected";
       mocks.sdk.connectionMode = "tcp";
+      return true;
     });
     mocks.sdk.fetchAuthStatus.mockImplementationOnce(async () => {
       mocks.sdk.authStatus = { isAuthenticated: true, login: "octocat" };
@@ -102,6 +105,71 @@ describe("useSdkDiagnostics", () => {
     await diag.runDiagnostics();
     const joined = diag.diagLog.value.join("\n");
     expect(joined).toContain("Connect failed: boom");
+    expect(diag.diagRunning.value).toBe(false);
+  });
+
+  it("stops on the store's false connection result and allows a successful retry", async () => {
+    mocks.sdk.connect.mockImplementationOnce(async () => {
+      mocks.sdk.connectionState = "error";
+      mocks.sdk.lastError = "Connection refused at 127.0.0.1:65534";
+      return false;
+    });
+    const { diag } = mountWithComposable();
+    await diag.runDiagnostics({ cliUrl: "127.0.0.1:65534" });
+    const failedLog = diag.diagLog.value.join("\n");
+    expect(failedLog).toContain("Connect failed: Connection refused at 127.0.0.1:65534");
+    expect(failedLog).not.toContain("Connected!");
+    expect(failedLog).not.toContain("Diagnostics complete");
+    for (const action of [
+      mocks.sdk.fetchAuthStatus,
+      mocks.sdk.fetchModels,
+      mocks.sdk.fetchSessions,
+      mocks.sdk.refreshStatus,
+    ])
+      expect(action).not.toHaveBeenCalled();
+    expect(diag.diagRunning.value).toBe(false);
+
+    mocks.sdk.connect.mockImplementationOnce(async () => {
+      mocks.sdk.connectionState = "connected";
+      mocks.sdk.lastError = null;
+      return true;
+    });
+    await diag.runDiagnostics({ cliUrl: "127.0.0.1:7000" });
+    expect(diag.diagLog.value.join("\n")).toContain("Diagnostics complete");
+    expect(diag.diagLog.value.join("\n")).not.toContain("Connection refused");
+    expect(mocks.sdk.fetchModels).toHaveBeenCalledOnce();
+    expect(diag.diagRunning.value).toBe(false);
+  });
+
+  it("explains a false connection result even when the store has no error detail", async () => {
+    mocks.sdk.connect.mockResolvedValueOnce(false);
+    const { diag } = mountWithComposable();
+    await diag.runDiagnostics();
+    expect(diag.diagLog.value.join("\n")).toContain("Connect failed: Bridge state is disconnected");
+    expect(mocks.sdk.fetchAuthStatus).not.toHaveBeenCalled();
+  });
+
+  it("ignores duplicate runs while a probe is in flight without clearing its log", async () => {
+    let completeScan!: (servers: Array<{ pid: number; address: string }>) => void;
+    mocks.sdk.detectUiServer.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          completeScan = resolve;
+        }),
+    );
+    const { diag } = mountWithComposable();
+    const first = diag.runDiagnostics({ cliUrl: "127.0.0.1:7000" });
+    const firstLog = diag.diagLog.value;
+    await diag.runDiagnostics({ cliUrl: "127.0.0.1:8000" });
+    expect(mocks.sdk.detectUiServer).toHaveBeenCalledOnce();
+    expect(diag.diagLog.value).toBe(firstLog);
+    expect(diag.diagRunning.value).toBe(true);
+    completeScan([]);
+    await first;
+    expect(mocks.sdk.connect).toHaveBeenCalledExactlyOnceWith({
+      cliUrl: "127.0.0.1:7000",
+      logLevel: undefined,
+    });
     expect(diag.diagRunning.value).toBe(false);
   });
 
