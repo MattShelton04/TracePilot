@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ContentTypeStyle } from "@tracepilot/ui";
 import { formatDateMedium, formatRelativeTime } from "@tracepilot/ui";
+import { useId } from "vue";
 import type { SessionGroup } from "@/stores/search";
 import SearchResultExpandedDetails from "./SearchResultExpandedDetails.vue";
 
@@ -20,6 +21,8 @@ defineEmits<{
   "filter-by-session": [sessionId: string, sessionSummary: string | null];
   "toggle-expand": [resultId: number];
 }>();
+
+const groupId = useId();
 </script>
 
 <template>
@@ -30,11 +33,20 @@ defineEmits<{
       class="session-group"
       :style="{ animationDelay: `${Math.min(gIdx, 6) * 40}ms` }"
     >
-      <div class="session-group-header" @click="$emit('toggle-group-collapse', group.sessionId)">
-        <span class="session-group-chevron" :class="{ collapsed: collapsedGroups.has(group.sessionId) }">▾</span>
-        <div class="session-group-title">
-          {{ group.sessionSummary || group.sessionId.slice(0, 12) + '…' }}
-        </div>
+      <div class="session-group-header">
+        <button
+          type="button"
+          class="session-group-toggle"
+          :aria-expanded="!collapsedGroups.has(group.sessionId)"
+          :aria-controls="`${groupId}-${gIdx}`"
+          :aria-label="`${collapsedGroups.has(group.sessionId) ? 'Expand' : 'Collapse'} matches for ${group.sessionSummary || group.sessionId}`"
+          @click="$emit('toggle-group-collapse', group.sessionId)"
+        >
+          <span aria-hidden="true" class="session-group-chevron" :class="{ collapsed: collapsedGroups.has(group.sessionId) }">▾</span>
+          <span class="session-group-title">
+            {{ group.sessionSummary || group.sessionId.slice(0, 12) + '…' }}
+          </span>
+        </button>
         <div v-if="group.sessionRepository || group.sessionBranch" class="session-group-badges">
           <span v-if="group.sessionRepository" class="badge badge-accent badge-xxs">{{ group.sessionRepository }}</span>
           <span v-if="group.sessionBranch" class="badge badge-success badge-xxs">{{ group.sessionBranch }}</span>
@@ -42,10 +54,11 @@ defineEmits<{
         <div class="session-group-actions">
           <span class="session-group-count">{{ group.results.length }}{{ hasMore ? '+' : '' }} match{{ group.results.length !== 1 ? 'es' : '' }}</span>
           <button
+            type="button"
             class="session-group-filter-btn"
             title="Filter search to this session"
             aria-label="Filter search to this session"
-            @click.stop="$emit('filter-by-session', group.sessionId, group.sessionSummary)"
+            @click="$emit('filter-by-session', group.sessionId, group.sessionSummary)"
           >
             <svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="12" height="12">
               <path d="M2 4h12M4 8h8M6 12h4" />
@@ -56,7 +69,6 @@ defineEmits<{
             class="session-group-goto-btn"
             title="Go to session"
             aria-label="Go to session"
-            @click.stop
           >
             <svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="12" height="12">
               <path d="M6 3l5 5-5 5" />
@@ -64,7 +76,8 @@ defineEmits<{
           </router-link>
         </div>
       </div>
-      <div v-if="!collapsedGroups.has(group.sessionId)" class="session-group-results">
+      <div :id="`${groupId}-${gIdx}`" v-show="!collapsedGroups.has(group.sessionId)" class="session-group-results">
+        <template v-if="!collapsedGroups.has(group.sessionId)">
         <div
           v-for="result in group.results"
           :key="result.id"
@@ -111,6 +124,7 @@ defineEmits<{
             />
           </div>
         </div>
+        </template>
       </div>
     </div>
   </div>
@@ -122,9 +136,11 @@ defineEmits<{
   display: flex;
   flex-direction: column;
   gap: 16px;
+  min-width: 0;
 }
 
 .session-group {
+  min-width: 0;
   background: var(--canvas-default);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
@@ -133,21 +149,44 @@ defineEmits<{
 }
 
 .session-group-header {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
   gap: 8px;
   padding: 12px 16px;
   background: var(--canvas-subtle);
   border-bottom: 1px solid var(--border-default);
-  cursor: pointer;
-  transition: background var(--transition-fast);
 }
 
-.session-group-header:hover {
+.session-group-toggle {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.session-group-toggle:hover {
   background: var(--state-hover-overlay);
 }
 
+.session-group-toggle:focus-visible,
+.session-group-filter-btn:focus-visible,
+.session-group-goto-btn:focus-visible {
+  outline: 2px solid var(--accent-fg);
+  outline-offset: 2px;
+}
+
 .session-group-chevron {
+  flex-shrink: 0;
+  margin-top: 4px;
   font-size: 0.625rem;
   color: var(--text-tertiary);
   transition: transform var(--transition-fast);
@@ -158,17 +197,30 @@ defineEmits<{
 }
 
 .session-group-title {
+  min-width: 0;
   font-size: 0.8125rem;
   font-weight: 600;
   color: var(--text-primary);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .session-group-badges {
   display: flex;
   gap: 4px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.session-group-badges .badge {
+  display: inline-block;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .session-group-actions {
+  grid-column: 2;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -178,9 +230,11 @@ defineEmits<{
 .session-group-count {
   font-size: 0.6875rem;
   color: var(--text-tertiary);
+  white-space: nowrap;
 }
 
 .session-group-filter-btn {
+  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -201,6 +255,7 @@ defineEmits<{
 }
 
 .session-group-goto-btn {
+  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
