@@ -1,144 +1,34 @@
-/**
- * TracePilot Playwright CDP Connection Helper
- *
- * Reusable module for connecting Playwright to a running TracePilot instance
- * via Chrome DevTools Protocol. Handles port discovery, connection, readiness
- * polling, and provides a clean API for automation scripts and skills.
- *
- * Usage:
- *   import { connect, collectTelemetry } from './connect.mjs';
- *   const { browser, page } = await connect();
- *   // ... interact with the app ...
- *   const telemetry = await collectTelemetry(page);
- */
-
+/** Optional repeatable diagnostics. Interactive exploration uses playwright-cli. */
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { chromium } from "playwright-core";
+import { connectDesktop } from "../automation/ready.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const PORT_FILE = resolve(__dirname, ".tracepilot-cdp.port");
+const STATE_FILE = resolve(__dirname, "../../.tracepilot/automation/desktop.json");
 
-// ─── Port Discovery ──────────────────────────────────────────────────────────
-
-/**
- * Discover the CDP port, checking in order:
- * 1. Explicit port argument
- * 2. .tracepilot-cdp.port file (written by launch.ps1)
- * 3. Scan ports 9222-9232 for an active CDP endpoint
- */
+/** Use an explicit endpoint or this checkout's recorded one; never scan browsers. */
 export async function discoverPort(explicitPort) {
-  if (explicitPort) return explicitPort;
-
-  // Check port file
-  if (existsSync(PORT_FILE)) {
-    const port = parseInt(readFileSync(PORT_FILE, "utf-8").trim(), 10);
-    if (port && (await isPortActive(port))) return port;
+  if (explicitPort !== undefined) {
+    if (!Number.isInteger(explicitPort) || explicitPort < 1 || explicitPort > 65535) {
+      throw new Error("CDP port must be an integer between 1 and 65535.");
+    }
+    return explicitPort;
   }
-
-  // Scan range
-  for (let p = 9222; p <= 9232; p++) {
-    if (await isPortActive(p)) return p;
+  if (!existsSync(STATE_FILE)) throw new Error("No tracked desktop. Run pnpm app:start.");
+  const state = JSON.parse(readFileSync(STATE_FILE, "utf8"));
+  const endpoint = new URL(state.endpoint);
+  if (endpoint.protocol !== "http:" || endpoint.hostname !== "127.0.0.1" || !endpoint.port) {
+    throw new Error("Invalid recorded CDP endpoint. Run pnpm app:stop, then pnpm app:start.");
   }
-
-  throw new Error(
-    "No active TracePilot CDP endpoint found.\n" +
-      "Start the app with: .\\scripts\\e2e\\launch.ps1",
-  );
+  return Number(endpoint.port);
 }
 
-async function isPortActive(port) {
-  try {
-    const resp = await fetch(`http://127.0.0.1:${port}/json/version`, {
-      signal: AbortSignal.timeout(2000),
-    });
-    return resp.ok;
-  } catch {
-    return false;
-  }
-}
-
-// ─── Connection ──────────────────────────────────────────────────────────────
-
-/**
- * Connect to a running TracePilot instance via CDP.
- *
- * @param {Object} options
- * @param {number} [options.port] - Explicit CDP port (auto-discovered if omitted)
- * @param {number} [options.readyTimeout=30000] - Max ms to wait for app readiness
- * @returns {{ browser, context, page, port }}
- */
 export async function connect(options = {}) {
   const port = await discoverPort(options.port);
-  console.log(`[connect] Connecting to CDP on 127.0.0.1:${port}...`);
-
-  const browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`);
-  const context = browser.contexts()[0];
-  const page = context.pages()[0];
-
-  if (!page) {
-    throw new Error("No page found in the connected browser context.");
-  }
-
-  console.log(`[connect] Connected. Waiting for app readiness...`);
-  await waitForReady(page, options.readyTimeout ?? 30000);
-
-  // Validate this is actually TracePilot (not another Chromium CDP target)
-  const isTracePilot = await page.evaluate(
-    () => document.title === "TracePilot" || "__TRACEPILOT_PERF__" in window,
-  );
-  if (!isTracePilot) {
-    await browser.close();
-    throw new Error(
-      "Connected CDP target is not TracePilot. " + "Another Chromium app may be using this port.",
-    );
-  }
-
-  console.log(`[connect] TracePilot is ready.`);
-
-  return { browser, context, page, port };
-}
-
-/**
- * Wait for the TracePilot app to be fully loaded.
- * Checks: Vue app mounted (#root), __TRACEPILOT_PERF__ available,
- * __TAURI_INTERNALS__ present, and optional __TRACEPILOT_READY__ flag.
- */
-async function waitForReady(page, timeout) {
-  const start = Date.now();
-  const checks = {
-    vueMount: false,
-    perfMonitor: false,
-    tauriInternals: false,
-  };
-
-  while (Date.now() - start < timeout) {
-    try {
-      const status = await page.evaluate(() => ({
-        vueMount: !!document.querySelector("#root")?.children?.length,
-        perfMonitor: typeof window.__TRACEPILOT_PERF__ !== "undefined",
-        tauriInternals: "__TAURI_INTERNALS__" in window,
-        appReady: window.__TRACEPILOT_READY__ === true,
-      }));
-
-      checks.vueMount = status.vueMount;
-      checks.perfMonitor = status.perfMonitor;
-      checks.tauriInternals = status.tauriInternals;
-
-      // Ready when Vue is mounted AND either __TRACEPILOT_READY__ is set
-      // or perf monitor + tauri internals are available (backward compat)
-      if (status.vueMount && (status.appReady || (status.perfMonitor && status.tauriInternals))) {
-        return;
-      }
-    } catch {
-      // page.evaluate may fail during navigation
-    }
-
-    await new Promise((r) => setTimeout(r, 500));
-  }
-
-  throw new Error(`App not ready within ${timeout}ms. Status: ${JSON.stringify(checks)}`);
+  const connection = await connectDesktop(`http://127.0.0.1:${port}`, options.readyTimeout);
+  console.log(`[connect] Real TracePilot backend verified on port ${port}.`);
+  return { ...connection, port };
 }
 
 // ─── Telemetry Collection ────────────────────────────────────────────────────

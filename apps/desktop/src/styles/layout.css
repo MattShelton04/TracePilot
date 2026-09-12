@@ -29,6 +29,7 @@
 }
 .sidebar-brand {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 10px;
   padding: 16px 16px 14px;
@@ -87,10 +88,18 @@
 }
 .sidebar-nav {
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   padding: 4px 8px;
   display: flex;
   flex-direction: column;
   gap: 1px;
+}
+/* Keep navigation reachable in short desktop windows without scrolling the brand/footer. */
+@media (min-width: 901px) {
+  .sidebar-nav > * {
+    flex-shrink: 0;
+  }
 }
 .sidebar-nav-item {
   display: flex;
@@ -204,6 +213,7 @@
 }
 .sidebar-footer-area {
   margin-top: auto;
+  flex-shrink: 0;
 }
 .sidebar-settings-separator {
   height: 1px;
@@ -389,6 +399,7 @@
   padding: 0;
   height: 36px;
   width: 36px;
+  max-width: 100%;
   margin: 0 auto;
   gap: 0;
 }

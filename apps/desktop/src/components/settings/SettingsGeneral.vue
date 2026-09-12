@@ -47,7 +47,8 @@ function updateSessionCacheSize(value: unknown) {
           <div class="setting-description">
             Filter out sessions with no conversation turns (e.g., auto-created sessions).
             <span v-if="sessionsStore.emptySessionCount > 0" class="empty-count-hint">
-              {{ sessionsStore.emptySessionCount }} empty session{{ sessionsStore.emptySessionCount !== 1 ? 's' : '' }} currently filtered out
+              {{ sessionsStore.emptySessionCount }} empty session{{ sessionsStore.emptySessionCount !== 1 ? 's' : '' }}
+              {{ preferences.hideEmptySessions ? 'currently hidden' : 'currently visible' }}
             </span>
           </div>
         </div>
@@ -99,6 +100,7 @@ function updateSessionCacheSize(value: unknown) {
           @update:model-value="preferences.cliCommand = String($event)"
           type="text"
           :placeholder="DEFAULT_CLI_COMMAND"
+          aria-label="CLI Command"
           class="input-medium"
         />
       </div>

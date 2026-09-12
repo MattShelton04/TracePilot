@@ -19,6 +19,11 @@
   "scripts": {
     "start": "pnpm install && pnpm tauri dev --no-watch",
     "dev": "pnpm --filter @tracepilot/desktop dev",
+    "app:start": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/automation/app.ps1 start",
+    "app:ui": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/automation/app.ps1 start -Mode ui",
+    "app:stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/automation/app.ps1 stop",
+    "app:status": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/automation/app.ps1 status",
+    "test:automation": "node --test scripts/automation/*.test.mjs",
     "build": "pnpm --filter @tracepilot/desktop build",
     "build:cli": "pnpm --filter @tracepilot/cli build",
     "cli": "tsx apps/cli/src/index.ts",
@@ -50,6 +55,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.4.7",
     "@fontsource-variable/inter": "catalog:",
+    "@playwright/cli": "0.1.19",
     "playwright-core": "^1.58.2",
     "rimraf": "^6.1.3",
     "tsx": "catalog:"

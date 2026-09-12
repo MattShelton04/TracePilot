@@ -9,6 +9,7 @@ This index lists current user/developer documentation. Stale generated tech-debt
 | Document | Description |
 |----------|-------------|
 | [Testing Guide](testing.md) | Canonical testing layers, commands, VRT/E2E scope, and caveats. |
+| [Running-App Automation](app-automation.md) | Playwright agent CLI for the real Tauri app and frontend-only UI server. |
 | [Architecture Overview](architecture/overview.md) | Crate/package structure, data flow, and major boundaries. |
 | [ADRs](adr/README.md) | Accepted architecture decisions and decision-writing conventions. |
 | [Data Integration](data-integration-guide.md) | How session data flows from disk to the UI. |
