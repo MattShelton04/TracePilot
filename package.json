@@ -23,6 +23,7 @@
     "app:ui": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/automation/app.ps1 start -Mode ui",
     "app:stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/automation/app.ps1 stop",
     "app:status": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/automation/app.ps1 status",
+    "test:automation": "node --test scripts/automation/*.test.mjs",
     "build": "pnpm --filter @tracepilot/desktop build",
     "build:cli": "pnpm --filter @tracepilot/cli build",
     "cli": "tsx apps/cli/src/index.ts",

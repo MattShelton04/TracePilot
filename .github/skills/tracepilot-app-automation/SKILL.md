@@ -16,7 +16,7 @@ Run commands from the repository root after `pnpm install`.
 pnpm app:start
 # Run the attach command printed by startup (the port may differ):
 pnpm exec playwright-cli -s=tracepilot-desktop attach --cdp=http://127.0.0.1:9222
-pnpm exec playwright-cli -s=tracepilot-desktop snapshot
+pnpm exec playwright-cli -s=tracepilot-desktop snapshot --filename=.playwright-cli/current.yml
 ```
 
 Startup builds/runs Tauri with frontend HMR, waits for the rendered app and a
@@ -39,7 +39,7 @@ snapshot; the following `e12`/`e24` are illustrative, not fixed selectors:
 pnpm exec playwright-cli -s=tracepilot-desktop click e12
 pnpm exec playwright-cli -s=tracepilot-desktop fill e24 'search terms'
 pnpm exec playwright-cli -s=tracepilot-desktop press Enter
-pnpm exec playwright-cli -s=tracepilot-desktop snapshot
+pnpm exec playwright-cli -s=tracepilot-desktop snapshot --filename=.playwright-cli/current.yml
 pnpm exec playwright-cli -s=tracepilot-desktop screenshot --filename=.playwright-cli/before.png
 pnpm exec playwright-cli -s=tracepilot-desktop console error
 ```
@@ -47,6 +47,10 @@ pnpm exec playwright-cli -s=tracepilot-desktop console error
 Open screenshots with the agent's image-viewing tool: writing a file is not
 visual verification. For before/after evidence, keep the route, viewport,
 theme, data, and interaction state consistent.
+Focus on desktop sizes: 1440×960 (default), 960×640 (minimum), and 2560×1440
+(larger workspace). These are CSS viewport sizes; monitor DPI scaling can differ.
+Use `find 'text'` for focused snapshot excerpts; saving snapshots to a file avoids
+flooding the conversation with large session lists or search results.
 
 Prefer visible controls and their accessible names. Re-snapshot after navigation
 or layout changes. For a durable assertion or data-dependent wait, the CLI also

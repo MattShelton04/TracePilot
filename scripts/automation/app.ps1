@@ -32,6 +32,9 @@ function Stop-OwnedProcesses($State) {
         if ($owned) {
             # PID + creation time + executable must match before stopping its tree.
             & taskkill.exe /PID $owned.Id /T /F 2>&1 | Out-Null
+            if ($LASTEXITCODE -ne 0 -and (Get-OwnedProcess $record)) {
+                throw "Could not stop owned PID $($owned.Id). State was retained for retry."
+            }
         }
     }
 }
@@ -66,7 +69,7 @@ function Show-Connection($State) {
         Write-Host "Frontend only; client mock data, no Rust IPC."
         Write-Host "pnpm exec playwright-cli -s=$session open $($State.url) --browser=msedge"
     }
-    Write-Host "pnpm exec playwright-cli -s=$session snapshot"
+    Write-Host "pnpm exec playwright-cli -s=$session snapshot --filename=.playwright-cli/current.yml"
 }
 
 # Serialize start/stop/status for this mode, including slow first builds.
@@ -107,6 +110,7 @@ try {
     $state = @{ mode = $Mode; url = "http://127.0.0.1:$uiPort"; endpoint = "http://127.0.0.1:$cdpPort"; processes = @() }
     $savedArgs = $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS
     $savedProfile = $env:WEBVIEW2_USER_DATA_FOLDER
+    Write-Host "Starting $Mode. Logs: $runtimeDir"
     try {
         Start-Node (Join-Path $repoRoot 'apps/desktop/node_modules/vite/bin/vite.js') @('--host', '127.0.0.1', '--port', $uiPort, '--strictPort') 'vite'
         if ($Mode -eq 'desktop') {
@@ -117,6 +121,7 @@ try {
             Start-Node (Join-Path $repoRoot 'apps/desktop/node_modules/@tauri-apps/cli/tauri.js') @('dev', '--config', ('"' + $configPath + '"')) 'tauri'
         }
         $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+        $nextProgress = [DateTime]::UtcNow.AddSeconds(15)
         $ready = $false
         do {
             foreach ($record in $state.processes) {
@@ -127,6 +132,10 @@ try {
                 $response = Invoke-WebRequest -UseBasicParsing -Uri $probe -TimeoutSec 2
                 $ready = $response.StatusCode -eq 200
             } catch { }
+            if (-not $ready -and [DateTime]::UtcNow -ge $nextProgress) {
+                Write-Host "Waiting for $Mode startup. Logs: $runtimeDir"
+                $nextProgress = [DateTime]::UtcNow.AddSeconds(15)
+            }
             if (-not $ready) { Start-Sleep -Seconds 2 }
         } until ($ready -or [DateTime]::UtcNow -ge $deadline)
         if (-not $ready) { throw "Startup timed out after ${TimeoutSeconds}s. Logs: $runtimeDir" }

@@ -11,11 +11,12 @@ tooling, scripts, and CI status for each.
 | Unit / integration (JS/TS) | Vitest | `apps/**`, `packages/**` (`*.spec.ts`, `*.test.ts`) | ✅ `pnpm test` |
 | Unit / integration (Rust) | `cargo test` | `crates/**` | ✅ `cargo test` |
 | Component visual regression | Playwright CT | `packages/ui/src/__vrt__/*.vrt.spec.ts` | ❌ on-demand only |
-| Desktop end-to-end (real Tauri app) | Playwright-over-CDP + canonical `scripts/e2e` harness | `scripts/e2e/` | ❌ on-demand only |
+| Desktop end-to-end (real Tauri app) | Playwright agent CLI + optional CDP diagnostics | `scripts/automation/`, `scripts/e2e/` | ❌ on-demand only |
 
 The JS/TS and Rust unit suites are the primary regression gate. VRT and E2E
-are opt-in — they require extra tooling (Chromium download, a live Tauri
-build, a WebView2 runtime) and are not wired into CI today.
+are opt-in and are not wired into CI today. VRT needs a Chromium download;
+desktop automation attaches to the installed WebView2 runtime and needs a live
+Tauri build, with no separate browser download.
 
 ## 1. Unit & integration (Vitest)
 
@@ -87,10 +88,18 @@ pnpm app:stop
 an explicit `--port`; it verifies the native target and disconnects on failure.
 `launch.ps1` and `stop.ps1` are compatibility shims for the new lifecycle owner.
 The smoke flow checks sessions, detail, search, analytics, settings and timing
-budgets. It exits non-zero on assertion/budget failures and writes its report
+budgets. It exits non-zero on assertion failures and reports budget overruns as
+diagnostic warnings. It also verifies keyboard access to Settings and visibility
+of the sidebar brand/footer at 1440×960, 960×640, and 2560×1440. It writes its report
 and screenshots under the ignored `scripts/e2e/screenshots/` directory.
 README capture writes candidates under `screenshots/readme-candidates/` and
 selected product images under `docs/images/`.
+
+`pnpm test:automation` verifies lifecycle reuse, process-tree cleanup, stale PID
+protection, startup timeouts, and occupied ports using isolated local fixtures
+(Windows; skipped elsewhere). Readiness tests use installed Edge to reject mock
+pages and failed IPC, and accept setup without a database. These tests do not read
+the user's sessions or build Rust.
 
 Use CLI commands for investigations instead of adding one-off scripts. For
 regressions, extend existing component/store tests, `smoke-test.mjs`, or

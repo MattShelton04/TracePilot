@@ -414,15 +414,16 @@ cd apps/desktop && npx vue-tsc --noEmit
 
 ### Testing via CDP (Developer)
 
-You can also test against the running Tauri webview using Chrome DevTools Protocol:
+Use the [running-app automation workflow](app-automation.md) to inspect the real
+Tauri webview with the upstream Playwright agent CLI:
 
-```bash
-# Start app with CDP enabled
-$env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = "--remote-debugging-port=9222"
-pnpm tauri dev
-
-# CDP endpoint: http://localhost:9222/json
-# Connect via WebSocket to evaluate JS in the actual Tauri context
+```powershell
+pnpm app:start
+# Use the attach command printed by startup; the port may differ.
+pnpm exec playwright-cli -s=tracepilot-desktop attach --cdp=http://127.0.0.1:9222
+pnpm exec playwright-cli -s=tracepilot-desktop snapshot --filename=.playwright-cli/current.yml
+pnpm exec playwright-cli -s=tracepilot-desktop detach
+pnpm app:stop
 ```
 
 ## Troubleshooting

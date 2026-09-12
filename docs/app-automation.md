@@ -19,6 +19,8 @@ Read the returned snapshot file, click an observed element reference, and inspec
 the resulting snapshot or screenshot. Connections persist between commands.
 The [agent skill](../.github/skills/tracepilot-app-automation/SKILL.md) documents
 the complete short workflow. No handwritten script is needed for ordinary use.
+The [validation report](reports/automation-skill-validation.md) records the
+real-app proof of concept and before/after UI captures.
 
 | Task | Command |
 | --- | --- |
