@@ -1,6 +1,8 @@
 // Loaded ONLY by the visual harness's Vite transform. Not shipped in the app.
 // Existing typed browser fixtures supply sessions, turns, metrics and charts.
 // These additions cover domains whose normal browser mode has no fallback.
+import { configureVisualFeatures } from "./feature-policy.mjs";
+
 const skill = {
   name: "visual-review",
   description: "Review a change for clarity, correctness, and useful tests.",
@@ -183,7 +185,7 @@ export async function visualInvoke(cmd, args, fallback) {
       result.ui.autoRefreshEnabled = false;
       result.ui.checkForUpdates = false;
       result.ui.uiScale = 1;
-      for (const key of Object.keys(result.features)) result.features[key] = true;
+      configureVisualFeatures(result, window.__TRACEPILOT_VISUAL_FEATURES__ ?? []);
     }
     return result;
   } catch (error) {

@@ -77,7 +77,7 @@ test("reports changed captures, missing bases, failures and escaped artifact dia
         JSON.stringify({
           schema: 1,
           cases: [
-            { id: "sessions", status: "captured" },
+            { id: "sessions", status: "captured", state: "historical fixture state" },
             { id: "analytics", status: "captured" },
             { id: "tools", status: "captured" },
             { id: "future-route", route: '/new/"<script>', state: "new view", status: "captured" },
@@ -92,6 +92,7 @@ test("reports changed captures, missing bases, failures and escaped artifact dia
     await writeFile(join(head, "future-route.png"), png());
     const report = await buildReport({ baseDir: base, headDir: head, output });
     assert.equal(report.rows.find((x) => x.id === "sessions").change, "changed");
+    assert.equal(report.rows.find((x) => x.id === "sessions").state, "historical fixture state");
     assert.equal(report.rows.find((x) => x.id === "search").change, "incomplete");
     assert.equal(report.rows.find((x) => x.id === "analytics").change, "unchanged");
     assert.equal(report.rows.find((x) => x.id === "tools").change, "base unavailable");
@@ -105,6 +106,38 @@ test("reports changed captures, missing bases, failures and escaped artifact dia
     assert.equal(html.includes('<script>alert("artifact")'), false);
     assert.ok(html.includes("synthetic backend fixtures"));
     assert.ok(html.includes("/new/&quot;&lt;script&gt;"));
+  } finally {
+    await rm(temp, { recursive: true, force: true });
+  }
+});
+
+test("combined artifact inventories cannot expand beyond the trusted 128-view bound", async () => {
+  const temp = await mkdtemp(join(tmpdir(), "tracepilot-visual-limits-"));
+  try {
+    const base = join(temp, "base"),
+      head = join(temp, "head"),
+      output = join(temp, "report");
+    await mkdir(base);
+    await mkdir(head);
+    const metadata = (prefix, count) =>
+      JSON.stringify({
+        schema: 1,
+        cases: Array.from({ length: count }, (_, index) => ({
+          id: `${prefix}-${index}`,
+          status: "captured",
+        })),
+      });
+    await writeFile(join(base, "capture-1-2.json"), metadata("base", 60));
+    await writeFile(join(head, "capture-1-2.json"), metadata("head", 60));
+    await assert.rejects(
+      buildReport({ baseDir: base, headDir: head, output }),
+      /Combined capture inventory exceeds limit/,
+    );
+    await writeFile(join(base, "capture-2-2.json"), metadata("extra", 70));
+    await assert.rejects(
+      buildReport({ baseDir: base, headDir: head, output }),
+      /Capture inventory exceeds limit/,
+    );
   } finally {
     await rm(temp, { recursive: true, force: true });
   }

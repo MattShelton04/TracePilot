@@ -1,14 +1,10 @@
 import { createHash } from "node:crypto";
 import { copyFile, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { escapeHtml, renderGallery } from "./gallery-template.mjs";
 import { cases } from "./manifest.mjs";
 
-export function escapeHtml(value) {
-  return String(value).replace(
-    /[&<>"']/g,
-    (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char],
-  );
-}
+export { escapeHtml };
 
 export function validatePng(bytes) {
   return (
@@ -32,6 +28,8 @@ async function readSide(directory) {
       throw new Error("Unsupported capture metadata");
     for (const row of data.cases) {
       if (!row || typeof row.id !== "string" || !/^[a-z][a-z0-9-]{0,63}$/.test(row.id)) continue;
+      if (!records.has(row.id) && records.size >= 128)
+        throw new Error("Capture inventory exceeds limit");
       records.set(row.id, {
         route: typeof row.route === "string" ? row.route.slice(0, 300) : "",
         state: typeof row.state === "string" ? row.state.slice(0, 300) : "",
@@ -40,7 +38,9 @@ async function readSide(directory) {
           ? row.errors.slice(0, 3).map((x) => String(x).slice(0, 500))
           : [],
         missing: Array.isArray(row.missingFixtures)
-          ? row.missingFixtures.slice(0, 15).map((x) => String(x.command).slice(0, 80))
+          ? row.missingFixtures
+              .slice(0, 15)
+              .map((x) => String(x?.command ?? "Unknown command").slice(0, 80))
           : [],
       });
     }
@@ -53,6 +53,7 @@ export async function buildReport({
   headDir,
   output,
   title = "Desktop visual comparison",
+  metadata = {},
 }) {
   await mkdir(output, { recursive: true });
   const baseRows = await readSide(baseDir);
@@ -61,11 +62,23 @@ export async function buildReport({
   // reaches the trusted default branch. Only bounded text/IDs cross this boundary.
   const inventory = new Map(cases.map((item) => [item.id, item]));
   for (const [id, record] of [...baseRows, ...headRows]) {
-    if (!inventory.has(id)) inventory.set(id, { id, route: record.route, state: record.state });
+    if (!inventory.has(id)) {
+      if (inventory.size >= 128) throw new Error("Combined capture inventory exceeds limit");
+      inventory.set(id, { id, route: record.route, state: record.state });
+    }
   }
   const rows = [];
   for (const item of inventory.values()) {
-    const row = { ...item, base: baseRows.get(item.id), head: headRows.get(item.id) };
+    const base = baseRows.get(item.id),
+      head = headRows.get(item.id);
+    // Describe the captured fixture state, including historical feature defaults.
+    const row = {
+      ...item,
+      route: head?.route || base?.route || item.route,
+      state: head?.state || base?.state || item.state,
+      base,
+      head,
+    };
     for (const [side, directory] of [
       ["base", baseDir],
       ["head", headDir],
@@ -94,29 +107,7 @@ export async function buildReport({
     baseUnavailable: count("base unavailable"),
     total: rows.length,
   };
-  const cards = rows
-    .map((row) => {
-      const images = ["base", "head"]
-        .map(
-          (side) =>
-            `<figure><figcaption>${side === "base" ? "Before / base" : "After / head"}</figcaption>${row[`${side}Hash`] ? `<a href="${side}-${row.id}.png"><img src="${side}-${row.id}.png" width="1440" height="960" loading="lazy" alt="${side} ${escapeHtml(row.id)}"></a>` : "<p>Capture unavailable</p>"}</figure>`,
-        )
-        .join("");
-      const issues = ["base", "head"]
-        .flatMap((side) =>
-          [
-            ...(row[side]?.errors ?? []),
-            ...(row[side]?.missing ?? []).map((cmd) => `Missing fixture: ${cmd}`),
-          ].map((message) => `<li>${side}: ${escapeHtml(message)}</li>`),
-        )
-        .join("");
-      return `<article data-status="${row.change}" data-name="${row.id}"><h2>${row.id} <small>${row.change}</small></h2><p>${escapeHtml(row.route)} · ${escapeHtml(row.state)}</p><div class="pair">${images}</div>${issues ? `<details><summary>Coverage limitations</summary><ul>${issues}</ul></details>` : ""}</article>`;
-    })
-    .join("\n");
-  const html = `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'"><title>${escapeHtml(title)}</title>
-<style>body{font:16px system-ui;margin:24px;background:#101217;color:#e4e7ef}h1{margin-bottom:8px}header{position:sticky;top:0;background:#101217;padding:12px 0;z-index:1}p{color:#b2bacb}input{padding:8px;font:inherit}label{margin-left:16px}article{padding:20px;margin:20px 0;border:1px solid #434b5c;border-radius:12px}h2{font-size:20px}small{font-size:14px;color:#c2c9d5}a{color:#b9a6ff}.pair{display:grid;grid-template-columns:1fr 1fr;gap:12px}figure{margin:0;min-width:0}figcaption{margin-bottom:8px}img{width:100%;height:auto}li{overflow-wrap:anywhere}article[hidden]{display:none}@media(max-width:900px){.pair{grid-template-columns:1fr}}</style>
-<header><h1>${escapeHtml(title)}</h1><p>Actual TracePilot frontend · synthetic backend fixtures · Chromium · 1440×960 CSS px · dark · 100% scale. This does not test Rust or native desktop integration.</p><p>${summary.changed} changed · ${summary.unchanged} unchanged · ${summary.baseUnavailable} base unavailable · ${summary.incomplete} incomplete. Exact PNG comparison on matching runners; visual changes require human review.</p><input id="search" aria-label="Filter views" placeholder="Filter views"><label><input id="changes" type="checkbox"> Changes and limitations only</label></header>${cards}
-<script>const search=document.querySelector('#search'),changes=document.querySelector('#changes');function filter(){for(const card of document.querySelectorAll('article'))card.hidden=!card.dataset.name.includes(search.value.toLowerCase())||(changes.checked&&card.dataset.status==='unchanged')}search.addEventListener('input',filter);changes.addEventListener('change',filter);</script></html>`;
+  const html = await renderGallery({ title, rows, summary, metadata });
   await writeFile(join(output, "index.html"), html);
   await writeFile(join(output, "summary.json"), JSON.stringify(summary, null, 2));
   return { rows, summary };

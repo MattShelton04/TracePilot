@@ -90,6 +90,9 @@ try {
       if (message.type() === "error") errors.push(message.text().slice(0, 300));
     });
     await page.clock.setFixedTime(new Date(fixedTime));
+    await page.addInitScript((features) => {
+      window.__TRACEPILOT_VISUAL_FEATURES__ = features;
+    }, item.features ?? []);
     await page.addInitScript(() => {
       localStorage.setItem("tracepilot-theme", "dark");
       localStorage.setItem("tracepilot-last-seen-version", "999.0.0");
@@ -103,6 +106,7 @@ try {
       id: item.id,
       route: item.route,
       state: item.state,
+      features: item.features ?? [],
       status: "captured",
       errors,
     };

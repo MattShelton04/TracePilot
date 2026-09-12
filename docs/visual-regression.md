@@ -7,8 +7,12 @@ populated search, a selected Explorer file, a completed session comparison,
 a populated Markdown export preview, and a second Settings position.
 The [case manifest](../scripts/visual/manifest.mjs)
 is the inventory; its state labels identify experimental views, pickers, and
-disconnected integrations. A route inventory test fails when a named route is
-added without a case.
+disconnected integrations. Core views keep Replay, SDK and Alerts off. Other
+experimental features are also off except when a case explicitly lists its
+required `features`; those cases are labelled **Experimental: explicitly
+enabled**. Both revisions receive the same policy from
+[`feature-policy.mjs`](../scripts/visual/feature-policy.mjs). A route inventory
+test fails when a named route is added without a case.
 
 This supplements [native app automation](app-automation.md). It does not run
 Rust, launch agents, make network requests, access user data, test native
@@ -46,9 +50,11 @@ is needed. The publisher installs no dependencies and consumes no PR cache.
 Concurrency cancels superseded capture runs; publication is serialized.
 Publication queues pending reports so an unrelated PR cannot replace a waiting report.
 On the development Windows/Edge host, repeated warmed single-shard 33-view captures
-took 39–41 seconds, excluding dependency/browser installation. Two shards are
-an initial wall-time tradeoff; use uploaded capture `durationMs` values and
-Actions job timings to reassess runner overhead after the first Linux runs.
+took 39–41 seconds, excluding dependency/browser installation. The first hosted
+Ubuntu run completed in approximately 74 seconds including setup and uploads;
+its four capture shards took 18.301–23.960 seconds each. These are one-run
+observations, not a performance guarantee; retain both shard and job timings
+when reassessing the four-runner tradeoff.
 
 Each capture waits for fixture requests to settle, the route's visible ready
 element, optional command results, fonts, and Vue/browser rendering. Date and
@@ -61,9 +67,36 @@ without masking product regions.
 ## Gallery and comments
 
 The separate **Desktop Visual Report** workflow runs trusted default-branch code
-after capture completion. It generates a standalone, searchable gallery with
-side-by-side images and a changes/limitations filter. New case IDs introduced by
-the PR are included before their manifest reaches `main`.
+after capture completion. It generates a standalone gallery with searchable view
+navigation and a changes/limitations filter. New case IDs introduced by the PR
+are included before their manifest reaches `main`. Captured route/state labels
+are preserved, so an older report does not silently acquire newer fixture labels.
+
+The viewer has five comparison modes:
+
+- **Side by side** fits both complete desktop screenshots.
+- **Before / after** switches images in the same position.
+- **Wipe** uses a draggable divider, a range control, or divider keyboard keys:
+  Left/Right move 1%, Shift moves 10%, and Home/End select either edge.
+- **Overlay** adjusts the after image's opacity.
+- **Difference** highlights changed pixels in pink and outlines changed regions.
+  Its exact pixel count, percentage and bounding box are calculated from decoded
+  RGBA values. Optional thresholds ignore channel differences up to 8, 16 or 32
+  out of 255. Region buttons show their coordinates and zoom into the area.
+
+Fit and 100% controls, incremental zoom, scrollbars and drag-to-pan keep the
+viewport inspectable. View/mode/100% links can be shared, and browser Back/Forward
+restores the chosen view. Comparison controls have accessible names, selected
+states and visible keyboard focus.
+
+Pixel analysis runs only in the reviewer's browser, using Canvas and trusted
+JavaScript with no dependencies or network service. It yields between row batches
+and caches at most three analyses. This adds no image-decoding job to CI.
+PNG-hash changes still drive CI summaries; byte-different PNGs can have identical
+decoded pixels, which the viewer explicitly reports. Region outlines group
+adjacent 32px tiles and show the 12 largest regions; exact overall bounds and the
+changed-pixel count remain available. Neither method decides whether a change is
+intentional or usable.
 
 When Pages uses the existing `gh-pages` branch root, reports are published under
 `visual/runs/<capture-run-id>/` and indexed at
@@ -71,15 +104,30 @@ When Pages uses the existing `gh-pages` branch root, reports are published under
 Everything outside `visual/`, including the existing `dev/` workbench, is
 preserved. The current site retains the latest 20 main reports and 20 PR reports;
 older commits remain in Git history and can be archived separately if storage
-growth becomes material. Old gallery URLs expire from the current site when
-their retained report is pruned.
+growth becomes material. The history explorer shows the selected view's after
+screenshot for each retained commit, with main/PR and commit/date filters. Each
+card opens that run's before/after viewer. Historical fixture/browser changes can
+affect comparisons across runs; each individual run still uses a matched pair.
+Old gallery URLs expire from the current site when their retained report is pruned.
+An older rerun reserves a slot in its main/PR group during publication, so pruning
+cannot immediately delete the gallery being linked by that report.
 
-One bot comment per PR links the gallery and embeds up to three changed
-before/after pairs. It is updated on later runs, with current-head checks to
-avoid reporting superseded commits. Pages builds are asynchronous, so new image
-URLs become available after the Pages build completes. If Pages publication is
-unavailable, the comment links capture artifacts and the downloadable standalone
-gallery. Captures are retained for 14 days; standalone report artifacts for 30.
+One canonical bot comment per PR identifies the exact commit, capture run and
+attempt. It embeds every changed before/after pair in collapsible sections, with
+a link directly to that view's highlighted regions. Large inventories are capped
+below GitHub's comment limit; omitted screenshot counts and a full-gallery index
+remain explicit. All 33 current cases fit inline. Artifact descriptions are
+escaped and displayed as code, so their Markdown and mentions are not interpreted.
+
+Later runs update the same comment. The publisher checks the current PR head
+before and after comment pagination, rejects older capture attempts and reports,
+and cleans up only duplicate comments owned by `github-actions[bot]` with this
+report's marker. Issue comments have no resolved state. Rerun image URLs include
+the attempt to avoid stale cached inline screenshots. Pages builds are
+asynchronous, so new image URLs become available after the Pages build completes.
+If Pages publication is unavailable, the comment links capture artifacts and the
+downloadable standalone gallery. Captures are retained for 14 days; standalone
+report artifacts for 30.
 
 **Bootstrap limitation:** GitHub only dispatches `workflow_run` workflows that
 already exist on the default branch. The PR introducing this system can run
@@ -99,7 +147,10 @@ dependencies, restores PR caches, evaluates artifact scripts or publishes
 artifact HTML. The extractor accepts bounded flat PNG/JSON names, rejects
 symlinks/path traversal and validates screenshot dimensions. The reporter
 revalidates image headers, uses bounded safe case IDs for paths, escapes all
-artifact text, and generates its own HTML. PR numbers come from GitHub API
+artifact text, bounds the combined inventory to 128 views, and generates its own
+HTML. Embedded JSON cannot close its script element; the gallery permits only its
+trusted, hash-authorized JavaScript under a Content Security Policy. History
+entries are also normalized before creating paths or display data. PR numbers come from GitHub API
 association, constrained to the expected repository/base branch and current
 head, rather than artifact metadata. Publication uses a normal fast-forward
 push and preserves other Pages content.
@@ -130,7 +181,8 @@ capturing a historical comparison whose unavailable cases should be reported.
 
 Add a manifest entry with a stable lowercase ID, real hash route, explicit
 state, and a selector that only becomes visible when the intended content is
-ready. Cases that need interaction use `start` for the initial ready element and
+ready. Use `features: ["sessionReplay"]` (or the required feature key) only for an
+explicit experimental case; avoid enabling experimental controls across all views. Cases that need interaction use `start` for the initial ready element and
 a bounded `prepare` action in the harness before waiting for final content.
 Use `command` when completion depends on a specific backend fixture and
 `scrollText` for a deliberate lower-page position. Extend
@@ -144,7 +196,18 @@ To assemble two local captures into a gallery:
 node --input-type=module -e "import {buildReport} from './scripts/visual/report.mjs'; await buildReport({baseDir:'.tracepilot/before',headDir:'.tracepilot/after',output:'.tracepilot/report'});"
 ```
 
-Run the harness and artifact policy checks:
+Open the resulting `index.html` to use the image modes. Browser security may
+prevent Canvas from reading images opened via `file://`; the viewer explains
+that limitation. Serve the folder locally to enable pixel metrics and heatmaps:
+
+```sh
+python -m http.server 8765 --bind 127.0.0.1 --directory .tracepilot/report
+```
+
+Then open `http://127.0.0.1:8765/index.html`. A standalone downloaded run does
+not include the site's history index; the history link is available on Pages.
+
+Run the harness, pixel-analysis, comment, escaping and artifact policy checks:
 
 ```sh
 node --test scripts/visual/*.test.mjs
@@ -159,6 +222,56 @@ its file-entry contract and checking console/error-boundary output closed that
 false-positive gap. Repeated captures exposed a sidebar opacity transition;
 disabling screenshot animation/transition timing made all 33 captures
 byte-identical across repeated runs.
-GitHub-hosted Linux capture, workflow permissions and Pages/comment delivery
-still require their first actual workflow run; local fixtures do not verify
-those services.
+
+## First hosted validation
+
+[Run 34684266923](https://github.com/MattShelton04/TracePilot/actions/runs/34684266923)
+completed successfully on 12 September 2026 for
+[PR #813](https://github.com/MattShelton04/TracePilot/pull/813). Checkout logs
+confirm merge base `08b4e5e1` and exact PR head `fb2ac5eb`; later local edits are
+outside this capture checkpoint.
+
+All four Ubuntu jobs passed. Downloaded manifests contain all 33 cases exactly
+once on each side, with zero failed/incomplete cases, missing fixtures or recorded
+console/page errors. All 66 PNGs passed dimension and manifest SHA-256 checks.
+Each runner also passed five Node harness-policy tests and two Python extraction
+tests. The capture timings were:
+
+| Revision | Shard | Cases | Capture duration |
+| --- | --- | --- | --- |
+| Base | 1/2 | 17 | 20.654 s |
+| Base | 2/2 | 16 | 23.960 s |
+| Head | 1/2 | 17 | 18.301 s |
+| Head | 2/2 | 16 | 22.779 s |
+
+Assembling those artifacts locally produced a complete gallery: **24 changed,
+9 unchanged, 0 base unavailable, 0 incomplete**. Before/after Code, populated
+Compare, selected Explorer and Export-preview images were inspected, as were
+the head Models, Replay, Settings-pricing and Analytics captures. This checks
+representative rendered content; it does not turn all manifest assertions into
+manual visual review or native backend verification.
+
+The Linux capture, read-only capture permissions and artifact-upload path are
+now exercised on GitHub. Automatic Pages publication, history updates and PR
+comments remain unverified because the trusted `workflow_run` publisher is not
+yet on the default branch. No automatic gallery comment is expected on this
+bootstrap PR; the downloadable capture artifacts and local gallery are the
+verified outputs.
+
+
+## Interactive viewer refinement validation
+
+The matched artifacts from hosted run 34684266923 were rebuilt into the new
+viewer locally. All five modes, keyboard/pointer wipe, opacity, exact/threshold
+metrics, changed-region navigation, 100% zoom and pan, view filtering, browser
+Back, and history view/main/PR filters passed in a separate 1440 by 960 Edge browser
+with no console/page errors. Screenshots for every mode were inspected. This
+reuses the historical matched pair; it does not represent a new GitHub publication.
+
+A separate new 33-case capture using the common-user feature policy completed
+in 42.062 seconds on the development Windows/Edge host. Every case was captured
+with zero recorded errors or missing fixture commands. Sessions and Settings
+showed Replay/SDK disabled, and the explicit Replay case enabled only Replay;
+representative screenshots were inspected. These are fixture frontend checks,
+not native backend proof. Live Pages/comment publication remains subject to the
+bootstrap limitation above.
