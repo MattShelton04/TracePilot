@@ -7,6 +7,16 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 
 ## [Unreleased]
 
+### Changed
+
+- **Copilot CLI 1.0.83 compatibility** — Aligned persisted event schemas from the recovered 1.0.71 baseline through 1.0.83 while retaining older session formats. Version comparisons now detect nested schema changes and can use archived package directories.
+
+### Fixed
+
+- **Background agent status** — Track delayed starts, runtime agent IDs, queued follow-ups, idle workers and cancellation; refresh status in older turns as new activity arrives.
+- **Subagent conversation attribution** — Keep child activity in its launching turn, preserve main-agent boundaries and models, and prevent child prompts from inflating main-agent context estimates.
+- **Search navigation for agent sessions** — Use the same turn ownership as conversation reconstruction and rebuild affected search/analytics records automatically.
+
 ## [0.8.1] - 2026-08-02
 
 ### Fixed

@@ -1,5 +1,5 @@
 /** Replay the 1.0.83 subagent lifecycle through the real Tauri backend and UI.
- * Usage: node scripts/e2e/copilot-compat.mjs --session-root <configured session-state> [--port 9222]
+ * Usage: node scripts/e2e/copilot-compat.mjs --session-root <configured session-state> [--port 9222] [--screenshot path.png]
  * Creates one temporary session; existing sessions are never modified.
  */
 import assert from "node:assert/strict";
@@ -98,6 +98,7 @@ try {
     await page.locator(".sap-status").first().innerText(),
     "Idle — waiting for messages",
   );
+  if (option("--screenshot")) await page.screenshot({ path: option("--screenshot") });
   console.log(JSON.stringify({ passed: true, results }, null, 2));
   // Leave the app on its normal session list before removing the fixture.
   await navigateTo(page, "/");
