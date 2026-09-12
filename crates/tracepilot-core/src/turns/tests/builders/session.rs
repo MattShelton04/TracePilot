@@ -47,6 +47,7 @@ impl SystemMessageBuilder {
             role: self.role,
             name: self.name,
             metadata: None,
+            ..Default::default()
         }
     }
 
@@ -127,6 +128,7 @@ impl SessionErrorBuilder {
             error_code: None,
             eligible_for_auto_switch: None,
             url: self.url,
+            ..Default::default()
         }
     }
 
@@ -170,6 +172,7 @@ impl SessionWarningBuilder {
             message: Some(self.message),
             warning_type: self.warning_type,
             url: self.url,
+            ..Default::default()
         }
     }
 
@@ -214,6 +217,7 @@ impl ModelChangeBuilder {
             reasoning_effort: None,
             context_tier: None,
             cause: None,
+            ..Default::default()
         }
     }
 
@@ -239,6 +243,7 @@ impl CompactionStartBuilder {
             system_tokens: None,
             conversation_tokens: None,
             tool_definitions_tokens: None,
+            ..Default::default()
         }
     }
 
@@ -310,6 +315,7 @@ impl CompactionCompleteBuilder {
             system_tokens: None,
             conversation_tokens: None,
             tool_definitions_tokens: None,
+            ..Default::default()
         }
     }
 

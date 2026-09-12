@@ -15,6 +15,15 @@ use crate::models::event_types::{
     ToolExecCompleteData, ToolExecStartData, ToolUserRequestedData, TurnEndData, TurnStartData,
     UsageCheckpointData, UserMessageData, WorkspaceFileChangedData,
 };
+use crate::models::event_types::{
+    AssistantFusionPhaseCompletedData, AssistantFusionPhaseFailedData, SessionAutoModeResolvedData,
+    SessionAutopilotObjectiveChangedData, SessionBinaryAssetData, SessionCanvasRecordedData,
+    SessionCanvasRemovedData, SessionCompletionReceiptData, SessionContextClearedData,
+    SessionFusionCommitStartedData, SessionFusionCompletedData, SessionFusionHandoffData,
+    SessionFusionResolvedData, SessionFusionRouteFailedData, SessionModeNoticeDeliveredData,
+    SessionPermissionsChangedData, SessionScheduleCancelledData, SessionScheduleCreatedData,
+    SessionScheduleRearmedData, SubagentConfiguredData, ToolSearchActivatedData,
+};
 use crate::parsing::diagnostics::{EventParseWarning, ParseDiagnostics};
 use serde_json::Value;
 use std::path::Path;
@@ -77,6 +86,27 @@ pub enum TypedEventData {
     SessionHandoff(SessionHandoffData),
     SessionImportLegacy(SessionImportLegacyData),
     SessionRemoteSteerableChanged(SessionRemoteSteerableChangedData),
+    SessionScheduleCreated(SessionScheduleCreatedData),
+    SessionScheduleCancelled(SessionScheduleCancelledData),
+    SessionScheduleRearmed(SessionScheduleRearmedData),
+    SessionAutopilotObjectiveChanged(SessionAutopilotObjectiveChangedData),
+    SessionModeNoticeDelivered(SessionModeNoticeDeliveredData),
+    SessionPermissionsChanged(SessionPermissionsChangedData),
+    SessionContextCleared(SessionContextClearedData),
+    SessionCompletionReceipt(SessionCompletionReceiptData),
+    SessionFusionRouteFailed(SessionFusionRouteFailedData),
+    SessionFusionResolved(SessionFusionResolvedData),
+    SessionFusionHandoff(SessionFusionHandoffData),
+    SessionFusionCommitStarted(SessionFusionCommitStartedData),
+    SessionFusionCompleted(SessionFusionCompletedData),
+    AssistantFusionPhaseCompleted(AssistantFusionPhaseCompletedData),
+    AssistantFusionPhaseFailed(AssistantFusionPhaseFailedData),
+    ToolSearchActivated(ToolSearchActivatedData),
+    SubagentConfigured(SubagentConfiguredData),
+    SessionBinaryAsset(SessionBinaryAssetData),
+    SessionAutoModeResolved(SessionAutoModeResolvedData),
+    SessionCanvasRecorded(SessionCanvasRecordedData),
+    SessionCanvasRemoved(SessionCanvasRemovedData),
     Other(Value),
 }
 
@@ -285,6 +315,164 @@ pub(crate) fn typed_data_from_raw(
             try_deser!(
                 SessionRemoteSteerableChanged,
                 SessionRemoteSteerableChangedData,
+                data,
+                event_type
+            )
+        }
+        SessionEventType::SessionScheduleCreated => {
+            try_deser!(
+                SessionScheduleCreated,
+                SessionScheduleCreatedData,
+                data,
+                event_type
+            )
+        }
+        SessionEventType::SessionScheduleCancelled => {
+            try_deser!(
+                SessionScheduleCancelled,
+                SessionScheduleCancelledData,
+                data,
+                event_type
+            )
+        }
+        SessionEventType::SessionScheduleRearmed => {
+            try_deser!(
+                SessionScheduleRearmed,
+                SessionScheduleRearmedData,
+                data,
+                event_type
+            )
+        }
+        SessionEventType::SessionAutopilotObjectiveChanged => {
+            try_deser!(
+                SessionAutopilotObjectiveChanged,
+                SessionAutopilotObjectiveChangedData,
+                data,
+                event_type
+            )
+        }
+        SessionEventType::SessionModeNoticeDelivered => {
+            try_deser!(
+                SessionModeNoticeDelivered,
+                SessionModeNoticeDeliveredData,
+                data,
+                event_type
+            )
+        }
+        SessionEventType::SessionPermissionsChanged => {
+            try_deser!(
+                SessionPermissionsChanged,
+                SessionPermissionsChangedData,
+                data,
+                event_type
+            )
+        }
+        SessionEventType::SessionContextCleared => {
+            try_deser!(
+                SessionContextCleared,
+                SessionContextClearedData,
+                data,
+                event_type
+            )
+        }
+        SessionEventType::SessionCompletionReceipt => {
+            try_deser!(
+                SessionCompletionReceipt,
+                SessionCompletionReceiptData,
+                data,
+                event_type
+            )
+        }
+        SessionEventType::SessionFusionRouteFailed => {
+            try_deser!(
+                SessionFusionRouteFailed,
+                SessionFusionRouteFailedData,
+                data,
+                event_type
+            )
+        }
+        SessionEventType::SessionFusionResolved => {
+            try_deser!(
+                SessionFusionResolved,
+                SessionFusionResolvedData,
+                data,
+                event_type
+            )
+        }
+        SessionEventType::SessionFusionHandoff => {
+            try_deser!(
+                SessionFusionHandoff,
+                SessionFusionHandoffData,
+                data,
+                event_type
+            )
+        }
+        SessionEventType::SessionFusionCommitStarted => {
+            try_deser!(
+                SessionFusionCommitStarted,
+                SessionFusionCommitStartedData,
+                data,
+                event_type
+            )
+        }
+        SessionEventType::SessionFusionCompleted => {
+            try_deser!(
+                SessionFusionCompleted,
+                SessionFusionCompletedData,
+                data,
+                event_type
+            )
+        }
+        SessionEventType::AssistantFusionPhaseCompleted => {
+            try_deser!(
+                AssistantFusionPhaseCompleted,
+                AssistantFusionPhaseCompletedData,
+                data,
+                event_type
+            )
+        }
+        SessionEventType::AssistantFusionPhaseFailed => {
+            try_deser!(
+                AssistantFusionPhaseFailed,
+                AssistantFusionPhaseFailedData,
+                data,
+                event_type
+            )
+        }
+        SessionEventType::ToolSearchActivated => {
+            try_deser!(
+                ToolSearchActivated,
+                ToolSearchActivatedData,
+                data,
+                event_type
+            )
+        }
+        SessionEventType::SubagentConfigured => {
+            try_deser!(SubagentConfigured, SubagentConfiguredData, data, event_type)
+        }
+        SessionEventType::SessionBinaryAsset => {
+            try_deser!(SessionBinaryAsset, SessionBinaryAssetData, data, event_type)
+        }
+        SessionEventType::SessionAutoModeResolved => {
+            try_deser!(
+                SessionAutoModeResolved,
+                SessionAutoModeResolvedData,
+                data,
+                event_type
+            )
+        }
+        SessionEventType::SessionCanvasRecorded => {
+            try_deser!(
+                SessionCanvasRecorded,
+                SessionCanvasRecordedData,
+                data,
+                event_type
+            )
+        }
+        SessionEventType::SessionCanvasRemoved => {
+            try_deser!(
+                SessionCanvasRemoved,
+                SessionCanvasRemovedData,
                 data,
                 event_type
             )

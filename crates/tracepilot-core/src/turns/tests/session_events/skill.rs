@@ -23,6 +23,7 @@ fn skill_invoked_with_parent(
             plugin_name: None,
             plugin_version: None,
             description: Some("Helpful skill".to_string()),
+            ..Default::default()
         }),
         id,
         "2026-03-10T07:00:10.000Z",

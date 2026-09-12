@@ -11,3 +11,9 @@ pub use event_type_enum::*;
 pub use model_data::*;
 pub use session_lifecycle_data::*;
 pub use tool_execution_data::*;
+
+pub mod session_extended_data;
+pub use session_extended_data::*;
+
+pub mod fusion_data;
+pub use fusion_data::*;

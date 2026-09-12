@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ToolExecStartData {
     pub tool_call_id: Option<String>,
@@ -10,9 +10,15 @@ pub struct ToolExecStartData {
     pub parent_tool_call_id: Option<String>,
     pub mcp_server_name: Option<String>,
     pub mcp_tool_name: Option<String>,
+    pub shell_tool_info: Option<serde_json::Value>,
+    pub model: Option<String>,
+    pub rte: Option<bool>,
+    pub display_verbatim: Option<bool>,
+    pub tool_description: Option<serde_json::Value>,
+    pub fusion: Option<serde_json::Value>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ToolExecCompleteData {
     pub tool_call_id: Option<String>,
@@ -27,6 +33,11 @@ pub struct ToolExecCompleteData {
     pub tool_telemetry: Option<serde_json::Value>,
     /// Whether the tool call was initiated by the user (vs the agent).
     pub is_user_requested: Option<bool>,
+    pub mcp_meta: Option<serde_json::Value>,
+    pub rte: Option<bool>,
+    pub tool_description: Option<serde_json::Value>,
+    pub sandboxed: Option<bool>,
+    pub fusion: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -37,7 +48,7 @@ pub struct ToolUserRequestedData {
     pub arguments: Option<serde_json::Value>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SkillInvokedData {
     pub name: Option<String>,
@@ -48,17 +59,22 @@ pub struct SkillInvokedData {
     pub plugin_version: Option<String>,
     /// Human-readable description of the skill.
     pub description: Option<String>,
+    pub model: Option<String>,
+    pub disable_model_invocation: Option<bool>,
+    pub source: Option<String>,
+    pub trigger: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HookStartData {
     pub hook_invocation_id: Option<String>,
     pub hook_type: Option<String>,
     pub input: Option<serde_json::Value>,
+    pub parent_tool_call_id: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HookEndData {
     pub hook_invocation_id: Option<String>,
@@ -66,6 +82,7 @@ pub struct HookEndData {
     pub success: Option<bool>,
     pub output: Option<serde_json::Value>,
     pub error: Option<HookError>,
+    pub parent_tool_call_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -73,15 +90,18 @@ pub struct HookEndData {
 pub struct HookError {
     pub message: Option<String>,
     pub stack: Option<String>,
+    pub source: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PermissionRequestedData {
     pub request_id: Option<String>,
     pub permission_request: Option<serde_json::Value>,
     pub prompt_request: Option<serde_json::Value>,
     pub resolved_by_hook: Option<bool>,
+    pub agent_mode: Option<String>,
+    pub risk_assessment: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -92,7 +112,7 @@ pub struct PermissionCompletedData {
     pub result: Option<serde_json::Value>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExternalToolRequestedData {
     pub request_id: Option<String>,
@@ -102,4 +122,6 @@ pub struct ExternalToolRequestedData {
     pub arguments: Option<serde_json::Value>,
     pub traceparent: Option<String>,
     pub tracestate: Option<String>,
+    pub provider_id: Option<serde_json::Value>,
+    pub working_directory: Option<String>,
 }

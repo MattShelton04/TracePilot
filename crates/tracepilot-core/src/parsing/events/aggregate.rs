@@ -237,6 +237,7 @@ fn combine_shutdown_data(
                 .map(|shutdown| shutdown.model_metrics.as_ref()),
         )),
         session_segments: Some(segments),
+        ..Default::default()
     })
 }
 

@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionStartData {
     pub session_id: Option<String>,
@@ -23,9 +23,14 @@ pub struct SessionStartData {
     pub selected_model: Option<String>,
     /// Whether the session supports remote steering.
     pub remote_steerable: Option<bool>,
+    pub reasoning_summary: Option<String>,
+    pub verbosity: Option<String>,
+    pub auto_tier: Option<String>,
+    pub github_mcp_tool_config: Option<serde_json::Value>,
+    pub detached_from_spawning_parent_session_id: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionContext {
     pub cwd: Option<String>,
@@ -36,9 +41,10 @@ pub struct SessionContext {
     pub repository_host: Option<String>,
     pub head_commit: Option<String>,
     pub base_commit: Option<String>,
+    pub pending_git_context: Option<bool>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ShutdownData {
     pub shutdown_type: Option<String>,
@@ -65,6 +71,7 @@ pub struct ShutdownData {
     pub code_changes: Option<CodeChanges>,
     pub model_metrics: Option<HashMap<String, ModelMetricDetail>>,
     pub session_segments: Option<Vec<SessionSegment>>,
+    pub agent_metrics: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -131,7 +138,7 @@ pub struct UsageMetrics {
     pub reasoning_tokens: Option<u64>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionResumeData {
     pub resume_time: Option<String>,
@@ -150,6 +157,9 @@ pub struct SessionResumeData {
     pub continue_pending_work: Option<bool>,
     /// Whether the session supports remote steering.
     pub remote_steerable: Option<bool>,
+    pub reasoning_summary: Option<String>,
+    pub verbosity: Option<String>,
+    pub auto_tier: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -159,12 +169,14 @@ pub struct SessionLimitsConfig {
     pub max_ai_credits: Option<f64>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UsageCheckpointData {
     /// Session-wide accumulated usage in nano AI units.
     pub total_nano_aiu: u64,
     pub total_premium_requests: Option<f64>,
+    pub model_cache_state: Option<Vec<serde_json::Value>>,
+    pub prompt_cache_break_state: Option<Vec<serde_json::Value>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -172,7 +184,7 @@ pub struct UsageCheckpointData {
 pub struct SessionLimitsChangedData {
     pub session_limits: Option<SessionLimitsConfig>,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionErrorData {
     pub error_type: Option<String>,
@@ -184,6 +196,8 @@ pub struct SessionErrorData {
     pub eligible_for_auto_switch: Option<bool>,
     /// URL with additional error details.
     pub url: Option<String>,
+    pub remediation: Option<String>,
+    pub service_request_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -196,12 +210,13 @@ pub struct SessionInfoData {
     pub tip: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionWarningData {
     pub warning_type: Option<String>,
     pub message: Option<String>,
     pub url: Option<String>,
+    pub remediation: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -211,11 +226,14 @@ pub struct SessionModeChangedData {
     pub new_mode: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionTaskCompleteData {
     pub summary: Option<String>,
     pub success: Option<bool>,
+    pub outcome: Option<String>,
+    pub reason: Option<String>,
+    pub objective_id: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -152,6 +152,7 @@ fn session_events_flush_via_ensure_current_turn() {
             TypedEventData::AssistantReasoning(AssistantReasoningData {
                 reasoning_id: Some("r1".to_string()),
                 content: Some("Thinking...".to_string()),
+                ..Default::default()
             }),
             "evt-reason",
             "2026-03-10T07:00:00.000Z",

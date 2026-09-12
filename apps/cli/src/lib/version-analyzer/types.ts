@@ -14,6 +14,7 @@ export interface SchemaType {
   constValue?: unknown;
   items?: SchemaType;
   properties?: PropertyInfo[];
+  additionalProperties?: SchemaType | boolean;
   raw?: unknown;
 }
 

@@ -39,6 +39,7 @@ pub(super) fn user_message(content: &str) -> TypedEvent {
             supported_native_document_mime_types: None,
             native_document_path_fallback_paths: None,
             parent_agent_task_id: None,
+            ..Default::default()
         }),
     )
 }
@@ -49,6 +50,7 @@ pub(super) fn assistant_turn_start() -> TypedEvent {
         TypedEventData::TurnStart(TurnStartData {
             turn_id: None,
             interaction_id: None,
+            ..Default::default()
         }),
     )
 }
@@ -56,7 +58,10 @@ pub(super) fn assistant_turn_start() -> TypedEvent {
 pub(super) fn assistant_turn_end() -> TypedEvent {
     evt(
         SessionEventType::AssistantTurnEnd,
-        TypedEventData::TurnEnd(TurnEndData { turn_id: None }),
+        TypedEventData::TurnEnd(TurnEndData {
+            turn_id: None,
+            ..Default::default()
+        }),
     )
 }
 
@@ -76,6 +81,7 @@ pub(super) fn assistant_message(content: &str) -> TypedEvent {
             phase: None,
             request_id: None,
             turn_id: None,
+            ..Default::default()
         }),
     )
 }
@@ -91,6 +97,7 @@ pub(super) fn tool_exec_start(name: &str, call_id: &str) -> TypedEvent {
             mcp_server_name: None,
             mcp_tool_name: None,
             turn_id: None,
+            ..Default::default()
         }),
     )
 }
@@ -101,6 +108,7 @@ pub(super) fn reasoning(content: &str) -> TypedEvent {
         TypedEventData::AssistantReasoning(AssistantReasoningData {
             reasoning_id: None,
             content: Some(content.to_string()),
+            ..Default::default()
         }),
     )
 }
@@ -126,6 +134,7 @@ pub(super) fn tool_exec_complete(call_id: &str, result_text: &str) -> TypedEvent
             tool_telemetry: None,
             is_user_requested: None,
             turn_id: None,
+            ..Default::default()
         }),
     )
 }
@@ -142,6 +151,7 @@ pub(super) fn session_error(msg: &str) -> TypedEvent {
             url: None,
             error_code: None,
             eligible_for_auto_switch: None,
+            ..Default::default()
         }),
     )
 }

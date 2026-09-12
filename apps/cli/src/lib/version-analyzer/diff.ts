@@ -11,30 +11,24 @@ import type {
 function schemaTypeFingerprint(st: SchemaType): string {
   switch (st.kind) {
     case "enum":
-      return `enum(${(st.enumValues ?? []).sort().join(",")})`;
+      return `enum(${[...(st.enumValues ?? [])].sort().join(",")})`;
     case "const":
       return `const(${JSON.stringify(st.constValue)})`;
     case "array":
       return `array<${st.items ? schemaTypeFingerprint(st.items) : "unknown"}>`;
     case "object": {
       const props = (st.properties ?? [])
-        .map((p) => `${p.name}:${schemaTypeFingerprint(p.type)}`)
+        .map((p) => `${p.name}${p.required ? "" : "?"}:${schemaTypeFingerprint(p.type)}`)
         .sort()
         .join(";");
-      return `object{${props}}`;
+      const extra = st.additionalProperties;
+      const additional =
+        typeof extra === "object" ? schemaTypeFingerprint(extra) : String(extra ?? true);
+      return `object{${props}}[additional:${additional}]`;
     }
     case "union": {
-      // Summarize union members by extracting type discriminators where possible
       if (Array.isArray(st.raw)) {
-        const members = (st.raw as SchemaType[]).map((m) => {
-          if (m.kind === "object" && m.properties) {
-            const typeConst = m.properties.find(
-              (p) => p.name === "type" && p.type.kind === "const",
-            );
-            if (typeConst) return String(typeConst.type.constValue);
-          }
-          return schemaTypeFingerprint(m);
-        });
+        const members = (st.raw as SchemaType[]).map(schemaTypeFingerprint);
         return `union(${members.sort().join("|")})`;
       }
       return `union(${JSON.stringify(st.raw)})`;
@@ -93,6 +87,9 @@ export function diffVersions(v1: CopilotVersion, v2: CopilotVersion): VersionDif
     if (!e1 || !e2) continue;
 
     const { added, removed, changes } = diffProperties(e1.properties, e2.properties, "");
+    if (e1.ephemeral !== e2.ephemeral) {
+      changes.push(`persistence changed (${e1.ephemeral} → ${e2.ephemeral})`);
+    }
 
     if (added.length > 0 || removed.length > 0 || changes.length > 0) {
       modifiedEvents.push({

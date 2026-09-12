@@ -41,6 +41,7 @@ fn make_subagent_heavy_session(
             reasoning_effort: None,
             context_tier: None,
             cause: None,
+            ..Default::default()
         }),
         &next_id(),
         &next_ts(),
@@ -61,6 +62,7 @@ fn make_subagent_heavy_session(
                 source: None,
                 agent_mode: None,
                 parent_agent_task_id: None,
+                ..Default::default()
             }),
             &next_id(),
             &next_ts(),
@@ -79,6 +81,7 @@ fn make_subagent_heavy_session(
                 parent_tool_call_id: None,
                 mcp_server_name: None,
                 mcp_tool_name: None,
+                ..Default::default()
             }),
             &next_id(),
             &next_ts(),
@@ -97,6 +100,7 @@ fn make_subagent_heavy_session(
                 error: None,
                 tool_telemetry: None,
                 is_user_requested: None,
+                ..Default::default()
             }),
             &next_id(),
             &next_ts(),
@@ -123,6 +127,7 @@ fn make_subagent_heavy_session(
                     parent_tool_call_id: None,
                     mcp_server_name: None,
                     mcp_tool_name: None,
+                    ..Default::default()
                 }),
                 &next_id(),
                 &next_ts(),
@@ -135,6 +140,7 @@ fn make_subagent_heavy_session(
                     agent_name: Some(format!("agent-{sub_idx}")),
                     agent_display_name: Some(format!("Agent {sub_idx}")),
                     agent_description: None,
+                    ..Default::default()
                 }),
                 &next_id(),
                 &next_ts(),
@@ -154,6 +160,7 @@ fn make_subagent_heavy_session(
                         parent_tool_call_id: Some(sub_tc_id.clone()),
                         mcp_server_name: None,
                         mcp_tool_name: None,
+                        ..Default::default()
                     }),
                     &next_id(),
                     &next_ts(),
@@ -172,6 +179,7 @@ fn make_subagent_heavy_session(
                         error: None,
                         tool_telemetry: None,
                         is_user_requested: None,
+                        ..Default::default()
                     }),
                     &next_id(),
                     &next_ts(),
@@ -189,6 +197,7 @@ fn make_subagent_heavy_session(
                     model: None,
                     total_tokens: None,
                     total_tool_calls: None,
+                    ..Default::default()
                 }),
                 &next_id(),
                 &next_ts(),
@@ -207,6 +216,7 @@ fn make_subagent_heavy_session(
                     error: None,
                     tool_telemetry: None,
                     is_user_requested: None,
+                    ..Default::default()
                 }),
                 &next_id(),
                 &next_ts(),
@@ -218,6 +228,7 @@ fn make_subagent_heavy_session(
             SessionEventType::AssistantTurnEnd,
             TypedEventData::TurnEnd(TurnEndData {
                 turn_id: Some(format!("turn-{turn_idx}")),
+                ..Default::default()
             }),
             &next_id(),
             &next_ts(),

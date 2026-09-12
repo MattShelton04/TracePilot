@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { parseAgentDefinitions, parseApiSchema, parseSessionEventsSchema } from "./schema.js";
 import type { CopilotVersion } from "./types.js";
 
@@ -19,6 +19,8 @@ function getCopilotPkgDirName(): string {
 }
 
 export function getCopilotPkgDir(): string {
+  const override = process.env.TRACEPILOT_COPILOT_PKG_DIR;
+  if (override) return resolve(override);
   const pkgBase = join(homedir(), ".copilot", "pkg");
   const targetDir = join(pkgBase, getCopilotPkgDirName());
   if (existsSync(targetDir)) {

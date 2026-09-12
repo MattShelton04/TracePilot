@@ -597,6 +597,7 @@ fn assistant_reasoning_appends_to_turn() {
             TypedEventData::AssistantReasoning(AssistantReasoningData {
                 reasoning_id: Some("reason-1".to_string()),
                 content: Some("Let me think step by step...".to_string()),
+                ..Default::default()
             }),
             "evt-3",
             "2026-03-10T07:14:51.200Z",
@@ -607,6 +608,7 @@ fn assistant_reasoning_appends_to_turn() {
             TypedEventData::AssistantReasoning(AssistantReasoningData {
                 reasoning_id: Some("reason-2".to_string()),
                 content: Some("The answer is 42".to_string()),
+                ..Default::default()
             }),
             "evt-4",
             "2026-03-10T07:14:51.300Z",
@@ -618,6 +620,7 @@ fn assistant_reasoning_appends_to_turn() {
             TypedEventData::AssistantReasoning(AssistantReasoningData {
                 reasoning_id: Some("reason-3".to_string()),
                 content: Some("   ".to_string()),
+                ..Default::default()
             }),
             "evt-5",
             "2026-03-10T07:14:51.400Z",
@@ -667,6 +670,7 @@ fn assistant_reasoning_without_prior_turn_creates_turn() {
         TypedEventData::AssistantReasoning(AssistantReasoningData {
             reasoning_id: Some("reason-1".to_string()),
             content: Some("Thinking...".to_string()),
+            ..Default::default()
         }),
         "evt-1",
         "2026-03-10T07:14:51.000Z",

@@ -62,6 +62,7 @@ impl ToolExecStartBuilder {
             parent_tool_call_id: self.parent_tool_call_id,
             mcp_server_name: self.mcp_server_name,
             mcp_tool_name: self.mcp_tool_name,
+            ..Default::default()
         }
     }
 
@@ -154,6 +155,7 @@ impl ToolExecCompleteBuilder {
             error: self.error,
             tool_telemetry: self.tool_telemetry,
             is_user_requested: self.is_user_requested,
+            ..Default::default()
         }
     }
 

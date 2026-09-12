@@ -92,14 +92,18 @@ function normalizeSchemaType(schema: unknown, root: JsonObject): SchemaType {
       return {
         kind: "object",
         properties: props ? normalizeProperties(props, req, root) : [],
+        additionalProperties:
+          typeof s.additionalProperties === "boolean"
+            ? s.additionalProperties
+            : isJsonObject(s.additionalProperties)
+              ? normalizeSchemaType(s.additionalProperties, root)
+              : undefined,
       };
     }
     default:
       // Object without explicit type but with properties
       if (s.properties) {
-        const props = s.properties as Record<string, unknown>;
-        const req = (s.required as string[]) ?? [];
-        return { kind: "object", properties: normalizeProperties(props, req, root) };
+        return normalizeSchemaType({ ...s, type: "object" }, root);
       }
       return { kind: "unknown", raw: schema };
   }

@@ -1,15 +1,21 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SubagentStartedData {
     pub tool_call_id: Option<String>,
     pub agent_name: Option<String>,
     pub agent_display_name: Option<String>,
     pub agent_description: Option<String>,
+    pub model: Option<String>,
+    pub factory_run_id: Option<String>,
+    pub parent_id: Option<String>,
+    pub resumable: Option<bool>,
+    pub agent_type: Option<String>,
+    pub execution_mode: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SubagentCompletedData {
     pub tool_call_id: Option<String>,
@@ -23,9 +29,16 @@ pub struct SubagentCompletedData {
     pub total_tokens: Option<u64>,
     /// Duration of the subagent execution in milliseconds.
     pub duration_ms: Option<u64>,
+    pub first_dispatched_model: Option<String>,
+    pub configured_model_preference: Option<String>,
+    pub explicit_model_override: Option<String>,
+    pub explicit_model_matches_preference: Option<bool>,
+    pub model_override_reason: Option<String>,
+    pub configured_model_matches_actual: Option<bool>,
+    pub cancelled: Option<bool>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SubagentFailedData {
     pub tool_call_id: Option<String>,
@@ -40,6 +53,12 @@ pub struct SubagentFailedData {
     pub total_tokens: Option<u64>,
     /// Duration before failure in milliseconds.
     pub duration_ms: Option<u64>,
+    pub first_dispatched_model: Option<String>,
+    pub configured_model_preference: Option<String>,
+    pub explicit_model_override: Option<String>,
+    pub explicit_model_matches_preference: Option<bool>,
+    pub model_override_reason: Option<String>,
+    pub configured_model_matches_actual: Option<bool>,
 }
 
 /// Data for `subagent.selected` events — custom agent activation.

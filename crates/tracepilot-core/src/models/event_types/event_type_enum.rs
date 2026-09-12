@@ -96,6 +96,48 @@ pub enum SessionEventType {
     SessionImportLegacy,
     #[strum(serialize = "session.remote_steerable_changed")]
     SessionRemoteSteerableChanged,
+    #[strum(serialize = "session.schedule_created")]
+    SessionScheduleCreated,
+    #[strum(serialize = "session.schedule_cancelled")]
+    SessionScheduleCancelled,
+    #[strum(serialize = "session.schedule_rearmed")]
+    SessionScheduleRearmed,
+    #[strum(serialize = "session.autopilot_objective_changed")]
+    SessionAutopilotObjectiveChanged,
+    #[strum(serialize = "session.mode_notice_delivered")]
+    SessionModeNoticeDelivered,
+    #[strum(serialize = "session.permissions_changed")]
+    SessionPermissionsChanged,
+    #[strum(serialize = "session.context_cleared")]
+    SessionContextCleared,
+    #[strum(serialize = "session.completion_receipt")]
+    SessionCompletionReceipt,
+    #[strum(serialize = "session.fusion_route_failed")]
+    SessionFusionRouteFailed,
+    #[strum(serialize = "session.fusion_resolved")]
+    SessionFusionResolved,
+    #[strum(serialize = "session.fusion_handoff")]
+    SessionFusionHandoff,
+    #[strum(serialize = "session.fusion_commit_started")]
+    SessionFusionCommitStarted,
+    #[strum(serialize = "session.fusion_completed")]
+    SessionFusionCompleted,
+    #[strum(serialize = "assistant.fusion_phase_completed")]
+    AssistantFusionPhaseCompleted,
+    #[strum(serialize = "assistant.fusion_phase_failed")]
+    AssistantFusionPhaseFailed,
+    #[strum(serialize = "tool_search.activated")]
+    ToolSearchActivated,
+    #[strum(serialize = "subagent.configured")]
+    SubagentConfigured,
+    #[strum(serialize = "session.binary_asset")]
+    SessionBinaryAsset,
+    #[strum(serialize = "session.auto_mode_resolved")]
+    SessionAutoModeResolved,
+    #[strum(serialize = "session.canvas.recorded")]
+    SessionCanvasRecorded,
+    #[strum(serialize = "session.canvas.removed")]
+    SessionCanvasRemoved,
     /// Catch-all for unrecognized event types from newer Copilot CLI versions.
     /// The contained string is the original wire-format type name.
     #[strum(default)]
@@ -147,6 +189,27 @@ pub const KNOWN_EVENT_TYPES: &[&str] = &[
     "session.handoff",
     "session.import_legacy",
     "session.remote_steerable_changed",
+    "session.schedule_created",
+    "session.schedule_cancelled",
+    "session.schedule_rearmed",
+    "session.autopilot_objective_changed",
+    "session.mode_notice_delivered",
+    "session.permissions_changed",
+    "session.context_cleared",
+    "session.completion_receipt",
+    "session.fusion_route_failed",
+    "session.fusion_resolved",
+    "session.fusion_handoff",
+    "session.fusion_commit_started",
+    "session.fusion_completed",
+    "assistant.fusion_phase_completed",
+    "assistant.fusion_phase_failed",
+    "tool_search.activated",
+    "subagent.configured",
+    "session.binary_asset",
+    "session.auto_mode_resolved",
+    "session.canvas.recorded",
+    "session.canvas.removed",
 ];
 
 impl fmt::Display for SessionEventType {

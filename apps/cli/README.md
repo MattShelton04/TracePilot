@@ -21,6 +21,9 @@ Run `tracepilot <command> --help` for per-command flags.
 
 - `TRACEPILOT_SESSION_STATE_DIR` (or `COPILOT_SESSION_STATE_DIR`) — override
   the Copilot session-state directory. Defaults to `~/.copilot/session-state`.
+- `TRACEPILOT_COPILOT_PKG_DIR` — optional directory containing version folders
+  such as `1.0.71/schemas/`. Use it to compare archived official packages without
+  modifying Copilot's rolling installation cache.
 
 ## Workspace dependencies
 

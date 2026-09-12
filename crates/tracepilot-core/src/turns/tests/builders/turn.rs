@@ -32,6 +32,7 @@ impl TurnStartBuilder {
         TurnStartData {
             turn_id: self.turn_id,
             interaction_id: self.interaction_id,
+            ..Default::default()
         }
     }
 
@@ -62,6 +63,7 @@ impl TurnEndBuilder {
     fn build_data(self) -> TurnEndData {
         TurnEndData {
             turn_id: self.turn_id,
+            ..Default::default()
         }
     }
 

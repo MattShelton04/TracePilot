@@ -123,6 +123,27 @@ pub(super) fn typed_data_to_value(data: &TypedEventData) -> Value {
         TypedEventData::SessionRemoteSteerableChanged(value) => {
             serde_json::to_value(value).unwrap()
         }
+        TypedEventData::SessionScheduleCreated(d) => serde_json::to_value(d).unwrap(),
+        TypedEventData::SessionScheduleCancelled(d) => serde_json::to_value(d).unwrap(),
+        TypedEventData::SessionScheduleRearmed(d) => serde_json::to_value(d).unwrap(),
+        TypedEventData::SessionAutopilotObjectiveChanged(d) => serde_json::to_value(d).unwrap(),
+        TypedEventData::SessionModeNoticeDelivered(d) => serde_json::to_value(d).unwrap(),
+        TypedEventData::SessionPermissionsChanged(d) => serde_json::to_value(d).unwrap(),
+        TypedEventData::SessionContextCleared(d) => serde_json::to_value(d).unwrap(),
+        TypedEventData::SessionCompletionReceipt(d) => serde_json::to_value(d).unwrap(),
+        TypedEventData::SessionFusionRouteFailed(d) => serde_json::to_value(d).unwrap(),
+        TypedEventData::SessionFusionResolved(d) => serde_json::to_value(d).unwrap(),
+        TypedEventData::SessionFusionHandoff(d) => serde_json::to_value(d).unwrap(),
+        TypedEventData::SessionFusionCommitStarted(d) => serde_json::to_value(d).unwrap(),
+        TypedEventData::SessionFusionCompleted(d) => serde_json::to_value(d).unwrap(),
+        TypedEventData::AssistantFusionPhaseCompleted(d) => serde_json::to_value(d).unwrap(),
+        TypedEventData::AssistantFusionPhaseFailed(d) => serde_json::to_value(d).unwrap(),
+        TypedEventData::ToolSearchActivated(d) => serde_json::to_value(d).unwrap(),
+        TypedEventData::SubagentConfigured(d) => serde_json::to_value(d).unwrap(),
+        TypedEventData::SessionBinaryAsset(d) => serde_json::to_value(d).unwrap(),
+        TypedEventData::SessionAutoModeResolved(d) => serde_json::to_value(d).unwrap(),
+        TypedEventData::SessionCanvasRecorded(d) => serde_json::to_value(d).unwrap(),
+        TypedEventData::SessionCanvasRemoved(d) => serde_json::to_value(d).unwrap(),
         TypedEventData::Other(value) => value.clone(),
     }
 }
@@ -144,6 +165,7 @@ pub(super) fn make_turn_events(session_events: Vec<TypedEvent>) -> Vec<TypedEven
             source: None,
             agent_mode: None,
             parent_agent_task_id: None,
+            ..Default::default()
         }),
         "evt-user",
         "2026-03-10T07:00:00.000Z",
@@ -152,7 +174,10 @@ pub(super) fn make_turn_events(session_events: Vec<TypedEvent>) -> Vec<TypedEven
     events.extend(session_events);
     events.push(make_event(
         SessionEventType::AssistantTurnEnd,
-        TypedEventData::TurnEnd(TurnEndData { turn_id: None }),
+        TypedEventData::TurnEnd(TurnEndData {
+            turn_id: None,
+            ..Default::default()
+        }),
         "evt-end",
         "2026-03-10T07:01:00.000Z",
         None,
@@ -177,6 +202,7 @@ pub(super) fn base_subagent_events() -> (TypedEvent, TypedEvent, TypedEvent, Typ
             source: None,
             agent_mode: None,
             parent_agent_task_id: None,
+            ..Default::default()
         }),
         "evt-1",
         "2026-03-18T00:00:00.000Z",
@@ -187,6 +213,7 @@ pub(super) fn base_subagent_events() -> (TypedEvent, TypedEvent, TypedEvent, Typ
         TypedEventData::TurnStart(TurnStartData {
             turn_id: Some("turn-1".to_string()),
             interaction_id: Some("int-1".to_string()),
+            ..Default::default()
         }),
         "evt-2",
         "2026-03-18T00:00:00.100Z",
@@ -202,6 +229,7 @@ pub(super) fn base_subagent_events() -> (TypedEvent, TypedEvent, TypedEvent, Typ
             parent_tool_call_id: None,
             mcp_server_name: None,
             mcp_tool_name: None,
+            ..Default::default()
         }),
         "evt-3",
         "2026-03-18T00:00:01.000Z",
@@ -214,6 +242,7 @@ pub(super) fn base_subagent_events() -> (TypedEvent, TypedEvent, TypedEvent, Typ
             agent_name: Some("explore".to_string()),
             agent_display_name: Some("Explore Agent".to_string()),
             agent_description: Some("Explores the codebase".to_string()),
+            ..Default::default()
         }),
         "evt-4",
         "2026-03-18T00:00:01.100Z",
