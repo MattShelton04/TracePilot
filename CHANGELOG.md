@@ -7,6 +7,16 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 
 ## [Unreleased]
 
+### Added
+
+- **Per-agent session metrics** — Compare main and nested agent usage, with sortable tables, activity links and cache-read breakdowns.
+
+### Changed
+
+- **Copilot CLI compatibility** — Support 1.0.83 while preserving older sessions, with fixes for live agent status, attribution and usage totals.
+- **Model pricing** — Updated Copilot model rates for September 2026, including GPT-6 Astra (#810).
+- **Skills management** — Improved imports, editing and skill token estimates (#789).
+
 ## [0.8.1] - 2026-08-02
 
 ### Fixed

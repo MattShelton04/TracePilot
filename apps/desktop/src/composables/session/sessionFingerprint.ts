@@ -55,6 +55,11 @@ export function toolCallFingerprint(tc: TurnToolCall): string {
     tc.resultContent?.length ?? 0,
     tc.resultContent ? hashText(tc.resultContent) : "",
     tc.agentDisplayName ?? "",
+    tc.agentId ?? "",
+    tc.agentStatus ?? "",
+    tc.cancelled ?? "",
+    tc.totalTokens ?? "",
+    tc.totalToolCalls ?? "",
   ].join("|");
 }
 
@@ -91,8 +96,8 @@ export function turnFingerprint(turn: ConversationTurn): string {
 
 /**
  * Determine which turn indexes deserve a deep fingerprint comparison on the
- * next merge: always the last turn, plus any turn containing an in-flight
- * subagent tool call.
+ * next merge: always the last turn, plus every turn containing a subagent.
+ * Completed workers can receive follow-ups, and delayed logs can enrich them.
  */
 export function computeDeepCompareIndexes(turnList: ConversationTurn[]): Set<number> {
   const indexes = new Set<number>();
@@ -100,7 +105,7 @@ export function computeDeepCompareIndexes(turnList: ConversationTurn[]): Set<num
     indexes.add(turnList.length - 1);
   }
   for (let i = 0; i < turnList.length; i++) {
-    if (turnList[i]?.toolCalls.some((tc) => tc.isSubagent && !tc.isComplete)) {
+    if (turnList[i]?.toolCalls.some((tc) => tc.isSubagent)) {
       indexes.add(i);
     }
   }

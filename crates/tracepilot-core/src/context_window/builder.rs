@@ -49,12 +49,7 @@ fn is_nested_subagent_event(event: &TypedEvent, subagent_ids: &HashSet<String>) 
             .is_some_and(|id| subagent_ids.contains(id)),
         _ => false,
     };
-    explicitly_nested
-        || event
-            .raw
-            .agent_id
-            .as_ref()
-            .is_some_and(|id| subagent_ids.contains(id))
+    explicitly_nested || event.raw.agent_id.is_some()
 }
 
 fn folded_skill_contexts(events: &[TypedEvent]) -> FoldedSkillContexts {

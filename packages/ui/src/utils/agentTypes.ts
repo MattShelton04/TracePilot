@@ -34,11 +34,13 @@ export const AGENT_ICONS: Record<AgentType, string> = {
   task: "📋",
 };
 
-export type AgentStatus = "completed" | "failed" | "in-progress";
+export type AgentStatus = "completed" | "failed" | "in-progress" | "cancelled" | "idle";
 
 export const STATUS_ICONS: Record<AgentStatus, string> = {
   completed: "✅",
   failed: "❌",
+  cancelled: "■",
+  idle: "○",
   "in-progress": "⏳",
 };
 
@@ -82,8 +84,10 @@ export function inferAgentTypeFromToolCall(tc: TurnToolCall): AgentType {
  * Determine the status of a subagent from its tool call state.
  */
 export function agentStatusFromToolCall(tc: TurnToolCall): AgentStatus {
+  if (tc.cancelled) return "cancelled";
   if (!tc.isComplete) return "in-progress";
   if (tc.success === false) return "failed";
+  if (tc.agentStatus === "idle") return "idle";
   return "completed";
 }
 

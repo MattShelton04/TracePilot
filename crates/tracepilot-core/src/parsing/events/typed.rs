@@ -1,6 +1,6 @@
 //! Typed event deserialization — turns [`RawEvent`] envelopes into [`TypedEvent`]s.
 
-use super::raw::{RawEvent, parse_events_jsonl};
+use super::raw::parse_events_jsonl;
 use crate::error::Result;
 use crate::models::event_types::{
     AbortData, AssistantMessageData, AssistantReasoningData, CompactionCompleteData,
@@ -15,82 +15,20 @@ use crate::models::event_types::{
     ToolExecCompleteData, ToolExecStartData, ToolUserRequestedData, TurnEndData, TurnStartData,
     UsageCheckpointData, UserMessageData, WorkspaceFileChangedData,
 };
+use crate::models::event_types::{
+    AssistantFusionPhaseCompletedData, AssistantFusionPhaseFailedData, SessionAutoModeResolvedData,
+    SessionAutopilotObjectiveChangedData, SessionBinaryAssetData, SessionCanvasRecordedData,
+    SessionCanvasRemovedData, SessionCompletionReceiptData, SessionContextClearedData,
+    SessionFusionCommitStartedData, SessionFusionCompletedData, SessionFusionHandoffData,
+    SessionFusionResolvedData, SessionFusionRouteFailedData, SessionModeNoticeDeliveredData,
+    SessionPermissionsChangedData, SessionScheduleCancelledData, SessionScheduleCreatedData,
+    SessionScheduleRearmedData, SubagentConfiguredData, ToolSearchActivatedData,
+};
 use crate::parsing::diagnostics::{EventParseWarning, ParseDiagnostics};
 use serde_json::Value;
 use std::path::Path;
 
-/// A fully typed event with parsed data.
-#[derive(Debug, Clone)]
-pub struct TypedEvent {
-    pub raw: RawEvent,
-    pub event_type: SessionEventType,
-    pub typed_data: TypedEventData,
-}
-
-/// Typed variants for known event data, with `Other` as a catch-all.
-///
-/// Each variant corresponds to a [`SessionEventType`] and wraps a strongly-typed
-/// data struct. When deserialization of the typed struct fails (e.g. due to schema
-/// evolution), the raw JSON `Value` is preserved as `Other`.
-#[derive(Debug, Clone)]
-pub enum TypedEventData {
-    SessionStart(SessionStartData),
-    SessionShutdown(ShutdownData),
-    UserMessage(UserMessageData),
-    AssistantMessage(AssistantMessageData),
-    TurnStart(TurnStartData),
-    TurnEnd(TurnEndData),
-    ToolExecutionStart(ToolExecStartData),
-    ToolExecutionComplete(ToolExecCompleteData),
-    SubagentStarted(SubagentStartedData),
-    SubagentCompleted(SubagentCompletedData),
-    SubagentFailed(SubagentFailedData),
-    CompactionComplete(CompactionCompleteData),
-    CompactionStart(CompactionStartData),
-    ModelChange(ModelChangeData),
-    SessionError(SessionErrorData),
-    SessionResume(SessionResumeData),
-    SessionUsageCheckpoint(UsageCheckpointData),
-    SessionLimitsChanged(SessionLimitsChangedData),
-    SystemNotification(SystemNotificationData),
-    SkillInvoked(SkillInvokedData),
-    PermissionRequested(PermissionRequestedData),
-    PermissionCompleted(PermissionCompletedData),
-    ExternalToolRequested(ExternalToolRequestedData),
-    Abort(AbortData),
-    PlanChanged(PlanChangedData),
-    SessionInfo(SessionInfoData),
-    ContextChanged(SessionContext),
-    WorkspaceFileChanged(WorkspaceFileChangedData),
-    ToolUserRequested(ToolUserRequestedData),
-    // New typed variants
-    SessionTruncation(SessionTruncationData),
-    AssistantReasoning(AssistantReasoningData),
-    SystemMessage(SystemMessageData),
-    SessionWarning(SessionWarningData),
-    SessionModeChanged(SessionModeChangedData),
-    SessionTaskComplete(SessionTaskCompleteData),
-    SubagentSelected(SubagentSelectedData),
-    SubagentDeselected(SubagentDeselectedData),
-    HookStart(HookStartData),
-    HookEnd(HookEndData),
-    SessionHandoff(SessionHandoffData),
-    SessionImportLegacy(SessionImportLegacyData),
-    SessionRemoteSteerableChanged(SessionRemoteSteerableChangedData),
-    Other(Value),
-}
-
-/// Result of parsing an `events.jsonl` file.
-///
-/// Contains both the typed events and parsing diagnostics (unknown event types,
-/// deserialization failures, malformed line counts). Callers that only need events
-/// can access `.events` directly.
-pub struct ParsedEvents {
-    /// The parsed and typed events.
-    pub events: Vec<TypedEvent>,
-    /// Diagnostics about parsing issues encountered.
-    pub diagnostics: ParseDiagnostics,
-}
+pub use super::types::{ParsedEvents, TypedEvent, TypedEventData};
 
 /// Deserialize the `data` field of a [`RawEvent`] into the appropriate typed variant.
 ///
@@ -285,6 +223,164 @@ pub(crate) fn typed_data_from_raw(
             try_deser!(
                 SessionRemoteSteerableChanged,
                 SessionRemoteSteerableChangedData,
+                data,
+                event_type
+            )
+        }
+        SessionEventType::SessionScheduleCreated => {
+            try_deser!(
+                SessionScheduleCreated,
+                SessionScheduleCreatedData,
+                data,
+                event_type
+            )
+        }
+        SessionEventType::SessionScheduleCancelled => {
+            try_deser!(
+                SessionScheduleCancelled,
+                SessionScheduleCancelledData,
+                data,
+                event_type
+            )
+        }
+        SessionEventType::SessionScheduleRearmed => {
+            try_deser!(
+                SessionScheduleRearmed,
+                SessionScheduleRearmedData,
+                data,
+                event_type
+            )
+        }
+        SessionEventType::SessionAutopilotObjectiveChanged => {
+            try_deser!(
+                SessionAutopilotObjectiveChanged,
+                SessionAutopilotObjectiveChangedData,
+                data,
+                event_type
+            )
+        }
+        SessionEventType::SessionModeNoticeDelivered => {
+            try_deser!(
+                SessionModeNoticeDelivered,
+                SessionModeNoticeDeliveredData,
+                data,
+                event_type
+            )
+        }
+        SessionEventType::SessionPermissionsChanged => {
+            try_deser!(
+                SessionPermissionsChanged,
+                SessionPermissionsChangedData,
+                data,
+                event_type
+            )
+        }
+        SessionEventType::SessionContextCleared => {
+            try_deser!(
+                SessionContextCleared,
+                SessionContextClearedData,
+                data,
+                event_type
+            )
+        }
+        SessionEventType::SessionCompletionReceipt => {
+            try_deser!(
+                SessionCompletionReceipt,
+                SessionCompletionReceiptData,
+                data,
+                event_type
+            )
+        }
+        SessionEventType::SessionFusionRouteFailed => {
+            try_deser!(
+                SessionFusionRouteFailed,
+                SessionFusionRouteFailedData,
+                data,
+                event_type
+            )
+        }
+        SessionEventType::SessionFusionResolved => {
+            try_deser!(
+                SessionFusionResolved,
+                SessionFusionResolvedData,
+                data,
+                event_type
+            )
+        }
+        SessionEventType::SessionFusionHandoff => {
+            try_deser!(
+                SessionFusionHandoff,
+                SessionFusionHandoffData,
+                data,
+                event_type
+            )
+        }
+        SessionEventType::SessionFusionCommitStarted => {
+            try_deser!(
+                SessionFusionCommitStarted,
+                SessionFusionCommitStartedData,
+                data,
+                event_type
+            )
+        }
+        SessionEventType::SessionFusionCompleted => {
+            try_deser!(
+                SessionFusionCompleted,
+                SessionFusionCompletedData,
+                data,
+                event_type
+            )
+        }
+        SessionEventType::AssistantFusionPhaseCompleted => {
+            try_deser!(
+                AssistantFusionPhaseCompleted,
+                AssistantFusionPhaseCompletedData,
+                data,
+                event_type
+            )
+        }
+        SessionEventType::AssistantFusionPhaseFailed => {
+            try_deser!(
+                AssistantFusionPhaseFailed,
+                AssistantFusionPhaseFailedData,
+                data,
+                event_type
+            )
+        }
+        SessionEventType::ToolSearchActivated => {
+            try_deser!(
+                ToolSearchActivated,
+                ToolSearchActivatedData,
+                data,
+                event_type
+            )
+        }
+        SessionEventType::SubagentConfigured => {
+            try_deser!(SubagentConfigured, SubagentConfiguredData, data, event_type)
+        }
+        SessionEventType::SessionBinaryAsset => {
+            try_deser!(SessionBinaryAsset, SessionBinaryAssetData, data, event_type)
+        }
+        SessionEventType::SessionAutoModeResolved => {
+            try_deser!(
+                SessionAutoModeResolved,
+                SessionAutoModeResolvedData,
+                data,
+                event_type
+            )
+        }
+        SessionEventType::SessionCanvasRecorded => {
+            try_deser!(
+                SessionCanvasRecorded,
+                SessionCanvasRecordedData,
+                data,
+                event_type
+            )
+        }
+        SessionEventType::SessionCanvasRemoved => {
+            try_deser!(
+                SessionCanvasRemoved,
+                SessionCanvasRemovedData,
                 data,
                 event_type
             )

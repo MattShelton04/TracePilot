@@ -97,8 +97,9 @@ function handleClick() {
       <span
         :class="[
           'cv-subagent-status',
-          status === 'failed' ? 'fail' : status === 'in-progress' ? 'pending' : 'success',
+          status === 'failed' ? 'fail' : status === 'in-progress' || status === 'cancelled' ? 'pending' : 'success',
         ]"
+        :title="status === 'cancelled' ? 'Cancelled' : status === 'idle' ? 'Idle — waiting for messages' : status === 'in-progress' ? 'Running' : status === 'failed' ? 'Failed' : 'Completed'"
       />
       <span class="cv-subagent-arrow" aria-hidden="true"><ChevronRight :size="12" /></span>
     </div>

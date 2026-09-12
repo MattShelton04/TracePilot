@@ -64,6 +64,7 @@ impl UserMessageBuilder {
             source: self.source,
             agent_mode: self.agent_mode,
             parent_agent_task_id: None,
+            ..Default::default()
         }
     }
 
@@ -170,6 +171,7 @@ impl AssistantMessageBuilder {
             encrypted_content: self.encrypted_content,
             phase: self.phase,
             request_id: None,
+            ..Default::default()
         }
     }
 

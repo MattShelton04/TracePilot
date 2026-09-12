@@ -149,6 +149,17 @@ describe("inferAgentTypeFromToolCall", () => {
 // ---------------------------------------------------------------------------
 
 describe("agentStatusFromToolCall", () => {
+  it("distinguishes an idle multi-turn agent from pending follow-up work", () => {
+    expect(agentStatusFromToolCall(makeToolCall({ isComplete: true, agentStatus: "idle" }))).toBe(
+      "idle",
+    );
+    expect(
+      agentStatusFromToolCall(makeToolCall({ isComplete: false, agentStatus: "running" })),
+    ).toBe("in-progress");
+    expect(
+      agentStatusFromToolCall(makeToolCall({ isComplete: true, cancelled: true, success: false })),
+    ).toBe("cancelled");
+  });
   it("returns 'in-progress' when not complete", () => {
     expect(agentStatusFromToolCall(makeToolCall({ isComplete: false }))).toBe("in-progress");
   });

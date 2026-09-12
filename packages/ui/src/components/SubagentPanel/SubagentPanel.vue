@@ -48,6 +48,8 @@ const status = computed(() => props.view.status);
 const statusText = computed(() => {
   if (status.value === "completed") return "Completed";
   if (status.value === "failed") return "Failed";
+  if (status.value === "cancelled") return "Cancelled";
+  if (status.value === "idle") return "Idle — waiting for messages";
   return "Running";
 });
 

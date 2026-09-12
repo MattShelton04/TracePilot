@@ -18,8 +18,8 @@ pub struct RawEvent {
     pub timestamp: Option<DateTime<Utc>>,
     #[serde(rename = "parentId")]
     pub parent_id: Option<String>,
-    /// Owning agent identifier. Nested agent events use the spawning
-    /// subagent tool-call ID; top-level events normally omit this field.
+    /// Owning agent instance identifier, distinct from the spawning tool-call
+    /// ID in newer logs. Root and session-level events omit this field.
     #[serde(rename = "agentId")]
     pub agent_id: Option<String>,
 }

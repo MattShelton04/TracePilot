@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelChangeData {
     pub previous_model: Option<String>,
@@ -9,9 +9,16 @@ pub struct ModelChangeData {
     pub reasoning_effort: Option<String>,
     pub context_tier: Option<String>,
     pub cause: Option<String>,
+    pub previous_reasoning_summary: Option<String>,
+    pub reasoning_summary: Option<String>,
+    pub previous_verbosity: Option<String>,
+    pub verbosity: Option<String>,
+    pub source: Option<String>,
+    pub previous_auto_tier: Option<String>,
+    pub auto_tier: Option<serde_json::Value>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CompactionCompleteData {
     pub success: Option<bool>,
@@ -29,6 +36,15 @@ pub struct CompactionCompleteData {
     pub conversation_tokens: Option<u64>,
     /// Tool definition tokens after compaction.
     pub tool_definitions_tokens: Option<u64>,
+    pub post_compaction_tokens: Option<f64>,
+    pub messages_removed: Option<f64>,
+    pub tokens_removed: Option<f64>,
+    pub custom_instructions: Option<String>,
+    pub behavior_model_id: Option<String>,
+    pub service_request_id: Option<String>,
+    pub status_code: Option<f64>,
+    pub token_limit: Option<f64>,
+    pub trigger: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -65,7 +81,7 @@ pub struct CopilotUsageTokenDetail {
     pub cost_per_batch: Option<u64>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CompactionStartData {
     /// System prompt tokens before compaction.
@@ -74,6 +90,10 @@ pub struct CompactionStartData {
     pub conversation_tokens: Option<u64>,
     /// Tool definition tokens before compaction.
     pub tool_definitions_tokens: Option<u64>,
+    pub model: Option<String>,
+    pub current_tokens: Option<f64>,
+    pub token_limit: Option<f64>,
+    pub trigger: Option<String>,
 }
 
 /// Data for `session.truncation` events — context window pressure metrics.
@@ -91,9 +111,10 @@ pub struct SessionTruncationData {
 }
 
 /// Data for `assistant.reasoning` events — standalone reasoning blocks.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AssistantReasoningData {
     pub reasoning_id: Option<String>,
     pub content: Option<String>,
+    pub rte: Option<bool>,
 }

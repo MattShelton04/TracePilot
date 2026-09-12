@@ -53,6 +53,7 @@ fn session_start_seeds_model() {
                 context: None,
                 already_in_use: None,
                 remote_steerable: None,
+                ..Default::default()
             }),
             "ev-start",
             "2025-01-01T00:00:00Z",
@@ -91,6 +92,7 @@ fn session_resume_seeds_model() {
                 session_was_active: None,
                 continue_pending_work: None,
                 remote_steerable: None,
+                ..Default::default()
             }),
             "ev-resume",
             "2025-01-01T00:00:00Z",
@@ -130,6 +132,7 @@ fn ensure_current_turn_inherits_session_model() {
                 context: None,
                 already_in_use: None,
                 remote_steerable: None,
+                ..Default::default()
             }),
             "ev-start",
             "2025-01-01T00:00:00Z",

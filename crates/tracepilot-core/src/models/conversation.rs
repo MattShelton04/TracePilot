@@ -168,6 +168,15 @@ pub struct TurnToolCall {
     /// Whether this tool call represents a subagent invocation.
     #[serde(default)]
     pub is_subagent: bool,
+    /// Runtime agent UUID, distinct from the launching tool-call ID.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent_id: Option<String>,
+    /// Observed runtime state from read_agent/write_agent control telemetry.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent_status: Option<String>,
+    /// Explicit cancellation reported by newer subagent terminal events.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cancelled: Option<bool>,
     /// Human-readable display name of the subagent (e.g. "Explore Agent").
     pub agent_display_name: Option<String>,
     /// Description of what the subagent does.

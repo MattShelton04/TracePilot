@@ -2,7 +2,7 @@
 
 import type { TurnToolCall } from "@tracepilot/types";
 
-export type SubagentStatus = "in-progress" | "completed" | "failed";
+export type SubagentStatus = "in-progress" | "completed" | "failed" | "cancelled" | "idle";
 
 export type SubagentType =
   | "main"

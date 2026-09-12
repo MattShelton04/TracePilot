@@ -8,12 +8,19 @@ use crate::models::event_types::{
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 
+fn is_cumulative_shutdown(data: &ShutdownData) -> bool {
+    // Agent ledgers were introduced after cumulative restoration. They also
+    // identify that format if Copilot could not stat the log file at shutdown.
+    data.events_file_size_bytes.is_some()
+        || data.agent_metrics.as_ref().is_some_and(|v| v.is_object())
+}
+
 /// Normalizes legacy per-instance shutdown metrics and newer cumulative
 /// shutdown snapshots into one session aggregate. Returns `(combined_data, count)`.
 pub fn extract_combined_shutdown_data(events: &[TypedEvent]) -> Option<(ShutdownData, u32)> {
     let shutdowns: Vec<(&ShutdownData, Option<DateTime<Utc>>)> = events
         .iter()
-        .filter(|e| e.event_type == SessionEventType::SessionShutdown)
+        .filter(|e| e.event_type == SessionEventType::SessionShutdown && e.raw.agent_id.is_none())
         .filter_map(|e| match &e.typed_data {
             TypedEventData::SessionShutdown(d) => Some((d, e.raw.timestamp)),
             _ => None,
@@ -39,10 +46,10 @@ pub fn extract_combined_shutdown_data(events: &[TypedEvent]) -> Option<(Shutdown
 
     let count = shutdowns.len() as u32;
 
-    Some((
-        combine_shutdown_data(&shutdowns, session_start_ts, &resume_timestamps)?,
-        count,
-    ))
+    let mut combined = combine_shutdown_data(&shutdowns, session_start_ts, &resume_timestamps)?;
+    combined.agent_usage = super::agent_usage::extract_agent_usage(events);
+    combined.metrics_timestamp = shutdowns.last().and_then(|(_, timestamp)| *timestamp);
+    Some((combined, count))
 }
 
 /// Combine multiple `ShutdownData` instances into a single aggregate.
@@ -63,28 +70,23 @@ fn combine_shutdown_data(
     // avoiding an unreliable producer-version cutoff.
     let cumulative_snapshot_count = shutdowns
         .iter()
-        .filter(|(shutdown, _)| shutdown.events_file_size_bytes.is_some())
+        .filter(|(shutdown, _)| is_cumulative_shutdown(shutdown))
         .count();
     let source_metrics_scope = match cumulative_snapshot_count {
         0 => ShutdownMetricsScope::Segment,
         count if count == shutdowns.len() => ShutdownMetricsScope::Cumulative,
         _ => ShutdownMetricsScope::Mixed,
     };
-    // If a session crossed the producer change, the first cumulative snapshot
-    // includes the immediately preceding legacy segment (the resume path
-    // restores that shutdown). Earlier legacy segments still need adding.
-    let first_cumulative_snapshot = shutdowns
-        .iter()
-        .position(|(shutdown, _)| shutdown.events_file_size_bytes.is_some());
-    let aggregate_sources: Vec<&ShutdownData> = match first_cumulative_snapshot {
-        None => shutdowns.iter().map(|(shutdown, _)| *shutdown).collect(),
-        Some(0) => vec![*last],
-        Some(first_cumulative) => shutdowns[..first_cumulative - 1]
-            .iter()
-            .map(|(shutdown, _)| *shutdown)
-            .chain(std::iter::once(*last))
-            .collect(),
-    };
+    // A cumulative snapshot restores the immediately preceding shutdown. Replace
+    // that source only. Legacy segments before it (including a downgrade followed
+    // by another upgrade) still need adding; later legacy segments are additive.
+    let mut aggregate_sources: Vec<&ShutdownData> = Vec::new();
+    for (shutdown, _) in shutdowns {
+        if is_cumulative_shutdown(shutdown) {
+            aggregate_sources.pop();
+        }
+        aggregate_sources.push(shutdown);
+    }
 
     let mut segments: Vec<SessionSegment> = Vec::new();
 
@@ -134,8 +136,7 @@ fn combine_shutdown_data(
             .checked_sub(1)
             .and_then(|previous_index| shutdowns.get(previous_index))
             .map(|(shutdown, _)| *shutdown);
-        let is_cumulative_snapshot =
-            sd.events_file_size_bytes.is_some() && previous_shutdown.is_some();
+        let is_cumulative_snapshot = is_cumulative_shutdown(sd) && previous_shutdown.is_some();
         let segment_model_metrics = if is_cumulative_snapshot {
             Some(subtract_model_metrics(
                 sd.model_metrics.as_ref(),
@@ -237,6 +238,7 @@ fn combine_shutdown_data(
                 .map(|shutdown| shutdown.model_metrics.as_ref()),
         )),
         session_segments: Some(segments),
+        ..Default::default()
     })
 }
 

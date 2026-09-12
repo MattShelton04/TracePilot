@@ -45,6 +45,7 @@ impl SubagentStartedBuilder {
             agent_name: self.agent_name,
             agent_display_name: self.agent_display_name,
             agent_description: self.agent_description,
+            ..Default::default()
         }
     }
 
@@ -99,6 +100,7 @@ impl SubagentCompletedBuilder {
             model: self.model,
             total_tokens: None,
             total_tool_calls: None,
+            ..Default::default()
         }
     }
 
@@ -154,6 +156,7 @@ impl SubagentFailedBuilder {
             model: None,
             total_tokens: None,
             total_tool_calls: None,
+            ..Default::default()
         }
     }
 

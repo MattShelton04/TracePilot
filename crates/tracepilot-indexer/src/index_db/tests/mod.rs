@@ -1,6 +1,7 @@
 //! Integration-style unit tests for [`IndexDb`]. Split into topic-specific
 //! submodules so each file stays under the project's 400-LOC budget.
 
+mod agent_usage;
 mod analytics;
 mod common;
 mod maintenance;

@@ -36,7 +36,7 @@ defineProps<{
         </div>
         <div class="metric-item">
           <span class="metric-value">{{ formatNumber(data.cacheStats.nonCachedInputTokens) }}</span>
-          <span class="metric-label">Fresh Input Tokens</span>
+          <span class="metric-label">Not Served from Cache</span>
         </div>
         <div class="metric-item">
           <span class="metric-value">{{ formatNumber(data.cacheStats.totalInputTokens) }}</span>

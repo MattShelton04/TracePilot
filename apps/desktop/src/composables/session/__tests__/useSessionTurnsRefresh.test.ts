@@ -94,6 +94,35 @@ describe("useSessionTurnsRefresh", () => {
     expect(refresh.turnsVersion.value).toBeGreaterThan(versionAfterReplace);
   });
 
+  it("refreshes a completed worker in an older turn when a follow-up reopens it", () => {
+    const { refresh } = setup();
+    const launch = (isComplete: boolean) =>
+      mkTurn(0, {
+        toolCalls: [{ toolName: "worker", isSubagent: true, isComplete }],
+      });
+    refresh.replaceTurns([launch(true), mkTurn(1), mkTurn(2)] as never);
+    const before = refresh.turnsVersion.value;
+    refresh.mergeTurns([launch(false), mkTurn(1), mkTurn(2), mkTurn(3)] as never);
+    expect(refresh.turns.value[0].toolCalls[0].isComplete).toBe(false);
+    expect(refresh.turnsVersion.value).toBeGreaterThan(before);
+    refresh.mergeTurns([launch(true), mkTurn(1), mkTurn(2), mkTurn(3)] as never);
+    expect(refresh.turns.value[0].toolCalls[0].isComplete).toBe(true);
+  });
+
+  it("accepts delayed subagent discovery in an older turn on the first refresh", () => {
+    const { refresh } = setup();
+    const launch = (isSubagent: boolean) =>
+      mkTurn(0, {
+        toolCalls: [{ toolName: "search_code_subagent", isSubagent, isComplete: !isSubagent }],
+      });
+    refresh.replaceTurns([launch(false), mkTurn(1), mkTurn(2)] as never);
+    const before = refresh.turnsVersion.value;
+    refresh.mergeTurns([launch(true), mkTurn(1), mkTurn(2)] as never);
+    expect(refresh.turns.value[0].toolCalls[0].isSubagent).toBe(true);
+    expect(refresh.turns.value[0].toolCalls[0].isComplete).toBe(false);
+    expect(refresh.turnsVersion.value).toBeGreaterThan(before);
+  });
+
   it("refreshTurns short-circuits when freshness matches cached fingerprint", async () => {
     const { refresh, guard } = setup();
     mockGetSessionTurns.mockResolvedValue(mkFixture([mkTurn(0)], 50, 77));

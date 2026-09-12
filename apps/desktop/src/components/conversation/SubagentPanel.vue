@@ -58,6 +58,8 @@ const statusText = computed(() => {
   if (!view.value) return "";
   if (view.value.status === "completed") return "Completed";
   if (view.value.status === "failed") return "Failed";
+  if (view.value.status === "cancelled") return "Cancelled";
+  if (view.value.status === "idle") return "Idle — waiting for messages";
   return "Running";
 });
 const headerDuration = computed(() => {

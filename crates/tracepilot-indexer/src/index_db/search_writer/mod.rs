@@ -28,7 +28,7 @@ pub use content_extraction::extract_search_content;
 
 /// Bump when extraction logic changes (new content types, field mapping, etc.)
 /// to force re-indexing even when events.jsonl hasn't changed.
-pub const CURRENT_EXTRACTOR_VERSION: i64 = 3;
+pub const CURRENT_EXTRACTOR_VERSION: i64 = 4;
 
 /// A single row to be inserted into `search_content`.
 #[derive(Debug)]

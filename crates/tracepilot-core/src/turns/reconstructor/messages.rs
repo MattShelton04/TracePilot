@@ -57,11 +57,18 @@ impl TurnReconstructor {
 
     pub(super) fn handle_assistant_turn_start(&mut self, event: &TypedEvent, data: &TurnStartData) {
         let turn = self.ensure_current_turn(event.raw.timestamp);
+        if data.model.is_some() {
+            turn.model = data.model.clone();
+        }
         if turn.turn_id.is_none() {
             turn.turn_id = data.turn_id.clone();
         }
         if turn.interaction_id.is_none() {
             turn.interaction_id = data.interaction_id.clone();
+        }
+        let index = turn.turn_index;
+        if let Some(model) = &data.model {
+            self.explicit_turn_models.insert(index, model.clone());
         }
     }
 
@@ -71,8 +78,15 @@ impl TurnReconstructor {
         event_index: usize,
         data: &AssistantMessageData,
     ) {
-        let turn = self.ensure_current_turn(event.raw.timestamp);
-        if turn.interaction_id.is_none() {
+        let owner = data
+            .parent_tool_call_id
+            .clone()
+            .or_else(|| self.event_owner(event));
+        let (turn, _) = self.turn_for_event(event);
+        if owner.is_none() && data.model.is_some() {
+            turn.model = data.model.clone();
+        }
+        if owner.is_none() && turn.interaction_id.is_none() {
             turn.interaction_id = data.interaction_id.clone();
         }
         if let Some(content) = &data.content
@@ -80,7 +94,7 @@ impl TurnReconstructor {
         {
             turn.assistant_messages.push(AttributedMessage {
                 content: content.clone(),
-                parent_tool_call_id: data.parent_tool_call_id.clone(),
+                parent_tool_call_id: owner.clone(),
                 agent_display_name: None, // resolved in finalize()
                 event_index: Some(event_index),
             });
@@ -90,13 +104,20 @@ impl TurnReconstructor {
         {
             turn.reasoning_texts.push(AttributedMessage {
                 content: reasoning.clone(),
-                parent_tool_call_id: data.parent_tool_call_id.clone(),
+                parent_tool_call_id: owner,
                 agent_display_name: None, // resolved in finalize()
                 event_index: Some(event_index),
             });
         }
         if let Some(tokens) = data.output_tokens {
             *turn.output_tokens.get_or_insert(0) += tokens;
+        }
+        let index = turn.turn_index;
+        if data.parent_tool_call_id.is_none()
+            && event.raw.agent_id.is_none()
+            && let Some(model) = &data.model
+        {
+            self.explicit_turn_models.insert(index, model.clone());
         }
         if let Some(requests) = &data.tool_requests {
             for req in requests {
@@ -130,10 +151,11 @@ impl TurnReconstructor {
         if let Some(content) = &data.content
             && !content.trim().is_empty()
         {
-            let turn = self.ensure_current_turn(event.raw.timestamp);
+            let owner = self.event_owner(event);
+            let (turn, _) = self.turn_for_event(event);
             turn.reasoning_texts.push(AttributedMessage {
                 content: content.clone(),
-                parent_tool_call_id: None,
+                parent_tool_call_id: owner,
                 agent_display_name: None,
                 event_index: Some(event_index),
             });

@@ -43,6 +43,7 @@ fn assistant_message(content: &str) -> TypedEvent {
             encrypted_content: None,
             phase: None,
             request_id: None,
+            ..Default::default()
         }),
     )
 }
@@ -68,6 +69,7 @@ fn user_message(content: &str, interaction_id: &str) -> TypedEvent {
             source: None,
             agent_mode: None,
             parent_agent_task_id: None,
+            ..Default::default()
         }),
     )
 }
@@ -80,6 +82,7 @@ fn preserves_observed_anchor_and_marks_intermediate_points_estimated() {
             TypedEventData::TurnStart(TurnStartData {
                 turn_id: Some("1".into()),
                 interaction_id: None,
+                ..Default::default()
             }),
         ),
         assistant_message("abcdefgh"),
@@ -103,6 +106,7 @@ fn preserves_observed_anchor_and_marks_intermediate_points_estimated() {
                 code_changes: None,
                 model_metrics: None,
                 session_segments: None,
+                ..Default::default()
             }),
         ),
     ];
@@ -125,6 +129,7 @@ fn exposes_point_to_point_context_change_for_zero_based_turns() {
             TypedEventData::TurnStart(TurnStartData {
                 turn_id: Some("1".into()),
                 interaction_id: Some("interaction-1".into()),
+                ..Default::default()
             }),
         ),
         assistant_message_with_reasoning("aaaa", "rrrrrrrrrrrr"),
@@ -134,6 +139,7 @@ fn exposes_point_to_point_context_change_for_zero_based_turns() {
             TypedEventData::TurnStart(TurnStartData {
                 turn_id: Some("2".into()),
                 interaction_id: Some("interaction-2".into()),
+                ..Default::default()
             }),
         ),
         assistant_message("aaaaaaaaaaaa"),
@@ -157,6 +163,7 @@ fn exposes_point_to_point_context_change_for_zero_based_turns() {
                 code_changes: None,
                 model_metrics: None,
                 session_segments: None,
+                ..Default::default()
             }),
         ),
     ];
@@ -183,6 +190,7 @@ fn aligns_tool_contributions_with_reconstructed_conversation_turns() {
             TypedEventData::TurnStart(TurnStartData {
                 turn_id: Some("turn-3".into()),
                 interaction_id: Some("interaction-3".into()),
+                ..Default::default()
             }),
         ),
         event(
@@ -195,6 +203,7 @@ fn aligns_tool_contributions_with_reconstructed_conversation_turns() {
                 parent_tool_call_id: None,
                 mcp_server_name: None,
                 mcp_tool_name: None,
+                ..Default::default()
             }),
         ),
         event(
@@ -213,6 +222,7 @@ fn aligns_tool_contributions_with_reconstructed_conversation_turns() {
                 error: None,
                 tool_telemetry: None,
                 is_user_requested: None,
+                ..Default::default()
             }),
         ),
     ];
@@ -239,6 +249,7 @@ fn emits_estimated_post_compaction_drop_when_post_layers_are_absent() {
             TypedEventData::TurnStart(TurnStartData {
                 turn_id: Some("1".into()),
                 interaction_id: None,
+                ..Default::default()
             }),
         ),
         event(
@@ -247,6 +258,7 @@ fn emits_estimated_post_compaction_drop_when_post_layers_are_absent() {
                 system_tokens: Some(10),
                 conversation_tokens: Some(80),
                 tool_definitions_tokens: Some(20),
+                ..Default::default()
             }),
         ),
         event(
@@ -275,6 +287,7 @@ fn emits_estimated_post_compaction_drop_when_post_layers_are_absent() {
                 system_tokens: None,
                 conversation_tokens: None,
                 tool_definitions_tokens: None,
+                ..Default::default()
             }),
         ),
     ];
@@ -299,6 +312,7 @@ fn pairs_compaction_across_turns_and_applies_reset_at_completion() {
             TypedEventData::TurnStart(TurnStartData {
                 turn_id: Some("1".into()),
                 interaction_id: Some("interaction-1".into()),
+                ..Default::default()
             }),
         ),
         event(
@@ -307,6 +321,7 @@ fn pairs_compaction_across_turns_and_applies_reset_at_completion() {
                 system_tokens: Some(10),
                 conversation_tokens: Some(80),
                 tool_definitions_tokens: Some(20),
+                ..Default::default()
             }),
         ),
     ];
@@ -317,6 +332,7 @@ fn pairs_compaction_across_turns_and_applies_reset_at_completion() {
             TypedEventData::TurnStart(TurnStartData {
                 turn_id: Some(turn_id.into()),
                 interaction_id: Some(format!("interaction-{turn_id}")),
+                ..Default::default()
             }),
         ));
     }
@@ -346,6 +362,7 @@ fn pairs_compaction_across_turns_and_applies_reset_at_completion() {
             system_tokens: None,
             conversation_tokens: None,
             tool_definitions_tokens: None,
+            ..Default::default()
         }),
     ));
 
@@ -372,6 +389,7 @@ fn exposes_user_message_overlays_and_reported_truncation_limit() {
             TypedEventData::TurnStart(TurnStartData {
                 turn_id: Some("1".into()),
                 interaction_id: None,
+                ..Default::default()
             }),
         ),
         event(
@@ -388,6 +406,7 @@ fn exposes_user_message_overlays_and_reported_truncation_limit() {
                 // Root user messages can carry a task id too. It is only a
                 // subagent owner when it matches a known subagent call.
                 parent_agent_task_id: Some("root-agent-task".into()),
+                ..Default::default()
             }),
         ),
         event(
@@ -404,6 +423,7 @@ fn exposes_user_message_overlays_and_reported_truncation_limit() {
                 source: Some("system".into()),
                 agent_mode: None,
                 parent_agent_task_id: None,
+                ..Default::default()
             }),
         ),
         event(
@@ -440,55 +460,4 @@ fn exposes_user_message_overlays_and_reported_truncation_limit() {
     assert_eq!(timeline.events[1].event_index, 3);
 }
 
-#[test]
-fn aggregates_and_ranks_tool_contributions() {
-    let (calls, types) = finish_tool_contributions(vec![
-        ToolCallDraft {
-            turn: 1,
-            tool_call_id: Some("a".into()),
-            tool_name: "shell".into(),
-            argument_tokens: 10,
-            result_tokens: 90,
-            success: Some(true),
-            arguments_preview: None,
-            result_preview: None,
-        },
-        ToolCallDraft {
-            turn: 2,
-            tool_call_id: Some("b".into()),
-            tool_name: "shell".into(),
-            argument_tokens: 5,
-            result_tokens: 20,
-            success: Some(false),
-            arguments_preview: None,
-            result_preview: None,
-        },
-        ToolCallDraft {
-            turn: 3,
-            tool_call_id: Some("c".into()),
-            tool_name: "view".into(),
-            argument_tokens: 5,
-            result_tokens: 45,
-            success: Some(true),
-            arguments_preview: None,
-            result_preview: None,
-        },
-    ]);
-
-    assert_eq!(calls[0].tool_call_id.as_deref(), Some("a"));
-    assert_eq!(types[0].tool_name, "shell");
-    assert_eq!(types[0].call_count, 2);
-    assert_eq!(types[0].error_count, 1);
-    assert_eq!(types[0].total_tokens, 125);
-    assert!((types[0].percentage - 71.428).abs() < 0.01);
-}
-
-#[test]
-fn tool_result_estimate_uses_primary_content_instead_of_the_result_wrapper() {
-    let result = serde_json::json!({
-        "content": "fn main() {}",
-        "detailedContent": "diff --git a/main.rs b/main.rs"
-    });
-
-    assert_eq!(context_result_content(&result), "fn main() {}");
-}
+mod tool_contributions;

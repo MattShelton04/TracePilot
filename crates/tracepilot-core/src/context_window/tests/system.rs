@@ -10,6 +10,7 @@ fn estimates_initial_system_prompt_before_observed_telemetry() {
                 role: Some("system".into()),
                 name: None,
                 metadata: None,
+                ..Default::default()
             }),
         ),
         user_message("abcd", "interaction-1"),
@@ -18,6 +19,7 @@ fn estimates_initial_system_prompt_before_observed_telemetry() {
             TypedEventData::TurnStart(TurnStartData {
                 turn_id: Some("1".into()),
                 interaction_id: Some("interaction-1".into()),
+                ..Default::default()
             }),
         ),
         assistant_message("efgh"),
@@ -30,6 +32,7 @@ fn estimates_initial_system_prompt_before_observed_telemetry() {
                 role: Some("system".into()),
                 name: None,
                 metadata: None,
+                ..Default::default()
             }),
         ),
         user_message("ijkl", "interaction-2"),
@@ -38,6 +41,7 @@ fn estimates_initial_system_prompt_before_observed_telemetry() {
             TypedEventData::TurnStart(TurnStartData {
                 turn_id: Some("2".into()),
                 interaction_id: Some("interaction-2".into()),
+                ..Default::default()
             }),
         ),
         assistant_message("mnop"),
@@ -65,6 +69,7 @@ fn observed_system_anchor_calibrates_following_prompt_snapshots() {
                 role: Some("system".into()),
                 name: None,
                 metadata: None,
+                ..Default::default()
             }),
         )
     };
@@ -76,6 +81,7 @@ fn observed_system_anchor_calibrates_following_prompt_snapshots() {
             TypedEventData::TurnStart(TurnStartData {
                 turn_id: Some("1".into()),
                 interaction_id: Some("interaction-1".into()),
+                ..Default::default()
             }),
         ),
         assistant_message("efgh"),
@@ -99,6 +105,7 @@ fn observed_system_anchor_calibrates_following_prompt_snapshots() {
                 code_changes: None,
                 model_metrics: None,
                 session_segments: None,
+                ..Default::default()
             }),
         ),
         system_message(),
@@ -108,6 +115,7 @@ fn observed_system_anchor_calibrates_following_prompt_snapshots() {
             TypedEventData::TurnStart(TurnStartData {
                 turn_id: Some("2".into()),
                 interaction_id: Some("interaction-2".into()),
+                ..Default::default()
             }),
         ),
         assistant_message("mnop"),

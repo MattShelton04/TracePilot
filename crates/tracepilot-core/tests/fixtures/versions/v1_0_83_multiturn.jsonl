@@ -1,0 +1,40 @@
+{"type":"session.start","data":{"copilotVersion":"1.0.83","selectedModel":"gpt-5.6-luna"},"id":"event-0","timestamp":"2026-09-12T00:00:00Z","parentId":null}
+{"type":"session.permissions_changed","data":{},"id":"event-1","timestamp":"2026-09-12T00:00:01Z","parentId":"event-0"}
+{"type":"user.message","data":{"turnId":"0","content":"Fixture message."},"id":"event-2","timestamp":"2026-09-12T00:00:02Z","parentId":"event-1"}
+{"type":"system.message","data":{"content":"Fixture message."},"id":"event-3","timestamp":"2026-09-12T00:00:03Z","parentId":"event-2"}
+{"type":"assistant.turn_start","data":{"turnId":"0"},"id":"event-4","timestamp":"2026-09-12T00:00:04Z","parentId":"event-3"}
+{"type":"assistant.message","data":{"turnId":"0","model":"gpt-5.6-luna","content":"Fixture message."},"id":"event-5","timestamp":"2026-09-12T00:00:05Z","parentId":"event-4"}
+{"type":"tool.execution_start","data":{"turnId":"0","model":"gpt-5.6-luna","toolCallId":"launch","toolName":"task","arguments":{"agent_type":"general-purpose","name":"probe-worker","model":"gpt-5.6-luna","mode":"background"}},"id":"event-6","timestamp":"2026-09-12T00:00:06Z","parentId":"event-5"}
+{"type":"tool.execution_complete","data":{"turnId":"0","model":"gpt-5.6-luna","toolCallId":"launch","success":true,"toolTelemetry":{"properties":{"agent_type":"general-purpose"},"restrictedProperties":{"agent_id":"worker-uuid"},"metrics":{}}},"id":"event-7","timestamp":"2026-09-12T00:00:07Z","parentId":"event-6"}
+{"type":"assistant.turn_end","data":{"turnId":"0"},"id":"event-8","timestamp":"2026-09-12T00:00:08Z","parentId":"event-7"}
+{"type":"assistant.turn_start","data":{"turnId":"1"},"id":"event-9","timestamp":"2026-09-12T00:00:09Z","parentId":"event-8"}
+{"type":"assistant.message","data":{"turnId":"1","model":"gpt-5.6-luna","content":"Fixture message."},"id":"event-10","timestamp":"2026-09-12T00:00:10Z","parentId":"event-9"}
+{"type":"tool.execution_start","data":{"turnId":"1","model":"gpt-5.6-luna","toolCallId":"tool-11","toolName":"read_agent","arguments":{"agent_id":"worker-uuid","wait":true,"timeout":180}},"id":"event-11","timestamp":"2026-09-12T00:00:11Z","parentId":"event-10"}
+{"type":"subagent.started","data":{"model":"gpt-5.6-luna","toolCallId":"launch","agentName":"general-purpose","agentDisplayName":"probe-worker","agentDescription":"Prime probe worker","executionMode":"background"},"agentId":"worker-uuid","id":"event-12","timestamp":"2026-09-12T00:00:12Z","parentId":"event-11"}
+{"type":"subagent.configured","data":{"model":"gpt-5.6-luna","multiTurn":true},"agentId":"worker-uuid","id":"event-13","timestamp":"2026-09-12T00:00:13Z","parentId":"event-12"}
+{"type":"user.message","data":{"turnId":"0","content":"Fixture message."},"agentId":"worker-uuid","id":"event-14","timestamp":"2026-09-12T00:00:14Z","parentId":"event-13"}
+{"type":"system.message","data":{"content":"Fixture message."},"agentId":"worker-uuid","id":"event-15","timestamp":"2026-09-12T00:00:15Z","parentId":"event-14"}
+{"type":"assistant.turn_start","data":{"turnId":"0"},"agentId":"worker-uuid","id":"event-16","timestamp":"2026-09-12T00:00:16Z","parentId":"event-15"}
+{"type":"assistant.message","data":{"turnId":"0","model":"gpt-5.6-luna","parentToolCallId":"launch","content":"Fixture message."},"agentId":"worker-uuid","id":"event-17","timestamp":"2026-09-12T00:00:17Z","parentId":"event-16"}
+{"type":"assistant.turn_end","data":{"turnId":"0"},"agentId":"worker-uuid","id":"event-18","timestamp":"2026-09-12T00:00:18Z","parentId":"event-17"}
+{"type":"subagent.completed","data":{"model":"gpt-5.6-luna","toolCallId":"launch","agentName":"general-purpose","agentDisplayName":"probe-worker","totalTokens":4929,"totalToolCalls":0,"durationMs":6734},"agentId":"worker-uuid","id":"event-19","timestamp":"2026-09-12T00:00:19Z","parentId":"event-18"}
+{"type":"tool.execution_complete","data":{"turnId":"1","model":"gpt-5.6-luna","toolCallId":"tool-11","success":true,"toolTelemetry":{"properties":{"agent_id":"worker-uuid","agent_type":"general-purpose","status":"idle"},"metrics":{"elapsed_seconds":6,"queue_depth":0,"total_turns":1}}},"id":"event-20","timestamp":"2026-09-12T00:00:20Z","parentId":"event-19"}
+{"type":"assistant.turn_end","data":{"turnId":"1"},"id":"event-21","timestamp":"2026-09-12T00:00:21Z","parentId":"event-20"}
+{"type":"assistant.turn_start","data":{"turnId":"2"},"id":"event-22","timestamp":"2026-09-12T00:00:22Z","parentId":"event-21"}
+{"type":"assistant.message","data":{"turnId":"2","model":"gpt-5.6-luna","content":"Fixture message."},"id":"event-23","timestamp":"2026-09-12T00:00:23Z","parentId":"event-22"}
+{"type":"tool.execution_start","data":{"turnId":"2","model":"gpt-5.6-luna","toolCallId":"tool-24","toolName":"write_agent","arguments":{"agent_id":"worker-uuid"}},"id":"event-24","timestamp":"2026-09-12T00:00:24Z","parentId":"event-23"}
+{"type":"tool.execution_complete","data":{"turnId":"2","model":"gpt-5.6-luna","toolCallId":"tool-24","success":true,"toolTelemetry":{"properties":{"agent_id":"worker-uuid","agent_type":"general-purpose"},"metrics":{}}},"id":"event-25","timestamp":"2026-09-12T00:00:25Z","parentId":"event-24"}
+{"type":"assistant.turn_end","data":{"turnId":"2"},"id":"event-26","timestamp":"2026-09-12T00:00:26Z","parentId":"event-25"}
+{"type":"assistant.turn_start","data":{"turnId":"3"},"id":"event-27","timestamp":"2026-09-12T00:00:27Z","parentId":"event-26"}
+{"type":"assistant.message","data":{"turnId":"3","model":"gpt-5.6-luna","content":"Fixture message."},"id":"event-28","timestamp":"2026-09-12T00:00:28Z","parentId":"event-27"}
+{"type":"tool.execution_start","data":{"turnId":"3","model":"gpt-5.6-luna","toolCallId":"tool-29","toolName":"read_agent","arguments":{"agent_id":"worker-uuid","wait":true,"timeout":180}},"id":"event-29","timestamp":"2026-09-12T00:00:29Z","parentId":"event-28"}
+{"type":"user.message","data":{"turnId":"0","content":"Fixture message."},"agentId":"worker-uuid","id":"event-30","timestamp":"2026-09-12T00:00:30Z","parentId":"event-29"}
+{"type":"system.message","data":{"content":"Fixture message."},"agentId":"worker-uuid","id":"event-31","timestamp":"2026-09-12T00:00:31Z","parentId":"event-30"}
+{"type":"assistant.turn_start","data":{"turnId":"0"},"agentId":"worker-uuid","id":"event-32","timestamp":"2026-09-12T00:00:32Z","parentId":"event-31"}
+{"type":"assistant.message","data":{"turnId":"0","model":"gpt-5.6-luna","parentToolCallId":"launch","content":"Fixture message."},"agentId":"worker-uuid","id":"event-33","timestamp":"2026-09-12T00:00:33Z","parentId":"event-32"}
+{"type":"assistant.turn_end","data":{"turnId":"0"},"agentId":"worker-uuid","id":"event-34","timestamp":"2026-09-12T00:00:34Z","parentId":"event-33"}
+{"type":"tool.execution_complete","data":{"turnId":"3","model":"gpt-5.6-luna","toolCallId":"tool-29","success":true,"toolTelemetry":{"properties":{"agent_id":"worker-uuid","agent_type":"general-purpose","status":"idle"},"metrics":{"elapsed_seconds":10,"queue_depth":0,"total_turns":2}}},"id":"event-35","timestamp":"2026-09-12T00:00:35Z","parentId":"event-34"}
+{"type":"assistant.turn_end","data":{"turnId":"3"},"id":"event-36","timestamp":"2026-09-12T00:00:36Z","parentId":"event-35"}
+{"type":"assistant.turn_start","data":{"turnId":"4"},"id":"event-37","timestamp":"2026-09-12T00:00:37Z","parentId":"event-36"}
+{"type":"assistant.message","data":{"turnId":"4","model":"gpt-5.6-luna","content":"Fixture message."},"id":"event-38","timestamp":"2026-09-12T00:00:38Z","parentId":"event-37"}
+{"type":"assistant.turn_end","data":{"turnId":"4"},"id":"event-39","timestamp":"2026-09-12T00:00:39Z","parentId":"event-38"}

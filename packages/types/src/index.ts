@@ -1,3 +1,5 @@
+// ── agentUsage.js ──────────────────────────────────────────────────
+export type { AgentUsageEntry, AgentUsageSnapshot } from "./agentUsage.js";
 // ── analytics.js ───────────────────────────────────────────────────
 export type {
   AnalyticsData,
@@ -8,7 +10,6 @@ export type {
   ToolAnalysisData,
   ToolUsageEntry,
 } from "./analytics.js";
-
 // ── config.js ──────────────────────────────────────────────────────
 export type {
   ModelPriceEntry,
@@ -52,7 +53,6 @@ export type {
   TurnsResponse,
   TurnToolCall,
 } from "./conversation.js";
-
 // ── defaults.js ────────────────────────────────────────────────────
 export {
   CONFIG_VERSION,
@@ -198,10 +198,8 @@ export {
   resolvePricingEntry,
   sumTokenCosts,
 } from "./pricing.js";
-
 // ── replay.js ──────────────────────────────────────────────────────
 export type { ReplayState, ReplayStep } from "./replay.js";
-
 // ── sdk.js ─────────────────────────────────────────────────────────
 export type {
   BridgeAuthStatus,
@@ -224,7 +222,6 @@ export type {
   SessionRuntimeStatus,
   ToolProgressSummary,
 } from "./sdk.js";
-
 // ── search.js ──────────────────────────────────────────────────────
 export type {
   ContextSnippet,
@@ -238,7 +235,6 @@ export type {
   SearchResultsResponse,
   SearchStatsResponse,
 } from "./search.js";
-
 // ── session.js ─────────────────────────────────────────────────────
 export type {
   CheckpointEntry,
@@ -311,7 +307,6 @@ export { getToolArgs, toolArgString } from "./tool-args.js";
 export type { RichRenderableToolName, ToolRenderingPreferences } from "./tool-rendering.js";
 // ── tool-rendering.js ──────────────────────────────────────────────
 export { DEFAULT_TOOL_RENDERING_PREFS } from "./tool-rendering.js";
-
 // ── utils/formatters.js ────────────────────────────────────────────
 export {
   formatAiCredits,

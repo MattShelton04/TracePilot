@@ -10,6 +10,15 @@ describe("useMetricsTabData", () => {
     setupPinia();
   });
 
+  it("sorts models with equal token totals deterministically", () => {
+    const data = { usage: { inputTokens: 10, outputTokens: 2 } };
+    const result = useMetricsTabData(
+      computed(() => ({ modelMetrics: { z: data, a: data } })),
+      usePreferencesStore(),
+    );
+    expect(result.modelEntries.value.map((row) => row.name)).toEqual(["a", "z"]);
+  });
+
   it("prefers observed session and model AIC over token estimates", () => {
     const metrics: ShutdownMetrics = {
       totalNanoAiu: 2_500_000_000,

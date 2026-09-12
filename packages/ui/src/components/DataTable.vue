@@ -1,16 +1,23 @@
 <script setup lang="ts">
+import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-vue-next";
+
 export interface DataTableColumn {
   key: string;
   label: string;
   align?: "left" | "center" | "right";
   class?: string;
+  sortable?: boolean;
 }
 
 defineProps<{
   columns: DataTableColumn[];
   rows: Record<string, unknown>[];
   emptyMessage?: string;
+  sortKey?: string | null;
+  sortDirection?: "ascending" | "descending";
 }>();
+
+defineEmits<{ sort: [key: string] }>();
 </script>
 
 <template>
@@ -21,12 +28,25 @@ defineProps<{
           <th
             v-for="col in columns"
             :key="col.key"
-            :class="[
-              col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left',
-              col.class || '',
-            ]"
+            :aria-sort="col.sortable ? (sortKey === col.key ? sortDirection : 'none') : undefined"
+            :class="col.class"
+            :style="{ textAlign: col.align ?? 'left' }"
           >
-            {{ col.label }}
+            <button
+              v-if="col.sortable"
+              type="button"
+              class="data-table-sort"
+              :class="{ 'data-table-sort--active': sortKey === col.key }"
+              :style="{ flexDirection: col.align === 'right' ? 'row-reverse' : 'row', justifyContent: col.align === 'center' ? 'center' : 'flex-start' }"
+              :aria-label="`Sort by ${col.label}`"
+              @click="$emit('sort', col.key)"
+            >
+              {{ col.label }}
+              <ArrowUp v-if="sortKey === col.key && sortDirection === 'ascending'" :size="12" aria-hidden="true" />
+              <ArrowDown v-else-if="sortKey === col.key && sortDirection === 'descending'" :size="12" aria-hidden="true" />
+              <ArrowUpDown v-else :size="12" aria-hidden="true" />
+            </button>
+            <template v-else>{{ col.label }}</template>
           </th>
         </tr>
       </thead>
@@ -38,10 +58,8 @@ defineProps<{
           <td
             v-for="col in columns"
             :key="col.key"
-            :class="[
-              col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : '',
-              col.class || '',
-            ]"
+            :class="col.class"
+            :style="{ textAlign: col.align }"
           >
             <slot :name="`cell-${col.key}`" :row="row" :value="row[col.key]">
               {{ row[col.key] ?? "" }}
@@ -57,3 +75,24 @@ defineProps<{
     </table>
   </div>
 </template>
+
+<style scoped>
+.data-table-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  text-align: inherit;
+  cursor: pointer;
+}
+.data-table-sort svg { flex-shrink: 0; }
+.data-table-sort:hover, .data-table-sort--active { color: var(--accent-fg); }
+.data-table-sort:focus-visible { outline: 2px solid var(--accent-fg); outline-offset: 4px; }
+</style>

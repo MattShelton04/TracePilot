@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UserMessageData {
     pub content: Option<String>,
@@ -14,9 +14,13 @@ pub struct UserMessageData {
     pub agent_mode: Option<String>,
     /// Parent agent task when the message belongs to a delegated/background task.
     pub parent_agent_task_id: Option<String>,
+    pub message_id: Option<String>,
+    pub delivery: Option<String>,
+    pub is_autopilot_continuation: Option<bool>,
+    pub turn_id: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AssistantMessageData {
     pub message_id: Option<String>,
@@ -36,22 +40,36 @@ pub struct AssistantMessageData {
     pub phase: Option<String>,
     /// LLM request ID for tracing individual API calls.
     pub request_id: Option<String>,
+    pub model: Option<String>,
+    pub reasoning_wire_field: Option<String>,
+    pub chunk_index: Option<f64>,
+    pub chunk_count: Option<f64>,
+    pub client_request_id: Option<String>,
+    pub service_request_id: Option<String>,
+    pub rte: Option<bool>,
+    pub api_call_id: Option<String>,
+    pub server_tools: Option<serde_json::Value>,
+    pub reasoning_blocks: Option<serde_json::Value>,
+    pub citations: Option<serde_json::Value>,
+    pub fusion: Option<serde_json::Value>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TurnStartData {
     pub turn_id: Option<String>,
     pub interaction_id: Option<String>,
+    pub model: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TurnEndData {
     pub turn_id: Option<String>,
+    pub model: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SystemMessageData {
     pub content: Option<String>,
@@ -59,6 +77,7 @@ pub struct SystemMessageData {
     pub role: Option<String>,
     pub name: Option<String>,
     pub metadata: Option<SystemMessageMetadata>,
+    pub interaction_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -14,6 +14,7 @@ fn permission_events_attach_to_turn_with_audit_summaries() {
                     "intention": "Run the validation command"
                 })),
                 resolved_by_hook: None,
+                ..Default::default()
             }),
             "evt-perm-req",
             "2026-05-04T08:00:10.000Z",
@@ -135,6 +136,7 @@ fn external_tool_request_attaches_to_turn() {
             arguments: None,
             traceparent: None,
             tracestate: None,
+            ..Default::default()
         }),
         "evt-ext",
         "2026-05-04T08:00:12.000Z",

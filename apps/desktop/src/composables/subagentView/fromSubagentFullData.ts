@@ -1,14 +1,13 @@
 // Adapter: SubagentFullData (cross-turn explore data) → SubagentView.
 // Thin shape mapper; common derivations live in buildSubagentView.
 import type { SubagentView } from "@tracepilot/ui";
-import { inferAgentTypeFromToolCall } from "@tracepilot/ui";
+import { agentStatusFromToolCall, inferAgentTypeFromToolCall } from "@tracepilot/ui";
 import type { SubagentFullData } from "@/composables/useCrossTurnSubagents";
 import { buildSubagentView } from "./buildSubagentView";
 
 export function fromSubagentFullData(sa: SubagentFullData): SubagentView {
   const tc = sa.toolCall;
-  const status: SubagentView["status"] =
-    tc.success === false ? "failed" : tc.isComplete ? "completed" : "in-progress";
+  const status = agentStatusFromToolCall(tc);
 
   return buildSubagentView({
     id: tc.toolCallId ?? sa.agentId,

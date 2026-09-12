@@ -25,7 +25,7 @@ export interface AgentNode {
   toolCount: number;
   totalTokens?: number;
   totalToolCalls?: number;
-  status: "completed" | "failed" | "in-progress";
+  status: "completed" | "failed" | "in-progress" | "cancelled" | "idle";
   toolCalls: TurnToolCall[];
   toolCallRef?: TurnToolCall;
   children?: AgentNode[];

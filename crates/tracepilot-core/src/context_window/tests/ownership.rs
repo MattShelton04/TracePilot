@@ -12,6 +12,7 @@ fn excludes_nested_subagent_work_from_main_context_contributions() {
         TypedEventData::AssistantReasoning(AssistantReasoningData {
             reasoning_id: Some("child-reasoning".into()),
             content: Some(large_child_payload.clone()),
+            ..Default::default()
         }),
     );
     child_reasoning.raw.agent_id = Some("subagent-call".into());
@@ -23,6 +24,7 @@ fn excludes_nested_subagent_work_from_main_context_contributions() {
             TypedEventData::TurnStart(TurnStartData {
                 turn_id: Some("turn-1".into()),
                 interaction_id: Some("interaction-1".into()),
+                ..Default::default()
             }),
         ),
         event(
@@ -35,6 +37,7 @@ fn excludes_nested_subagent_work_from_main_context_contributions() {
                 parent_tool_call_id: None,
                 mcp_server_name: None,
                 mcp_tool_name: None,
+                ..Default::default()
             }),
         ),
         event(
@@ -44,6 +47,7 @@ fn excludes_nested_subagent_work_from_main_context_contributions() {
                 agent_name: Some("review".into()),
                 agent_display_name: Some("Review Agent".into()),
                 agent_description: None,
+                ..Default::default()
             }),
         ),
         child_message,
@@ -58,6 +62,7 @@ fn excludes_nested_subagent_work_from_main_context_contributions() {
                 parent_tool_call_id: Some("subagent-call".into()),
                 mcp_server_name: None,
                 mcp_tool_name: None,
+                ..Default::default()
             }),
         ),
         event(
@@ -73,6 +78,7 @@ fn excludes_nested_subagent_work_from_main_context_contributions() {
                 error: None,
                 tool_telemetry: None,
                 is_user_requested: None,
+                ..Default::default()
             }),
         ),
         event(
@@ -88,6 +94,7 @@ fn excludes_nested_subagent_work_from_main_context_contributions() {
                 error: None,
                 tool_telemetry: None,
                 is_user_requested: None,
+                ..Default::default()
             }),
         ),
     ];
@@ -115,6 +122,7 @@ fn folded_skill_context_is_counted_once_and_not_shown_as_user_input() {
             plugin_name: None,
             plugin_version: None,
             description: None,
+            ..Default::default()
         }),
     );
     invocation.raw.id = Some("skill-event".into());
@@ -129,6 +137,7 @@ fn folded_skill_context_is_counted_once_and_not_shown_as_user_input() {
             TypedEventData::TurnStart(TurnStartData {
                 turn_id: Some("turn-1".into()),
                 interaction_id: Some("interaction-1".into()),
+                ..Default::default()
             }),
         ),
         assistant_message("done"),
