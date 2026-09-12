@@ -63,6 +63,14 @@ export function useSearchKeyboardNavigation(options: UseSearchKeyboardNavigation
     }
 
     if (!isSearchInput && shouldIgnoreGlobalShortcut(e)) return;
+    // Native controls keep their own Enter/Space and arrow-key behavior even
+    // when a result is still highlighted from earlier keyboard navigation.
+    if (
+      !isSearchInput &&
+      e.target instanceof Element &&
+      e.target.closest('button, a[href], [role="button"], [role="link"]')
+    )
+      return;
 
     const resultCount = results.value.length;
     if (resultCount === 0) return;

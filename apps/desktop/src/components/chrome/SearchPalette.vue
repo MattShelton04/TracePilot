@@ -44,7 +44,15 @@ function move(delta: number) {
   resultsRef.value?.scrollSelectedIntoView();
 }
 
+function clearQuery() {
+  query.value = "";
+  inputRef.value?.focus({ preventScroll: true });
+}
+
 function handleKeydown(e: KeyboardEvent) {
+  // Result navigation belongs to the input. Buttons retain their native
+  // activation, while Tab continues to cycle through the whole palette.
+  if (e.key !== "Tab" && e.target !== inputRef.value) return;
   switch (e.key) {
     case "ArrowDown":
       e.preventDefault();
@@ -107,7 +115,7 @@ onUnmounted(() => search.dispose());
           type="button"
           class="palette-clear-btn"
           aria-label="Clear search"
-          @click="query = ''"
+          @click="clearQuery"
         >
           Clear
         </button>
