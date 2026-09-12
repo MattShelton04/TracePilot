@@ -7,6 +7,7 @@ import SettingsExperimental from "@/components/settings/SettingsExperimental.vue
 import SettingsGeneral from "@/components/settings/SettingsGeneral.vue";
 import SettingsToolVisualization from "@/components/settings/SettingsToolVisualization.vue";
 import { usePreferencesStore } from "@/stores/preferences";
+import { useSessionsStore } from "@/stores/sessions";
 
 vi.mock("@tracepilot/client", async () => {
   const { createClientMock } = await import("../../mocks/client");
@@ -85,6 +86,37 @@ describe("recent sessions setting", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     localStorage.clear();
+  });
+
+  it("keeps the empty-session explanation in sync with the switch", async () => {
+    const wrapper = mount(SettingsGeneral);
+    await flushPromises();
+    const preferences = usePreferencesStore();
+    const sessions = useSessionsStore();
+    sessions.sessions = [
+      {
+        id: "empty",
+        summary: "Empty session",
+        repository: null,
+        branch: null,
+        hostType: "cli",
+        createdAt: null,
+        updatedAt: null,
+        eventCount: 0,
+        turnCount: 0,
+        currentModel: null,
+        isRunning: false,
+      },
+    ];
+    preferences.hideEmptySessions = false;
+    await nextTick();
+    expect(wrapper.get(".empty-count-hint").text()).toMatch(/1 empty session\s+currently visible/);
+    await wrapper.get('[role="switch"][aria-label="Hide empty sessions"]').trigger("click");
+    expect(preferences.hideEmptySessions).toBe(true);
+    expect(wrapper.get(".empty-count-hint").text()).toMatch(/1 empty session\s+currently hidden/);
+    sessions.sessions = [];
+    await nextTick();
+    expect(wrapper.find(".empty-count-hint").exists()).toBe(false);
   });
 
   it("shows Reset before the count without a sessions unit label", async () => {

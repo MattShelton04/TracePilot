@@ -67,6 +67,60 @@ function warn(name, details) {
   console.warn(`  ⚠️  ${name} — ${details}`);
 }
 
+async function checkDesktopSizes(page) {
+  const original = await page.evaluate(() => ({ width: innerWidth, height: innerHeight }));
+  const wasCollapsed = await page
+    .getByRole("button", { name: "Expand sidebar", exact: true })
+    .isVisible();
+  try {
+    if (wasCollapsed)
+      await page.getByRole("button", { name: "Expand sidebar", exact: true }).click();
+    for (const [label, width, height] of [
+      ["default", 1440, 960],
+      ["minimum", 960, 640],
+      ["large", 2560, 1440],
+    ]) {
+      await page.setViewportSize({ width, height });
+      // Keyboard focus must scroll the navigation, keeping the brand/footer in place.
+      await page.getByRole("button", { name: "Collapse sidebar", exact: true }).focus();
+      await page.getByTestId("nav-settings").focus();
+      await page.waitForFunction(
+        () => {
+          const bounds = (selector) => document.querySelector(selector)?.getBoundingClientRect();
+          const brand = bounds(".sidebar-brand");
+          const nav = bounds(".sidebar-nav");
+          const settings = bounds('[data-testid="nav-settings"]');
+          const footer = bounds(".sidebar-footer-area");
+          return (
+            brand &&
+            nav &&
+            settings &&
+            footer &&
+            brand.top >= 0 &&
+            footer.bottom <= innerHeight &&
+            settings.top >= nav.top &&
+            settings.bottom <= nav.bottom + 1 &&
+            document.documentElement.scrollWidth <= innerWidth
+          );
+        },
+        undefined,
+        { timeout: 5000 },
+      );
+      await page.screenshot({ path: resolve(screenshotDir, `settings-${label}.png`) });
+      pass(
+        `Desktop navigation: ${label}`,
+        `${width}x${height}; Settings reachable, brand/footer visible`,
+      );
+    }
+  } catch (error) {
+    fail("Desktop navigation at supported sizes", error.message);
+  } finally {
+    await page.setViewportSize(original);
+    if (wasCollapsed)
+      await page.getByRole("button", { name: "Collapse sidebar", exact: true }).click();
+  }
+}
+
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -85,6 +139,7 @@ async function main() {
 
     // Start console capture
     const consoleCapture = startConsoleCapture(page);
+    await page.evaluate(() => window.__TRACEPILOT_IPC_PERF__?.clearIpcPerfLog());
 
     // 2. Session List
     console.log("\n📋 Testing Session List...");
@@ -179,6 +234,7 @@ async function main() {
 
     await page.screenshot({ path: resolve(screenshotDir, "05-settings.png") });
     pass("Screenshot: settings");
+    await checkDesktopSizes(page);
 
     // 8. Orchestration
     console.log("\n🎯 Testing Orchestration...");
