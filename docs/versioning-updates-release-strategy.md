@@ -350,6 +350,11 @@ Do not parse `CHANGELOG.md` at runtime for app metadata — CHANGELOG.md is a hu
 
 This file lives at `apps/desktop/public/release-manifest.json` — Vite copies it into the bundle verbatim. The app fetches it locally at runtime for the installed version and historical "What's New" display.
 
+Pending notes may be staged in a top-level `unreleased` object with `notes` and
+`requiresReindex`. When releasing, move it into `versions` with the chosen version
+and release date. The What's New modal reads only `versions`, so pending changes
+are not presented as an already published release.
+
 An installed bundle cannot contain manifest entries for versions released after it was built. When an update is available, the update check therefore also carries the GitHub release description returned by the existing latest-release API request. The preview renders that version-specific Markdown with the shared sanitized Markdown renderer when the bundled manifest does not cover the target version. This avoids a second network request while retaining the bundled manifest as the offline fallback.
 
 > **`requiresReindex` flag**: This should almost always be `false`. The indexer already handles reindex decisions automatically via `CURRENT_ANALYTICS_VERSION` and DB schema migration version tracking. The flag in `release-manifest.json` is an escape hatch for the rare case where a logic change isn't reflected in those version numbers (e.g., a parsing fix that improves data quality without changing the schema). When in doubt, leave it `false` — the automatic detection handles the common case.

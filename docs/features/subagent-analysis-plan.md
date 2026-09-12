@@ -19,11 +19,12 @@ session total cards. The agent table includes:
   tool counts and accumulated API time.
 - **Own usage** by default; **Include descendants** explicitly rolls up each
   branch. Parent and child branch rows overlap and must not be summed.
-- Hierarchy order or flat rankings by credits, tokens and API time; pagination
-  limits the table to 50 rows. Launch order and fixed ID/model tie-breaks keep
-  refreshes deterministic, independent of backend map serialization order.
+- Clickable column headers sort agents and usage in either direction, with
+  unavailable values last and a reset to hierarchy order. Pagination limits the
+  table to 50 rows. Stable tie-breaks keep refreshes deterministic.
 - A selected agent's own model and cache breakdown, plus **Open agent activity**
   using the existing panel, including its parent/child activity navigation.
+- Main-agent details are selected automatically when opening By agent.
 - Snapshot time, unavailable fields, invalid data and unattributed credit
   remainder. Stale snapshots are not compared with newer session totals.
 
