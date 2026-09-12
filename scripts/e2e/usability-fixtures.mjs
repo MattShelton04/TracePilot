@@ -18,6 +18,7 @@ import {
 } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { cliCompatibleFixtureEvents } from "./usability-event-fixtures.mjs";
 import { enrichViewerFixtures } from "./usability-viewer-fixtures.mjs";
 
 const checkout = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -38,8 +39,7 @@ function assertChild(parent, child) {
       !difference.startsWith(`..${sep}`),
   );
 }
-// Reject directory redirects before creating any file. Existing parents are
-// allowed (the launcher may already have created the blank task profile).
+// Reject directory redirects; allow parents created by the app launcher.
 function ensureDirectory(path) {
   assertChild(checkout, path);
   const segments = relative(checkout, path).split(sep);
@@ -124,7 +124,7 @@ function workspace(session, start, end) {
             session.ordinal % 3 === 0
               ? "feature/keyboard-navigation-and-readable-long-desktop-titles"
               : "main",
-          host_type: "cli",
+          host_type: "github",
           created_at: start,
           updated_at: end,
         };
@@ -221,7 +221,7 @@ function buildEvents(session, startTime) {
         "Audit fixture: keep the next review open so the active-session indicator can be inspected.",
     });
     next("assistant.turn_start", { turnId: "pending", model: session.model });
-    return events;
+    return cliCompatibleFixtureEvents(events);
   }
   next("session.shutdown", {
     shutdownType: "routine",
@@ -246,7 +246,7 @@ function buildEvents(session, startTime) {
       },
     },
   });
-  return events;
+  return cliCompatibleFixtureEvents(events);
 }
 
 function versionEvents(session, startTime) {
@@ -283,7 +283,7 @@ function versionEvents(session, startTime) {
     if (row.data.arguments?.name)
       row.data.arguments.name = "Keyboard reviewer — 日本語 and café labels";
   }
-  return rows;
+  return cliCompatibleFixtureEvents(rows);
 }
 
 async function createArtifacts(directory) {
